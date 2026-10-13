@@ -29,6 +29,17 @@ its unit route from the label. Membership still comes only from the probed page'
 rental history, under the same rule. In 30 Manhattan pilot buildings 2,743 ads had a unit
 path, each a different page, and 32 of those paths had hyphens (`6-h`, `7th-floor`) that
 the label guess drops (Ben, Oct 13 2026).
+
+StreetEasy also keeps some units under two spellings, each page canonical to itself. In the
+pilot, `/4c` and `/04c` at 240 1st Ave list the same seven ads (Oct 13 2026), and 109 API
+paths had another spelling the crawl had already captured. Fetching both would tie each ad
+to two units, and the policy would exclude it as conflicting. So the crawl compares
+spellings with letters and digits only, lowercased and without leading zeros:
+  1. A label guess is dropped when an API path in the same building has its spelling.
+  2. An API path is dropped when the frontier holds another spelling of it that was
+     captured, is in flight, or came from StreetEasy's own links.
+  3. A pending label guess with the API path's spelling is retired as superseded by it.
+A guess that returned 404 counts for nothing.
 """
 
 import asyncio
@@ -165,6 +176,13 @@ def inventory_from_history(doc, url):
         raise ValueError("not a rental history document")
     root = building_root(url)
     links, records, rows, seen, unit_paths = [], [], [], set(), {}
+    api_spellings = {
+        spelling(page)
+        for page in (
+            unit_path(e.get("urlPath"), root) for e in history if isinstance(e, dict)
+        )
+        if page
+    }
     for entry in history:
         ad = entry.get("id") if isinstance(entry, dict) else None
         if not isinstance(ad, str) or not ad.isdigit():
@@ -179,7 +197,10 @@ def inventory_from_history(doc, url):
         unit = entry.get("displayUnit")
         label = (
             html.escape(unit if unit.startswith("#") else "#" + unit)
-            if isinstance(unit, str) and unit.strip() and not unit_page
+            if isinstance(unit, str)
+            and unit.strip()
+            and not unit_page
+            and spelling(unit) not in api_spellings
             else ""
         )
         if unit_page:
@@ -223,27 +244,82 @@ def unit_path(path, root):
     return url
 
 
+def spelling(unit):
+    """A unit's route or label, reduced to compare StreetEasy's spellings of it."""
+    text = re.sub(r"[^a-z0-9]", "", unit.rsplit("/", 1)[-1].lower())
+    return text.lstrip("0") or text
+
+
 def unit_path_probes(store, generation, data, source_url, include_unavailable):
     """Queue the API's unit pages as probes, under the conditions scope.expand uses."""
-    from .scope import enroll
+    from .scope import _enroll
 
-    probes = _probes(store, generation, data, source_url, include_unavailable)
+    probes, retired = _probes(store, generation, data, source_url, include_unavailable)
     if probes:
-        enroll(store, generation, probes)
+        with store._tx():
+            _enroll(store, generation, probes)
+            _retire(store, generation, retired)
     return len(probes)
+
+
+def _retire(store, generation, retired):
+    for old, new in retired.items():
+        store._remember_alias(
+            generation, old, new, "label guess superseded by StreetEasy's unit path"
+        )
+        store.db.execute(
+            "UPDATE frontier SET state='superseded' WHERE generation=? AND url=?",
+            (generation, old),
+        )
 
 
 def _probes(store, generation, data, source_url, include_unavailable, roots=None):
     from .collection_policy import PROBE_RULE, enabled
+    from .listing_identity import listing_key
 
     paths = data.get("inventory", {}).get("unit_paths") or {}
     if not (paths and include_unavailable and enabled(store, generation)):
-        return {}
+        return {}, {}
     if roots is None:
         roots = _roots(store, generation)
     if building_root(source_url) not in roots:
-        return {}
-    return {unit: f"{PROBE_RULE} from {ad}" for unit, ad in paths.items()}
+        return {}, {}
+    root = building_root(source_url)
+    # Other spellings already in the frontier: those that block an API path, and pending
+    # label guesses that give way to it.
+    blocking, guesses = {}, {}
+    for row in store.db.execute(
+        """SELECT f.url, f.state, s.reason,
+            (SELECT o.status FROM observations o WHERE o.generation=f.generation
+             AND o.url=f.url ORDER BY o.id DESC LIMIT 1) AS status
+        FROM frontier f LEFT JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url
+        WHERE f.generation=? AND f.url>=? AND f.url<?""",
+        (generation, root + "/", root + "0"),
+    ):
+        url = row["url"]
+        if kind_for(url) != "listing" or listing_key(url):
+            continue
+        key = spelling(url)
+        if row["state"] in ("pending", "deferred") and (row["reason"] or "").startswith(
+            PROBE_RULE
+        ):
+            guesses.setdefault(key, set()).add(url)
+        elif row["state"] in ("pending", "deferred", "inflight") or (
+            row["state"] == "done"
+            and row["status"] is not None
+            and (200 <= row["status"] < 300 or row["status"] == 304)
+        ):
+            blocking.setdefault(key, set()).add(url)
+    probes, retired = {}, {}
+    for unit, ad in paths.items():
+        key = spelling(unit)
+        if blocking.get(key, set()) - {unit}:
+            continue
+        blocking.setdefault(key, set()).add(unit)
+        probes[unit] = f"{PROBE_RULE} from {ad}"
+        for old in guesses.pop(key, set()) - {unit}:
+            retired[old] = unit
+    return probes, retired
 
 
 def _roots(store, generation):
@@ -272,7 +348,7 @@ def replay_unit_paths(store, generation, include_unavailable, building=None):
         AND url LIKE '%archive_view=unavailable-rentals%' ORDER BY id""",
         (generation,),
     ).fetchall()
-    probes = {}
+    probes, retired = {}, {}
     for row in ids:
         if building_root(row["url"]) not in roots:
             continue
@@ -285,13 +361,16 @@ def replay_unit_paths(store, generation, include_unavailable, building=None):
             data = json.loads(extracted)
         except (TypeError, ValueError):
             continue
-        for unit, reason in _probes(
+        found, gone = _probes(
             store, generation, data, row["url"], include_unavailable, roots
-        ).items():
+        )
+        for unit, reason in found.items():
             probes.setdefault(unit, reason)
+        retired.update(gone)
     if probes:
         with store._tx():
             _enroll(store, generation, probes)
+            _retire(store, generation, retired)
     return len(probes)
 
 
