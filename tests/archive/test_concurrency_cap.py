@@ -7,10 +7,14 @@ def test_concurrency_above_32_is_refused(tmp_path, capsys):
     assert "concurrency must be 1-32" in capsys.readouterr().err
 
 
-def test_handler_has_a_thread_per_request_slot():
-    from scrapy.settings import Settings
+def test_thread_pool_has_a_thread_per_worker():
+    import asyncio
 
-    from streeteasy_archive.oxylabs import OxylabsDownloadHandler
+    from streeteasy_archive.cli import size_thread_pool
 
-    handler = OxylabsDownloadHandler(Settings({"CONCURRENT_REQUESTS": 32}))
-    assert handler._executor._max_workers == 32
+    loop = asyncio.new_event_loop()
+    try:
+        size_thread_pool(loop, 32)
+        assert loop._default_executor._max_workers == 32
+    finally:
+        loop.close()
