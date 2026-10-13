@@ -200,3 +200,39 @@ The own-columns result suggests the first group is the larger lever. A building-
 the fixed part price the between-building relation that the building terms now hold, and that
 relation moves variation from descriptive building terms into explanatory columns. predsize gets
 no fit: its case-a offset does not reach 0.1 pp and its interval includes 0.
+
+## Robustness to suspect lot matches (added 2026-10-13, 22:50Z)
+
+The new-building scorer (#723) flags 1,088 rows in five buildings with 101+ scored rows whose
+lot has no residential units on record. Their 80% coverage runs from 25.6% to 75.1%, which
+suggests the buildings are matched to the wrong tax lot. I reran the control step
+(`docs/analysis/scripts/held_data_ceiling_lotcheck.py`, no coordinates) three ways:
+1. on all rows, as before;
+2. with the flagged rows dropped before folding;
+3. with the flagged rows kept and their PLUTO columns (C's own and the PLUTO family) and the
+   stabilized share set to missing.
+
+The building-weighted miss gives each building equal weight. Each row weighs 1 / its building's
+rows, as in `newbuilding.building_weighted`. C's board miss is 11.89% row-weighted and 14.29%
+building-weighted (11.84% and 14.29% without the flagged rows).
+
+As-of increment over C's own columns, change in miss (pp) with 90% lot-cluster intervals:
+
+| Rows | WLS, row-weighted | WLS, building-weighted | LightGBM, row-weighted | LightGBM, building-weighted |
+|---|---:|---:|---:|---:|
+| all | -0.51 [-0.67, -0.31] | -0.33 [-0.47, -0.19] | -0.62 [-0.78, -0.46] | -0.64 [-0.77, -0.51] |
+| flagged dropped | -0.47 [-0.66, -0.26] | -0.41 [-0.54, -0.26] | -0.62 [-0.81, -0.40] | -0.70 [-0.83, -0.55] |
+| flagged PLUTO masked | -0.52 [-0.68, -0.32] | -0.35 [-0.52, -0.24] | -0.70 [-0.86, -0.53] | -0.71 [-0.87, -0.60] |
+
+C's own columns alone give -1.24 pp row-weighted and -1.46 pp building-weighted with WLS, and
+-2.06 and -2.69 with LightGBM.
+
+The -0.51 pp WLS increment and its 0.31 lower bound depend on the five suspect buildings:
+- Masking their PLUTO data leaves it in place (-0.52, bound 0.32).
+- Dropping them moves the estimate to -0.47 and the bound to 0.26, under 0.3.
+- Building-weighted, the WLS increment's bound is under 0.3 in every version (0.19 to 0.26).
+
+The LightGBM increment holds up in every version, with bounds from 0.40 to 0.60. The linear
+ceiling is the plan's test for a fixed-part fit, so on the plan's rule the WLS result now sits in
+the 0.3 to 0.5 pp dead band. The nonlinear increment suggests that some of the gain needs
+interactions a linear fixed part cannot express.
