@@ -236,3 +236,54 @@ The LightGBM increment holds up in every version, with bounds from 0.40 to 0.60.
 ceiling is the plan's test for a fixed-part fit, so on the plan's rule the WLS result now sits in
 the 0.3 to 0.5 pp dead band. The nonlinear increment suggests that some of the gain needs
 interactions a linear fixed part cannot express.
+
+## Compact linear ceiling (added 2026-10-13, 23:20Z)
+
+The next question was whether 20 or fewer columns keep a lower bound of 0.3 pp on both weightings.
+`docs/analysis/scripts/held_data_ceiling_compact.py` drops the five suspect buildings (192,288 rows).
+It then picks as-of columns inside each lot fold:
+1. It partials C's own columns out of the residual and out of the 141 candidates. The candidates
+   are the 129 as-of columns, mean-filled, plus one indicator per distinct missing pattern.
+2. It runs greedy forward selection on the training folds.
+3. It fits C's own columns plus the first 5, 10 or 20 picks by least squares and predicts the
+   held-out fold.
+
+The candidate pool is every family in the as-of set, so predsize, crime and trees can be
+picked too.
+
+Increment over C's own columns, change in miss (pp), 90% lot-cluster intervals:
+
+| Columns | Row-weighted | Building-weighted |
+|---|---:|---:|
+| top 5 | -0.22 [-0.37, -0.08] | -0.22 [-0.33, -0.10] |
+| top 10 | -0.36 [-0.52, -0.21] | -0.31 [-0.45, -0.21] |
+| top 20 | -0.39 [-0.56, -0.22] | -0.30 [-0.41, -0.18] |
+| all 129, for reference | -0.47 [-0.66, -0.26] | -0.41 [-0.54, -0.26] |
+
+The folds agree on the first picks. Selected on all rows (for naming only), the order runs:
+1. L train within 8 minutes
+2. building mean of in-unit laundry
+3. building mean of "luxury" in the ad
+4. building mean of apartments looking onto a side street
+5. 4/5/6 within 8 minutes
+6. predicted size, case a
+7. building mean of size against the bedroom median
+8. building mean of doorman unspecified
+9. building mean of "flex/convertible"
+10. stabilized share
+11. felonies within 250 m
+12. lister is management
+13. building mean of studios
+14. street and nightlife noise
+15. pets not allowed (text-filled)
+16. no dogs
+17. building mean of central air
+18. building mean of garden labels
+19. building mean of east windows
+20. building mean of ads stating more bedrooms
+
+Every fold picks the L train first and in-unit laundry and "luxury" within its first three.
+
+No compact set reaches the bar. At 20 columns the lower bounds are 0.22 pp row-weighted and
+0.18 pp building-weighted, and the building-weighted estimate stops growing after 10 columns.
+On the plan's rule a compact linear fixed-part fit does not qualify.
