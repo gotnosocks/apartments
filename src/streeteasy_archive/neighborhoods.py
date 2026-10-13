@@ -29,6 +29,11 @@ ADDED = {
     # Crawled after Downtown Brooklyn in the same pass (Ben, Oct 13 2026), each on its own.
     "fort-greene": ({"fort-greene"}, {"Fort Greene"}),
     "boerum-hill": ({"boerum-hill"}, {"Boerum Hill"}),
+    # The three crawled together as one scrape instead (Ben, Oct 13 2026 02:58Z).
+    "downtown-brooklyn-fort-greene-boerum-hill": (
+        {"downtown-brooklyn", "fort-greene", "boerum-hill"},
+        {"Downtown Brooklyn", "Fort Greene", "Boerum Hill"},
+    ),
 }
 
 for _name, _value in ADDED.items():
