@@ -14,6 +14,7 @@ import argparse
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -29,11 +30,14 @@ ESTIMATE = 0.45
 
 
 def spec_for(name, sha, extra):
+    """The container's spec, with the dataset the run was fit on (newbuilding checks its hash)."""
+    result = json.loads((fit.OUTPUT_ROOT / "runs" / name / "result.json").read_text())
+    dataset = str(Path(result["dataset"]).resolve())
     return {
         "name": name,
         "commit": sha,
-        "dataset": str(Path(fit.DATASET).resolve()),
-        "inputs": [str(Path(fit.DATASET).resolve()), *fit.INPUTS],
+        "dataset": dataset,
+        "inputs": [dataset, *fit.INPUTS],
         "newbuilding_args": extra,
     }
 
@@ -47,19 +51,40 @@ def upload_run(volume, name):
 
 
 def download(volume, name):
-    """/out/<name>/newbuilding/* -> FRONTIER_OUTPUT_ROOT/newbuilding/, the log beside it;
-    then the run's copy on the Volume is deleted."""
+    """Copy /out/<name>/newbuilding/<dir> to FRONTIER_OUTPUT_ROOT/newbuilding/<dir> and the
+    log to the Modal logs, then delete /out/<name> from the Volume. Each result directory
+    is written under .incoming and renamed into place whole; an existing one is kept."""
     prefix = f"out/{name}/"
+    incoming = fit.OUTPUT_ROOT / ".incoming" / f"newbuilding-{name}"
+    shutil.rmtree(incoming, ignore_errors=True)
+    staged = set()
     for entry in volume.iterdir(f"/out/{name}", recursive=True):
         rel = entry.path.lstrip("/").removeprefix(prefix)
-        if entry.type.name != "FILE" or not rel.startswith("newbuilding"):
+        if entry.type.name != "FILE":
             continue
-        dst = fit.OUTPUT_ROOT / rel
         if rel == "newbuilding.log":
             dst = fit.STATE / "logs" / f"newbuilding-{name}.log"
+        elif rel.startswith("newbuilding/") and rel.count("/") >= 2:
+            d = rel.split("/")[1]
+            staged.add(d)
+            dst = incoming / rel.removeprefix("newbuilding/")
+        else:
+            continue
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "wb") as f:
             volume.read_file_into_fileobj(entry.path, f)
+    for d in sorted(staged):
+        final = fit.OUTPUT_ROOT / "newbuilding" / d
+        if final.exists():
+            print(f"kept {final}: it already exists", flush=True)
+        else:
+            final.parent.mkdir(parents=True, exist_ok=True)
+            (incoming / d).rename(final)
+    shutil.rmtree(incoming, ignore_errors=True)
+    try:
+        incoming.parent.rmdir()  # only when no other download is in flight
+    except OSError:
+        pass
     volume.remove_file(f"/out/{name}", recursive=True)
 
 
@@ -97,6 +122,11 @@ def main(argv):
     started, meta = time.monotonic(), None
     try:
         with modal.enable_output(), modal_app.app.run():
+            # A failed earlier attempt can leave its outputs on the Volume.
+            try:
+                modal_app.volume.remove_file(f"/out/{args.run}", recursive=True)
+            except Exception:  # noqa: BLE001 (nothing there)
+                pass
             fit.sync(modal_app.volume, spec, stage)
             upload_run(modal_app.volume, args.run)
             meta = modal_app.newbuilding_cpu.remote(spec)
@@ -107,7 +137,10 @@ def main(argv):
         cost = (meta or {}).get("usd_estimate")
         if cost is None:
             cost = (time.monotonic() - started) * modal_app.nb_usd_per_second()
-        cap.settle(launch, cost)
+        try:
+            cap.settle(launch, cost)
+        except Exception as e:  # noqa: BLE001 (keep the run's own error; the estimate stays charged)
+            print(f"could not settle {launch} at ${cost:.2f}: {e}", flush=True)
     return 0 if meta["exit"] == 0 else 1
 
 

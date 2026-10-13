@@ -254,11 +254,18 @@ def download(volume, name, root):
 def score_new_buildings(modal_app, spec):
     """The new-building score of a fit that finished, in a many-core CPU container
     (app.newbuilding_cpu) while its run is still on the Volume. Never fails the fit."""
+    started = time.monotonic()
     try:
         return modal_app.newbuilding_cpu.remote(spec)
     except Exception as e:  # noqa: BLE001
         print(f"new-building score failed: {e!r}", flush=True)
-        return {"exit": repr(e)}
+        # The balance still pays for the container time it ran.
+        seconds = time.monotonic() - started
+        return {
+            "exit": repr(e),
+            "wall_seconds": round(seconds, 1),
+            "usd_estimate": round(seconds * modal_app.nb_usd_per_second(), 2),
+        }
 
 
 def touch():

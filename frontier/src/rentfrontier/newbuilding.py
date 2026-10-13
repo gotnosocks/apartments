@@ -377,7 +377,8 @@ METHOD = (
     "from their population distributions per kept draw; walk from 0 at "
     "walk_origin (the panel's first knot unless anchored); the new-unit rung is "
     "in-sample for the building terms; predictive median and PIT of the "
-    "mixture of Student-t noise over draws"
+    "mixture of Student-t noise over draws; each row chunk draws from its own "
+    "generator, seeded by (SEED, chunk index)"
 )
 
 
@@ -488,7 +489,8 @@ METHOD_HOLDOUT = (
     "drawn from their population distributions per kept draw; walk from 0 at "
     "walk_origin (the panel's first knot unless anchored); predictive median "
     "and PIT of the "
-    "mixture of Student-t noise over draws"
+    "mixture of Student-t noise over draws; each row chunk draws from its own "
+    "generator, seeded by (SEED, chunk index)"
 )
 
 
