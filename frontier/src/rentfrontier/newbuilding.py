@@ -769,6 +769,8 @@ def main(argv=None):
         for r in out.itertuples():
             print(f"{r.lot}\t{r.building}")
         return
+    if args.holdout and (args.walk_origin == "first" or args.drop_group):
+        raise SystemExit("--holdout takes neither --walk-origin first nor --drop-group")
     only = data.holdout_buildings(args.only) if args.only else None
     tag = "-".join(
         filter(

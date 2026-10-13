@@ -39,7 +39,7 @@ Outputs:
 | C reproduces miss and 80/95 coverage | 11.9%, 90.7/98.1 within 0.05 pp / 0.3 | 11.89% (was 11.90%), 90.69/98.16 (was 90.70/98.13) | hit |
 | 80% coverage gap, 2024-26 minus 2014-16 rows, within row bins | +4 to +5 pp (0 to +10) | +5.2 pp | inside the interval, just over the central range |
 | Overall 80% coverage with the first-knot walk origin | 86-88.5 (82-90.5) | 88.9 | inside the interval, just over the central range |
-| Clustered/iid SE ratio, building-level pairs | 1.4-1.5 (1.05-3.0) | 1.43-1.60 by building, 1.44-1.70 by lot | inside the interval; the central range catches only lines |
+| Clustered/iid SE ratio, building-level pairs | 1.4-1.5 (1.05-3.0) | 1.43-1.60 by building, 1.44-1.70 by lot, leaving out areatime (1.83 and 4.02) | inside the interval; the central range catches only lines |
 | C-era serving verdicts changed by clustered SEs | 0 (0-1, only bigbed can flip) | 1, and it is lines, not bigbed | miss |
 | Paired building-weighted new-building lpd, lines minus C | +3 to +8 nats, lot SE 6-7 (3-13), a tie | +83.9 nats, lot SE 14.4 | miss |
 | New-building miss over the area with labels removed | 13.0-13.4% | 13.75% | miss |
