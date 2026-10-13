@@ -53,6 +53,10 @@ BUILDING_TERMS = (
 )
 UNIT_TERMS = ("unit", "unit_drift", "line")
 RUNGS = ("new building", "new unit")
+# The "new unit" rung keeps the building terms the fit learned from the row's
+# own asks, so it is in-sample for the building; the out-of-sample new-unit
+# figure is the row split's held-out rows (`summary.new_unit_coverage`).
+IN_SAMPLE = {"new unit": "in-sample: building terms fitted with the row's own asks"}
 # The building's training rows, as (label, low, high) inclusive.
 BUILDING_ROWS = (
     ("1-5", 1, 5),
@@ -326,8 +330,9 @@ def score_run(name: str, only=None):
 
 METHOD = (
     "training rows, building (new building) or unit (new unit) terms redrawn "
-    "from their population distributions per kept draw; walk from 0 at the "
-    "building's first training knot; predictive median and PIT of the "
+    "from their population distributions per kept draw; walk from 0 at "
+    "walk_origin (the panel's first knot unless anchored); the new-unit rung is "
+    "in-sample for the building terms; predictive median and PIT of the "
     "mixture of Student-t noise over draws"
 )
 
@@ -342,6 +347,7 @@ def _record(name, result, kept, rows, out, method):
         "rows": int(rows),
         "draws": int(kept["alpha"].shape[0]),
         "rungs": out,
+        "in_sample": {r: IN_SAMPLE[r] for r in out if r in IN_SAMPLE},
         "method": method,
     }
 
@@ -435,7 +441,8 @@ METHOD_HOLDOUT = (
     "rows of the held-out lots' buildings that the split trains on without the "
     "held-out-lots rule, from a fit that never saw them; building and unit terms "
     "drawn from their population distributions per kept draw; walk from 0 at "
-    "the building's first such row's knot; predictive median and PIT of the "
+    "walk_origin (the panel's first knot unless anchored); predictive median "
+    "and PIT of the "
     "mixture of Student-t noise over draws"
 )
 
@@ -513,7 +520,8 @@ def main(argv=None):
         for rung, r in record["rungs"].items():
             a = r["all"]
             print(
-                f"{name}: {rung}: miss {a['median_abs_pct_miss']:.1f}%, "
+                f"{name}: {rung}{' (in-sample)' if rung in IN_SAMPLE else ''}: "
+                f"miss {a['median_abs_pct_miss']:.1f}%, "
                 f"80% {100 * a['cover_80']:.1f}, 95% {100 * a['cover_95']:.1f}"
                 f" ({record['seconds']:.0f} s)",
                 flush=True,
