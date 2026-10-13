@@ -151,6 +151,18 @@ def main(argv=None):
             help="request budget; zero is unlimited",
         )
         command.add_argument(
+            "--graphql-inventory",
+            action="store_true",
+            help="read rental inventories from StreetEasy's GraphQL history in batches, "
+            "with the rendered modal as fallback (graphql_inventory.py)",
+        )
+        command.add_argument(
+            "--graphql-batch",
+            type=int,
+            default=24,
+            help="buildings per GraphQL request with --graphql-inventory",
+        )
+        command.add_argument(
             "--revisit-interval",
             type=float,
             default=0,
@@ -512,11 +524,20 @@ def run_crawler(args, generation, lock=None):
 
     from .crawler import ArchiveSpider
 
+    graphql = getattr(args, "graphql_inventory", False)
+    extra = {}
+    if graphql:
+        from .graphql_inventory import GraphQLInventorySpider as ArchiveSpider
+
+        extra["graphql_batch"] = args.graphql_batch
+    handler = (
+        "streeteasy_archive.graphql_inventory.GraphQLOxylabsHandler"
+        if graphql
+        else "streeteasy_archive.oxylabs.OxylabsDownloadHandler"
+    )
     settings = {
         "LOG_LEVEL": "INFO",
-        "DOWNLOAD_HANDLERS": {
-            "https": "streeteasy_archive.oxylabs.OxylabsDownloadHandler"
-        },
+        "DOWNLOAD_HANDLERS": {"https": handler},
         "DOWNLOAD_TIMEOUT": 200,
         "ARCHIVE_OXYLABS_RENDER": args.oxylabs_render,
         "ARCHIVE_API_RPS": args.api_rps,
@@ -535,6 +556,7 @@ def run_crawler(args, generation, lock=None):
         transport=args.transport,
         concurrency=args.concurrency,
         include_unavailable=args.include_unavailable,
+        **extra,
     )
     deferred.addErrback(lambda failure: errors.append(str(failure)))
     from .structure_first import claim_order
