@@ -18,7 +18,7 @@ wait here until he releases them. C is `m7-nocurves-floorslope-bednoise-dayfouri
 | Fit | Queue spec | Prediction | Status |
 |---|---|---|---|
 | areatime rerun | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-areatime nb8-nostuy-v1 --seed 20261013` | Passes the gate (unit R-hat < 1.05) and lands within 1 SE of +401 (areatime won +401 ± 37 on C but one unit had R-hat 1.066) | Held |
-| lister | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-lister-v1` | +20 to +80, around 2 SE; new-unit coverage up about 0.02 to 0.79 | Held |
+| lister | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-lister-v1` | +20 to +80, around 2 SE; new-unit coverage up about 0.02, reaching 0.79 | Held |
 | retail | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-retail-v1` | Data's pre-registration ([predictions](model/predictions-nb8-data-2026-10-10.md), #672); Modeling: tie within 2 SE | Held |
 | noise | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-noise-v1` | As retail | Held |
 | trees | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-trees-v1` | As retail | Held |
