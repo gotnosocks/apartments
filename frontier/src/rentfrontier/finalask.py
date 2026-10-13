@@ -78,11 +78,11 @@ def score(name, audit_ids, y=None):
 
 
 def compare(final: str, base: str) -> dict:
-    _, _, _, f_frame, f_held, _ = newbuilding._load(final)
+    _, _, _, _, f_frame, f_held = newbuilding._load(final)
     rules = data.recorded_rules(newbuilding.explain.load_run(final)[1])
     if RULE not in rules:
         raise SystemExit(f"{final} was not fit with {RULE}")
-    _, _, _, b_frame, b_held, _ = newbuilding._load(base)
+    _, _, _, _, b_frame, b_held = newbuilding._load(base)
     shared = sorted(set(f_frame.audit_id[f_held]) & set(b_frame.audit_id[b_held]))
     y = pd.Series(f_frame.log_rent.to_numpy(), index=f_frame.audit_id.to_numpy())
     out = {

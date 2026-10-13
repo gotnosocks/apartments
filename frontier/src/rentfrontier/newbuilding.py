@@ -163,7 +163,7 @@ def summarize_rows(y, median, pit, groups):
 
 
 def _load(name: str, rules=None):
-    """(run_dir, result, kept, config, frame, heldout, feats, prep) for a run,
+    """(run_dir, result, kept, config, frame, heldout) for a run,
     rebuilt under its recorded rules (or `rules`)."""
     run_dir, result, kept = explain.load_run(name)
     config = model.MODELS[result["model"]["name"]]
