@@ -3,6 +3,21 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-13 22:20 UTC): new buildings per row, clustered SEs
+
+Action 1 of the 2026-10-13 next actions ran on thelio at no Modal cost. The write-up with
+predictions and results is `docs/model/newbuilding-clustered-2026-10-13.md`.
+
+- `newbuilding` writes `rows.parquet` per run and building-weighted scores with lot-bootstrap SEs.
+  It also has two diagnostics, `--walk-origin first` and `--drop-group G`, which stay off the board.
+- `rentfrontier.clusterse` reports building- and lot-clustered SEs. New `loo` records carry
+  `elpd_loo_se_building` and `elpd_loo_se_lot`. These are report-only: the tie tolerance still uses
+  the iid SE.
+- Under clustered SEs, lines vs C on PSIS-LOO becomes a tie (it was a lines win under iid). On
+  new-building lpd, building-weighted, lines leads C by +83.9 nats (lot SE 14.4).
+- New-building 80% coverage rises by about 5 pp from 2014-16 to 2024-26 rows within row bins. The
+  walk origin does not explain that rise.
+
 ## Update (2026-10-13 03:15 UTC)
 
 Ben's "go" (02:47Z) approved three steps from the coordinator. They run in this order, ahead of the
