@@ -3,7 +3,7 @@
 Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
-- **Brooklyn crawl STOPPED, waiting on Ben's credit top-up.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
+- **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
   Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
   Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
   (runner `run-64pm-16w.py`, fallback `run-32pm-8w.py` on 429s), archive
@@ -14,7 +14,7 @@ Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (b
   ($85–225), 20–50 h. When it finishes: snapshot (compacted), dataset, tell Modeling and Data
   improvements (first Brooklyn rows; Manhattan-only features need checking).
   Stopped Oct 13 03:24 ET: every request since 03:01 ET returned HTTP 429 (447 in a row) after
-  7 h with none at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
+  7 h with no 429s at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
   12,322 pages done (12,049 OK, 273 404), 71,510 pending (detail pages), about $14–15 spent.
   On Ben's word that credits are added: `systemctl --user reset-failed` the unit and relaunch the
   same runner (it resumes). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
