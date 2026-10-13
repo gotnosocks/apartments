@@ -183,6 +183,7 @@ def inventory_from_history(doc, url):
             else ""
         )
         if unit_page:
+            # The archived row then has no unit label; displayUnit stays in the digest.
             unit_paths.setdefault(unit_page, listing)
         # The modal's row shape: inventory_unit_probes reads the second cell as the
         # unit label and the first link as the source advertisement.
@@ -224,49 +225,74 @@ def unit_path(path, root):
 
 def unit_path_probes(store, generation, data, source_url, include_unavailable):
     """Queue the API's unit pages as probes, under the conditions scope.expand uses."""
-    from .collection_policy import PROBE_RULE, enabled
     from .scope import enroll
+
+    probes = _probes(store, generation, data, source_url, include_unavailable)
+    if probes:
+        enroll(store, generation, probes)
+    return len(probes)
+
+
+def _probes(store, generation, data, source_url, include_unavailable, roots=None):
+    from .collection_policy import PROBE_RULE, enabled
 
     paths = data.get("inventory", {}).get("unit_paths") or {}
     if not (paths and include_unavailable and enabled(store, generation)):
-        return 0
-    roots = {
+        return {}
+    if roots is None:
+        roots = _roots(store, generation)
+    if building_root(source_url) not in roots:
+        return {}
+    return {unit: f"{PROBE_RULE} from {ad}" for unit, ad in paths.items()}
+
+
+def _roots(store, generation):
+    return {
         r[0]
         for r in store.db.execute(
             "SELECT url FROM scope_buildings WHERE generation=?", (generation,)
         )
     }
-    if building_root(source_url) not in roots:
-        return 0
-    enroll(
-        store,
-        generation,
-        {unit: f"{PROBE_RULE} from {ad}" for unit, ad in paths.items()},
-    )
-    return len(paths)
 
 
-def replay_unit_paths(store, generation, include_unavailable):
+def replay_unit_paths(store, generation, include_unavailable, building=None):
     """Queue unit paths from GraphQL inventories already archived, offline.
 
     collection_policy.setup replays label probes from archived inventories, and this does
-    the same for unit paths, so a resumed generation keeps its probes.
+    the same for unit paths, so a resumed generation keeps its probes. With a building,
+    only that building's probes are queued, as scope.expand does.
     """
-    rows = store.db.execute(
-        """SELECT url, extracted FROM snapshots WHERE generation=?
+    from .scope import _enroll
+
+    roots = _roots(store, generation)
+    if building:
+        roots &= {building}
+    ids = store.db.execute(
+        """SELECT id, url FROM snapshots WHERE generation=?
         AND url LIKE '%archive_view=unavailable-rentals%' ORDER BY id""",
         (generation,),
     ).fetchall()
-    total = 0
-    for row in rows:
+    probes = {}
+    for row in ids:
+        if building_root(row["url"]) not in roots:
+            continue
+        extracted = store.db.execute(
+            "SELECT extracted FROM snapshots WHERE id=?", (row["id"],)
+        ).fetchone()[0]
+        if '"unit_paths"' not in (extracted or ""):
+            continue
         try:
-            data = json.loads(row["extracted"])
+            data = json.loads(extracted)
         except (TypeError, ValueError):
             continue
-        total += unit_path_probes(
-            store, generation, data, row["url"], include_unavailable
-        )
-    return total
+        for unit, reason in _probes(
+            store, generation, data, row["url"], include_unavailable, roots
+        ).items():
+            probes.setdefault(unit, reason)
+    if probes:
+        with store._tx():
+            _enroll(store, generation, probes)
+    return len(probes)
 
 
 def extract_history(body, url):
@@ -448,7 +474,12 @@ class GraphQLInventorySpider(ArchiveSpider):
         self.unit_paths = bool(graphql_unit_paths)
         self.fields = FIELDS + (UNIT_PATH_FIELD if self.unit_paths else "")
         if self.unit_paths and (self.neighborhood or self.building):
-            replay_unit_paths(self.store, self.generation, self.include_unavailable)
+            replay_unit_paths(
+                self.store,
+                self.generation,
+                self.include_unavailable,
+                building=self.building,
+            )
         self.graphql_active = True
         self.graphql_failed_batches = 0
         _ensure_table(self.store)
