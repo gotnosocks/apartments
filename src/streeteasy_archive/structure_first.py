@@ -15,7 +15,7 @@ The candidate filter, policy exclusions and capture reuse are unchanged. Two cla
 exclusions are judged on what has been discovered so far, and are permanent: an ad with no
 unit membership yet (missing_canonical_unit_association), and a unit whose route was first
 enrolled as an inventory probe from a pre-cutoff ad (probe_source_before_min_listing_id;
-scope_urls keeps the first reason). Claiming buildings first enrolls units from their
+scope_urls keeps the first reason, apart from GraphQL unit paths moving to a newer ad). Claiming buildings first enrolls units from their
 building pages before those rules run, so some ads and re-let units that the original
 order excluded early are fetched: the same rules, more coverage, somewhat more requests.
 store.py is hashed by saved datasets, so the change lives here.
