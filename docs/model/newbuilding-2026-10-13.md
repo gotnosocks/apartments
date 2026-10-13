@@ -128,13 +128,13 @@ C on the same 121,035 rows at their first ask would separate the two causes. It 
 Ben asked for a fit priced at each listing's latest available ask. I refit C with
 `tune-latestask-v1` (#706). Each row takes the last ask any crawl recorded for its listing, from
 the outcomes file I rebuilt on 2026-10-13 from all seven crawls (`listing-outcomes/20261013-57c2a78`).
-A listing with a single ask keeps it. The rule handles two kinds of row differently:
+A listing with a single ask keeps it. Two kinds of row get special handling:
 
 - A listing still live at its last capture (1,076 rows) takes its current ask.
 - A row whose listing no crawl captured (0.1%), or whose latest ask is under half or over twice the
   row's ask (587 rows), keeps the row's own ask.
 
-The rule drops no rows, so the fit trains on C's 193,376 rows. Of all 214,887 rows, 79,719 change
+No rows are dropped, so the fit trains on C's 193,376 rows. Of all 214,887 rows, 79,719 change
 price, 8,350 of them held out. Asks went down on 27% of rows and up on 10%. The fit passed the gate:
 max R-hat 1.005, min ESS 663, a 2,307 s fit, $2.05.
 
@@ -147,7 +147,7 @@ max R-hat 1.005, min ESS 663, a 2,307 s fit, $2.05.
 | C, its own ask | 3.74% | 79.3 | 94.7 |
 
 Against the latest ask, C misses 0.28 pp more than the latest-ask fit and covers 2.5 points too few
-at 80%. The latest-ask fit predicts the latest ask about as well as C predicts its own ask.
+at 80%. On median miss and coverage, the latest-ask fit does about as well on the latest ask as C does on its own ask.
 
 **Coefficients.** I compared posterior means, in units of C's posterior SD. Of 223 parameters, 82
 moved by more than 1 SD and 42 by more than 2.
@@ -163,9 +163,9 @@ moved by more than 1 SD and 42 by more than 2.
 
 **Descriptive share.** 25.9% (90% interval 25.2–26.6%), against C's 26.1%.
 
-With the rows held fixed, the price change alone moves the concession term, a few noise scales and
-the season, while the descriptive share stays put. Most of the large moves in the final-ask fit
-therefore came from its smaller set of rows.
+When I changed the price and kept the rows, the concession term, a few noise scales and the season
+moved, and the descriptive share stayed within 0.2 pp. The large moves in the final-ask fit
+appear to come mostly from its smaller set of rows, though no fit isolates that.
 
 ## New-building score of the ask fits
 
