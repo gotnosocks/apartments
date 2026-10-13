@@ -291,7 +291,7 @@ All three tasks are done and written up in `docs/model/newbuilding-2026-10-13.md
 
 - Step 2 agrees with step 1 on the held-out lots (12.20% vs 12.09%), so step 1's new-building score
   is the board number.
-- The final-ask fit misses the final ask by 0.31 pp less than C does (3.71% vs 4.02%). The
+- The final-ask fit misses the final ask by 0.32 pp less than C does (3.71% vs 4.02%). The
   coefficient and descriptive-share moves were much larger than predicted, probably because the
   rule changes which rows are in the fit.
 - A fit of C on the same rows at their first ask would separate the two causes. It has not been

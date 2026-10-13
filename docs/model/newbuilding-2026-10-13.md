@@ -79,8 +79,9 @@ was optimistic by 0.11 pp: a hit.
 
 ## Final-ask fit (Ben's step 3)
 
-C was refit with `tune-finalask-v1`: each row is priced at its listing's last ask, and listings
-still live at the last capture are excluded. The fit passed the gate (max R-hat 1.008, min ESS 619;
+C was refit with `tune-finalask-v1`: each row is priced at its listing's last ask. The rule leaves
+out listings still live at the last capture (live listings are excluded throughout), listings no
+crawl captured, and final asks over twice or under half the first. The fit passed the gate (max R-hat 1.008, min ESS 619;
 1,446 s fit; $2.00, of which about $0.80 was the post-fit summary that timed out after 20 minutes).
 It trains on 121,035 rows; C trains on 193,376.
 
@@ -96,10 +97,10 @@ with the unit's terms drawn from the population.
 The size-stated and size-unknown rows split the same way. Size stated: 3.85% vs 4.20%, and 78.6
 vs 75.5. Size unknown: 3.61% vs 3.87%, and 80.3 vs 78.0.
 
-**Reading.** On final asks, C misses by 0.31 pp more than the final-ask fit, and its intervals cover
-2.6 points too few at 80%. The final-ask fit predicts the final ask about as well as C predicts the
-first ask. Overall, C's first-ask quotes run a few percent above where those listings end up being
-asked.
+**Reading.** On final asks, C misses by about 0.3 pp more than the final-ask fit (0.32 pp
+unrounded), and its intervals cover 2.6 points too few at 80%. The final-ask fit predicts the final
+ask about as well as C predicts the first ask. These figures are absolute misses, so they say
+nothing about the sign of C's error on final asks.
 
 **Coefficients and descriptive share.** These moved far more than predicted:
 
@@ -118,8 +119,8 @@ asked.
   70.4% (67.2%).
 
 Most of the coefficient and share movement probably comes from the rows rather than the price. The
-rule drops the 37% of listings that no crawl captured, so the two fits describe different
-listings. One example is East Village, whose capture rate differs from the other areas. A fit of
+final-ask fit trains on 37% fewer rows than C, mostly rows whose listing no crawl captured, so the
+two fits describe different listings. One example is East Village, whose capture rate differs from the other areas. A fit of
 C on the same 121,035 rows at their first ask would separate the two causes. It has not been run.
 
 ## Prediction outcomes
@@ -127,7 +128,7 @@ C on the same 121,035 rows at their first ask would separate the two causes. It 
 | Prediction | Outcome |
 |---|---|
 | Step 1 optimistic by under 0.5 pp (step 2) | Hit: 0.11 pp |
-| Final-ask miss 0.2–0.6 pp below C's | Hit: 0.31 pp |
+| Final-ask miss 0.2–0.6 pp below C's | Hit: 0.32 pp |
 | 80% and 95% coverage within 0.02 | Partly: 95% within 0.011; 80% differs by 0.026 |
 | Intercept down about 1% | Miss: down about 6.5%, though not cleanly identified |
 | Coefficients move less than their SD, except size | Miss: 58 of 115 moved more than 1 SD |
