@@ -182,3 +182,69 @@ def test_streeteasy_rate_limit_stops_the_crawl(tmp_path, monkeypatch):
         s.store, s.generation, VIEW
     )
     s.store.close()
+
+
+def attempts(s, url):
+    return s.store.db.execute(
+        "SELECT attempts FROM frontier WHERE generation=? AND url=?",
+        (s.generation, url),
+    ).fetchone()[0]
+
+
+@pytest.mark.parametrize(
+    "status,body",
+    [(403, b""), (200, b"<title>Access to this page has been denied</title>")],
+)
+def test_block_or_challenge_stops_the_crawl(tmp_path, monkeypatch, status, body):
+    s = spider(tmp_path, monkeypatch)
+    request = list(s.start_requests())[0]
+    list(
+        s.parse(
+            HtmlResponse(url=request.url, status=status, body=body, request=request)
+        )
+    )
+    assert s.stopped and not gi.fallen_back(s.store, s.generation, VIEW)
+    s.store.close()
+
+
+def test_fallback_keeps_the_browser_paths_retries(tmp_path, monkeypatch):
+    s = spider(tmp_path, monkeypatch, batch=1)
+    request = s._request()
+    gi.fall_back(s.store, s.generation, VIEW, "test")
+    assert state(s, VIEW) == "pending" and attempts(s, VIEW) == 0
+    s.store.close()
+
+
+def test_unreadable_building_page_falls_back(tmp_path, monkeypatch):
+    s = spider(tmp_path, monkeypatch)
+
+    def broken(store, url):
+        raise OSError("body missing")
+
+    monkeypatch.setattr(gi, "building_info", broken)
+    request = s._request()
+    assert "archive_graphql_batch" not in request.meta
+    assert gi.fallen_back(s.store, s.generation, VIEW)
+    assert s.outstanding == 1 and s.sent == 1
+    s.store.close()
+
+
+def test_annotate_failure_finishes_the_batch(tmp_path, monkeypatch):
+    import streeteasy_archive.collection_policy as policy
+
+    s = spider(tmp_path, monkeypatch)
+    request = list(s.start_requests())[0]
+    real = policy.annotate
+
+    def flaky(store, generation, data, body, url, persist=True):
+        if persist and url == VIEW:
+            raise RuntimeError("boom")
+        return real(store, generation, data, body, url, persist=persist)
+
+    monkeypatch.setattr(policy, "annotate", flaky)
+    body = json.dumps(
+        {"data": {"h0": [digest("1", "#1")], "h1": [digest("2", "#2")]}}
+    ).encode()
+    list(s.parse(HtmlResponse(url=request.url, body=body, request=request)))
+    assert state(s, VIEW) == "done" and state(s, OTHER) == "done"
+    s.store.close()

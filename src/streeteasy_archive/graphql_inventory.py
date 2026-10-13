@@ -32,7 +32,7 @@ from scrapy.http import HtmlResponse
 import scrapy
 
 from .capture import capture_metadata
-from .crawler import ArchiveSpider
+from .crawler import ArchiveSpider, is_challenge
 from .extract import VERSION, extract, is_unavailable_url
 from .oxylabs import (
     API_URL,
@@ -225,8 +225,8 @@ def fall_back(store, generation, url, reason):
             (generation, url, reason[:500], time.time()),
         )
         store.db.execute(
-            "UPDATE frontier SET state='pending',next_attempt=0 WHERE generation=? "
-            "AND url=? AND state='inflight'",
+            "UPDATE frontier SET state='pending',next_attempt=0,"
+            "attempts=max(0,attempts-1) WHERE generation=? AND url=? AND state='inflight'",
             (generation, url),
         )
 
@@ -366,6 +366,15 @@ class GraphQLInventorySpider(ArchiveSpider):
         self.graphql_failed_batches = 0
         _ensure_table(self.store)
 
+    def _building_info(self, url):
+        # An unreadable building page sends that building to the browser path rather
+        # than raising out of _request with rows inflight.
+        try:
+            return building_info(self.store, url)
+        except Exception:
+            self.logger.exception("building ID lookup failed for %s", url)
+            return None
+
     def _request(self):
         request = super()._request()
         if (
@@ -379,7 +388,7 @@ class GraphQLInventorySpider(ArchiveSpider):
         url = request.meta["archive_url"]
         if fallen_back(self.store, self.generation, url):
             return request
-        first = building_info(self.store, url)
+        first = self._building_info(url)
         if not first:
             fall_back(
                 self.store,
@@ -398,7 +407,7 @@ class GraphQLInventorySpider(ArchiveSpider):
             self.graphql_batch - 1,
             bool(self.neighborhood or self.building),
         ):
-            info = building_info(self.store, row["url"])
+            info = self._building_info(row["url"])
             if not info:
                 fall_back(
                     self.store,
@@ -434,8 +443,8 @@ class GraphQLInventorySpider(ArchiveSpider):
         status = response.status
         body = bytes(response.body)
         capture = capture_metadata(response.meta, self.transport)
-        if status in (408, 429) or status >= 500:
-            # StreetEasy itself is pushing back: the same stop as any other page.
+        if status in (401, 403, 408, 429) or status >= 500 or is_challenge(body):
+            # Blocked, challenged or pushed back: the same stop as any other page.
             for entry in batch:
                 self.store.record_gap(
                     self.generation,
@@ -516,17 +525,21 @@ class GraphQLInventorySpider(ArchiveSpider):
                 discovered=links,
                 capture=capture,
             )
-            annotate(self.store, self.generation, data, doc_body, url)
-            if self.neighborhood or self.building:
-                expand(
-                    self.store,
-                    self.generation,
-                    data,
-                    url,
-                    self.include_unavailable,
-                    building=self.building,
-                    neighborhood=self.neighborhood,
-                )
+            try:
+                annotate(self.store, self.generation, data, doc_body, url)
+                if self.neighborhood or self.building:
+                    expand(
+                        self.store,
+                        self.generation,
+                        data,
+                        url,
+                        self.include_unavailable,
+                        building=self.building,
+                        neighborhood=self.neighborhood,
+                    )
+            except Exception:
+                # The inventory is recorded; finish the rest of the batch.
+                self.logger.exception("annotating GraphQL inventory %s failed", url)
         yield from self.start_requests()
 
     def errback(self, failure):
