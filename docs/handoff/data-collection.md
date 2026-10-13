@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 11:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -13,14 +13,22 @@ Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (b
   shows only the latest per unit); end to end on a scratch archive 30/30 recorded, no fallbacks.
   It replaces only the rendered list step; unit and ad pages are plain requests and still
   fetched. **Resume needs Ben's word** and a new frozen runtime from master with the flag.
+- **Unit paths from the API (#708, merged Oct 13).** Ben 11:10 ET agreed to visit the
+  `/building/<building>/<unit>` path StreetEasy gives as each ad's `urlPath` instead of guessing
+  the unit route from the label. Flag `--graphql-unit-paths` (with `--graphql-inventory`). Ads
+  whose `urlPath` is `/rental/ID` keep the label guess. Membership still comes only from the
+  unit page's history; the rule and dedup are unchanged. Offline on the 30 pilot responses:
+  2,743 API unit paths replace 3,128 label guesses (2,251 of which were right), plus 743 guesses
+  for ads that open on their own page. Next: Ben decides on 1 or 2 live check requests (does
+  `/building/330-1-avenue-new_york/05e` list ad 3822968?) and on any resume.
 - **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
   pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
   5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
   more post-cutoff ads no unit page vouched for: 900 sit on a unit page the crawl never fetched
   (API slug `05e`, crawl guessed `/5e` → 404), so the label guess misses real unit records; 166
-  have a unit page that vouched for nothing. Proposed to Ben: API vouching rule (saves ~26k
-  Brooklyn unit pages), or at least probe the API's `slug`. Awaiting his answer; offered a 1–2
-  request live check that `/05e`-style pages list those ads.
+  have a unit page that vouched for nothing. Ben kept unit pages as the association source
+  (StreetEasy's own data, dedup on unit URLs), so no API vouching rule; the unit-path probe
+  above (#708) is what he chose.
 - **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
   Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
   Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
