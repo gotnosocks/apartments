@@ -23,6 +23,9 @@ ADDED = {
     "nomad": ({"nomad"}, {"NoMad"}),
     "east-village": ({"east-village"}, {"East Village"}),
     "stuyvesant-town-pcv": ({"stuyvesant-town"}, {"Stuyvesant Town/PCV"}),
+    # The first Brooklyn crawl, scoped the same way (Ben, Oct 13 2026). StreetEasy's
+    # Downtown Brooklyn excludes Brooklyn Heights, DUMBO, Boerum Hill and Fort Greene.
+    "downtown-brooklyn": ({"downtown-brooklyn"}, {"Downtown Brooklyn"}),
 }
 
 for _name, _value in ADDED.items():
