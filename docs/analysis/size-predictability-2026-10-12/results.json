@@ -782,11 +782,9 @@
    ]
   },
   "stated_units_pred_minus_actual_in_those_cells": {
-   "mean": [
-    NaN,
-    NaN,
-    NaN
-   ]
+   "cells": 3770,
+   "mean": 0.0147,
+   "median": 0.0124
   },
   "never_minus_stated_pred_log_size_overall_unit_mean": -0.1636,
   "never_stated_units": 63746,
@@ -796,27 +794,27 @@
   "note": "residual = log rent - rent model (trained on stated rows with true size) fed predicted size; folds by building",
   "stated_mean_resid_using_pred_size": [
    0.0122,
-   -0.0059,
-   0.0325
+   -0.0033,
+   0.0363
   ],
   "unstated_mean_resid_using_pred_size": [
    -0.015,
-   -0.0218,
-   -0.0078
+   -0.0217,
+   -0.0086
   ],
   "stated_mean_resid_using_true_size": [
    0.0194,
-   0.0029,
-   0.0381
+   0.0019,
+   0.0362
   ],
   "no_size_model_resid_stated": [
    0.0266,
-   0.0081,
-   0.0467
+   0.0109,
+   0.0487
   ],
   "no_size_model_resid_unstated": [
    -0.0053,
-   -0.0113,
+   -0.0107,
    0.0009
   ],
   "pred_log_size_mean_stated_vs_unstated": [

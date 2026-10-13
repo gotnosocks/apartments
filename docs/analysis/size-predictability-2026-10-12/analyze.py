@@ -345,8 +345,12 @@ R["2ii_never_vs_stated"] = {
         "mean": boot_mean(d2.d, d2.b),
         "median": boot_median(d2.d, d2.b),
     },
+    # Point values only (no bootstrap), over the cells whose stated units state a
+    # size at that bedroom count.
     "stated_units_pred_minus_actual_in_those_cells": {
-        "mean": boot_mean(bias.bias, bias.b)
+        "cells": int(bias.bias.notna().sum()),
+        "mean": round(float(bias.bias.mean()), 4),
+        "median": round(float(bias.bias.median()), 4),
     },
     "never_minus_stated_pred_log_size_overall_unit_mean": round(
         float(raw[False] - raw[True]), 4

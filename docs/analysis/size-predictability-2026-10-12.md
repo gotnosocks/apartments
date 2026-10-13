@@ -16,7 +16,7 @@ quarantine-v12, unit-labels-v15, unit-reviews-v1, unit-splits-v4`): 214,887 rows
   building the model never saw.
 - Models: a ridge regression as the linear baseline, and LightGBM.
 - Intervals: the brackets are 95% intervals from 300 bootstrap resamples of buildings.
-- Error measure: MdAPE is the median absolute percentage error of the predicted size.
+- Error measure: MdAPE is the median of |predicted − actual| / actual size.
 
 ## 1. Predictability
 
@@ -92,7 +92,7 @@ rows. Comparing a unit's listings without a size to its listings with one:
   less likely to say "renovated" (−2.8 points [−5.7, −0.4]).
 - No difference: description length and the large or small words.
 
-Within a unit, then, a size is missing almost at random.
+Within a unit, then, the listings without a size differ only slightly: half a percent in rent, a few points in text, and somewhat later dates.
 
 **(ii) Units that never state a size, against stated units of the same building and bedroom
 count.** I compared the (a)-model sizes (LightGBM, without the text figure, out of fold) of the
@@ -113,10 +113,10 @@ for stated and unstated rows.
 
 | | Mean residual of log rent |
 |---|---|
-| Stated rows, true size | +1.9% [0.3, 3.8] |
-| Stated rows, predicted size | +1.2% [−0.6, 3.3] |
-| Unstated rows, predicted size | −1.5% [−2.2, −0.8] |
-| Stated rows, rent model with no size at all | +2.7% [0.8, 4.7] |
+| Stated rows, true size | +1.9% [0.2, 3.6] |
+| Stated rows, predicted size | +1.2% [−0.3, 3.6] |
+| Unstated rows, predicted size | −1.5% [−2.2, −0.9] |
+| Stated rows, rent model with no size at all | +2.7% [1.1, 4.9] |
 | Unstated rows, rent model with no size at all | −0.5% [−1.1, 0.1] |
 
 Unstated rows rent about 2.7% less than their predicted size implies (−1.5% against +1.2%). The
@@ -136,7 +136,7 @@ percent), and the within-unit evidence in (i) says listings don't hide size by p
 | Stated | 41.5% | 40.5% | 34.5% | 35.5% | 31.1% | 29.7% | 28.9% | 26.1% | 26.3% | 25.6% | 24.3% | 23.7% | 25.3% | 23.8% | 21.6% | 21.1% | 20.5% |
 | Rows | 698 | 1,075 | 1,276 | 1,913 | 13,794 | 15,082 | 16,238 | 18,784 | 18,482 | 18,098 | 20,698 | 14,169 | 14,275 | 16,556 | 15,859 | 15,181 | 12,709 |
 
-The 2010 figure is confirmed at 41.5%. 2026 is 20.5% on the current rules, below the 24% quoted.
+The 2010 figure is confirmed at 41.5%. 2026 is 20.5% on the current rules, below the 24% in the request.
 24% matches 2020–2023 instead.
 
 ## What this says about a latent-size term
@@ -145,7 +145,7 @@ The 2010 figure is confirmed at 41.5%. 2026 is 20.5% on the current rules, below
   - New building: about 9% median error, with within-bedroom R² of 0.46 for studios and about 0.8
     for twos and larger.
   - Known building: about 6.5% median error.
-- **Imputation adds little new information.** Almost all of that predictability comes from fields
+- **Imputation likely adds little new information** (an inference from the above, not a tested comparison). Almost all of that predictability comes from fields
   the rent model already has (bedrooms, baths, building fields and text flags) and from the
   building itself, which its building effects already capture. A latent size imputed from the
   same fields would mostly re-express them. What it adds is the spread of size within a building
