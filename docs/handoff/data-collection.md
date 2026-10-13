@@ -1,9 +1,9 @@
 # Data collection — handoff
 
-Updated 2026-10-12 23:35 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
-- **Brooklyn crawl RUNNING** since Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
+- **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
   Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
   Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
   (runner `run-64pm-16w.py`, fallback `run-32pm-8w.py` on 429s), archive
@@ -13,6 +13,11 @@ Updated 2026-10-12 23:35 ET. Thread owner: the Data collection project thread (b
   account refusal: leave it stopped, tell Ben, resume only on his word. Estimate 75–200k requests
   ($85–225), 20–50 h. When it finishes: snapshot (compacted), dataset, tell Modeling and Data
   improvements (first Brooklyn rows; Manhattan-only features need checking).
+  Stopped Oct 13 03:24 ET: every request since 03:01 ET returned HTTP 429 (447 in a row) after
+  7 h with no 429s at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
+  12,322 pages done (12,049 OK, 273 404), 71,510 pending (detail pages), about $14–15 spent.
+  On Ben's word that credits are added: `systemctl --user reset-failed` the unit and relaunch the
+  same runner (it resumes). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
   Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested
