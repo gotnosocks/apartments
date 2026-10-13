@@ -32,7 +32,7 @@ from scrapy.http import HtmlResponse
 import scrapy
 
 from .capture import capture_metadata
-from .crawler import ArchiveSpider, is_challenge
+from .crawler import ArchiveSpider, is_challenge, retry_after
 from .extract import VERSION, extract, is_unavailable_url
 from .oxylabs import (
     API_URL,
@@ -451,9 +451,9 @@ class GraphQLInventorySpider(ArchiveSpider):
                     entry["url"],
                     status,
                     {},
-                    f"GraphQL transient HTTP {status}",
+                    f"GraphQL blocked/challenge or transient HTTP {status}",
                     complete=False,
-                    pause_seconds=60,
+                    pause_seconds=retry_after(dict(response.headers.to_unicode_dict())),
                     capture=capture,
                 )
             self.stopped = True
