@@ -59,3 +59,76 @@ All four fits' draws are on thelio.
 - residual 2.2%.
 
 The **descriptive share is 26.1%** (90% interval 25.4–26.8%).
+
+## Held-out-lots refit (Ben's step 2)
+
+C was refit with `tune-holdout-lots-v1`, which leaves out every row of 542 buildings on 508 tax lots.
+The fit passed the gate (max R-hat 1.006, min ESS 647; 1,533 s fit; $1.61). `python -m
+rentfrontier.newbuilding --holdout` scores the left-out buildings' 20,023 rows as new buildings. The
+step 1 score on the same rows (`--only config/holdout/lots-v1.tsv`) is the last row of the C table
+above.
+
+| Score on the held-out lots' 20,023 rows | Miss | 80% | 95% |
+|---|---:|---:|---:|
+| Refit, buildings never seen | 12.20% | 91.2 | 98.1 |
+| Step 1, building terms drawn from C | 12.09% | 91.4 | 98.2 |
+
+They agree within Ben's bound (0.3 pp of miss, 0.02 of coverage), so **step 1's new-building
+score is the board number**. The prediction was that step 1 would be optimistic by under 0.5 pp. It
+was optimistic by 0.11 pp: a hit.
+
+## Final-ask fit (Ben's step 3)
+
+C was refit with `tune-finalask-v1`: each row is priced at its listing's last ask, and listings
+still live at the last capture are excluded. The fit passed the gate (max R-hat 1.008, min ESS 619;
+1,446 s fit; $2.00, of which about $0.80 was the post-fit summary that timed out after 20 minutes).
+It trains on 121,035 rows; C trains on 193,376.
+
+`python -m rentfrontier.finalask` scores both fits on the 13,262 held-out rows they share, each
+with the unit's terms drawn from the population.
+
+| Fit, against | Miss | 80% | 95% |
+|---|---:|---:|---:|
+| Final-ask fit, final ask | 3.71% | 79.5 | 95.0 |
+| C, final ask | 4.02% | 76.9 | 93.9 |
+| C, first ask (its own target) | 3.73% | 79.1 | 94.9 |
+
+The size-stated and size-unknown rows split the same way. Size stated: 3.85% vs 4.20%, and 78.6
+vs 75.5. Size unknown: 3.61% vs 3.87%, and 80.3 vs 78.0.
+
+**Reading.** On final asks, C misses by 0.31 pp more than the final-ask fit, and its intervals cover
+2.6 points too few at 80%. The final-ask fit predicts the final ask about as well as C predicts the
+first ask. Overall, C's first-ask quotes run a few percent above where those listings end up being
+asked.
+
+**Coefficients and descriptive share.** These moved far more than predicted:
+
+- Of 115 feature coefficients, 58 moved by more than one of C's posterior SDs, and 34 by more than
+  two. The largest moves:
+  - `text:concession`, from −1.0% to −3.9%;
+  - East Village, from −13.2% to −0.4%;
+  - bathrooms 2, 3 and 4+, up 3.4, 7.9 and 8.7 points;
+  - building era 1990–2009, from +8.4% to +16.4%;
+  - `numfloors_unknown`, from −0.4% to −3.8%.
+- The size slope moved by +1.8 SD and `sqft_unknown` by −1.0 SD.
+- The intercept fell from −0.424 to −0.489, about 6.5%. It trades against the building and
+  neighbourhood terms, so it does not by itself measure the average price cut.
+- The descriptive share fell from 26.1% (90% interval 25.4–26.8%) to 21.6% (20.7–22.5%). The building
+  share is 9.2% (C: 10.2%), building over time 4.9% (5.6%), building slopes 3.7% (4.1%), and features
+  70.4% (67.2%).
+
+Most of the coefficient and share movement probably comes from the rows rather than the price. The
+rule drops the 37% of listings that no crawl captured, so the two fits describe different
+listings. One example is East Village, whose capture rate differs from the other areas. A fit of
+C on the same 121,035 rows at their first ask would separate the two causes. It has not been run.
+
+## Prediction outcomes
+
+| Prediction | Outcome |
+|---|---|
+| Step 1 optimistic by under 0.5 pp (step 2) | Hit: 0.11 pp |
+| Final-ask miss 0.2–0.6 pp below C's | Hit: 0.31 pp |
+| 80% and 95% coverage within 0.02 | Partly: 95% within 0.011; 80% differs by 0.026 |
+| Intercept down about 1% | Miss: down about 6.5%, though not cleanly identified |
+| Coefficients move less than their SD, except size | Miss: 58 of 115 moved more than 1 SD |
+| Descriptive share within 1 pp | Miss: 4.5 pp lower |
