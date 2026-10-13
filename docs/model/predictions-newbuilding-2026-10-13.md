@@ -51,3 +51,30 @@ Data improvements' rent-blind predicted log size relative to the bedroom median:
 - A lower descriptive share, counting slopes.
 
 It is judged on all three.
+
+## 4. Latest-ask fit of C (Ben, 13:51Z)
+
+The fit is C plus `tune-latestask-v1`. Each row is priced at its listing's latest available ask:
+the last ask seen by any crawl (outcomes rebuilt 2026-10-13 from all seven crawls, through East
+Village on 2026-10-10). A listing with one ask keeps it. No row is dropped:
+
+- a listing still live at its last capture (1,076 rows, 109 held out) takes its current ask, which
+  is the latest available;
+- a listing no crawl captured (0.1%) or whose latest ask is under half or over twice the row's ask
+  (587 rows; sale prices and typos) keeps the row's own ask.
+
+That keeps all 214,887 of C's rows; 79,719 change price (8,350 of the 21,511 held out). Asks move
+down on 27% of rows and up on 10%, by −1.0% in log on average.
+`python -m rentfrontier.finalask <run> <C>` scores both fits on the shared held-out rows against
+the latest ask.
+
+**Prediction (Modeling):**
+
+- The latest-ask fit's median miss against the latest ask is 0.1 to 0.4 pp below C's on those rows
+  (smaller than the final-ask gap of 0.31 pp, since 61% of rows keep C's price).
+- Their 80% and 95% coverage are within 0.02 of each other, the latest-ask fit's nearer nominal.
+- The intercept moves down about 1%.
+- The concession coefficient moves down (more negative), as it did in the final-ask fit; most other
+  coefficients move less than one of C's posterior SDs. East Village does not move as it did in the
+  final-ask fit, because its crawl is now captured.
+- The descriptive share is within 1 pp of C's 26.1%.
