@@ -29,7 +29,7 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   probe keeps the newer source ad for the cutoff). Pilot: guesses 743 -> 508; 112 API paths
   give way to spellings already captured. Known nit: an older probe reason already in
   `scope_urls` wins over a newer one (INSERT OR IGNORE). Next: Ben decides on any resume; the
-  scrape stays stopped until he says so.
+  Brooklyn scrape stays stopped until he says so.
 - **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
   pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
   5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
