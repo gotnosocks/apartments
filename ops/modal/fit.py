@@ -101,7 +101,9 @@ def plan(args, run_args, sha, short=None):
     joined = " ".join(run_args)
     exploration = (
         "--tier exploration" in joined
-        or "tune-" in joined
+        # A tuning subset is an exploration fit unless it asks for the full tier
+        # (a held-out-lots fit: full draws on most buildings, never served).
+        or ("tune-" in joined and "--tier full" not in joined)
         or args.label.startswith("x-")
     )
     run = [

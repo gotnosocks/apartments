@@ -28,9 +28,12 @@ Two more numbers are reported beside the groups (not summed with them):
                           and the neighbourhood-by-month curve (inside "features", where
                           explain.log_terms puts both)
     descriptive           neighbourhood labels + building + building over
-                          time + unit: rent attributed to where and which
-                          apartment it is rather than to named attributes
-                          (the Fable research review, 2026-10-08, §5)
+                          time + building slopes + unit: rent attributed to
+                          where and which apartment it is rather than to named
+                          attributes (the Fable research review, 2026-10-08,
+                          §5). The building slopes count since 2026-10-13: a
+                          building's own bedroom and size premiums describe
+                          that building as its level does
 
 Reading it: a higher PSIS-LOO bought by a larger "unit" share explains
 less: the rent is attributed to the apartment's identity, not to named
@@ -76,7 +79,7 @@ FIXED = {
 # Terms that are labels of place: the neighbourhood indicators and the
 # neighbourhood-by-month curve.
 LABELS = ("neighbourhood", "area_market_curve")
-DESCRIPTIVE = ("building", "building over time", "unit")
+DESCRIPTIVE = ("building", "building over time", "building slopes", "unit")
 
 
 def group_of(term: str) -> str:

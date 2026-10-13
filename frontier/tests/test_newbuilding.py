@@ -1,0 +1,98 @@
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+from rentfrontier import newbuilding
+
+
+def rows(month, beds):
+    month = np.asarray(month)
+    return SimpleNamespace(
+        y=np.zeros(len(month)),
+        month=month,
+        knot=month // 6,
+        knot_frac=(month % 6) / 6,
+        beds_centered=np.asarray(beds, float),
+        unit_time=np.zeros(len(month)),
+    )
+
+
+def test_building_variance_adds_level_walk_from_first_knot_slopes():
+    kept = {
+        "alpha": np.zeros(2),
+        "building_scale": np.array([0.2, 0.3]),
+        "walk_scale": np.array([0.05, 0.1]),
+        "bedroom_slope_scale": np.array([0.04, 0.0]),
+        "fslope_scales": np.array([[0.1], [0.2]]),
+    }
+    # First knot 2 (months 12-17); rows at month 12 (knot 2, frac 0) and 27
+    # (knot 4, frac 0.5): 0 and 2.25 walk steps.
+    a = rows([12, 27], [0, 2])
+    x = np.array([[1.0], [0.5]])
+    var = newbuilding.building_variance(kept, a, np.array([2, 2]), x, None, 6)
+    expect = np.array(
+        [
+            [0.04 + 0 + 0 + 0.01, 0.04 + 0.0025 * 2.25 + 0.0016 * 4 + 0.01 * 0.25],
+            [0.09 + 0 + 0 + 0.04, 0.09 + 0.01 * 2.25 + 0 + 0.04 * 0.25],
+        ]
+    )
+    np.testing.assert_allclose(var, expect)
+
+
+def test_scores_cover_asks_drawn_from_the_predictive():
+    rng = np.random.default_rng(0)
+    draws, n = 400, 4000
+    mean = rng.normal(0, 0.05, (draws, 1)).repeat(n, 1)
+    sigma = np.full((draws, n), 0.1)
+    nu = np.full(draws, 5.0)
+    extra = np.full((draws, n), 0.2)
+    s = rng.integers(0, draws, n)
+    y = mean[s, 0] + 0.2 * rng.standard_normal(n) + 0.1 * rng.standard_t(5.0, n)
+    median, pit = newbuilding.scores(y, mean, extra, sigma, nu, rng)
+    out = newbuilding.summarize_rows(y, median, pit, {"all": np.ones(n, bool)})["all"]
+    assert out["cover_80"] == pytest.approx(0.80, abs=0.02)
+    assert out["cover_95"] == pytest.approx(0.95, abs=0.015)
+    assert np.median(median) == pytest.approx(0.0, abs=0.02)
+
+
+def test_unit_draws_are_clipped_student_t_at_the_unit_scale():
+    rng = np.random.default_rng(1)
+    kept = {
+        "alpha": np.zeros(3),
+        "unit_scale": np.array([0.1, 0.2, 0.0]),
+        "unit_nu": np.array([3.0, 3.0, 3.0]),
+    }
+    a = rows(np.zeros(20000, int), np.zeros(20000))
+    u = newbuilding.unit_draws(kept, a, np.zeros(20000, bool), rng)
+    assert np.all(u[2] == 0)
+    # t(3) has sd sqrt(3); the clip at 40 barely touches it.
+    assert u[1].std() / u[0].std() == pytest.approx(2.0, rel=0.05)
+    assert np.abs(u[0]).max() <= 0.1 * 40
+
+
+def test_draw_lots_holds_out_every_building_of_a_chosen_lot():
+    import pandas as pd
+
+    buildings = np.array([f"b{i}" for i in range(200)])
+    lots = pd.Series([f"L{i // 2}" for i in range(200)], index=buildings)
+    out = newbuilding.draw_lots(np.repeat(buildings, 3), lots, fraction=0.1, seed=1)
+    assert out.lot.nunique() == 10 and len(out) == 20
+    assert set(out.building) == set(lots.index[lots.isin(set(out.lot))])
+
+
+def test_holdout_rule_drops_the_listed_buildings(tmp_path):
+    import pandas as pd
+
+    from rentfrontier import data
+
+    path = tmp_path / "lots.tsv"
+    path.write_text("# lot\tbuilding\n1\ta\n1\tb\n")
+    frame = pd.DataFrame({"building": ["a", "b", "c", "c"], "y": range(4)})
+    assert data.holdout_buildings(path) == {"a", "b"}
+    assert data.drop_holdout_lots(frame, path).building.tolist() == ["c", "c"]
+    assert "tune-holdout-lots-v1" in data.DATA_RULES
+    assert data.RULE_SOURCES["tune-holdout-lots-v1"] == data.HOLDOUT_LOTS_V1
+    assert data.holdout_buildings() and "tune-holdout-lots-v1".startswith(
+        data.HOLDOUT_PREFIX
+    )
