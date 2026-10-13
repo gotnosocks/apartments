@@ -49,10 +49,18 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
 - **Midtown West crawl running since Oct 13 12:29 ET** (Ben 12:25 ET, after adding Oxylabs
   credits). Area 124 with its children Hudson Yards and Hell's Kitchen (#717). Service
   `apartments-midtown-west-20261013`, archive `/data1/apartments/archive/crawls/midtown-west-20261013`,
-  runtime and runner in `data/probes/midtown-west-20261013/` (frozen cb52b526), 64/min, 16
-  workers, `--graphql-inventory --graphql-unit-paths`, ad cutoff 1210000. The runner resumes
-  when the archive exists. On 401/402/403 or repeated 429s, stop and tell Ben. When the GraphQL
-  histories start, report the unit-path counts (API paths, guesses retired, spellings skipped).
+  runner and frozen runtimes in `data/probes/midtown-west-20261013/`,
+  `--graphql-inventory --graphql-unit-paths`, ad cutoff 1210000. The runner resumes when the
+  archive exists. On 401/402/403 or repeated 429s, stop and tell Ben. The unit-path counts went
+  to Ben on Oct 13. Ben raised the rate to 128/min (17:00Z) and the workers to 32 (17:22Z).
+  - Since 19:18Z the service runs `run-128pm-32w-claim.py` on `runtime-claim` (80f2e733:
+    a thread per worker from #720, index claims from #721). Earlier runners stay for the record.
+  - With 32 workers it fetches about 112 pages a minute at about 60% of a core. Each request
+    takes about 17 s from submission to result, so 128/min needs about 36 workers, which is
+    Ben's call. Before #721 each claim sorted the whole queue, and that held the crawl at 75/min.
+  - A restart replays every page fetched since the previous start before it sends new
+    requests: about 17 minutes for 8,000 pages on Oct 13.
+  - At 20:11Z: 16,007 done, 167,004 pending, so about 25 more hours.
   When it finishes: snapshot (compacted), dataset, tell Modeling and Data improvements.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
