@@ -34,6 +34,13 @@ ADDED = {
         {"downtown-brooklyn", "fort-greene", "boerum-hill"},
         {"Downtown Brooklyn", "Fort Greene", "Boerum Hill"},
     ),
+    # StreetEasy area Midtown West (124) with its child areas Hudson Yards (146) and
+    # Hell's Kitchen (152), as StreetEasy's own Midtown West search includes them (Ben,
+    # Oct 13 2026). A building's areaName is its most specific area, so all three names.
+    "midtown-west": (
+        {"midtown-west", "hudson-yards", "hells-kitchen"},
+        {"Midtown West", "Hudson Yards", "Hell's Kitchen"},
+    ),
 }
 
 for _name, _value in ADDED.items():
