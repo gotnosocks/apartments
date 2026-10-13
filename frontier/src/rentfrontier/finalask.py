@@ -1,20 +1,20 @@
-"""A fit on final asks against the fit on first asks, on the same held-out rows.
+"""A fit on final or latest asks against the fit on first asks, on the same held-out rows.
 
-    python -m rentfrontier.finalask <final-ask-run> <base-run>
+    python -m rentfrontier.finalask <final-or-latest-ask-run> <base-run>
 
-The final-ask run is the base run's model and features with the
-`tune-finalask-v1` rule: each row's price is its listing's last ask
-(`rentfrontier.listing_outcomes`), and listings still live at the last
-capture, with no captured record, or whose last ask is more than twice or
-under half the first (sale prices and typos) are left out. Both runs are
-scored on the held-out rows they share, against the final ask, from each
-fit's posterior as is (a new unit's terms drawn from the population): the
-median absolute % miss of the predictive median and the 80%/95% coverage,
-overall and by size stated or unknown. The base run is also scored against
-the first ask on those rows. Not PSIS-LOO: the two fits price different
-things.
+The first run is the base run's model and features with one of two rules
+(`PRICES`). `tune-finalask-v1` prices each row at its listing's last ask
+(`rentfrontier.listing_outcomes`), and leaves out listings still live at the
+last capture, with no captured record, or whose last ask is more than twice or
+under half the first (sale prices and typos). `tune-latestask-v1` keeps every
+row, priced at its listing's latest available ask. Both runs are scored on the
+held-out rows they share, against the first run's price, from each fit's
+posterior as is (a new unit's terms drawn from the population): the median
+absolute % miss of the predictive median and the 80%/95% coverage, overall
+and by size stated or unknown. The base run is also scored against its own
+ask on those rows. Not PSIS-LOO: the two fits price different things.
 
-Writes /data1/apartments/frontier/finalask/<final-run>-<commit>/result.json.
+Writes /data1/apartments/frontier/finalask/<run>-<commit>/result.json.
 """
 
 from __future__ import annotations
@@ -31,6 +31,8 @@ from .run import git, hardware
 
 FINALASK_ROOT = data.OUTPUT_ROOT / "finalask"
 RULE = "tune-finalask-v1"
+# The price each rule fits, by name, for the record's labels.
+PRICES = {RULE: "final ask", "tune-latestask-v1": "latest ask"}
 
 
 def _prepared(name):
@@ -80,18 +82,21 @@ def score(name, audit_ids, y=None):
 def compare(final: str, base: str) -> dict:
     _, _, _, _, f_frame, f_held = newbuilding._load(final)
     rules = data.recorded_rules(newbuilding.explain.load_run(final)[1])
-    if RULE not in rules:
-        raise SystemExit(f"{final} was not fit with {RULE}")
+    rule = next((r for r in PRICES if r in rules), None)
+    if rule is None:
+        raise SystemExit(f"{final} was not fit with any of {', '.join(PRICES)}")
+    price = PRICES[rule]
     _, _, _, _, b_frame, b_held = newbuilding._load(base)
     shared = sorted(set(f_frame.audit_id[f_held]) & set(b_frame.audit_id[b_held]))
     y = pd.Series(f_frame.log_rent.to_numpy(), index=f_frame.audit_id.to_numpy())
     out = {
-        "final-ask fit vs final ask": score(final, shared),
-        "base fit vs final ask": score(base, shared, y),
-        "base fit vs first ask": score(base, shared),
+        f"{price} fit vs {price}": score(final, shared),
+        f"base fit vs {price}": score(base, shared, y),
+        "base fit vs its own ask": score(base, shared),
     }
     return {
         "final_run": final,
+        "rule": rule,
         "base_run": base,
         "rows": len(shared),
         "scores": out,
