@@ -5,6 +5,8 @@ import os
 import asyncio
 import time
 import email.utils
+import functools
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
@@ -102,6 +104,10 @@ class OxylabsDownloadHandler:
         self._submission_interval = 1 / (settings.getfloat("ARCHIVE_API_RPS", 2) if settings else 2)
         self._submission_lock = asyncio.Lock()
         self._next_submission = 0.0
+        # asyncio's default executor holds min(32, cpus + 4) threads, 16 on thelio, which
+        # would queue POSTs past that many workers. One thread per Scrapy request slot.
+        workers = settings.getint("CONCURRENT_REQUESTS", 16) if settings else 16
+        self._executor = ThreadPoolExecutor(max_workers=workers)
 
     async def _submission_slot(self):
         # Rate and concurrency are separate: five jobs can render simultaneously,
@@ -135,9 +141,10 @@ class OxylabsDownloadHandler:
             result = None
             try:
                 await self._submission_slot()
-                result = await asyncio.to_thread(requests.post, API_URL, json=payload,
-                                                  auth=(username, password), timeout=180,
-                                                  allow_redirects=False)
+                post = functools.partial(requests.post, API_URL, json=payload,
+                                         auth=(username, password), timeout=180,
+                                         allow_redirects=False)
+                result = await asyncio.get_running_loop().run_in_executor(self._executor, post)
                 if result.status_code in (401, 402, 403):
                     result.raise_for_status()
                 if result.status_code == 429 or result.status_code >= 500:
@@ -191,4 +198,4 @@ class OxylabsDownloadHandler:
         return response
 
     async def close(self):
-        return None
+        self._executor.shutdown(wait=False)
