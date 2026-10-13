@@ -91,7 +91,7 @@ def test_filter_matches_store_claim():
         return " ".join(src.replace('"""', "").replace("+", "").split())
 
     original = sql(structure_first.ORIGINAL_CLAIM)
-    copy = sql(structure_first.claim_structure_first).replace(" STRUCTURE_RANK ,", "")
+    copy = sql(structure_first._sorted_candidate).replace(" STRUCTURE_RANK ,", "")
     assert copy == original
 
 
@@ -119,3 +119,58 @@ def test_crawl_commands_default_to_structure_first(tmp_path, monkeypatch):
     ) in (0, 3)
     assert seen[0].claim_order == "structure-first"
     assert [a.claim_order for a in seen] == ["structure-first", "original"]
+
+
+def test_indexed_candidate_matches_the_sort(tmp_path):
+    import random
+
+    rng = random.Random(7)
+    s = ArchiveStore(tmp_path)
+    g = s.new_generation()
+    setup(s, g)
+    kinds = ["directory", "building", "inventory", "listing", "sitemap", "search"]
+    urls = [f"https://streeteasy.com/building/b{i % 9}/u{i}" for i in range(400)]
+    s.enqueue(g, [{"url": u, "kind": rng.choice(kinds)} for u in urls])
+    for u in urls:
+        r = rng.random()
+        if r < 0.1:
+            s.db.execute("UPDATE frontier SET state='done' WHERE url=?", (u,))
+        elif r < 0.2:
+            s.db.execute("UPDATE frontier SET next_attempt=1e12 WHERE url=?", (u,))
+        elif r < 0.3:
+            s.db.execute(
+                "UPDATE frontier SET listing_key='k'||(rowid % 5) WHERE url=?", (u,)
+            )
+        elif r < 0.33:
+            s.db.execute(
+                "UPDATE frontier SET state='inflight', listing_key='k1' WHERE url=?",
+                (u,),
+            )
+        if rng.random() < 0.7:
+            s.db.execute("INSERT OR IGNORE INTO scope_urls VALUES(?,?,'t')", (g, u))
+    checked = 0
+    for scoped in (False, True):
+        for prefix in (None, "https://streeteasy.com/building/b3"):
+            for inv in (False, True):
+                for units in (False, True):
+                    s.db.execute("SAVEPOINT drain")
+                    while True:
+                        a = (s, g, 1e9, prefix, scoped, inv, units)
+                        old = structure_first._sorted_candidate(*a)
+                        new = structure_first._indexed_candidate(*a)
+                        assert (old and old["url"]) == (new and new["url"])
+                        if old is None:
+                            break
+                        checked += 1
+                        s.db.execute(
+                            "UPDATE frontier SET state='inflight' WHERE url=?",
+                            (old["url"],),
+                        )
+                    s.db.execute("ROLLBACK TO drain")
+                    s.db.execute("RELEASE drain")
+    assert checked > 500
+    s.db.execute(
+        "INSERT INTO frontier(generation,url,kind) VALUES(?,?,'closing')", (g, "x")
+    )
+    assert structure_first._other_kinds_pending(s, g)
+    s.close()
