@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-13 12:10 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 12:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -38,21 +38,17 @@ Updated 2026-10-13 12:10 ET. Thread owner: the Data collection project thread (b
   have a unit page that vouched for nothing. Ben kept unit pages as the association source
   (StreetEasy's own data, dedup on unit URLs), so no API vouching rule; the unit-path probe
   above (#708) is what he chose.
-- **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
-  Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
-  Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
-  (runner `run-64pm-16w.py`, fallback `run-32pm-8w.py` on 429s), archive
-  `/data1/apartments/archive/crawls/brooklyn-dtbk-fg-bh-20261013`. No monitor timer. Ben, typed
-  Oct 13: "go at 64/min if possible until the credits run out"; 03:04Z: "If oxylabs starts
-  refusing just stop and wait for me to resolve by adding credits on oxylabs." On a credit or
-  account refusal: leave it stopped, tell Ben, resume only on his word. Estimate 75–200k requests
-  ($85–225), 20–50 h. When it finishes: snapshot (compacted), dataset, tell Modeling and Data
-  improvements (first Brooklyn rows; Manhattan-only features need checking).
-  Stopped Oct 13 03:24 ET: every request since 03:01 ET returned HTTP 429 (447 in a row) after
-  7 h with no 429s at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
-  12,322 pages done (12,049 OK, 273 404), 71,510 pending (detail pages), about $14–15 spent.
-  On Ben's word that credits are added: `systemctl --user reset-failed` the unit and relaunch the
-  same runner (it resumes), or a GraphQL-flag runtime if Ben chooses it (see above). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
+- **Brooklyn archive deleted Oct 13 (Ben 12:23 ET), restart from scratch.** The Oct 12 run
+  (Downtown Brooklyn + Fort Greene + Boerum Hill, `brooklyn-dtbk-fg-bh-20261013`, 9.7 GB,
+  stopped on Oxylabs 429s) is gone, with its failed transient service. Ben asked whether
+  dropping it and restarting was simpler: a restart in place needed a way to close the old
+  queue (#715, closed unmerged), and the old modal histories had no unit paths. An offline dry
+  run of that restart queued 76,249 pages and skipped 9,212 recent captures, which a fresh run
+  fetches again. The small `downtown-brooklyn-20261013` (131 pages) is still there; deleting it
+  is Ben's call. Next: a short live test of `--graphql-inventory --graphql-unit-paths` on a few
+  Brooklyn buildings within the $10 test budget, then the full backfill (new frozen runtime from
+  master, 64/min) once Ben adds credits and says go. When it finishes: snapshot (compacted),
+  dataset, tell Modeling and Data improvements (first Brooklyn rows).
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
   Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested
