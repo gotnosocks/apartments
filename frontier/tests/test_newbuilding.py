@@ -189,3 +189,32 @@ def test_finalask_compare_scores_shared_held_out_rows_against_the_final_ask(
     # The base fit is scored against the final-ask run's price, then its own.
     assert calls[1][2]["b"] == pytest.approx(np.log(3000.0))
     assert calls[2][2] is None
+
+
+def test_latest_ask_rule_keeps_every_row_at_its_latest_ask(monkeypatch):
+    import pandas as pd
+
+    from rentfrontier import data, listing_outcomes
+
+    frame = pd.DataFrame(
+        {
+            "source_listing_id": ["1", "2", "3", "4"],
+            "asking_rent": [3000.0, 3000.0, 3000.0, 3000.0],
+            "log_rent": np.log([3000.0] * 4),
+        }
+    )
+    final = np.array([2900.0, np.nan, 3100.0, 900000.0])
+    seen = []
+
+    def attach(f, path):
+        seen.append(path)
+        return f.assign(final_ask=final, still_listed=[False, False, True, False])
+
+    monkeypatch.setattr(listing_outcomes, "attach", attach)
+    out = data.DATA_RULES["tune-latestask-v1"](frame)
+    # Ended and still-live listings take their last ask; an uncaptured listing
+    # and an implausible last ask keep the row's own.
+    assert out.asking_rent.tolist() == [2900.0, 3000.0, 3100.0, 3000.0]
+    np.testing.assert_allclose(out.log_rent, np.log(out.asking_rent))
+    assert seen == [data.LATEST_ASK_OUTCOMES]
+    assert data.RULE_SOURCES["tune-latestask-v1"] == data.LATEST_ASK_OUTCOMES
