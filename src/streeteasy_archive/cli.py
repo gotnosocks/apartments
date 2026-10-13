@@ -77,7 +77,7 @@ def main(argv=None):
             help="all live collection uses Oxylabs (including legacy crawl resumes)",
         )
         command.add_argument(
-            "--concurrency", type=int, help="Oxylabs concurrent jobs (1-20)"
+            "--concurrency", type=int, help="Oxylabs concurrent jobs (1-32)"
         )
         command.add_argument(
             "--api-rps",
@@ -285,12 +285,12 @@ def main(argv=None):
             args.api_rps if args.api_rps is not None else profile.get("api_rps", 2)
         )
         if (
-            not 1 <= args.concurrency <= 20
+            not 1 <= args.concurrency <= 32
             or not math.isfinite(args.api_rps)
             or not 0 < args.api_rps <= 50
         ):
             raise ValueError(
-                "concurrency must be 1-20 and api-rps must be finite and greater than 0, up to 50"
+                "concurrency must be 1-32 and api-rps must be finite and greater than 0, up to 50"
             )
         args.delay = resolve_delay(
             args.delay, args.transport, args.neighborhood, profile
