@@ -18,6 +18,17 @@ empty or smaller than its page's rental summary is marked for fallback and goes 
 queue, where the next claim fetches it through the browser as before. crawler.py,
 oxylabs.py, extract.py and store.py are hashed by saved datasets, so this lives in its own
 module: cli.py selects the spider and handler subclasses below with --graphql-inventory.
+
+With --graphql-unit-paths the query also asks for each ad's `urlPath`. For an ad with its
+own unit page, StreetEasy gives that page's path there, for example
+`/building/330-1-avenue-new_york/05e` for ad 3822968, the page `/rental/3822968` redirects
+to. The crawl queues that path as the ad's unit probe and leaves the ad's label out of the
+row, so the crawl skips a guessed route such as `/5e`, which returns 404 for that ad. For
+an ad that opens on its own page, the API gives `/rental/ID`, and the crawl keeps guessing
+its unit route from the label. Membership still comes only from the probed page's own
+rental history, under the same rule. In 30 Manhattan pilot buildings 2,743 ads had a unit
+path, each a different page, and 32 of those paths had hyphens (`6-h`, `7th-floor`) that
+the label guess drops (Ben, Oct 13 2026).
 """
 
 import asyncio
@@ -33,7 +44,7 @@ import scrapy
 
 from .capture import capture_metadata
 from .crawler import ArchiveSpider, is_challenge, retry_after
-from .extract import VERSION, extract, is_unavailable_url
+from .extract import VERSION, canonical_url, extract, is_unavailable_url, kind_for
 from .oxylabs import (
     API_URL,
     MAX_BODY,
@@ -58,6 +69,7 @@ DEFAULT_BATCH = 24
 MAX_FAILED_BATCHES = 3
 # Target statuses Oxylabs should return rather than retry: the API's own refusals.
 REFUSALS = [400, 403, 405, 413, 414]
+UNIT_PATH_FIELD = " urlPath"
 
 
 def is_graphql_url(url):
@@ -68,7 +80,7 @@ def is_rental_inventory(url):
     return is_unavailable_url(url) and "archive_view=unavailable-rentals" in url
 
 
-def query_url(batch):
+def query_url(batch, fields=FIELDS):
     """One GET with each building's history as an aliased field h0, h1, ..."""
     parts = [
         f"h{i}: {SOURCE}(id: {json.dumps(entry['building_id'])}) {{ ...H }}"
@@ -78,7 +90,7 @@ def query_url(batch):
         "query ArchiveRentalHistory { "
         + " ".join(parts)
         + " } fragment H on RentalListingDigest { "
-        + FIELDS
+        + fields
         + " }"
     )
     return API_HOST + "?" + urllib.parse.urlencode({"query": query})
@@ -151,7 +163,8 @@ def inventory_from_history(doc, url):
     history = doc.get("history") if isinstance(doc, dict) else None
     if doc.get("source") != SOURCE or not isinstance(history, list):
         raise ValueError("not a rental history document")
-    links, records, rows, seen = [], [], [], set()
+    root = building_root(url)
+    links, records, rows, seen, unit_paths = [], [], [], set(), {}
     for entry in history:
         ad = entry.get("id") if isinstance(entry, dict) else None
         if not isinstance(ad, str) or not ad.isdigit():
@@ -162,12 +175,15 @@ def inventory_from_history(doc, url):
         listing = f"https://streeteasy.com/rental/{ad}"
         links.append({"url": listing, "kind": "listing"})
         records.append({"url": listing, "kind": "listing", "digest": entry})
+        unit_page = unit_path(entry.get("urlPath"), root)
         unit = entry.get("displayUnit")
         label = (
             html.escape(unit if unit.startswith("#") else "#" + unit)
-            if isinstance(unit, str) and unit.strip()
+            if isinstance(unit, str) and unit.strip() and not unit_page
             else ""
         )
+        if unit_page:
+            unit_paths.setdefault(unit_page, listing)
         # The modal's row shape: inventory_unit_probes reads the second cell as the
         # unit label and the first link as the source advertisement.
         rows.append(f'<tr><td><a href="{listing}">{ad}</a></td><td>{label}</td></tr>')
@@ -185,7 +201,72 @@ def inventory_from_history(doc, url):
         "rows": rows,
         "expected_counts": expected,
         "source": SOURCE,
+        "unit_paths": unit_paths,
     }
+
+
+def unit_path(path, root):
+    """StreetEasy's unit page for an ad, when the API gives one in this building."""
+    from .listing_identity import listing_key
+
+    if not isinstance(path, str) or not path.startswith("/building/") or not root:
+        return None
+    url = canonical_url(path)
+    if (
+        not url
+        or building_root(url) != root
+        or kind_for(url) != "listing"
+        or listing_key(url)
+    ):
+        return None
+    return url
+
+
+def unit_path_probes(store, generation, data, source_url, include_unavailable):
+    """Queue the API's unit pages as probes, under the conditions scope.expand uses."""
+    from .collection_policy import PROBE_RULE, enabled
+    from .scope import enroll
+
+    paths = data.get("inventory", {}).get("unit_paths") or {}
+    if not (paths and include_unavailable and enabled(store, generation)):
+        return 0
+    roots = {
+        r[0]
+        for r in store.db.execute(
+            "SELECT url FROM scope_buildings WHERE generation=?", (generation,)
+        )
+    }
+    if building_root(source_url) not in roots:
+        return 0
+    enroll(
+        store,
+        generation,
+        {unit: f"{PROBE_RULE} from {ad}" for unit, ad in paths.items()},
+    )
+    return len(paths)
+
+
+def replay_unit_paths(store, generation, include_unavailable):
+    """Queue unit paths from GraphQL inventories already archived, offline.
+
+    collection_policy.setup replays label probes from archived inventories, and this does
+    the same for unit paths, so a resumed generation keeps its probes.
+    """
+    rows = store.db.execute(
+        """SELECT url, extracted FROM snapshots WHERE generation=?
+        AND url LIKE '%archive_view=unavailable-rentals%' ORDER BY id""",
+        (generation,),
+    ).fetchall()
+    total = 0
+    for row in rows:
+        try:
+            data = json.loads(row["extracted"])
+        except (TypeError, ValueError):
+            continue
+        total += unit_path_probes(
+            store, generation, data, row["url"], include_unavailable
+        )
+    return total
 
 
 def extract_history(body, url):
@@ -359,9 +440,15 @@ class GraphQLOxylabsHandler(OxylabsDownloadHandler):
 class GraphQLInventorySpider(ArchiveSpider):
     """ArchiveSpider that reads rental inventories in GraphQL batches."""
 
-    def __init__(self, *args, graphql_batch=DEFAULT_BATCH, **kwargs):
+    def __init__(
+        self, *args, graphql_batch=DEFAULT_BATCH, graphql_unit_paths=False, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.graphql_batch = max(1, int(graphql_batch))
+        self.unit_paths = bool(graphql_unit_paths)
+        self.fields = FIELDS + (UNIT_PATH_FIELD if self.unit_paths else "")
+        if self.unit_paths and (self.neighborhood or self.building):
+            replay_unit_paths(self.store, self.generation, self.include_unavailable)
         self.graphql_active = True
         self.graphql_failed_batches = 0
         _ensure_table(self.store)
@@ -415,12 +502,12 @@ class GraphQLInventorySpider(ArchiveSpider):
                     row["url"],
                     "no building ID on the archived building page",
                 )
-            elif len(query_url(batch + [info])) > MAX_URL:
+            elif len(query_url(batch + [info], self.fields)) > MAX_URL:
                 release(self.store, self.generation, row["url"])
             else:
                 batch.append(info)
         return scrapy.Request(
-            query_url(batch),
+            query_url(batch, self.fields),
             callback=self.parse,
             errback=self.errback,
             dont_filter=True,
@@ -537,6 +624,14 @@ class GraphQLInventorySpider(ArchiveSpider):
                         building=self.building,
                         neighborhood=self.neighborhood,
                     )
+                    if self.unit_paths:
+                        unit_path_probes(
+                            self.store,
+                            self.generation,
+                            data,
+                            url,
+                            self.include_unavailable,
+                        )
             except Exception:
                 # The inventory is recorded; finish the rest of the batch.
                 self.logger.exception("annotating GraphQL inventory %s failed", url)

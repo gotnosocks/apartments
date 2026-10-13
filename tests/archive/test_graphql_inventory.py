@@ -248,3 +248,83 @@ def test_annotate_failure_finishes_the_batch(tmp_path, monkeypatch):
     list(s.parse(HtmlResponse(url=request.url, body=body, request=request)))
     assert state(s, VIEW) == "done" and state(s, OTHER) == "done"
     s.store.close()
+
+
+def test_unit_path_replaces_the_label_guess():
+    inv = gi.inventory_from_history(
+        doc(
+            [
+                dict(
+                    digest("3822968", "#5E"),
+                    urlPath="/building/hanover-house/05e",
+                ),
+                dict(digest("3898927", "#P16H"), urlPath="/rental/3898927"),
+                dict(digest("1", "#7"), urlPath="/building/other-place/7"),
+                dict(digest("2", "#6H"), urlPath="/building/hanover-house/6-h"),
+            ],
+            expected=(4,),
+        ),
+        VIEW,
+    )
+    assert inv["unit_paths"] == {
+        ROOT + "/05e": "https://streeteasy.com/rental/3822968",
+        ROOT + "/6-h": "https://streeteasy.com/rental/2",
+    }
+    # Ads without a unit path in this building keep the label guess, and only they do.
+    assert inventory_unit_probes({"inventory": inv}, VIEW) == {
+        ROOT + "/p16h": "https://streeteasy.com/rental/3898927",
+        ROOT + "/7": "https://streeteasy.com/rental/1",
+    }
+
+
+def test_unit_path_field_is_requested_only_with_the_flag():
+    batch = [{"url": VIEW, "building_id": "1", "expected_counts": []}]
+    assert "urlPath" not in gi.query_url(batch)
+    assert "urlPath" in gi.query_url(batch, gi.FIELDS + gi.UNIT_PATH_FIELD)
+
+
+def test_spider_queues_unit_paths_as_probes(tmp_path, monkeypatch):
+    from streeteasy_archive.collection_policy import PROBE_RULE, setup
+
+    monkeypatch.setattr(
+        gi,
+        "building_info",
+        lambda store, url: {"url": url, "building_id": "7", "expected_counts": [1]},
+    )
+    s = gi.GraphQLInventorySpider.from_crawler(
+        Crawler(gi.GraphQLInventorySpider, Settings()),
+        data_dir=tmp_path,
+        transport="oxylabs",
+        concurrency=1,
+        include_unavailable=True,
+        neighborhood="chelsea",
+        graphql_unit_paths=True,
+    )
+    setup(s.store, s.generation)
+    s.store.db.execute("INSERT INTO scope_buildings VALUES(?,?)", (s.generation, ROOT))
+    s.store.db.execute(
+        "INSERT INTO scope_urls VALUES(?,?,?)", (s.generation, VIEW, "test")
+    )
+    s.store.db.commit()
+    s.store.enqueue(s.generation, [{"url": VIEW, "kind": "inventory"}])
+    request = s._request()
+    assert "urlPath" in request.url
+    entry = dict(digest("3822968", "#5E"), urlPath="/building/hanover-house/05e")
+    body = json.dumps({"data": {"h0": [entry]}}).encode()
+    list(s.parse(HtmlResponse(url=request.url, body=body, request=request)))
+    reason = s.store.db.execute(
+        "SELECT reason FROM scope_urls WHERE generation=? AND url=?",
+        (s.generation, ROOT + "/05e"),
+    ).fetchone()
+    assert reason[0] == f"{PROBE_RULE} from https://streeteasy.com/rental/3822968"
+    # The next claim takes the unit page at once.
+    assert state(s, ROOT + "/05e") == "inflight"
+    assert not s.store.db.execute(
+        "SELECT 1 FROM frontier WHERE url=?", (ROOT + "/5e",)
+    ).fetchone()
+    # A resumed run queues the same probes again from the archived inventory.
+    s.store.db.execute("DELETE FROM frontier WHERE url=?", (ROOT + "/05e",))
+    s.store.db.commit()
+    assert gi.replay_unit_paths(s.store, s.generation, True) == 1
+    assert state(s, ROOT + "/05e") == "pending"
+    s.store.close()
