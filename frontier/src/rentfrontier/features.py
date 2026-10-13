@@ -4678,6 +4678,7 @@ NB8_SETS = {
     "nb8-nostuy-sizefill-v1": "nb5-plutoasof-v3",
     "nb8-nostuy-nta-v1": "nb5-plutoasof-v3",
     "nb8-nostuy-lister-v1": "nb5-plutoasof-v3",
+    "nb8-nostuy-predsize-v1": "nb5-plutoasof-v3",
 }
 # nb7-nostuy-v1 plus an East Village indicator: the eight neighbourhoods'
 # base, and the base the tests below sit on (size as of the day, NTAs,
@@ -4693,6 +4694,55 @@ FEATURE_SETS["nb8-nostuy-sizefill-v1"] = partial(
 )
 FEATURE_SETS["nb8-nostuy-nta-v1"] = partial(
     nta_v2, id="nb8-nostuy-nta-v1", base="nb8-nostuy-v1"
+)
+# Data improvements' rent-blind size predictions (#694 follow-up, 2026-10-13):
+# per audit_id, the building-grouped out-of-fold LightGBM log size (case b: the
+# building's other units' stated sizes, own unit left out; case a: none).
+PREDICTED_SIZE_FILE = (
+    "/data1/apartments/external/size-predicted/20261013-5701f4b4/predicted-size.parquet"
+)
+
+
+def predsize_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+) -> Features:
+    """A base set whose rows without a stated size take the predicted log size
+    relative to the bedroom median (`PREDICTED_SIZE_FILE`) in place of 0, the
+    bedroom median. `sqft_unknown` stays, so its slope still separates them.
+    A row the file lacks keeps 0. Reads no rents."""
+    base = FEATURE_SETS[base](frame, train)
+    names = list(base.names)
+    unknown = base.values[:, names.index("sqft_unknown")] > 0.5
+    # The base's bedroom medians: unit-median stated size, training rows.
+    sqft = frame.square_feet
+    sqft = (
+        sqft.where(sqft.between(150, 8000)).groupby(frame.unit_id).transform("median")
+    )
+    known = sqft.between(150, 8000).to_numpy()
+    beds = _bedroom_label(unit_bedrooms(frame).round().clip(0, 5))
+    log_sqft = np.log(sqft.where(known))
+    median = log_sqft[train & known].groupby(beds[train & known]).median()
+    deviation = (log_sqft - beds.map(median)).to_numpy()
+    column = names.index("log_sqft_vs_bedroom_median")
+    if not np.allclose(deviation[known], base.values[known, column]):
+        raise ValueError(f"{base.id}'s size deviation is not the unit-median one")
+    predicted = (
+        pd.read_parquet(PREDICTED_SIZE_FILE, columns=["audit_id", "pred_log_sqft"])
+        .set_index("audit_id")
+        .pred_log_sqft.reindex(frame.audit_id.to_numpy())
+        .to_numpy()
+    )
+    fill = predicted - beds.map(median).to_numpy()
+    values = base.values.copy()
+    values[:, column] = np.where(unknown & np.isfinite(fill), fill, values[:, column])
+    return Features(id, base.names, base.groups, values, base.prior_scale)
+
+
+FEATURE_SETS["nb8-nostuy-predsize-v1"] = partial(
+    predsize_v1, id="nb8-nostuy-predsize-v1", base="nb8-nostuy-v1"
 )
 FEATURE_SETS["nb8-nostuy-lister-v1"] = partial(
     lister_v1, id="nb8-nostuy-lister-v1", base="nb8-nostuy-v1"

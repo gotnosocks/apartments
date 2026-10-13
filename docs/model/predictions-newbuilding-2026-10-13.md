@@ -38,3 +38,16 @@ That leaves 134,297 rows, of which 13,262 are held out and shared with C.
 - Feature coefficients move less than their posterior SD, except that the size and unknown-size
   terms may move more.
 - The descriptive share is within 1 pp of C's.
+
+## 3. predsize
+
+The fit is C on `nb8-nostuy-predsize-v1`. On the 135,097 rows without a stated size, the bedroom-median default (0) becomes
+Data improvements' rent-blind predicted log size relative to the bedroom median: case b, building-grouped out-of-fold LightGBM with the row's own unit left out,
+`/data1/apartments/external/size-predicted/20261013-5701f4b4/`. Those fills have mean −0.14 and SD 0.21.
+`sqft_unknown` and its slope stay. The prediction (coordinator note, 02:59Z; also in `config/predictions.jsonl`):
+
+- PSIS-LOO near a tie, since sizeunkslope already absorbs the average gap.
+- A lower new-building miss on unknown-size rows.
+- A lower descriptive share, counting slopes.
+
+It is judged on all three.

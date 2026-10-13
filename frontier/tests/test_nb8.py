@@ -20,6 +20,7 @@ def test_nb8_base_is_nb7_nostuy_plus_east_village():
 
 # nb8 sets with no nb7 twin; each has its own test below.
 NB8_ONLY = {
+    "nb8-nostuy-predsize-v1",
     "nb8-nostuy-lines-v1",
     "nb8-nostuy-retail-v1",
     "nb8-nostuy-noise-v1",
