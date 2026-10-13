@@ -13,6 +13,14 @@ Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (b
   shows only the latest per unit); end to end on a scratch archive 30/30 recorded, no fallbacks.
   It replaces only the rendered list step; unit and ad pages are plain requests and still
   fetched. **Resume needs Ben's word** and a new frozen runtime from master with the flag.
+- **Unit paths from the API (#708, merged Oct 13).** Ben 11:10 ET agreed to visit the
+  `/building/<building>/<unit>` path StreetEasy gives as each ad's `urlPath` instead of guessing
+  the unit route from the label. Flag `--graphql-unit-paths` (with `--graphql-inventory`). Ads
+  whose `urlPath` is `/rental/ID` keep the label guess. Membership still comes only from the
+  unit page's history; the rule and dedup are unchanged. Offline on the 30 pilot responses:
+  2,743 API unit paths replace 3,128 label guesses (2,251 of which were right), plus 743 guesses
+  for ads that open on their own page. Next: Ben decides on 1 or 2 live check requests (does
+  `/building/330-1-avenue-new_york/05e` list ad 3822968?) and on any resume.
 - **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
   pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
   5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
