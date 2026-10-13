@@ -1,0 +1,914 @@
+{
+ "a_no_text_sqft_ridge": {
+  "all": {
+   "rows": 54835,
+   "buildings": 3599,
+   "r2": [
+    0.852,
+    0.841,
+    0.863
+   ],
+   "mdape_pct": [
+    10.0,
+    9.6,
+    10.5
+   ]
+  }
+ },
+ "a_no_text_sqft_lgbm": {
+  "all": {
+   "rows": 54835,
+   "buildings": 3599,
+   "r2": [
+    0.867,
+    0.857,
+    0.876
+   ],
+   "mdape_pct": [
+    9.3,
+    8.8,
+    9.8
+   ]
+  },
+  "by_bedrooms": {
+   "studio": {
+    "rows": 11096,
+    "buildings": 964,
+    "r2": [
+     0.425,
+     0.307,
+     0.536
+    ],
+    "mdape_pct": [
+     10.1,
+     9.0,
+     11.3
+    ]
+   },
+   "1": {
+    "rows": 23533,
+    "buildings": 2017,
+    "r2": [
+     0.567,
+     0.514,
+     0.618
+    ],
+    "mdape_pct": [
+     8.6,
+     7.9,
+     9.3
+    ]
+   },
+   "2": {
+    "rows": 14061,
+    "buildings": 1880,
+    "r2": [
+     0.741,
+     0.703,
+     0.771
+    ],
+    "mdape_pct": [
+     9.0,
+     8.3,
+     9.8
+    ]
+   },
+   "3": {
+    "rows": 4746,
+    "buildings": 1079,
+    "r2": [
+     0.8,
+     0.772,
+     0.829
+    ],
+    "mdape_pct": [
+     10.8,
+     10.1,
+     11.7
+    ]
+   },
+   "4+": {
+    "rows": 1399,
+    "buildings": 459,
+    "r2": [
+     0.744,
+     0.69,
+     0.796
+    ],
+    "mdape_pct": [
+     14.4,
+     12.6,
+     16.4
+    ]
+   }
+  },
+  "by_area": {
+   "Chelsea": {
+    "rows": 18503,
+    "buildings": 822,
+    "r2": [
+     0.896,
+     0.883,
+     0.907
+    ],
+    "mdape_pct": [
+     9.2,
+     8.4,
+     10.2
+    ]
+   },
+   "East Village": {
+    "rows": 9159,
+    "buildings": 1023,
+    "r2": [
+     0.797,
+     0.767,
+     0.823
+    ],
+    "mdape_pct": [
+     11.3,
+     10.4,
+     12.0
+    ]
+   },
+   "Flatiron": {
+    "rows": 4152,
+    "buildings": 197,
+    "r2": [
+     0.89,
+     0.863,
+     0.907
+    ],
+    "mdape_pct": [
+     8.5,
+     7.7,
+     10.0
+    ]
+   },
+   "Gramercy Park": {
+    "rows": 4349,
+    "buildings": 294,
+    "r2": [
+     0.844,
+     0.801,
+     0.887
+    ],
+    "mdape_pct": [
+     9.7,
+     7.0,
+     13.1
+    ]
+   },
+   "Greenwich Village": {
+    "rows": 3566,
+    "buildings": 397,
+    "r2": [
+     0.857,
+     0.836,
+     0.879
+    ],
+    "mdape_pct": [
+     11.5,
+     10.5,
+     12.8
+    ]
+   },
+   "NoMad": {
+    "rows": 5468,
+    "buildings": 123,
+    "r2": [
+     0.823,
+     0.785,
+     0.853
+    ],
+    "mdape_pct": [
+     11.5,
+     9.9,
+     12.6
+    ]
+   },
+   "Stuyvesant Town/PCV": {
+    "rows": 3461,
+    "buildings": 56,
+    "r2": [
+     0.88,
+     0.848,
+     0.91
+    ],
+    "mdape_pct": [
+     1.7,
+     1.5,
+     1.9
+    ]
+   },
+   "West Village": {
+    "rows": 6177,
+    "buildings": 687,
+    "r2": [
+     0.865,
+     0.827,
+     0.894
+    ],
+    "mdape_pct": [
+     9.8,
+     8.9,
+     10.9
+    ]
+   }
+  }
+ },
+ "a_ridge": {
+  "all": {
+   "rows": 54835,
+   "buildings": 3599,
+   "r2": [
+    0.855,
+    0.844,
+    0.866
+   ],
+   "mdape_pct": [
+    10.1,
+    9.7,
+    10.5
+   ]
+  }
+ },
+ "a_lgbm": {
+  "all": {
+   "rows": 54835,
+   "buildings": 3599,
+   "r2": [
+    0.88,
+    0.87,
+    0.889
+   ],
+   "mdape_pct": [
+    8.7,
+    8.2,
+    9.1
+   ]
+  },
+  "by_bedrooms": {
+   "studio": {
+    "rows": 11096,
+    "buildings": 964,
+    "r2": [
+     0.458,
+     0.352,
+     0.558
+    ],
+    "mdape_pct": [
+     9.8,
+     9.1,
+     11.0
+    ]
+   },
+   "1": {
+    "rows": 23533,
+    "buildings": 2017,
+    "r2": [
+     0.592,
+     0.534,
+     0.649
+    ],
+    "mdape_pct": [
+     7.9,
+     7.2,
+     8.7
+    ]
+   },
+   "2": {
+    "rows": 14061,
+    "buildings": 1880,
+    "r2": [
+     0.776,
+     0.745,
+     0.799
+    ],
+    "mdape_pct": [
+     8.1,
+     7.5,
+     8.9
+    ]
+   },
+   "3": {
+    "rows": 4746,
+    "buildings": 1079,
+    "r2": [
+     0.839,
+     0.816,
+     0.861
+    ],
+    "mdape_pct": [
+     9.2,
+     8.7,
+     9.8
+    ]
+   },
+   "4+": {
+    "rows": 1399,
+    "buildings": 459,
+    "r2": [
+     0.796,
+     0.744,
+     0.84
+    ],
+    "mdape_pct": [
+     11.4,
+     9.8,
+     12.9
+    ]
+   }
+  },
+  "by_area": {
+   "Chelsea": {
+    "rows": 18503,
+    "buildings": 822,
+    "r2": [
+     0.907,
+     0.894,
+     0.917
+    ],
+    "mdape_pct": [
+     8.5,
+     8.0,
+     9.1
+    ]
+   },
+   "East Village": {
+    "rows": 9159,
+    "buildings": 1023,
+    "r2": [
+     0.819,
+     0.797,
+     0.84
+    ],
+    "mdape_pct": [
+     10.6,
+     9.9,
+     11.3
+    ]
+   },
+   "Flatiron": {
+    "rows": 4152,
+    "buildings": 197,
+    "r2": [
+     0.908,
+     0.887,
+     0.923
+    ],
+    "mdape_pct": [
+     7.4,
+     6.6,
+     8.5
+    ]
+   },
+   "Gramercy Park": {
+    "rows": 4349,
+    "buildings": 294,
+    "r2": [
+     0.854,
+     0.813,
+     0.895
+    ],
+    "mdape_pct": [
+     9.4,
+     6.9,
+     12.7
+    ]
+   },
+   "Greenwich Village": {
+    "rows": 3566,
+    "buildings": 397,
+    "r2": [
+     0.879,
+     0.857,
+     0.899
+    ],
+    "mdape_pct": [
+     9.9,
+     9.0,
+     11.1
+    ]
+   },
+   "NoMad": {
+    "rows": 5468,
+    "buildings": 123,
+    "r2": [
+     0.831,
+     0.795,
+     0.87
+    ],
+    "mdape_pct": [
+     11.3,
+     8.2,
+     12.3
+    ]
+   },
+   "Stuyvesant Town/PCV": {
+    "rows": 3461,
+    "buildings": 56,
+    "r2": [
+     0.879,
+     0.848,
+     0.909
+    ],
+    "mdape_pct": [
+     1.7,
+     1.4,
+     1.9
+    ]
+   },
+   "West Village": {
+    "rows": 6177,
+    "buildings": 687,
+    "r2": [
+     0.875,
+     0.84,
+     0.9
+    ],
+    "mdape_pct": [
+     9.3,
+     8.5,
+     10.2
+    ]
+   }
+  }
+ },
+ "b_ridge": {
+  "all": {
+   "rows": 54835,
+   "buildings": 3599,
+   "r2": [
+    0.886,
+    0.877,
+    0.894
+   ],
+   "mdape_pct": [
+    8.4,
+    8.0,
+    8.9
+   ]
+  }
+ },
+ "b_lgbm": {
+  "all": {
+   "rows": 54835,
+   "buildings": 3599,
+   "r2": [
+    0.917,
+    0.911,
+    0.922
+   ],
+   "mdape_pct": [
+    6.5,
+    6.2,
+    6.8
+   ]
+  },
+  "by_bedrooms": {
+   "studio": {
+    "rows": 11096,
+    "buildings": 964,
+    "r2": [
+     0.648,
+     0.571,
+     0.705
+    ],
+    "mdape_pct": [
+     6.9,
+     6.2,
+     7.7
+    ]
+   },
+   "1": {
+    "rows": 23533,
+    "buildings": 2017,
+    "r2": [
+     0.715,
+     0.682,
+     0.746
+    ],
+    "mdape_pct": [
+     6.2,
+     5.9,
+     6.6
+    ]
+   },
+   "2": {
+    "rows": 14061,
+    "buildings": 1880,
+    "r2": [
+     0.839,
+     0.822,
+     0.853
+    ],
+    "mdape_pct": [
+     6.2,
+     5.8,
+     6.6
+    ]
+   },
+   "3": {
+    "rows": 4746,
+    "buildings": 1079,
+    "r2": [
+     0.886,
+     0.869,
+     0.902
+    ],
+    "mdape_pct": [
+     7.1,
+     6.6,
+     7.8
+    ]
+   },
+   "4+": {
+    "rows": 1399,
+    "buildings": 459,
+    "r2": [
+     0.845,
+     0.805,
+     0.879
+    ],
+    "mdape_pct": [
+     8.5,
+     7.4,
+     9.4
+    ]
+   }
+  },
+  "by_area": {
+   "Chelsea": {
+    "rows": 18503,
+    "buildings": 822,
+    "r2": [
+     0.937,
+     0.928,
+     0.943
+    ],
+    "mdape_pct": [
+     6.3,
+     6.1,
+     6.8
+    ]
+   },
+   "East Village": {
+    "rows": 9159,
+    "buildings": 1023,
+    "r2": [
+     0.872,
+     0.857,
+     0.886
+    ],
+    "mdape_pct": [
+     8.0,
+     7.5,
+     8.4
+    ]
+   },
+   "Flatiron": {
+    "rows": 4152,
+    "buildings": 197,
+    "r2": [
+     0.924,
+     0.907,
+     0.938
+    ],
+    "mdape_pct": [
+     5.8,
+     5.1,
+     6.9
+    ]
+   },
+   "Gramercy Park": {
+    "rows": 4349,
+    "buildings": 294,
+    "r2": [
+     0.906,
+     0.886,
+     0.927
+    ],
+    "mdape_pct": [
+     7.2,
+     5.9,
+     8.9
+    ]
+   },
+   "Greenwich Village": {
+    "rows": 3566,
+    "buildings": 397,
+    "r2": [
+     0.907,
+     0.891,
+     0.923
+    ],
+    "mdape_pct": [
+     7.8,
+     7.0,
+     8.7
+    ]
+   },
+   "NoMad": {
+    "rows": 5468,
+    "buildings": 123,
+    "r2": [
+     0.909,
+     0.885,
+     0.93
+    ],
+    "mdape_pct": [
+     6.4,
+     5.4,
+     7.8
+    ]
+   },
+   "Stuyvesant Town/PCV": {
+    "rows": 3461,
+    "buildings": 56,
+    "r2": [
+     0.888,
+     0.86,
+     0.911
+    ],
+    "mdape_pct": [
+     2.1,
+     1.9,
+     2.4
+    ]
+   },
+   "West Village": {
+    "rows": 6177,
+    "buildings": 687,
+    "r2": [
+     0.904,
+     0.877,
+     0.921
+    ],
+    "mdape_pct": [
+     7.9,
+     7.1,
+     8.5
+    ]
+   }
+  }
+ },
+ "b_coverage": {
+  "stated_rows_with_other_stated_unit": 0.975,
+  "unstated_rows_with_stated_unit_in_building": 0.728,
+  "stated_rows_same_bed_other": 0.929,
+  "unstated_rows_same_bed_other": 0.569
+ },
+ "text_sqft": {
+  "stated_rows_with_text_sqft": 0.159,
+  "unstated_rows_with_text_sqft": 0.019,
+  "unstated_rows_with_text_sqft_n": 2981,
+  "agree_within_5pct_where_both": 0.732
+ },
+ "2i_mixed_units": {
+  "units": 10832,
+  "rows": 43570,
+  "unstated_minus_stated": {
+   "r": {
+    "mean": [
+     -0.0049,
+     -0.0093,
+     -0.0007
+    ],
+    "median": [
+     -0.0056,
+     -0.01,
+     -0.0014
+    ]
+   },
+   "year": {
+    "mean": [
+     0.4185,
+     0.0272,
+     0.7957
+    ],
+    "median": [
+     0.7326,
+     0.1667,
+     1.1667
+    ]
+   },
+   "has_desc": {
+    "mean": [
+     -0.0047,
+     -0.0072,
+     -0.0026
+    ],
+    "median": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "log_len": {
+    "mean": [
+     -0.0375,
+     -0.124,
+     0.03
+    ],
+    "median": [
+     0.0129,
+     -0.006,
+     0.037
+    ]
+   },
+   "big": {
+    "mean": [
+     0.007,
+     -0.0307,
+     0.0397
+    ],
+    "median": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "small": {
+    "mean": [
+     0.0057,
+     -0.0102,
+     0.0191
+    ],
+    "median": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "renovated": {
+    "mean": [
+     -0.0281,
+     -0.0571,
+     -0.0037
+    ],
+    "median": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "text_sqft": {
+    "mean": [
+     -0.0565,
+     -0.0769,
+     -0.0375
+    ],
+    "median": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  }
+ },
+ "2ii_never_vs_stated": {
+  "cells_building_x_bedrooms": 3851,
+  "never_minus_stated_pred_log_size_within_cell": {
+   "mean": [
+    -0.0153,
+    -0.0198,
+    -0.0117
+   ],
+   "median": [
+    -0.0029,
+    -0.005,
+    -0.001
+   ]
+  },
+  "stated_units_pred_minus_actual_in_those_cells": {
+   "mean": [
+    NaN,
+    NaN,
+    NaN
+   ]
+  },
+  "never_minus_stated_pred_log_size_overall_unit_mean": -0.1636,
+  "never_stated_units": 63746,
+  "stated_units": 28805
+ },
+ "2iii_rent_gap": {
+  "note": "residual = log rent - rent model (trained on stated rows with true size) fed predicted size; folds by building",
+  "stated_mean_resid_using_pred_size": [
+   0.0122,
+   -0.0059,
+   0.0325
+  ],
+  "unstated_mean_resid_using_pred_size": [
+   -0.015,
+   -0.0218,
+   -0.0078
+  ],
+  "stated_mean_resid_using_true_size": [
+   0.0194,
+   0.0029,
+   0.0381
+  ],
+  "no_size_model_resid_stated": [
+   0.0266,
+   0.0081,
+   0.0467
+  ],
+  "no_size_model_resid_unstated": [
+   -0.0053,
+   -0.0113,
+   0.0009
+  ],
+  "pred_log_size_mean_stated_vs_unstated": [
+   6.688,
+   6.5115
+  ],
+  "by_bedrooms_unstated_minus_stated_resid": {
+   "studio": -0.028,
+   "1": -0.0363,
+   "2": -0.0184,
+   "3": -0.02,
+   "4+": -0.0115
+  }
+ },
+ "3_share_by_year": {
+  "2010": [
+   0.415,
+   698
+  ],
+  "2011": [
+   0.405,
+   1075
+  ],
+  "2012": [
+   0.345,
+   1276
+  ],
+  "2013": [
+   0.355,
+   1913
+  ],
+  "2014": [
+   0.311,
+   13794
+  ],
+  "2015": [
+   0.297,
+   15082
+  ],
+  "2016": [
+   0.289,
+   16238
+  ],
+  "2017": [
+   0.261,
+   18784
+  ],
+  "2018": [
+   0.263,
+   18482
+  ],
+  "2019": [
+   0.256,
+   18098
+  ],
+  "2020": [
+   0.243,
+   20698
+  ],
+  "2021": [
+   0.237,
+   14169
+  ],
+  "2022": [
+   0.253,
+   14275
+  ],
+  "2023": [
+   0.238,
+   16556
+  ],
+  "2024": [
+   0.216,
+   15859
+  ],
+  "2025": [
+   0.211,
+   15181
+  ],
+  "2026": [
+   0.205,
+   12709
+  ]
+ },
+ "3_share_by_area": {
+  "Chelsea": 0.352,
+  "East Village": 0.138,
+  "Flatiron": 0.341,
+  "Gramercy Park": 0.238,
+  "Greenwich Village": 0.194,
+  "NoMad": 0.589,
+  "Stuyvesant Town/PCV": 0.954,
+  "West Village": 0.181
+ }
+}
