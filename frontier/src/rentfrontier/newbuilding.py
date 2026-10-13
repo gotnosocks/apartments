@@ -67,14 +67,15 @@ def _scale(kept, name):
     return np.zeros(kept["alpha"].shape[0]) if v is None else np.asarray(v)
 
 
-def building_variance(kept, a, first_knot, fslope_x, trend_center, spacing):
+def building_variance(kept, a, walk_origin, fslope_x, trend_center, spacing):
     """(draws, rows) prior variance of a new building's terms at each row: the
-    level, a walk that is 0 at the building's first knot, the bedroom premium,
-    the feature slopes and the trend, all independent Normals."""
+    level, a walk that is 0 at knot `walk_origin` (the panel's first knot, as in
+    `model._walk`, or the building's first knot for anchored walks), the bedroom
+    premium, the feature slopes and the trend, all independent Normals."""
     var = _scale(kept, "building_scale")[:, None] ** 2 + 0.0 * a.y[None]
     if spacing:
         knot, frac = model.walk_position(a, spacing)
-        steps = np.maximum(knot - first_knot, 0) + frac**2
+        steps = np.maximum(knot - walk_origin, 0) + frac**2
         var = var + _scale(kept, "walk_scale")[:, None] ** 2 * steps[None]
     var = var + _scale(kept, "bedroom_slope_scale")[:, None] ** 2 * (
         a.beds_centered[None] ** 2
@@ -85,6 +86,18 @@ def building_variance(kept, a, first_knot, fslope_x, trend_center, spacing):
         years = (a.month - trend_center) / 12.0
         var = var + kept["building_trend_scale"][:, None] ** 2 * years[None] ** 2
     return var
+
+
+def walk_origin(config, first_knot):
+    """The knot where a new building's walk is 0. `model._walk` pins every
+    walk at the panel's first knot; with `walk_anchor_data` it pins it at the
+    building's most-weighted knot, which for a new building is taken as its
+    first. Student-t and sum-to-zero walks are not handled."""
+    if config.walk_t or config.walk_zero_sum:
+        raise ValueError("new-building score: Normal walks only")
+    if config.walk_anchor_data:
+        return first_knot
+    return np.zeros_like(first_knot)
 
 
 def unit_draws(kept, a, has_line, rng):
@@ -217,7 +230,7 @@ def _score_chunk(kept, config, prep, a, building, rungs, ctx, rng):
             b_var = building_variance(
                 kept,
                 a,
-                ctx["first_knot"][building],
+                walk_origin(config, ctx["first_knot"][building]),
                 a.x[:, ctx["fslope_index"]],
                 ctx["center"][building],
                 ctx["spacing"],

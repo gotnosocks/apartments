@@ -342,6 +342,9 @@ def feature_sources(feature_set: str) -> dict:
             feature_set, features.PLUTO_RELEASES_FILE
         )
         out["pluto_releases"] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.PREDSIZE_SETS:
+        path = features.PREDICTED_SIZE_FILE
+        out["predicted_size"] = {"path": path, "sha256": data.sha256(Path(path))}
     return out
 
 

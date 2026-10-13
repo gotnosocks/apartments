@@ -18,7 +18,7 @@ def rows(month, beds):
     )
 
 
-def test_building_variance_adds_level_walk_from_first_knot_slopes():
+def test_building_variance_adds_level_walk_from_its_origin_and_slopes():
     kept = {
         "alpha": np.zeros(2),
         "building_scale": np.array([0.2, 0.3]),
@@ -129,3 +129,19 @@ def test_final_ask_rule_prices_ended_listings_at_their_last_ask(monkeypatch):
     assert out.asking_rent.tolist() == [2900.0, 2800.0]
     np.testing.assert_allclose(out.log_rent, np.log([2900.0, 2800.0]))
     assert str(data.RULE_SOURCES["tune-finalask-v1"]) == listing_outcomes.OUTCOMES_FILE
+
+
+def test_walk_origin_is_the_panel_start_unless_anchored():
+    from dataclasses import replace
+
+    from rentfrontier import model
+
+    first = np.array([3, 7])
+    config = model.MODELS[
+        "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope"
+    ]
+    np.testing.assert_array_equal(newbuilding.walk_origin(config, first), [0, 0])
+    anchored = replace(config, walk_anchor_data=True)
+    np.testing.assert_array_equal(newbuilding.walk_origin(anchored, first), first)
+    with pytest.raises(ValueError):
+        newbuilding.walk_origin(replace(config, walk_t=True), first)

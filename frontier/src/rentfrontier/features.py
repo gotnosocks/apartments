@@ -4741,6 +4741,7 @@ def predsize_v1(
     return Features(id, base.names, base.groups, values, base.prior_scale)
 
 
+PREDSIZE_SETS = frozenset({"nb8-nostuy-predsize-v1"})
 FEATURE_SETS["nb8-nostuy-predsize-v1"] = partial(
     predsize_v1, id="nb8-nostuy-predsize-v1", base="nb8-nostuy-v1"
 )
