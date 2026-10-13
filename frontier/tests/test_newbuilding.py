@@ -145,3 +145,47 @@ def test_walk_origin_is_the_panel_start_unless_anchored():
     np.testing.assert_array_equal(newbuilding.walk_origin(anchored, first), first)
     with pytest.raises(ValueError):
         newbuilding.walk_origin(replace(config, walk_t=True), first)
+
+
+def test_finalask_compare_scores_shared_held_out_rows_against_the_final_ask(
+    monkeypatch,
+):
+    import pandas as pd
+
+    from rentfrontier import data, finalask
+
+    def frame(ids, prices):
+        return pd.DataFrame({"audit_id": ids, "log_rent": np.log(prices)})
+
+    loads = {
+        "final": (
+            frame(["a", "b", "c"], [2900.0, 3000.0, 3100.0]),
+            np.array([True, True, False]),
+        ),
+        "base": (
+            frame(["a", "b", "c"], [3000.0, 3200.0, 3300.0]),
+            np.array([False, True, True]),
+        ),
+    }
+    monkeypatch.setattr(
+        newbuilding, "_load", lambda name: ("dir", {}, {}, "config", *loads[name])
+    )
+    monkeypatch.setattr(newbuilding.explain, "load_run", lambda name: ("dir", {}, {}))
+    monkeypatch.setattr(data, "recorded_rules", lambda result: [finalask.RULE])
+    calls = []
+
+    def score(name, ids, y=None):
+        calls.append((name, list(ids), None if y is None else y.to_dict()))
+        return {"all": {"rows": len(ids)}}
+
+    monkeypatch.setattr(finalask, "score", score)
+    out = finalask.compare("final", "base")
+    assert out["rows"] == 1
+    assert [c[:2] for c in calls] == [
+        ("final", ["b"]),
+        ("base", ["b"]),
+        ("base", ["b"]),
+    ]
+    # The base fit is scored against the final-ask run's price, then its own.
+    assert calls[1][2]["b"] == pytest.approx(np.log(3000.0))
+    assert calls[2][2] is None
