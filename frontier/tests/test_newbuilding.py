@@ -49,11 +49,73 @@ def test_scores_cover_asks_drawn_from_the_predictive():
     extra = np.full((draws, n), 0.2)
     s = rng.integers(0, draws, n)
     y = mean[s, 0] + 0.2 * rng.standard_normal(n) + 0.1 * rng.standard_t(5.0, n)
-    median, pit = newbuilding.scores(y, mean, extra, sigma, nu, rng)
+    median, pit, lpd = newbuilding.scores(y, mean, extra, sigma, nu, rng)
     out = newbuilding.summarize_rows(y, median, pit, {"all": np.ones(n, bool)})["all"]
     assert out["cover_80"] == pytest.approx(0.80, abs=0.02)
     assert out["cover_95"] == pytest.approx(0.95, abs=0.015)
     assert np.median(median) == pytest.approx(0.0, abs=0.02)
+    assert np.all(np.isfinite(lpd))
+
+
+def test_lpd_is_the_log_of_the_draw_mean_student_t_density():
+    from scipy.stats import t
+
+    rng = np.random.default_rng(3)
+    mean = np.array([[0.0, 1.0], [0.5, 1.0]])
+    sigma = np.array([[0.1, 0.2], [0.3, 0.2]])
+    nu = np.array([4.0, 9.0])
+    y = np.array([0.2, 0.9])
+    _, _, lpd = newbuilding.scores(y, mean, None, sigma, nu, rng)
+    dens = t.pdf((y - mean) / sigma, nu[:, None]) / sigma
+    np.testing.assert_allclose(lpd, np.log(dens.mean(axis=0)))
+
+
+def test_walk_origin_first_moves_an_unanchored_walk_to_the_first_knot():
+    config = SimpleNamespace(walk_t=False, walk_zero_sum=False, walk_anchor_data=False)
+    first = np.array([3, 7])
+    np.testing.assert_array_equal(newbuilding.walk_origin(config, first), [0, 0])
+    np.testing.assert_array_equal(
+        newbuilding.walk_origin(config, first, first=True), first
+    )
+
+
+def test_groups_split_each_group_by_listing_year():
+    x = np.array([[1.0], [0.0], [0.0]])
+    g = newbuilding._groups(
+        ["sqft_unknown"], x, np.array([3, 50, 200]), np.array([2015, 2025, 2015])
+    )
+    assert g["size unknown, listed 2014-16"].tolist() == [True, False, False]
+    assert g["all, listed 2014-16"].tolist() == [True, False, True]
+    assert g["building rows 101+, listed 2024-26"].sum() == 0
+
+
+def test_unitsres_terciles_are_cut_over_buildings():
+    building = np.array(["a", "a", "a", "b", "c", "d"])
+    units = np.array([5, 5, 5, 20, 100, 0])
+    out = newbuilding.unitsres_tercile(building, units)
+    assert out.tolist() == ["small"] * 3 + ["mid", "large", "unknown"]
+
+
+def test_building_weighted_counts_each_building_once():
+    import pandas as pd
+
+    rows = pd.DataFrame(
+        {
+            # Building a has three rows that miss by 10%, b one exact row.
+            "building": ["a", "a", "a", "b"],
+            "bbl": ["1", "1", "1", "2"],
+            "y": np.zeros(4),
+            "median": np.log([1.1, 1.1, 1.1, 1.0]),
+            "pit": [0.5, 0.5, 0.5, 0.99],
+            "lpd": [1.0, 1.0, 1.0, -2.0],
+        }
+    )
+    out = newbuilding.building_weighted(rows, reps=50)
+    assert out["buildings"] == 2 and out["lots"] == 2
+    assert out["cover_80"] == pytest.approx(0.5)
+    assert out["cover_95"] == pytest.approx(0.5)
+    assert out["lpd_sum"] == pytest.approx(1.0 - 2.0)
+    assert out["lpd_sum_se"] > 0
 
 
 def test_unit_draws_are_clipped_student_t_at_the_unit_scale():
@@ -194,7 +256,9 @@ def test_finalask_compare_scores_shared_held_out_rows_against_the_final_ask(
 def test_scores_do_not_depend_on_how_many_workers_ran_them(monkeypatch):
     def fake_chunk(kept, config, prep, a, building, rungs, ctx, rng):
         noise = rng.standard_normal(len(a.y))
-        return {r: (a.y + noise, np.full(len(a.y), 0.5)) for r in rungs}
+        return {
+            r: (a.y + noise, np.full(len(a.y), 0.5), np.zeros(len(a.y))) for r in rungs
+        }, {"building_part": np.zeros(len(a.y)), "knot": np.zeros(len(a.y))}
 
     monkeypatch.setattr(newbuilding, "_score_chunk", fake_chunk)
     monkeypatch.setattr(newbuilding.summary, "chunk_rows", lambda draws: 3)

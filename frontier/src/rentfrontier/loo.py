@@ -51,7 +51,7 @@ import time
 
 import numpy as np
 
-from . import data, explain, features, model
+from . import clusterse, data, explain, features, model
 from .run import git, hardware
 
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
@@ -288,6 +288,9 @@ def score_run(name: str):
     back = np.argsort(rows_sorted)
     audit, elpd, k, mcse = audit[back], elpd[back], k[back], mcse[back]
     in_sample = in_sample[back]
+    buildings = (
+        frame.set_index("audit_id").building.reindex(audit).astype(str).to_numpy()
+    )
     unit_rows = np.bincount(prep.train.unit, minlength=len(prep.units))
     train_unit = pd_index(prep.units, frame.unit_id.to_numpy()[train_idx])
     held = np.load(run_dir / "heldout.npz", allow_pickle=True)
@@ -303,6 +306,10 @@ def score_run(name: str):
         "unit_prior": "student-t" if t_units else "normal",
         "elpd_loo": float(elpd.sum()),
         "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(len(elpd))),
+        # Report-only: the SE with rows of a building, or of a tax lot,
+        # moving together (`clusterse`); the board keeps the iid SE.
+        "elpd_loo_se_building": clusterse.cluster_se(elpd, buildings),
+        "elpd_loo_se_lot": clusterse.lot_se(elpd, buildings),
         "elpd_loo_mcse": float(math.sqrt(np.sum(mcse**2))),
         # Effective number of parameters: in-sample lppd minus elpd_loo, with
         # the unit level integrated out as in elpd_loo.
