@@ -243,7 +243,8 @@ The next question was whether 20 or fewer columns keep a lower bound of 0.3 pp o
 `docs/analysis/scripts/held_data_ceiling_compact.py` drops the five suspect buildings (192,288 rows).
 It then picks as-of columns inside each lot fold:
 1. It partials C's own columns out of the residual and out of the 141 candidates. The candidates
-   are the 129 as-of columns, mean-filled, plus one indicator per distinct missing pattern.
+   are the 140 as-of columns, mean-filled with constant columns dropped, plus one indicator per
+   distinct missing pattern.
 2. It runs greedy forward selection on the training folds.
 3. It fits C's own columns plus the first 5, 10 or 20 picks by least squares and predicts the
    held-out fold.
@@ -258,7 +259,7 @@ Increment over C's own columns, change in miss (pp), 90% lot-cluster intervals:
 | top 5 | -0.22 [-0.37, -0.08] | -0.22 [-0.33, -0.10] |
 | top 10 | -0.36 [-0.52, -0.21] | -0.31 [-0.45, -0.21] |
 | top 20 | -0.39 [-0.56, -0.22] | -0.30 [-0.41, -0.18] |
-| all 129, for reference | -0.47 [-0.66, -0.26] | -0.41 [-0.54, -0.26] |
+| all 140, for reference | -0.47 [-0.66, -0.26] | -0.41 [-0.54, -0.26] |
 
 The folds agree on the first picks. Selected on all rows (for naming only), the order runs:
 1. L train within 8 minutes
