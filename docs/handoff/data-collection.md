@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 11:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -26,9 +26,9 @@ Updated 2026-10-13 10:40 ET. Thread owner: the Data collection project thread (b
   5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
   more post-cutoff ads no unit page vouched for: 900 sit on a unit page the crawl never fetched
   (API slug `05e`, crawl guessed `/5e` → 404), so the label guess misses real unit records; 166
-  have a unit page that vouched for nothing. Proposed to Ben: API vouching rule (saves ~26k
-  Brooklyn unit pages), or at least probe the API's `slug`. Awaiting his answer; offered a 1–2
-  request live check that `/05e`-style pages list those ads.
+  have a unit page that vouched for nothing. Ben kept unit pages as the association source
+  (StreetEasy's own data, dedup on unit URLs), so no API vouching rule; the unit-path probe
+  above (#708) is what he chose.
 - **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
   Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
   Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
