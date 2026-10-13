@@ -379,9 +379,97 @@ def test_api_path_yields_to_a_spelling_already_queued(tmp_path):
 
 
 def test_spelling():
-    assert gi.spelling(ROOT + "/04c") == gi.spelling("#4C") == "4c"
-    assert gi.spelling("#6-H") == gi.spelling(ROOT + "/6-h") == "6h"
-    assert gi.spelling("#0") == "0"
+    assert gi.spelling(ROOT + "/04c") == gi.spelling("#4C") == ("4", "c")
+    assert gi.spelling("#6-H") == gi.spelling(ROOT + "/6h") == ("6", "h")
+    assert gi.spelling("#0") == ("0",)
+    assert gi.spelling(ROOT + "/1-11") != gi.spelling(ROOT + "/11-1")
+
+
+def test_unit_path_carries_the_newest_ad():
+    inv = gi.inventory_from_history(
+        doc(
+            [
+                dict(digest("735970", "#4C"), urlPath="/building/hanover-house/4c"),
+                dict(digest("4615133", "#4C"), urlPath="/building/hanover-house/4c"),
+            ],
+            expected=(2,),
+        ),
+        VIEW,
+    )
+    assert inv["unit_paths"] == {ROOT + "/4c": "https://streeteasy.com/rental/4615133"}
+
+
+def _store_with_guesses(tmp_path, guesses):
+    from streeteasy_archive.collection_policy import setup
+    from streeteasy_archive.store import ArchiveStore
+
+    store = ArchiveStore(tmp_path)
+    g = store.new_generation()
+    setup(store, g)
+    store.db.execute("INSERT INTO scope_buildings VALUES(?,?)", (g, ROOT))
+    for url, reason in guesses.items():
+        store.db.execute("INSERT INTO scope_urls VALUES(?,?,?)", (g, url, reason))
+    store.db.commit()
+    store.enqueue(g, [{"url": url, "kind": "listing"} for url in guesses])
+    return store, g
+
+
+def test_deferred_guess_blocks_and_a_newer_guess_names_the_probe(tmp_path):
+    from streeteasy_archive.collection_policy import PROBE_RULE
+
+    store, g = _store_with_guesses(
+        tmp_path,
+        {
+            ROOT + "/4c": f"{PROBE_RULE} from https://streeteasy.com/rental/4615133",
+            ROOT + "/5e": f"{PROBE_RULE} from https://streeteasy.com/rental/1",
+        },
+    )
+    store.db.execute(
+        "UPDATE frontier SET state='deferred' WHERE url=?", (ROOT + "/5e",)
+    )
+    store.db.commit()
+    data = {
+        "inventory": {
+            "unit_paths": {
+                ROOT + "/04c": "https://streeteasy.com/rental/735970",
+                ROOT + "/05e": "https://streeteasy.com/rental/3822968",
+            }
+        }
+    }
+    probes, retired = gi._probes(store, g, data, VIEW, True)
+    assert probes == {
+        ROOT + "/04c": f"{PROBE_RULE} from https://streeteasy.com/rental/4615133"
+    }
+    assert retired == {ROOT + "/4c": ROOT + "/04c"}
+    store.close()
+
+
+def test_pending_api_path_is_not_a_guess(tmp_path):
+    from streeteasy_archive.collection_policy import PROBE_RULE
+
+    reason = f"{PROBE_RULE} from https://streeteasy.com/rental/735970"
+    store, g = _store_with_guesses(tmp_path, {ROOT + "/4c": reason})
+    data = {
+        "inventory": {
+            "unit_paths": {
+                ROOT + "/04c": "https://streeteasy.com/rental/4615133",
+                ROOT + "/4c": "https://streeteasy.com/rental/735970",
+            }
+        }
+    }
+    probes, retired = gi._probes(store, g, data, VIEW, True)
+    assert probes == {ROOT + "/4c": reason} and retired == {}
+    # Probes found in an earlier archived inventory block too, before they are written.
+    probes, _ = gi._probes(
+        store,
+        g,
+        {"inventory": {"unit_paths": {ROOT + "/05e": "x"}}},
+        VIEW,
+        True,
+        queued={ROOT + "/5e": "y"},
+    )
+    assert probes == {}
+    store.close()
 
 
 def test_api_path_retires_a_pending_guess_and_ignores_a_404(tmp_path):

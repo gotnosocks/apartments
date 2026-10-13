@@ -34,11 +34,14 @@ StreetEasy also keeps some units under two spellings, each page canonical to its
 pilot, `/4c` and `/04c` at 240 1st Ave list the same seven ads (Oct 13 2026), and 109 API
 paths had another spelling the crawl had already captured. Fetching both would tie each ad
 to two units, and the policy would exclude it as conflicting. So the crawl compares
-spellings with letters and digits only, lowercased and without leading zeros:
+spellings as runs of letters and digits, lowercased, with leading zeros dropped (so
+1-11 and 11-1 stay apart):
   1. A label guess is dropped when an API path in the same building has its spelling.
   2. An API path is dropped when the frontier holds another spelling of it that was
-     captured, is in flight, or came from StreetEasy's own links.
-  3. A pending label guess with the API path's spelling is retired as superseded by it.
+     captured, is in flight, is deferred after a recent capture, is another API path,
+     or came from StreetEasy's own links.
+  3. A pending label guess with the API path's spelling is retired as superseded by it,
+     and the probe takes the newer of the two source ads, which the ad-ID cutoff reads.
 A guess that returned 404 counts for nothing.
 """
 
@@ -205,7 +208,9 @@ def inventory_from_history(doc, url):
         )
         if unit_page:
             # The archived row then has no unit label; displayUnit stays in the digest.
-            unit_paths.setdefault(unit_page, listing)
+            # The newest ad names the probe, so the ad-ID cutoff judges the unit by it.
+            if unit_page not in unit_paths or _ad(listing) > _ad(unit_paths[unit_page]):
+                unit_paths[unit_page] = listing
         # The modal's row shape: inventory_unit_probes reads the second cell as the
         # unit label and the first link as the source advertisement.
         rows.append(f'<tr><td><a href="{listing}">{ad}</a></td><td>{label}</td></tr>')
@@ -245,9 +250,18 @@ def unit_path(path, root):
 
 
 def spelling(unit):
-    """A unit's route or label, reduced to compare StreetEasy's spellings of it."""
-    text = re.sub(r"[^a-z0-9]", "", unit.rsplit("/", 1)[-1].lower())
-    return text.lstrip("0") or text
+    """A unit's route or label, reduced to compare StreetEasy's spellings of it.
+
+    Runs of letters and digits, with leading zeros dropped, so /04c, /4c and #4C match
+    but 1-11 and 11-1 stay apart.
+    """
+    runs = re.findall(r"[a-z]+|[0-9]+", unit.rsplit("/", 1)[-1].lower())
+    return tuple(str(int(r)) if r.isdigit() else r for r in runs)
+
+
+def _ad(reason):
+    found = re.search(r"/rental/(\d+)$", reason or "")
+    return int(found[1]) if found else 0
 
 
 def unit_path_probes(store, generation, data, source_url, include_unavailable):
@@ -265,7 +279,7 @@ def unit_path_probes(store, generation, data, source_url, include_unavailable):
 def _retire(store, generation, retired):
     for old, new in retired.items():
         store._remember_alias(
-            generation, old, new, "label guess superseded by StreetEasy's unit path"
+            generation, old, new, "spelling superseded by StreetEasy's unit path"
         )
         store.db.execute(
             "UPDATE frontier SET state='superseded' WHERE generation=? AND url=?",
@@ -273,7 +287,9 @@ def _retire(store, generation, retired):
         )
 
 
-def _probes(store, generation, data, source_url, include_unavailable, roots=None):
+def _probes(
+    store, generation, data, source_url, include_unavailable, roots=None, queued=()
+):
     from .collection_policy import PROBE_RULE, enabled
     from .listing_identity import listing_key
 
@@ -286,8 +302,11 @@ def _probes(store, generation, data, source_url, include_unavailable, roots=None
         return {}, {}
     root = building_root(source_url)
     # Other spellings already in the frontier: those that block an API path, and pending
-    # label guesses that give way to it.
+    # label guesses that give way to it. A deferred guess was captured recently in an
+    # earlier generation, so it blocks. queued holds probes not yet written (replay).
     blocking, guesses = {}, {}
+    for unit in queued:
+        blocking.setdefault(spelling(unit), set()).add(unit)
     for row in store.db.execute(
         """SELECT f.url, f.state, s.reason,
             (SELECT o.status FROM observations o WHERE o.generation=f.generation
@@ -300,10 +319,12 @@ def _probes(store, generation, data, source_url, include_unavailable, roots=None
         if kind_for(url) != "listing" or listing_key(url):
             continue
         key = spelling(url)
-        if row["state"] in ("pending", "deferred") and (row["reason"] or "").startswith(
-            PROBE_RULE
+        if (
+            row["state"] == "pending"
+            and url not in paths
+            and (row["reason"] or "").startswith(PROBE_RULE)
         ):
-            guesses.setdefault(key, set()).add(url)
+            guesses.setdefault(key, {})[url] = row["reason"]
         elif row["state"] in ("pending", "deferred", "inflight") or (
             row["state"] == "done"
             and row["status"] is not None
@@ -316,9 +337,14 @@ def _probes(store, generation, data, source_url, include_unavailable, roots=None
         if blocking.get(key, set()) - {unit}:
             continue
         blocking.setdefault(key, set()).add(unit)
-        probes[unit] = f"{PROBE_RULE} from {ad}"
-        for old in guesses.pop(key, set()) - {unit}:
-            retired[old] = unit
+        old = guesses.pop(key, {})
+        old.pop(unit, None)
+        # A retired guess may come from a newer ad than the API path's, and the probe
+        # keeps the newest so the ad-ID cutoff does not drop the unit.
+        source = max([f"{PROBE_RULE} from {ad}", *old.values()], key=_ad)
+        probes[unit] = source
+        for url in old:
+            retired[url] = unit
     return probes, retired
 
 
@@ -362,7 +388,7 @@ def replay_unit_paths(store, generation, include_unavailable, building=None):
         except (TypeError, ValueError):
             continue
         found, gone = _probes(
-            store, generation, data, row["url"], include_unavailable, roots
+            store, generation, data, row["url"], include_unavailable, roots, probes
         )
         for unit, reason in found.items():
             probes.setdefault(unit, reason)
