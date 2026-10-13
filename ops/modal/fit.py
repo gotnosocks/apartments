@@ -11,9 +11,10 @@ dollars accrue at 10 full fits a day; refused until the balance covers it); uplo
 shallow checkout of COMMIT; run the fit (capped at 2 h, or 30 min for an exploration fit)
 and PSIS-LOO in the container, then its post-fit statistics (variance decomposition, the
 summary bundle and its calibration for a full fit, and the explained share of each --explain
-SET; each capped, and none can fail the fit); download the run to
+SET; each capped, and none can fail the fit); score new buildings (rentfrontier.newbuilding)
+in a separate many-core CPU container, which cannot fail the fit either; download the run to
 FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to FRONTIER_OUTPUT_ROOT/loo/ and the statistics to
-FRONTIER_OUTPUT_ROOT/{variance,summaries,calibration,explained}/, then delete them from the
+FRONTIER_OUTPUT_ROOT/{variance,summaries,calibration,explained,newbuilding}/, then delete them from the
 Volume. The Volume itself is
 deleted after 24 h without a launch (ops/modal/cleanup).
 """
@@ -204,7 +205,7 @@ def _marker(volume_id):
     return str(path)
 
 
-POST_KINDS = ("variance", "summaries", "calibration", "explained")
+POST_KINDS = ("variance", "summaries", "calibration", "explained", "newbuilding")
 
 
 def download(volume, name, root):
@@ -248,6 +249,16 @@ def download(volume, name, root):
     except OSError:
         pass
     volume.remove_file(f"/out/{name}", recursive=True)
+
+
+def score_new_buildings(modal_app, spec):
+    """The new-building score of a fit that finished, in a many-core CPU container
+    (app.newbuilding_cpu) while its run is still on the Volume. Never fails the fit."""
+    try:
+        return modal_app.newbuilding_cpu.remote(spec)
+    except Exception as e:  # noqa: BLE001
+        print(f"new-building score failed: {e!r}", flush=True)
+        return {"exit": repr(e)}
 
 
 def touch():
@@ -298,8 +309,12 @@ def main(argv):
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
             meta = modal_app.FITS[args.gpu].remote(spec)
+            if meta.get("fit_exit", meta["exit"]) == 0:
+                meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
-            meta["wall_seconds"] * modal_app.usd_per_second(args.gpu), 2
+            meta["wall_seconds"] * modal_app.usd_per_second(args.gpu)
+            + meta.get("newbuilding", {}).get("usd_estimate", 0),
+            2,
         )
         finish(modal_app.volume, spec["name"], meta)
     except Exception:

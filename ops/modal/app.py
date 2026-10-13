@@ -37,8 +37,11 @@ POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volu
 OUTPUT = Path(
     "/data1/apartments/frontier"
 )  # rentfrontier's OUTPUT_ROOT in the container
-POST_KINDS = ("variance", "summaries", "calibration", "explained")
+POST_KINDS = ("variance", "summaries", "calibration", "explained", "newbuilding")
 USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
+# The new-building score (rentfrontier.newbuilding) is numpy over row chunks, one process
+# per core: a CPU container scores a run's kept draws in parallel after its fit.
+NB_CPU, NB_MEMORY_MIB, NB_TIMEOUT = 32, 131072, 3600
 
 
 def usd_per_second(gpu):
@@ -48,6 +51,10 @@ def usd_per_second(gpu):
         + CPU * USD_PER_CORE_SECOND
         + MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
     )
+
+
+def nb_usd_per_second():
+    return NB_CPU * USD_PER_CORE_SECOND + NB_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
 
 
 STAGE = Path(os.environ.get("MODAL_FIT_STAGE", "/nonexistent"))
@@ -134,8 +141,8 @@ def _complete(d):
         return False
 
 
-def _fit(spec):
-    started = time.time()
+def _stage(spec):
+    """Copy the fit's inputs back to their thelio paths and check out the commit at WORK."""
     for path in spec["inputs"]:
         src = Path("/vol/inputs") / path.lstrip("/")
         dst = Path(path)
@@ -150,6 +157,11 @@ def _fit(spec):
     for d in ("refs/heads", "refs/tags", "objects/info"):
         Path(WORK, ".git", d).mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "-C", WORK, "config", "core.fileMode", "false"], check=True)
+
+
+def _fit(spec):
+    started = time.time()
+    _stage(spec)
     staged = time.time() - started
     out = Path("/vol/out") / spec["name"]
     out.mkdir(parents=True, exist_ok=True)
@@ -218,6 +230,52 @@ def _function(gpu):
     return app.function(
         gpu=gpu, cpu=CPU, memory=MEMORY_MIB, timeout=TIMEOUT, volumes={"/vol": volume}
     )
+
+
+@app.function(
+    cpu=NB_CPU, memory=NB_MEMORY_MIB, timeout=NB_TIMEOUT, volumes={"/vol": volume}
+)
+def newbuilding_cpu(spec):
+    """Score the run under /vol/out/<name>/run with rentfrontier.newbuilding, NB_CPU
+    workers, and leave its result under /vol/out/<name>/newbuilding/ for the download."""
+    started = time.time()
+    volume.reload()
+    _stage(spec)
+    out = Path("/vol/out") / spec["name"]
+    shutil.copytree(out / "run", RUNS / spec["name"], dirs_exist_ok=True)
+    staged = time.time() - started
+    env = dict(
+        os.environ,
+        PYTHONPATH=f"{WORK}/frontier/src",
+        FRONTIER_DATASET=spec["dataset"],
+        JAX_PLATFORMS="cpu",
+        PYTHONUNBUFFERED="1",
+        # One thread per worker process: the workers already fill the cores.
+        OMP_NUM_THREADS="1",
+        OPENBLAS_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
+    )
+    args = ["--workers", str(NB_CPU), *spec.get("newbuilding_args", ()), spec["name"]]
+    with open(out / "newbuilding.log", "w") as log:
+        code = _run(
+            ["/venv/bin/python", "-m", "rentfrontier.newbuilding", *args],
+            env,
+            log,
+            NB_TIMEOUT - 5 * 60,
+        )
+    for d in (OUTPUT / "newbuilding").glob(f"{spec['name']}-*"):
+        if d.is_dir() and _complete(d):
+            shutil.copytree(d, out / "newbuilding" / d.name, dirs_exist_ok=True)
+    wall = time.time() - started
+    meta = {
+        "exit": code,
+        "cpu": NB_CPU,
+        "stage_seconds": round(staged, 1),
+        "wall_seconds": round(wall, 1),
+        "usd_estimate": round(wall * nb_usd_per_second(), 2),
+    }
+    volume.commit()
+    return meta
 
 
 # One function per GPU type, at module scope so the container can find them by name.
