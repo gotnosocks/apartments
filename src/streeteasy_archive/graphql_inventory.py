@@ -18,6 +18,31 @@ empty or smaller than its page's rental summary is marked for fallback and goes 
 queue, where the next claim fetches it through the browser as before. crawler.py,
 oxylabs.py, extract.py and store.py are hashed by saved datasets, so this lives in its own
 module: cli.py selects the spider and handler subclasses below with --graphql-inventory.
+
+With --graphql-unit-paths the query also asks for each ad's `urlPath`. For an ad with its
+own unit page, StreetEasy gives that page's path there, for example
+`/building/330-1-avenue-new_york/05e` for ad 3822968, the page `/rental/3822968` redirects
+to. The crawl queues that path as the ad's unit probe and leaves the ad's label out of the
+row, so the crawl skips a guessed route such as `/5e`, which returns 404 for that ad. For
+an ad that opens on its own page, the API gives `/rental/ID`, and the crawl keeps guessing
+its unit route from the label. Membership still comes only from the probed page's own
+rental history, under the same rule. In 30 Manhattan pilot buildings 2,743 ads had a unit
+path, each a different page, and 32 of those paths had hyphens (`6-h`, `7th-floor`) that
+the label guess drops (Ben, Oct 13 2026).
+
+StreetEasy also keeps some units under two spellings, each page canonical to itself. In the
+pilot, `/4c` and `/04c` at 240 1st Ave list the same seven ads (Oct 13 2026), and 109 API
+paths had another spelling the crawl had already captured. Fetching both would tie each ad
+to two units, and the policy would exclude it as conflicting. So the crawl compares
+spellings as runs of letters and digits, lowercased, with leading zeros dropped (so
+1-11 and 11-1 stay apart):
+  1. A label guess is dropped when an API path in the same building has its spelling.
+  2. An API path is dropped when the frontier holds another spelling of it that was
+     captured, is in flight, is deferred after a recent capture, is another API path,
+     or came from StreetEasy's own links.
+  3. A pending label guess with the API path's spelling is retired as superseded by it,
+     and the probe takes the newer of the two source ads, which the ad-ID cutoff reads.
+A guess that returned 404 counts for nothing.
 """
 
 import asyncio
@@ -33,7 +58,7 @@ import scrapy
 
 from .capture import capture_metadata
 from .crawler import ArchiveSpider, is_challenge, retry_after
-from .extract import VERSION, extract, is_unavailable_url
+from .extract import VERSION, canonical_url, extract, is_unavailable_url, kind_for
 from .oxylabs import (
     API_URL,
     MAX_BODY,
@@ -58,6 +83,7 @@ DEFAULT_BATCH = 24
 MAX_FAILED_BATCHES = 3
 # Target statuses Oxylabs should return rather than retry: the API's own refusals.
 REFUSALS = [400, 403, 405, 413, 414]
+UNIT_PATH_FIELD = " urlPath"
 
 
 def is_graphql_url(url):
@@ -68,7 +94,7 @@ def is_rental_inventory(url):
     return is_unavailable_url(url) and "archive_view=unavailable-rentals" in url
 
 
-def query_url(batch):
+def query_url(batch, fields=FIELDS):
     """One GET with each building's history as an aliased field h0, h1, ..."""
     parts = [
         f"h{i}: {SOURCE}(id: {json.dumps(entry['building_id'])}) {{ ...H }}"
@@ -78,7 +104,7 @@ def query_url(batch):
         "query ArchiveRentalHistory { "
         + " ".join(parts)
         + " } fragment H on RentalListingDigest { "
-        + FIELDS
+        + fields
         + " }"
     )
     return API_HOST + "?" + urllib.parse.urlencode({"query": query})
@@ -151,7 +177,15 @@ def inventory_from_history(doc, url):
     history = doc.get("history") if isinstance(doc, dict) else None
     if doc.get("source") != SOURCE or not isinstance(history, list):
         raise ValueError("not a rental history document")
-    links, records, rows, seen = [], [], [], set()
+    root = building_root(url)
+    links, records, rows, seen, unit_paths = [], [], [], set(), {}
+    api_spellings = {
+        spelling(page)
+        for page in (
+            unit_path(e.get("urlPath"), root) for e in history if isinstance(e, dict)
+        )
+        if page
+    }
     for entry in history:
         ad = entry.get("id") if isinstance(entry, dict) else None
         if not isinstance(ad, str) or not ad.isdigit():
@@ -162,12 +196,21 @@ def inventory_from_history(doc, url):
         listing = f"https://streeteasy.com/rental/{ad}"
         links.append({"url": listing, "kind": "listing"})
         records.append({"url": listing, "kind": "listing", "digest": entry})
+        unit_page = unit_path(entry.get("urlPath"), root)
         unit = entry.get("displayUnit")
         label = (
             html.escape(unit if unit.startswith("#") else "#" + unit)
-            if isinstance(unit, str) and unit.strip()
+            if isinstance(unit, str)
+            and unit.strip()
+            and not unit_page
+            and spelling(unit) not in api_spellings
             else ""
         )
+        if unit_page:
+            # The archived row then has no unit label; displayUnit stays in the digest.
+            # The newest ad names the probe, so the ad-ID cutoff judges the unit by it.
+            if unit_page not in unit_paths or _ad(listing) > _ad(unit_paths[unit_page]):
+                unit_paths[unit_page] = listing
         # The modal's row shape: inventory_unit_probes reads the second cell as the
         # unit label and the first link as the source advertisement.
         rows.append(f'<tr><td><a href="{listing}">{ad}</a></td><td>{label}</td></tr>')
@@ -185,7 +228,176 @@ def inventory_from_history(doc, url):
         "rows": rows,
         "expected_counts": expected,
         "source": SOURCE,
+        "unit_paths": unit_paths,
     }
+
+
+def unit_path(path, root):
+    """StreetEasy's unit page for an ad, when the API gives one in this building."""
+    from .listing_identity import listing_key
+
+    if not isinstance(path, str) or not path.startswith("/building/") or not root:
+        return None
+    url = canonical_url(path)
+    if (
+        not url
+        or building_root(url) != root
+        or kind_for(url) != "listing"
+        or listing_key(url)
+    ):
+        return None
+    return url
+
+
+def spelling(unit):
+    """A unit's route or label, reduced to compare StreetEasy's spellings of it.
+
+    Runs of letters and digits, with leading zeros dropped, so /04c, /4c and #4C match
+    but 1-11 and 11-1 stay apart.
+    """
+    runs = re.findall(r"[a-z]+|[0-9]+", unit.rsplit("/", 1)[-1].lower())
+    return tuple(str(int(r)) if r.isdigit() else r for r in runs)
+
+
+def _ad(reason):
+    found = re.search(r"/rental/(\d+)$", reason or "")
+    return int(found[1]) if found else 0
+
+
+def unit_path_probes(store, generation, data, source_url, include_unavailable):
+    """Queue the API's unit pages as probes, under the conditions scope.expand uses."""
+    from .scope import _enroll
+
+    probes, retired = _probes(store, generation, data, source_url, include_unavailable)
+    if probes:
+        with store._tx():
+            _enroll(store, generation, probes)
+            _retire(store, generation, retired)
+    return len(probes)
+
+
+def _retire(store, generation, retired):
+    for old, new in retired.items():
+        store._remember_alias(
+            generation, old, new, "spelling superseded by StreetEasy's unit path"
+        )
+        store.db.execute(
+            "UPDATE frontier SET state='superseded' WHERE generation=? AND url=?",
+            (generation, old),
+        )
+
+
+def _probes(
+    store, generation, data, source_url, include_unavailable, roots=None, queued=()
+):
+    from .collection_policy import PROBE_RULE, enabled
+    from .listing_identity import listing_key
+
+    paths = data.get("inventory", {}).get("unit_paths") or {}
+    if not (paths and include_unavailable and enabled(store, generation)):
+        return {}, {}
+    if roots is None:
+        roots = _roots(store, generation)
+    if building_root(source_url) not in roots:
+        return {}, {}
+    root = building_root(source_url)
+    # Other spellings already in the frontier: those that block an API path, and pending
+    # label guesses that give way to it. A deferred guess was captured recently in an
+    # earlier generation, so it blocks. queued holds probes not yet written (replay).
+    blocking, guesses = {}, {}
+    for unit in queued:
+        blocking.setdefault(spelling(unit), set()).add(unit)
+    for row in store.db.execute(
+        """SELECT f.url, f.state, s.reason,
+            (SELECT o.status FROM observations o WHERE o.generation=f.generation
+             AND o.url=f.url ORDER BY o.id DESC LIMIT 1) AS status
+        FROM frontier f LEFT JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url
+        WHERE f.generation=? AND f.url>=? AND f.url<?""",
+        (generation, root + "/", root + "0"),
+    ):
+        url = row["url"]
+        if kind_for(url) != "listing" or listing_key(url):
+            continue
+        key = spelling(url)
+        if (
+            row["state"] == "pending"
+            and url not in paths
+            and (row["reason"] or "").startswith(PROBE_RULE)
+        ):
+            guesses.setdefault(key, {})[url] = row["reason"]
+        elif row["state"] in ("pending", "deferred", "inflight") or (
+            row["state"] == "done"
+            and row["status"] is not None
+            and (200 <= row["status"] < 300 or row["status"] == 304)
+        ):
+            blocking.setdefault(key, set()).add(url)
+    probes, retired = {}, {}
+    for unit, ad in paths.items():
+        key = spelling(unit)
+        if blocking.get(key, set()) - {unit}:
+            continue
+        blocking.setdefault(key, set()).add(unit)
+        old = guesses.pop(key, {})
+        old.pop(unit, None)
+        # A retired guess may come from a newer ad than the API path's, and the probe
+        # keeps the newest so the ad-ID cutoff does not drop the unit.
+        source = max([f"{PROBE_RULE} from {ad}", *old.values()], key=_ad)
+        probes[unit] = source
+        for url in old:
+            retired[url] = unit
+    return probes, retired
+
+
+def _roots(store, generation):
+    return {
+        r[0]
+        for r in store.db.execute(
+            "SELECT url FROM scope_buildings WHERE generation=?", (generation,)
+        )
+    }
+
+
+def replay_unit_paths(store, generation, include_unavailable, building=None):
+    """Queue unit paths from GraphQL inventories already archived, offline.
+
+    collection_policy.setup replays label probes from archived inventories, and this does
+    the same for unit paths, so a resumed generation keeps its probes. With a building,
+    only that building's probes are queued, as scope.expand does.
+    """
+    from .scope import _enroll
+
+    roots = _roots(store, generation)
+    if building:
+        roots &= {building}
+    ids = store.db.execute(
+        """SELECT id, url FROM snapshots WHERE generation=?
+        AND url LIKE '%archive_view=unavailable-rentals%' ORDER BY id""",
+        (generation,),
+    ).fetchall()
+    probes, retired = {}, {}
+    for row in ids:
+        if building_root(row["url"]) not in roots:
+            continue
+        extracted = store.db.execute(
+            "SELECT extracted FROM snapshots WHERE id=?", (row["id"],)
+        ).fetchone()[0]
+        if '"unit_paths"' not in (extracted or ""):
+            continue
+        try:
+            data = json.loads(extracted)
+        except (TypeError, ValueError):
+            continue
+        found, gone = _probes(
+            store, generation, data, row["url"], include_unavailable, roots, probes
+        )
+        for unit, reason in found.items():
+            probes.setdefault(unit, reason)
+        retired.update(gone)
+    if probes:
+        with store._tx():
+            _enroll(store, generation, probes)
+            _retire(store, generation, retired)
+    return len(probes)
 
 
 def extract_history(body, url):
@@ -359,9 +571,20 @@ class GraphQLOxylabsHandler(OxylabsDownloadHandler):
 class GraphQLInventorySpider(ArchiveSpider):
     """ArchiveSpider that reads rental inventories in GraphQL batches."""
 
-    def __init__(self, *args, graphql_batch=DEFAULT_BATCH, **kwargs):
+    def __init__(
+        self, *args, graphql_batch=DEFAULT_BATCH, graphql_unit_paths=False, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.graphql_batch = max(1, int(graphql_batch))
+        self.unit_paths = bool(graphql_unit_paths)
+        self.fields = FIELDS + (UNIT_PATH_FIELD if self.unit_paths else "")
+        if self.unit_paths and (self.neighborhood or self.building):
+            replay_unit_paths(
+                self.store,
+                self.generation,
+                self.include_unavailable,
+                building=self.building,
+            )
         self.graphql_active = True
         self.graphql_failed_batches = 0
         _ensure_table(self.store)
@@ -415,12 +638,12 @@ class GraphQLInventorySpider(ArchiveSpider):
                     row["url"],
                     "no building ID on the archived building page",
                 )
-            elif len(query_url(batch + [info])) > MAX_URL:
+            elif len(query_url(batch + [info], self.fields)) > MAX_URL:
                 release(self.store, self.generation, row["url"])
             else:
                 batch.append(info)
         return scrapy.Request(
-            query_url(batch),
+            query_url(batch, self.fields),
             callback=self.parse,
             errback=self.errback,
             dont_filter=True,
@@ -537,6 +760,14 @@ class GraphQLInventorySpider(ArchiveSpider):
                         building=self.building,
                         neighborhood=self.neighborhood,
                     )
+                    if self.unit_paths:
+                        unit_path_probes(
+                            self.store,
+                            self.generation,
+                            data,
+                            url,
+                            self.include_unavailable,
+                        )
             except Exception:
                 # The inventory is recorded; finish the rest of the batch.
                 self.logger.exception("annotating GraphQL inventory %s failed", url)

@@ -1,8 +1,43 @@
 # Data collection — handoff
 
-Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-13 12:10 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
+  StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
+  `apollo-require-preflight`, 24 buildings/request, browser as fallback). Built as #705
+  (`streeteasy_archive/graphql_inventory.py`, crawl flag `--graphql-inventory`). Ben 09:53 ET:
+  "DO NOT RESUME THE SCRAPE YET ... only test the no-JS change" ($10 added for testing). Tested
+  with 8 requests (`data/probes/graphql-inventory-test-20261013/`): 96/96 Brooklyn histories
+  contain every browser-list ad (1,007; API has 2,041 = all ads per unit, the browser list
+  shows only the latest per unit); end to end on a scratch archive 30/30 recorded, no fallbacks.
+  It replaces only the rendered list step; unit and ad pages are plain requests and still
+  fetched. **Resume needs Ben's word** and a new frozen runtime from master with the flag.
+- **Unit paths from the API (#708, merged Oct 13).** Ben 11:10 ET agreed to visit the
+  `/building/<building>/<unit>` path StreetEasy gives as each ad's `urlPath` instead of guessing
+  the unit route from the label. Flag `--graphql-unit-paths` (with `--graphql-inventory`). Ads
+  whose `urlPath` is `/rental/ID` keep the label guess. Membership still comes only from the
+  unit page's history; the rule and dedup are unchanged. Offline on the 30 pilot responses:
+  2,743 API unit paths replace 3,128 label guesses (2,251 of which were right), plus 743 guesses
+  for ads that open on their own page.
+- **One spelling per unit (#710, merged Oct 13).** Ben asked for `/04c` at 240 1st Ave (1
+  Oxylabs request, 9 of the $10 test budget used): it lists the same 7 ads as the captured `/4c`,
+  so StreetEasy keeps two records for one unit and fetching both would exclude those ads as
+  conflicting. With `--graphql-unit-paths` the crawl now compares spellings as letter and digit
+  runs without leading zeros. A label guess yields to an API path, an API path yields to a
+  captured, in-flight, deferred or linked spelling, and a pending guess is superseded (the
+  probe keeps the newer source ad for the cutoff). Pilot: guesses 743 -> 508; 112 API paths
+  give way to spellings already captured. Known nit: an older probe reason already in
+  `scope_urls` wins over a newer one (INSERT OR IGNORE). Next: Ben decides on any resume; the
+  scrape stays stopped until he says so.
+- **Unit pages could be skipped (Oxylabs check, `unitcheck/` in that probe dir).** On 30 Manhattan
+  pilot buildings the probe-style guess from the API's `displayUnit` gives the crawl's unit for
+  5,844/5,857 post-cutoff ads (12 of 13 misses are zero-padded spellings). The API lists 1,066
+  more post-cutoff ads no unit page vouched for: 900 sit on a unit page the crawl never fetched
+  (API slug `05e`, crawl guessed `/5e` → 404), so the label guess misses real unit records; 166
+  have a unit page that vouched for nothing. Ben kept unit pages as the association source
+  (StreetEasy's own data, dedup on unit URLs), so no API vouching rule; the unit-path probe
+  above (#708) is what he chose.
 - **Brooklyn crawl STOPPED on Oxylabs 429s (likely credits), waiting on Ben.** Ran Oct 12 23:01 ET at 64/min: Downtown Brooklyn + Fort Greene +
   Boerum Hill as one scrape (neighborhood `downtown-brooklyn-fort-greene-boerum-hill`, #695–#697).
   Service `apartments-brooklyn-pass-20261013`, controls `data/probes/brooklyn-pass-20261013/`
@@ -17,7 +52,7 @@ Updated 2026-10-13 03:50 ET. Thread owner: the Data collection project thread (b
   7 h with no 429s at the same rate, so most likely credits ran out. Ben told 03:24 ET. At the stop:
   12,322 pages done (12,049 OK, 273 404), 71,510 pending (detail pages), about $14–15 spent.
   On Ben's word that credits are added: `systemctl --user reset-failed` the unit and relaunch the
-  same runner (it resumes). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
+  same runner (it resumes), or a GraphQL-flag runtime if Ben chooses it (see above). 429s again: `run-32pm-8w.py`; still at 32/min: stop and ask Ben.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
   live rentals and directory pages for Greenpoint, Williamsburg, East Williamsburg, Bushwick, Park
   Slope, Prospect Heights, Boerum Hill, Fort Greene, Clinton Hill, Downtown Brooklyn. Suggested

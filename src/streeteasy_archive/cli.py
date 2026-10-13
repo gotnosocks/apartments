@@ -163,6 +163,12 @@ def main(argv=None):
             help="buildings per GraphQL request with --graphql-inventory",
         )
         command.add_argument(
+            "--graphql-unit-paths",
+            action="store_true",
+            help="with --graphql-inventory, probe the unit page StreetEasy gives as each "
+            "ad's urlPath instead of a route guessed from its label",
+        )
+        command.add_argument(
             "--revisit-interval",
             type=float,
             default=0,
@@ -530,6 +536,9 @@ def run_crawler(args, generation, lock=None):
         from .graphql_inventory import GraphQLInventorySpider as ArchiveSpider
 
         extra["graphql_batch"] = args.graphql_batch
+        extra["graphql_unit_paths"] = getattr(args, "graphql_unit_paths", False)
+    elif getattr(args, "graphql_unit_paths", False):
+        raise ValueError("--graphql-unit-paths needs --graphql-inventory")
     handler = (
         "streeteasy_archive.graphql_inventory.GraphQLOxylabsHandler"
         if graphql

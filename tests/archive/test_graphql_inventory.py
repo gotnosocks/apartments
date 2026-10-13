@@ -248,3 +248,266 @@ def test_annotate_failure_finishes_the_batch(tmp_path, monkeypatch):
     list(s.parse(HtmlResponse(url=request.url, body=body, request=request)))
     assert state(s, VIEW) == "done" and state(s, OTHER) == "done"
     s.store.close()
+
+
+def test_unit_path_replaces_the_label_guess():
+    inv = gi.inventory_from_history(
+        doc(
+            [
+                dict(
+                    digest("3822968", "#5E"),
+                    urlPath="/building/hanover-house/05e",
+                ),
+                dict(digest("3898927", "#P16H"), urlPath="/rental/3898927"),
+                dict(digest("1", "#7"), urlPath="/building/other-place/7"),
+                dict(digest("2", "#6H"), urlPath="/building/hanover-house/6-h"),
+            ],
+            expected=(4,),
+        ),
+        VIEW,
+    )
+    assert inv["unit_paths"] == {
+        ROOT + "/05e": "https://streeteasy.com/rental/3822968",
+        ROOT + "/6-h": "https://streeteasy.com/rental/2",
+    }
+    # Ads without a unit path in this building keep the label guess, and only they do.
+    assert inventory_unit_probes({"inventory": inv}, VIEW) == {
+        ROOT + "/p16h": "https://streeteasy.com/rental/3898927",
+        ROOT + "/7": "https://streeteasy.com/rental/1",
+    }
+
+
+def test_unit_path_field_is_requested_only_with_the_flag():
+    batch = [{"url": VIEW, "building_id": "1", "expected_counts": []}]
+    assert "urlPath" not in gi.query_url(batch)
+    assert "urlPath" in gi.query_url(batch, gi.FIELDS + gi.UNIT_PATH_FIELD)
+
+
+def test_spider_queues_unit_paths_as_probes(tmp_path, monkeypatch):
+    from streeteasy_archive.collection_policy import PROBE_RULE, setup
+
+    monkeypatch.setattr(
+        gi,
+        "building_info",
+        lambda store, url: {"url": url, "building_id": "7", "expected_counts": [1]},
+    )
+    s = gi.GraphQLInventorySpider.from_crawler(
+        Crawler(gi.GraphQLInventorySpider, Settings()),
+        data_dir=tmp_path,
+        transport="oxylabs",
+        concurrency=1,
+        include_unavailable=True,
+        neighborhood="chelsea",
+        graphql_unit_paths=True,
+    )
+    setup(s.store, s.generation)
+    s.store.db.execute("INSERT INTO scope_buildings VALUES(?,?)", (s.generation, ROOT))
+    s.store.db.execute(
+        "INSERT INTO scope_urls VALUES(?,?,?)", (s.generation, VIEW, "test")
+    )
+    s.store.db.commit()
+    s.store.enqueue(s.generation, [{"url": VIEW, "kind": "inventory"}])
+    request = s._request()
+    assert "urlPath" in request.url
+    entry = dict(digest("3822968", "#5E"), urlPath="/building/hanover-house/05e")
+    body = json.dumps({"data": {"h0": [entry]}}).encode()
+    list(s.parse(HtmlResponse(url=request.url, body=body, request=request)))
+    reason = s.store.db.execute(
+        "SELECT reason FROM scope_urls WHERE generation=? AND url=?",
+        (s.generation, ROOT + "/05e"),
+    ).fetchone()
+    assert reason[0] == f"{PROBE_RULE} from https://streeteasy.com/rental/3822968"
+    # The next claim takes the unit page at once.
+    assert state(s, ROOT + "/05e") == "inflight"
+    assert not s.store.db.execute(
+        "SELECT 1 FROM frontier WHERE url=?", (ROOT + "/5e",)
+    ).fetchone()
+    # A resumed run queues the same probes again from the archived inventory.
+    s.store.db.execute("DELETE FROM frontier WHERE url=?", (ROOT + "/05e",))
+    s.store.db.commit()
+    assert gi.replay_unit_paths(s.store, s.generation, True) == 1
+    assert state(s, ROOT + "/05e") == "pending"
+    s.store.close()
+
+
+def test_label_guess_yields_to_an_api_spelling_of_the_same_unit():
+    inv = gi.inventory_from_history(
+        doc(
+            [
+                dict(digest("4615133", "#4C"), urlPath="/building/hanover-house/04c"),
+                dict(digest("735970", "#4C"), urlPath="/rental/735970"),
+                dict(digest("1", "#4-D"), urlPath="/rental/1"),
+            ],
+            expected=(3,),
+        ),
+        VIEW,
+    )
+    assert inv["unit_paths"] == {ROOT + "/04c": "https://streeteasy.com/rental/4615133"}
+    assert inventory_unit_probes({"inventory": inv}, VIEW) == {
+        ROOT + "/4d": "https://streeteasy.com/rental/1"
+    }
+
+
+def test_api_path_yields_to_a_spelling_already_queued(tmp_path):
+    from streeteasy_archive.collection_policy import setup
+    from streeteasy_archive.store import ArchiveStore
+
+    store = ArchiveStore(tmp_path)
+    g = store.new_generation()
+    setup(store, g)
+    store.db.execute("INSERT INTO scope_buildings VALUES(?,?)", (g, ROOT))
+    store.db.commit()
+    store.enqueue(g, [{"url": ROOT + "/4c", "kind": "listing"}])
+    data = {
+        "inventory": {
+            "unit_paths": {
+                ROOT + "/04c": "https://streeteasy.com/rental/4615133",
+                ROOT + "/05e": "https://streeteasy.com/rental/3822968",
+            }
+        }
+    }
+    assert gi.unit_path_probes(store, g, data, VIEW, True) == 1
+    urls = {
+        r[0]
+        for r in store.db.execute(
+            "SELECT url FROM frontier WHERE generation=? AND url LIKE ?",
+            (g, ROOT + "/%"),
+        )
+    }
+    assert urls == {ROOT + "/4c", ROOT + "/05e"}
+    store.close()
+
+
+def test_spelling():
+    assert gi.spelling(ROOT + "/04c") == gi.spelling("#4C") == ("4", "c")
+    assert gi.spelling("#6-H") == gi.spelling(ROOT + "/6h") == ("6", "h")
+    assert gi.spelling("#0") == ("0",)
+    assert gi.spelling(ROOT + "/1-11") != gi.spelling(ROOT + "/11-1")
+
+
+def test_unit_path_carries_the_newest_ad():
+    inv = gi.inventory_from_history(
+        doc(
+            [
+                dict(digest("735970", "#4C"), urlPath="/building/hanover-house/4c"),
+                dict(digest("4615133", "#4C"), urlPath="/building/hanover-house/4c"),
+            ],
+            expected=(2,),
+        ),
+        VIEW,
+    )
+    assert inv["unit_paths"] == {ROOT + "/4c": "https://streeteasy.com/rental/4615133"}
+
+
+def _store_with_guesses(tmp_path, guesses):
+    from streeteasy_archive.collection_policy import setup
+    from streeteasy_archive.store import ArchiveStore
+
+    store = ArchiveStore(tmp_path)
+    g = store.new_generation()
+    setup(store, g)
+    store.db.execute("INSERT INTO scope_buildings VALUES(?,?)", (g, ROOT))
+    for url, reason in guesses.items():
+        store.db.execute("INSERT INTO scope_urls VALUES(?,?,?)", (g, url, reason))
+    store.db.commit()
+    store.enqueue(g, [{"url": url, "kind": "listing"} for url in guesses])
+    return store, g
+
+
+def test_deferred_guess_blocks_and_a_newer_guess_names_the_probe(tmp_path):
+    from streeteasy_archive.collection_policy import PROBE_RULE
+
+    store, g = _store_with_guesses(
+        tmp_path,
+        {
+            ROOT + "/4c": f"{PROBE_RULE} from https://streeteasy.com/rental/4615133",
+            ROOT + "/5e": f"{PROBE_RULE} from https://streeteasy.com/rental/1",
+        },
+    )
+    store.db.execute(
+        "UPDATE frontier SET state='deferred' WHERE url=?", (ROOT + "/5e",)
+    )
+    store.db.commit()
+    data = {
+        "inventory": {
+            "unit_paths": {
+                ROOT + "/04c": "https://streeteasy.com/rental/735970",
+                ROOT + "/05e": "https://streeteasy.com/rental/3822968",
+            }
+        }
+    }
+    probes, retired = gi._probes(store, g, data, VIEW, True)
+    assert probes == {
+        ROOT + "/04c": f"{PROBE_RULE} from https://streeteasy.com/rental/4615133"
+    }
+    assert retired == {ROOT + "/4c": ROOT + "/04c"}
+    store.close()
+
+
+def test_pending_api_path_is_not_a_guess(tmp_path):
+    from streeteasy_archive.collection_policy import PROBE_RULE
+
+    reason = f"{PROBE_RULE} from https://streeteasy.com/rental/735970"
+    store, g = _store_with_guesses(tmp_path, {ROOT + "/4c": reason})
+    data = {
+        "inventory": {
+            "unit_paths": {
+                ROOT + "/04c": "https://streeteasy.com/rental/4615133",
+                ROOT + "/4c": "https://streeteasy.com/rental/735970",
+            }
+        }
+    }
+    probes, retired = gi._probes(store, g, data, VIEW, True)
+    assert probes == {ROOT + "/4c": reason} and retired == {}
+    # Probes found in an earlier archived inventory block too, before they are written.
+    probes, _ = gi._probes(
+        store,
+        g,
+        {"inventory": {"unit_paths": {ROOT + "/05e": "x"}}},
+        VIEW,
+        True,
+        queued={ROOT + "/5e": "y"},
+    )
+    assert probes == {}
+    store.close()
+
+
+def test_api_path_retires_a_pending_guess_and_ignores_a_404(tmp_path):
+    from streeteasy_archive.collection_policy import PROBE_RULE, setup
+    from streeteasy_archive.store import ArchiveStore
+
+    store = ArchiveStore(tmp_path)
+    g = store.new_generation()
+    setup(store, g)
+    store.db.execute("INSERT INTO scope_buildings VALUES(?,?)", (g, ROOT))
+    for url in (ROOT + "/4c", ROOT + "/5e"):
+        store.db.execute(
+            "INSERT INTO scope_urls VALUES(?,?,?)", (g, url, f"{PROBE_RULE} from x")
+        )
+    store.db.commit()
+    store.enqueue(
+        g,
+        [
+            {"url": ROOT + "/4c", "kind": "listing"},
+            {"url": ROOT + "/5e", "kind": "listing"},
+        ],
+    )
+    store.record_gap(g, ROOT + "/5e", 404, {}, "HTTP 404 coverage gap")
+    data = {
+        "inventory": {
+            "unit_paths": {
+                ROOT + "/04c": "https://streeteasy.com/rental/4615133",
+                ROOT + "/05e": "https://streeteasy.com/rental/3822968",
+            }
+        }
+    }
+    assert gi.unit_path_probes(store, g, data, VIEW, True) == 2
+    states = dict(
+        store.db.execute(
+            "SELECT url, state FROM frontier WHERE generation=? AND url LIKE ?",
+            (g, ROOT + "/%"),
+        ).fetchall()
+    )
+    assert states[ROOT + "/4c"] == "superseded"
+    assert states[ROOT + "/04c"] == "pending" and states[ROOT + "/05e"] == "pending"
+    store.close()
