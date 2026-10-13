@@ -300,3 +300,22 @@ All three tasks are done and written up in `docs/model/newbuilding-2026-10-13.md
 
 Still in force: run or enqueue nothing beyond Ben's three tasks (03:16Z). The modalq-c runner is
 stopped and the held fits are in docs/research-plan.md. `ben3` has exited.
+
+## Update (2026-10-13 16:10 UTC): latest-ask fit and the Modal new-building score
+
+Ben asked (13:51Z) for a fit at each listing's latest ask, and for the new-building score on Modal
+if it ran much faster there.
+
+- #706 added `tune-latestask-v1`, and the fit has run. Against the latest ask it misses 0.28 pp
+  less than C (3.73% vs 4.01%), and its descriptive share is 25.9%. The results and prediction
+  outcomes are in `docs/model/newbuilding-2026-10-13.md`.
+- #712 runs `rentfrontier.newbuilding` in parallel over row chunks. Every Modal fit now gets the score in a 32-core
+  CPU container after it finishes, and the container's cost goes into the fit's. For a run already
+  on thelio, use `ops/modal/newbuilding.py RUN` with the Modal venv. A run costs about $0.13 and
+  takes 3 to 4 minutes, against about 19 on thelio.
+- Bridge scripts: `/data1/apartments/tmp/bridge/nb-modal.sh RUN` waits for the balance and runs
+  the score; `latestask-score.sh` ran the comparison.
+
+Still in force: run or enqueue nothing beyond Ben's tasks (03:16Z). The held fits stay in
+docs/research-plan.md.
+
