@@ -271,3 +271,16 @@ Frontier fits can run on Modal with `ops/modal-fit` (docs/model/modal.md), withi
 /data1/apartments/modal/ledger.jsonl). The served design on an A100-40GB: fit 822 to 919 s, PSIS-LOO
 139 s, identical results to thelio, about $0.80 a full fit. The Modal Volume is deleted after 24 h
 unused by apartments-modal-cleanup.timer.
+
+## Update (2026-10-13 03:50 UTC): Ben's three tasks only
+
+Ben (03:16Z, 03:20Z): run or enqueue nothing but his three tasks. The modalq-c runner is stopped, the queue
+is empty, and the held fits are listed in docs/research-plan.md ("Held fits", #698). petsfill was cancelled
+(about $0.94, settled in the ledger), and summ-1013 (the lines/lognoise summaries) was stopped. Autoselect
+and publishing are on hold.
+
+- Task 1: unit `nb-backfill` (`tmp/bridge/nb-backfill.sh`) scores C (full and `--only` the held-out lots),
+  areatime, lines and nofloorslope from master #700. Results go to `/data1/apartments/frontier/newbuilding/`.
+- Tasks 2 and 3: unit `ben3` (`tmp/bridge/ben3.sh`) launches `modal-one.sh` for C with tune-holdout-lots-v1
+  and then tune-finalask-v1, one at a time, when cap.py allows.
+- Then: `python -m rentfrontier.newbuilding --holdout <refit>` and `python -m rentfrontier.finalask <final> <C>`.
