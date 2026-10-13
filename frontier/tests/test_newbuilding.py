@@ -191,6 +191,48 @@ def test_finalask_compare_scores_shared_held_out_rows_against_the_final_ask(
     assert calls[2][2] is None
 
 
+def test_scores_do_not_depend_on_how_many_workers_ran_them(monkeypatch):
+    def fake_chunk(kept, config, prep, a, building, rungs, ctx, rng):
+        noise = rng.standard_normal(len(a.y))
+        return {r: (a.y + noise, np.full(len(a.y), 0.5)) for r in rungs}
+
+    monkeypatch.setattr(newbuilding, "_score_chunk", fake_chunk)
+    monkeypatch.setattr(newbuilding.summary, "chunk_rows", lambda draws: 3)
+    n = 10
+    frame = np.zeros(n)
+
+    def building_of(m):
+        i = np.flatnonzero(m)
+        a = SimpleNamespace(y=i.astype(float), x=np.zeros((len(i), 1)))
+        return a, np.zeros(len(i), int)
+
+    seen = {}
+
+    def summarize(y, median, pit, groups):
+        seen.setdefault("runs", []).append((y.copy(), median.copy()))
+        return {}
+
+    monkeypatch.setattr(newbuilding, "summarize_rows", summarize)
+    args = (
+        {"alpha": np.zeros(4)},
+        None,
+        SimpleNamespace(features=SimpleNamespace(names=["a"])),
+        frame,
+        np.ones(n, bool),
+        ("new building",),
+        {"rows": np.ones(1, int)},
+        building_of,
+        7,
+    )
+    _, rows = newbuilding._score(*args, workers=1)
+    newbuilding._score(*args, workers=3)
+    assert rows == n
+    (y1, m1), (y3, m3) = seen["runs"]
+    np.testing.assert_array_equal(y1, np.arange(n))
+    np.testing.assert_array_equal(y3, y1)
+    np.testing.assert_array_equal(m3, m1)
+
+
 def test_latest_ask_rule_keeps_every_row_at_its_latest_ask(monkeypatch):
     import pandas as pd
 

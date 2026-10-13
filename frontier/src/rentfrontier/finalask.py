@@ -74,7 +74,7 @@ def score(name, audit_ids, y=None):
         ("held out",),
         ctx,
         rows,
-        np.random.default_rng(newbuilding.SEED),
+        newbuilding.SEED,
     )
     return {k: v for k, v in out["held out"].items() if not k.startswith("building")}
 

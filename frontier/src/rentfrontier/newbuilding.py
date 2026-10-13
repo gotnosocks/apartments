@@ -263,26 +263,72 @@ def _groups(names, x, b_count):
     return groups
 
 
-def _score(kept, config, prep, frame, mask, rungs, ctx, building_of, rng):
-    """Score rows `mask` of `frame` in chunks; returns (per-rung summaries,
-    rows). `building_of(a)` maps a chunk's rows to `ctx`'s building index and
-    sets the index the draws are read at."""
+# What a forked worker reads: set by `_score` before its pool starts, so the
+# draws and the frame are shared with the workers rather than pickled.
+_JOB: dict = {}
+
+
+def _chunk_job(i):
+    """Chunk i of `_JOB`: ({rung: (median, pit)}, y, x, building row counts).
+    Its random stream is seeded by (seed, i), so a score doesn't depend on how
+    many workers ran it."""
+    j = _JOB
+    m = np.zeros(len(j["frame"]), dtype=bool)
+    m[j["chunks"][i]] = True
+    a, building = j["building_of"](m)
+    out = _score_chunk(
+        j["kept"],
+        j["config"],
+        j["prep"],
+        a,
+        building,
+        j["rungs"],
+        j["ctx"],
+        np.random.default_rng([j["seed"], i]),
+    )
+    return out, a.y, a.x, j["ctx"]["rows"][building]
+
+
+def _score(kept, config, prep, frame, mask, rungs, ctx, building_of, seed, workers=1):
+    """Score rows `mask` of `frame` in chunks, on `workers` forked processes;
+    returns (per-rung summaries, rows). `building_of(a)` maps a chunk's rows to
+    `ctx`'s building index and sets the index the draws are read at."""
     parts = {r: {"median": [], "pit": [], "y": []} for r in rungs}
     xs, counts = [], []
     idx = np.flatnonzero(mask)
     chunk = summary.chunk_rows(kept["alpha"].shape[0])
-    for rows in np.array_split(idx, max(1, len(idx) // chunk)):
-        m = np.zeros(len(frame), dtype=bool)
-        m[rows] = True
-        a, building = building_of(m)
-        for rung, (median, pit) in _score_chunk(
-            kept, config, prep, a, building, rungs, ctx, rng
-        ).items():
+    chunks = np.array_split(idx, max(1, len(idx) // chunk))
+    _JOB.update(
+        kept=kept,
+        config=config,
+        prep=prep,
+        frame=frame,
+        rungs=rungs,
+        ctx=ctx,
+        building_of=building_of,
+        seed=seed,
+        chunks=chunks,
+    )
+    try:
+        if workers > 1:
+            import multiprocessing
+            from concurrent.futures import ProcessPoolExecutor
+
+            with ProcessPoolExecutor(
+                workers, mp_context=multiprocessing.get_context("fork")
+            ) as pool:
+                results = list(pool.map(_chunk_job, range(len(chunks))))
+        else:
+            results = [_chunk_job(i) for i in range(len(chunks))]
+    finally:
+        _JOB.clear()
+    for out, y, x, count in results:
+        for rung, (median, pit) in out.items():
             parts[rung]["median"].append(median)
             parts[rung]["pit"].append(pit)
-            parts[rung]["y"].append(a.y)
-        xs.append(a.x)
-        counts.append(ctx["rows"][building])
+            parts[rung]["y"].append(y)
+        xs.append(x)
+        counts.append(count)
     groups = _groups(
         [str(n) for n in prep.features.names],
         np.concatenate(xs),
@@ -295,7 +341,7 @@ def _score(kept, config, prep, frame, mask, rungs, ctx, building_of, rng):
     return out, len(idx)
 
 
-def score_run(name: str, only=None):
+def score_run(name: str, only=None, workers=1):
     """Both rungs on the run's training rows (`only`: just the training rows of
     these buildings)."""
     run_dir, result, kept, config, frame, heldout = _load(name)
@@ -322,9 +368,7 @@ def score_run(name: str, only=None):
         a = model.row_arrays(prep, frame, m)
         return a, a.building
 
-    out, rows = _score(
-        kept, config, prep, frame, mask, RUNGS, ctx, seen, np.random.default_rng(SEED)
-    )
+    out, rows = _score(kept, config, prep, frame, mask, RUNGS, ctx, seen, SEED, workers)
     return _record(name, result, kept, rows, out, METHOD)
 
 
@@ -333,7 +377,8 @@ METHOD = (
     "from their population distributions per kept draw; walk from 0 at "
     "walk_origin (the panel's first knot unless anchored); the new-unit rung is "
     "in-sample for the building terms; predictive median and PIT of the "
-    "mixture of Student-t noise over draws"
+    "mixture of Student-t noise over draws; each row chunk draws from its own "
+    "generator, seeded by (SEED, chunk index)"
 )
 
 
@@ -352,7 +397,7 @@ def _record(name, result, kept, rows, out, method):
     }
 
 
-def score_holdout(name: str):
+def score_holdout(name: str, workers=1):
     """The new-building rung on the held-out lots of a fit with a
     `data.HOLDOUT_PREFIX` rule: the rows of those buildings that the same
     split without that rule trains on (step 1's rows for them), scored with the
@@ -429,7 +474,8 @@ def score_holdout(name: str):
         ("new building",),
         ctx,
         unseen,
-        np.random.default_rng(SEED),
+        SEED,
+        workers,
     )
     record = _record(name, result, kept, rows, out, METHOD_HOLDOUT)
     record["holdout_rule"] = holdout[0]
@@ -443,7 +489,8 @@ METHOD_HOLDOUT = (
     "drawn from their population distributions per kept draw; walk from 0 at "
     "walk_origin (the panel's first knot unless anchored); predictive median "
     "and PIT of the "
-    "mixture of Student-t noise over draws"
+    "mixture of Student-t noise over draws; each row chunk draws from its own "
+    "generator, seeded by (SEED, chunk index)"
 )
 
 
@@ -481,6 +528,13 @@ def main(argv=None):
         metavar="DATASET",
         help="print a held-out-lots file for DATASET's buildings (NB8 registry)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="score row chunks on this many forked processes (each holds a chunk's "
+        "draws-by-rows arrays; the draws and frame are shared)",
+    )
     args = parser.parse_args(argv)
     if args.draw_lots:
         frame = data.load(Path(args.draw_lots))
@@ -508,7 +562,12 @@ def main(argv=None):
             print(f"skip {name}: {out_dir} exists")
             continue
         t0 = time.perf_counter()
-        record = score_holdout(name) if args.holdout else score_run(name, only)
+        record = (
+            score_holdout(name, args.workers)
+            if args.holdout
+            else score_run(name, only, args.workers)
+        )
+        record["workers"] = args.workers
         record.update(
             commit=commit,
             dirty=False,

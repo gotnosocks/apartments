@@ -346,3 +346,77 @@ def test_only_finished_post_fit_records_leave_the_container(tmp_path, monkeypatc
         True,
         False,
     ]
+
+
+def test_the_new_building_score_lands_beside_the_run_and_never_fails_the_fit(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "STATE", tmp_path / "modal")
+    files = {
+        "out/r/run/result.json": b"{}",
+        "out/r/newbuilding/r-abc1234/result.json": b"{}",
+        "out/r/newbuilding.log": b"log",
+    }
+    fit.finish(FakeVolume(files), "r", {"exit": 0})
+    root = tmp_path / "frontier"
+    assert (root / "newbuilding/r-abc1234/result.json").exists()
+    assert (root / "runs/r/modal/newbuilding.log").read_bytes() == b"log"
+
+
+def test_scoring_an_existing_run_downloads_only_its_new_building_score(
+    tmp_path, monkeypatch
+):
+    nb = load("newbuilding")
+    monkeypatch.setattr(nb.fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(nb.fit, "STATE", tmp_path / "modal")
+    files = {
+        "out/r/run/result.json": b"{}",
+        "out/r/newbuilding/r-only-lots-v1-abc1234/result.json": b"{}",
+        "out/r/newbuilding.log": b"log",
+    }
+    volume = FakeVolume(files)
+    (tmp_path / "frontier/newbuilding/r-old-abc1234").mkdir(parents=True)
+    files["out/r/newbuilding/r-old-abc1234/result.json"] = b"new"
+    nb.download(volume, "r")
+    # An existing record is kept, and nothing is left half-written.
+    assert not (tmp_path / "frontier/newbuilding/r-old-abc1234/result.json").exists()
+    assert not (tmp_path / "frontier/.incoming").exists()
+    root = tmp_path / "frontier"
+    assert (root / "newbuilding/r-only-lots-v1-abc1234/result.json").exists()
+    assert (tmp_path / "modal/logs/newbuilding-r.log").read_bytes() == b"log"
+    assert not (root / "runs").exists()
+    assert volume.removed == ["/out/r"]
+
+
+def test_a_failed_new_building_container_is_still_charged(monkeypatch):
+    clock = iter([100.0, 400.0])
+    monkeypatch.setattr(fit.time, "monotonic", lambda: next(clock))
+
+    def broken(spec):
+        raise TimeoutError("container timeout")
+
+    app = type(
+        "App",
+        (),
+        {
+            "newbuilding_cpu": type("F", (), {"remote": broken}),
+            "nb_usd_per_second": staticmethod(lambda: 0.001),
+        },
+    )
+    out = fit.score_new_buildings(app, {"name": "r"})
+    assert out["usd_estimate"] == 0.3
+    assert out["exit"].startswith("TimeoutError")
+
+
+def test_scoring_an_existing_run_uses_the_dataset_it_was_fit_on(tmp_path, monkeypatch):
+    nb = load("newbuilding")
+    monkeypatch.setattr(nb.fit, "OUTPUT_ROOT", tmp_path)
+    (tmp_path / "runs/r").mkdir(parents=True)
+    (tmp_path / "runs/r/result.json").write_text(
+        json.dumps({"dataset": str(tmp_path / "ds")})
+    )
+    spec = nb.spec_for("r", "abc", ["--holdout"])
+    assert spec["dataset"] == str(tmp_path / "ds")
+    assert spec["inputs"][0] == str(tmp_path / "ds")
+    assert spec["newbuilding_args"] == ["--holdout"]
