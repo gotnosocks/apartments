@@ -39,7 +39,7 @@ That leaves 134,297 rows, of which 13,262 are held out and shared with C.
   terms may move more.
 - The descriptive share is within 1 pp of C's.
 
-## 3. predsize
+## 3. predsize (held by Ben, 2026-10-13; not run)
 
 The fit is C on `nb8-nostuy-predsize-v1`. On the 135,097 rows without a stated size, the bedroom-median default (0) becomes
 Data improvements' rent-blind predicted log size relative to the bedroom median: case b, building-grouped out-of-fold LightGBM with the row's own unit left out,
