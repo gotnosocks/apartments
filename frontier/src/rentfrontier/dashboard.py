@@ -829,7 +829,9 @@ def data_quality() -> dict:
                     else data_module.unit_aliases(path)
                 ),
             )
-        elif rule in data_module.RULE_SOURCES:
+        elif str(data_module.RULE_SOURCES.get(rule, "")).endswith(".jsonl"):
+            # Only the per-row action files are counted; other sources (a lot
+            # list, an outcomes table) feed tuning rules.
             path = Path(data_module.RULE_SOURCES[rule])
             with open(path) as f:
                 rows = [json.loads(line) for line in f if line.strip()]
