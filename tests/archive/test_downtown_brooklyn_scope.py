@@ -19,14 +19,19 @@ NAMES = [
 ]
 
 
-def test_registered_with_one_area():
-    assert NEIGHBORHOODS["downtown-brooklyn"] == (
-        {"downtown-brooklyn"},
-        {"Downtown Brooklyn"},
-    )
-    seeds = neighborhood_seeds("downtown-brooklyn")
-    assert "https://streeteasy.com/for-rent/downtown-brooklyn" in seeds
-    assert "https://streeteasy.com/buildings/downtown-brooklyn" in seeds
+AREAS = {
+    "downtown-brooklyn": "Downtown Brooklyn",
+    "fort-greene": "Fort Greene",
+    "boerum-hill": "Boerum Hill",
+}
+
+
+@pytest.mark.parametrize("slug", sorted(AREAS))
+def test_registered_with_one_area(slug):
+    assert NEIGHBORHOODS[slug] == ({slug}, {AREAS[slug]})
+    seeds = neighborhood_seeds(slug)
+    assert f"https://streeteasy.com/for-rent/{slug}" in seeds
+    assert f"https://streeteasy.com/buildings/{slug}" in seeds
     assert NEIGHBORHOODS["east-village"] == ({"east-village"}, {"East Village"})
 
 
