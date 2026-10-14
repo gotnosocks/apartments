@@ -46,6 +46,15 @@ def test_a_placeholder_on_the_off_market_day_is_skipped_and_a_final_raise_counts
         )
     )
     assert r["changes"][-1] == ("2025-03-01", 3100.0)
+    r = latest_ask.record_latest(
+        record(
+            [("2025-01-01", 6500), ("2025-03-01", 10000)],
+            10000,
+            status="RENTED",
+            off="2025-03-01",
+        )
+    )
+    assert r["changes"] == [("2025-01-01", 6500.0)]
 
 
 def test_a_same_day_fix_on_the_first_day_counts():

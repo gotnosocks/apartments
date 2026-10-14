@@ -12,7 +12,7 @@ For each listing the builder reads the last capture's `pricing.priceChanges`
 in date order. Landlords often type a placeholder ($10,000, $1,000, $500) into
 the price on the day they take a listing down. So a change dated on or after
 the listing's off-market day is skipped when it is more than twice or under
-half the ask before it. Smaller changes on that day are mostly the final ask
+half the ask before it, or a raise of more than 20% to exactly $10,000. Smaller changes on that day are mostly the final ask
 (a raise or cut as the listing is let) and count. A listing still on the market
 keeps all its changes, and changes dated on the day the listing went up always
 count, so a typo the advertiser fixed that same day gives way to the fix.
@@ -56,6 +56,10 @@ from rentfrontier.listing_extras import CRAWLS, EXTERNAL_ROOT, _git
 # A change on or after the off-market day this far from the ask before it is a
 # placeholder.
 PLACEHOLDER_RATIO = 2.0
+# So is a raise of more than 20% to exactly $10,000, the commonest placeholder:
+# 189 of the first changes after an off-market day rise more than 20% to it,
+# against 92 to the next commonest price.
+PLACEHOLDER_PRICE, PLACEHOLDER_RAISE = 10000, 1.2
 # A latest ask outside this factor of the first ask is checked against the
 # building's other rows (check 1).
 MAX_RATIO = 2.0
@@ -88,6 +92,8 @@ def record_latest(raw: str) -> dict:
         if not (still or day < off or day == on) and kept:
             ratio = c["price"] / kept[-1]["price"]
             if ratio > PLACEHOLDER_RATIO or ratio < 1 / PLACEHOLDER_RATIO:
+                continue
+            if c["price"] == PLACEHOLDER_PRICE and ratio > PLACEHOLDER_RAISE:
                 continue
         kept.append(c)
     price = pricing.get("price")
