@@ -1,6 +1,31 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 10:30 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 11:15 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 11:15 ET
+
+- **#758 (merged `75b7d1a4`): `latest-ask-v3`.** StreetEasy numbers sales and rentals
+  separately, and the crawls capture both, so 1,653 ids belong to a sale and a rental.
+  `latest_ask.py` and `listing_extras.py` took an id's last capture of either kind, and on 210 NB8
+  rows that was a sale. Both builders now keep rental records only, like `lister.py`.
+  - `latest-ask-v3` reads `/data1/apartments/external/latest-ask/20261014-9ae2b6e/` and moves 92
+    rows to their last rental ask (median 4.4%, at most 23%). That is under `NEGLIGIBLE_SHARE`, so
+    no refit. Modeling was asked to list v3 on its next latest-ask fit.
+  - Rebuilt extras `listing-extras/20261014-9ae2b6e` differ from `NB8_EXTRAS_FILE` on some NB8
+    rows (outdoor types 86, room count 170). The nb8 sets keep the hashed file. A set reading the
+    new file needs a new name.
+- **Midtown West (still held for Ben's opt-in; no PR).** Branch `data/nb9-midtown-west`, head
+  `2496aae4`, worktree `/data1/apartments/tmp/suspect/wt-mw`, master merged through #758.
+  - `areas.py` takes a crawl argument (`SPLITS`); areas `20261014-cd891c8` split Hell's Kitchen
+    (1,116 buildings) from Hudson Yards (234).
+  - `DATASET_NB9` (296,953 rows), NTA and lister `20261014-cd891c8`, blocklots `20261014-5352472`,
+    `NB9_EXTRAS_FILE` `listing-extras/20261014-717ad9c`, `latest-ask-v4` (v3's rows unchanged plus
+    Midtown West's).
+  - Sets: nb9-nostuy-v1, -sizefill-v1, -nta-v1 (NB8 folds; no new fold needed), -lister-v1. All
+    build on current rules with no NaN or constant columns. Tests in `test_nb9.py`.
+  - Still missing before a fit: Midtown West unit-label merges from Data collection's alias table
+    (`midtown-west-granular-20261014-unit-spelling-aliases-v2`), a quarantine and price-screen
+    read, and an nb9 riverparks twin.
 
 ## 2026-10-14 10:30 ET
 
