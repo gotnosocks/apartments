@@ -1094,8 +1094,8 @@ def quarantine_v16(frame: pd.DataFrame) -> pd.DataFrame:
     The five one-bedroom asks at 110 W 26th St, at about $2,400 to $2,600 in
     a building of 1,600 sq ft lofts, are held out as East Village ads under
     the wrong address. quarantine-v18 keeps them out under a corrected reason:
-    their pages carry 112 W 26th St, the same tax lot, and the asks are not
-    for whole lofts. The other rows are unchanged."""
+    four of their pages carry 112 W 26th St, the same tax lot, and the asks
+    are not for whole lofts. The other rows are unchanged."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V16))]
 
 
