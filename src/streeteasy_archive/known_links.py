@@ -27,12 +27,16 @@ from .listing_identity import listing_key
 
 ORIGINAL_ENROLL = scope._enroll
 _FORMS = {}
+# About 40 MB of forms; a crawl of 200k links would otherwise hold about 85 MB.
+FORMS_LIMIT = 100_000
 
 
 def _form(url):
     """(kind, canonical form, listing key) for url; all three depend on url alone."""
     form = _FORMS.get(url)
     if form is None:
+        if len(_FORMS) >= FORMS_LIMIT:
+            _FORMS.clear()
         canonical = canonical_url(url) or url
         form = _FORMS[url] = (scope.kind_for(url), canonical, listing_key(canonical))
     return form
