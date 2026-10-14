@@ -293,7 +293,7 @@ def test_ar_walk_recovers_rho_sd_and_building_scale(rho, building_sd, sd):
     draws = recover(rho, building_sd, sd)
     truth = {"walk_rho": rho, "walk_scale": sd, "building_scale": building_sd}
     for name, value in truth.items():
-        lo, hi = np.quantile(draws[name], [0.1, 0.9])
+        lo, hi = np.quantile(draws[name], [0.025, 0.975])
         assert lo < value < hi, (name, lo, hi, value)
     corr = np.corrcoef(draws["building_scale"], draws["walk_scale"])[0, 1]
     print(f"rho={rho} building_sd={building_sd}: corr(building, walk) {corr:.2f}")
@@ -321,3 +321,56 @@ def test_new_building_variance_uses_the_stationary_deviation():
         mix = (1 - f) ** 2 + f**2 + 2 * f * (1 - f) * kept["walk_rho"][i]
         expect = kept["building_scale"][i] ** 2 + kept["walk_scale"][i] ** 2 * mix
         np.testing.assert_allclose(var[i], expect, atol=1e-12)
+
+
+AR_FIXED = model.ModelConfig(building_walk=True, walk_ar=True, walk_ar_rho=0.95)
+
+
+def test_a_fixed_rho_drops_walk_decay_and_the_axis_updates():
+    """With walk_ar_rho set, rho stays at that value in every draw, walk_decay
+    leaves the state, and walk_scale takes its plain collapsed solo update."""
+    prep = simulate_ar(0.95, 0.1, 0.08, n_buildings=40, months=60)
+    d = gibbs.build_design(prep, AR_FIXED)
+    assert "walk_decay" not in d.scale_names and "walk_scale" in d.scale_names
+    out = gibbs.run(
+        prep,
+        AR_FIXED,
+        gibbs.Settings(chains=2, warmup=40, draws=10, keep_every=1),
+        log=lambda *_: None,
+    )
+    assert out["walk_axes"] is None
+    assert not set(out["solo_proposal_sd"]) & set(gibbs.WALK_AXES)
+    assert "walk_scale" in out["solo_proposal_sd"]
+    names = gibbs.collect_module.SCALARS
+    rho = np.asarray(out["trace"]["scalars"])[..., names.index("walk_rho")]
+    np.testing.assert_allclose(rho, 0.95)
+
+
+def test_a_fixed_rho_needs_walk_ar():
+    prep = simulate_ar(0.95, 0.1, 0.08, n_buildings=10, months=24)
+    with pytest.raises(ValueError, match="walk_ar_rho"):
+        model.constants(prep, model.ModelConfig(building_walk=True, walk_ar_rho=0.9))
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "rho, building_sd, sd", [(0.92, 0.144, 0.08), (0.89, 0.157, 0.077)]
+)
+def test_a_fixed_rho_at_the_truth_recovers_sd_and_building_scale(rho, building_sd, sd):
+    """rho held at its true value: the true sd and building_scale each lie
+    inside their posterior 95% intervals (one seed per case). An 80% interval
+    misses about one time in five, and on seed 0 the sd posterior centres a
+    little below the generative 0.08, near the deviation's realized sd."""
+    prep = simulate_ar(rho, building_sd, sd)
+    config = model.ModelConfig(building_walk=True, walk_ar=True, walk_ar_rho=rho)
+    out = gibbs.run(
+        prep,
+        config,
+        gibbs.Settings(chains=4, warmup=600, draws=1200, keep_every=100),
+        log=lambda *_: None,
+    )
+    names = gibbs.collect_module.SCALARS
+    tr = np.asarray(out["trace"]["scalars"])
+    for name, value in {"walk_scale": sd, "building_scale": building_sd}.items():
+        lo, hi = np.quantile(tr[:, :, names.index(name)].ravel(), [0.025, 0.975])
+        assert lo < value < hi, (name, lo, hi, value)
