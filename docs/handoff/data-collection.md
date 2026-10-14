@@ -54,11 +54,17 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   snapshot, and deleting it is Ben's call. Paths went to Modeling and Data improvements on
   Oct 14. Data improvements decides how Midtown West joins the analysis dataset.
   - For the next crawl: with 32 workers the crawler fetched 105 to 117 pages a minute, limited
-    by the parse work on its main thread (about 0.5 to 1 s per ad page in `scope.expand`). The
-    pacer also lets each slot's lateness accumulate, so 128/min nominal gives about 113/min.
-    Fixes for both need a reviewed PR and a new frozen runtime. Skipping links the store already
-    knows before the scope work is the first candidate; `/data1/apartments/tmp/mwprof2` holds
-    a 37 GB copy of the crawl database and the profiling scripts.
+    by the parse work on its main thread and by a pacer that let each slot's lateness carry into
+    the next, so 128/min nominal gave about 113/min. Two merged fixes address this and take
+    effect on the next frozen runtime:
+    - #753 (`known_links.py`) skips scope enrolment for links already enrolled as they would be
+      written. On 30 ad pages of a copy of the Midtown West database it skipped all 40,973 links,
+      and parse time per ad page went from 0.21 s to about 0.15 s.
+    - #754 (`pacer.py`) keeps submissions on a fixed grid of slots with at least 0.85 intervals
+      between them, so the rate stays at or below the setting, and lateness under 15% of an
+      interval no longer lowers it.
+    `/data1/apartments/tmp/mwprof2` holds a 37 GB copy of the crawl database and the profiling
+    scripts. `parse_listing` runs twice per page (about 0.035 s each), the next candidate.
   - A restart replays every page fetched since the previous start before it sends new
     requests, at about 11 pages a second.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
