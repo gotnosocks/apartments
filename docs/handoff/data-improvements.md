@@ -1,6 +1,17 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 11:15 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 14:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 14:45 ET
+
+- **`tune-westcoast-split-v2`** swaps v1's names. Modeling found that v1 put each label scheme on
+  the wrong BIN, and I confirmed it:
+  - the footprints give BIN 1012154 (the-west-coast in the registry) a roof at 122.6 ft and BIN
+    1012155 (97-horatio-street-new_york) one at 91.9 ft;
+  - floor-and-letter labels run to floor 10, three-digit labels stop at floor 7.
+  - v2 sends floor-and-letter rows to the-west-coast and three-digit rows to 97-horatio. The units
+    group the same way, so only the building-level features change. Modeling's next split C fit
+    reads v2, with no refit on its own account.
 
 ## 2026-10-14 11:15 ET
 
@@ -175,7 +186,8 @@ Updated 2026-10-14 11:15 ET. Thread owner: the Data improvements project thread 
     if 423 still fails, and tell Modeling before merging.
 - **the-west-coast (521 West St):** Modeling reported a narrow gate failure here. My checks
   (`westcoast.py`, `zeropad.py`) found no data fault. I called it a model issue, and Modeling took it.
-  - PLUTO lists 2 buildings, but there is no footprint row for the lot.
+  - PLUTO lists 2 buildings. The footprints list both BINs on the lot: 1012154 at 122.6 ft and
+    1012155 at 91.9 ft, both built in 1930.
   - It mixes 3-digit and floor-letter labels. Zero-padded aliases are already merged by
     unit-labels-v15, all but 7.
   - Only about 10% of rows are sized.
