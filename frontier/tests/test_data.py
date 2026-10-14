@@ -3,11 +3,12 @@ divergence-review quarantine (quarantine-v1)."""
 
 import functools
 import json
+import re
 
 import numpy as np
 import pandas as pd
 import pytest
-from rentfrontier import autoselect, data
+from rentfrontier import autoselect, brooklyn, data
 
 
 def test_unit_label_key_writes_a_label_one_way():
@@ -288,7 +289,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V13
     ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(
         data.QUARANTINE_V15
-    ) | data.quarantined(data.QUARANTINE_V16)
+    ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(data.QUARANTINE_V17)
 
 
 @pytest.mark.parametrize(
@@ -1322,6 +1323,104 @@ def test_quarantine_v16_adds_33_read_rows_to_v15():
     assert sum(r["building"] == "110-west-26-street-new_york" for r in rows) == 5
     assert data.QUARANTINE_V15.read_text() in data.QUARANTINE_V16.read_text()
     assert "quarantine-v16" in data.DROPPING_RULES
+
+
+def test_quarantine_v17_releases_110_west_26th_and_adds_brooklyn_rows():
+    """v17 is v16 without its five 110 W 26th St rows and with seven more
+    Brooklyn rows; every Brooklyn row carries `brooklyn_misjoin` and has an
+    entry in the misjoin file."""
+    v16 = data.quarantined(data.QUARANTINE_V16)
+    v17 = data.quarantined(data.QUARANTINE_V17)
+    with open(data.QUARANTINE_V16) as f:
+        rows16 = [json.loads(line) for line in f if line.strip()]
+    five = {
+        r["audit_id"] for r in rows16 if r["building"] == "110-west-26-street-new_york"
+    }
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    assert len(five) == 5 and len(misjoins) == 35
+    assert v17 == (v16 - five) | misjoins and len(v17) == 321
+    read = set(data.QUARANTINE_V16_READ.read_text().split())
+    read |= set(data.QUARANTINE_V17_READ.read_text().split())
+    assert misjoins <= read
+    with open(data.QUARANTINE_V17) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert all(r["evidence"] and r["reason"] for r in rows)
+    assert {
+        r["audit_id"] for r in rows if r["action"] == "brooklyn_misjoin"
+    } == misjoins
+    assert data.quarantined(data.QUARANTINE_V15) < v17
+    assert "quarantine-v17" in data.DROPPING_RULES
+
+
+def test_brooklyn_misjoins_record_the_evidence_for_a_remap():
+    with open(brooklyn.MISJOINS) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    for r in rows:
+        assert r["source_listing_id"] and r["building"] and r["unit_id"]
+        assert r["streeteasy_address"] and r["ad_phrase"] in r["ad_context"]
+        assert r["candidate_brooklyn_address"] or r["note"]
+
+
+def test_brooklyn_screen_skips_known_false_alarms():
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcdef"),
+            "source_listing_id": list("123456"),
+            "building": ["b"] * 6,
+            "unit_id": ["u"] * 6,
+            "neighbourhood": ["Gramercy Park"] * 5 + ["Hell's Kitchen"],
+            "price_at": ["2020-01-01"] * 6,
+        }
+    )
+    text = pd.Series(
+        [
+            "sunny one bedroom steps from prospect park",
+            "art deco studio in kensington house on 7th avenue",
+            "broker: 184 noll street suite 2 brooklyn ny 11237",
+            "i also have studios with terraces in park slope",
+            "quiet one bedroom on a gorgeous clinton hill block",
+            "a prime clinton hill location near 9th avenue",
+        ]
+    )
+    hits = brooklyn.screen(frame, text)
+    assert hits.audit_id.tolist() == ["a", "e"]
+
+
+def test_every_registered_dataset_is_screened_for_brooklyn_ads():
+    """Registering a dataset newer than NB8 means running
+    `frontier/scripts/brooklyn_screen.py` on it and adding its cohort to
+    `brooklyn.SCREENED`."""
+    screened = set(brooklyn.SCREENED.read_text().split())
+    for name in dir(data):
+        m = re.fullmatch(r"DATASET_NB(\d+)", name)
+        if m and int(m[1]) >= 9:
+            assert getattr(data, name).name in screened, name
+
+
+def test_unit_labels_v18_splits_the_reviewed_rows_off_v17s_units():
+    """v18 moves each reviewed row to a unit of its own and leaves the rest."""
+    ids = list(data.UNIT_SPLIT_REVIEWS)
+    frame = pd.DataFrame(
+        {
+            "audit_id": [ids[0], "x1", ids[1], "x2"],
+            "building": ["b1"] * 4,
+            "canonical_unit_url": [
+                "https://streeteasy.com/building/b1/5f",
+                "https://streeteasy.com/building/b1/5f",
+                "https://streeteasy.com/building/b1/3r",
+                "https://streeteasy.com/building/b1/3r",
+            ],
+            "unit_id": ["u5", "u5", "u3", "u3"],
+            "bedrooms": [1.0, 2.0, 1.0, 0.0],
+        }
+    )
+    v17 = data.DATA_RULES["unit-labels-v17"](frame)
+    v18 = data.DATA_RULES["unit-labels-v18"](frame)
+    assert v18.unit_id.tolist() == ["u5~ad1544571", "u5", "u3~ad1725378", "u3"]
+    assert v18.drop(columns="unit_id").equals(v17.drop(columns="unit_id"))
+    assert data.RULE_SOURCES["unit-labels-v18"] == data.UNIT_ALIASES_MW
+    assert "unit-labels-v18" not in data.DROPPING_RULES
 
 
 def test_tune_westcoast_split_v2_swaps_v1s_names():

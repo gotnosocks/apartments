@@ -516,6 +516,31 @@ def merge_spelled_labels(frame: pd.DataFrame, base) -> pd.DataFrame:
 UNIT_SPLIT_BEDROOMS = 2
 
 
+# Rows a review split off the unit page StreetEasy filed them under, each with
+# its evidence (2026-10-14).
+UNIT_SPLIT_REVIEWS = {
+    # 110 W 26th St, 5F, 2015-05: "bright quiet one bedroom in the heart of
+    # flatiron", no square footage, $2,395; 5F's seven other ads, 2015 to
+    # 2025, ask $5,400 to $8,400, and the four with a square footage give
+    # 1,500 to 1,650 sq ft.
+    "3a20e29b1facedcd1996c3a92993a22541c4b0bd5d535f82f899ad147ce39c7e": "1544571",
+    # 110 W 26th St, 3R, 2016-02: "spacious bright one bedroom", no square
+    # footage, $2,395; 3R's other ad, 2023, is a 1,650 sq ft loft at $6,000.
+    "b65c3658df23fa51c46d42944ba316e916fea4e1138228503acae7d2a576dec6": "1725378",
+}
+
+
+def split_reviewed_rows(frame: pd.DataFrame, base=None) -> pd.DataFrame:
+    """`base`'s units, with each row of `UNIT_SPLIT_REVIEWS` moved to a unit of
+    its own: its unit id plus "~ad" and its listing id. Rows are unchanged."""
+    out = base(frame) if base is not None else frame.copy()
+    hit = out.audit_id.isin(UNIT_SPLIT_REVIEWS)
+    out.loc[hit, "unit_id"] = (
+        out.unit_id[hit] + "~ad" + out.audit_id[hit].map(UNIT_SPLIT_REVIEWS)
+    )
+    return out
+
+
 def split_unit_histories(
     frame: pd.DataFrame,
     bedrooms: int = UNIT_SPLIT_BEDROOMS,
@@ -1098,6 +1123,30 @@ def quarantine_v16(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V16))]
 
 
+QUARANTINE_V17 = REPO / "config" / "reviews" / "quarantine-v17-20261014.jsonl"
+QUARANTINE_V17_READ = REPO / "config" / "reviews" / "quarantine-v17-read-20261014.txt"
+
+
+def quarantine_v17(frame: pd.DataFrame) -> pd.DataFrame:
+    """v16 without its five rows at 110 W 26th St, plus seven more Brooklyn ads
+    (321 rows in all).
+
+    Read in full, two of the five 110 W 26th ads name Flatiron, Madison Square
+    Park, Eataly and the Ace Hotel, and none names the East Village, so v16's
+    reason for them, an East Village agent's ads filed under the wrong address,
+    was wrong. They read as smaller one-bedrooms in the building. The rows come
+    back, and `unit-labels-v18` gives the two filed under a loft's unit page
+    their own units.
+
+    StreetEasy links some Brooklyn listings to the Manhattan building with the
+    same number and street name (`brooklyn`). v16's 28 such rows and seven
+    more, found by a wider place list (`brooklyn.screen`) and read in full,
+    carry the reason code `brooklyn_misjoin`, and `brooklyn.MISJOINS` records
+    their evidence. The read list is `QUARANTINE_V17_READ`. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V17))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1387,6 +1436,7 @@ DATA_RULES = {
     "quarantine-v14": quarantine_v14,
     "quarantine-v15": quarantine_v15,
     "quarantine-v16": quarantine_v16,
+    "quarantine-v17": quarantine_v17,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1400,6 +1450,10 @@ DATA_RULES = {
         join_reviewed_units, path=UNIT_JOINS_20261007
     ),
 }
+# unit-labels-v17 with the reviewed rows of UNIT_SPLIT_REVIEWS split off.
+DATA_RULES["unit-labels-v18"] = functools.partial(
+    split_reviewed_rows, base=DATA_RULES["unit-labels-v17"]
+)
 # Rules that read a file; run records hash the files.
 RULE_SOURCES = {
     "tune-holdout-lots-v1": HOLDOUT_LOTS_V1,
@@ -1423,6 +1477,7 @@ RULE_SOURCES = {
     "quarantine-v14": QUARANTINE_V14,
     "quarantine-v15": QUARANTINE_V15,
     "quarantine-v16": QUARANTINE_V16,
+    "quarantine-v17": QUARANTINE_V17,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1440,6 +1495,7 @@ RULE_SOURCES = {
     "unit-labels-v15": UNIT_ALIASES_EV,
     "unit-labels-v16": UNIT_ALIASES_EV,
     "unit-labels-v17": UNIT_ALIASES_MW,
+    "unit-labels-v18": UNIT_ALIASES_MW,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
@@ -1465,6 +1521,7 @@ DROPPING_RULES = (
     "quarantine-v14",
     "quarantine-v15",
     "quarantine-v16",
+    "quarantine-v17",
 )
 
 

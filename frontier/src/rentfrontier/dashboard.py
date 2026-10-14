@@ -710,6 +710,9 @@ DATA_RULE_TEXT = {
     "unit-labels-v17": "unit-labels-v16, with Midtown West apartments StreetEasy "
     "lists under two spellings of one label joined too, and those whose own "
     "StreetEasy page lists an ad filed under the other. No listing is dropped.",
+    "unit-labels-v18": "unit-labels-v17, with two one-bedroom ads at 110 W 26th St "
+    "filed under a loft's unit page given units of their own. No listing is "
+    "dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
@@ -811,6 +814,10 @@ DATA_RULE_TEXT = {
     "28 Brooklyn apartments by Prospect Park, in Park Slope or by Fort Greene Park "
     "carrying a Manhattan address with the same number and street, and five "
     "one-bedroom ads at 110 W 26th St from an East Village agent.",
+    "quarantine-v17": "quarantine-v16 without its five rows at 110 W 26th St, which "
+    "read in full as smaller Flatiron one-bedrooms in the building, and with seven "
+    "more Brooklyn ads that StreetEasy links to a Manhattan building (321 listings "
+    "in all, 35 of them Brooklyn ads).",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
