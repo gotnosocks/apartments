@@ -157,3 +157,48 @@ def test_every_registered_dataset_is_screened_for_ad_fit():
 def test_thresholds_are_factors_over_one():
     assert adfit.SIZE_FACTOR > 1 and adfit.PRICE_FACTOR > 1 and 0 < adfit.SMALL < 1
     assert math.isfinite(adfit.FAR_KM)
+
+
+def test_an_inferred_size_flag_needs_a_far_price():
+    """A studio with no size in a building where only the large units list one
+    gets bldg_size_small, but it lands in no tier at an ordinary studio ask,
+    and in tier A at a third of the building's studio asks."""
+    big = [
+        dict(audit_id=f"b{i}", unit_id=f"b{i}", bedrooms=0, square_feet=900, rent=4000)
+        for i in range(3)
+    ] + [
+        dict(audit_id=f"t{i}", unit_id=f"t{i}", bedrooms=2, square_feet=1400, rent=7000)
+        for i in range(3)
+    ]
+    studio = dict(audit_id="s", unit_id="s", bedrooms=0, square_feet=None, rent=3800)
+    cheap = dict(audit_id="c", unit_id="c", bedrooms=0, square_feet=None, rent=1300)
+    sized = [
+        dict(audit_id=f"o{i}", unit_id=f"o{i}", bedrooms=0, square_feet=450, rent=3000)
+        for i in range(5)
+    ]
+    frame = _frame(big + [studio, cheap] + sized)
+    frame.loc[len(big) + 2 :, "building"] = "elsewhere"
+    coords = pd.concat([COORDS, COORDS.rename(index={"b": "elsewhere"})])
+    hits = adfit.screen(frame, pd.Series([""] * len(frame)), coords, CENTRES)
+    hits = hits.set_index("audit_id")
+    assert "s" not in hits.index
+    assert hits.at["c", "tier"] == "A"
+    assert "bldg_size_small" in hits.at["c", "flags"]
+
+
+def test_a_shared_bath_in_a_larger_apartment_needs_other_units():
+    rows = [
+        dict(audit_id=a, unit_id=a, bedrooms=b, square_feet=900, rent=4000)
+        for a, b in [("a", 3), ("b", 3), ("c", 0)]
+    ]
+    text = pd.Series(
+        [
+            "three bedrooms share two shared bathrooms",
+            "bathroom shared with other tenants on the floor",
+            "studio with a shared bathroom",
+        ]
+    )
+    hits = adfit.screen(_frame(rows), text, COORDS, CENTRES).set_index("audit_id")
+    assert "a" not in hits.index
+    assert hits.at["b", "flags"] == ["shared_bath"]
+    assert hits.at["c", "flags"] == ["shared_bath"]

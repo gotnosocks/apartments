@@ -9,19 +9,29 @@ each hit into a tier for reading:
 1. A: the row's size doesn't fit its unit or building, and its price is far
    from its unit's or building's other asks.
 2. B: the ad's words describe something other than a whole apartment in this
-   building: a room share, a shared bath, a nightly or short stay, or a
-   neighbourhood more than `FAR_KM` from the building.
-3. C: size alone.
+   building: a room share, a bath or kitchen shared with other units, a
+   nightly or short stay, or a neighbourhood more than `FAR_KM` from the
+   building.
+3. C: a stated size far from the unit's other stated sizes, alone.
 4. D: price alone.
+
+Rows with no stated size get a size flag from their bedroom count's typical
+size (`INFERRED_SIZE_FLAGS`). On NB9 a random sample of 30 such rows held no
+hold-out: they were studios and one-bedrooms in buildings where only the large
+units list a size, and large units with no size of their own. So these flags
+put a row in tier A when its price is also far, and in no tier alone. A
+shared bath counts on its own only in a studio or a one-bedroom; in a larger
+apartment the ad has to say the bath or kitchen is shared with other units or
+tenants, since "two bedrooms share a hallway bath" describes one apartment.
 
 The size checks compare each row with its unit's other stated sizes, left out
 in turn:
 - a stated size more than `SIZE_FACTOR` away from the unit's median;
 - no stated size, with its bedroom count's typical size under `SMALL` of the
   unit's median;
-- a unit with no stated size in a building with at least three, where the row's
-  size (or its bedroom count's typical size) is under `SMALL` of the building's
-  10th-percentile size.
+- a unit with no stated size, where its bedroom count's typical size is under
+  `SMALL` of the 10th-percentile stated size of the building's units with the
+  same bedroom count, given at least three of them.
 
 Price only flags a row for reading. A row is held out only after someone reads
 its whole ad and page and quotes the text or page field behind the verdict, so
@@ -58,6 +68,7 @@ FAR_KM = 3.0
 MIN_SQFT = 100
 
 SIZE_FLAGS = ("size_far", "size_missing_small", "bldg_size_small")
+INFERRED_SIZE_FLAGS = ("size_missing_small", "bldg_size_small")
 TEXT_FLAGS = ("far_place", "room_share", "shared_bath", "short_stay")
 PRICE_FLAGS = ("price_far_unit", "price_far_bldg")
 FLAGS = SIZE_FLAGS + TEXT_FLAGS + PRICE_FLAGS
@@ -85,7 +96,7 @@ TERMS = {
         r"shared (?:bath|bathroom|toilet|shower|kitchen)s?\b",
         r"(?:bath|bathroom|toilet)s? (?:is |are )?shared",
         r"share (?:a |the )?(?:bath|bathroom|toilet|kitchen)",
-        r"(?:hallway|common) (?:bath|bathroom|toilet)",
+        r"communal (?:bath|bathroom|toilet|shower|kitchen)",
     ),
     "short_stay": (
         r"nightly (?:rate|rental|stay|price)s?\b",
@@ -98,6 +109,13 @@ TERMS = {
     ),
 }
 TERM_RX = {k: re.compile("|".join(f"(?:{t})" for t in v)) for k, v in TERMS.items()}
+# A bath or kitchen shared beyond the apartment, for ads of two bedrooms or more.
+SHARED_WITH_OTHERS = re.compile(
+    r"communal (?:bath|bathroom|toilet|shower|kitchen)"
+    r"|(?:bath|bathroom|toilet|shower|kitchen)s? (?:is |are )?shared with"
+    r" (?:\d|two|three|four|five|other)"
+    r"|share the (?:bath|bathroom|toilet|shower|kitchen)\w*(?: \(\w+\))? with"
+)
 NEAR = (
     r"\b(?:in|located in|heart of|apartment in|unit in|steps (?:to|from)|near"
     r"|close to|minutes? (?:to|from)) (?:the )?(?:beautiful |historic |prime )?"
@@ -197,23 +215,18 @@ def screen(
     unit_sq = loo_median(sq, unit)
     typical = pd.Series(sq).groupby(beds).median()
     typ_sq = pd.Series(beds).map(typical).to_numpy(float)
-    p10 = pd.Series(sq).groupby(building).quantile(0.1)
-    n_sq = pd.Series(~np.isnan(sq)).groupby(building).sum()
-    bld_p10 = pd.Series(building).map(p10).to_numpy(float)
-    bld_n = pd.Series(building).map(n_sq).to_numpy()
+    key = pd.Series(building).astype(str) + "|" + pd.Series(beds).astype(str)
+    p10 = pd.Series(sq).groupby(key).transform(lambda s: s.quantile(0.1))
+    bld_p10 = p10.to_numpy(float)
+    bld_n = pd.Series(~np.isnan(sq)).groupby(key).transform("sum").to_numpy()
     unit_any = pd.Series(~np.isnan(sq)).groupby(unit).transform("any").to_numpy()
 
     flags = {}
     with np.errstate(invalid="ignore", divide="ignore"):
         flags["size_far"] = np.abs(np.log(sq / unit_sq)) > math.log(SIZE_FACTOR)
         flags["size_missing_small"] = np.isnan(sq) & (typ_sq < SMALL * unit_sq)
-        flags["bldg_size_small"] = (
-            ~unit_any
-            & (bld_n >= 3)
-            & (np.where(np.isnan(sq), typ_sq, sq) < SMALL * bld_p10)
-        )
+        flags["bldg_size_small"] = ~unit_any & (bld_n >= 3) & (typ_sq < SMALL * bld_p10)
         lr = frame.log_rent.to_numpy(float)
-        key = pd.Series(building).astype(str) + "|" + pd.Series(beds).astype(str)
         flags["price_far_unit"] = np.abs(lr - loo_median(lr, unit)) > math.log(
             PRICE_FACTOR
         )
@@ -234,6 +247,9 @@ def screen(
         for k, rx in TERM_RX.items():
             if m := rx.search(ad):
                 phrase[k][i] = m.group(0)
+        if phrase["shared_bath"][i] and beds[i] >= 2:
+            m = SHARED_WITH_OTHERS.search(ad)
+            phrase["shared_bath"][i] = m.group(0) if m else None
         if np.isnan(lat[i]):
             continue
         for m in place_rx.finditer(PLACE_FALSE_ALARMS.sub(" ", ad)):
@@ -248,7 +264,9 @@ def screen(
     size = hit[list(SIZE_FLAGS)].any(axis=1)
     words = hit[list(TEXT_FLAGS)].any(axis=1)
     price = hit[list(PRICE_FLAGS)].any(axis=1)
-    tier = np.select([size & price, words, size, price], ["A", "B", "C", "D"], "")
+    tier = np.select(
+        [size & price, words, hit.size_far, price], ["A", "B", "C", "D"], ""
+    )
     rows = []
     for i in np.flatnonzero(tier != ""):
         ad = text[i]
