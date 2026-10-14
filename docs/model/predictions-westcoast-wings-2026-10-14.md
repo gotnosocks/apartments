@@ -50,7 +50,7 @@ The summary bundle now runs on thelio (#761), so the container no longer spends 
 
 | Quantity | Prediction | Basis |
 |---|---|---|
-| Gate | Passes, 80% likely; max group R-hat under 1.05 | split C 1.026; the wings are unchanged |
+| Gate | Passes, 80% likely; max group R-hat under 1.05 | split C 1.026; same wing grouping apart from 8 folded rows |
 | Fit time, cost | 1,600 to 2,300 s fitting, $1.30 to $1.90 | split C 1,653 s; no summary in the container |
 | Held-out median miss against the latest ask | 3.65 to 3.80% | split C 3.73%, served C 4.02% |
 | Held-out 80% / 95% coverage | 79.0 to 80.0 / 94.6 to 95.2 | split C 79.4 / 94.9, served C 76.8 / 93.6 |
@@ -65,7 +65,9 @@ West Coast.
 ## Follow-up after the refit
 
 C uses PLUTO's lot-level year built (`building era=...`) and floor count (`log_numfloors`). Both
-wings take the lot's values, and so they get the same era and floor count, which fit the Washington
-Street end better than the older West Street warehouses. Per-wing values from the LPC report
+wings take the lot's values, so they share an era and a floor count. The LPC report dates the
+West Street and Horatio warehouses to 1897 to 1913 at 6 or 7 stories and the Washington Street end
+to 1931 to 35 at 9, so a single lot value can't be right for both. I haven't checked which values
+the lot gets. Per-wing values from the LPC report
 would correct that for one complex. I'll write it up as a separate proposal and not hold this fit
 for it.
