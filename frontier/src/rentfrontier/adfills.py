@@ -57,11 +57,11 @@ from rentfrontier.listing_extras import EXTERNAL_ROOT, _git
 _FLIGHTS = r"(?:two|three|four|five|six|[2-6])"
 _UPSTAIRS_SPACE = r"roof|terrace|deck|bedroom|loft|lounge|garden|gym|amenit|duplex"
 ELEVATOR_NO = (
-    r"(?<!no )(?<!to )(?<!minute )(?<!short )\bwalk[- ]?up\b(?! to\b)(?! the\b)"
+    r"(?<!no )(?<!not a )(?<!not an )(?<!n't a )(?<!to )(?<!minute )(?<!short )\bwalk[- ]?up\b(?! to\b)(?! the\b)"
     rf"|\b{_FLIGHTS} (?:short |easy |small )?flights (?:of stairs )?up\b"
     rf"(?![^.]{{0,60}}(?:{_UPSTAIRS_SPACE}))"
     r"|\bno[- ]elevator|\bnon[- ]elevator"
-    r"|\bno (?:[\w-]+ ){1,3}(?:or|nor) (?:an? )?elevators?\b"
+    r"|\bno (?!damage\b)(?:[\w-]+ ){1,3}(?:or|nor) (?:an? )?elevators?\b"
     r"|\bwithout (?:an? )?elevator|\bnot an elevator"
     r"|\b(?:does not|doesn't|do not) have (?:an? )?elevator"
 )

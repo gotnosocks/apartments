@@ -1402,6 +1402,9 @@ def test_adfills_elevator_reads_one_class_per_ad():
             "Two flights up to the roof deck. Elevator to the 9th floor.",
             "Three short flights up in a quiet brownstone.",
             "If you don't like walk-ups, this elevator building is for you.",
+            "Not a walk-up! Elevator building with laundry.",
+            "This apartment is not a walk up.",
+            "Pets allowed provided no damage to building or elevator.",
         ]
     )
     out = adfills.elevator(text)
@@ -1417,6 +1420,8 @@ def test_adfills_elevator_reads_one_class_per_ad():
         11: "yes",
         12: "no",
         13: "yes",
+        14: "yes",
+        16: "yes",
     }
     assert out.evidence.str.contains("elevator|walk-up|flights up").all()
 
