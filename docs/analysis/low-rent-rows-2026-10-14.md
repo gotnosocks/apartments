@@ -55,8 +55,9 @@ a quarantine version.
 **Same-day price changes.** At One Madison and 57 1st Avenue, StreetEasy shows the advertiser
 correcting the ask within the day. Across NB8, 5,061 initial asks change on their first day. The
 median change is 2.8%, 257 change by more than 20%, and 29 change by more than a factor of two.
-Pricing each row at the ask it stood at by the end of its first day would fix both rows, and the
-other 27 like them, without leaving any row out. That changes the price the model fits, though, as
+Pricing each row at the ask it stood at by the end of its first day would fix both rows without
+leaving any row out, and it would reprice the other 27 large corrections too, assuming the
+corrected ask is the right one. That changes the price the model fits, though, as
 `tune-finalask-v1` and `tune-latestask-v1` do. A fit on a different price can't be compared with
 C by paired ELPD, so this is a question of price basis for Ben, not a quarantine rule.
 
