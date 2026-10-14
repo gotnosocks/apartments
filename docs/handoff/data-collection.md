@@ -63,8 +63,9 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
     - #754 (`pacer.py`) keeps submissions on a fixed grid of slots with at least 0.85 intervals
       between them, so the rate stays at or below the setting, and lateness under 15% of an
       interval no longer lowers it.
-    `/data1/apartments/tmp/mwprof2` holds a 37 GB copy of the crawl database and the profiling
-    scripts. `parse_listing` runs twice per page (about 0.035 s each), the next candidate.
+    - `/data1/apartments/tmp/mwprof2` holds a 37 GB copy of the crawl database and the
+      profiling scripts. `parse_listing` runs twice per page (about 0.035 s each), the next
+      candidate.
   - A restart replays every page fetched since the previous start before it sends new
     requests, at about 11 pages a second.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
