@@ -671,3 +671,53 @@ def test_a_screen_loser_ranks_behind_a_less_descriptive_fit(
         e["splits"]["rows"]["run"] for e in autoselect.ranked(es, paired_from(deltas))
     ]
     assert order == ["inc", "new"]
+
+
+def test_rules_give_their_price_target():
+    assert data.price_target(RULES) == data.FIRST_ASK
+    assert data.price_target(RULES | {"latest-ask-v2"}) == "latest ask"
+    assert data.price_target({"tune-latestask-v1"}) == "latest ask"
+    assert data.price_target({"tune-finalask-v1"}) == "final ask"
+    assert data.rule_family("unit-reviews-v1@20261007") == "unit-reviews"
+    with pytest.raises(ValueError):
+        data.price_target({"latest-ask-v2", "tune-finalask-v1"})
+
+
+LATEST = RULES | {"latest-ask-v2"}
+
+
+@pytest.fixture
+def latest_ask_rule(monkeypatch):
+    """latest-ask-v2 as a rule with no file, whatever this commit defines."""
+    monkeypatch.setitem(data.DATA_RULES, "latest-ask-v2", lambda frame: frame)
+    monkeypatch.delitem(data.RULE_SOURCES, "latest-ask-v2", raising=False)
+
+
+def test_a_fit_on_another_price_target_is_not_served(tmp_path, latest_ask_rule):
+    first = entry(tmp_path, "first", 10.0, 1300)
+    assert autoselect.why_not(first, LATEST) == (
+        "it models the first ask, not the current rules' latest ask"
+    )
+    assert (
+        autoselect.why_not(entry(tmp_path, "latest", 10.0, 1300, LATEST), LATEST)
+        is None
+    )
+
+
+def test_an_incumbent_on_another_price_target_is_not_paired(tmp_path, latest_ask_rule):
+    es = [
+        entry(tmp_path, "inc", 50.0, 1300),
+        entry(tmp_path, "a", 12.0, 1300, LATEST),
+        entry(tmp_path, "b", 11.0, 1300, LATEST),
+    ]
+
+    def first_ask_pairs_only(a, b):
+        if "inc" in (Path(a).name, Path(b).name):
+            raise AssertionError("a fit on another price is never paired")
+        return {"a": 12.0, "b": 11.0}[a] - {"a": 12.0, "b": 11.0}[b], 1.0, 0.0
+
+    d = autoselect.decide(es, "inc", LATEST, first_ask_pairs_only, first_ask_pairs_only)
+    assert d["action"] == "switch" and d["run"] == "a"
+    assert d["target"] == "latest ask" and d["incumbent_target"] == data.FIRST_ASK
+    assert "models the first ask" in d["reason"]
+    assert "psis" not in d["checked"][0]
