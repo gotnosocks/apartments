@@ -29,7 +29,8 @@ sample of 30 of them on NB9 was all studios and one-bedrooms in buildings where 
 units list a size, plus big units with no size. That change took NB9's tier C from 2,224 hits
 to 156. A shared bath counts alone only in a studio or a one-bedroom. For two bedrooms or more,
 the ad has to say the bath is shared with other units or tenants, since most hits there were
-bedrooms sharing the apartment's own bath.
+bedrooms sharing the apartment's own bath. The screen leaves out "communal kitchen" as well, since
+most ads use it for a building amenity.
 
 We read the tiers in that order. For each hit we read the whole ad and the page fields (the
 address the agent typed, the lister, the stated size, photos, days on market), and we add a line

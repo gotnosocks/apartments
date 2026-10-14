@@ -23,6 +23,8 @@ put a row in tier A when its price is also far, and in no tier alone. A
 shared bath counts on its own only in a studio or a one-bedroom; in a larger
 apartment the ad has to say the bath or kitchen is shared with other units or
 tenants, since "two bedrooms share a hallway bath" describes one apartment.
+A hallway or common bath alone doesn't count in any apartment, and
+"communal kitchen" doesn't count, since most ads list it as a building amenity.
 
 The size checks compare each row with its unit's other stated sizes, left out
 in turn:
@@ -31,7 +33,7 @@ in turn:
   unit's median;
 - a unit with no stated size, where its bedroom count's typical size is under
   `SMALL` of the 10th-percentile stated size of the building's units with the
-  same bedroom count, given at least three of them.
+  same bedroom count, given at least three rows with a stated size.
 
 Price only flags a row for reading. A row is held out only after someone reads
 its whole ad and page and quotes the text or page field behind the verdict, so
@@ -96,7 +98,8 @@ TERMS = {
         r"shared (?:bath|bathroom|toilet|shower|kitchen)s?\b",
         r"(?:bath|bathroom|toilet)s? (?:is |are )?shared",
         r"share (?:a |the )?(?:bath|bathroom|toilet|kitchen)",
-        r"communal (?:bath|bathroom|toilet|shower|kitchen)",
+        # "communal kitchen" is a building amenity in most ads.
+        r"communal (?:bath|bathroom|toilet|shower)",
     ),
     "short_stay": (
         r"nightly (?:rate|rental|stay|price)s?\b",
@@ -111,7 +114,7 @@ TERMS = {
 TERM_RX = {k: re.compile("|".join(f"(?:{t})" for t in v)) for k, v in TERMS.items()}
 # A bath or kitchen shared beyond the apartment, for ads of two bedrooms or more.
 SHARED_WITH_OTHERS = re.compile(
-    r"communal (?:bath|bathroom|toilet|shower|kitchen)"
+    r"communal (?:bath|bathroom|toilet|shower)"
     r"|(?:bath|bathroom|toilet|shower|kitchen)s? (?:is |are )?shared with"
     r" (?:\d|two|three|four|five|other)"
     r"|share the (?:bath|bathroom|toilet|shower|kitchen)\w*(?: \(\w+\))? with"

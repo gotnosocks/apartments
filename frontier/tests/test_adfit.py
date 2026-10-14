@@ -189,16 +189,17 @@ def test_an_inferred_size_flag_needs_a_far_price():
 def test_a_shared_bath_in_a_larger_apartment_needs_other_units():
     rows = [
         dict(audit_id=a, unit_id=a, bedrooms=b, square_feet=900, rent=4000)
-        for a, b in [("a", 3), ("b", 3), ("c", 0)]
+        for a, b in [("a", 3), ("b", 3), ("c", 0), ("d", 1)]
     ]
     text = pd.Series(
         [
             "three bedrooms share two shared bathrooms",
             "bathroom shared with other tenants on the floor",
             "studio with a shared bathroom",
+            "amenities: roof deck, gym, communal kitchen and dining room",
         ]
     )
     hits = adfit.screen(_frame(rows), text, COORDS, CENTRES).set_index("audit_id")
-    assert "a" not in hits.index
+    assert {"a", "d"}.isdisjoint(hits.index)
     assert hits.at["b", "flags"] == ["shared_bath"]
     assert hits.at["c", "flags"] == ["shared_bath"]
