@@ -21,12 +21,15 @@ WINGS = {
     "the-west-coast-west-wing": ("The West Coast", "West Street wing"),
     "the-west-coast": ("The West Coast", "Washington Street wing"),
 }
-# StreetEasy slugs of a split complex, then (label pattern, wing slug) in order:
-# the first pattern to match the whole lower-cased unit label picks the wing.
+# StreetEasy slugs of a split complex, then the label pattern for the split-off
+# wing, that wing's slug and the slug for every other label. The patterns
+# follow the data rule `west-coast-wings-v1`, which runs after
+# `building-joins-v1` folds the 97 Horatio page into the-west-coast.
 SPLITS = {
     ("the-west-coast", "97-horatio-street-new_york"): (
-        (re.compile(r"\d{3}"), "the-west-coast-west-wing"),
-        (re.compile(r"\d+[a-z]+|ph.*"), "the-west-coast"),
+        re.compile(r"\d{3}"),
+        "the-west-coast-west-wing",
+        "the-west-coast",
     ),
 }
 
@@ -46,12 +49,13 @@ def names(slugs) -> dict[str, str]:
 
 def wing(slug: str, label: str | None, fitted) -> str:
     """The model building for a listing on StreetEasy's `slug` with unit
-    `label`: its wing when the label matches a wing's scheme and the fit has
-    that wing (`fitted`, the fit's building slugs), and `slug` otherwise."""
-    for pages, schemes in SPLITS.items():
-        if slug not in pages or not label:
-            continue
-        for pattern, target in schemes:
-            if pattern.fullmatch(label.lower()):
-                return target if target in fitted else slug
+    `label`. A label matching the split-off wing's pattern goes to that wing
+    when the fit has it (`fitted`, the fit's building slugs), and any other
+    label goes to the complex's main slug. A fit without the wing, or a slug
+    outside every split, leaves the slug as it is."""
+    for pages, (pattern, split, main) in SPLITS.items():
+        if slug in pages and split in fitted:
+            if label and pattern.fullmatch(label.lower()):
+                return split
+            return main
     return slug

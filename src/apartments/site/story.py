@@ -1170,6 +1170,7 @@ EXTRA_WORDS = {
     "trees": "the street trees nearby",
     "crime": "the felonies reported nearby in the past year",
     "hpd": "the hazardous housing-code violations found in the building in the past year",
+    "wings": "the West Coast's two wings as separate buildings",
 }
 
 

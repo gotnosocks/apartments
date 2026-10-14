@@ -45,6 +45,8 @@ DEFAULTS = {
     "walk_min_rows_per_knot": 0.0,
     "walk_anchor_data": False,
     "walk_zero_sum": False,
+    "walk_ar": False,
+    "walk_ar_rho": None,
     "line_effects": False,
     "line_min_units": 2,
     "building_trend": False,
@@ -72,6 +74,7 @@ PRIOR_FIELDS = {
     "noise_scale_sd": 0.2,
     "noise_mult_sd": 0.5,
     "walk_scale_sd": 0.1,
+    "walk_rho_prior": (20.0, 1.2),
     "line_scale_sd": 0.1,
     "building_trend_scale_sd": 0.05,
     "bedroom_time_scale_sd": 0.02,
@@ -561,6 +564,12 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         )
     if c["walk_anchor_data"]:
         walk_bits.append("anchored where observed")
+    if c["walk_ar"]:
+        walk_bits.append(
+            f"AR(1), ρ = {_num(c['walk_ar_rho'])}"
+            if c["walk_ar_rho"] is not None
+            else "AR(1)"
+        )
     walk_plain = (
         "Each building's premium can drift over time, so a building can become "
         f"relatively pricier or cheaper; it changes every {wk} months, smoothly in between."
@@ -573,6 +582,11 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         walk_plain += " At every moment the drifts average to zero, so market-wide moves stay in the market trend."
     if c["walk_min_rows_per_knot"]:
         walk_plain += " Buildings with too few asks follow the market."
+    if c["walk_ar"]:
+        walk_plain += (
+            " Each drift pulls back toward the building's level, so its spread"
+            " stays the same however long ago the building was first listed."
+        )
     walk_knots = _knots(months, wk)
     add(
         "walk",
@@ -582,7 +596,19 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         setting=", ".join(walk_bits),
         plain=walk_plain,
         prior=(
-            "w_B is a random walk: each step ~ "
+            (
+                "w_B is AR(1): w_B(0) ~ Normal(0, σ_w), each step w_B(k) = ρ w_B(k−1)"
+                " + Normal(0, σ_w √(1 − ρ²)), "
+                + (
+                    f"ρ = {_num(c['walk_ar_rho'])}"
+                    if c["walk_ar_rho"] is not None
+                    else f"ρ ~ Beta({_num(c['walk_rho_prior'][0])}, "
+                    f"{_num(c['walk_rho_prior'][1])})"
+                )
+                + f", σ_w ~ HalfNormal({_num(c['walk_scale_sd'])})"
+            )
+            if c["walk_ar"]
+            else "w_B is a random walk: each step ~ "
             + ("Student-t(ν_w, 0, σ_w)" if c["walk_t"] else "Normal(0, σ_w)")
             + f", σ_w ~ HalfNormal({_num(c['walk_scale_sd'])})"
             + (
