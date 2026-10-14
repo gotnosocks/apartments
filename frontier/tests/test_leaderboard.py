@@ -506,3 +506,31 @@ def test_an_entry_on_another_price_target_ranks_but_shows_other_target():
     )
     assert leaderboard.same_target(first, base)
     assert not leaderboard.same_target(latest, {"data_rules": ["tune-finalask-v1"]})
+
+
+def test_paired_se_is_the_larger_of_the_iid_and_the_lot_clustered_se(monkeypatch):
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    keys = [f"r{i}" for i in range(400)]
+    # Rows of a lot move together: the lot SE is well over the iid one.
+    lot_of = {k: i // 20 for i, k in enumerate(keys)}
+    shock = rng.normal(0, 1, 20)
+    d = np.array([shock[lot_of[k]] for k in keys]) + rng.normal(0, 0.1, 400)
+    iid = d.std(ddof=1) * np.sqrt(len(d))
+    assert leaderboard.paired_se(d, keys) == pytest.approx(iid)  # no registry
+    monkeypatch.setattr(leaderboard, "_row_lots", lambda: pd.Series(lot_of))
+    sums = np.bincount([lot_of[k] for k in keys], weights=d)
+    lot = np.sqrt(20 / 19 * np.sum((sums - sums.mean()) ** 2))
+    assert lot > 2 * iid
+    assert leaderboard.paired_se(d, keys) == pytest.approx(lot)
+    # Independent rows: the lot SE comes out under the iid one, which stays.
+    d = rng.normal(0, 1, 400)
+    assert leaderboard.paired_se(d, keys) == pytest.approx(
+        d.std(ddof=1) * np.sqrt(len(d))
+    )
+    # A row the dataset doesn't have is its own lot.
+    monkeypatch.setattr(leaderboard, "_row_lots", lambda: pd.Series({}, dtype=int))
+    assert leaderboard.paired_se(d, keys) == pytest.approx(
+        d.std(ddof=1) * np.sqrt(len(d))
+    )
