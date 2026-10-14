@@ -260,7 +260,7 @@ and NTA snapshots. If other rules merge before the launch, Modeling uses the rul
 and the pair still shares them.
 
 The arwalk fit is scored against that C. The new rules quarantine 13 rows, fold 8 into the West
-Coast, join some spelled-out unit labels, regroup one lot's labels and refine the latest asks. Those are small next to the
+Coast, join some spelled-out unit labels, regroup one lot's labels and change 92 latest asks (#758). Those are small next to the
 193,000 training rows, so I keep the medians and intervals from #748 and #749:
 
 1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
