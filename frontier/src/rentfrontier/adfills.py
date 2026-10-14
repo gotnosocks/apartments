@@ -29,7 +29,8 @@ that `pets` corrects:
     required;
   - "no pet fees" and a pet fee in a list of charges don't count as pets
     allowed;
-  - "pets: no dogs", "dogs aren't allowed" and "no doggies" read as no dogs,
+  - "pets: no dogs", "dogs aren't allowed", "cats but not dogs" and "no
+    doggies" read as no dogs,
     so they get no line;
   - "no board approval or pets", "no smoking or pets" and "no other pets" get
     no allowed or approval line.
@@ -126,6 +127,7 @@ FEE_LIST = r"\bpet (?:fees?|deposits?),(?! ?\d)|\bpet fees? or deposits? may app
 DOGS_BANNED = (
     r"\bdogs? (?:are )?(?:(?:aren['’]?t )+|are not |not |never )(?:allowed|permitted|accepted)"
     r"|\bno dogs? (?:allowed|permitted|accepted)\b|\bno dogg(?:y|ie|ys|ies)\b"
+    r"|(?<!or )\bnot dogs?\b|\bdogs? not (?:allowed|permitted|accepted|ok)\b"
 )
 # "pets with landlord's approval" puts pets subject to approval, and
 # `petstext.CASE` misses the possessive.

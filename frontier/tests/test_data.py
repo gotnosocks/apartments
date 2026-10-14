@@ -1484,6 +1484,7 @@ def test_adfills_pets_writes_existing_codes_only():
             "Small pets okay. Case by case on dogs.",
             "Most pets permitted with landlord consent.",
             "Cats ok, sorry no doggies.",
+            "Cats welcome. Not dogs sorry.",
         ]
     )
     out = adfills.pets(text)
