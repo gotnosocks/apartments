@@ -707,6 +707,9 @@ DATA_RULE_TEXT = {
     'spelled out and once short joined too ("3rd-fl" and "3", "penthouse-a" '
     'and "pha", "garden" and "g") where their bedroom counts agree. No listing '
     "is dropped.",
+    "unit-labels-v17": "unit-labels-v16, with Midtown West apartments StreetEasy "
+    "lists under two spellings of one label joined too, and those whose own "
+    "StreetEasy page lists an ad filed under the other. No listing is dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",

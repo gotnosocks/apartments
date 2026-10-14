@@ -205,6 +205,10 @@ UNIT_ALIASES_NOMAD = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-20261009.jsonl
 # east-village-granular-20261010-canonical-url-v1, 405 history-confirmed
 # groups); provenance beside it.
 UNIT_ALIASES_EV = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-ev-20261010.jsonl")
+# That table with Midtown West's appended (unit-spelling-alias-v2 on
+# midtown-west-granular-20261014-canonical-url-v1, 833 history-confirmed
+# groups); provenance beside it.
+UNIT_ALIASES_MW = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-ev-mw-20261014.jsonl")
 
 
 @functools.lru_cache(maxsize=3)
@@ -309,6 +313,8 @@ UNIT_HISTORY_PAIRS_STUY = UNIT_ALIASES.with_name("history-20261008.jsonl")
 UNIT_HISTORY_PAIRS_NOMAD = UNIT_ALIASES.with_name("history-20261009.jsonl")
 # The same pairs with East Village's appended.
 UNIT_HISTORY_PAIRS_EV = UNIT_ALIASES.with_name("history-20261010.jsonl")
+# The same pairs with Midtown West's appended.
+UNIT_HISTORY_PAIRS_MW = UNIT_ALIASES.with_name("history-20261014.jsonl")
 
 
 @functools.lru_cache(maxsize=2)
@@ -1244,6 +1250,22 @@ DATA_RULES = {
             ),
         ),
     ),
+    # unit-labels-v16 on the tables with Midtown West's appended too
+    # (UNIT_ALIASES_MW, UNIT_HISTORY_PAIRS_MW).
+    "unit-labels-v17": functools.partial(
+        merge_spelled_labels,
+        base=functools.partial(
+            merge_word_letter_labels,
+            base=functools.partial(
+                merge_swapped_labels,
+                base=functools.partial(
+                    merge_history_pairs,
+                    pairs=UNIT_HISTORY_PAIRS_MW,
+                    aliases=UNIT_ALIASES_MW,
+                ),
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -1320,6 +1342,7 @@ RULE_SOURCES = {
     "unit-labels-v14": UNIT_ALIASES_NOMAD,
     "unit-labels-v15": UNIT_ALIASES_EV,
     "unit-labels-v16": UNIT_ALIASES_EV,
+    "unit-labels-v17": UNIT_ALIASES_MW,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
