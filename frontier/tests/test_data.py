@@ -1499,3 +1499,64 @@ def test_west_coast_wings_v1_moves_three_digit_labels_to_the_west_wing():
     assert autoselect._rule_order(rules[0]) < autoselect._rule_order(rules[1])
     assert autoselect._rule_order(rules[1]) < autoselect._rule_order("unit-labels-v17")
     assert "west-coast-wings-v1" in autoselect.current_rules()
+
+
+def test_elevator_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
+    assert data.RULE_SOURCES["elevator-from-ad-v1"] == data.ELEVATOR_FROM_AD
+    path = tmp_path / "elevator.parquet"
+    pd.DataFrame(
+        {"audit_id": ["a", "b", "c", "d"], "elevator": ["no", "yes", "no", "yes"]}
+    ).to_parquet(path)
+    monkeypatch.setattr(data, "ELEVATOR_FROM_AD", path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c", "d", "e"],
+            "elevator": ["unknown", "unknown", "yes", "no", "unknown"],
+        }
+    )
+    out = data.DATA_RULES["elevator-from-ad-v1"](frame)
+    assert out.elevator.tolist() == ["no", "yes", "yes", "no", "unknown"]
+    assert not data.amended_rule("elevator-from-ad-v1")
+
+
+def test_adfills_elevator_reads_one_class_per_ad():
+    from rentfrontier import adfills
+
+    text = pd.Series(
+        [
+            "Charming walk-up, 3 flights up.",
+            "Elevator building with a doorman.",
+            "The building does not have an elevator.",
+            "No elevator; the elevator next door is not ours.",
+            "Sunny one bedroom.",
+            None,
+            "There is no laundry or elevator in the building.",
+            "A no-elevator building.",
+            "Elevator building, a short walk up to Astor Place.",
+            "First floor, so no stairs to walk up. Elevator in lobby.",
+            "Elevator building. Private roof deck one flight up.",
+            "Two flights up to the roof deck. Elevator to the 9th floor.",
+            "Three short flights up in a quiet brownstone.",
+            "If you don't like walk-ups, this elevator building is for you.",
+            "Not a walk-up! Elevator building with laundry.",
+            "This apartment is not a walk up.",
+            "Pets allowed provided no damage to building or elevator.",
+        ]
+    )
+    out = adfills.elevator(text)
+    assert out.elevator.to_dict() == {
+        0: "no",
+        1: "yes",
+        2: "no",
+        6: "no",
+        7: "no",
+        8: "yes",
+        9: "yes",
+        10: "yes",
+        11: "yes",
+        12: "no",
+        13: "yes",
+        14: "yes",
+        16: "yes",
+    }
+    assert out.evidence.str.contains("elevator|walk-up|flights up").all()

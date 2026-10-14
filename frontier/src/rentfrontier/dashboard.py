@@ -820,6 +820,9 @@ DATA_RULE_TEXT = {
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
+    "elevator-from-ad-v1": "A listing whose elevator field is blank takes the "
+    "answer its own ad gives: no for a walk-up or an ad saying there is no elevator, "
+    "yes for an ad mentioning one. A recorded answer stays as it is.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "
