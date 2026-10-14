@@ -207,3 +207,13 @@ for the fixed rho:
 
 The fit misses if it fails any part of the gate, if PSIS-LOO does not win by 2 SE, or if the
 year gap reaches 3 pp. I will record any miss as a miss.
+
+By the time I opened this PR the C refit had finished. It fails the gate on group R-hat alone: max
+split R-hat 1.007 and min ESS 518 pass, while 128 unit effects in one building, the West Coast,
+reach 1.28, with the building's level at 1.10. If the fixed-rho fit passes the gate and the C
+refit does not, the paired scores still hold as comparisons, but the C refit cannot serve as a
+converged baseline until that building mixes. Against my C-refit predictions above:
+
+- median miss 11.95% against 11.7% (11.4-12.0), a hit;
+- row 80/95 coverage 90.4/98.0 against 90.5/98.1, a hit;
+- passes the gate (90% likely), a miss.
