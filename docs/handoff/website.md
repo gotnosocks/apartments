@@ -2,6 +2,20 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## State (2026-10-14 19:30 UTC)
+
+- #775 merged. The site shows each wing of The West Coast as its own page once a fit with
+  `west-coast-wings-v1` is served. Captures go to the wing their unit label matches
+  (`src/apartments/site/wings.py`). If the rule's label patterns change, update that table.
+- #776 is open and held. It adds the nb9 words (Hell's Kitchen, Hudson Yards). Merge it once
+  Modeling serves the nb9 fit. Then check that the Midtown West capture
+  (/data1/apartments/tmp/mw-current-20261014, out of the 7-day window from Oct 20) is under
+  archive/current-listings. If it is, rebuild and verify the new areas in the selectors, map,
+  /best, available now and counts. Ben's decision (18:40Z) is to wait for the fit, with no
+  unpriced display.
+- `test_anatomy.py::test_every_model_config_field_is_described` fails on master (walk_ar
+  fields). I passed it to Modeling.
+
 ## State (2026-10-11 00:50 UTC)
 
 - New-unit coverage is live (#689, #690, deployed 4465b9e). It comes from each fit's calibration record, kind "held out, new unit"
