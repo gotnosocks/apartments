@@ -3,6 +3,24 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 00:30 UTC): AR(1) building deviation fit
+
+Ben approved one Modal fit at 23:51Z: C with its walk replaced by a level plus a stationary AR(1)
+deviation. The coordinator's brief came at 23:52Z, with a follow-up at 23:57Z. Ben's 03:16Z hold on
+autoselect, serving and publishing still stands, so I run none of them for this fit.
+
+- Model: `m7-…-sizeunkslope-arwalk` (`walk_ar=True`, rho ~ Beta(20, 1.2)) on `nb8-nostuy-v1`, with
+  C's rows, rules and settings. Branch `model/arwalk`. Tests are in `frontier/tests/test_arwalk.py`.
+- Long-lag check on C (`/data1/apartments/tmp/arwalk/lagsum.txt`): lag-1 correlation 0.83, lag 20
+  0.64, lags 25-30 about 0.52, with no plateau. An AR fit gives rho 0.986.
+- CPU recovery (`/data1/apartments/tmp/arwalk/recover.log`): all three cases recover rho, sd and
+  building_scale inside their 80% intervals. Posterior corr(building_scale, sd) is -0.88 to -0.90.
+- Predictions: `docs/model/predictions-arwalk-2026-10-14.md` and `config/predictions.jsonl`. The
+  briefed block and a revised block (rho 0.985, sd 0.15, building_scale 0.08) both get scored.
+- Next: merge the PR, launch the fit from `/data1/apartments/tmp/arwalk/launch.sh`, then score it
+  (gate, paired PSIS-LOO with clustered SEs, `newbuilding`, descriptive share, parameter
+  intervals) and write the result doc.
+
 ## Update (2026-10-13 22:20 UTC): new buildings per row, clustered SEs
 
 Action 1 of the 2026-10-13 next actions ran on thelio at no Modal cost. The write-up with

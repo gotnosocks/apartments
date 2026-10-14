@@ -102,9 +102,17 @@ def building_variance(kept, a, walk_origin, fslope_x, trend_center, spacing):
     """(draws, rows) prior variance of a new building's terms at each row: the
     level, a walk that is 0 at knot `walk_origin` (the panel's first knot, as in
     `model._walk`, or the building's first knot for anchored walks), the bedroom
-    premium, the feature slopes and the trend, all independent Normals."""
+    premium, the feature slopes and the trend, all independent Normals. With
+    `walk_origin` None the walk is a stationary AR(1) deviation (`walk_ar`):
+    variance walk_scale^2 at every knot, and correlation walk_rho between
+    the two knots a row interpolates."""
     var = _scale(kept, "building_scale")[:, None] ** 2 + 0.0 * a.y[None]
-    if spacing:
+    if spacing and walk_origin is None:
+        _, frac = model.walk_position(a, spacing)
+        rho = np.asarray(kept["walk_rho"])[:, None]
+        mix = (1 - frac) ** 2 + frac**2 + 2 * frac * (1 - frac) * rho
+        var = var + _scale(kept, "walk_scale")[:, None] ** 2 * mix
+    elif spacing:
         knot, frac = model.walk_position(a, spacing)
         steps = np.maximum(knot - walk_origin, 0) + frac**2
         var = var + _scale(kept, "walk_scale")[:, None] ** 2 * steps[None]
@@ -124,7 +132,10 @@ def walk_origin(config, first_knot, first=False):
     walk at the panel's first knot; with `walk_anchor_data` it pins it at the
     building's most-weighted knot, which for a new building is taken as its
     first. `first` puts it at the building's first knot whatever the model
-    does (a diagnostic). Student-t and sum-to-zero walks are not handled."""
+    does (a diagnostic). A stationary AR(1) deviation (`walk_ar`) has no
+    origin: None. Student-t and sum-to-zero walks are not handled."""
+    if getattr(config, "walk_ar", False):
+        return None
     if config.walk_t or config.walk_zero_sum:
         raise ValueError("new-building score: Normal walks only")
     if config.walk_anchor_data or first:
