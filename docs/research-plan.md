@@ -42,7 +42,7 @@ budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-final
    and 156 units and 97 Horatio gains 141 rows and 70 units. The other rules are the refit's.
    The fit is unserved. My predictions, written before launch:
    - The gate passes. The max group R-hat falls to 1.02 to 1.06, and neither building has a unit
-     over 1.05. I give the gate a 60% chance: 84 of the building's units still have a single row.
+     over 1.05. I give the gate a 60% chance: 84 of the lot's units (both buildings after the split) still have a single row.
    - Paired PSIS-LOO against the refit: 0 to +30, a tie within 2 SE.
    - Held-out miss and 80/95 coverage against the new prices are within 0.02 pp and 0.3 points of
      the refit's. The split moves under 1% of the held-out rows.
