@@ -1,0 +1,27 @@
+#!/bin/bash
+# Build a downloaded Modal fit's summary bundle (rentfrontier.summary) and its calibration on
+# thelio. ops/modal/fit.py starts this in a systemd unit of its own once a full-tier row-split
+# fit is down, so the fit's unit, the queue runners and the Modal balance never wait for it
+# (Ben, 2026-10-14: in the container the bundle hit its 20 min cap on several fits).
+#
+#   ops/modal/summarize RUN
+#
+# The summary takes the GPU lock (ops/job gpu, as docs/model/listing-estimates.md runs it) and
+# refuses a run that fails the convergence gate; calibration then reads the new bundle as a light
+# job. Both run from MODAL_FIT_REPO (default: this checkout), whose tree the summary needs clean.
+set -eu
+[ $# -eq 1 ] || { echo "usage: $0 RUN" >&2; exit 2; }
+run=$1
+here=$(cd "$(dirname "$0")" && pwd)
+repo=${MODAL_FIT_REPO:-$(cd "$here/../.." && pwd)}
+out=${FRONTIER_OUTPUT_ROOT:-/data1/apartments/frontier}
+export PATH=/home/ben/.local/bin:$PATH
+cd "$repo/frontier"
+echo "== $(date +%F' '%T) summary of $run at $(git rev-parse --short HEAD)"
+XLA_PYTHON_CLIENT_PREALLOCATE=false "$repo/ops/job" gpu -m 5G -- \
+  uv run --frozen --extra gpu python -m rentfrontier.summary "$run"
+bundle=$out/summaries/$run-$(git rev-parse --short=7 HEAD)
+[ -f "$bundle/complete.json" ] || { echo "no complete bundle at $bundle" >&2; exit 1; }
+echo "== $(date +%F' '%T) calibration of $bundle"
+# --extra gpu as above, so uv keeps the shared environment as it is; ops/job light hides the GPU.
+"$repo/ops/job" light -m 3G -- uv run --frozen --extra gpu python -m rentfrontier.calibration "$bundle"
