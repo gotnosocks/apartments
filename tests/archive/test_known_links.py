@@ -2,7 +2,8 @@ import random
 
 import pytest
 
-from streeteasy_archive import cli, known_links, pacer, scope
+from apartments import granular_parse
+from streeteasy_archive import cli, known_links, pacer, parse_once, scope
 from streeteasy_archive.oxylabs import OxylabsDownloadHandler
 from streeteasy_archive.store import ArchiveStore
 
@@ -131,6 +132,7 @@ def test_crawl_runs_inside_known_links(tmp_path, monkeypatch):
         def start(self):
             seen.append(scope._enroll)
             seen.append(OxylabsDownloadHandler._submission_slot)
+            seen.append(granular_parse.parse_listing)
             raise Started
 
     monkeypatch.setattr("scrapy.crawler.CrawlerProcess", Process)
@@ -148,9 +150,14 @@ def test_crawl_runs_inside_known_links(tmp_path, monkeypatch):
     )
     with pytest.raises(Started):
         cli.run_crawler(args, 1)
-    assert seen == [known_links.enroll_known_first, pacer.steady_slot]
+    assert seen == [
+        known_links.enroll_known_first,
+        pacer.steady_slot,
+        parse_once.parse_listing_once,
+    ]
     assert scope._enroll is known_links.ORIGINAL_ENROLL
     assert OxylabsDownloadHandler._submission_slot is pacer.ORIGINAL_SLOT
+    assert granular_parse.parse_listing is parse_once.ORIGINAL_PARSE
 
 
 def test_form_memo_is_capped(monkeypatch):
