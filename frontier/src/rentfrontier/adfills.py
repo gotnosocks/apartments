@@ -1,18 +1,25 @@
 """Coded fields an ad's own text states, for rows whose coded value is unknown.
 
-    python -m rentfrontier.adfills elevator
+    python -m rentfrontier.adfills elevator|pets
 
 reads every row of data.DATASET_NB9 with its description (the NB9 description
 files, `features._NB9_DESCRIPTIONS`) and writes
-EXTERNAL_ROOT/adfills/<date>-<commit>/elevator.parquet (audit_id, the value the
-text states, and the matched words) and provenance.json. Refuses a dirty tree.
-The `elevator-from-ad-v1` data rule reads the file and fills a row's elevator
-only where the coded value is unknown, so a known code always stays.
+EXTERNAL_ROOT/adfills/<date>-<commit>/<field>.parquet (audit_id, the value the
+text states, and the matched words) and its provenance file. Refuses a dirty
+tree. The `elevator-from-ad-v1` and `pets-from-ad-v1` data rules read the files
+and fill a row's field only where the coded value is unknown, so a known code
+always stays.
 
 The text states "no" when it says walk-up, flights up, no elevator, non-elevator
 or that the building has no elevator, and "yes" when it mentions an elevator
-any other way. A row whose text says both, or neither, gets no line. Each row
-reads its own ad only, never another listing in its building."""
+any other way. A row whose text says both, or neither, gets no line.
+
+For pets the builder takes `petstext.classify`'s class and writes its coded
+level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
+or "not_allowed". The coded field has no level for "no dogs", so a text of
+that class gets no line.
+
+Each row reads its own ad only, never another listing in its building."""
 
 import datetime as dt
 import hashlib
@@ -22,7 +29,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from rentfrontier import data, descriptions, features
+from rentfrontier import data, descriptions, features, petstext
 from rentfrontier.listing_extras import EXTERNAL_ROOT, _git
 
 ELEVATOR_NO = (
@@ -57,7 +64,21 @@ def elevator(text: pd.Series) -> pd.DataFrame:
     return out[no ^ yes]
 
 
-FIELDS = {"elevator": elevator}
+def pets(text: pd.Series) -> pd.DataFrame:
+    """The coded pet level each text states, with the matched words; texts
+    of class "none" or "no_dogs" are dropped."""
+    found = petstext.classify(text)
+    keep = found.isin(["no_pets", "case_by_case", "allowed"])
+    text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
+    evidence = pd.Series(pd.NA, index=text.index, dtype=object)
+    for name, pattern in petstext.CLASSES:
+        rows = found.eq(name)
+        evidence[rows] = _words(text[rows], pattern)
+    out = pd.DataFrame({"pets": found.map(petstext.CODED), "evidence": evidence})
+    return out[keep]
+
+
+FIELDS = {"elevator": elevator, "pets": pets}
 
 
 def main(argv: list[str]):
