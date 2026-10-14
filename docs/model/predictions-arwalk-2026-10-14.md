@@ -124,3 +124,43 @@ R-hat check (1.065 on the unit effects), which this change does not address. I e
 to fail the ESS check and possibly the group R-hat check, so I expect the last miss criterion to
 be met. If it is, a longer chain at the new sampler would be
 the next step. That needs Ben's approval, since it costs more than one fit at C's settings.
+
+## Refits on the corrected data (2026-10-14T09:45Z, before either fit)
+
+Ben stopped the retry at 08:58Z. At 09:01Z he asked for the data issue behind the $1,000 row to be
+fixed first, then a refit. PR #730 adds `latest-ask-v2`, which prices each row at its listing's
+last on-market ask, and `quarantine-v13`. Both fits swap those two rules in for `quarantine-v12`
+and change nothing else:
+
+- C refit: C's model and settings (2 chains, warmup 300, 4,500 draws kept every 9th).
+- arwalk refit: the AR(1) model with the axis updates from #726, at 18,000 draws kept every 36th.
+  That keeps 500 draws per chain, as C does. The 24,000-draw chain I proposed at 03:11Z would
+  run past the 3-hour Modal container timeout at about 0.45 s per iteration. The limiter
+  estimate is $5.56.
+
+The rule change moves the price on about a third of the rows, so neither refit pairs with a run
+from before it. The arwalk refit is scored against the C refit.
+
+Predictions, medians with 80% intervals:
+
+C refit against C:
+
+1. New-building median miss 11.7% (11.4-12.0) against 11.89%. Latest asks have already had
+   their cuts, so I expect them to sit a little closer to the model.
+2. New-building 80/95 coverage, row-weighted: 90.5/98.1 (89.5-91.5 / 97.7-98.5) against
+   90.7/98.2.
+3. The fit passes the convergence gate, as C did.
+
+arwalk refit against the C refit:
+
+4. Paired PSIS-LOO: +350 (+200 to +500) nats, a win by more than 2 lot-clustered SEs.
+5. Year gap: +1.5 pp (0.8 to 2.2).
+6. Building-weighted new-building lpd: +65 (+30 to +100) nats.
+7. rho 0.89 (0.87-0.91); sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
+8. Convergence: max split R-hat under 1.01. Min bulk ESS 450 (300-600) on sd, so the ESS check
+   is about 60% likely to pass. 15 E 17th St #4, now at $10,000, drops below unit R-hat 1.01, and
+   the group R-hat check passes.
+9. Descriptive share within 0.4 pp of the C refit's.
+
+The arwalk refit misses if it fails the gate, if PSIS-LOO does not win by 2 SE, or if the year gap
+reaches 3 pp.
