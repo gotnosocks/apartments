@@ -964,6 +964,26 @@ def latest_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
+QUARANTINE_V14 = REPO / "config" / "reviews" / "quarantine-v14-20261014.jsonl"
+# The rows the screen behind v14's new rows read: every hit outside v9's and
+# v10's screens (frontier/scripts/quarantine_v14_screen.py).
+QUARANTINE_V14_READ = REPO / "config" / "reviews" / "quarantine-v14-read-20261014.txt"
+
+
+def quarantine_v14(frame: pd.DataFrame) -> pd.DataFrame:
+    """v13 and 13 more rows (284 in all). v10's guard dropped "restaurant
+    space", since all its hits were rent-picked quarantine-v6 rows, so
+    storefronts came back. quarantine_v14_screen.py reruns v10's rent-blind
+    checks with more words for shops and restaurants (retail, frontage, a
+    certificate of occupancy, kitchen exhaust, an event space) over the five
+    neighbourhoods before East Village, NoMad and Stuyvesant Town, and every
+    hit outside v9's and v10's screens (quarantine-v14-read-20261014.txt) is
+    read with no rent shown: shops, restaurants and an event studio on and
+    near Bleecker, two 5-month leases, and one ad for Battery Park are left
+    out. 10 of the 13 are v6 rows. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V14))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1112,6 +1132,7 @@ DATA_RULES = {
     "quarantine-v10": quarantine_v10,
     "quarantine-v12": quarantine_v12,
     "quarantine-v13": quarantine_v13,
+    "quarantine-v14": quarantine_v14,
     "latest-ask-v2": latest_ask_v2,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
@@ -1139,6 +1160,7 @@ RULE_SOURCES = {
     "quarantine-v10": QUARANTINE_V10,
     "quarantine-v12": QUARANTINE_V12,
     "quarantine-v13": QUARANTINE_V13,
+    "quarantine-v14": QUARANTINE_V14,
     "latest-ask-v2": LATEST_ASK,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
@@ -1174,6 +1196,7 @@ DROPPING_RULES = (
     "quarantine-v10",
     "quarantine-v12",
     "quarantine-v13",
+    "quarantine-v14",
 )
 
 
