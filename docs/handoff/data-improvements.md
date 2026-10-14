@@ -12,6 +12,15 @@ Updated 2026-10-14 14:45 ET. Thread owner: the Data improvements project thread 
   - v2 sends floor-and-letter rows to the-west-coast and three-digit rows to 97-horatio. The units
     group the same way, so only the building-level features change. Modeling's next split C fit
     reads v2, with no refit on its own account.
+- **`building-joins-v1`** (#769, merged) folds StreetEasy's `97-horatio-street-new_york` page into
+  the-west-coast at Modeling's request. Ben's floor plans show one complex, and the footprints put
+  BIN 1012155 (about 6,700 sqft) inside BIN 1012154's outline (about 52,400 sqft) on the Horatio
+  side. The rule moves 8 rows, so the served fit needs no refit.
+  - It must run before any `tune-westcoast-split-` rule, and `apply_rules` raises otherwise.
+    `autoselect._rule_order` sorts it first by name.
+  - Under v2 the page's other labels ("7", "26") now join the-west-coast.
+- A v3 split, which would give the three-digit wing a group name of its own mapped to BIN
+  1012154, waits on Ben's answer. I haven't written it.
 
 ## 2026-10-14 11:15 ET
 
