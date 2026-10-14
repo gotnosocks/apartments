@@ -1215,7 +1215,7 @@ def elevator_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
 
 # The pet policy each NB9 row's own ad states (`python -m rentfrontier.adfills
 # pets`), as a coded level, for rows whose text has a class with one.
-PETS_FROM_AD = Path("/data1/apartments/external/adfills/20261014-616104e/pets.parquet")
+PETS_FROM_AD = Path("/data1/apartments/external/adfills/20261014-5be0e3a/pets.parquet")
 
 
 def pets_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
