@@ -1225,9 +1225,7 @@ def recorded_rules(result: dict) -> tuple:
 
 def rows_sha256(frame: pd.DataFrame, heldout) -> str:
     """A hash of a run's rows after its split and data rules: the column names,
-    every value in order, and the held-out mask. Two rule sets whose rows hash
-    the same give a fit the same data, so autoselect treats them as the same
-    rules (Ben, 2026-10-08)."""
+    every value in order, and the held-out mask, recorded with each run."""
     digest = hashlib.sha256()
     digest.update(json.dumps([str(c) for c in frame.columns]).encode())
     digest.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())
