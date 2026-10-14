@@ -20,15 +20,18 @@ budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-final
    the new-building score runs as its post-fit step.
 2. Before autoselect switches to it, I check that it passed the gate. I also compare it with the
    served C on the same held-out rows against the new prices, by median miss, 80/95 coverage and
-   the new-building score. The switch report gives those numbers, and Website hears about it.
+   the new-building score. The switch report gives those numbers, and I tell Website.
 3. Retests on the new C follow, one at a time, each with a recorded prediction, paired PSIS-LOO and
    the new-building score:
    - lines, reported to Ben before any switch;
    - areatime, once, on a new seed. It's served only if it wins clearly under the clustered tie
      rule, and its report gives its new-building score and descriptive share.
-4. bigbed is retired. elevfill and petsfill wait for Ben. nofloorslope and lognoise lost clearly,
-   and amenlevel reads rent and reached only 1.3 SE on the leak-free split, so none of the three is
-   retested. The held sets with no run yet (lister, retail, noise, trees, crime, hpd) stay held.
+4. bigbed is retired, and elevfill and petsfill wait for Ben. Three earlier results stay as they
+   are:
+   - nofloorslope and lognoise lost clearly;
+   - amenlevel uses rent as an input and gained only 1.3 SE on the leak-free split.
+
+   The held sets with no run yet stay held. They are lister, retail, noise, trees, crime and hpd.
 
 ## Held fits (Ben, 2026-10-13)
 

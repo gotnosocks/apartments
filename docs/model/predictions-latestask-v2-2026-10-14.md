@@ -32,11 +32,11 @@ outcomes file.
 | Descriptive share | 25.3 to 26.5% | 25.9% |
 | Concession coefficient | -2.5 to -4.0% | -3.6% |
 
-PSIS-LOO isn't comparable with C's, since the target changes. A pair against C would measure the
-repricing rather than the model.
+PSIS-LOO isn't comparable with C's, since the target changes. A pair against C would show only the
+repricing.
 
 ## Decision rule
 
 If the fit passes the gate and its held-out miss and coverage against the new prices are no worse
 than the served C's on the same rows, with its new-building score no worse, it becomes the new C and
-is served. Website hears about the switch.
+is served, and I tell Website.
