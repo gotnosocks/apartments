@@ -20,8 +20,8 @@ cd "$repo/frontier"
 echo "== $(date +%F' '%T) summary of $run at $(git rev-parse --short HEAD)"
 XLA_PYTHON_CLIENT_PREALLOCATE=false "$repo/ops/job" gpu -m 5G -- \
   uv run --frozen --extra gpu python -m rentfrontier.summary "$run"
-bundle=$(ls -td "$out/summaries/$run"-*/ 2>/dev/null | head -1)
-[ -n "$bundle" ] && [ -f "$bundle/complete.json" ] || { echo "no complete bundle for $run" >&2; exit 1; }
+bundle=$out/summaries/$run-$(git rev-parse --short=7 HEAD)
+[ -f "$bundle/complete.json" ] || { echo "no complete bundle at $bundle" >&2; exit 1; }
 echo "== $(date +%F' '%T) calibration of $bundle"
 # --extra gpu as above, so uv keeps the shared environment as it is; ops/job light hides the GPU.
-"$repo/ops/job" light -m 3G -- uv run --frozen --extra gpu python -m rentfrontier.calibration "${bundle%/}"
+"$repo/ops/job" light -m 3G -- uv run --frozen --extra gpu python -m rentfrontier.calibration "$bundle"
