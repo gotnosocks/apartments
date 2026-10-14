@@ -253,6 +253,27 @@ def test_finalask_compare_scores_shared_held_out_rows_against_the_final_ask(
     assert calls[2][2] is None
 
 
+def test_finalask_compare_reads_the_served_latest_ask_rule(monkeypatch):
+    import pandas as pd
+
+    from rentfrontier import data, finalask
+
+    frame = pd.DataFrame({"audit_id": ["a"], "log_rent": [np.log(3000.0)]})
+    monkeypatch.setattr(
+        newbuilding,
+        "_load",
+        lambda name: ("dir", {}, {}, "config", frame, np.array([True])),
+    )
+    monkeypatch.setattr(newbuilding.explain, "load_run", lambda name: ("dir", {}, {}))
+    monkeypatch.setattr(
+        data, "recorded_rules", lambda result: ["latest-ask-v2", "quarantine-v13"]
+    )
+    monkeypatch.setattr(finalask, "score", lambda name, ids, y=None: {"all": {}})
+    out = finalask.compare("final", "base")
+    assert out["rule"] == "latest-ask-v2"
+    assert "latest ask fit vs latest ask" in out["scores"]
+
+
 def test_scores_do_not_depend_on_how_many_workers_ran_them(monkeypatch):
     def fake_chunk(kept, config, prep, a, building, rungs, ctx, rng):
         noise = rng.standard_normal(len(a.y))

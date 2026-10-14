@@ -2,12 +2,13 @@
 
     python -m rentfrontier.finalask <final-or-latest-ask-run> <base-run>
 
-The first run is the base run's model and features with one of two rules
-(`PRICES`). `tune-finalask-v1` prices each row at its listing's last ask
+The first run is the base run's model and features with one of the rules in
+`PRICES`. `tune-finalask-v1` prices each row at its listing's last ask
 (`rentfrontier.listing_outcomes`), and leaves out listings still live at the
 last capture, with no captured record, or whose last ask is more than twice or
-under half the first (sale prices and typos). `tune-latestask-v1` keeps every
-row, priced at its listing's latest available ask. Both runs are scored on the
+under half the first (sale prices and typos). `tune-latestask-v1` and its
+served successor `latest-ask-v2` keep every row, priced at its listing's latest
+available ask. Both runs are scored on the
 held-out rows they share, against the first run's price, from each fit's
 posterior as is (a new unit's terms drawn from the population): the median
 absolute % miss of the predictive median and the 80%/95% coverage, overall
@@ -32,7 +33,11 @@ from .run import git, hardware
 FINALASK_ROOT = data.OUTPUT_ROOT / "finalask"
 RULE = "tune-finalask-v1"
 # The price each rule fits, by name, for the record's labels.
-PRICES = {RULE: "final ask", "tune-latestask-v1": "latest ask"}
+PRICES = {
+    RULE: "final ask",
+    "tune-latestask-v1": "latest ask",
+    "latest-ask-v2": "latest ask",
+}
 
 
 def _prepared(name):
