@@ -30,6 +30,7 @@ CRAWLS = {
     "Stuyvesant Town/PCV": "/data1/apartments/archive/datasets/stuyvesant-town-pcv-granular-20261008-canonical-url-v1",
     "NoMad": "/data1/apartments/archive/datasets/nomad-granular-20261009-canonical-url-v1",
     "East Village": "/data1/apartments/archive/datasets/east-village-granular-20261010-canonical-url-v1",
+    "Midtown West": "/data1/apartments/archive/datasets/midtown-west-granular-20261014-canonical-url-v1",
 }
 
 

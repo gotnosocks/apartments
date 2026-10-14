@@ -4943,6 +4943,32 @@ for _new, _old in NB8_SETS.items():
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB8_PLUTO_RELEASES_FILE
 
 
+# The ten neighbourhoods (data.DATASET_NB9): the eight plus Hell's Kitchen and
+# Hudson Yards, split from the building-first Midtown West crawl of 2026-10-13
+# (midtown-west-analysis-20261014-ca9dbf6e) by each building page's area. Its
+# registry (20261014-ca9dbf6, each page geocoded from its own address, no
+# overrides) merged into nb8's, its MapPLUTO, footprints and basemap merged
+# into nb8's (nb8's rows unchanged), and the sources keyed by lot fetched on
+# the merged registry.
+NB9_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261014-5352472/buildings.parquet"
+)
+NB9_PLUTO_FILE = "/data1/apartments/external/pluto/20261014-5352472/pluto.parquet"
+NB9_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261014-5352472/footprints.parquet"
+)
+NB9_BASEMAP_FILE = "/data1/apartments/external/basemap/20261014-5352472/basemap.parquet"
+NB9_LPC_FILE = "/data1/apartments/external/lpc/20261014-5352472/lpc.parquet"
+NB9_HPD_FILE = "/data1/apartments/external/hpd/20261014-5352472/hpd.parquet"
+NB9_STOREFRONTS_FILE = (
+    "/data1/apartments/external/storefronts/20261014-5352472/storefronts.parquet"
+)
+NB9_PARKS_FILE = "/data1/apartments/external/parks/20261014-5352472/parks.parquet"
+NB9_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261014-5352472/plutoreleases.parquet"
+)
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
