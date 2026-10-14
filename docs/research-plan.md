@@ -29,8 +29,8 @@ wait here until he releases them. C is `m7-nocurves-floorslope-bednoise-dayfouri
 
 ## Backlog, not scheduled (Ben, 2026-10-14)
 
-- **Latent time-varying ask per apartment.** Each StreetEasy price event becomes an observation,
-  not just one price per ad.
+- **Latent time-varying ask per apartment.** Every StreetEasy price event becomes an observation
+  of the latent ask.
   - The latent ask is C plus the building AR(1) deviation plus a unit level.
   - An event layer adds a days-on-market markdown spline, a Student-t listing effect and
     heavy-tailed event noise.
@@ -38,7 +38,7 @@ wait here until he releases them. C is `m7-nocurves-floorslope-bednoise-dayfouri
   - The event histories behind C's rows give about 382,000 observations, ignoring moves under 1%.
     A fit would cost an estimated $5-8.
   - The design sketch is in the shared project folder, at `modeling/latent-ask-design-2026-10-14.md`.
-  - Ben filed this as a research suggestion, and no work is scheduled for it.
+  - Status: backlog, not scheduled.
 
 ## Current direction: a fresh autoresearch on the full data (Ben, 2026-10-01 evening)
 
