@@ -286,7 +286,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V10
     ) | data.quarantined(data.QUARANTINE_V12) | data.quarantined(
         data.QUARANTINE_V13
-    ) | data.quarantined(data.QUARANTINE_V14)
+    ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(data.QUARANTINE_V15)
 
 
 @pytest.mark.parametrize(
@@ -1289,3 +1289,18 @@ def test_unit_labels_v17_is_v16_on_the_tables_with_midtown_wests_appended():
     )
     assert v16.unit_id.iat[4] != v16.unit_id.iat[5]
     assert v17.unit_id.iat[4] == v17.unit_id.iat[5] == min(group[:2])
+
+
+def test_quarantine_v15_adds_two_read_midtown_west_rows_to_v14():
+    """v15 is v14's 284 rows and 2 more, both among the 4 screen hits read,
+    each with its evidence and reason."""
+    v14 = data.quarantined(data.QUARANTINE_V14)
+    v15 = data.quarantined(data.QUARANTINE_V15)
+    assert v14 < v15 and len(v15 - v14) == 2
+    read = set(data.QUARANTINE_V15_READ.read_text().split())
+    assert len(read) == 4 and v15 - v14 <= read
+    with open(data.QUARANTINE_V15) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 286 and all(r["evidence"] and r["reason"] for r in rows)
+    assert data.QUARANTINE_V14.read_text() in data.QUARANTINE_V15.read_text()
+    assert "quarantine-v15" in data.DROPPING_RULES

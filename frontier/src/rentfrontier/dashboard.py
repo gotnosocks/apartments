@@ -804,6 +804,9 @@ DATA_RULE_TEXT = {
     "with more words for shops and restaurants: storefronts and a cafe on and near "
     "Bleecker Street, an event studio hired by the day, two 5-month leases, and an ad "
     "for a building in Battery Park.",
+    "quarantine-v15": "quarantine-v14 and 2 Midtown West rows found by price: a "
+    "Hudson Landing studio at $22,953 and a Via 57 West 3-bedroom at $1,559, each "
+    "far from its own apartment's other asks and its building's.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "

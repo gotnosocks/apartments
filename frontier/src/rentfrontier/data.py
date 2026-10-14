@@ -1060,6 +1060,23 @@ def quarantine_v14(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V14))]
 
 
+QUARANTINE_V15 = REPO / "config" / "reviews" / "quarantine-v15-20261014.jsonl"
+# The rows v15's review read: every Midtown West hit of price_mismatch_screen.py's
+# factors at over 2.5, on the NB9 rows under latest-ask-v4 and unit-labels-v17.
+QUARANTINE_V15_READ = REPO / "config" / "reviews" / "quarantine-v15-read-20261014.txt"
+
+
+def quarantine_v15(frame: pd.DataFrame) -> pd.DataFrame:
+    """v14 and 2 Midtown West rows (286 in all). The price screen behind v13,
+    run on the NB9 rows, flags 4 Midtown West rows over a factor of 2.5
+    (quarantine-v15-read-20261014.txt), each read with its ad and its unit's
+    other asks. The two over 3 are mistyped prices: a Hudson Landing studio at
+    $22,953 and a Via 57 West 3-bedroom at $1,559. A 2,500 square foot loft
+    coded a studio and a 1-bedroom at $7,495 stay in. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V15))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1295,6 +1312,7 @@ DATA_RULES = {
     "quarantine-v12": quarantine_v12,
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
+    "quarantine-v15": quarantine_v15,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1326,6 +1344,7 @@ RULE_SOURCES = {
     "quarantine-v12": QUARANTINE_V12,
     "quarantine-v13": QUARANTINE_V13,
     "quarantine-v14": QUARANTINE_V14,
+    "quarantine-v15": QUARANTINE_V15,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1366,6 +1385,7 @@ DROPPING_RULES = (
     "quarantine-v12",
     "quarantine-v13",
     "quarantine-v14",
+    "quarantine-v15",
 )
 
 
