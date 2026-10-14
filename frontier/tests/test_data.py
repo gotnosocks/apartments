@@ -1399,3 +1399,54 @@ def test_adfills_elevator_reads_one_class_per_ad():
     out = adfills.elevator(text)
     assert out.elevator.to_dict() == {0: "no", 1: "yes", 2: "no"}
     assert out.evidence.str.contains("elevator|walk-up").all()
+
+
+def test_pets_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
+    assert data.RULE_SOURCES["pets-from-ad-v1"] == data.PETS_FROM_AD
+    path = tmp_path / "pets.parquet"
+    pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c"],
+            "pets": ["not_allowed", "approval_required", "not_allowed"],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(data, "PETS_FROM_AD", path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c", "d"],
+            "pets": ["unknown", "unknown", "allowed_restrictions_unknown", "unknown"],
+        }
+    )
+    out = data.DATA_RULES["pets-from-ad-v1"](frame)
+    assert out.pets.tolist() == [
+        "not_allowed",
+        "approval_required",
+        "allowed_restrictions_unknown",
+        "unknown",
+    ]
+    assert not data.amended_rule("pets-from-ad-v1")
+
+
+def test_adfills_pets_writes_existing_codes_only():
+    from rentfrontier import adfills
+
+    text = pd.Series(
+        [
+            "Sorry, no pets.",
+            "Pets on a case by case basis.",
+            "Pet friendly building!",
+            "Cats only, no dogs.",
+            "Sunny one bedroom.",
+            None,
+            "Guarantors considered on a case-by-case basis.",
+            "Dogs up to 50 lbs. Above that is considered case by case.",
+        ]
+    )
+    out = adfills.pets(text)
+    assert out.pets.to_dict() == {
+        0: "not_allowed",
+        1: "approval_required",
+        2: "allowed_restrictions_unknown",
+        7: "approval_required",
+    }
+    assert out.evidence.notna().all()

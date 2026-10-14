@@ -17,7 +17,9 @@ any other way. A row whose text says both, or neither, gets no line.
 For pets the builder takes `petstext.classify`'s class and writes its coded
 level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
 or "not_allowed". The coded field has no level for "no dogs", so a text of
-that class gets no line.
+that class gets no line. Nor does a case-by-case text unless a pet word or a
+weight sits near the phrase, since ads use it for guarantors and short stays
+too.
 
 Each row reads its own ad only, never another listing in its building."""
 
@@ -64,12 +66,28 @@ def elevator(text: pd.Series) -> pd.DataFrame:
     return out[no ^ yes]
 
 
+# "case by case" in an ad often describes guarantors, short stays or a
+# conversion, so a case-by-case class needs a pet word or a weight near it,
+# or one of `petstext.CASE`'s pet-specific phrases.
+_PET = r"(?:pets?|dogs?|cats?|animals?|lbs|pounds)"
+CASE_PETS = (
+    _PET
+    + r".{0,80}case[- ]by[- ]case|case[- ]by[- ]case.{0,40}"
+    + _PET
+    + "|"
+    + petstext.CASE.split("|", 1)[1]
+)
+
+
 def pets(text: pd.Series) -> pd.DataFrame:
     """The coded pet level each text states, with the matched words; texts
-    of class "none" or "no_dogs" are dropped."""
+    of class "none" or "no_dogs", and case-by-case texts without a pet near
+    the phrase (`CASE_PETS`), are dropped."""
     found = petstext.classify(text)
-    keep = found.isin(["no_pets", "case_by_case", "allowed"])
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
+    keep = found.isin(["no_pets", "allowed"]) | (
+        found.eq("case_by_case") & text.str.contains(CASE_PETS, regex=True)
+    )
     evidence = pd.Series(pd.NA, index=text.index, dtype=object)
     for name, pattern in petstext.CLASSES:
         rows = found.eq(name)

@@ -813,6 +813,10 @@ DATA_RULE_TEXT = {
     "elevator-from-ad-v1": "A listing whose elevator field is blank takes the "
     "answer its own ad gives: no for a walk-up or an ad saying there is no elevator, "
     "yes for an ad mentioning one. A recorded answer stays as it is.",
+    "pets-from-ad-v1": "A listing whose pet policy is blank takes the policy its "
+    "own ad states: no pets, case by case, or pets allowed. An ad allowing cats but "
+    "not dogs leaves it blank, as there is no such recorded policy. A recorded "
+    "policy stays as it is.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "
