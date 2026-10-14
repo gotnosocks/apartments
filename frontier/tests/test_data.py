@@ -1246,3 +1246,35 @@ def test_unit_labels_v16_joins_spelled_out_labels_where_bedrooms_agree():
     v15 = data.DATA_RULES["unit-labels-v15"](frame)
     assert v16(frame).unit_id.tolist()[:2] == ["u8", "u8"]
     assert v15.unit_id.tolist()[:2] == ["u9", "u8"]
+
+
+def test_tune_westcoast_split_v2_swaps_v1s_names():
+    """v2 sends each scheme to the other name: floor-and-letter rows to the
+    taller BIN's the-west-coast, three-digit rows to 97-horatio."""
+    url = "https://streeteasy.com/building/x/"
+    frame = pd.DataFrame(
+        {
+            "building": ["the-west-coast"] * 4
+            + ["97-horatio-street-new_york"] * 2
+            + ["other"],
+            "canonical_unit_url": [
+                url + l for l in ("425", "007e", "phd", "42", "7E", "712", "4b")
+            ],
+        }
+    )
+    out = data.DATA_RULES["tune-westcoast-split-v2"](frame)
+    assert out.building.tolist() == [
+        "97-horatio-street-new_york",
+        "the-west-coast",
+        "the-west-coast",
+        "the-west-coast",
+        "the-west-coast",
+        "97-horatio-street-new_york",
+        "other",
+    ]
+    v1 = data.DATA_RULES["tune-westcoast-split-v1"](frame)
+    lot = frame.building.isin(data.WESTCOAST) & ~frame.canonical_unit_url.str.endswith(
+        "/42"
+    )
+    assert (out.building[lot] != v1.building[lot]).all()
+    assert "tune-westcoast-split-v2".startswith(data.TUNING_PREFIX)

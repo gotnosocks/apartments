@@ -1120,6 +1120,26 @@ def tune_westcoast_split_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(building=building)
 
 
+def tune_westcoast_split_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """`tune_westcoast_split_v1` with the two names swapped: floor-and-letter
+    rows go to the-west-coast, three-digit rows to 97-horatio-street-new_york.
+    The building footprints put the lot's taller structure at BIN 1012154
+    (122.6 ft, the-west-coast in the registry) and the shorter at BIN 1012155
+    (91.9 ft, 97-horatio-street-new_york). Floor-and-letter labels run to floor
+    10 and three-digit labels stop at floor 7, so the floor-and-letter scheme
+    belongs to the taller structure."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    lot = frame.building.isin(WESTCOAST).to_numpy()
+    letter = (label.str.fullmatch(r"\d+[a-z]+") | label.str.startswith("ph")).to_numpy(
+        dtype=bool, na_value=False
+    )
+    three = label.str.fullmatch(r"\d{3}").to_numpy(dtype=bool, na_value=False)
+    building = np.where(
+        lot & letter, WESTCOAST[0], np.where(lot & three, WESTCOAST[1], frame.building)
+    )
+    return frame.assign(building=building)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1263,6 +1283,7 @@ DATA_RULES = {
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
+    "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
