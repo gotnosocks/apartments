@@ -862,3 +862,11 @@ def test_border_tests_take_the_latest_location_surface_trials():
     ]
     found = story.border_tests(trials)
     assert found["surface"]["change"] == "nb5p3-loc-v1" and found["nolabel"] is None
+
+
+def test_change_words_take_in_midtown_wests_areas():
+    before = {"terms": ["nocurves"], "feature_set": "nb8-nostuy-v1", "rows": "a"}
+    after = {"terms": ["nocurves"], "feature_set": "nb9-nostuy-v1", "rows": "a"}
+    assert story.change_words(before, after) == (
+        "Took in Hell's Kitchen and Hudson Yards"
+    )

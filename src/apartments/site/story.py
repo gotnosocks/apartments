@@ -1142,6 +1142,7 @@ AREA_WORDS = {
     "nb6": "Stuyvesant Town/PCV",
     "nb7": "NoMad",
     "nb8": "East Village",
+    "nb9": "Hell's Kitchen and Hudson Yards",
 }
 SET_WORDS = {
     "unitdesc": "words from the ads",
