@@ -127,7 +127,7 @@ NO_APPROVAL_OR_PETS = (
 NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b|\bpets?: ?no (?!pets?\b|animals?\b)[a-z]+"
 # "no board approval" and "easy approval" are about the application, and
 # `petstext.CASE` reads them as pets subject to approval when a pet word follows.
-APPLICATION_APPROVAL = r"\b(?:no|easy|fast|quick) (?:board )?approval\b"
+APPLICATION_APPROVAL = r"\b(?:no|easy|fast|quick) (?:board )?approvals?\b"
 
 
 def pets(text: pd.Series) -> pd.DataFrame:
