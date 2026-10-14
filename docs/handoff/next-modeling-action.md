@@ -41,9 +41,9 @@ before each fit, are in `docs/model/predictions-arwalk-2026-10-14.md`.
    finishes:
    - If it passes the gate, launch the fixed-rho AR(1) on its exact rule list.
    - The #771 predictions list `latest-ask-v3`, `quarantine-v14` and `unit-labels-v16`. The
-     v15 and v17 C fits ran on later versions (`latest-ask-v4`, `unit-labels-v17`). Before the
-     launch, add a predictions line and a short section for the v17 rule list to the
-     predictions doc and `config/predictions.jsonl`, and land them through review.
+     v15 and v17 C fits ran on later versions (`latest-ask-v4`, `unit-labels-v17`). #798 added
+     the predictions for the v17 rule list (gate pass chance 55-65% under the all-building gate
+     of #788). A later rule list needs its own line before launch.
    - If it fails, the AR(1) keeps waiting.
 4. Score the AR(1) against that C:
    - paired PSIS-LOO on shared rows, with SEs clustered by building and by lot;
