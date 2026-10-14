@@ -1140,6 +1140,18 @@ def tune_westcoast_split_v2(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(building=building)
 
 
+def building_joins_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """StreetEasy's 97-horatio-street-new_york page folded into
+    the-west-coast. The West Coast is one complex on lot 1006430001, and 97
+    Horatio Street is another of its addresses. BIN 1012155, the registry's
+    match for the address, is a 6,700 sqft section on the Horatio side inside
+    the outline of BIN 1012154 (52,400 sqft). The page holds 8 NB8 rows from
+    2015 to 2019 in both label schemes. A `tune-westcoast-split-` rule run
+    after this one still splits the lot by label scheme."""
+    building = frame.building.where(frame.building.ne(WESTCOAST[1]), WESTCOAST[0])
+    return frame.assign(building=building)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1284,6 +1296,7 @@ DATA_RULES = {
     "latest-ask-v3": latest_ask_v3,
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
+    "building-joins-v1": building_joins_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
@@ -1440,6 +1453,12 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     reviews = [i for i, r in enumerate(rules) if r.startswith("unit-reviews-")]
     if labels and reviews and min(reviews) < max(labels):
         raise ValueError(f"unit-reviews rules must follow unit-labels: {rules}")
+    joins = [i for i, r in enumerate(rules) if r.startswith("building-joins-")]
+    wings = [i for i, r in enumerate(rules) if r.startswith("tune-westcoast-split-")]
+    if joins and wings and max(joins) > min(wings):
+        raise ValueError(
+            f"building-joins rules must precede tune-westcoast-split: {rules}"
+        )
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
