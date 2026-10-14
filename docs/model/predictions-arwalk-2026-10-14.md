@@ -89,3 +89,38 @@ miss criteria, including rho above 0.99. I will score both blocks.
 
 This fit does not go through autoselect, and nothing gets served or published from it. Ben's
 hold on those steps from 03:16Z on 2026-10-13 still stands.
+
+## Convergence retry (2026-10-14T02:05Z)
+
+The first fit (commit 24a7e9b) failed the convergence gate: R-hat 1.041 on rho and ESS 39 on sd.
+The result is in `docs/model/arwalk-2026-10-14.md`. Ben approved one retry at 01:47Z on
+2026-10-14.
+
+The retry fits the same design with C's settings. The only change is in the sampler: under
+`walk_ar`, the collapsed solo updates on sd and on -log rho become updates along the principal
+axes of the pair's warmup covariance. The ridge between log sd and log(-log rho), whose
+correlation is -0.99, stays in the posterior, and the updates now step along it. Both prediction blocks above apply unchanged, and the retry settles the
+last miss criterion: it misses if the retry also fails the gate.
+
+I wrote this before the retry. The first fit's result is known, and its posterior medians would
+make predictions for the retry trivial, so I add no new ones.
+
+### Expected mixing (2026-10-14T03:15Z, before the retry)
+
+I compared the old and new samplers on simulated AR(1) panels: 200 buildings over 120 months,
+two chains, warmup 300 and 1,500 draws each, with the same seed and the same run time per sweep.
+
+| Case (rho, building sd, sd) | ESS rho, old / new | ESS sd, old / new | ESS building_scale, old / new |
+|---|---|---|---|
+| 0.92, 0.144, 0.08 | 31 / 132 | 30 / 112 | 41 / 98 |
+| 0.985, 0.05, 0.08 | 40 / 99 | 38 / 82 | 42 / 55 |
+
+The posterior quantiles agree between the two samplers. Adding log building_scale as a third
+axis gave about the same ESS (114 and 132 for rho), so the retry uses two axes.
+
+On the full data the first fit reached ESS 39 on sd. The simulated gains on sd were 2.2 and 3.7
+times, which put the retry near 85 to 145, below the gate's 400. The first fit also failed the group
+R-hat check (1.065 on the unit effects), which this change does not address. I expect the retry
+to fail the ESS check and possibly the group R-hat check, so I expect the last miss criterion to
+be met. If it is, a longer chain at the new sampler would be
+the next step. That needs Ben's approval, since it costs more than one fit at C's settings.

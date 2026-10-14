@@ -818,6 +818,10 @@ PART_SCALES = frozenset({"sigma", "unit_scale", "unit_drift_scale"})
 # Random-walk Metropolis steps on log(-log rho) given the AR(1) walk.
 DECAY_STEPS = 10
 DECAY_STEP_SD = 0.03
+# Under the AR(1) walk, log sd and log(-log rho) lie on a narrow ridge
+# (posterior correlation about -0.99 on the full data). Their collapsed solo
+# updates run along the principal axes of that pair's warmup covariance.
+WALK_AXES = ("walk_axis_0", "walk_axis_1")
 # The log-linear noise multipliers (`noise_loglinear`), one per noise factor.
 MULT_NAMES = tuple(f"noise_mult_{f}" for f in model_module.NOISE_FACTORS)
 
@@ -1290,10 +1294,12 @@ def make_step(d: Design):
     hier = list(d.scale_names)  # collapsed update covers sigma and every group scale
     d_base = d
 
-    def step(key, state, cfg, prop_sd=None, solo_sd=None):
+    def step(key, state, cfg, prop_sd=None, solo_sd=None, walk_axes=None):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
         proposal sd per hierarchical log-scale) the scales are first updated
-        by a collapsed Metropolis step that integrates out every latent."""
+        by a collapsed Metropolis step that integrates out every latent.
+        `walk_axes` (2, 2) holds the unit directions in (log walk_scale,
+        log walk_decay) of the solo updates `walk_axis_0` and `walk_axis_1`."""
         # With line effects the block sees y minus the current line effects.
         d = (
             d_base
@@ -1360,26 +1366,36 @@ def make_step(d: Design):
             for i, (name, sd_i) in enumerate(solos.items()):
                 k1, k2 = jax.random.split(jax.random.fold_in(keys[11], 100 + i))
                 s_new = dict(s)
-                s_new[name] = s[name] * jnp.exp(sd_i * jax.random.normal(k1))
+                eps = sd_i * jax.random.normal(k1)
+                if name in WALK_AXES:
+                    # A step along a fixed direction in (log sd, log delta):
+                    # symmetric, so the ratio is the target's on log scales.
+                    u = walk_axes[WALK_AXES.index(name)]
+                    moved = ("walk_scale", "walk_decay")
+                    for j, m in enumerate(moved):
+                        s_new[m] = s[m] * jnp.exp(eps * u[j])
+                else:
+                    moved = (name,)
+                    s_new[name] = s[name] * jnp.exp(eps)
                 # Only a solo on a scale in PART_SCALES needs new row sums.
+                part = any(is_part_scale(m) for m in moved)
                 parts_new = (
                     block_parts(d, state["lam"], s_new, state["kappa"])
-                    if is_part_scale(name)
+                    if part
                     else parts
                 )
                 out_new = block_solve(d, parts_new, s_new, *z)
-                log_ratio = (
-                    out_new[-1]
-                    - out[-1]
-                    + scale_log_prior(name, s_new[name], d.prior_sd[name])
-                    - scale_log_prior(name, s[name], d.prior_sd[name])
-                )
+                log_ratio = out_new[-1] - out[-1]
+                for m in moved:
+                    log_ratio += scale_log_prior(
+                        m, s_new[m], d.prior_sd[m]
+                    ) - scale_log_prior(m, s[m], d.prior_sd[m])
                 ok = jnp.log(jax.random.uniform(k2)) < log_ratio
                 out = jax.tree.map(
                     lambda a, b, ok=ok: jnp.where(ok, b, a), out, out_new
                 )
                 s = {k: jnp.where(ok, s_new[k], s[k]) for k in s}
-                if is_part_scale(name):
+                if part:
                     parts = keep(ok, parts, parts_new)
                 info[f"solo_accept_{name}"] = ok.astype(jnp.float64)
         theta, theta_l, u, fixed, drift, _ = out
@@ -1885,6 +1901,14 @@ def _detrended_cov(x):
     return np.einsum("cdi,cdj->ij", r, r) / (x.shape[0] * x.shape[1])
 
 
+def _walk_axes(cov):
+    """Principal axes of a (2, 2) covariance of (log walk_scale, log
+    walk_decay): the unit directions as rows, and a 1-D step size along each
+    (2.38 times the sd along it)."""
+    vals, vecs = np.linalg.eigh(cov)
+    return jnp.asarray(vecs.T), [float(2.38 * np.sqrt(max(v, 1e-12))) for v in vals]
+
+
 def _step_sds(prop_sd):
     """Marginal step sd per scale of a diagonal or full-covariance proposal."""
     p = np.asarray(prop_sd)
@@ -1945,7 +1969,7 @@ def run(
     states, log_scales = jax.jit(batched(warm1, settings.chains, settings.chain_batch))(
         states, jax.random.split(k_warm, settings.chains)
     )
-    prop_sd = solo_sd = None
+    prop_sd = solo_sd = walk_axes = None
     if settings.collapse:
         tail = np.asarray(log_scales)[:, n1 // 2 :]  # (chains, draws, scales + nu)
         # Within-chain spread around a linear trend: robust to chains that
@@ -1964,9 +1988,13 @@ def run(
             )
         solo_sd = {
             n: float(2.38 * sd[hier.index(n)])
-            for n in (*settings.solo_scales, *(("walk_decay",) if d.walk_ar else ()))
-            if n in hier
+            for n in settings.solo_scales
+            if n in hier and not (d.walk_ar and n == "walk_scale")
         }
+        if d.walk_ar:
+            cols = [hier.index("walk_scale"), hier.index("walk_decay")]
+            walk_axes, axis_sd = _walk_axes(_detrended_cov(tail[..., cols]))
+            solo_sd.update(zip(WALK_AXES, axis_sd))
         # Size the (log sigma, log nu) random-walk steps from warmup too.
         cfg = (
             settings.noise_steps,
@@ -1986,11 +2014,11 @@ def run(
         n2 = settings.warmup - n1
         solo_names = list(solo_sd)
 
-        def warm2(state, k, psd, ssd, length):
+        def warm2(state, k, psd, ssd, axes, length):
             ssd_dict = dict(zip(solo_names, ssd))
 
             def body(st, kk):
-                st, info = step(kk, st, cfg, psd, ssd_dict)
+                st, info = step(kk, st, cfg, psd, ssd_dict, axes)
                 acc = jnp.stack(
                     [
                         info["collapsed_accept"],
@@ -2000,10 +2028,15 @@ def run(
                         info["unit_rescale_accept"],
                     ]
                 )
-                return st, acc
+                pair = (
+                    jnp.log(jnp.stack([st["walk_scale"], st["walk_decay"]]))
+                    if d.walk_ar
+                    else jnp.zeros(2)
+                )
+                return st, (acc, pair)
 
-            state, acc = jax.lax.scan(body, state, jax.random.split(k, length))
-            return state, acc.mean(axis=0)
+            state, (acc, pair) = jax.lax.scan(body, state, jax.random.split(k, length))
+            return state, (acc.mean(axis=0), pair)
 
         ssd = jnp.asarray([solo_sd[n] for n in solo_names])
         rounds = 3
@@ -2013,14 +2046,16 @@ def run(
         ):
             run2 = jax.jit(
                 batched(
-                    lambda st, k, _psd=prop_sd, _sd=ssd, _len=length: warm2(
-                        st, k, _psd, _sd, _len
+                    lambda st, k, _psd=prop_sd, _sd=ssd, _ax=walk_axes, _len=length: (
+                        warm2(st, k, _psd, _sd, _ax, _len)
                     ),
                     settings.chains,
                     settings.chain_batch,
                 )
             )
-            states, acc = run2(states, jax.random.split(phase_key, settings.chains))
+            states, (acc, pair) = run2(
+                states, jax.random.split(phase_key, settings.chains)
+            )
             acc = np.asarray(acc).mean(axis=0)
             log(
                 f"warmup round {r} acceptance "
@@ -2037,6 +2072,11 @@ def run(
                 # almost never accepted is cut hard instead.
                 prop_sd = prop_sd * _adapt(acc[0], 0.23)
                 ssd = ssd * jnp.asarray([_adapt(a, 0.44) for a in acc[1:-3]])
+                if d.walk_ar:
+                    # Re-aim the axis updates along this round's (sd, rho)
+                    # draws, which the collapsed updates produced; keep
+                    # their adapted step sizes.
+                    walk_axes, _ = _walk_axes(_detrended_cov(np.asarray(pair)))
                 noise = _adapt(acc[-3], 0.3)
                 rescale = _adapt(acc[-2], 0.44) if d.knot_start is not None else 1.0
                 cfg = (
@@ -2064,7 +2104,7 @@ def run(
 
     t0 = time.perf_counter()
     out = collect_module.collect(
-        lambda k, st: step(k, st, cfg, prop_sd, solo_sd),
+        lambda k, st: step(k, st, cfg, prop_sd, solo_sd, walk_axes),
         lambda st: site_values(d, st),
         states,
         k_draw,
@@ -2095,4 +2135,5 @@ def run(
         "unit_rescale": cfg[5],
     }
     out["solo_proposal_sd"] = solo_sd
+    out["walk_axes"] = None if walk_axes is None else np.asarray(walk_axes).tolist()
     return out
