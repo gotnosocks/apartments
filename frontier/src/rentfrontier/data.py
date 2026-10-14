@@ -1161,11 +1161,11 @@ QUARANTINE_V20 = REPO / "config" / "reviews" / "quarantine-v20-20261014.jsonl"
 
 
 def quarantine_v20(frame: pd.DataFrame) -> pd.DataFrame:
-    """v19's 377 rows and 59 more from the second reads of the ad-fit screen.
+    """v19's 377 rows and 58 more from the second reads of the ad-fit screen.
     After #802 tightened the size check, we read the screen's 1,364 unread
     NB9 hits in full: tiers A to C in `config/reviews/ad-fit-reads-20261014-2.jsonl`
     and tier D in `ad-fit-reads-20261014-3.jsonl`. Each new row quotes the ad:
-    1. 15 ads offer a stay of six months or less, or a furnished travel
+    1. 14 ads offer a stay of six months or less, or a furnished travel
        rental priced by season and length of stay.
     2. 14 put the apartment somewhere else: Brooklyn, Harlem, the Upper East
        and West Sides, or another Manhattan building. We kept an address

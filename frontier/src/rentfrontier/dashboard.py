@@ -820,8 +820,8 @@ DATA_RULE_TEXT = {
     "quarantine-v19": "quarantine-v18 and 51 rows from the first ad-fit reads: "
     "32 short stays or summer sublets, seven asks priced for a short lease only, "
     "seven rooms with a shared bath or kitchen, and five ads for another address.",
-    "quarantine-v20": "quarantine-v19 and 59 rows from the second ad-fit reads: "
-    "15 short stays or furnished travel rentals, 14 ads for another address, "
+    "quarantine-v20": "quarantine-v19 and 58 rows from the second ad-fit reads: "
+    "14 short stays or furnished travel rentals, 14 ads for another address, "
     "14 rooms or live/work spaces, 10 stores, offices or bars, and six asks "
     "that hold only for a short first term or vary with the length of the stay.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
