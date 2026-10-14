@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 18:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 19:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 19:20 ET
+
+- **Ad-text fills on master** (Ben lifted the hold at 22:23Z: the fits should work with Midtown
+  West included, and the served C may go stale).
+  - `elevator-from-ad-v1` (#778, `395d53e7`) fills 6,397 of 296,627 NB9 rows.
+  - `pets-from-ad-v1` (#794, `6597bb69`) fills 17,888 NB9 rows on top of it. #782 had been
+    stacked on #778's branch and merged into that branch, so #794 carried its diff to master.
+    Check a PR's base before merging a stacked one.
+  - Both fill files read the cd891c8 NB9 dataset and descriptions. A new dataset needs them
+    rebuilt (`python -m rentfrontier.adfills elevator|pets`) and new rule versions.
+- Modeling has master `6597bb69`, set nb9-nostuy-v1 and the full rule set for the NB9 C. It
+  waits on Ben's go-ahead in its own thread and on the Modal balance.
+- **quarantine-v18** (#792, the 110 W 26th thread) keeps v17's 326 rows and corrects the five
+  110 W 26th reasons to `quarantine_product_scope`. That thread checks version numbers with us
+  before each new version; next free: quarantine-v19, unit-labels-v18.
+- `data/110w26-release-split` (`510b0eaf`) is dropped. Deleting the branch needs Ben's
+  permission, so it still exists on origin.
 
 ## 2026-10-14 18:05 ET
 
@@ -17,8 +35,6 @@ Updated 2026-10-14 18:05 ET. Thread owner: the Data improvements project thread 
 - **110 W 26th St** belongs to its own thread now. Branch `data/110w26-release-split` (`510b0eaf`)
   holds a release of v16's five rows there and a unit-labels-v18 split. It stays unmerged, with no
   PR. That thread finds 4 of the 5 ads give 112 W 26th St, the same tax lot.
-- **#778 and #782** (elevator and pets from ad text) stay held until Modeling's wing C is served.
-- Next free versions: quarantine-v18, unit-labels-v18.
 
 ## 2026-10-14 14:45 ET
 
