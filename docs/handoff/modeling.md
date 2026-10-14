@@ -3,6 +3,27 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 21:45 UTC): every-building gate, quarantine-v17, wing C held
+
+- Ben chose the strict gate at 21:10Z. #788 checks split R-hat (at most 1.01) and bulk ESS (over
+  400) on every building effect, where the old check took 32 random buildings. It adds about 8 s
+  to a C fit (0.08 s per chain in the scan, 7 s of statistics after it), 195 MB of GPU memory and
+  43 KB of output (`rhat/building`, `ess/building`). Recorded results of older fits keep their old
+  pass, so the served C (split C `f469edaa`, on quarantine-v13) stays served until a replacement
+  passes. The served C has 6 buildings over 1.01 on its kept draws (worst 1.013), so it would most
+  likely fail the new gate.
+- Short full-data C fits are OOM-killed on thelio at about 6.9 GB inside the GPU job slice, on
+  old and new code alike. Time full-data changes on Modal or with a scan benchmark.
+- 110 W 26th: the five low asks are smaller one-bedrooms in the same building, not East Village
+  ads. Ben moved their release and unit split to the thread "110 W 26th St data check" (branch
+  `data/110w26-release-split`). Modeling doesn't write that PR.
+- #789 merged quarantine-v17, the Brooklyn filter only (326 held rows, a standing screen for new
+  datasets). A new fit on quarantine-v16 can't be served now.
+- The v16 wing C line in `modalq-c.queue` is commented out as obsolete. Fit the wing C on master's
+  rules once the coordinator names the version (v17 alone, or v17 plus the 110 W 26th split).
+  Serve nothing until Ben says so. The NB9 C and the fixed-rho arwalk wait on a passing wing C.
+  Data improvements keeps #778 and #782 held.
+
 ## Update (2026-10-14 20:50 UTC): no seed retries, wing C fails the gate
 
 - The wing-rule C (`...-nb8-nostuy-wings-v1-rows-676a0348-...-wings1`, #779) fits in 1,648 s and
