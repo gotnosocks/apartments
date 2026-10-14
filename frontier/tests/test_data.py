@@ -1068,13 +1068,13 @@ def test_quarantine_v12_adds_the_new_neighbourhoods_to_v10():
 
 
 def test_quarantine_v13_adds_two_read_price_screen_hits_to_v12():
-    """v13 is v12's 269 rows and 2 more, both among the 10 price-screen hits
+    """v13 is v12's 269 rows and 2 more, both among the 11 price-screen hits
     read, each with its quote and reason."""
     v12 = data.quarantined(data.QUARANTINE_V12)
     v13 = data.quarantined(data.QUARANTINE_V13)
     assert v12 < v13 and len(v13 - v12) == 2
     read = set(data.QUARANTINE_V13_READ.read_text().split())
-    assert len(read) == 10 and v13 - v12 <= read
+    assert len(read) == 11 and v13 - v12 <= read
     with open(data.QUARANTINE_V13) as f:
         rows = [json.loads(line) for line in f if line.strip()]
     assert len(rows) == 271 and all(r["evidence"] and r["reason"] for r in rows)

@@ -12,8 +12,9 @@ For each listing the builder reads the last capture's `pricing.priceChanges`
 in date order. Landlords often type a placeholder ($10,000, $1,000, $500) into
 the price on the day they take a listing down. So a change dated on or after
 the listing's off-market day is skipped when it is more than twice or under
-half the ask before it, or a raise of more than 20% to exactly $10,000. Smaller changes on that day are mostly the final ask
-(a raise or cut as the listing is let) and count. A listing still on the market
+half the ask before it, or a raise of more than 20% to exactly $10,000.
+Smaller changes on that day are mostly the final ask (a raise or cut as the
+listing is let) and count. A listing still on the market
 keeps all its changes, and changes dated on the day the listing went up always
 count, so a typo the advertiser fixed that same day gives way to the fix.
 

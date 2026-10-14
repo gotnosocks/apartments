@@ -968,7 +968,7 @@ def latest_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
 LATEST_ASK = Path(
-    "/data1/apartments/external/latest-ask/20261014-a7cb48b/latest-ask.parquet"
+    "/data1/apartments/external/latest-ask/20261014-003dd7d/latest-ask.parquet"
 )
 
 

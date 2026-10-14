@@ -783,7 +783,7 @@ DATA_RULE_TEXT = {
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "
     "page price off by a digit, takes whichever is nearer the building's other "
-    "asks. 73,424 of 215,156 rows change price, by 4.7% at the median.",
+    "asks. 79,791 of 215,156 rows change price, by 4.9% at the median.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under different "
     "labels: at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back); at 21 West 12th Street, 2, 2B, 2F and 2R are "
