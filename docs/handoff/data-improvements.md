@@ -1,6 +1,28 @@
 # Data improvements — handoff
 
-Updated 2026-10-10 21:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 05:55 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 05:55 ET
+
+- **#730 (merged `bcaac064`):** `latest-ask-v2` reprices every NB8 row at its listing's latest
+  on-market ask, from `/data1/apartments/external/latest-ask/20261014-003dd7d/latest-ask.parquet`
+  (`python -m rentfrontier.latest_ask`, clean tree only). 79,791 of 215,156 rows change, median
+  4.9%. It supersedes `tune-latestask-v1` (#706) and `tune-finalask-v1` (#700/#704); the
+  reconciliation by cause is in the PR body and `docs/analysis/latest-ask-2026-10-14.md`.
+  - Placeholders: a change on or after the off-market day is skipped when more than 2x or under
+    half the ask before it, or a raise of over 20% to exactly $10,000. If the screen turns up
+    another typed placeholder value, extend `record_latest` in a new builder build and a
+    `latest-ask-v3`; keep v2's file as it is.
+  - `quarantine-v13` = v12 + 2 rows from `frontier/scripts/price_mismatch_screen.py` (factor over
+    3 against both unit and building leave-one-out medians); the 11 rows over 2.5 are in the read
+    list.
+- Ben (2026-10-14): price may be used to detect anomalies; data corrections toward a known ground
+  truth merge without waiting on model updates; no refit for negligible data changes. The latent
+  per-apartment ask model is a backlog item in `docs/research-plan.md` (#732), not current work.
+- Modeling's C refit runs under `latest-ask-v2` and `quarantine-v13`; Modeling owns the queue and
+  Ben's fit hold still applies to this thread. The Repo state cleanup thread stacks
+  `quarantine-v14` and `unit-labels-v16` on #730. The per-event price table and a pets-from-ad
+  rule were both dropped.
 
 ## 2026-10-10 21:05 ET
 
