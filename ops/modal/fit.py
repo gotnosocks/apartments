@@ -302,8 +302,10 @@ def main(argv):
     if args.gpu not in modal_app.FITS:
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
     touch()
-    usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu)
-    secs = cap.seconds(args.chains, args.warmup, args.draws)
+    # At the model's own fit-stage rate on its last Modal fit, if that was slower.
+    rate = cap.measured_rate(args.model, args.features, OUTPUT_ROOT / "runs")
+    usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu, rate)
+    secs = cap.seconds(args.chains, args.warmup, args.draws, rate)
     # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
     launch, left = cap.reserve(spec["name"], args.gpu, usd, secs=secs)
     print(
