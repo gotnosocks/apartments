@@ -85,3 +85,13 @@ def test_traces_without_every_building_keep_the_traced_gate():
     d = diagnostics(t, ["a", "b"])
     assert "buildings" not in d
     assert "32+32 traced" in d["gate"]
+
+
+def test_a_stuck_building_fails_rather_than_dropping_out():
+    rng = np.random.default_rng(7)
+    b = rng.normal(size=(2, 1000, 20))
+    b[0, :, 5], b[1, :, 5] = 0.0, 1.0
+    out = building_diagnostics(b)
+    assert np.isinf(out["rhat"][5])
+    d = diagnostics(trace(rng, b[:, :, :].repeat(2, axis=1)[:, :2000]), ["a", "b"])
+    assert not d["passes"]

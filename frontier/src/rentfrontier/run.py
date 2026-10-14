@@ -182,7 +182,9 @@ def building_diagnostics(x, chunk=512) -> dict:
     """Split R-hat and bulk ESS of every building effect.
 
     x has shape (chains, draws, buildings). Buildings with a constant draw
-    (no rows, effect pinned) get NaN and drop out of the gate.
+    (no rows, effect pinned) get NaN and drop out of the gate. A stuck
+    building, constant within each half-chain at different values, gets
+    R-hat inf and fails it.
     """
     x = np.asarray(x, np.float64)
     rhat = np.full(x.shape[-1], np.nan)
@@ -193,6 +195,11 @@ def building_diagnostics(x, chunk=512) -> dict:
         j = idx[i : i + chunk]
         rhat[j] = split_rhat(x[..., j])
         ess_[j] = ess(x[..., j])
+    # A building that varies but sits still within each half-chain (stuck)
+    # has no within-chain variance; it fails rather than dropping out.
+    stuck = live & np.isnan(rhat)
+    rhat[stuck] = np.inf
+    ess_[stuck & np.isnan(ess_)] = 0.0
     return {"rhat": rhat, "ess": ess_}
 
 
