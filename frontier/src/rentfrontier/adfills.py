@@ -17,10 +17,10 @@ any other way. A row whose text says both, or neither, gets no line.
 For pets the builder takes `petstext.classify`'s class and writes its coded
 level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
 or "not_allowed". The coded field has no level for "no dogs", so a text of
-that class gets no line. Nor does a case-by-case text unless a pet word or a
-weight sits near the phrase, since ads use it for guarantors and short stays
-too, an allowed text whose only sign is "no pet fees", or a no-pets text
-whose only ban is "no pet dogs" or "no pet cats".
+that class gets no line. `pets` also corrects three of the classifier's
+readings found in samples of ads: "case by case" about guarantors or short
+stays, "no board approval" before "pets ok", and "no pet fees" or "pets: no
+dogs" read as a policy.
 
 Each row reads its own ad only, never another listing in its building."""
 
@@ -84,15 +84,26 @@ CASE_PETS = (
 # `petstext.ALLOWED` reads it as pets allowed, so an allowed class needs
 # other words.
 NO_PET_FEE = r"\bno pet (?:fees?|deposits?|rent)\b"
-# "no pet dogs" bans dogs, not pets, and `petstext.NO_PETS` reads it as no pets.
-NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b"
+# "no pet dogs" and "pets: no dogs" ban one kind of pet, and `petstext.NO_PETS`
+# reads them as no pets.
+NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b|\bpets?: ?no (?!pets?\b|animals?\b)[a-z]+"
+# "no board approval" and "easy approval" are about the application, and
+# `petstext.CASE` reads them as pets subject to approval when a pet word follows.
+APPLICATION_APPROVAL = r"\b(?:no|easy|fast|quick) (?:board )?approval\b"
 
 
 def pets(text: pd.Series) -> pd.DataFrame:
-    """The coded pet level each text states, with the matched words; texts
-    of class "none" or "no_dogs", allowed texts saying only "no pet fees"
-    (`NO_PET_FEE`), no-pets texts saying only "no pet dogs" (`NO_PET_KIND`) and case-by-case texts without a pet near the phrase
-    (`CASE_PETS`) are dropped."""
+    """The coded pet level each text states, with the matched words.
+
+    The class comes from `petstext.classify`, with three corrections:
+      - a case-by-case text needs a pet word or weight near the phrase
+        (`CASE_PETS`), once approval of the application is set aside
+        (`APPLICATION_APPROVAL`); failing that it counts as allowed when it
+        says so, and otherwise gets no line;
+      - an allowed text needs words besides "no pet fees" (`NO_PET_FEE`);
+      - a no-pets text needs a ban besides "no pet dogs" or "pets: no dogs"
+        (`NO_PET_KIND`).
+    Texts of class "none" or "no_dogs" get no line."""
     found = petstext.classify(text)
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
     no_pets = text.str.replace(NO_PET_KIND, " ", regex=True).str.contains(
@@ -101,10 +112,14 @@ def pets(text: pd.Series) -> pd.DataFrame:
     allowed = text.str.replace(NO_PET_FEE, " ", regex=True).str.contains(
         petstext.ALLOWED, regex=True
     )
+    case = text.str.replace(APPLICATION_APPROVAL, " ", regex=True).str.contains(
+        CASE_PETS, regex=True
+    )
+    found = found.mask(found.eq("case_by_case") & ~case & allowed, "allowed")
     keep = (
         (found.eq("allowed") & allowed)
         | (found.eq("no_pets") & no_pets)
-        | (found.eq("case_by_case") & text.str.contains(CASE_PETS, regex=True))
+        | (found.eq("case_by_case") & case)
     )
     evidence = pd.Series(pd.NA, index=text.index, dtype=object)
     for name, pattern in petstext.CLASSES:

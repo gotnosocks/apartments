@@ -1443,6 +1443,9 @@ def test_adfills_pets_writes_existing_codes_only():
             "Sorry, no pet dogs permitted.",
             "No fee apartment! No pet fees!",
             "No pet fees! Pets ok.",
+            "Pets: no dogs. Cats are permitted.",
+            "No board approval, pets ok.",
+            "Pets: no.",
         ]
     )
     out = adfills.pets(text)
@@ -1452,5 +1455,7 @@ def test_adfills_pets_writes_existing_codes_only():
         2: "allowed_restrictions_unknown",
         7: "approval_required",
         10: "allowed_restrictions_unknown",
+        12: "allowed_restrictions_unknown",
+        13: "not_allowed",
     }
     assert out.evidence.notna().all()
