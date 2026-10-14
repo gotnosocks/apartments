@@ -36,3 +36,29 @@ and the split change neither model's terms, so I expect a similar gap.
 
 If lines wins by more than 2 lot-clustered SEs, I report it to Ben with the numbers above and
 ask before any rule or serving change. If it ties, it goes on the unadopted list with its result.
+
+## Results
+
+The fit ran as `...-nb8-nostuy-lines-v1-rows-11c81a08-...-tune-westcoast-split-v1` and finished at
+12:24 ET on 2026-10-14. I scored it against the split C with `rentfrontier.clusterse` and
+`rentfrontier.finalask`.
+
+| Quantity | Prediction | Result | Hit |
+|---|---|---|---|
+| Gate | Passes, 75% likely | Passes: max R-hat 1.006, min ESS 580, max group R-hat 1.024 | yes |
+| Fit time, cost | 2,400 to 2,900 s, $1.90 to $2.20 | 2,436 s, $1.79 settled | time yes, cost no |
+| Paired PSIS-LOO against the split C | +53 (+20 to +90) | +22.5 | yes, at the low end |
+| iid SE / lot-clustered SE | 14 to 17 / 20 to 25 | 9.3 / 10.3 | no |
+| Verdict | A win under the iid SE, a tie under the lot SE | A tie under both | no |
+| Held-out median miss against the latest ask | 3.68 to 3.78% | 3.72% (split C 3.73%) | yes |
+| Held-out 80% / 95% coverage | 79.0 to 80.0 / 94.6 to 95.2 | 79.4 / 94.8 | yes |
+| New-building score: miss | 11.8 to 12.2% | 12.0% | yes |
+| New-building 80% / 95% coverage | 90.5 to 91.1 / 98.1 to 98.4 | 90.46 / 98.1 | 80% just under, 95% yes |
+
+The building-weighted new-building log predictive density favors lines by +63.2 nats, with a lot
+SE of 13.9, about the same as on the first ask (+83.9, lot SE 14.4). On PSIS-LOO, the gap shrank
+from +53 to +22.5, and its SEs fell by more than half. The split C's paired SEs against the C refit
+were similar in size, so I expect the latest ask is what tightened both.
+
+Lines ties C on the board's PSIS-LOO rule, so it isn't served. I put it on the unadopted list and
+report both scores to Ben.
