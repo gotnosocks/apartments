@@ -525,7 +525,7 @@ UNIT_SPLIT_REVIEWS = {
     # 1,500 to 1,650 sq ft.
     "3a20e29b1facedcd1996c3a92993a22541c4b0bd5d535f82f899ad147ce39c7e": "1544571",
     # 110 W 26th St, 3R, 2016-02: "spacious bright one bedroom", no square
-    # footage, $2,395; 3R's other ad, 2023, is a 1,650 sq ft loft at $6,000.
+    # footage, $2,595; 3R's other ad, 2023, is a 1,650 sq ft loft at $6,000.
     "b65c3658df23fa51c46d42944ba316e916fea4e1138228503acae7d2a576dec6": "1725378",
 }
 
