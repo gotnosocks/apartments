@@ -1073,6 +1073,33 @@ def latest_ask_v2(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
+# The West Coast (95-97 Horatio St) is one tax lot with two structures in HPD's
+# registry, BIN 1012154 (the-west-coast) and BIN 1012155
+# (97-horatio-street-new_york), under one StreetEasy building. Its rows carry two
+# label schemes: three digits on floors 1 to 7 ("425") and a floor and a letter
+# on floors 2 to 10 ("7E", "007E", "PHD").
+WESTCOAST = ("the-west-coast", "97-horatio-street-new_york")
+
+
+def tune_westcoast_split_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The West Coast's rows split by label scheme, as a tuning rule: a row of
+    either building with a floor-and-letter label (or a penthouse) goes to
+    97-horatio-street-new_york, and one with a three-digit label goes to
+    the-west-coast. Rows with other labels ("7", "26", "42") stay where they
+    are. Both names are in the lot registry, so the building features still
+    resolve. Run it before the unit rules, so units merge within a scheme."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    lot = frame.building.isin(WESTCOAST).to_numpy()
+    letter = (label.str.fullmatch(r"\d+[a-z]+") | label.str.startswith("ph")).to_numpy(
+        dtype=bool, na_value=False
+    )
+    three = label.str.fullmatch(r"\d{3}").to_numpy(dtype=bool, na_value=False)
+    building = np.where(
+        lot & letter, WESTCOAST[1], np.where(lot & three, WESTCOAST[0], frame.building)
+    )
+    return frame.assign(building=building)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1214,6 +1241,7 @@ DATA_RULES = {
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
     "latest-ask-v2": latest_ask_v2,
+    "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(

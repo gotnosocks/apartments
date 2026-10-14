@@ -1117,6 +1117,36 @@ def test_latest_ask_v2_prices_rows_from_the_file(monkeypatch, tmp_path):
     assert data.RULE_SOURCES["latest-ask-v2"].name == "latest-ask.parquet"
 
 
+def test_tune_westcoast_split_v1_splits_the_lot_by_label_scheme():
+    url = "https://streeteasy.com/building/x/"
+    frame = pd.DataFrame(
+        {
+            "building": ["the-west-coast"] * 6
+            + ["97-horatio-street-new_york"] * 2
+            + ["other"],
+            "canonical_unit_url": [
+                url + l
+                for l in ("425", "007e", "7E", "phd", "6dd", "42", "712", "26", "4b")
+            ],
+        }
+    )
+    out = data.DATA_RULES["tune-westcoast-split-v1"](frame)
+    letters, digits = data.WESTCOAST[1], data.WESTCOAST[0]
+    assert out.building.tolist() == [
+        digits,
+        letters,
+        letters,
+        letters,
+        letters,
+        "the-west-coast",
+        digits,
+        "97-horatio-street-new_york",
+        "other",
+    ]
+    assert data.amended_rule("tune-westcoast-split-v1") is False
+    assert "tune-westcoast-split-v1".startswith(data.TUNING_PREFIX)
+
+
 def test_unit_labels_v15_is_v14_on_the_tables_with_east_villages_appended():
     """v15 reads the alias table and history pairs v14 reads, line for line,
     with East Village's added; on other neighbourhoods' units it joins what v14
