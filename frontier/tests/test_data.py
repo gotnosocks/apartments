@@ -286,7 +286,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V10
     ) | data.quarantined(data.QUARANTINE_V12) | data.quarantined(
         data.QUARANTINE_V13
-    ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(data.QUARANTINE_V15)
+    ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(
+        data.QUARANTINE_V15
+    ) | data.quarantined(data.QUARANTINE_V16)
 
 
 @pytest.mark.parametrize(
@@ -1304,6 +1306,22 @@ def test_quarantine_v15_adds_two_read_midtown_west_rows_to_v14():
     assert len(rows) == 286 and all(r["evidence"] and r["reason"] for r in rows)
     assert data.QUARANTINE_V14.read_text() in data.QUARANTINE_V15.read_text()
     assert "quarantine-v15" in data.DROPPING_RULES
+
+
+def test_quarantine_v16_adds_33_read_rows_to_v15():
+    """v16 is v15's 286 rows and 33 more, all among the 44 rows read: 28 of
+    the screen's 39 hits and the five asks at 110 W 26th St."""
+    v15 = data.quarantined(data.QUARANTINE_V15)
+    v16 = data.quarantined(data.QUARANTINE_V16)
+    assert v15 < v16 and len(v16 - v15) == 33
+    read = set(data.QUARANTINE_V16_READ.read_text().split())
+    assert len(read) == 44 and v16 - v15 <= read
+    with open(data.QUARANTINE_V16) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 319 and all(r["evidence"] and r["reason"] for r in rows)
+    assert sum(r["building"] == "110-west-26-street-new_york" for r in rows) == 5
+    assert data.QUARANTINE_V15.read_text() in data.QUARANTINE_V16.read_text()
+    assert "quarantine-v16" in data.DROPPING_RULES
 
 
 def test_tune_westcoast_split_v2_swaps_v1s_names():

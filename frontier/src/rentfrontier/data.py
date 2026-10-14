@@ -1077,6 +1077,27 @@ def quarantine_v15(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V15))]
 
 
+QUARANTINE_V16 = REPO / "config" / "reviews" / "quarantine-v16-20261014.jsonl"
+# The rows v16's review read: every hit of quarantine_v16_screen.py on the NB9
+# rows under the rules of 2026-10-14, and the five one-bedroom asks at 110 W 26th St.
+QUARANTINE_V16_READ = REPO / "config" / "reviews" / "quarantine-v16-read-20261014.txt"
+
+
+def quarantine_v16(frame: pd.DataFrame) -> pd.DataFrame:
+    """v15 and 33 rows filed under the wrong address (319 in all).
+    quarantine_v16_screen.py looks for ads that place the apartment by Prospect
+    Park, Cortelyou Road, Ditmas Avenue, PLG, Park Slope, Fort Greene and other
+    Brooklyn places, with no rent shown. Of its 39 hits, 28 are Brooklyn
+    apartments filed under a Manhattan address with the same number and street
+    name, such as 37 East 21st Street and 519 8th Avenue. The other 11 mention
+    Park Slope as a broker's other listing, or call Midtown West "Clinton".
+    The five one-bedroom asks at 110 W 26th St, at about $2,400 to $2,600 in
+    a building of 1,600 sq ft lofts, are ads from a contact whose nine other
+    ads are East Village walk-ups. Their own address can't be recovered. The
+    other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V16))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1365,6 +1386,7 @@ DATA_RULES = {
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
     "quarantine-v15": quarantine_v15,
+    "quarantine-v16": quarantine_v16,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1400,6 +1422,7 @@ RULE_SOURCES = {
     "quarantine-v13": QUARANTINE_V13,
     "quarantine-v14": QUARANTINE_V14,
     "quarantine-v15": QUARANTINE_V15,
+    "quarantine-v16": QUARANTINE_V16,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1441,6 +1464,7 @@ DROPPING_RULES = (
     "quarantine-v13",
     "quarantine-v14",
     "quarantine-v15",
+    "quarantine-v16",
 )
 
 
