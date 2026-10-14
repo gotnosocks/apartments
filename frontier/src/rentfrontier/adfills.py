@@ -19,7 +19,8 @@ level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
 or "not_allowed". The coded field has no level for "no dogs", so a text of
 that class gets no line. Nor does a case-by-case text unless a pet word or a
 weight sits near the phrase, since ads use it for guarantors and short stays
-too, or a no-pets text whose only ban is "no pet dogs" or "no pet cats".
+too, an allowed text whose only sign is "no pet fees", or a no-pets text
+whose only ban is "no pet dogs" or "no pet cats".
 
 Each row reads its own ad only, never another listing in its building."""
 
@@ -79,22 +80,29 @@ CASE_PETS = (
 )
 
 
+# "no pet fees" says nothing about which pets a building takes, and
+# `petstext.ALLOWED` reads it as pets allowed, so an allowed class needs
+# other words.
+NO_PET_FEE = r"\bno pet (?:fees?|deposits?|rent)\b"
 # "no pet dogs" bans dogs, not pets, and `petstext.NO_PETS` reads it as no pets.
 NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b"
 
 
 def pets(text: pd.Series) -> pd.DataFrame:
     """The coded pet level each text states, with the matched words; texts
-    of class "none" or "no_dogs", no-pets texts saying only "no pet dogs"
-    (`NO_PET_KIND`) and case-by-case texts without a pet near the phrase
+    of class "none" or "no_dogs", allowed texts saying only "no pet fees"
+    (`NO_PET_FEE`), no-pets texts saying only "no pet dogs" (`NO_PET_KIND`) and case-by-case texts without a pet near the phrase
     (`CASE_PETS`) are dropped."""
     found = petstext.classify(text)
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
     no_pets = text.str.replace(NO_PET_KIND, " ", regex=True).str.contains(
         petstext.NO_PETS, regex=True
     )
+    allowed = text.str.replace(NO_PET_FEE, " ", regex=True).str.contains(
+        petstext.ALLOWED, regex=True
+    )
     keep = (
-        found.eq("allowed")
+        (found.eq("allowed") & allowed)
         | (found.eq("no_pets") & no_pets)
         | (found.eq("case_by_case") & text.str.contains(CASE_PETS, regex=True))
     )

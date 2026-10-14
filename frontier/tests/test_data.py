@@ -1441,6 +1441,8 @@ def test_adfills_pets_writes_existing_codes_only():
             "Guarantors considered on a case-by-case basis.",
             "Dogs up to 50 lbs. Above that is considered case by case.",
             "Sorry, no pet dogs permitted.",
+            "No fee apartment! No pet fees!",
+            "No pet fees! Pets ok.",
         ]
     )
     out = adfills.pets(text)
@@ -1449,5 +1451,6 @@ def test_adfills_pets_writes_existing_codes_only():
         1: "approval_required",
         2: "allowed_restrictions_unknown",
         7: "approval_required",
+        10: "allowed_restrictions_unknown",
     }
     assert out.evidence.notna().all()
