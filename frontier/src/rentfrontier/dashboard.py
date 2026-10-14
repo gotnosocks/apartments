@@ -577,6 +577,9 @@ def data():
                 "tier": e.get("tier"),
                 "why_not_served": serve_check(e, rules),
                 "psis": psis_fields(e.get("psis")),
+                # Its price target when the baseline's differs: the site shows
+                # "other target" for its baseline deltas.
+                "other_target": e.get("other_target"),
                 # Paired PSIS-LOO against the served fit (full, passing fits).
                 "vs_served": against["fits"].get(e["_key"]),
                 # Unpaired with the current baseline: the score against the

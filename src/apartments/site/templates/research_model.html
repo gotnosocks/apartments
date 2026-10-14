@@ -104,7 +104,9 @@ target hardware within the fit-time window, the most accurate. When several are 
   <h2>On the board</h2>
   <p class="note">How this fit scores on the research board, where every fit is compared on the same listings.</p>
   <dl class="facts wide">
-    {% if entry.psis and entry.psis.delta is number %}
+    {% if entry.other_target %}
+    <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>not compared: the fit models the {{ entry.other_target }}, and the baseline models the first ask.</dd>
+    {% elif entry.psis and entry.psis.delta is number %}
     <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }}{% if entry.psis.delta_se is number %} ± {{ "{:,.1f}".format(entry.psis.delta_se) }}{% endif %} over the
       baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}: how much better it predicts each listing's ask from all the other
       listings, in log-likelihood units summed over the listings; higher is better.</dd>

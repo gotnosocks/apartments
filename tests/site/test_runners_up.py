@@ -103,3 +103,19 @@ def test_a_runner_up_on_another_price_target_shows_no_difference(
     )
     assert html.index("+12.0 ± 4.1") < html.index("other target")
     assert "models the latest ask, so not compared" in html
+
+
+def test_board_and_fit_pages_show_other_target_for_its_baseline_delta(
+    site_root, research_file
+):
+    data = json.loads(research_file.read_text())
+    other = next(e for e in data["entries"] if e["id"] == "m-other")
+    other["other_target"] = "latest ask"
+    other["psis"]["delta"] = 4321.0
+    research_file.write_text(json.dumps(data))
+    client = create_app(site_root, research_data=research_file).test_client()
+    board = client.get("/research/board").get_data(as_text=True)
+    fit = client.get("/research/fits/m-other").get_data(as_text=True)
+    for html in (board, fit):
+        assert "other target" in html and "4,321" not in html
+    assert "it models the latest ask" in fit

@@ -83,7 +83,7 @@ held-out test, what each model explains, and whether the same model gives the sa
     {% for group in implementations %}{% for e in group.entries %}
       <tr><td>{% if loop.first %}<code>{{ group.structure }}</code>{% endif %}</td><td>{% if loop.first %}{{ group.hardware }}{% endif %}</td>
         <td><a href="{{ url_for('research_fit', key=e.key) }}">{{ e.sampler }}</a></td>
-        <td class="num nowrap">{% if e.psis %}{{ "{:+,.1f}".format(e.psis.delta) }}{% else %}<span class="muted">not scored</span>{% endif %}</td>
+        <td class="num nowrap">{% if e.other_target %}<span class="muted">other target</span>{% elif e.psis %}{{ "{:+,.1f}".format(e.psis.delta) }}{% else %}<span class="muted">not scored</span>{% endif %}</td>
         <td class="num nowrap">{{ "%.1f" | format(e.fit_seconds / 60) }} min</td>
         <td>{{ "pass" if e.passes_checks else "fail" }}</td></tr>
     {% endfor %}{% endfor %}

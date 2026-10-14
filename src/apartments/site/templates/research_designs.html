@@ -33,7 +33,7 @@ then the rest by their best accuracy.</p>
         {% for key, label, what in anatomy_levels %}{% for p in parts if p.level == key %}
         <td class="part-cell{% if not p.present %} off{% endif %}">{% if p.present %}<span aria-hidden="true">✓</span><span class="visually-hidden">yes</span>{% if p.short %} {{ p.short }}{% endif %}{% else %}<span aria-hidden="true">—</span><span class="visually-hidden">no</span>{% endif %}</td>
         {% endfor %}{% endfor %}
-        <td class="num nowrap">{% if r.best.psis and r.best.psis.delta is number %}{{ "{:+,.0f}".format(r.best.psis.delta) }}{% else %}—{% endif %}</td>
+        <td class="num nowrap">{% if r.best.other_target %}<span class="muted">other target</span>{% elif r.best.psis and r.best.psis.delta is number %}{{ "{:+,.0f}".format(r.best.psis.delta) }}{% else %}—{% endif %}</td>
         <td class="num">{{ r.fits }}</td>
       </tr>
     {% endfor %}

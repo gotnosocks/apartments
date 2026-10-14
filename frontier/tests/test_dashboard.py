@@ -599,6 +599,32 @@ def test_predictions_prefer_the_latest_full_passing_fit(monkeypatch, tmp_path):
     assert dashboard.predictions(entries)[0]["key"] == "new"
 
 
+def test_a_prediction_across_price_targets_is_not_scored(monkeypatch, tmp_path):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "predictions.jsonl").write_text(
+        json.dumps({"design": "m/l", "against": "s-rows", "delta_elpd": [0, 40]}) + "\n"
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path)
+    monkeypatch.setattr(
+        dashboard.leaderboard, "paired_loo", lambda a, b: (900.0, 10.0, 1.0)
+    )
+
+    def entry(key, fs, rules):
+        return {
+            "_key": key,
+            "model": {"name": "m"},
+            "feature_set": fs,
+            "splits": {"rows": {"run": f"{key}-rows"}},
+            "psis": {"_dir": key},
+            "passes_checks": True,
+            "data_rules": rules,
+        }
+
+    entries = [entry("s", "base", []), entry("l", "l", ["latest-ask-v2"])]
+    (p,) = dashboard.predictions(entries)
+    assert p["outcome"] is None and p["other_target"] and p["result"] is None
+
+
 def test_the_recorded_predictions_parse():
     path = dashboard.REPO / "config" / "predictions.jsonl"
     for line in path.read_text().splitlines():
