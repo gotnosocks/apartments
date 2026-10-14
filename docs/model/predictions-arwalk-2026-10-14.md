@@ -273,3 +273,32 @@ Those are small next to the 193,000 training rows, so I keep the medians and int
 
 The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
 year gap of 3 pp or more.
+
+## Fixed-rho fit on the quarantine-v17 wing data (2026-10-14T22:55Z, before the fit)
+
+The wing C on quarantine-v15 failed the gate on 110 W 26th St. Modeling's next C runs on these
+rules, and the fixed-rho fit follows on the same list if that C passes:
+
+- `baths-ad-v3`, `bedrooms-ad-v3`, `building-joins-v1`, `fields-review-v3`, `unit-reviews-v1`,
+  `unit-splits-v4`, `west-coast-wings-v1`, as in the block above;
+- `latest-ask-v4` in place of v3, `unit-labels-v17` in place of v16;
+- `quarantine-v17` (#789) in place of v14. It adds v16's five 110 W 26th St rows and about 35
+  Brooklyn ads that StreetEasy filed under Manhattan buildings.
+
+These changes still touch a few dozen rows out of about 193,000, so I keep the medians and
+intervals for the score. The gate is stricter now. Since #788 every building effect needs split
+R-hat at most 1.01 and bulk ESS over 400, where the old check traced 32 buildings. The first AR(1)
+fit mixed worse than C, and the deviation can trade off against a building's level in the same way
+C's walk did at 110 W 26th St, so I lower the chance of passing.
+
+1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
+2. Year gap: +1.5 pp (0.75 to 2.25).
+3. Building-weighted new-building lpd: +65 (+30 to +100) nats.
+4. sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
+5. The fit passes the all-building gate: 55-65% likely. If it fails, I expect 1-6 buildings over
+   1.01, and the worst one among buildings with fewer than ten listing periods.
+6. Descriptive share within 0.4 pp of the v17 wing C's (80% likely).
+7. Wall time 42-52 min with the `building_all` trace, about $2.10.
+
+The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
+year gap of 3 pp or more.
