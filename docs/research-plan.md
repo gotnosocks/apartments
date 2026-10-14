@@ -27,6 +27,19 @@ wait here until he releases them. C is `m7-nocurves-floorslope-bednoise-dayfouri
 | petsfill | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-petsfill-v1` | — | Cancelled after 24 min on Modal on Ben's word (2026-10-13 03:19Z, about $0.94); rerun from the start |
 | predsize | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-predsize-v1` | PSIS-LOO near a tie; lower new-building miss on unknown-size rows; lower descriptive share (`config/predictions.jsonl`) | Never queued; the feature set is on `model/newbuilding-score` |
 
+## Backlog, not scheduled (Ben, 2026-10-14)
+
+- **Latent time-varying ask per apartment.** Each StreetEasy price event becomes an observation,
+  not just one price per ad.
+  - The latent ask is C plus the building AR(1) deviation plus a unit level.
+  - An event layer adds a days-on-market markdown spline, a Student-t listing effect and
+    heavy-tailed event noise.
+  - Scoring uses each listing's priced row with leave-listing-out.
+  - The event histories behind C's rows give about 382,000 observations, ignoring moves under 1%.
+    A fit would cost an estimated $5-8.
+  - The design sketch is in the shared project folder, at `modeling/latent-ask-design-2026-10-14.md`.
+  - Ben filed this as a research suggestion, and no work is scheduled for it.
+
 ## Current direction: a fresh autoresearch on the full data (Ben, 2026-10-01 evening)
 
 Relayed from Ben on 2026-10-01 at about 20:30 ET, with a correction soon after. It replaces the
