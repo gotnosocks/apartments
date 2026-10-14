@@ -9,10 +9,11 @@ text states, and the matched words) and provenance.json. Refuses a dirty tree.
 The `elevator-from-ad-v1` data rule reads the file and fills a row's elevator
 only where the coded value is unknown, so a known code always stays.
 
-The text states "no" when it says walk-up, flights up, no elevator (also "no
-laundry or elevator"), non-elevator or that the building has no elevator, and
-"yes" when it mentions an elevator any other way. A "walk up" to a street or
-with "no stairs to walk up" says nothing about the building. A row whose text says both, or neither, gets no line. Each row
+The text states "no" when it says walk-up, two or more flights up, no
+elevator (also "no laundry or elevator"), non-elevator or that the building
+has no elevator, and "yes" when it mentions an elevator any other way. A "walk
+up" to a street or with "no stairs to walk up" says nothing about the
+building. A row whose text says both, or neither, gets no line. Each row
 reads its own ad only, never another listing in its building."""
 
 import datetime as dt
@@ -27,10 +28,18 @@ from rentfrontier import data, descriptions, features
 from rentfrontier.listing_extras import EXTERNAL_ROOT, _git
 
 # "walk up" also describes the walk to a street ("a short walk up to astor
-# place") or its absence ("no stairs to walk up"), so those uses are left out.
+# place") or its absence ("no stairs to walk up"), so those uses are left out,
+# along with "walk-ups" in general. "One flight up" often leads to a roof deck,
+# a terrace or a bedroom, and coded rows call 12% of them elevator buildings,
+# so only two or more flights count, and only with no such space after them in
+# the sentence.
+_FLIGHTS = r"(?:two|three|four|five|six|[2-6])"
+_UPSTAIRS_SPACE = r"roof|terrace|deck|bedroom|loft|lounge|garden|gym|amenit|duplex"
 ELEVATOR_NO = (
-    r"(?<!no )(?<!to )(?<!minute )(?<!short )\bwalk[- ]?up(?! to\b)(?! the\b)"
-    r"|\bflights? (?:of stairs )?up\b|\bno[- ]elevator|\bnon[- ]elevator"
+    r"(?<!no )(?<!to )(?<!minute )(?<!short )\bwalk[- ]?up\b(?! to\b)(?! the\b)"
+    rf"|\b{_FLIGHTS} (?:short |easy |small )?flights (?:of stairs )?up\b"
+    rf"(?![^.]{{0,60}}(?:{_UPSTAIRS_SPACE}))"
+    r"|\bno[- ]elevator|\bnon[- ]elevator"
     r"|\bno (?:[\w-]+ ){1,3}(?:or|nor) (?:an? )?elevators?\b"
     r"|\bwithout (?:an? )?elevator|\bnot an elevator"
     r"|\b(?:does not|doesn't|do not) have (?:an? )?elevator"
