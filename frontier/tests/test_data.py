@@ -1560,3 +1560,91 @@ def test_adfills_elevator_reads_one_class_per_ad():
         16: "yes",
     }
     assert out.evidence.str.contains("elevator|walk-up|flights up").all()
+
+
+def test_pets_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
+    assert data.RULE_SOURCES["pets-from-ad-v1"] == data.PETS_FROM_AD
+    path = tmp_path / "pets.parquet"
+    pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c"],
+            "pets": ["not_allowed", "approval_required", "not_allowed"],
+        }
+    ).to_parquet(path)
+    monkeypatch.setattr(data, "PETS_FROM_AD", path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c", "d"],
+            "pets": ["unknown", "unknown", "allowed_restrictions_unknown", "unknown"],
+        }
+    )
+    out = data.DATA_RULES["pets-from-ad-v1"](frame)
+    assert out.pets.tolist() == [
+        "not_allowed",
+        "approval_required",
+        "allowed_restrictions_unknown",
+        "unknown",
+    ]
+    assert not data.amended_rule("pets-from-ad-v1")
+
+
+def test_adfills_pets_writes_existing_codes_only():
+    from rentfrontier import adfills
+
+    text = pd.Series(
+        [
+            "Sorry, no pets.",
+            "Pets on a case by case basis.",
+            "Pet friendly building!",
+            "Cats only, no dogs.",
+            "Sunny one bedroom.",
+            None,
+            "Guarantors considered on a case-by-case basis.",
+            "Dogs up to 50 lbs. Above that is considered case by case.",
+            "Sorry, no pet dogs permitted.",
+            "No fee apartment! No pet fees!",
+            "No pet fees! Pets ok.",
+            "Pets: no dogs. Cats are permitted.",
+            "No board approval, pets ok.",
+            "Pets: no.",
+            "Fees may include parking, amenities, late fees, pet fees, insufficient funds.",
+            "Pet fees or deposits may apply.",
+            "Pet fee: $25 per pet per month.",
+            "No board approval or pets.",
+            "Cats are ok/ sorry dogs aren't allowed.",
+            "Pets ok with landlord's approval.",
+            "Pets ok. No smoking or pets allowed in common areas.",
+            "Assistance animals welcome. Unfortunately, no other pets allowed.",
+            "Cats ok, dogs aren't aren't allowed.",
+            "-no board approval -small dog or cat allowed",
+            "Pets ok with permission of the owner.",
+            "Sorry, no cats or dogs.",
+            "Fast approvals, pets and out of state guarantors allowed.",
+            "Fast approvals. Pets ok.",
+            "1 small dog allowed under 25 pounds.",
+            "Small pets okay. Case by case on dogs.",
+            "Most pets permitted with landlord consent.",
+            "Cats ok, sorry no doggies.",
+            "Cats welcome. Not dogs sorry.",
+        ]
+    )
+    out = adfills.pets(text)
+    assert out.pets.to_dict() == {
+        0: "not_allowed",
+        1: "approval_required",
+        2: "allowed_restrictions_unknown",
+        7: "approval_required",
+        10: "allowed_restrictions_unknown",
+        12: "allowed_restrictions_unknown",
+        13: "not_allowed",
+        16: "allowed_restrictions_unknown",
+        19: "approval_required",
+        23: "allowed_restrictions_unknown",
+        24: "approval_required",
+        25: "not_allowed",
+        27: "allowed_restrictions_unknown",
+        28: "allowed_restrictions_unknown",
+        29: "approval_required",
+        30: "approval_required",
+    }
+    assert out.evidence.notna().all()

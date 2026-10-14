@@ -1289,6 +1289,20 @@ def elevator_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return fill_from_ad(frame, "elevator", ELEVATOR_FROM_AD)
 
 
+# The pet policy each NB9 row's own ad states (`python -m rentfrontier.adfills
+# pets`), as a coded level, for rows whose text has a class with one.
+PETS_FROM_AD = Path("/data1/apartments/external/adfills/20261014-5298c80/pets.parquet")
+
+
+def pets_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """An unknown pet policy filled from the row's own ad (`PETS_FROM_AD`):
+    "not_allowed" for no pets, "approval_required" for case by case and
+    "allowed_restrictions_unknown" for pets allowed, read by
+    `petstext.classify`. An ad saying no dogs, which has no coded level, or
+    saying nothing, leaves the row unknown. No row reads another listing's ad."""
+    return fill_from_ad(frame, "pets", PETS_FROM_AD)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1457,6 +1471,7 @@ DATA_RULES = {
     "building-joins-v1": building_joins_v1,
     "west-coast-wings-v1": west_coast_wings_v1,
     "elevator-from-ad-v1": elevator_from_ad_v1,
+    "pets-from-ad-v1": pets_from_ad_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
@@ -1492,6 +1507,7 @@ RULE_SOURCES = {
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
+    "pets-from-ad-v1": PETS_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
