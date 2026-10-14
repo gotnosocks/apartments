@@ -1398,6 +1398,10 @@ def test_adfills_elevator_reads_one_class_per_ad():
             "A no-elevator building.",
             "Elevator building, a short walk up to Astor Place.",
             "First floor, so no stairs to walk up. Elevator in lobby.",
+            "Elevator building. Private roof deck one flight up.",
+            "Two flights up to the roof deck. Elevator to the 9th floor.",
+            "Three short flights up in a quiet brownstone.",
+            "If you don't like walk-ups, this elevator building is for you.",
         ]
     )
     out = adfills.elevator(text)
@@ -1409,8 +1413,12 @@ def test_adfills_elevator_reads_one_class_per_ad():
         7: "no",
         8: "yes",
         9: "yes",
+        10: "yes",
+        11: "yes",
+        12: "no",
+        13: "yes",
     }
-    assert out.evidence.str.contains("elevator|walk-up").all()
+    assert out.evidence.str.contains("elevator|walk-up|flights up").all()
 
 
 def test_pets_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
