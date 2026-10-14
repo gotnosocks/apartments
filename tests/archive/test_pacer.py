@@ -1,4 +1,5 @@
 import asyncio
+import random
 
 import pytest
 
@@ -48,27 +49,47 @@ def sends(h, clock, n, work=0.0):
     return asyncio.run(run())
 
 
-def test_lateness_does_not_accumulate(clock):
+def test_window_bound(clock, monkeypatch):
+    # Lateness varies from wake to wake, as parse work on the main thread does.
+    rng = random.Random(5)
+    monkeypatch.setattr(clock, "oversleep", 0.0)
+
+    async def sleep(seconds):
+        clock.now += seconds + rng.uniform(0, 0.99)
+
+    monkeypatch.setattr(pacer.asyncio, "sleep", sleep)
+    times = sends(handler(), clock, 400, work=0.0)
+    for i, start in enumerate(times):
+        for length, most in [(1, 2), (2.5, 3), (10, 11)]:
+            assert len([t for t in times[i:] if t < start + length]) <= most
+
+
+def test_late_send_keeps_min_spacing(clock):
+    h = handler()
+    clock.oversleep = 0.0
+    times = sends(h, clock, 3)
+    clock.now += 0.99
+    times += sends(h, clock, 4)
+    gaps = [b - a for a, b in zip(times, times[1:])]
+    assert min(gaps) >= pacer.MIN_SPACING - 1e-9
+    assert all(t >= 100.0 + i for i, t in enumerate(times))
+
+
+def test_small_lateness_keeps_the_rate(clock):
+    clock.oversleep = 0.1
     times = sends(handler(), clock, 50)
-    assert times[0] == 100.0
-    assert times[-1] == pytest.approx(149.3)
+    assert times[-1] == pytest.approx(149.1)
     # No submission goes before its slot, and slots are one interval apart.
     assert all(t >= 100.0 + i for i, t in enumerate(times))
 
 
-def test_window_bound(clock):
-    times = sends(handler(), clock, 200, work=0.05)
-    for i, start in enumerate(times):
-        inside = [t for t in times[i:] if t < start + 10]
-        assert len(inside) <= 11
-
-
 def test_stall_starts_a_new_grid(clock):
+    clock.oversleep = 0.1
     h = handler()
     sends(h, clock, 3)
     clock.now += 5
     times = sends(h, clock, 3)
-    assert times == pytest.approx([107.3, 108.6, 109.6])
+    assert times == pytest.approx([107.1, 108.2, 109.2])
 
 
 def test_deferral_during_sleep_is_kept(clock):

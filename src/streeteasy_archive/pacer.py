@@ -6,12 +6,15 @@ event loop, the coroutine wakes late, and that lateness carries into every later
 West (Oct 2026) 128 submissions a minute nominal gave about 113.
 
 steady_slot sets the following slot one interval after the slot it waited for, so a submission
-that goes out late leaves the schedule where it was. Slots stay one interval apart, and no
-submission goes out before its slot, so a window of any length T holds at most T / interval + 1
-submissions, the same bound as before. When a submission goes out a whole interval or more after
-its slot, the crawl has stalled, and steady_slot starts a new grid from that moment instead of
-sending the missed slots in a burst. It also waits again when _defer_submissions moved the next
-slot later during the sleep, where the original slot overwrote that deferral.
+that goes out a little late leaves the schedule where it was. It also keeps consecutive submissions
+at least MIN_SPACING intervals apart, so a late submission and the next one on time never go out
+together. Over a long run, the rate stays at or below the setting: slots stay one interval apart,
+and no submission goes out before its slot. Over a short run, 128 a minute allows at most 3
+submissions in any second, as before. When parse work holds the event loop for more than 15% of
+an interval, the rate falls below the setting, by less than before. When a submission goes out a
+whole interval or more after its slot, the crawl has stalled, and steady_slot starts a new grid
+from that moment instead of sending the missed slots in a burst. When _defer_submissions moves the
+next slot later during the sleep, steady_slot waits again. ORIGINAL_SLOT overwrites that deferral.
 
 oxylabs.py is hashed by saved datasets, so the change lives here. cli applies it with
 steady_pacer() for crawl commands.
@@ -24,6 +27,7 @@ from contextlib import contextmanager
 from .oxylabs import OxylabsDownloadHandler
 
 ORIGINAL_SLOT = OxylabsDownloadHandler._submission_slot
+MIN_SPACING = 0.85
 
 
 async def steady_slot(self):
@@ -36,8 +40,9 @@ async def steady_slot(self):
             await asyncio.sleep(wait)
         now = time.monotonic()
         late = now - slot
-        start = slot if late < self._submission_interval else now
-        self._next_submission = start + self._submission_interval
+        interval = self._submission_interval
+        start = slot if late < interval else now
+        self._next_submission = max(start + interval, now + MIN_SPACING * interval)
 
 
 @contextmanager
