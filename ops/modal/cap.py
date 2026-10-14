@@ -15,8 +15,9 @@ the balance stops accruing at CEILING = USD_PER_DAY. Launches before START (the 
 
 Ben, 2026-10-14 09:57Z, on a single fit: "I'm pretty hard capped at about 1 hour or maybe $2 of
 modal compute." A launch whose estimated container time is over PER_FIT_SECONDS is refused
-however much balance there is. The dollar half waits on Ben's answer about C-sized fits, which
-settle at $1.61 to $2.75, so PER_FIT_USD stays None and nothing is refused on dollars yet.
+however much balance there is. Ben confirmed on 2026-10-14 (18:42Z) that the cap is the hour and
+that C-sized fits at about $2.60 are fine, so PER_FIT_USD stays None and no launch is refused on
+its dollar estimate.
 
     python3 ops/modal/cap.py                                  # balance, rate, recent launches
     python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 until the balance covers that
@@ -60,8 +61,8 @@ SERVED_FIT = (
     300,
     4500,
 )  # chains, warmup, draws: the full fit since #432 ($2.17, 3,256 s)
-# The per-fit cap, on the estimate before launch (Ben, 2026-10-14 09:57Z). The dollar half is
-# None until Ben answers whether it holds for C-sized fits.
+# The per-fit cap, on the estimate before launch (Ben, 2026-10-14 09:57Z): an hour. There is no
+# dollar cap per fit (Ben, 2026-10-14 18:42Z: C-sized fits at about $2.60 are fine).
 PER_FIT_SECONDS = 3600
 PER_FIT_USD = None
 # What the ledger's history was priced at: the accrual rate before 2026-10-10 16:25Z and a launch
