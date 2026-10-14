@@ -248,7 +248,7 @@ year gap of 3 pp or more.
 
 Ben approved the fixed-rho fit at 18:39Z. Modeling runs it right after its C refit on the West
 Coast wing rule, and only if that C passes the gate. The rules differ from the split version above,
-so I add this block. Both fits use the same rules, Modeling's list at 18:45Z:
+so I add this block. Both fits use the same rules, from Modeling's list:
 
 - `baths-ad-v3`, `bedrooms-ad-v3`, `fields-review-v3`, `unit-reviews-v1`, `unit-splits-v4`, as before;
 - `west-coast-wings-v1`, Data improvements' wing rule, not yet merged;
