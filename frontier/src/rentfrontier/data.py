@@ -828,7 +828,7 @@ QUARANTINE_V13_READ = REPO / "config" / "reviews" / "quarantine-v13-read-2026101
 
 def quarantine_v13(frame: pd.DataFrame) -> pd.DataFrame:
     """v12 and 2 more rows (271 in all) from a screen on price. With every row
-    at its latest ask (`latest-ask-v1`), price_mismatch_screen.py flags a row
+    at its latest ask (`latest-ask-v2`), price_mismatch_screen.py flags a row
     whose ask is more than a factor of 3 off both the median of its unit's other
     rows with the same bedroom count and the median of its building's. The
     screen compares a row with its unit's later listings as well as its earlier
