@@ -944,6 +944,34 @@ def latest_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
+# The price a fit models. A row starts at its listing's first ask; a rule of a
+# family below replaces that price. Two fits on different prices score their
+# rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
+# nothing (rentfrontier.autoselect does not pair them).
+FIRST_ASK = "first ask"
+PRICE_TARGETS = {
+    "latest-ask": "latest ask",
+    "tune-latestask": "latest ask",
+    "tune-finalask": "final ask",
+}
+
+
+def rule_family(name: str) -> str:
+    """A rule's family: its name without the version ("quarantine-v12" ->
+    "quarantine") or an amendment's suffix."""
+    m = re.fullmatch(r"(.+)-v\d+(@.*)?", name)
+    return m.group(1) if m else name
+
+
+def price_target(rules) -> str:
+    """The price a fit on these rules models: `FIRST_ASK`, or the target of
+    its repricing rule (`PRICE_TARGETS`)."""
+    targets = {PRICE_TARGETS.get(rule_family(r)) for r in rules} - {None}
+    if len(targets) > 1:
+        raise ValueError(f"rules reprice rows two ways: {sorted(rules)}")
+    return targets.pop() if targets else FIRST_ASK
+
+
 DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
     "tune-holdout-lots-v1": drop_holdout_lots,

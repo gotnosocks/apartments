@@ -20,6 +20,7 @@ card follow it.
   a fit whose rows hash (`data.rows_sha256`, after its split and rules) equals
   that of the current rules on its dataset and split is eligible, so a new
   rule version that changes no row needs no refit.
+- It models the current rules' price target (`data.price_target`).
 - It is not a tuning fit on a subset of buildings (a `data.TUNING_PREFIX`
   rule): those are exploration only (Ben, 2026-10-01).
 - It was fit on the current dataset (`data.DATASET`).
@@ -67,6 +68,12 @@ card follow it.
   next eligible fit is tried.
 - An ineligible incumbent (for example, superseded data rules) is replaced by
   the best challenger that passes that guard. If none passes, it stays.
+- An incumbent fit on another price target (`data.price_target`: the first
+  ask, or the latest or final ask a repricing rule sets) is not paired at all.
+  Its rows hold other prices, so a paired PSIS-LOO or held-out sum against it
+  compares likelihoods of different outcomes. When the current rules change
+  the target (the latest ask, Ben 2026-10-14), the top-ranked eligible fit on
+  the new target replaces it without the held-out guard.
 
 `python -m rentfrontier.autoselect` prints the decision. With `--write
 <summary bundle>`, it also writes the selection for a switch. The bundle must be
@@ -123,8 +130,8 @@ def current_rules(rules=None) -> frozenset:
             continue  # tuning subsets are never part of the served rules
         if data.amended_rule(name):
             continue  # a rule as it stood before an in-place amendment
-        m = re.fullmatch(r"(.+)-v(\d+)", name)
-        family, version = (m.group(1), int(m.group(2))) if m else (name, 0)
+        m = re.fullmatch(r".+-v(\d+)", name)
+        family, version = data.rule_family(name), int(m.group(1)) if m else 0
         if family not in latest or version > latest[family][0]:
             latest[family] = (version, name)
     return frozenset(name for _, name in latest.values())
@@ -216,6 +223,9 @@ def why_not(e, rules) -> str | None:
     tuning = sorted(r for r in _rules(e) if r.startswith(data.TUNING_PREFIX))
     if tuning:
         return f"it is a tuning fit on a subset ({', '.join(tuning)})"
+    target, current = data.price_target(_rules(e)), data.price_target(rules)
+    if target != current:
+        return f"it models the {target}, not the current rules' {current}"
     if _rules(e) != rules and not same_rows(_record(e), rules):
         used = " + ".join(sorted(_rules(e))) or "no data rules"
         return (
@@ -411,7 +421,8 @@ def decide(
     Challengers are tried in ranked order. Against a scored incumbent, each must
     pass the held-out guard, and must clearly beat an eligible incumbent. The
     first one that does is chosen. An incumbent that cannot be paired (not on
-    the board, or unscored) gives no guard, so the top-ranked fit is chosen."""
+    the board, unscored, or a fit of another price target) gives no guard, so
+    the top-ranked fit is chosen."""
     rules = current_rules() if rules is None else rules
     candidates = eligible(entries, rules)
     order = ranked(candidates, paired)
@@ -424,11 +435,18 @@ def decide(
         else why_not(incumbent, rules)
     )
     inc_ok = inc_why is None
-    comparable = incumbent is not None and leaderboard.scored(incumbent)
+    target = data.price_target(rules)
+    inc_target = None if incumbent is None else data.price_target(_rules(incumbent))
+    # A fit on another price is not paired: its scores are on other outcomes.
+    comparable = (
+        incumbent is not None and leaderboard.scored(incumbent) and inc_target == target
+    )
     out = {
         "incumbent": incumbent_run,
         "incumbent_eligible": inc_ok,
         "incumbent_why_not": inc_why,
+        "incumbent_target": inc_target,
+        "target": target,
         "rules": sorted(rules),
         "eligible": [
             {
