@@ -2394,8 +2394,3 @@ September 23 findings (L4, NumPyro, 4 chains, 300 warmup + 100 draws;
   Establish which package the $2,850 historical initial ask represents before
   excluding or adjusting it. See the
   [complete movement review](../analysis/chelsea-expanded-spline-floor-movement-review-2026-09-19.md).
-
-## Ask price
-
-- [ ] Latent time-varying per-unit ask price, with each StreetEasy ad as an
-  observation (Ben, 10-14). `latest-ask-v2` picks one price per ad in its place.
