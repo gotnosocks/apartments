@@ -1,6 +1,29 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 05:55 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 10:30 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 10:30 ET
+
+- **#745 (merged `625fb9e0`): `tune-westcoast-split-v1`.** It splits The West Coast (95-97
+  Horatio, lot 1006430001) by label scheme: floor-and-letter labels go to the registry building
+  `97-horatio-street-new_york` (BIN 1012155), three-digit labels to `the-west-coast` (BIN
+  1012154). The rule must come before the unit rules in a run's list. No ground truth places a
+  unit in either structure (ads, DOB and the mixed 97-horatio rows), so it stays a tuning rule.
+  Modeling fits it through modalq-c.
+- **Full suite on master `ba9cb6d4`:** the 3 GB single-process run hit the OOM killer at 44%.
+  One file per process under 6G, all 66 frontier test files pass.
+- **Midtown West (held for Ben's opt-in; the coordinator is asking).** Built, nothing on master:
+  - history `midtown-west-history-20261014` (as_of 12:20Z: the builder refuses a cutoff before
+    `complete.json`'s finished_at, 12:19Z; the last capture is 11:09Z), analysis cohort
+    `midtown-west-analysis-20261014-ca9dbf6e` (81,797 rows, 1,247 buildings, 37,727 units),
+    descriptions `midtown-west-20261014-ca9dbf6`, covariates `/data1/apartments/tmp/suspect/mw/buildings.csv`;
+  - registry `20261014-ca9dbf6` and the merged NB9 snapshots at `20261014-5352472` (registry,
+    pluto, footprints, basemap, hpd, lpc, storefronts, plutoreleases, parks, blocklots);
+  - no building, unit, listing or audit id overlaps NB8.
+  - Building page titles put every building in Hell's Kitchen (64,675 rows) or Hudson Yards
+    (17,122), the plan for its `neighbourhood` values, as Flatiron and Gramercy Park were split.
+  - Left for the NB9 PR (code): `listing_extras.CRAWLS`, lister, NTA, the descriptions source,
+    the combined dataset, `DATASET_NB9` and the nb9 sets. Scripts in `/data1/apartments/tmp/suspect/mw/`.
 
 ## 2026-10-14 05:55 ET
 
