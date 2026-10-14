@@ -867,5 +867,5 @@ def test_border_tests_take_the_latest_location_surface_trials():
 def test_set_words_for_the_west_coast_wings():
     assert story.set_words("nostuy-wings") == (
         "the coded fields with building records as of each listing's day, "
-        "plus The West Coast's two wings as separate buildings"
+        "plus the West Coast's two wings as separate buildings"
     )
