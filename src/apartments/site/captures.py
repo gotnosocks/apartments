@@ -37,7 +37,7 @@ import statistics
 from pathlib import Path
 
 from .. import candidate_search, pricing
-from . import estimate, estimate_build
+from . import estimate, estimate_build, wings
 
 # Groups the dataset keeps per unit, taken from the unit's newest earlier listing.
 UNIT_GROUPS = ("facing",)
@@ -393,7 +393,7 @@ def rows(
     for source, c in captures(
         archives, set(observations), skip_listings, skip_units, at
     ):
-        b = c["building_id"]
+        b = wings.wing(c["building_id"], unit_label(c.get("canonical_unit_url")), terms)
         if b not in terms or b not in info or b not in newest:
             skipped[c["capture_id"]] = "building not in the served fit"
             continue

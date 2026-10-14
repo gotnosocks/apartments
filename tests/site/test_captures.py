@@ -402,3 +402,39 @@ def test_listing_page_says_when_the_unit_level_is_the_fits(site_root, client):
     page = client.get(f"/listings/{audit_id}").get_data(as_text=True)
     assert "level is the one the fit learned from its" in page
     assert "drawn from the prior" not in page
+
+
+def test_a_west_coast_capture_is_priced_on_its_labels_wing(tmp_path):
+    wing, letters = "the-west-coast-west-wing", "the-west-coast"
+    url = "https://streeteasy.com/building/the-west-coast/"
+    write_capture(
+        tmp_path,
+        "20261006",
+        [
+            candidate(
+                1, building_id=letters, unit_id="u-620", canonical_unit_url=url + "620"
+            ),
+            candidate(
+                2, building_id=letters, unit_id="u-9l", canonical_unit_url=url + "9l"
+            ),
+        ],
+    )
+    out, status = captures.rows(
+        kit(),
+        [{**kit_building(), "building": b} for b in (wing, letters)],
+        [
+            fitted(audit_id="obs:1", building_id=wing),
+            fitted(audit_id="obs:2", building_id=letters),
+        ],
+        [
+            {"id": b, "neighbourhood": "West Village", "floors": 10}
+            for b in (wing, letters)
+        ],
+        tmp_path,
+        [],
+    )
+    assert status["priced"] == 2 and not status["skipped"]
+    assert {r["unit_label"]: r["building_id"] for r in out} == {
+        "620": wing,
+        "9L": letters,
+    }
