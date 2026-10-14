@@ -814,6 +814,9 @@ DATA_RULE_TEXT = {
     "one-bedroom ads at 110 W 26th St from an East Village agent.",
     "quarantine-v17": "quarantine-v16 with seven more Brooklyn ads that StreetEasy "
     "links to a Manhattan building (326 listings in all, 35 of them Brooklyn ads).",
+    "quarantine-v18": "quarantine-v17 with the same rows, and a corrected reason for "
+    "the five one-bedroom ads at 110 W 26th St: they are for this building, at a "
+    "third of its lofts' asks, so they are not whole-apartment asks.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",

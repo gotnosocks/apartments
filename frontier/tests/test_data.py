@@ -1351,6 +1351,26 @@ def test_quarantine_v17_adds_brooklyn_rows_to_v16():
     assert "quarantine-v17" in data.DROPPING_RULES
 
 
+def test_quarantine_v18_changes_only_the_110_w_26th_reasons():
+    """v18 holds out v17's rows; only the five 110 W 26th St rows differ,
+    and they move from a location conflict to product scope."""
+    with open(data.QUARANTINE_V17) as f:
+        v17 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V18) as f:
+        v18 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert v18.keys() == v17.keys() and len(v18) == 326
+    changed = {a for a in v18 if v18[a] != v17[a]}
+    assert len(changed) == 5
+    assert all(
+        v18[a]["building"] == "110-west-26-street-new_york"
+        and v17[a]["action"] == "quarantine_location_conflict"
+        and v18[a]["action"] == "quarantine_product_scope"
+        and v18[a]["evidence"]
+        for a in changed
+    )
+    assert "quarantine-v18" in data.DROPPING_RULES
+
+
 def test_brooklyn_misjoins_record_the_evidence_for_a_remap():
     with open(brooklyn.MISJOINS) as f:
         rows = [json.loads(line) for line in f if line.strip()]
