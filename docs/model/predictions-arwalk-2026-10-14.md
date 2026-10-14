@@ -171,3 +171,15 @@ arwalk refit against the C refit:
 
 The arwalk refit misses if it fails any part of the gate, ESS included, if PSIS-LOO does not win by 2 SE, or if the year gap
 reaches 3 pp.
+
+### Longer chain for the arwalk refit (2026-10-14T09:58Z, before either fit)
+
+The arwalk refit now runs 24,000 draws kept every 48th, still 500 kept draws per chain, in a
+4-hour container. The limiter estimate is $7.23. The chain is a third longer than the 18,000/36
+chain above, so I raise one prediction:
+
+- min bulk ESS 600 (400-800), on sd, so the ESS check is about 90% likely to pass.
+
+Every other prediction for the arwalk refit stays as above, and so do its miss criteria. If the
+4-hour timeout is not ready when the C refit finishes, the refit runs at 18,000/36 instead, and
+the block above applies unchanged.
