@@ -395,7 +395,8 @@ You do not need my approval to change the dashboard model."
     count is at most 0.25% of the current rows (`NEGLIGIBLE_SHARE`), the fit stays eligible.
     The fit must still model the same price target on the same dataset. Each eligible fit's
     count goes into autoselect's output as `changed_rows`. For example, C on `quarantine-v12`
-    differs from `quarantine-v13` on 6 of 214,885 rows.
+    differs from `quarantine-v13` on 6 of 214,885 rows. The latest-split comparison
+    (`latestselect`) applies the same test to its candidate, its reference and the fit to serve.
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.

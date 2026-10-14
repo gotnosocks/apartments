@@ -185,11 +185,11 @@ def _row_hashes(dataset: str, split: str, rules: tuple) -> tuple:
 
 def changed_rows(record, rules) -> tuple[int, int] | None:
     """(rows the run's recorded rules and `rules` treat differently, rows under
-    `rules`) on the run's dataset and split. I match rows by audit id and count
-    each row only one rule set keeps, and each row both keep with any value or
-    its held-out flag changed. Rule sets with different columns change every
-    row. None when the record names no dataset or split, or its rule files
-    have changed."""
+    `rules`) on the run's dataset and split. Rows are matched by audit id. A
+    row only one rule set keeps counts, as does a row both keep with any value
+    or its held-out flag changed. Rule sets with different columns change every
+    row. None when the record names no dataset or split, its rule files have
+    changed, or a rule set repeats an audit id."""
     dataset, split = record.get("dataset"), record.get("split")
     if dataset is None or split is None:
         return None
@@ -200,6 +200,8 @@ def changed_rows(record, rules) -> tuple[int, int] | None:
         a_cols, a = _row_hashes(*key, tuple(sorted(mine, key=_rule_order)))
         b_cols, b = _row_hashes(*key, now)
     except (SystemExit, ValueError):  # changed rule files, or rules out of order
+        return None
+    if not (a.index.is_unique and b.index.is_unique):
         return None
     if a_cols != b_cols:
         return len(a.index.union(b.index)), len(b)
