@@ -1743,6 +1743,14 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
     registry_file, pluto_file = _LOTS.get() or (REGISTRY_FILE, PLUTO_FILE)
     registry = pd.read_parquet(registry_file)
+    # A registry without the wing's row would leave its rows with no lot.
+    if frame.building.eq(data_module.WESTCOAST_WEST_WING).any() and not (
+        registry.building.eq(data_module.WESTCOAST_WEST_WING).any()
+    ):
+        raise ValueError(
+            f"{registry_file} has no {data_module.WESTCOAST_WEST_WING}: fit "
+            "west-coast-wings-v1 with a set that reads a registry with the wing"
+        )
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
@@ -4941,6 +4949,32 @@ for _new, _old in NB8_SETS.items():
     EXTRAS_SNAPSHOTS[_new] = NB8_EXTRAS_FILE
     LPC_SNAPSHOTS[_new] = NB8_LPC_FILE
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB8_PLUTO_RELEASES_FILE
+
+# nb8-nostuy-v1 on the nb8 registry plus a row for the-west-coast-west-wing,
+# a copy of the-west-coast's (lot 1006430001, BIN 1012154, the same position),
+# for fits with data.west_coast_wings_v1. The set copies every group and
+# snapshot of nb8-nostuy-v1 but the registry.
+NB8_WINGS_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261014-ca9fa99/buildings.parquet"
+)
+FEATURE_SETS["nb8-nostuy-wings-v1"] = partial(
+    FEATURE_SETS["nb8-nostuy-v1"].func,
+    **{**FEATURE_SETS["nb8-nostuy-v1"].keywords, "id": "nb8-nostuy-wings-v1"},
+)
+for _value in list(globals().values()):
+    if isinstance(_value, set) and "nb8-nostuy-v1" in _value:
+        _value.add("nb8-nostuy-wings-v1")
+    elif (
+        isinstance(_value, dict)
+        and _value is not FEATURE_SETS
+        and _value is not NB8_SETS
+        and "nb8-nostuy-v1" in _value
+    ):
+        _value["nb8-nostuy-wings-v1"] = _value["nb8-nostuy-v1"]
+LOT_SNAPSHOTS["nb8-nostuy-wings-v1"] = {
+    "registry": NB8_WINGS_REGISTRY_FILE,
+    "pluto": NB8_PLUTO_FILE,
+}
 
 
 # The ten neighbourhoods (data.DATASET_NB9): the eight plus Hell's Kitchen and
