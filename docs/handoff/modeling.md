@@ -10,8 +10,8 @@ The arwalk fit (commit 24a7e9b, $2.00) ran once on Modal. The write-up is
 
 - It fails the gate: R-hat 1.041 on rho, ESS 39 on sd. The chains agree within 0.002 but mix
   slowly, because rho and sd move together (posterior correlation +0.93).
-- rho 0.890 (0.884-0.898), sd 0.077, building_scale 0.157. Both revised predictions for the
-  parameters missed.
+- rho 0.890 (0.884-0.898), sd 0.077, building_scale 0.157. All three revised parameter
+  predictions missed.
 - PSIS-LOO vs C +395 (lot SE 55), building-weighted new-building lpd +70 (lot SE 11), year gap
   +1.5 pp (C +5.2), descriptive share level.
 - Next: a joint (sd, rho) proposal in the collapsed step (PR plus CPU recovery), then one retry at
