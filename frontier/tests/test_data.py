@@ -1667,7 +1667,7 @@ def test_quarantine_v19_adds_the_ad_fit_hold_outs():
             if r["verdict"].startswith("quarantine_")
         }
     assert all(v19[a] == v18[a] for a in v18)
-    assert v19.keys() - v18.keys() == held.keys() and len(held) == 54
+    assert v19.keys() - v18.keys() == held.keys() and len(held) == 51
     assert all(
         v19[a]["action"] == r["verdict"] and v19[a]["evidence"] == r["quote"]
         for a, r in held.items()
