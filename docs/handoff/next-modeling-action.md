@@ -40,9 +40,10 @@ before each fit, are in `docs/model/predictions-arwalk-2026-10-14.md`.
 3. At 22:40Z the next C, on quarantine-v17, was still running (see Background jobs). When it
    finishes:
    - If it passes the gate, launch the fixed-rho AR(1) on its exact rule list.
-   - The #771 predictions cover quarantine-v15. Because the data version changed, add a
-     predictions line and a short section for quarantine-v17 to the predictions doc and
-     `config/predictions.jsonl` before the launch, and land them through review.
+   - The #771 predictions list `latest-ask-v3`, `quarantine-v14` and `unit-labels-v16`. The
+     v15 and v17 C fits ran on later versions (`latest-ask-v4`, `unit-labels-v17`). Before the
+     launch, add a predictions line and a short section for the v17 rule list to the
+     predictions doc and `config/predictions.jsonl`, and land them through review.
    - If it fails, the AR(1) keeps waiting.
 4. Score the AR(1) against that C:
    - paired PSIS-LOO on shared rows, with SEs clustered by building and by lot;
