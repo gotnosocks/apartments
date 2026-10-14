@@ -23,7 +23,8 @@ budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-final
    the new-building score. The switch report gives those numbers, and I tell Website.
 3. Retests on the new C follow, one at a time, each with a recorded prediction, paired PSIS-LOO and
    the new-building score:
-   - lines, reported to Ben before any switch;
+   - lines, on the split C's rules and reported to Ben before any switch. Its predictions are in
+     [predictions-lines-split-2026-10-14.md](model/predictions-lines-split-2026-10-14.md);
    - areatime, once, on a new seed. It's served only if it wins clearly under the clustered tie
      rule, and its report gives its new-building score and descriptive share.
 4. bigbed is retired, and elevfill and petsfill wait for Ben. Three earlier results stay as they
