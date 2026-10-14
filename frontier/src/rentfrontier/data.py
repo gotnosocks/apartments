@@ -820,6 +820,26 @@ def quarantine_v12(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V12))]
 
 
+QUARANTINE_V13 = REPO / "config" / "reviews" / "quarantine-v13-20261014.jsonl"
+# The rows v13's review read: every hit of price_mismatch_screen.py at a factor
+# over 2.5.
+QUARANTINE_V13_READ = REPO / "config" / "reviews" / "quarantine-v13-read-20261014.txt"
+
+
+def quarantine_v13(frame: pd.DataFrame) -> pd.DataFrame:
+    """v12 and 2 more rows (271 in all) from a screen on price. With every row
+    at its latest ask (`latest-ask-v2`), price_mismatch_screen.py flags a row
+    whose ask is more than a factor of 3 off both the median of its unit's other
+    rows with the same bedroom count and the median of its building's. The
+    screen compares a row with its unit's later listings as well as its earlier
+    ones, which a quarantine of read rows allows and a feature would not. Each
+    hit over a factor of 2.5 (quarantine-v13-read-20261014.txt) is read with its
+    ad: a studio whose ad offers a 3-bedroom with two baths, and a 2-bedroom
+    ask in a teaser ad for "other similar units", are left out. The other rows
+    are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V13))]
+
+
 # Units of one building a review found to be one apartment under different
 # labels, one JSON line per group with its evidence (2026-10-07).
 UNIT_JOINS_20261007 = REPO / "config" / "reviews" / "unit-joins-20261007.jsonl"
@@ -941,6 +961,31 @@ def latest_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
         & (ratio <= FINAL_ASK_MAX_RATIO)
     )
     price = np.where(take, out.final_ask.to_numpy(), frame.asking_rent.to_numpy())
+    return frame.assign(asking_rent=price, log_rent=np.log(price))
+
+
+# Latest asks (Ben, 2026-10-14: the target is each listing's most current
+# price): every row priced at its listing's last on-market ask, built by
+# latest_ask.py from the listings' own records.
+LATEST_ASK = Path(
+    "/data1/apartments/external/latest-ask/20261014-003dd7d/latest-ask.parquet"
+)
+
+
+def latest_ask_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """Every row priced at its listing's latest ask: the last price the listing
+    showed while on the market, skipping the placeholder prices advertisers
+    type in on the day they take a listing down. A latest ask more than twice
+    or under half the first takes whichever of the two is nearer the building's
+    other rows with the same bedroom count, and a page price 9 to 11 times off
+    is taken the same way (latest_ask.py). A row the file lacks keeps its
+    ask."""
+    table = pd.read_parquet(LATEST_ASK, columns=["audit_id", "latest_ask"])
+    price = (
+        frame.audit_id.map(table.set_index("audit_id").latest_ask)
+        .fillna(frame.asking_rent)
+        .to_numpy(float)
+    )
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
@@ -1066,6 +1111,8 @@ DATA_RULES = {
     "quarantine-v9": quarantine_v9,
     "quarantine-v10": quarantine_v10,
     "quarantine-v12": quarantine_v12,
+    "quarantine-v13": quarantine_v13,
+    "latest-ask-v2": latest_ask_v2,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
@@ -1091,6 +1138,8 @@ RULE_SOURCES = {
     "quarantine-v9": QUARANTINE_V9,
     "quarantine-v10": QUARANTINE_V10,
     "quarantine-v12": QUARANTINE_V12,
+    "quarantine-v13": QUARANTINE_V13,
+    "latest-ask-v2": LATEST_ASK,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
@@ -1124,6 +1173,7 @@ DROPPING_RULES = (
     "quarantine-v9",
     "quarantine-v10",
     "quarantine-v12",
+    "quarantine-v13",
 )
 
 

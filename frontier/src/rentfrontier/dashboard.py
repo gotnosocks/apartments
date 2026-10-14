@@ -774,6 +774,16 @@ DATA_RULE_TEXT = {
     "over East Village, NoMad and Stuyvesant Town/PCV: shops, offices and medical "
     "offices, ads for apartments elsewhere, dorm rooms with a shared bath, and summer "
     "and few-month sublets.",
+    "quarantine-v13": "quarantine-v12 and 2 more rows found by price: with every row at "
+    "its latest ask, a row more than 3 times off both its unit's and its building's "
+    "other asks for the same bedroom count is read with its ad. A studio whose ad "
+    "offers a 3-bedroom and a teaser ad for a building's 2-bedrooms in general are "
+    "left out.",
+    "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
+    "market, not its first. Placeholder prices typed in on the day a listing comes "
+    "down are skipped, and an ask more than twice or under half the first, or a "
+    "page price off by a digit, takes whichever is nearer the building's other "
+    "asks. 79,791 of 215,156 rows change price, by 4.9% at the median.",
     "unit-reviews-v1": "Apartments a review found to be one apartment under different "
     "labels: at 110 West 26th Street, 4R and 4B, and 5R and 5B, are each floor's rear "
     "apartment (R for rear, B for back); at 21 West 12th Street, 2, 2B, 2F and 2R are "
