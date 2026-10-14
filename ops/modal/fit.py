@@ -10,14 +10,15 @@ Steps: refuse if the run already exists here; spend the fit's estimated cost fro
 dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
 if the estimate is over the per-fit cap); upload only the inputs that changed since the last sync; ship a
 shallow checkout of COMMIT; run the fit (capped at 1 h, or 30 min for an exploration fit)
-and PSIS-LOO in the container, then its post-fit statistics (variance decomposition, the
-summary bundle and its calibration for a full fit, and the explained share of each --explain
-SET; each capped, and none can fail the fit); score new buildings (rentfrontier.newbuilding)
-in a separate many-core CPU container, which cannot fail the fit either; download the run to
-FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to FRONTIER_OUTPUT_ROOT/loo/ and the statistics to
-FRONTIER_OUTPUT_ROOT/{variance,summaries,calibration,explained,newbuilding}/, then delete them from the
-Volume. The Volume itself is
-deleted after 24 h without a launch (ops/modal/cleanup).
+and PSIS-LOO in the container, then its post-fit statistics (variance decomposition and the
+explained share of each --explain SET; each capped, and none can fail the fit); score new
+buildings (rentfrontier.newbuilding) in a separate many-core CPU container, which cannot fail
+the fit either; download the run to FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to
+FRONTIER_OUTPUT_ROOT/loo/ and the statistics to FRONTIER_OUTPUT_ROOT/{variance,explained,newbuilding}/,
+then delete them from the Volume. For a full-tier fit on the row (or all) split, start
+ops/modal/summarize in a systemd unit of its own: the summary bundle and its calibration, built
+on thelio after the fit's unit has exited. The Volume itself is deleted after 24 h without a
+launch (ops/modal/cleanup).
 """
 
 import argparse
@@ -206,12 +207,12 @@ def _marker(volume_id):
     return str(path)
 
 
-POST_KINDS = ("variance", "summaries", "calibration", "explained", "newbuilding")
+POST_KINDS = ("variance", "explained", "newbuilding")
 
 
 def download(volume, name, root):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
-    /out/<name>/{variance,summaries,calibration,explained}/* -> the same directories under root, log and
+    /out/<name>/{variance,explained,newbuilding}/* -> the same directories under root, log and
     modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
     file is down."""
@@ -267,6 +268,39 @@ def score_new_buildings(modal_app, spec):
             "wall_seconds": round(seconds, 1),
             "usd_estimate": round(seconds * modal_app.nb_usd_per_second(), 2),
         }
+
+
+def wants_summary(spec, split):
+    """Whether a downloaded fit gets a summary bundle: only full-tier fits are served, and
+    rentfrontier.summary refuses the unit and latest splits."""
+    return spec["tier"] == "full" and split in ("rows", "all")
+
+
+def summarize(spec):
+    """Start ops/modal/summarize for the fit in a systemd unit of its own and return its name.
+    The unit outlives this one, so neither the queue runners (which wait on modal-fit-*
+    units) nor the Modal balance wait for the bundle. Never fails the fit."""
+    unit = f"modal-summary-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
+    log = STATE / "logs" / f"{unit}.log"
+    env = {
+        "FRONTIER_OUTPUT_ROOT": str(OUTPUT_ROOT),
+        "FRONTIER_DATASET": spec["dataset"],
+        "MODAL_FIT_REPO": str(REPO),
+    }
+    cmd = [
+        "systemd-run", "--user", "--quiet", "--collect", f"--unit={unit}",
+        "-p", f"StandardOutput=append:{log}", "-p", f"StandardError=append:{log}",
+        *(f"--setenv={k}={v}" for k, v in env.items()),
+        str(HERE / "summarize"), spec["name"],
+    ]  # fmt: skip
+    try:
+        log.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(cmd, check=True)
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f"could not start the summary: {e!r}", flush=True)
+        return None
+    print(f"summary and calibration on thelio: {unit}; log {log}", flush=True)
+    return unit
 
 
 def touch():
@@ -327,7 +361,9 @@ def main(argv):
             + meta.get("newbuilding", {}).get("usd_estimate", 0),
             2,
         )
-        finish(modal_app.volume, spec["name"], meta)
+        root = finish(modal_app.volume, spec["name"], meta)
+        if root == OUTPUT_ROOT and wants_summary(spec, args.split):
+            summarize(spec)
     except Exception:
         # A container timeout or Modal error: keep whatever reached the Volume, log included.
         try:

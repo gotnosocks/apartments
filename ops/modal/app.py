@@ -7,9 +7,9 @@ so the image installs exactly the commit's frontier/uv.lock. The container copie
 inputs back to their thelio paths, runs rentfrontier.run and rentfrontier.loo as on
 thelio, and leaves the run directory, the LOO directory and the log under /out/<name>
 for the launcher to download. A fit that finishes also gets its post-fit statistics here,
-while the container has its draws (`_post`): the variance decomposition, the summary
-bundle (full fits), its predictive coverage by kind of row (rentfrontier.calibration: the
-new-unit coverage of a time-split fit) and the explained share of any --explain candidate sets.
+while the container has its draws (`_post`): the variance decomposition and the explained
+share of any --explain candidate sets. The summary bundle and its calibration are built on
+thelio after the download (ops/modal/summarize).
 """
 
 import json
@@ -33,14 +33,14 @@ CPU, MEMORY_MIB = 2, 24576  # the served design peaks near 15 GB of host memory
 FIT_CAP = {"full": 3600, "exploration": 30 * 60}  # the fit alone
 # The whole container: staging, fit, PSIS-LOO, post-fit statistics. Launches are capped at an
 # estimated hour (cap.PER_FIT_SECONDS); this stops a runaway at 75 min, past the 69 min of the
-# slowest C-sized fit so far (bigbed, 2026-10-12, its summary bundle at its 20 min cap).
+# slowest C-sized fit so far (bigbed, 2026-10-12, which then built its summary bundle here).
 TIMEOUT = 75 * 60
 POST_CAP = 20 * 60  # each post-fit statistic
 POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volume
 OUTPUT = Path(
     "/data1/apartments/frontier"
 )  # rentfrontier's OUTPUT_ROOT in the container
-POST_KINDS = ("variance", "summaries", "calibration", "explained", "newbuilding")
+POST_KINDS = ("variance", "explained", "newbuilding")
 USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 # The new-building score (rentfrontier.newbuilding) is numpy over row chunks, one process
 # per core: a CPU container scores a run's kept draws in parallel after its fit.
@@ -89,23 +89,9 @@ def post_steps(spec):
     """The post-fit statistics for a finished fit, as (step, rentfrontier arguments)."""
     name = spec["name"]
     steps = [("variance", ["rentfrontier.variance", name])]
-    if spec["tier"] == "full":
-        # The site's bundle; only full fits are served.
-        steps.append(("summary", ["rentfrontier.summary", name]))
-        # Reads the bundle the summary step just wrote, so its path is found at run time.
-        steps.append(("calibration", lambda: _calibration_args(name)))
     if spec.get("explain"):
         steps.append(("explained", ["rentfrontier.explained", name, *spec["explain"]]))
     return steps
-
-
-def _calibration_args(name):
-    bundles = sorted(
-        str(d)
-        for d in (OUTPUT / "summaries").glob(f"{name}-*")
-        if (d / "complete.json").exists()
-    )
-    return ["rentfrontier.calibration", *bundles] if bundles else None
 
 
 def _post(spec, env, log, deadline):
@@ -119,11 +105,6 @@ def _post(spec, env, log, deadline):
             continue
         t = time.time()
         try:
-            if callable(args):
-                args = args()
-            if args is None:
-                done[step] = {"exit": "skipped: no summary bundle"}
-                continue
             code = _run(["/venv/bin/python", "-m", *args], env, log, left)
         except Exception as e:  # noqa: BLE001
             code = repr(e)
@@ -132,11 +113,8 @@ def _post(spec, env, log, deadline):
 
 
 def _complete(d):
-    """A post-fit record finished writing: a summary bundle has its complete.json (written
-    last), and a variance or explained result.json parses (a step its cap killed mid-write
-    leaves neither)."""
-    if (d / "complete.json").exists():
-        return True
+    """A post-fit record finished writing: its result.json parses (a step its cap killed
+    mid-write leaves none)."""
     try:
         json.loads((d / "result.json").read_text())
         return True

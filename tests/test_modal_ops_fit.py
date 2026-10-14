@@ -249,8 +249,8 @@ def test_post_fit_statistics_land_whole_beside_the_run(tmp_path, monkeypatch):
     files = {
         "out/r/run/result.json": b"{}",
         "out/r/variance/r-abc1234/result.json": b"{}",
-        "out/r/summaries/r-abc1234/rows.parquet": b"x",
-        "out/r/summaries/r-abc1234/complete.json": b"{}",
+        "out/r/newbuilding/r-abc1234/rows.parquet": b"x",
+        "out/r/newbuilding/r-abc1234/result.json": b"{}",
         "out/r/explained/r-trees-abc1234/result.json": b"{}",
         "out/r/fit.log": b"log",
     }
@@ -258,8 +258,8 @@ def test_post_fit_statistics_land_whole_beside_the_run(tmp_path, monkeypatch):
     (root / "variance" / "r-abc1234").mkdir(parents=True)
     (root / "variance" / "r-abc1234" / "result.json").write_text("old")
     fit.finish(FakeVolume(files), "r", {"exit": 0})
-    assert (root / "summaries/r-abc1234/complete.json").exists()
-    assert (root / "summaries/r-abc1234/rows.parquet").read_bytes() == b"x"
+    assert (root / "newbuilding/r-abc1234/result.json").exists()
+    assert (root / "newbuilding/r-abc1234/rows.parquet").read_bytes() == b"x"
     assert (root / "explained/r-trees-abc1234/result.json").exists()
     # An existing record is kept, and nothing is left half-written.
     assert (root / "variance/r-abc1234/result.json").read_text() == "old"
@@ -271,10 +271,10 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
     app = load("app")
     spec = {"name": "r", "tier": "full", "explain": ["a", "b"]}
     steps = app.post_steps(spec)
-    assert [s for s, _ in steps] == ["variance", "summary", "calibration", "explained"]
+    # The summary bundle and its calibration are built on thelio (ops/modal/summarize).
+    assert [s for s, _ in steps] == ["variance", "explained"]
     assert steps[0][1] == ["rentfrontier.variance", "r"]
-    assert steps[1][1] == ["rentfrontier.summary", "r"]
-    assert steps[3][1] == ["rentfrontier.explained", "r", "a", "b"]
+    assert steps[1][1] == ["rentfrontier.explained", "r", "a", "b"]
     assert [s for s, _ in app.post_steps({"name": "r", "tier": "exploration"})] == [
         "variance"
     ]
@@ -282,7 +282,7 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
 
     def run(cmd, env, log, timeout=None):
         calls.append((cmd[2], timeout))
-        if cmd[2] == "rentfrontier.summary":
+        if cmd[2] == "rentfrontier.explained":
             raise OSError("boom")
         return 0
 
@@ -290,25 +290,37 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
     now = 1000.0
     monkeypatch.setattr(app.time, "time", lambda: now)
     done = app._post(spec, {}, None, now + 600)
-    assert done["variance"]["exit"] == 0 and "boom" in done["summary"]["exit"]
+    assert done["variance"]["exit"] == 0 and "boom" in done["explained"]["exit"]
     assert calls[0] == ("rentfrontier.variance", 600)
-    # The summary failed, so calibration has no bundle to read.
-    assert done["calibration"]["exit"] == "skipped: no summary bundle"
-    assert ("rentfrontier.calibration", 600) not in calls
     assert app._post(spec, {}, None, now + 30)["variance"]["exit"].startswith("skipped")
 
 
-def test_calibration_reads_the_finished_summary_bundle(tmp_path, monkeypatch):
-    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
-    app = load("app")
-    monkeypatch.setattr(app, "OUTPUT", tmp_path)
-    (tmp_path / "summaries" / "r-abc1234").mkdir(parents=True)
-    (tmp_path / "summaries" / "r-abc1234" / "complete.json").write_text("{}")
-    (tmp_path / "summaries" / "r-cut5678").mkdir()  # killed mid-write
-    (tmp_path / "summaries" / "rx-abc1234").mkdir()
-    (tmp_path / "summaries" / "rx-abc1234" / "complete.json").write_text("{}")
-    step = dict(app.post_steps({"name": "r", "tier": "full"}))["calibration"]
-    assert step() == ["rentfrontier.calibration", str(tmp_path / "summaries/r-abc1234")]
+def test_a_passing_full_row_fit_starts_its_summary_on_thelio(tmp_path, monkeypatch):
+    monkeypatch.setattr(fit, "STATE", tmp_path / "modal")
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "REPO", tmp_path / "repo")
+    full = {"name": "r", "tier": "full", "dataset": "/d"}
+    assert fit.wants_summary(full, "rows") and fit.wants_summary(full, "all")
+    assert not fit.wants_summary(full, "latest")
+    assert not fit.wants_summary(full, "units")
+    assert not fit.wants_summary({**full, "tier": "exploration"}, "rows")
+    calls = []
+    monkeypatch.setattr(fit.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    unit = fit.summarize(full)
+    (cmd,) = calls
+    # Its own unit, outside the modal-fit-* names the queue runners wait on.
+    assert unit.startswith("modal-summary-") and f"--unit={unit}" in cmd
+    assert cmd[:3] == ["systemd-run", "--user", "--quiet"]
+    assert cmd[-2:] == [str(fit.HERE / "summarize"), "r"]
+    assert f"--setenv=FRONTIER_OUTPUT_ROOT={tmp_path / 'frontier'}" in cmd
+    assert "--setenv=FRONTIER_DATASET=/d" in cmd
+    assert f"--setenv=MODAL_FIT_REPO={tmp_path / 'repo'}" in cmd
+
+    def fail(cmd, **kw):
+        raise fit.subprocess.CalledProcessError(1, cmd)
+
+    monkeypatch.setattr(fit.subprocess, "run", fail)
+    assert fit.summarize(full) is None
 
 
 def test_plan_carries_the_candidate_sets_to_explain():
@@ -335,17 +347,11 @@ def test_plan_carries_the_candidate_sets_to_explain():
 def test_only_finished_post_fit_records_leave_the_container(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
     app = load("app")
-    (tmp_path / "s").mkdir()
-    (tmp_path / "s" / "complete.json").write_text("{}")
     (tmp_path / "v").mkdir()
     (tmp_path / "v" / "result.json").write_text("{}")
     (tmp_path / "cut").mkdir()
     (tmp_path / "cut" / "result.json").write_text('{"shares": {')
-    assert [app._complete(tmp_path / d) for d in ("s", "v", "cut")] == [
-        True,
-        True,
-        False,
-    ]
+    assert [app._complete(tmp_path / d) for d in ("v", "cut")] == [True, False]
 
 
 def test_the_new_building_score_lands_beside_the_run_and_never_fails_the_fit(
