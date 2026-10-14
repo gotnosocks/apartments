@@ -1098,6 +1098,22 @@ def quarantine_v16(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V16))]
 
 
+QUARANTINE_V17 = REPO / "config" / "reviews" / "quarantine-v17-20261014.jsonl"
+QUARANTINE_V17_READ = REPO / "config" / "reviews" / "quarantine-v17-read-20261014.txt"
+
+
+def quarantine_v17(frame: pd.DataFrame) -> pd.DataFrame:
+    """v16 plus seven more Brooklyn ads (326 rows in all).
+
+    StreetEasy links some Brooklyn listings to the Manhattan building with the
+    same number and street name (`brooklyn`). v16's 28 such rows and seven
+    more, found by a wider place list (`brooklyn.screen`) and read in full,
+    carry the reason code `brooklyn_misjoin`, and `brooklyn.MISJOINS` records
+    their evidence. The read list is `QUARANTINE_V17_READ`. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V17))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1387,6 +1403,7 @@ DATA_RULES = {
     "quarantine-v14": quarantine_v14,
     "quarantine-v15": quarantine_v15,
     "quarantine-v16": quarantine_v16,
+    "quarantine-v17": quarantine_v17,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1423,6 +1440,7 @@ RULE_SOURCES = {
     "quarantine-v14": QUARANTINE_V14,
     "quarantine-v15": QUARANTINE_V15,
     "quarantine-v16": QUARANTINE_V16,
+    "quarantine-v17": QUARANTINE_V17,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1465,6 +1483,7 @@ DROPPING_RULES = (
     "quarantine-v14",
     "quarantine-v15",
     "quarantine-v16",
+    "quarantine-v17",
 )
 
 

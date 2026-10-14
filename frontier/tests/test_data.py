@@ -3,11 +3,12 @@ divergence-review quarantine (quarantine-v1)."""
 
 import functools
 import json
+import re
 
 import numpy as np
 import pandas as pd
 import pytest
-from rentfrontier import autoselect, data
+from rentfrontier import autoselect, brooklyn, data
 
 
 def test_unit_label_key_writes_a_label_one_way():
@@ -288,7 +289,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V13
     ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(
         data.QUARANTINE_V15
-    ) | data.quarantined(data.QUARANTINE_V16)
+    ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(data.QUARANTINE_V17)
 
 
 @pytest.mark.parametrize(
@@ -1322,6 +1323,77 @@ def test_quarantine_v16_adds_33_read_rows_to_v15():
     assert sum(r["building"] == "110-west-26-street-new_york" for r in rows) == 5
     assert data.QUARANTINE_V15.read_text() in data.QUARANTINE_V16.read_text()
     assert "quarantine-v16" in data.DROPPING_RULES
+
+
+def test_quarantine_v17_adds_brooklyn_rows_to_v16():
+    """v17 is v16 with seven more Brooklyn rows; every Brooklyn row carries
+    `brooklyn_misjoin` and has an entry in the misjoin file."""
+    v16 = data.quarantined(data.QUARANTINE_V16)
+    v17 = data.quarantined(data.QUARANTINE_V17)
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    assert len(misjoins) == 35 and len(misjoins - v16) == 7
+    assert v17 == v16 | misjoins and len(v17) == 326
+    read = set(data.QUARANTINE_V16_READ.read_text().split())
+    read |= set(data.QUARANTINE_V17_READ.read_text().split())
+    assert misjoins <= read
+    with open(data.QUARANTINE_V17) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert all(r["evidence"] and r["reason"] for r in rows)
+    assert {
+        r["audit_id"] for r in rows if r["action"] == "brooklyn_misjoin"
+    } == misjoins
+    with open(data.QUARANTINE_V16) as f:
+        rows16 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(
+        r == rows16[r["audit_id"]] for r in rows if r["audit_id"] not in misjoins
+    )
+    assert "quarantine-v17" in data.DROPPING_RULES
+
+
+def test_brooklyn_misjoins_record_the_evidence_for_a_remap():
+    with open(brooklyn.MISJOINS) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    for r in rows:
+        assert r["source_listing_id"] and r["building"] and r["unit_id"]
+        assert r["streeteasy_address"] and r["ad_phrase"] in r["ad_context"]
+        assert r["candidate_brooklyn_address"] or r["note"]
+
+
+def test_brooklyn_screen_skips_known_false_alarms():
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcdef"),
+            "source_listing_id": list("123456"),
+            "building": ["b"] * 6,
+            "unit_id": ["u"] * 6,
+            "neighbourhood": ["Gramercy Park"] * 5 + ["Hell's Kitchen"],
+            "price_at": ["2020-01-01"] * 6,
+        }
+    )
+    text = pd.Series(
+        [
+            "sunny one bedroom steps from prospect park",
+            "art deco studio in kensington house on 7th avenue",
+            "broker: 184 noll street suite 2 brooklyn ny 11237",
+            "i also have studios with terraces in park slope",
+            "quiet one bedroom on a gorgeous clinton hill block",
+            "a prime clinton hill location near 9th avenue",
+        ]
+    )
+    hits = brooklyn.screen(frame, text)
+    assert hits.audit_id.tolist() == ["a", "e"]
+
+
+def test_every_registered_dataset_is_screened_for_brooklyn_ads():
+    """Registering a dataset newer than NB8 means running
+    `frontier/scripts/brooklyn_screen.py` on it and adding its cohort to
+    `brooklyn.SCREENED`."""
+    screened = set(brooklyn.SCREENED.read_text().split())
+    for name in dir(data):
+        m = re.fullmatch(r"DATASET_NB(\d+)", name)
+        if m and int(m[1]) >= 9:
+            assert getattr(data, name).name in screened, name
 
 
 def test_tune_westcoast_split_v2_swaps_v1s_names():
