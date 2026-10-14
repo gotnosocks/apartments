@@ -10,8 +10,9 @@ The `elevator-from-ad-v1` data rule reads the file and fills a row's elevator
 only where the coded value is unknown, so a known code always stays.
 
 The text states "no" when it says walk-up, flights up, no elevator (also "no
-laundry or elevator"), non-elevator or that the building has no elevator, and "yes" when it mentions an elevator
-any other way. A row whose text says both, or neither, gets no line. Each row
+laundry or elevator"), non-elevator or that the building has no elevator, and
+"yes" when it mentions an elevator any other way. A "walk up" to a street or
+with "no stairs to walk up" says nothing about the building. A row whose text says both, or neither, gets no line. Each row
 reads its own ad only, never another listing in its building."""
 
 import datetime as dt

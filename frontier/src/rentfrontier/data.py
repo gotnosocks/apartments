@@ -1191,7 +1191,7 @@ def building_joins_v1(frame: pd.DataFrame) -> pd.DataFrame:
 # The elevator each NB9 row's own ad states (`python -m rentfrontier.adfills
 # elevator`), for rows whose text says exactly one of "yes" and "no".
 ELEVATOR_FROM_AD = Path(
-    "/data1/apartments/external/adfills/20261014-8155f55/elevator.parquet"
+    "/data1/apartments/external/adfills/20261014-51eede3/elevator.parquet"
 )
 
 
