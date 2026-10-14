@@ -1117,6 +1117,23 @@ def test_latest_ask_v2_prices_rows_from_the_file(monkeypatch, tmp_path):
     assert data.RULE_SOURCES["latest-ask-v2"].name == "latest-ask.parquet"
 
 
+def test_latest_ask_v3_reads_its_own_file(tmp_path):
+    path = tmp_path / "latest-ask.parquet"
+    pd.DataFrame({"audit_id": ["a"], "latest_ask": [2900.0]}).to_parquet(path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "c"],
+            "asking_rent": [3000.0, 4000.0],
+            "log_rent": np.log([3000.0, 4000.0]),
+        }
+    )
+    out = data.latest_ask_v3(frame, path=path)
+    assert out.asking_rent.tolist() == [2900.0, 4000.0]
+    np.testing.assert_allclose(out.log_rent, np.log(out.asking_rent))
+    assert data.RULE_SOURCES["latest-ask-v3"] == data.LATEST_ASK_V3
+    assert data.DATA_RULES["latest-ask-v3"] is data.latest_ask_v3
+
+
 def test_tune_westcoast_split_v1_splits_the_lot_by_label_scheme():
     url = "https://streeteasy.com/building/x/"
     frame = pd.DataFrame(

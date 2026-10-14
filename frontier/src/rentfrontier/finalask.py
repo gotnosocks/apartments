@@ -37,6 +37,7 @@ PRICES = {
     RULE: "final ask",
     "tune-latestask-v1": "latest ask",
     "latest-ask-v2": "latest ask",
+    "latest-ask-v3": "latest ask",
 }
 
 
