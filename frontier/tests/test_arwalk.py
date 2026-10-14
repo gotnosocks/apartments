@@ -182,6 +182,36 @@ def test_walk_decay_prior_is_the_beta_prior_on_rho():
     )
 
 
+def test_walk_axes_are_the_principal_axes_of_the_pair():
+    """The (sd, rho) axis updates step along orthonormal eigenvectors of the
+    pair's covariance, 2.38 times the sd along each."""
+    cov = np.array([[0.0036, -0.0089], [-0.0089, 0.0229]])
+    axes, step = gibbs._walk_axes(cov)
+    axes = np.asarray(axes)
+    np.testing.assert_allclose(axes @ axes.T, np.eye(2), atol=1e-12)
+    for u, h in zip(axes, step):
+        np.testing.assert_allclose(cov @ u, (h / 2.38) ** 2 * u, atol=1e-12)
+
+
+def test_ar_run_replaces_the_walk_solos_with_axis_updates():
+    """Under walk_ar the collapsed solo updates on walk_scale and walk_decay
+    become updates along the pair's two axes, each with its own step."""
+    prep = simulate_ar(0.95, 0.1, 0.08, n_buildings=40, months=60)
+    out = gibbs.run(
+        prep,
+        AR,
+        gibbs.Settings(chains=2, warmup=40, draws=10, keep_every=1),
+        log=lambda *_: None,
+    )
+    assert set(out["solo_proposal_sd"]) == set(gibbs.WALK_AXES)
+    axes = np.asarray(out["walk_axes"])
+    np.testing.assert_allclose(axes @ axes.T, np.eye(2), atol=1e-9)
+    trace = out["trace"]
+    for name in gibbs.WALK_AXES:
+        acc = np.asarray(trace[f"solo_accept_{name}"])
+        assert 0 < acc.mean() < 1
+
+
 def simulate_ar(rho, building_sd, sd, seed=0, n_buildings=160, months=120):
     """Rows from a level + AR(1) deviation per building on 6-month knots,
     with units, a trend and Student-t noise."""
