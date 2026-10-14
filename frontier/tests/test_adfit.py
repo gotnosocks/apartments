@@ -13,6 +13,7 @@ def test_loo_median_matches_leaving_each_row_out():
     values = rng.normal(size=40)
     values[[3, 17]] = np.nan
     groups = rng.integers(0, 5, size=40)
+    groups[[0, 1, 2]] = [7, 8, 8]  # a group of one and a group of two
     got = adfit.loo_median(values, groups)
     for i in range(40):
         rest = values[(groups == groups[i]) & (np.arange(40) != i)]
@@ -72,16 +73,16 @@ def test_screen_output_hides_rent():
             dict(audit_id="b", unit_id="u", bedrooms=1, square_feet=600, rent=9000),
         ]
     )
-    text = pd.Series(["now $3,000 per month, a roommate wanted", "$9,000"])
+    text = pd.Series(["now $3,000 per month, a roommate wanted", "9,000/month or 9k"])
     hits = adfit.screen(frame, text, COORDS, CENTRES)
     assert not {c for c in hits.columns if re.search("rent|price|log", c)}
-    assert not any(re.search(r"\$\s?\d", s) for s in hits.snippet)
+    assert not any(re.search(r"\d", s) for s in hits.snippet)
 
 
 def test_text_flags_and_their_false_alarms():
     rows = [
         dict(audit_id=a, unit_id=a, bedrooms=1, square_feet=600, rent=3000)
-        for a in "abcdefgh"
+        for a in "abcdefghi"
     ]
     text = pd.Series(
         [
@@ -93,13 +94,14 @@ def test_text_flags_and_their_false_alarms():
             "located in chelsea",
             "enjoy nightly sunsets from the terrace",
             "sorry, no short-term or summer rentals",
+            "a 12 month sublease with option to renew",
         ]
     )
     hits = adfit.screen(_frame(rows), text, COORDS, CENTRES).set_index("audit_id")
     assert hits.at["a", "flags"] == ["room_share"]
     assert hits.at["c", "flags"] == ["far_place"]
     assert hits.at["e", "flags"] == ["shared_bath"]
-    assert {"b", "d", "f", "g", "h"}.isdisjoint(hits.index)
+    assert {"b", "d", "f", "g", "h", "i"}.isdisjoint(hits.index)
     assert all(hits.tier == "B")
 
 
@@ -118,7 +120,15 @@ def test_a_hold_out_needs_a_quote_that_is_not_a_price():
     )
     assert adfit.verdict_problems(ok) == []
     assert adfit.verdict_problems(dict(verdict="keep")) == []
-    assert adfit.verdict_problems({**ok, "quote": "$2,395"})
+    for quote in (
+        "$2,395",
+        "$3,500/mo",
+        "rent: $2,400",
+        "$2.4k net",
+        "3500",
+        "3,500 per month",
+    ):
+        assert adfit.verdict_problems({**ok, "quote": quote}), quote
     assert adfit.verdict_problems({**ok, "quote": ""})
     assert adfit.verdict_problems({**ok, "quote_source": "price"})
     assert adfit.verdict_problems({**ok, "verdict": "drop"})

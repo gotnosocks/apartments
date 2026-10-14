@@ -94,7 +94,7 @@ TERMS = {
         r"short[- ]term (?:rental|stay|lease)s? only",
         r"vacation rental",
         r"(?<!no )(?<!or )summer (?:sublet|rental)",
-        r"(?:\d|one|two|three|four|five|six) (?:week|month)s? (?:only|sublet|sublease)",
+        r"\b(?:[1-9]|1[01]|one|two|three|four|five|six) (?:week|month)s? (?:only|sublet|sublease)",
     ),
 }
 TERM_RX = {k: re.compile("|".join(f"(?:{t})" for t in v)) for k, v in TERMS.items()}
@@ -106,7 +106,17 @@ NEAR = (
 PLACE_FALSE_ALARMS = re.compile(
     r"kensington house|brooklyn fare|clinton (?:hill )?park"
 )
-DOLLARS = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?k?")
+# Amounts of money, with or without a dollar sign.
+DOLLARS = re.compile(
+    r"\$\s?\d[\d,]*(?:\.\d+)?k?"
+    r"|\b\d[\d,]*(?:\.\d+)?k?\s*(?:/\s?mo(?:nth)?\b|per month|a month|monthly)"
+    r"|\b\d+(?:\.\d+)?k\b"
+)
+# Words left in a quote about price once its amounts are gone.
+PRICE_WORDS = re.compile(
+    r"\d[\d,.]*|\b(?:rent|rents|rental|price|priced|ask|asking|net|gross|per|a|month"
+    r"|monthly|mo|only|just|at|for|of|is|the|usd|dollars?)\b"
+)
 
 
 def loo_median(values: np.ndarray, groups: np.ndarray) -> np.ndarray:
@@ -176,8 +186,8 @@ def screen(
     `coords` holds each building's `latitude` and `longitude`, indexed by
     building. The result carries no rent, and its snippet has dollar amounts
     blanked."""
+    text = pd.Series(text).reindex(frame.index).fillna("").reset_index(drop=True)
     frame = frame.reset_index(drop=True)
-    text = pd.Series(np.asarray(text, object)).fillna("")
     centres = place_centres() if centres is None else centres
     sq = pd.to_numeric(frame.square_feet, errors="coerce")
     sq = sq.where(sq > MIN_SQFT).to_numpy(float)
@@ -285,7 +295,14 @@ def verdict_problems(read: dict) -> list[str]:
     quote = (read.get("quote") or "").strip()
     if read.get("quote_source") not in ("ad", "page"):
         problems.append("quote_source must be 'ad' or 'page'")
-    if not DOLLARS.sub("", quote).strip(" .,;:-"):
+    if (
+        len(
+            re.findall(
+                r"[a-z]{2,}", PRICE_WORDS.sub(" ", DOLLARS.sub(" ", quote.lower()))
+            )
+        )
+        < 2
+    ):
         problems.append("a hold-out or correction needs a quote that is not a price")
     if not read.get("reason"):
         problems.append("no reason")
