@@ -829,6 +829,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
         )
+    if config.walk_ar_rho is not None and not (
+        config.building_walk and config.walk_ar and 0 < config.walk_ar_rho < 1
+    ):
+        raise ValueError("walk_ar_rho needs walk_ar and a rho in (0, 1)")
     if config.building_walk:
         out["walk_knot_months"] = config.walk_knot_months
         if config.walk_ar and (
@@ -842,10 +846,6 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
                 "walk_ar is a Normal AR(1) deviation on every building's knots; "
                 "it takes no t steps, zero-sum, mask, anchor or walk_levels"
             )
-        if config.walk_ar_rho is not None and not (
-            config.walk_ar and 0 < config.walk_ar_rho < 1
-        ):
-            raise ValueError("walk_ar_rho needs walk_ar and a rho in (0, 1)")
         if config.walk_zero_sum:
             if config.walk_min_rows_per_knot or config.walk_anchor_data:
                 raise ValueError(
