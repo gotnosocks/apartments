@@ -63,9 +63,12 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
     - #754 (`pacer.py`) keeps submissions on a fixed grid of slots with at least 0.85 intervals
       between them, so the rate stays at or below the setting, and lateness under 15% of an
       interval no longer lowers it.
+    - #756 (`parse_once.py`) reuses the first `parse_listing` result for the second
+      `annotate` call on the same page. On 60 ad pages the two calls went from 0.036 s to
+      0.018 s per page with identical policy data.
     - `/data1/apartments/tmp/mwprof2` holds a 37 GB copy of the crawl database and the
-      profiling scripts. `parse_listing` runs twice per page (about 0.035 s each), the next
-      candidate.
+      profiling scripts (`check_known.py`, `time_known.py`, `check_parse_once.py`). Before
+      the next crawl, time the parse with all three fixes there.
   - A restart replays every page fetched since the previous start before it sends new
     requests, at about 11 pages a second.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has

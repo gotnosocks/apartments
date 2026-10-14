@@ -1079,6 +1079,26 @@ def latest_ask_v2(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
+# Latest asks from rental records only. A sale listing can carry a rental's id,
+# and in LATEST_ASK the sale's capture stood in for 210 rows' last capture; the
+# 2x check kept their first ask, so 92 of them lacked their last rental ask.
+LATEST_ASK_V3 = Path(
+    "/data1/apartments/external/latest-ask/20261014-9ae2b6e/latest-ask.parquet"
+)
+
+
+def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
+    """`latest_ask_v2` on latest asks built from the listings' rental records
+    alone (`LATEST_ASK_V3`). A row the file lacks keeps its ask."""
+    table = pd.read_parquet(path, columns=["audit_id", "latest_ask"])
+    price = (
+        frame.audit_id.map(table.set_index("audit_id").latest_ask)
+        .fillna(frame.asking_rent)
+        .to_numpy(float)
+    )
+    return frame.assign(asking_rent=price, log_rent=np.log(price))
+
+
 # The West Coast (95-97 Horatio St) is one tax lot with two structures in HPD's
 # registry, BIN 1012154 (the-west-coast) and BIN 1012155
 # (97-horatio-street-new_york), under one StreetEasy building. Its rows carry two
@@ -1247,6 +1267,7 @@ DATA_RULES = {
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
     "latest-ask-v2": latest_ask_v2,
+    "latest-ask-v3": latest_ask_v3,
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
@@ -1276,6 +1297,7 @@ RULE_SOURCES = {
     "quarantine-v13": QUARANTINE_V13,
     "quarantine-v14": QUARANTINE_V14,
     "latest-ask-v2": LATEST_ASK,
+    "latest-ask-v3": LATEST_ASK_V3,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
