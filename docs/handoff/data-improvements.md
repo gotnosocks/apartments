@@ -16,7 +16,7 @@ Updated 2026-10-14 19:20 ET. Thread owner: the Data improvements project thread 
   waits on Ben's go-ahead in its own thread and on the Modal balance.
 - **quarantine-v18** (#792, the 110 W 26th thread) keeps v17's 326 rows and corrects the five
   110 W 26th reasons to `quarantine_product_scope`. That thread checks version numbers with us
-  before each new version; next free: quarantine-v19, unit-labels-v18.
+  before each new version. quarantine-v19 (#800, `e3cfac7d`) holds out 54 more rows from its ad-fit reads; next free: quarantine-v20, unit-labels-v18.
 - `data/110w26-release-split` (`510b0eaf`) is dropped. Deleting the branch needs Ben's
   permission, so it still exists on origin.
 
