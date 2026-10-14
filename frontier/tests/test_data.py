@@ -289,7 +289,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V13
     ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(
         data.QUARANTINE_V15
-    ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(data.QUARANTINE_V17)
+    ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
+        data.QUARANTINE_V17
+    ) | data.quarantined(data.QUARANTINE_V19)
 
 
 @pytest.mark.parametrize(
@@ -1648,3 +1650,26 @@ def test_adfills_pets_writes_existing_codes_only():
         30: "approval_required",
     }
     assert out.evidence.notna().all()
+
+
+def test_quarantine_v19_adds_the_ad_fit_hold_outs():
+    """v19 holds out v18's rows unchanged, plus each quarantine verdict in the
+    first ad-fit reads, quoting the read's evidence."""
+    with open(data.QUARANTINE_V18) as f:
+        v18 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V19) as f:
+        v19 = {r["audit_id"]: r for r in map(json.loads, f)}
+    reads = data.REPO / "config" / "reviews" / "ad-fit-reads-20261014.jsonl"
+    with open(reads) as f:
+        held = {
+            r["audit_id"]: r
+            for r in map(json.loads, f)
+            if r["verdict"].startswith("quarantine_")
+        }
+    assert all(v19[a] == v18[a] for a in v18)
+    assert v19.keys() - v18.keys() == held.keys() and len(held) == 51
+    assert all(
+        v19[a]["action"] == r["verdict"] and v19[a]["evidence"] == r["quote"]
+        for a, r in held.items()
+    )
+    assert "quarantine-v19" in data.DROPPING_RULES
