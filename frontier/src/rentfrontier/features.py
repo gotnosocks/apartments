@@ -1681,12 +1681,12 @@ HPD_FILE = f"{HPD_SNAPSHOT}/hpd.parquet"
 # Rent-stabilized units per lot and tax-bill year (`rentfrontier.external rentstab`).
 RENTSTAB_SNAPSHOT = "/data1/apartments/external/rentstab/20261008-b487c8a"
 RENTSTAB_FILE = f"{RENTSTAB_SNAPSHOT}/rentstab.parquet"
-# MapPLUTO for every lot on the eight neighbourhoods' tax blocks (external.py
+# MapPLUTO for every lot on the ten neighbourhoods' tax blocks (external.py
 # blocklots): which lots a footprint spans (`lot_open_share_v2`).
-BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261010-c90ddbd"
+BLOCKLOTS_SNAPSHOT = "/data1/apartments/external/blocklots/20261014-5352472"
 BLOCKLOTS_FILE = f"{BLOCKLOTS_SNAPSHOT}/blocklots.parquet"
 # 2020 Neighborhood Tabulation Areas by building (`python -m rentfrontier.nta`).
-NTA_FILE = "/data1/apartments/external/nta/20261010-c90ddbd/nta.parquet"
+NTA_FILE = "/data1/apartments/external/nta/20261014-cd891c8/nta.parquet"
 NTA_FOLDED = "Stuyvesant Town-Peter Cooper Village"
 # Years a lot's last stabilized-units bill counts for (the 2019 bill reaches 2022).
 STAB_CARRY_YEARS = 3
@@ -3588,7 +3588,7 @@ def owner_v1(
 
 # Each listing's lister (`rentfrontier.lister`): name kind and how many of the
 # building's earlier listings the same lister listed.
-LISTER_FILE = "/data1/apartments/external/lister/20261010-b5c71cf/lister.parquet"
+LISTER_FILE = "/data1/apartments/external/lister/20261014-cd891c8/lister.parquet"
 
 
 def lister_v1(
@@ -4967,6 +4967,72 @@ NB9_PARKS_FILE = "/data1/apartments/external/parks/20261014-5352472/parks.parque
 NB9_PLUTO_RELEASES_FILE = (
     "/data1/apartments/external/plutoreleases/20261014-5352472/plutoreleases.parquet"
 )
+NB9_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261014-cd891c8/listing-extras.parquet"
+)
+_NB9_DESCRIPTIONS = {
+    **_NB8_DESCRIPTIONS,
+    "descriptions_mw": str(descriptions_module.MW_SOURCE),
+}
+# The nb9 sets read what their nb5 counterpart reads, from the ten
+# neighbourhoods' snapshots in place of the eight's.
+NB9_SETS = {
+    "nb9-nostuy-v1": "nb5-plutoasof-v3",
+    "nb9-nostuy-sizefill-v1": "nb5-plutoasof-v3",
+    "nb9-nostuy-nta-v1": "nb5-plutoasof-v3",
+    "nb9-nostuy-lister-v1": "nb5-plutoasof-v3",
+}
+# nb8-nostuy-v1 plus Hell's Kitchen and Hudson Yards indicators: the ten
+# neighbourhoods' base. The NTA set keeps nb8's folds: the Hell's Kitchen NTA
+# holds Hell's Kitchen's rows and a third of Hudson Yards', so its level
+# repeats no indicator.
+FEATURE_SETS["nb9-nostuy-v1"] = partial(
+    hoods_v1,
+    id="nb9-nostuy-v1",
+    base="nb3-coded-v2",
+    hoods=(
+        "Flatiron",
+        "Gramercy Park",
+        "NoMad",
+        "East Village",
+        "Hell's Kitchen",
+        "Hudson Yards",
+    ),
+)
+FEATURE_SETS["nb9-nostuy-sizefill-v1"] = partial(
+    sizefill_v1, id="nb9-nostuy-sizefill-v1", base="nb9-nostuy-v1"
+)
+FEATURE_SETS["nb9-nostuy-nta-v1"] = partial(
+    nta_v2, id="nb9-nostuy-nta-v1", base="nb9-nostuy-v1"
+)
+FEATURE_SETS["nb9-nostuy-lister-v1"] = partial(
+    lister_v1, id="nb9-nostuy-lister-v1", base="nb9-nostuy-v1"
+)
+NTA.add("nb9-nostuy-nta-v1")
+LISTER.add("nb9-nostuy-lister-v1")
+for _new, _old in NB9_SETS.items():
+    for _group in (
+        EXTERNAL,
+        BASEMAP,
+        FOOTPRINTS,
+        DESCRIPTIONS,
+        AS_OF_SETS,
+        LISTING_EXTRAS,
+        PRICE_HISTORY,
+        READS_EARLIER_RENTS,
+        PLUTO_RELEASED_SETS,
+    ):
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {"registry": NB9_REGISTRY_FILE, "pluto": NB9_PLUTO_FILE}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB9_BASEMAP_FILE,
+        "footprints": NB9_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = _NB9_DESCRIPTIONS
+    EXTRAS_SNAPSHOTS[_new] = NB9_EXTRAS_FILE
+    LPC_SNAPSHOTS[_new] = NB9_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_PLUTO_RELEASES_FILE
 
 
 def lot_files(name: str) -> dict:

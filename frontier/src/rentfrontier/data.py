@@ -62,6 +62,12 @@ DATASET_NB7 = Path(
 DATASET_NB8 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
 )
+# The eight plus Hell's Kitchen and Hudson Yards (cohort
+# midtown-west-areas-analysis-20261014-cd891c8, the Midtown West crawl split by
+# each building page's area), no rule change.
+DATASET_NB9 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.
