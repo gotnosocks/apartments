@@ -284,7 +284,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V8
     ) | data.quarantined(data.QUARANTINE_V9) | data.quarantined(
         data.QUARANTINE_V10
-    ) | data.quarantined(data.QUARANTINE_V12)
+    ) | data.quarantined(data.QUARANTINE_V12) | data.quarantined(data.QUARANTINE_V13)
 
 
 @pytest.mark.parametrize(
@@ -1065,6 +1065,40 @@ def test_quarantine_v12_adds_the_new_neighbourhoods_to_v10():
         rows = [json.loads(line) for line in f if line.strip()]
     assert len(rows) == 269 and all(r["evidence"] and r["reason"] for r in rows)
     assert "quarantine-v12" in data.DROPPING_RULES
+
+
+def test_quarantine_v13_adds_two_read_price_screen_hits_to_v12():
+    """v13 is v12's 269 rows and 2 more, both among the 10 price-screen hits
+    read, each with its quote and reason."""
+    v12 = data.quarantined(data.QUARANTINE_V12)
+    v13 = data.quarantined(data.QUARANTINE_V13)
+    assert v12 < v13 and len(v13 - v12) == 2
+    read = set(data.QUARANTINE_V13_READ.read_text().split())
+    assert len(read) == 10 and v13 - v12 <= read
+    with open(data.QUARANTINE_V13) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 271 and all(r["evidence"] and r["reason"] for r in rows)
+    assert "quarantine-v13" in data.DROPPING_RULES
+
+
+def test_latest_ask_v2_prices_rows_from_the_file(monkeypatch, tmp_path):
+    path = tmp_path / "latest-ask.parquet"
+    pd.DataFrame({"audit_id": ["a", "b"], "latest_ask": [2900.0, 10000.0]}).to_parquet(
+        path
+    )
+    monkeypatch.setattr(data, "LATEST_ASK", path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c"],
+            "asking_rent": [3000.0, 1000.0, 4000.0],
+            "log_rent": np.log([3000.0, 1000.0, 4000.0]),
+        }
+    )
+    out = data.DATA_RULES["latest-ask-v2"](frame)
+    # A row the file lacks keeps its own ask.
+    assert out.asking_rent.tolist() == [2900.0, 10000.0, 4000.0]
+    np.testing.assert_allclose(out.log_rent, np.log(out.asking_rent))
+    assert data.RULE_SOURCES["latest-ask-v2"].name == "latest-ask.parquet"
 
 
 def test_unit_labels_v15_is_v14_on_the_tables_with_east_villages_appended():
