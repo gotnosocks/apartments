@@ -3,6 +3,27 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 13:20 UTC): latest-ask refit and the west-coast split
+
+- I refit C on latest-ask-v2 + quarantine-v13 (`...-rows-bcaac064-...q13ad3la2`). It failed the
+  gate on group R-hat 1.283, all in the-west-coast (one lot with two structures, BBL 1006430001).
+- Data improvements built `tune-westcoast-split-v1` (#745). It moves the floor-and-letter labels to
+  97-horatio-street-new_york. C on it (`...-rows-f469edaa-...q13ad3la2-tune-westcoast-split-v1`,
+  $2.63) passes the gate with a max group R-hat of 1.026. My #747 predictions:
+  - gate, held-out and new-building: hit
+  - paired PSIS-LOO: miss (+72 ± 19 against the refit, where I predicted a tie)
+- Both fits are scored against latest asks on 21,511 held-out rows (`rentfrontier.finalask`). The
+  split C misses by 3.73% with 79.4/94.9 coverage, and the served C by 4.02% with 76.8/93.6.
+- Waiting on Ben:
+  - Should the split become a non-tune rule, with a C refit on it as the servable latest-ask base?
+  - The fixed-rho arwalk fit (#748, #749). Ben answers on the card in the AR(1) thread, and the
+    coordinator relays it. If he says yes, I run it once, on `tune-westcoast-split-v1`.
+  - The summary-step fix, in the worktree `/data1/apartments/tmp/wt-sum`. Gate-passing runs
+    time out after 20 minutes in the summary step, which made the split fit cost $2.63.
+- Per the coordinator's brief, each fit is capped at about 1 hour or $2. `modalq-c.sh` skips a
+  line when `cap.py --check-launch` exits 2. Lines and areatime are held. Neither fits the cap at
+  C's settings.
+
 ## Update (2026-10-14 09:40 UTC): data first, then refit
 
 - Ben's rule (09:04Z): when a fit shows a problem, look for and fix a data issue first, and patch
