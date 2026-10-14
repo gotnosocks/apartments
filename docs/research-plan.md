@@ -418,7 +418,8 @@ You do not need my approval to change the dashboard model."
     (`latestselect`) applies the same test to its candidate, its reference and the fit to serve.
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
-  - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
+  - Take the top PSIS-LOO, and the fits tied with it within two combined SE. The paired SE is
+    the larger of the iid SE and the SE clustered by tax lot (from 2026-10-14, `leaderboard.paired_se`).
   - Among those, take the most elegant by the recorded judgements: fits are ordered by how many
     other tied fits are judged more elegant than them, fewest first (from 2026-10-01; before that, the
     fastest). A cycle of judgements leaves its fits level.
