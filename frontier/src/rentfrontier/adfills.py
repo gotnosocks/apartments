@@ -19,7 +19,7 @@ level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
 or "not_allowed". The coded field has no level for "no dogs", so a text of
 that class gets no line. Nor does a case-by-case text unless a pet word or a
 weight sits near the phrase, since ads use it for guarantors and short stays
-too.
+too, or a no-pets text whose only ban is "no pet dogs" or "no pet cats".
 
 Each row reads its own ad only, never another listing in its building."""
 
@@ -79,14 +79,24 @@ CASE_PETS = (
 )
 
 
+# "no pet dogs" bans dogs, not pets, and `petstext.NO_PETS` reads it as no pets.
+NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b"
+
+
 def pets(text: pd.Series) -> pd.DataFrame:
     """The coded pet level each text states, with the matched words; texts
-    of class "none" or "no_dogs", and case-by-case texts without a pet near
-    the phrase (`CASE_PETS`), are dropped."""
+    of class "none" or "no_dogs", no-pets texts saying only "no pet dogs"
+    (`NO_PET_KIND`) and case-by-case texts without a pet near the phrase
+    (`CASE_PETS`) are dropped."""
     found = petstext.classify(text)
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
-    keep = found.isin(["no_pets", "allowed"]) | (
-        found.eq("case_by_case") & text.str.contains(CASE_PETS, regex=True)
+    no_pets = text.str.replace(NO_PET_KIND, " ", regex=True).str.contains(
+        petstext.NO_PETS, regex=True
+    )
+    keep = (
+        found.eq("allowed")
+        | (found.eq("no_pets") & no_pets)
+        | (found.eq("case_by_case") & text.str.contains(CASE_PETS, regex=True))
     )
     evidence = pd.Series(pd.NA, index=text.index, dtype=object)
     for name, pattern in petstext.CLASSES:

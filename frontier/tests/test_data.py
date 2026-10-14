@@ -1440,6 +1440,7 @@ def test_adfills_pets_writes_existing_codes_only():
             None,
             "Guarantors considered on a case-by-case basis.",
             "Dogs up to 50 lbs. Above that is considered case by case.",
+            "Sorry, no pet dogs permitted.",
         ]
     )
     out = adfills.pets(text)
