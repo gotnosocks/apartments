@@ -19,11 +19,20 @@ building. A row whose text says both, or neither, gets no line.
 For pets the builder takes `petstext.classify`'s class and writes its coded
 level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
 or "not_allowed". The coded field has no level for "no dogs", so a text of
-that class gets no line. `pets` also corrects the classifier's readings found
-in samples of ads: "case by case" about guarantors or short stays, "no board
-approval" before "pets ok", "no pet fees" or a pet fee in a list of charges
-read as pets allowed, "pets: no dogs" read as no pets, and "no board approval
-or pets".
+that class gets no line. Reading samples of ads turned up classifier readings
+that `pets` corrects:
+  - "case by case" about guarantors or short stays, and "no board approval"
+    or "fast approvals" about the application, get set aside;
+  - a size or number limit alone ("small dogs only") fills as allowed, which
+    matches how rows with a code and such an ad are coded;
+  - pets with someone's approval, permission or consent fill as approval
+    required;
+  - "no pet fees" and a pet fee in a list of charges don't count as pets
+    allowed;
+  - "pets: no dogs", "dogs aren't allowed" and "no doggies" read as no dogs,
+    so they get no line;
+  - "no board approval or pets", "no smoking or pets" and "no other pets" get
+    no allowed or approval line.
 
 Each row reads its own ad only, never another listing in its building."""
 
@@ -84,14 +93,22 @@ def elevator(text: pd.Series) -> pd.DataFrame:
 
 # "case by case" in an ad often describes guarantors, short stays or a
 # conversion, so a case-by-case class needs a pet word or a weight near it,
-# or one of `petstext.CASE`'s pet-specific phrases.
+# or one of `petstext.CASE`'s approval phrases.
 _PET = r"(?:pets?|dogs?|cats?|animals?|lbs|pounds)"
 CASE_PETS = (
     _PET
     + r".{0,80}case[- ]by[- ]case|case[- ]by[- ]case.{0,40}"
     + _PET
-    + "|"
-    + petstext.CASE.split("|", 1)[1]
+    + r"|(?:pets?|dogs?)[^.]{0,40}(?:upon|with|subject to) (?:\w+ )?approval"
+    r"|approval[^.]{0,20}pets?|pets? (?:considered|negotiable)"
+    r"|small (?:dogs?|pets?) considered"
+)
+# A size or number limit with no approval wording. `petstext.CASE` reads these
+# as case by case, while rows with a code and such an ad are coded allowed.
+PET_LIMIT = (
+    r"small (?:dogs?|pets?) (?:only|ok|okay|allowed|welcome)"
+    r"|(?:one|1) (?:small )?(?:dog|pet|cat) (?:allowed|ok|max)"
+    r"|\bno (?:pets?|dogs?|animals?) " + petstext.SIZE
 )
 
 
@@ -108,13 +125,13 @@ FEE_LIST = r"\bpet (?:fees?|deposits?),(?! ?\d)|\bpet fees? or deposits? may app
 # the contraction.
 DOGS_BANNED = (
     r"\bdogs? (?:are )?(?:(?:aren['’]?t )+|are not |not |never )(?:allowed|permitted|accepted)"
-    r"|\bno dogs? (?:allowed|permitted|accepted)\b"
+    r"|\bno dogs? (?:allowed|permitted|accepted)\b|\bno dogg(?:y|ie|ys|ies)\b"
 )
 # "pets with landlord's approval" puts pets subject to approval, and
 # `petstext.CASE` misses the possessive.
 PET_APPROVAL = (
     r"\b(?:pets?|dogs?|cats?)\b[^.]{0,40}\b(?:upon|on|with|subject to|requires?|needs?)"
-    r" (?:[\w'’]+ ){0,2}(?:approval|permission)\b"
+    r" (?:[\w'’]+ ){0,2}(?:approval|permission|consent)\b"
 )
 # "no board approval or pets", "no smoking or pets allowed" and "no other pets
 # allowed" most likely ban pets, but read as allowed.
@@ -133,7 +150,7 @@ APPLICATION_APPROVAL = r"\b(?:no|easy|fast|quick) (?:board )?approvals?\b"
 def pets(text: pd.Series) -> pd.DataFrame:
     """The coded pet level each text states, with the matched words.
 
-    The class comes from `petstext.classify`, with three corrections:
+    The class comes from `petstext.classify`, with these corrections:
       - a case-by-case text needs a pet word or weight near the phrase
         (`CASE_PETS`), once approval of the application is set aside
         (`APPLICATION_APPROVAL`); failing that it counts as allowed when it
@@ -142,7 +159,10 @@ def pets(text: pd.Series) -> pd.DataFrame:
         a pet fee in a list of charges (`FEE_LIST`);
       - a no-pets text needs a ban besides "no pet dogs" or "pets: no dogs"
         (`NO_PET_KIND`);
-      - an allowed text saying pets need someone's approval or permission counts as case
+      - a case-by-case text giving only a size or number limit ("small dogs
+        only", "one pet allowed", "no dogs over 25 lbs") counts as allowed
+        (`PET_LIMIT`), as rows with a code and such an ad are coded;
+      - an allowed text saying pets need someone's approval, permission or consent counts as case
         by case (`PET_APPROVAL`), and one saying dogs aren't allowed counts
         as no dogs (`DOGS_BANNED`).
     Texts of class "none" or "no_dogs", and texts saying "no board approval
@@ -161,6 +181,8 @@ def pets(text: pd.Series) -> pd.DataFrame:
     case = text.str.replace(APPLICATION_APPROVAL, " ", regex=True).str.contains(
         CASE_PETS, regex=True
     )
+    limit = found.eq("case_by_case") & ~case & text.str.contains(PET_LIMIT, regex=True)
+    allowed |= limit
     found = found.mask(found.eq("case_by_case") & ~case & allowed, "allowed")
     approval = text.str.replace(APPLICATION_APPROVAL, " ", regex=True).str.contains(
         PET_APPROVAL, regex=True
@@ -181,6 +203,7 @@ def pets(text: pd.Series) -> pd.DataFrame:
         rows = found.eq(name)
         evidence[rows] = _words(text[rows], pattern)
     evidence[approval] = _words(text[approval], PET_APPROVAL)
+    evidence[limit] = _words(text[limit], PET_LIMIT)
     out = pd.DataFrame({"pets": found.map(petstext.CODED), "evidence": evidence})
     return out[keep]
 

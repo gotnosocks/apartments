@@ -1480,6 +1480,10 @@ def test_adfills_pets_writes_existing_codes_only():
             "Sorry, no cats or dogs.",
             "Fast approvals, pets and out of state guarantors allowed.",
             "Fast approvals. Pets ok.",
+            "1 small dog allowed under 25 pounds.",
+            "Small pets okay. Case by case on dogs.",
+            "Most pets permitted with landlord consent.",
+            "Cats ok, sorry no doggies.",
         ]
     )
     out = adfills.pets(text)
@@ -1497,5 +1501,8 @@ def test_adfills_pets_writes_existing_codes_only():
         24: "approval_required",
         25: "not_allowed",
         27: "allowed_restrictions_unknown",
+        28: "allowed_restrictions_unknown",
+        29: "approval_required",
+        30: "approval_required",
     }
     assert out.evidence.notna().all()
