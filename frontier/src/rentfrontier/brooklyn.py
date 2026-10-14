@@ -50,7 +50,7 @@ PLACES = (
     r"|atlantic terminal|downtown brooklyn"
 )
 NEAR = re.compile(
-    r"(?:located|situated|nestled|heart of|in|near|minutes? (?:to|from|away from)"
+    r"\b(?:located|situated|nestled|heart of|in|near|minutes? (?:to|from|away from)"
     r"|mins? (?:to|from)|steps (?:to|from|away from)|close to|blocks? (?:to|from)"
     r"|walk to|across from|around the corner from)\s+(?:the |beautiful |prime "
     r"|historic |trendy |vibrant )?(?:north |south )?(?:brooklyn )?(?:"

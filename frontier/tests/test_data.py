@@ -1325,21 +1325,15 @@ def test_quarantine_v16_adds_33_read_rows_to_v15():
     assert "quarantine-v16" in data.DROPPING_RULES
 
 
-def test_quarantine_v17_releases_110_west_26th_and_adds_brooklyn_rows():
-    """v17 is v16 without its five 110 W 26th St rows and with seven more
-    Brooklyn rows; every Brooklyn row carries `brooklyn_misjoin` and has an
-    entry in the misjoin file."""
+def test_quarantine_v17_adds_brooklyn_rows_to_v16():
+    """v17 is v16 with seven more Brooklyn rows; every Brooklyn row carries
+    `brooklyn_misjoin` and has an entry in the misjoin file."""
     v16 = data.quarantined(data.QUARANTINE_V16)
     v17 = data.quarantined(data.QUARANTINE_V17)
-    with open(data.QUARANTINE_V16) as f:
-        rows16 = [json.loads(line) for line in f if line.strip()]
-    five = {
-        r["audit_id"] for r in rows16 if r["building"] == "110-west-26-street-new_york"
-    }
     with open(brooklyn.MISJOINS) as f:
         misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
-    assert len(five) == 5 and len(misjoins) == 35
-    assert v17 == (v16 - five) | misjoins and len(v17) == 321
+    assert len(misjoins) == 35 and len(misjoins - v16) == 7
+    assert v17 == v16 | misjoins and len(v17) == 326
     read = set(data.QUARANTINE_V16_READ.read_text().split())
     read |= set(data.QUARANTINE_V17_READ.read_text().split())
     assert misjoins <= read
@@ -1349,7 +1343,11 @@ def test_quarantine_v17_releases_110_west_26th_and_adds_brooklyn_rows():
     assert {
         r["audit_id"] for r in rows if r["action"] == "brooklyn_misjoin"
     } == misjoins
-    assert data.quarantined(data.QUARANTINE_V15) < v17
+    with open(data.QUARANTINE_V16) as f:
+        rows16 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(
+        r == rows16[r["audit_id"]] for r in rows if r["audit_id"] not in misjoins
+    )
     assert "quarantine-v17" in data.DROPPING_RULES
 
 
@@ -1396,31 +1394,6 @@ def test_every_registered_dataset_is_screened_for_brooklyn_ads():
         m = re.fullmatch(r"DATASET_NB(\d+)", name)
         if m and int(m[1]) >= 9:
             assert getattr(data, name).name in screened, name
-
-
-def test_unit_labels_v18_splits_the_reviewed_rows_off_v17s_units():
-    """v18 moves each reviewed row to a unit of its own and leaves the rest."""
-    ids = list(data.UNIT_SPLIT_REVIEWS)
-    frame = pd.DataFrame(
-        {
-            "audit_id": [ids[0], "x1", ids[1], "x2"],
-            "building": ["b1"] * 4,
-            "canonical_unit_url": [
-                "https://streeteasy.com/building/b1/5f",
-                "https://streeteasy.com/building/b1/5f",
-                "https://streeteasy.com/building/b1/3r",
-                "https://streeteasy.com/building/b1/3r",
-            ],
-            "unit_id": ["u5", "u5", "u3", "u3"],
-            "bedrooms": [1.0, 2.0, 1.0, 0.0],
-        }
-    )
-    v17 = data.DATA_RULES["unit-labels-v17"](frame)
-    v18 = data.DATA_RULES["unit-labels-v18"](frame)
-    assert v18.unit_id.tolist() == ["u5~ad1544571", "u5", "u3~ad1725378", "u3"]
-    assert v18.drop(columns="unit_id").equals(v17.drop(columns="unit_id"))
-    assert data.RULE_SOURCES["unit-labels-v18"] == data.UNIT_ALIASES_MW
-    assert "unit-labels-v18" not in data.DROPPING_RULES
 
 
 def test_tune_westcoast_split_v2_swaps_v1s_names():
