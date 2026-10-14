@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 from rentfrontier import autoselect, data
 
@@ -411,31 +413,65 @@ def test_an_exploration_fit_is_never_served(tmp_path):
     assert autoselect.eligible([e], RULES) == []
 
 
-def test_rules_that_give_the_same_rows_count_as_the_same(tmp_path, monkeypatch):
+def test_rules_that_change_a_negligible_share_of_rows_count_as_the_same(
+    tmp_path, monkeypatch
+):
     old = {"unit-labels-v1", "quarantine-v1"}
     e = entry(tmp_path, "v1", 10, 1300, rules=old)
     rec = {**record(old), "dataset": str(data.DATASET), "split": "rows"}
-    rec["rows_sha256"] = "a" * 64
     (tmp_path / "runs" / "v1" / "result.json").write_text(json.dumps(rec))
-    built = {}
-
-    def rows(dataset, split, rules):
-        built[rules] = (dataset, split)
-        return hashes[rules]
-
-    monkeypatch.setattr(autoselect, "_rows_sha256", rows)
-    hashes = {tuple(sorted(RULES)): "a" * 64}
+    ids = [f"r{i}" for i in range(1000)]
+    mine = pd.Series(range(1000), index=ids)
+    now = {}
+    monkeypatch.setattr(
+        autoselect,
+        "_row_hashes",
+        lambda dataset, split, rules: (
+            now[rules] if rules in now else (("a", "b"), mine)
+        ),
+    )
+    key = tuple(sorted(RULES, key=autoselect._rule_order))
+    # Two rows changed and one dropped: 3 of 999, 0.30%.
+    changed = mine.drop("r0").copy()
+    changed.iloc[:2] = -1
+    now[key] = (("a", "b"), changed)
+    assert autoselect.changed_rows(rec, RULES) == (3, 999)
+    assert "they differ on 3 of 999 rows, more than 0.25%" in autoselect.why_not(
+        e, RULES
+    )
+    # One row changed and one added: 2 of 1,001, 0.20%.
+    now[key] = (("a", "b"), pd.concat([mine, pd.Series([5], index=["new"])]))
+    now[key][1].iloc[0] = -1
+    assert autoselect.changed_rows(rec, RULES) == (2, 1001)
     assert autoselect.why_not(e, RULES) is None
-    assert built == {tuple(sorted(RULES)): (str(data.DATASET.resolve()), "rows")}
-    hashes = {tuple(sorted(RULES)): "b" * 64}
-    assert "its rows differ" in autoselect.why_not(e, RULES)
-    # Without a recorded hash, the run's own rows are rebuilt from its rules.
-    del rec["rows_sha256"]
-    (tmp_path / "runs" / "v1" / "result.json").write_text(json.dumps(rec))
-    hashes[tuple(sorted(old))] = "b" * 64
-    assert autoselect.why_not(e, RULES) is None
+    # Another column set changes every row.
+    now[key] = (("a", "c"), mine)
+    assert autoselect.changed_rows(rec, RULES) == (1000, 1000)
     # A record without its dataset and split is never matched by rows.
-    assert autoselect.rows_sha256({"data_rules": sorted(old)}) is None
+    assert autoselect.changed_rows({"data_rules": sorted(old)}, RULES) is None
+
+
+def test_changed_rows_matches_rows_by_audit_id(monkeypatch):
+    frame = pd.DataFrame(
+        {"audit_id": ["a", "b", "c"], "rent": [1.0, 2.0, 3.0], "unit": ["1", "2", "3"]}
+    )
+
+    def split_and_rules(f, split, rules):
+        if "reprice" in rules:
+            f = f.assign(rent=[1.0, 2.5, 3.0])
+        if "drop" in rules:
+            f = f.iloc[::-1].iloc[:2].reset_index(drop=True)  # reordered, a gone
+        return f, np.zeros(len(f), dtype=bool)
+
+    monkeypatch.setattr(autoselect, "_load", lambda dataset: frame)
+    monkeypatch.setattr(data, "split_and_rules", split_and_rules)
+    monkeypatch.setattr(data, "recorded_rules", lambda r: tuple(r["data_rules"]))
+    autoselect._row_hashes.cache_clear()
+    rec = {"dataset": "/x", "split": "rows", "data_rules": []}
+    assert autoselect.changed_rows(rec, ("drop",)) == (1, 2)
+    assert autoselect.changed_rows(rec, ("reprice",)) == (1, 3)
+    assert autoselect.changed_rows(rec, ()) == (0, 3)
+    autoselect._row_hashes.cache_clear()
 
 
 def test_the_rows_hash_covers_values_columns_and_the_held_out_mask():
