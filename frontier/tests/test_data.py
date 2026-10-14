@@ -1363,3 +1363,29 @@ def test_building_joins_v1_folds_97_horatio_before_the_wing_split():
         data.apply_rules(frame, held, rules[::-1])
     assert autoselect._rule_order(rules[0]) < autoselect._rule_order(rules[1])
     assert not data.amended_rule("building-joins-v1")
+
+
+def test_west_coast_wings_v1_moves_three_digit_labels_to_the_west_wing():
+    url = "https://streeteasy.com/building/x/"
+    frame = pd.DataFrame(
+        {
+            "building": ["97-horatio-street-new_york"] * 2
+            + ["the-west-coast"] * 5
+            + ["other"],
+            "canonical_unit_url": [
+                url + l for l in ("712", "7e", "425", "9L", "phd", "26", "1234", "425")
+            ],
+        }
+    )
+    held = np.zeros(len(frame), dtype=bool)
+    rules = ("building-joins-v1", "west-coast-wings-v1")
+    out, _ = data.apply_rules(frame, held, rules)
+    west, main = data.WESTCOAST_WEST_WING, data.WESTCOAST[0]
+    assert out.building.tolist() == [west, main, west, main, main, main, main, "other"]
+    with pytest.raises(ValueError, match="must precede"):
+        data.apply_rules(frame, held, rules[::-1])
+    with pytest.raises(ValueError, match="must precede unit-labels"):
+        data.apply_rules(frame, held, ("unit-labels-v17", "west-coast-wings-v1"))
+    assert autoselect._rule_order(rules[0]) < autoselect._rule_order(rules[1])
+    assert autoselect._rule_order(rules[1]) < autoselect._rule_order("unit-labels-v17")
+    assert "west-coast-wings-v1" in autoselect.current_rules()

@@ -435,3 +435,46 @@ def test_nb8_petsfill_is_pets_fill_v1_on_the_nb8_base():
     assert {k for k in groups if name in getattr(features, k)} == {
         k for k in groups if "nb8-nostuy-v1" in getattr(features, k)
     }
+
+
+def test_nb8_wings_is_nb8_nostuy_on_the_wing_registry():
+    """nb8-nostuy-wings-v1 is nb8-nostuy-v1 in every group and snapshot, but
+    reads a registry with the-west-coast-west-wing's row added as a copy of
+    the-west-coast's."""
+    name, base = "nb8-nostuy-wings-v1", "nb8-nostuy-v1"
+    new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[base]
+    assert new.func is old.func
+    assert new.keywords == {**old.keywords, "id": name}
+    tables = {
+        k: v
+        for k, v in vars(features).items()
+        if k.isupper() and isinstance(v, (set, dict)) and k not in ("FEATURE_SETS",)
+    }
+    assert {k for k, v in tables.items() if name in v} == {
+        k for k, v in tables.items() if base in v
+    } - {"NB8_SETS"}
+    for k, v in tables.items():
+        if isinstance(v, dict) and base in v and k not in ("LOT_SNAPSHOTS", "NB8_SETS"):
+            assert v[name] == v[base], k
+    assert features.lot_files(name) == {
+        "registry": features.NB8_WINGS_REGISTRY_FILE,
+        "pluto": features.NB8_PLUTO_FILE,
+    }
+    path = Path(features.NB8_WINGS_REGISTRY_FILE)
+    if not path.exists():
+        pytest.skip("registry snapshot not on this machine")
+    wings = pd.read_parquet(path)
+    nb8 = pd.read_parquet(features.NB8_REGISTRY_FILE)
+    added = wings[~wings.building.isin(set(nb8.building))]
+    assert added.building.tolist() == [data.WESTCOAST_WEST_WING]
+    pd.testing.assert_frame_equal(
+        wings[wings.building.isin(set(nb8.building))].reset_index(drop=True),
+        nb8.reset_index(drop=True),
+    )
+    row = wings.set_index("building")
+    same = [c for c in row.columns if c not in ("method",)]
+    pd.testing.assert_series_equal(
+        row.loc[data.WESTCOAST_WEST_WING, same],
+        row.loc["the-west-coast", same],
+        check_names=False,
+    )

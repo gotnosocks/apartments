@@ -1188,6 +1188,26 @@ def building_joins_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(building=building)
 
 
+WESTCOAST_WEST_WING = "the-west-coast-west-wing"
+
+
+def west_coast_wings_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The West Coast's rows with three-digit labels ("425", "620") moved to
+    the-west-coast-west-wing. The complex is nine warehouses joined into
+    apartments in 1980 to 1982, and its units carry two numbering schemes:
+    three digits on floors 1 to 7 at the West Street end, a floor and a letter
+    ("9L", "PHD") on floors 2 to 10 toward Washington Street. Rows with a
+    floor and a letter, or other labels ("7", "26"), stay on the-west-coast.
+    The lot registry gives both names lot 1006430001, BIN 1012154 and the
+    same position, so the wings differ only in their building and walk terms.
+    Run it after `building-joins-v1`, which folds 97 Horatio Street's page in,
+    and before the unit rules, so units merge within a wing."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    three = label.str.fullmatch(r"\d{3}").to_numpy(dtype=bool, na_value=False)
+    wing = frame.building.eq(WESTCOAST[0]).to_numpy() & three
+    return frame.assign(building=np.where(wing, WESTCOAST_WEST_WING, frame.building))
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1351,6 +1371,7 @@ DATA_RULES = {
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
+    "west-coast-wings-v1": west_coast_wings_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
@@ -1512,11 +1533,18 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     if labels and reviews and min(reviews) < max(labels):
         raise ValueError(f"unit-reviews rules must follow unit-labels: {rules}")
     joins = [i for i, r in enumerate(rules) if r.startswith("building-joins-")]
-    wings = [i for i, r in enumerate(rules) if r.startswith("tune-westcoast-split-")]
+    wings = [
+        i
+        for i, r in enumerate(rules)
+        if r.startswith(("tune-westcoast-split-", "west-coast-wings-"))
+    ]
     if joins and wings and max(joins) > min(wings):
         raise ValueError(
-            f"building-joins rules must precede tune-westcoast-split: {rules}"
+            f"building-joins rules must precede the West Coast wing rules: {rules}"
         )
+    split = [i for i, r in enumerate(rules) if r.startswith("west-coast-wings-")]
+    if split and labels and max(split) > min(labels):
+        raise ValueError(f"west-coast-wings rules must precede unit-labels: {rules}")
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
