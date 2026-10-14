@@ -1133,6 +1133,29 @@ def quarantine_v18(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V18))]
 
 
+QUARANTINE_V19 = REPO / "config" / "reviews" / "quarantine-v19-20261014.jsonl"
+
+
+def quarantine_v19(frame: pd.DataFrame) -> pd.DataFrame:
+    """v18's 326 rows and 54 more from the first reads of the ad-fit screen
+    (`rentfrontier.adfit`), whose tiers A and B we read in full on NB9
+    (`config/reviews/ad-fit-reads-20261014.jsonl`). Each new row quotes the
+    ad or the page:
+    1. 33 ads offer a stay of six months or less, a summer rental or a
+       vacation rental, sometimes with an option to renew.
+    2. Nine ads say the listed price holds only for a short-term lease, or
+       for the first six months.
+    3. Seven are rooms: a bathroom or kitchen shared with other units, or a
+       roommate wanted.
+    4. Five put the apartment somewhere else: a nearby building, 68 E 1st St
+       under the 64 E 1st St condo, 60 E 12th St under 173 11th Ave, and the
+       Upper East Side under 250 W 19th St.
+    We keep sublets of seven months or more, ads that offer a sublet or
+    a full lease, and placeholder ads with a far price but no words against
+    the row."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V19))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1463,6 +1486,7 @@ DATA_RULES = {
     "quarantine-v16": quarantine_v16,
     "quarantine-v17": quarantine_v17,
     "quarantine-v18": quarantine_v18,
+    "quarantine-v19": quarantine_v19,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1503,6 +1527,7 @@ RULE_SOURCES = {
     "quarantine-v16": QUARANTINE_V16,
     "quarantine-v17": QUARANTINE_V17,
     "quarantine-v18": QUARANTINE_V18,
+    "quarantine-v19": QUARANTINE_V19,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1549,6 +1574,7 @@ DROPPING_RULES = (
     "quarantine-v16",
     "quarantine-v17",
     "quarantine-v18",
+    "quarantine-v19",
 )
 
 
