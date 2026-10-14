@@ -45,7 +45,7 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   queue (#715, closed unmerged), and the old modal histories had no unit paths. An offline dry
   run of that restart queued 76,249 pages and skipped 9,212 recent captures, which a fresh run
   fetches again. Ben had the database of the small `downtown-brooklyn-20261013` (131 pages)
-  deleted on Oct 14 at 15:00Z; its 9 MB `bodies/` remains. Ben moved the next crawl to Midtown West (below) at 12:25 ET.
+  deleted on Oct 14 at 15:00Z and the rest of its folder at 15:20Z. Ben moved the next crawl to Midtown West (below) at 12:25 ET.
 - **Midtown West: crawl FINISHED** Oct 14 11:09Z (109,765 requests, about $125, no 429s or
   account errors), **dataset BUILT** 12:20Z: see `docs/data/midtown-west-collection.md`. The
   service `apartments-midtown-west-20261013` has exited, and no crawl is running. The snapshot
