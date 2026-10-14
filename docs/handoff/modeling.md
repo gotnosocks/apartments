@@ -8,7 +8,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 - Ben's rule (09:04Z): when a fit shows a problem, look for and fix a data issue first, and patch
   the model only after that.
 - Ben stopped the AR(1) retry at 08:58Z. At 09:01Z he asked for the $1,000 row at 15 E 17th St #4
-  (the cause of the unit R-hat failure) to be fixed first, then a refit.
+  (the likely cause of the unit R-hat failure) to be fixed first, then a refit.
 - The trace is in `/data1/apartments/tmp/arwalk/prov/findings.md`, sent to the coordinator for Data
   improvements. It found three rent-blind mechanisms: same-day price corrections, a current price
   missing from the event history, and same-day delists. Data improvements writes the rule.
