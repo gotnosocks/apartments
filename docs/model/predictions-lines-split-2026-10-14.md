@@ -57,8 +57,8 @@ The fit ran as `...-nb8-nostuy-lines-v1-rows-11c81a08-...-tune-westcoast-split-v
 
 The building-weighted new-building log predictive density favors lines by +63.2 nats, with a lot
 SE of 13.9, about the same as on the first ask (+83.9, lot SE 14.4). On PSIS-LOO, the gap shrank
-from +53 to +22.5, and its SEs fell by more than half. The split C's paired SEs against the C refit
-were similar in size, so I expect the latest ask is what tightened both.
+from +53 to +22.5, and its SEs fell by more than half. I haven't checked which of the latest ask,
+`quarantine-v13` and the split accounts for that.
 
 Lines ties C on the board's PSIS-LOO rule, so it isn't served. I put it on the unadopted list and
 report both scores to Ben.
