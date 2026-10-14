@@ -1170,11 +1170,9 @@ def test_spelled_label_key_shortens_spelled_out_labels():
     assert {k: data.spelled_label_key(k) for k in cases} == cases
 
 
-def test_unit_labels_v16_joins_spelled_out_labels_under_v15s_guard(tmp_path):
+def test_unit_labels_v16_joins_spelled_out_labels_where_bedrooms_agree():
     """A spelled-out label joins its short spelling when both units' median
-    bedrooms agree or a unit page's history pairs them, and not otherwise."""
-    pairs = tmp_path / "pairs.jsonl"
-    pairs.write_text(json.dumps({"unit_id": "h1", "other_unit_id": "h0"}) + "\n")
+    bedrooms agree, and not otherwise."""
     url = "https://streeteasy.com/building/{}/{}".format
     frame = pd.DataFrame(
         {
@@ -1188,12 +1186,12 @@ def test_unit_labels_v16_joins_spelled_out_labels_under_v15s_guard(tmp_path):
                 url("b2", "g"),
             ],
             "unit_id": ["u9", "u8", "u7", "u6", "h1", "h0"],
-            "bedrooms": [1.0, 1.0, 3.0, 2.0, 1.0, 2.0],
+            "bedrooms": [1.0, 1.0, 3.0, 2.0, 1.0, float("nan")],
         }
     )
-    out = data.merge_spelled_labels(frame, base=pd.DataFrame.copy, pairs=pairs)
-    # Bedrooms agree; bedrooms differ with no history; history pairs them.
-    assert out.unit_id.tolist() == ["u8", "u8", "u7", "u6", "h0", "h0"]
+    out = data.merge_spelled_labels(frame, base=pd.DataFrame.copy)
+    # Bedrooms agree; bedrooms differ; one unit has no bedroom count.
+    assert out.unit_id.tolist() == ["u8", "u8", "u7", "u6", "h1", "h0"]
     v16 = data.DATA_RULES["unit-labels-v16"]
     assert v16.func is data.merge_spelled_labels
     assert data.RULE_SOURCES["unit-labels-v16"] == data.UNIT_ALIASES_EV

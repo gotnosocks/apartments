@@ -462,26 +462,19 @@ def spelled_label_key(label: str) -> str:
     return key
 
 
-def merge_spelled_labels(
-    frame: pd.DataFrame, base, pairs: Path = UNIT_HISTORY_PAIRS_EV
-) -> pd.DataFrame:
+def merge_spelled_labels(frame: pd.DataFrame, base) -> pd.DataFrame:
     """A labels rule (`base`), and units of a building whose labels are one
     label spelled out and short ("3RDFL" and "3", "PENTHOUSEA" and "PHA",
-    "GARDEN" and "G", "4REAR" and "4R", "THIRD" and "3") joined under the
-    guard v3 to v15 use: both units' median bedroom counts (under the base
-    rule) agree, or a unit page's own rental history pairs them (`pairs`).
-    Groups that share a unit are one unit, whose id is the smallest. Rows are
-    unchanged."""
+    "GARDEN" and "G", "4REAR" and "4R", "THIRD" and "3") joined where both
+    units' median bedroom counts (under the base rule) agree, the guard the
+    label rules since v3 use. Units whose labels are already one label
+    written differently ("3A" and "3-A") are grouped too, and the base rule
+    has joined most of them. Groups that share a unit are one unit, whose id
+    is the smallest. Rows are unchanged."""
     out = base(frame)
     raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
     key = raw.map(lambda v: spelled_label_key(v) if isinstance(v, str) else v)
     beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
-    mapped = dict(zip(frame.unit_id, out.unit_id))
-    confirmed = {
-        frozenset((mapped[a], mapped[b]))
-        for a, b in unit_history_pairs(pairs)
-        if a in mapped and b in mapped
-    }
     parent = {}
 
     def find(u):
@@ -499,7 +492,7 @@ def merge_spelled_labels(
         units = sorted(units)
         for i, a in enumerate(units):
             for b in units[i + 1 :]:
-                if beds[a] == beds[b] or frozenset((a, b)) in confirmed:
+                if beds[a] == beds[b]:
                     ra, rb = find(a), find(b)
                     if ra != rb:
                         parent[max(ra, rb)] = min(ra, rb)
@@ -1176,7 +1169,7 @@ DATA_RULES = {
         ),
     ),
     # unit-labels-v15 with labels spelled out joined to their short spelling
-    # (#420's joins, under v15's bedroom or history guard).
+    # (#420's joins, where both units' median bedrooms agree).
     "unit-labels-v16": functools.partial(
         merge_spelled_labels,
         base=functools.partial(

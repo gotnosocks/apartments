@@ -705,8 +705,8 @@ DATA_RULE_TEXT = {
     "StreetEasy page lists an ad filed under the other. No listing is dropped.",
     "unit-labels-v16": "unit-labels-v15, with a building's apartments labelled once "
     'spelled out and once short joined too ("3rd-fl" and "3", "penthouse-a" '
-    'and "pha", "garden" and "g") where their bedroom counts agree or a '
-    "StreetEasy page lists an ad filed under the other. No listing is dropped.",
+    'and "pha", "garden" and "g") where their bedroom counts agree. No listing '
+    "is dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
