@@ -151,29 +151,52 @@ def hardware() -> dict:
 
 
 def split_rhat(x):
-    """Split R-hat over axis 1 (draws) for x of shape (chains, draws)."""
-    _, n = x.shape
+    """Split R-hat over axis 1 (draws) for x of shape (chains, draws, ...)."""
+    n = x.shape[1]
     half = n // 2
     x = np.concatenate([x[:, :half], x[:, half : 2 * half]], axis=0)
-    _, n = x.shape
+    n = x.shape[1]
     means = x.mean(axis=1)
-    within = x.var(axis=1, ddof=1).mean()
-    between = n * means.var(ddof=1)
+    within = x.var(axis=1, ddof=1).mean(axis=0)
+    between = n * means.var(axis=0, ddof=1)
     var = (n - 1) / n * within + between / n
-    return float(np.sqrt(var / within)) if within > 0 else float("nan")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        r = np.where(within > 0, np.sqrt(var / within), np.nan)
+    return float(r) if r.ndim == 0 else r
 
 
 def ess(x):
     """Bulk ESS (Geyer initial monotone sequence, pooled over chains)."""
     import blackjax
 
-    return float(blackjax.ess(np.asarray(x), chain_axis=0, sample_axis=1))
+    e = np.asarray(blackjax.ess(np.asarray(x), chain_axis=0, sample_axis=1))
+    return float(e) if e.ndim == 0 else e
 
 
+RHAT_GATE = 1.01  # split R-hat, at or below
+ESS_GATE = 400  # bulk ESS, above
 GROUP_RHAT_GATE = 1.05  # max over every element of every effect (tens of thousands)
 
 
-def diagnostics(trace, names_beta, rhat_all=None) -> dict:
+def building_diagnostics(x, chunk=512) -> dict:
+    """Split R-hat and bulk ESS of every building effect.
+
+    x has shape (chains, draws, buildings). Buildings with a constant draw
+    (no rows, effect pinned) get NaN and drop out of the gate.
+    """
+    x = np.asarray(x, np.float64)
+    rhat = np.full(x.shape[-1], np.nan)
+    ess_ = np.full(x.shape[-1], np.nan)
+    live = np.ptp(x, axis=(0, 1)) > 0
+    idx = np.flatnonzero(live)
+    for i in range(0, len(idx), chunk):
+        j = idx[i : i + chunk]
+        rhat[j] = split_rhat(x[..., j])
+        ess_[j] = ess(x[..., j])
+    return {"rhat": rhat, "ess": ess_}
+
+
+def diagnostics(trace, names_beta, rhat_all=None, buildings=None) -> dict:
     from .collect import SCALARS
 
     quantities = {}
@@ -189,7 +212,8 @@ def diagnostics(trace, names_beta, rhat_all=None) -> dict:
     if groups is not None and groups.shape[-1] > 1:  # one scale per bedroom group
         for i in range(groups.shape[-1]):
             quantities[f"sigma[{i}]"] = groups[..., i]
-    for key in ("building", "unit"):
+    every_building = "building_all" in trace
+    for key in ("unit",) if every_building else ("building", "unit"):
         for i in range(trace[key].shape[-1]):
             quantities[f"{key}[trace {i}]"] = trace[key][..., i]
     rows = {}
@@ -197,9 +221,21 @@ def diagnostics(trace, names_beta, rhat_all=None) -> dict:
         if np.ptp(x) == 0:
             continue
         rows[n] = {"rhat": split_rhat(x), "ess": ess(x)}
+    per_building = None
+    if every_building:
+        per_building = building_diagnostics(trace["building_all"])
+        r, e = per_building["rhat"], per_building["ess"]
+        if np.isfinite(r).any():
+
+            def label(i):
+                return f"building[{buildings[i] if buildings is not None else i}]"
+
+            i_r, i_e = int(np.nanargmax(r)), int(np.nanargmin(e))
+            rows[label(i_r)] = {"rhat": float(r[i_r]), "ess": float(e[i_r])}
+            rows[label(i_e)] = {"rhat": float(r[i_e]), "ess": float(e[i_e])}
     worst_rhat = max(rows.items(), key=lambda kv: kv[1]["rhat"])
     worst_ess = min(rows.items(), key=lambda kv: kv[1]["ess"])
-    return {
+    out = {
         "quantities": len(rows),
         "max_rhat": worst_rhat[1]["rhat"],
         "max_rhat_name": worst_rhat[0],
@@ -211,12 +247,33 @@ def diagnostics(trace, names_beta, rhat_all=None) -> dict:
             (v["max"] for v in (rhat_all or {}).values()), default=None
         ),
         "passes": bool(
-            worst_rhat[1]["rhat"] < 1.01
-            and worst_ess[1]["ess"] > 400
+            worst_rhat[1]["rhat"] <= RHAT_GATE
+            and worst_ess[1]["ess"] > ESS_GATE
             and all(v["max"] < GROUP_RHAT_GATE for v in (rhat_all or {}).values())
         ),
-        "gate": "max split R-hat < 1.01 and min bulk ESS > 400 over scalars, coefficients, sampled trend points and 32+32 traced group effects; and max R-hat < 1.05 over every element of every effect (all buildings, walks, slopes, units)",
     }
+    if every_building:
+        r, e = per_building["rhat"], per_building["ess"]
+        out["buildings"] = {
+            "checked": int(np.isfinite(r).sum()),
+            "over_rhat": int((r > RHAT_GATE).sum()),
+            "under_ess": int((e <= ESS_GATE).sum()),
+        }
+        out["gate"] = (
+            "max split R-hat <= 1.01 and min bulk ESS > 400 over scalars, "
+            "coefficients, sampled trend points, every building effect and 32 "
+            "traced unit effects; and max R-hat < 1.05 over every element of "
+            "every effect (all buildings, walks, slopes, units)"
+        )
+        out["_per_building"] = per_building
+    else:
+        out["gate"] = (
+            "max split R-hat <= 1.01 and min bulk ESS > 400 over scalars, "
+            "coefficients, sampled trend points and 32+32 traced group effects; "
+            "and max R-hat < 1.05 over every element of every effect (all "
+            "buildings, walks, slopes, units)"
+        )
+    return out
 
 
 def score(
@@ -512,7 +569,10 @@ def main(argv=None):
     fit_seconds = time.perf_counter() - t0
     load = contention(clock)
 
-    diag = diagnostics(out["trace"], feats.names, out.get("rhat_all"))
+    diag = diagnostics(
+        out["trace"], feats.names, out.get("rhat_all"), buildings=prep.buildings
+    )
+    per_building = diag.pop("_per_building", None)
     if "divergent" in out["trace"]:  # NUTS: the gate also needs no divergences
         diag["divergences"] = int(np.asarray(out["trace"]["divergent"]).sum())
         diag["passes"] = diag["passes"] and diag["divergences"] == 0
@@ -536,7 +596,11 @@ def main(argv=None):
     for k, v in out["kept"].items():
         flat[f"kept/{k}"] = np.asarray(v, np.float32)
     for k, v in out["trace"].items():
-        flat[f"trace/{k}"] = np.asarray(v)
+        if k != "building_all":
+            flat[f"trace/{k}"] = np.asarray(v)
+    if per_building is not None:
+        flat["rhat/building"] = per_building["rhat"].astype(np.float32)
+        flat["ess/building"] = per_building["ess"].astype(np.float32)
     flat["buildings"] = prep.buildings
     flat["units"] = prep.units
     flat["feature_names"] = np.asarray(feats.names)
