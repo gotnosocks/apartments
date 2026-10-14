@@ -145,11 +145,14 @@ Predictions, medians with 80% intervals:
 
 C refit against C:
 
-1. New-building median miss 11.7% (11.4-12.0) against 11.89%. Latest asks have already had
-   their cuts, so I expect them to sit a little closer to the model.
+1. New-building median miss 11.7% (11.4-12.0) against 11.89%. Most listings that change price
+   cut it (70% of changes, median cut 3%), so a latest ask sits closer to the price a unit
+   rents at, and I expect slightly less noise around the model.
 2. New-building 80/95 coverage, row-weighted: 90.5/98.1 (89.5-91.5 / 97.7-98.5) against
    90.7/98.2.
-3. The fit passes the convergence gate, as C did.
+3. The fit passes the convergence gate, as C did (90% likely).
+
+The C refit misses if its median miss falls outside 11.4-12.0% or it fails the gate.
 
 arwalk refit against the C refit:
 
@@ -157,10 +160,14 @@ arwalk refit against the C refit:
 5. Year gap: +1.5 pp (0.8 to 2.2).
 6. Building-weighted new-building lpd: +65 (+30 to +100) nats.
 7. rho 0.89 (0.87-0.91); sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
-8. Convergence: max split R-hat under 1.01. Min bulk ESS 450 (300-600) on sd, so the ESS check
-   is about 60% likely to pass. 15 E 17th St #4, now at $10,000, drops below unit R-hat 1.01, and
-   the group R-hat check passes.
-9. Descriptive share within 0.4 pp of the C refit's.
+8. Convergence, against the gate (max split R-hat below 1.01, min bulk ESS above 400, group
+   R-hat below 1.05):
+   - max split R-hat 1.006 (1.002-1.012);
+   - min bulk ESS 450 (300-600), on sd, so the ESS check is about 60% likely to pass;
+   - the unit R-hat of 15 E 17th St #4, now priced at $10,000, falls below 1.01 (90% likely),
+     and the group R-hat check passes (85% likely).
+9. Descriptive share: the arwalk refit's within 0.4 pp of the C refit's, both measured on the
+   new rules (80% likely).
 
-The arwalk refit misses if it fails the gate, if PSIS-LOO does not win by 2 SE, or if the year gap
+The arwalk refit misses if it fails any part of the gate, ESS included, if PSIS-LOO does not win by 2 SE, or if the year gap
 reaches 3 pp.
