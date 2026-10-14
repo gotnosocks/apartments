@@ -3,6 +3,22 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 17:30 UTC): summary on thelio, lines retest
+
+- At 15:26Z Ben moved the summary and calibration out of the Modal container (#761, #763). After a
+  full-tier row-split fit downloads, `ops/modal/fit.py` starts `ops/modal/summarize` in its own
+  `modal-summary-*` unit, logging to `/data1/apartments/modal/logs/`. The script runs the summary
+  under `ops/job gpu -m 5G` (it refuses gate failures), then calibration as a light job. The lines
+  fit ran both on thelio without help. If calibration reports "no complete bundle", run it by hand
+  on the newest `summaries/<run>-<7 chars>/` directory.
+- The split C's bundle (`...-025f0ca`) and its calibration are built.
+- Lines on the split C's rules (`...-lines-v1-rows-11c81a08-...`, #762 prediction, #765 results)
+  passes the gate. Paired PSIS-LOO is +22.5 with iid SE 9.3 and lot SE 10.3, a tie, so it is
+  unserved. The building-weighted new-building lpd is +63.2 with lot SE 13.9. I told Ben, and I
+  recommended keeping C.
+- Waiting on Ben: lines (serve it for its new-building gain or not), the fixed-rho arwalk (AR(1)
+  card), and the split as a non-tune rule. Nothing is on the Modal queue.
+
 ## Update (2026-10-14 13:20 UTC): latest-ask refit and the west-coast split
 
 - I refit C on latest-ask-v2 + quarantine-v13 (`...-rows-bcaac064-...q13ad3la2`). It failed the
@@ -12,12 +28,16 @@ in `/data1/apartments/tmp/bridge` (thelio).
   $2.63) passes the gate with a max group R-hat of 1.026. My #747 predictions:
   - gate, held-out and new-building: hit
   - paired PSIS-LOO: miss (+72 ± 19 against the refit, where I predicted a tie)
+- v1 sends the two label schemes to the wrong BINs: floor-and-letter labels run to floor 10, which
+  fits the 122.6 ft BIN 1012154, not 97 Horatio (BIN 1012155). `tune-westcoast-split-v2` (#767)
+  swaps them. The grouping and the gate pass stay as they were, so there is no refit on its own
+  account. The next split C fit, and the arwalk if Ben approves it, run on v2.
 - Both fits are scored against latest asks on 21,511 held-out rows (`rentfrontier.finalask`). The
   split C misses by 3.73% with 79.4/94.9 coverage, and the served C by 4.02% with 76.8/93.6.
 - Waiting on Ben:
   - Should the split become a non-tune rule, with a C refit on it as the servable latest-ask base?
   - The fixed-rho arwalk fit (#748, #749). Ben answers on the card in the AR(1) thread, and the
-    coordinator relays it. If he says yes, I run it once, on `tune-westcoast-split-v1`.
+    coordinator relays it. If he says yes, I run it once, on `tune-westcoast-split-v2`.
   - The summary-step fix, in the worktree `/data1/apartments/tmp/wt-sum`. Gate-passing runs
     time out after 20 minutes in the summary step, which made the split fit cost $2.63.
 - Per the coordinator's brief, each fit is capped at about 1 hour or $2. `modalq-c.sh` skips a

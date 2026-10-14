@@ -807,6 +807,9 @@ DATA_RULE_TEXT = {
     "quarantine-v15": "quarantine-v14 and 2 Midtown West rows found by price: a "
     "Hudson Landing studio at $22,953 and a Via 57 West 3-bedroom at $1,559, each "
     "far from its own apartment's other asks and its building's.",
+    "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
+    "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
+    "the same complex on one tax lot.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "

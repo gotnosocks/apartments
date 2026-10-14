@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-from rentfrontier import data
+from rentfrontier import autoselect, data
 
 
 def test_unit_label_key_writes_a_label_one_way():
@@ -1304,3 +1304,62 @@ def test_quarantine_v15_adds_two_read_midtown_west_rows_to_v14():
     assert len(rows) == 286 and all(r["evidence"] and r["reason"] for r in rows)
     assert data.QUARANTINE_V14.read_text() in data.QUARANTINE_V15.read_text()
     assert "quarantine-v15" in data.DROPPING_RULES
+
+
+def test_tune_westcoast_split_v2_swaps_v1s_names():
+    """v2 sends each scheme to the other name: floor-and-letter rows to the
+    taller BIN's the-west-coast, three-digit rows to 97-horatio."""
+    url = "https://streeteasy.com/building/x/"
+    frame = pd.DataFrame(
+        {
+            "building": ["the-west-coast"] * 4
+            + ["97-horatio-street-new_york"] * 2
+            + ["other"],
+            "canonical_unit_url": [
+                url + l for l in ("425", "007e", "phd", "42", "7E", "712", "4b")
+            ],
+        }
+    )
+    out = data.DATA_RULES["tune-westcoast-split-v2"](frame)
+    assert out.building.tolist() == [
+        "97-horatio-street-new_york",
+        "the-west-coast",
+        "the-west-coast",
+        "the-west-coast",
+        "the-west-coast",
+        "97-horatio-street-new_york",
+        "other",
+    ]
+    v1 = data.DATA_RULES["tune-westcoast-split-v1"](frame)
+    lot = frame.building.isin(data.WESTCOAST) & ~frame.canonical_unit_url.str.endswith(
+        "/42"
+    )
+    assert (out.building[lot] != v1.building[lot]).all()
+    assert "tune-westcoast-split-v2".startswith(data.TUNING_PREFIX)
+
+
+def test_building_joins_v1_folds_97_horatio_before_the_wing_split():
+    url = "https://streeteasy.com/building/x/"
+    frame = pd.DataFrame(
+        {
+            "building": ["97-horatio-street-new_york"] * 3
+            + ["the-west-coast", "other"],
+            "canonical_unit_url": [url + l for l in ("7e", "712", "26", "425", "4b")],
+        }
+    )
+    out = data.DATA_RULES["building-joins-v1"](frame)
+    assert out.building.tolist() == ["the-west-coast"] * 4 + ["other"]
+    held = np.zeros(len(frame), dtype=bool)
+    rules = ("building-joins-v1", "tune-westcoast-split-v2")
+    split, _ = data.apply_rules(frame, held, rules)
+    assert split.building.tolist() == [
+        "the-west-coast",
+        "97-horatio-street-new_york",
+        "the-west-coast",
+        "97-horatio-street-new_york",
+        "other",
+    ]
+    with pytest.raises(ValueError, match="must precede"):
+        data.apply_rules(frame, held, rules[::-1])
+    assert autoselect._rule_order(rules[0]) < autoselect._rule_order(rules[1])
+    assert not data.amended_rule("building-joins-v1")
