@@ -171,3 +171,39 @@ arwalk refit against the C refit:
 
 The arwalk refit misses if it fails any part of the gate, ESS included, if PSIS-LOO does not win by 2 SE, or if the year gap
 reaches 3 pp.
+
+## Fixed-rho refit within the cap (2026-10-14T10:20Z, before the fit)
+
+At 09:57Z Ben capped every fit at about 1 hour or about $2 of Modal, which rules out the longer
+chains above. The first fit's slow mixing came from the ridge between sd and rho, so this
+variant holds rho fixed and samples only sd and the building scale, along with everything
+else in C:
+
+- model `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk-fixedrho`
+  (`walk_ar_rho=0.89`), with no axis updates and no Metropolis steps on rho;
+- C's settings: 2 chains, warmup 300, 4,500 draws kept every 9th;
+- C's rules with `latest-ask-v2` and `quarantine-v13` in place of `quarantine-v12`, scored against
+  the C refit `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-nb8-nostuy-v1-rows-bcaac064-a100-4500k9cb1-nb8-ul15r1s4q13ad3la2`.
+
+The value 0.89 is the posterior median from the first arwalk fit, which priced rows at the first
+ask before #730. The refit prices rows at the latest ask, so the best rho may have moved a
+little. This fit cannot show that, since it does not sample rho.
+
+The first arwalk fit at the same settings took 2,156 s to fit and 371 s for PSIS-LOO and cost
+$2.00. With rho fixed, I expect 40 to 48 minutes in all and about $2, within the cap.
+
+Predictions against the C refit, medians with 80% intervals. Those for PSIS-LOO and the year gap
+are the AR(1) medians from the corrected-data block above, with the intervals widened by about 10%
+for the fixed rho:
+
+1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
+2. Year gap: +1.5 pp (0.75 to 2.25).
+3. Building-weighted new-building lpd: +65 (+30 to +100) nats.
+4. sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
+5. The fit passes the gate (max split R-hat below 1.01, min bulk ESS of at least 400, group
+   R-hat below 1.05): 80-85% likely. Without the rho ridge, sd should mix like C's walk scale,
+   which passed at these settings.
+6. Descriptive share within 0.4 pp of the C refit's (80% likely).
+
+The fit misses if it fails any part of the gate, if PSIS-LOO does not win by 2 SE, or if the
+year gap reaches 3 pp. I will record any miss as a miss.

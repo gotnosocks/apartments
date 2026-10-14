@@ -143,6 +143,8 @@ class Design:
     # its scales are walk_scale (the stationary sd) and walk_decay (-log rho).
     walk_ar: bool = False
     walk_knots: int = 0
+    # rho held fixed (`walk_ar_rho`): walk_decay is then no scale of the state.
+    walk_rho_fixed: float | None = None
     # One residual scale per noise group (`noise_by_bedrooms`, by year with
     # `noise_by_year`; `model.noise_group`): each row's
     # group; None for one scale.
@@ -185,8 +187,14 @@ class Design:
             *drift,
             *self.global_blocks,
             *self.local_structures,
-            *(("walk_scale", "walk_decay") if self.walk_ar else ()),
+            *(("walk_scale",) if self.walk_ar else ()),
+            *(("walk_decay",) if self.walk_ar and self.walk_rho_fixed is None else ()),
         )
+
+    @property
+    def walk_axes_on(self):
+        """The (sd, rho) pair moves along its axes (WALK_AXES) only while rho is sampled."""
+        return self.walk_ar and self.walk_rho_fixed is None
 
     @property
     def n_fill(self):
@@ -744,6 +752,7 @@ def build_design(
         fill=fill,
         walk_rank=walk_rank,
         walk_ar=bool(config.building_walk and config.walk_ar),
+        walk_rho_fixed=config.walk_ar_rho if config.building_walk else None,
         walk_knots=n_local - knot_start if config.building_walk else 0,
         **line_design(prep, config),
     )
@@ -822,6 +831,15 @@ DECAY_STEP_SD = 0.03
 # (posterior correlation about -0.99 on the full data). Their collapsed solo
 # updates run along the principal axes of that pair's warmup covariance.
 WALK_AXES = ("walk_axis_0", "walk_axis_1")
+
+
+def walk_rho(d, s):
+    """rho of the AR(1) deviation, shaped like walk_scale: the fixed value, or exp(-walk_decay)."""
+    if d.walk_rho_fixed is not None:
+        return jnp.full_like(s["walk_scale"], d.walk_rho_fixed)
+    return jnp.exp(-s["walk_decay"])
+
+
 # The log-linear noise multipliers (`noise_loglinear`), one per noise factor.
 MULT_NAMES = tuple(f"noise_mult_{f}" for f in model_module.NOISE_FACTORS)
 
@@ -1021,7 +1039,7 @@ def _compact_solve(d: Design, parts, s, q, rhs_g, z_g, z_l, z_f):
     prior (`ar_precision`) and `fill_ar` draws the rest."""
     n_fixed = d.knot_start
     k = d.n_fill
-    rho = jnp.exp(-s["walk_decay"]) if d.walk_ar else None
+    rho = walk_rho(d, s) if d.walk_ar else None
     shared = sum(
         d.local_structures[n] / s[n] ** 2
         for n in d.local_structures
@@ -1169,7 +1187,7 @@ def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u, z_f=None):
     if d.walk_ar:
         # log|Q| of the touched knots' AR(1) prior: -2 log sd per knot and
         # -log(1 - a^2) per link (`ar_links`).
-        rho = jnp.exp(-s["walk_decay"])
+        rho = walk_rho(d, s)
         logdet_prior = logdet_prior - 2 * d.walk_rank * jnp.log(s["walk_scale"])
         for bk in d.buckets:
             _, v = ar_links(bk.gap, bk.used, rho)
@@ -1255,7 +1273,7 @@ def site_values(d: Design, state):
         out["unit_line"] = d.unit_line
     if d.walk_ar:
         out["walk_ar"] = theta_l[:, d.knot_start :]
-        out["walk_rho"] = jnp.exp(-state["walk_decay"])
+        out["walk_rho"] = walk_rho(d, state)
         out["walk_knot_months"] = d.walk_months
     elif d.knot_start is not None:
         out["walk_step"] = steps(theta_l[:, d.knot_start :])
@@ -1683,41 +1701,42 @@ def make_step(d: Design):
             new["walk_scale"] = _update_scale(
                 jax.random.fold_in(keys[7], 100),
                 s["walk_scale"],
-                ar_path_quad(w, jnp.exp(-s["walk_decay"])),
+                ar_path_quad(w, walk_rho(d, s)),
                 rank["walk_scale"],
                 d.prior_sd["walk_scale"],
             )
-            links = d.n_buildings * (d.walk_knots - 1)
+            if d.walk_rho_fixed is None:
+                links = d.n_buildings * (d.walk_knots - 1)
 
-            def decay_lp(log_delta):
-                delta = jnp.exp(log_delta)
-                rho = jnp.exp(-delta)
-                return (
-                    -0.5 * links * jnp.log1p(-(rho**2))
-                    - ar_path_quad(w, rho) / (2 * new["walk_scale"] ** 2)
-                    + scale_log_prior("walk_decay", delta, d.prior_sd["walk_decay"])
+                def decay_lp(log_delta):
+                    delta = jnp.exp(log_delta)
+                    rho = jnp.exp(-delta)
+                    return (
+                        -0.5 * links * jnp.log1p(-(rho**2))
+                        - ar_path_quad(w, rho) / (2 * new["walk_scale"] ** 2)
+                        + scale_log_prior("walk_decay", delta, d.prior_sd["walk_decay"])
+                    )
+
+                def decay_mh(carry, kk):
+                    x, lp, acc = carry
+                    k1, k2 = jax.random.split(kk)
+                    prop = x + DECAY_STEP_SD * jax.random.normal(k1)
+                    lp_new = decay_lp(prop)
+                    ok = jnp.log(jax.random.uniform(k2)) < lp_new - lp
+                    return (
+                        jnp.where(ok, prop, x),
+                        jnp.where(ok, lp_new, lp),
+                        acc + ok,
+                    ), None
+
+                x0 = jnp.log(s["walk_decay"])
+                (x_end, _, acc_d), _ = jax.lax.scan(
+                    decay_mh,
+                    (x0, decay_lp(x0), 0.0),
+                    jax.random.split(jax.random.fold_in(keys[7], 101), DECAY_STEPS),
                 )
-
-            def decay_mh(carry, kk):
-                x, lp, acc = carry
-                k1, k2 = jax.random.split(kk)
-                prop = x + DECAY_STEP_SD * jax.random.normal(k1)
-                lp_new = decay_lp(prop)
-                ok = jnp.log(jax.random.uniform(k2)) < lp_new - lp
-                return (
-                    jnp.where(ok, prop, x),
-                    jnp.where(ok, lp_new, lp),
-                    acc + ok,
-                ), None
-
-            x0 = jnp.log(s["walk_decay"])
-            (x_end, _, acc_d), _ = jax.lax.scan(
-                decay_mh,
-                (x0, decay_lp(x0), 0.0),
-                jax.random.split(jax.random.fold_in(keys[7], 101), DECAY_STEPS),
-            )
-            new["walk_decay"] = jnp.exp(x_end)
-            info["decay_accept"] = acc_d / DECAY_STEPS
+                new["walk_decay"] = jnp.exp(x_end)
+                info["decay_accept"] = acc_d / DECAY_STEPS
 
         info["noise_accept"] = noise_acc / noise_steps
         # Rescaling moves on (scale, effects) ridges: (tau, v) -> (c tau, c v).
@@ -1989,9 +2008,9 @@ def run(
         solo_sd = {
             n: float(2.38 * sd[hier.index(n)])
             for n in settings.solo_scales
-            if n in hier and not (d.walk_ar and n == "walk_scale")
+            if n in hier and not (d.walk_axes_on and n == "walk_scale")
         }
-        if d.walk_ar:
+        if d.walk_axes_on:
             cols = [hier.index("walk_scale"), hier.index("walk_decay")]
             walk_axes, axis_sd = _walk_axes(_detrended_cov(tail[..., cols]))
             solo_sd.update(zip(WALK_AXES, axis_sd))
@@ -2030,7 +2049,7 @@ def run(
                 )
                 pair = (
                     jnp.log(jnp.stack([st["walk_scale"], st["walk_decay"]]))
-                    if d.walk_ar
+                    if d.walk_axes_on
                     else jnp.zeros(2)
                 )
                 return st, (acc, pair)
@@ -2072,7 +2091,7 @@ def run(
                 # almost never accepted is cut hard instead.
                 prop_sd = prop_sd * _adapt(acc[0], 0.23)
                 ssd = ssd * jnp.asarray([_adapt(a, 0.44) for a in acc[1:-3]])
-                if d.walk_ar:
+                if d.walk_axes_on:
                     # Re-aim the axis updates along this round's (sd, rho)
                     # draws, which the collapsed updates produced; keep
                     # their adapted step sizes.

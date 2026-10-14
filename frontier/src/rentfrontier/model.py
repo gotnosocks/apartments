@@ -170,6 +170,10 @@ class ModelConfig:
     # rows (docs/model/newbuilding-clustered-2026-10-13.md).
     walk_ar: bool = False
     walk_rho_prior: tuple = (20.0, 1.2)  # 1% to 99%: 0.78 to 0.9988
+    # A fixed rho for the AR(1) deviation; None samples it under walk_rho_prior.
+    # With rho fixed, the samplers draw walk_scale and building_scale and leave
+    # rho at this value.
+    walk_ar_rho: float | None = None
     # Line ("column") effects within buildings: units stacked vertically ("4C",
     # "7C", "12C") share an effect, so a unit listed once borrows from its
     # line (Ben, 2026-09-25 backlog). Only lines with at least 2 training
@@ -838,6 +842,10 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
                 "walk_ar is a Normal AR(1) deviation on every building's knots; "
                 "it takes no t steps, zero-sum, mask, anchor or walk_levels"
             )
+        if config.walk_ar_rho is not None and not (
+            config.walk_ar and 0 < config.walk_ar_rho < 1
+        ):
+            raise ValueError("walk_ar_rho needs walk_ar and a rho in (0, 1)")
         if config.walk_zero_sum:
             if config.walk_min_rows_per_knot or config.walk_anchor_data:
                 raise ValueError(
@@ -1288,8 +1296,10 @@ def build_model(prep: Prepared, config: ModelConfig):
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
-            p["walk_rho"] = numpyro.sample(
-                "walk_rho", dist.Beta(*config.walk_rho_prior)
+            p["walk_rho"] = (
+                numpyro.sample("walk_rho", dist.Beta(*config.walk_rho_prior))
+                if config.walk_ar_rho is None
+                else jnp.asarray(config.walk_ar_rho)
             )
             z = numpyro.sample(
                 "walk_innovation",
@@ -1881,6 +1891,30 @@ MODELS = {
         name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk",
         building_walk=True,
         walk_ar=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # ... with rho fixed at 0.89, the posterior median of the arwalk fit at
+    # 24a7e9b (docs/model/arwalk-2026-10-14.md), so that only sd and the
+    # building scale are sampled.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk-fixedrho": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk-fixedrho",
+        building_walk=True,
+        walk_ar=True,
+        walk_ar_rho=0.89,
         bedroom_slope=True,
         trend_knot_months=3,
         feature_slopes=(
