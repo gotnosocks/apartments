@@ -16,8 +16,9 @@ is the larger of the iid and the lot-clustered SE (branch `select/lot-clustered-
 
 Ben, 2026-10-14 09:57Z: "I'm pretty hard capped at about 1 hour or maybe $2 of modal compute."
 
-- #739 enforces the time half: a fit's container stops at an estimated hour, with a 75-minute
-  backstop.
+- #739 enforces the time half. It refuses any launch whose estimate exceeds an hour, the estimate
+  being 800 s plus the model's last measured rate times its iterations plus 240 s for the
+  new-building score. A container that runs long stops at 75 minutes.
 - The dollar half waits on Ben's answer to Modeling.
 - Every retest below runs at C's settings, so each one costs about as much as a C fit.
 
@@ -39,8 +40,8 @@ Everything else listed here stays off the queue.
 | final ask | Retired | Ben chose the latest ask on 2026-10-13 at 13:51Z. The final ask drops 37% of rows, and its new-building miss matched C's. `tune-finalask-v1` stays in the code. |
 | lines | Retest first after the C refit | Against C: building-weighted new-building lpd +83.9 with lot SE 14.4; PSIS-LOO +53.0 with lot SE 22.1, a tie under the lot SE |
 | areatime | Off the queue | Its fit stage alone ran 3,340 s at C's settings, so a container would run about 70 minutes, past the hour. It comes back only with a design that fits in an hour. Its evidence stands: PSIS-LOO +405.5 with lot SE 146; building-weighted new-building lpd +24 ± 9. |
-| arwalk | Capped design queued | Under the per-fit cap the 24,000-draw plan was withdrawn. At 09:59Z the coordinator approved Next modeling action's capped design: rho fixed at 0.89 from the first fit's posterior, run at C's settings, about 40 to 50 minutes and about $2, with a predicted gate pass of 80 to 85%. It runs after lines and before any areatime return, on latest-ask-v2 and quarantine-v13, scored against the C refit. Next modeling action holds its config and predictions. |
-| elevfill, petsfill | Held for Ben | Both correct coded fields toward ground truth, and neither change is negligible, so each needs a fit Ben has not released under the cap. |
+| arwalk | Capped design queued | The first fit, on the first ask, failed the gate (R-hat 1.041 on rho, ESS 39 on its sd), with PSIS-LOO +395.0 (lot SE 55), building-weighted new-building lpd +70 ± 11, and a year gap of 1.5 pp against C's 5.2. Under the per-fit cap the 24,000-draw plan was withdrawn. At 09:59Z the coordinator approved Next modeling action's capped design: rho fixed at 0.89, its posterior in that first-ask fit, run at C's settings, about 40 to 50 minutes and about $2, with a predicted gate pass of 80 to 85%. It runs after lines and before any areatime return, on latest-ask-v2 and quarantine-v13, scored against the C refit. Next modeling action holds its config and predictions. |
+| elevfill, petsfill | Held for Ben's decision | Both correct coded fields toward ground truth, and neither is negligible, so each needs a fit. |
 | bigbed | Retired | A tie (+46.8, lot SE 30.7) that adds interaction terms; elegance keeps C. |
 | lister, retail, noise, trees, crime, hpd | Retired | Screen shares were 1.2 to 2.4% or inside the permutation null, and none was predicted above about 2 SE in #672's pre-registration. hpd's prediction was +20 against a bar of about 30 to 35. |
 | amenlevel | Retired | It reads rent and gained +13.5 ± 10.7 on the latest split, under the bar. |
@@ -51,8 +52,13 @@ Everything else listed here stays off the queue.
 | renov | Closed null | +2.0 ± 14.8 (#422) |
 | stab | Closed null | −1.1 ± 2.5 (#435) |
 | archive CLI | Closed 2026-10-13 | #715 |
+| unit-splits-v5 (#425) | Retired untested | A bath change between ads is more often an ad error, or a renovation of the same apartment, than a different apartment. Baths are already a feature, and the baths-ad rules fix ad errors. The rule moves 3,243 rows (744 units). The latent per-apartment ask model (#732) is the place for change within a unit. |
+| plutoasof-v1 (#439) | Retired | −71.1 ± 20.4; superseded by plutoasof-v3, which is in C's base |
+| permit (#437, #478) | Retired | A free check found a lag-0 permit effect of +0.06% (SE 0.035), too small to matter. |
+| unit-labels-v4 (#222) | Superseded | unit-labels-v5 to v16 |
 | clustered SEs | Adopted | The board's paired SE is the larger of the iid and lot SE (B3). The lot/iid ratios against C below show how much the iid SE understated the error. |
-| negligible data changes | Adopted | #740: a run stays servable when its rules change fewer than 0.25% of its rows. |
+| negligible data changes | Adopted | #740: a run stays servable when its recorded rules change at most 0.25% of the current rows, matched by audit_id, on the same price target and dataset. |
+| dashboard snapshot | Refresh after the latest-ask C is served | `/mnt/project-files/dashboard` has been stale since 2026-10-10. The cleanup thread refreshes it once the latest-ask C is served. |
 | plutoasof-v3 | In the base | Every NB8 set, nb8-nostuy-v1 and so C among them, reads `nb5-plutoasof-v3`. The ledger row now says so. |
 
 Lot/iid SE ratios against C:
@@ -85,8 +91,8 @@ another reason picks both up.
 
 ## Closed PRs
 
-#542 and #420 went into v14 and v16. #425, #439, #437, #478 and #222 were closed with a comment
-giving the reason.
+#542 and #420 went into v14 and v16. The decisions table above gives the reason for closing #425,
+#439, #437, #478 and #222.
 
 ## Branches
 
