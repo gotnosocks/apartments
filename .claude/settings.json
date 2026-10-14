@@ -1,5 +1,12 @@
 {
   "env": {
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(/data1/apartments/serve/master/ops/modal-fit *)",
+      "Bash(systemd-run --user --collect --unit=modalq-c /data1/apartments/tmp/bridge/modalq-c.sh)",
+      "Edit(//data1/apartments/tmp/bridge/modalq-c.queue)"
+    ]
   }
 }
