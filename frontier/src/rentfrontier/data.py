@@ -62,6 +62,12 @@ DATASET_NB7 = Path(
 DATASET_NB8 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
 )
+# The eight plus Hell's Kitchen and Hudson Yards (cohort
+# midtown-west-areas-analysis-20261014-cd891c8, the Midtown West crawl split by
+# each building page's area), no rule change.
+DATASET_NB9 = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.
@@ -199,6 +205,10 @@ UNIT_ALIASES_NOMAD = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-20261009.jsonl
 # east-village-granular-20261010-canonical-url-v1, 405 history-confirmed
 # groups); provenance beside it.
 UNIT_ALIASES_EV = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-ev-20261010.jsonl")
+# That table with Midtown West's appended (unit-spelling-alias-v2 on
+# midtown-west-granular-20261014-canonical-url-v1, 833 history-confirmed
+# groups); provenance beside it.
+UNIT_ALIASES_MW = UNIT_ALIASES.with_name("wv-gv-fgp-stuy-nomad-ev-mw-20261014.jsonl")
 
 
 @functools.lru_cache(maxsize=3)
@@ -303,6 +313,8 @@ UNIT_HISTORY_PAIRS_STUY = UNIT_ALIASES.with_name("history-20261008.jsonl")
 UNIT_HISTORY_PAIRS_NOMAD = UNIT_ALIASES.with_name("history-20261009.jsonl")
 # The same pairs with East Village's appended.
 UNIT_HISTORY_PAIRS_EV = UNIT_ALIASES.with_name("history-20261010.jsonl")
+# The same pairs with Midtown West's appended.
+UNIT_HISTORY_PAIRS_MW = UNIT_ALIASES.with_name("history-20261014.jsonl")
 
 
 @functools.lru_cache(maxsize=2)
@@ -1048,6 +1060,23 @@ def quarantine_v14(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V14))]
 
 
+QUARANTINE_V15 = REPO / "config" / "reviews" / "quarantine-v15-20261014.jsonl"
+# The rows v15's review read: every Midtown West hit of price_mismatch_screen.py's
+# factors at over 2.5, on the NB9 rows under latest-ask-v4 and unit-labels-v17.
+QUARANTINE_V15_READ = REPO / "config" / "reviews" / "quarantine-v15-read-20261014.txt"
+
+
+def quarantine_v15(frame: pd.DataFrame) -> pd.DataFrame:
+    """v14 and 2 Midtown West rows (286 in all). The price screen behind v13,
+    run on the NB9 rows, flags 4 Midtown West rows over a factor of 2.5
+    (quarantine-v15-read-20261014.txt), each read with its ad and its unit's
+    other asks. The two over 3 are mistyped prices: a Hudson Landing studio at
+    $22,953 and a Via 57 West 3-bedroom at $1,559. A 2,500 square foot loft
+    coded a studio and a 1-bedroom at $7,495 stay in. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V15))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1078,6 +1107,13 @@ def latest_ask_v2(frame: pd.DataFrame) -> pd.DataFrame:
 # 2x check kept their first ask, so 92 of them lacked their last rental ask.
 LATEST_ASK_V3 = Path(
     "/data1/apartments/external/latest-ask/20261014-9ae2b6e/latest-ask.parquet"
+)
+
+
+# LATEST_ASK_V3's rows plus Midtown West's (DATASET_NB9), built the same way;
+# NB8's rows are identical in both.
+LATEST_ASK_V4 = Path(
+    "/data1/apartments/external/latest-ask/20261014-717ad9c/latest-ask.parquet"
 )
 
 
@@ -1263,6 +1299,22 @@ DATA_RULES = {
             ),
         ),
     ),
+    # unit-labels-v16 on the tables with Midtown West's appended too
+    # (UNIT_ALIASES_MW, UNIT_HISTORY_PAIRS_MW).
+    "unit-labels-v17": functools.partial(
+        merge_spelled_labels,
+        base=functools.partial(
+            merge_word_letter_labels,
+            base=functools.partial(
+                merge_swapped_labels,
+                base=functools.partial(
+                    merge_history_pairs,
+                    pairs=UNIT_HISTORY_PAIRS_MW,
+                    aliases=UNIT_ALIASES_MW,
+                ),
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -1292,8 +1344,10 @@ DATA_RULES = {
     "quarantine-v12": quarantine_v12,
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
+    "quarantine-v15": quarantine_v15,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
+    "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -1324,8 +1378,10 @@ RULE_SOURCES = {
     "quarantine-v12": QUARANTINE_V12,
     "quarantine-v13": QUARANTINE_V13,
     "quarantine-v14": QUARANTINE_V14,
+    "quarantine-v15": QUARANTINE_V15,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
+    "latest-ask-v4": LATEST_ASK_V4,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
@@ -1339,6 +1395,7 @@ RULE_SOURCES = {
     "unit-labels-v14": UNIT_ALIASES_NOMAD,
     "unit-labels-v15": UNIT_ALIASES_EV,
     "unit-labels-v16": UNIT_ALIASES_EV,
+    "unit-labels-v17": UNIT_ALIASES_MW,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
@@ -1362,6 +1419,7 @@ DROPPING_RULES = (
     "quarantine-v12",
     "quarantine-v13",
     "quarantine-v14",
+    "quarantine-v15",
 )
 
 
