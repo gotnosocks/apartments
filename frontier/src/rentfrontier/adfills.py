@@ -104,6 +104,18 @@ NO_PET_FEE = r"\bno pet (?:fees?|deposits?|rent)\b"
 # says nothing about this building's pets either. A pet fee with its amount
 # ("pet fee: $25 per pet") stays.
 FEE_LIST = r"\bpet (?:fees?|deposits?),(?! ?\d)|\bpet fees? or deposits? may apply"
+# "cats are ok, dogs aren't allowed" bans dogs, and `petstext.NO_DOGS` misses
+# the contraction.
+DOGS_BANNED = (
+    r"\bdogs? (?:are )?(?:aren['’]?t|are not|not|never) (?:allowed|permitted|accepted)"
+    r"|\bno dogs? (?:allowed|permitted|accepted)\b"
+)
+# "pets with landlord's approval" puts pets subject to approval, and
+# `petstext.CASE` misses the possessive.
+PET_APPROVAL = (
+    r"\b(?:pets?|dogs?|cats?)\b[^.]{0,40}\b(?:upon|with|subject to|requires?|needs?)"
+    r" (?:[\w'’]+ ){0,2}approval\b"
+)
 # "no board approval or pets" most likely bans pets, but reads as allowed.
 NO_APPROVAL_OR_PETS = r"\bno (?:board )?approval,? (?:or|nor) (?:pets?|dogs?)\b"
 # "no pet dogs" and "pets: no dogs" ban one kind of pet, and `petstext.NO_PETS`
@@ -125,7 +137,10 @@ def pets(text: pd.Series) -> pd.DataFrame:
       - an allowed text needs words besides "no pet fees" (`NO_PET_FEE`) or
         a pet fee in a list of charges (`FEE_LIST`);
       - a no-pets text needs a ban besides "no pet dogs" or "pets: no dogs"
-        (`NO_PET_KIND`).
+        (`NO_PET_KIND`);
+      - an allowed text saying pets need someone's approval counts as case
+        by case (`PET_APPROVAL`), and one saying dogs aren't allowed counts
+        as no dogs (`DOGS_BANNED`).
     Texts of class "none" or "no_dogs", and texts saying "no board approval
     or pets" (`NO_APPROVAL_OR_PETS`), get no line."""
     found = petstext.classify(text)
@@ -142,6 +157,15 @@ def pets(text: pd.Series) -> pd.DataFrame:
         CASE_PETS, regex=True
     )
     found = found.mask(found.eq("case_by_case") & ~case & allowed, "allowed")
+    approval = text.str.replace(APPLICATION_APPROVAL, " ", regex=True).str.contains(
+        PET_APPROVAL, regex=True
+    )
+    approval &= found.eq("allowed") & ~case
+    found = found.mask(approval, "case_by_case")
+    case |= approval
+    found = found.mask(
+        found.eq("allowed") & text.str.contains(DOGS_BANNED, regex=True), "no_dogs"
+    )
     keep = (
         (found.eq("allowed") & allowed)
         | (found.eq("no_pets") & no_pets)
@@ -151,6 +175,7 @@ def pets(text: pd.Series) -> pd.DataFrame:
     for name, pattern in petstext.CLASSES:
         rows = found.eq(name)
         evidence[rows] = _words(text[rows], pattern)
+    evidence[approval] = _words(text[approval], PET_APPROVAL)
     out = pd.DataFrame({"pets": found.map(petstext.CODED), "evidence": evidence})
     return out[keep]
 
