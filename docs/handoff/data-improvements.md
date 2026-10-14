@@ -12,7 +12,7 @@ Updated 2026-10-14 18:05 ET. Thread owner: the Data improvements project thread 
     Brooklyn address for the remap once Brooklyn is collected (backlog line in `docs/TODO.md`).
   - On every new dataset, run `frontier/scripts/brooklyn_screen.py DATASET OUT.jsonl`, read each
     unread hit's whole ad, and add the dataset's cohort to `config/reviews/brooklyn-screened.txt`.
-    `test_every_registered_dataset_is_screened_for_brooklyn_ads` fails on a `DATASET_NB10` or
+    `test_every_registered_dataset_is_screened_for_brooklyn_ads` fails on any `DATASET_NB9` or
     later missing from that list.
 - **110 W 26th St** belongs to its own thread now. Branch `data/110w26-release-split` (`510b0eaf`)
   holds a release of v16's five rows there and a unit-labels-v18 split. It stays unmerged, with no
