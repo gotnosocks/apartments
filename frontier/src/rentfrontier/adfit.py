@@ -66,6 +66,8 @@ VERDICTS = (
     "quarantine_location_conflict",
     "quarantine_product_scope",
     "quarantine_price_basis",
+    "quarantine_explicit_short_term_offer",
+    "quarantine_nonresidential",
     "brooklyn_misjoin",
     "unit_split",
     "unit_relabel",
