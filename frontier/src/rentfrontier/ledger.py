@@ -153,6 +153,9 @@ def markdown(entries: list[dict], current: str, hand: list[dict] = ()) -> str:
         " first when a neighbourhood is added, since more neighbourhoods widen their range"
         " (Ben, 2026-10-06).",
         "",
+        "The decision on each held, untested or unadopted change as of 2026-10-14 is in"
+        " [unadopted-work-2026-10-14.md](unadopted-work-2026-10-14.md).",
+        "",
         "| Date | Change | What | Kind | ΔPSIS-LOO | Verdict | Retest | Dataset (rows) | PR | Test run | Reference run |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]

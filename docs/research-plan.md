@@ -37,20 +37,21 @@ budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-final
 
 On 2026-10-13 at 03:16Z Ben said to run or enqueue nothing beyond his three requests (the new-building
 score, the held-out-lots refit of C and the final-ask fit). The Modal queue was emptied. These fits
-wait here until he releases them. C is `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope`; each line is a queue spec for
+waited here until he released them. On 2026-10-14 each one got a decision, recorded in
+[unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md); the queue is now the C refit, lines, then arwalk-fixedrho. C is `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope`; each line is a queue spec for
 `modalq-c` (`MODEL FEATURESET [flags]`, row split unless `--split` is given).
 
 | Fit | Queue spec | Prediction | Status |
 |---|---|---|---|
-| areatime rerun | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-areatime nb8-nostuy-v1 --seed 20261013` | Passes the gate (unit R-hat < 1.05) and lands within 1 SE of +401 (areatime won +401 ± 37 on C but one unit had R-hat 1.066) | Held |
-| lister | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-lister-v1` | +20 to +80, around 2 SE; new-unit coverage up about 0.02, reaching 0.79 | Held |
-| retail | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-retail-v1` | Data's pre-registration ([predictions](model/predictions-nb8-data-2026-10-10.md), #672); Modeling: tie within 2 SE | Held |
-| noise | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-noise-v1` | As retail | Held |
-| trees | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-trees-v1` | As retail | Held |
-| crime | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-crime-v1` | As retail | Held |
-| hpd | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-hpd-v1` | As retail | Held |
-| petsfill | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-petsfill-v1` | — | Cancelled after 24 min on Modal on Ben's word (2026-10-13 03:19Z, about $0.94); rerun from the start |
-| predsize | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-predsize-v1` | PSIS-LOO near a tie; lower new-building miss on unknown-size rows; lower descriptive share (`config/predictions.jsonl`) | Never queued; the feature set is on `model/newbuilding-score` |
+| areatime rerun | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-areatime nb8-nostuy-v1 --seed 20261013` | Passes the gate (unit R-hat < 1.05) and lands within 1 SE of +401 (areatime won +401 ± 37 on C but one unit had R-hat 1.066) | Off the queue: a container would pass the 1-hour cap; it returns only with a design that fits in an hour ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| lister | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-lister-v1` | +20 to +80, around 2 SE; new-unit coverage up about 0.02, reaching 0.79 | Retired ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| retail | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-retail-v1` | Data's pre-registration ([predictions](model/predictions-nb8-data-2026-10-10.md), #672); Modeling: tie within 2 SE | Retired ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| noise | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-noise-v1` | As retail | Retired ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| trees | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-trees-v1` | As retail | Retired ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| crime | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-crime-v1` | As retail | Retired ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| hpd | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-hpd-v1` | As retail | Retired ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| petsfill | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-petsfill-v1` | — | Held for Ben (a correction toward ground truth, not negligible) ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
+| predsize | `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope nb8-nostuy-predsize-v1` | PSIS-LOO near a tie; lower new-building miss on unknown-size rows; lower descriptive share (`config/predictions.jsonl`) | Retired as designed ([unadopted-work-2026-10-14.md](model/unadopted-work-2026-10-14.md)) |
 
 ## Backlog, not scheduled (Ben, 2026-10-14)
 
