@@ -51,9 +51,11 @@ def _unchanged(store, generation, urls):
             plain.append([url, kind, key])
     if not plain:
         return set()
+    # CROSS JOIN keeps json_each as the outer loop. Left to itself, the planner walks the whole
+    # generation's frontier and took 128 s per call on the Midtown West archive.
     rows = store.db.execute(
         """SELECT f.url FROM json_each(?) j
-            JOIN frontier f ON f.generation=? AND f.url=json_extract(j.value,'$[0]')
+            CROSS JOIN frontier f ON f.generation=? AND f.url=json_extract(j.value,'$[0]')
             JOIN scope_urls s ON s.generation=f.generation AND s.url=f.url
             WHERE f.kind=json_extract(j.value,'$[1]')
             AND f.listing_key IS json_extract(j.value,'$[2]')""",
