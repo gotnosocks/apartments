@@ -98,8 +98,8 @@ The result is in `docs/model/arwalk-2026-10-14.md`. Ben approved one retry at 01
 
 The retry fits the same design with C's settings. The only change is in the sampler: under
 `walk_ar`, the collapsed solo updates on sd and on -log rho become updates along the principal
-axes of the pair's warmup covariance. That removes the ridge between log sd and log(-log rho),
-whose correlation is -0.99. Both prediction blocks above apply unchanged, and the retry settles the
+axes of the pair's warmup covariance. The ridge between log sd and log(-log rho), whose
+correlation is -0.99, stays in the posterior, and the updates now step along it. Both prediction blocks above apply unchanged, and the retry settles the
 last miss criterion: it misses if the retry also fails the gate.
 
 I wrote this before the retry. The first fit's result is known, and its posterior medians would
@@ -118,7 +118,9 @@ two chains, warmup 300 and 1,500 draws each, with the same seed and the same run
 The posterior quantiles agree between the two samplers. Adding log building_scale as a third
 axis gave about the same ESS (114 and 132 for rho), so the retry uses two axes.
 
-On the full data the first fit reached ESS 39 on sd. A gain of 2.5 to 4 times puts it near 100 to
-160, below the gate's 400. I expect the retry to pass the R-hat checks and fail the ESS check, so
-I expect the last miss criterion to be met. If it is, a longer chain at the new sampler would be
+On the full data the first fit reached ESS 39 on sd. The simulated gains on sd were 2.2 and 3.7
+times, which put the retry near 85 to 145, below the gate's 400. The first fit also failed the group
+R-hat check (1.065 on the unit effects), which this change does not address. I expect the retry
+to fail the ESS check and possibly the group R-hat check, so I expect the last miss criterion to
+be met. If it is, a longer chain at the new sampler would be
 the next step. That needs Ben's approval, since it costs more than one fit at C's settings.
