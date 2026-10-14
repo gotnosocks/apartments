@@ -19,7 +19,8 @@ Ben, 2026-10-14 09:57Z: "I'm pretty hard capped at about 1 hour or maybe $2 of m
 - #739 enforces the time half. It refuses any launch whose estimate exceeds an hour, the estimate
   being 800 s plus the model's last measured rate times its iterations plus 240 s for the
   new-building score. A container that runs long stops at 75 minutes.
-- The dollar half waits on Ben's answer to Modeling.
+- Ben confirmed on 2026-10-14 (18:42Z) that the cap is an hour per fit and that C-sized fits at
+  about $2.60 are fine, so there is no per-fit dollar cap.
 - Every retest below runs at C's settings, so each one costs about as much as a C fit.
 
 ## Queue
