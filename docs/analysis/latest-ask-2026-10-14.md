@@ -175,7 +175,7 @@ Both builders now skip sale observations. The rebuilt file
 
 `latest-ask-v3` reads it. Against `latest-ask-v2` it changes 92 rows, each
 from its first ask to its last rental ask, by a median of 4.4% and at most
-26%. That is under the 0.25% of rows `autoselect` treats as negligible, so a
+23% of the v2 ask. That is under the 0.25% of rows `autoselect` treats as negligible, so a
 fit on `latest-ask-v2` stays eligible under `latest-ask-v3`.
 
 The listing extras rebuilt the same way
