@@ -53,6 +53,10 @@ PARTS = {
         "datasets/east-village-granular-20261010-canonical-url-v1",
         "snapshots/east-village-20261008-final/archive.sqlite3",
     ),
+    "Midtown West": (
+        "datasets/midtown-west-granular-20261014-canonical-url-v1",
+        "snapshots/midtown-west-20261013-final/archive.sqlite3",
+    ),
 }
 
 

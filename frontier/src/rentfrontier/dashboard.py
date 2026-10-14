@@ -707,6 +707,9 @@ DATA_RULE_TEXT = {
     'spelled out and once short joined too ("3rd-fl" and "3", "penthouse-a" '
     'and "pha", "garden" and "g") where their bedroom counts agree. No listing '
     "is dropped.",
+    "unit-labels-v17": "unit-labels-v16, with Midtown West apartments StreetEasy "
+    "lists under two spellings of one label joined too, and those whose own "
+    "StreetEasy page lists an ad filed under the other. No listing is dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
@@ -801,6 +804,9 @@ DATA_RULE_TEXT = {
     "with more words for shops and restaurants: storefronts and a cafe on and near "
     "Bleecker Street, an event studio hired by the day, two 5-month leases, and an ad "
     "for a building in Battery Park.",
+    "quarantine-v15": "quarantine-v14 and 2 Midtown West rows found by price: a "
+    "Hudson Landing studio at $22,953 and a Via 57 West 3-bedroom at $1,559, each "
+    "far from its own apartment's other asks and its building's.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",

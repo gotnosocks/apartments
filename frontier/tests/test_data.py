@@ -286,7 +286,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V10
     ) | data.quarantined(data.QUARANTINE_V12) | data.quarantined(
         data.QUARANTINE_V13
-    ) | data.quarantined(data.QUARANTINE_V14)
+    ) | data.quarantined(data.QUARANTINE_V14) | data.quarantined(data.QUARANTINE_V15)
 
 
 @pytest.mark.parametrize(
@@ -1246,6 +1246,64 @@ def test_unit_labels_v16_joins_spelled_out_labels_where_bedrooms_agree():
     v15 = data.DATA_RULES["unit-labels-v15"](frame)
     assert v16(frame).unit_id.tolist()[:2] == ["u8", "u8"]
     assert v15.unit_id.tolist()[:2] == ["u9", "u8"]
+
+
+def test_unit_labels_v17_is_v16_on_the_tables_with_midtown_wests_appended():
+    """v17 reads v16's alias table and history pairs, line for line, with
+    Midtown West's added; on other neighbourhoods' units it joins what v16
+    joins, and it joins a Midtown West alias group."""
+    for old, new in (
+        (data.UNIT_ALIASES_EV, data.UNIT_ALIASES_MW),
+        (data.UNIT_HISTORY_PAIRS_EV, data.UNIT_HISTORY_PAIRS_MW),
+    ):
+        before, after = old.read_text(), new.read_text()
+        assert after.startswith(before) and len(after) > len(before)
+    ev, mw = (
+        set(data.unit_aliases(data.UNIT_ALIASES_EV)),
+        set(data.unit_aliases(data.UNIT_ALIASES_MW)),
+    )
+    assert ev < mw and len(mw - ev) == 833
+    assert data.RULE_SOURCES["unit-labels-v17"] == data.UNIT_ALIASES_MW
+    assert "unit-labels-v17" not in data.DROPPING_RULES
+    url = "https://streeteasy.com/building/{}/{}".format
+    group = next(iter(mw - ev))
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "3rd-fl"),
+                url("b1", "3"),
+                url("b1", "c7"),
+                url("b1", "7c"),
+                url("b2", "2a"),
+                url("b2", "2b"),
+            ],
+            "unit_id": ["u4", "u3", "u5", "u6", group[0], group[1]],
+            "bedrooms": [1.0, 1.0, 2.0, 2.0, 1.0, 1.0],
+        }
+    )
+    v16 = data.DATA_RULES["unit-labels-v16"](frame)
+    v17 = data.DATA_RULES["unit-labels-v17"](frame)
+    assert (
+        v17.unit_id.tolist()[:4] == v16.unit_id.tolist()[:4] == ["u3", "u3", "u5", "u5"]
+    )
+    assert v16.unit_id.iat[4] != v16.unit_id.iat[5]
+    assert v17.unit_id.iat[4] == v17.unit_id.iat[5] == min(group[:2])
+
+
+def test_quarantine_v15_adds_two_read_midtown_west_rows_to_v14():
+    """v15 is v14's 284 rows and 2 more, both among the 4 screen hits read,
+    each with its evidence and reason."""
+    v14 = data.quarantined(data.QUARANTINE_V14)
+    v15 = data.quarantined(data.QUARANTINE_V15)
+    assert v14 < v15 and len(v15 - v14) == 2
+    read = set(data.QUARANTINE_V15_READ.read_text().split())
+    assert len(read) == 4 and v15 - v14 <= read
+    with open(data.QUARANTINE_V15) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 286 and all(r["evidence"] and r["reason"] for r in rows)
+    assert data.QUARANTINE_V14.read_text() in data.QUARANTINE_V15.read_text()
+    assert "quarantine-v15" in data.DROPPING_RULES
 
 
 def test_tune_westcoast_split_v2_swaps_v1s_names():

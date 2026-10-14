@@ -1,10 +1,10 @@
 """Each NB8 row's latest ask: the last price its listing showed while it was on
 the market, from the listing's own StreetEasy record in the granular crawls.
 
-    python -m rentfrontier.latest_ask
+    python -m rentfrontier.latest_ask [nb9]
 
 writes EXTERNAL_ROOT/latest-ask/<date>-<commit>/latest-ask.parquet (one line per
-NB8 row: audit_id, the row's first ask, its latest ask and how the latest ask
+row of data.DATASET_NB8, or of data.DATASET_NB9 with `nb9`: audit_id, the row's first ask, its latest ask and how the latest ask
 was chosen) and provenance.json. Refuses a dirty tree. The `latest-ask-v2` data
 rule prices each row from this file.
 
@@ -47,6 +47,7 @@ import datetime as dt
 import glob
 import hashlib
 import json
+import sys
 
 import numpy as np
 import pandas as pd
@@ -243,12 +244,13 @@ def choose(frame: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def main():
+def main(argv: list[str]):
+    dataset = data.DATASET_NB9 if argv == ["nb9"] else data.DATASET_NB8
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    frame = data.load(data.DATASET_NB8)
+    frame = data.load(dataset)
     out = choose(frame, listings())
     out_dir = EXTERNAL_ROOT / "latest-ask" / f"{started:%Y%m%d}-{commit[:7]}"
     out_dir.mkdir(parents=True, exist_ok=False)
@@ -259,7 +261,7 @@ def main():
             {
                 "built_at": started.isoformat(),
                 "commit": commit,
-                "dataset": str(data.DATASET_NB8),
+                "dataset": str(dataset),
                 "crawls": CRAWLS,
                 "rows": len(out),
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -278,4 +280,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
