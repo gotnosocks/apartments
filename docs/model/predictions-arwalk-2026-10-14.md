@@ -222,3 +222,24 @@ Since then, master has gained `tune-westcoast-split-v1` (#745), and Modeling has
 (prediction in #747). If Modeling launches the fixed-rho fit with that rule as well, I score it
 against that C fit and not against the C refit, so the two stay paired on the same rules. The
 predictions above stay as written.
+
+## Fixed-rho fit on the West Coast split (2026-10-14T11:14Z, before any fit)
+
+The coordinator's plan changed at 11:14Z. The fixed-rho fit waits on Ben's answer. If he agrees, it
+runs once, on `tune-westcoast-split-v1` (#745) in addition to `latest-ask-v2` and
+`quarantine-v13`, and only after Modeling's C fit on the split passes the gate. It is scored
+against that split C, so the pair has a converged reference. The run on `latest-ask-v2` and
+`quarantine-v13` alone is dropped, since the C refit it would pair with fails the gate.
+
+The split moves the labels of one tax lot, so I keep the medians and intervals from the block
+above, now against the split C:
+
+1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
+2. Year gap: +1.5 pp (0.75 to 2.25).
+3. Building-weighted new-building lpd: +65 (+30 to +100) nats.
+4. sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
+5. The fit passes the gate: 80-85% likely.
+6. Descriptive share within 0.4 pp of the split C's (80% likely).
+
+The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
+year gap of 3 pp or more.
