@@ -844,6 +844,13 @@ DATA_RULE_TEXT = {
     "apartment (R for rear, B for back); at 21 West 12th Street, 2, 2B, 2F and 2R are "
     "the second floor's rear apartment, by its ad text (added 2026-10-11). No listing "
     "is dropped.",
+    "unit-reviews-v2": "The unit-reviews-v1 joins, and listings a review found to be a "
+    "different apartment from the rest of the unit they were filed under, split off "
+    "into a unit of their own: an 1,800 sq ft duplex at 1 Patchin Place filed under a "
+    "900 sq ft unit 2, a studio at 251 West 29th Street filed under 249's one-bedroom "
+    "3E, a 2,500 sq ft loft at 407 West 39th Street filed under a studio, and a "
+    "top-floor duplex at 780 Greenwich Street filed under a one-bedroom. Judged from "
+    "ad text, pages and sizes, not rent. No listing is dropped.",
 }
 
 

@@ -839,6 +839,44 @@ def test_unit_reviews_v1_amended_with_21_west_12th_rear():
     assert {"unit-reviews-v1", alias}.isdisjoint(data.DROPPING_RULES)
 
 
+def test_unit_reviews_v2_joins_as_v1_and_splits_reviewed_listings():
+    """unit-reviews-v2 carries v1's join lines verbatim and splits each reviewed
+    listing off its unit, keyed on building, unit id and listing; it is the
+    current unit-reviews rule and drops nothing."""
+    lines = data.UNIT_REVIEWS.read_text().splitlines()
+    joins = [x for x in lines if json.loads(x)["action"] == "join_units"]
+    assert joins == data.UNIT_JOINS.read_text().splitlines()
+    splits = [json.loads(x) for x in lines if json.loads(x)["action"] != "join_units"]
+    assert {s["action"] for s in splits} == {"split_listings"} and len(splits) == 4
+
+    b = "110-west-26-street-new_york"
+    p = "1-patchin-place-new_york"
+    u = "unit:30dc8309-a93b-5a2f-b87f-b4c5949c650c"
+    frame = pd.DataFrame(
+        {
+            "building": [b, b, p, p, p, "elsewhere"],
+            "canonical_unit_url": [
+                f"https://streeteasy.com/building/{b}/4r",
+                f"https://streeteasy.com/building/{b}/4b",
+                f"https://streeteasy.com/building/{p}/2",
+                f"https://streeteasy.com/building/{p}/2",
+                f"https://streeteasy.com/building/{p}/2",
+                "https://streeteasy.com/building/elsewhere/2",
+            ],
+            "unit_id": ["u9", "u3", u, u, u, u],
+            "source_listing_id": ["1", "2", "1398907", "3198355", "3233740", "3198355"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v2"](frame)
+    piece = f"{u}~review-3198355"
+    assert out.unit_id.tolist() == ["u3", "u3", u, piece, piece, u]
+    assert out.drop(columns="unit_id").equals(frame.drop(columns="unit_id"))
+    assert data.RULE_SOURCES["unit-reviews-v2"] == data.UNIT_REVIEWS
+    assert "unit-reviews-v2" not in data.DROPPING_RULES
+    assert "unit-reviews-v2" in autoselect.current_rules()
+    assert "unit-reviews-v1" not in autoselect.current_rules()
+
+
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
     """v6 keeps all of v5's rows and adds 110 West 26th Street's five ads with a
     bare floor number."""

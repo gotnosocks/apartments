@@ -935,6 +935,10 @@ def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.Data
     unit-labels rules. Rows are unchanged."""
     with open(path) as f:
         groups = [json.loads(line) for line in f if line.strip()]
+    return _join_units(frame, groups)
+
+
+def _join_units(frame: pd.DataFrame, groups: list[dict]) -> pd.DataFrame:
     raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
     key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
     out = frame.copy()
@@ -942,6 +946,38 @@ def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.Data
         hit = (frame.building == g["building"]) & key.isin(g["unit_labels"])
         if hit.any():
             out.loc[hit, "unit_id"] = out.unit_id[hit].min()
+    return out
+
+
+# Reviewed units, second version (2026-10-14): the joins above, verbatim, and
+# listings split off the unit they were filed under.
+UNIT_REVIEWS = UNIT_JOINS.with_name("unit-reviews-20261014.jsonl")
+
+
+def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame:
+    """Applies the reviewed unit joins and splits in the file at `path`.
+
+    1. The `join_units` lines go through the same join as `join_reviewed_units`.
+    2. Each `split_listings` line names a building, a unit id and the listings
+       a reader found to be a different apartment from the rest of that unit's
+       history, judged from ad text, page and sizes, not rent: at 1 Patchin
+       Place, the 2020 ads for an 1,800 sq ft duplex filed under unit 2, whose
+       2014 ads give 900 to 950 sq ft. The rows of those listings get the id
+       `{unit_id}~review-{first listing}`, which unit-splits then pieces like
+       any other unit, since it runs last.
+
+    Rows are unchanged apart from their unit ids."""
+    with open(path) as f:
+        lines = [json.loads(line) for line in f if line.strip()]
+    out = _join_units(frame, [g for g in lines if g["action"] == "join_units"])
+    listing = out.source_listing_id.astype(str)
+    for s in (g for g in lines if g["action"] == "split_listings"):
+        hit = (
+            (out.building == s["building"])
+            & (out.unit_id == s["unit_id"])
+            & listing.isin(s["source_listing_ids"])
+        )
+        out.loc[hit, "unit_id"] = f"{s['unit_id']}~review-{s['source_listing_ids'][0]}"
     return out
 
 
@@ -1523,6 +1559,7 @@ DATA_RULES = {
     "elevator-from-ad-v1": elevator_from_ad_v1,
     "pets-from-ad-v1": pets_from_ad_v1,
     "unit-reviews-v1": join_reviewed_units,
+    "unit-reviews-v2": review_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
         join_reviewed_units, path=UNIT_JOINS_20261007
@@ -1561,6 +1598,7 @@ RULE_SOURCES = {
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,
+    "unit-reviews-v2": UNIT_REVIEWS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
