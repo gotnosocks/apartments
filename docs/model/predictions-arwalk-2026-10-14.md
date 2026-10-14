@@ -248,15 +248,19 @@ year gap of 3 pp or more.
 
 Ben approved the fixed-rho fit at 18:39Z. Modeling runs it right after its C refit on the West
 Coast wing rule, and only if that C passes the gate. The rules differ from the split version above,
-so I add this block. Both fits use the same rules:
+so I add this block. Both fits use the same rules, Modeling's list at 18:45Z:
 
-- the wing split of the West Coast;
+- `baths-ad-v3`, `bedrooms-ad-v3`, `fields-review-v3`, `unit-reviews-v1`, `unit-splits-v4`, as before;
+- `west-coast-wings-v1`, Data improvements' wing rule, not yet merged;
 - `building-joins-v1` (#769), which folds 97 Horatio St into the West Coast;
-- `quarantine-v14` and `unit-labels-v16`;
-- the latest-ask rule of Modeling's wing-rule C.
+- `latest-ask-v3` (#758) in place of v2, `quarantine-v14` and `unit-labels-v16`.
+
+The wing needs a registry row, so both fits may run on a twin of `nb8-nostuy-v1` with new registry
+and NTA snapshots. If other rules merge before the launch, Modeling uses the rules in force then,
+and the pair still shares them.
 
 The arwalk fit is scored against that C. The new rules quarantine 13 rows, fold 8 into the West
-Coast, join some spelled-out unit labels and regroup one lot's labels. Those are small next to the
+Coast, join some spelled-out unit labels, regroup one lot's labels and refine the latest asks. Those are small next to the
 193,000 training rows, so I keep the medians and intervals from #748 and #749:
 
 1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
