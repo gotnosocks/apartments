@@ -95,8 +95,14 @@ def test_nb9_snapshots_keep_nb8s_rows_and_add_midtown_wests():
         kept = n[n[key].isin(o[key])].sort_values(key).reset_index(drop=True)
         o = o.sort_values(key).reset_index(drop=True)
         pd.testing.assert_frame_equal(kept[o.columns], o)
-    registry = pd.read_parquet(features.NB9_REGISTRY_FILE)
-    assert len(registry) == 6683
+    registry = pd.read_parquet(features.NB9_REGISTRY_FILE).set_index("building")
+    assert len(registry) == 6684
+    wing = registry.loc["the-west-coast-west-wing"]
+    pd.testing.assert_series_equal(
+        wing.drop("method"),
+        registry.loc["the-west-coast"].drop("method"),
+        check_names=False,
+    )
 
 
 def test_dataset_nb9_is_nb8_plus_hells_kitchen_and_hudson_yards():

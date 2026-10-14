@@ -4983,9 +4983,11 @@ LOT_SNAPSHOTS["nb8-nostuy-wings-v1"] = {
 # registry (20261014-ca9dbf6, each page geocoded from its own address, no
 # overrides) merged into nb8's, its MapPLUTO, footprints and basemap merged
 # into nb8's (nb8's rows unchanged), and the sources keyed by lot fetched on
-# the merged registry.
+# the merged registry (20261014-5352472). The sets read that registry plus a
+# row for the-west-coast-west-wing, a copy of the-west-coast's, for
+# data.west_coast_wings_v1 (frontier/scripts/westcoast_wing_registry.py).
 NB9_REGISTRY_FILE = (
-    "/data1/apartments/external/registry/20261014-5352472/buildings.parquet"
+    "/data1/apartments/external/registry/20261014-6141000/buildings.parquet"
 )
 NB9_PLUTO_FILE = "/data1/apartments/external/pluto/20261014-5352472/pluto.parquet"
 NB9_FOOTPRINTS_FILE = (
