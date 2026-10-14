@@ -85,7 +85,7 @@ every merged change and switch of the served model.</p>
         <td>{{ p.prediction or "—" }}
           <span class="design-ref">{% if p.key %}<a href="{{ url_for('research_fit', key=p.key) }}"><code>{{ p.design }}</code></a>{% else %}<code>{{ p.design }}</code>{% endif %}</span></td>
         <td class="num nowrap">{% if lo is number and hi is number %}{{ "{:+,.0f}".format(lo) }} to {{ "{:+,.0f}".format(hi) }}{% elif lo is number %}at least {{ "{:+,.0f}".format(lo) }}{% elif hi is number %}at most {{ "{:+,.0f}".format(hi) }}{% else %}—{% endif %}{% if p.clears_2se is true %}, clears the bar{% elif p.clears_2se is false %}, a tie{% endif %}</td>
-        <td class="num nowrap">{% if r %}{{ "{:+,.1f}".format(r.delta) }} <span class="muted">± {{ "{:,.1f}".format(r.pm) }}</span>{% else %}—{% endif %}</td>
+        <td class="num nowrap">{% if r %}{{ "{:+,.1f}".format(r.delta) }} <span class="muted">± {{ "{:,.1f}".format(r.pm) }}</span>{% elif p.other_target %}other target{% else %}—{% endif %}</td>
         <td>{% if p.outcome == "hit" %}hit{% elif p.outcome == "miss" %}<strong>miss</strong>{% elif p.outcome == "pending" %}<span class="muted">waiting for the fit</span>{% else %}<span class="muted">not scored here</span>{% endif %}</td></tr>
     {% endfor %}
     </tbody>

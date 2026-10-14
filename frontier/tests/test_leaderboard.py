@@ -482,3 +482,27 @@ def test_new_unit_coverage_comes_from_the_newest_calibrated_run_of_a_design():
     assert out == {
         ("m", "f", ("q",)): {"run": "a", "rows": 10, "cover_80": 0.7, "cover_95": 0.9}
     }
+
+
+def test_an_entry_on_another_price_target_ranks_but_shows_other_target():
+    base = {"id": "base", "psis": {"_dir": "b"}, "data_rules": []}
+    first = {"id": "first", "psis": {"_dir": "f"}, "data_rules": ["quarantine-v12"]}
+    latest = {
+        "id": "latest",
+        "psis": {"_dir": "l"},
+        "data_rules": ["latest-ask-v2", "quarantine-v13"],
+        "splits": {"rows": {"delta": 5.0, "delta_se": 1.0}},
+    }
+    leaderboard.pair_with_baseline(
+        [base, first, latest], base, paired=lambda a, b: (900.0, 30.0, 5.0)
+    )
+    assert "other_target" not in first and latest["other_target"] == "latest ask"
+    assert latest["psis"]["delta"] == 900.0
+    assert leaderboard._heldout_cell(latest, latest["splits"]["rows"]) == (
+        "other target"
+    )
+    assert leaderboard._heldout_cell(first, {"delta": 5.0, "delta_se": 1.0}) == (
+        "5.0 ± 1.0"
+    )
+    assert leaderboard.same_target(first, base)
+    assert not leaderboard.same_target(latest, {"data_rules": ["tune-finalask-v1"]})

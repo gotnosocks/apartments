@@ -345,7 +345,9 @@ def versus_served(entries) -> dict:
     served fit on the training rows both keep: {key: {delta, se, mcse, tie}},
     tie when the difference is within leaderboard.tie_tolerance, as
     {"run": the served run paired against, "fits": {...}}; no fits when the
-    served fit is not on the board or has no LOO record."""
+    served fit is not on the board or has no LOO record. A fit on another
+    price target than the served fit's gets {"other_target": its target} and
+    no difference (`leaderboard.same_target` on the entries' data rules)."""
     try:
         selection = json.loads((REPO / "config" / "main-analysis.json").read_text())
     except (OSError, ValueError):
@@ -368,6 +370,9 @@ def versus_served(entries) -> dict:
         ):
             continue
         try:
+            if not leaderboard.same_target(e, served):
+                out[e["_key"]] = {"other_target": leaderboard.target(e)}
+                continue
             d, se, mc = leaderboard.paired_loo(here, base)
         except (OSError, ValueError, KeyError):
             continue
@@ -390,7 +395,8 @@ def predictions(entries) -> list:
     says, clears the tie tolerance as a gain (`clears_2se` true) or stays a tie
     (`clears_2se` false: within the tolerance either way). The fit scored is
     the latest full, gate-passing fit of the design, else the latest of any
-    tier. Latest-split predictions are left to latestselect (outcome None);
+    tier. Latest-split predictions are left to latestselect (outcome None),
+    as are pairs of fits on two price targets (outcome None, `other_target`);
     "pending" until the fit is on the board; a malformed line is kept as
     {"error": ...}."""
     try:
@@ -402,6 +408,7 @@ def predictions(entries) -> list:
         for e in entries
     }
     dirs.pop(None, None)
+    by_run = {(e["splits"].get("rows") or {}).get("run"): e for e in entries}
     out = []
     for line in lines:
         if not line.strip():
@@ -444,6 +451,10 @@ def predictions(entries) -> list:
             out.append(p)
             continue
         try:
+            if not leaderboard.same_target(fit, by_run[p["against"]]):
+                p["outcome"], p["other_target"] = None, True
+                out.append(p)
+                continue
             d, se, mc = leaderboard.paired_loo(here, base)
         except (OSError, ValueError, KeyError):
             p["outcome"] = None

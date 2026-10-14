@@ -434,6 +434,37 @@ def test_versus_served_pairs_full_passing_fits(monkeypatch, tmp_path):
     assert out["a"]["delta"] == 10.0 and not out["a"]["tie"] and out["b"]["tie"]
 
 
+def test_versus_served_leaves_fits_on_another_price_target_unpaired(
+    monkeypatch, tmp_path
+):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "main-analysis.json").write_text(
+        json.dumps({"run": "s-rows"})
+    )
+    monkeypatch.setattr(dashboard, "REPO", tmp_path)
+    monkeypatch.setattr(
+        dashboard.leaderboard, "paired_loo", lambda a, b: (1.0, 3.0, 0.5)
+    )
+
+    def entry(key, rules):
+        return {
+            "_key": key,
+            "splits": {"rows": {"run": f"{key}-rows"}},
+            "psis": {"_dir": key},
+            "passes_checks": True,
+            "data_rules": rules,
+        }
+
+    entries = [
+        entry("s", ["quarantine-v12"]),
+        entry("a", ["quarantine-v12"]),
+        entry("l", ["latest-ask-v2", "quarantine-v13"]),
+    ]
+    out = dashboard.versus_served(entries)["fits"]
+    assert out["a"]["delta"] == 1.0
+    assert out["l"] == {"other_target": "latest ask"}
+
+
 def test_prior_scores_pair_unscored_fits_with_the_earlier_baseline():
     loos = {
         dashboard.PRIOR_BASELINE: {"_dir": "base"},

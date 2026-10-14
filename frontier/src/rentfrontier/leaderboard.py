@@ -283,6 +283,20 @@ def paired_loo(a_dir, b_dir):
     )
 
 
+def target(record) -> str:
+    """The price target of a run record or board entry: `data.price_target`
+    over its data rules."""
+    return data.price_target(record.get("data_rules", ()))
+
+
+def same_target(a, b) -> bool:
+    """True when two run records or board entries model the same price
+    target. Fits of two targets model different rents for the same audit ids,
+    so the board, the site and the ledger show "other target" for such a pair
+    in place of its difference."""
+    return target(a) == target(b)
+
+
 @functools.lru_cache(maxsize=4096)
 def _paired_loo(a_dir, a_mtime, b_dir, b_mtime, dropped):
     ai, a_elpd, a_mcse = pointwise(a_dir)
@@ -570,9 +584,18 @@ def pair_with_baseline(entries, base, paired=paired_loo):
     drops: a run of a rule from an unmerged branch) loses its PSIS-LOO score
     and says why ("unpaired", shown as its note), so one such run cannot stop
     the board. A tuning fit (a rule starting `data.TUNING_PREFIX`: a subset of
-    buildings) is exploration only, so it is not scored here either."""
+    buildings) is exploration only, so it is not scored here either.
+
+    An entry on another price target than the baseline's (`data.price_target`)
+    gets `other_target`, its target. Its deltas are still computed and still
+    rank it, but the table prints "other target" in place of them, since they
+    compare rents of two kinds on the same rows."""
     for e in entries:
-        if not e.get("psis") or base is None:
+        if base is None:
+            continue
+        if not same_target(e, base):
+            e["other_target"] = target(e)
+        if not e.get("psis"):
             continue
         tuning = [
             r for r in e.get("data_rules", ()) if r.startswith(data.TUNING_PREFIX)
@@ -944,13 +967,21 @@ def _elegance_cell(e) -> str:
     return ", ".join(f"{words[k]} {v}" for k, v in counts.items()) or "—"
 
 
+def _heldout_cell(e, split) -> str:
+    if split.get("delta") is not None and e.get("other_target"):
+        return "other target"
+    return f"{fmt(split.get('delta'))}{' ± ' + fmt(split.get('delta_se')) if split.get('delta') is not None else ''}"
+
+
 def row(e, marks) -> str:
     r = e["splits"].get("rows", {})
     u = e["splits"].get("units", {})
     ps = e.get("psis") or {}
     if ps.get("delta") is not None:
         psis = (
-            f"{fmt(ps['delta'])} ± {fmt(math.hypot(ps['delta_se'], ps['delta_mcse']))}"
+            "other target"
+            if e.get("other_target")
+            else f"{fmt(ps['delta'])} ± {fmt(math.hypot(ps['delta_se'], ps['delta_mcse']))}"
         )
         kshare = f"{100 * ps['pareto_k']['share_over_threshold']:.1f}%"
     else:
@@ -980,8 +1011,7 @@ def row(e, marks) -> str:
     )
     return (
         f"| `{e['id']}` | {e['line']} | {e['model']['name']} | {e['feature_set']} | {psis} | {kshare} | "
-        f"{fmt(r.get('delta'))}{' ± ' + fmt(r.get('delta_se')) if r.get('delta') is not None else ''} | "
-        f"{fmt(u.get('delta'))}{' ± ' + fmt(u.get('delta_se')) if u.get('delta') is not None else ''} | {shares} | {diag} | "
+        f"{_heldout_cell(e, r)} | {_heldout_cell(e, u)} | {shares} | {diag} | "
         f"{fmt(e['fit_seconds'], 0)} s | {fmt((e.get('psis') or {}).get('p_loo'), 0)} | {_elegance_cell(e)} | {e['grade']} | "
         f"{'**best**' if e['current_best'] else ''} | {'yes' if e['frontier'] else ''} | {note} |"
     )

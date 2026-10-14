@@ -85,8 +85,10 @@ target hardware within the fit-time window, the most accurate. When several are 
     {% for e in runners_up %}
       {% set v = e.vs_served %}
       <tr><td>{% set label = design_label(e) %}<a href="{{ url_for('research_fit', key=e.key) }}">{% if label %}{{ label }}{% else %}<code>{{ e.key }}</code>{% endif %}</a>{% if label %}<span class="muted block"><code>{{ e.key }}</code></span>{% endif %}</td>
-        <td class="num nowrap">{{ "{:+,.1f}".format(v.delta) }} ± {{ "{:,.1f}".format(v.pm if v.pm is number else v.se) }}</td>
-        <td>{% if v.tie %}a tie{% elif v.delta > 0 %}better{% else %}worse{% endif %}</td>
+        {% if v.other_target %}<td class="num nowrap">other target</td>
+        <td>models the {{ v.other_target }}, so not compared</td>
+        {% else %}<td class="num nowrap">{{ "{:+,.1f}".format(v.delta) }} ± {{ "{:,.1f}".format(v.pm if v.pm is number else v.se) }}</td>
+        <td>{% if v.tie %}a tie{% elif v.delta > 0 %}better{% else %}worse{% endif %}</td>{% endif %}
         <td class="num nowrap">{{ "%.0f" | format(e.fit_seconds / 60) }} min</td>
         <td>{% if e.why_not_served %}no: {{ e.why_not_served }}{% else %}yes{% endif %}</td></tr>
     {% endfor %}

@@ -2557,7 +2557,11 @@ def create_app(
                 )
                 if (data or {}).get("vs_served_run") == m["provenance"]["run"]
                 else (),
-                key=lambda e: -e["vs_served"]["delta"],
+                # Fits on another price target have no delta and go last.
+                key=lambda e: (
+                    e["vs_served"].get("delta") is None,
+                    -(e["vs_served"].get("delta") or 0.0),
+                ),
             )[:8],
             meta=m,
             selection=served_selection(m),
