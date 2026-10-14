@@ -1158,3 +1158,44 @@ def test_unit_labels_v15_is_v14_on_the_tables_with_east_villages_appended():
     )
     assert v14.unit_id.iat[4] != v14.unit_id.iat[5]
     assert v15.unit_id.iat[4] == v15.unit_id.iat[5] == min(group[:2])
+
+
+def test_spelled_label_key_shortens_spelled_out_labels():
+    cases = {
+        "3RD-FL": "3", "3FL": "3", "third": "3", "THREE-FL": "3", "2W-FL": "2W",
+        "4-REAR": "4R", "4BACK": "4R", "2FRONT": "2F", "PENTHOUSE-A": "PHA",
+        "GARDEN": "G", "GDN": "G", "GROUND": "G", "PARLOUR": "PARLOR",
+        "PARLOR-FL": "PARLOR", "4B": "4B", "PH4": "PH4",
+    }  # fmt: skip
+    assert {k: data.spelled_label_key(k) for k in cases} == cases
+
+
+def test_unit_labels_v16_joins_spelled_out_labels_where_bedrooms_agree():
+    """A spelled-out label joins its short spelling when both units' median
+    bedrooms agree, and not otherwise."""
+    url = "https://streeteasy.com/building/{}/{}".format
+    frame = pd.DataFrame(
+        {
+            "building": ["b1"] * 4 + ["b2"] * 2,
+            "canonical_unit_url": [
+                url("b1", "3rd-fl"),
+                url("b1", "3"),
+                url("b1", "penthouse-a"),
+                url("b1", "pha"),
+                url("b2", "garden"),
+                url("b2", "g"),
+            ],
+            "unit_id": ["u9", "u8", "u7", "u6", "h1", "h0"],
+            "bedrooms": [1.0, 1.0, 3.0, 2.0, 1.0, float("nan")],
+        }
+    )
+    out = data.merge_spelled_labels(frame, base=pd.DataFrame.copy)
+    # Bedrooms agree; bedrooms differ; one unit has no bedroom count.
+    assert out.unit_id.tolist() == ["u8", "u8", "u7", "u6", "h1", "h0"]
+    v16 = data.DATA_RULES["unit-labels-v16"]
+    assert v16.func is data.merge_spelled_labels
+    assert data.RULE_SOURCES["unit-labels-v16"] == data.UNIT_ALIASES_EV
+    assert "unit-labels-v16" not in data.DROPPING_RULES
+    v15 = data.DATA_RULES["unit-labels-v15"](frame)
+    assert v16(frame).unit_id.tolist()[:2] == ["u8", "u8"]
+    assert v15.unit_id.tolist()[:2] == ["u9", "u8"]

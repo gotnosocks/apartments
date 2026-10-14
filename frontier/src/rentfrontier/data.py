@@ -436,6 +436,70 @@ def merge_word_letter_labels(
     return out
 
 
+# Unit labels spelled out, each rewritten to its short spelling, in order:
+# "3RDFL", "3FL", "3RD" -> "3"; "THIRD", "THREEFL" -> "3"; "2WFL" -> "2W";
+# "3FRONT" -> "3F", "3REAR", "3BACK" -> "3R"; "PENTHOUSEA" -> "PHA";
+# "GARDEN", "GDN", "GROUND", "GARDENFL" -> "G"; "PARLOUR", "PARLORFL" -> "PARLOR".
+_SPELLED_WORDS = {k.upper(): v for k, v in WORD_LETTER_WORDS.items()}
+SPELLED_LABELS = [
+    (re.compile(r"^(" + "|".join(sorted(_SPELLED_WORDS, key=len, reverse=True))
+                + r")(?=(?:FL)?$)"), lambda m: _SPELLED_WORDS[m[1]]),
+    (re.compile(r"^(\d+)(?:ST|ND|RD|TH)?(?:FL)?$"), r"\1"),
+    (re.compile(r"^(\d+[A-Z])FL$"), r"\1"),
+    (re.compile(r"^(\d+)(?:ST|ND|RD|TH)?(?:FL)?FRONT$"), r"\1F"),
+    (re.compile(r"^(\d+)(?:ST|ND|RD|TH)?(?:FL)?(?:REAR|BACK)$"), r"\1R"),
+    (re.compile(r"^PENTHOUSE"), "PH"),
+    (re.compile(r"^(?:GARDEN|GDN|GROUND)(?:FL)?$"), "G"),
+    (re.compile(r"^PARLOU?R(?:FL)?$"), "PARLOR"),
+]  # fmt: skip
+
+
+def spelled_label_key(label: str) -> str:
+    """A unit label's short spelling (see SPELLED_LABELS)."""
+    key = unit_label_key(label)
+    for pattern, short in SPELLED_LABELS:
+        key = pattern.sub(short, key)
+    return key
+
+
+def merge_spelled_labels(frame: pd.DataFrame, base) -> pd.DataFrame:
+    """A labels rule (`base`), and units of a building whose labels are one
+    label spelled out and short ("3RDFL" and "3", "PENTHOUSEA" and "PHA",
+    "GARDEN" and "G", "4REAR" and "4R", "THIRD" and "3") joined where both
+    units' median bedroom counts (under the base rule) agree, the guard the
+    label rules since v3 use. Units whose labels are already one label
+    written differently ("3A" and "3-A") are grouped too, and the base rule
+    has joined most of them. Groups that share a unit are one unit, whose id
+    is the smallest. Rows are unchanged."""
+    out = base(frame)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
+    key = raw.map(lambda v: spelled_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    groups = {}
+    for building, k, a in zip(frame.building, key, out.unit_id):
+        if isinstance(k, str):
+            groups.setdefault((building, k), set()).add(a)
+    for units in groups.values():
+        units = sorted(units)
+        for i, a in enumerate(units):
+            for b in units[i + 1 :]:
+                if beds[a] == beds[b]:
+                    ra, rb = find(a), find(b)
+                    if ra != rb:
+                        parent[max(ra, rb)] = min(ra, rb)
+    out["unit_id"] = out.unit_id.map(find)
+    return out
+
+
 # A unit's history splits where its bedroom count moves by at least this much.
 UNIT_SPLIT_BEDROOMS = 2
 
@@ -1104,6 +1168,22 @@ DATA_RULES = {
             ),
         ),
     ),
+    # unit-labels-v15 with labels spelled out joined to their short spelling
+    # (#420's joins, where both units' median bedrooms agree).
+    "unit-labels-v16": functools.partial(
+        merge_spelled_labels,
+        base=functools.partial(
+            merge_word_letter_labels,
+            base=functools.partial(
+                merge_swapped_labels,
+                base=functools.partial(
+                    merge_history_pairs,
+                    pairs=UNIT_HISTORY_PAIRS_EV,
+                    aliases=UNIT_ALIASES_EV,
+                ),
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -1174,6 +1254,7 @@ RULE_SOURCES = {
     "unit-labels-v13": UNIT_ALIASES_STUY,
     "unit-labels-v14": UNIT_ALIASES_NOMAD,
     "unit-labels-v15": UNIT_ALIASES_EV,
+    "unit-labels-v16": UNIT_ALIASES_EV,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
