@@ -3,6 +3,22 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 17:30 UTC): summary on thelio, lines retest
+
+- At 15:26Z Ben moved the summary and calibration out of the Modal container (#761, #763). After a
+  full-tier row-split fit downloads, `ops/modal/fit.py` starts `ops/modal/summarize` in its own
+  `modal-summary-*` unit, logging to `/data1/apartments/modal/logs/`. The script runs the summary
+  under `ops/job gpu -m 5G` (it refuses gate failures), then calibration as a light job. The lines
+  fit ran both on thelio without help. If calibration reports "no complete bundle", run it by hand
+  on the newest `summaries/<run>-<7 chars>/` directory.
+- The split C's bundle (`...-025f0ca`) and its calibration are built.
+- Lines on the split C's rules (`...-lines-v1-rows-11c81a08-...`, #762 prediction, #765 results)
+  passes the gate. Paired PSIS-LOO is +22.5 with iid SE 9.3 and lot SE 10.3, a tie, so it is
+  unserved. The building-weighted new-building lpd is +63.2 with lot SE 13.9. I told Ben, and I
+  recommended keeping C.
+- Waiting on Ben: lines (serve it for its new-building gain or not), the fixed-rho arwalk (AR(1)
+  card), and the split as a non-tune rule. Nothing is on the Modal queue.
+
 ## Update (2026-10-14 13:20 UTC): latest-ask refit and the west-coast split
 
 - I refit C on latest-ask-v2 + quarantine-v13 (`...-rows-bcaac064-...q13ad3la2`). It failed the
