@@ -1394,8 +1394,20 @@ def test_adfills_elevator_reads_one_class_per_ad():
             "No elevator; the elevator next door is not ours.",
             "Sunny one bedroom.",
             None,
+            "There is no laundry or elevator in the building.",
+            "A no-elevator building.",
+            "Elevator building, a short walk up to Astor Place.",
+            "First floor, so no stairs to walk up. Elevator in lobby.",
         ]
     )
     out = adfills.elevator(text)
-    assert out.elevator.to_dict() == {0: "no", 1: "yes", 2: "no"}
+    assert out.elevator.to_dict() == {
+        0: "no",
+        1: "yes",
+        2: "no",
+        6: "no",
+        7: "no",
+        8: "yes",
+        9: "yes",
+    }
     assert out.evidence.str.contains("elevator|walk-up").all()

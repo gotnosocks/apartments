@@ -9,8 +9,8 @@ text states, and the matched words) and provenance.json. Refuses a dirty tree.
 The `elevator-from-ad-v1` data rule reads the file and fills a row's elevator
 only where the coded value is unknown, so a known code always stays.
 
-The text states "no" when it says walk-up, flights up, no elevator, non-elevator
-or that the building has no elevator, and "yes" when it mentions an elevator
+The text states "no" when it says walk-up, flights up, no elevator (also "no
+laundry or elevator"), non-elevator or that the building has no elevator, and "yes" when it mentions an elevator
 any other way. A row whose text says both, or neither, gets no line. Each row
 reads its own ad only, never another listing in its building."""
 
@@ -25,8 +25,12 @@ import pandas as pd
 from rentfrontier import data, descriptions, features
 from rentfrontier.listing_extras import EXTERNAL_ROOT, _git
 
+# "walk up" also describes the walk to a street ("a short walk up to astor
+# place") or its absence ("no stairs to walk up"), so those uses are left out.
 ELEVATOR_NO = (
-    r"walk[- ]?up|\bflights? (?:of stairs )?up\b|\bno elevator|\bnon[- ]elevator"
+    r"(?<!no )(?<!to )(?<!minute )(?<!short )\bwalk[- ]?up(?! to\b)(?! the\b)"
+    r"|\bflights? (?:of stairs )?up\b|\bno[- ]elevator|\bnon[- ]elevator"
+    r"|\bno (?:[\w-]+ ){1,3}(?:or|nor) (?:an? )?elevators?\b"
     r"|\bwithout (?:an? )?elevator|\bnot an elevator"
     r"|\b(?:does not|doesn't|do not) have (?:an? )?elevator"
 )
