@@ -524,8 +524,8 @@ def test_paired_se_is_the_larger_of_the_iid_and_the_lot_clustered_se(monkeypatch
     lot = np.sqrt(20 / 19 * np.sum((sums - sums.mean()) ** 2))
     assert lot > 2 * iid
     assert leaderboard.paired_se(d, keys) == pytest.approx(lot)
-    # Independent rows: the lot SE comes out under the iid one, which stays.
-    d = rng.normal(0, 1, 400)
+    # Rows that cancel within each lot: the lot SE is zero and the iid one stays.
+    d = np.repeat(rng.normal(0, 1, 200), 2) * np.tile([1.0, -1.0], 200)
     assert leaderboard.paired_se(d, keys) == pytest.approx(
         d.std(ddof=1) * np.sqrt(len(d))
     )

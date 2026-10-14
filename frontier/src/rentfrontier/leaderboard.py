@@ -338,7 +338,7 @@ def paired_se(d, keys) -> float:
     lots = _row_lots()
     if lots is None or len(d) < 2:
         return iid
-    g = lots.reindex(keys).to_numpy(dtype=float)
+    g = np.array(lots.reindex(keys), dtype=float)
     missing = np.isnan(g)
     g[missing] = len(lots) + np.arange(missing.sum())
     _, g = np.unique(g, return_inverse=True)
