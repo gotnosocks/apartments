@@ -1,7 +1,8 @@
 """Coded fields of each listing's own StreetEasy record that the analytical dataset
 does not carry: private outdoor space types, room count, fireplace types, broker group,
-source type and the listing's price changes (time and price of each, as JSON). Read from the granular crawls' listing observations (each listing's
-last capture), keyed by listing id:
+source type and the listing's price changes (time and price of each, as JSON). Read from the granular crawls' rental listing observations (each listing's
+last capture), keyed by listing id. A sale listing can carry a rental's id, so
+the builder skips sale observations:
 
     python -m rentfrontier.listing_extras
 
@@ -61,10 +62,16 @@ def build() -> pd.DataFrame:
             glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
         ):
             table = pq.read_table(
-                path, columns=["listing_id", "collected_at", "raw_listing_json"]
+                path,
+                columns=[
+                    "listing_id",
+                    "listing_type",
+                    "collected_at",
+                    "raw_listing_json",
+                ],
             )
             for r in table.to_pylist():
-                if r["raw_listing_json"]:
+                if r["listing_type"] == "rental" and r["raw_listing_json"]:
                     rows.append(
                         {
                             "listing_id": str(r["listing_id"]),

@@ -149,3 +149,37 @@ Three earlier screen hits drop out under latest asks:
   measures the target change and the board cannot use it as a model
   comparison.
 - `quarantine-v13` drops 2 more rows than v12.
+
+## Sale records with a rental's id (latest-ask-v3)
+
+StreetEasy numbers sale and rental listings separately, and the granular
+crawls capture both, so 1,653 listing ids belong to a sale and a rental.
+`latest_ask.py` and `listing_extras.py` kept each id's last capture of either
+kind. For 210 NB8 rows that was a sale, with prices such as $899,000. The 2x
+check in `latest-ask-v2` caught every one and kept the row's first ask, which
+made up 210 of the 228 rows in "first ask, nearer the building". `lister.py`
+already read rentals only.
+
+Both builders now skip sale observations. The rebuilt file
+(`/data1/apartments/external/latest-ask/20261014-9ae2b6e/`) gives:
+
+| How the price was chosen | Rows |
+|---|---|
+| last kept change | 214,772 |
+| no capture, first ask kept | 122 |
+| captured before the row, own ask kept | 113 |
+| page price | 101 |
+| latest ask, nearer the building | 29 |
+| first ask, nearer the building | 18 |
+| page price, digit | 1 |
+
+`latest-ask-v3` reads it. Against `latest-ask-v2` it changes 92 rows, each
+from its first ask to its last rental ask, by a median of 4.4% and at most
+23% of the v2 ask. That is under the 0.25% of rows `autoselect` treats as negligible, so a
+fit on `latest-ask-v2` stays eligible under `latest-ask-v3`.
+
+The listing extras rebuilt the same way
+(`/data1/apartments/external/listing-extras/20261014-9ae2b6e/`) differ on NB8
+rows in outdoor types for 86 rows and room count for 170. The nb8 sets keep
+reading `NB8_EXTRAS_FILE`, since changing it would change hashed feature code.
+The next neighbourhood's sets read a rebuilt file.
