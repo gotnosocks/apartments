@@ -119,3 +119,6 @@ def test_board_and_fit_pages_show_other_target_for_its_baseline_delta(
     for html in (board, fit):
         assert "other target" in html and "4,321" not in html
     assert "it models the latest ask" in fit
+    # The frontier charts leave it off; its table row says "other target".
+    frontier = client.get("/research").get_data(as_text=True)
+    assert "4321" not in frontier and "4,321" not in frontier

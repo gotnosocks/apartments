@@ -1868,7 +1868,9 @@ def create_app(
         """A fit's hover card: the key facts only (the fit's page and the
         table below the chart have the rest)."""
         rows = []
-        if f["delta"] is not None:
+        if f["entry"].get("other_target"):
+            rows.append(["PSIS-LOO ΔELPD", "other target"])
+        elif f["delta"] is not None:
             se = f" ± {f['delta_se']:,.1f}" if f["delta_se"] is not None else ""
             rows.append(["PSIS-LOO ΔELPD", f"{f['delta']:+,.1f}{se}"])
         rows.append(["Fit time", f"{f['minutes']:.1f} min"])
@@ -1898,7 +1900,13 @@ def create_app(
         subsets = request.args.get("subsets") == "1"
         full = request.args.get("range") == "full"
         view = frontier_view(data, hardware, day, m["provenance"]["run"], subsets)
-        scored = [f for f in view["fits"] if f["delta"] is not None]
+        # A fit on another price target than the baseline's has no comparable
+        # delta, so it is left off the charts (the table lists it).
+        scored = [
+            f
+            for f in view["fits"]
+            if f["delta"] is not None and not f["entry"].get("other_target")
+        ]
         floor = None if full else outlier_floor([f["delta"] for f in scored])
         target = hardware == TARGET_HARDWARE
         device = "the RTX 2060" if target else hardware
