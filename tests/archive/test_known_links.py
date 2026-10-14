@@ -2,7 +2,8 @@ import random
 
 import pytest
 
-from streeteasy_archive import cli, known_links, scope
+from streeteasy_archive import cli, known_links, pacer, scope
+from streeteasy_archive.oxylabs import OxylabsDownloadHandler
 from streeteasy_archive.store import ArchiveStore
 
 B = "https://streeteasy.com/building/"
@@ -129,6 +130,7 @@ def test_crawl_runs_inside_known_links(tmp_path, monkeypatch):
 
         def start(self):
             seen.append(scope._enroll)
+            seen.append(OxylabsDownloadHandler._submission_slot)
             raise Started
 
     monkeypatch.setattr("scrapy.crawler.CrawlerProcess", Process)
@@ -146,5 +148,14 @@ def test_crawl_runs_inside_known_links(tmp_path, monkeypatch):
     )
     with pytest.raises(Started):
         cli.run_crawler(args, 1)
-    assert seen == [known_links.enroll_known_first]
+    assert seen == [known_links.enroll_known_first, pacer.steady_slot]
     assert scope._enroll is known_links.ORIGINAL_ENROLL
+    assert OxylabsDownloadHandler._submission_slot is pacer.ORIGINAL_SLOT
+
+
+def test_form_memo_is_capped(monkeypatch):
+    monkeypatch.setattr(known_links, "_FORMS", {})
+    monkeypatch.setattr(known_links, "FORMS_LIMIT", 3)
+    for url in URLS:
+        known_links._form(url)
+        assert len(known_links._FORMS) <= 3
