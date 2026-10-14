@@ -10,9 +10,11 @@ tree. The `elevator-from-ad-v1` and `pets-from-ad-v1` data rules read the files
 and fill a row's field only where the coded value is unknown, so a known code
 always stays.
 
-The text states "no" when it says walk-up, flights up, no elevator, non-elevator
-or that the building has no elevator, and "yes" when it mentions an elevator
-any other way. A row whose text says both, or neither, gets no line.
+The text states "no" when it says walk-up, flights up, no elevator (also "no
+laundry or elevator"), non-elevator or that the building has no elevator, and
+"yes" when it mentions an elevator any other way. A "walk up" to a street or
+with "no stairs to walk up" says nothing about the building. A row whose text
+says both, or neither, gets no line.
 
 For pets the builder takes `petstext.classify`'s class and writes its coded
 level (`petstext.CODED`): "allowed_restrictions_unknown", "approval_required"
@@ -35,8 +37,12 @@ import pandas as pd
 from rentfrontier import data, descriptions, features, petstext
 from rentfrontier.listing_extras import EXTERNAL_ROOT, _git
 
+# "walk up" also describes the walk to a street ("a short walk up to astor
+# place") or its absence ("no stairs to walk up"), so those uses are left out.
 ELEVATOR_NO = (
-    r"walk[- ]?up|\bflights? (?:of stairs )?up\b|\bno elevator|\bnon[- ]elevator"
+    r"(?<!no )(?<!to )(?<!minute )(?<!short )\bwalk[- ]?up(?! to\b)(?! the\b)"
+    r"|\bflights? (?:of stairs )?up\b|\bno[- ]elevator|\bnon[- ]elevator"
+    r"|\bno (?:[\w-]+ ){1,3}(?:or|nor) (?:an? )?elevators?\b"
     r"|\bwithout (?:an? )?elevator|\bnot an elevator"
     r"|\b(?:does not|doesn't|do not) have (?:an? )?elevator"
 )
