@@ -4968,7 +4968,7 @@ NB9_PLUTO_RELEASES_FILE = (
     "/data1/apartments/external/plutoreleases/20261014-5352472/plutoreleases.parquet"
 )
 NB9_EXTRAS_FILE = (
-    "/data1/apartments/external/listing-extras/20261014-cd891c8/listing-extras.parquet"
+    "/data1/apartments/external/listing-extras/20261014-717ad9c/listing-extras.parquet"
 )
 _NB9_DESCRIPTIONS = {
     **_NB8_DESCRIPTIONS,

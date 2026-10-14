@@ -1087,6 +1087,13 @@ LATEST_ASK_V3 = Path(
 )
 
 
+# LATEST_ASK_V3's rows plus Midtown West's (DATASET_NB9), built the same way;
+# NB8's rows are identical in both.
+LATEST_ASK_V4 = Path(
+    "/data1/apartments/external/latest-ask/20261014-717ad9c/latest-ask.parquet"
+)
+
+
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
     alone (`LATEST_ASK_V3`). A row the file lacks keeps its ask."""
@@ -1268,6 +1275,7 @@ DATA_RULES = {
     "quarantine-v14": quarantine_v14,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
+    "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
@@ -1298,6 +1306,7 @@ RULE_SOURCES = {
     "quarantine-v14": QUARANTINE_V14,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
+    "latest-ask-v4": LATEST_ASK_V4,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,

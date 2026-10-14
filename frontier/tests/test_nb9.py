@@ -129,3 +129,14 @@ def test_nb9_nta_levels_add_to_the_neighbourhood_indicators():
         + [names.eq(n) for n in levels]
     ).astype(float)
     assert np.linalg.matrix_rank(X) == X.shape[1]
+
+
+def test_latest_ask_v4_keeps_v3s_rows_and_adds_midtown_wests():
+    old, new = data.LATEST_ASK_V3, data.LATEST_ASK_V4
+    assert data.DATA_RULES["latest-ask-v4"].keywords == {"path": new}
+    if not (old.exists() and new.exists()):
+        pytest.skip("latest-ask files not on this machine")
+    o = pd.read_parquet(old).set_index("audit_id")
+    n = pd.read_parquet(new).set_index("audit_id")
+    assert len(n) - len(o) == 81797
+    pd.testing.assert_series_equal(n.latest_ask.loc[o.index], o.latest_ask)
