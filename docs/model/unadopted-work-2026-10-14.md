@@ -10,7 +10,7 @@ guides:
 This file records each decision and the evidence behind it. Scores follow the evaluation framework
 of the 2026-10-08 research review (§3 of [research-review-fable-2026-10-08.md](research-review-fable-2026-10-08.md), as Modeling adopted it):
 paired PSIS-LOO on shared rows with a bar of about 2 combined SE. From 2026-10-14 the paired SE
-is the larger of the iid and the lot-clustered SE (branch `select/lot-clustered-se`).
+is the larger of the iid and the lot-clustered SE (#746).
 
 ## Per-fit cap
 
@@ -56,7 +56,7 @@ Everything else listed here stays off the queue.
 | plutoasof-v1 (#439) | Retired | −71.1 ± 20.4; superseded by plutoasof-v3, which is in C's base |
 | permit (#437, #478) | Retired | A free check found a lag-0 permit effect of +0.06% (SE 0.035), too small to matter. |
 | unit-labels-v4 (#222) | Superseded | unit-labels-v5 to v16 |
-| clustered SEs | Adopted | The board's paired SE is the larger of the iid and lot SE (B3). The lot/iid ratios against C below show how much the iid SE understated the error. |
+| clustered SEs | Adopted | #746: the board's paired SE is the larger of the iid and lot SE. The lot/iid ratios against C below show how much the iid SE understated the error. |
 | negligible data changes | Adopted | #740: a run stays servable when its recorded rules change at most 0.25% of the current rows, matched by audit_id, on the same price target and dataset. |
 | dashboard snapshot | Refresh after the latest-ask C is served | `/mnt/project-files/dashboard` has been stale since 2026-10-10. The cleanup thread refreshes it once the latest-ask C is served. |
 | plutoasof-v3 | In the base | Every NB8 set, nb8-nostuy-v1 and so C among them, reads `nb5-plutoasof-v3`. The ledger row now says so. |
