@@ -9,10 +9,11 @@ in `/data1/apartments/tmp/bridge` (thelio).
   fails the gate on one traced building effect: R-hat 1.015, ESS 183. That effect is 110 West
   26th Street (building index 222), which isn't a West Coast building. The building effect trades
   off against its walk.
-- I queued a rerun on seed 20261015. Ben stopped it at 20:45Z, and I settled it at $0.58. We never
+- I queued a rerun on seed 20261015. Ben asked for it to stop at 20:45Z, so I stopped it and settled
+  it at $0.58. We never
   retry a failed fit on a new seed. A convergence failure is investigated in this order: data,
-  then model structure, then sampler settings, with a report before any refit
-  (`docs/model/modal.md`, "When a fit fails the gate"). Ben's data-first rule from 09:04Z applies
+  then model structure, then sampler settings. Per the coordinator's brief, I report the data
+  findings before any refit (`docs/model/modal.md`, "When a fit fails the gate"). Ben's data-first rule from 09:04Z applies
   to the first step.
 - Next: investigate 110 W 26th's rows and report before a refit. The fixed-rho arwalk and the NB9
   C (nb9-nostuy-v1 with elevator-from-ad-v1 and pets-from-ad-v1, #778 and #782) wait for a wing C
