@@ -591,12 +591,14 @@ def run_crawler(args, generation, lock=None):
     deferred.addErrback(lambda failure: errors.append(str(failure)))
     from .known_links import known_links
     from .pacer import steady_pacer
+    from .parse_once import parse_once
     from .structure_first import claim_order
 
     with (
         claim_order(getattr(args, "claim_order", "structure-first")),
         known_links(),
         steady_pacer(),
+        parse_once(),
     ):
         process.start()
     store = ArchiveStore(args.data)
