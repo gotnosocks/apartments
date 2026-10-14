@@ -159,3 +159,33 @@ def test_a_wide_change_keeps_the_ask_nearer_the_building():
     assert out.latest_ask["r0"] == 3000.0 and out.how["r0"] == "first, nearer building"
     # Listings no crawl captured keep their own ask.
     assert out.how["r1"] == "uncaptured" and out.latest_ask["r1"] == 3100.0
+
+
+def test_a_sale_with_a_rentals_id_is_skipped(monkeypatch, tmp_path):
+    """StreetEasy numbers sales and rentals separately, so a later sale capture
+    can carry a rental's id. Both builders keep the rental's own record."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from rentfrontier import listing_extras
+
+    folder = tmp_path / "listing_observations"
+    folder.mkdir()
+    pq.write_table(
+        pa.table(
+            {
+                "listing_id": [7, 7],
+                "listing_type": ["rental", "sale"],
+                "collected_at": [1.0, 2.0],
+                "raw_listing_json": [
+                    record([("2025-01-01", 3000)], 3000),
+                    record([("2026-01-01", 899000)], 899000),
+                ],
+            }
+        ),
+        folder / "part.parquet",
+    )
+    monkeypatch.setattr(latest_ask, "CRAWLS", {"x": str(tmp_path)})
+    monkeypatch.setattr(listing_extras, "CRAWLS", {"x": str(tmp_path)})
+    assert latest_ask.listings().loc["7"].changes == [("2025-01-01", 3000.0)]
+    extras = listing_extras.build().set_index("listing_id")
+    assert json.loads(extras.loc["7"].price_changes) == [["2025-01-01", 3000]]

@@ -8,8 +8,9 @@ NB8 row: audit_id, the row's first ask, its latest ask and how the latest ask
 was chosen) and provenance.json. Refuses a dirty tree. The `latest-ask-v2` data
 rule prices each row from this file.
 
-For each listing the builder reads the last capture's `pricing.priceChanges`
-in date order. Landlords often type a placeholder ($10,000, $1,000, $500) into
+For each listing the builder reads the last rental capture's
+`pricing.priceChanges` in date order. A sale listing can carry a rental's id,
+so it skips sale observations. Landlords often type a placeholder ($10,000, $1,000, $500) into
 the price on the day they take a listing down. So a change dated on or after
 the listing's off-market day is skipped when it is more than twice or under
 half the ask before it, or a raise of more than 20% to exactly $10,000.
@@ -115,10 +116,16 @@ def listings() -> pd.DataFrame:
             glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
         ):
             table = pq.read_table(
-                path, columns=["listing_id", "collected_at", "raw_listing_json"]
+                path,
+                columns=[
+                    "listing_id",
+                    "listing_type",
+                    "collected_at",
+                    "raw_listing_json",
+                ],
             )
             for r in table.to_pylist():
-                if r["raw_listing_json"]:
+                if r["listing_type"] == "rental" and r["raw_listing_json"]:
                     rows.append(
                         {
                             "listing_id": str(r["listing_id"]),
