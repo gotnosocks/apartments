@@ -1363,3 +1363,39 @@ def test_building_joins_v1_folds_97_horatio_before_the_wing_split():
         data.apply_rules(frame, held, rules[::-1])
     assert autoselect._rule_order(rules[0]) < autoselect._rule_order(rules[1])
     assert not data.amended_rule("building-joins-v1")
+
+
+def test_elevator_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
+    assert data.RULE_SOURCES["elevator-from-ad-v1"] == data.ELEVATOR_FROM_AD
+    path = tmp_path / "elevator.parquet"
+    pd.DataFrame(
+        {"audit_id": ["a", "b", "c", "d"], "elevator": ["no", "yes", "no", "yes"]}
+    ).to_parquet(path)
+    monkeypatch.setattr(data, "ELEVATOR_FROM_AD", path)
+    frame = pd.DataFrame(
+        {
+            "audit_id": ["a", "b", "c", "d", "e"],
+            "elevator": ["unknown", "unknown", "yes", "no", "unknown"],
+        }
+    )
+    out = data.DATA_RULES["elevator-from-ad-v1"](frame)
+    assert out.elevator.tolist() == ["no", "yes", "yes", "no", "unknown"]
+    assert not data.amended_rule("elevator-from-ad-v1")
+
+
+def test_adfills_elevator_reads_one_class_per_ad():
+    from rentfrontier import adfills
+
+    text = pd.Series(
+        [
+            "Charming walk-up, 3 flights up.",
+            "Elevator building with a doorman.",
+            "The building does not have an elevator.",
+            "No elevator; the elevator next door is not ours.",
+            "Sunny one bedroom.",
+            None,
+        ]
+    )
+    out = adfills.elevator(text)
+    assert out.elevator.to_dict() == {0: "no", 1: "yes", 2: "no"}
+    assert out.evidence.str.contains("elevator|walk-up").all()

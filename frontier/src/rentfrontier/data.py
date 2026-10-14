@@ -1188,6 +1188,31 @@ def building_joins_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(building=building)
 
 
+# The elevator each NB9 row's own ad states (`python -m rentfrontier.adfills
+# elevator`), for rows whose text says exactly one of "yes" and "no".
+ELEVATOR_FROM_AD = Path(
+    "/data1/apartments/external/adfills/20261014-8155f55/elevator.parquet"
+)
+
+
+def fill_from_ad(frame: pd.DataFrame, field: str, path: Path) -> pd.DataFrame:
+    """`field` filled from the row's own ad text (`path`, built by
+    `rentfrontier.adfills`) where its coded value is "unknown". A known code
+    stays, and a row the file lacks stays unknown."""
+    table = pd.read_parquet(path, columns=["audit_id", field])
+    stated = frame.audit_id.map(table.set_index("audit_id")[field])
+    fill = frame[field].eq("unknown") & stated.notna()
+    return frame.assign(**{field: frame[field].where(~fill, stated)})
+
+
+def elevator_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """An unknown elevator filled from the row's own ad: "no" when the ad says
+    walk-up, flights up or no elevator, "yes" when it mentions an elevator
+    otherwise (`ELEVATOR_FROM_AD`). An ad saying both, or neither, leaves the
+    row unknown. No row reads another listing's ad."""
+    return fill_from_ad(frame, "elevator", ELEVATOR_FROM_AD)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1351,6 +1376,7 @@ DATA_RULES = {
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
+    "elevator-from-ad-v1": elevator_from_ad_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
@@ -1382,6 +1408,7 @@ RULE_SOURCES = {
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
+    "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
