@@ -304,14 +304,16 @@ def main(argv=None):
 
             setup(store, generation, getattr(args, "rental_min_listing_id", None))
         if args.neighborhood:
+            from .known_links import known_links
             from .scope import configure
 
-            configure(
-                store,
-                generation,
-                args.include_unavailable,
-                neighborhood=args.neighborhood,
-            )
+            with known_links():
+                configure(
+                    store,
+                    generation,
+                    args.include_unavailable,
+                    neighborhood=args.neighborhood,
+                )
         if args.building:
             building = canonical_url(args.building)
             if not building or kind_for(building) != "building":
@@ -587,9 +589,10 @@ def run_crawler(args, generation, lock=None):
         **extra,
     )
     deferred.addErrback(lambda failure: errors.append(str(failure)))
+    from .known_links import known_links
     from .structure_first import claim_order
 
-    with claim_order(getattr(args, "claim_order", "structure-first")):
+    with claim_order(getattr(args, "claim_order", "structure-first")), known_links():
         process.start()
     store = ArchiveStore(args.data)
     try:
