@@ -138,6 +138,11 @@ class Design:
     buckets: tuple = ()
     fill: dict | None = None
     walk_rank: int = 0  # touched knots over all buildings (the walk's rank)
+    # A stationary AR(1) deviation in place of the anchored walk (`walk_ar`):
+    # knot j sits at local index knot_start + j, for all walk_knots knots, and
+    # its scales are walk_scale (the stationary sd) and walk_decay (-log rho).
+    walk_ar: bool = False
+    walk_knots: int = 0
     # One residual scale per noise group (`noise_by_bedrooms`, by year with
     # `noise_by_year`; `model.noise_group`): each row's
     # group; None for one scale.
@@ -180,7 +185,13 @@ class Design:
             *drift,
             *self.global_blocks,
             *self.local_structures,
+            *(("walk_scale", "walk_decay") if self.walk_ar else ()),
         )
+
+    @property
+    def n_fill(self):
+        """Columns of the standard normals that fill the untouched walk knots."""
+        return self.walk_knots if self.walk_ar else self.n_local - self.knot_start + 1
 
 
 def _rw1_anchored(n):
@@ -203,6 +214,10 @@ class Bucket:
     walk: jnp.ndarray  # (K_b, width, width) walk precision over touched knots
     pad: jnp.ndarray  # (K_b, width) 1 on unused slots (a fixed unit prior)
     knot: jnp.ndarray  # (K_b, width - n_fixed) knot of each walk slot (k: unused)
+    # AR(1) deviations (`walk_ar`): knots from each walk slot's touched knot
+    # back to the one before it (0 for a building's first), and 1 on used slots.
+    gap: jnp.ndarray | None = None
+    used: jnp.ndarray | None = None
 
 
 # At most this many compact widths: one batched elimination per bucket.
@@ -237,6 +252,7 @@ def compact_walk(
     knot_start,
     n_local,
     max_buckets=MAX_BUCKETS,
+    ar=False,
 ):
     """Buckets and fill rules that integrate out the walk knots no row touches.
 
@@ -247,12 +263,20 @@ def compact_walk(
     between their neighbours, or a free walk after the last one, and `fill`
     holds what draws them: the left and right touched knot of every knot and
     its interpolation weight.
+
+    With `ar` (a stationary AR(1) deviation, knot 0 a variable at local index
+    knot_start) the touched knots form an AR(1) chain of their own: the first
+    has the stationary variance, and each next one links to the one before
+    with coefficient rho^gap. Each bucket holds the gaps, and `fill` holds the
+    nearest touched knot on each side of every knot (`fill_ar`).
     """
-    n_fixed, k = knot_start, n_local - knot_start + 1  # knots 0..k-1
+    offset = 0 if ar else 1  # local slot knot_start holds knot `offset`
+    n_fixed, k = knot_start, n_local - knot_start + offset  # knots 0..k-1
     walk_cols = slice(slots.shape[1] - 2, slots.shape[1])
     touched = np.zeros((n_buildings, k), bool)
-    touched[building[:, None], slots[:, walk_cols] - knot_start + 1] = True
-    touched[:, 0] = False  # the fixed anchor is not a variable
+    touched[building[:, None], slots[:, walk_cols] - knot_start + offset] = True
+    if not ar:
+        touched[:, 0] = False  # the fixed anchor is not a variable
     sizes = touched.sum(1)
     widths = _bucket_widths(sizes, max_buckets)
     knots = np.arange(k)
@@ -260,7 +284,18 @@ def compact_walk(
     left = np.zeros((n_buildings, k), np.int32)
     right = np.zeros((n_buildings, k), np.int32)
     alpha = np.zeros((n_buildings, k))
+    has_left = np.zeros((n_buildings, k), bool)
+    has_right = np.zeros((n_buildings, k), bool)
     for b in range(n_buildings):
+        if ar:
+            t = np.flatnonzero(touched[b])
+            li = np.searchsorted(t, knots, side="left") - 1  # last below
+            ri = np.searchsorted(t, knots, side="right")  # first above
+            has_left[b] = (li >= 0) & ~touched[b]
+            has_right[b] = (ri < len(t)) & ~touched[b]
+            left[b] = t[np.clip(li, 0, len(t) - 1)]
+            right[b] = t[np.clip(ri, 0, len(t) - 1)]
+            continue
         t = np.r_[0, np.flatnonzero(touched[b])]
         li = np.searchsorted(t, knots, side="right") - 1
         left[b] = t[li]
@@ -284,19 +319,25 @@ def compact_walk(
         walk = np.zeros((len(members), width, width))
         pad = np.zeros((len(members), width))
         knot = np.full((len(members), width - n_fixed), k)
+        gaps = np.zeros((len(members), width - n_fixed), np.int32)
+        used = np.zeros((len(members), width - n_fixed), bool)
         for i, b in enumerate(members):
             t = np.flatnonzero(touched[b])
             pos[b, t] = n_fixed + np.arange(len(t))
             knot[i, : len(t)] = t
+            pad[i, n_fixed + len(t) :] = 1.0
+            used[i, : len(t)] = True
+            if ar:
+                gaps[i, 1 : len(t)] = np.diff(t)
+                continue
             steps = np.diff(np.r_[0, t])
             diff = np.eye(len(t)) - np.eye(len(t), k=-1)  # x_t_i - x_t_(i-1)
             walk[i, n_fixed : n_fixed + len(t), n_fixed : n_fixed + len(t)] = (
                 diff.T @ np.diag(1.0 / steps) @ diff
             )
-            pad[i, n_fixed + len(t) :] = 1.0
         cs = slots[rows].copy()
         cs[:, walk_cols] = pos[
-            building[rows][:, None], slots[rows, walk_cols] - knot_start + 1
+            building[rows][:, None], slots[rows, walk_cols] - knot_start + offset
         ]
         units = np.flatnonzero(index[unit_building] >= 0)
         uidx = np.full(n_units, -1)
@@ -314,6 +355,8 @@ def compact_walk(
                 walk=jnp.asarray(walk),
                 pad=jnp.asarray(pad),
                 knot=jnp.asarray(knot, jnp.int32),
+                gap=jnp.asarray(gaps) if ar else None,
+                used=jnp.asarray(used) if ar else None,
             )
         )
     fill = {
@@ -321,7 +364,74 @@ def compact_walk(
         "right": jnp.asarray(right),
         "alpha": jnp.asarray(alpha),
     }
+    if ar:
+        fill |= {
+            "has_left": jnp.asarray(has_left),
+            "has_right": jnp.asarray(has_right),
+            "touched": jnp.asarray(touched),
+        }
     return tuple(buckets), fill, int(sizes.sum())
+
+
+def ar_links(gap, used, rho):
+    """Each compact walk slot's AR(1) link to the slot before it: the
+    coefficient rho^gap (0 on a building's first touched knot and on unused
+    slots) and the innovation variance 1 - coefficient^2, in units of the
+    stationary variance."""
+    a = jnp.where(used & (gap > 0), rho ** jnp.maximum(gap, 1), 0.0)
+    return a, 1.0 - a**2
+
+
+def ar_precision(gap, used, rho):
+    """(K_b, m, m) prior precision of the touched knots of a unit-variance
+    stationary AR(1), zero on unused slots: D' diag(1 / v) D, where row i of D
+    takes x_i - a_i x_(i-1) (`ar_links`)."""
+    a, v = ar_links(gap, used, rho)
+    inv = jnp.where(used, 1.0 / v, 0.0)
+    a_next = jnp.concatenate([a[:, 1:], jnp.zeros_like(a[:, :1])], axis=1)
+    inv_next = jnp.concatenate([inv[:, 1:], jnp.zeros_like(inv[:, :1])], axis=1)
+    diag = inv + a_next**2 * inv_next
+    off = -(a_next * inv_next)[:, :-1]
+    return (
+        jax.vmap(jnp.diag)(diag)
+        + jax.vmap(lambda o: jnp.diag(o, 1))(off)
+        + jax.vmap(lambda o: jnp.diag(o, -1))(off)
+    )
+
+
+def ar_path_quad(w, rho):
+    """w' Q w for full AR(1) paths w (K, k) under unit stationary variance."""
+    steps = w[:, 1:] - rho * w[:, :-1]
+    return jnp.sum(w[:, 0] ** 2) + jnp.sum(steps**2) / (1.0 - rho**2)
+
+
+def fill_ar(d: Design, x_touched, rho, scale, z_f=None):
+    """The full AR(1) deviation (K, k) from its touched knots (K, k: other
+    knots 0). Given the touched knots, the chain splits at each one, so an
+    untouched knot depends only on its nearest touched knot on each side. Its
+    conditional mean is c_l x_l + c_r x_r, with the AR(1) bridge weights, or
+    rho^gap toward the one side it has. With `z_f` the knots are drawn by
+    conditioning a free stationary path Z on the touched knots:
+    x_j = mean_j + Z_j - c_l Z_l - c_r Z_r."""
+    f = d.fill
+    rows = jnp.arange(x_touched.shape[0])[:, None]
+    j = jnp.arange(x_touched.shape[1])[None, :]
+    has_l, has_r = f["has_left"], f["has_right"]
+    ra = rho ** jnp.where(has_l, j - f["left"], 0)
+    rb = rho ** jnp.where(has_r, f["right"] - j, 0)
+    both = has_l & has_r
+    den = jnp.where(both, 1.0 - (ra * rb) ** 2, 1.0)
+    c_l = jnp.where(both, ra * (1.0 - rb**2) / den, jnp.where(has_l, ra, 0.0))
+    c_r = jnp.where(both, rb * (1.0 - ra**2) / den, jnp.where(has_r, rb, 0.0))
+
+    def bridge(v):
+        return c_l * v[rows, f["left"]] + c_r * v[rows, f["right"]]
+
+    x = bridge(x_touched)
+    if z_f is not None:
+        free = model_module.ar1_path(z_f, rho, scale)
+        x = x + free - bridge(free)
+    return jnp.where(f["touched"], x_touched, x)
 
 
 def fill_walk(d: Design, x_touched, scale, z_f=None):
@@ -490,16 +600,27 @@ def build_design(
             np.asarray(v)
             for v in model_module.walk_position(tr, config.walk_knot_months)
         )
-        # Knot j >= 1 sits at local index knot_start + j - 1; knot 0 is fixed at 0,
-        # so a row before knot 1 puts zero weight on its lower slot.
-        columns.append(
-            (
-                knot_start + np.maximum(lo - 1, 0).astype(np.int32),
-                np.where(lo >= 1, 1 - frac, 0.0),
+        if config.walk_ar:
+            # Knot j sits at local index knot_start + j; every knot is a
+            # variable of the stationary AR(1) deviation.
+            if not compact or config.unit_drift:
+                raise ValueError("walk_ar needs the compact walk without unit_drift")
+            columns.append((knot_start + lo.astype(np.int32), 1 - frac))
+            hi = np.minimum(lo + 1, k - 1).astype(np.int32)
+            columns.append((knot_start + hi, frac))
+            n_local += k
+        else:
+            # Knot j >= 1 sits at local index knot_start + j - 1; knot 0 is
+            # fixed at 0, so a row before knot 1 puts zero weight on its lower
+            # slot.
+            columns.append(
+                (
+                    knot_start + np.maximum(lo - 1, 0).astype(np.int32),
+                    np.where(lo >= 1, 1 - frac, 0.0),
+                )
             )
-        )
-        columns.append((knot_start + lo.astype(np.int32), frac))
-        n_local += k - 1
+            columns.append((knot_start + lo.astype(np.int32), frac))
+            n_local += k - 1
     slots = np.stack([c[0] for c in columns], axis=1).astype(np.int32)
     values = np.stack([c[1] for c in columns], axis=1)
 
@@ -509,7 +630,7 @@ def build_design(
         m[idx, idx] = 1.0
         local_structures[name] = m
         local_ranks[name] = 1
-    if config.building_walk:
+    if config.building_walk and not config.walk_ar:
         m = np.zeros((n_local, n_local))
         m[knot_start:, knot_start:] = _rw1_anchored(n_local - knot_start)
         local_structures["walk_scale"] = m
@@ -526,6 +647,7 @@ def build_design(
             len(prep.units),
             knot_start,
             n_local,
+            ar=config.walk_ar,
         )
 
     n_noise = model_module.n_noise(config, prep)
@@ -552,6 +674,7 @@ def build_design(
         "trend_scale": config.trend_scale_sd,
         "season_scale": config.season_scale_sd,
         "walk_scale": config.walk_scale_sd,
+        "walk_decay": config.walk_rho_prior,
         "bedroom_time_scale": config.bedroom_time_scale_sd,
         "area_time_scale": config.area_time_scale_sd,
         "bedroom_slope_scale": config.bedroom_slope_scale_sd,
@@ -620,6 +743,8 @@ def build_design(
         noise_x=jnp.asarray(noise_x) if noise_x is not None else None,
         fill=fill,
         walk_rank=walk_rank,
+        walk_ar=bool(config.building_walk and config.walk_ar),
+        walk_knots=n_local - knot_start if config.building_walk else 0,
         **line_design(prep, config),
     )
 
@@ -690,6 +815,9 @@ def local_value(theta_l, building, slots, values):
 # enter only `block_solve`, so a proposal that changes only those reuses the
 # parts: the row sums over every row, about half of a block draw's cost.
 PART_SCALES = frozenset({"sigma", "unit_scale", "unit_drift_scale"})
+# Random-walk Metropolis steps on log(-log rho) given the AR(1) walk.
+DECAY_STEPS = 10
+DECAY_STEP_SD = 0.03
 # The log-linear noise multipliers (`noise_loglinear`), one per noise factor.
 MULT_NAMES = tuple(f"noise_mult_{f}" for f in model_module.NOISE_FACTORS)
 
@@ -701,7 +829,12 @@ def is_part_scale(name: str) -> bool:
 
 def scale_log_prior(name: str, sc, prior_sd):
     """Log prior of a positive scale on log coordinates (with the Jacobian):
-    half-normal(prior_sd), or log-normal(0, prior_sd) for a noise multiplier."""
+    half-normal(prior_sd), or log-normal(0, prior_sd) for a noise multiplier.
+    For walk_decay (delta = -log rho) prior_sd holds the (a, b) of a Beta
+    prior on rho."""
+    if name == "walk_decay":
+        a, b = prior_sd
+        return (a - 1) * (-sc) + (b - 1) * jnp.log(-jnp.expm1(-sc)) - sc + jnp.log(sc)
     if name.startswith("noise_mult_"):
         return -(jnp.log(sc) ** 2) / (2 * prior_sd**2)
     return -(sc**2) / (2 * prior_sd**2) + jnp.log(sc)
@@ -880,9 +1013,11 @@ def _compact_parts(d: Design, w, kappa, s) -> dict:
 def _compact_solve(d: Design, parts, s, q, rhs_g, z_g, z_l, z_f):
     """The building eliminations and draws per bucket, then the full walk
     (`fill_walk`). Returns theta, the full local block and its quad and
-    log-determinant pieces."""
+    log-determinant pieces. With `walk_ar` the touched knots take the AR(1)
+    prior (`ar_precision`) and `fill_ar` draws the rest."""
     n_fixed = d.knot_start
-    k = d.n_local - n_fixed + 1
+    k = d.n_fill
+    rho = jnp.exp(-s["walk_decay"]) if d.walk_ar else None
     shared = sum(
         d.local_structures[n] / s[n] ** 2
         for n in d.local_structures
@@ -892,9 +1027,17 @@ def _compact_solve(d: Design, parts, s, q, rhs_g, z_g, z_l, z_f):
     quad_l = logdet_l = 0.0
     for bk, cell in zip(d.buckets, parts["buckets"]):
         width = bk.width
+        walk_prior = (
+            jnp.pad(
+                ar_precision(bk.gap, bk.used, rho),
+                ((0, 0), (n_fixed, 0), (n_fixed, 0)),
+            )
+            if d.walk_ar
+            else bk.walk
+        )
         prior = (
             shared[:width, :width][None]
-            + bk.walk / s["walk_scale"] ** 2
+            + walk_prior / s["walk_scale"] ** 2
             + jax.vmap(jnp.diag)(bk.pad)
         )
         chol_b = jnp.linalg.cholesky(cell["q_ll"] + prior)
@@ -924,8 +1067,12 @@ def _compact_solve(d: Design, parts, s, q, rhs_g, z_g, z_l, z_f):
         ]
         fixed_l = fixed_l.at[bk.buildings].set(tc[:, :n_fixed])
         x = x.at[bk.buildings[:, None], bk.knot].set(tc[:, n_fixed:])
-    walk = fill_walk(d, x[:, :k], s["walk_scale"], z_f)
-    theta_l = jnp.concatenate([fixed_l, walk[:, 1:]], axis=1)
+    if d.walk_ar:
+        walk = fill_ar(d, x[:, :k], rho, s["walk_scale"], z_f)
+        theta_l = jnp.concatenate([fixed_l, walk], axis=1)
+    else:
+        walk = fill_walk(d, x[:, :k], s["walk_scale"], z_f)
+        theta_l = jnp.concatenate([fixed_l, walk[:, 1:]], axis=1)
     return (
         theta,
         theta_l,
@@ -1015,6 +1162,14 @@ def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u, z_f=None):
         # number of touched knots.
         total = d.walk_rank if name == "walk_scale" and d.buckets else K * rank
         logdet_prior = logdet_prior - 2 * total * jnp.log(s[name])
+    if d.walk_ar:
+        # log|Q| of the touched knots' AR(1) prior: -2 log sd per knot and
+        # -log(1 - a^2) per link (`ar_links`).
+        rho = jnp.exp(-s["walk_decay"])
+        logdet_prior = logdet_prior - 2 * d.walk_rank * jnp.log(s["walk_scale"])
+        for bk in d.buckets:
+            _, v = ar_links(bk.gap, bk.used, rho)
+            logdet_prior = logdet_prior - jnp.sum(jnp.where(bk.used, jnp.log(v), 0.0))
     # Terms that depend on sigma through W = lam / sigma^2.
     logdet_w = jnp.sum(jnp.log(w))
     logml = 0.5 * (quad - logdet_post + logdet_prior + logdet_w - jnp.sum(w * y * y))
@@ -1094,7 +1249,11 @@ def site_values(d: Design, state):
         out["line"] = state["line"]
         out["line_scale"] = state["line_scale"]
         out["unit_line"] = d.unit_line
-    if d.knot_start is not None:
+    if d.walk_ar:
+        out["walk_ar"] = theta_l[:, d.knot_start :]
+        out["walk_rho"] = jnp.exp(-state["walk_decay"])
+        out["walk_knot_months"] = d.walk_months
+    elif d.knot_start is not None:
         out["walk_step"] = steps(theta_l[:, d.knot_start :])
         # The spacing linear_predictor interpolates the walk with (held-out scores).
         out["walk_knot_months"] = d.walk_months
@@ -1125,6 +1284,7 @@ def make_step(d: Design):
         "unit_drift_scale": d.n_units,
         **d.global_ranks,
         **{k: r * d.n_buildings for k, r in d.local_ranks.items()},
+        **({"walk_scale": d.n_buildings * d.walk_knots} if d.walk_ar else {}),
     }
 
     hier = list(d.scale_names)  # collapsed update covers sigma and every group scale
@@ -1157,7 +1317,7 @@ def make_step(d: Design):
                 keys[2], (d.n_units, 2) if d.unit_drift else (d.n_units,)
             ),
             # The walk knots no row touches (compact designs).
-            jax.random.normal(keys[8], (d.n_buildings, d.n_local - d.knot_start + 1))
+            jax.random.normal(keys[8], (d.n_buildings, d.n_fill))
             if d.buckets
             else None,
         )
@@ -1499,6 +1659,49 @@ def make_step(d: Design):
                 rank[name],
                 d.prior_sd[name],
             )
+        if d.walk_ar:
+            # sd | walk, rho (a Gaussian scale), then log(-log rho) | walk, sd
+            # by random-walk Metropolis. The collapsed updates above move
+            # (sd, rho) with the walk integrated out; these follow the walk.
+            w = theta_l[:, d.knot_start :]
+            new["walk_scale"] = _update_scale(
+                jax.random.fold_in(keys[7], 100),
+                s["walk_scale"],
+                ar_path_quad(w, jnp.exp(-s["walk_decay"])),
+                rank["walk_scale"],
+                d.prior_sd["walk_scale"],
+            )
+            links = d.n_buildings * (d.walk_knots - 1)
+
+            def decay_lp(log_delta):
+                delta = jnp.exp(log_delta)
+                rho = jnp.exp(-delta)
+                return (
+                    -0.5 * links * jnp.log1p(-(rho**2))
+                    - ar_path_quad(w, rho) / (2 * new["walk_scale"] ** 2)
+                    + scale_log_prior("walk_decay", delta, d.prior_sd["walk_decay"])
+                )
+
+            def decay_mh(carry, kk):
+                x, lp, acc = carry
+                k1, k2 = jax.random.split(kk)
+                prop = x + DECAY_STEP_SD * jax.random.normal(k1)
+                lp_new = decay_lp(prop)
+                ok = jnp.log(jax.random.uniform(k2)) < lp_new - lp
+                return (
+                    jnp.where(ok, prop, x),
+                    jnp.where(ok, lp_new, lp),
+                    acc + ok,
+                ), None
+
+            x0 = jnp.log(s["walk_decay"])
+            (x_end, _, acc_d), _ = jax.lax.scan(
+                decay_mh,
+                (x0, decay_lp(x0), 0.0),
+                jax.random.split(jax.random.fold_in(keys[7], 101), DECAY_STEPS),
+            )
+            new["walk_decay"] = jnp.exp(x_end)
+            info["decay_accept"] = acc_d / DECAY_STEPS
 
         info["noise_accept"] = noise_acc / noise_steps
         # Rescaling moves on (scale, effects) ridges: (tau, v) -> (c tau, c v).
@@ -1596,6 +1799,7 @@ START = {
     "trend_scale": 0.02,
     "season_scale": 0.02,
     "walk_scale": 0.03,
+    "walk_decay": 0.05,  # rho about 0.95
     "bedroom_time_scale": 0.01,
     "area_time_scale": 0.01,
     "bedroom_slope_scale": 0.05,
@@ -1760,7 +1964,7 @@ def run(
             )
         solo_sd = {
             n: float(2.38 * sd[hier.index(n)])
-            for n in settings.solo_scales
+            for n in (*settings.solo_scales, *(("walk_decay",) if d.walk_ar else ()))
             if n in hier
         }
         # Size the (log sigma, log nu) random-walk steps from warmup too.

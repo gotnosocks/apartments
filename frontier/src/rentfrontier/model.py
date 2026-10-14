@@ -160,6 +160,16 @@ class ModelConfig:
     # ties the walk scale to them (345628a: walk_scale ESS 346, a building
     # R-hat 1.018).
     walk_anchor_data: bool = False
+    # Stationary AR(1) building deviation in place of the anchored walk, on the
+    # same knots: w(0) ~ N(0, walk_scale^2), w(k) = rho w(k-1) + eta with
+    # eta ~ N(0, walk_scale^2 (1 - rho^2)), and one rho ~ Beta(walk_rho_prior)
+    # for all buildings. walk_scale is then the deviation's stationary sd, so a
+    # building's prior variance stays the same at every knot. Under the anchored walk an
+    # unseen building's variance grows by walk_scale^2 per knot from 2010,
+    # and new-building coverage rose by about 5 pp from 2014-16 to 2024-26
+    # rows (docs/model/newbuilding-clustered-2026-10-13.md).
+    walk_ar: bool = False
+    walk_rho_prior: tuple = (20.0, 1.2)  # 1% to 99%: 0.78 to 0.9988
     # Line ("column") effects within buildings: units stacked vertically ("4C",
     # "7C", "12C") share an effect, so a unit listed once borrows from its
     # line (Ben, 2026-09-25 backlog). Only lines with at least 2 training
@@ -607,7 +617,7 @@ def linear_predictor(p, a: Arrays, include_unit=True):
         + season_term(p, e, a)
         + e["building"][a.building]
     )
-    if "walk_step" in p:
+    if "walk_step" in p or "walk_ar" in p:
         w = e["walk"]
         mu = mu + walk_term(w, a, p.get("walk_knot_months", KNOT_MONTHS))
     if "building_trend" in p:
@@ -671,7 +681,10 @@ def building_trend_term(e, a):
 def _walk(p):
     """Building walks at the knots, 0 at the first knot (or, with
     "walk_anchor", at each building's anchor knot), and 0 for buildings
-    without a walk ("walk_mask")."""
+    without a walk ("walk_mask"). An AR(1) deviation ("walk_ar") holds its
+    knot values as they are."""
+    if "walk_ar" in p:
+        return p["walk_ar"]
     steps = p["walk_step"]
     walk = jnp.concatenate(
         [jnp.zeros((steps.shape[0], 1)), jnp.cumsum(steps, axis=1)], axis=1
@@ -683,6 +696,17 @@ def _walk(p):
     if "walk_mask" in p:
         walk = walk * p["walk_mask"][:, None]
     return walk
+
+
+def ar1_path(z, rho, scale):
+    """Stationary AR(1) paths over knots from standard normals z (rows,
+    knots): w(0) = scale z(0), w(k) = rho w(k-1) + scale sqrt(1 - rho^2) z(k)."""
+    xp = jnp if isinstance(z, jnp.ndarray) else np
+    step = scale * xp.sqrt(1.0 - rho**2)
+    out = [scale * z[:, 0]]
+    for k in range(1, z.shape[1]):
+        out.append(rho * out[-1] + step * z[:, k])
+    return xp.stack(out, axis=1)
 
 
 def effects(p):
@@ -719,8 +743,9 @@ def effects(p):
         "season_scale": p["season_scale"],
         # Building walks (knot values; knot 0 is fixed at 0). Placeholders
         # when the design has no walk keep the effect tree the same shape.
-        "walk": _walk(p) if "walk_step" in p else jnp.zeros((1, 1)),
+        "walk": _walk(p) if "walk_step" in p or "walk_ar" in p else jnp.zeros((1, 1)),
         "walk_scale": p.get("walk_scale", jnp.zeros(())),
+        "walk_rho": p.get("walk_rho", jnp.zeros(())),  # 0 = no AR(1) deviation
         "walk_nu": p.get("walk_nu", jnp.zeros(())),  # 0 = Normal walk steps
         "line": p.get("line", jnp.zeros(1)),
         "line_scale": p.get("line_scale", jnp.zeros(())),
@@ -802,6 +827,17 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         )
     if config.building_walk:
         out["walk_knot_months"] = config.walk_knot_months
+        if config.walk_ar and (
+            config.walk_t
+            or config.walk_zero_sum
+            or config.walk_min_rows_per_knot
+            or config.walk_anchor_data
+            or "walk_levels" in config.coordinates
+        ):
+            raise ValueError(
+                "walk_ar is a Normal AR(1) deviation on every building's knots; "
+                "it takes no t steps, zero-sum, mask, anchor or walk_levels"
+            )
         if config.walk_zero_sum:
             if config.walk_min_rows_per_knot or config.walk_anchor_data:
                 raise ValueError(
@@ -1248,7 +1284,23 @@ def build_model(prep: Prepared, config: ModelConfig):
                     [len(prep.buildings)]
                 ),
             )
-        if config.building_walk and not walk_levels:
+        if config.building_walk and config.walk_ar:
+            p["walk_scale"] = numpyro.sample(
+                "walk_scale", dist.HalfNormal(config.walk_scale_sd)
+            )
+            p["walk_rho"] = numpyro.sample(
+                "walk_rho", dist.Beta(*config.walk_rho_prior)
+            )
+            z = numpyro.sample(
+                "walk_innovation",
+                dist.Normal(0.0, 1.0).expand(
+                    [len(prep.buildings), n_knots(n_months, config.walk_knot_months)]
+                ),
+            )
+            p["walk_ar"] = numpyro.deterministic(
+                "walk_ar", ar1_path(z, p["walk_rho"], p["walk_scale"])
+            )
+        elif config.building_walk and not walk_levels:
             p["walk_scale"] = numpyro.sample(
                 "walk_scale", dist.HalfNormal(config.walk_scale_sd)
             )
@@ -1814,6 +1866,28 @@ MODELS = {
             "log_sqft_vs_bedroom_median",
             "sqft_unknown",
             "bathrooms=2",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # Option C with a stationary AR(1) building deviation in place of the
+    # half-year walk anchored at 0 in 2010 (the building level stays).
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk",
+        building_walk=True,
+        walk_ar=True,
+        bedroom_slope=True,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
         ),
         unit_t=True,
         noise_by_bedrooms=True,

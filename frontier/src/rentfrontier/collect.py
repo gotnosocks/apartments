@@ -32,6 +32,7 @@ SCALARS = (
     "trend_scale",
     "season_scale",
     "walk_scale",
+    "walk_rho",
     "walk_nu",
     "building_trend_scale",
     "line_scale",
