@@ -107,17 +107,21 @@ FEE_LIST = r"\bpet (?:fees?|deposits?),(?! ?\d)|\bpet fees? or deposits? may app
 # "cats are ok, dogs aren't allowed" bans dogs, and `petstext.NO_DOGS` misses
 # the contraction.
 DOGS_BANNED = (
-    r"\bdogs? (?:are )?(?:aren['’]?t|are not|not|never) (?:allowed|permitted|accepted)"
+    r"\bdogs? (?:are )?(?:(?:aren['’]?t )+|are not |not |never )(?:allowed|permitted|accepted)"
     r"|\bno dogs? (?:allowed|permitted|accepted)\b"
 )
 # "pets with landlord's approval" puts pets subject to approval, and
 # `petstext.CASE` misses the possessive.
 PET_APPROVAL = (
-    r"\b(?:pets?|dogs?|cats?)\b[^.]{0,40}\b(?:upon|with|subject to|requires?|needs?)"
-    r" (?:[\w'’]+ ){0,2}approval\b"
+    r"\b(?:pets?|dogs?|cats?)\b[^.]{0,40}\b(?:upon|on|with|subject to|requires?|needs?)"
+    r" (?:[\w'’]+ ){0,2}(?:approval|permission)\b"
 )
-# "no board approval or pets" most likely bans pets, but reads as allowed.
-NO_APPROVAL_OR_PETS = r"\bno (?:board )?approval,? (?:or|nor) (?:pets?|dogs?)\b"
+# "no board approval or pets", "no smoking or pets allowed" and "no other pets
+# allowed" most likely ban pets, but read as allowed.
+NO_APPROVAL_OR_PETS = (
+    r"\bno (?:[\w-]+,? ){1,3}(?:or|nor) (?:pets?|dogs?|animals?)\b"
+    r"|\bno other (?:pets?|dogs?|animals?)\b"
+)
 # "no pet dogs" and "pets: no dogs" ban one kind of pet, and `petstext.NO_PETS`
 # reads them as no pets.
 NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b|\bpets?: ?no (?!pets?\b|animals?\b)[a-z]+"
@@ -138,11 +142,12 @@ def pets(text: pd.Series) -> pd.DataFrame:
         a pet fee in a list of charges (`FEE_LIST`);
       - a no-pets text needs a ban besides "no pet dogs" or "pets: no dogs"
         (`NO_PET_KIND`);
-      - an allowed text saying pets need someone's approval counts as case
+      - an allowed text saying pets need someone's approval or permission counts as case
         by case (`PET_APPROVAL`), and one saying dogs aren't allowed counts
         as no dogs (`DOGS_BANNED`).
     Texts of class "none" or "no_dogs", and texts saying "no board approval
-    or pets" (`NO_APPROVAL_OR_PETS`), get no line."""
+    or pets", "no smoking or pets" or "no other pets" (`NO_APPROVAL_OR_PETS`),
+    get no line."""
     found = petstext.classify(text)
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
     no_pets = text.str.replace(NO_PET_KIND, " ", regex=True).str.contains(
@@ -170,7 +175,7 @@ def pets(text: pd.Series) -> pd.DataFrame:
         (found.eq("allowed") & allowed)
         | (found.eq("no_pets") & no_pets)
         | (found.eq("case_by_case") & case)
-    ) & ~text.str.contains(NO_APPROVAL_OR_PETS, regex=True)
+    ) & ~(found.ne("no_pets") & text.str.contains(NO_APPROVAL_OR_PETS, regex=True))
     evidence = pd.Series(pd.NA, index=text.index, dtype=object)
     for name, pattern in petstext.CLASSES:
         rows = found.eq(name)
