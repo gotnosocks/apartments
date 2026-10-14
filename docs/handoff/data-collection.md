@@ -44,14 +44,14 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   dropping it and restarting was simpler: a restart in place needed a way to close the old
   queue (#715, closed unmerged), and the old modal histories had no unit paths. An offline dry
   run of that restart queued 76,249 pages and skipped 9,212 recent captures, which a fresh run
-  fetches again. The small `downtown-brooklyn-20261013` (131 pages) is still there; deleting it
-  is Ben's call. Ben moved the next crawl to Midtown West (below) at 12:25 ET.
+  fetches again. Ben had the database of the small `downtown-brooklyn-20261013` (131 pages)
+  deleted on Oct 14 at 15:00Z and the rest of its folder at 15:20Z. Ben moved the next crawl to Midtown West (below) at 12:25 ET.
 - **Midtown West: crawl FINISHED** Oct 14 11:09Z (109,765 requests, about $125, no 429s or
   account errors), **dataset BUILT** 12:20Z: see `docs/data/midtown-west-collection.md`. The
   service `apartments-midtown-west-20261013` has exited, and no crawl is running. The snapshot
   matched the crawl database on every row and on the audit. Compaction stripped nothing, since
-  the crawl already stored compact captures. The crawl database (74 GB) now duplicates the
-  snapshot, and deleting it is Ben's call. Paths went to Modeling and Data improvements on
+  the crawl already stored compact captures. Ben had the crawl database (74 GB), which
+  duplicated the snapshot, deleted on Oct 14 at 15:00Z; `bodies/` stays. Paths went to Modeling and Data improvements on
   Oct 14. Data improvements decides how Midtown West joins the analysis dataset.
   - For the next crawl: with 32 workers the crawler fetched 105 to 117 pages a minute, limited
     by the parse work on its main thread and by a pacer that let each slot's lateness carry into
@@ -66,9 +66,10 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
     - #756 (`parse_once.py`) reuses the first `parse_listing` result for the second
       `annotate` call on the same page. On 60 ad pages the two calls went from 0.036 s to
       0.018 s per page with identical policy data.
-    - `/data1/apartments/tmp/mwprof2` holds a 37 GB copy of the crawl database and the
-      profiling scripts (`check_known.py`, `time_known.py`, `check_parse_once.py`). Before
-      the next crawl, time the parse with all three fixes there.
+    - On 30 ad pages run through the spider's parse, the fixes together took main-thread
+      time from 0.21 s to 0.12 s per ad page (Oct 14). The profiling scripts are in
+      `/data1/apartments/tmp/mwprof2-scripts`; they expect a copy of a crawl database, and
+      the 36 GB copy they ran on is deleted.
   - A restart replays every page fetched since the previous start before it sends new
     requests, at about 11 pages a second.
 - **Brooklyn scout** Oct 13 (22 requests): `data/probes/brooklyn-scout-20261013/README.md` has
