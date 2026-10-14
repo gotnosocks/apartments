@@ -284,7 +284,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V8
     ) | data.quarantined(data.QUARANTINE_V9) | data.quarantined(
         data.QUARANTINE_V10
-    ) | data.quarantined(data.QUARANTINE_V12) | data.quarantined(data.QUARANTINE_V13)
+    ) | data.quarantined(data.QUARANTINE_V12) | data.quarantined(
+        data.QUARANTINE_V13
+    ) | data.quarantined(data.QUARANTINE_V14)
 
 
 @pytest.mark.parametrize(
@@ -1079,6 +1081,20 @@ def test_quarantine_v13_adds_two_read_price_screen_hits_to_v12():
         rows = [json.loads(line) for line in f if line.strip()]
     assert len(rows) == 271 and all(r["evidence"] and r["reason"] for r in rows)
     assert "quarantine-v13" in data.DROPPING_RULES
+
+
+def test_quarantine_v14_adds_thirteen_read_shop_rows_to_v13():
+    """v14 is v13's 271 rows and 13 more, all among the 693 screen hits read,
+    each with its evidence and reason."""
+    v13 = data.quarantined(data.QUARANTINE_V13)
+    v14 = data.quarantined(data.QUARANTINE_V14)
+    assert v13 < v14 and len(v14 - v13) == 13
+    read = set(data.QUARANTINE_V14_READ.read_text().split())
+    assert len(read) == 693 and v14 - v13 <= read
+    with open(data.QUARANTINE_V14) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    assert len(rows) == 284 and all(r["evidence"] and r["reason"] for r in rows)
+    assert "quarantine-v14" in data.DROPPING_RULES
 
 
 def test_latest_ask_v2_prices_rows_from_the_file(monkeypatch, tmp_path):
