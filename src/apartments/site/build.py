@@ -41,7 +41,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import ad_dates, captures, estimate_build, exposure
+from . import ad_dates, captures, estimate_build, exposure, wings
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -460,11 +460,13 @@ def building_rows(effects, listings, units, registry, pluto) -> list[dict]:
     for unit in units:
         unit_count[unit["building_id"]] = unit_count.get(unit["building_id"], 0) + 1
     effect = {e["building"]: e for e in effects}
+    wing_names = wings.names(by_building)
     out = []
     for slug, rows in by_building.items():
         reg = located.get(slug, {})
         lot = lots.get(str(reg.get("bbl")), {}) if reg.get("bbl") else {}
         name, address = building_names(slug, title_address(reg.get("label")))
+        name = wing_names.get(slug, name)
         e = effect.get(slug, {})
         periods = sorted(r["period"] for r in rows)
         display = name or address
