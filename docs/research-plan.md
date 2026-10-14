@@ -8,6 +8,28 @@ contract and pitfalls in [the 2026-09-24 brief](brief-2026-09-24.md) and the
 [project intent](project-intent.md) still apply. This plan replaces the brief's evaluation contract
 (§4) and first tasks (§5).
 
+## Latest-ask refit and retests (Ben, 2026-10-14)
+
+At 09:21Z on 2026-10-14 Ben asked for the latest-ask change to be followed through, with no refit
+for negligible data changes. At 09:37Z he gave a standing approval for fits under the $10/day
+budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-finalask-v1`.
+
+1. After #730 and the same-target autoselect guard (#733) merge, the C queue refits C on Modal with
+   `latest-ask-v2` and `quarantine-v13` in place of `quarantine-v12`. Its predictions are in
+   [predictions-latestask-v2-2026-10-14.md](model/predictions-latestask-v2-2026-10-14.md), and
+   the new-building score runs as its post-fit step.
+2. Before autoselect switches to it, I check that it passed the gate. I also compare it with the
+   served C on the same held-out rows against the new prices, by median miss, 80/95 coverage and
+   the new-building score. The switch report gives those numbers, and Website hears about it.
+3. Retests on the new C follow, one at a time, each with a recorded prediction, paired PSIS-LOO and
+   the new-building score:
+   - lines, reported to Ben before any switch;
+   - areatime, once, on a new seed. It's served only if it wins clearly under the clustered tie
+     rule, and its report gives its new-building score and descriptive share.
+4. bigbed is retired. elevfill and petsfill wait for Ben. nofloorslope and lognoise lost clearly,
+   and amenlevel reads rent and reached only 1.3 SE on the leak-free split, so none of the three is
+   retested. The held sets with no run yet (lister, retail, noise, trees, crime, hpd) stay held.
+
 ## Held fits (Ben, 2026-10-13)
 
 On 2026-10-13 at 03:16Z Ben said to run or enqueue nothing beyond his three requests (the new-building
