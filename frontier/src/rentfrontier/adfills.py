@@ -90,6 +90,13 @@ CASE_PETS = (
 # `petstext.ALLOWED` reads it as pets allowed, so an allowed class needs
 # other words.
 NO_PET_FEE = r"\bno pet (?:fees?|deposits?|rent)\b"
+# A pet fee in a list of possible charges with no amount ("late fees, pet fees,
+# insufficient funds", "pet fees or deposits may apply") is boilerplate, and
+# says nothing about this building's pets either. A pet fee with its amount
+# ("pet fee: $25 per pet") stays.
+FEE_LIST = r"\bpet (?:fees?|deposits?),(?! ?\d)|\bpet fees? or deposits? may apply"
+# "no board approval or pets" most likely bans pets, but reads as allowed.
+NO_APPROVAL_OR_PETS = r"\bno (?:board )?approval,? (?:or|nor) (?:pets?|dogs?)\b"
 # "no pet dogs" and "pets: no dogs" ban one kind of pet, and `petstext.NO_PETS`
 # reads them as no pets.
 NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b|\bpets?: ?no (?!pets?\b|animals?\b)[a-z]+"
@@ -106,17 +113,21 @@ def pets(text: pd.Series) -> pd.DataFrame:
         (`CASE_PETS`), once approval of the application is set aside
         (`APPLICATION_APPROVAL`); failing that it counts as allowed when it
         says so, and otherwise gets no line;
-      - an allowed text needs words besides "no pet fees" (`NO_PET_FEE`);
+      - an allowed text needs words besides "no pet fees" (`NO_PET_FEE`) or
+        a pet fee in a list of charges (`FEE_LIST`);
       - a no-pets text needs a ban besides "no pet dogs" or "pets: no dogs"
         (`NO_PET_KIND`).
-    Texts of class "none" or "no_dogs" get no line."""
+    Texts of class "none" or "no_dogs", and texts saying "no board approval
+    or pets" (`NO_APPROVAL_OR_PETS`), get no line."""
     found = petstext.classify(text)
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
     no_pets = text.str.replace(NO_PET_KIND, " ", regex=True).str.contains(
         petstext.NO_PETS, regex=True
     )
-    allowed = text.str.replace(NO_PET_FEE, " ", regex=True).str.contains(
-        petstext.ALLOWED, regex=True
+    allowed = (
+        text.str.replace(NO_PET_FEE, " ", regex=True)
+        .str.replace(FEE_LIST, " ", regex=True)
+        .str.contains(petstext.ALLOWED, regex=True)
     )
     case = text.str.replace(APPLICATION_APPROVAL, " ", regex=True).str.contains(
         CASE_PETS, regex=True
@@ -126,7 +137,7 @@ def pets(text: pd.Series) -> pd.DataFrame:
         (found.eq("allowed") & allowed)
         | (found.eq("no_pets") & no_pets)
         | (found.eq("case_by_case") & case)
-    )
+    ) & ~text.str.contains(NO_APPROVAL_OR_PETS, regex=True)
     evidence = pd.Series(pd.NA, index=text.index, dtype=object)
     for name, pattern in petstext.CLASSES:
         rows = found.eq(name)

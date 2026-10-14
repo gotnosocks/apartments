@@ -1458,6 +1458,10 @@ def test_adfills_pets_writes_existing_codes_only():
             "Pets: no dogs. Cats are permitted.",
             "No board approval, pets ok.",
             "Pets: no.",
+            "Fees may include parking, amenities, late fees, pet fees, insufficient funds.",
+            "Pet fees or deposits may apply.",
+            "Pet fee: $25 per pet per month.",
+            "No board approval or pets.",
         ]
     )
     out = adfills.pets(text)
@@ -1469,5 +1473,6 @@ def test_adfills_pets_writes_existing_codes_only():
         10: "allowed_restrictions_unknown",
         12: "allowed_restrictions_unknown",
         13: "not_allowed",
+        16: "allowed_restrictions_unknown",
     }
     assert out.evidence.notna().all()
