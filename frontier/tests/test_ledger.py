@@ -109,3 +109,15 @@ def test_verdict_override_and_rule_table(tmp_path, monkeypatch):
         in text
     )
     assert "## Paired by hand" not in ledger.markdown(out, "d")
+
+
+def test_a_pair_on_two_price_targets_shows_other_target(tmp_path, monkeypatch):
+    runs = loo((M, "nb3-lines-v1"), (M, "nb3-coded-v2"))
+    for name in runs:
+        (tmp_path / name).mkdir()
+        rules = ["latest-ask-v2"] if "lines" in name else []
+        (tmp_path / name / "result.json").write_text(json.dumps({"data_rules": rules}))
+    monkeypatch.setattr(ledger.leaderboard, "RUNS", tmp_path)
+    out = ledger.rows(runs, {}, "d", lambda a, b: (100.0, 10.0, 0.0))
+    assert out[0]["diff"] is None and out[0]["verdict"] == "other target"
+    assert "| other target | other target |" in ledger.markdown(out, "d")

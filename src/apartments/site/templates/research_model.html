@@ -85,8 +85,10 @@ target hardware within the fit-time window, the most accurate. When several are 
     {% for e in runners_up %}
       {% set v = e.vs_served %}
       <tr><td>{% set label = design_label(e) %}<a href="{{ url_for('research_fit', key=e.key) }}">{% if label %}{{ label }}{% else %}<code>{{ e.key }}</code>{% endif %}</a>{% if label %}<span class="muted block"><code>{{ e.key }}</code></span>{% endif %}</td>
-        <td class="num nowrap">{{ "{:+,.1f}".format(v.delta) }} ± {{ "{:,.1f}".format(v.pm if v.pm is number else v.se) }}</td>
-        <td>{% if v.tie %}a tie{% elif v.delta > 0 %}better{% else %}worse{% endif %}</td>
+        {% if v.other_target %}<td class="num nowrap">other target</td>
+        <td>models the {{ v.other_target }}, so not compared</td>
+        {% else %}<td class="num nowrap">{{ "{:+,.1f}".format(v.delta) }} ± {{ "{:,.1f}".format(v.pm if v.pm is number else v.se) }}</td>
+        <td>{% if v.tie %}a tie{% elif v.delta > 0 %}better{% else %}worse{% endif %}</td>{% endif %}
         <td class="num nowrap">{{ "%.0f" | format(e.fit_seconds / 60) }} min</td>
         <td>{% if e.why_not_served %}no: {{ e.why_not_served }}{% else %}yes{% endif %}</td></tr>
     {% endfor %}
@@ -102,7 +104,9 @@ target hardware within the fit-time window, the most accurate. When several are 
   <h2>On the board</h2>
   <p class="note">How this fit scores on the research board, where every fit is compared on the same listings.</p>
   <dl class="facts wide">
-    {% if entry.psis and entry.psis.delta is number %}
+    {% if entry.other_target %}
+    <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>not compared: the fit models the {{ entry.other_target }}, and the baseline models the first ask.</dd>
+    {% elif entry.psis and entry.psis.delta is number %}
     <dt>Accuracy (PSIS-LOO ΔELPD)</dt><dd>{{ "{:+,.1f}".format(entry.psis.delta) }}{% if entry.psis.delta_se is number %} ± {{ "{:,.1f}".format(entry.psis.delta_se) }}{% endif %} over the
       baseline{% if baseline %} <code>{{ baseline }}</code>{% endif %}: how much better it predicts each listing's ask from all the other
       listings, in log-likelihood units summed over the listings; higher is better.</dd>

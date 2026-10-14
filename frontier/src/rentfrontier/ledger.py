@@ -85,16 +85,20 @@ def verdict(diff: float, se: float) -> str:
 def rows(loo: dict, notes: dict, current: str, paired=leaderboard.paired_loo):
     out = []
     for change, test, ref in pairs(loo):
-        try:
-            diff, se, mcse = paired(test["_dir"], ref["_dir"])
-        except ValueError:  # rows differ beyond the data rules: not one change
-            continue
-        se = leaderboard.tie_tolerance(se, mcse) / 2
         run = run_record(test["source_run"])
         dataset = Path(run.get("dataset", "")).name
         note = notes.get(change, {})
-        v = verdict(diff, se)
-        if change in features.READS_EARLIER_RENTS:
+        if leaderboard.same_target(run, run_record(ref["source_run"])):
+            try:
+                diff, se, mcse = paired(test["_dir"], ref["_dir"])
+            except ValueError:  # rows differ beyond the data rules: not one change
+                continue
+            se = leaderboard.tie_tolerance(se, mcse) / 2
+            v = verdict(diff, se)
+        else:
+            diff = se = None
+            v = "other target"
+        if change in features.READS_EARLIER_RENTS and diff is not None:
             v = "PSIS-LOO leaks; judged on the latest split"
         v = note.get("verdict", v)
         retest = ""
@@ -124,6 +128,12 @@ def rows(loo: dict, notes: dict, current: str, paired=leaderboard.paired_loo):
     return sorted(out, key=lambda r: (r["date"], r["test"]), reverse=True)
 
 
+def _score(e: dict) -> str:
+    if e["diff"] is None:
+        return "other target"
+    return f"{e['diff']:+,.1f} ± {e['se']:,.1f}"
+
+
 def _code(name: str | None) -> str:
     return f"`{name}`" if name else ""
 
@@ -150,7 +160,7 @@ def markdown(entries: list[dict], current: str, hand: list[dict] = ()) -> str:
         pr = f"#{e['pr']}" if e["pr"] else ""
         lines.append(
             f"| {e['date']} | `{e['change']}` | {e['about']} | {e['kind']} "
-            f"| {e['diff']:+,.1f} ± {e['se']:,.1f} | {e['verdict']} | {e['retest']} "
+            f"| {_score(e)} | {e['verdict']} | {e['retest']} "
             f"| {e['dataset']} ({e['rows'] or 0:,}) | {pr} | `{e['test']}` | `{e['reference']}` |"
         )
     if hand:

@@ -82,3 +82,43 @@ def test_only_eligible_wording_only_for_the_served_fit(site_root, research_file)
         .get("/research/model")
     )
     assert "only fit eligible" not in html.get_data(as_text=True)
+
+
+def test_a_runner_up_on_another_price_target_shows_no_difference(
+    site_root, research_file
+):
+    data = json.loads(research_file.read_text())
+    data["vs_served_run"] = "m-test-run"
+    other = next(e for e in data["entries"] if e["id"] == "m-other")
+    other["vs_served"] = {"delta": 12.0, "se": 4.0, "mcse": 1.0, "pm": 4.1}
+    failing = next(e for e in data["entries"] if e["id"] == "m-failing")
+    failing["vs_served"] = {"other_target": "latest ask"}
+    research_file.write_text(json.dumps(data))
+    html = " ".join(
+        create_app(site_root, research_data=research_file)
+        .test_client()
+        .get("/research/model")
+        .get_data(as_text=True)
+        .split()
+    )
+    assert html.index("+12.0 ± 4.1") < html.index("other target")
+    assert "models the latest ask, so not compared" in html
+
+
+def test_board_and_fit_pages_show_other_target_for_its_baseline_delta(
+    site_root, research_file
+):
+    data = json.loads(research_file.read_text())
+    other = next(e for e in data["entries"] if e["id"] == "m-other")
+    other["other_target"] = "latest ask"
+    other["psis"]["delta"] = 4321.0
+    research_file.write_text(json.dumps(data))
+    client = create_app(site_root, research_data=research_file).test_client()
+    board = client.get("/research/board").get_data(as_text=True)
+    fit = client.get("/research/fits/m-other").get_data(as_text=True)
+    for html in (board, fit):
+        assert "other target" in html and "4,321" not in html
+    assert "it models the latest ask" in fit
+    # The frontier charts leave it off; its table row says "other target".
+    frontier = client.get("/research").get_data(as_text=True)
+    assert "4321" not in frontier and "4,321" not in frontier

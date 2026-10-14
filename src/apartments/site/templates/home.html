@@ -55,7 +55,7 @@
       (<a href="{{ url_for('research_model', _anchor='structure') }}">how it works</a>)</dd>
     {% if entry and entry.psis %}
     {# Plain words first (playtest round 4: renters met "PSIS-LOO ΔELPD" on the home page). #}
-    <dt>Accuracy</dt><dd>{% if entry.psis.delta > 2 * entry.psis.delta_se %}Predicts asks it has not seen better than the simplest
+    <dt>Accuracy</dt><dd>{% if entry.other_target %}It predicts the {{ entry.other_target }} and the simplest baseline predicts first asks, so the two are not compared{% elif entry.psis.delta > 2 * entry.psis.delta_se %}Predicts asks it has not seen better than the simplest
       baseline{% else %}Not clearly better than the simplest baseline at predicting asks it has not seen{% endif %}</dd>
     {% endif %}
     {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ chosen_by(selection.selected_by) }}</dd>{% endif %}
@@ -64,7 +64,7 @@
   <summary>Technical details</summary>
   <dl class="facts">
     <dt>Technical name</dt><dd><code>{{ p.model.name }}</code> + <code>{{ p.feature_set }}</code></dd>
-    {% if entry and entry.psis %}<dt>Score</dt><dd>{{ "{:+,.0f}".format(entry.psis.delta) }} ± {{ "{:,.0f}".format(entry.psis.delta_se) }} in a log-score
+    {% if entry and entry.psis and not entry.other_target %}<dt>Score</dt><dd>{{ "{:+,.0f}".format(entry.psis.delta) }} ± {{ "{:,.0f}".format(entry.psis.delta_se) }} in a log-score
       summed over listings (<a href="{{ url_for('research_glossary', _anchor='delta-elpd') }}">PSIS-LOO ΔELPD</a>; higher is better)</dd>{% endif %}
     <dt>Fit time</dt><dd>{{ (p.fit_seconds / 60) | round(1) }} minutes on {{ p.fit_hardware }}</dd>
   </dl>
