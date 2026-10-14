@@ -3,6 +3,19 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 09:40 UTC): data first, then refit
+
+- Ben's rule (09:04Z): when a fit shows a problem, look for and fix a data issue first, and patch
+  the model only after that.
+- Ben stopped the AR(1) retry at 08:58Z. At 09:01Z he asked for the $1,000 row at 15 E 17th St #4
+  (the cause of the unit R-hat failure) to be fixed first, then a refit.
+- The trace is in `/data1/apartments/tmp/arwalk/prov/findings.md`, sent to the coordinator for Data
+  improvements. It found three rent-blind mechanisms: same-day price corrections, a current price
+  missing from the event history, and same-day delists. Data improvements writes the rule.
+- When the rule merges, refit C and arwalk under it (launch2.sh holds C's settings; launch3.sh,
+  the longer chain, is not approved) once the coordinator or Ben clears Modal launches.
+- The hold on autoselect, serving and publishing from 03:16Z on 2026-10-13 still stands.
+
 ## Update (2026-10-14 03:45 UTC): AR(1) sampler fix merged, retry held
 
 PR #726 (faab7d5) replaces the collapsed solo updates on sd and rho with updates along the
