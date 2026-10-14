@@ -820,6 +820,10 @@ DATA_RULE_TEXT = {
     "quarantine-v19": "quarantine-v18 and 51 rows from the first ad-fit reads: "
     "32 short stays or summer sublets, seven asks priced for a short lease only, "
     "seven rooms with a shared bath or kitchen, and five ads for another address.",
+    "quarantine-v20": "quarantine-v19 and 59 rows from the second ad-fit reads: "
+    "15 short stays or furnished travel rentals, 14 ads for another address, "
+    "14 rooms or live/work spaces, 10 stores, offices or bars, and six asks "
+    "that hold only for a short first term or vary with the length of the stay.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
