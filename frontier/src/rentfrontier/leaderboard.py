@@ -23,7 +23,8 @@ changes a score, the ranking or the frontier: those use the recorded runs.
 Primary score (since 2026-09-24): integrated PSIS-LOO over the row split's
 training rows (77,904 on Chelsea + West Village; 47,374 on Chelsea) (`rentfrontier.loo`), paired row by row against the
 baseline entry (BASELINE). Its uncertainty combines the paired standard error
-with both runs' Monte Carlo errors. Held-out dELPD against the promoted PyMC
+with both runs' Monte Carlo errors. The paired SE is the larger of the iid SE
+and the SE clustered by tax lot (`paired_se`, from 2026-10-14). Held-out dELPD against the promoted PyMC
 model (5,264 row-split held-out rows) and the unit split are validation and
 secondary columns. Every paired score leaves out the rows the data rules
 quarantine (`data.dropped_rows`), for every entry, so all entries are scored on
@@ -56,6 +57,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from . import data, elegance, features
 from .run import REFERENCES, git
@@ -308,7 +310,45 @@ def _paired_loo(a_dir, a_mtime, b_dir, b_mtime, dropped):
     ib = np.array([bi[k] for k in keys])
     d = a["elpd_loo"][ia] - b["elpd_loo"][ib]
     mc = math.sqrt(float(np.sum(a["mcse"][ia] ** 2) + np.sum(b["mcse"][ib] ** 2)))
-    return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d))), mc
+    return float(d.sum()), paired_se(d, keys), mc
+
+
+@functools.lru_cache(maxsize=1)
+def _row_lots():
+    """audit_id -> an integer code for the row's tax lot, over the current
+    dataset's rows (`clusterse.row_clusters`: a building with no lot is its own
+    lot), or None where the dataset or the lot registry is not on disk."""
+    from . import clusterse  # clusterse imports this module
+
+    try:
+        lots = clusterse.row_clusters().lot
+    except FileNotFoundError:
+        return None
+    return pd.Series(pd.factorize(lots)[0], index=lots.index)
+
+
+def paired_se(d, keys) -> float:
+    """SE of sum(d) over the rows `keys`: the larger of the iid SE and the SE
+    clustered by tax lot. Rows of a lot share its building's terms, so their
+    differences move together, and on NB8 fits the lot SE runs about 1.4 to 4.0
+    times the iid one (`clusterse`). A row the dataset doesn't have is its own
+    cluster, and with no lot registry on disk the SE is the iid one."""
+    d = np.asarray(d, float)
+    iid = float(d.std(ddof=1) * math.sqrt(len(d)))
+    lots = _row_lots()
+    if lots is None or len(d) < 2:
+        return iid
+    g = np.array(lots.reindex(keys), dtype=float)
+    missing = np.isnan(g)
+    g[missing] = len(lots) + np.arange(missing.sum())
+    _, g = np.unique(g, return_inverse=True)
+    sums = np.bincount(g, weights=d)
+    if len(sums) < 2:
+        return iid
+    lot = math.sqrt(
+        len(sums) / (len(sums) - 1) * float(np.sum((sums - sums.mean()) ** 2))
+    )
+    return max(iid, lot)
 
 
 # Runs from before the --tier flag whose label starts "x-" were exploration fits.
@@ -430,8 +470,9 @@ def design_key(r):
 
 
 def paired(a_dir: Path, b_dir: Path):
-    """Paired sum and SE of lpd differences a - b on the held-out rows both
-    keep (`shared_rows`: any other difference in row sets is refused)."""
+    """Paired sum and SE (`paired_se`) of lpd differences a - b on the
+    held-out rows both keep (`shared_rows`: any other difference in row sets is
+    refused)."""
     a = np.load(a_dir / "heldout.npz", allow_pickle=True)
     b = np.load(b_dir / "heldout.npz", allow_pickle=True)
     for x, folder in ((a, a_dir), (b, b_dir)):
@@ -439,8 +480,9 @@ def paired(a_dir: Path, b_dir: Path):
             raise ValueError(f"Duplicate held-out audit IDs in {folder.name}")
     al = dict(zip(a["audit_id"].tolist(), a["lpd"]))
     bl = dict(zip(b["audit_id"].tolist(), b["lpd"]))
-    d = np.array([al[k] - bl[k] for k in shared_rows(al, bl, "Held-out", a_dir, b_dir)])
-    return float(d.sum()), float(d.std(ddof=1) * math.sqrt(len(d)))
+    keys = shared_rows(al, bl, "Held-out", a_dir, b_dir)
+    d = np.array([al[k] - bl[k] for k in keys])
+    return float(d.sum()), paired_se(d, keys)
 
 
 def vs_reference(run_dir: Path, ref_path: Path) -> dict:

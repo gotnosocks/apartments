@@ -32,6 +32,25 @@ budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-final
    - amenlevel uses rent as an input and gained only 1.3 SE on the leak-free split.
 
    The held sets with no run yet stay held. They are lister, retail, noise, trees, crime and hpd.
+5. The refit (`...-rows-bcaac064-...q13ad3la2`) failed the gate on group R-hat 1.283. Every unit
+   over 1.05 is in the-west-coast. In the two chains, its level, bedroom slope and floor slopes
+   moved one way and its units the other. Data improvements found the building to be one tax lot
+   with two structures (BBL 1006430001), with no record of which unit is in which structure. Its
+   3-digit labels run to floor 7, and its floor-and-letter labels to floor 10. As a test, under
+   the option chosen at 10:38Z, I fit C on `tune-westcoast-split-v1` (#745). That rule moves
+   the floor-and-letter labels to 97-horatio-street-new_york, so the-west-coast keeps 328 rows
+   and 156 units and 97 Horatio gains 141 rows and 70 units. The other rules are the refit's.
+   The fit is unserved. My predictions, written before launch:
+   - The gate passes. The max group R-hat falls to 1.02 to 1.06, and neither building has a unit
+     over 1.05. I give the gate a 60% chance: 84 of the lot's units (both buildings after the split) still have a single row.
+   - Paired PSIS-LOO against the refit: 0 to +30, a tie within 2 SE.
+   - Held-out miss and 80/95 coverage against the new prices are within 0.02 pp and 0.3 points of
+     the refit's. The split moves under 1% of the held-out rows.
+   - New-building score: miss 11.8 to 12.3%, coverage 90.0 to 90.8 / 97.8 to 98.3, as the refit's
+     12.0% and 90.4 / 98.0.
+
+   If it passes, the split becomes a candidate for a real rule. I'd report it to Ben before any
+   rule or serving change.
 
 ## Held fits (Ben, 2026-10-13)
 
@@ -400,7 +419,8 @@ You do not need my approval to change the dashboard model."
     (`latestselect`) applies the same test to its candidate, its reference and the fit to serve.
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
-  - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
+  - Take the top PSIS-LOO, and the fits tied with it within two combined SE. The paired SE is
+    the larger of the iid SE and the SE clustered by tax lot (from 2026-10-14, `leaderboard.paired_se`).
   - Among those, take the most elegant by the recorded judgements: fits are ordered by how many
     other tied fits are judged more elegant than them, fewest first (from 2026-10-01; before that, the
     fastest). A cycle of judgements leaves its fits level.

@@ -306,8 +306,9 @@ def score_run(name: str):
         "unit_prior": "student-t" if t_units else "normal",
         "elpd_loo": float(elpd.sum()),
         "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(len(elpd))),
-        # Report-only: the SE with rows of a building, or of a tax lot,
-        # moving together (`clusterse`); the board keeps the iid SE.
+        # The SE with rows of a building, or of a tax lot, moving together
+        # (`clusterse`). The board pairs runs and clusters the paired
+        # differences itself (`leaderboard.paired_se`).
         "elpd_loo_se_building": clusterse.cluster_se(elpd, buildings),
         "elpd_loo_se_lot": clusterse.lot_se(elpd, buildings),
         "elpd_loo_mcse": float(math.sqrt(np.sum(mcse**2))),

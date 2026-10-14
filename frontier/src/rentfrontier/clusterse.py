@@ -8,9 +8,10 @@
 Rows of a building share its terms, so their score differences move
 together, and an SE that treats them as independent understates the noise of
 a paired difference. Each command reports the SE of a sum three ways: over
-rows (the board's), over buildings and over tax lots (buildings of a lot go
-together; a building with no lot is its own lot). All of it is report-only:
-the board's tie tolerance keeps the iid SE.
+rows, over buildings and over tax lots (buildings of a lot go together; a
+building with no lot is its own lot). The board's paired SE takes the larger
+of the iid and the lot SE (`leaderboard.paired_se`, from 2026-10-14); the
+building SE is report-only.
 
 loo     Paired PSIS-LOO, BASE minus each OTHER, on the rows both keep (as
         `leaderboard.paired_loo`), from the LOO records' directory names. The

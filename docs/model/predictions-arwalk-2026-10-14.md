@@ -171,3 +171,75 @@ arwalk refit against the C refit:
 
 The arwalk refit misses if it fails any part of the gate, ESS included, if PSIS-LOO does not win by 2 SE, or if the year gap
 reaches 3 pp.
+
+## Fixed-rho refit within the cap (2026-10-14T10:20Z, before the fit)
+
+At 09:57Z Ben capped every fit at about 1 hour or about $2 of Modal, which rules out the longer
+chains above. The first fit's slow mixing came from the ridge between sd and rho, so this
+variant holds rho fixed and samples only sd and the building scale, along with everything
+else in C:
+
+- model `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-arwalk-fixedrho`
+  (`walk_ar_rho=0.89`), with no axis updates and no Metropolis steps on rho;
+- C's settings: 2 chains, warmup 300, 4,500 draws kept every 9th;
+- C's rules with `latest-ask-v2` and `quarantine-v13` in place of `quarantine-v12`, scored against
+  the C refit `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-nb8-nostuy-v1-rows-bcaac064-a100-4500k9cb1-nb8-ul15r1s4q13ad3la2`.
+
+The value 0.89 is the posterior median from the first arwalk fit, which priced rows at the first
+ask before #730. The refit prices rows at the latest ask, so the best rho may have moved a
+little. This fit cannot show that, since it does not sample rho.
+
+The first arwalk fit at the same settings took 2,156 s to fit and 371 s for PSIS-LOO and cost
+$2.00. With rho fixed, I expect 40 to 48 minutes in all and about $2, within the cap.
+
+Predictions against the C refit, medians with 80% intervals. Those for PSIS-LOO and the year gap
+are the AR(1) medians from the corrected-data block above, with the intervals widened by about 10%
+for the fixed rho:
+
+1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
+2. Year gap: +1.5 pp (0.75 to 2.25).
+3. Building-weighted new-building lpd: +65 (+30 to +100) nats.
+4. sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
+5. The fit passes the gate (max split R-hat below 1.01, min bulk ESS of at least 400, group
+   R-hat below 1.05): 80-85% likely. Without the rho ridge, sd should mix like C's walk scale,
+   which passed at these settings.
+6. Descriptive share within 0.4 pp of the C refit's (80% likely).
+
+The fit misses if it fails any part of the gate, if PSIS-LOO does not win by 2 SE, or if the
+year gap reaches 3 pp. I will record any miss as a miss.
+
+By the time I opened this PR the C refit had finished. It fails the gate on group R-hat alone: max
+split R-hat 1.007 and min ESS 518 pass, while 128 unit effects in one building, the West Coast,
+reach 1.28, with the building's level at 1.10. If the fixed-rho fit passes the gate and the C
+refit does not, the paired scores still hold as comparisons, but the C refit cannot serve as a
+converged baseline until that building mixes. Against my C-refit predictions above:
+
+- median miss 11.95% against 11.7% (11.4-12.0), a hit;
+- row 80/95 coverage 90.4/98.0 against 90.5/98.1, a hit;
+- passes the gate (90% likely), a miss.
+
+Since then, master has gained `tune-westcoast-split-v1` (#745), and Modeling has queued a C fit on it
+(prediction in #747). If Modeling launches the fixed-rho fit with that rule as well, I score it
+against that C fit and not against the C refit, so the two stay paired on the same rules. The
+predictions above stay as written.
+
+## Fixed-rho fit on the West Coast split (2026-10-14T11:14Z, before any fit)
+
+The coordinator's plan changed at 11:14Z. The fixed-rho fit waits on Ben's answer. If he agrees, it
+runs once, on `tune-westcoast-split-v1` (#745) in addition to `latest-ask-v2` and
+`quarantine-v13`, and only after Modeling's C fit on the split passes the gate. It is scored
+against that split C, so the pair has a converged reference. The run on `latest-ask-v2` and
+`quarantine-v13` alone is dropped, since the C refit it would pair with fails the gate.
+
+The split moves the labels of one tax lot, so I keep the medians and intervals from the block
+above, now against the split C:
+
+1. Paired PSIS-LOO: +350 (+185 to +515) nats, a win by more than 2 lot-clustered SEs.
+2. Year gap: +1.5 pp (0.75 to 2.25).
+3. Building-weighted new-building lpd: +65 (+30 to +100) nats.
+4. sd 0.077 (0.070-0.085); building_scale 0.157 (0.145-0.170).
+5. The fit passes the gate: 80-85% likely.
+6. Descriptive share within 0.4 pp of the split C's (80% likely).
+
+The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
+year gap of 3 pp or more.
