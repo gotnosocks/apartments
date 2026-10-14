@@ -51,7 +51,9 @@ def _problems_latest(r: dict, rules) -> list[str]:
         out.append("fails the convergence gate")
     if Path(r["dataset"]).resolve() != Path(data.DATASET).resolve():
         out.append("not on the current dataset")
-    if frozenset(r.get("data_rules", ())) != rules:
+    if frozenset(r.get("data_rules", ())) != rules and not autoselect.negligible(
+        r, rules
+    ):
         out.append("not on the current data rules")
     out += _rules_reapply(r)
     return out
@@ -103,7 +105,9 @@ def decide(
         problems["serve"].append("not on the rows split")
     if Path(s["dataset"]).resolve() != Path(data.DATASET).resolve():
         problems["serve"].append("not on the current dataset")
-    if frozenset(s.get("data_rules", ())) != rules:
+    if frozenset(s.get("data_rules", ())) != rules and not autoselect.negligible(
+        s, rules
+    ):
         problems["serve"].append("not on the current data rules")
     problems["serve"] += _rules_reapply(s)
     board = leaderboard.build(keep_dirs=True)

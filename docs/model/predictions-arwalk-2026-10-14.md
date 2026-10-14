@@ -217,3 +217,8 @@ converged baseline until that building mixes. Against my C-refit predictions abo
 - median miss 11.95% against 11.7% (11.4-12.0), a hit;
 - row 80/95 coverage 90.4/98.0 against 90.5/98.1, a hit;
 - passes the gate (90% likely), a miss.
+
+Since then, master has gained `tune-westcoast-split-v1` (#745), and Modeling has queued a C fit on it
+(prediction in #747). If Modeling launches the fixed-rho fit with that rule as well, I score it
+against that C fit and not against the C refit, so the two stay paired on the same rules. The
+predictions above stay as written.

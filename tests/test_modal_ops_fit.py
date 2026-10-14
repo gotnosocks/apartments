@@ -32,7 +32,7 @@ def test_a_fit_waits_for_its_dollars_and_an_overrun_leaves_the_balance_negative(
     usd = cap.estimate(*cap.SERVED_FIT)
     # The time the balance takes to accrue one served fit's estimate.
     per_fit = datetime.timedelta(days=usd / cap.RATES[0][1])
-    t0 = cap.START + per_fit
+    t0 = cap.START + per_fit + datetime.timedelta(seconds=1)  # past float rounding
     launch, left = cap.reserve("run-0", "A100-40GB", usd, ledger, t0)
     assert left == pytest.approx(0, abs=0.01)
     with pytest.raises(cap.CapReached):  # spent: the next fit waits for its estimate
@@ -420,3 +420,105 @@ def test_scoring_an_existing_run_uses_the_dataset_it_was_fit_on(tmp_path, monkey
     assert spec["dataset"] == str(tmp_path / "ds")
     assert spec["inputs"][0] == str(tmp_path / "ds")
     assert spec["newbuilding_args"] == ["--holdout"]
+
+
+def test_a_c_sized_fit_is_under_the_per_fit_cap(tmp_path):
+    usd, secs = cap.estimate(*cap.SERVED_FIT), cap.seconds(*cap.SERVED_FIT)
+    assert (usd, secs) == (2.03, 3056)
+    assert cap.over_cap(usd, secs) is None
+    day = cap.START + datetime.timedelta(days=7)
+    cap.reserve("c", "A100-40GB", usd, tmp_path / "ledger.jsonl", day, secs=secs)
+
+
+def test_a_fit_over_an_hour_is_refused_whatever_the_balance(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    secs = cap.seconds(2, 300, 24000)  # the 24,000-draw AR(1) walk plan
+    assert secs > cap.PER_FIT_SECONDS
+    assert "over the per-fit cap of 60 min" in cap.over_cap(1.0, secs)
+    day = cap.START + datetime.timedelta(days=7)
+    with pytest.raises(cap.CapReached, match="refused: .*per-fit cap"):
+        cap.reserve("ar", "A100-40GB", 1.0, ledger, day, secs=secs)
+    assert not ledger.exists()  # nothing charged
+    assert cap.over_cap(1.0, cap.PER_FIT_SECONDS) is None  # strictly over
+
+
+def test_the_dollar_half_of_the_cap_waits_on_ben(monkeypatch):
+    assert cap.PER_FIT_USD is None
+    assert cap.over_cap(9.99, 600) is None
+    monkeypatch.setattr(cap, "PER_FIT_USD", 2.00)
+    assert "$2.17 estimate is over the per-fit cap of $2.00" in cap.over_cap(2.17, 600)
+    assert cap.over_cap(2.00, 600) is None
+
+
+@pytest.mark.parametrize(
+    ("argv", "code"),
+    [
+        (["--check", "2", "300", "24000"], 2),
+        (["--check-launch", "abc", "lab", "m7", "nb8", "2", "300", "24000", "9"], 2),
+    ],
+)
+def test_the_pre_checks_refuse_a_fit_over_the_cap(argv, code):
+    import subprocess
+
+    script = Path(__file__).parents[1] / "ops/modal/cap.py"
+    done = subprocess.run(
+        [sys.executable, str(script), *argv], capture_output=True, text=True
+    )
+    assert done.returncode == code
+    assert "over the per-fit cap of 60 min" in done.stderr
+
+
+def test_the_container_stops_a_runaway_at_75_minutes(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert app.TIMEOUT == 75 * 60
+    assert app.FIT_CAP["full"] == 3600
+    assert app.nb_usd_per_second() * 3600 == pytest.approx(
+        cap.NEWBUILDING_USD_PER_HOUR, abs=1e-4
+    )
+
+
+def _modal_run(runs, model, features, fit_seconds, name="rows-abc1234-a100", exit=0):
+    run = runs / f"{model}-{features}-{name}"
+    (run / "modal").mkdir(parents=True)
+    (run / "modal/modal.json").write_text(
+        json.dumps({"fit_exit": exit, "stages": {"fit": fit_seconds}})
+    )
+    (run / "result.json").write_text(
+        json.dumps(
+            {
+                "model": {"name": model},
+                "feature_set": features,
+                "sampler_settings": {"chains": 2, "warmup": 300, "draws": 4500},
+            }
+        )
+    )
+    return run
+
+
+def test_a_model_slower_than_the_default_rate_is_estimated_at_its_own(tmp_path):
+    # C's last fit stage ran 2,307 s, areatime's 3,340 s, at 2 x (300 + 4,500).
+    _modal_run(tmp_path, "m7", "nb8-v1", 2307)
+    _modal_run(tmp_path, "m7-areatime", "nb8-v1", 3340)
+    _modal_run(tmp_path, "m7", "nb8-v1-wide", 4000)  # another feature set
+    _modal_run(tmp_path, "m7", "nb8-v1", 9000, name="rows-def5678-a100", exit=124)
+    c = cap.measured_rate("m7", "nb8-v1", tmp_path)
+    assert c == pytest.approx(2307 / 4800)
+    assert cap.over_cap(None, cap.seconds(*cap.SERVED_FIT, c)) is None
+    area = cap.measured_rate("m7-areatime", "nb8-v1", tmp_path)
+    assert cap.seconds(*cap.SERVED_FIT, area) == 800 + 3340 + 240
+    assert "over the per-fit cap" in cap.over_cap(
+        None, cap.seconds(*cap.SERVED_FIT, area)
+    )
+    # A faster model, or one never fitted on Modal, is estimated at the default rate.
+    _modal_run(tmp_path, "m7-fast", "nb8-v1", 1000)
+    assert (
+        cap.seconds(*cap.SERVED_FIT, cap.measured_rate("m7-fast", "nb8-v1", tmp_path))
+        == 3056
+    )
+    assert cap.measured_rate("m7-new", "nb8-v1", tmp_path) is None
+
+
+def test_the_pre_check_reads_the_model_from_modal_fit_arguments():
+    argv = ["--gpu", "L4", "abc", "lab", "m7-x", "nb8-v1", "2", "300", "4500", "9"]
+    assert cap.fit_model(argv) == ("m7-x", "nb8-v1")

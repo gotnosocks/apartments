@@ -703,6 +703,10 @@ DATA_RULE_TEXT = {
     "unit-labels-v15": "unit-labels-v14, with East Village apartments StreetEasy "
     "lists under two spellings of one label joined too, and those whose own "
     "StreetEasy page lists an ad filed under the other. No listing is dropped.",
+    "unit-labels-v16": "unit-labels-v15, with a building's apartments labelled once "
+    'spelled out and once short joined too ("3rd-fl" and "3", "penthouse-a" '
+    'and "pha", "garden" and "g") where their bedroom counts agree. No listing '
+    "is dropped.",
     "unit-splits-v1": "An apartment's history split in two where a listing's bedroom "
     "count differs by two or more from the apartment's previous listing, as a "
     "combined, rebuilt or miscoded apartment. No listing is dropped.",
@@ -793,6 +797,10 @@ DATA_RULE_TEXT = {
     "other asks for the same bedroom count is read with its ad. A studio whose ad "
     "offers a 3-bedroom and a teaser ad for a building's 2-bedrooms in general are "
     "left out.",
+    "quarantine-v14": "quarantine-v13 and 13 more rows from a rent-blind text screen "
+    "with more words for shops and restaurants: storefronts and a cafe on and near "
+    "Bleecker Street, an event studio hired by the day, two 5-month leases, and an ad "
+    "for a building in Battery Park.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "

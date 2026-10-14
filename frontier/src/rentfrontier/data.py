@@ -436,6 +436,70 @@ def merge_word_letter_labels(
     return out
 
 
+# Unit labels spelled out, each rewritten to its short spelling, in order:
+# "3RDFL", "3FL", "3RD" -> "3"; "THIRD", "THREEFL" -> "3"; "2WFL" -> "2W";
+# "3FRONT" -> "3F", "3REAR", "3BACK" -> "3R"; "PENTHOUSEA" -> "PHA";
+# "GARDEN", "GDN", "GROUND", "GARDENFL" -> "G"; "PARLOUR", "PARLORFL" -> "PARLOR".
+_SPELLED_WORDS = {k.upper(): v for k, v in WORD_LETTER_WORDS.items()}
+SPELLED_LABELS = [
+    (re.compile(r"^(" + "|".join(sorted(_SPELLED_WORDS, key=len, reverse=True))
+                + r")(?=(?:FL)?$)"), lambda m: _SPELLED_WORDS[m[1]]),
+    (re.compile(r"^(\d+)(?:ST|ND|RD|TH)?(?:FL)?$"), r"\1"),
+    (re.compile(r"^(\d+[A-Z])FL$"), r"\1"),
+    (re.compile(r"^(\d+)(?:ST|ND|RD|TH)?(?:FL)?FRONT$"), r"\1F"),
+    (re.compile(r"^(\d+)(?:ST|ND|RD|TH)?(?:FL)?(?:REAR|BACK)$"), r"\1R"),
+    (re.compile(r"^PENTHOUSE"), "PH"),
+    (re.compile(r"^(?:GARDEN|GDN|GROUND)(?:FL)?$"), "G"),
+    (re.compile(r"^PARLOU?R(?:FL)?$"), "PARLOR"),
+]  # fmt: skip
+
+
+def spelled_label_key(label: str) -> str:
+    """A unit label's short spelling (see SPELLED_LABELS)."""
+    key = unit_label_key(label)
+    for pattern, short in SPELLED_LABELS:
+        key = pattern.sub(short, key)
+    return key
+
+
+def merge_spelled_labels(frame: pd.DataFrame, base) -> pd.DataFrame:
+    """A labels rule (`base`), and units of a building whose labels are one
+    label spelled out and short ("3RDFL" and "3", "PENTHOUSEA" and "PHA",
+    "GARDEN" and "G", "4REAR" and "4R", "THIRD" and "3") joined where both
+    units' median bedroom counts (under the base rule) agree, the guard the
+    label rules since v3 use. Units whose labels are already one label
+    written differently ("3A" and "3-A") are grouped too, and the base rule
+    has joined most of them. Groups that share a unit are one unit, whose id
+    is the smallest. Rows are unchanged."""
+    out = base(frame)
+    raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
+    key = raw.map(lambda v: spelled_label_key(v) if isinstance(v, str) else v)
+    beds = frame.bedrooms.groupby(out.unit_id).median().to_dict()
+    parent = {}
+
+    def find(u):
+        parent.setdefault(u, u)
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    groups = {}
+    for building, k, a in zip(frame.building, key, out.unit_id):
+        if isinstance(k, str):
+            groups.setdefault((building, k), set()).add(a)
+    for units in groups.values():
+        units = sorted(units)
+        for i, a in enumerate(units):
+            for b in units[i + 1 :]:
+                if beds[a] == beds[b]:
+                    ra, rb = find(a), find(b)
+                    if ra != rb:
+                        parent[max(ra, rb)] = min(ra, rb)
+    out["unit_id"] = out.unit_id.map(find)
+    return out
+
+
 # A unit's history splits where its bedroom count moves by at least this much.
 UNIT_SPLIT_BEDROOMS = 2
 
@@ -964,6 +1028,26 @@ def latest_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
+QUARANTINE_V14 = REPO / "config" / "reviews" / "quarantine-v14-20261014.jsonl"
+# The rows the screen behind v14's new rows read: every hit outside v9's and
+# v10's screens (frontier/scripts/quarantine_v14_screen.py).
+QUARANTINE_V14_READ = REPO / "config" / "reviews" / "quarantine-v14-read-20261014.txt"
+
+
+def quarantine_v14(frame: pd.DataFrame) -> pd.DataFrame:
+    """v13 and 13 more rows (284 in all). v10's guard dropped "restaurant
+    space", since all its hits were rent-picked quarantine-v6 rows, so
+    storefronts came back. quarantine_v14_screen.py reruns v10's rent-blind
+    checks with more words for shops and restaurants (retail, frontage, a
+    certificate of occupancy, kitchen exhaust, an event space) over the five
+    neighbourhoods before East Village, NoMad and Stuyvesant Town, and every
+    hit outside v9's and v10's screens (quarantine-v14-read-20261014.txt) is
+    read with no rent shown: shops, restaurants and an event studio on and
+    near Bleecker, two 5-month leases, and one ad for Battery Park are left
+    out. 10 of the 13 are v6 rows. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V14))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -987,6 +1071,33 @@ def latest_ask_v2(frame: pd.DataFrame) -> pd.DataFrame:
         .to_numpy(float)
     )
     return frame.assign(asking_rent=price, log_rent=np.log(price))
+
+
+# The West Coast (95-97 Horatio St) is one tax lot with two structures in HPD's
+# registry, BIN 1012154 (the-west-coast) and BIN 1012155
+# (97-horatio-street-new_york), under one StreetEasy building. Its rows carry two
+# label schemes: three digits on floors 1 to 7 ("425") and a floor and a letter
+# on floors 2 to 10 ("7E", "007E", "PHD").
+WESTCOAST = ("the-west-coast", "97-horatio-street-new_york")
+
+
+def tune_westcoast_split_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The West Coast's rows split by label scheme, as a tuning rule: a row of
+    either building with a floor-and-letter label (or a penthouse) goes to
+    97-horatio-street-new_york, and one with a three-digit label goes to
+    the-west-coast. Rows with other labels ("7", "26", "42") stay where they
+    are. Both names are in the lot registry, so the building features still
+    resolve. Run it before the unit rules, so units merge within a scheme."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    lot = frame.building.isin(WESTCOAST).to_numpy()
+    letter = (label.str.fullmatch(r"\d+[a-z]+") | label.str.startswith("ph")).to_numpy(
+        dtype=bool, na_value=False
+    )
+    three = label.str.fullmatch(r"\d{3}").to_numpy(dtype=bool, na_value=False)
+    building = np.where(
+        lot & letter, WESTCOAST[1], np.where(lot & three, WESTCOAST[0], frame.building)
+    )
+    return frame.assign(building=building)
 
 
 # The price a fit models. A row starts at its listing's first ask; a rule of a
@@ -1084,6 +1195,22 @@ DATA_RULES = {
             ),
         ),
     ),
+    # unit-labels-v15 with labels spelled out joined to their short spelling
+    # (#420's joins, where both units' median bedrooms agree).
+    "unit-labels-v16": functools.partial(
+        merge_spelled_labels,
+        base=functools.partial(
+            merge_word_letter_labels,
+            base=functools.partial(
+                merge_swapped_labels,
+                base=functools.partial(
+                    merge_history_pairs,
+                    pairs=UNIT_HISTORY_PAIRS_EV,
+                    aliases=UNIT_ALIASES_EV,
+                ),
+            ),
+        ),
+    ),
     "unit-splits-v1": split_unit_histories,
     # unit-splits-v1 at any change of bedroom count: 3,871 more listing pairs,
     # 20.7% of them moving rent by over 40% against 6.8% with no change.
@@ -1112,7 +1239,9 @@ DATA_RULES = {
     "quarantine-v10": quarantine_v10,
     "quarantine-v12": quarantine_v12,
     "quarantine-v13": quarantine_v13,
+    "quarantine-v14": quarantine_v14,
     "latest-ask-v2": latest_ask_v2,
+    "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
@@ -1139,6 +1268,7 @@ RULE_SOURCES = {
     "quarantine-v10": QUARANTINE_V10,
     "quarantine-v12": QUARANTINE_V12,
     "quarantine-v13": QUARANTINE_V13,
+    "quarantine-v14": QUARANTINE_V14,
     "latest-ask-v2": LATEST_ASK,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
@@ -1152,6 +1282,7 @@ RULE_SOURCES = {
     "unit-labels-v13": UNIT_ALIASES_STUY,
     "unit-labels-v14": UNIT_ALIASES_NOMAD,
     "unit-labels-v15": UNIT_ALIASES_EV,
+    "unit-labels-v16": UNIT_ALIASES_EV,
     "bedrooms-ad-v1": BEDROOM_CORRECTIONS,
     "baths-ad-v1": BATH_CORRECTIONS,
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
@@ -1174,6 +1305,7 @@ DROPPING_RULES = (
     "quarantine-v10",
     "quarantine-v12",
     "quarantine-v13",
+    "quarantine-v14",
 )
 
 
@@ -1225,9 +1357,7 @@ def recorded_rules(result: dict) -> tuple:
 
 def rows_sha256(frame: pd.DataFrame, heldout) -> str:
     """A hash of a run's rows after its split and data rules: the column names,
-    every value in order, and the held-out mask. Two rule sets whose rows hash
-    the same give a fit the same data, so autoselect treats them as the same
-    rules (Ben, 2026-10-08)."""
+    every value in order, and the held-out mask, recorded with each run."""
     digest = hashlib.sha256()
     digest.update(json.dumps([str(c) for c in frame.columns]).encode())
     digest.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())

@@ -32,6 +32,25 @@ budget. `latest-ask-v2` (#730) replaces both `tune-latestask-v1` and `tune-final
    - amenlevel uses rent as an input and gained only 1.3 SE on the leak-free split.
 
    The held sets with no run yet stay held. They are lister, retail, noise, trees, crime and hpd.
+5. The refit (`...-rows-bcaac064-...q13ad3la2`) failed the gate on group R-hat 1.283. Every unit
+   over 1.05 is in the-west-coast. In the two chains, its level, bedroom slope and floor slopes
+   moved one way and its units the other. Data improvements found the building to be one tax lot
+   with two structures (BBL 1006430001), with no record of which unit is in which structure. Its
+   3-digit labels run to floor 7, and its floor-and-letter labels to floor 10. As a test, under
+   the option chosen at 10:38Z, I fit C on `tune-westcoast-split-v1` (#745). That rule moves
+   the floor-and-letter labels to 97-horatio-street-new_york, so the-west-coast keeps 328 rows
+   and 156 units and 97 Horatio gains 141 rows and 70 units. The other rules are the refit's.
+   The fit is unserved. My predictions, written before launch:
+   - The gate passes. The max group R-hat falls to 1.02 to 1.06, and neither building has a unit
+     over 1.05. I give the gate a 60% chance: 84 of the lot's units (both buildings after the split) still have a single row.
+   - Paired PSIS-LOO against the refit: 0 to +30, a tie within 2 SE.
+   - Held-out miss and 80/95 coverage against the new prices are within 0.02 pp and 0.3 points of
+     the refit's. The split moves under 1% of the held-out rows.
+   - New-building score: miss 11.8 to 12.3%, coverage 90.0 to 90.8 / 97.8 to 98.3, as the refit's
+     12.0% and 90.4 / 98.0.
+
+   If it passes, the split becomes a candidate for a real rule. I'd report it to Ben before any
+   rule or serving change.
 
 ## Held fits (Ben, 2026-10-13)
 
@@ -388,7 +407,15 @@ You do not need my approval to change the dashboard model."
   - it ran on the RTX 2060 row split within the 2-hour window for full fits (30 minutes until
     2026-10-01);
   - it used the current data rules, the latest version of each rule family. A fit on rows a
-    later review found to be wrong is not served.
+    later review found to be wrong is not served. From 2026-10-14 a small change to the rules
+    doesn't need a refit. Autoselect rebuilds the fit's rows under its recorded rules and under
+    the current ones, on its dataset and split, and matches them by audit id. It counts the rows
+    only one side keeps, and the rows both keep with any value or held-out flag changed. If that
+    count is at most 0.25% of the current rows (`NEGLIGIBLE_SHARE`), the fit stays eligible.
+    The fit must still model the same price target on the same dataset. Each eligible fit's
+    count goes into autoselect's output as `changed_rows`. For example, C on `quarantine-v12`
+    differs from `quarantine-v13` on 6 of 214,885 rows. The latest-split comparison
+    (`latestselect`) applies the same test to its candidate, its reference and the fit to serve.
 - **The choice** follows the board's `choose_best` among the eligible fits. It differs only
   where the 10% time tie below changes the order:
   - Take the top PSIS-LOO, and the fits tied with it within two combined SE.
@@ -403,8 +430,9 @@ You do not need my approval to change the dashboard model."
 - **Held-out guard.** A challenger whose paired held-out score is more than 2 SE below the
   incumbent's is refused, and the next fit is tried. Challengers are tried in ranked order,
   and the first one that passes the guard and clearly beats an eligible incumbent is chosen.
-- **Data rules are part of serving.** Merging a new version of a data rule makes it current,
-  so the served fit becomes ineligible until a fit on the new rule exists. A rule's file is
+- **Data rules are part of serving.** Merging a new version of a data rule makes it current.
+  If the new version changes more than 0.25% of the rows, the served fit becomes ineligible until
+  a fit on the new rule exists. A rule's file is
   also checked against the hash the fit recorded.
 - **A switch** still goes through a reviewed PR: the rule writes the selection
   (`autoselect --write <bundle>`), and the reviewer reruns the rule. After the merge, the site

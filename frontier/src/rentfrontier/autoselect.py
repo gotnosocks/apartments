@@ -14,12 +14,16 @@ card follow it.
   (`WINDOW_SECONDS`: Ben, 2026-10-01, "the full fit can take more than 30
   mins", with a 2-hour hard stop; exploratory fits on a subset must run under
   30 minutes, and are never served).
-- It used the current data rules: the latest version of every rule family
-  (`current_rules`). A fit on rows a later review has shown to be wrong is not
-  served. Rules that give the same rows count as the same (Ben, 2026-10-08):
-  a fit whose rows hash (`data.rows_sha256`, after its split and rules) equals
-  that of the current rules on its dataset and split is eligible, so a new
-  rule version that changes no row needs no refit.
+- It used the current data rules, the latest version of every rule family
+  (`current_rules`), or rules close enough to them. A fit on rows a later
+  review has shown to be wrong is not served, but a negligible change needs no
+  refit (Ben, 2026-10-14). `changed_rows` rebuilds the fit's rows under its
+  recorded rules and under the current rules, on its dataset and split, and
+  matches them by audit id. It counts the rows only one side keeps, plus the
+  rows both keep with any value or held-out flag changed. A fit stays eligible
+  when that count is at most `NEGLIGIBLE_SHARE` (0.25%) of the current rows.
+  Rules that give the same rows (Ben, 2026-10-08) change none. The decision
+  reports each eligible fit's count as `changed_rows`.
 - It models the current rules' price target (`data.price_target`).
 - It is not a tuning fit on a subset of buildings (a `data.TUNING_PREFIX`
   rule): those are exploration only (Ben, 2026-10-01).
@@ -89,6 +93,8 @@ import json
 import math
 import re
 from pathlib import Path
+
+import pandas as pd
 
 from rentfrontier import data, elegance, features, leaderboard
 
@@ -161,37 +167,55 @@ def _load(dataset: str):
     return data.load(Path(dataset))  # one load per dataset for every rule set
 
 
-@functools.cache
-def _rows_sha256(dataset: str, split: str, rules: tuple) -> str:
+# Ben, 2026-10-14: a fit stays eligible when its rules and the current rules
+# treat at most this share of the current rows differently.
+NEGLIGIBLE_SHARE = 0.0025
+
+
+@functools.lru_cache(maxsize=32)
+def _row_hashes(dataset: str, split: str, rules: tuple) -> tuple:
+    """(column names, one hash per row indexed by audit id) for a run's rows
+    after its split and rules. The held-out flag is hashed with each row."""
     frame, heldout = data.split_and_rules(_load(dataset).copy(), split, rules)
-    return data.rows_sha256(frame, heldout)
+    columns = tuple(sorted(map(str, frame.columns)))
+    frame = frame[sorted(frame.columns, key=str)].assign(_heldout=heldout)
+    hashes = pd.util.hash_pandas_object(frame, index=False).to_numpy()
+    return columns, pd.Series(hashes, index=frame["audit_id"].to_numpy())
 
 
-def rows_sha256(record, rules=None) -> str | None:
-    """The hash of a run's rows: as recorded, or rebuilt from its dataset, split
-    and recorded rules. With `rules`, the hash of the rows those rules give on
-    the run's dataset and split. None when the record names no dataset or split,
-    or its rule files have changed."""
-    if rules is None and record.get("rows_sha256"):
-        return record["rows_sha256"]
+def changed_rows(record, rules) -> tuple[int, int] | None:
+    """(rows the run's recorded rules and `rules` treat differently, rows under
+    `rules`) on the run's dataset and split. Rows are matched by audit id. A
+    row only one rule set keeps counts, as does a row both keep with any value
+    or its held-out flag changed. Rule sets with different columns change every
+    row. None when the record names no dataset or split, its rule files have
+    changed, or a rule set repeats an audit id."""
     dataset, split = record.get("dataset"), record.get("split")
     if dataset is None or split is None:
         return None
     try:
-        used = (
-            data.recorded_rules(record)
-            if rules is None
-            else tuple(sorted(rules, key=_rule_order))
-        )
-        return _rows_sha256(str(Path(dataset).resolve()), split, used)
+        mine = data.recorded_rules(record)
+        now = tuple(sorted(rules, key=_rule_order))
+        key = (str(Path(dataset).resolve()), split)
+        a_cols, a = _row_hashes(*key, tuple(sorted(mine, key=_rule_order)))
+        b_cols, b = _row_hashes(*key, now)
     except (SystemExit, ValueError):  # changed rule files, or rules out of order
         return None
+    if not (a.index.is_unique and b.index.is_unique):
+        return None
+    if a_cols != b_cols:
+        return len(a.index.union(b.index)), len(b)
+    both = a.index.intersection(b.index)
+    changed = len(a.index.symmetric_difference(b.index))
+    changed += int((a.loc[both].to_numpy() != b.loc[both].to_numpy()).sum())
+    return changed, len(b)
 
 
-def same_rows(record, rules) -> bool:
-    """Whether a run's rows are the rows `rules` give (see the module docstring)."""
-    mine = rows_sha256(record)
-    return mine is not None and mine == rows_sha256(record, rules)
+def negligible(record, rules) -> bool:
+    """True when the run's rules differ from `rules` on at most
+    NEGLIGIBLE_SHARE of the rows `rules` give."""
+    n = changed_rows(record, rules)
+    return n is not None and n[0] <= NEGLIGIBLE_SHARE * n[1]
 
 
 def why_not(e, rules) -> str | None:
@@ -226,11 +250,18 @@ def why_not(e, rules) -> str | None:
     target, current = data.price_target(_rules(e)), data.price_target(rules)
     if target != current:
         return f"it models the {target}, not the current rules' {current}"
-    if _rules(e) != rules and not same_rows(_record(e), rules):
+    if _rules(e) != rules and not negligible(_record(e), rules):
         used = " + ".join(sorted(_rules(e))) or "no data rules"
+        n = changed_rows(_record(e), rules)
+        how = (
+            f"they differ on {n[0]:,} of {n[1]:,} rows, more than "
+            f"{100 * NEGLIGIBLE_SHARE:g}%"
+            if n
+            else "its rows cannot be rebuilt"
+        )
         return (
             f"it was fit with {used}, not the current {' + '.join(sorted(rules))}, "
-            "and its rows differ"
+            f"and {how}"
         )
     try:
         data.recorded_rules(_record(e))  # the rule files are the ones it was fit on
@@ -453,6 +484,10 @@ def decide(
                 "run": _run(e),
                 "psis_delta": e["psis"]["delta"],
                 "fit_seconds": e["fit_seconds"],
+                # Rows its rules treat otherwise than the current rules.
+                "changed_rows": 0
+                if _rules(e) == rules
+                else (changed_rows(_record(e), rules) or (None,))[0],
             }
             for e in order
         ],
