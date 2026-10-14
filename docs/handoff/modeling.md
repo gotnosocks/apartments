@@ -3,6 +3,27 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 03:45 UTC): AR(1) sampler fix merged, retry held
+
+PR #726 (faab7d5) replaces the collapsed solo updates on sd and rho with updates along the
+principal axes of their warmup covariance, under `walk_ar` only. All 11 arwalk tests pass,
+including the slow CPU recovery test. Ben's hold on autoselect, serving and publishing still
+stands.
+
+- On simulated panels the ESS of sd rose 2.2 and 3.7 times at the same cost per sweep. Adding log
+  building_scale as a third axis gave no further gain. The comparison script and logs are in
+  `/data1/apartments/tmp/arwalk/axes/`.
+- At C's settings the retry predicts ESS on sd near 85 to 145, below the gate's 400. The
+  predictions note records that before the retry.
+- Ben is choosing between the retry at C's settings (about $2) and a longer chain. For the longer
+  chain I proposed 24,000 draws keeping every 48th, which predicts ESS 460 to 770, takes about 2.4 h
+  of container time and has a limiter estimate of $7.30. No Modal fit launches until his answer
+  arrives through the coordinator.
+- The launcher is `/data1/apartments/tmp/arwalk/launch2.sh`. It runs C's settings, so the
+  longer chain needs its draws and keep changed first. Record the chosen setting in
+  `docs/model/predictions-arwalk-2026-10-14.md` before launch.
+- The first fit's group R-hat failure on unit effects (1.065) is not addressed by #726.
+
 ## Update (2026-10-14 02:00 UTC): AR(1) fit result
 
 The arwalk fit (commit 24a7e9b, $2.00) ran once on Modal. The write-up is
