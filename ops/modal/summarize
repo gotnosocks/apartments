@@ -17,10 +17,13 @@ repo=${MODAL_FIT_REPO:-$(cd "$here/../.." && pwd)}
 out=${FRONTIER_OUTPUT_ROOT:-/data1/apartments/frontier}
 export PATH=/home/ben/.local/bin:$PATH
 cd "$repo/frontier"
-echo "== $(date +%F' '%T) summary of $run at $(git rev-parse --short HEAD)"
+# A queue runner can move serve/master to a newer commit while the summary runs, so the
+# bundle's commit is read here, before the summary starts.
+commit=$(git rev-parse --short=7 HEAD)
+echo "== $(date +%F' '%T) summary of $run at $commit"
 XLA_PYTHON_CLIENT_PREALLOCATE=false "$repo/ops/job" gpu -m 5G -- \
   uv run --frozen --extra gpu python -m rentfrontier.summary "$run"
-bundle=$out/summaries/$run-$(git rev-parse --short=7 HEAD)
+bundle=$out/summaries/$run-$commit
 [ -f "$bundle/complete.json" ] || { echo "no complete bundle at $bundle" >&2; exit 1; }
 echo "== $(date +%F' '%T) calibration of $bundle"
 # --extra gpu as above, so uv keeps the shared environment as it is; ops/job light hides the GPU.
