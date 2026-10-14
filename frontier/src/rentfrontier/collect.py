@@ -180,6 +180,10 @@ def collect(
                 "beta": e["beta"],
                 "trend": e["trend"][::12],
                 "building": e["building"][trace_b],
+                # Every building, for the gate's per-building R-hat and ESS.
+                # run.py keeps only those statistics, not this trace, and
+                # float32 halves its device memory (195 MB on C).
+                "building_all": e["building"].astype(jnp.float32),
                 "unit": e["unit"][trace_u],
                 "fslope_scales": e["fslope_scales"],
                 **info,

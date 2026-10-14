@@ -657,6 +657,7 @@ QUARANTINE_ACTIONS = {
     "join_units": "One apartment under two labels",
     "quarantine_nonresidential": "Not a home",
     "quarantine_location_conflict": "Placed elsewhere",
+    "brooklyn_misjoin": "A Brooklyn apartment filed under a Manhattan building",
     "quarantine_product_scope": "Not a whole apartment on the open market",
     "quarantine_explicit_short_term_offer": "Short stay only",
     "quarantine_price_basis": "Ask is not the rent",
@@ -807,6 +808,15 @@ DATA_RULE_TEXT = {
     "quarantine-v15": "quarantine-v14 and 2 Midtown West rows found by price: a "
     "Hudson Landing studio at $22,953 and a Via 57 West 3-bedroom at $1,559, each "
     "far from its own apartment's other asks and its building's.",
+    "quarantine-v16": "quarantine-v15 and 33 rows filed under the wrong address: "
+    "28 Brooklyn apartments by Prospect Park, in Park Slope or by Fort Greene Park "
+    "carrying a Manhattan address with the same number and street, and five "
+    "one-bedroom ads at 110 W 26th St from an East Village agent.",
+    "quarantine-v17": "quarantine-v16 with seven more Brooklyn ads that StreetEasy "
+    "links to a Manhattan building (326 listings in all, 35 of them Brooklyn ads).",
+    "quarantine-v18": "quarantine-v17 with the same rows, and a corrected reason for "
+    "the five one-bedroom ads at 110 W 26th St: they are for this building, at a "
+    "third of its lofts' asks, so they are not whole-apartment asks.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",

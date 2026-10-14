@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 14:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 18:05 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 18:05 ET
+
+- **#789 (merged `50d019ee`): `quarantine-v17`**, the Brooklyn standing filter (Ben). StreetEasy
+  files some Brooklyn ads under the Manhattan building with the same number and street name.
+  - v17 keeps v16's rows as they are, recodes its 28 Brooklyn rows to `brooklyn_misjoin`, and adds
+    7 more (326 rows). NB8 drops 6 rows, NB9 drops 7, both far under `NEGLIGIBLE_SHARE`.
+  - `config/reviews/brooklyn-misjoins-20261014.jsonl` records each row's evidence and a candidate
+    Brooklyn address for the remap once Brooklyn is collected (backlog line in `docs/TODO.md`).
+  - On every new dataset, run `frontier/scripts/brooklyn_screen.py DATASET OUT.jsonl`, read each
+    unread hit's whole ad, and add the dataset's cohort to `config/reviews/brooklyn-screened.txt`.
+    `test_every_registered_dataset_is_screened_for_brooklyn_ads` fails on any `DATASET_NB9` or
+    later missing from that list.
+- **110 W 26th St** belongs to its own thread now. Branch `data/110w26-release-split` (`510b0eaf`)
+  holds a release of v16's five rows there and a unit-labels-v18 split. It stays unmerged, with no
+  PR. That thread finds 4 of the 5 ads give 112 W 26th St, the same tax lot.
+- **#778 and #782** (elevator and pets from ad text) stay held until Modeling's wing C is served.
+- Next free versions: quarantine-v18, unit-labels-v18.
 
 ## 2026-10-14 14:45 ET
 

@@ -1077,6 +1077,62 @@ def quarantine_v15(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V15))]
 
 
+QUARANTINE_V16 = REPO / "config" / "reviews" / "quarantine-v16-20261014.jsonl"
+# The rows v16's review read: every hit of quarantine_v16_screen.py on the NB9
+# rows under the rules of 2026-10-14, and the five one-bedroom asks at 110 W 26th St.
+QUARANTINE_V16_READ = REPO / "config" / "reviews" / "quarantine-v16-read-20261014.txt"
+
+
+def quarantine_v16(frame: pd.DataFrame) -> pd.DataFrame:
+    """v15 and 33 rows filed under the wrong address (319 in all).
+    quarantine_v16_screen.py looks for ads that place the apartment by Prospect
+    Park, Cortelyou Road, Ditmas Avenue, PLG, Park Slope, Fort Greene and other
+    Brooklyn places, with no rent shown. Of its 39 hits, 28 are Brooklyn
+    apartments filed under a Manhattan address with the same number and street
+    name, such as 37 East 21st Street and 519 8th Avenue. The other 11 mention
+    Park Slope as a broker's other listing, or call Midtown West "Clinton".
+    The five one-bedroom asks at 110 W 26th St, at about $2,400 to $2,600 in
+    a building of 1,600 sq ft lofts, are held out as East Village ads under
+    the wrong address. quarantine-v18 keeps them out under a corrected reason:
+    four of their pages carry 112 W 26th St, the same tax lot, and the asks
+    are not for whole lofts. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V16))]
+
+
+QUARANTINE_V17 = REPO / "config" / "reviews" / "quarantine-v17-20261014.jsonl"
+QUARANTINE_V17_READ = REPO / "config" / "reviews" / "quarantine-v17-read-20261014.txt"
+
+
+def quarantine_v17(frame: pd.DataFrame) -> pd.DataFrame:
+    """v16 plus seven more Brooklyn ads (326 rows in all).
+
+    StreetEasy links some Brooklyn listings to the Manhattan building with the
+    same number and street name (`brooklyn`). v16's 28 such rows and seven
+    more, found by a wider place list (`brooklyn.screen`) and read in full,
+    carry the reason code `brooklyn_misjoin`, and `brooklyn.MISJOINS` records
+    their evidence. The read list is `QUARANTINE_V17_READ`. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V17))]
+
+
+QUARANTINE_V18 = REPO / "config" / "reviews" / "quarantine-v18-20261014.jsonl"
+
+
+def quarantine_v18(frame: pd.DataFrame) -> pd.DataFrame:
+    """v17's 326 rows, with the reason for the five asks at 110 W 26th St
+    corrected. Four of the pages give the address 112 West 26th Street, on
+    the same tax lot (BBL 1008010049) as the building's lofts of 1,400 to
+    1,650 sq ft, and they carry the loft labels 5F, 5R, 3 and 3R. Picture
+    Realty listed them with no square footage and no photos of their own at
+    $2,395 to $2,595, a third of the lofts' asks: 5F went for 3 days at
+    $2,395 in May 2015, and Douglas Elliman listed it at $7,500 a month
+    later. The fifth is a 2021 same-day closed-deal record reading "1-bed",
+    at the price of the 2016 ad on the same unit page. All five now carry
+    `quarantine_product_scope` in place of `quarantine_location_conflict`.
+    The held-out rows are the same as v17's."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V18))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1186,6 +1242,26 @@ def building_joins_v1(frame: pd.DataFrame) -> pd.DataFrame:
     after this one still splits the lot by label scheme."""
     building = frame.building.where(frame.building.ne(WESTCOAST[1]), WESTCOAST[0])
     return frame.assign(building=building)
+
+
+WESTCOAST_WEST_WING = "the-west-coast-west-wing"
+
+
+def west_coast_wings_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The West Coast's rows with three-digit labels ("425", "620") moved to
+    the-west-coast-west-wing. The complex is nine warehouses joined into
+    apartments in 1980 to 1982, and its units carry two numbering schemes:
+    three digits on floors 1 to 7 at the West Street end, a floor and a letter
+    ("9L", "PHD") on floors 2 to 10 toward Washington Street. Rows with a
+    floor and a letter, or other labels ("7", "26"), stay on the-west-coast.
+    The lot registry gives both names lot 1006430001, BIN 1012154 and the
+    same position, so the wings differ only in their building and walk terms.
+    Run it after `building-joins-v1`, which folds 97 Horatio Street's page in,
+    and before the unit rules, so units merge within a wing."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    three = label.str.fullmatch(r"\d{3}").to_numpy(dtype=bool, na_value=False)
+    wing = frame.building.eq(WESTCOAST[0]).to_numpy() & three
+    return frame.assign(building=np.where(wing, WESTCOAST_WEST_WING, frame.building))
 
 
 # The elevator each NB9 row's own ad states (`python -m rentfrontier.adfills
@@ -1370,12 +1446,16 @@ DATA_RULES = {
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
     "quarantine-v15": quarantine_v15,
+    "quarantine-v16": quarantine_v16,
+    "quarantine-v17": quarantine_v17,
+    "quarantine-v18": quarantine_v18,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
+    "west-coast-wings-v1": west_coast_wings_v1,
     "elevator-from-ad-v1": elevator_from_ad_v1,
     "unit-reviews-v1": join_reviewed_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
@@ -1405,6 +1485,9 @@ RULE_SOURCES = {
     "quarantine-v13": QUARANTINE_V13,
     "quarantine-v14": QUARANTINE_V14,
     "quarantine-v15": QUARANTINE_V15,
+    "quarantine-v16": QUARANTINE_V16,
+    "quarantine-v17": QUARANTINE_V17,
+    "quarantine-v18": QUARANTINE_V18,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1447,6 +1530,9 @@ DROPPING_RULES = (
     "quarantine-v13",
     "quarantine-v14",
     "quarantine-v15",
+    "quarantine-v16",
+    "quarantine-v17",
+    "quarantine-v18",
 )
 
 
@@ -1539,11 +1625,18 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     if labels and reviews and min(reviews) < max(labels):
         raise ValueError(f"unit-reviews rules must follow unit-labels: {rules}")
     joins = [i for i, r in enumerate(rules) if r.startswith("building-joins-")]
-    wings = [i for i, r in enumerate(rules) if r.startswith("tune-westcoast-split-")]
+    wings = [
+        i
+        for i, r in enumerate(rules)
+        if r.startswith(("tune-westcoast-split-", "west-coast-wings-"))
+    ]
     if joins and wings and max(joins) > min(wings):
         raise ValueError(
-            f"building-joins rules must precede tune-westcoast-split: {rules}"
+            f"building-joins rules must precede the West Coast wing rules: {rules}"
         )
+    split = [i for i, r in enumerate(rules) if r.startswith("west-coast-wings-")]
+    if split and labels and max(split) > min(labels):
+        raise ValueError(f"west-coast-wings rules must precede unit-labels: {rules}")
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)
