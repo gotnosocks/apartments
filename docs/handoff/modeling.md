@@ -3,6 +3,20 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-14 02:00 UTC): AR(1) fit result
+
+The arwalk fit (commit 24a7e9b, $2.00) ran once on Modal. The write-up is
+`docs/model/arwalk-2026-10-14.md`. Ben's hold on autoselect, serving and publishing still stands.
+
+- It fails the gate: R-hat 1.041 on rho, ESS 39 on sd. The chains agree within 0.002 but mix
+  slowly, because rho and sd move together (posterior correlation +0.93).
+- rho 0.890 (0.884-0.898), sd 0.077, building_scale 0.157. All three revised parameter
+  predictions missed.
+- PSIS-LOO vs C +395 (lot SE 55), building-weighted new-building lpd +70 (lot SE 11), year gap
+  +1.5 pp (C +5.2), descriptive share level.
+- Next: a joint (sd, rho) proposal in the collapsed step (PR plus CPU recovery), then one retry at
+  C's settings. The retry needs Ben's go, because his approval covered one fit.
+
 ## Update (2026-10-14 00:30 UTC): AR(1) building deviation fit
 
 Ben approved one Modal fit at 23:51Z: C with its walk replaced by a level plus a stationary AR(1)
