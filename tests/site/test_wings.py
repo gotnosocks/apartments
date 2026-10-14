@@ -18,10 +18,19 @@ def test_letter_labels_stay_on_the_west_coast():
     assert wings.wing("97-horatio-street-new_york", "9L", FITTED) == "the-west-coast"
 
 
+def test_other_labels_follow_the_join_to_the_west_coast():
+    for label in ("7", "26", None):
+        for slug in ("the-west-coast", "97-horatio-street-new_york"):
+            assert wings.wing(slug, label, FITTED) == "the-west-coast"
+
+
 def test_a_fit_without_the_wing_keeps_the_slug():
+    old = {"the-west-coast", "97-horatio-street-new_york"}
+    assert wings.wing("97-horatio-street-new_york", "7", old) == (
+        "97-horatio-street-new_york"
+    )
     assert wings.wing("the-west-coast", "620", {"the-west-coast"}) == "the-west-coast"
     assert wings.wing("other-building", "620", FITTED) == "other-building"
-    assert wings.wing("the-west-coast", None, FITTED) == "the-west-coast"
 
 
 def test_wing_names_need_both_wings():
