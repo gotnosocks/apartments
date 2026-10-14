@@ -478,3 +478,23 @@ def test_nb8_wings_is_nb8_nostuy_on_the_wing_registry():
         row.loc["the-west-coast", same],
         check_names=False,
     )
+
+
+def test_building_lots_refuses_the_wing_without_its_registry_row(tmp_path, monkeypatch):
+    """A set whose registry lacks the-west-coast-west-wing refuses the wing's
+    rows instead of leaving them with no lot."""
+    registry = pd.DataFrame({"building": ["the-west-coast"], "bbl": [1006430001.0]})
+    pluto = pd.DataFrame({"bbl": [1006430001.0], "numfloors": [9.0]})
+    registry.to_parquet(tmp_path / "registry.parquet")
+    pluto.to_parquet(tmp_path / "pluto.parquet")
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(tmp_path / "registry.parquet"))
+    monkeypatch.setattr(features, "PLUTO_FILE", str(tmp_path / "pluto.parquet"))
+    plain = pd.DataFrame({"building": ["the-west-coast"]})
+    assert features.building_lots(plain).numfloors.tolist() == [9.0]
+    wing = pd.DataFrame({"building": ["the-west-coast", data.WESTCOAST_WEST_WING]})
+    with pytest.raises(ValueError, match="has no the-west-coast-west-wing"):
+        features.building_lots(wing)
+    pd.concat(
+        [registry, registry.assign(building=data.WESTCOAST_WEST_WING)]
+    ).to_parquet(tmp_path / "registry.parquet")
+    assert features.building_lots(wing).numfloors.tolist() == [9.0, 9.0]

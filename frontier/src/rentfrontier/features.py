@@ -1743,6 +1743,14 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
     registry_file, pluto_file = _LOTS.get() or (REGISTRY_FILE, PLUTO_FILE)
     registry = pd.read_parquet(registry_file)
+    # A registry without the wing's row would leave its rows with no lot.
+    if frame.building.eq(data_module.WESTCOAST_WEST_WING).any() and not (
+        registry.building.eq(data_module.WESTCOAST_WEST_WING).any()
+    ):
+        raise ValueError(
+            f"{registry_file} has no {data_module.WESTCOAST_WEST_WING}: fit "
+            "west-coast-wings-v1 with a set that reads a registry with the wing"
+        )
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
