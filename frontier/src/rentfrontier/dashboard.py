@@ -801,6 +801,9 @@ DATA_RULE_TEXT = {
     "with more words for shops and restaurants: storefronts and a cafe on and near "
     "Bleecker Street, an event studio hired by the day, two 5-month leases, and an ad "
     "for a building in Battery Park.",
+    "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
+    "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
+    "the same complex on one tax lot.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "
