@@ -13,9 +13,15 @@ an estimate that was too low leaves the balance negative and accrual continues f
 2026-10-07 22:23Z: "I would like to cap the balance on the dollar budget at ~10 full fits", so
 the balance stops accruing at CEILING = USD_PER_DAY. Launches before START (the old daily cap) are not charged.
 
+Ben, 2026-10-14 09:57Z, on a single fit: "I'm pretty hard capped at about 1 hour or maybe $2 of
+modal compute." A launch whose estimated container time is over PER_FIT_SECONDS is refused
+however much balance there is. The dollar half waits on Ben's answer about C-sized fits, which
+settle at $1.61 to $2.75, so PER_FIT_USD stays None and nothing is refused on dollars yet.
+
     python3 ops/modal/cap.py                                  # balance, rate, recent launches
     python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 until the balance covers that
-                                                              # fit (default: the served full fit)
+                                                              # fit (default: the served full fit),
+                                                              # exit 2 if it is over the per-fit cap
     python3 ops/modal/cap.py --check-launch ARGS...           # the same, from ops/modal-fit's ARGS
 """
 
@@ -35,13 +41,24 @@ START = datetime.datetime(2026, 10, 7, 21, 59, 49, tzinfo=datetime.UTC)  # Ben's
 # Container list price per hour, app.usd_per_second(gpu) * 3600 (kept equal by a test; app.py
 # imports modal, so the launcher's plain python3 can't import it).
 USD_PER_HOUR = {"L4": 1.0851, "A100-40GB": 2.3851, "A100-80GB": 2.7841, "H100": 4.2351}
-# Wall time of a fit's container: upload, image, fit, PSIS-LOO and the post-fit statistics, from
-# the eight-neighbourhood A100 fits of 2026-10-10 (2 x 4,800 iterations: fit about 2,015 s,
-# PSIS-LOO 373 s, 2,413 s in all, settled at $1.27 to $1.85), plus about 4 minutes for the
-# post-fit statistics (#678). The NB5 calibration (800 s + 0.11 s an iteration, $0.88 a served
-# fit) underestimated NB8 fits by about 40%.
-OVERHEAD_SECONDS, SECONDS_PER_ITERATION = 700, 0.42
-SERVED_FIT = (2, 300, 4500)  # chains, warmup, draws: the full fit since #432 ($1.80)
+# Wall time of a fit's GPU container: upload, image, fit, PSIS-LOO and the post-fit statistics.
+# The 2 x 4,800-iteration A100 fits of 2026-10-12..13 with the post-fit statistics in place ran
+# 2,431 to 3,091 s (fit 1,446 to 2,396 s, PSIS-LOO 223 to 473 s, variance about 260 s), and
+# 1,000 s + 0.42 s an iteration gives 3,016 s. The fits of 2026-10-10..11 whose summary bundle
+# hit its 1,200 s cap ran up to 4,154 s; TIMEOUT in app.py stops those.
+OVERHEAD_SECONDS, SECONDS_PER_ITERATION = 1000, 0.42
+# The new-building score's CPU container (app.newbuilding_cpu) after each finished fit: 202 to
+# 227 s, $0.14, on 2026-10-13, at app.nb_usd_per_second() * 3600 an hour (kept equal by a test).
+NEWBUILDING_SECONDS, NEWBUILDING_USD_PER_HOUR = 240, 2.5321
+SERVED_FIT = (
+    2,
+    300,
+    4500,
+)  # chains, warmup, draws: the full fit since #432 ($2.17, 3,256 s)
+# The per-fit cap, on the estimate before launch (Ben, 2026-10-14 09:57Z). The dollar half is
+# None until Ben answers whether it holds for C-sized fits.
+PER_FIT_SECONDS = 3600
+PER_FIT_USD = None
 # What the ledger's history was priced at: the accrual rate before 2026-10-10 16:25Z and a launch
 # row from the old launcher (no estimate) are 10 x and 1 x the NB5 served-fit estimate, kept
 # fixed so recalibrating the estimate never reprices the past.
@@ -52,12 +69,37 @@ class CapReached(RuntimeError):
     pass
 
 
-def estimate(chains, warmup, draws, gpu="A100-40GB"):
-    """Estimated list-price cost of one fit, in USD."""
-    seconds = OVERHEAD_SECONDS + SECONDS_PER_ITERATION * (int(warmup) + int(draws)) * (
+def gpu_seconds(chains, warmup, draws):
+    """Estimated wall time of a fit's GPU container."""
+    return OVERHEAD_SECONDS + SECONDS_PER_ITERATION * (int(warmup) + int(draws)) * (
         int(chains) / 2
     )
-    return round(seconds * USD_PER_HOUR[gpu] / 3600, 2)
+
+
+def seconds(chains, warmup, draws):
+    """Estimated Modal time of a fit: its GPU container, then the new-building container."""
+    return round(gpu_seconds(chains, warmup, draws) + NEWBUILDING_SECONDS)
+
+
+def estimate(chains, warmup, draws, gpu="A100-40GB"):
+    """Estimated list-price cost of a fit and its new-building score, in USD."""
+    gpu_usd = gpu_seconds(chains, warmup, draws) * USD_PER_HOUR[gpu]
+    return round((gpu_usd + NEWBUILDING_SECONDS * NEWBUILDING_USD_PER_HOUR) / 3600, 2)
+
+
+def over_cap(usd, secs):
+    """Why a fit estimated at `usd` and `secs` is over the per-fit cap, or None."""
+    if secs is not None and secs > PER_FIT_SECONDS:
+        return (
+            f"this fit's estimated {secs / 60:.0f} min of Modal time is over the per-fit cap "
+            f"of {PER_FIT_SECONDS / 60:.0f} min (Ben, 2026-10-14 09:57Z)"
+        )
+    if PER_FIT_USD is not None and usd > PER_FIT_USD:
+        return (
+            f"this fit's ${usd:.2f} estimate is over the per-fit cap of ${PER_FIT_USD:.2f} "
+            "(Ben, 2026-10-14 09:57Z)"
+        )
+    return None
 
 
 # The accrual rate, in USD a day, from each time on. Ben, 2026-10-07 22:32Z: $8.80 a day (10 x
@@ -171,10 +213,13 @@ def _append(ledger, decide, now):
         os.fsync(f.fileno())
 
 
-def reserve(name, gpu, usd, ledger=LEDGER, now=None):
-    """Charge a launch of `name` its estimate `usd`, or raise CapReached if the balance is short.
+def reserve(name, gpu, usd, ledger=LEDGER, now=None, secs=None):
+    """Charge a launch of `name` its estimate `usd`, or raise CapReached if the estimate (`usd`,
+    or `secs` of Modal time) is over the per-fit cap or the balance is short.
 
     Returns the launch's id, for settle, and the balance left."""
+    if why := over_cap(usd, secs):
+        raise CapReached(f"refused: {why}")
     now = _now(now)
     left = {}
 
@@ -230,17 +275,22 @@ if __name__ == "__main__":
     rows = launches()
     if "--check" in sys.argv:
         fit = sys.argv[sys.argv.index("--check") + 1 :][:3] or SERVED_FIT
+        if why := over_cap(estimate(*fit), seconds(*fit)):
+            print(f"refused: {why}", file=sys.stderr)
+            sys.exit(2)
         sys.exit(0 if balance(rows) >= estimate(*fit) else 1)
     if (
         "--check-launch" in sys.argv
     ):  # ops/modal-fit's pre-check, with its own arguments
         try:
             *fit, gpu = fit_size(sys.argv[sys.argv.index("--check-launch") + 1 :])
-            usd = estimate(*fit, gpu)
+            usd, secs = estimate(*fit, gpu), seconds(*fit)
         except (TypeError, ValueError, KeyError):
             sys.exit(
                 0
             )  # bad arguments: fit.py reports them, and reserves before any launch
+        if why := over_cap(usd, secs):
+            sys.exit(f"refused: {why}")
         if balance(rows) < usd:
             sys.exit(
                 f"refused: the Modal balance is ${balance(rows):.2f}, short of this fit's "
@@ -256,4 +306,11 @@ if __name__ == "__main__":
     print(
         f"balance ${balance(rows):.2f}, accruing ${USD_PER_DAY:.2f} a day up to ${CEILING:.2f}"
     )
-    print(f"a served full fit (${usd:.2f}) may launch from {when(rows, usd)}")
+    print(
+        f"a served full fit (${usd:.2f}, {seconds(*SERVED_FIT) / 60:.0f} min) may launch from "
+        f"{when(rows, usd)}"
+    )
+    print(
+        f"per-fit cap: {PER_FIT_SECONDS / 60:.0f} min, "
+        + (f"${PER_FIT_USD:.2f}" if PER_FIT_USD is not None else "no dollar cap yet")
+    )

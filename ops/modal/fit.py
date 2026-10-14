@@ -7,8 +7,9 @@ arguments mirror drive.sh, so the run is named "<model>-<features>-<split>-<comm
            COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [rentfrontier.run options...]
 
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
-dollars accrue at 10 full fits a day; refused until the balance covers it); upload only the inputs that changed since the last sync; ship a
-shallow checkout of COMMIT; run the fit (capped at 2 h, or 30 min for an exploration fit)
+dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
+if the estimate is over the per-fit cap); upload only the inputs that changed since the last sync; ship a
+shallow checkout of COMMIT; run the fit (capped at 1 h, or 30 min for an exploration fit)
 and PSIS-LOO in the container, then its post-fit statistics (variance decomposition, the
 summary bundle and its calibration for a full fit, and the explained share of each --explain
 SET; each capped, and none can fail the fit); score new buildings (rentfrontier.newbuilding)
@@ -302,8 +303,9 @@ def main(argv):
         sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
     touch()
     usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu)
-    # Raises CapReached if the balance is short.
-    launch, left = cap.reserve(spec["name"], args.gpu, usd)
+    secs = cap.seconds(args.chains, args.warmup, args.draws)
+    # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
+    launch, left = cap.reserve(spec["name"], args.gpu, usd, secs=secs)
     print(
         f"{spec['name']} on {args.gpu} ({spec['tier']}); estimated ${usd:.2f}, "
         f"Modal balance now ${left:.2f}",

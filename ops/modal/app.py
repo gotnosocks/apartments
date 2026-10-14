@@ -30,8 +30,11 @@ LOO = Path("/data1/apartments/frontier/loo")
 # Only these GPUs have float64 throughput worth paying for (docs/model/modal.md).
 GPUS = {"L4": 0.799, "A100-40GB": 2.099, "A100-80GB": 2.498, "H100": 3.949}
 CPU, MEMORY_MIB = 2, 24576  # the served design peaks near 15 GB of host memory
-FIT_CAP = {"full": 2 * 3600, "exploration": 30 * 60}  # the fit alone, as on thelio
-TIMEOUT = 3 * 3600  # the whole container: staging, fit, PSIS-LOO, post-fit statistics
+FIT_CAP = {"full": 3600, "exploration": 30 * 60}  # the fit alone
+# The whole container: staging, fit, PSIS-LOO, post-fit statistics. Launches are capped at an
+# estimated hour (cap.PER_FIT_SECONDS); this stops a runaway at 75 min, past the 69 min of the
+# slowest C-sized fit so far (bigbed, 2026-10-12, its summary bundle at its 20 min cap).
+TIMEOUT = 75 * 60
 POST_CAP = 20 * 60  # each post-fit statistic
 POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volume
 OUTPUT = Path(
