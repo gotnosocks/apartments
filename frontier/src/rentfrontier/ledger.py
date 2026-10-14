@@ -153,6 +153,9 @@ def markdown(entries: list[dict], current: str, hand: list[dict] = ()) -> str:
         " first when a neighbourhood is added, since more neighbourhoods widen their range"
         " (Ben, 2026-10-06).",
         "",
+        "The decision on each held, untested or unadopted change as of 2026-10-14 is in"
+        " [unadopted-work-2026-10-14.md](unadopted-work-2026-10-14.md).",
+        "",
         "| Date | Change | What | Kind | ΔPSIS-LOO | Verdict | Retest | Dataset (rows) | PR | Test run | Reference run |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
@@ -179,7 +182,9 @@ def markdown(entries: list[dict], current: str, hand: list[dict] = ()) -> str:
             pr = f"#{e['pr']}" if e.get("pr") else ""
             v = e.get("verdict") or verdict(e["diff"], e["se"])
             score = (
-                f"{e['diff']:+,.1f} ± {e['se']:,.1f}" if "diff" in e else "not fitted"
+                f"{e['diff']:+,.1f} ± {e['se']:,.1f}"
+                if "diff" in e
+                else e.get("score", "not fitted")
             )
             lines.append(
                 f"| {e['date']} | `{e['change']}` | {e['about']} | `{e['feature_set']}` "
