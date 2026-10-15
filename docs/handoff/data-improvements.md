@@ -1,6 +1,27 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 00:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 00:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 00:20 ET
+
+Midtown West place and use screen: quarantine-v26 (#821), merged.
+- Before this, Hell's Kitchen had 2 location conflicts and Hudson Yards had none. I ran the
+  `quarantine_v13_screen` terms over both. For far streets I used west streets 1 to 24 or 72 and
+  up, plus any east street, because the script's far-street check is set up for Chelsea. That
+  gave 422 rows in 391 groups (scratch in `/data1/apartments/tmp/suspect/mw-q`), and Sonnet
+  subagents read every group.
+- v26 holds 5 rows. Each has backing beyond its own ad:
+  - 1330577 (414 W 44th) and 5081524 (438 W 52nd) are location conflicts. Their ad text also
+    appears in listings for 411 E 6th #2B and 53 Leroy C1A, and no other listing carries it.
+  - 1727387 (461 W 43rd, PLUTO commercial area), 2128488 (unit label OFFICE) and 4300273
+    (447 W 36th, PLUTO class O8 with 1 apartment) are offices.
+- I kept 10 flagged groups, with reasons in
+  `config/reviews/midtown-west-screen-reads-20261015.jsonl`. Two use "Clinton" for Hell's
+  Kitchen, six have only the ad text, and one is joined to a vacant lot. The tenth is a Worldwide
+  Plaza townhouse with a W 49th St address, which is where those townhouses have their entrances.
+- A scan of NB9 text for Queens, Bronx and New Jersey place names gave 13 hits. All of them were
+  false alarms, such as an agency's office address or a price comparison.
+- Modeling's slopemin3 NB9 fit uses quarantine-v26.
 
 ## 2026-10-15 00:00 ET
 
