@@ -16,8 +16,9 @@ Midtown West place and use screen: quarantine-v26 (#821), merged.
   - 1727387 (461 W 43rd, PLUTO commercial area), 2128488 (unit label OFFICE) and 4300273
     (447 W 36th, PLUTO class O8 with 1 apartment) are offices.
 - I kept 10 flagged groups, with reasons in
-  `config/reviews/midtown-west-screen-reads-20261015.jsonl`. Three of them use "Clinton" for
-  Hell's Kitchen, six have only the ad text, and one is joined to a vacant lot.
+  `config/reviews/midtown-west-screen-reads-20261015.jsonl`. Two use "Clinton" for Hell's
+  Kitchen, six have only the ad text, and one is joined to a vacant lot. The tenth is a Worldwide
+  Plaza townhouse with a W 49th St address, which is where those townhouses have their entrances.
 - A scan of NB9 text for Queens, Bronx and New Jersey place names gave 13 hits. All of them were
   false alarms, such as an agency's office address or a price comparison.
 - Modeling's slopemin3 NB9 fit uses quarantine-v26.
