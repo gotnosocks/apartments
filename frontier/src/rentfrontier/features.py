@@ -5227,6 +5227,9 @@ def areas_v1(
     )
 
 
+# The API backfill's Manhattan datasets (data.DATASETS_API). The Brooklyn sets wait on the
+# Brooklyn registry and lot sources. Each set takes the NB9 base's
+
 # The API backfill's datasets (data.DATASETS_API). Each set takes the NB9 base's
 # terms other than its neighbourhoods (nb9-nostuy-lots2-v1) and adds the
 # dataset's StreetEasy areas against its largest one, named first here. The
