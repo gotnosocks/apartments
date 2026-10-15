@@ -146,3 +146,54 @@ def test_latest_ask_v4_keeps_v3s_rows_and_adds_midtown_wests():
     n = pd.read_parquet(new).set_index("audit_id")
     assert len(n) - len(o) == 81797
     pd.testing.assert_series_equal(n.latest_ask.loc[o.index], o.latest_ask)
+
+
+def test_wholefloor_reads_the_nb9_base_snapshots():
+    name, base = "nb9-nostuy-wholefloor-v1", "nb9-nostuy-v1"
+    groups = {
+        k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    assert {k for k, v in groups.items() if name in v} == {
+        k for k, v in groups.items() if base in v
+    }
+    assert features.lot_files(name) == features.lot_files(base)
+    assert features.area_files(name) == features.area_files(base)
+    assert features.description_files(name) == features.description_files(base)
+    assert features.PLUTO_RELEASES_SNAPSHOTS[name] == features.NB9_PLUTO_RELEASES_FILE
+
+
+def test_wholefloor_needs_the_ad_and_the_lot_to_agree(monkeypatch):
+    """Each indicator needs the ad's words and the lot's counts: a whole-house
+    ad on a 3-unit lot counts and on a 20-unit lot doesn't; a full-floor ad
+    counts only at <= 1.5 apartments per floor."""
+    from rentfrontier import descriptions, floorthrough
+
+    frame = pd.DataFrame({"building": list("abcdefgh")})
+    text = pd.Series(
+        [
+            "entire townhouse with garden",
+            "single-family living",
+            "full floor loft",
+            "floor-through 2br",
+            "sunny 1br",
+            "whole house and full floor",
+            "full floor-to-ceiling windows",
+            "entire townhouse, full floor",
+        ]
+    )
+    lots = pd.DataFrame({"unitsres": [3, 20, 5, 8, 2, 2, 1, np.nan]})
+    upf = np.array([0.75, 4.0, 1.0, 2.0, 0.5, 0.5, 0.5, np.nan])
+    monkeypatch.setitem(
+        features.FEATURE_SETS,
+        "base",
+        lambda f, t: features.Features(
+            "base", [], [], np.zeros((len(f), 0)), np.zeros(0)
+        ),
+    )
+    monkeypatch.setattr(descriptions, "attach", lambda f: text)
+    monkeypatch.setattr(features, "building_lots", lambda f: lots)
+    monkeypatch.setattr(floorthrough, "units_per_floor", lambda f: upf)
+    out = features.wholefloor_v1(frame, np.ones(8, bool), base="base")
+    assert out.names == ["whole house", "full floor"]
+    assert out.values[:, 0].tolist() == [1, 0, 0, 0, 0, 1, 0, 0]
+    assert out.values[:, 1].tolist() == [0, 0, 1, 0, 0, 1, 0, 0]
