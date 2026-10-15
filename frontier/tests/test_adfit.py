@@ -246,6 +246,30 @@ def test_bedroom_check_flags_a_studio_priced_like_the_three_bedrooms():
     assert "beds_price_bldg" in hits.at["studio", "flags"]
 
 
+def test_bedroom_check_flags_a_studio_above_the_one_bedrooms():
+    """870 Broadway has no three-bedrooms to compare with: a studio asking
+    more than the building's one-bedrooms is flagged, as is one above the
+    two-bedrooms, while studios at the usual discount are not."""
+    rows = [
+        dict(audit_id=f"b{k}{i}", unit_id=f"u{k}{i}", bedrooms=k, rent=rent)
+        for k, rent in ((0, 2500), (1, 3200))
+        for i in range(3)
+    ]
+    rows += [dict(audit_id="above1", unit_id="a", bedrooms=0, rent=3700)]
+    frame = _frame([dict(square_feet=None, **r) for r in rows])
+    got = pd.Series(adfit.bedroom_conflicts(frame), index=frame.audit_id)
+    assert got["above1"] and not got.drop("above1").any()
+    rows = [
+        dict(audit_id=f"b{k}{i}", unit_id=f"u{k}{i}", bedrooms=k, rent=rent)
+        for k, rent in ((0, 2500), (2, 3000))
+        for i in range(3)
+    ]
+    rows += [dict(audit_id="above2", unit_id="a", bedrooms=0, rent=3100)]
+    frame = _frame([dict(square_feet=None, **r) for r in rows])
+    got = pd.Series(adfit.bedroom_conflicts(frame), index=frame.audit_id)
+    assert got["above2"] and not got.drop("above2").any()
+
+
 def test_bedroom_check_needs_two_other_units_at_the_level():
     rows = [
         dict(audit_id="studio", unit_id="s", bedrooms=0, rent=5000),

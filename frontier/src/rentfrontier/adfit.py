@@ -40,8 +40,12 @@ The bedroom check compares each row with its building's other units, each unit
 taken at the median of its asks after removing every year's median ask. It
 flags a studio asking at least `STUDIO_SHARE` of the building's three-bedroom
 median, and an N-bedroom asking more than both the building's (N+1)- and
-(N+2)-bedroom medians, each median over at least `MIN_UNITS` units. A read
-corrects a count only from words in the ad or in the unit's other ads.
+(N+2)-bedroom medians, each median over at least `MIN_UNITS` units. It also
+flags a studio asking more than the building's two-bedroom median, or more than
+its one-bedroom median by `STUDIO_OVER_1BR` in log ask. A typical NB9 studio
+asks about 0.25 below its building's one-bedroom median, so that margin sits
+about two standard deviations out. A read changes a count only when the ad
+states it and something independent of the ad backs it.
 
 Price only flags a row for reading. A row is held out only after someone reads
 its whole ad and page and quotes the text or page field behind the verdict, so
@@ -77,6 +81,7 @@ PRICE_FACTOR = 2.0
 FAR_KM = 3.0
 MIN_SQFT = 100
 STUDIO_SHARE = 0.8
+STUDIO_OVER_1BR = 0.1
 MIN_UNITS = 2
 
 SIZE_FLAGS = ("size_far", "size_missing_small", "bldg_size_small")
@@ -190,8 +195,9 @@ def loo_median(values: np.ndarray, groups: np.ndarray) -> np.ndarray:
 
 def bedroom_conflicts(frame: pd.DataFrame) -> np.ndarray:
     """Rows whose ask is out of line with their bedroom count in their building:
-    a studio at `STUDIO_SHARE` or more of the three-bedroom median, or an
-    N-bedroom above both the (N+1)- and (N+2)-bedroom medians. Each median is
+    a studio at `STUDIO_SHARE` or more of the three-bedroom median, a studio
+    above the two-bedroom median or `STUDIO_OVER_1BR` above the one-bedroom
+    median, or an N-bedroom above both the (N+1)- and (N+2)-bedroom medians. Each median is
     over the building's other units, one value per unit, after removing the
     year's median log ask."""
     year = pd.to_datetime(frame.price_at, utc=True).dt.year.to_numpy()
@@ -228,6 +234,7 @@ def bedroom_conflicts(frame: pd.DataFrame) -> np.ndarray:
     out = np.zeros(len(frame), bool)
     with np.errstate(invalid="ignore"):
         out |= (beds == 0) & (adj >= levels[3] + math.log(STUDIO_SHARE))
+        out |= (beds == 0) & ((adj > levels[1] + STUDIO_OVER_1BR) | (adj > levels[2]))
         for k in range(4):
             out |= (beds == k) & (adj > levels[k + 1]) & (adj > levels[k + 2])
     return out

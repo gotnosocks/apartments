@@ -761,6 +761,9 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v5": "bedrooms-ad-v4, and 4 more listings from its review whose ad "
     "states a count that the floor plan on the listing's own page shows too. No "
     "listing is dropped.",
+    "bedrooms-ad-v6": "bedrooms-ad-v5, and 13 studios priced above their building's "
+    "one-bedrooms whose ad states a count that another ad for the apartment, a stated "
+    "size or the floor plan on the listing's own page backs. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
@@ -841,6 +844,9 @@ DATA_RULE_TEXT = {
     'says nothing about the apartment (blank, a placeholder such as "apt", legal '
     "boilerplate or a line about the building) and gives no count, so the 0 looks like "
     "a blank field.",
+    "quarantine-v23": "quarantine-v22 and 56 studios from a second bedroom review, "
+    "of studios priced above their building's one-bedrooms, held out on v22's test: "
+    "the ad says nothing about the apartment and no ad for it gives a count.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
