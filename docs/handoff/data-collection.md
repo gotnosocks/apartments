@@ -13,11 +13,15 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   crawl's 13,504 and found 22% more memberships, with every shared ad on the same unit. Every
   region writes into the shared archive, `crawls/api`, and each run records its region. Collections take `crawls/oxylabs.lock`; a page crawl started beside
   them should run under `flock` on the same file so the combined rate stays within 64/min.
-  `apartments-streeteasy-daily.timer` (05:30 ET) reads current ads of every region into
-  `current-listings/api-REGION`. Ben approved its daily cost in a relayed message (Oct 14
-  22:29 ET), but the classifier refused to install the timer on a relayed approval, so it is
-  **not installed** and waits for Ben's word typed in the thread. The site's ads in
-  `manhattan-page-crawl-areas` come from the Oct 10 captures and age out on Oct 17.
+  `apartments-streeteasy-topup.timer` (Fridays 05:30 ET) reads current ads of every region
+  into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
+  top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16,
+  comes a day before the Oct 10 captures behind the site's `manhattan-page-crawl-areas` ads age
+  out on Oct 17. The site counts an ad as on the market for 7 days after its last capture
+  (`CURRENT_DAYS` in `src/apartments/site/captures.py`), the same length as the timer's
+  period. Ads captured early in one Friday's run drop off the site before the next Friday's
+  run reads them again, and a backfill holding `oxylabs.lock` at 05:30 delays the top-up by
+  up to 18 hours. On Oct 15 the Website thread got a request to widen that window.
   The backfill reopens a finished run with `--reopen` and splits search bands holding more
   than 2,000 ads by area (#834).
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
@@ -167,8 +171,8 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
 - **History crawl → current listings** (#664, Ben 19:11 UTC): `apartments.crawl_current_listings`
   turns a finished crawl's newest-ACTIVE ads into `candidates.jsonl` with no requests, dated by
   page capture time. Not published: the Oct 10 capture is newer for those areas.
-- **Daily refresh**: `apartments-streeteasy-daily.timer` (see the GraphQL entry above) replaces
-  the on-demand captures for every area in its regions once it is installed.
+- **Weekly refresh**: `apartments-streeteasy-topup.timer` (see the GraphQL entry above) replaces
+  the on-demand captures for every area in its regions.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
