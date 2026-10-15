@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V28)
+    ) | data.quarantined(data.QUARANTINE_V29)
 
 
 @pytest.mark.parametrize(
@@ -1861,6 +1861,21 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v29_adds_the_older_mews_listings():
+    """v29 keeps every v28 row and adds the 2016 and 2019 rows of the 1 Fifth
+    Avenue mews unit whose 2022 and 2024 rows v28 holds."""
+    with open(data.QUARANTINE_V28) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V29) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = rows[len(old) :]
+    assert [r["source_listing_id"] for r in added] == ["1937379", "2867212"]
+    held_unit = {r["unit_id"] for r in old if r["source_listing_id"] == "3869550"}
+    assert {r["unit_id"] for r in added} == held_unit
+    assert "quarantine-v29" in data.DROPPING_RULES
 
 
 def test_quarantine_v28_adds_three_listings_backed_by_floor_plans():

@@ -1478,6 +1478,20 @@ def quarantine_v28(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V28))]
 
 
+QUARANTINE_V29 = QUARANTINE_V20.with_name("quarantine-v29-20261015.jsonl")
+
+
+def quarantine_v29(frame: pd.DataFrame) -> pd.DataFrame:
+    """v28's rows and the two older listings of 1 Fifth Avenue #MEWS, from
+    2016 and 2019. Both listing pages link the same floor plan image, titled
+    64 Washington Mews, as on the 2022 listing v28 holds. The 2019 ad also
+    has a twin under 64 Washington Mews #TWNH with the same rent and a plan
+    with the same title. The plans are in
+    `/data1/apartments/archive/floor-plans/2867212/` and
+    `/data1/apartments/archive/floor-plans/2867438/`."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V29))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1823,6 +1837,7 @@ DATA_RULES = {
     "quarantine-v26": quarantine_v26,
     "quarantine-v27": quarantine_v27,
     "quarantine-v28": quarantine_v28,
+    "quarantine-v29": quarantine_v29,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1874,6 +1889,7 @@ RULE_SOURCES = {
     "quarantine-v26": QUARANTINE_V26,
     "quarantine-v27": QUARANTINE_V27,
     "quarantine-v28": QUARANTINE_V28,
+    "quarantine-v29": QUARANTINE_V29,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1935,6 +1951,7 @@ DROPPING_RULES = (
     "quarantine-v26",
     "quarantine-v27",
     "quarantine-v28",
+    "quarantine-v29",
 )
 
 
