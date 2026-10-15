@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V26)
+    ) | data.quarantined(data.QUARANTINE_V27)
 
 
 @pytest.mark.parametrize(
@@ -1861,6 +1861,30 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v27_adds_fifty_wrong_building_listings():
+    """v27 keeps every v26 row and adds the 50 rows the duplicate-ad screen
+    held, each one from a group the readers decided."""
+    with open(data.QUARANTINE_V26) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V27) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = rows[len(old) :]
+    assert len(added) == 50
+    assert {r["action"] for r in added} == {"quarantine_location_conflict"}
+    read = set(
+        (brooklyn.REVIEWS / "quarantine-v27-read-20261015.txt").read_text().split()
+    )
+    with open(brooklyn.REVIEWS / "duplicate-ad-screen-reads-20261015.jsonl") as f:
+        groups = [json.loads(line) for line in f]
+    assert len(groups) == 120
+    held = {a for g in groups for a in g["held"]}
+    assert held == {r["audit_id"] for r in added}
+    assert {a for g in groups for a in g["audit_ids"]} == read
+    assert all(len(g["held"]) <= 1 for g in groups)
+    assert "quarantine-v27" in data.DROPPING_RULES
 
 
 def test_quarantine_v26_adds_five_midtown_west_listings():
