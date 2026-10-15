@@ -863,6 +863,8 @@ DATA_RULE_TEXT = {
     "where the same ad for the same unit label also appears under another building.",
     "quarantine-v28": "quarantine-v27 and 3 more listings filed under the wrong building, "
     "each backed by a floor plan that names the other building.",
+    "quarantine-v29": "quarantine-v28 and the 2016 and 2019 listings of the same 1 Fifth "
+    "Avenue mews unit, whose own floor plans name 64 Washington Mews.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
