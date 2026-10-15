@@ -15,8 +15,10 @@ python ops/pipeline/accounting.py modal --last 15
 
 ## Scrape to analysis rows
 
-The backfill's last collector run, a reopen of boxes that had stopped early, finished at 12:42 ET.
-From there, two threads ran the steps below by hand, each from a script in a scratch folder
+The steps started from a snapshot of the archive taken at 12:43 ET, a minute after a collector
+run that reopened boxes stopped early. The collector ran four more times after the snapshot,
+until 14:34, and the 404 captures from those runs aren't in the snapshot or in anything built
+from it. Two threads ran the steps by hand, each from a script in a scratch folder
 (`/data1/apartments/tmp/api-build-20261015` and `/data1/apartments/tmp/suspect/api`, 18 scripts
 between them). Times are wall clock. Peak is the unit's memory peak in GiB, with swap in brackets
 when the unit used any.
@@ -38,18 +40,21 @@ when the unit used any.
 | listing extras | 4.7 min | 2.0 min | 4.5 | |
 | outside data, Manhattan (PLUTO, footprints, basemap, LPC, PLUTO releases, HPD) | 13.3 min | 5.8 min | 1.4 | PLUTO, footprints, LPC and HPD failed with HTTP 503 or 500 |
 | outside data refetch, Manhattan | 14.8 min | 0.1 min | 0.4 | refetched PLUTO, footprints and LPC; HPD wasn't refetched |
-| feature build check, two Manhattan regions | 8.5 and 8.9 min | | 2.3 and 2.8 | `data.load`, rules and `features.build` for manhattan-west (153,551 rows) and manhattan-below-59th (312,388 rows) |
+| feature build check, two Manhattan regions | 8.5 and 8.9 min | | 2.3 and 2.8 | `data.load`, rules and `features.build` for manhattan-west-59th-110th (153,551 rows) and manhattan-below-59th (312,388 rows) |
 
 Totals, leaving out the collector's rewrite:
 
-1. The local steps from the snapshot through the Manhattan outside data took about 104 minutes of
-   wall time when each ran once and in order. The failed tries added about 8 minutes, and the
+1. Counting each step's successful run once, the steps from the snapshot through the Manhattan
+   outside-data refetch took about 172 minutes of wall time if run in order. About 82 of them
+   went to network requests: the Manhattan registry and the two outside-data fetches. The
+   failed tries added about 8 minutes, the failed Brooklyn registry run another 65, and the
    steps waited on each other and on people between runs.
 2. Manhattan's analysis rows passed the feature build check at about 16:15, roughly 3.5 hours
-   after the scrape finished. The Brooklyn registry rerun was still going at 16:30, so no
-   Brooklyn region had a checked, fit-ready dataset by then.
-3. The highest peak was 8.1 GiB, in the region tables. Three steps went over 6 GiB, and two steps
-   failed for lack of memory before a rerun with more room or fewer rows.
+   after the snapshot and 1.7 hours after the collector's last run. The Brooklyn registry rerun
+   was still going at 16:30, so no Brooklyn region had a checked, fit-ready dataset by then.
+3. The highest peak was 8.1 GiB, in the region tables. History, latest ask and descriptions
+   peaked between 6.0 and 7.0 GiB, and two steps failed for lack of memory before a rerun with
+   more room or fewer rows.
 4. Each step after the collector rereads the whole archive, so processing a Friday top-up takes
    as long as processing the full backfill.
 
@@ -60,11 +65,11 @@ the API response bodies take 11 GB.
 ## Data preparation inside a fit
 
 Each fit loads its dataset, applies the data rules and builds the feature matrix before sampling.
-The fit records that preparation as `seconds.prepare`, and starts its `seconds.fit_total` timer
-after preparation ends. Over the last 15 Modal fits (Oct 12 to 15, all on an A100), preparation
-took a median of 153 s (111 to 221 s), 8.7% of the fit's wall time. At the median settled cost of
-$2.00 a fit, that comes to about $0.17 a fit, and $2.71 across the 15, paid at the A100's rate
-while the GPU waits.
+The fit records that preparation as `seconds.prepare`. Modal bills the whole container, from
+start to exit, at the GPU's hourly rate. Over the last 15 Modal fits (Oct 12 to 15, all on an
+A100), preparation took a median of 153 s (111 to 221 s), 5.9% of the billed time. At the A100's
+$2.39 an hour, that comes to about $0.10 a fit, and $1.66 across the 15, paid while the GPU
+waits.
 
 On thelio, the same preparation for manhattan-below-59th, 312,388 rows, took 8.9 minutes and
 2.8 GiB.

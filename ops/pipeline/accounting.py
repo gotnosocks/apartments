@@ -8,13 +8,16 @@ result files.
 The journal subcommand reads every "Consumed ..." line systemd writes when a user unit or scope
 stops (services from systemd-run, scopes from ops/job) and prints one markdown row per unit.
 The modal subcommand joins each settled ledger entry to its run directory and prints the
-`seconds.prepare` and `seconds.fit_total` the fit recorded, beside the settled cost. The fit's
-timer starts after preparation ends, so the share is prepare / (prepare + fit_total).
+`seconds.prepare` the fit recorded beside the seconds Modal billed, which it works out from the
+settled cost and the hourly rate in ops/modal/cap.py for the fit's GPU. The billed time covers
+the whole container, so it runs longer than preparation plus `seconds.fit_total`. Preparation
+costs its own seconds at that rate.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import statistics
@@ -23,6 +26,7 @@ from pathlib import Path
 
 LEDGER = Path("/data1/apartments/modal/ledger.jsonl")
 RUNS = Path("/data1/apartments/frontier/runs")
+CAP = Path(__file__).resolve().parents[1] / "modal" / "cap.py"
 CONSUMED = re.compile(
     r"^(?P<at>\S+) \S+ \S+: (?P<unit>\S+): Consumed (?P<cpu>.+?) CPU time over (?P<wall>.+?) "
     r"wall clock time, (?P<mem>\S+) memory peak(?:, (?P<swap>\S+) memory swap peak)?"
@@ -64,6 +68,16 @@ def journal(since: str, until: str | None, match: str | None) -> None:
         )
 
 
+def rate(gpu: str) -> float:
+    """Dollars an hour for a GPU name as nvidia-smi reports it, such as NVIDIA A100-SXM4-40GB."""
+    spec = importlib.util.spec_from_file_location("cap", CAP)
+    cap = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cap)
+    if "A100" in gpu:
+        return cap.USD_PER_HOUR["A100-80GB" if "80GB" in gpu else "A100-40GB"]
+    return next(usd for key, usd in cap.USD_PER_HOUR.items() if key in gpu)
+
+
 def modal(last: int) -> None:
     settled = {}
     for line in LEDGER.read_text().splitlines():
@@ -76,25 +90,37 @@ def modal(last: int) -> None:
         if result.exists():
             run = json.loads(result.read_text())
             spent = run.get("seconds") or {}
-            if spent.get("prepare") and spent.get("fit_total"):
+            gpu = (run.get("hardware") or {}).get("gpu")
+            if spent.get("prepare") and gpu:
+                hourly = rate(gpu)
                 rows.append(
-                    (run["started_at"], spent["prepare"], spent["fit_total"], usd, name)
+                    (
+                        run["started_at"],
+                        spent["prepare"],
+                        usd / hourly * 3600,
+                        usd,
+                        spent["prepare"] * hourly / 3600,
+                        name,
+                    )
                 )
     rows = sorted(rows)[-last:]
-    print("| started | prepare s | fit s | prep share | settled $ | fit |")
-    print("|---|--:|--:|--:|--:|---|")
-    for at, prep, total, usd, name in rows:
+    print(
+        "| started (UTC) | prepare s | billed s | prep share | settled $ | prep $ | fit |"
+    )
+    print("|---|--:|--:|--:|--:|--:|---|")
+    for at, prep, billed, usd, prep_usd, name in rows:
         print(
-            f"| {at[:16]} | {prep:.0f} | {total:.0f} | {prep / (prep + total):.1%} | {usd:.2f} | {name[-40:]} |"
+            f"| {at[:16]} | {prep:.0f} | {billed:.0f} | {prep / billed:.1%} | {usd:.2f}"
+            f" | {prep_usd:.2f} | {name[-40:]} |"
         )
     prep = [r[1] for r in rows]
-    share = [r[1] / (r[1] + r[2]) for r in rows]
-    usd = [r[3] for r in rows]
+    share = [r[1] / r[2] for r in rows]
+    prep_usd = [r[4] for r in rows]
     print(
         f"\n{len(rows)} fits: median prepare {statistics.median(prep):.0f} s "
-        f"(range {min(prep):.0f} to {max(prep):.0f}), median share {statistics.median(share):.1%}, "
-        f"median settled ${statistics.median(usd):.2f}, prep dollars about "
-        f"${sum(s * u for s, u in zip(share, usd)):.2f} in all"
+        f"(range {min(prep):.0f} to {max(prep):.0f}), median share of billed time "
+        f"{statistics.median(share):.1%}, median settled ${statistics.median(r[3] for r in rows):.2f}, "
+        f"prep about ${statistics.median(prep_usd):.2f} a fit and ${sum(prep_usd):.2f} in all"
     )
 
 
