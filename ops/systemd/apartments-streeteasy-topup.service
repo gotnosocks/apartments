@@ -1,5 +1,5 @@
 [Unit]
-Description=Read each region's current StreetEasy rental ads through the GraphQL API (ops/streeteasy-collect daily)
+Description=Read each region's current StreetEasy rental ads through the GraphQL API (ops/streeteasy-collect topup)
 
 [Service]
 Type=oneshot
@@ -8,7 +8,7 @@ ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin mas
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
 # Oxylabs requests at 60 a minute, at most 150 a region. The script waits for any
 # other collection holding oxylabs.lock (a backfill) before it starts.
-ExecStart=/data1/apartments/serve/master/ops/streeteasy-collect daily
+ExecStart=/data1/apartments/serve/master/ops/streeteasy-collect topup
 TimeoutStartSec=20h
 Slice=apartments-light.slice
 MemoryMax=2G

@@ -1,9 +1,0 @@
-[Unit]
-Description=Read current StreetEasy rental ads each morning at 05:30 New York time
-
-[Timer]
-OnCalendar=*-*-* 05:30 America/New_York
-Persistent=true
-
-[Install]
-WantedBy=timers.target

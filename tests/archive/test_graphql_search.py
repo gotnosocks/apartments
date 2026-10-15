@@ -662,7 +662,7 @@ def test_client_spaces_requests_and_keeps_to_its_budget():
             client(lambda url, **kw: None, rate=rate)
 
 
-def test_daily_run_rereads_live_ads_and_finds_new_ones(tmp_path):
+def test_topup_run_rereads_live_ads_and_finds_new_ones(tmp_path):
     api = make_api()
     c = make_collector(tmp_path / "archive", api)
     c.collect()
@@ -681,8 +681,8 @@ def test_daily_run_rereads_live_ads_and_finds_new_ones(tmp_path):
     )
     api.search = search_rows(api.ads, [1300001, 1300005, 1300007, 1300010, 1300020])
     api.queries.clear()
-    daily = make_collector(tmp_path / "archive", api, active_only=True, new_run=True)
-    report = daily.collect()
+    topup = make_collector(tmp_path / "archive", api, active_only=True, new_run=True)
+    report = topup.collect()
 
     assert (
         report["invocation"]["stopped"] is None and report["enumeration"]["hits"] == 3
@@ -691,25 +691,25 @@ def test_daily_run_rereads_live_ads_and_finds_new_ones(tmp_path):
     read_ids = {int(i) for q in reads for i in re.findall(r"\d{7}", q)}
     assert read_ids == {1300005, 1300007, 1300010, 1300020}
     # The unchanged latest ad gets a new observation of its unit and no new snapshot.
-    assert len(observations(daily, UNIT_12B)) == 2
-    assert len(snapshots(daily, UNIT_12B)) == unit_snapshots
+    assert len(observations(topup, UNIT_12B)) == 2
+    assert len(snapshots(topup, UNIT_12B)) == unit_snapshots
     # The new ad takes over the unit page, and the old one is recorded under its own route.
     assert (
         api_document(
-            daily.store.get_body(observations(daily, UNIT_4A)[-1]["body_hash"])
+            topup.store.get_body(observations(topup, UNIT_4A)[-1]["body_hash"])
         )["listing_id"]
         == "1300020"
     )
-    assert frontier(daily)[rental(1300020)] == "superseded"
-    assert frontier(daily)[rental(1300007)] == "done"
-    (own,) = observations(daily, rental(1300007))
+    assert frontier(topup)[rental(1300020)] == "superseded"
+    assert frontier(topup)[rental(1300007)] == "done"
+    (own,) = observations(topup, rental(1300007))
     assert (
-        api_document(daily.store.get_body(own["body_hash"]))["record"]["status"]
+        api_document(topup.store.get_body(own["body_hash"]))["record"]["status"]
         == "RENTED"
     )
-    assert len(observations(daily, rental(1300001))) == 1
+    assert len(observations(topup, rental(1300001))) == 1
     assert (
-        daily.db.execute(
+        topup.db.execute(
             "SELECT read FROM graphql_search_ads WHERE listing_id=1300001"
         ).fetchone()[0]
         == rented_read
@@ -808,11 +808,11 @@ def test_an_ad_gone_from_the_api_leaves_the_next_capture(tmp_path):
     del api.ads["1300007"]
     api.search = search_rows(api.ads, [1300001, 1300005, 1300010])
     api.queries.clear()
-    daily = make_collector(tmp_path / "archive", api, active_only=True, new_run=True)
-    report = daily.collect(current_root=root)
+    topup = make_collector(tmp_path / "archive", api, active_only=True, new_run=True)
+    report = topup.collect(current_root=root)
     assert 1300007 in reads(api)
     assert report["current_listings"]["active_advertisements"] == 2
-    (status,) = daily.db.execute(
+    (status,) = topup.db.execute(
         "SELECT status FROM graphql_search_ads WHERE listing_id=1300007"
     ).fetchone()
     assert status == "ACTIVE"
@@ -866,15 +866,15 @@ def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
     assert not [k for k in report["write"] if "waiting" in k]
     resumed.store.close()
 
-    # Each daily run re-reads its own region's live ads and keeps its own current listings.
+    # Each top-up run re-reads its own region's live ads and keeps its own current listings.
     root = tmp_path / "current"
     root.mkdir()
     for region, live in ((full, {1300007}), (plain, {1300005, 1300010, 1300012})):
         api.queries.clear()
-        daily = make_collector(archive, api, active_only=True, new_run=True, **region)
-        daily.collect(current_root=root)
+        topup = make_collector(archive, api, active_only=True, new_run=True, **region)
+        topup.collect(current_root=root)
         assert reads(api) == live
-        daily.store.close()
+        topup.store.close()
     links = {p.name: p.resolve() for p in root.iterdir()}
     assert {name: path.parent.name for name, path in links.items()} == {
         "api-full": "full",
@@ -904,7 +904,7 @@ def test_an_archive_without_members_gives_each_ad_its_last_run_region(tmp_path):
     ] == [tuple(m) for m in members]
 
 
-def test_a_daily_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
+def test_a_topup_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
     api = make_api()
     # Unit 4a has an older ad, 1300004, missing from the search.
     api.ads["1300007"] = record(
@@ -922,7 +922,7 @@ def test_a_daily_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
     assert first.collect(current_root=root)["invocation"]["stopped"] is not None
     first.store.close()
 
-    # A daily run of a region over a parent area re-reads the backfill's ACTIVE ads.
+    # A top-up run of a region over a parent area re-reads the backfill's ACTIVE ads.
     api.queries.clear()
     parent = make_collector(
         archive,
@@ -940,7 +940,7 @@ def test_a_daily_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
     parent.store.close()
 
     # The resumed backfill still follows the histories of units 12b and 4a, and its
-    # capture holds the ACTIVE ads the daily run read after the backfill started.
+    # capture holds the ACTIVE ads the top-up run read after the backfill started.
     api.queries.clear()
     resumed = make_collector(archive, api, **history)
     report = resumed.collect(current_root=root)

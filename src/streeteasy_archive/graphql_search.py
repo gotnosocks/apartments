@@ -51,7 +51,7 @@ a run picks the units, histories and buildings to read, it starts from its regio
 The write step records whatever any run has read and left unwritten, since it sends no
 requests.
 
-With --active-only the search keeps ACTIVE ads only. A daily run in this mode reads the
+With --active-only the search keeps ACTIVE ads only. A top-up run in this mode reads the
 region's current ads and re-reads the region's ads with a status other than RENTED,
 NO_LONGER_AVAILABLE or DELISTED. Those ads get a new observation on each read, and the
 snapshot table gains a row only when a record changes, since an unchanged record gives the
@@ -1071,7 +1071,7 @@ class Collector:
         The collector reads this run's new hits, the latest ad of each unit, the units'
         older ads in a history region and the ads the API left out in an earlier
         invocation. It re-reads ads with a status other than final from before this run,
-        only among this run's hits in a backfill. A daily run also re-reads its own hits
+        only among this run's hits in a backfill. A top-up run also re-reads its own hits
         from before it, since a final ad can come back on the market.
 
         Apart from the run's hits, it looks only at its region's ads, so a run leaves other

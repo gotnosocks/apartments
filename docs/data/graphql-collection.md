@@ -103,7 +103,7 @@ $1.14 per 1,000 requests.
 | `manhattan-59th-110th` | Upper West Side, Upper East Side, East Harlem | yes | about 2,300 |
 | `brooklyn-prospect-park` | 14 areas north and west of Prospect Park | yes | about 1,100 |
 | `brooklyn-north-crown-heights` | north Brooklyn and Crown Heights | yes | about 2,900 |
-| `manhattan-page-crawl-areas` | the areas page crawls already collected | no | daily only |
+| `manhattan-page-crawl-areas` | the areas page crawls already collected | no | weekly top-up only |
 
 Ben approved the backfill of the first four (about 8,500 requests, about $9.70) on Oct 15 at
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
@@ -144,13 +144,13 @@ that copy with the main checkout's venv and `.env`. Every region writes into the
 `/data1/apartments/archive/crawls/api`, with a lock in it, and each run records its region.
 Each ad a run reads joins the run's region and stays in it, so an ad in an area two regions
 cover belongs to both. When a run picks units, histories and buildings to read, it starts
-only from its region's ads, and a daily run of one region leaves the others' units alone.
+only from its region's ads, and a top-up of one region leaves the others' units alone.
 The script holds `crawls/oxylabs.lock` while it runs, so collections run one at a time at 60
 requests a minute.
 
 ```sh
 ops/streeteasy-collect backfill manhattan-below-59th manhattan-59th-110th
-ops/streeteasy-collect daily
+ops/streeteasy-collect topup
 ```
 
 - `backfill` reads every ad of each region with its units' histories at or above the cutoff.
@@ -158,7 +158,7 @@ ops/streeteasy-collect daily
   resumes the region's latest run with `--reopen`, even after the run finished. On a finished
   run, it counts and reads the new bands from a newer collector's finer split, reads the ads
   and histories still unread, and publishes the region's current ads again.
-- `daily` reads the ACTIVE ads of every region and re-reads each region's ads whose status is
+- `topup` reads the ACTIVE ads of every region and re-reads each region's ads whose status is
   not RENTED, NO_LONGER_AVAILABLE or DELISTED, with at most 150 requests a region. It goes on
   past a region that fails.
 - A run that finishes writes the region's ads with an ACTIVE record fetched since the run
@@ -171,17 +171,27 @@ ops/streeteasy-collect daily
 - Each run's report is in `crawls/api/graphql-search/run-N.json`, and the script logs a line
   for each region in `crawls/streeteasy-collect.log`.
 
-`ops/systemd/apartments-streeteasy-daily.timer` runs `daily` at 05:30 New York time from the
-master checkout, in the light slice with 2 GB of memory, once it is linked into
-`~/.config/systemd/user` and enabled. As of Oct 15 it is not installed, and installing it
-waits for Ben's word.
+`ops/systemd/apartments-streeteasy-topup.timer` runs `topup` every Friday at 05:30 New York
+time from the master checkout, in the light slice with 2 GB of memory. Ben asked on Oct 15 for
+a weekly top-up in place of a daily one. The service and timer go into `~/.config/systemd/user`
+as links into the master checkout, and only the timer is enabled:
+
+```sh
+ln -s /data1/apartments/serve/master/ops/systemd/apartments-streeteasy-topup.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now apartments-streeteasy-topup.timer
+```
+
+A backfill holding `oxylabs.lock` at 05:30 delays the top-up until it finishes, for up to 18
+hours.
 
 ## Backup
 
 `ops/streeteasy-backup` copies the archive to the second disk, and
 `ops/systemd/apartments-streeteasy-backup.timer` runs it from the master checkout at 09:00 New
-York time, three and a half hours after the daily top-up starts. A collector may still be
-writing then, which the steps below allow for. Each run goes through these steps:
+York time. On Fridays that is three and a half hours after the top-up starts, and a backfill
+can run at any hour, so a collector may still be writing during a backup. The steps below allow
+for that. Each run goes through these steps:
 
 1. It copies the database with `VACUUM INTO` over a read-only connection, into
    `/data2/apartments-backup/streeteasy-api/db/archive-STAMP.sqlite3`. The copy holds the
