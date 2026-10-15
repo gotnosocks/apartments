@@ -116,7 +116,12 @@ def refresh_claim_rounds(store, generation, unit=None):
     sql = "SELECT unit_url, listing_key FROM collection_memberships WHERE generation=?"
     args = (generation,)
     if unit:
-        sql += " AND unit_url=?"
+        # With no table statistics, SQLite picks the primary key because it covers the
+        # query, and scans the generation's every membership for each unit page.
+        sql = (
+            "SELECT unit_url, listing_key FROM collection_memberships"
+            " INDEXED BY collection_membership_units WHERE generation=? AND unit_url=?"
+        )
         args += (unit,)
     ads = {}
     for unit_url, key in store.db.execute(sql, args):
