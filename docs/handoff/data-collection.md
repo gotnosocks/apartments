@@ -17,8 +17,11 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
   top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16,
   comes a day before the Oct 10 captures behind the site's `manhattan-page-crawl-areas` ads age
-  out on Oct 17. The site's reader keeps captures for 7 days, so a weekly run leaves little
-  slack, and the Website thread heard about it on Oct 15.
+  out on Oct 17. The site counts an ad as on the market for 7 days after its last capture
+  (`CURRENT_DAYS` in `src/apartments/site/captures.py`), the same length as the timer's
+  period. Ads captured early in one Friday's run drop off the site before the next Friday's
+  run reads them again, and a backfill holding `oxylabs.lock` at 05:30 delays the top-up by
+  up to 18 hours. On Oct 15 the Website thread got a request to widen that window.
   The backfill reopens a finished run with `--reopen` and splits search bands holding more
   than 2,000 ads by area (#834).
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
