@@ -48,6 +48,32 @@ The collection audit runs on the API archive: 15,230 frontier rows done, 4,069 e
 4,151 superseded. The historical exclusions are 3,821 ads below the cutoff, 1,867 not eligible
 and 248 with no unit membership.
 
+## Fields the API leaves out (Oct 15)
+
+I compared 400 ad pages from the Midtown West crawl of Oct 13 with 1,051 API records
+(scripts in `/data1/apartments/tmp/wt-crawl/fields/`). Next to the listing object on the ad
+page, the API record lacks `listingAddress`, which the address fields rebuild, `saleType`,
+null on rentals, and `showingNotes` on upcoming open houses. It adds `propertyId` and each
+history episode's `offMarketAt`. The rest of the ad page lies outside the listing object, and
+no code in `src/` reads it:
+
+- the listing agent's name, phone, contact and profile IDs, license type and Pro flag (the API
+  record keeps the brokerage under `legacy.license`)
+- nearby schools with district and grades, and nearby subway stations with routes and distance
+- 25 nearby colleges, museums and parks each, with distances
+- the page's building summary: area breadcrumbs and related areas, counts of units for rent and
+  for sale, and a documents link
+- the price history's display text, the similar-homes carousel and nearby-area links
+
+For each building, the collector also asks the API for the fields of the building page's
+object it offers: the description, green, land-lease and waterfront flags, the complex, the
+leasing and sales start dates (`additionalDetails`), photo and video keys, the IDs of the
+building's ads for rent and for sale, an owner-data flag and the last-change time. The API
+disables introspection, so I couldn't find the subfields of `displayPreferences` and left it
+out. Building pages also show nearby schools, transit, colleges, museums and parks, similar
+buildings, the management company and a documents link. The API's `Building` type offers no
+fields for these.
+
 ## Regions
 
 `REGIONS` in the module lists the regions and their StreetEasy area IDs. The projections

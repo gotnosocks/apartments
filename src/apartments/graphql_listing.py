@@ -52,7 +52,7 @@ from apartments.unit_canonical import unit_page
 SOURCE = "rentalsByListingIds"
 FIELDS_VERSION = "rental-listing-fields-v1"
 BUILDING_SOURCE = "buildingsByIds"
-BUILDING_FIELDS_VERSION = "building-fields-v1"
+BUILDING_FIELDS_VERSION = "building-fields-v2"
 
 
 def normalize(value):

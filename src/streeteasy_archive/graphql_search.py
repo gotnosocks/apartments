@@ -207,7 +207,12 @@ BUILDING_FRAGMENT = (
     "residentialUnitCount geoCenter { latitude longitude } address { street city state "
     "zipCode } se { areaId } nyc { communityDistrict buildingClass "
     "buildingClassDescription } amenities { list doormanTypes parkingTypes "
-    "sharedOutdoorSpaceTypes storageSpaceTypes } policies { list } area { id name slug } }"
+    "sharedOutdoorSpaceTypes storageSpaceTypes } policies { list } area { id name slug } "
+    "description isGreen isLandLease isWaterfront complexId complex { id name slug } "
+    "hasOwnerData interestingChangeAt additionalDetails { leasingStartDate salesStartDate } "
+    "heroImage { key } media { photos { key } videos { url imageUrl id provider } "
+    "tour3dUrl floorPlans { key } } rentalInventorySummary { availableListingDigests { id } } "
+    "saleInventorySummary { availableListingDigests { id } } }"
 )
 
 # The ads of the run's region, as a condition on graphql_search_ads a.
