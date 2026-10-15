@@ -72,7 +72,8 @@ def slug_address(slug: str) -> str | None:
     Takes the first "<number> ... <street word>" run, so an address embedded
     after a name ("beatrice-105-west-29th-street-new_york") is found too.
     """
-    words = slug.removesuffix("-new_york").removesuffix("-brooklyn").split("-")
+    stem = slug.removesuffix("-new_york").removesuffix("-brooklyn")
+    words = [w for w in stem.split("-") if w]
 
     def fmt(parts):
         return " ".join(p if p[0].isdigit() else p.capitalize() for p in parts)
