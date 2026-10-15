@@ -97,21 +97,22 @@ merged, so every building record in it has these fields.
 scale NoMad's 86 requests for 20,461 all-time search hits by each region's hit count, at about
 $1.14 per 1,000 requests.
 
-| region | areas | with unit histories | projected requests |
+| region | areas | with unit histories | requests |
 |---|---|---|---:|
 | `manhattan-below-59th` | 21 areas not crawled before | yes | about 2,200 |
 | `manhattan-59th-110th` | Upper West Side, Upper East Side, East Harlem | yes | about 2,300 |
 | `brooklyn-prospect-park` | 14 areas north and west of Prospect Park | yes | about 1,100 |
 | `brooklyn-north-crown-heights` | north Brooklyn and Crown Heights | yes | about 2,900 |
-| `manhattan-page-crawl-areas` | the areas page crawls already collected | no | weekly top-up only |
+| `manhattan-page-crawl-areas` | the 12 areas page crawls already collected | no | 2,054 in run 5, then weekly top-ups |
 
 Ben approved the backfill of the first four (about 8,500 requests, about $9.70) on Oct 15 at
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
 area for East Harlem below 110th St, so the region takes all of it, about $0.17 more. Re-reading
-the histories of areas collected by page crawls is not part of the backfill. Writing the
-records sends no requests and takes about 7 ms an ad on thelio, half of it in the two disk
-flushes for each ad's body file, so the four regions' 1.5 million or so ads take about 3 hours
-to write.
+the histories of areas collected by page crawls is not part of the backfill. Ben approved a
+re-read of those areas' ads, without unit histories, on Oct 15 at 15:50 ET (run 5, below).
+Writing the records sends no requests and takes about 7 ms an ad on thelio, half of it in the
+two disk flushes for each ad's body file, so the four regions' 1.5 million or so ads take about
+3 hours to write.
 
 ## Bands too full to read from both ends (Oct 15)
 
@@ -312,6 +313,30 @@ and `/008c` at 101 West End Ave. StreetEasy keeps two records for each such unit
 The dataset holds the four regions' runs as of the 12:47 ET snapshot, so it lacks the ads
 from the reopens after it. The archive holds no top-up run yet, and the first starts on
 Friday Oct 16 at 05:30 ET.
+
+## The page-crawl areas' re-read (Oct 15)
+
+Ben approved the re-read on Oct 15 at 15:50 ET, so that the API archive holds the ads of the
+12 areas page crawls had collected. I ran `ops/streeteasy-collect backfill
+manhattan-page-crawl-areas` from 15:52 to 17:48 ET as run 5, with no unit histories. It took
+2,054 requests ($2.34): 232 counts, 239 slices, 1,549 ad reads and 34 building reads.
+
+- The searches found 522,774 ad IDs in 2,663 bands, the same as the areas' count, with no
+  pending, truncated or unanswered band and no band whose parts held fewer ads than it.
+- The run read 424,776 ads: 226,664 RENTED, 153,622 NO_LONGER_AVAILABLE, 42,608 DELISTED, 1,419
+  ACTIVE and 463 with other statuses. Of the IDs it left unread, 93,468 fall below the
+  listing-ID cutoff of 1,210,000, and 4,535 were already in the archive with a final status
+  from the four regions' runs. Its reads also include 5 ads outside the search hits, as the
+  latest ads of units.
+- Writing took from 16:53 to 17:48 ET: 266,322 ad records, 157,293 ads marked superseded and
+  1,161 excluded, with 160,579 units and 8,003 buildings written. 745 units have no unit page.
+  Of the ads in the run's scope with no archive entry, it excluded 91,723 for falling below the
+  listing-ID cutoff and left 107 unread.
+- The run wrote current-listings files for its 1,419 ACTIVE ads to
+  `current-listings/api-manhattan-page-crawl-areas`, with 1,417 candidates and 2 failures.
+- I exported the run's replies to `crawls/api/export` by hand at the end, since #864 merged
+  while it was running. The export holds 424,776 ad reads in 6 files, 8,003 building reads,
+  1,508 stored replies and 1,970 calls, and each table matches the archive.
 
 ## Running it
 
