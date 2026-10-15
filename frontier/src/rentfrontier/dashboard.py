@@ -861,6 +861,8 @@ DATA_RULE_TEXT = {
     "three offices.",
     "quarantine-v27": "quarantine-v26 and 50 listings filed under the wrong building, found "
     "where the same ad for the same unit label also appears under another building.",
+    "quarantine-v28": "quarantine-v27 and 3 more listings filed under the wrong building, "
+    "each backed by a floor plan that names the other building.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",

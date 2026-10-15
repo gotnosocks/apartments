@@ -1437,7 +1437,7 @@ def quarantine_v27(frame: pd.DataFrame) -> pd.DataFrame:
     """v26's rows and 50 listings filed under the wrong building. The screen
     groups ads of 300 characters or more by their normalized text, then keeps
     groups where the same text and unit label appear under two buildings that
-    are not within 10 house numbers on one street, with at most 4 listings to a group.
+    are not within 10 house numbers on one street.
     Sonnet readers decided each of the 120 groups from the ad text, PLUTO facts
     for each building and the unit label's history in each building;
     `config/reviews/duplicate-ad-screen-reads-20261015.jsonl` records each read
@@ -1455,6 +1455,27 @@ def quarantine_v27(frame: pd.DataFrame) -> pd.DataFrame:
     alone stay in, as do the undecided groups and those where both slugs are
     the same building."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V27))]
+
+
+QUARANTINE_V28 = QUARANTINE_V20.with_name("quarantine-v28-20261015.jsonl")
+
+
+def quarantine_v28(frame: pd.DataFrame) -> pd.DataFrame:
+    """v27's rows and 3 more listings filed under the wrong building, from the
+    18 duplicate-ad groups v27 kept because readers decided them from unit
+    history alone. I fetched the floor plans linked from those groups'
+    stored listing pages: 5 images on 5 listings in 4 groups. A Sonnet reader
+    transcribed each plan's printed text, and
+    `config/reviews/duplicate-ad-floor-plans-20261015.jsonl` records each read.
+
+    - 313 West 29th Street #D: its plan, the same image as the 339 West 19th
+      Street #D listing's, is titled 339 West 19th Street, Unit D.
+    - 1 Fifth Avenue #MEWS, two listings (2022 and 2024): the 2022 listing's
+      plan is titled 64 Washington Mews, the carriage house both ads describe.
+
+    The two other groups' images carry no address: one is a room photo and the
+    other has room labels only."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V28))]
 
 
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
@@ -1801,6 +1822,7 @@ DATA_RULES = {
     "quarantine-v25": quarantine_v25,
     "quarantine-v26": quarantine_v26,
     "quarantine-v27": quarantine_v27,
+    "quarantine-v28": quarantine_v28,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1851,6 +1873,7 @@ RULE_SOURCES = {
     "quarantine-v25": QUARANTINE_V25,
     "quarantine-v26": QUARANTINE_V26,
     "quarantine-v27": QUARANTINE_V27,
+    "quarantine-v28": QUARANTINE_V28,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1911,6 +1934,7 @@ DROPPING_RULES = (
     "quarantine-v25",
     "quarantine-v26",
     "quarantine-v27",
+    "quarantine-v28",
 )
 
 

@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V27)
+    ) | data.quarantined(data.QUARANTINE_V28)
 
 
 @pytest.mark.parametrize(
@@ -1861,6 +1861,34 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v28_adds_three_listings_backed_by_floor_plans():
+    """v28 keeps every v27 row and adds the 3 rows whose floor plans name the
+    other building, each from a group v27 kept on unit history alone."""
+    with open(data.QUARANTINE_V27) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V28) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = rows[len(old) :]
+    assert len(added) == 3
+    assert {r["action"] for r in added} == {"quarantine_location_conflict"}
+    with open(brooklyn.REVIEWS / "duplicate-ad-screen-reads-20261015.jsonl") as f:
+        kept = {
+            g["gid"]: g
+            for g in map(json.loads, f)
+            if g["decision"] == "kept: reader backed it by unit history alone"
+        }
+    with open(brooklyn.REVIEWS / "duplicate-ad-floor-plans-20261015.jsonl") as f:
+        plans = [json.loads(line) for line in f]
+    assert {p["gid"] for p in plans} <= set(kept)
+    held = {a for p in plans for a in p["held"]}
+    assert held == {r["audit_id"] for r in added}
+    for p in plans:
+        assert set(p["held"]) <= set(kept[p["gid"]]["audit_ids"])
+        assert bool(p["held"]) == (p["building_on_plan"] is not None)
+    assert "quarantine-v28" in data.DROPPING_RULES
 
 
 def test_quarantine_v27_adds_fifty_wrong_building_listings():
