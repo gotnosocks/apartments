@@ -1758,6 +1758,34 @@ def test_bedrooms_ad_v4_takes_counts_from_quoted_reads():
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
 
 
+def test_bedrooms_ad_v5_takes_counts_a_listing_floor_plan_shows():
+    """Each v5 row is a v4-review row kept at its coded count, whose floor
+    plan read is a clear plan from the listing's own page showing the ad's
+    count; v4's rows apply first."""
+    with open(data.BEDROOM_CORRECTIONS_V5) as f:
+        fixes = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/floor-plans-20261015-bedrooms.jsonl") as f:
+        plans = [json.loads(line) for line in f]
+    with open(data.REPO / "config/reviews/ad-fit-reads-20261015-bedrooms.jsonl") as f:
+        reads = {r["audit_id"]: r for r in map(json.loads, f)}
+    backed = {p["audit_id"]: p for p in plans if p["verdict"] == "correct_bedrooms"}
+    assert len(fixes) == 4 and backed.keys() == fixes.keys()
+    for a, p in backed.items():
+        assert p["plan_page"] == "StreetEasy listing page" and p["plan_clear"]
+        assert p["plan_bedrooms"] == p["ad_bedrooms"] != p["bedrooms_coded"]
+        assert reads[a]["verdict"] == "keep"
+        assert fixes[a]["recorded"] == p["bedrooms_coded"]
+        assert (
+            fixes[a]["corrected"] == p["ad_bedrooms"]
+            and p["plan"] in fixes[a]["evidence"]
+        )
+    frame = pd.DataFrame(
+        {"audit_id": [next(iter(fixes)), "other"], "bedrooms": [9.0, 2.0]}
+    )
+    out = data.correct_bedrooms_v5(frame)
+    assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
 def test_quarantine_v22_adds_the_blank_studios_of_the_bedroom_review():
     """v22 holds out v21's rows unchanged, plus each bedroom-review read with
     the `quarantine_bedrooms_unknown` verdict, quoting the read's whole ad."""

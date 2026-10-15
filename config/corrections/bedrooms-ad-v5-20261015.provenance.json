@@ -1,0 +1,18 @@
+{
+ "rule": "bedrooms-ad-v5",
+ "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
+ "dataset_observations_sha256": "8b8897c1c5196969b30544cd2ec1b9ae32ac8e720d612e86fd52fbdbe52ceae7",
+ "base_rule": "bedrooms-ad-v4",
+ "base_rows": 22,
+ "unbacked_v4_rows": 64,
+ "rows_with_linked_plans": 15,
+ "plans_fetched": 16,
+ "plans": "/data1/apartments/archive/floor-plans/<listing id>/<key>-p_e.webp from https://photos.zillowstatic.com/fp/<key>-p_e.webp, 10 s apart",
+ "plan_reads": "config/reviews/floor-plans-20261015-bedrooms.jsonl",
+ "rows": 4,
+ "by_change": {
+  "0->1": 2,
+  "0->2": 1,
+  "2->3": 1
+ }
+}

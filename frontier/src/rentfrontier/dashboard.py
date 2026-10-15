@@ -758,6 +758,9 @@ DATA_RULE_TEXT = {
     "same apartment, a stated size or a reviewed floor plan backs it (22 rows). A "
     "reader read every flagged ad in full; price only chose which ads to read. No "
     "listing is dropped.",
+    "bedrooms-ad-v5": "bedrooms-ad-v4, and 4 more listings from its review whose ad "
+    "states a count that the floor plan on the listing's own page shows too. No "
+    "listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
