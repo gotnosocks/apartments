@@ -13,7 +13,8 @@ each hit into a tier for reading:
    nightly or short stay, or a neighbourhood more than `FAR_KM` from the
    building.
 3. C: a stated size far from the unit's other stated sizes, alone.
-4. D: price alone.
+4. E: a bedroom count out of line with its building (`beds_price_bldg`).
+5. D: price alone.
 
 Rows with no stated size get a size flag from their bedroom count's typical
 size (`INFERRED_SIZE_FLAGS`). On NB9 a random sample of 30 such rows held no
@@ -34,6 +35,13 @@ in turn:
 - a unit with no stated size, where its bedroom count's typical size is under
   `SMALL` of the 10th-percentile stated size of the building's units with the
   same bedroom count, given at least three rows with a stated size.
+
+The bedroom check compares each row with its building's other units, each unit
+taken at the median of its asks after removing every year's median ask. It
+flags a studio asking at least `STUDIO_SHARE` of the building's three-bedroom
+median, and an N-bedroom asking more than both the building's (N+1)- and
+(N+2)-bedroom medians, each median over at least `MIN_UNITS` units. A read
+corrects a count only from words in the ad or in the unit's other ads.
 
 Price only flags a row for reading. A row is held out only after someone reads
 its whole ad and page and quotes the text or page field behind the verdict, so
@@ -68,12 +76,15 @@ SMALL = 0.6
 PRICE_FACTOR = 2.0
 FAR_KM = 3.0
 MIN_SQFT = 100
+STUDIO_SHARE = 0.8
+MIN_UNITS = 2
 
 SIZE_FLAGS = ("size_far", "size_missing_small", "bldg_size_small")
 INFERRED_SIZE_FLAGS = ("size_missing_small", "bldg_size_small")
 TEXT_FLAGS = ("far_place", "room_share", "shared_bath", "short_stay")
 PRICE_FLAGS = ("price_far_unit", "price_far_bldg")
-FLAGS = SIZE_FLAGS + TEXT_FLAGS + PRICE_FLAGS
+BEDROOM_FLAGS = ("beds_price_bldg",)
+FLAGS = SIZE_FLAGS + TEXT_FLAGS + PRICE_FLAGS + BEDROOM_FLAGS
 VERDICTS = (
     "keep",
     "quarantine_location_conflict",
@@ -81,6 +92,7 @@ VERDICTS = (
     "quarantine_price_basis",
     "quarantine_explicit_short_term_offer",
     "quarantine_nonresidential",
+    "quarantine_bedrooms_unknown",
     "brooklyn_misjoin",
     "unit_split",
     "unit_relabel",
@@ -176,6 +188,51 @@ def loo_median(values: np.ndarray, groups: np.ndarray) -> np.ndarray:
     return out
 
 
+def bedroom_conflicts(frame: pd.DataFrame) -> np.ndarray:
+    """Rows whose ask is out of line with their bedroom count in their building:
+    a studio at `STUDIO_SHARE` or more of the three-bedroom median, or an
+    N-bedroom above both the (N+1)- and (N+2)-bedroom medians. Each median is
+    over the building's other units, one value per unit, after removing the
+    year's median log ask."""
+    year = pd.to_datetime(frame.price_at, utc=True).dt.year.to_numpy()
+    lr = frame.log_rent.to_numpy(float)
+    adj = lr - pd.Series(lr).groupby(year).transform("median").to_numpy()
+    beds = frame.bedrooms.round().clip(0, 5).to_numpy(float)
+    building = frame.building.to_numpy()
+    unit = frame.unit_id.to_numpy()
+    units = (
+        pd.DataFrame(dict(building=building, beds=beds, unit=unit, adj=adj))
+        .dropna(subset=["beds"])
+        .groupby(["building", "beds", "unit"], sort=False)
+        .adj.median()
+        .reset_index()
+    )
+    by_level = {
+        key: (g.unit.to_numpy(), g.adj.to_numpy())
+        for key, g in units.groupby(["building", "beds"], sort=False)
+    }
+
+    def median(level):
+        # Each row's building median at `level` bedrooms, its own unit left out.
+        med = np.full(len(frame), np.nan)
+        for i, (b, u) in enumerate(zip(building, unit)):
+            ids, v = by_level.get((b, level), (None, None))
+            if ids is None:
+                continue
+            keep = ids != u
+            if keep.sum() >= MIN_UNITS:
+                med[i] = np.median(v[keep])
+        return med
+
+    levels = {k: median(float(k)) for k in range(6)}
+    out = np.zeros(len(frame), bool)
+    with np.errstate(invalid="ignore"):
+        out |= (beds == 0) & (adj >= levels[3] + math.log(STUDIO_SHARE))
+        for k in range(4):
+            out |= (beds == k) & (adj > levels[k + 1]) & (adj > levels[k + 2])
+    return out
+
+
 def place_centres(path: Path = NTA_CENTRES) -> dict[str, list[tuple[float, float]]]:
     """Name parts of the 2020 NTAs, each with the centres of the NTAs that use it."""
     centres: dict[str, list[tuple[float, float]]] = {}
@@ -264,13 +321,16 @@ def screen(
                 break
     for k in TEXT_FLAGS:
         flags[k] = pd.notna(phrase[k])
+    flags["beds_price_bldg"] = bedroom_conflicts(frame)
 
     hit = pd.DataFrame(flags)
     size = hit[list(SIZE_FLAGS)].any(axis=1)
     words = hit[list(TEXT_FLAGS)].any(axis=1)
     price = hit[list(PRICE_FLAGS)].any(axis=1)
     tier = np.select(
-        [size & price, words, hit.size_far, price], ["A", "B", "C", "D"], ""
+        [size & price, words, hit.size_far, hit.beds_price_bldg, price],
+        ["A", "B", "C", "E", "D"],
+        "",
     )
     rows = []
     for i in np.flatnonzero(tier != ""):
@@ -306,9 +366,15 @@ def read_ids() -> frozenset:
     return frozenset(ids)
 
 
+WHOLE_AD_VERDICTS = ("quarantine_bedrooms_unknown",)
+
+
 def verdict_problems(read: dict) -> list[str]:
     """What keeps a read from being recorded: an unknown verdict, or a non-keep
-    verdict without a quote from the ad or the page, or one resting on price."""
+    verdict without a quote from the ad or the page, or one resting on price.
+    A studio held out for an unknown count may quote its whole ad even when
+    that ad is a placeholder ("apt", "-"): the missing description is the
+    evidence."""
     problems = []
     verdict = read.get("verdict")
     if verdict not in VERDICTS:
@@ -318,6 +384,10 @@ def verdict_problems(read: dict) -> list[str]:
     quote = (read.get("quote") or "").strip()
     if read.get("quote_source") not in ("ad", "page"):
         problems.append("quote_source must be 'ad' or 'page'")
+    if verdict in WHOLE_AD_VERDICTS and read.get("quote_is_whole_ad"):
+        if not read.get("reason"):
+            problems.append("no reason")
+        return problems
     if (
         len(
             re.findall(

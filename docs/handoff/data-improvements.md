@@ -2,6 +2,26 @@
 
 Updated 2026-10-14 19:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-14 21:45 ET
+
+Bedroom review (branch `data/bedrooms-ad-v4`): bedrooms-ad-v4 and quarantine-v22.
+- The ad-fit bedroom check (`beds_price_bldg`) flags 1,499 NB9 rows priced out of line with their
+  building's other units. Sonnet readers read every one in full, plus 71 rows an earlier draft of
+  the screen flagged (1,568 reads remain after v21's hold-outs). Scratch and scripts are in
+  `/data1/apartments/tmp/suspect/bd4` (`final.py` writes the reads, corrections and v22 files).
+- Ben, 2026-10-15: an ad's stated count needs an independent signal before a count changes.
+  `final.py` accepts another ad for the unit with different copy, a stated size nearer the new
+  count's median than the coded count's, or a plan, photos or video Ben reviewed. Same-line peers
+  don't count, since Ben confirmed 448 W 46th #3FW as a studio in a line coded 1 bedroom.
+  Reposted broker copy isn't another ad.
+- Result: 22 corrections, 64 stated counts left as coded (bucket d), 146 placeholder studios held
+  out in quarantine-v22.
+- Open: Ben's direct OK to fetch the floor plan images linked from stored pages
+  (photos.zillowstatic.com `floorPlans` keys) for the 64 rows. If he agrees, plans that show the
+  count go into a later bedrooms-ad version.
+- Follow-up for Modeling: widen the check to studios priced above the building's 1- and
+  2-bedroom rows (870 Broadway, 1 Sheridan Sq have no 3-bedroom rows to compare with).
+
 ## 2026-10-14 19:20 ET
 
 - **Ad-text fills on master** (Ben lifted the hold at 22:23Z: the fits should work with Midtown
@@ -938,6 +958,8 @@ Ben's run pause holds. Modeling has been told about each new set.
 ## Rules that bind this thread
 - Rule-based changes, one PR per change, no future information; descriptions never override coded
   fields; no new LLM calls, image downloads or scraping beyond what Ben approved.
+- Bulk ad reading runs on Sonnet or Haiku subagents (Ben, 2026-10-15). The default model designs
+  the rules, spot-checks about 30 verdicts and does the final sizing.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.
 - Tests through `ops/job light` with `TMPDIR=/data1/apartments/tmp/suspect/tmpdir`; venv
   `/data1/apartments/venvs/data-line`, ruff via `uvx ruff`.

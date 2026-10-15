@@ -732,6 +732,26 @@ def correct_bedrooms_v3(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(frame, "bedrooms-ad-v3")
 
 
+BEDROOM_CORRECTIONS_V4 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v4-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v4(frame: pd.DataFrame) -> pd.DataFrame:
+    """v3's rows, then 22 rows the ad-fit screen's bedroom check
+    (`adfit.bedroom_conflicts`) flagged on NB9. A reader read each flagged
+    row's ads in full (`config/reviews/ad-fit-reads-20261015-bedrooms.jsonl`).
+    A count changes only when an ad states or describes it and something
+    independent of that ad backs it, recorded as the read's `second_signal`:
+      - another ad for the same unit stating the count,
+      - a stated size nearer that count's median size than the coded count's,
+      - a floor plan, photos or a video walkthrough Ben reviewed.
+    Price chooses which rows get read and never backs a count. Rows whose ad
+    states a count with nothing to back it keep their coded count. Every row
+    is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v3(frame), "bedrooms-ad-v4")
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -1237,6 +1257,23 @@ def quarantine_v21(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V21))]
 
 
+QUARANTINE_V22 = QUARANTINE_V20.with_name("quarantine-v22-20261015.jsonl")
+
+
+def quarantine_v22(frame: pd.DataFrame) -> pd.DataFrame:
+    """v21's 487 rows and 146 studios of the bedroom review whose 0 looks
+    like a blank field. The ad-fit screen's bedroom check (`beds_price_bldg`)
+    flags rows priced out of line with their building's other units, and a
+    reader read each flagged row's ads in full
+    (`config/reviews/ad-fit-reads-20261015-bedrooms.jsonl`). A row coded 0 is
+    held out when no ad for its unit states a count and the row's own ad says
+    nothing about the apartment: it is blank, a placeholder ("apt", "-",
+    "n/a"), legal boilerplate, or a line about the building. Studios with a
+    described layout but no count, such as a duplex loft, keep their 0, as
+    does every row coded 1 or more."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V22))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1549,6 +1586,7 @@ DATA_RULES = {
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
     "bedrooms-ad-v3": correct_bedrooms_v3,
+    "bedrooms-ad-v4": correct_bedrooms_v4,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1570,6 +1608,7 @@ DATA_RULES = {
     "quarantine-v19": quarantine_v19,
     "quarantine-v20": quarantine_v20,
     "quarantine-v21": quarantine_v21,
+    "quarantine-v22": quarantine_v22,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1614,6 +1653,7 @@ RULE_SOURCES = {
     "quarantine-v19": QUARANTINE_V19,
     "quarantine-v20": QUARANTINE_V20,
     "quarantine-v21": QUARANTINE_V21,
+    "quarantine-v22": QUARANTINE_V22,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1639,6 +1679,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
     "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
+    "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
@@ -1664,6 +1705,7 @@ DROPPING_RULES = (
     "quarantine-v19",
     "quarantine-v20",
     "quarantine-v21",
+    "quarantine-v22",
 )
 
 
