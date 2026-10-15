@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V25)
+    ) | data.quarantined(data.QUARANTINE_V26)
 
 
 @pytest.mark.parametrize(
@@ -1861,6 +1861,35 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v26_adds_five_midtown_west_listings():
+    """v26 holds out v25's rows unchanged, plus 5 rows from the Midtown West
+    screen. Every held row is in v26's read list and has a held read in the
+    reads record."""
+    with open(data.QUARANTINE_V25) as f:
+        v25 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V26) as f:
+        v26 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(v26[a] == v25[a] for a in v25)
+    added = {a: v26[a] for a in v26.keys() - v25.keys()}
+    assert len(added) == 5
+    assert sorted(r["action"] for r in added.values()) == [
+        "quarantine_location_conflict",
+        "quarantine_location_conflict",
+        "quarantine_nonresidential",
+        "quarantine_nonresidential",
+        "quarantine_nonresidential",
+    ]
+    read = set(
+        (brooklyn.REVIEWS / "quarantine-v26-read-20261015.txt").read_text().split()
+    )
+    assert added.keys() <= read
+    with open(brooklyn.REVIEWS / "midtown-west-screen-reads-20261015.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    assert {a for r in reads if r["held"] for a in r["audit_ids"]} == added.keys()
+    assert {a for r in reads for a in r["audit_ids"]} == read
+    assert "quarantine-v26" in data.DROPPING_RULES
 
 
 def test_quarantine_v25_adds_eight_brooklyn_listings():

@@ -1386,6 +1386,27 @@ def quarantine_v25(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V25))]
 
 
+QUARANTINE_V26 = QUARANTINE_V20.with_name("quarantine-v26-20261015.jsonl")
+
+
+def quarantine_v26(frame: pd.DataFrame) -> pd.DataFrame:
+    """v25's rows and 5 Hell's Kitchen and Hudson Yards listings from the
+    rent-blind place and use screen of `quarantine_v13_screen.py`, run over
+    Midtown West for the first time. Sonnet readers read all 391 ad groups the
+    screen flagged; `config/reviews/midtown-west-screen-reads-20261015.jsonl`
+    records each read and decision. A row is held only when something beyond
+    its own ad backs the reading:
+
+    - 2 ads for other buildings: listing 1330577 at 414 West 44th Street has
+      the same text as listing 1320558 for 411 East 6th Street #2B in the
+      same month, and listing 5081524 at 438 West 52nd Street #R1A has the
+      text of listing 5055729 for 53 Leroy Street #C1A a month before.
+    - 3 offices: one for office use only on a lot with commercial floor area,
+      a medical office under the unit label OFFICE, and a production space in
+      a building PLUTO lists as offices with 1 apartment."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V26))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1727,6 +1748,7 @@ DATA_RULES = {
     "quarantine-v23": quarantine_v23,
     "quarantine-v24": quarantine_v24,
     "quarantine-v25": quarantine_v25,
+    "quarantine-v26": quarantine_v26,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1775,6 +1797,7 @@ RULE_SOURCES = {
     "quarantine-v23": QUARANTINE_V23,
     "quarantine-v24": QUARANTINE_V24,
     "quarantine-v25": QUARANTINE_V25,
+    "quarantine-v26": QUARANTINE_V26,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1833,6 +1856,7 @@ DROPPING_RULES = (
     "quarantine-v23",
     "quarantine-v24",
     "quarantine-v25",
+    "quarantine-v26",
 )
 
 
