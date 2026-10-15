@@ -1,6 +1,26 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 00:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 00:28 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 00:28 ET
+
+Same ad under two buildings: quarantine-v27 (#823), merged.
+- I hashed every NB9 ad of 300 characters or more after normalizing its text (scratch in
+  `/data1/apartments/tmp/suspect/dupad`; `screen.py`, `pick.py`, `packets.py`, `final.py`,
+  `build.py`). 804 hashes appear under more than one building. Most pairs are next-door sister
+  buildings sharing a landlord's copy, which costs little.
+- `pick.py` keeps groups where a unit label appears under two buildings
+  that are not within 10 house numbers on one street. 120 groups and 276 rows remained. Many are
+  a dropped or mistyped digit in the address (14 E 23rd filed as 14 E 2nd, 315 W 46th as 315 W
+  4th).
+- Sonnet readers saw the ad, PLUTO facts for each building and the unit's history in each.
+  v27 holds 50 rows, each backed by the address or a landmark in the ad, or by a building that
+  cannot hold the unit. 9 of them were in v3 to v9 and released in v10. 70 groups stay in: 18
+  decided from unit history alone, 18 that are one building under two slugs, and 34 undecided.
+  Reads are in `config/reviews/duplicate-ad-screen-reads-20261015.jsonl`.
+- Left open: the 18 history-only groups (floor plans could decide some), and the 684 groups
+  with no shared unit label or with near-neighbor buildings.
+- Modeling has been told about v26 and v27.
 
 ## 2026-10-15 00:20 ET
 
