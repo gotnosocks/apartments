@@ -850,6 +850,9 @@ DATA_RULE_TEXT = {
     "quarantine-v23": "quarantine-v22 and 56 studios from a second bedroom review, "
     "of studios priced above their building's one-bedrooms, held out on v22's test: "
     "the ad says nothing about the apartment and no ad for it gives a count.",
+    "quarantine-v24": "quarantine-v23 and 4 listings StreetEasy files under the wrong "
+    "building: a Brooklyn ad at 222 East 17th Street, a 4-unit walk-up, and a 20th-floor "
+    "unit at 318 East 15th Street, which has 12 stories.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",

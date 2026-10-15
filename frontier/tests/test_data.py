@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V23)
+    ) | data.quarantined(data.QUARANTINE_V24)
 
 
 @pytest.mark.parametrize(
@@ -1835,6 +1835,24 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v24_adds_four_listings_filed_under_the_wrong_building():
+    """v24 holds out v23's rows unchanged, plus the two listings of 3B and 3BB
+    at 222 East 17th Street and the two of 20C at 318 East 15th Street."""
+    with open(data.QUARANTINE_V23) as f:
+        v23 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V24) as f:
+        v24 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(v24[a] == v23[a] for a in v23)
+    added = [v24[a] for a in v24.keys() - v23.keys()]
+    assert sorted((r["building"], r["unit_label"], r["action"]) for r in added) == [
+        ("222-east-17-street-new_york", "3B", "brooklyn_misjoin"),
+        ("222-east-17-street-new_york", "3BB", "brooklyn_misjoin"),
+        ("318-east-15-street-new_york", "20C", "quarantine_location_conflict"),
+        ("318-east-15-street-new_york", "20C", "quarantine_location_conflict"),
+    ]
+    assert "quarantine-v24" in data.DROPPING_RULES
 
 
 def test_quarantine_v23_adds_the_blank_studios_of_the_studio_review():
