@@ -136,6 +136,32 @@ in runs 1 to 3. Projecting from each region's ads by area, I expect the three re
 runs to take about 450 requests (about $0.51), most of them for the 59th to 110th St ID
 and ad reads, and to leave no band truncated.
 
+The fourth run, `brooklyn-north-crown-heights`, finished after that estimate with 63
+truncated bands. I reopened all four runs between 11:18 and 12:06 ET, and the reopens took
+598 requests ($0.67):
+
+| run | region | reopen requests | truncated bands left | ads beyond the two ends |
+|---|---|---:|---:|---:|
+| 1 | `manhattan-below-59th` | 170 | 0 | 0 |
+| 2 | `brooklyn-prospect-park` | 65 | 0 | 0 |
+| 3 | `manhattan-59th-110th` | 106 | 8 | 3,490 |
+| 4 | `brooklyn-north-crown-heights` | 257 | 2 | 258 |
+
+Run 3's bands lie in the leaf areas of the Upper West Side (137) and the Upper East Side
+(140), and run 4's in area 310. None of these has child areas, so I tested the search's
+`boundingBox` filter with two requests (`bbox1.py` and `bbox2.py` in the probe folder). On a
+band of 2,863 ads, the north and south halves of a box held 1,278 and 1,585 ads, and the west
+and east halves 1,097 and 1,766. A box covering the whole map counted the same 2,863 ads as
+the band without a box.
+
+So the collector now halves a band still too full in a leaf area by map box. Box 1 covers
+the whole map, and box k splits into boxes 2k and 2k+1, taking the south and north halves at
+an even depth and the west and east halves at an odd one (`box_edges`). The halves share
+their edge, so an ad on it can match both. Each round of counts goes one level deeper, and a
+band of 2,000 Upper East Side ads needs 25 to 30 levels before its halves come apart, with
+the empty halves ending as leaves. When the collector reopens a run, it adds a `box` column
+to the band tables of an older archive, and the old bands take the value for no box.
+
 ## Running it
 
 `ops/streeteasy-collect` copies `src/` at its checkout's commit into

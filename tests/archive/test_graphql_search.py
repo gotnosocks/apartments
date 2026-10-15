@@ -131,6 +131,10 @@ SEARCH = re.compile(
     r"adStrategy: NONE, filters: \{(.*?)\}, perPage: (\d+), page: 1\}\)"
 )
 BY_IDS = re.compile(r"(\w+): (rentalsByListingIds|buildingsByIds)\(ids: \[([\d ]*)\]\)")
+BOX = re.compile(
+    r"boundingBox: \{topLeft: \{latitude: ([-\d.]+), longitude: ([-\d.]+)\}, "
+    r"bottomRight: \{latitude: ([-\d.]+), longitude: ([-\d.]+)\}\}"
+)
 
 
 class FakeAPI:
@@ -139,13 +143,15 @@ class FakeAPI:
     `search` holds (ID, price, bedrooms, status) rows. `areas` maps an ID to its area and
     `parents` an area to the area holding it. A search with an `areas` filter keeps the IDs
     whose area, or an area holding it, is in the filter. With no map, every row matches.
+    `places` maps an ID to its latitude and longitude in microdegrees. A search with a
+    `boundingBox` filter keeps the IDs with a place in the box or on its edge.
     `fail(query)` may return a response in place of the answer.
     """
 
     def __init__(self, ads, buildings, search, fail=None):
         self.ads, self.buildings, self.search = ads, buildings, search
         self.fail = fail or (lambda query: None)
-        self.areas, self.parents = {}, {}
+        self.areas, self.parents, self.places = {}, {}, {}
         self.queries = []
 
     def __call__(self, url, **kw):
@@ -183,6 +189,15 @@ class FakeAPI:
             ]
         if "rentalStatus: ACTIVE" in filters:
             rows = [r for r in rows if r[3] == "ACTIVE"]
+        if box := BOX.search(filters):
+            north, west, south, east = (round(float(v) * 1e6) for v in box.groups())
+            rows = [
+                r
+                for r in rows
+                if r[0] in self.places
+                and south <= self.places[r[0]][0] <= north
+                and west <= self.places[r[0]][1] <= east
+            ]
         rows.sort(reverse=direction == "DESCENDING")
         answer = {"totalCount": len(rows)}
         if per_page > 1:
@@ -426,8 +441,11 @@ def test_enumeration_splits_bands_down_to_bedrooms(tmp_path, monkeypatch):
 
     tree = c.tree()
     assert tree["total"] == 7 and not tree["pending"]
-    assert sorted(tree["leaves"]) == [((0, 2000, -1, -1), 1), ((2500, 2500, 1, -1), 5)]
-    assert tree["gaps"] == [((2500, 2500, -1, -1), 1)]
+    assert sorted(tree["leaves"]) == [
+        ((0, 2000, -1, -1, -1), 1),
+        ((2500, 2500, 1, -1, -1), 5),
+    ]
+    assert tree["gaps"] == [((2500, 2500, -1, -1, -1), 1)]
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
     # Five ads at one price and bedroom count: read from both ends of the listing order.
     assert hits == {1300100, 1300101, 1300102, 1300103, 1300104, 1300300}
@@ -455,11 +473,11 @@ def test_a_band_too_full_for_both_ends_splits_into_areas(tmp_path, monkeypatch):
     assert not tree["pending"] and not tree["truncated"]
     # The band of 12 splits into the region's areas, and area 104's 8 into its children.
     assert sorted(tree["leaves"]) == [
-        ((2500, 2500, 1, 103), 4),
-        ((2500, 2500, 1, 105), 3),
-        ((2500, 2500, 1, 106), 4),
+        ((2500, 2500, 1, 103, -1), 4),
+        ((2500, 2500, 1, 105, -1), 3),
+        ((2500, 2500, 1, 106, -1), 4),
     ]
-    assert tree["gaps"] == [((2500, 2500, 1, 104), 1)]
+    assert tree["gaps"] == [((2500, 2500, 1, 104, -1), 1)]
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
     assert hits == set(ids[:11])
     slices = {
@@ -475,6 +493,73 @@ def test_a_band_too_full_for_both_ends_splits_into_areas(tmp_path, monkeypatch):
     }
 
 
+def test_a_band_too_full_for_its_area_splits_into_map_boxes(tmp_path, monkeypatch):
+    monkeypatch.setattr(gs, "CAP", 3)
+    monkeypatch.setattr(gs, "EDGES", [0, 3000])
+    monkeypatch.setattr(gs, "MAX_BEDS", 1)
+    monkeypatch.setattr(gs, "SUBAREAS", {})
+    ids = list(range(1300100, 1300110))
+    api = FakeAPI({}, {}, [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
+    # Four ads in a building in Chelsea, three on the Upper West Side, two on the Upper
+    # East Side and one with no place.
+    chelsea, west, east = (
+        (40_745_000, -74_001_000),
+        (40_787_000, -73_975_000),
+        (40_773_000, -73_957_000),
+    )
+    api.places = dict(zip(ids, [chelsea] * 4 + [west] * 3 + [east] * 2))
+    c = make_collector(tmp_path / "archive", api)
+    c.enumerate()
+
+    tree = c.tree()
+    assert not tree["pending"] and not tree["truncated"]
+    # The band of 10 splits into the halves of the map, and the half holding its ads into
+    # smaller and smaller boxes, until each box holds 6 ads or fewer. The ad with no place
+    # falls outside both halves.
+    assert tree["gaps"] == [((2500, 2500, 1, -1, -1), 1)]
+    # A box south of 40.78125 degrees holds Chelsea's and the Upper East Side's 6.
+    assert sorted(t for _, t in tree["leaves"]) == [3, 6]
+    for node, total in tree["leaves"]:
+        south, north, west_edge, east_edge = gs.box_edges(node[4])
+        inside = [
+            p
+            for p in api.places.values()
+            if south <= p[0] <= north and west_edge <= p[1] <= east_edge
+        ]
+        assert len(inside) == total
+    hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
+    assert hits == set(ids[:9])
+
+
+def without_box_split(monkeypatch):
+    """Split bands as the collector did before the box split, and give back the new split."""
+    split = gs.children
+    monkeypatch.setattr(
+        gs,
+        "children",
+        lambda node, areas: [k for k in split(node, areas) if k[4] == gs.ANY_BOX],
+    )
+    return split
+
+
+def drop_band_columns(c, *dropped):
+    """Turn the band tables back into their form from before the dropped columns."""
+    with c.store._tx():
+        for table in gs.BAND_TABLES:
+            columns = [
+                r[1]
+                for r in c.db.execute(f"PRAGMA table_info({table})")
+                if r[1] not in dropped
+            ]
+            key = ", ".join(k for k in columns if k not in ("total", "ids"))
+            listed = ", ".join(columns)
+            c.db.execute(f"CREATE TABLE kept AS SELECT {listed} FROM {table}")
+            c.db.execute(f"DROP TABLE {table}")
+            c.db.execute(f"CREATE TABLE {table}({listed}, PRIMARY KEY({key}))")
+            c.db.execute(f"INSERT INTO {table} SELECT * FROM kept")
+            c.db.execute("DROP TABLE kept")
+
+
 def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     tmp_path, monkeypatch
 ):
@@ -488,30 +573,17 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     api.areas = {i: 105 if i < 1300104 else 106 for i in ids}
     api.parents = {105: 104, 106: 104}
     archive = tmp_path / "archive"
+    split = without_box_split(monkeypatch)
     first = make_collector(archive, api, areas=(104,))
     report = first.collect()
-    assert report["enumeration"]["truncated"] == [((2500, 2500, 1, -1), 8)]
+    assert report["enumeration"]["truncated"] == [((2500, 2500, 1, -1, -1), 8)]
     # The three oldest and three newest ads of the band.
     assert reads(api) == set(ids) - {1300103, 1300104}
-    # Turn the band tables back into their form from before the area split.
-    with first.store._tx():
-        for table, key in (
-            ("graphql_search_counts", "run,lo,hi,beds"),
-            ("graphql_search_slices", "run,lo,hi,beds,direction"),
-        ):
-            columns = ", ".join(
-                r[1]
-                for r in first.db.execute(f"PRAGMA table_info({table})")
-                if r[1] != "area"
-            )
-            first.db.execute(f"CREATE TABLE kept AS SELECT {columns} FROM {table}")
-            first.db.execute(f"DROP TABLE {table}")
-            first.db.execute(f"CREATE TABLE {table}({columns}, PRIMARY KEY({key}))")
-            first.db.execute(f"INSERT INTO {table} SELECT * FROM kept")
-            first.db.execute("DROP TABLE kept")
+    drop_band_columns(first, "area", "box")
     counts = first.db.execute("SELECT count(*) FROM graphql_search_counts").fetchone()
     first.store.close()
 
+    monkeypatch.setattr(gs, "children", split)
     monkeypatch.setattr(gs, "SUBAREAS", {104: [105, 106]})
     api.queries.clear()
     again = make_collector(archive, api, areas=(104,), reopen=True)
@@ -521,10 +593,10 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     ).fetchone()[0]
     assert unfinished is None
     schema = again.db.execute("SELECT * FROM sqlite_master").fetchall()
-    again._add_area_column()
+    again._add_band_columns()
     assert again.db.execute("SELECT * FROM sqlite_master").fetchall() == schema
     old = again.db.execute(
-        "SELECT count(*) FROM graphql_search_counts WHERE area=-1"
+        "SELECT count(*) FROM graphql_search_counts WHERE area=-1 AND box=-1"
     ).fetchone()
     assert old[0] == counts[0]
     report = again.collect()
@@ -542,6 +614,46 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
         "SELECT finished FROM graphql_search_runs WHERE id=?", (again.run,)
     ).fetchone()[0]
     assert finished is not None
+
+
+def test_reopen_splits_a_finished_runs_truncated_area_band_into_boxes(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(gs, "CAP", 3)
+    monkeypatch.setattr(gs, "EDGES", [0, 3000])
+    monkeypatch.setattr(gs, "MAX_BEDS", 1)
+    monkeypatch.setattr(gs, "SUBAREAS", {})
+    ids = list(range(1300100, 1300110))
+    ads = {str(i): record(i, f"{i - 1300000}a", "ACTIVE", 2500, 1, [i], i) for i in ids}
+    api = FakeAPI(ads, world()[1], [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
+    api.areas = {i: 105 for i in ids}
+    # Five ads in a building on the Upper West Side, then five on the Upper East Side.
+    api.places = {
+        i: (40_787_000, -73_975_000) if i < 1300105 else (40_773_000, -73_957_000)
+        for i in ids
+    }
+    archive = tmp_path / "archive"
+    split = without_box_split(monkeypatch)
+    first = make_collector(archive, api, areas=(103, 105))
+    report = first.collect()
+    assert report["enumeration"]["truncated"] == [((2500, 2500, 1, 105, -1), 10)]
+    middle = {1300103, 1300104, 1300105, 1300106}
+    assert reads(api) == set(ids) - middle
+    drop_band_columns(first, "box")
+    first.store.close()
+
+    monkeypatch.setattr(gs, "children", split)
+    api.queries.clear()
+    again = make_collector(archive, api, areas=(103, 105), reopen=True)
+    assert again.run == first.run
+    report = again.collect()
+    assert report["invocation"]["stopped"] is None
+    assert not report["enumeration"]["truncated"]
+    assert sorted(t for _, t in again.tree()["leaves"]) == [5, 5]
+    # Every count of the reopened run halves a box of the area's band.
+    counted = [q for q in api.queries if "perPage: 1," in q]
+    assert counted and all("areas: [105]" in q and "boundingBox" in q for q in counted)
+    assert reads(api) == middle
 
 
 def test_failed_batches_split_and_single_ads_give_up(tmp_path):
@@ -1034,11 +1146,11 @@ def test_a_timed_out_read_makes_later_reads_smaller(tmp_path):
     assert c._ad_batch() == 267
 
 
-def test_search_fields_and_bands():
+def test_search_fields_and_bands(monkeypatch):
     assert gs.search_field(
         "c0",
         [103, 104],
-        (2001, 2500, 1, -1),
+        (2001, 2500, 1, -1, -1),
         ids=True,
         direction="DESCENDING",
         active_only=True,
@@ -1052,24 +1164,55 @@ def test_search_fields_and_bands():
         "perPage: 1, page: 1}) { totalCount }"
     )
     assert "filters: {areas: [137], price:" in gs.search_field(
-        "c2", [135, 139], (2500, 2500, 1, 137)
+        "c2", [135, 139], (2500, 2500, 1, 137, -1)
+    )
+    assert gs.search_field("c3", [135, 139], (2500, 2500, 1, 137, 6)).startswith(
+        "c3: searchRentals(input: {sorting: {attribute: LISTED_AT, direction: ASCENDING}, "
+        "adStrategy: NONE, filters: {areas: [137], price: {lowerBound: 2500, upperBound: "
+        "2500}, bedrooms: {lowerBound: 1, upperBound: 1}, boundingBox: {topLeft: {latitude: "
+        "90.000000, longitude: -180.000000}, bottomRight: {latitude: 0.000000, longitude: "
+        "0.000000}}}, perPage: 1, page: 1})"
     )
     bands = gs.children(gs.FULL, [103])
-    assert bands[0] == (0, 1500, -1, -1) and bands[1] == (1501, 2000, -1, -1)
-    assert bands[-1] == (25001, 10**8, -1, -1)
-    assert gs.children((2001, 2500, -1, -1), [103]) == [
-        (2001, 2250, -1, -1),
-        (2251, 2500, -1, -1),
+    assert bands[0] == (0, 1500, -1, -1, -1) and bands[1] == (1501, 2000, -1, -1, -1)
+    assert bands[-1] == (25001, 10**8, -1, -1, -1)
+    assert gs.children((2001, 2500, -1, -1, -1), [103]) == [
+        (2001, 2250, -1, -1, -1),
+        (2251, 2500, -1, -1, -1),
     ]
-    assert gs.children((2500, 2500, -1, -1), [103]) == [
-        (2500, 2500, b, -1) for b in range(8)
+    assert gs.children((2500, 2500, -1, -1, -1), [103]) == [
+        (2500, 2500, b, -1, -1) for b in range(8)
     ]
-    assert gs.children((2500, 2500, 3, -1), [103]) == []
-    assert gs.children((2500, 2500, 3, -1), [103, 104]) == [
-        (2500, 2500, 3, 103),
-        (2500, 2500, 3, 104),
+    assert gs.children((2500, 2500, 3, -1, -1), [103, 104]) == [
+        (2500, 2500, 3, 103, -1),
+        (2500, 2500, 3, 104, -1),
     ]
-    west = [(2500, 2500, 3, a) for a in gs.SUBAREAS[135]]
-    assert gs.children((2500, 2500, 3, -1), [135]) == west
-    assert gs.children((2500, 2500, 3, 135), [135, 139, 155]) == west
-    assert gs.children((2500, 2500, 3, 155), [135, 139, 155]) == []
+    west = [(2500, 2500, 3, a, -1) for a in gs.SUBAREAS[135]]
+    assert gs.children((2500, 2500, 3, -1, -1), [135]) == west
+    assert gs.children((2500, 2500, 3, 135, -1), [135, 139, 155]) == west
+    # A band in an area with no child areas splits into the southern and northern halves
+    # of the map, and a box into its halves.
+    assert gs.children((2500, 2500, 3, -1, -1), [103]) == [
+        (2500, 2500, 3, -1, 2),
+        (2500, 2500, 3, -1, 3),
+    ]
+    assert gs.children((2500, 2500, 3, 155, -1), [135, 139, 155]) == [
+        (2500, 2500, 3, 155, 2),
+        (2500, 2500, 3, 155, 3),
+    ]
+    assert gs.children((2500, 2500, 3, 155, 6), [135, 139, 155]) == [
+        (2500, 2500, 3, 155, 12),
+        (2500, 2500, 3, 155, 13),
+    ]
+    assert gs.box_edges(1) == gs.WORLD
+    assert gs.box_edges(2) == (-90_000_000, 0, -180_000_000, 180_000_000)
+    assert gs.box_edges(6) == (0, 90_000_000, -180_000_000, 0)
+    assert gs.box_edges(13) == (45_000_000, 90_000_000, -180_000_000, 0)
+    # On a map two microdegrees across, box 4 is a microdegree across and stays whole.
+    monkeypatch.setattr(gs, "WORLD", (0, 2, 0, 2))
+    assert gs.box_edges(4) == (0, 1, 0, 1)
+    assert gs.children((2500, 2500, 3, 155, 2), [155]) == [
+        (2500, 2500, 3, 155, 4),
+        (2500, 2500, 3, 155, 5),
+    ]
+    assert gs.children((2500, 2500, 3, 155, 4), [155]) == []
