@@ -1353,6 +1353,22 @@ def quarantine_v23(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V23))]
 
 
+QUARANTINE_V24 = QUARANTINE_V20.with_name("quarantine-v24-20261015.jsonl")
+
+
+def quarantine_v24(frame: pd.DataFrame) -> pd.DataFrame:
+    """v23's rows and 4 listings from two buildings where the NB9 C fit mixed
+    slowly. PLUTO's lot record backs each one:
+
+    - 222 East 17th Street is a 4-story walk-up with 4 apartments. Its units
+      3B and 3BB have a listing each, with the same text: an elevator
+      building by Prospect Park South, in Brooklyn. Both join
+      `brooklyn.MISJOINS` for the remap.
+    - 318 East 15th Street has 12 stories. Its unit 20C has two ads, a month
+      apart, for a doorman building, at $3,450 and $8,300."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V24))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1692,6 +1708,7 @@ DATA_RULES = {
     "quarantine-v21": quarantine_v21,
     "quarantine-v22": quarantine_v22,
     "quarantine-v23": quarantine_v23,
+    "quarantine-v24": quarantine_v24,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1738,6 +1755,7 @@ RULE_SOURCES = {
     "quarantine-v21": QUARANTINE_V21,
     "quarantine-v22": QUARANTINE_V22,
     "quarantine-v23": QUARANTINE_V23,
+    "quarantine-v24": QUARANTINE_V24,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1794,6 +1812,7 @@ DROPPING_RULES = (
     "quarantine-v21",
     "quarantine-v22",
     "quarantine-v23",
+    "quarantine-v24",
 )
 
 
