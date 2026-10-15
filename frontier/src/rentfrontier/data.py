@@ -1090,6 +1090,29 @@ def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[keep.to_numpy()]
 
 
+# The 35% subset plus buildings whose effects mixed slowly in recent C fits
+# (the quarantine-v17 wing fit and the NB9 C fit, 2026-10-14), for comparing
+# bedroom-slope designs.
+SLOPECHECK_BUILDINGS = frozenset(
+    {
+        "106-east-10-street-new_york",
+        "159-2-avenue-new_york",
+        "870-broadway-new_york",
+        "222-east-17-street-new_york",
+        "4-perry-street-new_york",
+        "1-sheridan-square-new_york",
+    }
+)
+
+
+def tune_b35_slopecheck_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Rows of the 35% subset and of `SLOPECHECK_BUILDINGS`."""
+    keep = frame.building.map(in_tuning_subset) | frame.building.isin(
+        SLOPECHECK_BUILDINGS
+    )
+    return frame[keep.to_numpy()]
+
+
 # Held-out lots (2026-10-13, the grouped-building check of the new-building
 # score): every row of about 10% of buildings, drawn by tax lot, dropped so a
 # fit never sees them; `rentfrontier.newbuilding.score_holdout` scores them.
@@ -1607,6 +1630,7 @@ def price_target(rules) -> str:
 
 DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
+    "tune-b35-slopecheck-v1": tune_b35_slopecheck_v1,
     "tune-holdout-lots-v1": drop_holdout_lots,
     "tune-finalask-v1": final_ask_v1,
     "tune-latestask-v1": latest_ask_v1,

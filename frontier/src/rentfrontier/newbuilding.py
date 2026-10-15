@@ -98,7 +98,9 @@ def _scale(kept, name):
     return np.zeros(kept["alpha"].shape[0]) if v is None else np.asarray(v)
 
 
-def building_variance(kept, a, walk_origin, fslope_x, trend_center, spacing):
+def building_variance(
+    kept, a, walk_origin, fslope_x, trend_center, spacing, bedroom_slope=True
+):
     """(draws, rows) prior variance of a new building's terms at each row: the
     level, a walk that is 0 at knot `walk_origin` (the panel's first knot, as in
     `model._walk`, or the building's first knot for anchored walks), the bedroom
@@ -116,9 +118,10 @@ def building_variance(kept, a, walk_origin, fslope_x, trend_center, spacing):
         knot, frac = model.walk_position(a, spacing)
         steps = np.maximum(knot - walk_origin, 0) + frac**2
         var = var + _scale(kept, "walk_scale")[:, None] ** 2 * steps[None]
-    var = var + _scale(kept, "bedroom_slope_scale")[:, None] ** 2 * (
-        a.beds_centered[None] ** 2
-    )
+    if bedroom_slope:
+        var = var + _scale(kept, "bedroom_slope_scale")[:, None] ** 2 * (
+            a.beds_centered[None] ** 2
+        )
     if fslope_x.shape[1]:
         var = var + (kept["fslope_scales"] ** 2) @ (fslope_x**2).T
     if "building_trend_scale" in kept:
@@ -283,6 +286,8 @@ def _score_chunk(kept, config, prep, a, building, rungs, ctx, rng):
                 a.x[:, ctx["fslope_index"]],
                 ctx["center"][building],
                 ctx["spacing"],
+                # A building with no training rows takes no slope of its own.
+                bedroom_slope=not config.bedroom_slope_min_rows,
             )
             out[rung] = scores(
                 a.y, rest + units, np.sqrt(b_var), sigma, kept["nu"], rng
