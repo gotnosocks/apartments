@@ -12,10 +12,10 @@ Scratch is `/data1/apartments/tmp/suspect/ess3`.
 - 318 E 15th St 20C (two listings): PLUTO gives 12 stories, so no 20th floor.
 - 4 Perry St 2E stays: nothing beyond the odd label contradicts PLUTO (3 stories, 5 units).
 - Modeling was told the rule is ready; 4 rows is negligible, so the refit is its call.
-- The building registry for NB9 is `features.NB9_REGISTRY_FILE` with `NB9_PLUTO_FILE`; the
+- For building lookups, note that the NB9 registry is `features.NB9_REGISTRY_FILE` with `NB9_PLUTO_FILE`; the
   default `REGISTRY_FILE` covers only the 1,129 old Chelsea and West Village buildings.
 
-## 2026-10-15 00:40 ET
+## 2026-10-14 23:35 ET
 
 Square feet against the unit's other listings: sqft-units-v1 (#813, merged).
 - On NB9 under the current rules, 227 sized rows sit more than 1.5x off the geometric mean of the
