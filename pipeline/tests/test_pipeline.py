@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import shutil
 from pathlib import Path
@@ -16,13 +17,17 @@ FIXTURE = Path(__file__).resolve().parent / "fixture"
 
 
 def context(
-    monkeypatch, state, export=FIXTURE / "export", rows=FIXTURE / "rows.parquet"
+    monkeypatch,
+    state,
+    export=FIXTURE / "export",
+    rows=FIXTURE / "rows.parquet",
+    project=PROJECT,
 ):
     monkeypatch.setenv("PIPELINE_EXPORT", str(export))
     monkeypatch.setenv("PIPELINE_ROWS", str(rows))
     monkeypatch.setenv("PIPELINE_STATE", str(state))
     monkeypatch.setenv("PIPELINE_MEMORY", "1GB")
-    return Context(paths=str(PROJECT))
+    return Context(paths=str(project))
 
 
 def latest_ask(ctx):
@@ -91,6 +96,25 @@ def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
     assert kept == len(ctx.fetchdf("SELECT * FROM ads.price_changes")) - 4
 
 
+def test_latest_ask_cases(tmp_path, monkeypatch):
+    """The made-up ads of make_cases.py: several rows of one ad, a record collected before its
+    row, an ad without answers, a missing latest answer and rows without group keys."""
+    cases = FIXTURE / "cases"
+    ctx = context(
+        monkeypatch, tmp_path / "state", cases / "export", cases / "rows.parquet"
+    )
+    ctx.plan(auto_apply=True, no_prompts=True)
+    expected = pd.read_parquet(cases / "latest-ask.parquet")
+    pd.testing.assert_frame_equal(latest_ask(ctx), expected)
+    assert set(expected.how) == {
+        "latest",
+        "page price",
+        "own ask, captured before the row",
+        "uncaptured",
+        "first, nearer building",
+    }
+
+
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     export = copy_export(tmp_path, keep=lambda line: line["run"] < 4)
     context(monkeypatch, tmp_path / "state", export).plan(
@@ -114,6 +138,32 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         context(monkeypatch, tmp_path / "state", export).plan_builder("prod").build()
     )
     assert not again.has_changes and not again.new_snapshots
+
+
+def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
+    """A file written again under its old path gets a new hash in the manifest, and the plan
+    builds the ads models again."""
+    export = copy_export(tmp_path)
+    context(monkeypatch, tmp_path / "state", export).plan(
+        auto_apply=True, no_prompts=True
+    )
+    lines = [json.loads(line) for line in open(export / "manifest.ndjson")]
+    path = export / lines[0]["path"]
+    db = duckdb.connect()
+    db.execute(
+        f"COPY (SELECT * FROM '{path}') TO '{path}.new' (FORMAT parquet, COMPRESSION gzip)"
+    )
+    Path(f"{path}.new").replace(path)
+    lines[0]["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (export / "manifest.ndjson").write_text(
+        "".join(json.dumps(line, sort_keys=True) + "\n" for line in lines)
+    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    plan = ctx.plan(auto_apply=True, no_prompts=True)
+    assert "raw.ads" in changed(plan) and "analysis.latest_ask" in changed(plan)
+    pd.testing.assert_frame_equal(
+        latest_ask(ctx), pd.read_parquet(FIXTURE / "latest-ask.parquet")
+    )
 
 
 def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
@@ -199,3 +249,66 @@ def test_failed_audit_leaves_the_built_tables(tmp_path, monkeypatch):
     pd.testing.assert_frame_equal(
         latest_ask(ctx), pd.read_parquet(FIXTURE / "latest-ask.parquet")
     )
+
+
+def test_every_row_audit_catches_a_lost_row(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    shutil.copytree(
+        PROJECT,
+        project,
+        ignore=shutil.ignore_patterns(".venv", "tests", "logs", "__pycache__"),
+    )
+    model = project / "models" / "analysis" / "latest_ask.sql"
+    lost = "FROM s4 WHERE ordinal > (SELECT min(ordinal) FROM s4)"
+    model.write_text(model.read_text().replace("FROM s4", lost))
+    console = Failures()
+    monkeypatch.setattr(sqlmesh.core.console, "_CONSOLE", console)
+    ctx = context(monkeypatch, tmp_path / "state", project=project)
+    with pytest.raises(PlanError):
+        ctx.plan(auto_apply=True, no_prompts=True)
+    assert [(e.node.snapshot_name, str(e.__cause__)) for e in console.failed] == [
+        ('"pipeline"."analysis"."latest_ask"', "Audits failed: every_row")
+    ]
+
+
+@pytest.fixture
+def config(tmp_path, monkeypatch):
+    """The pipeline's config module, reading its manifest from an empty folder."""
+    monkeypatch.setenv("PIPELINE_EXPORT", str(FIXTURE / "export"))
+    monkeypatch.setenv("PIPELINE_ROWS", str(FIXTURE / "rows.parquet"))
+    monkeypatch.setenv("PIPELINE_STATE", str(tmp_path / "state"))
+    spec = importlib.util.spec_from_file_location("config", PROJECT / "config.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "EXPORT", tmp_path / "export")
+    (tmp_path / "export").mkdir()
+    return module
+
+
+def test_exported_reads_whole_lines(config):
+    manifest = config.EXPORT / "manifest.ndjson"
+
+    def write(*entries, cut=None):
+        text = "".join(
+            json.dumps({"path": path, "sha256": sha, "table": table}) + "\n"
+            for path, sha, table in entries
+        )
+        manifest.write_text(text + (cut or ""))
+
+    write(("ads/b", "2", "ads"), ("ads/a", "1", "ads"), ("other/c", "3", "other"))
+    paths, version = config.exported("ads")
+    assert paths == [str(config.EXPORT / "ads/a"), str(config.EXPORT / "ads/b")]
+    # The exporter's cut-off last line and a repeated line change nothing.
+    cut = json.dumps({"path": "ads/d", "sha256": "4", "table": "ads"})
+    write(("ads/a", "1", "ads"), ("ads/b", "2", "ads"), ("ads/a", "1", "ads"), cut=cut)
+    assert config.exported("ads") == (paths, version)
+    # A manifest written again gives a rewritten file its new hash.
+    write(("ads/a", "1", "ads"), ("ads/b", "5", "ads"))
+    assert config.exported("ads")[0] == paths
+    assert config.exported("ads")[1] != version
+    write(("ads/a", "1", "ads"), ("ads/a", "5", "ads"))
+    with pytest.raises(ValueError, match="two hashes"):
+        config.exported("ads")
+    write(("other/c", "3", "other"))
+    with pytest.raises(ValueError, match="lists no ads files"):
+        config.exported("ads")

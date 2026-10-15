@@ -30,9 +30,15 @@ latest-ask run of Oct 15, `20261015-13f5968-api`. It stays an input until the ev
 the rows from API records.
 
 For each input, `config.py` also computes a version: a SHA-256 over the path and hash of each
-listed ads file, and the rows file's own SHA-256. The raw views put these versions in their SQL.
-A new export file thus changes `raw.ads`, and the next plan rebuilds it and every model below it.
+listed ads file, and the rows file's own SHA-256. SQLMesh fingerprints a model by its SQL as
+written and by the values of the variables the SQL uses. The raw views use the versions as well
+as the paths, so a file written again under its old name also counts as a change. A new or
+rewritten export file changes `raw.ads`, and the next plan rebuilds it and every model below it.
 With unchanged inputs, a plan builds nothing.
+
+`raw.ads` holds every answer, including the API's empty answers, marked `missing`.
+`ads.latest_record` reads only answers with a record, so an ad whose latest answer came back
+empty keeps its last record, as in `rentfrontier.latest_ask`.
 
 ## Models
 
@@ -48,8 +54,9 @@ With unchanged inputs, a plan builds nothing.
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, per `(listing_id, n)` in
-`ads.price_changes` and per `ordinal` in the two analysis tables. When an audit fails, the plan
-stops, and the tables from the last good plan stay in place.
+`ads.price_changes` and per `ordinal` in the two analysis tables. The `every_row` audit, in
+`pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
+fails, the plan stops, and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
@@ -62,19 +69,32 @@ uv run --project pipeline sqlmesh -p pipeline table_diff prod:dev -m analysis.la
 
 `pipeline/tests/fixture/` holds the analysis rows of five buildings, the 229 exported records of
 their ads and the latest ask `rentfrontier.latest_ask` gave each row, 187 KB in all.
-`pipeline/tests/make_fixture.py` writes it from the full inputs on thelio. The tests:
+`pipeline/tests/make_fixture.py` writes it from the full inputs on thelio. The API data lacks
+several cases the latest-ask steps handle, as the full build below notes, so
+`pipeline/tests/make_cases.py` makes up seven answers and eleven rows for them in
+`fixture/cases/`, 17 KB in all, and writes the latest ask `rentfrontier.latest_ask` gives each
+row. The tests:
 
 1. build the fixture and compare each row's first ask, latest ask and step with
    `rentfrontier.latest_ask`;
-2. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
+2. build the made-up cases and compare them the same way. They hold several rows of one ad, a
+   record collected before its row, an ad without answers, an empty latest answer, and rows
+   without a building or a bedroom count;
+3. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
    and the five tables below it and gives the full answer, and a further plan finds nothing to
    build;
-3. add a run 5 file with a newer answer for one ad and an older answer for another. Only the
+4. write an export file again under its old name with another compression, and give the
+   manifest its new hash. The next plan rebuilds the models below `raw.ads`;
+5. add a run 5 file with a newer answer for one ad and an older answer for another. Only the
    first ad's row changes;
-4. duplicate an analysis row. The `unique_values` audit on `analysis.latest_change` stops the
-   plan, and the tables from the earlier plan stay in place.
+6. duplicate an analysis row. The `unique_values` audit on `analysis.latest_change` stops the
+   plan, and the tables from the earlier plan stay in place;
+7. drop a row from `analysis.latest_ask` in a copy of the project. The `every_row` audit stops
+   the plan;
+8. read manifests with a cut-off last line, a repeated line, a rewritten file and a file with
+   two hashes.
 
-They take about 7 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 10 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
@@ -82,7 +102,11 @@ with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 
 On Oct 15 on thelio, I built the project from runs 1 to 4 of the export and compared
 `analysis.latest_ask` with the latest-ask run `20261015-13f5968-api`. All 1,396,053 rows matched
-in first ask, latest ask and step:
+in first ask, latest ask and step. The match covers less than the steps allow. In the API
+region datasets each ad has one analysis row and every ad has a record in runs 1 to 4, so each
+row is its ad's last, and none takes the own-ask or uncaptured steps. No row lacks a building
+or a bedroom count, and `analysis.latest_ask` holds all 1,396,053 rows. The made-up cases in the
+tests cover the rest.
 
 ```sh
 uv run --project pipeline sqlmesh -p pipeline fetchdf "

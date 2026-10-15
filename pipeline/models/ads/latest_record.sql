@@ -6,6 +6,9 @@ MODEL (
     description 'Each ad''s latest record, cut down to the fields the latest-ask steps read.'
 );
 
+-- Only answers with a record take part. When the API answered an ad's latest request with
+-- nothing, the ad keeps its last record, as in rentfrontier.latest_ask, which reads only
+-- stored records.
 -- The fields come out of each record in one parse before the pick, so the pick only holds
 -- small rows. With whole records in the pick, DuckDB ran out of a 5 GB limit.
 WITH fields AS (

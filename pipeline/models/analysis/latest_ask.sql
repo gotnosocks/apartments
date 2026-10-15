@@ -4,13 +4,15 @@ MODEL (
     grain ordinal,
     audits (
         unique_values(columns := (ordinal, audit_id)),
-        not_null(columns := (ordinal, audit_id, first_ask, latest_ask, how))
+        not_null(columns := (ordinal, audit_id, first_ask, latest_ask, how)),
+        every_row(rows := raw.analysis_rows)
     ),
     description 'Each analysis row''s latest ask and how it was chosen, as rentfrontier.latest_ask chooses it.'
 );
 
 -- The checks against a row's building use the median log first ask among the building's other
--- rows with the same bedroom count. The steps after s1 move the ask in turn:
+-- rows with the same bedroom count. A row without a building or a bedroom count has no median,
+-- as in pandas, which drops missing group keys. The steps after s1 move the ask in turn:
 --   s2: an ask more than twice or under half the first ask gives way to whichever of the two
 --       lies nearer the building's median.
 --   s3 and s4 look at the ad's page price, on the ad's last row only, when its record was
@@ -20,16 +22,17 @@ MODEL (
 --       whichever of the two lies nearer the building's median wins.
 WITH rows AS (SELECT * FROM raw.analysis_rows),
 grp AS (
-    SELECT building, bedrooms, count(*) AS g, list_sort(list(log_rent)) AS v FROM rows GROUP BY ALL
+    SELECT building, bedrooms, count(*) AS g, list_sort(list(log_rent)) AS v FROM rows
+    WHERE building IS NOT NULL AND bedrooms IS NOT NULL GROUP BY ALL
 ),
 ranked AS (
     SELECT r.*, g.g, g.v, row_number() OVER (PARTITION BY r.building, r.bedrooms ORDER BY r.log_rent) - 1 AS j
-    FROM rows r JOIN grp g USING (building, bedrooms)
+    FROM rows r LEFT JOIN grp g USING (building, bedrooms)
 ),
 peer AS (
     SELECT ordinal, audit_id, asking_rent AS first,
         CASE
-            WHEN g < 2 THEN NULL
+            WHEN g IS NULL OR g < 2 THEN NULL
             WHEN g % 2 = 0 THEN CASE WHEN j <= g // 2 - 1 THEN v[g // 2 + 1] ELSE v[g // 2] END
             ELSE (CASE WHEN (g - 1) // 2 - 1 < j THEN v[(g - 1) // 2] ELSE v[(g - 1) // 2 + 1] END
                 + CASE WHEN (g - 1) // 2 < j THEN v[(g - 1) // 2 + 1] ELSE v[(g - 1) // 2 + 2] END) / 2
