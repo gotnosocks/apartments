@@ -649,8 +649,8 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         c["bedroom_slope"],
         plain="Each building has its own price for an extra bedroom, around the market's."
         + (
-            f" Only buildings with {c['bedroom_slope_min_rows']} or more listings in each"
-            " of two bedroom counts get one; the rest take the market's."
+            f" Only buildings with {c['bedroom_slope_min_rows']} or more listings in each of"
+            " at least two bedroom counts get one; the rest take the market's."
             if c.get("bedroom_slope_min_rows")
             else ""
         ),
