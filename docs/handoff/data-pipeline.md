@@ -74,8 +74,9 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    by change, so long runs of changes cost time there.
 3. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
    the rule entries keyed on `audit_id` to `(source_listing_id, price_at)`. The cases of
-   `building-joins-v1`, `unit-splits-v4` and `west-coast-wings-v1` are constants in the code and
-   need copying into the ledger.
+   `building-joins-v1` and `west-coast-wings-v1` are constants in the code and need copying into
+   the ledger. `unit-splits-v4` splits unit histories by an algorithm over the rows, so it
+   becomes a pipeline step, with its splits checked against the frozen rows.
 
 ## Coordination
 
