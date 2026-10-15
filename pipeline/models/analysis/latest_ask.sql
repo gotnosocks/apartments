@@ -1,0 +1,75 @@
+MODEL (
+    name analysis.latest_ask,
+    kind FULL,
+    grain ordinal,
+    audits (
+        unique_values(columns := (ordinal, audit_id)),
+        not_null(columns := (ordinal, audit_id, first_ask, latest_ask, how)),
+        every_row(rows := raw.analysis_rows)
+    ),
+    description 'Each analysis row''s latest ask and how it was chosen, as rentfrontier.latest_ask chooses it.'
+);
+
+-- The checks against a row's building use the median log first ask among the building's other
+-- rows with the same bedroom count. A row without a building or a bedroom count has no median,
+-- as in pandas, which drops missing group keys. The steps after s1 move the ask in turn:
+--   s2: an ask more than twice or under half the first ask gives way to whichever of the two
+--       lies nearer the building's median.
+--   s3 and s4 look at the ad's page price, on the ad's last row only, when its record was
+--   collected after that row. A page price equal to one of the ad's price changes is skipped.
+--   s3: a page price within a factor of 2 of the ask replaces it.
+--   s4: when the page price is 9 to 11 times the ask, or the ask 9 to 11 times the page price,
+--       whichever of the two lies nearer the building's median wins.
+WITH rows AS (SELECT * FROM raw.analysis_rows),
+grp AS (
+    SELECT building, bedrooms, count(*) AS g, list_sort(list(log_rent)) AS v FROM rows
+    WHERE building IS NOT NULL AND bedrooms IS NOT NULL GROUP BY ALL
+),
+ranked AS (
+    SELECT r.*, g.g, g.v, row_number() OVER (PARTITION BY r.building, r.bedrooms ORDER BY r.log_rent) - 1 AS j
+    FROM rows r LEFT JOIN grp g USING (building, bedrooms)
+),
+peer AS (
+    SELECT ordinal, audit_id, asking_rent AS first,
+        CASE
+            WHEN g IS NULL OR g < 2 THEN NULL
+            WHEN g % 2 = 0 THEN CASE WHEN j <= g // 2 - 1 THEN v[g // 2 + 1] ELSE v[g // 2] END
+            ELSE (CASE WHEN (g - 1) // 2 - 1 < j THEN v[(g - 1) // 2] ELSE v[(g - 1) // 2 + 1] END
+                + CASE WHEN (g - 1) // 2 < j THEN v[(g - 1) // 2 + 1] ELSE v[(g - 1) // 2 + 2] END) / 2
+        END AS peer
+    FROM ranked
+),
+s1 AS (
+    SELECT p.ordinal, p.audit_id, p.first, p.peer, l.last, l.page_price AS page,
+        coalesce(l.live, p.first) AS price,
+        CASE WHEN l.live IS NOT NULL THEN 'latest'
+            WHEN l.captured THEN 'own ask, captured before the row' ELSE 'uncaptured' END AS how
+    FROM peer p JOIN analysis.latest_change l USING (ordinal)
+),
+s2 AS (
+    SELECT * EXCLUDE (wide, picked) REPLACE (
+        CASE WHEN wide THEN picked ELSE price END AS price,
+        CASE WHEN wide THEN CASE WHEN picked = first THEN 'first, nearer building' ELSE 'latest, nearer building' END ELSE how END AS how)
+    FROM (
+        SELECT *, price / first > 2 OR price / first < 0.5 AS wide,
+            CASE WHEN peer IS NULL THEN first WHEN abs(ln(price) - peer) < abs(ln(first) - peer) THEN price ELSE first END AS picked
+        FROM s1
+    )
+),
+s3 AS (
+    SELECT * EXCLUDE (near) REPLACE (
+        CASE WHEN near THEN page ELSE price END AS price,
+        CASE WHEN near AND page <> price THEN 'page price' ELSE how END AS how)
+    FROM (SELECT *, coalesce(last AND page / price <= 2 AND price / page <= 2, false) AS near FROM s2)
+),
+s4 AS (
+    SELECT * EXCLUDE (digit, picked) REPLACE (
+        CASE WHEN digit THEN picked ELSE price END AS price,
+        CASE WHEN digit AND picked <> price THEN 'page price, digit' ELSE how END AS how)
+    FROM (
+        SELECT *, coalesce(last AND ((page / price BETWEEN 9 AND 11) OR (price / page BETWEEN 9 AND 11)), false) AS digit,
+            CASE WHEN peer IS NULL THEN price WHEN abs(ln(page) - peer) < abs(ln(price) - peer) THEN page ELSE price END AS picked
+        FROM s3
+    )
+)
+SELECT ordinal, audit_id, first AS first_ask, price AS latest_ask, how FROM s4

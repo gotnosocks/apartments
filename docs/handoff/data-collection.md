@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-15 14:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-15 18:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -36,6 +36,17 @@ Updated 2026-10-15 14:50 ET. Thread owner: the Data collection project thread (b
   Website thread rebuilds the site data.
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
+- **Re-read of the page-crawl areas (run 5, Oct 15).** Ben approved it at 15:50 ET. Run 5
+  (`backfill manhattan-page-crawl-areas`, no unit histories) ran from 15:52 to 17:48 ET in 2,054
+  requests ($2.34). Its searches found 522,774 ad IDs, equal to the count, with no pending,
+  truncated or unanswered band. It read 424,776 ads and wrote 160,579 units and 8,003 buildings.
+  The IDs it left unread fall below the listing-ID cutoff or were already final in the archive.
+  The dataset and snapshot above predate it.
+- **Raw Parquet export (#863, #864).** `streeteasy_archive.graphql_export` writes every reply of
+  each run to `crawls/api/export/{ads,buildings,requests,calls}/run-NNNN/` and lists the files
+  in `manifest.ndjson`. `ops/streeteasy-collect` runs it at the end of each invocation and logs
+  "export exit N". Runs 1 to 5 are exported and match the archive (checked by hand). The "API
+  data pipeline rebuild" thread reads the export; message its session after each new run.
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
   StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
   `apollo-require-preflight`, 24 buildings/request, browser as fallback). Built as #705

@@ -16,3 +16,7 @@ data/archive
 data/logs/
 data/modal-upload/
 data/probes/
+
+# SQLMesh writes its logs into the folder it runs from
+/logs/
+pipeline/logs/
