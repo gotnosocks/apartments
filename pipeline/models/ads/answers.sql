@@ -11,7 +11,7 @@ MODEL (
 -- A record's unit history repeats in the record of each ad of the unit, so a unit with n ads
 -- holds about n² copies of its events. Instead of parsing each copy, the model keeps an MD5 of
 -- the history's JSON text, and ads.history_events parses each distinct history once.
-SELECT listing_id, fetched, response_id, outcome,
+SELECT listing_id, fetched, response_id, outcome, record_sha256,
     f[1] AS status,
     f[2]::DOUBLE AS page_price,
     from_json(f[3], '[{"changedAt": "VARCHAR", "status": "VARCHAR"}]') AS status_changes,

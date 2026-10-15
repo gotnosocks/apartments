@@ -2,6 +2,8 @@ import hashlib
 import importlib.util
 import json
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import duckdb
@@ -120,21 +122,39 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     context(monkeypatch, tmp_path / "state", export).plan(
         auto_apply=True, no_prompts=True
     )
+    cache = tmp_path / "state" / "attributes"
+    before = {path.name for path in cache.glob("*/*.parquet")}
     export = copy_export(tmp_path / "full")
     ctx = context(monkeypatch, tmp_path / "state", export)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
         "ads.answers",
+        "ads.attributes",
         "ads.events",
+        "ads.exclusions",
         "ads.first_ask",
         "ads.history_events",
         "ads.kept_changes",
         "ads.latest_record",
         "ads.price_changes",
+        "ads.record_attributes",
         "analysis.latest_ask",
         "analysis.latest_change",
         "raw.ads",
     ]
+    # The second build parsed only records missing from runs 2 and 3.
+    added = [path for path in cache.glob("*/*.parquet") if path.name not in before]
+    parsed = pd.concat(pd.read_parquet(path) for path in added).record_sha256
+    db = duckdb.connect()
+    new = db.execute(
+        """SELECT DISTINCT record_sha256 FROM read_parquet(?) WHERE outcome = 'record'
+        EXCEPT SELECT record_sha256 FROM read_parquet(?)""",
+        [
+            [str(path) for path in (export / "ads").glob("run-0004/*.parquet")],
+            [str(path) for path in (export / "ads").glob("run-000[23]/*.parquet")],
+        ],
+    ).df()
+    assert len(new) and sorted(parsed) == sorted(new.record_sha256)
     pd.testing.assert_frame_equal(
         latest_ask(ctx), pd.read_parquet(FIXTURE / "latest-ask.parquet")
     )
@@ -228,16 +248,24 @@ def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     pd.testing.assert_frame_equal(got[~moved], expected[~moved])
 
 
-def test_first_ask_matches_the_rows(tmp_path, monkeypatch):
-    """Each analysis row's price date and asking rent are its ad's first day and first ask."""
+def test_ads_match_the_rows(tmp_path, monkeypatch):
+    """Each analysis row's price date, asking rent and bedroom count are its ad's first day,
+    first ask and bedroom count, and the ad has no reason for exclusion. The current chain kept
+    every ad of the fixture."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
     rows = ctx.fetchdf(
         """SELECT coalesce(r.price_at = f.first_day::TIMESTAMPTZ, false) AS same_day,
-        coalesce(f.prices = [r.asking_rent], false) AS same_ask
-        FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id"""
+        coalesce(f.prices = [r.asking_rent], false) AS same_ask,
+        coalesce(e.rent = r.asking_rent AND e.reasons = [], false) AS kept,
+        coalesce(a.bedrooms = r.bedrooms::DOUBLE, false) AS same_bedrooms
+        FROM raw.analysis_rows r
+        LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
+        LEFT JOIN ads.exclusions e ON e.listing_id = r.source_listing_id
+        LEFT JOIN ads.attributes a ON a.listing_id = r.source_listing_id"""
     )
-    assert len(rows) == 229 and rows.same_day.all() and rows.same_ask.all()
+    assert len(rows) == 229 and rows.all().all()
+    assert ctx.fetchdf("SELECT count(*) AS n FROM ads.exclusions").n[0] == 229
 
 
 def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch):
@@ -470,6 +498,125 @@ def test_event_log_cases(tmp_path, monkeypatch):
     ]
 
 
+def ad_record(listing_id, active, beds=1, pricing=None, description=None, details=True):
+    """A record of ad `listing_id`, with an ACTIVE event in its own history for each (day,
+    price) pair of `active`, `beds` bedrooms and one bathroom. Without `details` the record
+    lacks propertyDetails."""
+    record = json.loads(
+        history_record(
+            listing_id,
+            [
+                {
+                    "listingId": str(listing_id),
+                    "rentalEventsOfInterest": [
+                        {
+                            "__typename": "RentalStatusChangeOfInterest",
+                            "date": day,
+                            "price": price,
+                            "status": "ACTIVE",
+                        }
+                        for day, price in active
+                    ],
+                }
+            ],
+        )
+    )
+    record["pricing"].update(pricing or {})
+    record["description"] = description
+    record["propertyDetails"] = (
+        {"bedroomCount": beds, "fullBathroomCount": 1} if details else None
+    )
+    return json.dumps(record, sort_keys=True)
+
+
+def test_exclusion_cases(tmp_path, monkeypatch):
+    """The made-up ads here cover each reason in ads.exclusions. Ads 9000020 and 9000032 have
+    none, ad 9000031's record lacks propertyDetails, and one of ad 9000032's records carries
+    another ad's `id`."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    may = [("2026-05-01", 3000)]
+    records = [
+        (9000020, ad_record(9000020, may)),
+        (9000021, ad_record(9000021, may + [("2026-09-20", 3100)])),
+        (9000022, ad_record(9000022, [("2009-12-31", 3000)])),
+        (9000023, ad_record(9000023, may + [("2026-05-01", 3100)])),
+        (9000024, ad_record(9000024, may + [("2026-05-01", None)])),
+        (9000025, ad_record(9000025, may)),
+        (9000025, ad_record(9000025, may, beds=2)),
+        (9000026, ad_record(9000026, may, description="It comes furnished.")),
+        (9000027, ad_record(9000027, may, pricing={"leaseTermMonths": 3})),
+        (9000028, ad_record(9000028, may, pricing={"monthsFree": 1})),
+        (9000029, ad_record(9000029, [("2026-05-01", 600)])),
+        (9000030, ad_record(9000030, may, beds=6)),
+        (9000031, ad_record(9000031, may, details=False)),
+        (9000032, ad_record(9000032, may)),
+        (9000032, ad_record(9000020, may, beds=2)),
+        (9000033, ad_record(9000033, [])),
+    ]
+    append_answers(
+        export,
+        pd.DataFrame(
+            {
+                "listing_id": [r[0] for r in records],
+                "fetched": pd.Timestamp("2026-09-02T12:00:00Z")
+                + pd.to_timedelta(range(len(records)), unit="min"),
+                "response_id": range(20, 20 + len(records)),
+                "run": 5,
+                "region": "cases",
+                "generation": 1,
+                "outcome": "record",
+                "record_sha256": [
+                    hashlib.sha256(r[1].encode()).hexdigest() for r in records
+                ],
+                "record": [r[1] for r in records],
+            }
+        ),
+    )
+    ctx = context(
+        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
+    )
+    ctx.plan(auto_apply=True, no_prompts=True)
+    got = ctx.fetchdf(
+        """SELECT e.listing_id, e.reasons, e.rent, a.bedrooms, a.conflicts, a.records
+        FROM ads.exclusions e LEFT JOIN ads.attributes a USING (listing_id)
+        WHERE e.listing_id >= '9000020' ORDER BY e.listing_id"""
+    )
+    got = [
+        [r[0], list(r[1]), r[2], r[3], None if r[4] is None else list(r[4]), r[5]]
+        for r in got.astype(object).where(got.notna(), None).values.tolist()
+    ]
+    layout = "invalid_or_missing_layout"
+    ask = "invalid_or_extreme_initial_ask"
+    assert got == [
+        ["9000020", [], 3000.0, 1.0, [], 1],
+        ["9000021", ["future_own_active_event"], 3000.0, 1.0, [], 1],
+        ["9000022", ["outside_date_window"], 3000.0, 1.0, [], 1],
+        ["9000023", ["conflicting_or_missing_initial_prices", ask], None, 1.0, [], 1],
+        ["9000024", ["conflicting_or_missing_initial_prices"], 3000.0, 1.0, [], 1],
+        [
+            "9000025",
+            ["conflicting_layout_within_advertisement", layout],
+            3000.0,
+            None,
+            ["bedrooms"],
+            2,
+        ],
+        ["9000026", ["excluded_furnished"], 3000.0, 1.0, [], 1],
+        ["9000027", ["excluded_short_term"], 3000.0, 1.0, [], 1],
+        ["9000028", ["excluded_concession"], 3000.0, 1.0, [], 1],
+        ["9000029", [ask], 600.0, 1.0, [], 1],
+        ["9000030", [layout], 3000.0, 6.0, [], 1],
+        ["9000031", [layout], 3000.0, None, None, None],
+        ["9000032", [], 3000.0, 1.0, [], 1],
+        ["9000033", ["no_dated_own_active_event"], None, 1.0, [], 1],
+    ]
+    unparsed = ctx.fetchdf(
+        "SELECT id FROM ads.record_attributes WHERE NOT parsed AND id >= '9000020'"
+    )
+    assert unparsed.id.tolist() == ["9000031"]
+
+
 class Failures(TerminalConsole):
     """A console that also keeps the errors of the models that failed."""
 
@@ -504,6 +651,7 @@ def test_every_row_audit_catches_a_lost_row(tmp_path, monkeypatch):
         project,
         ignore=shutil.ignore_patterns(".venv", "tests", "logs", "__pycache__"),
     )
+    (tmp_path / "src").symlink_to(PROJECT.parent / "src")
     model = project / "models" / "analysis" / "latest_ask.sql"
     lost = "FROM s4 WHERE ordinal > (SELECT min(ordinal) FROM s4)"
     model.write_text(model.read_text().replace("FROM s4", lost))
@@ -529,6 +677,23 @@ def config(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "EXPORT", tmp_path / "export")
     (tmp_path / "export").mkdir()
     return module
+
+
+def test_attributes_code_covers_its_imports(config):
+    """The code version of ads.record_attributes covers steps.attributes and every module it
+    loads from src."""
+    script = (
+        "import sys; sys.path[:0] = sys.argv[1:]; import steps.attributes; "
+        "print(*(m.__file__ for n, m in sys.modules.items() "
+        "if n.split('.')[0] in ('apartments', 'steps') and m.__file__))"
+    )
+    loaded = subprocess.run(
+        [sys.executable, "-c", script, str(config.PIPELINE), str(config.SRC)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert sorted(loaded) == sorted(str(path) for path in config.ATTRIBUTES_CODE)
 
 
 def test_exported_reads_whole_lines(config):

@@ -46,6 +46,27 @@ ROWS = Path(
 )
 STATE = Path(os.environ.get("PIPELINE_STATE", "/data1/apartments/pipeline/state"))
 
+# ads.record_attributes runs `steps.attributes`, which imports the current chain's modules from
+# the repo's src. SQLMesh puts sys.path and the environment back after it reads this file, so the
+# model reads the two folders from the variable `pythonpath` and adds them to sys.path when it
+# runs.
+PIPELINE = Path(__file__).resolve().parent
+SRC = PIPELINE.parent / "src"
+ATTRIBUTES_CODE = [
+    PIPELINE / "steps" / "attributes.py",
+    *(
+        SRC / "apartments" / f"{name}.py"
+        for name in (
+            "__init__",
+            "analytical",
+            "attribute_evidence",
+            "corrections",
+            "historical_dataset",
+            "research_pipeline",
+        )
+    ),
+]
+
 
 def exported(table):
     """The listed files of an export table, sorted by path, and a SHA-256 over their lines."""
@@ -75,6 +96,14 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
+def code_version(paths):
+    """A SHA-256 over each file's path below the repo and its SHA-256."""
+    listing = "".join(
+        f"{path.relative_to(PIPELINE.parent)} {file_sha256(path)}\n" for path in paths
+    )
+    return hashlib.sha256(listing.encode()).hexdigest()
+
+
 ads, ads_version = exported("ads")
 STATE.mkdir(parents=True, exist_ok=True)
 
@@ -100,5 +129,7 @@ config = Config(
         "ads_version": ads_version,
         "rows": str(ROWS),
         "rows_version": file_sha256(ROWS),
+        "attributes_code": code_version(ATTRIBUTES_CODE),
+        "pythonpath": os.pathsep.join((str(PIPELINE), str(SRC))),
     },
 )

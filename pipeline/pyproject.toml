@@ -7,6 +7,7 @@ dependencies = [
   "sqlmesh==0.236.3",
   "duckdb==1.5.5",
   "pyarrow>=19.0",
+  "jsonpatch>=1.33,<2",
 ]
 
 [project.optional-dependencies]
