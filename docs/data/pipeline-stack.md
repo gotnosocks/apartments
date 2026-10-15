@@ -1,75 +1,88 @@
 # Pipeline stack trial, 2026-10-15
 
 The rebuilt pipeline in [the pipeline handoff](../handoff/data-pipeline.md) runs on SQLMesh over
-DuckDB, with Python models for the steps SQL handles badly. This file records the trial behind
-that choice: latest ask, built three ways from the same inputs and checked against
+DuckDB, with Python models wherever a step is awkward in SQL. This file records the trial behind
+that choice. I built latest ask three ways from the same inputs and checked each result against
 `rentfrontier.latest_ask`.
 
 ## Inputs
 
-- Ad records: an export of the API archive's runs 1 to 4, 1,713,239 records in 2.6 GB of
-  Parquet, made from the stored bodies with the columns the scraper thread later adopted in
-  `streeteasy_archive/graphql_export.py` (#863). The steps were rerun on #863's own export once
-  it was written, with the same result.
-- Rows: the four API region tables of Oct 15 (manhattan-below-59th, manhattan-59th-110th,
-  brooklyn-prospect-park, brooklyn-north-crown-heights), 1,396,053 rows, frozen to Parquet in the
-  order `latest_ask.main` reads them.
-- Reference: `/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet`,
-  written by `rentfrontier.latest_ask` from the page-capture rewrite of the same records.
+- Ad records: runs 1 to 4 of the API archive, 1,713,239 records in 2.6 GB of Parquet. I exported
+  them from the stored bodies with the columns of `streeteasy_archive/graphql_export.py` (#863).
+  Once the scraper thread had written #863's export, I reran the steps on it, with the same
+  result.
+- Rows: the four API region tables of Oct 15, 1,396,053 rows in all. Two cover Manhattan, below
+  59th St and from 59th to 110th St, and two cover Brooklyn, around Prospect Park and from north
+  Brooklyn to Crown Heights. I froze them to Parquet in `latest_ask.main`'s reading order.
+- Reference: `/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet`.
+  `rentfrontier.latest_ask` wrote it from the page-capture rewrite of the same records.
 
 ## Steps
 
-Each stack ran the same five SQL steps, 121 lines in all, against 259 lines of Python in
-`latest_ask.py`:
+Each stack ran the same five SQL steps, 121 lines in all. `latest_ask.py` does the same work in
+259 lines of Python.
 
-1. `ad_latest`: each ad's latest record, cut down to its status, market dates, page price and
-   price changes. The fields come out of the JSON before the pick. Picking whole records first
-   ran DuckDB out of a 5 GB limit.
-2. `price_change`: one row per nonzero price change, numbered in date order.
-3. `kept_change`: the placeholder check on changes after an ad left the market. It compares
-   each change with the last kept one, so it recurses. Ad 2326634 has 799 changes, 7 distinct
-   prices over two months, and 1,814 ads have 100 or more. The recursion runs only over the
-   108,877 ads with a late change, which cut the step from 72 s to 20 s.
-4. `row_latest`: each analysis row's last kept change up to its ad's next row.
-5. `latest_ask`: the leave-one-out building median and the four choices that follow it.
+1. `ad_latest` picks each ad's latest record and keeps its status, market dates, page price and
+   price changes. It pulls those fields out of the JSON before the pick. With whole records in
+   the pick, DuckDB ran out of its 5 GB limit.
+2. `price_change` keeps one row per nonzero price change and numbers them in date order.
+3. `kept_change` applies the placeholder check to changes after an ad left the market. The step
+   compares each change with the last kept change, so it recurses. Some ads carry long runs of
+   changes: ad 2326634 has 799 changes over two months, cycling through 7 prices, and 1,814 ads
+   have 100 or more. With the recursion limited to the 108,877 ads with a late change, the step
+   took 20 s instead of 72 s.
+4. `row_latest` finds each analysis row's last kept change up to the ad's next row.
+5. `latest_ask` computes each row's median among the other rows in its building with its bedroom
+   count, leaving the row out, then runs the checks against that median and the page price.
 
 ## Results
 
 | | plain DuckDB | dbt-duckdb | SQLMesh |
 |---|--:|--:|--:|
-| lines besides the SQL | 68 (hash-caching runner) | 18 (config) | 15 (config) |
+| lines besides the step SQL | 68, a hash-caching runner | 18 of settings | 15 of settings, and a `MODEL` line per step |
 | cold build | 30.5 s, 2.8 GiB | 41.7 s, 4.0 GiB | 42.1 s, 3.4 GiB |
 | rebuild after a change to step 3 | 25.5 s | 33.7 s | 31.8 s |
-| rebuild after undoing that change | 24.6 s, its first build | 43.9 s | 3.9 s |
+| rebuild after undoing that change | 0.8 s | 43.9 s | 3.9 s |
 | rows unlike the reference | 0 | 0 | 0 |
 
 All three matched the reference on all 1,396,053 rows, in `latest_ask`, `first_ask` and `how`.
-The first plain run differed on 12 rows, in the last stage, where a column from an earlier stage
-shadowed the one the stage computed. The fix went into the shared SQL before the other two ran.
-The 4.0 and 2.8 GiB peaks reflect DuckDB's threads and settings as much as the stacks: dbt ran
-with DuckDB's defaults, and the plain runner with 8 threads and insertion order off.
+
+The first plain run differed on 12 rows. In the digit check of step 5, the stage's `SELECT *`
+carried an earlier stage's `picked` column, and DuckDB read `picked` from it in place of the new
+value. I fixed the shared SQL with `EXCLUDE` before the other two stacks ran.
+
+The plain runner's undo first took 24.6 s. Between its cold build and the edit, step 3 had
+changed from `SEMI JOIN` to `IN`, as described below, so the undo built that text for the first
+time. A rerun with nothing changed read every step from the cache in 0.8 s.
+
+Settings account for part of the memory figures. dbt ran DuckDB with its default settings, and
+SQLMesh with a 5 GB limit. The plain runner set the same limit, 8 threads and no insertion order.
 
 ## Choice
 
-SQLMesh fingerprints each model by its normalized SQL and its parents' fingerprints, and keeps
-every version it has built. That gives the hash-keyed step cache the pipeline needs without
-writing one:
+SQLMesh fingerprints each model by its normalized SQL and its parents' fingerprints. It keeps a
+table for each version after building it, so I don't have to write a hash-keyed step cache:
 
-- A change that leaves the query's meaning alone rebuilds nothing. `x < 1.0 / 2` in place of
-  `x < 0.5` registered as a metadata change.
-- Going back to a version built before takes seconds, as in the table.
-- `sqlmesh plan dev` builds the changed steps in a separate environment, and
-  `sqlmesh table_diff prod:dev la.latest_ask -o audit_id` lists every row they change. With a
-  change to step 3 from 1.2 to 1.25, the two took 9.3 s and found the 4 rows it moves.
-- Models can be Python where SQL is awkward, and incremental kinds cover the Friday top-up.
+- When an edit leaves a query's meaning alone, SQLMesh rebuilds nothing. It recorded
+  `x < 1.0 / 2` in place of `x < 0.5` as a metadata change.
+- After an undo, SQLMesh reuses the earlier version's tables, in 3.9 s here.
+- `sqlmesh plan dev` builds a change in a separate environment beside the current tables. Then
+  `sqlmesh table_diff prod:dev la.latest_ask -o audit_id` lists each row with a different value.
+  With step 3's threshold moved from 1.2 to 1.3 for the first time, the build and the diff took
+  34.3 s at a 3.2 GiB peak and found 10 changed rows. For 1.25, built earlier in the edit run,
+  the plan reused the tables, and the diff alone took 9.3 s and found 4 rows.
+- A step can be a Python model wherever SQL is awkward. SQLMesh also has incremental model kinds,
+  for the Friday top-up.
 
-dbt rebuilds whatever a run selects, with no record of what it built before, so undoing a
-change costs a full rebuild and seeing a change's effect needs a second copy built by hand.
-The plain runner was fastest, but lineage, environments, diffs, audits and incremental builds
-would all have to be written for it.
+dbt keeps no record of earlier builds. Each run rebuilds every selected model, so an undo costs a
+full rebuild. A before-and-after comparison needs a second copy of the tables, built by hand. The
+plain runner was fastest, but I would have to write its environments, diffs, audits and
+incremental builds myself.
 
-SQLMesh parses SQL with sqlglot before running it, and its optimizer failed on
-`SEMI JOIN ... USING`. `WHERE ... IN (SELECT ...)` works in all three and replaced it.
+On step 3, SQLMesh stopped with a sqlglot error, `Required keyword: 'this' missing for
+Coalesce`, while the step used `SEMI JOIN` and `ANTI JOIN` with `USING`. I replaced them with
+`IN (SELECT ...)` and `NOT IN (SELECT ...)`, and the step then ran in all three stacks. I haven't
+isolated the cause: a minimal `SEMI JOIN ... USING` query passes SQLMesh's optimizer.
 
 The trial's projects are in `/data1/apartments/tmp/pipeline/compare/` on thelio, with the three
 stacks installed in `/data1/apartments/venvs/pipeline-stacks` (DuckDB 1.5.5, SQLMesh 0.236.3,
