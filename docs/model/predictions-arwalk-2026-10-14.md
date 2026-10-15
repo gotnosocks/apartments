@@ -302,3 +302,36 @@ C's walk did at 110 W 26th St, so I lower the chance of passing.
 
 The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
 year gap of 3 pp or more.
+
+## Fixed-rho fit on the Midtown West data (2026-10-15T02:05Z, before either fit)
+
+The v17 wing C failed the all-building gate at 106 E 10th St and 222 E 17th St. Modeling traced
+the failure to ads coded as studios but priced like three and four bedrooms, and Data improvements
+corrected them (`bedrooms-ad-v5`, #807). Modeling's next C is the Midtown West fit, so the
+fixed-rho fit now pairs with it, on the same feature set and rules:
+
+- feature set `nb9-nostuy-v1`, which adds 81,797 Hell's Kitchen and Hudson Yards rows to NB8's
+  215,156 (#774) and 6,683 buildings in all;
+- rules `baths-ad-v3`, `bedrooms-ad-v5`, `building-joins-v1`, `elevator-from-ad-v1`,
+  `fields-review-v3`, `latest-ask-v4`, `pets-from-ad-v1`, `quarantine-v22`, `west-coast-wings-v1`,
+  `unit-labels-v17`, `unit-reviews-v2`, `unit-splits-v4`;
+- the C label `a100-4500k9cb1-nb9-ul17r2s4q22ad5la4ep1`, at master 4e64c04f.
+
+The data grow by about 38%, so I scale the summed scores by that much and keep the per-row ones:
+
+1. Paired PSIS-LOO: +480 (+250 to +710) nats, a win by more than 2 lot-clustered SEs.
+2. Year gap: +1.5 pp (0.75 to 2.25).
+3. Building-weighted new-building lpd: +85 (+40 to +135) nats.
+4. sd 0.077 (0.068-0.087); building_scale 0.157 (0.142-0.172). Midtown West has more new
+   towers with short histories, so both intervals widen a little.
+5. The fit passes the all-building gate: 50-60% likely. If it fails, I expect 1-8 buildings over
+   1.01.
+6. Descriptive share within 0.4 pp of the NB9 C's (80% likely).
+7. Wall time within 5 minutes of the NB9 C's. The first AR(1) fit cost the same as C at the same
+   settings. If the NB9 C takes over 55 minutes, I don't launch the AR(1) and record it as
+   blocked by the 1-hour cap. The v17 wing C took 49 minutes on NB8, so if time grows with rows
+   the NB9 C takes 60 to 70 minutes. I put a 60% chance on the AR(1) being blocked this way. In
+   that case I redesign it to fit the cap, with fewer draws, before it runs.
+
+The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
+year gap of 3 pp or more.
