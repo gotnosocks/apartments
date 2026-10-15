@@ -42,7 +42,6 @@ import os
 import re
 import time
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 import pandas as pd
@@ -107,8 +106,10 @@ def distance_m(lat1, lon1, lat2, lon2) -> float:
 
 
 def _get(path: str, params: dict) -> dict:
+    from .external import _urlopen  # external imports EXTERNAL_ROOT from here
+
     url = f"{GEOSEARCH}/{path}?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=30) as r:
+    with _urlopen(url, timeout=30) as r:
         return json.loads(r.read())
 
 
