@@ -1,6 +1,39 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 12:30 ET, after #842. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 17:30 ET, after #860. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 17:30 ET
+
+Four-region API backfill, getting it ready for Modeling's fits. Ben asked for an update when
+the pre-fit prep is done.
+- The crawl `api-granular-20261015-canonical-url-v1` holds 1.69M ads. It is too big for one
+  history build, so I cut it into 16 building slices
+  (`/data1/apartments/archive/datasets/api-granular-20261015-building-slices-6064263`, built
+  by `rentfrontier.granular_slice`) and built a cohort per slice. Six fit datasets come from
+  those: `/data1/apartments/frontier/datasets/api-<region>-analysis-20261015-6064263`, named in
+  `data.DATASETS_API`.
+- Per-slice descriptions sit in `/data1/apartments/frontier/descriptions/api-<slice>-20261015-dd5bdb5`.
+  Listing extras (#857, `--crawl/--tag`) and latest asks for the crawl are under
+  `external/listing-extras/20261015-dd5bdb5-api` and `external/latest-ask/20261015-13f5968-api`.
+- #858 added retries to the Socrata fetches after 500s and 503s killed them. The Manhattan
+  pluto, footprints and lpc were refetched at dec4944. HPD for Manhattan still failed and is
+  not needed by the NB9 base.
+- #859 added the rule `latest-ask-api-v1` and three sets, `api-manhattan-{below-59th,
+  west-59th-110th,east-59th-110th}-v1`. Each takes the NB9 lots2 base without its
+  neighbourhoods, adds StreetEasy area indicators against the dataset's largest area, and drops
+  base columns constant over the dataset. Modeling has the merge commit (c266ad21).
+- The frontage and street-facing terms read only WEST streets and the numbered avenues, so they
+  come out missing on the Upper East Side and east of Fifth. A grid-wide version would be a new
+  feature set.
+- #860 makes the basemap land layer and PLUTO release reads follow the registry's borough.
+- Open: the Brooklyn registry (`data-api-registry-brooklyn` unit, `--tag api-brooklyn`), then the
+  Brooklyn pluto, footprints, lpc, basemap and plutoreleases, then the three Brooklyn sets.
+- Open: the generic screens and unit spelling aliases
+  (`api-granular-20261015-unit-spelling-aliases-v2`) on the API datasets.
+- Open: the search-API re-read of the page-crawl areas (Ben approved 2026-10-15 3:50 PM ET),
+  running as `apartments-streeteasy-reread-crawl-areas` into the region
+  `manhattan-page-crawl-areas` of `archive/crawls/api/archive.sqlite3`. Its records need merging
+  with the page-crawl records before a fit can use them.
 
 ## 2026-10-15 12:30 ET
 
