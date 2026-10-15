@@ -1377,7 +1377,7 @@ def quarantine_v25(frame: pd.DataFrame) -> pd.DataFrame:
     found with Ditmas Park and Cortelyou Road wording that `brooklyn.NEAR`
     misses. A reader read each whole ad, and each joins `brooklyn.MISJOINS`:
 
-    - 7 at 317 East 19th Street. Ads for six units over 18 months agree with
+    - 7 at 317 East 19th Street. Ads for seven units over 18 months agree with
       each other: 319 or 323 East 19th Street, a new elevator building in
       Ditmas Park by the B and Q at Cortelyou Road.
     - 346 East 9th Street #1R, with an ad for a four-family house by Cortelyou
