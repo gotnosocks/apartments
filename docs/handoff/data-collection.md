@@ -30,9 +30,10 @@ Updated 2026-10-15 14:50 ET. Thread owner: the Data collection project thread (b
   ($11.69); `docs/data/graphql-collection.md` has the tables. The dataset
   `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445 units), its
   aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015` (taken 12:47
-  ET, before the reopens) came from `/data1/apartments/tmp/api-build-20261015/build.sh`. After the
-  first top-up on Oct 16, check that each region's `current-listings/api-REGION` link moved, then
-  tell the coordinator so the Website thread rebuilds the site data.
+  ET, after the box reopen and before the bedroom and split reopens) came from
+  `/data1/apartments/tmp/api-build-20261015/build.sh`. After the first top-up on Oct 16, check
+  that each region's `current-listings/api-REGION` link moved, then tell the coordinator so the
+  Website thread rebuilds the site data.
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to

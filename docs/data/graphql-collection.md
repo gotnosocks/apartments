@@ -224,13 +224,13 @@ requests (about $0.60 to $0.90), and a fresh enumeration of the four regions to 
 1,700 requests, against the 2,374 the backfill runs spent on counts and ID reads.
 
 I reopened the four runs from 13:51 to 14:34 ET. The reopen took 1,081 requests ($1.23),
-above my estimate of 500 to 800. ID reads took 321 requests, fewer than the 532 I had
-projected, but counts took 753, and I had left counts out of the estimate. In run 3, 3,146 of
-the 4,504 box counts went to halving boxes from the whole map down to the size of New York
-(next section). Oxylabs answered 55 calls with no status or content, 41 of them in run 3.
-Bursts of these stopped run 3's reopen twice, at 14:02 and 14:11 ET, each after six failures
-in a row. #852 now retries such answers, and a third pass of 234 requests finished run 3 at
-14:24. The reopen found 3,797 more IDs, and each region's IDs now match or pass its count:
+above my estimate of 500 to 800. ID reads took 321 requests, fewer than the projected 532.
+Counts took 753, and my estimate had left them out. In run 3, 3,146 of the 4,504 box counts
+went to halving boxes from the whole map down to the size of New York (next section).
+Oxylabs answered 55 calls with no status or content, 41 of them in run 3. Bursts of these
+stopped run 3's reopen twice, at 14:02 and 14:11 ET, each after six failures in a row. #852
+now retries such answers, and a third pass of 234 requests finished run 3 at 14:24. The
+reopen found 3,797 more IDs. Each region's IDs now match or pass its count:
 
 | run | region | count | IDs found | new IDs |
 |---|---|---:|---:|---:|
@@ -239,12 +239,15 @@ in a row. #852 now retries such answers, and a third pass of 234 requests finish
 | 3 | `manhattan-59th-110th` | 555,457 | 555,471 | 1,796 |
 | 4 | `brooklyn-north-crown-heights` | 658,118 | 658,132 | 783 |
 
-No run has a pending, truncated or unanswered band. The single band left with more ads in its
-count than IDs found is run 3's $4,200 one-bedroom band, short by 1. IDs above a count come
-from ads added between the run's first count and its later ID reads. Of the new IDs, the
-collector read 398 ads in 4 requests and had read the others before. Writing them added 70
-ad records, marked 319 ads superseded by later ads of their units and excluded 8. Each run
-then published its region's current listings again under `current-listings/api-REGION`.
+No run has a pending, truncated or unanswered band. The only positive gap left is in run
+3's $4,200 one-bedroom band: its count of 1,690 stands 1 above the sum of its areas'
+counts, and every ID read gave as many IDs as its count. IDs above a region's count most
+likely come from ads posted between the run's first count and its later ID reads. The
+collector read 398 of the new IDs' ads in 4 requests. The other new IDs lie below the
+listing-ID cutoff, which the collector skips, or belong to ads it had read before. The
+collector wrote 70 ad records, marked 319 ads superseded by later ads of their units and
+excluded 8. Each run then published its region's current listings again under
+`current-listings/api-REGION`.
 
 ## Child areas and the start of the box split (Oct 15)
 
@@ -280,9 +283,8 @@ enumeration.
 | 4 | `brooklyn-north-crown-heights` | 3,415 | 3.89 | 658,132 |
 | | all four | 10,265 | 11.69 | 1,972,906 |
 
-The requests include every reopen through the split of bands down to 1,000 ads, with retries
-of failed calls. Ben's approval of Oct 15
-projected about 8,500 requests and $9.70.
+The requests include every reopen through the split of bands down to 1,000 ads, failed
+calls among them. Ben's approval of Oct 15 projected about 8,500 requests and $9.70.
 
 I then built a dataset from a snapshot of the archive, with no requests, in the steps used for
 Midtown West (`/data1/apartments/tmp/api-build-20261015/build.sh`, code from master at #843):
