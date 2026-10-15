@@ -71,11 +71,11 @@ it after the dated capture folders.
 The collector sends at most --rate requests a minute, never more than 64, and stops at
 --max-requests. It stops earlier on an Oxylabs credential or billing refusal, a StreetEasy
 401, 403 or 429, a challenge page, or six failed requests in a row. The client sends a
-request up to three times, 5 and then 10 seconds apart, when the connection fails, Oxylabs
-answers 429 or 5xx, or its result comes back with no status or content, and counts it as
-failed after the third. After a failed request for several items, the collector retries
-each half, and a single item gets three tries. Each step reads
-its progress from the tables, so the same command resumes an unfinished run. --reopen
+request up to three times when the connection fails, Oxylabs answers 429 or 5xx, or its
+result comes back with no status or content, and counts it as failed after the third. It
+waits 5 and then 10 seconds between tries, or as long as a 429 or 5xx asks, up to 120.
+After a failed request for several items, the collector retries each half, and a single
+item gets three tries. Each step reads its progress from the tables, so the same command resumes an unfinished run. --reopen
 resumes the region's latest run even after it finished, so a newer collector can count
 and read the bands from its finer split. --new-run starts a fresh run.
 

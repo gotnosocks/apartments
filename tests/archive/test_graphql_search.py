@@ -781,6 +781,10 @@ def test_client_retries_failed_posts_and_reports_failures():
     reply = c.get(gs.API_HOST + "?query=x")
     assert reply.ok and reply.attempts == 3 and sleeps == [5, 10] and c.calls == 3
 
+    c, _ = client(sequence(empty, oxylabs("{}", status=429)))
+    with pytest.raises(Stop):
+        c.get(gs.API_HOST + "?query=x")
+
     c, _ = client(sequence(*[FakeResponse(200, {"results": []})] * 3))
     reply = c.get(gs.API_HOST + "?query=x")
     assert not reply.ok and "one result" in reply.error and c.calls == 3
