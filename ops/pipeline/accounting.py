@@ -8,15 +8,16 @@ result files.
 The journal subcommand reads every "Consumed ..." line systemd writes when a user unit or scope
 stops (services from systemd-run, scopes from ops/job) and prints one markdown row per unit.
 The modal subcommand joins each settled ledger entry to its run directory and prints the
-`seconds.prepare` the fit recorded beside the seconds Modal billed, which it works out from the
-settled cost and the hourly rate in ops/modal/cap.py for the fit's GPU. The billed time covers
-the whole container, so it runs longer than preparation plus `seconds.fit_total`. Preparation
-costs its own seconds at that rate.
+`seconds.prepare` the fit recorded beside the GPU container's wall time from the run's
+modal/modal.json. It prices preparation at the hourly rate in ops/modal/cap.py for the
+container's GPU. The settled cost also covers the CPU container that builds new-building
+features, so it reads higher than the GPU container's time at the GPU rate.
 """
 
 from __future__ import annotations
 
 import argparse
+import functools
 import importlib.util
 import json
 import re
@@ -68,14 +69,21 @@ def journal(since: str, until: str | None, match: str | None) -> None:
         )
 
 
-def rate(gpu: str) -> float:
-    """Dollars an hour for a GPU name as nvidia-smi reports it, such as NVIDIA A100-SXM4-40GB."""
+@functools.cache
+def rates() -> dict:
     spec = importlib.util.spec_from_file_location("cap", CAP)
     cap = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cap)
-    if "A100" in gpu:
-        return cap.USD_PER_HOUR["A100-80GB" if "80GB" in gpu else "A100-40GB"]
-    return next(usd for key, usd in cap.USD_PER_HOUR.items() if key in gpu)
+    return cap.USD_PER_HOUR
+
+
+def rate(gpu: str) -> float | None:
+    """Dollars an hour for the GPU nvidia-smi names first in modal.json's gpu field, such as
+    "NVIDIA A100-SXM4-40GB, 40960 MiB, 580.95.05", or None for a GPU cap.py doesn't price."""
+    words = gpu.split(",")[0].replace("-", " ").split()
+    if "A100" in words:
+        return rates()["A100-80GB" if "80GB" in words else "A100-40GB"]
+    return next((usd for key, usd in rates().items() if key in words), None)
 
 
 def modal(last: int) -> None:
@@ -86,31 +94,34 @@ def modal(last: int) -> None:
             settled[entry["name"]] = entry["usd"]
     rows = []
     for name, usd in settled.items():
-        result = RUNS / name / "result.json"
-        if result.exists():
-            run = json.loads(result.read_text())
-            spent = run.get("seconds") or {}
-            gpu = (run.get("hardware") or {}).get("gpu")
-            if spent.get("prepare") and gpu:
-                hourly = rate(gpu)
-                rows.append(
-                    (
-                        run["started_at"],
-                        spent["prepare"],
-                        usd / hourly * 3600,
-                        usd,
-                        spent["prepare"] * hourly / 3600,
-                        name,
-                    )
+        result, container = (
+            RUNS / name / "result.json",
+            RUNS / name / "modal" / "modal.json",
+        )
+        if not (result.exists() and container.exists()):
+            continue
+        prep = (json.loads(result.read_text()).get("seconds") or {}).get("prepare")
+        box = json.loads(container.read_text())
+        hourly = rate(box.get("gpu") or "")
+        if prep and hourly and box.get("wall_seconds"):
+            rows.append(
+                (
+                    json.loads(result.read_text())["started_at"],
+                    prep,
+                    box["wall_seconds"],
+                    usd,
+                    prep * hourly / 3600,
+                    name,
                 )
+            )
     rows = sorted(rows)[-last:]
     print(
-        "| started (UTC) | prepare s | billed s | prep share | settled $ | prep $ | fit |"
+        "| started (UTC) | prepare s | GPU container s | prep share | settled $ | prep $ | fit |"
     )
     print("|---|--:|--:|--:|--:|--:|---|")
-    for at, prep, billed, usd, prep_usd, name in rows:
+    for at, prep, wall, usd, prep_usd, name in rows:
         print(
-            f"| {at[:16]} | {prep:.0f} | {billed:.0f} | {prep / billed:.1%} | {usd:.2f}"
+            f"| {at[:16]} | {prep:.0f} | {wall:.0f} | {prep / wall:.1%} | {usd:.2f}"
             f" | {prep_usd:.2f} | {name[-40:]} |"
         )
     prep = [r[1] for r in rows]
@@ -118,7 +129,7 @@ def modal(last: int) -> None:
     prep_usd = [r[4] for r in rows]
     print(
         f"\n{len(rows)} fits: median prepare {statistics.median(prep):.0f} s "
-        f"(range {min(prep):.0f} to {max(prep):.0f}), median share of billed time "
+        f"(range {min(prep):.0f} to {max(prep):.0f}), median share of the GPU container's time "
         f"{statistics.median(share):.1%}, median settled ${statistics.median(r[3] for r in rows):.2f}, "
         f"prep about ${statistics.median(prep_usd):.2f} a fit and ${sum(prep_usd):.2f} in all"
     )

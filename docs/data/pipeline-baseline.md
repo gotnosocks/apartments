@@ -65,9 +65,9 @@ the API response bodies take 11 GB.
 ## Data preparation inside a fit
 
 Each fit loads its dataset, applies the data rules and builds the feature matrix before sampling.
-The fit records that preparation as `seconds.prepare`. Modal bills the whole container, from
-start to exit, at the GPU's hourly rate. Over the last 15 Modal fits (Oct 12 to 15, all on an
-A100), preparation took a median of 153 s (111 to 221 s), 5.9% of the billed time. At the A100's
+The fit records that preparation as `seconds.prepare`, and Modal bills the GPU container from
+start to exit at the GPU's hourly rate. Over the last 15 Modal fits (Oct 12 to 15, all on an
+A100), preparation took a median of 153 s (111 to 221 s), 6.2% of the GPU container's time. At the A100's
 $2.39 an hour, that comes to about $0.10 a fit, and $1.66 across the 15, paid while the GPU
 waits.
 
