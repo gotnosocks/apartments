@@ -5,9 +5,11 @@ last capture), keyed by listing id. A sale listing can carry a rental's id, so
 the builder skips sale observations:
 
     python -m rentfrontier.listing_extras
+    python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name>
 
-writes EXTERNAL_ROOT/listing-extras/<date>-<commit>/listing-extras.parquet and
-provenance.json. Refuses a dirty tree.
+writes EXTERNAL_ROOT/listing-extras/<date>-<commit>[-<tag>]/listing-extras.parquet
+and provenance.json, from the crawls in CRAWLS or from the one crawl named.
+Refuses a dirty tree.
 """
 
 from __future__ import annotations
@@ -56,9 +58,9 @@ def record_extras(raw: str) -> dict:
     }
 
 
-def build() -> pd.DataFrame:
+def build(crawls: dict | None = None) -> pd.DataFrame:
     rows = []
-    for neighbourhood, crawl in CRAWLS.items():
+    for neighbourhood, crawl in (crawls or CRAWLS).items():
         for path in sorted(
             glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
         ):
@@ -91,18 +93,26 @@ def _git(*args) -> str:
     ).stdout.strip()
 
 
-def main():
+def main(argv: list[str] | None = None):
+    import sys
+
+    argv = sys.argv[1:] if argv is None else argv
+    crawls, tag = None, ""
+    if argv[:1] == ["--crawl"] and argv[2:3] == ["--tag"] and len(argv) == 4:
+        crawls, tag = {"crawl": argv[1]}, f"-{argv[3]}"
+    elif argv:
+        raise SystemExit("usage: listing_extras [--crawl <granular dir> --tag <name>]")
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    table = build()
-    out_dir = EXTERNAL_ROOT / "listing-extras" / f"{started:%Y%m%d}-{commit[:7]}"
+    table = build(crawls)
+    out_dir = EXTERNAL_ROOT / "listing-extras" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "listing-extras.parquet"
     table.to_parquet(path, index=False)
     sources = {}
-    for name, crawl in CRAWLS.items():
+    for name, crawl in (crawls or CRAWLS).items():
         complete = Path(crawl) / "complete.json"
         sources[name] = {
             "path": crawl,

@@ -228,3 +228,29 @@ def test_main_reads_several_datasets_from_one_crawl(tmp_path, monkeypatch):
     assert seen == {"crawl": "/g"}
     (out,) = tmp_path.glob("latest-ask/*-abc1234-api/latest-ask.parquet")
     assert list(pd.read_parquet(out).audit_id) == ["/d1", "/d2"]
+
+
+def test_listing_extras_reads_a_named_crawl(tmp_path, monkeypatch):
+    import json
+
+    import pandas as pd
+    import pytest
+
+    from rentfrontier import listing_extras
+
+    seen = {}
+    monkeypatch.setattr(listing_extras, "EXTERNAL_ROOT", tmp_path)
+    monkeypatch.setattr(
+        listing_extras, "_git", lambda *a: "" if a[0] == "status" else "abc1234def"
+    )
+    monkeypatch.setattr(
+        listing_extras,
+        "build",
+        lambda crawls: seen.update(crawls) or pd.DataFrame({"listing_id": ["1"]}),
+    )
+    listing_extras.main(["--crawl", "/g", "--tag", "api"])
+    assert seen == {"crawl": "/g"}
+    (prov,) = tmp_path.glob("listing-extras/*-abc1234-api/provenance.json")
+    assert json.loads(prov.read_text())["sources"]["crawl"]["path"] == "/g"
+    with pytest.raises(SystemExit):
+        listing_extras.main(["--tag", "api"])
