@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V30)
+    ) | data.quarantined(data.QUARANTINE_V31)
 
 
 @pytest.mark.parametrize(
@@ -1861,6 +1861,26 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v31_adds_far_apart_misfiled_ads():
+    """v31 keeps every v30 row and adds the 7 rows the far-apart readers called
+    misfiled and review held."""
+    with open(data.QUARANTINE_V30) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V31) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = rows[len(old) :]
+    assert len(added) == 7
+    assert {r["action"] for r in added} == {"quarantine_location_conflict"}
+    with open(brooklyn.REVIEWS / "duplicate-ad-far-reads-20261015.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    held = {
+        a for r in reads if r.get("held_in_review") for a in r["misfiled_audit_ids"]
+    }
+    assert {r["audit_id"] for r in added} == held
+    assert "quarantine-v31" in data.DROPPING_RULES
 
 
 def test_quarantine_v30_adds_three_same_month_twins():

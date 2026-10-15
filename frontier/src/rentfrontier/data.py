@@ -1519,6 +1519,31 @@ def quarantine_v30(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V30))]
 
 
+QUARANTINE_V31 = QUARANTINE_V20.with_name("quarantine-v31-20261015.jsonl")
+
+
+def quarantine_v31(frame: pd.DataFrame) -> pd.DataFrame:
+    """v30's rows and 7 more listings filed under the wrong building, from the
+    other 306 duplicate ads under buildings more than 10 house numbers apart
+    with no shared unit label. Sonnet readers saw each ad with PLUTO facts and
+    unit history for every building, and
+    `config/reviews/duplicate-ad-far-reads-20261015.jsonl` records each read.
+    The readers called 22 listings misfiled. These 7 sit on a lot that cannot
+    hold the unit:
+
+    - 317 W 45th St #2N, 346 W 40th St #27F and 716 Avenue of the Americas
+      #22A: PLUTO lists the lot with 0 residential units, and the ads belong to
+      305 W 45th St, the Orion and the Vanguard.
+    - 49 Avenue B #4C, 159 Bleecker St #10HE, 221 W 20th St #17A and 99
+      Avenue C #11F: the label's floor is above the lot's PLUTO floor count,
+      and the ads belong to 341 E 5th St, the Atrium, Chelsea29 and Arabella
+      101.
+
+    The other 15 calls rest on the ad text alone, or on two buildings that
+    join to one PLUTO lot, where the building features are the same."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V31))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1866,6 +1891,7 @@ DATA_RULES = {
     "quarantine-v28": quarantine_v28,
     "quarantine-v29": quarantine_v29,
     "quarantine-v30": quarantine_v30,
+    "quarantine-v31": quarantine_v31,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1919,6 +1945,7 @@ RULE_SOURCES = {
     "quarantine-v28": QUARANTINE_V28,
     "quarantine-v29": QUARANTINE_V29,
     "quarantine-v30": QUARANTINE_V30,
+    "quarantine-v31": QUARANTINE_V31,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1982,6 +2009,7 @@ DROPPING_RULES = (
     "quarantine-v28",
     "quarantine-v29",
     "quarantine-v30",
+    "quarantine-v31",
 )
 
 
