@@ -223,6 +223,30 @@ at the first level below them. I expect the reopen of the four runs to take 500 
 requests (about $0.60 to $0.90), and a fresh enumeration of the four regions to take about
 1,700 requests, against the 2,374 the backfill runs spent on counts and ID reads.
 
+## Child areas and the start of the box split (Oct 15)
+
+Run 3's last reopen took 234 requests ($0.27) and finished at 14:24 ET with 555,471 IDs
+found against a count of 555,457. In its band tree, the Upper West Side's child area 137
+counted the same ads as its parent, area 135, in 36 of 37 bands and one more in the last.
+The Upper East Side's child area 140 counted the same ads as area 139 in all 57 bands.
+StreetEasy's search seems to take these leaf areas for their parents, so the child areas'
+counts added up to more than their parents', and the collector counted and read 16,600
+Upper West Side ads and 81,436 Upper East Side ads twice. The bands of areas 137 and 140
+still went on into map boxes. I removed `SUBAREAS`, and an area band now goes straight into
+boxes.
+
+Box 1 covers the whole map, and a band took 18 halvings to get from it down to boxes the
+size of New York. Of run 3's 4,504 box counts, 3,146 lay above that depth, about 210
+requests at 15 box counts to a request. No band of any run held an ad in a box away from
+New York. The box split now starts from the four boxes at depth 18 around the five boroughs
+(`root_boxes`), each 0.35 degrees of latitude by 0.70 of longitude. Their numbers match the
+tree from box 1, so a reopen reuses a run's counts of these boxes and the boxes below them.
+Of run 3's 101 box bands, 36 came apart at depth 13, where a split at latitude 40.78125
+crosses Manhattan, and a reopen would count those again from the four boxes. An ad placed
+outside the four boxes would show up in the report as a gap of its area band. For a region
+the size of run 3, I expect the two changes to save about 250 requests (about $0.29) of an
+enumeration.
+
 ## The four regions' backfill and dataset (Oct 15)
 
 | run | region | requests | dollars | search hits |

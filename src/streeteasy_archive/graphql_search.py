@@ -10,15 +10,14 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      the region in fixed price bands. It splits a band holding more than 1,000 ads in half
      by price, and it splits a single price into bedroom counts 0 to 7 and a band of 8 or
      more bedrooms. It splits a band of a single price and bedroom count holding more than
-     1,000 ads into the region's areas, and an area in SUBAREAS into its child areas. A
-     band still above 1,000 in an area with no child areas goes into map boxes: the
-     collector halves the map by latitude, halves each half by longitude, and goes on
-     halving each box holding more than 1,000 ads (box_edges). Then it reads the IDs in
-     each band sorted by listing date. Reads from both ends of that order miss some of the
-     ads between them (17 of a band of 1,971 on Oct 15), so the collector splits down to
-     1,000 ads rather than reading a band from both ends. A request carries 25 counts, or
-     up to 25 ID reads of 4,000 ads between them, as aliased fields, as many as fit in the
-     URL.
+     1,000 ads into the region's areas. A band still above 1,000 in an area goes into map
+     boxes: the collector starts from the four boxes around New York (root_boxes), halves
+     each by latitude, halves each half by longitude, and goes on halving each box holding
+     more than 1,000 ads (box_edges). Then it reads the IDs in each band sorted by listing
+     date. Reads from both ends of that order miss some of the ads between them (17 of a
+     band of 1,971 on Oct 15), so the collector splits down to 1,000 ads rather than
+     reading a band from both ends. A request carries 25 counts, or up to 25 ID reads of
+     4,000 ads between them, as aliased fields, as many as fit in the URL.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,
@@ -90,8 +89,9 @@ Limits:
   - Some ads match the price filter of more than one band, and an ad on the edge between
     two boxes can match both, so a band's halves can hold more ads between them than the
     band, and most of the report's gaps are negative.
-  - An ad with no map position falls outside every box. The collector misses it, and the
-    report counts it in the gap of the band where the box split starts.
+  - An ad with no map position, or with a position outside the four boxes around New York,
+    falls outside every box. The collector misses it, and the report counts it in the gap
+    of the band where the box split starts.
   - When more than 1,000 ads of a band share a box a microdegree across, the collector
     reads the box from both ends of the listing-date order and misses some of the ads
     between them. The report lists such bands as truncated.
@@ -173,6 +173,10 @@ NO_PRICE = ANY_BEDS = ANY_AREA = ANY_BOX = -1
 FULL = (NO_PRICE, NO_PRICE, ANY_BEDS, ANY_AREA, ANY_BOX)
 # The whole map as south, north, west and east edges in microdegrees: box 1 of the box split.
 WORLD = (-90_000_000, 90_000_000, -180_000_000, 180_000_000)
+# New York City's five boroughs, in the same order and units.
+NEW_YORK = (40_477_400, 40_917_600, -74_259_100, -73_700_400)
+# An area band's box split starts this many halvings below box 1 (root_boxes).
+ROOT_DEPTH = 18
 # The bedroom split's last band holds this many bedrooms or more.
 TOP_BEDS = 8
 FINAL = frozenset({"RENTED", "NO_LONGER_AVAILABLE", "DELISTED"})
@@ -200,17 +204,6 @@ REGIONS = {
         [115, 163, 157, 116, 158, 113, 159, 117, 106, 124, 146, 152],
         False,
     ),
-}
-
-# The child areas of the regions' areas, from the `se.areaId` and location of the buildings
-# in the archive. When a parent's children miss some of its ads, the report shows the
-# difference as a gap.
-SUBAREAS = {
-    # Upper West Side: Lincoln Square, Upper West Side, Manhattan Valley
-    135: [136, 137, 138],
-    # Upper East Side: Upper East Side, Lenox Hill, Yorkville, Carnegie Hill, Upper Carnegie
-    # Hill
-    139: [140, 141, 142, 143, 164],
 }
 
 # The fields of an ad page's listing object that the API gives (frag2.graphql in
@@ -353,13 +346,35 @@ def box_edges(box):
     return south, north, west, east
 
 
+def root_boxes():
+    """The boxes ROOT_DEPTH halvings below box 1 overlapping New York.
+
+    At depth 18 a box spans 0.35 degrees of latitude and 0.70 of longitude, and four such
+    boxes cover the city. In the backfill runs, 3,146 of run 3's 4,504 box counts went to
+    the 18 halvings from the whole map down to these boxes, and every ad lay inside them.
+    The report counts an ad placed outside them in the gap of its area band.
+    """
+    boxes = [1]
+    for _ in range(ROOT_DEPTH):
+        boxes = [
+            k
+            for box in boxes
+            for k in (2 * box, 2 * box + 1)
+            if _overlaps(box_edges(k), NEW_YORK)
+        ]
+    return boxes
+
+
+def _overlaps(a, b):
+    return a[0] < b[1] and b[0] < a[1] and a[2] < b[3] and b[2] < a[3]
+
+
 def children(node, areas):
     """The bands a band splits into: price bands, price halves, bedroom counts, areas, boxes.
 
-    A band of a single price and bedroom count splits into the region's areas, or into the
-    child areas of a region with a single area, and an area band into its child areas. A
-    band in an area with no child areas splits into the halves of the map, and a box band
-    into the halves of its box, down to a box a microdegree across.
+    A band of a single price and bedroom count splits into the region's areas. An area band,
+    or such a band in a region with a single area, splits into ROOTS, the boxes around New
+    York, and a box band into the halves of its box, down to a box a microdegree across.
     """
     lo, hi, beds, area, box = node
     if node == FULL:
@@ -381,15 +396,15 @@ def children(node, areas):
     if box == ANY_BOX:
         if area == ANY_AREA and len(areas) > 1:
             return [(lo, hi, beds, a, box) for a in areas]
-        parent = areas[0] if area == ANY_AREA else area
-        if parent in SUBAREAS:
-            return [(lo, hi, beds, a, box) for a in SUBAREAS[parent]]
-        box = 1
+        return [(lo, hi, beds, area, b) for b in ROOTS]
     south, north, west, east = box_edges(box)
     span = north - south if (box.bit_length() - 1) % 2 == 0 else east - west
     if span < 2:
         return []
     return [(lo, hi, beds, area, 2 * box), (lo, hi, beds, area, 2 * box + 1)]
+
+
+ROOTS = root_boxes()
 
 
 def history_links(record):
