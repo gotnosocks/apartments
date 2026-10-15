@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 23:30 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 23:55 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-14 23:30 ET
 
@@ -13,12 +13,14 @@ Studios above the one-bedrooms (branch `data/bedrooms-ad-v6`): bedrooms-ad-v6 an
   plan on the listing's own page (10 plans fetched). Two ads with flex wording ("convertible", "set
   up as") keep 0. Studios with a described bedroom but no count keep 0, as in v4.
 - 56 blank or placeholder studios are held out on v22's test (v23).
-- Size backing compares the stated size with the coded and new counts' medians only, as v4 did.
-  The #809 reviewer noted 123 E 7th (750 sq ft) and 785 9th Ave (800 sq ft) went 0 to 2 though
-  nearer the 1BR median, and four 0 to 1 sizes sit nearer the 2BR median. A later version could
-  require the size to be nearest the new count among all levels, across v4 to v6 together.
-- Next: 5 rows the check flags have no read yet (327 W 21st, The Archive, Casa 155 W 21st,
-  209 E 4th, Hydra Place).
+- The 5 flagged rows left unread after v6 (327 W 21st, The Archive, Casa 155 W 21st, 209 E 4th,
+  Hydra Place) were read later: each stays as coded, with 3 matching the code and 2 with no count.
+  Reads are in `/data1/apartments/tmp/suspect/bd7/reads.jsonl`.
+- The #809 reviewer suggested a stricter size test (size nearest the new count among all levels).
+  It would undo most size-backed rows in v4 to v6, such as The Archive lofts at 1,008 to 1,362 sq ft
+  and 57 5th Ave, because a size above both medians shows a large unit and not which larger count it
+  has. I kept v4's comparison of the coded and claimed counts.
+- `text:renovated` misses "remodeled": measured and held (see `docs/TODO.md`).
 
 ## 2026-10-14 22:00 ET
 
