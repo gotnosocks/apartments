@@ -202,7 +202,16 @@ def test_main_reads_several_datasets_from_one_crawl(tmp_path, monkeypatch):
     monkeypatch.setattr(
         latest_ask.data,
         "load",
-        lambda d: loaded.append(str(d)) or pd.DataFrame({"audit_id": [str(d)]}),
+        lambda d: (
+            loaded.append(str(d))
+            or pd.DataFrame(
+                {
+                    "audit_id": [str(d)],
+                    "building": [str(d)],
+                    "source_listing_id": [str(d)],
+                }
+            )
+        ),
     )
     monkeypatch.setattr(
         latest_ask, "listings", lambda crawls: seen.update(crawls) or None

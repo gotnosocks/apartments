@@ -266,7 +266,12 @@ def main(argv: list[str]):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    frame = pd.concat([data.load(d) for d in datasets], ignore_index=True)
+    frames = [data.load(d) for d in datasets]
+    for key in ("building", "source_listing_id"):
+        seen = pd.concat(f[key].drop_duplicates() for f in frames)
+        if seen.duplicated().any():
+            raise SystemExit(f"datasets share a {key}")
+    frame = pd.concat(frames, ignore_index=True)
     out = choose(frame, listings(crawls))
     out_dir = EXTERNAL_ROOT / "latest-ask" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
