@@ -13,9 +13,12 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      both ends for a single-price band still above 1,000. A request carries 25 counts or 4
      ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
-     request, as many as fit in the URL. Each record is the `RentalListing` object of the
-     ad's page. Besides the search hits, the collector reads the latest ad of each ad's
-     unit and, in history regions, each ad of the unit's history at or above the
+     request, as many as fit in the URL and in an answer of about 3 MB. When the listing
+     service answers every field of a read near the current size with GATEWAY_TIMEOUT,
+     the collector cuts the most ads it puts in a request to three quarters of that read, no
+     lower than 100, for the rest of the invocation. Each record is the `RentalListing`
+     object of the ad's page. Besides the search hits, the collector reads the latest ad of
+     each ad's unit and, in history regions, each ad of the unit's history at or above the
      collection policy's ID cutoff. Each round of reads can find new IDs, so it goes up to
      four rounds.
   3. Read each ad's building with `buildingsByIds`, 50 to a field, for its slug and its
@@ -126,8 +129,11 @@ FIELDS_PER_REQUEST = 5
 MAX_BATCH = IDS_PER_FIELD * FIELDS_PER_REQUEST
 BUILDINGS_PER_FIELD = 50
 BUILDINGS_PER_REQUEST = 250
-TARGET_BYTES = 6_000_000
-FIRST_BYTES_PER_AD = 40_000
+# On Oct 15, with four requests running at once, the listing service answered 148 of 152
+# Manhattan reads of about 500 ads (about 4 MB) with GATEWAY_TIMEOUT, against 1 of 299
+# smaller reads. Probe reads of 375 ads (about 3 MB) all came back.
+TARGET_BYTES = 3_000_000
+FIRST_BYTES_PER_AD = 20_000
 EDGES = [0, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000, 7000, 8000, 10000]
 EDGES += [15000, 25000, 10**8]
 NO_PRICE = ANY_BEDS = -1
@@ -289,6 +295,17 @@ def _unit_route(url):
 
 def _sha256(data):
     return hashlib.sha256(data.encode() if isinstance(data, str) else data).hexdigest()
+
+
+def _timed_out(doc):
+    """True when api-v6 reports that a service behind it ran out of time on the request."""
+    errors = doc.get("errors") if isinstance(doc, dict) else None
+    return any(
+        isinstance(e, dict)
+        and isinstance(e.get("extensions"), dict)
+        and e["extensions"].get("code") == "GATEWAY_TIMEOUT"
+        for e in (errors if isinstance(errors, list) else [])
+    )
 
 
 def _int_id(value):
@@ -482,6 +499,7 @@ class Collector:
         self.region, self.areas = region, list(areas)
         self.follow_history, self.active_only = follow_history, active_only
         self.workers = workers
+        self.ad_ceiling = MAX_BATCH
         self.db.executescript(SCHEMA)
         self.generation = store.current_generation() or store.new_generation(
             "graphql-search"
@@ -676,16 +694,22 @@ class Collector:
 
     def _handle(self, job, reply):
         """Save what the reply answered and retry the rest. False when it answered nothing."""
-        data = None
+        doc = None
         if reply.ok:
             try:
                 doc = json.loads(reply.body)
-                data = doc.get("data") if isinstance(doc, dict) else None
             except ValueError:
-                data = None
+                doc = None
+        data = doc.get("data") if isinstance(doc, dict) else None
         data = data if isinstance(data, dict) else {}
         shape = dict if job.kind in ("count", "slice") else list
         if not any(isinstance(data.get(alias), shape) for alias in job.fields):
+            # A retry half of a read at the current size falls below three quarters of it,
+            # and the ceiling stays put when the half times out.
+            if job.kind == "ads" and _timed_out(doc):
+                if len(job.items) > self._ad_batch() * 3 // 4:
+                    cut = max(IDS_PER_FIELD, len(job.items) * 3 // 4)
+                    self.ad_ceiling = min(self.ad_ceiling, cut)
             self._retry(job.kind, job.items)
             return False
         failed = getattr(self, "_save_" + job.kind)(job, data, reply)
@@ -986,7 +1010,7 @@ class Collector:
             "SELECT sum(bytes), sum(entries) FROM graphql_search_responses WHERE kind='ads'"
         ).fetchone()
         per_ad = size / entries if entries else FIRST_BYTES_PER_AD
-        return max(1, min(MAX_BATCH, int(TARGET_BYTES / per_ad)))
+        return max(1, min(self.ad_ceiling, int(TARGET_BYTES / per_ad)))
 
     def read(self):
         for _ in range(AD_ROUNDS):
