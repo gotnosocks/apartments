@@ -16,6 +16,7 @@ from rentfrontier.registry import distance_m, slug_address
         ("ava-high-line", None),
         ("21-chelsea", None),
         ("585-park-place-brooklyn", "585 Park Place"),
+        ("229--7-avenue-brooklyn", "229 7 Avenue"),
     ],
 )
 def test_slug_address(slug, address):
