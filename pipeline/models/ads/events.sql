@@ -3,7 +3,7 @@ MODEL (
     kind FULL,
     audits (
         unique_combination_of_columns(columns := (listing_id, source, kind, day, at, price)),
-        not_null(columns := (listing_id, source, kind, day, own, first_seen, first_response_id, answers))
+        not_null(columns := (listing_id, source, kind, day, own, first_seen, last_seen, first_response_id, answers))
     ),
     description 'Every event the API reported for an ad, once, with the answers that reported it.'
 );
@@ -17,8 +17,9 @@ MODEL (
 --            a record reports events of other ads, filed under the ad they belong to.
 -- The day of a status or price change is its date as the API wrote it, in New York time.
 -- An event reported by several answers, or by the records of several ads of one unit, appears
--- once. `own` says whether the ad's own record reported it, `answers` counts the answers that
--- reported it, and `first_response_id` names the answer that reported it first.
+-- once. `answers` counts the answers that reported it, from any ad, and `first_seen` and
+-- `first_response_id` give the first of them. `own` says whether an answer of the ad itself
+-- reported it, and `own_first_seen` and `own_first_response_id` give the first such answer.
 WITH reports AS (
     SELECT listing_id, 'fetch' AS source,
         CASE WHEN outcome = 'record' THEN status ELSE 'MISSING' END AS kind,
@@ -40,31 +41,44 @@ histories AS (
         max(fetched) AS last_seen,
         arg_min(response_id, (fetched, response_id)) AS first_response_id,
         min((fetched, response_id)) AS first_report,
-        count(*) AS answers,
-        list(DISTINCT listing_id) AS reporters
+        count(*) AS answers
     FROM ads.answers
     WHERE history IS NOT NULL
     GROUP BY history
 ),
+own_histories AS (
+    SELECT history, listing_id,
+        min(fetched) AS first_seen,
+        arg_min(response_id, (fetched, response_id)) AS first_response_id,
+        min((fetched, response_id)) AS first_report
+    FROM ads.answers
+    WHERE history IS NOT NULL
+    GROUP BY history, listing_id
+),
 events AS (
     SELECT listing_id, source, kind, day, at, price,
-        true AS own,
         min(fetched) AS first_seen,
         max(fetched) AS last_seen,
         arg_min(response_id, (fetched, response_id)) AS first_response_id,
-        count(*) AS answers
+        count(*) AS answers,
+        min(fetched) AS own_first_seen,
+        arg_min(response_id, (fetched, response_id)) AS own_first_response_id
     FROM reports
     GROUP BY listing_id, source, kind, day, at, price
     UNION ALL
     SELECT e.listing_id, 'history', e.kind, e.day, NULL::TIMESTAMPTZ, e.price,
-        bool_or(list_contains(h.reporters, e.listing_id)),
         min(h.first_seen),
         max(h.last_seen),
         arg_min(h.first_response_id, h.first_report),
-        sum(h.answers)::BIGINT
-    FROM ads.history_events e JOIN histories h USING (history)
+        sum(h.answers)::BIGINT,
+        min(o.first_seen),
+        arg_min(o.first_response_id, o.first_report)
+    FROM ads.history_events e
+    JOIN histories h USING (history)
+    LEFT JOIN own_histories o ON o.history = e.history AND o.listing_id = e.listing_id
     GROUP BY e.listing_id, e.kind, e.day, e.price
 )
-SELECT listing_id::VARCHAR AS listing_id, source, kind, day, at, price, own, first_seen,
-    last_seen, first_response_id, answers
+SELECT listing_id::VARCHAR AS listing_id, source, kind, day, at, price,
+    own_first_seen IS NOT NULL AS own, first_seen, last_seen, first_response_id, answers,
+    own_first_seen, own_first_response_id
 FROM events

@@ -8,7 +8,9 @@ MODEL (
 -- Each distinct history is read from the earliest answer that holds it. A history lists the
 -- rentalEventsOfInterest of every ad of the unit, dated to the day. A status change keeps its
 -- status as the kind, and a price change gets PRICE. An event listed twice in one history
--- appears once.
+-- appears once. An episode without a listingId is filed under its id. The current parser
+-- would fall back to the reporting ad's own id after that, but one history can come from
+-- several ads, so an episode with neither id stops the build at the audit.
 WITH firsts AS (
     SELECT history,
         arg_min(listing_id, (fetched, response_id)) AS listing_id,
@@ -19,7 +21,7 @@ WITH firsts AS (
 ),
 episodes AS (
     SELECT f.history,
-        unnest(from_json(r.record -> '$.propertyHistory', '[{"listingId": "VARCHAR", "rentalEventsOfInterest": [{"__typename": "VARCHAR", "date": "VARCHAR", "price": "DOUBLE", "status": "VARCHAR"}]}]')) AS e
+        unnest(from_json(r.record -> '$.propertyHistory', '[{"id": "VARCHAR", "listingId": "VARCHAR", "rentalEventsOfInterest": [{"__typename": "VARCHAR", "date": "VARCHAR", "price": "DOUBLE", "status": "VARCHAR"}]}]')) AS e
     FROM raw.ads r JOIN firsts f USING (listing_id, response_id)
 )
 SELECT DISTINCT history, ad::BIGINT AS listing_id,
@@ -27,4 +29,7 @@ SELECT DISTINCT history, ad::BIGINT AS listing_id,
         WHEN 'PriceChangeOfInterest' THEN 'PRICE' ELSE v.__typename END AS kind,
     v.date::DATE AS day,
     v.price
-FROM (SELECT history, e.listingId AS ad, unnest(e.rentalEventsOfInterest) AS v FROM episodes)
+FROM (
+    SELECT history, coalesce(e.listingId, e.id) AS ad, unnest(e.rentalEventsOfInterest) AS v
+    FROM episodes
+)

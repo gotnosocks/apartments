@@ -84,9 +84,11 @@ places:
 4. the unit history, listing the rental events of every ad of the unit.
 
 The model keeps a row for each distinct event, with the fetch times of the first and last
-answers that reported it, the number of those answers and the `response_id` of the first.
-Through `raw.ads`, that id leads back to the export file and its manifest line. `own` marks an
-event reported by the ad's own record.
+answers that reported it, the number of those answers and the `response_id` of the first. An
+event in a unit history may come first from a sibling's answer, so `own_first_seen` and
+`own_first_response_id` give the first answer of the ad itself, and `own` marks an event with
+such an answer. Through `raw.ads`, an answer's `(listing_id, response_id)` leads back to the
+export file and its manifest line.
 
 Each ad's record repeats its unit's whole history, so a unit with n ads holds about n² copies
 of each of its events. Parsing every copy and grouping them in one query ran out of a 3 GB
@@ -95,9 +97,12 @@ history's JSON text. `ads.history_events` parses each distinct history once, fro
 answer holding it, and `ads.events` joins those events back to the answers through the hash.
 
 `ads.first_ask` reads the ACTIVE events in each ad's own history and keeps the earliest day,
-with the distinct prices of that day. The current chain prices an ad the same way:
+with the distinct prices of that day, whether one of that day's events lacked a price, and the
+ad's first answer to report the day. The current chain prices an ad the same way:
 `project_advertisement` in `apartments.historical_dataset` takes the earliest own ACTIVE rental
-event, sets `price_at` to midnight UTC of its day, and drops an ad with no price or with two.
+event, sets `price_at` to midnight UTC of its day, and drops an ad with a missing price or with
+two. It reads only the answers collected by its cutoff, and `first_seen` gives the time from
+which an ad's first day is known.
 
 ## Tests
 
@@ -107,7 +112,7 @@ their ads and the latest ask `rentfrontier.latest_ask` gave each row, 187 KB in 
 several cases the latest-ask steps handle, as the full build below notes, so
 `pipeline/tests/make_cases.py` makes up seven answers and eleven rows for them in
 `fixture/cases/`, 17 KB in all, and writes the latest ask `rentfrontier.latest_ask` gives each
-row. The tests:
+row. Their records hold no unit histories. The tests:
 
 1. build the fixture and compare each row's first ask, latest ask and step with
    `rentfrontier.latest_ask`;
@@ -115,7 +120,7 @@ row. The tests:
    record collected before its row, an ad without answers, an empty latest answer, and rows
    without a building or a bedroom count;
 3. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
-   and the seven tables below it and gives the full answer, and a further plan finds nothing to
+   and the nine tables below it and gives the full answer, and a further plan finds nothing to
    build;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -130,8 +135,13 @@ row. The tests:
 9. build the fixture and compare each analysis row's price date and asking rent with its ad's
    first day and first ask in `ads.first_ask`;
 10. add an answer that repeats an earlier record eight days later. `ads.events` gains the new
-    fetch and nothing else, and each event of the record keeps its first answer and counts one
-    answer more.
+    fetch and nothing else. Each event of the record, its siblings' history events included,
+    keeps its first answer and counts one answer more, and the other events stay as they were;
+11. add four answers with histories to the made-up cases: an empty history, a history listing an
+    event twice, an ACTIVE change without a price and a sibling's episode without a
+    `listingId`, a later answer with an added event, and the same history from the sibling.
+    The test checks every history event and first ask by value, along with the cases' missing
+    answer.
 
 They take about 20 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
@@ -179,11 +189,13 @@ one at a time.
 `ops/pipeline/analysis_rows.py` wrote the rows input again from the run's provenance.json in
 15 s at a 2 GB peak, and the result equals the file the build read, row for row.
 
-With the event log's four tables, I built runs 1 to 5 into an empty state in 89 s, at the
+With the event log's four tables, I built runs 1 to 5 into an empty state in 109 s, at the
 unit's 5 GB cap with DuckDB's limit at 4 GB. `ads.events` holds 23,340,393 events of 2,372,913
 ads. Of those ads, 2,137,998 have answers of their own, and the other 234,915 appear only in the
-unit histories of their siblings' records. `ads.first_ask` gives 2,117,118 ads a first day, with
-one price for 2,116,917 of them and two for 201. For each of the 1,396,053 analysis rows,
+unit histories of their siblings' records. Of the 8,392,975 history events an ad's own answers
+reported, a sibling's answer reported 5,186,434 first. `ads.first_ask` gives 2,117,118 ads a
+first day, with one price for 2,116,917 of them and two for 201, and none with a missing price.
+Each first ask's `first_response_id` is an answer of its own ad. For each of the 1,396,053 analysis rows,
 `price_at` is its ad's first day at midnight UTC and `asking_rent` the single price of that day:
 
 ```sh
