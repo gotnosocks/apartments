@@ -1446,7 +1446,12 @@ def quarantine_v27(frame: pd.DataFrame) -> pd.DataFrame:
     The row under the wrong building is held when the ad names the street,
     address or building of the other one, or when the wrong building cannot
     hold the unit (a hotel, an office lot, a one-family house, a walkup for an
-    ad promising an elevator). 18 groups the readers decided from unit history
+    ad promising an elevator). Three more rest on the ad placing the unit by
+    the other address's neighborhood or landmark, such as Gramercy Park or
+    Madison Square Park, across town from the building the row sits under.
+    9 of the 50 rows were held as location conflicts in v3 to v9 and released
+    in v10 along with the other rent-guided picks; this screen reads no rent.
+    18 groups the readers decided from unit history
     alone stay in, as do the undecided groups and those where both slugs are
     the same building."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V27))]
