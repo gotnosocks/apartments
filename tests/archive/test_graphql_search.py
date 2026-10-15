@@ -627,7 +627,23 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
 
 def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
     api = make_api()
-    api.areas = {1300001: 103, 1300005: 103, 1300010: 103, 1300007: 104}
+    # Unit 9d's latest ad, 1300012, is missing from the search, and ad 1300003 is in the
+    # search with no record in the API.
+    api.ads["1300011"] = record(
+        1300011, "9d", "RENTED", 3100, 1, [1300012, 1300011], 1300012
+    )
+    api.ads["1300012"] = record(
+        1300012, "9d", "ACTIVE", 3300, 1, [1300012, 1300011], 1300012
+    )
+    api.search += [(1300003, 3950, 1, "RENTED"), (1300011, 3100, 1, "RENTED")]
+    api.areas = {
+        1300001: 103,
+        1300003: 103,
+        1300005: 103,
+        1300010: 103,
+        1300011: 103,
+        1300007: 104,
+    }
     archive = tmp_path / "archive"
     plain = {"region": "plain", "areas": (103,), "follow_history": False}
     full = {"region": "full", "areas": (104,), "follow_history": True}
@@ -635,11 +651,11 @@ def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
     # The plain region's run spends its three requests on the search and its ads.
     first = make_collector(archive, api, max_requests=3, **plain)
     assert first.collect()["invocation"]["stopped"] is not None
-    assert reads(api) == {1300001, 1300005, 1300010}
+    assert reads(api) == {1300001, 1300003, 1300005, 1300010, 1300011}
     first.store.close()
 
-    # A history region's run leaves unit 12b's history and building 17504 to the plain
-    # region, though both are unread.
+    # A history region's run leaves the plain region's units, latest ads, histories, missing
+    # ads and building 17504 to the plain region, though all of them are unread.
     api.queries.clear()
     second = make_collector(archive, api, **full)
     assert second.collect()["invocation"]["stopped"] is None
@@ -652,14 +668,15 @@ def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
     resumed = make_collector(archive, api, **plain)
     report = resumed.collect()
     assert resumed.run == first.run and report["invocation"]["stopped"] is None
-    assert reads(api) == set() and reads(api, "buildingsByIds") == {17504}
+    assert reads(api) == {1300003, 1300012}
+    assert reads(api, "buildingsByIds") == {17504}
     assert not [k for k in report["write"] if "waiting" in k]
     resumed.store.close()
 
     # Each daily run re-reads its own region's live ads and keeps its own current listings.
     root = tmp_path / "current"
     root.mkdir()
-    for region, live in ((full, {1300007}), (plain, {1300005, 1300010})):
+    for region, live in ((full, {1300007}), (plain, {1300005, 1300010, 1300012})):
         api.queries.clear()
         daily = make_collector(archive, api, active_only=True, new_run=True, **region)
         daily.collect(current_root=root)
@@ -671,6 +688,52 @@ def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
         "api-plain": "plain",
     }
     assert all(path.is_dir() for path in links.values())
+
+
+def test_a_daily_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
+    api = make_api()
+    # Unit 4a has an older ad, 1300004, missing from the search.
+    api.ads["1300007"] = record(
+        1300007, "4a", "ACTIVE", 2500, 0, [1300007, 1300004], 1300007
+    )
+    api.ads["1300004"] = record(
+        1300004, "4a", "RENTED", 2400, 0, [1300007, 1300004], 1300007
+    )
+    archive, root = tmp_path / "archive", tmp_path / "current"
+    root.mkdir()
+    history = {"region": "history", "areas": (103,), "follow_history": True}
+
+    # The backfill stops after its first ad read, before it follows the units' histories.
+    first = make_collector(archive, api, max_requests=3, **history)
+    assert first.collect(current_root=root)["invocation"]["stopped"] is not None
+    first.store.close()
+
+    # A daily run of a region over a parent area re-reads the backfill's ACTIVE ads.
+    api.queries.clear()
+    parent = make_collector(
+        archive,
+        api,
+        region="parent",
+        areas=(116,),
+        active_only=True,
+        follow_history=False,
+    )
+    assert (
+        parent.collect(current_root=root)["current_listings"]["active_advertisements"]
+        == 3
+    )
+    assert reads(api) == {1300005, 1300007, 1300010}
+    parent.store.close()
+
+    # The resumed backfill still follows the histories of units 12b and 4a, and its
+    # capture holds the ACTIVE ads the daily run read after the backfill started.
+    api.queries.clear()
+    resumed = make_collector(archive, api, **history)
+    report = resumed.collect(current_root=root)
+    assert resumed.run == first.run and report["invocation"]["stopped"] is None
+    assert reads(api) == {1300003, 1300004}
+    assert report["current_listings"]["active_advertisements"] == 3
+    assert {p.name for p in root.iterdir()} == {"api-history", "api-parent"}
 
 
 def test_batches_fit_in_the_url(tmp_path, monkeypatch):
