@@ -48,21 +48,52 @@ def test_blob_stops_on_a_changed_file(reference, tmp_path, monkeypatch):
     monkeypatch.setattr(reference.shutil, "copyfile", copy)
     with pytest.raises(SystemExit, match="changed while it was copied"):
         reference.blob(str(source), reference.sha256(source))
-    assert not list((reference.ROOT / "blobs").glob("[0-9a-f]*[0-9a-f]"))
+    assert not list((reference.ROOT / "blobs").iterdir())
+
+
+def strace_line(flags, path):
+    return f'7 openat(AT_FDCWD</code>, "{path}", {flags}) = 3<{path}>\n'
 
 
 def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
-    observations = tmp_path / "observations.jsonl"
+    data = tmp_path / "data"
+    data.mkdir()
+    observations = data / "observations.jsonl"
     observations.write_text("{}\n")
-    rule = tmp_path / "quarantine.jsonl"
+    rule = data / "quarantine.jsonl"
     rule.write_text("[]\n")
+    registry = data / "buildings.parquet"
+    registry.write_bytes(b"registry")
+    code = tmp_path / "code"
+    (code / "frontier").mkdir(parents=True)
+    module = code / "frontier" / "model.py"
+    module.write_text("")
     read = {
         "observations": observations,
         "rule quarantine-v1": rule,
     }
+    calls = []
 
-    def child(argv, **kw):
-        (Path(argv[-1]) / "rows.parquet").write_bytes(b"rows")
+    def child(argv, env, **kw):
+        out = Path(argv[-1])
+        assert not list(out.iterdir())
+        (out / "rows.parquet").write_bytes(b"rows")
+        cache = Path(env["FRONTIER_OUTPUT_ROOT"]) / "descriptions.parquet"
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_bytes(b"cache")
+        written = out / "written.json"
+        written.write_text("{}")
+        log = Path(argv[argv.index("-o") + 1])
+        log.write_text(
+            strace_line("O_RDONLY|O_CLOEXEC", observations)
+            + strace_line("O_RDONLY|O_CLOEXEC", registry)
+            + strace_line("O_RDONLY|O_CLOEXEC|O_DIRECTORY", data)
+            + strace_line("O_RDONLY|O_CLOEXEC", module)
+            + strace_line("O_RDONLY|O_CLOEXEC", cache)
+            + strace_line("O_RDONLY|O_CLOEXEC", "/usr/lib/libc.so.6")
+            + strace_line("O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666", written)
+            + strace_line("O_RDONLY|O_CLOEXEC", written)
+        )
         prepared = {
             "rows_sha256": "rows",
             "rows": 1,
@@ -71,13 +102,15 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
                 role: {"path": str(path), "sha256": reference.sha256(path)}
                 for role, path in read.items()
             },
+            "python": {"prefix": "/venv", "base_prefix": "/python"},
             "seconds": 0.1,
         }
+        calls.append(env)
         return types.SimpleNamespace(
             returncode=0, stdout=json.dumps(prepared) + "\n", stderr=""
         )
 
-    monkeypatch.setattr(reference, "tree", lambda commit: tmp_path)
+    monkeypatch.setattr(reference, "tree", lambda commit: code)
     monkeypatch.setattr(reference.subprocess, "run", child)
     record = {
         "name": "fit",
@@ -88,12 +121,24 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
     }
 
     def freeze(name, record):
-        reference.freeze(name, {"commit": "c", "dataset": str(tmp_path)}, record)
+        reference.freeze(name, {"commit": "c", "dataset": str(data)}, record)
         return json.loads((reference.ROOT / name / "manifest.json").read_text())
 
+    # An attempt that failed left a file behind.
+    (reference.ROOT / "matched").mkdir(parents=True)
+    (reference.ROOT / "matched" / "rows.parquet").write_bytes(b"old")
     matched = freeze("matched", record)
     assert matched["rows_sha256_matches_run"] and matched["inputs_match_run"]
     assert matched["inputs"]["rule quarantine-v1"]["matches_record"]
+    assert sorted(matched["inputs"]) == [
+        f"file {registry}",
+        "observations",
+        "rule quarantine-v1",
+    ]
+    assert "matches_record" not in matched["inputs"][f"file {registry}"]
+    assert sorted(matched["outputs"]) == ["rows.parquet", "written.json"]
+    assert calls[-1]["FRONTIER_COMMIT"] == "c"
+    assert not Path(calls[-1]["FRONTIER_OUTPUT_ROOT"]).exists()
     unrecorded = freeze("unrecorded", {**record, "data_rule_sources": {}})
     assert not unrecorded["inputs_match_run"]
     assert "matches_record" not in unrecorded["inputs"]["rule quarantine-v1"]
@@ -105,6 +150,95 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
     assert not other_rows["rows_sha256_matches_run"]
     assert other_rows["inputs_match_run"]
     assert "run" not in freeze("spec", None)
+
+    # A file the preparation read without hashing it, modified after the preparation started.
+    original = child
+
+    def touching(argv, **kw):
+        result = original(argv, **kw)
+        registry.write_bytes(b"registry, edited")
+        return result
+
+    monkeypatch.setattr(reference.subprocess, "run", touching)
+    with pytest.raises(SystemExit, match="changed after the preparation started"):
+        freeze("edited", record)
+
+
+def fake_rentfrontier(monkeypatch, tmp_path, split=None, build=None):
+    """A stand-in for the `rentfrontier` modules `prepare` calls."""
+    rule = tmp_path / "rule.jsonl"
+    rule.write_text("[]\n")
+    source = tmp_path / "basemap.parquet"
+    source.write_bytes(b"map")
+
+    def load(dataset, cache_root):
+        frame = pd.DataFrame({"audit_id": ["p", "q"], "a": [1.0, 2.0]})
+        frame.attrs["source_sha256"] = "obs"
+        return frame
+
+    def split_and_rules(frame, split_name, rules):
+        if split:
+            split(rule, source)
+        return frame, np.array([False, True])
+
+    def feature_sources(name):
+        return {"basemap": {"path": str(source), "sha256": reference_sha(source)}}
+
+    def features_build(name, frame, train):
+        if build:
+            build(rule, source)
+        return types.SimpleNamespace(
+            values=frame[["a"]].to_numpy(),
+            names=("a",),
+            groups=("g",),
+            prior_scale=[1.0],
+            id="set",
+        )
+
+    import hashlib
+
+    def reference_sha(path):
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+    package = types.ModuleType("rentfrontier")
+    package.data = types.SimpleNamespace(
+        load=load,
+        OUTPUT_ROOT=tmp_path / "output",
+        RULE_SOURCES={"rule-v1": rule},
+        sha256=reference_sha,
+        split_and_rules=split_and_rules,
+        rows_sha256=lambda frame, heldout: "rows",
+    )
+    package.features = types.SimpleNamespace(build=features_build)
+    package.run = types.SimpleNamespace(feature_sources=feature_sources)
+    monkeypatch.setitem(sys.modules, "rentfrontier", package)
+
+
+def test_prepare_stops_on_inputs_changed_while_read(reference, tmp_path, monkeypatch):
+    spec = {"dataset": str(tmp_path), "split": "rows", "rules": ["rule-v1"]}
+    out = tmp_path / "out"
+    out.mkdir()
+    fake_rentfrontier(monkeypatch, tmp_path)
+    result = reference.prepare({**spec, "features": "set"}, out)
+    assert sorted(result["inputs"]) == [
+        "feature basemap",
+        "observations",
+        "rule rule-v1",
+    ]
+    assert result["rows"] == 2 and result["heldout"] == 1 and result["features"] == 1
+    assert "pandas" in result["packages"]
+
+    fake_rentfrontier(
+        monkeypatch, tmp_path, split=lambda rule, source: rule.write_text("[1]\n")
+    )
+    with pytest.raises(SystemExit, match="changed while the rules read it"):
+        reference.prepare(spec, out)
+
+    fake_rentfrontier(
+        monkeypatch, tmp_path, build=lambda rule, source: source.write_bytes(b"new")
+    )
+    with pytest.raises(SystemExit, match="a feature source changed"):
+        reference.prepare({**spec, "features": "set"}, out)
 
 
 def test_verify_reports_a_changed_output(reference, tmp_path, capsys):
@@ -125,6 +259,10 @@ def test_verify_reports_a_changed_output(reference, tmp_path, capsys):
     rows.write_bytes(b"rows, edited")
     assert reference.verify("ref") == 1
     assert "rows.parquet changed" in capsys.readouterr().out
+    blob = reference.ROOT / "blobs" / manifest["inputs"]["observations"]["sha256"]
+    blob.unlink()
+    assert reference.verify("ref") == 1
+    assert "observations missing" in capsys.readouterr().out
 
 
 def steps(monkeypatch, prepare):

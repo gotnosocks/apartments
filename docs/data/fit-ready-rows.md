@@ -107,15 +107,20 @@ landmarks and the dated PLUTO releases.
 Each reference is a folder under `/data1/apartments/pipeline/reference/` on thelio. It holds
 `rows.parquet`, the fit-ready rows with a `heldout` column, and for a reference with a feature
 set, `features.parquet` and `features.json`. Its `manifest.json` records the spec, the hash and
-size of each input and output, and for a fit with a result.json, whether the row hash and each
-input hash equal the fit's record. An input missing from the record counts as a mismatch.
+size of each input and output, and the version of each package in the frontier venv. For a fit
+with a result.json, it also records whether the row hash and the hashes of the observations,
+rule files and feature sources equal the fit's record. Any of those missing from the record
+counts as a mismatch.
 
-The freeze hashes each input file as the preparation reads it. It hashes the rule files and the
-feature sources before the calls and again after them, and the observations file as `data.load`
-reads it, with an empty cache so the load parses the file afresh. Then it copies each input
-into `blobs/`, named by its SHA-256 and read-only, and stops if a file's hash differs from the
-hash taken at the read. So the blobs hold the bytes the preparation read, and later edits to
-the originals leave the references alone.
+The freeze runs the preparation under `strace` and takes as inputs all the files it opened for
+reading, leaving out the code, the venv, Python's install, the system folders and the files
+the preparation wrote. The preparation hashes the observations file as `data.load` reads it,
+and the rule files and the feature sources before the calls and again after them. Then the
+freeze copies each input into `blobs/`, named by its SHA-256 and read-only. It stops if one of
+those hashes differs at the copy, or if any other input was modified after the preparation
+started. So the blobs hold the bytes the preparation read, and later edits to the originals
+leave the references alone. The preparation writes its caches into an empty scratch folder,
+so `data.load` and `descriptions.load` build them from the inputs.
 
 | reference | feature set | rows | held out | features | minutes |
 |---|---|--:|--:|--:|--:|

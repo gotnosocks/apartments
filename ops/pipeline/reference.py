@@ -16,15 +16,23 @@ frontier venv to prepare the rows the way `rentfrontier.run` does before samplin
 3. `features.build` builds the feature matrix, when the reference has a feature set.
 
 It writes the prepared rows to `rows.parquet`, with the held-out mask as a `heldout` column,
-and the feature matrix to `features.parquet`, keyed by `audit_id`. Every file the preparation
-read goes into `blobs/` under its SHA-256, read-only, so later changes to the original files
-leave the reference alone. The preparation hashes each file as it reads it, and the freeze
-stops if a file's hash differs by the time of the copy. `data.load` gets an empty cache folder,
-so it flattens the observations itself. For a fit with a result.json, `manifest.json` records
-whether the row hash and each input hash equal the fit's own record. An input the record lacks
-counts as a mismatch.
+and the feature matrix to `features.parquet`, keyed by `audit_id`. The preparation runs under
+`strace`, which logs every file the process and its children open. The script then copies each
+file opened for reading into `blobs/` under its SHA-256, read-only, so later changes to the
+original files leave the reference alone. Files under the exported tree, the venv, Python's
+install and the system folders hold code, so the script leaves them out, along with files the
+preparation wrote itself. The preparation hashes the observations, the rule files and the
+feature sources as it reads them, and the freeze stops if a hash differs by the time of the
+copy. For any other file, the freeze stops if the file was modified after the preparation
+started. The preparation writes its caches into an empty scratch folder, set as
+`FRONTIER_OUTPUT_ROOT`, so `data.load` and `descriptions.load` build them from the inputs rather
+than read caches written by other jobs. For a fit with a result.json, `manifest.json` records
+whether the row hash and the hashes of the observations, rule files and feature sources equal
+the fit's own record. Any of those the record lacks counts as a mismatch. A fit records no
+hashes for the other files. The manifest also lists the version of every package in the venv.
 
-`verify` hashes every blob and output of a reference again and reports any change.
+`verify` hashes every blob and output of a reference again and reports any change or missing
+file.
 
 `columns` repeats the feature build and `model.prepare` on a reference's frozen rows and prints
 the columns each of them read, along with the columns neither read. It reports whether the
@@ -38,6 +46,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -51,6 +60,10 @@ ROOT = Path(
 TREES = Path("/data1/apartments/tmp/pipeline/ref-trees")
 PYTHON = "/data1/apartments/venvs/serve-frontier/bin/python"
 REPO = Path(__file__).resolve().parents[2]
+# Opened files under these folders belong to the system, so they are not inputs.
+SYSTEM = ("/usr/", "/lib/", "/lib64/", "/etc/", "/proc/", "/sys/", "/dev/", "/run/")
+# A successful open in `strace -y` output: its flags, then the returned descriptor's path.
+OPEN = re.compile(r"^\d+ +open(?:at)?\(.*, (O_[\w|]+)(?:, 0\d*)?\) = \d+<(.+)>$")
 
 
 def sha256(path: Path) -> str:
@@ -95,30 +108,51 @@ def blob(path: str, read: str, expected: str | None = None) -> dict:
     if not target.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
         part = target.with_suffix(".part")
-        shutil.copyfile(source, part)
-        if sha256(part) != digest:
-            raise SystemExit(f"{source} changed while it was copied")
-        part.chmod(0o444)
-        part.rename(target)
-    out = {"path": str(source), "sha256": digest, "bytes": source.stat().st_size}
+        try:
+            shutil.copyfile(source, part)
+            if sha256(part) != digest:
+                raise SystemExit(f"{source} changed while it was copied")
+            part.chmod(0o444)
+            part.rename(target)
+        finally:
+            part.unlink(missing_ok=True)
+    out = {"path": str(source), "sha256": digest, "bytes": target.stat().st_size}
     if expected is not None:
         out["recorded_sha256"] = expected
         out["matches_record"] = digest == expected
     return out
 
 
+def opened(log: Path, skip: tuple[str, ...]) -> list[str]:
+    """The regular files an `strace -f -y` log shows opened for reading, outside `skip`.
+
+    A path the log also shows opened for writing came from the preparation itself, so it is
+    left out too.
+    """
+    read, written = set(), set()
+    for line in log.read_text(errors="replace").splitlines():
+        match = OPEN.match(line)
+        if not match:
+            continue
+        flags, path = match.groups()
+        if re.search("O_WRONLY|O_RDWR|O_CREAT|O_TRUNC", flags):
+            written.add(path)
+        elif "O_DIRECTORY" not in flags and not path.startswith(skip):
+            read.add(path)
+    return sorted(p for p in read - written if Path(p).is_file())
+
+
 def prepare(spec: dict, out: Path) -> dict:
     """Runs in the frontier venv with the commit's rentfrontier first on sys.path."""
+    from importlib import metadata
+
     import numpy as np
     import pandas as pd
 
     from rentfrontier import data, features, run
 
     start = time.perf_counter()
-    # A fresh cache folder makes `data.load` flatten the observations itself, rather than
-    # read a cached flattening written by another job.
-    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as cache:
-        frame = data.load(Path(spec["dataset"]), cache_root=Path(cache))
+    frame = data.load(Path(spec["dataset"]), cache_root=data.OUTPUT_ROOT)
     inputs = {
         "observations": {
             "path": str(Path(spec["dataset"]) / "observations.jsonl"),
@@ -170,6 +204,14 @@ def prepare(spec: dict, out: Path) -> dict:
         )
         result["features"] = len(feats.names)
     result["inputs"] = inputs
+    result["python"] = {
+        "version": sys.version.split()[0],
+        "prefix": sys.prefix,
+        "base_prefix": sys.base_prefix,
+    }
+    result["packages"] = dict(
+        sorted((d.metadata["Name"], d.version) for d in metadata.distributions())
+    )
     result["seconds"] = round(time.perf_counter() - start, 1)
     return result
 
@@ -287,29 +329,63 @@ def traced_columns(
     return out
 
 
+def child_env(code: Path, spec: dict, output_root: Path) -> dict:
+    return dict(
+        os.environ,
+        PYTHONPATH=str(code / "frontier" / "src"),
+        JAX_PLATFORMS="cpu",
+        FRONTIER_DATASET=spec["dataset"],
+        FRONTIER_OUTPUT_ROOT=str(output_root),
+        FRONTIER_COMMIT=spec["commit"],
+    )
+
+
 def freeze(name: str, spec: dict, record: dict | None = None) -> None:
     out = ROOT / name
     if (out / "manifest.json").exists():
         raise SystemExit(f"{out} is frozen already")
     code = tree(spec["commit"])
-    out.mkdir(parents=True, exist_ok=True)
-    env = dict(
-        os.environ,
-        PYTHONPATH=str(code / "frontier" / "src"),
-        JAX_PLATFORMS="cpu",
-        FRONTIER_DATASET=spec["dataset"],
-    )
-    child = subprocess.run(
-        [PYTHON, __file__, "_prepare", json.dumps(spec), str(out)],
-        env=env,
-        cwd=code,
-        capture_output=True,
-        text=True,
-    )
-    sys.stderr.write(child.stderr[-4000:])
-    if child.returncode:
-        raise SystemExit(f"preparation failed ({child.returncode})")
-    prepared = json.loads(child.stdout.strip().splitlines()[-1])
+    # A failed attempt leaves its outputs behind.
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as scratch:
+        scratch = Path(scratch)
+        log = scratch / "opens.log"
+        started = time.time_ns()
+        child = subprocess.run(
+            [
+                "strace",
+                "-f",
+                "-qq",
+                "--seccomp-bpf",
+                "-y",
+                "-o",
+                str(log),
+                "-e",
+                "trace=open,openat",
+                "-e",
+                "status=successful",
+                PYTHON,
+                __file__,
+                "_prepare",
+                json.dumps(spec),
+                str(out),
+            ],  # fmt: skip
+            env=child_env(code, spec, scratch / "output"),
+            cwd=code,
+            capture_output=True,
+            text=True,
+        )
+        sys.stderr.write(child.stderr[-4000:])
+        if child.returncode:
+            raise SystemExit(f"preparation failed ({child.returncode})")
+        prepared = json.loads(child.stdout.strip().splitlines()[-1])
+        python = prepared["python"]
+        skip = tuple(
+            f"{os.path.realpath(p)}/"
+            for p in (code, scratch, out, python["prefix"], python["base_prefix"])
+        )
+        files = opened(log, (*skip, os.path.realpath(__file__), *SYSTEM))
     recorded = {}
     if record:
         recorded["observations"] = record.get("dataset_observations_sha256")
@@ -321,6 +397,13 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
         role: blob(i["path"], i["sha256"], recorded.get(role) if record else None)
         for role, i in prepared.pop("inputs").items()
     }
+    hashed = {os.path.realpath(i["path"]) for i in inputs.values()}
+    for path in files:
+        if path in hashed:
+            continue
+        if Path(path).stat().st_mtime_ns >= started:
+            raise SystemExit(f"{path} changed after the preparation started")
+        inputs[f"file {path}"] = blob(path, sha256(Path(path)))
     outputs = {}
     for path in sorted(out.iterdir()):
         path.chmod(0o444)
@@ -340,7 +423,9 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
         )
         # An input missing from the fit's record counts as a mismatch.
         manifest["inputs_match_run"] = all(
-            i.get("matches_record") is True for i in inputs.values()
+            i.get("matches_record") is True
+            for role, i in inputs.items()
+            if not role.startswith("file ")
         ) and set(recorded) <= set(inputs)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     (out / "manifest.json").chmod(0o444)
@@ -349,18 +434,21 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
 
 def verify(name: str) -> int:
     manifest = json.loads((ROOT / name / "manifest.json").read_text())
-    changed = [
-        role
+    files = {
+        role: (ROOT / "blobs" / i["sha256"], i)
         for role, i in manifest["inputs"].items()
-        if sha256(ROOT / "blobs" / i["sha256"]) != i["sha256"]
-    ]
-    changed += [
-        path
-        for path, o in manifest["outputs"].items()
-        if sha256(ROOT / name / path) != o["sha256"]
-    ]
-    for item in changed:
-        print(f"{name}: {item} changed")
+    }
+    files.update(
+        (path, (ROOT / name / path, o)) for path, o in manifest["outputs"].items()
+    )
+    changed = []
+    for item, (path, record) in files.items():
+        if not path.exists():
+            changed.append(item)
+            print(f"{name}: {item} missing")
+        elif sha256(path) != record["sha256"]:
+            changed.append(item)
+            print(f"{name}: {item} changed")
     if not changed:
         print(
             f"{name}: {len(manifest['inputs'])} inputs, {len(manifest['outputs'])} outputs unchanged"
@@ -372,19 +460,14 @@ def columns(name: str) -> None:
     manifest = json.loads((ROOT / name / "manifest.json").read_text())
     spec = manifest["spec"]
     code = tree(spec["commit"])
-    env = dict(
-        os.environ,
-        PYTHONPATH=str(code / "frontier" / "src"),
-        JAX_PLATFORMS="cpu",
-        FRONTIER_DATASET=spec["dataset"],
-    )
-    child = subprocess.run(
-        [PYTHON, __file__, "_columns", name],
-        env=env,
-        cwd=code,
-        capture_output=True,
-        text=True,
-    )
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as scratch:
+        child = subprocess.run(
+            [PYTHON, __file__, "_columns", name],
+            env=child_env(code, spec, Path(scratch)),
+            cwd=code,
+            capture_output=True,
+            text=True,
+        )
     sys.stderr.write(child.stderr[-4000:])
     if child.returncode:
         raise SystemExit(f"column trace failed ({child.returncode})")
