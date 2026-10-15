@@ -15,6 +15,7 @@ from rentfrontier.registry import distance_m, slug_address
         ("1-broadway-new_york", "1 Broadway"),
         ("ava-high-line", None),
         ("21-chelsea", None),
+        ("585-park-place-brooklyn", "585 Park Place"),
     ],
 )
 def test_slug_address(slug, address):
@@ -88,3 +89,26 @@ def test_apply_overrides_regeocodes_only_the_named_buildings(monkeypatch):
         registry.apply_overrides(
             base, [{"building": "z", "address": "3 West 3 Street"}]
         )
+
+
+def test_build_geocodes_a_buildings_file_in_its_borough(tmp_path, monkeypatch):
+    path = tmp_path / "buildings.csv"
+    path.write_text(
+        "building,latitude,longitude,borough\n"
+        "585-park-place-brooklyn,40.67,-73.96,Brooklyn\n"
+        "1-broadway-new_york,40.70,-74.01,\n"
+    )
+    calls = []
+    monkeypatch.setattr(
+        registry,
+        "locate",
+        lambda slug, lat, lon, borough: (
+            calls.append((slug, borough)) or {"building": slug}
+        ),
+    )
+    table = registry.build(pause=0, buildings=path)
+    assert list(table.building) == ["1-broadway-new_york", "585-park-place-brooklyn"]
+    assert calls == [
+        ("1-broadway-new_york", "Manhattan"),
+        ("585-park-place-brooklyn", "Brooklyn"),
+    ]
