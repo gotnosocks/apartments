@@ -12,10 +12,10 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      more bedrooms. It reads the IDs in each band sorted by listing date, from both ends
      for a band of a single price and bedroom count above 1,000. Since the two ends give at
      most 2,000 IDs, it splits such a band holding more than that into the region's areas,
-     and an area in SUBAREAS into its child areas. A band still above 2,000 in an area with no child areas goes into map
-     boxes: the collector halves the map by latitude, halves each half by longitude, and
-     goes on halving each box holding more than 2,000 ads (box_edges). A request carries
-     25 counts or 4 ID reads as aliased fields.
+     and an area in SUBAREAS into its child areas. A band still above 2,000 in an area with
+     no child areas goes into map boxes: the collector halves the map by latitude, halves
+     each half by longitude, and goes on halving each box holding more than 2,000 ads
+     (box_edges). A request carries 25 counts or 4 ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,

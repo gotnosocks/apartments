@@ -178,9 +178,9 @@ one of them an Oxylabs failure). Run 4's $3,000 band counted 17,553 ads, against
 its bedroom counts 0 to 7, and run 3's $2,500 band counted 11,251 against 11,248. In both
 bands a filter for 8 or more bedrooms counted the missing 3 ads. A `bedrooms` filter with a
 lower bound and no upper bound counts the same ads as one with an upper bound of 1,000, and a
-filter for 0 or more bedrooms counts the whole band. The dataset below holds 155 ads coded
-with 8 to 255 bedrooms. So the bedroom split gives a ninth band, 8 bedrooms or more, after
-the bands of 0 to 7, and a reopen counts and reads it.
+filter for 0 or more bedrooms counts the whole band. The dataset below holds 154 ads coded
+with 8 to 255 bedrooms and none without a bedroom count. The bedroom split now gives a ninth
+band, 8 bedrooms or more, after the bands of 0 to 7, and a reopen counts and reads it.
 
 ## The four regions' backfill and dataset (Oct 15)
 
