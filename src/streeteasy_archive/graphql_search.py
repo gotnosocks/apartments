@@ -54,10 +54,11 @@ NO_LONGER_AVAILABLE or DELISTED. Those ads get a new observation on each read, a
 snapshot table gains a row only when a record changes, since an unchanged record gives the
 same body bytes.
 
-With --current-listings ROOT, a run finishing without a stop also writes the region's
-ACTIVE ads read since the run started in the current-listings format (crawl_current_listings.interpret_api) under
-<archive>/current-listings/<region>/. It links the archive into that folder and points
-ROOT/api-<region> at it, so the site reads it after the dated capture folders.
+With --current-listings ROOT, a run finishing without a stop also writes the region's ads
+with an ACTIVE record fetched since the run started, in the current-listings format
+(crawl_current_listings.interpret_api), under <archive>/current-listings/<region>/. It
+links the archive into that folder and points ROOT/api-<region> at it, so the site reads
+it after the dated capture folders.
 
 The collector sends at most --rate requests a minute, never more than 64, and stops at
 --max-requests. It stops earlier on an Oxylabs credential or billing refusal, a StreetEasy
@@ -1359,8 +1360,9 @@ class Collector:
         return link
 
     def current_listings(self, root):
-        """Write the region's ACTIVE ads read since the run started as a current-listings
-        capture, and point ROOT at it."""
+        """Write the region's ads with an ACTIVE record fetched since the run started as a
+        current-listings capture, and point ROOT at it. An ad missing from a later read
+        keeps its older record, so the fetch time of that record decides."""
         from apartments import candidate_refresh as refresh
         from apartments import crawl_current_listings, graphql_listing
         from apartments.research_pipeline import digest
@@ -1371,8 +1373,9 @@ class Collector:
             r[0]
             for r in self.db.execute(
                 f"""SELECT a.listing_id FROM graphql_search_ads a WHERE a.generation=:g
-                AND {MINE} AND a.status='ACTIVE' AND a.response_id IS NOT NULL
-                AND a.read>=:started ORDER BY a.listing_id""",
+                AND {MINE} AND a.status='ACTIVE' AND (SELECT r.fetched
+                FROM graphql_search_responses r WHERE r.id=a.response_id)>=:started
+                ORDER BY a.listing_id""",
                 {"g": g, "region": self.region, "started": self.started},
             )
         ]

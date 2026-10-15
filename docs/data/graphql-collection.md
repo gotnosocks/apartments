@@ -92,11 +92,13 @@ ops/streeteasy-collect daily
 - `daily` reads the ACTIVE ads of every region and re-reads each region's ads whose status is
   not RENTED, NO_LONGER_AVAILABLE or DELISTED, with at most 150 requests a region. It goes on
   past a region that fails.
-- A run that finishes writes the region's ACTIVE ads read since the run started, by any
-  region's runs, in the current-listings format under `crawls/api/current-listings/REGION/`
-  and points `/data1/apartments/archive/current-listings/api-REGION` at them. The site's reader takes the
-  newest capture of each unit across that folder, for buildings in the served fit, on the next
-  site data build.
+- A run that finishes writes the region's ads with an ACTIVE record fetched since the run
+  started, by any region's runs, in the current-listings format under
+  `crawls/api/current-listings/REGION/`, and points
+  `/data1/apartments/archive/current-listings/api-REGION` at them. An ad gone from the API
+  keeps its last record, so the capture goes by when that record arrived. The site's reader
+  takes the newest capture of each unit across that folder, for buildings in the served fit,
+  on the next site data build.
 - Each run's report is in `crawls/api/graphql-search/run-N.json`, and the script logs a line
   for each region in `crawls/streeteasy-collect.log`.
 

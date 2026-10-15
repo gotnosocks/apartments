@@ -625,6 +625,31 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
     assert api.queries == []
 
 
+def test_an_ad_gone_from_the_api_leaves_the_next_capture(tmp_path):
+    api = make_api()
+    root = tmp_path / "current"
+    root.mkdir()
+    first = make_collector(tmp_path / "archive", api, active_only=True)
+    assert (
+        first.collect(current_root=root)["current_listings"]["active_advertisements"]
+        == 3
+    )
+    first.store.close()
+
+    # Ad 1300007 drops out of the search and the API answers its read with no record.
+    del api.ads["1300007"]
+    api.search = search_rows(api.ads, [1300001, 1300005, 1300010])
+    api.queries.clear()
+    daily = make_collector(tmp_path / "archive", api, active_only=True, new_run=True)
+    report = daily.collect(current_root=root)
+    assert 1300007 in reads(api)
+    assert report["current_listings"]["active_advertisements"] == 2
+    (status,) = daily.db.execute(
+        "SELECT status FROM graphql_search_ads WHERE listing_id=1300007"
+    ).fetchone()
+    assert status == "ACTIVE"
+
+
 def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
     api = make_api()
     # Unit 9d's latest ad, 1300012, is missing from the search, and ad 1300003 is in the
@@ -688,6 +713,27 @@ def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
         "api-plain": "plain",
     }
     assert all(path.is_dir() for path in links.values())
+
+
+def test_an_archive_without_members_gives_each_ad_its_last_run_region(tmp_path):
+    api = make_api()
+    c = make_collector(tmp_path / "archive", api)
+    c.collect()
+    members = c.db.execute(
+        "SELECT * FROM graphql_search_members ORDER BY listing_id"
+    ).fetchall()
+    assert members and {m["region"] for m in members} == {"test"}
+    with c.store._tx():
+        c.db.execute("DELETE FROM graphql_search_members")
+    c.store.close()
+
+    again = make_collector(tmp_path / "archive", api)
+    assert [
+        tuple(m)
+        for m in again.db.execute(
+            "SELECT * FROM graphql_search_members ORDER BY listing_id"
+        )
+    ] == [tuple(m) for m in members]
 
 
 def test_a_daily_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
