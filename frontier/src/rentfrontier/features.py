@@ -5275,12 +5275,12 @@ API_MANHATTAN_FILES = {
         "/data1/apartments/external/registry/20261015-9dfa869-api-manhattan/"
         "buildings.parquet"
     ),
-    "pluto": "/data1/apartments/external/pluto/20261015-dd5bdb5/pluto.parquet",
+    "pluto": "/data1/apartments/external/pluto/20261015-dec4944/pluto.parquet",
     "footprints": (
-        "/data1/apartments/external/footprints/20261015-1186316/footprints.parquet"
+        "/data1/apartments/external/footprints/20261015-dec4944/footprints.parquet"
     ),
     "basemap": "/data1/apartments/external/basemap/20261015-1186316/basemap.parquet",
-    "lpc": "/data1/apartments/external/lpc/20261015-1186316/lpc.parquet",
+    "lpc": "/data1/apartments/external/lpc/20261015-dec4944/lpc.parquet",
     "plutoreleases": (
         "/data1/apartments/external/plutoreleases/20261015-1186316/"
         "plutoreleases.parquet"
