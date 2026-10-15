@@ -68,11 +68,13 @@ no code in `src/` reads it:
 For each building, the collector also asks the API for the fields of the building page's
 object it offers: the description, green, land-lease and waterfront flags, the complex, the
 leasing and sales start dates (`additionalDetails`), photo and video keys, the IDs of the
-building's ads for rent and for sale, an owner-data flag and the last-change time. The API
-disables introspection, so I couldn't find the subfields of `displayPreferences` and left it
-out. Building pages also show nearby schools, transit, colleges, museums and parks, similar
-buildings, the management company and a documents link. The API's `Building` type offers no
-fields for these.
+building's ads for rent and for sale, an owner-data flag, the last-change time and `nearby`.
+The page splits `nearby` into its 5 transit stations and its 5 colleges, 5 museums and 5
+parks, and the API gives the same lists. The API disables introspection, so I couldn't find
+the subfields of `displayPreferences` and left it out. Building pages also show nearby
+schools, the documents link and the flags `hasPropertyDocs` and `hasActiveBuildingShowcase`
+in the building object, and similar buildings, the lists of rentals and sales, the management
+company and a photo gallery outside it. The API's `Building` type offers no fields for these.
 
 ## Regions
 

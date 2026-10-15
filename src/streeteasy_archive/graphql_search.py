@@ -212,7 +212,8 @@ BUILDING_FRAGMENT = (
     "hasOwnerData interestingChangeAt additionalDetails { leasingStartDate salesStartDate } "
     "heroImage { key } media { photos { key } videos { url imageUrl id provider } "
     "tour3dUrl floorPlans { key } } rentalInventorySummary { availableListingDigests { id } } "
-    "saleInventorySummary { availableListingDigests { id } } }"
+    "saleInventorySummary { availableListingDigests { id } } nearby { transitStations { "
+    "name routes distance } pointsOfInterest { distance name type } } }"
 )
 
 # The ads of the run's region, as a condition on graphql_search_ads a.
