@@ -856,6 +856,9 @@ DATA_RULE_TEXT = {
     "quarantine-v25": "quarantine-v24 and 8 Brooklyn listings filed under Manhattan "
     "buildings: 7 whose ads agree on a new building on East 19th Street in Ditmas Park, and "
     "a four-family house by Cortelyou Road filed under a 21-unit East Village building.",
+    "quarantine-v26": "quarantine-v25 and 5 Hell's Kitchen and Hudson Yards listings: two "
+    "whose ads also appear word for word for an East Village and a West Village address, and "
+    "three offices.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
