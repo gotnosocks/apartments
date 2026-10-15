@@ -68,6 +68,23 @@ DATASET_NB8 = Path(
 DATASET_NB9 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8"
 )
+# The four-region API backfill of 2026-10-15 (api-granular-20261015-canonical-
+# url-v1), one dataset per fit: Manhattan below 59th St and Prospect Park whole,
+# Manhattan 59th-110th split at Central Park, and north Brooklyn split into two
+# contiguous halves. Each row's neighbourhood is its building page's StreetEasy
+# area. The datasets share no building with each other or with DATASET_NB9.
+_API = "/data1/apartments/frontier/datasets/api-{}-analysis-20261015-6064263"
+DATASETS_API = {
+    name: Path(_API.format(name))
+    for name in (
+        "manhattan-below-59th",
+        "manhattan-west-59th-110th",
+        "manhattan-east-59th-110th",
+        "brooklyn-prospect-park",
+        "brooklyn-williamsburg-crown-heights",
+        "brooklyn-greenpoint-bushwick",
+    )
+}
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.
@@ -1584,6 +1601,13 @@ LATEST_ASK_V4 = Path(
 )
 
 
+# Latest asks of every row of the four API regions, from the rental records of
+# the backfill crawl alone, built the way LATEST_ASK_V3 was.
+LATEST_ASK_API = Path(
+    "/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet"
+)
+
+
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
     alone (`LATEST_ASK_V3`). A row the file lacks keeps its ask."""
@@ -1895,6 +1919,7 @@ DATA_RULES = {
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
+    "latest-ask-api-v1": functools.partial(latest_ask_v3, path=LATEST_ASK_API),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -1949,6 +1974,7 @@ RULE_SOURCES = {
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
+    "latest-ask-api-v1": LATEST_ASK_API,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,
