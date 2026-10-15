@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-15 12:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-15 13:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -22,7 +22,13 @@ Updated 2026-10-15 12:30 ET. Thread owner: the Data collection project thread (b
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
   holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
   The backfill reopens a finished run with `--reopen` and splits search bands holding more
-  than 2,000 ads by area (#834), then by map box in a leaf area (Oct 15).
+  than 2,000 ads by area (#834), then by map box in a leaf area (#843). The four regions'
+  backfill finished on Oct 15 at 12:43 ET with no truncated band, in 9,134 requests ($10.41).
+  The dataset `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445
+  units), its aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015`
+  came from `/data1/apartments/tmp/api-build-20261015/build.sh`. After the first top-up on
+  Oct 16, check that each region's `current-listings/api-REGION` link moved, then tell the
+  coordinator so the Website thread rebuilds the site data.
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
