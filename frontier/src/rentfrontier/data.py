@@ -741,8 +741,8 @@ def correct_bedrooms_v4(frame: pd.DataFrame) -> pd.DataFrame:
     """v3's rows, then 22 rows the ad-fit screen's bedroom check
     (`adfit.bedroom_conflicts`) flagged on NB9. A reader read each flagged
     row's ads in full (`config/reviews/ad-fit-reads-20261015-bedrooms.jsonl`).
-    A count changes only when an ad states it and something independent of
-    that ad backs it, recorded as the read's `second_signal`:
+    A count changes only when an ad states or describes it and something
+    independent of that ad backs it, recorded as the read's `second_signal`:
       - another ad for the same unit stating the count,
       - a stated size nearer that count's median size than the coded count's,
       - a floor plan, photos or a video walkthrough Ben reviewed.

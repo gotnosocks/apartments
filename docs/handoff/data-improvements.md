@@ -6,7 +6,8 @@ Updated 2026-10-14 19:20 ET. Thread owner: the Data improvements project thread 
 
 Bedroom review (branch `data/bedrooms-ad-v4`): bedrooms-ad-v4 and quarantine-v22.
 - The ad-fit bedroom check (`beds_price_bldg`) flags 1,499 NB9 rows priced out of line with their
-  building's other units. Sonnet readers read every one in full. Scratch and scripts are in
+  building's other units. Sonnet readers read every one in full, plus 71 rows an earlier draft of
+  the screen flagged (1,568 reads remain after v21's hold-outs). Scratch and scripts are in
   `/data1/apartments/tmp/suspect/bd4` (`final.py` writes the reads, corrections and v22 files).
 - Ben, 2026-10-15: an ad's stated count needs an independent signal before a count changes.
   `final.py` accepts another ad for the unit with different copy, a stated size nearer the new

@@ -134,6 +134,19 @@ def test_a_hold_out_needs_a_quote_that_is_not_a_price():
     assert adfit.verdict_problems({**ok, "verdict": "drop"})
 
 
+def test_only_an_unknown_bedroom_hold_out_may_quote_a_placeholder_ad():
+    whole = dict(
+        verdict="quarantine_bedrooms_unknown",
+        quote="apt",
+        quote_source="ad",
+        quote_is_whole_ad=True,
+        reason="The ad says nothing about the apartment.",
+    )
+    assert adfit.verdict_problems(whole) == []
+    assert adfit.verdict_problems({**whole, "reason": ""})
+    assert adfit.verdict_problems({**whole, "verdict": "quarantine_product_scope"})
+
+
 def test_every_recorded_read_passes_the_verdict_check():
     for path in adfit.READS:
         with open(path) as f:
