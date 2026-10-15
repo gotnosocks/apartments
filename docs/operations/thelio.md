@@ -165,6 +165,11 @@ research dashboard's address) by `ops/systemd/apartments-site.service`, deployed
 (`apartments-dashboard-build.path`) and every 10 minutes as a fallback (the timer), without the
 heavy-job lock; see [the site doc](../site.md).
 
+`ops/systemd/apartments-streeteasy-daily.timer` runs `ops/streeteasy-collect daily` at 05:30
+New York time. It reads each region's current StreetEasy ads through the GraphQL API into
+`/data1/apartments/archive/current-listings/api-REGION`; see
+[the collection note](../data/graphql-collection.md).
+
 The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards port 8765
 and reconnects when the network returns. Its definition is in
 `deploy/thelio/com.ben.apartments-tunnel.plist`, installed at

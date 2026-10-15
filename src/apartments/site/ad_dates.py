@@ -96,7 +96,7 @@ def collect(dataset: Path, root: Path = ARCHIVES) -> list[dict]:
     evidence = dataset / "current-source-evidence.jsonl"
     if not evidence.is_file() or not root.is_dir():
         return []
-    from apartments.granular_parse import parse_listing
+    from apartments.graphql_listing import parse_capture
 
     bodies = _Bodies(root)
     out = []
@@ -109,7 +109,7 @@ def collect(dataset: Path, root: Path = ARCHIVES) -> list[dict]:
             if found is None:
                 continue
             try:
-                listing, events = parse_listing(*found)
+                listing, events = parse_capture(*found)
                 ad = json.loads(listing.get("raw_listing_json") or "null") or {}
             except (ValueError, KeyError, TypeError):
                 continue

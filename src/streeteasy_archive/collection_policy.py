@@ -212,9 +212,9 @@ def annotate(store, generation, data, body, url, body_hash=None, persist=True):
         return
     import hashlib
 
-    from apartments.granular_parse import parse_listing
+    from apartments.graphql_listing import parse_capture
 
-    row, events = parse_listing(body, url)
+    row, events = parse_capture(body, url)
     unit = row.get("canonical_unit_url")
     rental_events = [e for e in events if e["event_category"] == "rental"]
     eligible = bool(
@@ -429,6 +429,11 @@ def reuse_unit_capture(store, generation, row):
     if not snapshot:
         return False
     data = json.loads(snapshot["extracted"])
+    if "graphql_search" in data:
+        # The API collector keeps its extraction small and the ad's record in the body.
+        from apartments.graphql_listing import api_document
+
+        data["json"] = api_document(store.get_body(observation["body_hash"]))
     if "collection_policy" not in data:
         # Older snapshots predate the policy. Interpret their immutable bytes
         # offline without overwriting the historical extraction.

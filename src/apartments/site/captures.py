@@ -124,6 +124,11 @@ def captures(
             seen = skip_units.get(c["unit_id"])
             if seen is not None and pricing._timestamp(c["collected_at"]) <= seen:
                 continue
+            prior = out.get(c["unit_id"])
+            if prior is not None and pricing._timestamp(
+                prior[1]["collected_at"]
+            ) > pricing._timestamp(c["collected_at"]):
+                continue
             size = pricing._number(c.get("square_feet"))
             c["square_feet"] = (
                 size if size is not None and 150 <= size <= 6000 else None

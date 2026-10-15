@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 
-from apartments.granular_parse import parse_listing
+from apartments.graphql_listing import parse_capture
 
 
 def audit(data_dir):
@@ -89,7 +89,7 @@ def audit(data_dir):
                 body = gzip.decompress(
                     (root / "bodies" / digest[:2] / (digest + ".gz")).read_bytes()
                 )
-                parsed, events = parse_listing(body, observation["url"])
+                parsed, events = parse_capture(body, observation["url"])
             except (OSError, ValueError, EOFError):
                 records.append(dict(record, classification="unreadable_capture"))
                 continue

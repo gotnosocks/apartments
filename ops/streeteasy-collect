@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Collect StreetEasy rental ads through the GraphQL API (streeteasy_archive.graphql_search),
+# one region at a time, from a frozen copy of this checkout's src/.
+#
+#   ops/streeteasy-collect daily [REGION...]     ACTIVE ads of each region (default: every region),
+#                                                written to the current-listings folder
+#   ops/streeteasy-collect backfill REGION...    every ad of each region, with unit histories
+#
+# The script copies src/ at this checkout's commit into
+# /data1/apartments/runtime/graphql-search-COMMIT once, read-only, and runs the collector from
+# that copy with the main checkout's venv, after loading the Oxylabs login from the main
+# checkout's .env into the collector's environment. Each region's archive is
+# /data1/apartments/archive/crawls/api-REGION.
+#
+# Every invocation holds /data1/apartments/archive/crawls/oxylabs.lock while it runs. Two
+# invocations take turns, so the combined rate stays at the collector's --rate, 60 a minute
+# by default (Ben's setting is 64). Another Oxylabs crawl can run under the same lock
+# (flock LOCK COMMAND). An invocation waits up to 18 hours for the lock (STREETEASY_WAIT_HOURS).
+#
+# daily runs each region with --active-only --new-run and goes on past a region that fails,
+# then exits 1 if any did. backfill resumes the region's unfinished full run, or starts one,
+# and stops at the first region that fails; running the same command again resumes it. Each
+# run's report goes to the journal and to api-REGION/graphql-search/run-N.json, and the
+# script appends a line for each region to /data1/apartments/archive/crawls/streeteasy-collect.log.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+CRAWLS=/data1/apartments/archive/crawls
+CURRENT=/data1/apartments/archive/current-listings
+RUNTIMES=/data1/apartments/runtime
+PYTHON=${STREETEASY_PYTHON:-/home/ben/code/apartments/.venv/bin/python}
+ENV_FILE=/home/ben/code/apartments/.env
+RATE=${STREETEASY_RATE:-60}
+DAILY_MAX=${STREETEASY_DAILY_MAX:-150}
+BACKFILL_MAX=${STREETEASY_BACKFILL_MAX:-4000}
+WAIT_HOURS=${STREETEASY_WAIT_HOURS:-18}
+LOG=$CRAWLS/streeteasy-collect.log
+
+usage() {
+  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//' >&2
+  exit 2
+}
+
+[ $# -ge 1 ] || usage
+mode=$1
+shift
+case $mode in
+  daily) ;;
+  backfill) [ $# -ge 1 ] || usage ;;
+  *) usage ;;
+esac
+
+mkdir -p "$CRAWLS"
+exec 9>>"$CRAWLS/oxylabs.lock"
+if ! flock -w $((WAIT_HOURS * 3600)) 9; then
+  echo "$(date -Is) $mode: gave up waiting $WAIT_HOURS h for $CRAWLS/oxylabs.lock" | tee -a "$LOG" >&2
+  exit 1
+fi
+
+commit=$(git -C "$ROOT" rev-parse HEAD)
+runtime=$RUNTIMES/graphql-search-${commit:0:12}
+if [ ! -d "$runtime" ]; then
+  mkdir -p "$RUNTIMES"
+  staging=$(mktemp -d "$RUNTIMES/.graphql-search-XXXXXX")
+  trap 'chmod -R u+w "$staging" 2>/dev/null; rm -rf "$staging"' EXIT
+  git -C "$ROOT" archive "$commit" src | tar -x -C "$staging"
+  echo "$commit" >"$staging/SOURCE_COMMIT"
+  chmod -R a-w "$staging"
+  mv -T "$staging" "$runtime"
+  trap - EXIT
+fi
+
+collect() {
+  # The heredoc is the program; the arguments after `-` go to graphql_search.main.
+  PYTHONPATH="$runtime/src" RUNTIME="$runtime" ENV_FILE="$ENV_FILE" "$PYTHON" - "$@" <<'EOF'
+import os
+import sys
+
+from dotenv import load_dotenv
+
+load_dotenv(os.environ["ENV_FILE"], override=False, interpolate=False)
+import streeteasy_archive.graphql_search as collector
+
+if not collector.__file__.startswith(os.environ["RUNTIME"] + "/"):
+    sys.exit(f"collector imported from {collector.__file__}, not the frozen runtime")
+sys.argv[0] = "streeteasy_archive.graphql_search"
+sys.exit(collector.main(sys.argv[1:]))
+EOF
+}
+
+if [ "$mode" = daily ] && [ $# -eq 0 ]; then
+  if ! names=$(PYTHONPATH="$runtime/src" "$PYTHON" -c \
+    'from streeteasy_archive.graphql_search import REGIONS; print(*REGIONS)'); then
+    echo "$(date -Is) daily: could not read REGIONS from $runtime" | tee -a "$LOG" >&2
+    exit 1
+  fi
+  read -r -a regions <<<"$names"
+  if [ ${#regions[@]} -eq 0 ]; then
+    echo "$(date -Is) daily: REGIONS in $runtime is empty" | tee -a "$LOG" >&2
+    exit 1
+  fi
+  set -- "${regions[@]}"
+fi
+
+failed=0
+for region in "$@"; do
+  if [ "$mode" = daily ]; then
+    args=(--active-only --new-run --max-requests "$DAILY_MAX" --current-listings "$CURRENT")
+  else
+    args=(--max-requests "$BACKFILL_MAX" --current-listings "$CURRENT")
+  fi
+  echo "$(date -Is) $mode $region: start (runtime ${commit:0:12})" | tee -a "$LOG"
+  status=0
+  collect --region "$region" --rate "$RATE" "${args[@]}" || status=$?
+  echo "$(date -Is) $mode $region: exit $status" | tee -a "$LOG"
+  if [ "$status" -ne 0 ]; then
+    failed=1
+    [ "$mode" = daily ] || exit "$status"
+  fi
+done
+exit "$failed"
