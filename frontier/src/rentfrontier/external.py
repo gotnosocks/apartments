@@ -265,7 +265,18 @@ def basemap_box(registry: pd.DataFrame) -> tuple[float, float, float, float]:
     return lat.max() + dlat, lon.min() - dlon, lat.min() - dlat, lon.max() + dlon
 
 
-def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
+# Borough codes by the first digit of a BBL, with the prefix of each borough's
+# file in a MapPLUTO release split by borough.
+BOROUGH_FILES = {"1": "mn", "2": "bx", "3": "bk", "4": "qn", "5": "si"}
+
+
+def registry_borough(registry: pd.DataFrame) -> str:
+    """The BBL borough digit most of the registry's lots carry ("1" Manhattan,
+    "3" Brooklyn)."""
+    return registry.bbl.dropna().astype(str).str[0].mode()[0]
+
+
+def fetch_basemap(box, borough: str = "1") -> tuple[pd.DataFrame, list[str], dict]:
     n, w, s, e = box
     rows, queries, versions = [], [], {}
     for layer, dataset, params in (
@@ -287,7 +298,11 @@ def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
                 "$limit": 5000,
             },
         ),
-        ("land", BOROUGHS_ID, {"$select": "boroname, the_geom", "borocode": 1}),
+        (
+            "land",
+            BOROUGHS_ID,
+            {"$select": "boroname, the_geom", "borocode": int(borough)},
+        ),
     ):
         for r in _socrata(dataset, params):
             geometry = r.pop("the_geom", None) or r.pop("multipolygon", None)
@@ -584,10 +599,10 @@ PLUTO_RELEASES = {
 }
 
 
-def _release_chunks():
+def _release_chunks(borough: str = "1"):
     """(release, published, file, chunk) for every archived MapPLUTO release
-    (PLUTO_RELEASES), in chunks of its Manhattan table as text with lowercase
-    column names and `bbl` as a plain integer string: Manhattan's file of a
+    (PLUTO_RELEASES), in chunks of the borough's table as text with lowercase
+    column names and `bbl` as a plain integer string: the borough's file of a
     release split by borough, else the release's one citywide table."""
     import io
     import tempfile
@@ -608,9 +623,10 @@ def _release_chunks():
                 for m in archive.namelist()
                 if m.lower().endswith((".csv", ".txt")) and "readme" not in m.lower()
             ]
-            manhattan = [m for m in tables if Path(m).name.lower().startswith("mn")]
+            prefix = BOROUGH_FILES[borough]
+            own = [m for m in tables if Path(m).name.lower().startswith(prefix)]
             member = (
-                manhattan or sorted(tables, key=lambda m: -archive.getinfo(m).file_size)
+                own or sorted(tables, key=lambda m: -archive.getinfo(m).file_size)
             )[0]
             reader = pd.read_csv(
                 io.TextIOWrapper(archive.open(member), encoding="latin-1"),
@@ -624,15 +640,16 @@ def _release_chunks():
                 yield release, published, f"{PLUTO_ARCHIVE}/{name}:{member}", chunk
 
 
-def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
+def fetch_pluto_releases(bbls, borough: str = "1") -> tuple[pd.DataFrame, list[str]]:
     """The registry's lots in every archived MapPLUTO release: one row per
     release and lot, with the PLUTO_COLUMNS the release has (an older release
     lacks some, e.g. the flood-zone flags; they are left empty), its `release`
-    and its `published` date (PLUTO_RELEASES). Manhattan's file of a release
-    split by borough, else the rows of Manhattan lots."""
+    and its `published` date (PLUTO_RELEASES). The lots all lie in `borough`
+    (a BBL's first digit), and the rows come from that borough's file of a
+    release split by borough, else from the citywide table."""
     bbls = set(bbls)
     parts, files = [], []
-    for release, published, file, chunk in _release_chunks():
+    for release, published, file, chunk in _release_chunks(borough):
         if file not in files:
             files.append(file)
         chunk = chunk[chunk.bbl.isin(bbls)]
@@ -1258,7 +1275,10 @@ def main(argv=None):
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
     elif args.source == "plutoreleases":
         registry = pd.read_parquet(registry_path)
-        table, queries = fetch_pluto_releases(registry.bbl.dropna().astype(str))
+        borough = registry_borough(registry)
+        table, queries = fetch_pluto_releases(
+            registry.bbl.dropna().astype(str), borough
+        )
         details = {
             "source": PLUTO_ARCHIVE,
             "dataset": "MapPLUTO archived releases (NYC Department of City Planning)",
@@ -1383,8 +1403,9 @@ def main(argv=None):
         }
         summary = f"{len(table)} noise complaints"
     elif args.source == "basemap":
-        box = basemap_box(pd.read_parquet(registry_path))
-        table, queries, versions = fetch_basemap(box)
+        registry = pd.read_parquet(registry_path)
+        box = basemap_box(registry)
+        table, queries, versions = fetch_basemap(box, registry_borough(registry))
         counts = table.layer.value_counts().to_dict()
         details = {
             "source": SOCRATA,
