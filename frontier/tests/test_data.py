@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V24)
+    ) | data.quarantined(data.QUARANTINE_V25)
 
 
 @pytest.mark.parametrize(
@@ -1841,6 +1841,30 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
 
 
+def test_quarantine_v25_adds_nine_brooklyn_listings():
+    """v25 holds out v24's rows unchanged, plus 9 Brooklyn rows. Each one is in
+    the misjoin file and in v25's read list."""
+    with open(data.QUARANTINE_V24) as f:
+        v24 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V25) as f:
+        v25 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(v25[a] == v24[a] for a in v24)
+    added = {a: v25[a] for a in v25.keys() - v24.keys()}
+    assert len(added) == 9
+    assert all(r["action"] == "brooklyn_misjoin" for r in added.values())
+    assert (
+        sorted(r["building"] for r in added.values()).count(
+            "317-east-19-street-new_york"
+        )
+        == 7
+    )
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    assert added.keys() <= misjoins
+    assert added.keys() == set(brooklyn.READ[-1].read_text().split())
+    assert "quarantine-v25" in data.DROPPING_RULES
+
+
 def test_quarantine_v24_adds_four_listings_filed_under_the_wrong_building():
     """v24 holds out v23's rows unchanged, plus the two listings of 3B and 3BB
     at 222 East 17th Street and the two of 20C at 318 East 15th Street."""
@@ -1860,7 +1884,7 @@ def test_quarantine_v24_adds_four_listings_filed_under_the_wrong_building():
         misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
     brooklyn_rows = {r["audit_id"] for r in added if r["action"] == "brooklyn_misjoin"}
     assert brooklyn_rows <= misjoins
-    read = set(brooklyn.READ[-1].read_text().split())
+    read = set(brooklyn.READ[2].read_text().split())
     assert brooklyn_rows == read
     assert "quarantine-v24" in data.DROPPING_RULES
 
