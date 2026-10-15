@@ -329,7 +329,9 @@ The data grow by about 38%, so I scale the summed scores by that much and keep t
 6. Descriptive share within 0.4 pp of the NB9 C's (80% likely).
 7. Wall time within 5 minutes of the NB9 C's. The first AR(1) fit cost the same as C at the same
    settings. If the NB9 C takes over 55 minutes, I don't launch the AR(1) and record it as
-   blocked by the 1-hour cap.
+   blocked by the 1-hour cap. The v17 wing C took 49 minutes on NB8, so if time grows with rows
+   the NB9 C takes 60 to 70 minutes. I put a 60% chance on the AR(1) being blocked this way. In
+   that case I redesign it to fit the cap, with fewer draws, before it runs.
 
 The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
 year gap of 3 pp or more.
