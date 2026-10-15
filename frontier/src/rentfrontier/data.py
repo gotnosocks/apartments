@@ -1233,6 +1233,25 @@ def quarantine_v20(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V20))]
 
 
+QUARANTINE_V21 = QUARANTINE_V20.with_name("quarantine-v21-20261014.jsonl")
+
+
+def quarantine_v21(frame: pd.DataFrame) -> pd.DataFrame:
+    """v20's 435 rows and 52 more found by searching the kept rows' ads for the
+    stock wording behind some of v20's hold-outs. We read each of the 90
+    matches in full and recorded the reads in
+    `config/reviews/ad-fit-reads-20261014-4.jsonl`:
+    1. 21 Atelier rental office ads say the price may vary with the length of
+       the term and with furnishing, and name neither for the advertised
+       price. We kept the 34 Atelier ads that say their prices are for a
+       one-year term, all but two of them saying unfurnished too.
+    2. 29 June ads offer a flexible 1 to 18 month lease whose monthly rate
+       depends on furnishing and on the move-in and move-out dates.
+    3. Two Rove Travel ads offer furnished stays of 30 days or more, priced
+       by season and stay length. We kept the Rove ads with a six-month
+       minimum term, as v20 does."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V21))]
+
 
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
@@ -1567,6 +1586,7 @@ DATA_RULES = {
     "quarantine-v18": quarantine_v18,
     "quarantine-v19": quarantine_v19,
     "quarantine-v20": quarantine_v20,
+    "quarantine-v21": quarantine_v21,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1610,6 +1630,7 @@ RULE_SOURCES = {
     "quarantine-v18": QUARANTINE_V18,
     "quarantine-v19": QUARANTINE_V19,
     "quarantine-v20": QUARANTINE_V20,
+    "quarantine-v21": QUARANTINE_V21,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1660,6 +1681,7 @@ DROPPING_RULES = (
     "quarantine-v18",
     "quarantine-v19",
     "quarantine-v20",
+    "quarantine-v21",
 )
 
 

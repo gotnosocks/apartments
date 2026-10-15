@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V20)
+    ) | data.quarantined(data.QUARANTINE_V21)
 
 
 @pytest.mark.parametrize(
@@ -1755,3 +1755,23 @@ def test_bedrooms_ad_v4_takes_counts_from_quoted_reads():
     )
     out = data.correct_bedrooms_v4(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v21_adds_the_stock_wording_hold_outs():
+    """v21 holds out v20's rows unchanged, plus each quarantine verdict in the
+    reads of the stock-wording search, quoting the read's evidence."""
+    with open(data.QUARANTINE_V20) as f:
+        v20 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V21) as f:
+        v21 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config" / "reviews" / "ad-fit-reads-20261014-4.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    held = {r["audit_id"]: r for r in reads if r["verdict"] != "keep"}
+    assert len(reads) == 90 and len(held) == 52
+    assert all(v21[a] == v20[a] for a in v20)
+    assert v21.keys() - v20.keys() == held.keys()
+    assert all(
+        v21[a]["action"] == r["verdict"] and v21[a]["evidence"] == r["quote"]
+        for a, r in held.items()
+    )
+    assert "quarantine-v21" in data.DROPPING_RULES

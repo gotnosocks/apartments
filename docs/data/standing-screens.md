@@ -41,6 +41,14 @@ to the reads file:
 - for any verdict but `keep`, the quote from the ad (`quote_source: ad`) or from the page
   (`quote_source: page`) behind it, and the reason.
 
+For a large batch, Sonnet or Haiku subagents (the Agent tool's `model: "sonnet"` or `"haiku"`)
+do the first read of each ad (Ben, 2026-10-14). The thread's own model then checks every proposed
+hold-out or correction against its full ad before it goes into a rule.
+
+A text match can also flag rows: when a hold-out rests on an operator's or a building's stock
+wording, we search the kept rows for the same wording. Each match still gets its own read and its
+own line in a reads file before anything is held out.
+
 `adfit.verdict_problems` rejects a non-keep read whose quote is empty or only a price, and a test
 runs it over every recorded read. Price can flag a row for reading, but the hold-out has to rest
 on something the ad or the page says. Unread hits stay in the data. Non-keep verdicts go into
