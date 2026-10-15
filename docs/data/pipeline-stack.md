@@ -20,7 +20,9 @@ that choice. I built latest ask three ways from the same inputs and checked each
 ## Steps
 
 Each stack ran the same five SQL steps, 121 lines in all. `latest_ask.py` does the same work in
-259 lines of Python.
+259 lines of Python. The cold builds of plain and dbt ran step 3 with `SEMI JOIN` and `ANTI JOIN`.
+SQLMesh's cold build and the later edit and undo runs of all three used `IN` in their place, as
+described under Choice.
 
 1. `ad_latest` picks each ad's latest record and keeps its status, market dates, page price and
    price changes. It pulls those fields out of the JSON before the pick. With whole records in
@@ -55,8 +57,8 @@ The plain runner's undo first took 24.6 s. Between its cold build and the edit, 
 changed from `SEMI JOIN` to `IN`, as described below, so the undo built that text for the first
 time. A rerun with nothing changed read every step from the cache in 0.8 s.
 
-Settings account for part of the memory figures. dbt ran DuckDB with its default settings, and
-SQLMesh with a 5 GB limit. The plain runner set the same limit, 8 threads and no insertion order.
+All three ran DuckDB with a 5 GB memory limit. The plain runner also set 8 threads and turned
+insertion order off, and the other two kept DuckDB's defaults for both.
 
 ## Choice
 
@@ -70,7 +72,8 @@ table for each version after building it, so I don't have to write a hash-keyed 
   `sqlmesh table_diff prod:dev la.latest_ask -o audit_id` lists each row with a different value.
   With step 3's threshold moved from 1.2 to 1.3 for the first time, the build and the diff took
   34.3 s at a 3.2 GiB peak and found 10 changed rows. For 1.25, built earlier in the edit run,
-  the plan reused the tables, and the diff alone took 9.3 s and found 4 rows.
+  the plan reused the tables. The plan and the diff took 9.3 s, with only the diff doing work, and
+found 4 rows.
 - A step can be a Python model wherever SQL is awkward. SQLMesh also has incremental model kinds,
   for the Friday top-up.
 
