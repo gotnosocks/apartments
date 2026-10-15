@@ -561,6 +561,10 @@ def main(argv=None):
         }.items()
         if v is not None
     }
+    if args.sampler == "nuts" and config.bedroom_slope_min_rows:
+        # The NUTS draws of bedroom_slope carry no mask, and explain.log_terms
+        # reads them directly.
+        raise SystemExit("bedroom_slope_min_rows runs on the Gibbs sampler only")
     module = gibbs if args.sampler == "gibbs" else nuts
     settings = module.Settings(**overrides)
     log_lines = []

@@ -1090,8 +1090,9 @@ def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[keep.to_numpy()]
 
 
-# The 35% subset plus the buildings whose bedroom slopes failed the gate in
-# the quarantine-v17 wing fit (2026-10-14), for comparing bedroom-slope designs.
+# The 35% subset plus buildings whose effects mixed slowly in recent C fits
+# (the quarantine-v17 wing fit and the NB9 C fit, 2026-10-14), for comparing
+# bedroom-slope designs.
 SLOPECHECK_BUILDINGS = frozenset(
     {
         "106-east-10-street-new_york",
