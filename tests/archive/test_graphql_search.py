@@ -776,9 +776,15 @@ def test_client_retries_failed_posts_and_reports_failures():
     reply = c.get(gs.API_HOST + "?query=x")
     assert not reply.ok and reply.error == "Oxylabs HTTP 503" and c.calls == 3
 
-    c, _ = client(sequence(FakeResponse(200, {"results": []})))
+    empty = FakeResponse(200, {"results": [{"status_code": None}]})
+    c, sleeps = client(sequence(empty, empty, oxylabs("[]")))
     reply = c.get(gs.API_HOST + "?query=x")
-    assert not reply.ok and "one result" in reply.error
+    assert reply.ok and reply.attempts == 3 and sleeps == [5, 10] and c.calls == 3
+
+    c, _ = client(sequence(*[FakeResponse(200, {"results": []})] * 3))
+    reply = c.get(gs.API_HOST + "?query=x")
+    assert not reply.ok and "one result" in reply.error and c.calls == 3
+    assert reply.api_status == 200 and reply.attempts == 3
 
     c, _ = client(sequence(oxylabs("{}", status=400)))
     reply = c.get(gs.API_HOST + "?query=x")
