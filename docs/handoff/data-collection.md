@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-15 13:20 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-15 14:50 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -21,14 +21,18 @@ Updated 2026-10-15 13:20 ET. Thread owner: the Data collection project thread (b
   (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
   holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
-  The backfill reopens a finished run with `--reopen` and splits search bands by area
-  (#834), then by map box in a leaf area (#843), until each holds 1,000 ads or fewer (#850). The four regions'
-  backfill finished on Oct 15 at 12:43 ET with no truncated band, in 9,134 requests ($10.41).
-  The dataset `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445
-  units), its aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015`
-  came from `/data1/apartments/tmp/api-build-20261015/build.sh`. After the first top-up on
-  Oct 16, check that each region's `current-listings/api-REGION` link moved, then tell the
-  coordinator so the Website thread rebuilds the site data.
+  The backfill reopens a finished run with `--reopen`. A band of one price splits by bedrooms
+  (#849, 8 meaning 8 or more), then by area (#834), then by map box starting from the four boxes
+  around New York (#843, #853), until each part holds 1,000 ads or fewer and gets read from one
+  end (#850). #852 retries Oxylabs answers with no status or content. The last reopen ran from
+  13:51 to 14:34 ET on Oct 15 in 1,081 requests ($1.23) and left every region's IDs at or above
+  its count, with no pending, truncated or unanswered band. The four runs total 10,265 requests
+  ($11.69); `docs/data/graphql-collection.md` has the tables. The dataset
+  `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445 units), its
+  aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015` (taken 12:47
+  ET, before the reopens) came from `/data1/apartments/tmp/api-build-20261015/build.sh`. After the
+  first top-up on Oct 16, check that each region's `current-listings/api-REGION` link moved, then
+  tell the coordinator so the Website thread rebuilds the site data.
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -194,12 +198,14 @@ Updated 2026-10-15 13:20 ET. Thread owner: the Data collection project thread (b
   3. DONE Oct 10 (#671, Ben: "Stop at 671"): the crawler writes the provider envelope without
      its HTML copy, so new crawl databases are compact and need no compaction step. Compressing
      `extracted` or dropping `scripts` is declined.
-- Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
-  estimate its value to the model (coverage gaps, unit-history depth) against its cost.
+- Ben, Oct 15 12:14 ET, gave this thread standing permission to spend Oxylabs credits. His Oct 8
+  note that the budget is limited no longer applies, though a new paid collection still needs an
+  estimate of its value to the model against its cost.
 
 ## Rules that bind this thread
-- Oxylabs requests and new timers need Ben's words typed in this thread (the classifier blocks
-  relayed approvals).
+- New timers need Ben's words typed in this thread, since the classifier blocks relayed
+  approvals. Oxylabs requests go ahead under his Oct 15 12:14 ET permission; when the classifier
+  blocks one, cite that message.
 - Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; the Oct 8 crawls: 32/min combined, then 64/min from Oct 9); never loosen eligibility; crawl code
   only through a new frozen runtime directory.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.

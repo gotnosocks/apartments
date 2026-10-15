@@ -223,6 +223,29 @@ at the first level below them. I expect the reopen of the four runs to take 500 
 requests (about $0.60 to $0.90), and a fresh enumeration of the four regions to take about
 1,700 requests, against the 2,374 the backfill runs spent on counts and ID reads.
 
+I reopened the four runs from 13:51 to 14:34 ET. The reopen took 1,081 requests ($1.23),
+above my estimate of 500 to 800. ID reads took 321 requests, fewer than the 532 I had
+projected, but counts took 753, and I had left counts out of the estimate. In run 3, 3,146 of
+the 4,504 box counts went to halving boxes from the whole map down to the size of New York
+(next section). Oxylabs answered 55 calls with no status or content, 41 of them in run 3.
+Bursts of these stopped run 3's reopen twice, at 14:02 and 14:11 ET, each after six failures
+in a row. #852 now retries such answers, and a third pass of 234 requests finished run 3 at
+14:24. The reopen found 3,797 more IDs, and each region's IDs now match or pass its count:
+
+| run | region | count | IDs found | new IDs |
+|---|---|---:|---:|---:|
+| 1 | `manhattan-below-59th` | 495,253 | 495,260 | 907 |
+| 2 | `brooklyn-prospect-park` | 264,043 | 264,043 | 311 |
+| 3 | `manhattan-59th-110th` | 555,457 | 555,471 | 1,796 |
+| 4 | `brooklyn-north-crown-heights` | 658,118 | 658,132 | 783 |
+
+No run has a pending, truncated or unanswered band. The single band left with more ads in its
+count than IDs found is run 3's $4,200 one-bedroom band, short by 1. IDs above a count come
+from ads added between the run's first count and its later ID reads. Of the new IDs, the
+collector read 398 ads in 4 requests and had read the others before. Writing them added 70
+ad records, marked 319 ads superseded by later ads of their units and excluded 8. Each run
+then published its region's current listings again under `current-listings/api-REGION`.
+
 ## Child areas and the start of the box split (Oct 15)
 
 Run 3's last reopen took 234 requests ($0.27) and finished at 14:24 ET with 555,471 IDs
@@ -251,13 +274,14 @@ enumeration.
 
 | run | region | requests | dollars | search hits |
 |---|---|---:|---:|---:|
-| 1 | `manhattan-below-59th` | 2,053 | 2.34 | 494,334 |
-| 2 | `brooklyn-prospect-park` | 1,263 | 1.44 | 263,725 |
-| 3 | `manhattan-59th-110th` | 2,732 | 3.11 | 553,640 |
-| 4 | `brooklyn-north-crown-heights` | 3,086 | 3.52 | 657,334 |
-| | all four | 9,134 | 10.41 | 1,969,033 |
+| 1 | `manhattan-below-59th` | 2,265 | 2.58 | 495,260 |
+| 2 | `brooklyn-prospect-park` | 1,345 | 1.53 | 264,043 |
+| 3 | `manhattan-59th-110th` | 3,240 | 3.69 | 555,471 |
+| 4 | `brooklyn-north-crown-heights` | 3,415 | 3.89 | 658,132 |
+| | all four | 10,265 | 11.69 | 1,972,906 |
 
-The requests include the reopens with the area and box splits. Ben's approval of Oct 15
+The requests include every reopen through the split of bands down to 1,000 ads, with retries
+of failed calls. Ben's approval of Oct 15
 projected about 8,500 requests and $9.70.
 
 I then built a dataset from a snapshot of the archive, with no requests, in the steps used for
@@ -283,8 +307,9 @@ differently from the ad's own unit slug, such as `/2c` and `/2-c` at 32 W 72nd S
 and `/008c` at 101 West End Ave. StreetEasy keeps two records for each such unit. The other
 5,370 ads have an API record with no building or unit slug.
 
-The dataset holds the four regions' runs. The archive holds no top-up run yet, and the first
-starts on Friday Oct 16 at 05:30 ET.
+The dataset holds the four regions' runs as of the 12:47 ET snapshot, so it lacks the ads
+from the reopens after it. The archive holds no top-up run yet, and the first starts on
+Friday Oct 16 at 05:30 ET.
 
 ## Running it
 
