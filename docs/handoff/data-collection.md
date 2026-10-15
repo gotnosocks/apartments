@@ -15,6 +15,8 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   them should run under `flock` on the same file so the combined rate stays within 64/min.
   `apartments-streeteasy-daily.timer` (05:30 ET) reads current ads of every region into
   `current-listings/api-REGION`; Ben approved its daily cost (relayed, Oct 14 22:29 ET).
+  `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
+  `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
   StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
   `apollo-require-preflight`, 24 buildings/request, browser as fallback). Built as #705
