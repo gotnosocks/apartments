@@ -166,11 +166,12 @@ I reopened runs 3 and 4 with the box split (#843) between 12:34 and 12:43 ET. Th
 attempt stopped after 10 requests, when Oxylabs answered 6 requests in a row with no status
 or content, and the second went through. The two attempts took 80 requests ($0.09) and left
 no band truncated in either run. The box halves added up to their bands everywhere, so no ad
-fell outside the boxes. The searches found 1,343 more ad IDs in run 3 and 236 in run 4, and
-the reopens wrote 28 more ads into the archive. The rest were already in it.
-Positive gaps remain only where a band splits by bedroom count: 35 ads in run 3 and 15 in
-run 4. Ads with no bedroom count or more than 7 bedrooms would fall in these gaps, as would
-ads that changed between two counts.
+fell outside the boxes. The searches found 1,343 more ad IDs in run 3 and 236 in run 4, most
+of them already in the archive. Writing the new ones, the collector added 28 ad records,
+marked 330 ads as superseded and excluded 5. I count a band's gap as its count minus the sum
+of its parts' counts. Positive gaps remain only where a band splits by bedroom count, 35 ads
+in run 3 and 15 in run 4. Ads with no bedroom count or more than 7 bedrooms would fall in
+these gaps, as would ads that changed between two counts.
 
 ## The four regions' backfill and dataset (Oct 15)
 
@@ -196,8 +197,10 @@ Midtown West (`/data1/apartments/tmp/api-build-20261015/build.sh`, code from mas
    mentions.
 3. The collection audit, in `/data1/apartments/tmp/api-build-20261015/audit.json`: 1,773,813
    observations and no capture errors. Of the scoped frontier, 1,768,200 rows are done,
-   284,094 excluded and 746,478 superseded. The historical exclusions are 269,234 ads below
-   the listing-ID cutoff, 26,270 not eligible and 14,860 with no unit membership.
+   284,094 excluded and 746,478 superseded. The audit also reads the exclusion log as a
+   trail: 269,234 ads below the listing-ID cutoff, 14,860 with no unit membership and 26,270
+   captured ads found not eligible. The frontier marks those 26,270 as done, so the 284,094
+   excluded rows hold the first two groups.
 4. `datasets/api-granular-20261015-unit-spelling-aliases-v2`: 16,524 groups of unit
    spellings (12,150 confirmed by unit histories), joining 34,631 units and 81,091 ads.
 
