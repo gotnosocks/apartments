@@ -30,9 +30,12 @@ of the run's folder, so a reopened run gets new files for its new replies. On st
 exporter deletes leftover .tmp files and adds manifest lines for finished files missing
 from the manifest, as after a crash between the rename and the append.
 
-SQLite can renumber the rowids of graphql_search_calls in a VACUUM, since the table has
-no INTEGER PRIMARY KEY. Before resuming the calls of a run, the exporter checks that the
-last exported call still has the same rowid, and it stops with an error when it doesn't.
+A database restored from a backup goes back to the backup's AUTOINCREMENT counter and
+can give a new reply the ID of an exported one, and a VACUUM can renumber the rowids of
+graphql_search_calls, a table with no INTEGER PRIMARY KEY. Resuming above the last
+exported ID would then skip rows. So before resuming a run's table, the exporter compares
+the archive's row at the last exported ID with the exported row, by run, kind and time,
+and it stops with an error when they differ.
 """
 
 import argparse
@@ -49,6 +52,7 @@ import time
 import urllib.parse
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from .graphql_search import ARCHIVE
@@ -263,10 +267,19 @@ class Export:
 
     def repair(self):
         """Delete leftover .tmp files and add manifest lines for unlisted finished files."""
-        listed = set()
+        lines = []
         if self.manifest.exists():
-            with open(self.manifest) as f:
-                listed = {json.loads(line)["path"] for line in f if line.strip()}
+            lines = self.manifest.read_text().splitlines(keepends=True)
+        if lines and not lines[-1].endswith("\n"):
+            # A crash cut the last line short. Without it, the scan below lists its file again.
+            lines.pop()
+            tmp = self.manifest.with_name(self.manifest.name + ".tmp")
+            with open(tmp, "w") as f:
+                f.write("".join(lines))
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.manifest)
+        listed = {json.loads(line)["path"] for line in lines if line.strip()}
         for table in TABLES:
             for path in sorted((self.out / table).glob("run-*/*")):
                 if path.name.endswith(".tmp"):
@@ -308,9 +321,46 @@ class Export:
         self.export_requests(run)
         self.export_calls(run)
 
-    def _after(self, table, run):
-        spans = self.finished(table, run)
-        return spans[-1][1] if spans else 0
+    def _after(self, table, run_id):
+        """The highest ID in the names of the run's files, checked against the archive."""
+        spans = self.finished(table, run_id)
+        if not spans:
+            return 0
+        first, last = spans[-1]
+        if table == "calls":
+            key, at, name = "rowid", "started", f"rows-{first:09d}-{last:09d}"
+            row = self.db.execute(
+                """SELECT run, 'calls' AS kind, started AS at FROM graphql_search_calls
+                WHERE rowid=?""",
+                (last,),
+            ).fetchone()
+        else:
+            key, at, name = (
+                "response_id",
+                "fetched",
+                f"responses-{first:07d}-{last:07d}",
+            )
+            row = self.db.execute(
+                "SELECT run, kind, fetched AS at FROM graphql_search_responses WHERE id=?",
+                (last,),
+            ).fetchone()
+        path = self.folder(table, run_id) / f"{name}.parquet"
+        exported = pq.read_table(path, columns=[key, at])
+        times = exported.filter(pc.equal(exported[key], last))[at].cast(pa.int64())
+        kinds = {"calls": ("calls",), "requests": ("ads", "buildings")}.get(
+            table, (table,)
+        )
+        if (
+            row is None
+            or row["run"] != run_id
+            or row["kind"] not in kinds
+            or any(t != _micros(row["at"]) for t in times.to_pylist())
+        ):
+            raise ExportError(
+                f"the archive's row {last} of run {run_id} differs from the one in "
+                f"{table}/{path.parent.name}/{path.name}; the archive's IDs moved"
+            )
+        return last
 
     def _responses(self, run, kinds, after):
         marks = ",".join("?" * len(kinds))
@@ -390,7 +440,7 @@ class Export:
             for response_id in chunk:
                 r = self._response(response_id)
                 capture = json.loads(r["capture"] or "{}")
-                results = capture.get("results") or [{}]
+                result = (capture.get("results") or [{}])[0]
                 job = (capture.get("api_headers") or {}).get("x-oxylabs-job-id")
                 writer.add(
                     {
@@ -409,7 +459,9 @@ class Export:
                         "url_length": r["url_length"],
                         "oxylabs_job_id": None if job is None else str(job),
                         "api_status": capture.get("api_status"),
-                        "target_status": results[0].get("status_code"),
+                        "target_status": result.get(
+                            "status_code", result.get("status")
+                        ),
                     }
                 )
             writer.finish(run["id"], chunk[0], chunk[-1])
@@ -417,10 +469,7 @@ class Export:
     def export_calls(self, run):
         folder = self.folder("calls", run["id"])
         folder.mkdir(parents=True, exist_ok=True)
-        spans = self.finished("calls", run["id"])
-        after = spans[-1][1] if spans else 0
-        if spans:
-            self._check_calls(folder, spans[-1], run["id"])
+        after = self._after("calls", run["id"])
         rows = self.db.execute(
             """SELECT rowid AS rowid, * FROM graphql_search_calls
             WHERE run=? AND rowid>? ORDER BY rowid""",
@@ -440,20 +489,6 @@ class Export:
                     }
                 )
             writer.finish(run["id"], first, last)
-
-    def _check_calls(self, folder, span, run_id):
-        first, last = span
-        path = folder / f"rows-{first:09d}-{last:09d}.parquet"
-        started = pq.read_table(path, columns=["started"])["started"]
-        exported = started.cast(pa.int64())[-1].as_py()
-        row = self.db.execute(
-            "SELECT run, started FROM graphql_search_calls WHERE rowid=?", (last,)
-        ).fetchone()
-        if row is None or row["run"] != run_id or _micros(row["started"]) != exported:
-            raise ExportError(
-                f"call rowid {last} of run {run_id} changed since {path.name}; the "
-                "archive's call rowids moved"
-            )
 
     def close(self):
         self.db.close()

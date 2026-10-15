@@ -386,8 +386,11 @@ SHA-256. A later export of a run starts above the highest ID in the names of the
 leaves the finished files as they are. With `--run N` it exports that run alone, and with no
 `--run` it exports every run.
 
-A restore from a backup made with `VACUUM INTO` can renumber the rowids of the call table. The
-exporter then stops with an error, and deleting `export/calls/` lets it write the calls again.
+A database restored from a backup goes back to the backup's ID counter, so the collector can
+give a new reply the ID of an exported one, and the `VACUUM INTO` copy can renumber the rowids
+of the call table. Before resuming each table of a run, the exporter compares the archive's row
+at the last exported ID with the exported row, and it stops with an error when they differ.
+After a restore, deleting `export/` and exporting again writes every run afresh.
 
 ## Backup
 

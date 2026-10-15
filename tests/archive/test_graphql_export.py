@@ -60,9 +60,20 @@ def files(out):
     }
 
 
+def archive_bytes(root):
+    """The database, its WAL and the bodies. Readers mark the -shm index, so it is left out."""
+    paths = [root / "archive.sqlite3", root / "archive.sqlite3-wal"]
+    return {
+        str(p.relative_to(root)): p.read_bytes()
+        for p in paths + sorted(root.glob("bodies/*/*"))
+    }
+
+
 def test_export_writes_every_read_with_its_records(tmp_path, monkeypatch, capsys):
     c, api = collect(tmp_path, monkeypatch)
+    archive = archive_bytes(tmp_path / "archive")
     assert ge.main(["--data", str(tmp_path / "archive")]) == 0
+    assert archive_bytes(tmp_path / "archive") == archive
     report = json.loads(capsys.readouterr().out.splitlines()[-1])
     out = tmp_path / "archive" / "export"
 
@@ -174,13 +185,15 @@ def test_a_later_export_adds_files_above_the_finished_ones(tmp_path, monkeypatch
     assert len(manifest(out)) == len(after)
 
 
-def test_an_export_after_a_crash_lists_the_unlisted_file(tmp_path, monkeypatch):
+@pytest.mark.parametrize("cut", ["whole line", "half line"])
+def test_an_export_after_a_crash_lists_the_unlisted_file(tmp_path, monkeypatch, cut):
     collect(tmp_path, monkeypatch)
     export = ge.Export(tmp_path / "archive")
     export.run()
     out = export.out
     lines = (out / "manifest.ndjson").read_text().splitlines(keepends=True)
-    (out / "manifest.ndjson").write_text("".join(lines[:-1]))
+    kept = "" if cut == "whole line" else lines[-1][: len(lines[-1]) // 2]
+    (out / "manifest.ndjson").write_text("".join(lines[:-1]) + kept)
     stale = next(out.glob("ads/run-*")) / "responses-0000099-0000099.parquet.tmp"
     stale.write_bytes(b"partial")
     before = files(out)
@@ -201,8 +214,41 @@ def test_moved_call_rowids_stop_the_export(tmp_path, monkeypatch):
             """UPDATE graphql_search_calls SET started=started+1
             WHERE rowid=(SELECT max(rowid) FROM graphql_search_calls)"""
         )
-    with pytest.raises(ge.ExportError, match="rowids moved"):
+    with pytest.raises(ge.ExportError, match="IDs moved"):
         ge.Export(tmp_path / "archive").run()
+
+
+@pytest.mark.parametrize("kind", ["ads", "buildings"])
+def test_a_reused_response_id_stops_the_export(tmp_path, monkeypatch, kind):
+    # A restored database can give a new reply the ID of the last exported one.
+    c, _ = collect(tmp_path, monkeypatch)
+    ge.Export(tmp_path / "archive").run()
+    with c.store._tx():
+        c.db.execute(
+            """UPDATE graphql_search_responses SET fetched=fetched+1
+            WHERE id=(SELECT max(id) FROM graphql_search_responses WHERE kind=?)""",
+            (kind,),
+        )
+    with pytest.raises(ge.ExportError, match="IDs moved"):
+        ge.Export(tmp_path / "archive").run()
+
+
+def test_row_groups_follow_the_record_text(tmp_path, monkeypatch):
+    collect(tmp_path, monkeypatch)
+    monkeypatch.setattr(ge, "ROW_GROUP_BYTES", 1)
+    export = ge.Export(tmp_path / "archive")
+    export.run()
+    (path,) = export.out.glob("ads/run-*/*.parquet")
+    metadata = pq.ParquetFile(path).metadata
+    records = sum(r["outcome"] == "record" for r in rows(export.out, "ads"))
+    # Each record fills a row group, and the missing reads after the last one share one.
+    assert records <= metadata.num_row_groups <= metadata.num_rows
+
+
+def test_an_unknown_run_stops_the_export(tmp_path, monkeypatch):
+    collect(tmp_path, monkeypatch)
+    with pytest.raises(ge.ExportError, match="no run 99"):
+        ge.Export(tmp_path / "archive").run([99])
 
 
 def test_a_reply_disagreeing_with_its_count_stops_the_export(tmp_path, monkeypatch):
