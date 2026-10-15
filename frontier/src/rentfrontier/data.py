@@ -752,6 +752,24 @@ def correct_bedrooms_v4(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v3(frame), "bedrooms-ad-v4")
 
 
+BEDROOM_CORRECTIONS_V5 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v5-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v5(frame: pd.DataFrame) -> pd.DataFrame:
+    """v4's rows, then 4 rows of v4's review whose ad states a count with
+    nothing else to back it. For 15 of those rows the stored listing or
+    building unit page links a floor plan. The plans are fetched into
+    `/data1/apartments/archive/floor-plans/<listing id>/` and read in
+    `config/reviews/floor-plans-20261015-bedrooms.jsonl`. A count changes
+    when the listing's own page carries a plan whose labels clearly show the
+    ad's count. A plan from the building's unit page may show another
+    period's layout, so it backs nothing here. Every row is kept; only
+    `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v4(frame), "bedrooms-ad-v5")
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -1587,6 +1605,7 @@ DATA_RULES = {
     "baths-ad-v2": correct_baths_v2,
     "bedrooms-ad-v3": correct_bedrooms_v3,
     "bedrooms-ad-v4": correct_bedrooms_v4,
+    "bedrooms-ad-v5": correct_bedrooms_v5,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1680,6 +1699,7 @@ RULE_SOURCES = {
     "baths-ad-v2": BATH_CORRECTIONS_V2,
     "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
     "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
+    "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }

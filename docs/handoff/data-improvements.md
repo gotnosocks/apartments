@@ -1,6 +1,22 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 19:20 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 22:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 22:00 ET
+
+Floor plans (branch `data/bedrooms-ad-v5`): bedrooms-ad-v5.
+- Ben, 2026-10-15 01:35Z: I may fetch the floor plan images linked from stored pages for listings
+  under review, and Sonnet or Haiku reads them. The permission stands for later reviews too.
+- Plans live in `/data1/apartments/archive/floor-plans/<listing id>/`. The stored page JSON is
+  escaped, so I unescape it before parsing `"floorPlans":[{"key":...}]`; the image is
+  `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. Scripts are in `/data1/apartments/tmp/suspect/fp`
+  (`find.py` finds keys, `fetch.sh` fetches 10 s apart).
+- Of v4's 64 unbacked rows, 15 had linked plans (16 images). A clear plan on the listing's own page
+  backs 4 rows. The two Sky 605 W 42nd plans show 1 bedroom, the coded count. Plans from building
+  unit pages back nothing, since they may show another period's layout (96 Avenue A #1A changed
+  from 1 bedroom to 2).
+- Next: the widened check for studios priced above their building's 1- and 2-bedroom rows, using
+  the same plan fetch.
 
 ## 2026-10-14 21:45 ET
 
@@ -16,9 +32,6 @@ Bedroom review (branch `data/bedrooms-ad-v4`): bedrooms-ad-v4 and quarantine-v22
   Reposted broker copy isn't another ad.
 - Result: 22 corrections, 64 stated counts left as coded (bucket d), 146 placeholder studios held
   out in quarantine-v22.
-- Open: Ben's direct OK to fetch the floor plan images linked from stored pages
-  (photos.zillowstatic.com `floorPlans` keys) for the 64 rows. If he agrees, plans that show the
-  count go into a later bedrooms-ad version.
 - Follow-up for Modeling: widen the check to studios priced above the building's 1- and
   2-bedroom rows (870 Broadway, 1 Sheridan Sq have no 3-bedroom rows to compare with).
 
