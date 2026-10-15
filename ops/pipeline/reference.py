@@ -18,14 +18,18 @@ frontier venv to prepare the rows the way `rentfrontier.run` does before samplin
 It writes the prepared rows to `rows.parquet`, with the held-out mask as a `heldout` column,
 and the feature matrix to `features.parquet`, keyed by `audit_id`. Every file the preparation
 read goes into `blobs/` under its SHA-256, read-only, so later changes to the original files
-leave the reference alone. For a fit with a result.json, `manifest.json` records whether the
-row hash and each input hash still equal the fit's own record.
+leave the reference alone. The preparation hashes each file as it reads it, and the freeze
+stops if a file's hash differs by the time of the copy. `data.load` gets an empty cache folder,
+so it flattens the observations itself. For a fit with a result.json, `manifest.json` records
+whether the row hash and each input hash equal the fit's own record. An input the record lacks
+counts as a mismatch.
 
 `verify` hashes every blob and output of a reference again and reports any change.
 
 `columns` repeats the feature build and `model.prepare` on a reference's frozen rows and prints
-the columns each of them read, along with the columns neither read. Then it drops those unread
-columns, builds the features again and reports whether the matrix came out the same.
+the columns each of them read, along with the columns neither read. It reports whether the
+build gave the frozen matrix. Then it drops the unread columns, runs both steps again and
+reports whether the features and the prepared arrays came out the same.
 """
 
 from __future__ import annotations
@@ -76,10 +80,17 @@ def tree(commit: str) -> Path:
     return path
 
 
-def blob(path: str, expected: str | None = None) -> dict:
-    """Copy a file into ROOT/blobs under its SHA-256, unless a copy is there already."""
+def blob(path: str, read: str, expected: str | None = None) -> dict:
+    """Copy a file into ROOT/blobs under its SHA-256, unless a copy is there already.
+
+    `read` is the hash the preparation took while it read the file. A file with another hash
+    now changed after the read, so the copy would hold other data, and the freeze stops.
+    `expected` is the fit's record of the hash, when there is one.
+    """
     source = Path(path)
     digest = sha256(source)
+    if digest != read:
+        raise SystemExit(f"{source} changed after the preparation read it")
     target = ROOT / "blobs" / digest
     if not target.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -104,14 +115,25 @@ def prepare(spec: dict, out: Path) -> dict:
     from rentfrontier import data, features, run
 
     start = time.perf_counter()
-    frame = data.load(Path(spec["dataset"]))
+    # A fresh cache folder makes `data.load` flatten the observations itself, rather than
+    # read a cached flattening written by another job.
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as cache:
+        frame = data.load(Path(spec["dataset"]), cache_root=Path(cache))
+    inputs = {
+        "observations": {
+            "path": str(Path(spec["dataset"]) / "observations.jsonl"),
+            "sha256": frame.attrs["source_sha256"],
+        }
+    }
     rules = tuple(spec["rules"])
+    files = {r: Path(p) for r, p in data.RULE_SOURCES.items() if r in rules}
+    before = {r: data.sha256(p) for r, p in files.items()}
     frame, heldout = data.split_and_rules(frame, spec["split"], rules)
+    for rule, path in files.items():
+        if data.sha256(path) != before[rule]:
+            raise SystemExit(f"{path} changed while the rules read it")
+        inputs[f"rule {rule}"] = {"path": str(path), "sha256": before[rule]}
     rows_sha256 = data.rows_sha256(frame, heldout)
-    inputs = {"observations": str(Path(spec["dataset"]) / "observations.jsonl")}
-    for rule, path in data.RULE_SOURCES.items():
-        if rule in rules:
-            inputs[f"rule {rule}"] = str(path)
     rows = frame.copy()
     rows["heldout"] = np.asarray(heldout, dtype=bool)
     rows.to_parquet(out / "rows.parquet", index=False)
@@ -121,11 +143,17 @@ def prepare(spec: dict, out: Path) -> dict:
         "heldout": int(heldout.sum()),
     }
     if spec.get("features"):
+        sources = run.feature_sources(spec["features"])
         feats = features.build(
             spec["features"], frame, ~np.asarray(heldout, dtype=bool)
         )
-        for name, source in run.feature_sources(spec["features"]).items():
-            inputs[f"feature {name}"] = source["path"]
+        if run.feature_sources(spec["features"]) != sources:
+            raise SystemExit("a feature source changed while the features were built")
+        for name, source in sources.items():
+            inputs[f"feature {name}"] = {
+                "path": source["path"],
+                "sha256": source["sha256"],
+            }
         matrix = pd.DataFrame(feats.values, columns=list(feats.names))
         matrix.insert(0, "audit_id", frame.audit_id.to_numpy())
         matrix.to_parquet(out / "features.parquet", index=False)
@@ -146,15 +174,47 @@ def prepare(spec: dict, out: Path) -> dict:
     return result
 
 
-def traced_columns(frame, heldout: np.ndarray, spec: dict) -> dict:
+def same(a, b) -> bool:
+    """Whether two results hold equal values, field by field, with NaN equal to NaN."""
+    import numpy as np
+    import pandas as pd
+
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, (pd.Index, pd.Series, pd.DataFrame)):
+        return a.equals(b)
+    if isinstance(a, np.ndarray):
+        return (
+            a.shape == b.shape
+            and a.dtype == b.dtype
+            and bool(np.array_equal(a, b, equal_nan=a.dtype.kind in "fc"))
+        )
+    if isinstance(a, dict):
+        return a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)):
+        return len(a) == len(b) and all(map(same, a, b))
+    if isinstance(a, float):
+        return a == b or (a != a and b != b)
+    if hasattr(a, "__dict__"):
+        return same(vars(a), vars(b))
+    return bool(a == b)
+
+
+def traced_columns(
+    frame, heldout: np.ndarray, spec: dict, frozen: pd.DataFrame | None = None
+) -> dict:
     """Runs in the frontier venv. Repeats the feature build and `model.prepare` on the frozen
     rows, noting each of the rows' columns that a data frame reads by name meanwhile.
 
     The patched calls cover `df.col`, `df["col"]`, `df[[...]]`, `df.get`, `"col" in df` and
     the key arguments of `groupby`, `merge`, `sort_values`, `drop_duplicates` and `set_index`.
     Any frame with a column of the same name counts, so the lists can hold a column the step
-    read from another table under that name. Afterwards the function drops the columns neither
-    step read, builds the features again and checks that nothing changed.
+    read from another table under that name. Reads through other calls, such as
+    `"col" in df.columns`, go unnoted. To cover those, the function drops the columns neither
+    step read, then builds the features and runs `model.prepare` again. It compares every
+    field of the two feature builds and of the two prepared results, the sampler's arrays
+    among them. With `frozen`, the reference's `features.parquet`, it also compares the first
+    build with the frozen matrix.
     """
     import numpy as np
     import pandas as pd
@@ -194,26 +254,35 @@ def traced_columns(frame, heldout: np.ndarray, spec: dict) -> dict:
     patch("set_index", "keys")
     out = {}
     try:
-        feats = None
+        feats = prepared = None
         if spec.get("features"):
             feats = features.build(spec["features"], frame, ~heldout)
             out["features.build"] = sorted(read)
             read.clear()
         if feats is not None:
-            model.prepare(frame, heldout, feats)
+            prepared = model.prepare(frame, heldout, feats)
             out["model.prepare"] = sorted(read)
     finally:
         for method, original in patched.items():
             setattr(pd.DataFrame, method, original)
     out["unread"] = sorted(names - set().union(*map(set, out.values())))
     if feats is not None:
-        # The patches miss reads through other calls, so build again without the unread
-        # columns and compare.
+        if frozen is not None:
+            out["same_as_frozen"] = (
+                list(frozen.columns) == ["audit_id", *feats.names]
+                and bool(np.array_equal(frozen.audit_id, frame.audit_id))
+                and bool(
+                    np.array_equal(
+                        frozen.drop(columns="audit_id").to_numpy(),
+                        feats.values,
+                        equal_nan=True,
+                    )
+                )
+            )
         rest = frame.drop(columns=out["unread"])
         again = features.build(spec["features"], rest, ~heldout)
-        model.prepare(rest, heldout, again)
-        out["same_without_unread"] = list(again.names) == list(feats.names) and bool(
-            np.array_equal(again.values, feats.values, equal_nan=True)
+        out["same_without_unread"] = same(feats, again) and same(
+            prepared, model.prepare(rest, heldout, again)
         )
     return out
 
@@ -249,8 +318,8 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
         for key, source in record.get("feature_sources", {}).items():
             recorded[f"feature {key}"] = source["sha256"]
     inputs = {
-        role: blob(path, recorded.get(role) if record else None)
-        for role, path in prepared.pop("inputs").items()
+        role: blob(i["path"], i["sha256"], recorded.get(role) if record else None)
+        for role, i in prepared.pop("inputs").items()
     }
     outputs = {}
     for path in sorted(out.iterdir()):
@@ -269,9 +338,10 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
         manifest["rows_sha256_matches_run"] = prepared["rows_sha256"] == record.get(
             "rows_sha256"
         )
+        # An input missing from the fit's record counts as a mismatch.
         manifest["inputs_match_run"] = all(
-            i.get("matches_record", True) for i in inputs.values()
-        )
+            i.get("matches_record") is True for i in inputs.values()
+        ) and set(recorded) <= set(inputs)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     (out / "manifest.json").chmod(0o444)
     print(json.dumps({k: v for k, v in manifest.items() if k != "inputs"}, indent=1))
@@ -333,9 +403,13 @@ def main(argv=None) -> int:
         manifest = json.loads((ROOT / argv[1] / "manifest.json").read_text())
         frame = pd.read_parquet(ROOT / argv[1] / "rows.parquet")
         heldout = frame.pop("heldout").to_numpy()
+        matrix = ROOT / argv[1] / "features.parquet"
+        frozen = pd.read_parquet(matrix) if matrix.exists() else None
         print(
             json.dumps(
-                traced_columns(frame, np.asarray(heldout, bool), manifest["spec"])
+                traced_columns(
+                    frame, np.asarray(heldout, bool), manifest["spec"], frozen
+                )
             )
         )
         return 0
