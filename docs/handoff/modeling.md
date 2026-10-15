@@ -3,6 +3,19 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-15 05:00 UTC): Midtown West C failed the gate, slopemin3 queued
+
+The NB9 C fit (master 8b3ce683, quarantine-v23) failed the gate with min building ESS 129. Three buildings fell under 400: 222 E 17th (129), 4 Perry St (204) and 318 E 15th (273). No building had R-hat over 1.01, and the fit stage took 2,232 s.
+
+I sent the data to Data improvements first:
+- 222 E 17th carried a Brooklyn ad, and 318 E 15th 20C conflicted with PLUTO's 12 stories. Both went into quarantine-v24 (#815).
+- 4 Perry has clean data: 2 studio rows and 7 one-bedroom rows, with a slope posterior about as wide as its prior.
+- Data improvements then merged quarantine-v25 to v27 (#818, #821, #823), each a few dozen rows.
+
+The structure step comes next. #817 adds `bedroom_slope_min_rows` and the model `...-sizeunkslope-slopemin3`, which keeps a building's bedroom slope only with 3+ training rows in two bedroom counts (49% of NB9 buildings, 88% of rows). The option runs on Gibbs only, and the new-building score drops the slope variance under it.
+
+The queue `/data1/apartments/tmp/bridge/modalq-nb9.queue` holds the slopemin3 NB9 fit on master rules with quarantine-v27. It launches at 3:43 AM ET Oct 15 when the Modal balance covers $2.03. #817 lists the predictions: the gate passes with 4 Perry over 400 ESS, fit time stays within 10% of 2,232 s, and paired LOO against the failed C lands within 2 SE. The held AR(1) fixed-rho line also uses v27. It waits for a passing NB9 fit under 55 minutes. If slopemin3 is the one that passes, the AR(1) model needs a slopemin3 twin before it runs.
+
 ## Update (2026-10-15 02:30 UTC): Midtown West C queued, serving hold lifted
 
 - Modeling runs as a single session in its own thread since 01:45Z.
