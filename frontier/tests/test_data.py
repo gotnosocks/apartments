@@ -1733,3 +1733,25 @@ def test_quarantine_v20_adds_the_second_ad_fit_hold_outs():
         for a, r in held.items()
     )
     assert "quarantine-v20" in data.DROPPING_RULES
+
+
+def test_bedrooms_ad_v4_takes_counts_from_quoted_reads():
+    """Each v4 correction is a bedroom-check read with a `correct_bedrooms`
+    verdict, a quote from an ad and the count it states; v3's rows apply first."""
+    with open(data.BEDROOM_CORRECTIONS_V4) as f:
+        fixes = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/ad-fit-reads-20261015-bedrooms.jsonl") as f:
+        reads = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert fixes
+    for a, fix in fixes.items():
+        read = reads[a]
+        assert read["verdict"] == "correct_bedrooms" and read["quote"]
+        assert fix["field"] == "bedrooms" and fix["corrected"] == read["bedrooms"]
+    assert {a for a, r in reads.items() if r["verdict"] == "correct_bedrooms"} == set(
+        fixes
+    )
+    frame = pd.DataFrame(
+        {"audit_id": [next(iter(fixes)), "other"], "bedrooms": [9.0, 2.0]}
+    )
+    out = data.correct_bedrooms_v4(frame)
+    assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]

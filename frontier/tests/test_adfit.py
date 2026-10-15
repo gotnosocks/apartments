@@ -188,8 +188,13 @@ def test_an_inferred_size_flag_needs_a_far_price():
 
 def test_a_shared_bath_in_a_larger_apartment_needs_other_units():
     rows = [
-        dict(audit_id=a, unit_id=a, bedrooms=b, square_feet=900, rent=4000)
-        for a, b in [("a", 3), ("b", 3), ("c", 0), ("d", 1)]
+        dict(audit_id=a, unit_id=a, bedrooms=b, square_feet=900, rent=rent)
+        for a, b, rent in [
+            ("a", 3, 4000),
+            ("b", 3, 4000),
+            ("c", 0, 2000),
+            ("d", 1, 3000),
+        ]
     ]
     text = pd.Series(
         [
@@ -203,3 +208,36 @@ def test_a_shared_bath_in_a_larger_apartment_needs_other_units():
     assert {"a", "d"}.isdisjoint(hits.index)
     assert hits.at["b", "flags"] == ["shared_bath"]
     assert hits.at["c", "flags"] == ["shared_bath"]
+
+
+def test_bedroom_check_flags_a_studio_priced_like_the_three_bedrooms():
+    """106 E 10th St: studios asking what the building's large units ask. A
+    one-bedroom above the two- and three-bedrooms is flagged too, and the
+    building's ordinary units are not."""
+    rows = [
+        dict(audit_id=f"b{k}{i}", unit_id=f"u{k}{i}", bedrooms=k, rent=rent)
+        for k, rent in ((0, 2500), (1, 3200), (2, 4200), (3, 5500))
+        for i in range(3)
+    ]
+    rows += [
+        dict(audit_id="studio", unit_id="s", bedrooms=0, rent=5000),
+        dict(audit_id="one", unit_id="o", bedrooms=1, rent=6000),
+    ]
+    frame = _frame([dict(square_feet=None, **r) for r in rows])
+    got = pd.Series(adfit.bedroom_conflicts(frame), index=frame.audit_id)
+    assert got["studio"] and got["one"]
+    assert not got.drop(["studio", "one"]).any()
+    hits = adfit.screen(frame, pd.Series([""] * len(frame)), COORDS, CENTRES)
+    hits = hits.set_index("audit_id")
+    assert hits.at["studio", "tier"] == "E"
+    assert "beds_price_bldg" in hits.at["studio", "flags"]
+
+
+def test_bedroom_check_needs_two_other_units_at_the_level():
+    rows = [
+        dict(audit_id="studio", unit_id="s", bedrooms=0, rent=5000),
+        dict(audit_id="big", unit_id="b", bedrooms=3, rent=5000),
+        dict(audit_id="small", unit_id="m", bedrooms=0, rent=2500),
+    ]
+    frame = _frame([dict(square_feet=None, **r) for r in rows])
+    assert not adfit.bedroom_conflicts(frame).any()

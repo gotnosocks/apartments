@@ -732,6 +732,22 @@ def correct_bedrooms_v3(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(frame, "bedrooms-ad-v3")
 
 
+BEDROOM_CORRECTIONS_V4 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v4-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v4(frame: pd.DataFrame) -> pd.DataFrame:
+    """v3's rows, then the rows the ad-fit screen's bedroom check
+    (`adfit.bedroom_conflicts`) flagged on NB9 whose ad, or one of their
+    unit's other ads, states another count. A reader read each flagged row's
+    ads in full (`config/reviews/ad-fit-reads-20261015-bedrooms.jsonl`).
+    Studios the ads call studios, counts the ads confirm and rows the ads
+    leave unclear keep their count. Every row is kept; only `bedrooms`
+    changes."""
+    return _correct_bedrooms(correct_bedrooms_v3(frame), "bedrooms-ad-v4")
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -1217,6 +1233,7 @@ def quarantine_v20(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V20))]
 
 
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1529,6 +1546,7 @@ DATA_RULES = {
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
     "bedrooms-ad-v3": correct_bedrooms_v3,
+    "bedrooms-ad-v4": correct_bedrooms_v4,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1617,6 +1635,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
     "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
+    "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }

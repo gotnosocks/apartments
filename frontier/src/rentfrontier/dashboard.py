@@ -752,6 +752,11 @@ DATA_RULE_TEXT = {
     "alone. No listing is dropped.",
     "baths-ad-v3": "baths-ad-v2 on all five neighbourhoods, with the same checks as "
     "bedrooms-ad-v3. No listing is dropped.",
+    "bedrooms-ad-v4": "bedrooms-ad-v3, and the bedroom counts of listings priced out "
+    "of line with their building's other units (a studio asking what the "
+    "three-bedrooms ask) whose ad, or another ad for the same apartment, states "
+    "another count. A reader read every flagged ad in full; price only chose which "
+    "ads to read. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
