@@ -704,7 +704,8 @@ class Collector:
         data = data if isinstance(data, dict) else {}
         shape = dict if job.kind in ("count", "slice") else list
         if not any(isinstance(data.get(alias), shape) for alias in job.fields):
-            # Retry halves fall below three quarters of the ceiling, so their timeouts leave it.
+            # Retry halves fall below three quarters of the ceiling, and the ceiling stays
+            # put when one of them times out.
             if job.kind == "ads" and _timed_out(doc):
                 if len(job.items) > self.ad_ceiling * 3 // 4:
                     cut = max(IDS_PER_FIELD, len(job.items) * 3 // 4)
