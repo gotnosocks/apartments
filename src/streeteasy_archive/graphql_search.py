@@ -70,11 +70,15 @@ it after the dated capture folders.
 
 The collector sends at most --rate requests a minute, never more than 64, and stops at
 --max-requests. It stops earlier on an Oxylabs credential or billing refusal, a StreetEasy
-401, 403 or 429, a challenge page, or six failed requests in a row. After a failed request
-for several items, it retries each half, and a single item gets three tries. Each step reads
-its progress from the tables, so the same command resumes an unfinished run. --reopen
-resumes the region's latest run even after it finished, so a newer collector can count
-and read the bands from its finer split. --new-run starts a fresh run.
+401, 403 or 429, a challenge page, or six failed requests in a row. The client sends a
+request up to three times when the connection fails, Oxylabs answers 429 or 5xx, or its
+result comes back with no status or content, and counts it as failed after the third. It
+waits 5 and then 10 seconds between tries, or as long as a 429 or 5xx asks, up to 120.
+After a failed request for several items, the collector retries each half, and a single
+item gets three tries. Each step reads its progress from the tables, so the same command
+resumes an unfinished run. --reopen resumes the region's latest run even after it finished,
+so a newer collector can count and read the bands from its finer split. --new-run starts a
+fresh run.
 
 Limits:
   - About 12% of NoMad's ads have no `slug` in their record. With no canonical unit page,
@@ -510,7 +514,7 @@ class Client:
     def get(self, url):
         payload = build_payload(url)
         started = time.time()
-        error = None
+        error = api_status = None
         for attempt in range(3):
             self._slot()
             try:
@@ -523,9 +527,11 @@ class Client:
                 )
             except requests.RequestException as exc:
                 error = "Oxylabs request failed (" + type(exc).__name__ + ")"
+                api_status = None
                 if attempt < 2:
                     self.sleep(5 * 2**attempt)
                 continue
+            api_status = response.status_code
             if response.status_code in (401, 402, 403):
                 raise Stop(f"Oxylabs refused the request (HTTP {response.status_code})")
             if response.status_code == 429 or response.status_code >= 500:
@@ -536,8 +542,15 @@ class Client:
                     )
                     self.sleep(wait_for)
                 continue
-            return self._reply(url, payload, response, started, attempt + 1)
-        return Reply(False, None, b"", {}, time.time(), 3, None, error)
+            try:
+                return self._reply(url, payload, response, started, attempt + 1)
+            except RetryableOxylabsError as exc:
+                # On Oct 15 bursts of Oxylabs results with no status or content stopped
+                # a run twice, and the same requests sent again came back whole.
+                error = str(exc)
+                if attempt < 2:
+                    self.sleep(5 * 2**attempt)
+        return Reply(False, None, b"", {}, time.time(), 3, api_status, error)
 
     def _reply(self, url, payload, response, started, attempts):
         fetched = time.time()
@@ -576,8 +589,6 @@ class Client:
             return failed(f"Oxylabs HTTP {response.status_code}")
         try:
             results, _, status, content = _result_item(response.json())
-        except RetryableOxylabsError as exc:
-            return failed(str(exc))
         except (ValueError, TypeError):
             return failed("Oxylabs returned invalid JSON")
         provider["results"] = [
