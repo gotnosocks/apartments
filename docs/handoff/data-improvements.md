@@ -1,6 +1,23 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 23:55 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 00:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 00:40 ET
+
+Square feet against the unit's other listings: sqft-units-v1 (#813, merged).
+- On NB9 under the current rules, 227 sized rows sit more than 1.5x off the geometric mean of the
+  same unit's other sized rows (946 rows past 1.25x, 32 past 2x). Scratch is
+  `/data1/apartments/tmp/suspect/sqft9` (`screen.py`, `line.py`, `tight.py`, `final2.py`).
+- 43 had a size to take, from at least 2 other listings of the unit or 2 other units of its line
+  with the same bedroom count, agreeing within 10%. After the reviewer's points we refused rows
+  whose backing repeats one ad's copy, counts a terrace or a total, or whose new size is no nearer
+  the bedroom count's median than the recorded one. A Haiku pass and then a Sonnet pass with
+  exact quotes read the ads. 12 rows take the new size; every candidate's outcome is in
+  `config/reviews/sqft-units-reads-20261015.jsonl`.
+- 12 rows is far under `autoselect.NEGLIGIBLE_SHARE`, so the served fit stays eligible and
+  Modeling has been told. No fit is needed for it.
+- Left open: the 184 conflicts with no backing either way, mostly pairs of two listings. A floor
+  plan or a stated size would decide some of them, if the size term ever shows these rows matter.
 
 ## 2026-10-14 23:30 ET
 
