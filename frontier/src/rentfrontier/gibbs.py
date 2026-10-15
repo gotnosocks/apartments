@@ -283,9 +283,10 @@ def compact_walk(
 
     With `walk_on` (1.0 for buildings with a walk) the rows of the other
     buildings touch no knot. Their walk columns point at slot 0 with weight 0,
-    and `fill_walk` draws all their knots from the walk prior. The scale
-    updates count those knots in the walk's rank, and `site_values` sets the
-    walk of those buildings to 0.
+    and `fill_walk` draws all their knots from the walk prior. The collapsed
+    scale update integrates those knots out, so `walk_rank` leaves them out.
+    The conditional update counts them, since they are prior draws.
+    `site_values` sets the walk of those buildings to 0.
     """
     offset = 0 if ar else 1  # local slot knot_start holds knot `offset`
     n_fixed, k = knot_start, n_local - knot_start + offset  # knots 0..k-1
