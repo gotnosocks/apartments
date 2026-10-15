@@ -25,6 +25,11 @@
 # hand with --new-run. Each run's report goes to the journal and to
 # crawls/api/graphql-search/run-N.json, and the script appends a line for each region to
 # /data1/apartments/archive/crawls/streeteasy-collect.log.
+#
+# After the regions, still under the lock, the script runs streeteasy_archive.graphql_export
+# from the same runtime. The export adds the new replies of every run to crawls/api/export,
+# and the script exits 1 if it fails. A backfill stopped by a failed region exits before the
+# export, and the next invocation exports its replies.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -91,6 +96,20 @@ sys.exit(collector.main(sys.argv[1:]))
 EOF
 }
 
+export_raw() {
+  PYTHONPATH="$runtime/src" RUNTIME="$runtime" "$PYTHON" - "$@" <<'EOF'
+import os
+import sys
+
+import streeteasy_archive.graphql_export as exporter
+
+if not exporter.__file__.startswith(os.environ["RUNTIME"] + "/"):
+    sys.exit(f"exporter imported from {exporter.__file__}, not the frozen runtime")
+sys.argv[0] = "streeteasy_archive.graphql_export"
+sys.exit(exporter.main(sys.argv[1:]))
+EOF
+}
+
 if [ "$mode" = topup ] && [ $# -eq 0 ]; then
   if ! names=$(PYTHONPATH="$runtime/src" "$PYTHON" -c \
     'from streeteasy_archive.graphql_search import REGIONS; print(*REGIONS)'); then
@@ -121,4 +140,9 @@ for region in "$@"; do
     [ "$mode" = topup ] || exit "$status"
   fi
 done
+
+status=0
+export_raw --data "$CRAWLS/api" || status=$?
+echo "$(date -Is) $mode: export exit $status" | tee -a "$LOG"
+[ "$status" -eq 0 ] || failed=1
 exit "$failed"
