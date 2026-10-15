@@ -1345,11 +1345,11 @@ class Collector:
 
     @contextmanager
     def _batched(self):
-        """Hold one transaction open over the write phase and commit it every WRITE_BATCH rows.
+        """Hold a transaction open over the write phase, and commit it every WRITE_BATCH rows.
 
-        While the batch is open, each store._tx block runs as a savepoint. A failed step rolls
-        back alone, and an error out of the phase rolls back the open batch, whose rows the
-        next run writes again.
+        While the batch is open, each store._tx block runs as a savepoint. When a step fails,
+        its savepoint undoes that step alone. When an error leaves the phase, the open batch
+        rolls back, and the next run writes its rows again.
         """
         db = self.db
 
@@ -1359,8 +1359,11 @@ class Collector:
             try:
                 yield
             except BaseException:
-                db.execute("ROLLBACK TO step")
-                db.execute("RELEASE step")
+                # After a full disk or an I/O error, SQLite rolls back the whole transaction
+                # itself, and the savepoint is gone.
+                if db.in_transaction:
+                    db.execute("ROLLBACK TO step")
+                    db.execute("RELEASE step")
                 raise
             db.execute("RELEASE step")
 

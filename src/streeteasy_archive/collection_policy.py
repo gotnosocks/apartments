@@ -117,7 +117,12 @@ def refresh_claim_rounds(store, generation, unit=None):
     args = (generation,)
     if unit:
         # With no table statistics, SQLite picks the primary key because it covers the
-        # query, and scans the generation's every membership for each unit page.
+        # query, and scans the generation's every membership for each unit page. Archives
+        # made before the index existed get it here, since INDEXED BY fails without it.
+        store.db.execute(
+            "CREATE INDEX IF NOT EXISTS collection_membership_units"
+            " ON collection_memberships(generation,unit_url)"
+        )
         sql = (
             "SELECT unit_url, listing_key FROM collection_memberships"
             " INDEXED BY collection_membership_units WHERE generation=? AND unit_url=?"
