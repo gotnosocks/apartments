@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-15 12:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -17,13 +17,12 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
   top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16,
   comes a day before the Oct 10 captures behind the site's `manhattan-page-crawl-areas` ads age
-  out on Oct 17. The site counts an ad as on the market for 7 days after its last capture
-  (`CURRENT_DAYS` in `src/apartments/site/captures.py`), the same length as the timer's
-  period. Ads captured early in one Friday's run drop off the site before the next Friday's
-  run reads them again, and a backfill holding `oxylabs.lock` at 05:30 delays the top-up by
-  up to 18 hours. On Oct 15 the Website thread got a request to widen that window.
+  out on Oct 17. The site counts an ad as on the market for 9 days after its last capture
+  (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
+  in #836), so an ad stays on the site through the next Friday's run even when a backfill
+  holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
   The backfill reopens a finished run with `--reopen` and splits search bands holding more
-  than 2,000 ads by area (#834).
+  than 2,000 ads by area (#834), then by map box in a leaf area (Oct 15).
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
