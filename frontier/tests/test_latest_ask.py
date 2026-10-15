@@ -189,3 +189,42 @@ def test_a_sale_with_a_rentals_id_is_skipped(monkeypatch, tmp_path):
     assert latest_ask.listings().loc["7"].changes == [("2025-01-01", 3000.0)]
     extras = listing_extras.build().set_index("listing_id")
     assert json.loads(extras.loc["7"].price_changes) == [["2025-01-01", 3000]]
+
+
+def test_main_reads_several_datasets_from_one_crawl(tmp_path, monkeypatch):
+    import pandas as pd
+
+    loaded, seen = [], {}
+    monkeypatch.setattr(latest_ask, "EXTERNAL_ROOT", tmp_path)
+    monkeypatch.setattr(
+        latest_ask, "_git", lambda *a: "" if a[0] == "status" else "abc1234def"
+    )
+    monkeypatch.setattr(
+        latest_ask.data,
+        "load",
+        lambda d: (
+            loaded.append(str(d))
+            or pd.DataFrame(
+                {
+                    "audit_id": [str(d)],
+                    "building": [str(d)],
+                    "source_listing_id": [str(d)],
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        latest_ask, "listings", lambda crawls: seen.update(crawls) or None
+    )
+    monkeypatch.setattr(
+        latest_ask,
+        "choose",
+        lambda frame, table: frame.assign(
+            first_ask=1000.0, latest_ask=1100.0, how="change"
+        ),
+    )
+    latest_ask.main(["--crawl", "/g", "--tag", "api", "/d1", "/d2"])
+    assert loaded == ["/d1", "/d2"]
+    assert seen == {"crawl": "/g"}
+    (out,) = tmp_path.glob("latest-ask/*-abc1234-api/latest-ask.parquet")
+    assert list(pd.read_parquet(out).audit_id) == ["/d1", "/d2"]
