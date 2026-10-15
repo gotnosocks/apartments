@@ -60,6 +60,7 @@ def implementation_hash():
         "granular_media.py",
         "unit_canonical.py",
         "canonical_units.py",
+        "graphql_listing.py",
     ):
         h.update((Path(__file__).parent / name).read_bytes())
     # Flight text framing changes normalized listing values, so its implementation
@@ -239,7 +240,7 @@ def read_bodies(job, body_root):
 
 
 def process_shard(snapshot, root, part, body_root):
-    from apartments.granular_parse import parse_listing
+    from apartments.graphql_listing import export_building, parse_capture
     from apartments.granular_media import page_type, parse_media_gallery
     from apartments.unit_canonical import canonical_fields
     from streeteasy_archive.scope import objects
@@ -310,7 +311,7 @@ def process_shard(snapshot, root, part, body_root):
                     raise body
                 if body is None:
                     raise ValueError("Missing listing body")
-                row, events = parse_listing(body, url)
+                row, events = parse_capture(body, url)
             except Exception as e:
                 row = {
                     **(canonical_fields(body, url) if isinstance(body, bytes) else {}),
@@ -418,13 +419,19 @@ def process_shard(snapshot, root, part, body_root):
                     )
                 else:
                     slug = urlsplit(url).path.split("/")[2]
-                    primary = next(
-                        (
-                            o
-                            for o in objects(data)
-                            if o.get("slug") == slug and "residentialUnitCount" in o
-                        ),
-                        None,
+                    # An API capture holds the building's record itself.
+                    api = export_building(data)
+                    primary = (
+                        api
+                        if api and api.get("slug") == slug
+                        else next(
+                            (
+                                o
+                                for o in objects(data)
+                                if o.get("slug") == slug and "residentialUnitCount" in o
+                            ),
+                            None,
+                        )
                     )
                     tables.add(
                         "building_observations",

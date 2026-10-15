@@ -3,6 +3,18 @@
 Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
+  cheaper scraper to collect Manhattan below 59th St and Brooklyn north and west of Prospect
+  Park, and to top up the dataset on a schedule. At 22:57 ET he agreed that units' histories may
+  come from the API in place of unit pages, and at 00:37 ET he approved the backfill with north
+  Brooklyn, Crown Heights and Manhattan up to 110th St (not a re-read of crawled areas). Changes to
+  `streeteasy_archive.graphql_search` and `ops/streeteasy-collect` go through the "faster,
+  cheaper" thread; see `docs/data/graphql-collection.md`. Offline on NoMad it needed 86 requests against the page
+  crawl's 13,504 and found 22% more memberships, with every shared ad on the same unit. Archives
+  are `crawls/api-REGION`. Collections take `crawls/oxylabs.lock`; a page crawl started beside
+  them should run under `flock` on the same file so the combined rate stays within 64/min.
+  `apartments-streeteasy-daily.timer` (05:30 ET) reads current ads of every region into
+  `current-listings/api-REGION`; Ben approved its daily cost (relayed, Oct 14 22:29 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
   StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
   `apollo-require-preflight`, 24 buildings/request, browser as fallback). Built as #705
@@ -148,8 +160,8 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
 - **History crawl → current listings** (#664, Ben 19:11 UTC): `apartments.crawl_current_listings`
   turns a finished crawl's newest-ACTIVE ads into `candidates.jsonl` with no requests, dated by
   page capture time. Not published: the Oct 10 capture is newer for those areas.
-- **No daily refresh** of current listings exists; every capture so far was on demand. Proposed
-  to Ben Oct 10 (about 2–3k requests a day, roughly $2–4); awaiting his typed answer.
+- **Daily refresh**: `apartments-streeteasy-daily.timer` (see the GraphQL entry above) replaces
+  the on-demand captures for every area in its regions.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`

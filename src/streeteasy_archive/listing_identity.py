@@ -56,6 +56,15 @@ def capture_evidence(data, url):
             continue
         if isinstance(value, dict):
             candidates.append(value)
+    # An API capture (streeteasy_archive.graphql_search) carries the ad's record in
+    # its parsed body, under data["json"].
+    doc = data.get("json")
+    if (
+        isinstance(doc, dict)
+        and doc.get("source") == "rentalsByListingIds"
+        and isinstance(doc.get("record"), dict)
+    ):
+        candidates.append(doc["record"])
     identified = [x for x in candidates if isinstance(x.get("propertyDetails"), dict)]
     if not identified or any(str(x.get("id")) != identifier for x in identified):
         return None

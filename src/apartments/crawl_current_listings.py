@@ -25,7 +25,7 @@ import sqlite3
 import duckdb
 
 from . import candidate_refresh as refresh
-from . import unit_canonical
+from . import candidate_snapshot, granular_parse, graphql_listing, unit_canonical
 from .corrections import canonical
 from .research_pipeline import digest, publish_bundle
 
@@ -62,6 +62,101 @@ def _body(db, crawl, body_hash):
     data = path.read_bytes()
     data = gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
     return data if hashlib.sha256(data).hexdigest() == body_hash else None
+
+
+def interpret_api(
+    target, observation, body, plan_hash, *, interpreted_at, overlay=None
+):
+    """`candidate_refresh.interpret` for a capture of either kind, page or API.
+
+    The checks and the projection follow `interpret` step by step. The body goes to
+    `graphql_listing.parse_capture`, which sends an API body to the API parser and a page
+    to `granular_parse`, and the provenance names the parser that read it.
+    """
+    result = {
+        "url": target["url"],
+        "unit_id": target["unit_id"],
+        "source_listing_id": target["source_listing_id"],
+        "observation_id": observation["id"],
+        "body_sha256": observation["body_hash"],
+        "collected_at": datetime.fromtimestamp(observation["fetched"], UTC).isoformat(),
+        "interpreted_at": interpreted_at,
+        "status": "failed",
+        "candidate": None,
+    }
+    if observation["error"]:
+        return {**result, "reason": observation["error"]}
+    if not 200 <= observation["status"] < 300:
+        return {**result, "reason": "HTTP " + str(observation["status"])}
+    api = graphql_listing.api_document(body) is not None
+    if not api and refresh.is_challenge(body):
+        return {**result, "reason": "source_challenge"}
+    try:
+        parsed, _ = graphql_listing.parse_capture(body, target["url"])
+    except (ValueError, TypeError, KeyError) as exc:
+        return {**result, "reason": "parse_exception:" + type(exc).__name__}
+    if (
+        parsed.get("listing_id") != target["source_listing_id"]
+        or parsed.get("listing_type") != "rental"
+    ):
+        return {**result, "reason": "advertisement_identity_or_type_mismatch"}
+    if parsed.get("canonical_unit_url") != target["canonical_unit_url"] or parsed.get(
+        "canonical_unit_error"
+    ):
+        return {**result, "reason": "canonical_unit_mismatch"}
+    if (
+        parsed.get("parse_status") != "ok"
+        and parsed.get("error") != "propertyHistory missing or unresolved"
+    ):
+        return {**result, "reason": "ambiguous_or_failed_parse"}
+    unique = "refresh:" + plan_hash[:16] + ":" + str(observation["id"])
+    parsed.update(
+        snapshot_id=unique,
+        collected_at=observation["fetched"],
+        parsed_at=interpreted_at,
+    )
+    membership = {
+        "unit_id": target["unit_id"],
+        "canonical_unit_url": target["canonical_unit_url"],
+        "status": "associated",
+        "rule": "canonical-url-v1",
+    }
+    row, reason = candidate_snapshot.project_capture(
+        parsed,
+        [membership],
+        as_of=interpreted_at,
+        identity_known_at=interpreted_at,
+        overlay=overlay,
+    )
+    if reason:
+        return {**result, "reason": reason}
+    row["refresh_provenance"] = {
+        "plan_sha256": plan_hash,
+        "observation_id": observation["id"],
+        "body_sha256": observation["body_hash"],
+        "requested_url": target["url"],
+        "parser_version": graphql_listing.FIELDS_VERSION
+        if api
+        else granular_parse.VERSION,
+        "parse_status": parsed["parse_status"],
+        "history_warning": parsed.get("error"),
+    }
+    return {**result, "status": "parsed", "candidate": row, "changes": {}}
+
+
+def publish(output, plan, plan_hash, candidates, failures, report):
+    """Write the bundle a current-listings capture keeps in `details/snapshot`."""
+    lines = lambda rows: "".join(canonical(r) + "\n" for r in rows)  # noqa: E731
+    return publish_bundle(
+        Path(output) / "details" / "snapshot",
+        {
+            "candidates.jsonl": lines(candidates),
+            "failures.jsonl": lines(failures),
+            "report.json": canonical(report) + "\n",
+            "crawl-plan.json": canonical(plan) + "\n",
+        },
+        {"version": plan["version"], "plan_sha256": plan_hash},
+    )
 
 
 def build(dataset, snapshot, crawl, output):
@@ -137,17 +232,7 @@ def build(dataset, snapshot, crawl, output):
             max(c["collected_at"] for c in candidates) if candidates else None,
         ],
     }
-    lines = lambda rows: "".join(canonical(r) + "\n" for r in rows)  # noqa: E731
-    publish_bundle(
-        Path(output) / "details" / "snapshot",
-        {
-            "candidates.jsonl": lines(candidates),
-            "failures.jsonl": lines(failures),
-            "report.json": canonical(report) + "\n",
-            "crawl-plan.json": canonical(plan) + "\n",
-        },
-        {"version": VERSION, "plan_sha256": plan_hash},
-    )
+    publish(output, plan, plan_hash, candidates, failures, report)
     return report
 
 
