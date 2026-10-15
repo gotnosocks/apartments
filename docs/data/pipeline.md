@@ -1,7 +1,8 @@
 # Pipeline project
 
 The rebuilt pipeline is a SQLMesh project over DuckDB, in `pipeline/`. So far it builds each
-analysis row's latest ask from the API export, as `rentfrontier.latest_ask` does. The later steps
+analysis row's latest ask from the API export, as `rentfrontier.latest_ask` does, and a log of
+the events the API reported for each ad, with each ad's first ask. The later steps
 in [the pipeline handoff](../handoff/data-pipeline.md) add models to it.
 
 The project keeps its own uv environment and lock, as `frontier/` does. SQLMesh 0.236.3 requires
@@ -53,10 +54,15 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 | `ads.kept_changes` | table | price change left after the placeholder check |
 | `analysis.latest_change` | table | analysis row, with its ad's last kept change while the row stood and its page price |
 | `analysis.latest_ask` | table | analysis row, with its first ask, its latest ask and the step behind the latest |
+| `ads.answers` | table | answer, with the fields the event log reads and a hash of its unit history |
+| `ads.history_events` | table | event in a distinct unit history |
+| `ads.events` | table | event the API reported for an ad, with the answers that reported it |
+| `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
-keys and nulls: one row per listing in `ads.latest_record`, per `(listing_id, n)` in
-`ads.price_changes` and per `ordinal` in the two analysis tables. The `every_row` audit, in
+keys and nulls: one row per listing in `ads.latest_record` and `ads.first_ask`, per
+`(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per
+event in `ads.events` and per `ordinal` in the two analysis tables. The `every_row` audit, in
 `pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
 fails, the plan stops, and the tables from the last good plan stay in place.
 
@@ -66,6 +72,32 @@ To try an edit, I build it in a dev environment beside prod and list the rows it
 uv run --project pipeline sqlmesh -p pipeline plan dev --auto-apply --no-prompts
 uv run --project pipeline sqlmesh -p pipeline table_diff prod:dev -m analysis.latest_ask -o ordinal --show-sample
 ```
+
+## Event log
+
+`ads.events` gathers what the API reported about each ad. An answer reports events from four
+places:
+
+1. the fetch itself, with the ad's status and page price at that moment;
+2. the record's status changes;
+3. the record's price changes;
+4. the unit history, listing the rental events of every ad of the unit.
+
+The model keeps a row for each distinct event, with the fetch times of the first and last
+answers that reported it, the number of those answers and the `response_id` of the first.
+Through `raw.ads`, that id leads back to the export file and its manifest line. `own` marks an
+event reported by the ad's own record.
+
+Each ad's record repeats its unit's whole history, so a unit with n ads holds about n² copies
+of each of its events. Parsing every copy and grouping them in one query ran out of a 3 GB
+memory limit on thelio. So `ads.answers` parses each record once and keeps an MD5 of its
+history's JSON text. `ads.history_events` parses each distinct history once, from the earliest
+answer holding it, and `ads.events` joins those events back to the answers through the hash.
+
+`ads.first_ask` reads the ACTIVE events in each ad's own history and keeps the earliest day,
+with the distinct prices of that day. The current chain prices an ad the same way:
+`project_advertisement` in `apartments.historical_dataset` takes the earliest own ACTIVE rental
+event, sets `price_at` to midnight UTC of its day, and drops an ad with no price or with two.
 
 ## Tests
 
@@ -83,7 +115,7 @@ row. The tests:
    record collected before its row, an ad without answers, an empty latest answer, and rows
    without a building or a bedroom count;
 3. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
-   and the five tables below it and gives the full answer, and a further plan finds nothing to
+   and the seven tables below it and gives the full answer, and a further plan finds nothing to
    build;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -94,9 +126,14 @@ row. The tests:
 7. drop a row from `analysis.latest_ask` in a copy of the project. The `every_row` audit stops
    the plan;
 8. read manifests with a cut-off last line, a repeated line, a rewritten file and a file with
-   two hashes.
+   two hashes;
+9. build the fixture and compare each analysis row's price date and asking rent with its ad's
+   first day and first ask in `ads.first_ask`;
+10. add an answer that repeats an earlier record eight days later. `ads.events` gains the new
+    fetch and nothing else, and each event of the record keeps its first answer and counts one
+    answer more.
 
-They take about 10 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 20 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
@@ -141,3 +178,16 @@ one at a time.
 
 `ops/pipeline/analysis_rows.py` wrote the rows input again from the run's provenance.json in
 15 s at a 2 GB peak, and the result equals the file the build read, row for row.
+
+With the event log's four tables, I built runs 1 to 5 into an empty state in 89 s, at the
+unit's 5 GB cap with DuckDB's limit at 4 GB. `ads.events` holds 23,340,393 events of 2,372,913
+ads. Of those ads, 2,137,998 have answers of their own, and the other 234,915 appear only in the
+unit histories of their siblings' records. `ads.first_ask` gives 2,117,118 ads a first day, with
+one price for 2,116,917 of them and two for 201. For each of the 1,396,053 analysis rows,
+`price_at` is its ad's first day at midnight UTC and `asking_rent` the single price of that day:
+
+```sh
+uv run --project pipeline sqlmesh -p pipeline fetchdf "
+  SELECT count(*) FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
+  WHERE f.listing_id IS NULL OR r.price_at <> f.first_day::TIMESTAMPTZ OR f.prices <> [r.asking_rent]"
+```

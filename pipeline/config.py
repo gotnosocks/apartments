@@ -8,7 +8,9 @@ place, the analysis rows of the current chain. Three environment variables give 
 - `PIPELINE_ROWS`: a Parquet file of analysis rows, as `ops/pipeline/analysis_rows.py` writes it.
 - `PIPELINE_STATE`: the folder for the DuckDB database, its spill files and SQLMesh's cache.
 
-`PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set.
+`PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
+DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
+stream with less memory.
 
 Besides each input's path, the models get a version for it: a SHA-256 over the manifest's path
 and hash for each ads file, and the rows file's own SHA-256. SQLMesh fingerprints each model by
@@ -84,6 +86,7 @@ config = Config(
                 connector_config={
                     "TimeZone": "UTC",
                     "memory_limit": os.environ.get("PIPELINE_MEMORY", "5GB"),
+                    "preserve_insertion_order": False,
                     "temp_directory": str(STATE / "spill"),
                 },
             )

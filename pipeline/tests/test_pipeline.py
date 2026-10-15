@@ -124,6 +124,10 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     ctx = context(monkeypatch, tmp_path / "state", export)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
+        "ads.answers",
+        "ads.events",
+        "ads.first_ask",
+        "ads.history_events",
         "ads.kept_changes",
         "ads.latest_record",
         "ads.price_changes",
@@ -222,6 +226,53 @@ def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     assert got.latest_ask[moved].tolist() == [price]
     assert got.how[moved].tolist() == ["latest"]
     pd.testing.assert_frame_equal(got[~moved], expected[~moved])
+
+
+def test_first_ask_matches_the_rows(tmp_path, monkeypatch):
+    """Each analysis row's price date and asking rent are its ad's first day and first ask."""
+    ctx = context(monkeypatch, tmp_path / "state")
+    ctx.plan(auto_apply=True, no_prompts=True)
+    rows = ctx.fetchdf(
+        """SELECT coalesce(r.price_at = f.first_day::TIMESTAMPTZ, false) AS same_day,
+        coalesce(f.prices = [r.asking_rent], false) AS same_ask
+        FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id"""
+    )
+    assert len(rows) == 229 and rows.same_day.all() and rows.same_ask.all()
+
+
+def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch):
+    """A later answer with the same record reports no event besides its own fetch."""
+    export = copy_export(tmp_path)
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    key = ["listing_id", "source", "kind", "day", "at", "price"]
+    before = ctx.fetchdf("SELECT * FROM ads.events")
+    db = duckdb.connect(config={"TimeZone": "UTC"})
+    answers = db.execute(
+        "SELECT * FROM read_parquet(?) ORDER BY response_id",
+        [str(FIXTURE / "export/ads/*/*.parquet")],
+    ).df()
+    old = answers[answers.outcome == "record"].iloc[[0]]
+    again = old.assign(
+        fetched=old.fetched + pd.Timedelta(days=8),
+        response_id=answers.response_id.max() + 1,
+        run=5,
+    )
+    append_answers(export, again)
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    after = ctx.fetchdf("SELECT * FROM ads.events")
+    both = after.merge(before, on=key, how="outer", indicator=True)
+    added = both[both._merge == "left_only"]
+    assert len(added) == 1 and len(both) == len(after) == len(before) + 1
+    assert added.source.tolist() == ["fetch"]
+    assert added.listing_id.tolist() == [str(old.listing_id.iloc[0])]
+    both = both[both._merge == "both"]
+    assert (both.first_seen_x == both.first_seen_y).all()
+    assert (both.first_response_id_x == both.first_response_id_y).all()
+    seen = both[both.answers_x > both.answers_y]
+    assert len(seen) and (seen.last_seen_x == again.fetched.iloc[0]).all()
+    assert (seen.answers_x == seen.answers_y + 1).all()
 
 
 class Failures(TerminalConsole):
