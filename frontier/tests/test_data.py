@@ -1863,20 +1863,25 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
 
 
-def test_quarantine_v30_adds_four_same_month_twins():
-    """v30 keeps every v29 row and adds the 4 rows the twin readers called
-    misfiled."""
+def test_quarantine_v30_adds_three_same_month_twins():
+    """v30 keeps every v29 row and adds the 3 rows the twin readers called
+    misfiled and review kept."""
     with open(data.QUARANTINE_V29) as f:
         old = [json.loads(line) for line in f]
     with open(data.QUARANTINE_V30) as f:
         rows = [json.loads(line) for line in f]
     assert rows[: len(old)] == old
     added = rows[len(old) :]
-    assert len(added) == 4
+    assert len(added) == 3
     assert {r["action"] for r in added} == {"quarantine_location_conflict"}
     with open(brooklyn.REVIEWS / "duplicate-ad-twin-reads-20261015.jsonl") as f:
         reads = [json.loads(line) for line in f]
-    misfiled = {a for r in reads for a in r["misfiled_audit_ids"]}
+    misfiled = {
+        a
+        for r in reads
+        if "dropped_in_review" not in r
+        for a in r["misfiled_audit_ids"]
+    }
     assert {r["audit_id"] for r in added} == misfiled
     assert "quarantine-v30" in data.DROPPING_RULES
 
