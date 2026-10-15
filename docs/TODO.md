@@ -61,6 +61,12 @@ drop-in center, NYCHA housing, Madison Square Garden.
       3848319 and 4404993 say "remodeled" and get no renovation flag. On NB9, 519 ads say remodel,
       remodeled or remodeling without any form of "renovat". Widening the pattern is a new feature
       version, so the existing pattern stays as it is.
+      Measured 2026-10-15 from the description files: 387 ads say remodel without "renovat"
+      (Stuyvesant Town left out). A Haiku read of 80 of them found 53 about the apartment, 19
+      about the building only and 8 unclear. The served `text:renovated` term is +1.0%, so
+      flagging about 390 more ads at two-thirds precision predicts a LOO change far under the
+      2 SE bar. Held for a fit that tests other text changes, not a Modal fit alone. Sample and
+      labels: `/data1/apartments/tmp/suspect/remodel/`.
 
 **Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
 The review was read-only and measured only the first item, on a CPU rather than the 2060.
