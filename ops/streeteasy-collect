@@ -81,6 +81,7 @@ import streeteasy_archive.graphql_search as collector
 
 if not collector.__file__.startswith(os.environ["RUNTIME"] + "/"):
     sys.exit(f"collector imported from {collector.__file__}, not the frozen runtime")
+sys.argv[0] = "streeteasy_archive.graphql_search"
 sys.exit(collector.main(sys.argv[1:]))
 EOF
 }
