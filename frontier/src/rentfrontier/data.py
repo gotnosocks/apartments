@@ -758,9 +758,9 @@ BEDROOM_CORRECTIONS_V5 = (
 
 
 def correct_bedrooms_v5(frame: pd.DataFrame) -> pd.DataFrame:
-    """v4's rows, then 4 rows of v4's review whose ad states a count with
-    nothing else to back it. For 15 of those rows the stored listing or
-    building unit page links a floor plan. The plans are fetched into
+    """v4's rows, then 4 more rows from v4's review. That review left 64 rows
+    at their coded count because only the ad stated another count. For 15 of
+    the 64, the stored listing or building unit page links a floor plan. The plans are fetched into
     `/data1/apartments/archive/floor-plans/<listing id>/` and read in
     `config/reviews/floor-plans-20261015-bedrooms.jsonl`. A count changes
     when the listing's own page carries a plan whose labels clearly show the
