@@ -39,6 +39,8 @@ READ = (
     REVIEWS / "quarantine-v17-read-20261014.txt",
     REVIEWS / "quarantine-v24-read-20261015.txt",
     REVIEWS / "quarantine-v25-read-20261015.txt",
+    # read and kept: only the ad itself places the apartment in Brooklyn
+    REVIEWS / "brooklyn-read-kept-20261015.txt",
 )
 # Dataset cohorts the screen has run on, one per line; a test checks that each
 # registered dataset is among them.
@@ -59,7 +61,9 @@ NEAR = re.compile(
     r"|historic |trendy |vibrant )?(?:north |south )?(?:brooklyn )?(?:"
     + PLACES
     + r")\b"
-    r"|(?:" + PLACES + r") (?:block|location)\b"
+    r"|(?:" + PLACES + r")(?: south| north)? (?:block|location|area)\b"
+    # names with no Manhattan namesake match on their own
+    r"|\b(?:ditmas park|prospect park south|cortelyou r(?:oa)?d)\b"
     r"|\b112\d\d\b"
 )
 FALSE_ALARMS = re.compile(

@@ -1449,6 +1449,28 @@ def test_brooklyn_screen_skips_known_false_alarms():
     assert hits.audit_id.tolist() == ["a", "e"]
 
 
+def test_brooklyn_screen_finds_bare_ditmas_park_and_cortelyou_wording():
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcd"),
+            "source_listing_id": list("1234"),
+            "building": ["b"] * 4,
+            "unit_id": ["u"] * 4,
+            "neighbourhood": ["Gramercy Park"] * 3 + ["Hell's Kitchen"],
+            "price_at": ["2020-01-01"] * 4,
+        }
+    )
+    text = pd.Series(
+        [
+            "welcome to 319 east 19th st ditmas park - luxury building",
+            "one block from the best restaurants at cortelyou road",
+            "the hottest area of prospect park south!!!",
+            "the midtown west / hell's kitchen / clinton hill area",
+        ]
+    )
+    assert brooklyn.screen(frame, text).audit_id.tolist() == ["a", "b", "c"]
+
+
 def test_every_registered_dataset_is_screened_for_brooklyn_ads():
     """Registering a dataset newer than NB8 means running
     `frontier/scripts/brooklyn_screen.py` on it and adding its cohort to
@@ -1861,7 +1883,9 @@ def test_quarantine_v25_adds_eight_brooklyn_listings():
     with open(brooklyn.MISJOINS) as f:
         misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
     assert added.keys() <= misjoins
-    assert added.keys() == set(brooklyn.READ[-1].read_text().split())
+    assert added.keys() == set(
+        (brooklyn.REVIEWS / "quarantine-v25-read-20261015.txt").read_text().split()
+    )
     assert "quarantine-v25" in data.DROPPING_RULES
 
 
@@ -1884,7 +1908,9 @@ def test_quarantine_v24_adds_four_listings_filed_under_the_wrong_building():
         misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
     brooklyn_rows = {r["audit_id"] for r in added if r["action"] == "brooklyn_misjoin"}
     assert brooklyn_rows <= misjoins
-    read = set(brooklyn.READ[2].read_text().split())
+    read = set(
+        (brooklyn.REVIEWS / "quarantine-v24-read-20261015.txt").read_text().split()
+    )
     assert brooklyn_rows == read
     assert "quarantine-v24" in data.DROPPING_RULES
 
