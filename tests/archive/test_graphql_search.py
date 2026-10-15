@@ -467,25 +467,25 @@ def test_a_band_above_the_cap_splits_into_areas(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
     monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {104: [105, 106]})
-    ids = list(range(1300100, 1300110))
+    ids = list(range(1300100, 1300108))
     api = FakeAPI({}, {}, [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
-    # Three ads in area 103, then three in 105, three in 106 and one in 104 outside both.
-    api.areas = dict(zip(ids, [103] * 3 + [105] * 3 + [106] * 3 + [104]))
+    # Three ads in area 103, then two in 105, two in 106 and one in 104 outside both.
+    api.areas = dict(zip(ids, [103] * 3 + [105] * 2 + [106] * 2 + [104]))
     api.parents = {105: 104, 106: 104}
     c = make_collector(tmp_path / "archive", api, areas=(103, 104))
     c.enumerate()
 
     tree = c.tree()
     assert not tree["pending"] and not tree["truncated"]
-    # The band of 10 splits into the region's areas, and area 104's 7 into its children.
+    # The band of 8 splits into the region's areas, and area 104's 5 into its children.
     assert sorted(tree["leaves"]) == [
         ((2500, 2500, 1, 103, -1), 3),
-        ((2500, 2500, 1, 105, -1), 3),
-        ((2500, 2500, 1, 106, -1), 3),
+        ((2500, 2500, 1, 105, -1), 2),
+        ((2500, 2500, 1, 106, -1), 2),
     ]
     assert tree["gaps"] == [((2500, 2500, 1, 104, -1), 1)]
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
-    assert hits == set(ids[:9])
+    assert hits == set(ids[:7])
     slices = {
         (r["area"], r["direction"])
         for r in c.db.execute("SELECT * FROM graphql_search_slices")
@@ -623,6 +623,11 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     counted = [q for q in api.queries if "perPage: 1," in q]
     assert len(counted) == 1
     assert all(f"areas: [{a}]" in counted[0] for a in (105, 106, 107))
+    # The ID reads go to the three child areas, each from one end.
+    sliced = [q for q in api.queries if "perPage: 3," in q]
+    assert len(sliced) == 1 and sliced[0].count("searchRentals") == 3
+    assert "DESCENDING" not in sliced[0]
+    assert all(f"areas: [{a}]" in sliced[0] for a in (105, 106, 107))
     assert reads(api) == {1300103, 1300104}
     assert {f"{BUILDING_PAGE}/{i - 1300000}a" for i in ids} <= {
         url for url, state in frontier(again).items() if state == "done"

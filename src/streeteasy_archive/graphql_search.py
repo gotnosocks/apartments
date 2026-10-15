@@ -17,7 +17,8 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      each band sorted by listing date. Reads from both ends of that order miss some of the
      ads between them (17 of a band of 1,971 on Oct 15), so the collector splits down to
      1,000 ads rather than reading a band from both ends. A request carries 25 counts, or
-     ID reads of up to 4,000 ads between them, as aliased fields, as many as fit in the URL.
+     up to 25 ID reads of 4,000 ads between them, as aliased fields, as many as fit in the
+     URL.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,
@@ -746,8 +747,8 @@ class Collector:
     def _take(self, kind, queue, limit, size=None):
         """The next job from the queue, as large as `limit` and the URL length allow.
 
-        With `size`, the ads an item's read can give, the job also stops short of more than
-        SLICE_IDS_PER_REQUEST ads.
+        With `size`, the ads an item's read can give, the job holds a single item or items
+        of SLICE_IDS_PER_REQUEST ads or fewer between them.
         """
         n = min(limit, len(queue))
         if size is not None:
@@ -1132,7 +1133,8 @@ class Collector:
         leaves = self.tree()["leaves"]
         size = {node: min(total, CAP) for node, total in leaves}
         wanted = []
-        # The fullest bands go first, four to a request, and the small ones fill the rest.
+        # Requests take the reads in order, fullest band first, so bands of a similar size
+        # share a request.
         for node, total in sorted(leaves, key=lambda leaf: -leaf[1]):
             wanted.append((node, "ASCENDING"))
             if total > CAP:
