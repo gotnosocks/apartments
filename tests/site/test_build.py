@@ -358,7 +358,9 @@ def test_listings_and_buildings_carry_their_neighbourhood(
     )
 
 
-def test_a_current_listing_seen_before_the_window_is_past(bundle, tmp_path, monkeypatch):
+def test_a_current_listing_seen_before_the_window_is_past(
+    bundle, tmp_path, monkeypatch
+):
     # Ben, 2026-10-10: on the market now means seen active within a week; the
     # window runs two days longer to bridge the weekly top-up
     from apartments.site import captures
