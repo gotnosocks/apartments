@@ -5204,9 +5204,16 @@ def areas_v1(
     """A base set's terms other than its neighbourhoods, plus one column per
     StreetEasy area in `areas`, each against the dataset's area left out of
     `areas`. The base's neighbourhood columns compare the NB9 neighbourhoods
-    with Chelsea, so in another part of the city they are zero on every row."""
+    with Chelsea, so in another part of the city they are zero on every row.
+
+    I also drop every base column that takes one value over the whole frame.
+    Some NB9 terms read the West Side grid (wide crosstown streets, WEST street
+    addresses) or the page crawl's capture basis, and on the API backfill they
+    are constant. Checking the whole frame, not the training rows, keeps one
+    column list per dataset across splits."""
     base = FEATURE_SETS[base](frame, train)
-    keep = [i for i, g in enumerate(base.groups) if g != "neighbourhood"]
+    varies = np.ptp(base.values, axis=0) > 0
+    keep = [i for i, g in enumerate(base.groups) if g != "neighbourhood" and varies[i]]
     b = _Builder(frame)
     for area in areas:
         b.add("neighbourhood", area, frame.neighbourhood.eq(area))

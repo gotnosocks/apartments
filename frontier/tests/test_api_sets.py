@@ -9,7 +9,9 @@ from pathlib import Path
 from rentfrontier import data, features
 
 
-def test_areas_v1_swaps_the_base_neighbourhoods_for_areas(monkeypatch):
+def test_areas_v1_swaps_the_base_neighbourhoods_for_areas_and_drops_constants(
+    monkeypatch,
+):
     frame = pd.DataFrame(
         {"neighbourhood": ["A", "B", "C", "A"], "x": [1.0, 2.0, 3.0, 4.0]}
     )
@@ -17,6 +19,7 @@ def test_areas_v1_swaps_the_base_neighbourhoods_for_areas(monkeypatch):
     def base(frame, train):
         b = features._Builder(frame)
         b.add("size", "x", frame.x)
+        b.add("street", "wide street", np.zeros(len(frame)))
         b.add("neighbourhood", "West Village", np.zeros(len(frame)), 0.5)
         return b.build("base")
 
