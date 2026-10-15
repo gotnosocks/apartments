@@ -1437,7 +1437,7 @@ def quarantine_v27(frame: pd.DataFrame) -> pd.DataFrame:
     """v26's rows and 50 listings filed under the wrong building. The screen
     groups ads of 300 characters or more by their normalized text, then keeps
     groups where the same text and unit label appear under two buildings that
-    are not within 10 house numbers on one street.
+    are not within 10 house numbers on one street, with at most 4 listings to a group.
     Sonnet readers decided each of the 120 groups from the ad text, PLUTO facts
     for each building and the unit label's history in each building;
     `config/reviews/duplicate-ad-screen-reads-20261015.jsonl` records each read
@@ -1463,8 +1463,8 @@ QUARANTINE_V28 = QUARANTINE_V20.with_name("quarantine-v28-20261015.jsonl")
 def quarantine_v28(frame: pd.DataFrame) -> pd.DataFrame:
     """v27's rows and 3 more listings filed under the wrong building, from the
     18 duplicate-ad groups v27 kept because readers decided them from unit
-    history alone. I fetched the floor plans linked from those groups'
-    stored listing pages: 5 images on 5 listings in 4 groups. A Sonnet reader
+    history alone. The floor plans linked from those groups' stored listing
+    pages came to 5 images on 5 listings in 4 groups. A Sonnet reader
     transcribed each plan's printed text, and
     `config/reviews/duplicate-ad-floor-plans-20261015.jsonl` records each read.
 
