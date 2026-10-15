@@ -66,15 +66,26 @@ no code in `src/` reads it:
 - the price history's display text, the similar-homes carousel and nearby-area links
 
 For each building, the collector also asks the API for the fields of the building page's
-object it offers: the description, green, land-lease and waterfront flags, the complex, the
-leasing and sales start dates (`additionalDetails`), photo and video keys, the IDs of the
-building's ads for rent and for sale, an owner-data flag, the last-change time and `nearby`.
+object it offers:
+
+- the description, the green, land-lease and waterfront flags, and the complex
+- the leasing and sales start dates (`additionalDetails`)
+- the hero image key, the photo and floor-plan keys, the video URLs and the 3D tour URL
+- the IDs of the building's ads for rent and for sale, which the collector can read with
+  `rentalsByListingIds` like any other ad
+- an owner-data flag, the last-change time and `nearby`
+
 The page splits `nearby` into its 5 transit stations and its 5 colleges, 5 museums and 5
 parks, and the API gives the same lists. The API disables introspection, so I couldn't find
-the subfields of `displayPreferences` and left it out. Building pages also show nearby
-schools, the documents link and the flags `hasPropertyDocs` and `hasActiveBuildingShowcase`
-in the building object, and similar buildings, the lists of rentals and sales, the management
-company and a photo gallery outside it. The API's `Building` type offers no fields for these.
+the subfields of `displayPreferences` and left it out. In the building object, the page also
+holds nearby schools, a documents link and the flags `hasPropertyDocs` and
+`hasActiveBuildingShowcase`. Outside it, the page shows similar buildings, the management
+company and the cards of the building's ads. The API's `Building` type offers no fields for
+the schools, the documents, the two flags, similar buildings or the management company.
+
+The collector reads each building once in a generation, so a building read before this change
+keeps its older record. The `crawls/api` archive had read no buildings when the change
+merged, so every building record in it has these fields.
 
 ## Regions
 
