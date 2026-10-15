@@ -80,6 +80,8 @@ import hashlib
 import itertools
 import json
 import math
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -133,9 +135,25 @@ PLUTO_COLUMNS = (
 )
 
 
+def _urlopen(url, timeout, tries: int = 5, wait: float = 5.0):
+    """urllib.request.urlopen, retried with doubling waits on a server error
+    (HTTP 5xx), a dropped connection or a timeout. Socrata answers some of a
+    long run's requests with 500 or 503 and the same request then succeeds."""
+    for attempt in range(tries):
+        try:
+            return urllib.request.urlopen(url, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or attempt == tries - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == tries - 1:
+                raise
+        time.sleep(wait * 2**attempt)
+
+
 def _socrata(dataset: str, params: dict) -> list[dict]:
     url = f"{SOCRATA}/{dataset}.json?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=60) as r:
+    with _urlopen(url, timeout=60) as r:
         return json.loads(r.read())
 
 
@@ -206,11 +224,9 @@ SUBWAY_COLUMNS = (
 def fetch_subway() -> tuple[pd.DataFrame, list[str], dict]:
     params = {"$select": ", ".join(SUBWAY_COLUMNS), "$limit": 5000}
     url = f"{NY_SOCRATA}/resource/{SUBWAY_ID}.json?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=60) as r:
+    with _urlopen(url, timeout=60) as r:
         rows = json.loads(r.read())
-    with urllib.request.urlopen(
-        f"{NY_SOCRATA}/api/views/{SUBWAY_ID}.json", timeout=60
-    ) as r:
+    with _urlopen(f"{NY_SOCRATA}/api/views/{SUBWAY_ID}.json", timeout=60) as r:
         meta = json.loads(r.read())
     table = pd.DataFrame(rows, columns=list(SUBWAY_COLUMNS))
     for c in ("gtfs_latitude", "gtfs_longitude"):
@@ -285,9 +301,7 @@ def fetch_basemap(box) -> tuple[pd.DataFrame, list[str], dict]:
                 }
             )
         queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
-        with urllib.request.urlopen(
-            f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
-        ) as r:
+        with _urlopen(f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60) as r:
             meta = json.loads(r.read())
         versions[dataset] = {
             "name": meta.get("name"),
@@ -356,9 +370,7 @@ def fetch_footprints(registry: pd.DataFrame, batch: int = 100, page: int = 2000)
                 )
             queries.append(f"{FOOTPRINTS_ID}?{urllib.parse.urlencode(params)}")
     table = pd.DataFrame(rows).drop_duplicates(subset=["bin", "base_bbl", "geometry"])
-    with urllib.request.urlopen(
-        f"{NYC_OPEN_DATA}/api/views/{FOOTPRINTS_ID}.json", timeout=60
-    ) as r:
+    with _urlopen(f"{NYC_OPEN_DATA}/api/views/{FOOTPRINTS_ID}.json", timeout=60) as r:
         meta = json.loads(r.read())
     version = {
         "name": meta.get("name"),
@@ -408,9 +420,7 @@ def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
                 if len(got) < page:
                     break
     table = pd.DataFrame(rows, columns=list(HPD_COLUMNS)).drop_duplicates("violationid")
-    with urllib.request.urlopen(
-        f"{NYC_OPEN_DATA}/api/views/{HPD_ID}.json", timeout=60
-    ) as r:
+    with _urlopen(f"{NYC_OPEN_DATA}/api/views/{HPD_ID}.json", timeout=60) as r:
         meta = json.loads(r.read())
     version = {
         "name": meta.get("name"),
@@ -588,7 +598,7 @@ def _release_chunks():
             request = urllib.request.Request(
                 f"{PLUTO_ARCHIVE}/{name}", headers={"User-Agent": "Mozilla/5.0"}
             )
-            with urllib.request.urlopen(request, timeout=900) as r:
+            with _urlopen(request, timeout=900) as r:
                 while chunk := r.read(1 << 20):
                     tmp.write(chunk)
             tmp.seek(0)
@@ -704,9 +714,7 @@ LPC_COLUMNS = (
 
 
 def _version(dataset: str) -> dict:
-    with urllib.request.urlopen(
-        f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
-    ) as r:
+    with _urlopen(f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60) as r:
         meta = json.loads(r.read())
     return {
         "name": meta.get("name"),
@@ -765,16 +773,14 @@ def fetch_noise(box, page: int = 50_000):
                     "$offset": offset,
                 }
                 url = f"{SOCRATA}/{dataset}.json?{urllib.parse.urlencode(params)}"
-                with urllib.request.urlopen(url, timeout=600) as r:
+                with _urlopen(url, timeout=600) as r:
                     got = json.loads(r.read())
                 rows += [{k: r.get(k) for k in NOISE_COLUMNS} for r in got]
                 queries.append(f"{dataset}?{urllib.parse.urlencode(params)}")
                 if len(got) < page:
                     break
                 offset += page
-        with urllib.request.urlopen(
-            f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60
-        ) as r:
+        with _urlopen(f"{NYC_OPEN_DATA}/api/views/{dataset}.json", timeout=60) as r:
             meta = json.loads(r.read())
         versions[dataset] = {
             "name": meta.get("name"),
@@ -818,7 +824,7 @@ MSG = (40.75051, -73.99341)
 
 def _rows(dataset: str, params: dict) -> tuple[list[dict], str]:
     query = urllib.parse.urlencode({**params, "$limit": 50_000})
-    with urllib.request.urlopen(f"{SOCRATA}/{dataset}.json?{query}", timeout=300) as r:
+    with _urlopen(f"{SOCRATA}/{dataset}.json?{query}", timeout=300) as r:
         rows = json.loads(r.read())
     if len(rows) >= 50_000:
         raise SystemExit(f"{dataset}: a full page; split the query")
@@ -848,7 +854,7 @@ def fetch_places(box) -> tuple[pd.DataFrame, list[str], dict]:
         data=urllib.parse.urlencode({"data": OSM_DOG_PARKS}).encode(),
         headers={"User-Agent": "apartments-research/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=120) as r:
+    with _urlopen(request, timeout=120) as r:
         osm = json.loads(r.read())
     queries.append(f"{OVERPASS}?data={OSM_DOG_PARKS}")
     for e in osm["elements"]:
@@ -1010,7 +1016,7 @@ def fetch_gtfs(path: Path) -> dict:
     import io
     import zipfile
 
-    with urllib.request.urlopen(GTFS_URL, timeout=120) as r:
+    with _urlopen(GTFS_URL, timeout=120) as r:
         body = r.read()
     with zipfile.ZipFile(io.BytesIO(body)) as z:
         info = pd.read_csv(z.open("feed_info.txt"), dtype=str).iloc[0].to_dict()
