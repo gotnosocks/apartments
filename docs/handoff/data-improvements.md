@@ -1,6 +1,19 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 00:40 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 23:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 23:45 ET
+
+quarantine-v24 (#815, merged) answers Modeling's check of three buildings where NB9 C mixed slowly.
+Scratch is `/data1/apartments/tmp/suspect/ess3`.
+- 222 E 17th St 3B and 3BB: one Brooklyn ad ("elevator laundry building", Prospect Park South) on a
+  lot PLUTO lists as a 4-story, 4-unit walk-up. Both rows are in `brooklyn.MISJOINS`, with a new read
+  list. `brooklyn.NEAR` misses "prospect park south location"; widening it is open.
+- 318 E 15th St 20C (two listings): PLUTO gives 12 stories, so no 20th floor.
+- 4 Perry St 2E stays: nothing beyond the odd label contradicts PLUTO (3 stories, 5 units).
+- Modeling was told the rule is ready; 4 rows is negligible, so the refit is its call.
+- The building registry for NB9 is `features.NB9_REGISTRY_FILE` with `NB9_PLUTO_FILE`; the
+  default `REGISTRY_FILE` covers only the 1,129 old Chelsea and West Village buildings.
 
 ## 2026-10-15 00:40 ET
 
