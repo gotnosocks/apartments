@@ -75,9 +75,10 @@ request up to three times when the connection fails, Oxylabs answers 429 or 5xx,
 result comes back with no status or content, and counts it as failed after the third. It
 waits 5 and then 10 seconds between tries, or as long as a 429 or 5xx asks, up to 120.
 After a failed request for several items, the collector retries each half, and a single
-item gets three tries. Each step reads its progress from the tables, so the same command resumes an unfinished run. --reopen
-resumes the region's latest run even after it finished, so a newer collector can count
-and read the bands from its finer split. --new-run starts a fresh run.
+item gets three tries. Each step reads its progress from the tables, so the same command
+resumes an unfinished run. --reopen resumes the region's latest run even after it finished,
+so a newer collector can count and read the bands from its finer split. --new-run starts a
+fresh run.
 
 Limits:
   - About 12% of NoMad's ads have no `slug` in their record. With no canonical unit page,
