@@ -241,9 +241,11 @@ requests at 15 box counts to a request. No band of any run held an ad in a box a
 New York. The box split now starts from the four boxes at depth 18 around the five boroughs
 (`root_boxes`), each 0.35 degrees of latitude by 0.70 of longitude. Their numbers match the
 tree from box 1, so a reopen reuses a run's counts of these boxes and the boxes below them.
-An ad placed outside the four boxes would show up in the report as a gap of its area band.
-For a region the size of run 3, I expect the two changes to save about 250 requests (about
-$0.29) of an enumeration.
+Of run 3's 101 box bands, 36 came apart at depth 13, where a split at latitude 40.78125
+crosses Manhattan, and a reopen would count those again from the four boxes. An ad placed
+outside the four boxes would show up in the report as a gap of its area band. For a region
+the size of run 3, I expect the two changes to save about 250 requests (about $0.29) of an
+enumeration.
 
 ## The four regions' backfill and dataset (Oct 15)
 

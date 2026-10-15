@@ -89,8 +89,9 @@ Limits:
   - Some ads match the price filter of more than one band, and an ad on the edge between
     two boxes can match both, so a band's halves can hold more ads between them than the
     band, and most of the report's gaps are negative.
-  - An ad with no map position falls outside every box. The collector misses it, and the
-    report counts it in the gap of the band where the box split starts.
+  - An ad with no map position, or with a position outside the four boxes around New York,
+    falls outside every box. The collector misses it, and the report counts it in the gap
+    of the band where the box split starts.
   - When more than 1,000 ads of a band share a box a microdegree across, the collector
     reads the box from both ends of the listing-date order and misses some of the ads
     between them. The report lists such bands as truncated.
