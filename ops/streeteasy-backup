@@ -53,6 +53,7 @@ rm -f "$BACKUP"/db/*.partial
 # creates an empty -wal and -shm beside the archive, as any reader does. VACUUM INTO writes a
 # compacted copy with no WAL beside it.
 if ! /usr/bin/python3 - "$ARCHIVE/archive.sqlite3" "$partial" <<'EOF'; then
+import os
 import sqlite3
 import sys
 
@@ -63,13 +64,17 @@ db.close()
 result = sqlite3.connect(target).execute("PRAGMA quick_check").fetchall()
 if result != [("ok",)]:
     sys.exit(f"quick_check on the copy: {result[:5]}")
+fd = os.open(target, os.O_RDONLY)
+os.fsync(fd)
+os.close(fd)
 EOF
   rm -f "$partial"
   fail "database copy of $ARCHIVE/archive.sqlite3"
 fi
-sync "$partial"
+# The heredoc above flushed the copy to disk, and flushing the folder after the rename keeps
+# the new name. Thelio's sync command flushes every filesystem, so the script calls fsync.
 mv "$partial" "$copy"
-sync "$BACKUP/db"
+/usr/bin/python3 -c 'import os, sys; fd = os.open(sys.argv[1], os.O_RDONLY); os.fsync(fd)' "$BACKUP/db"
 
 ls -1 "$BACKUP"/db/archive-2*Z.sqlite3 | sort -r | tail -n +"$((KEEP + 1))" | xargs -r rm -f
 
