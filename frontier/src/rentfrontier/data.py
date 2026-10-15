@@ -770,6 +770,24 @@ def correct_bedrooms_v5(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v4(frame), "bedrooms-ad-v5")
 
 
+BEDROOM_CORRECTIONS_V6 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v6-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v6(frame: pd.DataFrame) -> pd.DataFrame:
+    """v5's rows, then 13 studios from a second bedroom review. The bedroom
+    check now also flags a studio asking more than its building's
+    one-bedrooms or two-bedrooms, and a reader read each newly flagged row's
+    ads in full (`config/reviews/ad-fit-reads-20261015-studios.jsonl`). A
+    studio takes the ad's count when another ad for the unit, a stated size
+    or the floor plan on the listing's own page backs it
+    (`config/reviews/floor-plans-20261015-studios.jsonl`). Flex wording such
+    as "convertible" or "set up as" backs nothing. Every row is kept; only
+    `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v5(frame), "bedrooms-ad-v6")
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -1292,6 +1310,17 @@ def quarantine_v22(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V22))]
 
 
+QUARANTINE_V23 = QUARANTINE_V20.with_name("quarantine-v23-20261015.jsonl")
+
+
+def quarantine_v23(frame: pd.DataFrame) -> pd.DataFrame:
+    """v22's rows and 56 studios of the second bedroom review
+    (`config/reviews/ad-fit-reads-20261015-studios.jsonl`), held out on v22's
+    test: no ad for the unit states a count, and the row's own ad says
+    nothing about the apartment."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V23))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1606,6 +1635,7 @@ DATA_RULES = {
     "bedrooms-ad-v3": correct_bedrooms_v3,
     "bedrooms-ad-v4": correct_bedrooms_v4,
     "bedrooms-ad-v5": correct_bedrooms_v5,
+    "bedrooms-ad-v6": correct_bedrooms_v6,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1628,6 +1658,7 @@ DATA_RULES = {
     "quarantine-v20": quarantine_v20,
     "quarantine-v21": quarantine_v21,
     "quarantine-v22": quarantine_v22,
+    "quarantine-v23": quarantine_v23,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1673,6 +1704,7 @@ RULE_SOURCES = {
     "quarantine-v20": QUARANTINE_V20,
     "quarantine-v21": QUARANTINE_V21,
     "quarantine-v22": QUARANTINE_V22,
+    "quarantine-v23": QUARANTINE_V23,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1700,6 +1732,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
     "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
     "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
+    "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
@@ -1726,6 +1759,7 @@ DROPPING_RULES = (
     "quarantine-v20",
     "quarantine-v21",
     "quarantine-v22",
+    "quarantine-v23",
 )
 
 

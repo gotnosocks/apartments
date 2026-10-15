@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V22)
+    ) | data.quarantined(data.QUARANTINE_V23)
 
 
 @pytest.mark.parametrize(
@@ -1806,6 +1806,57 @@ def test_quarantine_v22_adds_the_blank_studios_of_the_bedroom_review():
     assert v22.keys() - v21.keys() == held.keys()
     assert all(v22[a]["evidence"] == r["quote"] for a, r in held.items())
     assert "quarantine-v22" in data.DROPPING_RULES
+
+
+def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
+    """Each v6 row is a studio read with the `correct_bedrooms` verdict and a
+    second signal; plan-backed rows cite a clear plan from the listing's own
+    page. v5's rows apply first."""
+    with open(data.BEDROOM_CORRECTIONS_V6) as f:
+        fixes = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/ad-fit-reads-20261015-studios.jsonl") as f:
+        reads = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/floor-plans-20261015-studios.jsonl") as f:
+        plans = {p["audit_id"]: p for p in map(json.loads, f)}
+    took = {a for a, r in reads.items() if r["verdict"] == "correct_bedrooms"}
+    assert len(fixes) == 13 and took == fixes.keys()
+    for a, fix in fixes.items():
+        assert fix["recorded"] == reads[a]["bedrooms_coded"] == 0
+        assert fix["corrected"] == reads[a]["bedrooms"] > 0
+        assert reads[a]["second_signal"]
+        if reads[a]["second_signal"].startswith("floor plan"):
+            p = plans[a]
+            assert p["plan_page"] == "StreetEasy listing page" and p["plan_clear"]
+            assert (
+                p["plan_bedrooms"] == fix["corrected"] and p["plan"] in fix["evidence"]
+            )
+    frame = pd.DataFrame(
+        {"audit_id": [next(iter(fixes)), "other"], "bedrooms": [9.0, 2.0]}
+    )
+    out = data.correct_bedrooms_v6(frame)
+    assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v23_adds_the_blank_studios_of_the_studio_review():
+    """v23 holds out v22's rows unchanged, plus each studio-review read with
+    the `quarantine_bedrooms_unknown` verdict, quoting the read's whole ad."""
+    with open(data.QUARANTINE_V22) as f:
+        v22 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V23) as f:
+        v23 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/ad-fit-reads-20261015-studios.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    held = {
+        r["audit_id"]: r for r in reads if r["verdict"] == "quarantine_bedrooms_unknown"
+    }
+    assert len(held) == 56
+    assert all(
+        r["bedrooms_coded"] == 0 and r["quote_is_whole_ad"] for r in held.values()
+    )
+    assert all(v23[a] == v22[a] for a in v22)
+    assert v23.keys() - v22.keys() == held.keys()
+    assert all(v23[a]["evidence"] == r["quote"] for a, r in held.items())
+    assert "quarantine-v23" in data.DROPPING_RULES
 
 
 def test_quarantine_v21_adds_the_stock_wording_hold_outs():

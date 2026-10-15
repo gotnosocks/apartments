@@ -1,6 +1,20 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 22:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-14 23:30 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-14 23:30 ET
+
+Studios above the one-bedrooms (branch `data/bedrooms-ad-v6`): bedrooms-ad-v6 and quarantine-v23.
+- `adfit.bedroom_conflicts` now also flags a studio asking more than its building's 1BR median
+  plus 0.1 (log rent, after the area adjustment) or more than its 2BR median. On NB9 that flagged
+  719 studios outside v4's reads and v22's hold-outs; Sonnet readers read every ad in full. Scratch
+  is `/data1/apartments/tmp/suspect/bd6` (`final.py` writes the config files).
+- 13 studios take the ad's count: 12 backed by a stated size or another ad for the unit, 1 by the
+  plan on the listing's own page (10 plans fetched). Two ads with flex wording ("convertible", "set
+  up as") keep 0. Studios with a described bedroom but no count keep 0, as in v4.
+- 56 blank or placeholder studios are held out on v22's test (v23).
+- Next: 5 rows the check flags have no read yet (327 W 21st, The Archive, Casa 155 W 21st,
+  209 E 4th, Hydra Place).
 
 ## 2026-10-14 22:00 ET
 
