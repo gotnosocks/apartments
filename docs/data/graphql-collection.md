@@ -182,6 +182,47 @@ filter for 0 or more bedrooms counts the whole band. The dataset below holds 154
 with 8 to 255 bedrooms and none without a bedroom count. The bedroom split now gives a ninth
 band, 8 bedrooms or more, after the bands of 0 to 7, and a reopen counts and reads it.
 
+## Reads from both ends of a band (Oct 15)
+
+The bedroom reopen took 50 requests ($0.06) and left no positive gap in any run. Each
+region's count, taken in the run's first request, still stood above the ad IDs its searches
+had found:
+
+| run | region | count | IDs found | difference | bands read from both ends |
+|---|---|---:|---:|---:|---:|
+| 1 | `manhattan-below-59th` | 495,253 | 494,353 | 900 | 112 |
+| 2 | `brooklyn-prospect-park` | 264,043 | 263,732 | 311 | 45 |
+| 3 | `manhattan-59th-110th` | 555,457 | 553,675 | 1,782 | 227 |
+| 4 | `brooklyn-north-crown-heights` | 658,118 | 657,349 | 769 | 205 |
+
+Every ID read of a band of 1,000 ads or fewer gave as many IDs as the band's count. Filters
+for a price of 0 or more, a price from 0 to 100 million and 0 or more bedrooms each counted
+the same ads as the whole region (`full_vs_hits.py` in the probe folder, 4 requests), so no
+ad lacks a price or a bedroom count. That left the bands read from both ends. With
+`two_ends.py` (1 request) I read two of run 3's bands in each direction. A $4,300
+one-bedroom band of 1,005 ads gave 1,002 IDs between its two reads, and a $1,950 one-bedroom
+band of 1,971 ads gave 1,954. The search seems to order ads with the same listing date
+differently in each direction, so the two reads miss ads in the middle even in a band of
+fewer than 2,000. At 4 to 8 missing ads per band, these bands account for the differences
+in the table.
+
+So the collector now splits a band of a single price and bedroom count into areas, child
+areas and map boxes until each part holds 1,000 ads or fewer, and reads each part from one
+end. It still reads a box a microdegree across from both ends when the box holds more than
+1,000 ads, and the report lists that band as truncated.
+
+The first enumeration probe put 4 ID reads in a request, with no test behind the number.
+With `packed_slices.py` (1 request), a request carrying 20 ID reads of run 3's bands, 3,838
+ads between them, came back whole in 4.9 seconds, with a 7,832-character URL and a 100 KB
+answer. Twenty-five such reads would have needed a 9,803-character URL, over the collector's
+limit of 8,000. The collector now packs ID reads by their ads: the fullest bands go first,
+and a request takes reads of up to 4,000 ads between them, or as many as fit in the URL.
+For the four runs' bands of 1,000 ads or fewer, this packing takes 532 requests, against
+1,379 at four reads to a request. The 589 bands read from both ends split into 4,682 bands
+at the first level below them. I expect the reopen of the four runs to take 500 to 800
+requests (about $0.60 to $0.90), and a fresh enumeration of the four regions to take about
+1,700 requests, against the 2,374 the backfill runs spent on counts and ID reads.
+
 ## The four regions' backfill and dataset (Oct 15)
 
 | run | region | requests | dollars | search hits |

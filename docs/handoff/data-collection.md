@@ -21,8 +21,8 @@ Updated 2026-10-15 13:20 ET. Thread owner: the Data collection project thread (b
   (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
   holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
-  The backfill reopens a finished run with `--reopen` and splits search bands holding more
-  than 2,000 ads by area (#834), then by map box in a leaf area (#843). The four regions'
+  The backfill reopens a finished run with `--reopen` and splits search bands by area
+  (#834), then by map box in a leaf area (#843), until each holds 1,000 ads or fewer (#850). The four regions'
   backfill finished on Oct 15 at 12:43 ET with no truncated band, in 9,134 requests ($10.41).
   The dataset `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445
   units), its aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015`

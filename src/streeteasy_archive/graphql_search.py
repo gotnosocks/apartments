@@ -9,13 +9,16 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      results for a query but gives a total count for any filter, so the collector counts
      the region in fixed price bands. It splits a band holding more than 1,000 ads in half
      by price, and it splits a single price into bedroom counts 0 to 7 and a band of 8 or
-     more bedrooms. It reads the IDs in each band sorted by listing date, from both ends
-     for a band of a single price and bedroom count above 1,000. Since the two ends give at
-     most 2,000 IDs, it splits such a band holding more than that into the region's areas,
-     and an area in SUBAREAS into its child areas. A band still above 2,000 in an area with
-     no child areas goes into map boxes: the collector halves the map by latitude, halves
-     each half by longitude, and goes on halving each box holding more than 2,000 ads
-     (box_edges). A request carries 25 counts or 4 ID reads as aliased fields.
+     more bedrooms. It splits a band of a single price and bedroom count holding more than
+     1,000 ads into the region's areas, and an area in SUBAREAS into its child areas. A
+     band still above 1,000 in an area with no child areas goes into map boxes: the
+     collector halves the map by latitude, halves each half by longitude, and goes on
+     halving each box holding more than 1,000 ads (box_edges). Then it reads the IDs in
+     each band sorted by listing date. Reads from both ends of that order miss some of the
+     ads between them (17 of a band of 1,971 on Oct 15), so the collector splits down to
+     1,000 ads rather than reading a band from both ends. A request carries 25 counts, or
+     up to 25 ID reads of 4,000 ads between them, as aliased fields, as many as fit in the
+     URL.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,
@@ -85,9 +88,9 @@ Limits:
     band, and most of the report's gaps are negative.
   - An ad with no map position falls outside every box. The collector misses it, and the
     report counts it in the gap of the band where the box split starts.
-  - When more than 2,000 ads of a band share a box a microdegree across, the collector
-    misses the ads between the two ends of that box. The report lists such bands as
-    truncated.
+  - When more than 1,000 ads of a band share a box a microdegree across, the collector
+    reads the box from both ends of the listing-date order and misses some of the ads
+    between them. The report lists such bands as truncated.
   - When the API has no record for a unit's latest ad, the policy excludes the unit's other
     ads for a missing unit membership.
 """
@@ -145,7 +148,10 @@ MIN_LISTING_ID = 1_210_000
 PRICE = 1.14 / 1000  # dollars per Oxylabs request
 CAP = 1000  # searchRentals answers offset + perPage <= 1,000
 COUNTS_PER_REQUEST = 25
-SLICES_PER_REQUEST = 4
+SLICES_PER_REQUEST = 25
+# On Oct 15 a request with 20 ID reads, 3,838 ads between them, came back whole in
+# about 100 KB.
+SLICE_IDS_PER_REQUEST = 4000
 IDS_PER_FIELD = 100  # rentalsByListingIds answers at most 100 IDs in a field
 FIELDS_PER_REQUEST = 5
 MAX_BATCH = IDS_PER_FIELD * FIELDS_PER_REQUEST
@@ -738,9 +744,20 @@ class Collector:
         url = API_HOST + "?" + urllib.parse.urlencode({"query": query})
         return Job(kind, list(items), fields, url)
 
-    def _take(self, kind, queue, limit):
-        """The next job from the queue, as large as `limit` and the URL length allow."""
+    def _take(self, kind, queue, limit, size=None):
+        """The next job from the queue, as large as `limit` and the URL length allow.
+
+        With `size`, the ads an item's read can give, the job holds a single item or items
+        of SLICE_IDS_PER_REQUEST ads or fewer between them.
+        """
         n = min(limit, len(queue))
+        if size is not None:
+            ads = 0
+            for i, item in enumerate(islice(queue, n)):
+                ads += size(item)
+                if i and ads > SLICE_IDS_PER_REQUEST:
+                    n = i
+                    break
         while True:
             job = self._job(kind, list(islice(queue, n)))
             if len(job.url) <= MAX_URL:
@@ -752,7 +769,7 @@ class Collector:
             queue.popleft()
         return job
 
-    def _run(self, kind, items, limit):
+    def _run(self, kind, items, limit, size=None):
         queue = deque(items)
         self.retry = deque()
 
@@ -760,7 +777,8 @@ class Collector:
             if self.retry:
                 return self.retry.popleft()
             if queue:
-                return self._take(kind, queue, limit() if callable(limit) else limit)
+                n = limit() if callable(limit) else limit
+                return self._take(kind, queue, n, size)
             return None
 
         self._drain(next_job)
@@ -1087,10 +1105,7 @@ class Collector:
                 out["unanswered"].append(node)
                 continue
             kids = children(node, self.areas)
-            # The two ends of a band give up to 2,000 IDs, so a band of a single price and
-            # bedroom count splits into areas or boxes only above that.
-            limit = 2 * CAP if kids and kids[0][:3] == node[:3] else CAP
-            if kids and total > limit:
+            if kids and total > CAP:
                 stack.extend(kids)
                 if all(isinstance(counts.get(k), int) for k in kids):
                     gap = total - sum(counts[k] for k in kids)
@@ -1098,7 +1113,7 @@ class Collector:
                         out["gaps"].append((node, gap))
             elif total > 0:
                 out["leaves"].append((node, total))
-                if total > 2 * CAP:
+                if total > CAP:
                     out["truncated"].append((node, total))
         out["total"] = counts[FULL]
         return out
@@ -1115,12 +1130,21 @@ class Collector:
                 (self.run,),
             )
         }
+        leaves = self.tree()["leaves"]
+        size = {node: min(total, CAP) for node, total in leaves}
         wanted = []
-        for node, total in self.tree()["leaves"]:
+        # Requests take the reads in order, fullest band first, so bands of a similar size
+        # share a request.
+        for node, total in sorted(leaves, key=lambda leaf: -leaf[1]):
             wanted.append((node, "ASCENDING"))
             if total > CAP:
                 wanted.append((node, "DESCENDING"))
-        self._run("slice", [w for w in wanted if w not in done], SLICES_PER_REQUEST)
+        self._run(
+            "slice",
+            [w for w in wanted if w not in done],
+            SLICES_PER_REQUEST,
+            lambda item: size[item[0]],
+        )
 
     def read_set(self):
         """The ad IDs to read next, all at or above the policy's cutoff.

@@ -437,7 +437,7 @@ def test_enumeration_splits_bands_down_to_bedrooms(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 2000, 3000])
     monkeypatch.setattr(gs, "TOP_BEDS", 2)
-    search = [(1300100 + i, 2500.0, 1.0, "ACTIVE") for i in range(5)]
+    search = [(1300100 + i, 2500.0, 1.0, "ACTIVE") for i in range(3)]
     search += [(1300200, 2500.0, None, "ACTIVE"), (1300300, 1000.0, 0.0, "ACTIVE")]
     # Bedroom count 2 is the top band, so it holds the ad with 4 bedrooms.
     search += [(1300400, 2500.0, 4.0, "ACTIVE")]
@@ -446,58 +446,51 @@ def test_enumeration_splits_bands_down_to_bedrooms(tmp_path, monkeypatch):
     c.enumerate()
 
     tree = c.tree()
-    assert tree["total"] == 8 and not tree["pending"]
+    assert tree["total"] == 6 and not tree["pending"]
     assert sorted(tree["leaves"]) == [
         ((0, 2000, -1, -1, -1), 1),
-        ((2500, 2500, 1, -1, -1), 5),
+        ((2500, 2500, 1, -1, -1), 3),
         ((2500, 2500, 2, -1, -1), 1),
     ]
     assert tree["gaps"] == [((2500, 2500, -1, -1, -1), 1)]
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
-    # Five ads at one price and bedroom count: read from both ends of the listing order.
-    assert hits == {1300100, 1300101, 1300102, 1300103, 1300104, 1300300, 1300400}
+    assert hits == {1300100, 1300101, 1300102, 1300300, 1300400}
     directions = {
         (r["lo"], r["direction"])
         for r in c.db.execute("SELECT * FROM graphql_search_slices")
     }
-    assert directions == {(0, "ASCENDING"), (2500, "ASCENDING"), (2500, "DESCENDING")}
+    assert directions == {(0, "ASCENDING"), (2500, "ASCENDING")}
 
 
-def test_a_band_too_full_for_both_ends_splits_into_areas(tmp_path, monkeypatch):
+def test_a_band_above_the_cap_splits_into_areas(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
     monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {104: [105, 106]})
-    ids = list(range(1300100, 1300112))
+    ids = list(range(1300100, 1300108))
     api = FakeAPI({}, {}, [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
-    # Four ads in area 103, then three in 105, four in 106 and one in 104 outside both.
-    api.areas = dict(zip(ids, [103] * 4 + [105] * 3 + [106] * 4 + [104]))
+    # Three ads in area 103, then two in 105, two in 106 and one in 104 outside both.
+    api.areas = dict(zip(ids, [103] * 3 + [105] * 2 + [106] * 2 + [104]))
     api.parents = {105: 104, 106: 104}
     c = make_collector(tmp_path / "archive", api, areas=(103, 104))
     c.enumerate()
 
     tree = c.tree()
     assert not tree["pending"] and not tree["truncated"]
-    # The band of 12 splits into the region's areas, and area 104's 8 into its children.
+    # The band of 8 splits into the region's areas, and area 104's 5 into its children.
     assert sorted(tree["leaves"]) == [
-        ((2500, 2500, 1, 103, -1), 4),
-        ((2500, 2500, 1, 105, -1), 3),
-        ((2500, 2500, 1, 106, -1), 4),
+        ((2500, 2500, 1, 103, -1), 3),
+        ((2500, 2500, 1, 105, -1), 2),
+        ((2500, 2500, 1, 106, -1), 2),
     ]
     assert tree["gaps"] == [((2500, 2500, 1, 104, -1), 1)]
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
-    assert hits == set(ids[:11])
+    assert hits == set(ids[:7])
     slices = {
         (r["area"], r["direction"])
         for r in c.db.execute("SELECT * FROM graphql_search_slices")
     }
-    assert slices == {
-        (103, "ASCENDING"),
-        (103, "DESCENDING"),
-        (105, "ASCENDING"),
-        (106, "ASCENDING"),
-        (106, "DESCENDING"),
-    }
+    assert slices == {(103, "ASCENDING"), (105, "ASCENDING"), (106, "ASCENDING")}
 
 
 def test_a_band_too_full_for_its_area_splits_into_map_boxes(tmp_path, monkeypatch):
@@ -505,27 +498,26 @@ def test_a_band_too_full_for_its_area_splits_into_map_boxes(tmp_path, monkeypatc
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
     monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {})
-    ids = list(range(1300100, 1300110))
+    ids = list(range(1300100, 1300109))
     api = FakeAPI({}, {}, [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
-    # Four ads in a building in Chelsea, three on the Upper West Side, two on the Upper
+    # Three ads in a building in Chelsea, three on the Upper West Side, two on the Upper
     # East Side and one with no place.
     chelsea, west, east = (
         (40_745_000, -74_001_000),
         (40_787_000, -73_975_000),
         (40_773_000, -73_957_000),
     )
-    api.places = dict(zip(ids, [chelsea] * 4 + [west] * 3 + [east] * 2))
+    api.places = dict(zip(ids, [chelsea] * 3 + [west] * 3 + [east] * 2))
     c = make_collector(tmp_path / "archive", api)
     c.enumerate()
 
     tree = c.tree()
     assert not tree["pending"] and not tree["truncated"]
-    # The band of 10 splits into the halves of the map, and the half holding its ads into
-    # smaller and smaller boxes, until each box holds 6 ads or fewer. The ad with no place
+    # The band of 9 splits into the halves of the map, and the half holding its ads into
+    # smaller and smaller boxes, until each box holds 3 ads or fewer. The ad with no place
     # falls outside both halves.
     assert tree["gaps"] == [((2500, 2500, 1, -1, -1), 1)]
-    # A box south of 40.78125 degrees holds Chelsea's and the Upper East Side's 6.
-    assert sorted(t for _, t in tree["leaves"]) == [3, 6]
+    assert sorted(t for _, t in tree["leaves"]) == [2, 3, 3]
     for node, total in tree["leaves"]:
         south, north, west_edge, east_edge = gs.box_edges(node[4])
         inside = [
@@ -535,7 +527,25 @@ def test_a_band_too_full_for_its_area_splits_into_map_boxes(tmp_path, monkeypatc
         ]
         assert len(inside) == total
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
-    assert hits == set(ids[:9])
+    assert hits == set(ids[:8])
+
+
+def test_id_reads_pack_into_requests_by_their_ads(tmp_path, monkeypatch):
+    monkeypatch.setattr(gs, "CAP", 3)
+    monkeypatch.setattr(gs, "EDGES", [0, 1000, 2000, 3000, 4000, 5000])
+    monkeypatch.setattr(gs, "SLICE_IDS_PER_REQUEST", 6)
+    # Price bands holding 3, 3, 2, 1 and 1 ads.
+    prices = [500] * 3 + [1500] * 3 + [2500] * 2 + [3500, 4500]
+    search = [(1300100 + i, float(p), 1.0, "ACTIVE") for i, p in enumerate(prices)]
+    api = FakeAPI({}, {}, search)
+    c = make_collector(tmp_path / "archive", api)
+    c.enumerate()
+
+    sliced = [q for q in api.queries if "perPage: 3," in q]
+    # The two full bands go first, then the three small bands share a request.
+    assert [q.count("searchRentals") for q in sliced] == [2, 3]
+    hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
+    assert hits == {r[0] for r in search}
 
 
 def without_box_split(monkeypatch):
@@ -577,8 +587,8 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     ids = list(range(1300100, 1300108))
     ads = {str(i): record(i, f"{i - 1300000}a", "ACTIVE", 2500, 1, [i], i) for i in ids}
     api = FakeAPI(ads, world()[1], [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
-    api.areas = {i: 105 if i < 1300104 else 106 for i in ids}
-    api.parents = {105: 104, 106: 104}
+    api.areas = dict(zip(ids, [105] * 3 + [106] * 3 + [107] * 2))
+    api.parents = {105: 104, 106: 104, 107: 104}
     archive = tmp_path / "archive"
     split = without_box_split(monkeypatch)
     first = make_collector(archive, api, areas=(104,))
@@ -591,7 +601,7 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     first.store.close()
 
     monkeypatch.setattr(gs, "children", split)
-    monkeypatch.setattr(gs, "SUBAREAS", {104: [105, 106]})
+    monkeypatch.setattr(gs, "SUBAREAS", {104: [105, 106, 107]})
     api.queries.clear()
     again = make_collector(archive, api, areas=(104,), reopen=True)
     assert again.run == first.run
@@ -609,10 +619,15 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     report = again.collect()
     assert report["invocation"]["stopped"] is None
     assert not report["enumeration"]["truncated"]
-    # A request counts the two child areas, and the rest of the tree keeps its counts.
+    # A request counts the three child areas, and the rest of the tree keeps its counts.
     counted = [q for q in api.queries if "perPage: 1," in q]
     assert len(counted) == 1
-    assert "areas: [105]" in counted[0] and "areas: [106]" in counted[0]
+    assert all(f"areas: [{a}]" in counted[0] for a in (105, 106, 107))
+    # The ID reads go to the three child areas, each from one end.
+    sliced = [q for q in api.queries if "perPage: 3," in q]
+    assert len(sliced) == 1 and sliced[0].count("searchRentals") == 3
+    assert "DESCENDING" not in sliced[0]
+    assert all(f"areas: [{a}]" in sliced[0] for a in (105, 106, 107))
     assert reads(api) == {1300103, 1300104}
     assert {f"{BUILDING_PAGE}/{i - 1300000}a" for i in ids} <= {
         url for url, state in frontier(again).items() if state == "done"
@@ -630,21 +645,24 @@ def test_reopen_splits_a_finished_runs_truncated_area_band_into_boxes(
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
     monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {})
-    ids = list(range(1300100, 1300110))
+    ids = list(range(1300100, 1300109))
     ads = {str(i): record(i, f"{i - 1300000}a", "ACTIVE", 2500, 1, [i], i) for i in ids}
     api = FakeAPI(ads, world()[1], [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
     api.areas = {i: 105 for i in ids}
-    # Five ads in a building on the Upper West Side, then five on the Upper East Side.
-    api.places = {
-        i: (40_787_000, -73_975_000) if i < 1300105 else (40_773_000, -73_957_000)
-        for i in ids
-    }
+    # Three ads in a building on the Upper West Side, three on the Upper East Side and
+    # three in Chelsea.
+    places = [
+        (40_787_000, -73_975_000),
+        (40_773_000, -73_957_000),
+        (40_745_000, -74_001_000),
+    ]
+    api.places = {i: places[(i - 1300100) // 3] for i in ids}
     archive = tmp_path / "archive"
     split = without_box_split(monkeypatch)
     first = make_collector(archive, api, areas=(103, 105))
     report = first.collect()
-    assert report["enumeration"]["truncated"] == [((2500, 2500, 1, 105, -1), 10)]
-    middle = {1300103, 1300104, 1300105, 1300106}
+    assert report["enumeration"]["truncated"] == [((2500, 2500, 1, 105, -1), 9)]
+    middle = {1300103, 1300104, 1300105}
     assert reads(api) == set(ids) - middle
     drop_band_columns(first, "box")
     first.store.close()
@@ -656,7 +674,7 @@ def test_reopen_splits_a_finished_runs_truncated_area_band_into_boxes(
     report = again.collect()
     assert report["invocation"]["stopped"] is None
     assert not report["enumeration"]["truncated"]
-    assert sorted(t for _, t in again.tree()["leaves"]) == [5, 5]
+    assert sorted(t for _, t in again.tree()["leaves"]) == [3, 3, 3]
     # Every count of the reopened run halves a box of the area's band.
     counted = [q for q in api.queries if "perPage: 1," in q]
     assert counted and all("areas: [105]" in q and "boundingBox" in q for q in counted)
