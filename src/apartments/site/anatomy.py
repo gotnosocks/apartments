@@ -53,6 +53,7 @@ DEFAULTS = {
     "bedroom_time": False,
     "area_time": False,
     "bedroom_slope": False,
+    "bedroom_slope_min_rows": 0,
     "feature_slopes": (),
     "learned_feature_groups": (),
     "trend_knot_months": 1,
@@ -646,7 +647,13 @@ def describe(model: dict | None, sizes: dict | None = None) -> Anatomy | None:
         "building",
         "Building's price per bedroom",
         c["bedroom_slope"],
-        plain="Each building has its own price for an extra bedroom, around the market's.",
+        plain="Each building has its own price for an extra bedroom, around the market's."
+        + (
+            f" Only buildings with {c['bedroom_slope_min_rows']} or more listings in each"
+            " of two bedroom counts get one; the rest take the market's."
+            if c.get("bedroom_slope_min_rows")
+            else ""
+        ),
         prior=(
             f"κ ~ Normal(0, σ_κ), σ_κ ~ HalfNormal({_num(c['bedroom_slope_scale_sd'])}); "
             "beds counted up to 4"
