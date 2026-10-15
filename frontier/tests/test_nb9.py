@@ -197,3 +197,39 @@ def test_wholefloor_needs_the_ad_and_the_lot_to_agree(monkeypatch):
     assert out.names == ["whole house", "full floor"]
     assert out.values[:, 0].tolist() == [1, 0, 0, 0, 0, 1, 0, 0]
     assert out.values[:, 1].tolist() == [0, 0, 1, 0, 0, 1, 0, 0]
+
+
+def test_lots2_twins_read_the_corrected_registry():
+    """Each lots2 set is its NB9 set's builder, in the same groups, reading the
+    re-geocoded registry and the lot sources fetched on it, with NB9's
+    descriptions and extras."""
+    groups = {
+        k: v for k, v in vars(features).items() if k.isupper() and isinstance(v, set)
+    }
+    twin = {like: name for name, like in features.NB9_LOTS2_SETS.items()}
+    for name, like in features.NB9_LOTS2_SETS.items():
+        new, old = features.FEATURE_SETS[name], features.FEATURE_SETS[like]
+        assert new.func is old.func
+        base = old.keywords["base"]
+        assert new.keywords == {
+            **old.keywords,
+            "id": name,
+            "base": twin.get(base, base),
+        }
+        assert {k for k, v in groups.items() if name in v} == {
+            k for k, v in groups.items() if like in v
+        }
+        assert features.lot_files(name) == {
+            "registry": features.NB9_LOTS2_REGISTRY_FILE,
+            "pluto": features.NB9_LOTS2_PLUTO_FILE,
+        }
+        assert features.area_files(name) == {
+            "basemap": features.NB9_LOTS2_BASEMAP_FILE,
+            "footprints": features.NB9_LOTS2_FOOTPRINTS_FILE,
+        }
+        assert features.LPC_SNAPSHOTS[name] == features.NB9_LOTS2_LPC_FILE
+        assert features.PLUTO_RELEASES_SNAPSHOTS[name] == (
+            features.NB9_LOTS2_PLUTO_RELEASES_FILE
+        )
+        assert features.description_files(name) == features.description_files(like)
+        assert features.EXTRAS_SNAPSHOTS[name] == features.EXTRAS_SNAPSHOTS[like]

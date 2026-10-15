@@ -5143,6 +5143,56 @@ for _new in ("nb9-nostuy-wholefloor-v1",):
     ):
         _snapshots[_new] = _snapshots["nb9-nostuy-v1"]
 
+# The NB9 registry with 14 buildings re-geocoded from their own building
+# page's address (config/reviews/registry-overrides-20261015-floors.json):
+# reverse geocoding had put towers such as One Columbus Place and River Place
+# on a neighbouring school, garage, park or vacant lot. The lot sources are
+# fetched again on that registry; descriptions and extras are NB9's.
+NB9_LOTS2_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261015-a959a8c/buildings.parquet"
+)
+NB9_LOTS2_PLUTO_FILE = "/data1/apartments/external/pluto/20261015-a959a8c/pluto.parquet"
+NB9_LOTS2_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261015-a959a8c/footprints.parquet"
+)
+NB9_LOTS2_BASEMAP_FILE = (
+    "/data1/apartments/external/basemap/20261015-a959a8c/basemap.parquet"
+)
+NB9_LOTS2_LPC_FILE = "/data1/apartments/external/lpc/20261015-a959a8c/lpc.parquet"
+NB9_LOTS2_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261015-a959a8c/plutoreleases.parquet"
+)
+NB9_LOTS2_SETS = {
+    "nb9-nostuy-lots2-v1": "nb9-nostuy-v1",
+    "nb9-nostuy-wholefloor-lots2-v1": "nb9-nostuy-wholefloor-v1",
+}
+FEATURE_SETS["nb9-nostuy-lots2-v1"] = partial(
+    FEATURE_SETS["nb9-nostuy-v1"], id="nb9-nostuy-lots2-v1"
+)
+FEATURE_SETS["nb9-nostuy-wholefloor-lots2-v1"] = partial(
+    wholefloor_v1,
+    id="nb9-nostuy-wholefloor-lots2-v1",
+    base="nb9-nostuy-lots2-v1",
+)
+for _new, _old in NB9_LOTS2_SETS.items():
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {
+        "registry": NB9_LOTS2_REGISTRY_FILE,
+        "pluto": NB9_LOTS2_PLUTO_FILE,
+    }
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB9_LOTS2_BASEMAP_FILE,
+        "footprints": NB9_LOTS2_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = DESCRIPTION_SOURCES[_old]
+    EXTRAS_SNAPSHOTS[_new] = EXTRAS_SNAPSHOTS[_old]
+    LPC_SNAPSHOTS[_new] = NB9_LOTS2_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_LOTS2_PLUTO_RELEASES_FILE
+
 
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
