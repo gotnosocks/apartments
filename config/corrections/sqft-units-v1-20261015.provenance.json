@@ -5,16 +5,21 @@
  "base_rules": "current rules after bedrooms-ad-v6 and quarantine-v23",
  "screen": "sized rows more than 1.5x off the geometric mean of the unit's other sized rows: 227",
  "reads": "config/reviews/sqft-units-reads-20261015.jsonl",
- "rows": 32,
+ "rows": 12,
  "by_basis": {
-  "unit": 28,
-  "line": 4
+  "unit": 10,
+  "line": 2
  },
- "read_verdicts": {
-  "correct": 35,
-  "different_apartment": 2,
-  "ad_states_recorded": 5,
-  "unclear": 1
- },
- "skipped_bedrooms_differ": 3
+ "outcomes": {
+  "keep: a backing ad's size statement mentions outdoor space or a total": 6,
+  "keep: fewer than 2 backing listings with the same bedroom count": 4,
+  "correct": 12,
+  "keep: new size no nearer the 1-bedroom median (700) than the recorded one": 2,
+  "keep: new size no nearer the 0-bedroom median (480) than the recorded one": 2,
+  "keep: second read unclear": 1,
+  "keep: first read unclear": 1,
+  "keep: new size no nearer the 2-bedroom median (1021) than the recorded one": 7,
+  "keep: backing listings share one ad copy": 5,
+  "keep: first read ad_states_recorded": 3
+ }
 }

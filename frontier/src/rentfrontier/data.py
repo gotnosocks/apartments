@@ -795,18 +795,23 @@ SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jso
 
 def correct_square_feet_v1(frame: pd.DataFrame) -> pd.DataFrame:
     """Square feet taken from the apartment's other listings. On the NB9 rows we
-    compared each sized row with the same unit's other sized rows and kept those
-    off by more than 1.5x (227 rows). A row gets a new size when either
+    compared each sized row with the same unit's other sized rows and found 227
+    rows off by more than 1.5x. 43 of them had a size to take:
 
-    - at least two other listings of the unit, under different listing ids,
-      agree within 10% (28 rows), or
-    - at least two other units of its line with the same bedroom count agree
-      within 10% (4 rows).
+    - at least two other listings of the unit agree within 10%, or
+    - at least two other units of the line agree within 10%,
 
-    A reader read each row's own ad first. We left the row as recorded when the
-    ad states the recorded size itself, describes a different apartment, or the
-    unit's other listings give another bedroom count. Every row is kept; only
-    `square_feet` changes."""
+    in both cases with the row's bedroom count. We then kept the recorded size
+    when
+      - the backing listings repeat one ad's copy,
+      - a backing ad's size counts a terrace or gives a total,
+      - the new size sits no nearer the bedroom count's median size than the
+        recorded one, or
+      - a reader found the listing's own ad stating the recorded size, or
+        describing a different apartment, or could not tell.
+    12 rows take the new size; `config/reviews/sqft-units-reads-20261015.jsonl`
+    gives every candidate's outcome and the quotes the second reader copied.
+    Every row is kept; only `square_feet` changes."""
     with open(RULE_SOURCES["sqft-units-v1"]) as f:
         rows = {r["audit_id"]: r["corrected"] for r in map(json.loads, f)}
     out = frame.copy()
