@@ -14,7 +14,7 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
-     service answers every field of a read near the current ceiling with GATEWAY_TIMEOUT,
+     service answers every field of a read near the current size with GATEWAY_TIMEOUT,
      the collector cuts the most ads it puts in a request to three quarters of that read, no
      lower than 100, for the rest of the invocation. Each record is the `RentalListing`
      object of the ad's page. Besides the search hits, the collector reads the latest ad of
@@ -704,10 +704,10 @@ class Collector:
         data = data if isinstance(data, dict) else {}
         shape = dict if job.kind in ("count", "slice") else list
         if not any(isinstance(data.get(alias), shape) for alias in job.fields):
-            # Retry halves fall below three quarters of the ceiling, and the ceiling stays
-            # put when one of them times out.
+            # A retry half of a read at the current size falls below three quarters of it,
+            # and the ceiling stays put when the half times out.
             if job.kind == "ads" and _timed_out(doc):
-                if len(job.items) > self.ad_ceiling * 3 // 4:
+                if len(job.items) > self._ad_batch() * 3 // 4:
                     cut = max(IDS_PER_FIELD, len(job.items) * 3 // 4)
                     self.ad_ceiling = min(self.ad_ceiling, cut)
             self._retry(job.kind, job.items)

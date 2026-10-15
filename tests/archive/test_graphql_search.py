@@ -675,6 +675,16 @@ def test_a_timed_out_read_makes_later_reads_smaller(tmp_path):
         c._handle(c._job("ads", list(range(1_300_000, 1_300_000 + size))), timed_out)
     assert c._ad_batch() == 100
 
+    c = make_collector(tmp_path / "other", make_api())
+    with c.store._tx():
+        c.db.execute(
+            "INSERT INTO graphql_search_responses(kind, entries, bytes) VALUES('ads', 100, 840000)"
+        )
+    assert c._ad_batch() == 357
+    c.retry = deque()
+    c._handle(c._job("ads", list(range(1_300_000, 1_300_357))), timed_out)
+    assert c._ad_batch() == 267
+
 
 def test_search_fields_and_bands():
     assert gs.search_field(
