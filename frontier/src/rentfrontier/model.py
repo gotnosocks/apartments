@@ -1868,6 +1868,30 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # slopemin3 with each building's walk kept only where the building has at
+    # least 1 training row per walk knot of its data range; the rest follow
+    # the market trend at their building level.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-walkmin1": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-walkmin1",
+        building_walk=True,
+        walk_min_rows_per_knot=1.0,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # The served size-unknown design (option C) with the log-linear residual
     # scale in place of one scale per bedroom group and year.
     "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise-sizeunkslope": ModelConfig(

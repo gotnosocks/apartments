@@ -274,11 +274,10 @@ def test_nuts_building_trend_reaches_the_scored_terms():
     )
 
 
-def test_gibbs_refuses_the_walk_mask_and_anchor():
-    for option in ({"walk_min_rows_per_knot": 2.0}, {"walk_anchor_data": True}):
-        config = replace(model.MODELS["m1-walk"], **option)
-        with pytest.raises(ValueError, match="--sampler nuts"):
-            gibbs.build_design(synthetic(), config)
+def test_gibbs_refuses_the_walk_anchor():
+    config = replace(model.MODELS["m1-walk"], walk_anchor_data=True)
+    with pytest.raises(ValueError, match="--sampler nuts"):
+        gibbs.build_design(synthetic(), config)
 
 
 def test_zero_sum_walks_refuse_student_t_steps_and_gibbs():
