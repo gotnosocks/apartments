@@ -4,8 +4,9 @@ StreetEasy links some Brooklyn listings to a Manhattan building page. The agent
 types a Brooklyn address such as "316 7th Avenue", StreetEasy files it under
 the Manhattan building with the same number and street name, and the ad itself
 places the apartment in Park Slope, Clinton Hill or by Barclays Center.
-`quarantine-v17` holds out the rows found so far, with the reason code
-`brooklyn_misjoin`, and `MISJOINS` records each one's evidence for a later remap
+`quarantine-v17` holds out the rows its screen found, `quarantine-v24` and
+`quarantine-v25` add 10 from later checks, all with the reason code `brooklyn_misjoin`, and
+`MISJOINS` records each one's evidence for a later remap
 to the right Brooklyn building.
 
 `screen` looks for the Brooklyn place names in each row's ad text. It reads no
@@ -36,6 +37,10 @@ MISJOINS = REVIEWS / "brooklyn-misjoins-20261014.jsonl"
 READ = (
     REVIEWS / "quarantine-v16-read-20261014.txt",
     REVIEWS / "quarantine-v17-read-20261014.txt",
+    REVIEWS / "quarantine-v24-read-20261015.txt",
+    REVIEWS / "quarantine-v25-read-20261015.txt",
+    # read and kept: only the ad itself places the apartment in Brooklyn
+    REVIEWS / "brooklyn-read-kept-20261015.txt",
 )
 # Dataset cohorts the screen has run on, one per line; a test checks that each
 # registered dataset is among them.
@@ -56,7 +61,9 @@ NEAR = re.compile(
     r"|historic |trendy |vibrant )?(?:north |south )?(?:brooklyn )?(?:"
     + PLACES
     + r")\b"
-    r"|(?:" + PLACES + r") (?:block|location)\b"
+    r"|(?:" + PLACES + r")(?: south| north)? (?:block|location|area)\b"
+    # names with no Manhattan namesake match on their own
+    r"|\b(?:ditmas park|prospect park south|cortelyou r(?:oa)?d)\b"
     r"|\b112\d\d\b"
 )
 FALSE_ALARMS = re.compile(

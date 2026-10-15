@@ -1,6 +1,97 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 23:30 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 00:28 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 00:28 ET
+
+Same ad under two buildings: quarantine-v27 (#823), merged.
+- I hashed every NB9 ad of 300 characters or more after normalizing its text (scratch in
+  `/data1/apartments/tmp/suspect/dupad`; `screen.py`, `pick.py`, `packets.py`, `final.py`,
+  `build.py`). 804 hashes appear under more than one building. Most pairs are next-door sister
+  buildings sharing a landlord's copy, which costs little.
+- `pick.py` keeps groups where a unit label appears under two buildings
+  that are not within 10 house numbers on one street. 120 groups and 276 rows remained. Many are
+  a dropped or mistyped digit in the address (14 E 23rd filed as 14 E 2nd, 315 W 46th as 315 W
+  4th).
+- Sonnet readers saw the ad, PLUTO facts for each building and the unit's history in each.
+  v27 holds 50 rows, each backed by the address or a landmark in the ad, or by a building that
+  cannot hold the unit. 9 of them were in v3 to v9 and released in v10. 70 groups stay in: 18
+  decided from unit history alone, 18 that are one building under two slugs, and 34 undecided.
+  Reads are in `config/reviews/duplicate-ad-screen-reads-20261015.jsonl`.
+- Left open: the 18 history-only groups (floor plans could decide some), and the 684 groups
+  with no shared unit label or with near-neighbor buildings.
+- Modeling has been told about v26 and v27.
+
+## 2026-10-15 00:20 ET
+
+Midtown West place and use screen: quarantine-v26 (#821), merged.
+- Before this, Hell's Kitchen had 2 location conflicts and Hudson Yards had none. I ran the
+  `quarantine_v13_screen` terms over both. For far streets I used west streets 1 to 24 or 72 and
+  up, plus any east street, because the script's far-street check is set up for Chelsea. That
+  gave 422 rows in 391 groups (scratch in `/data1/apartments/tmp/suspect/mw-q`), and Sonnet
+  subagents read every group.
+- v26 holds 5 rows. Each has backing beyond its own ad:
+  - 1330577 (414 W 44th) and 5081524 (438 W 52nd) are location conflicts. Their ad text also
+    appears in listings for 411 E 6th #2B and 53 Leroy C1A, and no other listing carries it.
+  - 1727387 (461 W 43rd, PLUTO commercial area), 2128488 (unit label OFFICE) and 4300273
+    (447 W 36th, PLUTO class O8 with 1 apartment) are offices.
+- I kept 10 flagged groups, with reasons in
+  `config/reviews/midtown-west-screen-reads-20261015.jsonl`. Two use "Clinton" for Hell's
+  Kitchen, six have only the ad text, and one is joined to a vacant lot. The tenth is a Worldwide
+  Plaza townhouse with a W 49th St address, which is where those townhouses have their entrances.
+- A scan of NB9 text for Queens, Bronx and New Jersey place names gave 13 hits. All of them were
+  false alarms, such as an agency's office address or a price comparison.
+- Modeling's slopemin3 NB9 fit uses quarantine-v26.
+
+## 2026-10-15 00:00 ET
+
+Brooklyn listings under Manhattan buildings, wider pass: quarantine-v25 (#818) and the screen
+change in #819, both merged.
+- I widened the screen by hand over NB9 (scratch in `/data1/apartments/tmp/suspect/bk9`; `build.py`
+  writes the misjoin entries). quarantine-v25 holds 8 rows as `brooklyn_misjoin`:
+  - 7 at `317-east-19-street-new_york`, where seven ads for seven units name 319 and 323 E 19th
+    St, Ditmas Park and the B/Q at Cortelyou.
+  - 346 E 9th #1R, whose ad describes a four-family house while PLUTO lists 21 apartments.
+- I dropped 2961745 (312 E 21st #5H, filed under 344 2nd Ave) from v25 because only its own ad
+  backs the Brooklyn reading. Its audit id is in `config/reviews/brooklyn-read-kept-20261015.txt`,
+  which `brooklyn.READ` includes, so the screen skips it.
+- The registry joins 344 2nd Ave and 317 E 19th St to W1 school lots with 0 units. I don't count
+  lot class there as evidence.
+- #819 makes `brooklyn.NEAR` match "Ditmas Park", "Prospect Park South" and "Cortelyou Road" on
+  their own. On NB9 the only new unread hit was 2961745. The v24 and v25 tests now read their
+  lists by file name.
+- Modeling has been told about both. It reported that its NB9 queue lines use quarantine-v25.
+  #819 changes no rule, so it needs no refit.
+
+## 2026-10-14 23:45 ET
+
+quarantine-v24 (#815, merged) answers Modeling's check of three buildings where NB9 C mixed slowly.
+Scratch is `/data1/apartments/tmp/suspect/ess3`.
+- 222 E 17th St 3B and 3BB: one Brooklyn ad ("elevator laundry building", Prospect Park South) on a
+  lot PLUTO lists as a 4-story, 4-unit walk-up. Both rows are in `brooklyn.MISJOINS`, with a new read
+  list. `brooklyn.NEAR` misses "prospect park south location"; widening it is open.
+- 318 E 15th St 20C (two listings): PLUTO gives 12 stories, so no 20th floor.
+- 4 Perry St 2E stays: nothing beyond the odd label contradicts PLUTO (3 stories, 5 units).
+- Modeling was told the rule is ready; 4 rows is negligible, so the refit is its call.
+- For building lookups, note that the NB9 registry is `features.NB9_REGISTRY_FILE` with `NB9_PLUTO_FILE`; the
+  default `REGISTRY_FILE` covers only the 1,129 old Chelsea and West Village buildings.
+
+## 2026-10-14 23:35 ET
+
+Square feet against the unit's other listings: sqft-units-v1 (#813, merged).
+- On NB9 under the current rules, 227 sized rows sit more than 1.5x off the geometric mean of the
+  same unit's other sized rows (946 rows past 1.25x, 32 past 2x). Scratch is
+  `/data1/apartments/tmp/suspect/sqft9` (`screen.py`, `line.py`, `tight.py`, `final2.py`).
+- 43 had a size to take, from at least 2 other listings of the unit or 2 other units of its line
+  with the same bedroom count, agreeing within 10%. After the reviewer's points we refused rows
+  whose backing repeats one ad's copy, counts a terrace or a total, or whose new size is no nearer
+  the bedroom count's median than the recorded one. A Haiku pass and then a Sonnet pass with
+  exact quotes read the ads. 12 rows take the new size; every candidate's outcome is in
+  `config/reviews/sqft-units-reads-20261015.jsonl`.
+- 12 rows is far under `autoselect.NEGLIGIBLE_SHARE`, so the served fit stays eligible and
+  Modeling has been told. No fit is needed for it.
+- Left open: the 184 conflicts with no backing either way, mostly pairs of two listings. A floor
+  plan or a stated size would decide some of them, if the size term ever shows these rows matter.
 
 ## 2026-10-14 23:30 ET
 
@@ -13,12 +104,14 @@ Studios above the one-bedrooms (branch `data/bedrooms-ad-v6`): bedrooms-ad-v6 an
   plan on the listing's own page (10 plans fetched). Two ads with flex wording ("convertible", "set
   up as") keep 0. Studios with a described bedroom but no count keep 0, as in v4.
 - 56 blank or placeholder studios are held out on v22's test (v23).
-- Size backing compares the stated size with the coded and new counts' medians only, as v4 did.
-  The #809 reviewer noted 123 E 7th (750 sq ft) and 785 9th Ave (800 sq ft) went 0 to 2 though
-  nearer the 1BR median, and four 0 to 1 sizes sit nearer the 2BR median. A later version could
-  require the size to be nearest the new count among all levels, across v4 to v6 together.
-- Next: 5 rows the check flags have no read yet (327 W 21st, The Archive, Casa 155 W 21st,
-  209 E 4th, Hydra Place).
+- The 5 flagged rows left unread after v6 (327 W 21st, The Archive, Casa 155 W 21st, 209 E 4th,
+  Hydra Place) were read later: each stays as coded, with 3 matching the code and 2 with no count.
+  Reads are in `/data1/apartments/tmp/suspect/bd7/reads.jsonl`.
+- The #809 reviewer suggested a stricter size test (size nearest the new count among all levels).
+  It would undo most size-backed rows in v4 to v6, such as The Archive lofts at 1,008 to 1,362 sq ft
+  and 57 5th Ave, because a size above both medians shows a large unit and not which larger count it
+  has. I kept v4's comparison of the coded and claimed counts.
+- `text:renovated` misses "remodeled": measured and held (see `docs/TODO.md`).
 
 ## 2026-10-14 22:00 ET
 

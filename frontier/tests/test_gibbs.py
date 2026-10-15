@@ -102,6 +102,10 @@ DESIGNS = {
     "walk12": model.ModelConfig(building_walk=True, walk_knot_months=12),
     "bedtime-slope": model.ModelConfig(bedroom_time=True, bedroom_slope=True),
     "all": model.ModelConfig(building_walk=True, bedroom_time=True, bedroom_slope=True),
+    # Masks about half the synthetic buildings' slopes.
+    "slopemin": model.ModelConfig(
+        building_walk=True, bedroom_slope=True, bedroom_slope_min_rows=6
+    ),
     "fslopes": model.ModelConfig(
         building_walk=True,
         bedroom_slope=True,
@@ -450,6 +454,7 @@ def test_student_t_units_block_matches_dense():
     "design",
     [
         "all",
+        "slopemin",
         "quarterly",
         "fslopes",
         "tunits",

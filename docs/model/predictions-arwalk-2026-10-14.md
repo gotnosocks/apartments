@@ -335,3 +335,11 @@ The data grow by about 38%, so I scale the summed scores by that much and keep t
 
 The miss criteria stay the same: any part of the gate failing, PSIS-LOO not winning by 2 SE, or a
 year gap of 3 pp or more.
+
+### Rule update before launch (2026-10-15T02:30Z, before either fit)
+
+At 02:06Z Modeling moved the NB9 C to master 8b3ce683, which swaps in `bedrooms-ad-v6` and
+`quarantine-v23` (#809) for `bedrooms-ad-v5` and `quarantine-v22`. The new label is
+`a100-4500k9cb1-nb9-ul17r2s4q23ad6la4ep1`. The AR(1) fit follows on the same list. These versions
+recode 13 studios and hold out 56 blank ones out of 296,320 kept rows, so every prediction in the
+block above stands unchanged.

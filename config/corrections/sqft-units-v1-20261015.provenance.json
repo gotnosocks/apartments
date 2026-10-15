@@ -1,0 +1,25 @@
+{
+ "rule": "sqft-units-v1",
+ "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
+ "dataset_observations_sha256": "8b8897c1c5196969b30544cd2ec1b9ae32ac8e720d612e86fd52fbdbe52ceae7",
+ "base_rules": "current rules after bedrooms-ad-v6 and quarantine-v23",
+ "screen": "sized rows more than 1.5x off the geometric mean of the unit's other sized rows: 227",
+ "reads": "config/reviews/sqft-units-reads-20261015.jsonl",
+ "rows": 12,
+ "by_basis": {
+  "unit": 10,
+  "line": 2
+ },
+ "outcomes": {
+  "keep: a backing ad's size statement mentions outdoor space or a total": 6,
+  "keep: fewer than 2 backing listings with the same bedroom count": 4,
+  "correct": 12,
+  "keep: new size no nearer the 1-bedroom median (700) than the recorded one": 2,
+  "keep: new size no nearer the 0-bedroom median (480) than the recorded one": 2,
+  "keep: second read unclear": 1,
+  "keep: first read unclear": 1,
+  "keep: new size no nearer the 2-bedroom median (1021) than the recorded one": 7,
+  "keep: backing listings share one ad copy": 5,
+  "keep: first read ad_states_recorded": 3
+ }
+}

@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V23)
+    ) | data.quarantined(data.QUARANTINE_V27)
 
 
 @pytest.mark.parametrize(
@@ -1371,7 +1371,11 @@ def test_quarantine_v17_adds_brooklyn_rows_to_v16():
     v16 = data.quarantined(data.QUARANTINE_V16)
     v17 = data.quarantined(data.QUARANTINE_V17)
     with open(brooklyn.MISJOINS) as f:
-        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+        misjoins = {
+            r["audit_id"]
+            for r in map(json.loads, filter(str.strip, f))
+            if r["review"] == "2026-10-14"
+        }
     assert len(misjoins) == 35 and len(misjoins - v16) == 7
     assert v17 == v16 | misjoins and len(v17) == 326
     read = set(data.QUARANTINE_V16_READ.read_text().split())
@@ -1443,6 +1447,28 @@ def test_brooklyn_screen_skips_known_false_alarms():
     )
     hits = brooklyn.screen(frame, text)
     assert hits.audit_id.tolist() == ["a", "e"]
+
+
+def test_brooklyn_screen_finds_bare_ditmas_park_and_cortelyou_wording():
+    frame = pd.DataFrame(
+        {
+            "audit_id": list("abcd"),
+            "source_listing_id": list("1234"),
+            "building": ["b"] * 4,
+            "unit_id": ["u"] * 4,
+            "neighbourhood": ["Gramercy Park"] * 3 + ["Hell's Kitchen"],
+            "price_at": ["2020-01-01"] * 4,
+        }
+    )
+    text = pd.Series(
+        [
+            "welcome to 319 east 19th st ditmas park - luxury building",
+            "one block from the best restaurants at cortelyou road",
+            "the hottest area of prospect park south!!!",
+            "the midtown west / hell's kitchen / clinton hill area",
+        ]
+    )
+    assert brooklyn.screen(frame, text).audit_id.tolist() == ["a", "b", "c"]
 
 
 def test_every_registered_dataset_is_screened_for_brooklyn_ads():
@@ -1837,6 +1863,111 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
 
 
+def test_quarantine_v27_adds_fifty_wrong_building_listings():
+    """v27 keeps every v26 row and adds the 50 rows the duplicate-ad screen
+    held, each one from a group the readers decided."""
+    with open(data.QUARANTINE_V26) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V27) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = rows[len(old) :]
+    assert len(added) == 50
+    assert {r["action"] for r in added} == {"quarantine_location_conflict"}
+    read = set(
+        (brooklyn.REVIEWS / "quarantine-v27-read-20261015.txt").read_text().split()
+    )
+    with open(brooklyn.REVIEWS / "duplicate-ad-screen-reads-20261015.jsonl") as f:
+        groups = [json.loads(line) for line in f]
+    assert len(groups) == 120
+    held = {a for g in groups for a in g["held"]}
+    assert held == {r["audit_id"] for r in added}
+    assert {a for g in groups for a in g["audit_ids"]} == read
+    assert all(len(g["held"]) <= 1 for g in groups)
+    assert "quarantine-v27" in data.DROPPING_RULES
+
+
+def test_quarantine_v26_adds_five_midtown_west_listings():
+    """v26 holds out v25's rows unchanged, plus 5 rows from the Midtown West
+    screen. Every held row is in v26's read list and has a held read in the
+    reads record."""
+    with open(data.QUARANTINE_V25) as f:
+        v25 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V26) as f:
+        v26 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(v26[a] == v25[a] for a in v25)
+    added = {a: v26[a] for a in v26.keys() - v25.keys()}
+    assert len(added) == 5
+    assert sorted(r["action"] for r in added.values()) == [
+        "quarantine_location_conflict",
+        "quarantine_location_conflict",
+        "quarantine_nonresidential",
+        "quarantine_nonresidential",
+        "quarantine_nonresidential",
+    ]
+    read = set(
+        (brooklyn.REVIEWS / "quarantine-v26-read-20261015.txt").read_text().split()
+    )
+    assert added.keys() <= read
+    with open(brooklyn.REVIEWS / "midtown-west-screen-reads-20261015.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    assert {a for r in reads if r["held"] for a in r["audit_ids"]} == added.keys()
+    assert {a for r in reads for a in r["audit_ids"]} == read
+    assert "quarantine-v26" in data.DROPPING_RULES
+
+
+def test_quarantine_v25_adds_eight_brooklyn_listings():
+    """v25 holds out v24's rows unchanged, plus 8 Brooklyn rows. Each one is in
+    the misjoin file and in v25's read list."""
+    with open(data.QUARANTINE_V24) as f:
+        v24 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V25) as f:
+        v25 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(v25[a] == v24[a] for a in v24)
+    added = {a: v25[a] for a in v25.keys() - v24.keys()}
+    assert len(added) == 8
+    assert all(r["action"] == "brooklyn_misjoin" for r in added.values())
+    assert (
+        sorted(r["building"] for r in added.values()).count(
+            "317-east-19-street-new_york"
+        )
+        == 7
+    )
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    assert added.keys() <= misjoins
+    assert added.keys() == set(
+        (brooklyn.REVIEWS / "quarantine-v25-read-20261015.txt").read_text().split()
+    )
+    assert "quarantine-v25" in data.DROPPING_RULES
+
+
+def test_quarantine_v24_adds_four_listings_filed_under_the_wrong_building():
+    """v24 holds out v23's rows unchanged, plus the two listings of 3B and 3BB
+    at 222 East 17th Street and the two of 20C at 318 East 15th Street."""
+    with open(data.QUARANTINE_V23) as f:
+        v23 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V24) as f:
+        v24 = {r["audit_id"]: r for r in map(json.loads, f)}
+    assert all(v24[a] == v23[a] for a in v23)
+    added = [v24[a] for a in v24.keys() - v23.keys()]
+    assert sorted((r["building"], r["unit_label"], r["action"]) for r in added) == [
+        ("222-east-17-street-new_york", "3B", "brooklyn_misjoin"),
+        ("222-east-17-street-new_york", "3BB", "brooklyn_misjoin"),
+        ("318-east-15-street-new_york", "20C", "quarantine_location_conflict"),
+        ("318-east-15-street-new_york", "20C", "quarantine_location_conflict"),
+    ]
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    brooklyn_rows = {r["audit_id"] for r in added if r["action"] == "brooklyn_misjoin"}
+    assert brooklyn_rows <= misjoins
+    read = set(
+        (brooklyn.REVIEWS / "quarantine-v24-read-20261015.txt").read_text().split()
+    )
+    assert brooklyn_rows == read
+    assert "quarantine-v24" in data.DROPPING_RULES
+
+
 def test_quarantine_v23_adds_the_blank_studios_of_the_studio_review():
     """v23 holds out v22's rows unchanged, plus each studio-review read with
     the `quarantine_bedrooms_unknown` verdict, quoting the read's whole ad."""
@@ -1877,3 +2008,28 @@ def test_quarantine_v21_adds_the_stock_wording_hold_outs():
         for a, r in held.items()
     )
     assert "quarantine-v21" in data.DROPPING_RULES
+
+
+def test_sqft_units_v1_takes_sizes_the_unit_or_its_line_agree_on():
+    """Each v1 row is a candidate with the `correct` outcome and the same size,
+    about 1.5x or more from the recorded one (rounded to the square foot)."""
+    with open(data.SQFT_CORRECTIONS) as f:
+        fixes = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/sqft-units-reads-20261015.jsonl") as f:
+        reads = {r["audit_id"]: r for r in map(json.loads, f)}
+    took = {a for a, r in reads.items() if r["outcome"] == "correct"}
+    assert len(fixes) == 12 and len(reads) == 43 and took == fixes.keys()
+    for a, fix in fixes.items():
+        assert reads[a]["second_read"] == "correct"
+        assert reads[a]["proposed"] == fix["corrected"]
+        assert fix["basis"] in ("unit", "line")
+        assert max(fix["recorded"], fix["corrected"]) > 1.49 * min(
+            fix["recorded"], fix["corrected"]
+        )
+    a = next(iter(fixes))
+    frame = pd.DataFrame(
+        {"audit_id": [a, "other"], "square_feet": [fixes[a]["recorded"], 700.0]}
+    )
+    out = data.correct_square_feet_v1(frame)
+    assert out.square_feet.tolist() == [fixes[a]["corrected"], 700.0]
+    assert "sqft-units-v1" not in data.DROPPING_RULES

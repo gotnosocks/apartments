@@ -788,6 +788,38 @@ def correct_bedrooms_v6(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v5(frame), "bedrooms-ad-v6")
 
 
+# Recorded square feet that disagree with the unit's other listings, read
+# against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
+SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
+
+
+def correct_square_feet_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Square feet taken from the apartment's other listings. On the NB9 rows we
+    compared each sized row with the same unit's other sized rows and found 227
+    rows off by more than 1.5x. 43 of them had a size to take:
+
+    - at least two other listings of the unit agree within 10%, or
+    - at least two other units of the line agree within 10%,
+
+    in both cases with the row's bedroom count. We then kept the recorded size
+    when
+      - the backing listings repeat one ad's copy,
+      - a backing ad's size counts a terrace or gives a total,
+      - the new size sits no nearer the bedroom count's median size than the
+        recorded one, or
+      - a reader found the listing's own ad stating the recorded size, or
+        describing a different apartment, or could not tell.
+    12 rows take the new size; `config/reviews/sqft-units-reads-20261015.jsonl`
+    gives every candidate's outcome and the quotes the second reader copied.
+    Every row is kept; only `square_feet` changes."""
+    with open(RULE_SOURCES["sqft-units-v1"]) as f:
+        rows = {r["audit_id"]: r["corrected"] for r in map(json.loads, f)}
+    out = frame.copy()
+    hit = out.audit_id.isin(rows)
+    out.loc[hit, "square_feet"] = out.loc[hit, "audit_id"].map(rows).to_numpy()
+    return out
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -1058,6 +1090,29 @@ def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[keep.to_numpy()]
 
 
+# The 35% subset plus buildings whose effects mixed slowly in recent C fits
+# (the quarantine-v17 wing fit and the NB9 C fit, 2026-10-14), for comparing
+# bedroom-slope designs.
+SLOPECHECK_BUILDINGS = frozenset(
+    {
+        "106-east-10-street-new_york",
+        "159-2-avenue-new_york",
+        "870-broadway-new_york",
+        "222-east-17-street-new_york",
+        "4-perry-street-new_york",
+        "1-sheridan-square-new_york",
+    }
+)
+
+
+def tune_b35_slopecheck_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Rows of the 35% subset and of `SLOPECHECK_BUILDINGS`."""
+    keep = frame.building.map(in_tuning_subset) | frame.building.isin(
+        SLOPECHECK_BUILDINGS
+    )
+    return frame[keep.to_numpy()]
+
+
 # Held-out lots (2026-10-13, the grouped-building check of the new-building
 # score): every row of about 10% of buildings, drawn by tax lot, dropped so a
 # fit never sees them; `rentfrontier.newbuilding.score_holdout` scores them.
@@ -1321,6 +1376,87 @@ def quarantine_v23(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V23))]
 
 
+QUARANTINE_V24 = QUARANTINE_V20.with_name("quarantine-v24-20261015.jsonl")
+
+
+def quarantine_v24(frame: pd.DataFrame) -> pd.DataFrame:
+    """v23's rows and 4 listings from two buildings where the NB9 C fit mixed
+    slowly. PLUTO's lot record backs each one:
+
+    - 222 East 17th Street is a 4-story walk-up with 4 apartments. Its units
+      3B and 3BB have a listing each, with the same text: an elevator
+      building by Prospect Park South, in Brooklyn. Both join
+      `brooklyn.MISJOINS` for the remap.
+    - 318 East 15th Street has 12 stories. Its unit 20C has two ads, a month
+      apart, for a doorman building, at $3,450 and $8,300."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V24))]
+
+
+QUARANTINE_V25 = QUARANTINE_V20.with_name("quarantine-v25-20261015.jsonl")
+
+
+def quarantine_v25(frame: pd.DataFrame) -> pd.DataFrame:
+    """v24's rows and 8 Brooklyn listings filed under Manhattan buildings,
+    found with Ditmas Park and Cortelyou Road wording that `brooklyn.NEAR`
+    misses. A reader read each whole ad, and each joins `brooklyn.MISJOINS`:
+
+    - 7 at 317 East 19th Street. Ads for seven units over 18 months agree with
+      each other: 319 or 323 East 19th Street, a new elevator building in
+      Ditmas Park by the B and Q at Cortelyou Road.
+    - 346 East 9th Street #1R, with an ad for a four-family house by Cortelyou
+      Road. PLUTO lists the Manhattan building, an East Village tenement in
+      its other ads, with 21 apartments."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V25))]
+
+
+QUARANTINE_V26 = QUARANTINE_V20.with_name("quarantine-v26-20261015.jsonl")
+
+
+def quarantine_v26(frame: pd.DataFrame) -> pd.DataFrame:
+    """v25's rows and 5 Hell's Kitchen and Hudson Yards listings from the
+    rent-blind place and use screen of `quarantine_v13_screen.py`, run over
+    Midtown West for the first time. Sonnet readers read all 391 ad groups the
+    screen flagged; `config/reviews/midtown-west-screen-reads-20261015.jsonl`
+    records each read and decision. A row is held only when something beyond
+    its own ad backs the reading:
+
+    - 2 ads for other buildings: listing 1330577 at 414 West 44th Street has
+      the same text as listing 1320558 for 411 East 6th Street #2B in the
+      same month, and listing 5081524 at 438 West 52nd Street #R1A has the
+      text of listing 5055729 for 53 Leroy Street #C1A a month before.
+    - 3 offices: one for office use only on a lot with commercial floor area,
+      a medical office under the unit label OFFICE, and a production space in
+      a building PLUTO lists as offices with 1 apartment."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V26))]
+
+
+QUARANTINE_V27 = QUARANTINE_V20.with_name("quarantine-v27-20261015.jsonl")
+
+
+def quarantine_v27(frame: pd.DataFrame) -> pd.DataFrame:
+    """v26's rows and 50 listings filed under the wrong building. The screen
+    groups ads of 300 characters or more by their normalized text, then keeps
+    groups where the same text and unit label appear under two buildings that
+    are not within 10 house numbers on one street, with at most 4 listings to a group.
+    Sonnet readers decided each of the 120 groups from the ad text, PLUTO facts
+    for each building and the unit label's history in each building;
+    `config/reviews/duplicate-ad-screen-reads-20261015.jsonl` records each read
+    and decision.
+
+    The row under the wrong building is held when the ad names the street,
+    address or building of the other one, or when the wrong building cannot
+    hold the unit (a hotel, an office lot, a one-family house, a walkup for an
+    ad promising an elevator). Three more rest on the ad placing the unit by
+    the other address's neighborhood or landmark, such as Gramercy Park or
+    Madison Square Park, across town from the building the row sits under.
+    9 of the 50 rows were held as location conflicts in v3 to v9 and released
+    in v10 along with the other rent-guided picks; this screen reads no rent.
+    18 groups the readers decided from unit history
+    alone stay in, as do the undecided groups and those where both slugs are
+    the same building."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V27))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1521,6 +1657,7 @@ def price_target(rules) -> str:
 
 DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
+    "tune-b35-slopecheck-v1": tune_b35_slopecheck_v1,
     "tune-holdout-lots-v1": drop_holdout_lots,
     "tune-finalask-v1": final_ask_v1,
     "tune-latestask-v1": latest_ask_v1,
@@ -1636,6 +1773,7 @@ DATA_RULES = {
     "bedrooms-ad-v4": correct_bedrooms_v4,
     "bedrooms-ad-v5": correct_bedrooms_v5,
     "bedrooms-ad-v6": correct_bedrooms_v6,
+    "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1659,6 +1797,10 @@ DATA_RULES = {
     "quarantine-v21": quarantine_v21,
     "quarantine-v22": quarantine_v22,
     "quarantine-v23": quarantine_v23,
+    "quarantine-v24": quarantine_v24,
+    "quarantine-v25": quarantine_v25,
+    "quarantine-v26": quarantine_v26,
+    "quarantine-v27": quarantine_v27,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1705,6 +1847,10 @@ RULE_SOURCES = {
     "quarantine-v21": QUARANTINE_V21,
     "quarantine-v22": QUARANTINE_V22,
     "quarantine-v23": QUARANTINE_V23,
+    "quarantine-v24": QUARANTINE_V24,
+    "quarantine-v25": QUARANTINE_V25,
+    "quarantine-v26": QUARANTINE_V26,
+    "quarantine-v27": QUARANTINE_V27,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1733,6 +1879,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
     "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
     "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
+    "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
@@ -1760,6 +1907,10 @@ DROPPING_RULES = (
     "quarantine-v21",
     "quarantine-v22",
     "quarantine-v23",
+    "quarantine-v24",
+    "quarantine-v25",
+    "quarantine-v26",
+    "quarantine-v27",
 )
 
 

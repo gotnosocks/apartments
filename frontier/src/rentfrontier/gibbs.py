@@ -108,6 +108,7 @@ class Design:
     trend_basis: jnp.ndarray
     bedroom_time_basis: jnp.ndarray
     slope_index: int | None  # local index of the bedroom slope
+    slope_on: jnp.ndarray | None  # 1.0 for buildings with a bedroom slope
     fslope_local: list  # local indices of per-building feature slopes
     fslope_cols: list  # their feature columns
     knot_start: int | None  # local index of walk knot 1 (knot 0 is fixed at 0)
@@ -585,11 +586,18 @@ def build_design(
     structures = {"building_scale": [0]}
     slope_index = knot_start = None
     n_local = 1
+    slope_on = None
     if config.bedroom_slope:
         slope_index = n_local
-        columns.append(
-            (np.full(n, slope_index, np.int32), tr.beds_centered.astype(float))
-        )
+        beds = tr.beds_centered.astype(float)
+        if config.bedroom_slope_min_rows:
+            # Buildings without a slope get a zero column, so their slope
+            # draws come from its prior alone and the output sets them to 0.
+            slope_on = model_module.bedroom_slope_buildings(
+                prep, config.bedroom_slope_min_rows
+            )
+            beds = beds * slope_on[tr.building]
+        columns.append((np.full(n, slope_index, np.int32), beds))
         structures["bedroom_slope_scale"] = [slope_index]
         n_local += 1
     fslope_local = []
@@ -722,6 +730,7 @@ def build_design(
         trend_basis=jnp.asarray(trend_basis),
         bedroom_time_basis=jnp.asarray(bed_basis),
         slope_index=slope_index,
+        slope_on=None if slope_on is None else jnp.asarray(slope_on),
         fslope_local=fslope_local,
         fslope_cols=fslope_cols,
         knot_start=knot_start,
@@ -1261,6 +1270,8 @@ def site_values(d: Design, state):
 
     if d.slope_index is not None:
         out["bedroom_slope"] = theta_l[:, d.slope_index]
+        if d.slope_on is not None:
+            out["bedroom_slope"] = out["bedroom_slope"] * d.slope_on
     if d.fslope_local:
         out["fslope"] = theta_l[:, jnp.asarray(d.fslope_local)]
         out["fslope_scales"] = jnp.stack(

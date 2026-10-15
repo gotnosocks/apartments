@@ -764,6 +764,9 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v6": "bedrooms-ad-v5, and 13 studios priced above their building's "
     "one-bedrooms whose ad states a count that another ad for the apartment, a stated "
     "size or the floor plan on the listing's own page backs. No listing is dropped.",
+    "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
+    "more than 1.5x off the size the apartment's other listings, or the other "
+    "apartments of its line, agree on. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
@@ -847,6 +850,17 @@ DATA_RULE_TEXT = {
     "quarantine-v23": "quarantine-v22 and 56 studios from a second bedroom review, "
     "of studios priced above their building's one-bedrooms, held out on v22's test: "
     "the ad says nothing about the apartment and no ad for it gives a count.",
+    "quarantine-v24": "quarantine-v23 and 4 listings StreetEasy files under the wrong "
+    "building: two Brooklyn ads at 222 East 17th Street, a 4-unit walk-up, and two for a "
+    "20th-floor unit at 318 East 15th Street, which has 12 stories.",
+    "quarantine-v25": "quarantine-v24 and 8 Brooklyn listings filed under Manhattan "
+    "buildings: 7 whose ads agree on a new building on East 19th Street in Ditmas Park, and "
+    "a four-family house by Cortelyou Road filed under a 21-unit East Village building.",
+    "quarantine-v26": "quarantine-v25 and 5 Hell's Kitchen and Hudson Yards listings: two "
+    "whose ad text also appears for an East Village and a West Village address, and "
+    "three offices.",
+    "quarantine-v27": "quarantine-v26 and 50 listings filed under the wrong building, found "
+    "where the same ad for the same unit label also appears under another building.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
