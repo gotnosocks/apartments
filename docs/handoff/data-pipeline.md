@@ -15,7 +15,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    in [pipeline-stack.md](../data/pipeline-stack.md).
 3. Write down the columns, types and keys of a fit-ready row, and freeze two reference tables:
    the current pipeline's four-region API tables, and the page-crawl tables behind the served and
-   queued fits.
+   queued fits. **References done**: [fit-ready-rows.md](../data/fit-ready-rows.md). The
+   SQLMesh project follows in its own PR.
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
    market and the ending as views of it, and exclusions as flags with reasons.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
@@ -53,13 +54,28 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
 
 ## Next
 
-1. Step 3: a SQLMesh project in the repo, started from the trial's five latest-ask models in
-   `/data1/apartments/tmp/pipeline/compare/sqlmesh`. It reads the #863 export, and its tests run
-   on a fixture of a few buildings. Then the fit-ready row's columns, types and keys, and the two
-   frozen references.
-2. Step 4's event log should collapse repeated price changes: ad 2326634 has 799 changes over two
-   months cycling through 7 prices, and 1,814 ads have 100 or more. The latest-ask check recurses
-   change by change, so long runs of changes cost time there.
+1. Step 3's SQLMesh project is on branch `data-pipeline-sqlmesh`, in the worktree
+   `/data1/apartments/tmp/pipeline/wt-sqlmesh`. It ports the trial's latest-ask models, with a
+   fixture of five buildings and four tests. It still needs a full build on thelio, compared
+   with the latest-ask run `20261015-13f5968-api` on all 1,396,053 rows.
+2. Step 4 replaces the current chain from archive to analysis rows. Data improvements runs that
+   chain from `/data1/apartments/tmp/suspect/api`:
+   1. the granular export of the API archive, `api-granular-20261015-canonical-url-v1`;
+   2. `rentfrontier.granular_slice`, cutting it into building slices;
+   3. `apartments.historical_dataset` on each slice. `project_advertisement` gives an ad one
+      row, priced at its earliest own ACTIVE rental event, or a list of reasons to drop it;
+   4. `rentfrontier.cohort` on each slice: unit-month deduplication, floors and bathrooms;
+   5. `cohort combine` and `cohort areas` for each region, and `split.py` to cut two regions by
+      area.
+
+   The event log's rows have to match the API references on `(source_listing_id, price_at)`.
+   It should also collapse repeated price changes: ad 2326634 has 799 changes over two months
+   cycling through 7 prices, and 1,814 ads have 100 or more. The latest-ask check recurses change
+   by change, so long runs of changes cost time there.
+3. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
+   the rule entries keyed on `audit_id` to `(source_listing_id, price_at)`. The cases of
+   `building-joins-v1`, `unit-splits-v4` and `west-coast-wings-v1` are constants in the code and
+   need copying into the ledger.
 
 ## Coordination
 
