@@ -97,7 +97,7 @@ merged, so every building record in it has these fields.
 scale NoMad's 86 requests for 20,461 all-time search hits by each region's hit count, at about
 $1.14 per 1,000 requests.
 
-| region | areas | with unit histories | projected requests |
+| region | areas | with unit histories | requests |
 |---|---|---|---:|
 | `manhattan-below-59th` | 21 areas not crawled before | yes | about 2,200 |
 | `manhattan-59th-110th` | Upper West Side, Upper East Side, East Harlem | yes | about 2,300 |
@@ -109,10 +109,10 @@ Ben approved the backfill of the first four (about 8,500 requests, about $9.70) 
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
 area for East Harlem below 110th St, so the region takes all of it, about $0.17 more. Re-reading
 the histories of areas collected by page crawls is not part of the backfill. Ben approved a
-re-read of those areas' ads, without unit histories, on Oct 15 at 15:50 ET (run 5, below). Writing the
-records sends no requests and takes about 7 ms an ad on thelio, half of it in the two disk
-flushes for each ad's body file, so the four regions' 1.5 million or so ads take about 3 hours
-to write.
+re-read of those areas' ads, without unit histories, on Oct 15 at 15:50 ET (run 5, below).
+Writing the records sends no requests and takes about 7 ms an ad on thelio, half of it in the
+two disk flushes for each ad's body file, so the four regions' 1.5 million or so ads take about
+3 hours to write.
 
 ## Bands too full to read from both ends (Oct 15)
 
@@ -328,14 +328,15 @@ manhattan-page-crawl-areas` from 15:52 to 17:48 ET as run 5, with no unit histor
   listing-ID cutoff of 1,210,000, and 4,535 were already in the archive with a final status
   from the four regions' runs. Its reads also include 5 ads outside the search hits, as the
   latest ads of units.
-- Writing took from 16:53 to 17:48 ET: 266,322 ad records, 157,293 ads marked superseded,
-  1,161 excluded, 91,723 ads below the listing-ID cutoff and 107 left unread, with 160,579
-  units and 8,003 buildings written. 745 units have no unit page.
+- Writing took from 16:53 to 17:48 ET: 266,322 ad records, 157,293 ads marked superseded and
+  1,161 excluded, with 160,579 units and 8,003 buildings written. 745 units have no unit page.
+  Of the ads in the run's scope with no archive entry, it excluded 91,723 for falling below the
+  listing-ID cutoff and left 107 unread.
 - The run wrote current-listings files for its 1,419 ACTIVE ads to
   `current-listings/api-manhattan-page-crawl-areas`, with 1,417 candidates and 2 failures.
 - I exported the run's replies to `crawls/api/export` by hand at the end, since #864 merged
   while it was running. The export holds 424,776 ad reads in 6 files, 8,003 building reads,
-  1,508 requests and 1,970 calls, and each table matches the archive.
+  1,508 stored replies and 1,970 calls, and each table matches the archive.
 
 ## Running it
 
