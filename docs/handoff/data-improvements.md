@@ -9,7 +9,7 @@ Same ad under two buildings: quarantine-v27 (#823), merged.
   `/data1/apartments/tmp/suspect/dupad`; `screen.py`, `pick.py`, `packets.py`, `final.py`,
   `build.py`). 804 hashes appear under more than one building. Most pairs are next-door sister
   buildings sharing a landlord's copy, which costs little.
-- `pick.py` keeps groups of at most 4 listings where a unit label appears under two buildings
+- `pick.py` keeps groups where a unit label appears under two buildings
   that are not within 10 house numbers on one street. 120 groups and 276 rows remained. Many are
   a dropped or mistyped digit in the address (14 E 23rd filed as 14 E 2nd, 315 W 46th as 315 W
   4th).
