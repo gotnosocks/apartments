@@ -65,9 +65,9 @@ were disabled before inventory. The existing two-hour crawl monitor was already
 paused. Keep it paused: its old instructions target Modal.
 
 The existing Modal volume remains a frozen backup after cutover. It is not
-another active writer. On Oct 15 the page crawls' snapshots, bodies and crawl folders were
-copied once to `/data2/apartments-backup/archive` and checked by hash. The API archive has a
-nightly backup on the same disk (below).
+another active writer. On Oct 15 a one-time copy of the page crawls' snapshots, bodies and
+crawl folders to `/data2/apartments-backup/archive` started, and `archive-copy.log` beside it
+records the hash check at the end. The API archive has a daily backup on the same disk (below).
 The project's ignored `data/archive` symlink points at the live crawl directory above.
 
 ## September 16 transfer repair

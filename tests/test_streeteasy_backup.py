@@ -50,12 +50,15 @@ def test_backup_copies_the_open_database_and_the_files(tmp_path):
     (target / "db").mkdir(parents=True)
     for day in ("20261001", "20261002", "20261003"):
         (target / "db" / f"archive-{day}T130000Z.sqlite3").write_bytes(b"old")
+    # A copy saved by hand stays out of the count.
+    (target / "db" / "archive-pre-restore.sqlite3").write_bytes(b"mine")
     db.execute("INSERT INTO ads VALUES(100)")
     db.commit()
     result = run(source, target)
     assert result.returncode == 0, result.stderr
-    older, newest = sorted(os.listdir(target / "db"))
+    older, newest, mine = sorted(os.listdir(target / "db"))
     assert older == "archive-20261003T130000Z.sqlite3"
+    assert mine == "archive-pre-restore.sqlite3"
     copy = sqlite3.connect(target / "db" / newest)
     assert copy.execute("SELECT count(*) FROM ads").fetchone() == (101,)
     assert copy.execute("PRAGMA journal_mode").fetchone() == ("delete",)
@@ -87,3 +90,13 @@ def test_backup_stops_without_an_archive_or_a_backup_disk(tmp_path, missing):
     assert result.returncode == 1
     assert ("no database" if missing == "archive" else "mounted") in result.stderr
     assert not target.exists()
+
+
+def test_backup_refuses_to_keep_no_copies(tmp_path):
+    source, target = tmp_path / "api", tmp_path / "backup" / "streeteasy-api"
+    archive(source).close()
+    target.parent.mkdir()
+    result = run(source, target, keep=0)
+    assert result.returncode == 1
+    assert "1 or more" in result.stderr
+    assert not (target / "db").exists()

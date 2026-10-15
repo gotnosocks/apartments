@@ -11,8 +11,13 @@
 # archive no longer has. Bodies are named by their content's hash, so the copy of a body never
 # changes, and every body the database copy refers to was already on disk when the rsync starts.
 #
-# To restore, copy files/ back to the archive folder and the newest db/ copy to archive.sqlite3
-# beside it, with no collector running.
+# To restore, with no collector running:
+#   1. Copy files/ back to the archive folder.
+#   2. Delete any archive.sqlite3-wal and archive.sqlite3-shm left in the archive folder.
+#      Otherwise SQLite replays the old WAL onto the restored copy and corrupts it.
+#   3. Copy the newest db/ copy to archive.sqlite3 in the archive folder.
+#   4. Point each /data1/apartments/archive/current-listings/api-REGION link at its region's
+#      newest capture under current-listings/ in the archive, if the links are gone.
 #
 # The backup folder's parent must already exist: /data2/apartments-backup is on the second disk,
 # so a missing folder means the disk is not mounted, and the script stops rather than fill the
@@ -30,6 +35,7 @@ fail() {
   exit 1
 }
 
+[ "$KEEP" -ge 1 ] 2>/dev/null || fail "STREETEASY_BACKUP_KEEP must be 1 or more, not $KEEP"
 [ -f "$ARCHIVE/archive.sqlite3" ] || fail "no database at $ARCHIVE/archive.sqlite3"
 [ -d "$(dirname "$BACKUP")" ] || fail "$(dirname "$BACKUP") is missing; is the backup disk mounted?"
 mkdir -p "$BACKUP/db" "$BACKUP/files"
@@ -43,8 +49,9 @@ copy=$BACKUP/db/archive-$stamp.sqlite3
 partial=$copy.partial
 rm -f "$BACKUP"/db/*.partial
 
-# The read-only connection leaves the archive's files alone, and VACUUM INTO writes a compacted
-# copy with no WAL beside it.
+# The read-only connection never changes the database. With no collector open, SQLite still
+# creates an empty -wal and -shm beside the archive, as any reader does. VACUUM INTO writes a
+# compacted copy with no WAL beside it.
 if ! /usr/bin/python3 - "$ARCHIVE/archive.sqlite3" "$partial" <<'EOF'; then
 import sqlite3
 import sys
@@ -60,11 +67,17 @@ EOF
   rm -f "$partial"
   fail "database copy of $ARCHIVE/archive.sqlite3"
 fi
+sync "$partial"
 mv "$partial" "$copy"
+sync "$BACKUP/db"
 
-ls -1 "$BACKUP"/db/archive-*.sqlite3 | sort -r | tail -n +"$((KEEP + 1))" | xargs -r rm -f
+ls -1 "$BACKUP"/db/archive-2*Z.sqlite3 | sort -r | tail -n +"$((KEEP + 1))" | xargs -r rm -f
 
+# rsync exits 24 when files vanish during the copy, as an old capture does when a collector
+# prunes it. The next run copies whatever the archive holds then.
+status=0
 rsync -a --exclude='/archive.sqlite3*' --exclude='/collector.lock' --exclude='*.tmp' \
-  "$ARCHIVE/" "$BACKUP/files/" || fail "rsync of $ARCHIVE"
+  "$ARCHIVE/" "$BACKUP/files/" || status=$?
+[ "$status" -eq 0 ] || [ "$status" -eq 24 ] || fail "rsync of $ARCHIVE (exit $status)"
 
 echo "$(date -Is) ok: $(basename "$copy") $(du -h "$copy" | cut -f1), files $(du -sh "$BACKUP/files" | cut -f1), $(($(date +%s) - started)) s" | tee -a "$LOG"

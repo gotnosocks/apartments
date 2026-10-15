@@ -152,19 +152,29 @@ master checkout, in the light slice with 2 GB of memory.
 
 `ops/streeteasy-backup` copies the archive to the second disk, and
 `ops/systemd/apartments-streeteasy-backup.timer` runs it from the master checkout at 09:00 New
-York time, after the daily top-up. Each run goes through these steps:
+York time, three and a half hours after the daily top-up starts. A collector may still be
+writing then, which the steps below allow for. Each run goes through these steps:
 
 1. It copies the database with `VACUUM INTO` over a read-only connection, into
    `/data2/apartments-backup/streeteasy-api/db/archive-STAMP.sqlite3`. The copy holds the
    database at a single moment, and a collector can keep writing meanwhile.
 2. It runs `PRAGMA quick_check` on the copy and stops if the check reports a problem.
-3. It deletes all but the newest 7 database copies.
+3. It flushes the copy to disk, gives it its final name and deletes all but the newest 7
+   database copies.
 4. It copies the bodies, the run reports and the current-listings captures into `files/` with
    rsync, leaving out the database, the collector's lock and partial `.tmp` bodies. A file gone
-   from the archive stays in the backup.
+   from the archive stays in the backup. A capture pruned by a collector during the copy leaves
+   rsync with exit 24, which the script accepts.
 5. It appends a line to `backup.log` in the backup folder.
 
 It stops before writing anything if the archive's database is missing, or if
-`/data2/apartments-backup` is missing, which means the second disk is not mounted. To restore,
-copy `files/` back into `crawls/api` and the newest database copy to `archive.sqlite3` beside
-it, with no collector running.
+`/data2/apartments-backup` is missing, which means the second disk is not mounted.
+
+To restore, with no collector running:
+
+1. Copy `files/` back into `crawls/api`.
+2. Delete any `archive.sqlite3-wal` and `archive.sqlite3-shm` left in `crawls/api`. Otherwise
+   SQLite replays the old WAL onto the restored database and corrupts it.
+3. Copy the newest database copy to `crawls/api/archive.sqlite3`.
+4. If the `current-listings/api-REGION` links are gone, point each one at its region's newest
+   capture under `crawls/api/current-listings/REGION/`. The backup leaves the links out.
