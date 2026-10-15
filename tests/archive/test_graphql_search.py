@@ -639,7 +639,35 @@ def test_ad_batches_follow_response_size(tmp_path):
         c.db.execute(
             "INSERT INTO graphql_search_responses(kind, entries, bytes) VALUES('ads', 1, 90000000)"
         )
-    assert c._ad_batch() == 6
+    assert c._ad_batch() == 3
+
+
+def test_a_timed_out_read_makes_later_reads_smaller(tmp_path):
+    from collections import deque
+
+    c = make_collector(tmp_path / "archive", make_api())
+    with c.store._tx():
+        c.db.execute(
+            "INSERT INTO graphql_search_responses(kind, entries, bytes) VALUES('ads', 100, 600000)"
+        )
+    assert c._ad_batch() == 500
+    c.retry = deque()
+    job = c._job("ads", list(range(1_300_000, 1_300_400)))
+    other = gs.Reply(True, 200, b'{"data": null}', {}, 0.0, 1, 200)
+    assert c._handle(job, other) is False
+    assert c._ad_batch() == 500
+    data = {f"a{i}": None for i in range(4)}
+    error = {"message": "Your request has been timed out"}
+    error["extensions"] = {"code": "GATEWAY_TIMEOUT", "service": "listing"}
+    body = json.dumps({"data": data, "errors": [error]}).encode()
+    timed_out = gs.Reply(True, 200, body, {}, 0.0, 1, 200)
+    assert c._handle(job, timed_out) is False
+    assert c._ad_batch() == 300
+    assert [len(j.items) for j in c.retry] == [200, 200, 200, 200]
+    c._handle(c._job("ads", list(range(1_300_000, 1_300_500))), timed_out)
+    assert c._ad_batch() == 300
+    c._handle(c._job("ads", [1_300_000]), timed_out)
+    assert c._ad_batch() == 300
 
 
 def test_search_fields_and_bands():
