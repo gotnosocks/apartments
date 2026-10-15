@@ -14,7 +14,12 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   region writes into the shared archive, `crawls/api`, and each run records its region. Collections take `crawls/oxylabs.lock`; a page crawl started beside
   them should run under `flock` on the same file so the combined rate stays within 64/min.
   `apartments-streeteasy-daily.timer` (05:30 ET) reads current ads of every region into
-  `current-listings/api-REGION`; Ben approved its daily cost (relayed, Oct 14 22:29 ET).
+  `current-listings/api-REGION`. Ben approved its daily cost in a relayed message (Oct 14
+  22:29 ET), but the classifier refused to install the timer on a relayed approval, so it is
+  **not installed** and waits for Ben's word typed in the thread. The site's ads in
+  `manhattan-page-crawl-areas` come from the Oct 10 captures and age out on Oct 17.
+  The backfill reopens a finished run with `--reopen` and splits search bands holding more
+  than 2,000 ads by area (#834).
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
@@ -163,7 +168,7 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   turns a finished crawl's newest-ACTIVE ads into `candidates.jsonl` with no requests, dated by
   page capture time. Not published: the Oct 10 capture is newer for those areas.
 - **Daily refresh**: `apartments-streeteasy-daily.timer` (see the GraphQL entry above) replaces
-  the on-demand captures for every area in its regions.
+  the on-demand captures for every area in its regions once it is installed.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`

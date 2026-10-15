@@ -20,8 +20,8 @@
 # daily runs each region with --active-only --new-run and goes on past a region that fails,
 # then exits 1 if any did. backfill resumes the region's latest full run, finished or not, or
 # starts one, and stops at the first region that fails; running the same command again resumes
-# it. On a finished run, it counts and reads the bands this checkout's collector splits further
-# and publishes the region's current ads again. Each run's report goes to the journal and to
+# it. On a finished run, it counts and reads the new bands from this checkout's finer split,
+# then publishes the region's current ads again. Each run's report goes to the journal and to
 # crawls/api/graphql-search/run-N.json, and the script appends a line for each region to
 # /data1/apartments/archive/crawls/streeteasy-collect.log.
 set -euo pipefail

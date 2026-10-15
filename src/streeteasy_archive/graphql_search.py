@@ -10,10 +10,10 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      the region in fixed price bands. It splits a band holding more than 1,000 ads in half
      by price, and it splits a single price into bedroom counts 0 to 7. Once every band
      holds 1,000 ads or fewer, it reads the IDs in each band sorted by listing date, from
-     both ends for a single-price band still above 1,000. Reading from both ends covers
-     2,000 ads, so a band of a single price and bedroom count holding more than that splits
-     into the region's areas, and an area in SUBAREAS into its child areas. A request
-     carries 25 counts or 4 ID reads as aliased fields.
+     both ends for a single-price band still above 1,000. Since the two ends give at most
+     2,000 IDs, it splits a band of a single price and bedroom count holding more than
+     that into the region's areas, and an area in SUBAREAS into its child areas. A
+     request carries 25 counts or 4 ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,
@@ -68,8 +68,8 @@ The collector sends at most --rate requests a minute, never more than 64, and st
 401, 403 or 429, a challenge page, or six failed requests in a row. After a failed request
 for several items, it retries each half, and a single item gets three tries. Each step reads
 its progress from the tables, so the same command resumes an unfinished run. --reopen
-resumes the region's latest run even after it finished, which counts and reads the bands a
-newer collector splits further, and --new-run starts a fresh run.
+resumes the region's latest run even after it finished, so a newer collector can count
+and read the bands from its finer split. --new-run starts a fresh run.
 
 Limits:
   - About 12% of NoMad's ads have no `slug` in their record. With no canonical unit page,
@@ -80,10 +80,11 @@ Limits:
   - The collector writes no building inventory rows.
   - An ad with more than seven bedrooms, or with none given, falls into the count gap of a
     band split down to a single price. The report gives the gap.
-  - The price filter counts some ads in more than one band, so a band's halves can hold
+  - Some ads match the price filter of more than one band, so a band's halves can hold
     more ads between them than the band, and most of the report's gaps are negative.
-  - A band of a single price, bedroom count and area holding more than 2,000 ads loses the
-    ads between its two ends. The report lists these bands as truncated.
+  - In a band of a single price, bedroom count and area holding more than 2,000 ads, the
+    collector misses the ads between the two ends. The report lists these bands as
+    truncated.
   - When the API has no record for a unit's latest ad, the policy excludes the unit's other
     ads for a missing unit membership.
 """
@@ -1024,7 +1025,7 @@ class Collector:
                 out["unanswered"].append(node)
                 continue
             kids = children(node, self.areas)
-            # Reading from both ends covers 2,000 ads, so an area split waits until then.
+            # The two ends of a band give up to 2,000 IDs, so areas split only above that.
             limit = 2 * CAP if kids and kids[0][3] != node[3] else CAP
             if kids and total > limit:
                 stack.extend(kids)
