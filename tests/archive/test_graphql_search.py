@@ -563,7 +563,6 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
         rental(1300005),
         rental(1300007),
     }
-    assert (link / "details" / "archive").resolve() == (tmp_path / "archive").resolve()
     failures = (link / "details" / "snapshot" / "failures.jsonl").read_text()
     assert "no single canonical unit" in failures
 
@@ -579,6 +578,15 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
     link.mkdir()
     with pytest.raises(RuntimeError, match="not a symlink"):
         c.current_listings(root)
+    assert (
+        sorted(p.name for p in (tmp_path / "archive" / "current-listings").iterdir())
+        == names
+    )
+    api = make_api()
+    blocked = make_collector(tmp_path / "blocked", api, active_only=True)
+    with pytest.raises(RuntimeError, match="not a symlink"):
+        blocked.collect(current_root=root)
+    assert api.queries == []
 
 
 def test_batches_fit_in_the_url(tmp_path, monkeypatch):

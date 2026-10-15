@@ -62,10 +62,12 @@ runtime=$RUNTIMES/graphql-search-${commit:0:12}
 if [ ! -d "$runtime" ]; then
   mkdir -p "$RUNTIMES"
   staging=$(mktemp -d "$RUNTIMES/.graphql-search-XXXXXX")
+  trap 'chmod -R u+w "$staging" 2>/dev/null; rm -rf "$staging"' EXIT
   git -C "$ROOT" archive "$commit" src | tar -x -C "$staging"
   echo "$commit" >"$staging/SOURCE_COMMIT"
   chmod -R a-w "$staging"
   mv -T "$staging" "$runtime"
+  trap - EXIT
 fi
 
 collect() {
@@ -87,9 +89,16 @@ EOF
 }
 
 if [ "$mode" = daily ] && [ $# -eq 0 ]; then
-  read -r -a regions < <(PYTHONPATH="$runtime/src" "$PYTHON" -c \
-    'from streeteasy_archive.graphql_search import REGIONS; print(*REGIONS)')
-  [ ${#regions[@]} -gt 0 ] || exit 1
+  if ! names=$(PYTHONPATH="$runtime/src" "$PYTHON" -c \
+    'from streeteasy_archive.graphql_search import REGIONS; print(*REGIONS)'); then
+    echo "$(date -Is) daily: could not read REGIONS from $runtime" | tee -a "$LOG" >&2
+    exit 1
+  fi
+  read -r -a regions <<<"$names"
+  if [ ${#regions[@]} -eq 0 ]; then
+    echo "$(date -Is) daily: REGIONS in $runtime is empty" | tee -a "$LOG" >&2
+    exit 1
+  fi
   set -- "${regions[@]}"
 fi
 

@@ -1290,6 +1290,13 @@ class Collector:
 
     # Current listings
 
+    def _current_link(self, root):
+        """Return ROOT/api-REGION, raising RuntimeError if something other than a symlink is there."""
+        link = Path(root) / f"api-{self.region}"
+        if link.exists() and not link.is_symlink():
+            raise RuntimeError(f"{link} is not a symlink; leaving it in place")
+        return link
+
     def current_listings(self, root):
         """Write the run's ACTIVE ads as a current-listings capture and point ROOT at it."""
         from apartments import candidate_refresh as refresh
@@ -1398,16 +1405,13 @@ class Collector:
                 max((c["collected_at"] for c in candidates), default=None),
             ],
         }
+        link = self._current_link(root)
         captures = self.store.root / "current-listings"
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         output = captures / f"{stamp}-run{self.run}"
         crawl_current_listings.publish(
             output, plan, plan_hash, candidates, failures, report
         )
-        (output / "details" / "archive").symlink_to(self.store.root)
-        link = Path(root) / f"api-{self.region}"
-        if link.exists() and not link.is_symlink():
-            raise RuntimeError(f"{link} is not a symlink; leaving it in place")
         temporary = link.with_name(link.name + ".tmp")
         if temporary.is_symlink() or temporary.exists():
             temporary.unlink()
@@ -1487,6 +1491,8 @@ class Collector:
         }
 
     def collect(self, current_root=None):
+        if current_root is not None:
+            self._current_link(current_root)
         stopped = None
         try:
             self.enumerate()
