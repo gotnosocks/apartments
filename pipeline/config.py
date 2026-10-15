@@ -13,7 +13,9 @@ place, the analysis rows of the current chain. Three environment variables give 
 Besides each input's path, the models get a version for it: a SHA-256 over the manifest's path
 and hash for each ads file, and the rows file's own SHA-256. SQLMesh fingerprints each model by
 its SQL as written and by the values of the variables the SQL uses. The paths alone would miss a
-file written again under its old name, so the raw views also use the versions. A new or
+file written again under its old name, so the raw views also use the versions. That holds when
+the manifest's line for the file is replaced. An appended second line with another hash for the
+same path stops the build, as `exported` raises. A new or
 rewritten export file, or a changed rows file, thus gives a raw view a new fingerprint, and the
 next plan rebuilds that view and every model below it. With the same inputs, a plan rebuilds
 nothing.

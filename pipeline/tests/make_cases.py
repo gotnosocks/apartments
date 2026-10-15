@@ -13,10 +13,12 @@ nothing, and the ad's latest record wins.
 The cases:
 
 - ad 9000001 has three rows, two of them on one day. The first of those two stands for no days,
-  so it takes the last change before its day.
+  so it takes the last change before its day. Its page price differs from its changes, and only
+  its last row takes it.
 - ad 9000002 has a row with no change on or after its day and a record collected later, so it
   takes the last change before its day, and then its page price.
-- ad 9000003's only record was collected before its row.
+- ad 9000003's only record was collected before its row, so neither its changes nor its page
+  price move the row's ask.
 - ad 9000004 has no answers at all.
 - ad 9000005's latest answer is missing, so its earlier record stands.
 - ad 9000006's row lacks a bedroom count, and ad 9000007's row lacks a building. So do the rows
@@ -71,7 +73,7 @@ ANSWERS = [
                 ("2026-05-01", 3050),
                 ("2026-06-01", 3200),
             ],
-            3200,
+            3250,
         ),
     ),
     (
@@ -79,7 +81,7 @@ ANSWERS = [
         "2026-09-01",
         record(9000002, [("2026-02-01", 2500), ("2026-03-01", 2600)], 2700),
     ),
-    (9000003, "2026-01-15", record(9000003, [("2026-01-10", 1800)], 1800)),
+    (9000003, "2026-01-15", record(9000003, [("2026-01-10", 1800)], 1850)),
     (
         9000005,
         "2026-08-01",

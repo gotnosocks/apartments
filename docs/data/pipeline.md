@@ -32,7 +32,9 @@ the rows from API records.
 For each input, `config.py` also computes a version: a SHA-256 over the path and hash of each
 listed ads file, and the rows file's own SHA-256. SQLMesh fingerprints a model by its SQL as
 written and by the values of the variables the SQL uses. The raw views use the versions as well
-as the paths, so a file written again under its old name also counts as a change. A new or
+as the paths, so a file written again under its old name also counts as a change, once the
+manifest's line for it carries the new hash. A second line for the same path with another hash
+stops the build instead, since `config.py` refuses a path with two hashes. A new or
 rewritten export file changes `raw.ads`, and the next plan rebuilds it and every model below it.
 With unchanged inputs, a plan builds nothing.
 
