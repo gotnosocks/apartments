@@ -9,8 +9,8 @@
 # The script copies src/ at this checkout's commit into
 # /data1/apartments/runtime/graphql-search-COMMIT once, read-only, and runs the collector from
 # that copy with the main checkout's venv, after loading the Oxylabs login from the main
-# checkout's .env into the collector's environment. Each region's archive is
-# /data1/apartments/archive/crawls/api-REGION.
+# checkout's .env into the collector's environment. Every region writes into the archive
+# /data1/apartments/archive/crawls/api.
 #
 # Every invocation holds /data1/apartments/archive/crawls/oxylabs.lock while it runs. Two
 # invocations take turns, so the combined rate stays at the collector's --rate, 60 a minute
@@ -20,7 +20,7 @@
 # daily runs each region with --active-only --new-run and goes on past a region that fails,
 # then exits 1 if any did. backfill resumes the region's unfinished full run, or starts one,
 # and stops at the first region that fails; running the same command again resumes it. Each
-# run's report goes to the journal and to api-REGION/graphql-search/run-N.json, and the
+# run's report goes to the journal and to crawls/api/graphql-search/run-N.json, and the
 # script appends a line for each region to /data1/apartments/archive/crawls/streeteasy-collect.log.
 set -euo pipefail
 

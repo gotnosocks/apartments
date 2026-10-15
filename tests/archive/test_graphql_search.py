@@ -136,13 +136,15 @@ BY_IDS = re.compile(r"(\w+): (rentalsByListingIds|buildingsByIds)\(ids: \[([\d ]
 class FakeAPI:
     """Oxylabs and api-v6 together: answers each aliased field from the world's tables.
 
-    `search` holds (ID, price, bedrooms, status) rows. `fail(query)` may return a response
-    in place of the answer.
+    `search` holds (ID, price, bedrooms, status) rows. `areas` maps an ID to its area, and
+    a search with an `areas` filter keeps only the IDs it maps into the filter. With no map,
+    every row matches. `fail(query)` may return a response in place of the answer.
     """
 
     def __init__(self, ads, buildings, search, fail=None):
         self.ads, self.buildings, self.search = ads, buildings, search
         self.fail = fail or (lambda query: None)
+        self.areas = {}
         self.queries = []
 
     def __call__(self, url, **kw):
@@ -164,6 +166,10 @@ class FakeAPI:
 
     def _search(self, direction, filters, per_page):
         rows = list(self.search)
+        areas = re.search(r"areas: \[([\d, ]*)\]", filters)
+        if self.areas and areas:
+            wanted = {int(a) for a in areas[1].split(", ")}
+            rows = [r for r in rows if self.areas.get(r[0]) in wanted]
         price = re.search(r"price: \{lowerBound: (\d+), upperBound: (\d+)\}", filters)
         beds = re.search(r"bedrooms: \{lowerBound: (\d+), upperBound: (\d+)\}", filters)
         if price:
@@ -190,7 +196,9 @@ def make_api(**kw):
     )
 
 
-def make_collector(root, api, *, max_requests=100, workers=1, **kw):
+def make_collector(
+    root, api, *, max_requests=100, workers=1, region="test", areas=(103,), **kw
+):
     client = Client(
         max_requests,
         64,
@@ -198,7 +206,19 @@ def make_collector(root, api, *, max_requests=100, workers=1, **kw):
         credentials=lambda: ("user", "secret"),
         sleep=lambda s: None,
     )
-    return Collector(ArchiveStore(root), client, "test", [103], workers=workers, **kw)
+    return Collector(
+        ArchiveStore(root), client, region, list(areas), workers=workers, **kw
+    )
+
+
+def reads(api, root="rentalsByListingIds"):
+    """The IDs of every `root` read in the API's queries."""
+    return {
+        int(i)
+        for q in api.queries
+        for ids in re.findall(root + r"\(ids: \[([\d ]*)\]\)", q)
+        for i in ids.split()
+    }
 
 
 def frontier(c):
@@ -554,7 +574,7 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
         link.is_symlink()
         and link.resolve()
         == (
-            tmp_path / "archive" / "current-listings" / "20261015T060000Z-run1"
+            tmp_path / "archive" / "current-listings" / "test" / "20261015T060000Z-run1"
         ).resolve()
     )
     (path,) = root.glob("*/details/snapshot/candidates.jsonl")
@@ -582,7 +602,7 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
     for _ in range(2):
         c.current_listings(root)
     names = sorted(
-        p.name for p in (tmp_path / "archive" / "current-listings").iterdir()
+        p.name for p in (tmp_path / "archive" / "current-listings" / "test").iterdir()
     )
     assert names == ["20261015T060100Z-run1", "20261015T060200Z-run1"]
     assert link.resolve().name == "20261015T060200Z-run1"
@@ -592,7 +612,10 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
     with pytest.raises(RuntimeError, match="not a symlink"):
         c.current_listings(root)
     assert (
-        sorted(p.name for p in (tmp_path / "archive" / "current-listings").iterdir())
+        sorted(
+            p.name
+            for p in (tmp_path / "archive" / "current-listings" / "test").iterdir()
+        )
         == names
     )
     api = make_api()
@@ -600,6 +623,54 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
     with pytest.raises(RuntimeError, match="not a symlink"):
         blocked.collect(current_root=root)
     assert api.queries == []
+
+
+def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
+    api = make_api()
+    api.areas = {1300001: 103, 1300005: 103, 1300010: 103, 1300007: 104}
+    archive = tmp_path / "archive"
+    plain = {"region": "plain", "areas": (103,), "follow_history": False}
+    full = {"region": "full", "areas": (104,), "follow_history": True}
+
+    # The plain region's run spends its three requests on the search and its ads.
+    first = make_collector(archive, api, max_requests=3, **plain)
+    assert first.collect()["invocation"]["stopped"] is not None
+    assert reads(api) == {1300001, 1300005, 1300010}
+    first.store.close()
+
+    # A history region's run leaves unit 12b's history and building 17504 to the plain
+    # region, though both are unread.
+    api.queries.clear()
+    second = make_collector(archive, api, **full)
+    assert second.collect()["invocation"]["stopped"] is None
+    assert second.generation == first.generation
+    assert reads(api) == {1300007}
+    assert reads(api, "buildingsByIds") == {17503}
+    second.store.close()
+
+    api.queries.clear()
+    resumed = make_collector(archive, api, **plain)
+    report = resumed.collect()
+    assert resumed.run == first.run and report["invocation"]["stopped"] is None
+    assert reads(api) == set() and reads(api, "buildingsByIds") == {17504}
+    assert not [k for k in report["write"] if "waiting" in k]
+    resumed.store.close()
+
+    # Each daily run re-reads its own region's live ads and keeps its own current listings.
+    root = tmp_path / "current"
+    root.mkdir()
+    for region, live in ((full, {1300007}), (plain, {1300005, 1300010})):
+        api.queries.clear()
+        daily = make_collector(archive, api, active_only=True, new_run=True, **region)
+        daily.collect(current_root=root)
+        assert reads(api) == live
+        daily.store.close()
+    links = {p.name: p.resolve() for p in root.iterdir()}
+    assert {name: path.parent.name for name, path in links.items()} == {
+        "api-full": "full",
+        "api-plain": "plain",
+    }
+    assert all(path.is_dir() for path in links.values())
 
 
 def test_batches_fit_in_the_url(tmp_path, monkeypatch):

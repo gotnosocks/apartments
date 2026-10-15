@@ -10,8 +10,8 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   Brooklyn, Crown Heights and Manhattan up to 110th St (not a re-read of crawled areas). Changes to
   `streeteasy_archive.graphql_search` and `ops/streeteasy-collect` go through the "faster,
   cheaper" thread; see `docs/data/graphql-collection.md`. Offline on NoMad it needed 86 requests against the page
-  crawl's 13,504 and found 22% more memberships, with every shared ad on the same unit. Archives
-  are `crawls/api-REGION`. Collections take `crawls/oxylabs.lock`; a page crawl started beside
+  crawl's 13,504 and found 22% more memberships, with every shared ad on the same unit. Every
+  region writes into the shared archive, `crawls/api`, and each run records its region. Collections take `crawls/oxylabs.lock`; a page crawl started beside
   them should run under `flock` on the same file so the combined rate stays within 64/min.
   `apartments-streeteasy-daily.timer` (05:30 ET) reads current ads of every region into
   `current-listings/api-REGION`; Ben approved its daily cost (relayed, Oct 14 22:29 ET).
