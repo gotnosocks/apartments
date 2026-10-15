@@ -1,6 +1,27 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 ET, after #839. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 12:30 ET, after #842. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 12:30 ET
+
+More misfiled listings: quarantine-v29 (#841) and quarantine-v30 (#842), both merged.
+- v29 holds the 2016 and 2019 listings of 1 Fifth Ave #MEWS. Both pages link one floor plan
+  image titled 64 Washington Mews. With v28 this unit's four rows under 1 Fifth Ave are all held.
+- I looked for plans on the other listings of the 14 history-only groups' units (scratch
+  `/data1/apartments/tmp/suspect/dupfp/unitplans.py`). 6 plans in 3 groups turned up, and none
+  prints an address, so those groups stay in.
+- Of the 684 open duplicate-ad groups, 345 have no shared unit label and buildings more than 10
+  house numbers apart. 39 of them ran in the same month at the same rent and bedroom count
+  (scratch `/data1/apartments/tmp/suspect/dupad/twinpk.py`, `twins.parquet`). Sonnet readers
+  called 4 misfiled, 14 separate apartments sharing copy and 21 undecided
+  (`config/reviews/duplicate-ad-twin-reads-20261015.jsonl`). v30 holds 3 of the 4. Review
+  dropped 404 E 12th St #2 because the building's other ads describe a new elevator building,
+  which contradicts its PLUTO lot (QG, 0 units). The registry join for 404 E 12th St may be
+  wrong and is worth a look.
+- Open: the other 306 far-apart groups with no shared label, which differ in month, rent or
+  bedrooms, and the 339 near-neighbor groups.
+- Modeling knew before each merge. It asked that quarantine merges skip 13:50 to 14:05 ET, when
+  its 2 PM fits read the queue.
 
 ## 2026-10-15, after #839
 
