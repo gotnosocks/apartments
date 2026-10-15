@@ -1,6 +1,26 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 23:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 00:00 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 00:00 ET
+
+Brooklyn listings under Manhattan buildings, wider pass: quarantine-v25 (#818) and the screen
+change in #819, both merged.
+- I widened the screen by hand over NB9 (scratch in `/data1/apartments/tmp/suspect/bk9`; `build.py`
+  writes the misjoin entries). quarantine-v25 holds 8 rows as `brooklyn_misjoin`:
+  - 7 at `317-east-19-street-new_york`, where seven ads for seven units name 319 and 323 E 19th
+    St, Ditmas Park and the B/Q at Cortelyou.
+  - 346 E 9th #1R, whose ad describes a four-family house while PLUTO lists 21 apartments.
+- I dropped 2961745 (312 E 21st #5H, filed under 344 2nd Ave) from v25 because only its own ad
+  backs the Brooklyn reading. Its audit id is in `config/reviews/brooklyn-read-kept-20261015.txt`,
+  which `brooklyn.READ` includes, so the screen skips it.
+- The registry joins 344 2nd Ave and 317 E 19th St to W1 school lots with 0 units. I don't count
+  lot class there as evidence.
+- #819 makes `brooklyn.NEAR` match "Ditmas Park", "Prospect Park South" and "Cortelyou Road" on
+  their own. On NB9 the only new unread hit was 2961745. The v24 and v25 tests now read their
+  lists by file name.
+- Modeling has been told about both. It reported that its NB9 queue lines use quarantine-v25.
+  #819 changes no rule, so it needs no refit.
 
 ## 2026-10-14 23:45 ET
 
