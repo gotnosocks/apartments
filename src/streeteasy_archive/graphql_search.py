@@ -572,7 +572,8 @@ class Collector:
         self.invoked = time.time()
         areas_json = json.dumps(self.areas)
         row = self.db.execute(
-            f"""SELECT id, started FROM graphql_search_runs WHERE generation=? AND region=?
+            f"""SELECT id, started, finished FROM graphql_search_runs WHERE generation=?
+            AND region=?
             AND areas=? AND active_only=? {"" if reopen else "AND finished IS NULL"}
             ORDER BY id DESC LIMIT 1""",
             (self.generation, region, areas_json, int(active_only)),
@@ -588,6 +589,12 @@ class Collector:
                 )
             if row and not new_run:
                 self.run, self.started = row["id"], row["started"]
+                if row["finished"] is not None:
+                    # A reopened run stays unfinished until this invocation finishes it.
+                    self.db.execute(
+                        "UPDATE graphql_search_runs SET finished=NULL WHERE id=?",
+                        (self.run,),
+                    )
             else:
                 self.started = self.invoked
                 self.run = self.db.execute(

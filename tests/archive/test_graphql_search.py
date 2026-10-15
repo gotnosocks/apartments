@@ -516,6 +516,13 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
     api.queries.clear()
     again = make_collector(archive, api, areas=(104,), reopen=True)
     assert again.run == first.run
+    unfinished = again.db.execute(
+        "SELECT finished FROM graphql_search_runs WHERE id=?", (again.run,)
+    ).fetchone()[0]
+    assert unfinished is None
+    schema = again.db.execute("SELECT * FROM sqlite_master").fetchall()
+    again._add_area_column()
+    assert again.db.execute("SELECT * FROM sqlite_master").fetchall() == schema
     old = again.db.execute(
         "SELECT count(*) FROM graphql_search_counts WHERE area=-1"
     ).fetchone()
