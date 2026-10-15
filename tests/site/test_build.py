@@ -358,11 +358,12 @@ def test_listings_and_buildings_carry_their_neighbourhood(
     )
 
 
-def test_a_current_listing_seen_over_a_week_ago_is_past(bundle, tmp_path, monkeypatch):
-    # Ben, 2026-10-10: on the market now means seen active within a week
+def test_a_current_listing_seen_before_the_window_is_past(bundle, tmp_path, monkeypatch):
+    # Ben, 2026-10-10: on the market now means seen active within a week; the
+    # window runs two days longer to bridge the weekly top-up
     from apartments.site import captures
 
-    later = dt.datetime(2026, 10, 11, tzinfo=dt.UTC)
+    later = dt.datetime(2026, 10, 13, tzinfo=dt.UTC)
     monkeypatch.setattr(captures, "now", lambda: later)
     root = tmp_path / "site"
     build.build(bundle, root, scope="Chelsea")

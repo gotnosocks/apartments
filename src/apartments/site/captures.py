@@ -47,8 +47,9 @@ LETTERED = re.compile(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")
 NUMBERED = re.compile(r"^(\d)\d\d$")
 METHOD = "kit"
 # A listing is on the market now when it was last seen active within this many
-# days of the build (the dataset's own window, `candidate_search.select_candidates`).
-CURRENT_DAYS = 7
+# days of the build. The current-listings top-up runs weekly and can start up to
+# 18 hours late behind a backfill, so the window runs two days past a week.
+CURRENT_DAYS = 9
 
 
 def now() -> dt.datetime:
@@ -384,8 +385,8 @@ def rows(
         ids = o.get("listing_ids")
         ids = json.loads(ids) if isinstance(ids, str) else list(ids or [])
         ids.append(o.get("listing_id") or o.get("source_listing_id"))
-        # a row the dataset priced as current but last saw over a week ago is
-        # past, so a newer capture of its unit is priced here
+        # a row the dataset priced as current but last saw before the window
+        # is past, so a newer capture of its unit is priced here
         current = o.get(
             "is_current", o.get("analysis_price_basis") == "current_capture_gross_ask"
         ) and fresh(o, at)

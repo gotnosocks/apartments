@@ -697,8 +697,9 @@ def write_database(
     kit_dir = estimate_build.find_kit(
         record["run"], record["_sha256"], kits or estimate_build.KITS
     )
-    # A listing is on the market now when it was seen active within a week of
-    # this build (Ben, 2026-10-10): the dataset's current rows age out too.
+    # A listing is on the market now when it was seen active within
+    # captures.CURRENT_DAYS of this build (a week, Ben 2026-10-10, plus two
+    # days for the weekly top-up): the dataset's current rows age out too.
     at = captures.now()
     for r in fitted:
         if r["is_current"] and not captures.fresh(r, at):
