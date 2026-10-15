@@ -14,12 +14,13 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
-     service answers a read with GATEWAY_TIMEOUT, the collector cuts the most ads it puts in
-     a request to three quarters of that read for the rest of the invocation. Each record is
-     the `RentalListing` object of the ad's page. Besides the search hits, the collector
-     reads the latest ad of each ad's unit and, in history regions, each ad of the unit's
-     history at or above the collection policy's ID cutoff. Each round of reads can find new
-     IDs, so it goes up to four rounds.
+     service answers every field of a read near the current ceiling with GATEWAY_TIMEOUT,
+     the collector cuts the most ads it puts in a request to three quarters of that read, no
+     lower than 100, for the rest of the invocation. Each record is the `RentalListing`
+     object of the ad's page. Besides the search hits, the collector reads the latest ad of
+     each ad's unit and, in history regions, each ad of the unit's history at or above the
+     collection policy's ID cutoff. Each round of reads can find new IDs, so it goes up to
+     four rounds.
   3. Read each ad's building with `buildingsByIds`, 50 to a field, for its slug and its
      attributes.
   4. Write the records into the archive with no further requests, in the steps a page
@@ -128,8 +129,9 @@ FIELDS_PER_REQUEST = 5
 MAX_BATCH = IDS_PER_FIELD * FIELDS_PER_REQUEST
 BUILDINGS_PER_FIELD = 50
 BUILDINGS_PER_REQUEST = 250
-# On Oct 15, with four requests running at once, the listing service answered 142 of 144
-# Manhattan reads of 500 ads (about 4 MB) with GATEWAY_TIMEOUT and every read of 375 or fewer.
+# On Oct 15, with four requests running at once, the listing service answered 148 of 152
+# Manhattan reads of about 500 ads (about 4 MB) with GATEWAY_TIMEOUT, against 1 of 299
+# smaller reads. Probe reads of 375 ads (about 3 MB) all came back.
 TARGET_BYTES = 3_000_000
 FIRST_BYTES_PER_AD = 20_000
 EDGES = [0, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000, 7000, 8000, 10000]
@@ -702,8 +704,11 @@ class Collector:
         data = data if isinstance(data, dict) else {}
         shape = dict if job.kind in ("count", "slice") else list
         if not any(isinstance(data.get(alias), shape) for alias in job.fields):
-            if job.kind == "ads" and len(job.items) > 1 and _timed_out(doc):
-                self.ad_ceiling = min(self.ad_ceiling, len(job.items) * 3 // 4)
+            # Retry halves fall below three quarters of the ceiling, so their timeouts leave it.
+            if job.kind == "ads" and _timed_out(doc):
+                if len(job.items) > self.ad_ceiling * 3 // 4:
+                    cut = max(IDS_PER_FIELD, len(job.items) * 3 // 4)
+                    self.ad_ceiling = min(self.ad_ceiling, cut)
             self._retry(job.kind, job.items)
             return False
         failed = getattr(self, "_save_" + job.kind)(job, data, reply)

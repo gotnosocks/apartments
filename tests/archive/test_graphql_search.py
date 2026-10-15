@@ -664,10 +664,16 @@ def test_a_timed_out_read_makes_later_reads_smaller(tmp_path):
     assert c._handle(job, timed_out) is False
     assert c._ad_batch() == 300
     assert [len(j.items) for j in c.retry] == [200, 200, 200, 200]
+    for job in list(c.retry):
+        c._handle(job, timed_out)
+    assert c._ad_batch() == 300
     c._handle(c._job("ads", list(range(1_300_000, 1_300_500))), timed_out)
     assert c._ad_batch() == 300
     c._handle(c._job("ads", [1_300_000]), timed_out)
     assert c._ad_batch() == 300
+    for size in (300, 225, 168, 126, 100, 100):
+        c._handle(c._job("ads", list(range(1_300_000, 1_300_000 + size))), timed_out)
+    assert c._ad_batch() == 100
 
 
 def test_search_fields_and_bands():
