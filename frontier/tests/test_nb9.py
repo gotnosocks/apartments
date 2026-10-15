@@ -168,7 +168,7 @@ def test_wholefloor_needs_the_ad_and_the_lot_to_agree(monkeypatch):
     counts only at <= 1.5 apartments per floor."""
     from rentfrontier import descriptions, floorthrough
 
-    frame = pd.DataFrame({"building": list("abcdef")})
+    frame = pd.DataFrame({"building": list("abcdefgh")})
     text = pd.Series(
         [
             "entire townhouse with garden",
@@ -177,10 +177,12 @@ def test_wholefloor_needs_the_ad_and_the_lot_to_agree(monkeypatch):
             "floor-through 2br",
             "sunny 1br",
             "whole house and full floor",
+            "full floor-to-ceiling windows",
+            "entire townhouse, full floor",
         ]
     )
-    lots = pd.DataFrame({"unitsres": [3, 20, 5, 8, 2, 2]})
-    upf = np.array([0.75, 4.0, 1.0, 2.0, 0.5, 0.5])
+    lots = pd.DataFrame({"unitsres": [3, 20, 5, 8, 2, 2, 1, np.nan]})
+    upf = np.array([0.75, 4.0, 1.0, 2.0, 0.5, 0.5, 0.5, np.nan])
     monkeypatch.setitem(
         features.FEATURE_SETS,
         "base",
@@ -191,7 +193,7 @@ def test_wholefloor_needs_the_ad_and_the_lot_to_agree(monkeypatch):
     monkeypatch.setattr(descriptions, "attach", lambda f: text)
     monkeypatch.setattr(features, "building_lots", lambda f: lots)
     monkeypatch.setattr(floorthrough, "units_per_floor", lambda f: upf)
-    out = features.wholefloor_v1(frame, np.ones(6, bool), base="base")
+    out = features.wholefloor_v1(frame, np.ones(8, bool), base="base")
     assert out.names == ["whole house", "full floor"]
-    assert out.values[:, 0].tolist() == [1, 0, 0, 0, 0, 1]
-    assert out.values[:, 1].tolist() == [0, 0, 1, 0, 0, 1]
+    assert out.values[:, 0].tolist() == [1, 0, 0, 0, 0, 1, 0, 0]
+    assert out.values[:, 1].tolist() == [0, 0, 1, 0, 0, 1, 0, 0]

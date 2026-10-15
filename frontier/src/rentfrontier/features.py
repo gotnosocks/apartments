@@ -1129,7 +1129,9 @@ WHOLE_HOUSE_TEXT = (
     r"single[- ]family|entire (?:town)?house|whole (?:town)?house|entire brownstone"
     r"|entire townhouse|private (?:town)?house|carriage house"
 )
-FULL_FLOOR_TEXT = r"full[- ]floor|floor[- ]?thr(?:ough|u)|entire floor|whole floor"
+FULL_FLOOR_TEXT = (
+    r"(?:full[- ]floor|entire floor|whole floor)(?![- ]to)|floor[- ]?thr(?:ough|u)"
+)
 
 
 def wholefloor_v1(
@@ -1144,8 +1146,8 @@ def wholefloor_v1(
         townhouse, carriage house) and the lot holds at most 3 apartments;
       - full floor: the ad says full floor or floor-through and the lot holds
         at most `floorthrough.WHOLE_FLOOR` apartments per floor.
-    A whole-house row also counts as full floor when both hold. Reads no
-    rents."""
+    The two indicators are set independently, so a row can carry both. Reads
+    no rents."""
     from . import descriptions, floorthrough
 
     base = FEATURE_SETS[base](frame, train)
