@@ -1892,6 +1892,31 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # slopemin3 with the unit effects' Student-t degrees of freedom fixed at 4
+    # in place of estimated; estimated near 1.9 on NB9, the tails let a small
+    # building's units split into two price groups and its level settle on
+    # either one.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4",
+        building_walk=True,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        unit_nu_fixed=4.0,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # The served size-unknown design (option C) with the log-linear residual
     # scale in place of one scale per bedroom group and year.
     "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise-sizeunkslope": ModelConfig(
