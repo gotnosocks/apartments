@@ -347,6 +347,10 @@ ops/streeteasy-collect topup
   on the next site data build.
 - Each run's report is in `crawls/api/graphql-search/run-N.json`, and the script logs a line
   for each region in `crawls/streeteasy-collect.log`.
+- After the last region, still holding the lock, the script runs the [raw export](#raw-export)
+  from the same runtime and logs its exit status. A failed export makes the script exit 1. A
+  backfill stopped by a failed region exits before the export, and the next invocation exports
+  its replies.
 
 `ops/systemd/apartments-streeteasy-topup.timer` runs `topup` every Friday at 05:30 New York
 time from the master checkout, in the light slice with 2 GB of memory. Ben asked on Oct 15 for
@@ -384,7 +388,10 @@ each file holds up to 250 replies, named by the first and last of their response
 exporter appends a line for each finished file to `export/manifest.ndjson`, with its rows and
 SHA-256. A later export of a run starts above the highest ID in the names of the run's files and
 leaves the finished files as they are. With `--run N` it exports that run alone, and with no
-`--run` it exports every run.
+`--run` it exports every run. `ops/streeteasy-collect` runs it with no `--run` at the end of
+each invocation, so the weekly top-up and each backfill add their replies. The exporter holds
+`export/.lock` while it runs and stops with an error when another export holds it, so an export
+by hand during a collection can fail the collection's export step.
 
 A database restored from a backup goes back to the backup's ID counter, so the collector can
 give a new reply the ID of an exported one, and the `VACUUM INTO` copy can renumber the rowids
