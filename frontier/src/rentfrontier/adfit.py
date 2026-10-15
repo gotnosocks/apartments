@@ -366,9 +366,15 @@ def read_ids() -> frozenset:
     return frozenset(ids)
 
 
+WHOLE_AD_VERDICTS = ("quarantine_bedrooms_unknown",)
+
+
 def verdict_problems(read: dict) -> list[str]:
     """What keeps a read from being recorded: an unknown verdict, or a non-keep
-    verdict without a quote from the ad or the page, or one resting on price."""
+    verdict without a quote from the ad or the page, or one resting on price.
+    A studio held out for an unknown count may quote its whole ad even when
+    that ad is a placeholder ("apt", "-"): the missing description is the
+    evidence."""
     problems = []
     verdict = read.get("verdict")
     if verdict not in VERDICTS:
@@ -378,6 +384,10 @@ def verdict_problems(read: dict) -> list[str]:
     quote = (read.get("quote") or "").strip()
     if read.get("quote_source") not in ("ad", "page"):
         problems.append("quote_source must be 'ad' or 'page'")
+    if verdict in WHOLE_AD_VERDICTS and read.get("quote_is_whole_ad"):
+        if not read.get("reason"):
+            problems.append("no reason")
+        return problems
     if (
         len(
             re.findall(

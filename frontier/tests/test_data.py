@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V21)
+    ) | data.quarantined(data.QUARANTINE_V22)
 
 
 @pytest.mark.parametrize(
@@ -1746,6 +1746,7 @@ def test_bedrooms_ad_v4_takes_counts_from_quoted_reads():
     for a, fix in fixes.items():
         read = reads[a]
         assert read["verdict"] == "correct_bedrooms" and read["quote"]
+        assert read["second_signal"]
         assert fix["field"] == "bedrooms" and fix["corrected"] == read["bedrooms"]
     assert {a for a, r in reads.items() if r["verdict"] == "correct_bedrooms"} == set(
         fixes
@@ -1755,6 +1756,28 @@ def test_bedrooms_ad_v4_takes_counts_from_quoted_reads():
     )
     out = data.correct_bedrooms_v4(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v22_adds_the_blank_studios_of_the_bedroom_review():
+    """v22 holds out v21's rows unchanged, plus each bedroom-review read with
+    the `quarantine_bedrooms_unknown` verdict, quoting the read's whole ad."""
+    with open(data.QUARANTINE_V21) as f:
+        v21 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.QUARANTINE_V22) as f:
+        v22 = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/ad-fit-reads-20261015-bedrooms.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    held = {
+        r["audit_id"]: r for r in reads if r["verdict"] == "quarantine_bedrooms_unknown"
+    }
+    assert len(held) == 146
+    assert all(
+        r["bedrooms_coded"] == 0 and r["quote_is_whole_ad"] for r in held.values()
+    )
+    assert all(v22[a] == v21[a] for a in v21)
+    assert v22.keys() - v21.keys() == held.keys()
+    assert all(v22[a]["evidence"] == r["quote"] for a, r in held.items())
+    assert "quarantine-v22" in data.DROPPING_RULES
 
 
 def test_quarantine_v21_adds_the_stock_wording_hold_outs():

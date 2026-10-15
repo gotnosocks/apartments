@@ -57,6 +57,11 @@ drop-in center, NYCHA housing, Madison Square Garden.
       building, move the row there, and release it from the next quarantine version. Run
       `frontier/scripts/brooklyn_screen.py` on every new dataset in the meantime.
 
+- [ ] **Data: `text:renovated` misses "remodeled"** (2026-10-15). The 1 Patchin Place ads
+      3848319 and 4404993 say "remodeled" and get no renovation flag. On NB9, 519 ads say remodel,
+      remodeled or remodeling without any form of "renovat". Widening the pattern is a new feature
+      version, so the existing pattern stays as it is.
+
 **Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
 The review was read-only and measured only the first item, on a CPU rather than the 2060.
 Each change must leave results unchanged, so check outputs against the current code before

@@ -754,9 +754,10 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v3. No listing is dropped.",
     "bedrooms-ad-v4": "bedrooms-ad-v3, and the bedroom counts of listings priced out "
     "of line with their building's other units (a studio asking what the "
-    "three-bedrooms ask) whose ad, or another ad for the same apartment, states "
-    "another count. A reader read every flagged ad in full; price only chose which "
-    "ads to read. No listing is dropped.",
+    "three-bedrooms ask) whose ad states another count, when another ad for the "
+    "same apartment, a stated size or a reviewed floor plan backs it (22 rows). A "
+    "reader read every flagged ad in full; price only chose which ads to read. No "
+    "listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
@@ -833,6 +834,10 @@ DATA_RULE_TEXT = {
     "some of v20's hold-outs: 21 Atelier ads whose price varies with the term and "
     "furnishing, 29 June flexible leases priced by furnishing and move dates, and two "
     "Rove Travel stays priced by season and stay length.",
+    "quarantine-v22": "quarantine-v21 and 146 studios from the bedroom review whose ad "
+    'says nothing about the apartment (blank, a placeholder such as "apt", legal '
+    "boilerplate or a line about the building) and gives no count, so the 0 looks like "
+    "a blank field.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
