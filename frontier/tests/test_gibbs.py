@@ -106,6 +106,13 @@ DESIGNS = {
     "slopemin": model.ModelConfig(
         building_walk=True, bedroom_slope=True, bedroom_slope_min_rows=6
     ),
+    # Masks 6 of the 15 synthetic buildings' walks (3.2 to 5 rows per knot).
+    "walkmin": model.ModelConfig(
+        building_walk=True, bedroom_slope=True, walk_min_rows_per_knot=4.2
+    ),
+    # The same on synthetic(seed=2, units_per_building=3, months=72), with
+    # 0.5 to 1.17 rows per knot.
+    "walkmin-long": model.ModelConfig(building_walk=True, walk_min_rows_per_knot=0.7),
     "fslopes": model.ModelConfig(
         building_walk=True,
         bedroom_slope=True,
@@ -353,7 +360,9 @@ def test_solo_updates_reusing_parts_match_recomputing_them(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("design", ["walk", "walk12", "all", "fslopes", "tunits"])
+@pytest.mark.parametrize(
+    "design", ["walk", "walk12", "all", "fslopes", "tunits", "walkmin-long"]
+)
 def test_compact_walk_matches_the_full_block(design):
     """Integrating out the walk knots no row touches leaves the posterior mean
     (untouched knots at their conditional mean) and the scale dependence of the
@@ -455,6 +464,7 @@ def test_student_t_units_block_matches_dense():
     [
         "all",
         "slopemin",
+        "walkmin",
         "quarterly",
         "fslopes",
         "tunits",
@@ -505,6 +515,7 @@ def test_site_values_reproduce_linear_predictor(design):
         "base",
         "walk",
         "all",
+        "walkmin",
         "tunits",
         # Passes against the non-centred reference (unit_drift_scale sd ratio
         # 0.98-1.05 over two seeds, PR #17 review); the old xfail's numbers were
@@ -570,12 +581,20 @@ def test_gibbs_matches_nuts_on_same_model(design):
     }
     if config.building_walk:
         knots = np.cumsum(nuts["walk_step"], axis=2)  # knot 1.. of each building
+        b = 0
+        if config.walk_min_rows_per_knot:
+            # Masked buildings have no walk: check the first building with one.
+            b = int(np.flatnonzero(model.walk_mask(prep, config))[0])
         checks["walk_scale"] = (
             nuts["walk_scale"],
             means["walk_scale"],
             sds["walk_scale"],
         )
-        checks["walk[0, 2]"] = (knots[:, 0, 1], means["walk"][0, 2], sds["walk"][0, 2])
+        checks[f"walk[{b}, 2]"] = (
+            knots[:, b, 1],
+            means["walk"][b, 2],
+            sds["walk"][b, 2],
+        )
     if config.bedroom_slope:
         checks["bedroom_slope_scale"] = (
             nuts["bedroom_slope_scale"],

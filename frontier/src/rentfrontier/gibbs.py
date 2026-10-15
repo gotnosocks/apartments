@@ -4,7 +4,7 @@ Scope: designs that are conditionally Gaussian given the Student-t mixing
 weights and the scales, with every unit nested in one building.
 `run.py --sampler gibbs` fits a design with it; `build_design` refuses the
 rest: terms it has no exact update for (market drift, building trends,
-Student-t or sum-to-zero walks, walk masks and anchors, line effects),
+Student-t or sum-to-zero walks, walk anchors, line effects),
 designs without every base term (trend, season, features, buildings, units),
 and data where a unit's rows sit in more than one building.
 
@@ -109,6 +109,7 @@ class Design:
     bedroom_time_basis: jnp.ndarray
     slope_index: int | None  # local index of the bedroom slope
     slope_on: jnp.ndarray | None  # 1.0 for buildings with a bedroom slope
+    walk_on: jnp.ndarray | None  # 1.0 for buildings with a walk (`walk_mask`)
     fslope_local: list  # local indices of per-building feature slopes
     fslope_cols: list  # their feature columns
     knot_start: int | None  # local index of walk knot 1 (knot 0 is fixed at 0)
@@ -262,6 +263,7 @@ def compact_walk(
     n_local,
     max_buckets=MAX_BUCKETS,
     ar=False,
+    walk_on=None,
 ):
     """Buckets and fill rules that integrate out the walk knots no row touches.
 
@@ -278,12 +280,24 @@ def compact_walk(
     has the stationary variance, and each next one links to the one before
     with coefficient rho^gap. Each bucket holds the gaps, and `fill` holds the
     nearest touched knot on each side of every knot (`fill_ar`).
+
+    With `walk_on` (1.0 for buildings with a walk) the rows of the other
+    buildings touch no knot. Their walk columns point at slot 0 with weight 0,
+    and `fill_walk` draws all their knots from the walk prior. The scale
+    updates count those knots in the walk's rank, and `site_values` sets the
+    walk of those buildings to 0.
     """
     offset = 0 if ar else 1  # local slot knot_start holds knot `offset`
     n_fixed, k = knot_start, n_local - knot_start + offset  # knots 0..k-1
     walk_cols = slice(slots.shape[1] - 2, slots.shape[1])
     touched = np.zeros((n_buildings, k), bool)
-    touched[building[:, None], slots[:, walk_cols] - knot_start + offset] = True
+    walk_rows = (
+        np.ones(len(building), bool) if walk_on is None else walk_on[building] > 0
+    )
+    touched[
+        building[walk_rows][:, None],
+        slots[walk_rows, walk_cols] - knot_start + offset,
+    ] = True
     if not ar:
         touched[:, 0] = False  # the fixed anchor is not a variable
     sizes = touched.sum(1)
@@ -345,9 +359,11 @@ def compact_walk(
                 diff.T @ np.diag(1.0 / steps) @ diff
             )
         cs = slots[rows].copy()
-        cs[:, walk_cols] = pos[
-            building[rows][:, None], slots[rows, walk_cols] - knot_start + offset
-        ]
+        cs[:, walk_cols] = np.where(
+            walk_rows[rows][:, None],
+            pos[building[rows][:, None], slots[rows, walk_cols] - knot_start + offset],
+            0,
+        )
         units = np.flatnonzero(index[unit_building] >= 0)
         uidx = np.full(n_units, -1)
         uidx[units] = np.arange(len(units))
@@ -471,14 +487,13 @@ def build_design(
         or config.market_drift
         or config.building_trend
         or config.walk_t
-        or config.walk_min_rows_per_knot
         or config.walk_anchor_data
         or config.walk_zero_sum
     ):
         raise ValueError(
             f"{config.name}: the Gibbs sampler needs every base term and no market "
             "drift, building trend or walk options (t steps, "
-            "mask, anchor, zero-sum); "
+            "anchor, zero-sum); "
             "fit these designs with --sampler nuts"
         )
     tr = prep.train
@@ -607,6 +622,7 @@ def build_design(
         columns.append((np.full(n, n_local, np.int32), tr.x[:, col].astype(float)))
         structures[f"fslope_scale_{i}"] = [n_local]
         n_local += 1
+    walk_on = None
     if config.building_walk:
         # Knots every config.walk_knot_months months (6 up to m8; coarser knots
         # leave fewer knots that a lone row pins).
@@ -616,6 +632,16 @@ def build_design(
             np.asarray(v)
             for v in model_module.walk_position(tr, config.walk_knot_months)
         )
+        # With a walk mask the rows of buildings without a walk put zero
+        # weight on its knots. The sampler draws those knots from the walk
+        # prior (in the compact walk none of them counts as touched), and
+        # `site_values` sets the walk of those buildings to 0.
+        row_walk = np.ones(n)
+        if config.walk_min_rows_per_knot:
+            if config.walk_ar:
+                raise ValueError("walk_ar takes no walk mask")
+            walk_on = model_module.walk_mask(prep, config)
+            row_walk = walk_on[tr.building]
         if config.walk_ar:
             # Knot j sits at local index knot_start + j; every knot is a
             # variable of the stationary AR(1) deviation.
@@ -632,10 +658,10 @@ def build_design(
             columns.append(
                 (
                     knot_start + np.maximum(lo - 1, 0).astype(np.int32),
-                    np.where(lo >= 1, 1 - frac, 0.0),
+                    np.where(lo >= 1, 1 - frac, 0.0) * row_walk,
                 )
             )
-            columns.append((knot_start + lo.astype(np.int32), frac))
+            columns.append((knot_start + lo.astype(np.int32), frac * row_walk))
             n_local += k - 1
     slots = np.stack([c[0] for c in columns], axis=1).astype(np.int32)
     values = np.stack([c[1] for c in columns], axis=1)
@@ -664,6 +690,7 @@ def build_design(
             knot_start,
             n_local,
             ar=config.walk_ar,
+            walk_on=walk_on,
         )
 
     n_noise = model_module.n_noise(config, prep)
@@ -731,6 +758,7 @@ def build_design(
         bedroom_time_basis=jnp.asarray(bed_basis),
         slope_index=slope_index,
         slope_on=None if slope_on is None else jnp.asarray(slope_on),
+        walk_on=None if walk_on is None else jnp.asarray(walk_on),
         fslope_local=fslope_local,
         fslope_cols=fslope_cols,
         knot_start=knot_start,
@@ -1287,7 +1315,10 @@ def site_values(d: Design, state):
         out["walk_rho"] = walk_rho(d, state)
         out["walk_knot_months"] = d.walk_months
     elif d.knot_start is not None:
-        out["walk_step"] = steps(theta_l[:, d.knot_start :])
+        walk = theta_l[:, d.knot_start :]
+        if d.walk_on is not None:
+            walk = walk * d.walk_on[:, None]
+        out["walk_step"] = steps(walk)
         # The spacing linear_predictor interpolates the walk with (held-out scores).
         out["walk_knot_months"] = d.walk_months
     return out

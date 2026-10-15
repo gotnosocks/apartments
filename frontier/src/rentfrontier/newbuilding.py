@@ -285,8 +285,9 @@ def _score_chunk(kept, config, prep, a, building, rungs, ctx, rng):
                 ),
                 a.x[:, ctx["fslope_index"]],
                 ctx["center"][building],
-                ctx["spacing"],
-                # A building with no training rows takes no slope of its own.
+                # A building with no training rows takes no walk or slope of
+                # its own under a walk mask or slope minimum.
+                0 if config.walk_min_rows_per_knot else ctx["spacing"],
                 bedroom_slope=not config.bedroom_slope_min_rows,
             )
             out[rung] = scores(

@@ -104,9 +104,11 @@ def test_unsupported_designs_are_named():
     )
     m1 = rentmap.unsupported_terms(model.MODELS["m1-btrend-walk24"])
     assert "both a walk and a trend" in m1
-    assert "sum-to-zero, masked or anchored walks" in rentmap.unsupported_terms(
+    assert "sum-to-zero or anchored walks" in rentmap.unsupported_terms(
         model.MODELS["m1-walk36-zs"]
     )
+    # A masked walk is 0 for buildings without one: they follow the market.
+    assert rentmap.unsupported_terms(model.MODELS["m1-walk24-min2"]) == []
 
 
 def test_clip_ring_and_thin():
