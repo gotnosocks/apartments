@@ -853,10 +853,9 @@ DATA_RULE_TEXT = {
     "quarantine-v24": "quarantine-v23 and 4 listings StreetEasy files under the wrong "
     "building: two Brooklyn ads at 222 East 17th Street, a 4-unit walk-up, and two for a "
     "20th-floor unit at 318 East 15th Street, which has 12 stories.",
-    "quarantine-v25": "quarantine-v24 and 9 Brooklyn listings filed under Manhattan "
-    "buildings: 7 for a new building on East 19th Street in Ditmas Park, 1 in Prospect Park "
-    "South and 1 by Cortelyou Road. Each ad places the apartment in Brooklyn, and PLUTO's "
-    "record of the Manhattan building disagrees with it.",
+    "quarantine-v25": "quarantine-v24 and 8 Brooklyn listings filed under Manhattan "
+    "buildings: 7 whose ads agree on a new building on East 19th Street in Ditmas Park, and "
+    "a four-family house by Cortelyou Road filed under a 21-unit East Village building.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",

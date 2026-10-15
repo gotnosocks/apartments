@@ -1841,8 +1841,8 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
 
 
-def test_quarantine_v25_adds_nine_brooklyn_listings():
-    """v25 holds out v24's rows unchanged, plus 9 Brooklyn rows. Each one is in
+def test_quarantine_v25_adds_eight_brooklyn_listings():
+    """v25 holds out v24's rows unchanged, plus 8 Brooklyn rows. Each one is in
     the misjoin file and in v25's read list."""
     with open(data.QUARANTINE_V24) as f:
         v24 = {r["audit_id"]: r for r in map(json.loads, f)}
@@ -1850,7 +1850,7 @@ def test_quarantine_v25_adds_nine_brooklyn_listings():
         v25 = {r["audit_id"]: r for r in map(json.loads, f)}
     assert all(v25[a] == v24[a] for a in v24)
     added = {a: v25[a] for a in v25.keys() - v24.keys()}
-    assert len(added) == 9
+    assert len(added) == 8
     assert all(r["action"] == "brooklyn_misjoin" for r in added.values())
     assert (
         sorted(r["building"] for r in added.values()).count(

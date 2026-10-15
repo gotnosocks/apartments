@@ -1373,18 +1373,16 @@ QUARANTINE_V25 = QUARANTINE_V20.with_name("quarantine-v25-20261015.jsonl")
 
 
 def quarantine_v25(frame: pd.DataFrame) -> pd.DataFrame:
-    """v24's rows and 9 Brooklyn listings filed under Manhattan buildings,
-    found with Ditmas Park, Prospect Park South and Cortelyou Road wording
-    that `brooklyn.NEAR` misses. A reader read each whole ad, and each joins
-    `brooklyn.MISJOINS`:
+    """v24's rows and 8 Brooklyn listings filed under Manhattan buildings,
+    found with Ditmas Park and Cortelyou Road wording that `brooklyn.NEAR`
+    misses. A reader read each whole ad, and each joins `brooklyn.MISJOINS`:
 
-    - 7 at 317 East 19th Street, for units at 319 and 323 East 19th Street.
-      Their ads describe a new elevator building by the B and Q at Cortelyou
-      Road. PLUTO lists the Manhattan lot as a school with no apartments.
-    - 312 East 21st Street #5H, filed under 344 2nd Avenue, with an ad for
-      Prospect Park South. PLUTO gives 344 2nd Avenue 4 stories.
+    - 7 at 317 East 19th Street. Ads for six units over 18 months agree with
+      each other: 319 or 323 East 19th Street, a new elevator building in
+      Ditmas Park by the B and Q at Cortelyou Road.
     - 346 East 9th Street #1R, with an ad for a four-family house by Cortelyou
-      Road. PLUTO lists the Manhattan lot with 21 apartments."""
+      Road. PLUTO lists the Manhattan building, an East Village tenement in
+      its other ads, with 21 apartments."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V25))]
 
 

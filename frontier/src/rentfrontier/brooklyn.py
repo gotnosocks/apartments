@@ -5,7 +5,7 @@ types a Brooklyn address such as "316 7th Avenue", StreetEasy files it under
 the Manhattan building with the same number and street name, and the ad itself
 places the apartment in Park Slope, Clinton Hill or by Barclays Center.
 `quarantine-v17` holds out the rows its screen found, `quarantine-v24` and
-`quarantine-v25` add 11 from later checks, all with the reason code `brooklyn_misjoin`, and
+`quarantine-v25` add 10 from later checks, all with the reason code `brooklyn_misjoin`, and
 `MISJOINS` records each one's evidence for a later remap
 to the right Brooklyn building.
 
