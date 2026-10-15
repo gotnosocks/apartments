@@ -162,6 +162,56 @@ band of 2,000 Upper East Side ads needs 25 to 30 levels before its halves come a
 the empty halves ending as leaves. When the collector reopens a run, it adds a `box` column
 to the band tables of an older archive, and the old bands take the value for no box.
 
+I reopened runs 3 and 4 with the box split (#843) between 12:34 and 12:43 ET. The first
+attempt stopped after 10 requests, when Oxylabs answered 6 requests in a row with no status
+or content, and the second went through. The two attempts took 80 requests ($0.09) and left
+no band truncated in either run. The box halves added up to their bands everywhere, so no ad
+fell outside the boxes. The searches found 1,343 more ad IDs in run 3 and 236 in run 4, most
+of them already in the archive. Writing the new ones, the collector added 28 ad records,
+marked 330 ads as superseded and excluded 5. I count a band's gap as its count minus the sum
+of its parts' counts. Positive gaps remain only where a band splits by bedroom count, 35 ads
+in run 3 and 15 in run 4. Ads with no bedroom count or more than 7 bedrooms would fall in
+these gaps, as would ads that changed between two counts.
+
+## The four regions' backfill and dataset (Oct 15)
+
+| run | region | requests | dollars | search hits |
+|---|---|---:|---:|---:|
+| 1 | `manhattan-below-59th` | 2,053 | 2.34 | 494,334 |
+| 2 | `brooklyn-prospect-park` | 1,263 | 1.44 | 263,725 |
+| 3 | `manhattan-59th-110th` | 2,732 | 3.11 | 553,640 |
+| 4 | `brooklyn-north-crown-heights` | 3,086 | 3.52 | 657,334 |
+| | all four | 9,134 | 10.41 | 1,969,033 |
+
+The requests include the reopens with the area and box splits. Ben's approval of Oct 15
+projected about 8,500 requests and $9.70.
+
+I then built a dataset from a snapshot of the archive, with no requests, in the steps used for
+Midtown West (`/data1/apartments/tmp/api-build-20261015/build.sh`, code from master at #843):
+
+1. `snapshots/api-20261015/archive.sqlite3` (9.3 GB), copied with `VACUUM INTO` under
+   `oxylabs.lock` and checked with `quick_check`, with its SHA-256 beside it.
+2. `datasets/api-granular-20261015-canonical-url-v1`, from `models/transform_local.py` with an
+   empty corrections ledger, in 15 minutes: 1,706,321 listing observations, 767,445 rental
+   units, 1,692,611 unit memberships, 62,122 building observations and 30,640,738 event
+   mentions.
+3. The collection audit, in `/data1/apartments/tmp/api-build-20261015/audit.json`: 1,773,813
+   observations and no capture errors. Of the scoped frontier, 1,768,200 rows are done,
+   284,094 excluded and 746,478 superseded. The audit also reads the exclusion log as a
+   trail: 269,234 ads below the listing-ID cutoff, 14,860 with no unit membership and 26,270
+   captured ads found not eligible. The frontier marks those 26,270 as done, so the 284,094
+   excluded rows hold the first two groups.
+4. `datasets/api-granular-20261015-unit-spelling-aliases-v2`: 16,524 groups of unit
+   spellings (12,150 confirmed by unit histories), joining 34,631 units and 81,091 ads.
+
+For 20,900 of the 26,270 ads not eligible, the unit history listing the ad spells the unit
+differently from the ad's own unit slug, such as `/2c` and `/2-c` at 32 W 72nd St or `/8c`
+and `/008c` at 101 West End Ave. StreetEasy keeps two records for each such unit. The other
+5,370 ads have an API record with no building or unit slug.
+
+The dataset holds the four regions' runs. The archive holds no top-up run yet, and the first
+starts on Friday Oct 16 at 05:30 ET.
+
 ## Running it
 
 `ops/streeteasy-collect` copies `src/` at its checkout's commit into
