@@ -563,6 +563,19 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
         rental(1300005),
         rental(1300007),
     }
+    assert (link / "details" / "archive").resolve() == (tmp_path / "archive").resolve()
+    from apartments.site import ad_dates
+
+    bodies = ad_dates._Bodies(root)
+    try:
+        for r in rows:
+            (sha,) = c.db.execute(
+                "SELECT body_hash FROM observations WHERE id=?",
+                (r["crawl_provenance"]["observation_id"],),
+            ).fetchone()
+            assert bodies.get(sha) is not None
+    finally:
+        bodies.close()
     failures = (link / "details" / "snapshot" / "failures.jsonl").read_text()
     assert "no single canonical unit" in failures
 

@@ -1412,6 +1412,8 @@ class Collector:
         crawl_current_listings.publish(
             output, plan, plan_hash, candidates, failures, report
         )
+        # The site's ad_dates reads bodies through current-listings/*/details/archive.
+        (output / "details" / "archive").symlink_to(self.store.root)
         temporary = link.with_name(link.name + ".tmp")
         if temporary.is_symlink() or temporary.exists():
             temporary.unlink()
