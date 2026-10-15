@@ -34,7 +34,8 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
        - Each older ad goes in under /rental/ID with its own record.
        - An ad with no record from the API gets a gap observation.
      An ad waits until its unit's capture is written, and the policy excludes ads with no
-     unit membership, as in a crawl.
+     unit membership, as in a crawl. The collector commits these writes 500 rows at a
+     time. A stop loses the open batch, and the next run writes its rows again.
 
 Ad bodies come from apartments.graphql_listing.listing_body and building bodies from
 building_body. The raw response of each request also goes into the archive's bodies, and
@@ -85,6 +86,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter, deque
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import fcntl
@@ -138,6 +140,7 @@ FIELDS_PER_REQUEST = 5
 MAX_BATCH = IDS_PER_FIELD * FIELDS_PER_REQUEST
 BUILDINGS_PER_FIELD = 50
 BUILDINGS_PER_REQUEST = 250
+WRITE_BATCH = 500  # rows the write phase commits at once
 # On Oct 15, with four requests running at once, the listing service answered 148 of 152
 # Manhattan reads of about 500 ads (about 4 MB) with GATEWAY_TIMEOUT, against 1 of 299
 # smaller reads. Probe reads of 375 ads (about 3 MB) all came back.
@@ -1162,6 +1165,7 @@ class Collector:
             (g,),
         ).fetchall()
         for row in rows:
+            self._tick()
             response, record = self._record(row["response_id"], row["building_id"])
             url = self._building(row["building_id"], row["slug"])["page"]
             if (
@@ -1215,6 +1219,7 @@ class Collector:
             (g,),
         ).fetchall()
         for row in rows:
+            self._tick()
             if row["building_id"] is not None and not row["building_read"]:
                 counts["units_waiting_for_building"] += 1
                 continue
@@ -1257,6 +1262,7 @@ class Collector:
             (g,),
         ).fetchall()
         for row in rows:
+            self._tick()
             latest = row["latest_id"]
             if (
                 latest is not None
@@ -1326,6 +1332,7 @@ class Collector:
             (g,),
         ).fetchall()
         for (url,) in rows:
+            self._tick()
             key = listing_key(url)
             ad = int(key.split(":")[1]) if key else None
             if ad is not None and ad < self.cutoff:
@@ -1336,23 +1343,67 @@ class Collector:
             else:
                 counts["scoped_ads_unread"] += 1
 
+    @contextmanager
+    def _batched(self):
+        """Hold a transaction open over the write phase, and commit it every WRITE_BATCH rows.
+
+        While the batch is open, each store._tx block runs as a savepoint. When a step fails,
+        its savepoint undoes that step alone. When an error leaves the phase, the open batch
+        rolls back, and the next run writes its rows again.
+        """
+        db = self.db
+
+        @contextmanager
+        def savepoint():
+            db.execute("SAVEPOINT step")
+            try:
+                yield
+            except BaseException:
+                # After a full disk or an I/O error, SQLite rolls back the whole transaction
+                # itself, and the savepoint is gone.
+                if db.in_transaction:
+                    db.execute("ROLLBACK TO step")
+                    db.execute("RELEASE step")
+                raise
+            db.execute("RELEASE step")
+
+        db.execute("BEGIN IMMEDIATE")
+        self.store._tx, self._rows = savepoint, 0
+        try:
+            yield
+        except BaseException:
+            db.rollback()
+            raise
+        else:
+            db.commit()
+        finally:
+            del self.store._tx
+
+    def _tick(self):
+        """Count a row of the write phase, and commit the batch at every WRITE_BATCH rows."""
+        self._rows += 1
+        if self._rows % WRITE_BATCH == 0:
+            self.db.commit()
+            self.db.execute("BEGIN IMMEDIATE")
+
     def write(self):
         """Write what the run has read into the archive, with no requests."""
         counts = Counter()
-        self._write_buildings(counts)
-        with self.store._tx():
-            self.db.execute(
-                """INSERT OR IGNORE INTO scope_urls SELECT ?, 'https://streeteasy.com/rental/'
-                || listing_id, ? FROM graphql_search_hits WHERE run=?""",
-                (
-                    self.generation,
-                    f"{SEARCH_VERSION} {self.region} area search",
-                    self.run,
-                ),
-            )
-        self._write_units(counts)
-        self._write_ads(counts)
-        self._close_scope(counts)
+        with self._batched():
+            self._write_buildings(counts)
+            with self.store._tx():
+                self.db.execute(
+                    """INSERT OR IGNORE INTO scope_urls SELECT ?, 'https://streeteasy.com/rental/'
+                    || listing_id, ? FROM graphql_search_hits WHERE run=?""",
+                    (
+                        self.generation,
+                        f"{SEARCH_VERSION} {self.region} area search",
+                        self.run,
+                    ),
+                )
+            self._write_units(counts)
+            self._write_ads(counts)
+            self._close_scope(counts)
         self._cached = (None, None, {})
         return dict(sorted(counts.items()))
 

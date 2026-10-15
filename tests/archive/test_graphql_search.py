@@ -352,6 +352,59 @@ def test_resume_after_budget_matches_one_run(tmp_path):
     assert len(api.queries) == 5
 
 
+def test_a_failed_write_rolls_back_its_batch_and_the_rerun_matches(
+    tmp_path, monkeypatch
+):
+    whole = make_collector(tmp_path / "whole", make_api())
+    whole.collect()
+
+    monkeypatch.setattr(gs, "WRITE_BATCH", 2)
+    real, recorded = Collector._record_listing, []
+
+    def fail_after_the_second(self, url, *args):
+        real(self, url, *args)
+        recorded.append(url)
+        if len(recorded) == 2:
+            raise RuntimeError("stopped after recording, before the written mark")
+
+    monkeypatch.setattr(Collector, "_record_listing", fail_after_the_second)
+    api = make_api()
+    first = make_collector(tmp_path / "parts", api)
+    with pytest.raises(RuntimeError):
+        first.collect()
+    assert not first.db.in_transaction and "_tx" not in vars(first.store)
+    # The second record went in with the open batch, so the rollback took it back out.
+    assert observations(first, recorded[0]) and not observations(first, recorded[1])
+    first.store.close()
+
+    monkeypatch.setattr(Collector, "_record_listing", real)
+    queries = len(api.queries)
+    second = make_collector(tmp_path / "parts", api)
+    assert second.run == first.run
+    assert second.collect()["invocation"]["stopped"] is None
+    # A new invocation asks again only for the ad the API gave no record for.
+    asked = [re.findall(r"ids: \[([\d ]*)\]", q) for q in api.queries[queries:]]
+    assert asked == [["1300003"]]
+    assert frontier(second) == frontier(whole)
+    for url in frontier(whole):
+        assert len(observations(second, url)) == len(observations(whole, url))
+
+
+def test_a_failed_step_in_a_batch_rolls_back_alone(tmp_path):
+    c = make_collector(tmp_path / "archive", make_api())
+    with c._batched():
+        with c.store._tx():
+            c.db.execute("INSERT INTO metadata VALUES('kept', '1')")
+        with pytest.raises(ValueError), c.store._tx():
+            c.db.execute("INSERT INTO metadata VALUES('dropped', '1')")
+            raise ValueError
+    assert not c.db.in_transaction and "_tx" not in vars(c.store)
+    rows = c.db.execute(
+        "SELECT key FROM metadata WHERE key IN ('kept', 'dropped')"
+    ).fetchall()
+    assert [r[0] for r in rows] == ["kept"]
+
+
 def test_enumeration_splits_bands_down_to_bedrooms(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 2000, 3000])

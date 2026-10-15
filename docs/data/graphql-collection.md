@@ -109,8 +109,9 @@ Ben approved the backfill of the first four (about 8,500 requests, about $9.70) 
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
 area for East Harlem below 110th St, so the region takes all of it, about $0.17 more. Re-reading
 the histories of areas collected by page crawls is not part of the backfill. Writing the
-records takes about 16 ms an ad with no requests, so the four regions' 1.5 million or so ads
-take about 7 hours to write.
+records sends no requests and takes about 7 ms an ad on thelio, half of it in the two disk
+flushes for each ad's body file, so the four regions' 1.5 million or so ads take about 3 hours
+to write.
 
 ## Running it
 
