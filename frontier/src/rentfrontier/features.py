@@ -5156,11 +5156,11 @@ NB9_LOTS2_FOOTPRINTS_FILE = (
     "/data1/apartments/external/footprints/20261015-a959a8c/footprints.parquet"
 )
 NB9_LOTS2_BASEMAP_FILE = (
-    "/data1/apartments/external/basemap/20261015-a959a8c/basemap.parquet"
+    "/data1/apartments/external/basemap/20261015-59d7578/basemap.parquet"
 )
-NB9_LOTS2_LPC_FILE = "/data1/apartments/external/lpc/20261015-a959a8c/lpc.parquet"
+NB9_LOTS2_LPC_FILE = "/data1/apartments/external/lpc/20261015-59d7578/lpc.parquet"
 NB9_LOTS2_PLUTO_RELEASES_FILE = (
-    "/data1/apartments/external/plutoreleases/20261015-a959a8c/plutoreleases.parquet"
+    "/data1/apartments/external/plutoreleases/20261015-59d7578/plutoreleases.parquet"
 )
 NB9_LOTS2_SETS = {
     "nb9-nostuy-lots2-v1": "nb9-nostuy-v1",
