@@ -21,16 +21,19 @@ for the ad's page:
      (data/probes/graphql-rental-20261015/).
   3. The row's other fields come from the record by granular_parse's own rules.
 
-The record leaves out a few page fields: `listingAddress`, and in each history episode
-`advertisedOnSe`, `closingId`, `soldDate` and `saleEventsOfInterest` (rentals have no sale
-events). No code reads them. It adds `propertyId` and each episode's `offMarketAt`.
+The record leaves out a few page fields: `listingAddress`, `saleType` (null on rentals), the
+open houses' `showingNotes`, and in each history episode `advertisedOnSe`, `closingId`,
+`soldDate` and `saleEventsOfInterest` (rentals have no sale events). No code reads them. It
+adds `propertyId` and each episode's `offMarketAt`. docs/data/graphql-collection.md compares
+the record with the ad page in more detail.
 
 parse_capture takes any listing capture, API or page, and sends it to the matching parser.
 
 Buildings come from `buildingsByIds` and are stored the same way, under
 `"source": "buildingsByIds"` with the building's record. export_building hands the export
-that record in the form of the page's building object, with the latitude and longitude the
-API nests under `geoCenter` copied to the top level, where the page has them.
+that record with the latitude and longitude the API nests under `geoCenter` copied to the
+top level, where the page has them. The rest keeps the API's layout: `nearby`, for instance,
+lists colleges, museums and parks together under `pointsOfInterest`, each with its type.
 """
 
 from __future__ import annotations

@@ -48,14 +48,18 @@ The collection audit runs on the API archive: 15,230 frontier rows done, 4,069 e
 4,151 superseded. The historical exclusions are 3,821 ads below the cutoff, 1,867 not eligible
 and 248 with no unit membership.
 
-## Fields the API leaves out (Oct 15)
+## Ad and building fields next to the pages (Oct 15)
 
 I compared 400 ad pages from the Midtown West crawl of Oct 13 with 1,051 API records
-(scripts in `/data1/apartments/tmp/wt-crawl/fields/`). Next to the listing object on the ad
-page, the API record lacks `listingAddress`, which the address fields rebuild, `saleType`,
-null on rentals, and `showingNotes` on upcoming open houses. It adds `propertyId` and each
-history episode's `offMarketAt`. The rest of the ad page lies outside the listing object, and
-no code in `src/` reads it:
+(scripts in `/data1/apartments/tmp/wt-crawl/fields/`). The API record holds the ad page's
+listing object, apart from these fields:
+
+- `listingAddress`, which the address fields rebuild
+- `saleType`, null on rentals
+- `showingNotes` on upcoming open houses
+
+The record also adds `propertyId` and each history episode's `offMarketAt`. The rest of the ad
+page lies outside the listing object, and no code in `src/` reads it:
 
 - the listing agent's name, phone, contact and profile IDs, license type and Pro flag (the API
   record keeps the brokerage under `legacy.license`)
@@ -65,14 +69,14 @@ no code in `src/` reads it:
   for sale, and a documents link
 - the price history's display text, the similar-homes carousel and nearby-area links
 
-For each building, the collector also asks the API for the fields of the building page's
-object it offers:
+For each building, the collector also reads these fields of the page's building object from
+the API:
 
 - the description, the green, land-lease and waterfront flags, and the complex
 - the leasing and sales start dates (`additionalDetails`)
 - the hero image key, the photo and floor-plan keys, the video URLs and the 3D tour URL
-- the IDs of the building's ads for rent and for sale, which the collector can read with
-  `rentalsByListingIds` like any other ad
+- the IDs of the building's ads for rent and for sale (the collector can read the rental ads
+  with `rentalsByListingIds` like any other ad)
 - an owner-data flag, the last-change time and `nearby`
 
 The page splits `nearby` into its 5 transit stations and its 5 colleges, 5 museums and 5
