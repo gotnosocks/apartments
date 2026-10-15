@@ -20,8 +20,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `20261015-13f5968-api`. The references (#868) are in
    [fit-ready-rows.md](../data/fit-ready-rows.md).
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
-   market and the ending as views of it, and exclusions as flags with reasons. **Started**
-   (#870): the event log and each ad's first ask.
+   market and the ending as views of it, and exclusions as flags with reasons. **Started**:
+   the event log and each ad's first ask merged in #870.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -57,10 +57,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
 
 ## Next
 
-1. Step 4 goes on from #870, on branch `data-pipeline-events` in the worktree
-   `/data1/apartments/tmp/pipeline/wt-events`. Its event log builds from runs 1 to 5 in about
-   90 s at a 5 GB cap, and each analysis row's `price_at` and `asking_rent` equal its ad's first
-   day and the single price of that day. The rest of step 4, a PR each:
+1. Step 4 goes on from #870. Its event log builds from runs 1 to 5 in 109 s at a 5 GB cap, and
+   each analysis row's `price_at` and `asking_rent` equal its ad's first day and the single
+   price of that day. The worktree `/data1/apartments/tmp/pipeline/wt-events` can start the next
+   branch from master. The rest of step 4, a PR each:
    1. each answer's attributes, as `apartments.graphql_listing` parses them, and
       `project_advertisement`'s reasons to drop an ad as flags. The current chain writes each
       ad's reasons to `audit.jsonl` in each slice of
