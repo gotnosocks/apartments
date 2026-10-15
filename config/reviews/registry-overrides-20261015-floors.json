@@ -1,0 +1,91 @@
+{
+  "version": "registry-overrides-floors-v1",
+  "reviewed_at": "2026-10-15",
+  "rule": "Buildings whose listings sit on higher floors than their registry lot has, or whose lot holds no apartments (a school, garage, park or vacant lot), mostly from reverse geocoding StreetEasy's coordinates onto a neighbouring lot, are geocoded from the address on their own building page. Each corrected lot is residential and tall enough for the floors its listings give.",
+  "overrides": [
+    {
+      "building": "one-columbus-place",
+      "address": "1 Columbus Place",
+      "evidence": "the building page's own address (1 Columbus Place); GeoSearch puts it on 400 WEST 59 STREET, D7, 49 floors, 729 apartments; the listings' highest floor is 50",
+      "registry_was": "SPEYER (reverse), BBL 1010680010, class W8, 3 floors, 0 apartments"
+    },
+    {
+      "building": "river-place",
+      "address": "1 River Place",
+      "evidence": "the building page's own address (1 River Place); GeoSearch puts it on 1 RIVER PLACE, D8, 40 floors, 921 apartments; the listings' highest floor is 40",
+      "registry_was": "527 11 AVENUE (reverse), BBL 1010880001, class G1, 2 floors, 0 apartments"
+    },
+    {
+      "building": "15-hudson-yards",
+      "address": "15 Hudson Yards",
+      "evidence": "the building page's own address (15 Hudson Yards); GeoSearch puts it on 553 WEST 30 STREET condo, RM, 70 floors, 392 apartments; the listings' highest floor is 84",
+      "registry_was": "352 ELEVENTH AVENUE (reverse), BBL 1007020180, class K1, 1 floors, 0 apartments"
+    },
+    {
+      "building": "avalon-clinton-north",
+      "address": "515 West 52 Street",
+      "evidence": "the building page's own address (515 West 52nd Street); GeoSearch puts it on 500 WEST 53 STREET condo, RM, 25 floors, 344 apartments; the listings' highest floor is 24",
+      "registry_was": "OASIS COMMUNITY GARDEN (reverse), BBL 1010810026, class QG, 0 apartments"
+    },
+    {
+      "building": "bowery-place-i",
+      "address": "11 East 1 Street",
+      "evidence": "the building page's own address (11 East 1st Street); GeoSearch puts it on 285 BOWERY, D9, 9 floors, 206 apartments; the listings' highest floor is 8",
+      "registry_was": "96 EAST HOUSTON STREET (reverse), BBL 1004560001, class Q9, 0 apartments"
+    },
+    {
+      "building": "540-west",
+      "address": "540 West 49 Street",
+      "evidence": "the building page's own address (540 West 49th Street); GeoSearch puts it on 545 WEST 48 STREET condo, R4, 7 floors, 109 apartments; the listings' highest floor is 4",
+      "registry_was": "514 WEST 49 STREET (reverse), BBL 1010777502, class RB, 4 floors, 0 apartments"
+    },
+    {
+      "building": "hudson-36",
+      "address": "515 West 36 Street",
+      "evidence": "the building page's own address (515 West 36th Street); GeoSearch puts it on 515 WEST 36 STREET, D6, 39 floors, 251 apartments; the listings' highest floor is 37",
+      "registry_was": "529 WEST 36 STREET (reverse), BBL 1007080149, class V1, 0 apartments"
+    },
+    {
+      "building": "sky-house",
+      "address": "11 East 29 Street",
+      "evidence": "the building page's own address (11 East 29th Street); GeoSearch puts it on 11 EAST 29 STREET condo, RM, 55 floors, 138 apartments; the listings' highest floor is 49",
+      "registry_was": "16 EAST 30 STREET (reverse), BBL 1008590075, class H3, 23 floors, 0 apartments"
+    },
+    {
+      "building": "rutherford-place",
+      "address": "305 2 Avenue",
+      "evidence": "the building page's own address (305 2nd Avenue); GeoSearch puts it on 305 2 AVENUE condo, RM, 10 floors, 127 apartments; the listings' highest floor is 9",
+      "registry_was": "245 EAST 17 STREET (reverse), BBL 1008980025, class M1, 4 floors, 0 apartments"
+    },
+    {
+      "building": "23-avenue-a-new_york",
+      "address": "23 Avenue A",
+      "evidence": "the building page's own address (23 Avenue A); GeoSearch puts it on 23 AVENUE A, S5, 4 floors, 6 apartments; the listings' highest floor is 4",
+      "registry_was": "19 A AVENUE (reverse), BBL 1004290035, class K9, 4 floors, 0 apartments"
+    },
+    {
+      "building": "griffin-court",
+      "address": "454 West 54 Street",
+      "evidence": "the building page's own address (454 West 54th Street); GeoSearch puts it on 800 10 AVENUE condo, RM, 8 floors, 95 apartments; the listings' highest floor is 8",
+      "registry_was": "798 10 AVENUE (reverse), BBL 1010630001, class G1, 2 floors, 0 apartments"
+    },
+    {
+      "building": "the-cammeyer",
+      "address": "60 West 20 Street",
+      "evidence": "the building page's own address (60 West 20th Street); GeoSearch puts it on 650 AVENUE OF THE AMERICAS condo, RM, 7 floors, 67 apartments; the listings' highest floor is 6",
+      "registry_was": "654 AVENUE OF THE AMERICAS (reverse), BBL 1008220001, class K4, 3 floors, 0 apartments"
+    },
+    {
+      "building": "one-madison",
+      "address": "23 East 22 Street",
+      "evidence": "the building page's own address (23 East 22nd Street); GeoSearch puts it on 23 EAST 22 STREET condo, RM, 51 floors, 64 apartments; the listings' highest floor is 36",
+      "registry_was": "25 EAST 22 STREET (reverse), BBL 1008510022, class O2, 6 floors, 0 apartments"
+    },
+    {
+      "building": "238-east-9-street-new_york",
+      "address": "238 East 9 Street",
+      "evidence": "the building page's own address (238 East 9th Street); GeoSearch puts it on 238 EAST 9 STREET, C7, 4 floors, 13 apartments; the listings' highest floor is 3",
+      "registry_was": "238A EAST 9 STREET (address), BBL 1004640132, class K1, 1 floors, 0 apartments"
+    }
+  ]
+}
