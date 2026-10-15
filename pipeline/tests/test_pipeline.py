@@ -257,7 +257,7 @@ def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch):
         """SELECT listing_id, response_id FROM ads.answers a WHERE EXISTS (
         SELECT 1 FROM ads.history_events e
         WHERE e.history = a.history AND e.listing_id <> a.listing_id)
-        ORDER BY response_id LIMIT 1"""
+        ORDER BY response_id, listing_id LIMIT 1"""
     )
     ad, response = int(pick.listing_id[0]), int(pick.response_id[0])
     old = answers[(answers.listing_id == ad) & (answers.response_id == response)]

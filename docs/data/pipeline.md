@@ -102,7 +102,9 @@ ad's first answer to report the day. The current chain prices an ad the same way
 `project_advertisement` in `apartments.historical_dataset` takes the earliest own ACTIVE rental
 event, sets `price_at` to midnight UTC of its day, and drops an ad with a missing price or with
 two. It reads only the answers collected by its cutoff, and `first_seen` gives the time from
-which an ad's first day is known.
+which an ad's first day is known. A later answer can add a second price to that day, and
+`first_ask` keeps no time for it, so a replay of the cutoff reads each price's `own_first_seen`
+in `ads.events`.
 
 ## Tests
 
@@ -195,8 +197,9 @@ ads. Of those ads, 2,137,998 have answers of their own, and the other 234,915 ap
 unit histories of their siblings' records. Of the 8,392,975 history events an ad's own answers
 reported, a sibling's answer reported 5,186,434 first. `ads.first_ask` gives 2,117,118 ads a
 first day, with one price for 2,116,917 of them and two for 201, and none with a missing price.
-Each first ask's `first_response_id` is an answer of its own ad. For each of the 1,396,053 analysis rows,
-`price_at` is its ad's first day at midnight UTC and `asking_rent` the single price of that day:
+Each first ask's `first_response_id` is an answer of its own ad. For each of the 1,396,053
+analysis rows, `price_at` is its ad's first day at midnight UTC and `asking_rent` the single
+price of that day:
 
 ```sh
 uv run --project pipeline sqlmesh -p pipeline fetchdf "
