@@ -1371,7 +1371,11 @@ def test_quarantine_v17_adds_brooklyn_rows_to_v16():
     v16 = data.quarantined(data.QUARANTINE_V16)
     v17 = data.quarantined(data.QUARANTINE_V17)
     with open(brooklyn.MISJOINS) as f:
-        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+        misjoins = {
+            r["audit_id"]
+            for r in map(json.loads, filter(str.strip, f))
+            if r["review"] == "2026-10-14"
+        }
     assert len(misjoins) == 35 and len(misjoins - v16) == 7
     assert v17 == v16 | misjoins and len(v17) == 326
     read = set(data.QUARANTINE_V16_READ.read_text().split())
@@ -1852,6 +1856,12 @@ def test_quarantine_v24_adds_four_listings_filed_under_the_wrong_building():
         ("318-east-15-street-new_york", "20C", "quarantine_location_conflict"),
         ("318-east-15-street-new_york", "20C", "quarantine_location_conflict"),
     ]
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    brooklyn_rows = {r["audit_id"] for r in added if r["action"] == "brooklyn_misjoin"}
+    assert brooklyn_rows <= misjoins
+    read = set(brooklyn.READ[-1].read_text().split())
+    assert brooklyn_rows == read
     assert "quarantine-v24" in data.DROPPING_RULES
 
 

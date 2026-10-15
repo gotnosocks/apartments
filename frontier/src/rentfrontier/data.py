@@ -1361,8 +1361,9 @@ def quarantine_v24(frame: pd.DataFrame) -> pd.DataFrame:
     slowly. PLUTO's lot record backs each one:
 
     - 222 East 17th Street is a 4-story walk-up with 4 apartments. Its units
-      3B and 3BB carry one ad that calls the building an elevator building
-      by Prospect Park South, in Brooklyn.
+      3B and 3BB have a listing each, with the same text: an elevator
+      building by Prospect Park South, in Brooklyn. Both join
+      `brooklyn.MISJOINS` for the remap.
     - 318 East 15th Street has 12 stories. Its unit 20C has two ads, a month
       apart, for a doorman building, at $3,450 and $8,300."""
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V24))]
