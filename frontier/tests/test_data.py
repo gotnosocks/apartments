@@ -1877,3 +1877,28 @@ def test_quarantine_v21_adds_the_stock_wording_hold_outs():
         for a, r in held.items()
     )
     assert "quarantine-v21" in data.DROPPING_RULES
+
+
+def test_sqft_units_v1_takes_sizes_the_unit_or_its_line_agree_on():
+    """Each v1 row is a candidate with the `correct` outcome and the same size,
+    about 1.5x or more from the recorded one (rounded to the square foot)."""
+    with open(data.SQFT_CORRECTIONS) as f:
+        fixes = {r["audit_id"]: r for r in map(json.loads, f)}
+    with open(data.REPO / "config/reviews/sqft-units-reads-20261015.jsonl") as f:
+        reads = {r["audit_id"]: r for r in map(json.loads, f)}
+    took = {a for a, r in reads.items() if r["outcome"] == "correct"}
+    assert len(fixes) == 12 and len(reads) == 43 and took == fixes.keys()
+    for a, fix in fixes.items():
+        assert reads[a]["second_read"] == "correct"
+        assert reads[a]["proposed"] == fix["corrected"]
+        assert fix["basis"] in ("unit", "line")
+        assert max(fix["recorded"], fix["corrected"]) > 1.49 * min(
+            fix["recorded"], fix["corrected"]
+        )
+    a = next(iter(fixes))
+    frame = pd.DataFrame(
+        {"audit_id": [a, "other"], "square_feet": [fixes[a]["recorded"], 700.0]}
+    )
+    out = data.correct_square_feet_v1(frame)
+    assert out.square_feet.tolist() == [fixes[a]["corrected"], 700.0]
+    assert "sqft-units-v1" not in data.DROPPING_RULES

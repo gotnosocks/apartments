@@ -764,6 +764,9 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v6": "bedrooms-ad-v5, and 13 studios priced above their building's "
     "one-bedrooms whose ad states a count that another ad for the apartment, a stated "
     "size or the floor plan on the listing's own page backs. No listing is dropped.",
+    "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
+    "more than 1.5x off the size the apartment's other listings, or the other "
+    "apartments of its line, agree on. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",

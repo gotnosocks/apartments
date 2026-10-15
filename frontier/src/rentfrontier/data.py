@@ -788,6 +788,38 @@ def correct_bedrooms_v6(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v5(frame), "bedrooms-ad-v6")
 
 
+# Recorded square feet that disagree with the unit's other listings, read
+# against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
+SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
+
+
+def correct_square_feet_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Square feet taken from the apartment's other listings. On the NB9 rows we
+    compared each sized row with the same unit's other sized rows and found 227
+    rows off by more than 1.5x. 43 of them had a size to take:
+
+    - at least two other listings of the unit agree within 10%, or
+    - at least two other units of the line agree within 10%,
+
+    in both cases with the row's bedroom count. We then kept the recorded size
+    when
+      - the backing listings repeat one ad's copy,
+      - a backing ad's size counts a terrace or gives a total,
+      - the new size sits no nearer the bedroom count's median size than the
+        recorded one, or
+      - a reader found the listing's own ad stating the recorded size, or
+        describing a different apartment, or could not tell.
+    12 rows take the new size; `config/reviews/sqft-units-reads-20261015.jsonl`
+    gives every candidate's outcome and the quotes the second reader copied.
+    Every row is kept; only `square_feet` changes."""
+    with open(RULE_SOURCES["sqft-units-v1"]) as f:
+        rows = {r["audit_id"]: r["corrected"] for r in map(json.loads, f)}
+    out = frame.copy()
+    hit = out.audit_id.isin(rows)
+    out.loc[hit, "square_feet"] = out.loc[hit, "audit_id"].map(rows).to_numpy()
+    return out
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -1636,6 +1668,7 @@ DATA_RULES = {
     "bedrooms-ad-v4": correct_bedrooms_v4,
     "bedrooms-ad-v5": correct_bedrooms_v5,
     "bedrooms-ad-v6": correct_bedrooms_v6,
+    "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1733,6 +1766,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
     "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
     "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
+    "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
