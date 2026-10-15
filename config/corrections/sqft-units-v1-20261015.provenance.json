@@ -1,0 +1,20 @@
+{
+ "rule": "sqft-units-v1",
+ "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
+ "dataset_observations_sha256": "8b8897c1c5196969b30544cd2ec1b9ae32ac8e720d612e86fd52fbdbe52ceae7",
+ "base_rules": "current rules after bedrooms-ad-v6 and quarantine-v23",
+ "screen": "sized rows more than 1.5x off the geometric mean of the unit's other sized rows: 227",
+ "reads": "config/reviews/sqft-units-reads-20261015.jsonl",
+ "rows": 32,
+ "by_basis": {
+  "unit": 28,
+  "line": 4
+ },
+ "read_verdicts": {
+  "correct": 35,
+  "different_apartment": 2,
+  "ad_states_recorded": 5,
+  "unclear": 1
+ },
+ "skipped_bedrooms_differ": 3
+}

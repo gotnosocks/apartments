@@ -1,0 +1,43 @@
+{"audit_id": "412e6f45f78b1855673a8d344650038550440cd859914ab2a9bdc37d6e989537", "verdict": "correct", "quote": "", "note": "Other listings average 775, recorded 515 is error"}
+{"audit_id": "1d1967ce8c1cf8160151ed02e5e992e73e913391f941c4130dddc79f6f5f86b4", "verdict": "correct", "quote": "", "note": "Other listings average 629, recorded 1100 is error"}
+{"audit_id": "44958b5ecff6fe6e54c858d056f689928afc6d15637c6c4f45c75fabc655f213", "verdict": "correct", "quote": "", "note": "Other listings average 1000, recorded 1800 is error"}
+{"audit_id": "98809ccb8fca087e53463f58df7bdeb42084fb473372e19d89fbb33b09d3030c", "verdict": "different_apartment", "quote": "2 bedroom", "note": "Ad states 2 bed, recorded as 3"}
+{"audit_id": "71b1880193f15d514853cc3eea1e26ec467f9b44a7a461ad9c80f15740fd254f", "verdict": "correct", "quote": "", "note": "Other listings average 643, recorded 350 is error"}
+{"audit_id": "e38b36d7f15c7a58c7ca9d77cbde2d44d3978a92eb67c99ce013c6df3588518c", "verdict": "correct", "quote": "", "note": "Other listings average 2250, recorded 950 is error"}
+{"audit_id": "e71a6d8a468d616786ebdac93078de2b07b1d0729653e65b5c0f594fd384c4ed", "verdict": "correct", "quote": "", "note": "Other listings average 1398, recorded 648 is error"}
+{"audit_id": "843effb38c7314c9ffcb112ed9e222acbb91f56bf71a94b72da9f30f172050da", "verdict": "different_apartment", "quote": "1 bedroom", "note": "Ad states 1 bed, recorded as 0"}
+{"audit_id": "2b812a4b51df8377593ef6b1703ade26606abf088cabbb1b5dc7cb92ec2e3127", "verdict": "correct", "quote": "", "note": "Other listings average 450, recorded 260 is error"}
+{"audit_id": "ff441994112fb249e0c382c167351256964cbe7a7074e5c781455f9b231d1559", "verdict": "ad_states_recorded", "quote": "~ 4,700sf of indoor/outdoor", "note": "Ad states ~4700 indoor/outdoor space, matches recorded 4694"}
+{"audit_id": "024fb4d0eae7c23c2ba99181457526b3ae7e792d7d1fa98a2e84f13f4290f258", "verdict": "correct", "quote": "", "note": "Other listings average 890, recorded 3800 is error"}
+{"audit_id": "612157356e4734a0cb0726fbe9ded22f99e4cca22ba40acb389b55a5dea63490", "verdict": "unclear", "quote": "", "note": "Size data inconsistent"}
+{"audit_id": "e89ca2522d76757dc00f51ee417bbf3f475335d739291ac59828053ec582c54e", "verdict": "correct", "quote": "", "note": "Other listings average 400, recorded 262 is error"}
+{"audit_id": "32b10ee3e006e8c65aafce3f0ccfecc781abb14447cdd4af963a3f9693c7b6fb", "verdict": "correct", "quote": "", "note": "Other listings average 625, recorded 1000 is error"}
+{"audit_id": "dfcefe11db7d370bac0e852f64777fa979485821c12d9d291968e43a3d19c8ff", "verdict": "correct", "quote": "", "note": "Other listings average 1600, recorded 1000 is error"}
+{"audit_id": "5241ff4cc0ca9aebda6c88a37c0a11d937e2295d8050083342b7b0b49efa4997", "verdict": "correct", "quote": "", "note": "Other listings average 700, recorded 1200 is error"}
+{"audit_id": "3acfbc7fb790346cb1b4da53ab86ff825556c3e183677c52cf6b092a3dfb0707", "verdict": "correct", "quote": "", "note": "Other listings average 750, recorded 450 is error"}
+{"audit_id": "c6c8f4eff8c93bc38d7453fa5da85edac6961d3322a61dacc6ac751b5e5125f5", "verdict": "correct", "quote": "", "note": "Other listings average 483, recorded 750 is error"}
+{"audit_id": "f4880c78fd813ed0df12861de310e37ba72cc500ecd7231149ec2ae77877dc8c", "verdict": "correct", "quote": "", "note": "Other listings average 882, recorded 456 is error"}
+{"audit_id": "8ff2f2ab5ab16faa2d9878ce74a633229e705a35e36694a9e7ec9b57e23e0d42", "verdict": "correct", "quote": "", "note": "Other listings average 594, recorded 382 is error"}
+{"audit_id": "bc6998797cf43f5f6621435323ef3c32f4963d2c9728a4e38869777b61fd63f2", "verdict": "correct", "quote": "", "note": "Other listings average 512, recorded 800 is error"}
+{"audit_id": "47309a05217d76200dd920dce4906cd385c69475dd68bce73e9353ecec276230", "verdict": "correct", "quote": "", "note": "Other listings average 675, recorded 300 is error"}
+{"audit_id": "64292b8728e272d8edb603511074026b2f4b0a456088ba8ffe5cba79dd8aa331", "verdict": "correct", "quote": "", "note": "Other listings average 616, recorded 3864 is error"}
+{"audit_id": "718a6c5240224e60894094196fa722f5a252039353c3702d8fc06bc97fa9fb39", "verdict": "correct", "quote": "", "note": "Other listings average 575, recorded 900 is error"}
+{"audit_id": "b3beea97e3c9c272427d3c5ef7af91a0a5da67bb459f4eba45e78e6aa8ec3208", "verdict": "correct", "quote": "", "note": "Other listings average 575, recorded 900 is error"}
+{"audit_id": "50f9d82c4749af54e3947876bb4a6e88bdc5df977d9ef5ac5d267727cc23bbc3", "verdict": "correct", "quote": "", "note": "Other listings average 1860, recorded 975 is error"}
+{"audit_id": "92cc983c05115480abf510650130b57c9ade86b965769dbe9f51e21dd799b7b9", "verdict": "correct", "quote": "", "note": "Other listings average 750, recorded 475 is error"}
+{"audit_id": "daab7eded42d25c98098ac885eb29a22a393f7f06e2ad99b35d797a71aa3a42a", "verdict": "correct", "quote": "", "note": "Other listings average 767, recorded 1425 is error"}
+{"audit_id": "3bb4260744eb54f4fe38a632c27d2730047ad8a071d0dd38784d2d66f3d6aa37", "verdict": "correct", "quote": "", "note": "Other listings average 1600, recorded 750 is error"}
+{"audit_id": "4e5bac21e4b5c0d52c28152474a2619b065a3f3dea9660ba62977982a8e52373", "verdict": "correct", "quote": "", "note": "Other listings average 400, recorded 600 is error"}
+{"audit_id": "f91ade189d4ff0abd83e592fea8169d2792fcf3feab31fa517ba56d68b57732b", "verdict": "correct", "quote": "", "note": "Other listings average 417, recorded 850 is error"}
+{"audit_id": "29f0482e8c49b65c98dd023c5a52da93dd984ab6c0a1d025bbaf7bb99763ff83", "verdict": "correct", "quote": "", "note": "Other listings average 400, recorded 253 is error"}
+{"audit_id": "db44d7f0e3c79b95041a3296f6d76c732057a5ae051e956fd6a384756836db39", "verdict": "correct", "quote": "", "note": "Other listings average 1300, recorded 2500 is error"}
+{"audit_id": "450047da6f1a2425a6ec053e3a2cc9b08daa6ea53655550ecdc78d703c4983ef", "verdict": "ad_states_recorded", "quote": "4-bedroom 2 bath loft in the east village\n\n2600sf loft located at the corner of 2nd avenue and 5th street in the vibrant east village. this exp", "note": "Ad explicitly states 2600 sq ft"}
+{"audit_id": "5a48c648228689f9bc72f7df135c8b880a846a7e835398bfabdbf9173bb4bf28", "verdict": "correct", "quote": "", "note": "Other listings average 1150, recorded 500 is error"}
+{"audit_id": "1c41ffd24bd02cbd929b006e916b9eca5dfa9af6e3625ced696b21cbd054c1e2", "verdict": "correct", "quote": "", "note": "Other listings average 547, recorded 850 is error"}
+{"audit_id": "4bf90c09c3ca1e28cadc92c1f1f5aacacc4fd5c6718467f9d2fbb583e2185f6d", "verdict": "correct", "quote": "", "note": "Other listings average 1038, recorded 646 is error"}
+{"audit_id": "43431071a2477911b26943cfd9dd86faa470140dfc285314df145cbaa7240d82", "verdict": "correct", "quote": "", "note": "Other listings average 1150, recorded 700 is error"}
+{"audit_id": "f148af836dfb992dc468047d2a9cce49dad73456fa5f7b661f1a2424f42ff953", "verdict": "correct", "quote": "", "note": "Other listings average 1150, recorded 700 is error"}
+{"audit_id": "901fb8e52e5fa45c6dbccd82e24a9eaa0877e2b1eb11cd9680ec2ab756794b97", "verdict": "correct", "quote": "", "note": "Ad mentions 1490 (proposed), not 2845"}
+{"audit_id": "d7ee2204b9be2d27a545d7f3a6c45841c2b8d95d4dfb38c7e7ab8adf098ab428", "verdict": "ad_states_recorded", "quote": " rent advertised. no fee**\n\nthe apartment:\n- huge 550 sq ft layout\n- bright and open space w/ floor to ceiling windows\n- walk-in closet + 2 additional", "note": "Ad explicitly states 550 sq ft"}
+{"audit_id": "dc0bef7fd48140e6519ecc4a3eae075d6d95c29da48afd8ea3cea3d755c72ec2", "verdict": "ad_states_recorded", "quote": "ught-after restaurant row. boasting an impressive 2,000 sq ft of open space, this apartment offers a truly luxurious living experience. as you step in", "note": "Ad explicitly states 2000 sq ft"}
+{"audit_id": "c65931b0218f56b678f7bdcd5771a242d9b95e4eb56f071fa4be9f3bd75fa0bf", "verdict": "ad_states_recorded", "quote": "room, 1-bathroom residence spanning approximately 465sqf. nestled in the vibrant hudson yards neighborhood, this fourth-floor walk-up offers a perfect", "note": "Ad explicitly states 465 sq ft"}
