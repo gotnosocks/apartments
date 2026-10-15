@@ -5194,6 +5194,133 @@ for _new, _old in NB9_LOTS2_SETS.items():
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_LOTS2_PLUTO_RELEASES_FILE
 
 
+def areas_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    areas: tuple[str, ...],
+) -> Features:
+    """A base set's terms other than its neighbourhoods, plus one column per
+    StreetEasy area in `areas`, each against the dataset's area left out of
+    `areas`. The base's neighbourhood columns compare the NB9 neighbourhoods
+    with Chelsea, so in another part of the city they are zero on every row."""
+    base = FEATURE_SETS[base](frame, train)
+    keep = [i for i, g in enumerate(base.groups) if g != "neighbourhood"]
+    b = _Builder(frame)
+    for area in areas:
+        b.add("neighbourhood", area, frame.neighbourhood.eq(area))
+    extra = b.build(id)
+    return Features(
+        id,
+        [base.names[i] for i in keep] + extra.names,
+        [base.groups[i] for i in keep] + extra.groups,
+        np.column_stack([base.values[:, keep], extra.values]),
+        np.concatenate([base.prior_scale[keep], extra.prior_scale]),
+    )
+
+
+# The API backfill's datasets (data.DATASETS_API). Each set takes the NB9 base's
+# terms other than its neighbourhoods (nb9-nostuy-lots2-v1) and adds the
+# dataset's StreetEasy areas against its largest one, named first here. The
+# lot sources are fetched on each borough's API registry, the descriptions and
+# extras from the backfill crawl. The descriptions come from the crawl's
+# building slices (api-granular-20261015-building-slices-6064263), so a dataset
+# reads the evidence files of the slices its rows came from.
+API_AREAS = {
+    "manhattan-below-59th": (
+        "Kips Bay",
+        "Murray Hill",
+        "Lower East Side",
+        "Financial District",
+        "Turtle Bay",
+        "Midtown",
+        "Sutton Place",
+        "Tribeca",
+        "Midtown South",
+        "Battery Park City",
+        "Soho",
+        "Fulton/Seaport",
+        "Nolita",
+        "Two Bridges",
+        "Chinatown",
+        "Little Italy",
+        "Noho",
+        "Hudson Square",
+        "Central Park South",
+        "Beekman",
+        "Civic Center",
+    ),
+    "manhattan-west-59th-110th": (
+        "Upper West Side",
+        "Lincoln Square",
+        "Manhattan Valley",
+    ),
+    "manhattan-east-59th-110th": (
+        "Yorkville",
+        "Lenox Hill",
+        "East Harlem",
+        "Carnegie Hill",
+        "Upper East Side",
+        "Upper Carnegie Hill",
+    ),
+}
+API_SLICES = {
+    "manhattan-below-59th": ("manhattan-below-59th", 4),
+    "manhattan-west-59th-110th": ("manhattan-59th-110th", 4),
+    "manhattan-east-59th-110th": ("manhattan-59th-110th", 4),
+}
+API_MANHATTAN_FILES = {
+    "registry": (
+        "/data1/apartments/external/registry/20261015-9dfa869-api-manhattan/"
+        "buildings.parquet"
+    ),
+    "pluto": "/data1/apartments/external/pluto/20261015-dd5bdb5/pluto.parquet",
+    "footprints": (
+        "/data1/apartments/external/footprints/20261015-1186316/footprints.parquet"
+    ),
+    "basemap": "/data1/apartments/external/basemap/20261015-1186316/basemap.parquet",
+    "lpc": "/data1/apartments/external/lpc/20261015-1186316/lpc.parquet",
+    "plutoreleases": (
+        "/data1/apartments/external/plutoreleases/20261015-1186316/"
+        "plutoreleases.parquet"
+    ),
+}
+API_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261015-dd5bdb5-api/"
+    "listing-extras.parquet"
+)
+API_DESCRIPTIONS = "/data1/apartments/frontier/descriptions/api-{}-20261015-dd5bdb5"
+for _region, _areas in API_AREAS.items():
+    _new = f"api-{_region}-v1"
+    FEATURE_SETS[_new] = partial(
+        areas_v1, id=_new, base="nb9-nostuy-lots2-v1", areas=_areas[1:]
+    )
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if "nb9-nostuy-lots2-v1" in _group:
+            _group.add(_new)
+    _files = API_MANHATTAN_FILES
+    LOT_SNAPSHOTS[_new] = {"registry": _files["registry"], "pluto": _files["pluto"]}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": _files["basemap"],
+        "footprints": _files["footprints"],
+    }
+    LPC_SNAPSHOTS[_new] = _files["lpc"]
+    PLUTO_RELEASES_SNAPSHOTS[_new] = _files["plutoreleases"]
+    EXTRAS_SNAPSHOTS[_new] = API_EXTRAS_FILE
+    _parent, _count = API_SLICES[_region]
+    # Run records keep the first slice's file under "descriptions", the key
+    # every description set records.
+    DESCRIPTION_SOURCES[_new] = {
+        "descriptions" if i == 1 else f"descriptions_{_parent}_{i:02d}": (
+            API_DESCRIPTIONS.format(f"{_parent}-{i:02d}") + "/evidence.jsonl"
+        )
+        for i in range(1, _count + 1)
+    }
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
