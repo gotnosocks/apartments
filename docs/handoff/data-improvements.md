@@ -1,6 +1,31 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 00:28 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 ET, after #839. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15, after #839
+
+Floor plans for the history-only groups: quarantine-v28 (#839), merged.
+- I fetched the floor plans linked from the stored pages of v27's 18 history-only groups
+  (scratch in `/data1/apartments/tmp/suspect/dupfp`; images in
+  `/data1/apartments/archive/floor-plans/<listing id>/`). Only 5 listings in 4 groups had a plan.
+  Sonnet readers transcribed them into `config/reviews/duplicate-ad-floor-plans-20261015.jsonl`.
+- v28 holds 3 rows as location conflicts: 313 W 29th #D, whose plan is titled 339 West 19th
+  Street, Unit D, and 1 Fifth Ave #MEWS in 2022 and 2024, whose plan is titled 64 Washington Mews.
+  The other two plans carry no address.
+- Open: the same 1 Fifth Ave #MEWS unit has 2016 and 2019 rows still in, and listing 2867212
+  (2019-09) mirrors 64-washington-mews/twnh 2867438. They need backing other than price.
+  14 history-only groups have no plan, and the 684 groups with no shared label or with
+  near-neighbor buildings are still unread.
+- Modeling knew before the merge and switches its queued NB9 lines to quarantine-v28.
+
+Whole house and full floor indicators: #838, merged as the NB9 feature set
+`nb9-nostuy-wholefloor-v1`. Whole house flags 149 rows in 78 buildings, and full floor flags
+about 4,380 rows in 938 buildings. Modeling queued it as its own fit on the unitnu4 base. I
+predicted a small or null paired LOO gain, with a new-building explained share for the layout
+group above the permutation null.
+
+StreetEasy `propertyId` unit merges: closed as negligible. The NoMad probe found 1 rename in
+3,384 units, and the API backfill covers no NB9 area.
 
 ## 2026-10-15 00:28 ET
 
