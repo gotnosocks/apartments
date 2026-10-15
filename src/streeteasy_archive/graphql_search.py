@@ -40,16 +40,25 @@ Ad bodies come from apartments.graphql_listing.listing_body and building bodies 
 building_body. The raw response of each request also goes into the archive's bodies, and
 the `graphql_search_*` tables keep each run's counts, hits, reads and calls.
 
+Every region writes into a single archive, ARCHIVE, under one collection generation, and
+each run is a row of graphql_search_runs carrying its region. Every ad a run reads, with a
+record or without one, joins the run's region in graphql_search_members, and an ad stays in
+each region whose runs read it, as an ad in a child area of two regions' areas would. When
+a run picks the units, histories and buildings to read, it starts from its region's ads.
+The write step records whatever any run has read and left unwritten, since it sends no
+requests.
+
 With --active-only the search keeps ACTIVE ads only. A daily run in this mode reads the
-region's current ads and re-reads the archive's ads with a status other than RENTED,
+region's current ads and re-reads the region's ads with a status other than RENTED,
 NO_LONGER_AVAILABLE or DELISTED. Those ads get a new observation on each read, and the
 snapshot table gains a row only when a record changes, since an unchanged record gives the
 same body bytes.
 
-With --current-listings ROOT, a run finishing without a stop also writes the region's
-ACTIVE ads in the current-listings format (crawl_current_listings.interpret_api) under
-<archive>/current-listings/. It links the archive into that folder and points
-ROOT/api-<region> at it, so the site reads it after the dated capture folders.
+With --current-listings ROOT, a run finishing without a stop also writes the region's ads
+with an ACTIVE record fetched since the run started, in the current-listings format
+(crawl_current_listings.interpret_api), under <archive>/current-listings/<region>/. It
+links the archive into that folder and points ROOT/api-<region> at it, so the site reads
+it after the dated capture folders.
 
 The collector sends at most --rate requests a minute, never more than 64, and stops at
 --max-requests. It stops earlier on an Oxylabs credential or billing refusal, a StreetEasy
@@ -144,7 +153,7 @@ FAILURES_IN_A_ROW = 6
 MAX_RATE = 64
 AD_ROUNDS = 4
 TRIES = {"count": 3, "slice": 3, "ads": 3, "buildings": 2}
-DATA_ROOT = Path("/data1/apartments/archive/crawls")
+ARCHIVE = Path("/data1/apartments/archive/crawls/api")
 
 # Region: (StreetEasy area IDs, whether to read each unit's older ads).
 REGIONS = {
@@ -201,6 +210,12 @@ BUILDING_FRAGMENT = (
     "sharedOutdoorSpaceTypes storageSpaceTypes } policies { list } area { id name slug } }"
 )
 
+# The ads of the run's region, as a condition on graphql_search_ads a.
+MINE = (
+    "EXISTS (SELECT 1 FROM graphql_search_members m WHERE m.generation=a.generation "
+    "AND m.region=:region AND m.listing_id=a.listing_id)"
+)
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS graphql_search_runs(id INTEGER PRIMARY KEY, generation INTEGER,
     region TEXT, areas TEXT, active_only INTEGER, follow_history INTEGER, started REAL,
@@ -220,6 +235,8 @@ CREATE TABLE IF NOT EXISTS graphql_search_ads(generation INTEGER, listing_id INT
     history TEXT, record_sha256 TEXT, read REAL, unit_written INTEGER, written_run INTEGER,
     PRIMARY KEY(generation,listing_id));
 CREATE INDEX IF NOT EXISTS graphql_search_ads_latest ON graphql_search_ads(generation,latest_id);
+CREATE TABLE IF NOT EXISTS graphql_search_members(generation INTEGER, region TEXT,
+    listing_id INTEGER, PRIMARY KEY(generation,region,listing_id));
 CREATE TABLE IF NOT EXISTS graphql_search_buildings(generation INTEGER, building_id TEXT,
     run INTEGER, response_id INTEGER, slug TEXT, read REAL, written_run INTEGER,
     PRIMARY KEY(generation,building_id));
@@ -481,7 +498,7 @@ class Client:
 
 
 class Collector:
-    """A run of the search collector over a region's areas, in an archive of its own."""
+    """A run of the collector over a region's areas, in the archive every region shares."""
 
     def __init__(
         self,
@@ -515,6 +532,14 @@ class Collector:
             (self.generation, region, areas_json, int(active_only)),
         ).fetchone()
         with store._tx():
+            # In an archive from before graphql_search_members, each ad joins the region of
+            # the run that read it last.
+            if not self.db.execute("SELECT 1 FROM graphql_search_members").fetchone():
+                self.db.execute(
+                    """INSERT OR IGNORE INTO graphql_search_members
+                    SELECT a.generation, r.region, a.listing_id FROM graphql_search_ads a
+                    JOIN graphql_search_runs r ON r.id=a.run"""
+                )
             if row and not new_run:
                 self.run, self.started = row["id"], row["started"]
             else:
@@ -809,7 +834,14 @@ class Collector:
                 self._save_missing_ad(listing_id, reply.fetched)
         return failed
 
+    def _join_region(self, listing_id):
+        self.db.execute(
+            "INSERT OR IGNORE INTO graphql_search_members VALUES(?,?,?)",
+            (self.generation, self.region, listing_id),
+        )
+
     def _save_ad(self, listing_id, record, response_id, fetched):
+        self._join_region(listing_id)
         sha = _sha256(json.dumps(record, sort_keys=True))
         old = self.db.execute(
             """SELECT response_id, record_sha256, status FROM graphql_search_ads
@@ -849,6 +881,7 @@ class Collector:
 
     def _save_missing_ad(self, listing_id, fetched):
         # Keep an earlier record when there is one; caller holds the transaction.
+        self._join_region(listing_id)
         updated = self.db.execute(
             "UPDATE graphql_search_ads SET read=? WHERE generation=? AND listing_id=?",
             (fetched, self.generation, listing_id),
@@ -966,6 +999,9 @@ class Collector:
         invocation. It re-reads ads with a status other than final from before this run,
         only among this run's hits in a backfill. A daily run also re-reads its own hits
         from before it, since a final ad can come back on the market.
+
+        Apart from the run's hits, it looks only at its region's ads, so a run leaves other
+        regions' units and histories to their own runs.
         """
         hits = "a.listing_id IN (SELECT listing_id FROM graphql_search_hits WHERE run=:run)"
         unread = (
@@ -978,18 +1014,18 @@ class Collector:
             f"SELECT h.listing_id FROM graphql_search_hits h WHERE h.run=:run "
             f"AND {unread.format('h.listing_id')}",
             f"SELECT a.latest_id FROM graphql_search_ads a WHERE a.generation=:g "
-            f"AND a.latest_id IS NOT NULL AND {unread.format('a.latest_id')}",
+            f"AND a.latest_id IS NOT NULL AND {MINE} AND {unread.format('a.latest_id')}",
             f"""SELECT a.listing_id FROM graphql_search_ads a WHERE a.generation=:g
             AND a.response_id IS NULL AND a.read<:invoked
-            {"AND " + hits if self.active_only else ""}""",
+            AND {hits if self.active_only else MINE}""",
             f"""SELECT a.listing_id FROM graphql_search_ads a WHERE a.generation=:g
             AND a.response_id IS NOT NULL AND a.read<:started
-            AND {f"({live} OR {hits})" if self.active_only else f"{live} AND {hits}"}""",
+            AND {f"(({live} AND {MINE}) OR {hits})" if self.active_only else f"{live} AND {hits}"}""",
         ]
         if self.follow_history:
             parts.append(
                 f"""SELECT CAST(j.value AS INTEGER) FROM graphql_search_ads a,
-                json_each(a.history) j WHERE a.generation=:g
+                json_each(a.history) j WHERE a.generation=:g AND {MINE}
                 AND {unread.format("CAST(j.value AS INTEGER)")}"""
             )
         query = " UNION ".join(f"SELECT * FROM ({p})" for p in parts)
@@ -998,6 +1034,7 @@ class Collector:
             {
                 "run": self.run,
                 "g": self.generation,
+                "region": self.region,
                 "invoked": self.invoked,
                 "started": self.started,
             },
@@ -1020,16 +1057,17 @@ class Collector:
             self._run("ads", ids, self._ad_batch)
 
     def read_buildings(self):
+        """Read the unread buildings of the region's ads."""
         ids = [
             r[0]
             for r in self.db.execute(
-                """SELECT DISTINCT a.building_id FROM graphql_search_ads a
-                WHERE a.generation=? AND a.building_id IS NOT NULL
+                f"""SELECT DISTINCT a.building_id FROM graphql_search_ads a
+                WHERE a.generation=:g AND a.building_id IS NOT NULL AND {MINE}
                 AND NOT EXISTS (SELECT 1 FROM graphql_search_buildings b
                     WHERE b.generation=a.generation AND b.building_id=a.building_id
-                    AND (b.response_id IS NOT NULL OR b.read>=?))
+                    AND (b.response_id IS NOT NULL OR b.read>=:invoked))
                 ORDER BY CAST(a.building_id AS INTEGER)""",
-                (self.generation, self.invoked),
+                {"g": self.generation, "region": self.region, "invoked": self.invoked},
             )
         ]
         self._run("buildings", ids, BUILDINGS_PER_REQUEST)
@@ -1322,7 +1360,9 @@ class Collector:
         return link
 
     def current_listings(self, root):
-        """Write the run's ACTIVE ads as a current-listings capture and point ROOT at it."""
+        """Write the region's ads with an ACTIVE record fetched since the run started as a
+        current-listings capture, and point ROOT at it. An ad missing from a later read
+        keeps its older record, so the fetch time of that record decides."""
         from apartments import candidate_refresh as refresh
         from apartments import crawl_current_listings, graphql_listing
         from apartments.research_pipeline import digest
@@ -1332,9 +1372,11 @@ class Collector:
         ids = [
             r[0]
             for r in self.db.execute(
-                """SELECT listing_id FROM graphql_search_ads WHERE generation=? AND run=?
-                AND status='ACTIVE' AND response_id IS NOT NULL ORDER BY listing_id""",
-                (g, self.run),
+                f"""SELECT a.listing_id FROM graphql_search_ads a WHERE a.generation=:g
+                AND {MINE} AND a.status='ACTIVE' AND (SELECT r.fetched
+                FROM graphql_search_responses r WHERE r.id=a.response_id)>=:started
+                ORDER BY a.listing_id""",
+                {"g": g, "region": self.region, "started": self.started},
             )
         ]
         plan = {
@@ -1430,7 +1472,7 @@ class Collector:
             ],
         }
         link = self._current_link(root)
-        captures = self.store.root / "current-listings"
+        captures = self.store.root / "current-listings" / self.region
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         output = captures / f"{stamp}-run{self.run}"
         crawl_current_listings.publish(
@@ -1553,9 +1595,7 @@ def main(argv=None):
     parser.add_argument(
         "--area", type=int, action="append", help="area IDs in place of the region's"
     )
-    parser.add_argument(
-        "--data", type=Path, help="archive folder (default DATA_ROOT/api-REGION)"
-    )
+    parser.add_argument("--data", type=Path, help=f"archive folder (default {ARCHIVE})")
     parser.add_argument("--active-only", action="store_true")
     parser.add_argument("--max-requests", type=int, required=True)
     parser.add_argument("--rate", type=float, default=30, help="requests a minute")
@@ -1569,7 +1609,7 @@ def main(argv=None):
         areas, follow_history = REGIONS[args.region]
     else:
         parser.error(f"unknown region {args.region}; give --area")
-    data = args.data or DATA_ROOT / f"api-{args.region}"
+    data = args.data or ARCHIVE
     data.mkdir(parents=True, exist_ok=True)
     with (data / "collector.lock").open("a") as lock:
         try:

@@ -73,9 +73,13 @@ take about 7 hours to write.
 
 `ops/streeteasy-collect` copies `src/` at its checkout's commit into
 `/data1/apartments/runtime/graphql-search-COMMIT` once, read-only, and runs the collector from
-that copy with the main checkout's venv and `.env`. Each region gets its own archive,
-`/data1/apartments/archive/crawls/api-REGION`, and a lock in it. The script holds
-`crawls/oxylabs.lock` while it runs, so collections run one at a time at 60 requests a minute.
+that copy with the main checkout's venv and `.env`. Every region writes into the same archive,
+`/data1/apartments/archive/crawls/api`, with a lock in it, and each run records its region.
+Each ad a run reads joins the run's region and stays in it, so an ad in an area two regions
+cover belongs to both. When a run picks units, histories and buildings to read, it starts
+only from its region's ads, and a daily run of one region leaves the others' units alone.
+The script holds `crawls/oxylabs.lock` while it runs, so collections run one at a time at 60
+requests a minute.
 
 ```sh
 ops/streeteasy-collect backfill manhattan-below-59th manhattan-59th-110th
@@ -85,14 +89,17 @@ ops/streeteasy-collect daily
 - `backfill` reads every ad of each region with its units' histories at or above the cutoff.
   It stops at 4,000 requests for a region and at the first region that fails. Running it again
   resumes the region's unfinished run.
-- `daily` reads the ACTIVE ads of every region and re-reads the archive's ads whose status is
+- `daily` reads the ACTIVE ads of every region and re-reads each region's ads whose status is
   not RENTED, NO_LONGER_AVAILABLE or DELISTED, with at most 150 requests a region. It goes on
   past a region that fails.
-- A run that finishes writes the region's ACTIVE ads in the current-listings format and points
-  `/data1/apartments/archive/current-listings/api-REGION` at them. The site's reader takes the
-  newest capture of each unit across that folder, for buildings in the served fit, on the next
-  site data build.
-- Each run's report is in `api-REGION/graphql-search/run-N.json`, and the script logs a line
+- A run that finishes writes the region's ads with an ACTIVE record fetched since the run
+  started, by any region's runs, in the current-listings format under
+  `crawls/api/current-listings/REGION/`, and points
+  `/data1/apartments/archive/current-listings/api-REGION` at them. An ad gone from the API
+  keeps its last record, so the capture goes by when that record arrived. The site's reader
+  takes the newest capture of each unit across that folder, for buildings in the served fit,
+  on the next site data build.
+- Each run's report is in `crawls/api/graphql-search/run-N.json`, and the script logs a line
   for each region in `crawls/streeteasy-collect.log`.
 
 `ops/systemd/apartments-streeteasy-daily.timer` runs `daily` at 05:30 New York time from the
