@@ -1125,6 +1125,57 @@ def through_v1(
     )
 
 
+WHOLE_HOUSE_TEXT = (
+    r"single[- ]family|entire (?:town)?house|whole (?:town)?house|entire brownstone"
+    r"|entire townhouse|private (?:town)?house|carriage house"
+)
+FULL_FLOOR_TEXT = r"full[- ]floor|floor[- ]?thr(?:ough|u)|entire floor|whole floor"
+
+
+def wholefloor_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb9-nostuy-wholefloor-v1",
+    base: str = "nb9-nostuy-v1",
+) -> Features:
+    """A base set plus two layout indicators, each needing the ad's words and
+    the lot's MapPLUTO counts to agree:
+      - whole house: the ad offers the entire house (single-family, whole
+        townhouse, carriage house) and the lot holds at most 3 apartments;
+      - full floor: the ad says full floor or floor-through and the lot holds
+        at most `floorthrough.WHOLE_FLOOR` apartments per floor.
+    A whole-house row also counts as full floor when both hold. Reads no
+    rents."""
+    from . import descriptions, floorthrough
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    units = pd.to_numeric(building_lots(frame).unitsres, errors="coerce").to_numpy()
+    upf = floorthrough.units_per_floor(frame)
+    b = _Builder(frame)
+    b.add(
+        "layout",
+        "whole house",
+        text.str.contains(WHOLE_HOUSE_TEXT, regex=True).to_numpy()
+        & (units > 0)
+        & (units <= 3),
+    )
+    b.add(
+        "layout",
+        "full floor",
+        text.str.contains(FULL_FLOOR_TEXT, regex=True).to_numpy()
+        & (upf <= floorthrough.WHOLE_FLOOR),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def walkup_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -5069,6 +5120,26 @@ for _new, _old in NB9_SETS.items():
     EXTRAS_SNAPSHOTS[_new] = NB9_EXTRAS_FILE
     LPC_SNAPSHOTS[_new] = NB9_LPC_FILE
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_PLUTO_RELEASES_FILE
+
+# Sets with no nb8 twin read what the nb9 base reads.
+FEATURE_SETS["nb9-nostuy-wholefloor-v1"] = partial(
+    wholefloor_v1, id="nb9-nostuy-wholefloor-v1", base="nb9-nostuy-v1"
+)
+for _new in ("nb9-nostuy-wholefloor-v1",):
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if "nb9-nostuy-v1" in _group:
+            _group.add(_new)
+    for _snapshots in (
+        LOT_SNAPSHOTS,
+        AREA_SNAPSHOTS,
+        DESCRIPTION_SOURCES,
+        EXTRAS_SNAPSHOTS,
+        LPC_SNAPSHOTS,
+        PLUTO_RELEASES_SNAPSHOTS,
+    ):
+        _snapshots[_new] = _snapshots["nb9-nostuy-v1"]
 
 
 def lot_files(name: str) -> dict:
