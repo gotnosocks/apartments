@@ -1492,6 +1492,33 @@ def quarantine_v29(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V29))]
 
 
+QUARANTINE_V30 = QUARANTINE_V20.with_name("quarantine-v30-20261015.jsonl")
+
+
+def quarantine_v30(frame: pd.DataFrame) -> pd.DataFrame:
+    """v29's rows and 3 listings filed under the wrong building, from duplicate
+    ads with no shared unit label. Of the 345 such ads under buildings more than
+    10 house numbers apart, 39 ran in the same month at the same rent and
+    bedroom count under two buildings. Sonnet readers saw each ad with PLUTO
+    facts and unit history for both buildings, and
+    `config/reviews/duplicate-ad-twin-reads-20261015.jsonl` records each read.
+
+    - 342 E 20th St #43: its twin is 375 1st Ave #44, and the lot holds no
+      apartments (PLUTO M9, 0 residential units).
+    - 449 W 51st St #4FL: the ad puts the apartment on the 4th floor of a
+      walk-up, the building has 3 floors in PLUTO and in its 43 rows with a
+      floor, and its twin is 763 9th Ave #4N.
+    - 360 W 50th St #5: the ad puts the floor-through on W 51st St, the slug
+      joins to a 39-floor tower 35 m away, its other ad calls it a Worldwide
+      Plaza townhouse, and its twin is 336 W 51st St #5.
+
+    The readers called 14 ads separate apartments under one landlord's copy,
+    mostly London Terrace, and left 21 undecided. Review dropped a fourth
+    read, 404 E 12th St #2, because the building's other ads contradict its
+    PLUTO lot."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V30))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1838,6 +1865,7 @@ DATA_RULES = {
     "quarantine-v27": quarantine_v27,
     "quarantine-v28": quarantine_v28,
     "quarantine-v29": quarantine_v29,
+    "quarantine-v30": quarantine_v30,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1890,6 +1918,7 @@ RULE_SOURCES = {
     "quarantine-v27": QUARANTINE_V27,
     "quarantine-v28": QUARANTINE_V28,
     "quarantine-v29": QUARANTINE_V29,
+    "quarantine-v30": QUARANTINE_V30,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -1952,6 +1981,7 @@ DROPPING_RULES = (
     "quarantine-v27",
     "quarantine-v28",
     "quarantine-v29",
+    "quarantine-v30",
 )
 
 
