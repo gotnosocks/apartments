@@ -124,6 +124,10 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     ctx = context(monkeypatch, tmp_path / "state", export)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
+        "ads.answers",
+        "ads.events",
+        "ads.first_ask",
+        "ads.history_events",
         "ads.kept_changes",
         "ads.latest_record",
         "ads.price_changes",
@@ -222,6 +226,248 @@ def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     assert got.latest_ask[moved].tolist() == [price]
     assert got.how[moved].tolist() == ["latest"]
     pd.testing.assert_frame_equal(got[~moved], expected[~moved])
+
+
+def test_first_ask_matches_the_rows(tmp_path, monkeypatch):
+    """Each analysis row's price date and asking rent are its ad's first day and first ask."""
+    ctx = context(monkeypatch, tmp_path / "state")
+    ctx.plan(auto_apply=True, no_prompts=True)
+    rows = ctx.fetchdf(
+        """SELECT coalesce(r.price_at = f.first_day::TIMESTAMPTZ, false) AS same_day,
+        coalesce(f.prices = [r.asking_rent], false) AS same_ask
+        FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id"""
+    )
+    assert len(rows) == 229 and rows.same_day.all() and rows.same_ask.all()
+
+
+def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch):
+    """A later answer with the same record reports no event besides its own fetch."""
+    export = copy_export(tmp_path)
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    key = ["listing_id", "source", "kind", "day", "at", "price"]
+    before = ctx.fetchdf("SELECT * FROM ads.events")
+    db = duckdb.connect(config={"TimeZone": "UTC"})
+    answers = db.execute(
+        "SELECT * FROM read_parquet(?) ORDER BY response_id",
+        [str(FIXTURE / "export/ads/*/*.parquet")],
+    ).df()
+    # An answer whose history lists another ad's events too.
+    pick = ctx.fetchdf(
+        """SELECT listing_id, response_id FROM ads.answers a WHERE EXISTS (
+        SELECT 1 FROM ads.history_events e
+        WHERE e.history = a.history AND e.listing_id <> a.listing_id)
+        ORDER BY response_id, listing_id LIMIT 1"""
+    )
+    ad, response = int(pick.listing_id[0]), int(pick.response_id[0])
+    old = answers[(answers.listing_id == ad) & (answers.response_id == response)]
+    history = ctx.fetchdf(
+        f"""SELECT DISTINCT listing_id::VARCHAR AS listing_id, kind, day, price
+        FROM ads.history_events WHERE history = (SELECT history FROM ads.answers
+        WHERE listing_id = {ad} AND response_id = {response})"""
+    )
+    assert (history.listing_id != str(ad)).any()
+    expected = pd.concat(
+        [
+            before[
+                (before.listing_id == str(ad)) & before.source.isin(["status", "price"])
+            ],
+            before[before.source == "history"].merge(history),
+        ]
+    )[key]
+    again = old.assign(
+        fetched=old.fetched + pd.Timedelta(days=8),
+        response_id=answers.response_id.max() + 1,
+        run=5,
+    )
+    append_answers(export, again)
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    after = ctx.fetchdf("SELECT * FROM ads.events")
+    both = after.merge(before, on=key, how="outer", indicator=True)
+    added = both[both._merge == "left_only"]
+    assert len(added) == 1 and len(both) == len(after) == len(before) + 1
+    assert added.source.tolist() == ["fetch"]
+    assert added.listing_id.tolist() == [str(old.listing_id.iloc[0])]
+    both = both[both._merge == "both"]
+    assert (both.first_seen_x == both.first_seen_y).all()
+    assert (both.first_response_id_x == both.first_response_id_y).all()
+    seen = both[both.answers_x != both.answers_y]
+    check = seen[key].merge(expected, how="outer", indicator=True)
+    assert len(check) == len(seen) == len(expected) and (check._merge == "both").all()
+    assert (seen.last_seen_x == again.fetched.iloc[0]).all()
+    assert (seen.answers_x == seen.answers_y + 1).all()
+    rest = both[both.answers_x == both.answers_y]
+    assert (rest.last_seen_x == rest.last_seen_y).all()
+
+
+def history_record(listing_id, history):
+    return json.dumps(
+        {
+            "id": str(listing_id),
+            "status": "ACTIVE",
+            "onMarketAt": "2026-05-01",
+            "createdAt": "2026-05-01T09:00:00.000-04:00",
+            "offMarketAt": None,
+            "pricing": {
+                "price": 3000,
+                "priceChanges": [
+                    {"changedAt": "2026-05-01T10:00:00.000-04:00", "price": 3000}
+                ],
+            },
+            "statusChanges": [
+                {"changedAt": "2026-05-01T10:00:00.000-04:00", "status": "ACTIVE"}
+            ],
+            "propertyHistory": history,
+        },
+        sort_keys=True,
+    )
+
+
+def test_event_log_cases(tmp_path, monkeypatch):
+    """The made-up ads of make_cases.py, which have no histories and a missing answer, and four
+    answers with histories: an empty one, one listing an event twice and an ACTIVE change
+    without a price, a later one with an added event, and the same history from a sibling."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+
+    def active(day, price):
+        return {
+            "__typename": "RentalStatusChangeOfInterest",
+            "date": day,
+            "price": price,
+            "status": "ACTIVE",
+        }
+
+    rented = {
+        "__typename": "RentalStatusChangeOfInterest",
+        "date": "2026-06-01",
+        "status": "RENTED",
+    }
+    first = [
+        {
+            "listingId": "9000011",
+            "rentalEventsOfInterest": [
+                active("2026-05-01", 3000),
+                active("2026-05-01", 3000),
+                active("2026-05-01", None),
+            ],
+        },
+        {
+            "id": "9000012",
+            "listingId": None,
+            "rentalEventsOfInterest": [active("2026-04-01", 2900)],
+        },
+    ]
+    later = [
+        {
+            **first[0],
+            "rentalEventsOfInterest": first[0]["rentalEventsOfInterest"] + [rented],
+        },
+        first[1],
+    ]
+    records = [
+        (9000010, "2026-09-02", history_record(9000010, [])),
+        (9000011, "2026-09-03", history_record(9000011, first)),
+        (9000011, "2026-09-10", history_record(9000011, later)),
+        (9000012, "2026-09-11", history_record(9000012, later)),
+    ]
+    append_answers(
+        export,
+        pd.DataFrame(
+            {
+                "listing_id": [r[0] for r in records],
+                "fetched": pd.to_datetime([f"{r[1]}T12:00:00Z" for r in records]),
+                "response_id": [8, 9, 10, 11],
+                "run": 5,
+                "region": "cases",
+                "generation": 1,
+                "outcome": "record",
+                "record_sha256": [
+                    hashlib.sha256(r[2].encode()).hexdigest() for r in records
+                ],
+                "record": [r[2] for r in records],
+            }
+        ),
+    )
+    ctx = context(
+        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
+    )
+    ctx.plan(auto_apply=True, no_prompts=True)
+    missing = ctx.fetchdf(
+        "SELECT listing_id, price FROM ads.events WHERE kind = 'MISSING'"
+    )
+    assert missing.listing_id.tolist() == ["9000005"] and missing.price.isna().all()
+    events = ctx.fetchdf(
+        """SELECT listing_id, kind, day::VARCHAR AS day, price, own, first_seen::DATE::VARCHAR
+        AS first_seen, last_seen::DATE::VARCHAR AS last_seen, first_response_id, answers,
+        own_first_seen::DATE::VARCHAR AS own_first_seen, own_first_response_id
+        FROM ads.events WHERE source = 'history'
+        ORDER BY listing_id, day, kind, price NULLS LAST"""
+    )
+    assert events.astype(object).where(events.notna(), None).values.tolist() == [
+        [
+            "9000011",
+            "ACTIVE",
+            "2026-05-01",
+            3000.0,
+            True,
+            "2026-09-03",
+            "2026-09-11",
+            9,
+            3,
+            "2026-09-03",
+            9,
+        ],
+        [
+            "9000011",
+            "ACTIVE",
+            "2026-05-01",
+            None,
+            True,
+            "2026-09-03",
+            "2026-09-11",
+            9,
+            3,
+            "2026-09-03",
+            9,
+        ],
+        [
+            "9000011",
+            "RENTED",
+            "2026-06-01",
+            None,
+            True,
+            "2026-09-10",
+            "2026-09-11",
+            10,
+            2,
+            "2026-09-10",
+            10,
+        ],
+        [
+            "9000012",
+            "ACTIVE",
+            "2026-04-01",
+            2900.0,
+            True,
+            "2026-09-03",
+            "2026-09-11",
+            9,
+            3,
+            "2026-09-11",
+            11,
+        ],
+    ]
+    first_ask = ctx.fetchdf(
+        """SELECT listing_id, first_day::VARCHAR AS first_day, prices, missing_price,
+        first_seen::DATE::VARCHAR AS first_seen, first_response_id
+        FROM ads.first_ask ORDER BY listing_id"""
+    )
+    assert [[*r[:2], list(r[2]), *r[3:]] for r in first_ask.values.tolist()] == [
+        ["9000011", "2026-05-01", [3000.0], True, "2026-09-03", 9],
+        ["9000012", "2026-04-01", [2900.0], False, "2026-09-11", 11],
+    ]
 
 
 class Failures(TerminalConsole):
