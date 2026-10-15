@@ -362,6 +362,33 @@ systemctl --user enable --now apartments-streeteasy-topup.timer
 A backfill holding `oxylabs.lock` at 05:30 delays the top-up until it finishes, for up to 18
 hours.
 
+## Raw export
+
+`python -m streeteasy_archive.graphql_export` writes the collector's stored replies out as
+Parquet under `crawls/api/export/`, for pipelines that read the API data with DuckDB or pyarrow
+in place of the archive's SQLite tables. The collector's tables keep only the latest record of
+each ad and building, so the exporter goes back to each reply's body in `bodies/` and writes a
+row for each ID the read asked for:
+
+| Table | A row for |
+|---|---|
+| `ads` | each listing ID of each ad read, with `outcome` 'record' and the record as JSON with sorted keys, or `outcome` 'missing' |
+| `buildings` | each building ID of each building read, the same way |
+| `requests` | each stored reply, with its Oxylabs job ID, both status codes and its `bodies/` paths |
+| `calls` | each POST the collector timed, failures included, by its rowid |
+
+A field the API failed to answer gives no rows, since the collector read its IDs again in a
+later request. The `record_sha256` of an exported read matches `graphql_search_ads.record_sha256`
+for the same ad and reply. Each table has a folder for each run, such as `ads/run-0005/`, and
+each file holds up to 250 replies, named by the first and last of their response IDs. The
+exporter appends a line for each finished file to `export/manifest.ndjson`, with its rows and
+SHA-256. A later export of a run starts above the highest ID in the names of the run's files and
+leaves the finished files as they are. With `--run N` it exports that run alone, and with no
+`--run` it exports every run.
+
+A restore from a backup made with `VACUUM INTO` can renumber the rowids of the call table. The
+exporter then stops with an error, and deleting `export/calls/` lets it write the calls again.
+
 ## Backup
 
 `ops/streeteasy-backup` copies the archive to the second disk, and
@@ -376,8 +403,8 @@ for that. Each run goes through these steps:
 2. It runs `PRAGMA quick_check` on the copy and stops if the check reports a problem.
 3. It flushes the copy to disk, gives it its final name and deletes all but the newest 7
    database copies.
-4. It copies the bodies, the run reports and the current-listings captures into `files/` with
-   rsync, leaving out the database, the collector's lock and partial `.tmp` bodies. A file gone
+4. It copies the bodies, the run reports, the current-listings captures and the raw export into
+   `files/` with rsync, leaving out the database, the collector's lock and partial `.tmp` bodies. A file gone
    from the archive stays in the backup. A capture pruned by a collector during the copy leaves
    rsync with exit 24, which the script accepts.
 5. It appends a line to `backup.log` in the backup folder.
