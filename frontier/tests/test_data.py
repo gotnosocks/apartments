@@ -1745,7 +1745,7 @@ def test_quarantine_v21_adds_the_stock_wording_hold_outs():
     with open(data.REPO / "config" / "reviews" / "ad-fit-reads-20261014-4.jsonl") as f:
         reads = [json.loads(line) for line in f]
     held = {r["audit_id"]: r for r in reads if r["verdict"] != "keep"}
-    assert len(reads) == 90 and len(held) == 62
+    assert len(reads) == 90 and len(held) == 52
     assert all(v21[a] == v20[a] for a in v20)
     assert v21.keys() - v20.keys() == held.keys()
     assert all(

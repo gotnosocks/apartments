@@ -824,8 +824,8 @@ DATA_RULE_TEXT = {
     "14 short stays or furnished travel rentals, 14 ads for another address, "
     "14 rooms or live/work spaces, 10 stores, offices or bars, and six asks "
     "that hold only for a short first term or vary with the length of the stay.",
-    "quarantine-v21": "quarantine-v20 and 62 rows whose ads repeat stock wording behind "
-    "some of v20's hold-outs: 31 Atelier ads whose price varies with the term and "
+    "quarantine-v21": "quarantine-v20 and 52 rows whose ads repeat stock wording behind "
+    "some of v20's hold-outs: 21 Atelier ads whose price varies with the term and "
     "furnishing, 29 June flexible leases priced by furnishing and move dates, and two "
     "Rove Travel stays priced by season and stay length.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "

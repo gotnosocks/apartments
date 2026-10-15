@@ -1221,14 +1221,14 @@ QUARANTINE_V21 = QUARANTINE_V20.with_name("quarantine-v21-20261014.jsonl")
 
 
 def quarantine_v21(frame: pd.DataFrame) -> pd.DataFrame:
-    """v20's 435 rows and 62 more found by searching the kept rows' ads for the
+    """v20's 435 rows and 52 more found by searching the kept rows' ads for the
     stock wording behind some of v20's hold-outs. We read each of the 90
     matches in full and recorded the reads in
     `config/reviews/ad-fit-reads-20261014-4.jsonl`:
-    1. 31 Atelier rental office ads say the price may vary with the length of
+    1. 21 Atelier rental office ads say the price may vary with the length of
        the term and with furnishing, and name neither for the advertised
-       price. We kept the 24 Atelier ads that say their prices are for a
-       one-year unfurnished term.
+       price. We kept the 34 Atelier ads that say their prices are for a
+       one-year term, all but two of them saying unfurnished too.
     2. 29 June ads offer a flexible 1 to 18 month lease whose monthly rate
        depends on furnishing and on the move-in and move-out dates.
     3. Two Rove Travel ads offer furnished stays of 30 days or more, priced
