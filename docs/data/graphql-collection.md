@@ -113,6 +113,29 @@ records sends no requests and takes about 7 ms an ad on thelio, half of it in th
 flushes for each ad's body file, so the four regions' 1.5 million or so ads take about 3 hours
 to write.
 
+## Bands too full to read from both ends (Oct 15)
+
+A `searchRentals` query returns at most 1,000 IDs. The collector reads a band of a single
+price and bedroom count from both ends, so it misses the ads between the ends of such a
+band holding more than 2,000. The first three backfill runs left these bands:
+
+| run | region | truncated bands | ads between the ends | read through unit histories |
+|---|---|---:|---:|---:|
+| 1 | `manhattan-below-59th` | 24 | 13,649 | 10,322 |
+| 2 | `brooklyn-prospect-park` | 13 | 6,917 | 4,867 |
+| 3 | `manhattan-59th-110th` | 50 | 47,520 | 32,807 |
+
+Since some ads match the price filter of more than one band, the middle column overstates
+the missing ads. The collector splits such a band into the region's areas, and an area
+listed in `SUBAREAS` into its child areas: the Upper West Side into Lincoln Square, the
+Upper West Side proper and Manhattan Valley, and the Upper East Side into its own leaf area,
+Lenox Hill, Yorkville, Carnegie Hill and Upper Carnegie Hill. I took the children from the
+`se.areaId` of the buildings in the archive. When I ran the new collector's band tree
+against a copy of the archive's band tables, it found 504, 182 and 150 area bands to count
+in runs 1 to 3. Projecting from each region's ads by area, I expect the three reopened
+runs to take about 450 requests (about $0.51), most of them for the 59th to 110th St ID
+and ad reads, and to leave no band truncated.
+
 ## Running it
 
 `ops/streeteasy-collect` copies `src/` at its checkout's commit into
@@ -132,7 +155,9 @@ ops/streeteasy-collect daily
 
 - `backfill` reads every ad of each region with its units' histories at or above the cutoff.
   It stops at 4,000 requests for a region and at the first region that fails. Running it again
-  resumes the region's unfinished run.
+  resumes the region's latest run with `--reopen`, even after the run finished. On a finished
+  run, it counts and reads the new bands from a newer collector's finer split, reads the ads
+  and histories still unread, and publishes the region's current ads again.
 - `daily` reads the ACTIVE ads of every region and re-reads each region's ads whose status is
   not RENTED, NO_LONGER_AVAILABLE or DELISTED, with at most 150 requests a region. It goes on
   past a region that fails.
@@ -147,7 +172,9 @@ ops/streeteasy-collect daily
   for each region in `crawls/streeteasy-collect.log`.
 
 `ops/systemd/apartments-streeteasy-daily.timer` runs `daily` at 05:30 New York time from the
-master checkout, in the light slice with 2 GB of memory.
+master checkout, in the light slice with 2 GB of memory, once it is linked into
+`~/.config/systemd/user` and enabled. As of Oct 15 it is not installed, and installing it
+waits for Ben's word.
 
 ## Backup
 

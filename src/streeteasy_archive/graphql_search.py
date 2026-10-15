@@ -10,8 +10,10 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      the region in fixed price bands. It splits a band holding more than 1,000 ads in half
      by price, and it splits a single price into bedroom counts 0 to 7. Once every band
      holds 1,000 ads or fewer, it reads the IDs in each band sorted by listing date, from
-     both ends for a single-price band still above 1,000. A request carries 25 counts or 4
-     ID reads as aliased fields.
+     both ends for a single-price band still above 1,000. Since the two ends give at most
+     2,000 IDs, it splits a band of a single price and bedroom count holding more than
+     that into the region's areas, and an area in SUBAREAS into its child areas. A
+     request carries 25 counts or 4 ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,
@@ -65,8 +67,9 @@ The collector sends at most --rate requests a minute, never more than 64, and st
 --max-requests. It stops earlier on an Oxylabs credential or billing refusal, a StreetEasy
 401, 403 or 429, a challenge page, or six failed requests in a row. After a failed request
 for several items, it retries each half, and a single item gets three tries. Each step reads
-its progress from the tables, so the same command resumes an unfinished run. --new-run
-starts a fresh one.
+its progress from the tables, so the same command resumes an unfinished run. --reopen
+resumes the region's latest run even after it finished, so a newer collector can count
+and read the bands from its finer split. --new-run starts a fresh run.
 
 Limits:
   - About 12% of NoMad's ads have no `slug` in their record. With no canonical unit page,
@@ -77,6 +80,11 @@ Limits:
   - The collector writes no building inventory rows.
   - An ad with more than seven bedrooms, or with none given, falls into the count gap of a
     band split down to a single price. The report gives the gap.
+  - Some ads match the price filter of more than one band, so a band's halves can hold
+    more ads between them than the band, and most of the report's gaps are negative.
+  - In a band of a single price, bedroom count and area holding more than 2,000 ads, the
+    collector misses the ads between the two ends. The report lists these bands as
+    truncated.
   - When the API has no record for a unit's latest ad, the policy excludes the unit's other
     ads for a missing unit membership.
 """
@@ -148,8 +156,8 @@ TARGET_BYTES = 3_000_000
 FIRST_BYTES_PER_AD = 20_000
 EDGES = [0, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000, 7000, 8000, 10000]
 EDGES += [15000, 25000, 10**8]
-NO_PRICE = ANY_BEDS = -1
-FULL = (NO_PRICE, NO_PRICE, ANY_BEDS)
+NO_PRICE = ANY_BEDS = ANY_AREA = -1
+FULL = (NO_PRICE, NO_PRICE, ANY_BEDS, ANY_AREA)
 MAX_BEDS = 7
 FINAL = frozenset({"RENTED", "NO_LONGER_AVAILABLE", "DELISTED"})
 FAILURES_IN_A_ROW = 6
@@ -176,6 +184,17 @@ REGIONS = {
         [115, 163, 157, 116, 158, 113, 159, 117, 106, 124, 146, 152],
         False,
     ),
+}
+
+# The child areas of the regions' areas, from the `se.areaId` and location of the buildings
+# in the archive. When a parent's children miss some of its ads, the report shows the
+# difference as a gap.
+SUBAREAS = {
+    # Upper West Side: Lincoln Square, Upper West Side, Manhattan Valley
+    135: [136, 137, 138],
+    # Upper East Side: Upper East Side, Lenox Hill, Yorkville, Carnegie Hill, Upper Carnegie
+    # Hill
+    139: [140, 141, 142, 143, 164],
 }
 
 # The fields of an ad page's listing object that the API gives (frag2.graphql in
@@ -225,15 +244,21 @@ MINE = (
     "AND m.region=:region AND m.listing_id=a.listing_id)"
 )
 
-SCHEMA = """
+# The columns of the band tables, keyed by a band's price range, bedroom count and area.
+BAND_TABLES = {
+    "graphql_search_counts": "run INTEGER, lo INTEGER, hi INTEGER, beds INTEGER, "
+    "area INTEGER, total INTEGER, PRIMARY KEY(run,lo,hi,beds,area)",
+    "graphql_search_slices": "run INTEGER, lo INTEGER, hi INTEGER, beds INTEGER, "
+    "area INTEGER, direction TEXT, total INTEGER, ids INTEGER, "
+    "PRIMARY KEY(run,lo,hi,beds,area,direction)",
+}
+
+SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS graphql_search_runs(id INTEGER PRIMARY KEY, generation INTEGER,
     region TEXT, areas TEXT, active_only INTEGER, follow_history INTEGER, started REAL,
     finished REAL, report TEXT);
-CREATE TABLE IF NOT EXISTS graphql_search_counts(run INTEGER, lo INTEGER, hi INTEGER,
-    beds INTEGER, total INTEGER, PRIMARY KEY(run,lo,hi,beds));
-CREATE TABLE IF NOT EXISTS graphql_search_slices(run INTEGER, lo INTEGER, hi INTEGER,
-    beds INTEGER, direction TEXT, total INTEGER, ids INTEGER,
-    PRIMARY KEY(run,lo,hi,beds,direction));
+CREATE TABLE IF NOT EXISTS graphql_search_counts({BAND_TABLES["graphql_search_counts"]});
+CREATE TABLE IF NOT EXISTS graphql_search_slices({BAND_TABLES["graphql_search_slices"]});
 CREATE TABLE IF NOT EXISTS graphql_search_hits(run INTEGER, listing_id INTEGER,
     PRIMARY KEY(run,listing_id));
 CREATE TABLE IF NOT EXISTS graphql_search_responses(id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -259,7 +284,9 @@ def search_field(
     alias, areas, node, *, ids=False, direction="ASCENDING", active_only=False
 ):
     """An aliased `searchRentals` field for a band: its total, and its IDs when `ids`."""
-    lo, hi, beds = node
+    lo, hi, beds, area = node
+    if area != ANY_AREA:
+        areas = [area]
     filters = [f"areas: [{', '.join(map(str, areas))}]"]
     if lo != NO_PRICE:
         filters.append(f"price: {{lowerBound: {lo}, upperBound: {hi}}}")
@@ -279,20 +306,27 @@ def search_field(
     )
 
 
-def children(node):
-    """The bands a band splits into: price bands, then price halves, then bedroom counts."""
-    lo, hi, beds = node
+def children(node, areas):
+    """The bands a band splits into: price bands, price halves, bedroom counts, then areas.
+
+    A band of a single price and bedroom count splits into the region's areas, or into the
+    child areas of a region with a single area, and an area band into its child areas.
+    """
+    lo, hi, beds, area = node
     if node == FULL:
         return [
-            (EDGES[i] if i == 0 else EDGES[i] + 1, EDGES[i + 1], ANY_BEDS)
+            (EDGES[i] if i == 0 else EDGES[i] + 1, EDGES[i + 1], ANY_BEDS, ANY_AREA)
             for i in range(len(EDGES) - 1)
         ]
     if hi > lo:
         mid = (lo + hi) // 2
-        return [(lo, mid, beds), (mid + 1, hi, beds)]
+        return [(lo, mid, beds, area), (mid + 1, hi, beds, area)]
     if beds == ANY_BEDS:
-        return [(lo, hi, b) for b in range(MAX_BEDS + 1)]
-    return []
+        return [(lo, hi, b, area) for b in range(MAX_BEDS + 1)]
+    if area == ANY_AREA and len(areas) > 1:
+        return [(lo, hi, beds, a) for a in areas]
+    parent = areas[0] if area == ANY_AREA else area
+    return [(lo, hi, beds, a) for a in SUBAREAS.get(parent, [])]
 
 
 def history_links(record):
@@ -519,6 +553,7 @@ class Collector:
         follow_history=True,
         active_only=False,
         new_run=False,
+        reopen=False,
         workers=4,
     ):
         self.store, self.db, self.client = store, store.db, client
@@ -527,6 +562,7 @@ class Collector:
         self.workers = workers
         self.ad_ceiling = MAX_BATCH
         self.db.executescript(SCHEMA)
+        self._add_area_column()
         self.generation = store.current_generation() or store.new_generation(
             "graphql-search"
         )
@@ -536,8 +572,10 @@ class Collector:
         self.invoked = time.time()
         areas_json = json.dumps(self.areas)
         row = self.db.execute(
-            """SELECT id, started FROM graphql_search_runs WHERE generation=? AND region=?
-            AND areas=? AND active_only=? AND finished IS NULL ORDER BY id DESC LIMIT 1""",
+            f"""SELECT id, started, finished FROM graphql_search_runs WHERE generation=?
+            AND region=?
+            AND areas=? AND active_only=? {"" if reopen else "AND finished IS NULL"}
+            ORDER BY id DESC LIMIT 1""",
             (self.generation, region, areas_json, int(active_only)),
         ).fetchone()
         with store._tx():
@@ -551,6 +589,12 @@ class Collector:
                 )
             if row and not new_run:
                 self.run, self.started = row["id"], row["started"]
+                if row["finished"] is not None:
+                    # A reopened run stays unfinished until this invocation finishes it.
+                    self.db.execute(
+                        "UPDATE graphql_search_runs SET finished=NULL WHERE id=?",
+                        (self.run,),
+                    )
             else:
                 self.started = self.invoked
                 self.run = self.db.execute(
@@ -574,6 +618,21 @@ class Collector:
         self.failed_in_a_row = 0
         self.retry = deque()
         self._cached = (None, None, {})
+
+    def _add_area_column(self):
+        """Rebuild band tables from before the area split, each old band covering all areas."""
+        with self.store._tx():
+            for table, columns in BAND_TABLES.items():
+                old = [r[1] for r in self.db.execute(f"PRAGMA table_info({table})")]
+                if "area" in old:
+                    continue
+                self.db.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
+                self.db.execute(f"CREATE TABLE {table}({columns})")
+                self.db.execute(
+                    f"""INSERT INTO {table}({", ".join(old)}, area)
+                    SELECT {", ".join(old)}, {ANY_AREA} FROM {table}_old"""
+                )
+                self.db.execute(f"DROP TABLE {table}_old")
 
     # Requests
 
@@ -712,13 +771,15 @@ class Collector:
         with self.store._tx():
             if kind == "count":
                 self.db.execute(
-                    "INSERT OR REPLACE INTO graphql_search_counts VALUES(?,?,?,?,NULL)",
+                    """INSERT OR REPLACE INTO graphql_search_counts(run,lo,hi,beds,area,total)
+                    VALUES(?,?,?,?,?,NULL)""",
                     (self.run, *item),
                 )
             elif kind == "slice":
                 node, direction = item
                 self.db.execute(
-                    "INSERT OR REPLACE INTO graphql_search_slices VALUES(?,?,?,?,?,NULL,NULL)",
+                    """INSERT OR REPLACE INTO graphql_search_slices(run,lo,hi,beds,area,
+                    direction,total,ids) VALUES(?,?,?,?,?,?,NULL,NULL)""",
                     (self.run, *node, direction),
                 )
             elif kind == "ads":
@@ -761,7 +822,8 @@ class Collector:
                     failed.extend(items)
                     continue
                 self.db.execute(
-                    "INSERT OR REPLACE INTO graphql_search_counts VALUES(?,?,?,?,?)",
+                    """INSERT OR REPLACE INTO graphql_search_counts(run,lo,hi,beds,area,total)
+                    VALUES(?,?,?,?,?,?)""",
                     (self.run, *items[0], total),
                 )
         return failed
@@ -789,7 +851,8 @@ class Collector:
                 )
                 node, direction = items[0]
                 self.db.execute(
-                    "INSERT OR REPLACE INTO graphql_search_slices VALUES(?,?,?,?,?,?,?)",
+                    """INSERT OR REPLACE INTO graphql_search_slices(run,lo,hi,beds,area,
+                    direction,total,ids) VALUES(?,?,?,?,?,?,?,?)""",
                     (self.run, *node, direction, total, len(ids)),
                 )
         return failed
@@ -941,9 +1004,9 @@ class Collector:
     def tree(self):
         """The band tree from this run's counts: leaves, pending bands, gaps and failures."""
         counts = {
-            (r["lo"], r["hi"], r["beds"]): r["total"]
+            (r["lo"], r["hi"], r["beds"], r["area"]): r["total"]
             for r in self.db.execute(
-                "SELECT lo, hi, beds, total FROM graphql_search_counts WHERE run=?",
+                "SELECT lo, hi, beds, area, total FROM graphql_search_counts WHERE run=?",
                 (self.run,),
             )
         }
@@ -956,7 +1019,7 @@ class Collector:
         }
         if FULL not in counts:
             # The first request counts the whole region and its price bands together.
-            out["pending"] = [FULL, *children(FULL)]
+            out["pending"] = [FULL, *children(FULL, self.areas)]
             return out
         stack = [FULL]
         while stack:
@@ -968,8 +1031,10 @@ class Collector:
             if total is None:
                 out["unanswered"].append(node)
                 continue
-            kids = children(node)
-            if total > CAP and kids:
+            kids = children(node, self.areas)
+            # The two ends of a band give up to 2,000 IDs, so areas split only above that.
+            limit = 2 * CAP if kids and kids[0][3] != node[3] else CAP
+            if kids and total > limit:
                 stack.extend(kids)
                 if all(isinstance(counts.get(k), int) for k in kids):
                     gap = total - sum(counts[k] for k in kids)
@@ -987,7 +1052,7 @@ class Collector:
         while pending := self.tree()["pending"]:
             self._run("count", pending, COUNTS_PER_REQUEST)
         done = {
-            ((r["lo"], r["hi"], r["beds"]), r["direction"])
+            ((r["lo"], r["hi"], r["beds"], r["area"]), r["direction"])
             for r in self.db.execute(
                 "SELECT * FROM graphql_search_slices WHERE run=? AND total IS NOT NULL",
                 (self.run,),
@@ -1658,6 +1723,11 @@ def main(argv=None):
     parser.add_argument("--rate", type=float, default=30, help="requests a minute")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--new-run", action="store_true")
+    parser.add_argument(
+        "--reopen",
+        action="store_true",
+        help="resume the latest run, even a finished one",
+    )
     parser.add_argument("--current-listings", type=Path)
     args = parser.parse_args(argv)
     if args.area:
@@ -1666,6 +1736,8 @@ def main(argv=None):
         areas, follow_history = REGIONS[args.region]
     else:
         parser.error(f"unknown region {args.region}; give --area")
+    if args.new_run and args.reopen:
+        parser.error("--new-run and --reopen exclude each other")
     data = args.data or ARCHIVE
     data.mkdir(parents=True, exist_ok=True)
     with (data / "collector.lock").open("a") as lock:
@@ -1684,6 +1756,7 @@ def main(argv=None):
                 follow_history=follow_history,
                 active_only=args.active_only,
                 new_run=args.new_run,
+                reopen=args.reopen,
                 workers=args.workers,
             )
             report = collector.collect(args.current_listings)
