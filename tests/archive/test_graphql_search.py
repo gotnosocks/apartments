@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 import json
+import math
 import re
 import urllib.parse
 
@@ -178,14 +179,17 @@ class FakeAPI:
             wanted = {int(a) for a in areas[1].split(", ")}
             rows = [r for r in rows if wanted & self._within(self.areas.get(r[0]))]
         price = re.search(r"price: \{lowerBound: (\d+), upperBound: (\d+)\}", filters)
-        beds = re.search(r"bedrooms: \{lowerBound: (\d+), upperBound: (\d+)\}", filters)
+        beds = re.search(
+            r"bedrooms: \{lowerBound: (\d+)(?:, upperBound: (\d+))?\}", filters
+        )
         if price:
             rows = [r for r in rows if int(price[1]) <= r[1] <= int(price[2])]
         if beds:
             rows = [
                 r
                 for r in rows
-                if r[2] is not None and int(beds[1]) <= r[2] <= int(beds[2])
+                if r[2] is not None
+                and int(beds[1]) <= r[2] <= (int(beds[2]) if beds[2] else math.inf)
             ]
         if "rentalStatus: ACTIVE" in filters:
             rows = [r for r in rows if r[3] == "ACTIVE"]
@@ -432,23 +436,26 @@ def test_a_failed_step_in_a_batch_rolls_back_alone(tmp_path):
 def test_enumeration_splits_bands_down_to_bedrooms(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 2000, 3000])
-    monkeypatch.setattr(gs, "MAX_BEDS", 2)
+    monkeypatch.setattr(gs, "TOP_BEDS", 2)
     search = [(1300100 + i, 2500.0, 1.0, "ACTIVE") for i in range(5)]
     search += [(1300200, 2500.0, None, "ACTIVE"), (1300300, 1000.0, 0.0, "ACTIVE")]
+    # Bedroom count 2 is the top band, so it holds the ad with 4 bedrooms.
+    search += [(1300400, 2500.0, 4.0, "ACTIVE")]
     api = FakeAPI({}, {}, search)
     c = make_collector(tmp_path / "archive", api)
     c.enumerate()
 
     tree = c.tree()
-    assert tree["total"] == 7 and not tree["pending"]
+    assert tree["total"] == 8 and not tree["pending"]
     assert sorted(tree["leaves"]) == [
         ((0, 2000, -1, -1, -1), 1),
         ((2500, 2500, 1, -1, -1), 5),
+        ((2500, 2500, 2, -1, -1), 1),
     ]
     assert tree["gaps"] == [((2500, 2500, -1, -1, -1), 1)]
     hits = {r[0] for r in c.db.execute("SELECT listing_id FROM graphql_search_hits")}
     # Five ads at one price and bedroom count: read from both ends of the listing order.
-    assert hits == {1300100, 1300101, 1300102, 1300103, 1300104, 1300300}
+    assert hits == {1300100, 1300101, 1300102, 1300103, 1300104, 1300300, 1300400}
     directions = {
         (r["lo"], r["direction"])
         for r in c.db.execute("SELECT * FROM graphql_search_slices")
@@ -459,7 +466,7 @@ def test_enumeration_splits_bands_down_to_bedrooms(tmp_path, monkeypatch):
 def test_a_band_too_full_for_both_ends_splits_into_areas(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
-    monkeypatch.setattr(gs, "MAX_BEDS", 1)
+    monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {104: [105, 106]})
     ids = list(range(1300100, 1300112))
     api = FakeAPI({}, {}, [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
@@ -496,7 +503,7 @@ def test_a_band_too_full_for_both_ends_splits_into_areas(tmp_path, monkeypatch):
 def test_a_band_too_full_for_its_area_splits_into_map_boxes(tmp_path, monkeypatch):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
-    monkeypatch.setattr(gs, "MAX_BEDS", 1)
+    monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {})
     ids = list(range(1300100, 1300110))
     api = FakeAPI({}, {}, [(i, 2500.0, 1.0, "ACTIVE") for i in ids])
@@ -565,7 +572,7 @@ def test_reopen_splits_a_finished_runs_truncated_band_in_an_old_archive(
 ):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
-    monkeypatch.setattr(gs, "MAX_BEDS", 1)
+    monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {})
     ids = list(range(1300100, 1300108))
     ads = {str(i): record(i, f"{i - 1300000}a", "ACTIVE", 2500, 1, [i], i) for i in ids}
@@ -621,7 +628,7 @@ def test_reopen_splits_a_finished_runs_truncated_area_band_into_boxes(
 ):
     monkeypatch.setattr(gs, "CAP", 3)
     monkeypatch.setattr(gs, "EDGES", [0, 3000])
-    monkeypatch.setattr(gs, "MAX_BEDS", 1)
+    monkeypatch.setattr(gs, "TOP_BEDS", 1)
     monkeypatch.setattr(gs, "SUBAREAS", {})
     ids = list(range(1300100, 1300110))
     ads = {str(i): record(i, f"{i - 1300000}a", "ACTIVE", 2500, 1, [i], i) for i in ids}
@@ -1181,8 +1188,12 @@ def test_search_fields_and_bands(monkeypatch):
         (2251, 2500, -1, -1, -1),
     ]
     assert gs.children((2500, 2500, -1, -1, -1), [103]) == [
-        (2500, 2500, b, -1, -1) for b in range(8)
+        (2500, 2500, b, -1, -1) for b in range(9)
     ]
+    # The top bedroom band has no upper bound.
+    assert "bedrooms: {lowerBound: 8}}, perPage" in gs.search_field(
+        "c4", [103], (2500, 2500, 8, -1, -1)
+    )
     assert gs.children((2500, 2500, 3, -1, -1), [103, 104]) == [
         (2500, 2500, 3, 103, -1),
         (2500, 2500, 3, 104, -1),

@@ -173,6 +173,15 @@ of its parts' counts. Positive gaps remain only where a band splits by bedroom c
 in run 3 and 15 in run 4. Ads with no bedroom count or more than 7 bedrooms would fall in
 these gaps, as would ads that changed between two counts.
 
+I probed two of these bands at 13:24 ET with `beds_gap.py` in the probe folder (3 requests,
+one of them an Oxylabs failure). Run 4's $3,000 band counted 17,553 ads, against 17,550 in
+its bedroom counts 0 to 7, and run 3's $2,500 band counted 11,251 against 11,248. In both
+bands a filter for 8 or more bedrooms counted the missing 3 ads. A `bedrooms` filter with a
+lower bound and no upper bound counts the same ads as one with an upper bound of 1,000, and a
+filter for 0 or more bedrooms counts the whole band. The dataset below holds 154 ads coded
+with 8 to 255 bedrooms and none without a bedroom count. The bedroom split now gives a ninth
+band, 8 bedrooms or more, after the bands of 0 to 7, and a reopen counts and reads it.
+
 ## The four regions' backfill and dataset (Oct 15)
 
 | run | region | requests | dollars | search hits |

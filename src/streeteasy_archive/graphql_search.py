@@ -8,14 +8,14 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
   1. Enumerate the region's ads with `searchRentals`. The search answers at most 1,000
      results for a query but gives a total count for any filter, so the collector counts
      the region in fixed price bands. It splits a band holding more than 1,000 ads in half
-     by price, and it splits a single price into bedroom counts 0 to 7. It reads the IDs
-     in each band sorted by listing date, from both ends for a band of a single price and
-     bedroom count above 1,000. Since the two ends give at most 2,000 IDs, it splits such a
-     band holding more than that into the region's areas, and an area in SUBAREAS into its
-     child areas. A band still above 2,000 in an area with no child areas goes into map
-     boxes: the collector halves the map by latitude, halves each half by longitude, and
-     goes on halving each box holding more than 2,000 ads (box_edges). A request carries
-     25 counts or 4 ID reads as aliased fields.
+     by price, and it splits a single price into bedroom counts 0 to 7 and a band of 8 or
+     more bedrooms. It reads the IDs in each band sorted by listing date, from both ends
+     for a band of a single price and bedroom count above 1,000. Since the two ends give at
+     most 2,000 IDs, it splits such a band holding more than that into the region's areas,
+     and an area in SUBAREAS into its child areas. A band still above 2,000 in an area with
+     no child areas goes into map boxes: the collector halves the map by latitude, halves
+     each half by longitude, and goes on halving each box holding more than 2,000 ads
+     (box_edges). A request carries 25 counts or 4 ID reads as aliased fields.
   2. Read the ads with `rentalsByListingIds`, up to 100 IDs in a field and five fields in a
      request, as many as fit in the URL and in an answer of about 3 MB. When the listing
      service answers every field of a read near the current size with GATEWAY_TIMEOUT,
@@ -80,8 +80,6 @@ Limits:
   - Buildings are read once and never refreshed, and their records have no `pageTitle`.
   - building_field_recovery and the model audits read page captures only.
   - The collector writes no building inventory rows.
-  - An ad with more than seven bedrooms, or with none given, falls into the count gap of a
-    band split down to a single price. The report gives the gap.
   - Some ads match the price filter of more than one band, and an ad on the edge between
     two boxes can match both, so a band's halves can hold more ads between them than the
     band, and most of the report's gaps are negative.
@@ -165,7 +163,8 @@ NO_PRICE = ANY_BEDS = ANY_AREA = ANY_BOX = -1
 FULL = (NO_PRICE, NO_PRICE, ANY_BEDS, ANY_AREA, ANY_BOX)
 # The whole map as south, north, west and east edges in microdegrees: box 1 of the box split.
 WORLD = (-90_000_000, 90_000_000, -180_000_000, 180_000_000)
-MAX_BEDS = 7
+# The bedroom split's last band holds this many bedrooms or more.
+TOP_BEDS = 8
 FINAL = frozenset({"RENTED", "NO_LONGER_AVAILABLE", "DELISTED"})
 FAILURES_IN_A_ROW = 6
 MAX_RATE = 64
@@ -301,7 +300,9 @@ def search_field(
     filters = [f"areas: [{', '.join(map(str, areas))}]"]
     if lo != NO_PRICE:
         filters.append(f"price: {{lowerBound: {lo}, upperBound: {hi}}}")
-    if beds != ANY_BEDS:
+    if beds == TOP_BEDS:
+        filters.append(f"bedrooms: {{lowerBound: {beds}}}")
+    elif beds != ANY_BEDS:
         filters.append(f"bedrooms: {{lowerBound: {beds}, upperBound: {beds}}}")
     if box != ANY_BOX:
         south, north, west, east = (f"{v / 1e6:.6f}" for v in box_edges(box))
@@ -366,7 +367,7 @@ def children(node, areas):
         mid = (lo + hi) // 2
         return [(lo, mid, beds, area, box), (mid + 1, hi, beds, area, box)]
     if beds == ANY_BEDS:
-        return [(lo, hi, b, area, box) for b in range(MAX_BEDS + 1)]
+        return [(lo, hi, b, area, box) for b in range(TOP_BEDS + 1)]
     if box == ANY_BOX:
         if area == ANY_AREA and len(areas) > 1:
             return [(lo, hi, beds, a, box) for a in areas]
