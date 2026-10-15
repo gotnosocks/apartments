@@ -73,7 +73,7 @@ table for each version after building it, so I don't have to write a hash-keyed 
   With step 3's threshold moved from 1.2 to 1.3 for the first time, the build and the diff took
   34.3 s at a 3.2 GiB peak and found 10 changed rows. For 1.25, built earlier in the edit run,
   the plan reused the tables. The plan and the diff took 9.3 s, with only the diff doing work, and
-found 4 rows.
+  found 4 rows.
 - A step can be a Python model wherever SQL is awkward. SQLMesh also has incremental model kinds,
   for the Friday top-up.
 
