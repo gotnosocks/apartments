@@ -214,9 +214,25 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       and each record in it against its answer's `record_sha256`. The tests plant a rewritten
       file under its old line, a record under another record's hash or under the hash of no
       record, a path with two hashes, a lost row and ledger entries without backing, and each
-      stops the load or the plan. A repeated answer adds only its fetch. Planted data errors,
-      such as a flipped layout, an extreme or tenfold ask and a future date, are next, with
-      `ops/pipeline/plant.py`.
+      stops the load or the plan. A repeated answer adds only its fetch. The service's first
+      build with the check, of master at 16:13 ET on Oct 16, loaded in 31 s against 2 s before,
+      and took 722 s in all at a 4,332 MiB peak. Reparsing every record for the pet fee rule of
+      #923 took 642 s of that. The rows file changed `pet_policy` on 14,845 rows and the
+      bedroom count on the 3 rows of #921;
+   9. **Done** in #927: planted data errors. `ops/pipeline/plant.py` plants seven kinds of
+      error in a copy of an export and counts the ones reaching the rows, along with the step
+      of `analysis.latest_ask` giving each kept ask. On the 3% sample, the build drops or
+      corrects every error coming in a later answer and every hundredfold ask. For 93 of the
+      100 tenfold or tenth price changes in a later answer, `analysis.latest_ask` takes the
+      first ask, in 92 of them as nearer the building's median, and drops the ad's earlier
+      changes with the typo: 31 of those asks differ from the clean latest ask, by a median of
+      4.8%. A tenfold ask or another bedroom count in every record of an ad passes (43 and 49
+      of 50). The section "Planted errors" of `docs/data/pipeline.md` has the counts and the
+      production rows with such asks. Next: `analysis.latest_change` hides a page price equal
+      to any price change, so a tenfold typo corrected on the ad's last day keeps the typo when
+      `ads.kept_changes` drops the correction as a placeholder. About 12 production rows. Then a
+      check of each latest ask against its building's median, for the rest, and a fallback to
+      the last change before a typo in place of the first ask.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
