@@ -182,13 +182,15 @@ deleting it, and a load waiting on that folder's lock starts again in a new fold
 about 10 minutes under the build's locks.
 
 On thelio on Oct 16, the step unpacked the archive's 62 files into an empty cache in 597 s, with
-a peak of 1,078 MiB, into 3.1 GB of Parquet files. A second load found every folder in place and
-took under 0.1 s. Every member read as UTF-8, and DuckDB refused one row in the whole archive,
-the row of 13v1's Queens table with 80 values of 82. Across their releases, the tables hold
-18,515,237 PAD address ranges, 12,238,530 PAD lots and 37,806,144 MapPLUTO lots. Each Open Data
-copy gives as many rows as its set's `count(*)`. The step lets DuckDB write the rows in the
-member's order rather than sorting them by `record`: a sort doubled the memory for MapPLUTO's
-table of the whole city, and the first try at the full archive ran out at a 2 GiB cap.
+a peak of 1,078 MiB, into 3.1 GB of Parquet files. A second unpack from empty, with the build's
+venv into `/data1/apartments/pipeline/city`, took 589 s with a peak of 1,454 MiB. A load with
+every folder in place took under 0.1 s. Every member read as UTF-8, and DuckDB refused one row
+in the whole archive, the row of 13v1's Queens table with 80 values of 82. Across their
+releases, the tables hold 18,515,237 PAD address ranges, 12,238,530 PAD lots and 37,806,144
+MapPLUTO lots. Each Open Data copy gives as many rows as its set's `count(*)`. The step lets
+DuckDB write the rows in the member's order rather than sorting them by `record`: a sort doubled
+the memory for MapPLUTO's table of the whole city, and the first try at the full archive ran out
+at a 2 GiB cap.
 
 ## Build command
 

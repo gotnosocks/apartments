@@ -198,9 +198,9 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    2. **Done** in #897: `pipeline/steps/city.py` unpacks each listed file to
       Parquet once, in a folder named by the hashes of its code and its manifest line, and a
       `city.*` view for each table gives each release's rows with its date. The whole archive
-      took 597 s with a 1,078 MiB peak and gave 3.1 GB of Parquet, and a load with the cache in
-      place takes under 0.1 s. The first build after the merge unpacks into
-      `/data1/apartments/pipeline/city`. `ops/pipeline/sample.py` doesn't cut the city archive
+      took 589 to 597 s with a peak of 1.1 to 1.5 GiB and gave 3.1 GB of Parquet, and a load
+      with the cache in place takes under 0.1 s. The production cache,
+      `/data1/apartments/pipeline/city`, was filled before the merge (code `a0248071cb37d8bb`). `ops/pipeline/sample.py` doesn't cut the city archive
       yet. The next edit to `steps/city.py` should also have `sweep` compare the locked inode
       with `code / ".lock"` before its rename, as `lock_code` does: two sweeps and a load at
       once can otherwise move the load's new folder away;
