@@ -222,12 +222,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       by the footprint holding its `geoCenter`, or within 10 m of it. Where the two differ, the
       lot whose MapPLUTO record shares more of the record's four city facts wins, and `link`
       says how the lot came. On runs 1 to 10, reviewer subagents judged 240 buildings in seven
-      classes, in `config/reviews/building-identity-20261016.jsonl`. About 526 of 70,141 lots
-      are wrong by their answers, most in the ties (36% wrong) and the footprint-only links
-      (29%). Data improvements' registry agrees on 62,932 of the 63,124 buildings where both
-      links agree and fit. In the `footprint` class the reviewers' lot is the step's in 32 of
-      36 and the registry's in 14. `ops/pipeline/identity_check.py` rebuilds the models over the export in about 17 s
-      and scores a change against the registry and the reviews.
+      classes, in `config/reviews/building-identity-20261016.jsonl`. About 520 of 70,141 lots
+      are wrong by their answers: 243 where both links agree on a lot that fits fewer than two
+      facts (7% wrong), 173 in the ties (36%), 43 with no footprint near the point, 33 where the
+      footprint wins and 28 with no address match. Data improvements' registry agrees on 62,932
+      of the 63,124 buildings where both links agree and fit. In the `footprint` class the
+      reviewers' lot is the step's in 29 of 33 and the registry's in 11.
+      `ops/pipeline/identity_check.py` rebuilds the models over the export in about 17 s and
+      scores a change against the registry and the reviews.
       [pipeline.md](../data/pipeline.md#building-identity) has the tables;
    5. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
       the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates

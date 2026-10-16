@@ -607,7 +607,8 @@ link each building two ways and let the city facts on its record decide between 
 1. `buildings.latest_record` takes the building's latest answer with a record. It reads the slug,
    the street address, the zip, the city, the community district, the map point (`geoCenter`)
    and the four city facts StreetEasy shows: the building class, the year built, the floor count
-   and the count of apartments. A zero or a value of the wrong type reads as missing.
+   and the count of apartments. A year or a floor count of zero, an empty class and a value of
+   the wrong type read as missing, while a count of zero apartments stays a count.
 2. `buildings.pad_link` cuts the street address into a house number, a letter and a street name.
    It looks the name up in PAD's street name dictionary, `city.pad_streets`, for the street's
    code, and matches the number against the address ranges of that street in
@@ -650,20 +651,22 @@ address, name, type, description and city facts, where the map point falls again
 footprint, and MapPLUTO's record of each lot on offer: its address, class, year, floors,
 apartments, floor area, building count and lot area. They answered which lot is the building's,
 or whether the single lot is, or said the case was unclear. Their answers and reasons are in
-`config/reviews/building-identity-20261016.jsonl`. I estimate each class's share of wrong lots
-from the buildings they judged, with a 95% Wilson interval, and multiply it by the class's size:
+`config/reviews/building-identity-20261016.jsonl`. Three of the buildings have moved to another
+class since the draw, as the models changed, and I count each in its class in this build. I
+estimate each class's share of wrong lots from the buildings they judged, with a 95% Wilson
+interval, and multiply it by the class's size:
 
 | class | buildings | right | wrong | unclear | wrong share | wrong lots |
 |---|---:|---:|---:|---:|---|---:|
-| `both`, fit 2 or more | 63,905 | 30 | 0 | 0 | 0% (0% to 11.4%) | 0 |
-| `both`, fit under 2 | 3,407 | 25 | 2 | 3 | 7.4% (2.1% to 23.4%) | 252 |
+| `both`, fit 2 or more | 63,905 | 32 | 0 | 0 | 0% (0% to 10.7%) | 0 |
+| `both`, fit under 2 | 3,407 | 26 | 2 | 3 | 7.1% (2.0% to 22.6%) | 243 |
 | `address` | 1,420 | 38 | 0 | 2 | 0% (0% to 9.2%) | 0 |
-| `footprint` | 271 | 32 | 4 | 4 | 11.1% (4.4% to 25.3%) | 30 |
+| `footprint` | 271 | 29 | 4 | 4 | 12.1% (4.8% to 27.3%) | 33 |
 | `tie` | 478 | 23 | 13 | 4 | 36.1% (22.5% to 52.4%) | 173 |
 | `address_only` | 560 | 24 | 2 | 4 | 7.7% (2.1% to 24.1%) | 43 |
 | `footprint_only` | 95 | 17 | 7 | 6 | 29.2% (14.9% to 49.2%) | 28 |
 
-About 526 lots are wrong by these estimates, under 1% of the buildings. A sample of 30 bounds the
+About 520 lots are wrong by these estimates, under 1% of the buildings. A sample of 30 bounds the
 largest class loosely, and Data improvements' registry gives better evidence there: it agrees on
 62,932 of the 63,124 buildings both hold. In the ties the reviewers chose the address's lot 23
 times and the footprint's 13 times. With the point within 10 m of a footprint but outside it,
@@ -694,8 +697,8 @@ of the other lots fall in the classes where the address and the footprint disagr
 | `footprint` | 264 | 62 |
 | `footprint_only` | 91 | 68 |
 
-Of the 36 reviewed `footprint` buildings with an answer, the reviewers' lot is the step's in 32
-and the registry's in 14. In the ties the registry does better, 28 against the step's 23, and in
+Of the 33 reviewed `footprint` buildings with an answer, the reviewers' lot is the step's in 29
+and the registry's in 11. In the ties the registry does better, 28 against the step's 23, and in
 `address` the step's lot is right in all 38 and the registry's in 30.
 
 ### Checking a change

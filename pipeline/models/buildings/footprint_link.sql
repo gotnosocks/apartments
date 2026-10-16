@@ -93,12 +93,14 @@ WITH copy AS (
     SELECT t.*, b.bin, b.mappluto_bbl AS bbl
     FROM tested t JOIN boxes b USING (record)
     WHERE t.inside OR t.metres <= 10
+), chosen AS (
+    SELECT building_id,
+        arg_min({'bbl': bbl, 'bin': bin, 'metres': metres}, (NOT inside, metres, record)) AS pick,
+        bool_or(inside) AS inside,
+        count(DISTINCT bbl) FILTER (WHERE inside) AS lots_inside
+    FROM kept
+    GROUP BY building_id
 )
-SELECT building_id, (SELECT release FROM copy) AS footprints_release,
-    arg_min(bbl, (NOT inside, metres, record)) AS bbl,
-    arg_min(bin, (NOT inside, metres, record)) AS bin,
-    bool_or(inside) AS inside,
-    arg_min(metres, (NOT inside, metres, record)) AS metres,
-    count(DISTINCT bbl) FILTER (WHERE inside) AS lots_inside
-FROM kept
-GROUP BY building_id
+SELECT building_id, (SELECT release FROM copy) AS footprints_release, pick.bbl, pick.bin, inside,
+    pick.metres, lots_inside
+FROM chosen

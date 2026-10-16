@@ -32,21 +32,21 @@ MODEL (
 -- number before the hyphen in five digits, the number after it in three, and a code for a
 -- trailing letter or a half, AA for none. A Queens address with a hyphen, as in
 -- `37-16 30th Street`, gives a single key. Elsewhere, a hyphen gives a range of house numbers,
--- and the step tries each end. A letter A to I takes the code M and the letter after it (A gives
+-- and the step tries each end. A number too long for its place in the key finds no range. A letter A to I takes the code M and the letter after it (A gives
 -- MB), J to R takes N and the letter eight places before it (J gives NB), and S to Z takes O and
 -- the letter sixteen places before it (S gives OC). The rule agrees with every PAD range of 26c
 -- whose number ends in one letter. A half takes AH.
 --
 -- A range matches a try when its street code and its borough are the try's, the try's first
 -- nine characters fall between those of the range's low and high keys, and the range's side of
--- the street, odd or even, is the try's or both. Of the matching ranges, the step keeps the
--- ones of lowest rank. The rank adds
+-- the street, odd or even, is the try's. Of the matching ranges, the step keeps the ones of
+-- lowest rank. The rank adds
 --
 -- - 8 when the try's whole key, letter code included, falls outside the range, as `94A` against
 --   a range of 94 alone,
 -- - 4 when the range's low number differs from the address's number, letter and half,
--- - 2 when the range holds a vanity address (V) or a range of numbers kept for one building (Q)
---   rather than a plain address,
+-- - 2 when the range holds a vanity address (V) or a pseudo-address (Q), such as
+--   `620 AIR RGTS`, rather than a plain address,
 -- - 1 when the range's zip differs from the address's.
 --
 -- A condominium's ranges give the lot of one of its units, and `bobabbl` gives each unit lot
@@ -96,7 +96,8 @@ WITH pad AS (
                 END) AS name
     FROM parts p
     LEFT JOIN suffixes s ON s.abbr = regexp_extract(p.name, ' (\S+)$', 1)
-    WHERE p.n1 <> '' AND p.boro IS NOT NULL
+    WHERE p.n1 <> '' AND p.boro IS NOT NULL AND length(p.n1) <= 5
+        AND length(p.n2) <= CASE p.boro WHEN '4' THEN 3 ELSE 5 END
 ), tries AS (
     SELECT n.building_id, n.zip, n.boro, n.name, n.letter, n.half, t.number,
         CASE WHEN n.boro = '4' AND n.n2 <> ''
@@ -124,7 +125,8 @@ WITH pad AS (
     WHERE release = (SELECT release FROM pad) AND addrtype IN (' ', 'V', 'Q')
 ), billing AS (
     SELECT loboro || loblock || lolot AS lot,
-        CASE WHEN condoflag = 'C' THEN billboro || billblock || billlot END AS billing
+        CASE WHEN condoflag = 'C' THEN nullif(trim(billboro || billblock || billlot), '') END
+            AS billing
     FROM city.pad_lots
     WHERE release = (SELECT release FROM pad)
 ), hits AS (
@@ -138,7 +140,7 @@ WITH pad AS (
     JOIN streets s ON s.boro = t.boro AND s.name = t.name
     JOIN ranges r ON r.scboro = t.boro AND r.sc5 = s.sc5
         AND left(t.key, 9) BETWEEN left(r.lhns, 9) AND left(r.hhns, 9)
-        AND (r.parity = CASE t.odd WHEN 1 THEN '1' ELSE '2' END OR r.parity = '0')
+        AND r.parity = CASE t.odd WHEN 1 THEN '1' ELSE '2' END
     LEFT JOIN billing b ON b.lot = r.boro || r.block || r.lot
 ), best AS (
     SELECT * FROM hits QUALIFY rank = min(rank) OVER (PARTITION BY building_id)

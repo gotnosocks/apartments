@@ -17,9 +17,10 @@ and a reviewed sample.
    person chose the lot of each row of method `override`, and the script lists the overrides
    whose lot differs from the model's.
 4. It scores the reviewed sample, config/reviews/building-identity-20261016.jsonl unless given.
-   For each stratum of the review, it counts the reviewed buildings whose lot is the one the
-   reviewers judged right, the ones whose lot they judged wrong, and the rest: buildings they
-   left unclear, or whose lot has changed since. It then estimates the share of wrong lots in
+   It places each reviewed building in its stratum in the current build, which may differ from
+   the stratum it was drawn from, and prints how many moved. For each stratum, it counts the
+   reviewed buildings whose lot is the one the reviewers judged right, the ones whose lot they
+   judged wrong, and the rest: buildings they left unclear, or whose lot has changed since. It then estimates the share of wrong lots in
    the stratum, with a 95% Wilson interval, and multiplies it by the stratum's size in the
    current build. The total adds the strata's estimates. Their intervals don't add up to an
    interval for the total, so the script leaves them out of it.
@@ -147,7 +148,9 @@ def report(db, args) -> None:
     sizes = dict(
         db.sql("SELECT stratum, count(*) FROM checked GROUP BY ALL").fetchall()
     )
-    print(f"reviews: {args.reviews}")
+    strata = dict(db.sql("SELECT building_id, stratum FROM checked").fetchall())
+    moved = sum(strata.get(r["building_id"]) != r["stratum"] for r in reviews)
+    print(f"reviews: {args.reviews}, {moved} of them now in another stratum")
     print(
         f"{'stratum':16} {'size':>7} {'right':>6} {'wrong':>6} {'other':>6}"
         f" {'wrong share (95%)':>20} {'wrong lots (95%)':>22}"
@@ -155,7 +158,7 @@ def report(db, args) -> None:
     total = 0.0
     for stratum in STRATA:
         right = wrong = other = 0
-        for review in (r for r in reviews if r["stratum"] == stratum):
+        for review in (r for r in reviews if strata.get(r["building_id"]) == stratum):
             lot = lots.get(review["building_id"])
             if lot is not None and lot == review["right"]:
                 right += 1
