@@ -271,6 +271,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.record_attributes",
         "ads.reported",
         "analysis.ads",
+        "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",
         "analysis.latest_ask",
@@ -318,6 +319,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     assert changed(plan) == [
         "ads.identity",
         "analysis.ads",
+        "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",
         "analysis.latest_ask",

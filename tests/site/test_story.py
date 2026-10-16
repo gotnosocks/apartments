@@ -887,3 +887,15 @@ def test_change_words_for_the_served_nb9_design():
         "fields with building records as of each listing's day, plus building "
         "records rebuilt from the October 2026 city files"
     )
+
+
+def test_design_terms_keep_unit_terms_before_an_nb_set():
+    run = "m7-nocurves-sizeunkslope-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1"
+    assert story.design_terms(run) == (
+        ["nocurves", "sizeunkslope", "slopemin3", "unitnu4"],
+        "nb9-nostuy-lots2-v1",
+    )
+    assert story.design_terms("m7-nocurves-unitfacing-v5-rows-a") == (
+        ["nocurves"],
+        "unitfacing-v5",
+    )
