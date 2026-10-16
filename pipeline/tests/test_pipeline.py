@@ -133,7 +133,9 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
       out.
     - ad 9000133 asks $30,000 and corrects the typo to $3,000 on its last day on the market.
       The placeholder check drops the correction, and the page price of $3,000 lies nearer the
-      one-bedrooms. The chain skips the page price for equaling a change and keeps $30,000."""
+      one-bedrooms. The chain skips the page price for equaling a change and keeps $30,000.
+    - ad 9000134 drops to a placeholder of $300 on its last day on the market. The page price of
+      $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -200,6 +202,13 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
             status="OFF_MARKET",
             offMarketAt=july,
         ),
+        ad(
+            9000134,
+            [(may, 3000), (july, 300)],
+            300,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
@@ -249,6 +258,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000131": 3000,
         "9000132": 3000,
         "9000133": 3000,
+        "9000134": 3000,
     }
     assert set(got.how) == {
         "latest",
