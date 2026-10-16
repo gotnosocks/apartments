@@ -1,19 +1,19 @@
 """Keep dated copies of the city's bulk records of lots and buildings.
 
-    pipeline/.venv/bin/python ops/pipeline/city.py [--archive DIR] [--source NAME ...] [--verify]
+    python3 ops/pipeline/city.py [--archive DIR] [--source NAME ...] [--verify]
 
 The pipeline's identity and city-fact steps join each API building to these records as of each
-ad's date. The script keeps every release it can find in ARCHIVE, /data1/apartments/archive/city
-unless given, with the date its publisher gives it. It works in these steps:
+ad's date. The script keeps each release of each source in ARCHIVE, /data1/apartments/archive/city
+unless given, along with the release's date from its publisher. It works in these steps:
 
 1. It takes an exclusive lock on ARCHIVE/.lock and exits when another run holds it. Then it
-   clears what a stopped run may have left: it deletes each `.part` file and cuts a last
-   manifest line with no newline.
+   cleans up after a stopped run: it deletes each `.part` file and cuts a last manifest line
+   with no newline.
 2. It asks each source for its files and skips a file when the manifest already lists it:
    - PAD, City Planning's Property Address Directory, comes as a zip for each quarter,
      `pad_YYQ.zip`. The script asks for each quarter from 23b, the oldest on the server, to the
-     quarter after the current one. A quarter with no release answers 404. The file's
-     Last-Modified header dates the release.
+     quarter after the current one. The server answers 404 for a quarter with no release. The
+     script dates a release by the file's Last-Modified header.
    - MapPLUTO comes as a zip for each release. The script takes each release in
      `pluto_releases.csv`, with the date and the evidence for it from frontier's
      `PLUTO_RELEASES`. Then it asks for each later release name up to the current year and dates
@@ -24,15 +24,18 @@ unless given, with the date its publisher gives it. It works in these steps:
      from that time, it downloads all the rows as CSV. The CSV gives Socrata's `:id`,
      `:version`, `:created_at` and `:updated_at` for each row.
 3. It downloads each file to a `.part` file beside its final path. It gzips each CSV with a
-   fixed header time, so the same rows give the same bytes. After a CSV download it reads
+   fixed header time, so the same rows in the same order give the same bytes. It checks the
+   download: a file with a Content-Length must have that many bytes, a zip must open, and a CSV
+   must end with a newline. On a server error, a rate limit, a dropped connection or a short
+   file, it waits and downloads the file again, up to five times. After a CSV download it reads
    `rowsUpdatedAt` again and drops the copy when the time moved, since the rows may then come
-   from both sides of the change. Then it renames the file into place, appends a line for it to
-   ARCHIVE/manifest.ndjson and flushes the manifest to disk. When a download fails, the script
-   goes on to the next file and exits 1 at the end.
+   from both sides of the change. Then it renames the file into place, flushes the folder to
+   disk, appends a line for the file to ARCHIVE/manifest.ndjson and flushes the manifest. When
+   a file fails, the script goes on to the next one and exits 1 at the end.
 
 With `--verify` the script downloads nothing. It checks the size and SHA-256 of each listed file
-and exits 1 when one differs. In both cases it prints a summary as JSON. A fetch's summary
-gives the files fetched, absent, moved and failed, the seconds it took and its peak memory.
+and exits 1 when one differs. In both cases it prints a summary as JSON. A fetch's summary lists
+the files fetched, absent, moved and failed, and gives the run's seconds and its peak memory.
 """
 
 from __future__ import annotations
@@ -44,12 +47,14 @@ import email.utils
 import fcntl
 import gzip
 import hashlib
+import http.client
 import json
 import os
 import resource
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 
 DEFAULT_ARCHIVE = Path("/data1/apartments/archive/city")
@@ -71,25 +76,38 @@ def stamp(moment: dt.datetime) -> str:
     return moment.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get(url: str, timeout: float = 900):
-    """Open the URL, and retry a server error or a failed connection with doubling waits.
-    Return None when the server answers 404."""
-    headers = {"User-Agent": "Mozilla/5.0"}
-    if url.startswith(OPEN_DATA) and (token := os.environ.get("NYC_OPEN_DATA_TOKEN")):
-        headers["X-App-Token"] = token
+class Incomplete(Exception):
+    """A download with fewer bytes than its Content-Length, or a file failing its check."""
+
+
+def tries(action):
+    """Call `action` up to TRIES times, with doubling waits between calls. Call it again after a
+    server error, a rate limit, a dropped connection, a timeout or an incomplete download."""
     for attempt in range(TRIES):
         try:
-            request = urllib.request.Request(url, headers=headers)
-            return urllib.request.urlopen(request, timeout=timeout)
+            return action()
         except urllib.error.HTTPError as error:
-            if error.code == 404:
-                return None
-            if error.code < 500 or attempt == TRIES - 1:
+            if (error.code < 500 and error.code != 429) or attempt == TRIES - 1:
                 raise
-        except urllib.error.URLError:
+        except (OSError, http.client.HTTPException, Incomplete):
             if attempt == TRIES - 1:
                 raise
         time.sleep(WAIT * 2**attempt)
+
+
+def request(url: str, timeout: float = 900):
+    """Open the URL, or return None when the server answers 404."""
+    headers = {"User-Agent": "Mozilla/5.0"}
+    if url.startswith(OPEN_DATA) and (token := os.environ.get("NYC_OPEN_DATA_TOKEN")):
+        headers["X-App-Token"] = token
+    try:
+        return urllib.request.urlopen(
+            urllib.request.Request(url, headers=headers), timeout=timeout
+        )
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise
 
 
 def manifest(archive: Path) -> dict[str, dict]:
@@ -111,14 +129,19 @@ def pluto_table() -> list[dict]:
 
 
 def rows_updated(dataset: str) -> dt.datetime:
-    with get(f"{OPEN_DATA}/api/views/{dataset}.json", 60) as response:
-        meta = json.load(response)
-    return dt.datetime.fromtimestamp(meta["rowsUpdatedAt"], dt.UTC)
+    def read():
+        response = request(f"{OPEN_DATA}/api/views/{dataset}.json", 60)
+        if response is None:
+            raise LookupError(f"Open Data has no dataset {dataset}")
+        with response:
+            return json.load(response)["rowsUpdatedAt"]
+
+    return dt.datetime.fromtimestamp(tries(read), dt.UTC)
 
 
 def offers(source: str, today: dt.date):
-    """Yield a dict for each file the source may hold: its manifest fields so far, and how to
-    fetch and date it."""
+    """Yield a dict for each possible file of the source, with its manifest fields so far and
+    its URL."""
     if source == "pad":
         start = PAD_FIRST[0] * 4 + PAD_FIRST[1]
         end = today.year * 4 + (today.month - 1) // 3 + 1
@@ -168,8 +191,15 @@ def offers(source: str, today: dt.date):
         }
 
 
-def download(response, part: Path, gzipped: bool) -> None:
-    with open(part, "wb") as raw:
+def download(url: str, part: Path, path: Path):
+    """Download the URL into `part` and check the file. Return the response's headers, or None
+    when the server answers 404. A file ending in `.gz` gets its bytes gzipped."""
+    response = request(url)
+    if response is None:
+        return None
+    gzipped = path.name.endswith(".gz")
+    count, last = 0, b""
+    with response, open(part, "wb") as raw:
         out = (
             gzip.GzipFile(filename="", mode="wb", fileobj=raw, compresslevel=6, mtime=0)
             if gzipped
@@ -177,34 +207,63 @@ def download(response, part: Path, gzipped: bool) -> None:
         )
         while chunk := response.read(1 << 20):
             out.write(chunk)
+            count, last = count + len(chunk), chunk
         if gzipped:
             out.close()
         raw.flush()
         os.fsync(raw.fileno())
+    length = response.headers["Content-Length"]
+    if length is not None and count != int(length):
+        raise Incomplete(f"{url} gave {count} of {length} bytes")
+    if gzipped and not last.endswith(b"\n"):
+        raise Incomplete(f"{url} gave a CSV ending without a newline")
+    if path.suffix == ".zip":
+        try:
+            zipfile.ZipFile(part).close()
+        except zipfile.BadZipFile as error:
+            raise Incomplete(f"{url} gave no zip: {error}") from error
+    return response.headers
 
 
 def fetch(archive: Path, entry: dict) -> str:
-    """Download the entry's file and list it. Return what happened: fetched, absent or moved."""
+    """Download the entry's file and list it. Return "fetched", "absent" or "moved"."""
     path = archive / entry["path"]
     part = path.with_name(path.name + ".part")
     path.parent.mkdir(parents=True, exist_ok=True)
-    retrieved = dt.datetime.now(dt.UTC)
-    response = get(entry["url"])
-    if response is None:
-        return "absent"
-    with response:
+
+    def attempt():
+        part.unlink(missing_ok=True)
+        entry["retrieved"] = stamp(dt.datetime.now(dt.UTC))
+        return download(entry["url"], part, path)
+
+    try:
+        headers = tries(attempt)
+        if headers is None:
+            return "absent"
         if "published" not in entry:
-            modified = response.headers["Last-Modified"]
-            entry["published"] = stamp(email.utils.parsedate_to_datetime(modified))
-            entry["published_from"] = "Last-Modified"
-        download(response, part, path.name.endswith(".gz"))
-    if "dataset" in entry and stamp(rows_updated(entry["dataset"])) != entry["release"]:
-        part.unlink()
-        return "moved"
-    with open(part, "rb") as f:
-        digest = hashlib.file_digest(f, "sha256").hexdigest()
-    entry.update(retrieved=stamp(retrieved), bytes=part.stat().st_size, sha256=digest)
-    os.replace(part, path)
+            modified = headers["Last-Modified"]
+            if modified is None:
+                entry.update(published=None, published_from="no Last-Modified header")
+            else:
+                published = email.utils.parsedate_to_datetime(modified)
+                entry.update(published=stamp(published), published_from="Last-Modified")
+        if (
+            "dataset" in entry
+            and stamp(rows_updated(entry["dataset"])) != entry["release"]
+        ):
+            return "moved"
+        with open(part, "rb") as f:
+            digest = hashlib.file_digest(f, "sha256").hexdigest()
+        entry.update(bytes=part.stat().st_size, sha256=digest)
+        os.replace(part, path)
+    finally:
+        part.unlink(missing_ok=True)
+    # The renamed file goes to disk before its manifest line.
+    folder = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(folder)
+    finally:
+        os.close(folder)
     with open(archive / "manifest.ndjson", "a") as f:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
         f.flush()

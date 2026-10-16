@@ -195,12 +195,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       copies of the footprints, LPC and DOB certificate sets, in
       `/data1/apartments/archive/city`, each dated by its publisher, with an append-only
       manifest. `apartments-city-fetch.timer` runs it every Friday at 04:00 ET. The first run
-      copied 62 files, 4.45 GB, in 525 s with a 24 MiB peak, and a second run took 4 s;
-   2. city models: a Python step unpacks each listed file to Parquet once, cached by its
-      SHA-256, and views give each release's rows with its date;
+      copied 62 files, 4.45 GB, in 525 s with a 24 MiB peak. A second run took 4 s;
+   2. city models: a Python step unpacks each listed file to Parquet once and caches it by its
+      SHA-256, and a view for each table gives each release's rows with its date. A MapPLUTO
+      release takes about 10 s and 55 MB, and the old split releases end in a DOS end-of-file
+      byte;
    3. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
-      the footprint holding its `geoCenter`, each link with a score. Data improvements'
-      registry and reviewed answers measure the error rate;
+      the footprint holding its `geoCenter`, each link with a score. The step measures its
+      error rate against Data improvements' registry and reviewed answers;
    4. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
       the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates
       issued before the ad.

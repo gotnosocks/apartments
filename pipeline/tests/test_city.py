@@ -5,8 +5,10 @@ import fcntl
 import gzip
 import hashlib
 import importlib.util
+import io
 import json
 import threading
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -27,15 +29,27 @@ def load(name, path):
 city = load("pipeline_city", CITY)
 
 
+def zipped(text):
+    """A zip holding a member named data.txt with the text."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as z:
+        z.writestr("data.txt", text)
+    return buffer.getvalue()
+
+
 class Server:
-    """A local stand-in for City Planning's file server and NYC Open Data. `files` maps a URL
-    path to its bytes and Last-Modified time, `updated` maps a dataset to its rowsUpdatedAt,
-    and `during` maps a URL path to a function the server calls once, between the file's
-    headers and its bytes."""
+    """A local stand-in for City Planning's file server and NYC Open Data:
+    - `files` maps a URL path to its bytes and Last-Modified time;
+    - `updated` maps a dataset to its rowsUpdatedAt;
+    - `during` maps a URL path to a function the server calls once, between the file's headers
+      and its bytes;
+    - `faults` maps a URL path to a list of faults for its next requests, each taken once:
+      "drop" closes the connection with no answer, and "short" sends half the file's bytes.
+    The server answers 500 for each path in `errors`."""
 
     def __init__(self):
-        self.files, self.updated, self.during, self.errors = {}, {}, {}, set()
-        self.asked = []
+        self.files, self.updated, self.during, self.faults = {}, {}, {}, {}
+        self.errors, self.asked = set(), []
         server = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -45,6 +59,10 @@ class Server:
             def do_GET(self):
                 path = self.path.split("?")[0]
                 server.asked.append(path)
+                fault = (server.faults.get(path) or [None]).pop(0)
+                if fault == "drop":
+                    self.close_connection = True
+                    return
                 if path in server.errors:
                     self.send_error(500)
                     return
@@ -66,7 +84,7 @@ class Server:
                 self.end_headers()
                 if path in server.during:
                     server.during.pop(path)()
-                self.wfile.write(body)
+                self.wfile.write(body[: len(body) // 2] if fault == "short" else body)
 
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.http.server_port}"
@@ -89,18 +107,14 @@ def server(tmp_path, monkeypatch):
     monkeypatch.setattr(city, "WAIT", 0)
     day = "Wed, 19 Apr 2023 14:24:00 GMT"
     for name, body, modified in (
-        ("pad/pad_23b.zip", b"pad 23b", day),
-        ("pad/pad_23c.zip", b"pad 23c", "Tue, 11 Jul 2023 13:39:08 GMT"),
-        ("pad/pad_24a.zip", b"pad 24a", "Wed, 24 Jan 2024 13:48:46 GMT"),
-        ("pluto/nyc_pluto_22v2_arc_csv.zip", b"pluto 22v2", day),
-        ("pluto/nyc_pluto_23v1_csv.zip", b"pluto 23v1", day),
-        (
-            "pluto/nyc_pluto_23v3_csv.zip",
-            b"pluto 23v3",
-            "Tue, 31 Oct 2023 10:00:00 GMT",
-        ),
+        ("pad/pad_23b.zip", "pad 23b", day),
+        ("pad/pad_23c.zip", "pad 23c", "Tue, 11 Jul 2023 13:39:08 GMT"),
+        ("pad/pad_24a.zip", "pad 24a", "Wed, 24 Jan 2024 13:48:46 GMT"),
+        ("pluto/nyc_pluto_22v2_arc_csv.zip", "pluto 22v2", day),
+        ("pluto/nyc_pluto_23v1_csv.zip", "pluto 23v1", day),
+        ("pluto/nyc_pluto_23v3_csv.zip", "pluto 23v3", "Tue, 31 Oct 2023 10:00:00 GMT"),
     ):
-        server.files[f"/dcp/{name}"] = (body, modified)
+        server.files[f"/dcp/{name}"] = (zipped(body), modified)
     server.files["/api/v3/views/aaaa-1111/query.csv"] = (
         b'":id","bin"\n"row-1","1"\n',
         None,
@@ -146,7 +160,9 @@ def test_fetch_lists_each_release_with_its_date(server, tmp_path):
     assert footprints["path"] == "footprints/aaaa-1111-20251011T081759Z.csv.gz"
     assert footprints["published_from"] == "rowsUpdatedAt"
     body = server.files["/api/v3/views/aaaa-1111/query.csv"][0]
-    assert gzip.decompress((archive / footprints["path"]).read_bytes()) == body
+    copy = (archive / footprints["path"]).read_bytes()
+    # The gzip header gives no file name and a modification time of 0.
+    assert copy[3:8] == bytes(5) and gzip.decompress(copy) == body
     for entry in got.values():
         data = (archive / entry["path"]).read_bytes()
         assert entry["bytes"] == len(data)
@@ -166,7 +182,10 @@ def test_fetch_again_takes_only_new_releases(server, tmp_path):
     # The second run asks only for the absent names and the dataset's time.
     assert "/dcp/pad/pad_23b.zip" not in server.asked
     assert "/api/v3/views/aaaa-1111/query.csv" not in server.asked
-    server.files["/dcp/pad/pad_24b.zip"] = (b"pad 24b", "Mon, 15 Apr 2024 18:16:32 GMT")
+    server.files["/dcp/pad/pad_24b.zip"] = (
+        zipped("pad 24b"),
+        "Mon, 15 Apr 2024 18:16:32 GMT",
+    )
     server.updated["aaaa-1111"] += 86400
     summary, _ = city.run(archive, ["pad", "pluto", "footprints"], dt.date(2024, 4, 20))
     assert [(f["source"], f["release"]) for f in summary["fetched"]] == [
@@ -213,6 +232,45 @@ def test_fetch_goes_on_after_a_failure(server, tmp_path):
     ]
 
 
+def test_fetch_tries_again_after_a_dropped_or_short_download(server, tmp_path):
+    archive = tmp_path / "city"
+    server.faults["/dcp/pad/pad_23c.zip"] = ["drop", "short"]
+    server.faults["/api/v3/views/aaaa-1111/query.csv"] = ["short"]
+    summary, status = city.run(archive, ["pad", "footprints"], TODAY)
+    assert status == 0 and len(summary["fetched"]) == 4
+    assert server.asked.count("/dcp/pad/pad_23c.zip") == 3
+    assert server.asked.count("/api/v3/views/aaaa-1111/query.csv") == 2
+    assert city.verify(archive) == ({"listed": 4, "differ": []}, 0)
+    copy = archive / "pad" / "pad_23c.zip"
+    assert copy.read_bytes() == server.files["/dcp/pad/pad_23c.zip"][0]
+
+
+def test_fetch_lists_no_short_or_broken_file(server, tmp_path):
+    archive = tmp_path / "city"
+    server.faults["/dcp/pad/pad_23c.zip"] = ["short"] * city.TRIES
+    # A page served with status 200 in place of the zip.
+    server.files["/dcp/pad/pad_24a.zip"] = (b"<html>moved</html>", None)
+    summary, status = city.run(archive, ["pad"], TODAY)
+    assert status == 1 and [e["release"] for e in lines(archive)] == ["23b"]
+    errors = [f["error"] for f in summary["failed"]]
+    assert len(errors) == 2 and all(e.startswith("Incomplete(") for e in errors)
+    assert not list(archive.rglob("*.part"))
+    assert not (archive / "pad" / "pad_24a.zip").exists()
+
+
+def test_fetch_goes_on_after_a_source_fails(server, tmp_path):
+    archive = tmp_path / "city"
+    server.errors.add("/api/views/aaaa-1111.json")
+    summary, status = city.run(archive, ["footprints", "pad"], TODAY)
+    assert status == 1 and summary["failed"][0]["source"] == "footprints"
+    assert [e["release"] for e in lines(archive)] == ["23b", "23c", "24a"]
+
+
+def test_pad_quarters_go_on_into_the_next_year():
+    pad = [e["release"] for e in city.offers("pad", dt.date(2024, 12, 1))]
+    assert pad[0] == "23b" and pad[-3:] == ["24c", "24d", "25a"]
+
+
 def test_fetch_clears_what_a_stopped_run_left(server, tmp_path):
     archive = tmp_path / "city"
     (archive / "pad").mkdir(parents=True)
@@ -222,7 +280,7 @@ def test_fetch_clears_what_a_stopped_run_left(server, tmp_path):
     (archive / "manifest.ndjson").write_text('{"path": "pad/pad_23d.zip", "by')
     summary, status = city.run(archive, ["pad"], TODAY)
     assert status == 0 and not list(archive.rglob("*.part"))
-    assert (archive / "pad" / "pad_23c.zip").read_bytes() == b"pad 23c"
+    assert (archive / "pad" / "pad_23c.zip").read_bytes() == zipped("pad 23c")
     assert sorted(e["release"] for e in city.manifest(archive).values()) == [
         "23b",
         "23c",

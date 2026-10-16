@@ -3,9 +3,11 @@ Description=Copy the city's bulk records of lots and buildings into the dated ar
 
 [Service]
 Type=oneshot
-# The script runs from the build's checkout, which ops/pipeline/build-latest moves to master
-# before each build, with the build's venv. It needs only the standard library.
-ExecStart=/data1/apartments/venvs/pipeline/bin/python /data1/apartments/pipeline/code/ops/pipeline/city.py
+# The script needs only the standard library, so it runs on the system's Python. It runs from
+# the build's checkout, and ops/pipeline/build-latest moves that checkout to master before each
+# build. Python loads the script once as it starts. The script reads pluto_releases.csv when it
+# comes to MapPLUTO, so a checkout during a fetch can change at most that table.
+ExecStart=/usr/bin/python3 /data1/apartments/pipeline/code/ops/pipeline/city.py
 TimeoutStartSec=6h
 # The script streams each file to disk in 1 MiB chunks.
 MemoryMax=1G
