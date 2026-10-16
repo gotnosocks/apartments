@@ -37,8 +37,9 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    (#904).
 7. Date every outside fact and join it as of the ad's date. **Started**: the city archive gives
    each release its publisher's date (#896), and `analysis.lot_facts` gives each ad its lot's
-   MapPLUTO facts as of its first day (#906) and `analysis.lot_landmarks` its lot's LPC
-   designations (#911).
+   MapPLUTO facts as of its first day (#906), `analysis.lot_landmarks` its lot's LPC
+   designations (#911) and `analysis.building_certificates` the certificates of occupancy on
+   its BIN.
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
@@ -257,9 +258,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       reverse geocodes put a building on a landmark's lot nearby, such as The Sagamore on the
       Claremont Stables' lot (789 rows), so the served landmark flag is wrong on those rows.
       `ops/pipeline/landmarks_check.py` reruns the comparison in 27 s at a 2.6 GB peak;
-   7. certificates of occupancy issued on each ad's BIN by its first day, from `city.dob_co` and
-      `city.dob_now_co`. **Next**: `analysis.building_certificates` on branch
-      `pipeline-building-certificates`.
+   7. **In review** on branch `pipeline-building-certificates`: `analysis.building_certificates`,
+      the certificates of occupancy issued on each ad's BIN by its first day, from `city.dob_co`
+      and `city.dob_now_co`. Its first new building certificate falls within a year before to 2
+      years after MapPLUTO's year built for 1,770 of 2,993 buildings. The larger gaps come from
+      the sets starting in July 2012, from DOB NOW rebuilds behind kept walls and from stale
+      years in MapPLUTO. `ops/pipeline/certificates_check.py` reruns the comparison in 22 s at a
+      2.4 GB peak. The branch stacks on #911, so after #911 merges I rebase it with
+      `git rebase --onto origin/master 3226a0c0`.
 
 ## Coordination
 

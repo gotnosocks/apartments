@@ -20,7 +20,8 @@ buildings they describe with MapPLUTO and StreetEasy's building records.
    MapPLUTO release and with the year StreetEasy gives, and the latest count of apartments with
    MapPLUTO's `unitsres` and StreetEasy's count. It prints the differences by size. For the
    years it also counts the buildings whose job DOB NOW files as a new building with existing
-   elements to remain, and the buildings within 2 years of the other source's year.
+   elements to remain, the buildings built before 2012 by the source with a first certificate in
+   2012 to 2014, and the buildings within 2 years of the other source's year.
 5. With `--out` it writes the step's columns for each row to a Parquet file.
 """
 
@@ -177,6 +178,8 @@ def main() -> None:
                     ELSE 'above 30' END AS difference,
                     count(*) AS buildings,
                     count(*) FILTER (WHERE kept_elements) AS kept_elements,
+                    count(*) FILTER (WHERE {source}_year < 2012 AND co_year <= 2014)
+                        AS before_2012_first_by_2014,
                     count(*) FILTER (WHERE abs(co_year - {other}_year) <= 2)
                         AS {other}_within_2
                 FROM buildings_compared WHERE co_year IS NOT NULL GROUP BY 1 ORDER BY 1
