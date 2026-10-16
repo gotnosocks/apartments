@@ -37,20 +37,16 @@ MODEL (
 -- 3. When the release came out in a year before the latest release's year built, its record
 --    describes the lot before the building, so every fact comes from the latest release, and
 --    `pluto_fallback` says `before_built`.
--- 4. When the release leaves a field out for every lot, as the releases before 2017 leave out
---    the flood zone flags, that field comes from the latest release. `latest_fields` lists
---    those fields for the ad.
+-- 4. When no lot in the city has a value in a field of the release, as in the flood zone flags
+--    before 2017, that field comes from the latest release. `city.pluto_releases` records the
+--    fields each release carries, and `latest_fields` lists those the ad takes from the latest
+--    release.
 --
 -- The release, its published date and the fallback stay on each row, so each value traces to a
--- record of `buildings.lot_releases`. The step compares dates in UTC, the zone of the
--- published dates in the archive's manifest.
+-- record of `buildings.lot_releases`. The step dates ads in UTC, the zone of the published
+-- dates in the archive's manifest.
 WITH releases AS (
-    SELECT release, any_value(published) AS published,
-        (any_value(published) AT TIME ZONE 'UTC')::DATE + 7 AS usable_from,
-        @EACH(@dated, f -> bool_or(@f IS NOT NULL) AS @f)
-    FROM buildings.lot_releases
-    WHERE published IS NOT NULL
-    GROUP BY release
+    SELECT * FROM city.pluto_releases WHERE published IS NOT NULL
 ), missing AS (
     SELECT release,
         coalesce(list(field ORDER BY field) FILTER (WHERE NOT carried), []) AS fields

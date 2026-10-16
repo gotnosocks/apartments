@@ -233,19 +233,22 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `ops/pipeline/identity_check.py` rebuilds the models over the export in about 17 s and
       scores a change against the registry and the reviews.
       [pipeline.md](../data/pipeline.md#building-identity) has the tables;
-   5. **Done** in #906: `buildings.lot_releases` keeps each lot's record in each MapPLUTO
-      release, typed, and `analysis.lot_facts` gives each candidate ad the facts of the release
-      published at least 7 days before its first day, as `plutoasof-v3` does by month. The
-      address, year built and coordinates come from the latest release, and so does every fact
-      when the release lacks the lot or predates its building, with `pluto_fallback` saying
-      which. On the 1,746,499 rows of runs 1 to 10, the facts equal those of the served
-      `released_lots` run by first day on every field of every compared row. The comparison
-      leaves out 36,308 rows whose lot isn't in Data improvements' 26v2 file, and 48 rows of
-      22 Ridgewood lots their releases file lacks for 09v1 to 18v1. By month instead of day,
-      28,366 rows read other facts. `ops/pipeline/lot_facts_check.py` reruns the comparison in
-      about 4 minutes at a 4.4 GB peak, 35 s of it in the models. Nothing reads
-      `analysis.lot_facts` yet, and moving a fit to it needs its own fit under the evaluation
-      framework;
+   5. **Done** in #906: `city.pluto_releases` records each MapPLUTO release's dates and the
+      fields any lot of the city has a value in, `buildings.lot_releases` keeps each lot's
+      record in each release, typed, and stops on a value it can't cast, and
+      `analysis.lot_facts` gives each candidate ad the facts of the release published at least
+      7 days before its first day, as `plutoasof-v3` does by month. The address, year built and
+      coordinates come from the latest release, and so does every fact when the release lacks
+      the lot or predates its building, with `pluto_fallback` saying which. On the 1,746,499
+      rows of runs 1 to 10, the release, fallback, fields from the latest release and facts
+      equal those of the served `released_lots` run by first day on every compared row. The
+      comparison leaves out 36,308 rows whose lot isn't in Data improvements' 26v2 file, and
+      48 rows in 15 of the 22 Queens lots their releases file lacks for 09v1 to 18v1. Their
+      fetch read only the Brooklyn file of each split release; #907 fixed it, and the gap
+      closes at their next releases rebuild. By month instead of day, 28,366 rows read other
+      facts. `ops/pipeline/lot_facts_check.py` reruns the comparison in 4 to 7 minutes at a
+      4.3 GB peak, 60 s of it in the models. Nothing reads `analysis.lot_facts` yet, and moving
+      a fit to it needs its own fit under the evaluation framework;
    6. landmark designations and certificates of occupancy issued before each ad, on its lot or
       BIN, from `city.landmarks`, `city.dob_co` and `city.dob_now_co`.
 
