@@ -32,8 +32,10 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `ops/pipeline/ledger_import.py`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
-   rule `canonical-url-v1`.
-7. Date every outside fact and join it as of the ad's date.
+   rule `canonical-url-v1`, and `ops/pipeline/city.py` keeps the city records for the lots
+   (#896).
+7. Date every outside fact and join it as of the ad's date. **Started**: the city archive gives
+   each release its publisher's date (#896).
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
@@ -187,6 +189,23 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    5. `ads.record_attributes` and the cross-ad models made incremental, since their full
       recomputes take most of a top-up;
    6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist.
+5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
+   each:
+   1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release, and
+      copies of the footprints, LPC and DOB certificate sets, in
+      `/data1/apartments/archive/city`, each dated by its publisher, with an append-only
+      manifest. `apartments-city-fetch.timer` runs it every Friday at 04:00 ET. The first run
+      copied 62 files, 4.45 GB, in 525 s with a 24 MiB peak. A second run took 4 s;
+   2. city models: a Python step unpacks each listed file to Parquet once and caches it by its
+      SHA-256, and a view for each table gives each release's rows with its date. A MapPLUTO
+      release takes about 10 s and 55 MB, and the old split releases end in a DOS end-of-file
+      byte;
+   3. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
+      the footprint holding its `geoCenter`, each link with a score. The step measures its
+      error rate against Data improvements' registry and reviewed answers;
+   4. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
+      the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates
+      issued before the ad.
 
 ## Coordination
 

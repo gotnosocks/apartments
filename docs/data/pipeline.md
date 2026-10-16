@@ -46,6 +46,84 @@ With unchanged inputs, a plan builds nothing.
 `ads.latest_record` reads only answers with a record, so an ad whose latest answer came back
 empty keeps its last record, as in `rentfrontier.latest_ask`.
 
+## City records
+
+`ops/pipeline/city.py` keeps copies of the city's bulk records of lots and buildings in
+`/data1/apartments/archive/city`. The identity step and the city-fact step join each API
+building to them as of each ad's date.
+
+```sh
+python3 ops/pipeline/city.py [--archive DIR] [--source NAME ...] [--verify]
+```
+
+| Source | Records | Files | Date |
+|---|---|---|---|
+| `pad` | City Planning's Property Address Directory | a zip for each quarter, from 23b | the file's Last-Modified |
+| `pluto` | City Planning's MapPLUTO | a zip for each release, from 09v1 | `ops/pipeline/pluto_releases.csv`, then Last-Modified after 26v2 |
+| `footprints` | building footprints, 5zhs-2jue | all rows, as gzipped CSV | `rowsUpdatedAt` |
+| `landmarks` | LPC's designated and calendared buildings and sites, ncre-qhxs | all rows, as gzipped CSV | `rowsUpdatedAt` |
+| `dob_now_co` | DOB NOW certificates of occupancy, pkdm-hqz6 | all rows, as gzipped CSV | `rowsUpdatedAt` |
+| `dob_co` | DOB's earlier certificates of occupancy, bs8b-p36w | all rows, as gzipped CSV | `rowsUpdatedAt` |
+
+The script asks each source for its files and downloads a file when the manifest lacks it. It
+asks City Planning's server for each PAD quarter from 23b to the quarter after the current one,
+and for each MapPLUTO name after 26v2 up to the current year. The server answers 404 for a name
+with no release. For each Open Data set, the script reads `rowsUpdatedAt`, the time of the last
+change to the rows, and downloads all the rows when the manifest has no copy from that time.
+
+The script downloads each file to a `.part` file and checks it:
+
+- a file sent with a Content-Length has that many bytes;
+- a zip opens;
+- a CSV ends with a newline.
+
+On a server error, a rate limit, a dropped connection or a failed check, it waits and downloads
+the file again, up to five times. After a CSV download it reads `rowsUpdatedAt` again and drops
+the copy when the time moved. Then it renames the file into place and appends its line to
+`manifest.ndjson`, so a reader can take each listed file as whole. Each line gives:
+
+- the source, its release, and the Open Data set's ID for a copy of rows;
+- the file's path under the archive and the URL it came from;
+- `published`, the date or time the publisher gives the release, and `published_from`, the
+  evidence for it;
+- `retrieved`, the time the download began, and the file's size and SHA-256.
+
+`pluto_releases.csv` copies frontier's `PLUTO_RELEASES`, with its evidence for each date. On
+Oct 16, 29 of the 30 releases before 22v3, all but 21v1, had a Last-Modified date of 2023-10-15,
+from a re-upload. For those releases the table takes the date from their own documents: the
+README, the data dictionary or the file layout. For 21v1 and for each release from 22v3 on, it
+takes the Last-Modified date. Since 22v2 has no dated document, its line leaves the date empty.
+A test checks the copy against frontier's table. City Planning's server holds no PAD release
+before 23b, so an ad posted before April 2023 has no PAD release from its own time. In the 15v1
+zip, `PlutoReadme15v1.pdf` fails its CRC check. The copy matches the server's file, whose ETag
+gives the copy's MD5, and the five borough tables in it read whole.
+
+Open Data's export at `/api/views/ID/rows.csv` answers with a Deprecation header and a sunset
+date of 2026-12-22, so the script reads `/api/v3/views/ID/query.csv`. That export also gives
+Socrata's `:id`, `:version`, `:created_at` and `:updated_at` for each row. The script sends
+`NYC_OPEN_DATA_TOKEN` as the app token when the variable is set. It gzips each CSV with a fixed
+header time, so two copies of the same rows in the same order have the same SHA-256. The query
+asks for no order, so two copies of unchanged rows may still differ.
+
+The first run, on Oct 16, copied 62 files and 4.45 GB in 525 s, 352 s of it for the footprints.
+The process peaked at 24 MiB. The unit's peak of 1 GiB is page cache. Each Open Data copy holds
+as many rows as the set's own `count(*)` gives, with no `:id` repeated: 1,083,059 footprints,
+39,363 landmarks, 82,963 DOB NOW certificates and 143,242 earlier ones. A second run found
+nothing new in 4 s, and `--verify` checked the 62 files in 7 s. A copy of the footprints takes
+214 MB, so a new copy every week adds about 11 GB a year. Weekly copies of the two certificate
+sets add about 1.2 GB a year, and four PAD and four MapPLUTO releases about 0.5 GB.
+
+`apartments-city-fetch.timer` starts the script every Friday at 04:00 ET, before the StreetEasy
+top-up at 05:30. The service runs it on the system's Python from the build's checkout, capped at
+1 GiB. A second run exits at once while the first holds `.lock`. `--verify` checks each listed
+file's size and SHA-256. The units go in once:
+
+```sh
+cp /data1/apartments/pipeline/code/ops/systemd/apartments-city-fetch.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now apartments-city-fetch.timer
+```
+
 ## Build command
 
 `ops/pipeline/build.py` builds the project, saves the fit-ready rows and records the build:
@@ -802,6 +880,27 @@ in all, and most tests add made-up ads to that export. The tests:
     bytes and each manifest line's SHA-256. A second run writes the same manifest and leaves
     only the export folder. Last, the script refuses an output folder over the export, and its
     manifest reader reads a repeated line once and stops at a path with two hashes.
+27. fetch city records from a local server, in place of City Planning's and NYC Open Data's.
+    The server holds three PAD quarters with a gap between them, two MapPLUTO releases from a
+    short release table along with a later one, and the rows of a dataset. The test checks each
+    file's manifest line: its date, the source of that date, its size and its SHA-256. It checks
+    the gzip header of the copy of rows for an empty file name and a time of 0. A second run asks
+    only for the absent names and the dataset's time. When the server adds a quarter and moves
+    the rows' time, the next run takes the quarter and a new copy of the rows, with the same
+    bytes as the first copy. The test also checks that a run
+    - drops a copy when the rows change during its download;
+    - downloads a file again after a dropped connection or a short download, and lists the
+      whole copy;
+    - lists no file after five short downloads, nor a page sent in place of a zip;
+    - goes on after a file fails five times, and that the next run takes that file;
+    - goes on with the other sources when a dataset's `rowsUpdatedAt` fails;
+    - deletes a `.part` file, cuts a manifest line with no newline, and downloads an unlisted
+      file again over the old one;
+    - exits when another run holds the lock.
+
+    Then it checks that PAD's quarters go on from 24d to 25a, that `--verify` finds a changed
+    file and a missing one, and that `ops/pipeline/pluto_releases.csv` matches frontier's
+    `PLUTO_RELEASES`.
 
 They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
