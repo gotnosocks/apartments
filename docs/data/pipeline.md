@@ -397,14 +397,16 @@ disk.
 | `city.dob_now_co` | view | certificate of occupancy in a copy of the DOB NOW set |
 | `city.dob_co` | view | certificate of occupancy in a copy of DOB's earlier set |
 | `city.rejects` | view | value missing from, or extra in, a row DuckDB refused as it read the city archive |
-| `ads.answers` | table | answer, with the fields the event log and the latest-ask steps read and a hash of its unit history |
+| `ads.answers` | table | answer, with the fields the event log, the latest-ask steps and the ads file read and a hash of its unit history |
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.events` | table | event the API reported for an ad, with the answers that reported it |
-| `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID, status, market days and page price |
+| `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price and floor plan keys |
 | `ads.price_changes` | table | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
 | `ads.kept_changes` | table | price change left after the placeholder check |
 | `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
 | `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
+| `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is back |
+| `ads.regions` | table | ad with an answer: the export regions of its answers |
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
@@ -426,19 +428,19 @@ disk.
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.building_certificates` | table | candidate ad: its BIN, and the certificates of occupancy DOB had issued on it by its first day |
-| `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask, text and floor plans, its merged values, and the reasons it was dropped |
+| `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask and floor plans, its merged values, and the reasons it was dropped |
 
-The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
-keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
-`ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
-`analysis.latest_change`, `analysis.latest_ask`, `analysis.lot_facts`, `analysis.lot_landmarks`
-and `analysis.building_certificates`, per building in `buildings.details` and the four building
-identity models, per lot and release in `buildings.lot_releases`, per release in
-`city.pluto_releases`, per record in `ads.record_attributes`, per
-`(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
-per event in `ads.events`. The `every_row` audit, in `pipeline/audits/`, checks that
-`analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
-and the tables from the last good plan stay in place.
+The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check keys
+and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
+`ads.breaks`, `ads.regions`, `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`,
+`analysis.candidates`, `analysis.latest_change`, `analysis.latest_ask`, `analysis.lot_facts`,
+`analysis.lot_landmarks` and `analysis.building_certificates`, per building in
+`buildings.details` and the four building identity models, per lot and release in
+`buildings.lot_releases`, per release in `city.pluto_releases`, per record in
+`ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)`
+in `ads.price_changes` and per event in `ads.events`. The `every_row` audit, in
+`pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When
+an audit fails, the plan stops, and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
@@ -1112,9 +1114,9 @@ Three models read the ledger:
    chain's bath rules do.
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
-correction rules apply, so a change to the ledger rebuilds only the two ledger models and
-`analysis.rows`. The catalog line of each build lists the ledger's files with their SHA-256,
-and counts the entries by status and change.
+correction rules apply, so a change to the ledger rebuilds only the two ledger models and the
+views `analysis.rows` and `analysis.ads`. The catalog line of each build lists the ledger's
+files with their SHA-256, and counts the entries by status and change.
 
 ### The chain's corrections
 
@@ -1347,16 +1349,17 @@ in all, and most tests add made-up ads to that export. The tests:
     file holds each ad once, and its ads with `in_rows` are the rows file's ads. The second
     build rebuilds nothing, writes the same files and appends a second catalog line. Then the
     test builds runs 2 and 3, adds run 4 and builds again, and compares that build's files with
-    a build of runs 2 to 4 into an empty state. Each pair holds the same bytes. Last, the test adds an export file
-    repeating an answer and checks that the build stops and leaves OUT as it was;
+    a build of runs 2 to 4 into an empty state. Each pair holds the same bytes. Last, the test
+    adds an export file repeating an answer and checks that the build stops and leaves OUT as it
+    was;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, read files with a repeated line, a retract of an unknown, a retracted or a
     retracting entry, and a line that is not JSON, and check that `read` takes files in order
     of name;
 22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two
     of them in a later file, and check each entry's status and differing values. The next plan
-    rebuilds only the two ledger models and `analysis.rows`, which drops one row and changes
-    four, and the latest asks stay as they were;
+    rebuilds only the two ledger models and the views `analysis.rows` and `analysis.ads`. The
+    first drops one row and changes four, and the latest asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's ledger, and check that each of its files at the merge base with master
@@ -1488,13 +1491,16 @@ in all, and most tests add made-up ads to that export. The tests:
     type outside the two kinds, a blank issue date in the earlier set and a date in another form
     in either set each stop the step, and with no copy of either set an ad with a BIN reads both
     flags as missing and keeps the other set's certificates.
-37. add five made-up ads to the cases and check their rows of `analysis.ads`. The first goes
-    off the market and comes back, and its record has a description and two floor plans. The
-    second goes from a draft through StreetEasy's review to ACTIVE, and later through a
-    brokerage review, which the view doesn't count as a break. The third goes into contract,
-    comes back and rents, so it has no break. The fourth had its break before its first day on
-    the market, and the fifth goes into contract and comes back at the same instant, in that
-    order in its record. Then the test checks that each ad with a record has one row.
+37. add seven made-up ads to the cases and check their rows of `analysis.ads`. The first goes
+    off the market and comes back, and its record has two floor plans. The second goes from a
+    draft through StreetEasy's review to ACTIVE, and later through a brokerage review, which
+    `ads.breaks` doesn't count as a break. The third goes into contract, comes back and rents,
+    so it has no break. The fourth had its break before its first day on the market, and the
+    fifth goes into contract and comes back at the same instant, in that order in its record.
+    The last two have an earlier answer listing changes their later answer leaves out: the
+    sixth's lists two more changes off the market after it rents, and the seventh's ends it.
+    The row takes the break and the last change from the later answer. Then the test checks
+    that each ad with a record has one row.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

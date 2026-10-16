@@ -259,6 +259,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     assert changed(plan) == [
         "ads.answers",
         "ads.attributes",
+        "ads.breaks",
         "ads.events",
         "ads.exclusions",
         "ads.first_ask",
@@ -269,6 +270,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.market",
         "ads.price_changes",
         "ads.record_attributes",
+        "ads.regions",
         "ads.reported",
         "analysis.ads",
         "analysis.building_certificates",

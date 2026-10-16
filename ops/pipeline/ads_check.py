@@ -9,12 +9,15 @@
    other columns the website reads.
 2. It reads each line of the website's API captures, DIR/api-*/details/snapshot/candidates.jsonl
    with DIR /data1/apartments/archive/current-listings unless given. It counts the captured
-   ads missing from the file, and the captured ads whose latest record in the file is the
-   captured answer. For those it counts the ads whose status, ask, layout, size, building,
-   unit page and flags differ between the capture and the file, and prints a few of each.
-   The capture's values come from the old page-capture reading with its corrections, and the
-   file's layout and flags are merged over all of an ad's records before any correction, so
-   some differences are expected.
+   ads missing from the file, the captured ads whose latest record in the file is the captured
+   answer, and those with a later record in the file. A capture's `collected_at` is the fetch
+   time of the answer it read, so the script matches it to the file's `fetched`. The two are
+   written apart and round apart by up to a microsecond, so it takes times within a millisecond
+   as one answer. For the ads of a shared answer it counts the ads whose status, ask, layout,
+   size, building, unit page and flags differ between the capture and the file, and prints a
+   few of each. The capture's values come from the old page-capture reading with its
+   corrections, and the file's layout and flags are merged over all of an ad's records before
+   any correction, so some differences are expected.
 3. For each ad the file gives as ACTIVE, it reads the latest record from the export DIR,
    /data1/apartments/archive/crawls/api/export unless given, and runs the website's
    `ad_dates.last_break` over the ad's own events in the record's history, from the file's
@@ -76,7 +79,7 @@ def show(db, title: str, sql: str) -> None:
 
 def captured(root: Path) -> list[dict]:
     """The compared fields of each line of the API captures under `root`, with the capture's
-    folder and the response it read."""
+    folder and the fetch time of the answer it read."""
     out = []
     for path in sorted(root.glob("api-*/details/snapshot/candidates.jsonl")):
         for line in path.read_text().splitlines():
@@ -85,7 +88,7 @@ def captured(root: Path) -> list[dict]:
             c = json.loads(line)
             row = {"capture": path.parents[2].name}
             row["listing_id"] = str(c["source_listing_id"])
-            row["response_id"] = (c.get("crawl_provenance") or {}).get("observation_id")
+            row["collected"] = c.get("collected_at")
             for field, _ in COMPARED:
                 value = c.get(field)
                 row[field] = None if value is None else str(value)
@@ -154,7 +157,6 @@ def main() -> None:
         SELECT status, in_rows, count(*) AS ads,
             count(*) FILTER (WHERE last_change = 'ACTIVE' AND break_status IS NOT NULL)
                 AS back_after_break,
-            count(*) FILTER (WHERE description IS NOT NULL) AS with_description,
             count(*) FILTER (WHERE len(floor_plans) > 0) AS with_floor_plans,
             count(*) FILTER (WHERE page IS NOT NULL) AS with_page,
             count(*) FILTER (WHERE len(ledger_entries) > 0) AS with_ledger_entries
@@ -162,17 +164,21 @@ def main() -> None:
     """,
     )
 
-    capture = pd.DataFrame(captured(args.captures))
-    db.register("capture", capture)
+    db.register("capture_lines", pd.DataFrame(captured(args.captures)))
+    db.execute(
+        """CREATE VIEW capture AS SELECT * REPLACE (collected::TIMESTAMPTZ AS collected)
+        FROM capture_lines"""
+    )
+    shared = "abs(epoch_us(a.fetched) - epoch_us(c.collected)) < 1000"
     show(
         db,
         "captured ads by capture:",
-        """
+        f"""
         SELECT c.capture, count(*) AS lines, count(DISTINCT c.listing_id) AS ads,
             count(DISTINCT c.listing_id) FILTER (WHERE a.listing_id IS NULL) AS not_in_file,
-            count(DISTINCT c.listing_id) FILTER (WHERE a.response_id = c.response_id)
-                AS same_answer,
-            count(DISTINCT c.listing_id) FILTER (WHERE a.response_id > c.response_id)
+            count(DISTINCT c.listing_id) FILTER (WHERE {shared}) AS same_answer,
+            count(DISTINCT c.listing_id)
+                FILTER (WHERE epoch_us(a.fetched) - epoch_us(c.collected) >= 1000)
                 AS later_answer
         FROM capture c LEFT JOIN ads a USING (listing_id)
         GROUP BY ALL ORDER BY ALL
@@ -191,7 +197,7 @@ def main() -> None:
             WITH pairs AS (
                 SELECT DISTINCT c.listing_id, {left} AS captured, {right} AS file
                 FROM capture c JOIN ads a USING (listing_id)
-                WHERE a.response_id = c.response_id
+                WHERE {shared}
             )
             SELECT count(*) AS ads,
                 count(*) FILTER (WHERE captured IS NOT DISTINCT FROM file) AS same,
