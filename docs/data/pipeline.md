@@ -99,6 +99,11 @@ In the top-up, `ads.record_attributes` parsed the 424,768 distinct records missi
 and copied the 1,713,239 cached ones into its table again, and the models after it recomputed every ad. Those full recomputes
 take most of a top-up's time.
 
+At 01:13 ET on Oct 16, the service in the next section built runs 1 to 5 into the empty default
+state in 583 s, 575 s of them in the catalog's count. `ads.record_attributes` took 410 s, and the
+script peaked at 4,143 MiB. It wrote the same `rows-4743b90bc5aa49b4.parquet`. The service runs
+the build on all twelve CPUs at nice 10, where the light jobs above had six.
+
 ### After each export
 
 `apartments-pipeline-build.service` runs `ops/pipeline/build-latest`, which builds into the
@@ -121,6 +126,10 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
 Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
+
+After each build, the script writes the manifest's hash and the commit's trees to
+`/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
+OUT, delete that file, so the next trigger builds from master again.
 
 A failed build leaves the service failed, with the failed models in its journal:
 
