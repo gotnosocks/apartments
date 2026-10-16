@@ -1143,9 +1143,14 @@ when the ad has no later one and its record came after the row. The steps in
 the median first ask of the building's other rows with the same bedroom count. The comments in
 the model list the steps. The step for a page price within a factor of 2 skips a page price
 equal to any of the ad's changes. The step for a tenfold digit skips only one equal to a change
-`ads.kept_changes` keeps, as item 8 of the differences from the chain explains. The medians
-cover every region in `analysis.kept`, while the chain takes them over the rows of the datasets
-it reads. On the full export the two give the same steps, as the full build below shows.
+`ads.kept_changes` keeps. An ad correcting a tenfold typo on its last day on the market shows
+the correction as its page price, and `ads.kept_changes` drops the correcting change as a late
+one, so the digit step weighs the typo against the page price. On the export of Oct 16, this
+gives 12 ended ads the page price as their latest ask, at a tenth of the typo, which each ad also
+gave as its first ask. The latest-ask files the chain wrote up to Oct 16 keep the typos, and
+latest-ask-v7 gives those 12 rows the page price. The medians cover every region in
+`analysis.kept`, while the chain takes them over the rows of the datasets it reads. On the full
+export the two give the same steps, as the full build below shows.
 
 The median reads list positions with `list_extract`. SQLMesh renders each model through
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
@@ -1419,14 +1424,6 @@ when an item here or an entry of the corrections ledger accounts for it.
    it captured, and the pipeline takes them from the ad's latest API record. For six ads of the
    nine-area reference, listed from July to October 2026, the two give different bedroom counts
    or sizes.
-8. A tenfold typo in the ask, corrected on the ad's last day on the market. `ads.kept_changes`
-   drops the correction as a late change, and the chain skips a page price equal to any of the
-   ad's changes, so the typo stands as the latest ask. `analysis.latest_ask` lets the page
-   price into the digit step when it equals only a dropped change, and the step picks whichever
-   of the two lies nearer the building's median. On the export of Oct 16, this changes the
-   latest ask of 12 rows, from 9.6 to 10.7 times the page price to the page price. All 12 ads
-   had ended, and each typo was also the ad's first ask, which the rows file keeps as
-   `asking_rent`.
 
 ## Planted errors
 

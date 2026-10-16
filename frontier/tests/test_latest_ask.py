@@ -91,7 +91,13 @@ def table_of(rows, captured="2026-01-01"):
     at = pd.Timestamp(captured, tz="UTC").timestamp()
     return pd.DataFrame(
         [
-            {"listing_id": k, "collected_at": at, "changes": c, "page_price": p}
+            {
+                "listing_id": k,
+                "collected_at": at,
+                "changes": c,
+                "page_price": p,
+                "digit_page": p,
+            }
             for k, (c, p) in rows.items()
         ]
     ).set_index("listing_id")
@@ -148,6 +154,43 @@ def test_a_page_price_is_the_current_price_or_a_digit_off():
     assert out.latest_ask["r0"] == 10000.0 and out.how["r0"] == "page price, digit"
     assert out.latest_ask["r1"] == 9500.0 and out.how["r1"] == "latest"
     assert out.latest_ask["r3"] == 2950.0 and out.how["r3"] == "page price"
+
+
+def test_a_typo_fixed_on_the_last_day_gives_way_to_the_page_price():
+    # Listing 1 fixes a $30,000 typo on its off-market day, and listing 4 drops to a $300
+    # placeholder that day. The placeholder check skips both changes.
+    fixed = latest_ask.record_latest(
+        record(
+            [("2025-01-01", 30000), ("2025-03-01", 3000)],
+            3000,
+            status="RENTED",
+            off="2025-03-01",
+        )
+    )
+    assert fixed["changes"] == [("2025-01-01", 30000.0)]
+    assert fixed["page_price"] is None and fixed["digit_page"] == 3000
+    placeholder = latest_ask.record_latest(
+        record(
+            [("2025-01-01", 3000), ("2025-03-01", 300)],
+            300,
+            status="RENTED",
+            off="2025-03-01",
+        )
+    )
+    assert placeholder["page_price"] is None and placeholder["digit_page"] == 300
+    frame = frame_of(
+        [30000.0, 3100.0, 2900.0, 3000.0], ["1", "2", "3", "4"], ["2025-01-01"] * 4
+    )
+    at = pd.Timestamp("2026-01-01", tz="UTC").timestamp()
+    table = pd.DataFrame(
+        [
+            {"listing_id": "1", "collected_at": at, **fixed},
+            {"listing_id": "4", "collected_at": at, **placeholder},
+        ]
+    ).set_index("listing_id")
+    out = latest_ask.choose(frame, table).set_index("audit_id")
+    assert out.latest_ask["r0"] == 3000.0 and out.how["r0"] == "page price, digit"
+    assert out.latest_ask["r3"] == 3000.0 and out.how["r3"] == "latest"
 
 
 def test_a_wide_change_keeps_the_ask_nearer_the_building():

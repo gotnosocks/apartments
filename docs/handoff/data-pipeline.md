@@ -231,9 +231,11 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       production rows with such asks. **Done** in #930: the digit step of
       `analysis.latest_ask` reads a page price equal to a change `ads.kept_changes` drops, so
       a tenfold typo corrected on the ad's last day gives way to the page price. On the export
-      of Oct 16 that changed the latest ask of 12 ended ads and left the rows file as it was. Next: a
-      check of each latest ask against its building's median, for the rest, and a fallback to
-      the last change before a typo in place of the first ask.
+      of Oct 16 that changed the latest ask of 12 ended ads and left the rows file as it was.
+      Data improvements wrote latest-ask-v7 with those 12 asks (#932), and the chain's
+      `rentfrontier.latest_ask` reads the page price the same way since the chain PR after it.
+      Next: a check of each latest ask against its building's median, for the rest, and a
+      fallback to the last change before a typo in place of the first ask.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in

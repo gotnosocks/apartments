@@ -22,9 +22,8 @@ MODEL (
 --       the ad's price changes is skipped.
 --   s4: when the page price is 9 to 11 times the ask, or the ask 9 to 11 times the page price,
 --       whichever of the two lies nearer the building's median wins. A page price equal to a
---       change `ads.kept_changes` keeps is skipped, and one equal to a dropped change counts.
---       rentfrontier.latest_ask skips both here, so a typo corrected on the ad's last day on
---       the market stands there.
+--       change `ads.kept_changes` keeps is skipped, and one equal to a dropped change counts,
+--       so a typo corrected on the ad's last day on the market gives way to the correction.
 -- The median reads list positions with list_extract, counting from 1. SQLMesh renders each model
 -- through sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the
 -- list's type.

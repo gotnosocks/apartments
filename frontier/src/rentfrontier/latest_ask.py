@@ -113,7 +113,9 @@ def record_latest(raw: str) -> dict:
         "page_price": price
         if price and price not in {c["price"] for c in changes}
         else None,
-        "digit_page": price if price and price not in {c["price"] for c in kept} else None,
+        "digit_page": price
+        if price and price not in {c["price"] for c in kept}
+        else None,
         "n_placeholder": len(changes) - len(kept),
     }
 
