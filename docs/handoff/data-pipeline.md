@@ -101,7 +101,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       asks equal the run `20261015-13f5968-api` in first ask, latest ask and step on all
       1,395,952 shared rows. The plan after the change took 75 s, most of it in
       `ads.attributes`.
-   7. **Done** in #PRNUM: the reviewers' notes on #880 and #881. The tests now cover a fate
+   7. **Done** in #882: the reviewers' notes on #880 and #881. The tests now cover a fate
       from bathrooms alone, a page price equal to one of the ad's changes, and a page price ten
       times the ask. `analysis.candidates` audits each candidate's building and bedroom count.
       The chain counts a boolean `floorCount` as one floor, while `buildings.details` skips
