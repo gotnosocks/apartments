@@ -1,31 +1,20 @@
-"""Write made-up ads and analysis rows for the latest-ask cases the real fixture lacks.
+"""Write a small made-up export with price histories the real fixture lacks.
 
-In the API data each ad has one analysis row and a record for every ad, so the full build
-never meets several rows of one ad, a capture before a row, an ad without records or a missing
-answer. This script makes up a small export and rows with those cases, then writes the latest
-ask `rentfrontier.latest_ask.choose` gives each row. It reads the records the way
-`latest_ask.listings` reads listing observations: an answer without a record counts for
-nothing, and the ad's latest record wins.
+The real fixture holds whole buildings cut from the full export. The case tests copy the export
+this script writes to `fixture/cases/export`, then append the ads each test needs.
 
-    PYTHONPATH=frontier/src /data1/apartments/venvs/serve-frontier/bin/python \\
-        pipeline/tests/make_cases.py
+    /data1/apartments/venvs/serve-frontier/bin/python pipeline/tests/make_cases.py
 
-The cases:
+The ads:
 
-- ad 9000001 has three rows, two of them on one day. The first of those two stands for no days,
-  so it takes the last change before its day. Its page price differs from its changes, and only
-  its last row takes it.
-- ad 9000002 has a row with no change on or after its day and a record collected later, so it
-  takes the last change before its day, and then its page price.
-- ad 9000003's only record was collected before its row, so neither its changes nor its page
-  price move the row's ask.
-- ad 9000004 has no answers at all.
+- ad 9000001 changes its price four times, and its page price differs from all its changes.
+- ad 9000002 changes its price twice, and its page price differs from both.
+- ad 9000003's only record was collected in January.
 - ad 9000005's latest answer is missing, so its earlier record stands.
-- ad 9000006's row lacks a bedroom count, and ad 9000007's row lacks a building. So do the rows
-  of ads 9000008 and 9000009, in the same building and with the same bedroom count. Rows without
-  a building or a bedroom count get no building median, so the wide asks of 9000006 and 9000007
-  fall back to the first ask. Had the missing values grouped together, the medians of 4800 would
-  have kept the latest asks.
+- ads 9000006 and 9000007 more than double their asks.
+
+The records name no building, so the build finds no unit page for any of these ads, and none of
+them gives a fit-ready row.
 """
 
 import hashlib
@@ -34,7 +23,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from rentfrontier import latest_ask
 
 OUT = Path(__file__).resolve().parent / "fixture" / "cases"
 TOWER = "1-case-street-new_york"
@@ -108,20 +96,6 @@ BUILDING_ANSWERS = [
         json.dumps({"id": "900001", "slug": TOWER}, sort_keys=True),
     )
 ]
-# Each row: listing id, its day, its first ask, its building and its bedroom count.
-ROWS = [
-    (9000001, "2026-03-01", 3000, TOWER, "1.0"),
-    (9000001, "2026-05-01", 3050, TOWER, "1.0"),
-    (9000001, "2026-05-01", 3050, TOWER, "1.0"),
-    (9000002, "2026-06-15", 2500, TOWER, "1.0"),
-    (9000003, "2026-02-01", 1900, TOWER, "1.0"),
-    (9000004, "2026-04-01", 2950, TOWER, "1.0"),
-    (9000005, "2026-07-01", 4000, TOWER, "2.0"),
-    (9000006, "2026-05-01", 2000, TOWER, None),
-    (9000007, "2026-05-01", 2000, None, "1.0"),
-    (9000008, "2026-05-01", 4800, TOWER, None),
-    (9000009, "2026-05-01", 4800, None, "1.0"),
-]
 
 
 def write_answers(table, key, answers, first):
@@ -170,39 +144,6 @@ def main():
     (OUT / "export" / "manifest.ndjson").write_text(
         "".join(json.dumps(line, sort_keys=True) + "\n" for line in lines)
     )
-
-    rows = pd.DataFrame(
-        {
-            "ordinal": np.arange(len(ROWS), dtype="int64"),
-            "audit_id": [f"case-{i}" for i in range(len(ROWS))],
-            "source_listing_id": [str(r[0]) for r in ROWS],
-            "price_at": pd.to_datetime([f"{r[1]}T00:00:00Z" for r in ROWS], utc=True),
-            "asking_rent": [float(r[2]) for r in ROWS],
-            "log_rent": np.log([float(r[2]) for r in ROWS]),
-            "building": pd.array([r[3] for r in ROWS], dtype="str"),
-            "bedrooms": pd.array([r[4] for r in ROWS], dtype="str"),
-        }
-    )
-    rows.to_parquet(OUT / "rows.parquet", index=False)
-
-    # As `latest_ask.listings` builds its table: each ad's latest record.
-    table = pd.DataFrame(
-        [
-            {
-                "listing_id": str(listing_id),
-                "collected_at": pd.Timestamp(f"{fetched}T12:00:00Z").timestamp(),
-                **latest_ask.record_latest(raw),
-            }
-            for listing_id, fetched, raw in ANSWERS
-            if raw
-        ]
-    )
-    table = table.sort_values(["collected_at", "listing_id"])
-    table = table.drop_duplicates("listing_id", keep="last").set_index("listing_id")
-    expected = latest_ask.choose(rows, table)
-    expected.insert(0, "ordinal", rows.ordinal)
-    expected.to_parquet(OUT / "latest-ask.parquet", index=False)
-    print(expected.to_string())
 
 
 if __name__ == "__main__":

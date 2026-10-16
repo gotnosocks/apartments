@@ -1,11 +1,12 @@
 # Pipeline project
 
-The rebuilt pipeline is a SQLMesh project over DuckDB, in `pipeline/`. So far it builds each
-analysis row's latest ask from the API export, as `rentfrontier.latest_ask` does, and a log of
-the events the API reported for each ad, with each ad's first ask, its time on the market and
-its ending. It also reads each ad's attributes from its records, gives the current chain's
-reasons for dropping the ad, and finds each ad's unit. The later
-steps in [the pipeline handoff](../handoff/data-pipeline.md) add models to it.
+The rebuilt pipeline is a SQLMesh project over DuckDB, in `pipeline/`. So far it reads the API
+export and builds a log of the events the API reported for each ad, with each ad's first ask, its
+time on the market and its ending. It reads each ad's attributes from its records, gives the
+current chain's reasons for dropping the ad, and finds each ad's unit. From those it builds the
+fit-ready rows, one for each unit and month, and gives each row its latest ask, as
+`rentfrontier.latest_ask` does. The later steps in
+[the pipeline handoff](../handoff/data-pipeline.md) add models to it.
 
 The project keeps its own uv environment and lock, as `frontier/` does. SQLMesh 0.236.3 requires
 pandas below 3, and the repo's lock holds pandas 3.0.5.
@@ -19,29 +20,25 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 
 ## Inputs
 
-`pipeline/config.py` reads three environment variables:
+`pipeline/config.py` reads two environment variables:
 
 | variable | default on thelio | holds |
 |---|---|---|
 | `PIPELINE_EXPORT` | `/data1/apartments/archive/crawls/api/export` | the scraper's export, with its manifest |
-| `PIPELINE_ROWS` | `/data1/apartments/pipeline/inputs/analysis-rows-20261015-13f5968-api.parquet` | analysis rows |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
 
 The build reads the ads and buildings files listed in the manifest and skips any file still
 lacking a line.
-`ops/pipeline/analysis_rows.py` wrote the rows file from the four API region datasets of the
-latest-ask run of Oct 15, `20261015-13f5968-api`. It stays an input until the event log builds
-the rows from API records.
 
-For each input, `config.py` also computes a version: for each export table, a SHA-256 over the
-path and hash of each of its listed files, and the rows file's own SHA-256. SQLMesh fingerprints
+For each export table, `config.py` also computes a version, a SHA-256 over the path and hash of
+each of its listed files. SQLMesh fingerprints
 a model by its SQL as written and by the values of the variables the SQL uses. The raw views use
 the versions as well as the paths, so a file written again under its old name also counts as a
 change, once the manifest's line for it carries the new hash. A second line for the same path
 with another hash stops the build instead, since `config.py` refuses a path with two hashes. A new or
 rewritten ads file changes `raw.ads`, and the next plan rebuilds it and every model below it. A
 new buildings file changes `raw.buildings`, and the next plan rebuilds it, `buildings.details`,
-`ads.identity` and the fit-ready rows.
+`ads.identity`, the fit-ready rows and their latest asks.
 With unchanged inputs, a plan builds nothing.
 
 `raw.ads` holds every answer, including the API's empty answers, marked `missing`.
@@ -54,12 +51,9 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 |---|---|---|
 | `raw.ads` | view | exported API answer for an ad |
 | `raw.buildings` | view | exported API answer for a building |
-| `raw.analysis_rows` | view | analysis row |
 | `ads.latest_record` | table | ad, from its latest record: status, market days, page price and price changes |
 | `ads.price_changes` | table | nonzero price change, numbered in date order within its ad |
 | `ads.kept_changes` | table | price change left after the placeholder check |
-| `analysis.latest_change` | table | analysis row, with its ad's last kept change while the row stood and its page price |
-| `analysis.latest_ask` | table | analysis row, with its first ask, its latest ask and the step behind the latest |
 | `ads.answers` | table | answer, with the fields the event log reads and a hash of its unit history |
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.events` | table | event the API reported for an ad, with the answers that reported it |
@@ -73,21 +67,23 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
 | `analysis.rows` | view | fit-ready row: the candidate kept for its unit and month |
+| `analysis.latest_change` | table | fit-ready row, with its ad's last kept change from the row's day on and its page price |
+| `analysis.latest_ask` | table | fit-ready row, with its first ask, its latest ask and the step behind the latest |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
-`ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported` and `analysis.candidates`,
-per building in `buildings.details`, per record in `ads.record_attributes`,
-per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
-`ordinal` in the two analysis tables. The `every_row` audit, in
-`pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
-fails, the plan stops, and the tables from the last good plan stay in place.
+`ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
+`analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details`, per
+record in `ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per
+`(listing_id, n)` in `ads.price_changes` and per event in `ads.events`. The `every_row` audit,
+in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every fit-ready row. When an
+audit fails, the plan stops, and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
 ```sh
 uv run --project pipeline sqlmesh -p pipeline plan dev --auto-apply --no-prompts
-uv run --project pipeline sqlmesh -p pipeline table_diff prod:dev -m analysis.latest_ask -o ordinal --show-sample
+uv run --project pipeline sqlmesh -p pipeline table_diff prod:dev -m analysis.latest_ask -o listing_id --show-sample
 ```
 
 ## Event log
@@ -286,81 +282,94 @@ The chain checks a unit-month within a slice of one region's dataset, while `ana
 checks it over every region. Each row lists the export regions of its ad's answers in `regions`,
 so a fit can choose the regions it reads.
 
+## Latest ask
+
+`analysis.latest_ask` gives each fit-ready row the latest ask `rentfrontier.latest_ask` chooses
+for it. An ad gives at most one fit-ready row, priced on its first day. `analysis.latest_change`
+takes the ad's last kept change dated on or after that day, or the change in effect on that day
+when the ad has no later one and its record came after the row. The steps in
+`analysis.latest_ask` then check that ask against the row's first ask, the ad's page price and
+the median first ask of the building's other rows with the same bedroom count. The comments in
+the model list the steps. The medians cover every region in `analysis.rows`, while the chain
+takes them over the rows of the datasets it reads. On the full export the two give the same
+steps, as the full build below shows.
+
+The median reads list positions with `list_extract`. SQLMesh renders each model through
+sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
+so a bracket reads the next element of the sorted list.
+
 ## Tests
 
-`pipeline/tests/fixture/` holds the analysis rows of five buildings, the 229 exported records of
-their ads, the five exported records of the buildings, and the latest ask
-`rentfrontier.latest_ask` gave each row, 197 KB in all.
-`pipeline/tests/make_fixture.py` writes it from the full inputs on thelio. The API data lacks
-several cases the latest-ask steps handle, as the full build below notes, so
-`pipeline/tests/make_cases.py` makes up seven answers, eleven rows and a building for them in
-`fixture/cases/`, 23 KB in all, and writes the latest ask `rentfrontier.latest_ask` gives each
-row. Their records hold no unit histories. The tests:
+`pipeline/tests/fixture/` holds the 229 exported records of the ads of five buildings, the five
+exported records of the buildings, the chain's analysis rows of those ads, and the latest ask
+`rentfrontier.latest_ask` gave each row, 199 KB in all. `pipeline/tests/make_fixture.py` writes
+it from the full inputs on thelio. The API data lacks several cases the steps handle, so
+`pipeline/tests/make_cases.py` makes up seven answers and a building in `fixture/cases/`, 14 KB
+in all, and most tests add made-up ads to that export. The tests:
 
-1. build the fixture and compare each row's first ask, latest ask and step with
-   `rentfrontier.latest_ask`;
-2. build the made-up cases and compare them the same way. They hold several rows of one ad, a
-   record collected before its row, an ad without answers, an empty latest answer, and rows
-   without a building or a bedroom count;
+1. build the fixture and compare each fit-ready row's first ask, latest ask and step with the
+   latest-ask run's;
+2. add made-up ads of a building to the cases, build them, and compare each row's latest ask
+   and step with `choose` of `rentfrontier.latest_ask`, run in the test over the same rows and
+   each ad's latest record. The ads hold a change after the row's day, a change only before
+   it, a page price without changes, an ask that more than doubles and one that falls below
+   half, a page price a tenth of the ask, an empty latest answer, and a placeholder price after
+   the ad left the market;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
    and the seventeen models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
 5. add a run 5 file with a newer answer for one ad and an older answer for another. Only the
-   first ad's row changes;
-6. duplicate an analysis row. The `unique_values` audit on `analysis.latest_change` stops the
-   plan, and the tables from the earlier plan stay in place;
+   first ad's latest ask changes;
+6. add an export file repeating an answer. The audit on `ads.answers` stops the plan, and the
+   tables from the earlier plan stay in place;
 7. drop a row from `analysis.latest_ask` in a copy of the project. The `every_row` audit stops
    the plan;
 8. read manifests with a cut-off last line, a repeated line, a rewritten file and a file with
    two hashes;
-9. build the fixture and compare each analysis row's price date, asking rent, bedroom count and
-   building with its ad's first day, first ask, bedroom count and building. The current chain
-   kept each ad of the fixture, and neither `ads.exclusions` nor `ads.identity` gives any of
-   them a reason;
-10. add an answer that repeats an earlier record eight days later. `ads.events` gains the new
-    fetch and nothing else. Each event of the record, its siblings' history events included,
-    keeps its first answer and counts one answer more, and the other events stay as they were;
-11. add four answers with histories to the made-up cases: an empty history, a history listing an
+9. add an answer that repeats an earlier record eight days later. `ads.events` gains the new
+   fetch and nothing else. Each event of the record, its siblings' history events included,
+   keeps its first answer and counts one answer more, and the other events stay as they were;
+10. add four answers with histories to the made-up cases: an empty history, a history listing an
     event twice, an ACTIVE change without a price and a sibling's episode without a
     `listingId`, a later answer with an added event, and the same history from the sibling.
     The test checks every history event and first ask by value, along with the cases' missing
     answer;
-12. add made-up records to the cases: an ad for each reason in `ads.exclusions`, an ad with
+11. add made-up records to the cases: an ad for each reason in `ads.exclusions`, an ad with
     none, a record without propertyDetails and a record with another ad's `id`. It adds ads at
     the edges of the ranges too: asks of $749, $750, $50,000 and $50,001, 0 and 5 bedrooms,
     half a bathroom, and 1.25 bathrooms from `bathroomCount`. Four more ads have two records
     each, with two sizes, two doorman types, leases of 12 and 3 months, or the same values in
     both. The last ad carries a feature code for furnished. The test checks each ad's reasons,
     first ask, bedroom count, conflicts and number of records by value;
-13. build run 2 in a copy of the project, then change the copy's `steps/attributes.py` to give
+12. build run 2 in a copy of the project, then change the copy's `steps/attributes.py` to give
     every record 9 bedrooms. A plan in the test's process stops with the mismatch error, since
     the venv loads the repo's own code. A plan in a new process, with the copy first on
     `PYTHONPATH`, parses the same records into a second cache folder, each with 9 bedrooms;
-14. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
+13. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
     with the files of the code version;
-15. add made-up ads to the cases: an ad put in contract, back on the market twice in a day and
+14. add made-up ads to the cases: an ad put in contract, back on the market twice in a day and
     rented, an ad paused and back on the market, an ad delisted from a draft, an ad without
     status changes, an ad with two answers, the later of which ends it, and an ad whose record
     lists two pairs of changes at shared instants in an order other than the alphabet's. One
     ad's latest answer has no record, and another's latest record has no `daysOnMarket`. The
     test checks each ad's days, spans, ending and record fields by value;
-16. add made-up ads and buildings to the cases: two ads of one unit, an ad giving two pages and
+15. add made-up ads and buildings to the cases: two ads of one unit, an ad giving two pages and
     an ad giving the second of them, ads with an empty unit slug, none or one holding a `/`, an
     ad naming a building missing from the export, an ad in a building whose later answer renames
     it, an ad whose latest answer is missing, a building slug holding a `|`, and an ad whose
     latest record names no building. The test computes each ad's page and unit with the chain's
     `unit_page` and `memberships` and compares them with `ads.identity`, then checks the cases
     by value;
-17. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
+16. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, `ads.identity`,
     `analysis.candidates` and `analysis.rows`, and the 49 ads of the building in that file gain
     their pages;
-18. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
+17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
-19. add made-up ads and buildings to the cases:
+18. add made-up ads and buildings to the cases:
     - two ads of a unit in one month, two ads of another unit on the same day, and a unit whose
       ads give one bedroom and two bedrooms in a month;
     - a label for each of the chain's five patterns, labels with whitespace and a `#`, and a
@@ -373,7 +382,9 @@ row. Their records hold no unit histories. The tests:
 
     The test checks each label floor and bathroom count against `label_floor` and `consensus` of
     `rentfrontier.cohort`, and each candidate's floor and status against its `floor_of`. Then it
-    checks the fates, floors, floor counts, areas, regions and sizes by value.
+    checks the fates, floors, floor counts, areas, regions and sizes by value;
+19. render every SQL model as SQLMesh runs it and look for a bracket reading a list at a
+    computed index.
 
 They take about 50 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
@@ -382,19 +393,9 @@ with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 ## Full build
 
 On Oct 15 on thelio, I built the project from runs 1 to 4 of the export and compared
-`analysis.latest_ask` with the latest-ask run `20261015-13f5968-api`. All 1,396,053 rows matched
-in first ask, latest ask and step. The match covers less than the steps allow. In the API
-region datasets each ad has one analysis row and every ad has a record in runs 1 to 4, so each
-row is its ad's last, and none takes the own-ask or uncaptured steps. No row lacks a building
-or a bedroom count, and `analysis.latest_ask` holds all 1,396,053 rows. The made-up cases in the
-tests cover the rest.
-
-```sh
-uv run --project pipeline sqlmesh -p pipeline fetchdf "
-  SELECT count(*) FROM analysis.latest_ask n
-  JOIN '/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet' r USING (audit_id)
-  WHERE n.first_ask <> r.first_ask OR n.latest_ask <> r.latest_ask OR n.how <> r.how"
-```
+`analysis.latest_ask` with the latest-ask run `20261015-13f5968-api`. At that point the model
+read the run's analysis rows from a file, and all 1,396,053 rows matched in first ask, latest
+ask and step. The last section below compares the latest asks of the fit-ready rows.
 
 Then I added run 5 to the manifest and planned again on the same state, as a top-up would. Run 5
 re-reads the old page-crawl areas, so only 18 of its 424,776 ads appear in runs 1 to 4. Ten of
@@ -418,9 +419,6 @@ from nothing. Rebuilding only the ads a top-up touches is part of step 8. The ev
 should also shorten `ads.kept_changes`, whose placeholder check steps through each ad's changes
 one at a time.
 
-`ops/pipeline/analysis_rows.py` wrote the rows input again from the run's provenance.json in
-15 s at a 2 GB peak, and the result equals the file the build read, row for row.
-
 With the event log's four tables, I built runs 1 to 5 into an empty state in 109 s, at the
 unit's 5 GB cap with DuckDB's limit at 4 GB. `ads.events` holds 23,340,393 events of 2,372,913
 ads. Of those ads, 2,137,998 have answers of their own, and the other 234,915 appear only in the
@@ -428,12 +426,14 @@ unit histories of their siblings' records. Of the 8,392,975 history events an ad
 reported, a sibling's answer reported 5,186,434 first. `ads.first_ask` gives 2,117,118 ads a
 first day, with one price for 2,116,917 of them and two for 201, and none with a missing price.
 Each first ask's `first_response_id` is an answer of its own ad. For each of the 1,396,053
-analysis rows, `price_at` is its ad's first day at midnight UTC and `asking_rent` the single
-price of that day:
+rows of the latest-ask run, `price_at` is its ad's first day at midnight UTC and `asking_rent`
+the single price of that day:
 
 ```sh
 uv run --project pipeline sqlmesh -p pipeline fetchdf "
-  SELECT count(*) FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
+  SELECT count(*)
+  FROM '/data1/apartments/pipeline/inputs/analysis-rows-20261015-13f5968-api.parquet' r
+  LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
   WHERE f.listing_id IS NULL OR r.price_at <> f.first_day::TIMESTAMPTZ OR f.prices <> [r.asking_rent]"
 ```
 
@@ -509,3 +509,32 @@ limit at 5 GB:
 | `analysis.candidates` | 2.6 s | 3.4 GB |
 
 `analysis.rows` is a view, so it costs nothing to build.
+
+Last, I moved `analysis.latest_ask` onto `analysis.rows`. I planned the change on a copy of the
+state above. The plan rebuilt `ads.attributes`, whose list reads changed, and the five models
+below it, in 75 s, with a peak of 5.8 GB for the process. `analysis.latest_ask` holds a latest
+ask for each of the 1,747,140 fit-ready rows. I compared it with the latest-ask run's
+1,396,053 rows, leaving out units with an answer after 13:10 ET as before. Each of the 1,395,952
+shared rows agrees in first ask, latest ask and step, and the 92 rows of the listed difference
+above have latest asks too. The script is `/data1/apartments/tmp/pipeline/step46/compare_ask.py`,
+and the comparison took 7 s.
+
+Over all fit-ready rows, the steps give:
+
+| step | rows |
+|---|--:|
+| `latest` | 1,745,605 |
+| `page price` | 866 |
+| `latest, nearer building` | 413 |
+| `first, nearer building` | 243 |
+| `page price, digit` | 13 |
+
+No row takes the step for an ask captured before the row, since each fit-ready row's ad has a
+kept change dated on or after its first day. Each row's ad also has a record collected after the
+row, and every row has a building and a bedroom count.
+
+| model | query | process peak |
+|---|--:|--:|
+| `analysis.latest_change` | 0.7 s | 1.1 GB |
+| `analysis.latest_ask` | 2.1 s | 3.4 GB |
+| `ads.attributes` | 70.5 s | 6.0 GB |

@@ -9,6 +9,7 @@ import uuid
 from pathlib import Path
 
 import duckdb
+import numpy as np
 import pandas as pd
 import pytest
 import sqlmesh.core.console
@@ -17,27 +18,21 @@ from apartments.unit_canonical import unit_page
 from sqlmesh import Context
 from sqlmesh.core.console import TerminalConsole
 from sqlmesh.utils.errors import PlanError
+from sqlglot import exp
 
 PROJECT = Path(__file__).resolve().parents[1]
 FIXTURE = Path(__file__).resolve().parent / "fixture"
 
 
-def context(
-    monkeypatch,
-    state,
-    export=FIXTURE / "export",
-    rows=FIXTURE / "rows.parquet",
-    project=PROJECT,
-):
+def context(monkeypatch, state, export=FIXTURE / "export", project=PROJECT):
     monkeypatch.setenv("PIPELINE_EXPORT", str(export))
-    monkeypatch.setenv("PIPELINE_ROWS", str(rows))
     monkeypatch.setenv("PIPELINE_STATE", str(state))
     monkeypatch.setenv("PIPELINE_MEMORY", "1GB")
     return Context(paths=str(project))
 
 
 def latest_ask(ctx):
-    frame = ctx.fetchdf("SELECT * FROM analysis.latest_ask ORDER BY ordinal")
+    frame = ctx.fetchdf("SELECT * FROM analysis.latest_ask ORDER BY listing_id")
     return frame.reset_index(drop=True)
 
 
@@ -108,21 +103,123 @@ def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
 
 
 def test_latest_ask_cases(tmp_path, monkeypatch):
-    """The made-up ads of make_cases.py: several rows of one ad, a record collected before its
-    row, an ad without answers, a missing latest answer and rows without group keys."""
-    cases = FIXTURE / "cases"
-    ctx = context(
-        monkeypatch, tmp_path / "state", cases / "export", cases / "rows.parquet"
+    """analysis.latest_ask gives these made-up rows the latest asks `rentfrontier.latest_ask`
+    chooses for them:
+
+    - ad 9000120 changes its price after its first day, and ad 9000130 only before it.
+    - ad 9000121 has no price changes and a page price of $3,100, and ad 9000131 has neither.
+    - ad 9000122 more than doubles its ask. The building's other one-bedrooms ask $3,000, so its
+      first ask stands. Its page price equals one of its changes and counts for nothing.
+    - ad 9000123 drops below half its first ask, to near the building's two-bedrooms, so its
+      latest ask stands.
+    - ad 9000127 asks $12,500, and its page price of $1,250 lies nearer the two-bedrooms.
+    - ad 9000128's latest answer is missing, so its earlier record stands.
+    - ad 9000129 goes off the market and then rises to a placeholder of $10,000, which drops
+      out."""
+    sys.path.insert(0, str(PROJECT.parent / "frontier" / "src"))
+    monkeypatch.setattr(sys, "path", sys.path)
+    from rentfrontier import latest_ask as chain
+
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    tower = json.dumps({"id": "900020", "slug": "900020-case-street-new_york"})
+    append_answers(
+        export,
+        answers("building_id", [("900020", tower)], 40, "2026-09-01T12:00Z"),
+        "buildings",
     )
+
+    def ad(listing_id, changes, price, ask=3000, beds=1, **values):
+        """A record of ad `listing_id` in building 900020, first asking `ask` on May 1, with a
+        price change for each (day, price) of `changes`, the page price `price` and `values`
+        over its top-level fields."""
+        pricing = {
+            "price": price,
+            "priceChanges": [
+                {"changedAt": f"{day}T10:00:00.000-04:00", "price": p}
+                for day, p in changes
+            ],
+        }
+        text = row_record(
+            listing_id,
+            may,
+            f"l{listing_id}",
+            None,
+            "900020",
+            beds,
+            ask=ask,
+            pricing=pricing,
+        )
+        return listing_id, json.dumps({**json.loads(text), **values}, sort_keys=True)
+
+    may, june, july = "2026-05-01", "2026-06-01", "2026-07-01"
+    records = [
+        ad(9000120, [(may, 3000), (june, 3200)], 3200),
+        ad(9000130, [("2026-04-20", 2900)], 2900),
+        ad(9000121, [], 3100),
+        ad(9000131, [], 3000),
+        ad(9000122, [(may, 3000), (june, 7000)], 7000),
+        ad(9000123, [(may, 3000), (june, 1250)], 1250, beds=2),
+        ad(9000124, [(may, 1200)], 1200, ask=1200, beds=2),
+        ad(9000125, [(may, 1300)], 1300, ask=1300, beds=2),
+        ad(9000127, [(may, 12500)], 1250, ask=12500, beds=2),
+        ad(9000128, [(may, 3000), (july, 3300)], 3300),
+        (9000128, None),
+        ad(
+            9000129,
+            [(may, 3000), ("2026-07-15", 10000)],
+            10000,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
+    ]
+    new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
+    append_answers(export, new)
+    ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
-    expected = pd.read_parquet(cases / "latest-ask.parquet")
-    pd.testing.assert_frame_equal(latest_ask(ctx), expected)
-    assert set(expected.how) == {
+
+    # The chain's choice, over the same rows and each ad's latest record.
+    rows = ctx.fetchdf(
+        """SELECT listing_id AS audit_id, listing_id AS source_listing_id, price_at,
+        asking_rent, building, bedrooms FROM analysis.rows ORDER BY listing_id"""
+    )
+    rows["log_rent"] = np.log(rows.asking_rent)
+    table = pd.DataFrame(
+        [
+            {
+                "listing_id": str(a.listing_id),
+                "collected_at": a.fetched.timestamp(),
+                **chain.record_latest(a.record),
+            }
+            for a in new.itertuples()
+            if a.record
+        ]
+    )
+    table = table.sort_values(["collected_at", "listing_id"])
+    table = table.drop_duplicates("listing_id", keep="last").set_index("listing_id")
+    expected = chain.choose(rows, table).rename(columns={"audit_id": "listing_id"})
+    got = latest_ask(ctx)
+    pd.testing.assert_frame_equal(got.drop(columns="price_at"), expected)
+    assert dict(zip(got.listing_id, got.latest_ask)) == {
+        "9000120": 3200,
+        "9000121": 3100,
+        "9000122": 3000,
+        "9000123": 1250,
+        "9000124": 1200,
+        "9000125": 1300,
+        "9000127": 1250,
+        "9000128": 3300,
+        "9000129": 3000,
+        "9000130": 2900,
+        "9000131": 3000,
+    }
+    assert set(got.how) == {
         "latest",
-        "page price",
         "own ask, captured before the row",
-        "uncaptured",
+        "page price",
         "first, nearer building",
+        "latest, nearer building",
+        "page price, digit",
     }
 
 
@@ -197,6 +294,8 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     assert changed(plan) == [
         "ads.identity",
         "analysis.candidates",
+        "analysis.latest_ask",
+        "analysis.latest_change",
         "analysis.rows",
         "buildings.details",
         "raw.buildings",
@@ -292,12 +391,10 @@ def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
 def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     """A newer answer for an ad replaces its earlier one, and an older answer changes nothing."""
     expected = pd.read_parquet(FIXTURE / "latest-ask.parquet")
-    rows = pd.read_parquet(FIXTURE / "rows.parquet").merge(
-        expected, on=["ordinal", "audit_id"]
-    )
-    once = rows.groupby("source_listing_id").filter(lambda r: len(r) == 1)
-    steady = once[(once.how == "latest") & (once.latest_ask == once.first_ask)]
-    steady = steady.set_index("source_listing_id").latest_ask
+    steady = expected[
+        (expected.how == "latest") & (expected.latest_ask == expected.first_ask)
+    ]
+    steady = steady.set_index("listing_id").latest_ask
     db = duckdb.connect(config={"TimeZone": "UTC"})
     answers = db.execute(
         "SELECT * FROM read_parquet(?) ORDER BY listing_id",
@@ -339,34 +436,10 @@ def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
     got = latest_ask(ctx)
-    moved = expected.ordinal.isin(
-        rows.ordinal[rows.source_listing_id == str(relisted.listing_id)]
-    )
+    moved = expected.listing_id == str(relisted.listing_id)
     assert got.latest_ask[moved].tolist() == [price]
     assert got.how[moved].tolist() == ["latest"]
     pd.testing.assert_frame_equal(got[~moved], expected[~moved])
-
-
-def test_ads_match_the_rows(tmp_path, monkeypatch):
-    """Each analysis row's price date, asking rent, bedroom count and building are its ad's
-    first day, first ask, bedroom count and building, and the ad has a unit and no reason for
-    exclusion. The current chain kept every ad of the fixture."""
-    ctx = context(monkeypatch, tmp_path / "state")
-    ctx.plan(auto_apply=True, no_prompts=True)
-    rows = ctx.fetchdf(
-        """SELECT coalesce(r.price_at = f.first_day::TIMESTAMPTZ, false) AS same_day,
-        coalesce(f.prices = [r.asking_rent], false) AS same_ask,
-        coalesce(e.rent = r.asking_rent AND e.reasons = [], false) AS kept,
-        coalesce(a.bedrooms = r.bedrooms::DOUBLE, false) AS same_bedrooms,
-        coalesce(i.building = r.building AND i.reasons = [], false) AS same_building
-        FROM raw.analysis_rows r
-        LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
-        LEFT JOIN ads.exclusions e ON e.listing_id = r.source_listing_id
-        LEFT JOIN ads.attributes a ON a.listing_id = r.source_listing_id
-        LEFT JOIN ads.identity i ON i.listing_id = r.source_listing_id"""
-    )
-    assert len(rows) == 229 and rows.all().all()
-    assert ctx.fetchdf("SELECT count(*) AS n FROM ads.exclusions").n[0] == 229
 
 
 def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch):
@@ -519,9 +592,7 @@ def test_event_log_cases(tmp_path, monkeypatch):
             }
         ),
     )
-    ctx = context(
-        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
-    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
     missing = ctx.fetchdf(
         "SELECT listing_id, price FROM ads.events WHERE kind = 'MISSING'"
@@ -719,9 +790,7 @@ def test_exclusion_cases(tmp_path, monkeypatch):
             }
         ),
     )
-    ctx = context(
-        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
-    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
     got = ctx.fetchdf(
         """SELECT e.listing_id, e.reasons, e.rent, a.bedrooms, a.conflicts, a.records
@@ -889,9 +958,7 @@ def test_market_cases(tmp_path, monkeypatch):
             }
         ),
     )
-    ctx = context(
-        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
-    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
     got = ctx.fetchdf(
         """SELECT listing_id, as_of::VARCHAR, status, on_day::VARCHAR, off_day::VARCHAR,
@@ -1002,9 +1069,7 @@ def test_identity_cases(tmp_path, monkeypatch):
         (9000071, identity_record(9000071, None, "11a")),
     ]
     append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
-    ctx = context(
-        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
-    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
 
     # The chain's functions, with each record's building slug taken from the latest record of
@@ -1086,12 +1151,20 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
 
 
 def row_record(
-    listing_id, day, unit, label=None, building="900010", beds=1, details=None, **kw
+    listing_id,
+    day,
+    unit,
+    label=None,
+    building="900010",
+    beds=1,
+    details=None,
+    ask=3000,
+    **kw,
 ):
-    """A record of ad `listing_id` for unit `unit` of `building`, first asking $3,000 on `day`,
+    """A record of ad `listing_id` for unit `unit` of `building`, first asking `ask` on `day`,
     with the unit label `label` and `details` updating its propertyDetails."""
     record = json.loads(
-        ad_record(listing_id, [(day, 3000)], beds, details=details or True, **kw)
+        ad_record(listing_id, [(day, ask)], beds, details=details or True, **kw)
     )
     record["buildingId"] = building
     record["slug"] = unit
@@ -1181,9 +1254,7 @@ def test_row_cases(tmp_path, monkeypatch):
         (i, row_record(i, may, f"u{i}", "2A", details=d)) for i, d in baths
     ]
     append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
-    ctx = context(
-        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
-    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
 
     def frame(sql):
@@ -1310,16 +1381,25 @@ class Failures(TerminalConsole):
 
 
 def test_failed_audit_leaves_the_built_tables(tmp_path, monkeypatch):
-    context(monkeypatch, tmp_path / "state").plan(auto_apply=True, no_prompts=True)
-    rows = pd.read_parquet(FIXTURE / "rows.parquet")
-    pd.concat([rows, rows.iloc[[0]]]).to_parquet(tmp_path / "rows.parquet", index=False)
+    """An export file repeating an answer fails the audit of ads.answers. The plan stops there,
+    and the tables of the earlier build stay as they were."""
+    export = copy_export(tmp_path)
+    context(monkeypatch, tmp_path / "state", export).plan(
+        auto_apply=True, no_prompts=True
+    )
+    db = duckdb.connect(config={"TimeZone": "UTC"})
+    repeated = db.execute(
+        "SELECT * FROM read_parquet(?) ORDER BY response_id LIMIT 1",
+        [str(FIXTURE / "export/ads/run-0002/*.parquet")],
+    ).df()
+    append_answers(export, repeated)
     console = Failures()
     monkeypatch.setattr(sqlmesh.core.console, "_CONSOLE", console)
-    ctx = context(monkeypatch, tmp_path / "state", rows=tmp_path / "rows.parquet")
+    ctx = context(monkeypatch, tmp_path / "state", export)
     with pytest.raises(PlanError):
         ctx.plan(auto_apply=True, no_prompts=True)
     assert [(e.node.snapshot_name, str(e.__cause__)) for e in console.failed] == [
-        ('"pipeline"."analysis"."latest_change"', "Audits failed: unique_values")
+        ('"pipeline"."ads"."answers"', "Audits failed: unique_combination_of_columns")
     ]
     pd.testing.assert_frame_equal(
         latest_ask(ctx), pd.read_parquet(FIXTURE / "latest-ask.parquet")
@@ -1335,7 +1415,7 @@ def test_every_row_audit_catches_a_lost_row(tmp_path, monkeypatch):
     )
     (tmp_path / "src").symlink_to(PROJECT.parent / "src")
     model = project / "models" / "analysis" / "latest_ask.sql"
-    lost = "FROM s4 WHERE ordinal > (SELECT min(ordinal) FROM s4)"
+    lost = "FROM s4 WHERE listing_id > (SELECT min(listing_id) FROM s4)"
     model.write_text(model.read_text().replace("FROM s4", lost))
     console = Failures()
     monkeypatch.setattr(sqlmesh.core.console, "_CONSOLE", console)
@@ -1351,7 +1431,6 @@ def test_every_row_audit_catches_a_lost_row(tmp_path, monkeypatch):
 def config(tmp_path, monkeypatch):
     """The pipeline's config module, reading its manifest from an empty folder."""
     monkeypatch.setenv("PIPELINE_EXPORT", str(FIXTURE / "export"))
-    monkeypatch.setenv("PIPELINE_ROWS", str(FIXTURE / "rows.parquet"))
     monkeypatch.setenv("PIPELINE_STATE", str(tmp_path / "state"))
     spec = importlib.util.spec_from_file_location("config", PROJECT / "config.py")
     module = importlib.util.module_from_spec(spec)
@@ -1359,6 +1438,21 @@ def config(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "EXPORT", tmp_path / "export")
     (tmp_path / "export").mkdir()
     return module
+
+
+def test_list_indexes_are_literals(tmp_path, monkeypatch):
+    """No model indexes a list in brackets with a computed position. SQLMesh renders each model
+    through sqlglot, and sqlglot 30.8 adds 1 to such an index once it knows the list's type, so
+    the models read computed positions with list_extract."""
+    ctx = context(monkeypatch, tmp_path / "state")
+    computed = [
+        (name, bracket.sql("duckdb"))
+        for name, model in ctx.models.items()
+        if model.is_sql
+        for bracket in model.query.find_all(exp.Bracket)
+        if not all(isinstance(i, exp.Literal) for i in bracket.expressions)
+    ]
+    assert computed == []
 
 
 def test_attributes_code_covers_its_imports(config):

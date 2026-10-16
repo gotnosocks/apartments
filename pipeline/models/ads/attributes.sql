@@ -60,8 +60,11 @@ SELECT listing_id, records,
         ['bedrooms', 'bathrooms', 'square_feet', 'advertised_floor', 'physical_floor',
          'floors_above_ground', 'elevator', 'laundry_type', 'doorman_type', 'hvac_type',
          'pet_policy', 'view_exposures', 'window_exposures'],
-        (key, i) -> [n_bedrooms, n_bathrooms, n_square_feet, n_advertised_floor, n_physical_floor,
-                     n_floors_above_ground, n_elevator, n_laundry_type, n_doorman_type, n_hvac_type,
-                     n_pet_policy, n_view_exposures, n_window_exposures][i] > 1
+        (key, i) -> list_extract(
+            [n_bedrooms, n_bathrooms, n_square_feet, n_advertised_floor, n_physical_floor,
+             n_floors_above_ground, n_elevator, n_laundry_type, n_doorman_type, n_hvac_type,
+             n_pet_policy, n_view_exposures, n_window_exposures],
+            i
+        ) > 1
     ) AS conflicts
 FROM merged

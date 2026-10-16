@@ -23,7 +23,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    market and the ending as views of it, and exclusions as flags with reasons. **Started**:
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
    drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
-   in `ads.identity` (#877), and the fit-ready rows in `analysis.rows` (#880).
+   in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
+   asks (#881).
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -92,11 +93,20 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       equals the chain's four regional analysis datasets on each of their 1,395,952 rows of
       units with no answer after 13:10 ET, in every value it rebuilds. It holds 92 rows more:
       ads from unit histories, which the old collector dropped because the unit's latest ad
-      had no unit page. The four new models take 19 s of queries together, at a peak of
-      3.4 GB. The test suite now takes about 50 s, close to the one-minute target.
-   6. `analysis.latest_ask` reads its rows from `raw.analysis_rows`, the chain's rows. Next it
-      reads them from `analysis.rows`, keyed on `(listing_id, price_at)`, and `raw.analysis_rows`
-      retires along with the input file. The frozen references key on the same pair.
+      had no unit page. The three new models and the changed `ads.identity` take 19 s of
+      queries together, at a peak of 3.4 GB. The test suite now takes about 50 s, close to the one-minute target.
+   6. **Done** in #881: `analysis.latest_ask` reads its rows from `analysis.rows`, keyed on
+      `listing_id`, since an ad gives at most one fit-ready row. `raw.analysis_rows` and its
+      input file are gone, and the pipeline reads only the export. On runs 1 to 5 the latest
+      asks equal the run `20261015-13f5968-api` in first ask, latest ask and step on all
+      1,395,952 shared rows. The plan after the change took 75 s, most of it in
+      `ads.attributes`.
+   7. Follow-ups from the review of #880, in one PR:
+      - a test of a fate, with two ads of a unit-month apart only in bathrooms;
+      - `ads.reported` casts its bathroom counts with `::INTEGER`, where `::BIGINT` matches the
+        chain;
+      - `buildings.details` skips a boolean `floorCount`, while `rentfrontier.cohort` counts
+        `True` as 1. Check the full export for boolean counts first.
 
    These replace the current chain from archive to analysis rows, which Data improvements runs
    from `/data1/apartments/tmp/suspect/api`:

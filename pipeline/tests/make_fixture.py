@@ -1,10 +1,10 @@
 """Write the test fixture from the full inputs on thelio.
 
-The fixture holds the analysis rows of five buildings, the exported records of their ads and
-the latest ask `rentfrontier.latest_ask` gave each of those rows. For the same rows,
-`chain-rows.parquet` holds the values the chain's analysis datasets give them, read from the
-datasets the latest-ask run names in its provenance. The script copies whole
-buildings, so the building medians in the latest-ask checks come out as in the full run.
+The fixture holds the analysis rows of five buildings in `chain-rows.parquet`, the exported
+records of their ads, and in `latest-ask.parquet` the latest ask `rentfrontier.latest_ask` gave
+each of those rows. The script reads the rows from the chain's analysis datasets that the
+latest-ask run names in its provenance. It copies whole buildings, so the building medians in
+the latest-ask checks come out as in the full run.
 Between them, the five buildings carry each way of choosing an ask that the API run used, and
 ad 2326634 at 1115 Union St, with 799 price changes.
 
@@ -33,7 +33,7 @@ BUILDINGS = (
 )
 HERE = Path(__file__).resolve().parent
 # The fields of the chain's analysis rows that the pipeline rebuilds, and the audit ID that
-# joins them to the fixture's rows.
+# joins them to the latest-ask run.
 CHAIN_COLUMNS = {
     "audit_id": "VARCHAR",
     "source_listing_id": "VARCHAR",
@@ -119,10 +119,6 @@ def main():
         "--export", default="/data1/apartments/archive/crawls/api/export"
     )
     parser.add_argument(
-        "--rows",
-        default="/data1/apartments/pipeline/inputs/analysis-rows-20261015-13f5968-api.parquet",
-    )
-    parser.add_argument(
         "--latest-ask",
         default="/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet",
     )
@@ -137,26 +133,21 @@ def main():
     (out / "export").mkdir(parents=True)
     db = duckdb.connect(config={"TimeZone": "UTC", "memory_limit": "2GB"})
 
-    db.execute(
-        f"""COPY (SELECT * FROM read_parquet(?) WHERE building IN {BUILDINGS} ORDER BY ordinal)
-        TO '{out / "rows.parquet"}' {COPY}""",
-        [args.rows],
-    )
-    db.execute(f"CREATE VIEW rows AS SELECT * FROM '{out / 'rows.parquet'}'")
-    db.execute(
-        f"""COPY (SELECT r.ordinal, l.* FROM read_parquet(?) l JOIN rows r USING (audit_id)
-        ORDER BY r.ordinal) TO '{out / "latest-ask.parquet"}' {COPY}""",
-        [args.latest_ask],
-    )
-
     datasets = json.loads(Path(args.provenance).read_text())["dataset"].split(",")
     db.execute(
-        f"""COPY (SELECT r.ordinal, o.* REPLACE (
-            o.price_at::TIMESTAMPTZ AS price_at, o.period::DATE AS period)
-        FROM read_json(?, format = 'newline_delimited', columns = {CHAIN_COLUMNS}) o
-        JOIN rows r USING (audit_id) ORDER BY r.ordinal)
+        f"""COPY (SELECT * REPLACE (price_at::TIMESTAMPTZ AS price_at, period::DATE AS period)
+        FROM read_json(?, format = 'newline_delimited', columns = {CHAIN_COLUMNS})
+        WHERE building IN {BUILDINGS} ORDER BY source_listing_id, price_at)
         TO '{out / "chain-rows.parquet"}' {COPY}""",
         [[str(Path(d.strip()) / "observations.jsonl") for d in datasets]],
+    )
+    db.execute(f"CREATE VIEW rows AS SELECT * FROM '{out / 'chain-rows.parquet'}'")
+    db.execute(
+        f"""COPY (SELECT r.source_listing_id AS listing_id, r.price_at, l.first_ask,
+            l.latest_ask, l.how
+        FROM read_parquet(?) l JOIN rows r USING (audit_id) ORDER BY listing_id)
+        TO '{out / "latest-ask.parquet"}' {COPY}""",
+        [args.latest_ask],
     )
 
     lines = [
