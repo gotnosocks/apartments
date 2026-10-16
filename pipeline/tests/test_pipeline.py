@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import importlib.util
 import json
@@ -18,6 +19,7 @@ from apartments.unit_canonical import unit_page
 from sqlmesh import Context
 from sqlmesh.core.console import TerminalConsole
 from sqlmesh.utils.errors import PlanError
+from sqlmesh.utils.metaprogramming import ExecutableKind
 from sqlglot import exp
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -448,36 +450,57 @@ def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
     )
 
 
-def test_fingerprints_hold_across_hash_seeds(tmp_path):
-    """Each model has the same fingerprint in processes with different hash seeds. A value whose
-    text changes with the seed, like a set of strings, would rebuild its model and everything
-    below it in each new build process."""
+def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
+    """Each model has the same fingerprint in processes with different hash seeds. The text of a
+    set of strings changes with the seed, so a model reading one would get a new fingerprint in
+    each new build process, and the build would rebuild it and everything below it."""
+    # SQLMesh fingerprints a model's Python values by their text. The test parses each value's
+    # text and lists the values holding a set, or text Python can't parse, such as an object's
+    # address.
+    ctx = context(monkeypatch, tmp_path / "state")
+    unstable = []
+    for model in ctx.models.values():
+        for name, value in model.python_env.items():
+            if value.kind != ExecutableKind.VALUE:
+                continue
+            try:
+                tree = ast.parse(value.payload, mode="eval")
+            except SyntaxError:
+                unstable.append((model.name, name))
+                continue
+            if any(
+                isinstance(node, (ast.Set, ast.SetComp))
+                or isinstance(node, ast.Call)
+                and getattr(node.func, "id", None) in ("set", "frozenset")
+                for node in ast.walk(tree)
+            ):
+                unstable.append((model.name, name))
+    assert unstable == []
+
+    # Each process gets its own state, since a second load would read the SQL models from the
+    # first one's cache.
     script = (
         "import json, sys; from sqlmesh import Context; "
         "print(json.dumps({s.name: s.fingerprint.to_identifier() "
         "for s in Context(paths=sys.argv[1]).snapshots.values()}))"
     )
-    (tmp_path / "ledger").mkdir()
-    env = os.environ | {
-        "PIPELINE_EXPORT": str(FIXTURE / "export"),
-        "PIPELINE_STATE": str(tmp_path / "state"),
-        "PIPELINE_LEDGER": str(tmp_path / "ledger"),
-        "PIPELINE_MEMORY": "1GB",
-    }
 
     def fingerprints(seed):
         loaded = subprocess.run(
             [sys.executable, "-c", script, str(PROJECT)],
-            env=env | {"PYTHONHASHSEED": str(seed)},
+            env=os.environ
+            | {
+                "PYTHONHASHSEED": str(seed),
+                "PIPELINE_STATE": str(tmp_path / f"state-{seed}"),
+            },
             capture_output=True,
             text=True,
-            check=True,
         )
-        return json.loads(loaded.stdout)
+        assert loaded.returncode == 0, loaded.stderr
+        return json.loads(loaded.stdout.splitlines()[-1])
 
-    # Under seeds 1 and 2, the sets ledger.entries once read gave different text.
     first, second = fingerprints(1), fingerprints(2)
-    assert '"pipeline"."ledger"."entries"' in first
+    assert len(first) == len(ctx.models)
     assert first == second
 
 

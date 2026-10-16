@@ -45,7 +45,7 @@ new buildings file changes `raw.buildings`, and the next plan rebuilds it, `buil
 With unchanged inputs, a plan builds nothing.
 SQLMesh also fingerprints a Python model by the text of the values its code reads. The text of
 a set of strings changes with the process's hash seed, so the Python models keep such values in
-tuples, and a test compares every fingerprint under two seeds.
+tuples. A test looks for sets in those values and compares every fingerprint under two seeds.
 
 `raw.ads` holds every answer, including the API's empty answers, marked `missing`.
 `ads.latest_record` reads only answers with a record, so an ad whose latest answer came back
@@ -1002,7 +1002,9 @@ in all, and most tests add made-up ads to that export. The tests:
     `city.landmarks` holds the added columns and no rows. With the file back in the manifest,
     the next plan rebuilds `city.landmarks` and `city.rejects` alone, from a new folder holding
     the landmarks' Parquet file and the rejects.
-30. load the project in processes with hash seeds 1 and 2, and compare each model's fingerprint.
+30. parse the text of each Python value a model reads, and find no set and no text Python can't
+    parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
+    and compare each model's fingerprint.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
