@@ -15,9 +15,13 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    in [pipeline-stack.md](../data/pipeline-stack.md).
 3. Write down the columns, types and keys of a fit-ready row, and freeze two reference tables:
    the current pipeline's four-region API tables, and the page-crawl tables behind the served and
-   queued fits.
+   queued fits. **Done**: the SQLMesh project (#869), [pipeline.md](../data/pipeline.md), gives
+   each of the 1,396,053 rows of the four regions the latest ask of the run
+   `20261015-13f5968-api`. The references (#868) are in
+   [fit-ready-rows.md](../data/fit-ready-rows.md).
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
-   market and the ending as views of it, and exclusions as flags with reasons.
+   market and the ending as views of it, and exclusions as flags with reasons. **Started**:
+   the event log and each ad's first ask merged in #870.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -53,18 +57,43 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
 
 ## Next
 
-1. Step 3: a SQLMesh project in the repo, started from the trial's five latest-ask models in
-   `/data1/apartments/tmp/pipeline/compare/sqlmesh`. It reads the #863 export, and its tests run
-   on a fixture of a few buildings. Then the fit-ready row's columns, types and keys, and the two
-   frozen references.
-2. Step 4's event log should collapse repeated price changes: ad 2326634 has 799 changes over two
-   months cycling through 7 prices, and 1,814 ads have 100 or more. The latest-ask check recurses
-   change by change, so long runs of changes cost time there.
+1. Step 4 goes on from #870. Its event log builds from runs 1 to 5 in 109 s at a 5 GB cap, and
+   each analysis row's `price_at` and `asking_rent` equal its ad's first day and the single
+   price of that day. The worktree `/data1/apartments/tmp/pipeline/wt-events` can start the next
+   branch from master. The rest of step 4, a PR each:
+   1. each answer's attributes, as `apartments.graphql_listing` parses them, and
+      `project_advertisement`'s reasons to drop an ad as flags. The current chain writes each
+      ad's reasons to `audit.jsonl` in each slice of
+      `/data1/apartments/frontier/datasets/api-history-20261015/`. In
+      `brooklyn-north-crown-heights-01`, 14,928 of 119,992 ads drop, 7,643 of them for a
+      concession: a record with `monthsFree` or `netEffectiveRent` above zero.
+   2. latest ask, days on market, checked against the record's `daysOnMarket`, and the ending as
+      views of the events. Repeated price changes should collapse there: ad 2326634 has 799
+      changes over two months cycling through 7 prices, and 1,814 ads have 100 or more. The
+      latest-ask check recurses change by change, so long runs of changes cost time.
+   3. the fit-ready rows built in SQL, in place of `raw.analysis_rows`, matching the frozen API
+      references on `(source_listing_id, price_at)`.
+
+   These replace the current chain from archive to analysis rows, which Data improvements runs
+   from `/data1/apartments/tmp/suspect/api`:
+   1. the granular export of the API archive, `api-granular-20261015-canonical-url-v1`;
+   2. `rentfrontier.granular_slice`, cutting it into building slices;
+   3. `apartments.historical_dataset` on each slice. `project_advertisement` gives an ad one
+      row, priced at its earliest own ACTIVE rental event, or a list of reasons to drop it;
+   4. `rentfrontier.cohort` on each slice: unit-month deduplication, floors and bathrooms;
+   5. `cohort combine` and `cohort areas` for each region, and `split.py` to cut two regions by
+      area.
+2. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
+   the rule entries keyed on `audit_id` to `(source_listing_id, price_at)`. The cases of
+   `building-joins-v1` and `west-coast-wings-v1` are constants in the code and need copying into
+   the ledger. `unit-splits-v4` splits unit histories by an algorithm over the rows, so it
+   becomes a pipeline step, with its splits checked against the frozen rows.
 
 ## Coordination
 
-- Data improvements runs the current chain by hand from `/data1/apartments/tmp/suspect/api`.
-  Its registry rerun for Brooklyn (`data-api-registry-brooklyn.service`) was still going at
-  16:30 ET on Oct 15. Pipeline work leaves those scripts, their code paths and their memory alone.
+- Data improvements runs the current chain by hand from `/data1/apartments/tmp/suspect/api` and
+  `/data1/apartments/tmp/api-build-20261015-run5`, as `systemd-run` units named `data-api-*`.
+  Pipeline work leaves those scripts, their code paths and their memory alone, and its full
+  builds wait until thelio has room beside them.
 - The website reads current listings from the collector's page captures, and Data improvements
   reads `granular_export` inputs from them. Both need a reader of the new tables before step 9.
