@@ -7,7 +7,7 @@ thelio, like `rentfrontier.loo`.
 ```sh
 cd frontier
 TMPDIR=/data1/apartments/tmp/<you> XLA_PYTHON_CLIENT_PREALLOCATE=false \
-  /data1/apartments/serve/master/ops/job gpu -m 5G -- uv run --extra gpu python -m rentfrontier.summary <run>
+  /data1/apartments/serve/master/ops/job gpu -m 8G -- uv run --extra gpu python -m rentfrontier.summary <run>
 ```
 
 It writes `/data1/apartments/frontier/summaries/<run>-<commit>/`. The module docstring has the full
