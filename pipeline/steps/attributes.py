@@ -17,9 +17,11 @@ a record of the export, `project` repeats both steps:
    furnished phrase in the description.
 4. When none of those steps gives a pet policy and the evidence holds no conflict over one, it
    looks for a pet fee in the description with `PET_FEE`. On finding one, it gives the record
-   the policy `allowed_restrictions_unknown`. A ban in the description gives `not_allowed`
-   in step 2, so the fee never overrides one. The chain reads no fees, and this step is the
-   projection's one departure from it.
+   the policy `allowed_restrictions_unknown`. Step 2 reads a ban in the description as
+   `not_allowed`, and a fee leaves that ban in place. `attribute_evidence` reads no partial
+   rule such as "no dogs", so a fee beside one still gives pets allowed, as the building takes
+   cats. NB9's ad fills skip the fee on such a text. The chain reads no fees, and this step is
+   the projection's one departure from it.
 
 The projection depends on the record alone. The ask comes from the ad's events. For API
 records the chain runs no description recovery, and its ledger of corrections is empty.

@@ -33,12 +33,10 @@ ALLOWED = '"allowed_restrictions_unknown"'
         ("No pets. Pet deposit required.", {}, '"not_allowed"'),
         # Evidence for and against pets leaves the policy unknown, fee or not.
         ("No pets allowed. Pets welcome. Pet fee $500.", {}, None),
-        # A policy from the codes or the description's own reading stays.
-        (
-            "Pets on approval, pet fee $500.",
-            {"amenities": {"list": ["PETS_ALLOWED"]}},
-            '"approval_required"',
-        ),
+        # A building taking cats and no dogs takes pets in some form.
+        ("Cats only, no dogs. Pet fee $25 a month.", {}, ALLOWED),
+        # Approval read from the description stays.
+        ("Pets on approval, pet fee $500.", {}, '"approval_required"'),
     ],
 )
 def test_pet_fee(description, details, policy):

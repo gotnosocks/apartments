@@ -26,7 +26,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
    asks (#881), from the event log since #883. Since Oct 16 `steps/attributes.py` also reads
    a pet fee in the description as pets allowed when nothing else gives a policy, at Ben's
-   suggestion and as NB9's ad fills do; it is the projection's one departure from the chain.
+   suggestion and with the pattern of NB9's ad fills; it is the projection's one departure
+   from the chain.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
    models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
