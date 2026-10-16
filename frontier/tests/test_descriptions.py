@@ -67,6 +67,32 @@ def test_build_writes_each_rows_own_ad_as_last_captured(tmp_path, monkeypatch):
         descriptions.SOURCES.reset(token)
 
 
+def test_build_skips_another_datasets_rows(tmp_path, monkeypatch):
+    monkeypatch.setattr(data, "OUTPUT_ROOT", tmp_path / "out")
+    _granular(tmp_path / "granular")
+    for name, rows in (("base", [("a", "1")]), ("extended", [("a", "1"), ("c", "3")])):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "observations.jsonl").write_text(
+            "".join(
+                json.dumps({"audit_id": a, "source_listing_id": s}) + "\n"
+                for a, s in rows
+            )
+        )
+    out = descriptions.build(
+        tmp_path / "granular",
+        tmp_path / "extended",
+        "added",
+        "abcdef0123",
+        skip=tmp_path / "base",
+    )
+    evidence = [
+        json.loads(x) for x in (out / "evidence.jsonl").read_text().splitlines()
+    ]
+    assert [e["audit_id"] for e in evidence] == ["c"]
+    provenance = json.loads((out / "provenance.json").read_text())
+    assert provenance["skipped_dataset"] == str(tmp_path / "base")
+
+
 def test_only_listed_feature_sets_read_west_villages_ads(monkeypatch):
     from rentfrontier import features, run
 
