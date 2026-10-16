@@ -103,7 +103,7 @@ $1.14 per 1,000 requests.
 | `manhattan-59th-110th` | Upper West Side, Upper East Side, East Harlem | yes | about 2,300 |
 | `brooklyn-prospect-park` | 14 areas north and west of Prospect Park | yes | about 1,100 |
 | `brooklyn-north-crown-heights` | north Brooklyn and Crown Heights | yes | about 2,900 |
-| `manhattan-page-crawl-areas` | the 12 areas page crawls already collected | no | 2,054 in run 5, then weekly top-ups |
+| `manhattan-page-crawl-areas` | the 12 areas page crawls already collected | yes, from Oct 16 | 2,054 in run 5, then weekly top-ups |
 
 Ben approved the backfill of the first four (about 8,500 requests, about $9.70) on Oct 15 at
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
@@ -371,6 +371,20 @@ exit 0. The whole top-up took 120 requests ($0.14).
   reads, 79 stored replies and 101 calls, in 17 files, and each table matches the archive.
 - I left the DRAFT ads in the top-up, since they cost about 5 cents a week, though they took
   nearly half its reads.
+
+## Unit histories in the page-crawl areas (Oct 16)
+
+After the top-up, I looked at the 105 ads the page crawl had scoped through unit pages but
+never fetched, at or above the listing-ID cutoff. All 105 appear in the history of an ad from
+run 5 or 10, and no area search returned them. Counting every ID in those histories, 2,261
+ads at or above the cutoff have no entry in the archive, neither from the API nor from a page
+crawl. Their IDs run from 1,221,201 to 5,183,637. The other four regions read their units'
+older ads, so their histories hold no unread ad above the cutoff.
+
+Ben asked on Oct 15 for the collection to capture every listing, so I set the page-crawl areas
+to read unit histories like the other regions. A top-up of the region then reads the 2,261 ads
+along with its ACTIVE ads. At about 380 ads to a request, they take about 6 requests, plus
+reads of any older ads their own histories list.
 
 ## Running it
 

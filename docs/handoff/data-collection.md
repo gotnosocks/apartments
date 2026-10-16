@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-16 06:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-16 09:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -42,7 +42,9 @@ Updated 2026-10-16 06:40 ET. Thread owner: the Data collection project thread (b
   requests ($2.34). Its searches found 522,774 ad IDs, equal to the count, with no pending,
   truncated or unanswered band. It read 424,776 ads and wrote 160,579 units and 8,003 buildings.
   The IDs it left unread fall below the listing-ID cutoff or were already final in the archive.
-  The dataset and snapshot above predate it.
+  The dataset and snapshot above predate it. On Oct 16 I found 2,261 ads at or above the cutoff
+  in its units' histories with no archive entry, so the region now reads unit histories like
+  the others, and its next top-up reads them.
 - **Raw Parquet export (#863, #864).** `streeteasy_archive.graphql_export` writes every reply of
   each run to `crawls/api/export/{ads,buildings,requests,calls}/run-NNNN/` and lists the files
   in `manifest.ndjson`. `ops/streeteasy-collect` runs it at the end of each invocation and logs
