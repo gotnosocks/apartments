@@ -421,7 +421,7 @@ disk.
 | `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
 | `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
 | `ads.regions` | table | ad with an answer: the export regions of its answers |
-| `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
+| `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
@@ -572,6 +572,47 @@ hundred lines. If I rewrote them in SQL, the repo would hold two copies to keep 
 `ads.record_attributes` runs the chain's own functions through `pipeline/steps/attributes.py`.
 That module copies a few lines from the page parser, since the page parser retires with the
 move to API records. Its docstring lists the steps.
+
+The module adds a reading of its own. When a record gives no pet policy and its evidence holds
+no conflict over one, I take a pet fee, deposit, rent or charge in the description as
+`allowed_restrictions_unknown`. Ben pointed out on Oct 16 that a fee means the building takes
+pets in some form. I took the pattern from NB9's ad fills: of NB9's rows with a pet code and
+such wording, 1,065 of 1,066 are coded allowed. A ban read by `attribute_evidence` still wins,
+since that module reads the description first. NB9 reads pets with its own patterns, and it
+skips the fee on a text with a partial rule such as no dogs. I compared the two readings on the
+230,996 distinct descriptions of NB9's eight areas, 4,250 of them with a fee:
+
+| pipeline | NB9 | descriptions |
+|---|---|--:|
+| `allowed_restrictions_unknown` | the same | 4,126 |
+| `approval_required` | the same | 35 |
+| `not_allowed` | the same | 18 |
+| `allowed_restrictions_unknown` | `approval_required` | 43 |
+| `allowed_restrictions_unknown` | no pet line | 19 |
+| `not_allowed` | `allowed_restrictions_unknown` | 6 |
+| `allowed_restrictions_unknown` | `not_allowed` | 2 |
+| `not_allowed` | `approval_required` | 1 |
+
+Of the 19 without an NB9 line, 16 take cats and no dogs, and 3 say the building charges no
+amenity or pet fees. A building taking cats still takes pets in some form, so I kept the fee's
+reading for them. The 2 descriptions NB9 reads as a ban say no cats or dogs except emotional
+support animals, and `attribute_evidence` misses that ban. The pipeline's `not_allowed` on 7
+descriptions comes from `attribute_evidence`, fee or not.
+
+I put the pattern in `steps/attributes.py` and left `apartments.attribute_evidence` alone,
+because the chain imports that module as well and keeps running unchanged until the pipeline
+takes its place. In the fixture, ad 4771575 gains a policy from its one-time pet fee of $500,
+and `test_rows_match_the_chain` expects it. `pipeline/tests/test_attributes.py` covers fees in
+other spellings, a ban beside a fee, a conflict, a text with no dogs and approval read from the
+description.
+
+I rebuilt the scratch state of runs 1 to 10 with the fee. Every record has a new code version,
+so `ads.record_attributes` parsed them all again in 525 s of the 580 s build, at a 4.4 GiB
+peak. Of the 1,746,515 rows, 14,845 gained `allowed_restrictions_unknown`, and the rows
+without a policy fell from 1,388,356 (79.5%) to 1,373,511 (78.6%). No other column of the rows
+file changed. In a sample of 18 of those rows, the match was "pet fee", "pet fees" or "pet
+deposit". The ads named it in leases' lists of possible charges, in "no pet fees", in fees with
+service animals exempt, and in "pets ok upon approval, pet fee may apply".
 
 `ads.record_attributes` is a Python model. It parses each distinct record once, in worker
 processes, and keeps the results in Parquet files in `attributes/<code version>/` beside the

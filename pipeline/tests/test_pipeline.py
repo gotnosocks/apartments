@@ -1300,9 +1300,15 @@ def chain_cohort():
     return module
 
 
+# The fixture's ads with a pet fee in the description and no other pet policy. The chain gives
+# them none, and `steps.attributes` reads the fee as pets allowed.
+PET_FEE_ADS = ("4771575",)
+
+
 def test_rows_match_the_chain(tmp_path, monkeypatch):
     """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
-    with the same values in every column the pipeline rebuilds."""
+    with the same values in every column the pipeline rebuilds, apart from the pet policy of
+    the ads in PET_FEE_ADS."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
     ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
@@ -1317,7 +1323,9 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
         floor_label_provenance ->> 'status',
         (floor_label_provenance ->> 'building_floor_count')::BIGINT, advertised_floor,
         physical_floor, floors_above_ground, elevator, laundry_type, doorman_type, hvac_type,
-        pet_policy, view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
+        CASE WHEN source_listing_id IN {PET_FEE_ADS} AND pet_policy IS NULL
+            THEN 'allowed_restrictions_unknown' ELSE pet_policy END,
+        view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
         FROM '{FIXTURE / "chain-rows.parquet"}'"""
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 229
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({ours})").n[0] == 229
