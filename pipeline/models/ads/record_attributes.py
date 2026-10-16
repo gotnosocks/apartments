@@ -13,9 +13,6 @@ The venv's editable install loads `steps.attributes` and the chain from the chec
 build hashes the files it loaded and stops if any differs from the variable, so a cache folder
 holds only rows from the code its name gives.
 
-DuckDB hashes each record it hands to the workers, and the build stops when the hash differs
-from the record's `record_sha256` in the export. The cache's rows then match their keys.
-
 The model's table holds a row for each distinct record of `raw.ads`: its SHA-256, the `id` in
 the record, whether the chain would parse it, and each value as canonical JSON or NULL.
 `PIPELINE_WORKERS` sets the number of worker processes, 4 unless set.
@@ -141,7 +138,7 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             {f"AND record_sha256 NOT IN (SELECT record_sha256 FROM {cached})" if cached else ""}
             GROUP BY record_sha256
         )
-        SELECT a.record_sha256, a.record, sha256(a.record) = a.record_sha256 AS intact
+        SELECT a.record_sha256, a.record
         FROM {ads} a SEMI JOIN picks p
             ON a.record_sha256 = p.record_sha256 AND a.response_id = p.response_id
         WHERE a.outcome = 'record'
@@ -153,13 +150,12 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
         workers, mp_context=multiprocessing.get_context("spawn")
     ) as pool:
         for batch in reader:
-            digests = batch.column("record_sha256").to_pylist()
-            for digest, intact in zip(digests, batch.column("intact").to_pylist()):
-                if not intact:
-                    raise ValueError(
-                        f"a record of raw.ads differs from its hash {digest}"
-                    )
-            pairs = list(zip(digests, batch.column("record").to_pylist()))
+            pairs = list(
+                zip(
+                    batch.column("record_sha256").to_pylist(),
+                    batch.column("record").to_pylist(),
+                )
+            )
             pending.append(pool.submit(attributes.project_batch, pairs))
             # At most two batches per worker wait, to bound memory.
             while len(pending) > 2 * workers:

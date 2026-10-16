@@ -31,10 +31,10 @@ same path stops the build, as `exported` raises. A new or rewritten export file 
 view a new fingerprint, and the next plan rebuilds that view and every model below it. With the
 same inputs, a plan rebuilds nothing.
 
-Before the models load, the config checks each listed file's bytes against the manifest's
-SHA-256 with `check_files`, and stops at the first file differing from its line. It keeps each
-checked file's stat record in the state folder, so a later load hashes only new or changed
-files.
+Before the models load, the config checks each listed file with `check_files`. It compares the
+file's bytes with the manifest's SHA-256, and each record in the file with the answer's
+`record_sha256`, and stops at the first file failing either. It keeps each checked file's stat
+record in the state folder, so a later load checks only new or changed files.
 """
 
 import hashlib
@@ -105,27 +105,51 @@ def exported(table):
     return [str(EXPORT / path) for path in paths], version, {p: files[p] for p in paths}
 
 
-def check_files(listed):
-    """Stop when a listed export file differs from its SHA-256 in the manifest.
+def check_files(*tables):
+    """Stop when a listed export file differs from its SHA-256 in the manifest, or a record in
+    it differs from its answer's `record_sha256`.
 
-    `listed` maps paths under EXPORT to the manifest's hashes. STATE/export-hashes.json keeps
-    each checked file's hash with its size, inode, modification time and change time. A file
-    keeping all four and its hash since the last check isn't read again. Writing a file back
-    with its old modification time still gives it a new change time."""
+    Each of `tables` maps paths under EXPORT to the manifest's hashes, and a path in two of
+    them with two hashes stops the check. STATE/export-hashes.json keeps each checked file's
+    hash with its size, inode, modification time and change time. A file keeping all four and
+    its hash since the last check isn't read again. Writing a file back with its old
+    modification time still gives it a new change time. A record file the config can't read
+    gets every file checked again."""
+    import duckdb
+
+    listed = {}
+    for files in tables:
+        for path, digest in files.items():
+            if listed.setdefault(path, digest) != digest:
+                raise ValueError(f"manifest gives {path} two hashes")
     record = STATE / "export-hashes.json"
     try:
         known = json.loads(record.read_text())
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
+        known = {}
+    if not isinstance(known, dict):
         known = {}
     checked = {}
+    db = None
     for path, digest in sorted(listed.items()):
         file = EXPORT / path
         # The stat comes before the hash, so a file changing during the hash gets a new stat
         # by the next load.
         info = file.stat()
         entry = [digest, info.st_size, info.st_ino, info.st_mtime_ns, info.st_ctime_ns]
-        if known.get(str(file)) != entry and file_sha256(file) != digest:
-            raise ValueError(f"{file} differs from its SHA-256 in the manifest")
+        if known.get(str(file)) != entry:
+            if file_sha256(file) != digest:
+                raise ValueError(f"{file} differs from its SHA-256 in the manifest")
+            db = db or duckdb.connect(config={"memory_limit": "1GB", "threads": 4})
+            other = db.execute(
+                """SELECT response_id FROM read_parquet(?) WHERE outcome = 'record'
+                AND sha256(record) IS DISTINCT FROM record_sha256 LIMIT 1""",
+                [str(file)],
+            ).fetchone()
+            if other:
+                raise ValueError(
+                    f"the record of answer {other[0]} in {file} differs from its hash"
+                )
         checked[str(file)] = entry
     if checked != known:
         part = record.with_name(f"{record.name}.{os.getpid()}.part")
@@ -156,7 +180,7 @@ city = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(city)
 city_tables, city_files = city.unpack(CITY, CITY_CACHE)
 STATE.mkdir(parents=True, exist_ok=True)
-check_files({**ads_files, **buildings_files})
+check_files(ads_files, buildings_files)
 
 config = Config(
     gateways={
