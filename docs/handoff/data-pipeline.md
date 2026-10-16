@@ -33,7 +33,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
 7. Date every outside fact and join it as of the ad's date.
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
-   and feature sets.
+   and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
+   `analysis.rows` to a file named by its hash and adds a line to a catalog file.
 9. Delete the page-capture rewrite once its two readers move: Data improvements'
    `granular_export` inputs and the website's current-listings publish in
    `src/streeteasy_archive/graphql_search.py`.
@@ -137,6 +138,18 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    `building-joins-v1` and `west-coast-wings-v1` are constants in the code and need copying into
    the ledger. `unit-splits-v4` splits unit histories by an algorithm over the rows, so it
    becomes a pipeline step, with its splits checked against the frozen rows.
+4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
+   [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
+   top-up, at about 4 GiB, with the same rows file either way. The rest of step 8, a PR each:
+   1. a path unit on the export's `manifest.ndjson` and a light job running `build.py` from a
+      copy of master, so each backfill and Friday top-up ends in a checked rows file;
+   2. the Friday top-up's own timing, measured on its first build;
+   3. fits reading a rows file by name and hash, agreed with Modeling first;
+   4. a tool showing an agent every change one step's edit makes to the tables, in under a
+      minute on the fixture;
+   5. `ads.record_attributes` and the cross-ad models made incremental, since their full
+      recomputes take most of a top-up;
+   6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist.
 
 ## Coordination
 

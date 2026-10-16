@@ -74,8 +74,26 @@ nothing to OUT, and the tables of the last good build stay in place.
 
 DuckDB writes the same bytes for the same table, so a second build from the same export and
 code finds its file already in OUT. Late on Oct 15, two builds in a row on that day's full state
-wrote the same 80 MB file of 1,747,140 rows, each in 1.3 s. A fit reads a rows file by its name
-and can check the file's SHA-256 against the catalog.
+wrote the same 80 MB file of 1,747,140 rows, each in under 3 s. A fit reads a rows file by its
+name and can check the file's SHA-256 against the catalog.
+
+Early on Oct 16, three builds ran one after another as light jobs with a 4,500 MiB cap and
+`PIPELINE_MEMORY=3GB`:
+
+| build | starting state | wall | `ads.record_attributes` | other models | script's peak |
+|---|---|---|---|---|---|
+| runs 1 to 4, 1,713,244 records | empty | 695 s | 502 s | 178 s | 3,782 MiB |
+| run 5 added, 424,776 more | the first build's | 399 s | 154 s | 227 s | 4,021 MiB |
+| runs 1 to 5 | empty | 769 s | 562 s | 191 s | 4,053 MiB |
+
+The top-up and the build from empty wrote the same rows file, `rows-4743b90bc5aa49b4.parquet`,
+and every model came out with the same row count. The two builds on the Oct 15 state had written
+the same file. Each build's cgroup peaked within 40 MiB of the cap because the page cache fills
+the cgroup, so the script's own peak gives the memory a build needs.
+
+In the top-up, `ads.record_attributes` parsed the 424,768 distinct records missing from its cache
+and copied the 1,713,239 cached ones into its table again, and the models after it recomputed every ad. Those full recomputes
+take most of a top-up's time.
 
 ## Models
 
