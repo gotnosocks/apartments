@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-15 18:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-16 06:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -15,9 +15,9 @@ Updated 2026-10-15 18:40 ET. Thread owner: the Data collection project thread (b
   them should run under `flock` on the same file so the combined rate stays within 64/min.
   `apartments-streeteasy-topup.timer` (Fridays 05:30 ET) reads current ads of every region
   into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
-  top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16,
-  comes a day before the Oct 10 captures behind the site's `manhattan-page-crawl-areas` ads age
-  out on Oct 17. The site counts an ad as on the market for 9 days after its last capture
+  top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16
+  from 05:30 to 05:49 ET, found 7,011 ACTIVE ads in 120 requests ($0.14) as runs 6 to 10. The
+  site counts an ad as on the market for 9 days after its last capture
   (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
   holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
@@ -31,9 +31,10 @@ Updated 2026-10-15 18:40 ET. Thread owner: the Data collection project thread (b
   `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445 units), its
   aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015` (taken 12:47
   ET, after the box reopen and before the bedroom and split reopens) came from
-  `/data1/apartments/tmp/api-build-20261015/build.sh`. After the first top-up on Oct 16, check
-  that each region's `current-listings/api-REGION` link moved, then tell the coordinator so the
-  Website thread rebuilds the site data.
+  `/data1/apartments/tmp/api-build-20261015/build.sh`. After each Friday top-up, check
+  `crawls/streeteasy-collect.log` for each region's exit and the export's, check that each
+  region's `current-listings/api-REGION` link moved, tell the coordinator so the Website thread
+  rebuilds the site data, and message the pipeline thread's session with the new runs.
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
 - **Re-read of the page-crawl areas (run 5, Oct 15).** Ben approved it at 15:50 ET. Run 5
@@ -45,7 +46,8 @@ Updated 2026-10-15 18:40 ET. Thread owner: the Data collection project thread (b
 - **Raw Parquet export (#863, #864).** `streeteasy_archive.graphql_export` writes every reply of
   each run to `crawls/api/export/{ads,buildings,requests,calls}/run-NNNN/` and lists the files
   in `manifest.ndjson`. `ops/streeteasy-collect` runs it at the end of each invocation and logs
-  "export exit N". Runs 1 to 5 are exported and match the archive (checked by hand). The "API
+  "export exit N". Runs 1 to 10 are exported and match the archive (checked by hand). A call
+  row's `attempt` holds its POST count, so `sum(attempt)` gives a run's requests. The "API
   data pipeline rebuild" thread reads the export; message its session after each new run.
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
   StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
