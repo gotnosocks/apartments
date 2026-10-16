@@ -1806,6 +1806,21 @@ def pets_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return fill_from_ad(frame, "pets", PETS_FROM_AD)
 
 
+# pets-from-ad-v1's file rebuilt with any pet fee counting as pets allowed,
+# "no pet fees" and a pet fee in a list of charges included: 1,205 more unknown
+# rows filled (2026-10-16).
+PETS_FROM_AD_V2 = Path(
+    "/data1/apartments/external/adfills/20261016-0674409/pets.parquet"
+)
+
+
+def pets_from_ad_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """pets-from-ad-v1 on `PETS_FROM_AD_V2`: an ad naming a pet fee, deposit,
+    rent or charge of any kind also fills an unknown policy as
+    "allowed_restrictions_unknown"."""
+    return fill_from_ad(frame, "pets", PETS_FROM_AD_V2)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1998,6 +2013,7 @@ DATA_RULES = {
     "west-coast-wings-v1": west_coast_wings_v1,
     "elevator-from-ad-v1": elevator_from_ad_v1,
     "pets-from-ad-v1": pets_from_ad_v1,
+    "pets-from-ad-v2": pets_from_ad_v2,
     "unit-reviews-v1": join_reviewed_units,
     "unit-reviews-v2": review_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
@@ -2052,6 +2068,7 @@ RULE_SOURCES = {
     "latest-ask-v6": LATEST_ASK_V6,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
+    "pets-from-ad-v2": PETS_FROM_AD_V2,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v2": UNIT_REVIEWS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
