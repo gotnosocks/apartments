@@ -219,7 +219,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       and took 722 s in all at a 4,332 MiB peak. Reparsing every record for the pet fee rule of
       #923 took 642 s of that. The rows file changed `pet_policy` on 14,845 rows and the
       bedroom count on the 3 rows of #921;
-   9. **Done** in this PR: planted data errors. `ops/pipeline/plant.py` plants seven kinds of
+   9. **Done** in #927: planted data errors. `ops/pipeline/plant.py` plants seven kinds of
       error in a copy of an export and counts the ones reaching the rows. On the 3% sample, the
       build drops or corrects every error coming in a later answer and every hundredfold ask.
       A tenfold ask or another bedroom count in every record of an ad passes (43 and 49 of
