@@ -6,10 +6,12 @@ the builder skips sale observations:
 
     python -m rentfrontier.listing_extras
     python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name>
+    python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name> --base <file>
 
 writes EXTERNAL_ROOT/listing-extras/<date>-<commit>[-<tag>]/listing-extras.parquet
 and provenance.json, from the crawls in CRAWLS or from the one crawl named.
-Refuses a dirty tree.
+With --base, I keep that file's rows and add the crawl's rows for the listings
+it lacks, as an extended cohort's added rows need. Refuses a dirty tree.
 """
 
 from __future__ import annotations
@@ -97,16 +99,25 @@ def main(argv: list[str] | None = None):
     import sys
 
     argv = sys.argv[1:] if argv is None else argv
-    crawls, tag = None, ""
+    crawls, tag, base = None, "", None
+    if argv[4:5] == ["--base"] and len(argv) == 6:
+        base, argv = Path(argv[5]), argv[:4]
     if argv[:1] == ["--crawl"] and argv[2:3] == ["--tag"] and len(argv) == 4:
         crawls, tag = {"crawl": argv[1]}, f"-{argv[3]}"
     elif argv:
-        raise SystemExit("usage: listing_extras [--crawl <granular dir> --tag <name>]")
+        raise SystemExit(
+            "usage: listing_extras [--crawl <granular dir> --tag <name> [--base <file>]]"
+        )
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
     table = build(crawls)
+    if base is not None:
+        # The base file's listings keep their rows; the crawl adds the rest.
+        kept = pd.read_parquet(base)
+        added = table[~table.listing_id.isin(set(kept.listing_id))]
+        table = pd.concat([kept, added], ignore_index=True)
     out_dir = EXTERNAL_ROOT / "listing-extras" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "listing-extras.parquet"
@@ -124,6 +135,12 @@ def main(argv: list[str] | None = None):
         json.dumps(
             {
                 "sources": sources,
+                "base": {
+                    "path": str(base),
+                    "sha256": hashlib.sha256(base.read_bytes()).hexdigest(),
+                }
+                if base
+                else None,
                 "built_at": started.isoformat(),
                 "commit": commit,
                 "listings": len(table),
