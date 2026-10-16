@@ -67,8 +67,8 @@ SELECT listing_id, count(*) AS records,
     CASE WHEN count(label_floor) = count(*) AND count(DISTINCT label_floor) = 1
         THEN min(label_floor) END AS label_floor,
     CASE WHEN count(full_baths) = count(*) AND count(DISTINCT full_baths) = 1
-        THEN min(full_baths)::INTEGER END AS full_baths,
+        THEN min(full_baths)::BIGINT END AS full_baths,
     CASE WHEN count(half_baths) = count(*) AND count(DISTINCT half_baths) = 1
-        THEN min(half_baths)::INTEGER END AS half_baths
+        THEN min(half_baths)::BIGINT END AS half_baths
 FROM read
 GROUP BY listing_id

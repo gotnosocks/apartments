@@ -4,7 +4,9 @@ MODEL (
     grain listing_id,
     audits (
         unique_values(columns := (listing_id)),
-        not_null(columns := (listing_id, unit_id, price_at, period, asking_rent, fate))
+        not_null(
+            columns := (listing_id, unit_id, building, price_at, period, asking_rent, bedrooms, fate)
+        )
     ),
     description 'Each ad the current chain accepts before its unit-month check, with its fit-ready values and its fate in that check.'
 );

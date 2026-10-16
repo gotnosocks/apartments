@@ -101,12 +101,12 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       asks equal the run `20261015-13f5968-api` in first ask, latest ask and step on all
       1,395,952 shared rows. The plan after the change took 75 s, most of it in
       `ads.attributes`.
-   7. Follow-ups from the review of #880, in one PR:
-      - a test of a fate, with two ads of a unit-month apart only in bathrooms;
-      - `ads.reported` casts its bathroom counts with `::INTEGER`, where `::BIGINT` matches the
-        chain;
-      - `buildings.details` skips a boolean `floorCount`, while `rentfrontier.cohort` counts
-        `True` as 1. Check the full export for boolean counts first.
+   7. **Done** in #882: the reviewers' notes on #880 and #881. The tests now cover a fate
+      from bathrooms alone, a page price equal to one of the ad's changes, and a page price ten
+      times the ask. `analysis.candidates` audits each candidate's building and bedroom count.
+      The chain counts a boolean `floorCount` as one floor, while `buildings.details` skips
+      it. No building record of runs 1 to 5 gives one, so it stays a listed old bug.
+   8. Next: latest ask as a view of the events, item 3 above.
 
    These replace the current chain from archive to analysis rows, which Data improvements runs
    from `/data1/apartments/tmp/suspect/api`:
