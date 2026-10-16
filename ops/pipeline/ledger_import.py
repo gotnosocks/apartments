@@ -10,7 +10,8 @@ them by the ad's `listing_id`. The script works in these steps:
    and its recorded values from the dataset's `observations.jsonl`. A quarantine line gives its ad and
    month itself.
 2. It gathers the evidence for each correction:
-     - the ad's words, from the rule file;
+     - the ad's words, from the rule file, or Ben's own reading when the rule's line gives
+       his name and the day;
      - the reads in `READS`, `PLANS` and `SIZES` that decided the row, with each read's second
        signal: a size the unit's ads state, another ad for the unit, a floor plan, or Ben's
        own review;
@@ -64,7 +65,7 @@ RULES = [
     "config/corrections/bedrooms-ad-v4-20261015.jsonl",
     "config/corrections/bedrooms-ad-v5-20261015.jsonl",
     "config/corrections/bedrooms-ad-v6-20261015.jsonl",
-    "config/corrections/bedrooms-ad-v7-20261016.jsonl",
+    "config/corrections/bedrooms-ad-v8-20261016.jsonl",
     "config/corrections/baths-ad-v3-20261008.jsonl",
     "config/corrections/sqft-units-v1-20261015.jsonl",
     "config/reviews/quarantine-v32-20261016.jsonl",
@@ -83,6 +84,9 @@ OTHER_AD = re.compile(r"Another ad for the unit \((\d+), (\d{4}-\d{2}-\d{2})\)")
 STATED = re.compile(r"The unit's stated ([\d,]+) sq ft")
 # A second signal from Ben's own review of a plan, a video or the unit's ads.
 BEN = re.compile(r"\bby Ben\b")
+# A rule line's evidence giving Ben's own reading and its day, as in "(Ben, 2026-10-16)",
+# in place of the ad's words.
+BEN_LINE = re.compile(r"\(Ben, \d{4}-\d{2}-\d{2}\)")
 
 
 def lines(path):
@@ -259,6 +263,17 @@ def signal(read, sizes, recorded):
     if BEN.search(text):
         return {"kind": "owner", "detail": text}
     return {"kind": "read", "detail": text}
+
+
+def rule_evidence(text):
+    """The evidence item for a bedroom or bath rule line's `evidence`: the ad's words, or Ben's
+    own reading when the text gives his name and the day, as a floor plan item when he read a
+    floor plan."""
+    if not BEN_LINE.search(text):
+        return {"kind": "ad_text", "quote": text}
+    if "floor plan" in text.lower():
+        return {"kind": "floor_plan", "detail": text}
+    return {"kind": "owner", "detail": text}
 
 
 def file_day(path):
@@ -439,7 +454,7 @@ def main(argv=None) -> int:
                         "full_baths": row["full_baths"],
                         "half_baths": row["half_baths"],
                     }
-                evidence.append({"kind": "ad_text", "quote": line["evidence"]})
+                evidence.append(rule_evidence(line["evidence"]))
                 read = reads.get(line["audit_id"])
                 if (
                     field == "bedrooms"
