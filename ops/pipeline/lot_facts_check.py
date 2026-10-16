@@ -260,6 +260,10 @@ def compare(args) -> None:
         f" ({pairs.bbl[blank].nunique():,} lots), with today's irrlotcode as"
         f" {lots.irrlotcode.dtype}"
     )
+    for (bbl, release), rows in (
+        pairs[blank].groupby(["bbl", "pluto_release"]).rows.sum().items()
+    ):
+        print(f"  {bbl} in {release}: {rows:,}")
     moved = np.zeros(len(pairs), dtype=bool)
     for column in DATED:
         moved |= ~same(column, by_month[column], by_day[column])

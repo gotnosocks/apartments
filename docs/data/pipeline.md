@@ -778,8 +778,8 @@ MapPLUTO facts as the city published them before the ad. I build it in three mod
    as missing too. For a blank `irrlotcode` it depends on how pandas loads the field in Data
    improvements' file of the latest release. Where the field loads as true or false, as in the
    20260925-3096a62 copy, the served model gives the lot's latest value. Where it holds a null,
-   as in 20261016-5f07157-all, it leaves the blank. BLANKROWS compared rows in BLANKLOTS lots
-   read a blank `irrlotcode`, such as lot 3009557506 in 18v2, and none of those lots is in the
+   as in 20261016-5f07157-all, it leaves the blank. 109 compared rows in 24 lots read a blank
+   `irrlotcode`, 26 of them from lot 3009557506 in 18v2, and none of those lots is in the
    20260925-3096a62 copy.
 
 Each row keeps its release, the release's published date and the fallback, so each value
