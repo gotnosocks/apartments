@@ -58,7 +58,8 @@ def archive(tmp_path):
 
 def test_fixture_rows_match_csv(tmp_path):
     """Every row of every member the tables take, read by Python's csv module, is either a
-    Parquet row with the same values or a refused row."""
+    Parquet row with the same values or a refused row. For a table in `LINES`, each line of
+    the member is a row."""
     tables, files = city.unpack(FIXTURE, tmp_path / "cache")
     listed = city.listed(FIXTURE)
     assert files == {e["path"]: e["sha256"] for e in listed}
@@ -78,10 +79,16 @@ def test_fixture_rows_match_csv(tmp_path):
                     text = data.decode("utf-8")
                 except UnicodeDecodeError:
                     text = data.decode("latin-1")
-                header, *records = csv.reader(io.StringIO(text, newline=""))
-                expected = [r for r in records if len(r) == len(header)]
-                refused = [r for r in records if r and len(r) != len(header)]
-                names = [n.strip().lower() for n in header]
+                if table in city.LINES:
+                    names = ["line"]
+                    lines = io.StringIO(text, newline="")
+                    expected = [[line.rstrip("\r\n")] for line in lines]
+                    refused = []
+                else:
+                    header, *records = csv.reader(io.StringIO(text, newline=""))
+                    expected = [r for r in records if len(r) == len(header)]
+                    refused = [r for r in records if r and len(r) != len(header)]
+                    names = [n.strip().lower() for n in header]
                 got = db.execute(
                     f"""SELECT {", ".join(f'"{n}"' for n in names)}, record
                     FROM read_parquet({tables[table]}, union_by_name = true)
@@ -108,6 +115,13 @@ def test_fixture_forms(tmp_path):
         f"SELECT DISTINCT release, member FROM {read(tables['pad_addresses'])}"
     )
     assert sorted(pad.fetchall()) == [("24c", "bobaadr.txt"), ("26c", "bobaadr.txt")]
+    streets = duckdb.sql(
+        f"SELECT DISTINCT release, member FROM {read(tables['pad_streets'])}"
+    )
+    assert sorted(streets.fetchall()) == [
+        ("24c", "snd24Ccow.txt"),
+        ("26c", "snd26Ccow.txt"),
+    ]
     # Each MapPLUTO release keeps its lots on the five blocks.
     pluto = duckdb.sql(
         f"SELECT DISTINCT release FROM {read(tables['pluto'])} WHERE lot IS NOT NULL"
@@ -199,6 +213,32 @@ def test_latin_1(archive, tmp_path):
     )
     tables, _ = city.unpack(archive, tmp_path / "cache")
     assert values(tables["landmarks"], "name, encoding") == [("Café", "latin-1")]
+
+
+def test_fixed_width_records(archive, tmp_path):
+    """A table in `LINES` keeps each record whole, with its quotes, commas and trailing
+    spaces. A blank line gives a null, and a record holding the byte 0x01 goes to the
+    rejects."""
+    add(
+        archive,
+        "pad",
+        "26c",
+        "pad/a.zip",
+        {
+            "bobaadr.txt": b"a\n1\n",
+            "bobabbl.txt": b"a\n1\n",
+            "snd26Ccow.txt": b'0000SND  \r\n1"Q" ST, E  \r\n\r\n1A\x01B\r\n1END\r\n',
+        },
+    )
+    tables, _ = city.unpack(archive, tmp_path / "cache")
+    assert values(tables["pad_streets"], "line, record") == [
+        ("0000SND  ", 1),
+        ('1"Q" ST, E  ', 2),
+        (None, 3),
+        ("1END", 4),
+    ]
+    refused = duckdb.sql(f"SELECT DISTINCT line FROM {read(tables['rejects'])}")
+    assert refused.fetchall() == [(4,)]
 
 
 def test_refused_rows(archive, tmp_path):
@@ -319,3 +359,26 @@ def test_lock_after_a_sweep(tmp_path, monkeypatch):
     with city.lock_code(code) as lock:
         assert len(calls) == 2
         assert os.fstat(lock.fileno()).st_ino == os.stat(code / ".lock").st_ino
+
+
+def test_sweep_after_another_sweep(archive, tmp_path, monkeypatch):
+    """Another sweep may move a folder after this sweep opens its lock file, and a load may then
+    make a new folder in its place. This sweep leaves the new folder alone."""
+    add(archive, "landmarks", "2026-01-02", "landmarks/a.csv.gz", {"": b"a\n1\n"})
+    cache = tmp_path / "cache"
+    (cache / "other" / "folder").mkdir(parents=True)
+    (cache / "other" / ".lock").touch()
+    week_ago = time.time() - city.WEEK - 60
+    os.utime(cache / "other" / ".lock", (week_ago, week_ago))
+    real = fcntl.flock
+
+    def flock(f, op):
+        real(f, op)
+        if f.name == str(cache / "other" / ".lock"):
+            os.rename(cache / "other", cache / "moved")
+            (cache / "other" / "new").mkdir(parents=True)
+            (cache / "other" / ".lock").touch()
+
+    monkeypatch.setattr(city.fcntl, "flock", flock)
+    city.unpack(archive, cache)
+    assert (cache / "other" / "new").is_dir()

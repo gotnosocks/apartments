@@ -145,7 +145,8 @@ archive's manifest lists, the step
 3. reads the copy with DuckDB as CSV, every value as text, with the column names in lower
    case. DuckDB sets aside each row with too few or too many values, and the step writes those
    rows to the folder's `rejects.parquet` with DuckDB's line number, its reason and the row's
-   text;
+   text. PAD's street name dictionary has records of fixed width, and DuckDB reads each record
+   whole into the column `line`;
 4. writes each member's rows to a Parquet file, adding `release` and `published` from the
    manifest line, the archive's `file` and its `member`, `record`, the row's place among the
    rows DuckDB kept from the member, and the `encoding`;
@@ -156,6 +157,7 @@ archive's manifest lists, the step
 |---|---|---|
 | `pad_addresses` | `pad` | `bobaadr.txt` at the zip's root |
 | `pad_lots` | `pad` | `bobabbl.txt` at the zip's root |
+| `pad_streets` | `pad` | the street name dictionary, `snd26Ccow.txt` in 26c |
 | `pluto` | `pluto` | each `.txt` or `.csv` |
 | `footprints`, `landmarks`, `dob_now_co`, `dob_co` | the Open Data set | the gzipped CSV |
 
@@ -167,8 +169,9 @@ files up to 12v2, and as one table for the city from 18v2 on.
 the code and of the manifest line, so a new file in the archive gives its source's views new
 fingerprints, and an edit to `steps/city.py` or a new DuckDB gives every city view new ones. For
 a table with no file in the archive, the step gives an empty file with only the added columns,
-and a file holding no member for one of its source's tables stops the load with an error. The
-step keeps every value as text, and the identity and city-fact steps cast the values they read.
+along with `line` for the street names. A file holding no member for one of its source's tables
+stops the load with an error. The step keeps every value as text, and the identity and city-fact
+steps cast the values they read.
 A `published` date with no time reads as midnight UTC.
 
 `record` counts the kept rows. A refused row's `line` is DuckDB's line number for it, counting
@@ -383,6 +386,7 @@ disk.
 | `raw.buildings` | view | exported API answer for a building |
 | `city.pad_addresses` | view | address range of a PAD release |
 | `city.pad_lots` | view | lot of a PAD release, with its range of condominium lots and its billing lot |
+| `city.pad_streets` | view | name of a street in a PAD release, with the street's code; the view cuts the dictionary's records into fields |
 | `city.pluto` | view | lot of a MapPLUTO release |
 | `city.footprints` | view | building footprint in a copy of the footprints |
 | `city.landmarks` | view | landmark building or site in a copy of LPC's set |
@@ -986,10 +990,13 @@ in all, and most tests add made-up ads to that export. The tests:
     `PLUTO_RELEASES`.
 28. unpack the city fixture and read each member a table takes with Python's `csv` module. Each
     row with as many values as the header matches a Parquet row, in order, and each other row
-    has a line in `city.rejects`. Then the test checks the fixture's forms: the PAD tables come
-    from the zip's root in 24c and 26c, each MapPLUTO release holds lots, and the Queens table of
-    13v1 has a row refused for missing values. With small archives of its own, it checks
+    has a line in `city.rejects`. Each line of a street name dictionary matches a row's `line`.
+    Then the test checks the fixture's forms: the PAD tables come from the zip's root in 24c and
+    26c, each MapPLUTO release holds lots, and the Queens table of 13v1 has a row refused for
+    missing values. With small archives of its own, it checks
     - the order of the columns and the added values;
+    - a dictionary's records kept whole, with their quotes, commas and trailing spaces, a blank
+      line read as a null, and a record holding the byte 0x01 refused;
     - a member read as Latin-1;
     - a refused row's line, reason and text, and the `record` of the rows after it;
     - a second unpack writing nothing, and a new manifest line unpacking only its file;
@@ -997,12 +1004,16 @@ in all, and most tests add made-up ads to that export. The tests:
     - a stopped unpack, whose `.part` folder the next unpack replaces;
     - a manifest line with no newline, whose file the unpack leaves out;
     - a source no table takes;
-    - the sweep, which deletes a week-old folder and keeps a recent one and one a load holds.
+    - the sweep, which deletes a week-old folder and keeps a recent one and one a load holds;
+    - a sweep after another sweep has moved a folder and a load has made a new one in its
+      place, which keeps the new folder.
 29. build the fixture with an archive lacking the landmarks file, and check that
     `city.landmarks` holds the added columns and no rows. With the file back in the manifest,
     the next plan rebuilds `city.landmarks` and `city.rejects` alone, from a new folder holding
     the landmarks' Parquet file and the rejects.
-30. parse the text of each Python value a model reads, and find no set and no text Python can't
+30. render `city.pad_streets` over the fixture and read 26c's 276 names, none of type S, with
+    the fields of BROADWAY's record. The 20-character name is blank in every record of 26c.
+31. parse the text of each Python value a model reads, and find no set and no text Python can't
     parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
     and compare each model's fingerprint.
 

@@ -365,6 +365,48 @@ def test_new_city_file_rebuilds_only_its_view(tmp_path, monkeypatch):
     assert ctx.fetchdf("SELECT count(*) AS n FROM city.landmarks").n[0] == 29
 
 
+def test_pad_street_fields(tmp_path, monkeypatch):
+    """The view of PAD's street names cuts each record into fields, and leaves out the header
+    record and the records of type S. The fixture's 26c dictionary has 276 records of other
+    types."""
+    ctx = context(monkeypatch, tmp_path / "state")
+    view = ctx.render("city.pad_streets").sql(dialect="duckdb")
+    streets = duckdb.sql(f"SELECT * FROM ({view}) WHERE release = '26c'")
+    rows = streets.df()
+    assert len(rows) == 276
+    assert set(rows.gft) == {" ", "N", "B", "X", "G"}
+    (broadway,) = rows[rows.stname == "BROADWAY".ljust(32)].itertuples()
+    assert (
+        broadway.boro,
+        broadway.primary_flag,
+        broadway.principal_flag,
+        broadway.b10sc,
+        broadway.sc5,
+        broadway.lgc,
+        broadway.spv,
+        broadway.numeric_ind,
+        broadway.gft,
+        broadway.len_full_name,
+        broadway.full_stname,
+        broadway.stn20,
+        broadway.ht_name_type_code,
+    ) == (
+        "1",
+        "P",
+        "F",
+        "11361001010",
+        "13610",
+        "01",
+        "010",
+        " ",
+        " ",
+        "08",
+        "BROADWAY".ljust(32),
+        " " * 20,
+        " ",
+    )
+
+
 def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
     """A change to the projection's code gives ads.record_attributes a new code version, and the
     build parses every record again into a new folder. A build stops when the venv loads code
