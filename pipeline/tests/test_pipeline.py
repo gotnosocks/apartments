@@ -5,12 +5,15 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import duckdb
 import pandas as pd
 import pytest
 import sqlmesh.core.console
+from apartments.canonical_units import memberships
+from apartments.unit_canonical import unit_page
 from sqlmesh import Context
 from sqlmesh.core.console import TerminalConsole
 from sqlmesh.utils.errors import PlanError
@@ -55,15 +58,20 @@ def copy_export(tmp_path, keep=None):
     return export
 
 
-def append_answers(export, answers):
-    """Write `answers` as a new ads file of run 5 and list it in the manifest."""
+def append_answers(export, answers, table="ads"):
+    """Write `answers` as a new file of run 5 of `table` and list it in the manifest."""
     first, last = answers.response_id.min(), answers.response_id.max()
-    path = Path("ads/run-0005") / f"responses-{first:07d}-{last:07d}.parquet"
-    (export / path).parent.mkdir(parents=True)
+    path = Path(table) / "run-0005" / f"responses-{first:07d}-{last:07d}.parquet"
+    (export / path).parent.mkdir(parents=True, exist_ok=True)
+    key = (
+        "listing_id::BIGINT AS listing_id"
+        if table == "ads"
+        else "building_id::VARCHAR AS building_id"
+    )
     db = duckdb.connect(config={"TimeZone": "UTC"})
     db.register("answers", answers)
     db.execute(
-        f"""COPY (SELECT listing_id::BIGINT AS listing_id, fetched::TIMESTAMPTZ AS fetched,
+        f"""COPY (SELECT {key}, fetched::TIMESTAMPTZ AS fetched,
         response_id::BIGINT AS response_id, run::INTEGER AS run, region, generation::INTEGER
         AS generation, outcome, record_sha256, record FROM answers ORDER BY response_id)
         TO '{export / path}' (FORMAT parquet)"""
@@ -75,7 +83,7 @@ def append_answers(export, answers):
         "rows": len(answers),
         "run": 5,
         "sha256": hashlib.sha256((export / path).read_bytes()).hexdigest(),
-        "table": "ads",
+        "table": table,
         "written": "2026-10-23T12:00:00Z",
     }
     with open(export / "manifest.ndjson", "a") as f:
@@ -135,6 +143,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.exclusions",
         "ads.first_ask",
         "ads.history_events",
+        "ads.identity",
         "ads.kept_changes",
         "ads.latest_record",
         "ads.market",
@@ -143,6 +152,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.latest_ask",
         "analysis.latest_change",
         "raw.ads",
+        "raw.buildings",
     ]
     # The second build parsed only records missing from runs 2 and 3.
     added = [path for path in cache.glob("*/*.parquet") if path.name not in before]
@@ -164,6 +174,22 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         context(monkeypatch, tmp_path / "state", export).plan_builder("prod").build()
     )
     assert not again.has_changes and not again.new_snapshots
+
+
+def test_new_buildings_file_rebuilds_only_identity(tmp_path, monkeypatch):
+    def early(line):
+        return line["table"] == "ads" or line["run"] < 4
+
+    export = copy_export(tmp_path, keep=early)
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    # Run 4 holds the only answer for building 82192, so its 49 ads have no page yet.
+    assert ctx.fetchdf("SELECT count(page) AS n FROM ads.identity").n[0] == 180
+    shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    plan = ctx.plan(auto_apply=True, no_prompts=True)
+    assert changed(plan) == ["ads.identity", "raw.buildings"]
+    assert ctx.fetchdf("SELECT count(page) AS n FROM ads.identity").n[0] == 229
 
 
 def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
@@ -310,20 +336,22 @@ def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
 
 
 def test_ads_match_the_rows(tmp_path, monkeypatch):
-    """Each analysis row's price date, asking rent and bedroom count are its ad's first day,
-    first ask and bedroom count, and the ad has no reason for exclusion. The current chain kept
-    every ad of the fixture."""
+    """Each analysis row's price date, asking rent, bedroom count and building are its ad's
+    first day, first ask, bedroom count and building, and the ad has a unit and no reason for
+    exclusion. The current chain kept every ad of the fixture."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
     rows = ctx.fetchdf(
         """SELECT coalesce(r.price_at = f.first_day::TIMESTAMPTZ, false) AS same_day,
         coalesce(f.prices = [r.asking_rent], false) AS same_ask,
         coalesce(e.rent = r.asking_rent AND e.reasons = [], false) AS kept,
-        coalesce(a.bedrooms = r.bedrooms::DOUBLE, false) AS same_bedrooms
+        coalesce(a.bedrooms = r.bedrooms::DOUBLE, false) AS same_bedrooms,
+        coalesce(i.building = r.building AND i.reasons = [], false) AS same_unit
         FROM raw.analysis_rows r
         LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
         LEFT JOIN ads.exclusions e ON e.listing_id = r.source_listing_id
-        LEFT JOIN ads.attributes a ON a.listing_id = r.source_listing_id"""
+        LEFT JOIN ads.attributes a ON a.listing_id = r.source_listing_id
+        LEFT JOIN ads.identity i ON i.listing_id = r.source_listing_id"""
     )
     assert len(rows) == 229 and rows.all().all()
     assert ctx.fetchdf("SELECT count(*) AS n FROM ads.exclusions").n[0] == 229
@@ -872,6 +900,142 @@ def test_market_cases(tmp_path, monkeypatch):
         ["9000055", day, "NO_LONGER_AVAILABLE", "2026-06-02", "2026-06-12", 10, 1]
         + ["NO_LONGER_AVAILABLE", "2026-06-12", 10, None],
     ]
+
+
+def answers(key, records, first, fetched):
+    """A frame of run-5 answers: each of `records` is a key and a record, or None for a missing
+    answer, with response IDs from `first` and a minute apart from `fetched`."""
+    return pd.DataFrame(
+        {
+            key: [r[0] for r in records],
+            "fetched": pd.Timestamp(fetched)
+            + pd.to_timedelta(range(len(records)), unit="min"),
+            "response_id": range(first, first + len(records)),
+            "run": 5,
+            "region": "cases",
+            "generation": 1,
+            "outcome": ["missing" if r[1] is None else "record" for r in records],
+            "record_sha256": [
+                r[1] and hashlib.sha256(r[1].encode()).hexdigest() for r in records
+            ],
+            "record": [r[1] for r in records],
+        }
+    )
+
+
+def canonical_link(building, record):
+    """A copy of `graphql_listing.canonical_link`, whose module needs the page parser's
+    packages."""
+    slug = building.get("slug") if isinstance(building, dict) else None
+    unit = record.get("slug") if isinstance(record, dict) else None
+    if not isinstance(slug, str) or not slug or not isinstance(unit, str) or not unit:
+        return None
+    return f"https://streeteasy.com/building/{slug}/{unit}"
+
+
+def identity_record(listing_id, building=None, slug=None):
+    """An ad record with the building ID and unit slug given, leaving out each one not given."""
+    record = {"id": str(listing_id), "status": "ACTIVE"}
+    if building is not None:
+        record["buildingId"] = building
+    if slug is not None:
+        record["slug"] = slug
+    return json.dumps(record, sort_keys=True)
+
+
+def test_identity_cases(tmp_path, monkeypatch):
+    """ads.identity gives each ad the unit page and unit that the current chain's
+    `canonical_units.memberships` gives it, on these cases:
+
+    - ads 9000060 and 9000061 give the same page, so they share a unit.
+    - ad 9000062 gives two pages, and ad 9000063 gives the second of them, so neither gets a
+      unit.
+    - ads 9000064, 9000065 and 9000066 give an empty unit slug, none, and one with a '/'.
+    - ad 9000067 names a building missing from the export.
+    - ad 9000068 names a building that a later answer renames.
+    - ad 9000069's latest answer is missing, so its record stands.
+    - ad 9000070's building slug holds a '|', as one slug in the full export does.
+    - ad 9000071's latest record names no building.
+    - the case fixture's own ads name no building.
+
+    Building 900001's latest answer is missing, so its record stands."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    tower = "1-case-street-new_york"
+    buildings = [
+        ("900002", json.dumps({"id": "900002", "slug": "2-old-name-new_york"})),
+        ("900002", json.dumps({"id": "900002", "slug": "2-new-name-new_york"})),
+        ("900003", json.dumps({"id": "900003", "slug": "111|2-case-street-new_york"})),
+        ("900001", None),
+    ]
+    append_answers(
+        export, answers("building_id", buildings, 40, "2026-09-01T12:00Z"), "buildings"
+    )
+    records = [
+        (9000060, identity_record(9000060, "900001", "4a")),
+        (9000060, identity_record(9000060, "900001", "4a")),
+        (9000061, identity_record(9000061, "900001", "4a")),
+        (9000062, identity_record(9000062, "900001", "5b")),
+        (9000062, identity_record(9000062, "900001", "5c")),
+        (9000063, identity_record(9000063, "900001", "5c")),
+        (9000064, identity_record(9000064, "900001", "")),
+        (9000065, identity_record(9000065, "900001")),
+        (9000066, identity_record(9000066, "900001", "6/a")),
+        (9000067, identity_record(9000067, "999999", "7a")),
+        (9000068, identity_record(9000068, "900002", "8a")),
+        (9000069, identity_record(9000069, "900001", "9a")),
+        (9000069, None),
+        (9000070, identity_record(9000070, "900003", "10a")),
+        (9000071, identity_record(9000071, "900001", "11a")),
+        (9000071, identity_record(9000071, None, "11a")),
+    ]
+    append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
+    ctx = context(
+        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
+    )
+    ctx.plan(auto_apply=True, no_prompts=True)
+
+    # The chain's reading: each record's page from the latest record of its building.
+    latest = {}
+    for building_id, raw in ctx.fetchdf(
+        """SELECT building_id, record FROM raw.buildings WHERE outcome = 'record'
+        ORDER BY fetched, response_id"""
+    ).values:
+        latest[building_id] = json.loads(raw)
+    captures = []
+    for listing_id, raw in ctx.fetchdf(
+        """SELECT listing_id::VARCHAR, record FROM raw.ads WHERE outcome = 'record'
+        ORDER BY fetched, response_id"""
+    ).values:
+        record = json.loads(raw)
+        href = canonical_link(latest.get(str(record.get("buildingId"))), record)
+        captures.append(
+            {"listing_id": listing_id, "canonical_unit_url": href and unit_page(href)}
+        )
+    expected = {
+        m["listing_id"]: (m["canonical_unit_url"], m["unit_id"])
+        for m in memberships(captures)
+    }
+    got = ctx.fetchdf(
+        "SELECT listing_id, page, unit_id, building, reasons FROM ads.identity"
+    )
+    got = got.astype(object).where(got.notna(), None).set_index("listing_id")
+    assert {i: (r.page, r.unit_id) for i, r in got.iterrows()} == expected
+    assert all((r.unit_id is None) == (len(r.reasons) == 2) for _, r in got.iterrows())
+
+    page = "https://streeteasy.com/building/{}/{}".format
+    assert (
+        got.unit_id["9000060"]
+        == got.unit_id["9000061"]
+        == (f"unit:{uuid.uuid5(uuid.NAMESPACE_URL, page(tower, '4a'))}")
+    )
+    assert got.page["9000063"] == page(tower, "5c")
+    assert got.loc[["9000062", "9000063", "9000064", "9000065"], "unit_id"].isna().all()
+    assert got.loc[["9000066", "9000067", "9000071", "9000001"], "unit_id"].isna().all()
+    assert got.page["9000068"] == page("2-new-name-new_york", "8a")
+    assert got.page["9000070"] == page("111|2-case-street-new_york", "10a")
+    assert got.unit_id["9000069"] is not None and got.unit_id["9000070"] is not None
+    assert got.building["9000060"] == tower and got.building["9000071"] is None
 
 
 class Failures(TerminalConsole):

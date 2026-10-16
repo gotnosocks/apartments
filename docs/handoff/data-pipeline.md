@@ -22,11 +22,13 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
    market and the ending as views of it, and exclusions as flags with reasons. **Started**:
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
-   drop it in #872, and days on market with the ending in `ads.market`.
+   drop it in #872, days on market with the ending in `ads.market` (#876), and each ad's unit
+   in `ads.identity`.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
-   error rate.
+   error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
+   rule `canonical-url-v1`.
 7. Date every outside fact and join it as of the ad's date.
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
@@ -79,8 +81,15 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       2326634 has 799 changes over two months cycling through 7 prices, and 1,814 ads have 100
       or more. The latest-ask check recurses change by change, so long runs of changes cost
       time.
-   4. the fit-ready rows built in SQL, in place of `raw.analysis_rows`, matching the frozen API
-      references on `(source_listing_id, price_at)`.
+   4. `ads.identity`: each ad's building, unit page and unit by rule `canonical-url-v1`, from
+      the record's slug and the building's slug in the export's buildings table. On runs 1 to
+      5 it equals the chain's unit, page and building on all 1,923,491 rows of seven regional
+      analysis datasets, and gives each of the chain audit's 1,692,611 ads a unit. 14,849 ads
+      have a record without a unit slug and get no unit. Scored matching in step 6 could place
+      them by building and unit label.
+   5. the fit-ready rows built in SQL, in place of `raw.analysis_rows`, matching the frozen API
+      references on `(source_listing_id, price_at)`. They need attribute consensus over each
+      unit's ads, the floor rules of `rentfrontier.cohort`, unit-month deduplication and areas.
 
    These replace the current chain from archive to analysis rows, which Data improvements runs
    from `/data1/apartments/tmp/suspect/api`:
