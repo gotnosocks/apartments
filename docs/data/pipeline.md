@@ -110,9 +110,16 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    last file;
 2. moves its own checkout, `/data1/apartments/pipeline/code`, to master and syncs
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`;
-3. waits for 6 GiB of available memory, then runs `build.py` with `ops/job light -m 4500M` and
-   `PIPELINE_MEMORY=3GB`;
-4. builds again when the manifest changed during the build.
+3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
+   runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
+   trying again every five minutes while less is available;
+4. runs `build.py` with `PIPELINE_MEMORY=3GB` in the service's own cgroup, which the unit caps
+   at 5 GiB with swap off, and lets go of the locks after it;
+5. builds again when the manifest changed during the build.
+
+A manual export with `streeteasy_archive.graphql_export` takes only `export/.lock`, and it exits
+when anything else holds that lock, so the script never opens it. When such an export appends
+its lines during a build, step 5 builds again.
 
 A failed build leaves the service failed, with the failed models in its journal:
 
@@ -121,10 +128,13 @@ systemctl --user status apartments-pipeline-build
 journalctl --user -u apartments-pipeline-build -o cat | grep -v pydantic | tail -n 40
 ```
 
-The checkout and the units go in once:
+The checkout and the units go in once. The second line adds the checkout when it is missing,
+and the third moves it to master, so the service finds the script:
 
 ```sh
-git -C /data1/apartments/serve/master worktree add --detach /data1/apartments/pipeline/code origin/master
+C=/data1/apartments/pipeline/code
+[ -d $C ] || git -C /data1/apartments/serve/master worktree add --detach $C origin/master
+git -C $C fetch -q origin master && git -C $C checkout -q --detach origin/master
 cp /data1/apartments/pipeline/code/ops/systemd/apartments-pipeline-build.{path,service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline-build.timer

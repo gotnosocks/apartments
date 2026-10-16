@@ -3,10 +3,15 @@ Description=Build the data pipeline's fit-ready rows from the StreetEasy export 
 
 [Service]
 Type=oneshot
-# The script runs from its own checkout of master, which it moves to master itself. The build
-# runs as a light job (ops/job light) in apartments-light.slice, so this unit holds only the
-# waiting shell.
+# The script runs from its own checkout, which it moves to master before each build. The build
+# runs in this unit's cgroup, so stopping the unit or its timeout stops the build too.
 ExecStart=/data1/apartments/pipeline/code/ops/pipeline/build-latest
-# A backfill can hold oxylabs.lock for many hours, and the collector waits up to 18.
-TimeoutStartSec=20h
+# A backfill can hold oxylabs.lock for many hours, and a GPU job can hold the GPU lock for two.
+TimeoutStartSec=24h
+# A build from empty peaks at about 4,050 MiB. With swap off, the kernel stops a build that
+# passes the cap instead of moving it into the swap the GPU fits use.
+MemoryMax=5G
+MemorySwapMax=0
 Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

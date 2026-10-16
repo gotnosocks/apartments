@@ -190,7 +190,8 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     try:
         ctx.run_janitor(ignore_ttl=False)
     except Exception as error:
-        # The rows file and its catalog line stand. The next build's janitor tries again.
+        # By now the rows file and its catalog line are written. The next build runs the janitor
+        # again.
         print(f"janitor failed: {error}", file=sys.stderr)
     ctx.close()
     return line
