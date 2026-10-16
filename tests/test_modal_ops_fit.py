@@ -528,3 +528,67 @@ def test_a_model_slower_than_the_default_rate_is_estimated_at_its_own(tmp_path):
 def test_the_pre_check_reads_the_model_from_modal_fit_arguments():
     argv = ["--gpu", "L4", "abc", "lab", "m7-x", "nb8-v1", "2", "300", "4500", "9"]
     assert cap.fit_model(argv) == ("m7-x", "nb8-v1")
+
+
+def test_a_large_fit_has_its_own_container_price_and_no_hour_cap(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert {
+        gpu: round(app.usd_per_second(gpu, large=True) * 3600, 4)
+        for gpu in app.LARGE_FITS
+    } == pytest.approx(cap.USD_PER_HOUR_LARGE, abs=1e-4)
+    assert app.LARGE_FIT_CAP < app.LARGE_TIMEOUT
+    secs = cap.seconds(2, 300, 24000)
+    assert cap.over_cap(1.0, secs) and cap.over_cap(1.0, secs, large=True) is None
+    assert cap.estimate(2, 300, 4500, "H100", large=True) > cap.estimate(
+        2, 300, 4500, "H100"
+    )
+    day = cap.START + datetime.timedelta(days=7)
+    cap.reserve("big", "H100", 1.0, tmp_path / "l.jsonl", day, secs=secs, large=True)
+    argv = ["--large", "--gpu", "H100", "c", "l", "m7", "all", "2", "300", "4500", "9"]
+    args, rest = fit.parse(argv)
+    spec = fit.plan(args, rest, "c" * 40)
+    assert spec["large"] and spec["tier"] == "full" and "--large" not in rest
+    assert cap.fit_size(argv) == ("2", "300", "4500", "H100")
+    # The container builds a large fit's summary, so thelio doesn't.
+    assert not fit.wants_summary(spec, "rows")
+    assert fit.wants_summary({**spec, "large": False}, "rows")
+
+
+def test_a_large_fit_builds_its_summary_and_calibration_in_the_container(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path)
+    calls = []
+
+    def run(cmd, env, log, timeout=None):
+        calls.append((cmd[2:], timeout))
+        if cmd[2] == "rentfrontier.summary":
+            bundle = tmp_path / "summaries" / "r-abc1234"
+            bundle.mkdir(parents=True)
+            (bundle / "complete.json").write_text("{}")
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    now = 1000.0
+    monkeypatch.setattr(app.time, "time", lambda: now)
+    done = app._summarize({"name": "r"}, {}, None, now + 7200)
+    assert done == {
+        "summary": {"exit": 0, "seconds": 0.0},
+        "calibration": {"exit": 0, "seconds": 0.0},
+    }
+    assert calls == [
+        (["rentfrontier.summary", "r"], 7200),
+        (["rentfrontier.calibration", str(tmp_path / "summaries" / "r-abc1234")], 7200),
+    ]
+    # A bundle counts once its complete.json parses; downloads take both directories.
+    assert app._complete(tmp_path / "summaries" / "r-abc1234")
+    assert {"summaries", "calibration"} <= set(app.POST_KINDS) & set(fit.POST_KINDS)
+    # Without a bundle, calibration is skipped.
+    calls.clear()
+    monkeypatch.setattr(app, "_run", lambda *a, **k: 1)
+    (tmp_path / "summaries" / "r-abc1234" / "complete.json").unlink()
+    done = app._summarize({"name": "r"}, {}, None, now + 7200)
+    assert done["summary"]["exit"] == 1 and done["calibration"]["exit"] == "skipped"
