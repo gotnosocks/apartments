@@ -386,9 +386,28 @@ regions read their units' older ads, so their histories hold no unread ad above 
 
 Ben asked on Oct 15 at 11:47 ET for the collection to capture every listing, so I set the
 page-crawl areas to read unit histories like the other regions. A top-up of the region then
-reads the 2,261 ads along with its ACTIVE ads and its ads with a status other than final. At
-about 380 ads to a request, they take about 6 requests, plus reads of any older ads their own
-histories list.
+reads the 2,261 ads along with its ACTIVE ads and its ads with a status other than RENTED,
+NO_LONGER_AVAILABLE or DELISTED. At about 380 ads to a request, they take about 6 requests, plus
+reads of any older ads their own histories list.
+
+After #908 merged, I ran `ops/streeteasy-collect topup manhattan-page-crawl-areas` by hand as
+run 11, from 09:46 to 09:50 ET. It took 25 requests ($0.03): 3 counts, 2 slices and 20 ad reads.
+Three reads of 378 ads timed out at the API, so the collector split them and lowered its batch
+to 283 ads. That accounts for 20 ad reads where run 10 needed 6.
+
+- Run 11 read 4,138 ads, and 2,266 of them were new to the archive: the 2,261 above and 5 more
+  that unit histories listed after run 11's re-reads.
+- Of the 2,266, 2,222 are DRAFT, 31 IN_STREETEASY_REVIEW, 7 ACTIVE (also among this week's
+  search hits), 1 IN_BROKERAGE_REVIEW and 1 RENTED, and 4 came back with no record. 2,153 of
+  them have no canonical unit, and the run excluded them. So the dataset gains almost no
+  listings from these reads.
+- The run wrote 146 ad records and 1,872 units, and it marked 1,836 ads superseded.
+- `current-listings/api-manhattan-page-crawl-areas` moved to run 11's files, with 1,423 ACTIVE
+  ads, 1,421 candidates and 2 failures.
+- The export added 4,138 ad reads (4,134 records and 4 'missing' rows), 17 stored replies and
+  22 calls, in 3 files, and each table matches the archive.
+- Each Friday top-up now re-reads the DRAFT and review ads among them, for about 6 to 10 more
+  requests ($0.01) a week.
 
 ## Running it
 
