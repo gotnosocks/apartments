@@ -218,6 +218,26 @@ def external(record: dict, key: str) -> list[dict]:
     return parquet_rows(path)
 
 
+def latest_asks(record: dict) -> dict[str, float]:
+    """The asks a latest-ask rule gave the run's rows (`rentfrontier.data.latest_ask_v3`),
+    by audit id, from the rule's recorded table, verified; {} if the run has no such rule.
+    The model's target is each listing's latest ask, so the bundle carries these asks
+    in place of the dataset's."""
+    rules = [r for r in record.get("data_rules", ()) if r.startswith("latest-ask-")]
+    if not rules:
+        return {}
+    source = record.get("data_rule_sources", {}).get(rules[-1])
+    if not source:
+        raise BuildError(f"{rules[-1]} has no recorded table")
+    path = Path(source["path"])
+    if sha256(path) != source["sha256"]:
+        raise BuildError(f"{rules[-1]} table differs from the run's record")
+    table = duckdb.sql(
+        f"SELECT audit_id, latest_ask FROM read_parquet('{path}')"
+    ).fetchall()
+    return {a: float(v) for a, v in table if v is not None}
+
+
 STREET_TYPES = {"STREET", "AVENUE", "PLACE", "ST", "AVE"}
 
 
@@ -295,15 +315,20 @@ def _concession(value) -> str | None:
     return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
 
 
-def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> list[dict]:
+def listing_rows(
+    rows, observations, names, k_threshold, scope="Chelsea", asks=None
+) -> list[dict]:
     """Site rows of the listings. Each carries its neighbourhood: the summary's
-    (combined cohorts), else the dataset's, else the build's scope."""
+    (combined cohorts), else the dataset's, else the build's scope. Each ask
+    matches the dataset's, or the latest ask in `asks` (`latest_asks`)."""
+    asks = asks or {}
     out = []
     for r in rows:
         obs = observations.get(r["audit_id"])
         if obs is None:
             raise BuildError(f"{r['audit_id']} is not in the dataset")
-        if abs(float(obs["asking_rent"]) - r["asking_rent"]) > 1e-6:
+        expected = asks.get(r["audit_id"], float(obs["asking_rent"]))
+        if abs(expected - r["asking_rent"]) > 1e-6:
             raise BuildError(f"{r['audit_id']}: ask differs from the dataset")
         # The estimate is the predictive median, never the mean: with
         # Student-t apartment effects of low ν the mean of a new apartment's
@@ -679,7 +704,9 @@ def write_database(
     if names != record["terms"]:
         raise BuildError("terms.json differs from the bundle's record")
     k_threshold = record["estimate_pareto_k"]["threshold"]
-    fitted = listing_rows(rows, observations, names, k_threshold, scope or "Chelsea")
+    fitted = listing_rows(
+        rows, observations, names, k_threshold, scope or "Chelsea", latest_asks(record)
+    )
     if not scope:
         scope = scope_of(fitted)
     registry = external(record, "registry")
