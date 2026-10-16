@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import duckdb
@@ -26,17 +27,22 @@ PROJECT = Path(__file__).resolve().parents[1]
 FIXTURE = Path(__file__).resolve().parent / "fixture"
 
 
-def context(
-    monkeypatch, state, export=FIXTURE / "export", project=PROJECT, ledger=None
-):
-    """A context on `export` and `state`. Without `ledger`, the corrections ledger is an empty
-    folder beside the state. The helper makes the ledger's folder when it is missing."""
+def environment(monkeypatch, state, export=FIXTURE / "export", ledger=None):
+    """Point the pipeline at `export` and `state`. Without `ledger`, the corrections ledger is an
+    empty folder beside the state. The helper makes the ledger's folder when it is missing."""
     ledger = ledger or state.parent / "ledger"
     ledger.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PIPELINE_EXPORT", str(export))
     monkeypatch.setenv("PIPELINE_STATE", str(state))
     monkeypatch.setenv("PIPELINE_LEDGER", str(ledger))
     monkeypatch.setenv("PIPELINE_MEMORY", "1GB")
+
+
+def context(
+    monkeypatch, state, export=FIXTURE / "export", project=PROJECT, ledger=None
+):
+    """A context on `export` and `state`, set up as `environment` describes."""
+    environment(monkeypatch, state, export, ledger)
     return Context(paths=str(project))
 
 
@@ -94,8 +100,8 @@ def append_answers(export, answers, table="ads"):
         f.write(json.dumps(line, sort_keys=True) + "\n")
 
 
-def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
-    ctx = context(monkeypatch, tmp_path / "state")
+def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch, fixture_build):
+    ctx = context(monkeypatch, tmp_path / "state", fixture_build)
     ctx.plan(auto_apply=True, no_prompts=True)
     expected = pd.read_parquet(FIXTURE / "latest-ask.parquet")
     pd.testing.assert_frame_equal(latest_ask(ctx), expected)
@@ -405,12 +411,11 @@ def test_new_city_file_rebuilds_only_its_view(tmp_path, monkeypatch):
     assert ctx.fetchdf("SELECT count(*) AS n FROM city.landmarks").n[0] == 29
 
 
-def test_pad_street_fields(tmp_path, monkeypatch):
+def test_pad_street_fields(loaded):
     """The view of PAD's street names cuts each record into fields, and leaves out the header
     record and the records of type S. The fixture's 26c dictionary has 276 records of other
     types."""
-    ctx = context(monkeypatch, tmp_path / "state")
-    view = ctx.render("city.pad_streets").sql(dialect="duckdb")
+    view = loaded.render("city.pad_streets").sql(dialect="duckdb")
     streets = duckdb.sql(f"SELECT * FROM ({view}) WHERE release = '26c'")
     rows = streets.df()
     assert len(rows) == 276
@@ -506,10 +511,10 @@ def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
     assert set(new[new.parsed].bedrooms) == {"9"}
 
 
-def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
+def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch, fixture_build):
     """A file written again under its old path gets a new hash in the manifest, and the plan
     builds the ads models again."""
-    export = copy_export(tmp_path)
+    export = fixture_build
     context(monkeypatch, tmp_path / "state", export).plan(
         auto_apply=True, no_prompts=True
     )
@@ -532,16 +537,15 @@ def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
     )
 
 
-def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
+def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch, loaded):
     """Each model has the same fingerprint in processes with different hash seeds. The text of a
     set of strings changes with the seed, so a model reading one would get a new fingerprint in
     each new build process, and the build would rebuild it and everything below it."""
     # SQLMesh fingerprints a model's Python values by their text. The test parses each value's
     # text and lists the values holding a set, or text Python can't parse, such as an object's
     # address.
-    ctx = context(monkeypatch, tmp_path / "state")
     unstable = []
-    for model in ctx.models.values():
+    for model in loaded.models.values():
         for name, value in model.python_env.items():
             if value.kind != ExecutableKind.VALUE:
                 continue
@@ -560,7 +564,8 @@ def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
     assert unstable == []
 
     # Each process gets its own state, since a second load would read the SQL models from the
-    # first one's cache.
+    # first one's cache. The two processes run at once.
+    environment(monkeypatch, tmp_path / "state")
     script = (
         "import json, sys; from sqlmesh import Context; "
         "print(json.dumps({s.name: s.fingerprint.to_identifier() "
@@ -581,8 +586,9 @@ def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
         assert loaded.returncode == 0, loaded.stderr
         return json.loads(loaded.stdout.splitlines()[-1])
 
-    first, second = fingerprints(1), fingerprints(2)
-    assert len(first) == len(ctx.models)
+    with ThreadPoolExecutor(2) as pool:
+        first, second = pool.map(fingerprints, (1, 2))
+    assert len(first) == len(loaded.models)
     assert first == second
 
 
@@ -640,9 +646,9 @@ def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     pd.testing.assert_frame_equal(got[~moved], expected[~moved])
 
 
-def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch):
+def test_repeated_answer_adds_only_its_fetch(tmp_path, monkeypatch, fixture_build):
     """A later answer with the same record reports no event besides its own fetch."""
-    export = copy_export(tmp_path)
+    export = fixture_build
     ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
     key = ["listing_id", "source", "kind", "day", "at", "price"]
@@ -1340,11 +1346,11 @@ def chain_cohort():
 PET_FEE_ADS = ("4771575",)
 
 
-def test_rows_match_the_chain(tmp_path, monkeypatch):
+def test_rows_match_the_chain(tmp_path, monkeypatch, fixture_build):
     """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
     with the same values in every column the pipeline rebuilds, apart from the pet policy of
     the ads in PET_FEE_ADS."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = context(monkeypatch, tmp_path / "state", fixture_build)
     ctx.plan(auto_apply=True, no_prompts=True)
     ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
         bedrooms, bathrooms, full_baths, half_baths, square_feet, listed_floor,
@@ -1605,10 +1611,10 @@ class Failures(TerminalConsole):
         super().log_failed_models(errors)
 
 
-def test_failed_audit_leaves_the_built_tables(tmp_path, monkeypatch):
+def test_failed_audit_leaves_the_built_tables(tmp_path, monkeypatch, fixture_build):
     """An export file repeating an answer fails the audit of ads.answers. The plan stops there,
     and the tables of the earlier build stay as they were."""
-    export = copy_export(tmp_path)
+    export = fixture_build
     context(monkeypatch, tmp_path / "state", export).plan(
         auto_apply=True, no_prompts=True
     )
@@ -1712,14 +1718,13 @@ def config(tmp_path, monkeypatch):
     return module
 
 
-def test_list_indexes_are_literals(tmp_path, monkeypatch):
+def test_list_indexes_are_literals(loaded):
     """No model indexes a list in brackets with a computed position. SQLMesh renders each model
     through sqlglot, and sqlglot 30.8 adds 1 to such an index once it knows the list's type, so
     the models read computed positions with list_extract."""
-    ctx = context(monkeypatch, tmp_path / "state")
     computed = [
         (name, bracket.sql("duckdb"))
-        for name, model in ctx.models.items()
+        for name, model in loaded.models.items()
         if model.is_sql
         for bracket in model.query.find_all(exp.Bracket)
         if not all(isinstance(i, exp.Literal) for i in bracket.expressions)

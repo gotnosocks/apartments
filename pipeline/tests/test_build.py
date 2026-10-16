@@ -2,7 +2,6 @@ import hashlib
 import importlib.util
 import json
 import os
-import shutil
 from pathlib import Path
 
 import duckdb
@@ -81,14 +80,19 @@ def test_build_writes_hashed_files_and_a_catalog_line(tmp_path, build):
     assert [json.loads(line) for line in catalog] == [first, second]
 
 
-def test_topup_build_equals_a_full_build(tmp_path, build):
+def test_topup_build_equals_a_full_build(tmp_path, build, fixture_build):
     """Building runs 2 and 3, then adding run 4, writes the same rows file and ads file as
-    building runs 2 to 4 into an empty state."""
-    export = copy_export(tmp_path, keep=lambda line: line["run"] < 4)
-    build(export, tmp_path / "state", tmp_path / "out")
-    shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
-    topup = build(export, tmp_path / "state", tmp_path / "out")
-    full = build(export, tmp_path / "fresh", tmp_path / "out-fresh")
+    building runs 2 to 4 into an empty state. The worker's state built from the whole export
+    gives the full build."""
+    export = fixture_build
+    manifest = (export / "manifest.ndjson").read_text().splitlines(keepends=True)
+    (export / "manifest.ndjson").write_text(
+        "".join(line for line in manifest if json.loads(line)["run"] < 4)
+    )
+    build(export, tmp_path / "topup", tmp_path / "out")
+    (export / "manifest.ndjson").write_text("".join(manifest))
+    topup = build(export, tmp_path / "topup", tmp_path / "out")
+    full = build(export, tmp_path / "state", tmp_path / "out-fresh")
     assert topup["rows"] == full["rows"] and topup["ads_file"] == full["ads_file"]
     assert topup["ads"] == full["ads"] and topup["buildings"] == full["buildings"]
     assert {name: m["rows"] for name, m in topup["models"].items()} == {
@@ -96,10 +100,10 @@ def test_topup_build_equals_a_full_build(tmp_path, build):
     }
 
 
-def test_failed_audit_writes_nothing(tmp_path, build):
+def test_failed_audit_writes_nothing(tmp_path, build, fixture_build):
     """An export file repeating an answer fails the audit of ads.answers. The build stops, and
     OUT keeps only the first build's files and catalog line."""
-    export = copy_export(tmp_path)
+    export = fixture_build
     first = build(export, tmp_path / "state", tmp_path / "out")
     before = {path.name: path.read_bytes() for path in (tmp_path / "out").iterdir()}
     repeated = (
@@ -122,7 +126,7 @@ def test_failed_audit_writes_nothing(tmp_path, build):
     assert after == before
 
 
-def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
+def test_failed_janitor_warns(tmp_path, build, fixture_build, monkeypatch, capsys):
     """The janitor raises after the build writes its files and catalog line. They stay in place,
     and the build returns its line with a warning on stderr."""
     import sqlmesh
@@ -131,7 +135,7 @@ def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
         raise RuntimeError("planted")
 
     monkeypatch.setattr(sqlmesh.Context, "run_janitor", fail)
-    line = build(copy_export(tmp_path), tmp_path / "state", tmp_path / "out")
+    line = build(fixture_build, tmp_path / "state", tmp_path / "out")
     assert (tmp_path / "out" / line["rows"]["path"]).exists()
     assert (tmp_path / "out" / line["ads_file"]["path"]).exists()
     catalog = (tmp_path / "out" / "catalog.ndjson").read_text().splitlines()
