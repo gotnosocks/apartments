@@ -123,17 +123,22 @@ move to API records. Its docstring lists the steps.
 `ads.record_attributes` is a Python model. It parses each distinct record once, in worker
 processes, and keeps the results in Parquet files in `attributes/<code version>/` beside the
 DuckDB database. A later build parses only records missing from those files, so a top-up
-parses just its new records. `config.py` computes the code version as a SHA-256 over
-`steps/attributes.py` and its six imports from `src/apartments`, and passes it to the model in
-the variable `attributes_code`. When any of those files changes, the model writes to a new
-folder and gets a new fingerprint. A test compares the list of files with the projection's
-imports. `PIPELINE_WORKERS` sets the number of workers, 4 unless set.
+parses just its new records. `config.py` hashes `steps/attributes.py` and its six imports from
+`src/apartments`, and passes each module's SHA-256 to the model in the variable
+`attributes_code`. The cache folder takes its name from a SHA-256 over that variable. When any
+of those files changes, the model writes to a new folder and gets a new fingerprint. A test
+compares the list of modules with the projection's imports. `PIPELINE_WORKERS` sets the number
+of workers, 4 unless set.
 
 The pipeline's venv installs the project in editable mode, which puts `pipeline/` and the
 repo's `src/` on `sys.path` of every process in the venv, the workers included. The model can
 then import `steps.attributes` with no paths in its variables, so its fingerprint stays the same
-in every checkout. The model writes each cache file under a temporary name, syncs it to disk and
-renames it, and it deletes temporary files left by a build that stopped.
+in every checkout. The install holds the paths of the checkout where `uv sync` ran, though, so a
+copy of the project, or a venv shared by two checkouts, can load code from another checkout
+than the one `config.py` hashed. Before it parses a record, the model hashes the files of the
+modules it loaded, and it stops the build when one differs from `attributes_code`. The model
+writes each cache file under a temporary name, syncs it to disk and renames it, and it deletes
+temporary files left by a build that stopped.
 
 `ads.attributes` merges each ad's records as `project_advertisement` merges its captures: for
 each attribute, one known value stands, and two or more give an unknown and put the attribute
@@ -198,9 +203,10 @@ row. Their records hold no unit histories. The tests:
     each, with two sizes, two doorman types, leases of 12 and 3 months, or the same values in
     both. The last ad carries a feature code for furnished. The test checks each ad's reasons,
     first ask, bedroom count, conflicts and number of records by value;
-13. build run 2 in a copy of the project, then add a comment to the copy's
-    `steps/attributes.py`. The next plan rebuilds `ads.record_attributes` and parses the same
-    records into a second cache folder;
+13. build run 2 in a copy of the project, then change the copy's `steps/attributes.py` to give
+    every record 9 bedrooms. A plan in the test's process stops with the mismatch error, since
+    the venv loads the repo's own code. A plan in a new process, with the copy first on
+    `PYTHONPATH`, parses the same records into a second cache folder, each with 9 bedrooms;
 14. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
     with the files of the code version.
 

@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -166,7 +167,8 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
 
 def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
     """A change to the projection's code gives ads.record_attributes a new code version, and the
-    build parses every record again into a new folder."""
+    build parses every record again into a new folder. A build stops when the venv loads code
+    other than the code config.py hashed."""
     project = tmp_path / "project"
     shutil.copytree(
         PROJECT,
@@ -175,24 +177,51 @@ def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
     )
     (tmp_path / "src").symlink_to(PROJECT.parent / "src")
     export = copy_export(tmp_path, keep=lambda line: line["run"] == 2)
-    context(monkeypatch, tmp_path / "state", export, project=project).plan(
-        auto_apply=True, no_prompts=True
-    )
+    ctx = context(monkeypatch, tmp_path / "state", export, project=project)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    ctx.close()
     cache = tmp_path / "state" / "attributes"
     (old,) = cache.iterdir()
     code = project / "steps" / "attributes.py"
-    code.write_text(code.read_text() + "\n# A change to the projection's code.\n")
+    line = '"bedrooms": number(details.get("bedroomCount")),'
+    assert code.read_text().count(line) == 1
+    code.write_text(code.read_text().replace(line, '"bedrooms": 9,'))
+    # The venv's editable install loads the unchanged steps.attributes of this repo.
+    console = Failures()
+    monkeypatch.setattr(sqlmesh.core.console, "_CONSOLE", console)
     ctx = context(monkeypatch, tmp_path / "state", export, project=project)
-    plan = ctx.plan(auto_apply=True, no_prompts=True)
-    assert "ads.record_attributes" in changed(plan)
+    with pytest.raises(PlanError):
+        ctx.plan(auto_apply=True, no_prompts=True)
+    ctx.close()
+    message = (
+        f"the build loaded steps.attributes from {PROJECT / 'steps' / 'attributes.py'}, "
+        "which differs from the file config.py hashed; run `uv sync` in the pipeline "
+        "folder of the checkout to build"
+    )
+    # SQLMesh gives the model's error as a traceback, which ends in the error's message.
+    assert [
+        (e.node.snapshot_name, str(e.__cause__).strip().endswith(message))
+        for e in console.failed
+    ] == [('"pipeline"."ads"."record_attributes"', True)]
+    assert list(cache.iterdir()) == [old]
+    # A fresh process with the copy first on its path loads the changed code.
+    build = subprocess.run(
+        [Path(sys.executable).parent / "sqlmesh", "-p", project, "plan"]
+        + ["--auto-apply", "--no-prompts"],
+        env={**os.environ, "PYTHONPATH": f"{project}{os.pathsep}{tmp_path / 'src'}"},
+        capture_output=True,
+        text=True,
+    )
+    assert build.returncode == 0, build.stdout + build.stderr
     (new,) = set(cache.iterdir()) - {old}
 
     def parsed(folder):
-        return sorted(
-            pd.concat(map(pd.read_parquet, folder.glob("*.parquet"))).record_sha256
-        )
+        return pd.concat(map(pd.read_parquet, folder.glob("*.parquet")))
 
-    assert parsed(new) == parsed(old) and len(parsed(new))
+    old, new = parsed(old), parsed(new)
+    assert sorted(new.record_sha256) == sorted(old.record_sha256)
+    assert len(set(old[old.parsed].bedrooms)) > 1
+    assert set(new[new.parsed].bedrooms) == {"9"}
 
 
 def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):

@@ -46,24 +46,28 @@ ROWS = Path(
 )
 STATE = Path(os.environ.get("PIPELINE_STATE", "/data1/apartments/pipeline/state"))
 
-# ads.record_attributes runs `steps.attributes`, which imports the current chain's modules from
-# the repo's src. Its code version covers these files.
+# ads.record_attributes runs `steps.attributes`, which imports these modules of the current chain
+# from the repo's src. Its code version covers their files in this checkout.
 PIPELINE = Path(__file__).resolve().parent
 SRC = PIPELINE.parent / "src"
-ATTRIBUTES_CODE = [
-    PIPELINE / "steps" / "attributes.py",
-    *(
-        SRC / "apartments" / f"{name}.py"
-        for name in (
-            "__init__",
-            "analytical",
-            "attribute_evidence",
-            "corrections",
-            "historical_dataset",
-            "research_pipeline",
-        )
-    ),
-]
+ATTRIBUTES_MODULES = (
+    "steps.attributes",
+    "apartments",
+    "apartments.analytical",
+    "apartments.attribute_evidence",
+    "apartments.corrections",
+    "apartments.historical_dataset",
+    "apartments.research_pipeline",
+)
+
+
+def module_file(name):
+    root = PIPELINE if name.startswith("steps.") else SRC
+    path = root.joinpath(*name.split("."))
+    return path / "__init__.py" if path.is_dir() else path.with_suffix(".py")
+
+
+ATTRIBUTES_CODE = [module_file(name) for name in ATTRIBUTES_MODULES]
 
 
 def exported(table):
@@ -94,14 +98,6 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
-def code_version(paths):
-    """A SHA-256 over each file's path below the repo and its SHA-256."""
-    listing = "".join(
-        f"{path.relative_to(PIPELINE.parent)} {file_sha256(path)}\n" for path in paths
-    )
-    return hashlib.sha256(listing.encode()).hexdigest()
-
-
 ads, ads_version = exported("ads")
 STATE.mkdir(parents=True, exist_ok=True)
 
@@ -127,6 +123,9 @@ config = Config(
         "ads_version": ads_version,
         "rows": str(ROWS),
         "rows_version": file_sha256(ROWS),
-        "attributes_code": code_version(ATTRIBUTES_CODE),
+        "attributes_code": {
+            name: file_sha256(path)
+            for name, path in zip(ATTRIBUTES_MODULES, ATTRIBUTES_CODE)
+        },
     },
 )

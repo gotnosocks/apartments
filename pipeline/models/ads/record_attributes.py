@@ -4,18 +4,26 @@ The build reads each record with `steps.attributes.project`, a Python copy of th
 chain's reading, in worker processes. It keeps the results in Parquet files beside the DuckDB
 database, under `attributes/<code version>/`, and a later build parses only records missing
 from those files. A top-up then parses just its new records, and a change to the projection code
-starts a new folder. `config.py` computes the code version as a SHA-256 over the projection's
-source files and passes it in the variable `attributes_code`, so a change to that code also
-gives the model a new fingerprint.
+starts a new folder. `config.py` passes the SHA-256 of each module of the projection in the
+variable `attributes_code`, so a change to that code also gives the model a new fingerprint. The
+code version is a SHA-256 over that variable.
+
+The venv's editable install loads `steps.attributes` and the chain from the checkout where
+`uv sync` ran, which can differ from the checkout of `config.py`. Before it parses anything, the
+build hashes the files it loaded and stops if any differs from the variable, so a cache folder
+holds only rows from the code its name gives.
 
 The model's table holds a row for each distinct record of `raw.ads`: its SHA-256, the `id` in
 the record, whether the chain would parse it, and each value as canonical JSON or NULL.
 `PIPELINE_WORKERS` sets the number of worker processes, 4 unless set.
 """
 
+import hashlib
 import importlib
+import json
 import multiprocessing
 import os
+import sys
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -98,8 +106,20 @@ def write_cache(folder, rows):
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     ads = context.resolve_table("raw.ads")
     code = context.var("attributes_code")
+    attributes = importlib.import_module("steps.attributes")
+    if tuple(attributes.KEYS) != KEYS:
+        raise ValueError("steps.attributes.KEYS differs from the model's columns")
+    for name, digest in code.items():
+        path = sys.modules[name].__file__
+        with open(path, "rb") as file:
+            if hashlib.file_digest(file, "sha256").hexdigest() != digest:
+                raise ValueError(
+                    f"the build loaded {name} from {path}, which differs from the file "
+                    "config.py hashed; run `uv sync` in the pipeline folder of the checkout to build"
+                )
+    version = hashlib.sha256(json.dumps(code, sort_keys=True).encode()).hexdigest()
     cursor = context.engine_adapter.connection.cursor()
-    folder = cache_folder(cursor, code)
+    folder = cache_folder(cursor, version)
     # DuckDB lets one process at a time write the database, so a `.part` file here comes from a
     # build that stopped.
     for part in folder.glob("*.part"):
@@ -123,10 +143,6 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             ON a.record_sha256 = p.record_sha256 AND a.response_id = p.response_id
         WHERE a.outcome = 'record'
     """
-    # The venv's editable install puts the pipeline folder and the repo's src on sys.path.
-    attributes = importlib.import_module("steps.attributes")
-    if tuple(attributes.KEYS) != KEYS:
-        raise ValueError("steps.attributes.KEYS differs from the model's columns")
     reader = cursor.execute(missing).to_arrow_reader(BATCH)
     workers = int(os.environ.get("PIPELINE_WORKERS", "4"))
     pending, rows = [], []
