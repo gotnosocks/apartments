@@ -25,12 +25,11 @@ them with the served model's `lpc_as_of`.
    through the copy and the rules. The first run differs from the second only through the lot
    each reads.
 5. It prints the rows each flag differs on for each comparison, by the two sides' values, and
-   the lots behind them. For
-   the comparison on the step's lot, it counts the differing rows on lots with designations
-   only in the step's copy. For the comparison on the building, it gives the rows on the
-   registry's lot by lot, and the rest by building, the registry's lot and the step's lot. The
-   step leaves both flags missing for a row without a lot, where `lpc_as_of` gives false, and
-   the script counts those rows apart.
+   the lots behind them. For the comparison on the step's lot, it counts the differing rows on
+   lots with designations only in the step's copy. For the comparison on the building, it gives
+   the rows on the registry's lot by lot, and the rest by building, the registry's lot and the
+   step's lot. The step leaves both flags missing for a row without a lot, where `lpc_as_of`
+   gives false, and the script counts those rows apart.
 6. With `--out` it writes the step's flags for each row to a Parquet file.
 """
 
