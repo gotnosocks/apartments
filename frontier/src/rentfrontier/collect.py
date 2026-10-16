@@ -155,57 +155,79 @@ def collect(
     trace_seed,
     n_trace=32,
     vmap=jax.vmap,
+    consts=None,
 ):
-    """Run `draws` retained transitions per chain and summarise them."""
+    """Run `draws` retained transitions per chain and summarise them.
+
+    With `consts`, the jitted run takes it as an argument and calls
+    `step(key, state, consts)` and `params(state, consts)`. Large arrays
+    passed this way stay out of the executable's constants."""
     test = device_arrays(prep.test, dtype)
     has_unseen = bool((np.asarray(prep.test.unit) < 0).any())
     trace_b, trace_u = trace_indices(prep, n_trace, trace_seed)
     n_blocks = draws // keep_every
 
-    def one_chain(state, chain_key):
-        def transition(carry, k):
-            st, acc, s1, s2 = carry
-            st, info = step(k, st)
-            p = params(st)
-            e = model_module.effects(p)
-            acc = jnp.logaddexp(acc, heldout_logpdf(p, test, has_unseen))
-            s1 = jax.tree.map(lambda a, v: a + v, s1, e)
-            s2 = jax.tree.map(lambda a, v: a + v * v, s2, e)
-            trace = {
-                # A site with one value per group (sigma with
-                # noise_by_bedrooms) enters the scalars as its mean and is
-                # traced per group below.
-                "scalars": jnp.stack([jnp.mean(e[n]) for n in SCALARS]),
-                "sigma_groups": jnp.atleast_1d(e["sigma"]),
-                "beta": e["beta"],
-                "trend": e["trend"][::12],
-                "building": e["building"][trace_b],
-                # Every building, for the gate's per-building R-hat and ESS.
-                # run.py keeps only those statistics, not this trace, and
-                # float32 halves its device memory (195 MB on C).
-                "building_all": e["building"].astype(jnp.float32),
-                "unit": e["unit"][trace_u],
-                "fslope_scales": e["fslope_scales"],
-                **info,
-            }
-            return (st, acc, s1, s2), trace
+    def chains(states, keys, test_fields, consts):
+        test = model_module.Arrays(**test_fields)
+        if consts is None:
+            step_, params_ = step, params
+        else:
 
-        def block(carry, keys):
-            carry, trace = jax.lax.scan(transition, carry, keys)
-            return carry, (trace, model_module.effects(params(carry[0])))
+            def step_(k, st):
+                return step(k, st, consts)
 
-        zeros = jax.tree.map(jnp.zeros_like, model_module.effects(params(state)))
-        carry = (state, jnp.full(test.y.shape, -jnp.inf, dtype), zeros, zeros)
-        keys = jax.random.split(chain_key, n_blocks * keep_every).reshape(
-            n_blocks, keep_every, -1
-        )
-        (_, acc, s1, s2), (trace, kept) = jax.lax.scan(block, carry, keys)
-        trace = jax.tree.map(lambda a: a.reshape(-1, *a.shape[2:]), trace)
-        return acc, s1, s2, trace, kept
+            def params_(st):
+                return params(st, consts)
+
+        def one_chain(state, chain_key):
+            def transition(carry, k):
+                st, acc, s1, s2 = carry
+                st, info = step_(k, st)
+                p = params_(st)
+                e = model_module.effects(p)
+                acc = jnp.logaddexp(acc, heldout_logpdf(p, test, has_unseen))
+                s1 = jax.tree.map(lambda a, v: a + v, s1, e)
+                s2 = jax.tree.map(lambda a, v: a + v * v, s2, e)
+                trace = {
+                    # A site with one value per group (sigma with
+                    # noise_by_bedrooms) enters the scalars as its mean and is
+                    # traced per group below.
+                    "scalars": jnp.stack([jnp.mean(e[n]) for n in SCALARS]),
+                    "sigma_groups": jnp.atleast_1d(e["sigma"]),
+                    "beta": e["beta"],
+                    "trend": e["trend"][::12],
+                    "building": e["building"][trace_b],
+                    # Every building, for the gate's per-building R-hat and ESS.
+                    # run.py keeps only those statistics, not this trace, and
+                    # float32 halves its device memory (195 MB on C).
+                    "building_all": e["building"].astype(jnp.float32),
+                    "unit": e["unit"][trace_u],
+                    "fslope_scales": e["fslope_scales"],
+                    **info,
+                }
+                return (st, acc, s1, s2), trace
+
+            def block(carry, keys):
+                carry, trace = jax.lax.scan(transition, carry, keys)
+                return carry, (trace, model_module.effects(params_(carry[0])))
+
+            zeros = jax.tree.map(jnp.zeros_like, model_module.effects(params_(state)))
+            carry = (state, jnp.full(test.y.shape, -jnp.inf, dtype), zeros, zeros)
+            keys = jax.random.split(chain_key, n_blocks * keep_every).reshape(
+                n_blocks, keep_every, -1
+            )
+            (_, acc, s1, s2), (trace, kept) = jax.lax.scan(block, carry, keys)
+            trace = jax.tree.map(lambda a: a.reshape(-1, *a.shape[2:]), trace)
+            return acc, s1, s2, trace, kept
+
+        return vmap(one_chain)(states, keys)
 
     n_chains = jax.tree.leaves(states)[0].shape[0]
-    acc, s1, s2, trace, kept = jax.jit(vmap(one_chain))(
-        states, jax.random.split(key, n_chains)
+    acc, s1, s2, trace, kept = jax.jit(chains)(
+        states,
+        jax.random.split(key, n_chains),
+        {f: getattr(test, f) for f in test.FIELDS},
+        consts,
     )
     n = n_blocks * keep_every * n_chains
     acc = np.asarray(acc, np.float64)
