@@ -3,17 +3,18 @@ MODEL (
     kind FULL,
     grain (listing_id, n),
     audits (unique_combination_of_columns(columns := (listing_id, n))),
-    description 'Price changes with a nonzero price, numbered in date order within each ad.'
+    description 'The nonzero price changes of each ad''s latest record, from the event log, numbered in order of time.'
 );
 
--- Changes at the same time keep their order in the record.
-WITH c AS (
-    SELECT listing_id, unnest(changes) AS c, generate_subscripts(changes, 1) AS i FROM ads.latest_record
-)
-SELECT
-    listing_id,
-    row_number() OVER (PARTITION BY listing_id ORDER BY c.changedAt, i) AS n,
-    left(c.changedAt, 10) AS day,
-    c.price
-FROM c
-WHERE c.price IS NOT NULL AND c.price <> 0
+-- The event log holds each price change once, and `last_seen` gives the fetch of the latest
+-- answer to report it. So the changes of an ad's latest record are its price events last seen
+-- at that record's fetch. Changes at the same instant keep the record's order through
+-- `list_index`. `day` stays the text of the date, as the steps below compare it with the
+-- record's on-market and off-market days.
+SELECT e.listing_id,
+    row_number() OVER (PARTITION BY e.listing_id ORDER BY e."at", e.list_index) AS n,
+    strftime(e.day, '%Y-%m-%d') AS day,
+    e.price
+FROM ads.events e
+JOIN ads.latest_record r ON r.listing_id = e.listing_id AND epoch(e.last_seen) = r.collected_at
+WHERE e.source = 'price' AND e.price <> 0
