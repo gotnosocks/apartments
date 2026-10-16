@@ -219,23 +219,25 @@ def external(record: dict, key: str) -> list[dict]:
 
 
 def latest_asks(record: dict) -> dict[str, float]:
-    """The asks a latest-ask rule gave the run's rows (`rentfrontier.data.latest_ask_v3`),
-    by audit id, from the rule's recorded table, verified; {} if the run has no such rule.
+    """The asks the latest-ask rules gave the run's rows (`rentfrontier.data.latest_ask_v3`),
+    by audit id, from the rules' recorded tables, verified; {} if the run has no such rule.
     The model's target is each listing's latest ask, so the bundle carries these asks
-    in place of the dataset's."""
-    rules = [r for r in record.get("data_rules", ()) if r.startswith("latest-ask-")]
-    if not rules:
-        return {}
-    source = record.get("data_rule_sources", {}).get(rules[-1])
-    if not source:
-        raise BuildError(f"{rules[-1]} has no recorded table")
-    path = Path(source["path"])
-    if sha256(path) != source["sha256"]:
-        raise BuildError(f"{rules[-1]} table differs from the run's record")
-    table = duckdb.sql(
-        f"SELECT audit_id, latest_ask FROM read_parquet('{path}')"
-    ).fetchall()
-    return {a: float(v) for a, v in table if v is not None}
+    in place of the dataset's. The rules apply in order, and a row a table lacks keeps
+    the ask before it."""
+    asks = {}
+    for rule in record.get("data_rules", ()):
+        if not rule.startswith("latest-ask-"):
+            continue
+        source = record.get("data_rule_sources", {}).get(rule)
+        if not source:
+            raise BuildError(f"{rule} has no recorded table")
+        path = Path(source["path"])
+        if sha256(path) != source["sha256"]:
+            raise BuildError(f"{rule} table differs from the run's record")
+        query = f"SELECT audit_id, latest_ask FROM read_parquet('{path}')"
+        table = duckdb.sql(query).fetchall()
+        asks.update((a, float(v)) for a, v in table if v is not None)
+    return asks
 
 
 STREET_TYPES = {"STREET", "AVENUE", "PLACE", "ST", "AVE"}
