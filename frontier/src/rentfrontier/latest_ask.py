@@ -3,6 +3,7 @@ the market, from the listing's own StreetEasy record in the granular crawls.
 
     python -m rentfrontier.latest_ask [nb9]
     python -m rentfrontier.latest_ask --crawl <granular dir> --tag <name> <dataset dir>...
+    python -m rentfrontier.latest_ask --crawl page --crawl <granular dir> --tag <name> <dataset dir>
 
 writes EXTERNAL_ROOT/latest-ask/<date>-<commit>/latest-ask.parquet (one line per
 row of data.DATASET_NB8, or of data.DATASET_NB9 with `nb9`, or of every dataset
@@ -252,13 +253,20 @@ def main(argv: list[str]):
     # API backfill's regions); their buildings and listings are disjoint, so
     # one pass over their rows together gives each row what a pass of its own
     # would.
+    # `--crawl page` stands for the page crawls (CRAWLS). With several --crawl
+    # flags, listings() reads every crawl named and takes each listing's last
+    # capture in any of them.
     tag, crawls = "", None
     if argv[:1] == ["--crawl"]:
-        crawls = {"crawl": argv[1]}
-        if argv[2:3] == ["--tag"]:
-            tag, argv = f"-{argv[3]}", argv[4:]
-        else:
+        crawls = {}
+        while argv[:1] == ["--crawl"]:
+            if argv[1] == "page":
+                crawls.update(CRAWLS)
+            else:
+                crawls[f"crawl-{len(crawls)}" if crawls else "crawl"] = argv[1]
             argv = argv[2:]
+        if argv[:1] == ["--tag"]:
+            tag, argv = f"-{argv[1]}", argv[2:]
         datasets = [Path(d) for d in argv]
     else:
         datasets = [data.DATASET_NB9 if argv == ["nb9"] else data.DATASET_NB8]
