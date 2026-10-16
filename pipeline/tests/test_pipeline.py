@@ -113,7 +113,7 @@ def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
 
 def test_latest_ask_cases(tmp_path, monkeypatch):
     """analysis.latest_ask gives these made-up rows the latest asks `rentfrontier.latest_ask`
-    chooses for them:
+    chooses for them, other than ad 9000133:
 
     - ad 9000120 changes its price after its first day. Its page price equals its first
       change, so the page price counts for nothing. Ad 9000130 changes its price only before
@@ -130,7 +130,12 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
       record lists a rise to $3,400 in June, and its later record leaves the rise out, so its
       ask stays at $3,000.
     - ad 9000129 goes off the market and then rises to a placeholder of $10,000, which drops
-      out."""
+      out.
+    - ad 9000133 asks $30,000 and corrects the typo to $3,000 on its last day on the market.
+      The placeholder check drops the correction, and the page price of $3,000 lies nearer the
+      one-bedrooms. The chain skips the page price for equaling a change and keeps $30,000.
+    - ad 9000134 drops to a placeholder of $300 on its last day on the market. The page price of
+      $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -189,6 +194,21 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
             status="OFF_MARKET",
             offMarketAt=july,
         ),
+        ad(
+            9000133,
+            [(may, 30000), (july, 3000)],
+            3000,
+            ask=30000,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
+        ad(
+            9000134,
+            [(may, 3000), (july, 300)],
+            300,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
@@ -216,7 +236,13 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
     table = table.drop_duplicates("listing_id", keep="last").set_index("listing_id")
     expected = chain.choose(rows, table).rename(columns={"audit_id": "listing_id"})
     got = latest_ask(ctx)
-    pd.testing.assert_frame_equal(got.drop(columns="price_at"), expected)
+    same = got.listing_id != "9000133"
+    pd.testing.assert_frame_equal(
+        got[same].drop(columns="price_at").reset_index(drop=True),
+        expected[expected.listing_id != "9000133"].reset_index(drop=True),
+    )
+    assert expected.set_index("listing_id").latest_ask["9000133"] == 30000
+    assert got.set_index("listing_id").how["9000133"] == "page price, digit"
     assert dict(zip(got.listing_id, got.latest_ask)) == {
         "9000120": 3200,
         "9000121": 3100,
@@ -231,6 +257,8 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000130": 2900,
         "9000131": 3000,
         "9000132": 3000,
+        "9000133": 3000,
+        "9000134": 3000,
     }
     assert set(got.how) == {
         "latest",
