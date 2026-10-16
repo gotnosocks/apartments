@@ -20,8 +20,8 @@ MODEL (
 --   last_change:  the latest change.
 --   break_status, break_day:  when the record's status and its latest change are ACTIVE and the
 --       ad had left the market since `on_day`, the status and day of the change before the
---       latest return. A record can list a return after its ad's ending, as the record of a
---       NO_LONGER_AVAILABLE ad on runs 1 to 10 does, and such an ad gets no break.
+--       latest return. A record can list a return after its ad's ending, as the records of a
+--       few NO_LONGER_AVAILABLE ads and a RENTED one do, and such an ad gets no break.
 --   back_day:  the day of that return.
 -- The website's ad dates read the same from the history on the ad's page, which dates each
 -- change to the day.
