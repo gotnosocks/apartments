@@ -88,7 +88,7 @@ class Settings:
 
 @dataclass
 class Design:
-    a: jnp.ndarray  # (N, P) global design
+    a: jnp.ndarray | None  # (N, P) global design (None: `build_design` dense)
     y: jnp.ndarray
     unit: jnp.ndarray
     building: jnp.ndarray
@@ -203,6 +203,11 @@ class Design:
         """Columns of the standard normals that fill the untouched walk knots."""
         return self.walk_knots if self.walk_ar else self.n_local - self.knot_start + 1
 
+    @property
+    def n_global(self):
+        """Columns of the global design `a` (`a` itself may be dropped: `run`)."""
+        return self.prior_fixed.shape[0]
+
 
 def _rw1_anchored(n):
     d = np.diff(np.eye(n + 1), axis=0)[:, 1:]  # steps from a fixed 0
@@ -228,6 +233,63 @@ class Bucket:
     # back to the one before it (0 for a building's first), and 1 on used slots.
     gap: jnp.ndarray | None = None
     used: jnp.ndarray | None = None
+    # The bucket's buildings in chunks (`_bucket_chunks`), padded to the
+    # largest chunk. `_compact_parts` sums the rows of one chunk at a time
+    # and `_compact_solve` forms the Schur products of one chunk at a time,
+    # so no array spans all rows by all global columns.
+    chunk_bld: jnp.ndarray | None = None  # (C, B) buildings (pad: K_b)
+    chunk_pos: jnp.ndarray | None = None  # (C, R) rows, as positions in `rows`
+    chunk_mask: jnp.ndarray | None = None  # (C, R) 1 on real rows
+    chunk_row_bld: jnp.ndarray | None = None  # (C, R) row -> building in the chunk
+    chunk_unit: jnp.ndarray | None = None  # (C, R) row -> unit in the chunk
+    chunk_units: jnp.ndarray | None = None  # (C, U) unit ids (pad: 0)
+
+
+def _bucket_chunks(bld, unit, n_bld, chunk_rows, chunk_buildings):
+    """Split a bucket's buildings, in order, into chunks of at most
+    `chunk_rows` rows and `chunk_buildings` buildings. `bld` holds each of
+    the bucket's rows' building index within the bucket, `unit` its global
+    unit id. A building with more
+    rows than `chunk_rows` gets a chunk to itself. Units nest in buildings,
+    so each unit's rows fall in one chunk. Returns the chunk fields of
+    `Bucket`, each padded to the largest chunk."""
+    counts = np.bincount(bld, minlength=n_bld)
+    groups, current, size = [], [], 0
+    for b in range(n_bld):
+        if current and (
+            size + counts[b] > chunk_rows or len(current) == chunk_buildings
+        ):
+            groups.append(current)
+            current, size = [], 0
+        current.append(b)
+        size += counts[b]
+    groups.append(current)
+    # Sorted by building, each chunk's rows are one contiguous run.
+    order = np.argsort(bld, kind="stable")
+    starts = np.r_[0, np.cumsum(counts)]
+    rows = [order[starts[g[0]] : starts[g[-1] + 1]] for g in groups]
+    units = [np.unique(unit[r]) for r in rows]
+    n, b_max = len(groups), max(map(len, groups))
+    r_max, u_max = max(map(len, rows)), max(map(len, units))
+    out = {
+        "chunk_bld": np.full((n, b_max), n_bld),
+        "chunk_pos": np.zeros((n, r_max)),
+        "chunk_mask": np.zeros((n, r_max)),
+        "chunk_row_bld": np.zeros((n, r_max)),
+        "chunk_unit": np.zeros((n, r_max)),
+        "chunk_units": np.zeros((n, u_max)),
+    }
+    for i, (g, r, u) in enumerate(zip(groups, rows, units)):
+        out["chunk_bld"][i, : len(g)] = g
+        out["chunk_pos"][i, : len(r)] = r
+        out["chunk_mask"][i, : len(r)] = 1.0
+        out["chunk_row_bld"][i, : len(r)] = bld[r] - g[0]
+        out["chunk_unit"][i, : len(r)] = np.searchsorted(u, unit[r])
+        out["chunk_units"][i, : len(u)] = u
+    return {
+        k: jnp.asarray(v, jnp.float64 if k == "chunk_mask" else jnp.int32)
+        for k, v in out.items()
+    }
 
 
 def _register_fields(cls):
@@ -276,6 +338,11 @@ def design_arrays(d: Design):
     return arrays, rebuild
 
 
+# Chunk sizes of `_bucket_chunks`: at about 32k rows a chunk's arrays over
+# all global columns stay near 100 MB each at 443 columns.
+CHUNK_ROWS = 1 << 15
+CHUNK_BUILDINGS = 1 << 12
+
 # At most this many compact widths: one batched elimination per bucket.
 MAX_BUCKETS = 4
 
@@ -310,6 +377,8 @@ def compact_walk(
     max_buckets=MAX_BUCKETS,
     ar=False,
     walk_on=None,
+    chunk_rows=CHUNK_ROWS,
+    chunk_buildings=CHUNK_BUILDINGS,
 ):
     """Buckets and fill rules that integrate out the walk knots no row touches.
 
@@ -429,6 +498,13 @@ def compact_walk(
                 knot=jnp.asarray(knot, jnp.int32),
                 gap=jnp.asarray(gaps) if ar else None,
                 used=jnp.asarray(used) if ar else None,
+                **_bucket_chunks(
+                    index[building[rows]],
+                    unit[rows],
+                    len(members),
+                    chunk_rows,
+                    chunk_buildings,
+                ),
             )
         )
     fill = {
@@ -527,7 +603,13 @@ def build_design(
     prep: model_module.Prepared,
     config: model_module.ModelConfig,
     compact: bool = True,
+    chunk_rows: int = CHUNK_ROWS,
+    dense: bool = True,
 ) -> Design:
+    """The Gibbs design of `config` on `prep`. With `dense` False and a
+    compact design without unit drift, `a` is None: the compact sampler
+    builds rows of `a` from the feature block and the keyed basis, and the
+    dense array would only take device memory."""
     base = ("trend", "season", "features", "buildings", "units")
     if (
         not all(getattr(config, t) for t in base)
@@ -738,6 +820,7 @@ def build_design(
             n_local,
             ar=config.walk_ar,
             walk_on=walk_on,
+            chunk_rows=chunk_rows,
         )
 
     n_noise = model_module.n_noise(config, prep)
@@ -775,8 +858,9 @@ def build_design(
             for i in range(len(fslope_cols))
         },
     }
+    keep_a = dense or not buckets or config.unit_drift
     return Design(
-        a=jnp.asarray(a),
+        a=jnp.asarray(a) if keep_a else None,
         y=jnp.asarray(tr.y, jnp.float64),
         unit=jnp.asarray(tr.unit),
         building=jnp.asarray(tr.building),
@@ -882,7 +966,7 @@ def gram(d: Design, w):
     ff = feat.T @ wf
     fk = m.T @ e
     kk = e.T @ (wk[:, None] * e)
-    p = d.a.shape[1]
+    p = d.n_global
     q = jnp.zeros((p, p))
     fc, kc = jnp.asarray(d.gram_fcols), jnp.asarray(d.gram_kcols)
     q = q.at[fc[:, None], fc[None, :]].set(ff)
@@ -972,15 +1056,15 @@ def block_parts(d: Design, lam, s, kappa=None) -> dict:
     y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
     n_slots = slots.shape[1]
     w = lam / sigma_rows(d, s) ** 2
-    seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
-    sw = seg_u(w)
     # Unit prior precision kappa_j / unit_scale^2 (kappa = 1: Gaussian units;
     # Student-t units are a Gamma scale mixture over kappa).
     kappa = jnp.ones(J) if kappa is None else kappa
-    wa = w[:, None] * a
-    n = a.shape[0]
     if d.buckets and not d.unit_drift:
         return _compact_parts(d, w, kappa, s)
+    seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
+    sw = seg_u(w)
+    wa = w[:, None] * a
+    n = a.shape[0]
     a_l = jnp.zeros((n, L)).at[jnp.arange(n)[:, None], slots].add(vals)
     if d.unit_drift:
         # Unit block [level, drift]: z_i = (1, t_i), t_i in years from the
@@ -1066,43 +1150,101 @@ def block_parts(d: Design, lam, s, kappa=None) -> dict:
     }
 
 
+def global_rows(d: Design, rows):
+    """Rows `rows` of the global design `a`, from the feature block and the
+    keyed basis (`gram`)."""
+    out = jnp.zeros((rows.shape[0], d.n_global))
+    out = out.at[:, d.gram_fcols].set(d.gram_feat[rows])
+    return out.at[:, d.gram_kcols].set(d.gram_basis[d.gram_key[rows]])
+
+
+def global_value(d: Design, theta):
+    """a @ theta, from the feature block and the keyed basis."""
+    keyed = d.gram_basis @ theta[d.gram_kcols]
+    return d.gram_feat @ theta[d.gram_fcols] + keyed[d.gram_key]
+
+
 def _compact_parts(d: Design, w, kappa, s) -> dict:
     """`block_parts` with the untouched walk knots integrated out: the building
-    cells per bucket at its compact width (`compact_walk`)."""
-    J = d.n_units
-    y, a = d.y, d.a
+    cells per bucket at its compact width (`compact_walk`). Each bucket's
+    rows enter one chunk of buildings at a time (`_bucket_chunks`), and each
+    chunk builds its rows of `a` from the feature block and the keyed basis."""
+    J, p = d.n_units, d.n_global
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
     c = 1.0 / (kappa / s["unit_scale"] ** 2 + seg_u(w))
-    h = seg_u(w * y)
-    wa = w[:, None] * a
-    g = seg_u(wa)
-    q = gram(d, w) - g.T @ (c[:, None] * g) + jnp.diag(d.prior_fixed)
-    rhs_g = wa.T @ y - g.T @ (c * h)
-    a_t = a - (c[:, None] * g)[d.unit]
+    h = seg_u(w * d.y)
+    q = gram(d, w) + jnp.diag(d.prior_fixed)
+    rhs_g = jnp.zeros(p)
     cells = []
     for bk in d.buckets:
-        kb, width, nb = bk.buildings.shape[0], bk.width, bk.rows.shape[0]
-        wb, yb, at_b = w[bk.rows], y[bk.rows], a_t[bk.rows]
-        a_l = (
-            jnp.zeros((nb, width)).at[jnp.arange(nb)[:, None], bk.slots].add(bk.values)
+        kb, width, n_slots = bk.buildings.shape[0], bk.width, bk.slots.shape[1]
+        n_b, n_u = bk.chunk_bld.shape[1], bk.chunk_units.shape[1]
+
+        def chunk(carry, ch, bk=bk, kb=kb, width=width, n_slots=n_slots):
+            q, rhs_g, q_ll, q_lg, r_l = carry
+            pos, unit, units = ch["chunk_pos"], ch["chunk_unit"], ch["chunk_units"]
+            rows = bk.rows[pos]
+            wr = w[rows] * ch["chunk_mask"]
+            yr = d.y[rows]
+            slots, vals = bk.slots[pos], bk.values[pos]
+            cu = c[units]
+            # The chunk's units integrated out of its global rows ...
+            ar = global_rows(d, rows)
+            wa = wr[:, None] * ar
+            g = jax.ops.segment_sum(wa, unit, n_u)
+            cg = cu[:, None] * g
+            q = q - g.T @ cg
+            rhs_g = rhs_g + wa.T @ yr - g.T @ (cu * h[units])
+            a_t = ar - cg[unit]
+            # ... and out of its local rows.
+            n_r = pos.shape[0]
+            a_l = jnp.zeros((n_r, width)).at[jnp.arange(n_r)[:, None], slots].add(vals)
+            gl = jnp.zeros((n_u, width))
+            for m in range(n_slots):
+                gl = gl.at[unit, slots[:, m]].add(wr * vals[:, m])
+            adj = a_l - (cu[:, None] * gl)[unit]
+            # Cells (building in the chunk, slot), then into the bucket's.
+            c_ll = jnp.zeros((n_b * width, width))
+            c_lg = jnp.zeros((n_b * width, p))
+            for m in range(n_slots):
+                cell = ch["chunk_row_bld"] * width + slots[:, m]
+                wv = (wr * vals[:, m])[:, None]
+                c_ll = c_ll + jax.ops.segment_sum(wv * adj, cell, n_b * width)
+                c_lg = c_lg + jax.ops.segment_sum(wv * a_t, cell, n_b * width)
+            c_r = jax.ops.segment_sum(
+                (wr * yr)[:, None] * adj, ch["chunk_row_bld"], n_b
+            )
+            # Padded buildings (index kb) fall outside and drop.
+            bld = ch["chunk_bld"]
+            q_ll = q_ll.at[bld].set(c_ll.reshape(n_b, width, width), mode="drop")
+            q_lg = q_lg.at[bld].set(c_lg.reshape(n_b, width, p), mode="drop")
+            r_l = r_l.at[bld].set(c_r, mode="drop")
+            return (q, rhs_g, q_ll, q_lg, r_l), None
+
+        init = (
+            q,
+            rhs_g,
+            jnp.zeros((kb, width, width)),
+            jnp.zeros((kb, width, p)),
+            jnp.zeros((kb, width)),
         )
-        gl = jnp.zeros((bk.units.shape[0], width))
-        for m in range(bk.slots.shape[1]):
-            gl = gl.at[bk.unit, bk.slots[:, m]].add(wb * bk.values[:, m])
-        adj = a_l - (c[bk.units][:, None] * gl)[bk.unit]
-        q_ll = jnp.zeros((kb * width, width))
-        q_lg = jnp.zeros((kb * width, a.shape[1]))
-        for m in range(bk.slots.shape[1]):
-            cell = bk.bld * width + bk.slots[:, m]
-            wv = (wb * bk.values[:, m])[:, None]
-            q_ll = q_ll + jax.ops.segment_sum(wv * adj, cell, kb * width)
-            q_lg = q_lg + jax.ops.segment_sum(wv * at_b, cell, kb * width)
-        q_ll = q_ll.reshape(kb, width, width)
+        chunks = {
+            k: getattr(bk, k)
+            for k in (
+                "chunk_bld",
+                "chunk_pos",
+                "chunk_mask",
+                "chunk_row_bld",
+                "chunk_unit",
+                "chunk_units",
+            )
+        }
+        (q, rhs_g, q_ll, q_lg, r_l), _ = jax.lax.scan(chunk, init, chunks)
         cells.append(
             {
                 "q_ll": 0.5 * (q_ll + jnp.swapaxes(q_ll, 1, 2)),
-                "q_lg": q_lg.reshape(kb, width, a.shape[1]),
-                "r_l": jax.ops.segment_sum((wb * yb)[:, None] * adj, bk.bld, kb),
+                "q_lg": q_lg,
+                "r_l": r_l,
             }
         )
     return {
@@ -1152,22 +1294,30 @@ def _compact_solve(d: Design, parts, s, q, rhs_g, z_g, z_l, z_f):
             jnp.broadcast_to(jnp.eye(width), (bk.buildings.shape[0], width, width)),
             lower=True,
         )
-        v = inv_b @ cell["q_lg"]
         vr = solve_triangular(chol_b, cell["r_l"][..., None], lower=True)[..., 0]
-        schur = schur - jnp.einsum("klp,klq->pq", v, v)
-        r_s = r_s - jnp.einsum("klp,kl->p", v, vr)
+
+        def chunk(carry, bld, inv_b=inv_b, vr=vr, q_lg=cell["q_lg"]):
+            # v = L_b^-1 Q_lg for the chunk's buildings (padding gives 0).
+            schur, r_s = carry
+            take = lambda x: jnp.take(x, bld, axis=0, mode="fill", fill_value=0.0)
+            v = take(inv_b) @ take(q_lg)
+            schur = schur - jnp.einsum("klp,klq->pq", v, v)
+            return (schur, r_s - jnp.einsum("klp,kl->p", v, take(vr))), None
+
+        (schur, r_s), _ = jax.lax.scan(chunk, (schur, r_s), bk.chunk_bld)
         quad_l = quad_l + jnp.sum(vr * vr)
         logdet_l = logdet_l + 2 * jnp.sum(
             jnp.log(jnp.diagonal(chol_b, axis1=1, axis2=2))
         )
-        per.append((chol_b, v, vr))
+        per.append((chol_b, inv_b, vr, cell["q_lg"]))
     chol = jnp.linalg.cholesky(schur)
     white = solve_triangular(chol, r_s, lower=True)
     theta = solve_triangular(chol.T, white + z_g, lower=False)
     fixed_l = jnp.zeros((d.n_buildings, n_fixed))
     x = jnp.zeros((d.n_buildings, k + 1))  # column k takes the unused slots
-    for bk, (chol_b, v, vr) in zip(d.buckets, per):
-        rhs = vr - jnp.einsum("klp,p->kl", v, theta) + z_l[bk.buildings, : bk.width]
+    for bk, (chol_b, inv_b, vr, q_lg) in zip(d.buckets, per):
+        v_theta = (inv_b @ (q_lg @ theta)[..., None])[..., 0]
+        rhs = vr - v_theta + z_l[bk.buildings, : bk.width]
         tc = solve_triangular(jnp.swapaxes(chol_b, 1, 2), rhs[..., None], lower=False)[
             ..., 0
         ]
@@ -1193,7 +1343,7 @@ def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u, z_f=None):
     `z_f` draws the walk knots no row touches (compact designs; None: their
     conditional mean)."""
     J, K = d.n_units, d.n_buildings
-    y, a, bld, slots, vals = d.y, d.a, d.building, d.slots, d.slot_values
+    y, bld, slots, vals = d.y, d.building, d.slots, d.slot_values
     w, kappa, q, rhs_g = parts["w"], parts["kappa"], parts["q"], parts["rhs_g"]
     L = d.n_local
     seg_u = lambda v: jax.ops.segment_sum(v, d.unit, J)
@@ -1232,7 +1382,7 @@ def block_solve(d: Design, parts: dict, s, z_g, z_l, z_u, z_f=None):
         logdet_lg = 2 * jnp.sum(
             jnp.log(jnp.diagonal(chol_l, axis1=1, axis2=2))
         ) + 2 * jnp.sum(jnp.log(jnp.diagonal(chol)))
-    fixed = a @ theta + local_value(theta_l, bld, slots, vals)
+    fixed = global_value(d, theta) + local_value(theta_l, bld, slots, vals)
     if d.unit_drift:
         wz, cu, hu, ch, det = (parts[k] for k in ("wz", "cu", "hu", "ch", "det"))
         mean_u = jnp.einsum("jkl,jl->jk", cu, hu - seg_u(wz * fixed[:, None]))
@@ -1427,7 +1577,7 @@ def make_step(d: Design):
         keys = jax.random.split(key, 16)
         s = {k: state[k] for k in d.scale_names}
         z = (
-            jax.random.normal(keys[0], (d.a.shape[1],)),
+            jax.random.normal(keys[0], (d.n_global,)),
             jax.random.normal(keys[1], (d.n_buildings, d.n_local)),
             jax.random.normal(
                 keys[2], (d.n_units, 2) if d.unit_drift else (d.n_units,)
@@ -1950,7 +2100,7 @@ def init_states(d: Design, key, chains):
     state["nu"] = (
         5.0 * jitter[:, -1] if d.nu_fixed is None else jnp.full((chains,), d.nu_fixed)
     )
-    state["theta"] = jnp.zeros((chains, d.a.shape[1]))
+    state["theta"] = jnp.zeros((chains, d.n_global))
     state["local"] = jnp.zeros((chains, d.n_buildings, d.n_local))
     state["unit"] = jnp.zeros((chains, d.n_units))
     state["lam"] = jnp.ones((chains, d.y.shape[0]))
@@ -2049,7 +2199,7 @@ def run(
     if not jax.config.jax_enable_x64:
         raise RuntimeError("The Gibbs sampler needs float64 (jax_enable_x64)")
     t0 = time.perf_counter()
-    d = build_design(prep, config)
+    d = build_design(prep, config, dense=False)
     step = make_step(d)
     cfg = (
         settings.noise_steps,

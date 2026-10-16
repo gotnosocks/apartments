@@ -450,6 +450,58 @@ def test_design_arrays_leave_no_large_constants_in_the_step():
 
 
 @pytest.mark.parametrize(
+    "design",
+    [
+        "walk",
+        "all",
+        "fslopes",
+        "tunits",
+        "walkmin-long",
+        "dayfourier",
+        "bednoise",
+        "yearnoise",
+        "lines",
+    ],
+)
+def test_chunked_buildings_match_one_chunk_per_bucket(design):
+    """Summing each bucket's rows and Schur products over many chunks of
+    buildings, with rows of `a` built from the feature block and the keyed
+    basis, gives the block draw and marginal likelihood of one chunk per
+    bucket with the dense design. The noise designs weight rows by their
+    noise group's scale."""
+    prep = synthetic(seed=2, units_per_building=3, months=72)
+    if design == "lines":
+        prep = with_lines(prep)
+    whole = gibbs.build_design(prep, DESIGNS[design], chunk_rows=10**9)
+    chunked = gibbs.build_design(prep, DESIGNS[design], chunk_rows=12, dense=False)
+    assert whole.a is not None and chunked.a is None
+    assert all(b.chunk_bld.shape[0] == 1 for b in whole.buckets)
+    # Several chunks per bucket, some with more than one building.
+    assert sum(b.chunk_bld.shape[0] for b in chunked.buckets) > 2 * len(chunked.buckets)
+    assert max(b.chunk_bld.shape[1] for b in chunked.buckets) > 1
+    rng = np.random.default_rng(5)
+    lam = jnp.asarray(rng.gamma(2.5, 1 / 2.5, whole.y.shape[0]))
+    kappa = jnp.asarray(rng.gamma(1.5, 1 / 1.5, whole.n_units))
+    z = (
+        jnp.asarray(rng.normal(size=whole.n_global)),
+        jnp.asarray(rng.normal(size=(whole.n_buildings, whole.n_local))),
+        jnp.asarray(rng.normal(size=whole.n_units)),
+    )
+    z_f = jnp.asarray(rng.normal(size=(whole.n_buildings, whole.n_fill)))
+    base = {
+        **SCALES,
+        **{n: 0.04 + 0.01 * i for i, n in enumerate(whole.group_noise_names or ())},
+    }
+    for s in (base, {k: v * 1.4 for k, v in base.items()}):
+        a = gibbs.gaussian_block(whole, lam, s, *z, kappa, z_f)
+        b = gibbs.gaussian_block(chunked, lam, s, *z, kappa, z_f)
+        for x, y in zip(a, b):
+            np.testing.assert_allclose(
+                np.asarray(x), np.asarray(y), rtol=1e-9, atol=1e-9
+            )
+
+
+@pytest.mark.parametrize(
     "design", ["walk", "walk12", "all", "fslopes", "tunits", "walkmin-long"]
 )
 def test_compact_walk_matches_the_full_block(design):
