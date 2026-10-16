@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -90,7 +91,7 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
             + strace_line("O_RDONLY|O_CLOEXEC|O_DIRECTORY", data)
             + strace_line("O_RDONLY|O_CLOEXEC", module)
             + strace_line("O_RDONLY|O_CLOEXEC", cache)
-            + strace_line("O_RDONLY|O_CLOEXEC", "/usr/lib/libc.so.6")
+            + strace_line("O_RDONLY|O_CLOEXEC", "/etc/passwd")
             + strace_line("O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666", written)
             + strace_line("O_RDONLY|O_CLOEXEC", written)
         )
@@ -139,6 +140,8 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
     assert sorted(matched["outputs"]) == ["rows.parquet", "written.json"]
     assert calls[-1]["FRONTIER_COMMIT"] == "c"
     assert not Path(calls[-1]["FRONTIER_OUTPUT_ROOT"]).exists()
+    scratch = Path(calls[-1]["FRONTIER_OUTPUT_ROOT"]).parent
+    assert Path(calls[-1]["TMPDIR"]).parent == scratch
     unrecorded = freeze("unrecorded", {**record, "data_rule_sources": {}})
     assert not unrecorded["inputs_match_run"]
     assert "matches_record" not in unrecorded["inputs"]["rule quarantine-v1"]
@@ -162,6 +165,77 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
     monkeypatch.setattr(reference.subprocess, "run", touching)
     with pytest.raises(SystemExit, match="changed after the preparation started"):
         freeze("edited", record)
+
+    # The same, with the old modification time put back.
+    def backdating(argv, **kw):
+        old = registry.stat().st_mtime_ns
+        result = original(argv, **kw)
+        registry.write_bytes(b"registry, edited again")
+        os.utime(registry, ns=(old, old))
+        return result
+
+    registry.write_bytes(b"registry")
+    os.utime(registry, ns=(0, 0))
+    monkeypatch.setattr(reference.subprocess, "run", backdating)
+    with pytest.raises(SystemExit, match="changed after the preparation started"):
+        freeze("backdated", record)
+
+    # A write between the first hash and the copy's.
+    monkeypatch.setattr(reference.subprocess, "run", original)
+    monkeypatch.setattr(reference.time, "time_ns", lambda: 2**62)
+    copy = reference.blob
+
+    def writing(path, read, expected=None):
+        out = copy(path, read, expected)
+        if path == str(registry):
+            registry.write_bytes(b"registry, edited while copied")
+        return out
+
+    monkeypatch.setattr(reference, "blob", writing)
+    with pytest.raises(SystemExit, match="changed while it was copied"):
+        freeze("copied", record)
+
+
+def test_opened_skips_code_system_and_directories(reference, tmp_path):
+    kept = tmp_path / "kept.parquet"
+    kept.write_bytes(b"kept")
+    code = tmp_path / "code"
+    code.mkdir()
+    module = code / "module.py"
+    module.write_text("")
+    folder = tmp_path / "folder"
+    folder.mkdir()
+    log = tmp_path / "opens.log"
+    lines = [
+        strace_line("O_RDONLY|O_CLOEXEC", kept),
+        strace_line("O_RDONLY|O_CLOEXEC", module),
+        strace_line("O_RDONLY|O_CLOEXEC", "/etc/passwd"),
+        strace_line("O_RDONLY|O_CLOEXEC", folder),
+        strace_line("O_RDONLY|O_CLOEXEC|O_DIRECTORY", tmp_path),
+        '7 openat(AT_FDCWD, "/nowhere", O_RDONLY) = -1 ENOENT (No such file or directory)\n',
+    ]
+    log.write_text("".join(lines))
+    skip = (f"{code}/", *reference.SYSTEM)
+    assert reference.opened(log, skip) == [str(kept)]
+
+    # A file outside the skipped folders, written and read back.
+    written = tmp_path / "written.parquet"
+    written.write_bytes(b"written")
+    log.write_text(
+        "".join(lines)
+        + strace_line("O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666", written)
+        + strace_line("O_RDONLY|O_CLOEXEC", written)
+    )
+    with pytest.raises(
+        SystemExit, match=f"that it also wrote, or that are gone: {written}$"
+    ):
+        reference.opened(log, skip)
+
+    # A file read, then deleted.
+    gone = tmp_path / "gone.parquet"
+    log.write_text("".join(lines) + strace_line("O_RDONLY|O_CLOEXEC", gone))
+    with pytest.raises(SystemExit, match=f"or that are gone: {gone}$"):
+        reference.opened(log, skip)
 
 
 def fake_rentfrontier(monkeypatch, tmp_path, split=None, build=None):
