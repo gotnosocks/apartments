@@ -54,3 +54,6 @@ def test_all_scraped_snapshots_exist_and_keep_nb9s_lots():
     merged = nb9.merge(registry, on="building", suffixes=("", "_all"))
     assert len(merged) == len(nb9)
     assert (merged.bbl.fillna(-1) == merged.bbl_all.fillna(-1)).all()
+    # Areas fetched the same listing at different times; the union keeps one row each.
+    extras = pd.read_parquet(features.EXTRAS_SNAPSHOTS[NAME], columns=["listing_id"])
+    assert not extras.listing_id.duplicated().any()
