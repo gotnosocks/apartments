@@ -21,8 +21,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    [fit-ready-rows.md](../data/fit-ready-rows.md).
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
    market and the ending as views of it, and exclusions as flags with reasons. **Started**:
-   the event log and each ad's first ask merged in #870, and each ad's attributes and reasons
-   to drop it in #872.
+   the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
+   drop it in #872, and days on market with the ending in `ads.market`.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -65,13 +65,18 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    1. **Done** in #872: each record's attributes as the chain parses them, merged per ad, and
       `project_advertisement`'s reasons to drop an ad. On runs 1 to 5 they equal the chain's
       audit of the four regions for the 1,692,593 ads with no answer after the audit, in all
-      reasons but the three of later steps and in all sixteen attributes and flags. A build from nothing takes 640 s, 451 s of it parsing records, and 199 s with the
-      parse cache. [pipeline.md](../data/pipeline.md) has the numbers.
-   2. latest ask, days on market, checked against the record's `daysOnMarket`, and the ending as
-      views of the events. Repeated price changes should collapse there: ad 2326634 has 799
-      changes over two months cycling through 7 prices, and 1,814 ads have 100 or more. The
-      latest-ask check recurses change by change, so long runs of changes cost time.
-   3. the fit-ready rows built in SQL, in place of `raw.analysis_rows`, matching the frozen API
+      reasons but the three of later steps and in all sixteen attributes and flags. A build
+      from nothing takes 640 s, 451 s of it parsing records, and 199 s with the parse cache.
+      [pipeline.md](../data/pipeline.md) has the numbers.
+   2. `ads.market`: each ad's first and last days on the market, its days and spans ACTIVE,
+      and its ending, from its status changes. On runs 1 to 5 its days agree with the record's
+      `onMarketAt` and `offMarketAt` for all but 284 ads with both, and its ACTIVE days equal
+      `daysOnMarket` for 93.8% of ads.
+   3. latest ask as a view of the events. Repeated price changes should collapse there: ad
+      2326634 has 799 changes over two months cycling through 7 prices, and 1,814 ads have 100
+      or more. The latest-ask check recurses change by change, so long runs of changes cost
+      time.
+   4. the fit-ready rows built in SQL, in place of `raw.analysis_rows`, matching the frozen API
       references on `(source_listing_id, price_at)`.
 
    These replace the current chain from archive to analysis rows, which Data improvements runs

@@ -137,6 +137,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.history_events",
         "ads.kept_changes",
         "ads.latest_record",
+        "ads.market",
         "ads.price_changes",
         "ads.record_attributes",
         "analysis.latest_ask",
@@ -752,6 +753,100 @@ def test_exclusion_cases(tmp_path, monkeypatch):
         "SELECT id FROM ads.record_attributes WHERE NOT parsed AND id >= '9000020'"
     )
     assert unparsed.id.tolist() == ["9000031"]
+
+
+def market_record(listing_id, changes, days=None, rented=None):
+    """A record of ad `listing_id` with a status change for each (day, status) pair of
+    `changes`, at 10:00 New York time, and its daysOnMarket and rentedPrice."""
+    record = json.loads(history_record(listing_id, None))
+    record["statusChanges"] = [
+        {"changedAt": f"{day}T10:00:00.000-04:00", "status": status}
+        for day, status in changes
+    ]
+    record["status"] = changes[-1][1] if changes else "DRAFT"
+    record["daysOnMarket"] = days
+    record["pricing"]["rentedPrice"] = rented
+    return json.dumps(record, sort_keys=True)
+
+
+def test_market_cases(tmp_path, monkeypatch):
+    """Ad 9000050 goes into contract and back on the market before it rents, ad 9000051 is
+    paused and back on the market, ad 9000052 never goes on it, and ad 9000053 has no status
+    changes. Ad 9000054 has two answers, and the later one ends it."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    back = [
+        ("2026-05-01", "ACTIVE"),
+        ("2026-05-11", "IN_CONTRACT"),
+        ("2026-05-15", "ACTIVE"),
+        ("2026-05-15", "ACTIVE"),
+        ("2026-05-20", "RENTED"),
+    ]
+    paused = [
+        ("2026-08-10", "ACTIVE"),
+        ("2026-08-15", "TEMPORARILY_OFF_MARKET"),
+        ("2026-08-20", "ACTIVE"),
+    ]
+    records = [
+        (9000050, market_record(9000050, back, days=15, rented=2950)),
+        (9000051, market_record(9000051, paused, days=18)),
+        (
+            9000052,
+            market_record(
+                9000052, [("2026-05-01", "DRAFT"), ("2026-05-03", "DELISTED")], days=0
+            ),
+        ),
+        (9000053, market_record(9000053, [])),
+        (9000054, market_record(9000054, [("2026-07-01", "ACTIVE")], days=30)),
+        (
+            9000054,
+            market_record(
+                9000054,
+                [("2026-07-01", "ACTIVE"), ("2026-07-31", "NO_LONGER_AVAILABLE")],
+                days=31,
+            ),
+        ),
+    ]
+    append_answers(
+        export,
+        pd.DataFrame(
+            {
+                "listing_id": [r[0] for r in records],
+                "fetched": pd.Timestamp("2026-09-02T12:00:00Z")
+                + pd.to_timedelta(range(len(records)), unit="min"),
+                "response_id": range(20, 20 + len(records)),
+                "run": 5,
+                "region": "cases",
+                "generation": 1,
+                "outcome": "record",
+                "record_sha256": [
+                    hashlib.sha256(r[1].encode()).hexdigest() for r in records
+                ],
+                "record": [r[1] for r in records],
+            }
+        ),
+    )
+    ctx = context(
+        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
+    )
+    ctx.plan(auto_apply=True, no_prompts=True)
+    got = ctx.fetchdf(
+        """SELECT listing_id, as_of::VARCHAR, status, on_day::VARCHAR, off_day::VARCHAR,
+        active_days, active_spans, ending, ending_day::VARCHAR, record_days_on_market,
+        rented_price FROM ads.market WHERE listing_id >= '9000050' ORDER BY listing_id"""
+    )
+    got = got.astype(object).where(got.notna(), None).values.tolist()
+    day = "2026-09-02"
+    assert got == [
+        ["9000050", day, "RENTED", "2026-05-01", "2026-05-20", 15, 2]
+        + ["RENTED", "2026-05-20", 15, 2950.0],
+        ["9000051", day, "ACTIVE", "2026-08-10", None, 18, 2, None, None, 18, None],
+        ["9000052", day, "DELISTED", None, None, 0, 0]
+        + ["DELISTED", "2026-05-03", 0, None],
+        ["9000053", day, "DRAFT", None, None, 0, 0, None, None, None, None],
+        ["9000054", day, "NO_LONGER_AVAILABLE", "2026-07-01", "2026-07-31", 30, 1]
+        + ["NO_LONGER_AVAILABLE", "2026-07-31", 31, None],
+    ]
 
 
 class Failures(TerminalConsole):

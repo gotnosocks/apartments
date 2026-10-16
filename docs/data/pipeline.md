@@ -2,8 +2,9 @@
 
 The rebuilt pipeline is a SQLMesh project over DuckDB, in `pipeline/`. So far it builds each
 analysis row's latest ask from the API export, as `rentfrontier.latest_ask` does, and a log of
-the events the API reported for each ad, with each ad's first ask. It also reads each ad's
-attributes from its records and gives the current chain's reasons for dropping the ad. The later
+the events the API reported for each ad, with each ad's first ask, its time on the market and
+its ending. It also reads each ad's attributes from its records and gives the current chain's
+reasons for dropping the ad. The later
 steps in [the pipeline handoff](../handoff/data-pipeline.md) add models to it.
 
 The project keeps its own uv environment and lock, as `frontier/` does. SQLMesh 0.236.3 requires
@@ -59,13 +60,14 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.events` | table | event the API reported for an ad, with the answers that reported it |
 | `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
+| `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
-keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.attributes`
-and `ads.exclusions`, per record in `ads.record_attributes`, per `(listing_id, response_id)` in
+keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
+`ads.attributes` and `ads.exclusions`, per record in `ads.record_attributes`, per `(listing_id, response_id)` in
 `ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
 `ordinal` in the two analysis tables. The `every_row` audit, in
 `pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
@@ -110,6 +112,45 @@ two. It reads only the answers collected by its cutoff, and `first_seen` gives t
 which an ad's first day is known. A later answer can add a second price to that day, and
 `first_ask` keeps no time for it, so a replay of the cutoff reads each price's `own_first_seen`
 in `ads.events`.
+
+## Days on market
+
+`ads.market` reads each ad's status changes from the event log and puts them in order of time.
+Each change holds until the next one, and the last holds until the New York date of the ad's
+latest answer with a record. The model takes from them:
+
+- `on_day`, the day of the first change to ACTIVE, which StreetEasy gives as `onMarketAt`;
+- `off_day`, the day of the last change from ACTIVE or IN_CONTRACT to another status, given as
+  `offMarketAt`. An ad whose last change puts it ACTIVE or IN_CONTRACT has none;
+- `active_days`, the days of all the ad's ACTIVE spans together;
+- `active_spans`, the number of changes to ACTIVE from another status or from none. An ad put
+  back on the market has two or more;
+- `ending` and `ending_day`, the last change and its day, when that change is RENTED,
+  NO_LONGER_AVAILABLE or DELISTED. An ad still on the market, in contract or paused has none.
+
+It also keeps the status, `daysOnMarket` and `rentedPrice` of the ad's latest record, as the
+API wrote them, so a reader can compare StreetEasy's count with the event log's.
+
+I ran the model's query on a scratch build of runs 1 to 5. It took 4.4 s and gave 2,137,997
+ads. The 2,117,296 of them with an ACTIVE change each have an `on_day` equal to the record's
+`onMarketAt`. Of the 2,108,659 ads with both an `off_day` and an `offMarketAt`, 2,108,375 agree.
+The other 284, and 440 ads with an `off_day` but no `offMarketAt`, pass through a draft or
+review status, and StreetEasy counts those as on the market. Another 10,780 ads have an
+`offMarketAt` and no `off_day`, and 10,773 of them have no ACTIVE change at all.
+
+Of the ads on the market, 1,919,551 went on it once, 162,258 twice and 35,487 three times or
+more. The median ad spent 14 days on the market, and the middle half spent 6 to 31.
+2,118,171 ads have an ending: 1,034,220 rented, 735,138 no longer available and 348,813
+delisted. Of the 23,925 ads with a `rentedPrice`, 22,205 end rented.
+
+StreetEasy's `daysOnMarket` equals `active_days` for 1,985,037 of the 2,117,296 ads on the
+market, 93.8%, and comes within a day for 2,025,001, 95.6%. So StreetEasy leaves out the days in
+contract and the days paused, as `active_days` does. It counts more than a day more for 61,771
+ads and more than a day fewer for 30,524. Agreement is lowest for ads first on the market in
+2016 to 2018, with 89% to 90% exact, and reaches 96% to 97% for 2021 on. For the ads with more
+days in StreetEasy's count, the status changes show nothing to account for them. Ad 4616858 has
+575 days on StreetEasy's count and 92 in its changes, and ad 4599884 has 65 and 12. The model
+keeps both counts, and the fit-ready step picks one.
 
 ## Attributes and exclusions
 
@@ -173,7 +214,7 @@ row. Their records hold no unit histories. The tests:
    record collected before its row, an ad without answers, an empty latest answer, and rows
    without a building or a bedroom count;
 3. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
-   and the twelve tables below it and gives the full answer, and a further plan finds nothing
+   and the thirteen tables below it and gives the full answer, and a further plan finds nothing
    to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -208,7 +249,11 @@ row. Their records hold no unit histories. The tests:
     the venv loads the repo's own code. A plan in a new process, with the copy first on
     `PYTHONPATH`, parses the same records into a second cache folder, each with 9 bedrooms;
 14. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
-    with the files of the code version.
+    with the files of the code version;
+15. add made-up ads to the cases: an ad put in contract, back on the market and rented, with a
+    status change repeated, an ad paused and back on the market, an ad delisted from a draft, an ad without
+    status changes, and an ad with two answers, the later of which ends it. The test checks
+    each ad's days, spans, ending and record fields by value.
 
 They take about 35 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
