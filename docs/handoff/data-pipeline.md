@@ -175,9 +175,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `rows-4743b90bc5aa49b4.parquet`. The state from Oct 15 moved to
       `/data1/apartments/tmp/pipeline/state-prod-20261015`, and can go once the Friday top-up
       builds;
-   2. the Friday top-up's own timing, from the catalog line of the build its export starts. The
-      top-up timer fires at 05:30 ET. A check build of the same export into an empty scratch
-      state should give the same rows file;
+   2. the Friday top-up's own timing. On Oct 16 the export of runs 6 to 10 changed the manifest
+      at 05:49 ET. The build waited 42 minutes for the GPU lock, held by Modeling's summary of a
+      fit, then took 192 s at a 4,239 MiB peak, with 59 s in `ads.events` and 30 s in
+      `ads.record_attributes`, and wrote `rows-892481e29edeeb73.parquet` with 1,746,499 rows.
+      It also rebuilt `ledger.entries`, `ledger.status` and `analysis.rows`, whose fingerprints
+      changed with Python's hash seed: `ledger.entries` read two dicts of sets. #PRNUM gives
+      them tuples. A check build of the same export into an empty scratch state should give the
+      same rows file;
    3. fits reading a rows file by name and hash, agreed with Modeling first;
    4. **Done** in #893: `ops/pipeline/diff.py` builds the fixture with the base code and with the
       edit, at once, and lists each change to each table, in about 6 s. The fixture lacks many

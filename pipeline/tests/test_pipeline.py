@@ -448,6 +448,39 @@ def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
     )
 
 
+def test_fingerprints_hold_across_hash_seeds(tmp_path):
+    """Each model has the same fingerprint in processes with different hash seeds. A value whose
+    text changes with the seed, like a set of strings, would rebuild its model and everything
+    below it in each new build process."""
+    script = (
+        "import json, sys; from sqlmesh import Context; "
+        "print(json.dumps({s.name: s.fingerprint.to_identifier() "
+        "for s in Context(paths=sys.argv[1]).snapshots.values()}))"
+    )
+    (tmp_path / "ledger").mkdir()
+    env = os.environ | {
+        "PIPELINE_EXPORT": str(FIXTURE / "export"),
+        "PIPELINE_STATE": str(tmp_path / "state"),
+        "PIPELINE_LEDGER": str(tmp_path / "ledger"),
+        "PIPELINE_MEMORY": "1GB",
+    }
+
+    def fingerprints(seed):
+        loaded = subprocess.run(
+            [sys.executable, "-c", script, str(PROJECT)],
+            env=env | {"PYTHONHASHSEED": str(seed)},
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return json.loads(loaded.stdout)
+
+    # Under seeds 1 and 2, the sets ledger.entries once read gave different text.
+    first, second = fingerprints(1), fingerprints(2)
+    assert '"pipeline"."ledger"."entries"' in first
+    assert first == second
+
+
 def test_later_answer_replaces_an_earlier_one(tmp_path, monkeypatch):
     """A newer answer for an ad replaces its earlier one, and an older answer changes nothing."""
     expected = pd.read_parquet(FIXTURE / "latest-ask.parquet")

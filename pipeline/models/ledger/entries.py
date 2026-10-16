@@ -94,15 +94,17 @@ KINDS = (
 BACKING = ("other_ad", "stated_size", "floor_plan", "line_units", "owner")
 # The text an item of each kind gives, as one of these keys.
 TEXT = {"ad_text": ("quote",), "floor_plan": ("plan", "detail")}
+# SQLMesh fingerprints the model by the text of the values it reads, and a set's order changes
+# with the process's hash seed, so the keys of a change are tuples.
 KEYS = {
-    "exclude": {"change", "listing_id", "reason", "when", "evidence", "decided"},
-    "set": {"change", "listing_id", "set", "when", "evidence", "decided"},
-    "retract": {"change", "entry", "evidence", "decided"},
+    "exclude": ("change", "listing_id", "reason", "when", "evidence", "decided"),
+    "set": ("change", "listing_id", "set", "when", "evidence", "decided"),
+    "retract": ("change", "entry", "evidence", "decided"),
 }
 OPTIONAL = {
-    "exclude": {"when", "source", "note"},
-    "set": {"when", "source", "note"},
-    "retract": {"source", "note"},
+    "exclude": ("when", "source", "note"),
+    "set": ("when", "source", "note"),
+    "retract": ("source", "note"),
 }
 # The columns of ledger.entries, in order, with their DuckDB types.
 COLUMNS = {
@@ -210,9 +212,9 @@ def parse(text: str) -> dict:
     if change not in CHANGES:
         raise LedgerError(f"change is one of {', '.join(CHANGES)}, not {change!r}")
     named = f"{'an' if change == 'exclude' else 'a'} {change}"
-    if missing := sorted(KEYS[change] - OPTIONAL[change] - line.keys()):
+    if missing := sorted(set(KEYS[change]) - set(OPTIONAL[change]) - line.keys()):
         raise LedgerError(f"{named} needs {', '.join(missing)}")
-    if extra := sorted(line.keys() - KEYS[change] - OPTIONAL[change]):
+    if extra := sorted(line.keys() - set(KEYS[change]) - set(OPTIONAL[change])):
         raise LedgerError(f"{named} takes no {', '.join(extra)}")
     row = dict.fromkeys(COLUMNS)
     row["change"] = change
