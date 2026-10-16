@@ -35,7 +35,7 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
    `analysis.rows` to a file named by its hash and adds a line to a catalog file (#886). A path
-   unit runs it after each export (#PRNUM).
+   unit runs it after each export (#887).
 9. Delete the page-capture rewrite once its two readers move: Data improvements'
    `granular_export` inputs and the website's current-listings publish in
    `src/streeteasy_archive/graphql_search.py`.
@@ -142,7 +142,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
    [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
    top-up, at about 4 GiB, with the same rows file either way. The rest of step 8, a PR each:
-   1. **Done** in #PRNUM: `apartments-pipeline-build.path` starts
+   1. **Done** in #887: `apartments-pipeline-build.path` starts
       `ops/pipeline/build-latest` when the export's manifest changes, and a timer starts it
       daily. The build runs from `/data1/apartments/pipeline/code` with the venv
       `/data1/apartments/venvs/pipeline`, into `/data1/apartments/pipeline/state` and
