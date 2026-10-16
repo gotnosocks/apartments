@@ -41,7 +41,7 @@ def test_api_sets_read_the_api_snapshots_in_the_nb9_groups():
     for region in features.API_AREAS:
         name = f"api-{region}-v1"
         assert region in data.DATASETS_API
-        files = features.API_MANHATTAN_FILES
+        files = features.API_FILES[region.split("-")[0]]
         assert features.lot_files(name) == {
             "registry": files["registry"],
             "pluto": files["pluto"],

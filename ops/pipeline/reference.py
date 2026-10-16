@@ -20,16 +20,23 @@ the feature matrix to `features.parquet`, keyed by `audit_id`. The preparation r
 which logs every file the process and its children open. The script then copies each file opened
 for reading into `blobs/` under its SHA-256, read-only, so later changes to the original files
 leave the reference alone. Files under the exported tree, the venv, Python's install and the system
-folders hold code, so the script leaves them out, along with files the preparation wrote itself.
+folders hold code, so the script leaves them out, along with itself. It also leaves out
+directories, the output folder and the scratch folder described below. If the preparation read a
+file elsewhere that it had also opened for writing, or a file gone by the time of the copy, the
+freeze stops, since the copy might not hold what the preparation read. A file opened for reading
+and writing at once counts as both.
+
 The preparation keeps the hash `data.load` takes of the observations before parsing them, and
 hashes the rule files and the feature sources before and after its calls. The freeze stops if a
-hash differs by the time of the copy. For any other file, the freeze stops if the file was modified
-after the preparation started. The preparation writes its caches into an empty scratch folder, set
-as `FRONTIER_OUTPUT_ROOT`, so `data.load` and `descriptions.load` build them from the inputs rather
-than read caches written by other jobs. For a fit with a result.json, `manifest.json` records
-whether the row hash and the hashes of the observations, rule files and feature sources equal the
-fit's own record. Any of those the record lacks counts as a mismatch. A fit records no hashes for
-the other files. The manifest also lists the version of every package in the venv.
+hash differs by the time of the copy. For any other file, the freeze stops if the file's
+modification or status-change time comes after the preparation started, or if its status changes
+while the script hashes and copies it. The preparation writes its caches into an empty scratch
+folder, set as `FRONTIER_OUTPUT_ROOT`, so `data.load` and `descriptions.load` build them from the
+inputs rather than read caches written by other jobs. Its temporary files go to the same folder,
+set as `TMPDIR`. For a fit with a result.json, `manifest.json` records whether the row hash and
+the hashes of the observations, rule files and feature sources equal the fit's own record. Any of
+those the record lacks counts as a mismatch. A fit records no hashes for the other files. The
+manifest also lists the version of every package in the venv.
 
 `verify` hashes every blob and output of a reference again and reports any change or missing
 file.
@@ -124,10 +131,11 @@ def blob(path: str, read: str, expected: str | None = None) -> dict:
 
 
 def opened(log: Path, skip: tuple[str, ...]) -> list[str]:
-    """The regular files an `strace -f -y` log shows opened for reading, outside `skip`.
+    """The files an `strace -f -y` log shows opened for reading, outside `skip` and directories.
 
-    A path the log also shows opened for writing came from the preparation itself, so it is
-    left out too.
+    The preparation writes only below `skip`, so a file outside it that the log also shows
+    opened for writing holds data the preparation made, and a file gone by now can't be copied.
+    Either one stops the freeze.
     """
     read, written = set(), set()
     for line in log.read_text(errors="replace").splitlines():
@@ -137,9 +145,15 @@ def opened(log: Path, skip: tuple[str, ...]) -> list[str]:
         flags, path = match.groups()
         if re.search("O_WRONLY|O_RDWR|O_CREAT|O_TRUNC", flags):
             written.add(path)
-        elif "O_DIRECTORY" not in flags and not path.startswith(skip):
+        if not re.search("O_WRONLY|O_DIRECTORY", flags) and not path.startswith(skip):
             read.add(path)
-    return sorted(p for p in read - written if Path(p).is_file())
+    read = {p for p in read if not Path(p).is_dir()}
+    if odd := sorted(p for p in read if p in written or not Path(p).is_file()):
+        raise SystemExit(
+            "the preparation read files outside its scratch folder that it also wrote, "
+            f"or that are gone: {', '.join(odd)}"
+        )
+    return sorted(read)
 
 
 def prepare(spec: dict, out: Path) -> dict:
@@ -329,14 +343,22 @@ def traced_columns(
     return out
 
 
-def child_env(code: Path, spec: dict, output_root: Path) -> dict:
+def status(stat: os.stat_result) -> tuple:
+    """The parts of a file's status that change when someone writes to or replaces it."""
+    return stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+
+def child_env(code: Path, spec: dict, scratch: Path) -> dict:
+    """The preparation's environment, with its caches and temporary files under `scratch`."""
+    (scratch / "tmp").mkdir(exist_ok=True)
     return dict(
         os.environ,
         PYTHONPATH=str(code / "frontier" / "src"),
         JAX_PLATFORMS="cpu",
         FRONTIER_DATASET=spec["dataset"],
-        FRONTIER_OUTPUT_ROOT=str(output_root),
+        FRONTIER_OUTPUT_ROOT=str(scratch / "output"),
         FRONTIER_COMMIT=spec["commit"],
+        TMPDIR=str(scratch / "tmp"),
     )
 
 
@@ -371,7 +393,7 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
                 json.dumps(spec),
                 str(out),
             ],  # fmt: skip
-            env=child_env(code, spec, scratch / "output"),
+            env=child_env(code, spec, scratch),
             cwd=code,
             capture_output=True,
             text=True,
@@ -401,9 +423,13 @@ def freeze(name: str, spec: dict, record: dict | None = None) -> None:
     for path in files:
         if path in hashed:
             continue
-        if Path(path).stat().st_mtime_ns >= started:
+        before = Path(path).stat()
+        if max(before.st_mtime_ns, before.st_ctime_ns) >= started:
             raise SystemExit(f"{path} changed after the preparation started")
         inputs[f"file {path}"] = blob(path, sha256(Path(path)))
+        after = Path(path).stat()
+        if status(after) != status(before):
+            raise SystemExit(f"{path} changed while it was copied")
     outputs = {}
     for path in sorted(out.iterdir()):
         path.chmod(0o444)

@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 
 from . import data as data_module
 from . import descriptions as descriptions_module
@@ -2519,6 +2520,12 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
             owner += [str(r.bin)] * (len(ring) - 1)
     e0, e1 = np.concatenate(e0), np.concatenate(e1)
     owner = np.array(owner)
+    # Edges are looked up by midpoint. An edge passing the test below has its
+    # midpoint within radius + 1.5 * its length of the centre, so a ball that
+    # wide around the centre holds every edge the test keeps.
+    length = np.hypot(*(e1 - e0).T)
+    midpoints = cKDTree((e0 + e1) / 2)
+    slack = 1.5 * float(length.max())
     by_bin = footprints.groupby(footprints.bin.astype(str))
     by_lot = footprints.groupby(footprints.base_bbl.astype(str))
     for building, r in registry.iterrows():
@@ -2544,12 +2551,17 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
         # Every other building nearby blocks the view, on the same lot too;
         # outlines of the building itself (its BIN) are left to the caller,
         # which lets the outline's own walls block.
-        own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         centre = ring.mean(0)
         radius = float(np.hypot(*(ring - centre).T).max()) + reach + 10.0
+        edges = np.sort(
+            np.asarray(midpoints.query_ball_point(centre, radius + slack), int)
+        )
+        own = (owner[edges] == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         # A lower bound on each edge's distance from the centre.
-        dist = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
-        near = (dist - np.hypot(*(e1 - e0).T) < radius) & ~own
+        dist = np.minimum(
+            np.hypot(*(e0[edges] - centre).T), np.hypot(*(e1[edges] - centre).T)
+        )
+        near = edges[(dist - length[edges] < radius) & ~own]
         yield building, ring, (e0[near], e1[near])
 
 
@@ -5227,9 +5239,6 @@ def areas_v1(
     )
 
 
-# The API backfill's Manhattan datasets (data.DATASETS_API). The Brooklyn sets wait on the
-# Brooklyn registry and lot sources. Each set takes the NB9 base's
-
 # The API backfill's datasets (data.DATASETS_API). Each set takes the NB9 base's
 # terms other than its neighbourhoods (nb9-nostuy-lots2-v1) and adds the
 # dataset's StreetEasy areas against its largest one, named first here. The
@@ -5274,11 +5283,43 @@ API_AREAS = {
         "Upper East Side",
         "Upper Carnegie Hill",
     ),
+    "brooklyn-prospect-park": (
+        "Park Slope",
+        "Downtown Brooklyn",
+        "Clinton Hill",
+        "Fort Greene",
+        "Brooklyn Heights",
+        "Prospect Heights",
+        "Carroll Gardens",
+        "Boerum Hill",
+        "Gowanus",
+        "Cobble Hill",
+        "DUMBO",
+        "Columbia St Waterfront District",
+        "Red Hook",
+        "Vinegar Hill",
+    ),
+    "brooklyn-williamsburg-crown-heights": (
+        "Williamsburg",
+        "Crown Heights",
+        "Bedford-Stuyvesant",
+        "Weeksville",
+    ),
+    "brooklyn-greenpoint-bushwick": (
+        "Bushwick",
+        "Stuyvesant Heights",
+        "Greenpoint",
+        "East Williamsburg",
+        "Ocean Hill",
+    ),
 }
 API_SLICES = {
     "manhattan-below-59th": ("manhattan-below-59th", 4),
     "manhattan-west-59th-110th": ("manhattan-59th-110th", 4),
     "manhattan-east-59th-110th": ("manhattan-59th-110th", 4),
+    "brooklyn-prospect-park": ("brooklyn-prospect-park", 2),
+    "brooklyn-williamsburg-crown-heights": ("brooklyn-north-crown-heights", 6),
+    "brooklyn-greenpoint-bushwick": ("brooklyn-north-crown-heights", 6),
 }
 API_MANHATTAN_FILES = {
     "registry": (
@@ -5296,6 +5337,23 @@ API_MANHATTAN_FILES = {
         "plutoreleases.parquet"
     ),
 }
+API_BROOKLYN_FILES = {
+    "registry": (
+        "/data1/apartments/external/registry/20261015-1186316-api-brooklyn/"
+        "buildings.parquet"
+    ),
+    "pluto": "/data1/apartments/external/pluto/20261015-a142668/pluto.parquet",
+    "footprints": (
+        "/data1/apartments/external/footprints/20261015-a142668/footprints.parquet"
+    ),
+    "basemap": "/data1/apartments/external/basemap/20261015-a142668/basemap.parquet",
+    "lpc": "/data1/apartments/external/lpc/20261015-a142668/lpc.parquet",
+    "plutoreleases": (
+        "/data1/apartments/external/plutoreleases/20261015-a142668/"
+        "plutoreleases.parquet"
+    ),
+}
+API_FILES = {"manhattan": API_MANHATTAN_FILES, "brooklyn": API_BROOKLYN_FILES}
 API_EXTRAS_FILE = (
     "/data1/apartments/external/listing-extras/20261015-dd5bdb5-api/"
     "listing-extras.parquet"
@@ -5311,7 +5369,7 @@ for _region, _areas in API_AREAS.items():
     ]:
         if "nb9-nostuy-lots2-v1" in _group:
             _group.add(_new)
-    _files = API_MANHATTAN_FILES
+    _files = API_FILES[_region.split("-")[0]]
     LOT_SNAPSHOTS[_new] = {"registry": _files["registry"], "pluto": _files["pluto"]}
     AREA_SNAPSHOTS[_new] = {
         "basemap": _files["basemap"],
