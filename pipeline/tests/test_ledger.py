@@ -144,11 +144,12 @@ def write(folder, name, lines):
         (
             set_(
                 "1",
-                {"full_baths": 2**63, "half_baths": 0},
+                {"full_baths": 2**53, "half_baths": 0},
                 {"full_baths": 1, "half_baths": 0},
             ),
             "takes a number below",
         ),
+        (set_("1", {"bedrooms": 2.0**53}, {"bedrooms": 1}), "takes a number below"),
     ],
 )
 def test_parse_refuses(text, error):
@@ -160,6 +161,15 @@ def test_parse_keeps_null_recorded_values():
     row = ledger.parse(set_("1", {"square_feet": 600}, {"square_feet": None}))
     assert row["when_keys"] == ["square_feet"] and row["when_square_feet"] is None
     assert row["field"] == "square_feet" and row["square_feet"] == 600.0
+
+
+def test_parse_takes_whole_numbers_below_2_53():
+    largest = 2**53 - 1
+    row = ledger.parse(set_("1", {"bedrooms": largest}, {"bedrooms": 1}))
+    assert row["bedrooms"] == largest
+    values = {"full_baths": largest, "half_baths": 0}
+    row = ledger.parse(set_("1", values, {"full_baths": 1, "half_baths": 0}))
+    assert row["full_baths"] == largest
 
 
 def test_read_refuses(tmp_path):

@@ -1000,9 +1000,10 @@ in all, and most tests add made-up ads to that export. The tests:
     the next plan rebuilds `city.landmarks` and `city.rejects` alone, from a new folder holding
     the landmarks' Parquet file and the rejects.
 
-They take about 135 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
-with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
-`MAX_FORK_WORKERS=1`.
+pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
+about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
+workers, and a fork in a process with open DuckDB connections can deadlock, so
+`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
 
 ## Full build
 
