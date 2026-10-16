@@ -16,7 +16,14 @@ from steps import city
 FIXTURE = Path(__file__).parent / "fixture" / "city"
 
 
-def add(archive: Path, source: str, release: str, path: str, members: dict[str, bytes]):
+def add(
+    archive: Path,
+    source: str,
+    release: str,
+    path: str,
+    members: dict[str, bytes],
+    published: str = "2026-01-02T03:04:05Z",
+):
     """Write a zip of `members`, or a gzipped CSV for the member "", and list it."""
     out = archive / path
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -30,7 +37,7 @@ def add(archive: Path, source: str, release: str, path: str, members: dict[str, 
         "source": source,
         "release": release,
         "path": path,
-        "published": "2026-01-02T03:04:05Z",
+        "published": published,
         "sha256": hashlib.sha256(out.read_bytes()).hexdigest(),
     }
     with open(archive / "manifest.ndjson", "a") as f:
@@ -142,6 +149,40 @@ def test_columns(archive, tmp_path):
     ]
 
 
+def test_date_reads_as_utc_midnight(archive, tmp_path):
+    add(archive, "pluto", "09v1", "pluto/a.zip", {"MN.txt": b"a\n1\n"}, "2009-08-03")
+    tables, _ = city.unpack(archive, tmp_path / "cache")
+    got = duckdb.sql(
+        f"SELECT published = TIMESTAMPTZ '2009-08-03 00:00:00+00' FROM {read(tables['pluto'])}"
+    )
+    assert got.fetchall() == [(True,)]
+
+
+def test_file_without_a_table(archive, tmp_path):
+    """A PAD zip lacking one of the two tables stops the unpack."""
+    add(archive, "pad", "26c", "pad/a.zip", {"bobaadr.txt": b"a\n1\n"})
+    with pytest.raises(ValueError, match="no member for pad_lots"):
+        city.unpack(archive, tmp_path / "cache")
+
+
+def test_record_order_in_a_parallel_read(archive, tmp_path):
+    """A member of about 40 MB, which DuckDB reads in parts on several threads, keeps its order
+    in `record`, with refused rows spread through it."""
+    refused = set(range(50_000, 1_000_000, 150_000))
+    rows = b"".join(
+        b"%d\n" % i if i in refused else b"%d,%s\n" % (i, b"x" * 30)
+        for i in range(1_000_000)
+    )
+    add(archive, "dob_co", "2026-01-02", "dob_co/a.csv.gz", {"": b"a,b\n" + rows})
+    tables, _ = city.unpack(archive, tmp_path / "cache")
+    got = duckdb.sql(f"SELECT a::BIGINT FROM {read(tables['dob_co'])} ORDER BY record")
+    assert [a for (a,) in got.fetchall()] == [
+        i for i in range(1_000_000) if i not in refused
+    ]
+    lines = duckdb.sql(f"SELECT line FROM {read(tables['rejects'])} ORDER BY line")
+    assert [line for (line,) in lines.fetchall()] == [i + 2 for i in sorted(refused)]
+
+
 def values(paths: list[str], columns: str) -> list[tuple]:
     return duckdb.sql(
         f"SELECT {columns} FROM {read(paths)} ORDER BY file, record"
@@ -248,7 +289,7 @@ def test_sweep(archive, tmp_path):
     add(archive, "landmarks", "2026-01-02", "landmarks/a.csv.gz", {"": b"a\n1\n"})
     cache = tmp_path / "cache"
     week_ago = time.time() - city.WEEK - 60
-    for name in ("old", "recent", "held"):
+    for name in ("old", "recent", "held", "stopped.old"):
         (cache / name / "folder").mkdir(parents=True)
         (cache / name / ".lock").touch()
         if name != "recent":
@@ -259,3 +300,22 @@ def test_sweep(archive, tmp_path):
     assert sorted(p.name for p in cache.iterdir()) == sorted(
         [city.CODE, "held", "recent"]
     )
+
+
+def test_lock_after_a_sweep(tmp_path, monkeypatch):
+    """When a sweep moves the folder away while a load waits for its lock, the load locks a new
+    folder."""
+    code = tmp_path / "code"
+    real = fcntl.flock
+    calls = []
+
+    def flock(f, op):
+        real(f, op)
+        calls.append(op)
+        if len(calls) == 1:
+            os.rename(code, tmp_path / "code.old")
+
+    monkeypatch.setattr(city.fcntl, "flock", flock)
+    with city.lock_code(code) as lock:
+        assert len(calls) == 2
+        assert os.fstat(lock.fileno()).st_ino == os.stat(code / ".lock").st_ino

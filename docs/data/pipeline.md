@@ -134,19 +134,20 @@ archive from `PIPELINE_CITY` and the cache from `PIPELINE_CITY_CACHE`. For each 
 archive's manifest lists, the step
 
 1. picks the folder `<code>/<entry>` in the cache, from the first 16 hex digits of the SHA-256
-   of `steps/city.py` and of the file's manifest line, and goes on to the next file when the
-   folder exists;
+   of `steps/city.py` with DuckDB's version and of the file's manifest line, and goes on to the
+   next file when the folder exists;
 2. copies each member a table takes to a scratch file, without the DOS end-of-file byte at the
    end of an old MapPLUTO table. As it copies, it checks the bytes as UTF-8. It takes Latin-1
    for a member with bytes UTF-8 can't decode;
 3. reads the copy with DuckDB as CSV, every value as text, with the column names in lower
    case. DuckDB sets aside each row with too few or too many values, and the step writes those
-   rows to the folder's `rejects.parquet` with their line in the member, DuckDB's reason and
-   the row's text;
+   rows to the folder's `rejects.parquet` with DuckDB's line number, its reason and the row's
+   text;
 4. writes each member's rows to a Parquet file, adding `release` and `published` from the
    manifest line, the archive's `file` and its `member`, `record`, the row's place among the
    rows DuckDB kept from the member, and the `encoding`;
-5. renames the scratch folder into place.
+5. flushes the scratch folder to disk and renames it into place. DuckDB doesn't flush its
+   files, and a folder in place counts as unpacked.
 
 | table | source | members |
 |---|---|---|
@@ -160,17 +161,25 @@ take the copy at the root. MapPLUTO comes as a table for each borough up to 18v1
 files up to 12v2, and as one table for the city from 18v2 on.
 
 `config.py` gives each view its Parquet files as a variable. A file's path holds the hashes of
-the code and of the manifest line, so a new file in the archive or an edit to `steps/city.py`
-gives the views new fingerprints. For a table with no file in the archive, the step gives an
-empty file with only the added columns. The step keeps every value as text, and the identity and
-city-fact steps cast the values they read. `record` counts the kept rows, and a refused row's
-`line` counts the lines of the member, header included. The 13v1 tables end in rows of commas
-only, and those come through as rows with every value empty.
+the code and of the manifest line, so a new file in the archive gives its source's views new
+fingerprints, and an edit to `steps/city.py` or a new DuckDB gives every city view new ones. For
+a table with no file in the archive, the step gives an empty file with only the added columns,
+and a file holding no member for one of its source's tables stops the load with an error. The
+step keeps every value as text, and the identity and city-fact steps cast the values they read.
+A `published` date with no time reads as midnight UTC.
+
+`record` counts the kept rows. A refused row's `line` is DuckDB's line number for it, counting
+the header. DuckDB counts records rather than lines, so after a value holding a line break, the
+numbers fall short of the line in the file. The 13v1 tables end in rows of commas only, and
+those come through as rows with every value empty.
 
 The step holds a lock on its code's folder while it works, so two loads never unpack the same
 file at once. An unpack stopped partway leaves a `.part` folder, and the next load deletes it
 and starts that file again. After each load, the step deletes the folder of each other version
-of its code that no load has used for a week.
+of its code that no load has used for a week. It renames such a folder to `<code>.old` before
+deleting it, and a load waiting on that folder's lock starts again in a new folder. Each edit to
+`steps/city.py`, comments included, means the next build unpacks the whole archive again, for
+about 10 minutes under the build's locks.
 
 On thelio on Oct 16, the step unpacked the archive's 62 files into an empty cache in 597 s, with
 a peak of 1,078 MiB, into 3.1 GB of Parquet files. A second load found every folder in place and
@@ -202,7 +211,7 @@ SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line 
 | `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
 | `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
 | `ledger` | the ledger's files with their SHA-256, and its entries counted by status and change |
-| `city` | the city archive's folder, and each file its manifest lists with the file's SHA-256 |
+| `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
@@ -253,7 +262,8 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    last file;
 2. moves its own checkout, `/data1/apartments/pipeline/code`, to master and syncs
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
-   manifest and the pipeline's code match the last build's, as on most of the timer's runs;
+   export's manifest, the city archive's manifest and the pipeline's code match the last
+   build's, as on most of the timer's runs;
 3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
    runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
    trying again every five minutes while less is available;
@@ -265,7 +275,7 @@ Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and 
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
 
-After each build, the script writes the manifest's hash and the commit's trees to
+After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
 OUT, delete that file, so the next trigger builds from master again.
 
