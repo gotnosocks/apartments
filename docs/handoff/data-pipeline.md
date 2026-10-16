@@ -24,7 +24,7 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
    drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
-   asks (#PRNUM).
+   asks (#881).
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -95,7 +95,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       ads from unit histories, which the old collector dropped because the unit's latest ad
       had no unit page. The three new models and the changed `ads.identity` take 19 s of
       queries together, at a peak of 3.4 GB. The test suite now takes about 50 s, close to the one-minute target.
-   6. **Done** in #PRNUM: `analysis.latest_ask` reads its rows from `analysis.rows`, keyed on
+   6. **Done** in #881: `analysis.latest_ask` reads its rows from `analysis.rows`, keyed on
       `listing_id`, since an ad gives at most one fit-ready row. `raw.analysis_rows` and its
       input file are gone, and the pipeline reads only the export. On runs 1 to 5 the latest
       asks equal the run `20261015-13f5968-api` in first ask, latest ask and step on all
