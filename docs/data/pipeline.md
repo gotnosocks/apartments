@@ -152,6 +152,52 @@ systemctl --user daemon-reload
 systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline-build.timer
 ```
 
+## Change diff
+
+`ops/pipeline/diff.py` lists each change an edit of the pipeline's code makes to the tables:
+
+```sh
+uv run --project pipeline python ops/pipeline/diff.py [--base REV] [--export DIR] [--ledger DIR] \
+    [--rows N] [--json FILE] [--keep DIR]
+```
+
+The script writes `pipeline/` and `src/` at REV, HEAD unless given, to a scratch folder. It
+builds that code and the checkout's own from empty, each in a process of its own, both at once.
+Both builds read the test fixture's export unless `--export` gives another, and each reads its
+own `pipeline/ledger` unless `--ledger` gives a folder for both. Then the script compares the
+tables model by model:
+
+- a model with a grain: it joins the two tables on the grain and counts the rows only in the
+  base, the rows only in the edit and the changed rows, with a count for each changed column;
+- a model without a grain: it counts the rows each side lacks;
+- every model: it lists the columns only one side has and the columns whose type changed, and
+  the models only one side has.
+
+It prints up to N rows of each kind for each changed model, 5 unless given, and then the names
+of the unchanged models. With the size bound of `analysis.candidates` narrowed to 150 to 1,000
+square feet, it printed:
+
+```
+analysis.candidates: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
+analysis.kept: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
+analysis.rows: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
+unchanged: ads.answers, ads.attributes, ads.events, ads.exclusions, ads.first_ask, ...
+built the base in 5.5 s and the edit in 5.5 s, 6.1 s in all
+```
+
+The run took 6.1 s on thelio and peaked at 350 MB. Each side builds every model from empty, so
+the tables show a change to any code a model runs, in a model, in `pipeline/steps` or in `src`.
+When a plan stops on either side, at an audit or an error, the script prints the end of that
+plan's output and exits with status 1. `--json` writes the whole comparison to a file, and
+`--keep` keeps both builds' tables as Parquet files in a folder.
+
+The fixture's 229 records lack many of the cases a change may affect in the full export.
+`--export` takes any export folder, but with runs 1 to 5 each side takes as long as a build from
+empty, about ten minutes.
+
 ## Models
 
 | model | kind | a row for each |
@@ -708,7 +754,15 @@ in all, and most tests add made-up ads to that export. The tests:
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's ledger, and check that each of its files at the merge base with master
-    stays as it was and that each new file sorts after master's files.
+    stays as it was and that each new file sorts after master's files;
+25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
+    `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test
+    checks the changed rows of the three models below the bound against the base's sizes, finds
+    the new column and the new model, and finds no other model changed. A second copy drops the
+    price events of `ads.history_events`, a model without a grain, and the test checks the
+    count of rows only in the base. In a third, `analysis.rows` repeats a row, its audit fails
+    and the script exits with status 1. Last, the test checks that `archive` writes
+    `pipeline/` and `src/` at HEAD.
 
 They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
