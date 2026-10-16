@@ -40,6 +40,7 @@ LOTS = [
     ("b3", "1000003"),
     ("b4", None),
     ("b6", "1000000"),
+    ("b7", "3000000"),
 ]
 OLD, NEW = "2025-01-01T00:00:00Z", "2026-10-15T20:30:33Z"
 
@@ -93,29 +94,34 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
     """BINs of the case, with their certificates in the latest copy of each set:
 
     - BIN 1000001 got a new building, job 121, with certificates on 2015-08-19 for 10
-      apartments, on 2105-11-05, a typo for 2015, and on 2016-02-02 for 12. A major alteration,
-      job 122, got a certificate on 2019-05-01 in the earlier set, and a certificate on
-      2021-06-10 in each set, for 13 apartments in the earlier set and 14 in DOB NOW. The DOB
-      NOW set also renews job 121 on 2021-06-30 without a count. An older copy of the earlier
-      set gives the BIN a new building in 2010, which the newer copy leaves out.
+      apartments, on 2105-11-05, a typo for 2015, and on 2016-02-02 for 12. A second new
+      building job, 124, got a certificate on 2018-01-01. A major alteration, job 122, got a
+      certificate on 2019-05-01 in the earlier set with `NON5` for its count, and a certificate
+      on 2021-06-10 in each set, for 13 apartments in the earlier set and 14 in DOB NOW, then
+      one in the earlier set on 2021-06-20 for 0. Another alteration, job 123, got a certificate
+      in DOB NOW on 2021-04-01. The DOB NOW set also renews job 121 on 2021-06-30 for 0
+      apartments. An older copy of the earlier set gives the BIN a new building in 2010, which
+      the newer copy leaves out.
     - BIN 1000002 got a new building with existing elements to remain, job B1, in DOB NOW on
-      2021-04-08 with `..208` for its count, and a certificate on 2021-12-01 for 22. A
-      certificate of the same job has no issue date.
-    - BIN 1000003 has no certificate, building b4 has no BIN, and building b6 has BIN 1000000,
-      which stands for no numbered building.
+      2021-04-08 with `..208` for its count, and a certificate on 2021-12-01 for 22 under a
+      padded BIN. A certificate of the same job has a blank issue date.
+    - BIN 1000003 has no certificate, building b4 has no BIN, and buildings b6 and b7 have BINs
+      1000000 and 3000000, which stand for no numbered building.
 
-    Ads 1 to 3 read BIN 1000001 the day before its first certificate, on its day and after
-    the alteration's renewals, ads 4 and 5 read BIN 1000002 on its first day and after its
-    second certificate, and ads 6 to 9 read BIN 1000003, building b4, a building missing from
-    `buildings.lots` and building b6. The DuckDB session runs in New York time, where an ad's
-    first day at midnight UTC falls on the day before."""
+    Ads 1 to 3 read BIN 1000001 the day before its first certificate, on its day and after the
+    alterations and the renewal, ads 4 and 5 read BIN 1000002 on its first day and after its
+    second certificate, and ads 6 to 10 read BIN 1000003, building b4, a building missing from
+    `buildings.lots` and buildings b6 and b7. The DuckDB session runs in New York time, where
+    an ad's first day at midnight UTC falls on the day before."""
     ctx = context(monkeypatch, tmp_path / "state")
     earlier = [
         (NEW, "1000001", "121", "001", "NB", "2015-08-19T00:00:00.000", "10"),
         (NEW, "1000001", "121", "002", "NB", "2105-11-05T00:00:00.000", None),
         (NEW, " 1000001", "121", "003", " NB", "2016-02-02T00:00:00.000", " 12"),
-        (NEW, "1000001", "122", "001", "A1", "2019-05-01T00:00:00.000", None),
+        (NEW, "1000001", "122", "001", "A1", "2019-05-01T00:00:00.000", "NON5"),
+        (NEW, "1000001", "124", "001", "NB", "2018-01-01T00:00:00.000", None),
         (NEW, "1000001", "122", "002", "A1", "2021-06-10T00:00:00.000", "13"),
+        (NEW, "1000001", "122", "003", "A1", "2021-06-20T00:00:00.000", "0"),
         (OLD, "1000001", "100", "001", "NB", "2010-01-01T00:00:00.000", "9"),
     ]
     later = [
@@ -123,23 +129,48 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
             NEW,
             "1000001",
             "122",
-            "CO-1",
+            "1000001-0000001",
             "ALTERATION TYPE 1",
             "06/10/21  2:44:31 PM",
             "14",
         ),
-        (NEW, "1000001", "121", "CO-2", "NEW BUILDING", "06/30/21 11:18:44 AM", None),
+        (
+            NEW,
+            "1000001",
+            "121",
+            "1000001-0000002",
+            "NEW BUILDING",
+            "06/30/21 11:18:44 AM",
+            "0",
+        ),
+        (
+            NEW,
+            "1000001",
+            "123",
+            "1000001-0000003",
+            "Alteration CO",
+            "04/01/21 10:00:00 AM",
+            None,
+        ),
         (
             NEW,
             "1000002",
             "B1",
-            "CO-3",
+            "1000002-0000001",
             "CO - New Building with Existing Elements to Remain",
             "04/08/21  9:32:24 AM",
             "..208",
         ),
-        (NEW, "1000002", "B1", "CO-4", "New Building", "12/01/21 10:00:00 AM", "22"),
-        (NEW, "1000002", "B1", "CO-5", "New Building", None, "30"),
+        (
+            NEW,
+            " 1000002",
+            "B1",
+            "1000002-0000002",
+            "New Building",
+            "12/01/21 10:00:00 AM",
+            "22",
+        ),
+        (NEW, "1000002", "B1", "1000002-0000003", "New Building", " ", "30"),
     ]
     ads = [
         ("01", "b1", "2015-08-18"),
@@ -151,6 +182,7 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
         ("07", "b4", "2022-01-01"),
         ("08", "b5", "2022-01-01"),
         ("09", "b6", "2022-01-01"),
+        ("10", "b7", "2022-01-01"),
     ]
     db = connect(tmp_path)
     inputs(db, earlier, later, ads=ads)
@@ -191,12 +223,12 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
             True,
             day(2015, 8, 19),
             "121",
-            day(2019, 5, 1),
-            "122",
+            day(2021, 4, 1),
+            "123",
             14,
             day(2021, 6, 10),
             "dob_now_co",
-            "CO-1",
+            "1000001-0000001",
         ),
         (
             "04",
@@ -228,12 +260,13 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
             22,
             day(2021, 12, 1),
             "dob_now_co",
-            "CO-4",
+            "1000002-0000002",
         ),
         ("06", "1000003", day(2022, 1, 1), NEW, False, False, *none),
         ("07", None, day(2022, 1, 1), NEW, None, None, *none),
         ("08", None, day(2022, 1, 1), NEW, None, None, *none),
         ("09", None, day(2022, 1, 1), NEW, None, None, *none),
+        ("10", None, day(2022, 1, 1), NEW, None, None, *none),
     ]
 
 
@@ -258,17 +291,38 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
         ),
         (
             None,
-            ("1000001", "121", "CO-1", "ALTERATION", "06/10/21 2:44:31 PM", "1"),
+            (
+                "1000001",
+                "121",
+                "1000001-0000001",
+                "ALTERATION",
+                "06/10/21 2:44:31 PM",
+                "1",
+            ),
             "job type ALTERATION of job 121 in dob_now_co",
         ),
         (
             None,
-            ("1000001", "121", "CO-1", "NEW BUILDING", "2021-06-10T00:00:00.000", "1"),
+            (
+                "1000001",
+                "121",
+                "1000001-0000001",
+                "NEW BUILDING",
+                "2021-06-10T00:00:00.000",
+                "1",
+            ),
             "2021-06-10T00:00:00.000",
         ),
         (
             None,
-            ("1000001", "121", "CO-1", "NEW BUILDING", "06/10/2021 2:44:31 PM", "1"),
+            (
+                "1000001",
+                "121",
+                "1000001-0000001",
+                "NEW BUILDING",
+                "06/10/2021 2:44:31 PM",
+                "1",
+            ),
             "06/10/2021 2:44:31 PM",
         ),
     ],
@@ -290,21 +344,45 @@ def test_building_certificates_stop_on_odd_values(
         build(db, ctx)
 
 
-def test_building_certificates_without_a_copy(tmp_path, monkeypatch):
-    """With no copy of the DOB NOW set in the archive, `city.dob_now_co` has only the archive's
-    columns, and an ad with a BIN reads both flags as missing but keeps the earlier set's
-    certificates."""
+@pytest.mark.parametrize("missing", ["dob_co", "dob_now_co"])
+def test_building_certificates_without_a_copy(tmp_path, monkeypatch, missing):
+    """With no copy of a set in the archive, its table has only the archive's columns, and an
+    ad with a BIN reads both flags as missing but keeps the other set's certificates."""
     ctx = context(monkeypatch, tmp_path / "state")
     db = connect(tmp_path)
-    inputs(
-        db,
-        [(NEW, "1000001", "121", "001", "NB", "2015-08-19T00:00:00.000", "10")],
-        [],
-        ads=[("01", "b1", "2020-01-01")],
-        columns=(EARLIER, ["release"]),
-    )
+    earlier = [(NEW, "1000001", "121", "001", "NB", "2015-08-19T00:00:00.000", "10")]
+    later = [
+        (
+            NEW,
+            "1000001",
+            "121",
+            "1000001-0000001",
+            "NEW BUILDING",
+            "08/19/15 10:00:00 AM",
+            "10",
+        )
+    ]
+    if missing == "dob_co":
+        inputs(
+            db,
+            [],
+            later,
+            ads=[("01", "b1", "2020-01-01")],
+            columns=(["release"], LATER),
+        )
+        releases = (None, NEW)
+    else:
+        inputs(
+            db,
+            earlier,
+            [],
+            ads=[("01", "b1", "2020-01-01")],
+            columns=(EARLIER, ["release"]),
+        )
+        releases = (NEW, None)
     build(db, ctx)
     assert db.execute(
-        """SELECT bin, dob_now_co_release, new_building, altered, new_building_since, units
+        """SELECT bin, dob_co_release, dob_now_co_release, new_building, altered,
+        new_building_since, units
         FROM analysis.building_certificates"""
-    ).fetchall() == [("1000001", None, None, None, datetime.date(2015, 8, 19), 10)]
+    ).fetchall() == [("1000001", *releases, None, None, datetime.date(2015, 8, 19), 10)]

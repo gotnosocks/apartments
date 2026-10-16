@@ -26,13 +26,15 @@ MODEL (
 -- has no such type, so a rebuild before DOB NOW reads as a plain new building job.
 --
 -- A certificate in `city.dob_now_co` without an issue date stays out, since nothing dates it.
--- A count of apartments other than a whole number reads as missing. A date after the copy, like
--- the 2105 of a 2015 certificate in `city.dob_co`, falls after every ad and never counts.
+-- A count of apartments other than a whole number reads as missing, and so does a count of 0:
+-- each ad offers an apartment in the building, so a 0 on its certificate says DOB left the count
+-- out. A date after the copy, like the 2105 of a 2015 certificate in `city.dob_co`, falls after
+-- every ad and never counts.
 --
 -- For each candidate ad it takes the BIN of its building from `buildings.lots` and dates the ad
 -- by its first day in UTC. A BIN such as 1000000 stands for a lot without a numbered building,
--- and the step reads it as no BIN. It keeps the BIN's jobs with a first certificate on or before that
--- day:
+-- and the step reads it as no BIN. It keeps the BIN's jobs with a first certificate on or before
+-- that day:
 --
 -- - `new_building_since`: the first certificate of the earliest new building job,
 -- - `altered_since`: the first certificate of the latest major alteration job,
@@ -40,11 +42,12 @@ MODEL (
 --   certificates in both sets, the DOB NOW one.
 --
 -- Each comes with the job or certificate behind it. `new_building` and `altered` say whether the
--- BIN had such a job, and stay missing for an ad without a BIN or without a copy of each set.
+-- BIN had such a job, and stay missing for an ad without a BIN or without a copy of either set.
 -- The earlier set begins in July 2012, so a building finished before then has no new building
 -- job, unless DOB issued a certificate on its job after July 2012, such as a renewal of a
 -- temporary certificate. Then `new_building_since` gives the first of those, years after the
--- building went up.
+-- building went up. An alteration job dates late the same way when its first certificate in
+-- either set is a DOB NOW renewal.
 -- `dob_co_release` and `dob_now_co_release` give the copies each row read.
 WITH dob_co AS (
     SELECT arg_max(release, published) AS release FROM city.dob_co
@@ -81,15 +84,19 @@ WITH dob_co AS (
         CASE WHEN nullif(trim(c_o_issue_date), '') IS NULL
             THEN error(concat('no issue date for job ', job_number, ' in dob_co'))::DATE
             WHEN NOT regexp_full_match(
-                trim(c_o_issue_date), '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}'
+                trim(c_o_issue_date),
+                '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}'
             )
             THEN error(
                 concat('issue date ', c_o_issue_date, ' of job ', job_number, ' in dob_co')
             )::DATE
             ELSE strptime(trim(c_o_issue_date), '%Y-%m-%dT%H:%M:%S.%g')::DATE
             END AS issued,
-        CASE WHEN regexp_full_match(trim(pr_dwelling_unit), '[0-9]+')
-            THEN trim(pr_dwelling_unit)::INTEGER END AS units
+        nullif(
+            CASE WHEN regexp_full_match(trim(pr_dwelling_unit), '[0-9]+')
+                THEN trim(pr_dwelling_unit)::INTEGER END,
+            0
+        ) AS units
     FROM earlier
     UNION ALL
     SELECT 'dob_now_co', trim(bin), trim(job_filing_name), trim(c_of_o_number),
@@ -111,13 +118,13 @@ WITH dob_co AS (
                 'issue date ', c_of_o_issuance_date, ' of certificate ', c_of_o_number,
                 ' in dob_now_co'
             ))::DATE
-            ELSE strptime(
-                regexp_replace(trim(c_of_o_issuance_date), ' +', ' ', 'g'),
-                '%m/%d/%y %I:%M:%S %p'
-            )::DATE
+            ELSE strptime(trim(c_of_o_issuance_date), '%m/%d/%y %I:%M:%S %p')::DATE
             END,
-        CASE WHEN regexp_full_match(trim(number_of_dwelling_units), '[0-9]+')
-            THEN trim(number_of_dwelling_units)::INTEGER END
+        nullif(
+            CASE WHEN regexp_full_match(trim(number_of_dwelling_units), '[0-9]+')
+                THEN trim(number_of_dwelling_units)::INTEGER END,
+            0
+        )
     FROM later
     WHERE nullif(trim(c_of_o_issuance_date), '') IS NOT NULL
 ), jobs AS (

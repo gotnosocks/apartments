@@ -428,9 +428,9 @@ The comments in each model's SQL describe its rules. The audits in the `MODEL` b
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
 `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
 `analysis.latest_change`, `analysis.latest_ask`, `analysis.lot_facts`, `analysis.lot_landmarks`
-and `analysis.building_certificates`, per building in `buildings.details` and the four building identity
-models, per lot and release in `buildings.lot_releases`, per release in `city.pluto_releases`,
-per record in `ads.record_attributes`, per
+and `analysis.building_certificates`, per building in `buildings.details` and the four building
+identity models, per lot and release in `buildings.lot_releases`, per release in
+`city.pluto_releases`, per record in `ads.record_attributes`, per
 `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
 per event in `ads.events`. The `every_row` audit, in `pipeline/audits/`, checks that
 `analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
@@ -923,8 +923,8 @@ The row gives:
 
 - `new_building_since`, the first certificate of the earliest new building job;
 - `altered_since`, the first certificate of the latest major alteration job;
-- `units`, the count of apartments on the latest certificate giving one, and on a day with a
-  certificate in each set, the DOB NOW one.
+- `units`, the count of apartments on the latest certificate giving one above 0, and on a day
+  with a certificate in each set, the DOB NOW one.
 
 Each comes with the job or certificate behind it. `new_building` and `altered` say whether the
 BIN had such a job, and stay missing for an ad without a BIN, or when the archive lacks a copy of
@@ -932,12 +932,18 @@ either set. Three kinds of value stop the build: a job type outside the two kind
 date in the earlier set, and an issue date in a form other than its set's. The earlier set
 writes a four-digit year, month, day and time, and DOB NOW writes month, day, two-digit year and
 time. The copies of 2026-10-15 have none of these in their 143,242 and 82,963 rows. A DOB NOW
-certificate without an issue date stays out, and the copy has one.
+certificate without an issue date stays out, and the copy has one. I read a count of apartments
+other than a whole number as missing, and a count of 0 as well: each ad offers an apartment in
+the building, so a 0 gives no count for it. 6,681 certificates in the earlier set and 7,733 in
+DOB NOW give 0.
 
 The earlier set begins in July 2012, so a building finished before then has no new building
 job, unless DOB issued a certificate on its job later, such as a renewal of a temporary
 certificate. For such a building `new_building_since` gives the first of the later
-certificates, years after the building went up. Each copy holds DOB's certificates as of its
+certificates, years after the building went up. An alteration job dates late the same way when
+its first certificate in either set is a DOB NOW renewal: of the 5,865 buildings with a major
+alteration by their latest ad, 297 take `altered_since` from a renewal, 294 of them with change
+and 3 without. Each copy holds DOB's certificates as of its
 release, and `dob_co_release` and `dob_now_co_release` give the copies each row read. Nothing
 reads `analysis.building_certificates` yet. A fit moving to it changes its data, and gets its
 own fit under the evaluation framework.
@@ -956,7 +962,7 @@ systemd-run --user --unit certificates-check -p MemoryMax=5G -p MemorySwapMax=0 
 ```
 
 On the 1,746,499 rows of rows-892481e29edeeb73 the models take 19 s and the whole check 22 s,
-at a peak of 2.4 GB. 4,908 rows have no BIN: 4,376 read a lot with a BIN such as 1000000 and 532
+at a peak of 2.6 GB. 4,908 rows have no BIN: 4,376 read a lot with a BIN such as 1000000 and 532
 have no lot. Of the others, 1,280,065 rows read no certificate, 233,790 read only major
 alterations, 208,660 only a new building and 19,076 both.
 
@@ -975,14 +981,14 @@ first certificate comes:
 I traced the larger gaps to the sets and to the records:
 
 - A gap of 3 to 5 years may come from construction running past the year MapPLUTO gives the
-  building. For 221 of the 756 the first certificate falls in 2012 to 2014 on a lot MapPLUTO dates before 2012,
-  so an earlier certificate before July 2012 could be missing from the set.
+  building. For 221 of the 756 the first certificate falls in 2012 to 2014 on a lot MapPLUTO
+  dates before 2012, so an earlier certificate before July 2012 could be missing from the set.
 - In 214 of the 342 buildings 6 to 30 years off, the first certificate falls in 2012 to 2014 on
   a lot MapPLUTO dates before 2012. The building went up before the set begins, and the
   certificate is a later one on its job, most often a temporary certificate in the earlier set.
 - 73 of the 106 buildings more than 30 years off are rebuilds with existing elements to remain,
-  mostly Brooklyn buildings of 1899 to 1901 rebuilt in 2023 to 2026. MapPLUTO keeps the year
-  of the old building.
+  nearly all in Brooklyn, with first certificates in 2023 to 2026 on lots MapPLUTO dates mostly
+  1899 to 1931. MapPLUTO keeps the year of the old building.
 - Some of MapPLUTO's years are stale. BIN 1014563 has a year built of 1920 in MapPLUTO, 2019 on
   StreetEasy and a first certificate in 2020.
 
@@ -992,9 +998,11 @@ buildings, 3 to 5 years after in 469, 6 to 30 in 268, more than 30 in 195 and ea
 95 MapPLUTO's year is within 2 years of the certificate, so StreetEasy gives those buildings an
 older year than the city does.
 
-8,386 buildings have a count of apartments on a certificate by their latest ad. The latest
-count matches MapPLUTO's `unitsres` in 6,429 and comes within 5% in 468 more, and matches
-StreetEasy's count in 5,512 and comes within 5% in 482 more.
+8,311 buildings have a count of apartments above 0 on a certificate by their latest ad. The
+latest count matches MapPLUTO's `unitsres` in 6,372 and comes within 5% in 468 more, and
+matches StreetEasy's count in 5,462 and comes within 5% in 482 more. In 79 more buildings, with
+1,710 rows, the latest certificate by the latest ad gives 0. 75 of them have no count, and 4
+take an earlier certificate's.
 
 ## Fit-ready rows
 
@@ -1308,8 +1316,7 @@ in all, and most tests add made-up ads to that export. The tests:
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, the four building
     identity models, `buildings.lot_releases`, `analysis.lot_facts`, `analysis.lot_landmarks`,
     `analysis.building_certificates`, `ads.identity`, `analysis.candidates`, `analysis.kept`, the
-    latest asks, `ledger.status` and
-    `analysis.rows`, and the 49 ads of the building in that file gain their pages;
+    latest asks, `ledger.status` and `analysis.rows`, and the 49 ads of the building in that file gain their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
@@ -1465,15 +1472,16 @@ in all, and most tests add made-up ads to that export. The tests:
 36. write made-up certificates of both sets, lots and ads to a DuckDB database, render
     `analysis.building_certificates` over them in a session set to New York time, and check each
     ad's flags, dates, jobs and count of apartments. The ads come the day before and the day of a
-    building's first certificate, and after an alteration with a certificate in each set on the
-    same day. The certificates include a date of 2105, a DOB NOW renewal of an earlier job, a job
-    found only in an older copy, padded values, a rebuild with existing elements to remain whose
-    count reads `..208`, and a DOB NOW certificate without an issue date. Further ads read a BIN
-    without certificates, a building without a BIN, a building missing from `buildings.lots` and
-    a building with BIN 1000000. A job type outside the two kinds, a blank issue date in the
-    earlier set and a date in another form in either set each stop the step, and with no copy of
-    the DOB NOW set an ad with a BIN reads both flags as missing and keeps the earlier set's
-    certificates.
+    building's first certificate, and after two alterations, one with a certificate in each set
+    on the same day. The certificates include a second new building job, a date of 2105, a DOB
+    NOW renewal of an earlier job, a job found only in an older copy, padded values, counts of 0
+    in both sets, a count reading `NON5`, a rebuild with existing elements to remain whose count
+    reads `..208`, and a DOB NOW certificate with a blank issue date. Further ads read a BIN
+    without certificates, a building without a BIN, a building missing from `buildings.lots`
+    and buildings with BINs 1000000 and 3000000. A job type outside the two kinds, a blank issue
+    date in the earlier set and a date in another form in either set each stop the step, and
+    with no copy of either set an ad with a BIN reads both flags as missing and keeps the other
+    set's certificates.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
