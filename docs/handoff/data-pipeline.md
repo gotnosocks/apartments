@@ -224,9 +224,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       of `analysis.latest_ask` giving each kept ask. On the 3% sample, the build drops or
       corrects every error coming in a later answer and every hundredfold ask. For 93 of the
       100 tenfold or tenth price changes in a later answer, `analysis.latest_ask` takes the
-      first ask, nearer the building's median, and drops the ad's earlier changes with the
-      typo: 31 of those asks differ from the clean latest ask, by a median of 4.8%. A tenfold
-      ask or another bedroom count in every record of an ad passes (43 and 49 of 50). The section "Planted errors" of `docs/data/pipeline.md` has the counts and the
+      first ask, in 92 of them as nearer the building's median, and drops the ad's earlier
+      changes with the typo: 31 of those asks differ from the clean latest ask, by a median of
+      4.8%. A tenfold ask or another bedroom count in every record of an ad passes (43 and 49
+      of 50). The section "Planted errors" of `docs/data/pipeline.md` has the counts and the
       production rows with such asks. Next: `analysis.latest_change` hides a page price equal
       to any price change, so a tenfold typo corrected on the ad's last day keeps the typo when
       `ads.kept_changes` drops the correction as a placeholder. About 12 production rows. Then a

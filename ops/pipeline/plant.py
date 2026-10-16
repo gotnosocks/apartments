@@ -22,6 +22,8 @@ The script works in these steps:
      an ACTIVE event in the ad's own history 30 days after the fetch. The price change comes
      while the ad was on the market, halfway from its last price change to its off-market day.
      For an ad still on the market, the change comes halfway to a minute before the fetch.
+     When the last change came on or after the off-market day, the change comes a minute
+     after it, and `ads.kept_changes` drops it as a late placeholder.
      These answers go in a run of their own, one past the export's last.
    - In every record. For the kinds ending in `_all`, every record of the ad gives its prices
      times 10 or 100, or another bedroom count. Every other ad's history gives the ad's events

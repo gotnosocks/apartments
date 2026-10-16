@@ -64,4 +64,5 @@ def test_planted_errors(tmp_path, build):
     }
     key = json.loads((tmp_path / "work" / "planted" / "key.json").read_text())
     assert len(key) == 14
+    assert report["other_ads_changed"] == 0
     assert report == json.loads((tmp_path / "work" / "report.json").read_text())

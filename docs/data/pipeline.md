@@ -1430,7 +1430,8 @@ StreetEasy could give it:
   (`beds_flip_latest`) or an ACTIVE event in the ad's own history 30 days after the fetch
   (`future_active`). I date the price change halfway from the ad's last change to its
   off-market day, or to the fetch for an ad still on the market, so `ads.kept_changes` takes
-  it as a change made while the ad was on the market;
+  it as a change made while the ad was on the market. When the last change came on or after
+  the off-market day, I date it a minute after that change;
 - in every record of the ad, for prices at ten or a hundred times (`ask_x10_all`,
   `ask_x100_all`) and another bedroom count (`beds_flip_all`). Every other ad's history gives
   the ad's events at the same prices.
@@ -1444,7 +1445,7 @@ a change to the planted export, rebuilding the planted copy from its state took 
 
 | kind | result |
 |---|---|
-| `ask_x10_latest` | 47 take their first ask in `analysis.latest_ask`, as nearer the building's median, and 27 of those first asks equal the clean latest ask; 3 keep the clean latest ask |
+| `ask_x10_latest` | 47 take their first ask in `analysis.latest_ask`, and 27 of those first asks equal the clean latest ask; 3 keep the clean latest ask |
 | `ask_div10_latest` | 46 take their first ask, and 35 of those equal the clean latest ask; 4 keep the clean latest ask |
 | `beds_flip_latest` | all 50 dropped for a layout conflict within the ad |
 | `future_active` | all 50 dropped for the future event |
@@ -1455,7 +1456,9 @@ a change to the planted export, rebuilding the planted copy from its state took 
 None of the 100 planted price changes passes into the rows. For the 7 ads keeping their clean
 latest ask, the last change came on or after the off-market day, so the script dated the
 planted change a minute after it, and `ads.kept_changes` dropped it as a late placeholder.
-When `analysis.latest_ask` takes the first ask, it drops the ad's earlier changes along with
+In 92 of the 93 ads taking their first ask, `analysis.latest_ask` takes it as nearer the
+building's median. The other ad has no row sharing its building and bedroom count, and the
+step takes its first ask by default. Either way it drops the ad's earlier changes along with
 the typo. In the 31 ads where the first ask differs from the clean latest ask, it differs by a
 median of 4.8%, and lies between 0.55 and 1.22 times the clean ask.
 
@@ -1734,9 +1737,9 @@ in all, and most tests add made-up ads to that export. The tests:
     both copies in the test's process. The planted export passes the config's checks, the
     tenfold asks and tenths of the later answers pass `ads.kept_changes`, and
     `analysis.latest_ask` takes the ads' first asks, nearer the building's median, equal to
-    their clean latest asks. The bedroom counts of the
-    later answers, the future events and the hundredfold asks drop their ads, and the tenfold
-    asks and bedroom counts in every record pass into the rows.
+    their clean latest asks. The bedroom counts of the later answers, the future events and
+    the hundredfold asks drop their ads, and the tenfold asks and bedroom counts in every
+    record pass into the rows.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
