@@ -361,6 +361,147 @@ def test_solo_updates_reusing_parts_match_recomputing_them(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "design",
+    [
+        "tunits",
+        "lines",
+        "yearnoise",
+        "dayfourier",
+        "all",
+        "fslopes",
+        "bednoise",
+        "ar-fslopes",
+    ],
+)
+def test_steps_on_design_arguments_match_the_closed_over_design(design):
+    """Steps jitted with the design's arrays as arguments, as `run` jits them,
+    follow the same chain as steps closing over the design (same keys).
+
+    The solo updates run on every fslope_scale, walk_scale and sigma that
+    the design has, so the solo updates reusing the row sums also run on
+    design arguments. Under
+    "ar-fslopes" they move (walk_scale, walk_decay) along fixed walk axes."""
+    prep = synthetic()
+    if design == "lines":
+        prep = with_lines(prep)
+    config = (
+        model.ModelConfig(
+            building_walk=True,
+            walk_ar=True,
+            bedroom_slope=True,
+            feature_slopes=("x0", "x1"),
+        )
+        if design == "ar-fslopes"
+        else DESIGNS[design]
+    )
+    d = gibbs.build_design(prep, config)
+    state = jax.tree.map(lambda x: x[0], gibbs.init_states(d, jax.random.PRNGKey(3), 1))
+    cfg = (5, 0.1, 0.1, 3, 0.1, 0.1)
+    prop_sd = jnp.full(len(d.scale_names), 0.05)
+    names = [n for n in d.scale_names if n.startswith("fslope_scale_")]
+    walk_axes = None
+    if d.walk_axes_on:
+        names += list(gibbs.WALK_AXES)
+        walk_axes = jnp.array([[0.8, 0.6], [-0.6, 0.8]])
+    elif "walk_scale" in d.scale_names:
+        names.append("walk_scale")
+    if "sigma" in d.scale_names:
+        names.append("sigma")
+    solo = {n: 0.2 for n in names}
+    assert design not in ("fslopes", "ar-fslopes") or "fslope_scale_1" in solo
+    assert (design == "ar-fslopes") == (walk_axes is not None)
+    inner = gibbs.make_step(d)
+    arrays, rebuild = gibbs.design_arrays(d)
+    closed = jax.jit(lambda k, st: inner(k, st, cfg, prop_sd, solo, walk_axes))
+    passed = jax.jit(
+        lambda values, k, st: inner(
+            k, st, cfg, prop_sd, solo, walk_axes, design=rebuild(values)
+        )
+    )
+    a = b = state
+    for k in jax.random.split(jax.random.PRNGKey(11), 4):
+        a, _ = closed(k, a)
+        b, _ = passed(arrays, k, b)
+    for k in a:
+        np.testing.assert_allclose(
+            np.asarray(a[k]), np.asarray(b[k]), rtol=1e-9, atol=1e-10
+        )
+
+
+def test_design_arrays_leave_no_large_constants_in_the_step():
+    """The step jitted on the design's arrays embeds none of the per-row data
+    as constants: its lowered text stays far smaller than the closed-over
+    step's."""
+    prep = synthetic(n_buildings=60)
+    d = gibbs.build_design(prep, DESIGNS["tunits"])
+    state = jax.tree.map(lambda x: x[0], gibbs.init_states(d, jax.random.PRNGKey(3), 1))
+    cfg = (5, 0.1, 0.1, 3, 0.1, 0.1)
+    inner = gibbs.make_step(d)
+    arrays, rebuild = gibbs.design_arrays(d)
+    key = jax.random.PRNGKey(0)
+    closed = jax.jit(lambda k, st: inner(k, st, cfg)).lower(key, state).as_text()
+    passed = (
+        jax.jit(lambda values, k, st: inner(k, st, cfg, design=rebuild(values)))
+        .lower(arrays, key, state)
+        .as_text()
+    )
+    assert d.a.nbytes > 100_000
+    assert len(passed) < len(closed) - d.a.nbytes
+
+
+@pytest.mark.parametrize(
+    "design",
+    [
+        "walk",
+        "all",
+        "fslopes",
+        "tunits",
+        "walkmin-long",
+        "dayfourier",
+        "bednoise",
+        "yearnoise",
+        "lines",
+    ],
+)
+def test_chunked_buildings_match_one_chunk_per_bucket(design):
+    """Summing each bucket's rows and Schur products over many chunks of
+    buildings, with rows of `a` built from the feature block and the keyed
+    basis, gives the block draw and marginal likelihood of one chunk per
+    bucket with the dense design. The noise designs weight rows by their
+    noise group's scale."""
+    prep = synthetic(seed=2, units_per_building=3, months=72)
+    if design == "lines":
+        prep = with_lines(prep)
+    whole = gibbs.build_design(prep, DESIGNS[design], chunk_rows=10**9)
+    chunked = gibbs.build_design(prep, DESIGNS[design], chunk_rows=12, dense=False)
+    assert whole.a is not None and chunked.a is None
+    assert all(b.chunk_bld.shape[0] == 1 for b in whole.buckets)
+    # Several chunks per bucket, some with more than one building.
+    assert sum(b.chunk_bld.shape[0] for b in chunked.buckets) > 2 * len(chunked.buckets)
+    assert max(b.chunk_bld.shape[1] for b in chunked.buckets) > 1
+    rng = np.random.default_rng(5)
+    lam = jnp.asarray(rng.gamma(2.5, 1 / 2.5, whole.y.shape[0]))
+    kappa = jnp.asarray(rng.gamma(1.5, 1 / 1.5, whole.n_units))
+    z = (
+        jnp.asarray(rng.normal(size=whole.n_global)),
+        jnp.asarray(rng.normal(size=(whole.n_buildings, whole.n_local))),
+        jnp.asarray(rng.normal(size=whole.n_units)),
+    )
+    z_f = jnp.asarray(rng.normal(size=(whole.n_buildings, whole.n_fill)))
+    base = {
+        **SCALES,
+        **{n: 0.04 + 0.01 * i for i, n in enumerate(whole.group_noise_names or ())},
+    }
+    for s in (base, {k: v * 1.4 for k, v in base.items()}):
+        a = gibbs.gaussian_block(whole, lam, s, *z, kappa, z_f)
+        b = gibbs.gaussian_block(chunked, lam, s, *z, kappa, z_f)
+        for x, y in zip(a, b):
+            np.testing.assert_allclose(
+                np.asarray(x), np.asarray(y), rtol=1e-9, atol=1e-9
+            )
+
+
+@pytest.mark.parametrize(
     "design", ["walk", "walk12", "all", "fslopes", "tunits", "walkmin-long"]
 )
 def test_compact_walk_matches_the_full_block(design):
@@ -1175,3 +1316,34 @@ def test_bedtime_n_is_the_served_design_on_coarser_bedroom_knots(months):
         )
         == served
     )
+
+
+@pytest.fixture(scope="module")
+def unsegmented():
+    """A walk and feature-slope run whose 7 kept blocks run in one call."""
+    prep = synthetic()
+    settings = gibbs.Settings(chains=2, warmup=40, draws=14, keep_every=2)
+    out = gibbs.run(prep, DESIGNS["fslopes"], settings, log=lambda *_: None)
+    return prep, settings, out
+
+
+@pytest.mark.parametrize("segments", [2, 3, 7, 20])
+def test_segmented_collect_matches_the_single_call(unsegmented, segments):
+    """Splitting the 7 blocks into calls of 4+3, 3+2+2, 1 each, or more calls
+    than blocks gives the same summaries, traces and kept draws bit for bit."""
+    prep, settings, single = unsegmented
+    out = gibbs.run(
+        prep,
+        DESIGNS["fslopes"],
+        dataclasses.replace(settings, collect_segments=segments),
+        log=lambda *_: None,
+    )
+    assert out["kept"]["walk"].shape[:2] == (2, 7)
+    for name in ("lpd", "lpd_chain", "mean", "sd", "rhat_all", "trace", "kept"):
+        jax.tree.map(np.testing.assert_array_equal, out[name], single[name])
+
+
+def test_collect_segments_stay_out_of_the_sampler_settings():
+    d = gibbs.Settings(collect_segments=10).to_dict()
+    assert "collect_segments" not in d
+    assert d == gibbs.Settings().to_dict()
