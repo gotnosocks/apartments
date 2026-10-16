@@ -7,9 +7,9 @@ MODEL (
 );
 
 -- The event log holds each price change once, and `last_seen` gives the fetch of the latest
--- answer to report it. So the changes of an ad's latest record are its price events last seen
--- at that record's fetch. Changes at the same instant keep the record's order through
--- `list_index`. `day` stays the text of the date, as the steps below compare it with the
+-- answer to report it. This model takes an ad's price events and keeps those with `last_seen`
+-- at the fetch of the ad's latest record. Changes at the same instant keep the record's order
+-- through `list_index`. `day` stays the text of the date, as the steps below compare it with the
 -- record's on-market and off-market days.
 SELECT e.listing_id,
     row_number() OVER (PARTITION BY e.listing_id ORDER BY e."at", e.list_index) AS n,

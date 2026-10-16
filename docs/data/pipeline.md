@@ -110,9 +110,9 @@ price change last in order of time and then of `list_index` matches the last ite
 record's `priceChanges` for every one of the 2,137,997 ads.
 
 `ads.price_changes` takes the price changes of each ad's latest record from the event log: the
-price events last seen at that record's fetch. An answer can leave out a change an earlier answer
-listed, and the latest asks then follow the latest record, as the chain's do. No ad of runs 1 to
-5 has such a change, so all of an ad's price events belong to its latest record.
+price events with `last_seen` at that record's fetch. When a later answer leaves out a
+change from an earlier one, the latest asks follow the latest record, as the chain's do. No ad
+of runs 1 to 5 has such a change, so all of an ad's price events belong to its latest record.
 
 Each ad's record repeats its unit's whole history, so a unit with n ads holds about n² copies
 of each of its events. Parsing every copy and grouping them in one query ran out of a 3 GB
@@ -332,6 +332,11 @@ when an item here or an entry of the corrections ledger accounts for it.
    record's list as it stands, while `ads.price_changes` takes the change once from the event
    log. Of the 5,006,178 changes the latest records of runs 1 to 5 list, 4,628 repeat an
    earlier item, and no latest ask changes.
+5. The order of price changes in the hour after clocks fall back. The chain sorts a record's
+   changes by the text of `changedAt`, and `ads.price_changes` sorts them by instant. The two
+   orders can differ only when two changes carry different UTC offsets, as in the repeated hour
+   of early November. On runs 1 to 5, 124,228 ads list changes with both offsets, and each of
+   them gets the same order either way.
 
 ## Tests
 
@@ -535,6 +540,21 @@ slug, so the latest ad has no unit page. For the other 4, the collector never re
 ad. `ads.identity` builds each ad's page from the ad's own records, so the 92 ads get their
 units. They make the first item under [Differences from the chain](#differences-from-the-chain).
 
+Data improvements also built the page-crawl areas dataset from run 5,
+`api-manhattan-page-crawl-areas-analysis-20261015-run5`, from the archive as it stood at 16:52
+ET. I compared it with `analysis.rows` in the same way and left out the 9 rows of units with a
+later answer. The 350,974 rows in both agree in every value above. The dataset holds 2,232 more
+rows, all for ads in Noho. The chain picks the dataset's rows by `neighbourhood`, while
+`regions` in `analysis.rows` lists the regions of the export's answers for the ad, and the
+export gives these ads `manhattan-below-59th`. `analysis.rows` holds all 2,232 under that
+region, with the same ask, unit and bedrooms. To read the page-crawl areas from
+`analysis.rows`, a fit should select rows by `neighbourhood`. `analysis.rows` also holds 13
+rows missing from the dataset.
+They belong to the first difference: the snapshot behind the dataset excludes each of their ads
+as `missing_canonical_unit_association`, since each unit's latest ad has only a `/rental/`
+address. The script is `/data1/apartments/tmp/pipeline/step49/compare_pagecrawl.py`, and the
+comparison took 5 s.
+
 I ran the SQL of each new model on the same state, each in a unit of its own with DuckDB's
 limit at 5 GB:
 
@@ -577,7 +597,7 @@ row, and every row has a building and a bedroom count.
 | `ads.attributes` | 70.5 s | 6.0 GB |
 
 Then I moved the price changes onto the event log. I planned the change on a copy of that state.
-The plan rebuilt `ads.answers`, which now also reads the record's market days, and the fourteen
+The plan rebuilt `ads.answers`, which now also reads the record's market days, and the thirteen
 models below it, in 186 s, with a peak of 5.9 GB for the process. I compared the new tables with
 the old ones using `/data1/apartments/tmp/pipeline/step48/compare_events.py`:
 
@@ -599,3 +619,36 @@ the old ones using `/data1/apartments/tmp/pipeline/step48/compare_events.py`:
 On the same state, the master versions of `ads.answers` and `ads.latest_record` took 9.9 s and
 7.5 s. `ads.latest_record` now picks from the parsed answers instead of parsing each record
 again, so the two take 12.9 s together instead of 17.4 s.
+
+Then I changed how `ads.attributes` finds an ad's conflicting values. It counted the distinct
+values of each attribute for each ad, and it now compares each attribute's smallest and largest
+values. On the state of the last step, the new query took 3.7 s with a peak of 3.1 GB for the
+process, against 89 s and 5.7 GB for the old one. The two give the same row for each of the
+2,137,997 ads, as `/data1/apartments/tmp/pipeline/step50/compare_attr.py` found. Only 10 ads
+of runs 1 to 5 have two records, and none of them has a conflict, so the tests' made-up ads
+check the conflicts. On that state,
+the queries of all the SQL models take 97 s:
+
+| model | query | process peak |
+|---|--:|--:|
+| `ads.answers` | 15.5 s | 3.8 GB |
+| `ads.history_events` | 10.0 s | 3.1 GB |
+| `ads.events` | 12.0 s | 5.1 GB |
+| `ads.latest_record` | 0.4 s | 0.7 GB |
+| `ads.price_changes` | 1.2 s | 1.0 GB |
+| `ads.kept_changes` | 21.3 s | 1.1 GB |
+| `ads.first_ask` | 1.0 s | 1.1 GB |
+| `ads.market` | 3.4 s | 1.8 GB |
+| `ads.attributes` | 3.7 s | 3.1 GB |
+| `ads.exclusions` | 1.0 s | 0.8 GB |
+| `ads.identity` | 11.0 s | 2.6 GB |
+| `ads.reported` | 9.1 s | 3.1 GB |
+| `buildings.details` | 0.6 s | 2.0 GB |
+| `analysis.candidates` | 3.9 s | 3.7 GB |
+| `analysis.latest_change` | 0.8 s | 1.1 GB |
+| `analysis.latest_ask` | 2.4 s | 3.3 GB |
+
+Each ran in a process of its own with DuckDB's limit at 5 GB and 12 threads, through
+`/data1/apartments/tmp/pipeline/step45/probe_model.py`. `ads.events` ran through
+`/data1/apartments/tmp/pipeline/step50/probe_q.py`, which quotes the query's names first.
+`ads.record_attributes` also reads its cache, which takes about 25 s.
