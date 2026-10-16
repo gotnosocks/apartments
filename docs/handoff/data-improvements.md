@@ -2,6 +2,17 @@
 
 Updated 2026-10-16 04:35 ET, after #888. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-16 15:00 ET
+
+- `bedrooms-ad-v8` (#917) merged. Modeling put it and `pets-from-ad-v2` into the all-scraped fit
+  started at 1:35 PM ET (bc7dc099). The NB9 lines are paused, so `quarantine-v33` stays on hold.
+- The pipeline wrote its first ads file, `ads-237af093fc58af00.parquet` (2,140,578 ads, beside
+  `rows-04fe7ad81836fed2`). It carries coded fields, fates and reasons but no ad text, so a text
+  screen still needs the descriptions from the export.
+- In that file pet_policy is null on 79% of kept rows. The pipeline's own scan
+  (`attribute_evidence.py`) has no pet-fee pattern, so I sent the PET_FEE pattern and the #3E
+  correction to the pipeline thread through the coordinator.
+
 ## 2026-10-16 13:30 ET
 
 - Ben (12:57 ET, relayed) read any pet fee in an ad as pets allowed in some form. The old pets
