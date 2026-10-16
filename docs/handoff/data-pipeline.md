@@ -78,7 +78,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       through `list_index` in `ads.events`.
    3. **Done** in #883: the latest ask as a view of the events. `ads.price_changes` reads the
       price events of each ad's latest record from `ads.events`, and `ads.latest_record` picks
-      the latest record from `ads.answers`, so the steps parse no record of their own. On
+      the latest record from `ads.answers`. The steps thus read only parsed tables. On
       runs 1 to 5, the price events match the latest records' changes in set and in order for
       all 2,136,603 ads with changes, and no latest ask changes. Collapsing a run of repeats of
       one price would cut the 5,001,550 changes only to 4,981,432, so the changes stay as the
@@ -109,6 +109,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       it. No building record of runs 1 to 5 gives one.
    8. [pipeline.md](../data/pipeline.md) now lists each difference from the chain, under
       Differences from the chain, for comparisons to cite.
+   9. `ads.attributes` finds conflicts by each attribute's smallest and largest values, in
+      3.7 s instead of 89 s on runs 1 to 5, with the same table. `analysis.rows` agrees with
+      Data improvements' run 5 page-crawl areas dataset on its 350,974 shared rows. The
+      dataset's 2,232 Noho rows are in `analysis.rows` under the export's region
+      `manhattan-below-59th`, so a fit should select page-crawl rows by `neighbourhood`.
+      `analysis.rows` adds 13 rows of the first listed difference. A reviewer of #883 suggested
+      `last_response_id` in `ads.events`, so `ads.price_changes` could join on the response
+      instead of the fetch. No two records of an ad share a fetch on runs 1 to 5.
 
    These replace the current chain from archive to analysis rows, which Data improvements runs
    from `/data1/apartments/tmp/suspect/api`:
