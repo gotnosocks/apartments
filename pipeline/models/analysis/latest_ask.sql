@@ -1,26 +1,32 @@
 MODEL (
     name analysis.latest_ask,
     kind FULL,
-    grain ordinal,
+    grain listing_id,
     audits (
-        unique_values(columns := (ordinal, audit_id)),
-        not_null(columns := (ordinal, audit_id, first_ask, latest_ask, how)),
-        every_row(rows := raw.analysis_rows)
+        unique_values(columns := (listing_id)),
+        not_null(columns := (listing_id, price_at, first_ask, latest_ask, how)),
+        every_row(rows := analysis.rows)
     ),
-    description 'Each analysis row''s latest ask and how it was chosen, as rentfrontier.latest_ask chooses it.'
+    description 'Each fit-ready row''s latest ask and how it was chosen, as rentfrontier.latest_ask chooses it.'
 );
 
 -- The checks against a row's building use the median log first ask among the building's other
--- rows with the same bedroom count. A row without a building or a bedroom count has no median,
--- as in pandas, which drops missing group keys. The steps after s1 move the ask in turn:
+-- rows with the same bedroom count. Every fit-ready row has a building and a bedroom count. The
+-- steps after s1 move the ask in turn:
 --   s2: an ask more than twice or under half the first ask gives way to whichever of the two
 --       lies nearer the building's median.
---   s3 and s4 look at the ad's page price, on the ad's last row only, when its record was
---   collected after that row. A page price equal to one of the ad's price changes is skipped.
+--   s3 and s4 look at the ad's page price when its record was collected after the row. A page
+--   price equal to one of the ad's price changes is skipped.
 --   s3: a page price within a factor of 2 of the ask replaces it.
 --   s4: when the page price is 9 to 11 times the ask, or the ask 9 to 11 times the page price,
 --       whichever of the two lies nearer the building's median wins.
-WITH rows AS (SELECT * FROM raw.analysis_rows),
+-- The median reads list positions with list_extract, counting from 1. SQLMesh renders each model
+-- through sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the
+-- list's type.
+WITH rows AS (
+    SELECT listing_id, price_at, building, bedrooms, asking_rent, ln(asking_rent) AS log_rent
+    FROM analysis.rows
+),
 grp AS (
     SELECT building, bedrooms, count(*) AS g, list_sort(list(log_rent)) AS v FROM rows
     WHERE building IS NOT NULL AND bedrooms IS NOT NULL GROUP BY ALL
@@ -30,21 +36,20 @@ ranked AS (
     FROM rows r LEFT JOIN grp g USING (building, bedrooms)
 ),
 peer AS (
-    SELECT ordinal, audit_id, asking_rent AS first,
+    SELECT listing_id, price_at, asking_rent AS first,
         CASE
             WHEN g IS NULL OR g < 2 THEN NULL
-            WHEN g % 2 = 0 THEN CASE WHEN j <= g // 2 - 1 THEN v[g // 2 + 1] ELSE v[g // 2] END
-            ELSE (CASE WHEN (g - 1) // 2 - 1 < j THEN v[(g - 1) // 2] ELSE v[(g - 1) // 2 + 1] END
-                + CASE WHEN (g - 1) // 2 < j THEN v[(g - 1) // 2 + 1] ELSE v[(g - 1) // 2 + 2] END) / 2
+            WHEN g % 2 = 0 THEN CASE WHEN j <= g // 2 - 1 THEN list_extract(v, g // 2 + 1) ELSE list_extract(v, g // 2) END
+            ELSE (CASE WHEN (g - 1) // 2 - 1 < j THEN list_extract(v, (g - 1) // 2) ELSE list_extract(v, (g - 1) // 2 + 1) END
+                + CASE WHEN (g - 1) // 2 < j THEN list_extract(v, (g - 1) // 2 + 1) ELSE list_extract(v, (g - 1) // 2 + 2) END) / 2
         END AS peer
     FROM ranked
 ),
 s1 AS (
-    SELECT p.ordinal, p.audit_id, p.first, p.peer, l.last, l.page_price AS page,
+    SELECT p.listing_id, p.price_at, p.first, p.peer, l.last, l.page_price AS page,
         coalesce(l.live, p.first) AS price,
-        CASE WHEN l.live IS NOT NULL THEN 'latest'
-            WHEN l.captured THEN 'own ask, captured before the row' ELSE 'uncaptured' END AS how
-    FROM peer p JOIN analysis.latest_change l USING (ordinal)
+        CASE WHEN l.live IS NOT NULL THEN 'latest' ELSE 'own ask, captured before the row' END AS how
+    FROM peer p JOIN analysis.latest_change l USING (listing_id)
 ),
 s2 AS (
     SELECT * EXCLUDE (wide, picked) REPLACE (
@@ -72,4 +77,4 @@ s4 AS (
         FROM s3
     )
 )
-SELECT ordinal, audit_id, first AS first_ask, price AS latest_ask, how FROM s4
+SELECT listing_id, price_at, first AS first_ask, price AS latest_ask, how FROM s4
