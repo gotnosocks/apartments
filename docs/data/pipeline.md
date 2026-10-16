@@ -200,7 +200,8 @@ at a 2 GiB cap.
 
 ## Build command
 
-`ops/pipeline/build.py` builds the project, saves the fit-ready rows and records the build:
+`ops/pipeline/build.py` builds the project, saves the fit-ready rows and the ads, and records the
+build:
 
 ```sh
 uv run --project pipeline python ops/pipeline/build.py [--export DIR] [--state DIR] [--out DIR]
@@ -209,8 +210,9 @@ uv run --project pipeline python ops/pipeline/build.py [--export DIR] [--state D
 It plans and applies `prod`, as the `sqlmesh plan` line above does. Then it writes
 `analysis.rows`, sorted by `listing_id`, to a Parquet file in OUT, by default
 `/data1/apartments/pipeline/datasets`. The file's name holds the first 16 hex digits of its
-SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line for the build to
-`OUT/catalog.ndjson`:
+SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. It writes `analysis.ads` the same way, to a file
+such as `ads-<hash>.parquet`, described under [Ads file](#ads-file). Last, the script appends a
+line for the build to `OUT/catalog.ndjson`:
 
 | key | holds |
 |---|---|
@@ -221,6 +223,7 @@ SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line 
 | `ledger` | the ledger's files with their SHA-256, and its entries counted by status and change |
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
+| `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
 | `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
 
@@ -422,6 +425,7 @@ disk.
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
+| `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask, text and floor plans, its merged values, and the reasons it was dropped |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
@@ -1232,11 +1236,12 @@ in all, and most tests add made-up ads to that export. The tests:
     checks the fates, floors, floor counts, areas, regions and sizes by value;
 19. parse every SQL model as SQLMesh loads it and look for a bracket reading a list at a
     computed index;
-20. run `ops/pipeline/build.py` on the fixture twice and check the rows file's name and the
-    export files' and city files' hashes against their SHA-256. The second build rebuilds nothing, writes the
-    same rows file and appends a second catalog line. Then the test builds runs 2 and 3, adds
-    run 4 and builds again, and compares that build's rows file with a build of runs 2 to 4 into
-    an empty state. The two files hold the same bytes. Last, the test adds an export file
+20. run `ops/pipeline/build.py` on the fixture twice and check the names of the rows file and
+    the ads file and the export files' and city files' hashes against their SHA-256. The ads
+    file holds each ad once, and its ads with `in_rows` are the rows file's ads. The second
+    build rebuilds nothing, writes the same files and appends a second catalog line. Then the
+    test builds runs 2 and 3, adds run 4 and builds again, and compares that build's files with
+    a build of runs 2 to 4 into an empty state. Each pair holds the same bytes. Last, the test adds an export file
     repeating an answer and checks that the build stops and leaves OUT as it was;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, read files with a repeated line, a retract of an unknown, a retracted or a
@@ -1364,6 +1369,13 @@ in all, and most tests add made-up ads to that export. The tests:
     only an interior landmark. A type outside the four, a blank date, a date written as
     `1989-07-11` and a two-digit year each stop the step, and with no copy in the archive an ad
     with a lot reads both flags as missing.
+36. add five made-up ads to the cases and check their rows of `analysis.ads`. The first goes
+    off the market and comes back, and its record has a description and two floor plans. The
+    second goes from a draft through StreetEasy's review to ACTIVE, and later through a
+    brokerage review, which the view doesn't count as a break. The third goes into contract,
+    comes back and rents, so it has no break. The fourth had its break before its first day on
+    the market, and the fifth goes into contract and comes back at the same instant, in that
+    order in its record. Then the test checks that each ad with a record has one row.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

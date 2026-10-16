@@ -233,8 +233,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - h: a size set on a row with a size applies.
     - an exclude of an ad with no kept row stays absent.
 
-    Only analysis.rows and the two ledger models build again, and analysis.latest_ask stays as
-    it was."""
+    Only the two ledger models and the views analysis.rows and analysis.ads build again, and
+    analysis.latest_ask stays as it was."""
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     ctx.plan(auto_apply=True, no_prompts=True)
@@ -280,7 +280,12 @@ def test_ledger_cases(tmp_path, monkeypatch):
 
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
-    assert changed(plan) == ["analysis.rows", "ledger.entries", "ledger.status"]
+    assert changed(plan) == [
+        "analysis.ads",
+        "analysis.rows",
+        "ledger.entries",
+        "ledger.status",
+    ]
     status = ctx.fetchdf("SELECT * FROM ledger.status ORDER BY file, line")
     ids = {name: ledger.entry_id(text) for name, text in entries.items()}
     assert dict(zip(status.entry, zip(status.status, status.differs))) == {
