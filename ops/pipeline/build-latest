@@ -6,9 +6,10 @@
 # 1. It waits for oxylabs.lock and lets go of it at once. The collector holds the lock through
 #    each run and its export, so the build starts after the export's last file.
 # 2. It moves its own checkout, /data1/apartments/pipeline/code, to master and syncs the venv
-#    from pipeline/uv.lock. Nothing else uses that checkout or the venv. When the manifest and
-#    the commit's trees for pipeline/, src/ and ops/pipeline/ match the ones it wrote to
-#    $STATE/last-build after the last build, it stops there.
+#    from pipeline/uv.lock. Only apartments-city-fetch.service also runs code from that
+#    checkout, on the system's Python. Nothing else uses the venv. When the export's manifest,
+#    the city archive's manifest and the commit's trees for pipeline/, src/ and ops/pipeline/
+#    match the ones it wrote to $STATE/last-build after the last build, it stops there.
 # 3. It takes the GPU lock and every light slot, in the order `ops/job gpu -x` takes them, so
 #    no GPU fit or light job runs beside the build. With the locks held, it checks for 6 GiB of
 #    available memory. When less is available, it lets go of the locks and tries again in five
@@ -28,6 +29,7 @@ CRAWLS=${CRAWLS:-/data1/apartments/archive/crawls}
 LOCKS=${APARTMENTS_LOCKS:-/data1/apartments/tmp/locks}
 STATE=/data1/apartments/pipeline/state
 MANIFEST=$CRAWLS/api/export/manifest.ndjson
+CITY=${PIPELINE_CITY:-/data1/apartments/archive/city}
 export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/data1/apartments/venvs/pipeline}
 export TMPDIR=${TMPDIR:-/data1/apartments/pipeline/tmp}
 export PIPELINE_MEMORY=${PIPELINE_MEMORY:-3GB}
@@ -51,9 +53,9 @@ while :; do
   git -C "$CODE" fetch -q origin master || true
   git -C "$CODE" checkout -q --force --detach origin/master || exit 1
   /home/ben/.local/bin/uv sync -q --locked --project "$CODE/pipeline" || exit 1
-  inputs="$listed $(git -C "$CODE" rev-parse HEAD:pipeline HEAD:src HEAD:ops/pipeline | tr '\n' ' ')"
+  inputs="$listed $(sha256sum <"$CITY/manifest.ndjson") $(git -C "$CODE" rev-parse HEAD:pipeline HEAD:src HEAD:ops/pipeline | tr '\n' ' ')"
   if [ "$(cat "$STATE/last-build" 2>/dev/null)" = "$inputs" ]; then
-    echo "$(date -Is) the export and the code match the last build"
+    echo "$(date -Is) the export, the city archive and the code match the last build"
     break
   fi
 

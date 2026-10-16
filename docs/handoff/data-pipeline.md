@@ -32,8 +32,10 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `ops/pipeline/ledger_import.py`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
-   rule `canonical-url-v1`.
-7. Date every outside fact and join it as of the ad's date.
+   rule `canonical-url-v1`, and `ops/pipeline/city.py` keeps the city records for the lots
+   (#896).
+7. Date every outside fact and join it as of the ad's date. **Started**: the city archive gives
+   each release its publisher's date (#896).
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
@@ -158,8 +160,8 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       their tests, and the splits checked against the frozen rows;
    4. `unit-labels-v17`, `fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The
       ad-text fills key on the ad and the hash of its text, once a model gives each ad's text;
-   5. **Done** in #892: the test suite runs in about 45 s, in three pytest-xdist workers,
-      against 100 s in a single process.
+   5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
+      against 135 s in a single process.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
    [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
    top-up, as light jobs at about 4 GiB, with the same rows file either way. The rest of step 8,
@@ -179,12 +181,35 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    3. fits reading a rows file by name and hash, agreed with Modeling first;
    4. **Done** in #893: `ops/pipeline/diff.py` builds the fixture with the base code and with the
       edit, at once, and lists each change to each table, in about 6 s. The fixture lacks many
-      of the full export's cases, and a build of runs 1 to 5 takes ten minutes, so a sample of
-      the export comes next: the ads of a few hundred buildings, small enough for both builds to
-      finish in under a minute;
+      of the full export's cases, and a build of runs 1 to 5 takes ten minutes. **Done** in
+      #894: `ops/pipeline/sample.py` writes the ads of 1% of the buildings, 665 buildings and
+      19,683 ads, to `/data1/apartments/pipeline/sample/export`, and `diff.py --sample` builds it
+      on both sides in about 19 s. The sample holds the answers of its last run, so rerun it
+      after a top-up for the new answers;
    5. `ads.record_attributes` and the cross-ad models made incremental, since their full
       recomputes take most of a top-up;
    6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist.
+5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
+   each:
+   1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
+      `/data1/apartments/archive/city`, along with copies of the footprints, LPC and DOB
+      certificate sets. Each file carries its publisher's date in an append-only manifest. `apartments-city-fetch.timer` runs it every Friday at 04:00 ET. The first run
+      copied 62 files, 4.45 GB, in 525 s with a 24 MiB peak. A second run took 4 s;
+   2. **Done** in #897: `pipeline/steps/city.py` unpacks each listed file to
+      Parquet once, in a folder named by the hashes of its code and its manifest line, and a
+      `city.*` view for each table gives each release's rows with its date. The whole archive
+      took 589 to 597 s with a peak of 1.1 to 1.5 GiB and gave 3.1 GB of Parquet, and a load
+      with the cache in place takes under 0.1 s. The production cache,
+      `/data1/apartments/pipeline/city`, was filled before the merge (code `a0248071cb37d8bb`). `ops/pipeline/sample.py` doesn't cut the city archive
+      yet. The next edit to `steps/city.py` should also have `sweep` compare the locked inode
+      with `code / ".lock"` before its rename, as `lock_code` does: two sweeps and a load at
+      once can otherwise move the load's new folder away;
+   3. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
+      the footprint holding its `geoCenter`, each link with a score. The step measures its
+      error rate against Data improvements' registry and reviewed answers;
+   4. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
+      the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates
+      issued before the ad.
 
 ## Coordination
 

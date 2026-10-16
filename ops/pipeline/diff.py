@@ -1,7 +1,7 @@
 """Build the pipeline's tables with the base code and with an edit, and list the differences.
 
-    pipeline/.venv/bin/python ops/pipeline/diff.py [--base REV] [--export DIR] [--ledger DIR]
-        [--rows N] [--json FILE] [--keep DIR]
+    pipeline/.venv/bin/python ops/pipeline/diff.py [--base REV] [--export DIR | --sample]
+        [--city DIR] [--ledger DIR] [--rows N] [--json FILE] [--keep DIR]
 
 1. The script writes `pipeline/` and `src/` at REV, HEAD unless given, to a scratch folder with
    `git archive`. These are the base. The edit is this checkout, with its uncommitted changes.
@@ -9,7 +9,10 @@
    the side's `pipeline/` and `src/` first on `PYTHONPATH` and drops the folders added by the
    venv's .pth files. It plans the `prod` environment of the side's project and writes each
    model's table to a Parquet file. Both sides read the same export, the test fixture's unless
-   given. Each side reads its own `pipeline/ledger`, or both read DIR with `--ledger`. When a
+   given. `--sample` gives the sample of the full export from `ops/pipeline/sample.py`. Both
+   sides read the test fixture's city archive, or DIR with `--city`, and each unpacks it into
+   a cache of its own in the scratch folder. Each
+   side reads its own `pipeline/ledger`, or both read DIR with `--ledger`. When a
    plan stops, at an audit or an error, the script prints the side and the end of its output
    and exits with status 1.
 3. It compares the sides' tables model by model:
@@ -27,7 +30,8 @@
    It deletes the scratch folder, or keeps it in DIR with `--keep`.
 
 A plan in each side's process rebuilds every model, so an edit to a model, to `pipeline/steps`
-or to `src/` shows in the tables. On thelio the script takes about 6 s.
+or to `src/` shows in the tables. On thelio the script takes about 6 s on the fixture and
+about 20 s on the sample.
 """
 
 from __future__ import annotations
@@ -46,6 +50,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "pipeline" / "tests" / "fixture" / "export"
+FIXTURE_CITY = REPO / "pipeline" / "tests" / "fixture" / "city"
+SAMPLE = Path("/data1/apartments/pipeline/sample/export")
 
 
 class BuildError(Exception):
@@ -63,14 +69,18 @@ def archive(rev: str, dest: Path) -> None:
     subprocess.run(["tar", "-x", "-C", str(dest)], input=tar, check=True)
 
 
-def build(root: Path, export: Path, ledger: Path | None, out: Path) -> float:
-    """Build the project in `root/pipeline` from empty, in a process of its own, with its state
-    and tables in `out`. Return the seconds the process took."""
+def build(
+    root: Path, export: Path, city: Path, ledger: Path | None, out: Path
+) -> float:
+    """Build the project in `root/pipeline` from empty, in a process of its own, with its state,
+    city cache and tables in `out`. Return the seconds the process took."""
     env = dict(
         os.environ,
         PYTHONPATH=os.pathsep.join([str(root / "pipeline"), str(root / "src")]),
         PIPELINE_EXPORT=str(export),
         PIPELINE_STATE=str(out / "state"),
+        PIPELINE_CITY=str(city),
+        PIPELINE_CITY_CACHE=str(out / "city"),
         PIPELINE_LEDGER=str(ledger or root / "pipeline" / "ledger"),
         PIPELINE_MEMORY="1GB",
         PIPELINE_WORKERS="2",
@@ -411,7 +421,16 @@ def main(argv=None) -> int:
         "--base-dir", type=Path, help="a folder with pipeline/ and src/"
     )
     parser.add_argument("--edit-dir", type=Path, default=REPO, help=argparse.SUPPRESS)
-    parser.add_argument("--export", type=Path, default=FIXTURE)
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--export", type=Path, default=FIXTURE)
+    source.add_argument(
+        "--sample",
+        action="store_const",
+        const=SAMPLE,
+        dest="export",
+        help="read the sample of the full export from ops/pipeline/sample.py",
+    )
+    parser.add_argument("--city", type=Path, default=FIXTURE_CITY)
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--rows", type=int, default=5)
     parser.add_argument("--json", type=Path)
@@ -435,7 +454,9 @@ def main(argv=None) -> int:
         roots = {"base": base_root, "edit": args.edit_dir}
         with ThreadPoolExecutor(2) as pool:
             jobs = {
-                which: pool.submit(build, roots[which], args.export, args.ledger, out)
+                which: pool.submit(
+                    build, roots[which], args.export, args.city, args.ledger, out
+                )
                 for which, out in outs.items()
             }
             seconds = {}

@@ -1,6 +1,34 @@
 # Data improvements — handoff
 
-Updated 2026-10-16 00:40 ET, with #885. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-16 04:35 ET, after #888. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-16 04:35 ET
+
+I read the 83 held bedroom corrections against independent evidence and merged the result into the
+pipeline ledger (#888, owned by the pipeline session).
+- For each held correction, `/data1/apartments/tmp/suspect/held83/packets.py` built a packet with
+  the row, the unit's other ads and the same-line units. Sonnet readers then judged each one backed,
+  refuted or unbacked. 12 came back backed, and the other 71 stay held in
+  `ledger-held-2026-10-16-chain.jsonl`. Separately, the pipeline's revised stated-size rule restored
+  11 sets it had held earlier.
+- 2536308 keeps 2 BR. Ben's floor plan shows 2 BR, and the other ads coded 3 after a conversion.
+  The reader had called it refuted. The ledger now tags it `floor_plan`.
+- 3691335 (unit 1D, ground floor) stays at 0. Units 2D to 5D are 1 BR, which doesn't settle 1D.
+- No `bedrooms-ad-v8` is needed.
+
+The regex second pass over the API keep reads found 3 short-stay offers (95636be7a9, 6895cf8373,
+6508409251). They wait in `/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-quarantine.jsonl`
+for `quarantine-v33`. I'm holding that version until more rows accumulate, since a merged rule
+version makes the served fit unservable.
+
+API unit spelling aliases: after unit-labels-v17, 69 history-confirmed groups (339 rows, about 0.1%)
+stay split, mostly `4` against `4fl`, `4th` or `2nd-floor`. That's too small to refit for, so
+they go into the next unit-labels version.
+
+I answered the pipeline session's questions for its whole-city building linking (steps 6 and 7):
+- Our fetchers are registry- or box-scoped; only `mnreleases` keeps every Manhattan lot per release.
+- The registry override files and `building-joins-v1` serve as known answers. Brooklyn MISJOINS
+  serve only as negatives.
 
 ## 2026-10-16 00:40 ET
 
