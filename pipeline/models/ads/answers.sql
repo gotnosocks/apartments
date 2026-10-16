@@ -16,9 +16,11 @@ SELECT listing_id, fetched, response_id, outcome, record_sha256,
     f[2]::DOUBLE AS page_price,
     from_json(f[3], '[{"changedAt": "VARCHAR", "status": "VARCHAR"}]') AS status_changes,
     from_json(f[4], '[{"changedAt": "VARCHAR", "price": "DOUBLE"}]') AS price_changes,
-    md5_number(f[5]) AS history
+    md5_number(f[5]) AS history,
+    f[6]::INTEGER AS days_on_market,
+    nullif(f[7]::DOUBLE, 0) AS rented_price
 FROM (
     SELECT *,
-        json_extract_string(record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory']) AS f
+        json_extract_string(record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice']) AS f
     FROM raw.ads
 )
