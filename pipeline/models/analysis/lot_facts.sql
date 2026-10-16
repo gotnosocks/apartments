@@ -40,7 +40,8 @@ MODEL (
 -- 4. When no lot in the city has a value in a field of the release, as in the flood zone flags
 --    before 2017, that field comes from the latest release. `city.pluto_releases` records the
 --    fields each release carries, and `latest_fields` lists those the ad takes from the latest
---    release.
+--    release. Here the step differs from the served model, which looks only at the registry's
+--    lots in Data improvements' releases file and counts a value of spaces as a value.
 --
 -- The release, its published date and the fallback stay on each row, so each value traces to a
 -- record of `buildings.lot_releases`. The step dates ads in UTC, the zone of the published

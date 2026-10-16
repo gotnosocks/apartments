@@ -14,7 +14,8 @@ MODEL (
 -- only for lots in the zone. A release with no value in a field for any lot lacks the field, and
 -- `analysis.lot_facts` takes that field from the latest release. Across the 44 releases the step
 -- scans 37 million records, so it leaves out `geom`, the lot's outline in releases 18v2 to 20v1.
--- It picks the fields with a list rather than `EXCLUDE`, which fails on files without `geom`.
+-- It drops the column with a lambda. `EXCLUDE` would fail when no file of `city.pluto` has
+-- `geom`, as in the tests.
 SELECT release, any_value(published) AS published,
     (any_value(published) AT TIME ZONE 'UTC')::DATE + 7 AS usable_from,
     bool_or(

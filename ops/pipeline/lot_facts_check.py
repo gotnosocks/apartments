@@ -25,7 +25,11 @@ model's `released_lots`.
    its release. It prints the rows each choice differs on.
 5. It compares this step's facts with those of the run by first day, field by field. Numbers
    compare as numbers, text as trimmed text, so a fact differs only when the values differ.
-   It prints the rows each field differs on.
+   It prints the rows each field differs on. It also counts the rows reading a blank
+   `irrlotcode` from a release carrying the field. This step leaves them blank.
+   `released_lots` does the same when its file of today loads `irrlotcode` as text, as
+   20261016-5f07157-all does, and gives them today's value when the file loads it as true or
+   false, so they differ only with such a file.
 6. It counts the rows whose facts change between the run by month and the run by first day.
 
 Steps 4 to 6 leave out two kinds of rows and count them: rows whose lot isn't in Data
@@ -246,6 +250,16 @@ def compare(args) -> None:
     for column in LATEST + DATED:
         differ = ~same(column, by_day[column], pairs[column])
         show(column, differ, pairs[column], by_day[column])
+    blank = (
+        pairs.pluto_fallback.isna().to_numpy()
+        & pairs.irrlotcode.isna().to_numpy()
+        & ~np.isnan(normal("irrlotcode", lots.irrlotcode))
+    )
+    print(
+        f"rows reading a blank irrlotcode from their release: {pairs.rows[blank].sum():,}"
+        f" ({pairs.bbl[blank].nunique():,} lots), with today's irrlotcode as"
+        f" {lots.irrlotcode.dtype}"
+    )
     moved = np.zeros(len(pairs), dtype=bool)
     for column in DATED:
         moved |= ~same(column, by_month[column], by_day[column])

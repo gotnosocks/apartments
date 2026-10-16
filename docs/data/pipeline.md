@@ -732,7 +732,7 @@ MapPLUTO facts as the city published them before the ad. I build it in three mod
    ads start to read it, and for each field whether any lot of the city has a value in it. It
    looks at the whole city because the flood zone flags hold values only for lots in the zone,
    and a release can carry a flag that none of the buildings' lots has. The scan takes about
-   24 s and 0.8 GB, and SQLMesh runs it again only when the MapPLUTO files change.
+   25 s and 0.8 GB, and SQLMesh runs it again only when the MapPLUTO files change.
 2. `buildings.lot_releases` keeps the records of the lots of `buildings.lots` in every release:
    64,478 to 67,440 lots in each release. Releases write the same value in several ways, such
    as `01` and `1` for a land use code or `2.50` and `2.5` for a ratio, so the model casts each
@@ -767,11 +767,18 @@ MapPLUTO facts as the city published them before the ad. I build it in three mod
      | 17v1 on | none |
 
      Releases before 20v1 also lack coordinates, which come from the latest release anyway.
+     The served model works out the fields of a release from the registry's lots in Data
+     improvements' releases file instead, and it counts a value of spaces as a value. The two
+     would part on a release where only lots outside the registry have a flag, or where the
+     registry's lots hold only spaces in a field. No compared row differs this way.
 
-   A blank in a field the release carries stays missing. The served model reads a blank
-   `irrlotcode` as the lot's value in its latest release instead, and a blank number as
-   missing. No record of the buildings' lots has a blank `irrlotcode` in a release carrying
-   it, so the two agree on every row.
+   A blank in a field the release carries stays missing. The served model reads a blank number
+   as missing too. For a blank `irrlotcode` it depends on how pandas loads the field in Data
+   improvements' file of the latest release. Where the field loads as true or false, as in the
+   20260925-3096a62 copy, the served model gives the lot's latest value. Where it holds a null,
+   as in 20261016-5f07157-all, it leaves the blank. BLANKROWS compared rows in BLANKLOTS lots
+   read a blank `irrlotcode`, such as lot 3009557506 in 18v2, and none of those lots is in the
+   20260925-3096a62 copy.
 
 Each row keeps its release, the release's published date and the fallback, so each value
 traces to a record of `buildings.lot_releases` and from there to a file of the city archive.
@@ -828,9 +835,9 @@ fallback, `latest_fields` and every fact with `released_lots`:
     pipeline/.venv/bin/python ops/pipeline/lot_facts_check.py --out /data1/apartments/tmp/lot-facts.parquet
 ```
 
-On thelio it takes 4 to 7 minutes, depending on the other jobs, at a 4.3 GB peak, most of both in `released_lots`. The
-models take 60 s: 25 s for `city.pluto_releases` and 9 s and 10 s for `buildings.lot_releases`
-and `analysis.lot_facts`.
+On thelio it takes 4 to 7 minutes, depending on the other jobs, at a 4.3 GB peak, most of both
+in `released_lots`. The models take 60 s: 25 s for `city.pluto_releases` and 9 s and 10 s for
+`buildings.lot_releases` and `analysis.lot_facts`.
 
 ## Fit-ready rows
 
@@ -1271,17 +1278,19 @@ in all, and most tests add made-up ads to that export. The tests:
 33. write made-up records of five lots in five releases to `city.pluto` as text, one release
     without a published date, and made-up ads to `analysis.candidates`, then render
     `city.pluto_releases`, `buildings.lot_releases` and `analysis.lot_facts` in a DuckDB
-    session set to New York time. The ads fall the day before and the day each release
-    becomes usable, after the undated release and after the latest one. One lot is missing
-    from the first release, and another's building postdates it. A third lot's building dates
-    from the year of a release published on Jan 1 at midnight UTC, which is Dec 31 in New
-    York. The first release leaves out the flood zone flags, and a later release carries
-    `firm07_flag` only for a lot without a building. The first release also writes a lot
-    number with decimals, a land use code with a leading zero, a ratio with a space and a
-    trailing zero, and `irrlotcode` in lower case. The test checks each release's dates and
-    flags, the cast facts of a lot, the lots `buildings.lot_releases` keeps, and each ad's
-    release, fallback, fields from the latest release, year built, floor count and flood zone
-    flags, with ads without a lot or without a building in `buildings.lots`;
+    session set to New York time. Two pairs of ads fall the day before and the day the first
+    two releases become usable, and two others come after the undated release and after the
+    latest one. One lot is missing from the first release, and another's building postdates
+    it. A later release writes a year as 1900.00 and leaves a lot's `irrlotcode` blank, which
+    stays blank for the ad reading it. A third lot's building dates from the year of a release
+    published on Jan 1 at midnight UTC, which is Dec 31 in New York. The first release leaves
+    out the flood zone flags, and a later release carries `firm07_flag` only for a lot without
+    a building. The first release also writes a lot number with decimals, a land use code with
+    a leading zero, a ratio with a space and a trailing zero, and `irrlotcode` in lower case.
+    The test checks each release's dates and flags, the cast facts of a lot, the lots
+    `buildings.lot_releases` keeps, and each ad's release, fallback, fields from the latest
+    release, year built, floor count and flood zone flags, with ads without a lot or without a
+    building in `buildings.lots`;
 34. write a record with a floor count that isn't a number, then one with a fractional year
     built, then one with an `irrlotcode` other than Y or N, and check that each stops
     `buildings.lot_releases` with an error giving the value, the lot and the release.

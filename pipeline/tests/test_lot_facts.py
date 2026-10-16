@@ -84,10 +84,10 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
     """Lots of the case, with their records in the releases:
 
     - Lot A is in every release. Its floor count goes from 5 in 13v1 to 6, 6.5, 7 and 8, and
-      13v1 and 16v2 give a round 1900 for the year 26v2 gives as 1905. 13v1 writes its lot
-      number with decimals, its land use code as `01`, its floor area ratio as ` 2.50` and its
-      `irrlotcode` as `y`.
-    - Lot B is missing from 13v1.
+      13v1 and 16v2 give a round 1900 for the year 26v2 gives as 1905, with 16v2 writing it as
+      1900.00. 13v1 writes its lot number with decimals, its land use code as `01`, its floor
+      area ratio as ` 2.50` and its `irrlotcode` as `y`.
+    - Lot B is missing from 13v1, and 16v2 leaves its `irrlotcode` blank.
     - Lot C's building dates from 2015, so 13v1 describes the lot before it.
     - Lot D's building dates from 2019, the year 19v1 came out on Jan 1 at midnight UTC.
     - Lot E has no building, so the steps leave it out, but it is the one lot with a
@@ -99,7 +99,7 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
     ads 3 and 4 the day before and the day 16v2 does, at midnight UTC. The DuckDB session runs in
     New York time, where ad 4's midnight and 19v1's falls on the day before. Ad 5 comes after
     22v2's month, ad 6 after 26v2, and ad 12 after 19v1. Ads 7 to 9 read lots B and C, and ads
-    10 and 11 have buildings without a lot."""
+    10 and 11 have buildings without a lot. Ad 13 reads lot B in 16v2."""
     ctx = context(monkeypatch, tmp_path / "state")
     no_flags = {"pfirm15_flag": "", "firm07_flag": ""}
     records = [
@@ -110,11 +110,11 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
             | {"builtfar": " 2.50", "irrlotcode": "y"}
             | no_flags,
         ),
-        (A, "16v2", {"yearbuilt": "1900", "numfloors": "6", "bldgclass": ""}),
+        (A, "16v2", {"yearbuilt": "1900.00", "numfloors": "6", "bldgclass": ""}),
         (A, "19v1", {"yearbuilt": "1905", "numfloors": "6.5", "firm07_flag": ""}),
         (A, "22v2", {"yearbuilt": "1905", "numfloors": "7"}),
         (A, "26v2", {"yearbuilt": "1905", "numfloors": "8", "pfirm15_flag": ""}),
-        (B, "16v2", {"yearbuilt": "1950", "numfloors": "3"}),
+        (B, "16v2", {"yearbuilt": "1950", "numfloors": "3", "irrlotcode": ""}),
         (B, "26v2", {"yearbuilt": "1950", "numfloors": "4", "irrlotcode": " N"}),
         (C, "13v1", {"yearbuilt": "0", "numfloors": "2"} | no_flags),
         (C, "16v2", {"yearbuilt": "2015", "numfloors": "11", "pfirm15_flag": ""}),
@@ -137,6 +137,7 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
         ("10", "b4", "2017-01-01"),
         ("11", "b5", "2017-01-01"),
         ("12", "b6", "2019-02-01"),
+        ("13", "b2", "2017-01-01"),
     ]
     db = duckdb.connect(
         str(tmp_path / "pipeline.duckdb"), config={"TimeZone": "America/New_York"}
@@ -157,15 +158,15 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
         ("26v2", datetime.date(2026, 8, 24), True, True),
     ]
     assert db.execute(
-        """SELECT release, landuse, builtfar, irrlotcode, bldgclass
+        """SELECT release, yearbuilt, landuse, builtfar, irrlotcode, bldgclass
         FROM buildings.lot_releases WHERE bbl = ? ORDER BY release""",
         [A],
     ).fetchall() == [
-        ("13v1", 1, 2.5, True, "X"),
-        ("16v2", 1, 1.0, False, None),
-        ("19v1", 1, 1.0, False, "X"),
-        ("22v2", 1, 1.0, False, "X"),
-        ("26v2", 1, 1.0, False, "X"),
+        ("13v1", 1900, 1, 2.5, True, "X"),
+        ("16v2", 1900, 1, 1.0, False, None),
+        ("19v1", 1905, 1, 1.0, False, "X"),
+        ("22v2", 1905, 1, 1.0, False, "X"),
+        ("26v2", 1905, 1, 1.0, False, "X"),
     ]
     assert db.execute(
         "SELECT DISTINCT bbl FROM buildings.lot_releases ORDER BY bbl"
@@ -190,7 +191,13 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
         ("10", *none),
         ("11", *none),
         ("12", "19v1", None, [], 2019, 3.0, 1, None),
+        ("13", "16v2", None, [], 1950, 3.0, 1, 1),
     ]
+    # A blank `irrlotcode` in a release carrying the field stays missing.
+    assert db.execute(
+        """SELECT listing_id, irrlotcode FROM analysis.lot_facts
+        WHERE building_id = 'b2' ORDER BY listing_id"""
+    ).fetchall() == [("07", False), ("13", None)]
 
 
 @pytest.mark.parametrize(
