@@ -482,12 +482,14 @@ def predictions(entries) -> list:
     return out
 
 
-# The board's baseline before the eight-neighbourhood re-baseline, on the five
-# neighbourhoods (before that, #468: 32c09ef on Chelsea + West Village + Greenwich
+# The board's baseline before the nine-neighbourhood re-baseline, on the eight
+# neighbourhoods (before that, #655: 5789d79 on the five; #468: 32c09ef on Chelsea + West Village + Greenwich
 # Village; #310: a40e887 on the Oct 5 Chelsea + West Village data; #221: e61a794
 # on the Oct 1 data).
-PRIOR_BASELINE = "m0-base-base-v1-rows-5789d79-x-2060-300w1500d-nb-nb5"
-PRIOR_DATASET = "chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057"
+PRIOR_BASELINE = "m0-base-base-v1-rows-fe76a905-x-2060-300w1500d-nb-nb8"
+PRIOR_DATASET = (
+    "chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
+)
 
 
 def prior_scores(entries, loos=None, paired=None) -> dict:
