@@ -51,12 +51,12 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 |---|---|---|
 | `raw.ads` | view | exported API answer for an ad |
 | `raw.buildings` | view | exported API answer for a building |
-| `ads.latest_record` | table | ad, from its latest record: status, market days, page price and price changes |
-| `ads.price_changes` | table | nonzero price change, numbered in date order within its ad |
-| `ads.kept_changes` | table | price change left after the placeholder check |
-| `ads.answers` | table | answer, with the fields the event log reads and a hash of its unit history |
+| `ads.answers` | table | answer, with the fields the event log and the latest-ask steps read and a hash of its unit history |
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.events` | table | event the API reported for an ad, with the answers that reported it |
+| `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID, status, market days and page price |
+| `ads.price_changes` | table | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
+| `ads.kept_changes` | table | price change left after the placeholder check |
 | `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
 | `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
@@ -109,6 +109,11 @@ place in its list in the latest answer that reported it, counting from 1. On run
 price change last in order of time and then of `list_index` matches the last item of the latest
 record's `priceChanges` for every one of the 2,137,997 ads.
 
+`ads.price_changes` takes the price changes of each ad's latest record from the event log: the
+price events last seen at that record's fetch. An answer can leave out a change an earlier answer
+listed, and the latest asks then follow the latest record, as the chain's do. No ad of runs 1 to
+5 has such a change, so all of an ad's price events belong to its latest record.
+
 Each ad's record repeats its unit's whole history, so a unit with n ads holds about n² copies
 of each of its events. Parsing every copy and grouping them in one query ran out of a 3 GB
 memory limit on thelio. So `ads.answers` parses each record once and keeps an MD5 of its
@@ -160,7 +165,7 @@ StreetEasy's `daysOnMarket` equals `active_days` for 1,984,995 of the 2,117,296 
 market, 93.8%, and comes within a day for 2,024,992, 95.6%. So StreetEasy leaves out the days in
 contract and the days paused, as `active_days` does. It counts more than a day more for 61,748
 ads and more than a day fewer for 30,556. Agreement is lowest for ads first on the market in
-2016 to 2018, with 89% to 90% exact. It reaches 96% to 97% for 2021 to 2024 and about 96% for
+2016 to 2018, with 89% to 90% exact, and rises to 96% to 97% for 2021 to 2024 and about 96% for
 2025 and 2026. For the ads with more days in StreetEasy's count, the status changes show
 nothing to account for them. Ad 4616858 has 575 days on StreetEasy's count and 92 in its
 changes, and ad 4599884 has 65 and 12. The model
@@ -254,7 +259,8 @@ chain's analysis datasets. I build them in four steps.
    rounds it down, as `floor_counts` in `rentfrontier.cohort` does. The chain keys both values on
    the building slug and takes the area most of a building's records give. Runs 1 to 5 answer
    each building once, so the two readings agree on them. The chain also counts a boolean `true`
-   as one floor, since Python's `True` is an int. I list that as an old bug and skip a boolean.
+   as one floor, since Python's `True` is an int. `buildings.details` skips a boolean, the second
+   item under [Differences from the chain](#differences-from-the-chain).
    Of the 70,137 building records of runs 1 to 5, 67,811 give a whole number and the other
    2,326 give no count.
 2. `ads.reported` reads the unit label in `displayUnit`, `fullBathroomCount` and
@@ -304,6 +310,29 @@ The median reads list positions with `list_extract`. SQLMesh renders each model 
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
 so a bracket reads the next element of the sorted list.
 
+## Differences from the chain
+
+Where the pipeline gives a value other than the current chain's on purpose, I add the
+difference to this list. A comparison with the chain counts a differing row as explained only
+when an item here or an entry of the corrections ledger accounts for it.
+
+1. An ad from a unit's history, when the unit's latest ad has no unit page. The chain's
+   collector finds the unit of a history ad only through the unit page of the unit's latest
+   ad, and drops the ad as `missing_canonical_unit_association` when that page is missing.
+   `ads.identity` builds each ad's page from the ad's own records. On runs 1 to 5, this gives
+   92 more rows in the four regions.
+2. A boolean `floorCount`. The chain's `floor_counts` counts `true` as one floor, and
+   `buildings.details` skips it. No building record of runs 1 to 5 gives one.
+3. The scope of the unit-month check and of the building medians. The chain checks a unit-month
+   within a slice of one region's dataset and takes the medians over the datasets it reads.
+   `analysis.candidates` checks each unit-month, and `analysis.latest_ask` takes each median,
+   over every region. On runs 1 to 5, the two scopes give the same rows and the same latest
+   asks.
+4. A price change a record lists twice, at the same instant and price. The chain reads the
+   record's list as it stands, while `ads.price_changes` takes the change once from the event
+   log. Of the 5,006,178 changes the latest records of runs 1 to 5 list, 4,628 repeat an
+   earlier item, and no latest ask changes.
+
 ## Tests
 
 `pipeline/tests/fixture/` holds the 229 exported records of the ads of five buildings, the five
@@ -320,8 +349,8 @@ in all, and most tests add made-up ads to that export. The tests:
    each ad's latest record. The ads hold a change after the row's day, a change only before
    it, a page price without changes, a page price equal to one of the ad's changes, an ask
    that more than doubles and one that falls below half, a page price a tenth of the ask and
-   one ten times the ask, an empty latest answer, and a placeholder price after the ad left the
-   market;
+   one ten times the ask, an empty latest answer, a later record leaving out a change of an
+   earlier one, and a placeholder price after the ad left the market;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
    and the seventeen models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
@@ -504,7 +533,7 @@ the same unit exists in the archive, and the collector gives a history ad a unit
 the unit page of the unit's latest ad. For 88 of the 92, the latest ad's record has no unit
 slug, so the latest ad has no unit page. For the other 4, the collector never read the latest
 ad. `ads.identity` builds each ad's page from the ad's own records, so the 92 ads get their
-units. I count them as a listed difference from the old collector.
+units. They make the first item under [Differences from the chain](#differences-from-the-chain).
 
 I ran the SQL of each new model on the same state, each in a unit of its own with DuckDB's
 limit at 5 GB:
@@ -546,3 +575,27 @@ row, and every row has a building and a bedroom count.
 | `analysis.latest_change` | 0.7 s | 1.1 GB |
 | `analysis.latest_ask` | 2.1 s | 3.4 GB |
 | `ads.attributes` | 70.5 s | 6.0 GB |
+
+Then I moved the price changes onto the event log. I planned the change on a copy of that state.
+The plan rebuilt `ads.answers`, which now also reads the record's market days, and the fourteen
+models below it, in 186 s, with a peak of 5.9 GB for the process. I compared the new tables with
+the old ones using `/data1/apartments/tmp/pipeline/step48/compare_events.py`:
+
+- Each of the 2,137,997 latest records agrees in its fetch, status, market days and page price.
+- `ads.price_changes` holds 5,001,550 changes, 4,628 fewer than the records list, since the
+  event log keeps a change listed twice in one record once. Without those repeats, the kept
+  changes of each of the 2,136,603 ads with changes come in the same order, with the same
+  last price and day.
+- Each of the 1,747,140 fit-ready rows agrees in its last kept change, page price, first ask,
+  latest ask and step.
+
+| model | query | process peak |
+|---|--:|--:|
+| `ads.answers` | 12.6 s | 3.8 GB |
+| `ads.latest_record` | 0.3 s | 0.7 GB |
+| `ads.price_changes` | 1.1 s | 1.0 GB |
+| `ads.kept_changes` | 16.6 s | 1.1 GB |
+
+On the same state, the master versions of `ads.answers` and `ads.latest_record` took 9.9 s and
+7.5 s. `ads.latest_record` now picks from the parsed answers instead of parsing each record
+again, so the two take 12.9 s together instead of 17.4 s.

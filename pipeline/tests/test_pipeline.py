@@ -117,7 +117,9 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
       latest ask stands.
     - ad 9000127 asks $12,500, and its page price of $1,250 lies nearer the two-bedrooms. Ad
       9000126 asks $800, and its page price of $8,000 lies nearer the one-bedrooms.
-    - ad 9000128's latest answer is missing, so its earlier record stands.
+    - ad 9000128's latest answer is missing, so its earlier record stands. Ad 9000132's first
+      record lists a rise to $3,400 in June, and its later record leaves the rise out, so its
+      ask stays at $3,000.
     - ad 9000129 goes off the market and then rises to a placeholder of $10,000, which drops
       out."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
@@ -169,6 +171,8 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         ad(9000126, [(may, 800)], 8000, ask=800),
         ad(9000128, [(may, 3000), (july, 3300)], 3300),
         (9000128, None),
+        ad(9000132, [(may, 3000), (june, 3400)], 3400),
+        ad(9000132, [(may, 3000)], 3000),
         ad(
             9000129,
             [(may, 3000), ("2026-07-15", 10000)],
@@ -217,6 +221,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000129": 3000,
         "9000130": 2900,
         "9000131": 3000,
+        "9000132": 3000,
     }
     assert set(got.how) == {
         "latest",
