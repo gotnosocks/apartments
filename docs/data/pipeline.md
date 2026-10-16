@@ -345,7 +345,7 @@ analysis.kept: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
   listing_id=3120884: square_feet 1200.0 -> null
 analysis.rows: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
   listing_id=3120884: square_feet 1200.0 -> null
-unchanged: ads.answers, ads.attributes, ads.events, ads.exclusions, ads.first_ask, ...
+unchanged: ads.answer_events, ads.answers, ads.attributes, ads.events, ads.exclusions, ...
 built the base in 5.5 s and the edit in 5.5 s, 6.1 s in all
 ```
 
@@ -396,7 +396,9 @@ disk.
 | `city.rejects` | view | value missing from, or extra in, a row DuckDB refused as it read the city archive |
 | `ads.answers` | table | answer, with the fields the event log and the latest-ask steps read and a hash of its unit history |
 | `ads.history_events` | table | event in a distinct unit history |
-| `ads.events` | table | event the API reported for an ad, with the answers that reported it |
+| `ads.answer_events` | table | event an ad's own answers reported in their fetch, status changes or price changes, with those answers |
+| `ads.history_reports` | table | event a unit history listed for an ad, with the answers holding the history |
+| `ads.events` | view | event the API reported for an ad, with the answers that reported it: the rows of `ads.answer_events` and `ads.history_reports` |
 | `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID, status, market days and page price |
 | `ads.price_changes` | table | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
 | `ads.kept_changes` | table | price change left after the placeholder check |
@@ -432,8 +434,8 @@ and `analysis.building_certificates`, per building in `buildings.details` and th
 identity models, per lot and release in `buildings.lot_releases`, per release in
 `city.pluto_releases`, per record in `ads.record_attributes`, per
 `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
-per event in `ads.events`. The `every_row` audit, in `pipeline/audits/`, checks that
-`analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
+per event in `ads.answer_events` and `ads.history_reports`. The `every_row` audit, in
+`pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
 and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
@@ -453,7 +455,7 @@ places:
 3. the record's price changes;
 4. the unit history, listing the rental events of every ad of the unit.
 
-The model keeps a row for each distinct event, with the fetch times of the first and last
+The view `ads.events` gives a row for each distinct event, with the fetch times of the first and last
 answers that reported it, the number of those answers and the `response_id` of the first. An
 event in a unit history may come first from a sibling's answer, so `own_first_seen` and
 `own_first_response_id` give the first answer of the ad itself, and `own` marks an event with
@@ -475,7 +477,22 @@ Each ad's record repeats its unit's whole history, so a unit with n ads holds ab
 of each of its events. Parsing every copy and grouping them in one query ran out of a 3 GB
 memory limit on thelio. So `ads.answers` parses each record once and keeps an MD5 of its
 history's JSON text. `ads.history_events` parses each distinct history once, from the earliest
-answer holding it, and `ads.events` joins those events back to the answers through the hash.
+answer holding it, and `ads.history_reports` joins those events back to the answers through the
+hash.
+
+The event log builds as two tables and a view over them. `ads.answer_events` groups the events of
+the fetches and of the records' status and price changes, and `ads.history_reports` groups the
+events of the unit histories. `ads.events` lists the rows of both, and their `source` keeps the
+two apart. Until Oct 16, `ads.events` grouped both in one query. With DuckDB's limit at 3 GB,
+the setting of `build-latest`, that query spilled and took 57 to 68 s on runs 1 to 10, and in
+builds it ran out of memory: the service's build at 09:53 ET on Oct 16 stopped there, as did two
+scratch builds that afternoon. At a 2 GB limit it ran out of memory on its own as well. Apart, on
+the same state, the two tables take 7.6 s and 10.3 s at 3 GB, and 7.7 s and 12.7 s at 2 GB.
+Together their rows match the single query's 23,373,166 in count and in the sum of the rows'
+hashes. `ads.answer_events` orders an ad's answers by a single HUGEINT key, the fetch's
+microseconds above bit 64 and the `response_id` below. With the `(fetched, response_id)` struct
+the other models use, the table took 9.7 s at 3 GB and 42 s at 2 GB, since `arg_min` and
+`arg_max` hold a struct key as a blob of variable size in each of the 14 million states.
 
 `ads.first_ask` reads the ACTIVE events in each ad's own history and keeps the earliest day,
 with the distinct prices of that day, whether one of that day's events lacked a price, and the

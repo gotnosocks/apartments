@@ -197,7 +197,12 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       after a top-up for the new answers;
    5. `ads.record_attributes` and the cross-ad models made incremental, since their full
       recomputes take most of a top-up;
-   6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist.
+   6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist;
+   7. **Done** in #918: `ads.events` is a view of two tables, `ads.answer_events` and
+      `ads.history_reports`. As one query it spilled at `PIPELINE_MEMORY=3GB`, and in the
+      service's build at 09:53 ET on Oct 16 it ran out of memory; the next build, at 11:38 ET,
+      passed. Apart, the two tables take about 10 s each, and a full scratch build of runs 1 to
+      10 passed in 199 s at a 4,188 MiB peak with the same rows file.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in

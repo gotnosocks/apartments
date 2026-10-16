@@ -257,12 +257,14 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     ctx = context(monkeypatch, tmp_path / "state", export)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
+        "ads.answer_events",
         "ads.answers",
         "ads.attributes",
         "ads.events",
         "ads.exclusions",
         "ads.first_ask",
         "ads.history_events",
+        "ads.history_reports",
         "ads.identity",
         "ads.kept_changes",
         "ads.latest_record",
