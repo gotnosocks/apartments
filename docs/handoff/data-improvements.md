@@ -50,9 +50,10 @@ I answered the pipeline session's questions for its whole-city building linking 
   them (`config/reviews/ad-fit-reads-20261016-api.jsonl`). I moved 16 non-keep calls back to keep
   and moved the 82 Irving Pl keeps to Brooklyn.
 - `quarantine-v32` is v31 plus 118 API rows. `bedrooms-ad-v7` is v6 plus 4 rows
-- `bedrooms-ad-v8` is v7 plus 333 W 56th St #3E as a studio on its 3 rows coded 1, from Ben's reading of its floor plan and photos (2026-10-16). Not served until the next dataset revision.
   (426 W 58th 3 to 2, 58 E 1st 0 to 1). `brooklyn.MISJOINS` gains 18 rows. Both screened
   lists name the API cohort.
+- `bedrooms-ad-v8` is v7 plus 333 W 56th St #3E as a studio on its 3 rows coded 1, from Ben's
+  reading of its floor plan and photos (#917). Not served until the next dataset revision.
 - Modeling relabelled its API line q32ad7, on v32 and v7, waiting on #878 and #885.
 - Recorded only: a unit-split read (unit-splits-v4 already splits it) and a square-feet read
   (sqft-units isn't served).
