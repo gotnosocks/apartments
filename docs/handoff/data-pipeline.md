@@ -279,7 +279,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
    3. a PR deletes the page-capture rewrite and the page parser.
    `ads.market` still reads every status change any answer listed. Like `ads.breaks`, it should
-   read only the latest record's, which drops 68 changes of 57 ads on runs 1 to 10.
+   read only the latest record's, which drops 68 changes of 53 ads on runs 1 to 10.
    Nothing reads its days yet.
 
 ## Coordination

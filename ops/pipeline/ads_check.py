@@ -10,7 +10,8 @@
 2. It reads each line of the website's API captures, DIR/api-*/details/snapshot/candidates.jsonl
    with DIR /data1/apartments/archive/current-listings unless given. It counts the captured
    ads missing from the file, the captured ads whose latest record in the file is the captured
-   answer, and those with a later record in the file. A capture's `collected_at` is the fetch
+   answer, those with a later record in the file and those with an earlier one, which a build
+   older than the capture gives. A capture's `collected_at` is the fetch
    time of the answer it read, so the script matches it to the file's `fetched`. The two are
    written apart and round apart by up to a microsecond, so it takes times within a millisecond
    as one answer. For the ads of a shared answer it counts the ads whose status, ask, layout,
@@ -24,10 +25,12 @@
    `on_day` to the New York day of the fetch. It counts the ads by whether that agrees with
    the file's `break_status`, `break_day` and `back_day`, and prints a few that differ. The
    history dates each change to the day, and `last_break` orders a day's changes by their
-   places in the history.
+   places in the history. It counts ACTIVE ads without an `on_day` apart, since `last_break`
+   needs one.
 
 It reads the export's files directly and leaves the build's database alone. DuckDB gets SIZE
-of memory, 2GB unless given.
+of memory, 2GB unless given, and spills to a scratch folder under TMPDIR, which the script
+removes at the end.
 """
 
 from __future__ import annotations
@@ -134,16 +137,25 @@ def main() -> None:
     parser.add_argument("--memory", default="2GB")
     args = parser.parse_args()
     import duckdb
-    import pandas as pd
 
     ads = args.ads or newest("ads-*.parquet")
     print(f"ads: {ads} ({ads.stat().st_size / 2**20:.0f} MiB)")
-    spill = tempfile.mkdtemp(prefix="ads-check-")
+    scratch = Path(tempfile.mkdtemp(prefix="ads-check-"))
     db = duckdb.connect()
-    db.execute(f"SET memory_limit = '{args.memory}'")
-    db.execute(f"SET temp_directory = '{spill}'")
-    db.execute("SET threads = 3")
-    db.execute("SET TimeZone = 'UTC'")
+    try:
+        db.execute(f"SET memory_limit = '{args.memory}'")
+        db.execute(f"SET temp_directory = '{scratch / 'spill'}'")
+        db.execute("SET threads = 3")
+        db.execute("SET TimeZone = 'UTC'")
+        check(db, args, ads)
+    finally:
+        db.close()
+        shutil.rmtree(scratch)
+
+
+def check(db, args, ads: Path) -> None:
+    import pandas as pd
+
     db.execute(f"CREATE VIEW ads AS SELECT * FROM read_parquet('{ads}')")
     show(
         db,
@@ -179,7 +191,10 @@ def main() -> None:
             count(DISTINCT c.listing_id) FILTER (WHERE {shared}) AS same_answer,
             count(DISTINCT c.listing_id)
                 FILTER (WHERE epoch_us(a.fetched) - epoch_us(c.collected) >= 1000)
-                AS later_answer
+                AS later_answer,
+            count(DISTINCT c.listing_id)
+                FILTER (WHERE epoch_us(c.collected) - epoch_us(a.fetched) >= 1000)
+                AS earlier_answer
         FROM capture c LEFT JOIN ads a USING (listing_id)
         GROUP BY ALL ORDER BY ALL
     """,
@@ -233,6 +248,10 @@ def main() -> None:
     counts: dict[str, int] = {}
     examples: dict[str, list] = {}
     for listing_id, since, as_of, status, day, back, last, text in records:
+        if since is None:
+            counts["no on_day"] = counts.get("no on_day", 0) + 1
+            examples.setdefault("no on_day", []).append((listing_id, None, None))
+            continue
         found = gap(own_events(json.loads(text), listing_id), since, as_of)
         file = (status, day, back) if last == "ACTIVE" else None
         if found == file:
@@ -252,8 +271,6 @@ def main() -> None:
             for listing_id, found, file in examples[kind][:3]:
                 print(f"        {listing_id}: history {found}, file {file}")
     print(f"checked at {dt.datetime.now(dt.UTC):%Y-%m-%dT%H:%MZ}")
-    db.close()
-    shutil.rmtree(spill)
 
 
 if __name__ == "__main__":

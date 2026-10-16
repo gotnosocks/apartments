@@ -15,7 +15,7 @@
 #    available memory. When less is available, it lets go of the locks and tries again in five
 #    minutes.
 # 4. It runs ops/pipeline/build.py in the service's own cgroup, where the unit caps memory and
-#    turns swap off. The build writes its rows file and catalog line to
+#    turns swap off. The build writes its rows file, ads file and catalog line to
 #    /data1/apartments/pipeline/datasets. Then the script lets go of the locks.
 # 5. When the manifest changed while the build ran, it goes back to step 1.
 #

@@ -25,8 +25,8 @@ MODEL (
 --       and `floor_plans` lists the keys of its floor plan images.
 --   status, days_on_market:  the record's status and daysOnMarket, from ads.market.
 --   last_change, break_status, break_day, back_day:  ads.breaks, the last status change the
---       latest record lists from `on_day` on, and the ad's latest break when it is back on the
---       market.
+--       latest record lists from `on_day` on, and the ad's latest break when its status is ACTIVE
+--       and it is back on the market.
 --   first_day, first_ask, exclusion_reasons:  ads.exclusions.
 --   latest_ask:  analysis.latest_ask, for the kept rows.
 --   bedrooms to concession, conflicts, records:  ads.attributes, the values merged over the

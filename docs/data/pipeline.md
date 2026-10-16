@@ -224,7 +224,7 @@ line for the build to `OUT/catalog.ndjson`:
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
-| `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
+| `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the files, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
 
 When an audit fails, the script prints the failed models and exits with status 1. It writes
@@ -407,7 +407,7 @@ disk.
 | `ads.kept_changes` | table | price change left after the placeholder check |
 | `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
 | `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
-| `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is back |
+| `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
 | `ads.regions` | table | ad with an answer: the export regions of its answers |
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
@@ -1259,9 +1259,13 @@ comes from. These columns need more than a line:
 - `floor_plans` lists the keys of the latest record's floor plan images. Data improvements
   fetches a plan from `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. An empty list means
   the record lists no plans, and a missing one means it has no `media`.
-- `last_change`, `break_status`, `break_day` and `back_day` come from `ads.breaks`. The website
-  shows an ad back on the market with the status and day of its latest break, which it now reads
-  from the history on the ad's page.
+- `last_change`, `break_status`, `break_day` and `back_day` come from `ads.breaks`, which reads
+  the six statuses the unit's history lists. The website shows an ad back on the market with the
+  status and day of its latest break, which it now reads from the history on the ad's page. An
+  ad gets a break only when its status and its last change are both ACTIVE. On runs 1 to 10, 6
+  ads with another status have a return as their last change: 3 drafts, 2 ads in review and ad
+  2101233, which is NO_LONGER_AVAILABLE and lists a return two minutes after its ending on
+  2017-05-30. Rebuilding `ads.breaks` and the files for this change took 20 s.
 - `regions` lists the export regions of the ad's answers, from `ads.regions`.
 - `ledger_entries` lists the ledger's live entries for the ad, and `in_rows` says whether it
   has a fit-ready row.

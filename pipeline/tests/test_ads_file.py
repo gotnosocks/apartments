@@ -15,11 +15,12 @@ def load(name, path):
 tests = load("pipeline_tests", Path(__file__).with_name("test_pipeline.py"))
 
 
-def record(listing_id, changes, plans=None):
+def record(listing_id, changes, plans=None, status=None):
     """A record of ad `listing_id` on the market from 2026-05-01, with a status change for each
     item of `changes` as in `market_record` and a floor plan for each key of `plans`. Without
-    `plans` the record has no media."""
+    `plans` the record has no media. The record's status is `status`, or its last change's."""
     ad = json.loads(tests.market_record(listing_id, changes))
+    ad["status"] = status or ad["status"]
     if plans is not None:
         ad["media"] = {"floorPlans": [{"key": key} for key in plans]}
     return json.dumps(ad, sort_keys=True)
@@ -37,7 +38,9 @@ def test_ads_cases(tmp_path, monkeypatch):
       order;
     - ad 9000075 has an earlier answer listing changes off the market after it rents, which
       its later answer leaves out before its return;
-    - ad 9000076 has an earlier answer ending it, which its later answer leaves out."""
+    - ad 9000076 has an earlier answer ending it, which its later answer leaves out;
+    - ad 9000077 is NO_LONGER_AVAILABLE, and its record lists a return after the ending;
+    - ad 9000078 goes to UNKNOWN and back to ACTIVE."""
     export = tmp_path / "export"
     shutil.copytree(tests.FIXTURE / "cases" / "export", export)
     records = [
@@ -115,6 +118,29 @@ def test_ads_cases(tmp_path, monkeypatch):
             ),
         ),
         (9000076, record(9000076, [("2026-05-01", "ACTIVE")])),
+        (
+            9000077,
+            record(
+                9000077,
+                [
+                    ("2026-05-01", "ACTIVE"),
+                    ("2026-05-30", "NO_LONGER_AVAILABLE", "11"),
+                    ("2026-05-30", "ACTIVE", "12"),
+                ],
+                status="NO_LONGER_AVAILABLE",
+            ),
+        ),
+        (
+            9000078,
+            record(
+                9000078,
+                [
+                    ("2026-05-01", "ACTIVE"),
+                    ("2026-05-10", "UNKNOWN"),
+                    ("2026-05-20", "ACTIVE"),
+                ],
+            ),
+        ),
     ]
     earlier = [
         (
@@ -165,6 +191,10 @@ def test_ads_cases(tmp_path, monkeypatch):
         ["9000075", *on[:1], "ACTIVE", *on[1:], "ACTIVE", "RENTED", "2026-05-10"]
         + ["2026-05-20", None, [], False],
         ["9000076", *on[:1], "ACTIVE", *on[1:], "ACTIVE", None, None, None, None]
+        + [[], False],
+        ["9000077", *on[:1], "NO_LONGER_AVAILABLE", *on[1:], "ACTIVE", None, None, None]
+        + [None, [], False],
+        ["9000078", *on[:1], "ACTIVE", *on[1:], "ACTIVE", None, None, None, None]
         + [[], False],
     ]
     # Every ad with a record has a row, once.
