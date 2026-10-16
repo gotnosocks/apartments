@@ -148,8 +148,8 @@ def number(value, key):
         raise LedgerError(f"{key} takes a finite number of at least 0, not {value!r}")
     if field in WHOLE and value != int(value):
         raise LedgerError(f"{key} takes a whole number, not {value!r}")
-    # The rows pass through a data frame, where a column with missing values holds floats, and
-    # a float holds each whole number exactly only below 2**53.
+    # The rows pass through a data frame, where a column with missing values holds floats. From
+    # 2**53 up, floats skip whole numbers, so a float of 2**53 may come from 2**53 + 1.
     if field in WHOLE and value >= 2**53:
         raise LedgerError(f"{key} takes a number below 2**53, not {value!r}")
     return int(value) if field in INTEGERS else float(value)

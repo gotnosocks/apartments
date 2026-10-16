@@ -158,8 +158,8 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       their tests, and the splits checked against the frozen rows;
    4. `unit-labels-v17`, `fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The
       ad-text fills key on the ad and the hash of its text, once a model gives each ad's text;
-   5. **Done**: the test suite runs in about 45 s, in three pytest-xdist workers, against 100 s
-      in a single process.
+   5. **Done** in #892: the test suite runs in about 45 s, in three pytest-xdist workers,
+      against 100 s in a single process.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
    [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
    top-up, as light jobs at about 4 GiB, with the same rows file either way. The rest of step 8,
