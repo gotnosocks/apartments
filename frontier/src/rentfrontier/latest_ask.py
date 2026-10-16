@@ -73,8 +73,10 @@ PLACEHOLDER_PRICE, PLACEHOLDER_RAISE = 10000, 1.2
 # A latest ask outside this factor of the first ask is checked against the
 # building's other rows (check 1).
 MAX_RATIO = 2.0
-# A page price this far from the kept ask, and matching no change, is a digit
-# error in one of them (check 2).
+# A page price this far from the kept ask, and matching no kept change, is a
+# digit error in one of them (check 2). A page price equal to a dropped change
+# counts, so a dropped placeholder of $500 to $1,000 also enters the check, and
+# the building median then keeps the ask.
 DIGIT_RATIO = (9.0, 11.0)
 
 

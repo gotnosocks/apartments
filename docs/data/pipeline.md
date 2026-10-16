@@ -1146,8 +1146,8 @@ equal to any of the ad's changes. The step for a tenfold digit skips only one eq
 `ads.kept_changes` keeps. An ad correcting a tenfold typo on its last day on the market shows
 the correction as its page price, and `ads.kept_changes` drops the correcting change as a late
 one, so the digit step weighs the typo against the page price. On the export of Oct 16, this
-gives 12 ended ads the page price as their latest ask, at a tenth of the typo, which each ad also
-gave as its first ask. The latest-ask files the chain wrote up to Oct 16 keep the typos, and
+gives 12 ended ads the page price as their latest ask. Each typo was 9.6 to 10.7 times the page
+price and was also the ad's first ask. latest-ask-v6 and earlier keep the typos, and
 latest-ask-v7 gives those 12 rows the page price. The medians cover every region in
 `analysis.kept`, while the chain takes them over the rows of the datasets it reads. On the full
 export the two give the same steps, as the full build below shows.
@@ -1501,8 +1501,7 @@ in all, and most tests add made-up ads to that export. The tests:
    that more than doubles and one that falls below half, a page price a tenth of the ask and
    one ten times the ask, an empty latest answer, a later record leaving out a change of an
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
-   tenfold typo on the day it left the market. There the test expects the page price, and
-   `choose` keeps the typo;
+   tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
    and the twenty-two models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
