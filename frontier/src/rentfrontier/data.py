@@ -92,6 +92,11 @@ DATASETS_API = {
         "brooklyn-greenpoint-bushwick",
     )
 }
+# Every scraped area in one dataset (`rentfrontier.cohort combine`):
+# DATASET_NB9_API and the six DATASETS_API, which share no building.
+DATASET_ALL = Path(
+    "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157"
+)
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
 # Version of the flattened row (the cache key): v2 adds the neighbourhood.
@@ -1663,6 +1668,13 @@ LATEST_ASK_V5 = Path(
 )
 
 
+# LATEST_ASK_V5's rows and LATEST_ASK_API's together (`rentfrontier.snapshots
+# union`, no audit_id in both): a latest ask for every row of DATASET_ALL.
+LATEST_ASK_V6 = Path(
+    "/data1/apartments/external/latest-ask/20261016-5f07157-all/latest-ask.parquet"
+)
+
+
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
     alone (`LATEST_ASK_V3`). A row the file lacks keeps its ask."""
@@ -1978,6 +1990,7 @@ DATA_RULES = {
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
     "latest-ask-api-v1": functools.partial(latest_ask_v3, path=LATEST_ASK_API),
     "latest-ask-v5": functools.partial(latest_ask_v3, path=LATEST_ASK_V5),
+    "latest-ask-v6": functools.partial(latest_ask_v3, path=LATEST_ASK_V6),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -2035,6 +2048,7 @@ RULE_SOURCES = {
     "latest-ask-v4": LATEST_ASK_V4,
     "latest-ask-api-v1": LATEST_ASK_API,
     "latest-ask-v5": LATEST_ASK_V5,
+    "latest-ask-v6": LATEST_ASK_V6,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,

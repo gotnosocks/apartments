@@ -5438,6 +5438,67 @@ for _region, _areas in API_AREAS.items():
     }
 
 
+# All the scraped areas in one set, on data.DATASET_ALL: NB9 with its API
+# re-read, and the six API backfill datasets. It takes the NB9 base's terms
+# other than its neighbourhoods, as the API sets do, and adds every
+# neighbourhood and StreetEasy area against Chelsea. Each snapshot is the
+# union of the NB9+API, API Manhattan and API Brooklyn ones
+# (`rentfrontier.snapshots union`, first file first where a key repeats).
+_ALL = "/data1/apartments/external/{0}/20261016-5f07157-all/{0}.parquet"
+ALL_FILES = {
+    kind: _ALL.format(kind)
+    for kind in (
+        "registry",
+        "pluto",
+        "footprints",
+        "basemap",
+        "lpc",
+        "plutoreleases",
+        "listing-extras",
+    )
+}
+ALL_AREAS = tuple(
+    dict.fromkeys(
+        a
+        for a in (
+            FEATURE_SETS["nb9-nostuy-v1"].keywords["hoods"]
+            + ("West Village", "Greenwich Village")
+            + tuple(a for areas in API_AREAS.values() for a in areas)
+        )
+        if a != "Chelsea"
+    )
+)
+FEATURE_SETS["all-scraped-v1"] = partial(
+    areas_v1, id="all-scraped-v1", base="nb9-nostuy-lots2-v1", areas=ALL_AREAS
+)
+for _group in [
+    v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+]:
+    if "nb9-nostuy-lots2-v1" in _group:
+        _group.add("all-scraped-v1")
+LOT_SNAPSHOTS["all-scraped-v1"] = {
+    "registry": ALL_FILES["registry"],
+    "pluto": ALL_FILES["pluto"],
+}
+AREA_SNAPSHOTS["all-scraped-v1"] = {
+    "basemap": ALL_FILES["basemap"],
+    "footprints": ALL_FILES["footprints"],
+}
+LPC_SNAPSHOTS["all-scraped-v1"] = ALL_FILES["lpc"]
+PLUTO_RELEASES_SNAPSHOTS["all-scraped-v1"] = ALL_FILES["plutoreleases"]
+EXTRAS_SNAPSHOTS["all-scraped-v1"] = ALL_FILES["listing-extras"]
+DESCRIPTION_SOURCES["all-scraped-v1"] = {
+    **DESCRIPTION_SOURCES["nb9-nostuy-api-v1"],
+    **{
+        f"descriptions_{parent}_{i:02d}": (
+            API_DESCRIPTIONS.format(f"{parent}-{i:02d}") + "/evidence.jsonl"
+        )
+        for parent, count in set(API_SLICES.values())
+        for i in range(1, count + 1)
+    },
+}
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
