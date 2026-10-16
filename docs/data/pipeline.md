@@ -482,6 +482,9 @@ batch with only the corrections the ledger lacks, so it can follow a new rule ve
 Of the 179 sets, 158 rest on the unit's other ads, 27 on a size a read found stated for the
 unit, 5 on a floor plan and 2 on units of the same line, some on more than one.
 
+`pipeline/ledger/2026-10-16-short-stay.ndjson` excludes three short-stay ads Data improvements
+found on Oct 16, in a second regex pass over the reads of the API rows.
+
 The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
 `unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
 `elevator-from-ad-v1` and `pets-from-ad-v1`.

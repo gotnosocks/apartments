@@ -146,12 +146,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    rest of step 5, a PR each:
    1. backing for the 83 held sets in `config/reviews/ledger-held-2026-10-16-chain.jsonl`,
       sent to Data improvements for Sonnet reads of the unit's other ads and floor plans;
-   2. the cases of `building-joins-v1` and `west-coast-wings-v1`, constants in the code, copied
-      into the ledger as building entries, which need a new change kind;
-   3. `unit-splits-v4`, an algorithm over the rows, as a pipeline step with its splits checked
-      against the frozen rows;
-   4. `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`, `elevator-from-ad-v1` and
-      `pets-from-ad-v1`, as ledger entries or steps after a look at each one's keys;
+   2. entries keyed on units and buildings, as Data improvements asked on Oct 16.
+      `unit-reviews-v2` joins and splits units, so its entries key on the unit and also apply
+      to later ads of the unit. `building-joins-v1` moves a building to a lot and keys on the
+      building or its address. The `brooklyn_misjoin` and `location_conflict` excludes become
+      building sets once the right building is collected, with `other_ad` or `city_record`
+      evidence;
+   3. `west-coast-wings-v1` and `unit-splits-v4`, rules over the rows, as pipeline steps with
+      their tests, and the splits checked against the frozen rows;
+   4. `unit-labels-v17`, `fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The
+      ad-text fills key on the ad and the hash of its text, once a model gives each ad's text;
    5. the test suite back under a minute: it takes 84 s with the ledger tests, which build
       the fixture three more times.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
