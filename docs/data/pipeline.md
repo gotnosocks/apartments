@@ -213,10 +213,10 @@ picked building or when the ad has a `missing` answer. It also takes every answe
 buildings. When a picked ad's record gives another building, it takes that building's answers
 as well. It writes the answers in the export's layout, with a manifest, and stops before writing
 when the output folder would replace the export, hold it or lie inside it. On Oct 16 it picked
-665 buildings and 19,683 of the export's 2,137,997 ads, the ad with five `missing` answers among
+665 buildings and 19,683 of the export's 2,137,998 ads, the ad with five `missing` answers among
 them, and wrote 20 MB in 16 s, at a 1 GB peak. A diff on the sample took 18.5 s and peaked at
-2.2 GB. The same buildings fall in the sample on each run, so a run after a top-up adds their
-new answers, along with any new building whose hash falls in the range.
+2.2 GB. The same buildings fall in the sample on each run. After a top-up, the script takes their
+new answers and picks each new building by the same hash test.
 
 `diff.py --export` takes any other export folder. `diff.py` builds both sides in a scratch folder
 under TMPDIR, so on thelio a large export calls for TMPDIR under /data1, as /tmp is a small RAM
@@ -792,8 +792,8 @@ in all, and most tests add made-up ads to that export. The tests:
     HEAD. Last, it compares small tables directly: retyped grain and value columns, a repeated
     grain, a changed grain, columns named like the join's markers, and tables with no column in
     common.
-26. write a sample of the fixture's export with a share of one half. The test first adds a run
-    to a copy of the export, with the cases the fixture lacks:
+26. write a sample of the fixture's export with a share of one half. The fixture has none of
+    the following cases, so the test first adds a run with them to a copy of the export:
     - a later record of a picked ad, with a building outside the picked ones;
     - `missing` answers, for an ad outside the sample and for an ad without any record;
     - an answer for a picked building, with no ad giving it.

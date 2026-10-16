@@ -56,11 +56,11 @@ def write_run(db, export, table, rows):
 
 
 def planted(tmp_path):
-    """Copy the fixture export and add a run with the cases the fixture lacks:
-    1. a later record of a picked ad, giving a building outside the picked ones;
-    2. a `missing` answer of an ad outside the sample, and one of an ad with no record at all;
-    3. an answer of a picked building that no ad gives.
-    Return the copy and the planted building IDs."""
+    """Copy the fixture export, then add a run with these cases, none of them in the fixture:
+    1. a later record of a picked ad, with its building changed to an unpicked one;
+    2. a `missing` answer for an ad outside the sample, and another for an ad with no record;
+    3. an answer for a picked building, with no ad giving it.
+    Return the copy, the planted building IDs and the planted ad IDs."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "export", export)
     db = duckdb.connect(config={"TimeZone": "UTC"})

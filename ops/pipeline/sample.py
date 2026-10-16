@@ -9,16 +9,17 @@ the full export's size. The script works in these steps:
    first S of the hashes' range, 0.01 unless given. DuckDB's `md5_number` reads the hash as a
    little-endian number. The IDs come from the buildings' own answers and from the ads'
    records, so a building with no answer of its own can be picked. The same IDs fall in the
-   sample on every run. A later export adds the new answers of those buildings, together with
-   new buildings whose hashes fall in the range.
+   sample on every run. On a later export, the script takes those buildings' new answers and
+   picks each new building by the same hash test.
 2. It picks an ad when one of its records gives a picked building. It also picks every ad with
-   a `missing` answer, which carries no record. The export holds only a few, and the build has
-   to handle them. It takes every answer of the picked ads, with or without a record, and every
+   a `missing` answer, which carries no record. It keeps all of them, since the export holds
+   only a few and the build has to handle them. It takes every answer of the picked ads, with or without a record, and every
    answer of the picked buildings. When a picked ad's record gives a building outside the
    picked ones, it takes that building's answers too.
 3. It writes each table's answers into a new folder, in a file for each run. The files and the
    manifest follow the export's layout, the same way `pipeline/tests/make_fixture.py` writes
-   the fixture. Two renames then put the new folder in place of OUT/export.
+   the fixture. Then it moves the old OUT/export aside, renames the new folder into its place
+   and deletes the old one.
 """
 
 from __future__ import annotations
@@ -113,7 +114,8 @@ def sample(export: Path, out: Path, share: float) -> dict:
     ]
     with open(work / "export" / "manifest.ndjson", "w") as f:
         f.writelines(json.dumps(e, sort_keys=True) + "\n" for e in entries)
-    # Two renames replace the old sample, so a reader finds a whole sample at almost any moment.
+    # The old sample moves aside just before the new one moves in, so OUT/export holds a whole
+    # sample at almost every moment.
     old = out / "export.old"
     shutil.rmtree(old, ignore_errors=True)
     if (out / "export").exists():
@@ -121,10 +123,11 @@ def sample(export: Path, out: Path, share: float) -> dict:
     (work / "export").rename(out / "export")
     work.rmdir()
     shutil.rmtree(old, ignore_errors=True)
-    counts = db.sql(
+    counts = db.execute(
         "SELECT (SELECT count(*) FROM picked), (SELECT count(*) FROM picked_ads), "
         "(SELECT count(*) FROM ads), (SELECT count(*) FROM buildings), "
-        "(SELECT count(DISTINCT listing_id) FROM named)"
+        "(SELECT count(DISTINCT listing_id) FROM read_parquet(?))",
+        [ads],
     ).fetchone()
     return {
         "buildings_picked": counts[0],
