@@ -200,7 +200,8 @@ at a 2 GiB cap.
 
 ## Build command
 
-`ops/pipeline/build.py` builds the project, saves the fit-ready rows and records the build:
+`ops/pipeline/build.py` builds the project, saves the fit-ready rows and the ads, and records the
+build:
 
 ```sh
 uv run --project pipeline python ops/pipeline/build.py [--export DIR] [--state DIR] [--out DIR]
@@ -209,8 +210,9 @@ uv run --project pipeline python ops/pipeline/build.py [--export DIR] [--state D
 It plans and applies `prod`, as the `sqlmesh plan` line above does. Then it writes
 `analysis.rows`, sorted by `listing_id`, to a Parquet file in OUT, by default
 `/data1/apartments/pipeline/datasets`. The file's name holds the first 16 hex digits of its
-SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line for the build to
-`OUT/catalog.ndjson`:
+SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. It writes `analysis.ads` the same way, to a file
+such as `ads-<hash>.parquet`, described under [Ads file](#ads-file). Last, the script appends a
+line for the build to `OUT/catalog.ndjson`:
 
 | key | holds |
 |---|---|
@@ -221,7 +223,8 @@ SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line 
 | `ledger` | the ledger's files with their SHA-256, and its entries counted by status and change |
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
-| `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
+| `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
+| `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the files, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
 
 When an audit fails, the script prints the failed models and exits with status 1. It writes
@@ -345,7 +348,7 @@ analysis.kept: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
   listing_id=3120884: square_feet 1200.0 -> null
 analysis.rows: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
   listing_id=3120884: square_feet 1200.0 -> null
-unchanged: ads.answer_events, ads.answers, ads.attributes, ads.events, ads.exclusions, ...
+unchanged: ads.answer_events, ads.answers, ads.attributes, ads.breaks, ads.events, ...
 built the base in 5.5 s and the edit in 5.5 s, 6.1 s in all
 ```
 
@@ -394,16 +397,18 @@ disk.
 | `city.dob_now_co` | view | certificate of occupancy in a copy of the DOB NOW set |
 | `city.dob_co` | view | certificate of occupancy in a copy of DOB's earlier set |
 | `city.rejects` | view | value missing from, or extra in, a row DuckDB refused as it read the city archive |
-| `ads.answers` | table | answer, with the fields the event log and the latest-ask steps read and a hash of its unit history |
+| `ads.answers` | table | answer, with the fields the event log, the latest-ask steps and the ads file read and a hash of its unit history |
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.answer_events` | table | event an ad's own answers reported in their fetch, status changes or price changes, with those answers |
 | `ads.history_reports` | table | event a unit history listed for an ad, with the answers holding the history |
 | `ads.events` | view | event the API reported for an ad, with the answers that reported it: the rows of `ads.answer_events` and `ads.history_reports` |
-| `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID, status, market days and page price |
+| `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price and floor plan keys |
 | `ads.price_changes` | table | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
 | `ads.kept_changes` | table | price change left after the placeholder check |
 | `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
 | `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
+| `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
+| `ads.regions` | table | ad with an answer: the export regions of its answers |
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
@@ -425,18 +430,20 @@ disk.
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.building_certificates` | table | candidate ad: its BIN, and the certificates of occupancy DOB had issued on it by its first day |
+| `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask and floor plans, its merged values, and the reasons it was dropped |
 
-The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
-keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
-`ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
-`analysis.latest_change`, `analysis.latest_ask`, `analysis.lot_facts`, `analysis.lot_landmarks`
-and `analysis.building_certificates`, per building in `buildings.details` and the four building
-identity models, per lot and release in `buildings.lot_releases`, per release in
-`city.pluto_releases`, per record in `ads.record_attributes`, per
-`(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
-per event in `ads.answer_events` and `ads.history_reports`. The `every_row` audit, in
-`pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
-and the tables from the last good plan stay in place.
+The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check keys
+and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
+`ads.breaks`, `ads.regions`, `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`,
+`analysis.candidates`, `analysis.latest_change`, `analysis.latest_ask`, `analysis.lot_facts`,
+`analysis.lot_landmarks` and `analysis.building_certificates`, per building in
+`buildings.details` and the four building identity models, per lot and release in
+`buildings.lot_releases`, per release in `city.pluto_releases`, per record in
+`ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)`
+in `ads.price_changes` and per event in `ads.answer_events` and `ads.history_reports`. The
+`every_row` audit, in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of
+`analysis.kept`. When an audit fails, the plan stops, and the tables from the last good plan
+stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
@@ -1125,9 +1132,9 @@ Three models read the ledger:
    chain's bath rules do.
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
-correction rules apply, so a change to the ledger rebuilds only the two ledger models and
-`analysis.rows`. The catalog line of each build lists the ledger's files with their SHA-256,
-and counts the entries by status and change.
+correction rules apply, so a change to the ledger rebuilds only the two ledger models and the
+views `analysis.rows` and `analysis.ads`. The catalog line of each build lists the ledger's
+files with their SHA-256, and counts the entries by status and change.
 
 ### The chain's corrections
 
@@ -1228,6 +1235,83 @@ Of the matched rows, 47 differ in bedrooms, 16 in bathrooms and 3 in size:
 
 In the reference's neighbourhoods, `analysis.kept` holds another 58,088 rows with no ledger
 exclude. They are API ads missing from the page crawl.
+
+## Ads file
+
+The rows file holds the fit-ready rows only. Each build also writes `analysis.ads` to a file
+such as `ads-<hash>.parquet` in OUT, with a row for every ad with a record, kept or dropped, and
+adds the file's name, SHA-256 and row count to its catalog line under `ads_file`. I wrote it for
+these readers:
+
+- the website's current listings, which read the API captures under
+  `/data1/apartments/archive/current-listings` until they move to this file;
+- Data improvements, which reads a unit's other ads when it looks for the evidence behind a
+  correction.
+
+The comment at the top of `pipeline/models/analysis/ads.sql` lists the columns and the step each
+comes from. These columns need more than a line:
+
+- `page_price` is the latest record's price, the ask an ad shows on its page now. `first_ask`
+  is the ask on the ad's first day, from `ads.exclusions`, and `latest_ask` is the latest ask
+  of the ad's fit-ready row, from `analysis.latest_ask`. An ad without a kept row has no
+  `latest_ask`.
+- `status` and `days_on_market` are the latest record's own, as the API wrote them.
+- `floor_plans` lists the keys of the latest record's floor plan images. Data improvements
+  fetches a plan from `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. An empty list means
+  the record lists no plans, and a missing one means it has no `media`.
+- `last_change`, `break_status`, `break_day` and `back_day` come from `ads.breaks`, which reads
+  the six statuses the unit's history lists. The website shows an ad back on the market with the
+  status and day of its latest break, which it now reads from the history on the ad's page. An
+  ad gets a break only when its status and its last change are both ACTIVE. On runs 1 to 10, 6
+  ads with another status have a return as their last change: 3 drafts, 2 ads in review and ad
+  2101233, which is NO_LONGER_AVAILABLE and lists a return two minutes after its ending on
+  2017-05-30. Rebuilding `ads.breaks` and the files for this change took 20 s.
+- `regions` lists the export regions of the ad's answers, from `ads.regions`.
+- `ledger_entries` lists the ledger's live entries for the ad, and `in_rows` says whether it
+  has a fit-ready row.
+
+The file leaves out the ad's description and its other text. A reader takes them from the
+answer `response_id` in the export, as `ops/pipeline/ads_check.py` does for the histories.
+
+The breaks and the regions are tables of their own. When the view worked them out itself, the
+build's sorted copy of the view went past the 3 GB of memory build-latest gives DuckDB.
+
+StreetEasy rewrites an ad's status changes between answers. Answers of Oct 15 listed changes off
+the market at 03:11 on Oct 14 and Oct 15 for some ads, and answers of Oct 16 listed the same ads
+back on the market without them. The event log keeps every change any answer listed, so
+`ads.breaks` reads only the changes of the ad's latest record: the events with that record's fetch
+as their `last_seen`. Before I added that filter, the check below found 7 ACTIVE ads with a last
+change or break other than the one in their latest record's history.
+
+I check a build's file with
+
+```sh
+pipeline/.venv/bin/python ops/pipeline/ads_check.py [--ads FILE]
+```
+
+The script compares the file with the website's API captures and with the histories of the
+ads' latest records. Its docstring lists the steps. I built runs 1 to 10 from empty in a scratch
+state at 14:08 ET on Oct 16. The build took 229 s at a 4,199 MiB peak, against 199 s for the same
+build without the ads file, with 2.7 s in `ads.breaks`, 1.3 s in `ads.regions` and 14 s writing
+both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. The check took
+5 s at a 493 MiB peak:
+
+- Each of the 7,008 ads in the website's five captures of Oct 16 has a row. For 6,997 of them,
+  the file's latest record is the captured answer, and the other 11 have a later answer.
+- On those 6,997 ads, the status, page price, building, unit page, elevator and doorman type
+  agree for every ad, and no field gives two different values. A field can still have a value
+  on one side only:
+  - In 19 cases the capture has a value and the file has none. The ad's two records disagree,
+    so the merge leaves the field unknown and lists it in `conflicts`, while the capture reads
+    the latest record alone. They are 13 bedroom counts, 3 bath counts, a size and 2 laundry
+    types.
+  - In 9 cases the file has a value from the ad's earlier record, and the capture has none
+    because the latest record leaves the field out. They are 5 short-term flags, 2 laundry
+    types, a size and a furnished flag.
+
+  A reader who needs the latest record's own value for such an ad takes it from the export.
+- All 7,013 ACTIVE ads have the same last change and latest break as the history in their latest
+  record, and 644 of them are back on the market after a break.
 
 ## Differences from the chain
 
@@ -1355,20 +1439,22 @@ in all, and most tests add made-up ads to that export. The tests:
     checks the fates, floors, floor counts, areas, regions and sizes by value;
 19. parse every SQL model as SQLMesh loads it and look for a bracket reading a list at a
     computed index;
-20. run `ops/pipeline/build.py` on the fixture twice and check the rows file's name and the
-    export files' and city files' hashes against their SHA-256. The second build rebuilds nothing, writes the
-    same rows file and appends a second catalog line. Then the test builds runs 2 and 3, adds
-    run 4 and builds again, and compares that build's rows file with a build of runs 2 to 4 into
-    an empty state. The two files hold the same bytes. Last, the test adds an export file
-    repeating an answer and checks that the build stops and leaves OUT as it was;
+20. run `ops/pipeline/build.py` on the fixture twice and check the names of the rows file and
+    the ads file and the export files' and city files' hashes against their SHA-256. The ads
+    file holds each ad once, and its ads with `in_rows` are the rows file's ads. The second
+    build rebuilds nothing, writes the same files and appends a second catalog line. Then the
+    test builds runs 2 and 3, adds run 4 and builds again, and compares that build's files with
+    a build of runs 2 to 4 into an empty state. Each pair holds the same bytes. Last, the test
+    adds an export file repeating an answer and checks that the build stops and leaves OUT as it
+    was;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, read files with a repeated line, a retract of an unknown, a retracted or a
     retracting entry, and a line that is not JSON, and check that `read` takes files in order
     of name;
 22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two
     of them in a later file, and check each entry's status and differing values. The next plan
-    rebuilds only the two ledger models and `analysis.rows`, which drops one row and changes
-    four, and the latest asks stay as they were;
+    rebuilds only the two ledger models and the views `analysis.rows` and `analysis.ads`. The
+    first drops one row and changes four, and the latest asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's ledger, and check that each of its files at the merge base with master
@@ -1489,18 +1575,27 @@ in all, and most tests add made-up ads to that export. The tests:
     with a lot reads both flags as missing.
 36. write made-up certificates of both sets, lots and ads to a DuckDB database, render
     `analysis.building_certificates` over them in a session set to New York time, and check each
-    ad's flags, dates, jobs and count of apartments. The ads come the day before and the day of a
-    building's first certificate, and after two alterations, one with a certificate in each set
-    on the same day. The certificates include a second new building job, a date of 2105, a DOB
-    NOW renewal of an earlier job, a job found only in an older copy, padded values, counts of 0
-    and counts too large for an INTEGER in both sets, a count reading `NON5`, a rebuild with
-    existing elements to remain whose count reads `..208`, and a DOB NOW certificate with a
-    blank issue date. Further ads read a BIN
-    without certificates, a building without a BIN, a building missing from `buildings.lots`
-    and buildings with BINs 1000000 and 3000000. A job type outside the two kinds, a blank issue
-    date in the earlier set and a date in another form in either set each stop the step, and
-    with no copy of either set an ad with a BIN reads both flags as missing and keeps the other
-    set's certificates.
+    ad's flags, dates, jobs and count of apartments. The ads come the day before and the day of
+    a building's first certificate, and after two alterations, one with a certificate in each
+    set on the same day. The certificates include a second new building job, a date of 2105, a
+    DOB NOW renewal of an earlier job, a job found only in an older copy, padded values, counts
+    of 0 and counts too large for an INTEGER in both sets, a count reading `NON5`, a rebuild
+    with existing elements to remain whose count reads `..208`, and a DOB NOW certificate with a
+    blank issue date. Further ads read a BIN without certificates, a building without a BIN, a
+    building missing from `buildings.lots` and buildings with BINs 1000000 and 3000000. A job
+    type outside the two kinds, a blank issue date in the earlier set and a date in another form
+    in either set each stop the step, and with no copy of either set an ad with a BIN reads both
+    flags as missing and keeps the other set's certificates.
+37. add seven made-up ads to the cases and check their rows of `analysis.ads`. The first goes
+    off the market and comes back, and its record has two floor plans. The second goes from a
+    draft through StreetEasy's review to ACTIVE, and later through a brokerage review, which
+    `ads.breaks` doesn't count as a break. The third goes into contract, comes back and rents,
+    so it has no break. The fourth had its break before its first day on the market, and the
+    fifth goes into contract and comes back at the same instant, in that order in its record.
+    The last two have an earlier answer listing changes their later answer leaves out: the
+    sixth's lists two more changes off the market after it rents, and the seventh's ends it.
+    The row takes the break and the last change from the later answer. Then the test checks
+    that each ad with a record has one row.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

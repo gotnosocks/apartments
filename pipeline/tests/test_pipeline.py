@@ -260,6 +260,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.answer_events",
         "ads.answers",
         "ads.attributes",
+        "ads.breaks",
         "ads.events",
         "ads.exclusions",
         "ads.first_ask",
@@ -271,7 +272,9 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.market",
         "ads.price_changes",
         "ads.record_attributes",
+        "ads.regions",
         "ads.reported",
+        "analysis.ads",
         "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",
@@ -319,6 +322,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
         "ads.identity",
+        "analysis.ads",
         "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",

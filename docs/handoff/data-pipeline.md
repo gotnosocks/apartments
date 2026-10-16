@@ -47,7 +47,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    unit runs it after each export (#887).
 9. Delete the page-capture rewrite once its two readers move: Data improvements'
    `granular_export` inputs and the website's current-listings publish in
-   `src/streeteasy_archive/graphql_search.py`.
+   `src/streeteasy_archive/graphql_search.py`. **Started**: each build writes `analysis.ads`,
+   every ad with a record, to `ads-<hash>.parquet` beside the rows file, for both readers.
 
 ## Raw layer
 
@@ -270,6 +271,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       DOB NOW rebuilds behind kept walls and from stale years in MapPLUTO. It reads a count of 0
       apartments as missing. `ops/pipeline/certificates_check.py` reruns the comparison in 22 s
       at a 2.6 GB peak, 19 s of it in the models.
+6. Step 9 goes on from the ads file. On runs 1 to 10 the build writes it with the rows file in
+   229 s at a 4,199 MiB peak, 30 s more than without it. `ops/pipeline/ads_check.py` compares it
+   with the website's API captures and the histories of the ACTIVE ads in 5 s:
+   [pipeline.md](../data/pipeline.md#ads-file) has the numbers. The rest of step 9, in order:
+   1. the website's current listings and Data improvements' reads of other ads move to the file;
+   2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
+   3. a PR deletes the page-capture rewrite and the page parser.
+   `ads.market` still reads every status change any answer listed. Like `ads.breaks`, it should
+   read only the latest record's, which drops 68 changes of 53 ads on runs 1 to 10.
+   Nothing reads its days yet.
 
 ## Coordination
 
@@ -282,4 +293,6 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
   fits its exporter: files go in place before their manifest lines, a crash repair replaces the
   manifest by rename, and a manual export takes `export/.lock`, which the build never opens.
 - The website reads current listings from the collector's page captures, and Data improvements
-  reads `granular_export` inputs from them. Both need a reader of the new tables before step 9.
+  reads `granular_export` inputs from them. Both can read the ads file, under `ads_file` in the
+  catalog, and the page-capture rewrite goes once they do. The scraper thread runs
+  `graphql_search` step 4 and `current_listings`, so it agrees to their removal first.
