@@ -180,18 +180,17 @@ def test_freeze_compares_with_the_record(reference, tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match="changed after the preparation started"):
         freeze("backdated", record)
 
-    # A write between the first hash and the copy's.
+    # A write after the first status check and before the first hash.
     monkeypatch.setattr(reference.subprocess, "run", original)
-    monkeypatch.setattr(reference.time, "time_ns", lambda: 2**62)
-    copy = reference.blob
+    digest = reference.sha256
 
-    def writing(path, read, expected=None):
-        out = copy(path, read, expected)
-        if path == str(registry):
+    def writing(path):
+        if str(path) == str(registry):
             registry.write_bytes(b"registry, edited while copied")
-        return out
+            monkeypatch.setattr(reference, "sha256", digest)
+        return digest(path)
 
-    monkeypatch.setattr(reference, "blob", writing)
+    monkeypatch.setattr(reference, "sha256", writing)
     with pytest.raises(SystemExit, match="changed while it was copied"):
         freeze("copied", record)
 
@@ -226,6 +225,13 @@ def test_opened_skips_code_system_and_directories(reference, tmp_path):
         + strace_line("O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666", written)
         + strace_line("O_RDONLY|O_CLOEXEC", written)
     )
+    with pytest.raises(
+        SystemExit, match=f"that it also wrote, or that are gone: {written}$"
+    ):
+        reference.opened(log, skip)
+
+    # A file opened for reading and writing at once.
+    log.write_text("".join(lines) + strace_line("O_RDWR|O_CLOEXEC", written))
     with pytest.raises(
         SystemExit, match=f"that it also wrote, or that are gone: {written}$"
     ):

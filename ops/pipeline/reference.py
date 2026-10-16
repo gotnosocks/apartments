@@ -20,10 +20,11 @@ the feature matrix to `features.parquet`, keyed by `audit_id`. The preparation r
 which logs every file the process and its children open. The script then copies each file opened
 for reading into `blobs/` under its SHA-256, read-only, so later changes to the original files
 leave the reference alone. Files under the exported tree, the venv, Python's install and the system
-folders hold code, so the script leaves them out. It also leaves out directories and the scratch
-folder described below. If the preparation read a file elsewhere that it had also opened for
-writing, or a file gone by the time of the copy, the freeze stops, since the copy might not hold
-what the preparation read.
+folders hold code, so the script leaves them out, along with itself. It also leaves out
+directories, the output folder and the scratch folder described below. If the preparation read a
+file elsewhere that it had also opened for writing, or a file gone by the time of the copy, the
+freeze stops, since the copy might not hold what the preparation read. A file opened for reading
+and writing at once counts as both.
 
 The preparation keeps the hash `data.load` takes of the observations before parsing them, and
 hashes the rule files and the feature sources before and after its calls. The freeze stops if a
@@ -32,10 +33,10 @@ modification or status-change time comes after the preparation started, or if it
 while the script hashes and copies it. The preparation writes its caches into an empty scratch
 folder, set as `FRONTIER_OUTPUT_ROOT`, so `data.load` and `descriptions.load` build them from the
 inputs rather than read caches written by other jobs. Its temporary files go to the same folder,
-set as `TMPDIR`. For a fit with a result.json, `manifest.json` records
-whether the row hash and the hashes of the observations, rule files and feature sources equal the
-fit's own record. Any of those the record lacks counts as a mismatch. A fit records no hashes for
-the other files. The manifest also lists the version of every package in the venv.
+set as `TMPDIR`. For a fit with a result.json, `manifest.json` records whether the row hash and
+the hashes of the observations, rule files and feature sources equal the fit's own record. Any of
+those the record lacks counts as a mismatch. A fit records no hashes for the other files. The
+manifest also lists the version of every package in the venv.
 
 `verify` hashes every blob and output of a reference again and reports any change or missing
 file.
@@ -144,7 +145,7 @@ def opened(log: Path, skip: tuple[str, ...]) -> list[str]:
         flags, path = match.groups()
         if re.search("O_WRONLY|O_RDWR|O_CREAT|O_TRUNC", flags):
             written.add(path)
-        elif "O_DIRECTORY" not in flags and not path.startswith(skip):
+        if not re.search("O_WRONLY|O_DIRECTORY", flags) and not path.startswith(skip):
             read.add(path)
     read = {p for p in read if not Path(p).is_dir()}
     if odd := sorted(p for p in read if p in written or not Path(p).is_file()):
