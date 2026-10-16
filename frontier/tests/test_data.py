@@ -1654,6 +1654,19 @@ def test_pets_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
     assert not data.amended_rule("pets-from-ad-v1")
 
 
+def test_pets_from_ad_v2_adds_pet_fee_rows_only():
+    assert data.RULE_SOURCES["pets-from-ad-v2"] == data.PETS_FROM_AD_V2
+    v1 = pd.read_parquet(data.PETS_FROM_AD).set_index("audit_id").pets
+    v2 = pd.read_parquet(data.PETS_FROM_AD_V2).set_index("audit_id")
+    assert v1.index.isin(v2.index).all()
+    assert (v2.pets[v1.index] == v1).all()
+    added = v2.drop(v1.index)
+    assert added.pets.eq("allowed_restrictions_unknown").all()
+    # Six of the added rows have a known code, which the rule keeps.
+    assert added.coded.eq("unknown").sum() == 1205 and len(added) == 1211
+    assert not data.amended_rule("pets-from-ad-v2")
+
+
 def test_adfills_pets_writes_existing_codes_only():
     from rentfrontier import adfills
 
