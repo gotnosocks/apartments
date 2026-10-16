@@ -1194,7 +1194,8 @@ found on Oct 16, in a second regex pass over the reads of the API rows.
 
 `pipeline/ledger/2026-10-16-west-56th-studio.ndjson` holds the three new sets of `bedrooms-ad-v8`,
 whose other 17 corrections repeat v7. Ben read the floor plan and photos of 333 W 56th St #3E on
-Oct 16 and found a studio with a divider wall, where its three ads gave one bedroom. The rule's
+Oct 16 and found a studio with a divider wall. Three of the unit's ads gave one bedroom, and
+the fourth, from June 2023, already gave a studio. The rule's
 lines give his reading with his name and the day in place of the ad's words, and the importer
 takes such a line as a floor plan item when it mentions a floor plan and as an `owner` item
 otherwise. The unit's 600 sq ft also matches the building's studios.
