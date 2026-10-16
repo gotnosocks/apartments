@@ -2,21 +2,23 @@
 
     pipeline/.venv/bin/python ops/pipeline/sample.py [--export DIR] [--out DIR] [--share S]
 
-`ops/pipeline/diff.py --export OUT/export` builds the sample on both sides of a diff, with the
-full export's range of cases at a small fraction of its size. The script works in these steps:
+`ops/pipeline/diff.py --sample` builds the sample on both sides of a diff, at a small fraction of
+the full export's size. The script works in these steps:
 
-1. It reads the export's manifest and picks each building whose ID has an MD5 hash in the
+1. It reads the export's manifest and picks a building when the MD5 hash of its ID falls in the
    first S of the hashes' range, 0.01 unless given. DuckDB's `md5_number` reads the hash as a
-   little-endian number. It takes the IDs from the buildings' own
-   answers and from the ads' records, so a building with no answer of its own can be picked.
-   The same IDs fall in the sample on every run, so a later export adds only the new answers
-   of the same buildings.
-2. It picks each ad with a record naming a picked building, and takes every answer for those
-   ads, with or without a record. It takes every answer for the picked buildings and for any
-   other building a picked ad's record names.
-3. It writes the answers of each table as a file for each run, under OUT/export, laid out as
-   the export is, with a manifest line for each file, as `pipeline/tests/make_fixture.py`
-   writes the fixture. It replaces OUT/export as a whole.
+   little-endian number. The IDs come from the buildings' own answers and from the ads'
+   records, so a building with no answer of its own can be picked. The same IDs fall in the
+   sample on every run. A later export adds the new answers of those buildings, together with
+   new buildings whose hashes fall in the range.
+2. It picks an ad when one of its records gives a picked building. It also picks every ad with
+   a `missing` answer, which carries no record. The export holds only a few, and the build has
+   to handle them. It takes every answer of the picked ads, with or without a record, and every
+   answer of the picked buildings. When a picked ad's record gives a building outside the
+   picked ones, it takes that building's answers too.
+3. It writes each table's answers into a new folder, in a file for each run. The files and the
+   manifest follow the export's layout, the same way `pipeline/tests/make_fixture.py` writes
+   the fixture. Two renames then put the new folder in place of OUT/export.
 """
 
 from __future__ import annotations
@@ -46,13 +48,23 @@ fixture = load("make_fixture", REPO / "pipeline" / "tests" / "make_fixture.py")
 
 
 def manifest(export: Path) -> list[dict]:
-    lines = (export / "manifest.ndjson").read_text().splitlines(keepends=True)
-    # The exporter writes each line whole and drops a cut-off last line on its next start.
-    return [json.loads(line) for line in lines if line.endswith("\n") and line.strip()]
+    """The export's manifest lines, one for each listed file."""
+    entries = {}
+    for line in (export / "manifest.ndjson").read_text().splitlines(keepends=True):
+        # The exporter writes each line whole and drops a cut-off last line on its next start.
+        if not line.endswith("\n") or not line.strip():
+            continue
+        entry = json.loads(line)
+        if entries.setdefault(entry["path"], entry)["sha256"] != entry["sha256"]:
+            raise ValueError(f"manifest gives {entry['path']} two hashes")
+    return list(entries.values())
 
 
 def sample(export: Path, out: Path, share: float) -> dict:
     started = time.monotonic()
+    target, source = (out / "export").resolve(), export.resolve()
+    if target.is_relative_to(source) or source.is_relative_to(target):
+        raise ValueError(f"{out / 'export'} overlaps the export {export}")
     lines = manifest(export)
     ads = fixture.listed(lines, "ads", export)
     buildings = fixture.listed(lines, "buildings", export)
@@ -76,7 +88,9 @@ def sample(export: Path, out: Path, share: float) -> dict:
     )
     db.execute(
         """CREATE TABLE picked_ads AS
-        SELECT DISTINCT listing_id FROM named WHERE building_id IN (SELECT * FROM picked)"""
+        SELECT listing_id FROM named WHERE building_id IN (SELECT * FROM picked)
+        UNION SELECT listing_id FROM read_parquet(?) WHERE record IS NULL""",
+        [ads],
     )
     db.execute(
         """CREATE TABLE ads AS SELECT * FROM read_parquet(?, filename = true)
@@ -99,10 +113,14 @@ def sample(export: Path, out: Path, share: float) -> dict:
     ]
     with open(work / "export" / "manifest.ndjson", "w") as f:
         f.writelines(json.dumps(e, sort_keys=True) + "\n" for e in entries)
-    out.mkdir(parents=True, exist_ok=True)
-    shutil.rmtree(out / "export", ignore_errors=True)
+    # Two renames replace the old sample, so a reader finds a whole sample at almost any moment.
+    old = out / "export.old"
+    shutil.rmtree(old, ignore_errors=True)
+    if (out / "export").exists():
+        (out / "export").rename(old)
     (work / "export").rename(out / "export")
     work.rmdir()
+    shutil.rmtree(old, ignore_errors=True)
     counts = db.sql(
         "SELECT (SELECT count(*) FROM picked), (SELECT count(*) FROM picked_ads), "
         "(SELECT count(*) FROM ads), (SELECT count(*) FROM buildings), "
