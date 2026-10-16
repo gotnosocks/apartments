@@ -26,8 +26,9 @@ MODEL (
 --   invalid_or_missing_layout: it lacks a whole bedroom count from 0 to 5 or a bathroom count
 --     from 1 to 5 in halves.
 -- The chain stops at no_dated_own_active_event, since the other checks need a first day. Three
--- of the chain's reasons wait for later steps: the checks of the unit's identity and of the
--- canonical URL, and the check for two ads of one unit in one month. An unparseable event
+-- of the chain's reasons are left out: ads.identity gives the reasons of the checks of the
+-- unit's identity and of the canonical URL, and the check for two ads of one unit in one month
+-- waits for the fit-ready rows. An unparseable event
 -- date stops the build in ads.history_events, so `invalid_own_active_event_date` never
 -- appears.
 WITH ads AS (

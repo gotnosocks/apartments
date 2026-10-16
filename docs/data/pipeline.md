@@ -3,8 +3,8 @@
 The rebuilt pipeline is a SQLMesh project over DuckDB, in `pipeline/`. So far it builds each
 analysis row's latest ask from the API export, as `rentfrontier.latest_ask` does, and a log of
 the events the API reported for each ad, with each ad's first ask, its time on the market and
-its ending. It also reads each ad's attributes from its records and gives the current chain's
-reasons for dropping the ad. The later
+its ending. It also reads each ad's attributes from its records, gives the current chain's
+reasons for dropping the ad, and finds each ad's unit. The later
 steps in [the pipeline handoff](../handoff/data-pipeline.md) add models to it.
 
 The project keeps its own uv environment and lock, as `frontier/` does. SQLMesh 0.236.3 requires
@@ -27,18 +27,20 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 | `PIPELINE_ROWS` | `/data1/apartments/pipeline/inputs/analysis-rows-20261015-13f5968-api.parquet` | analysis rows |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
 
-The build reads the ads files listed in the manifest and skips any file still lacking a line.
+The build reads the ads and buildings files listed in the manifest and skips any file still
+lacking a line.
 `ops/pipeline/analysis_rows.py` wrote the rows file from the four API region datasets of the
 latest-ask run of Oct 15, `20261015-13f5968-api`. It stays an input until the event log builds
 the rows from API records.
 
-For each input, `config.py` also computes a version: a SHA-256 over the path and hash of each
-listed ads file, and the rows file's own SHA-256. SQLMesh fingerprints a model by its SQL as
-written and by the values of the variables the SQL uses. The raw views use the versions as well
-as the paths, so a file written again under its old name also counts as a change, once the
-manifest's line for it carries the new hash. A second line for the same path with another hash
-stops the build instead, since `config.py` refuses a path with two hashes. A new or
-rewritten export file changes `raw.ads`, and the next plan rebuilds it and every model below it.
+For each input, `config.py` also computes a version: for each export table, a SHA-256 over the
+path and hash of each of its listed files, and the rows file's own SHA-256. SQLMesh fingerprints
+a model by its SQL as written and by the values of the variables the SQL uses. The raw views use
+the versions as well as the paths, so a file written again under its old name also counts as a
+change, once the manifest's line for it carries the new hash. A second line for the same path
+with another hash stops the build instead, since `config.py` refuses a path with two hashes. A new or
+rewritten ads file changes `raw.ads`, and the next plan rebuilds it and every model below it. A
+new buildings file changes `raw.buildings`, and the next plan rebuilds it and `ads.identity`.
 With unchanged inputs, a plan builds nothing.
 
 `raw.ads` holds every answer, including the API's empty answers, marked `missing`.
@@ -50,6 +52,7 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 | model | kind | a row for each |
 |---|---|---|
 | `raw.ads` | view | exported API answer for an ad |
+| `raw.buildings` | view | exported API answer for a building |
 | `raw.analysis_rows` | view | analysis row |
 | `ads.latest_record` | table | ad, from its latest record: status, market days, page price and price changes |
 | `ads.price_changes` | table | nonzero price change, numbered in date order within its ad |
@@ -64,11 +67,12 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
+| `ads.identity` | table | ad with a record: its building, its unit page and its unit |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
-`ads.attributes` and `ads.exclusions`, per record in `ads.record_attributes`, per `(listing_id, response_id)` in
-`ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
+`ads.attributes`, `ads.exclusions` and `ads.identity`, per record in `ads.record_attributes`,
+per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
 `ordinal` in the two analysis tables. The `every_row` audit, in
 `pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
 fails, the plan stops, and the tables from the last good plan stay in place.
@@ -196,9 +200,10 @@ record without propertyDetails or with another ad's `id`, and gives it a capture
 values, so `ads.attributes` leaves such records out.
 
 `ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
-ask, its merged attributes and its rental flags. Its SQL describes each rule. Three of the
-chain's checks wait for later steps: identity, the canonical URL, and the check for two ads of
-one unit in one month. The chain also blanks a size outside 150 to 6,000 square feet without
+ask, its merged attributes and its rental flags. Its SQL describes each rule. It leaves out
+three of the chain's checks. `ads.identity` makes two of them, of the unit's identity and of its
+canonical URL, as the next section describes. The check for two ads of one unit in one month
+waits for the fit-ready rows. The chain also blanks a size outside 150 to 6,000 square feet without
 dropping the ad. The fit-ready rows will apply that rule. The chain flags an own ACTIVE event
 later than its as-of time, while `ads.exclusions` flags one later than the day of the ad's last
 answer. The chain reads events only from the records it parses, while the event log reads every
@@ -206,14 +211,46 @@ record. So an ad without a parsed record gets the chain's reason, `no_dated_own_
 and an ad with both kinds of record may take its first ask from a record the chain leaves out.
 Runs 1 to 5 hold no record the chain fails to parse.
 
+## Unit identity
+
+`ads.identity` gives each ad the unit the current chain gives it, by the chain's rule
+`canonical-url-v1`, from `canonical_units.memberships` and `graphql_listing.canonical_link`.
+For each record of an ad, I take the API's building ID and unit slug from the record and look up
+the building's slug in the export's buildings table, in the building's latest answer with a
+record. The two slugs give the record's unit page,
+`https://streeteasy.com/building/{building slug}/{unit slug}`. An ad takes a page when all its
+records give the same one, and its unit ID is `unit:` and the version 5 UUID of that page, as
+`uuid.uuid5(uuid.NAMESPACE_URL, page)` gives it. The SQL computes the UUID from a SHA-1 of the
+namespace's bytes and the page.
+
+A record gives no page when either slug is missing or empty, or holds a `/`, `?` or `#`. Where
+an ad's records disagree, or one of them gives no page, the ad gets no unit. Its pages then stay
+unresolved: an ad giving one of them gets no unit either, so no single ad joins two units. An ad
+without a unit carries the chain's two reasons, `unresolved_or_conflicting_identity` and
+`unresolved_or_conflicting_canonical_url`. The ad's building is the building of its latest
+record.
+
+The chain's `unit_page` cleans the unit slug before it builds the page. It drops a trailing `/`,
+`?`, `#` or `;` and removes tabs and line breaks, while `ads.identity` gives no page for a slug
+with one of the first three characters and keeps the others. Every unit slug in runs 1 to 5
+holds only lowercase letters, digits, `-` and `_`, so the two agree there.
+
+The collector stores each ad's record with the slug its building had in the same generation
+when it stored the ad, and the current chain reads the building slug from that record.
+`ads.identity` takes the slug from the building's latest answer instead. With a building
+answered twice under two slugs, the chain would keep the older slug for ads stored before the
+second answer, while `ads.identity` gives every ad the newer one. Runs 1 to 5 hold one answer
+for each of their 70,137 buildings.
+
 ## Tests
 
 `pipeline/tests/fixture/` holds the analysis rows of five buildings, the 229 exported records of
-their ads and the latest ask `rentfrontier.latest_ask` gave each row, 187 KB in all.
+their ads, the five exported records of the buildings, and the latest ask
+`rentfrontier.latest_ask` gave each row, 197 KB in all.
 `pipeline/tests/make_fixture.py` writes it from the full inputs on thelio. The API data lacks
 several cases the latest-ask steps handle, as the full build below notes, so
-`pipeline/tests/make_cases.py` makes up seven answers and eleven rows for them in
-`fixture/cases/`, 17 KB in all, and writes the latest ask `rentfrontier.latest_ask` gives each
+`pipeline/tests/make_cases.py` makes up seven answers, eleven rows and a building for them in
+`fixture/cases/`, 23 KB in all, and writes the latest ask `rentfrontier.latest_ask` gives each
 row. Their records hold no unit histories. The tests:
 
 1. build the fixture and compare each row's first ask, latest ask and step with
@@ -221,9 +258,9 @@ row. Their records hold no unit histories. The tests:
 2. build the made-up cases and compare them the same way. They hold several rows of one ad, a
    record collected before its row, an ad without answers, an empty latest answer, and rows
    without a building or a bedroom count;
-3. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
-   and the thirteen tables below it and gives the full answer, and a further plan finds nothing
-   to build. `ads.record_attributes` parses only run 4's new records;
+3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`,
+   `raw.buildings` and the fourteen tables below them and gives the full answer, and a further
+   plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
 5. add a run 5 file with a newer answer for one ad and an older answer for another. Only the
@@ -234,9 +271,10 @@ row. Their records hold no unit histories. The tests:
    the plan;
 8. read manifests with a cut-off last line, a repeated line, a rewritten file and a file with
    two hashes;
-9. build the fixture and compare each analysis row's price date, asking rent and bedroom count
-   with its ad's first day, first ask and bedroom count. The current chain kept each ad of the
-   fixture, and `ads.exclusions` gives none of them a reason;
+9. build the fixture and compare each analysis row's price date, asking rent, bedroom count and
+   building with its ad's first day, first ask, bedroom count and building. The current chain
+   kept each ad of the fixture, and neither `ads.exclusions` nor `ads.identity` gives any of
+   them a reason;
 10. add an answer that repeats an earlier record eight days later. `ads.events` gains the new
     fetch and nothing else. Each event of the record, its siblings' history events included,
     keeps its first answer and counts one answer more, and the other events stay as they were;
@@ -263,9 +301,19 @@ row. Their records hold no unit histories. The tests:
     status changes, an ad with two answers, the later of which ends it, and an ad whose record
     lists two pairs of changes at shared instants in an order other than the alphabet's. One
     ad's latest answer has no record, and another's latest record has no `daysOnMarket`. The
-    test checks each ad's days, spans, ending and record fields by value.
+    test checks each ad's days, spans, ending and record fields by value;
+16. add made-up ads and buildings to the cases: two ads of one unit, an ad giving two pages and
+    an ad giving the second of them, ads with an empty unit slug, none or one holding a `/`, an
+    ad naming a building missing from the export, an ad in a building whose later answer renames
+    it, an ad whose latest answer is missing, a building slug holding a `|`, and an ad whose
+    latest record names no building. The test computes each ad's page and unit with the chain's
+    `unit_page` and `memberships` and compares them with `ads.identity`, then checks the cases
+    by value;
+17. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
+    file. The next plan rebuilds only `raw.buildings` and `ads.identity`, and the 49 ads of the
+    building in that file gain their pages.
 
-They take about 35 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 40 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
@@ -358,3 +406,14 @@ The audit keeps no captures for the 8,230 ads without a dated own ACTIVE event. 
 1,684,363, I merged the audit's projections as `ads.attributes` merges records, and all sixteen
 attributes and flags equal the built ones. The script is
 `/data1/apartments/tmp/pipeline/attr/parity.py`.
+
+I ran `ads.identity`'s SQL on runs 1 to 5 in 10.7 s, with a 1.9 GB peak for the unit. It gives
+2,123,148 of the 2,137,997 ads with a record a page and a unit, in 930,879 units. The other
+14,849 ads have a record without a unit slug: 14,741 lack the field, and 108 leave it empty. No
+ad has records giving two pages, so no page stays unresolved. Of the eight regional analysis
+datasets of the Oct 15 chain run, `api-*-analysis-20261015-6064263`, I left out
+`api-manhattan-59th-110th`, which overlaps the east and west datasets. On each of the other
+seven's 1,923,491 rows, the row's unit, canonical page and building equal its ad's in
+`ads.identity`. Each of the 1,692,611 ads in the chain's audit has a unit here, and none of the
+14,849 ads without one appears in the audit. The script is
+`/data1/apartments/tmp/pipeline/step4d/identity_model.py`.

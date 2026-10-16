@@ -99,6 +99,15 @@ ANSWERS = [
         record(9000007, [("2026-05-01", 2000), ("2026-06-01", 5000)], 5000),
     ),
 ]
+# The building of the case tower. The case records name no building, so the build finds no unit
+# page for any of their ads.
+BUILDING_ANSWERS = [
+    (
+        "900001",
+        "2026-10-01",
+        json.dumps({"id": "900001", "slug": TOWER}, sort_keys=True),
+    )
+]
 # Each row: listing id, its day, its first ask, its building and its bedroom count.
 ROWS = [
     (9000001, "2026-03-01", 3000, TOWER, "1.0"),
@@ -115,40 +124,51 @@ ROWS = [
 ]
 
 
-def main():
-    (OUT / "export" / "ads" / "run-0001").mkdir(parents=True, exist_ok=True)
-    answers = pd.DataFrame(
+def write_answers(table, key, answers, first):
+    """Write `answers`, each a key, the day it was fetched and its record or None, as a file of
+    run 1 of `table` with response IDs from `first`, and return its manifest line."""
+    ids = np.arange(first, first + len(answers), dtype="int64")
+    frame = pd.DataFrame(
         {
-            "listing_id": np.array([a[0] for a in ANSWERS], dtype="int64"),
+            key: [a[0] for a in answers],
             "fetched": pd.to_datetime(
-                [f"{a[1]}T12:00:00Z" for a in ANSWERS], utc=True
+                [f"{a[1]}T12:00:00Z" for a in answers], utc=True
             ).as_unit("us"),
-            "response_id": np.arange(1, len(ANSWERS) + 1, dtype="int64"),
-            "run": np.ones(len(ANSWERS), dtype="int32"),
+            "response_id": ids,
+            "run": np.ones(len(answers), dtype="int32"),
             "region": "cases",
-            "generation": np.ones(len(ANSWERS), dtype="int32"),
-            "outcome": ["record" if a[2] else "missing" for a in ANSWERS],
+            "generation": np.ones(len(answers), dtype="int32"),
+            "outcome": ["record" if a[2] else "missing" for a in answers],
             "record_sha256": [
                 hashlib.sha256(a[2].encode()).hexdigest() if a[2] else None
-                for a in ANSWERS
+                for a in answers
             ],
-            "record": [a[2] for a in ANSWERS],
+            "record": [a[2] for a in answers],
         }
     )
-    path = Path("ads/run-0001") / f"responses-0000001-{len(ANSWERS):07d}.parquet"
-    answers.to_parquet(OUT / "export" / path, index=False)
-    line = {
-        "first": 1,
-        "last": len(ANSWERS),
+    path = Path(table) / "run-0001" / f"responses-{ids[0]:07d}-{ids[-1]:07d}.parquet"
+    (OUT / "export" / path).parent.mkdir(parents=True, exist_ok=True)
+    frame.to_parquet(OUT / "export" / path, index=False)
+    return {
+        "first": int(ids[0]),
+        "last": int(ids[-1]),
         "path": str(path),
-        "rows": len(ANSWERS),
+        "rows": len(answers),
         "run": 1,
         "sha256": hashlib.sha256((OUT / "export" / path).read_bytes()).hexdigest(),
-        "table": "ads",
+        "table": table,
         "written": "2026-10-15T12:00:00Z",
     }
+
+
+def main():
+    ads = [(np.int64(a[0]), *a[1:]) for a in ANSWERS]
+    lines = [
+        write_answers("ads", "listing_id", ads, 1),
+        write_answers("buildings", "building_id", BUILDING_ANSWERS, len(ANSWERS) + 1),
+    ]
     (OUT / "export" / "manifest.ndjson").write_text(
-        json.dumps(line, sort_keys=True) + "\n"
+        "".join(json.dumps(line, sort_keys=True) + "\n" for line in lines)
     )
 
     rows = pd.DataFrame(

@@ -8,9 +8,10 @@ ad 2326634 at 1115 Union St, with 799 price changes.
 
     pipeline/.venv/bin/python pipeline/tests/make_fixture.py
 
-The fixture's export mirrors the real one: a folder for each run, files named by their first
-and last response IDs, and a manifest line for each file. Each record keeps its bytes, so its
-SHA-256 still equals `record_sha256`.
+The fixture's export mirrors the real one: a folder for each table and run, files named by their
+first and last response IDs, and a manifest line for each file. Besides the ads, it holds the
+answers for the buildings their records name. Each record keeps its bytes, so its SHA-256 still
+equals `record_sha256`.
 """
 
 import argparse
@@ -29,10 +30,54 @@ BUILDINGS = (
     "89-adelphi-street-brooklyn",
 )
 HERE = Path(__file__).resolve().parent
+COPY = "(FORMAT parquet, COMPRESSION zstd)"
 
 
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def listed(lines, table, export):
+    """The export's files of `table`, as its manifest lists them."""
+    return sorted(str(export / e["path"]) for e in lines if e["table"] == table)
+
+
+def copy_runs(db, table, lines, export, out):
+    """Write the picked answers of `table` as a file for each run, and return their manifest
+    lines."""
+    sources = {e["path"]: e for e in lines if e["table"] == table}
+    manifest = []
+    for (run,) in db.sql(f"SELECT DISTINCT run FROM {table} ORDER BY run").fetchall():
+        first, last, rows, written = db.execute(
+            f"SELECT min(response_id), max(response_id), count(*), list(DISTINCT filename) "
+            f"FROM {table} WHERE run = ?",
+            [run],
+        ).fetchone()
+        path = (
+            Path(table) / f"run-{run:04d}" / f"responses-{first:07d}-{last:07d}.parquet"
+        )
+        (out / "export" / path).parent.mkdir(parents=True)
+        key = "listing_id" if table == "ads" else "building_id"
+        db.execute(
+            f"""COPY (SELECT * EXCLUDE (filename) FROM {table} WHERE run = {run}
+            ORDER BY response_id, {key}) TO '{out / "export" / path}' {COPY}"""
+        )
+        manifest.append(
+            {
+                "first": first,
+                "last": last,
+                "path": str(path),
+                "rows": rows,
+                "run": run,
+                "sha256": sha256(out / "export" / path),
+                "table": table,
+                "written": max(
+                    sources[str(Path(f).relative_to(export))]["written"]
+                    for f in written
+                ),
+            }
+        )
+    return manifest
 
 
 def main():
@@ -54,17 +99,16 @@ def main():
     shutil.rmtree(out, ignore_errors=True)
     (out / "export").mkdir(parents=True)
     db = duckdb.connect(config={"TimeZone": "UTC", "memory_limit": "2GB"})
-    copy = "(FORMAT parquet, COMPRESSION zstd)"
 
     db.execute(
         f"""COPY (SELECT * FROM read_parquet(?) WHERE building IN {BUILDINGS} ORDER BY ordinal)
-        TO '{out / "rows.parquet"}' {copy}""",
+        TO '{out / "rows.parquet"}' {COPY}""",
         [args.rows],
     )
     db.execute(f"CREATE VIEW rows AS SELECT * FROM '{out / 'rows.parquet'}'")
     db.execute(
         f"""COPY (SELECT r.ordinal, l.* FROM read_parquet(?) l JOIN rows r USING (audit_id)
-        ORDER BY r.ordinal) TO '{out / "latest-ask.parquet"}' {copy}""",
+        ORDER BY r.ordinal) TO '{out / "latest-ask.parquet"}' {COPY}""",
         [args.latest_ask],
     )
 
@@ -72,53 +116,34 @@ def main():
         json.loads(line)
         for line in (export / "manifest.ndjson").read_text().splitlines()
     ]
-    lines = {e["path"]: e for e in lines if e["table"] == "ads"}
     db.execute(
-        """CREATE TABLE picked AS SELECT * FROM read_parquet(?, filename = true)
+        """CREATE TABLE ads AS SELECT * FROM read_parquet(?, filename = true)
         WHERE listing_id::VARCHAR IN (SELECT source_listing_id FROM rows)""",
-        [[str(export / path) for path in sorted(lines)]],
+        [listed(lines, "ads", export)],
     )
-    manifest = []
-    for (run,) in db.sql("SELECT DISTINCT run FROM picked ORDER BY run").fetchall():
-        first, last, written = db.execute(
-            "SELECT min(response_id), max(response_id), list(DISTINCT filename) FROM picked "
-            "WHERE run = ?",
-            [run],
-        ).fetchone()
-        path = (
-            Path("ads") / f"run-{run:04d}" / f"responses-{first:07d}-{last:07d}.parquet"
-        )
-        (out / "export" / path).parent.mkdir(parents=True)
-        db.execute(
-            f"""COPY (SELECT * EXCLUDE (filename) FROM picked WHERE run = {run}
-            ORDER BY response_id, listing_id) TO '{out / "export" / path}' {copy}"""
-        )
-        rows = db.execute(
-            "SELECT count(*) FROM picked WHERE run = ?", [run]
-        ).fetchone()[0]
-        sources = [lines[str(Path(f).relative_to(export))] for f in written]
-        manifest.append(
-            {
-                "first": first,
-                "last": last,
-                "path": str(path),
-                "rows": rows,
-                "run": run,
-                "sha256": sha256(out / "export" / path),
-                "table": "ads",
-                "written": max(e["written"] for e in sources),
-            }
-        )
+    db.execute(
+        """CREATE TABLE buildings AS SELECT * FROM read_parquet(?, filename = true)
+        WHERE building_id IN (SELECT json_extract_string(record, '$.buildingId') FROM ads)""",
+        [listed(lines, "buildings", export)],
+    )
+    manifest = [
+        entry
+        for table in ("ads", "buildings")
+        for entry in copy_runs(db, table, lines, export, out)
+    ]
     with open(out / "export" / "manifest.ndjson", "w") as f:
         f.writelines(json.dumps(e, sort_keys=True) + "\n" for e in manifest)
 
     counts = db.sql(
-        "SELECT (SELECT count(*) FROM rows), (SELECT count(*) FROM picked), "
-        "(SELECT count(*) FROM picked WHERE sha256(record) <> record_sha256)"
+        "SELECT (SELECT count(*) FROM rows), (SELECT count(*) FROM ads), "
+        "(SELECT count(*) FROM buildings), (SELECT count(*) FROM (SELECT record, "
+        "record_sha256 FROM ads UNION ALL SELECT record, record_sha256 FROM buildings) "
+        "WHERE sha256(record) <> record_sha256)"
     ).fetchone()
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     print(
-        f"{counts[0]} rows, {counts[1]} records, {counts[2]} hash mismatches, {size:,} bytes"
+        f"{counts[0]} rows, {counts[1]} ad answers, {counts[2]} building answers, "
+        f"{counts[3]} hash mismatches, {size:,} bytes"
     )
 
 
