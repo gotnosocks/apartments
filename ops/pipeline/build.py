@@ -18,11 +18,13 @@ The script works in these steps:
    finished, the commit of the code and whether the checkout had changes, each export file it
    read with its SHA-256, the seconds each rebuilt model took with its audits, each model's
    table and row count, the rows file with its SHA-256, the wall time of each step, and the
-   peak memory of the script and of its cgroup.
+   peak memory of the script and of its cgroup. The script takes the commit before it loads the
+   project, and the export files from the variables `config.py` gave the project.
+5. It runs SQLMesh's janitor, which drops the tables no environment has used for a week.
 
-A fit reads the rows file by its name and checks the SHA-256 against the catalog. The models'
-tables stay in the state folder, under the names the catalog gives, until a later build
-replaces them and SQLMesh's janitor drops them.
+A fit can read the rows file by its name and check its SHA-256 against the catalog. The models'
+tables stay in the state folder, under the names the catalog gives, for a week after a later
+build replaces them.
 """
 
 from __future__ import annotations
@@ -73,17 +75,22 @@ def peak_mib() -> dict:
 
     The cgroup's peak counts the worker processes and the page cache too. Run as its own unit,
     the script's cgroup is the unit's, and its peak is the memory peak systemd reports."""
-    group = Path("/proc/self/cgroup").read_text().split("::", 1)[1].strip()
-    peak = Path("/sys/fs/cgroup", group.lstrip("/"), "memory.peak")
+    script = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
+    # The unified hierarchy's line reads `0::/path`. Without one, the cgroup is left out.
+    lines = Path("/proc/self/cgroup").read_text().splitlines()
+    groups = [line[3:] for line in lines if line.startswith("0::")]
+    if not groups:
+        return {"script": script, "cgroup": None, "cgroup_peak": None}
+    peak = Path("/sys/fs/cgroup", groups[0].lstrip("/"), "memory.peak")
     return {
-        "script": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024),
-        "cgroup": group.rsplit("/", 1)[-1],
+        "script": script,
+        "cgroup": groups[0].rsplit("/", 1)[-1],
         "cgroup_peak": round(int(peak.read_text()) / 2**20) if peak.exists() else None,
     }
 
 
 def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict:
-    """Run the four steps and return the catalog line, or raise SystemExit on a failed plan."""
+    """Run the five steps and return the catalog line, or raise SystemExit on a failed plan."""
     os.environ["PIPELINE_EXPORT"] = str(export)
     os.environ["PIPELINE_STATE"] = str(state)
 
@@ -93,10 +100,9 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     from sqlmesh.utils.errors import PlanError
 
     class Console(TerminalConsole):
-        """The terminal console, keeping each model's evaluation time and the failures."""
+        """The terminal console, keeping each model's evaluation time."""
 
         seconds: dict[str, float] = {}
-        failed = ()
 
         def update_snapshot_evaluation_progress(
             self, snapshot, interval, batch_idx, duration_ms, *args, **kwargs
@@ -108,25 +114,19 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
                 snapshot, interval, batch_idx, duration_ms, *args, **kwargs
             )
 
-        def log_failed_models(self, errors):
-            self.failed = errors
-            super().log_failed_models(errors)
-
     console = Console()
     sqlmesh.core.console.set_console(console)
     started = time.time()
     steps = {}
 
+    code = code_version(project)
     ctx = Context(paths=str(project))
     steps["load"] = time.time() - started
     variables = ctx.config.variables
     try:
+        # The console prints the failed models.
         ctx.plan(auto_apply=True, no_prompts=True)
     except PlanError as error:
-        for failure in console.failed:
-            print(
-                "failed", failure.node.snapshot_name, failure.__cause__, file=sys.stderr
-            )
         raise SystemExit(f"build stopped: {error}") from error
     steps["plan"] = time.time() - started - steps["load"]
 
@@ -147,11 +147,15 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     mark = time.time()
     out.mkdir(parents=True, exist_ok=True)
     part = out / f"rows-{os.getpid()}.parquet.part"
-    ctx.engine_adapter.execute(
-        f"""COPY (SELECT * FROM analysis.rows ORDER BY listing_id) TO '{part}'
-        (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 122880)"""
-    )
-    digest = sha256(part)
+    try:
+        ctx.engine_adapter.execute(
+            f"""COPY (SELECT * FROM analysis.rows ORDER BY listing_id) TO '{part}'
+            (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 122880)"""
+        )
+        digest = sha256(part)
+    except BaseException:
+        part.unlink(missing_ok=True)
+        raise
     target = out / f"rows-{digest[:16]}.parquet"
     if target.exists() and sha256(target) == digest:
         part.unlink()
@@ -159,26 +163,17 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         part.rename(target)
     steps["write"] = time.time() - mark
 
-    def listed(table):
-        paths = variables[table]
-        manifest = {}
-        for line in (export / "manifest.ndjson").read_text().splitlines():
-            if line.strip():
-                entry = json.loads(line)
-                manifest[str(export / entry["path"])] = entry["sha256"]
-        return {
-            "version": variables[f"{table}_version"],
-            "files": {
-                str(Path(path).relative_to(export)): manifest[path] for path in paths
-            },
-        }
-
     line = {
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "code": code_version(project),
+        "code": code,
         "export": str(export),
-        "ads": listed("ads"),
-        "buildings": listed("buildings"),
+        **{
+            table: {
+                "version": variables[f"{table}_version"],
+                "files": variables["export_files"][table],
+            }
+            for table in ("ads", "buildings")
+        },
         "models": models,
         "rows": {
             "path": target.name,
@@ -191,6 +186,7 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     }
     with open(out / "catalog.ndjson", "a") as f:
         f.write(json.dumps(line, sort_keys=True) + "\n")
+    ctx.run_janitor(ignore_ttl=False)
     ctx.close()
     return line
 

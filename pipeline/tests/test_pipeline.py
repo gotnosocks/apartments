@@ -1500,12 +1500,13 @@ def test_exported_reads_whole_lines(config):
         manifest.write_text(text + (cut or ""))
 
     write(("ads/b", "2", "ads"), ("ads/a", "1", "ads"), ("other/c", "3", "other"))
-    paths, version = config.exported("ads")
+    paths, version, files = config.exported("ads")
     assert paths == [str(config.EXPORT / "ads/a"), str(config.EXPORT / "ads/b")]
+    assert files == {"ads/a": "1", "ads/b": "2"}
     # The exporter's cut-off last line and a repeated line change nothing.
     cut = json.dumps({"path": "ads/d", "sha256": "4", "table": "ads"})
     write(("ads/a", "1", "ads"), ("ads/b", "2", "ads"), ("ads/a", "1", "ads"), cut=cut)
-    assert config.exported("ads") == (paths, version)
+    assert config.exported("ads") == (paths, version, files)
     # A manifest written again gives a rewritten file its new hash.
     write(("ads/a", "1", "ads"), ("ads/b", "5", "ads"))
     assert config.exported("ads")[0] == paths
