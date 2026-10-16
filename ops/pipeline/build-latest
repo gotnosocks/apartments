@@ -1,0 +1,78 @@
+#!/bin/bash
+# Build the data pipeline's fit-ready rows after each backfill run and each Friday top-up.
+# apartments-pipeline-build.service runs this script when the StreetEasy exporter changes the
+# export's manifest, and once a day from its timer. The script works in these steps:
+#
+# 1. It waits for oxylabs.lock and lets go of it at once. The collector holds the lock through
+#    each run and its export, so the build starts after the export's last file.
+# 2. It moves its own checkout, /data1/apartments/pipeline/code, to master and syncs the venv
+#    from pipeline/uv.lock. Nothing else uses that checkout or the venv. When the manifest and
+#    the commit's trees for pipeline/, src/ and ops/pipeline/ match the ones it wrote to
+#    $STATE/last-build after the last build, it stops there.
+# 3. It takes the GPU lock and every light slot, in the order `ops/job gpu -x` takes them, so
+#    no GPU fit or light job runs beside the build. With the locks held, it checks for 6 GiB of
+#    available memory. When less is available, it lets go of the locks and tries again in five
+#    minutes.
+# 4. It runs ops/pipeline/build.py in the service's own cgroup, where the unit caps memory and
+#    turns swap off. The build writes its rows file and catalog line to
+#    /data1/apartments/pipeline/datasets. Then the script lets go of the locks.
+# 5. When the manifest changed while the build ran, it goes back to step 1.
+#
+# When the build fails, the script exits with the build's status and the service shows as failed.
+set -uo pipefail
+# The script lives in the checkout it updates: read it whole before running.
+{
+
+CODE=${CODE:-/data1/apartments/pipeline/code}
+CRAWLS=${CRAWLS:-/data1/apartments/archive/crawls}
+LOCKS=${APARTMENTS_LOCKS:-/data1/apartments/tmp/locks}
+STATE=/data1/apartments/pipeline/state
+MANIFEST=$CRAWLS/api/export/manifest.ndjson
+export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/data1/apartments/venvs/pipeline}
+export TMPDIR=${TMPDIR:-/data1/apartments/pipeline/tmp}
+export PIPELINE_MEMORY=${PIPELINE_MEMORY:-3GB}
+export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
+mkdir -p "$TMPDIR"
+
+# The GPU lock goes on fd 9 and the light slots on fds 5 to 7, as ops/job takes them.
+take_locks() {
+  exec 9>"$LOCKS/gpu.lock" && flock 9 || return 1
+  for i in 1 2 3; do
+    eval "exec $((4 + i))>\"\$LOCKS/light-$i.lock\"" && flock $((4 + i)) || return 1
+  done
+}
+drop_locks() { exec 5>&- 6>&- 7>&- 9>&-; }
+
+while :; do
+  echo "$(date -Is) waiting for $CRAWLS/oxylabs.lock"
+  flock -s "$CRAWLS/oxylabs.lock" true || exit 1
+  listed=$(sha256sum <"$MANIFEST")
+
+  git -C "$CODE" fetch -q origin master || true
+  git -C "$CODE" checkout -q --force --detach origin/master || exit 1
+  /home/ben/.local/bin/uv sync -q --locked --project "$CODE/pipeline" || exit 1
+  inputs="$listed $(git -C "$CODE" rev-parse HEAD:pipeline HEAD:src HEAD:ops/pipeline | tr '\n' ' ')"
+  if [ "$(cat "$STATE/last-build" 2>/dev/null)" = "$inputs" ]; then
+    echo "$(date -Is) the export and the code match the last build"
+    break
+  fi
+
+  echo "$(date -Is) waiting for the GPU lock and the light slots"
+  while :; do
+    take_locks || exit 1
+    [ "$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)" -gt $((6 * 1024 * 1024)) ] && break
+    drop_locks
+    echo "$(date -Is) under 6 GiB available, trying again in five minutes"
+    sleep 300
+  done
+  echo "$(date -Is) building from $(git -C "$CODE" rev-parse --short HEAD)"
+  "$UV_PROJECT_ENVIRONMENT/bin/python" "$CODE/ops/pipeline/build.py" || exit $?
+  drop_locks
+  echo "$inputs" >"$STATE/last-build"
+
+  [ "$(sha256sum <"$MANIFEST")" = "$listed" ] && break
+  echo "$(date -Is) the manifest changed during the build"
+done
+
+exit
+}

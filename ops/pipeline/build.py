@@ -20,7 +20,8 @@ The script works in these steps:
    table and row count, the rows file with its SHA-256, the wall time of each step, and the
    peak memory of the script and of its cgroup. The script takes the commit before it loads the
    project, and the export files from the variables `config.py` gave the project.
-5. It runs SQLMesh's janitor, which drops the tables no environment has used for a week.
+5. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
+   the janitor fails, the script prints a warning and still exits 0.
 
 A fit can read the rows file by its name and check its SHA-256 against the catalog. The models'
 tables stay in the state folder, under the names the catalog gives, for a week after a later
@@ -186,7 +187,12 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     }
     with open(out / "catalog.ndjson", "a") as f:
         f.write(json.dumps(line, sort_keys=True) + "\n")
-    ctx.run_janitor(ignore_ttl=False)
+    try:
+        ctx.run_janitor(ignore_ttl=False)
+    except Exception as error:
+        # By now the rows file and its catalog line are written. The next build runs the janitor
+        # again.
+        print(f"janitor failed: {error}", file=sys.stderr)
     ctx.close()
     return line
 

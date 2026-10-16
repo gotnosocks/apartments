@@ -96,3 +96,19 @@ def test_failed_audit_writes_nothing(tmp_path, build):
     assert sorted(before) == ["catalog.ndjson", first["rows"]["path"]]
     after = {path.name: path.read_bytes() for path in (tmp_path / "out").iterdir()}
     assert after == before
+
+
+def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
+    """The janitor raises after the build writes its rows file and catalog line. Both stay in
+    place, and the build returns its line with a warning on stderr."""
+    import sqlmesh
+
+    def fail(self, ignore_ttl):
+        raise RuntimeError("planted")
+
+    monkeypatch.setattr(sqlmesh.Context, "run_janitor", fail)
+    line = build(copy_export(tmp_path), tmp_path / "state", tmp_path / "out")
+    assert (tmp_path / "out" / line["rows"]["path"]).exists()
+    catalog = (tmp_path / "out" / "catalog.ndjson").read_text().splitlines()
+    assert [json.loads(entry) for entry in catalog] == [line]
+    assert "janitor failed: planted" in capsys.readouterr().err
