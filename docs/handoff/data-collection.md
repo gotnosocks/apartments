@@ -1,6 +1,6 @@
 # Data collection — handoff
 
-Updated 2026-10-16 09:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
@@ -44,11 +44,13 @@ Updated 2026-10-16 09:40 ET. Thread owner: the Data collection project thread (b
   The IDs it left unread fall below the listing-ID cutoff or were already final in the archive.
   The dataset and snapshot above predate it. On Oct 16 I found 2,261 ads at or above the cutoff
   in its units' histories with no archive entry, so the region now reads unit histories like
-  the others, and its next top-up reads them.
+  the others (#908). Run 11, a top-up of the region from 09:46 to 09:50 ET (25 requests, $0.03),
+  read them. 2,222 of the 2,266 ads it read for the first time are DRAFT and 1 is RENTED, so the
+  dataset gains almost no listings.
 - **Raw Parquet export (#863, #864).** `streeteasy_archive.graphql_export` writes every reply of
   each run to `crawls/api/export/{ads,buildings,requests,calls}/run-NNNN/` and lists the files
   in `manifest.ndjson`. `ops/streeteasy-collect` runs it at the end of each invocation and logs
-  "export exit N". Runs 1 to 10 are exported and match the archive (checked by hand). A call
+  "export exit N". Runs 1 to 11 are exported and match the archive (checked by hand). A call
   row's `attempt` holds its POST count, so `sum(attempt)` gives a run's requests. The "API
   data pipeline rebuild" thread reads the export; message its session after each new run.
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
