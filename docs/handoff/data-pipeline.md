@@ -37,7 +37,7 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    (#904).
 7. Date every outside fact and join it as of the ad's date. **Started**: the city archive gives
    each release its publisher's date (#896), and `analysis.lot_facts` gives each ad its lot's
-   MapPLUTO facts as of its first day (#PR).
+   MapPLUTO facts as of its first day (#906).
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
@@ -233,7 +233,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `ops/pipeline/identity_check.py` rebuilds the models over the export in about 17 s and
       scores a change against the registry and the reviews.
       [pipeline.md](../data/pipeline.md#building-identity) has the tables;
-   5. **Done** in #PR: `buildings.lot_releases` keeps each lot's record in each MapPLUTO
+   5. **Done** in #906: `buildings.lot_releases` keeps each lot's record in each MapPLUTO
       release, typed, and `analysis.lot_facts` gives each candidate ad the facts of the release
       published at least 7 days before its first day, as `plutoasof-v3` does by month. The
       address, year built and coordinates come from the latest release, and so does every fact
