@@ -158,8 +158,8 @@ systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline
 differences:
 
 ```sh
-uv run --project pipeline python ops/pipeline/diff.py [--base REV] [--export DIR] [--ledger DIR] \
-    [--rows N] [--json FILE] [--keep DIR]
+uv run --project pipeline python ops/pipeline/diff.py [--base REV] [--export DIR | --sample] \
+    [--ledger DIR] [--rows N] [--json FILE] [--keep DIR]
 ```
 
 The script writes `pipeline/` and `src/` at REV, HEAD unless given, to a scratch folder. It
@@ -199,9 +199,28 @@ either side, at an audit or an error, the script prints the end of that plan's o
 with status 1. `--json` writes the whole comparison to a file, and `--keep` keeps both builds'
 tables as Parquet files in a folder.
 
-The fixture's 229 records lack many cases from the full export. `--export` takes another export
-folder. The script builds both sides in a scratch folder under TMPDIR, so on thelio a large
-export calls for TMPDIR under /data1, as /tmp is a small RAM disk.
+The fixture's 229 records lack many cases from the full export. `ops/pipeline/sample.py` writes
+a sample of the export to `/data1/apartments/pipeline/sample/export`, and `diff.py --sample`
+builds both sides from it:
+
+```sh
+uv run --project pipeline python ops/pipeline/sample.py [--export DIR] [--out DIR] [--share S]
+```
+
+The script picks a building when the MD5 hash of its ID falls in the first S of the hashes'
+range, 0.01 unless given. For each ad, it takes every answer when one of the ad's records gives a
+picked building or when the ad has a `missing` answer. It also takes every answer of the picked
+buildings. When a picked ad's record gives another building, it takes that building's answers
+as well. It writes the answers in the export's layout, with a manifest, and stops before writing
+when the output folder would replace the export, hold it or lie inside it. On Oct 16 it picked
+665 buildings and 19,683 of the export's 2,137,998 ads, the ad with five `missing` answers among
+them, and wrote 20 MB in 16 s, at a 1 GB peak. A diff on the sample took 18.5 s and peaked at
+2.2 GB. The same buildings fall in the sample on each run. After a top-up, the script takes their
+new answers and picks each new building by the same hash test.
+
+`diff.py --export` takes any other export folder. `diff.py` builds both sides in a scratch folder
+under TMPDIR, so on thelio a large export calls for TMPDIR under /data1, as /tmp is a small RAM
+disk.
 
 ## Models
 
@@ -773,6 +792,16 @@ in all, and most tests add made-up ads to that export. The tests:
     HEAD. Last, it compares small tables directly: retyped grain and value columns, a repeated
     grain, a changed grain, columns named like the join's markers, and tables with no column in
     common.
+26. write a sample of the fixture's export with a share of one half. The fixture has none of
+    the following cases, so the test first adds a run with them to a copy of the export:
+    - a later record of a picked ad, with a building outside the picked ones;
+    - `missing` answers, for an ad outside the sample and for an ad without any record;
+    - an answer for a picked building, with no ad giving it.
+
+    It checks the sample against the same rules worked out in Python, along with the records'
+    bytes and each manifest line's SHA-256. A second run writes the same manifest and leaves
+    only the export folder. Last, the script refuses an output folder over the export, and its
+    manifest reader reads a repeated line once and stops at a path with two hashes.
 
 They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
