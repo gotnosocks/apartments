@@ -207,7 +207,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       with the cache in place takes under 0.1 s. The production cache,
       `/data1/apartments/pipeline/city`, was filled before the merge (code `a0248071cb37d8bb`).
       `ops/pipeline/sample.py` doesn't cut the city archive yet;
-   3. PAD's street name dictionary, `snd<release>cow.txt` in each PAD zip, as
+   3. **Done** in #903: PAD's street name dictionary, `snd<release>cow.txt` in each PAD zip, as
       `city.pad_streets`. Each record is 200 characters of fixed-width fields, so the step keeps
       it whole as `line` and the view cuts it up. PAD's address ranges give only a street's
       principal name, such as AVENUE OF THE AMERICAS, and the dictionary adds the others, such
@@ -215,10 +215,20 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       names each. The same PR has `sweep` check that the lock file it holds is still the
       folder's, so two sweeps and a load at once leave the load's new folder alone. Every edit
       to `steps/city.py` unpacks the whole archive again, about 10 minutes, so the production
-      cache gets the head's `steps/city.py` before each merge, through the build's venv;
-   4. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
-      the footprint holding its `geoCenter`, each link with a score. The step measures its
-      error rate against Data improvements' registry and reviewed answers;
+      cache gets the head's `steps/city.py` before each merge, through the build's venv. For
+      #903 the prefill took 9 min 39 s at a 1.3 GiB peak, and a second load 0.09 s (code
+      `ccb72ad2839debbe`);
+   4. identity: `buildings.lots` gives each building a lot and a BIN by a PAD address match and
+      by the footprint holding its `geoCenter`, or within 10 m of it. Where the two differ, the
+      lot whose MapPLUTO record shares more of the record's four city facts wins, and `link`
+      says how the lot came. On runs 1 to 10, reviewer subagents judged 240 buildings in seven
+      classes, in `config/reviews/building-identity-20261016.jsonl`. About 526 of 70,141 lots
+      are wrong by their answers, most in the ties (36% wrong) and the footprint-only links
+      (29%). Data improvements' registry agrees on 62,932 of the 63,124 buildings where both
+      links agree and fit. In the `footprint` class the reviewers' lot is the step's in 32 of
+      36 and the registry's in 14. `ops/pipeline/identity_check.py` rebuilds the models over the export in about 17 s
+      and scores a change against the registry and the reviews.
+      [pipeline.md](../data/pipeline.md#building-identity) has the tables;
    5. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
       the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates
       issued before the ad.
