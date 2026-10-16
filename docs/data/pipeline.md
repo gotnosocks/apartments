@@ -412,6 +412,7 @@ disk.
 | `ads.identity` | table | ad with a record: its building, its unit page and its unit |
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
+| `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.kept` | view | candidate kept for its unit and month |
 | `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
@@ -422,7 +423,7 @@ disk.
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
 `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
-`analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details` and
+`analysis.lot_landmarks`, `analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details` and
 the four building identity models, per record in `ads.record_attributes`, per
 `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
 per event in `ads.events`. The `every_row` audit, in `pipeline/audits/`, checks that
@@ -718,6 +719,63 @@ On thelio it takes about 17 s at a 2.7 GB peak: 15 s for the four models, 9 s of
 `buildings.footprint_link`. A reviewed building whose lot has changed counts as neither right nor
 wrong, so a new rule needs reviews of the buildings it moves.
 
+## Landmarks by date
+
+`analysis.lot_landmarks` gives each candidate ad the designations the Landmarks Preservation
+Commission had made on its building's lot by the ad's first day. I read the latest copy of LPC's
+set in `city.landmarks`, which gives a row for each building of each designation, with its lot,
+type, status and date, and keep the rows with the status DESIGNATED. A row of a historic
+district puts the lot in the district. A row of an individual, interior or scenic landmark makes
+the lot a landmark, as the served model's `lpc_as_of` reads them.
+
+For each ad I take its building's lot from `buildings.lots` and keep the lot's designations
+dated on or before the ad's first day in UTC. The row gives the earliest landmark and the
+earliest district, each with its date and LP number, and `landmark` and `historic_district` say
+whether the lot had one. For an ad whose building has no lot, both flags stay missing, where
+`lpc_as_of` gives false. Two kinds of value stop the build: a type outside the four, and a date
+that is blank or not written as month, day and year. The copy of 2026-06-18 has neither in its
+39,363 rows.
+
+The copy holds LPC's designations as of its release. A designation the LPC withdrew before then
+is missing from every ad, and an ad after the release misses designations made since, so
+`landmarks_release` gives the copy each row read. Of the rows of rows-892481e29edeeb73, 46,705
+come after the release. Nothing reads `analysis.lot_landmarks` yet. A fit moving to it changes
+its data, and gets its own fit under the evaluation framework.
+
+### Against the served flags
+
+`ops/pipeline/landmarks_check.py` builds `analysis.lot_landmarks` and the models below it over
+the newest rows file in a scratch database, and runs `lpc_as_of` on Data improvements' LPC file
+of 20261016-5f07157-all twice: once on each row's building with that folder's lot registry, as
+the served model does, and once on the step's lot. The second run reads the same lots as the
+step, so it differs from the step only through the copy and the rules, and the first run differs
+from the second only through the lot each reads:
+
+```sh
+systemd-run --user --unit landmarks-check -p MemoryMax=5G -p MemorySwapMax=0 --wait --pipe \
+    pipeline/.venv/bin/python ops/pipeline/landmarks_check.py --out /data1/apartments/tmp/lot-landmarks.parquet
+```
+
+On the 1,746,499 rows of rows-892481e29edeeb73 the models take 17 s and the whole check 27 s,
+at a peak of 2.6 GB. 532 rows have no lot, 25,416 read a landmark lot and 252,699 a lot in a
+historic district. I compared the flags three ways:
+
+- On the 1,697,438 rows whose lot is the registry's lot, the step and `lpc_as_of` agree on both
+  flags in every row.
+- Data improvements' file keeps the designations of the registry's lots only. The copy holds 80
+  designations on 79 other lots of the step's, and these account for every row where the step
+  differs from `lpc_as_of` on its own lot: 134 rows for `landmark` and 836 for
+  `historic_district`.
+- On the building, as served, the flags differ in 2,455 rows for `landmark` and 504 for
+  `historic_district`, all of them rows whose lot differs from the registry's. In 2,327 of
+  them the registry's lot holds a landmark and the step's lot doesn't. 2,300 of those come from
+  six buildings the registry places at the address nearest their map point, 6 to 59 m away, on a
+  landmark's lot nearby. The registry puts The Sagamore on the lot of the
+  Claremont Stables, One Union Square on the Union Square Savings Bank's lot and Barclay Tower
+  on St. Peter's Church's lot, for 789, 784 and 505 rows. In the other 128 rows the step's lot
+  holds a landmark the registry's lot lacks, 67 of them in the Belnord. For
+  `historic_district`, 294 rows lose a district and 210 gain one.
+
 ## Fit-ready rows
 
 `analysis.rows` gives a fit its rows, one for each unit and month, with the values of the current
@@ -980,7 +1038,7 @@ in all, and most tests add made-up ads to that export. The tests:
    one ten times the ask, an empty latest answer, a later record leaving out a change of an
    earlier one, and a placeholder price after the ad left the market;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the nineteen models below it and gives the full answer, and a further
+   and the twenty models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -1134,8 +1192,8 @@ in all, and most tests add made-up ads to that export. The tests:
       place, which keeps the new folder.
 29. build the fixture with an archive lacking the landmarks file, and check that
     `city.landmarks` holds the added columns and no rows. With the file back in the manifest,
-    the next plan rebuilds `city.landmarks` and `city.rejects` alone, from a new folder holding
-    the landmarks' Parquet file and the rejects.
+    the next plan rebuilds `city.landmarks`, `city.rejects` and `analysis.lot_landmarks` alone,
+    from a new folder holding the landmarks' Parquet file and the rejects.
 30. render `city.pad_streets` over the fixture and read 26c's 276 names, none of type S, with
     the fields of BROADWAY's record. The 20-character name is blank in every record of 26c.
 31. parse the text of each Python value a model reads, and find no set and no text Python can't
@@ -1154,6 +1212,15 @@ in all, and most tests add made-up ads to that export. The tests:
       against the ranges 2441-2449 and 2449A, and a hyphenated address on a condominium's
       range, which gives the billing lot;
     - a Brooklyn address with a letter and no community district.
+33. write made-up LPC designations, lots and ads to a DuckDB database, render
+    `analysis.lot_landmarks` over them, and check each ad's flags, dates and LP numbers. The
+    ads come the day before and the day of a lot's landmark and district designations, and
+    after both. One lot has two landmarks designated the same day, a designation in an older
+    copy and dates padded with spaces, and another has a designation with a status other than
+    DESIGNATED. The last ads read a lot without designations, a building without a lot and a
+    building missing from `buildings.lots`. A type outside the four, a blank date and a date
+    written as `1989-07-11` each stop the step, and with no copy in the archive an ad with a
+    lot reads both flags as missing.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

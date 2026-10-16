@@ -274,6 +274,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.kept",
         "analysis.latest_ask",
         "analysis.latest_change",
+        "analysis.lot_landmarks",
         "analysis.rows",
         "ledger.status",
         "raw.ads",
@@ -318,6 +319,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.kept",
         "analysis.latest_ask",
         "analysis.latest_change",
+        "analysis.lot_landmarks",
         "analysis.rows",
         "buildings.details",
         "buildings.footprint_link",
@@ -358,7 +360,7 @@ def test_new_city_file_rebuilds_only_its_view(tmp_path, monkeypatch):
     (city / "manifest.ndjson").write_text("".join(lines))
     ctx = context(monkeypatch, tmp_path / "state")
     plan = ctx.plan(auto_apply=True, no_prompts=True)
-    assert changed(plan) == ["city.landmarks", "city.rejects"]
+    assert changed(plan) == ["analysis.lot_landmarks", "city.landmarks", "city.rejects"]
     (added,) = {
         path for path in (tmp_path / "cache").glob("*/*") if path.is_dir()
     } - before
