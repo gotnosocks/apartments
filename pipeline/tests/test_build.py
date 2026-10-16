@@ -99,8 +99,8 @@ def test_failed_audit_writes_nothing(tmp_path, build):
 
 
 def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
-    """A janitor that raises leaves the rows file and the catalog line in place, and the build
-    returns its line with a warning on stderr."""
+    """The janitor raises after the build writes its rows file and catalog line. Both stay in
+    place, and the build returns its line with a warning on stderr."""
     import sqlmesh
 
     def fail(self, ignore_ttl):

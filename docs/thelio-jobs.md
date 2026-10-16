@@ -117,6 +117,12 @@ systemctl --user daemon-reload
 The research-data build (`apartments-dashboard-build.service`) runs in the light slice on the
 light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.
 
+The data pipeline's build (`apartments-pipeline-build.service`, in `docs/data/pipeline.md`)
+takes the GPU lock and every light slot for each build, about 7 to 13 minutes, as
+`ops/job gpu -x` would. It runs as its own unit, so `ops/job status` leaves it out. When queued
+jobs wait and `ops/job status` lists no holder, check
+`systemctl --user status apartments-pipeline-build` and `lslocks | grep -E 'heavy|light-'`.
+
 ## Recording a test
 
 Every one-change test (a feature set against its base set, or a model term against the design

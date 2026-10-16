@@ -109,7 +109,8 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
 1. waits for the collector to let go of `oxylabs.lock`, so the build starts after an export's
    last file;
 2. moves its own checkout, `/data1/apartments/pipeline/code`, to master and syncs
-   `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`;
+   `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
+   manifest and the pipeline's code match the last build's, as on most of the timer's runs;
 3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
    runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
    trying again every five minutes while less is available;
@@ -117,9 +118,9 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    at 5 GiB with swap off, and lets go of the locks after it;
 5. builds again when the manifest changed during the build.
 
-A manual export with `streeteasy_archive.graphql_export` takes only `export/.lock`, and it exits
-when anything else holds that lock, so the script never opens it. When such an export appends
-its lines during a build, step 5 builds again.
+Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
+held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
+a build, step 5 builds again.
 
 A failed build leaves the service failed, with the failed models in its journal:
 
