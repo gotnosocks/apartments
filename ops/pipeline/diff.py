@@ -244,8 +244,9 @@ def compare_rows(db, base, edit, common, types, rows, result) -> None:
 def compare_keyed(db, grain, values, rows, result) -> None:
     """Join the two sides on `grain` and count the rows of each kind, into `result`."""
     result["grain"] = grain
-    # A marker column tells which side has a row, as a grain column may hold NULL. Its name
-    # takes underscores in front until it differs from every column of the tables.
+    # Each side gets a marker column to show which side holds a row, as a grain column may hold
+    # NULL. The loop puts underscores in front of the markers' names until they differ from
+    # every column of the tables.
     in_base, in_edit = "in_base", "in_edit"
     while {in_base, in_edit} & {*grain, *values}:
         in_base, in_edit = "_" + in_base, "_" + in_edit

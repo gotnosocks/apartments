@@ -187,7 +187,8 @@ def test_diff_stops_on_a_failed_build(tmp_path, capsys):
     assert "the edit build stopped" in capsys.readouterr().err
 
 
-def test_side_imports_only_its_own_steps():
+def test_side_imports_only_its_own_steps(tmp_path):
+    # With -c, Python puts the working directory first on the path, so the test runs elsewhere.
     code = (
         f"import runpy; runpy.run_path({str(DIFF)!r})['isolate'](); "
         "import steps; print(list(steps.__path__))"
@@ -197,6 +198,7 @@ def test_side_imports_only_its_own_steps():
     )
     done = subprocess.run(
         [sys.executable, "-c", code],
+        cwd=tmp_path,
         env=env,
         capture_output=True,
         text=True,
