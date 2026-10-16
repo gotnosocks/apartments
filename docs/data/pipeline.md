@@ -923,8 +923,9 @@ The row gives:
 
 - `new_building_since`, the first certificate of the earliest new building job;
 - `altered_since`, the first certificate of the latest major alteration job;
-- `units`, the count of apartments on the latest certificate giving one above 0, and on a day
-  with a certificate in each set, the DOB NOW one.
+- `units`, the count of apartments on the latest certificate giving one above 0. On a day with
+  a certificate in each set, I take the DOB NOW one, and among one set's certificates on a day,
+  the one with the greatest ID.
 
 Each comes with the job or certificate behind it. `new_building` and `altered` say whether the
 BIN had such a job, and stay missing for an ad without a BIN, or when the archive lacks a copy of
@@ -933,9 +934,9 @@ date in the earlier set, and an issue date in a form other than its set's. The e
 writes a four-digit year, month, day and time, and DOB NOW writes month, day, two-digit year and
 time. The copies of 2026-10-15 have none of these in their 143,242 and 82,963 rows. A DOB NOW
 certificate without an issue date stays out, and the copy has one. I read a count of apartments
-other than a whole number as missing, and a count of 0 as well: each ad offers an apartment in
-the building, so a 0 gives no count for it. 6,681 certificates in the earlier set and 7,733 in
-DOB NOW give 0.
+other than a whole number as missing, and a count too large for an INTEGER or a count of 0 as
+well: each ad offers an apartment in the building, so a 0 gives no count for it. 6,681
+certificates in the earlier set and 7,733 in DOB NOW give 0.
 
 The earlier set begins in July 2012, so a building finished before then has no new building
 job, unless DOB issued a certificate on its job later, such as a renewal of a temporary
@@ -1475,7 +1476,7 @@ in all, and most tests add made-up ads to that export. The tests:
     building's first certificate, and after two alterations, one with a certificate in each set
     on the same day. The certificates include a second new building job, a date of 2105, a DOB
     NOW renewal of an earlier job, a job found only in an older copy, padded values, counts of 0
-    in both sets, a count reading `NON5`, a rebuild with existing elements to remain whose count
+    in both sets, a count reading `NON5`, a count too large for an INTEGER, a rebuild with existing elements to remain whose count
     reads `..208`, and a DOB NOW certificate with a blank issue date. Further ads read a BIN
     without certificates, a building without a BIN, a building missing from `buildings.lots`
     and buildings with BINs 1000000 and 3000000. A job type outside the two kinds, a blank issue

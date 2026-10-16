@@ -26,10 +26,10 @@ MODEL (
 -- has no such type, so a rebuild before DOB NOW reads as a plain new building job.
 --
 -- A certificate in `city.dob_now_co` without an issue date stays out, since nothing dates it.
--- A count of apartments other than a whole number reads as missing, and so does a count of 0:
--- each ad offers an apartment in the building, so a 0 on its certificate says DOB left the count
--- out. A date after the copy, like the 2105 of a 2015 certificate in `city.dob_co`, falls after
--- every ad and never counts.
+-- A count of apartments other than a whole number reads as missing, and so does a count too large
+-- for an INTEGER. A count of 0 reads as missing too: each ad offers an apartment in the building,
+-- so a 0 on its certificate says DOB left the count out. A date after the copy, like the 2105 of
+-- a 2015 certificate in `city.dob_co`, falls after every ad and never counts.
 --
 -- For each candidate ad it takes the BIN of its building from `buildings.lots` and dates the ad
 -- by its first day in UTC. A BIN such as 1000000 stands for a lot without a numbered building,
@@ -38,8 +38,9 @@ MODEL (
 --
 -- - `new_building_since`: the first certificate of the earliest new building job,
 -- - `altered_since`: the first certificate of the latest major alteration job,
--- - `units`: the count of apartments on the latest certificate giving one, and on a day with
---   certificates in both sets, the DOB NOW one.
+-- - `units`: the count of apartments on the latest certificate giving one. On a day with
+--   certificates in both sets it takes the DOB NOW one, and among one set's certificates on a
+--   day, the one with the greatest ID.
 --
 -- Each comes with the job or certificate behind it. `new_building` and `altered` say whether the
 -- BIN had such a job, and stay missing for an ad without a BIN or without a copy of either set.
@@ -94,7 +95,7 @@ WITH dob_co AS (
             END AS issued,
         nullif(
             CASE WHEN regexp_full_match(trim(pr_dwelling_unit), '[0-9]+')
-                THEN trim(pr_dwelling_unit)::INTEGER END,
+                THEN TRY_CAST(trim(pr_dwelling_unit) AS INTEGER) END,
             0
         ) AS units
     FROM earlier
@@ -122,7 +123,7 @@ WITH dob_co AS (
             END,
         nullif(
             CASE WHEN regexp_full_match(trim(number_of_dwelling_units), '[0-9]+')
-                THEN trim(number_of_dwelling_units)::INTEGER END,
+                THEN TRY_CAST(trim(number_of_dwelling_units) AS INTEGER) END,
             0
         )
     FROM later
