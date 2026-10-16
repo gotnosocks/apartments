@@ -856,7 +856,7 @@ dated on or before the ad's first day in UTC. The row gives the earliest landmar
 earliest district, each with its date and LP number, and `landmark` and `historic_district` say
 whether the lot had one. For an ad whose building has no lot, both flags stay missing, where
 `lpc_as_of` gives false. Two kinds of value stop the build: a type outside the four, and a date
-that is blank or not written as month, day and year. The copy of 2026-06-18 has neither in its
+that is blank or not written as month, day and four-digit year. The copy of 2026-06-18 has neither in its
 39,363 rows.
 
 The copy holds LPC's designations as of its release. A designation the LPC withdrew before then
@@ -867,7 +867,7 @@ its data, and gets its own fit under the evaluation framework.
 
 ### Against the served flags
 
-`ops/pipeline/landmarks_check.py` builds `analysis.lot_landmarks` and the models below it over
+`ops/pipeline/landmarks_check.py` builds `analysis.lot_landmarks` and the models it reads over
 the newest rows file in a scratch database, and runs `lpc_as_of` on Data improvements' LPC file
 of 20261016-5f07157-all twice: once on each row's building with that folder's lot registry, as
 the served model does, and once on the step's lot. The second run reads the same lots as the
@@ -893,11 +893,11 @@ historic district. I compared the flags three ways:
   `historic_district`, all of them rows whose lot differs from the registry's. In 2,327 of
   them the registry's lot holds a landmark and the step's lot doesn't. 2,300 of those come from
   six buildings the registry places at the address nearest their map point, 6 to 59 m away, on a
-  landmark's lot nearby. The registry puts The Sagamore on the lot of the
-  Claremont Stables, One Union Square on the Union Square Savings Bank's lot and Barclay Tower
-  on St. Peter's Church's lot, for 789, 784 and 505 rows. In the other 128 rows the step's lot
-  holds a landmark the registry's lot lacks, 67 of them in the Belnord. For
-  `historic_district`, 294 rows lose a district and 210 gain one.
+  landmark's lot nearby. The registry puts The Sagamore on the lot of the Claremont Stables, One
+  Union Square on the Union Square Savings Bank's lot and Barclay Tower on St. Peter's Church's
+  lot, for 789, 784 and 505 rows. In the other 128 rows the step's lot holds a landmark the
+  registry's lot lacks, 67 of them in the Belnord. For `historic_district`, 294 rows lose a
+  district and 210 gain one.
 
 ## Fit-ready rows
 
@@ -1359,10 +1359,11 @@ in all, and most tests add made-up ads to that export. The tests:
     ads come the day before and the day of a lot's landmark and district designations, and
     after both. One lot has two landmarks designated the same day, a designation in an older
     copy and dates padded with spaces, and another has a designation with a status other than
-    DESIGNATED. The last ads read a lot without designations, a building without a lot and a
-    building missing from `buildings.lots`. A type outside the four, a blank date and a date
-    written as `1989-07-11` each stop the step, and with no copy in the archive an ad with a
-    lot reads both flags as missing.
+    DESIGNATED. Further ads read a lot without designations, a building without a lot, a
+    building missing from `buildings.lots`, a lot with only a scenic landmark and a lot with
+    only an interior landmark. A type outside the four, a blank date, a date written as
+    `1989-07-11` and a two-digit year each stop the step, and with no copy in the archive an ad
+    with a lot reads both flags as missing.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

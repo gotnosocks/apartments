@@ -15,7 +15,7 @@ them with the served model's `lpc_as_of`.
 2. It counts the rows by their flags, with the rows lacking a lot apart.
 3. It compares the designations of the step's copy with Data improvements' LPC file in the
    folder named by `--files`, the 20261016-5f07157-all copy unless given, on the lots of the
-   rows: the designations each has and the other lacks.
+   rows: the designations each has and the other lacks, and the lots they fall on.
 4. In the frontier's venv it runs `lpc_as_of` from the frontier code in DIR,
    /data1/apartments/serve/master/frontier unless given, on that LPC file twice:
    - once on each row's building as the served model does, with the lot registry of the same
@@ -24,7 +24,10 @@ them with the served model's `lpc_as_of`.
    The second run reads the same lots as the step, so its flags differ from the step's only
    through the copy and the rules. The first run differs from the second only through the lot
    each reads.
-5. It prints the rows each flag differs on for each comparison, and the lots behind them. The
+5. It prints the rows each flag differs on for each comparison, and the lots behind them. For
+   the comparison on the step's lot, it counts the differing rows on lots with designations
+   only in the step's copy. For the comparison on the building, it gives the rows on the
+   registry's lot by lot, and the rest by building, the registry's lot and the step's lot. The
    step leaves both flags missing for a row without a lot, where `lpc_as_of` gives false, and
    the script counts those rows apart.
 6. With `--out` it writes the step's flags for each row to a Parquet file.
@@ -120,6 +123,7 @@ def compare(args) -> None:
     )
 
     lotted = rows.bbl.notna().to_numpy()
+    copy_only = rows.copy_only.to_numpy(bool)
     print(f"rows: {len(rows):,}, with a lot: {lotted.sum():,}")
     same_lot = lotted & rows.bbl.astype(object).eq(served_bbl.to_numpy()).to_numpy(bool)
     print(f"  rows whose lot is the registry's lot: {same_lot.sum():,}")
@@ -131,18 +135,24 @@ def compare(args) -> None:
             f" {(~lotted & by_building[i]).sum():,}"
         )
         differ = lotted & (step != by_lot[i])
-        print(f"  rows differing from lpc_as_of on the step's lot: {differ.sum():,}")
-        show(rows[differ], step[differ], by_lot[i][differ])
+        print(
+            f"  rows differing from lpc_as_of on the step's lot: {differ.sum():,},"
+            f" {(differ & copy_only).sum():,} of them on lots with designations only in the"
+            " step's copy"
+        )
+        show(rows.loc[differ, ["bbl"]], step[differ], by_lot[i][differ])
         differ = lotted & (step != by_building[i])
         print(
             f"  rows differing from lpc_as_of on the building: {differ.sum():,},"
             f" {(differ & same_lot).sum():,} of them reading the registry's lot"
         )
-        show(
-            rows[differ & same_lot],
-            step[differ & same_lot],
-            by_building[i][differ & same_lot],
+        here = differ & same_lot
+        show(rows.loc[here, ["bbl"]], step[here], by_building[i][here])
+        elsewhere = differ & ~same_lot
+        lots = rows.loc[elsewhere, ["building", "bbl"]].assign(
+            served_bbl=served_bbl.to_numpy()[elsewhere]
         )
+        show(lots, step[elsewhere], by_building[i][elsewhere])
         changed = by_building[i] != by_lot[i]
         print(
             f"  rows where lpc_as_of gives the building another value than the step's lot:"
@@ -150,14 +160,13 @@ def compare(args) -> None:
         )
 
 
-def show(rows, step, served, limit=10) -> None:
-    """Print the lots behind the differing rows, the most rows first."""
-    if not len(rows):
+def show(keys, step, served, limit=10) -> None:
+    """Print the differing rows by the columns of `keys` and both flags, the most rows
+    first."""
+    if not len(keys):
         return
-    import pandas as pd
-
-    table = pd.DataFrame({"bbl": rows.bbl.to_numpy(), "step": step, "served": served})
-    counts = table.value_counts().rename("rows").reset_index().head(limit)
+    table = keys.reset_index(drop=True).assign(step=step, served=served)
+    counts = table.value_counts(dropna=False).rename("rows").reset_index().head(limit)
     print("    " + counts.to_string(index=False).replace("\n", "\n    "))
 
 
@@ -208,28 +217,33 @@ def main() -> None:
         print(
             f"designations on the rows' lots, in the step's copy and in {args.files}:"
         )
-        print(
-            db.sql(f"""
+        db.execute(f"""
+            CREATE TABLE sides AS
             WITH lots AS (
                 SELECT DISTINCT bbl FROM analysis.lot_landmarks WHERE bbl IS NOT NULL
             ), copy AS (
                 SELECT DISTINCT trim(bbl) AS bbl, trim(lp_number) AS lp_number,
                     trim(lm_type) AS lm_type, trim(desdate) AS desdate
                 FROM city.landmarks
-                WHERE release = (SELECT max(release) FROM city.landmarks)
+                WHERE release = (SELECT arg_max(release, published) FROM city.landmarks)
                     AND trim(status) = 'DESIGNATED'
             ), served AS (
                 SELECT DISTINCT bbl, lp_number, lm_type, desdate
                 FROM read_parquet('{lpc}') WHERE status = 'DESIGNATED'
             )
-            SELECT 'both' AS side, count(*) AS designations
+            SELECT 'both' AS side, *
             FROM (FROM copy SEMI JOIN lots USING (bbl) INTERSECT FROM served SEMI JOIN lots USING (bbl))
             UNION ALL
-            SELECT 'step only', count(*)
+            SELECT 'step only', *
             FROM (FROM copy SEMI JOIN lots USING (bbl) EXCEPT FROM served SEMI JOIN lots USING (bbl))
             UNION ALL
-            SELECT '{args.files} only', count(*)
+            SELECT '{args.files} only', *
             FROM (FROM served SEMI JOIN lots USING (bbl) EXCEPT FROM copy SEMI JOIN lots USING (bbl))
+        """)
+        print(
+            db.sql("""
+            SELECT side, count(*) AS designations, count(DISTINCT bbl) AS lots
+            FROM sides GROUP BY side ORDER BY side
         """)
             .fetchdf()
             .to_string(index=False)
@@ -240,7 +254,9 @@ def main() -> None:
         db.execute(f"""
             COPY (
                 SELECT l.listing_id, c.building, c.price_at, l.bbl, l.landmark,
-                    l.historic_district
+                    l.historic_district,
+                    coalesce(l.bbl IN (SELECT bbl FROM sides WHERE side = 'step only'), false)
+                        AS copy_only
                 FROM analysis.lot_landmarks l JOIN analysis.candidates c USING (listing_id)
             ) TO '{pairs}' (FORMAT parquet)
         """)

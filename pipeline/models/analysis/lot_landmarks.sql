@@ -6,15 +6,16 @@ MODEL (
     description 'Each candidate ad''s lot, with the landmark and historic district designations the LPC had made on it by the ad''s first day.'
 );
 
--- The step reads the latest copy of LPC's designations in `city.landmarks`, a row for each lot
--- of each designation, and keeps the rows with the status DESIGNATED. A row of a historic
+-- The step reads the latest copy of LPC's designations in `city.landmarks`, a row for each
+-- building of each designation, and keeps the rows with the status DESIGNATED. A row of a historic
 -- district marks a lot in the district. A row of an individual, interior or scenic landmark
 -- marks the lot as a landmark, as the served model's `lpc_as_of` reads them. These values stop
 -- the build, so a change in the copy's spelling shows up here rather than as a missing
 -- designation:
 --
 -- - a type other than those four,
--- - a designation date that is blank or doesn't read as month/day/year.
+-- - a designation date that is blank or isn't written as month/day/year with a four-digit
+--   year.
 --
 -- For each candidate ad it takes the lot of its building from `buildings.lots` and dates the ad
 -- by its first day in UTC, as the served model does. It then keeps the lot's designations made
@@ -23,13 +24,13 @@ MODEL (
 -- missing for an ad without a lot. Designations after the ad stay off its row, so a fit can
 -- read every column.
 --
--- The copy gives today's designations, so a designation the LPC later withdrew is missing
+-- The copy gives the designations as of its release, so a designation the LPC later withdrew is missing
 -- from every ad, and an ad after the copy's release misses designations made since.
 -- `landmarks_release` gives the copy each row read. With no copy in the archive, `city.landmarks`
 -- has only the archive's columns, so the step adds the others with no rows, and every ad reads
 -- `landmark` and `historic_district` as missing.
 WITH latest AS (
-    SELECT max(release) AS release FROM city.landmarks
+    SELECT arg_max(release, published) AS release FROM city.landmarks
 ), copy AS (
     SELECT c.* FROM (
         SELECT * FROM (
@@ -51,6 +52,10 @@ WITH latest AS (
             END AS district,
         CASE WHEN nullif(trim(desdate), '') IS NULL
             THEN error(concat('no designation date for ', lp_number, ' on lot ', bbl))::DATE
+            WHEN NOT regexp_full_match(trim(desdate), '[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}')
+            THEN error(
+                concat('designation date ', desdate, ' of ', lp_number, ' on lot ', bbl)
+            )::DATE
             ELSE strptime(trim(desdate), '%m/%d/%Y')::DATE
             END AS designated
     FROM copy

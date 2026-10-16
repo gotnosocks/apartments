@@ -17,23 +17,28 @@ def load(name, path):
 context = load("pipeline_tests", Path(__file__).with_name("test_pipeline.py")).context
 
 COLUMNS = ["release", "bbl", "lp_number", "lm_type", "desdate", "status"]
-A, B, C = (f"100001000{n}" for n in range(1, 4))
-LOTS = [("b1", A), ("b2", B), ("b3", C), ("b4", None)]
+A, B, C, D, E = (f"100001000{n}" for n in range(1, 6))
+LOTS = [("b1", A), ("b2", B), ("b3", C), ("b4", None), ("b6", D), ("b7", E)]
 
 
 def inputs(db, designations, lots=LOTS, ads=(), columns=COLUMNS):
-    """Write `designations` to `city.landmarks`, every value as text, `lots` to
-    `buildings.lots`, and `ads`, each a listing, a building and a first day, to
-    `analysis.candidates`."""
+    """Write `designations` to `city.landmarks`, every value as text and each copy published
+    at its release, `lots` to `buildings.lots`, and `ads`, each a listing, a building and a
+    first day, to `analysis.candidates`."""
     for schema in ("city", "buildings", "analysis"):
         db.execute(f"CREATE SCHEMA {schema}")
     listed = ", ".join(f"{c} TEXT" for c in columns)
-    db.execute(f"CREATE TABLE city.landmarks ({listed}, file TEXT, record BIGINT)")
+    db.execute(
+        f"""CREATE TABLE city.landmarks
+        ({listed}, published TIMESTAMPTZ, file TEXT, record BIGINT)"""
+    )
     if designations:
         marks = ", ".join("?" * len(columns))
         db.executemany(
-            f"INSERT INTO city.landmarks VALUES ({marks}, 'a.csv', 1)", designations
+            f"INSERT INTO city.landmarks VALUES ({marks}, NULL, 'a.csv', 1)",
+            designations,
         )
+        db.execute("UPDATE city.landmarks SET published = release::TIMESTAMPTZ")
     db.execute(
         "CREATE TABLE buildings.lots (building_id TEXT, bbl TEXT, bin TEXT, link TEXT)"
     )
@@ -70,11 +75,13 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
     - Lot B joined a historic district on 2015-12-31, and the LPC calendared it as a landmark
       in 2000 without designating it.
     - Lot C has no designation, and building b4 has no lot.
+    - Lot D has only a scenic landmark, and lot E only an interior landmark.
 
     Ads 1 to 3 read lot A the day before its landmarks, on their day and after its district,
-    ads 4 and 5 read lot B the day before and the day of its district, and ads 6 to 8 read lot
-    C, building b4 and a building missing from `buildings.lots`. The DuckDB session runs in New
-    York time, where an ad's first day at midnight UTC falls on the day before."""
+    ads 4 and 5 read lot B the day before and the day of its district, ads 6 to 8 read lot C,
+    building b4 and a building missing from `buildings.lots`, and ads 9 and 10 read lots D and
+    E. The DuckDB session runs in New York time, where an ad's first day at midnight UTC falls
+    on the day before."""
     ctx = context(monkeypatch, tmp_path / "state")
     new, old = "2026-06-18T14:42:53Z", "2025-01-01T00:00:00Z"
     designations = [
@@ -85,6 +92,8 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
         (new, B, "LP-00400", "Historic District", "12/31/2015", "DESIGNATED"),
         (new, B, "LP-00500", "Individual Landmark", "1/1/2000", "CALENDARED"),
         (old, A, "LP-00001", "Individual Landmark", "1/1/1900", "DESIGNATED"),
+        (new, D, "LP-00600", "Scenic Landmark", "6/1/2001", "DESIGNATED"),
+        (new, E, "LP-00700", "Interior Landmark", "6/2/2001", "DESIGNATED"),
     ]
     ads = [
         ("01", "b1", "1989-07-10"),
@@ -95,6 +104,8 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
         ("06", "b3", "2020-01-01"),
         ("07", "b4", "2020-01-01"),
         ("08", "b5", "2020-01-01"),
+        ("09", "b6", "2020-01-01"),
+        ("10", "b7", "2020-01-01"),
     ]
     db = connect(tmp_path)
     inputs(db, designations, ads=ads)
@@ -149,6 +160,30 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
         ("06", C, day(2020, 1, 1), new, False, False, *none),
         ("07", None, day(2020, 1, 1), new, None, None, *none),
         ("08", None, day(2020, 1, 1), new, None, None, *none),
+        (
+            "09",
+            D,
+            day(2020, 1, 1),
+            new,
+            True,
+            False,
+            day(2001, 6, 1),
+            "LP-00600",
+            None,
+            None,
+        ),
+        (
+            "10",
+            E,
+            day(2020, 1, 1),
+            new,
+            True,
+            False,
+            day(2001, 6, 2),
+            "LP-00700",
+            None,
+            None,
+        ),
     ]
 
 
@@ -161,10 +196,12 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
             "no designation date for LP-00100",
         ),
         ((A, "LP-00100", "Individual Landmark", "1989-07-11"), "1989-07-11"),
+        ((A, "LP-00100", "Individual Landmark", "7/11/89"), "7/11/89"),
     ],
 )
 def test_lot_landmarks_stops_on_odd_values(tmp_path, monkeypatch, row, message):
-    """A type outside the four, a blank date and a date in another form stop the step."""
+    """A type outside the four, a blank date, a date in another form and a two-digit year
+    stop the step."""
     ctx = context(monkeypatch, tmp_path / "state")
     db = connect(tmp_path)
     inputs(db, [("2026-06-18T14:42:53Z", *row, "DESIGNATED")])
