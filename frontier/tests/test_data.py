@@ -1692,6 +1692,9 @@ def test_adfills_pets_writes_existing_codes_only():
             "Most pets permitted with landlord consent.",
             "Cats ok, sorry no doggies.",
             "Cats welcome. Not dogs sorry.",
+            "Pets deposit required.",
+            "Additional fee for pets.",
+            "Sorry no dogs, but cat is ok with $300 pet fee.",
         ]
     )
     out = adfills.pets(text)
@@ -1700,9 +1703,12 @@ def test_adfills_pets_writes_existing_codes_only():
         1: "approval_required",
         2: "allowed_restrictions_unknown",
         7: "approval_required",
+        9: "allowed_restrictions_unknown",
         10: "allowed_restrictions_unknown",
         12: "allowed_restrictions_unknown",
         13: "not_allowed",
+        14: "allowed_restrictions_unknown",
+        15: "allowed_restrictions_unknown",
         16: "allowed_restrictions_unknown",
         19: "approval_required",
         23: "allowed_restrictions_unknown",
@@ -1712,6 +1718,8 @@ def test_adfills_pets_writes_existing_codes_only():
         28: "allowed_restrictions_unknown",
         29: "approval_required",
         30: "approval_required",
+        33: "allowed_restrictions_unknown",
+        34: "allowed_restrictions_unknown",
     }
     assert out.evidence.notna().all()
 
