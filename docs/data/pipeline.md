@@ -1141,7 +1141,9 @@ takes the ad's last kept change dated on or after that day, or the change in eff
 when the ad has no later one and its record came after the row. The steps in
 `analysis.latest_ask` then check that ask against the row's first ask, the ad's page price and
 the median first ask of the building's other rows with the same bedroom count. The comments in
-the model list the steps. The medians cover every region in `analysis.kept`, while the chain
+the model list the steps. The step for a page price within a factor of 2 skips a page price
+equal to any of the ad's changes. The step for a tenfold digit skips only one equal to a change
+`ads.kept_changes` keeps, as item 8 of the differences from the chain explains. The medians cover every region in `analysis.kept`, while the chain
 takes them over the rows of the datasets it reads. On the full export the two give the same
 steps, as the full build below shows.
 
@@ -1417,6 +1419,13 @@ when an item here or an entry of the corrections ledger accounts for it.
    it captured, and the pipeline takes them from the ad's latest API record. For six ads of the
    nine-area reference, listed from July to October 2026, the two give different bedroom counts
    or sizes.
+8. A tenfold typo in the ask, corrected on the ad's last day on the market. `ads.kept_changes`
+   drops the correction as a late change, and the chain skips a page price equal to any of the
+   ad's changes, so the typo stands as the latest ask. `analysis.latest_ask` lets the page
+   price into the digit step when it equals only a dropped change, and the step picks whichever
+   of the two lies nearer the building's median. On runs 1 to 10, this changes the latest ask
+   of 12 rows, from 9.6 to 10.7 times the page price to the page price. All 12 ads had ended,
+   and each typo was also the ad's first ask, which the rows file keeps as `asking_rent`.
 
 ## Tests
 
@@ -1435,7 +1444,9 @@ in all, and most tests add made-up ads to that export. The tests:
    it, a page price without changes, a page price equal to one of the ad's changes, an ask
    that more than doubles and one that falls below half, a page price a tenth of the ask and
    one ten times the ask, an empty latest answer, a later record leaving out a change of an
-   earlier one, and a placeholder price after the ad left the market;
+   earlier one, and a placeholder price after the ad left the market. A last ad corrects a
+   tenfold typo on the day it left the market. There the test expects the page price, and
+   `choose` keeps the typo;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
    and the twenty-two models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
