@@ -180,8 +180,8 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    4. **Done** in #893: `ops/pipeline/diff.py` builds the fixture with the base code and with the
       edit, at once, and lists each change to each table, in about 6 s. The fixture lacks many
       of the full export's cases, and a build of runs 1 to 5 takes ten minutes, so a sample of
-      the export comes next: the ads of a few hundred buildings, which the two builds take
-      in under a minute;
+      the export comes next: the ads of a few hundred buildings, small enough for both builds to
+      finish in under a minute;
    5. `ads.record_attributes` and the cross-ad models made incremental, since their full
       recomputes take most of a top-up;
    6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist.
