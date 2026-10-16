@@ -8,7 +8,9 @@ MODEL (
 
 -- The model takes each building's latest record, by fetch time and then response ID, as
 -- `buildings.details` does. It picks the response IDs first and then reads only their records,
--- so DuckDB holds about 70,000 records at a time rather than all of them.
+-- so DuckDB holds about 70,000 records at a time rather than all of them. It parses each record
+-- once for all its values. A parse for each value read, sixteen in all, took more than the
+-- build's 3 GB of memory on 12 threads.
 --
 -- `slug` is the building's name in StreetEasy's links, such as `1-water-street-new_york`, and
 -- the lot registries under /data1/apartments/external/registry list buildings by it. `street`
@@ -24,25 +26,39 @@ WITH ids AS (
     WHERE outcome = 'record'
     GROUP BY building_id
 ), latest AS (
-    SELECT building_id, response_id, record
+    -- One parse of each record, for its eleven values as JSON.
+    SELECT building_id, response_id,
+        json_extract(record, [
+            '$.slug',
+            '$.address.street',
+            '$.address.zipCode',
+            '$.address.city',
+            '$.nyc.communityDistrict',
+            '$.geoCenter.latitude',
+            '$.geoCenter.longitude',
+            '$.nyc.buildingClass',
+            '$.yearBuilt',
+            '$.floorCount',
+            '$.residentialUnitCount'
+        ]) AS f
     FROM raw.buildings JOIN ids USING (building_id, response_id)
     WHERE outcome = 'record'
 )
 SELECT building_id, response_id,
-    record ->> '$.slug' AS slug,
-    record ->> '$.address.street' AS street,
-    record ->> '$.address.zipCode' AS zip,
-    record ->> '$.address.city' AS city,
-    record ->> '$.nyc.communityDistrict' AS community_district,
-    CASE WHEN json_type(record, '$.geoCenter.latitude') IN ('UBIGINT', 'BIGINT', 'DOUBLE')
-        THEN (record ->> '$.geoCenter.latitude')::DOUBLE END AS latitude,
-    CASE WHEN json_type(record, '$.geoCenter.longitude') IN ('UBIGINT', 'BIGINT', 'DOUBLE')
-        THEN (record ->> '$.geoCenter.longitude')::DOUBLE END AS longitude,
-    nullif(trim(record ->> '$.nyc.buildingClass'), '') AS building_class,
-    CASE WHEN json_type(record, '$.yearBuilt') IN ('UBIGINT', 'BIGINT')
-        THEN nullif(try_cast(record ->> '$.yearBuilt' AS INTEGER), 0) END AS year_built,
-    CASE WHEN json_type(record, '$.floorCount') IN ('UBIGINT', 'BIGINT', 'DOUBLE')
-        THEN nullif((record ->> '$.floorCount')::DOUBLE, 0) END AS floor_count,
-    CASE WHEN json_type(record, '$.residentialUnitCount') IN ('UBIGINT', 'BIGINT')
-        THEN try_cast(record ->> '$.residentialUnitCount' AS INTEGER) END AS residential_units
+    f[1] ->> '$' AS slug,
+    f[2] ->> '$' AS street,
+    f[3] ->> '$' AS zip,
+    f[4] ->> '$' AS city,
+    f[5] ->> '$' AS community_district,
+    CASE WHEN json_type(f[6]) IN ('UBIGINT', 'BIGINT', 'DOUBLE')
+        THEN (f[6] ->> '$')::DOUBLE END AS latitude,
+    CASE WHEN json_type(f[7]) IN ('UBIGINT', 'BIGINT', 'DOUBLE')
+        THEN (f[7] ->> '$')::DOUBLE END AS longitude,
+    nullif(trim(f[8] ->> '$'), '') AS building_class,
+    CASE WHEN json_type(f[9]) IN ('UBIGINT', 'BIGINT')
+        THEN nullif(try_cast(f[9] ->> '$' AS INTEGER), 0) END AS year_built,
+    CASE WHEN json_type(f[10]) IN ('UBIGINT', 'BIGINT', 'DOUBLE')
+        THEN nullif((f[10] ->> '$')::DOUBLE, 0) END AS floor_count,
+    CASE WHEN json_type(f[11]) IN ('UBIGINT', 'BIGINT')
+        THEN try_cast(f[11] ->> '$' AS INTEGER) END AS residential_units
 FROM latest
