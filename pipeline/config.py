@@ -9,7 +9,8 @@ files:
 - `PIPELINE_STATE`: the folder for the DuckDB database, its spill files and SQLMesh's cache.
 
 `PIPELINE_LEDGER` names the folder of the corrections ledger, `pipeline/ledger` unless set.
-`models/ledger/entries.py` explains the ledger.
+The config stops when the folder is missing, as a mistyped path would otherwise give a build
+with no corrections. `models/ledger/entries.py` explains the ledger.
 
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
@@ -98,6 +99,8 @@ def file_sha256(path):
 
 ads, ads_version, ads_files = exported("ads")
 buildings, buildings_version, buildings_files = exported("buildings")
+if not LEDGER.is_dir():
+    raise FileNotFoundError(f"no ledger folder at {LEDGER}")
 STATE.mkdir(parents=True, exist_ok=True)
 
 config = Config(

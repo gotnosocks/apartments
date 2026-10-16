@@ -138,14 +138,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    The preparation's `TMPDIR` points into its scratch folder. A freeze of the served fit's rows
    with this code matched `served-nb8-5c1e5c7e` in its outputs and its 21 input hashes.
 3. Step 5 goes on from the ledger PR. `pipeline/ledger/2026-10-16-chain.ndjson` holds 889
-   excludes of `quarantine-v32` and 179 sets of `bedrooms-ad-v3` to `v7`, `baths-ad-v3` and
-   `sqft-units-v1`, keyed by `listing_id`. On a copy of the Oct 15 state, 854 excludes and 169
-   sets apply and 45 entries are for page-crawl ads with no API record. The six API references
-   agree in full, and each difference from `queued-nb9-lots2-9c1055f` is a held set, a newer
-   exclude or a page value. [pipeline.md](../data/pipeline.md#check-build) has the numbers. The
-   rest of step 5, a PR each:
-   1. backing for the 83 held sets in `config/reviews/ledger-held-2026-10-16-chain.jsonl`,
-      sent to Data improvements for Sonnet reads of the unit's other ads and floor plans;
+   excludes of `quarantine-v32` and 168 sets of `bedrooms-ad-v3` to `v7`, `baths-ad-v3` and
+   `sqft-units-v1`, keyed by `listing_id`. `2026-10-16-held-reads.ndjson` holds 12 sets Data
+   improvements backed by reading the held list. On a copy of the Oct 15 state, 857 excludes and
+   169 sets apply and 46 entries are for page-crawl ads with no API record. The six API
+   references agree in full, and each difference from `queued-nb9-lots2-9c1055f` is a held set,
+   a newer exclude or a page value. [pipeline.md](../data/pipeline.md#check-build) has the
+   numbers. The rest of step 5, a PR each:
+   1. backing for the 82 held sets in `config/reviews/ledger-held-2026-10-16-chain.jsonl`. Data
+      improvements read the first list. 12 bedroom sets of v4 and v6 rest on a stated size
+      nearest a third bedroom count, and they need another ad, a plan or the line's units;
    2. entries keyed on units and buildings, as Data improvements asked on Oct 16.
       `unit-reviews-v2` joins and splits units, so its entries key on the unit and also apply
       to later ads of the unit. `building-joins-v1` moves a building to a lot and keys on the

@@ -20,16 +20,20 @@ A line holds one JSON object with these keys:
   "2019-08", "bedrooms": 0}`, with the month as YYYY-MM and `null` for a value the row lacks.
   A set gives the recorded value of each field it sets. While each value matches the row, the
   entry applies. Otherwise it goes stale, and `ledger.status` lists it.
-- `evidence`: a list of items, each with a `kind` and its details, such as a `quote`, a
-  `listing_id` or a `detail`. Kinds:
-    - `ad_text`: the ad's own words.
-    - `other_ad`: another ad for the same unit.
-    - `stated_size`: a size an ad states for the unit.
-    - `floor_plan`: a plan of the unit.
-    - `line_units`: units of the same line in the building.
-    - `city_record`: a city record, such as PLUTO or a certificate of occupancy.
-    - `read`: a reviewer's reading of the ads, with what they found.
-    - `owner`: Ben's own reading, with its date.
+- `evidence`: a list of items, each with a `kind` and its details. Kinds, with the details
+  each needs:
+    - `ad_text`: the ad's own words, as a `quote`.
+    - `other_ad`: another ad for the same unit, as its `listing_id`, or its ads as `listings`,
+      with a `detail`.
+    - `stated_size`: a size an ad states for the unit, in a `detail`.
+    - `floor_plan`: a plan of the unit, as the `plan` file or a `detail`.
+    - `line_units`: units of the same line in the building, as their ads' `listings`, with a
+      `detail`.
+    - `city_record`: a city record, such as PLUTO or a certificate of occupancy, in a `detail`.
+    - `read`: a reviewer's reading of the ads, with what they found in a `detail`.
+    - `owner`: Ben's own reading, with its date, in a `detail`.
+
+  An item may hold more keys, such as the `file` of a read or the `quote` of another ad.
 - `decided`: the day of the decision, as YYYY-MM-DD.
 - `source` (optional): the file and line the decision came from.
 - `note` (optional): anything else.
@@ -39,7 +43,8 @@ An entry's ID is the first 16 hex digits of the SHA-256 of its line, without the
 `read` stops with `LedgerError`, naming the file and line, when an entry breaks one of these
 rules:
 
-1. Every entry has evidence.
+1. Every entry has evidence, and each item gives the details its kind needs. The ads of an
+   `other_ad` or `line_units` item are other ads than the entry's own.
 2. A set rests on evidence beyond the ad's own words: at least one item of a backing kind,
    `other_ad`, `stated_size`, `floor_plan`, `line_units` or `owner`. Ad text or a price alone
    does not back a change of a coded field.
@@ -56,6 +61,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from datetime import date
 from pathlib import Path
@@ -73,6 +79,8 @@ FIELDS = {
 }
 WHEN = ("period", "bedrooms", "full_baths", "half_baths", "square_feet")
 INTEGERS = ("full_baths", "half_baths")
+# The fields with whole values. Bedrooms stay DOUBLE, the type of analysis.kept's column.
+WHOLE = ("bedrooms", *INTEGERS)
 KINDS = (
     "ad_text",
     "other_ad",
@@ -84,6 +92,8 @@ KINDS = (
     "owner",
 )
 BACKING = ("other_ad", "stated_size", "floor_plan", "line_units", "owner")
+# The text an item of each kind gives, as one of these keys.
+TEXT = {"ad_text": ("quote",), "floor_plan": ("plan", "detail")}
 KEYS = {
     "exclude": {"change", "listing_id", "reason", "when", "evidence", "decided"},
     "set": {"change", "listing_id", "set", "when", "evidence", "decided"},
@@ -123,12 +133,43 @@ def entry_id(line: str) -> str:
     return hashlib.sha256(line.encode()).hexdigest()[:16]
 
 
-def number(value, key, integer=False):
-    if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
-        raise LedgerError(f"{key} takes a number of at least 0, not {value!r}")
-    if integer and value != int(value):
+def number(value, key):
+    field = key.removeprefix("when.")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise LedgerError(f"{key} takes a finite number of at least 0, not {value!r}")
+    if field in WHOLE and value != int(value):
         raise LedgerError(f"{key} takes a whole number, not {value!r}")
-    return int(value) if integer else float(value)
+    return int(value) if field in INTEGERS else float(value)
+
+
+def is_ad_id(value):
+    return isinstance(value, str) and re.fullmatch(r"[0-9]+", value) is not None
+
+
+def check_item(item, listing_id):
+    """Stop unless the evidence item `item` gives the details its kind needs, for the entry of
+    the ad `listing_id`."""
+    if not isinstance(item, dict) or item.get("kind") not in KINDS:
+        raise LedgerError(f"each item of evidence has a kind of {', '.join(KINDS)}")
+    kind = item["kind"]
+    keys = TEXT.get(kind, ("detail",))
+    if not any(isinstance(item.get(key), str) and item[key].strip() for key in keys):
+        raise LedgerError(f"{kind} evidence gives its {' or '.join(keys)}")
+    if kind not in ("other_ad", "line_units"):
+        return
+    ads = item.get("listings", [])
+    if kind == "other_ad" and "listing_id" in item:
+        ads = [item["listing_id"], *ads] if isinstance(ads, list) else ads
+    if not isinstance(ads, list) or not ads or not all(map(is_ad_id, ads)):
+        names = "listing_id or listings" if kind == "other_ad" else "listings"
+        raise LedgerError(f"{kind} evidence gives its ads' IDs as {names}")
+    if listing_id in ads:
+        raise LedgerError(f"{kind} evidence gives other ads than the entry's own")
 
 
 def when_value(key, value):
@@ -137,15 +178,22 @@ def when_value(key, value):
     if key == "period":
         if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}", value):
             raise LedgerError(f"when.period takes a month as YYYY-MM, not {value!r}")
-        date.fromisoformat(f"{value}-01")
+        try:
+            date.fromisoformat(f"{value}-01")
+        except ValueError:
+            raise LedgerError(f"when.period is no month: {value!r}") from None
         return value
-    return number(value, f"when.{key}", key in INTEGERS)
+    return number(value, f"when.{key}")
 
 
 def parse(text: str) -> dict:
     """The columns of ledger.entries for the line `text`, checked against rules 1 and 2."""
+
+    def refuse(constant):
+        raise LedgerError(f"{constant} is no number of the ledger")
+
     try:
-        line = json.loads(text)
+        line = json.loads(text, parse_constant=refuse)
     except json.JSONDecodeError as error:
         raise LedgerError(f"not JSON: {error}") from None
     if not isinstance(line, dict):
@@ -165,16 +213,18 @@ def parse(text: str) -> dict:
     if not isinstance(evidence, list) or not evidence:
         raise LedgerError("evidence is a list of at least one item")
     for item in evidence:
-        if not isinstance(item, dict) or item.get("kind") not in KINDS:
-            raise LedgerError(f"each item of evidence has a kind of {', '.join(KINDS)}")
+        check_item(item, line.get("listing_id"))
     row["kinds"] = sorted({item["kind"] for item in evidence})
     row["evidence"] = json.dumps(evidence, sort_keys=True)
+    decided = line["decided"]
     try:
-        row["decided"] = date.fromisoformat(line["decided"])
-    except (TypeError, ValueError):
-        raise LedgerError(
-            f"decided is a day as YYYY-MM-DD, not {line['decided']!r}"
-        ) from None
+        if not isinstance(decided, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}", decided
+        ):
+            raise ValueError
+        row["decided"] = date.fromisoformat(decided)
+    except ValueError:
+        raise LedgerError(f"decided is a day as YYYY-MM-DD, not {decided!r}") from None
     for key in ("source", "note"):
         if key in line and not isinstance(line[key], str):
             raise LedgerError(f"{key} is text")
@@ -188,7 +238,7 @@ def parse(text: str) -> dict:
         row["retracts"] = line["entry"]
         return row
 
-    if not isinstance(line["listing_id"], str) or not line["listing_id"].isdigit():
+    if not is_ad_id(line["listing_id"]):
         raise LedgerError("listing_id is the ad's ID, written as a string of digits")
     row["listing_id"] = line["listing_id"]
     when = line.get("when", {})
@@ -212,7 +262,7 @@ def parse(text: str) -> dict:
         groups = "; ".join(" and ".join(keys) for keys in FIELDS.values())
         raise LedgerError(f"a set gives one of: {groups}")
     for key, value in values.items():
-        row[key] = number(value, key, key in INTEGERS)
+        row[key] = number(value, key)
         if row[key] == 0 and key == "square_feet":
             raise LedgerError("square_feet takes a size above 0")
         if key not in when:
@@ -231,7 +281,9 @@ def read(paths) -> list[dict]:
     rules. Blank lines are skipped."""
     rows, seen = [], {}
     for path in sorted(map(Path, paths), key=lambda p: p.name):
-        for number_, text in enumerate(path.read_text().splitlines(), start=1):
+        # JSON allows U+2028 inside a string, where splitlines would cut the line.
+        lines = path.read_text(encoding="utf-8").split("\n")
+        for number_, text in enumerate(lines, start=1):
             if not text.strip():
                 continue
             where = f"{path.name}:{number_}"

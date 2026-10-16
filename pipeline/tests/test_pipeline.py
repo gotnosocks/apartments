@@ -28,10 +28,9 @@ def context(
     monkeypatch, state, export=FIXTURE / "export", project=PROJECT, ledger=None
 ):
     """A context on `export` and `state`. Without `ledger`, the corrections ledger is an empty
-    folder beside the state."""
-    if ledger is None:
-        ledger = state.parent / "ledger"
-        ledger.mkdir(parents=True, exist_ok=True)
+    folder beside the state. The helper makes the ledger's folder when it is missing."""
+    ledger = ledger or state.parent / "ledger"
+    ledger.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PIPELINE_EXPORT", str(export))
     monkeypatch.setenv("PIPELINE_STATE", str(state))
     monkeypatch.setenv("PIPELINE_LEDGER", str(ledger))

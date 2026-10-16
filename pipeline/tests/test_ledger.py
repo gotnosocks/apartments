@@ -74,10 +74,40 @@ def write(folder, name, lines):
             "evidence is a list",
         ),
         (exclude("1", evidence=[{"quote": "x"}]), "each item of evidence has a kind"),
+        (
+            exclude("1", evidence=[{"kind": "ad_text"}]),
+            "ad_text evidence gives its quote",
+        ),
+        (exclude("1", evidence=[{"kind": "owner", "detail": " "}]), "gives its detail"),
+        (exclude("1", evidence=[{"kind": "floor_plan"}]), "gives its plan or detail"),
+        (
+            exclude("1", evidence=[{"kind": "other_ad", "detail": "x"}]),
+            "other_ad evidence gives its ads' IDs as listing_id or listings",
+        ),
+        (
+            exclude("1", evidence=[{**OTHER_AD, "listings": ["2", "x"]}]),
+            "other_ad evidence gives its ads' IDs",
+        ),
+        (
+            exclude("1", evidence=[{"kind": "line_units", "detail": "x"}]),
+            "line_units evidence gives its ads' IDs as listings",
+        ),
+        (
+            exclude("123"),
+            "other_ad evidence gives other ads than the entry's own",
+        ),
         (exclude("1", decided="16 Oct"), "decided is a day"),
+        (exclude("1", decided="20261016"), "decided is a day"),
         (exclude("1", when={"period": "2019-8"}), "when.period takes a month"),
+        (exclude("1", when={"period": "2019-13"}), "when.period is no month"),
+        (exclude("1", when={"bedrooms": float("inf")}), "Infinity is no number"),
+        (
+            exclude("1", when={"bedrooms": 5}).replace(": 5}", ": 1e400}"),
+            "takes a finite number",
+        ),
         (exclude("1", when={"rent": 3000}), "when maps some of"),
         (exclude("ad 1"), "listing_id is the ad's ID"),
+        (exclude("\u00b2"), "listing_id is the ad's ID"),
         (
             set_("1", {"bedrooms": 2}, {"bedrooms": 1}, evidence=[QUOTE]),
             "a set needs evidence",
@@ -87,7 +117,7 @@ def write(folder, name, lines):
                 "1",
                 {"bedrooms": 2},
                 {"bedrooms": 1},
-                evidence=[QUOTE, {"kind": "read"}],
+                evidence=[QUOTE, {"kind": "read", "detail": "the reader agrees"}],
             ),
             "a set needs evidence",
         ),
@@ -101,6 +131,8 @@ def write(folder, name, lines):
             "full_baths takes a whole",
         ),
         (set_("1", {"square_feet": 0}, {"square_feet": None}), "a size above 0"),
+        (set_("1", {"square_feet": float("nan")}, {"square_feet": None}), "NaN is no"),
+        (set_("1", {"bedrooms": 1.5}, {"bedrooms": 1}), "bedrooms takes a whole"),
         (set_("1", {"bedrooms": -1}, {"bedrooms": 1}), "at least 0"),
         (set_("1", [2], {"bedrooms": 1}), "a set gives one of"),
         (line(change="retract", entry="abc"), "entry is the 16 hex digits"),
@@ -145,6 +177,13 @@ def test_read_refuses(tmp_path):
             ledger.read([path])
 
 
+def test_read_keeps_line_separators_in_strings(tmp_path):
+    """JSON allows U+2028 inside a string, and the line stays whole."""
+    text = json.dumps(json.loads(exclude("1", note="a\u2028b")), ensure_ascii=False)
+    [row] = ledger.read([write(tmp_path, "a.ndjson", [text])])
+    assert row["note"] == "a\u2028b" and row["entry"] == ledger.entry_id(text)
+
+
 def test_read_orders_files_by_name(tmp_path):
     first = exclude("1")
     later = write(tmp_path, "2026-10-17.ndjson", [retract(first)])
@@ -167,6 +206,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - d: a size set applies, and its retract undoes it.
     - e: a bath set gives the full and half bathrooms and leaves `bathrooms` as it was.
     - f: a bedroom set made on another bedroom count goes stale.
+    - g: a size set on a row with no size applies, as its `when` gives null.
+    - h: a size set on a row with a size applies.
     - an exclude of an ad with no kept row stays absent.
 
     Only analysis.rows and the two ledger models build again, and analysis.latest_ask stays as
@@ -181,6 +222,14 @@ def test_ledger_cases(tmp_path, monkeypatch):
     )
     a, b, c, d, e, f = (row for _, row in kept.iterrows())
     sqft = None if pd.isna(d.square_feet) else d.square_feet
+    others = tuple(kept.listing_id)
+    g, h = (
+        ctx.fetchdf(
+            f"""SELECT * FROM analysis.kept WHERE listing_id NOT IN {others}
+            AND square_feet IS {sized} NULL ORDER BY listing_id LIMIT 1"""
+        ).iloc[0]
+        for sized in ("", "NOT")
+    )
     entries = {
         "a": exclude(a.listing_id, {"period": a.month}),
         "a twice": exclude(a.listing_id, {"bedrooms": a.bedrooms}, note="twice"),
@@ -194,6 +243,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
             {"full_baths": int(e.full_baths), "half_baths": int(e.half_baths)},
         ),
         "f": set_(f.listing_id, {"bedrooms": 9}, {"bedrooms": f.bedrooms + 1}),
+        "g": set_(g.listing_id, {"square_feet": 600}, {"square_feet": None}),
+        "h": set_(h.listing_id, {"square_feet": 999}, {"square_feet": h.square_feet}),
         "absent": exclude("1", {"period": "2019-08"}),
     }
     lines = list(entries.values())
@@ -218,6 +269,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
         ids["d"]: ("retracted", ""),
         ids["e"]: ("live", ""),
         ids["f"]: ("stale", "bedrooms"),
+        ids["g"]: ("live", ""),
+        ids["h"]: ("live", ""),
         ids["absent"]: ("absent", ""),
         ledger.entry_id(retract(entries["a twice"])): ("retract", ""),
         ledger.entry_id(retract(entries["d"])): ("retract", ""),
@@ -228,14 +281,20 @@ def test_ledger_cases(tmp_path, monkeypatch):
     )
     assert count == 1
     differ = ctx.fetchdf(
-        """SELECT listing_id, bedrooms, full_baths, half_baths, bathrooms
+        """SELECT listing_id, bedrooms, full_baths, half_baths, bathrooms, square_feet
         FROM (SELECT * FROM analysis.rows EXCEPT SELECT * FROM analysis.kept)
         ORDER BY listing_id"""
     )
-    assert differ.values.tolist() == [
-        [c.listing_id, 8, c.full_baths, c.half_baths, c.bathrooms],
-        [e.listing_id, e.bedrooms, 5, 1, e.bathrooms],
-    ]
+    rows = {
+        c.listing_id: [8, c.full_baths, c.half_baths, c.bathrooms, c.square_feet],
+        e.listing_id: [e.bedrooms, 5, 1, e.bathrooms, e.square_feet],
+        g.listing_id: [g.bedrooms, g.full_baths, g.half_baths, g.bathrooms, 600],
+        h.listing_id: [h.bedrooms, h.full_baths, h.half_baths, h.bathrooms, 999],
+    }
+    expected = pd.DataFrame(
+        [[key, *values] for key, values in sorted(rows.items())], columns=differ.columns
+    )
+    pd.testing.assert_frame_equal(differ, expected, check_dtype=False)
     pd.testing.assert_frame_equal(latest_ask(ctx), before)
 
 
@@ -269,14 +328,20 @@ def test_repo_ledger_reads():
 
 
 def test_repo_ledger_only_grows():
-    """Each ledger file on master's side of the merge base keeps its lines as they were, and
-    new lines go at its end."""
+    """Each ledger file at the merge base with master keeps its lines as they were, with new
+    lines at its end, and each new file sorts after the base's files."""
     try:
         base = git("merge-base", "HEAD", "origin/master").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         pytest.skip("no merge base with origin/master")
-    for name in git("ls-tree", "--name-only", base, "ledger/").split():
+    names = git("ls-tree", "--name-only", base, "ledger/").split()
+    for name in names:
         old = git("show", f"{base}:pipeline/{name}")
         path = PROJECT / name
         assert path.exists(), f"{name} is gone"
         assert path.read_text().startswith(old), f"{name} changed above its end"
+    # A new file sorts after the merge base's files, as the ledger applies files in that order.
+    last = max((Path(name).name for name in names), default="")
+    for path in (PROJECT / "ledger").glob("*.ndjson"):
+        if f"ledger/{path.name}" not in names:
+            assert path.name > last, f"{path.name} sorts before {last}"

@@ -463,24 +463,41 @@ and counts the entries by status and change.
 in the rule's provenance file to find the row's ad and its recorded values. Then it gathers the
 evidence: the ad's words from the rule file, the reads and floor plans in `config/reviews/`
 that decided the correction, and the unit's other ads in the latest analysis dataset. Those
-ads back a set when more of them give the corrected value than give the recorded one. A set
-without backing goes to `config/reviews/ledger-held-2026-10-16-chain.jsonl` instead, with the
-counts of the unit's other ads, for a reader to look for backing. A second run writes a new
-batch with only the corrections the ledger lacks, so it can follow a new rule version.
+ads back a set when more of them give the corrected value than give the recorded one. A size
+set rests on the unit's other ads with the same bedroom count and a size within 10% of the
+corrected one, or, when the rule decided it from the unit's line, on the other units of the
+line with that bedroom count and size.
 
-| rule | corrections | sets or excludes in the ledger | held |
-|---|--:|--:|--:|
-| `bedrooms-ad-v3` | 148 | 92 | 56 |
-| `bedrooms-ad-v4` | 22 | 21 | 1 |
-| `bedrooms-ad-v5` | 4 | 4 | 0 |
-| `bedrooms-ad-v6` | 13 | 13 | 0 |
-| `bedrooms-ad-v7` | 17, 13 of them from v6 | 2 | 2 |
-| `baths-ad-v3` | 59 | 35 | 24 |
-| `sqft-units-v1` | 12 | 12 | 0 |
-| `quarantine-v32` | 889 | 889 | 0 |
+A size a read found stated for the unit backs a bedroom set only when the corrected count's
+median size lies nearest to it of all the counts' medians, as 827 sq ft does for a one-bedroom.
+The 1,400 sq ft of a studio corrected to two bedrooms lies nearest the three-bedroom median, so
+the importer keeps it as a read, and the set needs other backing.
 
-Of the 179 sets, 158 rest on the unit's other ads, 27 on a size a read found stated for the
-unit, 5 on a floor plan and 2 on units of the same line, some on more than one.
+A set without backing goes to `config/reviews/ledger-held-2026-10-16-chain.jsonl` instead,
+with the counts of the unit's other ads, for a reader to look for backing. A second run of the
+importer leaves out each correction from a rule file and line already in the ledger, and each
+one repeating the latest entry for its ad and field, so it writes only a new rule version's new
+decisions.
+
+| rule | corrections | in the chain batch | backed by a later read | held |
+|---|--:|--:|--:|--:|
+| `bedrooms-ad-v3` | 148 | 92 | 9 | 47 |
+| `bedrooms-ad-v4` | 22 | 13 | 0 | 9 |
+| `bedrooms-ad-v5` | 4 | 4 | 0 | 0 |
+| `bedrooms-ad-v6` | 13 | 10 | 0 | 3 |
+| `bedrooms-ad-v7` | 17, 13 of them from v6 | 2 | 2 | 0 |
+| `baths-ad-v3` | 59 | 35 | 1 | 23 |
+| `sqft-units-v1` | 12 | 12 | 0 | 0 |
+| `quarantine-v32` | 889 | 889 | 0 | 0 |
+
+Of the batch's 168 sets, 158 rest on the unit's other ads, 12 on a stated size, 6 on a floor
+plan, 2 on units of the same line and 2 on Ben's own review, some on more than one.
+
+Data improvements read the first list of held sets with Sonnet subagents, looking for backing.
+`pipeline/ledger/2026-10-16-held-reads.ndjson` holds the 12 sets they backed, 7 by another ad
+for the unit and 5 by units of the same line. The held column counts the 70 sets still without
+backing from that list, and 12 bedroom sets of v4 and v6 whose stated size lies nearest a third
+count.
 
 `pipeline/ledger/2026-10-16-short-stay.ndjson` excludes three short-stay ads Data improvements
 found on Oct 16, in a second regex pass over the reads of the API rows.
@@ -492,16 +509,17 @@ The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-co
 ### Check build
 
 I built a copy of the Oct 15 production state with the ledger, at `PIPELINE_MEMORY=3GB` under a
-6 GB cap. The plan took 591 s, 426 s of it in `ads.record_attributes`, and the build script
-peaked at 4.1 GiB. The ledger's 1,068 lines came out as:
+6 GB cap. The first plan took 591 s, 426 s of it in `ads.record_attributes`, and the build
+script peaked at 4.1 GiB. After the ledger changed, the next build rebuilt the two ledger models
+and `analysis.rows` in 6.3 s, with a peak of 3.3 GiB. The ledger's 1,072 lines came out as:
 
 | status | excludes | sets |
 |---|--:|--:|
-| `live` | 854 | 169 |
-| `absent` | 35 | 10 |
+| `live` | 857 | 169 |
+| `absent` | 35 | 11 |
 
-The 45 absent entries are for ads with no API record in runs 1 to 5. Only the page crawl found
-them. `analysis.rows` holds 1,746,286 rows, 854 fewer than `analysis.kept`.
+The 46 absent entries are for ads with no API record in runs 1 to 5. Only the page crawl found
+them. `analysis.rows` holds 1,746,283 rows, 857 fewer than `analysis.kept`.
 
 No ad of the six API region references has an entry in the ledger. For each of their 1,923,491
 rows, `analysis.rows` holds a row with the same ad and price day, and with the same bedrooms,
@@ -520,16 +538,16 @@ fit-ready rows by ad:
 | of ads losing the unit-month check to another ad | 63 |
 | of ads dropped by their API record's exclusions | 15 |
 
-Of the matched rows, 55 differ in bedrooms, 17 in bathrooms and 3 in size:
+Of the matched rows, 58 differ in bedrooms, 16 in bathrooms and 3 in size:
 
-- In 52 of the bedroom differences and all 17 bath differences, the reference applies a set of
-  `bedrooms-ad-v3`, `bedrooms-ad-v4` or `baths-ad-v3` held back for want of backing, and the
+- In 55 of the bedroom differences and all 16 bath differences, the reference applies a held
+  set of `bedrooms-ad-v3`, `bedrooms-ad-v4`, `bedrooms-ad-v6` or `baths-ad-v3`, and the
   fit-ready row keeps the recorded value.
 - The other 3 bedroom differences and the 3 size differences come from six ads listed from July
   to October 2026. For each of them, the page capture and the latest API record give different
   values, and the reference keeps the page's value.
 
-In the reference's neighbourhoods, `analysis.kept` holds another 58,091 rows with no ledger
+In the reference's neighbourhoods, `analysis.kept` holds another 58,088 rows with no ledger
 exclude. They are API ads missing from the page crawl.
 
 ## Differences from the chain
@@ -560,7 +578,7 @@ when an item here or an entry of the corrections ledger accounts for it.
    of early November. On runs 1 to 5, 124,228 ads list changes with both offsets, and each of
    them gets the same order either way.
 6. A correction without backing. The chain applies each correction of its rules, while the
-   ledger leaves out a set until it has evidence beyond the ad's words. The 83 sets of the
+   ledger leaves out a set until it has evidence beyond the ad's words. The 82 sets of the
    chain's latest rules held this way are in `config/reviews/ledger-held-2026-10-16-chain.jsonl`,
    and their rows keep the recorded value.
 7. The values of an ad's captured page. The page-crawl chain takes an ad's values from the page
