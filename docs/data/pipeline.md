@@ -1236,6 +1236,79 @@ Of the matched rows, 47 differ in bedrooms, 16 in bathrooms and 3 in size:
 In the reference's neighbourhoods, `analysis.kept` holds another 58,088 rows with no ledger
 exclude. They are API ads missing from the page crawl.
 
+## Ads file
+
+The rows file holds the fit-ready rows only. Each build also writes `analysis.ads` to a file
+such as `ads-<hash>.parquet` in OUT, with a row for every ad with a record, kept or dropped, and
+adds the file's name, SHA-256 and row count to its catalog line under `ads_file`. I wrote it for
+these readers:
+
+- the website's current listings, which read the API captures under
+  `/data1/apartments/archive/current-listings` until they move to this file;
+- Data improvements, which reads a unit's other ads when it looks for the evidence behind a
+  correction.
+
+The comment at the top of `pipeline/models/analysis/ads.sql` lists the columns and the step each
+comes from. These columns need more than a line:
+
+- `page_price` is the latest record's price, the ask an ad shows on its page now. `first_ask`
+  is the ask on the ad's first day, from `ads.exclusions`, and `latest_ask` is the latest ask
+  of the ad's fit-ready row, from `analysis.latest_ask`. An ad without a kept row has no
+  `latest_ask`.
+- `status` and `days_on_market` are the latest record's own, as the API wrote them.
+- `floor_plans` lists the keys of the latest record's floor plan images. Data improvements
+  fetches a plan from `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. An empty list means
+  the record lists no plans, and a missing one means it has no `media`.
+- `last_change`, `break_status`, `break_day` and `back_day` come from `ads.breaks`. The website
+  shows an ad back on the market with the status and day of its latest break, which it now reads
+  from the history on the ad's page.
+- `regions` lists the export regions of the ad's answers, from `ads.regions`.
+- `ledger_entries` lists the ledger's live entries for the ad, and `in_rows` says whether it
+  has a fit-ready row.
+
+The file leaves out the ad's description and its other text. A reader takes them from the
+answer `response_id` in the export, as `ops/pipeline/ads_check.py` does for the histories.
+
+The breaks and the regions are tables of their own. When the view worked them out itself, the
+build's sorted copy of the view went past the 3 GB of memory build-latest gives DuckDB.
+
+StreetEasy rewrites an ad's status changes between answers. Answers of Oct 15 listed changes off
+the market at 03:11 on Oct 14 and Oct 15 for some ads, and answers of Oct 16 listed the same ads
+back on the market without them. The event log keeps every change any answer listed, so
+`ads.breaks` reads only the changes of the ad's latest record: the events with that record's fetch
+as their `last_seen`. Before I added that filter, the check below found 7 ACTIVE ads with a last
+change or break other than the one in their latest record's history.
+
+I check a build's file with
+
+```sh
+pipeline/.venv/bin/python ops/pipeline/ads_check.py [--ads FILE]
+```
+
+The script compares the file with the website's API captures and with the histories of the
+ads' latest records. Its docstring lists the steps. I built runs 1 to 10 from empty in a scratch
+state at 14:08 ET on Oct 16. The build took 229 s at a 4,199 MiB peak, against 199 s for the same
+build without the ads file, with 2.7 s in `ads.breaks`, 1.3 s in `ads.regions` and 14 s writing
+both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. The check took
+5 s at a 493 MiB peak:
+
+- Each of the 7,008 ads in the website's five captures of Oct 16 has a row. For 6,997 of them,
+  the file's latest record is the captured answer, and the other 11 have a later answer.
+- On those 6,997 ads, the status, page price, building, unit page, elevator and doorman type
+  agree for every ad, and no field gives two different values. A field can still have a value
+  on one side only:
+  - In 19 cases the capture has a value and the file has none. The ad's two records disagree,
+    so the merge leaves the field unknown and lists it in `conflicts`, while the capture reads
+    the latest record alone. They are 13 bedroom counts, 3 bath counts, a size and 2 laundry
+    types.
+  - In 9 cases the file has a value from the ad's earlier record, and the capture has none
+    because the latest record leaves the field out. They are 5 short-term flags, 2 laundry
+    types, a size and a furnished flag.
+
+  A reader who needs the latest record's own value for such an ad takes it from the export.
+- All 7,013 ACTIVE ads have the same last change and latest break as the history in their latest
+  record, and 644 of them are back on the market after a break.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
