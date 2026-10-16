@@ -361,6 +361,8 @@ square feet, it printed:
 ```
 analysis.candidates: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
   listing_id=3120884: square_feet 1200.0 -> null
+analysis.corrected: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
 analysis.kept: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
   listing_id=3120884: square_feet 1200.0 -> null
 analysis.rows: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
@@ -1689,8 +1691,8 @@ in all, and most tests add made-up ads to that export. The tests:
     stays as it was and that each new file sorts after master's files;
 25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
     `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test
-    checks the changed rows of `analysis.candidates`, `analysis.kept` and `analysis.rows`
-    against the base's sizes above the bound, finds the new column and the new model, and finds
+    checks the changed rows of `analysis.candidates`, `analysis.kept`, `analysis.corrected` and
+    `analysis.rows` against the base's sizes above the bound, finds the new column and the new model, and finds
     no other model changed. A second copy drops the price events of `ads.history_events`, a
     model without a grain, and the test checks the count of rows only in the base. A third copy drops sizes in `pipeline/steps/attributes.py`
     and spaces the JSON of `canonical` in `src`, and the test finds both changes in
