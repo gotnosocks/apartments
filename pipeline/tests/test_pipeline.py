@@ -1084,8 +1084,10 @@ def test_market_cases(tmp_path, monkeypatch):
     """Ad 9000050 goes into contract and back on the market before it rents, ad 9000051 is
     paused and back on the market, ad 9000052 never goes on it, and ad 9000053 has no status
     changes. Ad 9000054 has two answers, and the later one ends it. Ad 9000055 lists two pairs
-    of changes at a shared instant, in an order other than the alphabet's. Ad 9000051's latest
-    answer has no record, and ad 9000053's latest record has no daysOnMarket."""
+    of changes at a shared instant, in an order other than the alphabet's. Ad 9000056 has two
+    answers, and the later one leaves out the earlier one's ending, so the ad stays on the
+    market. Ad 9000051's latest answer has no record, and ad 9000053's latest record has no
+    daysOnMarket."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     back = [
@@ -1135,6 +1137,15 @@ def test_market_cases(tmp_path, monkeypatch):
                 days=10,
             ),
         ),
+        (
+            9000056,
+            market_record(
+                9000056,
+                [("2026-08-01", "ACTIVE"), ("2026-08-20", "NO_LONGER_AVAILABLE")],
+                days=19,
+            ),
+        ),
+        (9000056, market_record(9000056, [("2026-08-01", "ACTIVE")], days=32)),
         (9000051, None),
     ]
     append_answers(
@@ -1176,6 +1187,7 @@ def test_market_cases(tmp_path, monkeypatch):
         + ["NO_LONGER_AVAILABLE", "2026-07-31", 31, None],
         ["9000055", day, "NO_LONGER_AVAILABLE", "2026-06-02", "2026-06-12", 10, 1]
         + ["NO_LONGER_AVAILABLE", "2026-06-12", 10, None],
+        ["9000056", day, "ACTIVE", "2026-08-01", None, 32, 1, None, None, 32, None],
     ]
 
 
