@@ -757,11 +757,15 @@ def test_exclusion_cases(tmp_path, monkeypatch):
 
 def market_record(listing_id, changes, days=None, rented=None):
     """A record of ad `listing_id` with a status change for each (day, status) pair of
-    `changes`, at 10:00 New York time, and its daysOnMarket and rentedPrice."""
+    `changes`, at 10:00 New York time or at the hour a third item gives, and its daysOnMarket
+    and rentedPrice."""
     record = json.loads(history_record(listing_id, None))
     record["statusChanges"] = [
-        {"changedAt": f"{day}T10:00:00.000-04:00", "status": status}
-        for day, status in changes
+        {
+            "changedAt": f"{day}T{hour[0] if hour else '10'}:00:00.000-04:00",
+            "status": status,
+        }
+        for day, status, *hour in changes
     ]
     record["status"] = changes[-1][1] if changes else "DRAFT"
     record["daysOnMarket"] = days
@@ -772,14 +776,16 @@ def market_record(listing_id, changes, days=None, rented=None):
 def test_market_cases(tmp_path, monkeypatch):
     """Ad 9000050 goes into contract and back on the market before it rents, ad 9000051 is
     paused and back on the market, ad 9000052 never goes on it, and ad 9000053 has no status
-    changes. Ad 9000054 has two answers, and the later one ends it."""
+    changes. Ad 9000054 has two answers, and the later one ends it. Ad 9000055 lists two pairs
+    of changes at a shared instant, in an order other than the alphabet's. Ad 9000051's latest
+    answer has no record, and ad 9000053's latest record has no daysOnMarket."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     back = [
         ("2026-05-01", "ACTIVE"),
         ("2026-05-11", "IN_CONTRACT"),
         ("2026-05-15", "ACTIVE"),
-        ("2026-05-15", "ACTIVE"),
+        ("2026-05-15", "ACTIVE", "16"),
         ("2026-05-20", "RENTED"),
     ]
     paused = [
@@ -796,6 +802,7 @@ def test_market_cases(tmp_path, monkeypatch):
                 9000052, [("2026-05-01", "DRAFT"), ("2026-05-03", "DELISTED")], days=0
             ),
         ),
+        (9000053, market_record(9000053, [], days=7)),
         (9000053, market_record(9000053, [])),
         (9000054, market_record(9000054, [("2026-07-01", "ACTIVE")], days=30)),
         (
@@ -806,6 +813,22 @@ def test_market_cases(tmp_path, monkeypatch):
                 days=31,
             ),
         ),
+        (
+            9000055,
+            market_record(
+                9000055,
+                [
+                    ("2026-06-01", "DRAFT"),
+                    ("2026-06-02", "IN_STREETEASY_REVIEW"),
+                    ("2026-06-02", "ACTIVE"),
+                    ("2026-06-02", "ACTIVE", "15"),
+                    ("2026-06-12", "RENTED"),
+                    ("2026-06-12", "NO_LONGER_AVAILABLE"),
+                ],
+                days=10,
+            ),
+        ),
+        (9000051, None),
     ]
     append_answers(
         export,
@@ -818,9 +841,9 @@ def test_market_cases(tmp_path, monkeypatch):
                 "run": 5,
                 "region": "cases",
                 "generation": 1,
-                "outcome": "record",
+                "outcome": ["missing" if r[1] is None else "record" for r in records],
                 "record_sha256": [
-                    hashlib.sha256(r[1].encode()).hexdigest() for r in records
+                    r[1] and hashlib.sha256(r[1].encode()).hexdigest() for r in records
                 ],
                 "record": [r[1] for r in records],
             }
@@ -846,6 +869,8 @@ def test_market_cases(tmp_path, monkeypatch):
         ["9000053", day, "DRAFT", None, None, 0, 0, None, None, None, None],
         ["9000054", day, "NO_LONGER_AVAILABLE", "2026-07-01", "2026-07-31", 30, 1]
         + ["NO_LONGER_AVAILABLE", "2026-07-31", 31, None],
+        ["9000055", day, "NO_LONGER_AVAILABLE", "2026-06-02", "2026-06-12", 10, 1]
+        + ["NO_LONGER_AVAILABLE", "2026-06-12", 10, None],
     ]
 
 

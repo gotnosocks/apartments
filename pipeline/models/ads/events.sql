@@ -20,20 +20,34 @@ MODEL (
 -- once. `answers` counts the answers that reported it, from any ad, and `first_seen` and
 -- `first_response_id` give the first of them. `own` says whether an answer of the ad itself
 -- reported it, and `own_first_seen` and `own_first_response_id` give the first such answer.
+-- `list_index` gives a status or price change's place in its list, counting from 1, in the
+-- latest answer that reported it. Two changes can share an instant, and the index keeps the
+-- record's order between them.
 WITH reports AS (
     SELECT listing_id, 'fetch' AS source,
         CASE WHEN outcome = 'record' THEN status ELSE 'MISSING' END AS kind,
         (fetched AT TIME ZONE 'America/New_York')::DATE AS day, fetched AS at,
-        page_price AS price, fetched, response_id
+        page_price AS price, fetched, response_id, NULL::BIGINT AS list_index
     FROM ads.answers
     UNION ALL
-    SELECT DISTINCT listing_id, 'status', c.status, left(c.changedAt, 10)::DATE,
-        c.changedAt::TIMESTAMPTZ, NULL::DOUBLE, fetched, response_id
-    FROM (SELECT *, unnest(status_changes) AS c FROM ads.answers)
+    -- A change listed twice in one record counts once for the answer, at its last place.
+    SELECT listing_id, 'status', c.status, left(c.changedAt, 10)::DATE,
+        c.changedAt::TIMESTAMPTZ, NULL::DOUBLE, fetched, response_id, max(i)
+    FROM (
+        SELECT listing_id, fetched, response_id,
+            unnest(status_changes) AS c, generate_subscripts(status_changes, 1) AS i
+        FROM ads.answers
+    )
+    GROUP BY ALL
     UNION ALL
-    SELECT DISTINCT listing_id, 'price', 'PRICE', left(c.changedAt, 10)::DATE,
-        c.changedAt::TIMESTAMPTZ, c.price, fetched, response_id
-    FROM (SELECT *, unnest(price_changes) AS c FROM ads.answers)
+    SELECT listing_id, 'price', 'PRICE', left(c.changedAt, 10)::DATE,
+        c.changedAt::TIMESTAMPTZ, c.price, fetched, response_id, max(i)
+    FROM (
+        SELECT listing_id, fetched, response_id,
+            unnest(price_changes) AS c, generate_subscripts(price_changes, 1) AS i
+        FROM ads.answers
+    )
+    GROUP BY ALL
 ),
 histories AS (
     SELECT history,
@@ -62,7 +76,8 @@ events AS (
         arg_min(response_id, (fetched, response_id)) AS first_response_id,
         count(*) AS answers,
         min(fetched) AS own_first_seen,
-        arg_min(response_id, (fetched, response_id)) AS own_first_response_id
+        arg_min(response_id, (fetched, response_id)) AS own_first_response_id,
+        arg_max(list_index, (fetched, response_id)) AS list_index
     FROM reports
     GROUP BY listing_id, source, kind, day, at, price
     UNION ALL
@@ -72,7 +87,8 @@ events AS (
         arg_min(h.first_response_id, h.first_report),
         sum(h.answers)::BIGINT,
         min(o.first_seen),
-        arg_min(o.first_response_id, o.first_report)
+        arg_min(o.first_response_id, o.first_report),
+        NULL::BIGINT
     FROM ads.history_events e
     JOIN histories h USING (history)
     LEFT JOIN own_histories o ON o.history = e.history AND o.listing_id = e.listing_id
@@ -80,5 +96,5 @@ events AS (
 )
 SELECT listing_id::VARCHAR AS listing_id, source, kind, day, at, price,
     own_first_seen IS NOT NULL AS own, first_seen, last_seen, first_response_id, answers,
-    own_first_seen, own_first_response_id
+    own_first_seen, own_first_response_id, list_index
 FROM events

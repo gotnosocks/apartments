@@ -97,6 +97,12 @@ event in a unit history may come first from a sibling's answer, so `own_first_se
 such an answer. Through `raw.ads`, an answer's `(listing_id, response_id)` leads back to the
 export file and its manifest line.
 
+A record can list two status changes or two price changes at the same instant, and only the
+record's order tells which came last. So each status and price change keeps `list_index`, its
+place in its list in the latest answer that reported it, counting from 1. On runs 1 to 5, the
+price change last in order of time and then of `list_index` matches the last item of the latest
+record's `priceChanges` for every one of the 2,137,997 ads.
+
 Each ad's record repeats its unit's whole history, so a unit with n ads holds about n² copies
 of each of its events. Parsing every copy and grouping them in one query ran out of a 3 GB
 memory limit on thelio. So `ads.answers` parses each record once and keeps an MD5 of its
@@ -115,9 +121,10 @@ in `ads.events`.
 
 ## Days on market
 
-`ads.market` reads each ad's status changes from the event log and puts them in order of time.
-Each change holds until the next one, and the last holds until the New York date of the ad's
-latest answer with a record. The model takes from them:
+`ads.market` reads each ad's status changes from the event log and puts them in order of time,
+and in the record's order when two share an instant. Each change holds until the next one, and
+the last holds until the New York date of the ad's latest answer with a record. The model takes
+from them:
 
 - `on_day`, the day of the first change to ACTIVE, which StreetEasy gives as `onMarketAt`;
 - `off_day`, the day of the last change from ACTIVE or IN_CONTRACT to another status, given as
@@ -131,25 +138,26 @@ latest answer with a record. The model takes from them:
 It also keeps the status, `daysOnMarket` and `rentedPrice` of the ad's latest record, as the
 API wrote them, so a reader can compare StreetEasy's count with the event log's.
 
-I ran the model's query on a scratch build of runs 1 to 5. It took 4.4 s and gave 2,137,997
+I ran the model's query on a scratch build of runs 1 to 5. It took 4.1 s and gave 2,137,997
 ads. The 2,117,296 of them with an ACTIVE change each have an `on_day` equal to the record's
-`onMarketAt`. Of the 2,108,659 ads with both an `off_day` and an `offMarketAt`, 2,108,375 agree.
-The other 284, and 440 ads with an `off_day` but no `offMarketAt`, pass through a draft or
+`onMarketAt`. Of the 2,108,659 ads with both an `off_day` and an `offMarketAt`, 2,108,387 agree.
+The other 272, and 440 ads with an `off_day` but no `offMarketAt`, pass through a draft or
 review status, and StreetEasy counts those as on the market. Another 10,780 ads have an
 `offMarketAt` and no `off_day`, and 10,773 of them have no ACTIVE change at all.
 
-Of the ads on the market, 1,919,551 went on it once, 162,258 twice and 35,487 three times or
+Of the ads on the market, 1,921,832 went on it once, 160,211 twice and 35,253 three times or
 more. The median ad spent 14 days on the market, and the middle half spent 6 to 31.
-2,118,171 ads have an ending: 1,034,220 rented, 735,138 no longer available and 348,813
+2,118,172 ads have an ending: 1,034,220 rented, 735,138 no longer available and 348,814
 delisted. Of the 23,925 ads with a `rentedPrice`, 22,205 end rented.
 
-StreetEasy's `daysOnMarket` equals `active_days` for 1,985,037 of the 2,117,296 ads on the
-market, 93.8%, and comes within a day for 2,025,001, 95.6%. So StreetEasy leaves out the days in
-contract and the days paused, as `active_days` does. It counts more than a day more for 61,771
-ads and more than a day fewer for 30,524. Agreement is lowest for ads first on the market in
-2016 to 2018, with 89% to 90% exact, and reaches 96% to 97% for 2021 on. For the ads with more
-days in StreetEasy's count, the status changes show nothing to account for them. Ad 4616858 has
-575 days on StreetEasy's count and 92 in its changes, and ad 4599884 has 65 and 12. The model
+StreetEasy's `daysOnMarket` equals `active_days` for 1,984,995 of the 2,117,296 ads on the
+market, 93.8%, and comes within a day for 2,024,992, 95.6%. So StreetEasy leaves out the days in
+contract and the days paused, as `active_days` does. It counts more than a day more for 61,748
+ads and more than a day fewer for 30,556. Agreement is lowest for ads first on the market in
+2016 to 2018, with 89% to 90% exact. It reaches 96% to 97% for 2021 to 2024 and about 96% for
+2025 and 2026. For the ads with more days in StreetEasy's count, the status changes show
+nothing to account for them. Ad 4616858 has 575 days on StreetEasy's count and 92 in its
+changes, and ad 4599884 has 65 and 12. The model
 keeps both counts, and the fit-ready step picks one.
 
 ## Attributes and exclusions
@@ -250,10 +258,12 @@ row. Their records hold no unit histories. The tests:
     `PYTHONPATH`, parses the same records into a second cache folder, each with 9 bedrooms;
 14. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
     with the files of the code version;
-15. add made-up ads to the cases: an ad put in contract, back on the market and rented, with a
-    status change repeated, an ad paused and back on the market, an ad delisted from a draft, an ad without
-    status changes, and an ad with two answers, the later of which ends it. The test checks
-    each ad's days, spans, ending and record fields by value.
+15. add made-up ads to the cases: an ad put in contract, back on the market twice in a day and
+    rented, an ad paused and back on the market, an ad delisted from a draft, an ad without
+    status changes, an ad with two answers, the later of which ends it, and an ad whose record
+    lists two pairs of changes at shared instants in an order other than the alphabet's. One
+    ad's latest answer has no record, and another's latest record has no `daysOnMarket`. The
+    test checks each ad's days, spans, ending and record fields by value.
 
 They take about 35 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets

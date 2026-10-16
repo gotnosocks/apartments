@@ -9,9 +9,9 @@ MODEL (
     description 'Each ad''s time on the market and its ending, from the status changes in its event log.'
 );
 
--- An ad's status changes come from its own records. In order of time, each change holds until
--- the next one, and the last holds until `as_of`, the New York date of the ad's latest answer
--- with a record.
+-- An ad's status changes come from its own records. The model puts them in order of time, and
+-- in the record's order when two share an instant. Each change holds until the next one, and the
+-- last holds until `as_of`, the New York date of the ad's latest answer with a record.
 --   on_day:       the day of the first change to ACTIVE, as in the record's onMarketAt.
 --   off_day:      the day of the last change from ACTIVE or IN_CONTRACT to another status,
 --                 as in the record's offMarketAt. An ad whose last change is to ACTIVE or
@@ -27,17 +27,17 @@ MODEL (
 WITH latest AS (
     SELECT listing_id::VARCHAR AS listing_id,
         max((fetched AT TIME ZONE 'America/New_York')::DATE) AS as_of,
-        arg_max(status, (fetched, response_id)) AS status,
-        arg_max(days_on_market, (fetched, response_id)) AS record_days_on_market,
-        arg_max(rented_price, (fetched, response_id)) AS rented_price
+        arg_max_null(status, (fetched, response_id)) AS status,
+        arg_max_null(days_on_market, (fetched, response_id)) AS record_days_on_market,
+        arg_max_null(rented_price, (fetched, response_id)) AS rented_price
     FROM ads.answers
     WHERE outcome = 'record'
     GROUP BY listing_id
 ),
 changes AS (
-    SELECT listing_id, kind, day, "at",
-        lag(kind) OVER (PARTITION BY listing_id ORDER BY "at", kind) AS previous,
-        lead(day) OVER (PARTITION BY listing_id ORDER BY "at", kind) AS next_day
+    SELECT listing_id, kind, day, "at", list_index,
+        lag(kind) OVER (PARTITION BY listing_id ORDER BY "at", list_index) AS previous,
+        lead(day) OVER (PARTITION BY listing_id ORDER BY "at", list_index) AS next_day
     FROM ads.events
     WHERE source = 'status'
 ),
@@ -49,8 +49,8 @@ spans AS (
         ) AS last_exit,
         sum(date_diff('day', c.day, coalesce(c.next_day, l.as_of))) FILTER (WHERE c.kind = 'ACTIVE') AS active_days,
         count(*) FILTER (WHERE c.kind = 'ACTIVE' AND c.previous IS DISTINCT FROM 'ACTIVE') AS active_spans,
-        arg_max(c.kind, (c."at", c.kind)) AS last_kind,
-        arg_max(c.day, (c."at", c.kind)) AS last_day
+        arg_max(c.kind, (c."at", c.list_index)) AS last_kind,
+        arg_max(c.day, (c."at", c.list_index)) AS last_day
     FROM changes c
     JOIN latest l USING (listing_id)
     GROUP BY c.listing_id
