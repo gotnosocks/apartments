@@ -21,7 +21,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    [fit-ready-rows.md](../data/fit-ready-rows.md).
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
    market and the ending as views of it, and exclusions as flags with reasons. **Started**:
-   the event log and each ad's first ask merged in #870.
+   the event log and each ad's first ask merged in #870, and each ad's attributes and reasons
+   to drop it in #872.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -61,12 +62,11 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    each analysis row's `price_at` and `asking_rent` equal its ad's first day and the single
    price of that day. The worktree `/data1/apartments/tmp/pipeline/wt-events` can start the next
    branch from master. The rest of step 4, a PR each:
-   1. each answer's attributes, as `apartments.graphql_listing` parses them, and
-      `project_advertisement`'s reasons to drop an ad as flags. The current chain writes each
-      ad's reasons to `audit.jsonl` in each slice of
-      `/data1/apartments/frontier/datasets/api-history-20261015/`. In
-      `brooklyn-north-crown-heights-01`, 14,928 of 119,992 ads drop, 7,643 of them for a
-      concession: a record with `monthsFree` or `netEffectiveRent` above zero.
+   1. **Done** in #872: each record's attributes as the chain parses them, merged per ad, and
+      `project_advertisement`'s reasons to drop an ad. On runs 1 to 5 they equal the chain's
+      audit of the four regions for the 1,692,593 ads with no answer after the audit, in all
+      reasons but the three of later steps and in all sixteen attributes and flags. A build from nothing takes 640 s, 451 s of it parsing records, and 199 s with the
+      parse cache. [pipeline.md](../data/pipeline.md) has the numbers.
    2. latest ask, days on market, checked against the record's `daysOnMarket`, and the ending as
       views of the events. Repeated price changes should collapse there: ad 2326634 has 799
       changes over two months cycling through 7 prices, and 1,814 ads have 100 or more. The
@@ -83,7 +83,12 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    4. `rentfrontier.cohort` on each slice: unit-month deduplication, floors and bathrooms;
    5. `cohort combine` and `cohort areas` for each region, and `split.py` to cut two regions by
       area.
-2. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
+2. **Done** in #873: the reference freeze now stops when an input changed after the
+   preparation started or while the script copied it, and when the preparation read a file
+   outside its scratch folder that it also wrote, opened for reading and writing, or deleted.
+   The preparation's `TMPDIR` points into its scratch folder. A freeze of the served fit's rows
+   with this code matched `served-nb8-5c1e5c7e` in its outputs and its 21 input hashes.
+3. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
    the rule entries keyed on `audit_id` to `(source_listing_id, price_at)`. The cases of
    `building-joins-v1` and `west-coast-wings-v1` are constants in the code and need copying into
    the ledger. `unit-splits-v4` splits unit histories by an algorithm over the rows, so it

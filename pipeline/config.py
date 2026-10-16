@@ -46,6 +46,29 @@ ROWS = Path(
 )
 STATE = Path(os.environ.get("PIPELINE_STATE", "/data1/apartments/pipeline/state"))
 
+# ads.record_attributes runs `steps.attributes`, which imports these modules of the current chain
+# from the repo's src. Its code version covers their files in this checkout.
+PIPELINE = Path(__file__).resolve().parent
+SRC = PIPELINE.parent / "src"
+ATTRIBUTES_MODULES = (
+    "steps.attributes",
+    "apartments",
+    "apartments.analytical",
+    "apartments.attribute_evidence",
+    "apartments.corrections",
+    "apartments.historical_dataset",
+    "apartments.research_pipeline",
+)
+
+
+def module_file(name):
+    root = PIPELINE if name.startswith("steps.") else SRC
+    path = root.joinpath(*name.split("."))
+    return path / "__init__.py" if path.is_dir() else path.with_suffix(".py")
+
+
+ATTRIBUTES_CODE = [module_file(name) for name in ATTRIBUTES_MODULES]
+
 
 def exported(table):
     """The listed files of an export table, sorted by path, and a SHA-256 over their lines."""
@@ -100,5 +123,9 @@ config = Config(
         "ads_version": ads_version,
         "rows": str(ROWS),
         "rows_version": file_sha256(ROWS),
+        "attributes_code": {
+            name: file_sha256(path)
+            for name, path in zip(ATTRIBUTES_MODULES, ATTRIBUTES_CODE)
+        },
     },
 )

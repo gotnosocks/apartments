@@ -2,8 +2,9 @@
 
 The rebuilt pipeline is a SQLMesh project over DuckDB, in `pipeline/`. So far it builds each
 analysis row's latest ask from the API export, as `rentfrontier.latest_ask` does, and a log of
-the events the API reported for each ad, with each ad's first ask. The later steps
-in [the pipeline handoff](../handoff/data-pipeline.md) add models to it.
+the events the API reported for each ad, with each ad's first ask. It also reads each ad's
+attributes from its records and gives the current chain's reasons for dropping the ad. The later
+steps in [the pipeline handoff](../handoff/data-pipeline.md) add models to it.
 
 The project keeps its own uv environment and lock, as `frontier/` does. SQLMesh 0.236.3 requires
 pandas below 3, and the repo's lock holds pandas 3.0.5.
@@ -58,11 +59,15 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.events` | table | event the API reported for an ad, with the answers that reported it |
 | `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
+| `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them |
+| `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
+| `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
-keys and nulls: one row per listing in `ads.latest_record` and `ads.first_ask`, per
-`(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per
-event in `ads.events` and per `ordinal` in the two analysis tables. The `every_row` audit, in
+keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.attributes`
+and `ads.exclusions`, per record in `ads.record_attributes`, per `(listing_id, response_id)` in
+`ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
+`ordinal` in the two analysis tables. The `every_row` audit, in
 `pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
 fails, the plan stops, and the tables from the last good plan stay in place.
 
@@ -106,6 +111,52 @@ which an ad's first day is known. A later answer can add a second price to that 
 `first_ask` keeps no time for it, so a replay of the cutoff reads each price's `own_first_seen`
 in `ads.events`.
 
+## Attributes and exclusions
+
+The current chain reads an ad's attributes in Python, in `apartments.graphql_listing` and
+`project_advertisement`. Its rules for features, amenities, floors and exposures run to several
+hundred lines. If I rewrote them in SQL, the repo would hold two copies to keep in step, so
+`ads.record_attributes` runs the chain's own functions through `pipeline/steps/attributes.py`.
+That module copies a few lines from the page parser, since the page parser retires with the
+move to API records. Its docstring lists the steps.
+
+`ads.record_attributes` is a Python model. It parses each distinct record once, in worker
+processes, and keeps the results in Parquet files in `attributes/<code version>/` beside the
+DuckDB database. A later build parses only records missing from those files, so a top-up
+parses just its new records. `config.py` hashes `steps/attributes.py` and its six imports from
+`src/apartments`, and passes each module's SHA-256 to the model in the variable
+`attributes_code`. The cache folder takes its name from a SHA-256 over that variable. When any
+of those files changes, the model writes to a new folder and gets a new fingerprint. A test
+compares the list of modules with the projection's imports. `PIPELINE_WORKERS` sets the number
+of workers, 4 unless set.
+
+The pipeline's venv installs the project in editable mode, which puts `pipeline/` and the
+repo's `src/` on `sys.path` of every process in the venv, the workers included. The model can
+then import `steps.attributes` with no paths in its variables, so its fingerprint stays the same
+in every checkout. The install holds the paths of the checkout where `uv sync` ran, though, so a
+copy of the project, or a venv shared by two checkouts, can load code from another checkout
+than the one `config.py` hashed. Before it parses a record, the model hashes the files of the
+modules it loaded, and it stops the build when one differs from `attributes_code`. The model
+writes each cache file under a temporary name, syncs it to disk and renames it, and it deletes
+temporary files left by a build that stopped.
+
+`ads.attributes` merges each ad's records as `project_advertisement` merges its captures: for
+each attribute, one known value stands, and two or more give an unknown and put the attribute
+in `conflicts`. A rental flag is true when any record sets it. The chain fails to parse a
+record without propertyDetails or with another ad's `id`, and gives it a capture without
+values, so `ads.attributes` leaves such records out.
+
+`ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
+ask, its merged attributes and its rental flags. Its SQL describes each rule. Three of the
+chain's checks wait for later steps: identity, the canonical URL, and the check for two ads of
+one unit in one month. The chain also blanks a size outside 150 to 6,000 square feet without
+dropping the ad. The fit-ready rows will apply that rule. The chain flags an own ACTIVE event
+later than its as-of time, while `ads.exclusions` flags one later than the day of the ad's last
+answer. The chain reads events only from the records it parses, while the event log reads every
+record. So an ad without a parsed record gets the chain's reason, `no_dated_own_active_event`,
+and an ad with both kinds of record may take its first ask from a record the chain leaves out.
+Runs 1 to 5 hold no record the chain fails to parse.
+
 ## Tests
 
 `pipeline/tests/fixture/` holds the analysis rows of five buildings, the 229 exported records of
@@ -122,8 +173,8 @@ row. Their records hold no unit histories. The tests:
    record collected before its row, an ad without answers, an empty latest answer, and rows
    without a building or a bedroom count;
 3. build runs 2 and 3, then add run 4's file to the manifest. The next plan rebuilds `raw.ads`
-   and the nine tables below it and gives the full answer, and a further plan finds nothing to
-   build;
+   and the twelve tables below it and gives the full answer, and a further plan finds nothing
+   to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
 5. add a run 5 file with a newer answer for one ad and an older answer for another. Only the
@@ -134,8 +185,9 @@ row. Their records hold no unit histories. The tests:
    the plan;
 8. read manifests with a cut-off last line, a repeated line, a rewritten file and a file with
    two hashes;
-9. build the fixture and compare each analysis row's price date and asking rent with its ad's
-   first day and first ask in `ads.first_ask`;
+9. build the fixture and compare each analysis row's price date, asking rent and bedroom count
+   with its ad's first day, first ask and bedroom count. The current chain kept each ad of the
+   fixture, and `ads.exclusions` gives none of them a reason;
 10. add an answer that repeats an earlier record eight days later. `ads.events` gains the new
     fetch and nothing else. Each event of the record, its siblings' history events included,
     keeps its first answer and counts one answer more, and the other events stay as they were;
@@ -143,9 +195,22 @@ row. Their records hold no unit histories. The tests:
     event twice, an ACTIVE change without a price and a sibling's episode without a
     `listingId`, a later answer with an added event, and the same history from the sibling.
     The test checks every history event and first ask by value, along with the cases' missing
-    answer.
+    answer;
+12. add made-up records to the cases: an ad for each reason in `ads.exclusions`, an ad with
+    none, a record without propertyDetails and a record with another ad's `id`. It adds ads at
+    the edges of the ranges too: asks of $749, $750, $50,000 and $50,001, 0 and 5 bedrooms,
+    half a bathroom, and 1.25 bathrooms from `bathroomCount`. Four more ads have two records
+    each, with two sizes, two doorman types, leases of 12 and 3 months, or the same values in
+    both. The last ad carries a feature code for furnished. The test checks each ad's reasons,
+    first ask, bedroom count, conflicts and number of records by value;
+13. build run 2 in a copy of the project, then change the copy's `steps/attributes.py` to give
+    every record 9 bedrooms. A plan in the test's process stops with the mismatch error, since
+    the venv loads the repo's own code. A plan in a new process, with the copy first on
+    `PYTHONPATH`, parses the same records into a second cache folder, each with 9 bedrooms;
+14. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
+    with the files of the code version.
 
-They take about 20 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 35 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
@@ -206,3 +271,35 @@ uv run --project pipeline sqlmesh -p pipeline fetchdf "
   SELECT count(*) FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
   WHERE f.listing_id IS NULL OR r.price_at <> f.first_day::TIMESTAMPTZ OR f.prices <> [r.asking_rent]"
 ```
+
+With the attributes and exclusions, I built runs 1 to 5 into an empty state in 640 s, in a unit
+with a 6 GB limit and DuckDB's limit at 4 GB. `ads.record_attributes` spent 451 s of that on
+the 2,138,007 distinct records, parsed in four workers, and `ads.attributes` took 67 s. The unit's
+peak hit its 6 GB limit with page cache included, and no process was killed. A second plan on
+the same state found nothing to do in 3.5 s. Then I built the same runs into another empty state
+holding a copy of the first build's parse cache, as a build after a change elsewhere would.
+`ads.record_attributes` read every record from the cache in 25 s, the plan took 199 s, and
+anonymous memory peaked at 5.1 GB. The eight tables from `ads.answers` to `analysis.latest_ask`
+have the same row counts and the same sums of row hashes in both states.
+
+The chain's audit of the four regions, in `/data1/apartments/tmp/pipeline/audit/audit.parquet`,
+holds the reasons and captures of 1,692,611 ads. I compared the 1,692,593 of them with no answer
+after the audit ran at 13:10 ET. Leaving out the three checks of later steps, `ads.exclusions`
+gives each of them the same reasons as the audit, and 1,466,352 have no reason in either. The
+counts per reason:
+
+| reason | ads |
+|---|--:|
+| `excluded_concession` | 135,408 |
+| `excluded_furnished` | 66,964 |
+| `invalid_or_missing_layout` | 11,032 |
+| `invalid_or_extreme_initial_ask` | 8,868 |
+| `no_dated_own_active_event` | 8,230 |
+| `conflicting_or_missing_initial_prices` | 163 |
+| `excluded_short_term` | 23 |
+| `outside_date_window` | 2 |
+
+The audit keeps no captures for the 8,230 ads without a dated own ACTIVE event. For the other
+1,684,363, I merged the audit's projections as `ads.attributes` merges records, and all sixteen
+attributes and flags equal the built ones. The script is
+`/data1/apartments/tmp/pipeline/attr/parity.py`.

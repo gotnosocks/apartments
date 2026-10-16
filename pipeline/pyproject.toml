@@ -7,13 +7,23 @@ dependencies = [
   "sqlmesh==0.236.3",
   "duckdb==1.5.5",
   "pyarrow>=19.0",
+  "jsonpatch>=1.33,<2",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
-[tool.uv]
-package = false
+# The project installs itself in editable mode, which puts this folder and the repo's src on
+# sys.path of every process in the venv, worker processes included. ads.record_attributes then
+# imports `steps.attributes` and the chain's modules with no paths in its variables, so the
+# model's fingerprint stays the same in every checkout.
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["steps"]
+dev-mode-dirs = [".", "../src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
