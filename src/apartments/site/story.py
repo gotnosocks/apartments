@@ -1130,6 +1130,9 @@ TERM_WORDS = {
     "bathfloor": "each building's own price for baths and height",
     "nosizeslope": "the same price for size in every building",
     "sizeunkslope": "each building's own price for an apartment of unstated size",
+    "slopemin3": "a building's own price per bedroom only where it has 3 or more asks "
+    "in each of two bedroom counts",
+    "unitnu4": "each apartment's own premium allowed the odd large outlier",
 }
 # Words for the feature sets of served designs: the area prefix (the
 # neighbourhood each step took in, in order) and the body (what the features
@@ -1188,20 +1191,24 @@ def set_words(body: str) -> str:
 
 
 _PR = re.compile(r"\(#(\d+)\)")
-_SET_START = re.compile(r"^(nb\d*|unit)")
+_NB_SET = re.compile(r"^nb\d*$")
+_UNIT_SET = re.compile(r"^unit")
 
 
 def design_terms(run: str) -> tuple[list[str], str] | None:
     """A frontier run's model terms and feature set, from its name:
     `m7-nocurves-floorslope-nb3-coded-v2-rows-…` → (["nocurves",
-    "floorslope"], "nb3-coded-v2"). None for a name in another form."""
+    "floorslope"], "nb3-coded-v2"). The set starts at the first `nb` token,
+    or else at the first `unit` token, since a term such as `unitnu4` can
+    come before an `nb` set. None for a name in another form."""
     head = run.split("-rows-")[0]
     tokens = head.split("-")
     if len(tokens) < 2 or not re.fullmatch(r"m\d+\w*", tokens[0]):
         return None
-    for i, token in enumerate(tokens[1:], 1):
-        if _SET_START.match(token):
-            return tokens[1:i], "-".join(tokens[i:])
+    for start in (_NB_SET, _UNIT_SET):
+        for i, token in enumerate(tokens[1:], 1):
+            if start.match(token):
+                return tokens[1:i], "-".join(tokens[i:])
     return tokens[1:], ""
 
 
