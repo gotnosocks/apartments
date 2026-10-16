@@ -86,6 +86,14 @@ def test_apply_overrides_regeocodes_only_the_named_buildings(monkeypatch):
         out.set_index("building").loc["b"].to_dict()
         == base.set_index("building").loc["b"].to_dict()
     )
+    lot = registry.apply_overrides(
+        base,
+        [{"building": "b", "bbl": "1000020009", "bin": "1000009", "label": "9 WEST 1"}],
+    ).set_index("building")
+    b = lot.loc["b"]
+    assert b.method == "override" and b.bbl == "1000020009" and b.bin == "1000009"
+    assert b.label == "9 WEST 1" and pd.isna(b.query) and b.latitude == 40.1
+    assert lot.loc["a"].to_dict() == base.set_index("building").loc["a"].to_dict()
     with pytest.raises(SystemExit, match="not in the base registry"):
         registry.apply_overrides(
             base, [{"building": "z", "address": "3 West 3 Street"}]
