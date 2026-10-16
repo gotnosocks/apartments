@@ -15,21 +15,21 @@ frontier venv to prepare the rows the way `rentfrontier.run` does before samplin
 2. `data.split_and_rules` draws the split and applies the data rules.
 3. `features.build` builds the feature matrix, when the reference has a feature set.
 
-It writes the prepared rows to `rows.parquet`, with the held-out mask as a `heldout` column,
-and the feature matrix to `features.parquet`, keyed by `audit_id`. The preparation runs under
-`strace`, which logs every file the process and its children open. The script then copies each
-file opened for reading into `blobs/` under its SHA-256, read-only, so later changes to the
-original files leave the reference alone. Files under the exported tree, the venv, Python's
-install and the system folders hold code, so the script leaves them out, along with files the
-preparation wrote itself. The preparation hashes the observations, the rule files and the
-feature sources as it reads them, and the freeze stops if a hash differs by the time of the
-copy. For any other file, the freeze stops if the file was modified after the preparation
-started. The preparation writes its caches into an empty scratch folder, set as
-`FRONTIER_OUTPUT_ROOT`, so `data.load` and `descriptions.load` build them from the inputs rather
+It writes the prepared rows to `rows.parquet`, with the held-out mask as a `heldout` column, and
+the feature matrix to `features.parquet`, keyed by `audit_id`. The preparation runs under `strace`,
+which logs every file the process and its children open. The script then copies each file opened
+for reading into `blobs/` under its SHA-256, read-only, so later changes to the original files
+leave the reference alone. Files under the exported tree, the venv, Python's install and the system
+folders hold code, so the script leaves them out, along with files the preparation wrote itself.
+The preparation keeps the hash `data.load` takes of the observations before parsing them, and
+hashes the rule files and the feature sources before and after its calls. The freeze stops if a
+hash differs by the time of the copy. For any other file, the freeze stops if the file was modified
+after the preparation started. The preparation writes its caches into an empty scratch folder, set
+as `FRONTIER_OUTPUT_ROOT`, so `data.load` and `descriptions.load` build them from the inputs rather
 than read caches written by other jobs. For a fit with a result.json, `manifest.json` records
-whether the row hash and the hashes of the observations, rule files and feature sources equal
-the fit's own record. Any of those the record lacks counts as a mismatch. A fit records no
-hashes for the other files. The manifest also lists the version of every package in the venv.
+whether the row hash and the hashes of the observations, rule files and feature sources equal the
+fit's own record. Any of those the record lacks counts as a mismatch. A fit records no hashes for
+the other files. The manifest also lists the version of every package in the venv.
 
 `verify` hashes every blob and output of a reference again and reports any change or missing
 file.

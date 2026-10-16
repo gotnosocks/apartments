@@ -114,11 +114,11 @@ counts as a mismatch.
 
 The freeze runs the preparation under `strace` and takes as inputs all the files it opened for
 reading, leaving out the code, the venv, Python's install, the system folders and the files
-the preparation wrote. The preparation hashes the observations file as `data.load` reads it,
-and the rule files and the feature sources before the calls and again after them. Then the
-freeze copies each input into `blobs/`, named by its SHA-256 and read-only. It stops if one of
-those hashes differs at the copy, or if any other input was modified after the preparation
-started. So the blobs hold the bytes the preparation read, and later edits to the originals
+the preparation wrote. The preparation keeps the hash `data.load` takes of the observations
+file before parsing it, and hashes the rule files and the feature sources before the calls and
+again after them. Then the freeze copies each input into `blobs/`, named by its SHA-256 and
+read-only. It stops if one of those hashes differs at the copy, or if any other input was
+modified after the preparation started. So the blobs hold the bytes the preparation read, and later edits to the originals
 leave the references alone. The preparation writes its caches into an empty scratch folder,
 so `data.load` and `descriptions.load` build them from the inputs.
 
