@@ -1,0 +1,111 @@
+{
+  "version": "registry-overrides-lots-v1",
+  "reviewed_at": "2026-10-16",
+  "rule": "Buildings whose address geocodes, through PAD, to a lot that MapPLUTO describes as a different building are moved to the lot whose footprint holds the building's map point, when that lot's MapPLUTO record matches StreetEasy's own record of the building (class, year, floors, apartments) and the address lot's doesn't. The pipeline's identity check (#904) found the candidates; each was reviewed by hand. Ties and near ties stay on the address lot.",
+  "overrides": [
+    {
+      "building": "122-lexington-avenue-new_york",
+      "bbl": "1008840020",
+      "bin": "1018209",
+      "label": "126 LEXINGTON AVENUE",
+      "evidence": "StreetEasy's building record gives class S9, built 1910, 4 floors, 6 apartments; MapPLUTO 26v2 lot 1008840020 is 126 LEXINGTON AVENUE, class S9, built 1910, 4 floors, 5 apartments, and its footprint (BIN 1018209) holds the building's map point (9.7 m)",
+      "registry_was": "address, BBL 1008840018: 122 LEXINGTON AVENUE, class V1, built 0, 0 apartments"
+    },
+    {
+      "building": "124-lexington-avenue-new_york",
+      "bbl": "1008840020",
+      "bin": "1018209",
+      "label": "126 LEXINGTON AVENUE",
+      "evidence": "StreetEasy's building record gives class S9, built 1910, 4 floors, 6 apartments; MapPLUTO 26v2 lot 1008840020 is 126 LEXINGTON AVENUE, class S9, built 1910, 4 floors, 5 apartments, and its footprint (BIN 1018209) holds the building's map point (3.8 m)",
+      "registry_was": "address, BBL 1008840019: 124 LEXINGTON AVENUE, class V1, built 0, 0 apartments"
+    },
+    {
+      "building": "198-east-4-street-new_york",
+      "bbl": "1003990051",
+      "bin": "1005008",
+      "label": "173 EAST 3 STREET",
+      "evidence": "StreetEasy's building record gives class M3, built 1900, 4 floors, 0 apartments; MapPLUTO 26v2 lot 1003990051 is 173 EAST 3 STREET, class M3, built 1900, 4 floors, 0 apartments, and its footprint (BIN 1005008) holds the building's map point (3.0 m)",
+      "registry_was": "address, BBL 1003990011: 206 EAST 4 STREET, class M9, built 1900, 5 floors, 0 apartments"
+    },
+    {
+      "building": "250-9-avenue-new_york",
+      "bbl": "1007490001",
+      "bin": "1013458",
+      "label": "250 9 AVENUE",
+      "evidence": "StreetEasy's building record gives class D4, built 1963, 22 floors, 186 apartments; MapPLUTO 26v2 lot 1007490001 is 250 9 AVENUE, class D4, built 1963, 22 floors, 186 apartments, and its footprint (BIN 1013458) holds the building's map point (2.2 m)",
+      "registry_was": "address, BBL 1007480001: 311 WEST 24 STREET, class D4, built 1963, 21 floors, 756 apartments"
+    },
+    {
+      "building": "31-3-avenue-new_york",
+      "bbl": "1004650001",
+      "bin": "1006764",
+      "label": "31 3 AVENUE",
+      "evidence": "StreetEasy's building record gives class H8, built 1986, 16 floors, 194 apartments; MapPLUTO 26v2 lot 1004650001 is 31 3 AVENUE, class H8, built 1986, 16 floors, 0 apartments, and its footprint (BIN 1006764) holds the building's map point (8.8 m)",
+      "registry_was": "address, BBL 1004640006: 29 3 AVENUE, class K2, built 1920, 15 floors, 0 apartments"
+    },
+    {
+      "building": "310-west-21-street-new_york",
+      "bbl": "1007440047",
+      "bin": "1078531",
+      "label": "310 WEST 21 STREET",
+      "evidence": "StreetEasy's building record gives class C4, built 1900, 5 floors, 8 apartments; MapPLUTO 26v2 lot 1007440047 is 310 WEST 21 STREET, class C4, built 1900, 5 floors, 8 apartments, and its footprint (BIN 1078531) holds the building's map point (2.7 m)",
+      "registry_was": "address, BBL 1007440046: 308 WEST 21 STREET, class C4, built 1900, 5 floors, 19 apartments"
+    },
+    {
+      "building": "405-west-49-street-new_york",
+      "bbl": "1010590128",
+      "bin": "1082397",
+      "label": "729 9 AVENUE",
+      "evidence": "StreetEasy's building record gives class C4, built 1900, 3 floors, 4 apartments; MapPLUTO 26v2 lot 1010590128 is 729 9 AVENUE, class C4, built 1900, 3 floors, 4 apartments, and its footprint (BIN 1082397) holds the building's map point (2.7 m)",
+      "registry_was": "address, BBL 1010590028: 407 WEST 49 STREET, class C4, built 1900, 5 floors, 10 apartments"
+    },
+    {
+      "building": "50-3-avenue-new_york",
+      "bbl": "1005560028",
+      "bin": "1008975",
+      "label": "48 3 AVENUE",
+      "evidence": "StreetEasy's building record gives class C7, built 1900, 5 floors, 12 apartments; MapPLUTO 26v2 lot 1005560028 is 48 3 AVENUE, class C7, built 1900, 5 floors, 8 apartments, and its footprint (BIN 1008975) holds the building's map point (5.5 m)",
+      "registry_was": "address, BBL 1005560026: 50 3 AVENUE, class V1, built 0, 0 apartments"
+    },
+    {
+      "building": "59-bank-street-new_york",
+      "bbl": "1006247501",
+      "bin": "1011393",
+      "label": "59 BANK STREET",
+      "evidence": "StreetEasy's building record gives class R1, built 1981, 6 floors, 6 apartments; MapPLUTO 26v2 lot 1006247501 is 59 BANK STREET, class R1, built 1905, 6 floors, 6 apartments, and its footprint (BIN 1011393) holds the building's map point (3.6 m)",
+      "registry_was": "address, BBL 1006247502: 69 BANK STREET, class R4, built 1905, 4 floors, 15 apartments"
+    },
+    {
+      "building": "69-bank-street-new_york",
+      "bbl": "1006247502",
+      "bin": "1011398",
+      "label": "69 BANK STREET",
+      "evidence": "StreetEasy's building record gives class R4, built 1983, 4 floors, 15 apartments; MapPLUTO 26v2 lot 1006247502 is 69 BANK STREET, class R4, built 1905, 4 floors, 15 apartments, and its footprint (BIN 1011398) holds the building's map point (6.0 m)",
+      "registry_was": "address, BBL 1006247501: 59 BANK STREET, class R1, built 1905, 6 floors, 6 apartments"
+    },
+    {
+      "building": "grand-hotel-1226-broadway-new_york",
+      "bbl": "1008320066",
+      "bin": "1078654",
+      "label": "1226 BROADWAY",
+      "evidence": "StreetEasy's building record gives class HR, built 1890, 12 floors, 256 apartments; MapPLUTO 26v2 lot 1008320066 is 1226 BROADWAY, class HR, built 1868, 12 floors, 0 apartments, and its footprint (BIN 1078654) holds the building's map point (1.9 m)",
+      "registry_was": "address, BBL 1008320022: 1218 BROADWAY, class O6, built 1931, 9 floors, 0 apartments"
+    },
+    {
+      "building": "mabel-335-8th-avenue-new_york",
+      "bbl": "1007510020",
+      "bin": "1091859",
+      "label": "341 8TH AVENUE",
+      "evidence": "StreetEasy's building record gives class D6, built 2025, 7 floors, 188 apartments; MapPLUTO 26v2 lot 1007510020 is 341 8TH AVENUE, class D6, built 2024, 7 floors, 188 apartments, and its footprint (BIN 1091859) holds the building's map point (11.5 m)",
+      "registry_was": "reverse, BBL 1007510001: 345 8TH AVENUE, class D4, built 1960, 22 floors, 1134 apartments"
+    },
+    {
+      "building": "the-village-west",
+      "bbl": "1006090039",
+      "bin": "1091089",
+      "label": "525 AVENUE OF THE AMERICAS",
+      "evidence": "StreetEasy's building record gives class D6, built 2025, 14 floors, 68 apartments; MapPLUTO 26v2 lot 1006090039 is 525 AVENUE OF THE AMERICAS, class D6, built 2024, 13 floors, 60 apartments, and its footprint (BIN 1091089) holds the building's map point (14.2 m)",
+      "registry_was": "reverse, BBL 1006090043: 517 AVENUE OF THE AMERICAS, class S2, built 1910, 3 floors, 2 apartments"
+    }
+  ]
+}
