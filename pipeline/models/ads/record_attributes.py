@@ -100,7 +100,10 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     cached = (
         f"read_parquet('{folder}/*.parquet')" if any(folder.glob("*.parquet")) else None
     )
-    # An answer for each record missing from the cache.
+    # An answer for each record missing from the cache. The semi join keeps the picks in its
+    # hash table and streams the records past it, since the records of a full export run to
+    # tens of gigabytes. Should a response hold a record twice, both copies pass, and the
+    # final query keeps one row for each record.
     missing = f"""
         WITH picks AS (
             SELECT record_sha256, min(response_id) AS response_id
@@ -108,8 +111,10 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             {f"AND record_sha256 NOT IN (SELECT record_sha256 FROM {cached})" if cached else ""}
             GROUP BY record_sha256
         )
-        SELECT DISTINCT ON (record_sha256) a.record_sha256, a.record
-        FROM {ads} a JOIN picks USING (record_sha256, response_id)
+        SELECT a.record_sha256, a.record
+        FROM {ads} a SEMI JOIN picks p
+            ON a.record_sha256 = p.record_sha256 AND a.response_id = p.response_id
+        WHERE a.outcome = 'record'
     """
     # Worker processes start with the parent's sys.path.
     for path in context.var("pythonpath").split(os.pathsep):
@@ -145,7 +150,7 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     if not any(folder.glob("*.parquet")):
         return
     out = cursor.execute(
-        f"""SELECT c.* FROM read_parquet('{folder}/*.parquet') c
+        f"""SELECT DISTINCT ON (c.record_sha256) c.* FROM read_parquet('{folder}/*.parquet') c
         WHERE c.record_sha256 IN (SELECT record_sha256 FROM {ads} WHERE outcome = 'record')"""
     ).to_arrow_reader(FLUSH)
     for batch in out:
