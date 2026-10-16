@@ -201,7 +201,9 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       took 597 s with a 1,078 MiB peak and gave 3.1 GB of Parquet, and a load with the cache in
       place takes under 0.1 s. The first build after the merge unpacks into
       `/data1/apartments/pipeline/city`. `ops/pipeline/sample.py` doesn't cut the city archive
-      yet;
+      yet. The next edit to `steps/city.py` should also have `sweep` compare the locked inode
+      with `code / ".lock"` before its rename, as `lock_code` does: two sweeps and a load at
+      once can otherwise move the load's new folder away;
    3. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
       the footprint holding its `geoCenter`, each link with a score. The step measures its
       error rate against Data improvements' registry and reviewed answers;
