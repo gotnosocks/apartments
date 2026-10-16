@@ -434,8 +434,8 @@ and `analysis.building_certificates`, per building in `buildings.details` and th
 identity models, per lot and release in `buildings.lot_releases`, per release in
 `city.pluto_releases`, per record in `ads.record_attributes`, per
 `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
-per event in `ads.answer_events` and `ads.history_reports`. The `every_row` audit, in `pipeline/audits/`, checks that
-`analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
+per event in `ads.answer_events` and `ads.history_reports`. The `every_row` audit, in
+`pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
 and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
@@ -455,7 +455,7 @@ places:
 3. the record's price changes;
 4. the unit history, listing the rental events of every ad of the unit.
 
-The model keeps a row for each distinct event, with the fetch times of the first and last
+The view `ads.events` gives a row for each distinct event, with the fetch times of the first and last
 answers that reported it, the number of those answers and the `response_id` of the first. An
 event in a unit history may come first from a sibling's answer, so `own_first_seen` and
 `own_first_response_id` give the first answer of the ad itself, and `own` marks an event with
