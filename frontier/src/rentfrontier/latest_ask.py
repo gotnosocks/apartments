@@ -38,7 +38,10 @@ ask. Two checks follow:
    is the listing's current price, and the row takes it when it is within a
    factor of 2 of the kept ask. One differing by a factor of 9 to 11 has a
    dropped or added digit in one of them, and the row takes the nearer of the
-   two in the same way.
+   two in the same way. For this digit check the builder leaves out only a
+   page price matching a kept change. A listing correcting a tenfold typo on
+   its last day on the market shows the fix as its page price, and the
+   placeholder check above drops the fix as a change.
 
 A row keeps its `price_at`, the day its listing first asked, even when its
 price is from a later change.
@@ -70,8 +73,10 @@ PLACEHOLDER_PRICE, PLACEHOLDER_RAISE = 10000, 1.2
 # A latest ask outside this factor of the first ask is checked against the
 # building's other rows (check 1).
 MAX_RATIO = 2.0
-# A page price this far from the kept ask, and matching no change, is a digit
-# error in one of them (check 2).
+# A page price this far from the kept ask, and matching no kept change, is a
+# digit error in one of them (check 2). A page price equal to a dropped change
+# counts, so a dropped placeholder of $500 to $1,000 also enters the check, and
+# the building median then keeps the ask.
 DIGIT_RATIO = (9.0, 11.0)
 
 
@@ -81,7 +86,8 @@ def _day(value) -> str | None:
 
 def record_latest(raw: str) -> dict:
     """The kept price changes of one raw listing record, as (day, price) in date
-    order, and its page price when no change carries it."""
+    order, its page price when no change carries it, and its page price for the
+    digit check when no kept change carries it."""
     d = json.loads(raw)
     pricing = d.get("pricing") or {}
     changes = sorted(
@@ -108,6 +114,9 @@ def record_latest(raw: str) -> dict:
         "changes": [(_day(c["changedAt"]), float(c["price"])) for c in kept],
         "page_price": price
         if price and price not in {c["price"] for c in changes}
+        else None,
+        "digit_page": price
+        if price and price not in {c["price"] for c in kept}
         else None,
         "n_placeholder": len(changes) - len(kept),
     }
@@ -193,6 +202,7 @@ def choose(frame: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
     first = frame.asking_rent.to_numpy(float)
     live, last = _row_latest(frame, table)
     page = t.page_price.to_numpy(float)
+    digit_page = t.digit_page.to_numpy(float)
     peer = _peer_median(frame)
 
     def nearer(a, b):
@@ -226,16 +236,17 @@ def choose(frame: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
     )
     how = np.where(near & (page != price), "page price", how)
     price = np.where(near, page, price)
-    digit = page / price
+    # A page price matching a dropped change counts here: a listing fixing a typo on its last day.
+    digit = digit_page / price
     digit = (
         last
-        & ~np.isnan(page)
+        & ~np.isnan(digit_page)
         & (
             ((digit >= DIGIT_RATIO[0]) & (digit <= DIGIT_RATIO[1]))
             | ((1 / digit >= DIGIT_RATIO[0]) & (1 / digit <= DIGIT_RATIO[1]))
         )
     )
-    picked = nearer(price, page)
+    picked = nearer(price, digit_page)
     how = np.where(digit & (picked != price), "page price, digit", how)
     price = np.where(digit, picked, price)
     return pd.DataFrame(

@@ -130,7 +130,12 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
       record lists a rise to $3,400 in June, and its later record leaves the rise out, so its
       ask stays at $3,000.
     - ad 9000129 goes off the market and then rises to a placeholder of $10,000, which drops
-      out."""
+      out.
+    - ad 9000133 asks $30,000 and corrects the typo to $3,000 on its last day on the market.
+      The placeholder check drops the correction, and the page price of $3,000 lies nearer the
+      one-bedrooms.
+    - ad 9000134 drops to a placeholder of $300 on its last day on the market. The page price of
+      $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -189,6 +194,21 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
             status="OFF_MARKET",
             offMarketAt=july,
         ),
+        ad(
+            9000133,
+            [(may, 30000), (july, 3000)],
+            3000,
+            ask=30000,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
+        ad(
+            9000134,
+            [(may, 3000), (july, 300)],
+            300,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
@@ -217,6 +237,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
     expected = chain.choose(rows, table).rename(columns={"audit_id": "listing_id"})
     got = latest_ask(ctx)
     pd.testing.assert_frame_equal(got.drop(columns="price_at"), expected)
+    assert got.set_index("listing_id").how["9000133"] == "page price, digit"
     assert dict(zip(got.listing_id, got.latest_ask)) == {
         "9000120": 3200,
         "9000121": 3100,
@@ -231,6 +252,8 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000130": 2900,
         "9000131": 3000,
         "9000132": 3000,
+        "9000133": 3000,
+        "9000134": 3000,
     }
     assert set(got.how) == {
         "latest",
@@ -260,6 +283,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.answer_events",
         "ads.answers",
         "ads.attributes",
+        "ads.breaks",
         "ads.events",
         "ads.exclusions",
         "ads.first_ask",
@@ -271,7 +295,9 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.market",
         "ads.price_changes",
         "ads.record_attributes",
+        "ads.regions",
         "ads.reported",
+        "analysis.ads",
         "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",
@@ -319,6 +345,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
         "ads.identity",
+        "analysis.ads",
         "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",
@@ -1057,8 +1084,10 @@ def test_market_cases(tmp_path, monkeypatch):
     """Ad 9000050 goes into contract and back on the market before it rents, ad 9000051 is
     paused and back on the market, ad 9000052 never goes on it, and ad 9000053 has no status
     changes. Ad 9000054 has two answers, and the later one ends it. Ad 9000055 lists two pairs
-    of changes at a shared instant, in an order other than the alphabet's. Ad 9000051's latest
-    answer has no record, and ad 9000053's latest record has no daysOnMarket."""
+    of changes at a shared instant, in an order other than the alphabet's. Ad 9000056 has two
+    answers, and the later one leaves out the earlier one's ending, so the ad stays on the
+    market. Ad 9000051's latest answer has no record, and ad 9000053's latest record has no
+    daysOnMarket."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     back = [
@@ -1108,6 +1137,15 @@ def test_market_cases(tmp_path, monkeypatch):
                 days=10,
             ),
         ),
+        (
+            9000056,
+            market_record(
+                9000056,
+                [("2026-08-01", "ACTIVE"), ("2026-08-20", "NO_LONGER_AVAILABLE")],
+                days=19,
+            ),
+        ),
+        (9000056, market_record(9000056, [("2026-08-01", "ACTIVE")], days=32)),
         (9000051, None),
     ]
     append_answers(
@@ -1149,6 +1187,7 @@ def test_market_cases(tmp_path, monkeypatch):
         + ["NO_LONGER_AVAILABLE", "2026-07-31", 31, None],
         ["9000055", day, "NO_LONGER_AVAILABLE", "2026-06-02", "2026-06-12", 10, 1]
         + ["NO_LONGER_AVAILABLE", "2026-06-12", 10, None],
+        ["9000056", day, "ACTIVE", "2026-08-01", None, 32, 1, None, None, 32, None],
     ]
 
 
@@ -1296,9 +1335,15 @@ def chain_cohort():
     return module
 
 
+# The fixture's ads with a pet fee in the description and no other pet policy. The chain gives
+# them none, and `steps.attributes` reads the fee as pets allowed.
+PET_FEE_ADS = ("4771575",)
+
+
 def test_rows_match_the_chain(tmp_path, monkeypatch):
     """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
-    with the same values in every column the pipeline rebuilds."""
+    with the same values in every column the pipeline rebuilds, apart from the pet policy of
+    the ads in PET_FEE_ADS."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
     ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
@@ -1313,7 +1358,9 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
         floor_label_provenance ->> 'status',
         (floor_label_provenance ->> 'building_floor_count')::BIGINT, advertised_floor,
         physical_floor, floors_above_ground, elevator, laundry_type, doorman_type, hvac_type,
-        pet_policy, view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
+        CASE WHEN source_listing_id IN {PET_FEE_ADS} AND pet_policy IS NULL
+            THEN 'allowed_restrictions_unknown' ELSE pet_policy END,
+        view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
         FROM '{FIXTURE / "chain-rows.parquet"}'"""
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 229
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({ours})").n[0] == 229
@@ -1605,6 +1652,53 @@ def test_every_row_audit_catches_a_lost_row(tmp_path, monkeypatch):
     ]
 
 
+def test_rewritten_file_without_a_new_hash_stops_the_load(tmp_path, monkeypatch):
+    """An export file written again under its old manifest line stops the next load, though
+    the file keeps its old modification time."""
+    export = copy_export(tmp_path)
+    context(monkeypatch, tmp_path / "state", export)
+    line = json.loads((export / "manifest.ndjson").read_text().splitlines()[0])
+    path = export / line["path"]
+    before = path.stat()
+    db = duckdb.connect()
+    db.execute(
+        f"COPY (SELECT * FROM '{path}') TO '{path}.new' (FORMAT parquet, COMPRESSION gzip)"
+    )
+    Path(f"{path}.new").replace(path)
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+    with pytest.raises(Exception, match="differs from its SHA-256 in the manifest"):
+        context(monkeypatch, tmp_path / "state", export)
+
+
+@pytest.mark.parametrize("source", ["another record", "no record"])
+def test_record_with_another_hash_stops_the_load(tmp_path, monkeypatch, source):
+    """An answer giving a record with the SHA-256 of another record, or of no record, stops the
+    next load."""
+    export = copy_export(tmp_path)
+    db = duckdb.connect(config={"TimeZone": "UTC"})
+    answers = db.execute(
+        "SELECT * FROM read_parquet(?) WHERE outcome = 'record' ORDER BY response_id",
+        [str(FIXTURE / "export/ads/*/*.parquet")],
+    ).df()
+    planted = answers.tail(1)
+    digest = (
+        answers.record_sha256.iloc[0]
+        if source == "another record"
+        else hashlib.sha256(b"planted").hexdigest()
+    )
+    assert digest != planted.record_sha256.iloc[0]
+    planted = planted.assign(
+        fetched=planted.fetched + pd.Timedelta(days=8),
+        response_id=answers.response_id.max() + 1,
+        run=5,
+        record_sha256=digest,
+    )
+    append_answers(export, planted)
+    message = f"the record of answer {planted.response_id.iloc[0]} in .* differs from its hash"
+    with pytest.raises(Exception, match=message):
+        context(monkeypatch, tmp_path / "state", export)
+
+
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     """The pipeline's config module, reading its manifest from an empty folder."""
@@ -1678,3 +1772,76 @@ def test_exported_reads_whole_lines(config):
     write(("other/c", "3", "other"))
     with pytest.raises(ValueError, match="lists no ads files"):
         config.exported("ads")
+
+
+def answer_file(path, record, digest):
+    """Write an export file at `path` with an answer giving `record` under `digest`. Either can
+    be None."""
+    duckdb.connect().execute(
+        """COPY (SELECT 1::BIGINT AS response_id, 'record' AS outcome,
+        ?::VARCHAR AS record_sha256, ?::VARCHAR AS record) TO '{}' (FORMAT parquet)""".format(
+            path
+        ),
+        [digest, record],
+    )
+    return path
+
+
+def test_check_files_hashes_new_or_changed_files(config, monkeypatch):
+    def sha(text):
+        return hashlib.sha256(text.encode()).hexdigest()
+
+    first = answer_file(config.EXPORT / "first", "one", sha("one"))
+    second = answer_file(config.EXPORT / "second", "two", sha("two"))
+    listed = {"first": config.file_sha256(first), "second": config.file_sha256(second)}
+    hashed = []
+    file_sha256 = config.file_sha256
+    monkeypatch.setattr(
+        config,
+        "file_sha256",
+        lambda path: hashed.append(path.name) or file_sha256(path),
+    )
+    config.check_files(listed)
+    assert hashed == ["first", "second"]
+    # A file keeping its stat and its hash isn't read again.
+    config.check_files(listed)
+    assert hashed == ["first", "second"]
+    # The same bytes written back, with the old modification time, give the file a new change
+    # time and another read, and it passes.
+    before = second.stat()
+    second.write_bytes(second.read_bytes())
+    os.utime(second, ns=(before.st_atime_ns, before.st_mtime_ns))
+    config.check_files(listed)
+    assert hashed == ["first", "second", "second"]
+    # So does a new hash in the manifest, and the file fails it.
+    with pytest.raises(ValueError, match="second differs from its SHA-256"):
+        config.check_files({**listed, "second": sha("2")})
+    # The record keeps the file checked before the failing one.
+    config.check_files(listed)
+    assert hashed == ["first"] + ["second"] * 4
+    # A path with two hashes in two tables stops the check.
+    with pytest.raises(ValueError, match="manifest gives second two hashes"):
+        config.check_files(listed, {"second": sha("2")})
+    # A file listed with its own hash fails when a record differs from its answer's hash, on
+    # every check.
+    answer_file(first, "three", sha("one"))
+    listed["first"] = file_sha256(first)
+    for _ in range(2):
+        with pytest.raises(
+            ValueError, match="answer 1 in .*first differs from its hash"
+        ):
+            config.check_files(listed)
+    assert hashed[-2:] == ["first", "first"]
+    # An unreadable record of the checks gets every file checked again.
+    answer_file(first, "three", sha("three"))
+    listed["first"] = file_sha256(first)
+    config.check_files(listed)
+    (config.STATE / "export-hashes.json").write_text("{")
+    hashed.clear()
+    config.check_files(listed)
+    assert hashed == ["first", "second"]
+    # An answer giving a record with no record and no hash fails too.
+    answer_file(first, None, None)
+    listed["first"] = file_sha256(first)
+    with pytest.raises(ValueError, match="answer 1 in .*first differs from its hash"):
+        config.check_files(listed)

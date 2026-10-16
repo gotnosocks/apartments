@@ -29,7 +29,7 @@ MODEL (
 --     floor count, or of 10 or more when the building has no count. `floor_status` gives the
 --     reason, and `label_derived_floor` repeats a floor that came from the labels.
 --   - `neighbourhood` is the area of the ad's building in buildings.details.
---   - `regions` lists the export regions of the ad's answers.
+--   - `regions` lists the export regions of the ad's answers, from ads.regions.
 WITH candidates AS (
     SELECT e.listing_id, e.first_day, e.rent, i.unit_id, i.page, i.building, i.building_id,
         t.bedrooms, t.bathrooms, t.square_feet, t.advertised_floor, t.physical_floor,
@@ -43,11 +43,6 @@ WITH candidates AS (
     JOIN ads.reported r USING (listing_id)
     LEFT JOIN buildings.details b ON b.building_id = i.building_id
     WHERE e.reasons = [] AND i.reasons = []
-),
-regions AS (
-    SELECT listing_id::VARCHAR AS listing_id, list_sort(list(DISTINCT region)) AS regions
-    FROM raw.ads
-    GROUP BY listing_id
 ),
 checked AS (
     SELECT *,
@@ -85,4 +80,4 @@ SELECT c.listing_id, c.unit_id, c.page, c.building, c.building_id, g.regions,
     c.doorman_type, c.hvac_type, c.pet_policy, c.view_exposures, c.window_exposures,
     c.area AS neighbourhood, c.fate
 FROM checked c
-JOIN regions g USING (listing_id)
+JOIN ads.regions g USING (listing_id)
