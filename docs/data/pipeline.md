@@ -405,6 +405,10 @@ disk.
 | `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
+| `buildings.latest_record` | table | building with a record: the slug, address, map point and city facts of its latest record |
+| `buildings.pad_link` | table | building whose address matches a range of the latest PAD release: the range's lot and BIN, and the match's rank |
+| `buildings.footprint_link` | table | building whose map point lies in or within 10 m of a footprint of the latest copy: the footprint's lot and BIN |
+| `buildings.lots` | table | building with a record: its lot and BIN, the link they came from, and how well its facts fit each lot |
 | `ads.identity` | table | ad with a record: its building, its unit page and its unit |
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
@@ -418,11 +422,12 @@ disk.
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
 `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
-`analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details`, per
-record in `ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per
-`(listing_id, n)` in `ads.price_changes` and per event in `ads.events`. The `every_row` audit,
-in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When an
-audit fails, the plan stops, and the tables from the last good plan stay in place.
+`analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details` and
+the four building identity models, per record in `ads.record_attributes`, per
+`(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
+per event in `ads.events`. The `every_row` audit, in `pipeline/audits/`, checks that
+`analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
+and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
@@ -593,6 +598,123 @@ when it stored the ad, and the current chain reads the building slug from that r
 answered twice under two slugs, the chain would keep the older slug for ads stored before the
 second answer, while `ads.identity` gives every ad the newer one. Runs 1 to 5 hold one answer
 for each of their 70,137 buildings.
+
+## Building identity
+
+`buildings.lots` gives each building with a record a lot and a BIN from the city's records. I
+link each building two ways and let the city facts on its record decide between them:
+
+1. `buildings.latest_record` takes the building's latest answer with a record. It reads the slug,
+   the street address, the zip, the city, the community district, the map point (`geoCenter`)
+   and the four city facts StreetEasy shows: the building class, the year built, the floor count
+   and the count of apartments. A year or a floor count of zero, an empty class and a value of
+   the wrong type read as missing, while a count of zero apartments stays a count.
+2. `buildings.pad_link` cuts the street address into a house number, a letter and a street name.
+   It looks the name up in PAD's street name dictionary, `city.pad_streets`, for the street's
+   code, and matches the number against the address ranges of that street in
+   `city.pad_addresses`. Both come from the latest PAD release. The model's comment gives the
+   parse, the house number keys and the rank of a match, and a condominium's ranges give its
+   billing lot.
+3. `buildings.footprint_link` tests the map point against the footprints of the latest copy. It
+   keeps a footprint holding the point, or else the nearest one within 10 m.
+4. `buildings.lots` compares the two lots. Where they differ, it counts the facts the record
+   shares with MapPLUTO's record of each lot, in the latest release, and takes the lot with more.
+   `link` says which way the lot came:
+
+   | `link` | lot and BIN |
+   |---|---|
+   | `both` | the address and the map point give the same lot |
+   | `address` | they differ, and the address's lot fits the facts better |
+   | `footprint` | they differ, and the footprint's lot fits better |
+   | `tie` | they differ and fit equally, and the step takes the address's lot |
+   | `address_only` | the map point lies more than 10 m from any footprint |
+   | `footprint_only` | the address matches no PAD range |
+   | null | neither |
+
+   The BIN comes with the lot. PAD gives some lots a BIN such as 1000000, which stands for no
+   numbered building. When the address's lot has one and the footprint on the same lot gives a
+   numbered BIN, I take the footprint's.
+
+Nothing reads `buildings.lots` yet. The next step joins MapPLUTO's facts, landmarks and
+certificates of occupancy on its lot as of each ad's date.
+
+### Error rates
+
+On Oct 16 I built the four models over the export of runs 1 to 10, with PAD 26c, MapPLUTO 26v2
+and the footprints copy of Oct 11. Of 70,141 buildings, 70,041 have an address link and 69,576 a
+footprint link: 61,304 points fall inside a footprint and 8,272 within 10 m of one. Five
+buildings have neither.
+
+Reviewer subagents judged a sample of each class, 30 or 40 buildings drawn at random, and split
+`both` by whether the lot fits two or more facts. For each building, they read the record's
+address, name, type, description and city facts, where the map point falls against the lot's
+footprint, and MapPLUTO's record of each lot on offer: its address, class, year, floors,
+apartments, floor area, building count and lot area. They answered which lot is the building's,
+or whether the single lot is, or said the case was unclear. Their answers and reasons are in
+`config/reviews/building-identity-20261016.jsonl`. Three of the buildings have moved to another
+class since the draw, as the models changed, and I count each in its class in this build. I
+estimate each class's share of wrong lots from the buildings they judged, with a 95% Wilson
+interval, and multiply it by the class's size:
+
+| class | buildings | right | wrong | unclear | wrong share | wrong lots |
+|---|---:|---:|---:|---:|---|---:|
+| `both`, fit 2 or more | 63,905 | 32 | 0 | 0 | 0% (0% to 10.7%) | 0 |
+| `both`, fit under 2 | 3,407 | 26 | 2 | 3 | 7.1% (2.0% to 22.6%) | 243 |
+| `address` | 1,420 | 38 | 0 | 2 | 0% (0% to 9.2%) | 0 |
+| `footprint` | 271 | 29 | 4 | 4 | 12.1% (4.8% to 27.3%) | 33 |
+| `tie` | 478 | 23 | 13 | 4 | 36.1% (22.5% to 52.4%) | 173 |
+| `address_only` | 560 | 24 | 2 | 4 | 7.7% (2.1% to 24.1%) | 43 |
+| `footprint_only` | 95 | 17 | 7 | 6 | 29.2% (14.9% to 49.2%) | 28 |
+
+About 520 lots are wrong by these estimates, under 1% of the buildings. A sample of 30 bounds the
+largest class loosely, and Data improvements' registry gives better evidence there: it agrees on
+62,932 of the 63,124 buildings both hold. In the ties the reviewers chose the address's lot 23
+times and the footprint's 13 times. With the point within 10 m of a footprint but outside it,
+they chose the address's lot 12 times and the footprint's once.
+
+### Against the registry
+
+Data improvements' lot registry, `/data1/apartments/external/registry/20261016-5f07157-all`,
+gives a lot to each building slug by its own address match (`address`), by the lot under the
+map point (`reverse`), or by a person's choice (`override`). It matches `buildings.lots` here:
+
+| method | buildings | in the build | same lot | other lot | same lot and BIN |
+|---|---:|---:|---:|---:|---:|
+| `address` | 64,596 | 64,567 | 64,161 | 405 | 63,411 |
+| `reverse` | 4,608 | 4,608 | 4,206 | 398 | 3,886 |
+| `override` | 70 | 69 | 69 | 0 | 69 |
+
+The override missing from the build is `the-west-coast-west-wing`, absent from the export. Most
+of the other lots fall in the classes where the address and the footprint disagree:
+
+| class | in both | same lot |
+|---|---:|---:|
+| `both`, fit 2 or more | 63,124 | 62,932 |
+| `both`, fit under 2 | 3,355 | 3,328 |
+| `address` | 1,396 | 1,196 |
+| `address_only` | 546 | 491 |
+| `tie` | 463 | 359 |
+| `footprint` | 264 | 62 |
+| `footprint_only` | 91 | 68 |
+
+Of the 33 reviewed `footprint` buildings with an answer, the reviewers' lot is the step's in 29
+and the registry's in 11. In the ties the registry does better, 28 against the step's 23, and in
+`address` the step's lot is right in all 38 and the registry's in 30.
+
+### Checking a change
+
+`ops/pipeline/identity_check.py` builds `buildings.lots` and the models above it over the export
+in a scratch database, prints each class's size, compares the lots with the newest registry and
+scores the reviewed sample:
+
+```sh
+/data1/apartments/serve/master/ops/job light -m 4G -- \
+    pipeline/.venv/bin/python ops/pipeline/identity_check.py --out /data1/apartments/tmp/lots.parquet
+```
+
+On thelio it takes about 17 s at a 2.7 GB peak: 15 s for the four models, 9 s of it in
+`buildings.footprint_link`. A reviewed building whose lot has changed counts as neither right nor
+wrong, so a new rule needs reviews of the buildings it moves.
 
 ## Fit-ready rows
 
@@ -903,9 +1025,10 @@ in all, and most tests add made-up ads to that export. The tests:
     `unit_page` and `memberships` and compares them with `ads.identity`, then checks the cases
     by value;
 16. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
-    file. The next plan rebuilds only `raw.buildings`, `buildings.details`, `ads.identity`,
-    `analysis.candidates`, `analysis.kept`, the latest asks, `ledger.status` and
-    `analysis.rows`, and the 49 ads of the building in that file gain their pages;
+    file. The next plan rebuilds only `raw.buildings`, `buildings.details`, the four building
+    identity models, `ads.identity`, `analysis.candidates`, `analysis.kept`, the latest asks,
+    `ledger.status` and `analysis.rows`, and the 49 ads of the building in that file gain their
+    pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
@@ -1016,6 +1139,19 @@ in all, and most tests add made-up ads to that export. The tests:
 31. parse the text of each Python value a model reads, and find no set and no text Python can't
     parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
     and compare each model's fingerprint.
+32. add made-up buildings to the cases, each with a record of its own, and check the lot, BIN,
+    link, rank and footprint test `buildings.lots` gives each one:
+    - an address written with `W.` and `St.`, and by the street's other name in PAD's
+      dictionary;
+    - an address and a map point on neighbouring lots, once with the facts of each lot and once
+      with facts fitting both;
+    - a map point far from any footprint, and one in the street 4 m from a footprint;
+    - a record without a house number, and one with neither a house number nor a map point;
+    - a lot whose PAD range gives the BIN 3000000 while its footprint gives a numbered one;
+    - Broadway addresses with an attached letter, a letter after a space and no letter,
+      against the ranges 2441-2449 and 2449A, and a hyphenated address on a condominium's
+      range, which gives the billing lot;
+    - a Brooklyn address with a letter and no community district.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

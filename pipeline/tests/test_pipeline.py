@@ -320,6 +320,10 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.latest_change",
         "analysis.rows",
         "buildings.details",
+        "buildings.footprint_link",
+        "buildings.latest_record",
+        "buildings.lots",
+        "buildings.pad_link",
         "ledger.status",
         "raw.buildings",
     ]
