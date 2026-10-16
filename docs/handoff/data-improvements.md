@@ -1,6 +1,26 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 17:30 ET, after #860. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-15 22:40 ET, after #878. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-15 22:40 ET
+
+The pre-fit prep is done, and I told Ben.
+- #874 merged the three Brooklyn sets. Each built in about 9 minutes with no constant columns.
+- #878 merged NB9 extended by the API re-read of the page-crawl areas:
+  - `data.DATASET_NB9_API` keeps NB9's 296,953 rows and adds 58,146 API rows for listings NB9
+    lacks. `cohort extend` built it, skipping Noho and West Chelsea (2,787 rows) and 49
+    unit-month duplicates.
+  - `latest-ask-v5` covers both crawls. NB9-mw's dataset and `latest-ask-v4` are unchanged.
+  - `nb9-nostuy-api-v1` reads the merged registry (7,703 buildings), lot sources under
+    `20261016-104dfa2`, the merged extras, and four added description files, one per region-5
+    slice, because the whole granular OOMs at 6G.
+  - A trial build under the served rules with v5 and `quarantine-v31` kept 354,328 rows, 117
+    columns, none constant, in 133 s.
+- Modeling queued unitnu4 on `nb9-nostuy-api-v1` third, after whole-floor and the AR twin.
+  No whole-floor twins of the API set until that fit wins.
+- Open: the added rows have not been through NB9's audit_id-keyed review rules, and about 28
+  fields are null for them (furnished, short_term, price_basis, ...).
+- Open: the generic screens and unit spelling aliases on the API datasets.
 
 ## 2026-10-15 17:30 ET
 
