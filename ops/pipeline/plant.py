@@ -37,9 +37,9 @@ The script works in these steps:
    drops, by the reasons the ads file gives, its ask check included, and the ads it keeps with
    their clean value, with the planted value or with another value. For the ask errors it
    counts the kept ads by the step of `analysis.latest_ask` giving the ask, its `how`, read
-   from the planted build's state. It also counts the ads without an error whose row changes between the builds, as a
-   planted ad's error can move its building's median ask. It prints the counts and writes
-   them to WORK/report.json.
+   from the planted build's state. It also counts the ads without an error whose row changes
+   between the builds, as a planted ad's error can move its building's median ask. It prints
+   the counts and writes them to WORK/report.json.
 
 Another bedroom count means one more, or 3 for 4 bedrooms. A value counts as the planted or the
 clean value within half a percent. Each build runs with `PIPELINE_MEMORY` and

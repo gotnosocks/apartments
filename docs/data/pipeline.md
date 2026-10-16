@@ -226,8 +226,10 @@ It plans and applies `prod`, as the `sqlmesh plan` line above does. Then it writ
 `analysis.rows`, sorted by `listing_id`, to a Parquet file in OUT, by default
 `/data1/apartments/pipeline/datasets`. The file's name holds the first 16 hex digits of its
 SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. It writes `analysis.ads` the same way, to a file
-such as `ads-<hash>.parquet`, described under [Ads file](#ads-file). Last, the script appends a
-line for the build to `OUT/catalog.ndjson`:
+such as `ads-<hash>.parquet`, described under [Ads file](#ads-file). It writes both files with
+eight of DuckDB's threads, since with all twelve the sort of the ads file ran out of the 3 GB
+limit once the file joined `analysis.ask_check`. Last, the script appends a line for the build
+to `OUT/catalog.ndjson`:
 
 | key | holds |
 |---|---|
@@ -439,10 +441,11 @@ disk.
 | `analysis.kept` | view | candidate kept for its unit and month |
 | `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
-| `analysis.rows` | view | fit-ready row: a kept row the ledger and the ask check leave in, with the values the ledger's live sets give |
+| `analysis.corrected` | view | kept row the ledger leaves in, with the values the ledger's live sets give |
 | `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
-| `analysis.ask_check` | table | kept row with a latest ask 6 to 16 times, or a sixteenth to a sixth of, the median of its building's other kept rows with the same bedroom count |
+| `analysis.ask_check` | table | corrected row with a latest ask 6 to 16 times, or a sixteenth to a sixth of, the median of its building's other corrected rows with the same bedroom count |
+| `analysis.rows` | view | fit-ready row: a corrected row the ask check leaves in |
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.building_certificates` | table | candidate ad: its BIN, and the certificates of occupancy DOB had issued on it by its first day |
@@ -1098,7 +1101,7 @@ take an earlier certificate's.
 ## Fit-ready rows
 
 `analysis.rows` gives a fit its rows, one for each unit and month, with the values of the current
-chain's analysis datasets. I build them in four steps.
+chain's analysis datasets. I build them in six steps.
 
 1. `buildings.details` takes each building's slug and area name from its latest record. For the
    floor count, it takes the smallest positive `floorCount` among the building's records and
@@ -1135,9 +1138,10 @@ chain's analysis datasets. I build them in four steps.
    Every candidate has a building and a bedroom count, since `ads.identity` and `ads.exclusions`
    give a reason to an ad lacking either, and an audit on `analysis.candidates` checks it.
 4. `analysis.kept` gives the kept candidates as a view.
-5. `analysis.rows` applies the corrections ledger to the kept rows, as described under
-   [Corrections ledger](#corrections-ledger), and drops the rows of `analysis.ask_check`,
-   described under [Ask check](#ask-check).
+5. `analysis.corrected` applies the corrections ledger to the kept rows, as described under
+   [Corrections ledger](#corrections-ledger).
+6. `analysis.rows` drops the corrected rows `analysis.ask_check` lists, as described under [Ask
+   check](#ask-check).
 
 The chain checks a unit-month within a slice of one region's dataset, while `analysis.candidates`
 checks it over every region. Each row lists the export regions of its ad's answers in `regions`,
@@ -1171,31 +1175,33 @@ so a bracket reads the next element of the sorted list.
 
 An error in every record of an ad leaves `analysis.latest_ask` nothing to compare within the ad,
 so a tenfold typo in all of an ad's prices passes its steps. `analysis.ask_check` compares each
-kept row's latest ask with the median latest ask of the building's other kept rows with the same
-bedroom count. It lists the row when:
+corrected row's latest ask with the median latest ask of the building's other corrected rows with
+the same bedroom count. It lists the row when:
 
 - at least three other rows share its building and bedroom count;
 - its latest ask is 6 to 16 times the median, or a sixteenth to a sixth of it.
 
 `analysis.rows` drops each row the check lists, and `analysis.ads` gives the median, the number
-of other rows and the ratio in its `ask_check` column. Like `analysis.latest_ask`, the check
-reads the kept rows before the corrections ledger. A typo of an extra or a missing digit gives a
-ratio near 10, but a row's true ask can lie a good way from its building's median. On the
-planted sample under [Planted errors](#planted-errors), the tenfold asks ran from 6.8 to 15.1
-times the median, so I set the band at 6 to 16. In both builds of that sample the check also
+of other rows and the ratio in its `ask_check` column. The check reads the rows after the
+corrections ledger, so a live bedroom set moves a row in with the rows of its corrected count,
+and the ads the ledger excludes drop out of every median. The ledger has no change to keep a row
+the check lists. A typo of an extra or a missing digit gives a ratio near 10, but a row's true
+ask can lie a good way from its building's median. On the planted sample under [Planted
+errors](#planted-errors), the tenfold asks ran from 6.8 to 15.1 times the median, so I set the
+band at 6 to 16. In both builds of that sample the check also
 lists ad 2121710, a studio asking $21,545 whose description gives $2,150 a month.
 
-On the export of Oct 16 the check lists 46 rows: 35 at 6.1 to 12.5 times the median, and 11 at
-a tenth to a sixth of it. The median row has 44 others to compare with. The ledger already
-excluded 6 of the 46, so the rows file holds 40 fewer rows, 1,746,475 in all. A Sonnet subagent
-read each of the 46 ads, with its description, its prices, the unit's other ads and the
-building's other rows with its bedroom count:
+On the export of Oct 16 the check lists 40 rows: 31 at 6.1 to 12.5 times the median, and 9 at
+a tenth to a sixth of it. Half of them have 45 or more others to compare with. The rows file
+holds 1,746,475 rows, 40 fewer than without the check. A Sonnet subagent read each of the 40
+ads, with its description, its prices, the unit's other ads and the building's other rows with
+its bedroom count:
 
 | the ad | rows |
 |---|--:|
-| a mistyped price, 24 of them by a digit | 26 |
-| a shop, a restaurant space or a nightclub | 7 |
-| an apartment with another bedroom count or in another building than the record gives | 5 |
+| a mistyped price, 21 of them by a digit | 23 |
+| a shop or a restaurant space | 5 |
+| an apartment with another bedroom count or in another building than the record gives | 4 |
 | an income-restricted unit | 3 |
 | a real ask | 3 |
 | unclear | 2 |
@@ -1204,11 +1210,15 @@ The three real asks are two-bedrooms. One is a walk-up asking $2,695 in 2015, in
 whose other two-bedrooms ask $7,500 to $18,750 in 2026. The other two are new or renovated units
 of 1,522 and 2,025 square feet asking $16,000 and $16,500, in buildings whose other two-bedrooms
 were listed from 2015 to 2017 at $2,200 to $3,045. The check compares rows of every year and
-size, so a rebuilt building or a much larger unit can fall outside the band. Narrowing the band would also
-let through the typos at 6 to 7 times, so I kept it and dropped those three rows with the rest.
+size, so a rebuilt building or a much larger unit can fall outside the band. The two larger
+units ask 6.13 and 6.40 times their median. A band starting above 6.4 would let them through, along
+with the restaurant space at 6.11 and two studios at 6.25: one asking $20,000 in an ad too short
+to tell, and one with three bedrooms by its description. I kept the band and dropped the three
+real asks with the rest.
 
-On a copy of a built state, the build rebuilt `analysis.ask_check` in 0.8 s, along with the
-views below it and the two ledger models, and took 22 s in all at a 4,203 MiB peak.
+On a copy of a built state, the build recreated the view `analysis.corrected` in 1.1 s and
+rebuilt `analysis.ask_check` in 0.8 s, along with the views below them. Writing the two files
+took 10.5 s, at a 3,837 MiB peak.
 
 ## Corrections ledger
 
@@ -1244,13 +1254,13 @@ Three models read the ledger:
    | `superseded` | sets a field a later live set of the row also sets |
    | `live` | applies |
 
-3. `analysis.rows` drops the rows of the live excludes and gives the values of the live sets.
-   A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
+3. `analysis.corrected` drops the rows of the live excludes and gives the values of the live
+   sets. A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
    chain's bath rules do.
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
-correction rules apply, so a change to the ledger rebuilds only the two ledger models and the
-views `analysis.rows` and `analysis.ads`. The catalog line of each build lists the ledger's
+correction rules apply. A change to the ledger rebuilds only the two ledger models,
+`analysis.ask_check` and the views `analysis.corrected`, `analysis.rows` and `analysis.ads`. The catalog line of each build lists the ledger's
 files with their SHA-256, and counts the entries by status and change.
 
 ### The chain's corrections
@@ -1399,7 +1409,7 @@ comes from. These columns need more than a line:
 - `regions` lists the export regions of the ad's answers, from `ads.regions`.
 - `ledger_entries` lists the ledger's live entries for the ad.
 - `ask_check` holds, for a row `analysis.ask_check` lists, the median latest ask of the other
-  kept rows of its building with its bedroom count, their number and the row's ratio to the
+  corrected rows of its building with its bedroom count, their number and the row's ratio to the
   median. `analysis.rows` drops the row.
 - `in_rows` says whether the ad has a fit-ready row.
 
@@ -1545,7 +1555,22 @@ ads of another unit, so a count against the unit can't stand as a check alone. I
 row only when two sources agreed on another count. For the sources I took the unit's other ads,
 other units of the same line and other units of the building within 5% of the row's size. Each
 pairing caught 12 to 19 of the 49 planted counts and flagged hundreds of rows without a planted
-error, so the bedroom check waits for a study of those rows.
+error.
+
+On the production rows, two sources agree on another count for 14,933 rows. A Sonnet subagent
+read 30 of them, drawn at random, with each ad's description, the unit's other ads and the
+matching units:
+
+| the row | rows |
+|---|--:|
+| a flex layout, or an ad unclear about its count | 14 |
+| a wrong count | 6 |
+| a real change to the unit | 4 |
+| the right count | 4 |
+| an ad of another unit | 2 |
+
+A rule dropping the flagged rows would drop about four other rows for each wrong count, so I
+added no bedroom check. A wrong count goes into the ledger with its evidence, row by row.
 
 ## Tests
 
@@ -1567,7 +1592,7 @@ in all, and most tests add made-up ads to that export. The tests:
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
    tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the 28 models below it and gives the full answer, and a further plan finds nothing to
+   and the 29 models below it and gives the full answer, and a further plan finds nothing to
    build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -1618,7 +1643,8 @@ in all, and most tests add made-up ads to that export. The tests:
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, the four building
     identity models, `buildings.lot_releases`, `analysis.lot_facts`, `analysis.lot_landmarks`,
     `analysis.building_certificates`, `ads.identity`, `analysis.candidates`, `analysis.kept`, the
-    latest asks, `analysis.ask_check`, `ledger.status`, `analysis.rows` and `analysis.ads`, and
+    latest asks, `ledger.status`, `analysis.corrected`, `analysis.ask_check`, `analysis.rows` and
+    `analysis.ads`, and
     the 49 ads of the building in that file gain their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
@@ -1654,7 +1680,8 @@ in all, and most tests add made-up ads to that export. The tests:
     of name;
 22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two
     of them in a later file, and check each entry's status and differing values. The next plan
-    rebuilds only the two ledger models and the views `analysis.rows` and `analysis.ads`. The
+    rebuilds only the two ledger models, `analysis.ask_check` and the views
+    `analysis.corrected`, `analysis.rows` and `analysis.ads`. The
     first drops one row and changes four, and the latest asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
@@ -1815,10 +1842,13 @@ in all, and most tests add made-up ads to that export. The tests:
     the hundredfold asks drop their ads, `analysis.ask_check` drops the tenfold asks in every
     record, and the bedroom counts in every record pass into the rows;
 42. add made-up ads of a building to the cases, with asks at ten times, a little over five
-    times and a tenth of the median of the building's other rows with the same bedroom count.
+    times and a tenth of the median of the building's other rows with the same bedroom count,
+    and two studios at 20 and 13 times the median of the other studios. A ledger set makes the
+    second studio a three-bedroom, at 2.2 times the median of the three-bedrooms.
     `analysis.ask_check` lists the ads at ten times and a tenth, `analysis.rows` drops them, and
     `analysis.ads` gives them their median, the count of other rows and the ratio. The ad at a
-    little over five times and an ad at ten times with only two other rows keep their rows.
+    little over five times, an ad at ten times with only two other rows and both studios keep
+    their rows.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
