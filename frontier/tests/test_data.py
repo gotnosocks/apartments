@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V31)
+    ) | data.quarantined(data.QUARANTINE_V32)
 
 
 @pytest.mark.parametrize(
@@ -1861,6 +1861,69 @@ def test_bedrooms_ad_v6_takes_backed_counts_from_the_studio_review():
     )
     out = data.correct_bedrooms_v6(frame)
     assert out.bedrooms.tolist() == [fixes[frame.audit_id[0]]["corrected"], 2.0]
+
+
+def test_quarantine_v32_adds_the_api_backfill_reads():
+    """v32 keeps every v31 row and adds each API-backfill read whose verdict
+    drops the row; its Brooklyn rows have misjoin entries and are on the read
+    list."""
+    with open(data.QUARANTINE_V31) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V32) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = {r["audit_id"]: r for r in rows[len(old) :]}
+    with open(data.REPO / "config/reviews/ad-fit-reads-20261016-api.jsonl") as f:
+        reads = [json.loads(line) for line in f]
+    dropped = {
+        r["audit_id"]: r["verdict"]
+        for r in reads
+        if r["verdict"].startswith("quarantine_") or r["verdict"] == "brooklyn_misjoin"
+    }
+    assert {a: r["action"] for a, r in added.items()} == dropped
+    assert len(added) == 118
+    # A blank ad leaves a bedrooms_unknown row with nothing to quote.
+    assert all(
+        r["evidence"] or r["action"] == "quarantine_bedrooms_unknown"
+        for r in added.values()
+    )
+    assert all(
+        r["bedrooms_coded"] == 0
+        for r in reads
+        if r["verdict"] == "quarantine_bedrooms_unknown"
+    )
+    bk = {a for a, v in dropped.items() if v == "brooklyn_misjoin"}
+    with open(brooklyn.MISJOINS) as f:
+        misjoins = {json.loads(line)["audit_id"] for line in f if line.strip()}
+    assert len(bk) == 18 and bk <= misjoins
+    assert bk <= set(
+        (brooklyn.REVIEWS / "quarantine-v32-read-20261016.txt").read_text().split()
+    )
+    assert "quarantine-v32" in data.DROPPING_RULES
+
+
+def test_bedrooms_ad_v7_adds_two_units_whose_ads_agree():
+    """v7 keeps v6's rows and adds 4 rows, two per unit, each quoting its own
+    ad; v6's rows apply first."""
+    with open(data.BEDROOM_CORRECTIONS_V6) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.BEDROOM_CORRECTIONS_V7) as f:
+        rows = [json.loads(line) for line in f]
+    assert rows[: len(old)] == old
+    added = rows[len(old) :]
+    assert sorted((r["recorded"], r["corrected"]) for r in added) == [
+        (0.0, 1.0),
+        (0.0, 1.0),
+        (3.0, 2.0),
+        (3.0, 2.0),
+    ]
+    assert len(added) == 4 and len({r["unit_id"] for r in added}) == 2
+    assert all(r["evidence"] for r in added)
+    frame = pd.DataFrame(
+        {"audit_id": [added[0]["audit_id"], "other"], "bedrooms": [9.0, 2.0]}
+    )
+    out = data.correct_bedrooms_v7(frame)
+    assert out.bedrooms.tolist() == [added[0]["corrected"], 2.0]
 
 
 def test_quarantine_v31_adds_far_apart_misfiled_ads():
