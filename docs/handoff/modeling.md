@@ -11,10 +11,9 @@ in `/data1/apartments/tmp/bridge` (thelio).
   single-row units, plausible rents, so the building and unit effects trade off. The earlier
   baselines missed the gate too, and a baseline only sets the zero of the paired deltas.
 - Autoselect on NB9 picks the plain unitnu4 `...nb9-nostuy-lots2-v1-...-l2un4` (+76,571 PSIS-LOO),
-  tied with the wholefloor twin (+76,561). Its first summary died at the old 5G cap; the rebuild
-  runs as `modal-summary-20261016-052817-nb9serve`. Once it completes, `autoselect --write` the
-  bundle, then the serve PR (dataset, BASELINE, PRIOR_*, cleaning.json) merges and publishes, and
-  Website merges #776.
+  tied with the wholefloor twin (+76,561). Its first summary died at the old 5G cap, and the
+  rebuild finished at 10:31Z (`-90921eb`). #899 serves it (selection record, dataset, BASELINE,
+  PRIOR_*, cleaning.json). After its merge and publish, Website merges #776.
 - The all-scraped fit (Ben 06:37Z, approved outside the daily budget 07:18Z, stop before the
   summary) costs about $17.71 on an H100, over cap.py's $10 ceiling. The edit to exempt it was
   refused by the permission classifier, so it waits on Ben allowing that edit or launching it.
