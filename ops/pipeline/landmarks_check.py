@@ -24,7 +24,8 @@ them with the served model's `lpc_as_of`.
    The second run reads the same lots as the step, so its flags differ from the step's only
    through the copy and the rules. The first run differs from the second only through the lot
    each reads.
-5. It prints the rows each flag differs on for each comparison, and the lots behind them. For
+5. It prints the rows each flag differs on for each comparison, by the two sides' values, and
+   the lots behind them. For
    the comparison on the step's lot, it counts the differing rows on lots with designations
    only in the step's copy. For the comparison on the building, it gives the rows on the
    registry's lot by lot, and the rest by building, the registry's lot and the step's lot. The
@@ -161,11 +162,16 @@ def compare(args) -> None:
 
 
 def show(keys, step, served, limit=10) -> None:
-    """Print the differing rows by the columns of `keys` and both flags, the most rows
-    first."""
+    """Print the differing rows by both flags, then by the columns of `keys` and both flags,
+    the most rows first."""
     if not len(keys):
         return
     table = keys.reset_index(drop=True).assign(step=step, served=served)
+    split = table.groupby(["step", "served"]).size()
+    print(
+        "    step against served: "
+        + ", ".join(f"{s} against {v} {n:,}" for (s, v), n in split.items())
+    )
     counts = table.value_counts(dropna=False).rename("rows").reset_index().head(limit)
     print("    " + counts.to_string(index=False).replace("\n", "\n    "))
 

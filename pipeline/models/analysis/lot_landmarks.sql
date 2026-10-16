@@ -24,8 +24,8 @@ MODEL (
 -- missing for an ad without a lot. Designations after the ad stay off its row, so a fit can
 -- read every column.
 --
--- The copy gives the designations as of its release, so a designation the LPC later withdrew is missing
--- from every ad, and an ad after the copy's release misses designations made since.
+-- The copy gives the designations as of its release, so a designation the LPC later withdrew is
+-- missing from every ad, and an ad after the copy's release misses designations made since.
 -- `landmarks_release` gives the copy each row read. With no copy in the archive, `city.landmarks`
 -- has only the archive's columns, so the step adds the others with no rows, and every ad reads
 -- `landmark` and `historic_district` as missing.

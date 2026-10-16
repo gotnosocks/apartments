@@ -414,7 +414,6 @@ disk.
 | `ads.identity` | table | ad with a record: its building, its unit page and its unit |
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
-| `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.kept` | view | candidate kept for its unit and month |
 | `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
@@ -422,6 +421,7 @@ disk.
 | `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
+| `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
@@ -643,9 +643,9 @@ link each building two ways and let the city facts on its record decide between 
    numbered building. When the address's lot has one and the footprint on the same lot gives a
    numbered BIN, I take the footprint's.
 
-`analysis.lot_facts`, under [Lot facts by date](#lot-facts-by-date), reads MapPLUTO's facts
-on each building's lot as of each ad's date. The next step joins landmarks and certificates of
-occupancy the same way.
+`analysis.lot_facts` and `analysis.lot_landmarks`, under [Lot facts by date](#lot-facts-by-date)
+and [Landmarks by date](#landmarks-by-date), read MapPLUTO's facts and LPC's designations on each
+building's lot as of each ad's date. The next step joins certificates of occupancy the same way.
 
 ### Error rates
 
@@ -856,8 +856,8 @@ dated on or before the ad's first day in UTC. The row gives the earliest landmar
 earliest district, each with its date and LP number, and `landmark` and `historic_district` say
 whether the lot had one. For an ad whose building has no lot, both flags stay missing, where
 `lpc_as_of` gives false. Two kinds of value stop the build: a type outside the four, and a date
-that is blank or not written as month, day and four-digit year. The copy of 2026-06-18 has neither in its
-39,363 rows.
+that is blank or not written as month, day and four-digit year. The copy of 2026-06-18 has
+neither in its 39,363 rows.
 
 The copy holds LPC's designations as of its release. A designation the LPC withdrew before then
 is missing from every ad, and an ad after the release misses designations made since, so
@@ -1209,8 +1209,8 @@ in all, and most tests add made-up ads to that export. The tests:
     by value;
 16. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, the four building
-    identity models, `buildings.lot_releases`, `analysis.lot_facts`, `ads.identity`,
-    `analysis.candidates`, `analysis.kept`, the latest asks, `ledger.status` and
+    identity models, `buildings.lot_releases`, `analysis.lot_facts`, `analysis.lot_landmarks`,
+    `ads.identity`, `analysis.candidates`, `analysis.kept`, the latest asks, `ledger.status` and
     `analysis.rows`, and the 49 ads of the building in that file gain their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
