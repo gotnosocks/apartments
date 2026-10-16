@@ -449,13 +449,29 @@ def test_design_arrays_leave_no_large_constants_in_the_step():
     assert len(passed) < len(closed) - d.a.nbytes
 
 
-@pytest.mark.parametrize("design", ["walk", "all", "fslopes", "tunits", "walkmin-long"])
+@pytest.mark.parametrize(
+    "design",
+    [
+        "walk",
+        "all",
+        "fslopes",
+        "tunits",
+        "walkmin-long",
+        "dayfourier",
+        "bednoise",
+        "yearnoise",
+        "lines",
+    ],
+)
 def test_chunked_buildings_match_one_chunk_per_bucket(design):
     """Summing each bucket's rows and Schur products over many chunks of
     buildings, with rows of `a` built from the feature block and the keyed
     basis, gives the block draw and marginal likelihood of one chunk per
-    bucket with the dense design."""
+    bucket with the dense design. The noise designs weight rows by their
+    noise group's scale."""
     prep = synthetic(seed=2, units_per_building=3, months=72)
+    if design == "lines":
+        prep = with_lines(prep)
     whole = gibbs.build_design(prep, DESIGNS[design], chunk_rows=10**9)
     chunked = gibbs.build_design(prep, DESIGNS[design], chunk_rows=12, dense=False)
     assert whole.a is not None and chunked.a is None
@@ -472,7 +488,11 @@ def test_chunked_buildings_match_one_chunk_per_bucket(design):
         jnp.asarray(rng.normal(size=whole.n_units)),
     )
     z_f = jnp.asarray(rng.normal(size=(whole.n_buildings, whole.n_fill)))
-    for s in (SCALES, {k: v * 1.4 for k, v in SCALES.items()}):
+    base = {
+        **SCALES,
+        **{n: 0.04 + 0.01 * i for i, n in enumerate(whole.group_noise_names or ())},
+    }
+    for s in (base, {k: v * 1.4 for k, v in base.items()}):
         a = gibbs.gaussian_block(whole, lam, s, *z, kappa, z_f)
         b = gibbs.gaussian_block(chunked, lam, s, *z, kappa, z_f)
         for x, y in zip(a, b):
