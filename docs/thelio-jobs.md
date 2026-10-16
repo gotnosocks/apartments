@@ -33,7 +33,7 @@ and 3 GB of swap, and an RTX 2060 Super with 8 GB. A Gibbs fit keeps the GPU bus
 |---|---|---|
 | At once | one (the GPU lock) | three (slots); a fourth waits |
 | CPUs | 0–2, 6–8 (first complex) | 3–5, 9–11 (second complex) |
-| systemd slice | `apartments-gpu.slice`, CPU weight 1000, 7 GB | `apartments-light.slice`, CPU weight 20, 5 GB in total |
+| systemd slice | `apartments-gpu.slice`, CPU weight 1000, 8 GB | `apartments-light.slice`, CPU weight 20, 5 GB in total |
 | Per job, default | MemoryMax 6G | MemoryMax 3G, nice 10, best-effort I/O 7 |
 | GPU | yes | hidden (`CUDA_VISIBLE_DEVICES=`, `JAX_PLATFORMS=cpu`) |
 
@@ -116,6 +116,16 @@ systemctl --user daemon-reload
 
 The research-data build (`apartments-dashboard-build.service`) runs in the light slice on the
 light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.
+
+The data pipeline's build (`apartments-pipeline-build.service`, in `docs/data/pipeline.md`)
+takes the GPU lock and every light slot for each build, about 7 to 13 minutes, as
+`ops/job gpu -x` would. It runs as its own unit, so `ops/job status` leaves it out. When queued
+jobs wait and `ops/job status` lists no holder, check for it with:
+
+```sh
+systemctl --user status apartments-pipeline-build
+lslocks | grep -E 'heavy|light-'
+```
 
 ## Recording a test
 

@@ -218,6 +218,28 @@ def external(record: dict, key: str) -> list[dict]:
     return parquet_rows(path)
 
 
+def latest_asks(record: dict) -> dict[str, float]:
+    """The asks the latest-ask rules gave the run's rows (`rentfrontier.data.latest_ask_v3`),
+    by audit id, from the rules' recorded tables, verified; {} if the run has no such rule.
+    The model's target is each listing's latest ask, so the bundle carries these asks
+    in place of the dataset's. The rules apply in order, and a row a table lacks keeps
+    the ask before it."""
+    asks = {}
+    for rule in record.get("data_rules", ()):
+        if not rule.startswith("latest-ask-"):
+            continue
+        source = record.get("data_rule_sources", {}).get(rule)
+        if not source:
+            raise BuildError(f"{rule} has no recorded table")
+        path = Path(source["path"])
+        if sha256(path) != source["sha256"]:
+            raise BuildError(f"{rule} table differs from the run's record")
+        query = f"SELECT audit_id, latest_ask FROM read_parquet('{path}')"
+        table = duckdb.sql(query).fetchall()
+        asks.update((a, float(v)) for a, v in table if v is not None)
+    return asks
+
+
 STREET_TYPES = {"STREET", "AVENUE", "PLACE", "ST", "AVE"}
 
 
@@ -295,15 +317,20 @@ def _concession(value) -> str | None:
     return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
 
 
-def listing_rows(rows, observations, names, k_threshold, scope="Chelsea") -> list[dict]:
+def listing_rows(
+    rows, observations, names, k_threshold, scope="Chelsea", asks=None
+) -> list[dict]:
     """Site rows of the listings. Each carries its neighbourhood: the summary's
-    (combined cohorts), else the dataset's, else the build's scope."""
+    (combined cohorts), else the dataset's, else the build's scope. Each ask
+    matches the dataset's, or the latest ask in `asks` (`latest_asks`)."""
+    asks = asks or {}
     out = []
     for r in rows:
         obs = observations.get(r["audit_id"])
         if obs is None:
             raise BuildError(f"{r['audit_id']} is not in the dataset")
-        if abs(float(obs["asking_rent"]) - r["asking_rent"]) > 1e-6:
+        expected = asks.get(r["audit_id"], float(obs["asking_rent"]))
+        if abs(expected - r["asking_rent"]) > 1e-6:
             raise BuildError(f"{r['audit_id']}: ask differs from the dataset")
         # The estimate is the predictive median, never the mean: with
         # Student-t apartment effects of low ν the mean of a new apartment's
@@ -679,7 +706,9 @@ def write_database(
     if names != record["terms"]:
         raise BuildError("terms.json differs from the bundle's record")
     k_threshold = record["estimate_pareto_k"]["threshold"]
-    fitted = listing_rows(rows, observations, names, k_threshold, scope or "Chelsea")
+    fitted = listing_rows(
+        rows, observations, names, k_threshold, scope or "Chelsea", latest_asks(record)
+    )
     if not scope:
         scope = scope_of(fitted)
     registry = external(record, "registry")
@@ -697,8 +726,9 @@ def write_database(
     kit_dir = estimate_build.find_kit(
         record["run"], record["_sha256"], kits or estimate_build.KITS
     )
-    # A listing is on the market now when it was seen active within a week of
-    # this build (Ben, 2026-10-10): the dataset's current rows age out too.
+    # A listing is on the market now when it was seen active within
+    # captures.CURRENT_DAYS of this build (a week, Ben 2026-10-10, plus two
+    # days for the weekly top-up): the dataset's current rows age out too.
     at = captures.now()
     for r in fitted:
         if r["is_current"] and not captures.fresh(r, at):

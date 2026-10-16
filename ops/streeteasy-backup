@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Back up the StreetEasy API archive (/data1/apartments/archive/crawls/api) to the second disk.
+#
+#   ops/streeteasy-backup
+#
+# The script first copies the archive's database with SQLite's VACUUM INTO, which reads a single
+# snapshot of it, so a collector can keep writing while the copy runs. It checks the copy with
+# PRAGMA quick_check, renames it to db/archive-STAMP.sqlite3 in the backup folder, and keeps the
+# newest 7 copies (STREETEASY_BACKUP_KEEP). Then it copies the rest of the archive (response
+# bodies, run reports, current-listings captures and the raw export) into files/ with rsync,
+# leaving files the archive no longer has. Bodies are named by their content's hash, so the
+# copy of a body never changes, and every body the database copy refers to was already on disk
+# when the rsync starts.
+#
+# To restore, with no collector running:
+#   1. Copy files/ back to the archive folder.
+#   2. Delete any archive.sqlite3-wal and archive.sqlite3-shm left in the archive folder.
+#      Otherwise SQLite replays the old WAL onto the restored copy and corrupts it.
+#   3. Copy the newest db/ copy to archive.sqlite3 in the archive folder.
+#   4. Point each /data1/apartments/archive/current-listings/api-REGION link at its region's
+#      newest capture under current-listings/ in the archive, if the links are gone.
+#
+# The backup folder's parent must already exist: /data2/apartments-backup is on the second disk,
+# so a missing folder means the disk is not mounted, and the script stops rather than fill the
+# root disk. It appends a line to backup.log in the backup folder for each run.
+set -euo pipefail
+
+ARCHIVE=${STREETEASY_ARCHIVE:-/data1/apartments/archive/crawls/api}
+BACKUP=${STREETEASY_BACKUP:-/data2/apartments-backup/streeteasy-api}
+KEEP=${STREETEASY_BACKUP_KEEP:-7}
+LOG=$BACKUP/backup.log
+
+fail() {
+  echo "$(date -Is) backup failed: $*" >&2
+  [ -d "$BACKUP" ] && echo "$(date -Is) failed: $*" >>"$LOG"
+  exit 1
+}
+
+[ "$KEEP" -ge 1 ] 2>/dev/null || fail "STREETEASY_BACKUP_KEEP must be 1 or more, not $KEEP"
+[ -f "$ARCHIVE/archive.sqlite3" ] || fail "no database at $ARCHIVE/archive.sqlite3"
+[ -d "$(dirname "$BACKUP")" ] || fail "$(dirname "$BACKUP") is missing; is the backup disk mounted?"
+mkdir -p "$BACKUP/db" "$BACKUP/files"
+
+exec 9>>"$BACKUP/backup.lock"
+flock -n 9 || fail "another backup holds $BACKUP/backup.lock"
+
+started=$(date +%s)
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+copy=$BACKUP/db/archive-$stamp.sqlite3
+partial=$copy.partial
+rm -f "$BACKUP"/db/*.partial
+
+# The read-only connection never changes the database. With no collector open, SQLite still
+# creates an empty -wal and -shm beside the archive, as any reader does. VACUUM INTO writes a
+# compacted copy with no WAL beside it.
+if ! /usr/bin/python3 - "$ARCHIVE/archive.sqlite3" "$partial" <<'EOF'; then
+import os
+import sqlite3
+import sys
+
+source, target = sys.argv[1], sys.argv[2]
+db = sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=600)
+db.execute("VACUUM INTO ?", (target,))
+db.close()
+result = sqlite3.connect(target).execute("PRAGMA quick_check").fetchall()
+if result != [("ok",)]:
+    sys.exit(f"quick_check on the copy: {result[:5]}")
+fd = os.open(target, os.O_RDONLY)
+os.fsync(fd)
+os.close(fd)
+EOF
+  rm -f "$partial"
+  fail "database copy of $ARCHIVE/archive.sqlite3"
+fi
+# The heredoc above flushed the copy to disk, and flushing the folder after the rename keeps
+# the new name. Thelio's sync command flushes every filesystem, so the script calls fsync.
+mv "$partial" "$copy"
+/usr/bin/python3 -c 'import os, sys; fd = os.open(sys.argv[1], os.O_RDONLY); os.fsync(fd)' "$BACKUP/db"
+
+ls -1 "$BACKUP"/db/archive-2*Z.sqlite3 | sort -r | tail -n +"$((KEEP + 1))" | xargs -r rm -f
+
+# rsync exits 24 when files vanish during the copy, as an old capture does when a collector
+# prunes it. The next run copies whatever the archive holds then.
+status=0
+rsync -a --exclude='/archive.sqlite3*' --exclude='/collector.lock' --exclude='*.tmp' \
+  "$ARCHIVE/" "$BACKUP/files/" || status=$?
+[ "$status" -eq 0 ] || [ "$status" -eq 24 ] || fail "rsync of $ARCHIVE (exit $status)"
+
+echo "$(date -Is) ok: $(basename "$copy") $(du -h "$copy" | cut -f1), files $(du -sh "$BACKUP/files" | cut -f1), $(($(date +%s) - started)) s" | tee -a "$LOG"

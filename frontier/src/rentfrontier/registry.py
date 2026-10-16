@@ -15,11 +15,23 @@ Writes /data1/apartments/external/registry/<date>-<commit>/buildings.parquet
 and provenance.json (URL, PAD version, retrieval time, sha256). Refuses a
 dirty tree.
 
+    python -m rentfrontier.registry --buildings <buildings.csv> --tag <name>
+
+geocodes every building in a covariates file (as `rentfrontier.cohort
+covariates` writes it) in place of the dataset's buildings, for a new region
+before it has an analysis dataset. A `borough` column, when the file has one,
+names each building's borough for the address search; otherwise it is
+Manhattan. The tag goes on the snapshot's directory name, so two regions'
+registries can come from one commit on one day.
+
     python -m rentfrontier.registry --base <snapshot dir> --overrides <file>
 
 copies a snapshot and geocodes only the buildings the overrides file names,
 from the address it gives (method "override", with the review's evidence),
-so every other building keeps its match exactly.
+so every other building keeps its match exactly. Where GeoSearch's PAD
+address puts a building on the wrong lot, the override gives the lot itself
+(`bbl`, `bin` and the lot's MapPLUTO address as `label`) in place of an
+address.
 """
 
 from __future__ import annotations
@@ -33,7 +45,6 @@ import os
 import re
 import time
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 import pandas as pd
@@ -63,7 +74,8 @@ def slug_address(slug: str) -> str | None:
     Takes the first "<number> ... <street word>" run, so an address embedded
     after a name ("beatrice-105-west-29th-street-new_york") is found too.
     """
-    words = slug.removesuffix("-new_york").split("-")
+    stem = slug.removesuffix("-new_york").removesuffix("-brooklyn")
+    words = [w for w in stem.split("-") if w]
 
     def fmt(parts):
         return " ".join(p if p[0].isdigit() else p.capitalize() for p in parts)
@@ -97,8 +109,10 @@ def distance_m(lat1, lon1, lat2, lon2) -> float:
 
 
 def _get(path: str, params: dict) -> dict:
+    from .external import _urlopen  # external imports EXTERNAL_ROOT from here
+
     url = f"{GEOSEARCH}/{path}?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=30) as r:
+    with _urlopen(url, timeout=30) as r:
         return json.loads(r.read())
 
 
@@ -116,12 +130,12 @@ def _best(features, lat, lon):
     return best
 
 
-def locate(slug: str, lat: float, lon: float) -> dict:
+def locate(slug: str, lat: float, lon: float, borough: str = "Manhattan") -> dict:
     address = slug_address(slug)
     rows = []
     if address:
         hit = _best(
-            _get("search", {"text": f"{address}, Manhattan", "size": 5})["features"],
+            _get("search", {"text": f"{address}, {borough}", "size": 5})["features"],
             lat,
             lon,
         )
@@ -180,23 +194,40 @@ def locate_address(slug: str, address: str) -> dict:
 
 def apply_overrides(base: pd.DataFrame, overrides: list[dict]) -> pd.DataFrame:
     """A registry with each overridden building re-geocoded from its reviewed
-    address; every other row unchanged."""
+    address, or, for an override with a `bbl`, moved onto that lot and its
+    `bin` at the coordinates it already had; every other row unchanged."""
     out = base.set_index("building")
     for o in overrides:
         if o["building"] not in out.index:
             raise SystemExit(f"{o['building']} is not in the base registry")
-        row = locate_address(o["building"], o["address"])
-        out.loc[o["building"], list(row)[1:]] = list(row.values())[1:]
+        if "bbl" in o:
+            row = {
+                "method": "override",
+                "query": None,
+                "label": o["label"],
+                "bbl": o["bbl"],
+                "bin": o["bin"],
+                "pad_version": None,
+            }
+        else:
+            row = locate_address(o["building"], o["address"])
+            del row["building"]
+        out.loc[o["building"], list(row)] = list(row.values())
     return out.reset_index()
 
 
-def build(pause: float = 0.1) -> pd.DataFrame:
-    frame = data.load()
-    covariates = pd.read_csv(COVARIATES).set_index("building")
+def build(pause: float = 0.1, buildings: Path | None = None) -> pd.DataFrame:
+    covariates = pd.read_csv(buildings or COVARIATES).set_index("building")
+    if buildings is None:
+        slugs = sorted(data.load().building.unique())
+    else:
+        slugs = sorted(covariates.index)
     out = []
-    for slug in sorted(frame.building.unique()):
+    for slug in slugs:
         c = covariates.loc[slug]
-        out.append(locate(slug, float(c.latitude), float(c.longitude)))
+        borough = c.get("borough")
+        borough = borough if isinstance(borough, str) else "Manhattan"
+        out.append(locate(slug, float(c.latitude), float(c.longitude), borough))
         time.sleep(pause)
     return pd.DataFrame(out)
 
@@ -213,6 +244,10 @@ def main(argv=None):
         nargs="+",
         help="snapshot dirs to concatenate (neighbourhoods with disjoint buildings)",
     )
+    parser.add_argument(
+        "--buildings", type=Path, help="covariates CSV of the buildings to geocode"
+    )
+    parser.add_argument("--tag", help="suffix for the snapshot directory name")
     args = parser.parse_args(argv)
     if bool(args.base) != bool(args.overrides):
         raise SystemExit("--base and --overrides go together")
@@ -241,9 +276,18 @@ def main(argv=None):
                 "buildings": [o["building"] for o in overrides],
             },
         }
+    elif args.buildings:
+        table = build(buildings=args.buildings)
+        extra = {
+            "buildings_file": {
+                "path": str(args.buildings),
+                "sha256": hashlib.sha256(args.buildings.read_bytes()).hexdigest(),
+            }
+        }
     else:
         table = build()
-    out_dir = EXTERNAL_ROOT / "registry" / f"{started:%Y%m%d}-{commit[:7]}"
+    name = f"{started:%Y%m%d}-{commit[:7]}" + (f"-{args.tag}" if args.tag else "")
+    out_dir = EXTERNAL_ROOT / "registry" / name
     # Never over another snapshot of the same day and commit (a merge right
     # after a build would replace the part it read).
     out_dir.mkdir(parents=True, exist_ok=False)

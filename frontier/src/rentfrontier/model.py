@@ -205,6 +205,11 @@ class ModelConfig:
     # the global bedroom coefficients.
     bedroom_slope: bool = False
     bedroom_slope_scale_sd: float = 0.1
+    # With n > 0, a building gets its bedroom slope only if it has n or more
+    # training rows in each of at least two bedroom counts (0 to 4+); other
+    # buildings take the global bedroom coefficients alone. A building with
+    # one or two rows per count cannot tell its slope from its unit effects.
+    bedroom_slope_min_rows: int = 0
     # Per-building random slopes on these feature columns (by name), each
     # with its own HalfNormal(feature_slope_scale_sd) scale.
     feature_slopes: tuple = ()
@@ -633,7 +638,10 @@ def linear_predictor(p, a: Arrays, include_unit=True):
     if "area_time_step" in p:
         mu = mu + e["area_time"][a.area, a.month]
     if "bedroom_slope" in p:
-        mu = mu + e["bedroom_slope"][a.building] * a.beds_centered
+        slope = e["bedroom_slope"]
+        if "bedroom_slope_on" in p:
+            slope = slope * p["bedroom_slope_on"]
+        mu = mu + slope[a.building] * a.beds_centered
     if "fslope" in p:
         mu = mu + jnp.sum(p["fslope"][a.building] * a.x[:, p["fslope_index"]], axis=1)
     if include_unit:
@@ -797,6 +805,16 @@ def n_areas(prep: Prepared) -> int:
     return 1 if prep.areas is None else len(prep.areas)
 
 
+def bedroom_slope_buildings(prep: Prepared, min_rows: int) -> np.ndarray:
+    """1.0 for each building with `min_rows` or more training rows in each
+    of at least two bedroom counts (0 to 4+), else 0.0."""
+    tr = prep.train
+    beds = (tr.beds_centered + 1).astype(int)
+    counts = np.zeros((len(prep.buildings), 5), dtype=int)
+    np.add.at(counts, (tr.building, beds), 1)
+    return ((counts >= min_rows).sum(axis=1) >= 2).astype(float)
+
+
 def constants(prep: Prepared, config: ModelConfig) -> dict:
     """Site values that are not sampled: bases, indices, and zero effects
     (scale 0) for the base terms the design drops."""
@@ -828,6 +846,12 @@ def constants(prep: Prepared, config: ModelConfig) -> dict:
         out["fslope_index"] = jnp.asarray(
             [prep.features.names.index(n) for n in config.feature_slopes],
             dtype=jnp.int32,
+        )
+    if config.bedroom_slope_min_rows:
+        if not config.bedroom_slope:
+            raise ValueError("bedroom_slope_min_rows needs bedroom_slope")
+        out["bedroom_slope_on"] = jnp.asarray(
+            bedroom_slope_buildings(prep, config.bedroom_slope_min_rows)
         )
     if config.walk_ar_rho is not None and not (
         config.building_walk and config.walk_ar and 0 < config.walk_ar_rho < 1
@@ -1822,6 +1846,77 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # Option C with each building's bedroom slope kept only where the
+    # building has 3 or more rows in each of two bedroom counts.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3",
+        building_walk=True,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # slopemin3 with each building's walk kept only where the building has at
+    # least 1 training row per walk knot of its data range; the rest follow
+    # the market trend at their building level.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-walkmin1": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-walkmin1",
+        building_walk=True,
+        walk_min_rows_per_knot=1.0,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # slopemin3 with the unit effects' Student-t degrees of freedom fixed at 4
+    # in place of estimated; estimated near 1.9 on NB9, the tails let a small
+    # building's units split into two price groups and its level settle on
+    # either one.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4",
+        building_walk=True,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        unit_nu_fixed=4.0,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # The served size-unknown design (option C) with the log-linear residual
     # scale in place of one scale per bedroom group and year.
     "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-lognoise-sizeunkslope": ModelConfig(
@@ -1924,6 +2019,31 @@ MODELS = {
             "log_floor",
         ),
         unit_t=True,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
+    # slopemin3-unitnu4 with the fixed-rho AR(1) deviation in place of its
+    # half-year walk, as arwalk-fixedrho does for option C.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-arwalk-fixedrho": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-arwalk-fixedrho",
+        building_walk=True,
+        walk_ar=True,
+        walk_ar_rho=0.89,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        unit_nu_fixed=4.0,
         noise_by_bedrooms=True,
         noise_by_year=True,
         season_harmonics=2,

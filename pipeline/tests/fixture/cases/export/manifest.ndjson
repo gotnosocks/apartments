@@ -1,0 +1,2 @@
+{"first": 1, "last": 7, "path": "ads/run-0001/responses-0000001-0000007.parquet", "rows": 7, "run": 1, "sha256": "2acc3fe2386b712c46ded323cb8c9f2a0f9bda717b2e05f91248d524024f9022", "table": "ads", "written": "2026-10-15T12:00:00Z"}
+{"first": 8, "last": 8, "path": "buildings/run-0001/responses-0000008-0000008.parquet", "rows": 1, "run": 1, "sha256": "d914b86beb02e355e287c1c7aaf383af3cc06c756afddbf5a4c67d20e007d47f", "table": "buildings", "written": "2026-10-15T12:00:00Z"}

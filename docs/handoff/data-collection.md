@@ -1,8 +1,56 @@
 # Data collection — handoff
 
-Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-16 09:40 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
+  cheaper scraper to collect Manhattan below 59th St and Brooklyn north and west of Prospect
+  Park, and to top up the dataset on a schedule. At 22:57 ET he agreed that units' histories may
+  come from the API in place of unit pages, and at 00:37 ET he approved the backfill with north
+  Brooklyn, Crown Heights and Manhattan up to 110th St (not a re-read of crawled areas). Changes to
+  `streeteasy_archive.graphql_search` and `ops/streeteasy-collect` go through the "faster,
+  cheaper" thread; see `docs/data/graphql-collection.md`. Offline on NoMad it needed 86 requests against the page
+  crawl's 13,504 and found 22% more memberships, with every shared ad on the same unit. Every
+  region writes into the shared archive, `crawls/api`, and each run records its region. Collections take `crawls/oxylabs.lock`; a page crawl started beside
+  them should run under `flock` on the same file so the combined rate stays within 64/min.
+  `apartments-streeteasy-topup.timer` (Fridays 05:30 ET) reads current ads of every region
+  into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
+  top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16
+  from 05:30 to 05:49 ET, found 7,011 ACTIVE ads in 120 requests ($0.14) as runs 6 to 10. The
+  site counts an ad as on the market for 9 days after its last capture
+  (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
+  in #836), so an ad stays on the site through the next Friday's run even when a backfill
+  holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
+  The backfill reopens a finished run with `--reopen`. A band of one price splits by bedrooms
+  (#849, 8 meaning 8 or more), then by area (#834), then by map box starting from the four boxes
+  around New York (#843, #853), until each part holds 1,000 ads or fewer and gets read from one
+  end (#850). #852 retries Oxylabs answers with no status or content. The last reopen ran from
+  13:51 to 14:34 ET on Oct 15 in 1,081 requests ($1.23) and left every region's IDs at or above
+  its count, with no pending, truncated or unanswered band. The four runs total 10,265 requests
+  ($11.69); `docs/data/graphql-collection.md` has the tables. The dataset
+  `datasets/api-granular-20261015-canonical-url-v1` (1.71 million ads on 767,445 units), its
+  aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015` (taken 12:47
+  ET, after the box reopen and before the bedroom and split reopens) came from
+  `/data1/apartments/tmp/api-build-20261015/build.sh`. After each Friday top-up, check
+  `crawls/streeteasy-collect.log` for each region's exit and the export's, check that each
+  region's `current-listings/api-REGION` link moved, tell the coordinator so the Website thread
+  rebuilds the site data, and message the pipeline thread's session with the new runs.
+  `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
+  `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
+- **Re-read of the page-crawl areas (run 5, Oct 15).** Ben approved it at 15:50 ET. Run 5
+  (`backfill manhattan-page-crawl-areas`, no unit histories) ran from 15:52 to 17:48 ET in 2,054
+  requests ($2.34). Its searches found 522,774 ad IDs, equal to the count, with no pending,
+  truncated or unanswered band. It read 424,776 ads and wrote 160,579 units and 8,003 buildings.
+  The IDs it left unread fall below the listing-ID cutoff or were already final in the archive.
+  The dataset and snapshot above predate it. On Oct 16 I found 2,261 ads at or above the cutoff
+  in its units' histories with no archive entry, so the region now reads unit histories like
+  the others, and its next top-up reads them.
+- **Raw Parquet export (#863, #864).** `streeteasy_archive.graphql_export` writes every reply of
+  each run to `crawls/api/export/{ads,buildings,requests,calls}/run-NNNN/` and lists the files
+  in `manifest.ndjson`. `ops/streeteasy-collect` runs it at the end of each invocation and logs
+  "export exit N". Runs 1 to 10 are exported and match the archive (checked by hand). A call
+  row's `attempt` holds its POST count, so `sum(attempt)` gives a run's requests. The "API
+  data pipeline rebuild" thread reads the export; message its session after each new run.
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
   StreetEasy's GraphQL `rentalsHistoryByBuildingId` (api-v6, plain Oxylabs GET with
   `apollo-require-preflight`, 24 buildings/request, browser as fallback). Built as #705
@@ -148,8 +196,8 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
 - **History crawl → current listings** (#664, Ben 19:11 UTC): `apartments.crawl_current_listings`
   turns a finished crawl's newest-ACTIVE ads into `candidates.jsonl` with no requests, dated by
   page capture time. Not published: the Oct 10 capture is newer for those areas.
-- **No daily refresh** of current listings exists; every capture so far was on demand. Proposed
-  to Ben Oct 10 (about 2–3k requests a day, roughly $2–4); awaiting his typed answer.
+- **Weekly refresh**: `apartments-streeteasy-topup.timer` (see the GraphQL entry above) replaces
+  the on-demand captures for every area in its regions.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
@@ -166,12 +214,14 @@ Updated 2026-10-13 12:45 ET. Thread owner: the Data collection project thread (b
   3. DONE Oct 10 (#671, Ben: "Stop at 671"): the crawler writes the provider envelope without
      its HTML copy, so new crawl databases are compact and need no compaction step. Compressing
      `extracted` or dropping `scripts` is declined.
-- Ben, Oct 8 00:49 UTC: the Oxylabs budget is limited. Before proposing any new paid collection,
-  estimate its value to the model (coverage gaps, unit-history depth) against its cost.
+- Ben, Oct 15 12:14 ET, gave this thread standing permission to spend Oxylabs credits. His Oct 8
+  note that the budget is limited no longer applies, though a new paid collection still needs an
+  estimate of its value to the model against its cost.
 
 ## Rules that bind this thread
-- Oxylabs requests and new timers need Ben's words typed in this thread (the classifier blocks
-  relayed approvals).
+- New timers need Ben's words typed in this thread, since the classifier blocks relayed
+  approvals. Oxylabs requests go ahead under his Oct 15 12:14 ET permission; when the classifier
+  blocks one, cite that message.
 - Never raise rate/concurrency beyond Ben's setting (FGP's last setting: 32/min, Oct 7; the Oct 8 crawls: 32/min combined, then 64/min from Oct 9); never loosen eligibility; crawl code
   only through a new frozen runtime directory.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.

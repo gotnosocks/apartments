@@ -5,9 +5,13 @@ last capture), keyed by listing id. A sale listing can carry a rental's id, so
 the builder skips sale observations:
 
     python -m rentfrontier.listing_extras
+    python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name>
+    python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name> --base <file>
 
-writes EXTERNAL_ROOT/listing-extras/<date>-<commit>/listing-extras.parquet and
-provenance.json. Refuses a dirty tree.
+writes EXTERNAL_ROOT/listing-extras/<date>-<commit>[-<tag>]/listing-extras.parquet
+and provenance.json, from the crawls in CRAWLS or from the one crawl named.
+With --base, I keep that file's rows and add the crawl's rows for the listings
+it lacks, as an extended cohort's added rows need. Refuses a dirty tree.
 """
 
 from __future__ import annotations
@@ -56,9 +60,9 @@ def record_extras(raw: str) -> dict:
     }
 
 
-def build() -> pd.DataFrame:
+def build(crawls: dict | None = None) -> pd.DataFrame:
     rows = []
-    for neighbourhood, crawl in CRAWLS.items():
+    for neighbourhood, crawl in (crawls or CRAWLS).items():
         for path in sorted(
             glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
         ):
@@ -91,18 +95,35 @@ def _git(*args) -> str:
     ).stdout.strip()
 
 
-def main():
+def main(argv: list[str] | None = None):
+    import sys
+
+    argv = sys.argv[1:] if argv is None else argv
+    crawls, tag, base = None, "", None
+    if argv[4:5] == ["--base"] and len(argv) == 6:
+        base, argv = Path(argv[5]), argv[:4]
+    if argv[:1] == ["--crawl"] and argv[2:3] == ["--tag"] and len(argv) == 4:
+        crawls, tag = {"crawl": argv[1]}, f"-{argv[3]}"
+    elif argv:
+        raise SystemExit(
+            "usage: listing_extras [--crawl <granular dir> --tag <name> [--base <file>]]"
+        )
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    table = build()
-    out_dir = EXTERNAL_ROOT / "listing-extras" / f"{started:%Y%m%d}-{commit[:7]}"
+    table = build(crawls)
+    if base is not None:
+        # The base file's listings keep their rows; the crawl adds the rest.
+        kept = pd.read_parquet(base)
+        added = table[~table.listing_id.isin(set(kept.listing_id))]
+        table = pd.concat([kept, added], ignore_index=True)
+    out_dir = EXTERNAL_ROOT / "listing-extras" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "listing-extras.parquet"
     table.to_parquet(path, index=False)
     sources = {}
-    for name, crawl in CRAWLS.items():
+    for name, crawl in (crawls or CRAWLS).items():
         complete = Path(crawl) / "complete.json"
         sources[name] = {
             "path": crawl,
@@ -114,6 +135,12 @@ def main():
         json.dumps(
             {
                 "sources": sources,
+                "base": {
+                    "path": str(base),
+                    "sha256": hashlib.sha256(base.read_bytes()).hexdigest(),
+                }
+                if base
+                else None,
                 "built_at": started.isoformat(),
                 "commit": commit,
                 "listings": len(table),

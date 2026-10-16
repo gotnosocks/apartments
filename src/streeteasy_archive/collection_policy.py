@@ -116,7 +116,17 @@ def refresh_claim_rounds(store, generation, unit=None):
     sql = "SELECT unit_url, listing_key FROM collection_memberships WHERE generation=?"
     args = (generation,)
     if unit:
-        sql += " AND unit_url=?"
+        # With no table statistics, SQLite picks the primary key because it covers the
+        # query, and scans the generation's every membership for each unit page. Archives
+        # made before the index existed get it here, since INDEXED BY fails without it.
+        store.db.execute(
+            "CREATE INDEX IF NOT EXISTS collection_membership_units"
+            " ON collection_memberships(generation,unit_url)"
+        )
+        sql = (
+            "SELECT unit_url, listing_key FROM collection_memberships"
+            " INDEXED BY collection_membership_units WHERE generation=? AND unit_url=?"
+        )
         args += (unit,)
     ads = {}
     for unit_url, key in store.db.execute(sql, args):
@@ -212,9 +222,9 @@ def annotate(store, generation, data, body, url, body_hash=None, persist=True):
         return
     import hashlib
 
-    from apartments.granular_parse import parse_listing
+    from apartments.graphql_listing import parse_capture
 
-    row, events = parse_listing(body, url)
+    row, events = parse_capture(body, url)
     unit = row.get("canonical_unit_url")
     rental_events = [e for e in events if e["event_category"] == "rental"]
     eligible = bool(
@@ -429,6 +439,11 @@ def reuse_unit_capture(store, generation, row):
     if not snapshot:
         return False
     data = json.loads(snapshot["extracted"])
+    if "graphql_search" in data:
+        # The API collector keeps its extraction small and the ad's record in the body.
+        from apartments.graphql_listing import api_document
+
+        data["json"] = api_document(store.get_body(observation["body_hash"]))
     if "collection_policy" not in data:
         # Older snapshots predate the policy. Interpret their immutable bytes
         # offline without overwriting the historical extraction.

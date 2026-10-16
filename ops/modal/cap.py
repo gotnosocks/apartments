@@ -42,6 +42,8 @@ START = datetime.datetime(2026, 10, 7, 21, 59, 49, tzinfo=datetime.UTC)  # Ben's
 # Container list price per hour, app.usd_per_second(gpu) * 3600 (kept equal by a test; app.py
 # imports modal, so the launcher's plain python3 can't import it).
 USD_PER_HOUR = {"L4": 1.0851, "A100-40GB": 2.3851, "A100-80GB": 2.7841, "H100": 4.2351}
+# The same for a large fit's container, app.usd_per_second(gpu, large=True) * 3600.
+USD_PER_HOUR_LARGE = {"A100-80GB": 4.4097, "H100": 5.8607}
 # Wall time of a fit's GPU container: OVERHEAD_SECONDS for the upload, image, PSIS-LOO and the
 # post-fit statistics, plus the fit stage at SECONDS_PER_ITERATION an iteration per pair of
 # chains, or at the model's own rate on its last Modal fit if that was slower (measured_rate).
@@ -98,27 +100,39 @@ def measured_rate(model, features, runs=RUNS):
     return latest and latest[1]
 
 
-def gpu_seconds(chains, warmup, draws, rate=None):
+# A large fit with no measured rate yet runs at the default rate scaled by its rows: the
+# all-scraped data holds 4.9 times NB9's fit rows, and Gibbs sweeps scale with the rows.
+LARGE_SECONDS_PER_ITERATION = 2.1
+
+
+def gpu_seconds(chains, warmup, draws, rate=None, large=False):
     """Estimated wall time of a fit's GPU container, at `rate` seconds an iteration if that is
     slower than the default."""
-    per = max(SECONDS_PER_ITERATION, rate or 0)
+    default = LARGE_SECONDS_PER_ITERATION if large and rate is None else 0
+    per = max(SECONDS_PER_ITERATION, rate or 0, default)
     return OVERHEAD_SECONDS + per * (int(warmup) + int(draws)) * (int(chains) / 2)
 
 
-def seconds(chains, warmup, draws, rate=None):
-    """Estimated Modal time of a fit: its GPU container, then the new-building container."""
-    return round(gpu_seconds(chains, warmup, draws, rate) + NEWBUILDING_SECONDS)
+def seconds(chains, warmup, draws, rate=None, large=False):
+    """Estimated Modal time of a fit: its GPU container, then the new-building container (none
+    for a large fit)."""
+    nb = 0 if large else NEWBUILDING_SECONDS
+    return round(gpu_seconds(chains, warmup, draws, rate, large) + nb)
 
 
-def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None):
+def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
     """Estimated list-price cost of a fit and its new-building score, in USD."""
-    gpu_usd = gpu_seconds(chains, warmup, draws, rate) * USD_PER_HOUR[gpu]
-    return round((gpu_usd + NEWBUILDING_SECONDS * NEWBUILDING_USD_PER_HOUR) / 3600, 2)
+    per_hour = (USD_PER_HOUR_LARGE if large else USD_PER_HOUR)[gpu]
+    gpu_usd = gpu_seconds(chains, warmup, draws, rate, large) * per_hour
+    nb_usd = 0 if large else NEWBUILDING_SECONDS * NEWBUILDING_USD_PER_HOUR
+    return round((gpu_usd + nb_usd) / 3600, 2)
 
 
-def over_cap(usd, secs):
-    """Why a fit estimated at `usd` and `secs` is over the per-fit cap, or None."""
-    if secs is not None and secs > PER_FIT_SECONDS:
+def over_cap(usd, secs, large=False):
+    """Why a fit estimated at `usd` and `secs` is over the per-fit cap, or None. A large fit
+    (fit.py --large) has no time cap (Ben, 2026-10-16 06:37Z: the all-scraped fit is not
+    held to the hour)."""
+    if secs is not None and secs > PER_FIT_SECONDS and not large:
         return (
             f"this fit's estimated {secs / 60:.0f} min of Modal time is over the per-fit cap "
             f"of {PER_FIT_SECONDS / 60:.0f} min (Ben, 2026-10-14 09:57Z)"
@@ -242,12 +256,12 @@ def _append(ledger, decide, now):
         os.fsync(f.fileno())
 
 
-def reserve(name, gpu, usd, ledger=LEDGER, now=None, secs=None):
+def reserve(name, gpu, usd, ledger=LEDGER, now=None, secs=None, large=False):
     """Charge a launch of `name` its estimate `usd`, or raise CapReached if the estimate (`usd`,
     or `secs` of Modal time) is over the per-fit cap or the balance is short.
 
     Returns the launch's id, for settle, and the balance left."""
-    if why := over_cap(usd, secs):
+    if why := over_cap(usd, secs, large):
         raise CapReached(f"refused: {why}")
     now = _now(now)
     left = {}
@@ -325,12 +339,13 @@ if __name__ == "__main__":
             argv = sys.argv[sys.argv.index("--check-launch") + 1 :]
             *fit, gpu = fit_size(argv)
             rate = measured_rate(*fit_model(argv))
-            usd, secs = estimate(*fit, gpu, rate), seconds(*fit, rate)
+            large = "--large" in argv
+            usd, secs = estimate(*fit, gpu, rate, large), seconds(*fit, rate, large)
         except (TypeError, ValueError, KeyError):
             sys.exit(
                 0
             )  # bad arguments: fit.py reports them, and reserves before any launch
-        if why := over_cap(usd, secs):
+        if why := over_cap(usd, secs, large):
             print(f"refused: {why}", file=sys.stderr)
             sys.exit(2)
         if balance(rows) < usd:

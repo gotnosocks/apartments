@@ -127,12 +127,27 @@ def test_newest_capture_wins_per_unit(tmp_path):
     assert [(d, c["rent"]) for d, c in got] == [("20261008", 3900)]
 
 
-def test_a_capture_ages_out_a_week_after_it_was_seen(tmp_path):
+def test_the_newest_sighting_wins_whatever_the_folder_is_called(tmp_path):
+    write_capture(
+        tmp_path,
+        "20261006",
+        [candidate(2, rent=3900, collected_at="2026-10-06T15:00:00+00:00")],
+    )
+    write_capture(
+        tmp_path,
+        "api-region",
+        [candidate(1, rent=4000, collected_at="2026-10-05T15:00:00+00:00")],
+    )
+    got = captures.captures(tmp_path, set(), set(), {})
+    assert [(d, c["rent"]) for d, c in got] == [("20261006", 3900)]
+
+
+def test_a_capture_ages_out_nine_days_after_it_was_seen(tmp_path):
     write_capture(tmp_path, "20261006", [candidate(1)])
     seen = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
-    assert captures.captures(tmp_path, set(), set(), {}, seen + dt.timedelta(days=7))
+    assert captures.captures(tmp_path, set(), set(), {}, seen + dt.timedelta(days=9))
     assert not captures.captures(
-        tmp_path, set(), set(), {}, seen + dt.timedelta(days=7, seconds=1)
+        tmp_path, set(), set(), {}, seen + dt.timedelta(days=9, seconds=1)
     )
 
 

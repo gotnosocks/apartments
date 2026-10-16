@@ -27,7 +27,9 @@ the chain's generic rules and none of Chelsea's review decisions:
 `observations.jsonl` and `complete.json`. Use the result with
 `FRONTIER_DATASET=<output dir>`. `python -m rentfrontier.cohort covariates
 <granular dir> <buildings.csv>` writes the building coordinates the registry
-geocodes from (`FRONTIER_BUILDING_COVARIATES`).
+geocodes from (`FRONTIER_BUILDING_COVARIATES`). `python -m rentfrontier.cohort
+extend <output dir> <base dir> <extra dir>` adds a second cohort's new ads to a
+base cohort (`extend`).
 """
 
 from __future__ import annotations
@@ -268,13 +270,21 @@ def combine(output: Path, parts: dict) -> dict:
     as Chelsea + West Village) keeps it."""
     keys = ("audit_id", "unit_id", "source_listing_id", "building")
     seen = {k: set() for k in keys}
-    rows, sources = {}, {}
+    counts, sources, hoods = {}, {}, Counter()
+    # A first pass reads each part's keys alone, so the check holds the key
+    # sets in memory and not the rows (all the scraped areas run to 1.75M).
     for name, directory in parts.items():
+        mine = {k: set() for k in keys}
+        counts[name] = 0
         with open(directory / "observations.jsonl") as f:
-            rows[name] = [json.loads(line) for line in f if line.strip()]
-        mine = {
-            k: {str(r[k]) for r in rows[name] if r.get(k) is not None} for k in keys
-        }
+            for line in f:
+                if not line.strip():
+                    continue
+                r = json.loads(line)
+                counts[name] += 1
+                for k in keys:
+                    if r.get(k) is not None:
+                        mine[k].add(str(r[k]))
         for k, values in seen.items():
             if values & mine[k]:
                 raise SystemExit(f"{name} shares {k} values with another part")
@@ -286,18 +296,83 @@ def combine(output: Path, parts: dict) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     path = output / "observations.jsonl"
     with open(path, "w") as out:
-        for name, part in rows.items():
-            for row in part:
-                row.setdefault("neighbourhood", name)
-                out.write(json.dumps(row, default=str) + "\n")
+        for name, directory in parts.items():
+            with open(directory / "observations.jsonl") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    row.setdefault("neighbourhood", name)
+                    hoods[row["neighbourhood"]] += 1
+                    out.write(json.dumps(row, default=str) + "\n")
     complete = {
         "version": "combined-neighbourhood-cohort-v1",
         "built_at": dt.datetime.now(dt.UTC).isoformat(),
         "parts": sources,
-        "rows": {name: len(part) for name, part in rows.items()},
-        "neighbourhoods": dict(
-            Counter(r["neighbourhood"] for part in rows.values() for r in part)
-        ),
+        "rows": counts,
+        "neighbourhoods": dict(hoods),
+        "files": {"observations.jsonl": _sha(path)},
+    }
+    (output / "complete.json").write_text(json.dumps(complete, indent=2) + "\n")
+    return complete
+
+
+def extend(output: Path, base: Path, extra: Path) -> dict:
+    """The base cohort with the ads of a second cohort of the same areas that
+    the base lacks, such as the API re-read of the page crawl's areas.
+
+    I keep every base row as it is, so the rules keyed on its audit ids and
+    units still apply. From the extra cohort I take a row when:
+
+    1. the base has no row of its listing (`source_listing_id`);
+    2. its neighbourhood is one of the base's;
+    3. the base has no row of its unit in the same month, since a cohort keeps
+       one ask per unit-month.
+
+    An added row gets the base's other fields as null, and an empty
+    `exclusion_reason` as the base's included rows have."""
+
+    def read(directory):
+        with open(directory / "observations.jsonl") as f:
+            return [json.loads(line) for line in f if line.strip()]
+
+    base_rows, extra_rows = read(base), read(extra)
+    listings = {str(r["source_listing_id"]) for r in base_rows}
+    areas = {r["neighbourhood"] for r in base_rows}
+    unit_months = {(r["unit_id"], r["period"]) for r in base_rows}
+    fields = list(dict.fromkeys(k for r in base_rows for k in r))
+    skipped = Counter()
+    added = []
+    for row in extra_rows:
+        if str(row["source_listing_id"]) in listings:
+            skipped["listing in base"] += 1
+        elif row["neighbourhood"] not in areas:
+            skipped["area not in base"] += 1
+        elif (row["unit_id"], row["period"]) in unit_months:
+            skipped["unit-month in base"] += 1
+        else:
+            added.append({**dict.fromkeys(fields), "exclusion_reason": "", **row})
+    audit_ids = {r["audit_id"] for r in base_rows}
+    if clash := sum(r["audit_id"] in audit_ids for r in added):
+        raise SystemExit(f"{clash} added rows share an audit id with the base")
+    output.mkdir(parents=True, exist_ok=False)
+    path = output / "observations.jsonl"
+    with open(path, "w") as out:
+        for row in base_rows + added:
+            out.write(json.dumps(row, default=str) + "\n")
+    complete = {
+        "version": "extended-cohort-v1",
+        "built_at": dt.datetime.now(dt.UTC).isoformat(),
+        "base": {
+            "path": str(base),
+            "observations_sha256": _sha(base / "observations.jsonl"),
+        },
+        "extra": {
+            "path": str(extra),
+            "observations_sha256": _sha(extra / "observations.jsonl"),
+        },
+        "rows": {"base": len(base_rows), "added": len(added), "skipped": dict(skipped)},
+        "neighbourhoods_added": dict(Counter(r["neighbourhood"] for r in added)),
         "files": {"observations.jsonl": _sha(path)},
     }
     (output / "complete.json").write_text(json.dumps(complete, indent=2) + "\n")
@@ -376,6 +451,10 @@ def main(argv=None):
                 combine(Path(argv[1]), {k: Path(v) for k, v in parts.items()}), indent=2
             )
         )
+        return
+    if argv and argv[0] == "extend":
+        # python -m rentfrontier.cohort extend <output dir> <base dir> <extra dir>
+        print(json.dumps(extend(Path(argv[1]), Path(argv[2]), Path(argv[3])), indent=2))
         return
     if argv and argv[0] == "areas":
         # python -m rentfrontier.cohort areas <output dir> <dataset dir> <areas.parquet>

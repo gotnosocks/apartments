@@ -18,7 +18,9 @@ out=${FRONTIER_OUTPUT_ROOT:-/data1/apartments/frontier}
 export PATH=/home/ben/.local/bin:$PATH
 cd "$repo/frontier"
 echo "== $(date +%F' '%T) summary of $run"
-XLA_PYTHON_CLIENT_PREALLOCATE=false "$repo/ops/job" gpu -m 5G -- \
+# NB9's summary (266,513 rows, 128,791 units) peaked at 5G plus 2.5G of swap and was killed at
+# the old 5G cap after 75 minutes (2026-10-15). NB8's 214,887 rows fit under 5G.
+XLA_PYTHON_CLIENT_PREALLOCATE=false "$repo/ops/job" gpu -m 8G -- \
   uv run --frozen --extra gpu python -m rentfrontier.summary "$run"
 # A queue runner can move serve/master to a newer commit while the summary waits for the GPU
 # lock, so the bundle is the newest complete one for this run under any 7-character commit.

@@ -23,14 +23,15 @@ import pandas as pd
 DATASET = Path(
     os.environ.get(
         "FRONTIER_DATASET",
-        # The eight neighbourhoods (DATASET_NB8, #625); before that the five
-        # (DATASET_NB5, #460, chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057),
+        # The nine neighbourhoods (DATASET_NB9); before that the eight
+        # (DATASET_NB8, #625, chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0),
+        # the five (DATASET_NB5, #460, chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057),
         # and before that Chelsea + West
         # Village + Greenwich Village, chelsea-wv-gv-analysis-20261005-2d5b3b6
         # (#292), chelsea-west-village-analysis-20261005-1222e51 (Oct 5 captures,
         # #220), chelsea-west-village-analysis-20261001-eea4f66, and Chelsea alone,
         # data/model/chelsea-product-scope-analysis-20260921.
-        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0",
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
     )
 )
 # Chelsea + West Village + Greenwich Village with Flatiron + Gramercy Park
@@ -58,15 +59,44 @@ DATASET_NB7 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-analysis-20261009-d3b4050"
 )
 # The seven plus East Village (cohort east-village-analysis-20261010-3ebfea04),
-# no rule change. The served dataset (DATASET).
+# no rule change.
 DATASET_NB8 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
 )
 # The eight plus Hell's Kitchen and Hudson Yards (cohort
 # midtown-west-areas-analysis-20261014-cd891c8, the Midtown West crawl split by
-# each building page's area), no rule change.
+# each building page's area), no rule change. The served dataset (DATASET).
 DATASET_NB9 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8"
+)
+# DATASET_NB9 extended by the API re-read of its areas (api-manhattan-page-
+# crawl-areas-analysis-20261015-run5, `rentfrontier.cohort extend`): NB9's
+# rows unchanged plus 58,146 ads the page crawls missed, in NB9's
+# neighbourhoods. Noho and West Chelsea, which NB9 lacks, stay out.
+DATASET_NB9_API = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-api-analysis-20261015-c9eea95"
+)
+# The four-region API backfill of 2026-10-15 (api-granular-20261015-canonical-
+# url-v1), one dataset per fit: Manhattan below 59th St and Prospect Park whole,
+# Manhattan 59th-110th split at Central Park, and north Brooklyn split into two
+# contiguous halves. Each row's neighbourhood is its building page's StreetEasy
+# area. The datasets share no building with each other or with DATASET_NB9.
+_API = "/data1/apartments/frontier/datasets/api-{}-analysis-20261015-6064263"
+DATASETS_API = {
+    name: Path(_API.format(name))
+    for name in (
+        "manhattan-below-59th",
+        "manhattan-west-59th-110th",
+        "manhattan-east-59th-110th",
+        "brooklyn-prospect-park",
+        "brooklyn-williamsburg-crown-heights",
+        "brooklyn-greenpoint-bushwick",
+    )
+}
+# Every scraped area in one dataset (`rentfrontier.cohort combine`):
+# DATASET_NB9_API and the six DATASETS_API, which share no building.
+DATASET_ALL = Path(
+    "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157"
 )
 OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/frontier"))
 
@@ -732,6 +762,113 @@ def correct_bedrooms_v3(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(frame, "bedrooms-ad-v3")
 
 
+BEDROOM_CORRECTIONS_V4 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v4-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v4(frame: pd.DataFrame) -> pd.DataFrame:
+    """v3's rows, then 22 rows the ad-fit screen's bedroom check
+    (`adfit.bedroom_conflicts`) flagged on NB9. A reader read each flagged
+    row's ads in full (`config/reviews/ad-fit-reads-20261015-bedrooms.jsonl`).
+    A count changes only when an ad states or describes it and something
+    independent of that ad backs it, recorded as the read's `second_signal`:
+      - another ad for the same unit stating the count,
+      - a stated size nearer that count's median size than the coded count's,
+      - a floor plan, photos or a video walkthrough Ben reviewed.
+    Price chooses which rows get read and never backs a count. Rows whose ad
+    states a count with nothing to back it keep their coded count. Every row
+    is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v3(frame), "bedrooms-ad-v4")
+
+
+BEDROOM_CORRECTIONS_V5 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v5-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v5(frame: pd.DataFrame) -> pd.DataFrame:
+    """v4's rows, then 4 more rows from v4's review. That review left 64 rows
+    at their coded count because only the ad stated another count. For 15 of
+    the 64, the stored listing or building unit page links a floor plan. The plans are fetched into
+    `/data1/apartments/archive/floor-plans/<listing id>/` and read in
+    `config/reviews/floor-plans-20261015-bedrooms.jsonl`. A count changes
+    when the listing's own page carries a plan whose labels clearly show the
+    ad's count. A plan from the building's unit page may show another
+    period's layout, so it backs nothing here. Every row is kept; only
+    `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v4(frame), "bedrooms-ad-v5")
+
+
+BEDROOM_CORRECTIONS_V6 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v6-20261015.jsonl"
+)
+
+
+def correct_bedrooms_v6(frame: pd.DataFrame) -> pd.DataFrame:
+    """v5's rows, then 13 studios from a second bedroom review. The bedroom
+    check now also flags a studio asking more than its building's
+    one-bedrooms or two-bedrooms, and a reader read each newly flagged row's
+    ads in full (`config/reviews/ad-fit-reads-20261015-studios.jsonl`). A
+    studio takes the ad's count when another ad for the unit, a stated size
+    or the floor plan on the listing's own page backs it
+    (`config/reviews/floor-plans-20261015-studios.jsonl`). Flex wording such
+    as "convertible" or "set up as" backs nothing. Every row is kept; only
+    `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v5(frame), "bedrooms-ad-v6")
+
+
+BEDROOM_CORRECTIONS_V7 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v7-20261016.jsonl"
+)
+
+
+def correct_bedrooms_v7(frame: pd.DataFrame) -> pd.DataFrame:
+    """v6's rows, then 4 rows from the reads of the API backfill's ad-fit hits
+    (`config/reviews/ad-fit-reads-20261016-api.jsonl`). Each unit has two ads,
+    and both give the same count:
+
+    - 426 W 58th St, coded 3: both ads describe 2 bedrooms, 2 baths and a home
+      office in 1,798 square feet.
+    - 58 E 1st St, coded 0: both ads describe a studio converted to a 1
+      bedroom.
+
+    Every row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v6(frame), "bedrooms-ad-v7")
+
+
+# Recorded square feet that disagree with the unit's other listings, read
+# against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
+SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
+
+
+def correct_square_feet_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Square feet taken from the apartment's other listings. On the NB9 rows we
+    compared each sized row with the same unit's other sized rows and found 227
+    rows off by more than 1.5x. 43 of them had a size to take:
+
+    - at least two other listings of the unit agree within 10%, or
+    - at least two other units of the line agree within 10%,
+
+    in both cases with the row's bedroom count. We then kept the recorded size
+    when
+      - the backing listings repeat one ad's copy,
+      - a backing ad's size counts a terrace or gives a total,
+      - the new size sits no nearer the bedroom count's median size than the
+        recorded one, or
+      - a reader found the listing's own ad stating the recorded size, or
+        describing a different apartment, or could not tell.
+    12 rows take the new size; `config/reviews/sqft-units-reads-20261015.jsonl`
+    gives every candidate's outcome and the quotes the second reader copied.
+    Every row is kept; only `square_feet` changes."""
+    with open(RULE_SOURCES["sqft-units-v1"]) as f:
+        rows = {r["audit_id"]: r["corrected"] for r in map(json.loads, f)}
+    out = frame.copy()
+    hit = out.audit_id.isin(rows)
+    out.loc[hit, "square_feet"] = out.loc[hit, "audit_id"].map(rows).to_numpy()
+    return out
+
+
 def correct_baths_v3(frame: pd.DataFrame) -> pd.DataFrame:
     """v2's rule on the five neighbourhoods, as bedrooms-ad-v3 (59 rows: v2's
     41 and 18 more)."""
@@ -935,6 +1072,10 @@ def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.Data
     unit-labels rules. Rows are unchanged."""
     with open(path) as f:
         groups = [json.loads(line) for line in f if line.strip()]
+    return _join_units(frame, groups)
+
+
+def _join_units(frame: pd.DataFrame, groups: list[dict]) -> pd.DataFrame:
     raw = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0]
     key = raw.map(lambda v: unit_label_key(v) if isinstance(v, str) else v)
     out = frame.copy()
@@ -942,6 +1083,38 @@ def join_reviewed_units(frame: pd.DataFrame, path: Path = UNIT_JOINS) -> pd.Data
         hit = (frame.building == g["building"]) & key.isin(g["unit_labels"])
         if hit.any():
             out.loc[hit, "unit_id"] = out.unit_id[hit].min()
+    return out
+
+
+# Reviewed units, second version (2026-10-14): the joins above, verbatim, and
+# listings split off the unit they were filed under.
+UNIT_REVIEWS = UNIT_JOINS.with_name("unit-reviews-20261014.jsonl")
+
+
+def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame:
+    """Applies the reviewed unit joins and splits in the file at `path`.
+
+    1. The `join_units` lines go through the same join as `join_reviewed_units`.
+    2. Each `split_listings` line names a building, a unit id and the listings
+       a reader found to be a different apartment from the rest of that unit's
+       history, judged from ad text, page and sizes, not rent: at 1 Patchin
+       Place, the 2020 ads for an 1,800 sq ft duplex filed under unit 2, whose
+       2014 ads give 900 to 950 sq ft. The rows of those listings get the id
+       `{unit_id}~review-{first listing}`, which unit-splits then pieces like
+       any other unit, since it runs last.
+
+    Rows are unchanged apart from their unit ids."""
+    with open(path) as f:
+        lines = [json.loads(line) for line in f if line.strip()]
+    out = _join_units(frame, [g for g in lines if g["action"] == "join_units"])
+    listing = out.source_listing_id.astype(str)
+    for s in (g for g in lines if g["action"] == "split_listings"):
+        hit = (
+            (out.building == s["building"])
+            & (out.unit_id == s["unit_id"])
+            & listing.isin(s["source_listing_ids"])
+        )
+        out.loc[hit, "unit_id"] = f"{s['unit_id']}~review-{s['source_listing_ids'][0]}"
     return out
 
 
@@ -963,6 +1136,29 @@ def in_tuning_subset(building: str, share: int = TUNE_B35_SHARE) -> bool:
 def tune_b35_v1(frame: pd.DataFrame) -> pd.DataFrame:
     """Rows of 35% of buildings (in every neighbourhood alike)."""
     keep = frame.building.map(in_tuning_subset)
+    return frame[keep.to_numpy()]
+
+
+# The 35% subset plus buildings whose effects mixed slowly in recent C fits
+# (the quarantine-v17 wing fit and the NB9 C fit, 2026-10-14), for comparing
+# bedroom-slope designs.
+SLOPECHECK_BUILDINGS = frozenset(
+    {
+        "106-east-10-street-new_york",
+        "159-2-avenue-new_york",
+        "870-broadway-new_york",
+        "222-east-17-street-new_york",
+        "4-perry-street-new_york",
+        "1-sheridan-square-new_york",
+    }
+)
+
+
+def tune_b35_slopecheck_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """Rows of the 35% subset and of `SLOPECHECK_BUILDINGS`."""
+    keep = frame.building.map(in_tuning_subset) | frame.building.isin(
+        SLOPECHECK_BUILDINGS
+    )
     return frame[keep.to_numpy()]
 
 
@@ -1077,6 +1273,347 @@ def quarantine_v15(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V15))]
 
 
+QUARANTINE_V16 = REPO / "config" / "reviews" / "quarantine-v16-20261014.jsonl"
+# The rows v16's review read: every hit of quarantine_v16_screen.py on the NB9
+# rows under the rules of 2026-10-14, and the five one-bedroom asks at 110 W 26th St.
+QUARANTINE_V16_READ = REPO / "config" / "reviews" / "quarantine-v16-read-20261014.txt"
+
+
+def quarantine_v16(frame: pd.DataFrame) -> pd.DataFrame:
+    """v15 and 33 rows filed under the wrong address (319 in all).
+    quarantine_v16_screen.py looks for ads that place the apartment by Prospect
+    Park, Cortelyou Road, Ditmas Avenue, PLG, Park Slope, Fort Greene and other
+    Brooklyn places, with no rent shown. Of its 39 hits, 28 are Brooklyn
+    apartments filed under a Manhattan address with the same number and street
+    name, such as 37 East 21st Street and 519 8th Avenue. The other 11 mention
+    Park Slope as a broker's other listing, or call Midtown West "Clinton".
+    The five one-bedroom asks at 110 W 26th St, at about $2,400 to $2,600 in
+    a building of 1,600 sq ft lofts, are held out as East Village ads under
+    the wrong address. quarantine-v18 keeps them out under a corrected reason:
+    four of their pages carry 112 W 26th St, the same tax lot, and the asks
+    are not for whole lofts. The other rows are unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V16))]
+
+
+QUARANTINE_V17 = REPO / "config" / "reviews" / "quarantine-v17-20261014.jsonl"
+QUARANTINE_V17_READ = REPO / "config" / "reviews" / "quarantine-v17-read-20261014.txt"
+
+
+def quarantine_v17(frame: pd.DataFrame) -> pd.DataFrame:
+    """v16 plus seven more Brooklyn ads (326 rows in all).
+
+    StreetEasy links some Brooklyn listings to the Manhattan building with the
+    same number and street name (`brooklyn`). v16's 28 such rows and seven
+    more, found by a wider place list (`brooklyn.screen`) and read in full,
+    carry the reason code `brooklyn_misjoin`, and `brooklyn.MISJOINS` records
+    their evidence. The read list is `QUARANTINE_V17_READ`. The other rows are
+    unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V17))]
+
+
+QUARANTINE_V18 = REPO / "config" / "reviews" / "quarantine-v18-20261014.jsonl"
+
+
+def quarantine_v18(frame: pd.DataFrame) -> pd.DataFrame:
+    """v17's 326 rows, with the reason for the five asks at 110 W 26th St
+    corrected. Four of the pages give the address 112 West 26th Street, on
+    the same tax lot (BBL 1008010049) as the building's lofts of 1,400 to
+    1,650 sq ft, and they carry the loft labels 5F, 5R, 3 and 3R. Picture
+    Realty listed them with no square footage and no photos of their own at
+    $2,395 to $2,595, a third of the lofts' asks: 5F went for 3 days at
+    $2,395 in May 2015, and Douglas Elliman listed it at $7,500 a month
+    later. The fifth is a 2021 same-day closed-deal record reading "1-bed",
+    at the price of the 2016 ad on the same unit page. All five now carry
+    `quarantine_product_scope` in place of `quarantine_location_conflict`.
+    The held-out rows are the same as v17's."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V18))]
+
+
+QUARANTINE_V19 = REPO / "config" / "reviews" / "quarantine-v19-20261014.jsonl"
+
+
+def quarantine_v19(frame: pd.DataFrame) -> pd.DataFrame:
+    """v18's 326 rows and 51 more from the first reads of the ad-fit screen
+    (`rentfrontier.adfit`), whose tiers A and B we read in full on NB9
+    (`config/reviews/ad-fit-reads-20261014.jsonl`). Each new row quotes the
+    ad or the page:
+    1. 32 ads offer a stay of six months or less, a summer rental or a
+       vacation rental, sometimes with an option to renew.
+    2. Seven ads say the listed price holds only for a short-term lease, or
+       for the first six months.
+    3. Seven are rooms: a bathroom or kitchen shared with other units, or a
+       roommate wanted.
+    4. Five put the apartment somewhere else: a nearby building, 68 E 1st St
+       under the 64 E 1st St condo, 60 E 12th St under 173 11th Ave, and the
+       Upper East Side under 250 W 19th St.
+    We keep sublets of seven months or more, ads that offer a sublet or
+    a full lease, asks at the full-lease price beside a short-term special,
+    minimum stays with no upper bound, and placeholder ads with a far price but no words against
+    the row."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V19))]
+
+
+QUARANTINE_V20 = REPO / "config" / "reviews" / "quarantine-v20-20261014.jsonl"
+
+
+def quarantine_v20(frame: pd.DataFrame) -> pd.DataFrame:
+    """v19's 377 rows and 58 more from the second reads of the ad-fit screen.
+    After #802 tightened the size check, we read the screen's 1,364 unread
+    NB9 hits in full: tiers A to C in `config/reviews/ad-fit-reads-20261014-2.jsonl`
+    and tier D in `ad-fit-reads-20261014-3.jsonl`. Each new row quotes the ad:
+    1. 14 ads offer a stay of six months or less, or a furnished travel
+       rental priced by season and length of stay.
+    2. 14 put the apartment somewhere else: Brooklyn, Harlem, the Upper East
+       and West Sides, or another Manhattan building. We kept an address
+       when the tax lot filed for the row carries it too, as a through-block
+       lot or a wide lot does.
+    3. 14 are rooms or live/work spaces: a room in a share, a bathroom
+       shared with other tenants, or an ask covering commercial floor area.
+    4. 10 are stores, offices, a bar, a nightclub or a workshop.
+    5. Six asks hold only for a short first term, or vary with the length
+       of the stay.
+    We keep the same cases v19 keeps, and also an ad quoting a per-roommate
+    figure when the ask is for the whole apartment."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V20))]
+
+
+QUARANTINE_V21 = QUARANTINE_V20.with_name("quarantine-v21-20261014.jsonl")
+
+
+def quarantine_v21(frame: pd.DataFrame) -> pd.DataFrame:
+    """v20's 435 rows and 52 more found by searching the kept rows' ads for the
+    stock wording behind some of v20's hold-outs. We read each of the 90
+    matches in full and recorded the reads in
+    `config/reviews/ad-fit-reads-20261014-4.jsonl`:
+    1. 21 Atelier rental office ads say the price may vary with the length of
+       the term and with furnishing, and name neither for the advertised
+       price. We kept the 34 Atelier ads that say their prices are for a
+       one-year term, all but two of them saying unfurnished too.
+    2. 29 June ads offer a flexible 1 to 18 month lease whose monthly rate
+       depends on furnishing and on the move-in and move-out dates.
+    3. Two Rove Travel ads offer furnished stays of 30 days or more, priced
+       by season and stay length. We kept the Rove ads with a six-month
+       minimum term, as v20 does."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V21))]
+
+
+QUARANTINE_V22 = QUARANTINE_V20.with_name("quarantine-v22-20261015.jsonl")
+
+
+def quarantine_v22(frame: pd.DataFrame) -> pd.DataFrame:
+    """v21's 487 rows and 146 studios of the bedroom review whose 0 looks
+    like a blank field. The ad-fit screen's bedroom check (`beds_price_bldg`)
+    flags rows priced out of line with their building's other units, and a
+    reader read each flagged row's ads in full
+    (`config/reviews/ad-fit-reads-20261015-bedrooms.jsonl`). A row coded 0 is
+    held out when no ad for its unit states a count and the row's own ad says
+    nothing about the apartment: it is blank, a placeholder ("apt", "-",
+    "n/a"), legal boilerplate, or a line about the building. Studios with a
+    described layout but no count, such as a duplex loft, keep their 0, as
+    does every row coded 1 or more."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V22))]
+
+
+QUARANTINE_V23 = QUARANTINE_V20.with_name("quarantine-v23-20261015.jsonl")
+
+
+def quarantine_v23(frame: pd.DataFrame) -> pd.DataFrame:
+    """v22's rows and 56 studios of the second bedroom review
+    (`config/reviews/ad-fit-reads-20261015-studios.jsonl`), held out on v22's
+    test: no ad for the unit states a count, and the row's own ad says
+    nothing about the apartment."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V23))]
+
+
+QUARANTINE_V24 = QUARANTINE_V20.with_name("quarantine-v24-20261015.jsonl")
+
+
+def quarantine_v24(frame: pd.DataFrame) -> pd.DataFrame:
+    """v23's rows and 4 listings from two buildings where the NB9 C fit mixed
+    slowly. PLUTO's lot record backs each one:
+
+    - 222 East 17th Street is a 4-story walk-up with 4 apartments. Its units
+      3B and 3BB have a listing each, with the same text: an elevator
+      building by Prospect Park South, in Brooklyn. Both join
+      `brooklyn.MISJOINS` for the remap.
+    - 318 East 15th Street has 12 stories. Its unit 20C has two ads, a month
+      apart, for a doorman building, at $3,450 and $8,300."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V24))]
+
+
+QUARANTINE_V25 = QUARANTINE_V20.with_name("quarantine-v25-20261015.jsonl")
+
+
+def quarantine_v25(frame: pd.DataFrame) -> pd.DataFrame:
+    """v24's rows and 8 Brooklyn listings filed under Manhattan buildings,
+    found with Ditmas Park and Cortelyou Road wording that `brooklyn.NEAR`
+    misses. A reader read each whole ad, and each joins `brooklyn.MISJOINS`:
+
+    - 7 at 317 East 19th Street. Ads for seven units over 18 months agree with
+      each other: 319 or 323 East 19th Street, a new elevator building in
+      Ditmas Park by the B and Q at Cortelyou Road.
+    - 346 East 9th Street #1R, with an ad for a four-family house by Cortelyou
+      Road. PLUTO lists the Manhattan building, an East Village tenement in
+      its other ads, with 21 apartments."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V25))]
+
+
+QUARANTINE_V26 = QUARANTINE_V20.with_name("quarantine-v26-20261015.jsonl")
+
+
+def quarantine_v26(frame: pd.DataFrame) -> pd.DataFrame:
+    """v25's rows and 5 Hell's Kitchen and Hudson Yards listings from the
+    rent-blind place and use screen of `quarantine_v13_screen.py`, run over
+    Midtown West for the first time. Sonnet readers read all 391 ad groups the
+    screen flagged; `config/reviews/midtown-west-screen-reads-20261015.jsonl`
+    records each read and decision. A row is held only when something beyond
+    its own ad backs the reading:
+
+    - 2 ads for other buildings: listing 1330577 at 414 West 44th Street has
+      the same text as listing 1320558 for 411 East 6th Street #2B in the
+      same month, and listing 5081524 at 438 West 52nd Street #R1A has the
+      text of listing 5055729 for 53 Leroy Street #C1A a month before.
+    - 3 offices: one for office use only on a lot with commercial floor area,
+      a medical office under the unit label OFFICE, and a production space in
+      a building PLUTO lists as offices with 1 apartment."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V26))]
+
+
+QUARANTINE_V27 = QUARANTINE_V20.with_name("quarantine-v27-20261015.jsonl")
+
+
+def quarantine_v27(frame: pd.DataFrame) -> pd.DataFrame:
+    """v26's rows and 50 listings filed under the wrong building. The screen
+    groups ads of 300 characters or more by their normalized text, then keeps
+    groups where the same text and unit label appear under two buildings that
+    are not within 10 house numbers on one street, with at most 4 listings to a group.
+    Sonnet readers decided each of the 120 groups from the ad text, PLUTO facts
+    for each building and the unit label's history in each building;
+    `config/reviews/duplicate-ad-screen-reads-20261015.jsonl` records each read
+    and decision.
+
+    The row under the wrong building is held when the ad names the street,
+    address or building of the other one, or when the wrong building cannot
+    hold the unit (a hotel, an office lot, a one-family house, a walkup for an
+    ad promising an elevator). Three more rest on the ad placing the unit by
+    the other address's neighborhood or landmark, such as Gramercy Park or
+    Madison Square Park, across town from the building the row sits under.
+    9 of the 50 rows were held as location conflicts in v3 to v9 and released
+    in v10 along with the other rent-guided picks; this screen reads no rent.
+    18 groups the readers decided from unit history
+    alone stay in, as do the undecided groups and those where both slugs are
+    the same building."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V27))]
+
+
+QUARANTINE_V28 = QUARANTINE_V20.with_name("quarantine-v28-20261015.jsonl")
+
+
+def quarantine_v28(frame: pd.DataFrame) -> pd.DataFrame:
+    """v27's rows and 3 more listings filed under the wrong building, from the
+    18 duplicate-ad groups v27 kept because readers decided them from unit
+    history alone. The floor plans linked from those groups' stored listing
+    pages came to 5 images on 5 listings in 4 groups. A Sonnet reader
+    transcribed each plan's printed text, and
+    `config/reviews/duplicate-ad-floor-plans-20261015.jsonl` records each read.
+
+    - 313 West 29th Street #D: its plan, the same image as the 339 West 19th
+      Street #D listing's, is titled 339 West 19th Street, Unit D.
+    - 1 Fifth Avenue #MEWS, two listings (2022 and 2024): the 2022 listing's
+      plan is titled 64 Washington Mews, the carriage house both ads describe.
+
+    The two other groups' images carry no address: one is a room photo and the
+    other has room labels only."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V28))]
+
+
+QUARANTINE_V29 = QUARANTINE_V20.with_name("quarantine-v29-20261015.jsonl")
+
+
+def quarantine_v29(frame: pd.DataFrame) -> pd.DataFrame:
+    """v28's rows and the two older listings of 1 Fifth Avenue #MEWS, from
+    2016 and 2019. Both listing pages link the same floor plan image, titled
+    64 Washington Mews, as on the 2022 listing v28 holds. The 2019 ad also
+    has a twin under 64 Washington Mews #TWNH with the same rent and a plan
+    with the same title. The plans are in
+    `/data1/apartments/archive/floor-plans/2867212/` and
+    `/data1/apartments/archive/floor-plans/2867438/`."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V29))]
+
+
+QUARANTINE_V30 = QUARANTINE_V20.with_name("quarantine-v30-20261015.jsonl")
+
+
+def quarantine_v30(frame: pd.DataFrame) -> pd.DataFrame:
+    """v29's rows and 3 listings filed under the wrong building, from duplicate
+    ads with no shared unit label. Of the 345 such ads under buildings more than
+    10 house numbers apart, 39 ran in the same month at the same rent and
+    bedroom count under two buildings. Sonnet readers saw each ad with PLUTO
+    facts and unit history for both buildings, and
+    `config/reviews/duplicate-ad-twin-reads-20261015.jsonl` records each read.
+
+    - 342 E 20th St #43: its twin is 375 1st Ave #44, and the lot holds no
+      apartments (PLUTO M9, 0 residential units).
+    - 449 W 51st St #4FL: the ad puts the apartment on the 4th floor of a
+      walk-up, the building has 3 floors in PLUTO and in its 43 rows with a
+      floor, and its twin is 763 9th Ave #4N.
+    - 360 W 50th St #5: the ad puts the floor-through on W 51st St, the slug
+      joins to a 39-floor tower 35 m away, its other ad calls it a Worldwide
+      Plaza townhouse, and its twin is 336 W 51st St #5.
+
+    The readers called 14 ads separate apartments under one landlord's copy,
+    mostly London Terrace, and left 21 undecided. Review dropped a fourth
+    read, 404 E 12th St #2, because the building's other ads contradict its
+    PLUTO lot."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V30))]
+
+
+QUARANTINE_V31 = QUARANTINE_V20.with_name("quarantine-v31-20261015.jsonl")
+
+
+def quarantine_v31(frame: pd.DataFrame) -> pd.DataFrame:
+    """v30's rows and 7 more listings filed under the wrong building, from the
+    other 306 duplicate ads under buildings more than 10 house numbers apart
+    with no shared unit label. Sonnet readers saw each ad with PLUTO facts and
+    unit history for every building, and
+    `config/reviews/duplicate-ad-far-reads-20261015.jsonl` records each read.
+    The readers called 22 listings misfiled. These 7 sit on a lot that cannot
+    hold the unit:
+
+    - 317 W 45th St #2N, 346 W 40th St #27F and 716 Avenue of the Americas
+      #22A: PLUTO lists the lot with 0 residential units, and the ads belong to
+      305 W 45th St, the Orion and the Vanguard.
+    - 49 Avenue B #4C, 159 Bleecker St #10HE, 221 W 20th St #17A and 99
+      Avenue C #11F: the label's floor is above the lot's PLUTO floor count,
+      and the ads belong to 341 E 5th St, the Atrium, Chelsea29 and Arabella
+      101.
+
+    The other 15 calls rest on the ad text alone, or on two buildings that
+    join to one PLUTO lot, where the building features are the same."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V31))]
+
+
+QUARANTINE_V32 = QUARANTINE_V20.with_name("quarantine-v32-20261016.jsonl")
+
+
+def quarantine_v32(frame: pd.DataFrame) -> pd.DataFrame:
+    """v31's rows and 118 more from the 58k rows the API backfill added. The
+    ad-fit and Brooklyn screens flagged 822 of them, Sonnet readers read each
+    flagged row's ads in full, and a second look moved 16 calls back to keep
+    and 2 keeps to Brooklyn. `config/reviews/ad-fit-reads-20261016-api.jsonl`
+    records every read. The rows dropped here are
+
+    - 36 coded studios whose ads give no count or description of the space,
+    - 26 rooms, shared apartments or several units at once,
+    - 18 Brooklyn ads filed under a Manhattan building (recorded in
+      `brooklyn.MISJOINS`),
+    - 17 stays shorter than a year,
+    - 14 offices, stores and other non-dwellings,
+    - 6 apartments elsewhere in Manhattan or the Bronx,
+    - 1 furnished corporate rate."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V32))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1114,6 +1651,28 @@ LATEST_ASK_V3 = Path(
 # NB8's rows are identical in both.
 LATEST_ASK_V4 = Path(
     "/data1/apartments/external/latest-ask/20261014-717ad9c/latest-ask.parquet"
+)
+
+
+# Latest asks of every row of the four API regions, from the rental records of
+# the backfill crawl alone, built the way LATEST_ASK_V3 was.
+LATEST_ASK_API = Path(
+    "/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet"
+)
+
+
+# Latest asks of every row of DATASET_NB9_API, from each listing's last record
+# in the page crawls and the API re-read together. NB9's rows match
+# LATEST_ASK_V4 except 380 listings with a newer ask in the re-read.
+LATEST_ASK_V5 = Path(
+    "/data1/apartments/external/latest-ask/20261016-2c7f37e-mw-api/latest-ask.parquet"
+)
+
+
+# LATEST_ASK_V5's rows and LATEST_ASK_API's together (`rentfrontier.snapshots
+# union`, no audit_id in both): a latest ask for every row of DATASET_ALL.
+LATEST_ASK_V6 = Path(
+    "/data1/apartments/external/latest-ask/20261016-5f07157-all/latest-ask.parquet"
 )
 
 
@@ -1188,6 +1747,65 @@ def building_joins_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(building=building)
 
 
+WESTCOAST_WEST_WING = "the-west-coast-west-wing"
+
+
+def west_coast_wings_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """The West Coast's rows with three-digit labels ("425", "620") moved to
+    the-west-coast-west-wing. The complex is nine warehouses joined into
+    apartments in 1980 to 1982, and its units carry two numbering schemes:
+    three digits on floors 1 to 7 at the West Street end, a floor and a letter
+    ("9L", "PHD") on floors 2 to 10 toward Washington Street. Rows with a
+    floor and a letter, or other labels ("7", "26"), stay on the-west-coast.
+    The lot registry gives both names lot 1006430001, BIN 1012154 and the
+    same position, so the wings differ only in their building and walk terms.
+    Run it after `building-joins-v1`, which folds 97 Horatio Street's page in,
+    and before the unit rules, so units merge within a wing."""
+    label = frame.canonical_unit_url.str.extract(r"/([^/]+)$")[0].str.lower()
+    three = label.str.fullmatch(r"\d{3}").to_numpy(dtype=bool, na_value=False)
+    wing = frame.building.eq(WESTCOAST[0]).to_numpy() & three
+    return frame.assign(building=np.where(wing, WESTCOAST_WEST_WING, frame.building))
+
+
+# The elevator each NB9 row's own ad states (`python -m rentfrontier.adfills
+# elevator`), for rows whose text says exactly one of "yes" and "no".
+ELEVATOR_FROM_AD = Path(
+    "/data1/apartments/external/adfills/20261014-62610e9/elevator.parquet"
+)
+
+
+def fill_from_ad(frame: pd.DataFrame, field: str, path: Path) -> pd.DataFrame:
+    """`field` filled from the row's own ad text (`path`, built by
+    `rentfrontier.adfills`) where its coded value is "unknown". A known code
+    stays, and a row the file lacks stays unknown."""
+    table = pd.read_parquet(path, columns=["audit_id", field])
+    stated = frame.audit_id.map(table.set_index("audit_id")[field])
+    fill = frame[field].eq("unknown") & stated.notna()
+    return frame.assign(**{field: frame[field].where(~fill, stated)})
+
+
+def elevator_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """An unknown elevator filled from the row's own ad: "no" when the ad says
+    walk-up, flights up or no elevator, "yes" when it mentions an elevator
+    otherwise (`ELEVATOR_FROM_AD`). An ad saying both, or neither, leaves the
+    row unknown. No row reads another listing's ad."""
+    return fill_from_ad(frame, "elevator", ELEVATOR_FROM_AD)
+
+
+# The pet policy each NB9 row's own ad states (`python -m rentfrontier.adfills
+# pets`), as a coded level, for rows whose text has a class with one.
+PETS_FROM_AD = Path("/data1/apartments/external/adfills/20261014-5298c80/pets.parquet")
+
+
+def pets_from_ad_v1(frame: pd.DataFrame) -> pd.DataFrame:
+    """An unknown pet policy filled from the row's own ad (`PETS_FROM_AD`):
+    "not_allowed" for no pets, "approval_required" for case by case and
+    "allowed_restrictions_unknown" for pets allowed, read by
+    `petstext.classify`. An ad saying no dogs, which has no coded level, or
+    saying nothing, leaves the row unknown. No row reads another listing's ad."""
+    return fill_from_ad(frame, "pets", PETS_FROM_AD)
+
+
 # The price a fit models. A row starts at its listing's first ask; a rule of a
 # family below replaces that price. Two fits on different prices score their
 # rows on different outcomes, so their paired PSIS-LOO and held-out sums mean
@@ -1218,6 +1836,7 @@ def price_target(rules) -> str:
 
 DATA_RULES = {
     "tune-b35-v1": tune_b35_v1,
+    "tune-b35-slopecheck-v1": tune_b35_slopecheck_v1,
     "tune-holdout-lots-v1": drop_holdout_lots,
     "tune-finalask-v1": final_ask_v1,
     "tune-latestask-v1": latest_ask_v1,
@@ -1330,6 +1949,11 @@ DATA_RULES = {
     "bedrooms-ad-v2": correct_bedrooms_v2,
     "baths-ad-v2": correct_baths_v2,
     "bedrooms-ad-v3": correct_bedrooms_v3,
+    "bedrooms-ad-v4": correct_bedrooms_v4,
+    "bedrooms-ad-v5": correct_bedrooms_v5,
+    "bedrooms-ad-v6": correct_bedrooms_v6,
+    "bedrooms-ad-v7": correct_bedrooms_v7,
+    "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
     "fields-review-v3": correct_fields_review_v3,
@@ -1345,13 +1969,37 @@ DATA_RULES = {
     "quarantine-v13": quarantine_v13,
     "quarantine-v14": quarantine_v14,
     "quarantine-v15": quarantine_v15,
+    "quarantine-v16": quarantine_v16,
+    "quarantine-v17": quarantine_v17,
+    "quarantine-v18": quarantine_v18,
+    "quarantine-v19": quarantine_v19,
+    "quarantine-v20": quarantine_v20,
+    "quarantine-v21": quarantine_v21,
+    "quarantine-v22": quarantine_v22,
+    "quarantine-v23": quarantine_v23,
+    "quarantine-v24": quarantine_v24,
+    "quarantine-v25": quarantine_v25,
+    "quarantine-v26": quarantine_v26,
+    "quarantine-v27": quarantine_v27,
+    "quarantine-v28": quarantine_v28,
+    "quarantine-v29": quarantine_v29,
+    "quarantine-v30": quarantine_v30,
+    "quarantine-v31": quarantine_v31,
+    "quarantine-v32": quarantine_v32,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
+    "latest-ask-api-v1": functools.partial(latest_ask_v3, path=LATEST_ASK_API),
+    "latest-ask-v5": functools.partial(latest_ask_v3, path=LATEST_ASK_V5),
+    "latest-ask-v6": functools.partial(latest_ask_v3, path=LATEST_ASK_V6),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
+    "west-coast-wings-v1": west_coast_wings_v1,
+    "elevator-from-ad-v1": elevator_from_ad_v1,
+    "pets-from-ad-v1": pets_from_ad_v1,
     "unit-reviews-v1": join_reviewed_units,
+    "unit-reviews-v2": review_units,
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
         join_reviewed_units, path=UNIT_JOINS_20261007
@@ -1379,10 +2027,33 @@ RULE_SOURCES = {
     "quarantine-v13": QUARANTINE_V13,
     "quarantine-v14": QUARANTINE_V14,
     "quarantine-v15": QUARANTINE_V15,
+    "quarantine-v16": QUARANTINE_V16,
+    "quarantine-v17": QUARANTINE_V17,
+    "quarantine-v18": QUARANTINE_V18,
+    "quarantine-v19": QUARANTINE_V19,
+    "quarantine-v20": QUARANTINE_V20,
+    "quarantine-v21": QUARANTINE_V21,
+    "quarantine-v22": QUARANTINE_V22,
+    "quarantine-v23": QUARANTINE_V23,
+    "quarantine-v24": QUARANTINE_V24,
+    "quarantine-v25": QUARANTINE_V25,
+    "quarantine-v26": QUARANTINE_V26,
+    "quarantine-v27": QUARANTINE_V27,
+    "quarantine-v28": QUARANTINE_V28,
+    "quarantine-v29": QUARANTINE_V29,
+    "quarantine-v30": QUARANTINE_V30,
+    "quarantine-v31": QUARANTINE_V31,
+    "quarantine-v32": QUARANTINE_V32,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
+    "latest-ask-api-v1": LATEST_ASK_API,
+    "latest-ask-v5": LATEST_ASK_V5,
+    "latest-ask-v6": LATEST_ASK_V6,
+    "elevator-from-ad-v1": ELEVATOR_FROM_AD,
+    "pets-from-ad-v1": PETS_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,
+    "unit-reviews-v2": UNIT_REVIEWS,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
@@ -1401,6 +2072,11 @@ RULE_SOURCES = {
     "bedrooms-ad-v2": BEDROOM_CORRECTIONS_V2,
     "baths-ad-v2": BATH_CORRECTIONS_V2,
     "bedrooms-ad-v3": BEDROOM_CORRECTIONS_V3,
+    "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
+    "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
+    "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
+    "bedrooms-ad-v7": BEDROOM_CORRECTIONS_V7,
+    "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
 }
@@ -1420,6 +2096,23 @@ DROPPING_RULES = (
     "quarantine-v13",
     "quarantine-v14",
     "quarantine-v15",
+    "quarantine-v16",
+    "quarantine-v17",
+    "quarantine-v18",
+    "quarantine-v19",
+    "quarantine-v20",
+    "quarantine-v21",
+    "quarantine-v22",
+    "quarantine-v23",
+    "quarantine-v24",
+    "quarantine-v25",
+    "quarantine-v26",
+    "quarantine-v27",
+    "quarantine-v28",
+    "quarantine-v29",
+    "quarantine-v30",
+    "quarantine-v31",
+    "quarantine-v32",
 )
 
 
@@ -1512,11 +2205,18 @@ def apply_rules(frame: pd.DataFrame, heldout: np.ndarray, rules):
     if labels and reviews and min(reviews) < max(labels):
         raise ValueError(f"unit-reviews rules must follow unit-labels: {rules}")
     joins = [i for i, r in enumerate(rules) if r.startswith("building-joins-")]
-    wings = [i for i, r in enumerate(rules) if r.startswith("tune-westcoast-split-")]
+    wings = [
+        i
+        for i, r in enumerate(rules)
+        if r.startswith(("tune-westcoast-split-", "west-coast-wings-"))
+    ]
     if joins and wings and max(joins) > min(wings):
         raise ValueError(
-            f"building-joins rules must precede tune-westcoast-split: {rules}"
+            f"building-joins rules must precede the West Coast wing rules: {rules}"
         )
+    split = [i for i, r in enumerate(rules) if r.startswith("west-coast-wings-")]
+    if split and labels and max(split) > min(labels):
+        raise ValueError(f"west-coast-wings rules must precede unit-labels: {rules}")
     mask = pd.Series(np.asarray(heldout, dtype=bool), index=frame.index)
     for rule in rules:
         frame = DATA_RULES[rule](frame)

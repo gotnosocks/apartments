@@ -1,37 +1,43 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-nb8-nostuy-v1-rows-5c1e5c7e-a100-4500k9cb1-nb8-ul15r1s4q12ad3-fe76a90",
-  "summary_manifest_sha256": "37822512c59994cbf4db24f973751ac39b791886743f34b9394970328ba24cd3",
-  "summary_commit": "fe76a905bc470fd9f78e826436ac58c544728e38",
-  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-nb8-nostuy-v1-rows-5c1e5c7e-a100-4500k9cb1-nb8-ul15r1s4q12ad3",
-  "run_commit": "5c1e5c7e0061be12cde9ed12bc9cc7bee6696c6a",
-  "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope",
-  "feature_set": "nb8-nostuy-v1",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1-a100-4500k9cb1-nb9-ul17r2s4q31ad6la4ep1su1-l2un4-90921eb",
+  "summary_manifest_sha256": "5b1ded3499be445f5181a420700fa0b5d4b53a65dd25f23de30cff9cfdfe5ffc",
+  "summary_commit": "90921eb4832a70ed0367ce38634775f7a47d052e",
+  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1-a100-4500k9cb1-nb9-ul17r2s4q31ad6la4ep1su1-l2un4",
+  "run_commit": "5dbdc4f11a379e2a1829f14053e001f4c3764e1f",
+  "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4",
+  "feature_set": "nb9-nostuy-lots2-v1",
   "data_rules": [
     "baths-ad-v3",
-    "bedrooms-ad-v3",
+    "bedrooms-ad-v6",
+    "building-joins-v1",
+    "elevator-from-ad-v1",
     "fields-review-v3",
-    "quarantine-v12",
-    "unit-labels-v15",
-    "unit-reviews-v1",
+    "latest-ask-v4",
+    "pets-from-ad-v1",
+    "quarantine-v31",
+    "sqft-units-v1",
+    "west-coast-wings-v1",
+    "unit-labels-v17",
+    "unit-reviews-v2",
     "unit-splits-v4"
   ],
-  "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0",
-  "source_observations_sha256": "cc4f439f38f4530126827c21035ffccb0fcf9a4ab74fa8f6643994a6d01d897b",
+  "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
+  "source_observations_sha256": "8b8897c1c5196969b30544cd2ec1b9ae32ac8e720d612e86fd52fbdbe52ceae7",
   "gate": {
     "passes": true,
-    "max_rhat": 1.0061090083014808,
-    "min_ess": 666.4505745031549,
+    "max_rhat": 1.0058151595626028,
+    "min_ess": 510.144028471653,
     "divergences": null,
-    "group_rhat_max": 1.0219451042544594
+    "group_rhat_max": 1.0100412076951988
   },
   "psis_loo": {
-    "elpd_loo": 224655.59062391304,
-    "elpd_loo_se": 485.3417413039957,
-    "loo_commit": "5c1e5c7e0061be12cde9ed12bc9cc7bee6696c6a"
+    "elpd_loo": 323500.2445938919,
+    "elpd_loo_se": 556.7116718932957,
+    "loo_commit": "5dbdc4f11a379e2a1829f14053e001f4c3764e1f"
   },
-  "selected_by": "rentfrontier.autoselect, 2026-10-10 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because its PSIS-LOO is clearly better than the incumbent's. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope + nb8-nostuy-v1 with baths-ad-v3 + bedrooms-ad-v3 + fields-review-v3 + quarantine-v12 + unit-labels-v15 + unit-reviews-v1 + unit-splits-v4, 1,666 s on Modal A100. Against the previous selection on the rows both keep: PSIS-LOO +2305.5 \u00b1 105.9, held-out +167.2 \u00b1 25.3.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.0% in the 95% predictive range)."
+  "selected_by": "rentfrontier.autoselect, 2026-10-16 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
+  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit on chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0, not the current chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4 + nb9-nostuy-lots2-v1 with baths-ad-v3 + bedrooms-ad-v6 + building-joins-v1 + elevator-from-ad-v1 + fields-review-v3 + latest-ask-v4 + pets-from-ad-v1 + quarantine-v31 + sqft-units-v1 + west-coast-wings-v1 + unit-labels-v17 + unit-reviews-v2 + unit-splits-v4, 2,071 s on Modal A100.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.1% in the 95% predictive range)."
 }

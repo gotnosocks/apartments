@@ -1,0 +1,11 @@
+[Unit]
+Description=Build the data pipeline when the StreetEasy exporter changes its manifest
+
+[Path]
+# The exporter adds a line for each file it writes, after each backfill run and each Friday
+# top-up. The build waits for the collector to let go of oxylabs.lock (ops/pipeline/build-latest).
+PathChanged=/data1/apartments/archive/crawls/api/export/manifest.ndjson
+Unit=apartments-pipeline-build.service
+
+[Install]
+WantedBy=paths.target

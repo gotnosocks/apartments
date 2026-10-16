@@ -870,3 +870,20 @@ def test_change_words_take_in_midtown_wests_areas():
     assert story.change_words(before, after) == (
         "Took in Hell's Kitchen and Hudson Yards"
     )
+
+
+def test_set_words_for_the_west_coast_wings():
+    assert story.set_words("nostuy-wings") == (
+        "the coded fields with building records as of each listing's day, "
+        "plus the West Coast's two wings as separate buildings"
+    )
+
+
+def test_change_words_for_the_served_nb9_design():
+    before = {"terms": ["nocurves"], "feature_set": "nb8-nostuy-wings-v1", "rows": "a"}
+    after = {"terms": ["nocurves"], "feature_set": "nb9-nostuy-lots2-v1", "rows": "b"}
+    assert story.change_words(before, after) == (
+        "Took in Hell's Kitchen and Hudson Yards. Features now include the coded "
+        "fields with building records as of each listing's day, plus building "
+        "records refreshed to cover the added areas' lots"
+    )

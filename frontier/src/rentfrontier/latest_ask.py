@@ -2,9 +2,12 @@
 the market, from the listing's own StreetEasy record in the granular crawls.
 
     python -m rentfrontier.latest_ask [nb9]
+    python -m rentfrontier.latest_ask --crawl <granular dir> --tag <name> <dataset dir>...
+    python -m rentfrontier.latest_ask --crawl page --crawl <granular dir> --tag <name> <dataset dir>
 
 writes EXTERNAL_ROOT/latest-ask/<date>-<commit>/latest-ask.parquet (one line per
-row of data.DATASET_NB8, or of data.DATASET_NB9 with `nb9`: audit_id, the row's first ask, its latest ask and how the latest ask
+row of data.DATASET_NB8, or of data.DATASET_NB9 with `nb9`, or of every dataset
+named after `--crawl`: audit_id, the row's first ask, its latest ask and how the latest ask
 was chosen) and provenance.json. Refuses a dirty tree. The `latest-ask-v2` data
 rule prices each row from this file.
 
@@ -48,6 +51,7 @@ import glob
 import hashlib
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -109,10 +113,10 @@ def record_latest(raw: str) -> dict:
     }
 
 
-def listings() -> pd.DataFrame:
+def listings(crawls=None) -> pd.DataFrame:
     """One line per listing id, from its last capture in any crawl."""
     rows = []
-    for crawl in CRAWLS.values():
+    for crawl in (crawls or CRAWLS).values():
         for path in sorted(
             glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
         ):
@@ -244,15 +248,43 @@ def choose(frame: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def parse(argv: list[str]) -> tuple[dict | None, str, list[Path]]:
+    """The crawls, the directory tag and the datasets a command line names."""
+    # With --crawl, the datasets named after it come from that one crawl (the
+    # API backfill's regions); their buildings and listings are disjoint, so
+    # one pass over their rows together gives each row what a pass of its own
+    # would.
+    # `--crawl page` stands for the page crawls (CRAWLS). With several --crawl
+    # flags, listings() reads every crawl named and takes each listing's last
+    # capture in any of them.
+    if argv[:1] != ["--crawl"]:
+        return None, "", [data.DATASET_NB9 if argv == ["nb9"] else data.DATASET_NB8]
+    crawls, tag = {}, ""
+    while argv[:1] == ["--crawl"]:
+        if argv[1] == "page":
+            crawls.update(CRAWLS)
+        else:
+            crawls[f"crawl-{len(crawls)}" if crawls else "crawl"] = argv[1]
+        argv = argv[2:]
+    if argv[:1] == ["--tag"]:
+        tag, argv = f"-{argv[1]}", argv[2:]
+    return crawls, tag, [Path(d) for d in argv]
+
+
 def main(argv: list[str]):
-    dataset = data.DATASET_NB9 if argv == ["nb9"] else data.DATASET_NB8
+    crawls, tag, datasets = parse(argv)
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    frame = data.load(dataset)
-    out = choose(frame, listings())
-    out_dir = EXTERNAL_ROOT / "latest-ask" / f"{started:%Y%m%d}-{commit[:7]}"
+    frames = [data.load(d) for d in datasets]
+    for key in ("building", "source_listing_id"):
+        seen = pd.concat(f[key].drop_duplicates() for f in frames)
+        if seen.duplicated().any():
+            raise SystemExit(f"datasets share a {key}")
+    frame = pd.concat(frames, ignore_index=True)
+    out = choose(frame, listings(crawls))
+    out_dir = EXTERNAL_ROOT / "latest-ask" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "latest-ask.parquet"
     out.to_parquet(path, index=False)
@@ -261,8 +293,8 @@ def main(argv: list[str]):
             {
                 "built_at": started.isoformat(),
                 "commit": commit,
-                "dataset": str(dataset),
-                "crawls": CRAWLS,
+                "dataset": ", ".join(map(str, datasets)),
+                "crawls": crawls or CRAWLS,
                 "rows": len(out),
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             },

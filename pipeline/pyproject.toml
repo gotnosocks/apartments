@@ -1,0 +1,35 @@
+[project]
+name = "apartments-pipeline"
+version = "0.1.0"
+description = "SQLMesh project that builds fit-ready rows from StreetEasy API records"
+requires-python = ">=3.12"
+dependencies = [
+  "sqlmesh==0.236.3",
+  "duckdb==1.5.5",
+  "pyarrow>=19.0",
+  "jsonpatch>=1.33,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.6",
+]
+
+# The project installs itself in editable mode, which puts this folder and the repo's src on
+# sys.path of every process in the venv, worker processes included. ads.record_attributes then
+# imports `steps.attributes` and the chain's modules with no paths in its variables, so the
+# model's fingerprint stays the same in every checkout.
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["steps"]
+dev-mode-dirs = [".", "../src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# pytest-xdist runs the tests in three worker processes. Each one peaks near 0.6 GB, so the suite
+# fits a 2 GB light job. A fourth worker gains nothing, as the longest tests take about 10 s.
+addopts = "-n 3"

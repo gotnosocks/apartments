@@ -3,6 +3,87 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-16 10:00 UTC): NB9 serve, all-scraped fit held on the budget
+
+- NB9 board baseline: `m0-base-base-v1-rows-4ec4f3c9-a100-300w1500d-nb-nb9`, fit on a Modal A100
+  ($1.20) because the thelio GPU slice caps memory at 7 GiB and the local baseline OOM'd three
+  times. It misses the gate on 10 Bedford Street only (R-hat 1.0495, ESS 64): two rows in two
+  single-row units, plausible rents, so the building and unit effects trade off. The earlier
+  baselines missed the gate too, and a baseline only sets the zero of the paired deltas.
+- Autoselect on NB9 picks the plain unitnu4 `...nb9-nostuy-lots2-v1-...-l2un4` (+76,571 PSIS-LOO),
+  tied with the wholefloor twin (+76,561). Its first summary died at the old 5G cap, and the
+  rebuild finished at 10:31Z (`-90921eb`). #899 serves it (selection record, dataset, BASELINE,
+  PRIOR_*, cleaning.json). After its merge and publish, Website merges #776.
+- The all-scraped fit (Ben 06:37Z, approved outside the daily budget 07:18Z, stop before the
+  summary) costs about $17.71 on an H100, over cap.py's $10 ceiling. The edit to exempt it was
+  refused by the permission classifier, so it waits on Ben allowing that edit or launching it.
+  `tmp/bridge/probe-all.sh` holds the probe launch. The modalq-nb9 queue lines are on hold.
+
+## Update (2026-10-15 05:00 UTC): Midtown West (NB9) C failed the gate, slopemin3 queued
+
+The NB9 C fit (master 8b3ce683, quarantine-v23) failed the gate with min building ESS 129. Three buildings fell under 400: 222 E 17th (129), 4 Perry St (204) and 318 E 15th (273). No building had R-hat over 1.01, and the fit stage took 2,232 s.
+
+I sent the data to Data improvements first:
+- 222 E 17th carried a Brooklyn ad, and 318 E 15th 20C conflicted with PLUTO's 12 stories. Both went into quarantine-v24 (#815).
+- 4 Perry has clean data: 2 studio rows and 7 one-bedroom rows, with a slope posterior about as wide as its prior.
+- Data improvements then merged quarantine-v25 to v27 (#818, #821, #823), holding out 8, 5 and 50 more listings.
+
+The structure step comes next. #817 adds `bedroom_slope_min_rows` and the model `...-sizeunkslope-slopemin3`, which keeps a building's bedroom slope only with 3+ training rows in two bedroom counts (49% of NB9 buildings, 88% of rows). The option runs on Gibbs only, and the new-building score drops the slope variance under it.
+
+The queue `/data1/apartments/tmp/bridge/modalq-nb9.queue` holds the slopemin3 NB9 fit on master rules with quarantine-v27. It launches at 3:43 AM ET Oct 15 when the Modal balance covers $2.03. #817 lists the predictions: the gate passes with 4 Perry over 400 ESS, fit time stays within 10% of 2,232 s, and paired LOO against the failed C lands within 2 SE. The held AR(1) fixed-rho line also uses v27. It waits for a passing NB9 fit under 55 minutes. If slopemin3 is the one that passes, the AR(1) model needs a slopemin3 twin before it runs.
+
+## Update (2026-10-15 02:30 UTC): Midtown West C queued, serving hold lifted
+
+- Modeling runs as a single session in its own thread since 01:45Z.
+- Ben lifted the 2026-10-13 hold on autoselect, serving and publishing at 02:12Z and 02:26Z. The
+  served model is the current best under the selection rules. The hold notes in older sections
+  below no longer apply.
+- The served C is `5c1e5c7e` on quarantine-v12 (`main-analysis.json`, the Oct 10 build). Older
+  sections call it the split C `f469edaa` on quarantine-v13, which is wrong.
+- `tmp/bridge/modalq-nb9.queue` holds the NB9 C (`nb9-nostuy-v1`, label `...q23ad6la4ep1`) on
+  master 8b3ce683's rules (bedrooms-ad-v6, quarantine-v23). The runner `modalq-nb9-2204` launches
+  it once the Modal balance covers $2.03. If it passes the gate and wins, serve and publish it,
+  then tell Website so it can merge #776 and rebuild.
+- If it fails, the fallback is the local subset test of a per-building bedroom slope
+  (`tmp/bridge/slopecheck.sh`), at no Modal cost.
+
+## Update (2026-10-14 21:45 UTC): every-building gate, quarantine-v17, wing C held
+
+- Ben chose the strict gate at 21:10Z. #788 checks split R-hat (at most 1.01) and bulk ESS (over
+  400) on every building effect, where the old check took 32 random buildings. It adds about 8 s
+  to a C fit (0.08 s per chain in the scan, 7 s of statistics after it), 195 MB of GPU memory and
+  43 KB of output (`rhat/building`, `ess/building`). Recorded results of older fits keep their old
+  pass, so the served C (split C `f469edaa`, on quarantine-v13) stays served until a replacement
+  passes. The served C has 6 buildings over 1.01 on its kept draws (worst 1.013), so it would most
+  likely fail the new gate.
+- Short full-data C fits are OOM-killed on thelio at about 6.9 GB inside the GPU job slice, on
+  old and new code alike. Time full-data changes on Modal or with a scan benchmark.
+- 110 W 26th: the five low asks are smaller one-bedrooms in the same building, not East Village
+  ads. Ben moved their release and unit split to the thread "110 W 26th St data check" (branch
+  `data/110w26-release-split`). Modeling doesn't write that PR.
+- #789 merged quarantine-v17, the Brooklyn filter only (326 held rows, a standing screen for new
+  datasets). A new fit on quarantine-v16 can't be served now.
+- The v16 wing C line in `modalq-c.queue` is commented out as obsolete. Fit the wing C on master's
+  rules once the coordinator names the version (v17 alone, or v17 plus the 110 W 26th split).
+  Serve nothing until Ben says so. The NB9 C and the fixed-rho arwalk wait on a passing wing C.
+  Data improvements keeps #778 and #782 held.
+
+## Update (2026-10-14 20:50 UTC): no seed retries, wing C fails the gate
+
+- The wing-rule C (`...-nb8-nostuy-wings-v1-rows-676a0348-...-wings1`, #779) fits in 1,648 s and
+  fails the gate on one traced building effect: R-hat 1.015, ESS 183. That effect is 110 West
+  26th Street (building index 222), which isn't a West Coast building. The building effect trades
+  off against its walk.
+- I queued a rerun on seed 20261015. Ben asked for it to stop at 20:45Z, so I stopped it and settled
+  it at $0.58. We never
+  retry a failed fit on a new seed. A convergence failure is investigated in this order: data,
+  then model structure, then sampler settings. Per the coordinator's brief, I report the data
+  findings before any refit (`docs/model/modal.md`, "When a fit fails the gate"). Ben's data-first rule from 09:04Z applies
+  to the first step.
+- Next: investigate 110 W 26th's rows and report before a refit. The fixed-rho arwalk and the NB9
+  C (nb9-nostuy-v1 with elevator-from-ad-v1 and pets-from-ad-v1, #778 and #782) wait for a wing C
+  to pass. Data improvements is holding both PRs until then.
+
 ## Update (2026-10-14 17:30 UTC): summary on thelio, lines retest
 
 - At 15:26Z Ben moved the summary and calibration out of the Modal container (#761, #763). After a

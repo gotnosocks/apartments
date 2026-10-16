@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import sqlite3
 
+import duckdb
 import pytest
 
 from apartments.site import build
@@ -358,13 +359,45 @@ def test_listings_and_buildings_carry_their_neighbourhood(
     )
 
 
-def test_a_current_listing_seen_over_a_week_ago_is_past(bundle, tmp_path, monkeypatch):
-    # Ben, 2026-10-10: on the market now means seen active within a week
+def test_a_current_listing_seen_before_the_window_is_past(
+    bundle, tmp_path, monkeypatch
+):
+    # Ben, 2026-10-10: on the market now means seen active within a week; the
+    # window runs two days longer to bridge the weekly top-up
     from apartments.site import captures
 
-    later = dt.datetime(2026, 10, 11, tzinfo=dt.UTC)
+    later = dt.datetime(2026, 10, 13, tzinfo=dt.UTC)
     monkeypatch.setattr(captures, "now", lambda: later)
     root = tmp_path / "site"
     build.build(bundle, root, scope="Chelsea")
     (row,) = query(root, "SELECT count(*) FROM listings WHERE is_current = 1")
     assert row[0] == 0
+
+
+def test_latest_asks_reads_the_rules_recorded_table(tmp_path):
+    path = tmp_path / "latest-ask.parquet"
+    duckdb.sql(
+        "SELECT * FROM (VALUES ('a1', 3600.0), ('a2', NULL)) t(audit_id, latest_ask)"
+    ).write_parquet(str(path))
+    record = {
+        "data_rules": ["baths-ad-v3", "latest-ask-v4"],
+        "data_rule_sources": {
+            "latest-ask-v4": {"path": str(path), "sha256": build.sha256(path)}
+        },
+    }
+    assert build.latest_asks(record) == {"a1": 3600.0}
+    assert build.latest_asks({"data_rules": ["baths-ad-v3"]}) == {}
+    # A later rule's table overrides an earlier one's, and a row it lacks keeps its ask.
+    later = tmp_path / "later.parquet"
+    duckdb.sql("SELECT 'a2' AS audit_id, 4100.0 AS latest_ask").write_parquet(
+        str(later)
+    )
+    record["data_rules"].append("latest-ask-v5")
+    record["data_rule_sources"]["latest-ask-v5"] = {
+        "path": str(later),
+        "sha256": build.sha256(later),
+    }
+    assert build.latest_asks(record) == {"a1": 3600.0, "a2": 4100.0}
+    record["data_rule_sources"]["latest-ask-v4"]["sha256"] = "0" * 64
+    with pytest.raises(build.BuildError, match="differs"):
+        build.latest_asks(record)

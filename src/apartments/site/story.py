@@ -1171,6 +1171,8 @@ EXTRA_WORDS = {
     "trees": "the street trees nearby",
     "crime": "the felonies reported nearby in the past year",
     "hpd": "the hazardous housing-code violations found in the building in the past year",
+    "wings": "the West Coast's two wings as separate buildings",
+    "lots2": "building records refreshed to cover the added areas' lots",
 }
 
 
@@ -1256,7 +1258,7 @@ def term_words(term: str) -> str:
 def _set_parts(feature_set: str) -> tuple[str, str, str]:
     """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
     "unitfacing", "v5")."""
-    m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z-]*?)(?:-(v\d+))?", feature_set or "")
+    m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z0-9-]*?)(?:-(v\d+))?", feature_set or "")
     if not m:
         return "", feature_set or "", ""
     area = m.group(1) or ("unit" if m.group(2).startswith("unit") else "")

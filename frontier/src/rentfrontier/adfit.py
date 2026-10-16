@@ -1,0 +1,409 @@
+"""Ads that don't fit the unit they are filed under.
+
+The five one-bedroom asks at 110 W 26th St (quarantine-v18) carried the loft
+labels 5F, 5R, 3 and 3R, with no square footage and at a third of the lofts'
+asks. Nothing in the data rules caught them until a fit failed to converge on
+the building. `screen` looks for rows like them across a dataset and sorts
+each hit into a tier for reading:
+
+1. A: the row's size doesn't fit its unit or building, and its price is far
+   from its unit's or building's other asks.
+2. B: the ad's words describe something other than a whole apartment in this
+   building: a room share, a bath or kitchen shared with other units, a
+   nightly or short stay, or a neighbourhood more than `FAR_KM` from the
+   building.
+3. C: a stated size far from the unit's other stated sizes, alone.
+4. E: a bedroom count out of line with its building (`beds_price_bldg`).
+5. D: price alone.
+
+Rows with no stated size get a size flag from their bedroom count's typical
+size (`INFERRED_SIZE_FLAGS`). On NB9 a random sample of 30 such rows held no
+hold-out: they were studios and one-bedrooms in buildings where only the large
+units list a size, and large units with no size of their own. So these flags
+put a row in tier A when its price is also far, and in no tier alone. A
+shared bath counts on its own only in a studio or a one-bedroom; in a larger
+apartment the ad has to say the bath or kitchen is shared with other units or
+tenants, since "two bedrooms share a hallway bath" describes one apartment.
+A hallway or common bath alone doesn't count in any apartment, and
+"communal kitchen" doesn't count, since most ads list it as a building amenity.
+
+The size checks compare each row with its unit's other stated sizes, left out
+in turn:
+- a stated size more than `SIZE_FACTOR` away from the unit's median;
+- no stated size, with its bedroom count's typical size under `SMALL` of the
+  unit's median;
+- a unit with no stated size, where its bedroom count's typical size is under
+  `SMALL` of the 10th-percentile stated size of the building's units with the
+  same bedroom count, given at least three rows with a stated size.
+
+The bedroom check compares each row with its building's other units, each unit
+taken at the median of its asks after removing every year's median ask. It
+flags a studio asking at least `STUDIO_SHARE` of the building's three-bedroom
+median, and an N-bedroom asking more than both the building's (N+1)- and
+(N+2)-bedroom medians, each median over at least `MIN_UNITS` units. It also
+flags a studio asking more than the building's two-bedroom median, or more than
+its one-bedroom median by `STUDIO_OVER_1BR` in log ask. A typical NB9 studio
+asks about 0.25 below its building's one-bedroom median, so that margin sits
+about two standard deviations out. A read changes a count only when the ad
+states it and something independent of the ad backs it.
+
+Price only flags a row for reading. A row is held out only after someone reads
+its whole ad and page and quotes the text or page field behind the verdict, so
+`screen`'s output carries no rent and blanks dollar amounts in the snippet. A
+read goes into a reads file (`READS`) with a verdict: `keep`, or one of the
+quarantine actions or a unit, bedroom or field correction. Non-keep verdicts
+go into the next version of the matching data rule. `verdict_problems` checks
+a read before it is recorded. `frontier/scripts/ad_fit_screen.py` runs the
+screen on a dataset and writes the hits nobody has read yet.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+REVIEWS = Path(__file__).resolve().parents[3] / "config" / "reviews"
+# One line for each read: the row, its flags, the verdict and the quote behind it.
+READS = tuple(sorted(REVIEWS.glob("ad-fit-reads-*.jsonl")))
+# Dataset cohorts the screen has run on, one per line; a test checks that each
+# registered dataset is among them.
+SCREENED = REVIEWS / "ad-fit-screened.txt"
+NTA_CENTRES = REVIEWS / "nta-2020-centres.json"
+
+SIZE_FACTOR = 1.6
+SMALL = 0.6
+PRICE_FACTOR = 2.0
+FAR_KM = 3.0
+MIN_SQFT = 100
+STUDIO_SHARE = 0.8
+STUDIO_OVER_1BR = 0.1
+MIN_UNITS = 2
+
+SIZE_FLAGS = ("size_far", "size_missing_small", "bldg_size_small")
+INFERRED_SIZE_FLAGS = ("size_missing_small", "bldg_size_small")
+TEXT_FLAGS = ("far_place", "room_share", "shared_bath", "short_stay")
+PRICE_FLAGS = ("price_far_unit", "price_far_bldg")
+BEDROOM_FLAGS = ("beds_price_bldg",)
+FLAGS = SIZE_FLAGS + TEXT_FLAGS + PRICE_FLAGS + BEDROOM_FLAGS
+VERDICTS = (
+    "keep",
+    "quarantine_location_conflict",
+    "quarantine_product_scope",
+    "quarantine_price_basis",
+    "quarantine_explicit_short_term_offer",
+    "quarantine_nonresidential",
+    "quarantine_bedrooms_unknown",
+    "brooklyn_misjoin",
+    "unit_split",
+    "unit_relabel",
+    "correct_bedrooms",
+    "correct_square_feet",
+)
+
+TERMS = {
+    "room_share": (
+        r"(?<!living )\broom for rent",
+        r"\broom in an? (?:apartment|apt|shared)",
+        r"private (?:bed)?room (?:in|available)",
+        r"(?:looking for|seeking) (?:a |one )?room ?mate",
+        r"room ?mate wanted",
+    ),
+    "shared_bath": (
+        r"shared (?:bath|bathroom|toilet|shower|kitchen)s?\b",
+        r"(?:bath|bathroom|toilet)s? (?:is |are )?shared",
+        r"share (?:a |the )?(?:bath|bathroom|toilet|kitchen)",
+        # "communal kitchen" is a building amenity in most ads.
+        r"communal (?:bath|bathroom|toilet|shower)",
+    ),
+    "short_stay": (
+        r"nightly (?:rate|rental|stay|price)s?\b",
+        r"per night",
+        r"minimum stay",
+        r"short[- ]term (?:rental|stay|lease)s? only",
+        r"vacation rental",
+        r"(?<!no )(?<!or )summer (?:sublet|rental)",
+        r"\b(?:[1-9]|1[01]|one|two|three|four|five|six) (?:week|month)s? (?:only|sublet|sublease)",
+    ),
+}
+TERM_RX = {k: re.compile("|".join(f"(?:{t})" for t in v)) for k, v in TERMS.items()}
+# A bath or kitchen shared beyond the apartment, for ads of two bedrooms or more.
+SHARED_WITH_OTHERS = re.compile(
+    r"communal (?:bath|bathroom|toilet|shower)"
+    r"|(?:bath|bathroom|toilet|shower|kitchen)s? (?:is |are )?shared with"
+    r" (?:\d|two|three|four|five|other)"
+    r"|share the (?:bath|bathroom|toilet|shower|kitchen)\w*(?: \(\w+\))? with"
+)
+NEAR = (
+    r"\b(?:in|located in|heart of|apartment in|unit in|steps (?:to|from)|near"
+    r"|close to|minutes? (?:to|from)) (?:the )?(?:beautiful |historic |prime )?"
+)
+# Building names and phrases that read like a far place.
+PLACE_FALSE_ALARMS = re.compile(
+    r"kensington house|brooklyn fare|clinton (?:hill )?park"
+)
+# Amounts of money, with or without a dollar sign.
+DOLLARS = re.compile(
+    r"\$\s?\d[\d,]*(?:\.\d+)?k?"
+    r"|\b\d[\d,]*(?:\.\d+)?k?\s*(?:/\s?mo(?:nth)?\b|per month|a month|monthly)"
+    r"|\b\d+(?:\.\d+)?k\b"
+)
+# Words left in a quote about price once its amounts are gone.
+PRICE_WORDS = re.compile(
+    r"\d[\d,.]*|\b(?:rent|rents|rental|price|priced|ask|asking|net|gross|per|a|month"
+    r"|monthly|mo|only|just|at|for|of|is|the|usd|dollars?)\b"
+)
+
+
+def loo_median(values: np.ndarray, groups: np.ndarray) -> np.ndarray:
+    """Each row's group median over the group's non-missing values, with the
+    row itself left out when it has a value; NaN when nothing is left."""
+    values = np.asarray(values, float)
+    out = np.full(len(values), np.nan)
+    ok = ~np.isnan(values)
+    frame = pd.DataFrame({"v": values[ok], "g": np.asarray(groups)[ok]})
+    pos = np.flatnonzero(ok)
+    for idx in frame.groupby("g", sort=False).indices.values():
+        n = len(idx)
+        if n < 2:
+            continue
+        order = np.argsort(frame.v.to_numpy()[idx], kind="stable")
+        s = frame.v.to_numpy()[idx][order]
+        rank = np.empty(n, int)
+        rank[order] = np.arange(n)
+        rest = n - 1
+
+        def at(k):
+            # The k-th smallest of the group with the row at `rank` left out.
+            return s[np.where(k < rank, k, k + 1)]
+
+        if rest % 2:
+            med = at(np.full(n, rest // 2))
+        else:
+            med = (at(np.full(n, rest // 2 - 1)) + at(np.full(n, rest // 2))) / 2
+        out[pos[idx]] = med
+    # Rows with no value of their own get their whole group's median.
+    full = frame.groupby("g", sort=False).v.median()
+    missing = ~ok
+    out[missing] = pd.Series(np.asarray(groups)[missing]).map(full).to_numpy(float)
+    return out
+
+
+def bedroom_conflicts(frame: pd.DataFrame) -> np.ndarray:
+    """Rows whose ask is out of line with their bedroom count in their building:
+    a studio at `STUDIO_SHARE` or more of the three-bedroom median, a studio
+    above the two-bedroom median or `STUDIO_OVER_1BR` above the one-bedroom
+    median, or an N-bedroom above both the (N+1)- and (N+2)-bedroom medians. Each median is
+    over the building's other units, one value per unit, after removing the
+    year's median log ask."""
+    year = pd.to_datetime(frame.price_at, utc=True).dt.year.to_numpy()
+    lr = frame.log_rent.to_numpy(float)
+    adj = lr - pd.Series(lr).groupby(year).transform("median").to_numpy()
+    beds = frame.bedrooms.round().clip(0, 5).to_numpy(float)
+    building = frame.building.to_numpy()
+    unit = frame.unit_id.to_numpy()
+    units = (
+        pd.DataFrame(dict(building=building, beds=beds, unit=unit, adj=adj))
+        .dropna(subset=["beds"])
+        .groupby(["building", "beds", "unit"], sort=False)
+        .adj.median()
+        .reset_index()
+    )
+    by_level = {
+        key: (g.unit.to_numpy(), g.adj.to_numpy())
+        for key, g in units.groupby(["building", "beds"], sort=False)
+    }
+
+    def median(level):
+        # Each row's building median at `level` bedrooms, its own unit left out.
+        med = np.full(len(frame), np.nan)
+        for i, (b, u) in enumerate(zip(building, unit)):
+            ids, v = by_level.get((b, level), (None, None))
+            if ids is None:
+                continue
+            keep = ids != u
+            if keep.sum() >= MIN_UNITS:
+                med[i] = np.median(v[keep])
+        return med
+
+    levels = {k: median(float(k)) for k in range(6)}
+    out = np.zeros(len(frame), bool)
+    with np.errstate(invalid="ignore"):
+        out |= (beds == 0) & (adj >= levels[3] + math.log(STUDIO_SHARE))
+        out |= (beds == 0) & ((adj > levels[1] + STUDIO_OVER_1BR) | (adj > levels[2]))
+        for k in range(4):
+            out |= (beds == k) & (adj > levels[k + 1]) & (adj > levels[k + 2])
+    return out
+
+
+def place_centres(path: Path = NTA_CENTRES) -> dict[str, list[tuple[float, float]]]:
+    """Name parts of the 2020 NTAs, each with the centres of the NTAs that use it."""
+    centres: dict[str, list[tuple[float, float]]] = {}
+    for a in json.loads(path.read_text()):
+        for part in re.split(r"[-()]", a["ntaname"]):
+            part = part.strip().lower()
+            if len(part) >= 5 and part not in {
+                "north",
+                "south",
+                "east",
+                "west",
+                "central",
+            }:
+                centres.setdefault(part, []).append((a["lat"], a["lon"]))
+    return centres
+
+
+def _km(lat, lon, a, b):
+    return math.hypot((lat - a) * 111.2, (lon - b) * 111.2 * 0.757)
+
+
+def screen(
+    frame: pd.DataFrame,
+    text: pd.Series,
+    coords: pd.DataFrame,
+    centres: dict[str, list[tuple[float, float]]] | None = None,
+) -> pd.DataFrame:
+    """The rows of `frame` with at least one flag, each with its tier.
+
+    `text` holds each row's ad text, lower-cased, on `frame`'s index, and
+    `coords` holds each building's `latitude` and `longitude`, indexed by
+    building. The result carries no rent, and its snippet has dollar amounts
+    blanked."""
+    text = pd.Series(text).reindex(frame.index).fillna("").reset_index(drop=True)
+    frame = frame.reset_index(drop=True)
+    centres = place_centres() if centres is None else centres
+    sq = pd.to_numeric(frame.square_feet, errors="coerce")
+    sq = sq.where(sq > MIN_SQFT).to_numpy(float)
+    beds = frame.bedrooms.to_numpy(float)
+    unit = frame.unit_id.to_numpy()
+    building = frame.building.to_numpy()
+    unit_sq = loo_median(sq, unit)
+    typical = pd.Series(sq).groupby(beds).median()
+    typ_sq = pd.Series(beds).map(typical).to_numpy(float)
+    key = pd.Series(building).astype(str) + "|" + pd.Series(beds).astype(str)
+    p10 = pd.Series(sq).groupby(key).transform(lambda s: s.quantile(0.1))
+    bld_p10 = p10.to_numpy(float)
+    bld_n = pd.Series(~np.isnan(sq)).groupby(key).transform("sum").to_numpy()
+    unit_any = pd.Series(~np.isnan(sq)).groupby(unit).transform("any").to_numpy()
+
+    flags = {}
+    with np.errstate(invalid="ignore", divide="ignore"):
+        flags["size_far"] = np.abs(np.log(sq / unit_sq)) > math.log(SIZE_FACTOR)
+        flags["size_missing_small"] = np.isnan(sq) & (typ_sq < SMALL * unit_sq)
+        flags["bldg_size_small"] = ~unit_any & (bld_n >= 3) & (typ_sq < SMALL * bld_p10)
+        lr = frame.log_rent.to_numpy(float)
+        flags["price_far_unit"] = np.abs(lr - loo_median(lr, unit)) > math.log(
+            PRICE_FACTOR
+        )
+        flags["price_far_bldg"] = np.abs(
+            lr - loo_median(lr, key.to_numpy())
+        ) > math.log(PRICE_FACTOR)
+
+    phrase = {k: np.full(len(frame), None, object) for k in TEXT_FLAGS}
+    place_rx = re.compile(
+        NEAR
+        + "("
+        + "|".join(re.escape(k) for k in sorted(centres, key=len, reverse=True))
+        + r")\b(?! (?:ave|avenue|st|street|sq|square|pl|place|park)\b)"
+    )
+    lat = coords.latitude.reindex(building).to_numpy(float)
+    lon = coords.longitude.reindex(building).to_numpy(float)
+    for i, ad in text.items():
+        for k, rx in TERM_RX.items():
+            if m := rx.search(ad):
+                phrase[k][i] = m.group(0)
+        if phrase["shared_bath"][i] and beds[i] >= 2:
+            m = SHARED_WITH_OTHERS.search(ad)
+            phrase["shared_bath"][i] = m.group(0) if m else None
+        if np.isnan(lat[i]):
+            continue
+        for m in place_rx.finditer(PLACE_FALSE_ALARMS.sub(" ", ad)):
+            d = min(_km(lat[i], lon[i], a, b) for a, b in centres[m.group(1)])
+            if d > FAR_KM:
+                phrase["far_place"][i] = m.group(0)
+                break
+    for k in TEXT_FLAGS:
+        flags[k] = pd.notna(phrase[k])
+    flags["beds_price_bldg"] = bedroom_conflicts(frame)
+
+    hit = pd.DataFrame(flags)
+    size = hit[list(SIZE_FLAGS)].any(axis=1)
+    words = hit[list(TEXT_FLAGS)].any(axis=1)
+    price = hit[list(PRICE_FLAGS)].any(axis=1)
+    tier = np.select(
+        [size & price, words, hit.size_far, hit.beds_price_bldg, price],
+        ["A", "B", "C", "E", "D"],
+        "",
+    )
+    rows = []
+    for i in np.flatnonzero(tier != ""):
+        ad = text[i]
+        found = [k for k in FLAGS if hit.at[i, k]]
+        rows.append(
+            dict(
+                audit_id=frame.at[i, "audit_id"],
+                source_listing_id=str(frame.at[i, "source_listing_id"]),
+                building=building[i],
+                unit_id=unit[i],
+                neighbourhood=frame.at[i, "neighbourhood"],
+                period=str(frame.at[i, "price_at"])[:7],
+                tier=str(tier[i]),
+                flags=found,
+                bedrooms=None if np.isnan(beds[i]) else float(beds[i]),
+                square_feet=None if np.isnan(sq[i]) else float(sq[i]),
+                unit_rows=int((unit == unit[i]).sum()),
+                unit_square_feet=None if np.isnan(unit_sq[i]) else float(unit_sq[i]),
+                phrases={k: phrase[k][i] for k in TEXT_FLAGS if phrase[k][i]},
+                snippet=DOLLARS.sub("$...", ad[:600]),
+            )
+        )
+    return pd.DataFrame(rows)
+
+
+def read_ids() -> frozenset:
+    """Audit ids in the reads files."""
+    ids = set()
+    for path in READS:
+        with open(path) as f:
+            ids |= {json.loads(line)["audit_id"] for line in f if line.strip()}
+    return frozenset(ids)
+
+
+WHOLE_AD_VERDICTS = ("quarantine_bedrooms_unknown",)
+
+
+def verdict_problems(read: dict) -> list[str]:
+    """What keeps a read from being recorded: an unknown verdict, or a non-keep
+    verdict without a quote from the ad or the page, or one resting on price.
+    A studio held out for an unknown count may quote its whole ad even when
+    that ad is a placeholder ("apt", "-"): the missing description is the
+    evidence."""
+    problems = []
+    verdict = read.get("verdict")
+    if verdict not in VERDICTS:
+        problems.append(f"unknown verdict {verdict!r}")
+    if verdict == "keep":
+        return problems
+    quote = (read.get("quote") or "").strip()
+    if read.get("quote_source") not in ("ad", "page"):
+        problems.append("quote_source must be 'ad' or 'page'")
+    if verdict in WHOLE_AD_VERDICTS and read.get("quote_is_whole_ad"):
+        if not read.get("reason"):
+            problems.append("no reason")
+        return problems
+    if (
+        len(
+            re.findall(
+                r"[a-z]{2,}", PRICE_WORDS.sub(" ", DOLLARS.sub(" ", quote.lower()))
+            )
+        )
+        < 2
+    ):
+        problems.append("a hold-out or correction needs a quote that is not a price")
+    if not read.get("reason"):
+        problems.append("no reason")
+    return problems

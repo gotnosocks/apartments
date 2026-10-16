@@ -1,0 +1,12 @@
+{
+ "rule": "bedrooms-ad-v7",
+ "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-api-analysis-20261015-c9eea95",
+ "dataset_observations_sha256": "dc480f2ef88222676c963cfbdd424ea0ea4afceef092be36090efec2747af4d6",
+ "reads": "config/reviews/ad-fit-reads-20261016-api.jsonl",
+ "base_rule": "bedrooms-ad-v6",
+ "rows": 4,
+ "by_change": {
+  "3->2": 2,
+  "0->1": 2
+ }
+}

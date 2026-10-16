@@ -15,6 +15,8 @@ from rentfrontier.registry import distance_m, slug_address
         ("1-broadway-new_york", "1 Broadway"),
         ("ava-high-line", None),
         ("21-chelsea", None),
+        ("585-park-place-brooklyn", "585 Park Place"),
+        ("229--7-avenue-brooklyn", "229 7 Avenue"),
     ],
 )
 def test_slug_address(slug, address):
@@ -84,7 +86,38 @@ def test_apply_overrides_regeocodes_only_the_named_buildings(monkeypatch):
         out.set_index("building").loc["b"].to_dict()
         == base.set_index("building").loc["b"].to_dict()
     )
+    lot = registry.apply_overrides(
+        base,
+        [{"building": "b", "bbl": "1000020009", "bin": "1000009", "label": "9 WEST 1"}],
+    ).set_index("building")
+    b = lot.loc["b"]
+    assert b.method == "override" and b.bbl == "1000020009" and b.bin == "1000009"
+    assert b.label == "9 WEST 1" and pd.isna(b.query) and b.latitude == 40.1
+    assert lot.loc["a"].to_dict() == base.set_index("building").loc["a"].to_dict()
     with pytest.raises(SystemExit, match="not in the base registry"):
         registry.apply_overrides(
             base, [{"building": "z", "address": "3 West 3 Street"}]
         )
+
+
+def test_build_geocodes_a_buildings_file_in_its_borough(tmp_path, monkeypatch):
+    path = tmp_path / "buildings.csv"
+    path.write_text(
+        "building,latitude,longitude,borough\n"
+        "585-park-place-brooklyn,40.67,-73.96,Brooklyn\n"
+        "1-broadway-new_york,40.70,-74.01,\n"
+    )
+    calls = []
+    monkeypatch.setattr(
+        registry,
+        "locate",
+        lambda slug, lat, lon, borough: (
+            calls.append((slug, borough)) or {"building": slug}
+        ),
+    )
+    table = registry.build(pause=0, buildings=path)
+    assert list(table.building) == ["1-broadway-new_york", "585-park-place-brooklyn"]
+    assert calls == [
+        ("1-broadway-new_york", "Manhattan"),
+        ("585-park-place-brooklyn", "Brooklyn"),
+    ]

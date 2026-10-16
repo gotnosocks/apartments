@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 
 from . import data as data_module
 from . import descriptions as descriptions_module
@@ -1125,6 +1126,59 @@ def through_v1(
     )
 
 
+WHOLE_HOUSE_TEXT = (
+    r"single[- ]family|entire (?:town)?house|whole (?:town)?house|entire brownstone"
+    r"|entire townhouse|private (?:town)?house|carriage house"
+)
+FULL_FLOOR_TEXT = (
+    r"(?:full[- ]floor|entire floor|whole floor)(?![- ]to)|floor[- ]?thr(?:ough|u)"
+)
+
+
+def wholefloor_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str = "nb9-nostuy-wholefloor-v1",
+    base: str = "nb9-nostuy-v1",
+) -> Features:
+    """A base set plus two layout indicators, each needing the ad's words and
+    the lot's MapPLUTO counts to agree:
+      - whole house: the ad offers the entire house (single-family, whole
+        townhouse, carriage house) and the lot holds at most 3 apartments;
+      - full floor: the ad says full floor or floor-through and the lot holds
+        at most `floorthrough.WHOLE_FLOOR` apartments per floor.
+    The two indicators are set independently, so a row can carry both. Reads
+    no rents."""
+    from . import descriptions, floorthrough
+
+    base = FEATURE_SETS[base](frame, train)
+    text = descriptions.attach(frame).fillna("").str.lower()
+    units = pd.to_numeric(building_lots(frame).unitsres, errors="coerce").to_numpy()
+    upf = floorthrough.units_per_floor(frame)
+    b = _Builder(frame)
+    b.add(
+        "layout",
+        "whole house",
+        text.str.contains(WHOLE_HOUSE_TEXT, regex=True).to_numpy()
+        & (units > 0)
+        & (units <= 3),
+    )
+    b.add(
+        "layout",
+        "full floor",
+        text.str.contains(FULL_FLOOR_TEXT, regex=True).to_numpy()
+        & (upf <= floorthrough.WHOLE_FLOOR),
+    )
+    out = b.build(id)
+    return Features(
+        id,
+        base.names + out.names,
+        base.groups + out.groups,
+        np.column_stack([base.values, out.values]),
+        np.concatenate([base.prior_scale, out.prior_scale]),
+    )
+
+
 def walkup_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
@@ -1743,6 +1797,14 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
     """MapPLUTO attributes of each row's building (one row per listing row)."""
     registry_file, pluto_file = _LOTS.get() or (REGISTRY_FILE, PLUTO_FILE)
     registry = pd.read_parquet(registry_file)
+    # A registry without the wing's row would leave its rows with no lot.
+    if frame.building.eq(data_module.WESTCOAST_WEST_WING).any() and not (
+        registry.building.eq(data_module.WESTCOAST_WEST_WING).any()
+    ):
+        raise ValueError(
+            f"{registry_file} has no {data_module.WESTCOAST_WEST_WING}: fit "
+            "west-coast-wings-v1 with a set that reads a registry with the wing"
+        )
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
     lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
     lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
@@ -2458,6 +2520,12 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
             owner += [str(r.bin)] * (len(ring) - 1)
     e0, e1 = np.concatenate(e0), np.concatenate(e1)
     owner = np.array(owner)
+    # Edges are looked up by midpoint. An edge passing the test below has its
+    # midpoint within radius + 1.5 * its length of the centre, so a ball that
+    # wide around the centre holds every edge the test keeps.
+    length = np.hypot(*(e1 - e0).T)
+    midpoints = cKDTree((e0 + e1) / 2)
+    slack = 1.5 * float(length.max())
     by_bin = footprints.groupby(footprints.bin.astype(str))
     by_lot = footprints.groupby(footprints.base_bbl.astype(str))
     for building, r in registry.iterrows():
@@ -2483,12 +2551,17 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
         # Every other building nearby blocks the view, on the same lot too;
         # outlines of the building itself (its BIN) are left to the caller,
         # which lets the outline's own walls block.
-        own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         centre = ring.mean(0)
         radius = float(np.hypot(*(ring - centre).T).max()) + reach + 10.0
+        edges = np.sort(
+            np.asarray(midpoints.query_ball_point(centre, radius + slack), int)
+        )
+        own = (owner[edges] == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         # A lower bound on each edge's distance from the centre.
-        dist = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
-        near = (dist - np.hypot(*(e1 - e0).T) < radius) & ~own
+        dist = np.minimum(
+            np.hypot(*(e0[edges] - centre).T), np.hypot(*(e1[edges] - centre).T)
+        )
+        near = edges[(dist - length[edges] < radius) & ~own]
         yield building, ring, (e0[near], e1[near])
 
 
@@ -4942,6 +5015,32 @@ for _new, _old in NB8_SETS.items():
     LPC_SNAPSHOTS[_new] = NB8_LPC_FILE
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB8_PLUTO_RELEASES_FILE
 
+# nb8-nostuy-v1 on the nb8 registry plus a row for the-west-coast-west-wing,
+# a copy of the-west-coast's (lot 1006430001, BIN 1012154, the same position),
+# for fits with data.west_coast_wings_v1. The set copies every group and
+# snapshot of nb8-nostuy-v1 but the registry.
+NB8_WINGS_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261014-ca9fa99/buildings.parquet"
+)
+FEATURE_SETS["nb8-nostuy-wings-v1"] = partial(
+    FEATURE_SETS["nb8-nostuy-v1"].func,
+    **{**FEATURE_SETS["nb8-nostuy-v1"].keywords, "id": "nb8-nostuy-wings-v1"},
+)
+for _value in list(globals().values()):
+    if isinstance(_value, set) and "nb8-nostuy-v1" in _value:
+        _value.add("nb8-nostuy-wings-v1")
+    elif (
+        isinstance(_value, dict)
+        and _value is not FEATURE_SETS
+        and _value is not NB8_SETS
+        and "nb8-nostuy-v1" in _value
+    ):
+        _value["nb8-nostuy-wings-v1"] = _value["nb8-nostuy-v1"]
+LOT_SNAPSHOTS["nb8-nostuy-wings-v1"] = {
+    "registry": NB8_WINGS_REGISTRY_FILE,
+    "pluto": NB8_PLUTO_FILE,
+}
+
 
 # The ten neighbourhoods (data.DATASET_NB9): the eight plus Hell's Kitchen and
 # Hudson Yards, split from the building-first Midtown West crawl of 2026-10-13
@@ -4949,9 +5048,11 @@ for _new, _old in NB8_SETS.items():
 # registry (20261014-ca9dbf6, each page geocoded from its own address, no
 # overrides) merged into nb8's, its MapPLUTO, footprints and basemap merged
 # into nb8's (nb8's rows unchanged), and the sources keyed by lot fetched on
-# the merged registry.
+# the merged registry (20261014-5352472). The sets read that registry plus a
+# row for the-west-coast-west-wing, a copy of the-west-coast's, for
+# data.west_coast_wings_v1 (frontier/scripts/westcoast_wing_registry.py).
 NB9_REGISTRY_FILE = (
-    "/data1/apartments/external/registry/20261014-5352472/buildings.parquet"
+    "/data1/apartments/external/registry/20261014-6141000/buildings.parquet"
 )
 NB9_PLUTO_FILE = "/data1/apartments/external/pluto/20261014-5352472/pluto.parquet"
 NB9_FOOTPRINTS_FILE = (
@@ -5033,6 +5134,369 @@ for _new, _old in NB9_SETS.items():
     EXTRAS_SNAPSHOTS[_new] = NB9_EXTRAS_FILE
     LPC_SNAPSHOTS[_new] = NB9_LPC_FILE
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_PLUTO_RELEASES_FILE
+
+# Sets with no nb8 twin read what the nb9 base reads.
+FEATURE_SETS["nb9-nostuy-wholefloor-v1"] = partial(
+    wholefloor_v1, id="nb9-nostuy-wholefloor-v1", base="nb9-nostuy-v1"
+)
+for _new in ("nb9-nostuy-wholefloor-v1",):
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if "nb9-nostuy-v1" in _group:
+            _group.add(_new)
+    for _snapshots in (
+        LOT_SNAPSHOTS,
+        AREA_SNAPSHOTS,
+        DESCRIPTION_SOURCES,
+        EXTRAS_SNAPSHOTS,
+        LPC_SNAPSHOTS,
+        PLUTO_RELEASES_SNAPSHOTS,
+    ):
+        _snapshots[_new] = _snapshots["nb9-nostuy-v1"]
+
+# The NB9 registry with 14 buildings re-geocoded from their own building
+# page's address (config/reviews/registry-overrides-20261015-floors.json):
+# reverse geocoding had put towers such as One Columbus Place and River Place
+# on a neighbouring school, garage, park or vacant lot. The lot sources are
+# fetched again on that registry; descriptions and extras are NB9's.
+NB9_LOTS2_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261015-a959a8c/buildings.parquet"
+)
+NB9_LOTS2_PLUTO_FILE = "/data1/apartments/external/pluto/20261015-a959a8c/pluto.parquet"
+NB9_LOTS2_FOOTPRINTS_FILE = (
+    "/data1/apartments/external/footprints/20261015-a959a8c/footprints.parquet"
+)
+NB9_LOTS2_BASEMAP_FILE = (
+    "/data1/apartments/external/basemap/20261015-59d7578/basemap.parquet"
+)
+NB9_LOTS2_LPC_FILE = "/data1/apartments/external/lpc/20261015-59d7578/lpc.parquet"
+NB9_LOTS2_PLUTO_RELEASES_FILE = (
+    "/data1/apartments/external/plutoreleases/20261015-59d7578/plutoreleases.parquet"
+)
+NB9_LOTS2_SETS = {
+    "nb9-nostuy-lots2-v1": "nb9-nostuy-v1",
+    "nb9-nostuy-wholefloor-lots2-v1": "nb9-nostuy-wholefloor-v1",
+}
+FEATURE_SETS["nb9-nostuy-lots2-v1"] = partial(
+    FEATURE_SETS["nb9-nostuy-v1"], id="nb9-nostuy-lots2-v1"
+)
+FEATURE_SETS["nb9-nostuy-wholefloor-lots2-v1"] = partial(
+    wholefloor_v1,
+    id="nb9-nostuy-wholefloor-lots2-v1",
+    base="nb9-nostuy-lots2-v1",
+)
+for _new, _old in NB9_LOTS2_SETS.items():
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = {
+        "registry": NB9_LOTS2_REGISTRY_FILE,
+        "pluto": NB9_LOTS2_PLUTO_FILE,
+    }
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": NB9_LOTS2_BASEMAP_FILE,
+        "footprints": NB9_LOTS2_FOOTPRINTS_FILE,
+    }
+    DESCRIPTION_SOURCES[_new] = DESCRIPTION_SOURCES[_old]
+    EXTRAS_SNAPSHOTS[_new] = EXTRAS_SNAPSHOTS[_old]
+    LPC_SNAPSHOTS[_new] = NB9_LOTS2_LPC_FILE
+    PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_LOTS2_PLUTO_RELEASES_FILE
+
+
+# NB9's set on data.DATASET_NB9_API. The registry is NB9_LOTS2's plus the
+# 1,019 buildings of the added ads, geocoded as the API registries were, and
+# the lot sources are fetched on it. The added ads take their extras and ad
+# text from the API re-read, and NB9's rows keep NB9's.
+NB9_API_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261016-104dfa2-mw-api/buildings.parquet"
+)
+NB9_API_FILES = {
+    kind: f"/data1/apartments/external/{kind}/20261016-104dfa2/{kind}.parquet"
+    for kind in ("pluto", "footprints", "basemap", "lpc", "plutoreleases")
+}
+NB9_API_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261016-104dfa2-mw-api/"
+    "listing-extras.parquet"
+)
+# One evidence file per building slice of the re-read, each with the added
+# ads of its own buildings.
+NB9_API_ADDED_DESCRIPTIONS = {
+    f"descriptions_api_added_{i:02d}": (
+        "/data1/apartments/frontier/descriptions/mw-api-added-manhattan-page-"
+        f"crawl-areas-{i:02d}-20261016-104dfa2/evidence.jsonl"
+    )
+    for i in range(1, 5)
+}
+FEATURE_SETS["nb9-nostuy-api-v1"] = partial(
+    FEATURE_SETS["nb9-nostuy-v1"], id="nb9-nostuy-api-v1"
+)
+for _group in [
+    v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+]:
+    if "nb9-nostuy-lots2-v1" in _group:
+        _group.add("nb9-nostuy-api-v1")
+LOT_SNAPSHOTS["nb9-nostuy-api-v1"] = {
+    "registry": NB9_API_REGISTRY_FILE,
+    "pluto": NB9_API_FILES["pluto"],
+}
+AREA_SNAPSHOTS["nb9-nostuy-api-v1"] = {
+    "basemap": NB9_API_FILES["basemap"],
+    "footprints": NB9_API_FILES["footprints"],
+}
+LPC_SNAPSHOTS["nb9-nostuy-api-v1"] = NB9_API_FILES["lpc"]
+PLUTO_RELEASES_SNAPSHOTS["nb9-nostuy-api-v1"] = NB9_API_FILES["plutoreleases"]
+EXTRAS_SNAPSHOTS["nb9-nostuy-api-v1"] = NB9_API_EXTRAS_FILE
+DESCRIPTION_SOURCES["nb9-nostuy-api-v1"] = {
+    **_NB9_DESCRIPTIONS,
+    **NB9_API_ADDED_DESCRIPTIONS,
+}
+
+
+def areas_v1(
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    id: str,
+    base: str,
+    areas: tuple[str, ...],
+) -> Features:
+    """A base set's terms other than its neighbourhoods, plus one column per
+    StreetEasy area in `areas`, each against the dataset's area left out of
+    `areas`. The base's neighbourhood columns compare the NB9 neighbourhoods
+    with Chelsea, so in another part of the city they are zero on every row.
+
+    I also drop every base column that takes one value over the whole frame.
+    Some NB9 terms read the West Side grid (wide crosstown streets, WEST street
+    addresses) or the page crawl's capture basis, and on the API backfill they
+    are constant. Checking the whole frame, not the training rows, keeps one
+    column list per dataset across splits."""
+    base = FEATURE_SETS[base](frame, train)
+    varies = np.ptp(base.values, axis=0) > 0
+    keep = [i for i, g in enumerate(base.groups) if g != "neighbourhood" and varies[i]]
+    b = _Builder(frame)
+    for area in areas:
+        b.add("neighbourhood", area, frame.neighbourhood.eq(area))
+    extra = b.build(id)
+    return Features(
+        id,
+        [base.names[i] for i in keep] + extra.names,
+        [base.groups[i] for i in keep] + extra.groups,
+        np.column_stack([base.values[:, keep], extra.values]),
+        np.concatenate([base.prior_scale[keep], extra.prior_scale]),
+    )
+
+
+# The API backfill's datasets (data.DATASETS_API). Each set takes the NB9 base's
+# terms other than its neighbourhoods (nb9-nostuy-lots2-v1) and adds the
+# dataset's StreetEasy areas against its largest one, named first here. The
+# lot sources are fetched on each borough's API registry, the descriptions and
+# extras from the backfill crawl. The descriptions come from the crawl's
+# building slices (api-granular-20261015-building-slices-6064263), so a dataset
+# reads the evidence files of the slices its rows came from.
+API_AREAS = {
+    "manhattan-below-59th": (
+        "Kips Bay",
+        "Murray Hill",
+        "Lower East Side",
+        "Financial District",
+        "Turtle Bay",
+        "Midtown",
+        "Sutton Place",
+        "Tribeca",
+        "Midtown South",
+        "Battery Park City",
+        "Soho",
+        "Fulton/Seaport",
+        "Nolita",
+        "Two Bridges",
+        "Chinatown",
+        "Little Italy",
+        "Noho",
+        "Hudson Square",
+        "Central Park South",
+        "Beekman",
+        "Civic Center",
+    ),
+    "manhattan-west-59th-110th": (
+        "Upper West Side",
+        "Lincoln Square",
+        "Manhattan Valley",
+    ),
+    "manhattan-east-59th-110th": (
+        "Yorkville",
+        "Lenox Hill",
+        "East Harlem",
+        "Carnegie Hill",
+        "Upper East Side",
+        "Upper Carnegie Hill",
+    ),
+    "brooklyn-prospect-park": (
+        "Park Slope",
+        "Downtown Brooklyn",
+        "Clinton Hill",
+        "Fort Greene",
+        "Brooklyn Heights",
+        "Prospect Heights",
+        "Carroll Gardens",
+        "Boerum Hill",
+        "Gowanus",
+        "Cobble Hill",
+        "DUMBO",
+        "Columbia St Waterfront District",
+        "Red Hook",
+        "Vinegar Hill",
+    ),
+    "brooklyn-williamsburg-crown-heights": (
+        "Williamsburg",
+        "Crown Heights",
+        "Bedford-Stuyvesant",
+        "Weeksville",
+    ),
+    "brooklyn-greenpoint-bushwick": (
+        "Bushwick",
+        "Stuyvesant Heights",
+        "Greenpoint",
+        "East Williamsburg",
+        "Ocean Hill",
+    ),
+}
+API_SLICES = {
+    "manhattan-below-59th": ("manhattan-below-59th", 4),
+    "manhattan-west-59th-110th": ("manhattan-59th-110th", 4),
+    "manhattan-east-59th-110th": ("manhattan-59th-110th", 4),
+    "brooklyn-prospect-park": ("brooklyn-prospect-park", 2),
+    "brooklyn-williamsburg-crown-heights": ("brooklyn-north-crown-heights", 6),
+    "brooklyn-greenpoint-bushwick": ("brooklyn-north-crown-heights", 6),
+}
+API_MANHATTAN_FILES = {
+    "registry": (
+        "/data1/apartments/external/registry/20261015-9dfa869-api-manhattan/"
+        "buildings.parquet"
+    ),
+    "pluto": "/data1/apartments/external/pluto/20261015-dec4944/pluto.parquet",
+    "footprints": (
+        "/data1/apartments/external/footprints/20261015-dec4944/footprints.parquet"
+    ),
+    "basemap": "/data1/apartments/external/basemap/20261015-1186316/basemap.parquet",
+    "lpc": "/data1/apartments/external/lpc/20261015-dec4944/lpc.parquet",
+    "plutoreleases": (
+        "/data1/apartments/external/plutoreleases/20261015-1186316/"
+        "plutoreleases.parquet"
+    ),
+}
+API_BROOKLYN_FILES = {
+    "registry": (
+        "/data1/apartments/external/registry/20261015-1186316-api-brooklyn/"
+        "buildings.parquet"
+    ),
+    "pluto": "/data1/apartments/external/pluto/20261015-a142668/pluto.parquet",
+    "footprints": (
+        "/data1/apartments/external/footprints/20261015-a142668/footprints.parquet"
+    ),
+    "basemap": "/data1/apartments/external/basemap/20261015-a142668/basemap.parquet",
+    "lpc": "/data1/apartments/external/lpc/20261015-a142668/lpc.parquet",
+    "plutoreleases": (
+        "/data1/apartments/external/plutoreleases/20261015-a142668/"
+        "plutoreleases.parquet"
+    ),
+}
+API_FILES = {"manhattan": API_MANHATTAN_FILES, "brooklyn": API_BROOKLYN_FILES}
+API_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261015-dd5bdb5-api/"
+    "listing-extras.parquet"
+)
+API_DESCRIPTIONS = "/data1/apartments/frontier/descriptions/api-{}-20261015-dd5bdb5"
+for _region, _areas in API_AREAS.items():
+    _new = f"api-{_region}-v1"
+    FEATURE_SETS[_new] = partial(
+        areas_v1, id=_new, base="nb9-nostuy-lots2-v1", areas=_areas[1:]
+    )
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if "nb9-nostuy-lots2-v1" in _group:
+            _group.add(_new)
+    _files = API_FILES[_region.split("-")[0]]
+    LOT_SNAPSHOTS[_new] = {"registry": _files["registry"], "pluto": _files["pluto"]}
+    AREA_SNAPSHOTS[_new] = {
+        "basemap": _files["basemap"],
+        "footprints": _files["footprints"],
+    }
+    LPC_SNAPSHOTS[_new] = _files["lpc"]
+    PLUTO_RELEASES_SNAPSHOTS[_new] = _files["plutoreleases"]
+    EXTRAS_SNAPSHOTS[_new] = API_EXTRAS_FILE
+    _parent, _count = API_SLICES[_region]
+    # Run records keep the first slice's file under "descriptions", the key
+    # every description set records.
+    DESCRIPTION_SOURCES[_new] = {
+        "descriptions" if i == 1 else f"descriptions_{_parent}_{i:02d}": (
+            API_DESCRIPTIONS.format(f"{_parent}-{i:02d}") + "/evidence.jsonl"
+        )
+        for i in range(1, _count + 1)
+    }
+
+
+# All the scraped areas in one set, on data.DATASET_ALL: NB9 with its API
+# re-read, and the six API backfill datasets. It takes the NB9 base's terms
+# other than its neighbourhoods, as the API sets do, and adds every
+# neighbourhood and StreetEasy area against Chelsea. Each snapshot is the
+# union of the NB9+API, API Manhattan and API Brooklyn ones
+# (`rentfrontier.snapshots union`, first file first where a key repeats).
+_ALL = "/data1/apartments/external/{0}/20261016-5f07157-all/{0}.parquet"
+ALL_FILES = {
+    kind: _ALL.format(kind)
+    for kind in (
+        "registry",
+        "pluto",
+        "footprints",
+        "basemap",
+        "lpc",
+        "plutoreleases",
+        "listing-extras",
+    )
+}
+ALL_AREAS = tuple(
+    dict.fromkeys(
+        a
+        for a in (
+            FEATURE_SETS["nb9-nostuy-v1"].keywords["hoods"]
+            + ("West Village", "Greenwich Village")
+            + tuple(a for areas in API_AREAS.values() for a in areas)
+        )
+        if a != "Chelsea"
+    )
+)
+FEATURE_SETS["all-scraped-v1"] = partial(
+    areas_v1, id="all-scraped-v1", base="nb9-nostuy-lots2-v1", areas=ALL_AREAS
+)
+for _group in [
+    v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+]:
+    if "nb9-nostuy-lots2-v1" in _group:
+        _group.add("all-scraped-v1")
+LOT_SNAPSHOTS["all-scraped-v1"] = {
+    "registry": ALL_FILES["registry"],
+    "pluto": ALL_FILES["pluto"],
+}
+AREA_SNAPSHOTS["all-scraped-v1"] = {
+    "basemap": ALL_FILES["basemap"],
+    "footprints": ALL_FILES["footprints"],
+}
+LPC_SNAPSHOTS["all-scraped-v1"] = ALL_FILES["lpc"]
+PLUTO_RELEASES_SNAPSHOTS["all-scraped-v1"] = ALL_FILES["plutoreleases"]
+EXTRAS_SNAPSHOTS["all-scraped-v1"] = ALL_FILES["listing-extras"]
+DESCRIPTION_SOURCES["all-scraped-v1"] = {
+    **DESCRIPTION_SOURCES["nb9-nostuy-api-v1"],
+    **{
+        f"descriptions_{parent}_{i:02d}": (
+            API_DESCRIPTIONS.format(f"{parent}-{i:02d}") + "/evidence.jsonl"
+        )
+        for parent, count in set(API_SLICES.values())
+        for i in range(1, count + 1)
+    },
+}
 
 
 def lot_files(name: str) -> dict:

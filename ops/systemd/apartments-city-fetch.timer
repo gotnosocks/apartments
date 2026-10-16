@@ -1,0 +1,9 @@
+[Unit]
+Description=Copy new city records of lots and buildings every Friday at 04:00 New York time, before the StreetEasy top-up
+
+[Timer]
+OnCalendar=Fri 04:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

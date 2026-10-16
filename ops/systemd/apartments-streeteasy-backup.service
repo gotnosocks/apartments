@@ -1,0 +1,14 @@
+[Unit]
+Description=Back up the StreetEasy API archive to /data2 (ops/streeteasy-backup)
+
+[Service]
+Type=oneshot
+# Follow master first, so the script below is master's.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
+ExecStart=/data1/apartments/serve/master/ops/streeteasy-backup
+TimeoutStartSec=3h
+Slice=apartments-light.slice
+MemoryMax=1G
+Nice=19
+IOSchedulingClass=idle

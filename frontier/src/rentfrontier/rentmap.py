@@ -21,7 +21,8 @@ Rents are exp of the log-scale mean, i.e. the typical (median) ask. Each value
 is the posterior median with a 90% interval. Years outside a building's
 listings in the fit (before `first_year`, after `last_year`) are the walk's
 extrapolation. Designs whose terms this does not model (market drift, a trend
-on top of a walk, sum-to-zero, masked or anchored walks) are refused.
+on top of a walk, sum-to-zero or anchored walks) are refused. Under a walk
+mask a building without a walk has a path of 0, so it follows the market.
 `median` is the median building's value per draw (all buildings of the fit),
 again as a posterior median and 90% interval; `median_by_area` is the same
 within each neighbourhood (the median of that neighbourhood's buildings, per
@@ -401,8 +402,7 @@ def unsupported_terms(config: model.ModelConfig) -> list[str]:
         ),
         "both a walk and a trend": config.building_walk and config.building_trend,
         "market drift": config.market_drift,
-        "sum-to-zero, masked or anchored walks": config.walk_zero_sum
-        or bool(config.walk_min_rows_per_knot)
+        "sum-to-zero or anchored walks": config.walk_zero_sum
         or config.walk_anchor_data,
     }
     return [k for k, bad in unsupported.items() if bad]

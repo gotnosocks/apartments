@@ -1,6 +1,326 @@
 # Data improvements — handoff
 
-Updated 2026-10-14 14:45 ET. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-16 04:35 ET, after #888. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-16 04:35 ET
+
+I read the 83 held bedroom corrections against independent evidence and merged the result into the
+pipeline ledger (#888, owned by the pipeline session).
+- For each held correction, `/data1/apartments/tmp/suspect/held83/packets.py` built a packet with
+  the row, the unit's other ads and the same-line units. Sonnet readers then judged each one backed,
+  refuted or unbacked. 12 came back backed, and the other 71 stay held in
+  `ledger-held-2026-10-16-chain.jsonl`. Separately, the pipeline's revised stated-size rule restored
+  11 sets it had held earlier.
+- 2536308 keeps 2 BR. Ben's floor plan shows 2 BR, and the other ads coded 3 after a conversion.
+  The reader had called it refuted. The ledger now tags it `floor_plan`.
+- 3691335 (unit 1D, ground floor) stays at 0. Units 2D to 5D are 1 BR, which doesn't settle 1D.
+- No `bedrooms-ad-v8` is needed.
+
+The regex second pass over the API keep reads found 3 short-stay offers (95636be7a9, 6895cf8373,
+6508409251). They wait in `/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-quarantine.jsonl`
+for `quarantine-v33`. I'm holding that version until more rows accumulate, since a merged rule
+version makes the served fit unservable.
+
+API unit spelling aliases: after unit-labels-v17, 69 history-confirmed groups (339 rows, about 0.1%)
+stay split, mostly `4` against `4fl`, `4th` or `2nd-floor`. That's too small to refit for, so
+they go into the next unit-labels version.
+
+I answered the pipeline session's questions for its whole-city building linking (steps 6 and 7):
+- Our fetchers are registry- or box-scoped; only `mnreleases` keeps every Manhattan lot per release.
+- The registry override files and `building-joins-v1` serve as known answers. Brooklyn MISJOINS
+  serve only as negatives.
+
+## 2026-10-16 00:40 ET
+
+#885 screens the API rows of `DATASET_NB9_API`.
+- The ad-fit and Brooklyn screens flagged 822 of the 58k added rows. Sonnet readers read
+  them (`config/reviews/ad-fit-reads-20261016-api.jsonl`). I moved 16 non-keep calls back to keep
+  and moved the 82 Irving Pl keeps to Brooklyn.
+- `quarantine-v32` is v31 plus 118 API rows. `bedrooms-ad-v7` is v6 plus 4 rows
+  (426 W 58th 3 to 2, 58 E 1st 0 to 1). `brooklyn.MISJOINS` gains 18 rows. Both screened
+  lists name the API cohort.
+- Modeling relabelled its API line q32ad7, on v32 and v7, waiting on #878 and #885.
+- Recorded only: a unit-split read (unit-splits-v4 already splits it) and a square-feet read
+  (sqft-units isn't served).
+- Next: a regex second pass over the 700 keep reads, whose reasons are generic. Also still
+  open: the API rows' null fields and the unit spelling aliases on the API datasets.
+
+## 2026-10-15 22:40 ET
+
+The pre-fit prep is done, and I told Ben.
+- #874 merged the three Brooklyn sets. Each built in about 9 minutes with no constant columns.
+- #878 merged NB9 extended by the API re-read of the page-crawl areas:
+  - `data.DATASET_NB9_API` keeps NB9's 296,953 rows and adds 58,146 API rows for listings NB9
+    lacks. `cohort extend` built it, skipping Noho and West Chelsea (2,787 rows) and 49
+    unit-month duplicates.
+  - `latest-ask-v5` covers both crawls. NB9-mw's dataset and `latest-ask-v4` are unchanged.
+  - `nb9-nostuy-api-v1` reads the merged registry (7,703 buildings), lot sources under
+    `20261016-104dfa2`, the merged extras, and four added description files, one per region-5
+    slice, because the whole granular OOMs at 6G.
+  - A trial build under the served rules with v5 and `quarantine-v31` kept 354,328 rows, 117
+    columns, none constant, in 133 s.
+- Modeling queued unitnu4 on `nb9-nostuy-api-v1` third, after whole-floor and the AR twin.
+  No whole-floor twins of the API set until that fit wins.
+- Open: the added rows have not been through NB9's audit_id-keyed review rules, and about 28
+  fields are null for them (furnished, short_term, price_basis, ...).
+- Open: the generic screens and unit spelling aliases on the API datasets.
+
+## 2026-10-15 17:30 ET
+
+Four-region API backfill, getting it ready for Modeling's fits. Ben asked for an update when
+the pre-fit prep is done.
+- The crawl `api-granular-20261015-canonical-url-v1` holds 1.69M ads. It is too big for one
+  history build, so I cut it into 16 building slices
+  (`/data1/apartments/archive/datasets/api-granular-20261015-building-slices-6064263`, built
+  by `rentfrontier.granular_slice`) and built a cohort per slice. Six fit datasets come from
+  those: `/data1/apartments/frontier/datasets/api-<region>-analysis-20261015-6064263`, named in
+  `data.DATASETS_API`.
+- Per-slice descriptions sit in `/data1/apartments/frontier/descriptions/api-<slice>-20261015-dd5bdb5`.
+  Listing extras (#857, `--crawl/--tag`) and latest asks for the crawl are under
+  `external/listing-extras/20261015-dd5bdb5-api` and `external/latest-ask/20261015-13f5968-api`.
+- #858 added retries to the Socrata fetches after 500s and 503s killed them. The Manhattan
+  pluto, footprints and lpc were refetched at dec4944. HPD for Manhattan still failed and is
+  not needed by the NB9 base.
+- #859 added the rule `latest-ask-api-v1` and three sets, `api-manhattan-{below-59th,
+  west-59th-110th,east-59th-110th}-v1`. Each takes the NB9 lots2 base without its
+  neighbourhoods, adds StreetEasy area indicators against the dataset's largest area, and drops
+  base columns constant over the dataset. Modeling has the merge commit (c266ad21).
+- The frontage and street-facing terms read only WEST streets and the numbered avenues, so they
+  come out missing on the Upper East Side and east of Fifth. A grid-wide version would be a new
+  feature set.
+- #860 makes the basemap land layer and PLUTO release reads follow the registry's borough.
+- Open: the Brooklyn registry (`data-api-registry-brooklyn` unit, `--tag api-brooklyn`), then the
+  Brooklyn pluto, footprints, lpc, basemap and plutoreleases, then the three Brooklyn sets.
+- Open: the generic screens and unit spelling aliases
+  (`api-granular-20261015-unit-spelling-aliases-v2`) on the API datasets.
+- Open: the search-API re-read of the page-crawl areas (Ben approved 2026-10-15 3:50 PM ET),
+  running as `apartments-streeteasy-reread-crawl-areas` into the region
+  `manhattan-page-crawl-areas` of `archive/crawls/api/archive.sqlite3`. Its records need merging
+  with the page-crawl records before a fit can use them.
+
+## 2026-10-15 12:30 ET
+
+More misfiled listings: quarantine-v29 (#841) and quarantine-v30 (#842), both merged.
+- v29 holds the 2016 and 2019 listings of 1 Fifth Ave #MEWS. Both pages link one floor plan
+  image titled 64 Washington Mews. With v28 this unit's four rows under 1 Fifth Ave are all held.
+- I looked for plans on the other listings of the 14 history-only groups' units (scratch
+  `/data1/apartments/tmp/suspect/dupfp/unitplans.py`). 6 plans in 3 groups turned up, and none
+  prints an address, so those groups stay in.
+- Of the 684 open duplicate-ad groups, 345 have no shared unit label and buildings more than 10
+  house numbers apart. 39 of them ran in the same month at the same rent and bedroom count
+  (scratch `/data1/apartments/tmp/suspect/dupad/twinpk.py`, `twins.parquet`). Sonnet readers
+  called 4 misfiled, 14 separate apartments sharing copy and 21 undecided
+  (`config/reviews/duplicate-ad-twin-reads-20261015.jsonl`). v30 holds 3 of the 4. Review
+  dropped 404 E 12th St #2 because the building's other ads describe a new elevator building,
+  which contradicts its PLUTO lot (QG, 0 units). The registry join for 404 E 12th St may be
+  wrong and is worth a look.
+- Open: the other 306 far-apart groups with no shared label, which differ in month, rent or
+  bedrooms, and the 339 near-neighbor groups.
+- Modeling knew before each merge. It asked that quarantine merges skip 13:50 to 14:05 ET, when
+  its 2 PM fits read the queue.
+
+## 2026-10-15, after #839
+
+Floor plans for the history-only groups: quarantine-v28 (#839), merged.
+- I fetched the floor plans linked from the stored pages of v27's 18 history-only groups
+  (scratch in `/data1/apartments/tmp/suspect/dupfp`; images in
+  `/data1/apartments/archive/floor-plans/<listing id>/`). Only 5 listings in 4 groups had a plan.
+  Sonnet readers transcribed them into `config/reviews/duplicate-ad-floor-plans-20261015.jsonl`.
+- v28 holds 3 rows as location conflicts: 313 W 29th #D, whose plan is titled 339 West 19th
+  Street, Unit D, and 1 Fifth Ave #MEWS in 2022 and 2024, whose plan is titled 64 Washington Mews.
+  The other two plans carry no address.
+- Open: the same 1 Fifth Ave #MEWS unit has 2016 and 2019 rows still in, and listing 2867212
+  (2019-09) mirrors 64-washington-mews/twnh 2867438. They need backing other than price.
+  14 history-only groups have no plan, and the 684 groups with no shared label or with
+  near-neighbor buildings are still unread.
+- Modeling knew before the merge and switches its queued NB9 lines to quarantine-v28.
+
+Whole house and full floor indicators: #838, merged as the NB9 feature set
+`nb9-nostuy-wholefloor-v1`. Whole house flags 149 rows in 78 buildings, and full floor flags
+about 4,380 rows in 938 buildings. Modeling queued it as its own fit on the unitnu4 base. I
+predicted a small or null paired LOO gain, with a new-building explained share for the layout
+group above the permutation null.
+
+StreetEasy `propertyId` unit merges: closed as negligible. The NoMad probe found 1 rename in
+3,384 units, and the API backfill covers no NB9 area.
+
+## 2026-10-15 00:28 ET
+
+Same ad under two buildings: quarantine-v27 (#823), merged.
+- I hashed every NB9 ad of 300 characters or more after normalizing its text (scratch in
+  `/data1/apartments/tmp/suspect/dupad`; `screen.py`, `pick.py`, `packets.py`, `final.py`,
+  `build.py`). 804 hashes appear under more than one building. Most pairs are next-door sister
+  buildings sharing a landlord's copy, which costs little.
+- `pick.py` keeps groups where a unit label appears under two buildings
+  that are not within 10 house numbers on one street. 120 groups and 276 rows remained. Many are
+  a dropped or mistyped digit in the address (14 E 23rd filed as 14 E 2nd, 315 W 46th as 315 W
+  4th).
+- Sonnet readers saw the ad, PLUTO facts for each building and the unit's history in each.
+  v27 holds 50 rows, each backed by the address or a landmark in the ad, or by a building that
+  cannot hold the unit. 9 of them were in v3 to v9 and released in v10. 70 groups stay in: 18
+  decided from unit history alone, 18 that are one building under two slugs, and 34 undecided.
+  Reads are in `config/reviews/duplicate-ad-screen-reads-20261015.jsonl`.
+- Left open: the 18 history-only groups (floor plans could decide some), and the 684 groups
+  with no shared unit label or with near-neighbor buildings.
+- Modeling has been told about v26 and v27.
+
+## 2026-10-15 00:20 ET
+
+Midtown West place and use screen: quarantine-v26 (#821), merged.
+- Before this, Hell's Kitchen had 2 location conflicts and Hudson Yards had none. I ran the
+  `quarantine_v13_screen` terms over both. For far streets I used west streets 1 to 24 or 72 and
+  up, plus any east street, because the script's far-street check is set up for Chelsea. That
+  gave 422 rows in 391 groups (scratch in `/data1/apartments/tmp/suspect/mw-q`), and Sonnet
+  subagents read every group.
+- v26 holds 5 rows. Each has backing beyond its own ad:
+  - 1330577 (414 W 44th) and 5081524 (438 W 52nd) are location conflicts. Their ad text also
+    appears in listings for 411 E 6th #2B and 53 Leroy C1A, and no other listing carries it.
+  - 1727387 (461 W 43rd, PLUTO commercial area), 2128488 (unit label OFFICE) and 4300273
+    (447 W 36th, PLUTO class O8 with 1 apartment) are offices.
+- I kept 10 flagged groups, with reasons in
+  `config/reviews/midtown-west-screen-reads-20261015.jsonl`. Two use "Clinton" for Hell's
+  Kitchen, six have only the ad text, and one is joined to a vacant lot. The tenth is a Worldwide
+  Plaza townhouse with a W 49th St address, which is where those townhouses have their entrances.
+- A scan of NB9 text for Queens, Bronx and New Jersey place names gave 13 hits. All of them were
+  false alarms, such as an agency's office address or a price comparison.
+- Modeling's slopemin3 NB9 fit uses quarantine-v26.
+
+## 2026-10-15 00:00 ET
+
+Brooklyn listings under Manhattan buildings, wider pass: quarantine-v25 (#818) and the screen
+change in #819, both merged.
+- I widened the screen by hand over NB9 (scratch in `/data1/apartments/tmp/suspect/bk9`; `build.py`
+  writes the misjoin entries). quarantine-v25 holds 8 rows as `brooklyn_misjoin`:
+  - 7 at `317-east-19-street-new_york`, where seven ads for seven units name 319 and 323 E 19th
+    St, Ditmas Park and the B/Q at Cortelyou.
+  - 346 E 9th #1R, whose ad describes a four-family house while PLUTO lists 21 apartments.
+- I dropped 2961745 (312 E 21st #5H, filed under 344 2nd Ave) from v25 because only its own ad
+  backs the Brooklyn reading. Its audit id is in `config/reviews/brooklyn-read-kept-20261015.txt`,
+  which `brooklyn.READ` includes, so the screen skips it.
+- The registry joins 344 2nd Ave and 317 E 19th St to W1 school lots with 0 units. I don't count
+  lot class there as evidence.
+- #819 makes `brooklyn.NEAR` match "Ditmas Park", "Prospect Park South" and "Cortelyou Road" on
+  their own. On NB9 the only new unread hit was 2961745. The v24 and v25 tests now read their
+  lists by file name.
+- Modeling has been told about both. It reported that its NB9 queue lines use quarantine-v25.
+  #819 changes no rule, so it needs no refit.
+
+## 2026-10-14 23:45 ET
+
+quarantine-v24 (#815, merged) answers Modeling's check of three buildings where NB9 C mixed slowly.
+Scratch is `/data1/apartments/tmp/suspect/ess3`.
+- 222 E 17th St 3B and 3BB: one Brooklyn ad ("elevator laundry building", Prospect Park South) on a
+  lot PLUTO lists as a 4-story, 4-unit walk-up. Both rows are in `brooklyn.MISJOINS`, with a new read
+  list. `brooklyn.NEAR` misses "prospect park south location"; widening it is open.
+- 318 E 15th St 20C (two listings): PLUTO gives 12 stories, so no 20th floor.
+- 4 Perry St 2E stays: nothing beyond the odd label contradicts PLUTO (3 stories, 5 units).
+- Modeling was told the rule is ready; 4 rows is negligible, so the refit is its call.
+- For building lookups, note that the NB9 registry is `features.NB9_REGISTRY_FILE` with `NB9_PLUTO_FILE`; the
+  default `REGISTRY_FILE` covers only the 1,129 old Chelsea and West Village buildings.
+
+## 2026-10-14 23:35 ET
+
+Square feet against the unit's other listings: sqft-units-v1 (#813, merged).
+- On NB9 under the current rules, 227 sized rows sit more than 1.5x off the geometric mean of the
+  same unit's other sized rows (946 rows past 1.25x, 32 past 2x). Scratch is
+  `/data1/apartments/tmp/suspect/sqft9` (`screen.py`, `line.py`, `tight.py`, `final2.py`).
+- 43 had a size to take, from at least 2 other listings of the unit or 2 other units of its line
+  with the same bedroom count, agreeing within 10%. After the reviewer's points we refused rows
+  whose backing repeats one ad's copy, counts a terrace or a total, or whose new size is no nearer
+  the bedroom count's median than the recorded one. A Haiku pass and then a Sonnet pass with
+  exact quotes read the ads. 12 rows take the new size; every candidate's outcome is in
+  `config/reviews/sqft-units-reads-20261015.jsonl`.
+- 12 rows is far under `autoselect.NEGLIGIBLE_SHARE`, so the served fit stays eligible and
+  Modeling has been told. No fit is needed for it.
+- Left open: the 184 conflicts with no backing either way, mostly pairs of two listings. A floor
+  plan or a stated size would decide some of them, if the size term ever shows these rows matter.
+
+## 2026-10-14 23:30 ET
+
+Studios above the one-bedrooms (branch `data/bedrooms-ad-v6`): bedrooms-ad-v6 and quarantine-v23.
+- `adfit.bedroom_conflicts` now also flags a studio asking more than its building's 1BR median
+  plus 0.1 (log rent, after the area adjustment) or more than its 2BR median. On NB9 that flagged
+  719 studios outside v4's reads and v22's hold-outs; Sonnet readers read every ad in full. Scratch
+  is `/data1/apartments/tmp/suspect/bd6` (`final.py` writes the config files).
+- 13 studios take the ad's count: 12 backed by a stated size or another ad for the unit, 1 by the
+  plan on the listing's own page (10 plans fetched). Two ads with flex wording ("convertible", "set
+  up as") keep 0. Studios with a described bedroom but no count keep 0, as in v4.
+- 56 blank or placeholder studios are held out on v22's test (v23).
+- The 5 flagged rows left unread after v6 (327 W 21st, The Archive, Casa 155 W 21st, 209 E 4th,
+  Hydra Place) were read later: each stays as coded, with 3 matching the code and 2 with no count.
+  Reads are in `/data1/apartments/tmp/suspect/bd7/reads.jsonl`.
+- The #809 reviewer suggested a stricter size test (size nearest the new count among all levels).
+  It would undo most size-backed rows in v4 to v6, such as The Archive lofts at 1,008 to 1,362 sq ft
+  and 57 5th Ave, because a size above both medians shows a large unit and not which larger count it
+  has. I kept v4's comparison of the coded and claimed counts.
+- `text:renovated` misses "remodeled": measured and held (see `docs/TODO.md`).
+
+## 2026-10-14 22:00 ET
+
+Floor plans (branch `data/bedrooms-ad-v5`): bedrooms-ad-v5.
+- Ben, 2026-10-15 01:35Z: I may fetch the floor plan images linked from stored pages for listings
+  under review, and Sonnet or Haiku reads them. The permission stands for later reviews too.
+- Plans live in `/data1/apartments/archive/floor-plans/<listing id>/`. The stored page JSON is
+  escaped, so I unescape it before parsing `"floorPlans":[{"key":...}]`; the image is
+  `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. Scripts are in `/data1/apartments/tmp/suspect/fp`
+  (`find.py` finds keys, `fetch.sh` fetches 10 s apart).
+- Of v4's 64 unbacked rows, 15 had linked plans (16 images). A clear plan on the listing's own page
+  backs 4 rows. The two Sky 605 W 42nd plans show 1 bedroom, the coded count. Plans from building
+  unit pages back nothing, since they may show another period's layout (96 Avenue A #1A changed
+  from 1 bedroom to 2).
+- Next: the widened check for studios priced above their building's 1- and 2-bedroom rows, using
+  the same plan fetch.
+
+## 2026-10-14 21:45 ET
+
+Bedroom review (branch `data/bedrooms-ad-v4`): bedrooms-ad-v4 and quarantine-v22.
+- The ad-fit bedroom check (`beds_price_bldg`) flags 1,499 NB9 rows priced out of line with their
+  building's other units. Sonnet readers read every one in full, plus 71 rows an earlier draft of
+  the screen flagged (1,568 reads remain after v21's hold-outs). Scratch and scripts are in
+  `/data1/apartments/tmp/suspect/bd4` (`final.py` writes the reads, corrections and v22 files).
+- Ben, 2026-10-15: an ad's stated count needs an independent signal before a count changes.
+  `final.py` accepts another ad for the unit with different copy, a stated size nearer the new
+  count's median than the coded count's, or a plan, photos or video Ben reviewed. Same-line peers
+  don't count, since Ben confirmed 448 W 46th #3FW as a studio in a line coded 1 bedroom.
+  Reposted broker copy isn't another ad.
+- Result: 22 corrections, 64 stated counts left as coded (bucket d), 146 placeholder studios held
+  out in quarantine-v22.
+- Follow-up for Modeling: widen the check to studios priced above the building's 1- and
+  2-bedroom rows (870 Broadway, 1 Sheridan Sq have no 3-bedroom rows to compare with).
+
+## 2026-10-14 19:20 ET
+
+- **Ad-text fills on master** (Ben lifted the hold at 22:23Z: the fits should work with Midtown
+  West included, and the served C may go stale).
+  - `elevator-from-ad-v1` (#778, `395d53e7`) fills 6,397 of 296,627 NB9 rows.
+  - `pets-from-ad-v1` (#794, `6597bb69`) fills 17,888 NB9 rows on top of it. #782 had been
+    stacked on #778's branch and merged into that branch, so #794 carried its diff to master.
+    Check a PR's base before merging a stacked one.
+  - Both fill files read the cd891c8 NB9 dataset and descriptions. A new dataset needs them
+    rebuilt (`python -m rentfrontier.adfills elevator|pets`) and new rule versions.
+- Modeling has master `6597bb69`, set nb9-nostuy-v1 and the full rule set for the NB9 C. It
+  waits on Ben's go-ahead in its own thread and on the Modal balance.
+- **quarantine-v18** (#792, the 110 W 26th thread) keeps v17's 326 rows and corrects the five
+  110 W 26th reasons to `quarantine_product_scope`. That thread checks version numbers with us
+  before each new version. quarantine-v19 (#800, `e3cfac7d`) holds out 54 more rows from its ad-fit reads; next free: quarantine-v20, unit-labels-v18.
+- `data/110w26-release-split` (`510b0eaf`) is dropped. Deleting the branch needs Ben's
+  permission, so it still exists on origin.
+
+## 2026-10-14 18:05 ET
+
+- **#789 (merged `50d019ee`): `quarantine-v17`**, the Brooklyn standing filter (Ben). StreetEasy
+  files some Brooklyn ads under the Manhattan building with the same number and street name.
+  - v17 keeps v16's rows as they are, recodes its 28 Brooklyn rows to `brooklyn_misjoin`, and adds
+    7 more (326 rows). NB8 drops 6 rows, NB9 drops 7, both far under `NEGLIGIBLE_SHARE`.
+  - `config/reviews/brooklyn-misjoins-20261014.jsonl` records each row's evidence and a candidate
+    Brooklyn address for the remap once Brooklyn is collected (backlog line in `docs/TODO.md`).
+  - On every new dataset, run `frontier/scripts/brooklyn_screen.py DATASET OUT.jsonl`, read each
+    unread hit's whole ad, and add the dataset's cohort to `config/reviews/brooklyn-screened.txt`.
+    `test_every_registered_dataset_is_screened_for_brooklyn_ads` fails on any `DATASET_NB9` or
+    later missing from that list.
+- **110 W 26th St** belongs to its own thread now. Branch `data/110w26-release-split` (`510b0eaf`)
+  holds a release of v16's five rows there and a unit-labels-v18 split. It stays unmerged, with no
+  PR. That thread finds 4 of the 5 ads give 112 W 26th St, the same tax lot.
 
 ## 2026-10-14 14:45 ET
 
@@ -904,6 +1224,8 @@ Ben's run pause holds. Modeling has been told about each new set.
 ## Rules that bind this thread
 - Rule-based changes, one PR per change, no future information; descriptions never override coded
   fields; no new LLM calls, image downloads or scraping beyond what Ben approved.
+- Bulk ad reading runs on Sonnet or Haiku subagents (Ben, 2026-10-15). The default model designs
+  the rules, spot-checks about 30 verdicts and does the final sizing.
 - PRs: reviewer subagent, annotated `archive/pr-N` tag, `gh pr merge N --squash --match-head-commit`.
 - Tests through `ops/job light` with `TMPDIR=/data1/apartments/tmp/suspect/tmpdir`; venv
   `/data1/apartments/venvs/data-line`, ruff via `uvx ruff`.

@@ -65,7 +65,9 @@ were disabled before inventory. The existing two-hour crawl monitor was already
 paused. Keep it paused: its old instructions target Modal.
 
 The existing Modal volume remains a frozen backup after cutover. It is not
-another active writer. No automatic second-disk backup is configured yet.
+another active writer. On Oct 15 a one-time copy of the page crawls' snapshots, bodies and
+crawl folders to `/data2/apartments-backup/archive` started, and `archive-copy.log` beside it
+records the hash check at the end. The API archive has a daily backup on the same disk (below).
 The project's ignored `data/archive` symlink points at the live crawl directory above.
 
 ## September 16 transfer repair
@@ -164,6 +166,16 @@ research dashboard's address) by `ops/systemd/apartments-site.service`, deployed
 `ops/site-deploy.sh`. Its research data is rebuilt when a fit's results land
 (`apartments-dashboard-build.path`) and every 10 minutes as a fallback (the timer), without the
 heavy-job lock; see [the site doc](../site.md).
+
+`ops/systemd/apartments-streeteasy-topup.timer` runs `ops/streeteasy-collect topup` every
+Friday at 05:30 New York time. It reads each region's current StreetEasy ads through the
+GraphQL API into `/data1/apartments/archive/current-listings/api-REGION`; see
+[the collection note](../data/graphql-collection.md).
+
+`ops/systemd/apartments-streeteasy-backup.timer` runs `ops/streeteasy-backup` at 09:00 New York
+time. It copies the API archive's database and files to `/data2/apartments-backup/streeteasy-api`
+and keeps a week of database copies; see
+[the collection note](../data/graphql-collection.md#backup).
 
 The installed Mac LaunchAgent `com.ben.apartments-tunnel` forwards port 8765
 and reconnects when the network returns. Its definition is in

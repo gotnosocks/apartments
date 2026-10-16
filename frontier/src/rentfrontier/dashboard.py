@@ -482,12 +482,14 @@ def predictions(entries) -> list:
     return out
 
 
-# The board's baseline before the eight-neighbourhood re-baseline, on the five
-# neighbourhoods (before that, #468: 32c09ef on Chelsea + West Village + Greenwich
+# The board's baseline before the nine-neighbourhood re-baseline, on the eight
+# neighbourhoods (before that, #655: 5789d79 on the five; #468: 32c09ef on Chelsea + West Village + Greenwich
 # Village; #310: a40e887 on the Oct 5 Chelsea + West Village data; #221: e61a794
 # on the Oct 1 data).
-PRIOR_BASELINE = "m0-base-base-v1-rows-5789d79-x-2060-300w1500d-nb-nb5"
-PRIOR_DATASET = "chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057"
+PRIOR_BASELINE = "m0-base-base-v1-rows-fe76a905-x-2060-300w1500d-nb-nb8"
+PRIOR_DATASET = (
+    "chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
+)
 
 
 def prior_scores(entries, loos=None, paired=None) -> dict:
@@ -657,6 +659,7 @@ QUARANTINE_ACTIONS = {
     "join_units": "One apartment under two labels",
     "quarantine_nonresidential": "Not a home",
     "quarantine_location_conflict": "Placed elsewhere",
+    "brooklyn_misjoin": "A Brooklyn apartment filed under a Manhattan building",
     "quarantine_product_scope": "Not a whole apartment on the open market",
     "quarantine_explicit_short_term_offer": "Short stay only",
     "quarantine_price_basis": "Ask is not the rent",
@@ -751,6 +754,21 @@ DATA_RULE_TEXT = {
     "alone. No listing is dropped.",
     "baths-ad-v3": "baths-ad-v2 on all five neighbourhoods, with the same checks as "
     "bedrooms-ad-v3. No listing is dropped.",
+    "bedrooms-ad-v4": "bedrooms-ad-v3, and the bedroom counts of listings priced out "
+    "of line with their building's other units (a studio asking what the "
+    "three-bedrooms ask) whose ad states another count, when another ad for the "
+    "same apartment, a stated size or a reviewed floor plan backs it (22 rows). A "
+    "reader read every flagged ad in full; price only chose which ads to read. No "
+    "listing is dropped.",
+    "bedrooms-ad-v5": "bedrooms-ad-v4, and 4 more listings from its review whose ad "
+    "states a count that the floor plan on the listing's own page shows too. No "
+    "listing is dropped.",
+    "bedrooms-ad-v6": "bedrooms-ad-v5, and 13 studios priced above their building's "
+    "one-bedrooms whose ad states a count that another ad for the apartment, a stated "
+    "size or the floor plan on the listing's own page backs. No listing is dropped.",
+    "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
+    "more than 1.5x off the size the apartment's other listings, or the other "
+    "apartments of its line, agree on. No listing is dropped.",
     "fields-review-v1": "Bedroom and bath counts a review corrected by reading the "
     'listing\'s own ad ("huge alcove studio" recorded as a one-bedroom, "3br 2 bath" '
     "recorded with one bath). No listing is dropped.",
@@ -807,9 +825,64 @@ DATA_RULE_TEXT = {
     "quarantine-v15": "quarantine-v14 and 2 Midtown West rows found by price: a "
     "Hudson Landing studio at $22,953 and a Via 57 West 3-bedroom at $1,559, each "
     "far from its own apartment's other asks and its building's.",
+    "quarantine-v16": "quarantine-v15 and 33 rows filed under the wrong address: "
+    "28 Brooklyn apartments by Prospect Park, in Park Slope or by Fort Greene Park "
+    "carrying a Manhattan address with the same number and street, and five "
+    "one-bedroom ads at 110 W 26th St from an East Village agent.",
+    "quarantine-v17": "quarantine-v16 with seven more Brooklyn ads that StreetEasy "
+    "links to a Manhattan building (326 listings in all, 35 of them Brooklyn ads).",
+    "quarantine-v18": "quarantine-v17 with the same rows, and a corrected reason for "
+    "the five one-bedroom ads at 110 W 26th St: they are for this building, at a "
+    "third of its lofts' asks, so they are not whole-apartment asks.",
+    "quarantine-v19": "quarantine-v18 and 51 rows from the first ad-fit reads: "
+    "32 short stays or summer sublets, seven asks priced for a short lease only, "
+    "seven rooms with a shared bath or kitchen, and five ads for another address.",
+    "quarantine-v20": "quarantine-v19 and 58 rows from the second ad-fit reads: "
+    "14 short stays or furnished travel rentals, 14 ads for another address, "
+    "14 rooms or live/work spaces, 10 stores, offices or bars, and six asks "
+    "that hold only for a short first term or vary with the length of the stay.",
+    "quarantine-v21": "quarantine-v20 and 52 rows whose ads repeat stock wording behind "
+    "some of v20's hold-outs: 21 Atelier ads whose price varies with the term and "
+    "furnishing, 29 June flexible leases priced by furnishing and move dates, and two "
+    "Rove Travel stays priced by season and stay length.",
+    "quarantine-v22": "quarantine-v21 and 146 studios from the bedroom review whose ad "
+    'says nothing about the apartment (blank, a placeholder such as "apt", legal '
+    "boilerplate or a line about the building) and gives no count, so the 0 looks like "
+    "a blank field.",
+    "quarantine-v23": "quarantine-v22 and 56 studios from a second bedroom review, "
+    "of studios priced above their building's one-bedrooms, held out on v22's test: "
+    "the ad says nothing about the apartment and no ad for it gives a count.",
+    "quarantine-v24": "quarantine-v23 and 4 listings StreetEasy files under the wrong "
+    "building: two Brooklyn ads at 222 East 17th Street, a 4-unit walk-up, and two for a "
+    "20th-floor unit at 318 East 15th Street, which has 12 stories.",
+    "quarantine-v25": "quarantine-v24 and 8 Brooklyn listings filed under Manhattan "
+    "buildings: 7 whose ads agree on a new building on East 19th Street in Ditmas Park, and "
+    "a four-family house by Cortelyou Road filed under a 21-unit East Village building.",
+    "quarantine-v26": "quarantine-v25 and 5 Hell's Kitchen and Hudson Yards listings: two "
+    "whose ad text also appears for an East Village and a West Village address, and "
+    "three offices.",
+    "quarantine-v27": "quarantine-v26 and 50 listings filed under the wrong building, found "
+    "where the same ad for the same unit label also appears under another building.",
+    "quarantine-v28": "quarantine-v27 and 3 more listings filed under the wrong building, "
+    "each backed by a floor plan that names the other building.",
+    "quarantine-v29": "quarantine-v28 and the 2016 and 2019 listings of the same 1 Fifth "
+    "Avenue mews unit, whose own floor plans name 64 Washington Mews.",
+    "quarantine-v30": "quarantine-v29 and 3 listings filed under the wrong building, each "
+    "a same-month copy of an ad under another building, backed by the ad's street or "
+    "by a lot that cannot hold the unit.",
+    "quarantine-v31": "quarantine-v30 and 7 listings filed under the wrong building, each "
+    "a copy of another building's ad on a lot with no apartments or too few floors for "
+    "the unit.",
     "building-joins-v1": "StreetEasy's page for 97 Horatio Street (8 rows, "
     "2015 to 2019) is joined to The West Coast: 97 Horatio is another address of "
     "the same complex on one tax lot.",
+    "elevator-from-ad-v1": "A listing whose elevator field is blank takes the "
+    "answer its own ad gives: no for a walk-up or an ad saying there is no elevator, "
+    "yes for an ad mentioning one. A recorded answer stays as it is.",
+    "pets-from-ad-v1": "A listing whose pet policy is blank takes the policy its "
+    "own ad states: no pets, case by case, or pets allowed. An ad allowing cats but "
+    "not dogs leaves it blank, as there is no such recorded policy. A recorded "
+    "policy stays as it is.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "
@@ -820,6 +893,13 @@ DATA_RULE_TEXT = {
     "apartment (R for rear, B for back); at 21 West 12th Street, 2, 2B, 2F and 2R are "
     "the second floor's rear apartment, by its ad text (added 2026-10-11). No listing "
     "is dropped.",
+    "unit-reviews-v2": "The unit-reviews-v1 joins, and listings a review found to be a "
+    "different apartment from the rest of the unit they were filed under, split off "
+    "into a unit of their own: an 1,800 sq ft duplex at 1 Patchin Place filed under a "
+    "900 sq ft unit 2, a studio at 251 West 29th Street filed under 249's one-bedroom "
+    "3E, a 2,500 sq ft loft at 407 West 39th Street filed under a studio, and a "
+    "top-floor duplex at 780 Greenwich Street filed under a one-bedroom. Judged from "
+    "ad text, pages and sizes, not rent. No listing is dropped.",
 }
 
 

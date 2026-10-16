@@ -49,6 +49,25 @@ tree-lined, skylight, video intercom, corner unit, separate kitchen, floor-to-ce
 marble bath, hardwood, stainless, pre-war. Places: dog run, hospital, ambulance station, homeless
 drop-in center, NYCHA housing, Madison Square Garden.
 
+- [ ] **Data (once Brooklyn is collected): remap the Brooklyn ads filed under Manhattan buildings**
+      (Ben, 2026-10-14). quarantine-v17 holds out 35 such rows with the reason code
+      `brooklyn_misjoin`. For each one, `config/reviews/brooklyn-misjoins-20261014.jsonl` records the
+      address StreetEasy shows, the address the agent typed, the ad phrase that places it in Brooklyn,
+      the agent and a candidate Brooklyn address. Match each candidate to a collected Brooklyn
+      building, move the row there, and release it from the next quarantine version. Run
+      `frontier/scripts/brooklyn_screen.py` on every new dataset in the meantime.
+
+- [ ] **Data: `text:renovated` misses "remodeled"** (2026-10-15). The 1 Patchin Place ads
+      3848319 and 4404993 say "remodeled" and get no renovation flag. On NB9, 519 ads say remodel,
+      remodeled or remodeling without any form of "renovat". Widening the pattern is a new feature
+      version, so the existing pattern stays as it is.
+      Measured 2026-10-15 from the description files: 387 ads say remodel without "renovat"
+      (Stuyvesant Town left out). A Haiku read of 80 of them found 53 about the apartment, 19
+      about the building only and 8 unclear. The served `text:renovated` term is +1.0%, so
+      flagging about 390 more ads at two-thirds precision predicts a LOO change far under the
+      2 SE bar. Held for a fit that tests other text changes, not a Modal fit alone. Sample and
+      labels: `/data1/apartments/tmp/suspect/remodel/`.
+
 **Speedups from an outside code review** (Ben, 2026-10-06; triaged against master `d7a1f96`).
 The review was read-only and measured only the first item, on a CPU rather than the 2060.
 Each change must leave results unchanged, so check outputs against the current code before
