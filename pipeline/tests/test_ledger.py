@@ -136,6 +136,11 @@ def write(folder, name, lines):
         (set_("1", {"bedrooms": -1}, {"bedrooms": 1}), "at least 0"),
         (set_("1", [2], {"bedrooms": 1}), "a set gives one of"),
         (line(change="retract", entry="abc"), "entry is the 16 hex digits"),
+        (
+            line(change="retract", entry="0" * 16, when={"bedrooms": 1}),
+            "a retract takes no when",
+        ),
+        (set_("1", {"bedrooms": 10**400}, {"bedrooms": 1}), "finite number"),
     ],
 )
 def test_parse_refuses(text, error):
@@ -328,8 +333,9 @@ def test_repo_ledger_reads():
 
 
 def test_repo_ledger_only_grows():
-    """Each ledger file at the merge base with master keeps its lines as they were, with new
-    lines at its end, and each new file sorts after the base's files."""
+    """Each ledger file at the merge base with master stays as it was, and each new file sorts
+    after the base's files. A line appended to an old file would sort before the entries of
+    later files."""
     try:
         base = git("merge-base", "HEAD", "origin/master").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -339,9 +345,43 @@ def test_repo_ledger_only_grows():
         old = git("show", f"{base}:pipeline/{name}")
         path = PROJECT / name
         assert path.exists(), f"{name} is gone"
-        assert path.read_text().startswith(old), f"{name} changed above its end"
+        assert path.read_text() == old, f"{name} changed after its merge"
     # A new file sorts after the merge base's files, as the ledger applies files in that order.
     last = max((Path(name).name for name in names), default="")
     for path in (PROJECT / "ledger").glob("*.ndjson"):
         if f"ledger/{path.name}" not in names:
             assert path.name > last, f"{path.name} sorts before {last}"
+
+
+@pytest.mark.parametrize(
+    "stated, recorded, corrected, kind",
+    [
+        (800, 0, 1, "stated_size"),
+        # Nearest a count past the corrected one.
+        (1069, 0, 1, "stated_size"),
+        (1400, 0, 2, "stated_size"),
+        (1100, 3, 2, "stated_size"),
+        # Nearer a count between the recorded and the corrected one, or the recorded one.
+        (800, 0, 2, "read"),
+        (500, 0, 1, "read"),
+        # With no recorded count, the size has to lie nearest the corrected one.
+        (800, None, 2, "read"),
+        (1000, None, 2, "stated_size"),
+        # No median for the corrected count.
+        (2000, 0, 5, "read"),
+    ],
+)
+def test_stated_size_rules_out_the_recorded_count(stated, recorded, corrected, kind):
+    """The importer takes a stated size as backing when it lies nearer the corrected count's
+    median than the medians of the recorded count and each count between them."""
+    spec = importlib.util.spec_from_file_location(
+        "ledger_import", PROJECT.parent / "ops" / "pipeline" / "ledger_import.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    medians = {0: 480, 1: 700, 2: 1000, 3: 1334}
+    read = {
+        "bedrooms": corrected,
+        "second_signal": f"The unit's stated {stated:,} sq ft is in the ad.",
+    }
+    assert module.signal(read, medians, recorded)["kind"] == kind

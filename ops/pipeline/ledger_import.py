@@ -19,9 +19,10 @@ them by the ad's `listing_id`. The script works in these steps:
      - for a size set, the unit's other ads with the same bedroom count and a size within 10%
        of the corrected one, or for a rule's line basis, the latest ad of each other unit of
        the line with that bedroom count and size.
-   A stated size backs a bedroom set only when the corrected count's median size in `DATASET`
-   lies nearest to it of all the counts' medians. Otherwise the importer keeps the size as a
-   `read`, with the count it lies nearest to.
+   A stated size backs a bedroom set when it lies nearer the corrected count's median size in
+   `DATASET` than the recorded count's median and each median between them. A size nearest a
+   count past the corrected one still backs the set, as listers seldom understate bedrooms.
+   Otherwise the importer keeps the size as a `read`, with the count it lies nearer to.
 3. It writes each exclude, and each set with backing, as a ledger line to
    `pipeline/ledger/NAME.ndjson`. It stops when NAME exists. It leaves out a correction when
      - an entry of the ledger came from the same rule file and line, as the rule versions keep
@@ -32,7 +33,9 @@ them by the ad's `listing_id`. The script works in these steps:
        and `when`, so a retract stays in force over a rule version made before it.
    A later run after a new rule version thus adds only the new decisions.
 4. It writes each set without backing to `config/reviews/ledger-held-NAME.jsonl`, with the
-   counts of the unit's other ads, for a reader to look for backing.
+   counts of the unit's other ads, for a reader to look for backing. It leaves out a held set
+   under the same rules as in step 3, and when an earlier held file lists the same values and
+   `when` for the ad.
 5. It checks the new file with the ledger's own parser and prints the counts.
 """
 
@@ -186,27 +189,46 @@ def medians(db, latest):
     return dict(
         db.execute(
             """SELECT bedrooms, median(square_feet) FROM obs
-            WHERE dataset = ? AND square_feet > 0 GROUP BY bedrooms""",
+            WHERE dataset = ? AND square_feet > 0 AND bedrooms IS NOT NULL
+            GROUP BY bedrooms""",
             [latest],
         ).fetchall()
     )
 
 
-def signal(read, sizes):
+def signal(read, sizes, recorded):
     """The evidence item of a read's second signal, with `sizes` the median size of each
-    bedroom count."""
+    bedroom count and `recorded` the row's bedroom count."""
     text = read.get("second_signal")
     if not text:
         return None
     if match := STATED.match(text):
         stated = float(match[1].replace(",", ""))
-        nearest = min(sizes, key=lambda count: abs(sizes[count] - stated))
-        if nearest == read["bedrooms"]:
+        corrected = read["bedrooms"]
+        distance = {count: abs(size - stated) for count, size in sizes.items()}
+        # The size has to rule out the recorded count and each count between it and the
+        # corrected one. A size nearest a count past the corrected one still backs the set,
+        # as listers seldom understate bedrooms.
+        if recorded is None:
+            rivals = [count for count in sizes if count != corrected]
+        else:
+            low, high = sorted((recorded, corrected))
+            rivals = [
+                count for count in sizes if low <= count <= high and count != corrected
+            ]
+        rival = min(rivals, key=distance.get, default=None)
+        if corrected in sizes and (
+            rival is None or distance[corrected] < distance[rival]
+        ):
             return {"kind": "stated_size", "detail": text}
-        detail = (
-            f"{text} It lies nearest the median {nearest:g}-bedroom size "
-            f"({sizes[nearest]:,.0f}), so it backs no count of {read['bedrooms']:g}."
-        )
+        if corrected not in sizes:
+            detail = f"{text} No ad of the latest dataset with {corrected:g} bedrooms states a size."
+        else:
+            detail = (
+                f"{text} It lies nearer the median {rival:g}-bedroom size "
+                f"({sizes[rival]:,.0f}) than the median {corrected:g}-bedroom size "
+                f"({sizes[corrected]:,.0f}), so it backs no count of {corrected:g}."
+            )
         return {"kind": "read", "detail": detail}
     if match := OTHER_AD.match(text):
         return {
@@ -286,7 +308,45 @@ def main(argv=None) -> int:
         found = cursor.fetchone()
         return found and dict(zip([c[0] for c in cursor.description], found))
 
-    written, held, held_sets, counts = [], [], set(), collections.Counter()
+    def same_set(entry):
+        return json.dumps(
+            [entry["listing_id"], entry["set"], entry["when"]], sort_keys=True
+        )
+
+    # The sets of earlier held files, which a reader needs once.
+    held_sets = {
+        same_set(json.loads(text))
+        for path in sorted(held_path.parent.glob("ledger-held-*.jsonl"))
+        if path != held_path
+        for text in path.read_text().splitlines()
+    }
+    texts, held, counts = [], [], collections.Counter()
+
+    def add(rule, entry, details=None):
+        """Write the entry, or hold a set without backing, unless it repeats the latest entry
+        of its slot or a retracted one."""
+        kinds = {item["kind"] for item in entry["evidence"]}
+        hold = entry["change"] == "set" and not kinds & set(ledger.BACKING)
+        # A held set parses with a placeholder item of a backing kind, only to find its slot
+        # and key.
+        placeholder = [{"kind": "owner", "detail": "placeholder"}] if hold else []
+        parsed = ledger.parse(
+            json.dumps({**entry, "evidence": entry["evidence"] + placeholder})
+        )
+        here = (slot(parsed), key(parsed))
+        if latest.get(here[0]) == here[1] or here in retracted:
+            counts[f"{rule}: repeats a ledger entry"] += 1
+        elif hold and same_set(entry) in held_sets:
+            counts[f"{rule}: repeats a held set"] += 1
+        elif hold:
+            held_sets.add(same_set(entry))
+            held.append({**entry, **details})
+            counts[f"{rule}: held"] += 1
+        else:
+            latest[here[0]] = here[1]
+            texts.append(json.dumps(entry, sort_keys=True))
+            counts[f"{rule}: {entry['change']}"] += 1
+
     for path in RULES:
         rule = Path(path).name.rsplit("-", 1)[0]
         for number, line in lines(path):
@@ -313,7 +373,7 @@ def main(argv=None) -> int:
                     "decided": line["review"],
                     "source": source,
                 }
-                written.append((rule, entry))
+                add(rule, entry)
                 continue
 
             row = row_of(sources[path], line["audit_id"])
@@ -372,7 +432,7 @@ def main(argv=None) -> int:
                     evidence.append(
                         {"kind": "read", "file": read["file"], "detail": read["reason"]}
                     )
-                    if item := signal(read, sizes_of):
+                    if item := signal(read, sizes_of, row["bedrooms"]):
                         evidence.append(item)
                 plan = plans.get(line["audit_id"])
                 if (
@@ -413,37 +473,18 @@ def main(argv=None) -> int:
                 "decided": line.get("review") or file_day(path),
                 "source": source,
             }
-            if not {item["kind"] for item in evidence} & set(ledger.BACKING):
-                # A later rule version may repeat a held set, and the reader needs it once.
-                same = json.dumps([row["listing_id"], values, when], sort_keys=True)
-                if same in held_sets:
-                    counts[f"{rule}: repeats a held set"] += 1
-                    continue
-                held_sets.add(same)
-                held.append(
-                    {
-                        **entry,
-                        "rule": rule,
-                        "audit_id": line["audit_id"],
-                        "unit_id": row["unit_id"],
-                        "agree": len(agree),
-                        "disagree": disagree,
-                    }
-                )
-                counts[f"{rule}: held"] += 1
-                continue
-            written.append((rule, entry))
+            add(
+                rule,
+                entry,
+                {
+                    "rule": rule,
+                    "audit_id": line["audit_id"],
+                    "unit_id": row["unit_id"],
+                    "agree": len(agree),
+                    "disagree": disagree,
+                },
+            )
 
-    texts = []
-    for rule, entry in written:
-        parsed = ledger.parse(json.dumps(entry))
-        here = (slot(parsed), key(parsed))
-        if latest.get(here[0]) == here[1] or here in retracted:
-            counts[f"{rule}: repeats a ledger entry"] += 1
-            continue
-        latest[here[0]] = here[1]
-        texts.append(json.dumps(entry, sort_keys=True))
-        counts[f"{rule}: {entry['change']}"] += 1
     if texts:
         LEDGER.mkdir(parents=True, exist_ok=True)
         out.write_text("".join(text + "\n" for text in texts))

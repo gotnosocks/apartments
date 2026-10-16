@@ -177,8 +177,8 @@ systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline
 | `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
 | `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with the values its live sets give |
-| `analysis.latest_change` | table | fit-ready row, with its ad's last kept change from the row's day on and its page price |
-| `analysis.latest_ask` | table | fit-ready row, with its first ask, its latest ask and the step behind the latest |
+| `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
+| `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
@@ -186,7 +186,7 @@ keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ad
 `analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details`, per
 record in `ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per
 `(listing_id, n)` in `ads.price_changes` and per event in `ads.events`. The `every_row` audit,
-in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every fit-ready row. When an
+in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When an
 audit fails, the plan stops, and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
@@ -408,8 +408,9 @@ so a fit can choose the regions it reads.
 
 ## Latest ask
 
-`analysis.latest_ask` gives each fit-ready row the latest ask `rentfrontier.latest_ask` chooses
-for it. An ad gives at most one fit-ready row, priced on its first day. `analysis.latest_change`
+`analysis.latest_ask` gives each kept row the latest ask `rentfrontier.latest_ask` chooses for
+it, so a ledger change leaves it as it is. An ad gives at most one kept row, priced on its first
+day. `analysis.latest_change`
 takes the ad's last kept change dated on or after that day, or the change in effect on that day
 when the ad has no later one and its record came after the row. The steps in
 `analysis.latest_ask` then check that ask against the row's first ask, the ad's page price and
@@ -477,36 +478,39 @@ set rests on the unit's other ads with the same bedroom count and a size within 
 corrected one, or, when the rule decided it from the unit's line, on the other units of the
 line with that bedroom count and size.
 
-A size a read found stated for the unit backs a bedroom set only when the corrected count's
-median size lies nearest to it of all the counts' medians, as 827 sq ft does for a one-bedroom.
-The 1,400 sq ft of a studio corrected to two bedrooms lies nearest the three-bedroom median, so
-the importer keeps it as a read, and the set needs other backing.
+A size a read found stated for the unit backs a bedroom set when it rules out the recorded
+count and each count between it and the corrected one: the size has to lie nearer the corrected
+count's median than any of theirs. A size nearest a count past the corrected one still backs
+the set, since listers seldom understate bedrooms. The 1,400 sq ft of a studio corrected to two
+bedrooms lies nearest the three-bedroom median, and it backs the set. The 800 sq ft of a studio
+corrected to two bedrooms lies nearer the one-bedroom median, so the importer keeps it as a
+read, and the set needs other backing.
 
 A set without backing goes to `config/reviews/ledger-held-2026-10-16-chain.jsonl` instead,
 with the counts of the unit's other ads, for a reader to look for backing. A second run of the
-importer leaves out each correction from a rule file and line already in the ledger, and each
-one repeating the latest entry for its ad and field, so it writes only a new rule version's new
-decisions.
+importer writes nothing to either file. It leaves out each correction from a rule file and line
+already in the ledger, each one repeating the latest entry for its ad and field or a retracted
+entry, and each held set an earlier held file lists. A later run thus writes only a new rule
+version's new decisions.
 
 | rule | corrections | in the chain batch | backed by a later read | held |
 |---|--:|--:|--:|--:|
 | `bedrooms-ad-v3` | 148 | 92 | 9 | 47 |
-| `bedrooms-ad-v4` | 22 | 13 | 0 | 9 |
+| `bedrooms-ad-v4` | 22 | 22 | 0 | 0 |
 | `bedrooms-ad-v5` | 4 | 4 | 0 | 0 |
-| `bedrooms-ad-v6` | 13 | 10 | 0 | 3 |
+| `bedrooms-ad-v6` | 13 | 12 | 0 | 1 |
 | `bedrooms-ad-v7` | 17, 13 of them from v6 | 2 | 2 | 0 |
 | `baths-ad-v3` | 59 | 35 | 1 | 23 |
 | `sqft-units-v1` | 12 | 12 | 0 | 0 |
 | `quarantine-v32` | 889 | 889 | 0 | 0 |
 
-Of the batch's 168 sets, 158 rest on the unit's other ads, 12 on a stated size, 6 on a floor
+Of the batch's 179 sets, 158 rest on the unit's other ads, 25 on a stated size, 6 on a floor
 plan, 2 on units of the same line and 2 on Ben's own review, some on more than one.
 
 Data improvements read the first list of held sets with Sonnet subagents, looking for backing.
 `pipeline/ledger/2026-10-16-held-reads.ndjson` holds the 12 sets they backed, 7 by another ad
 for the unit and 5 by units of the same line. The held column counts the 70 sets still without
-backing from that list, and 12 bedroom sets of v4 and v6 whose stated size lies nearest a third
-count.
+backing from that list, and a set of v6 from a studio to two bedrooms at 800 sq ft.
 
 `pipeline/ledger/2026-10-16-short-stay.ndjson` excludes three short-stay ads Data improvements
 found on Oct 16, in a second regex pass over the reads of the API rows.
@@ -519,12 +523,13 @@ The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-co
 
 I built a copy of the Oct 15 production state with the ledger, at `PIPELINE_MEMORY=3GB` under a
 6 GB cap. The first plan took 591 s, 426 s of it in `ads.record_attributes`, and the build
-script peaked at 4.1 GiB. After the ledger changed, the next build rebuilt the two ledger models
-and `analysis.rows` in 6.3 s, with a peak of 3.3 GiB. The ledger's 1,072 lines came out as:
+script peaked at 4.1 GiB. After the ledger changed, the next build, at `PIPELINE_MEMORY=2GB`,
+rebuilt the two ledger models and `analysis.rows` in 8.3 s, with a peak of 3.1 GiB. The
+ledger's 1,083 lines came out as:
 
 | status | excludes | sets |
 |---|--:|--:|
-| `live` | 857 | 169 |
+| `live` | 857 | 180 |
 | `absent` | 35 | 11 |
 
 The 46 absent entries are for ads with no API record in runs 1 to 5. Only the page crawl found
@@ -547,11 +552,11 @@ fit-ready rows by ad:
 | of ads losing the unit-month check to another ad | 63 |
 | of ads dropped by their API record's exclusions | 15 |
 
-Of the matched rows, 58 differ in bedrooms, 16 in bathrooms and 3 in size:
+Of the matched rows, 47 differ in bedrooms, 16 in bathrooms and 3 in size:
 
-- In 55 of the bedroom differences and all 16 bath differences, the reference applies a held
-  set of `bedrooms-ad-v3`, `bedrooms-ad-v4`, `bedrooms-ad-v6` or `baths-ad-v3`, and the
-  fit-ready row keeps the recorded value.
+- In 44 of the bedroom differences and all 16 bath differences, the reference applies a held
+  set of `bedrooms-ad-v3`, `bedrooms-ad-v6` or `baths-ad-v3`, and the fit-ready row keeps the
+  recorded value.
 - The other 3 bedroom differences and the 3 size differences come from six ads listed from July
   to October 2026. For each of them, the page capture and the latest API record give different
   values, and the reference keeps the page's value.
@@ -587,7 +592,7 @@ when an item here or an entry of the corrections ledger accounts for it.
    of early November. On runs 1 to 5, 124,228 ads list changes with both offsets, and each of
    them gets the same order either way.
 6. A correction without backing. The chain applies each correction of its rules, while the
-   ledger leaves out a set until it has evidence beyond the ad's words. The 82 sets of the
+   ledger leaves out a set until it has evidence beyond the ad's words. The 71 sets of the
    chain's latest rules held this way are in `config/reviews/ledger-held-2026-10-16-chain.jsonl`,
    and their rows keep the recorded value.
 7. The values of an ad's captured page. The page-crawl chain takes an ad's values from the page
@@ -690,19 +695,20 @@ in all, and most tests add made-up ads to that export. The tests:
     run 4 and builds again, and compares that build's rows file with a build of runs 2 to 4 into
     an empty state. The two files hold the same bytes. Last, the test adds an export file
     repeating an answer and checks that the build stops and leaves OUT as it was;
-21. parse a line breaking each of the ledger's rules, read files with a repeated line, a
-    retract of an unknown, a retracted or a retracting entry, and a line that is not JSON, and
-    check that `read` takes files in order of name;
-22. write ledger entries for six kept rows of the fixture and an ad without one, retract two of
-    them in a later file, and check each entry's status and differing values. The next plan
+21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
+    among them, read files with a repeated line, a retract of an unknown, a retracted or a
+    retracting entry, and a line that is not JSON, and check that `read` takes files in order
+    of name;
+22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two
+    of them in a later file, and check each entry's status and differing values. The next plan
     rebuilds only the two ledger models and `analysis.rows`, which drops one row and changes
-    two, and the latest asks stay as they were;
+    four, and the latest asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
-24. read the repo's ledger, and check that each of its files on master's side of the merge base
-    keeps its lines and only grows.
+24. read the repo's ledger, and check that each of its files at the merge base with master
+    stays as it was and that each new file sorts after them.
 
-They take about 70 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 90 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 

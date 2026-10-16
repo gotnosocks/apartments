@@ -1,11 +1,11 @@
 """ledger.entries: each entry of the corrections ledger, checked against its rules.
 
 The ledger is a folder of NDJSON files, `pipeline/ledger/*.ndjson` unless `PIPELINE_LEDGER`
-names another folder. A person or a script adds a file for each batch of decisions and appends
-lines to it, one decision a line. Lines already merged to master stay as they are, which
-`tests/test_ledger.py` checks against the merge base. A decision is undone by a later `retract`
-line. This model reads every file with `read`, and `ledger.status` checks each entry against
-the kept rows.
+names another folder. A person or a script writes a new file for each batch of decisions, one
+decision a line, with a name sorting after the files already merged. A file stays as it is once
+merged to master, and `tests/test_ledger.py` checks that against the merge base. A later
+`retract` line undoes a decision. This model reads every file with `read`, and `ledger.status`
+checks each entry against the kept rows.
 
 A line holds one JSON object with these keys:
 
@@ -99,7 +99,11 @@ KEYS = {
     "set": {"change", "listing_id", "set", "when", "evidence", "decided"},
     "retract": {"change", "entry", "evidence", "decided"},
 }
-OPTIONAL = {"when", "source", "note"}
+OPTIONAL = {
+    "exclude": {"when", "source", "note"},
+    "set": {"when", "source", "note"},
+    "retract": {"source", "note"},
+}
 # The columns of ledger.entries, in order, with their DuckDB types.
 COLUMNS = {
     "entry": "VARCHAR",
@@ -135,12 +139,12 @@ def entry_id(line: str) -> str:
 
 def number(value, key):
     field = key.removeprefix("when.")
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, int | float)
-        or not math.isfinite(value)
-        or value < 0
-    ):
+    try:
+        # An integer too large for a float overflows here.
+        finite = math.isfinite(value) and value >= 0
+    except (TypeError, OverflowError):
+        finite = False
+    if isinstance(value, bool) or not finite:
         raise LedgerError(f"{key} takes a finite number of at least 0, not {value!r}")
     if field in WHOLE and value != int(value):
         raise LedgerError(f"{key} takes a whole number, not {value!r}")
@@ -202,9 +206,9 @@ def parse(text: str) -> dict:
     if change not in CHANGES:
         raise LedgerError(f"change is one of {', '.join(CHANGES)}, not {change!r}")
     named = f"{'an' if change == 'exclude' else 'a'} {change}"
-    if missing := sorted(KEYS[change] - OPTIONAL - line.keys()):
+    if missing := sorted(KEYS[change] - OPTIONAL[change] - line.keys()):
         raise LedgerError(f"{named} needs {', '.join(missing)}")
-    if extra := sorted(line.keys() - KEYS[change] - OPTIONAL):
+    if extra := sorted(line.keys() - KEYS[change] - OPTIONAL[change]):
         raise LedgerError(f"{named} takes no {', '.join(extra)}")
     row = dict.fromkeys(COLUMNS)
     row["change"] = change
