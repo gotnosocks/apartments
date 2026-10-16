@@ -113,7 +113,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       3.7 s instead of 89 s on runs 1 to 5, with the same table. `analysis.rows` agrees with
       Data improvements' run 5 page-crawl areas dataset on its 350,974 shared rows. The
       dataset's 2,232 Noho rows are in `analysis.rows` under the export's region
-      `manhattan-below-59th`, so a fit selects page-crawl rows by `neighbourhood`.
+      `manhattan-below-59th`, so a fit should select page-crawl rows by `neighbourhood`.
       `analysis.rows` adds 13 rows of the first listed difference. A reviewer of #883 suggested
       `last_response_id` in `ads.events`, so `ads.price_changes` could join on the response
       instead of the fetch. No two records of an ad share a fetch on runs 1 to 5.

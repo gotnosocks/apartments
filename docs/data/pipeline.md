@@ -110,7 +110,7 @@ price change last in order of time and then of `list_index` matches the last ite
 record's `priceChanges` for every one of the 2,137,997 ads.
 
 `ads.price_changes` takes the price changes of each ad's latest record from the event log: the
-price events whose `last_seen` equals that record's fetch. When a later answer leaves out a
+price events with `last_seen` at that record's fetch. When a later answer leaves out a
 change from an earlier one, the latest asks follow the latest record, as the chain's do. No ad
 of runs 1 to 5 has such a change, so all of an ad's price events belong to its latest record.
 
@@ -334,8 +334,9 @@ when an item here or an entry of the corrections ledger accounts for it.
    earlier item, and no latest ask changes.
 5. The order of price changes in the hour after clocks fall back. The chain sorts a record's
    changes by the text of `changedAt`, and `ads.price_changes` sorts them by instant. The two
-   orders differ only when two changes carry different UTC offsets, as in the repeated hour of
-   early November. On runs 1 to 5, every fit-ready row gets the same latest ask either way.
+   orders can differ only when two changes carry different UTC offsets, as in the repeated hour
+   of early November. On runs 1 to 5, 124,228 ads list changes with both offsets, and each of
+   them gets the same order either way.
 
 ## Tests
 
@@ -543,11 +544,12 @@ Data improvements also built the page-crawl areas dataset from run 5,
 `api-manhattan-page-crawl-areas-analysis-20261015-run5`, from the archive as it stood at 16:52
 ET. I compared it with `analysis.rows` in the same way and left out the 9 rows of units with a
 later answer. The 350,974 rows in both agree in every value above. The dataset holds 2,232 more
-rows, all for ads in Noho. The chain picks the dataset's rows by neighbourhood, while `regions`
-in `analysis.rows` lists the regions of the export's answers for the ad, and the export gives
-these ads `manhattan-below-59th`. `analysis.rows` holds all 2,232 under that region, with the
-same ask, unit and bedrooms. A fit reading `analysis.rows` for the page-crawl areas therefore
-selects its rows by `neighbourhood`. `analysis.rows` also holds 13 rows that the dataset lacks.
+rows, all for ads in Noho. The chain picks the dataset's rows by `neighbourhood`, while
+`regions` in `analysis.rows` lists the regions of the export's answers for the ad, and the
+export gives these ads `manhattan-below-59th`. `analysis.rows` holds all 2,232 under that
+region, with the same ask, unit and bedrooms. To read the page-crawl areas from
+`analysis.rows`, a fit should select rows by `neighbourhood`. `analysis.rows` also holds 13
+rows missing from the dataset.
 They belong to the first difference: the snapshot behind the dataset excludes each of their ads
 as `missing_canonical_unit_association`, since each unit's latest ad has only a `/rental/`
 address. The script is `/data1/apartments/tmp/pipeline/step49/compare_pagecrawl.py`, and the
@@ -622,7 +624,9 @@ Then I changed how `ads.attributes` finds an ad's conflicting values. It counted
 values of each attribute for each ad, and it now compares each attribute's smallest and largest
 values. On the state of the last step, the new query took 3.7 s with a peak of 3.1 GB for the
 process, against 89 s and 5.7 GB for the old one. The two give the same row for each of the
-2,137,997 ads, as `/data1/apartments/tmp/pipeline/step50/compare_attr.py` found. On that state,
+2,137,997 ads, as `/data1/apartments/tmp/pipeline/step50/compare_attr.py` found. Only 10 ads
+of runs 1 to 5 have two records, and none of them has a conflict, so the tests' made-up ads
+check the conflicts. On that state,
 the queries of all the SQL models take 97 s:
 
 | model | query | process peak |
@@ -647,4 +651,4 @@ the queries of all the SQL models take 97 s:
 Each ran in a process of its own with DuckDB's limit at 5 GB and 12 threads, through
 `/data1/apartments/tmp/pipeline/step45/probe_model.py`. `ads.events` ran through
 `/data1/apartments/tmp/pipeline/step50/probe_q.py`, which quotes the query's names first.
-`ads.record_attributes` reads its cache besides, in about 25 s.
+`ads.record_attributes` also reads its cache, which takes about 25 s.

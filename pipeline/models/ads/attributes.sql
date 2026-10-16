@@ -12,8 +12,7 @@ MODEL (
 -- records' values as canonical JSON and ignores unknowns, as `project_advertisement` does: one
 -- value stands, two or more give an unknown, and the attribute's name goes into `conflicts`.
 -- The records of an ad give two or more values exactly when their smallest and largest values
--- differ, so the merge takes each attribute's minimum and maximum. Counting distinct values per
--- ad took 89 s and 5.7 GB on runs 1 to 5.
+-- differ, so this model takes each attribute's minimum and maximum.
 -- A rental flag is true when any record sets it, false when the records give only false, and
 -- unknown when they give nothing. `records` holds the number of merged records. When all of an
 -- ad's records fail to parse, the ad gets no row.
@@ -65,7 +64,9 @@ SELECT listing_id, records,
     CASE WHEN window_exposures = window_exposures_max THEN window_exposures::JSON END AS window_exposures,
     furnished, short_term, concession,
     list_filter(
-        ['bedrooms', 'bathrooms', 'square_feet', 'advertised_floor', 'physical_floor', 'floors_above_ground', 'elevator', 'laundry_type', 'doorman_type', 'hvac_type', 'pet_policy', 'view_exposures', 'window_exposures'],
+        ['bedrooms', 'bathrooms', 'square_feet', 'advertised_floor', 'physical_floor',
+            'floors_above_ground', 'elevator', 'laundry_type', 'doorman_type', 'hvac_type',
+            'pet_policy', 'view_exposures', 'window_exposures'],
         (key, i) -> coalesce(list_extract([
             bedrooms <> bedrooms_max,
             bathrooms <> bathrooms_max,
