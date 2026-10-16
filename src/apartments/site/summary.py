@@ -144,6 +144,8 @@ NEIGHBOURHOOD_INPUTS = (
     "Stuyvesant Town/PCV",
     "NoMad",
     "East Village",
+    "Hell's Kitchen",
+    "Hudson Yards",
 )
 
 
