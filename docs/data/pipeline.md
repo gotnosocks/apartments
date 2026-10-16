@@ -20,12 +20,13 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 
 ## Inputs
 
-`pipeline/config.py` reads two environment variables:
+`pipeline/config.py` reads three environment variables:
 
 | variable | default on thelio | holds |
 |---|---|---|
 | `PIPELINE_EXPORT` | `/data1/apartments/archive/crawls/api/export` | the scraper's export, with its manifest |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
+| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, as described under [Corrections ledger](#corrections-ledger) |
 
 The build reads the ads and buildings files listed in the manifest and skips any file still
 lacking a line.
@@ -65,6 +66,7 @@ SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line 
 | `code` | the checkout's commit, and `clean`, false when `pipeline/`, `src/` or `ops/pipeline/` differ from it |
 | `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
 | `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
+| `ledger` | the ledger's files with their SHA-256, and its entries counted by status and change |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
@@ -171,9 +173,12 @@ systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline
 | `ads.identity` | table | ad with a record: its building, its unit page and its unit |
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
-| `analysis.rows` | view | fit-ready row: the candidate kept for its unit and month |
-| `analysis.latest_change` | table | fit-ready row, with its ad's last kept change from the row's day on and its page price |
-| `analysis.latest_ask` | table | fit-ready row, with its first ask, its latest ask and the step behind the latest |
+| `analysis.kept` | view | candidate kept for its unit and month |
+| `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
+| `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
+| `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with the values its live sets give |
+| `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
+| `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
@@ -181,7 +186,7 @@ keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ad
 `analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details`, per
 record in `ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per
 `(listing_id, n)` in `ads.price_changes` and per event in `ads.events`. The `every_row` audit,
-in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every fit-ready row. When an
+in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`. When an
 audit fails, the plan stops, and the tables from the last good plan stay in place.
 
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
@@ -393,7 +398,9 @@ chain's analysis datasets. I build them in four steps.
 
    Every candidate has a building and a bedroom count, since `ads.identity` and `ads.exclusions`
    give a reason to an ad lacking either, and an audit on `analysis.candidates` checks it.
-4. `analysis.rows` gives the kept candidates as a view.
+4. `analysis.kept` gives the kept candidates as a view.
+5. `analysis.rows` applies the corrections ledger to the kept rows, as described under
+   [Corrections ledger](#corrections-ledger).
 
 The chain checks a unit-month within a slice of one region's dataset, while `analysis.candidates`
 checks it over every region. Each row lists the export regions of its ad's answers in `regions`,
@@ -401,19 +408,163 @@ so a fit can choose the regions it reads.
 
 ## Latest ask
 
-`analysis.latest_ask` gives each fit-ready row the latest ask `rentfrontier.latest_ask` chooses
-for it. An ad gives at most one fit-ready row, priced on its first day. `analysis.latest_change`
+`analysis.latest_ask` gives each kept row the latest ask `rentfrontier.latest_ask` chooses for
+it, so a ledger change leaves it as it is. An ad gives at most one kept row, priced on its first
+day. `analysis.latest_change`
 takes the ad's last kept change dated on or after that day, or the change in effect on that day
 when the ad has no later one and its record came after the row. The steps in
 `analysis.latest_ask` then check that ask against the row's first ask, the ad's page price and
 the median first ask of the building's other rows with the same bedroom count. The comments in
-the model list the steps. The medians cover every region in `analysis.rows`, while the chain
+the model list the steps. The medians cover every region in `analysis.kept`, while the chain
 takes them over the rows of the datasets it reads. On the full export the two give the same
 steps, as the full build below shows.
 
 The median reads list positions with `list_extract`. SQLMesh renders each model through
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
 so a bracket reads the next element of the sorted list.
+
+## Corrections ledger
+
+The fit-ready rows take their corrections from the ledger in `pipeline/ledger/`, a folder of
+NDJSON files. To correct a row, a person or a script writes the decision as a line of a batch
+file and merges it through a reviewed PR. The docstring of `pipeline/models/ledger/entries.py`
+lists the keys of a line and the rules it must follow. In short, a line:
+
+- excludes an ad's row, gives one field of the row new values, or retracts an earlier entry;
+- gives the ad's `listing_id`;
+- gives in `when` the row's values the decision rests on, such as the recorded bedroom count
+  for a bedroom set, or the month for an exclude;
+- lists its evidence. A set needs an item beyond the ad's own words: another ad for the unit, a
+  stated size, a floor plan, units of the same line, or Ben's own reading;
+- gives the day of the decision, and the file and line it came from.
+
+Lines merged to master stay as they are, and a later file retracts a wrong entry.
+`tests/test_ledger.py` compares each file with its version at the merge base with master.
+
+Three models read the ledger:
+
+1. `ledger.entries` reads every file and checks each line. A line breaking a rule stops the
+   build, and the error gives its file and line.
+2. `ledger.status` checks each entry against `analysis.kept` and gives it the first status
+   that fits:
+
+   | status | the entry |
+   |---|---|
+   | `retract` | undoes another |
+   | `retracted` | is undone by a later retract |
+   | `absent` | is for an ad with no kept row |
+   | `stale` | gives a value in `when` other than the kept row's, and `differs` lists the values |
+   | `superseded` | sets a field a later live set of the row also sets |
+   | `live` | applies |
+
+3. `analysis.rows` drops the rows of the live excludes and gives the values of the live sets.
+   A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
+   chain's bath rules do.
+
+`analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
+correction rules apply, so a change to the ledger rebuilds only the two ledger models and
+`analysis.rows`. The catalog line of each build lists the ledger's files with their SHA-256,
+and counts the entries by status and change.
+
+### The chain's corrections
+
+`ops/pipeline/ledger_import.py` wrote the corrections of the chain's latest rules into
+`pipeline/ledger/2026-10-16-chain.ndjson`. For each correction, it reads the dataset listed
+in the rule's provenance file to find the row's ad and its recorded values. Then it gathers the
+evidence: the ad's words from the rule file, the reads and floor plans in `config/reviews/`
+that decided the correction, and the unit's other ads in the latest analysis dataset. Those
+ads back a set when more of them give the corrected value than give the recorded one. A size
+set rests on the unit's other ads with the same bedroom count and a size within 10% of the
+corrected one, or, when the rule decided it from the unit's line, on the other units of the
+line with that bedroom count and size.
+
+A size a read found stated for the unit backs a bedroom set when it rules out the recorded
+count and each count between it and the corrected one: the size has to lie nearer the corrected
+count's median than any of theirs. A size nearest a count past the corrected one still backs
+the set, since listers seldom understate bedrooms. The 1,400 sq ft of a studio corrected to two
+bedrooms lies nearest the three-bedroom median, and it backs the set. The 800 sq ft of a studio
+corrected to two bedrooms lies nearer the one-bedroom median, so the importer keeps it as a
+read, and the set needs other backing. The readers compared each size with the medians of an
+older dataset, so the importer replaces their comparison with its own, from the medians of the
+latest dataset.
+
+A set without backing goes to `config/reviews/ledger-held-2026-10-16-chain.jsonl` instead,
+with the counts of the unit's other ads, for a reader to look for backing. A second run of the
+importer writes nothing to either file. It leaves out each correction from a rule file and line
+already in the ledger, each one repeating the latest entry for its ad and field or a retracted
+entry, and each held set an earlier held file lists. A later run thus writes only a new rule
+version's new decisions.
+
+| rule | corrections | in the chain batch | backed by a later read | held |
+|---|--:|--:|--:|--:|
+| `bedrooms-ad-v3` | 148 | 92 | 9 | 47 |
+| `bedrooms-ad-v4` | 22 | 22 | 0 | 0 |
+| `bedrooms-ad-v5` | 4 | 4 | 0 | 0 |
+| `bedrooms-ad-v6` | 13 | 12 | 0 | 1 |
+| `bedrooms-ad-v7` | 17, 13 of them from v6 | 2 | 2 | 0 |
+| `baths-ad-v3` | 59 | 35 | 1 | 23 |
+| `sqft-units-v1` | 12 | 12 | 0 | 0 |
+| `quarantine-v32` | 889 | 889 | 0 | 0 |
+
+Of the batch's 179 sets, 158 rest on the unit's other ads, 25 on a stated size, 6 on a floor
+plan, 2 on units of the same line and 2 on Ben's own review, some on more than one.
+
+Data improvements read the first list of held sets with Sonnet subagents, looking for backing.
+`pipeline/ledger/2026-10-16-held-reads.ndjson` holds the 12 sets they backed, 7 by another ad
+for the unit and 5 by units of the same line. The held column counts the 70 sets still without
+backing from that list, and a set of v6 from a studio to two bedrooms at 800 sq ft.
+
+`pipeline/ledger/2026-10-16-short-stay.ndjson` excludes three short-stay ads Data improvements
+found on Oct 16, in a second regex pass over the reads of the API rows.
+
+The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
+`unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
+`elevator-from-ad-v1` and `pets-from-ad-v1`.
+
+### Check build
+
+I built a copy of the Oct 15 production state with the ledger, at `PIPELINE_MEMORY=3GB` under a
+6 GB cap. The first plan took 591 s, 426 s of it in `ads.record_attributes`, and the build
+script peaked at 4.1 GiB. After the ledger changed, the next build, at `PIPELINE_MEMORY=2GB`,
+rebuilt the two ledger models and `analysis.rows` in 8.6 s, with a peak of 3.1 GiB. The
+ledger's 1,083 lines came out as:
+
+| status | excludes | sets |
+|---|--:|--:|
+| `live` | 857 | 180 |
+| `absent` | 35 | 11 |
+
+The 46 absent entries are for ads with no API record in runs 1 to 5. Only the page crawl found
+them. `analysis.rows` holds 1,746,283 rows, 857 fewer than `analysis.kept`.
+
+No ad of the six API region references has an entry in the ledger. For each of their 1,923,491
+rows, `analysis.rows` holds a row with the same ad and price day, and with the same bedrooms,
+bathrooms and size.
+
+The queued nine-area fit's frozen rows, `queued-nb9-lots2-9c1055f`, come from the page crawl
+through the rules `bedrooms-ad-v6` and `quarantine-v31`. I matched its 296,182 rows to the
+fit-ready rows by ad:
+
+| reference rows | count |
+|---|--:|
+| in `analysis.rows`, priced on the same day | 291,343 |
+| in `analysis.rows`, priced on another day | 240 |
+| dropped by an exclude of `quarantine-v32`, newer than the reference | 6 |
+| of ads with no API record in runs 1 to 5 | 4,515 |
+| of ads losing the unit-month check to another ad | 63 |
+| of ads dropped by their API record's exclusions | 15 |
+
+Of the matched rows, 47 differ in bedrooms, 16 in bathrooms and 3 in size:
+
+- In 44 of the bedroom differences and all 16 bath differences, the reference applies a held
+  set of `bedrooms-ad-v3`, `bedrooms-ad-v6` or `baths-ad-v3`, and the fit-ready row keeps the
+  recorded value.
+- The other 3 bedroom differences and the 3 size differences come from six ads listed from July
+  to October 2026. For each of them, the page capture and the latest API record give different
+  values, and the reference keeps the page's value.
+
+In the reference's neighbourhoods, `analysis.kept` holds another 58,088 rows with no ledger
+exclude. They are API ads missing from the page crawl.
 
 ## Differences from the chain
 
@@ -442,6 +593,14 @@ when an item here or an entry of the corrections ledger accounts for it.
    orders can differ only when two changes carry different UTC offsets, as in the repeated hour
    of early November. On runs 1 to 5, 124,228 ads list changes with both offsets, and each of
    them gets the same order either way.
+6. A correction without backing. The chain applies each correction of its rules, while the
+   ledger leaves out a set until it has evidence beyond the ad's words. The 71 sets of the
+   chain's latest rules held this way are in `config/reviews/ledger-held-2026-10-16-chain.jsonl`,
+   and their rows keep the recorded value.
+7. The values of an ad's captured page. The page-crawl chain takes an ad's values from the page
+   it captured, and the pipeline takes them from the ad's latest API record. For six ads of the
+   nine-area reference, listed from July to October 2026, the two give different bedroom counts
+   or sizes.
 
 ## Tests
 
@@ -462,7 +621,7 @@ in all, and most tests add made-up ads to that export. The tests:
    one ten times the ask, an empty latest answer, a later record leaving out a change of an
    earlier one, and a placeholder price after the ad left the market;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the seventeen models below it and gives the full answer, and a further
+   and the nineteen models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -510,8 +669,8 @@ in all, and most tests add made-up ads to that export. The tests:
     by value;
 16. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, `ads.identity`,
-    `analysis.candidates` and `analysis.rows`, and the 49 ads of the building in that file gain
-    their pages;
+    `analysis.candidates`, `analysis.kept`, the latest asks, `ledger.status` and
+    `analysis.rows`, and the 49 ads of the building in that file gain their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
@@ -537,9 +696,21 @@ in all, and most tests add made-up ads to that export. The tests:
     same rows file and appends a second catalog line. Then the test builds runs 2 and 3, adds
     run 4 and builds again, and compares that build's rows file with a build of runs 2 to 4 into
     an empty state. The two files hold the same bytes. Last, the test adds an export file
-    repeating an answer and checks that the build stops and leaves OUT as it was.
+    repeating an answer and checks that the build stops and leaves OUT as it was;
+21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
+    among them, read files with a repeated line, a retract of an unknown, a retracted or a
+    retracting entry, and a line that is not JSON, and check that `read` takes files in order
+    of name;
+22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two
+    of them in a later file, and check each entry's status and differing values. The next plan
+    rebuilds only the two ledger models and `analysis.rows`, which drops one row and changes
+    four, and the latest asks stay as they were;
+23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
+    file and line;
+24. read the repo's ledger, and check that each of its files at the merge base with master
+    stays as it was and that each new file sorts after master's files.
 
-They take about 70 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 

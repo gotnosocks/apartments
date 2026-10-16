@@ -24,9 +24,16 @@ PROJECT = Path(__file__).resolve().parents[1]
 FIXTURE = Path(__file__).resolve().parent / "fixture"
 
 
-def context(monkeypatch, state, export=FIXTURE / "export", project=PROJECT):
+def context(
+    monkeypatch, state, export=FIXTURE / "export", project=PROJECT, ledger=None
+):
+    """A context on `export` and `state`. Without `ledger`, the corrections ledger is an empty
+    folder beside the state. The helper makes the ledger's folder when it is missing."""
+    ledger = ledger or state.parent / "ledger"
+    ledger.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PIPELINE_EXPORT", str(export))
     monkeypatch.setenv("PIPELINE_STATE", str(state))
+    monkeypatch.setenv("PIPELINE_LEDGER", str(ledger))
     monkeypatch.setenv("PIPELINE_MEMORY", "1GB")
     return Context(paths=str(project))
 
@@ -262,9 +269,11 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.record_attributes",
         "ads.reported",
         "analysis.candidates",
+        "analysis.kept",
         "analysis.latest_ask",
         "analysis.latest_change",
         "analysis.rows",
+        "ledger.status",
         "raw.ads",
     ]
     # The second build parsed only records missing from runs 2 and 3.
@@ -304,10 +313,12 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     assert changed(plan) == [
         "ads.identity",
         "analysis.candidates",
+        "analysis.kept",
         "analysis.latest_ask",
         "analysis.latest_change",
         "analysis.rows",
         "buildings.details",
+        "ledger.status",
         "raw.buildings",
     ]
     assert ctx.fetchdf("SELECT count(page) AS n FROM ads.identity").n[0] == 229

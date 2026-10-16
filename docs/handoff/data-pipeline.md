@@ -26,7 +26,10 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
    asks (#881), from the event log since #883.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
-   that refuses entries without evidence.
+   that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
+   models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
+   rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
+   `ops/pipeline/ledger_import.py`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
    rule `canonical-url-v1`.
@@ -134,11 +137,29 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    outside its scratch folder that it also wrote, opened for reading and writing, or deleted.
    The preparation's `TMPDIR` points into its scratch folder. A freeze of the served fit's rows
    with this code matched `served-nb8-5c1e5c7e` in its outputs and its 21 input hashes.
-3. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
-   the rule entries keyed on `audit_id` to `(source_listing_id, price_at)`. The cases of
-   `building-joins-v1` and `west-coast-wings-v1` are constants in the code and need copying into
-   the ledger. `unit-splits-v4` splits unit histories by an algorithm over the rows, so it
-   becomes a pipeline step, with its splits checked against the frozen rows.
+3. Step 5 goes on from the ledger PR. `pipeline/ledger/2026-10-16-chain.ndjson` holds 889
+   excludes of `quarantine-v32` and 179 sets of `bedrooms-ad-v3` to `v7`, `baths-ad-v3` and
+   `sqft-units-v1`, keyed by `listing_id`. `2026-10-16-held-reads.ndjson` holds 12 sets Data
+   improvements backed by reading the held list. On a copy of the Oct 15 state, 857 excludes and
+   180 sets apply and 46 entries are for page-crawl ads with no API record. The six API
+   references agree in full, and each difference from `queued-nb9-lots2-9c1055f` is a held set,
+   a newer exclude or a page value. [pipeline.md](../data/pipeline.md#check-build) has the
+   numbers. The rest of step 5, a PR each:
+   1. backing for the 71 held sets in `config/reviews/ledger-held-2026-10-16-chain.jsonl`. Data
+      improvements read the first list. A stated size backs a bedroom set when it rules out the
+      recorded count and each count between, as agreed with Data improvements on Oct 16;
+   2. entries keyed on units and buildings, as Data improvements asked on Oct 16.
+      `unit-reviews-v2` joins and splits units, so its entries key on the unit and also apply
+      to later ads of the unit. `building-joins-v1` moves a building to a lot and keys on the
+      building or its address. The `brooklyn_misjoin` and `location_conflict` excludes become
+      building sets once the right building is collected, with `other_ad` or `city_record`
+      evidence;
+   3. `west-coast-wings-v1` and `unit-splits-v4`, rules over the rows, as pipeline steps with
+      their tests, and the splits checked against the frozen rows;
+   4. `unit-labels-v17`, `fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The
+      ad-text fills key on the ad and the hash of its text, once a model gives each ad's text;
+   5. the test suite back under a minute: it takes 100 s with the ledger tests, which build
+      the fixture three more times.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
    [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
    top-up, as light jobs at about 4 GiB, with the same rows file either way. The rest of step 8,
