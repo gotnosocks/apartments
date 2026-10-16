@@ -311,8 +311,7 @@ and `/008c` at 101 West End Ave. StreetEasy keeps two records for each such unit
 5,370 ads have an API record with no building or unit slug.
 
 The dataset holds the four regions' runs as of the 12:47 ET snapshot, so it lacks the ads
-from the reopens after it. The archive holds no top-up run yet, and the first starts on
-Friday Oct 16 at 05:30 ET.
+from the reopens after it and from the [weekly top-ups](#the-first-weekly-top-up-oct-16).
 
 ## The page-crawl areas' re-read (Oct 15)
 
@@ -336,7 +335,43 @@ manhattan-page-crawl-areas` from 15:52 to 17:48 ET as run 5, with no unit histor
   `current-listings/api-manhattan-page-crawl-areas`, with 1,417 candidates and 2 failures.
 - I exported the run's replies to `crawls/api/export` by hand at the end, since #864 merged
   while it was running. The export holds 424,776 ad reads in 6 files, 8,003 building reads,
-  1,508 stored replies and 1,970 calls, and each table matches the archive.
+  1,508 stored replies and 1,970 calls, and each table matches the archive. The collector
+  records each call's POST count in `attempt`, and over run 5 those counts sum to its 2,054
+  requests.
+
+## The first weekly top-up (Oct 16)
+
+The timer started `ops/streeteasy-collect topup` on Friday Oct 16 at 05:30 ET. It ran the five
+regions in turn as runs 6 to 10 and finished at 05:49 ET, with every region and the export at
+exit 0. The whole top-up took 120 requests ($0.14).
+
+| Run | Region | Requests | Dollars | ACTIVE ads | Ad reads |
+|---|---|---|---|---|---|
+| 6 | `manhattan-below-59th` | 34 | 0.04 | 1,692 | 4,558 |
+| 7 | `manhattan-59th-110th` | 33 | 0.04 | 1,356 | 4,122 |
+| 8 | `brooklyn-prospect-park` | 17 | 0.02 | 1,001 | 3,252 |
+| 9 | `brooklyn-north-crown-heights` | 28 | 0.03 | 1,551 | 6,327 |
+| 10 | `manhattan-page-crawl-areas` | 8 | 0.01 | 1,422 | 1,912 |
+
+- Each region's search found as many ACTIVE ads as its count, with no pending, truncated or
+  unanswered band. Across regions the searches found 7,011 distinct ads, since 11 fall in two
+  regions.
+- Besides the ACTIVE ads, each run re-read its region's ads with a status other than RENTED,
+  NO_LONGER_AVAILABLE or DELISTED. The 20,171 reads cover 20,154 distinct ads and returned
+  7,022 ACTIVE, 9,488 DRAFT, 1,452 IN_CONTRACT, 1,263 TEMPORARILY_OFF_MARKET, 428
+  IN_STREETEASY_REVIEW, 289 RENTED, 108 NO_LONGER_AVAILABLE, 95 DELISTED and 26
+  IN_BROKERAGE_REVIEW.
+- The runs wrote 670 ad records, 10,179 units and 4 buildings. They marked 9,972 ads superseded
+  and excluded 9,529. Of the excluded ads, 9,109 are DRAFT ads with no canonical unit, which
+  earlier runs had already excluded. The top-up logged 6 new exclusions.
+- Every region's `current-listings/api-REGION` link moved to the new run's files, with 7,007
+  candidates and 15 failures in all. The collector counts an ACTIVE ad as a failure and leaves
+  it out of the files when it finds no single canonical unit for the ad, no API capture of it
+  or no unit ID.
+- The export added 20,178 ad reads (20,171 records and 7 IDs the API left out), 4 building
+  reads, 79 stored replies and 101 calls, in 17 files, and each table matches the archive.
+- I left the DRAFT ads in the top-up, since they cost about 5 cents a week, though they took
+  nearly half its reads.
 
 ## Running it
 
@@ -404,7 +439,7 @@ row for each ID the read asked for:
 | `ads` | each listing ID of each ad read, with `outcome` 'record' and the record as JSON with sorted keys, or `outcome` 'missing' |
 | `buildings` | each building ID of each building read, the same way |
 | `requests` | each stored reply, with its Oxylabs job ID, both status codes and its `bodies/` paths |
-| `calls` | each POST the collector timed, failures included, by its rowid |
+| `calls` | each timed call, failures included, by its rowid, with its POST count in `attempt` |
 
 A field the API failed to answer gives no rows, since the collector read its IDs again in a
 later request. The `record_sha256` of an exported read matches `graphql_search_ads.record_sha256`
