@@ -17,7 +17,13 @@ the fit either; download the run to FRONTIER_OUTPUT_ROOT/runs/<name>, the LOO to
 FRONTIER_OUTPUT_ROOT/loo/ and the statistics to FRONTIER_OUTPUT_ROOT/{variance,explained,newbuilding}/,
 then delete them from the Volume. For a full-tier fit on the row (or all) split, start
 ops/modal/summarize in a systemd unit of its own: the summary bundle and its calibration, built
-on thelio after the fit's unit has exited. The Volume itself is deleted after 24 h without a
+on thelio after the fit's unit has exited.
+
+With --large (an A100-80GB or H100 only), the container has 192 GiB of host memory and a 12 h
+timeout, the fit is capped at 9 h, the post-fit statistics only by that timeout, and the
+container builds the summary bundle and calibration itself; they download to
+FRONTIER_OUTPUT_ROOT/{summaries,calibration}/. The per-fit hour cap leaves large fits out (Ben,
+2026-10-16 06:37Z). The Volume itself is deleted after 24 h without a
 launch (ops/modal/cleanup).
 """
 
@@ -77,6 +83,11 @@ def parse(argv):
     p.add_argument("--split", default="rows")
     p.add_argument("--chain-batch", type=int)
     p.add_argument(
+        "--large",
+        action="store_true",
+        help="a large container (app.LARGE_FITS) that also builds the summary bundle",
+    )
+    p.add_argument(
         "--explain",
         action="append",
         default=[],
@@ -128,6 +139,7 @@ def plan(args, run_args, sha, short=None):
         "inputs": inputs,
         "run_args": run,
         "explain": list(args.explain),
+        "large": args.large,
     }
 
 
@@ -207,12 +219,13 @@ def _marker(volume_id):
     return str(path)
 
 
-POST_KINDS = ("variance", "explained", "newbuilding")
+POST_KINDS = ("variance", "explained", "newbuilding", "summaries", "calibration")
 
 
 def download(volume, name, root):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
-    /out/<name>/{variance,explained,newbuilding}/* -> the same directories under root, log and
+    /out/<name>/{variance,explained,newbuilding,summaries,calibration}/* -> the same
+    directories under root, log and
     modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
     file is down."""
@@ -273,7 +286,7 @@ def score_new_buildings(modal_app, spec):
 def wants_summary(spec, split):
     """Whether a downloaded fit gets a summary bundle: only full-tier fits are served, and
     rentfrontier.summary refuses the unit and latest splits."""
-    return spec["tier"] == "full" and split in ("rows", "all")
+    return spec["tier"] == "full" and split in ("rows", "all") and not spec.get("large")
 
 
 def summarize(spec):
@@ -333,15 +346,16 @@ def main(argv):
     # The image installs this commit's uv.lock.
     os.environ["MODAL_FIT_STAGE"] = str(stage)
     modal_app = importlib.import_module("app")
-    if args.gpu not in modal_app.FITS:
-        sys.exit(f"--gpu must be one of {', '.join(modal_app.FITS)}")
+    fits = modal_app.LARGE_FITS if args.large else modal_app.FITS
+    if args.gpu not in fits:
+        sys.exit(f"--gpu must be one of {', '.join(fits)}")
     touch()
     # At the model's own fit-stage rate on its last Modal fit, if that was slower.
     rate = cap.measured_rate(args.model, args.features, OUTPUT_ROOT / "runs")
-    usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu, rate)
-    secs = cap.seconds(args.chains, args.warmup, args.draws, rate)
+    usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu, rate, args.large)
+    secs = cap.seconds(args.chains, args.warmup, args.draws, rate, args.large)
     # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
-    launch, left = cap.reserve(spec["name"], args.gpu, usd, secs=secs)
+    launch, left = cap.reserve(spec["name"], args.gpu, usd, secs=secs, large=args.large)
     print(
         f"{spec['name']} on {args.gpu} ({spec['tier']}); estimated ${usd:.2f}, "
         f"Modal balance now ${left:.2f}",
@@ -353,11 +367,12 @@ def main(argv):
     try:
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
-            meta = modal_app.FITS[args.gpu].remote(spec)
-            if meta.get("fit_exit", meta["exit"]) == 0:
+            meta = fits[args.gpu].remote(spec)
+            # The new-building container's 128 GiB and hour don't stretch to a large run.
+            if meta.get("fit_exit", meta["exit"]) == 0 and not args.large:
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
-            meta["wall_seconds"] * modal_app.usd_per_second(args.gpu)
+            meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, args.large)
             + meta.get("newbuilding", {}).get("usd_estimate", 0),
             2,
         )
@@ -376,7 +391,9 @@ def main(argv):
         # The balance pays what the fit cost: its container time, or the time it ran if it failed.
         cost = (meta or {}).get("usd_estimate")
         if cost is None:
-            cost = (time.monotonic() - started) * modal_app.usd_per_second(args.gpu)
+            cost = (time.monotonic() - started) * modal_app.usd_per_second(
+                args.gpu, args.large
+            )
         try:
             cap.settle(launch, cost)
         except Exception as e:  # noqa: BLE001 (keep the fit's own error; the estimate stays charged)

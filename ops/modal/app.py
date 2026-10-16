@@ -9,7 +9,7 @@ thelio, and leaves the run directory, the LOO directory and the log under /out/<
 for the launcher to download. A fit that finishes also gets its post-fit statistics here,
 while the container has its draws (`_post`): the variance decomposition and the explained
 share of any --explain candidate sets. The summary bundle and its calibration are built on
-thelio after the download (ops/modal/summarize).
+thelio after the download (ops/modal/summarize), except for a large fit, which builds them here.
 """
 
 import json
@@ -40,19 +40,28 @@ POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volu
 OUTPUT = Path(
     "/data1/apartments/frontier"
 )  # rentfrontier's OUTPUT_ROOT in the container
-POST_KINDS = ("variance", "explained", "newbuilding")
+POST_KINDS = ("variance", "explained", "newbuilding", "summaries", "calibration")
 USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 # The new-building score (rentfrontier.newbuilding) is numpy over row chunks, one process
 # per core: a CPU container scores a run's kept draws in parallel after its fit.
 NB_CPU, NB_MEMORY_MIB, NB_TIMEOUT = 32, 131072, 3600
+# A large fit (fit.py --large; Ben, 2026-10-16 06:37Z: a fit on all the scraped data, 1.75M rows,
+# with no hour cap). Host memory scales with the rows from the served design's 15 GB on NB9's
+# 266k, and the fit, PSIS-LOO, post-fit statistics and summary bundle each run for an hour or
+# more, so the container builds the bundle and its calibration itself (thelio has 15 GB).
+LARGE_CPU, LARGE_MEMORY_MIB = 8, 196608
+LARGE_FIT_CAP, LARGE_TIMEOUT = 9 * 3600, 12 * 3600
+LARGE_POST_MARGIN = 45 * 60  # copying a 1.75M-row run, LOO and bundle to the Volume
 
 
-def usd_per_second(gpu):
-    """List price of one container: the GPU plus its reserved cores and memory (about $0.29 an hour)."""
+def usd_per_second(gpu, large=False):
+    """List price of one container: the GPU plus its reserved cores and memory (about $0.29 an
+    hour, or $1.90 for a large fit)."""
+    cpu, memory = (LARGE_CPU, LARGE_MEMORY_MIB) if large else (CPU, MEMORY_MIB)
     return (
         GPUS[gpu] / 3600
-        + CPU * USD_PER_CORE_SECOND
-        + MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
+        + cpu * USD_PER_CORE_SECOND
+        + memory / 1024 * USD_PER_GIB_SECOND
     )
 
 
@@ -95,11 +104,13 @@ def post_steps(spec):
 
 
 def _post(spec, env, log, deadline):
-    """Run each post-fit statistic, capped at POST_CAP and at the container's deadline. A
-    failure is recorded and never fails the fit: its run and PSIS-LOO still come back."""
+    """Run each post-fit statistic, capped at POST_CAP (a large fit: only the deadline) and at
+    the container's deadline. A failure is recorded and never fails the fit: its run and
+    PSIS-LOO still come back."""
     done = {}
+    cap = LARGE_TIMEOUT if spec.get("large") else POST_CAP
     for step, args in post_steps(spec):
-        left = int(min(POST_CAP, deadline - time.time()))
+        left = int(min(cap, deadline - time.time()))
         if left < 60:
             done[step] = {"exit": "skipped: container deadline"}
             continue
@@ -112,11 +123,38 @@ def _post(spec, env, log, deadline):
     return done
 
 
+def _summarize(spec, env, log, deadline):
+    """A large fit's summary bundle (rentfrontier.summary) and its calibration, as
+    ops/modal/summarize builds them on thelio, within the container's deadline. A failure is
+    recorded and never fails the fit."""
+    done = {}
+    for step in ("summary", "calibration"):
+        left = int(deadline - time.time())
+        bundles = sorted((OUTPUT / "summaries").glob(f"{spec['name']}-*/complete.json"))
+        if left < 60 or (step == "calibration" and not bundles):
+            done[step] = {"exit": "skipped"}
+            continue
+        args = [spec["name"]] if step == "summary" else [str(bundles[-1].parent)]
+        t = time.time()
+        try:
+            code = _run(
+                ["/venv/bin/python", "-m", f"rentfrontier.{step}", *args],
+                env,
+                log,
+                left,
+            )
+        except Exception as e:  # noqa: BLE001
+            code = repr(e)
+        done[step] = {"exit": code, "seconds": round(time.time() - t, 1)}
+    return done
+
+
 def _complete(d):
-    """A post-fit record finished writing: its result.json parses (a step its cap killed
-    mid-write leaves none)."""
+    """A post-fit record finished writing: its result.json (a summary bundle: complete.json)
+    parses (a step its cap killed mid-write leaves none)."""
     try:
-        json.loads((d / "result.json").read_text())
+        record = "complete.json" if d.parent.name == "summaries" else "result.json"
+        json.loads((d / record).read_text())
         return True
     except (OSError, ValueError):
         return False
@@ -163,31 +201,37 @@ def _fit(spec):
         text=True,
     ).stdout.strip()
     stages = {}
+    large = spec.get("large", False)
+    deadline = (
+        started + LARGE_TIMEOUT - LARGE_POST_MARGIN
+        if large
+        else started + TIMEOUT - POST_MARGIN
+    )
     with open(out / "fit.log", "w") as log:
         t = time.time()
         fit_code = code = _run(
             ["/venv/bin/python", "-m", "rentfrontier.run", *spec["run_args"]],
             env,
             log,
-            FIT_CAP[spec["tier"]],
+            LARGE_FIT_CAP if large else FIT_CAP[spec["tier"]],
         )
         stages["fit"] = time.time() - t
         if code == 0:
             t = time.time()
             code = _run(
-                ["/venv/bin/python", "-m", "rentfrontier.loo", spec["name"]], env, log
+                ["/venv/bin/python", "-m", "rentfrontier.loo", spec["name"]],
+                env,
+                log,
+                int(max(deadline - time.time(), 60)) if large else None,
             )
             stages["loo"] = time.time() - t
-        post = (
-            _post(spec, env, log, started + TIMEOUT - POST_MARGIN)
-            if fit_code == 0
-            else {}
-        )
-    run = RUNS / spec["name"]
-    if run.exists():
-        shutil.copytree(run, out / "run", dirs_exist_ok=True)
-    for d in LOO.glob(f"{spec['name']}-*"):
-        shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
+        if large:
+            # Saved before the hours of post-fit work, so a container timeout keeps them.
+            _save_fit(spec, out)
+        post = _post(spec, env, log, deadline) if fit_code == 0 else {}
+        if large and code == 0:
+            post |= _summarize(spec, env, log, deadline)
+    _save_fit(spec, out)
     for kind in POST_KINDS:
         for d in (OUTPUT / kind).glob(f"{spec['name']}-*"):
             if d.is_dir() and _complete(d):
@@ -205,6 +249,16 @@ def _fit(spec):
     (out / "modal.json").write_text(json.dumps(meta, indent=2))
     volume.commit()
     return meta
+
+
+def _save_fit(spec, out):
+    """Copy the run and its LOO directories to the Volume and commit them."""
+    run = RUNS / spec["name"]
+    if run.exists():
+        shutil.copytree(run, out / "run", dirs_exist_ok=True)
+    for d in LOO.glob(f"{spec['name']}-*"):
+        shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
+    volume.commit()
 
 
 def _function(gpu):
@@ -286,3 +340,27 @@ FITS = {
     "A100-80GB": fit_a100_80gb,
     "H100": fit_h100,
 }
+
+
+def _large_function(gpu):
+    return app.function(
+        gpu=gpu,
+        cpu=LARGE_CPU,
+        memory=LARGE_MEMORY_MIB,
+        timeout=LARGE_TIMEOUT,
+        volumes={"/vol": volume},
+    )
+
+
+# Large fits run on 80 GB GPUs only, for datasets several times the size of NB9.
+@_large_function("A100-80GB")
+def fit_a100_80gb_large(spec):
+    return _fit(spec)
+
+
+@_large_function("H100")
+def fit_h100_large(spec):
+    return _fit(spec)
+
+
+LARGE_FITS = {"A100-80GB": fit_a100_80gb_large, "H100": fit_h100_large}
