@@ -1172,7 +1172,7 @@ EXTRA_WORDS = {
     "crime": "the felonies reported nearby in the past year",
     "hpd": "the hazardous housing-code violations found in the building in the past year",
     "wings": "the West Coast's two wings as separate buildings",
-    "lots2": "building records refreshed to cover the added areas' lots",
+    "lots2": "building records rebuilt from the October 2026 city files",
 }
 
 

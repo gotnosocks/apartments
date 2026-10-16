@@ -885,5 +885,5 @@ def test_change_words_for_the_served_nb9_design():
     assert story.change_words(before, after) == (
         "Took in Hell's Kitchen and Hudson Yards. Features now include the coded "
         "fields with building records as of each listing's day, plus building "
-        "records refreshed to cover the added areas' lots"
+        "records rebuilt from the October 2026 city files"
     )
