@@ -220,10 +220,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       cache gets the head's `steps/city.py` before each merge, through the build's venv. For
       #903 the prefill took 9 min 39 s at a 1.3 GiB peak, and a second load 0.09 s (code
       `ccb72ad2839debbe`);
-   4. **Done** in #904: `buildings.lots` gives each building a lot and a BIN by a PAD address match and
-      by the footprint holding its `geoCenter`, or within 10 m of it. Where the two differ, the
-      lot whose MapPLUTO record shares more of the record's four city facts wins, and `link`
-      says how the lot came. On runs 1 to 10, reviewer subagents judged 240 buildings in seven
+   4. **Done** in #904: `buildings.lots` gives each building a lot and a BIN by a PAD address
+      match and by the footprint holding its `geoCenter`, or within 10 m of it. Where the two
+      differ, the lot whose MapPLUTO record shares more of the record's four city facts wins,
+      and `link` says how the lot came. On runs 1 to 10, reviewer subagents judged 240 buildings in seven
       classes, in `config/reviews/building-identity-20261016.jsonl`. About 520 of 70,141 lots
       are wrong by their answers: 243 where both links agree on a lot that fits fewer than two
       facts (7% wrong), 173 in the ties (36%), 43 with no footprint near the point, 33 where the

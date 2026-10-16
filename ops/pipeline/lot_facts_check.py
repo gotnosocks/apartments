@@ -16,8 +16,8 @@ model's `released_lots`.
 3. It hands each distinct pair of lot and date to `released_lots` from the frontier code in DIR,
    /data1/apartments/serve/master/frontier unless given, run in the frontier's venv. That
    function reads Data improvements' MapPLUTO files in the folders named by `--files`, the
-   20261016-5f07157-all copies unless given: today's release and every release of the lots of
-   the registry. It runs twice, once with each row's month as the served model gives it and
+   20261016-5f07157-all copies unless given: the latest release and every release of the lots
+   of the registry. It runs twice, once with each row's month as the served model gives it and
    once with the row's first day, as this step does.
 4. It compares this step's choices for each row with those `released_lots` makes by first day,
    recomputed from the releases file the same way: the release, the fallback, and the fields
@@ -27,15 +27,15 @@ model's `released_lots`.
    compare as numbers, text as trimmed text, so a fact differs only when the values differ.
    It prints the rows each field differs on. It also counts the rows reading a blank
    `irrlotcode` from a release carrying the field. This step leaves them blank.
-   `released_lots` does the same when its file of today loads `irrlotcode` as text, as
-   20261016-5f07157-all does, and gives them today's value when the file loads it as true or
-   false, so they differ only with such a file.
+   `released_lots` does the same when its file of the latest release loads `irrlotcode` as
+   text, as 20261016-5f07157-all does, and gives them the latest value when the file loads it
+   as true or false, so they differ only with such a file.
 6. It counts the rows whose facts change between the run by month and the run by first day.
 
 Steps 4 to 6 leave out two kinds of rows and count them: rows whose lot isn't in Data
-improvements' file of today's release, and rows whose lot's record in their release is missing
-from its releases file though the city's archive has it. `released_lots` gives those rows
-today's facts.
+improvements' file of the latest release, and rows whose lot's record in their release is
+missing from its releases file though the city's archive has it. `released_lots` gives those
+rows the latest facts.
 7. With `--out` it writes the step's facts for each row to a Parquet file.
 
 The script takes 4 to 7 minutes and 4.3 GB on the full rows file on thelio, most of both in
@@ -257,7 +257,7 @@ def compare(args) -> None:
     )
     print(
         f"rows reading a blank irrlotcode from their release: {pairs.rows[blank].sum():,}"
-        f" ({pairs.bbl[blank].nunique():,} lots), with today's irrlotcode as"
+        f" ({pairs.bbl[blank].nunique():,} lots), with the latest irrlotcode as"
         f" {lots.irrlotcode.dtype}"
     )
     for (bbl, release), rows in (
