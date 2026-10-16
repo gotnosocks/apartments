@@ -1142,6 +1142,7 @@ AREA_WORDS = {
     "nb6": "Stuyvesant Town/PCV",
     "nb7": "NoMad",
     "nb8": "East Village",
+    "nb9": "Hell's Kitchen and Hudson Yards",
 }
 SET_WORDS = {
     "unitdesc": "words from the ads",
@@ -1171,6 +1172,7 @@ EXTRA_WORDS = {
     "crime": "the felonies reported nearby in the past year",
     "hpd": "the hazardous housing-code violations found in the building in the past year",
     "wings": "the West Coast's two wings as separate buildings",
+    "lots2": "building records rebuilt from the October 2026 city files",
 }
 
 
@@ -1256,7 +1258,7 @@ def term_words(term: str) -> str:
 def _set_parts(feature_set: str) -> tuple[str, str, str]:
     """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
     "unitfacing", "v5")."""
-    m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z-]*?)(?:-(v\d+))?", feature_set or "")
+    m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z0-9-]*?)(?:-(v\d+))?", feature_set or "")
     if not m:
         return "", feature_set or "", ""
     area = m.group(1) or ("unit" if m.group(2).startswith("unit") else "")

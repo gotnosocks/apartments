@@ -613,7 +613,9 @@ link each building two ways and let the city facts on its record decide between 
    the street address, the zip, the city, the community district, the map point (`geoCenter`)
    and the four city facts StreetEasy shows: the building class, the year built, the floor count
    and the count of apartments. A year or a floor count of zero, an empty class and a value of
-   the wrong type read as missing, while a count of zero apartments stays a count.
+   the wrong type read as missing, while a count of zero apartments stays a count. It parses
+   each record once for all eleven values, as `ads.answers` does, since a parse for each of the
+   sixteen reads takes more than the build's 3 GB on 12 threads.
 2. `buildings.pad_link` cuts the street address into a house number, a letter and a street name.
    It looks the name up in PAD's street name dictionary, `city.pad_streets`, for the street's
    code, and matches the number against the address ranges of that street in
