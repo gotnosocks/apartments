@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 
 from . import data as data_module
 from . import descriptions as descriptions_module
@@ -2519,6 +2520,12 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
             owner += [str(r.bin)] * (len(ring) - 1)
     e0, e1 = np.concatenate(e0), np.concatenate(e1)
     owner = np.array(owner)
+    # Edges are looked up by midpoint. An edge passing the test below has its
+    # midpoint within radius + 1.5 * its length of the centre, so a ball that
+    # wide around the centre holds every edge the test keeps.
+    length = np.hypot(*(e1 - e0).T)
+    midpoints = cKDTree((e0 + e1) / 2)
+    slack = 1.5 * float(length.max())
     by_bin = footprints.groupby(footprints.bin.astype(str))
     by_lot = footprints.groupby(footprints.base_bbl.astype(str))
     for building, r in registry.iterrows():
@@ -2544,12 +2551,17 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
         # Every other building nearby blocks the view, on the same lot too;
         # outlines of the building itself (its BIN) are left to the caller,
         # which lets the outline's own walls block.
-        own = (owner == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         centre = ring.mean(0)
         radius = float(np.hypot(*(ring - centre).T).max()) + reach + 10.0
+        edges = np.sort(
+            np.asarray(midpoints.query_ball_point(centre, radius + slack), int)
+        )
+        own = (owner[edges] == ring_bin) & (not re.fullmatch(r"[1-5]000000", ring_bin))
         # A lower bound on each edge's distance from the centre.
-        dist = np.minimum(np.hypot(*(e0 - centre).T), np.hypot(*(e1 - centre).T))
-        near = (dist - np.hypot(*(e1 - e0).T) < radius) & ~own
+        dist = np.minimum(
+            np.hypot(*(e0[edges] - centre).T), np.hypot(*(e1[edges] - centre).T)
+        )
+        near = edges[(dist - length[edges] < radius) & ~own]
         yield building, ring, (e0[near], e1[near])
 
 
