@@ -9,7 +9,7 @@ MODEL (
 -- The model takes each building's latest record, by fetch time and then response ID, as
 -- `buildings.details` does. It picks the response IDs first and then reads only their records,
 -- so DuckDB holds about 70,000 records at a time rather than all of them. It parses each record
--- once for all its values. A parse for each value read, sixteen in all, took more than the
+-- once for all its values, since a parse for each of the sixteen reads takes more than the
 -- build's 3 GB of memory on 12 threads.
 --
 -- `slug` is the building's name in StreetEasy's links, such as `1-water-street-new_york`, and
@@ -26,7 +26,6 @@ WITH ids AS (
     WHERE outcome = 'record'
     GROUP BY building_id
 ), latest AS (
-    -- One parse of each record, for its eleven values as JSON.
     SELECT building_id, response_id,
         json_extract(record, [
             '$.slug',
