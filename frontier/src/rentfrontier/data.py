@@ -23,14 +23,15 @@ import pandas as pd
 DATASET = Path(
     os.environ.get(
         "FRONTIER_DATASET",
-        # The eight neighbourhoods (DATASET_NB8, #625); before that the five
-        # (DATASET_NB5, #460, chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057),
+        # The nine neighbourhoods (DATASET_NB9); before that the eight
+        # (DATASET_NB8, #625, chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0),
+        # the five (DATASET_NB5, #460, chelsea-wv-gv-flatiron-gramercy-analysis-20261008-0a23057),
         # and before that Chelsea + West
         # Village + Greenwich Village, chelsea-wv-gv-analysis-20261005-2d5b3b6
         # (#292), chelsea-west-village-analysis-20261005-1222e51 (Oct 5 captures,
         # #220), chelsea-west-village-analysis-20261001-eea4f66, and Chelsea alone,
         # data/model/chelsea-product-scope-analysis-20260921.
-        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0",
+        "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
     )
 )
 # Chelsea + West Village + Greenwich Village with Flatiron + Gramercy Park
@@ -58,13 +59,13 @@ DATASET_NB7 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-analysis-20261009-d3b4050"
 )
 # The seven plus East Village (cohort east-village-analysis-20261010-3ebfea04),
-# no rule change. The served dataset (DATASET).
+# no rule change.
 DATASET_NB8 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0"
 )
 # The eight plus Hell's Kitchen and Hudson Yards (cohort
 # midtown-west-areas-analysis-20261014-cd891c8, the Midtown West crawl split by
-# each building page's area), no rule change.
+# each building page's area), no rule change. The served dataset (DATASET).
 DATASET_NB9 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8"
 )

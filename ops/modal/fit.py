@@ -49,7 +49,7 @@ OUTPUT_ROOT = Path(os.environ.get("FRONTIER_OUTPUT_ROOT", "/data1/apartments/fro
 REPO = Path(os.environ.get("MODAL_FIT_REPO", "/home/ben/code/apartments"))
 DATASET = os.environ.get(
     "FRONTIER_DATASET",
-    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0",
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
 )
 # Everything else the feature code reads, by absolute path (87 + 49 + 45 MB and a few files).
 # A fit that needs another file fails with FileNotFoundError naming it; add it with --input.

@@ -3,6 +3,22 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-16 10:00 UTC): NB9 serve, all-scraped fit held on the budget
+
+- NB9 board baseline: `m0-base-base-v1-rows-4ec4f3c9-a100-300w1500d-nb-nb9`, fit on a Modal A100
+  ($1.20) because the thelio GPU slice caps memory at 7 GiB and the local baseline OOM'd three
+  times. It misses the gate on 10 Bedford Street only (R-hat 1.0495, ESS 64): two rows in two
+  single-row units, plausible rents, so the building and unit effects trade off. The earlier
+  baselines missed the gate too, and a baseline only sets the zero of the paired deltas.
+- Autoselect on NB9 picks the plain unitnu4 `...nb9-nostuy-lots2-v1-...-l2un4` (+76,571 PSIS-LOO),
+  tied with the wholefloor twin (+76,561). Its first summary died at the old 5G cap, and the
+  rebuild finished at 10:31Z (`-90921eb`). #899 serves it (selection record, dataset, BASELINE,
+  PRIOR_*, cleaning.json). After its merge and publish, Website merges #776.
+- The all-scraped fit (Ben 06:37Z, approved outside the daily budget 07:18Z, stop before the
+  summary) costs about $17.71 on an H100, over cap.py's $10 ceiling. The edit to exempt it was
+  refused by the permission classifier, so it waits on Ben allowing that edit or launching it.
+  `tmp/bridge/probe-all.sh` holds the probe launch. The modalq-nb9 queue lines are on hold.
+
 ## Update (2026-10-15 05:00 UTC): Midtown West (NB9) C failed the gate, slopemin3 queued
 
 The NB9 C fit (master 8b3ce683, quarantine-v23) failed the gate with min building ESS 129. Three buildings fell under 400: 222 E 17th (129), 4 Perry St (204) and 318 E 15th (273). No building had R-hat over 1.01, and the fit stage took 2,232 s.
