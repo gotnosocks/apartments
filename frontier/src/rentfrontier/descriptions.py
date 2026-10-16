@@ -172,12 +172,20 @@ def granular_descriptions(granular: Path) -> pd.Series:
     return pd.Series(text.to_numpy(), index=last.listing_id.astype(str).to_numpy())
 
 
-def build(granular: Path, dataset: Path, name: str, commit: str) -> Path:
+def build(
+    granular: Path, dataset: Path, name: str, commit: str, skip: Path | None = None
+) -> Path:
     """Write the evidence file for every row of a cohort from its granular
-    crawl, in the shape `load` reads, with a provenance record."""
+    crawl, in the shape `load` reads, with a provenance record. With `skip`,
+    I leave out the rows of that dataset, so an extended cohort's added rows
+    get a file beside its base's evidence."""
     text = granular_descriptions(granular)
     with open(dataset / "observations.jsonl") as f:
         rows = [json.loads(line) for line in f if line.strip()]
+    if skip is not None:
+        with open(skip / "observations.jsonl") as f:
+            known = {json.loads(line)["audit_id"] for line in f if line.strip()}
+        rows = [r for r in rows if r["audit_id"] not in known]
     stamp = dt.datetime.now(dt.UTC)
     out = data.OUTPUT_ROOT / "descriptions" / f"{name}-{stamp:%Y%m%d}-{commit[:7]}"
     out.mkdir(parents=True, exist_ok=False)
@@ -203,6 +211,7 @@ def build(granular: Path, dataset: Path, name: str, commit: str) -> Path:
         "dataset": str(dataset),
         "observations_sha256": data.sha256(dataset / "observations.jsonl"),
         "rule": "the listing's own ad: the description of its last captured record",
+        "skipped_dataset": str(skip) if skip else None,
         "rows": len(rows),
         "rows_with_description": found,
         "evidence_sha256": data.sha256(out / "evidence.jsonl"),
@@ -220,13 +229,16 @@ def main(argv=None):
     parser.add_argument("--granular", type=Path, required=True)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--skip", type=Path, help="dataset whose rows to leave out")
     args = parser.parse_args(argv)
     from .run import git
 
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
-    out = build(args.granular, args.dataset, args.name, git("rev-parse", "HEAD"))
+    out = build(
+        args.granular, args.dataset, args.name, git("rev-parse", "HEAD"), args.skip
+    )
     print(out)
 
 

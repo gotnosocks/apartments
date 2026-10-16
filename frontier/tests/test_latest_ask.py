@@ -2,6 +2,8 @@ import json
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
+
 from rentfrontier import latest_ask
 
 
@@ -254,3 +256,18 @@ def test_listing_extras_reads_a_named_crawl(tmp_path, monkeypatch):
     assert json.loads(prov.read_text())["sources"]["crawl"]["path"] == "/g"
     with pytest.raises(SystemExit):
         listing_extras.main(["--tag", "api"])
+
+
+def test_several_crawls_and_the_page_crawls_parse_into_one_dict():
+    crawls, tag, datasets = latest_ask.parse(
+        ["--crawl", "page", "--crawl", "/g/run5", "--tag", "x", "/d/one"]
+    )
+    n = len(latest_ask.CRAWLS)
+    assert crawls == {**latest_ask.CRAWLS, f"crawl-{n}": "/g/run5"}
+    assert (tag, datasets) == ("-x", [Path("/d/one")])
+    crawls, tag, datasets = latest_ask.parse(["--crawl", "/g/api", "/d/a", "/d/b"])
+    assert (crawls, tag, datasets) == (
+        {"crawl": "/g/api"},
+        "",
+        [Path("/d/a"), Path("/d/b")],
+    )

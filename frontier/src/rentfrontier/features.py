@@ -5206,6 +5206,55 @@ for _new, _old in NB9_LOTS2_SETS.items():
     PLUTO_RELEASES_SNAPSHOTS[_new] = NB9_LOTS2_PLUTO_RELEASES_FILE
 
 
+# NB9's set on data.DATASET_NB9_API. The registry is NB9_LOTS2's plus the
+# 1,019 buildings of the added ads, geocoded as the API registries were, and
+# the lot sources are fetched on it. The added ads take their extras and ad
+# text from the API re-read, and NB9's rows keep NB9's.
+NB9_API_REGISTRY_FILE = (
+    "/data1/apartments/external/registry/20261016-104dfa2-mw-api/buildings.parquet"
+)
+NB9_API_FILES = {
+    kind: f"/data1/apartments/external/{kind}/20261016-104dfa2/{kind}.parquet"
+    for kind in ("pluto", "footprints", "basemap", "lpc", "plutoreleases")
+}
+NB9_API_EXTRAS_FILE = (
+    "/data1/apartments/external/listing-extras/20261016-104dfa2-mw-api/"
+    "listing-extras.parquet"
+)
+# One evidence file per building slice of the re-read, each with the added
+# ads of its own buildings.
+NB9_API_ADDED_DESCRIPTIONS = {
+    f"descriptions_api_added_{i:02d}": (
+        "/data1/apartments/frontier/descriptions/mw-api-added-manhattan-page-"
+        f"crawl-areas-{i:02d}-20261016-104dfa2/evidence.jsonl"
+    )
+    for i in range(1, 5)
+}
+FEATURE_SETS["nb9-nostuy-api-v1"] = partial(
+    FEATURE_SETS["nb9-nostuy-v1"], id="nb9-nostuy-api-v1"
+)
+for _group in [
+    v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+]:
+    if "nb9-nostuy-lots2-v1" in _group:
+        _group.add("nb9-nostuy-api-v1")
+LOT_SNAPSHOTS["nb9-nostuy-api-v1"] = {
+    "registry": NB9_API_REGISTRY_FILE,
+    "pluto": NB9_API_FILES["pluto"],
+}
+AREA_SNAPSHOTS["nb9-nostuy-api-v1"] = {
+    "basemap": NB9_API_FILES["basemap"],
+    "footprints": NB9_API_FILES["footprints"],
+}
+LPC_SNAPSHOTS["nb9-nostuy-api-v1"] = NB9_API_FILES["lpc"]
+PLUTO_RELEASES_SNAPSHOTS["nb9-nostuy-api-v1"] = NB9_API_FILES["plutoreleases"]
+EXTRAS_SNAPSHOTS["nb9-nostuy-api-v1"] = NB9_API_EXTRAS_FILE
+DESCRIPTION_SOURCES["nb9-nostuy-api-v1"] = {
+    **_NB9_DESCRIPTIONS,
+    **NB9_API_ADDED_DESCRIPTIONS,
+}
+
+
 def areas_v1(
     frame: pd.DataFrame,
     train: np.ndarray,
