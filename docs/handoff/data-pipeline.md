@@ -37,7 +37,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    (#904).
 7. Date every outside fact and join it as of the ad's date. **Started**: the city archive gives
    each release its publisher's date (#896), and `analysis.lot_facts` gives each ad its lot's
-   MapPLUTO facts as of its first day (#906).
+   MapPLUTO facts as of its first day (#906) and `analysis.lot_landmarks` its lot's LPC
+   designations (#911).
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
@@ -249,8 +250,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       facts. `ops/pipeline/lot_facts_check.py` reruns the comparison in 4 to 7 minutes at a
       4.3 GB peak, 60 s of it in the models. Nothing reads `analysis.lot_facts` yet, and moving
       a fit to it needs its own fit under the evaluation framework;
-   6. landmark designations and certificates of occupancy issued before each ad, on its lot or
-      BIN, from `city.landmarks`, `city.dob_co` and `city.dob_now_co`.
+   6. **Done** in #911: `analysis.lot_landmarks` gives each candidate ad its lot's landmark and
+      historic district designations dated by its first day, from the latest copy of
+      `city.landmarks`. On the 1,697,438 rows where its lot equals the registry's, its flags
+      equal the served `lpc_as_of` on every row. About 2,300 rows differ because the registry's
+      reverse geocodes put a building on a landmark's lot nearby, such as The Sagamore on the
+      Claremont Stables' lot (789 rows), so the served landmark flag is wrong on those rows.
+      `ops/pipeline/landmarks_check.py` reruns the comparison in 27 s at a 2.6 GB peak;
+   7. certificates of occupancy issued on each ad's BIN by its first day, from `city.dob_co` and
+      `city.dob_now_co`. **Next**: `analysis.building_certificates` on branch
+      `pipeline-building-certificates`.
 
 ## Coordination
 
