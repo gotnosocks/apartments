@@ -1321,3 +1321,9 @@ def test_segmented_collect_matches_the_single_call(unsegmented, segments):
     assert out["kept"]["walk"].shape[:2] == (2, 7)
     for name in ("lpd", "lpd_chain", "mean", "sd", "rhat_all", "trace", "kept"):
         jax.tree.map(np.testing.assert_array_equal, out[name], single[name])
+
+
+def test_collect_segments_stay_out_of_the_sampler_settings():
+    d = gibbs.Settings(collect_segments=10).to_dict()
+    assert "collect_segments" not in d
+    assert d == gibbs.Settings().to_dict()

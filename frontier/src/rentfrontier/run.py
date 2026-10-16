@@ -649,6 +649,7 @@ def main(argv=None):
         "line": "frontier" if args.sampler == "gibbs" else "numpyro",
         "tier": args.tier,
         "sampler_settings": settings.to_dict(),
+        "collect_segments": getattr(settings, "collect_segments", None),
         "dtype": out.get("dtype"),
         "adapted": {
             k: out.get(k)

@@ -80,13 +80,17 @@ class Settings:
     collapse_cov: bool = True
     chain_batch: int = 0  # vectorise this many chains at a time (0 = all)
     # Run the retained draws in this many jitted calls, moving each call's
-    # kept draws and traces to the host (collect.collect's `segments`).
+    # kept draws and traces to the host (collect.collect's `segments`). The
+    # draws come out the same for any value, so to_dict leaves it out of the
+    # sampler settings that the leaderboard compares across runs.
     collect_segments: int = 1
     # Extra one-dimensional collapsed updates for these scales (if present).
     solo_scales: tuple = ("walk_scale",)
 
     def to_dict(self):
-        return asdict(self)
+        d = asdict(self)
+        del d["collect_segments"]
+        return d
 
 
 @dataclass

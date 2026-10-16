@@ -237,16 +237,34 @@ def collect(
     carry = (states, jnp.full((n_chains, *test.y.shape), -jnp.inf, dtype), zeros, zeros)
     test_fields = {f: getattr(test, f) for f in test.FIELDS}
     run = jax.jit(chains)
-    traces, kepts = [], []
     sizes = [len(a) for a in np.array_split(np.arange(n_blocks), max(1, segments))]
     edges = np.cumsum([0, *(s for s in sizes if s)] if n_blocks else [0, 0])
+    # One host array per leaf, filled a segment at a time, so the host holds a
+    # single copy of the kept draws.
+    trace = kept = None
     for lo, hi in zip(edges[:-1], edges[1:]):
-        carry, trace, kept = run(carry, keys[:, lo:hi], test_fields, consts)
-        traces.append(jax.tree.map(np.asarray, trace))
-        kepts.append(jax.tree.map(np.asarray, kept))
+        carry, trace_d, kept_d = run(carry, keys[:, lo:hi], test_fields, consts)
+        if trace is None:
+            trace, kept = (
+                jax.tree.map(
+                    lambda a: np.empty(
+                        (
+                            a.shape[0],
+                            a.shape[1] // max(hi - lo, 1) * n_blocks,
+                            *a.shape[2:],
+                        ),
+                        a.dtype,
+                    ),
+                    d,
+                )
+                for d in (trace_d, kept_d)
+            )
+        for host, dev in ((trace, trace_d), (kept, kept_d)):
+            for h, d in zip(jax.tree.leaves(host), jax.tree.leaves(dev)):
+                per = d.shape[1] // max(hi - lo, 1)
+                h[:, lo * per : hi * per] = np.asarray(d)
+        del trace_d, kept_d
     _, acc, s1, s2 = carry
-    trace = jax.tree.map(lambda *a: np.concatenate(a, axis=1), *traces)
-    kept = jax.tree.map(lambda *a: np.concatenate(a, axis=1), *kepts)
     n = n_blocks * keep_every * n_chains
     acc = np.asarray(acc, np.float64)
     m = acc.max(axis=0)
