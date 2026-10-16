@@ -50,7 +50,7 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
 - **Raw Parquet export (#863, #864).** `streeteasy_archive.graphql_export` writes every reply of
   each run to `crawls/api/export/{ads,buildings,requests,calls}/run-NNNN/` and lists the files
   in `manifest.ndjson`. `ops/streeteasy-collect` runs it at the end of each invocation and logs
-  "export exit N". Runs 1 to 10 are exported and match the archive (checked by hand). A call
+  "export exit N". Runs 1 to 11 are exported and match the archive (checked by hand). A call
   row's `attempt` holds its POST count, so `sum(attempt)` gives a run's requests. The "API
   data pipeline rebuild" thread reads the export; message its session after each new run.
 - **GraphQL past-rentals reads (no-JS), Oct 13.** Ben 09:42 ET: switch the Brooklyn crawl to
