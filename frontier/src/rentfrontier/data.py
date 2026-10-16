@@ -1691,6 +1691,15 @@ LATEST_ASK_V6 = Path(
     "/data1/apartments/external/latest-ask/20261016-5f07157-all/latest-ask.parquet"
 )
 
+# LATEST_ASK_V6 with 12 rows set to the ad's page price. Each of those ads posted
+# a tenfold typo (30,500 for 3,050) and corrected it on its last day on the
+# market, and latest_ask.py read the typo as the latest ask. The page prices come
+# from the pipeline's ads file after its digit fix (#930); complete.json lists the
+# 12 rows.
+LATEST_ASK_V7 = Path(
+    "/data1/apartments/external/latest-ask/20261016-5f07157-all-pagefix/latest-ask.parquet"
+)
+
 
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
@@ -2024,6 +2033,7 @@ DATA_RULES = {
     "latest-ask-api-v1": functools.partial(latest_ask_v3, path=LATEST_ASK_API),
     "latest-ask-v5": functools.partial(latest_ask_v3, path=LATEST_ASK_V5),
     "latest-ask-v6": functools.partial(latest_ask_v3, path=LATEST_ASK_V6),
+    "latest-ask-v7": functools.partial(latest_ask_v3, path=LATEST_ASK_V7),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -2083,6 +2093,7 @@ RULE_SOURCES = {
     "latest-ask-api-v1": LATEST_ASK_API,
     "latest-ask-v5": LATEST_ASK_V5,
     "latest-ask-v6": LATEST_ASK_V6,
+    "latest-ask-v7": LATEST_ASK_V7,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "pets-from-ad-v2": PETS_FROM_AD_V2,

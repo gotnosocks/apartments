@@ -57,3 +57,18 @@ def test_all_scraped_snapshots_exist_and_keep_nb9s_lots():
     # Areas fetched the same listing at different times; the union keeps one row each.
     extras = pd.read_parquet(features.EXTRAS_SNAPSHOTS[NAME], columns=["listing_id"])
     assert not extras.listing_id.duplicated().any()
+
+
+def test_latest_ask_v7_reads_the_page_price_of_the_typo_asks():
+    if not data.LATEST_ASK_V7.exists():
+        pytest.skip("latest asks not on this machine")
+    v6 = pd.read_parquet(data.LATEST_ASK_V6).set_index("audit_id").latest_ask
+    v7 = pd.read_parquet(data.LATEST_ASK_V7).set_index("audit_id").latest_ask
+    assert v7.index.equals(v6.index)
+    changed = v7[v7 != v6]
+    assert len(changed) == 12
+    ratio = v6[changed.index] / changed
+    assert ratio.between(9, 11).all()
+    helena = "da55dfdade398b9453ede1bb64bff13990c7f4c4ac5689ec49502710d31f3d51"
+    assert (v6[helena], v7[helena]) == (37380, 3738)
+    assert data.RULE_SOURCES["latest-ask-v7"] == data.LATEST_ASK_V7
