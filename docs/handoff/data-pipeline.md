@@ -228,9 +228,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       changes with the typo: 31 of those asks differ from the clean latest ask, by a median of
       4.8%. A tenfold ask or another bedroom count in every record of an ad passes (43 and 49
       of 50). The section "Planted errors" of `docs/data/pipeline.md` has the counts and the
-      production rows with such asks. Next: `analysis.latest_change` hides a page price equal
-      to any price change, so a tenfold typo corrected on the ad's last day keeps the typo when
-      `ads.kept_changes` drops the correction as a placeholder. About 12 production rows. Then a
+      production rows with such asks. **Done** in #930: the digit step of
+      `analysis.latest_ask` reads a page price equal to a change `ads.kept_changes` drops, so
+      a tenfold typo corrected on the ad's last day gives way to the page price. On runs 1 to
+      10 that changed the latest ask of 12 ended ads and left the rows file as it was. Next: a
       check of each latest ask against its building's median, for the rest, and a fallback to
       the last change before a typo in place of the first ask.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
