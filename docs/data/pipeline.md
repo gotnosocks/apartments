@@ -1418,6 +1418,50 @@ when an item here or an entry of the corrections ledger accounts for it.
    nine-area reference, listed from July to October 2026, the two give different bedroom counts
    or sizes.
 
+## Planted errors
+
+To learn which errors in StreetEasy's answers stop at a check and which pass into the rows, I
+plant errors of known kinds in a copy of an export and build both copies with
+`ops/pipeline/plant.py`. Its docstring gives the steps. The script writes each error as
+StreetEasy could give it:
+
+- in a later answer, an hour after the ad's latest one, for a price change to ten times or a
+  tenth of the page price (`ask_x10_latest`, `ask_div10_latest`), another bedroom count
+  (`beds_flip_latest`) or an ACTIVE event in the ad's own history 30 days after the fetch
+  (`future_active`);
+- in every record of the ad, for prices at ten or a hundred times (`ask_x10_all`,
+  `ask_x100_all`) and another bedroom count (`beds_flip_all`). Every other ad's history gives
+  the ad's events at the same prices.
+
+On Oct 16 I planted 50 errors of each kind in the 3% sample of runs 1 to 10, 65,283 ads. Each
+planted ad had a fit-ready row, a page price, a latest ask, 0 to 4 bedrooms and no ledger
+entry. From an empty state the clean build took 96 s and the planted build 77 s, at 1500MB
+for DuckDB and two workers. Rebuilding both from their states took 5 s each.
+
+| kind | result |
+|---|---|
+| `ask_x10_latest` | all 50 keep the clean latest ask: `analysis.latest_ask` takes the first ask, nearer the building's median |
+| `ask_div10_latest` | 49 keep the clean latest ask, and one takes its first ask, $100 under its clean latest ask |
+| `beds_flip_latest` | all 50 dropped for a layout conflict within the ad |
+| `future_active` | all 50 dropped for the future event |
+| `ask_x100_all` | all 50 dropped for an initial ask over $50,000 |
+| `ask_x10_all` | **43 pass into the rows at ten times the ask**, and 7 dropped for an initial ask over $50,000 |
+| `beds_flip_all` | **49 pass into the rows with the other bedroom count**, and one dropped for a layout conflict in its unit's month |
+
+Five ads without an error gained a row in the planted build. A planted ad had superseded each
+of them in its unit's month, and the planted build drops that ad.
+
+An error in every record of an ad leaves the build nothing to compare within the ad. A
+tenfold ask inside $750 to $50,000 needs a check against the building's other rows, and a
+bedroom count needs a size, a floor plan or the unit's other ads. The production rows of Oct 16
+hold errors of the first kind. Of the 1,633,328 kept rows sharing a building and bedroom count
+with at least three others, 73 have a latest ask over five times or under a fifth of the group's
+median, and 32 of those are 8 to 12.5 times it. Some of these ads corrected the typo on their
+last day on the market, and `ads.kept_changes` drops such a change as a placeholder. For a
+bedroom count, 36,273 kept rows give a count none of their unit's other ads give, where at
+least two other ads agree on another count. Many of those are real changes or ads of another
+unit, so a count against the unit can't stand as a check alone.
+
 ## Tests
 
 `pipeline/tests/fixture/` holds the 229 exported records of the ads of five buildings, the five
@@ -1675,6 +1719,11 @@ in all, and most tests add made-up ads to that export. The tests:
     second table listing the file with another hash stops the check. A record differing from
     its answer's hash fails its file on each check, as does an answer with no record and no
     hash. After the record of the checks is cut short, the next check hashes every file again.
+41. plant two errors of each kind in the fixture export with `ops/pipeline/plant.py`, building
+    both copies in the test's process. The planted export passes the config's checks, the
+    tenfold asks of the later answers keep their clean latest asks, the bedroom counts of the
+    later answers, the future events and the hundredfold asks drop their ads, and the tenfold
+    asks and bedroom counts in every record pass into the rows.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
