@@ -1609,6 +1609,55 @@ def test_every_row_audit_catches_a_lost_row(tmp_path, monkeypatch):
     ]
 
 
+def test_rewritten_file_without_a_new_hash_stops_the_load(tmp_path, monkeypatch):
+    """An export file written again under its old manifest line stops the next load, though
+    the file keeps its old modification time."""
+    export = copy_export(tmp_path)
+    context(monkeypatch, tmp_path / "state", export)
+    line = json.loads((export / "manifest.ndjson").read_text().splitlines()[0])
+    path = export / line["path"]
+    before = path.stat()
+    db = duckdb.connect()
+    db.execute(
+        f"COPY (SELECT * FROM '{path}') TO '{path}.new' (FORMAT parquet, COMPRESSION gzip)"
+    )
+    Path(f"{path}.new").replace(path)
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+    with pytest.raises(Exception, match="differs from its SHA-256 in the manifest"):
+        context(monkeypatch, tmp_path / "state", export)
+
+
+def test_record_with_another_hash_stops_the_plan(tmp_path, monkeypatch):
+    """An answer giving a record with another record's SHA-256 stops the plan at
+    ads.record_attributes, before the workers parse it."""
+    export = copy_export(tmp_path)
+    db = duckdb.connect(config={"TimeZone": "UTC"})
+    answers = db.execute(
+        "SELECT * FROM read_parquet(?) WHERE outcome = 'record' ORDER BY response_id",
+        [str(FIXTURE / "export/ads/*/*.parquet")],
+    ).df()
+    planted = answers.tail(1)
+    planted = planted.assign(
+        fetched=planted.fetched + pd.Timedelta(days=8),
+        response_id=answers.response_id.max() + 1,
+        run=5,
+        record_sha256=hashlib.sha256(b"planted").hexdigest(),
+    )
+    append_answers(export, planted)
+    console = Failures()
+    monkeypatch.setattr(sqlmesh.core.console, "_CONSOLE", console)
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    with pytest.raises(PlanError):
+        ctx.plan(auto_apply=True, no_prompts=True)
+    message = (
+        f"a record of raw.ads differs from its hash {planted.record_sha256.iloc[0]}"
+    )
+    assert [e.node.snapshot_name for e in console.failed] == [
+        '"pipeline"."ads"."record_attributes"'
+    ]
+    assert str(console.failed[0].__cause__).strip().endswith(message)
+
+
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     """The pipeline's config module, reading its manifest from an empty folder."""
@@ -1682,3 +1731,37 @@ def test_exported_reads_whole_lines(config):
     write(("other/c", "3", "other"))
     with pytest.raises(ValueError, match="lists no ads files"):
         config.exported("ads")
+
+
+def test_check_files_hashes_new_or_changed_files(config, monkeypatch):
+    first, second = config.EXPORT / "first", config.EXPORT / "second"
+    first.write_bytes(b"one")
+    second.write_bytes(b"two")
+    listed = {
+        "first": hashlib.sha256(b"one").hexdigest(),
+        "second": hashlib.sha256(b"two").hexdigest(),
+    }
+    hashed = []
+    file_sha256 = config.file_sha256
+    monkeypatch.setattr(
+        config,
+        "file_sha256",
+        lambda path: hashed.append(path.name) or file_sha256(path),
+    )
+    config.check_files(listed)
+    assert hashed == ["first", "second"]
+    # A file keeping its stat and its hash isn't read again.
+    config.check_files(listed)
+    assert hashed == ["first", "second"]
+    # A new modification time gives the file another read, and it passes.
+    os.utime(second, ns=(1, 1))
+    config.check_files(listed)
+    assert hashed == ["first", "second", "second"]
+    # So does a new hash in the manifest, and the file fails it.
+    with pytest.raises(ValueError, match="second differs from its SHA-256"):
+        config.check_files({**listed, "second": hashlib.sha256(b"2").hexdigest()})
+    first.write_bytes(b"three")
+    for _ in range(2):
+        with pytest.raises(ValueError, match="first differs from its SHA-256"):
+            config.check_files(listed)
+    assert hashed[-2:] == ["first", "first"]

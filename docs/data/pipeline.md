@@ -43,6 +43,13 @@ rewritten ads file changes `raw.ads`, and the next plan rebuilds it and every mo
 new buildings file changes `raw.buildings`, and the next plan rebuilds it, `buildings.details`,
 `ads.identity`, the fit-ready rows and their latest asks.
 With unchanged inputs, a plan builds nothing.
+
+Before the models load, `config.py` hashes each listed file and stops at the first one with
+bytes differing from the manifest's SHA-256. It keeps each file's hash with the file's size,
+inode, modification time and change time in `export-hashes.json` in the state folder, and a
+later load hashes only the new or changed files. Writing a file back with its old modification
+time still gives it a new change time. On Oct 16 the 99 files of the export, 3.2 GiB, took
+6.9 s to hash, and a stat of all of them took under a millisecond.
 SQLMesh also fingerprints a Python model by the text of the values its code reads. The text of
 a set of strings changes with the process's hash seed, so the Python models keep such values in
 tuples. A test looks for sets in those values and compares every fingerprint under two seeds.
@@ -50,6 +57,11 @@ tuples. A test looks for sets in those values and compares every fingerprint und
 `raw.ads` holds every answer, including the API's empty answers, marked `missing`.
 `ads.latest_record` reads only answers with a record, so an ad whose latest answer came back
 empty keeps its last record, as in `rentfrontier.latest_ask`.
+
+`ads.record_attributes` hands each distinct record to its workers once, from the first answer
+giving its `record_sha256`, and DuckDB hashes the record on the way. The build stops when the
+two hashes differ. A later answer repeating the hash goes unhashed, and the file check above
+covers its bytes.
 
 ## City records
 
@@ -1608,7 +1620,14 @@ in all, and most tests add made-up ads to that export. The tests:
     The last two have an earlier answer listing changes their later answer leaves out: the
     sixth's lists two more changes off the market after it rents, and the seventh's ends it.
     The row takes the break and the last change from the later answer. Then the test checks
-    that each ad with a record has one row.
+    that each ad with a record has one row;
+38. write an export file again under its old manifest line with another compression, and put
+    back its modification time. The next load stops at the file;
+39. add an answer giving a record with another record's hash. The plan stops at
+    `ads.record_attributes`;
+40. run `check_files` on two made-up files. A second check hashes neither, a new modification
+    time gets a file hashed again, a new hash in the manifest fails a file, and a file with new
+    bytes fails each check.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

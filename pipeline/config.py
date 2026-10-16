@@ -30,6 +30,11 @@ manifest's line for the file is replaced. An appended second line with another h
 same path stops the build, as `exported` raises. A new or rewritten export file thus gives a raw
 view a new fingerprint, and the next plan rebuilds that view and every model below it. With the
 same inputs, a plan rebuilds nothing.
+
+Before the models load, the config checks each listed file's bytes against the manifest's
+SHA-256 with `check_files`, and stops at the first file differing from its line. It keeps each
+checked file's stat record in the state folder, so a later load hashes only new or changed
+files.
 """
 
 import hashlib
@@ -100,6 +105,34 @@ def exported(table):
     return [str(EXPORT / path) for path in paths], version, {p: files[p] for p in paths}
 
 
+def check_files(listed):
+    """Stop when a listed export file differs from its SHA-256 in the manifest.
+
+    `listed` maps paths under EXPORT to the manifest's hashes. STATE/export-hashes.json keeps
+    each checked file's hash with its size, inode, modification time and change time. A file
+    keeping all four and its hash since the last check isn't read again. Writing a file back
+    with its old modification time still gives it a new change time."""
+    record = STATE / "export-hashes.json"
+    try:
+        known = json.loads(record.read_text())
+    except FileNotFoundError:
+        known = {}
+    checked = {}
+    for path, digest in sorted(listed.items()):
+        file = EXPORT / path
+        # The stat comes before the hash, so a file changing during the hash gets a new stat
+        # by the next load.
+        info = file.stat()
+        entry = [digest, info.st_size, info.st_ino, info.st_mtime_ns, info.st_ctime_ns]
+        if known.get(str(file)) != entry and file_sha256(file) != digest:
+            raise ValueError(f"{file} differs from its SHA-256 in the manifest")
+        checked[str(file)] = entry
+    if checked != known:
+        part = record.with_name(f"{record.name}.{os.getpid()}.part")
+        part.write_text(json.dumps(checked, indent=0, sort_keys=True))
+        os.replace(part, record)
+
+
 def file_sha256(path):
     digest = hashlib.sha256()
     with open(path, "rb") as f:
@@ -123,6 +156,7 @@ city = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(city)
 city_tables, city_files = city.unpack(CITY, CITY_CACHE)
 STATE.mkdir(parents=True, exist_ok=True)
+check_files({**ads_files, **buildings_files})
 
 config = Config(
     gateways={

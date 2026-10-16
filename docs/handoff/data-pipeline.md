@@ -203,7 +203,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `ads.history_reports`. As one query it spilled at `PIPELINE_MEMORY=3GB`, and in the
       service's build at 09:53 ET on Oct 16 it ran out of memory; the next build, at 11:38 ET,
       passed. Apart, the two tables take about 10 s each, and a full scratch build of runs 1 to
-      10 passed in 199 s at a 4,188 MiB peak with the same rows file.
+      10 passed in 199 s at a 4,188 MiB peak with the same rows file;
+   8. **Done** in #PR: planted errors, for the request's done criteria. `config.py` checks each
+      export file against the manifest's SHA-256 before the models load, hashing only new or
+      changed files, and `ads.record_attributes` checks each record it parses against its
+      `record_sha256`. The tests plant a rewritten file under its old line, a record with
+      another hash, a path with two hashes, a repeated answer, a lost row and ledger entries
+      without backing, and each stops the load or the plan. Planted data errors, such as a
+      flipped layout, an extreme or tenfold ask and a future date, still need their checks.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
