@@ -24,12 +24,15 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
    drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
-   asks (#881), from the event log since #883.
+   asks (#881), from the event log since #883. Since Oct 16 `steps/attributes.py` also reads
+   a pet fee in the description as pets allowed when nothing else gives a policy, at Ben's
+   suggestion and as NB9's ad fills do; it is the projection's one departure from the chain.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
    models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
    rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
-   `ops/pipeline/ledger_import.py`.
+   `ops/pipeline/ledger_import.py`. #921 added the studio Ben read from the floor plan of
+   333 W 56th St #3E, from `bedrooms-ad-v8`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
    rule `canonical-url-v1`, `ops/pipeline/city.py` keeps the city records for the lots
@@ -47,8 +50,9 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    unit runs it after each export (#887).
 9. Delete the page-capture rewrite once its two readers move: Data improvements'
    `granular_export` inputs and the website's current-listings publish in
-   `src/streeteasy_archive/graphql_search.py`. **Started**: each build writes `analysis.ads`,
-   every ad with a record, to `ads-<hash>.parquet` beside the rows file, for both readers.
+   `src/streeteasy_archive/graphql_search.py`. **Started**: since #919 each production build
+   writes `analysis.ads`, every ad with a record, to `ads-<hash>.parquet` beside the rows file,
+   for both readers.
 
 ## Raw layer
 

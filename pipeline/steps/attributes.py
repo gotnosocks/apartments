@@ -1,4 +1,5 @@
-"""Each API record's attributes and rental flags, as the current chain reads them.
+"""Each API record's attributes and rental flags, as the current chain reads them, with a pet
+fee read from the description.
 
 The current chain parses each stored answer with `apartments.graphql_listing` into a capture,
 and `apartments.historical_dataset.project_advertisement` then reads each capture of an ad. For
@@ -14,6 +15,11 @@ a record of the export, `project` repeats both steps:
 3. It calls `analytical.attributes` and `analytical._rental_flags`, and it marks the ad
    furnished when the flag is unknown and `historical_dataset._description_furnished` finds a
    furnished phrase in the description.
+4. When none of those steps gives a pet policy and the evidence holds no conflict over one, it
+   looks for a pet fee in the description with `PET_FEE`. On finding one, it gives the record
+   the policy `allowed_restrictions_unknown`. A ban in the description gives `not_allowed`
+   in step 2, so the fee never overrides one. The chain reads no fees, and this step is the
+   projection's one departure from it.
 
 The projection depends on the record alone. The ask comes from the ad's events. For API
 records the chain runs no description recovery, and its ledger of corrections is empty.
@@ -35,6 +41,13 @@ from apartments.historical_dataset import _description_furnished
 
 FLAGS = ("furnished", "short_term", "concession")
 KEYS = analytical.ATTRIBUTE_KEYS + FLAGS
+# A pet fee, deposit, rent or charge in any spelling, as NB9's ad fills read one. A building
+# charging for pets takes them in some form, and it holds for "no pet fee" as well: of the NB9
+# rows with a pet code and a description matching this, 1,065 of 1,066 are coded allowed.
+PET_FEE = re.compile(
+    r"\bpets? (?:fees?|deposits?|rent|charges?)\b|\bpet[- ](?:fee|deposit)s?\b"
+    r"|\b(?:fees?|deposits?|charges?) (?:for|per) (?:pets?|dogs?|cats?)\b"
+)
 
 
 def normalize(value):
@@ -101,6 +114,12 @@ def project(record):
     description = str(listing.get("description") or "").lower()
     if flags["furnished"] is None and _description_furnished(description):
         flags["furnished"] = True
+    if (
+        values["pet_policy"] is None
+        and "pet_policy" not in evidence.get("conflicts", {})
+        and PET_FEE.search(re.sub(r"\s+", " ", description))
+    ):
+        values["pet_policy"] = "allowed_restrictions_unknown"
     values.update(flags)
     return record_id, {
         key: None if values[key] is None else canonical(values[key]) for key in KEYS
