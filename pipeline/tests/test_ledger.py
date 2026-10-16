@@ -141,7 +141,14 @@ def write(folder, name, lines):
             "a retract takes no when",
         ),
         (set_("1", {"bedrooms": 10**400}, {"bedrooms": 1}), "finite number"),
-        (set_("1", {"full_baths": 2**63}, {"full_baths": 1}), "below 2**63"),
+        (
+            set_(
+                "1",
+                {"full_baths": 2**63, "half_baths": 0},
+                {"full_baths": 1, "half_baths": 0},
+            ),
+            "takes a number below",
+        ),
     ],
 )
 def test_parse_refuses(text, error):
