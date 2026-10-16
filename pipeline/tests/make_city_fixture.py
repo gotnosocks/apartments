@@ -11,7 +11,10 @@ buildings, along with a manifest in the archive's form. The script works in thes
    than the header, and the last two records of the member. It finds a record's block from
    the record's BBL, or from its borough and block columns. The kept records keep their bytes,
    and a member keeps its line breaks and a final DOS end-of-file byte.
-4. It writes each zip with its tables in the archive's order, leaving out the documents and
+4. It cuts PAD's street name dictionary to its header record, the names of each street of the
+   kept address ranges, the type S records with one of those streets as a progenitor, and the
+   last two records.
+5. It writes each zip with its tables in the archive's order, leaving out the documents and
    folders, and each CSV gzipped with no name and a time of 0. It copies each file's manifest
    line with the new size and SHA-256.
 
@@ -33,7 +36,6 @@ import re
 import zipfile
 from collections import deque
 from collections.abc import Iterator
-from itertools import islice
 from pathlib import Path
 
 ARCHIVE = Path("/data1/apartments/archive/city")
@@ -100,22 +102,53 @@ def cut(stream) -> bytes:
     return b"".join(kept + list(last))
 
 
+def streets(data: bytes) -> set[tuple[str, str]]:
+    """The borough and 5-digit street code of each address range in a cut `bobaadr.txt`."""
+    header, *rows = csv.reader(io.StringIO(data.decode("latin-1")))
+    header = [n.strip().lower() for n in header]
+    boro, sc5 = header.index("boro"), header.index("sc5")
+    return {(r[boro], r[sc5]) for r in rows if len(r) == len(header)}
+
+
+def cut_streets(stream, kept_streets: set[tuple[str, str]]) -> bytes:
+    """Keep the street name dictionary's header record, each name of a street in
+    `kept_streets`, each type S record with a progenitor in `kept_streets`, and the last two
+    records. The positions come from SND_metadata.pdf, counted from 0."""
+    first, *records = list(stream)
+    kept = [first]
+    for record in records[:-2]:
+        text = record.decode("latin-1")
+        if text[50] == "S":
+            codes = [(text[56], text[57:62]), (text[72], text[73:78])]
+        else:
+            codes = [(text[36], text[37:42])]
+        if any(code in kept_streets for code in codes):
+            kept.append(record)
+    return b"".join(kept + records[-2:])
+
+
 def write_zip(source: Path, out: Path):
-    with zipfile.ZipFile(source) as z, zipfile.ZipFile(out, "w") as w:
-        for info in z.infolist():
-            name = info.filename
-            if not name.lower().endswith((".txt", ".csv")):
-                continue
-            with z.open(info) as stream:
-                # PAD's street name table is fixed-width and holds no blocks. The city tables
-                # leave it out, and the fixture keeps its first two lines.
-                if re.fullmatch(r"snd.*\.txt", name, re.I):
-                    data = b"".join(islice(stream, 2))
-                else:
-                    data = cut(stream)
+    with zipfile.ZipFile(source) as z:
+        names = [
+            i.filename
+            for i in z.infolist()
+            if i.filename.lower().endswith((".txt", ".csv"))
+        ]
+        data = {}
+        for name in names:
+            if not re.fullmatch(r"snd\w+\.txt", name):
+                with z.open(name) as stream:
+                    data[name] = cut(stream)
+        kept_streets = streets(data["bobaadr.txt"]) if "bobaadr.txt" in data else set()
+        for name in names:
+            if name not in data:
+                with z.open(name) as stream:
+                    data[name] = cut_streets(stream, kept_streets)
+    with zipfile.ZipFile(out, "w") as w:
+        for name in names:
             entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             entry.compress_type = zipfile.ZIP_DEFLATED
-            w.writestr(entry, data)
+            w.writestr(entry, data[name])
 
 
 def write_gzip(source: Path, out: Path):

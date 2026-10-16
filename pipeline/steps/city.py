@@ -15,7 +15,9 @@ these steps:
    can't decode.
 3. DuckDB reads the copy as CSV, with every value as text. Each column name goes to lower
    case. A row with too few or too many values goes to the folder's `rejects.parquet`, with
-   DuckDB's line number for it, DuckDB's reason and the row's text, and the read goes on.
+   DuckDB's line number for it, DuckDB's reason and the row's text, and the read goes on. A
+   table in `LINES` has records of fixed width, and DuckDB reads each record whole, as the
+   column `line`. The table's model cuts the record into fields.
 4. It writes each table member to a Parquet file, with these columns after the member's own:
    - `release` and `published`, from the manifest line;
    - `file`, the path of the archive's file, and `member`, the member of the zip;
@@ -34,7 +36,7 @@ unpack with an error.
 `TABLES` gives the members each table takes. `unpack` returns each table's Parquet files,
 sorted, with the rejected rows under `rejects`, along with each listed file of a source the
 tables read and its SHA-256. For a table with no file in the archive, it returns an empty file
-with only the added columns.
+with only the added columns, and `line` for a table in `LINES`.
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ import gzip
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
 import zipfile
@@ -58,12 +61,15 @@ import duckdb
 TABLES = {
     "pad_addresses": ("pad", lambda name: name == "bobaadr.txt"),
     "pad_lots": ("pad", lambda name: name == "bobabbl.txt"),
+    # PAD's street name dictionary, as `snd26Ccow.txt` in 26c.
+    "pad_streets": ("pad", lambda name: re.fullmatch(r"snd\w+\.txt", name) is not None),
     "pluto": ("pluto", lambda name: name.lower().endswith((".txt", ".csv"))),
     "footprints": ("footprints", lambda name: name == ""),
     "landmarks": ("landmarks", lambda name: name == ""),
     "dob_now_co": ("dob_now_co", lambda name: name == ""),
     "dob_co": ("dob_co", lambda name: name == ""),
 }
+LINES = {"pad_streets"}
 # A new DuckDB may read a CSV differently, so its version goes into the hash with the code.
 CODE = hashlib.sha256(
     Path(__file__).read_bytes() + duckdb.__version__.encode()
@@ -123,20 +129,32 @@ def copy_member(path: Path, member: str, out: Path) -> str:
     return encoding
 
 
-def read_csv(path: Path, encoding: str) -> str:
+def read_csv(path: Path, encoding: str, lines: bool = False) -> str:
+    if lines:
+        # The byte 0x01 as the delimiter, and no quotes, give each record whole. A record holding
+        # that byte would have two values and go to the rejects. With the sniffer off, DuckDB
+        # takes the first record as a row.
+        return (
+            f"read_csv('{path}', auto_detect = false, header = false, "
+            f"columns = {{'line': 'VARCHAR'}}, "
+            f"delim = '\x01', quote = '', escape = '', strict_mode = true, "
+            f"encoding = '{encoding}', store_rejects = true)"
+        )
     return (
         f"read_csv('{path}', header = true, all_varchar = true, delim = ',', quote = '\"', "
         f"escape = '\"', strict_mode = true, encoding = '{encoding}', store_rejects = true)"
     )
 
 
-def write_member(db, copy: Path, encoding: str, entry: dict, member: str, out: Path):
+def write_member(
+    db, copy: Path, encoding: str, entry: dict, member: str, out: Path, lines: bool
+):
     """Write the CSV `copy` of a member to the Parquet file `out`, and add the rows DuckDB
     refuses to the `rejects` table."""
     names = [
         row[0]
         for row in db.sql(
-            f"DESCRIBE SELECT * FROM {read_csv(copy, encoding)}"
+            f"DESCRIBE SELECT * FROM {read_csv(copy, encoding, lines)}"
         ).fetchall()
     ]
     columns = ", ".join(
@@ -150,7 +168,7 @@ def write_member(db, copy: Path, encoding: str, entry: dict, member: str, out: P
         f"""COPY (
             SELECT {columns}, ? AS release, ?::TIMESTAMPTZ AS published, ? AS file,
                 ? AS member, ordinality AS record, ? AS encoding
-            FROM {read_csv(copy, encoding)} WITH ORDINALITY
+            FROM {read_csv(copy, encoding, lines)} WITH ORDINALITY
         ) TO '{out}' (FORMAT parquet, COMPRESSION zstd)""",
         [*values, encoding],
     )
@@ -193,7 +211,13 @@ def unpack_file(archive: Path, entry: dict, folder: Path):
             copy = part / "member.csv"
             encoding = copy_member(path, member, copy)
             write_member(
-                db, copy, encoding, entry, member, part / f"{table}-{i}.parquet"
+                db,
+                copy,
+                encoding,
+                entry,
+                member,
+                part / f"{table}-{i}.parquet",
+                table in LINES,
             )
             copy.unlink()
     db.execute(
@@ -265,7 +289,10 @@ def empty(code: Path, table: str) -> Path:
     path = code / f"empty-{table}.parquet"
     if not path.exists():
         db = duckdb.connect()
-        db.execute(f"CREATE TABLE empty ({REJECTS if table == 'rejects' else ADDED})")
+        columns = {"rejects": REJECTS}.get(table, ADDED)
+        if table in LINES:
+            columns = f"line VARCHAR, {ADDED}"
+        db.execute(f"CREATE TABLE empty ({columns})")
         db.execute(f"COPY empty TO '{path}.part' (FORMAT parquet)")
         db.close()
         fsync(Path(f"{path}.part"))
@@ -293,6 +320,11 @@ def sweep(cache: Path):
                 try:
                     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except BlockingIOError:
+                    continue
+                # Another sweep may have moved the folder after this one opened the lock file,
+                # and a load may have made a new folder in its place. The sweep then leaves
+                # the new folder alone.
+                if os.stat(code / ".lock").st_ino != os.fstat(lock.fileno()).st_ino:
                     continue
                 if time.time() - os.fstat(lock.fileno()).st_mtime <= WEEK:
                     continue

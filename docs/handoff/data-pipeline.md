@@ -205,14 +205,21 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `city.*` view for each table gives each release's rows with its date. The whole archive
       took 589 to 597 s with a peak of 1.1 to 1.5 GiB and gave 3.1 GB of Parquet, and a load
       with the cache in place takes under 0.1 s. The production cache,
-      `/data1/apartments/pipeline/city`, was filled before the merge (code `a0248071cb37d8bb`). `ops/pipeline/sample.py` doesn't cut the city archive
-      yet. The next edit to `steps/city.py` should also have `sweep` compare the locked inode
-      with `code / ".lock"` before its rename, as `lock_code` does: two sweeps and a load at
-      once can otherwise move the load's new folder away;
-   3. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
+      `/data1/apartments/pipeline/city`, was filled before the merge (code `a0248071cb37d8bb`).
+      `ops/pipeline/sample.py` doesn't cut the city archive yet;
+   3. PAD's street name dictionary, `snd<release>cow.txt` in each PAD zip, as
+      `city.pad_streets`. Each record is 200 characters of fixed-width fields, so the step keeps
+      it whole as `line` and the view cuts it up. PAD's address ranges give only a street's
+      principal name, such as AVENUE OF THE AMERICAS, and the dictionary adds the others, such
+      as 6 AVENUE, under the same code. The 14 releases from 23b to 26c hold 111,558 to 121,069
+      names each. The same PR has `sweep` check that the lock file it holds is still the
+      folder's, so two sweeps and a load at once leave the load's new folder alone. Every edit
+      to `steps/city.py` unpacks the whole archive again, about 10 minutes, so the production
+      cache gets the head's `steps/city.py` before each merge, through the build's venv;
+   4. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
       the footprint holding its `geoCenter`, each link with a score. The step measures its
       error rate against Data improvements' registry and reviewed answers;
-   4. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
+   5. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
       the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates
       issued before the ad.
 
