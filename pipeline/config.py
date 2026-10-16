@@ -114,7 +114,8 @@ def check_files(*tables):
     hash with its size, inode, modification time and change time. A file keeping all four and
     its hash since the last check isn't read again. Writing a file back with its old
     modification time still gives it a new change time. A record file the config can't read
-    gets every file checked again."""
+    or parse gets every file checked again. When a file fails, the record keeps the files
+    checked before it."""
     import duckdb
 
     listed = {}
@@ -125,36 +126,47 @@ def check_files(*tables):
     record = STATE / "export-hashes.json"
     try:
         known = json.loads(record.read_text())
-    except (FileNotFoundError, ValueError):
+    except (OSError, ValueError):
         known = {}
     if not isinstance(known, dict):
         known = {}
     checked = {}
     db = None
-    for path, digest in sorted(listed.items()):
-        file = EXPORT / path
-        # The stat comes before the hash, so a file changing during the hash gets a new stat
-        # by the next load.
-        info = file.stat()
-        entry = [digest, info.st_size, info.st_ino, info.st_mtime_ns, info.st_ctime_ns]
-        if known.get(str(file)) != entry:
-            if file_sha256(file) != digest:
-                raise ValueError(f"{file} differs from its SHA-256 in the manifest")
-            db = db or duckdb.connect(config={"memory_limit": "1GB", "threads": 4})
-            other = db.execute(
-                """SELECT response_id FROM read_parquet(?) WHERE outcome = 'record'
-                AND sha256(record) IS DISTINCT FROM record_sha256 LIMIT 1""",
-                [str(file)],
-            ).fetchone()
-            if other:
-                raise ValueError(
-                    f"the record of answer {other[0]} in {file} differs from its hash"
-                )
-        checked[str(file)] = entry
-    if checked != known:
-        part = record.with_name(f"{record.name}.{os.getpid()}.part")
-        part.write_text(json.dumps(checked, indent=0, sort_keys=True))
-        os.replace(part, record)
+    try:
+        for path, digest in sorted(listed.items()):
+            file = EXPORT / path
+            # The stat comes before the hash, so a file changing during the hash gets a new
+            # stat by the next load.
+            info = file.stat()
+            entry = [
+                digest,
+                info.st_size,
+                info.st_ino,
+                info.st_mtime_ns,
+                info.st_ctime_ns,
+            ]
+            if known.get(str(file)) != entry:
+                if file_sha256(file) != digest:
+                    raise ValueError(f"{file} differs from its SHA-256 in the manifest")
+                db = db or duckdb.connect(config={"memory_limit": "1GB", "threads": 4})
+                # An answer giving a record has a record, and a missing one counts as
+                # differing from its hash.
+                other = db.execute(
+                    """SELECT response_id FROM read_parquet(?) WHERE outcome = 'record'
+                    AND (record IS NULL OR sha256(record) IS DISTINCT FROM record_sha256)
+                    LIMIT 1""",
+                    [str(file)],
+                ).fetchone()
+                if other:
+                    raise ValueError(
+                        f"the record of answer {other[0]} in {file} differs from its hash"
+                    )
+            checked[str(file)] = entry
+    finally:
+        if checked != known:
+            part = record.with_name(f"{record.name}.{os.getpid()}.part")
+            part.write_text(json.dumps(checked, indent=0, sort_keys=True))
+            os.replace(part, record)
 
 
 def file_sha256(path):

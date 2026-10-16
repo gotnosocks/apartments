@@ -52,7 +52,9 @@ attributes from `ads.record_attributes`, whose cache goes by the hash. The confi
 checked file's hash with the file's size, inode, modification time and change time in
 `export-hashes.json` in the state folder, and a later load checks only the new or changed
 files. Writing a file back with its old modification time still gives it a new change time.
-On Oct 16 the 47 ads and buildings files of the export, 3.2 GiB, took 3 to 7 s to hash, and
+When a file fails, the record keeps the files checked before it, so the next load starts the
+checks again from the failing file. On Oct 16 the 47 ads and buildings files of the export,
+3.2 GiB, took 3.2 s to hash from the page cache, and
 their 2,232,461 records took 37 s on four threads, with no record differing from its hash. A
 stat of all of them took under a millisecond.
 
@@ -1669,9 +1671,10 @@ in all, and most tests add made-up ads to that export. The tests:
     of no record. The next load stops at the answer;
 40. run `check_files` on two made-up export files. A second check hashes neither. The same
     bytes written back with the old modification time get a file hashed again, and it passes.
-    A new hash in the manifest fails a file, as does a second table listing the file with
-    another hash. A record differing from its answer's hash fails its file on each check. After
-    the record of the checks is cut short, the next check hashes every file again.
+    A new hash in the manifest fails a file, and the next check hashes only that file again. A
+    second table listing the file with another hash stops the check. A record differing from
+    its answer's hash fails its file on each check, as does an answer with no record and no
+    hash. After the record of the checks is cut short, the next check hashes every file again.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

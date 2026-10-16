@@ -1740,10 +1740,14 @@ def test_exported_reads_whole_lines(config):
 
 
 def answer_file(path, record, digest):
-    """Write an export file at `path` with an answer giving `record` under `digest`."""
+    """Write an export file at `path` with an answer giving `record` under `digest`. Either can
+    be None."""
     duckdb.connect().execute(
-        f"""COPY (SELECT 1::BIGINT AS response_id, 'record' AS outcome,
-        '{digest}' AS record_sha256, '{record}' AS record) TO '{path}' (FORMAT parquet)"""
+        """COPY (SELECT 1::BIGINT AS response_id, 'record' AS outcome,
+        ?::VARCHAR AS record_sha256, ?::VARCHAR AS record) TO '{}' (FORMAT parquet)""".format(
+            path
+        ),
+        [digest, record],
     )
     return path
 
@@ -1777,6 +1781,9 @@ def test_check_files_hashes_new_or_changed_files(config, monkeypatch):
     # So does a new hash in the manifest, and the file fails it.
     with pytest.raises(ValueError, match="second differs from its SHA-256"):
         config.check_files({**listed, "second": sha("2")})
+    # The record keeps the file checked before the failing one.
+    config.check_files(listed)
+    assert hashed == ["first"] + ["second"] * 4
     # A path with two hashes in two tables stops the check.
     with pytest.raises(ValueError, match="manifest gives second two hashes"):
         config.check_files(listed, {"second": sha("2")})
@@ -1798,3 +1805,8 @@ def test_check_files_hashes_new_or_changed_files(config, monkeypatch):
     hashed.clear()
     config.check_files(listed)
     assert hashed == ["first", "second"]
+    # An answer giving a record with no record and no hash fails too.
+    answer_file(first, None, None)
+    listed["first"] = file_sha256(first)
+    with pytest.raises(ValueError, match="answer 1 in .*first differs from its hash"):
+        config.check_files(listed)
