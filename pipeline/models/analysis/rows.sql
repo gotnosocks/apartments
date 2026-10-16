@@ -3,7 +3,7 @@ MODEL (
     kind VIEW,
     grain listing_id,
     audits (unique_values(columns := (listing_id))),
-    description 'The fit-ready rows: the kept rows less the ads the corrections ledger excludes, with the values its live sets give.'
+    description 'The fit-ready rows: the kept rows less the ads the corrections ledger excludes and the rows analysis.ask_check lists, with the values the ledger''s live sets give.'
 );
 
 -- ledger.status leaves at most one live set for each field of a row. A bath set gives the full
@@ -32,3 +32,4 @@ SELECT k.* REPLACE (
 FROM analysis.kept k
 LEFT JOIN sets s USING (listing_id)
 WHERE k.listing_id NOT IN (SELECT listing_id FROM live WHERE change = 'exclude')
+    AND k.listing_id NOT IN (SELECT listing_id FROM analysis.ask_check)

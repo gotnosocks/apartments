@@ -34,10 +34,10 @@ The script works in these steps:
 4. It builds WORK/planted/export into WORK/planted the same way.
 5. It compares the two builds ad by ad, reading the ask from the ads file's `latest_ask` and
    the bedrooms from the rows file. For each kind it counts the planted ads the planted build
-   drops, by the reasons the ads file gives, and the ads it keeps with their clean value, with
-   the planted value or with another value. For the ask errors it counts the kept ads by the
-   step of `analysis.latest_ask` giving the ask, its `how`, read from the planted build's
-   state. It also counts the ads without an error whose row changes between the builds, as a
+   drops, by the reasons the ads file gives, its ask check included, and the ads it keeps with
+   their clean value, with the planted value or with another value. For the ask errors it
+   counts the kept ads by the step of `analysis.latest_ask` giving the ask, its `how`, read
+   from the planted build's state. It also counts the ads without an error whose row changes between the builds, as a
    planted ad's error can move its building's median ask. It prints the counts and writes
    them to WORK/report.json.
 
@@ -434,7 +434,7 @@ def run(
     ]
     db.register("key", pd.DataFrame(rows))
     side = """SELECT a.listing_id, a.in_rows, a.latest_ask, r.bedrooms, a.exclusion_reasons,
-        a.identity_reasons, a.fate
+        a.identity_reasons, a.ask_check IS NOT NULL AS ask_checked, a.fate
         FROM read_parquet('{ads}') a LEFT JOIN read_parquet('{rows}') r USING (listing_id)"""
     db.execute(f"CREATE TEMP VIEW c AS {side.format(ads=clean_ads, rows=clean_rows)}")
     db.execute(
@@ -444,7 +444,11 @@ def run(
         """SELECT k.kind, k.listing_id, k.value::DOUBLE AS value,
             c.latest_ask AS clean_latest_ask, c.bedrooms AS clean_bedrooms,
             p.in_rows, p.latest_ask, p.bedrooms,
-            list_concat(p.exclusion_reasons, p.identity_reasons) AS reasons, p.fate
+            list_concat(
+                p.exclusion_reasons,
+                p.identity_reasons,
+                CASE WHEN p.ask_checked THEN ['ask_check'] ELSE []::VARCHAR[] END
+            ) AS reasons, p.fate
         FROM key k JOIN c USING (listing_id) JOIN p USING (listing_id)
         ORDER BY k.kind, k.listing_id"""
     ).fetchdf()

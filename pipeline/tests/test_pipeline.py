@@ -265,6 +265,101 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
     }
 
 
+def test_ask_check_cases(tmp_path, monkeypatch):
+    """analysis.ask_check lists these made-up rows of building 900030, and analysis.rows drops
+    them:
+
+    - ad 9000145 asks $31,000. The building's other one-bedrooms ask $2,900 to $3,200 and one
+      asks $16,500, so their median is $3,050.
+    - ad 9000154 asks $1,250. The building's other three-bedrooms ask $11,800 to $12,500.
+
+    The check leaves these rows in:
+
+    - ad 9000146 asks $16,500, 5.4 times the median of the other one-bedrooms.
+    - ad 9000149 asks $40,000, ten times the building's other two-bedrooms, but they are only
+      two."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    tower = json.dumps({"id": "900030", "slug": "900030-case-street-new_york"})
+    append_answers(
+        export,
+        answers("building_id", [("900030", tower)], 40, "2026-09-01T12:00Z"),
+        "buildings",
+    )
+
+    def ad(listing_id, unit, ask, beds):
+        """A record of ad `listing_id` for `unit` of building 900030, asking `ask` from May 1,
+        with `ask` as its page price."""
+        pricing = {
+            "price": ask,
+            "priceChanges": [
+                {"changedAt": "2026-05-01T10:00:00.000-04:00", "price": ask}
+            ],
+        }
+        text = row_record(
+            listing_id,
+            "2026-05-01",
+            unit,
+            building="900030",
+            beds=beds,
+            ask=ask,
+            pricing=pricing,
+        )
+        return listing_id, text
+
+    asks = {
+        1: [3000, 3100, 2900, 3200, 3000, 31000, 16500],
+        2: [4000, 4100, 40000],
+        3: [12000, 12500, 11800, 12200, 1250],
+    }
+    records, ids = [], {}
+    for beds, prices in asks.items():
+        for i, price in enumerate(prices):
+            listing_id = 9000140 + len(records)
+            ids[(beds, price)] = str(listing_id)
+            records.append(ad(listing_id, f"{i + 1}{'abc'[beds - 1]}", price, beds))
+    assert ids[(1, 31000)] == "9000145"
+    append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+
+    flagged = ctx.fetchdf(
+        """SELECT listing_id, latest_ask, peer_ask, peer_rows, round(ratio, 4) AS ratio
+        FROM analysis.ask_check ORDER BY listing_id"""
+    )
+    assert flagged.to_dict("records") == [
+        {
+            "listing_id": ids[(1, 31000)],
+            "latest_ask": 31000,
+            "peer_ask": 3050,
+            "peer_rows": 6,
+            "ratio": 10.1639,
+        },
+        {
+            "listing_id": ids[(3, 1250)],
+            "latest_ask": 1250,
+            "peer_ask": 12100,
+            "peer_rows": 4,
+            "ratio": 0.1033,
+        },
+    ]
+    rows = set(ctx.fetchdf("SELECT listing_id FROM analysis.rows").listing_id)
+    assert ids[(1, 31000)] not in rows and ids[(3, 1250)] not in rows
+    assert ids[(1, 16500)] in rows and ids[(2, 40000)] in rows
+    ads = ctx.fetchdf(
+        """SELECT listing_id, ask_check, in_rows FROM analysis.ads
+        WHERE listing_id IN (SELECT listing_id FROM analysis.kept)"""
+    ).set_index("listing_id")
+    assert ads.loc[ids[(1, 31000)]].ask_check == {
+        "peer_ask": 3050,
+        "peer_rows": 6,
+        "ratio": 31000 / 3050,
+    }
+    assert not ads.loc[ids[(1, 31000)]].in_rows
+    assert ads.ask_check.isna().sum() == len(ads) - 2
+    assert ads.drop(index=[ids[(1, 31000)], ids[(3, 1250)]]).in_rows.all()
+
+
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     export = copy_export(
         tmp_path, keep=lambda line: line["run"] < 4 or line["table"] == "buildings"
@@ -298,6 +393,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.regions",
         "ads.reported",
         "analysis.ads",
+        "analysis.ask_check",
         "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",
@@ -346,6 +442,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     assert changed(plan) == [
         "ads.identity",
         "analysis.ads",
+        "analysis.ask_check",
         "analysis.building_certificates",
         "analysis.candidates",
         "analysis.kept",

@@ -236,8 +236,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       of Oct 16 that changed the latest ask of 12 ended ads and left the rows file as it was.
       Data improvements wrote latest-ask-v7 with those 12 asks (#932), and in #933 the
       chain's `rentfrontier.latest_ask` reads the page price the same way.
-      Next: a check of each latest ask against its building's median, for the rest, and a
-      fallback to the last change before a typo in place of the first ask.
+      **Done** in #ASKPR: `analysis.ask_check` lists each kept row asking 6 to 16 times, or a
+      sixteenth to a sixth of, the median of at least three other kept rows with its building
+      and bedroom count, and `analysis.rows` drops it. On the planted sample it drops 41 of the
+      43 tenfold asks in every record that passed before. On the export of Oct 16 it lists 46
+      rows and drops 40 the ledger kept. A Sonnet read found 26 mistyped prices, 7 shops or
+      clubs, 5 with another layout or building, 3 income-restricted units, 3 real asks and 2
+      unclear; the section "Ask check" of `docs/data/pipeline.md` has the details. It is a
+      difference from the chain, item 8, and Data improvements has the list.
+      Next: a bedroom check, after a read of the rows a two-source check flags without a
+      planted error, and a fallback to the last change before a typo in place of the first ask.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
