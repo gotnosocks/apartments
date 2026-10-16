@@ -24,7 +24,7 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
    drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
-   asks (#881), from the event log since #PR.
+   asks (#881), from the event log since #883.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -76,7 +76,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `onMarketAt` and `offMarketAt` for all but 272 ads with both, and its ACTIVE days equal
       `daysOnMarket` for 93.8% of ads. Changes at a shared instant follow the record's order
       through `list_index` in `ads.events`.
-   3. **Done** in #PR: the latest ask as a view of the events. `ads.price_changes` reads the
+   3. **Done** in #883: the latest ask as a view of the events. `ads.price_changes` reads the
       price events of each ad's latest record from `ads.events`, and `ads.latest_record` picks
       the latest record from `ads.answers`, so the steps parse no record of their own. On
       runs 1 to 5, the price events match the latest records' changes in set and in order for
