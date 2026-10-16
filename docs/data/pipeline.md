@@ -484,12 +484,12 @@ The event log builds as two tables and a view over them. `ads.answer_events` gro
 the fetches and of the records' status and price changes, and `ads.history_reports` groups the
 events of the unit histories. `ads.events` lists the rows of both, and their `source` keeps the
 two apart. Until Oct 16, `ads.events` grouped both in one query. With DuckDB's limit at 3 GB,
-the setting of `build-latest`, that query spilled and took 57 to 68 s on runs 1 to 5, and in
+the setting of `build-latest`, that query spilled and took 57 to 68 s on runs 1 to 10, and in
 builds it ran out of memory: the service's build at 09:53 ET on Oct 16 stopped there, as did two
 scratch builds that afternoon. At a 2 GB limit it ran out of memory on its own as well. Apart, on
 the same state, the two tables take 7.6 s and 10.3 s at 3 GB, and 7.7 s and 12.7 s at 2 GB.
-Their rows together match the single query's 23,373,166 row for row, by count and by the sum of
-the rows' hashes. `ads.answer_events` orders an ad's answers by a single HUGEINT key, the fetch's
+Together their rows match the single query's 23,373,166 in count and in the sum of the rows'
+hashes. `ads.answer_events` orders an ad's answers by a single HUGEINT key, the fetch's
 microseconds above bit 64 and the `response_id` below. With the `(fetched, response_id)` struct
 the other models use, the table took 9.7 s at 3 GB and 42 s at 2 GB, since `arg_min` and
 `arg_max` hold a struct key as a blob of variable size in each of the 14 million states.
