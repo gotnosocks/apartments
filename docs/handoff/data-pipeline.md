@@ -32,10 +32,13 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `ops/pipeline/ledger_import.py`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
-   rule `canonical-url-v1`, and `ops/pipeline/city.py` keeps the city records for the lots
-   (#896).
+   rule `canonical-url-v1`, `ops/pipeline/city.py` keeps the city records for the lots
+   (#896), and `buildings.lots` gives each building a lot and a BIN with a measured error rate
+   (#904).
 7. Date every outside fact and join it as of the ad's date. **Started**: the city archive gives
-   each release its publisher's date (#896).
+   each release its publisher's date (#896), and `analysis.lot_facts` gives each ad its lot's
+   MapPLUTO facts as of its first day (#906) and `analysis.lot_landmarks` its lot's LPC
+   designations (#911).
 8. Build any named dataset with one command from the raw layer, caching each step by a hash of
    its code, inputs and settings, with one catalog file for datasets, snapshots, ledger versions
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
@@ -218,10 +221,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       cache gets the head's `steps/city.py` before each merge, through the build's venv. For
       #903 the prefill took 9 min 39 s at a 1.3 GiB peak, and a second load 0.09 s (code
       `ccb72ad2839debbe`);
-   4. identity: `buildings.lots` gives each building a lot and a BIN by a PAD address match and
-      by the footprint holding its `geoCenter`, or within 10 m of it. Where the two differ, the
-      lot whose MapPLUTO record shares more of the record's four city facts wins, and `link`
-      says how the lot came. On runs 1 to 10, reviewer subagents judged 240 buildings in seven
+   4. **Done** in #904: `buildings.lots` gives each building a lot and a BIN by a PAD address
+      match and by the footprint holding its `geoCenter`, or within 10 m of it. Where the two
+      differ, the lot whose MapPLUTO record shares more of the record's four city facts wins,
+      and `link` says how the lot came. On runs 1 to 10, reviewer subagents judged 240 buildings in seven
       classes, in `config/reviews/building-identity-20261016.jsonl`. About 520 of 70,141 lots
       are wrong by their answers: 243 where both links agree on a lot that fits fewer than two
       facts (7% wrong), 173 in the ties (36%), 43 with no footprint near the point, 33 where the
@@ -231,9 +234,32 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `ops/pipeline/identity_check.py` rebuilds the models over the export in about 17 s and
       scores a change against the registry and the reviews.
       [pipeline.md](../data/pipeline.md#building-identity) has the tables;
-   5. city facts as of each ad's date: the MapPLUTO release published at least 7 days before
-      the ad, as `plutoasof-v3` takes it, and the landmark designations and certificates
-      issued before the ad.
+   5. **Done** in #906: `city.pluto_releases` records each MapPLUTO release's dates and the
+      fields any lot of the city has a value in, `buildings.lot_releases` keeps each lot's
+      record in each release, typed, and stops on a value it can't cast, and
+      `analysis.lot_facts` gives each candidate ad the facts of the release published at least
+      7 days before its first day, as `plutoasof-v3` does by month. The address, year built and
+      coordinates come from the latest release, and so does every fact when the release lacks
+      the lot or predates its building, with `pluto_fallback` saying which. On the 1,746,499
+      rows of runs 1 to 10, the release, fallback, fields from the latest release and facts
+      equal those of the served `released_lots` run by first day on every compared row. The
+      comparison leaves out 36,308 rows whose lot isn't in Data improvements' 26v2 file, and
+      48 rows in 15 of the 22 Queens lots their releases file lacks for 09v1 to 18v1. Their
+      fetch read only the Brooklyn file of each split release; #907 fixed it, and the gap
+      closes at their next releases rebuild. By month instead of day, 28,366 rows read other
+      facts. `ops/pipeline/lot_facts_check.py` reruns the comparison in 4 to 7 minutes at a
+      4.3 GB peak, 60 s of it in the models. Nothing reads `analysis.lot_facts` yet, and moving
+      a fit to it needs its own fit under the evaluation framework;
+   6. **Done** in #911: `analysis.lot_landmarks` gives each candidate ad its lot's landmark and
+      historic district designations dated by its first day, from the latest copy of
+      `city.landmarks`. On the 1,697,438 rows where its lot equals the registry's, its flags
+      equal the served `lpc_as_of` on every row. About 2,300 rows differ because the registry's
+      reverse geocodes put a building on a landmark's lot nearby, such as The Sagamore on the
+      Claremont Stables' lot (789 rows), so the served landmark flag is wrong on those rows.
+      `ops/pipeline/landmarks_check.py` reruns the comparison in 27 s at a 2.6 GB peak;
+   7. certificates of occupancy issued on each ad's BIN by its first day, from `city.dob_co` and
+      `city.dob_now_co`. **Next**: `analysis.building_certificates` on branch
+      `pipeline-building-certificates`.
 
 ## Coordination
 
