@@ -199,10 +199,12 @@ REGIONS = {
         True,
     ),
     "brooklyn-north-crown-heights": ([301, 302, 373, 313, 310, 325], True),
-    # Areas the page crawls collected. The weekly top-up keeps their current ads fresh.
+    # Areas the page crawls collected. The weekly top-up keeps their current ads fresh. Like
+    # the other regions, this region reads its units' older ads, since the area search leaves
+    # some out.
     "manhattan-page-crawl-areas": (
         [115, 163, 157, 116, 158, 113, 159, 117, 106, 124, 146, 152],
-        False,
+        True,
     ),
 }
 

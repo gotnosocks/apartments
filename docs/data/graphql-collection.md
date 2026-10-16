@@ -103,13 +103,15 @@ $1.14 per 1,000 requests.
 | `manhattan-59th-110th` | Upper West Side, Upper East Side, East Harlem | yes | about 2,300 |
 | `brooklyn-prospect-park` | 14 areas north and west of Prospect Park | yes | about 1,100 |
 | `brooklyn-north-crown-heights` | north Brooklyn and Crown Heights | yes | about 2,900 |
-| `manhattan-page-crawl-areas` | the 12 areas page crawls already collected | no | 2,054 in run 5, then weekly top-ups |
+| `manhattan-page-crawl-areas` | the 12 areas page crawls already collected | yes, from Oct 16 | 2,054 in run 5, then weekly top-ups |
 
 Ben approved the backfill of the first four (about 8,500 requests, about $9.70) on Oct 15 at
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
 area for East Harlem below 110th St, so the region takes all of it, about $0.17 more. Re-reading
 the histories of areas collected by page crawls is not part of the backfill. Ben approved a
 re-read of those areas' ads, without unit histories, on Oct 15 at 15:50 ET (run 5, below).
+Since Oct 16 the region reads unit histories too, for about 6 more requests
+([below](#unit-histories-in-the-page-crawl-areas-oct-16)).
 Writing the records sends no requests and takes about 7 ms an ad on thelio, half of it in the
 two disk flushes for each ad's body file, so the four regions' 1.5 million or so ads take about
 3 hours to write.
@@ -371,6 +373,22 @@ exit 0. The whole top-up took 120 requests ($0.14).
   reads, 79 stored replies and 101 calls, in 17 files, and each table matches the archive.
 - I left the DRAFT ads in the top-up, since they cost about 5 cents a week, though they took
   nearly half its reads.
+
+## Unit histories in the page-crawl areas (Oct 16)
+
+After the top-up, I looked at the 105 ads that run 10 reported as scoped but unread, at or
+above the listing-ID cutoff. Runs 5 and 10 scoped them as members of their units, and all 105
+appear in the history of an ad those runs read. No area search returned them. I then counted
+the IDs in the histories of all the region's ads, and found 2,261 ads at or above the cutoff
+with no entry in the archive. The API never read them, and the page crawls got a 404 for 77 of
+them and fetched none of the rest. Their IDs run from 1,221,201 to 5,183,637. The other four
+regions read their units' older ads, so their histories hold no unread ad above the cutoff.
+
+Ben asked on Oct 15 at 11:47 ET for the collection to capture every listing, so I set the
+page-crawl areas to read unit histories like the other regions. A top-up of the region then
+reads the 2,261 ads along with its ACTIVE ads and its ads with a status other than final. At
+about 380 ads to a request, they take about 6 requests, plus reads of any older ads their own
+histories list.
 
 ## Running it
 
