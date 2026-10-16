@@ -17,11 +17,14 @@ MODEL (
 -- after s1 move the ask in turn:
 --   s2: an ask more than twice or under half the first ask gives way to whichever of the two
 --       lies nearer the building's median.
---   s3 and s4 look at the ad's page price when its record was collected after the row. A page
---   price equal to one of the ad's price changes is skipped.
---   s3: a page price within a factor of 2 of the ask replaces it.
+--   s3 and s4 look at the ad's page price when its record was collected after the row.
+--   s3: a page price within a factor of 2 of the ask replaces it. A page price equal to one of
+--       the ad's price changes is skipped.
 --   s4: when the page price is 9 to 11 times the ask, or the ask 9 to 11 times the page price,
---       whichever of the two lies nearer the building's median wins.
+--       whichever of the two lies nearer the building's median wins. A page price equal to a
+--       change `ads.kept_changes` keeps is skipped, and one equal to a dropped change counts.
+--       rentfrontier.latest_ask skips both here, so a typo corrected on the ad's last day on
+--       the market stands there.
 -- The median reads list positions with list_extract, counting from 1. SQLMesh renders each model
 -- through sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the
 -- list's type.
@@ -48,7 +51,7 @@ peer AS (
     FROM ranked
 ),
 s1 AS (
-    SELECT p.listing_id, p.price_at, p.first, p.peer, l.last, l.page_price AS page,
+    SELECT p.listing_id, p.price_at, p.first, p.peer, l.last, l.page_price AS page, l.digit_page,
         coalesce(l.live, p.first) AS price,
         CASE WHEN l.live IS NOT NULL THEN 'latest' ELSE 'own ask, captured before the row' END AS how
     FROM peer p JOIN analysis.latest_change l USING (listing_id)
@@ -70,12 +73,12 @@ s3 AS (
     FROM (SELECT *, coalesce(last AND page / price <= 2 AND price / page <= 2, false) AS near FROM s2)
 ),
 s4 AS (
-    SELECT * EXCLUDE (digit, picked) REPLACE (
+    SELECT * EXCLUDE (digit, picked, digit_page) REPLACE (
         CASE WHEN digit THEN picked ELSE price END AS price,
         CASE WHEN digit AND picked <> price THEN 'page price, digit' ELSE how END AS how)
     FROM (
-        SELECT *, coalesce(last AND ((page / price BETWEEN 9 AND 11) OR (price / page BETWEEN 9 AND 11)), false) AS digit,
-            CASE WHEN peer IS NULL THEN price WHEN abs(ln(page) - peer) < abs(ln(price) - peer) THEN page ELSE price END AS picked
+        SELECT *, coalesce(last AND ((digit_page / price BETWEEN 9 AND 11) OR (price / digit_page BETWEEN 9 AND 11)), false) AS digit,
+            CASE WHEN peer IS NULL THEN price WHEN abs(ln(digit_page) - peer) < abs(ln(price) - peer) THEN digit_page ELSE price END AS picked
         FROM s3
     )
 )
