@@ -28,7 +28,10 @@ registries can come from one commit on one day.
 
 copies a snapshot and geocodes only the buildings the overrides file names,
 from the address it gives (method "override", with the review's evidence),
-so every other building keeps its match exactly.
+so every other building keeps its match exactly. Where GeoSearch's PAD
+address puts a building on the wrong lot, the override gives the lot itself
+(`bbl`, `bin` and the lot's MapPLUTO address as `label`) in place of an
+address.
 """
 
 from __future__ import annotations
@@ -191,13 +194,25 @@ def locate_address(slug: str, address: str) -> dict:
 
 def apply_overrides(base: pd.DataFrame, overrides: list[dict]) -> pd.DataFrame:
     """A registry with each overridden building re-geocoded from its reviewed
-    address; every other row unchanged."""
+    address, or, for an override with a `bbl`, moved onto that lot and its
+    `bin` at the coordinates it already had; every other row unchanged."""
     out = base.set_index("building")
     for o in overrides:
         if o["building"] not in out.index:
             raise SystemExit(f"{o['building']} is not in the base registry")
-        row = locate_address(o["building"], o["address"])
-        out.loc[o["building"], list(row)[1:]] = list(row.values())[1:]
+        if "bbl" in o:
+            row = {
+                "method": "override",
+                "query": None,
+                "label": o["label"],
+                "bbl": o["bbl"],
+                "bin": o["bin"],
+                "pad_version": None,
+            }
+        else:
+            row = locate_address(o["building"], o["address"])
+            del row["building"]
+        out.loc[o["building"], list(row)] = list(row.values())
     return out.reset_index()
 
 
