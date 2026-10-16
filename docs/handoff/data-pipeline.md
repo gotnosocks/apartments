@@ -264,8 +264,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       years after MapPLUTO's year built for 1,770 of 2,993 buildings. The larger gaps come from
       the sets starting in July 2012, from DOB NOW rebuilds behind kept walls and from stale
       years in MapPLUTO. `ops/pipeline/certificates_check.py` reruns the comparison in 22 s at a
-      2.4 GB peak. The branch stacks on #911, so after #911 merges I rebase it with
-      `git rebase --onto origin/master 3226a0c0`.
+      2.4 GB peak.
 
 ## Coordination
 
