@@ -2026,6 +2026,31 @@ MODELS = {
         bedroom_time=True,
         bedroom_time_knot_months=3,
     ),
+    # slopemin3-unitnu4 with the fixed-rho AR(1) deviation in place of its
+    # half-year walk, as arwalk-fixedrho does for option C.
+    "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-arwalk-fixedrho": ModelConfig(
+        name="m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-arwalk-fixedrho",
+        building_walk=True,
+        walk_ar=True,
+        walk_ar_rho=0.89,
+        bedroom_slope=True,
+        bedroom_slope_min_rows=3,
+        trend_knot_months=3,
+        feature_slopes=(
+            "log_sqft_vs_bedroom_median",
+            "sqft_unknown",
+            "bathrooms=2",
+            "log_floor",
+        ),
+        unit_t=True,
+        unit_nu_fixed=4.0,
+        noise_by_bedrooms=True,
+        noise_by_year=True,
+        season_harmonics=2,
+        season_daily=True,
+        bedroom_time=True,
+        bedroom_time_knot_months=3,
+    ),
     # ... with a log-linear residual scale (bedroom group, single listing,
     # small building, floor unknown, building's first year) in place of one
     # scale per bedroom group and year.
