@@ -33,7 +33,7 @@ and 3 GB of swap, and an RTX 2060 Super with 8 GB. A Gibbs fit keeps the GPU bus
 |---|---|---|
 | At once | one (the GPU lock) | three (slots); a fourth waits |
 | CPUs | 0–2, 6–8 (first complex) | 3–5, 9–11 (second complex) |
-| systemd slice | `apartments-gpu.slice`, CPU weight 1000, 7 GB | `apartments-light.slice`, CPU weight 20, 5 GB in total |
+| systemd slice | `apartments-gpu.slice`, CPU weight 1000, 8 GB | `apartments-light.slice`, CPU weight 20, 5 GB in total |
 | Per job, default | MemoryMax 6G | MemoryMax 3G, nice 10, best-effort I/O 7 |
 | GPU | yes | hidden (`CUDA_VISIBLE_DEVICES=`, `JAX_PLATFORMS=cpu`) |
 
