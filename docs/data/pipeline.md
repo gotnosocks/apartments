@@ -710,9 +710,10 @@ in all, and most tests add made-up ads to that export. The tests:
 24. read the repo's ledger, and check that each of its files at the merge base with master
     stays as it was and that each new file sorts after master's files.
 
-They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
-with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
-`MAX_FORK_WORKERS=1`.
+pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
+about 45 s on thelio, against about 100 s in a single process. SQLMesh loads models in forked
+workers, and a fork in a process with open DuckDB connections can deadlock, so
+`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
 
 ## Full build
 

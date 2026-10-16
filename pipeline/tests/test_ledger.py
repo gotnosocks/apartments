@@ -144,11 +144,12 @@ def write(folder, name, lines):
         (
             set_(
                 "1",
-                {"full_baths": 2**63, "half_baths": 0},
+                {"full_baths": 2**53, "half_baths": 0},
                 {"full_baths": 1, "half_baths": 0},
             ),
             "takes a number below",
         ),
+        (set_("1", {"bedrooms": 2.0**53}, {"bedrooms": 1}), "takes a number below"),
     ],
 )
 def test_parse_refuses(text, error):
