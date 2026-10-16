@@ -812,6 +812,25 @@ def correct_bedrooms_v6(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v5(frame), "bedrooms-ad-v6")
 
 
+BEDROOM_CORRECTIONS_V7 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v7-20261016.jsonl"
+)
+
+
+def correct_bedrooms_v7(frame: pd.DataFrame) -> pd.DataFrame:
+    """v6's rows, then 4 rows from the reads of the API backfill's ad-fit hits
+    (`config/reviews/ad-fit-reads-20261016-api.jsonl`). Each unit has two ads,
+    and both give the same count:
+
+    - 426 W 58th St, coded 3: both ads describe 2 bedrooms, 2 baths and a home
+      office in 1,798 square feet.
+    - 58 E 1st St, coded 0: both ads describe a studio converted to a 1
+      bedroom.
+
+    Every row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v6(frame), "bedrooms-ad-v7")
+
+
 # Recorded square feet that disagree with the unit's other listings, read
 # against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
 SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
@@ -1568,6 +1587,27 @@ def quarantine_v31(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V31))]
 
 
+QUARANTINE_V32 = QUARANTINE_V20.with_name("quarantine-v32-20261016.jsonl")
+
+
+def quarantine_v32(frame: pd.DataFrame) -> pd.DataFrame:
+    """v31's rows and 118 more from the 58k rows the API backfill added. The
+    ad-fit and Brooklyn screens flagged 822 of them, Sonnet readers read each
+    flagged row's ads in full, and a second look moved 16 calls back to keep
+    and 2 keeps to Brooklyn. `config/reviews/ad-fit-reads-20261016-api.jsonl`
+    records every read. The rows dropped here are
+
+    - 36 coded studios whose ads give no count or description of the space,
+    - 26 rooms, shared apartments or several units at once,
+    - 18 Brooklyn ads filed under a Manhattan building (recorded in
+      `brooklyn.MISJOINS`),
+    - 17 stays shorter than a year,
+    - 14 offices, stores and other non-dwellings,
+    - 6 apartments elsewhere in Manhattan or the Bronx,
+    - 1 furnished corporate rate."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V32))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1899,6 +1939,7 @@ DATA_RULES = {
     "bedrooms-ad-v4": correct_bedrooms_v4,
     "bedrooms-ad-v5": correct_bedrooms_v5,
     "bedrooms-ad-v6": correct_bedrooms_v6,
+    "bedrooms-ad-v7": correct_bedrooms_v7,
     "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
@@ -1931,6 +1972,7 @@ DATA_RULES = {
     "quarantine-v29": quarantine_v29,
     "quarantine-v30": quarantine_v30,
     "quarantine-v31": quarantine_v31,
+    "quarantine-v32": quarantine_v32,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -1987,6 +2029,7 @@ RULE_SOURCES = {
     "quarantine-v29": QUARANTINE_V29,
     "quarantine-v30": QUARANTINE_V30,
     "quarantine-v31": QUARANTINE_V31,
+    "quarantine-v32": QUARANTINE_V32,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -2017,6 +2060,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v4": BEDROOM_CORRECTIONS_V4,
     "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
     "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
+    "bedrooms-ad-v7": BEDROOM_CORRECTIONS_V7,
     "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
@@ -2053,6 +2097,7 @@ DROPPING_RULES = (
     "quarantine-v29",
     "quarantine-v30",
     "quarantine-v31",
+    "quarantine-v32",
 )
 
 

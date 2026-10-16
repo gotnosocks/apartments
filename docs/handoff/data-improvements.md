@@ -1,6 +1,21 @@
 # Data improvements — handoff
 
-Updated 2026-10-15 22:40 ET, after #878. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-16 00:40 ET, with #885. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-16 00:40 ET
+
+#885 screens the API rows of `DATASET_NB9_API`.
+- The ad-fit and Brooklyn screens flagged 822 of the 58k added rows. Sonnet readers read
+  them (`config/reviews/ad-fit-reads-20261016-api.jsonl`). I moved 16 non-keep calls back to keep
+  and moved the 82 Irving Pl keeps to Brooklyn.
+- `quarantine-v32` is v31 plus 118 API rows. `bedrooms-ad-v7` is v6 plus 4 rows
+  (426 W 58th 3 to 2, 58 E 1st 0 to 1). `brooklyn.MISJOINS` gains 18 rows. Both screened
+  lists name the API cohort.
+- Modeling relabelled its API line q32ad7, on v32 and v7, waiting on #878 and #885.
+- Recorded only: a unit-split read (unit-splits-v4 already splits it) and a square-feet read
+  (sqft-units isn't served).
+- Next: a regex second pass over the 700 keep reads, whose reasons are generic. Also still
+  open: the API rows' null fields and the unit spelling aliases on the API datasets.
 
 ## 2026-10-15 22:40 ET
 
