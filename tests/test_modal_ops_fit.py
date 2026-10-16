@@ -543,6 +543,20 @@ def test_a_large_fit_has_its_own_container_price_and_no_hour_cap(tmp_path, monke
     assert cap.estimate(2, 300, 4500, "H100", large=True) > cap.estimate(
         2, 300, 4500, "H100"
     )
+    # Unmeasured, a large fit is priced at its whole fit cap, with no new-building container.
+    assert (
+        cap.seconds(2, 300, 4500, large=True)
+        == cap.OVERHEAD_SECONDS + app.LARGE_FIT_CAP
+    )
+    assert cap.estimate(2, 300, 4500, "H100", large=True) == round(
+        (cap.OVERHEAD_SECONDS + app.LARGE_FIT_CAP)
+        * cap.USD_PER_HOUR_LARGE["H100"]
+        / 3600,
+        2,
+    )
+    assert cap.seconds(2, 300, 4500, 1.0, large=True) == round(
+        cap.OVERHEAD_SECONDS + 4800
+    )
     day = cap.START + datetime.timedelta(days=7)
     cap.reserve("big", "H100", 1.0, tmp_path / "l.jsonl", day, secs=secs, large=True)
     argv = ["--large", "--gpu", "H100", "c", "l", "m7", "all", "2", "300", "4500", "9"]

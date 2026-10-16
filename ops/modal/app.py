@@ -9,7 +9,7 @@ thelio, and leaves the run directory, the LOO directory and the log under /out/<
 for the launcher to download. A fit that finishes also gets its post-fit statistics here,
 while the container has its draws (`_post`): the variance decomposition and the explained
 share of any --explain candidate sets. The summary bundle and its calibration are built on
-thelio after the download (ops/modal/summarize).
+thelio after the download (ops/modal/summarize), except for a large fit, which builds them here.
 """
 
 import json
@@ -51,6 +51,7 @@ NB_CPU, NB_MEMORY_MIB, NB_TIMEOUT = 32, 131072, 3600
 # more, so the container builds the bundle and its calibration itself (thelio has 15 GB).
 LARGE_CPU, LARGE_MEMORY_MIB = 8, 196608
 LARGE_FIT_CAP, LARGE_TIMEOUT = 9 * 3600, 12 * 3600
+LARGE_POST_MARGIN = 45 * 60  # copying a 1.75M-row run, LOO and bundle to the Volume
 
 
 def usd_per_second(gpu, large=False):
@@ -201,7 +202,11 @@ def _fit(spec):
     ).stdout.strip()
     stages = {}
     large = spec.get("large", False)
-    deadline = started + (LARGE_TIMEOUT if large else TIMEOUT) - POST_MARGIN
+    deadline = (
+        started + LARGE_TIMEOUT - LARGE_POST_MARGIN
+        if large
+        else started + TIMEOUT - POST_MARGIN
+    )
     with open(out / "fit.log", "w") as log:
         t = time.time()
         fit_code = code = _run(
@@ -214,17 +219,19 @@ def _fit(spec):
         if code == 0:
             t = time.time()
             code = _run(
-                ["/venv/bin/python", "-m", "rentfrontier.loo", spec["name"]], env, log
+                ["/venv/bin/python", "-m", "rentfrontier.loo", spec["name"]],
+                env,
+                log,
+                int(max(deadline - time.time(), 60)) if large else None,
             )
             stages["loo"] = time.time() - t
+        if large:
+            # Saved before the hours of post-fit work, so a container timeout keeps them.
+            _save_fit(spec, out)
         post = _post(spec, env, log, deadline) if fit_code == 0 else {}
         if large and code == 0:
             post |= _summarize(spec, env, log, deadline)
-    run = RUNS / spec["name"]
-    if run.exists():
-        shutil.copytree(run, out / "run", dirs_exist_ok=True)
-    for d in LOO.glob(f"{spec['name']}-*"):
-        shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
+    _save_fit(spec, out)
     for kind in POST_KINDS:
         for d in (OUTPUT / kind).glob(f"{spec['name']}-*"):
             if d.is_dir() and _complete(d):
@@ -242,6 +249,16 @@ def _fit(spec):
     (out / "modal.json").write_text(json.dumps(meta, indent=2))
     volume.commit()
     return meta
+
+
+def _save_fit(spec, out):
+    """Copy the run and its LOO directories to the Volume and commit them."""
+    run = RUNS / spec["name"]
+    if run.exists():
+        shutil.copytree(run, out / "run", dirs_exist_ok=True)
+    for d in LOO.glob(f"{spec['name']}-*"):
+        shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
+    volume.commit()
 
 
 def _function(gpu):

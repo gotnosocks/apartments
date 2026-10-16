@@ -224,7 +224,8 @@ POST_KINDS = ("variance", "explained", "newbuilding", "summaries", "calibration"
 
 def download(volume, name, root):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
-    /out/<name>/{variance,explained,newbuilding}/* -> the same directories under root, log and
+    /out/<name>/{variance,explained,newbuilding,summaries,calibration}/* -> the same
+    directories under root, log and
     modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
     file is down."""
@@ -352,7 +353,7 @@ def main(argv):
     # At the model's own fit-stage rate on its last Modal fit, if that was slower.
     rate = cap.measured_rate(args.model, args.features, OUTPUT_ROOT / "runs")
     usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu, rate, args.large)
-    secs = cap.seconds(args.chains, args.warmup, args.draws, rate)
+    secs = cap.seconds(args.chains, args.warmup, args.draws, rate, args.large)
     # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
     launch, left = cap.reserve(spec["name"], args.gpu, usd, secs=secs, large=args.large)
     print(
@@ -367,7 +368,8 @@ def main(argv):
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
             meta = fits[args.gpu].remote(spec)
-            if meta.get("fit_exit", meta["exit"]) == 0:
+            # The new-building container's 128 GiB and hour don't stretch to a large run.
+            if meta.get("fit_exit", meta["exit"]) == 0 and not args.large:
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
             meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, args.large)

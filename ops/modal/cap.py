@@ -100,23 +100,33 @@ def measured_rate(model, features, runs=RUNS):
     return latest and latest[1]
 
 
-def gpu_seconds(chains, warmup, draws, rate=None):
+# A large fit with no measured rate yet is priced at its whole fit cap (app.LARGE_FIT_CAP):
+# NB9's rate says little about a dataset 4.9 times its size.
+LARGE_FIT_SECONDS = 9 * 3600
+
+
+def gpu_seconds(chains, warmup, draws, rate=None, large=False):
     """Estimated wall time of a fit's GPU container, at `rate` seconds an iteration if that is
     slower than the default."""
+    if large and rate is None:
+        return OVERHEAD_SECONDS + LARGE_FIT_SECONDS
     per = max(SECONDS_PER_ITERATION, rate or 0)
     return OVERHEAD_SECONDS + per * (int(warmup) + int(draws)) * (int(chains) / 2)
 
 
-def seconds(chains, warmup, draws, rate=None):
-    """Estimated Modal time of a fit: its GPU container, then the new-building container."""
-    return round(gpu_seconds(chains, warmup, draws, rate) + NEWBUILDING_SECONDS)
+def seconds(chains, warmup, draws, rate=None, large=False):
+    """Estimated Modal time of a fit: its GPU container, then the new-building container (none
+    for a large fit)."""
+    nb = 0 if large else NEWBUILDING_SECONDS
+    return round(gpu_seconds(chains, warmup, draws, rate, large) + nb)
 
 
 def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
     """Estimated list-price cost of a fit and its new-building score, in USD."""
     per_hour = (USD_PER_HOUR_LARGE if large else USD_PER_HOUR)[gpu]
-    gpu_usd = gpu_seconds(chains, warmup, draws, rate) * per_hour
-    return round((gpu_usd + NEWBUILDING_SECONDS * NEWBUILDING_USD_PER_HOUR) / 3600, 2)
+    gpu_usd = gpu_seconds(chains, warmup, draws, rate, large) * per_hour
+    nb_usd = 0 if large else NEWBUILDING_SECONDS * NEWBUILDING_USD_PER_HOUR
+    return round((gpu_usd + nb_usd) / 3600, 2)
 
 
 def over_cap(usd, secs, large=False):
@@ -331,7 +341,7 @@ if __name__ == "__main__":
             *fit, gpu = fit_size(argv)
             rate = measured_rate(*fit_model(argv))
             large = "--large" in argv
-            usd, secs = estimate(*fit, gpu, rate, large), seconds(*fit, rate)
+            usd, secs = estimate(*fit, gpu, rate, large), seconds(*fit, rate, large)
         except (TypeError, ValueError, KeyError):
             sys.exit(
                 0
