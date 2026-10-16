@@ -32,10 +32,11 @@ MODEL (
 -- number before the hyphen in five digits, the number after it in three, and a code for a
 -- trailing letter or a half, AA for none. A Queens address with a hyphen, as in
 -- `37-16 30th Street`, gives a single key. Elsewhere, a hyphen gives a range of house numbers,
--- and the step tries each end. A number too long for its place in the key finds no range. A letter A to I takes the code M and the letter after it (A gives
--- MB), J to R takes N and the letter eight places before it (J gives NB), and S to Z takes O and
--- the letter sixteen places before it (S gives OC). The rule agrees with every PAD range of 26c
--- whose number ends in one letter. A half takes AH.
+-- and the step tries each end. A number too long for its place in the key finds no range. A
+-- letter A to I takes the code M and the letter after it (A gives MB), J to R takes N and the
+-- letter eight places before it (J gives NB), and S to Z takes O and the letter sixteen places
+-- before it (S gives OC). The rule agrees with every PAD range of 26c whose number ends in one
+-- letter. A half takes AH.
 --
 -- A range matches a try when its street code and its borough are the try's, the try's first
 -- nine characters fall between those of the range's low and high keys, and the range's side of

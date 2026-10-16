@@ -20,10 +20,11 @@ and a reviewed sample.
    It places each reviewed building in its stratum in the current build, which may differ from
    the stratum it was drawn from, and prints how many moved. For each stratum, it counts the
    reviewed buildings whose lot is the one the reviewers judged right, the ones whose lot they
-   judged wrong, and the rest: buildings they left unclear, or whose lot has changed since. It then estimates the share of wrong lots in
-   the stratum, with a 95% Wilson interval, and multiplies it by the stratum's size in the
-   current build. The total adds the strata's estimates. Their intervals don't add up to an
-   interval for the total, so the script leaves them out of it.
+   judged wrong, and the rest: buildings they left unclear, or whose lot has changed since. It
+   then estimates the share of wrong lots in the stratum, with a 95% Wilson interval, and
+   multiplies it by the stratum's size in the current build. The total adds the strata's
+   estimates. Their intervals don't add up to an interval for the total, so the script leaves
+   them out of it.
 5. With `--out` it writes the lots, with each building's slug and stratum, to a Parquet file.
 
 The script takes about 17 s and 2.7 GB on the full export on thelio.
