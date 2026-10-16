@@ -310,12 +310,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    3. a PR deletes the page-capture rewrite and the page parser.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
    `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
-   days of 27 ads in `ads.market`, after which every `on_day` equals the record's `onMarketAt`.
+   rows of 27 ads in `ads.market`, after which every `on_day` equals the record's `onMarketAt`.
    The rows and ads files stay the same, since nothing reads those days yet.
-7. `config.py` keys each ledger file by its absolute path, so a scratch build in one worktree
-   on a state from another rebuilds `ledger.entries` and `ledger.status` (0.4 s), and the
-   catalog lists the worktree's paths. Keying by the name inside `pipeline/ledger` would stop
-   both. The production build always runs from one checkout, so its builds don't change.
+7. `config.py` keys each ledger file by its absolute path. A scratch build in one worktree on
+   a state from another therefore rebuilds `ledger.entries` and `ledger.status` (0.4 s), and
+   the catalog lists the worktree's paths. If `config.py` keyed the files by their names inside
+   `pipeline/ledger`, such a build would reuse both models and list the same paths as
+   production. The production build always runs from one checkout, so the ledger models don't
+   rebuild in production for this reason.
 
 ## Coordination
 

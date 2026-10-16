@@ -530,9 +530,9 @@ in `ads.events`.
 
 `ads.market` reads the status changes of each ad's latest record from the event log, the
 events with that record's fetch as their `last_seen`, as `ads.breaks` does. It puts them in
-order of time, and in the record's order when two share an instant. Each change holds until the next one, and
-the last holds until the New York date of the ad's latest answer with a record. The model takes
-from them:
+order of time, and in the record's order when two share an instant. Each change holds until
+the next one, and the last holds until the New York date of the ad's latest answer with a
+record. The model takes from them:
 
 - `on_day`, the day of the first change to ACTIVE, which StreetEasy gives as `onMarketAt`;
 - `off_day`, the day of the last change from ACTIVE or IN_CONTRACT to another status, given as
@@ -554,9 +554,13 @@ with an `off_day` but no `offMarketAt`, and StreetEasy counts those statuses as 
 Another 10,780 ads have an `offMarketAt` and no `off_day`, and 10,773 of them have no ACTIVE
 change at all.
 
-On the same build, 53 ads have 68 status changes in an earlier record and none in their latest.
-With those changes in, 27 ads would differ: 15 would have an `on_day` before the record's
-`onMarketAt`, 10 an `off_day` other than its `offMarketAt`, and 4 ACTIVE ads an ending.
+On the same build, an earlier record of 53 ads lists 68 status changes, and the ad's latest
+record leaves them out. With those changes in, 27 ads would differ:
+
+- 15 would have an `on_day` before the record's `onMarketAt`;
+- 10 would have an `off_day` other than its `offMarketAt`, and 4 of those are ACTIVE ads given
+  an ending;
+- another would gain an ending, and the last would count 6 days on the market in place of 5.
 
 Of the ads on the market, 1,922,278 went on it once, 160,229 twice and 35,259 three times or
 more. The median ad spent 14 days on the market, and the middle half spent 6 to 31.
@@ -1549,7 +1553,7 @@ in all, and most tests add made-up ads to that export. The tests:
 14. add made-up ads to the cases: an ad put in contract, back on the market twice in a day and
     rented, an ad paused and back on the market, an ad delisted from a draft, an ad without
     status changes, an ad with two answers, the later of which ends it, and an ad whose record
-    lists two pairs of changes at shared instants in an order other than the alphabet's. A last
+    lists two pairs of changes at shared instants in an order other than the alphabet's. Another
     ad has two answers, and the later one leaves out the earlier one's ending, so the ad stays
     on the market. One ad's latest answer has no record, and another's latest record has no
     `daysOnMarket`. The test checks each ad's days, spans, ending and record fields by value;

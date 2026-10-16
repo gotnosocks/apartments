@@ -10,8 +10,8 @@ MODEL (
 );
 
 -- An ad's status changes come from its latest record: the events with that record's fetch as
--- their `last_seen`, as in ads.breaks. StreetEasy rewrites the list between answers, and an
--- earlier record can list a change the latest one leaves out. The model puts the changes in
+-- their `last_seen`, as in ads.breaks. StreetEasy rewrites the list between answers, so the
+-- latest record can drop a change listed by an earlier one. The model puts the changes in
 -- order of time, and in the record's order when two share an instant. Each change holds until
 -- the next one, and the last holds until `as_of`, the New York date of the ad's latest answer
 -- with a record.
