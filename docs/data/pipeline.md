@@ -199,9 +199,23 @@ either side, at an audit or an error, the script prints the end of that plan's o
 with status 1. `--json` writes the whole comparison to a file, and `--keep` keeps both builds'
 tables as Parquet files in a folder.
 
-The fixture's 229 records lack many cases from the full export. `--export` takes another export
-folder. The script builds both sides in a scratch folder under TMPDIR, so on thelio a large
-export calls for TMPDIR under /data1, as /tmp is a small RAM disk.
+The fixture's 229 records lack many cases from the full export. `ops/pipeline/sample.py` writes
+a sample of the export to `/data1/apartments/pipeline/sample/export`, and `--sample` reads it:
+
+```sh
+uv run --project pipeline python ops/pipeline/sample.py [--export DIR] [--out DIR] [--share S]
+```
+
+The script picks each building with an MD5 hash of its ID in the first S of the hashes' range,
+0.01 unless given, and takes every answer for each ad naming a picked building. It also takes
+every answer for the picked buildings and for the other buildings those ads name. It writes the
+answers in the export's layout, with a manifest. On Oct 16 it picked 665 buildings and 19,682 of
+the export's 2,137,997 ads, and wrote 20 MB in 19 s, at a 1.1 GB peak. A diff on the sample
+took 21 s and peaked at 2.4 GB. The same buildings fall in the sample on each run, so a run
+after a top-up adds their new answers.
+
+`--export` takes any other export folder. The script builds both sides in a scratch folder under
+TMPDIR, so on thelio a large export calls for TMPDIR under /data1, as /tmp is a small RAM disk.
 
 ## Models
 
@@ -773,6 +787,10 @@ in all, and most tests add made-up ads to that export. The tests:
     HEAD. Last, it compares small tables directly: retyped grain and value columns, a repeated
     grain, a changed grain, columns named like the join's markers, and tables with no column in
     common.
+26. write a sample of the fixture's export with a share of one half, and check that it holds
+    every answer for the ads naming a building in the lower half of the MD5 range, every answer
+    for those buildings, the records' bytes unchanged and a manifest line with each file's
+    SHA-256. A second run writes the same manifest and leaves only the export folder.
 
 They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets

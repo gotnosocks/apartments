@@ -1,7 +1,7 @@
 """Build the pipeline's tables with the base code and with an edit, and list the differences.
 
-    pipeline/.venv/bin/python ops/pipeline/diff.py [--base REV] [--export DIR] [--ledger DIR]
-        [--rows N] [--json FILE] [--keep DIR]
+    pipeline/.venv/bin/python ops/pipeline/diff.py [--base REV] [--export DIR | --sample]
+        [--ledger DIR] [--rows N] [--json FILE] [--keep DIR]
 
 1. The script writes `pipeline/` and `src/` at REV, HEAD unless given, to a scratch folder with
    `git archive`. These are the base. The edit is this checkout, with its uncommitted changes.
@@ -9,7 +9,8 @@
    the side's `pipeline/` and `src/` first on `PYTHONPATH` and drops the folders added by the
    venv's .pth files. It plans the `prod` environment of the side's project and writes each
    model's table to a Parquet file. Both sides read the same export, the test fixture's unless
-   given. Each side reads its own `pipeline/ledger`, or both read DIR with `--ledger`. When a
+   given. `--sample` gives the sample of the full export from `ops/pipeline/sample.py`. Each
+   side reads its own `pipeline/ledger`, or both read DIR with `--ledger`. When a
    plan stops, at an audit or an error, the script prints the side and the end of its output
    and exits with status 1.
 3. It compares the sides' tables model by model:
@@ -27,7 +28,8 @@
    It deletes the scratch folder, or keeps it in DIR with `--keep`.
 
 A plan in each side's process rebuilds every model, so an edit to a model, to `pipeline/steps`
-or to `src/` shows in the tables. On thelio the script takes about 6 s.
+or to `src/` shows in the tables. On thelio the script takes about 6 s on the fixture and
+about 20 s on the sample.
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "pipeline" / "tests" / "fixture" / "export"
+SAMPLE = Path("/data1/apartments/pipeline/sample/export")
 
 
 class BuildError(Exception):
@@ -411,7 +414,15 @@ def main(argv=None) -> int:
         "--base-dir", type=Path, help="a folder with pipeline/ and src/"
     )
     parser.add_argument("--edit-dir", type=Path, default=REPO, help=argparse.SUPPRESS)
-    parser.add_argument("--export", type=Path, default=FIXTURE)
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--export", type=Path, default=FIXTURE)
+    source.add_argument(
+        "--sample",
+        action="store_const",
+        const=SAMPLE,
+        dest="export",
+        help="read the sample of the full export from ops/pipeline/sample.py",
+    )
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--rows", type=int, default=5)
     parser.add_argument("--json", type=Path)
