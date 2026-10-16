@@ -64,7 +64,8 @@ ATTRIBUTES_CODE = [module_file(name) for name in ATTRIBUTES_MODULES]
 
 
 def exported(table):
-    """The listed files of an export table, sorted by path, and a SHA-256 over their lines."""
+    """The listed files of an export table, sorted by path, a SHA-256 over their lines, and
+    each listed path with its file's SHA-256."""
     files = {}
     for line in (EXPORT / "manifest.ndjson").read_text().splitlines(keepends=True):
         # The exporter writes each line whole and drops a cut-off last line on its next start.
@@ -80,7 +81,7 @@ def exported(table):
     paths = sorted(files)
     listing = "".join(f"{path} {files[path]}\n" for path in paths)
     version = hashlib.sha256(listing.encode()).hexdigest()
-    return [str(EXPORT / path) for path in paths], version
+    return [str(EXPORT / path) for path in paths], version, {p: files[p] for p in paths}
 
 
 def file_sha256(path):
@@ -91,8 +92,8 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
-ads, ads_version = exported("ads")
-buildings, buildings_version = exported("buildings")
+ads, ads_version, ads_files = exported("ads")
+buildings, buildings_version, buildings_files = exported("buildings")
 STATE.mkdir(parents=True, exist_ok=True)
 
 config = Config(
@@ -117,6 +118,9 @@ config = Config(
         "ads_version": ads_version,
         "buildings": buildings,
         "buildings_version": buildings_version,
+        # ops/pipeline/build.py records these in its catalog line. No model reads them, so they
+        # stay out of the models' fingerprints.
+        "export_files": {"ads": ads_files, "buildings": buildings_files},
         "attributes_code": {
             name: file_sha256(path)
             for name, path in zip(ATTRIBUTES_MODULES, ATTRIBUTES_CODE)

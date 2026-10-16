@@ -45,6 +45,59 @@ With unchanged inputs, a plan builds nothing.
 `ads.latest_record` reads only answers with a record, so an ad whose latest answer came back
 empty keeps its last record, as in `rentfrontier.latest_ask`.
 
+## Build command
+
+`ops/pipeline/build.py` builds the project, saves the fit-ready rows and records the build:
+
+```sh
+uv run --project pipeline python ops/pipeline/build.py [--export DIR] [--state DIR] [--out DIR]
+```
+
+It plans and applies `prod`, as the `sqlmesh plan` line above does. Then it writes
+`analysis.rows`, sorted by `listing_id`, to a Parquet file in OUT, by default
+`/data1/apartments/pipeline/datasets`. The file's name holds the first 16 hex digits of its
+SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line for the build to
+`OUT/catalog.ndjson`:
+
+| key | holds |
+|---|---|
+| `built` | the time the build finished, in UTC |
+| `code` | the checkout's commit, and `clean`, false when `pipeline/`, `src/` or `ops/pipeline/` differ from it |
+| `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
+| `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
+| `rows` | the rows file's name, SHA-256 and row count |
+| `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
+| `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
+
+When an audit fails, the script prints the failed models and exits with status 1. It writes
+nothing to OUT, and the tables of the last good build stay in place. After a good build, the
+script runs SQLMesh's janitor, which drops the tables no environment has used for a week.
+
+DuckDB writes the same bytes for the same table, so a second build from the same export and
+code finds its file already in OUT. Late on Oct 15, two builds in a row on that day's full state
+wrote the same 80 MB file of 1,747,140 rows, in 2.7 and 3.0 s. A fit can read a rows file by
+its name and check the file's SHA-256 against the catalog, though no fit reads one yet.
+
+Early on Oct 16, three builds ran one after another as light jobs with a 4,500 MiB cap and
+`PIPELINE_MEMORY=3GB`:
+
+| build | starting state | job's wall time | `ads.record_attributes` | other models | script's peak |
+|---|---|---|---|---|---|
+| runs 1 to 4, 1,713,244 records | empty | 695 s | 502 s | 178 s | 3,782 MiB |
+| run 5 added, 424,776 more | the first build's | 399 s | 154 s | 227 s | 4,021 MiB |
+| runs 1 to 5 | empty | 769 s | 562 s | 191 s | 4,053 MiB |
+
+The job's wall time includes about 10 s of imports before the catalog's `seconds` start counting,
+so the catalog gives 684, 388 and 759 s. The top-up and the build from empty wrote the same rows
+file, `rows-4743b90bc5aa49b4.parquet`,
+and every model came out with the same row count. The two builds on the Oct 15 state had written
+the same file. Each build's cgroup peaked within 40 MiB of the cap because the page cache fills
+the cgroup, so the script's own peak gives the memory a build needs.
+
+In the top-up, `ads.record_attributes` parsed the 424,768 distinct records missing from its cache
+and copied the 1,713,239 cached ones into its table again, and the models after it recomputed every ad. Those full recomputes
+take most of a top-up's time.
+
 ## Models
 
 | model | kind | a row for each |
@@ -426,9 +479,15 @@ in all, and most tests add made-up ads to that export. The tests:
     `rentfrontier.cohort`, and each candidate's floor and status against its `floor_of`. Then it
     checks the fates, floors, floor counts, areas, regions and sizes by value;
 19. parse every SQL model as SQLMesh loads it and look for a bracket reading a list at a
-    computed index.
+    computed index;
+20. run `ops/pipeline/build.py` on the fixture twice and check the rows file's name and the
+    export files' hashes against their SHA-256. The second build rebuilds nothing, writes the
+    same rows file and appends a second catalog line. Then the test builds runs 2 and 3, adds
+    run 4 and builds again, and compares that build's rows file with a build of runs 2 to 4 into
+    an empty state. The two files hold the same bytes. Last, the test adds an export file
+    repeating an answer and checks that the build stops and leaves OUT as it was.
 
-They take about 50 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 70 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
