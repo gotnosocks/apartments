@@ -599,11 +599,12 @@ PLUTO_RELEASES = {
 }
 
 
-def _release_chunks(borough: str = "1"):
+def _release_chunks(boroughs=("1",)):
     """(release, published, file, chunk) for every archived MapPLUTO release
-    (PLUTO_RELEASES), in chunks of the borough's table as text with lowercase
-    column names and `bbl` as a plain integer string: the borough's file of a
-    release split by borough, else the release's one citywide table."""
+    (PLUTO_RELEASES), in chunks of text with lowercase column names and `bbl`
+    as a plain integer string. For a release split by borough, the chunks come
+    from the file of each borough in `boroughs` (BBL first digits); for any
+    other release they come from its one citywide table."""
     import io
     import tempfile
     import zipfile
@@ -623,33 +624,37 @@ def _release_chunks(borough: str = "1"):
                 for m in archive.namelist()
                 if m.lower().endswith((".csv", ".txt")) and "readme" not in m.lower()
             ]
-            prefix = BOROUGH_FILES[borough]
-            own = [m for m in tables if Path(m).name.lower().startswith(prefix)]
-            member = (
-                own or sorted(tables, key=lambda m: -archive.getinfo(m).file_size)
-            )[0]
-            reader = pd.read_csv(
-                io.TextIOWrapper(archive.open(member), encoding="latin-1"),
-                dtype=str,
-                chunksize=200_000,
-            )
-            for chunk in reader:
-                chunk.columns = [str(c).strip().lower() for c in chunk.columns]
-                lot = pd.to_numeric(chunk.bbl, errors="coerce")
-                chunk["bbl"] = lot.astype("Int64").astype(str)
-                yield release, published, f"{PLUTO_ARCHIVE}/{name}:{member}", chunk
+            own = [
+                m
+                for b in sorted(boroughs)
+                for m in tables
+                if Path(m).name.lower().startswith(BOROUGH_FILES[b])
+            ]
+            members = own or [max(tables, key=lambda m: archive.getinfo(m).file_size)]
+            for member in members:
+                reader = pd.read_csv(
+                    io.TextIOWrapper(archive.open(member), encoding="latin-1"),
+                    dtype=str,
+                    chunksize=200_000,
+                )
+                for chunk in reader:
+                    chunk.columns = [str(c).strip().lower() for c in chunk.columns]
+                    lot = pd.to_numeric(chunk.bbl, errors="coerce")
+                    chunk["bbl"] = lot.astype("Int64").astype(str)
+                    yield release, published, f"{PLUTO_ARCHIVE}/{name}:{member}", chunk
 
 
-def fetch_pluto_releases(bbls, borough: str = "1") -> tuple[pd.DataFrame, list[str]]:
+def fetch_pluto_releases(bbls) -> tuple[pd.DataFrame, list[str]]:
     """The registry's lots in every archived MapPLUTO release: one row per
     release and lot, with the PLUTO_COLUMNS the release has (an older release
     lacks some, e.g. the flood-zone flags; they are left empty), its `release`
-    and its `published` date (PLUTO_RELEASES). The lots all lie in `borough`
-    (a BBL's first digit), and the rows come from that borough's file of a
-    release split by borough, else from the citywide table."""
+    and its `published` date (PLUTO_RELEASES). For a release split by
+    borough, the rows come from the file of every borough the lots lie in (a
+    BBL's first digit), else from the citywide table."""
     bbls = set(bbls)
+    boroughs = {b[0] for b in bbls}
     parts, files = [], []
-    for release, published, file, chunk in _release_chunks(borough):
+    for release, published, file, chunk in _release_chunks(boroughs):
         if file not in files:
             files.append(file)
         chunk = chunk[chunk.bbl.isin(bbls)]
@@ -1275,10 +1280,7 @@ def main(argv=None):
         summary = f"{len(table)} violations in {table.bin.nunique()} buildings"
     elif args.source == "plutoreleases":
         registry = pd.read_parquet(registry_path)
-        borough = registry_borough(registry)
-        table, queries = fetch_pluto_releases(
-            registry.bbl.dropna().astype(str), borough
-        )
+        table, queries = fetch_pluto_releases(registry.bbl.dropna().astype(str))
         details = {
             "source": PLUTO_ARCHIVE,
             "dataset": "MapPLUTO archived releases (NYC Department of City Planning)",
