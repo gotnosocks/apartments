@@ -308,7 +308,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    1. the website's current listings and Data improvements' reads of other ads move to the file;
    2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
    3. a PR deletes the page-capture rewrite and the page parser.
-   **Done** in #PRNUM: `ads.market` reads only the latest record's status changes, as
+   **Done** in #935: `ads.market` reads only the latest record's status changes, as
    `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
    days of 27 ads in `ads.market`, after which every `on_day` equals the record's `onMarketAt`.
    The rows and ads files stay the same, since nothing reads those days yet.
