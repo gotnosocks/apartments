@@ -1476,8 +1476,9 @@ in all, and most tests add made-up ads to that export. The tests:
     building's first certificate, and after two alterations, one with a certificate in each set
     on the same day. The certificates include a second new building job, a date of 2105, a DOB
     NOW renewal of an earlier job, a job found only in an older copy, padded values, counts of 0
-    in both sets, a count reading `NON5`, a count too large for an INTEGER, a rebuild with existing elements to remain whose count
-    reads `..208`, and a DOB NOW certificate with a blank issue date. Further ads read a BIN
+    and counts too large for an INTEGER in both sets, a count reading `NON5`, a rebuild with
+    existing elements to remain whose count reads `..208`, and a DOB NOW certificate with a
+    blank issue date. Further ads read a BIN
     without certificates, a building without a BIN, a building missing from `buildings.lots`
     and buildings with BINs 1000000 and 3000000. A job type outside the two kinds, a blank issue
     date in the earlier set and a date in another form in either set each stop the step, and

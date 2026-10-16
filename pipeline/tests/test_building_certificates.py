@@ -96,11 +96,11 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
     - BIN 1000001 got a new building, job 121, with certificates on 2015-08-19 for 10
       apartments, on 2105-11-05, a typo for 2015, and on 2016-02-02 for 12. A second new
       building job, 124, got a certificate on 2018-01-01 with a count too large for an
-      INTEGER. A major alteration, job 122, got a
-      certificate on 2019-05-01 in the earlier set with `NON5` for its count, and a certificate
-      on 2021-06-10 in each set, for 13 apartments in the earlier set and 14 in DOB NOW, then
-      one in the earlier set on 2021-06-20 for 0. Another alteration, job 123, got a certificate
-      in DOB NOW on 2021-04-01. The DOB NOW set also renews job 121 on 2021-06-30 for 0
+      INTEGER. A major alteration, job 122, got a certificate on 2019-05-01 in the earlier set
+      with `NON5` for its count, and a certificate on 2021-06-10 in each set, for 13 apartments
+      in the earlier set and 14 in DOB NOW, then one in the earlier set on 2021-06-20 for 0.
+      Another alteration, job 123, got a certificate in DOB NOW on 2021-04-01 with a count too
+      large for an INTEGER. The DOB NOW set also renews job 121 on 2021-06-30 for 0
       apartments. An older copy of the earlier set gives the BIN a new building in 2010, which
       the newer copy leaves out.
     - BIN 1000002 got a new building with existing elements to remain, job B1, in DOB NOW on
@@ -151,7 +151,7 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
             "1000001-0000003",
             "Alteration CO",
             "04/01/21 10:00:00 AM",
-            None,
+            "99999999999",
         ),
         (
             NEW,
