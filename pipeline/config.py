@@ -8,6 +8,9 @@ files:
   it stays out.
 - `PIPELINE_STATE`: the folder for the DuckDB database, its spill files and SQLMesh's cache.
 
+`PIPELINE_LEDGER` names the folder of the corrections ledger, `pipeline/ledger` unless set.
+`models/ledger/entries.py` explains the ledger.
+
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
 stream with less memory.
@@ -43,6 +46,7 @@ STATE = Path(os.environ.get("PIPELINE_STATE", "/data1/apartments/pipeline/state"
 # from the repo's src. Its code version covers their files in this checkout.
 PIPELINE = Path(__file__).resolve().parent
 SRC = PIPELINE.parent / "src"
+LEDGER = Path(os.environ.get("PIPELINE_LEDGER") or PIPELINE / "ledger")
 ATTRIBUTES_MODULES = (
     "steps.attributes",
     "apartments",
@@ -121,6 +125,11 @@ config = Config(
         # ops/pipeline/build.py records these in its catalog line. No model reads them, so they
         # stay out of the models' fingerprints.
         "export_files": {"ads": ads_files, "buildings": buildings_files},
+        # Each ledger file with its SHA-256. ledger.entries reads them, and the catalog line
+        # records them.
+        "ledger": {
+            str(path): file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
+        },
         "attributes_code": {
             name: file_sha256(path)
             for name, path in zip(ATTRIBUTES_MODULES, ATTRIBUTES_CODE)

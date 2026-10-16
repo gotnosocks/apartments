@@ -3,15 +3,15 @@ MODEL (
     kind FULL,
     grain listing_id,
     audits (unique_values(columns := (listing_id))),
-    description 'For each fit-ready row, the price its ad last asked, and the ad''s page price.'
+    description 'For each kept row, the price its ad last asked, and the ad''s page price.'
 );
 
--- An ad has one fit-ready row, priced on its first day. The row takes the ad's last kept change
+-- An ad has one kept row, priced on its first day. The row takes the ad's last kept change
 -- dated on or after that day. Failing that, when the ad's record was collected after the row,
 -- the row takes the change in effect on its day. The row is its ad's last, so the page price of
 -- the ad's latest record counts for the row when the record was collected after it.
 WITH r AS (
-    SELECT listing_id, price_at, strftime(price_at, '%Y-%m-%d') AS day FROM analysis.rows
+    SELECT listing_id, price_at, strftime(price_at, '%Y-%m-%d') AS day FROM analysis.kept
 ),
 hit AS (
     SELECT r.listing_id,

@@ -25,10 +25,13 @@ copy_export, append_answers = helpers.copy_export, helpers.append_answers
 
 
 @pytest.fixture
-def build(monkeypatch):
-    """`build.build` from ops/pipeline, with the environment it sets restored afterwards."""
+def build(monkeypatch, tmp_path):
+    """`build.build` from ops/pipeline, with the environment it sets restored afterwards and an
+    empty corrections ledger."""
+    (tmp_path / "ledger").mkdir()
     monkeypatch.setenv("PIPELINE_EXPORT", "")
     monkeypatch.setenv("PIPELINE_STATE", "")
+    monkeypatch.setenv("PIPELINE_LEDGER", str(tmp_path / "ledger"))
     monkeypatch.setenv("PIPELINE_MEMORY", "1GB")
     return load("build", BUILD).build
 

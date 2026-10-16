@@ -5,14 +5,16 @@ MODEL (
     audits (
         unique_values(columns := (listing_id)),
         not_null(columns := (listing_id, price_at, first_ask, latest_ask, how)),
-        every_row(rows := analysis.rows)
+        every_row(rows := analysis.kept)
     ),
-    description 'Each fit-ready row''s latest ask and how it was chosen, as rentfrontier.latest_ask chooses it.'
+    description 'Each kept row''s latest ask and how it was chosen, as rentfrontier.latest_ask chooses it.'
 );
 
+-- The model reads the kept rows, before the corrections ledger, as the chain's chooser reads each
+-- dataset before its correction rules. A change to the ledger leaves the latest asks as they are.
 -- The checks against a row's building use the median log first ask among the building's other
--- rows with the same bedroom count. Every fit-ready row has a building and a bedroom count. The
--- steps after s1 move the ask in turn:
+-- rows with the same bedroom count. Every kept row has a building and a bedroom count. The steps
+-- after s1 move the ask in turn:
 --   s2: an ask more than twice or under half the first ask gives way to whichever of the two
 --       lies nearer the building's median.
 --   s3 and s4 look at the ad's page price when its record was collected after the row. A page
@@ -25,7 +27,7 @@ MODEL (
 -- list's type.
 WITH rows AS (
     SELECT listing_id, price_at, building, bedrooms, asking_rent, ln(asking_rent) AS log_rent
-    FROM analysis.rows
+    FROM analysis.kept
 ),
 grp AS (
     SELECT building, bedrooms, count(*) AS g, list_sort(list(log_rent)) AS v FROM rows
