@@ -377,6 +377,15 @@ def test_repo_ledger_only_grows():
             assert path.name > last, f"{path.name} sorts before {last}"
 
 
+def importer():
+    spec = importlib.util.spec_from_file_location(
+        "ledger_import", PROJECT.parent / "ops" / "pipeline" / "ledger_import.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.mark.parametrize(
     "stated, recorded, corrected, kind",
     [
@@ -399,11 +408,7 @@ def test_repo_ledger_only_grows():
 def test_stated_size_rules_out_the_recorded_count(stated, recorded, corrected, kind):
     """The importer takes a stated size as backing when it lies nearer the corrected count's
     median than the medians of the recorded count and each count between them."""
-    spec = importlib.util.spec_from_file_location(
-        "ledger_import", PROJECT.parent / "ops" / "pipeline" / "ledger_import.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = importer()
     medians = {0: 480, 1: 700, 2: 1000, 3: 1334}
     read = {
         "bedrooms": corrected,
@@ -419,3 +424,24 @@ def test_stated_size_rules_out_the_recorded_count(stated, recorded, corrected, k
             in item["detail"]
         )
     assert "is in the ad" not in item["detail"]
+
+
+@pytest.mark.parametrize(
+    "text, kind",
+    [
+        ("Stunning one bedroom with a windowed kitchen", "ad_text"),
+        (
+            "floor plan shows a studio with a divider wall (Ben, 2026-10-16)",
+            "floor_plan",
+        ),
+        ("the video shows a second bedroom with a door (Ben, 2026-10-16)", "owner"),
+        # A floor plan in the ad's own words stays the ad's words.
+        ("Floor plan available on request, by Ben the agent", "ad_text"),
+    ],
+)
+def test_rule_evidence(text, kind):
+    """The importer takes a rule line's evidence as Ben's own reading when it gives his name and
+    the day, and as the ad's words otherwise."""
+    item = importer().rule_evidence(text)
+    assert item["kind"] == kind
+    assert item.get("quote", item.get("detail")) == text
