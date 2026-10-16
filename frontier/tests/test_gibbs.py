@@ -360,6 +360,55 @@ def test_solo_updates_reusing_parts_match_recomputing_them(monkeypatch):
         )
 
 
+@pytest.mark.parametrize("design", ["tunits", "lines", "yearnoise", "dayfourier"])
+def test_steps_on_design_arguments_match_the_closed_over_design(design):
+    """Steps jitted with the design's arrays as arguments, as `run` jits them,
+    follow the same chain as steps closing over the design (same keys)."""
+    prep = synthetic()
+    if design == "lines":
+        prep = with_lines(prep)
+    d = gibbs.build_design(prep, DESIGNS[design])
+    state = jax.tree.map(lambda x: x[0], gibbs.init_states(d, jax.random.PRNGKey(3), 1))
+    cfg = (5, 0.1, 0.1, 3, 0.1, 0.1)
+    prop_sd = jnp.full(len(d.scale_names), 0.05)
+    solo = {k: 0.1 for k in ("sigma", "walk_scale") if k in d.scale_names}
+    inner = gibbs.make_step(d)
+    arrays, rebuild = gibbs.design_arrays(d)
+    closed = jax.jit(lambda k, st: inner(k, st, cfg, prop_sd, solo))
+    passed = jax.jit(
+        lambda values, k, st: inner(k, st, cfg, prop_sd, solo, design=rebuild(values))
+    )
+    a = b = state
+    for k in jax.random.split(jax.random.PRNGKey(11), 4):
+        a, _ = closed(k, a)
+        b, _ = passed(arrays, k, b)
+    for k in a:
+        np.testing.assert_allclose(
+            np.asarray(a[k]), np.asarray(b[k]), rtol=1e-9, atol=1e-10
+        )
+
+
+def test_design_arrays_leave_no_large_constants_in_the_step():
+    """The step jitted on the design's arrays embeds none of the per-row data
+    as constants: its lowered text stays far smaller than the closed-over
+    step's."""
+    prep = synthetic(n_buildings=60)
+    d = gibbs.build_design(prep, DESIGNS["tunits"])
+    state = jax.tree.map(lambda x: x[0], gibbs.init_states(d, jax.random.PRNGKey(3), 1))
+    cfg = (5, 0.1, 0.1, 3, 0.1, 0.1)
+    inner = gibbs.make_step(d)
+    arrays, rebuild = gibbs.design_arrays(d)
+    key = jax.random.PRNGKey(0)
+    closed = jax.jit(lambda k, st: inner(k, st, cfg)).lower(key, state).as_text()
+    passed = (
+        jax.jit(lambda values, k, st: inner(k, st, cfg, design=rebuild(values)))
+        .lower(arrays, key, state)
+        .as_text()
+    )
+    assert d.a.nbytes > 100_000
+    assert len(passed) < len(closed) - d.a.nbytes
+
+
 @pytest.mark.parametrize(
     "design", ["walk", "walk12", "all", "fslopes", "tunits", "walkmin-long"]
 )

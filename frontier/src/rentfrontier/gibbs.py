@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import itertools
 import time
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, fields, replace
 
 import jax
 import jax.numpy as jnp
@@ -228,6 +228,52 @@ class Bucket:
     # back to the one before it (0 for a building's first), and 1 on used slots.
     gap: jnp.ndarray | None = None
     used: jnp.ndarray | None = None
+
+
+def _register_fields(cls):
+    """Register a dataclass as a pytree of its field values, so that
+    `design_arrays` finds the arrays inside a Design and its buckets."""
+    names = tuple(f.name for f in fields(cls))
+    jax.tree_util.register_pytree_node(
+        cls,
+        lambda obj: (tuple(getattr(obj, n) for n in names), None),
+        lambda _, values: cls(**dict(zip(names, values))),
+    )
+
+
+_register_fields(Design)
+_register_fields(Bucket)
+
+
+def design_arrays(d: Design):
+    """The arrays inside `d`, and a function rebuilding `d` from them.
+
+    `run` passes these arrays into each jitted phase as arguments. A design
+    closed over by a jitted function would instead be embedded in its
+    executable as constants: a copy per compiled phase (8.5 GB each on all
+    the scraped data), plus minutes of constant folding at compile time."""
+    leaves, tree = jax.tree_util.tree_flatten(d)
+    is_array = [isinstance(x, (jax.Array, np.ndarray)) for x in leaves]
+    arrays = [x for x, m in zip(leaves, is_array) if m]
+
+    def rebuild(values):
+        it = iter(values)
+        out = jax.tree_util.tree_unflatten(
+            tree, [next(it) if m else x for x, m in zip(leaves, is_array)]
+        )
+        # tree_unflatten returns dicts in sorted key order. The step folds a
+        # dict's position into its random keys (global_blocks,
+        # local_structures), so put each dict back in the design's order.
+        return replace(
+            out,
+            **{
+                f.name: {k: getattr(out, f.name)[k] for k in getattr(d, f.name)}
+                for f in fields(d)
+                if isinstance(getattr(d, f.name), dict)
+            },
+        )
+
+    return arrays, rebuild
 
 
 # At most this many compact widths: one batched elimination per bucket.
@@ -1355,17 +1401,20 @@ def make_step(d: Design):
     hier = list(d.scale_names)  # collapsed update covers sigma and every group scale
     d_base = d
 
-    def step(key, state, cfg, prop_sd=None, solo_sd=None, walk_axes=None):
+    def step(key, state, cfg, prop_sd=None, solo_sd=None, walk_axes=None, design=None):
         """One iteration. `cfg` holds the step sizes; with `prop_sd` (one
         proposal sd per hierarchical log-scale) the scales are first updated
         by a collapsed Metropolis step that integrates out every latent.
         `walk_axes` (2, 2) holds the unit directions in (log walk_scale,
-        log walk_decay) of the solo updates `walk_axis_0` and `walk_axis_1`."""
+        log walk_decay) of the solo updates `walk_axis_0` and `walk_axis_1`.
+        `design` is the design rebuilt from a jitted function's arguments
+        (`design_arrays`); None uses the one make_step was given."""
+        base = d_base if design is None else design
         # With line effects the block sees y minus the current line effects.
         d = (
-            d_base
-            if d_base.line_row is None
-            else replace(d_base, y=d_base.y - line_rows(d_base, state["line"]))
+            base
+            if base.line_row is None
+            else replace(base, y=base.y - line_rows(base, state["line"]))
         )
         (
             noise_steps,
@@ -2021,14 +2070,29 @@ def run(
     t0 = time.perf_counter()
     n1 = settings.warmup // 2 if settings.collapse else settings.warmup
 
-    def warm1(state, k):
+    arrays, rebuild = design_arrays(d)
+
+    def on_design(fn):
+        """`fn(design, state, key)` batched over chains and jitted, with the
+        design's arrays as arguments of the executable."""
+
+        def run_(values, states, keys):
+            dd = rebuild(values)
+            return batched(
+                lambda st, k: fn(dd, st, k), settings.chains, settings.chain_batch
+            )(states, keys)
+
+        jitted = jax.jit(run_)
+        return lambda states, keys: jitted(arrays, states, keys)
+
+    def warm1(dd, state, k):
         def body(st, kk):
-            st, _ = step(kk, st, cfg)
+            st, _ = step(kk, st, cfg, design=dd)
             return st, jnp.log(jnp.stack([st[n] for n in (*hier, "nu")]))
 
         return jax.lax.scan(body, state, jax.random.split(k, n1))
 
-    states, log_scales = jax.jit(batched(warm1, settings.chains, settings.chain_batch))(
+    states, log_scales = on_design(warm1)(
         states, jax.random.split(k_warm, settings.chains)
     )
     prop_sd = solo_sd = walk_axes = None
@@ -2076,11 +2140,11 @@ def run(
         n2 = settings.warmup - n1
         solo_names = list(solo_sd)
 
-        def warm2(state, k, psd, ssd, axes, length):
+        def warm2(dd, state, k, psd, ssd, axes, length):
             ssd_dict = dict(zip(solo_names, ssd))
 
             def body(st, kk):
-                st, info = step(kk, st, cfg, psd, ssd_dict, axes)
+                st, info = step(kk, st, cfg, psd, ssd_dict, axes, design=dd)
                 acc = jnp.stack(
                     [
                         info["collapsed_accept"],
@@ -2106,13 +2170,9 @@ def run(
         for r, (phase_key, length) in enumerate(
             zip(jax.random.split(k_warm2, rounds), lengths)
         ):
-            run2 = jax.jit(
-                batched(
-                    lambda st, k, _psd=prop_sd, _sd=ssd, _ax=walk_axes, _len=length: (
-                        warm2(st, k, _psd, _sd, _ax, _len)
-                    ),
-                    settings.chains,
-                    settings.chain_batch,
+            run2 = on_design(
+                lambda dd, st, k, _psd=prop_sd, _sd=ssd, _ax=walk_axes, _len=length: (
+                    warm2(dd, st, k, _psd, _sd, _ax, _len)
                 )
             )
             states, (acc, pair) = run2(
@@ -2166,8 +2226,10 @@ def run(
 
     t0 = time.perf_counter()
     out = collect_module.collect(
-        lambda k, st: step(k, st, cfg, prop_sd, solo_sd, walk_axes),
-        lambda st: site_values(d, st),
+        lambda k, st, values: step(
+            k, st, cfg, prop_sd, solo_sd, walk_axes, design=rebuild(values)
+        ),
+        lambda st, values: site_values(rebuild(values), st),
         states,
         k_draw,
         prep,
@@ -2177,6 +2239,7 @@ def run(
         settings.seed,
         settings.trace_groups,
         vmap=lambda fn: batched(fn, settings.chains, settings.chain_batch),
+        consts=arrays,
     )
     sampling_seconds = time.perf_counter() - t0
     log(f"sampling {sampling_seconds:.1f}s")
