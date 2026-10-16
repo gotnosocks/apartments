@@ -191,15 +191,17 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
-   1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release, and
-      copies of the footprints, LPC and DOB certificate sets, in
-      `/data1/apartments/archive/city`, each dated by its publisher, with an append-only
-      manifest. `apartments-city-fetch.timer` runs it every Friday at 04:00 ET. The first run
+   1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
+      `/data1/apartments/archive/city`, along with copies of the footprints, LPC and DOB
+      certificate sets. Each file carries its publisher's date in an append-only manifest. `apartments-city-fetch.timer` runs it every Friday at 04:00 ET. The first run
       copied 62 files, 4.45 GB, in 525 s with a 24 MiB peak. A second run took 4 s;
-   2. city models: a Python step unpacks each listed file to Parquet once and caches it by its
-      SHA-256, and a view for each table gives each release's rows with its date. A MapPLUTO
-      release takes about 10 s and 55 MB, and the old split releases end in a DOS end-of-file
-      byte;
+   2. **Done** in the city tables PR: `pipeline/steps/city.py` unpacks each listed file to
+      Parquet once, in a folder named by the hashes of its code and its manifest line, and a
+      `city.*` view for each table gives each release's rows with its date. The whole archive
+      took 597 s with a 1,078 MiB peak and gave 3.1 GB of Parquet, and a load with the cache in
+      place takes under 0.1 s. The first build after the merge unpacks into
+      `/data1/apartments/pipeline/city`. `ops/pipeline/sample.py` doesn't cut the city archive
+      yet;
    3. identity: each API building gets a BIN and a BBL two ways, by a PAD address match and by
       the footprint holding its `geoCenter`, each link with a score. The step measures its
       error rate against Data improvements' registry and reviewed answers;

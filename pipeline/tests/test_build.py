@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -50,6 +51,14 @@ def test_build_writes_hashed_rows_and_a_catalog_line(tmp_path, build):
     assert first["ads"]["files"] == {
         str(path.relative_to(export)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in (export / "ads").glob("*/*.parquet")
+    }
+    city = Path(os.environ["PIPELINE_CITY"])
+    assert first["city"] == {
+        "archive": str(city),
+        "files": {
+            str(path.relative_to(city)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in city.glob("*/*.*")
+        },
     }
     assert all(model["seconds"] is not None for model in first["models"].values())
     # A second build from the same export rebuilds nothing and writes the same file.

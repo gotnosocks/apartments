@@ -324,6 +324,45 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     assert ctx.fetchdf("SELECT count(page) AS n FROM ads.identity").n[0] == 229
 
 
+def test_new_city_file_rebuilds_only_its_view(tmp_path, monkeypatch):
+    """A file added to the city archive changes the view of its table and the view of refused
+    rows, and the load unpacks only that file."""
+    city = tmp_path / "city"
+    shutil.copytree(FIXTURE / "city", city)
+    lines = (city / "manifest.ndjson").read_text().splitlines(keepends=True)
+    (city / "manifest.ndjson").write_text(
+        "".join(line for line in lines if json.loads(line)["source"] != "landmarks")
+    )
+    monkeypatch.setenv("PIPELINE_CITY", str(city))
+    monkeypatch.setenv("PIPELINE_CITY_CACHE", str(tmp_path / "cache"))
+    ctx = context(monkeypatch, tmp_path / "state")
+    ctx.plan(auto_apply=True, no_prompts=True)
+    # With no file in the archive, the view has the added columns and no rows.
+    landmarks = ctx.fetchdf("SELECT * FROM city.landmarks")
+    assert list(landmarks) == [
+        "release",
+        "published",
+        "file",
+        "member",
+        "record",
+        "encoding",
+    ]
+    assert landmarks.empty
+    before = set((tmp_path / "cache").glob("*/*"))
+    (city / "manifest.ndjson").write_text("".join(lines))
+    ctx = context(monkeypatch, tmp_path / "state")
+    plan = ctx.plan(auto_apply=True, no_prompts=True)
+    assert changed(plan) == ["city.landmarks", "city.rejects"]
+    (added,) = {
+        path for path in (tmp_path / "cache").glob("*/*") if path.is_dir()
+    } - before
+    assert sorted(path.name for path in added.iterdir()) == [
+        "landmarks-0.parquet",
+        "rejects.parquet",
+    ]
+    assert ctx.fetchdf("SELECT count(*) AS n FROM city.landmarks").n[0] == 29
+
+
 def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
     """A change to the projection's code gives ads.record_attributes a new code version, and the
     build parses every record again into a new folder. A build stops when the venv loads code

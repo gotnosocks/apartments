@@ -12,6 +12,12 @@ files:
 The config stops when the folder is missing, as a mistyped path would otherwise give a build
 with no corrections. `models/ledger/entries.py` explains the ledger.
 
+`PIPELINE_CITY` names the city archive of `ops/pipeline/city.py`, `/data1/apartments/archive/city`
+unless set, and `PIPELINE_CITY_CACHE` the folder for its Parquet files,
+`/data1/apartments/pipeline/city` unless set. As the project loads, the config runs
+`steps/city.py`, which unpacks each file the archive's manifest lists and the cache lacks. The
+config stops when the archive's folder is missing. `steps/city.py` explains the cache.
+
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
 stream with less memory.
@@ -27,6 +33,7 @@ same inputs, a plan rebuilds nothing.
 """
 
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -42,6 +49,10 @@ EXPORT = Path(
     os.environ.get("PIPELINE_EXPORT", "/data1/apartments/archive/crawls/api/export")
 )
 STATE = Path(os.environ.get("PIPELINE_STATE", "/data1/apartments/pipeline/state"))
+CITY = Path(os.environ.get("PIPELINE_CITY") or "/data1/apartments/archive/city")
+CITY_CACHE = Path(
+    os.environ.get("PIPELINE_CITY_CACHE") or "/data1/apartments/pipeline/city"
+)
 
 # ads.record_attributes runs `steps.attributes`, which imports these modules of the current chain
 # from the repo's src. Its code version covers their files in this checkout.
@@ -101,6 +112,16 @@ ads, ads_version, ads_files = exported("ads")
 buildings, buildings_version, buildings_files = exported("buildings")
 if not LEDGER.is_dir():
     raise FileNotFoundError(f"no ledger folder at {LEDGER}")
+if not CITY.is_dir():
+    raise FileNotFoundError(f"no city archive at {CITY}")
+# The config loads steps/city.py from this checkout by its path. The venv's editable install
+# can point at another checkout.
+spec = importlib.util.spec_from_file_location(
+    "city_step", PIPELINE / "steps" / "city.py"
+)
+city = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(city)
+city_tables, city_files = city.unpack(CITY, CITY_CACHE)
 STATE.mkdir(parents=True, exist_ok=True)
 
 config = Config(
@@ -128,11 +149,15 @@ config = Config(
         # ops/pipeline/build.py records these in its catalog line. No model reads them, so they
         # stay out of the models' fingerprints.
         "export_files": {"ads": ads_files, "buildings": buildings_files},
+        "city_files": {"archive": str(CITY), "files": city_files},
         # Each ledger file with its SHA-256. ledger.entries reads them, and the catalog line
         # records them.
         "ledger": {
             str(path): file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
         },
+        # The Parquet files of each city table. A path holds the SHA-256 of the code and of
+        # the manifest line, so a new file or new code gives the city views new fingerprints.
+        **{f"city_{table}": paths for table, paths in city_tables.items()},
         "attributes_code": {
             name: file_sha256(path)
             for name, path in zip(ATTRIBUTES_MODULES, ATTRIBUTES_CODE)
