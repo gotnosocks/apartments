@@ -236,7 +236,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       of Oct 16 that changed the latest ask of 12 ended ads and left the rows file as it was.
       Data improvements wrote latest-ask-v7 with those 12 asks (#932), and in #933 the
       chain's `rentfrontier.latest_ask` reads the page price the same way.
-      **Done** in #ASKPR: `analysis.ask_check` lists each kept row asking 6 to 16 times, or a
+      **Done** in #937: `analysis.ask_check` lists each kept row asking 6 to 16 times, or a
       sixteenth to a sixth of, the median of at least three other kept rows with its building
       and bedroom count, and `analysis.rows` drops it. On the planted sample it drops 41 of the
       43 tenfold asks in every record that passed before. On the export of Oct 16 it lists 46
