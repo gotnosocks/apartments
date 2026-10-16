@@ -9,8 +9,8 @@ MODEL (
 -- The rule follows `canonical_units.memberships` and `graphql_listing.canonical_link` of the
 -- current chain:
 --   1. Each record gives the page https://streeteasy.com/building/{building slug}/{unit slug}.
---      The building slug comes from the latest answer for the record's buildingId in the
---      export's buildings table. The collector instead stores each ad's record with the slug
+--      The building slug comes from the latest record for the record's buildingId, as
+--      buildings.details gives it. The collector instead stores each ad's record with the slug
 --      its building had in the same generation when it stored the ad. The two agree on runs 1
 --      to 5, which answer each building once. A record gives no page when either slug is
 --      missing or empty, or holds a '/', '?' or '#'.
@@ -26,13 +26,7 @@ MODEL (
 -- to 5 holds only lowercase letters, digits, '-' and '_'.
 -- The ad's building is the building of its latest record. Answers without a record take no part,
 -- as the chain reads only stored records.
-WITH buildings AS (
-    SELECT building_id, json_extract_string(record, '$.slug') AS slug
-    FROM raw.buildings
-    WHERE outcome = 'record'
-    QUALIFY row_number() OVER (PARTITION BY building_id ORDER BY fetched DESC, response_id DESC) = 1
-),
-records AS (
+WITH records AS (
     SELECT listing_id::VARCHAR AS listing_id, fetched, response_id,
         json_extract_string(record, ['$.buildingId', '$.slug']) AS f
     FROM raw.ads
@@ -43,7 +37,7 @@ captures AS (
         CASE WHEN b.slug <> '' AND r.f[2] <> '' AND NOT regexp_matches(b.slug || r.f[2], '[/?#]')
             THEN 'https://streeteasy.com/building/' || b.slug || '/' || r.f[2] END AS page
     FROM records r
-    LEFT JOIN buildings b ON b.building_id = r.f[1]
+    LEFT JOIN buildings.details b ON b.building_id = r.f[1]
 ),
 ads AS (
     SELECT listing_id, count(*) AS records,
