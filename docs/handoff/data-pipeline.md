@@ -180,7 +180,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       fit, then took 192 s at a 4,239 MiB peak, with 59 s in `ads.events` and 30 s in
       `ads.record_attributes`, and wrote `rows-892481e29edeeb73.parquet` with 1,746,499 rows.
       It also rebuilt `ledger.entries`, `ledger.status` and `analysis.rows`, whose fingerprints
-      changed with Python's hash seed: `ledger.entries` read two dicts of sets. #PRNUM gives
+      changed with Python's hash seed: `ledger.entries` read two dicts of sets. #900 gives
       them tuples. A check build of the same export into an empty scratch state should give the
       same rows file;
    3. fits reading a rows file by name and hash, agreed with Modeling first;
