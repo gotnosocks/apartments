@@ -248,7 +248,10 @@ def lock_code(code: Path):
     for its lock, and then the load starts again with a new folder."""
     while True:
         code.mkdir(parents=True, exist_ok=True)
-        lock = open(code / ".lock", "a")
+        try:
+            lock = open(code / ".lock", "a")
+        except FileNotFoundError:
+            continue
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
             if os.stat(code / ".lock").st_ino == os.fstat(lock.fileno()).st_ino:
@@ -265,7 +268,9 @@ def empty(code: Path, table: str) -> Path:
         db.execute(f"CREATE TABLE empty ({REJECTS if table == 'rejects' else ADDED})")
         db.execute(f"COPY empty TO '{path}.part' (FORMAT parquet)")
         db.close()
+        fsync(Path(f"{path}.part"))
         os.replace(f"{path}.part", path)
+        fsync(code)
     return path
 
 
@@ -274,7 +279,8 @@ def sweep(cache: Path):
     the lock held, the sweep renames a folder to `<code>.old` and then deletes it, so a load
     never finds a folder partway deleted. It also deletes an `.old` folder a stopped sweep
     left."""
-    # Another load's sweep may delete an `.old` folder at the same time.
+    # Another load's sweep may move or delete the same folders at the same time, and then this
+    # sweep leaves them to it.
     for code in sorted(cache.iterdir()):
         if code.suffix == ".old":
             shutil.rmtree(code, ignore_errors=True)
@@ -282,13 +288,16 @@ def sweep(cache: Path):
         if code.name == CODE or not (code / ".lock").is_file():
             continue
         old = code.with_name(f"{code.name}.old")
-        with open(code / ".lock") as lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                continue
-            if time.time() - os.fstat(lock.fileno()).st_mtime <= WEEK:
-                continue
-            shutil.rmtree(old, ignore_errors=True)
-            os.rename(code, old)
+        try:
+            with open(code / ".lock") as lock:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    continue
+                if time.time() - os.fstat(lock.fileno()).st_mtime <= WEEK:
+                    continue
+                shutil.rmtree(old, ignore_errors=True)
+                os.rename(code, old)
+        except OSError:
+            continue
         shutil.rmtree(old, ignore_errors=True)
