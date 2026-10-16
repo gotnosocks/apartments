@@ -152,6 +152,57 @@ systemctl --user daemon-reload
 systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline-build.timer
 ```
 
+## Change diff
+
+`ops/pipeline/diff.py` builds the tables with the base code and with an edit, and lists the
+differences:
+
+```sh
+uv run --project pipeline python ops/pipeline/diff.py [--base REV] [--export DIR] [--ledger DIR] \
+    [--rows N] [--json FILE] [--keep DIR]
+```
+
+The script writes `pipeline/` and `src/` at REV, HEAD unless given, to a scratch folder. It
+builds that code and the checkout's own from empty, each in a process of its own, both at once.
+Both builds read the test fixture's export unless `--export` gives another, and each reads its
+own `pipeline/ledger` unless `--ledger` gives a folder for both. Each side's process drops the
+folders added by the venv's .pth files from its import path, so it imports only that side's
+code. Then the script compares the tables model by model:
+
+- a model with a grain: it joins the two tables on the grain and counts the rows only in the
+  base, the rows only in the edit and the changed rows, with a count for each changed column.
+  When the grain changed, or repeats on a side, it compares the rows as multisets instead and
+  notes the reason;
+- a model without a grain: it counts the rows of each side missing from the other;
+- every model: it lists models and columns present on one side only, and columns with a new
+  type. It compares a retyped column by value when both types hold numbers, as text otherwise,
+  so 5 and '05' differ.
+
+It prints up to N rows of each kind for each changed model, 5 unless given, and then the names
+of the unchanged models. With the size bound of `analysis.candidates` narrowed to 150 to 1,000
+square feet, it printed:
+
+```
+analysis.candidates: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
+analysis.kept: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
+analysis.rows: 229 rows in the base, 229 in the edit; 1 changed (square_feet 1)
+  listing_id=3120884: square_feet 1200.0 -> null
+unchanged: ads.answers, ads.attributes, ads.events, ads.exclusions, ads.first_ask, ...
+built the base in 5.5 s and the edit in 5.5 s, 6.1 s in all
+```
+
+The run took 6.1 s on thelio and peaked at 350 MB. Each side builds every model from empty, so
+an edit to a model, to `pipeline/steps` or to `src` shows in the tables. When a plan stops on
+either side, at an audit or an error, the script prints the end of that plan's output and exits
+with status 1. `--json` writes the whole comparison to a file, and `--keep` keeps both builds'
+tables as Parquet files in a folder.
+
+The fixture's 229 records lack many cases from the full export. `--export` takes another export
+folder. The script builds both sides in a scratch folder under TMPDIR, so on thelio a large
+export calls for TMPDIR under /data1, as /tmp is a small RAM disk.
+
 ## Models
 
 | model | kind | a row for each |
@@ -708,7 +759,20 @@ in all, and most tests add made-up ads to that export. The tests:
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's ledger, and check that each of its files at the merge base with master
-    stays as it was and that each new file sorts after master's files.
+    stays as it was and that each new file sorts after master's files;
+25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
+    `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test
+    checks the changed rows of `analysis.candidates`, `analysis.kept` and `analysis.rows`
+    against the base's sizes above the bound, finds the new column and the new model, and finds
+    no other model changed. A second copy drops the price events of `ads.history_events`, a
+    model without a grain, and the test checks the count of rows only in the base. A third copy drops sizes in `pipeline/steps/attributes.py`
+    and spaces the JSON of `canonical` in `src`, and the test finds both changes in
+    `ads.record_attributes`. In a fourth copy, `analysis.rows` repeats a row. Its audit then
+    fails, and the script exits with status 1. Then the test checks that a side's process
+    imports `steps` from that side alone, and that `archive` writes `pipeline/` and `src/` at
+    HEAD. Last, it compares small tables directly: retyped grain and value columns, a repeated
+    grain, a changed grain, columns named like the join's markers, and tables with no column in
+    common.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 45 s on thelio, against about 100 s in a single process. SQLMesh loads models in forked
