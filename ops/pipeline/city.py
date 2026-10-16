@@ -24,10 +24,10 @@ unless given, along with the release's date from its publisher. It works in thes
      from that time, it downloads all the rows as CSV. The CSV gives Socrata's `:id`,
      `:version`, `:created_at` and `:updated_at` for each row.
 3. It downloads each file to a `.part` file beside its final path. It gzips each CSV with a
-   fixed header time, so the same rows in the same order give the same bytes. It checks the
-   download: a file with a Content-Length must have that many bytes, a zip must open, and a CSV
-   must end with a newline. On a server error, a rate limit, a dropped connection or a short
-   file, it waits and downloads the file again, up to five times. After a CSV download it reads
+   fixed header time, so the same rows in the same order give the same bytes. It checks that a
+   file sent with a Content-Length has that many bytes, that a zip opens, and that a CSV ends
+   with a newline. On a server error, a rate limit, a dropped connection or a failed check, it
+   waits and tries again, up to five tries in all. After a CSV download it reads
    `rowsUpdatedAt` again and drops the copy when the time moved, since the rows may then come
    from both sides of the change. Then it renames the file into place, flushes the folder to
    disk, appends a line for the file to ARCHIVE/manifest.ndjson and flushes the manifest. When
@@ -82,7 +82,8 @@ class Incomplete(Exception):
 
 def tries(action):
     """Call `action` up to TRIES times, with doubling waits between calls. Call it again after a
-    server error, a rate limit, a dropped connection, a timeout or an incomplete download."""
+    server error, a rate limit, an incomplete download or any OSError. An OSError comes from a
+    dropped connection or a timeout, and also from a local fault such as a full disk."""
     for attempt in range(TRIES):
         try:
             return action()

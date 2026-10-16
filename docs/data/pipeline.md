@@ -20,13 +20,15 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 
 ## Inputs
 
-`pipeline/config.py` reads three environment variables:
+`pipeline/config.py` reads five environment variables:
 
 | variable | default on thelio | holds |
 |---|---|---|
 | `PIPELINE_EXPORT` | `/data1/apartments/archive/crawls/api/export` | the scraper's export, with its manifest |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
 | `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, as described under [Corrections ledger](#corrections-ledger) |
+| `PIPELINE_CITY` | `/data1/apartments/archive/city` | the city archive, as described under [City records](#city-records) |
+| `PIPELINE_CITY_CACHE` | `/data1/apartments/pipeline/city` | the city archive's files as Parquet, as described under [City tables](#city-tables) |
 
 The build reads the ads and buildings files listed in the manifest and skips any file still
 lacking a line.
@@ -77,8 +79,8 @@ The script downloads each file to a `.part` file and checks it:
 - a zip opens;
 - a CSV ends with a newline.
 
-On a server error, a rate limit, a dropped connection or a failed check, it waits and downloads
-the file again, up to five times. After a CSV download it reads `rowsUpdatedAt` again and drops
+On a server error, a rate limit, a dropped connection or a failed check, it waits and tries
+again, up to five tries in all. After a CSV download it reads `rowsUpdatedAt` again and drops
 the copy when the time moved. Then it renames the file into place and appends its line to
 `manifest.ndjson`, so a reader can take each listed file as whole. Each line gives:
 
@@ -95,15 +97,15 @@ README, the data dictionary or the file layout. For 21v1 and for each release fr
 takes the Last-Modified date. Since 22v2 has no dated document, its line leaves the date empty.
 A test checks the copy against frontier's table. City Planning's server holds no PAD release
 before 23b, so an ad posted before April 2023 has no PAD release from its own time. In the 15v1
-zip, `PlutoReadme15v1.pdf` fails its CRC check. The copy matches the server's file, whose ETag
-gives the copy's MD5, and the five borough tables in it read whole.
+zip, `PlutoReadme15v1.pdf` fails its CRC check. The copy matches the server's file, since the
+server's ETag gives the copy's MD5. The five borough tables in that zip read whole.
 
 Open Data's export at `/api/views/ID/rows.csv` answers with a Deprecation header and a sunset
 date of 2026-12-22, so the script reads `/api/v3/views/ID/query.csv`. That export also gives
 Socrata's `:id`, `:version`, `:created_at` and `:updated_at` for each row. The script sends
 `NYC_OPEN_DATA_TOKEN` as the app token when the variable is set. It gzips each CSV with a fixed
-header time, so two copies of the same rows in the same order have the same SHA-256. The query
-asks for no order, so two copies of unchanged rows may still differ.
+header time, so two copies of the same rows in the same order have the same SHA-256. The script
+sets no order on the query, so two copies of unchanged rows may still differ.
 
 The first run, on Oct 16, copied 62 files and 4.45 GB in 525 s, 352 s of it for the footprints.
 The process peaked at 24 MiB. The unit's peak of 1 GiB is page cache. Each Open Data copy holds
@@ -123,6 +125,72 @@ cp /data1/apartments/pipeline/code/ops/systemd/apartments-city-fetch.{service,ti
 systemctl --user daemon-reload
 systemctl --user enable --now apartments-city-fetch.timer
 ```
+
+## City tables
+
+DuckDB can't read a member of a zip, so `pipeline/steps/city.py` unpacks the city archive into
+Parquet files for the `city.*` views. `config.py` runs the step as the project loads, with the
+archive from `PIPELINE_CITY` and the cache from `PIPELINE_CITY_CACHE`. For each file the
+archive's manifest lists, the step
+
+1. picks the folder `<code>/<entry>` in the cache, from the first 16 hex digits of the SHA-256
+   of `steps/city.py` with DuckDB's version and of the file's manifest line, and goes on to the
+   next file when the folder exists;
+2. copies each member a table takes to a scratch file, without the DOS end-of-file byte at the
+   end of an old MapPLUTO table. As it copies, it checks the bytes as UTF-8. It takes Latin-1
+   for a member with bytes UTF-8 can't decode;
+3. reads the copy with DuckDB as CSV, every value as text, with the column names in lower
+   case. DuckDB sets aside each row with too few or too many values, and the step writes those
+   rows to the folder's `rejects.parquet` with DuckDB's line number, its reason and the row's
+   text;
+4. writes each member's rows to a Parquet file, adding `release` and `published` from the
+   manifest line, the archive's `file` and its `member`, `record`, the row's place among the
+   rows DuckDB kept from the member, and the `encoding`;
+5. flushes the scratch folder to disk and renames it into place. DuckDB doesn't flush its
+   files, and a folder in place counts as unpacked.
+
+| table | source | members |
+|---|---|---|
+| `pad_addresses` | `pad` | `bobaadr.txt` at the zip's root |
+| `pad_lots` | `pad` | `bobabbl.txt` at the zip's root |
+| `pluto` | `pluto` | each `.txt` or `.csv` |
+| `footprints`, `landmarks`, `dob_now_co`, `dob_co` | the Open Data set | the gzipped CSV |
+
+PAD's zips from 24c to 25c hold a second copy of each table in a `win11` folder, and the tables
+take the copy at the root. MapPLUTO comes as a table for each borough up to 18v1, in `.txt`
+files up to 12v2, and as one table for the city from 18v2 on.
+
+`config.py` gives each view its Parquet files as a variable. A file's path holds the hashes of
+the code and of the manifest line, so a new file in the archive gives its source's views new
+fingerprints, and an edit to `steps/city.py` or a new DuckDB gives every city view new ones. For
+a table with no file in the archive, the step gives an empty file with only the added columns,
+and a file holding no member for one of its source's tables stops the load with an error. The
+step keeps every value as text, and the identity and city-fact steps cast the values they read.
+A `published` date with no time reads as midnight UTC.
+
+`record` counts the kept rows. A refused row's `line` is DuckDB's line number for it, counting
+the header. DuckDB counts records rather than lines, so after a value holding a line break, the
+numbers fall short of the line in the file. The 13v1 tables end in rows of commas only, and
+those come through as rows with every value empty.
+
+The step holds a lock on its code's folder while it works, so two loads never unpack the same
+file at once. An unpack stopped partway leaves a `.part` folder, and the next load deletes it
+and starts that file again. After each load, the step deletes the folder of each other version
+of its code that no load has used for a week. It renames such a folder to `<code>.old` before
+deleting it, and a load waiting on that folder's lock starts again in a new folder. Each edit to
+`steps/city.py`, comments included, means the next build unpacks the whole archive again, for
+about 10 minutes under the build's locks.
+
+On thelio on Oct 16, the step unpacked the archive's 62 files into an empty cache in 597 s, with
+a peak of 1,078 MiB, into 3.1 GB of Parquet files. A second unpack from empty, with the build's
+venv into `/data1/apartments/pipeline/city`, took 589 s with a peak of 1,454 MiB. A load with
+every folder in place took under 0.1 s. Every member read as UTF-8, and DuckDB refused one row
+in the whole archive, the row of 13v1's Queens table with 80 values of 82. Across their
+releases, the tables hold 18,515,237 PAD address ranges, 12,238,530 PAD lots and 37,806,144
+MapPLUTO lots. Each Open Data copy gives as many rows as its set's `count(*)`. The step lets
+DuckDB write the rows in the member's order rather than sorting them by `record`: a sort doubled
+the memory for MapPLUTO's table of the whole city, and the first try at the full archive ran out
+at a 2 GiB cap.
 
 ## Build command
 
@@ -145,6 +213,7 @@ SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line 
 | `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
 | `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
 | `ledger` | the ledger's files with their SHA-256, and its entries counted by status and change |
+| `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the file, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
@@ -195,7 +264,8 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    last file;
 2. moves its own checkout, `/data1/apartments/pipeline/code`, to master and syncs
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
-   manifest and the pipeline's code match the last build's, as on most of the timer's runs;
+   export's manifest, the city archive's manifest and the pipeline's code match the last
+   build's, as on most of the timer's runs;
 3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
    runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
    trying again every five minutes while less is available;
@@ -207,7 +277,7 @@ Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and 
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
 
-After each build, the script writes the manifest's hash and the commit's trees to
+After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
 OUT, delete that file, so the next trigger builds from master again.
 
@@ -237,13 +307,15 @@ differences:
 
 ```sh
 uv run --project pipeline python ops/pipeline/diff.py [--base REV] [--export DIR | --sample] \
-    [--ledger DIR] [--rows N] [--json FILE] [--keep DIR]
+    [--city DIR] [--ledger DIR] [--rows N] [--json FILE] [--keep DIR]
 ```
 
 The script writes `pipeline/` and `src/` at REV, HEAD unless given, to a scratch folder. It
 builds that code and the checkout's own from empty, each in a process of its own, both at once.
-Both builds read the test fixture's export unless `--export` gives another, and each reads its
-own `pipeline/ledger` unless `--ledger` gives a folder for both. Each side's process drops the
+Both builds read the test fixture's export unless `--export` gives another, and the fixture's
+city archive unless `--city` gives another. Each side unpacks the city archive into a cache of
+its own in the scratch folder. Each build reads its own `pipeline/ledger` unless `--ledger`
+gives a folder for both. Each side's process drops the
 folders added by the venv's .pth files from its import path, so it imports only that side's
 code. Then the script compares the tables model by model:
 
@@ -306,6 +378,14 @@ disk.
 |---|---|---|
 | `raw.ads` | view | exported API answer for an ad |
 | `raw.buildings` | view | exported API answer for a building |
+| `city.pad_addresses` | view | address range of a PAD release |
+| `city.pad_lots` | view | lot of a PAD release, with its range of condominium lots and its billing lot |
+| `city.pluto` | view | lot of a MapPLUTO release |
+| `city.footprints` | view | building footprint in a copy of the footprints |
+| `city.landmarks` | view | landmark building or site in a copy of LPC's set |
+| `city.dob_now_co` | view | certificate of occupancy in a copy of the DOB NOW set |
+| `city.dob_co` | view | certificate of occupancy in a copy of DOB's earlier set |
+| `city.rejects` | view | value missing from, or extra in, a row DuckDB refused as it read the city archive |
 | `ads.answers` | table | answer, with the fields the event log and the latest-ask steps read and a hash of its unit history |
 | `ads.history_events` | table | event in a distinct unit history |
 | `ads.events` | table | event the API reported for an ad, with the answers that reported it |
@@ -840,7 +920,7 @@ in all, and most tests add made-up ads to that export. The tests:
 19. parse every SQL model as SQLMesh loads it and look for a bracket reading a list at a
     computed index;
 20. run `ops/pipeline/build.py` on the fixture twice and check the rows file's name and the
-    export files' hashes against their SHA-256. The second build rebuilds nothing, writes the
+    export files' and city files' hashes against their SHA-256. The second build rebuilds nothing, writes the
     same rows file and appends a second catalog line. Then the test builds runs 2 and 3, adds
     run 4 and builds again, and compares that build's rows file with a build of runs 2 to 4 into
     an empty state. The two files hold the same bytes. Last, the test adds an export file
@@ -901,8 +981,26 @@ in all, and most tests add made-up ads to that export. The tests:
     Then it checks that PAD's quarters go on from 24d to 25a, that `--verify` finds a changed
     file and a missing one, and that `ops/pipeline/pluto_releases.csv` matches frontier's
     `PLUTO_RELEASES`.
+28. unpack the city fixture and read each member a table takes with Python's `csv` module. Each
+    row with as many values as the header matches a Parquet row, in order, and each other row
+    has a line in `city.rejects`. Then the test checks the fixture's forms: the PAD tables come
+    from the zip's root in 24c and 26c, each MapPLUTO release holds lots, and the Queens table of
+    13v1 has a row refused for missing values. With small archives of its own, it checks
+    - the order of the columns and the added values;
+    - a member read as Latin-1;
+    - a refused row's line, reason and text, and the `record` of the rows after it;
+    - a second unpack writing nothing, and a new manifest line unpacking only its file;
+    - new folders for a new version of the code, with the same rows;
+    - a stopped unpack, whose `.part` folder the next unpack replaces;
+    - a manifest line with no newline, whose file the unpack leaves out;
+    - a source no table takes;
+    - the sweep, which deletes a week-old folder and keeps a recent one and one a load holds.
+29. build the fixture with an archive lacking the landmarks file, and check that
+    `city.landmarks` holds the added columns and no rows. With the file back in the manifest,
+    the next plan rebuilds `city.landmarks` and `city.rejects` alone, from a new folder holding
+    the landmarks' Parquet file and the rejects.
 
-They take about 100 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 135 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
