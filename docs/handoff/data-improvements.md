@@ -2,6 +2,19 @@
 
 Updated 2026-10-16 04:35 ET, after #888. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-16 13:30 ET
+
+- Ben (12:57 ET, relayed) read any pet fee in an ad as pets allowed in some form. The old pets
+  reading set aside "no pet fees" and a pet fee in a list of charges. Rows with a code and such
+  wording turned out to be coded allowed in 1,065 of 1,066 cases, which backs his reading.
+- I wrote `pets-from-ad-v2` (its file is adfills/20261016-0674409). It fills 1,205 more unknown NB9
+  rows as allowed, and leaves every other value the same as v1. It gets used when Modeling's next
+  dataset revision picks it up. It doesn't call for a refit by itself.
+- #907 fixed the PLUTO releases fetch, which had skipped the Queens lots in the Brooklyn registry.
+  I'll rebuild releases at the next registry revision, together with the #905 lot overrides.
+- The pipeline thread will write ads-<hash>.parquet next to rows-<hash>.parquet. Rule rounds read
+  those two files, in place of new granular runs, once the first one exists.
+
 ## 2026-10-16 04:35 ET
 
 I read the 83 held bedroom corrections against independent evidence and merged the result into the
@@ -39,6 +52,8 @@ I answered the pipeline session's questions for its whole-city building linking 
 - `quarantine-v32` is v31 plus 118 API rows. `bedrooms-ad-v7` is v6 plus 4 rows
   (426 W 58th 3 to 2, 58 E 1st 0 to 1). `brooklyn.MISJOINS` gains 18 rows. Both screened
   lists name the API cohort.
+- `bedrooms-ad-v8` is v7 plus 333 W 56th St #3E as a studio on its 3 rows coded 1, from Ben's
+  reading of its floor plan and photos (#917). Not served until the next dataset revision.
 - Modeling relabelled its API line q32ad7, on v32 and v7, waiting on #878 and #885.
 - Recorded only: a unit-split read (unit-splits-v4 already splits it) and a square-feet read
   (sqft-units isn't served).

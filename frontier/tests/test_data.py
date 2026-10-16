@@ -1654,6 +1654,19 @@ def test_pets_from_ad_v1_fills_unknowns_only(tmp_path, monkeypatch):
     assert not data.amended_rule("pets-from-ad-v1")
 
 
+def test_pets_from_ad_v2_adds_pet_fee_rows_only():
+    assert data.RULE_SOURCES["pets-from-ad-v2"] == data.PETS_FROM_AD_V2
+    v1 = pd.read_parquet(data.PETS_FROM_AD).set_index("audit_id").pets
+    v2 = pd.read_parquet(data.PETS_FROM_AD_V2).set_index("audit_id")
+    assert v1.index.isin(v2.index).all()
+    assert (v2.pets[v1.index] == v1).all()
+    added = v2.drop(v1.index)
+    assert added.pets.eq("allowed_restrictions_unknown").all()
+    # Six of the added rows have a known code, which the rule keeps.
+    assert added.coded.eq("unknown").sum() == 1205 and len(added) == 1211
+    assert not data.amended_rule("pets-from-ad-v2")
+
+
 def test_adfills_pets_writes_existing_codes_only():
     from rentfrontier import adfills
 
@@ -1692,6 +1705,9 @@ def test_adfills_pets_writes_existing_codes_only():
             "Most pets permitted with landlord consent.",
             "Cats ok, sorry no doggies.",
             "Cats welcome. Not dogs sorry.",
+            "Pets deposit required.",
+            "Additional fee for pets.",
+            "Sorry no dogs, but cat is ok with $300 pet fee.",
         ]
     )
     out = adfills.pets(text)
@@ -1700,9 +1716,12 @@ def test_adfills_pets_writes_existing_codes_only():
         1: "approval_required",
         2: "allowed_restrictions_unknown",
         7: "approval_required",
+        9: "allowed_restrictions_unknown",
         10: "allowed_restrictions_unknown",
         12: "allowed_restrictions_unknown",
         13: "not_allowed",
+        14: "allowed_restrictions_unknown",
+        15: "allowed_restrictions_unknown",
         16: "allowed_restrictions_unknown",
         19: "approval_required",
         23: "allowed_restrictions_unknown",
@@ -1712,6 +1731,8 @@ def test_adfills_pets_writes_existing_codes_only():
         28: "allowed_restrictions_unknown",
         29: "approval_required",
         30: "approval_required",
+        33: "allowed_restrictions_unknown",
+        34: "allowed_restrictions_unknown",
     }
     assert out.evidence.notna().all()
 
@@ -2182,3 +2203,22 @@ def test_sqft_units_v1_takes_sizes_the_unit_or_its_line_agree_on():
     out = data.correct_square_feet_v1(frame)
     assert out.square_feet.tolist() == [fixes[a]["corrected"], 700.0]
     assert "sqft-units-v1" not in data.DROPPING_RULES
+
+
+def test_bedrooms_v8_codes_333_w_56th_3e_as_a_studio():
+    frame = pd.DataFrame(
+        {
+            "audit_id": [
+                "38c58427f7188377efe23481009abf23b51c40c7e110963f8c6da84021a582d8",
+                "a4390a4242dd9ff724863c16b1c93e9db3de5f84329077a0a8fab99f07034b88",
+                "65c0364a5c1224a2ac4095b2749bc5e473ca4162170948ad8977c3f48f0b0fc9",
+                "not-a-corrected-row",
+            ],
+            "bedrooms": [1.0, 1.0, 1.0, 1.0],
+        }
+    )
+    out = data.DATA_RULES["bedrooms-ad-v8"](frame)
+    assert out.bedrooms.tolist() == [0.0, 0.0, 0.0, 1.0]
+    v7 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v7"])
+    v8 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v8"])
+    assert {k: v8[k] for k in v7} == v7 and len(v8) == len(v7) + 3

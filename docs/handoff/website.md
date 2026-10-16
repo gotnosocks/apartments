@@ -2,6 +2,27 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## NB9 on the site (2026-10-16 13:40 ET)
+
+- Served fit: Modeling's nine-neighbourhood unitnu4 fit
+  (`...-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1-...-l2un4`, #899).
+- Live build: `/data1/apartments/site/builds/20261016T162917946120Z-5b1ded34`. It holds 297,341
+  listings and 1,159 available now, across ten neighbourhoods with Hell's Kitchen and Hudson Yards.
+- Building the NB9 data swaps at 5G, so I run it with `ops/job light -m 7G` as a
+  `systemd-run --user` unit and watch it with `wait-next --unit`. A background Bash task gets
+  killed after about 30 minutes, which a build queued behind another light job can exceed.
+- The site process needs about 1G for the story page's scan of every listing. #914 raised
+  `MemoryMax` to 1536M. After changing the unit file, copy it to `~/.config/systemd/user/` and
+  run `systemctl --user daemon-reload` before `ops/site-deploy.sh`.
+- Merged: #836 (available-now window of 9 days), #776 (nb9 and lots2 words), #913 (a term such as
+  `unitnu4` ahead of an `nb` set no longer starts the feature set in `design_terms`).
+- Next: the data pipeline thread plans an `ads-<hash>.parquet` table next to each
+  `rows-<hash>.parquet` in `/data1/apartments/pipeline/datasets`, with one row per ad (listing,
+  unit, building, page, baths, floors, status, fetch time, days on market, `in_rows`). When it
+  says the first file exists, I write the site reader for it in `captures.py` and `ad_dates.py`,
+  check it against the served bundle on listing id and fetch time, and send it the PR.
+- After each Friday top-up the scraper thread reports, rebuild the site data.
+
 ## Handover to the new Website thread (2026-10-14 22:45 UTC)
 
 Ben is moving each workstream to a single thelio session he talks to directly. Start here, then
@@ -61,7 +82,7 @@ read the dated entries below for history.
 - Discuss fit results with the evaluation framework from the Fable review (Ben 2026-10-10
   20:03Z): paired ΔELPD against about 2 SE, the descriptive share, time-split coverage, and
   medians with 90% intervals.
-- The site build needs about 5 GB (`MemoryMax=5G`). Run it only when the GPU is idle.
+- The site build needs about 7 GB with NB9 (`ops/job light -m 7G`). Run it only when the GPU is idle.
 - Never show older exploration-fit numbers as the served model's.
 - Never put Ben's preference sheet or any copy in the repo.
 - fields-review-v2 is held by Ben's choice.

@@ -1,0 +1,11 @@
+{
+ "rule": "bedrooms-ad-v8",
+ "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-api-analysis-20261015-c9eea95",
+ "dataset_observations_sha256": "dc480f2ef88222676c963cfbdd424ea0ea4afceef092be36090efec2747af4d6",
+ "reads": "floor plan and photos of 333 W 56th St #3E, read by Ben 2026-10-16",
+ "base_rule": "bedrooms-ad-v7",
+ "rows": 3,
+ "by_change": {
+  "1->0": 3
+ }
+}

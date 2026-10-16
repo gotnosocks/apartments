@@ -27,8 +27,9 @@ that `pets` corrects:
     matches how rows with a code and such an ad are coded;
   - pets with someone's approval, permission or consent fill as approval
     required;
-  - "no pet fees" and a pet fee in a list of charges don't count as pets
-    allowed;
+  - any pet fee, deposit, rent or charge counts as pets allowed, including
+    "no pet fees" and a pet fee in a list of charges. Rows with a code and such
+    wording are coded allowed (1,065 of 1,066 in NB9 on 2026-10-16);
   - "pets: no dogs", "dogs aren't allowed", "cats but not dogs" and "no
     doggies" read as no dogs,
     so they get no line;
@@ -113,15 +114,14 @@ PET_LIMIT = (
 )
 
 
-# "no pet fees" says nothing about which pets a building takes, and
-# `petstext.ALLOWED` reads it as pets allowed, so an allowed class needs
-# other words.
-NO_PET_FEE = r"\bno pet (?:fees?|deposits?|rent)\b"
-# A pet fee in a list of possible charges with no amount ("late fees, pet fees,
-# insufficient funds", "pet fees or deposits may apply") is boilerplate, and
-# says nothing about this building's pets either. A pet fee with its amount
-# ("pet fee: $25 per pet") stays.
-FEE_LIST = r"\bpet (?:fees?|deposits?),(?! ?\d)|\bpet fees? or deposits? may apply"
+# A pet fee of any kind means the building takes pets in some form. That
+# holds for "no pet fees" and for a pet fee in a list of possible charges too:
+# rows with a code and such an ad are coded allowed. `petstext.ALLOWED` reads
+# "pet fee", "pet deposit" and "pet rent", and this adds the other spellings.
+PET_FEE = (
+    r"\bpets? (?:fees?|deposits?|rent|charges?)\b|\bpet[- ](?:fee|deposit)s?\b"
+    r"|\b(?:fees?|deposits?|charges?) (?:for|per) (?:pets?|dogs?|cats?)\b"
+)
 # "cats are ok, dogs aren't allowed" bans dogs, and `petstext.NO_DOGS` misses
 # the contraction.
 DOGS_BANNED = (
@@ -157,8 +157,8 @@ def pets(text: pd.Series) -> pd.DataFrame:
         (`CASE_PETS`), once approval of the application is set aside
         (`APPLICATION_APPROVAL`); failing that it counts as allowed when it
         says so, and otherwise gets no line;
-      - an allowed text needs words besides "no pet fees" (`NO_PET_FEE`) or
-        a pet fee in a list of charges (`FEE_LIST`);
+      - a text naming a pet fee of any kind (`PET_FEE`) and stating no other
+        class counts as allowed;
       - a no-pets text needs a ban besides "no pet dogs" or "pets: no dogs"
         (`NO_PET_KIND`);
       - a case-by-case text giving only a size or number limit ("small dogs
@@ -172,14 +172,12 @@ def pets(text: pd.Series) -> pd.DataFrame:
     get no line."""
     found = petstext.classify(text)
     text = text.fillna("").str.lower().str.replace(r"\s+", " ", regex=True)
+    fee = text.str.contains(PET_FEE, regex=True)
+    found = found.mask(found.eq("none") & fee, "allowed")
     no_pets = text.str.replace(NO_PET_KIND, " ", regex=True).str.contains(
         petstext.NO_PETS, regex=True
     )
-    allowed = (
-        text.str.replace(NO_PET_FEE, " ", regex=True)
-        .str.replace(FEE_LIST, " ", regex=True)
-        .str.contains(petstext.ALLOWED, regex=True)
-    )
+    allowed = text.str.contains(petstext.ALLOWED, regex=True) | fee
     case = text.str.replace(APPLICATION_APPROVAL, " ", regex=True).str.contains(
         CASE_PETS, regex=True
     )
@@ -204,6 +202,8 @@ def pets(text: pd.Series) -> pd.DataFrame:
     for name, pattern in petstext.CLASSES:
         rows = found.eq(name)
         evidence[rows] = _words(text[rows], pattern)
+    feeonly = found.eq("allowed") & evidence.isna() & fee
+    evidence[feeonly] = _words(text[feeonly], PET_FEE)
     evidence[approval] = _words(text[approval], PET_APPROVAL)
     evidence[limit] = _words(text[limit], PET_LIMIT)
     out = pd.DataFrame({"pets": found.map(petstext.CODED), "evidence": evidence})

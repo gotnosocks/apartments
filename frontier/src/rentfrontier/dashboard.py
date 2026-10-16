@@ -766,6 +766,11 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v6": "bedrooms-ad-v5, and 13 studios priced above their building's "
     "one-bedrooms whose ad states a count that another ad for the apartment, a stated "
     "size or the floor plan on the listing's own page backs. No listing is dropped.",
+    "bedrooms-ad-v7": "bedrooms-ad-v6, and 4 listings from the API backfill whose "
+    "apartment has two ads that agree on a count. No listing is dropped.",
+    "bedrooms-ad-v8": "bedrooms-ad-v7, and 333 W 56th St #3E as a studio: its floor "
+    "plan and photos show a divider wall, not a bedroom, and its size matches the "
+    "building's studios. No listing is dropped.",
     "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
     "more than 1.5x off the size the apartment's other listings, or the other "
     "apartments of its line, agree on. No listing is dropped.",
@@ -883,6 +888,9 @@ DATA_RULE_TEXT = {
     "own ad states: no pets, case by case, or pets allowed. An ad allowing cats but "
     "not dogs leaves it blank, as there is no such recorded policy. A recorded "
     "policy stays as it is.",
+    "pets-from-ad-v2": "pets-from-ad-v1, with an ad that mentions a pet fee, deposit "
+    "or pet rent read as allowing pets, including ads saying there is no pet fee "
+    "and ads listing pet fees among possible charges.",
     "latest-ask-v2": "Every listing is priced at the last ask it showed while on the "
     "market, not its first. Placeholder prices typed in on the day a listing comes "
     "down are skipped, and an ask more than twice or under half the first, or a "

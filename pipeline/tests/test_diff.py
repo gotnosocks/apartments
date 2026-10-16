@@ -124,7 +124,7 @@ def test_diff_reports_each_change(tmp_path, capsys):
     printed = capsys.readouterr().out
     assert "analysis.probe: only in the edit" in printed
     assert f"listing_id={large[0][0]}: square_feet " in printed
-    assert "unchanged: ads.answers, " in printed
+    assert "unchanged: ads.answer_events, ads.answers, " in printed
 
 
 def test_diff_compares_rows_without_a_grain(tmp_path):
