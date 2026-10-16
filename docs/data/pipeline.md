@@ -253,7 +253,10 @@ chain's analysis datasets. I build them in four steps.
    floor count, it takes the smallest positive `floorCount` among the building's records and
    rounds it down, as `floor_counts` in `rentfrontier.cohort` does. The chain keys both values on
    the building slug and takes the area most of a building's records give. Runs 1 to 5 answer
-   each building once, so the two readings agree on them.
+   each building once, so the two readings agree on them. The chain also counts a boolean `true`
+   as one floor, since Python's `True` is an int. I list that as an old bug and skip a boolean.
+   Of the 70,137 building records of runs 1 to 5, 67,811 give a whole number and the other
+   2,326 give no count.
 2. `ads.reported` reads the unit label in `displayUnit`, `fullBathroomCount` and
    `halfBathroomCount` from each record of an ad. For the label, I follow the chain's
    `label_floor`: strip the whitespace, drop a leading `#`, put the rest in upper case, and try
@@ -276,6 +279,9 @@ chain's analysis datasets. I build them in four steps.
    - `kept` for the ad with the latest first day in each other unit-month, and on a tie, for the
      ad with the greatest ID compared as text;
    - `superseded_in_unit_month` for the rest.
+
+   Every candidate has a building and a bedroom count, since `ads.identity` and `ads.exclusions`
+   give a reason to an ad lacking either, and an audit on `analysis.candidates` checks it.
 4. `analysis.rows` gives the kept candidates as a view.
 
 The chain checks a unit-month within a slice of one region's dataset, while `analysis.candidates`
@@ -312,9 +318,10 @@ in all, and most tests add made-up ads to that export. The tests:
 2. add made-up ads of a building to the cases, build them, and compare each row's latest ask
    and step with `choose` of `rentfrontier.latest_ask`, run in the test over the same rows and
    each ad's latest record. The ads hold a change after the row's day, a change only before
-   it, a page price without changes, an ask that more than doubles and one that falls below
-   half, a page price a tenth of the ask, an empty latest answer, and a placeholder price after
-   the ad left the market;
+   it, a page price without changes, a page price equal to one of the ad's changes, an ask
+   that more than doubles and one that falls below half, a page price a tenth of the ask and
+   one ten times the ask, an empty latest answer, and a placeholder price after the ad left the
+   market;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
    and the seventeen models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
@@ -370,8 +377,9 @@ in all, and most tests add made-up ads to that export. The tests:
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
 18. add made-up ads and buildings to the cases:
-    - two ads of a unit in one month, two ads of another unit on the same day, and a unit whose
-      ads give one bedroom and two bedrooms in a month;
+    - two ads of a unit in one month, two ads of another unit on the same day, a unit whose ads
+      give one bedroom and two bedrooms in a month, and a unit whose ads give one bathroom and
+      two bathrooms in a month;
     - a label for each of the chain's five patterns, labels with whitespace and a `#`, and a
       label for each way an ad gets no label floor;
     - bathroom counts that disagree, or that come as a negative number, a fraction, a boolean or
@@ -383,7 +391,7 @@ in all, and most tests add made-up ads to that export. The tests:
     The test checks each label floor and bathroom count against `label_floor` and `consensus` of
     `rentfrontier.cohort`, and each candidate's floor and status against its `floor_of`. Then it
     checks the fates, floors, floor counts, areas, regions and sizes by value;
-19. render every SQL model as SQLMesh runs it and look for a bracket reading a list at a
+19. parse every SQL model as SQLMesh loads it and look for a bracket reading a list at a
     computed index.
 
 They take about 50 s on thelio. SQLMesh loads models in forked workers, and a fork in a process

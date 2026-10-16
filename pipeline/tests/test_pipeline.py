@@ -106,18 +106,21 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
     """analysis.latest_ask gives these made-up rows the latest asks `rentfrontier.latest_ask`
     chooses for them:
 
-    - ad 9000120 changes its price after its first day, and ad 9000130 only before it.
-    - ad 9000121 has no price changes and a page price of $3,100, and ad 9000131 has neither.
+    - ad 9000120 changes its price after its first day. Its page price equals its first
+      change, so the page price counts for nothing. Ad 9000130 changes its price only before
+      its first day.
+    - ad 9000121 has no price changes and a page price of $3,100. Ad 9000131 has no price
+      changes either, and its page price equals its first ask, so its own ask stands.
     - ad 9000122 more than doubles its ask. The building's other one-bedrooms ask $3,000, so its
-      first ask stands. Its page price equals one of its changes and counts for nothing.
+      first ask stands.
     - ad 9000123 drops below half its first ask, to near the building's two-bedrooms, so its
       latest ask stands.
-    - ad 9000127 asks $12,500, and its page price of $1,250 lies nearer the two-bedrooms.
+    - ad 9000127 asks $12,500, and its page price of $1,250 lies nearer the two-bedrooms. Ad
+      9000126 asks $800, and its page price of $8,000 lies nearer the one-bedrooms.
     - ad 9000128's latest answer is missing, so its earlier record stands.
     - ad 9000129 goes off the market and then rises to a placeholder of $10,000, which drops
       out."""
-    sys.path.insert(0, str(PROJECT.parent / "frontier" / "src"))
-    monkeypatch.setattr(sys, "path", sys.path)
+    monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
     export = tmp_path / "export"
@@ -154,7 +157,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
 
     may, june, july = "2026-05-01", "2026-06-01", "2026-07-01"
     records = [
-        ad(9000120, [(may, 3000), (june, 3200)], 3200),
+        ad(9000120, [(may, 3000), (june, 3200)], 3000),
         ad(9000130, [("2026-04-20", 2900)], 2900),
         ad(9000121, [], 3100),
         ad(9000131, [], 3000),
@@ -163,6 +166,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         ad(9000124, [(may, 1200)], 1200, ask=1200, beds=2),
         ad(9000125, [(may, 1300)], 1300, ask=1300, beds=2),
         ad(9000127, [(may, 12500)], 1250, ask=12500, beds=2),
+        ad(9000126, [(may, 800)], 8000, ask=800),
         ad(9000128, [(may, 3000), (july, 3300)], 3300),
         (9000128, None),
         ad(
@@ -207,6 +211,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000123": 1250,
         "9000124": 1200,
         "9000125": 1300,
+        "9000126": 8000,
         "9000127": 1250,
         "9000128": 3300,
         "9000129": 3000,
@@ -1181,7 +1186,8 @@ def test_row_cases(tmp_path, monkeypatch):
     - ads 900009 and 9000082 list unit 2b on the same day, and 900009 stands, as it comes
       later in text order.
     - ads 9000083 and 9000084 give unit 3c two bedroom counts in June, so neither stands.
-      Ad 9000085 lists the unit again in July.
+      Ad 9000085 lists the unit again in July. Ads 9000109 and 9000110 give unit 4e two
+      bathroom counts in June, so neither stands.
     - ads 9000086 to 9000097 and 9000108 cover the label rules, whitespace and '#' around a
       label, a label above the building's floor count, a two-digit label in a building without
       a count, two labels that disagree, an explicit floor and a missing label.
@@ -1216,6 +1222,11 @@ def test_row_cases(tmp_path, monkeypatch):
         (9000083, row_record(9000083, "2026-06-10", "3c", "3C")),
         (9000084, row_record(9000084, "2026-06-12", "3c", "3C", beds=2)),
         (9000085, row_record(9000085, july, "3c", "3C", beds=2)),
+        (9000109, row_record(9000109, june, "4e", "4E")),
+        (
+            9000110,
+            row_record(9000110, june, "4e", "4E", details={"fullBathroomCount": 2}),
+        ),
         (9000086, row_record(9000086, may, "4d", "  # 4d\t")),
         (9000087, row_record(9000087, may, "1205", "1205", "900012")),
         (9000088, row_record(9000088, may, "n3a", "N3A")),
@@ -1313,6 +1324,7 @@ def test_row_cases(tmp_path, monkeypatch):
     assert fates(9000083, 9000084, 9000085) == 2 * [
         "conflicting_layout_same_unit_month"
     ] + ["kept"]
+    assert fates(9000109, 9000110) == 2 * ["conflicting_layout_same_unit_month"]
     floors = got.loc[[str(i) for i in range(9000086, 9000098)] + ["9000108"]]
     assert floors[["listed_floor", "floor_status"]].values.tolist() == [
         [4, "label_proxy"],
