@@ -120,8 +120,12 @@ light CPUs, without taking a slot (it is small and runs at idle priority). After
 The data pipeline's build (`apartments-pipeline-build.service`, in `docs/data/pipeline.md`)
 takes the GPU lock and every light slot for each build, about 7 to 13 minutes, as
 `ops/job gpu -x` would. It runs as its own unit, so `ops/job status` leaves it out. When queued
-jobs wait and `ops/job status` lists no holder, check
-`systemctl --user status apartments-pipeline-build` and `lslocks | grep -E 'heavy|light-'`.
+jobs wait and `ops/job status` lists no holder, check for it with:
+
+```sh
+systemctl --user status apartments-pipeline-build
+lslocks | grep -E 'heavy|light-'
+```
 
 ## Recording a test
 

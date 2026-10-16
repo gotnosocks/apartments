@@ -10,8 +10,8 @@ ExecStart=/data1/apartments/pipeline/code/ops/pipeline/build-latest
 # can hold the GPU lock for a few more. When the timeout stops a wait, the next trigger starts
 # the build again.
 TimeoutStartSec=30h
-# A build from empty peaks at about 4,050 MiB. With swap off, the kernel kills the build at the
-# cap, and the GPU fits keep the swap.
+# A build from empty peaked at 4,143 MiB on 2026-10-15. With swap off, the kernel kills the
+# build at the cap, and the GPU fits keep the swap.
 MemoryMax=5G
 MemorySwapMax=0
 Nice=10

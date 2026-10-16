@@ -162,13 +162,20 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       the fixture three more times.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
    [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
-   top-up, at about 4 GiB, with the same rows file either way. The rest of step 8, a PR each:
+   top-up, as light jobs at about 4 GiB, with the same rows file either way. The rest of step 8,
+   a PR each:
    1. **Done** in #887: `apartments-pipeline-build.path` starts
       `ops/pipeline/build-latest` when the export's manifest changes, and a timer starts it
-      daily. The build runs from `/data1/apartments/pipeline/code` with the venv
+      daily at 07:15 ET. The build runs from `/data1/apartments/pipeline/code` with the venv
       `/data1/apartments/venvs/pipeline`, into `/data1/apartments/pipeline/state` and
-      `/data1/apartments/pipeline/datasets`;
-   2. the Friday top-up's own timing, measured on its first build;
+      `/data1/apartments/pipeline/datasets`. The units went in at 01:13 ET on Oct 16, and the
+      first build, from an empty state, took 583 s at a 4,143 MiB peak and wrote
+      `rows-4743b90bc5aa49b4.parquet`. The state from Oct 15 moved to
+      `/data1/apartments/tmp/pipeline/state-prod-20261015`, and can go once the Friday top-up
+      builds;
+   2. the Friday top-up's own timing, from the catalog line of the build its export starts. The
+      top-up timer fires at 05:30 ET. A check build of the same export into an empty scratch
+      state should give the same rows file;
    3. fits reading a rows file by name and hash, agreed with Modeling first;
    4. a tool showing an agent every change one step's edit makes to the tables, in under a
       minute on the fixture;
@@ -182,5 +189,9 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
   `/data1/apartments/tmp/api-build-20261015-run5`, as `systemd-run` units named `data-api-*`.
   Pipeline work leaves those scripts, their code paths and their memory alone, and its full
   builds wait until thelio has room beside them.
+- Each service build holds the GPU lock and every light slot for its 7 to 13 minutes, and checks
+  for 6 GiB of available memory first. The scraper thread confirmed on Oct 16 that the trigger
+  fits its exporter: files go in place before their manifest lines, a crash repair replaces the
+  manifest by rename, and a manual export takes `export/.lock`, which the build never opens.
 - The website reads current listings from the collector's page captures, and Data improvements
   reads `granular_export` inputs from them. Both need a reader of the new tables before step 9.
