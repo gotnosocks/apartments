@@ -1,0 +1,15 @@
+[Unit]
+Description=Copy the city's bulk records of lots and buildings into the dated archive (ops/pipeline/city.py)
+
+[Service]
+Type=oneshot
+# The script runs from the build's checkout, which ops/pipeline/build-latest moves to master
+# before each build, with the build's venv. It needs only the standard library.
+ExecStart=/data1/apartments/venvs/pipeline/bin/python /data1/apartments/pipeline/code/ops/pipeline/city.py
+TimeoutStartSec=6h
+# The script streams each file to disk in 1 MiB chunks.
+MemoryMax=1G
+MemorySwapMax=0
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
