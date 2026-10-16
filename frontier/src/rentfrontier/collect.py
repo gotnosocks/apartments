@@ -156,30 +156,35 @@ def collect(
     n_trace=32,
     vmap=jax.vmap,
     consts=None,
+    segments=1,
 ):
     """Run `draws` retained transitions per chain and summarise them.
 
     With `consts`, the jitted run takes it as an argument and calls
     `step(key, state, consts)` and `params(state, consts)`. Large arrays
-    passed this way stay out of the executable's constants."""
+    passed this way stay out of the executable's constants.
+
+    With `segments` > 1, the blocks of `keep_every` draws run in that many
+    consecutive jitted calls, as even in size as the block count allows. Each
+    call picks up the previous call's chain states and running sums, takes its
+    slice of the same keys, and hands its traces and kept draws to the host,
+    so the device holds one segment's draws at a time and the result matches
+    the single call's."""
     test = device_arrays(prep.test, dtype)
     has_unseen = bool((np.asarray(prep.test.unit) < 0).any())
     trace_b, trace_u = trace_indices(prep, n_trace, trace_seed)
     n_blocks = draws // keep_every
 
-    def chains(states, keys, test_fields, consts):
-        test = model_module.Arrays(**test_fields)
+    def bind(consts):
         if consts is None:
-            step_, params_ = step, params
-        else:
+            return step, params
+        return (lambda k, st: step(k, st, consts)), (lambda st: params(st, consts))
 
-            def step_(k, st):
-                return step(k, st, consts)
+    def chains(carry, keys, test_fields, consts):
+        test = model_module.Arrays(**test_fields)
+        step_, params_ = bind(consts)
 
-            def params_(st):
-                return params(st, consts)
-
-        def one_chain(state, chain_key):
+        def one_chain(carry, keys):
             def transition(carry, k):
                 st, acc, s1, s2 = carry
                 st, info = step_(k, st)
@@ -211,24 +216,37 @@ def collect(
                 carry, trace = jax.lax.scan(transition, carry, keys)
                 return carry, (trace, model_module.effects(params_(carry[0])))
 
-            zeros = jax.tree.map(jnp.zeros_like, model_module.effects(params_(state)))
-            carry = (state, jnp.full(test.y.shape, -jnp.inf, dtype), zeros, zeros)
-            keys = jax.random.split(chain_key, n_blocks * keep_every).reshape(
-                n_blocks, keep_every, -1
-            )
-            (_, acc, s1, s2), (trace, kept) = jax.lax.scan(block, carry, keys)
+            carry, (trace, kept) = jax.lax.scan(block, carry, keys)
             trace = jax.tree.map(lambda a: a.reshape(-1, *a.shape[2:]), trace)
-            return acc, s1, s2, trace, kept
+            return carry, trace, kept
 
-        return vmap(one_chain)(states, keys)
+        return vmap(one_chain)(carry, keys)
 
     n_chains = jax.tree.leaves(states)[0].shape[0]
-    acc, s1, s2, trace, kept = jax.jit(chains)(
+    keys = jax.vmap(
+        lambda k: jax.random.split(k, n_blocks * keep_every).reshape(
+            n_blocks, keep_every, -1
+        )
+    )(jax.random.split(key, n_chains))
+    shapes = jax.eval_shape(
+        lambda st, c: jax.vmap(lambda s: model_module.effects(bind(c)[1](s)))(st),
         states,
-        jax.random.split(key, n_chains),
-        {f: getattr(test, f) for f in test.FIELDS},
         consts,
     )
+    zeros = jax.tree.map(lambda s: jnp.zeros(s.shape, s.dtype), shapes)
+    carry = (states, jnp.full((n_chains, *test.y.shape), -jnp.inf, dtype), zeros, zeros)
+    test_fields = {f: getattr(test, f) for f in test.FIELDS}
+    run = jax.jit(chains)
+    traces, kepts = [], []
+    sizes = [len(a) for a in np.array_split(np.arange(n_blocks), max(1, segments))]
+    edges = np.cumsum([0, *(s for s in sizes if s)] if n_blocks else [0, 0])
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        carry, trace, kept = run(carry, keys[:, lo:hi], test_fields, consts)
+        traces.append(jax.tree.map(np.asarray, trace))
+        kepts.append(jax.tree.map(np.asarray, kept))
+    _, acc, s1, s2 = carry
+    trace = jax.tree.map(lambda *a: np.concatenate(a, axis=1), *traces)
+    kept = jax.tree.map(lambda *a: np.concatenate(a, axis=1), *kepts)
     n = n_blocks * keep_every * n_chains
     acc = np.asarray(acc, np.float64)
     m = acc.max(axis=0)
@@ -243,8 +261,8 @@ def collect(
         "lpd_chain": acc - math.log(n // n_chains),
         "mean": mean,
         "sd": jax.tree.map(lambda v: np.sqrt(np.maximum(v, 0)), var),
-        "trace": jax.tree.map(np.asarray, trace),
-        "kept": jax.tree.map(np.asarray, kept),
+        "trace": trace,
+        "kept": kept,
         "trace_buildings": np.asarray(trace_b),
         "trace_units": np.asarray(trace_u),
     }

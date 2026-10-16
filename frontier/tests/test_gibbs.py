@@ -1296,3 +1296,28 @@ def test_bedtime_n_is_the_served_design_on_coarser_bedroom_knots(months):
         )
         == served
     )
+
+
+@pytest.fixture(scope="module")
+def unsegmented():
+    """A walk and feature-slope run whose 7 kept blocks run in one call."""
+    prep = synthetic()
+    settings = gibbs.Settings(chains=2, warmup=40, draws=14, keep_every=2)
+    out = gibbs.run(prep, DESIGNS["fslopes"], settings, log=lambda *_: None)
+    return prep, settings, out
+
+
+@pytest.mark.parametrize("segments", [2, 3, 7, 20])
+def test_segmented_collect_matches_the_single_call(unsegmented, segments):
+    """Splitting the 7 blocks into calls of 4+3, 3+2+2, 1 each, or more calls
+    than blocks gives the same summaries, traces and kept draws bit for bit."""
+    prep, settings, single = unsegmented
+    out = gibbs.run(
+        prep,
+        DESIGNS["fslopes"],
+        dataclasses.replace(settings, collect_segments=segments),
+        log=lambda *_: None,
+    )
+    assert out["kept"]["walk"].shape[:2] == (2, 7)
+    for name in ("lpd", "lpd_chain", "mean", "sd", "rhat_all", "trace", "kept"):
+        jax.tree.map(np.testing.assert_array_equal, out[name], single[name])

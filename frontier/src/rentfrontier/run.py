@@ -464,6 +464,12 @@ def main(argv=None):
         "--chain-batch", type=int, help="vectorise this many chains at a time"
     )
     parser.add_argument(
+        "--collect-segments",
+        type=int,
+        help="run the retained draws in this many calls (Gibbs), holding one "
+        "call's kept draws on the device at a time",
+    )
+    parser.add_argument(
         "--solo-scales",
         help="Gibbs: comma-separated scales given 1-D collapsed updates ('none' for no solo updates)",
     )
@@ -545,6 +551,7 @@ def main(argv=None):
             "keep_every": args.keep_every,
             "seed": args.seed,
             "chain_batch": args.chain_batch,
+            "collect_segments": args.collect_segments,
             "dense_globals": True if args.dense_globals else None,
             "coordinates": tuple(args.coordinates.split(","))
             if args.coordinates
