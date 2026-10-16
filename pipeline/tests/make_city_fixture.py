@@ -106,7 +106,7 @@ def streets(data: bytes) -> set[tuple[str, str]]:
     """The borough and 5-digit street code of each address range in a cut `bobaadr.txt`."""
     header, *rows = csv.reader(io.StringIO(data.decode("latin-1")))
     header = [n.strip().lower() for n in header]
-    boro, sc5 = header.index("boro"), header.index("sc5")
+    boro, sc5 = header.index("scboro"), header.index("sc5")
     return {(r[boro], r[sc5]) for r in rows if len(r) == len(header)}
 
 

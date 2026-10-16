@@ -384,8 +384,12 @@ def test_pad_street_fields(tmp_path, monkeypatch):
         broadway.sc5,
         broadway.lgc,
         broadway.spv,
+        broadway.numeric_ind,
+        broadway.gft,
         broadway.len_full_name,
         broadway.full_stname,
+        broadway.stn20,
+        broadway.ht_name_type_code,
     ) == (
         "1",
         "P",
@@ -394,8 +398,12 @@ def test_pad_street_fields(tmp_path, monkeypatch):
         "13610",
         "01",
         "010",
+        " ",
+        " ",
         "08",
         "BROADWAY".ljust(32),
+        " " * 20,
+        " ",
     )
 
 

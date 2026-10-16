@@ -1012,7 +1012,7 @@ in all, and most tests add made-up ads to that export. The tests:
     the next plan rebuilds `city.landmarks` and `city.rejects` alone, from a new folder holding
     the landmarks' Parquet file and the rejects.
 30. render `city.pad_streets` over the fixture and read 26c's 276 names, none of type S, with
-    the fields of BROADWAY's record;
+    the fields of BROADWAY's record. The 20-character name is blank in every record of 26c.
 31. parse the text of each Python value a model reads, and find no set and no text Python can't
     parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
     and compare each model's fingerprint.
