@@ -252,3 +252,35 @@ uv run --project pipeline sqlmesh -p pipeline fetchdf "
   SELECT count(*) FROM raw.analysis_rows r LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
   WHERE f.listing_id IS NULL OR r.price_at <> f.first_day::TIMESTAMPTZ OR f.prices <> [r.asking_rent]"
 ```
+
+With the attributes and exclusions, I built runs 1 to 5 into an empty state in 640 s, in a unit
+with a 6 GB limit and DuckDB's limit at 4 GB. `ads.record_attributes` spent 451 s of that on
+the 2,138,007 distinct records, parsed in four workers, and `ads.attributes` took 67 s. The unit's
+peak hit its 6 GB limit with page cache included, and no process was killed. A second plan on
+the same state found nothing to do in 3.5 s. Then I built the same runs into another empty state
+holding a copy of the first build's parse cache, as a build after a change elsewhere would.
+`ads.record_attributes` read every record from the cache in 25 s, the plan took 199 s, and
+anonymous memory peaked at 5.1 GB. The eight tables from `ads.answers` to `analysis.latest_ask`
+have the same row counts and the same sums of row hashes in both states.
+
+The chain's audit of the four regions, in `/data1/apartments/tmp/pipeline/audit/audit.parquet`,
+holds the reasons and captures of 1,692,611 ads. I compared the 1,692,593 of them with no answer
+after the audit ran at 13:10 ET. Leaving out the three checks of later steps, `ads.exclusions`
+gives each of them the same reasons as the audit, and 1,466,352 have no reason in either. The
+counts per reason:
+
+| reason | ads |
+|---|--:|
+| `excluded_concession` | 135,408 |
+| `excluded_furnished` | 66,964 |
+| `invalid_or_missing_layout` | 11,032 |
+| `invalid_or_extreme_initial_ask` | 8,868 |
+| `no_dated_own_active_event` | 8,230 |
+| `conflicting_or_missing_initial_prices` | 163 |
+| `excluded_short_term` | 23 |
+| `outside_date_window` | 2 |
+
+The audit keeps no captures for the 8,230 ads without a dated own ACTIVE event. For the other
+1,684,363, I merged the audit's projections as `ads.attributes` merges records, and all sixteen
+attributes and flags equal the built ones. The script is
+`/data1/apartments/tmp/pipeline/attr/parity.py`.
