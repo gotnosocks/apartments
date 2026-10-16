@@ -565,18 +565,34 @@ The module adds a reading of its own. When a record gives no pet policy and its 
 no conflict over one, I take a pet fee, deposit, rent or charge in the description as
 `allowed_restrictions_unknown`. Ben pointed out on Oct 16 that a fee means the building takes
 pets in some form. I took the pattern from NB9's ad fills: of NB9's rows with a pet code and
-such wording, 1,065 of 1,066 are coded allowed. A ban in the description still wins, since
-`attribute_evidence` reads it first. NB9 also skips the fee when its own pet reading finds a
-partial rule, and `attribute_evidence` reads no partial rules. Of the 1,396 distinct descriptions with a
-fee in NB9's descriptions file, 74 get no pet line in NB9 and `allowed_restrictions_unknown`
-here, most of them a template taking cats and no dogs. NB9 reads another 15 as case by case.
-A building taking cats, or deciding case by case, still takes pets in some form, so I kept the
-fee's reading for them. I put the pattern in `steps/attributes.py` and left
-`apartments.attribute_evidence` alone, because the chain imports that module as well and keeps
-running unchanged until the pipeline takes its place. In the fixture, ad 4771575 gains a
-policy from its one-time pet fee of $500, and `test_rows_match_the_chain`
-expects it. `pipeline/tests/test_attributes.py` covers fees in other spellings, a ban beside a
-fee, a conflict, a text with no dogs and approval read from the description.
+such wording, 1,065 of 1,066 are coded allowed. A ban read by `attribute_evidence` still wins,
+since that module reads the description first. NB9 reads pets with its own patterns, and it
+skips the fee on a text with a partial rule such as no dogs. I compared the two readings on the
+230,996 distinct descriptions of NB9's eight areas, 4,250 of them with a fee:
+
+| pipeline | NB9 | descriptions |
+|---|---|--:|
+| `allowed_restrictions_unknown` | the same | 4,126 |
+| `approval_required` | the same | 35 |
+| `not_allowed` | the same | 18 |
+| `allowed_restrictions_unknown` | `approval_required` | 43 |
+| `allowed_restrictions_unknown` | no pet line | 19 |
+| `not_allowed` | `allowed_restrictions_unknown` | 6 |
+| `allowed_restrictions_unknown` | `not_allowed` | 2 |
+| `not_allowed` | `approval_required` | 1 |
+
+Of the 19 without an NB9 line, 16 take cats and no dogs, and 3 say the building charges no
+amenity or pet fees. A building taking cats still takes pets in some form, so I kept the fee's
+reading for them. The 2 descriptions NB9 reads as a ban say no cats or dogs except emotional
+support animals, and `attribute_evidence` misses that ban. The pipeline's `not_allowed` on 7
+descriptions comes from `attribute_evidence`, fee or not.
+
+I put the pattern in `steps/attributes.py` and left `apartments.attribute_evidence` alone,
+because the chain imports that module as well and keeps running unchanged until the pipeline
+takes its place. In the fixture, ad 4771575 gains a policy from its one-time pet fee of $500,
+and `test_rows_match_the_chain` expects it. `pipeline/tests/test_attributes.py` covers fees in
+other spellings, a ban beside a fee, a conflict, a text with no dogs and approval read from the
+description.
 
 I rebuilt the scratch state of runs 1 to 10 with the fee. Every record has a new code version,
 so `ads.record_attributes` parsed them all again in 525 s of the 580 s build, at a 4.4 GiB
