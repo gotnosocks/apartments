@@ -143,6 +143,13 @@ def trace_indices(prep, n, seed):
     return jnp.asarray(b), jnp.asarray(u)
 
 
+def _fill(host, device, lo, hi):
+    """Copy blocks lo..hi of each device leaf into its host array."""
+    for h, d in zip(jax.tree.leaves(host), jax.tree.leaves(device)):
+        per = d.shape[1] // max(hi - lo, 1)
+        h[:, lo * per : hi * per] = np.asarray(d)
+
+
 def collect(
     step,
     params,
@@ -259,10 +266,9 @@ def collect(
                 )
                 for d in (trace_d, kept_d)
             )
-        for host, dev in ((trace, trace_d), (kept, kept_d)):
-            for h, d in zip(jax.tree.leaves(host), jax.tree.leaves(dev)):
-                per = d.shape[1] // max(hi - lo, 1)
-                h[:, lo * per : hi * per] = np.asarray(d)
+        _fill(trace, trace_d, lo, hi)
+        _fill(kept, kept_d, lo, hi)
+        # Free the segment's device arrays before the next call allocates.
         del trace_d, kept_d
     _, acc, s1, s2 = carry
     n = n_blocks * keep_every * n_chains
