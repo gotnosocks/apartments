@@ -766,6 +766,11 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v6": "bedrooms-ad-v5, and 13 studios priced above their building's "
     "one-bedrooms whose ad states a count that another ad for the apartment, a stated "
     "size or the floor plan on the listing's own page backs. No listing is dropped.",
+    "bedrooms-ad-v7": "bedrooms-ad-v6, and 4 listings from the API backfill whose "
+    "apartment has two ads that agree on a count. No listing is dropped.",
+    "bedrooms-ad-v8": "bedrooms-ad-v7, and 333 W 56th St #3E as a studio: its floor "
+    "plan and photos show a divider wall, not a bedroom, and its size matches the "
+    "building's studios. No listing is dropped.",
     "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
     "more than 1.5x off the size the apartment's other listings, or the other "
     "apartments of its line, agree on. No listing is dropped.",
