@@ -153,8 +153,11 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.market",
         "ads.price_changes",
         "ads.record_attributes",
+        "ads.reported",
+        "analysis.candidates",
         "analysis.latest_ask",
         "analysis.latest_change",
+        "analysis.rows",
         "raw.ads",
     ]
     # The second build parsed only records missing from runs 2 and 3.
@@ -179,7 +182,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     assert not again.has_changes and not again.new_snapshots
 
 
-def test_new_buildings_file_rebuilds_only_identity(tmp_path, monkeypatch):
+def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeypatch):
     def early(line):
         return line["table"] == "ads" or line["run"] < 4
 
@@ -191,7 +194,13 @@ def test_new_buildings_file_rebuilds_only_identity(tmp_path, monkeypatch):
     shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
     ctx = context(monkeypatch, tmp_path / "state", export)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
-    assert changed(plan) == ["ads.identity", "raw.buildings"]
+    assert changed(plan) == [
+        "ads.identity",
+        "analysis.candidates",
+        "analysis.rows",
+        "buildings.details",
+        "raw.buildings",
+    ]
     assert ctx.fetchdf("SELECT count(page) AS n FROM ads.identity").n[0] == 229
 
 
@@ -1040,6 +1049,254 @@ def test_identity_cases(tmp_path, monkeypatch):
     assert got.page["9000070"] == page("111|2-case-street-new_york", "10a")
     assert got.unit_id["9000069"] is not None and got.unit_id["9000070"] is not None
     assert got.building["9000060"] == tower and got.building["9000071"] is None
+
+
+def chain_cohort():
+    """The chain's `rentfrontier.cohort` module, loaded from its file."""
+    path = PROJECT.parent / "frontier" / "src" / "rentfrontier" / "cohort.py"
+    spec = importlib.util.spec_from_file_location("cohort", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_rows_match_the_chain(tmp_path, monkeypatch):
+    """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
+    with the same values in every column the pipeline rebuilds."""
+    ctx = context(monkeypatch, tmp_path / "state")
+    ctx.plan(auto_apply=True, no_prompts=True)
+    ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
+        bedrooms, bathrooms, full_baths, half_baths, square_feet, listed_floor,
+        label_derived_floor, floor_status, building_floor_count, advertised_floor,
+        physical_floor, floors_above_ground, elevator, laundry_type, doorman_type, hvac_type,
+        pet_policy, view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
+        FROM analysis.rows"""
+    chain = f"""SELECT source_listing_id, price_at, period, unit_id, canonical_unit_url,
+        building, asking_rent, bedrooms, bathrooms, reported_full_bathrooms,
+        reported_half_bathrooms, square_feet, listed_floor, label_derived_floor,
+        floor_label_provenance ->> 'status',
+        (floor_label_provenance ->> 'building_floor_count')::BIGINT, advertised_floor,
+        physical_floor, floors_above_ground, elevator, laundry_type, doorman_type, hvac_type,
+        pet_policy, view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
+        FROM '{FIXTURE / "chain-rows.parquet"}'"""
+    assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 229
+    assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({ours})").n[0] == 229
+    assert ctx.fetchdf(f"{ours} EXCEPT {chain}").empty
+    assert ctx.fetchdf(f"{chain} EXCEPT {ours}").empty
+
+
+def row_record(
+    listing_id, day, unit, label=None, building="900010", beds=1, details=None, **kw
+):
+    """A record of ad `listing_id` for unit `unit` of `building`, first asking $3,000 on `day`,
+    with the unit label `label` and `details` updating its propertyDetails."""
+    record = json.loads(
+        ad_record(listing_id, [(day, 3000)], beds, details=details or True, **kw)
+    )
+    record["buildingId"] = building
+    record["slug"] = unit
+    if label is not None:
+        record["propertyDetails"]["address"] = {"displayUnit": label}
+    return json.dumps(record, sort_keys=True)
+
+
+def test_row_cases(tmp_path, monkeypatch):
+    """analysis.candidates and ads.reported give these made-up ads the floors, bathroom counts
+    and unit-month fates of the chain's `rentfrontier.cohort`:
+
+    - ads 9000080 and 9000081 list unit 1a in May, and the later one stands.
+    - ads 900009 and 9000082 list unit 2b on the same day, and 900009 stands, as it comes
+      later in text order.
+    - ads 9000083 and 9000084 give unit 3c two bedroom counts in June, so neither stands.
+      Ad 9000085 lists the unit again in July.
+    - ads 9000086 to 9000097 and 9000108 cover the label rules, whitespace and '#' around a
+      label, a label above the building's floor count, a two-digit label in a building without
+      a count, two labels that disagree, an explicit floor and a missing label.
+    - ads 9000098 to 9000103 cover the bathroom counts, and ads 9000104 to 9000107 the edges of
+      the square-foot range.
+
+    Building 900011 has no floor count, and its later answer renames its area. Building
+    900012's first answer gives a floor count of 0 and its second gives 20.5."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+
+    def building(building_id, **values):
+        record = {"id": building_id, "slug": f"{building_id}-case-street-new_york"}
+        return building_id, json.dumps({**record, **values}, sort_keys=True)
+
+    buildings = [
+        building("900010", floorCount=6, area={"name": "Case Hill"}),
+        building("900011", area={"name": "Old Flats"}),
+        building("900011", area={"name": "Case Flats"}),
+        building("900012", floorCount=0),
+        building("900012", floorCount=20.5, area={"name": "Case Hill"}),
+    ]
+    append_answers(
+        export, answers("building_id", buildings, 40, "2026-09-01T12:00Z"), "buildings"
+    )
+    may, june, july = "2026-05-01", "2026-06-03", "2026-07-01"
+    one = [
+        (9000080, row_record(9000080, may, "1a", "1A")),
+        (9000081, row_record(9000081, "2026-05-20", "1a", "1A")),
+        (9000082, row_record(9000082, june, "2b", "#2B")),
+        (900009, row_record(900009, june, "2b", "#2B")),
+        (9000083, row_record(9000083, "2026-06-10", "3c", "3C")),
+        (9000084, row_record(9000084, "2026-06-12", "3c", "3C", beds=2)),
+        (9000085, row_record(9000085, july, "3c", "3C", beds=2)),
+        (9000086, row_record(9000086, may, "4d", "  # 4d\t")),
+        (9000087, row_record(9000087, may, "1205", "1205", "900012")),
+        (9000088, row_record(9000088, may, "n3a", "N3A")),
+        (9000089, row_record(9000089, may, "5re", "5RE")),
+        (9000090, row_record(9000090, may, "3rdfloor", "3rdFloor")),
+        (9000091, row_record(9000091, may, "ph", "PH")),
+        (9000092, row_record(9000092, may, "12a", "12A")),
+        (9000093, row_record(9000093, may, "12a", "12A", "900011")),
+        (9000094, row_record(9000094, may, "9a", "9A", "900011")),
+        (9000095, row_record(9000095, may, "6a", "6A")),
+        (9000095, row_record(9000095, may, "6a", "7A")),
+        (
+            9000096,
+            row_record(
+                9000096, may, "7a", "7A", description="This third-floor apartment."
+            ),
+        ),
+        (9000097, row_record(9000097, may, "8a")),
+        (9000108, row_record(9000108, may, "8h", "#")),
+    ]
+    baths = [
+        (9000098, {"fullBathroomCount": 2, "halfBathroomCount": 1}),
+        (9000098, {"fullBathroomCount": 2, "halfBathroomCount": 1}),
+        (9000099, {"halfBathroomCount": 1}),
+        (9000099, {"halfBathroomCount": 0}),
+        (9000100, {"halfBathroomCount": -1}),
+        (9000101, {"halfBathroomCount": 0.5}),
+        (9000102, {"halfBathroomCount": True}),
+        (9000103, {"fullBathroomCount": 2.0}),
+        (9000104, {"livingAreaSize": 149}),
+        (9000105, {"livingAreaSize": 150}),
+        (9000106, {"livingAreaSize": 6000}),
+        (9000107, {"livingAreaSize": 6001}),
+    ]
+    records = one + [
+        (i, row_record(i, may, f"u{i}", "2A", details=d)) for i, d in baths
+    ]
+    append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
+    ctx = context(
+        monkeypatch, tmp_path / "state", export, FIXTURE / "cases" / "rows.parquet"
+    )
+    ctx.plan(auto_apply=True, no_prompts=True)
+
+    def frame(sql):
+        got = ctx.fetchdf(sql)
+        return got.astype(object).where(got.notna(), None).set_index("listing_id")
+
+    # The chain's functions on each ad's labels and bathroom counts.
+    cohort = chain_cohort()
+    values = {}
+    for listing_id, raw in ctx.fetchdf(
+        """SELECT listing_id::VARCHAR, record FROM raw.ads WHERE outcome = 'record'
+        ORDER BY fetched, response_id"""
+    ).values:
+        details = json.loads(raw).get("propertyDetails") or {}
+        seen = values.setdefault(listing_id, ([], [], []))
+        seen[0].append((details.get("address") or {}).get("displayUnit"))
+        seen[1].append(details.get("fullBathroomCount"))
+        seen[2].append(details.get("halfBathroomCount"))
+    reported = frame(
+        "SELECT listing_id, label_floor, full_baths, half_baths FROM ads.reported"
+    )
+    expected = {}
+    for listing_id, (labels, full, half) in values.items():
+        reads = {cohort.label_floor(label)[1] for label in labels}
+        floor = next(iter(reads)) if len(reads) == 1 else None
+        expected[listing_id] = (
+            floor,
+            cohort.consensus(full),
+            cohort.consensus(half),
+        )
+    assert {i: tuple(r) for i, r in reported.iterrows()} == expected
+
+    got = frame(
+        """SELECT listing_id, fate, listed_floor, label_derived_floor, floor_status,
+        building_floor_count, advertised_floor, square_feet, full_baths, half_baths,
+        neighbourhood, regions FROM analysis.candidates"""
+    )
+    for listing_id, row in got.iterrows():
+        floor, status = cohort.floor_of(
+            {"advertised_floor": row.advertised_floor},
+            values[listing_id][0],
+            row.building_floor_count,
+        )
+        assert (row.listed_floor, row.floor_status) == (floor, status)
+        assert row.label_derived_floor == (floor if status == "label_proxy" else None)
+
+    def fates(*ids):
+        return got.loc[[str(i) for i in ids], "fate"].tolist()
+
+    assert fates(9000080, 9000081, 9000082, 900009) == [
+        "superseded_in_unit_month",
+        "kept",
+        "superseded_in_unit_month",
+        "kept",
+    ]
+    assert fates(9000083, 9000084, 9000085) == 2 * [
+        "conflicting_layout_same_unit_month"
+    ] + ["kept"]
+    floors = got.loc[[str(i) for i in range(9000086, 9000098)] + ["9000108"]]
+    assert floors[["listed_floor", "floor_status"]].values.tolist() == [
+        [4, "label_proxy"],
+        [12, "label_proxy"],
+        [3, "label_proxy"],
+        [5, "label_proxy"],
+        [3, "label_proxy"],
+        [None, "unresolved_or_conflicting_capture_labels"],
+        [None, "above_captured_building_floor_count"],
+        [None, "two_digit_label_without_building_count"],
+        [9, "label_proxy"],
+        [None, "unresolved_or_conflicting_capture_labels"],
+        [3, "explicit_source_floor"],
+        [None, "unresolved_or_conflicting_capture_labels"],
+        [None, "unresolved_or_conflicting_capture_labels"],
+    ]
+    assert got.building_floor_count[["9000081", "9000087", "9000093"]].tolist() == [
+        6,
+        20,
+        None,
+    ]
+    assert got.neighbourhood[["9000081", "9000087", "9000093"]].tolist() == [
+        "Case Hill",
+        "Case Hill",
+        "Case Flats",
+    ]
+    assert all(list(r) == ["cases"] for r in got.regions)
+    # Of the bathroom cases, only ads 9000098, 9000102 and 9000103 have a valid layout.
+    assert reported.loc[[str(i) for i in range(9000098, 9000104)]].values.tolist() == [
+        [2, 2, 1],
+        [2, 1, None],
+        [2, 1, None],
+        [2, 1, None],
+        [2, 1, None],
+        [2, 2, None],
+    ]
+    assert sorted(
+        got.index.intersection([str(i) for i in range(9000098, 9000108)])
+    ) == [
+        "9000098",
+        "9000102",
+        "9000103",
+        "9000104",
+        "9000105",
+        "9000106",
+        "9000107",
+    ]
+    assert got.square_feet[["9000104", "9000105", "9000106", "9000107"]].tolist() == [
+        None,
+        150,
+        6000,
+        None,
+    ]
+    rows = ctx.fetchdf("SELECT listing_id FROM analysis.rows").listing_id
+    assert sorted(rows) == sorted(got.index[got.fate == "kept"])
 
 
 class Failures(TerminalConsole):

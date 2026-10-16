@@ -1,7 +1,9 @@
 """Write the test fixture from the full inputs on thelio.
 
 The fixture holds the analysis rows of five buildings, the exported records of their ads and
-the latest ask `rentfrontier.latest_ask` gave each of those rows. The script copies whole
+the latest ask `rentfrontier.latest_ask` gave each of those rows. For the same rows,
+`chain-rows.parquet` holds the values the chain's analysis datasets give them, read from the
+datasets the latest-ask run names in its provenance. The script copies whole
 buildings, so the building medians in the latest-ask checks come out as in the full run.
 Between them, the five buildings carry each way of choosing an ask that the API run used, and
 ad 2326634 at 1115 Union St, with 799 price changes.
@@ -30,6 +32,37 @@ BUILDINGS = (
     "89-adelphi-street-brooklyn",
 )
 HERE = Path(__file__).resolve().parent
+# The fields of the chain's analysis rows that the pipeline rebuilds, and the audit ID that
+# joins them to the fixture's rows.
+CHAIN_COLUMNS = {
+    "audit_id": "VARCHAR",
+    "source_listing_id": "VARCHAR",
+    "price_at": "VARCHAR",
+    "period": "VARCHAR",
+    "unit_id": "VARCHAR",
+    "canonical_unit_url": "VARCHAR",
+    "building": "VARCHAR",
+    "asking_rent": "DOUBLE",
+    "bedrooms": "DOUBLE",
+    "bathrooms": "DOUBLE",
+    "reported_full_bathrooms": "BIGINT",
+    "reported_half_bathrooms": "BIGINT",
+    "square_feet": "DOUBLE",
+    "listed_floor": "DOUBLE",
+    "label_derived_floor": "DOUBLE",
+    "floor_label_provenance": "JSON",
+    "advertised_floor": "DOUBLE",
+    "physical_floor": "DOUBLE",
+    "floors_above_ground": "DOUBLE",
+    "elevator": "BOOLEAN",
+    "laundry_type": "VARCHAR",
+    "doorman_type": "VARCHAR",
+    "hvac_type": "VARCHAR",
+    "pet_policy": "VARCHAR",
+    "view_exposures": "JSON",
+    "window_exposures": "JSON",
+    "neighbourhood": "VARCHAR",
+}
 COPY = "(FORMAT parquet, COMPRESSION zstd)"
 
 
@@ -93,6 +126,10 @@ def main():
         "--latest-ask",
         default="/data1/apartments/external/latest-ask/20261015-13f5968-api/latest-ask.parquet",
     )
+    parser.add_argument(
+        "--provenance",
+        default="/data1/apartments/external/latest-ask/20261015-13f5968-api/provenance.json",
+    )
     parser.add_argument("--out", default=str(HERE / "fixture"))
     args = parser.parse_args()
     export, out = Path(args.export), Path(args.out)
@@ -110,6 +147,16 @@ def main():
         f"""COPY (SELECT r.ordinal, l.* FROM read_parquet(?) l JOIN rows r USING (audit_id)
         ORDER BY r.ordinal) TO '{out / "latest-ask.parquet"}' {COPY}""",
         [args.latest_ask],
+    )
+
+    datasets = json.loads(Path(args.provenance).read_text())["dataset"].split(",")
+    db.execute(
+        f"""COPY (SELECT r.ordinal, o.* REPLACE (
+            o.price_at::TIMESTAMPTZ AS price_at, o.period::DATE AS period)
+        FROM read_json(?, format = 'newline_delimited', columns = {CHAIN_COLUMNS}) o
+        JOIN rows r USING (audit_id) ORDER BY r.ordinal)
+        TO '{out / "chain-rows.parquet"}' {COPY}""",
+        [[str(Path(d.strip()) / "observations.jsonl") for d in datasets]],
     )
 
     lines = [

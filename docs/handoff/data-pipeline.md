@@ -22,8 +22,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
 4. Keep each ad's whole life as one deduplicated event log, with latest ask, first ask, days on
    market and the ending as views of it, and exclusions as flags with reasons. **Started**:
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
-   drop it in #872, days on market with the ending in `ads.market` (#876), and each ad's unit
-   in `ads.identity` (#877).
+   drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
+   in `ads.identity` (#877), and the fit-ready rows in `analysis.rows` (#880).
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -87,9 +87,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       analysis datasets, and gives each of the chain audit's 1,692,611 ads a unit. 14,849 ads
       have a record without a unit slug and get no unit. Scored matching in step 6 could place
       them by building and unit label.
-   5. the fit-ready rows built in SQL, in place of `raw.analysis_rows`, matching the frozen API
-      references on `(source_listing_id, price_at)`. They need attribute consensus over each
-      unit's ads, the floor rules of `rentfrontier.cohort`, unit-month deduplication and areas.
+   5. **Done** in #880: `analysis.rows`, a row for each unit and month with the chain's values,
+      through `buildings.details`, `ads.reported` and `analysis.candidates`. On runs 1 to 5 it
+      equals the chain's four regional analysis datasets on each of their 1,395,952 rows of
+      units with no answer after 13:10 ET, in every value it rebuilds. It holds 92 rows more:
+      ads from unit histories, which the old collector dropped because the unit's latest ad
+      had no unit page. The four new models take 19 s of queries together, at a peak of
+      3.4 GB. The test suite now takes about 50 s, close to the one-minute target.
+   6. `analysis.latest_ask` reads its rows from `raw.analysis_rows`, the chain's rows. Next it
+      reads them from `analysis.rows`, keyed on `(listing_id, price_at)`, and `raw.analysis_rows`
+      retires along with the input file. The frozen references key on the same pair.
 
    These replace the current chain from archive to analysis rows, which Data improvements runs
    from `/data1/apartments/tmp/suspect/api`:
