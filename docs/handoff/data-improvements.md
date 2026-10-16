@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-16 17:30 ET, after #927. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-16 18:30 ET, after #932. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-16 15:00 ET
 
@@ -49,12 +49,13 @@ API unit spelling aliases: after unit-labels-v17, 69 history-confirmed groups (3
 stay split, mostly `4` against `4fl`, `4th` or `2nd-floor`. That's too small to refit for, so
 they go into the next unit-labels version.
 
-The pipeline found 12 ads whose latest ask is a tenfold typo, corrected on the ad's last day (its
-fix is #930). Two of them are in NB9 with the typo ask: 2220272 at Helena 57 West (37,380, page
-price 3,738) and 3281623 at Hudson Landing (30,000, page price 3,000). Both are 1 BR rows that the
-2026-10-14 screen kept. I wrote them to
-`/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-latest-ask.jsonl` for a
-`latest-ask-v5`, to go in with `quarantine-v33` when the NB9 lines resume.
+The pipeline found 12 ads whose latest ask is a tenfold typo, corrected on the ad's last day
+(its fix is #930). `latest-ask-v7` (#932) is v6's file with those 12 rows set to the ad's page
+price, for Modeling's next all-scraped fit. Two of the rows are in NB9 (2220272 at Helena 57 West,
+3281623 at Hudson Landing), and they wait in
+`/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-latest-ask.jsonl` for the NB9 lines.
+The pipeline's lasting fix to latest_ask.py is #933. A scratch rebuild with it equals v7 on every
+row, so no new latest-ask version is needed.
 
 I answered the pipeline session's questions for its whole-city building linking (steps 6 and 7):
 - Our fetchers are registry- or box-scoped; only `mnreleases` keeps every Manhattan lot per release.
