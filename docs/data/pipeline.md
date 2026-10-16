@@ -34,11 +34,11 @@ latest-ask run of Oct 15, `20261015-13f5968-api`. It stays an input until the ev
 the rows from API records.
 
 For each input, `config.py` also computes a version: for each export table, a SHA-256 over the
-path and hash of each of its listed files, and the rows file's own SHA-256. SQLMesh fingerprints a model by its SQL as
-written and by the values of the variables the SQL uses. The raw views use the versions as well
-as the paths, so a file written again under its old name also counts as a change, once the
-manifest's line for it carries the new hash. A second line for the same path with another hash
-stops the build instead, since `config.py` refuses a path with two hashes. A new or
+path and hash of each of its listed files, and the rows file's own SHA-256. SQLMesh fingerprints
+a model by its SQL as written and by the values of the variables the SQL uses. The raw views use
+the versions as well as the paths, so a file written again under its old name also counts as a
+change, once the manifest's line for it carries the new hash. A second line for the same path
+with another hash stops the build instead, since `config.py` refuses a path with two hashes. A new or
 rewritten ads file changes `raw.ads`, and the next plan rebuilds it and every model below it. A
 new buildings file changes `raw.buildings`, and the next plan rebuilds it and `ads.identity`.
 With unchanged inputs, a plan builds nothing.
@@ -71,8 +71,8 @@ empty keeps its last record, as in `rentfrontier.latest_ask`.
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
-`ads.attributes`, `ads.exclusions` and `ads.identity`, per record in `ads.record_attributes`, per `(listing_id, response_id)` in
-`ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
+`ads.attributes`, `ads.exclusions` and `ads.identity`, per record in `ads.record_attributes`,
+per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes`, per event in `ads.events` and per
 `ordinal` in the two analysis tables. The `every_row` audit, in
 `pipeline/audits/`, checks that `analysis.latest_ask` keeps every analysis row. When an audit
 fails, the plan stops, and the tables from the last good plan stay in place.
@@ -230,13 +230,17 @@ without a unit carries the chain's two reasons, `unresolved_or_conflicting_ident
 `unresolved_or_conflicting_canonical_url`. The ad's building is the building of its latest
 record.
 
-The chain's `unit_page` differs on one kind of slug. When a unit slug ends in `/`, `?` or `#`, it
-drops that character and keeps the page, while `ads.identity` gives none. No slug in runs 1 to 5
-ends that way, and every unit slug there holds only lowercase letters, digits, `-` and `_`.
+The chain's `unit_page` cleans the unit slug before it builds the page. It drops a trailing `/`,
+`?`, `#` or `;` and removes tabs and line breaks, while `ads.identity` gives no page for a slug
+with one of the first three characters and keeps the others. Every unit slug in runs 1 to 5
+holds only lowercase letters, digits, `-` and `_`, so the two agree there.
 
-The current chain reads the building from the ad's capture, where the API answer for the ad
-carries it. A building answered twice with two slugs would give its older ads the newer slug
-here. Runs 1 to 5 hold one answer for each of their 70,137 buildings.
+The collector stores each ad's record with the slug its building had in the same generation
+when it stored the ad, and the current chain reads the building slug from that record.
+`ads.identity` takes the slug from the building's latest answer instead. With a building
+answered twice under two slugs, the chain would keep the older slug for ads stored before the
+second answer, while `ads.identity` gives every ad the newer one. Runs 1 to 5 hold one answer
+for each of their 70,137 buildings.
 
 ## Tests
 

@@ -10,17 +10,20 @@ MODEL (
 -- current chain:
 --   1. Each record gives the page https://streeteasy.com/building/{building slug}/{unit slug}.
 --      The building slug comes from the latest answer for the record's buildingId in the
---      export's buildings table. A record gives no page when either slug is missing or empty,
---      or holds a '/', '?' or '#'.
+--      export's buildings table. The collector instead stores each ad's record with the slug
+--      its building had in the same generation when it stored the ad. The two agree on runs 1
+--      to 5, which answer each building once. A record gives no page when either slug is
+--      missing or empty, or holds a '/', '?' or '#'.
 --   2. An ad takes a page when each of its records gives that page.
 --   3. The ad's unit ID is 'unit:' and the version 5 UUID of its page in the URL namespace, as
 --      Python's uuid.uuid5(uuid.NAMESPACE_URL, page) gives it. An ad gets no unit when it has
 --      no page, or when its page also comes from a record of an ad without a page. The chain
 --      leaves such a page unresolved rather than join two ads through it.
 -- An ad without a unit carries the chain's two reasons for dropping it.
--- When a unit slug ends in '/', '?' or '#', the chain's unit_page drops that character and
--- keeps the page, while this rule gives none. No slug in runs 1 to 5 of the export holds any of
--- the three characters.
+-- The chain's unit_page cleans the unit slug before it builds the page: it drops a trailing
+-- '/', '?', '#' or ';' and removes tabs and line breaks. This rule gives no page for a slug with
+-- one of the first three characters and keeps the others as they are. Each unit slug in runs 1
+-- to 5 holds only lowercase letters, digits, '-' and '_'.
 -- The ad's building is the building of its latest record. Answers without a record take no part,
 -- as the chain reads only stored records.
 WITH buildings AS (

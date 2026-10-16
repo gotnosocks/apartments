@@ -127,13 +127,17 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
 
 
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
-    export = copy_export(tmp_path, keep=lambda line: line["run"] < 4)
+    export = copy_export(
+        tmp_path, keep=lambda line: line["run"] < 4 or line["table"] == "buildings"
+    )
     context(monkeypatch, tmp_path / "state", export).plan(
         auto_apply=True, no_prompts=True
     )
     cache = tmp_path / "state" / "attributes"
     before = {path.name for path in cache.glob("*/*.parquet")}
-    export = copy_export(tmp_path / "full")
+    # The full manifest goes over the partial one in the same folder. With the same export path
+    # and buildings lines, raw.buildings keeps its fingerprint.
+    shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
     ctx = context(monkeypatch, tmp_path / "state", export)
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
@@ -152,7 +156,6 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.latest_ask",
         "analysis.latest_change",
         "raw.ads",
-        "raw.buildings",
     ]
     # The second build parsed only records missing from runs 2 and 3.
     added = [path for path in cache.glob("*/*.parquet") if path.name not in before]
@@ -346,7 +349,7 @@ def test_ads_match_the_rows(tmp_path, monkeypatch):
         coalesce(f.prices = [r.asking_rent], false) AS same_ask,
         coalesce(e.rent = r.asking_rent AND e.reasons = [], false) AS kept,
         coalesce(a.bedrooms = r.bedrooms::DOUBLE, false) AS same_bedrooms,
-        coalesce(i.building = r.building AND i.reasons = [], false) AS same_unit
+        coalesce(i.building = r.building AND i.reasons = [], false) AS same_building
         FROM raw.analysis_rows r
         LEFT JOIN ads.first_ask f ON f.listing_id = r.source_listing_id
         LEFT JOIN ads.exclusions e ON e.listing_id = r.source_listing_id
@@ -995,7 +998,8 @@ def test_identity_cases(tmp_path, monkeypatch):
     )
     ctx.plan(auto_apply=True, no_prompts=True)
 
-    # The chain's reading: each record's page from the latest record of its building.
+    # The chain's functions, with each record's building slug taken from the latest record of
+    # its building, as ads.identity takes it.
     latest = {}
     for building_id, raw in ctx.fetchdf(
         """SELECT building_id, record FROM raw.buildings WHERE outcome = 'record'
