@@ -5,7 +5,7 @@ MODEL (
         unique_combination_of_columns(columns := (listing_id, response_id)),
         not_null(columns := (listing_id, fetched, response_id, outcome))
     ),
-    description 'Each API answer for an ad, with the fields the event log and the latest-ask steps read, parsed once.'
+    description 'Each API answer for an ad, with the fields the event log, the latest-ask steps and the ads file read, parsed once.'
 );
 
 -- A record's unit history repeats in the record of each ad of the unit, so a unit with n ads
@@ -21,9 +21,10 @@ SELECT listing_id, fetched, response_id, outcome, record_sha256,
     nullif(f[7]::DOUBLE, 0) AS rented_price,
     f[8] AS on_market_at,
     f[9] AS created_at,
-    f[10] AS off_market_at
+    f[10] AS off_market_at,
+    list_transform(from_json(f[11], '[{"key": "VARCHAR"}]'), p -> p.key) AS floor_plans
 FROM (
     SELECT *,
-        json_extract_string(record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice', '$.onMarketAt', '$.createdAt', '$.offMarketAt']) AS f
+        json_extract_string(record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice', '$.onMarketAt', '$.createdAt', '$.offMarketAt', '$.media.floorPlans']) AS f
     FROM raw.ads
 )
