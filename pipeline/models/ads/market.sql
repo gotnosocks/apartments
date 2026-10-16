@@ -6,12 +6,15 @@ MODEL (
         unique_values(columns := (listing_id)),
         not_null(columns := (listing_id, as_of, active_days, active_spans))
     ),
-    description 'Each ad''s time on the market and its ending, from the status changes in its event log.'
+    description 'Each ad''s time on the market and its ending, from the status changes of its latest record.'
 );
 
--- An ad's status changes come from its own records. The model puts them in order of time, and
--- in the record's order when two share an instant. Each change holds until the next one, and the
--- last holds until `as_of`, the New York date of the ad's latest answer with a record.
+-- An ad's status changes come from its latest record: the events with that record's fetch as
+-- their `last_seen`, as in ads.breaks. StreetEasy rewrites the list between answers, and an
+-- earlier record can list a change the latest one leaves out. The model puts the changes in
+-- order of time, and in the record's order when two share an instant. Each change holds until
+-- the next one, and the last holds until `as_of`, the New York date of the ad's latest answer
+-- with a record.
 --   on_day:       the day of the first change to ACTIVE, as in the record's onMarketAt.
 --   off_day:      the day of the last change from ACTIVE or IN_CONTRACT to another status,
 --                 as in the record's offMarketAt. An ad whose last change is to ACTIVE or
@@ -35,11 +38,12 @@ WITH latest AS (
     GROUP BY listing_id
 ),
 changes AS (
-    SELECT listing_id, kind, day, "at", list_index,
-        lag(kind) OVER (PARTITION BY listing_id ORDER BY "at", list_index) AS previous,
-        lead(day) OVER (PARTITION BY listing_id ORDER BY "at", list_index) AS next_day
-    FROM ads.events
-    WHERE source = 'status'
+    SELECT e.listing_id, e.kind, e.day, e."at", e.list_index,
+        lag(e.kind) OVER (PARTITION BY e.listing_id ORDER BY e."at", e.list_index) AS previous,
+        lead(e.day) OVER (PARTITION BY e.listing_id ORDER BY e."at", e.list_index) AS next_day
+    FROM ads.events e
+    JOIN ads.latest_record r USING (listing_id)
+    WHERE e.source = 'status' AND e.last_seen = r.fetched
 ),
 spans AS (
     SELECT c.listing_id,

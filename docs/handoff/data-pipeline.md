@@ -308,9 +308,14 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    1. the website's current listings and Data improvements' reads of other ads move to the file;
    2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
    3. a PR deletes the page-capture rewrite and the page parser.
-   `ads.market` still reads every status change any answer listed. Like `ads.breaks`, it should
-   read only the latest record's, which drops 68 changes of 53 ads on runs 1 to 10.
-   Nothing reads its days yet.
+   **Done** in #PRNUM: `ads.market` reads only the latest record's status changes, as
+   `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
+   days of 27 ads in `ads.market`, after which every `on_day` equals the record's `onMarketAt`.
+   The rows and ads files stay the same, since nothing reads those days yet.
+7. `config.py` keys each ledger file by its absolute path, so a scratch build in one worktree
+   on a state from another rebuilds `ledger.entries` and `ledger.status` (0.4 s), and the
+   catalog lists the worktree's paths. Keying by the name inside `pipeline/ledger` would stop
+   both. The production build always runs from one checkout, so its builds don't change.
 
 ## Coordination
 
