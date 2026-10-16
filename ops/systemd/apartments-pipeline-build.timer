@@ -1,0 +1,9 @@
+[Unit]
+Description=Build the data pipeline once a day, after a missed trigger or a pipeline change on master
+
+[Timer]
+OnCalendar=*-*-* 07:15 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

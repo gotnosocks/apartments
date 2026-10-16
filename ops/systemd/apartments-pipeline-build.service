@@ -1,0 +1,12 @@
+[Unit]
+Description=Build the data pipeline's fit-ready rows from the StreetEasy export (ops/pipeline/build-latest)
+
+[Service]
+Type=oneshot
+# The script runs from its own checkout of master, which it moves to master itself. The build
+# runs as a light job (ops/job light) in apartments-light.slice, so this unit holds only the
+# waiting shell.
+ExecStart=/data1/apartments/pipeline/code/ops/pipeline/build-latest
+# A backfill can hold oxylabs.lock for many hours, and the collector waits up to 18.
+TimeoutStartSec=20h
+Nice=10

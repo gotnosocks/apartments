@@ -98,6 +98,37 @@ In the top-up, `ads.record_attributes` parsed the 424,768 distinct records missi
 and copied the 1,713,239 cached ones into its table again, and the models after it recomputed every ad. Those full recomputes
 take most of a top-up's time.
 
+### After each export
+
+`apartments-pipeline-build.service` runs `ops/pipeline/build-latest`, which builds into the
+default state and OUT. Its path unit starts it whenever the exporter changes
+`/data1/apartments/archive/crawls/api/export/manifest.ndjson`, and its timer starts it every day
+at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. The script:
+
+1. waits for the collector to let go of `oxylabs.lock`, so the build starts after an export's
+   last file;
+2. moves its own checkout, `/data1/apartments/pipeline/code`, to master and syncs
+   `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`;
+3. waits for 6 GiB of available memory, then runs `build.py` with `ops/job light -m 4500M` and
+   `PIPELINE_MEMORY=3GB`;
+4. builds again when the manifest changed during the build.
+
+A failed build leaves the service failed, with the failed models in its journal:
+
+```sh
+systemctl --user status apartments-pipeline-build
+journalctl --user -u apartments-pipeline-build -o cat | grep -v pydantic | tail -n 40
+```
+
+The checkout and the units go in once:
+
+```sh
+git -C /data1/apartments/serve/master worktree add --detach /data1/apartments/pipeline/code origin/master
+cp /data1/apartments/pipeline/code/ops/systemd/apartments-pipeline-build.{path,service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline-build.timer
+```
+
 ## Models
 
 | model | kind | a row for each |

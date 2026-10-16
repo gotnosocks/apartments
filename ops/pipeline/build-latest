@@ -1,0 +1,49 @@
+#!/bin/bash
+# Build the data pipeline's fit-ready rows after each backfill run and each Friday top-up.
+# apartments-pipeline-build.service runs this script when the StreetEasy exporter changes the
+# export's manifest, and once a day from its timer. The script works in these steps:
+#
+# 1. It waits for oxylabs.lock and lets go of it at once. The collector holds the lock through
+#    each run and its export, so the build starts after the export's last file.
+# 2. It moves its own checkout, /data1/apartments/pipeline/code, to master and syncs the venv
+#    from pipeline/uv.lock. Nothing else uses that checkout or the venv.
+# 3. It waits until thelio has 6 GiB of memory available, then runs ops/pipeline/build.py as a
+#    light job capped at 4,500 MiB. The build writes its rows file and catalog line to
+#    /data1/apartments/pipeline/datasets.
+# 4. When the manifest changed while the build ran, it goes back to step 1.
+#
+# A failed build exits with the build's status, and the service shows as failed.
+set -uo pipefail
+# The script lives in the checkout it updates: read it whole before running.
+{
+
+CODE=${CODE:-/data1/apartments/pipeline/code}
+CRAWLS=${CRAWLS:-/data1/apartments/archive/crawls}
+MANIFEST=$CRAWLS/api/export/manifest.ndjson
+export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/data1/apartments/venvs/pipeline}
+export TMPDIR=${TMPDIR:-/data1/apartments/pipeline/tmp}
+export PIPELINE_MEMORY=${PIPELINE_MEMORY:-3GB}
+mkdir -p "$TMPDIR"
+
+while :; do
+  echo "$(date -Is) waiting for $CRAWLS/oxylabs.lock"
+  flock -s "$CRAWLS/oxylabs.lock" true || exit 1
+  listed=$(sha256sum <"$MANIFEST")
+
+  git -C "$CODE" fetch -q origin master || true
+  git -C "$CODE" checkout -q --force --detach origin/master || exit 1
+  /home/ben/.local/bin/uv sync -q --locked --project "$CODE/pipeline" || exit 1
+
+  until [ "$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)" -gt $((6 * 1024 * 1024)) ]; do
+    sleep 60
+  done
+  echo "$(date -Is) building from $(git -C "$CODE" rev-parse --short HEAD)"
+  "$CODE/ops/job" light -m 4500M -- "$UV_PROJECT_ENVIRONMENT/bin/python" \
+    "$CODE/ops/pipeline/build.py" || exit $?
+
+  [ "$(sha256sum <"$MANIFEST")" = "$listed" ] && break
+  echo "$(date -Is) the manifest changed during the build"
+done
+
+exit
+}
