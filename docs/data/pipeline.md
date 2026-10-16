@@ -71,7 +71,8 @@ SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. Last, the script appends a line 
 
 When an audit fails, the script prints the failed models and exits with status 1. It writes
 nothing to OUT, and the tables of the last good build stay in place. After a good build, the
-script runs SQLMesh's janitor, which drops the tables no environment has used for a week.
+script runs SQLMesh's janitor, which drops the tables no environment has used for a week. A
+failed janitor prints a warning and leaves the build's status at 0.
 
 DuckDB writes the same bytes for the same table, so a second build from the same export and
 code finds its file already in OUT. Late on Oct 15, two builds in a row on that day's full state
@@ -89,10 +90,10 @@ Early on Oct 16, three builds ran one after another as light jobs with a 4,500 M
 
 The job's wall time includes about 10 s of imports before the catalog's `seconds` start counting,
 so the catalog gives 684, 388 and 759 s. The top-up and the build from empty wrote the same rows
-file, `rows-4743b90bc5aa49b4.parquet`,
-and every model came out with the same row count. The two builds on the Oct 15 state had written
-the same file. Each build's cgroup peaked within 40 MiB of the cap because the page cache fills
-the cgroup, so the script's own peak gives the memory a build needs.
+file, `rows-4743b90bc5aa49b4.parquet`, and every model came out with the same row count. The two
+builds on the Oct 15 state had written the same file. Each build's cgroup peaked within 40 MiB of
+the cap because the page cache fills the cgroup, so the script's own peak gives the memory a
+build needs.
 
 In the top-up, `ads.record_attributes` parsed the 424,768 distinct records missing from its cache
 and copied the 1,713,239 cached ones into its table again, and the models after it recomputed every ad. Those full recomputes
