@@ -362,13 +362,12 @@ exit 0. The whole top-up took 120 requests ($0.14).
   IN_STREETEASY_REVIEW, 289 RENTED, 108 NO_LONGER_AVAILABLE, 95 DELISTED and 26
   IN_BROKERAGE_REVIEW.
 - The runs wrote 670 ad records, 10,179 units and 4 buildings. They marked 9,972 ads superseded
-  and excluded 9,529. Of the excluded ads, 9,109 are DRAFT ads with no canonical unit, which
-  earlier runs had already excluded. The top-up logged 6 new exclusions.
+  and excluded 9,529. Of the excluded ads, 9,109 are DRAFT ads with no canonical unit. Earlier
+  runs had already excluded all but 3 of them, and the top-up logged 6 new exclusions.
 - Every region's `current-listings/api-REGION` link moved to the new run's files, with 7,007
-  candidates and 15 failures in all. The collector counts an ACTIVE ad as a failure and leaves
-  it out of the files when it finds no single canonical unit for the ad, no API capture of it
-  or no unit ID.
-- The export added 20,178 ad reads (20,171 records and 7 IDs the API left out), 4 building
+  candidates and 15 failures in all. The 15 failures are ACTIVE ads with no single canonical
+  unit, so the collector left them out of the files.
+- The export added 20,178 ad reads (20,171 records and 7 'missing' rows), 4 building
   reads, 79 stored replies and 101 calls, in 17 files, and each table matches the archive.
 - I left the DRAFT ads in the top-up, since they cost about 5 cents a week, though they took
   nearly half its reads.

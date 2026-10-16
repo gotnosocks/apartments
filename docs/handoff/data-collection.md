@@ -16,9 +16,8 @@ Updated 2026-10-16 06:40 ET. Thread owner: the Data collection project thread (b
   `apartments-streeteasy-topup.timer` (Fridays 05:30 ET) reads current ads of every region
   into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
   top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16
-  from 05:30 to 05:49 ET, found 7,011 ACTIVE ads in 120 requests ($0.14) as runs 6 to 10, a day
-  before the Oct 10 captures behind the site's `manhattan-page-crawl-areas` ads would have aged
-  out. The site counts an ad as on the market for 9 days after its last capture
+  from 05:30 to 05:49 ET, found 7,011 ACTIVE ads in 120 requests ($0.14) as runs 6 to 10. The
+  site counts an ad as on the market for 9 days after its last capture
   (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
   holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
