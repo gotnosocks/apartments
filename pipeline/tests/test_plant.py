@@ -51,6 +51,17 @@ def test_planted_errors(tmp_path, build):
         "ask_x100_all": {"dropped: invalid_or_extreme_initial_ask": 2},
         "beds_flip_all": {"kept, planted value": 2},
     }
+    steps = {
+        kind: report["kinds"][kind].get("steps") for kind in outcomes if "ask" in kind
+    }
+    # A later answer's price change passes `ads.kept_changes`, and `analysis.latest_ask` takes
+    # the first ask, the one nearer the building's median.
+    assert steps == {
+        "ask_x10_latest": {"first, nearer building": 2},
+        "ask_div10_latest": {"first, nearer building": 2},
+        "ask_x10_all": {"latest": 2},
+        "ask_x100_all": None,
+    }
     key = json.loads((tmp_path / "work" / "planted" / "key.json").read_text())
     assert len(key) == 14
     assert report == json.loads((tmp_path / "work" / "report.json").read_text())

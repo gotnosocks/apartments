@@ -1428,25 +1428,36 @@ StreetEasy could give it:
 - in a later answer, an hour after the ad's latest one, for a price change to ten times or a
   tenth of the page price (`ask_x10_latest`, `ask_div10_latest`), another bedroom count
   (`beds_flip_latest`) or an ACTIVE event in the ad's own history 30 days after the fetch
-  (`future_active`);
+  (`future_active`). I date the price change halfway from the ad's last change to its
+  off-market day, or to the fetch for an ad still on the market, so `ads.kept_changes` takes
+  it as a change made while the ad was on the market;
 - in every record of the ad, for prices at ten or a hundred times (`ask_x10_all`,
   `ask_x100_all`) and another bedroom count (`beds_flip_all`). Every other ad's history gives
   the ad's events at the same prices.
 
-On Oct 16 I planted 50 errors of each kind in the 3% sample of runs 1 to 10, 65,283 ads. Each
-planted ad had a fit-ready row, a page price, a latest ask, 0 to 4 bedrooms and no ledger
-entry. From an empty state the clean build took 96 s and the planted build 77 s, at 1500MB
-for DuckDB and two workers. Rebuilding both from their states took 5 s each.
+On Oct 16 I planted 50 errors of each kind in a 3% sample of runs 1 to 10, 65,283 ads, which
+`ops/pipeline/sample.py --share 0.03` wrote to
+`/data1/apartments/tmp/pipeline/evmem/plant/sample/export`. Each planted ad had a fit-ready
+row, a page price, a latest ask, 0 to 4 bedrooms and no ledger entry. From an empty state the
+clean build took 96 s and the planted build 77 s, at 1500MB for DuckDB and two workers. After
+a change to the planted export, rebuilding the planted copy from its state took 20 s.
 
 | kind | result |
 |---|---|
-| `ask_x10_latest` | all 50 keep the clean latest ask: `analysis.latest_ask` takes the first ask, nearer the building's median |
-| `ask_div10_latest` | 49 keep the clean latest ask, and one takes its first ask, $100 under its clean latest ask |
+| `ask_x10_latest` | 47 take their first ask in `analysis.latest_ask`, as nearer the building's median, and 27 of those first asks equal the clean latest ask; 3 keep the clean latest ask |
+| `ask_div10_latest` | 46 take their first ask, and 35 of those equal the clean latest ask; 4 keep the clean latest ask |
 | `beds_flip_latest` | all 50 dropped for a layout conflict within the ad |
 | `future_active` | all 50 dropped for the future event |
 | `ask_x100_all` | all 50 dropped for an initial ask over $50,000 |
 | `ask_x10_all` | **43 pass into the rows at ten times the ask**, and 7 dropped for an initial ask over $50,000 |
 | `beds_flip_all` | **49 pass into the rows with the other bedroom count**, and one dropped for a layout conflict in its unit's month |
+
+None of the 100 planted price changes passes into the rows. For the 7 ads keeping their clean
+latest ask, the last change came on or after the off-market day, so the script dated the
+planted change a minute after it, and `ads.kept_changes` dropped it as a late placeholder.
+When `analysis.latest_ask` takes the first ask, it drops the ad's earlier changes along with
+the typo. In the 31 ads where the first ask differs from the clean latest ask, it differs by a
+median of 4.8%, and lies between 0.55 and 1.22 times the clean ask.
 
 Five ads without an error gained a row in the planted build. A planted ad had superseded each
 of them in its unit's month, and the planted build drops that ad.
@@ -1721,7 +1732,9 @@ in all, and most tests add made-up ads to that export. The tests:
     hash. After the record of the checks is cut short, the next check hashes every file again.
 41. plant two errors of each kind in the fixture export with `ops/pipeline/plant.py`, building
     both copies in the test's process. The planted export passes the config's checks, the
-    tenfold asks of the later answers keep their clean latest asks, the bedroom counts of the
+    tenfold asks and tenths of the later answers pass `ads.kept_changes`, and
+    `analysis.latest_ask` takes the ads' first asks, nearer the building's median, equal to
+    their clean latest asks. The bedroom counts of the
     later answers, the future events and the hundredfold asks drop their ads, and the tenfold
     asks and bedroom counts in every record pass into the rows.
 

@@ -18,9 +18,11 @@ The script works in these steps:
    gives it. Each error comes in as it could from StreetEasy:
    - In a later answer. For the kinds ending in `_latest` and for `future_active`, a new
      answer an hour after the ad's latest one carries a copy of that answer's record with the
-     error: a price change to 10 times or a tenth of the page price a minute before the
-     fetch, another bedroom count, or an ACTIVE event in the ad's own history 30 days after
-     the fetch. These answers go in a run of their own, one past the export's last.
+     error: a price change to 10 times or a tenth of the page price, another bedroom count, or
+     an ACTIVE event in the ad's own history 30 days after the fetch. The price change comes
+     while the ad was on the market, halfway from its last price change to its off-market day.
+     For an ad still on the market, the change comes halfway to a minute before the fetch.
+     These answers go in a run of their own, one past the export's last.
    - In every record. For the kinds ending in `_all`, every record of the ad gives its prices
      times 10 or 100, or another bedroom count. Every other ad's history gives the ad's events
      with the same prices.
@@ -31,9 +33,11 @@ The script works in these steps:
 5. It compares the two builds ad by ad, reading the ask from the ads file's `latest_ask` and
    the bedrooms from the rows file. For each kind it counts the planted ads the planted build
    drops, by the reasons the ads file gives, and the ads it keeps with their clean value, with
-   the planted value or with another value. It also counts the ads without an error whose
-   row changes between the builds, as a planted ad's error can move its building's median
-   ask. It prints the counts and writes them to WORK/report.json.
+   the planted value or with another value. For the ask errors it counts the kept ads by the
+   step of `analysis.latest_ask` giving the ask, its `how`, read from the planted build's
+   state. It also counts the ads without an error whose row changes between the builds, as a
+   planted ad's error can move its building's median ask. It prints the counts and writes
+   them to WORK/report.json.
 
 Another bedroom count means one more, or 3 for 4 bedrooms. A value counts as the planted or the
 clean value within half a percent. Each build runs with `PIPELINE_MEMORY` and
@@ -156,6 +160,35 @@ def plant_every(
     return json.dumps(record)
 
 
+def instant(text: str) -> dt.datetime:
+    """The instant a record's date or time gives, a date counting from New York's midnight."""
+    value = dt.datetime.fromisoformat(text)
+    return value if value.tzinfo else value.replace(tzinfo=NEW_YORK)
+
+
+def change_time(record: dict, fetched: dt.datetime) -> dt.datetime:
+    """The time of a planted price change: halfway from the ad's last price change, or its
+    first day, to its off-market day, or to a minute before `fetched` for an ACTIVE ad or one
+    without that day. When the last change came on or after the off-market day, the planted
+    change comes a minute after it, as a late change."""
+    pricing = record.get("pricing") or {}
+    times = [
+        instant(change["changedAt"])
+        for change in pricing.get("priceChanges") or []
+        if change.get("changedAt")
+    ]
+    first = record.get("onMarketAt") or record.get("createdAt")
+    if first:
+        times.append(instant(first))
+    start = max(times, default=fetched - dt.timedelta(days=1))
+    end = fetched - dt.timedelta(minutes=1)
+    if record.get("status") != "ACTIVE" and record.get("offMarketAt"):
+        end = instant(record["offMarketAt"])
+    if end <= start:
+        return start + dt.timedelta(minutes=1)
+    return start + (end - start) / 2
+
+
 def plant_later(record: dict, listing_id: int, kind: str, fetched: dt.datetime):
     """Put the error of `kind` in `record`, the copy of the ad's latest record for an answer
     fetched at `fetched`, and return the value the error gives the ad."""
@@ -164,7 +197,8 @@ def plant_later(record: dict, listing_id: int, kind: str, fetched: dt.datetime):
     if kind in FACTORS:
         value = round(pricing["price"] * FACTORS[kind])
         pricing["price"] = value
-        stamp = (local - dt.timedelta(minutes=1)).isoformat(timespec="milliseconds")
+        at = change_time(record, fetched).astimezone(NEW_YORK)
+        stamp = at.isoformat(timespec="milliseconds")
         changes = pricing.get("priceChanges") or []
         pricing["priceChanges"] = changes + [{"changedAt": stamp, "price": value}]
         return value
@@ -193,10 +227,11 @@ def plant_later(record: dict, listing_id: int, kind: str, fetched: dt.datetime):
 
 
 def manifest(export: Path) -> list[dict]:
-    """The manifest's lines, each path once."""
+    """The manifest's lines, each path once, leaving out a cut-off last line as `config.py`
+    does."""
     lines = {}
-    for text in (export / "manifest.ndjson").read_text().splitlines():
-        if not text.strip():
+    for text in (export / "manifest.ndjson").read_text().splitlines(keepends=True):
+        if not text.endswith("\n") or not text.strip():
             continue
         line = json.loads(text)
         if lines.setdefault(line["path"], line)["sha256"] != line["sha256"]:
@@ -213,7 +248,6 @@ def write_planted(
     db, source: Path, out: Path, picks: dict[int, str], clean_ads: str
 ) -> dict:
     """Write the planted copy of `source` to `out`, and return the key."""
-    import pandas as pd
     from duckdb import sqltypes as t
 
     if out.exists():
@@ -248,6 +282,22 @@ def write_planted(
 
     files = [str(out / line["path"]) for line in lines if line["table"] == "ads"]
     later = sorted(ad for ad, kind in picks.items() if not kind.endswith("_all"))
+    key = {}
+    if later:
+        lines.append(write_later(db, out, files, later, picks, clean_ads, key))
+    with open(out / "manifest.ndjson", "w") as f:
+        for line in lines:
+            f.write(json.dumps(line, sort_keys=True) + "\n")
+    return key
+
+
+def write_later(
+    db, out: Path, files: list[str], later: list[int], picks, clean_ads: str, key: dict
+) -> dict:
+    """Write the later answers of the ads in `later` to a new run of `out`, add each ad's kind
+    and value to `key`, and return the file's manifest line."""
+    import pandas as pd
+
     latest = db.sql(
         f"""SELECT r.* FROM read_parquet({files}) r
         JOIN (SELECT listing_id::BIGINT AS listing_id, response_id
@@ -259,7 +309,6 @@ def write_planted(
         f"SELECT max(response_id), max(run) FROM read_parquet({files})"
     ).fetchone()
     first, run = int(top[0]) + 1, int(top[1]) + 1
-    key = {}
     records = []
     for i, answer in enumerate(latest.itertuples(index=False)):
         record = json.loads(answer.record)
@@ -295,11 +344,7 @@ def write_planted(
     )
     db.execute("INSERT INTO typed SELECT * FROM later")
     db.execute(f"COPY typed TO '{out / line['path']}' (FORMAT parquet)")
-    lines.append(file_line(out, line))
-    with open(out / "manifest.ndjson", "w") as f:
-        for line in lines:
-            f.write(json.dumps(line, sort_keys=True) + "\n")
-    return key
+    return file_line(out, line)
 
 
 def outcome(kind: str, row) -> str:
@@ -333,6 +378,8 @@ def run(
     import duckdb
     import pandas as pd
 
+    if export.resolve().is_relative_to(work.resolve()):
+        raise ValueError(f"the export {export} lies inside the work folder {work}")
     db = duckdb.connect(config={"TimeZone": "UTC", "memory_limit": "1GB", "threads": 2})
     clean = build(export, work / "clean")
     clean_ads = str(work / "clean" / "out" / clean["ads_file"]["path"])
@@ -346,6 +393,8 @@ def run(
         LIMIT {per_kind * len(kinds)}"""
     ).fetchall()
     picks = {ad: kinds[i % len(kinds)] for i, (ad,) in enumerate(eligible)}
+    if not picks:
+        raise ValueError(f"no ad of the clean build of {export} can take an error")
     planted_export = work / "planted" / "export"
     key = write_planted(db, export, planted_export, picks, clean_ads)
     values = db.sql(
@@ -365,6 +414,17 @@ def run(
     planted = build(planted_export, work / "planted")
     planted_ads = str(work / "planted" / "out" / planted["ads_file"]["path"])
     planted_rows = str(work / "planted" / "out" / planted["rows"]["path"])
+    # The step of `analysis.latest_ask` giving each planted ad's ask, read from the build's
+    # state once the build has closed it.
+    state = work / "planted" / "state" / "pipeline.duckdb"
+    with duckdb.connect(str(state), read_only=True) as planted_state:
+        steps = dict(
+            planted_state.execute(
+                "SELECT listing_id, how FROM analysis.latest_ask "
+                "WHERE listing_id IN (SELECT unnest($ads))",
+                {"ads": sorted(key)},
+            ).fetchall()
+        )
 
     rows = [
         {"listing_id": ad, "kind": v["kind"], "value": v["value"]}
@@ -397,6 +457,10 @@ def run(
             reasons = reasons or [row.fate or "no row"]
             result = "dropped: " + ", ".join(sorted(reasons))
         counts["outcomes"][result] = counts["outcomes"].get(result, 0) + 1
+        if row.in_rows and row.kind.startswith("ask"):
+            step = steps.get(row.listing_id) or "none"
+            counts.setdefault("steps", {})
+            counts["steps"][step] = counts["steps"].get(step, 0) + 1
         if result.startswith("kept, planted") or result == "kept":
             counts.setdefault("missed", []).append(row.listing_id)
     others = db.sql(
@@ -431,6 +495,8 @@ def main() -> None:
         print(f"{kind}: {counts['planted']} planted")
         for result, n in sorted(counts["outcomes"].items(), key=lambda kv: -kv[1]):
             print(f"    {n:4d}  {result}")
+        for step, n in sorted(counts.get("steps", {}).items(), key=lambda kv: -kv[1]):
+            print(f"    {n:4d}  kept ads with the ask of step: {step}")
     print(f"ads without an error whose row changed: {report['other_ads_changed']}")
 
 
