@@ -837,6 +837,21 @@ def correct_bedrooms_v7(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v6(frame), "bedrooms-ad-v7")
 
 
+BEDROOM_CORRECTIONS_V8 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v8-20261016.jsonl"
+)
+
+
+def correct_bedrooms_v8(frame: pd.DataFrame) -> pd.DataFrame:
+    """v7's rows, then 333 W 56th St #3E as a studio on its 3 rows coded 1.
+    Its floor plan and photos show a divider wall with no walled, doored
+    bedroom, and its 600 square feet match the building's studios (534 to 600)
+    rather than its 1 bedrooms (801 to 995). Its 2023 ad is already coded 0.
+
+    Every row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v7(frame), "bedrooms-ad-v8")
+
+
 # Recorded square feet that disagree with the unit's other listings, read
 # against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
 SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
@@ -1968,6 +1983,7 @@ DATA_RULES = {
     "bedrooms-ad-v5": correct_bedrooms_v5,
     "bedrooms-ad-v6": correct_bedrooms_v6,
     "bedrooms-ad-v7": correct_bedrooms_v7,
+    "bedrooms-ad-v8": correct_bedrooms_v8,
     "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
@@ -2093,6 +2109,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v5": BEDROOM_CORRECTIONS_V5,
     "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
     "bedrooms-ad-v7": BEDROOM_CORRECTIONS_V7,
+    "bedrooms-ad-v8": BEDROOM_CORRECTIONS_V8,
     "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,

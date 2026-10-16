@@ -2203,3 +2203,22 @@ def test_sqft_units_v1_takes_sizes_the_unit_or_its_line_agree_on():
     out = data.correct_square_feet_v1(frame)
     assert out.square_feet.tolist() == [fixes[a]["corrected"], 700.0]
     assert "sqft-units-v1" not in data.DROPPING_RULES
+
+
+def test_bedrooms_v8_codes_333_w_56th_3e_as_a_studio():
+    frame = pd.DataFrame(
+        {
+            "audit_id": [
+                "38c58427f7188377efe23481009abf23b51c40c7e110963f8c6da84021a582d8",
+                "a4390a4242dd9ff724863c16b1c93e9db3de5f84329077a0a8fab99f07034b88",
+                "65c0364a5c1224a2ac4095b2749bc5e473ca4162170948ad8977c3f48f0b0fc9",
+                "not-a-corrected-row",
+            ],
+            "bedrooms": [1.0, 1.0, 1.0, 1.0],
+        }
+    )
+    out = data.DATA_RULES["bedrooms-ad-v8"](frame)
+    assert out.bedrooms.tolist() == [0.0, 0.0, 0.0, 1.0]
+    v7 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v7"])
+    v8 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v8"])
+    assert {k: v8[k] for k in v7} == v7 and len(v8) == len(v7) + 3
