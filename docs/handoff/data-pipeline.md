@@ -209,7 +209,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       service's build at 09:53 ET on Oct 16 it ran out of memory; the next build, at 11:38 ET,
       passed. Apart, the two tables take about 10 s each, and a full scratch build of runs 1 to
       10 passed in 199 s at a 4,188 MiB peak with the same rows file;
-   8. **Done** in #PR: planted errors, for the request's done criteria. `config.py` checks each
+   8. **Done** in #925: planted errors, for the request's done criteria. `config.py` checks each
       export file against the manifest's SHA-256 before the models load, hashing only new or
       changed files, and `ads.record_attributes` checks each record it parses against its
       `record_sha256`. The tests plant a rewritten file under its old line, a record with
