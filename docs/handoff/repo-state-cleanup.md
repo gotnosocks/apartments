@@ -1,6 +1,6 @@
 # Repo-state cleanup: handoff
 
-Updated 2026-10-14 ET. The cleanup thread ran on thelio from Ben's 2026-10-14 09:21Z request to
+Updated 2026-10-16 ET. The cleanup thread ran on thelio from Ben's 2026-10-14 09:21Z request to
 follow through on the latest-ask change and decide every loose item in the repo. It has parked;
 this note lists what it finished and the work it leaves for the next session.
 
@@ -27,22 +27,29 @@ The decisions themselves, with the evidence behind each, are in
 - Data improvements built and merged **#778** (elevator from ad text, `395d53e7`) and **#794**
   (pets from ad text, `6597bb69`). They enter the model through the single NB9 C fit.
 
-## Open work
+## Done on 2026-10-16
 
-The research dashboard needs a refresh once a latest-ask C fit is served. Both copies have been
-stale since 2026-10-10:
+The NB9 latest-ask fit went live at 07:16 ET (#899), so I refreshed the research dashboard
+artifact at https://claude.ai/artifact/WLw3xxZHyTXruJWiDLknzg. It is a Dashboard-type artifact,
+filled through its database: for each dataset I uploaded a new CSV as an asset, then pointed the
+`datasets/<id>` document's `source.url` at it.
 
-- the CSVs in `/mnt/project-files/dashboard`;
-- the artifact at https://claude.ai/artifact/WLw3xxZHyTXruJWiDLknzg.
+- `served_now` comes from the live site build's held-out asks: 29,669 asks, median miss 3.69%,
+  79.1% inside the 80% range, 94.8% inside the 95% range.
+- `switches` comes from the selection milestones in `/data1/apartments/dashboard/site/data.json`,
+  joined to their fit records. `design_history` in `story.py` misreads the NB9 feature set
+  (`unitnu4-nb9-nostuy-lots2-v1`), so I wrote that row's set, neighbourhood count and change
+  words by hand.
+- `fits` counts the 409 fit records from Sep 23 to Oct 16.
+- `tests` is unchanged. The ledger's paired rows still end on 2026-10-08, and its later rows
+  carry no paired diff.
 
-The next session should check the served model itself, in the leaderboard and the autoselect
-output, and refresh both once the served fit targets the latest ask. A message from Modeling may
-not arrive.
+The CSV copies in `/mnt/project-files/dashboard` are still from 2026-10-10. Thelio has no
+`/mnt/project-files`, so a session with that folder has to copy them over.
 
 ## Queue (Modeling owns it)
 
-1. The NB9 C fit runs next, with the elevator and pets fills in its data.
-2. Fixed-rho AR(1) follows.
+The NB9 C fit is served (#899). The rest of the queue is in [`modeling.md`](modeling.md).
 
 The areatime fit stays off the queue until someone has a design that fits within the hour cap.
 The elevfill and petsfill feature tests are retired, since #778 and #794 now correct the data
@@ -55,15 +62,8 @@ the background.
 
 ## Leftovers
 
-- Bridge worktree `/home/ben/code/apartments/.claude/worktrees/bridge-cse_017QMnWHmhvXVxnJ4Qi3Ly5h`,
-  checked out on the local branch `select/lot-clustered-se` (`14f582ed`, squash-merged as #746).
-  The remote branch is deleted. Remove both when that session ends.
 - Scratch directory `/data1/apartments/tmp/cleanup` (552K): helper scripts, autoselect outputs,
   test logs and the branch lists behind the deletions.
-- Venvs from the cleanup work, each safe to delete:
-  - `/data1/apartments/venvs/wt-cleanup` (4.5G)
-  - `/data1/apartments/venvs/wt-cleanup-b2` (4.5G)
-  - `/data1/apartments/venvs/wt-cleanup-root` (1018M)
 - Kept branches with unmerged work, all listed in the decision record:
   - 10 branches of closed PRs from before the cleanup;
   - 8 branches with no PR;
