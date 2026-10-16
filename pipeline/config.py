@@ -47,9 +47,7 @@ ROWS = Path(
 STATE = Path(os.environ.get("PIPELINE_STATE", "/data1/apartments/pipeline/state"))
 
 # ads.record_attributes runs `steps.attributes`, which imports the current chain's modules from
-# the repo's src. SQLMesh puts sys.path and the environment back after it reads this file, so the
-# model reads the two folders from the variable `pythonpath` and adds them to sys.path when it
-# runs.
+# the repo's src. Its code version covers these files.
 PIPELINE = Path(__file__).resolve().parent
 SRC = PIPELINE.parent / "src"
 ATTRIBUTES_CODE = [
@@ -130,6 +128,5 @@ config = Config(
         "rows": str(ROWS),
         "rows_version": file_sha256(ROWS),
         "attributes_code": code_version(ATTRIBUTES_CODE),
-        "pythonpath": os.pathsep.join((str(PIPELINE), str(SRC))),
     },
 )

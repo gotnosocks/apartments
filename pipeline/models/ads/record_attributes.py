@@ -16,7 +16,6 @@ the record, whether the chain would parse it, and each value as canonical JSON o
 import importlib
 import multiprocessing
 import os
-import sys
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -70,8 +69,12 @@ def write_cache(folder, rows):
         schema=schema,
     )
     name = f"{uuid.uuid4().hex}.parquet"
-    pq.write_table(table, folder / f"{name}.part")
-    os.replace(folder / f"{name}.part", folder / name)
+    part = folder / f"{name}.part"
+    pq.write_table(table, part)
+    # The data goes to disk before the rename, so a crash leaves either no file or a whole one.
+    with open(part, "rb") as file:
+        os.fsync(file.fileno())
+    os.replace(part, folder / name)
 
 
 @model(
@@ -97,6 +100,10 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     code = context.var("attributes_code")
     cursor = context.engine_adapter.connection.cursor()
     folder = cache_folder(cursor, code)
+    # DuckDB lets one process at a time write the database, so a `.part` file here comes from a
+    # build that stopped.
+    for part in folder.glob("*.part"):
+        part.unlink()
     cached = (
         f"read_parquet('{folder}/*.parquet')" if any(folder.glob("*.parquet")) else None
     )
@@ -116,10 +123,7 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             ON a.record_sha256 = p.record_sha256 AND a.response_id = p.response_id
         WHERE a.outcome = 'record'
     """
-    # Worker processes start with the parent's sys.path.
-    for path in context.var("pythonpath").split(os.pathsep):
-        if path not in sys.path:
-            sys.path.append(path)
+    # The venv's editable install puts the pipeline folder and the repo's src on sys.path.
     attributes = importlib.import_module("steps.attributes")
     if tuple(attributes.KEYS) != KEYS:
         raise ValueError("steps.attributes.KEYS differs from the model's columns")

@@ -164,6 +164,37 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     assert not again.has_changes and not again.new_snapshots
 
 
+def test_code_change_starts_a_new_cache_folder(tmp_path, monkeypatch):
+    """A change to the projection's code gives ads.record_attributes a new code version, and the
+    build parses every record again into a new folder."""
+    project = tmp_path / "project"
+    shutil.copytree(
+        PROJECT,
+        project,
+        ignore=shutil.ignore_patterns(".venv", "tests", "logs", "__pycache__"),
+    )
+    (tmp_path / "src").symlink_to(PROJECT.parent / "src")
+    export = copy_export(tmp_path, keep=lambda line: line["run"] == 2)
+    context(monkeypatch, tmp_path / "state", export, project=project).plan(
+        auto_apply=True, no_prompts=True
+    )
+    cache = tmp_path / "state" / "attributes"
+    (old,) = cache.iterdir()
+    code = project / "steps" / "attributes.py"
+    code.write_text(code.read_text() + "\n# A change to the projection's code.\n")
+    ctx = context(monkeypatch, tmp_path / "state", export, project=project)
+    plan = ctx.plan(auto_apply=True, no_prompts=True)
+    assert "ads.record_attributes" in changed(plan)
+    (new,) = set(cache.iterdir()) - {old}
+
+    def parsed(folder):
+        return sorted(
+            pd.concat(map(pd.read_parquet, folder.glob("*.parquet"))).record_sha256
+        )
+
+    assert parsed(new) == parsed(old) and len(parsed(new))
+
+
 def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
     """A file written again under its old path gets a new hash in the manifest, and the plan
     builds the ads models again."""
@@ -501,7 +532,7 @@ def test_event_log_cases(tmp_path, monkeypatch):
 def ad_record(listing_id, active, beds=1, pricing=None, description=None, details=True):
     """A record of ad `listing_id`, with an ACTIVE event in its own history for each (day,
     price) pair of `active`, `beds` bedrooms and one bathroom. Without `details` the record
-    lacks propertyDetails."""
+    lacks propertyDetails, and a dict in `details` updates them."""
     record = json.loads(
         history_record(
             listing_id,
@@ -526,13 +557,16 @@ def ad_record(listing_id, active, beds=1, pricing=None, description=None, detail
     record["propertyDetails"] = (
         {"bedroomCount": beds, "fullBathroomCount": 1} if details else None
     )
+    if isinstance(details, dict):
+        record["propertyDetails"].update(details)
     return json.dumps(record, sort_keys=True)
 
 
 def test_exclusion_cases(tmp_path, monkeypatch):
-    """The made-up ads here cover each reason in ads.exclusions. Ads 9000020 and 9000032 have
-    none, ad 9000031's record lacks propertyDetails, and one of ad 9000032's records carries
-    another ad's `id`."""
+    """The made-up ads here cover each reason in ads.exclusions and the edges of its ranges.
+    Ads 9000020 and 9000032 have no reason, ad 9000031's record lacks propertyDetails, and one
+    of ad 9000032's records carries another ad's `id`. Ad 9000034 has two records with the same
+    values, and ads 9000043 to 9000045 have two records with different values."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     may = [("2026-05-01", 3000)]
@@ -553,6 +587,48 @@ def test_exclusion_cases(tmp_path, monkeypatch):
         (9000032, ad_record(9000032, may)),
         (9000032, ad_record(9000020, may, beds=2)),
         (9000033, ad_record(9000033, [])),
+        (9000034, ad_record(9000034, may)),
+        (9000034, ad_record(9000034, may, description="A bright one bedroom.")),
+        (9000035, ad_record(9000035, [("2026-05-01", 750)])),
+        (9000036, ad_record(9000036, [("2026-05-01", 50000)])),
+        (9000037, ad_record(9000037, [("2026-05-01", 749)])),
+        (9000038, ad_record(9000038, [("2026-05-01", 50001)])),
+        (9000039, ad_record(9000039, may, beds=0)),
+        (9000040, ad_record(9000040, may, beds=5)),
+        (
+            9000041,
+            ad_record(
+                9000041,
+                may,
+                details={"fullBathroomCount": None, "halfBathroomCount": 1},
+            ),
+        ),
+        (
+            9000042,
+            ad_record(
+                9000042, may, details={"fullBathroomCount": None, "bathroomCount": 1.25}
+            ),
+        ),
+        (9000043, ad_record(9000043, may, details={"livingAreaSize": 500})),
+        (9000043, ad_record(9000043, may, details={"livingAreaSize": 600})),
+        (
+            9000044,
+            ad_record(
+                9000044, may, details={"amenities": {"list": ["FULL_TIME_DOORMAN"]}}
+            ),
+        ),
+        (
+            9000044,
+            ad_record(
+                9000044, may, details={"amenities": {"list": ["PART_TIME_DOORMAN"]}}
+            ),
+        ),
+        (9000045, ad_record(9000045, may, pricing={"leaseTermMonths": 12})),
+        (9000045, ad_record(9000045, may, pricing={"leaseTermMonths": 3})),
+        (
+            9000046,
+            ad_record(9000046, may, details={"features": {"list": ["FURNISHED"]}}),
+        ),
     ]
     append_answers(
         export,
@@ -607,9 +683,41 @@ def test_exclusion_cases(tmp_path, monkeypatch):
         ["9000028", ["excluded_concession"], 3000.0, 1.0, [], 1],
         ["9000029", [ask], 600.0, 1.0, [], 1],
         ["9000030", [layout], 3000.0, 6.0, [], 1],
-        ["9000031", [layout], 3000.0, None, None, None],
+        ["9000031", ["no_dated_own_active_event"], 3000.0, None, None, None],
         ["9000032", [], 3000.0, 1.0, [], 1],
         ["9000033", ["no_dated_own_active_event"], None, 1.0, [], 1],
+        ["9000034", [], 3000.0, 1.0, [], 2],
+        ["9000035", [], 750.0, 1.0, [], 1],
+        ["9000036", [], 50000.0, 1.0, [], 1],
+        ["9000037", [ask], 749.0, 1.0, [], 1],
+        ["9000038", [ask], 50001.0, 1.0, [], 1],
+        ["9000039", [], 3000.0, 0.0, [], 1],
+        ["9000040", [], 3000.0, 5.0, [], 1],
+        ["9000041", [layout], 3000.0, 1.0, [], 1],
+        ["9000042", [layout], 3000.0, 1.0, [], 1],
+        [
+            "9000043",
+            ["conflicting_layout_within_advertisement"],
+            3000.0,
+            1.0,
+            ["square_feet"],
+            2,
+        ],
+        ["9000044", [], 3000.0, 1.0, ["doorman_type"], 2],
+        ["9000045", ["excluded_short_term"], 3000.0, 1.0, [], 2],
+        ["9000046", ["excluded_furnished"], 3000.0, 1.0, [], 1],
+    ]
+    flags = ctx.fetchdf(
+        """SELECT listing_id, bathrooms, short_term, furnished FROM ads.attributes
+        WHERE listing_id IN ('9000020', '9000041', '9000042', '9000045', '9000046')
+        ORDER BY listing_id"""
+    )
+    assert flags.astype(object).where(flags.notna(), None).values.tolist() == [
+        ["9000020", 1.0, None, None],
+        ["9000041", 0.5, None, None],
+        ["9000042", 1.25, None, None],
+        ["9000045", 1.0, True, None],
+        ["9000046", 1.0, None, True],
     ]
     unparsed = ctx.fetchdf(
         "SELECT id FROM ads.record_attributes WHERE NOT parsed AND id >= '9000020'"

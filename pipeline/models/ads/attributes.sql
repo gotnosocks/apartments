@@ -15,7 +15,7 @@ MODEL (
 -- unknown when they give nothing. `records` holds the number of merged records. When all of an
 -- ad's records fail to parse, the ad gets no row.
 WITH projected AS (
-    SELECT DISTINCT a.listing_id::VARCHAR AS listing_id, r.* EXCLUDE (record_sha256, id, parsed)
+    SELECT DISTINCT a.listing_id::VARCHAR AS listing_id, r.* EXCLUDE (id, parsed)
     FROM ads.answers a
     JOIN ads.record_attributes r USING (record_sha256)
     WHERE a.outcome = 'record' AND r.parsed AND r.id = a.listing_id::VARCHAR

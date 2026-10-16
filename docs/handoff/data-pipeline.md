@@ -64,8 +64,8 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    branch from master. The rest of step 4, a PR each:
    1. **Done** in #872: each record's attributes as the chain parses them, merged per ad, and
       `project_advertisement`'s reasons to drop an ad. On runs 1 to 5 they equal the chain's
-      audit of the four regions for every ad, in reasons and in all sixteen attributes and
-      flags. A build from nothing takes 640 s, 451 s of it parsing records, and 199 s with the
+      audit of the four regions for the 1,692,593 ads with no answer after the audit, in all
+      reasons but the three of later steps and in all sixteen attributes and flags. A build from nothing takes 640 s, 451 s of it parsing records, and 199 s with the
       parse cache. [pipeline.md](../data/pipeline.md) has the numbers.
    2. latest ask, days on market, checked against the record's `daysOnMarket`, and the ending as
       views of the events. Repeated price changes should collapse there: ad 2326634 has 799
@@ -83,12 +83,11 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    4. `rentfrontier.cohort` on each slice: unit-month deduplication, floors and bathrooms;
    5. `cohort combine` and `cohort areas` for each region, and `split.py` to cut two regions by
       area.
-2. A small PR to harden `ops/pipeline/reference.py`, from #868's review:
-   1. compare each input's `st_ctime_ns` before and after the copy, in place of the mtime check
-      before hashing, near line 404;
-   2. stop the freeze when `opened()`, near line 138, drops a read path outside the output and
-      scratch folders because the preparation also opened it for writing or it is not a file;
-   3. test the filter on paths opened for writing and the skip of system folders, near line 388.
+2. **Done** in #873: the reference freeze now stops when an input changed after the
+   preparation started or while the script copied it, and when the preparation read a file
+   outside its scratch folder that it also wrote, opened for reading and writing, or deleted.
+   The preparation's `TMPDIR` points into its scratch folder. A freeze of the served fit's rows
+   with this code matched `served-nb8-5c1e5c7e` in its outputs and its 21 input hashes.
 3. Step 5: the frozen rows give each kept row's listing and price date, so the ledger can move
    the rule entries keyed on `audit_id` to `(source_listing_id, price_at)`. The cases of
    `building-joins-v1` and `west-coast-wings-v1` are constants in the code and need copying into

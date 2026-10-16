@@ -9,7 +9,11 @@ MODEL (
 -- The reasons follow `project_advertisement`, which reads an ad's own ACTIVE events and its
 -- captures, merged as in ads.attributes:
 --   no_dated_own_active_event: the ad's own history lists no ACTIVE event for it, so it has
---     no first ask.
+--     no first ask. The chain reads events only from the records it parses, so an ad without
+--     such a record gets this reason too, while its first day and ask here come from the
+--     event log. The event log reads every record of the ad, so for an ad with records of
+--     both kinds, its first ask here may draw on a record the chain leaves out. Runs 1 to 5 of
+--     the export hold no record the chain fails to parse.
 --   future_own_active_event: an ACTIVE event in its own history falls after the day of its last
 --     answer. The chain compares midnight UTC of the event's day with its as-of time instead.
 --   outside_date_window: its first day comes before 2010.
@@ -21,10 +25,11 @@ MODEL (
 --   invalid_or_extreme_initial_ask: it lacks a single first ask from $750 to $50,000.
 --   invalid_or_missing_layout: it lacks a whole bedroom count from 0 to 5 or a bathroom count
 --     from 1 to 5 in halves.
--- The chain stops at no_dated_own_active_event, since the other checks need a first day. Two
--- of the chain's reasons wait for later steps: those about the unit's identity, and the
--- same-unit-month check across ads. An unparseable event date stops the build in
--- ads.history_events, so `invalid_own_active_event_date` never appears.
+-- The chain stops at no_dated_own_active_event, since the other checks need a first day. Three
+-- of the chain's reasons wait for later steps: the checks of the unit's identity and of the
+-- canonical URL, and the check for two ads of one unit in one month. An unparseable event
+-- date stops the build in ads.history_events, so `invalid_own_active_event_date` never
+-- appears.
 WITH ads AS (
     SELECT listing_id::VARCHAR AS listing_id,
         max((fetched AT TIME ZONE 'America/New_York')::DATE) AS last_day
@@ -41,7 +46,7 @@ own_active AS (
 checked AS (
     SELECT a.listing_id, f.first_day, f.prices, f.missing_price,
         CASE WHEN len(f.prices) = 1 THEN f.prices[1] END AS rent,
-        t.bedrooms, t.bathrooms, t.conflicts, t.furnished, t.short_term, t.concession,
+        t.records, t.bedrooms, t.bathrooms, t.conflicts, t.furnished, t.short_term, t.concession,
         o.last_active > a.last_day AS future
     FROM ads a
     LEFT JOIN ads.first_ask f USING (listing_id)
@@ -49,7 +54,7 @@ checked AS (
     LEFT JOIN ads.attributes t USING (listing_id)
 )
 SELECT listing_id, first_day, rent,
-    CASE WHEN first_day IS NULL THEN ['no_dated_own_active_event']
+    CASE WHEN first_day IS NULL OR records IS NULL THEN ['no_dated_own_active_event']
     ELSE list_sort(list_filter([
         CASE WHEN future THEN 'future_own_active_event' END,
         CASE WHEN first_day < DATE '2010-01-01' THEN 'outside_date_window' END,

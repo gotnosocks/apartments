@@ -129,9 +129,11 @@ the variable `attributes_code`. When any of those files changes, the model write
 folder and gets a new fingerprint. A test compares the list of files with the projection's
 imports. `PIPELINE_WORKERS` sets the number of workers, 4 unless set.
 
-SQLMesh puts `sys.path` and the environment back after it reads `config.py`, so `config.py`
-also passes the folders `pipeline/` and `src/` in the variable `pythonpath`. The model adds them
-to `sys.path` before it imports `steps.attributes`.
+The pipeline's venv installs the project in editable mode, which puts `pipeline/` and the
+repo's `src/` on `sys.path` of every process in the venv, the workers included. The model can
+then import `steps.attributes` with no paths in its variables, so its fingerprint stays the same
+in every checkout. The model writes each cache file under a temporary name, syncs it to disk and
+renames it, and it deletes temporary files left by a build that stopped.
 
 `ads.attributes` merges each ad's records as `project_advertisement` merges its captures: for
 each attribute, one known value stands, and two or more give an unknown and put the attribute
@@ -140,11 +142,15 @@ record without propertyDetails or with another ad's `id`, and gives it a capture
 values, so `ads.attributes` leaves such records out.
 
 `ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
-ask, its merged attributes and its rental flags. Its SQL describes each rule. Three of the chain's checks
-wait for later steps: identity, the canonical URL, and the check for two ads of one unit in one
-month. The chain also blanks a size outside 150 to 6,000 square feet without dropping the ad.
-The fit-ready rows will apply that rule. The chain flags an own ACTIVE event later than its
-as-of time, while `ads.exclusions` flags one later than the day of the ad's last answer.
+ask, its merged attributes and its rental flags. Its SQL describes each rule. Three of the
+chain's checks wait for later steps: identity, the canonical URL, and the check for two ads of
+one unit in one month. The chain also blanks a size outside 150 to 6,000 square feet without
+dropping the ad. The fit-ready rows will apply that rule. The chain flags an own ACTIVE event
+later than its as-of time, while `ads.exclusions` flags one later than the day of the ad's last
+answer. The chain reads events only from the records it parses, while the event log reads every
+record. So an ad without a parsed record gets the chain's reason, `no_dated_own_active_event`,
+and an ad with both kinds of record may take its first ask from a record the chain leaves out.
+Runs 1 to 5 hold no record the chain fails to parse.
 
 ## Tests
 
@@ -186,12 +192,19 @@ row. Their records hold no unit histories. The tests:
     The test checks every history event and first ask by value, along with the cases' missing
     answer;
 12. add made-up records to the cases: an ad for each reason in `ads.exclusions`, an ad with
-    none, a record without propertyDetails and a record with another ad's `id`. The test
-    checks each ad's reasons, first ask, bedroom count and conflicts by value;
-13. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
+    none, a record without propertyDetails and a record with another ad's `id`. It adds ads at
+    the edges of the ranges too: asks of $749, $750, $50,000 and $50,001, 0 and 5 bedrooms,
+    half a bathroom, and 1.25 bathrooms from `bathroomCount`. Four more ads have two records
+    each, with two sizes, two doorman types, leases of 12 and 3 months, or the same values in
+    both. The last ad carries a feature code for furnished. The test checks each ad's reasons,
+    first ask, bedroom count, conflicts and number of records by value;
+13. build run 2 in a copy of the project, then add a comment to the copy's
+    `steps/attributes.py`. The next plan rebuilds `ads.record_attributes` and parses the same
+    records into a second cache folder;
+14. import `steps.attributes` in a fresh process and compare the modules it loads from `src`
     with the files of the code version.
 
-They take about 30 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
+They take about 35 s on thelio. SQLMesh loads models in forked workers, and a fork in a process
 with open DuckDB connections can deadlock, so `pipeline/tests/conftest.py` sets
 `MAX_FORK_WORKERS=1`.
 
