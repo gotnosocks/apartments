@@ -68,6 +68,13 @@ DATASET_NB8 = Path(
 DATASET_NB9 = Path(
     "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8"
 )
+# DATASET_NB9 extended by the API re-read of its areas (api-manhattan-page-
+# crawl-areas-analysis-20261015-run5, `rentfrontier.cohort extend`): NB9's
+# rows unchanged plus 58,146 ads the page crawls missed, in NB9's
+# neighbourhoods. Noho and West Chelsea, which NB9 lacks, stay out.
+DATASET_NB9_API = Path(
+    "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-api-analysis-20261015-c9eea95"
+)
 # The four-region API backfill of 2026-10-15 (api-granular-20261015-canonical-
 # url-v1), one dataset per fit: Manhattan below 59th St and Prospect Park whole,
 # Manhattan 59th-110th split at Central Park, and north Brooklyn split into two
@@ -1608,6 +1615,14 @@ LATEST_ASK_API = Path(
 )
 
 
+# Latest asks of every row of DATASET_NB9_API, from each listing's last record
+# in the page crawls and the API re-read together. NB9's rows match
+# LATEST_ASK_V4 except 380 listings with a newer ask in the re-read.
+LATEST_ASK_V5 = Path(
+    "/data1/apartments/external/latest-ask/20261016-2c7f37e-mw-api/latest-ask.parquet"
+)
+
+
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
     alone (`LATEST_ASK_V3`). A row the file lacks keeps its ask."""
@@ -1920,6 +1935,7 @@ DATA_RULES = {
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
     "latest-ask-api-v1": functools.partial(latest_ask_v3, path=LATEST_ASK_API),
+    "latest-ask-v5": functools.partial(latest_ask_v3, path=LATEST_ASK_V5),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -1975,6 +1991,7 @@ RULE_SOURCES = {
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
     "latest-ask-api-v1": LATEST_ASK_API,
+    "latest-ask-v5": LATEST_ASK_V5,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "unit-reviews-v1": UNIT_JOINS,
