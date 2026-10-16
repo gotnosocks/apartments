@@ -409,6 +409,7 @@ disk.
 | `buildings.pad_link` | table | building whose address matches a range of the latest PAD release: the range's lot and BIN, and the match's rank |
 | `buildings.footprint_link` | table | building whose map point lies in or within 10 m of a footprint of the latest copy: the footprint's lot and BIN |
 | `buildings.lots` | table | building with a record: its lot and BIN, the link they came from, and how well its facts fit each lot |
+| `buildings.lot_releases` | table | lot of `buildings.lots` in a MapPLUTO release: the lot's facts as the release gives them, typed |
 | `ads.identity` | table | ad with a record: its building, its unit page and its unit |
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
@@ -418,12 +419,14 @@ disk.
 | `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with the values its live sets give |
 | `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
+| `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check
 keys and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`,
 `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`, `analysis.candidates`,
-`analysis.latest_change` and `analysis.latest_ask`, per building in `buildings.details` and
-the four building identity models, per record in `ads.record_attributes`, per
+`analysis.latest_change`, `analysis.latest_ask` and `analysis.lot_facts`, per building in
+`buildings.details` and the four building identity models, per lot and release in
+`buildings.lot_releases`, per record in `ads.record_attributes`, per
 `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in `ads.price_changes` and
 per event in `ads.events`. The `every_row` audit, in `pipeline/audits/`, checks that
 `analysis.latest_ask` keeps every row of `analysis.kept`. When an audit fails, the plan stops,
@@ -635,8 +638,9 @@ link each building two ways and let the city facts on its record decide between 
    numbered building. When the address's lot has one and the footprint on the same lot gives a
    numbered BIN, I take the footprint's.
 
-Nothing reads `buildings.lots` yet. The next step joins MapPLUTO's facts, landmarks and
-certificates of occupancy on its lot as of each ad's date.
+`analysis.lot_facts`, under [Lot facts by date](#lot-facts-by-date), reads MapPLUTO's facts
+on each building's lot as of each ad's date. The next step joins landmarks and certificates of
+occupancy the same way.
 
 ### Error rates
 
@@ -715,6 +719,95 @@ scores the reviewed sample:
 On thelio it takes about 17 s at a 2.7 GB peak: 15 s for the four models, 9 s of it in
 `buildings.footprint_link`. A reviewed building whose lot has changed counts as neither right nor
 wrong, so a new rule needs reviews of the buildings it moves.
+
+## Lot facts by date
+
+`analysis.lot_facts` gives each candidate ad the lot and BIN of its building, and the lot's
+MapPLUTO facts as the city published them before the ad. I build it in two models:
+
+1. `buildings.lot_releases` keeps the records of the lots of `buildings.lots` in every release
+   of `city.pluto`: 64,478 to 67,440 lots in each of the 44 releases. Releases write the same value
+   in several ways, such as `01` and `1` for a land use code or `2.50` and `2.5` for a ratio, so
+   the model casts each fact to a number, a true or false value or trimmed text. A fact then
+   compares equal across releases when the city recorded the same value. A value that isn't a
+   number in a field of numbers stops the build.
+2. `analysis.lot_facts` dates each candidate ad by its first day, in UTC, and picks the latest
+   release published at least 7 days before it, or the first release for an ad older than
+   that. Release 22v2 has no published date in the archive's manifest, so I skip it. The ad
+   reads the lot's facts from that release's record, as the served model's `plutoasof-v3` does,
+   with these exceptions:
+   - The address, the year built and the coordinates come from the latest release. They place
+     the lot rather than describe it, and older releases often give a round guess for the
+     year.
+   - When the release has no record of the lot, every fact comes from the latest release and
+     `pluto_fallback` says `lot_missing`. A lot numbered after the release, such as a new
+     condominium's, has no record in it.
+   - When the release came out before the year the latest release gives for the building, its
+     record describes the lot before the building. Every fact then comes from the latest
+     release, and `pluto_fallback` says `before_built`.
+   - Older releases leave some fields blank for every lot, and an ad reading such a release
+     takes those fields from the latest release. `latest_fields` lists them:
+
+     | releases | fields from the latest release |
+     |---|---|
+     | 09v1 to 12v2 | `residfar`, `pfirm15_flag`, `firm07_flag` |
+     | 13v1 to 16v2 | `pfirm15_flag`, `firm07_flag` |
+     | 17v1 on | none |
+
+     Releases before 20v1 also lack coordinates, which come from the latest release anyway.
+
+Each row keeps its release, the release's published date and the fallback, so each value
+traces to a record of `buildings.lot_releases` and from there to a file of the city archive.
+Nothing reads `analysis.lot_facts` yet. A fit moving to it changes its data, and gets its own
+fit under the evaluation framework.
+
+### Against the served model
+
+On Oct 16 I built the two models in a scratch database over the export of runs 1 to 10, with
+the 1,746,499 rows of `rows-892481e29edeeb73.parquet` standing in for the candidates. Of those
+rows, 532 have no lot. The rest read these records:
+
+| record | rows | lots |
+|---|---:|---:|
+| the lot's record in the ad's release | 1,715,452 | 64,805 |
+| the latest release, `lot_missing` | 27,526 | 1,324 |
+| the latest release, `before_built` | 2,989 | 305 |
+
+Of the `lot_missing` rows, 158 in 9 lots have no record in the latest release either and get
+no facts. The 479,641 rows dated before 17v1 became usable take the flood zone flags from the
+latest release.
+
+I then ran the served model's `released_lots` over each pair of lot and date, with Data
+improvements' MapPLUTO files of `20261016-5f07157-all`, once with each row's month as the
+served model dates it and once with its first day. By first day, every field of every row
+agrees with `analysis.lot_facts`. I left two kinds of rows out of the comparison:
+
+- 36,308 rows in 24,800 pairs of lot and date whose lot isn't in Data improvements' file of
+  26v2. That file holds the lots of their registry, and `buildings.lots` gives these buildings
+  other lots.
+- 48 rows in 15 lots whose record in their release is missing from Data improvements'
+  releases file, though the city archive has it. The file lacks 22 lots of Ridgewood, Queens,
+  on blocks 3442, 3444, 3539 and 3729, in releases 09v1 to 18v1. `released_lots` gives those
+  rows the facts of 26v2.
+
+By month, 28,366 of the 1,709,611 compared rows read other facts. The served model dates each
+row by the first of its month, so a row takes a release only from the first month starting 7 or
+more days after the release came out. This step dates each ad by its own first day, and an ad
+later in a month can read a release from earlier in that month.
+
+### Checking a change
+
+`ops/pipeline/lot_facts_check.py` builds the two models and those below them over the export
+and a rows file, prints the rows by release and fallback, and compares the facts with
+`released_lots`:
+
+```sh
+/data1/apartments/serve/master/ops/job light -m 6G -- \
+    pipeline/.venv/bin/python ops/pipeline/lot_facts_check.py --out /data1/apartments/tmp/lot-facts.parquet
+```
+
+On thelio it takes about 4 minutes at a 4.4 GB peak, most of both in `released_lots`. The
+models take 35 s, 10 s each for `buildings.lot_releases` and `analysis.lot_facts`.
 
 ## Fit-ready rows
 
@@ -978,7 +1071,7 @@ in all, and most tests add made-up ads to that export. The tests:
    one ten times the ask, an empty latest answer, a later record leaving out a change of an
    earlier one, and a placeholder price after the ad left the market;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the nineteen models below it and gives the full answer, and a further
+   and the twenty models below it and gives the full answer, and a further
    plan finds nothing to build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -1026,7 +1119,7 @@ in all, and most tests add made-up ads to that export. The tests:
     by value;
 16. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, the four building
-    identity models, `ads.identity`, `analysis.candidates`, `analysis.kept`, the latest asks,
+    identity models, `buildings.lot_releases`, `analysis.lot_facts`, `ads.identity`, `analysis.candidates`, `analysis.kept`, the latest asks,
     `ledger.status` and `analysis.rows`, and the 49 ads of the building in that file gain their
     pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
@@ -1152,6 +1245,14 @@ in all, and most tests add made-up ads to that export. The tests:
       against the ranges 2441-2449 and 2449A, and a hyphenated address on a condominium's
       range, which gives the billing lot;
     - a Brooklyn address with a letter and no community district.
+33. render `analysis.lot_facts` over made-up records of three lots in four releases, one of them
+    without a published date, and over made-up ads in a DuckDB session set to New York time.
+    The ads fall the day before and the day each release becomes usable, after the undated
+    release and after the latest one. One lot is missing from the first release, another's
+    building postdates it, and the first release leaves out the flood zone flags. The test
+    checks each ad's release, fallback, fields from the latest release, year built, floor
+    count and flood zone flag, and ads without a lot or without a building in
+    `buildings.lots`.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
