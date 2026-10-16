@@ -71,4 +71,5 @@ def test_latest_ask_v7_reads_the_page_price_of_the_typo_asks():
     assert ratio.between(9, 11).all()
     helena = "da55dfdade398b9453ede1bb64bff13990c7f4c4ac5689ec49502710d31f3d51"
     assert (v6[helena], v7[helena]) == (37380, 3738)
+    assert data.DATA_RULES["latest-ask-v7"].keywords == {"path": data.LATEST_ASK_V7}
     assert data.RULE_SOURCES["latest-ask-v7"] == data.LATEST_ASK_V7
