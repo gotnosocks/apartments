@@ -845,8 +845,9 @@ BEDROOM_CORRECTIONS_V8 = (
 def correct_bedrooms_v8(frame: pd.DataFrame) -> pd.DataFrame:
     """v7's rows, then 333 W 56th St #3E as a studio on its 3 rows coded 1.
     Its floor plan and photos show a divider wall with no walled, doored
-    bedroom, and its 600 square feet match the building's studios (534 to 600)
-    rather than its 1 bedrooms (801 to 995). Its 2023 ad is already coded 0.
+    bedroom, and its 600 square feet match the building's studios (534 to 600).
+    Its other 1 bedrooms run 801 to 995, apart from 9G at 550, whose plan shows
+    a walled bedroom, so 9G keeps its count. Its 2023 ad is already coded 0.
 
     Every row is kept; only `bedrooms` changes."""
     return _correct_bedrooms(correct_bedrooms_v7(frame), "bedrooms-ad-v8")

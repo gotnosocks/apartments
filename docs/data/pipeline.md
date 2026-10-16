@@ -1161,9 +1161,14 @@ files with their SHA-256, and counts the entries by status and change.
 `ops/pipeline/ledger_import.py` wrote the corrections of the chain's latest rules into
 `pipeline/ledger/2026-10-16-chain.ndjson`. For each correction, it reads the dataset listed
 in the rule's provenance file to find the row's ad and its recorded values. Then it gathers the
-evidence: the ad's words from the rule file, the reads and floor plans in `config/reviews/`
-that decided the correction, and the unit's other ads in the latest analysis dataset. Those
-ads back a set when more of them give the corrected value than give the recorded one. A size
+evidence:
+
+- the ad's words from the rule file, or Ben's own reading when the rule's line gives his name
+  and the day;
+- the reads and floor plans in `config/reviews/` that decided the correction;
+- the unit's other ads in the latest analysis dataset.
+
+The unit's other ads back a set when more of them give the corrected value than give the recorded one. A size
 set rests on the unit's other ads with the same bedroom count and a size within 10% of the
 corrected one, or, when the rule decided it from the unit's line, on the other units of the
 line with that bedroom count and size.
@@ -1206,6 +1211,14 @@ backing from that list, and a set of v6 from a studio to two bedrooms at 800 sq 
 
 `pipeline/ledger/2026-10-16-short-stay.ndjson` excludes three short-stay ads Data improvements
 found on Oct 16, in a second regex pass over the reads of the API rows.
+
+`pipeline/ledger/2026-10-16-west-56th-studio.ndjson` holds the three new sets of `bedrooms-ad-v8`,
+whose other 17 corrections repeat v7. Ben read the floor plan and photos of 333 W 56th St #3E on
+Oct 16 and found a studio with a divider wall. Three of the unit's ads gave one bedroom, and
+the fourth, from June 2023, already gave a studio. The rule's
+lines give his reading with his name and the day in place of the ad's words, and the importer
+takes such a line as a floor plan item when it mentions a floor plan and as an `owner` item
+otherwise. The unit's 600 sq ft also matches the building's studios.
 
 The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
 `unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
