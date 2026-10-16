@@ -141,15 +141,17 @@ def main() -> None:
     ads = args.ads or newest("ads-*.parquet")
     print(f"ads: {ads} ({ads.stat().st_size / 2**20:.0f} MiB)")
     scratch = Path(tempfile.mkdtemp(prefix="ads-check-"))
-    db = duckdb.connect()
+    db = None
     try:
+        db = duckdb.connect()
         db.execute(f"SET memory_limit = '{args.memory}'")
         db.execute(f"SET temp_directory = '{scratch / 'spill'}'")
         db.execute("SET threads = 3")
         db.execute("SET TimeZone = 'UTC'")
         check(db, args, ads)
     finally:
-        db.close()
+        if db is not None:
+            db.close()
         shutil.rmtree(scratch)
 
 
