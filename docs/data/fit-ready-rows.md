@@ -124,36 +124,43 @@ so `data.load` and `descriptions.load` build them from the inputs.
 
 | reference | feature set | rows | held out | features | minutes |
 |---|---|--:|--:|--:|--:|
-| `served-nb8-5c1e5c7e` | `nb8-nostuy-v1` | 214,887 | 21,511 | 115 | 2.2 |
-| `queued-nb9-lots2-9c1055f` | `nb9-nostuy-lots2-v1` | 296,182 | 29,669 | 117 | 3.6 |
-| `queued-nb9-wholefloor-lots2-9c1055f` | `nb9-nostuy-wholefloor-lots2-v1` | 296,182 | 29,669 | 119 | 3.9 |
-| `api-manhattan-below-59th-9c1055f` | `api-manhattan-below-59th-v1` | 312,388 | 31,239 | 126 | 10.9 |
-| `api-manhattan-west-59th-110th-9c1055f` | `api-manhattan-west-59th-110th-v1` | 153,551 | 15,355 | 108 | 9.8 |
-| `api-manhattan-east-59th-110th-9c1055f` | `api-manhattan-east-59th-110th-v1` | 208,399 | 20,840 | 110 | 11.2 |
-| `api-manhattan-59th-110th-rows-9c1055f` | | 361,950 | 36,195 | | 1.0 |
+| `served-nb8-5c1e5c7e` | `nb8-nostuy-v1` | 214,887 | 21,511 | 115 | 1.9 |
+| `queued-nb9-lots2-9c1055f` | `nb9-nostuy-lots2-v1` | 296,182 | 29,669 | 117 | 3.8 |
+| `queued-nb9-wholefloor-lots2-9c1055f` | `nb9-nostuy-wholefloor-lots2-v1` | 296,182 | 29,669 | 119 | 5.8 |
+| `api-manhattan-below-59th-9c1055f` | `api-manhattan-below-59th-v1` | 312,388 | 31,239 | 126 | 10.4 |
+| `api-manhattan-west-59th-110th-9c1055f` | `api-manhattan-west-59th-110th-v1` | 153,551 | 15,355 | 108 | 9.9 |
+| `api-manhattan-east-59th-110th-9c1055f` | `api-manhattan-east-59th-110th-v1` | 208,399 | 20,840 | 110 | 9.7 |
+| `api-manhattan-59th-110th-rows-9c1055f` | | 361,950 | 36,195 | | 1.1 |
 | `api-brooklyn-prospect-park-rows-9c1055f` | | 194,277 | 19,428 | | 0.6 |
-| `api-brooklyn-north-crown-heights-rows-9c1055f` | | 527,438 | 52,744 | | 1.5 |
+| `api-brooklyn-north-crown-heights-rows-9c1055f` | | 527,438 | 52,744 | | 1.7 |
 | `api-brooklyn-greenpoint-bushwick-rows-9c1055f` | | 254,473 | 25,447 | | 0.7 |
 | `api-brooklyn-williamsburg-crown-heights-rows-9c1055f` | | 272,965 | 27,296 | | 0.8 |
 
 The minutes column gives the time each freeze took to prepare the rows and build the features,
-hashing included. I froze them one after another on Oct 15 between 18:16 and 19:04 ET, beside
-Data improvements' jobs, at a peak of 4.4 GiB.
+hashing included. I froze them one after another on Oct 15 between 19:28 and 20:15 ET, beside
+Data improvements' jobs, at a peak of 3.5 GiB.
 
-Before this, I had frozen each reference once with earlier code. It hashed each input when it
-copied the file, and it let `data.load` read a cached flattening of the observations. The
-second freeze gave each reference the same input
-hashes and the same row hash as the first. Six of the eleven folders also hold byte for byte
-the same files. In the other five, `rows.parquet` came out with other bytes, while pyarrow reads
-the same schema, metadata and values from both. So the row hash and the values, rather than the
-file's bytes, decide whether two freezes agree.
+Before this, I had frozen each reference twice with earlier code. That code hashed each input
+when it copied the file, took as inputs only the files the preparation reported, and let
+`data.load` read a cached flattening of the observations. The second of those freezes gave each
+reference the same input hashes and the same row hash as the first. Six of the eleven folders
+also held byte for byte the same files. In the other five, `rows.parquet` came out with other
+bytes, while pyarrow reads the same schema, metadata and values from both. So the row hash and
+the values, rather than the file's bytes, decide whether two freezes agree.
+
+The freeze with `strace` gave all eleven references byte for byte the same outputs as the
+second freeze, with the same row hash and the same hashes for every earlier input. It found
+one more input: the feature build for each of the six references with a feature set reads the
+building registry of Sep 25, `/data1/apartments/external/registry/20260925-6b67137/buildings.parquet`.
+The served fit's result.json leaves that file out of its feature sources, so the fit's record
+of its inputs misses it as well.
 
 The served reference comes from the served fit's dataset,
 `chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0`, at commit 5c1e5c7e
 with the fit's rules: `baths-ad-v3`, `bedrooms-ad-v3`, `fields-review-v3`, `quarantine-v12`,
-`unit-labels-v15`, `unit-reviews-v1` and `unit-splits-v4`. Its row hash and all 20 input hashes
-equal the fit's record in its result.json: the observations, five rule files and 14 feature
-sources.
+`unit-labels-v15`, `unit-reviews-v1` and `unit-splits-v4`. Its row hash and the hashes of the
+20 inputs in the fit's result.json equal that record: the observations, five rule files and 14
+feature sources. Its 21st input is the registry file above.
 
 The two queued references share their dataset,
 `chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8`, and their rows. Each
