@@ -484,7 +484,9 @@ count's median than any of theirs. A size nearest a count past the corrected one
 the set, since listers seldom understate bedrooms. The 1,400 sq ft of a studio corrected to two
 bedrooms lies nearest the three-bedroom median, and it backs the set. The 800 sq ft of a studio
 corrected to two bedrooms lies nearer the one-bedroom median, so the importer keeps it as a
-read, and the set needs other backing.
+read, and the set needs other backing. The readers compared each size with the medians of an
+older dataset, so the importer replaces their comparison with its own, from the medians of the
+latest dataset.
 
 A set without backing goes to `config/reviews/ledger-held-2026-10-16-chain.jsonl` instead,
 with the counts of the unit's other ads, for a reader to look for backing. A second run of the
@@ -524,7 +526,7 @@ The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-co
 I built a copy of the Oct 15 production state with the ledger, at `PIPELINE_MEMORY=3GB` under a
 6 GB cap. The first plan took 591 s, 426 s of it in `ads.record_attributes`, and the build
 script peaked at 4.1 GiB. After the ledger changed, the next build, at `PIPELINE_MEMORY=2GB`,
-rebuilt the two ledger models and `analysis.rows` in 8.3 s, with a peak of 3.1 GiB. The
+rebuilt the two ledger models and `analysis.rows` in 8.6 s, with a peak of 3.1 GiB. The
 ledger's 1,083 lines came out as:
 
 | status | excludes | sets |

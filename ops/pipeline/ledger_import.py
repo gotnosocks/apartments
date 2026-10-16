@@ -22,7 +22,8 @@ them by the ad's `listing_id`. The script works in these steps:
    A stated size backs a bedroom set when it lies nearer the corrected count's median size in
    `DATASET` than the recorded count's median and each median between them. A size nearest a
    count past the corrected one still backs the set, as listers seldom understate bedrooms.
-   Otherwise the importer keeps the size as a `read`, with the count it lies nearer to.
+   Otherwise the importer keeps the size as a `read`, with the count it lies nearer to. Either
+   item gives the importer's medians, as the reader compared the size with medians of its own.
 3. It writes each exclude, and each set with backing, as a ledger line to
    `pipeline/ledger/NAME.ndjson`. It stops when NAME exists. It leaves out a correction when
      - an entry of the ledger came from the same rule file and line, as the rule versions keep
@@ -203,6 +204,7 @@ def signal(read, sizes, recorded):
     if not text:
         return None
     if match := STATED.match(text):
+        # The reader's own comparison used other medians, so the item gives the importer's.
         stated = float(match[1].replace(",", ""))
         corrected = read["bedrooms"]
         distance = {count: abs(size - stated) for count, size in sizes.items()}
@@ -217,19 +219,34 @@ def signal(read, sizes, recorded):
                 count for count in sizes if low <= count <= high and count != corrected
             ]
         rival = min(rivals, key=distance.get, default=None)
-        if corrected in sizes and (
-            rival is None or distance[corrected] < distance[rival]
-        ):
-            return {"kind": "stated_size", "detail": text}
+        size = f"The unit's stated {stated:,.0f} sq ft"
         if corrected not in sizes:
-            detail = f"{text} No ad of the latest dataset with {corrected:g} bedrooms states a size."
+            detail = (
+                f"{size} backs no count of {corrected:g}, as no ad of the latest dataset "
+                f"with {corrected:g} bedrooms states a size."
+            )
+        elif rival is None:
+            detail = (
+                f"{size} rules out no other count, as no ad of the latest dataset with the "
+                "recorded count states a size."
+            )
+        elif distance[corrected] < distance[rival]:
+            return {
+                "kind": "stated_size",
+                "square_feet": stated,
+                "detail": (
+                    f"{size} lies nearer the median {corrected:g}-bedroom size "
+                    f"({sizes[corrected]:,.0f}) than the median {rival:g}-bedroom size "
+                    f"({sizes[rival]:,.0f})."
+                ),
+            }
         else:
             detail = (
-                f"{text} It lies nearer the median {rival:g}-bedroom size "
+                f"{size} lies nearer the median {rival:g}-bedroom size "
                 f"({sizes[rival]:,.0f}) than the median {corrected:g}-bedroom size "
                 f"({sizes[corrected]:,.0f}), so it backs no count of {corrected:g}."
             )
-        return {"kind": "read", "detail": detail}
+        return {"kind": "read", "square_feet": stated, "detail": detail}
     if match := OTHER_AD.match(text):
         return {
             "kind": "other_ad",

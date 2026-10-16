@@ -141,6 +141,7 @@ def write(folder, name, lines):
             "a retract takes no when",
         ),
         (set_("1", {"bedrooms": 10**400}, {"bedrooms": 1}), "finite number"),
+        (set_("1", {"full_baths": 2**63}, {"full_baths": 1}), "below 2**63"),
     ],
 )
 def test_parse_refuses(text, error):
@@ -334,8 +335,8 @@ def test_repo_ledger_reads():
 
 def test_repo_ledger_only_grows():
     """Each ledger file at the merge base with master stays as it was, and each new file sorts
-    after the base's files. A line appended to an old file would sort before the entries of
-    later files."""
+    after master's files, including those merged since the branch left it. A line appended to
+    an old file would sort before the entries of later files."""
     try:
         base = git("merge-base", "HEAD", "origin/master").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -346,10 +347,11 @@ def test_repo_ledger_only_grows():
         path = PROJECT / name
         assert path.exists(), f"{name} is gone"
         assert path.read_text() == old, f"{name} changed after its merge"
-    # A new file sorts after the merge base's files, as the ledger applies files in that order.
-    last = max((Path(name).name for name in names), default="")
+    # The ledger applies files in the order of their names.
+    tip = git("ls-tree", "--name-only", "origin/master", "ledger/").split()
+    last = max((Path(name).name for name in names + tip), default="")
     for path in (PROJECT / "ledger").glob("*.ndjson"):
-        if f"ledger/{path.name}" not in names:
+        if f"ledger/{path.name}" not in names + tip:
             assert path.name > last, f"{path.name} sorts before {last}"
 
 
@@ -367,8 +369,9 @@ def test_repo_ledger_only_grows():
         # With no recorded count, the size has to lie nearest the corrected one.
         (800, None, 2, "read"),
         (1000, None, 2, "stated_size"),
-        # No median for the corrected count.
+        # No median for the corrected count, or for the recorded one.
         (2000, 0, 5, "read"),
+        (1300, 4, 3, "read"),
     ],
 )
 def test_stated_size_rules_out_the_recorded_count(stated, recorded, corrected, kind):
@@ -384,4 +387,13 @@ def test_stated_size_rules_out_the_recorded_count(stated, recorded, corrected, k
         "bedrooms": corrected,
         "second_signal": f"The unit's stated {stated:,} sq ft is in the ad.",
     }
-    assert module.signal(read, medians, recorded)["kind"] == kind
+    item = module.signal(read, medians, recorded)
+    assert item["kind"] == kind
+    # The item gives the medians the importer compared, and none of the reader's.
+    assert item["square_feet"] == stated
+    if kind == "stated_size":
+        assert (
+            f"median {corrected}-bedroom size ({medians[corrected]:,})"
+            in item["detail"]
+        )
+    assert "is in the ad" not in item["detail"]
