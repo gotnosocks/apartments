@@ -100,17 +100,16 @@ def measured_rate(model, features, runs=RUNS):
     return latest and latest[1]
 
 
-# A large fit with no measured rate yet is priced at its whole fit cap (app.LARGE_FIT_CAP):
-# NB9's rate says little about a dataset 4.9 times its size.
-LARGE_FIT_SECONDS = 9 * 3600
+# A large fit with no measured rate yet runs at the default rate scaled by its rows: the
+# all-scraped data holds 4.9 times NB9's fit rows, and Gibbs sweeps scale with the rows.
+LARGE_SECONDS_PER_ITERATION = 2.1
 
 
 def gpu_seconds(chains, warmup, draws, rate=None, large=False):
     """Estimated wall time of a fit's GPU container, at `rate` seconds an iteration if that is
     slower than the default."""
-    if large and rate is None:
-        return OVERHEAD_SECONDS + LARGE_FIT_SECONDS
-    per = max(SECONDS_PER_ITERATION, rate or 0)
+    default = LARGE_SECONDS_PER_ITERATION if large and rate is None else 0
+    per = max(SECONDS_PER_ITERATION, rate or 0, default)
     return OVERHEAD_SECONDS + per * (int(warmup) + int(draws)) * (int(chains) / 2)
 
 
