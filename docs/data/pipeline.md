@@ -294,7 +294,7 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    build's, as on most of the timer's runs;
 3. waits for room to build, checking that
    - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
-   - no unit named `site-build-*`, `frontier-publish-*`, `di-*` or `bd4-*` is active, for the
+   - no unit named `site-build-*`, `frontier-publish*`, `di-*` or `bd4-*` is active, for the
      site builds and Data improvements' jobs run outside `ops/job`;
    - 5 GiB of memory is available.
 
@@ -312,14 +312,17 @@ Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and 
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
 
-When the build starts with the GPU lock free, it leaves the lock free, so a GPU job queued
-after its start runs beside it. Ben agreed on 2026-10-16 to let the build skip the GPU lock this
+When the build starts with the GPU lock free, it leaves the lock free. A GPU job queued after
+its start takes the GPU lock and runs beside it, while a `gpu -x` job, as full fits run, also
+waits for the light slots and so starts after the build. Ben agreed on 2026-10-16 to let the build skip the GPU lock this
 way, on the terms the checks above carry out. The build queues for the lock behind a running GPU
 job, as it did before, so a queue of GPU jobs only delays it. The checks run at the build's
 start, so a job started during a build still overlaps it. A site build or a Data improvements
 job that must not overlap the build runs through `ops/job light`, which waits for the slots the
-build holds. One run outside `ops/job` goes in a unit named like the patterns above, so the build
-waits for it, and checks `systemctl --user is-active apartments-pipeline-build` before it starts.
+build holds. A job run outside `ops/job` goes in a unit named like the patterns above, so the build
+waits for it, and first takes a light slot with `flock -n /data1/apartments/tmp/locks/light-1.lock
+true`, which fails while a build holds the slots. `systemctl --user is-active` doesn't tell: the
+service stays `activating` through its waits as well as its build.
 
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and

@@ -34,15 +34,23 @@ def test_room(tmp_path):
         'printf "%s" "$SYSTEMCTL_OUT"\nexit "${SYSTEMCTL_STATUS:-0}"\n'
     )
     systemctl.chmod(0o755)
+    # A made-up `git`, to catch a check that moves the build's checkout.
+    git = tmp_path / "bin" / "git"
+    git.write_text('#!/bin/sh\ntouch "$GIT_CALLED"\n')
+    git.chmod(0o755)
     # As on thelio, the GPU lock links to heavy.lock.
     (tmp_path / "locks").mkdir()
     (tmp_path / "locks" / "gpu.lock").symlink_to("heavy.lock")
 
-    free = room(tmp_path)
+    tmpdir, called = tmp_path / "tmpdir", tmp_path / "git-called"
+    free = room(tmp_path, TMPDIR=str(tmpdir), GIT_CALLED=str(called))
     assert free.returncode == 0, free.stdout + free.stderr
     assert free.stdout.endswith("MiB available\n")
     args = (tmp_path / "systemctl-args").read_text().split("\n")
-    assert args[-5:] == ["site-build-*", "frontier-publish-*", "di-*", "bd4-*", ""]
+    assert args[-5:] == ["site-build-*", "frontier-publish*", "di-*", "bd4-*", ""]
+    # The check leaves the build's temporary folder and its checkout alone.
+    assert not tmpdir.exists()
+    assert not called.exists()
 
     with open(tmp_path / "locks" / "heavy.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -51,9 +59,6 @@ def test_room(tmp_path):
     assert held.returncode == 1
     assert held.stdout == "gpu: a GPU job holds the GPU lock\n"
     assert ours.returncode == 0, ours.stdout + ours.stderr
-    # The check let go of the lock, so another job can take it.
-    with open(tmp_path / "locks" / "gpu.lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     unit = "site-build-nb9.service loaded active running Site build\n"
     busy = room(tmp_path, SYSTEMCTL_OUT=unit)

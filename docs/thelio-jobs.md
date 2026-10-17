@@ -119,15 +119,17 @@ light CPUs, without taking a slot (it is small and runs at idle priority). After
 
 The data pipeline's build (`apartments-pipeline-build.service`, in `docs/data/pipeline.md`)
 takes every light slot for each build, about 7 to 13 minutes, on the light CPUs. It starts once
-no `site-build-*`, `frontier-publish-*`, `di-*` or `bd4-*` unit is active and 5 GiB of memory is
-available. With the GPU lock free, it leaves the lock free, so a GPU job can start while it runs.
-While a GPU job holds the lock, it queues for it with the GPU jobs and holds it through the
-build. The checks run only at the build's start. A site build or a Data improvements job that
-must not overlap a build runs through `ops/job light`, which waits for the build's slots. Run
-one outside `ops/job` as a unit with one of those names, so the build waits for it, and check
-`systemctl --user is-active apartments-pipeline-build` before starting it. The build runs as its
-own unit, so `ops/job status` leaves it out. When jobs wait and `ops/job status` lists no holder,
-check for it with:
+no `site-build-*`, `frontier-publish*`, `di-*` or `bd4-*` unit is active and 5 GiB of memory is
+available. With the GPU lock free, it leaves the lock free, so a GPU job can start while it runs,
+though a `gpu -x` job waits for the build's light slots. While a GPU job holds the lock, the build
+queues for it with the GPU jobs and holds it through the build. The checks run only at the
+build's start. A site build or a Data improvements job that must not overlap a build runs through
+`ops/job light`, which waits for the build's slots. Run one outside `ops/job` as a unit with one
+of those names, so the build waits for it, and check first that
+`flock -n /data1/apartments/tmp/locks/light-1.lock true` succeeds, since the build holds every
+light slot. `ops/autoselect-publish.sh` names its site build scope `site-build-publish-*`. The
+build runs as its own unit, so `ops/job status` leaves it out. When jobs wait and `ops/job status`
+lists no holder, check for it with:
 
 ```sh
 systemctl --user status apartments-pipeline-build

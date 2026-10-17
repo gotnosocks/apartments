@@ -14,8 +14,9 @@ TimeoutStartSec=30h
 # build at the cap, and the GPU fits keep the swap.
 MemoryMax=5G
 MemorySwapMax=0
-# The build holds the light slots, so it runs on the light CPUs, as `ops/job light` jobs do.
-AllowedCPUs=3-5,9-11
+# The build holds the light slots, so it runs on the light CPUs, as `ops/job light` jobs do. The
+# user manager has no cpuset controller, so the unit sets the CPU affinity, as ops/job does.
+CPUAffinity=3-5,9-11
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
