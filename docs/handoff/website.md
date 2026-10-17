@@ -16,11 +16,13 @@ What the next turn of the website thread needs. Updated at each milestone.
   run `systemctl --user daemon-reload` before `ops/site-deploy.sh`.
 - Merged: #836 (available-now window of 9 days), #776 (nb9 and lots2 words), #913 (a term such as
   `unitnu4` ahead of an `nb` set no longer starts the feature set in `design_terms`).
-- Next: the data pipeline thread plans an `ads-<hash>.parquet` table next to each
-  `rows-<hash>.parquet` in `/data1/apartments/pipeline/datasets`, with one row per ad (listing,
-  unit, building, page, baths, floors, status, fetch time, days on market, `in_rows`). When it
-  says the first file exists, I write the site reader for it in `captures.py` and `ad_dates.py`,
-  check it against the served bundle on listing id and fetch time, and send it the PR.
+- Current listings come from the data pipeline's ads and rows files (#945, by the data
+  pipeline thread). `captures.py` reads the newest build in
+  `/data1/apartments/pipeline/datasets/catalog.ndjson`, checks both files' SHA-256, and takes
+  each unit's ad on the market with its fit-ready row. `ad_dates.py` dates every current row by
+  listing id from the ads file. The rules are in
+  [pipeline.md](../data/pipeline.md#the-websites-current-listings). The stats key in
+  `build.json` is `current_ads`, and the build reads nothing under `archive/current-listings`.
 - After each Friday top-up the scraper thread reports, rebuild the site data.
 
 ## Handover to the new Website thread (2026-10-14 22:45 UTC)

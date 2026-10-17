@@ -2,6 +2,9 @@ import datetime as dt
 import json
 import math
 import sqlite3
+from pathlib import Path
+
+import pytest
 
 from apartments.site import captures, estimate
 
@@ -31,30 +34,42 @@ def kit(sigma=1e-6, unit_scale=1e-6, draws=4, features=()):
     )
 
 
-def candidate(n, **kw):
-    c = {
-        "capture_id": f"refresh:abc:{n}",
-        "building_id": BUILDING,
+URL = "https://streeteasy.com/building/grove/4b"
+SEEN = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
+
+
+def ad(n, **kw):
+    """An ad on the market, in the columns of the pipeline's ads and rows files."""
+    a = {
+        "listing_id": str(1000 + n),
         "unit_id": "u-4b",
-        "canonical_unit_url": "https://streeteasy.com/building/grove/4b",
-        "source_listing_id": 1000 + n,
-        "listing_status": "ACTIVE",
-        "price_basis": "gross_advertised_rent",
-        "rent": 4000,
-        "bedrooms": 1,
-        "bathrooms": 1,
+        "building": BUILDING,
+        "page": URL,
+        "response_id": 7,
+        "fetched": SEEN,
+        "status": "ACTIVE",
+        "page_price": 4000.0,
+        "bedrooms": 1.0,
+        "bathrooms": 1.0,
+    }
+    return {**a, **kw}
+
+
+def candidate(n, **kw):
+    """An ad as `captures.current_ads` gives it."""
+    c = {
+        "listing_id": str(1000 + n),
+        "unit_id": "u-4b",
+        "building_id": BUILDING,
+        "unit_url": URL,
+        "response_id": 7,
+        "collected_at": SEEN.isoformat(),
+        "ask": 4000.0,
+        "bedrooms": 1.0,
+        "bathrooms": 1.0,
         "square_feet": None,
-        "physical_floor": None,
-        "advertised_floor": None,
-        "collected_at": "2026-10-06T15:00:00+00:00",
     }
     return {**c, **kw}
-
-
-def write_capture(archives, name, rows):
-    path = archives / name / "details" / "snapshot"
-    path.mkdir(parents=True)
-    (path / "candidates.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
 
 
 def fitted(**kw):
@@ -84,102 +99,204 @@ def test_label_floor_reads_the_unit_number_within_the_buildings_height():
     assert captures.label_floor("https://x/building/a/2A", None) is None
 
 
-def test_only_captures_the_dataset_never_read(tmp_path):
-    write_capture(tmp_path, "20261004", [candidate(1), candidate(2, unit_id="u-5")])
-    write_capture(tmp_path, "20261006", [candidate(3, unit_id="u-6")])
-    # The dataset read the Oct 4 capture (one of its rows is a dataset row),
-    # so its other listing was left out by the dataset's rules.
-    got = captures.captures(tmp_path, {"capture:refresh:abc:1"}, set(), {})
-    assert [(d, c["capture_id"]) for d, c in got] == [("20261006", "refresh:abc:3")]
+def test_no_catalog_gives_no_pipeline_files(pipeline):
+    assert captures.pipeline_files(pipeline.root) is None
 
 
-def test_the_datasets_current_row_rules_apply(tmp_path):
-    write_capture(
-        tmp_path,
-        "20261006",
-        [
-            candidate(1, unit_id="u-1"),
-            candidate(2, unit_id="u-2", listing_status="RENTED"),
-            candidate(3, unit_id="u-3", rent=None),
-            candidate(4, unit_id="u-4", furnished=True),
-            candidate(5, unit_id="u-5", concession=True),
-            candidate(6, unit_id="u-6", bedrooms=1.5),
-            candidate(7, unit_id="u-7", rent=600),
-            candidate(8, unit_id="u-8", price_basis="net_effective_rent"),
-            candidate(9, unit_id="u-9", source_listing_id=777),
-            candidate(10, unit_id="u-10"),
-            candidate(11, unit_id="u-11", square_feet=90),
-        ],
+def test_the_newest_build_in_the_catalog_gives_the_files(pipeline):
+    pipeline.write([ad(1)])
+    files = pipeline.write([ad(1), ad(2, unit_id="u-5")])
+    assert captures.pipeline_files(pipeline.root) == files
+    assert files["ads"].endswith(f"/ads-{files['ads_sha256'][:16]}.parquet")
+
+
+def test_a_file_unlike_the_catalog_stops_the_build(pipeline):
+    files = pipeline.write([ad(1)])
+    Path(files["rows"]).write_bytes(b"another file")
+    with pytest.raises(ValueError, match="differs from the pipeline's catalog"):
+        captures.pipeline_files(pipeline.root)
+
+
+def test_the_catalog_skips_a_line_still_being_written(pipeline):
+    files = pipeline.write([ad(1)])
+    with (pipeline.root / "catalog.ndjson").open("a") as f:
+        f.write('{"built": "2026-10-07')
+    assert captures.pipeline_files(pipeline.root) == files
+
+
+def test_the_catalog_skips_a_build_from_a_checkout_with_changes(pipeline):
+    files = pipeline.write([ad(1)])
+    pipeline.write([ad(1), ad(2, unit_id="u-5")])
+    catalog = pipeline.root / "catalog.ndjson"
+    first, second = catalog.read_text().splitlines()
+    entry = json.loads(second)
+    entry["code"]["clean"] = False
+    catalog.write_text(first + "\n" + json.dumps(entry) + "\n")
+    assert captures.pipeline_files(pipeline.root) == files
+    catalog.write_text(json.dumps(entry) + "\n")
+    assert captures.pipeline_files(pipeline.root) is None
+
+
+def test_a_build_without_an_ads_file_stops_the_build(pipeline):
+    pipeline.write([ad(1)])
+    catalog = pipeline.root / "catalog.ndjson"
+    entry = json.loads(catalog.read_text().splitlines()[-1])
+    del entry["ads_file"]
+    with catalog.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+    with pytest.raises(ValueError, match="has no ads_file"):
+        captures.pipeline_files(pipeline.root)
+
+
+def test_the_datasets_current_row_rules_apply(pipeline):
+    ads = [
+        ad(1, unit_id="u-1"),
+        ad(2, unit_id="u-2", status="RENTED"),
+        ad(3, unit_id="u-3", page_price=None),
+        ad(4, unit_id="u-4"),
+        ad(6, unit_id="u-6", bedrooms=1.5),
+        ad(7, unit_id="u-7", page_price=600.0),
+        ad(9, unit_id="u-9", listing_id="777"),
+        ad(10, unit_id="u-10"),
+    ]
+    # The pipeline gives ad 1004 no fit-ready row.
+    files = pipeline.write(ads, [a for a in ads if a["unit_id"] != "u-4"])
+    got, skipped = captures.current_ads(files, {"777"}, {"u-10": SEEN})
+    assert [c["listing_id"] for c in got] == ["1001"]
+    assert skipped == {
+        "1003": "layout or ask outside the dataset's range",
+        "1004": "the ad has no fit-ready row",
+        "1006": "layout or ask outside the dataset's range",
+        "1007": "layout or ask outside the dataset's range",
+        "777": "the dataset dropped the listing",
+        "1010": "the dataset prices the unit as current",
+    }
+
+
+def test_an_ad_takes_its_values_from_its_row_and_its_ask_from_its_page(pipeline):
+    a = ad(
+        1,
+        page_price=3300.0,
+        asking_rent=3500.0,
+        square_feet=640.0,
+        full_baths=1,
+        half_baths=1,
+        physical_floor=4.0,
+        elevator=True,
+        view_exposures='{"city": true}',
     )
-    got = captures.captures(
-        tmp_path, set(), {"777"}, {"u-10": dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)}
+    files = pipeline.write([a], [{**a, "bedrooms": 2.0}])
+    ((c,), skipped) = captures.current_ads(files, set(), {})
+    assert skipped == {} and c["ask"] == 3300 and c["bedrooms"] == 2
+    assert c["square_feet"] == 640 and (c["full_baths"], c["half_baths"]) == (1, 1)
+    assert c["physical_floor"] == 4 and c["elevator"] is True
+    assert c["view_exposures"] == {"city": True} and c["window_exposures"] is None
+    assert c["collected_at"] == "2026-10-06T15:00:00+00:00"
+    assert (c["building_id"], c["unit_url"], c["response_id"]) == (BUILDING, URL, 7)
+
+
+def test_the_ad_fetched_last_wins_per_unit(pipeline):
+    files = pipeline.write(
+        [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
     )
-    assert [c["capture_id"] for _, c in got] == ["refresh:abc:1", "refresh:abc:11"]
-    assert got[1][1]["square_feet"] is None  # outside 150-6000 sq ft
+    got, skipped = captures.current_ads(files, set(), {})
+    assert [c["listing_id"] for c in got] == ["1002"] and skipped == {}
 
 
-def test_newest_capture_wins_per_unit(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1, rent=4000)])
-    write_capture(
-        tmp_path, "20261008", [candidate(2, source_listing_id=1001, rent=3900)]
+def test_a_unit_with_an_ad_the_dataset_dropped_has_none(pipeline):
+    """The unit's other ads agree with the dropped one, so they repeat its values."""
+    files = pipeline.write(
+        [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
     )
-    got = captures.captures(tmp_path, set(), set(), {})
-    assert [(d, c["rent"]) for d, c in got] == [("20261008", 3900)]
+    for dropped, other in (("1002", "1001"), ("1001", "1002")):
+        got, skipped = captures.current_ads(files, {dropped}, {})
+        assert got == []
+        assert skipped == {
+            dropped: "the dataset dropped the listing",
+            other: "the dataset dropped another ad of the unit",
+        }
 
 
-def test_the_newest_sighting_wins_whatever_the_folder_is_called(tmp_path):
-    write_capture(
-        tmp_path,
-        "20261006",
-        [candidate(2, rent=3900, collected_at="2026-10-06T15:00:00+00:00")],
-    )
-    write_capture(
-        tmp_path,
-        "api-region",
-        [candidate(1, rent=4000, collected_at="2026-10-05T15:00:00+00:00")],
-    )
-    got = captures.captures(tmp_path, set(), set(), {})
-    assert [(d, c["rent"]) for d, c in got] == [("20261006", 3900)]
+def test_a_unit_takes_its_newest_ad_with_a_row(pipeline):
+    ads = [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
+    files = pipeline.write(ads, ads[1:])
+    got, skipped = captures.current_ads(files, set(), {})
+    assert [c["listing_id"] for c in got] == ["1001"]
+    assert skipped == {"1002": "the ad has no fit-ready row"}
 
 
-def test_a_capture_ages_out_nine_days_after_it_was_seen(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1)])
-    seen = dt.datetime(2026, 10, 6, 15, tzinfo=dt.UTC)
-    assert captures.captures(tmp_path, set(), set(), {}, seen + dt.timedelta(days=9))
-    assert not captures.captures(
-        tmp_path, set(), set(), {}, seen + dt.timedelta(days=9, seconds=1)
-    )
+def test_a_unit_whose_ads_on_the_market_conflict_has_none(pipeline):
+    files = pipeline.write([ad(1), ad(2, page_price=3900.0), ad(3, unit_id="u-5")])
+    got, skipped = captures.current_ads(files, set(), {})
+    assert [c["listing_id"] for c in got] == ["1003"]
+    assert skipped == {
+        "1001": "the unit's ads on the market conflict",
+        "1002": "the unit's ads on the market conflict",
+    }
 
 
-def test_a_listing_the_dataset_dropped_stays_out(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1, source_listing_id=900)])
+def test_an_ad_without_a_row_conflicts_too(pipeline):
+    """The ads file's values decide the conflict, and an ad without a fit-ready row counts."""
+    ads = [ad(1), ad(2, bedrooms=2.0), ad(3, unit_id="u-5")]
+    files = pipeline.write(ads, [ads[0], ads[2]])
+    got, skipped = captures.current_ads(files, set(), {})
+    assert [c["listing_id"] for c in got] == ["1003"]
+    assert skipped == {
+        "1001": "the unit's ads on the market conflict",
+        "1002": "the unit's ads on the market conflict",
+    }
+
+
+def test_ads_without_a_unit_stay_out(pipeline):
+    ads = [
+        ad(1, unit_id=None),
+        ad(2, unit_id=None, page_price=3900.0),
+        ad(3, unit_id="u-5"),
+    ]
+    got, skipped = captures.current_ads(pipeline.write(ads), set(), {})
+    assert [c["listing_id"] for c in got] == ["1003"] and skipped == {}
+
+
+def test_an_ad_ages_out_nine_days_after_it_was_fetched(pipeline):
+    files = pipeline.write([ad(1)])
+
+    def current(at):
+        return [c["listing_id"] for c in captures.current_ads(files, set(), {}, at)[0]]
+
+    assert current(SEEN + dt.timedelta(days=9)) == ["1001"]
+    assert current(SEEN + dt.timedelta(days=9, seconds=1)) == []
+    assert current(SEEN - dt.timedelta(seconds=1)) == []  # fetched after the build
+
+
+def test_a_listing_the_dataset_dropped_stays_out(pipeline):
+    files = pipeline.write([ad(1, listing_id="900")])
     dropped = fitted(audit_id="obs:dropped", listing_id="900")
     out, status = captures.rows(
         kit(),
         [kit_building()],
         [fitted(listing_id="800")],
         [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
-        tmp_path,
+        files,
         [],
         {"obs:1": fitted(listing_id="800"), "obs:dropped": dropped},
     )
     assert out == [] and status["priced"] == 0
 
 
-def test_a_newer_capture_wins_over_the_datasets_current_row(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
+def test_a_newer_ad_wins_over_the_datasets_current_row(pipeline):
+    files = pipeline.write([ad(1, page_price=3300.0)])
     buildings = [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}]
 
     def priced(seen):
         row = fitted(is_current=1, collected_at=seen, price_at=seen)
         out, _ = captures.rows(
-            kit(), [kit_building()], [row], buildings, tmp_path, [], {"obs:1": row}
+            kit(), [kit_building()], [row], buildings, files, [], {"obs:1": row}
         )
         return len(out)
 
     assert priced("2026-10-06T16:00:00+00:00") == 0  # the dataset saw it later
     assert priced("2026-10-06T15:00:00+00:00") == 0  # the same sighting
-    assert priced("2026-10-05T00:00:00+00:00") == 1  # the capture is newer
+    assert priced("2026-10-05T00:00:00+00:00") == 1  # the ad is newer
     assert priced("2026-09-20T00:00:00+00:00") == 1  # seen over a week ago
 
 
@@ -192,19 +309,20 @@ def kit_building(level=0.0):
     }
 
 
-def test_rows_price_a_capture_with_the_kit(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
+def test_rows_price_an_ad_with_the_kit(pipeline):
+    files = pipeline.write([ad(1, page_price=3300.0)])
     out, status = captures.rows(
         kit(sigma=0.05, unit_scale=0.05),
         [kit_building()],
         [fitted(), fitted(audit_id="obs:2", in_fit=0)],
         [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
-        tmp_path,
+        files,
         [],
     )
-    assert status["priced"] == 1 and status["by_capture"] == {"20261006": 1}
+    assert status["priced"] == 1 and status["pipeline"] == files
     (row,) = out
-    assert row["audit_id"] == "capture:refresh:abc:1"
+    assert row["audit_id"] == "api:7:1001" and row["listing_id"] == "1001"
+    assert row["ask"] == 3300 and row["price_basis"] == "current_capture_gross_ask"
     assert row["method"] == "kit" and row["in_fit"] == 0 and row["fitted"] is None
     assert row["neighbourhood"] == "Greenwich Village"
     assert row["is_current"] == 1 and row["collected_at"].startswith("2026-10-06")
@@ -216,24 +334,27 @@ def test_rows_price_a_capture_with_the_kit(tmp_path):
     assert "market" in {p["term"] for p in json.loads(row["contributions"])}
 
 
-def test_a_building_outside_the_fit_is_skipped(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1, building_id="b-new")])
+def test_a_building_outside_the_fit_is_skipped(pipeline):
+    files = pipeline.write([ad(1, building="b-new")])
     out, status = captures.rows(
         kit(),
         [kit_building()],
         [fitted()],
         [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
-        tmp_path,
+        files,
         [],
     )
-    assert out == [] and status["skipped"] == {
-        "refresh:abc:1": "building not in the served fit"
-    }
+    assert out == [] and status["skipped"] == {"1001": "building not in the served fit"}
 
 
-def test_no_kit_prices_nothing(tmp_path):
-    rows, status = captures.price(None, [], [], tmp_path, [])
+def test_no_kit_or_pipeline_build_prices_nothing(pipeline):
+    rows, status = captures.price(None, [], [], pipeline.write([ad(1)]), [])
     assert rows == [] and status["priced"] == 0
+    rows, status = captures.price(pipeline.root, [], [], None, [])
+    assert rows == [] and status == {
+        "priced": 0,
+        "reason": "no pipeline build to read current ads from",
+    }
 
 
 def as_kit_row(site_root):
@@ -313,14 +434,13 @@ def test_relisting_centre_is_recovered_from_the_rows():
     assert abs(captures.relisting_centre(rows) - 3.0) < 1e-9
 
 
-def test_a_unit_the_fit_has_seen_is_priced_at_its_own_level(tmp_path):
-    write_capture(tmp_path, "20261006", [candidate(1, rent=3300)])
+def test_a_unit_the_fit_has_seen_is_priced_at_its_own_level(pipeline):
     args = (
         kit(sigma=0.05, unit_scale=0.05),
         [kit_building()],
         [fitted()],
         [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
-        tmp_path,
+        pipeline.write([ad(1, page_price=3300.0)]),
         [],
     )
     level = math.log(0.8)
@@ -419,20 +539,14 @@ def test_listing_page_says_when_the_unit_level_is_the_fits(site_root, client):
     assert "drawn from the prior" not in page
 
 
-def test_a_west_coast_capture_is_priced_on_its_labels_wing(tmp_path):
+def test_a_west_coast_ad_is_priced_on_its_labels_wing(pipeline):
     wing, letters = "the-west-coast-west-wing", "the-west-coast"
     url = "https://streeteasy.com/building/the-west-coast/"
-    write_capture(
-        tmp_path,
-        "20261006",
+    files = pipeline.write(
         [
-            candidate(
-                1, building_id=letters, unit_id="u-620", canonical_unit_url=url + "620"
-            ),
-            candidate(
-                2, building_id=letters, unit_id="u-9l", canonical_unit_url=url + "9l"
-            ),
-        ],
+            ad(1, building=letters, unit_id="u-620", page=url + "620"),
+            ad(2, building=letters, unit_id="u-9l", page=url + "9l"),
+        ]
     )
     out, status = captures.rows(
         kit(),
@@ -445,7 +559,7 @@ def test_a_west_coast_capture_is_priced_on_its_labels_wing(tmp_path):
             {"id": b, "neighbourhood": "West Village", "floors": 10}
             for b in (wing, letters)
         ],
-        tmp_path,
+        files,
         [],
     )
     assert status["priced"] == 2 and not status["skipped"]

@@ -1,9 +1,12 @@
 """The area collector against a fake GraphQL API, with no network requests."""
 
 from datetime import UTC, datetime, timedelta
+import gzip
+import hashlib
 import json
 import math
 import re
+import sqlite3
 import urllib.parse
 
 import pytest
@@ -893,16 +896,21 @@ def test_current_listings_publish_and_point_the_site_at_the_newest(
         rental(1300007),
     }
     assert (link / "details" / "archive").resolve() == (tmp_path / "archive").resolve()
-    from apartments.site import ad_dates
-
-    bodies = ad_dates._Bodies(root)
+    # Each row's page body is in the archive the capture links to.
+    archive = link / "details" / "archive"
+    bodies = sqlite3.connect(f"file:{archive / 'archive.sqlite3'}?mode=ro", uri=True)
     try:
         for r in rows:
             (sha,) = c.db.execute(
                 "SELECT body_hash FROM observations WHERE id=?",
                 (r["crawl_provenance"]["observation_id"],),
             ).fetchone()
-            assert bodies.get(sha) is not None
+            (stored,) = bodies.execute(
+                "SELECT path FROM bodies WHERE hash = ?", (sha,)
+            ).fetchone()
+            raw = (archive / stored).read_bytes()
+            body = gzip.decompress(raw) if stored.endswith(".gz") else raw
+            assert hashlib.sha256(body).hexdigest() == sha
     finally:
         bodies.close()
     failures = (link / "details" / "snapshot" / "failures.jsonl").read_text()

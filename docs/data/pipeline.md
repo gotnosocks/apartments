@@ -1421,8 +1421,8 @@ such as `ads-<hash>.parquet` in OUT, with a row for every ad with a record, kept
 adds the file's name, SHA-256 and row count to its catalog line under `ads_file`. I wrote it for
 these readers:
 
-- the website's current listings, which read the API captures under
-  `/data1/apartments/archive/current-listings` until they move to this file;
+- the site build, which takes the website's current listings and their days on the market from
+  it, as the section [The website's current listings](#the-websites-current-listings) describes;
 - Data improvements, which reads a unit's other ads when it looks for the evidence behind a
   correction.
 
@@ -1439,11 +1439,11 @@ comes from. These columns need more than a line:
   the record lists no plans, and a missing one means it has no `media`.
 - `last_change`, `break_status`, `break_day` and `back_day` come from `ads.breaks`, which reads
   the six statuses the unit's history lists. The website shows an ad back on the market with the
-  status and day of its latest break, which it now reads from the history on the ad's page. An
-  ad gets a break only when its status and its last change are both ACTIVE. On runs 1 to 10, 6
-  ads with another status have a return as their last change: 3 drafts, 2 ads in review and ad
-  2101233, which is NO_LONGER_AVAILABLE and lists a return two minutes after its ending on
-  2017-05-30. Rebuilding `ads.breaks` and the files for this change took 20 s.
+  status and day of its latest break, from these columns. An ad gets a break only when its
+  status and its last change are both ACTIVE. On runs 1 to 10, 6 ads with another status have a
+  return as their last change: 3 drafts, 2 ads in review and ad 2101233, which is
+  NO_LONGER_AVAILABLE and lists a return two minutes after its ending on 2017-05-30. Rebuilding
+  `ads.breaks` and the files for this change took 20 s.
 - `regions` lists the export regions of the ad's answers, from `ads.regions`.
 - `ledger_entries` lists the ledger's live entries for the ad.
 - `ask_check` holds, for a row `analysis.ask_check` lists for review, the median latest ask of
@@ -1493,6 +1493,70 @@ both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. T
   A reader who needs the latest record's own value for such an ad takes it from the export.
 - All 7,013 ACTIVE ads have the same last change and latest break as the history in their latest
   record, and 644 of them are back on the market after a break.
+
+### The website's current listings
+
+The site build (`python -m apartments.site build`) reads
+`/data1/apartments/pipeline/datasets/catalog.ndjson` and takes its newest line from a build of a
+checkout with no changes (`code.clean`). It passes over a last line without its newline, which
+a pipeline build may still be writing. It checks the SHA-256 of the ads file and the rows file
+against that line before it reads either. A line without both files stops the build, as a file
+with another SHA-256 does. `src/apartments/site/captures.py` then picks the listings on the
+market:
+
+1. It reads the ads with a unit whose latest answer says ACTIVE and came in the 9 days before
+   the build (`CURRENT_DAYS`), and joins each to its fit-ready row by listing id.
+2. When two of a unit's ads differ on the ask, the bedrooms, the baths or the size the ads file
+   gives, a missing size included, it takes none of them, with a fit-ready row or without. It
+   takes none either when the served dataset dropped one of them, since the others repeat the
+   values the dataset dropped.
+3. Otherwise it leaves out the ads without a fit-ready row and takes the one with the latest
+   answer of the others.
+4. It leaves out that ad when its layout or ask lies outside the ones the dataset prices, or
+   when the dataset prices its unit as current from an answer as new as the ad's or newer.
+
+The values come from the fit-ready row, after the corrections ledger, and the ask from
+`page_price`, since a row's `asking_rent` follows the chain's latest-ask rule and can be an
+earlier price. Each listing's `audit_id` is `api:<response_id>:<listing_id>`, which leads back
+to its answer in the export. Under `stats.current_ads` the build's `build.json` gives the two
+files with their SHA-256, the number of ads priced, and the reason for each ad on the market it
+left out.
+
+`src/apartments/site/ad_dates.py` dates each current listing by its listing id, whether the kit
+or the served fit priced it, from the ad's `on_day`, `days_on_market` and break columns. It
+dates an ad only when the ad is ACTIVE and its `on_day` falls on or before the New York day of
+its latest answer.
+
+On the evening of Oct 16 I built the site twice from the export of Oct 16 and the served fit,
+once with this reader and once with the code it replaced, and compared the listings on the
+market. The reader showed 1,099 against 1,159, every one of them on the old list too. It left
+out 60:
+
+- 57 ads whose answers from the top-ups of Oct 15 and 16 say RENTED (26), IN_CONTRACT (15),
+  DELISTED (9), NO_LONGER_AVAILABLE (4) or TEMPORARILY_OFF_MARKET (3). The old reader showed
+  them from captures of Oct 10, inside its 9-day window. 30 of them are in the East Village.
+- 3 ACTIVE ads without a fit-ready row. 5128314 offers a concession, 5183409 gives conflicting
+  layouts, and 5154603 shares its unit and ask with 5164886, a later ad of the month whose row
+  the rows keep and whose answer says RENTED.
+
+On the 1,099 listings of both builds the values agreed, apart from these:
+
+- The ledger sets 5163731 at 333 West 56th Street to a studio from its floor plan, so its
+  estimate fell from $5,339 to $3,841 against a $3,800 ask.
+- 74 listings gained a pet policy from the API record's amenities.
+- The 150 other listings without a unit level from the fit draw their unit levels with the
+  `audit_id` as seed. The id took its new form, so their estimates moved by at most 0.11%.
+
+Both builds took about 4 minutes at a 7.45 GiB peak RSS and 8.5 GB in their cgroup. Under a
+7 GB cap with no swap the build was killed for memory, so the comparison ran under 9 GB.
+
+That comparison ran before the reader compared every ad of a unit on the market and hid a unit
+with a dropped ad. I ran both versions of `current_ads` again on the same files, with the skip
+sets the build had computed from the served dataset. They choose the same ads but two:
+5114623 at 161 Prospect Park West in Brooklyn, whose newer ad without a row gives 4 bedrooms
+against 5, and 5182171 at the Towne House, whose newer ad without a row gives no size against
+400 square feet. Neither building is in the served fit, so the site's 1,099 listings stay the
+same.
 
 ## Differences from the chain
 
