@@ -45,14 +45,14 @@ Every fit runs on Modal, so I estimate the cost of each sampler change from Moda
 
 A solo update on a scale outside `PART_SCALES` costs a `block_solve`. The cleanest Modal evidence
 for that cost comes from a pair of H100 fits started on 2026-09-23 with the same commit, model and
-data (47,374 rows), differing by 3 added solos. With 3 solos a sweep took 753.0 ms on the rows
-split and 757.2 ms on the units split. With 6 solos it took 975.4 and 976.8 ms. Each added solo
+data (about 47,400 rows), differing by 3 added solos. With 3 solos a sweep took 753.0 ms on the
+rows split and 757.2 ms on the units split. With 6 solos it took 975.4 and 976.2 ms. Each added solo
 cost about 74 ms, or 10% of the 3-solo sweep. The two splits agreed within 1%.
 
 NB8 fits on A100s (193,376 rows) took 215.7 ms per sweep with 3 solos (#641), 225.7 and 262.9 ms
 with 4, and 282.1 ms with 5 (#648). Each added solo in that series came with an added model term,
-so its steps of +5% to +25% mix the two costs. Other 5-solo NB8 fits, on other commits and terms,
-ran from 197 to 326 ms per sweep.
+so its steps of +5% to +25% mix the two costs. Other full 5-solo NB8 fits, on other commits and
+terms, ran from 197 to 326 ms per sweep. An area-time fit with an extra term took 560 ms.
 
 From this evidence I expect an added solo to cost about 9% of an NB9 sweep, within +5% to +20%.
 The P2a fit measures it directly.
