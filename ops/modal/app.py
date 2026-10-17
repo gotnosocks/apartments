@@ -152,7 +152,11 @@ def _summarize(spec, env, log, deadline):
         if left < 60 or (step == "calibration" and not bundles):
             done[step] = {"exit": "skipped"}
             continue
-        args = [spec["name"]] if step == "summary" else [str(bundles[-1].parent)]
+        args = (
+            [spec["name"], *(["--range-sample"] if spec.get("range_sample") else [])]
+            if step == "summary"
+            else [str(bundles[-1].parent)]
+        )
         t = time.time()
         try:
             code = _run(
@@ -208,8 +212,9 @@ def publish_steps(spec):
     exists. The rent map reads only the run, so it runs last and alone."""
     name = spec["name"]
     failing = ["--allow-failing"] if spec.get("allow_failing") else []
+    ranges = ["--range-sample"] if spec.get("range_sample") else []
     return [
-        ("summary", (), lambda: ["rentfrontier.summary", name, "--workers", str(SUMMARY_WORKERS), *failing]),
+        ("summary", (), lambda: ["rentfrontier.summary", name, "--workers", str(SUMMARY_WORKERS), *failing, *ranges]),
         ("kit", ("summary",), lambda: ["rentfrontier.kit", name, "--summary", str(_bundle(name)), *failing]),
         ("calibration", ("summary",), lambda: ["rentfrontier.calibration", str(_bundle(name))]),
         ("rentmap", (), lambda: ["rentfrontier.rentmap", name]),

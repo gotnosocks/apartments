@@ -315,6 +315,10 @@ def test_a_passing_full_row_fit_starts_its_summary_on_thelio(tmp_path, monkeypat
     assert f"--setenv=FRONTIER_OUTPUT_ROOT={tmp_path / 'frontier'}" in cmd
     assert "--setenv=FRONTIER_DATASET=/d" in cmd
     assert f"--setenv=MODAL_FIT_REPO={tmp_path / 'repo'}" in cmd
+    assert not any("FRONTIER_RANGE_SAMPLE" in c for c in cmd)
+    calls.clear()
+    fit.summarize({**full, "range_sample": True})
+    assert "--setenv=FRONTIER_RANGE_SAMPLE=1" in calls[0]
 
     def fail(cmd, **kw):
         raise fit.subprocess.CalledProcessError(1, cmd)
@@ -596,6 +600,9 @@ def test_a_large_fit_builds_its_summary_and_calibration_in_the_container(
     # A bundle counts once its complete.json parses; downloads take both directories.
     assert app._complete(tmp_path / "summaries" / "r-abc1234")
     assert {"summaries", "calibration"} <= set(app.POST_KINDS) & set(fit.POST_KINDS)
+    calls.clear()
+    app._summarize({"name": "r", "range_sample": True}, {}, None, now + 7200)
+    assert calls[0] == (["rentfrontier.summary", "r", "--range-sample"], 7200)
     # Without a bundle, calibration is skipped.
     calls.clear()
     monkeypatch.setattr(app, "_run", lambda *a, **k: 1)
@@ -636,6 +643,11 @@ def test_publish_only_names_the_existing_run_and_carries_the_gate_override():
     assert spec["name"] == "old-run"
     assert spec["publish_only"] and spec["allow_failing"]
     assert not {"--publish-only", "--allow-failing", "--run"} & set(rest)
+    assert not spec["range_sample"]
+    args, rest = fit.parse(["--large", "--publish-only", "--range-sample", *argv])
+    assert (
+        fit.plan(args, rest, "9371a18")["range_sample"] and "--range-sample" not in rest
+    )
 
 
 def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch):
@@ -666,11 +678,24 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
 
     monkeypatch.setattr(app, "_run", run)
     meta = app._fit(
-        {"name": "r", "publish_only": True, "allow_failing": True, "dataset": "d"}
+        {
+            "name": "r",
+            "publish_only": True,
+            "allow_failing": True,
+            "range_sample": True,
+            "dataset": "d",
+        }
     )
     bundle = str(tmp_path / "summaries" / "r-abc1234")
     assert calls == [
-        ["rentfrontier.summary", "r", "--workers", "7", "--allow-failing"],
+        [
+            "rentfrontier.summary",
+            "r",
+            "--workers",
+            "7",
+            "--allow-failing",
+            "--range-sample",
+        ],
         ["rentfrontier.kit", "r", "--summary", bundle, "--allow-failing"],
         ["rentfrontier.calibration", bundle],
         ["rentfrontier.rentmap", "r"],

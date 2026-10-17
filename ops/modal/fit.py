@@ -125,6 +125,13 @@ def parse(argv):
         help="with --publish-only: build them for a run that fails the convergence gate",
     )
     p.add_argument(
+        "--range-sample",
+        action="store_true",
+        help="the summary also writes range-sample.npz (rentfrontier.summary --range-sample), "
+        "on thelio, in a large container or with --publish-only; a COMMIT whose summary "
+        "lacks the flag fails its summary",
+    )
+    p.add_argument(
         "--explain",
         action="append",
         default=[],
@@ -182,6 +189,7 @@ def plan(args, run_args, sha, short=None):
         "summary": not args.no_summary,
         "publish_only": args.publish_only,
         "allow_failing": args.allow_failing,
+        "range_sample": args.range_sample,
     }
 
 
@@ -350,6 +358,7 @@ def summarize(spec):
         "FRONTIER_OUTPUT_ROOT": str(OUTPUT_ROOT),
         "FRONTIER_DATASET": spec["dataset"],
         "MODAL_FIT_REPO": str(REPO),
+        **({"FRONTIER_RANGE_SAMPLE": "1"} if spec.get("range_sample") else {}),
     }
     cmd = [
         "systemd-run", "--user", "--quiet", "--collect", f"--unit={unit}",
