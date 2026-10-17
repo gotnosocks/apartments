@@ -69,13 +69,19 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
 Neighbourhoods: every listing and building carries one (the summary's `neighbourhood` per row,
 else the dataset's, else the build's `--scope`, or "Chelsea" when no `--scope` is given). Without
 `--scope` the site's name for the area comes from the listings' neighbourhoods ("Chelsea and West
-Village"; `build.scope_of`), which pages use where they describe the data's coverage; the site's
+Village"; `build.scope_of`). Past twelve names, `boroughs.scope_words` gives the boroughs instead
+("Manhattan and Brooklyn"). Pages use that name where they describe the data's coverage; the site's
 title, header and home heading read "NYC Rents" whatever the scope. Where every neighbourhood is meant (the
 estimates heading and reference note, the rent map's lede, titles and all-choice), a build with several
 names them by count ("all eight neighbourhoods", "All neighbourhoods"), not as a list. The listings and buildings pages show a
 neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
 more than one, so a Chelsea-only build looks as before. Older builds without the column are served
 without the filter.
+
+When a build covers neighbourhoods in more than one borough, the filter groups its choices by borough
+(`boroughs.BOROUGHS` maps the scrape's StreetEasy names). Each group opens with a whole-borough
+choice ("All of Brooklyn"), and `nb=Brooklyn` filters listings and buildings to the borough's
+neighbourhoods.
 
 ### Research
 

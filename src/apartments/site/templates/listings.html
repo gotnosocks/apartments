@@ -16,7 +16,7 @@
     <label for="f-nb">Neighbourhood</label>
     <select id="f-nb" name="nb">
       <option value=""{% if not filters.nb %} selected{% endif %}>All</option>
-    {% for name, count in neighbourhoods.items() %}<option value="{{ name }}"{% if filters.nb == name %} selected{% endif %}>{{ name }} ({{ "{:,}".format(count) }})</option>{% endfor %}
+    {{ m.area_options(boroughs, filters.nb) }}
     </select>
   </div>
   {% endif %}
