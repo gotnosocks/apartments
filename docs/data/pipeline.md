@@ -2700,6 +2700,14 @@ file:
     record stands, and that a listing the ads file marks `no_dated_own_active_event` keeps its
     earlier page capture.
 
+The repo's `tests/test_graphql_listing.py` checks that `graphql_listing` parses API ads without
+the page parser:
+
+72. give `apartments.graphql_listing`'s number, text, JSON and event-key helpers a dozen values
+    of every kind, and check that each gives the page parser's result for each value.
+73. import the API collector, its export and `graphql_listing`'s `parse_capture` in a fresh
+    process, parse an API ad, and check that no `apartments.granular_*` module loaded.
+
 ## Full build
 
 On Oct 15 on thelio, I built the project from runs 1 to 4 of the export and compared
