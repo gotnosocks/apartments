@@ -1660,7 +1660,8 @@ build lists the ledger's files with their SHA-256, and counts the entries by sta
 
 `ops/pipeline/ledger_import.py` writes the corrections of the chain's latest rules into the
 ledger as a batch file for each run: `pipeline/ledger/2026-10-16-chain.ndjson` first, then
-`2026-10-16-west-56th-studio.ndjson` and `2026-10-17-chain.ndjson`. For each correction, it
+`2026-10-16-west-56th-studio.ndjson`, `2026-10-17-chain.ndjson` and
+`2026-10-17-v35-chain.ndjson`. For each correction, it
 finds the row's ad and its recorded values in the dataset of the rule version adding the line. A version's provenance file gives the
 dataset of the lines it adds. From `bedrooms-ad-v7` on, a version's file starts with its base
 rule's lines, so the importer follows the base rules back to the version adding each line.
@@ -1670,8 +1671,8 @@ Then it gathers the evidence:
   and the day;
 - the reads and floor plans in `config/reviews/` that decided the correction;
 - the unit's other ads in the latest analysis dataset. The first two batches read them in the
-  dataset of the fit's areas from Oct 15. `2026-10-17-chain.ndjson` reads them in the dataset
-  of all scraped areas from Oct 16, `all-scraped-analysis-20261016-5f07157`, as the first one
+  dataset of the fit's areas from Oct 15. The batches of Oct 17 read them in the dataset of
+  all scraped areas from Oct 16, `all-scraped-analysis-20261016-5f07157`, as the first one
   leaves out buildings outside the fit's areas.
 
 The unit's other ads back a set when more of them give the corrected value than give the recorded one. A size
@@ -1740,6 +1741,36 @@ On a copy of the state of the Oct 16 export, the rows file loses the six exclude
 has 1,746,509 rows. The ask check lists 32 rows, as the excluded rows leave and the two Trump
 World Tower units now compare with the building's three-bedrooms. A second run of the importer
 writes nothing.
+
+`pipeline/ledger/2026-10-17-v35-chain.ndjson` holds the new decisions of `quarantine-v34`,
+`quarantine-v35` and `bedrooms-ad-v10`, as `RULES` now lists v35 and v10 in place of v33 and
+v9. Quarantine-v34 adds 15 lines to v33's 898, and v35 adds one more. Their 16 excludes:
+
+- 8 `nonresidential`: three spaces in Gowanus, two in Red Hook, and one each in Greenpoint,
+  Park Slope and East Williamsburg;
+- 2 `location_conflict`: 2638365 in Noho, and 4853056, filed under 124 De Kalb Avenue #3 in
+  Fort Greene. Its copy offers a two-bedroom in Bushwick, as 4839783 does at 1248 De Kalb
+  Avenue #3L;
+- 3 `explicit_short_term_offer`, in Lenox Hill;
+- 2 `product_scope`, in Williamsburg;
+- 1 `malformed_ask`: 2121710, the $21,545 studio at 992 Bedford Avenue. The batch
+  `2026-10-17-tenfold-asks.ndjson` already excludes it as `tenfold_ask_unbacked`. I kept both
+  excludes, since they drop the same row.
+
+`bedrooms-ad-v10` adds six sets to three bedrooms, for units #4A and #4B of 68 Clinton Street
+on the Lower East Side. The six ads offer a "5 room duplex", and their rows give five of them no
+bedroom and one a single bedroom. 1287004 offers #4A as a "3 bedroom duplex with private
+roofdeck", and 5120120 offers #4B as a "3 bedroom penthouse duplex". Each set rests on the
+unit's other ads: for each row, four of #4A's other ads give three bedrooms against two with
+the row's count, and two of #4B's give three against at most one.
+
+I built the batch on a copy of the state of a lane build of Oct 17, made with the code of
+#985 and the rule of `latest-ask-v10` on the export of Oct 16. The rows file lost the 15
+excluded rows that had one and has 1,746,778 rows, and the six rows at 68 Clinton Street gave
+three bedrooms. No other value of any row changed. The ask check still lists 27 rows, and each
+of the 22 new entries is live. The build took 177 s, as the new ledger folder rebuilt the
+models from the unit ledger on, and peaked at 4,219 MiB. A second run of the importer writes
+nothing.
 
 A quarantine line's `evidence` holds a note, and `quarantine_evidence` sorts it by the line's
 `source`:
