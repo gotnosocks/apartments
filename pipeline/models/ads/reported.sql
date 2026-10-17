@@ -9,6 +9,15 @@ MODEL (
     description 'Each ad with a record, with the floor its unit label reads and its full and half bathrooms, where all its records agree.'
 );
 
+-- DuckDB estimates the record answers in the export's files at a fifth of all answers, about
+-- 500,000, and in a full build ads.touched holds every ad, about 2.4 million. On those estimates
+-- DuckDB builds the hash table of the query's ads.touched filter from the records side, with
+-- every record's JSON, and on the Oct 16 export that ran out of a 3 GB limit. So this statement
+-- turns off DuckDB's choice of build side: the hash table then holds the IDs in ads.touched, and
+-- the records stream past it. The statement after the query turns it back on. The setting holds
+-- for the whole database, and SQLMesh runs one model at a time on DuckDB.
+SET disabled_optimizers = 'build_side_probe_side';
+
 -- `rentfrontier.cohort` reads three values from each of an ad's records: the unit label in
 -- propertyDetails.address.displayUnit, fullBathroomCount and halfBathroomCount. This model
 -- reads them from every record answer of the ad, as the chain does, so a record with another
@@ -78,4 +87,6 @@ SELECT listing_id, count(*) AS records,
     CASE WHEN count(half_baths) = count(*) AND count(DISTINCT half_baths) = 1
         THEN min(half_baths)::BIGINT END AS half_baths
 FROM read
-GROUP BY listing_id
+GROUP BY listing_id;
+
+SET disabled_optimizers = '';
