@@ -2,6 +2,22 @@
 
 Updated 2026-10-17 20:00 ET, after the size-equals-ask sets in #1080. Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 21:00 ET
+
+- #1086 adds `pipeline/ledger/2026-10-17-zzzzz-ask-outliers.ndjson`, 8 excludes and a latest_ask set.
+  `/data1/apartments/tmp/suspect/ask/typo/` lists 24 ads whose ask is more than 2.5 times above or below every
+  other ad for the same unit and bedroom count within a year. Sonnet read them: 10 typo, 4 different unit,
+  3 room, 7 unclear.
+  - Four room rentals go out as product_scope.
+  - Two ads offering short-term student housing at $9,000 and $900 under the same text go out as
+    explicit_short_term_offer.
+  - Two placeholder or slipped prices go out as malformed_ask: $9,999 against the same studio at $3,190, and
+    $14,399 against a "Starting at $4126" ad for the same one-bedroom.
+  - 2622356 coded its $795 per-room price. The ad gives $3,950 for the whole apartment and ad 2584040 for the
+    unit asks the same, so the ledger sets its latest ask to $3,950.
+- The 4 different-unit reads, the 7 unclear ones and the draft-ad 23,142 pair (3421832, 3743201) stay as they are.
+- The next new ledger file needs a name sorting after `2026-10-17-zzzzz-ask-outliers`, or a later date.
+
 ## 2026-10-17 20:00 ET
 
 - #1080 adds `pipeline/ledger/2026-10-17-zzzz-unit-sqft-askcopy.ndjson`, 5 sqft sets. `/data1/apartments/tmp/suspect/sqft/askcopy/`
@@ -13,7 +29,6 @@ Updated 2026-10-17 20:00 ET, after the size-equals-ask sets in #1080. Thread own
   an ask within 0.75 to 1.33, so the ledger gets no sets from it. 25 are studios coded 4,000 to 6,000 sq ft, 14 of
   them at $15,000 to $36,500, which look like lofts or whole houses with a missing bedroom count. 102 studios ask over
   $10,000 with more than 1,500 sq ft.
-- The next new ledger file needs a name sorting after `2026-10-17-zzzz-unit-sqft-askcopy`, or a later date.
 
 ## 2026-10-17 19:00 ET
 
