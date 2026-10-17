@@ -1985,6 +1985,11 @@ listed, it reads the rental history in each of the listing's records, where the 
 read its event mentions, and keeps the earliest ACTIVE event of the listing's own episodes. Its
 provenance lists both files under `sources`.
 
+`listing_outcomes` reads the file with `--crawl records`, beside `--crawl page` for the page
+crawls, and its provenance gives the file under `records`, with the ads file of the same catalog
+line under `records.ads`. A listing still on the market has its days counted to its record's last
+fetch, where the granular export stopped them at the record's first answer.
+
 ## Datasets for the frontier fits
 
 The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
@@ -2680,6 +2685,20 @@ The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file
     records file. A listing fetched last in the records file takes its lister and the ads file's
     building, and keeps the earlier listed day of the page crawl's event mentions. A listing
     captured last in the page crawl keeps the page crawl's lister and building.
+
+The frontier's `frontier/tests/test_listing_outcomes.py` checks `listing_outcomes` on a records
+file:
+
+69. build the outcomes of a records file with a listing still on the market and one that left
+    it, each first fetched a day after listing and last fetched ten days after, and check that
+    the first counts ten days and the second stops at its day off the market;
+70. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
+    file under `records` and the ads file under `records.ads`, that `--crawl page` adds the page
+    crawls and that a tag without a crawl stops.
+71. build the outcomes of a page crawl and a records file together, and check that a record
+    fetched after a listing's page capture gives its outcome, that a page capture after the
+    record stands, and that a listing the ads file marks `no_dated_own_active_event` keeps its
+    earlier page capture.
 
 ## Full build
 

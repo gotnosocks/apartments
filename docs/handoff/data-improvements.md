@@ -1,6 +1,30 @@
 # Data improvements — handoff
 
-Updated 2026-10-16 21:10 ET, after #940 and the step 9 plan. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 03:10 ET, after the reader reviews (#961 to #965). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 03:10 ET
+
+- I reviewed the pipeline's reader PRs #961 to #965, which move latest_ask, descriptions,
+  listing_extras, lister and listing_outcomes onto the pipeline's records file. All five merged.
+  - On #963 and #964 I first asked for changes: the readers took in 11,336 listings whose latest
+    record was a draft and 436 under review. The pipeline added a filter that skips listings the
+    ads file marks no_dated_own_active_event, and I approved after the rerun.
+  - #963 stores collected_at to the microsecond, which changes the row hash of 1,321,845 rows
+    once. I accepted that.
+  - #965 counts a still-listed ad's days_listed to the record's last fetch. For a censored
+    duration that is the right end point, with still_listed kept as the censoring flag.
+- At 00:57 ET an uncapped pyarrow read of the 3.4 GB records file reached 11.6 GB, and the global
+  OOM restarted every Remote Control session. Any ad-hoc read of large parquet now runs in a
+  `systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0` scope, preferably with duckdb
+  from `/data1/apartments/venvs/pipeline`. Bigger jobs run as a `di-*` unit in light slot 1, and
+  the pipeline build (#957) waits for those.
+- `/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-quarantine-notes.jsonl` holds
+  two items for the next quarantine version:
+  - cite the same-day twin ad 2580707 as evidence for 2491440;
+  - move 2121710 from the latest-ask-v8 correction (21545 to 2150) to an exclusion as
+    tenfold_ask_unbacked. Only the ad's own text gives 2,150, which matches the pipeline
+    ledger's exclusion in #951.
+  Neither is worth a refit alone, so they wait for the next batch of quarantine reads.
 
 ## 2026-10-16 15:00 ET
 
