@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import data, features, splits
+from . import data, design, features, splits
 
 RUNS = data.OUTPUT_ROOT / "runs"
 REFERENCE_ROOT = Path(
@@ -536,10 +536,10 @@ def main(argv=None):
     frame = data.load()
     rules = args.data_rules
     check_rules_for_split(rules, args.split)
-    frame, heldout = data.split_and_rules(frame, args.split, rules)
+    frame, heldout, feats, prep = design.prepared(
+        frame, args.split, rules, args.features
+    )
     rows_sha256 = data.rows_sha256(frame, heldout)
-    feats = features.build(args.features, frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
     prep_seconds = time.perf_counter() - t0
 
     overrides = {
