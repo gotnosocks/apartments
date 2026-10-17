@@ -27,6 +27,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 from scipy.spatial import cKDTree
 
 from . import data as data_module
@@ -629,7 +630,7 @@ def quiet_v1(
 
     base = FEATURE_SETS[base](frame, train)
     terms = quiet.street_terms(frame)
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     b = _Builder(frame)
     b.add("street", "on a busy road", terms["busy"])
     b.add(
@@ -914,7 +915,7 @@ def concession_era_v1(
     base = FEATURE_SETS[base](frame, train)
     if "text:concession" not in base.names:
         raise ValueError(f"{base.id} has no text:concession to split")
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     known = text.str.len().to_numpy() > 20
     flag = known & text.str.contains(DESCRIPTION_FLAGS["concession"]).to_numpy()
     year = (
@@ -1111,7 +1112,7 @@ def through_v1(
     base = FEATURE_SETS[base](frame, train)
     upf = floorthrough.units_per_floor(frame)
     whole = floorthrough.whole_floor(frame)
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     b = _Builder(frame)
     b.add("layout", "one apartment per floor", whole)
     b.add("layout", "two apartments per floor", ~whole & (upf <= 2.0))
@@ -1156,7 +1157,7 @@ def wholefloor_v1(
     from . import descriptions, floorthrough
 
     base = FEATURE_SETS[base](frame, train)
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     units = pd.to_numeric(building_lots(frame).unitsres, errors="coerce").to_numpy()
     upf = floorthrough.units_per_floor(frame)
     b = _Builder(frame)
@@ -1376,7 +1377,7 @@ def claims_v1(
     from . import descriptions
 
     base = FEATURE_SETS[base](frame, train)
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     known = text.str.len().to_numpy() > 20
     claims = claimed_areas(text, frame.neighbourhood)
     b = _Builder(frame)
@@ -1890,8 +1891,11 @@ def released_lots(
     other trailing zeros; every reader parses them as numbers). A listing
     before the earliest release reads it anyway (none in the data, which
     starts in 2010). No rents are read."""
-    history = pd.read_parquet(path)
-    history = history[history.published.notna()]
+    # The history is read a column at a time: the whole table takes about 1.5
+    # GB, and each column's values come out the same as from a full read.
+    history = pd.read_parquet(path, columns=["release", "bbl", "published"])
+    dated = history.published.notna().to_numpy()
+    history = history[dated]
     published = pd.to_datetime(
         history.drop_duplicates("release").set_index("release").published
     ).sort_values()
@@ -1900,26 +1904,34 @@ def released_lots(
     order = np.clip(np.searchsorted(usable, listed, side="right") - 1, 0, None)
     release = published.index.to_numpy()[order]
     keys = pd.MultiIndex.from_arrays([release, pd.Series(bbl).astype(str).to_numpy()])
-    indexed = history.set_index(["release", "bbl"])
-    then = indexed.reindex(keys).reset_index(drop=True)
+    # Many rows share a lot and a release, so the release's values are looked
+    # up and cleaned once for each pair and then copied out to its rows.
+    pair, pairs = keys.factorize()
+    index = history.set_index(["release", "bbl"]).index
     built = pd.to_numeric(lots.yearbuilt, errors="coerce").to_numpy()
-    use = keys.isin(indexed.index) & ~(built > published.dt.year.to_numpy()[order])
+    use = pairs.isin(index)[pair] & ~(built > published.dt.year.to_numpy()[order])
+    fields = pd.Index(pq.read_schema(path).names).difference(["release", "bbl"])
     out = lots.copy()
-    for column in out.columns.intersection(then.columns).difference(
-        RELEASE_KEEPS_TODAY
-    ):
-        value = then[column].astype("string").str.strip().replace("", pd.NA)
-        carried = indexed[column].notna().groupby(level="release").any()
+    for column in out.columns.intersection(fields).difference(RELEASE_KEEPS_TODAY):
+        field = pd.read_parquet(path, columns=[column])[column][dated]
+        field = pd.Series(field.array, index=index)
+        then = field.reindex(pairs).reset_index(drop=True)
+        value = then.astype("string").str.strip().replace("", pd.NA)
+        carried = field.notna().groupby(level="release").any()
         take = use & carried.reindex(release).fillna(False).astype(bool).to_numpy()
         today = out[column]
         if pd.api.types.is_bool_dtype(today):
             flag = value.str.upper().map({"Y": True, "N": False, "TRUE": True})
-            take &= flag.notna().to_numpy()
-            out[column] = np.where(take, flag.to_numpy(), today.to_numpy()).astype(bool)
+            take &= flag.notna().to_numpy()[pair]
+            out[column] = np.where(
+                take, flag.to_numpy()[pair], today.to_numpy()
+            ).astype(bool)
             continue
         if today.dropna().astype(str).str.fullmatch(r"0|[1-9]\d*").all():
             value = value.str.replace(r"^0+(?=\d)", "", regex=True)
-        out[column] = today.astype(object).where(~take, value.to_numpy(dtype=object))
+        out[column] = today.astype(object).where(
+            ~take, value.to_numpy(dtype=object)[pair]
+        )
         out[column] = out[column].astype(today.dtype)
     return out
 
@@ -2364,7 +2376,7 @@ def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
     )
     label_front = (fr_building & letter.eq("F")).to_numpy()
     label_rear = (fr_building & letter.eq("R")).to_numpy()
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     through = text.str.contains(THROUGH_TEXT, regex=True).to_numpy()
     text_front = text.str.contains(FRONT_TEXT, regex=True).to_numpy() | through
     text_rear = text.str.contains(REAR_TEXT, regex=True).to_numpy() | through
@@ -2739,7 +2751,7 @@ def front_rear(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     fr_building = frame.building.map(
         lambda b: letters.get(b, set()) == {"F", "R"}
     ).to_numpy()
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     through = text.str.contains(THROUGH_TEXT, regex=True).to_numpy()
     front = (
         (fr_building & letter.eq("F").to_numpy())

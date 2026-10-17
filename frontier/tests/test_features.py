@@ -348,7 +348,7 @@ def test_unit_sides_uses_every_side_of_the_building(monkeypatch):
         ("u1", {"west"}, ""),  # onto the avenue
         ("u2", {"north", "west"}, ""),  # corner unit: both streets
         ("u3", {"south"}, ""),  # rear
-        ("u4", set(), "Street-facing one bedroom."),  # text: the address street
+        ("u4", set(), "street-facing one bedroom."),  # text: the address street
         ("u5", set(), ""),  # no evidence
     ]
     frame = pd.DataFrame(

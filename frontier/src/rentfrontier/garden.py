@@ -161,7 +161,7 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
     # Only rear sides (no street within reach) look over the block.
     rear = opens.where(sides.reindex(opens.index).eq("none"))
     labels = exposure.compute(frame).set_index("unit_id")
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     phrase = text.str.extract(f"({GARDEN_TEXT})", flags=re.IGNORECASE)[0]
     lots = features.building_lots(frame)
     rows = pd.DataFrame(

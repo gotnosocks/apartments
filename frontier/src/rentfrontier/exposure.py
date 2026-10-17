@@ -110,7 +110,7 @@ def compute(frame: pd.DataFrame) -> pd.DataFrame:
     sides = features.unit_sides(frame)
     street = sides[["avenue", "wide street", "side street"]].any(axis=1).to_numpy()
     rear = sides["none"].to_numpy()
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     rows = pd.DataFrame(
         {
             "unit_id": frame.unit_id.to_numpy(),
