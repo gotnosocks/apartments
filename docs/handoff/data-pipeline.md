@@ -330,8 +330,13 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    229 s at a 4,199 MiB peak, 30 s more than without it. `ops/pipeline/ads_check.py` compares it
    with the website's API captures and the histories of the ACTIVE ads in 5 s:
    [pipeline.md](../data/pipeline.md#ads-file) has the numbers. The rest of step 9, in order:
-   1. the website's current listings (#945) and Data improvements' reads of other ads move to
-      the file;
+   1. the website's current listings and Data improvements' reads of other ads move to the
+      file. **Done** for the website in #945, deployed by the Website thread on Oct 16. Of the
+      three ACTIVE ads the site no longer shows for want of a fit-ready row, none should show:
+      5128314 offers a month free, 5183409 at 43 East 20th Street changed from 2 to 3 bedrooms
+      between records, and 5154603's unit rented under its later ad 5164886. 5183409 is a
+      candidate for the unit ledger's first import: units 2, 2A and 2S at that address give
+      the same 2,000 square feet;
    2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
    3. a PR deletes the page-capture rewrite and the page parser.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
