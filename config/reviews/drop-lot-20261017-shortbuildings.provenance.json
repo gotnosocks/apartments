@@ -1,6 +1,6 @@
 {
  "rule": "drop-lot-v1",
- "screen": "floor_above_lot rows of drop-lot-20261017-check2 left unclear whose lot holds a single footprint too short for the floor the ad's unit label names, where the ad also describes a taller building than the lot record and footprint show",
+ "screen": "floor_above_lot rows of drop-lot-20261017-check2 left unclear whose lot holds a single footprint too short for the floor the ad's unit label or text names, where the ad also describes a taller building than the lot record and footprint show",
  "reads": "MapPLUTO, building footprints (/data1/apartments/external/footprints/20261016-5f07157-all), StreetEasy building record, HPD registrations (kj4p-ruqc), PAD, and the ad text quoted on each line; table in /data1/apartments/tmp/suspect/bcheck/short-building-20261017.csv",
  "rows": 6,
  "by_reason": {
