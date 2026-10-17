@@ -4,13 +4,19 @@ JSON report and a short Markdown summary.
     pipeline/.venv/bin/python ops/pipeline/citycheck.py STATE --out DIR [--top N]
         [--memory SIZE] [--threads N]
 
-The script attaches the DuckDB file STATE read-only under the name `pipeline`, since the build
-qualifies its views with that catalog name. A copy of a state works under any file name. The
-city views read Parquet files from the build's city cache by absolute path, so the cache has to
-stay in place. The script writes DIR/citycheck.json and DIR/citycheck.md. DuckDB gets SIZE of
-memory, 2GB unless given, and spills to a scratch folder under TMPDIR past it. Each section of
-the JSON report carries the definitions of its measures, and each list of cases holds the top
-N, 25 unless given.
+STATE is a copy of a pipeline.duckdb file under any name. The script attaches it read-only
+under the name `pipeline`, since the build qualifies its views with that catalog name. A
+read-only attach still locks the file against the build's read-write open, so the script
+refuses the live state, /data1/apartments/pipeline/state/pipeline.duckdb. The build holds the
+GPU lock and every light slot, and so does
+
+    ops/job gpu -x -- cp -a /data1/apartments/pipeline/state/pipeline.duckdb COPY
+
+which makes a copy of the live state between builds. The city views read Parquet files from the
+build's city cache by absolute path, so the cache has to stay in place. The script writes
+DIR/citycheck.json and DIR/citycheck.md. DuckDB gets SIZE of memory, 2GB unless given, and
+spills to a scratch folder under TMPDIR past it. Each section of the JSON report carries the
+definitions of its measures, and each list of cases holds the top N, 25 unless given.
 
 1. Lots. The script counts buildings with ads, their ads and their fit-ready rows by the `link`
    of `buildings.lots`, which says whether the lot came from the address, the map point or
@@ -21,11 +27,17 @@ N, 25 unless given.
 2. Units. For each lot, it counts distinct units with ads, over all time and over the 12 months
    up to the latest first day of a candidate ad. It compares the counts with the lot's
    `unitsres` in the MapPLUTO release of the lot's latest candidate ad, and with the apartments
-   on the latest certificates of occupancy of the lot's BINs as of that ad's first day.
+   on the latest certificates of occupancy of the BINs of the lot's buildings.
 3. Floors. For each fit-ready row with a floor, it compares the floor with the lot's
-   `numfloors` as of the row's date and with the building's StreetEasy floor count. The build
-   refuses a label floor above StreetEasy's count, and the script compares those refused label
-   floors with `numfloors` as well.
+   `numfloors` as of the row's date and with the building's StreetEasy floor count. A floor
+   above the as-of `numfloors` and within the latest release's gets a class of its own. The
+   build refuses a label floor above StreetEasy's count, and the script compares those refused
+   label floors with `numfloors` as well.
+
+buildings.lots picks between an address lot and a footprint lot by how well the latest
+MapPLUTO release's class, year, numfloors and unitsres match the StreetEasy record, so the
+script splits the unit and floor classes into lots with `link` `address` or `footprint`, where
+that choice took place, and the rest.
 """
 
 from __future__ import annotations
@@ -41,6 +53,9 @@ from pathlib import Path
 
 import duckdb
 
+# The state the build writes, which the script refuses to open.
+LIVE = Path("/data1/apartments/pipeline/state/pipeline.duckdb")
+
 # Margins above a city count, each a label and its largest margin. The last bin takes the rest.
 UNIT_BINS = [("1", 1), ("2 to 5", 5), ("6 to 20", 20), ("more than 20", None)]
 FLOOR_BINS = [
@@ -53,7 +68,12 @@ FLOOR_BINS = [
 UNIT_CLASSES = ["no_count", "zero_count", "within"] + [
     f"above by {b}" for b, _ in UNIT_BINS
 ]
-FLOOR_CLASSES = ["no_lot"] + UNIT_CLASSES[:3] + [f"above by {b}" for b, _ in FLOOR_BINS]
+FLOOR_CLASSES = ["no_lot", *UNIT_CLASSES[:3], "within_latest"] + [
+    f"above by {b}" for b, _ in FLOOR_BINS
+]
+# Lots of buildings.lots chosen by fit against MapPLUTO, and the rest.
+FIT_LINKS = ("address", "footprint")
+LINK_GROUPS = ["address_or_footprint", "other_links"]
 LINKS = [
     "both",
     "address",
@@ -94,7 +114,10 @@ DEFINITIONS = {
         "gives a lot to a building without one. `no_match`: no lot has the address. "
         "`unparsed`: the address gives no house number or no borough. MapPLUTO lists one "
         "address for each lot, so a building on a corner or in a range of house numbers often "
-        "finds no match, and `no_match` says nothing against the build's lot.",
+        "finds no match, and `no_match` says nothing against the build's lot. This route reads "
+        "the same StreetEasy address as buildings.pad_link, through the same parse and street "
+        "dictionary, so for a building linked by its address, `same` mostly repeats PAD's "
+        "answer. It tests a lot from the footprint more independently.",
     },
     "units": {
         "lot": "A lot of buildings.lots with at least one ad with a unit in its buildings.",
@@ -103,17 +126,24 @@ DEFINITIONS = {
         "unless a join of the unit ledger gives the pages one unit.",
         "units_12m": "Distinct units with an ad whose first day falls in the 12 months up to "
         "`as_of`, the latest first day of a candidate ad.",
-        "unitsres": "The lot's `unitsres` in analysis.lot_facts for the lot's latest "
-        "candidate ad, from the MapPLUTO release that ad reads. A lot without a candidate ad "
-        "takes it from the latest release in buildings.lot_releases, and `unitsres_from` says "
-        "which.",
-        "co_units": "For each BIN of the lot's candidate ads, the apartments on the BIN's "
-        "latest certificate of occupancy by the first day of the BIN's latest candidate ad, "
-        "from analysis.building_certificates, summed over the BINs. A lot with a BIN "
-        "lacking a count has no co_units.",
+        "unitsres": "The lot's `unitsres` and its MapPLUTO release, both from the row of "
+        "analysis.lot_facts for the lot's latest candidate ad. For a lot without a candidate "
+        "ad, both come from the lot's latest release in buildings.lot_releases, and "
+        "`unitsres_from` says which.",
+        "co_units": "For each BIN of the lot's buildings with ads in buildings.lots, the "
+        "apartments on the BIN's latest certificate of occupancy by the first day of the "
+        "BIN's latest candidate ad, from analysis.building_certificates, summed over the "
+        "BINs. The BINs come from the same buildings as the units with ads. A lot with a "
+        "building lacking a BIN, or a BIN without a candidate ad or a count, has no co_units.",
         "classes": "`no_count`: the city count is missing. `zero_count`: it is 0 and the lot "
         "has units with ads. `within`: the units with ads are at most the city count. "
         "`above by N`: they exceed it by N.",
+        "link_groups": "`address_or_footprint`: lots with a building whose `link` is "
+        "`address` or `footprint`. buildings.lots chose those lots over the other route's lot "
+        "by how well the latest MapPLUTO release's class, year, numfloors and unitsres match "
+        "the StreetEasy record, so their unitsres comparisons lean toward agreement. "
+        "`other_links`: the other lots, from `both`, `tie`, `address_only` or "
+        "`footprint_only`, where no such choice took place.",
         "top_above": "Lots with units_all above unitsres or co_units, the largest excess first. "
         "A unitsres of 0 counts as no excess here, and `top_zero_unitsres` lists those lots.",
     },
@@ -123,29 +153,50 @@ DEFINITIONS = {
         "whose `floor_status` refused or lacked a floor have none.",
         "numfloors": "The lot's `numfloors` in analysis.lot_facts for the row, from the "
         "latest MapPLUTO release published at least 7 days before the row's first day.",
+        "latest_numfloors": "The lot's `numfloors` in the latest MapPLUTO release, from "
+        "buildings.lot_releases.",
         "streeteasy": "`building_floor_count` of the row: the building's floor count in its "
-        "StreetEasy record, as buildings.details gives it. The build also matches lots partly "
-        "by this count, so the two city comparisons are not independent.",
+        "StreetEasy record, as buildings.details gives it.",
         "classes": "`no_lot`: the row's building has no lot. `no_count`: the count is "
         "missing. `zero_count`: it is 0. `within`: the floor is at most the count. "
-        "`above by N`: the floor exceeds the count by N, rounded up.",
+        "`within_latest`, against `numfloors` alone: the floor is above the count and at most "
+        "`latest_numfloors`, so the row's release is older than the building's current "
+        "height. `above by N`: the floor exceeds both counts, and the as-of count by N, "
+        "rounded up.",
+        "link_groups": "`address_or_footprint`: rows of buildings whose `link` is `address` "
+        "or `footprint`. buildings.lots chose their lot over the other route's lot by how "
+        "well the latest MapPLUTO release's class, year, numfloors and unitsres match the "
+        "StreetEasy record, so their numfloors comparisons lean toward agreement. "
+        "`other_links`: the other rows, rows without a lot among them.",
         "refused_labels": "Rows with `floor_status` above_captured_building_floor_count: the "
         "label floor of ads.reported is above the StreetEasy count, so the row has no floor. "
         "Their label floor against `numfloors`, in the same classes.",
-        "top_above_numfloors": "Buildings with rows above `numfloors`, the most such rows "
-        "first: their units, top floor, floor sources, and the lot's latest counts.",
+        "top_above_numfloors": "Buildings with rows above `numfloors` and `latest_numfloors`, "
+        "the most such rows first: their units, top floor and floor sources, the counts of "
+        "their latest row, and `latest_numfloors` with its release.",
     },
 }
 
 
-def classify(margin: str, count: str, bins) -> str:
-    """SQL putting `margin`, a count above the city's `count`, in a class."""
+def classify(margin: str, count: str, bins, latest: str | None = None) -> str:
+    """SQL putting `margin`, a count above the city's `count`, in a class. With `latest`, a
+    condition on a later count, a margin above `count` meeting it goes to `within_latest`."""
     above = " ".join(
         f"WHEN {margin} <= {high} THEN 'above by {label}'" for label, high in bins[:-1]
     )
+    later = f"WHEN {latest} THEN 'within_latest' " if latest else ""
     return (
         f"CASE WHEN {count} IS NULL THEN 'no_count' WHEN {count} = 0 THEN 'zero_count' "
-        f"WHEN {margin} <= 0 THEN 'within' {above} ELSE 'above by {bins[-1][0]}' END"
+        f"WHEN {margin} <= 0 THEN 'within' {later}{above} ELSE 'above by {bins[-1][0]}' END"
+    )
+
+
+def link_group(links: str) -> str:
+    """SQL giving the group of LINK_GROUPS for `links`, a list of `link` values."""
+    fit = ", ".join(f"'{link}'" for link in FIT_LINKS)
+    return (
+        f"CASE WHEN list_has_any({links}, [{fit}]) THEN '{LINK_GROUPS[0]}' "
+        f"ELSE '{LINK_GROUPS[1]}' END"
     )
 
 
@@ -279,7 +330,8 @@ def prepare(db) -> str:
         SELECT a.building_id, r.slug, r.street,
             CASE WHEN l.building_id IS NULL THEN 'no_record' ELSE coalesce(l.link, 'none') END
                 AS link,
-            l.bbl, a.ads, coalesce(f.rows, 0) AS rows
+            l.bbl, CASE WHEN l.bin NOT LIKE '_000000' THEN l.bin END AS bin, a.ads,
+            coalesce(f.rows, 0) AS rows
         FROM ads a
         LEFT JOIN fit f USING (building_id)
         LEFT JOIN buildings.lots l USING (building_id)
@@ -433,30 +485,34 @@ def units(db, as_of: str, top: int) -> dict:
                 list(DISTINCT building_id ORDER BY building_id) AS building_ids
             FROM ads GROUP BY bbl
         ), latest_ad AS (
-            SELECT f.bbl, arg_max(f.unitsres, (c.price_at, f.listing_id)) AS unitsres,
-                arg_max(f.pluto_release, (c.price_at, f.listing_id)) AS release
+            -- arg_max skips NULL values, so each pair comes out of one struct, from one ad.
+            SELECT f.bbl,
+                arg_max({{'unitsres': f.unitsres, 'release': f.pluto_release}},
+                    (c.price_at, f.listing_id)) AS picked
             FROM analysis.lot_facts f
             JOIN analysis.candidates c USING (listing_id)
             WHERE f.bbl IN (SELECT bbl FROM counted)
             GROUP BY f.bbl
         ), latest_release AS (
-            SELECT bbl, arg_max(unitsres, published) AS unitsres, arg_max(release, published)
-                AS release
+            SELECT bbl, arg_max({{'unitsres': unitsres, 'release': release}}, published)
+                AS picked
             FROM buildings.lot_releases
             WHERE bbl IN (SELECT bbl FROM counted) AND bbl NOT IN (SELECT bbl FROM latest_ad)
             GROUP BY bbl
         ), bins AS (
-            SELECT bin, arg_max(units, (first_day, listing_id)) AS units
+            SELECT bin, arg_max({{'units': units}}, (first_day, listing_id)).units AS units
             FROM analysis.building_certificates
             WHERE bin IS NOT NULL
             GROUP BY bin
         ), lot_bins AS (
-            SELECT DISTINCT l.bbl, c.bin
-            FROM analysis.building_certificates c
+            -- The buildings of the counted units, with a NULL for a building without a BIN.
+            SELECT DISTINCT a.bbl, l.bin
+            FROM ads a
             JOIN building_links l USING (building_id)
-            WHERE l.bbl IS NOT NULL AND c.bin IS NOT NULL
         ), certified AS (
-            SELECT b.bbl, list(b.bin ORDER BY b.bin) AS bins,
+            SELECT b.bbl,
+                coalesce(list(b.bin ORDER BY b.bin) FILTER (WHERE b.bin IS NOT NULL), [])
+                    AS bins,
                 CASE WHEN count(*) = count(n.units) THEN sum(n.units)::BIGINT END AS co_units
             FROM lot_bins b
             LEFT JOIN bins n USING (bin)
@@ -472,9 +528,10 @@ def units(db, as_of: str, top: int) -> dict:
                 list(DISTINCT link ORDER BY link) AS links
             FROM building_links WHERE bbl IS NOT NULL GROUP BY bbl
         )
-        SELECT c.bbl, f.slugs, f.links, c.building_ids, c.units_all, c.units_12m,
-            coalesce(a.unitsres, r.unitsres) AS unitsres,
-            coalesce(a.release, r.release) AS unitsres_release,
+        SELECT c.bbl, f.slugs, f.links, {link_group("f.links")} AS link_group, c.building_ids,
+            c.units_all, c.units_12m,
+            coalesce(a.picked, r.picked).unitsres AS unitsres,
+            coalesce(a.picked, r.picked).release AS unitsres_release,
             CASE WHEN a.bbl IS NOT NULL THEN 'latest_candidate_ad'
                 WHEN r.bbl IS NOT NULL THEN 'latest_release' END AS unitsres_from,
             t.bins, t.co_units, s.se_units, f.rows
@@ -487,10 +544,20 @@ def units(db, as_of: str, top: int) -> dict:
         """
     )
     measures = {}
+    by_link = {group: {} for group in LINK_GROUPS}
     for name, case in against.items():
         measures[name] = tally(
             db, f"SELECT {case} AS c, count(*) FROM lot_units GROUP BY c", UNIT_CLASSES
         )
+        for group in LINK_GROUPS:
+            by_link[group][name] = tally(
+                db,
+                f"""
+                SELECT {case} AS c, count(*) FROM lot_units
+                WHERE link_group = '{group}' GROUP BY c
+                """,
+                UNIT_CLASSES,
+            )
     excess = "greatest(units_all - coalesce(nullif(unitsres, 0), units_all), " + (
         "units_all - coalesce(co_units, units_all))"
     )
@@ -511,7 +578,7 @@ def units(db, as_of: str, top: int) -> dict:
         db,
         f"""
         SELECT u.slugs, u.bbl, p.address AS lot_address, u.links, u.units_all, u.units_12m,
-            u.unitsres_release, u.rows
+            u.unitsres_release, u.unitsres_from, u.rows
         FROM lot_units u
         LEFT JOIN pluto_latest p USING (bbl)
         WHERE u.unitsres = 0
@@ -528,13 +595,18 @@ def units(db, as_of: str, top: int) -> dict:
         "lots": int(totals[0]),
         "units_all": int(totals[1] or 0),
         "units_12m": int(totals[2] or 0),
+        "lots_by_link": tally(
+            db, "SELECT link_group, count(*) FROM lot_units GROUP BY ALL", LINK_GROUPS
+        ),
         "lots_by_class": measures,
+        "lots_by_class_by_link": by_link,
         "top_above": cases,
         "top_zero_unitsres": zero,
     }
 
 
 def floors(db, top: int) -> dict:
+    fit = ", ".join(f"'{link}'" for link in FIT_LINKS)
     db.execute(
         f"""
         CREATE TEMP TABLE row_floors AS
@@ -543,16 +615,26 @@ def floors(db, top: int) -> dict:
             CASE WHEN r.advertised_floor IS NOT NULL THEN 'advertised'
                 WHEN r.physical_floor IS NOT NULL THEN 'physical'
                 WHEN r.label_derived_floor IS NOT NULL THEN 'label' END AS source,
-            r.building_floor_count AS se_floors, f.bbl, f.link, f.pluto_release, f.numfloors,
-            d.label_floor
+            r.building_floor_count AS se_floors, f.bbl, f.link,
+            CASE WHEN f.link IN ({fit}) THEN '{LINK_GROUPS[0]}' ELSE '{LINK_GROUPS[1]}' END
+                AS link_group,
+            f.pluto_release, f.numfloors, t.release AS latest_release,
+            t.numfloors AS latest_numfloors, d.label_floor
         FROM fit_rows r
         LEFT JOIN analysis.lot_facts f USING (listing_id)
+        LEFT JOIN buildings.lot_releases t
+            ON t.bbl = f.bbl AND t.release = (SELECT any_value(pluto_release) FROM buildings.lots)
         LEFT JOIN ads.reported d USING (listing_id)
         """
     )
     lot_case = (
         "CASE WHEN bbl IS NULL THEN 'no_lot' ELSE "
-        + classify("ceil(VALUE - numfloors)", "numfloors", FLOOR_BINS)
+        + classify(
+            "ceil(VALUE - numfloors)",
+            "numfloors",
+            FLOOR_BINS,
+            "ceil(VALUE - latest_numfloors) <= 0",
+        )
         + " END"
     )
     se_case = classify("ceil(floor - se_floors)", "se_floors", FLOOR_BINS)
@@ -565,6 +647,20 @@ def floors(db, top: int) -> dict:
         WHERE floor IS NOT NULL
         """
     )
+    refused_sql = f"""
+        SELECT {lot_case.replace("VALUE", "label_floor")} AS c, count(*) FROM row_floors
+        WHERE floor_status = 'above_captured_building_floor_count' AND WHERE_GROUP
+        GROUP BY c
+        """
+
+    def numfloors_by_link(sql: str) -> dict:
+        return {
+            group: tally(
+                db, sql.replace("WHERE_GROUP", f"link_group = '{group}'"), FLOOR_CLASSES
+            )
+            for group in LINK_GROUPS
+        }
+
     sources = {}
     for source in ("advertised", "physical", "label"):
         sources[source] = tally(
@@ -581,30 +677,33 @@ def floors(db, top: int) -> dict:
         WHERE against_numfloors LIKE 'above%' AND against_streeteasy LIKE 'above%'
         """
     ).fetchone()[0]
-    refused = tally(
-        db,
-        f"""
-        SELECT {lot_case.replace("VALUE", "label_floor")} AS c, count(*) FROM row_floors
-        WHERE floor_status = 'above_captured_building_floor_count' GROUP BY c
-        """,
-        FLOOR_CLASSES,
-    )
     cases = records(
         db,
         f"""
-        SELECT b.slug, f.bbl, p.address AS lot_address, f.link, count(*) AS rows,
-            count(DISTINCT f.unit_id) AS units, max(f.floor) AS top_floor,
-            arg_max(f.page, f.floor) AS top_page,
-            list(DISTINCT f.source ORDER BY f.source) AS sources,
-            arg_max(f.numfloors, f.first_day) AS numfloors,
-            arg_max(f.pluto_release, f.first_day) AS pluto_release,
-            arg_max(f.se_floors, f.first_day) AS se_floors, max(f.first_day) AS last_day
-        FROM floor_classes f
-        LEFT JOIN building_links b USING (building_id)
-        LEFT JOIN pluto_latest p ON p.bbl = f.bbl
-        WHERE f.against_numfloors LIKE 'above%'
-        GROUP BY b.slug, f.bbl, p.address, f.link
-        ORDER BY rows DESC, max(f.floor - f.numfloors) DESC, f.bbl
+        WITH grouped AS (
+            SELECT b.slug, f.bbl, p.address AS lot_address, f.link, count(*) AS rows,
+                count(DISTINCT f.unit_id) AS units, max(f.floor) AS top_floor,
+                arg_max(f.page, (f.floor, f.first_day, f.listing_id)) AS top_page,
+                list(DISTINCT f.source ORDER BY f.source) AS sources,
+                arg_max(
+                    {{'numfloors': f.numfloors, 'release': f.pluto_release,
+                        'se_floors': f.se_floors}},
+                    (f.first_day, f.listing_id)
+                ) AS latest,
+                any_value(f.latest_numfloors) AS latest_numfloors,
+                any_value(f.latest_release) AS latest_release,
+                max(f.first_day) AS last_day, max(f.floor - f.numfloors) AS excess
+            FROM floor_classes f
+            LEFT JOIN building_links b USING (building_id)
+            LEFT JOIN pluto_latest p ON p.bbl = f.bbl
+            WHERE f.against_numfloors LIKE 'above%'
+            GROUP BY b.slug, f.bbl, p.address, f.link
+        )
+        SELECT slug, bbl, lot_address, link, rows, units, top_floor, top_page, sources,
+            latest.numfloors AS numfloors, latest.release AS pluto_release, latest_numfloors,
+            latest_release, latest.se_floors AS se_floors, last_day
+        FROM grouped
+        ORDER BY rows DESC, excess DESC, bbl
         LIMIT {top}
         """,
     )
@@ -623,6 +722,12 @@ def floors(db, top: int) -> dict:
             "SELECT against_numfloors, count(*) FROM floor_classes GROUP BY ALL",
             FLOOR_CLASSES,
         ),
+        "against_numfloors_by_link": numfloors_by_link(
+            """
+            SELECT against_numfloors, count(*) FROM floor_classes
+            WHERE WHERE_GROUP GROUP BY ALL
+            """
+        ),
         "against_numfloors_by_source": sources,
         "against_streeteasy": tally(
             db,
@@ -630,7 +735,10 @@ def floors(db, top: int) -> dict:
             FLOOR_CLASSES,
         ),
         "above_both": int(both),
-        "refused_labels_against_numfloors": refused,
+        "refused_labels_against_numfloors": tally(
+            db, refused_sql.replace("WHERE_GROUP", "true"), FLOOR_CLASSES
+        ),
+        "refused_labels_against_numfloors_by_link": numfloors_by_link(refused_sql),
         "top_above_numfloors": cases,
     }
 
@@ -685,9 +793,19 @@ def summary(report: dict, shown: int = 10) -> str:
         f"{units_['lots']:,} lots hold {units_['units_all']:,} units with ads, "
         f"{units_['units_12m']:,} of them with an ad in the 12 months to {units_['as_of']}.",
         "",
+        "Lots linked by `address` or `footprint` took their lot partly by its MapPLUTO "
+        "unitsres, so their unitsres classes lean toward `within`.",
+        "",
         *table(
-            [{"measure": m, **c} for m, c in units_["lots_by_class"].items()],
-            ["measure", *UNIT_CLASSES],
+            [
+                {"measure": m, "lots": group, **c}
+                for m in units_["lots_by_class"]
+                for group, c in [
+                    ("all", units_["lots_by_class"][m]),
+                    *[(g, units_["lots_by_class_by_link"][g][m]) for g in LINK_GROUPS],
+                ]
+            ],
+            ["measure", "lots", *UNIT_CLASSES],
         ),
         "",
         *table(
@@ -706,22 +824,40 @@ def summary(report: dict, shown: int = 10) -> str:
         "## Floors",
         "",
         f"{floors_['rows_with_floor']:,} of {floors_['rows']:,} fit-ready rows have a floor. "
-        f"{above(floors_['against_numfloors']):,} are above the lot's numfloors, "
-        f"{above(floors_['against_streeteasy']):,} above StreetEasy's count and "
+        f"{above(floors_['against_numfloors']):,} are above the lot's numfloors, and "
+        f"{floors_['against_numfloors']['within_latest']:,} more are above it as of the row "
+        "but within the latest release's count. "
+        f"{above(floors_['against_streeteasy']):,} are above StreetEasy's count and "
         f"{floors_['above_both']:,} above both. Of the label floors refused for exceeding "
         f"StreetEasy's count, {above(floors_['refused_labels_against_numfloors']):,} also "
-        "exceed numfloors.",
+        "exceed numfloors. Rows linked by `address` or `footprint` took their lot partly by "
+        "its MapPLUTO numfloors, so their numfloors classes lean toward `within`.",
         "",
         *table(
             [
-                {"against": "numfloors", **floors_["against_numfloors"]},
-                {"against": "streeteasy", **floors_["against_streeteasy"]},
+                {"against": "numfloors", "rows": "all", **floors_["against_numfloors"]},
+                *[
+                    {"against": "numfloors", "rows": g, **c}
+                    for g, c in floors_["against_numfloors_by_link"].items()
+                ],
+                {
+                    "against": "streeteasy",
+                    "rows": "all",
+                    **floors_["against_streeteasy"],
+                },
                 {
                     "against": "refused labels",
+                    "rows": "all",
                     **floors_["refused_labels_against_numfloors"],
                 },
+                *[
+                    {"against": "refused labels", "rows": g, **c}
+                    for g, c in floors_[
+                        "refused_labels_against_numfloors_by_link"
+                    ].items()
+                ],
             ],
-            ["against", *FLOOR_CLASSES],
+            ["against", "rows", *FLOOR_CLASSES],
         ),
         "",
         *table(
@@ -734,6 +870,7 @@ def summary(report: dict, shown: int = 10) -> str:
                 "top_floor",
                 "sources",
                 "numfloors",
+                "latest_numfloors",
                 "se_floors",
             ],
         ),
@@ -742,15 +879,28 @@ def summary(report: dict, shown: int = 10) -> str:
     return "\n".join(lines)
 
 
+def live(state: Path) -> bool:
+    """Whether `state` is LIVE, under its own name or through a link."""
+    try:
+        return state.samefile(LIVE)
+    except OSError:
+        return state == LIVE
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("state", type=Path, help="the pipeline.duckdb file, or a copy")
+    parser.add_argument("state", type=Path, help="a copy of a pipeline.duckdb file")
     parser.add_argument("--out", type=Path, required=True, help="folder for the report")
     parser.add_argument("--top", type=int, default=25)
     parser.add_argument("--memory", default="2GB")
     parser.add_argument("--threads", type=int, default=4)
     args = parser.parse_args(argv)
     state = args.state.resolve()
+    if live(state):
+        sys.exit(
+            f"{state} is the live state, and a read-only attach would still block the "
+            f"build. Copy it with: ops/job gpu -x -- cp -a {LIVE} COPY"
+        )
     if not state.is_file():
         sys.exit(f"no file {state}")
     args.out.mkdir(parents=True, exist_ok=True)
