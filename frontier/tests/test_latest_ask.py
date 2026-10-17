@@ -394,3 +394,48 @@ def test_main_names_the_records_file_it_read(records_catalog, tmp_path, monkeypa
     assert seen["records"]["sha256"] == line["records"]["sha256"]
     (prov,) = tmp_path.glob("latest-ask/*-abc1234-api/provenance.json")
     assert json.loads(prov.read_text())["records"] == seen["records"]
+
+
+def test_a_change_more_than_a_week_after_the_off_day_is_dropped():
+    # Listing 2273410's record: a 5-day ad from 2017 with a later ad's asks from 2019.
+    changes = [("2017-12-13", 1850), ("2019-03-08", 2250), ("2019-03-10", 3000)]
+    r = latest_ask.record_latest(
+        record(changes, 3000, status="DELISTED", on="2017-12-13", off="2017-12-18")
+    )
+    assert r["changes"] == [("2017-12-13", 1850.0)]
+    assert r["page_price"] is None and r["digit_page"] == 3000
+    assert r["n_placeholder"] == 2
+    # Without the rule, the stepwise climb passes the placeholder check.
+    r = latest_ask.record_latest(
+        record(changes, 3000, status="DELISTED", on="2017-12-13", off="2017-12-18"),
+        stale_days=None,
+    )
+    assert r["changes"][-1] == ("2019-03-10", 3000.0)
+    # A change up to a week after the off day still counts.
+    r = latest_ask.record_latest(
+        record(
+            [("2025-01-01", 3000), ("2025-03-08", 2900)],
+            2900,
+            status="RENTED",
+            off="2025-03-01",
+        )
+    )
+    assert r["changes"][-1] == ("2025-03-08", 2900.0)
+
+
+def test_a_late_change_counts_when_the_listing_went_active_again():
+    d = json.loads(
+        record(
+            [("2025-01-01", 3000), ("2025-06-01", 3200)],
+            3200,
+            status="RENTED",
+            off="2025-03-01",
+        )
+    )
+    d["statusChanges"] = [
+        {"changedAt": "2025-01-01T10:00:00", "status": "ACTIVE"},
+        {"changedAt": "2025-03-01T10:00:00", "status": "DELISTED"},
+        {"changedAt": "2025-05-30T10:00:00", "status": "ACTIVE"},
+    ]
+    r = latest_ask.record_latest(json.dumps(d))
+    assert r["changes"][-1] == ("2025-06-01", 3200.0)
