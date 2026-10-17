@@ -1139,6 +1139,9 @@ UNIT_REVIEWS = UNIT_JOINS.with_name("unit-reviews-20261014.jsonl")
 # unit-reviews-v3: v2's lines, and 870 Broadway's townhouse lofts split off the
 # 30 East 18th Street one-bedrooms filed under the same unit numbers.
 UNIT_REVIEWS_V3 = UNIT_JOINS.with_name("unit-reviews-20261017.jsonl")
+# unit-reviews-v4: v3's lines, and 870 Broadway's #2 loft listing moved into the #3
+# loft's unit, since both ads give the same copy and size.
+UNIT_REVIEWS_V4 = UNIT_JOINS.with_name("unit-reviews-20261017b.jsonl")
 
 
 def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame:
@@ -1151,7 +1154,10 @@ def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame
        Place, the 2020 ads for an 1,800 sq ft duplex filed under unit 2, whose
        2014 ads give 900 to 950 sq ft. The rows of those listings get the id
        `{unit_id}~review-{first listing}`, which unit-splits then pieces like
-       any other unit, since it runs last.
+       any other unit, since it runs last. A line with an `into` key gives
+       them that unit id instead, so a later line can put a split listing
+       into another split's unit: at 870 Broadway, a #2 ad and a #3 ad with the
+       same copy and size go into one unit.
 
     Rows are unchanged apart from their unit ids."""
     with open(path) as f:
@@ -1164,7 +1170,8 @@ def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame
             & (out.unit_id == s["unit_id"])
             & listing.isin(s["source_listing_ids"])
         )
-        out.loc[hit, "unit_id"] = f"{s['unit_id']}~review-{s['source_listing_ids'][0]}"
+        piece = s.get("into", f"{s['unit_id']}~review-{s['source_listing_ids'][0]}")
+        out.loc[hit, "unit_id"] = piece
     return out
 
 
@@ -2151,6 +2158,7 @@ DATA_RULES = {
     "unit-reviews-v1": join_reviewed_units,
     "unit-reviews-v2": review_units,
     "unit-reviews-v3": functools.partial(review_units, path=UNIT_REVIEWS_V3),
+    "unit-reviews-v4": functools.partial(review_units, path=UNIT_REVIEWS_V4),
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
         join_reviewed_units, path=UNIT_JOINS_20261007
@@ -2213,6 +2221,7 @@ RULE_SOURCES = {
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v2": UNIT_REVIEWS,
     "unit-reviews-v3": UNIT_REVIEWS_V3,
+    "unit-reviews-v4": UNIT_REVIEWS_V4,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,

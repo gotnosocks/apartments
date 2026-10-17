@@ -902,8 +902,46 @@ def test_unit_reviews_v3_adds_three_870_broadway_splits_to_v2():
     assert out.unit_id.tolist() == [u, piece, piece]
     assert data.RULE_SOURCES["unit-reviews-v3"] == data.UNIT_REVIEWS_V3
     assert "unit-reviews-v3" not in data.DROPPING_RULES
-    assert "unit-reviews-v3" in autoselect.current_rules()
     assert "unit-reviews-v2" not in autoselect.current_rules()
+
+
+def test_unit_reviews_v4_moves_the_870_broadway_2_loft_into_the_3_loft():
+    """unit-reviews-v4 keeps v3's lines as its prefix and adds one line, whose
+    `into` puts the #2 loft listing in the #3 loft's reviewed unit."""
+    old = data.UNIT_REVIEWS_V3.read_text().splitlines()
+    new = data.UNIT_REVIEWS_V4.read_text().splitlines()
+    assert new[: len(old)] == old and len(new) == len(old) + 1
+
+    b = "870-broadway-new_york"
+    u2 = "unit:4fd44f97-81e5-5075-b234-c36c0f1be6dd"
+    u3 = "unit:b0f45b82-0fb5-523e-bc62-64ee2dd5865a"
+    frame = pd.DataFrame(
+        {
+            "building": [b] * 4,
+            "canonical_unit_url": [f"https://streeteasy.com/building/{b}/2"] * 2
+            + [f"https://streeteasy.com/building/{b}/3"] * 2,
+            "unit_id": [u2, u2, u3, u3],
+            "source_listing_id": ["3959319", "2157347", "1308383", "2238992"],
+        }
+    )
+    v3 = data.DATA_RULES["unit-reviews-v3"](frame)
+    assert v3.unit_id.tolist() == [
+        u2,
+        f"{u2}~review-2157347",
+        u3,
+        f"{u3}~review-2238992",
+    ]
+    v4 = data.DATA_RULES["unit-reviews-v4"](frame)
+    assert v4.unit_id.tolist() == [
+        u2,
+        f"{u3}~review-2238992",
+        u3,
+        f"{u3}~review-2238992",
+    ]
+    assert data.RULE_SOURCES["unit-reviews-v4"] == data.UNIT_REVIEWS_V4
+    assert "unit-reviews-v4" not in data.DROPPING_RULES
+    assert "unit-reviews-v4" in autoselect.current_rules()
+    assert "unit-reviews-v3" not in autoselect.current_rules()
 
 
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
