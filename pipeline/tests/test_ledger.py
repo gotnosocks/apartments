@@ -189,11 +189,16 @@ def write(folder, name, lines):
             "takes a number below",
         ),
         (set_("1", {"bedrooms": 2.0**53}, {"bedrooms": 1}), "takes a number below"),
-        (drop_lot("1", evidence=[OTHER_AD, QUOTE]), "a drop_lot needs evidence of a backing"),
+        (
+            drop_lot("1", evidence=[OTHER_AD, QUOTE]),
+            "a drop_lot needs evidence of a backing",
+        ),
         (drop_lot("1", reason=""), "a drop_lot gives its reason"),
         (drop_lot("1", when={}), "a drop_lot gives the lot it takes away"),
         (
-            json.dumps({k: v for k, v in json.loads(drop_lot("1")).items() if k != "when"}),
+            json.dumps(
+                {k: v for k, v in json.loads(drop_lot("1")).items() if k != "when"}
+            ),
             "a drop_lot needs when",
         ),
         (

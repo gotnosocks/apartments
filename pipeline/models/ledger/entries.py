@@ -131,7 +131,15 @@ FIELDS = {
     "square_feet": ("square_feet",),
     "latest_ask": ("latest_ask",),
 }
-WHEN = ("period", "bedrooms", "full_baths", "half_baths", "square_feet", "latest_ask", "bbl")
+WHEN = (
+    "period",
+    "bedrooms",
+    "full_baths",
+    "half_baths",
+    "square_feet",
+    "latest_ask",
+    "bbl",
+)
 # The keys of a drop_lot's `when`, and the evidence kinds backing it.
 LOT_WHEN = ("bbl",)
 LOT_BACKING = ("city_record", "owner")
@@ -339,7 +347,11 @@ def parse(text: str) -> dict:
         raise LedgerError("listing_id is the ad's ID, written as a string of digits")
     row["listing_id"] = line["listing_id"]
     when = line.get("when", {})
-    keys = LOT_WHEN if change == "drop_lot" else tuple(k for k in WHEN if k not in LOT_WHEN)
+    keys = (
+        LOT_WHEN
+        if change == "drop_lot"
+        else tuple(k for k in WHEN if k not in LOT_WHEN)
+    )
     if not isinstance(when, dict) or set(when) - set(keys):
         raise LedgerError(f"{change}'s when maps some of {', '.join(keys)} to values")
     if change == "drop_lot" and "bbl" not in when:
@@ -350,7 +362,9 @@ def parse(text: str) -> dict:
 
     if change in ("exclude", "drop_lot"):
         if not isinstance(line["reason"], str) or not line["reason"]:
-            raise LedgerError(f"{'an' if change == 'exclude' else 'a'} {change} gives its reason")
+            raise LedgerError(
+                f"{'an' if change == 'exclude' else 'a'} {change} gives its reason"
+            )
         row["reason"] = line["reason"]
         if change == "drop_lot" and not set(row["kinds"]) & set(LOT_BACKING):
             raise LedgerError(

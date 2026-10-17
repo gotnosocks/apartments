@@ -56,7 +56,9 @@ def evidence(review):
                 quote = quote[1:-1]
             items.append({"kind": "ad_text", "quote": quote})
         else:
-            raise SystemExit(f"{review['listing_id']}: no ledger kind for {item['kind']!r}")
+            raise SystemExit(
+                f"{review['listing_id']}: no ledger kind for {item['kind']!r}"
+            )
     items.append({"kind": "read", "detail": review["note"], "file": review["source"]})
     return items
 
@@ -73,7 +75,9 @@ def main(argv=None) -> int:
         raise SystemExit(f"{out} exists")
     entries = load_entries()
     sources = {
-        row["source"] for row in entries.read(sorted(LEDGER.glob("*.ndjson"))) if row["source"]
+        row["source"]
+        for row in entries.read(sorted(LEDGER.glob("*.ndjson")))
+        if row["source"]
     }
     lines, skipped = [], 0
     for number, text in enumerate(reviews.read_text().split("\n"), start=1):
