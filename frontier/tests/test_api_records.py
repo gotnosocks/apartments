@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -117,3 +118,13 @@ def test_a_build_without_an_ads_file_stops(records_catalog, tmp_path):
         f.write(json.dumps({k: v for k, v in line.items() if k != "ads_file"}) + "\n")
     with pytest.raises(ValueError, match="has no ads_file"):
         api_records.records_file()
+
+
+def test_among_finds_ids_in_a_sorted_array():
+    """The batch lookup marks the ids it holds, at either end and in between, and marks nothing
+    against an empty array."""
+    ids = np.array([3, 8, 20], dtype=np.int64)
+    found = api_records.among(ids, pa.array([1, 3, 9, 20, 25, 8]))
+    assert found.tolist() == [False, True, False, True, False, True]
+    empty = np.array([], dtype=np.int64)
+    assert api_records.among(empty, pa.array([1, 2])).tolist() == [False, False]
