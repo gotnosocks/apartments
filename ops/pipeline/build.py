@@ -23,11 +23,11 @@ The script works in these steps:
    the top-up's new records.
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, each export file it
-   read with its SHA-256, each file of the corrections ledger with its SHA-256 and the count of
-   its entries in each status, each file of the city archive with its SHA-256, the seconds each
-   rebuilt model took with its audits, each model's table and row count, the rows, ads and
-   records files with their SHA-256, the wall time of each step, and the peak memory of the
-   script and of its cgroup.
+   read with its SHA-256, each file of the corrections ledger and of the unit ledger with its
+   SHA-256 and the count of their entries in each status, each file of the city archive with
+   its SHA-256, the seconds each rebuilt model took with its audits, each model's table and row
+   count, the rows, ads and records files with their SHA-256, the wall time of each step, and
+   the peak memory of the script and of its cgroup.
    The script takes the commit before it loads the project, and the export, ledger and city
    files from the variables `config.py` gave the project.
 6. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
@@ -35,8 +35,8 @@ The script works in these steps:
 
 A fit can read the rows file by its name and check its SHA-256 against the catalog. The website
 and the reviews of ads read the ads file the same way, and the frontier builders the records
-file. The models' tables stay in the state
-folder, under the names the catalog gives, for a week after a later build replaces them.
+file. The models' tables stay in the state folder, under the names the catalog gives, for a week
+after a later build replaces them.
 """
 
 from __future__ import annotations
@@ -188,12 +188,17 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
             if name in console.seconds
             else None,
         }
-    # The ledger's entries, counted by status and then by change.
+    # The entries of the ledger and of the unit ledger, counted by status and then by change.
     ledger = {}
     for status, change, count in ctx.engine_adapter.fetchall(
         "SELECT status, change, count(*) FROM ledger.status GROUP BY ALL ORDER BY ALL"
     ):
         ledger.setdefault(status, {})[change] = count
+    units = {}
+    for status, change, count in ctx.engine_adapter.fetchall(
+        "SELECT status, change, count(*) FROM ledger.unit_status GROUP BY ALL ORDER BY ALL"
+    ):
+        units.setdefault(status, {})[change] = count
     steps["count"] = time.time() - mark
 
     mark = time.time()
@@ -235,6 +240,7 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         "ledger": {
             "files": variables["ledger"],
             "entries": ledger,
+            "units": {"files": variables["ledger_units"], "entries": units},
         },
         "city": variables["city_files"],
         "models": models,
