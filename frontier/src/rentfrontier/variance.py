@@ -52,7 +52,7 @@ import time
 
 import numpy as np
 
-from . import data, explain, features, model
+from . import data, design, explain, model
 from .run import git, hardware
 
 VARIANCE_ROOT = data.OUTPUT_ROOT / "variance"
@@ -178,11 +178,9 @@ def score_run(name: str):
     frame = data.load()
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
-    frame, heldout = data.split_and_rules(
-        frame, result["split"], data.recorded_rules(result)
+    frame, heldout, feats, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
     )
-    feats = features.build(result["feature_set"], frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
     names = [str(n) for n in feats.names]
     fslope_index = [names.index(n) for n in config.feature_slopes]
     draws = kept["alpha"].shape[0]

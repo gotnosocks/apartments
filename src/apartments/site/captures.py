@@ -1,28 +1,37 @@
-"""Current listings captured after the served fit's dataset was made.
+"""Current listings from the data pipeline's ads file, priced with the run's prediction kit.
 
-The served fit prices the current listings in its own dataset. A later
-current-listings capture (Greenwich Village's of 2026-10-06) is not in that
-dataset, so its listings are priced here with the run's prediction kit, the
-same scoring the estimate form uses: an apartment in its building whose level
-is the fit's own for a unit the fit has seen (the kit's `units.parquet`), and
-otherwise drawn from the unit prior, as for a new apartment. Until a fit includes them, these rows
-are marked `method = "kit"` and say so on their pages.
+The served fit prices the current listings in its own dataset. The pipeline reads every ad again
+at each backfill and weekly top-up, so most ads on the market now are newer than that dataset.
+The build prices them here with the run's prediction kit, the same scoring the estimate form
+uses: an apartment in its building whose level is the fit's own for a unit the fit has seen (the
+kit's `units.parquet`), and otherwise drawn from the unit prior, as for a new apartment. Until a
+fit includes them, these rows are marked `method = "kit"` and say so on their pages.
 
-A capture's listing gets its model inputs from three places:
+The build takes the files of the pipeline's newest build from its catalog
+(`PIPELINE/catalog.ndjson`), after checking each file's sha256 against the catalog:
 
-- the advertisement itself (bedrooms, baths, size, floor, laundry, views,
-  windows), through the estimate form's encoder;
-- the unit's label, for the floor when the ad states none and the building
-  has that many floors (as `rentfrontier.features.row_floor` reads it);
-- the unit's newest earlier listing on the site, for what the dataset keeps
-  per unit (which way it faces; the size when the ad states none) and for
-  the time since that listing;
+- the ads file gives the status in each ad's latest API answer, the time of that answer and the
+  price on the ad's page;
+- the rows file gives the ad's fit-ready values, after the corrections ledger.
+
+An ad counts as on the market when its latest answer says ACTIVE and the pipeline fetched it
+within CURRENT_DAYS of the build. The build shows it when it also has a fit-ready row. A fit-ready
+row's ask follows the chain's latest-ask rule and can be an earlier price, so the build prices the
+ask on the ad's page.
+
+A listing gets its model inputs from:
+
+- its fit-ready row (bedrooms, baths, size, floor, laundry, views, windows), through the
+  estimate form's encoder;
+- the unit's label, for the floor when the ad states none and the building has that many
+  floors (as `rentfrontier.features.row_floor` reads it);
+- the unit's newest earlier listing on the site, for what the dataset keeps per unit (which way
+  it faces; the size when the ad states none) and for the time since that listing;
 - the building's newest listing, for the building's own terms.
 
-The description is not read at capture, as for every current listing, so
-rooms beyond the bedrooms and outdoor space are unknown or absent, as there,
-unless the unit's newest earlier listing is the same advertisement with its
-description: then they come from it.
+The build doesn't read the description, as for every current listing, so rooms beyond the
+bedrooms and outdoor space are unknown or absent, as there, unless the unit's newest earlier
+listing is the same ad with its description: then they come from it.
 """
 
 from __future__ import annotations
@@ -36,7 +45,9 @@ import re
 import statistics
 from pathlib import Path
 
-from .. import candidate_search, pricing
+import duckdb
+
+from .. import pricing
 from . import estimate, estimate_build, wings
 
 # Groups the dataset keeps per unit, taken from the unit's newest earlier listing.
@@ -46,9 +57,13 @@ DESCRIPTION_GROUPS = ("description", "outdoor space", "rooms beyond bedrooms")
 LETTERED = re.compile(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")
 NUMBERED = re.compile(r"^(\d)\d\d$")
 METHOD = "kit"
+PIPELINE = Path("/data1/apartments/pipeline/datasets")
+# Two ads of a unit on the market at once must agree on these values of the ads file, or the
+# unit has no current ad.
+AGREE = ("ask", "ad_bedrooms", "ad_bathrooms", "ad_square_feet")
 # A listing is on the market now when it was last seen active within this many
-# days of the build. The current-listings top-up runs weekly and can start up to
-# 18 hours late behind a backfill, so the window runs two days past a week.
+# days of the build. The top-up runs weekly and can start up to 18 hours late
+# behind a backfill, so the window runs two days past a week.
 CURRENT_DAYS = 9
 
 
@@ -71,7 +86,7 @@ def supported(c: dict) -> bool:
     """The layout and rent range the dataset's current rows keep
     (`fit_robust_analysis.current_rows`)."""
     beds, baths, rent = (
-        pricing._number(c.get(k)) for k in ("bedrooms", "bathrooms", "rent")
+        pricing._number(c.get(k)) for k in ("bedrooms", "bathrooms", "ask")
     )
     return (
         beds is not None
@@ -85,57 +100,132 @@ def supported(c: dict) -> bool:
     )
 
 
-def captures(
-    archives: Path,
-    read: set[str],
+def pipeline_files(root: Path) -> dict | None:
+    """The ads and rows files of the pipeline's newest build under `root` from a clean checkout,
+    from its catalog, or None when the catalog has no such build. A newest build without both
+    files, or a file whose sha256 differs from the catalog's, stops the build.
+
+    The pipeline appends a build's line with its line break. A last line without one is still
+    being written, and the build reads the lines before it."""
+    catalog = root / "catalog.ndjson"
+    lines = catalog.read_text().split("\n")[:-1] if catalog.is_file() else []
+    # A build from a checkout with changes may write to the same catalog, and the site leaves it
+    # out. A clean checkout of a branch counts, so a build from a branch writes to a folder of
+    # its own with --out.
+    clean = [
+        entry
+        for entry in map(json.loads, filter(str.strip, lines))
+        if entry.get("code", {}).get("clean") is True
+    ]
+    if not clean:
+        return None
+    entry = clean[-1]
+    files = {"built": entry["built"]}
+    for key, name in (("ads", "ads_file"), ("rows", "rows")):
+        if name not in entry:
+            raise ValueError(f"the newest build in {catalog} has no {name}")
+        path = root / entry[name]["path"]
+        if estimate_build._sha256(path) != entry[name]["sha256"]:
+            raise ValueError(f"{path} differs from the pipeline's catalog")
+        files[key] = str(path)
+        files[f"{key}_sha256"] = entry[name]["sha256"]
+    return files
+
+
+CURRENT_ADS = """
+SELECT a.listing_id, a.unit_id, a.building AS building_id, a.page AS unit_url,
+  a.response_id, a.fetched::TIMESTAMP AS collected_at, a.page_price AS ask,
+  a.bedrooms AS ad_bedrooms, a.bathrooms AS ad_bathrooms, a.square_feet AS ad_square_feet,
+  r.listing_id IS NOT NULL AS in_rows,
+  r.bedrooms, r.bathrooms, r.full_baths, r.half_baths, r.square_feet,
+  r.advertised_floor, r.physical_floor, r.elevator, r.laundry_type,
+  r.doorman_type, r.hvac_type, r.pet_policy, r.view_exposures, r.window_exposures
+FROM read_parquet($ads) a LEFT JOIN read_parquet($rows) r ON r.listing_id = a.listing_id
+WHERE a.status = 'ACTIVE' AND a.unit_id IS NOT NULL AND a.fetched BETWEEN $start AND $at
+ORDER BY a.unit_id, a.fetched DESC, a.listing_id DESC
+"""
+
+
+def current_ads(
+    files: dict,
     skip_listings: set[str],
     skip_units: dict[str, dt.datetime],
     at: dt.datetime | None = None,
-) -> list[tuple[str, dict]]:
-    """(capture directory name, candidate) for the listings of captures the
-    fit's dataset never read that pass the dataset's own current-row rules
-    (`candidate_search.select_candidates`: active, gross ask, not furnished,
-    short-term or with a concession, one advertisement per unit; and the
-    layout and rent support); newest capture wins per unit.
+) -> tuple[list[dict], dict[str, str]]:
+    """One ad on the market at `at` for each unit, with the values of its fit-ready row, and
+    the reason the build leaves out each other ad on the market, by listing id.
 
-    A capture with any row in the dataset (`read`, its audit ids) went into
-    it, and the listings of it the dataset left out were left out by its
-    rules. Listings in `skip_listings` are left out too: the dataset dropped
-    them. So is a unit in `skip_units` seen no later than the dataset last saw
-    it current: the dataset prices it; a newer sighting wins. The window for
-    an active listing ends at `at`, the build's clock, so an old capture's
-    listings age out."""
+    The build reads every ad of a unit on the market, with a fit-ready row or without, and
+    leaves out all of them when:
+
+    - two of them differ on the ask, the bedrooms, the baths or the size the ads file gives,
+      a missing size included;
+    - the dataset dropped one of them (`skip_listings`), since its agreeing ads repeat the
+      values the dataset dropped.
+
+    Otherwise it leaves out the ads without a fit-ready row and takes the one fetched last of
+    the others. It then leaves that ad out when:
+
+    - its layout or ask lies outside the dataset's range (`supported`);
+    - the dataset last saw its unit current no earlier than the pipeline fetched the ad
+      (`skip_units`), since the dataset prices the unit then.
+    """
     at = at or now()
-    out: dict[str, tuple[str, dict]] = {}
-    for d in sorted(p for p in archives.iterdir() if p.is_dir()):
-        path = d / "details" / "snapshot" / "candidates.jsonl"
-        if not path.is_file():
-            continue
-        found = [
-            json.loads(line) for line in path.read_text().splitlines() if line.strip()
-        ]
-        if not found or any(f"capture:{c['capture_id']}" in read for c in found):
-            continue
-        selected, _, _ = candidate_search.select_candidates(
-            found, as_of=at, max_age_days=CURRENT_DAYS
+    con = duckdb.connect()
+    try:
+        con.execute("SET TimeZone = 'UTC'")
+        cursor = con.execute(
+            CURRENT_ADS,
+            {
+                "ads": files["ads"],
+                "rows": files["rows"],
+                "start": at - dt.timedelta(days=CURRENT_DAYS),
+                "at": at,
+            },
         )
-        for c in selected:
-            if not supported(c) or str(c["source_listing_id"]) in skip_listings:
-                continue
-            seen = skip_units.get(c["unit_id"])
-            if seen is not None and pricing._timestamp(c["collected_at"]) <= seen:
-                continue
-            prior = out.get(c["unit_id"])
-            if prior is not None and pricing._timestamp(
-                prior[1]["collected_at"]
-            ) > pricing._timestamp(c["collected_at"]):
-                continue
-            size = pricing._number(c.get("square_feet"))
-            c["square_feet"] = (
-                size if size is not None and 150 <= size <= 6000 else None
-            )
-            out[c["unit_id"]] = (d.name, c)
-    return list(out.values())
+        names = [d[0] for d in cursor.description]
+        found = [dict(zip(names, values)) for values in cursor.fetchall()]
+    finally:
+        con.close()
+    by_unit: dict[str, list[dict]] = {}
+    for c in found:
+        # The UTC time of the answer, read as a plain timestamp: DuckDB needs pytz to give
+        # a time with its zone.
+        c["collected_at"] = c["collected_at"].replace(tzinfo=dt.UTC).isoformat()
+        for key in ("view_exposures", "window_exposures"):
+            c[key] = json.loads(c[key] or "null")
+        by_unit.setdefault(c["unit_id"], []).append(c)
+    ads, skipped = [], {}
+    for unit, group in by_unit.items():
+        if len({tuple(a[k] for k in AGREE) for a in group}) > 1:
+            skipped |= {
+                a["listing_id"]: "the unit's ads on the market conflict" for a in group
+            }
+            continue
+        if any(a["listing_id"] in skip_listings for a in group):
+            skipped |= {
+                a["listing_id"]: "the dataset dropped the listing"
+                if a["listing_id"] in skip_listings
+                else "the dataset dropped another ad of the unit"
+                for a in group
+            }
+            continue
+        skipped |= {
+            a["listing_id"]: "the ad has no fit-ready row"
+            for a in group
+            if not a["in_rows"]
+        }
+        group = [a for a in group if a["in_rows"]]
+        if not group:
+            continue
+        c, seen = group[0], skip_units.get(unit)
+        if not supported(c):
+            skipped[c["listing_id"]] = "layout or ask outside the dataset's range"
+        elif seen is not None and pricing._timestamp(c["collected_at"]) <= seen:
+            skipped[c["listing_id"]] = "the dataset prices the unit as current"
+        else:
+            ads.append(c)
+    return ads, skipped
 
 
 def label_floor(url: str | None, height: int | None) -> int | None:
@@ -150,27 +240,18 @@ def label_floor(url: str | None, height: int | None) -> int | None:
 
 
 def form(c: dict, height: int | None = None) -> estimate.Form:
-    """The estimate form the advertisement's own fields fill in."""
-    baths = next(
-        (
-            e["literal"]
-            for e in (c.get("attribute_evidence") or {}).get("evidence", [])
-            if e.get("attribute") == "bathrooms" and isinstance(e.get("literal"), dict)
-        ),
-        {},
-    )
+    """The estimate form the ad's fit-ready values fill in."""
+    full = c.get("full_baths")
     return estimate_build.form_from_observation(
         {
-            "canonical_unit_url": c.get("canonical_unit_url"),
+            "canonical_unit_url": c.get("unit_url"),
             "bedrooms": c.get("bedrooms"),
-            "reported_full_bathrooms": baths.get(
-                "fullBathroomCount", c.get("bathrooms")
-            ),
-            "reported_half_bathrooms": baths.get("halfBathroomCount"),
+            "reported_full_bathrooms": c.get("bathrooms") if full is None else full,
+            "reported_half_bathrooms": c.get("half_baths"),
             "square_feet": c.get("square_feet"),
             "listed_floor": c.get("physical_floor")
             or c.get("advertised_floor")
-            or label_floor(c.get("canonical_unit_url"), height),
+            or label_floor(c.get("unit_url"), height),
             "laundry_type": c.get("laundry_type"),
             "view_exposures": c.get("view_exposures"),
             "window_exposures": c.get("window_exposures"),
@@ -212,7 +293,7 @@ def encode(
     centre: float | None,
     height: int | None = None,
 ) -> dict[str, float]:
-    """The model inputs of a captured listing (see the module docstring)."""
+    """The model inputs of a current ad (see the module docstring)."""
     f = form(c, height)
     x = estimate.encode(f, kit, building_inputs)
     group_of = dict(zip(kit.features, kit.groups))
@@ -241,7 +322,7 @@ def encode(
     p = json.loads(prev["inputs"]) if prev is not None else {}
     same_ad = (
         prev is not None
-        and str(prev.get("listing_id")) == str(c.get("source_listing_id"))
+        and str(prev.get("listing_id")) == str(c.get("listing_id"))
         and not p.get("description_missing")
     )
     if same_ad:
@@ -351,15 +432,15 @@ def rows(
     kit_buildings: list[dict],
     listings: list[dict],
     buildings: list[dict],
-    archives: Path,
+    files: dict,
     names: list[str],
     observations: dict[str, dict] | None = None,
     units: dict[str, list[float]] | None = None,
     at: dt.datetime | None = None,
 ) -> tuple[list[dict], dict]:
-    """Site listing rows of the captures' listings, and a status for
-    build.json: how many were priced, how many with the fit's own unit
-    level, and why the others were not."""
+    """Site listing rows of the ads on the market, and a status for build.json: the pipeline's
+    files, how many ads were priced, how many with the fit's own unit level, and why the
+    others were not."""
     units = units or {}
     at = at or now()
     from .build import _true_keys, price_band, unit_label
@@ -386,7 +467,7 @@ def rows(
         ids = json.loads(ids) if isinstance(ids, str) else list(ids or [])
         ids.append(o.get("listing_id") or o.get("source_listing_id"))
         # a row the dataset priced as current but last saw before the window
-        # is past, so a newer capture of its unit is priced here
+        # is past, so a newer ad of its unit is priced here
         current = o.get(
             "is_current", o.get("analysis_price_basis") == "current_capture_gross_ask"
         ) and fresh(o, at)
@@ -395,13 +476,12 @@ def rows(
         if current:
             seen = pricing._timestamp(o.get("collected_at") or o["price_at"])
             skip_units[o["unit_id"]] = max(seen, skip_units.get(o["unit_id"], seen))
-    out, skipped, sources, fitted_levels = [], {}, {}, 0
-    for source, c in captures(
-        archives, set(observations), skip_listings, skip_units, at
-    ):
-        b = wings.wing(c["building_id"], unit_label(c.get("canonical_unit_url")), terms)
+    ads, skipped = current_ads(files, skip_listings, skip_units, at)
+    out, fitted_levels = [], 0
+    for c in ads:
+        b = wings.wing(c["building_id"], unit_label(c.get("unit_url")), terms)
         if b not in terms or b not in info or b not in newest:
-            skipped[c["capture_id"]] = "building not in the served fit"
+            skipped[c["listing_id"]] = "building not in the served fit"
             continue
         earlier = sorted(
             (r for r in by_unit.get(c["unit_id"], []) if _time(r) <= _time(c)),
@@ -420,7 +500,7 @@ def rows(
         building = estimate.Building(t["level"], t["bedroom_slope"], t["fslope"], x)
         bedrooms = round(min(max(c.get("bedrooms") or 0, 0), 5))
         day = _time(c).date()
-        audit_id = f"capture:{c['capture_id']}"
+        audit_id = f"api:{c['response_id']}:{c['listing_id']}"
         fit_rows = sum(r["in_fit"] for r in by_unit.get(c["unit_id"], []))
         unit = units.get(c["unit_id"]) if fit_rows else None
         got = estimate.score(
@@ -430,20 +510,20 @@ def rows(
             bedrooms,
             day,
             seed=audit_id,
-            ask=float(c["rent"]),
+            ask=float(c["ask"]),
             unit=unit,
         )
         f = form(c, info[b].get("floors"))
-        ask = float(c["rent"])
-        listing_id = str(c["source_listing_id"])
+        ask = float(c["ask"])
+        listing_id = c["listing_id"]
         out.append(
             {
                 "audit_id": audit_id,
                 "neighbourhood": info[b].get("neighbourhood") or "",
                 "unit_id": c["unit_id"],
                 "building_id": b,
-                "unit_label": unit_label(c.get("canonical_unit_url")),
-                "unit_url": c.get("canonical_unit_url"),
+                "unit_label": unit_label(c.get("unit_url")),
+                "unit_url": c.get("unit_url"),
                 "listing_id": listing_id,
                 "listing_url": f"https://streeteasy.com/rental/{listing_id}"
                 if listing_id.isdigit()
@@ -501,13 +581,12 @@ def rows(
                 "inputs": json.dumps(x, separators=(",", ":")),
             }
         )
-        sources[source] = sources.get(source, 0) + 1
         fitted_levels += unit is not None
     return out, {
+        "pipeline": files,
         "priced": len(out),
         "unit_levels": fitted_levels,
-        "by_capture": sources,
-        "skipped": skipped,
+        "skipped": dict(sorted(skipped.items())),
     }
 
 
@@ -515,17 +594,18 @@ def price(
     kit_dir: Path | None,
     listings: list[dict],
     buildings: list[dict],
-    archives: Path,
+    files: dict | None,
     names: list[str],
     observations: dict[str, dict] | None = None,
     at: dt.datetime | None = None,
 ) -> tuple[list[dict], dict]:
-    """The captures' listings priced with the run's kit, when it scores the
-    fit's own rows as the bundle does (`estimate_build.check_scoring`)."""
+    """The ads on the market priced with the run's kit, when it scores the fit's own rows as
+    the bundle does (`estimate_build.check_scoring`). `files` are the pipeline's
+    (`pipeline_files`)."""
     if kit_dir is None:
         return [], {"priced": 0, "reason": "no prediction kit for this run"}
-    if not archives.is_dir():
-        return [], {"priced": 0, "reason": f"no captures at {archives}"}
+    if files is None:
+        return [], {"priced": 0, "reason": "no pipeline build to read current ads from"}
     record, kit_buildings = estimate_build.load_kit(kit_dir)
     kit = estimate.Kit.from_record(
         record,
@@ -555,7 +635,7 @@ def price(
         kit_buildings,
         listings,
         buildings,
-        archives,
+        files,
         names,
         observations,
         units,

@@ -56,7 +56,10 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `granular_export` inputs and the website's current-listings publish in
    `src/streeteasy_archive/graphql_search.py`. **Started**: since #919 each production build
    writes `analysis.ads`, every ad with a record, to `ads-<hash>.parquet` beside the rows file,
-   for both readers.
+   for both readers. Since #945 the site build takes its current listings from the ads and
+   rows files. On the export of Oct 16 it showed 1,099 of the 1,159 listings the captures gave,
+   leaving out 57 ads off the market since Oct 10 and 3 without a fit-ready row
+   ([pipeline.md](../data/pipeline.md#the-websites-current-listings)).
 
 ## Raw layer
 
@@ -327,7 +330,13 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    229 s at a 4,199 MiB peak, 30 s more than without it. `ops/pipeline/ads_check.py` compares it
    with the website's API captures and the histories of the ACTIVE ads in 5 s:
    [pipeline.md](../data/pipeline.md#ads-file) has the numbers. The rest of step 9, in order:
-   1. the website's current listings and Data improvements' reads of other ads move to the file;
+   1. the website's current listings and Data improvements' reads of other ads move to the
+      file. **Done** for the website in #945, deployed by the Website thread on Oct 16. Of the
+      three ACTIVE ads the site no longer shows for want of a fit-ready row, none should show:
+      5128314 offers a month free, 5183409 at 43 East 20th Street changed from 2 to 3 bedrooms
+      between records, and 5154603's unit rented under its later ad 5164886. 5183409 is a
+      candidate for the unit ledger's first import: units 2, 2A and 2S at that address give
+      the same 2,000 square feet;
    2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
    3. a PR deletes the page-capture rewrite and the page parser.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
@@ -351,7 +360,8 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
   for 6 GiB of available memory first. The scraper thread confirmed on Oct 16 that the trigger
   fits its exporter: files go in place before their manifest lines, a crash repair replaces the
   manifest by rename, and a manual export takes `export/.lock`, which the build never opens.
-- The website reads current listings from the collector's page captures, and Data improvements
-  reads `granular_export` inputs from them. Both can read the ads file, under `ads_file` in the
-  catalog, and the page-capture rewrite goes once they do. The scraper thread runs
+- The website reads current listings from the ads and rows files (#945). Data improvements
+  reads `granular_export` inputs from the collector's page captures and agreed on Oct 16 to move
+  them to the ads file, with the same hashes on the export of Oct 16 or a diff giving every
+  changed row. The page-capture rewrite goes once it has. The scraper thread runs
   `graphql_search` step 4 and `current_listings`, so it agrees to their removal first.

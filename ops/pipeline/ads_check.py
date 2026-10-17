@@ -20,11 +20,12 @@
    corrections, and the file's layout and flags are merged over all of an ad's records before
    any correction, so some differences are expected.
 3. For each ad the file gives as ACTIVE, it reads the latest record from the export DIR,
-   /data1/apartments/archive/crawls/api/export unless given, and runs the website's
-   `ad_dates.last_break` over the ad's own events in the record's history, from the file's
-   `on_day` to the New York day of the fetch. It counts the ads by whether that agrees with
-   the file's `break_status`, `break_day` and `back_day`, and prints a few that differ. The
-   history dates each change to the day, and `last_break` orders a day's changes by their
+   /data1/apartments/archive/crawls/api/export unless given, and runs `last_break` over the
+   ad's own events in the record's history, from the file's `on_day` to the New York day of
+   the fetch. `last_break` is the website's reading of an ad's history from before #945, when
+   the site read the histories itself. The script counts the ads by whether its result agrees
+   with the file's `break_status`, `break_day` and `back_day`, and prints a few that differ.
+   The history dates each change to the day, and `last_break` orders a day's changes by their
    places in the history. It counts ACTIVE ads without an `on_day` apart, since `last_break`
    needs one.
 
@@ -37,14 +38,13 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import importlib.util
+import itertools
 import json
 import shutil
 import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
 DATASETS = Path("/data1/apartments/pipeline/datasets")
 CAPTURES = Path("/data1/apartments/archive/current-listings")
 EXPORT = Path("/data1/apartments/archive/crawls/api/export")
@@ -99,13 +99,32 @@ def captured(root: Path) -> list[dict]:
     return out
 
 
-def last_break():
-    spec = importlib.util.spec_from_file_location(
-        "ad_dates", REPO / "src" / "apartments" / "site" / "ad_dates.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.last_break
+def last_break(events: list[dict], since: str, as_of: str):
+    """The ad's latest break (status, date) and the day it came back on the market, from its
+    own dated status events; (None, None, None) if it has been on the market without a break
+    since `since`, and None if its events end off the market."""
+    # StreetEasy lists events newest first, so on a shared day the higher event_index is the
+    # earlier one.
+    keyed = []
+    for e in events:
+        d = _date(e.get("event_date"))
+        if e.get("status") and d and since <= d <= as_of:
+            keyed.append((d, -int(e.get("event_index") or 0), e["status"]))
+    dated = [(d, s) for d, _, s in sorted(keyed)]
+    found = (None, None, None)
+    for (d0, s0), (d1, s1) in itertools.pairwise(dated):
+        if s0 != "ACTIVE" and s1 == "ACTIVE":
+            found = (s0, d0, d1)
+    if dated and dated[-1][1] != "ACTIVE":
+        return None
+    return found
+
+
+def _date(value) -> str | None:
+    try:
+        return dt.date.fromisoformat(str(value)[:10]).isoformat()
+    except ValueError:
+        return None
 
 
 def own_events(record: dict, listing_id: str) -> list[dict]:
@@ -246,7 +265,6 @@ def check(db, args, ads: Path) -> None:
         WHERE a.status = 'ACTIVE'
     """
     ).fetchall()
-    gap = last_break()
     counts: dict[str, int] = {}
     examples: dict[str, list] = {}
     for listing_id, since, as_of, status, day, back, last, text in records:
@@ -254,7 +272,7 @@ def check(db, args, ads: Path) -> None:
             counts["no on_day"] = counts.get("no on_day", 0) + 1
             examples.setdefault("no on_day", []).append((listing_id, None, None))
             continue
-        found = gap(own_events(json.loads(text), listing_id), since, as_of)
+        found = last_break(own_events(json.loads(text), listing_id), since, as_of)
         file = (status, day, back) if last == "ACTIVE" else None
         if found == file:
             kind = "same, back after a break" if file and file[0] else "same"

@@ -679,7 +679,7 @@ def write_database(
     scope: str | None,
     selection: dict | None = None,
     kits: Path | None = None,
-    archives: Path | None = None,
+    pipeline: Path | None = None,
     exposure_file: Path | None = None,
 ) -> dict:
     observations = load_observations(
@@ -733,18 +733,19 @@ def write_database(
     for r in fitted:
         if r["is_current"] and not captures.fresh(r, at):
             r["is_current"] = 0
-    # Current listings captured after the dataset was made, priced with the
+    # The ads on the market in the pipeline's newest build, priced with the
     # kit (captures.py); every other row is the bundle's.
+    files = captures.pipeline_files(pipeline or captures.PIPELINE)
     captured, captured_status = captures.price(
         kit_dir,
         fitted,
         units_and_buildings(fitted)[1],
-        archives or ad_dates.ARCHIVES,
+        files,
         names,
         observations,
         at,
     )
-    # a unit captured since the dataset last saw it is current in the capture
+    # a unit the pipeline read since the dataset last saw it is current there
     newer = {r["unit_id"] for r in captured}
     for r in fitted:
         if r["is_current"] and r["unit_id"] in newer:
@@ -792,7 +793,7 @@ def write_database(
         "first_period": periods[0],
         "last_period": periods[-1],
         "unreliable_estimates": sum(1 - r["reliable"] for r in listings),
-        "captured_current": captured_status,
+        "current_ads": captured_status,
         "quarantined_listings": len(quarantined),
         "quarantined_current": sum(r["is_current"] for r in quarantined),
     }
@@ -809,9 +810,7 @@ def write_database(
             db, kit_dir, fitted, observations
         )
         stats["ad_dates"] = ad_dates.install(
-            db,
-            ad_dates.collect(Path(record["dataset"]), archives or ad_dates.ARCHIVES),
-            listings,
+            db, ad_dates.collect(files, listings), listings
         )
         # Which way each unit faces, when Data improvements' labels exist; a
         # build without them shows none.

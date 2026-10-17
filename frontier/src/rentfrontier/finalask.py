@@ -23,11 +23,12 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from . import data, features, model, newbuilding
+from . import data, design, explain, model, newbuilding
 from .run import git, hardware
 
 FINALASK_ROOT = data.OUTPUT_ROOT / "finalask"
@@ -42,9 +43,14 @@ PRICES = {
 
 
 def _prepared(name):
-    run_dir, result, kept, config, frame, heldout = newbuilding._load(name)
-    feats = features.build(result["feature_set"], frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
+    run_dir, result, kept = explain.load_run(name)
+    config = model.MODELS[result["model"]["name"]]
+    frame = data.load(Path(result["dataset"]))
+    if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
+        raise SystemExit("dataset differs from the run's recorded dataset")
+    frame, heldout, _, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
+    )
     newbuilding._check_draws(run_dir, prep)
     return result, kept, config, frame, heldout, prep
 
