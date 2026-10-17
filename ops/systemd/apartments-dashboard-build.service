@@ -11,14 +11,18 @@ ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin mas
 ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
 ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/dashboard
 # Skips when nothing has landed since the last build; see the script. The
-# build only reads small records (no draws): about 3 minutes of one core and
-# ~600 MB, run as a light job (the light slice and CPUs, idle priority) so a
-# timed fit never shares its cores (docs/thelio-jobs.md). --locked inside: never rewrite uv.lock in the serving checkout.
+# build reads run records, per-row LOO scores and the current dataset (no
+# draws): on 2026-10-17, with 416 board entries, it took 3:46 of one core and
+# a 1.6 GB peak. It runs as a light job (the light slice and CPUs, idle
+# priority) so a timed fit never shares its cores (docs/thelio-jobs.md). With
+# swap off, a build over the cap fails at once instead of thrashing into the
+# timeout. --locked inside: never rewrite uv.lock in the serving checkout.
 ExecStart=/data1/apartments/serve/master/ops/research-data-build.sh
 TimeoutStartSec=30min
 Slice=apartments-light.slice
 CPUAffinity=3-5 9-11
-MemoryMax=1G
+MemoryMax=2560M
+MemorySwapMax=0
 Nice=19
 CPUSchedulingPolicy=idle
 IOSchedulingClass=idle

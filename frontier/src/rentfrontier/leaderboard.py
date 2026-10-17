@@ -258,10 +258,12 @@ def shared_rows(a: dict, b: dict, what: str, a_dir, b_dir) -> list:
     return [k for k in a if k in b and k not in dropped]
 
 
-@functools.lru_cache(maxsize=16)
+@functools.lru_cache(maxsize=4)
 def _pointwise(path: str, mtime: float):
-    """A LOO record's per-row arrays and its audit id -> row index, read once
-    per build (keyed by the file's mtime, so a rewritten record is re-read)."""
+    """A LOO record's per-row arrays and its audit id -> row index, keyed by
+    the file's mtime, so a rewritten record is re-read. A build pairs most
+    records once against a few baselines, so the cache keeps only those
+    baselines: an all-scraped record's index alone takes a few hundred MB."""
     x = np.load(Path(path) / "pointwise.npz", allow_pickle=True)
     ids = x["audit_id"].tolist()
     if len(set(ids)) != len(ids):

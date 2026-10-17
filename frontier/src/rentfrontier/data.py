@@ -658,8 +658,17 @@ QUARANTINE_V4 = REPO / "config" / "reviews" / "quarantine-v4-20261003.jsonl"
 QUARANTINE_V5 = REPO / "config" / "reviews" / "quarantine-v5-20261004.jsonl"
 
 
-@functools.lru_cache(maxsize=4)
 def quarantined(path: Path = QUARANTINE_V1) -> frozenset:
+    """The audit ids a review file lists. Each file is parsed once per
+    process and again only after it changes: `dropped_rows` unions every
+    dropping rule's file on each call, and a board build calls it thousands
+    of times."""
+    path = Path(path)
+    return _quarantined(path, path.stat().st_mtime_ns)
+
+
+@functools.lru_cache(maxsize=None)
+def _quarantined(path: Path, mtime_ns: int) -> frozenset:
     with open(path) as f:
         return frozenset(json.loads(line)["audit_id"] for line in f if line.strip())
 
