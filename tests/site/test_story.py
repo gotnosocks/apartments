@@ -35,6 +35,15 @@ def test_story_page_has_its_figures_and_their_tables(client):
     assert "style=" not in html
 
 
+def test_story_scans_listings_once_per_build(client, monkeypatch):
+    calls = []
+    pick = story.pick_listing
+    monkeypatch.setattr(story, "pick_listing", lambda db: calls.append(1) or pick(db))
+    first = _page(client)
+    assert _page(client) == first
+    assert len(calls) == 1
+
+
 def test_story_is_in_the_research_nav(client):
     html = _page(client)
     assert 'href="/research/story" aria-current="page"' in html

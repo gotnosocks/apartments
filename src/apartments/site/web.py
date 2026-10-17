@@ -1515,6 +1515,30 @@ def create_app(
             story_cache["cached"] = cached
         return cached[1]
 
+    def story_scans() -> tuple:
+        """The story's example listing, the neighbourhoods and the fit's
+        counts, which scan every listing (about a minute at 1.75M rows).
+        Worked out once per build, like story_checks()."""
+        conn = db()
+        cached = story_cache.get("scans")
+        if cached is None or cached[0] != g.build:
+            listing, current = story.pick_listing(conn)
+            areas = {
+                r[0]
+                for r in conn.execute("SELECT DISTINCT neighbourhood FROM listings")
+            }
+            counts = tuple(
+                conn.execute(
+                    "SELECT COUNT(*), COUNT(DISTINCT unit_id), "
+                    "COUNT(DISTINCT building_id), MIN(period), MAX(period) "
+                    "FROM listings WHERE in_fit = 1"
+                ).fetchone()
+            )
+            listing = dict(listing) if listing is not None else None
+            cached = (g.build, (listing, current, areas, counts))
+            story_cache["scans"] = cached
+        return cached[1]
+
     def has_quarantine() -> bool:
         """Builds before schema 2 have no quarantined table."""
         return (
@@ -2534,9 +2558,7 @@ def create_app(
         ) or describe(m["provenance"].get("model"))
         variance = (entry or {}).get("variance")
         coefficients = db().execute("SELECT * FROM coefficients").fetchall()
-        areas = {
-            r[0] for r in db().execute("SELECT DISTINCT neighbourhood FROM listings")
-        }
+        listing, current, areas, counts = story_scans()
         named = {
             c["feature"] for c in coefficients if c["feature_group"] == "neighbourhood"
         }
@@ -2548,7 +2570,6 @@ def create_app(
         concession = {
             c["feature"]: c for c in coefficients if "concession" in c["feature"]
         }
-        listing, current = story.pick_listing(db())
         build = story.build_up(
             listing,
             parts_of(listing) if listing is not None else None,
@@ -2557,14 +2578,6 @@ def create_app(
             likely=likely_of(listing) if listing is not None else None,
         )
         accuracy, jumps, units, borders = story_checks()
-        counts = (
-            db()
-            .execute(
-                "SELECT COUNT(*), COUNT(DISTINCT unit_id), COUNT(DISTINCT building_id), "
-                "MIN(period), MAX(period) FROM listings WHERE in_fit = 1"
-            )
-            .fetchone()
-        )
         rows = story.composition(anatomy, variance)
         explained = story.explained(entry)
         trials = story.theories(ledger.load())
