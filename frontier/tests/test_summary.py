@@ -279,6 +279,7 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
     }
     assert record["rows"] == 2 and record["rows_in_fit"] == 1
     assert record["data_rule_files"] == {}
+    assert "buildings_fraction" not in record
     assert not (tmp_path / "s.tmp").exists()
 
 
@@ -385,6 +386,40 @@ def test_verify_run_refuses_differing_rows_and_indexes(tmp_path):
         )
     with pytest.raises(SystemExit, match="units or buildings differ"):
         summary.verify_run(*args, np.array(["u1"]), prep.buildings)
+
+
+def test_without_a_building_fraction_the_summary_takes_every_row_as_before():
+    rng = np.random.default_rng(0)
+    buildings = rng.integers(0, 300, 5000)
+    heldout = rng.random(5000) < 0.2
+    keep = summary.building_sample(buildings, None)
+    train_idx, held_idx = summary.summary_rows(heldout, keep)
+    assert keep.all()
+    np.testing.assert_array_equal(train_idx, np.flatnonzero(~heldout))
+    np.testing.assert_array_equal(held_idx, np.flatnonzero(heldout))
+    np.testing.assert_array_equal(heldout[keep], heldout)
+
+
+def test_building_samples_nest_keep_whole_buildings_and_match_the_fraction():
+    rng = np.random.default_rng(1)
+    buildings = rng.integers(0, 20_000, 200_000)
+    samples = {f: summary.building_sample(buildings, f) for f in (0.01, 0.04, 0.16)}
+    assert not (samples[0.01] & ~samples[0.04]).any()
+    assert not (samples[0.04] & ~samples[0.16]).any()
+    for fraction, keep in samples.items():
+        kept = pd.Series(keep).groupby(buildings).agg(["min", "max"])
+        assert (kept["min"] == kept["max"]).all()
+        share = kept["min"].mean()
+        assert abs(share - fraction) < 4 * math.sqrt(fraction / len(kept))
+    # The sample depends on the building id alone, so a reordered frame keeps
+    # the same buildings.
+    order = rng.permutation(len(buildings))
+    np.testing.assert_array_equal(
+        summary.building_sample(buildings[order], 0.04), samples[0.04][order]
+    )
+    assert summary.building_sample(buildings, 1.0).all()
+    with pytest.raises(ValueError):
+        summary.building_sample(buildings, 0.0)
 
 
 def test_chunk_rows_bounds_the_batch():
