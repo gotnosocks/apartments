@@ -195,12 +195,19 @@ def test_row_tables_from_a_pool_match_the_tables_built_in_process():
         )
     tables = {}
     for workers in (1, 2):
-        t = summary.RowTables(workers)
-        for chunk in chunks:
-            t.add(*chunk)
-        tables[workers] = pd.concat(t.collect())
+        with summary.RowTables(workers) as t:
+            for chunk in chunks:
+                t.add(*chunk)
+            tables[workers] = pd.concat(t.collect())
     pd.testing.assert_frame_equal(tables[1], tables[2])
     assert len(tables[2]) == 5 * n
+
+
+def test_row_tables_drop_queued_chunks_on_an_error():
+    with pytest.raises(ZeroDivisionError):
+        with summary.RowTables(2) as t:
+            1 / 0
+    assert t.pool is None
 
 
 def test_present_terms_leave_out_terms_a_design_does_not_have():
