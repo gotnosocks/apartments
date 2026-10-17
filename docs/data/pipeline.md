@@ -136,12 +136,12 @@ nothing new in 4 s, and `--verify` checked the 62 files in 7 s. A copy of the fo
 sets add about 1.2 GB a year, and four PAD and four MapPLUTO releases about 0.5 GB.
 
 `apartments-city-fetch.timer` starts the script every Friday at 04:00 ET, before the StreetEasy
-top-up at 05:30. The service runs it on the system's Python from the build's checkout, capped at
-1 GiB. A second run exits at once while the first holds `.lock`. `--verify` checks each listed
-file's size and SHA-256. The units go in once:
+top-up at 05:30. The service moves `/data1/apartments/serve/master` to master and runs the
+script from there on the system's Python, capped at 1 GiB. A second run exits at once while the
+first holds `.lock`. `--verify` checks each listed file's size and SHA-256. The units go in once:
 
 ```sh
-cp /data1/apartments/pipeline/code/ops/systemd/apartments-city-fetch.{service,timer} ~/.config/systemd/user/
+cp /data1/apartments/serve/master/ops/systemd/apartments-city-fetch.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now apartments-city-fetch.timer
 ```

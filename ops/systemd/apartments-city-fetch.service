@@ -3,11 +3,15 @@ Description=Copy the city's bulk records of lots and buildings into the dated ar
 
 [Service]
 Type=oneshot
-# The script needs only the standard library, so it runs on the system's Python. It runs from
-# the build's checkout, and ops/pipeline/build-latest moves that checkout to master before each
-# build. Python loads the script once as it starts. The script reads pluto_releases.csv when it
-# comes to MapPLUTO, so a checkout during a fetch can change at most that table.
-ExecStart=/usr/bin/python3 /data1/apartments/pipeline/code/ops/pipeline/city.py
+# The script needs only the standard library, so it runs on the system's Python. Before each
+# run the service moves /data1/apartments/serve/master to master, as the dashboard build and the
+# Modal cleanup do, and then runs the script from there. When the fetch fails, the run goes on
+# with the copy as it was. Python loads the script once as it starts. The script reads
+# pluto_releases.csv when it comes to MapPLUTO, so a checkout during a fetch can change at most
+# that table.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
+ExecStart=/usr/bin/python3 /data1/apartments/serve/master/ops/pipeline/city.py
 TimeoutStartSec=6h
 # The script streams each file to disk in 1 MiB chunks.
 MemoryMax=1G
