@@ -90,8 +90,7 @@ def prepared(frame: pd.DataFrame, split: str, rules, feature_set: str) -> tuple:
         with open(tmp, "wb") as f:
             pickle.dump(design, f, protocol=pickle.HIGHEST_PROTOCOL)
         os.replace(tmp, cache)
-    except (
-        Exception
-    ):  # a failed write (disk, memory, pickling) still returns the design
+    except Exception:
+        # A failed write (disk, memory, pickling) still returns the design.
         tmp.unlink(missing_ok=True)
     return design
