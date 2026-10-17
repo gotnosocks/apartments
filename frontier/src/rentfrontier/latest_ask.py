@@ -28,6 +28,14 @@ Smaller changes on that day are mostly the final ask (a raise or cut as the
 listing is let) and count. A listing still on the market
 keeps all its changes, and changes dated on the day the listing went up always
 count, so a typo the advertiser fixed that same day gives way to the fix.
+Before that check, the builder drops every change dated more than a week after
+the off-market day, whatever its size, unless the record's status changes show
+the listing going ACTIVE again after that day. Brokers reuse an old ad's record
+for a later ad of the same apartment, so those changes carry a later ad's asks.
+The table for latest-ask-v10 goes further with `CLOSING_STALE_DAYS` and drops
+every change from the off-market day on, so each row ends at its last ask
+while listed. It keeps the changes of an ad listed and closed on the same day,
+and those of an ad that went ACTIVE again after its off day.
 
 Each row then takes the last kept change dated from the row's own day up to
 the day of its listing's next NB8 row, so two rows of one listing each keep
@@ -75,6 +83,14 @@ PLACEHOLDER_RATIO = 2.0
 # 189 of the first changes after an off-market day rise more than 20% to it,
 # against 92 to the next commonest price.
 PLACEHOLDER_PRICE, PLACEHOLDER_RAISE = 10000, 1.2
+# A change dated more than this many days after the off-market day edits an ad
+# long gone, unless the ad went ACTIVE again after that day. Listing 2273410 ran
+# for 5 days in December 2017, and its record carries changes to $2,250 and
+# $3,000 from March 2019, the asks of a later ad for the same apartment.
+STALE_DAYS = 7
+# latest-ask-v10 passes this as `stale_days`, so it also drops the changes dated
+# on the off-market day and in the week after it.
+CLOSING_STALE_DAYS = -1
 # A latest ask outside this factor of the first ask is checked against the
 # building's other rows (check 1).
 MAX_RATIO = 2.0
@@ -89,10 +105,20 @@ def _day(value) -> str | None:
     return str(value)[:10] if value else None
 
 
-def record_latest(raw: str) -> dict:
+def _stale(day: str, off: str | None, active: list[str], stale_days) -> bool:
+    """Whether a change on `day` falls more than `stale_days` days after the
+    off-market day `off`, with no ACTIVE status dated after `off`."""
+    if stale_days is None or off is None or any(a > off for a in active):
+        return False
+    return (dt.date.fromisoformat(day) - dt.date.fromisoformat(off)).days > stale_days
+
+
+def record_latest(raw: str, stale_days: int | None = STALE_DAYS) -> dict:
     """The kept price changes of one raw listing record, as (day, price) in date
     order, its page price when no change carries it, and its page price for the
-    digit check when no kept change carries it."""
+    digit check when no kept change carries it. `n_placeholder` counts the
+    changes dropped as placeholders or as stale; `stale_days=None` keeps the
+    stale ones."""
     d = json.loads(raw)
     pricing = d.get("pricing") or {}
     changes = sorted(
@@ -104,9 +130,16 @@ def record_latest(raw: str) -> dict:
         _day(d.get("offMarketAt")),
     )
     still = d.get("status") == "ACTIVE" or off is None
+    active = [
+        _day(c["changedAt"])
+        for c in d.get("statusChanges") or []
+        if c.get("status") == "ACTIVE" and c.get("changedAt")
+    ]
     kept = []
     for c in changes:
         day = _day(c["changedAt"])
+        if not still and day != on and _stale(day, off, active, stale_days):
+            continue
         if not (still or day < off or day == on) and kept:
             ratio = c["price"] / kept[-1]["price"]
             if ratio > PLACEHOLDER_RATIO or ratio < 1 / PLACEHOLDER_RATIO:

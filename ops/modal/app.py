@@ -46,7 +46,15 @@ POST_MARGIN = 10 * 60  # left before TIMEOUT for copying the outputs to the Volu
 OUTPUT = Path(
     "/data1/apartments/frontier"
 )  # rentfrontier's OUTPUT_ROOT in the container
-POST_KINDS = ("variance", "explained", "newbuilding", "summaries", "calibration")
+POST_KINDS = (
+    "variance",
+    "explained",
+    "newbuilding",
+    "summaries",
+    "calibration",
+    "maps",
+    "kits",
+)
 USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 # The new-building score (rentfrontier.newbuilding) is numpy over row chunks, one process
 # per core: a CPU container scores a run's kept draws in parallel after its fit.
@@ -58,6 +66,7 @@ NB_CPU, NB_MEMORY_MIB, NB_TIMEOUT = 32, 131072, 3600
 LARGE_CPU, LARGE_MEMORY_MIB = 8, 196608
 LARGE_FIT_CAP, LARGE_TIMEOUT = 9 * 3600, 12 * 3600
 LARGE_POST_MARGIN = 45 * 60  # copying a 1.75M-row run, LOO and bundle to the Volume
+PUBLISH_MARGIN = 15 * 60  # copying a bundle, kit and rent map to the Volume
 
 
 def usd_per_second(gpu, large=False):
@@ -156,10 +165,15 @@ def _summarize(spec, env, log, deadline):
 
 
 def _complete(d):
-    """A post-fit record finished writing: its result.json (a summary bundle: complete.json)
-    parses (a step its cap killed mid-write leaves none)."""
+    """A post-fit record finished writing: its result.json (a summary bundle or kit:
+    complete.json; a rent map: map.json) parses (a step its cap killed mid-write leaves none)."""
     try:
-        record = "complete.json" if d.parent.name == "summaries" else "result.json"
+        record = {
+            "summaries": "complete.json",
+            "kits": "complete.json",
+            "maps": "map.json",
+        }
+        record = record.get(d.parent.name, "result.json")
         json.loads((d / record).read_text())
         return True
     except (OSError, ValueError):
@@ -184,7 +198,83 @@ def _stage(spec):
     subprocess.run(["git", "-C", WORK, "config", "core.fileMode", "false"], check=True)
 
 
+def publish_steps(spec):
+    """The publish steps for a fit already on the Volume (fit.py --publish-only), as
+    ops/autoselect-publish.sh runs them on thelio, as (step, steps it needs, rentfrontier
+    arguments). The kit and calibration read the bundle the summary writes, found once it
+    exists. The rent map reads only the run, so it runs last and alone."""
+    name = spec["name"]
+    failing = ["--allow-failing"] if spec.get("allow_failing") else []
+    return [
+        ("summary", (), lambda: ["rentfrontier.summary", name, *failing]),
+        ("kit", ("summary",), lambda: ["rentfrontier.kit", name, "--summary", str(_bundle(name)), *failing]),
+        ("calibration", ("summary",), lambda: ["rentfrontier.calibration", str(_bundle(name))]),
+        ("rentmap", (), lambda: ["rentfrontier.rentmap", name]),
+    ]  # fmt: skip
+
+
+def _bundle(name):
+    bundles = sorted((OUTPUT / "summaries").glob(f"{name}-*/complete.json"))
+    return bundles[-1].parent
+
+
+def _publish(spec):
+    """Build a downloaded fit's summary bundle, calibration, rent map and estimate kit from its
+    run on the Volume, for a run too large for thelio's memory. The run and LOO stay on the
+    Volume as they are; the new directories go to /vol/out/<name>-publish/. A step whose
+    summary failed is skipped, and so is every step left once spec["publish_seconds"] or the
+    container's timeout runs out. The exit is 0 only if every step succeeded."""
+    started = time.time()
+    _stage(spec)
+    name = spec["name"]
+    src = Path("/vol/out") / name
+    shutil.copytree(src / "run", RUNS / name, dirs_exist_ok=True)
+    for kind, dst in (("loo", LOO), ("variance", OUTPUT / "variance")):
+        if (src / kind).is_dir():
+            shutil.copytree(src / kind, dst, dirs_exist_ok=True)
+    out = Path("/vol/out") / f"{name}-publish"
+    out.mkdir(parents=True, exist_ok=True)
+    env = dict(
+        os.environ,
+        PYTHONPATH=f"{WORK}/frontier/src",
+        FRONTIER_DATASET=spec["dataset"],
+        XLA_PYTHON_CLIENT_PREALLOCATE="false",
+        PYTHONUNBUFFERED="1",
+    )
+    deadline = started + min(
+        LARGE_TIMEOUT - PUBLISH_MARGIN, spec.get("publish_seconds", LARGE_TIMEOUT)
+    )
+    done = {}
+    with open(out / "publish.log", "w") as log:
+        for step, needs, args in publish_steps(spec):
+            left = int(deadline - time.time())
+            if left < 60 or any(done[n]["exit"] != 0 for n in needs):
+                done[step] = {"exit": "skipped"}
+                continue
+            t = time.time()
+            try:
+                code = _run(["/venv/bin/python", "-m", *args()], env, log, left)
+            except Exception as e:  # noqa: BLE001
+                code = repr(e)
+            done[step] = {"exit": code, "seconds": round(time.time() - t, 1)}
+    for kind in POST_KINDS:
+        for d in (OUTPUT / kind).glob(f"{name}-*"):
+            if d.is_dir() and _complete(d):
+                shutil.copytree(d, out / kind / d.name, dirs_exist_ok=True)
+    meta = {
+        "name": name,
+        "exit": next((d["exit"] for d in done.values() if d["exit"] != 0), 0),
+        "post": done,
+        "wall_seconds": time.time() - started,
+    }
+    (out / "publish.json").write_text(json.dumps(meta, indent=2))
+    volume.commit()
+    return meta
+
+
 def _fit(spec):
+    if spec.get("publish_only"):
+        return _publish(spec)
     started = time.time()
     _stage(spec)
     staged = time.time() - started

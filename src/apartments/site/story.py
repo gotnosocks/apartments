@@ -358,14 +358,20 @@ def pick_listing(db):
     reliably estimated, the one with the median ask (ties by id), from those
     available now when any are. Returns (listing, available now)."""
     for current in (True, False):
-        rows = db.execute(
-            "SELECT * FROM listings WHERE in_fit = 1 AND reliable = 1 "
+        where = (
+            " FROM listings WHERE in_fit = 1 AND reliable = 1 "
             "AND contributions IS NOT NULL AND ask IS NOT NULL"
             + (" AND is_current = 1" if current else "")
-            + " ORDER BY ask, id"
-        ).fetchall()
-        if rows:
-            return rows[(len(rows) - 1) // 2], current
+        )
+        (count,) = db.execute("SELECT COUNT(*)" + where).fetchone()
+        if count:
+            # Only the median row leaves SQLite: a build of every borough
+            # holds over a million listings.
+            row = db.execute(
+                "SELECT *" + where + " ORDER BY ask, id LIMIT 1 OFFSET ?",
+                ((count - 1) // 2,),
+            ).fetchone()
+            return row, current
     return None, False
 
 
@@ -438,12 +444,28 @@ def borders(
     def median(v):
         return statistics.median(v) if v else None
 
+    def box(points):
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        return min(xs), min(ys), max(xs), max(ys)
+
+    def apart(u, v):
+        return (
+            u[0] - v[2] >= reach
+            or v[0] - u[2] >= reach
+            or u[1] - v[3] >= reach
+            or v[1] - u[3] >= reach
+        )
+
     out = []
     names = sorted(by)
+    grids = {n: grid(by[n]) for n in names}
+    boxes = {n: box(by[n]) for n in names}
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
+            if apart(boxes[a], boxes[b]):
+                continue
             pts = []
-            for side, own, other in ((-1, by[a], grid(by[b])), (1, by[b], grid(by[a]))):
+            for side, own, other in ((-1, by[a], grids[b]), (1, by[b], grids[a])):
                 for p in own:
                     d = nearest(p, other)
                     if d is not None and d < reach:
@@ -1146,7 +1168,10 @@ AREA_WORDS = {
     "nb7": "NoMad",
     "nb8": "East Village",
     "nb9": "Hell's Kitchen and Hudson Yards",
+    "all": "every other scraped neighbourhood in Manhattan and Brooklyn",
 }
+# Feature sets named for their area alone, with the area and body they take.
+WHOLE_SETS = {"all-scraped": ("all", "nostuy-lots2")}
 SET_WORDS = {
     "unitdesc": "words from the ads",
     "unitdescpluto": "words from the ads and city building records",
@@ -1193,19 +1218,21 @@ def set_words(body: str) -> str:
 _PR = re.compile(r"\(#(\d+)\)")
 _NB_SET = re.compile(r"^nb\d*$")
 _UNIT_SET = re.compile(r"^unit")
+_ALL_SET = re.compile(r"^all$")
 
 
 def design_terms(run: str) -> tuple[list[str], str] | None:
     """A frontier run's model terms and feature set, from its name:
     `m7-nocurves-floorslope-nb3-coded-v2-rows-…` → (["nocurves",
-    "floorslope"], "nb3-coded-v2"). The set starts at the first `nb` token,
-    or else at the first `unit` token, since a term such as `unitnu4` can
-    come before an `nb` set. None for a name in another form."""
+    "floorslope"], "nb3-coded-v2"). The set starts at an `all` token, or
+    else at the first `nb` token, or else at the first `unit` token, since a
+    term such as `unitnu4` can come before the set. None for a name in
+    another form."""
     head = run.split("-rows-")[0]
     tokens = head.split("-")
     if len(tokens) < 2 or not re.fullmatch(r"m\d+\w*", tokens[0]):
         return None
-    for start in (_NB_SET, _UNIT_SET):
+    for start in (_ALL_SET, _NB_SET, _UNIT_SET):
         for i, token in enumerate(tokens[1:], 1):
             if start.match(token):
                 return tokens[1:i], "-".join(tokens[i:])
@@ -1264,7 +1291,10 @@ def term_words(term: str) -> str:
 
 def _set_parts(feature_set: str) -> tuple[str, str, str]:
     """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
-    "unitfacing", "v5")."""
+    "unitfacing", "v5"); `all-scraped-v1` → ("all", "nostuy-lots2", "v1")."""
+    m = re.fullmatch(r"([a-z][a-z0-9-]*?)-(v\d+)", feature_set or "")
+    if m and m.group(1) in WHOLE_SETS:
+        return (*WHOLE_SETS[m.group(1)], m.group(2))
     m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z0-9-]*?)(?:-(v\d+))?", feature_set or "")
     if not m:
         return "", feature_set or "", ""
@@ -1593,32 +1623,34 @@ def bed_phrase(bedrooms) -> str:
 
 def rent_jumps(db) -> dict | None:
     """The jumps between a unit's consecutive listings, by the years between
-    them, and the median-sized one as an example."""
-    rows = [r for r in db.execute(_PAIRS).fetchall() if r["years"] is not None]
-    jumps = [r for r in rows if r["jump"]]
+    them, and the median-sized one as an example. The pairs stream past
+    once: only the jumps are kept, and the gap groups are counted."""
+    pairs = 0
+    counts = [[0, 0] for _ in GAPS]
+    jumps = []
+    for r in db.execute(_PAIRS):
+        if r["years"] is None:
+            continue
+        pairs += 1
+        for (lo, hi, _), c in zip(GAPS, counts):
+            if r["years"] >= lo and (hi is None or r["years"] < hi):
+                c[0] += 1
+                c[1] += bool(r["jump"])
+        if r["jump"]:
+            jumps.append(r)
     if not jumps:
         return None
-    gaps = []
-    for lo, hi, words in GAPS:
-        group = [
-            r for r in rows if r["years"] >= lo and (hi is None or r["years"] < hi)
-        ]
-        if group:
-            n = sum(r["jump"] for r in group)
-            gaps.append(
-                {
-                    "words": words,
-                    "pairs": len(group),
-                    "jumps": n,
-                    "share": 100 * n / len(group),
-                }
-            )
+    gaps = [
+        {"words": words, "pairs": n, "jumps": j, "share": 100 * j / n}
+        for (_, _, words), (n, j) in zip(GAPS, counts)
+        if n
+    ]
     jumps.sort(
         key=lambda r: (abs(math.log(r["ask"] / r["prev_ask"])), r["unit_id"], r["at"])
     )
     e = jumps[(len(jumps) - 1) // 2]
     return {
-        "pairs": len(rows),
+        "pairs": pairs,
         "jumps": len(jumps),
         "late": 100 * sum(r["years"] >= 2 for r in jumps) / len(jumps),
         "gaps": gaps,
@@ -1651,11 +1683,10 @@ def unit_examples(db) -> dict:
     its name the most ways, and a clean split: the unit with the most pieces
     whose bedroom count and ask both rise from piece to piece, three pieces
     preferred so the example stays short."""
-    units: dict = {}
-    for r in db.execute(_UNIT_ROWS):
-        units.setdefault(r["base"], []).append(r)
     joined = split = None
-    for base, rows in units.items():
+
+    def consider(base, rows):
+        nonlocal joined, split
         labels = list(dict.fromkeys(r["unit_label"] for r in rows if r["unit_label"]))
         ids = list(dict.fromkeys(r["unit_id"] for r in rows))
         if len(ids) == 1 and len(labels) > 1:
@@ -1673,6 +1704,17 @@ def unit_examples(db) -> dict:
                 key = (len(pieces) == 3, len(pieces), len(rows), base)
                 if split is None or key > split[0]:
                     split = (key, pieces)
+
+    # the rows come sorted by base, so each unit's run is weighed and dropped
+    base, rows = None, []
+    for r in db.execute(_UNIT_ROWS):
+        if r["base"] != base and rows:
+            consider(base, rows)
+            rows = []
+        base = r["base"]
+        rows.append(r)
+    if rows:
+        consider(base, rows)
     out = {}
     if joined:
         _, rows, labels = joined

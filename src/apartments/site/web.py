@@ -45,6 +45,7 @@ from markupsafe import Markup
 from . import (
     ad_dates,
     best,
+    boroughs,
     charts,
     estimate,
     estimate_build,
@@ -215,15 +216,19 @@ class Filters:
             self.per = 50
         self.page = max(1, _int(args.get("page"), 1))
         self.building = None
+        # The neighbourhoods `nb` stands for, set by the route.
+        self.areas = None
 
     def where(self):
         clauses, params = [], []
         if self.building:
             clauses.append("l.building_id = ?")
             params.append(self.building)
-        if self.nb:
-            clauses.append("l.neighbourhood = ?")
-            params.append(self.nb)
+        if self.areas:
+            clauses.append(
+                "l.neighbourhood IN (" + ", ".join("?" * len(self.areas)) + ")"
+            )
+            params += self.areas
         if self.q:
             clauses.append(
                 "(b.search LIKE ? ESCAPE '\\' OR l.unit_label LIKE ? ESCAPE '\\')"
@@ -685,7 +690,9 @@ def create_app(
         if "meta" not in g:
             g.meta = {
                 row["key"]: json.loads(row["value"])
-                for row in db().execute("SELECT key, value FROM meta")
+                for row in db().execute(
+                    "SELECT key, value FROM meta WHERE key != 'story_checks'"
+                )
             }
         return g.meta
 
@@ -817,6 +824,7 @@ def create_app(
             nbs = {}
         return {
             "neighbourhoods": nbs,
+            "boroughs": boroughs.grouped(nbs),
             # Several neighbourhoods are named by their count, not listed (Ben, 2026-10-09).
             "all_areas": (
                 "both neighbourhoods"
@@ -1369,7 +1377,8 @@ def create_app(
         return meta().get("stats", {}).get("neighbourhoods") or {}
 
     def checked(filters: Filters) -> Filters:
-        if filters.nb not in neighbourhoods():
+        filters.areas = boroughs.areas(filters.nb, neighbourhoods())
+        if filters.areas is None:
             filters.nb = None
         if not has_exposure():
             filters.faces = None
@@ -1421,15 +1430,21 @@ def create_app(
     story_cache: dict = {}
 
     def story_checks() -> tuple:
-        """The story's held-out accuracy, rent jumps and unit examples, which
-        scan every listing; read once per build, swapped in whole like
-        exposures()."""
+        """The story's held-out accuracy, rent jumps, unit examples and
+        borders, which scan every listing. Builds work them out into meta;
+        older builds get them worked out here. Read once per build, swapped
+        in whole like exposures()."""
         conn = db()  # also sets g.build
         cached = story_cache.get("cached")
         if cached is None or cached[0] != g.build:
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key = 'story_checks'"
+            ).fetchone()
             cached = (
                 g.build,
-                (
+                tuple(json.loads(row["value"]))
+                if row
+                else (
                     story.accuracy(conn),
                     story.rent_jumps(conn),
                     story.unit_examples(conn),
@@ -1567,14 +1582,15 @@ def create_app(
         order = order if order in ("asc", "desc") else default
         page = max(1, _int(request.args.get("page"), 1))
         nb = request.args.get("nb")
-        nb = nb if nb in neighbourhoods() else None
+        areas = boroughs.areas(nb, neighbourhoods())
+        nb = nb if areas else None
         clauses, params = [], []
         if q:
             clauses.append("b.search LIKE ? ESCAPE '\\'")
             params.append("%" + _escape_like(q.lower()) + "%")
-        if nb:
-            clauses.append("b.neighbourhood = ?")
-            params.append(nb)
+        if areas:
+            clauses.append("b.neighbourhood IN (" + ", ".join("?" * len(areas)) + ")")
+            params += areas
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         total = (
             db()

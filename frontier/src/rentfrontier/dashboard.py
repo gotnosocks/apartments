@@ -774,6 +774,9 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v9": "bedrooms-ad-v8, and Trump World Tower 53B and 63B as 3 "
     "bedrooms: their 2026 ads say 3 bedrooms and the apartments' other ads agree at "
     "2,854 square feet. No listing is dropped.",
+    "bedrooms-ad-v10": "bedrooms-ad-v9, and 68 Clinton St #4A and #4B as 3 bedrooms: "
+    "six ads offer a 5 room duplex coded as a studio or one-bedroom, and the units' "
+    "other ads call it a 3 bedroom duplex. No listing is dropped.",
     "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
     "more than 1.5x off the size the apartment's other listings, or the other "
     "apartments of its line, agree on. No listing is dropped.",
@@ -911,6 +914,17 @@ DATA_RULE_TEXT = {
     "3E, a 2,500 sq ft loft at 407 West 39th Street filed under a studio, and a "
     "top-floor duplex at 780 Greenwich Street filed under a one-bedroom. Judged from "
     "ad text, pages and sizes, not rent. No listing is dropped.",
+    "unit-reviews-v3": "The unit-reviews-v2 lines, and 4 listings at 870 Broadway split "
+    "off the one-bedrooms of 30 East 18th Street, which shares the building's page: "
+    "their records give the address 870 Broadway and sizes of 875 to 1,000 sq ft, "
+    "against 625 to 722 sq ft for the East 18th Street apartments filed under the "
+    "same unit numbers. No listing is dropped.",
+    "unit-reviews-v4": "The unit-reviews-v3 lines, with the 870 Broadway loft ad filed "
+    "as #2 moved into the #3 loft's unit: the two ads carry the same copy and 1,000 sq "
+    "ft, and the #3 ad went up 16 days after the #2 ad came off. No listing is dropped.",
+    "unit-reviews-v5": "The unit-reviews-v4 lines, with 444 West 20th Street's #1 joined "
+    "to #GARDEN: the ads under both labels offer the same garden and parlor duplex in the "
+    "same words, down to a February 2018 move-in. No listing is dropped.",
 }
 
 

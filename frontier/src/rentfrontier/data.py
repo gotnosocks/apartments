@@ -868,6 +868,22 @@ def correct_bedrooms_v9(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v8(frame), "bedrooms-ad-v9")
 
 
+BEDROOM_CORRECTIONS_V10 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v10-20261017.jsonl"
+)
+
+
+def correct_bedrooms_v10(frame: pd.DataFrame) -> pd.DataFrame:
+    """v9's rows, then 68 Clinton Street #4A and #4B as 3 bedrooms on their six
+    ads (2015 to 2022) coded as studios or one-bedrooms. Each ad offers a "5 room
+    duplex", and the same units' other ads (2014 and 2023 to 2026) are coded 3
+    bedrooms and offer a 3 bedroom duplex. Two #4A ads read it as 2 bedrooms, one
+    of them "2 bedroom/Conv 3", and no ad backs a studio or one-bedroom.
+
+    Every row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v9(frame), "bedrooms-ad-v10")
+
+
 # Recorded square feet that disagree with the unit's other listings, read
 # against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
 SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
@@ -1120,6 +1136,15 @@ def _join_units(frame: pd.DataFrame, groups: list[dict]) -> pd.DataFrame:
 # Reviewed units, second version (2026-10-14): the joins above, verbatim, and
 # listings split off the unit they were filed under.
 UNIT_REVIEWS = UNIT_JOINS.with_name("unit-reviews-20261014.jsonl")
+# unit-reviews-v3: v2's lines, and 870 Broadway's townhouse lofts split off the
+# 30 East 18th Street one-bedrooms filed under the same unit numbers.
+UNIT_REVIEWS_V3 = UNIT_JOINS.with_name("unit-reviews-20261017.jsonl")
+# unit-reviews-v4: v3's lines, and 870 Broadway's #2 loft listing moved into the #3
+# loft's unit, since both ads give the same copy and size.
+UNIT_REVIEWS_V4 = UNIT_JOINS.with_name("unit-reviews-20261017b.jsonl")
+# unit-reviews-v5: v4's lines, and 444 West 20th Street's #1 joined to #GARDEN, the
+# same garden and parlor duplex by its ad copy.
+UNIT_REVIEWS_V5 = UNIT_JOINS.with_name("unit-reviews-20261017c.jsonl")
 
 
 def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame:
@@ -1132,7 +1157,10 @@ def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame
        Place, the 2020 ads for an 1,800 sq ft duplex filed under unit 2, whose
        2014 ads give 900 to 950 sq ft. The rows of those listings get the id
        `{unit_id}~review-{first listing}`, which unit-splits then pieces like
-       any other unit, since it runs last.
+       any other unit, since it runs last. A line with an `into` key gives
+       them that unit id instead, so a later line can put a split listing
+       into another split's unit: at 870 Broadway, a #2 ad and a #3 ad with the
+       same copy and size go into one unit.
 
     Rows are unchanged apart from their unit ids."""
     with open(path) as f:
@@ -1145,7 +1173,8 @@ def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame
             & (out.unit_id == s["unit_id"])
             & listing.isin(s["source_listing_ids"])
         )
-        out.loc[hit, "unit_id"] = f"{s['unit_id']}~review-{s['source_listing_ids'][0]}"
+        piece = s.get("into", f"{s['unit_id']}~review-{s['source_listing_ids'][0]}")
+        out.loc[hit, "unit_id"] = piece
     return out
 
 
@@ -1662,6 +1691,34 @@ def quarantine_v33(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V33))]
 
 
+QUARANTINE_V34 = QUARANTINE_V20.with_name("quarantine-v34-20261017.jsonl")
+
+
+def quarantine_v34(frame: pd.DataFrame) -> pd.DataFrame:
+    """v33's rows and 15 more. A Sonnet reader read the candidates from the
+    drop-lot review (#975) and the mixing review of the all-scraped gate failures
+    (`config/reviews/quarantine-v34-20261017.jsonl` gives each quote). The rows
+    dropped here are
+
+    - 8 storefronts, offices and commercial lofts in Brooklyn,
+    - 1 Ridgewood, Queens apartment joined to 18 Bleecker Street in Manhattan,
+    - 1 ask of $21,545 for a Bed-Stuy studio, with only the ad's own text to
+      back a corrected figure,
+    - 3 Carlyle hotel stays of one month to a year,
+    - 2 income-restricted lottery units at 9 Cook Street."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V34))]
+
+
+QUARANTINE_V35 = QUARANTINE_V20.with_name("quarantine-v35-20261017.jsonl")
+
+
+def quarantine_v35(frame: pd.DataFrame) -> pd.DataFrame:
+    """v34's rows and 1 more: a Bushwick 2-bedroom ad filed under 124 De Kalb
+    Avenue #3 in Fort Greene. The same copy runs at 1248 De Kalb Avenue #3L, so
+    the record's address most likely lost a digit."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V35))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1739,6 +1796,29 @@ LATEST_ASK_V7 = Path(
 LATEST_ASK_V8 = Path(
     "/data1/apartments/external/latest-ask/20261016-5f07157-all-askcheck/latest-ask.parquet"
 )
+
+# LATEST_ASK_V8 with each row repriced after dropping price changes dated more
+# than a week after the ad's off-market day (`latest_ask.STALE_DAYS`), unless the
+# ad went ACTIVE again after that day. Such changes carry a later ad's asks for
+# the same apartment. complete.json gives the counts, changed.csv each row.
+LATEST_ASK_V9 = Path(
+    "/data1/apartments/external/latest-ask/20261017-dba39e0-all-stale/latest-ask.parquet"
+)
+
+# LATEST_ASK_V9 with each row repriced after also dropping the price changes dated
+# on the ad's off-market day and in the week after it
+# (`latest_ask.CLOSING_STALE_DAYS`). Most such changes raise the ask as the ad
+# closes, and a fit with this table tests whether they belong in the target.
+LATEST_ASK_V10 = Path(
+    "/data1/apartments/external/latest-ask/20261017-c201c11-all-closing/latest-ask.parquet"
+)
+
+# Rule versions a fit has yet to test. `autoselect.current_rules` passes over
+# them, so the current set keeps the family's previous version until a fit with
+# the trial version wins and its name leaves this set. latest-ask-v10 moves
+# about 105,000 asks on a reading of off-day price changes the data leave open
+# (the let rent, or edits unrelated to it).
+TRIAL_RULES = frozenset({"latest-ask-v10"})
 
 
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
@@ -2035,6 +2115,7 @@ DATA_RULES = {
     "bedrooms-ad-v7": correct_bedrooms_v7,
     "bedrooms-ad-v8": correct_bedrooms_v8,
     "bedrooms-ad-v9": correct_bedrooms_v9,
+    "bedrooms-ad-v10": correct_bedrooms_v10,
     "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
@@ -2069,6 +2150,8 @@ DATA_RULES = {
     "quarantine-v31": quarantine_v31,
     "quarantine-v32": quarantine_v32,
     "quarantine-v33": quarantine_v33,
+    "quarantine-v34": quarantine_v34,
+    "quarantine-v35": quarantine_v35,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -2077,6 +2160,8 @@ DATA_RULES = {
     "latest-ask-v6": functools.partial(latest_ask_v3, path=LATEST_ASK_V6),
     "latest-ask-v7": functools.partial(latest_ask_v3, path=LATEST_ASK_V7),
     "latest-ask-v8": functools.partial(latest_ask_v3, path=LATEST_ASK_V8),
+    "latest-ask-v9": functools.partial(latest_ask_v3, path=LATEST_ASK_V9),
+    "latest-ask-v10": functools.partial(latest_ask_v3, path=LATEST_ASK_V10),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -2086,6 +2171,9 @@ DATA_RULES = {
     "pets-from-ad-v2": pets_from_ad_v2,
     "unit-reviews-v1": join_reviewed_units,
     "unit-reviews-v2": review_units,
+    "unit-reviews-v3": functools.partial(review_units, path=UNIT_REVIEWS_V3),
+    "unit-reviews-v4": functools.partial(review_units, path=UNIT_REVIEWS_V4),
+    "unit-reviews-v5": functools.partial(review_units, path=UNIT_REVIEWS_V5),
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
         join_reviewed_units, path=UNIT_JOINS_20261007
@@ -2131,6 +2219,8 @@ RULE_SOURCES = {
     "quarantine-v31": QUARANTINE_V31,
     "quarantine-v32": QUARANTINE_V32,
     "quarantine-v33": QUARANTINE_V33,
+    "quarantine-v34": QUARANTINE_V34,
+    "quarantine-v35": QUARANTINE_V35,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -2139,11 +2229,16 @@ RULE_SOURCES = {
     "latest-ask-v6": LATEST_ASK_V6,
     "latest-ask-v7": LATEST_ASK_V7,
     "latest-ask-v8": LATEST_ASK_V8,
+    "latest-ask-v9": LATEST_ASK_V9,
+    "latest-ask-v10": LATEST_ASK_V10,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "pets-from-ad-v2": PETS_FROM_AD_V2,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v2": UNIT_REVIEWS,
+    "unit-reviews-v3": UNIT_REVIEWS_V3,
+    "unit-reviews-v4": UNIT_REVIEWS_V4,
+    "unit-reviews-v5": UNIT_REVIEWS_V5,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
@@ -2168,6 +2263,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v7": BEDROOM_CORRECTIONS_V7,
     "bedrooms-ad-v8": BEDROOM_CORRECTIONS_V8,
     "bedrooms-ad-v9": BEDROOM_CORRECTIONS_V9,
+    "bedrooms-ad-v10": BEDROOM_CORRECTIONS_V10,
     "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
@@ -2206,6 +2302,8 @@ DROPPING_RULES = (
     "quarantine-v31",
     "quarantine-v32",
     "quarantine-v33",
+    "quarantine-v34",
+    "quarantine-v35",
 )
 
 

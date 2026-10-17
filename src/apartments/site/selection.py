@@ -6,7 +6,16 @@ import json
 from pathlib import Path
 
 SELECTION = Path(__file__).resolve().parents[3] / "config" / "main-analysis.json"
-SELECTION_FIELDS = ("run", "model", "selected_by", "selection_reason", "uncertainty")
+# gate_override: {"by", "at", "reason"}, written when someone with the say
+# chooses to serve a run that fails the convergence gate.
+SELECTION_FIELDS = (
+    "run",
+    "model",
+    "selected_by",
+    "selection_reason",
+    "uncertainty",
+    "gate_override",
+)
 
 
 def selection_note(selection: Path, bundle_sha256: str | None) -> dict | None:

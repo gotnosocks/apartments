@@ -43,10 +43,10 @@ steps:
      - `analysis_price_basis` as `historical_initial_own_advertisement_ask` and
        `description_interpreted_at` as null on every row.
 5. It writes `manifest.json`, with the build's files and their SHA-256, the catalog line's
-   build time, code and ledger files, the written neighbourhoods with their row counts, the
-   renames with the rows each moved, the audit ID
-   sources with their SHA-256, the counts of each kind of audit ID, the audit IDs the served
-   dataset gives otherwise, and the SHA-256 of `observations.jsonl`.
+   build time, code, ledger files and stale days, the written neighbourhoods with their row
+   counts, the renames with the rows each moved, the audit ID sources with their SHA-256, the
+   counts of each kind of audit ID, the audit IDs the served dataset gives otherwise, and the
+   SHA-256 of `observations.jsonl`.
 
 It writes both files into a hidden folder beside OUT and renames the folder to OUT at the end. It
 refuses an OUT already there.
@@ -54,7 +54,7 @@ refuses an OUT already there.
 With `--check-against DATASET`, the script writes nothing to OUT. It loads OUT and DATASET with
 `rentfrontier.data.load`, its cache in a temporary folder, matches their rows by ad and counts
 the differences field by field. Before comparing, it gives DATASET's rows the asks of the
-chain's latest ask rule, `latest-ask-v8` unless `--latest-ask` names another, and it compares the
+chain's latest ask rule, `latest-ask-v9` unless `--latest-ask` names another, and it compares the
 rows file's first asks with DATASET's own asks. It then puts each difference down to the first
 of these causes to fit, checked in this order:
   - the ad has a live ledger set of the field,
@@ -67,7 +67,7 @@ of these causes to fit, checked in this order:
     `--chain-run` and `--export` give others,
   - for an ask, DATASET also prices the ad's current page in a row of its own, and its
     first-ask row ends at that row's price,
-  - DATASET's ask matches under the rule before `latest-ask-v8` only,
+  - DATASET's ask matches under the rule before `latest-ask-v9` only,
   - `has_description` follows from the null `description_interpreted_at`.
 A difference fitting none of them counts as unexplained. The script sorts the rows of one side
 alone by their ad's fate in the build's ads file. `--report FILE` saves the counts and up to 50
@@ -156,6 +156,7 @@ def pick_build(catalog: Path, rows: Path | None, ads: Path | None) -> dict:
         "built": line.get("built"),
         "code": line.get("code"),
         "ledger": line.get("ledger", {}).get("files"),
+        "stale_days": line.get("stale_days"),
     }
     return files
 
@@ -501,7 +502,9 @@ def check(
         ref = side(data, db, api, Path(cache))[0] if api else None
     theirs["first_ask"] = theirs.asking_rent
     theirs = data.DATA_RULES[rule](theirs).drop(columns="log_rent")
-    previous = {"latest-ask-v8": "latest-ask-v7"}.get(rule)
+    previous = {"latest-ask-v9": "latest-ask-v8", "latest-ask-v8": "latest-ask-v7"}.get(
+        rule
+    )
     if previous:
         theirs[previous] = data.DATA_RULES[previous](theirs).asking_rent.to_numpy()
     first = db.execute(
@@ -702,7 +705,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--served", type=Path)
     parser.add_argument("--audit-ids", type=Path)
     parser.add_argument("--check-against", type=Path)
-    parser.add_argument("--latest-ask", default="latest-ask-v8")
+    parser.add_argument("--latest-ask", default="latest-ask-v9")
     parser.add_argument("--api-reference", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--export", type=Path, default=EXPORT)

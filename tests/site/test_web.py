@@ -408,6 +408,37 @@ def test_research_model_page(client):
     assert "Convergence gate</dt><dd>passes" in html
 
 
+def test_pages_say_when_a_failing_model_is_served_by_decision(tmp_path, make_bundle):
+    from apartments.site import build
+
+    bundle = make_bundle(tmp_path / "failing", gate=False)
+    selection = tmp_path / "selection.json"
+    selection.write_text(
+        json.dumps(
+            {
+                "summary_manifest_sha256": build.sha256(bundle / "complete.json"),
+                "selected_by": "Ben",
+                "selection_reason": "It covers every borough.",
+                "gate_override": {
+                    "by": "Ben",
+                    "at": "2026-10-17T04:19-04:00",
+                    "reason": "Serve the full fit.",
+                },
+            }
+        )
+    )
+    root = tmp_path / "site"
+    build.build(bundle, root, selection=selection)
+    client = create_app(root).test_client()
+    home = client.get("/").get_data(as_text=True)
+    assert "The sampler did not fully settle on this model" in home
+    assert "Ben chose to serve it anyway." in home
+    model = client.get("/research/model").get_data(as_text=True)
+    assert "This model fails the convergence gate (max R-hat" in model
+    assert "Ben chose on 2026-10-17 to serve it anyway:" in model
+    assert "Serve the full fit." in model
+
+
 def test_research_model_page_shows_the_selection_and_decision(
     tmp_path, bundle, research_file
 ):
@@ -1058,6 +1089,14 @@ def test_neighbourhoods_filter_listings_and_buildings(
     )  # an unknown neighbourhood is ignored
     buildings = client.get("/buildings?nb=Chelsea").get_data(as_text=True)
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
+    # one borough: no whole-borough choice, and its name is ignored
+    assert "All of Manhattan" not in html
+    assert (
+        client.get("/listings?nb=Manhattan")
+        .get_data(as_text=True)
+        .count('href="/listings/a')
+        == 6
+    )
     page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
     assert '<p class="subline">West Village · ' in page
     # several neighbourhoods are named by their count, not listed (Ben, 2026-10-09)
@@ -1074,6 +1113,28 @@ def test_neighbourhoods_filter_listings_and_buildings(
     assert "listings in both neighbourhoods (Chelsea and West Village)," in about
     story = client.get("/research/story").get_data(as_text=True)
     assert "one one-bedroom across both neighbourhoods ask" in story
+
+
+def test_two_boroughs_offer_each_borough_as_a_choice(
+    tmp_path, make_bundle, research_file
+):
+    from apartments.site import build
+
+    bundle = make_bundle(
+        tmp_path / "bk",
+        neighbourhoods={"134-west-23-street-new_york": "Williamsburg"},
+    )
+    root = tmp_path / "bk-site"
+    build.build(bundle, root, scope="Chelsea and Williamsburg")
+    client = create_app(root, research_data=research_file).test_client()
+    html = client.get("/listings").get_data(as_text=True)
+    assert '<optgroup label="Brooklyn">' in html
+    assert '<option value="Brooklyn">All of Brooklyn (2)</option>' in html
+    brooklyn = client.get("/listings?nb=Brooklyn").get_data(as_text=True)
+    assert brooklyn.count('href="/listings/a') == 2
+    assert '<option value="Brooklyn" selected>' in brooklyn
+    buildings = client.get("/buildings?nb=Manhattan").get_data(as_text=True)
+    assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
 
 
 def test_elegance_page_lists_every_judgement(client):

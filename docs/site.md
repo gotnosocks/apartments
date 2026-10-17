@@ -69,13 +69,19 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
 Neighbourhoods: every listing and building carries one (the summary's `neighbourhood` per row,
 else the dataset's, else the build's `--scope`, or "Chelsea" when no `--scope` is given). Without
 `--scope` the site's name for the area comes from the listings' neighbourhoods ("Chelsea and West
-Village"; `build.scope_of`), which pages use where they describe the data's coverage; the site's
+Village"; `build.scope_of`). Past twelve names, `boroughs.scope_words` gives the boroughs instead
+("Manhattan and Brooklyn"). Pages use that name where they describe the data's coverage; the site's
 title, header and home heading read "NYC Rents" whatever the scope. Where every neighbourhood is meant (the
 estimates heading and reference note, the rent map's lede, titles and all-choice), a build with several
 names them by count ("all eight neighbourhoods", "All neighbourhoods"), not as a list. The listings and buildings pages show a
 neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
 more than one, so a Chelsea-only build looks as before. Older builds without the column are served
 without the filter.
+
+When a build covers neighbourhoods in more than one borough, the filter groups its choices by borough
+(`boroughs.BOROUGHS` maps the scrape's StreetEasy names). Each group opens with a whole-borough
+choice ("All of Brooklyn"), and `nb=Brooklyn` filters listings and buildings to the borough's
+neighbourhoods.
 
 ### Research
 
@@ -187,11 +193,26 @@ listings fall in each band, as calibration predicts.
    - the bundle's copies of the run's row-dropping rules (`data-rule-<rule>.jsonl`): a dataset row
      missing from the bundle must be one of their rows, and it goes into the quarantined table.
 
-   It refuses a failing gate. It writes `/data1/apartments/site/builds/<stamp>/site.sqlite` and
-   `build.json`, swaps the `current` symlink atomically, and keeps the newest three builds. It takes
+   It refuses a run that fails the gate unless the selection records a decision to serve it anyway
+   (`gate_override`: who decided, when, and why). The home page and /research/model then say the
+   sampler did not fully settle and who chose to serve the model. It writes
+   `/data1/apartments/site/builds/<stamp>/site.sqlite` and `build.json`, swaps the `current` symlink
+   atomically, and keeps the newest three builds, or only the new one when its database is over
+   4 GB. It takes
    about 8 s with a 1.1 GB peak for Chelsea alone, and about 18 s with a 1.9 GB peak for Chelsea and
    West Village (86,568 listings), with a database of about 130 MB and 400 MB respectively. The
    eight neighbourhoods (214,931 listings) take 1:42 with a peak of about 5.0 GB.
+
+   The build streams the bundle's rows so a fit of every borough fits in memory. It reads them
+   from `rows.parquet` in chunks of about 40,000 rows (`CHUNK_ROWS`), each a run of whole
+   buildings, with buildings that share a unit kept together, and in the bundle's order within a
+   chunk, which breaks ties in time as the bundle does. It indexes `observations.jsonl` by byte
+   offset and reads a row back only when asked. The kit checks read the stored listings as a
+   stream, and pricing the pipeline's current ads reads only the ads' own buildings and units,
+   with the relisting centre worked out once from every listing. It works out the research
+   story's held-out accuracy, rent jumps, unit examples and border medians into meta
+   (`story_checks`), so the server reads them instead of scanning every listing. The fit of
+   297,273 listings takes 4:36 with a peak of 3.8 GB (7.5 GB before streaming).
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
@@ -210,7 +231,7 @@ listings fall in each band, as calibration predicts.
    every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
    the research parts of a page are left out. When the publish comes from the repository's
-   selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
+   selection, the build also stores the selection's reason (`selected_by`, `selection_reason`, `gate_override`).
 
 The research data is live: new fits appear without a deploy (Ben, 2026-10-01).
 `apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance

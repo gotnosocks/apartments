@@ -19,8 +19,9 @@ Inputs, each checked against the bundle's provenance (complete.json):
 
 Writes <root>/builds/<stamp>/site.sqlite and build.json, then points
 <root>/current at the new build with an atomic symlink swap and keeps the
-newest KEEP builds. The site opens current/site.sqlite read-only for each
-request, so publishing needs no restart.
+newest KEEP builds, or only the new one when its database passes
+LARGE_BYTES. The site opens current/site.sqlite read-only for each request,
+so publishing needs no restart.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ import argparse
 import datetime as dt
 import glob
 import hashlib
+import itertools
 import json
 import math
 import os
@@ -36,12 +38,13 @@ import re
 import shutil
 import sqlite3
 import statistics
+import tempfile
 from collections import Counter
 from pathlib import Path
 
 import duckdb
 
-from . import ad_dates, captures, estimate_build, exposure, wings
+from . import ad_dates, boroughs, captures, estimate_build, exposure, story, wings
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -49,6 +52,10 @@ SCHEMA_VERSION = 4
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
+# A build whose database is larger than this keeps only itself. A build of
+# every borough makes a database of about 8 GB, and three of those would fill
+# /data1.
+LARGE_BYTES = 4 << 30
 # Rent maps of runs (`rentfrontier.rentmap`): <run>-<7-hex commit>/map.json.
 MAPS = Path(os.environ.get("FRONTIER_MAPS", "/data1/apartments/frontier/maps"))
 # Where the ask falls in its leave-own-row-out predictive distribution.
@@ -194,17 +201,138 @@ def _plain(value):
     return value
 
 
-def load_observations(dataset: Path, expected_sha256: str) -> dict[str, dict]:
-    source = dataset / "observations.jsonl"
-    if sha256(source) != expected_sha256:
-        raise BuildError("the dataset differs from the one the summary was made from")
-    rows = {}
-    with open(source) as f:
-        for line in f:
-            if line.strip():
-                row = json.loads(line)
-                rows[row["audit_id"]] = row
-    return rows
+class Observations:
+    """The dataset's rows by audit id, parsed from observations.jsonl when
+    asked for. The first pass checks the file's sha256 and notes the offset of
+    each row, so a build of every borough holds 1.6M offsets in memory and
+    parses each row when a step reads it."""
+
+    def __init__(self, dataset: Path, expected_sha256: str):
+        source = dataset / "observations.jsonl"
+        digest = hashlib.sha256()
+        self._offsets: dict[str, int] = {}
+        offset = 0
+        with open(source, "rb") as f:
+            for line in f:
+                digest.update(line)
+                if line.strip():
+                    self._offsets[json.loads(line)["audit_id"]] = offset
+                offset += len(line)
+        if digest.hexdigest() != expected_sha256:
+            raise BuildError(
+                "the dataset differs from the one the summary was made from"
+            )
+        self._file = open(source, "rb")
+
+    def close(self) -> None:
+        self._file.close()
+
+    def __len__(self) -> int:
+        return len(self._offsets)
+
+    def __contains__(self, audit_id) -> bool:
+        return audit_id in self._offsets
+
+    def __getitem__(self, audit_id: str) -> dict:
+        self._file.seek(self._offsets[audit_id])
+        return json.loads(self._file.readline())
+
+    def get(self, audit_id: str, default=None):
+        return self[audit_id] if audit_id in self._offsets else default
+
+    def keys(self):
+        return self._offsets.keys()
+
+    def items(self):
+        """Every row in the file's order, one parsed at a time."""
+        with open(self._file.name, "rb") as f:
+            for line in f:
+                if line.strip():
+                    row = json.loads(line)
+                    yield row["audit_id"], row
+
+
+# Rows per chunk of the streamed build: about 0.6 GB of parsed rows and
+# listings at a time.
+CHUNK_ROWS = 40_000
+
+
+def bundle_chunks(bundle: Path, size: int | None = None):
+    """The bundle's rows (rows.parquet) in chunks of whole buildings, about
+    `size` rows each (CHUNK_ROWS by default). Buildings that share a unit go in
+    the same chunk, so each chunk holds every listing of its units and
+    buildings. Each row carries its place in the bundle as `_row`."""
+    size = size or CHUNK_ROWS
+    path = str(bundle / "rows.parquet")
+    connection = duckdb.connect()
+    try:
+        connection.execute("SET memory_limit = '1GB'")
+        connection.execute("SET temp_directory = ?", [tempfile.gettempdir()])
+        pairs = connection.execute(
+            "SELECT building, unit_id, COUNT(*) FROM read_parquet(?) "
+            "GROUP BY building, unit_id ORDER BY building, unit_id",
+            [path],
+        ).fetchall()
+        parent: dict[str, str] = {}
+
+        def root(b):
+            while parent[b] != b:
+                parent[b] = parent[parent[b]]
+                b = parent[b]
+            return b
+
+        home: dict[str, str] = {}
+        count: Counter = Counter()
+        for building, unit, n in pairs:
+            parent.setdefault(building, building)
+            count[building] += n
+            if unit in home:
+                a, b = root(home[unit]), root(building)
+                if a != b:
+                    parent[max(a, b)] = min(a, b)
+            else:
+                home[unit] = building
+        groups: dict[str, list[str]] = {}
+        for building in sorted(parent):
+            groups.setdefault(root(building), []).append(building)
+        chunk_of, chunk, filled = {}, 0, 0
+        for members in groups.values():
+            rows = sum(count[b] for b in members)
+            if filled and filled + rows > size:
+                chunk, filled = chunk + 1, 0
+            filled += rows
+            chunk_of.update((b, chunk) for b in members)
+        del pairs, parent, home, groups
+        connection.execute(
+            "CREATE TEMP TABLE chunk_of AS SELECT unnest(?) AS building, "
+            "unnest(?) AS chunk",
+            [list(chunk_of), list(chunk_of.values())],
+        )
+        result = connection.execute(
+            # each chunk keeps the bundle's row order, which breaks ties in time
+            # for a unit's latest listing and a building's newest one
+            "SELECT r.* EXCLUDE (file_row_number), r.file_row_number AS _row, "
+            "c.chunk AS _chunk "
+            "FROM read_parquet(?, file_row_number = true) r "
+            "JOIN chunk_of c ON r.building = c.building "
+            "ORDER BY c.chunk, r.file_row_number",
+            [path],
+        )
+        columns = [d[0] for d in result.description]
+        current, rows = None, []
+        while batch := result.fetchmany(5000):
+            for values in batch:
+                row = {c: _plain(v) for c, v in zip(columns, values)}
+                chunk = row.pop("_chunk")
+                if chunk != current and rows:
+                    yield rows
+                    rows = []
+                current = chunk
+                rows.append(row)
+        if rows:
+            yield rows
+    finally:
+        connection.close()
 
 
 def external(record: dict, key: str) -> list[dict]:
@@ -352,6 +480,8 @@ def listing_rows(
         listing_id = str(obs["source_listing_id"])
         out.append(
             {
+                # the bundle's row order, which later steps read as a tie-break
+                **({"id": r["_row"] + 1} if "_row" in r else {}),
                 "audit_id": r["audit_id"],
                 "neighbourhood": r.get("neighbourhood")
                 or obs.get("neighbourhood")
@@ -477,7 +607,9 @@ def unit_rows(listings) -> list[dict]:
     return out
 
 
-def building_rows(effects, listings, units, registry, pluto) -> list[dict]:
+def building_rows(
+    effects, listings, units, registry, pluto, wing_names=None
+) -> list[dict]:
     located = {r["building"]: r for r in registry}
     lots = {str(r["bbl"]): r for r in pluto}
     by_building: dict[str, list[dict]] = {}
@@ -487,7 +619,8 @@ def building_rows(effects, listings, units, registry, pluto) -> list[dict]:
     for unit in units:
         unit_count[unit["building_id"]] = unit_count.get(unit["building_id"], 0) + 1
     effect = {e["building"]: e for e in effects}
-    wing_names = wings.names(by_building)
+    if wing_names is None:
+        wing_names = wings.names(by_building)
     out = []
     for slug, rows in by_building.items():
         reg = located.get(slug, {})
@@ -604,12 +737,12 @@ def _real(value) -> float | None:
     return None if math.isnan(number) else number
 
 
-def _insert(db, table, rows):
+def _insert(db, table, rows, verb="INSERT"):
     if not rows:
         return
     columns = list(rows[0])
     db.executemany(
-        f"INSERT INTO {table}({','.join(columns)}) "
+        f"{verb} INTO {table}({','.join(columns)}) "
         f"VALUES ({','.join('?' * len(columns))})",
         [tuple(r[c] for c in columns) for r in rows],
     )
@@ -672,6 +805,49 @@ def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
     return out
 
 
+def _whole_buildings(db, buildings: set[str]) -> list[dict]:
+    """Every listing of `buildings`, widened to the buildings their units
+    also have listings in, so the unit and building rows come out whole."""
+    buildings = set(buildings)
+    while True:
+        marks = ",".join("?" * len(buildings))
+        wider = {
+            b
+            for (b,) in db.execute(
+                f"SELECT DISTINCT building_id FROM listings WHERE unit_id IN "
+                f"(SELECT unit_id FROM listings WHERE building_id IN ({marks}))",
+                tuple(buildings),
+            )
+        }
+        if wider <= buildings:
+            break
+        buildings |= wider
+    marks = ",".join("?" * len(buildings))
+    cursor = db.execute(
+        f"SELECT * FROM listings WHERE building_id IN ({marks}) ORDER BY id",
+        tuple(buildings),
+    )
+    columns = [d[0] for d in cursor.description]
+    return [
+        {c: v for c, v in zip(columns, row) if c != "id"} for row in cursor.fetchall()
+    ]
+
+
+class StoredListings:
+    """The fitted listings already in the build's database, read afresh on
+    each pass, for the kit's checks over every listing."""
+
+    def __init__(self, db):
+        self._db = db
+
+    def __iter__(self):
+        cursor = self._db.cursor()
+        cursor.row_factory = sqlite3.Row
+        yield from cursor.execute(
+            "SELECT * FROM listings WHERE method != ? ORDER BY id", (captures.METHOD,)
+        )
+
+
 def write_database(
     path: Path,
     record: dict,
@@ -682,12 +858,77 @@ def write_database(
     pipeline: Path | None = None,
     exposure_file: Path | None = None,
 ) -> dict:
-    observations = load_observations(
+    observations = Observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
     )
-    rows = parquet_rows(bundle / "rows.parquet")
+    db = sqlite3.connect(path)
+    try:
+        return _write(
+            db,
+            observations,
+            record,
+            bundle,
+            scope,
+            selection,
+            kits,
+            pipeline,
+            exposure_file,
+        )
+    finally:
+        db.close()
+        observations.close()
+
+
+def _write(
+    db, observations, record, bundle, scope, selection, kits, pipeline, exposure_file
+) -> dict:
+    terms = json.loads((bundle / "terms.json").read_text())
+    names = [t["name"] for t in terms]
+    if names != record["terms"]:
+        raise BuildError("terms.json differs from the bundle's record")
     decisions = rule_decisions(record, bundle)
-    missing = observations.keys() - {r["audit_id"] for r in rows}
+    k_threshold = record["estimate_pareto_k"]["threshold"]
+    asks = latest_asks(record)
+    registry = external(record, "registry")
+    pluto = external(record, "pluto")
+    effects = parquet_rows(bundle / "buildings.parquet")
+    slugs = [
+        b
+        for (b,) in duckdb.sql(
+            f"SELECT DISTINCT building FROM read_parquet('{bundle / 'rows.parquet'}')"
+        ).fetchall()
+    ]
+    wing_names = wings.names(slugs)
+    del slugs
+
+    def buildings_of(listings, units):
+        return building_rows(effects, listings, units, registry, pluto, wing_names)
+
+    # A listing is on the market now when it was seen active within
+    # captures.CURRENT_DAYS of this build (a week, Ben 2026-10-10, plus two
+    # days for the weekly top-up): the dataset's current rows age out too.
+    at = captures.now()
+    db.executescript(SCHEMA)
+    # The bundle's rows go in a chunk of whole buildings at a time: a build
+    # of every borough has 1.6M of them.
+    fit_ids: set[str] = set()
+    neighbourhoods: set[str] = set()
+    for rows in bundle_chunks(bundle):
+        listings = listing_rows(
+            rows, observations, names, k_threshold, scope or "Chelsea", asks
+        )
+        del rows
+        for r in listings:
+            if r["is_current"] and not captures.fresh(r, at):
+                r["is_current"] = 0
+        units = unit_rows(listings)
+        _insert(db, "buildings", buildings_of(listings, units))
+        _insert(db, "units", units)
+        _insert(db, "listings", listings)
+        fit_ids.update(r["audit_id"] for r in listings)
+        neighbourhoods.update(r["neighbourhood"] for r in listings)
+        del listings, units
+    missing = observations.keys() - fit_ids
     unexplained = missing - decisions.keys()
     if unexplained:
         raise BuildError(
@@ -701,57 +942,104 @@ def write_database(
             f"{len(decisions.keys() - missing)} rows a data rule drops are in the "
             "bundle or not in the dataset"
         )
-    terms = json.loads((bundle / "terms.json").read_text())
-    names = [t["name"] for t in terms]
-    if names != record["terms"]:
-        raise BuildError("terms.json differs from the bundle's record")
-    k_threshold = record["estimate_pareto_k"]["threshold"]
-    fitted = listing_rows(
-        rows, observations, names, k_threshold, scope or "Chelsea", latest_asks(record)
-    )
     if not scope:
-        scope = scope_of(fitted)
-    registry = external(record, "registry")
-
-    def units_and_buildings(listings):
-        units = unit_rows(listings)
-        return units, building_rows(
-            parquet_rows(bundle / "buildings.parquet"),
-            listings,
-            units,
-            registry,
-            external(record, "pluto"),
-        )
+        scope = scope_of([{"neighbourhood": n} for n in neighbourhoods])
+    reader = db.cursor()
+    reader.row_factory = sqlite3.Row
+    fitted = reader.execute(
+        "SELECT method, unit_fit_rows, pit, residual_pct, period FROM listings"
+    ).fetchall()
+    stats = {
+        "calibration": calibration(fitted),
+        "calibration_by_year": calibration_by_year(fitted),
+    }
+    del fitted
 
     kit_dir = estimate_build.find_kit(
         record["run"], record["_sha256"], kits or estimate_build.KITS
     )
-    # A listing is on the market now when it was seen active within
-    # captures.CURRENT_DAYS of this build (a week, Ben 2026-10-10, plus two
-    # days for the weekly top-up): the dataset's current rows age out too.
-    at = captures.now()
-    for r in fitted:
-        if r["is_current"] and not captures.fresh(r, at):
-            r["is_current"] = 0
+
+    def local(ad_units: set[str], ad_buildings: set[str]):
+        """The listings and building rows the ads' pricing reads: every
+        listing of their buildings and units."""
+        marks = ",".join("?" * len(ad_units))
+        widen = {
+            b
+            for (b,) in db.execute(
+                f"SELECT DISTINCT building_id FROM listings WHERE unit_id IN ({marks})",
+                tuple(ad_units),
+            )
+        }
+        listings = (
+            _whole_buildings(db, ad_buildings | widen) if ad_buildings | widen else []
+        )
+        ids = {r["building_id"] for r in listings}
+        marks = ",".join("?" * len(ids))
+        cursor = db.execute(
+            f"SELECT * FROM buildings WHERE id IN ({marks})", tuple(ids)
+        )
+        columns = [d[0] for d in cursor.description]
+        return listings, [dict(zip(columns, row)) for row in cursor.fetchall()]
+
     # The ads on the market in the pipeline's newest build, priced with the
     # kit (captures.py); every other row is the bundle's.
     files = captures.pipeline_files(pipeline or captures.PIPELINE)
+    # units in the bundle's order, each one's listings in time order, as
+    # captures.relisting_centre visits them
+    cursor = db.execute(
+        "SELECT l.unit_id, l.price_at, l.period, l.collected_at, l.inputs "
+        "FROM listings l JOIN (SELECT unit_id, MIN(id) AS first FROM listings "
+        "WHERE method != ? GROUP BY unit_id) u ON l.unit_id = u.unit_id "
+        "WHERE l.method != ? "
+        "ORDER BY u.first, COALESCE(NULLIF(l.price_at, ''), l.period), l.id",
+        (captures.METHOD, captures.METHOD),
+    )
+    cursor.row_factory = sqlite3.Row
+    centre = captures.centre_of(
+        [dict(r) for r in rows]
+        for _, rows in itertools.groupby(cursor, key=lambda r: r["unit_id"])
+    )
+    cursor.close()
     captured, captured_status = captures.price(
         kit_dir,
-        fitted,
-        units_and_buildings(fitted)[1],
+        StoredListings(db),
+        [],
         files,
         names,
         observations,
         at,
+        local=local,
+        fit_ids=fit_ids,
+        centre=centre,
     )
-    # a unit the pipeline read since the dataset last saw it is current there
-    newer = {r["unit_id"] for r in captured}
-    for r in fitted:
-        if r["is_current"] and r["unit_id"] in newer:
-            r["is_current"] = 0
-    listings = fitted + captured
-    units, buildings = units_and_buildings(listings)
+    stats["estimate_form"] = estimate_build.install(
+        db, kit_dir, StoredListings(db), observations
+    )
+    if captured:
+        # a unit the pipeline read since the dataset last saw it is current there
+        newer = sorted({r["unit_id"] for r in captured})
+        marks = ",".join("?" * len(newer))
+        touched = {r["building_id"] for r in captured} | {
+            b
+            for (b,) in db.execute(
+                f"SELECT DISTINCT building_id FROM listings WHERE unit_id IN ({marks})",
+                newer,
+            )
+        }
+        db.execute(
+            f"UPDATE listings SET is_current = 0 WHERE is_current = 1 "
+            f"AND unit_id IN ({marks})",
+            newer,
+        )
+        # A new unit's row goes in before its listings.
+        whole = _whole_buildings(db, touched)
+        units = unit_rows(whole + captured)
+        _insert(db, "units", units, "INSERT OR REPLACE")
+        _insert(db, "listings", captured)
+        _insert(
+            db, "buildings", buildings_of(whole + captured, units), "INSERT OR REPLACE"
+        )
+        del whole, units
     quarantined = quarantined_rows(missing, observations, decisions, registry)
     for r in quarantined:
         if r["is_current"] and not captures.fresh(observations[r["audit_id"]], at):
@@ -779,78 +1067,100 @@ def write_database(
         }
         for c in parquet_rows(bundle / "coefficients.parquet")
     ]
-    periods = sorted(r["period"] for r in listings)
-    stats = {
-        "calibration": calibration(fitted),
-        "calibration_by_year": calibration_by_year(fitted),
-        "listings": len(listings),
-        "current_listings": sum(r["is_current"] for r in listings),
+    (count, current, first, last, unreliable) = db.execute(
+        "SELECT COUNT(*), SUM(is_current), MIN(period), MAX(period), "
+        "SUM(1 - reliable) FROM listings"
+    ).fetchone()
+    stats |= {
+        "listings": count,
+        "current_listings": current,
         "neighbourhoods": dict(
-            sorted(Counter(r["neighbourhood"] for r in listings).items())
+            db.execute(
+                "SELECT neighbourhood, COUNT(*) FROM listings "
+                "GROUP BY neighbourhood ORDER BY neighbourhood"
+            ).fetchall()
         ),
-        "units": len(units),
-        "buildings": len(buildings),
-        "first_period": periods[0],
-        "last_period": periods[-1],
-        "unreliable_estimates": sum(1 - r["reliable"] for r in listings),
+        "units": db.execute("SELECT COUNT(*) FROM units").fetchone()[0],
+        "buildings": db.execute("SELECT COUNT(*) FROM buildings").fetchone()[0],
+        "first_period": first,
+        "last_period": last,
+        "unreliable_estimates": unreliable,
         "current_ads": captured_status,
         "quarantined_listings": len(quarantined),
         "quarantined_current": sum(r["is_current"] for r in quarantined),
     }
-    db = sqlite3.connect(path)
-    try:
-        db.executescript(SCHEMA)
-        _insert(db, "buildings", buildings)
-        _insert(db, "units", units)
-        _insert(db, "listings", listings)
-        _insert(db, "quarantined", quarantined)
-        _insert(db, "market", market)
-        _insert(db, "coefficients", coefficients)
-        stats["estimate_form"] = estimate_build.install(
-            db, kit_dir, fitted, observations
+    _insert(db, "quarantined", quarantined)
+    _insert(db, "market", market)
+    _insert(db, "coefficients", coefficients)
+    current_rows = [
+        {"audit_id": a, "listing_id": i, "is_current": 1}
+        for a, i in db.execute(
+            "SELECT audit_id, listing_id FROM listings WHERE is_current = 1"
         )
-        stats["ad_dates"] = ad_dates.install(
-            db, ad_dates.collect(files, listings), listings
+    ]
+    stats["ad_dates"] = ad_dates.install(
+        db, ad_dates.collect(files, current_rows), current_rows
+    )
+    # Which way each unit faces, when Data improvements' labels exist; a
+    # build without them shows none.
+    labels = exposure_file or exposure.FILE
+    stats["exposure"] = (
+        exposure.install(
+            db,
+            labels,
+            parquet_rows(labels),
+            {u for (u,) in db.execute("SELECT id FROM units")},
         )
-        # Which way each unit faces, when Data improvements' labels exist; a
-        # build without them shows none.
-        labels = exposure_file or exposure.FILE
-        stats["exposure"] = (
-            exposure.install(db, labels, parquet_rows(labels), {u["id"] for u in units})
-            if labels.is_file()
-            else {"installed": False, "reason": f"no labels at {labels}"}
-        )
-        db.executemany(
-            "INSERT INTO terms VALUES (?,?,?,?)",
-            [(i, t["name"], t["label"], t["description"]) for i, t in enumerate(terms)],
-        )
-        provenance = {
-            k: v for k, v in record.items() if not k.startswith("_") and k != "files"
-        }
-        meta = {
-            "version": VERSION,
-            "scope": scope,
-            "summary": str(bundle),
-            "summary_sha256": record["_sha256"],
-            "provenance": provenance,
-            "stats": stats,
-            "price_bands": PRICE_BANDS,
-            "selection": selection,
-        }
-        db.executemany(
-            "INSERT INTO meta VALUES (?,?)",
-            [(k, json.dumps(v)) for k, v in meta.items()],
-        )
-        db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
-        db.commit()
-        db.execute("ANALYZE")
-        db.commit()
-        problems = db.execute("PRAGMA foreign_key_check").fetchall()
-        if problems:
-            raise BuildError(f"foreign key violations: {problems[:5]}")
-    finally:
-        db.close()
+        if labels.is_file()
+        else {"installed": False, "reason": f"no labels at {labels}"}
+    )
+    db.executemany(
+        "INSERT INTO terms VALUES (?,?,?,?)",
+        [(i, t["name"], t["label"], t["description"]) for i, t in enumerate(terms)],
+    )
+    provenance = {
+        k: v for k, v in record.items() if not k.startswith("_") and k != "files"
+    }
+    meta = {
+        "version": VERSION,
+        "scope": scope,
+        "summary": str(bundle),
+        "summary_sha256": record["_sha256"],
+        "provenance": provenance,
+        "stats": stats,
+        "price_bands": PRICE_BANDS,
+        "selection": selection,
+        "story_checks": story_checks(db),
+    }
+    db.executemany(
+        "INSERT INTO meta VALUES (?,?)",
+        [(k, json.dumps(v)) for k, v in meta.items()],
+    )
+    db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+    db.commit()
+    db.execute("ANALYZE")
+    db.commit()
+    problems = db.execute("PRAGMA foreign_key_check").fetchall()
+    if problems:
+        raise BuildError(f"foreign key violations: {problems[:5]}")
     return stats
+
+
+def story_checks(db) -> list:
+    """The research story's held-out accuracy, rent jumps, unit examples and
+    border medians. Each scans every listing or building, so the build works
+    them out once and the server reads them from meta."""
+    factory = db.row_factory
+    db.row_factory = sqlite3.Row
+    try:
+        return [
+            story.accuracy(db),
+            story.rent_jumps(db),
+            story.unit_examples(db),
+            story.borders(db),
+        ]
+    finally:
+        db.row_factory = factory
 
 
 def bundle_map(source: Path, target: Path, database: Path) -> None:
@@ -921,19 +1231,30 @@ def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
         if p.is_dir() and not p.name.endswith(".tmp")
     )
     live = build_dir.resolve()
+    database = build_dir / "site.sqlite"
+    if database.exists() and database.stat().st_size > LARGE_BYTES:
+        keep = 1
     for old in builds[:-keep]:
         if old.resolve() != live:
             shutil.rmtree(old)
 
 
+def override_of(note: dict | None) -> dict | None:
+    """The selection's recorded decision to serve a run that fails the gate,
+    when it says who decided, when and why."""
+    override = (note or {}).get("gate_override")
+    if isinstance(override, dict) and all(
+        override.get(k) for k in ("by", "at", "reason")
+    ):
+        return override
+    return None
+
+
 def scope_of(listings: list[dict]) -> str:
     """The neighbourhoods the listings cover, in words ("Chelsea and West
-    Village"): the site's name for the area when the publish does not give
-    one."""
-    names = sorted({row["neighbourhood"] for row in listings})
-    if len(names) <= 1:
-        return names[0] if names else "Chelsea"
-    return ", ".join(names[:-1]) + " and " + names[-1]
+    Village", or by count and borough past twelve): the site's name for the
+    area when the publish does not give one."""
+    return boroughs.scope_words(sorted({row["neighbourhood"] for row in listings}))
 
 
 def build(
@@ -944,8 +1265,12 @@ def build(
 ) -> Path:
     summary = summary.resolve()
     record = load_bundle(summary)
-    if not record["gate"]["passes"]:
-        raise BuildError("the summary's run fails the convergence gate")
+    note = selection_note(selection, record["_sha256"])
+    if not record["gate"]["passes"] and not override_of(note):
+        raise BuildError(
+            "the summary's run fails the convergence gate, and the selection "
+            "records no decision to serve it anyway"
+        )
     stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S%fZ")
     build_dir = root / "builds" / f"{stamp}-{record['_sha256'][:8]}"
     staging = build_dir.with_name(build_dir.name + ".tmp")
@@ -956,7 +1281,7 @@ def build(
             record,
             summary,
             scope,
-            selection_note(selection, record["_sha256"]),
+            note,
         )
         source_map = rent_map(record["run"])
         if source_map is not None:

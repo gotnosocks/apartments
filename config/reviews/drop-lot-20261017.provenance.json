@@ -1,0 +1,23 @@
+{
+ "rule": "drop-lot-v1",
+ "dataset": "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157",
+ "dataset_observations_sha256": "aecf9b7724d3208abc6d44dde6bb71345572514d4c4bcc936cbdf008c083e9de",
+ "screen": "pipeline analysis.building_check (#971): fit rows whose lot rules out the ad's building, 1,473 rows read",
+ "reads": "Sonnet readers on the ad text, HPD registrations (kj4p-ruqc) and the pipeline's PAD lookup of each ad's own address; labels in /data1/apartments/tmp/suspect/bcheck/reader-labels.jsonl",
+ "rows": 1274,
+ "by_reason": {
+  "city_record_wrong": 570,
+  "wrong_building": 704
+ },
+ "outcomes": {
+  "drop lot: wrong_building": 704,
+  "drop lot: city_record_wrong": 570,
+  "keep: mixed_use": 71,
+  "keep: unclear": 103,
+  "keep: vanity_numbering": 25
+ },
+ "dataset_rows_matched": {
+  "all-scraped-analysis-20261016-5f07157": 1273,
+  "chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-api-analysis-20261015-c9eea95": 195
+ }
+}

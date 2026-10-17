@@ -151,6 +151,27 @@ def test_build_refuses_a_run_that_fails_the_gate(tmp_path, make_bundle):
         build.build(bundle, tmp_path / "site")
 
 
+OVERRIDE = {
+    "by": "Ben",
+    "at": "2026-10-17T04:19-04:00",
+    "reason": "Serve the full fit.",
+}
+
+
+def test_build_serves_a_failing_run_when_the_selection_records_an_override(
+    tmp_path, make_bundle
+):
+    bundle = make_bundle(tmp_path / "failing", gate=False)
+    root = tmp_path / "site"
+    partial = _selection(tmp_path, bundle, gate_override={"by": "Ben"})
+    with pytest.raises(build.BuildError, match="fails the convergence gate"):
+        build.build(bundle, root, selection=partial)
+    selection = _selection(tmp_path, bundle, gate_override=OVERRIDE)
+    build.build(bundle, root, selection=selection)
+    meta = {r["key"]: json.loads(r["value"]) for r in query(root, "SELECT * FROM meta")}
+    assert meta["selection"]["gate_override"] == OVERRIDE
+
+
 def test_publish_swaps_current_and_keeps_the_newest_builds(
     bundle, tmp_path, monkeypatch
 ):
@@ -187,6 +208,16 @@ def _selection(tmp_path, bundle, **changes):
     path = tmp_path / "main-analysis.json"
     path.write_text(json.dumps(record))
     return path
+
+
+def test_publish_keeps_only_a_large_build(tmp_path, monkeypatch):
+    root = tmp_path / "site"
+    for stamp in ("a", "b", "c"):
+        (root / "builds" / stamp).mkdir(parents=True)
+        (root / "builds" / stamp / "site.sqlite").write_bytes(b"x" * 10)
+    monkeypatch.setattr(build, "LARGE_BYTES", 5)
+    build.publish(root / "builds" / "c", root)
+    assert sorted(p.name for p in (root / "builds").iterdir()) == ["c"]
 
 
 def test_build_publishes_the_selected_summary_by_default(bundle, tmp_path):
@@ -401,3 +432,33 @@ def test_latest_asks_reads_the_rules_recorded_table(tmp_path):
     record["data_rule_sources"]["latest-ask-v4"]["sha256"] = "0" * 64
     with pytest.raises(build.BuildError, match="differs"):
         build.latest_asks(record)
+
+
+def dump(root):
+    db = sqlite3.connect(root / "current" / "site.sqlite")
+    try:
+        tables = [
+            r[0]
+            for r in db.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+            )
+        ]
+        return {
+            t: sorted(map(repr, db.execute(f"SELECT * FROM {t}").fetchall()))
+            for t in tables
+        }
+    finally:
+        db.close()
+
+
+def test_chunked_build_matches_a_single_chunk(tmp_path, bundle, monkeypatch):
+    whole = tmp_path / "whole"
+    build.build(bundle, whole, scope="Chelsea")
+    monkeypatch.setattr(build, "CHUNK_ROWS", 1)
+    chunked = tmp_path / "chunked"
+    build.build(bundle, chunked, scope="Chelsea")
+    a, b = dump(whole), dump(chunked)
+    assert a.keys() == b.keys()
+    for table in a:
+        if table != "meta":
+            assert a[table] == b[table], table

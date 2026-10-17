@@ -120,7 +120,7 @@ def rear_open(frame: pd.DataFrame) -> np.ndarray:
     when its own listings or its line's earlier listings
     (`features.line_orientation`) put it at the rear, its building's most open
     rear side."""
-    b = frame.building.to_numpy()
+    b = features.lot_buildings(frame)
     sides = features.building_sides().reindex(b)
     rear = block_openness().reindex(b).where(sides.eq("none").to_numpy())
     windows = pd.DataFrame(

@@ -1,0 +1,12 @@
+{
+ "rule": "bedrooms-ad-v10",
+ "dataset": "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157",
+ "dataset_observations_sha256": "aecf9b7724d3208abc6d44dde6bb71345572514d4c4bcc936cbdf008c083e9de",
+ "reads": "/data1/apartments/tmp/suspect/q34/packet.json and packet2.json (Sonnet read of the 68 Clinton #4A and #4B ads)",
+ "base_rule": "bedrooms-ad-v9",
+ "rows": 6,
+ "by_change": {
+  "0->3": 5,
+  "1->3": 1
+ }
+}

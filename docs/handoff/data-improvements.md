@@ -1,6 +1,77 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 03:10 ET, after the reader reviews (#961 to #965). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 11:00 ET, after quarantine-v35 (#992). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 11:00 ET
+
+- #987 adds `data.TRIAL_RULES`. `autoselect.current_rules` skips the versions listed there, so
+  latest-ask-v9 stays current while latest-ask-v10 waits on the fit that tests it. When a v10 fit
+  wins, the PR that serves it takes v10 out of the set and says how the fit was judged (scored on
+  shared rows). Without v10, the incumbent differs from the current rules on 3,894 of 296,176
+  rows, which is still over the 0.25% bar.
+- The pipeline thread's v10 loader rows agree with changed.csv on every row both changed. The 7
+  listings that disagree all have records fetched after the chain read the archive (Oct 15 13:10).
+- Unit reviews:
+  - v3 (#988) splits the 870 Broadway lofts off the 30 E 18th St one-bedrooms.
+  - v4 (#989) adds an optional `into` on split_listings and puts the #2 loft ad into the #3
+    loft's unit.
+  - v5 (#990) joins 444 W 20th #1 and #GARDEN. The 2011 GARDENDPLX ad has no record, so it
+    stays apart.
+  - The pipeline thread mirrors all three in #991.
+- quarantine-v35 (#992) drops 4853056, a Bushwick ad filed under 124 DeKalb #3. Its copy matches
+  4839783 at 1248 DeKalb #3L.
+- Closed without a change: the 90 Hull St placeholder ads. Their one-word descriptions explain
+  nothing, but nothing in them is wrong.
+- Open: the HPD other_lot conflicts, waiting on the pipeline's PAD lookup.
+
+## 2026-10-17 08:00 ET
+
+- #983 adds `latest_ask.CLOSING_STALE_DAYS = -1` and the rule `latest-ask-v10`, which drops every
+  change dated on or after the off-market day (on-market-day changes and ads that went ACTIVE
+  again keep theirs). `build_v10.py` in `/data1/apartments/tmp/suspect/ask-jumps/` repriced v9:
+  104,984 rows change (22,043 NB9, 82,941 API), median log change -0.045. Table and changed.csv:
+  `/data1/apartments/external/latest-ask/20261017-c201c11-all-closing/`.
+  - Modeling's NB9 refits read pipeline loader rows. The pipeline thread builds a v10 lane
+    (`PIPELINE_STALE_DAYS`, `/data1/apartments/tmp/pipeline/lanes/v10/`) and sends the
+    `nb9-chelsea-named-rows-v10-*` path to Modeling and me. It mirrors v10 in `ads.kept_changes`
+    only if the fit wins. If that path hasn't reached Modeling, relay it.
+- #984 adds `quarantine-v34` (v33 plus 15 rows) and `bedrooms-ad-v10` (v9 plus 6 rows), from
+  Sonnet reads in `/data1/apartments/tmp/suspect/q34/` (packet.json, packet2.json):
+  - 8 Brooklyn storefronts and offices from the drop-lot review, the Ridgewood ad 2638365 joined
+    to 18 Bleecker, the $21,545 Bed-Stuy studio 2121710, 3 Carlyle hotel stays and 2 lottery units
+    at 9 Cook St;
+  - 68 Clinton #4A and #4B "5 room duplex" ads recoded to 3 bedrooms, backed by the same units'
+    3 bedroom ads.
+  - 3221486 stays: its text says Park Slope, which matches its zip.
+  - The pipeline thread imports both files into its ledger (asked 08:00 ET).
+- Open from the mixing review (`/data1/apartments/tmp/suspect/mixing/labels.jsonl`): the 870
+  Broadway unit split by stated size, the 444 W 20th alias (#1 is #GARDEN), 124 DeKalb 4853056's
+  Bushwick text, the Brooklyn placeholder ads. Also open: the HPD other_lot conflicts, waiting on
+  the pipeline's PAD lookup.
+
+## 2026-10-17 05:20 ET
+
+- #974 lets the frontier fetchers skip buildings with no BIN. #975 adds
+  `config/reviews/drop-lot-20261017.jsonl`, 1,274 ads whose lot rules out their building, and
+  Modeling's lots3 fit reads it. The pipeline-form copy for the pipeline thread is
+  `/data1/apartments/tmp/suspect/bcheck/drop-lot.jsonl`.
+- Some listing records carry price changes dated long after the ad left the market. Brokers
+  reuse an old ad's record for a later ad of the same apartment. In 346 W 36th St, 12 such rows
+  drove Modeling's R-hat 1.63 failure. I wrote the findings up in
+  `/data1/apartments/tmp/suspect/ask-jumps/off-day-changes.md`.
+  - #977 adds `latest_ask.STALE_DAYS = 7` and the rule `latest-ask-v9`. A change dated more than
+    7 days after the off-market day is dropped unless the record's statusChanges show ACTIVE
+    after that day.
+  - `build_v9.py` in the same folder reprices V8 with the rule: 9,601 of 1,751,152 rows change,
+    and V8 matched the old price on every one. The table and changed.csv are in
+    `/data1/apartments/external/latest-ask/20261017-dba39e0-all-stale/`.
+  - Modeling queues the v9 fit (a rule swap on DATASET_ALL) behind lots3. The pipeline thread
+    mirrors the rule in `ads.kept_changes` and moves `observations.py --latest-ask` to v9.
+  - Changes dated on the off day up to 7 days after stay as they are. Modeling may take those up
+    later as latest-ask-v10 with its own fit.
+- The next quarantine version also takes the 8 commercial ads, the 2 Queens ads and the 9 PAD
+  move candidates noted in `pending-next-quarantine-notes.jsonl`. No independent
+  evidence backs the PAD moves yet, so each needs a second source before it goes in.
 
 ## 2026-10-17 03:10 ET
 

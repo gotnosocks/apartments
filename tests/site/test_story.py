@@ -343,6 +343,7 @@ def test_design_history_eras_terms_and_spells():
         ("nb3-prevprice-v2", ("nb3", "prevprice", "v2")),
         ("nb8-nostuy-v1", ("nb8", "nostuy", "v1")),
         ("nb8-nostuy-sizefill-v1", ("nb8", "nostuy-sizefill", "v1")),
+        ("all-scraped-v1", ("all", "nostuy-lots2", "v1")),
         ("", ("", "", "")),
     ],
 )
@@ -899,3 +900,16 @@ def test_design_terms_keep_unit_terms_before_an_nb_set():
         ["nocurves"],
         "unitfacing-v5",
     )
+
+
+def test_design_terms_find_the_all_scraped_set_after_unit_terms():
+    run = "m7-nocurves-slopemin3-unitnu4-all-scraped-v1-rows-e694a775-a40"
+    assert story.design_terms(run) == (
+        ["nocurves", "slopemin3", "unitnu4"],
+        "all-scraped-v1",
+    )
+    terms = ["nocurves"]
+    assert story.change_words(
+        {"terms": terms, "feature_set": "nb9-nostuy-lots2-v1", "rows": "a"},
+        {"terms": terms, "feature_set": "all-scraped-v1", "rows": "b"},
+    ) == ("Took in every other scraped neighbourhood in Manhattan and Brooklyn")

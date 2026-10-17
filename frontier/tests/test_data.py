@@ -291,7 +291,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V33)
+    ) | data.quarantined(data.QUARANTINE_V33) | data.quarantined(
+        data.QUARANTINE_V34
+    ) | data.quarantined(data.QUARANTINE_V35)
 
 
 @pytest.mark.parametrize(
@@ -873,8 +875,101 @@ def test_unit_reviews_v2_joins_as_v1_and_splits_reviewed_listings():
     assert out.drop(columns="unit_id").equals(frame.drop(columns="unit_id"))
     assert data.RULE_SOURCES["unit-reviews-v2"] == data.UNIT_REVIEWS
     assert "unit-reviews-v2" not in data.DROPPING_RULES
-    assert "unit-reviews-v2" in autoselect.current_rules()
     assert "unit-reviews-v1" not in autoselect.current_rules()
+
+
+def test_unit_reviews_v3_adds_three_870_broadway_splits_to_v2():
+    """unit-reviews-v3 keeps v2's lines as its prefix and splits the four 870
+    Broadway listings off their units; it is the current unit-reviews rule."""
+    old = data.UNIT_REVIEWS.read_text().splitlines()
+    new = data.UNIT_REVIEWS_V3.read_text().splitlines()
+    assert new[: len(old)] == old and len(new) == len(old) + 3
+    added = [json.loads(x) for x in new[len(old) :]]
+    assert {a["action"] for a in added} == {"split_listings"}
+    assert {a["building"] for a in added} == {"870-broadway-new_york"}
+    assert sum(len(a["source_listing_ids"]) for a in added) == 4
+
+    b = "870-broadway-new_york"
+    u = "unit:b0f45b82-0fb5-523e-bc62-64ee2dd5865a"
+    frame = pd.DataFrame(
+        {
+            "building": [b, b, b],
+            "canonical_unit_url": [f"https://streeteasy.com/building/{b}/3"] * 3,
+            "unit_id": [u, u, u],
+            "source_listing_id": ["1000001", "2238992", "3874322"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v3"](frame)
+    piece = f"{u}~review-2238992"
+    assert out.unit_id.tolist() == [u, piece, piece]
+    assert data.RULE_SOURCES["unit-reviews-v3"] == data.UNIT_REVIEWS_V3
+    assert "unit-reviews-v3" not in data.DROPPING_RULES
+    assert "unit-reviews-v2" not in autoselect.current_rules()
+
+
+def test_unit_reviews_v4_moves_the_870_broadway_2_loft_into_the_3_loft():
+    """unit-reviews-v4 keeps v3's lines as its prefix and adds one line, whose
+    `into` puts the #2 loft listing in the #3 loft's reviewed unit."""
+    old = data.UNIT_REVIEWS_V3.read_text().splitlines()
+    new = data.UNIT_REVIEWS_V4.read_text().splitlines()
+    assert new[: len(old)] == old and len(new) == len(old) + 1
+
+    b = "870-broadway-new_york"
+    u2 = "unit:4fd44f97-81e5-5075-b234-c36c0f1be6dd"
+    u3 = "unit:b0f45b82-0fb5-523e-bc62-64ee2dd5865a"
+    frame = pd.DataFrame(
+        {
+            "building": [b] * 4,
+            "canonical_unit_url": [f"https://streeteasy.com/building/{b}/2"] * 2
+            + [f"https://streeteasy.com/building/{b}/3"] * 2,
+            "unit_id": [u2, u2, u3, u3],
+            "source_listing_id": ["3959319", "2157347", "1308383", "2238992"],
+        }
+    )
+    v3 = data.DATA_RULES["unit-reviews-v3"](frame)
+    assert v3.unit_id.tolist() == [
+        u2,
+        f"{u2}~review-2157347",
+        u3,
+        f"{u3}~review-2238992",
+    ]
+    v4 = data.DATA_RULES["unit-reviews-v4"](frame)
+    assert v4.unit_id.tolist() == [
+        u2,
+        f"{u3}~review-2238992",
+        u3,
+        f"{u3}~review-2238992",
+    ]
+    assert data.RULE_SOURCES["unit-reviews-v4"] == data.UNIT_REVIEWS_V4
+    assert "unit-reviews-v4" not in data.DROPPING_RULES
+    assert "unit-reviews-v3" not in autoselect.current_rules()
+
+
+def test_unit_reviews_v5_joins_444_west_20th_1_and_garden():
+    """unit-reviews-v5 keeps v4's lines as its prefix and joins 444 West 20th
+    Street's #1 and #GARDEN, leaving GARDENDPLX apart."""
+    old = data.UNIT_REVIEWS_V4.read_text().splitlines()
+    new = data.UNIT_REVIEWS_V5.read_text().splitlines()
+    assert new[: len(old)] == old and len(new) == len(old) + 1
+
+    b = "444-west-20-street-new_york"
+    frame = pd.DataFrame(
+        {
+            "building": [b, b, b],
+            "canonical_unit_url": [
+                f"https://streeteasy.com/building/{b}/{u}"
+                for u in ("1", "garden", "gardendplx")
+            ],
+            "unit_id": ["u44", "u0a", "uf2"],
+            "source_listing_id": ["2314583", "2312228", "724330"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v5"](frame)
+    assert out.unit_id.tolist() == ["u0a", "u0a", "uf2"]
+    assert data.RULE_SOURCES["unit-reviews-v5"] == data.UNIT_REVIEWS_V5
+    assert "unit-reviews-v5" not in data.DROPPING_RULES
+    assert "unit-reviews-v5" in autoselect.current_rules()
+    assert "unit-reviews-v4" not in autoselect.current_rules()
 
 
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
@@ -2259,3 +2354,55 @@ def test_quarantine_v33_adds_nine_rows_to_v32():
     frame = pd.DataFrame({"audit_id": [added[0]["audit_id"], "kept"]})
     assert data.DATA_RULES["quarantine-v33"](frame).audit_id.tolist() == ["kept"]
     assert "quarantine-v33" in data.DROPPING_RULES
+
+
+def test_bedrooms_v10_codes_68_clinton_duplex_ads_as_3_bedrooms():
+    frame = pd.DataFrame(
+        {
+            "audit_id": [
+                "c463e09bb416313f02011644f0e9a23b8b6c92aa084b971181ddf175e04eaccf",
+                "e028ce054e892aea979d0b5874fda45d99d98e2302f2b6c6e8b98c7313bac688",
+                "990c7b6208196c9258614d6e670934a74cc86879655c3c8f870a2473bf6b673b",
+            ],
+            "bedrooms": [0.0, 1.0, 2.0],
+        }
+    )
+    out = data.DATA_RULES["bedrooms-ad-v10"](frame)
+    assert out.bedrooms.tolist() == [3.0, 3.0, 2.0]
+    v9 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v9"])
+    v10 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v10"])
+    assert {k: v10[k] for k in v9} == v9 and len(v10) == len(v9) + 6
+
+
+def test_quarantine_v34_adds_fifteen_rows_to_v33():
+    with open(data.QUARANTINE_V33) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V34) as f:
+        new = [json.loads(line) for line in f]
+    assert new[: len(old)] == old
+    added = new[len(old) :]
+    assert len(added) == 15
+    assert len({r["audit_id"] for r in new}) == len(new)
+    assert all(r["evidence"] and r["reason"] for r in added)
+    actions = sorted(r["action"] for r in added)
+    assert actions.count("quarantine_nonresidential") == 8
+    assert actions.count("quarantine_explicit_short_term_offer") == 3
+    assert actions.count("quarantine_product_scope") == 2
+    frame = pd.DataFrame({"audit_id": [added[0]["audit_id"], "kept"]})
+    assert data.DATA_RULES["quarantine-v34"](frame).audit_id.tolist() == ["kept"]
+    assert "quarantine-v34" in data.DROPPING_RULES
+
+
+def test_quarantine_v35_adds_the_124_dekalb_bushwick_ad_to_v34():
+    with open(data.QUARANTINE_V34) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V35) as f:
+        new = [json.loads(line) for line in f]
+    assert new[: len(old)] == old
+    (added,) = new[len(old) :]
+    assert len({r["audit_id"] for r in new}) == len(new)
+    assert added["source_listing_id"] == "4853056"
+    assert added["action"] == "quarantine_location_conflict"
+    frame = pd.DataFrame({"audit_id": [added["audit_id"], "kept"]})
+    assert data.DATA_RULES["quarantine-v35"](frame).audit_id.tolist() == ["kept"]
+    assert "quarantine-v35" in data.DROPPING_RULES

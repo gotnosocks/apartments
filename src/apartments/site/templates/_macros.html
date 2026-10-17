@@ -142,3 +142,12 @@ estimates can move the opposite way from the asks. The building's other apartmen
 between.</p>
 {% endif %}
 {%- endmacro %}
+
+{# Neighbourhood choices, grouped by borough with a whole-borough choice when
+   the build covers more than one borough. #}
+{% macro area_options(groups, chosen, counts=True) -%}
+{% if groups | reject("equalto", "Other") | list | length > 1 %}{% for borough, names in groups.items() %}<optgroup label="{{ borough }}">
+{% if borough != "Other" %}<option value="{{ borough }}"{% if chosen == borough %} selected{% endif %}>All of {{ borough }}{% if counts %} ({{ "{:,}".format(names.values() | sum) }}){% endif %}</option>{% endif %}
+{% for name, count in names.items() %}<option value="{{ name }}"{% if chosen == name %} selected{% endif %}>{{ name }}{% if counts %} ({{ "{:,}".format(count) }}){% endif %}</option>{% endfor %}
+</optgroup>{% endfor %}{% else %}{% for names in groups.values() %}{% for name, count in names.items() %}<option value="{{ name }}"{% if chosen == name %} selected{% endif %}>{{ name }}{% if counts %} ({{ "{:,}".format(count) }}){% endif %}</option>{% endfor %}{% endfor %}{% endif %}
+{%- endmacro %}
