@@ -2,6 +2,26 @@
 
 Updated 2026-10-17 07:45 ET, after the second empty-lot overrides (#1000). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 08:30 ET
+
+- The pipeline thread ran PAD 26c over the empty-lot list (`/data1/apartments/tmp/pipeline/lanes/emptylots/pad-buildings.csv`,
+  from `padbuild.py` there).
+  - Of the 43 left after #1000, PAD gives the old registry lot for 36, so they stay.
+  - Of the other 7, #1003 moves 165 Concord St, 59 Grand St (Brooklyn) and 401 West Broadway
+    (53 rows) in `registry-overrides-20261017-emptylots3.json`, where PAD matches at rank 0 and the lot holds apartments.
+  - The Smile stays because its PAD lot holds 0 apartments. 74 North 1st, 402 East 65th and 24 Frost
+    stay because PAD matches them only at rank 4.
+  - For the 415 buildings where the registry and pipeline lots agree (the 296 never-built lots among them), PAD gives the same lot.
+    They stay as they are.
+- The HPD other_lot list (`/data1/apartments/tmp/suspect/bcheck/other_lot_pad.csv`, 48 listings in 32
+  buildings) is checked against PAD.
+  - For 35 listings, PAD gives the pipeline's lot.
+  - For 4 buildings (445 E 9th, 2178 2nd Ave, 236 Congress, 453 3rd Ave), the registry
+    already holds the HPD lot, and only the pipeline's `buildings.lots` disagrees. The pipeline thread has the list.
+  - #1004 moves 245 Sumpter St off a school lot (`registry-overrides-20261017-hpdpad.json`, 1 row).
+  - 194 Broadway has no PAD match and stays.
+- The next all-scraped registry revision should list #996, #1000, #1003 and #1004. It still waits on the 1-hour cap.
+
 ## 2026-10-17 07:45 ET
 
 - #1000 adds `config/reviews/registry-overrides-20261017-emptylots2.json`, 20 more of the 63
