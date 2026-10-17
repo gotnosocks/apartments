@@ -320,7 +320,8 @@ def test_listings_read_the_records_file_at_each_records_last_fetch(
     records_catalog, tmp_path
 ):
     """A page crawl's capture of a listing gives way to its records, and the
-    record fetched last counts, at the time of its last fetch."""
+    record with the latest last fetch counts, at that fetch, over a record
+    first fetched later."""
     import pyarrow as pa
     import pyarrow.parquet as pq
 
@@ -344,7 +345,7 @@ def test_listings_read_the_records_file_at_each_records_last_fetch(
             {
                 "listing_id": 7,
                 "collected_at": 100,
-                "last_collected_at": 150,
+                "last_collected_at": 500,
                 "record": first,
             },
             {
@@ -356,8 +357,8 @@ def test_listings_read_the_records_file_at_each_records_last_fetch(
         ]
     )
     table = latest_ask.listings({"page": str(tmp_path / "page"), "crawl-1": "records"})
-    assert table.loc["7"].changes == [("2025-01-01", 3000.0), ("2025-02-01", 3100.0)]
-    assert table.loc["7"].collected_at == 400.0
+    assert table.loc["7"].changes == [("2025-01-01", 3000.0)]
+    assert table.loc["7"].collected_at == 500.0
 
 
 def test_main_names_the_records_file_it_read(records_catalog, tmp_path, monkeypatch):

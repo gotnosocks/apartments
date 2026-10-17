@@ -2627,7 +2627,8 @@ and catalog it writes in a temporary folder:
 The frontier's `frontier/tests/test_latest_ask.py` checks `latest_ask` on a records file:
 
 59. give `latest_ask.listings` a page crawl's capture of a listing and two of its records, and
-    check that it takes the record fetched last, at its last fetch;
+    check that it takes the record with the latest last fetch, at that fetch, over a record
+    first fetched later;
 60. run `latest_ask.main` with `--crawl records`, and check that it hands the checked file to
     `listings` and names it in its provenance.
 
