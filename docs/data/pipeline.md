@@ -1389,10 +1389,11 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
 1848216, 1887124, 2678483, 5019133 and 5098585.
 
-The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
-`unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
-`elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to another unit or building
-go into the unit ledger, described under [Unit ledger](#unit-ledger).
+The chain's `building-joins-v1` and `unit-reviews-v2` are in the unit ledger, described under
+[Unit ledger](#unit-ledger), but for a split held for want of backing. Its other rules are not
+in a ledger yet: `west-coast-wings-v1`, `unit-splits-v4`, `unit-labels-v17`,
+`fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to
+another unit or building go into the unit ledger.
 
 ### Tenfold asks
 
@@ -1514,9 +1515,36 @@ building, a change to the unit ledger rebuilds the two unit ledger models and ev
 `ads.placed` on, 14 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
 `ledger.units`, and counts its entries by status and change.
 
-The folder holds no files yet, and `ads.placed` then gives each ad the building and unit of
-`ads.identity`. The chain's `building-joins-v1` and `unit-reviews-v2` go in with their evidence
-in a later PR.
+With no files in the folder, `ads.placed` gives each ad the building and unit of
+`ads.identity`. I imported the chain's `unit-reviews-v2` and `building-joins-v1` into
+`2026-10-17-unit-reviews.ndjson`, each imported entry with a `source` pointing at its review
+line or rule. For each one I looked for backing beyond the ad's own words in the API records, PLUTO and
+the lot registry:
+
+- The two joins at 110 West 26th Street rest on Ben's statement of 2026-10-07, as `owner`
+  evidence.
+- The join of 21 West 12th Street's 2, 2B, 2F and 2R rests on the sizes the ads state, about
+  800 sq ft with a 400 sq ft terrace, and on PLUTO's 8 residential units in 4 floors.
+- The splits at 1 Patchin Place and 407 West 39th Street rest on the sizes in the split ads'
+  records, 1,800 and 2,500 sq ft, against the unit's 900 to 950 and 350.
+- The split of 780 Greenwich Street 6H's 2025 ad rests on the 2022 PH6H ads, which describe
+  the same apartment as a two-bedroom duplex after a roof addition.
+- The move of 97 Horatio Street to The West Coast rests on the lot registry.
+
+I also joined 43 East 20th Street's units 2, 2A and 2S, a full-floor loft of 2,000 sq ft by its
+ads' sizes and PLUTO's floor area. I held the split of 249 West 29th Street 3E's ad 2200772. PAD
+gives 249 and 251 West 29th Street a single lot and BIN, so the ad's address points at the same
+building, and only the ad itself calls the apartment a studio. A floor plan or a stated size
+would back it. On the Oct 16 export every entry comes out `live`, and 25 ads change unit or
+building.
+
+I then ran the served fit's rules on its rows twice, once as the chain runs them and once after
+the ledger's placements. With the chain's rules all kept, the two runs agree on every row's
+unit and building but 43 East 20th Street's. Skipping `building-joins-v1` and `unit-reviews-v2`
+after the ledger loses the three splits, as well as the held one: the first step of `unit-labels-v17` gives every row of
+a building and label the least unit ID among them, and a split's ads keep their page, so their
+`~review-` IDs fall back to the unit's. The joins and the move come out as the chain's either
+way.
 
 ## Ads file
 
@@ -1724,9 +1752,9 @@ The served dataset files West Chelsea's ads under Chelsea, while the rows file g
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
 a folder written with them leaves out West Chelsea's 14,272 rows on the build of Oct 16. To keep
 them, I add West Chelsea to `--neighbourhoods`. A fit compared with the served fit needs the same
-neighbourhood levels, so for it I also pass `--rename "West Chelsea=Chelsea"`, and the folder
-gives those rows the served dataset's name. The manifest lists each rename with the rows it
-moved.
+neighbourhood levels, so for it I pass `--rename "West Chelsea=Chelsea"` instead. The script adds
+West Chelsea to the neighbourhoods itself, and the folder gives those rows the served dataset's
+name. The manifest lists each rename with the rows it moved.
 
 ### Against the served dataset
 
@@ -1745,7 +1773,8 @@ F=/data1/apartments/frontier/datasets
     --api-reference $F/api-manhattan-page-crawl-areas-analysis-20261015-run5
 ```
 
-Writing the folder took 48 s at a 1.1 GiB peak, and the check took 50 s at a 3.9 GiB peak. The
+Writing the folder took 48 s at a 1.1 GiB peak. The check peaked at 3.9 GiB, so I run it in a
+scope capped at 5 GiB with swap off, once at least 6 GiB is available. It took 71 s there. The
 folder holds 335,886 rows, the served dataset holds 296,718 rows priced at the first ask, and
 277,633 ads have a row in both. Every difference on those ads has a cause, by the check's field
 names:
@@ -1756,7 +1785,7 @@ names:
 | `full_baths` | 16 | ledger sets |
 | `half_baths` | 10 | 9 ledger sets, 1 item 7 |
 | `square_feet` | 11 | 10 ledger sets, 1 item 7 |
-| `asking_rent` | 47 | 41 item 9, 6 item 11 |
+| `asking_rent` | 47 | 25 item 11, 22 item 9 |
 | `pets` | 3,126 | 3,107 item 10, 19 item 7 |
 | `floor_status` | 4,575 | item 7 |
 | `label_derived_floor` | 4,271 | item 7 |
@@ -1840,8 +1869,9 @@ when an item here or an entry of the corrections ledger accounts for it.
    gives the ads the other building's ID.
 9. An ask from an API record newer than the chain's. The chain's latest asks read the export up
    to run 5, fetched by 4:52 pm ET on Oct 15, and `analysis.latest_ask` reads every run. On the
-   build of Oct 16, 41 rows in the served dataset's neighbourhoods take a later price from runs
-   10 and 11.
+   build of Oct 16, 22 rows in the served dataset's neighbourhoods take a later price from runs
+   10 and 11. The check counts a row here only if the ad's latest record came after run 5, its
+   price differs from the last price up to run 5, and the folder's ask equals it.
 10. A pet fee in the description. As described under
     [Attributes and exclusions](#attributes-and-exclusions), `ads.record_attributes` reads a pet
     fee as `allowed_restrictions_unknown` when the record gives no policy, and the chain leaves
@@ -1849,8 +1879,9 @@ when an item here or an entry of the corrections ledger accounts for it.
 11. The latest ask of an ad the chain also prices at its current page. The chain gives such an
     ad a second row, priced at the page under an ID starting `capture:refresh:`, and the latest
     ask of its first-ask row ends at the price on that page. The rows file gives each ad a
-    single row, and its latest ask counts every later change. In the served dataset, 6 rows
-    differ this way.
+    single row, and its latest ask counts every later change. In the served dataset, 25 rows
+    differ this way. The check counts a row here only if the served row's ask equals the price
+    of the ad's page row.
 
 ## Planted errors
 
@@ -2226,8 +2257,9 @@ in all, and most tests add made-up ads to that export. The tests:
     entry's status and differing values and each ad's building, building ID, unit and placements
     by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
-    `ads.placed`.
-45. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
+    `ads.placed`;
+45. read the repo's unit ledger and check that it holds a join, a split and a move;
+46. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
     file, with a made-up latest ask for an ad, after giving the catalog a line from a checkout
     with changes and a line cut short. `rentfrontier.data.load` reads the folder to the frame it
     gives the chain's rows of the fixture with their latest asks and the made-up one, and the
@@ -2235,7 +2267,8 @@ in all, and most tests add made-up ads to that export. The tests:
     an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
     script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
     A second folder renames a neighbourhood to another, and its lines and manifest counts follow
-    the rename.
+    the rename. A third asks only for the new name, and the rename brings in the old one's rows.
+    A rename of a neighbourhood with no rows stops the script.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
