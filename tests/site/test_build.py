@@ -432,3 +432,33 @@ def test_latest_asks_reads_the_rules_recorded_table(tmp_path):
     record["data_rule_sources"]["latest-ask-v4"]["sha256"] = "0" * 64
     with pytest.raises(build.BuildError, match="differs"):
         build.latest_asks(record)
+
+
+def dump(root):
+    db = sqlite3.connect(root / "current" / "site.sqlite")
+    try:
+        tables = [
+            r[0]
+            for r in db.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+            )
+        ]
+        return {
+            t: sorted(map(repr, db.execute(f"SELECT * FROM {t}").fetchall()))
+            for t in tables
+        }
+    finally:
+        db.close()
+
+
+def test_chunked_build_matches_a_single_chunk(tmp_path, bundle, monkeypatch):
+    whole = tmp_path / "whole"
+    build.build(bundle, whole, scope="Chelsea")
+    monkeypatch.setattr(build, "CHUNK_ROWS", 1)
+    chunked = tmp_path / "chunked"
+    build.build(bundle, chunked, scope="Chelsea")
+    a, b = dump(whole), dump(chunked)
+    assert a.keys() == b.keys()
+    for table in a:
+        if table != "meta":
+            assert a[table] == b[table], table
