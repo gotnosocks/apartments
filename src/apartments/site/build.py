@@ -44,7 +44,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import ad_dates, captures, estimate_build, exposure, story, wings
+from . import ad_dates, boroughs, captures, estimate_build, exposure, story, wings
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -1252,12 +1252,9 @@ def override_of(note: dict | None) -> dict | None:
 
 def scope_of(listings: list[dict]) -> str:
     """The neighbourhoods the listings cover, in words ("Chelsea and West
-    Village"): the site's name for the area when the publish does not give
-    one."""
-    names = sorted({row["neighbourhood"] for row in listings})
-    if len(names) <= 1:
-        return names[0] if names else "Chelsea"
-    return ", ".join(names[:-1]) + " and " + names[-1]
+    Village", or by count and borough past three): the site's name for the
+    area when the publish does not give one."""
+    return boroughs.scope_words(sorted({row["neighbourhood"] for row in listings}))
 
 
 def build(

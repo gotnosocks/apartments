@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m with context %}
 {% block title %}Buildings{% endblock %}
 {% block content %}
 <h1>Buildings</h1>
@@ -13,7 +14,7 @@
     <label for="b-nb">Neighbourhood</label>
     <select id="b-nb" name="nb">
       <option value=""{% if not nb %} selected{% endif %}>All</option>
-    {% for name in neighbourhoods %}<option value="{{ name }}"{% if nb == name %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    {{ m.area_options(boroughs, nb, counts=False) }}
     </select>
   </div>
   {% endif %}

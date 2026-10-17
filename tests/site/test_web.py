@@ -1089,6 +1089,14 @@ def test_neighbourhoods_filter_listings_and_buildings(
     )  # an unknown neighbourhood is ignored
     buildings = client.get("/buildings?nb=Chelsea").get_data(as_text=True)
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
+    # one borough: no whole-borough choice, and its name is ignored
+    assert "All of Manhattan" not in html
+    assert (
+        client.get("/listings?nb=Manhattan")
+        .get_data(as_text=True)
+        .count('href="/listings/a')
+        == 6
+    )
     page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
     assert '<p class="subline">West Village · ' in page
     # several neighbourhoods are named by their count, not listed (Ben, 2026-10-09)
@@ -1105,6 +1113,28 @@ def test_neighbourhoods_filter_listings_and_buildings(
     assert "listings in both neighbourhoods (Chelsea and West Village)," in about
     story = client.get("/research/story").get_data(as_text=True)
     assert "one one-bedroom across both neighbourhoods ask" in story
+
+
+def test_two_boroughs_offer_each_borough_as_a_choice(
+    tmp_path, make_bundle, research_file
+):
+    from apartments.site import build
+
+    bundle = make_bundle(
+        tmp_path / "bk",
+        neighbourhoods={"134-west-23-street-new_york": "Williamsburg"},
+    )
+    root = tmp_path / "bk-site"
+    build.build(bundle, root, scope="Chelsea and Williamsburg")
+    client = create_app(root, research_data=research_file).test_client()
+    html = client.get("/listings").get_data(as_text=True)
+    assert '<optgroup label="Brooklyn">' in html
+    assert '<option value="Brooklyn">All of Brooklyn (2)</option>' in html
+    brooklyn = client.get("/listings?nb=Brooklyn").get_data(as_text=True)
+    assert brooklyn.count('href="/listings/a') == 2
+    assert '<option value="Brooklyn" selected>' in brooklyn
+    buildings = client.get("/buildings?nb=Manhattan").get_data(as_text=True)
+    assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
 
 
 def test_elegance_page_lists_every_judgement(client):

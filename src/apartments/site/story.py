@@ -1168,7 +1168,10 @@ AREA_WORDS = {
     "nb7": "NoMad",
     "nb8": "East Village",
     "nb9": "Hell's Kitchen and Hudson Yards",
+    "all": "every other scraped neighbourhood in Manhattan and Brooklyn",
 }
+# Feature sets named for their area alone, with the area and body they take.
+WHOLE_SETS = {"all-scraped": ("all", "nostuy-lots2")}
 SET_WORDS = {
     "unitdesc": "words from the ads",
     "unitdescpluto": "words from the ads and city building records",
@@ -1215,19 +1218,21 @@ def set_words(body: str) -> str:
 _PR = re.compile(r"\(#(\d+)\)")
 _NB_SET = re.compile(r"^nb\d*$")
 _UNIT_SET = re.compile(r"^unit")
+_ALL_SET = re.compile(r"^all$")
 
 
 def design_terms(run: str) -> tuple[list[str], str] | None:
     """A frontier run's model terms and feature set, from its name:
     `m7-nocurves-floorslope-nb3-coded-v2-rows-…` → (["nocurves",
-    "floorslope"], "nb3-coded-v2"). The set starts at the first `nb` token,
-    or else at the first `unit` token, since a term such as `unitnu4` can
-    come before an `nb` set. None for a name in another form."""
+    "floorslope"], "nb3-coded-v2"). The set starts at an `all` token, or
+    else at the first `nb` token, or else at the first `unit` token, since a
+    term such as `unitnu4` can come before the set. None for a name in
+    another form."""
     head = run.split("-rows-")[0]
     tokens = head.split("-")
     if len(tokens) < 2 or not re.fullmatch(r"m\d+\w*", tokens[0]):
         return None
-    for start in (_NB_SET, _UNIT_SET):
+    for start in (_ALL_SET, _NB_SET, _UNIT_SET):
         for i, token in enumerate(tokens[1:], 1):
             if start.match(token):
                 return tokens[1:i], "-".join(tokens[i:])
@@ -1286,7 +1291,10 @@ def term_words(term: str) -> str:
 
 def _set_parts(feature_set: str) -> tuple[str, str, str]:
     """`nb3-coded-v2` → ("nb3", "coded", "v2"); `unitfacing-v5` → ("unit",
-    "unitfacing", "v5")."""
+    "unitfacing", "v5"); `all-scraped-v1` → ("all", "nostuy-lots2", "v1")."""
+    m = re.fullmatch(r"([a-z][a-z0-9-]*?)-(v\d+)", feature_set or "")
+    if m and m.group(1) in WHOLE_SETS:
+        return (*WHOLE_SETS[m.group(1)], m.group(2))
     m = re.fullmatch(r"(nb\d*)?-?([a-z][a-z0-9-]*?)(?:-(v\d+))?", feature_set or "")
     if not m:
         return "", feature_set or "", ""
