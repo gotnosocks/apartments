@@ -254,8 +254,10 @@ def record(row: tuple, audit_id: str) -> dict:
         "source_listing_id": listing_id,
         "square_feet": square_feet,
         "unit_id": unit_id,
-        "view_exposures": json.loads(views),
-        "window_exposures": json.loads(windows),
+        # An API record without views or windows leaves the column null, and
+        # `rentfrontier.data.load` reads a null as it reads an object of nulls.
+        "view_exposures": None if views is None else json.loads(views),
+        "window_exposures": None if windows is None else json.loads(windows),
     }
 
 

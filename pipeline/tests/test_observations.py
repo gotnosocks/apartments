@@ -86,13 +86,19 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
     expected = chain_records()
     assert len(expected) == 229
     # The build's rows file with a made-up latest ask for an ad, as a ledger set of the ask
-    # gives it, and the rows file of a build from before the `latest_ask` column.
-    changed = expected[2]["source_listing_id"]
+    # gives it, and an ad whose API record has no views or windows. Then the rows file of a
+    # build from before the `latest_ask` column.
+    changed, bare = expected[2]["source_listing_id"], expected[3]["source_listing_id"]
     expected[2]["asking_rent"] = 1234.0
+    expected[3]["view_exposures"] = expected[3]["window_exposures"] = None
     rows, first = catalog / "rows-ask-set.parquet", catalog / "rows-first-asks.parquet"
     duckdb.execute(
-        f"""COPY (SELECT * REPLACE (CASE WHEN listing_id = '{changed}' THEN 1234.0
-                ELSE latest_ask END AS latest_ask) FROM '{original}')
+        f"""COPY (SELECT * REPLACE (
+                CASE WHEN listing_id = '{changed}' THEN 1234.0 ELSE latest_ask END AS latest_ask,
+                CASE WHEN listing_id = '{bare}' THEN NULL ELSE view_exposures END
+                    AS view_exposures,
+                CASE WHEN listing_id = '{bare}' THEN NULL ELSE window_exposures END
+                    AS window_exposures) FROM '{original}')
         TO '{rows}' (FORMAT parquet)"""
     )
     duckdb.execute(
