@@ -67,6 +67,9 @@ LARGE_CPU, LARGE_MEMORY_MIB = 8, 196608
 LARGE_FIT_CAP, LARGE_TIMEOUT = 9 * 3600, 12 * 3600
 LARGE_POST_MARGIN = 45 * 60  # copying a 1.75M-row run, LOO and bundle to the Volume
 PUBLISH_MARGIN = 15 * 60  # copying a bundle, kit and rent map to the Volume
+# Processes for the summary's per-chunk row tables in a publish: one core of LARGE_CPU stays
+# with the main process and its JAX work.
+SUMMARY_WORKERS = LARGE_CPU - 1
 
 
 def usd_per_second(gpu, large=False):
@@ -206,7 +209,7 @@ def publish_steps(spec):
     name = spec["name"]
     failing = ["--allow-failing"] if spec.get("allow_failing") else []
     return [
-        ("summary", (), lambda: ["rentfrontier.summary", name, *failing]),
+        ("summary", (), lambda: ["rentfrontier.summary", name, "--workers", str(SUMMARY_WORKERS), *failing]),
         ("kit", ("summary",), lambda: ["rentfrontier.kit", name, "--summary", str(_bundle(name)), *failing]),
         ("calibration", ("summary",), lambda: ["rentfrontier.calibration", str(_bundle(name))]),
         ("rentmap", (), lambda: ["rentfrontier.rentmap", name]),
