@@ -117,6 +117,17 @@ def test_a_file_unlike_the_catalog_stops_the_build(pipeline):
         captures.pipeline_files(pipeline.root)
 
 
+def test_a_build_without_an_ads_file_stops_the_build(pipeline):
+    pipeline.write([ad(1)])
+    catalog = pipeline.root / "catalog.ndjson"
+    entry = json.loads(catalog.read_text().splitlines()[-1])
+    del entry["ads_file"]
+    with catalog.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+    with pytest.raises(ValueError, match="has no ads_file"):
+        captures.pipeline_files(pipeline.root)
+
+
 def test_the_datasets_current_row_rules_apply(pipeline):
     ads = [
         ad(1, unit_id="u-1"),
@@ -169,6 +180,15 @@ def test_the_ad_fetched_last_wins_per_unit(pipeline):
     )
     got, skipped = captures.current_ads(files, set(), {})
     assert [c["listing_id"] for c in got] == ["1002"] and skipped == {}
+
+
+def test_a_unit_takes_its_older_ad_when_the_dataset_dropped_the_newer(pipeline):
+    files = pipeline.write(
+        [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
+    )
+    got, skipped = captures.current_ads(files, {"1002"}, {})
+    assert [c["listing_id"] for c in got] == ["1001"]
+    assert skipped == {"1002": "the dataset dropped the listing"}
 
 
 def test_a_unit_whose_ads_on_the_market_conflict_has_none(pipeline):

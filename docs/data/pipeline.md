@@ -1498,18 +1498,19 @@ both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. T
 
 The site build (`python -m apartments.site build`) reads the newest line of
 `/data1/apartments/pipeline/datasets/catalog.ndjson` and checks the SHA-256 of the ads file and
-the rows file against it before it reads either. `src/apartments/site/captures.py` then picks
+the rows file against it before it reads either. A newest line without both files stops the
+build, as a file with another SHA-256 does. `src/apartments/site/captures.py` then picks
 the listings on the market:
 
 1. It joins each ad to its fit-ready row by listing id, so an ad without a row stays off the
    site.
 2. It keeps the ads whose latest answer says ACTIVE and came in the 9 days before the build
    (`CURRENT_DAYS`).
-3. For each unit it takes the ad with the latest answer. When two of the unit's ads disagree on
-   the ask, the bedrooms, the baths or the size, it takes neither.
-4. It leaves out an ad outside the layouts and asks the dataset prices, an ad the served
-   dataset dropped, and an ad of a unit the dataset prices as current from an answer as new as
-   the ad's or newer.
+3. When two of a unit's ads disagree on the ask, the bedrooms, the baths or the size, it takes
+   neither. Otherwise it leaves out each ad the served dataset dropped and takes the ad with the
+   latest answer of the others.
+4. It leaves out that ad when its layout or ask lies outside the ones the dataset prices, or
+   when the dataset prices its unit as current from an answer as new as the ad's or newer.
 
 The values come from the fit-ready row, after the corrections ledger, and the ask from
 `page_price`, since a row's `asking_rent` follows the chain's latest-ask rule and can be an

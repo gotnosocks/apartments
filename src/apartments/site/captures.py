@@ -100,8 +100,8 @@ def supported(c: dict) -> bool:
 
 def pipeline_files(root: Path) -> dict | None:
     """The ads and rows files of the pipeline's newest build under `root`, from its catalog, or
-    None when there is no catalog. A file whose sha256 differs from the catalog's stops the
-    build."""
+    None when there is no catalog. A newest build without both files, or a file whose sha256
+    differs from the catalog's, stops the build."""
     catalog = root / "catalog.ndjson"
     lines = catalog.read_text().split("\n") if catalog.is_file() else []
     lines = [line for line in lines if line.strip()]
@@ -110,6 +110,8 @@ def pipeline_files(root: Path) -> dict | None:
     entry = json.loads(lines[-1])
     files = {"built": entry["built"]}
     for key, name in (("ads", "ads_file"), ("rows", "rows")):
+        if name not in entry:
+            raise ValueError(f"the newest build in {catalog} has no {name}")
         path = root / entry[name]["path"]
         if estimate_build._sha256(path) != entry[name]["sha256"]:
             raise ValueError(f"{path} differs from the pipeline's catalog")
@@ -140,11 +142,11 @@ def current_ads(
     the reason the build leaves out each other ad on the market, by listing id.
 
     When a unit has two ads on the market with another ask, bedroom count, bath count or size,
-    the ads conflict and the unit gets none, as in the dataset's current rows. Of agreeing ads
-    the build takes the one fetched last, and then leaves it out when:
+    the ads conflict and the unit gets none, as in the dataset's current rows. The build leaves
+    out each agreeing ad the dataset dropped (`skip_listings`) and takes the one fetched last of
+    the others. It then leaves that ad out when:
 
     - its layout or ask lies outside the dataset's range (`supported`);
-    - the dataset dropped it (`skip_listings`);
     - the dataset last saw its unit current no earlier than the pipeline fetched the ad
       (`skip_units`), since the dataset prices the unit then.
     """
@@ -175,15 +177,22 @@ def current_ads(
         by_unit.setdefault(c["unit_id"], []).append(c)
     ads, skipped = [], {}
     for unit, group in by_unit.items():
-        c, seen = group[0], skip_units.get(unit)
         if len({tuple(a[k] for k in AGREE) for a in group}) > 1:
             skipped |= {
                 a["listing_id"]: "the unit's ads on the market conflict" for a in group
             }
-        elif not supported(c):
+            continue
+        skipped |= {
+            a["listing_id"]: "the dataset dropped the listing"
+            for a in group
+            if a["listing_id"] in skip_listings
+        }
+        group = [a for a in group if a["listing_id"] not in skip_listings]
+        if not group:
+            continue
+        c, seen = group[0], skip_units.get(unit)
+        if not supported(c):
             skipped[c["listing_id"]] = "layout or ask outside the dataset's range"
-        elif c["listing_id"] in skip_listings:
-            skipped[c["listing_id"]] = "the dataset dropped the listing"
         elif seen is not None and pricing._timestamp(c["collected_at"]) <= seen:
             skipped[c["listing_id"]] = "the dataset prices the unit as current"
         else:
