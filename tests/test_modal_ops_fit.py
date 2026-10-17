@@ -670,7 +670,7 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
     )
     bundle = str(tmp_path / "summaries" / "r-abc1234")
     assert calls == [
-        ["rentfrontier.summary", "r", "--allow-failing"],
+        ["rentfrontier.summary", "r", "--workers", "7", "--allow-failing"],
         ["rentfrontier.kit", "r", "--summary", bundle, "--allow-failing"],
         ["rentfrontier.calibration", bundle],
         ["rentfrontier.rentmap", "r"],

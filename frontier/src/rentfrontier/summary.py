@@ -467,7 +467,86 @@ def gate(result, run_dir) -> dict:
     }
 
 
-def summarize(name: str, allow_failing: bool = False):
+# Environment for the row-table workers: CPU JAX (they get numpy only, and the
+# GPU stays with the main process) and one BLAS thread each, as `_newbuilding`.
+WORKER_ENV = {
+    "JAX_PLATFORMS": "cpu",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+}
+# The frame columns `row_table` reads.
+ROW_COLUMNS = ["audit_id", "unit_id", "building", "period", "asking_rent"]
+
+
+class RowTables:
+    """`row_table` for each chunk `summarize` hands it, in this process with one
+    worker, or else in a pool of that many spawned processes: the predictive
+    intervals and weighted quantiles run single-threaded in scipy and numpy and
+    take most of a large summary's time (2026-10-17: a 1.6M-row summary passed
+    4 hours on one core). At most two chunks per worker wait in the pool, so
+    memory stays near that many chunks. Every 100 chunks it logs its progress.
+
+    Use it as a context manager. While the pool is open, WORKER_ENV is set in
+    this process's environment, since spawned workers start on demand and read
+    it at their first import of JAX; this process read its JAX settings at
+    import, so they stay as they were. On an error the pool drops its queued
+    chunks."""
+
+    def __init__(self, workers: int = 1):
+        self.workers, self.done, self.pending = workers, [], []
+        self.pool, self.started, self.chunks = None, time.perf_counter(), 0
+        self.saved_env = {}
+
+    def __enter__(self):
+        if self.workers > 1:
+            import multiprocessing
+            import os
+            from concurrent.futures import ProcessPoolExecutor
+
+            self.saved_env = {k: os.environ.get(k) for k in WORKER_ENV}
+            os.environ.update(WORKER_ENV)
+            self.pool = ProcessPoolExecutor(
+                self.workers, mp_context=multiprocessing.get_context("spawn")
+            )
+        return self
+
+    def __exit__(self, kind, error, trace):
+        import os
+
+        if self.pool is not None:
+            self.pool.shutdown(wait=kind is None, cancel_futures=kind is not None)
+            self.pool = None
+        for k, v in self.saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        return False
+
+    def add(self, sub, terms, *rest):
+        sub = sub[ROW_COLUMNS]
+        if self.pool is None:
+            self.done.append(row_table(sub, terms, *rest))
+        else:
+            while len(self.pending) >= 2 * self.workers:
+                self.done.append(self.pending.pop(0).result())
+            terms = {k: np.asarray(v) for k, v in terms.items()}
+            self.pending.append(self.pool.submit(row_table, sub, terms, *rest))
+        self.chunks += 1
+        if self.chunks % 100 == 0:
+            print(
+                f"{self.chunks} chunks, {time.perf_counter() - self.started:.0f} s",
+                flush=True,
+            )
+
+    def collect(self) -> list[pd.DataFrame]:
+        self.done += [f.result() for f in self.pending]
+        self.pending = []
+        return self.done
+
+
+def summarize(name: str, allow_failing: bool = False, workers: int = 1):
     import jax
 
     jax.config.update("jax_enable_x64", True)
@@ -518,42 +597,41 @@ def summarize(name: str, allow_failing: bool = False):
         )
         return a, terms
 
-    tables = []
-    # Rows in the fit, sorted into whole units.
-    train_idx = np.flatnonzero(~heldout)
-    unit_of = pd.Index(prep.units).get_indexer(frame.unit_id.to_numpy()[train_idx])
-    order = np.argsort(unit_of, kind="stable")
-    rows_sorted, units_sorted = train_idx[order], unit_of[order]
-    chunk = chunk_rows(draws)
-    for lo, hi in loo.unit_chunks(units_sorted, chunk):
-        rows = np.sort(rows_sorted[lo:hi])  # frame order, as row_arrays returns
-        mask = np.zeros(len(frame), dtype=bool)
-        mask[rows] = True
-        a, terms = terms_for(mask)
-        fitted = np.exp(sum(terms.values()))
-        rest = sum(v for k, v in terms.items() if k not in loo.UNIT_TERMS)
-        _, seg = np.unique(a.unit, return_inverse=True)
-        pad = chunk - len(rows)
-        # Pad to a fixed shape (one compile); padded rows are their own units.
-        key, sub_key = jax.random.split(key)
-        loglik, level = loo_unit_levels(
-            np.r_[a.y, np.zeros(pad)],
-            np.concatenate([rest - prep.offset, np.zeros((draws, pad))], axis=1),
-            np.r_[seg, seg.max() + 1 + np.arange(pad)],
-            chunk,
-            params,
-            sub_key,
-            t_units=t_units,
-            bed_group=np.r_[
-                model.noise_group(sigma.shape[1] if sigma.ndim == 2 else 1, a),
-                np.zeros(pad, a.bed_group.dtype),
-            ],
-        )
-        loglik, level = loglik[:, : len(rows)], level[:, : len(rows)]
-        terms["unit"] = level
-        log_w, k = psis_log_weights(loglik)
-        tables.append(
-            row_table(
+    with RowTables(workers) as tables:
+        # Rows in the fit, sorted into whole units.
+        train_idx = np.flatnonzero(~heldout)
+        unit_of = pd.Index(prep.units).get_indexer(frame.unit_id.to_numpy()[train_idx])
+        order = np.argsort(unit_of, kind="stable")
+        rows_sorted, units_sorted = train_idx[order], unit_of[order]
+        chunk = chunk_rows(draws)
+        for lo, hi in loo.unit_chunks(units_sorted, chunk):
+            rows = np.sort(rows_sorted[lo:hi])  # frame order, as row_arrays returns
+            mask = np.zeros(len(frame), dtype=bool)
+            mask[rows] = True
+            a, terms = terms_for(mask)
+            fitted = np.exp(sum(terms.values()))
+            rest = sum(v for k, v in terms.items() if k not in loo.UNIT_TERMS)
+            _, seg = np.unique(a.unit, return_inverse=True)
+            pad = chunk - len(rows)
+            # Pad to a fixed shape (one compile); padded rows are their own units.
+            key, sub_key = jax.random.split(key)
+            loglik, level = loo_unit_levels(
+                np.r_[a.y, np.zeros(pad)],
+                np.concatenate([rest - prep.offset, np.zeros((draws, pad))], axis=1),
+                np.r_[seg, seg.max() + 1 + np.arange(pad)],
+                chunk,
+                params,
+                sub_key,
+                t_units=t_units,
+                bed_group=np.r_[
+                    model.noise_group(sigma.shape[1] if sigma.ndim == 2 else 1, a),
+                    np.zeros(pad, a.bed_group.dtype),
+                ],
+            )
+            loglik, level = loglik[:, : len(rows)], level[:, : len(rows)]
+            terms["unit"] = level
+            log_w, k = psis_log_weights(loglik)
+            tables.add(
                 frame.loc[mask],
                 terms,
                 log_w,
@@ -564,25 +642,23 @@ def summarize(name: str, allow_failing: bool = False):
                 names,
                 row_inputs(feats, rows),
             )
-        )
-    # Held-out rows: the fit never saw them; the posterior is the estimate.
-    held_idx = np.flatnonzero(heldout)
-    for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / chunk))):
-        if not len(rows):
-            continue
-        mask = np.zeros(len(frame), dtype=bool)
-        mask[rows] = True
-        a, terms = terms_for(mask)
-        unseen = np.asarray(a.unit) < 0
-        if unseen.any():
-            key, sub_key = jax.random.split(key)
-            terms["unit"] = np.asarray(terms["unit"], dtype=float).copy()
-            terms["unit"][:, unseen] = new_unit_levels(
-                params, int(unseen.sum()), sub_key, t_units=t_units
-            )
-        fitted = np.exp(sum(terms.values()))
-        tables.append(
-            row_table(
+        # Held-out rows: the fit never saw them; the posterior is the estimate.
+        held_idx = np.flatnonzero(heldout)
+        for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / chunk))):
+            if not len(rows):
+                continue
+            mask = np.zeros(len(frame), dtype=bool)
+            mask[rows] = True
+            a, terms = terms_for(mask)
+            unseen = np.asarray(a.unit) < 0
+            if unseen.any():
+                key, sub_key = jax.random.split(key)
+                terms["unit"] = np.asarray(terms["unit"], dtype=float).copy()
+                terms["unit"][:, unseen] = new_unit_levels(
+                    params, int(unseen.sum()), sub_key, t_units=t_units
+                )
+            fitted = np.exp(sum(terms.values()))
+            tables.add(
                 frame.loc[mask],
                 terms,
                 np.zeros((draws, len(rows))),
@@ -593,8 +669,8 @@ def summarize(name: str, allow_failing: bool = False):
                 names,
                 row_inputs(feats, rows),
             )
-        )
-    table = pd.concat(tables).sort_index()
+        parts = tables.collect()
+    table = pd.concat(parts).sort_index()
     if len(table) != len(frame) or table.audit_id.duplicated().any():
         raise AssertionError("every dataset row must appear exactly once")
     table.insert(5, "in_fit", ~heldout)
@@ -799,6 +875,12 @@ def main(argv=None):
         action="store_true",
         help="summarize a run that fails the convergence gate (recorded)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="processes for the per-chunk row tables (each holds about two chunks)",
+    )
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
@@ -808,7 +890,7 @@ def main(argv=None):
     if (out_dir / "complete.json").exists():
         raise SystemExit(f"{out_dir} exists")
     t0 = time.perf_counter()
-    out = summarize(args.run, args.allow_failing)
+    out = summarize(args.run, args.allow_failing, args.workers)
     path = write(out, out_dir, commit, time.perf_counter() - t0)
     rows = out["rows"]
     print(

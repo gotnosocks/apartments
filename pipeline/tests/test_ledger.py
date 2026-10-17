@@ -433,7 +433,7 @@ def test_ledger_cases(tmp_path, monkeypatch):
     differ = ctx.fetchdf(
         """SELECT listing_id, bedrooms, full_baths, half_baths, bathrooms, square_feet
         FROM (
-            SELECT * EXCLUDE (latest_ask) FROM analysis.rows
+            SELECT * EXCLUDE (latest_ask, relist_unit) FROM analysis.rows
             EXCEPT SELECT * FROM analysis.kept
         )
         ORDER BY listing_id"""

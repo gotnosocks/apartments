@@ -512,6 +512,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.kept_changes",
         "ads.latest_record",
         "ads.market",
+        "ads.photos",
         "ads.placed",
         "ads.price_changes",
         "ads.record_attributes",
@@ -528,6 +529,9 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.latest_change",
         "analysis.lot_facts",
         "analysis.lot_landmarks",
+        "analysis.relist_links",
+        "analysis.relist_pairs",
+        "analysis.relist_units",
         "analysis.rows",
         "ledger.status",
         "ledger.unit_status",
@@ -580,6 +584,9 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.latest_change",
         "analysis.lot_facts",
         "analysis.lot_landmarks",
+        "analysis.relist_links",
+        "analysis.relist_pairs",
+        "analysis.relist_units",
         "analysis.rows",
         "buildings.details",
         "buildings.footprint_link",
@@ -1644,6 +1651,22 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({ours})").n[0] == 229
     assert ctx.fetchdf(f"{ours} EXCEPT {chain}").empty
     assert ctx.fetchdf(f"{chain} EXCEPT {ours}").empty
+
+
+def test_photos_match_the_records(tmp_path, monkeypatch):
+    """ads.photos gives each pair of ad and photo key the fixture's records show."""
+    ctx = context(monkeypatch, tmp_path / "state")
+    ctx.plan(auto_apply=True, no_prompts=True)
+    keys = set()
+    for listing_id, raw in ctx.fetchdf(
+        "SELECT listing_id::VARCHAR, record FROM raw.ads WHERE outcome = 'record'"
+    ).values:
+        photos = (json.loads(raw).get("media") or {}).get("photos") or []
+        keys |= {(listing_id, photo["key"]) for photo in photos if photo.get("key")}
+    photos = ctx.fetchdf("SELECT listing_id, key FROM ads.photos")
+    assert len({key for _, key in keys}) > 1000
+    assert len(photos) == len(keys)
+    assert set(zip(photos.listing_id, photos.key)) == keys
 
 
 def row_record(
