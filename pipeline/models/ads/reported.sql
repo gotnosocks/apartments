@@ -10,7 +10,7 @@ MODEL (
 );
 
 -- DuckDB estimates the record answers in the export's files at a fifth of all answers, about
--- 500,000, and in a full build ads.touched holds every ad, about 2.4 million. On those estimates
+-- 435,000, and in a full build ads.touched holds every ad, about 2.4 million. On those estimates
 -- DuckDB builds the hash table of the query's ads.touched filter from the records side, with
 -- every record's JSON, and on the Oct 16 export that ran out of a 3 GB limit. So this statement
 -- turns off DuckDB's choice of build side: the hash table then holds the IDs in ads.touched, and

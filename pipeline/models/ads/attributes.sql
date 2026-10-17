@@ -6,33 +6,56 @@ MODEL (
     ),
     grain listing_id,
     audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, records, conflicts))),
-    description 'Each ad''s attributes and rental flags, merged over its records as the current chain merges its captures.'
+    description 'Each ad''s attributes and rental flags, merged over its records as the current chain merges its captures, the attributes only up to its last ACTIVE record.'
 );
 
--- An ad's records are the distinct records of its answers. The current parser fails on a
--- record with another ad's `id` or without propertyDetails and gives it a capture without
--- values, so such a record takes no part here. For each attribute, this model compares the
--- records' values as canonical JSON and ignores unknowns, as `project_advertisement` does: one
--- value stands, two or more give an unknown, and the attribute's name goes into `conflicts`.
--- The records of an ad give two or more values exactly when their smallest and largest values
--- differ, so this model takes each attribute's minimum and maximum.
+-- An ad's attributes come from the distinct records of its answers fetched up to its last answer
+-- with status ACTIVE, or of all its answers when it has no ACTIVE answer. Once an ad is rented or
+-- delisted, StreetEasy can strip or cut its description, and a later record can give other
+-- values. The fit's target is the latest ask, so the attributes of an ad with an ACTIVE answer
+-- describe the ad as it stood when it last asked. On the export of runs 1 to 16, 7,891 of the
+-- 2,140,923 ads have an ACTIVE answer, since the backfill fetched most ads after they closed, and
+-- the others merge all their records. The rental flags come from all of the ad's records. They
+-- describe the terms behind the ask, and a record fetched after the ad closed can state them for
+-- the first time. The current parser fails on a record with another ad's `id` or without
+-- propertyDetails and gives it a capture without values, so such a record takes no part here.
+-- For each attribute, this model compares the records' values as canonical JSON and ignores
+-- unknowns, as `project_advertisement` does: one value stands, two or more give an unknown, and
+-- the attribute's name goes into `conflicts`. The records of an ad give two or more values
+-- exactly when their smallest and largest values differ, so this model takes each attribute's
+-- minimum and maximum.
 -- A rental flag is true when any record sets it, false when the records give only false, and
--- unknown when they give nothing. `records` holds the number of merged records. When all of an
--- ad's records fail to parse, the ad gets no row.
+-- unknown when they give nothing. `records` holds the number of records merged for the
+-- attributes. When all of those records fail to parse, the ad gets no row.
 --
 -- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
 -- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
 -- the previous build's table.
-WITH records AS (
-    SELECT DISTINCT listing_id::VARCHAR AS listing_id, record_sha256
+WITH answers AS (
+    SELECT listing_id::VARCHAR AS listing_id, record_sha256, fetched,
+        max(fetched) FILTER (WHERE status = 'ACTIVE') OVER (PARTITION BY listing_id) AS last_active
     FROM ads.answers
     WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
 ),
+records AS (
+    SELECT listing_id, record_sha256,
+        bool_or(last_active IS NULL OR fetched <= last_active) AS until_active
+    FROM answers
+    GROUP BY listing_id, record_sha256
+),
 projected AS (
-    SELECT a.listing_id, r.* EXCLUDE (record_sha256, id, parsed)
+    SELECT a.listing_id, a.until_active, r.* EXCLUDE (record_sha256, id, parsed)
     FROM records a
     JOIN ads.record_attributes r USING (record_sha256)
     WHERE r.parsed AND r.id = a.listing_id
+),
+flags AS (
+    SELECT listing_id,
+        bool_or(furnished::BOOLEAN) AS furnished,
+        bool_or(short_term::BOOLEAN) AS short_term,
+        bool_or(concession::BOOLEAN) AS concession
+    FROM projected
+    GROUP BY listing_id
 ),
 merged AS (
     SELECT listing_id, count(*) AS records,
@@ -48,11 +71,9 @@ merged AS (
         min(hvac_type) AS hvac_type, max(hvac_type) AS hvac_type_max,
         min(pet_policy) AS pet_policy, max(pet_policy) AS pet_policy_max,
         min(view_exposures) AS view_exposures, max(view_exposures) AS view_exposures_max,
-        min(window_exposures) AS window_exposures, max(window_exposures) AS window_exposures_max,
-        bool_or(furnished::BOOLEAN) AS furnished,
-        bool_or(short_term::BOOLEAN) AS short_term,
-        bool_or(concession::BOOLEAN) AS concession
+        min(window_exposures) AS window_exposures, max(window_exposures) AS window_exposures_max
     FROM projected
+    WHERE until_active
     GROUP BY listing_id
 )
 SELECT listing_id, records,
@@ -91,3 +112,4 @@ SELECT listing_id, records,
         ], i), false)
     ) AS conflicts
 FROM merged
+JOIN flags USING (listing_id)
