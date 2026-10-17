@@ -1698,6 +1698,25 @@ main process peaked at 2,393 MiB resident, and the page cache filled the scope t
 run 2 alone, 238,532 records, with DuckDB's limit at 3 GB, the step took 35 s and the scope's
 anonymous memory peaked at 1,904 MiB.
 
+### Reading it in the builders
+
+The frontier builders read the file through `rentfrontier.api_records`. It takes the newest
+complete line of `catalog.ndjson` from a clean checkout, as the site does for the ads and rows
+files, and stops when that line lists no records file or when the file's SHA-256 differs from
+the line's. `PIPELINE_DATASETS` points it at another folder, such as a build's OUT. It reads the
+file a row group at a time and hands each row over under the granular export's column names:
+
+- `listing_id` as text;
+- `collected_at` from `last_collected_at`;
+- `snapshot_id` from `response_id`;
+- `listing_type` and `raw_listing_json` as they are.
+
+A builder takes a listing's last capture as its row with the latest `collected_at`. With each
+record's last answer in that column, the builder gets the record the collector fetched last, at
+the time of that fetch. In the Oct 16 export, every listing's record with the latest first
+answer is also its record with the latest last answer, so only the time moves: the granular
+export dated a record seen again in a later run to its first answer.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -2127,6 +2146,16 @@ The repository's own tests hold `tests/test_pipeline_records.py`, since the pipe
 the page parser's dependencies. It compares `serialize` with the parser of
 `apartments.graphql_listing` on each of the fixture's 229 records and on the made-up record of
 item 46.
+
+The frontier's `frontier/tests/test_api_records.py` checks the builders' reader on a records file
+and catalog it writes in a temporary folder:
+
+49. after a clean build's line, append a dirty build's line and a partial last line, and check
+    that the reader takes the clean line's file;
+50. add a byte to the records file, and check that the reader stops;
+51. append a clean line without a records file, and check that the reader stops;
+52. read a row back, and check its granular names: the listing ID as text, the last answer's
+    time as `collected_at` and the response ID as `snapshot_id`.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
