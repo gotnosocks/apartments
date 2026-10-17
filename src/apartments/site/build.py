@@ -1252,7 +1252,7 @@ def override_of(note: dict | None) -> dict | None:
 
 def scope_of(listings: list[dict]) -> str:
     """The neighbourhoods the listings cover, in words ("Chelsea and West
-    Village", or by count and borough past three): the site's name for the
+    Village", or by count and borough past twelve): the site's name for the
     area when the publish does not give one."""
     return boroughs.scope_words(sorted({row["neighbourhood"] for row in listings}))
 

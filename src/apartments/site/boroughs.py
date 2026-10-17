@@ -93,7 +93,7 @@ def areas(choice: str | None, counts: dict[str, int]) -> list[str] | None:
     if choice in counts:
         return [choice]
     groups = grouped(counts)
-    if len(groups) > 1 and choice in groups:
+    if len(set(groups) & set(BOROUGHS)) > 1 and choice in BOROUGHS:
         return sorted(groups[choice])
     return None
 

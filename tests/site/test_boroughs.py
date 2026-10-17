@@ -13,6 +13,8 @@ def test_a_borough_stands_for_its_neighbourhoods_once_there_are_two():
     assert boroughs.areas(None, counts) is None
     # one borough offers no whole-borough choice
     assert boroughs.areas("Manhattan", {"Chelsea": 3}) is None
+    assert boroughs.areas("Other", {"Chelsea": 3, "Nowhere": 1}) is None
+    assert boroughs.areas("Manhattan", {"Chelsea": 3, "Nowhere": 1}) is None
 
 
 def test_scope_words_name_a_long_list_by_its_boroughs():
