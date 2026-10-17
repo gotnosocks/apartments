@@ -1,0 +1,11 @@
+{
+ "rule": "bedrooms-ad-v9",
+ "dataset": "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157",
+ "dataset_observations_sha256": "aecf9b7724d3208abc6d44dde6bb71345572514d4c4bcc936cbdf008c083e9de",
+ "reads": "/data1/apartments/tmp/suspect/askcheck/reads.jsonl (ask-check reads of the pipeline's #937 flags)",
+ "base_rule": "bedrooms-ad-v8",
+ "rows": 2,
+ "by_change": {
+  "0->3": 2
+ }
+}
