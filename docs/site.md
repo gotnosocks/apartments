@@ -289,6 +289,10 @@ mv -T current.new current` in `/data1/apartments/site`.
   ```
 - **Logs:** one access line per request (client, method, path, status, milliseconds) in the journal:
   `journalctl --user -u apartments-site -f`.
+- **Column reads:** the site appends a JSON line per request to `/data1/apartments/site/reads.jsonl`
+  with the route, the client, the table.column names its statements read and the result columns
+  the code used (`src/apartments/site/reads.py`). We use it to find outputs no page reads.
+  `SITE_READS_LOG=0` in the unit turns it off; another path in it moves the log.
 - **Stop:** `systemctl --user disable --now apartments-site`.
 
 ## Production properties
