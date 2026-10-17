@@ -902,6 +902,44 @@ def test_per_group_noise_runs_and_reports_a_scale_per_group():
     assert np.all(np.asarray(out["mean"]["sigma"]) > 0)
 
 
+def test_group_noise_steps_off_leave_the_step_unchanged():
+    """A 7-element cfg whose group steps all equal the shared step follows the
+    same chain as the 6-element cfg (same keys)."""
+    prep = synthetic()
+    d = gibbs.build_design(prep, DESIGNS["yearnoise"])
+    state = jax.tree.map(lambda x: x[0], gibbs.init_states(d, jax.random.PRNGKey(3), 1))
+    shared = (5, 0.1, 0.1, 3, 0.1, 0.1)
+    grouped = (*shared, jnp.full(len(d.group_noise_names), 0.1))
+    inner = gibbs.make_step(d)
+    a = b = state
+    for k in jax.random.split(jax.random.PRNGKey(11), 3):
+        a, info_a = jax.jit(lambda k, st: inner(k, st, shared))(k, a)
+        b, info_b = jax.jit(lambda k, st: inner(k, st, grouped))(k, b)
+    for k in a:
+        np.testing.assert_allclose(np.asarray(a[k]), np.asarray(b[k]), rtol=1e-12)
+    assert "noise_group_accept" not in info_a
+    assert np.asarray(info_b["noise_group_accept"]).shape == (len(d.group_noise_names),)
+    assert np.asarray(info_b["nu_accept"]).shape == ()
+
+
+def test_group_noise_steps_adapt_one_step_per_group():
+    prep = synthetic()
+    settings = gibbs.Settings(chains=2, warmup=60, draws=20, keep_every=4)
+    plain = gibbs.run(prep, DESIGNS["yearnoise"], settings, log=lambda *_: None)
+    out = gibbs.run(
+        prep,
+        DESIGNS["yearnoise"],
+        dataclasses.replace(settings, group_noise_steps=True),
+        log=lambda *_: None,
+    )
+    n_groups = len(gibbs.build_design(prep, DESIGNS["yearnoise"]).group_noise_names)
+    groups = np.asarray(out["noise_step_sd"]["groups"])
+    assert groups.shape == (n_groups,)
+    assert np.all(groups > 0) and np.ptp(groups) > 0
+    assert "groups" not in plain["noise_step_sd"]
+    assert out["noise_step_sd"]["nu"] != plain["noise_step_sd"]["nu"]
+
+
 def test_lines_run_and_report_line_effects():
     prep = with_lines(synthetic())
     out = gibbs.run(

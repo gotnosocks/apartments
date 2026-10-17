@@ -257,7 +257,8 @@ def test_the_repository_selects_a_summary_bundle():
     record = json.loads(build.SELECTION.read_text())
     assert record["version"] == build.SELECTION_VERSION
     assert record["model_family"] == "frontier_summary"
-    assert record["gate"]["passes"] is True
+    # A fit that fails the gate is served only on a recorded override.
+    assert record["gate"]["passes"] is True or build.override_of(record)
     assert len(record["summary_manifest_sha256"]) == 64
 
 

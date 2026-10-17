@@ -64,6 +64,12 @@ class Settings:
     noise_steps: int = 10  # joint (sigma, nu) Metropolis steps per iteration
     sigma_step_sd: float = 0.004  # on log sigma
     nu_step_sd: float = 0.03  # on log nu
+    # With one residual scale per noise group: give each group's log scale
+    # its own random-walk step, sized from its warmup spread and adapted on
+    # its own acceptance (target 0.44), and adapt nu's step on nu's own
+    # acceptance. Off, every group shares one step adapted on the groups'
+    # mean acceptance, and nu's step follows it.
+    group_noise_steps: bool = False
     # (walk_scale, walk) rescaling moves per iteration: no block solve, so
     # cheap; their step size adapts during warmup (target acceptance 0.44).
     rescale_steps: int = 20
@@ -1580,7 +1586,10 @@ def make_step(d: Design):
             rescale_steps,
             rescale_step_sd,
             unit_rescale_step_sd,
+            *rest,
         ) = cfg
+        # (G,) per-group steps on the log noise scales (group_noise_steps).
+        group_step_sd = rest[0] if rest else None
         keys = jax.random.split(key, 16)
         s = {k: state[k] for k in d.scale_names}
         z = (
@@ -1738,11 +1747,13 @@ def make_step(d: Design):
                     + znu
                 )
 
+            group_sd = sigma_step_sd if group_step_sd is None else group_step_sd
+
             def noise_mh(carry, k):
-                zs, zm, znu, acc = carry
+                zs, zm, znu, acc, acc_g, acc_nu = carry
                 k1, k2, k3, k4, k5 = jax.random.split(k, 5)
                 nu = jnp.exp(znu)
-                prop = zs + sigma_step_sd * jax.random.normal(k1, (G,))
+                prop = zs + group_sd * jax.random.normal(k1, (G,))
                 ok = jnp.log(jax.random.uniform(k2, (G,))) < group_lp(
                     prop, zm, nu
                 ) - group_lp(zs, zm, nu)
@@ -1759,17 +1770,28 @@ def make_step(d: Design):
                     zs, zm, znu
                 )
                 znu = jnp.where(ok_nu, pnu, znu)
-                return (zs, zm, znu, acc + ok.mean()), None
+                carry = (zs, zm, znu, acc + ok.mean(), acc_g + ok, acc_nu + ok_nu)
+                return carry, None
 
             zs0 = jnp.log(jnp.stack([s[n] for n in d.group_noise_names]))
             zm0 = (
                 jnp.log(jnp.stack([s[n] for n in MULT_NAMES])) if K else jnp.zeros((0,))
             )
-            (zs, zm, znu, noise_acc), _ = jax.lax.scan(
+            (zs, zm, znu, noise_acc, group_acc, nu_acc), _ = jax.lax.scan(
                 noise_mh,
-                (zs0, zm0, jnp.log(state["nu"]), jnp.zeros(())),
+                (
+                    zs0,
+                    zm0,
+                    jnp.log(state["nu"]),
+                    jnp.zeros(()),
+                    jnp.zeros(G),
+                    jnp.zeros(()),
+                ),
                 jax.random.split(keys[3], noise_steps),
             )
+            if group_step_sd is not None:
+                info["noise_group_accept"] = group_acc / noise_steps
+                info["nu_accept"] = nu_acc / noise_steps
             nu = jnp.exp(znu)
             new = {n: jnp.exp(zs[g]) for g, n in enumerate(d.group_noise_names)}
             new.update({n: jnp.exp(zm[j]) for j, n in enumerate(MULT_NAMES[:K])})
@@ -2197,6 +2219,12 @@ def _adapt(acc, target):
     return 0.3 if acc < 0.05 else float(np.exp(2.0 * (acc - target)))
 
 
+def _adapt_each(acc, target):
+    """`_adapt` applied to an array of acceptance rates."""
+    acc = np.asarray(acc, float)
+    return np.where(acc < 0.05, 0.3, np.exp(2.0 * (acc - target)))
+
+
 def run(
     prep: model_module.Prepared,
     config: model_module.ModelConfig,
@@ -2217,6 +2245,7 @@ def run(
         settings.rescale_step_sd,
     )
     hier = list(d.scale_names)
+    group_steps = settings.group_noise_steps and d.noise_group is not None
     key = jax.random.PRNGKey(settings.seed)
     k_init, k_warm, k_warm2, k_draw = jax.random.split(key, 4)
     states = init_states(d, k_init, settings.chains)
@@ -2289,6 +2318,14 @@ def run(
             settings.rescale_step_sd,
             settings.rescale_step_sd,
         )
+        if group_steps:
+            # Each group's log scale gets a 1-D step from its own spread; the
+            # sparse groups' spreads run many times the dense groups'.
+            nu_1d = float(2.38 * sd[-1])
+            group_sd = np.asarray(
+                [2.38 * sd[hier.index(n)] for n in d.group_noise_names]
+            )
+            cfg = (*cfg[:2], nu_1d, *cfg[3:6], jnp.asarray(group_sd))
 
         # Phase 2 in two halves. After the first, rescale each collapsed step
         # toward its target acceptance (0.44 for 1-D steps, 0.23 for the
@@ -2316,10 +2353,19 @@ def run(
                     if d.walk_axes_on
                     else jnp.zeros(2)
                 )
-                return st, (acc, pair)
+                noise_each = (
+                    jnp.concatenate(
+                        [info["noise_group_accept"], info["nu_accept"][None]]
+                    )
+                    if group_steps
+                    else jnp.zeros(1)
+                )
+                return st, (acc, pair, noise_each)
 
-            state, (acc, pair) = jax.lax.scan(body, state, jax.random.split(k, length))
-            return state, (acc.mean(axis=0), pair)
+            state, (acc, pair, noise_each) = jax.lax.scan(
+                body, state, jax.random.split(k, length)
+            )
+            return state, (acc.mean(axis=0), pair, noise_each.mean(axis=0))
 
         ssd = jnp.asarray([solo_sd[n] for n in solo_names])
         rounds = 3
@@ -2332,10 +2378,18 @@ def run(
                     warm2(dd, st, k, _psd, _sd, _ax, _len)
                 )
             )
-            states, (acc, pair) = run2(
+            states, (acc, pair, noise_each) = run2(
                 states, jax.random.split(phase_key, settings.chains)
             )
             acc = np.asarray(acc).mean(axis=0)
+            noise_each = np.asarray(noise_each).mean(axis=0)
+            if group_steps:
+                log(
+                    f"warmup round {r} noise group acceptance "
+                    f"min={noise_each[:-1].min():.2f} "
+                    f"median={np.median(noise_each[:-1]):.2f} "
+                    f"max={noise_each[:-1].max():.2f} nu={noise_each[-1]:.2f}"
+                )
             log(
                 f"warmup round {r} acceptance "
                 + ", ".join(
@@ -2358,13 +2412,22 @@ def run(
                     walk_axes, _ = _walk_axes(_detrended_cov(np.asarray(pair)))
                 noise = _adapt(acc[-3], 0.3)
                 rescale = _adapt(acc[-2], 0.44) if d.knot_start is not None else 1.0
+                group = ()
+                if group_steps:
+                    # Groups toward 0.44 each on their own acceptance, and nu
+                    # toward 0.44 on its own.
+                    group = (cfg[6] * jnp.asarray(_adapt_each(noise_each[:-1], 0.44)),)
+                    nu_factor = _adapt(noise_each[-1], 0.44)
+                else:
+                    nu_factor = noise
                 cfg = (
                     cfg[0],
                     cfg[1] * noise,
-                    cfg[2] * noise,
+                    cfg[2] * nu_factor,
                     cfg[3],
                     cfg[4] * rescale,
                     cfg[5] * _adapt(acc[-1], 0.44),
+                    *group,
                 )
         solo_sd = {n: float(v) for n, v in zip(solo_names, np.asarray(ssd))}
     jax.block_until_ready(states)
@@ -2417,6 +2480,8 @@ def run(
         "rescale": cfg[4],
         "unit_rescale": cfg[5],
     }
+    if len(cfg) > 6:
+        out["noise_step_sd"]["groups"] = np.asarray(cfg[6]).tolist()
     out["solo_proposal_sd"] = solo_sd
     out["walk_axes"] = None if walk_axes is None else np.asarray(walk_axes).tolist()
     return out

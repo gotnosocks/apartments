@@ -1,43 +1,48 @@
 {
   "version": "main-analysis-selection-v2",
   "model_family": "frontier_summary",
-  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1-a100-4500k9cb1-nb9-ul17r2s4q31ad6la4ep1su1-l2un4-90921eb",
-  "summary_manifest_sha256": "5b1ded3499be445f5181a420700fa0b5d4b53a65dd25f23de30cff9cfdfe5ffc",
-  "summary_commit": "90921eb4832a70ed0367ce38634775f7a47d052e",
-  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1-a100-4500k9cb1-nb9-ul17r2s4q31ad6la4ep1su1-l2un4",
-  "run_commit": "5dbdc4f11a379e2a1829f14053e001f4c3764e1f",
+  "summary": "/data1/apartments/frontier/summaries/m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-all-scraped-v1-rows-e694a775-a40-6d3f401",
+  "summary_manifest_sha256": "edc3d22a0ab1159d35072c63b836100dea2f8929ef12bfc53928b9736a575b85",
+  "summary_commit": "6d3f40178db8942367fa4f406acc0c3413397d9e",
+  "run": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4-all-scraped-v1-rows-e694a775-a40",
+  "run_commit": "e694a775a02fac57b48ae187fba82b92cb67b933",
   "model": "m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4",
-  "feature_set": "nb9-nostuy-lots2-v1",
+  "feature_set": "all-scraped-v1",
   "data_rules": [
     "baths-ad-v3",
-    "bedrooms-ad-v6",
+    "bedrooms-ad-v9",
     "building-joins-v1",
     "elevator-from-ad-v1",
     "fields-review-v3",
-    "latest-ask-v4",
-    "pets-from-ad-v1",
-    "quarantine-v31",
+    "latest-ask-v8",
+    "pets-from-ad-v2",
+    "quarantine-v33",
     "sqft-units-v1",
     "west-coast-wings-v1",
     "unit-labels-v17",
     "unit-reviews-v2",
     "unit-splits-v4"
   ],
-  "dataset": "/data1/apartments/frontier/datasets/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8",
-  "source_observations_sha256": "8b8897c1c5196969b30544cd2ec1b9ae32ac8e720d612e86fd52fbdbe52ceae7",
+  "dataset": "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157",
+  "source_observations_sha256": "aecf9b7724d3208abc6d44dde6bb71345572514d4c4bcc936cbdf008c083e9de",
   "gate": {
-    "passes": true,
-    "max_rhat": 1.0058151595626028,
-    "min_ess": 510.144028471653,
+    "passes": false,
+    "max_rhat": 1.093095646405057,
+    "min_ess": 11.73751355695645,
     "divergences": null,
-    "group_rhat_max": 1.0100412076951988
+    "group_rhat_max": 1.0946892981048275
   },
   "psis_loo": {
-    "elpd_loo": 323500.2445938919,
-    "elpd_loo_se": 556.7116718932957,
-    "loo_commit": "5dbdc4f11a379e2a1829f14053e001f4c3764e1f"
+    "elpd_loo": 1862881.1561655113,
+    "elpd_loo_se": 1377.8491702505405,
+    "loo_commit": "e694a775a02fac57b48ae187fba82b92cb67b933"
   },
-  "selected_by": "rentfrontier.autoselect, 2026-10-16 (Ben, 2026-09-30: switch automatically by the agreed metrics)",
-  "selection_reason": "Chosen by the automatic rule because the incumbent cannot be served: it was fit on chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-analysis-20261010-3ebfea0, not the current chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4 + nb9-nostuy-lots2-v1 with baths-ad-v3 + bedrooms-ad-v6 + building-joins-v1 + elevator-from-ad-v1 + fields-review-v3 + latest-ask-v4 + pets-from-ad-v1 + quarantine-v31 + sqft-units-v1 + west-coast-wings-v1 + unit-labels-v17 + unit-reviews-v2 + unit-splits-v4, 2,071 s on Modal A100.",
-  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (91.1% in the 95% predictive range)."
+  "selected_by": "Ben, 2026-10-17 04:19 ET (by hand, over the convergence gate)",
+  "selection_reason": "Ben asked to serve the fit of every scraped neighbourhood in Manhattan and Brooklyn. Gibbs m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4 + all-scraped-v1 with baths-ad-v3 + bedrooms-ad-v9 + building-joins-v1 + elevator-from-ad-v1 + fields-review-v3 + latest-ask-v8 + pets-from-ad-v2 + quarantine-v33 + sqft-units-v1 + west-coast-wings-v1 + unit-labels-v17 + unit-reviews-v2 + unit-splits-v4, 16,452 s on Modal A100.",
+  "uncertainty": "Conditional posterior uncertainty; source errors, omitted features and incomplete market coverage remain separate. Estimates for a unit's only listing are under-covered (92.1% in the 95% predictive range).",
+  "gate_override": {
+    "by": "Ben",
+    "at": "2026-10-17T04:19-04:00",
+    "reason": "Ben asked to serve the all-scraped fit even though it fails the convergence gate, with a max R-hat of 1.093 at the Carlyle."
+  }
 }

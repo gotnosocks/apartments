@@ -1560,7 +1560,11 @@ def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
     assert rows and "neighbourhood" not in rows[0]
 
 
-def test_price_labels_are_explained_where_they_appear(client):
+def test_price_labels_are_explained_where_they_appear(client, monkeypatch):
+    listings = client.get("/listings").get_data(as_text=True)
+    assert "<em>Below typical</em> is the lowest 10%" in listings
+    assert "Typical rent, 95% range" not in listings
+    monkeypatch.setenv("SITE_LIST_RANGES", "1")
     listings = client.get("/listings").get_data(as_text=True)
     assert "Typical rent, 95% range" in listings
     assert "the same % gap can be typical for one apartment" in listings

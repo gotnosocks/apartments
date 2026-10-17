@@ -1,6 +1,40 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 11:40 ET, after the short-building drop-lot reviews (#1021). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 14:30 ET
+
+- #1036 adds `pipeline/ledger/2026-10-17-z-unit-baths.ndjson`, 492 bath-count sets. The screen
+  (`/data1/apartments/tmp/suspect/baths/mech.py`) looks at ads of the same unit with the same bedroom count within
+  730 days. It keeps an ad when all those ads agree on another count, at least one comes before it and one after,
+  and its own text states no bath count. That left 616 ads. Sonnet read all of them (`reads*.jsonl`,
+  `p3/r*.jsonl`): 530 were wrong, and 503 of those reads gave the count the other ads show. Review dropped 11 of
+  the 503, where a backing ad's text states the row's count, which leaves 492.
+  `ledger.py` in the same folder writes the file.
+- The regex in `mech.py` misses hyphenated counts such as "1-bath". A wider screen would start from all 2,873 ads
+  with 2 or more disagreeing ads, before the strict filter, and relax the before-and-after condition. Sonnet read a
+  40-ad sample of the 2,873 (`packets.jsonl`, `reads.jsonl`), and 15 of the 28 ads outside the strict filter were
+  wrong.
+- The 80 unclear drop-lot rows from the 11:40 entry stay as they are. HPD violations, rent stabilization counts and housingdb hold
+  nothing that decides them.
+- #1033 notes 11 Brooklyn misjoins (9 addresses) that match one collected Brooklyn building. Moving a single ad
+  to another building needs a ledger change that doesn't exist yet.
+
+## 2026-10-17 12:15 ET
+
+- #1024 adds `drop-lot-20261017-neverbuilt.jsonl`, 239 wrong_building lines on 33 lots. Every one of the 40 MapPLUTO
+  releases from 11v1 to 26v2 gives these lots no building area and no apartments, and no 2026 footprint stands on them.
+  They are parks, parking, rail and vacant land, such as 1485 Broadway in Brooklyn (63 ads). The evidence uses city
+  records only. Scripts and tables are in `/home/ben/.cache/di-neverbuilt/` and
+  `/data1/apartments/tmp/suspect/bcheck/never-built-20261017.csv`.
+- The pipeline thread's #1025 adds a `never_built_lot` reason to `analysis.building_check`. On the drop-lot lane
+  it lists exactly these 239 rows. Three of them were already listed by zero_unit_lot. The import of #1016, #1021
+  and #1024 (253 lines) waits on Ben's word in the pipeline thread.
+- On the registry side, 133 buildings sit on a never-built registry lot while the pipeline links them to the
+  neighboring lot by footprint. Their StreetEasy year and apartment count don't back the neighbor lot
+  (`/home/ben/.cache/di-neverbuilt/reg2.csv`), so they get no registry override.
+- A screen comparing advertised units with the lot's apartments doesn't work, because `ads.placed` holds 2 to 3
+  unit ids per real apartment in large buildings.
 
 ## 2026-10-17 11:40 ET
 
