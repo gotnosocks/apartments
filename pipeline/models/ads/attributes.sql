@@ -1,6 +1,9 @@
 MODEL (
     name ads.attributes,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, records, conflicts))),
     description 'Each ad''s attributes and rental flags, merged over its records as the current chain merges its captures.'
@@ -16,10 +19,14 @@ MODEL (
 -- A rental flag is true when any record sets it, false when the records give only false, and
 -- unknown when they give nothing. `records` holds the number of merged records. When all of an
 -- ad's records fail to parse, the ad gets no row.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH records AS (
     SELECT DISTINCT listing_id::VARCHAR AS listing_id, record_sha256
     FROM ads.answers
-    WHERE outcome = 'record'
+    WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
 ),
 projected AS (
     SELECT a.listing_id, r.* EXCLUDE (record_sha256, id, parsed)

@@ -1,6 +1,9 @@
 MODEL (
     name ads.first_ask,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (
         unique_values(columns := (listing_id)),
@@ -15,6 +18,10 @@ MODEL (
 -- midnight UTC as the row's price_at and a single price as its asking rent, and it drops an ad
 -- with a missing price or with two. `first_seen` and `first_response_id` give the ad's own
 -- earliest answer that reported the first day.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 SELECT listing_id, first_day,
     coalesce(list_sort(list(DISTINCT price) FILTER (WHERE price IS NOT NULL)), []) AS prices,
     bool_or(price IS NULL) AS missing_price,
@@ -22,7 +29,8 @@ SELECT listing_id, first_day,
     arg_min(own_first_response_id, (own_first_seen, own_first_response_id)) AS first_response_id
 FROM (
     SELECT *, min(day) OVER (PARTITION BY listing_id) AS first_day
-    FROM ads.events WHERE source = 'history' AND kind = 'ACTIVE' AND own
+    FROM ads.events
+    WHERE source = 'history' AND kind = 'ACTIVE' AND own AND listing_id IN (SELECT listing_id FROM ads.touched)
 )
 WHERE day = first_day
 GROUP BY listing_id, first_day

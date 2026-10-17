@@ -271,8 +271,9 @@ the cap because the page cache fills the cgroup, so the script's own peak gives 
 build needs.
 
 In the top-up, `ads.record_attributes` parsed the 424,768 distinct records missing from its cache
-and copied the 1,713,239 cached ones into its table again, and the models after it recomputed every ad. Those full recomputes
-take most of a top-up's time.
+and copied the 1,713,239 cached ones into its table again, and the models after it recomputed
+every ad. Those full recomputes took most of that top-up's time, and
+[Top-up builds](#top-up-builds) describes how a top-up reads fewer ads.
 
 At 01:13 ET on Oct 16, the service in the next section built runs 1 to 5 into the empty default
 state in 583 s, 575 s of them in the catalog's count. `ads.record_attributes` took 410 s, and the
@@ -414,21 +415,23 @@ disk.
 | `city.dob_now_co` | view | certificate of occupancy in a copy of the DOB NOW set |
 | `city.dob_co` | view | certificate of occupancy in a copy of DOB's earlier set |
 | `city.rejects` | view | value missing from, or extra in, a row DuckDB refused as it read the city archive |
-| `ads.answers` | table | answer, with the fields the event log, the latest-ask steps and the ads file read and a hash of its unit history |
-| `ads.history_events` | table | event in a distinct unit history |
-| `ads.answer_events` | table | event an ad's own answers reported in their fetch, status changes or price changes, with those answers |
-| `ads.history_reports` | table | event a unit history listed for an ad, with the answers holding the history |
+| `ads.changes` | table | answer this build reads anew: every answer in a full build, the new ones in a top-up build |
+| `ads.answers` | merge | answer, with the fields the event log, the latest-ask steps and the ads file read and a hash of its unit history |
+| `ads.history_events` | merge | event in a distinct unit history |
+| `ads.touched` | table | ad whose rows this build reads anew: every ad with an answer or a history event in a full build, the ads the new answers change in a top-up build |
+| `ads.answer_events` | merge | event an ad's own answers reported in their fetch, status changes or price changes, with those answers |
+| `ads.history_reports` | merge | event a unit history listed for an ad, with the answers holding the history |
 | `ads.events` | view | event the API reported for an ad, with the answers that reported it: the rows of `ads.answer_events` and `ads.history_reports` |
-| `ads.latest_record` | table | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price and floor plan keys |
-| `ads.price_changes` | table | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
-| `ads.kept_changes` | table | price change left after the placeholder check |
-| `ads.first_ask` | table | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
-| `ads.market` | table | ad with a record: its days on the market, its spans on the market and its ending |
-| `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
-| `ads.regions` | table | ad with an answer: the export regions of its answers |
-| `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
-| `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
-| `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
+| `ads.latest_record` | merge | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price and floor plan keys |
+| `ads.price_changes` | merge | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
+| `ads.kept_changes` | merge | price change left after the placeholder check |
+| `ads.first_ask` | merge | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
+| `ads.market` | merge | ad with a record: its days on the market, its spans on the market and its ending |
+| `ads.breaks` | merge | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
+| `ads.regions` | merge | ad with an answer: the export regions of its answers |
+| `ads.record_attributes` | merge | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
+| `ads.attributes` | merge | ad with a parsed record: its attributes and rental flags, merged over its records |
+| `ads.exclusions` | merge | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
 | `buildings.latest_record` | table | building with a record: the slug, address, map point and city facts of its latest record |
 | `buildings.pad_link` | table | building whose address matches a range of the latest PAD release: the range's lot and BIN, and the match's rank |
@@ -439,7 +442,7 @@ disk.
 | `ledger.unit_entries` | table | line of the unit ledger, checked against the ledger's rules |
 | `ledger.unit_status` | table | entry of the unit ledger: its status against the ads and buildings |
 | `ads.placed` | table | ad with a record: its building and unit after the live entries of the unit ledger |
-| `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
+| `ads.reported` | merge | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
 | `analysis.kept` | view | candidate kept for its unit and month |
 | `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
@@ -453,9 +456,12 @@ disk.
 | `analysis.building_certificates` | table | candidate ad: its BIN, and the certificates of occupancy DOB had issued on it by its first day |
 | `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask and floor plans, its merged values, and the reasons it was dropped |
 
+A `merge` model is a table, and a top-up build adds the rows of the new answers to it, as
+[Top-up builds](#top-up-builds) describes.
+
 The comments in each model's SQL describe its rules. The audits in the `MODEL` blocks check keys
 and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.market`, `ads.breaks`,
-`ads.regions`, `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`,
+`ads.regions`, `ads.touched`, `ads.attributes`, `ads.exclusions`, `ads.identity`, `ads.reported`,
 `analysis.candidates`, `analysis.latest_change`, `analysis.latest_ask`, `analysis.ask_check`,
 `analysis.lot_facts`, `analysis.lot_landmarks` and `analysis.building_certificates`, per building
 in `buildings.details` and the four building identity models, per lot and release in
@@ -2124,8 +2130,9 @@ Each build ran as a `systemd-run --user` unit with a 6 GB memory limit and DuckD
 first build, `ads.kept_changes` took 20.3 s, `ads.latest_record` 12.6 s, and the other three
 tables 5.9 s together.
 
-Every model is a full table, so the top-up rebuilt all five tables and took as long as a build
-from nothing. Rebuilding only the ads a top-up touches is part of step 8. The event log of step 4
+In that build every model was a full table, so the top-up rebuilt all five tables and took as
+long as a build from nothing. [Top-up builds](#top-up-builds) describes the models a top-up
+now extends with the ads it changes. The event log of step 4
 should also shorten `ads.kept_changes`, whose placeholder check steps through each ad's changes
 one at a time.
 

@@ -1,6 +1,9 @@
 MODEL (
     name ads.reported,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, records))),
     description 'Each ad with a record, with the floor its unit label reads and its full and half bathrooms, where all its records agree.'
@@ -27,16 +30,16 @@ MODEL (
 --
 -- `full_baths` and `half_baths` follow `consensus` of the chain: a count stands when every record
 -- gives the same whole number of zero or more, and a boolean doesn't count as a number.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH records AS (
     -- One parse of each record, for its three values as JSON.
     SELECT listing_id::VARCHAR AS listing_id,
-        json_extract(record, [
-            '$.propertyDetails.address.displayUnit',
-            '$.propertyDetails.fullBathroomCount',
-            '$.propertyDetails.halfBathroomCount'
-        ]) AS f
-    FROM raw.ads
-    WHERE outcome = 'record'
+        [display_unit, full_bathroom_count, half_bathroom_count] AS f
+    FROM ads.answers
+    WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
 ),
 fields AS (
     SELECT listing_id,

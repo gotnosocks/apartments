@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import importlib.util
 import json
@@ -81,19 +82,115 @@ def test_build_writes_hashed_files_and_a_catalog_line(tmp_path, build):
     assert [json.loads(line) for line in catalog] == [first, second]
 
 
+def tables(state, names):
+    """Each model's row count and a hash over its rows in any order."""
+    db = duckdb.connect(str(state / "pipeline.duckdb"), read_only=True)
+    try:
+        return {
+            name: db.execute(
+                f"""SELECT count(*), md5(coalesce(string_agg(h, ',' ORDER BY h), ''))
+                FROM (SELECT md5(t::VARCHAR) AS h FROM {name} t)"""
+            ).fetchone()
+            for name in names
+        }
+    finally:
+        db.close()
+
+
+def back_on_market(record, listing_id, day, price):
+    """A copy of `record` for ad `listing_id`, active again from `day` at `price`. The ad's
+    entry in the unit history gets the event, and a missing entry is added first."""
+    record = copy.deepcopy(record)
+    stamp = f"{day}T10:00:00.000-04:00"
+    record.update(id=str(listing_id), status="ACTIVE", offMarketAt=None)
+    record["statusChanges"].append({"changedAt": stamp, "status": "ACTIVE"})
+    record["pricing"]["price"] = price
+    record["pricing"]["priceChanges"].append({"changedAt": stamp, "price": price})
+    event = {
+        "__typename": "RentalStatusChangeOfInterest",
+        "date": day,
+        "price": price,
+        "status": "ACTIVE",
+    }
+    for entry in record["propertyHistory"]:
+        if entry["listingId"] == str(listing_id):
+            entry["rentalEventsOfInterest"].insert(0, event)
+            entry["offMarketAt"] = None
+            break
+    else:
+        record["propertyHistory"].insert(
+            0,
+            {
+                "__typename": "RentalListingChangesOfInterest",
+                "listingId": str(listing_id),
+                "offMarketAt": None,
+                "photos": [],
+                "rentalEventsOfInterest": [event],
+            },
+        )
+    return json.dumps(record, sort_keys=True)
+
+
 def test_topup_build_equals_a_full_build(tmp_path, build):
-    """Building runs 2 and 3, then adding run 4, writes the same rows file and ads file as
-    building runs 2 to 4 into an empty state."""
+    """Building runs 2 and 3, then adding run 4 and three answers of run 5, gives every model
+    the table of a build of it all into an empty state, and the same files. The run 5 answers
+    put ad 4554594 of unit 12 of building 72793 back on the market at a new price, add an ad
+    in unit 16, whose ads all came in run 2, and add an ad in a new unit of the building. A
+    further build finds nothing to rebuild, and one without `STATE/merge.json` reads every
+    answer again."""
     export = copy_export(tmp_path, keep=lambda line: line["run"] < 4)
-    build(export, tmp_path / "state", tmp_path / "out")
+    first = build(export, tmp_path / "state", tmp_path / "out")
     shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
+    db = duckdb.connect()
+    old = {
+        listing_id: json.loads(record)
+        for listing_id, record in db.execute(
+            """SELECT listing_id, record FROM read_parquet(?)
+            WHERE listing_id IN (4554594, 4984980)""",
+            [str(FIXTURE / "export/ads/*/*.parquet")],
+        ).fetchall()
+    }
+    db.close()
+    unit = copy.deepcopy(old[4984980])
+    unit.update(createdAt="2026-10-19T09:00:00.000-04:00", onMarketAt="2026-10-19")
+    unit["statusChanges"], unit["pricing"]["priceChanges"] = [], []
+    other = copy.deepcopy(unit)
+    other.update(slug="16a", propertyHistory=[])
+    added = [
+        (4554594, back_on_market(old[4554594], 4554594, "2026-10-20", 4100)),
+        (5900001, back_on_market(unit, 5900001, "2026-10-19", 3900)),
+        (5900002, back_on_market(other, 5900002, "2026-10-19", 3700)),
+    ]
+    append_answers(export, helpers.answers("listing_id", added, 7001, "2026-10-21"))
     topup = build(export, tmp_path / "state", tmp_path / "out")
     full = build(export, tmp_path / "fresh", tmp_path / "out-fresh")
+    assert not first["top_up"] and topup["top_up"] and not full["top_up"]
     assert topup["rows"] == full["rows"] and topup["ads_file"] == full["ads_file"]
     assert topup["ads"] == full["ads"] and topup["buildings"] == full["buildings"]
-    assert {name: m["rows"] for name, m in topup["models"].items()} == {
-        name: m["rows"] for name, m in full["models"].items()
-    }
+    # The top-up's change tables hold the answers of run 4 and run 5 and the ads they change,
+    # and those of the build into an empty state hold every answer and ad.
+    names = sorted(set(full["models"]) - {"ads.changes", "ads.touched"})
+    merged, scratch = (
+        tables(tmp_path / "state", names),
+        tables(tmp_path / "fresh", names),
+    )
+    assert [name for name in names if merged[name] != scratch[name]] == []
+    changes = tables(tmp_path / "state", ["ads.changes", "ads.touched"])
+    everything = tables(tmp_path / "fresh", ["ads.changes", "ads.touched"])
+    assert changes["ads.changes"][0] == 49 + len(added) < everything["ads.changes"][0]
+    assert changes["ads.touched"][0] < everything["ads.touched"][0]
+    # A build with no new answers keeps the mode and rebuilds nothing. With the record of the
+    # merge code deleted, a build reads every answer again.
+    again = build(export, tmp_path / "state", tmp_path / "out")
+    assert again["top_up"] and all(
+        m["seconds"] is None for m in again["models"].values()
+    )
+    (tmp_path / "state" / "merge.json").unlink()
+    redone = build(export, tmp_path / "state", tmp_path / "out")
+    assert not redone["top_up"] and redone["rows"] == full["rows"]
+    assert redone["ads_file"] == full["ads_file"]
+    every = sorted(full["models"])
+    assert tables(tmp_path / "state", every) == tables(tmp_path / "fresh", every)
 
 
 def test_failed_audit_writes_nothing(tmp_path, build):
