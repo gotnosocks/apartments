@@ -408,6 +408,37 @@ def test_research_model_page(client):
     assert "Convergence gate</dt><dd>passes" in html
 
 
+def test_pages_say_when_a_failing_model_is_served_by_decision(tmp_path, make_bundle):
+    from apartments.site import build
+
+    bundle = make_bundle(tmp_path / "failing", gate=False)
+    selection = tmp_path / "selection.json"
+    selection.write_text(
+        json.dumps(
+            {
+                "summary_manifest_sha256": build.sha256(bundle / "complete.json"),
+                "selected_by": "Ben",
+                "selection_reason": "It covers every borough.",
+                "gate_override": {
+                    "by": "Ben",
+                    "at": "2026-10-17T04:19-04:00",
+                    "reason": "Serve the full fit.",
+                },
+            }
+        )
+    )
+    root = tmp_path / "site"
+    build.build(bundle, root, selection=selection)
+    client = create_app(root).test_client()
+    home = client.get("/").get_data(as_text=True)
+    assert "The sampler did not fully settle on this model" in home
+    assert "Ben chose to serve it anyway." in home
+    model = client.get("/research/model").get_data(as_text=True)
+    assert "This model fails the convergence gate (max R-hat" in model
+    assert "Ben chose on 2026-10-17 to serve it anyway:" in model
+    assert "Serve the full fit." in model
+
+
 def test_research_model_page_shows_the_selection_and_decision(
     tmp_path, bundle, research_file
 ):

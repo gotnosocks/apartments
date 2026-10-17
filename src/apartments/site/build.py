@@ -19,8 +19,9 @@ Inputs, each checked against the bundle's provenance (complete.json):
 
 Writes <root>/builds/<stamp>/site.sqlite and build.json, then points
 <root>/current at the new build with an atomic symlink swap and keeps the
-newest KEEP builds. The site opens current/site.sqlite read-only for each
-request, so publishing needs no restart.
+newest KEEP builds, or only the new one when its database passes
+LARGE_BYTES. The site opens current/site.sqlite read-only for each request,
+so publishing needs no restart.
 """
 
 from __future__ import annotations
@@ -49,6 +50,10 @@ SCHEMA_VERSION = 4
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
+# A build whose database is larger than this keeps only itself. A build of
+# every borough makes a database of about 8 GB, and three of those would fill
+# /data1.
+LARGE_BYTES = 4 << 30
 # Rent maps of runs (`rentfrontier.rentmap`): <run>-<7-hex commit>/map.json.
 MAPS = Path(os.environ.get("FRONTIER_MAPS", "/data1/apartments/frontier/maps"))
 # Where the ask falls in its leave-own-row-out predictive distribution.
@@ -921,9 +926,23 @@ def publish(build_dir: Path, root: Path, keep: int = KEEP) -> None:
         if p.is_dir() and not p.name.endswith(".tmp")
     )
     live = build_dir.resolve()
+    database = build_dir / "site.sqlite"
+    if database.exists() and database.stat().st_size > LARGE_BYTES:
+        keep = 1
     for old in builds[:-keep]:
         if old.resolve() != live:
             shutil.rmtree(old)
+
+
+def override_of(note: dict | None) -> dict | None:
+    """The selection's recorded decision to serve a run that fails the gate,
+    when it says who decided, when and why."""
+    override = (note or {}).get("gate_override")
+    if isinstance(override, dict) and all(
+        override.get(k) for k in ("by", "at", "reason")
+    ):
+        return override
+    return None
 
 
 def scope_of(listings: list[dict]) -> str:
@@ -944,8 +963,12 @@ def build(
 ) -> Path:
     summary = summary.resolve()
     record = load_bundle(summary)
-    if not record["gate"]["passes"]:
-        raise BuildError("the summary's run fails the convergence gate")
+    note = selection_note(selection, record["_sha256"])
+    if not record["gate"]["passes"] and not override_of(note):
+        raise BuildError(
+            "the summary's run fails the convergence gate, and the selection "
+            "records no decision to serve it anyway"
+        )
     stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S%fZ")
     build_dir = root / "builds" / f"{stamp}-{record['_sha256'][:8]}"
     staging = build_dir.with_name(build_dir.name + ".tmp")
@@ -956,7 +979,7 @@ def build(
             record,
             summary,
             scope,
-            selection_note(selection, record["_sha256"]),
+            note,
         )
         source_map = rent_map(record["run"])
         if source_map is not None:
