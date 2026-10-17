@@ -59,6 +59,9 @@ USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 # The new-building score (rentfrontier.newbuilding) is numpy over row chunks, one process
 # per core: a CPU container scores a run's kept draws in parallel after its fit.
 NB_CPU, NB_MEMORY_MIB, NB_TIMEOUT = 32, 131072, 3600
+# A run's design alone (fit.py --design-only), for a run whose prep runs out of thelio's memory:
+# the all-scraped run's prep took 15 min in its large container and was killed at 9 GB on thelio.
+DESIGN_CPU, DESIGN_MEMORY_MIB, DESIGN_TIMEOUT = 4, 65536, 3600
 # A large fit (fit.py --large; Ben, 2026-10-16 06:37Z: a fit on all the scraped data, 1.75M rows,
 # with no hour cap). Host memory scales with the rows from the served design's 15 GB on NB9's
 # 266k, and the fit, PSIS-LOO, post-fit statistics and summary bundle each run for an hour or
@@ -85,6 +88,13 @@ def usd_per_second(gpu, large=False):
 
 def nb_usd_per_second():
     return NB_CPU * USD_PER_CORE_SECOND + NB_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
+
+
+def design_usd_per_second():
+    """List price of the design container (about $0.70 an hour)."""
+    return (
+        DESIGN_CPU * USD_PER_CORE_SECOND + DESIGN_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
+    )
 
 
 STAGE = Path(os.environ.get("MODAL_FIT_STAGE", "/nonexistent"))
@@ -447,6 +457,77 @@ def newbuilding_cpu(spec):
         "wall_seconds": round(wall, 1),
         "usd_estimate": round(wall * nb_usd_per_second(), 2),
     }
+    volume.commit()
+    return meta
+
+
+@app.function(
+    cpu=DESIGN_CPU,
+    memory=DESIGN_MEMORY_MIB,
+    timeout=DESIGN_TIMEOUT,
+    volumes={"/vol": volume},
+)
+def design_cpu(spec):
+    return _design(spec)
+
+
+def _design(spec):
+    """Prepare the design of a finished run (python -m rentfrontier.design) at the spec's
+    commit and leave the pickle under /vol/out/<name>-design/design/ for the download, with
+    the log and a design.json record."""
+    started = time.time()
+    _stage(spec)
+    name = spec["name"]
+    (RUNS / name).mkdir(parents=True, exist_ok=True)
+    (RUNS / name / "result.json").write_text(json.dumps(spec["result"]))
+    out = Path("/vol/out") / f"{name}-design"
+    out.mkdir(parents=True, exist_ok=True)
+    staged_designs = set((OUTPUT / "cache").glob("design-*.pkl"))
+    env = dict(
+        os.environ,
+        PYTHONPATH=f"{WORK}/frontier/src",
+        FRONTIER_DATASET=spec["dataset"],
+        FRONTIER_DESIGN_CACHE="1",
+        JAX_PLATFORMS="cpu",
+        PYTHONUNBUFFERED="1",
+    )
+    with open(out / "design.log", "w") as log:
+        code = _run(
+            ["/venv/bin/python", "-m", "rentfrontier.design", name],
+            env,
+            log,
+            DESIGN_TIMEOUT - 10 * 60,
+        )
+    saved = []
+    if code == 0:
+        for p in sorted(set((OUTPUT / "cache").glob("design-*.pkl")) - staged_designs):
+            (out / "design").mkdir(exist_ok=True)
+            shutil.copy2(p, out / "design" / p.name)
+            saved.append({"file": p.name, "bytes": p.stat().st_size})
+        if not saved:
+            # The prep loaded a staged design of the same key: nothing new comes down.
+            code = "no new design"
+    try:
+        # The CLI's record (key, rows, seconds) is the log's last line.
+        record = json.loads((out / "design.log").read_text().splitlines()[-1])
+    except (OSError, ValueError, IndexError):
+        record = None
+    try:
+        # cgroup v2's high-water mark of the container's memory
+        peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
+    except (OSError, ValueError):
+        peak = None
+    wall = time.time() - started
+    meta = {
+        "name": name,
+        "exit": code,
+        "designs": saved,
+        "record": record,
+        "memory_peak_bytes": peak,
+        "wall_seconds": round(wall, 1),
+        "usd_estimate": round(wall * design_usd_per_second(), 2),
+    }
+    (out / "design.json").write_text(json.dumps(meta, indent=2))
     volume.commit()
     return meta
 
