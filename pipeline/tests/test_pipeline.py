@@ -266,15 +266,15 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
 
 
 def test_ask_check_cases(tmp_path, monkeypatch):
-    """analysis.ask_check lists these made-up rows of building 900030, and analysis.rows drops
-    them:
+    """analysis.ask_check lists these made-up rows of building 900030 for review, and
+    analysis.rows keeps them:
 
     - ad 9000145 asks $31,000. The building's other one-bedrooms ask $2,900 to $3,200 and one
       asks $16,500, so their median is $3,050.
     - ad 9000154 asks $1,250. The building's other three-bedrooms ask $11,800 to $12,500, and
       ad 9000159 asks $26,000, so their median is $12,200.
 
-    The check leaves these rows in:
+    The check doesn't list these rows:
 
     - ad 9000146 asks $16,500, 5.4 times the median of the other one-bedrooms.
     - ad 9000149 asks $40,000, ten times the building's other two-bedrooms, but they are only
@@ -362,8 +362,7 @@ def test_ask_check_cases(tmp_path, monkeypatch):
         },
     ]
     rows = set(ctx.fetchdf("SELECT listing_id FROM analysis.rows").listing_id)
-    assert ids[(1, 31000)] not in rows and ids[(3, 1250)] not in rows
-    assert {ids[(1, 16500)], ids[(2, 40000)], ids[(0, 40000)], ids[(0, 26000)]} <= rows
+    assert {str(listing_id) for listing_id, _ in records} <= rows
     ads = ctx.fetchdf(
         """SELECT listing_id, ask_check, in_rows FROM analysis.ads
         WHERE listing_id IN (SELECT listing_id FROM analysis.kept)"""
@@ -373,9 +372,8 @@ def test_ask_check_cases(tmp_path, monkeypatch):
         "peer_rows": 6,
         "ratio": 31000 / 3050,
     }
-    assert not ads.loc[ids[(1, 31000)]].in_rows
     assert ads.ask_check.isna().sum() == len(ads) - 2
-    assert ads.drop(index=[ids[(1, 31000)], ids[(3, 1250)]]).in_rows.all()
+    assert ads.in_rows.all()
 
 
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
@@ -414,7 +412,6 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.ask_check",
         "analysis.building_certificates",
         "analysis.candidates",
-        "analysis.corrected",
         "analysis.kept",
         "analysis.latest_ask",
         "analysis.latest_change",
@@ -464,7 +461,6 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.ask_check",
         "analysis.building_certificates",
         "analysis.candidates",
-        "analysis.corrected",
         "analysis.kept",
         "analysis.latest_ask",
         "analysis.latest_change",
