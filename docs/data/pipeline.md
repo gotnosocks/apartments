@@ -1348,11 +1348,14 @@ has 1,746,509 rows. The ask check lists 32 rows, as the excluded rows leave and 
 World Tower units now compare with the building's three-bedrooms. A second run of the importer
 writes nothing.
 
-A quarantine line's `evidence` holds its reader's note. The five new notes on shops start with
-`Ad text:` and quote the ad, so the importer files the rest of each note as the ad's words. The
-note on the $33,333 ask gives the reader's reasoning, and the importer files it as a read. The
-first batch filed every note as the ad's words, so 13 of its excludes hold a reader's note as
-`ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812, 1718693, 1725378,
+A quarantine line's `evidence` holds its reader's note, and `quarantine_evidence` sorts it. A
+note starting `Ad text:` quotes the ad, as the five new notes on shops do, so the importer files
+the words in the quotes as the ad's words. A line whose `source` starts `regex` comes from Data
+improvements' regex pass, and its note gives the matched words alone, so the importer files the
+note as the ad's words too. The three lines of that pass in `quarantine-v33` repeat the excludes
+of `2026-10-16-short-stay.ndjson`. The importer files any other note as a read, as it does the
+note on the $33,333 ask, which gives the reader's reasoning. The first batch filed every note as
+the ad's words, so 13 of its excludes hold a reader's note as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812, 1718693, 1725378,
 2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
 1848216, 1887124, 2678483, 5019133 and 5098585.
 

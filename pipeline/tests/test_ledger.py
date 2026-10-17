@@ -519,3 +519,54 @@ def test_quarantine_month(period, month):
             module.month(period)
     else:
         assert module.month(period) == month
+
+
+@pytest.mark.parametrize(
+    "note, source, first",
+    [
+        (
+            'Ad text: "corner space huge windows. vented former restaurant".',
+            "ask-check reads (pipeline #937 flags)",
+            {
+                "kind": "ad_text",
+                "quote": "corner space huge windows. vented former restaurant",
+            },
+        ),
+        (
+            'Ad text: "two levels ... food is welcome."',
+            "ask-check reads (pipeline #937 flags)",
+            {"kind": "ad_text", "quote": "two levels ... food is welcome."},
+        ),
+        (
+            "Ask 33,333 for a 2BR is repeated digits; same unit asked $2,556 (2017)",
+            "ask-check reads (pipeline #937 flags)",
+            {
+                "kind": "read",
+                "detail": "Ask 33,333 for a 2BR is repeated digits; same unit asked $2,556 (2017)",
+            },
+        ),
+        (
+            "this is a 2 month sublet",
+            "regex second pass over the API keep reads",
+            {"kind": "ad_text", "quote": "this is a 2 month sublet"},
+        ),
+        (
+            "gut renovated, no fee",
+            None,
+            {"kind": "read", "detail": "gut renovated, no fee"},
+        ),
+    ],
+)
+def test_quarantine_evidence(note, source, first):
+    """The importer files a quarantine note as the ad's words when it starts `Ad text:` or comes
+    from the regex pass, and as a read otherwise, and puts the line's reason after it."""
+    line = {"reason": "a reason", "evidence": note}
+    if source:
+        line["source"] = source
+    assert importer().quarantine_evidence(line) == [
+        first,
+        {"kind": "read", "detail": "a reason"},
+    ]
+    assert importer().quarantine_evidence({"reason": "a reason"}) == [
+        {"kind": "read", "detail": "a reason"}
+    ]

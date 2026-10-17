@@ -10,8 +10,9 @@ them by the ad's `listing_id`. The script works in these steps:
    gives the dataset of the lines it adds, and from bedrooms-ad-v7 on, a version's file starts
    with its base rule's lines. It takes the row's ad and its recorded values from the dataset's
    `observations.jsonl`. A quarantine line gives its ad and month itself, the month as YYYY-MM
-   or as its first day. Its `evidence` holds its reader's note. A note starting `Ad text:`
-   gives the ad's words after the prefix, and the importer files any other note as a read.
+   or as its first day. Its `evidence` holds its reader's note. The importer files the note as
+   the ad's words when it starts `Ad text:` or when the line's `source` gives the regex pass,
+   and as a read otherwise.
 2. It gathers the evidence for each correction:
      - the ad's words, from the rule file, or Ben's own reading when the rule's line gives
        his name and the day;
@@ -107,6 +108,25 @@ def month(period):
     if not re.fullmatch(r"\d{4}-\d{2}(-01)?", period):
         raise SystemExit(f"the quarantine period {period!r} isn't a month")
     return period[:7]
+
+
+def quarantine_evidence(line):
+    """Give a quarantine line's evidence: its reader's note, then its reason as a read.
+
+    A note starting `Ad text:` gives the ad's words after the prefix, in quotes and often with a
+    period after them, and the importer files the words without either. The regex pass gives
+    the matched words alone, with `source` starting `regex`. The importer files any other note
+    as a read.
+    """
+    evidence = [{"kind": "read", "detail": line["reason"]}]
+    note = (line.get("evidence") or "").strip()
+    if note.startswith("Ad text:") or line.get("source", "").startswith("regex"):
+        quote = note.removeprefix("Ad text:").strip()
+        quoted = re.fullmatch(r'"(.*)"\.?', quote, re.DOTALL)
+        evidence.insert(0, {"kind": "ad_text", "quote": quoted[1] if quoted else quote})
+    elif note:
+        evidence.insert(0, {"kind": "read", "detail": note})
+    return evidence
 
 
 def line_datasets(path):
@@ -441,19 +461,12 @@ def main(argv=None) -> int:
                     row = row_of(latest_dataset, line["audit_id"])
                     if row is not None:
                         when["bedrooms"] = row["bedrooms"]
-                evidence = [{"kind": "read", "detail": line["reason"]}]
-                note = line.get("evidence")
-                if note and note.startswith("Ad text:"):
-                    quote = note.removeprefix("Ad text:").strip()
-                    evidence.insert(0, {"kind": "ad_text", "quote": quote})
-                elif note:
-                    evidence.insert(0, {"kind": "read", "detail": note})
                 entry = {
                     "change": "exclude",
                     "listing_id": str(line["source_listing_id"]),
                     "reason": action.removeprefix("quarantine_"),
                     "when": when,
-                    "evidence": evidence,
+                    "evidence": quarantine_evidence(line),
                     "decided": line["review"],
                     "source": source,
                 }
