@@ -2624,10 +2624,10 @@ and catalog it writes in a temporary folder:
 
 The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a records file:
 
-57. build a cohort's description evidence from a records file with two records of a listing,
+59. build a cohort's description evidence from a records file with two records of a listing,
     and check that each row takes the text of the record fetched last and that the build skips
     listings outside the cohort;
-58. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
+60. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
     either and stops on both.
 
 ## Full build
