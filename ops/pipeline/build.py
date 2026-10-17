@@ -136,6 +136,20 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     os.environ["PIPELINE_EXPORT"] = str(export)
     os.environ["PIPELINE_STATE"] = str(state)
 
+    records = importlib.import_module("steps.records")
+    # The venv's editable install can load the step from another checkout, whose records would
+    # then go into the catalog line of this one. The check runs before the plan, so a wrong
+    # venv stops the build at once.
+    if (
+        Path(records.__file__).read_bytes()
+        != (project / "steps" / "records.py").read_bytes()
+    ):
+        raise SystemExit(
+            f"the build loaded steps.records from {records.__file__}, which differs from "
+            f"{project / 'steps' / 'records.py'}; run `uv sync` in the pipeline folder of the "
+            "checkout to build"
+        )
+
     import sqlmesh.core.console
     from sqlmesh import Context
     from sqlmesh.core.console import TerminalConsole
@@ -209,18 +223,6 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     steps["write"] = time.time() - mark
 
     mark = time.time()
-    records = importlib.import_module("steps.records")
-    # The venv's editable install can load the step from another checkout, whose records would
-    # then go into the catalog line of this one.
-    if (
-        Path(records.__file__).read_bytes()
-        != (project / "steps" / "records.py").read_bytes()
-    ):
-        raise SystemExit(
-            f"the build loaded steps.records from {records.__file__}, which differs from "
-            f"{project / 'steps' / 'records.py'}; run `uv sync` in the pipeline folder of the "
-            "checkout to build"
-        )
     files["records"] = records.write(
         ctx.engine_adapter.connection.cursor(), variables["ads"], state / "records", out
     )
