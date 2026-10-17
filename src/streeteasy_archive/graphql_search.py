@@ -31,7 +31,7 @@ Oxylabs Realtime API, and reads hundreds of ads in a request
      attributes.
   4. Write the records into the archive with no further requests, in the steps a page
      crawl follows for its pages (store.record and collection_policy.annotate). Then
-     granular_export and the collection audit read the archive as they read a crawl's.
+     the collection audit reads the archive as it reads a crawl's.
      The collector records each building at its page's URL, then each unit from its latest
      ad, then the ads:
        - The unit page shows the unit's latest ad, so that ad's record stands in for the

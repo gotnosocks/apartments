@@ -69,8 +69,9 @@ and model inputs read the parquet datasets, and current-listings captures never 
 databases.
 
 Datasets do not pin the snapshot file: their `source_evidence_sha256` hashes the parsed rows,
-and `granular_export`'s implementation hash covers parser code only. The tool does not write an
-`archive.sqlite3.sha256`; whoever swaps a compacted copy in regenerates it with `sha256sum`.
+and the implementation hash of each granular folder covers parser code only. The tool does not
+write an `archive.sqlite3.sha256`; whoever swaps a compacted copy in regenerates it with
+`sha256sum`.
 
 ## Measurements (Oct 8)
 

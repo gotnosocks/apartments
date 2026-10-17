@@ -7,12 +7,15 @@ links evidence. A model may later select an observation unit,
 resolve physical identities, combine repeated evidence, or construct time windows.
 Those choices do not replace these tables.
 
-`models/transform_local.py` converts an immutable completed archive snapshot into
-Parquet locally. `models/modal_granular.py` provides the same transform on the
-`chelsea-archive` Modal Volume when cloud execution is explicitly wanted. Neither
-runner issues StreetEasy requests or uses the legacy latest-unit import. Four CPU workers at
-most process 2,000 snapshots per shard, with bounded Parquet buffers. The quality
-report uses DuckDB with a 1 GB memory limit and two threads.
+The granular folders under `/data1/apartments/archive/datasets/` hold the output
+of past runs of a transform, and they stay as data. The transform read a frozen
+archive snapshot into Parquet, on thelio (`models/transform_local.py`) or on
+Modal (`models/modal_granular.py`), and `apartments.granular_export` finished
+each run. The data pipeline now builds from the API export
+([pipeline.md](pipeline.md)), so the transform's code is deleted, and git history
+holds it. `rentfrontier.listing_extras.CRAWLS` lists the page crawls' folders,
+and `listing_extras`, `lister` and `listing_outcomes` read them beside the
+pipeline's records file.
 
 ## Row meanings
 
@@ -74,61 +77,6 @@ JSON remain in the Parquet tables. The normalized numeric columns are convenienc
 Parse failures remain explicit in either the listing observation or its exclusion
 record, linked to the original body. Missing amenities do not mean
 absence. Unknown source fields can be extracted later without re-scraping.
-
-## Running and resuming
-
-Run through uv with the `model` extra. Supply the frozen archive, body directory,
-correction ledger, and a new output directory:
-
-```sh
-uv run --locked --extra model python models/transform_local.py \
-  --snapshot /path/to/archive.sqlite3 \
-  --bodies /path/to/bodies \
-  --corrections config/corrections.jsonl \
-  --output /path/to/datasets/new-run-id \
-  --workers 4
-```
-
-Progress is recorded in `progress.json`. Repeating the command resumes valid
-shards; a lock prevents two local processes writing the same run concurrently.
-Both local and cloud runners call the shared finalizer in
-`src/apartments/granular_finalize.py`, exposed through `granular_export.finish`.
-It verifies checkpoint identities, exact planned Parquet files (including empty
-parts), row counts, snapshot coverage, references, and derived unit/link tables
-before writing `complete.json`. Unexpected files or incomplete checkpoints fail
-finalization rather than silently entering the published dataset. Implementation
-changes require a new run ID; existing completed datasets remain immutable.
-
-For optional cloud execution, install the `modal` extra and deploy with:
-
-```sh
-uv run --locked --extra modal modal deploy models/modal_granular.py
-```
-
-Start a durable background invocation:
-
-```python
-import modal
-call = modal.Function.from_name('chelsea-granular-data', 'run_all').spawn(
-    'chelsea-granular-20260916')
-print(call.object_id)
-```
-
-Read status through the deployed `status` function. Re-running the same ID resumes
-completed shards without reprocessing them. Only one invocation per run ID should
-be active. A parser, source, or correction-ledger change requires a **new run ID**.
-`plan.json` fixes source snapshot and ledger identity; per-shard checkpoints are
-written after their Parquet files. `complete.json` is written only after all shards
-and the quality report finish. Tables in an incomplete run are not publication-ready.
-
-The final `quality-report.json` is small enough to download separately. Full tables
-stay in `/archive/datasets/<run-id>/`. Counts describe saved, scoped StreetEasy
-evidence, not a census of all Chelsea homes or realized signed leases.
-
-Workers write distinct shard files and commit only closed files, then the coordinator
-reloads before auditing. This follows [Modal’s concurrent-writer guidance](https://modal.com/docs/guide/volumes). Resumption checks Parquet footers and row counts
-as well as checkpoint/parser identity. Eight bounded read threads per worker hide
-cold-file latency; they do not issue network requests to StreetEasy.
 
 ## Legacy inventory metadata
 
@@ -230,7 +178,7 @@ Chelsea archive (six sales and two rentals) have been checked against this parse
 
 ## Canonical unit associations
 
-Normal local and Modal finalization now run `canonical-url-v1`. Every retained
+The transform's finalization ran `canonical-url-v1`. Every retained
 rental listing is assigned by its exact full canonical unit URL (building and
 unit portions). Source display labels, latest-listing pointers, history contents,
 and attributes do not need to agree. A listing with missing or conflicting URLs
@@ -266,17 +214,3 @@ This attributes each history mention to the page that reported it. It does not
 claim every historical advertisement has its own captured canonical page. Repeated
 event mentions remain intact, as do changing attributes and prices. Consumers can
 choose an event-deduplication policy separately.
-
-Both local and cloud runners call `apartments.granular_export.finish`, which builds
-memberships before the quality report and completion marker. For a normal local run:
-
-```sh
-uv run --locked --extra model python models/transform_local.py \
-  --snapshot /path/to/archive.sqlite3 \
-  --bodies /path/to/bodies \
-  --corrections config/corrections.jsonl \
-  --output /path/to/new-dataset
-```
-
-Use a new output directory: completed datasets remain immutable. The rule is
-recorded in `plan.json` and `complete.json` and included in the implementation hash.
