@@ -16,11 +16,13 @@ The builders read these rows where they read a granular export's `listing_observ
 - `listing_type` and `raw_listing_json` as the file has them.
 
 `captures` reads the file a row group at a time, because its record text runs to a few
-gigabytes.
+gigabytes. `observations` reads a crawl a builder names, either a granular export's folder or
+`CRAWL` for the records file.
 """
 
 from __future__ import annotations
 
+import glob
 import hashlib
 import json
 import os
@@ -106,3 +108,19 @@ def captures(
             if "listing_id" in out:
                 out["listing_id"] = str(out["listing_id"])
             yield out
+
+
+def observations(
+    crawl: str, columns: Iterable[str], records: dict | None = None
+) -> Iterator[dict]:
+    """The rows of a granular crawl's `listing_observations` with `columns`, a Parquet file at a
+    time in name order, or the records file's rows when `crawl` is `CRAWL`. `records` is the
+    checked records file, and without it I read the catalog."""
+    columns = list(columns)
+    if crawl == CRAWL:
+        yield from captures(records or records_file(), columns)
+        return
+    for path in sorted(
+        glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
+    ):
+        yield from pq.read_table(path, columns=columns).to_pylist()

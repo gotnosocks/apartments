@@ -1711,6 +1711,9 @@ file a row group at a time and hands each row over under the granular export's c
 - `snapshot_id` from `response_id`;
 - `listing_type` and `raw_listing_json` as they are.
 
+Its `observations` reads whichever crawl a builder names: a granular export's folder, a Parquet
+file at a time as the builders read them, or the word `records` for the records file.
+
 A builder takes a listing's last capture as its row with the latest `collected_at`. With each
 record's last answer in that column, the builder gets the record the collector fetched last, at
 the time of that fetch. In the Oct 16 export, every listing's record with the latest first
@@ -2156,6 +2159,8 @@ and catalog it writes in a temporary folder:
 51. append a clean line without a records file, and check that the reader stops;
 52. read a row back, and check its granular names: the listing ID as text, the last answer's
     time as `collected_at` and the response ID as `snapshot_id`.
+53. read a granular folder of two Parquet files and the records file through `observations`,
+    and check that the folder's rows come in file name order.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

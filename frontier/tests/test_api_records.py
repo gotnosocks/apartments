@@ -1,5 +1,7 @@
 import json
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from rentfrontier import api_records
@@ -68,3 +70,19 @@ def test_captures_take_the_granular_names(records_catalog):
             "raw_listing_json": '{"id":"7","pricing":{"price":3000}}',
         }
     ]
+
+
+def test_observations_read_a_granular_folder_or_the_records_file(
+    records_catalog, tmp_path
+):
+    records_catalog(_rows(3000))
+    folder = tmp_path / "granular" / "listing_observations"
+    (folder / "part=b").mkdir(parents=True)
+    (folder / "part=a").mkdir()
+    for part, ids in (("b", ["3"]), ("a", ["1", "2"])):
+        table = pa.table({"listing_id": ids, "collected_at": [1.0] * len(ids)})
+        pq.write_table(table, folder / f"part={part}" / "0.parquet")
+    got = api_records.observations(str(tmp_path / "granular"), ["listing_id"])
+    assert [r["listing_id"] for r in got] == ["1", "2", "3"]
+    got = api_records.observations(api_records.CRAWL, ["listing_id", "collected_at"])
+    assert list(got) == [{"listing_id": "7", "collected_at": 250.0}]
