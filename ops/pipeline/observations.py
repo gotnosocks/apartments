@@ -1,7 +1,8 @@
 """Write a dataset folder for the frontier fits from the pipeline's fit-ready rows.
 
     python ops/pipeline/observations.py OUT [--catalog DIR] [--rows FILE [--ads FILE]]
-        [--neighbourhoods NAME,...] [--served DATASET] [--audit-ids DATASET]
+        [--neighbourhoods NAME,...] [--rename OLD=NEW ...] [--served DATASET]
+        [--audit-ids DATASET]
     python ops/pipeline/observations.py OUT --check-against DATASET [--latest-ask RULE]
         [--api-reference DATASET] [--export DIR] [--chain-run N] [--report FILE]
 
@@ -34,12 +35,15 @@ steps:
        `asking_rent` holds the first ask, which only the check reads. The script stops on a
        rows file without `latest_ask`, as written by builds before the column, and on a row
        without a latest ask.
+     - `neighbourhood` as the rows file gives it, or as NEW for each `--rename OLD=NEW`. The
+       neighbourhoods of step 2 name the rows file's neighbourhoods, before the renames.
      - `audit_id` from the chain's row for the ad in step 3, or `api:<listing_id>` for an ad
        the chain lacks. The script stops if two rows get one ID.
      - `analysis_price_basis` as `historical_initial_own_advertisement_ask` and
        `description_interpreted_at` as null on every row.
 5. It writes `manifest.json`, with the build's files and their SHA-256, the catalog line's
-   build time, code and ledger files, the neighbourhoods with their row counts, the audit ID
+   build time, code and ledger files, the written neighbourhoods with their row counts, the
+   renames with the rows each moved, the audit ID
    sources with their SHA-256, the counts of each kind of audit ID, the audit IDs the served
    dataset gives otherwise, and the SHA-256 of `observations.jsonl`.
 
@@ -279,8 +283,10 @@ def write(
     hoods: list[str] | None,
     served: Path,
     audit_source: Path,
+    renames: dict[str, str] | None = None,
 ) -> dict:
     """Write OUT's two files from the build and return the manifest."""
+    renames = renames or {}
     if out.exists():
         raise SystemExit(f"{out} exists")
     db = connect()
@@ -316,7 +322,7 @@ def write(
     tmp = out.with_name(f".{out.name}.tmp-{os.getpid()}")
     tmp.mkdir(parents=True)
     try:
-        counts, kinds, seen = {}, {"chain": 0, "api": 0}, set()
+        counts, moved, kinds, seen = {}, {}, {"chain": 0, "api": 0}, set()
         cursor = db.execute(
             RECORD,
             {
@@ -334,6 +340,9 @@ def write(
                     if audit_id in seen:
                         raise SystemExit(f"audit ID {audit_id} repeats")
                     seen.add(audit_id)
+                    if row[26] in renames:
+                        moved[row[26]] = moved.get(row[26], 0) + 1
+                        row = (*row[:26], renames[row[26]])
                     counts[row[26]] = counts.get(row[26], 0) + 1
                     line = json.dumps(
                         record(row, audit_id), sort_keys=True, allow_nan=False
@@ -346,7 +355,13 @@ def write(
             "rows_file": build["rows"],
             "ads_file": build["ads"],
             "catalog": build["catalog"],
-            "neighbourhoods": {h: counts.get(h, 0) for h in hoods},
+            "neighbourhoods": {
+                h: counts.get(h, 0) for h in sorted({renames.get(h, h) for h in hoods})
+            },
+            "renamed": {
+                old: {"to": new, "rows": moved.get(old, 0)}
+                for old, new in sorted(renames.items())
+            },
             "served": {
                 "path": str(served),
                 "observations_sha256": sha256(served / "observations.jsonl"),
@@ -498,7 +513,7 @@ def check(
         [str(export / "ads" / "*" / "*.parquet"), chain_run, build["ads"]["path"]],
     ).df()
     entries = ledger_sets(build)
-    hoods = set(manifest["neighbourhoods"])
+    hoods = set(manifest["neighbourhoods"]) | set(manifest.get("renamed", {}))
 
     joined = ours.merge(
         theirs,
@@ -652,6 +667,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--rows", type=Path)
     parser.add_argument("--ads", type=Path)
     parser.add_argument("--neighbourhoods")
+    parser.add_argument("--rename", action="append", default=[], metavar="OLD=NEW")
     parser.add_argument("--served", type=Path)
     parser.add_argument("--audit-ids", type=Path)
     parser.add_argument("--check-against", type=Path)
@@ -678,12 +694,16 @@ def main(argv: list[str] | None = None) -> None:
         data = frontier_data()
         build = pick_build(args.catalog, args.rows, args.ads)
         hoods = args.neighbourhoods.split(",") if args.neighbourhoods else None
+        if any("=" not in pair for pair in args.rename):
+            parser.error("--rename takes OLD=NEW")
+        renames = dict(pair.split("=", 1) for pair in args.rename)
         manifest = write(
             args.out,
             build,
             hoods,
             args.served or data.DATASET,
             args.audit_ids or data.DATASET_ALL,
+            renames,
         )
         print(f"{args.out}: {manifest['rows']:,} rows")
         print(f"observations.jsonl {manifest['files']['observations.jsonl']}")

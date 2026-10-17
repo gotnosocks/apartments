@@ -208,6 +208,27 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
 
     with pytest.raises(SystemExit, match="exists"):
         converter.write(out, build_files, None, served, audit)
+    # The first neighbourhood's rows written under the second's name.
+    old_hood, new_hood = hoods[0], hoods[1]
+    renamed = tmp_path / "renamed"
+    moved = converter.write(
+        renamed, build_files, None, served, audit, {old_hood: new_hood}
+    )
+    assert moved["renamed"] == {
+        old_hood: {"to": new_hood, "rows": manifest["neighbourhoods"][old_hood]}
+    }
+    assert moved["neighbourhoods"] == {
+        h: n + (manifest["neighbourhoods"][old_hood] if h == new_hood else 0)
+        for h, n in manifest["neighbourhoods"].items()
+        if h != old_hood
+    }
+    assert [
+        json.loads(line)["neighbourhood"]
+        for line in (renamed / "observations.jsonl").open()
+    ] == [
+        new_hood if r["neighbourhood"] == old_hood else r["neighbourhood"]
+        for r in lines
+    ]
     # A rows file the catalog lists brings its own ads file.
     assert converter.pick_build(catalog, rows, None) == build_files
     # A rows file without `latest_ask` holds only the first asks.

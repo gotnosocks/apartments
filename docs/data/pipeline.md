@@ -1723,7 +1723,10 @@ neither ledger holds their changes yet.
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
 a folder written with them leaves out West Chelsea's 14,272 rows on the build of Oct 16. To keep
-them, I add West Chelsea to `--neighbourhoods`.
+them, I add West Chelsea to `--neighbourhoods`. A fit compared with the served fit needs the same
+neighbourhood levels, so for it I also pass `--rename "West Chelsea=Chelsea"`, and the folder
+gives those rows the served dataset's name. The manifest lists each rename with the rows it
+moved.
 
 ### Against the served dataset
 
@@ -2231,6 +2234,8 @@ in all, and most tests add made-up ads to that export. The tests:
     floor fields `_flatten` leaves out match too. An ad missing from the chain's audit IDs gets
     an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
     script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
+    A second folder renames a neighbourhood to another, and its lines and manifest counts follow
+    the rename.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
