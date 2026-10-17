@@ -24,9 +24,12 @@ MODEL (
 -- 5. the two unit pages share a rare photo.
 --
 -- A photo counts as rare when its key appears on 2 or 3 unit pages, all in the same lot. A key on
--- more pages usually shows the building's lobby, roof or gym. To count a key's pages, the step
--- reads every placed ad, kept or not. `gap` gives the days from the first ad's end to the second
--- ad's start, and `photos` the rare keys the two unit pages share.
+-- more pages usually shows the building's lobby, roof or gym. The step takes the keys an ad of a
+-- lot over its count shows, and counts each key's pages over every placed ad, kept or not.
+-- On ads runs 1 to 16, starting from those keys took 6 s in a build, against 44 s for counting
+-- every key.
+-- `gap` gives the days from the first ad's end to the second ad's start, and `photos` the rare
+-- keys the two unit pages share.
 --
 -- Readers judged a sample of these pairs from the ads alone, without the photos, as
 -- docs/data/pipeline.md describes under Relist units. analysis.relist_links decides which pairs
@@ -53,10 +56,15 @@ WITH as_of AS (
     WHERE coalesce(m.off_day, m.as_of) > (SELECT day FROM as_of) - INTERVAL 12 MONTH
     GROUP BY p.bbl, a.apartments
     HAVING count(DISTINCT p.unit_id) > a.apartments
+), candidate_keys AS (
+    SELECT DISTINCT f.key
+    FROM ads.photos f
+    JOIN placed p USING (listing_id)
+    WHERE p.bbl IN (SELECT bbl FROM over)
 ), shown AS (
     SELECT DISTINCT p.bbl, p.unit_id, f.key
     FROM ads.photos f
-    SEMI JOIN (SELECT key FROM ads.photos GROUP BY key HAVING count(*) > 1) USING (key)
+    SEMI JOIN candidate_keys USING (key)
     JOIN placed p USING (listing_id)
 ), rare AS (
     SELECT s.*

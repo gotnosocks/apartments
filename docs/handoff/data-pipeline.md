@@ -111,43 +111,30 @@ These PRs merged on Oct 17:
 - #991: a split in the unit ledger can point `into` an earlier split, for 870 Broadway and 444
   West 20th Street.
 - #994: the corrections ledger takes `quarantine-v34`, `quarantine-v35` and `bedrooms-ad-v10`.
+- #1006: when a building's address and footprint give different lots and the latest MapPLUTO
+  release gives one of them apartments and the other a count of 0, `buildings.lots` takes the
+  one with apartments.
 
 The work goes on in this order:
 
-1. Lane D, the unit ledger's scored matching. The 17 lots in
-   `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` that a reader found to be unit
-   splits or relabels serve as labeled tests. The prototypes are in
-   `/data1/apartments/tmp/pipeline/lanes/laned/`, and each script's docstring gives its arguments:
-   - `match.py` writes every label one way. That joins 4.3% of unit pages but takes the lots above
-     their count only from 1,580 to 1,544.
-   - `chainmatch.py` links two unit pages of a lot along a broker's relist chain: an ad of one
-     starts within 7 days of an ad of the other ending, with the same bedrooms and baths and an ask
-     within 3% of the last, gross or net. It refuses a merge when ads of the two sides ran beside
-     each other for over a week at different asks. On its count, a little looser than the city
-     check's, 1,735 lots are above their legal count, and joining every chain leaves 781.
-   - `photomatch.py` links unit pages whose ads share photo keys used by at most 3 of the lot's
-     units. `both-7-1.parquet` holds the 4,814 chain links with such a photo, and
-     `chainonly-7-1.parquet` the 22,112 without. Joining only the first leaves 1,467 lots above.
-   - `cards.py` and `score_reads.py` sample pairs for Sonnet readers and tally the verdicts in
-     `read/`. Readers put 19 of 20 photo-backed chain links on the same apartment, 12 of 20 chain
-     links without photos (1 different, 7 unclear), and 7 of 20 pairs sharing photos with no chain
-     (9 different).
-   - `floors.py` compares the floors that linked labels give against alike units of the same lot.
-     Linked labels share a floor 66% of the time against 37%. Taking the photo-backed links as 95%
-     right, a true link keeps its floor 78% of the time, and the links without photos come out
-     about 68% right, at most 71%. A guard against links whose first ad ended as rented leaves that
-     unchanged.
-   - `plans.py` does the same with floor plans and stated sizes. Where both pages have a plan, 36%
-     of links without photos share one, against 53% of photo-backed links and 12% of alike units,
-     which puts them about 56% right. Stated sizes differ by over 5% on 40% of links and 60% of
-     alike units, too noisy to help.
-   - `recount.py` recounts the lots above after joining along any set of links.
+1. Lane D goes on from the relist step in #RELIST. `analysis.rows` gives each row a
+   `relist_unit`, and `ops/pipeline/observations.py` leaves it out until Modeling asks for it.
+   [pipeline.md](../data/pipeline.md#relist-units) has the rules, the counts of the Oct 17 build
+   and a reading of 50 relist units: readers put 92% of the decided units on one apartment, and
+   67% of those of 4 pages or more. The lane's scripts and reads are in
+   `/data1/apartments/tmp/pipeline/lanes/relist-build/`, and each script's docstring gives its
+   arguments:
+   - `unitcards.py` writes reading cards for a sample of relist units, and `unittally.py` tallies
+     the verdicts in `unitread/`.
+   - `variants2.py` reruns the links under other clash and layout rules and checks each against
+     the verdicts.
+   - `stats.py` counts the pairs, outcomes, units and changed rows, and the lots over their count.
 
-   Next the matcher becomes a pipeline step, with the photo-backed links first. Each row gets a
-   relist unit beside its unit page, so a fit can choose to read it, and no unit page changes.
-   Shared photos and relists aren't backing kinds under the unit ledger's rules, so the joins stay
-   out of the ledger. The 22,112 links without photos need another signal, such as the floor plans
-   or stated sizes.
+   After the joins, 1,923 lots stay over their count. The 22,112 chain links without a shared
+   photo need another signal: on the prototypes in `/data1/apartments/tmp/pipeline/lanes/laned/`,
+   floors put them about 68% right and floor plans about 56%, too low to join on. A reader judged
+   17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` to be unit splits
+   or relabels, and those lots serve as labeled tests.
 2. A `drop_lot` change in the corrections ledger, read by `analysis.lot_facts` so the listed ads
    get no lot. #975 put Data improvements' list in `config/reviews/drop-lot-20261017.jsonl`:
    1,274 ads that `building_check` flagged and a reader put on the wrong building or under an

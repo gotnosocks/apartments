@@ -556,13 +556,17 @@ disk.
 | `ledger.unit_status` | table | entry of the unit ledger: its status against the ads and buildings |
 | `ads.placed` | table | ad with a record: its building and unit after the live entries of the unit ledger |
 | `ads.reported` | merge | ad with a record: the floor its unit labels read, and its full and half bathrooms |
+| `ads.photos` | merge | photo an ad shows in any of its answers, by its key |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
 | `analysis.kept` | view | candidate kept for its unit and month |
 | `ledger.entries` | table | line of the corrections ledger, checked against the ledger's rules |
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
 | `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
-| `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with its latest ask and the values the ledger's live sets give |
+| `analysis.relist_pairs` | table | pair of kept ads on two unit pages of a lot over its count, where the second ad looks like the first listed again |
+| `analysis.relist_links` | table | pair of `analysis.relist_pairs`: the outcome of joining its unit pages, and the relist unit of each page after every pair |
+| `analysis.relist_units` | table | unit page the relist step joins with another: its relist unit and the count of pages in it |
+| `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with its latest ask, the values the ledger's live sets give and its relist unit |
 | `analysis.ask_check` | table | fit-ready row with a latest ask 6 to 16 times, or a sixteenth to a sixth of, the median of its building's other rows with the same bedroom count, for review |
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
@@ -582,7 +586,9 @@ and nulls: one row per listing in `ads.latest_record`, `ads.first_ask`, `ads.mar
 in `buildings.details` and the four building identity models, per lot and release in
 `buildings.lot_releases`, per release in `city.pluto_releases`, per record in
 `ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in
-`ads.price_changes` and per event in `ads.answer_events` and `ads.history_reports`. The `every_row`
+`ads.price_changes`, per `(listing_id, key)` in `ads.photos`, per pair of ads in
+`analysis.relist_pairs` and `analysis.relist_links`, per unit page in `analysis.relist_units`
+and per event in `ads.answer_events` and `ads.history_reports`. The `every_row`
 audit, in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`.
 When an audit fails, the plan stops, and the tables from the last good plan stay in place.
 
@@ -1362,8 +1368,9 @@ chain's analysis datasets. I build them in seven steps.
 4. `analysis.kept` gives the kept candidates as a view.
 5. `analysis.rows` applies the corrections ledger to the kept rows, as described under
    [Corrections ledger](#corrections-ledger). It adds each row's latest ask from
-   `analysis.latest_ask` as its last column, `latest_ask`, after the ledger's ask sets.
-   `asking_rent` stays the ad's first ask, as in the chain's datasets.
+   `analysis.latest_ask` as `latest_ask`, after the ledger's ask sets. `asking_rent` stays the
+   ad's first ask, as in the chain's datasets. The last column, `relist_unit`, gives the row's
+   relist unit, as described under [Relist units](#relist-units).
 6. `analysis.ask_check` lists the rows with a latest ask far from their building's median for
    review, as described under [Ask check](#ask-check).
 7. `analysis.building_check` lists the rows whose lot's city record leaves no room for the ad,
@@ -2044,6 +2051,107 @@ page 1 in one unit. The garden page's ad 2312228 offered a duplex of 2 bedrooms 
 $15,750 until 2018-02-08. Four days later, ad 2314583 on page 1 offered the same layout at the
 same ask in the same words. The garden page's ad 3215132 of 2020 repeats them and gives 2,750 sq
 ft. Both pages take the garden page's unit ID, the lesser, so 2314583's row changes unit.
+
+## Relist units
+
+A broker who lists an apartment again often starts a new unit page under another label, and the
+lot then shows more unit pages than MapPLUTO gives it apartments. In those lots I look for the
+pages of one apartment and give their rows a shared relist unit. The rows keep their unit page
+in `unit_id`, and `analysis.rows` adds the relist unit as its last column, `relist_unit`, so a
+fit can choose which of the two it reads. Shared photos and relists aren't backing kinds under
+the unit ledger's rules, so these joins stay out of the ledger. I build the relist units in four
+steps.
+
+1. `ads.photos` lists the photos each ad shows in any of its answers, by the key StreetEasy gives
+   each photo. As a merge model, it reads only the new answers in a top-up build.
+2. `analysis.relist_pairs` finds the lots over their count, where the unit pages with an ad on
+   the market in the 12 months to the build's as-of day outnumber the apartments of the latest
+   MapPLUTO release. Within each such lot, it pairs a kept ad with a kept ad of another unit page
+   when
+   - the second ad comes on the market between 3 days before and 7 days after the first goes off,
+   - both give the same bedrooms and bathrooms,
+   - their listed floors, advertised floors and label floors agree, where both ads give one,
+   - the second ad's first or latest ask lies within 3% of the first ad's latest ask, and
+   - the two pages share a rare photo.
+
+   A key counts as rare when it appears on 2 or 3 unit pages, all in one lot. A key on more pages
+   usually shows the building's lobby, roof or gym.
+3. `analysis.relist_links` starts with each unit page as its own relist unit. It sorts the pairs
+   by the gap between the two ads, closest first, then by their IDs, so every build gives the same
+   units. For each pair it joins the two pages' relist units under the lesser page ID. It leaves
+   them apart, and marks the pair, in these cases:
+   - `same`: an earlier pair already joined the two pages.
+   - `layout`: a page of either relist unit holds a kept ad with a bedroom count other than the
+     pair's.
+   - `clash`: two pages of the two relist units had ads on the market together for more than 7
+     days. The 7 days allow for a broker who posts the new ad before taking the old one down.
+4. `analysis.relist_units` lists each unit page in a relist unit of two or more pages.
+   `analysis.rows` gives a row on any other page its own unit page as its relist unit.
+
+`ops/pipeline/observations.py` leaves `relist_unit` out of the observations it writes, so the
+frontier fits read the same lines as before.
+
+### The layout check
+
+I added the layout check after the first lane build. Without it, the joins chained apartments
+together through pages that already mixed them. At 828 St Johns Place in Brooklyn, a broker posted
+each new ad under another label on the 4th floor, from 4A to 4T, and a single relist unit took in
+14 pages with ads of 1, 2, 3 and 4 bedrooms. Of the 10,584 pages in pairs, 2,885 held kept ads of
+more than one bedroom count, and 1,552 of the 3,885 relist units did. Bathroom counts, which the
+check doesn't read, differed within 932 of those units, 24%, against 15.5% of the pages alone.
+With the check, they differ within 220 of the 2,603 relist units, 8.5%.
+
+### Reading the joins
+
+Sonnet readers judged 50 relist units of the build below from the ads alone. For each unit they
+saw every page with up to 4 of its ads nearest the unit's joins, or 3 in units of 4 pages or
+more: the layout, size, dates, asks, photo and plan counts, and the start of each description.
+They didn't see the photos or the pairs. I drew 20 units of 2 pages, 15 of 3 pages and 15 of 4
+or more by a fixed hash of the relist unit.
+
+| pages | relist units | same | different | unclear | same of decided, 95% interval | pages on another apartment |
+|---|---:|---:|---:|---:|---|---:|
+| 2 | 1,906 | 15 | 1 | 4 | 94%, 72% to 99% | 1 of 40 |
+| 3 | 551 | 12 | 1 | 2 | 92%, 67% to 99% | 1 of 45 |
+| 4 or more | 146 | 10 | 5 | 0 | 67%, 42% to 85% | 9 of 66 |
+
+When I weight each size by its number of relist units, 92% of the decided units fall on one
+apartment, and about 4% of the joined pages fall on another apartment than the rest of their
+unit. In the larger units, most misses come from two pages with ads on the market together for a
+week or less at different asks, or from a page of another size or bath count. I tried two
+stricter rules on the same 50 units:
+
+- A 3-day clash window moves 3 of the 11 odd pages out of their unit, but splits 2 units the
+  readers put on one apartment.
+- A check of bathrooms beside bedrooms moves none of the odd pages out, and splits 1 such unit.
+
+Neither helps, so I kept the 7-day window and the bedroom check. A fit reading `relist_unit` can
+leave out the units of 4 pages or more through `analysis.relist_units.pages`. An earlier sample
+of 72 pairs, drawn before I limited the step to lots over their count, holds 6 pairs the step now
+joins, and the readers put all 6 on one apartment.
+
+### On the build of Oct 17
+
+I built the step on a lane state from ads runs 1 to 16, where 2,126 lots are over their count.
+
+- `analysis.relist_pairs` pairs 8,482 ads in 1,315 of those lots. The median gap is 0 days, and
+  in 831 pairs the second ad comes on the market before the first goes off. 6,477 pairs share
+  more than one rare photo.
+- `analysis.relist_links` joins 3,533 pairs, refuses 3,878 for layout and 403 for a clash, and
+  finds 668 already joined.
+- The joins give 2,603 relist units of 6,136 pages, 1,906 of them of 2 pages. The largest, of 11
+  pages, holds 25 ads of a 1-bedroom with 2 baths at 554 Gates Avenue in Brooklyn. In the fall of
+  2023, and again from September 2025 to January 2026, the broker posted it about weekly under
+  labels from 4C to 4T while the ask fell, from $3,349 to $3,150 and from $3,350 to $2,975.
+- 7,258 of the 1,746,778 fit-ready rows take a relist unit other than their unit page, and the
+  rows' 840,571 unit pages fall to 837,039 relist units.
+- The lots over their count drop from 2,126 to 1,923, and their unit pages beyond MapPLUTO's
+  count from 12,095 to 10,963.
+
+`ads.photos` took 34 s in the full build, for 20,105,782 pairs of ad and key from 2,184,634
+answers, and the build took 6.0 min at a peak of 4.0 GiB. After I changed the relist models, the
+rebuild took 2.7 min at 4.2 GiB. The relist models took 6.7 s of that, and writing the rows, ads
+and records files most of the rest.
 
 ## Ads file
 

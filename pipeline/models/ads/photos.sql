@@ -14,7 +14,7 @@ MODEL (
 
 -- StreetEasy names each photo of an ad by a key of 32 hex digits, under `$.media.photos`. A
 -- broker who lists an apartment again usually shows the same photos, so analysis.relist_pairs
--- reads the keys two unit pages share. Over runs 1 to 10, 2,184,597 answers give 20,105,782
+-- reads the keys two unit pages share. Over ads runs 1 to 16, 2,184,634 answers give 20,105,782
 -- distinct pairs of ad and key.
 --
 -- The model reads the answers in ads.changes: every answer in a full build, and the new ones in

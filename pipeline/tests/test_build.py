@@ -263,7 +263,7 @@ def test_merge_code_change_rebuilds_the_merge_models(tmp_path, monkeypatch):
     assert [n for n in before if before[n].data_hash != after[n].data_hash] == [
         '"pipeline"."ads"."changes"'
     ]
-    assert len(merges) == 15 and merges <= {n for n in before if before[n] != after[n]}
+    assert len(merges) == 16 and merges <= {n for n in before if before[n] != after[n]}
 
 
 def test_failed_audit_writes_nothing(tmp_path, build):

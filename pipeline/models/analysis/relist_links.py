@@ -7,6 +7,9 @@ ordered by the absolute gap, then by the unit pages' and ads' IDs, so the outcom
 every build. For each pair it finds the relist unit of each page:
 
 - `same`: an earlier pair already put both pages in one relist unit.
+- `layout`: a page of either relist unit holds a kept ad with a bedroom count other than the
+  pair's. Such a page already mixes apartments, often under a broker who moves one ad from label
+  to label along a floor, and joining it would chain those apartments together.
 - `clash`: two pages of the two relist units had ads on the market together for more than 7
   days. An apartment can't be on the market twice at once, so the model leaves them apart.
 - `joined`: otherwise it joins the two relist units, under the lesser unit page ID.
@@ -40,16 +43,20 @@ COLUMNS = {
 OVERLAP = 7
 
 
-def link(pairs, spans):
+def link(pairs, spans, bedrooms):
     """The outcome of each pair of `pairs`, in its order, and the relist unit of each unit page.
-    `pairs` gives (unit_id, next_unit_id) tuples, and `spans` maps a unit page to the (first,
-    last) days of its ads, as day numbers."""
+    `pairs` gives (unit_id, next_unit_id) tuples, `spans` maps a unit page to the (first, last)
+    days of its ads, as day numbers, and `bedrooms` maps a unit page to the set of its ads'
+    bedroom counts."""
     parent, members = {}, {}
 
     def find(unit):
         while parent.get(unit, unit) != unit:
             unit = parent[unit]
         return unit
+
+    def layouts(unit):
+        return set().union(*(bedrooms.get(u, set()) for u in members.get(unit, [unit])))
 
     def clash(a, b):
         return any(
@@ -65,6 +72,8 @@ def link(pairs, spans):
         a, b = find(unit), find(next_unit)
         if a == b:
             outcomes.append("same")
+        elif len(layouts(a) | layouts(b)) > 1:
+            outcomes.append("layout")
         elif clash(a, b):
             outcomes.append("clash")
         else:
@@ -113,20 +122,21 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     )
     if links.empty:
         return
-    spans = defaultdict(list)
-    for unit, first, last in context.fetchdf(
+    spans, bedrooms = defaultdict(list), defaultdict(set)
+    for unit, beds, first, last in context.fetchdf(
         f"""WITH units AS (
             SELECT unit_id FROM {pairs} UNION SELECT next_unit_id FROM {pairs}
         )
-        SELECT k.unit_id, m.on_day - DATE '1970-01-01' AS first,
+        SELECT k.unit_id, k.bedrooms, m.on_day - DATE '1970-01-01' AS first,
             coalesce(m.off_day, m.as_of) - DATE '1970-01-01' AS last
         FROM {kept} k
-        JOIN {market} m USING (listing_id)
-        SEMI JOIN units USING (unit_id)
-        WHERE m.on_day IS NOT NULL"""
+        LEFT JOIN {market} m USING (listing_id)
+        SEMI JOIN units USING (unit_id)"""
     ).itertuples(index=False):
-        spans[unit].append((int(first), int(last)))
-    outcomes, find = link(zip(links.unit_id, links.next_unit_id), spans)
+        bedrooms[unit].add(float(beds))
+        if not pd.isna(first):
+            spans[unit].append((int(first), int(last)))
+    outcomes, find = link(zip(links.unit_id, links.next_unit_id), spans, bedrooms)
     links["outcome"] = outcomes
     links["relist_unit"] = links.unit_id.map(find)
     links["next_relist_unit"] = links.next_unit_id.map(find)
