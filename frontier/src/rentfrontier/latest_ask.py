@@ -109,7 +109,9 @@ def _stale(day: str, off: str | None, active: list[str], stale_days) -> bool:
 def record_latest(raw: str, stale_days: int | None = STALE_DAYS) -> dict:
     """The kept price changes of one raw listing record, as (day, price) in date
     order, its page price when no change carries it, and its page price for the
-    digit check when no kept change carries it."""
+    digit check when no kept change carries it. `n_placeholder` counts the
+    changes dropped as placeholders or as stale; `stale_days=None` keeps the
+    stale ones."""
     d = json.loads(raw)
     pricing = d.get("pricing") or {}
     changes = sorted(
