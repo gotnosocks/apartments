@@ -2031,8 +2031,8 @@ in all, and most tests add made-up ads to that export. The tests:
 30. render `city.pad_streets` over the fixture and read 26c's 276 names, none of type S, with
     the fields of BROADWAY's record. The 20-character name is blank in every record of 26c.
 31. parse the text of each Python value a model reads, and find no set and no text Python can't
-    parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
-    and compare each model's fingerprint.
+    parse. Then load the project in two processes at once, with hash seeds 1 and 2 and a state
+    each, and compare each model's fingerprint.
 32. add made-up buildings to the cases, each with a record of its own, and check the lot, BIN,
     link, rank and footprint test `buildings.lots` gives each one:
     - an address written with `W.` and `St.`, and by the street's other name in PAD's
@@ -2148,10 +2148,25 @@ in all, and most tests add made-up ads to that export. The tests:
     active, when `systemctl` fails and when less memory is available than asked for. It lets go
     of the GPU lock it tests, and it stops on a memory size it can't read.
 
-pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
-about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
-workers, and a fork in a process with open DuckDB connections can deadlock, so
-`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
+pytest-xdist runs the tests in three worker processes, as set in `pipeline/pyproject.toml`, and a
+worker with an empty queue takes tests queued for another. The fixture comes to under 500 KB, and
+nearly all of a test's time goes to SQLMesh: it loads the project in about 2 s and plans the
+fixture in about 4 s of CPU. `pipeline/tests/conftest.py` keeps in each worker, for the whole
+session:
+
+- a context on the fixture export and an empty state, for the tests rendering models or reading
+  their definitions (items 19, 30, 31 and 33 to 36). No test plans on its state, so SQLMesh
+  renders models under their own names rather than as the tables of a build;
+- a folder for SQLMesh's optimized model queries, shared by every context of the worker.
+  SQLMesh keys each entry on a hash of the model's query, macros and parents' columns, so it
+  reuses an entry in a later context only for a model with the same text and inputs;
+- the list of the venv's packages, which SQLMesh otherwise reads on each plan.
+
+On thelio, with other jobs keeping the load average between 4 and 10, the tests take about 125 s
+at three workers and 135 s at two, and use 300 to 350 s of CPU. The longest test, the top-up
+build of item 20, takes about 20 s. SQLMesh loads models in forked workers, and a fork in a
+process with open DuckDB connections can deadlock, so `conftest.py` also sets
+`MAX_FORK_WORKERS=1`.
 
 ## Full build
 
