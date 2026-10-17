@@ -398,29 +398,36 @@ def git(*args):
 
 
 def test_repo_ledger_reads():
-    """The repo's ledger follows the rules."""
+    """The repo's corrections ledger and unit ledger follow the rules."""
     ledger.read(sorted((PROJECT / "ledger").glob("*.ndjson")))
+    ledger.read_units(sorted((PROJECT / "ledger" / "units").glob("*.ndjson")))
 
 
-def test_repo_ledger_only_grows():
+@pytest.mark.parametrize("folder", ["ledger", "ledger/units"])
+def test_repo_ledger_only_grows(folder):
     """Each ledger file at the merge base with master stays as it was, and each new file sorts
-    after master's files, including those merged since the branch left it. A line appended to
-    an old file would sort before the entries of later files."""
+    after master's files in its folder, including those merged since the branch left it. A line
+    appended to an old file would sort before the entries of later files."""
     try:
         base = git("merge-base", "HEAD", "origin/master").strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         pytest.skip("no merge base with origin/master")
-    names = git("ls-tree", "--name-only", base, "ledger/").split()
+
+    def files(commit):
+        listed = git("ls-tree", "--name-only", commit, f"{folder}/").split()
+        return [name for name in listed if name.endswith(".ndjson")]
+
+    names = files(base)
     for name in names:
         old = git("show", f"{base}:pipeline/{name}")
         path = PROJECT / name
         assert path.exists(), f"{name} is gone"
         assert path.read_text() == old, f"{name} changed after its merge"
     # The ledger applies files in the order of their names.
-    tip = git("ls-tree", "--name-only", "origin/master", "ledger/").split()
+    tip = files("origin/master")
     last = max((Path(name).name for name in names + tip), default="")
-    for path in (PROJECT / "ledger").glob("*.ndjson"):
-        if f"ledger/{path.name}" not in names + tip:
+    for path in (PROJECT / folder).glob("*.ndjson"):
+        if f"{folder}/{path.name}" not in names + tip:
             assert path.name > last, f"{path.name} sorts before {last}"
 
 

@@ -461,6 +461,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.kept_changes",
         "ads.latest_record",
         "ads.market",
+        "ads.placed",
         "ads.price_changes",
         "ads.record_attributes",
         "ads.regions",
@@ -476,6 +477,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.lot_landmarks",
         "analysis.rows",
         "ledger.status",
+        "ledger.unit_status",
         "raw.ads",
     ]
     # The second build parsed only records missing from runs 2 and 3.
@@ -514,6 +516,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
     plan = ctx.plan(auto_apply=True, no_prompts=True)
     assert changed(plan) == [
         "ads.identity",
+        "ads.placed",
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_certificates",
@@ -531,6 +534,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "buildings.lots",
         "buildings.pad_link",
         "ledger.status",
+        "ledger.unit_status",
         "raw.buildings",
     ]
     assert ctx.fetchdf("SELECT count(page) AS n FROM ads.identity").n[0] == 229
