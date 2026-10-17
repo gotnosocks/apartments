@@ -2,6 +2,18 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 17:10 ET
+
+- #1070 adds `pipeline/ledger/2026-10-17-zz-unit-bedrooms-flex-retract.ndjson`, 13 retracts of #1056 bedroom
+  sets. The #1063 flex pattern, applied to every ad in each unit's packet rather than the screened pair, hit 25
+  of the 140 sets (`/data1/apartments/tmp/suspect/beds/audit6/`). Sonnet and the reviewer judged 13 of them flex:
+  alcove or lofted studios, duplexes whose basement or lower level some ads count as a bedroom, and offices, dens
+  or extra rooms counted as bedrooms. Bedroom sets now total 183 net.
+- The ledger only grows (`test_repo_ledger_only_grows`), so undoing a merged set takes a `retract` line naming
+  the set's entry id, the first 16 hex digits of the sha256 of its line.
+- The pipeline builds on an export change or daily at 07:15 ET, never on a ledger merge. The next build, Sun
+  07:15 ET unless Ben approves one sooner, carries z6 to zz. Modeling refits on it.
+
 ## 2026-10-17 15:20 ET
 
 - #1063 adds `pipeline/ledger/2026-10-17-z9-unit-bedrooms-singlead.ndjson`, 56 bedroom sets. The screen in
