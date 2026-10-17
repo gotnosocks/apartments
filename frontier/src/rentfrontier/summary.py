@@ -120,8 +120,8 @@ those buildings; complete.json records how many ids FILE listed, how many the
 dataset has, and the file's sha256. Line-effect runs are refused, since
 their lines' draws are not cut down yet.
 
-`--with-exact`, with `--range-atoms`, writes the exact predictive intervals
-beside the atoms, on the same draws, to compare the two.
+`--with-exact`, with `--range-atoms` and `--out`, writes the exact predictive
+intervals beside the atoms, on the same draws, to compare the two.
 """
 
 from __future__ import annotations
@@ -253,19 +253,59 @@ BUILDING_KEYS = (
     "building_mean_month",
 )
 UNIT_KEYS = ("unit", "unit_drift")
+# Kept draws on no building or unit axis, which `kept_subset` reads whole. It
+# refuses any key in none of the three lists.
+WHOLE_KEYS = (
+    "alpha",
+    "area_time",
+    "area_time_scale",
+    "bedroom_slope_scale",
+    "bedroom_time",
+    "bedroom_time_scale",
+    "beta",
+    "building_scale",
+    "building_trend_scale",
+    "fslope_scales",
+    "line",
+    "line_scale",
+    "market_drift",
+    "nu",
+    "season",
+    "season_daily_coef",
+    "season_scale",
+    "sigma",
+    "trend",
+    "trend_scale",
+    "unit_drift_scale",
+    "unit_nu",
+    "unit_scale",
+    "walk_nu",
+    "walk_rho",
+    "walk_scale",
+)
+
+
+def stand_ins(kept, n_buildings: int, n_units: int) -> set[str]:
+    """The keys of BUILDING_KEYS and UNIT_KEYS in a whole run's kept draws
+    that hold a one-element stand-in for a term the run leaves out."""
+    sizes = {k: n_buildings for k in BUILDING_KEYS} | {k: n_units for k in UNIT_KEYS}
+    return {
+        k for k, size in sizes.items() if k in kept and kept[k].shape[1] == 1 != size
+    }
 
 
 def kept_subset(path: Path, buildings, units, n_buildings: int, n_units: int, block=20):
     """The kept draws of posterior.npz at `path`, as `explain.load_run` gives
     them ((draws, ...) float64), with the arrays of BUILDING_KEYS cut to the
-    sorted building indexes `buildings` and those of UNIT_KEYS to `units`. The
-    cut arrays are read from the archive `block` draws at a time, so memory
-    follows the subset."""
+    sorted building indexes `buildings` and those of UNIT_KEYS to `units`, and
+    the set of stand-in keys (`stand_ins`), told apart by the archive's shapes
+    since a cut array can be one element wide too. The cut arrays are read from
+    the archive `block` draws at a time, so memory follows the subset."""
     import zipfile
 
     from numpy.lib import format as npy
 
-    out = {}
+    out, standing_in = {}, set()
     with zipfile.ZipFile(path) as archive:
         for member in archive.namelist():
             if not member.startswith("kept/"):
@@ -283,18 +323,15 @@ def kept_subset(path: Path, buildings, units, n_buildings: int, n_units: int, bl
                     index, size = np.asarray(buildings), n_buildings
                 elif key in UNIT_KEYS:
                     index, size = np.asarray(units), n_units
-                else:
+                elif key in WHOLE_KEYS:
                     index = size = None
-                if index is not None and len(shape) == 3 and shape[2] == 1 != size:
+                else:
+                    raise ValueError(f"{member} is in none of the summary's key lists")
+                if index is not None and len(shape) >= 3 and shape[2] == 1 != size:
                     # A one-element stand-in for a term the run leaves out.
                     index = None
+                    standing_in.add(key)
                 if index is None:
-                    if (
-                        size is None
-                        and len(shape) >= 3
-                        and shape[2] in (n_buildings, n_units)
-                    ):
-                        raise ValueError(f"{member} looks indexed by building or unit")
                     order = "F" if fortran else "C"
                     value = np.frombuffer(fh.read(), dtype).reshape(shape, order=order)
                     out[key] = value.reshape(-1, *shape[2:]).astype(np.float64)
@@ -314,7 +351,7 @@ def kept_subset(path: Path, buildings, units, n_buildings: int, n_units: int, bl
                         :, index
                     ]
                 out[key] = cut
-    return out
+    return out, standing_in
 
 
 def cut_arrays(a: model.Arrays, index) -> model.Arrays:
@@ -941,7 +978,7 @@ def summarize(
             buildings=np.unique(building_of[building_of >= 0]),
             units=np.unique(unit_of[unit_of >= 0]),
         )
-        kept = kept_subset(
+        kept, standing_in = kept_subset(
             run_dir / "posterior.npz",
             index.buildings,
             index.units,
@@ -950,7 +987,9 @@ def summarize(
         )
         if np.any(kept.get("line_scale", 0) > 0):
             raise SystemExit("--rows does not cut down line effects yet")
-    if "unit_drift" in kept and kept["unit_drift"].shape[1] > 1:
+    if rows is None:
+        standing_in = stand_ins(kept, len(prep.buildings), len(prep.units))
+    if "unit_drift" in kept and "unit_drift" not in standing_in:
         raise SystemExit("unit-drift designs are not supported (drift not integrated)")
     draws = kept["alpha"].shape[0]
     t_units = bool((kept.get("unit_nu", np.zeros(draws)) > 0).all())
@@ -1128,7 +1167,7 @@ def summarize(
         "rows": table,
         "market": market_table(kept, prep),
         "buildings": building_table(
-            kept, prep, None if index is None else index.buildings
+            kept, prep, standing_in, None if index is None else index.buildings
         ),
         "coefficients": coefficient_table(kept, feats),
         "k_threshold": loo.k_threshold(draws),
@@ -1167,19 +1206,21 @@ def market_table(kept, prep) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def building_table(kept, prep, index=None) -> pd.DataFrame:
+def building_table(kept, prep, standing_in, index=None) -> pd.DataFrame:
     """Per building of the run, or of the building indexes `index` that the
-    kept draws were cut to (`kept_subset`)."""
+    kept draws were cut to (`kept_subset`). A term with a stand-in in
+    `standing_in` gets no column."""
     rows = np.bincount(prep.train.building, minlength=len(prep.buildings))
     if index is None:
         index = np.arange(len(prep.buildings))
     out = {"building": prep.buildings[index], "fit_rows": rows[index]}
-    for label, log_value in (
-        ("level_pct", kept["building"]),
-        ("trend_pct_per_year", kept.get("building_trend")),
+    for key, label in (
+        ("building", "level_pct"),
+        ("building_trend", "trend_pct_per_year"),
     ):
-        if log_value is None or log_value.shape[1] != len(index):
+        if key not in kept or key in standing_in:
             continue
+        log_value = kept[key]
         pct = 100.0 * np.expm1(log_value)
         mid, lo, hi = _summary(pct)
         out[label], out[f"{label}_lower_95"], out[f"{label}_upper_95"] = mid, lo, hi
@@ -1383,7 +1424,7 @@ def main(argv=None):
     parser.add_argument(
         "--with-exact",
         action="store_true",
-        help="with --range-atoms, also write the exact predictive intervals",
+        help="with --range-atoms and --out, also write the exact predictive intervals",
     )
     args = parser.parse_args(argv)
     if args.buildings is not None and args.rows is not None:
@@ -1392,6 +1433,8 @@ def main(argv=None):
         parser.error("--out goes with --buildings or --rows")
     if args.with_exact and not args.range_atoms:
         parser.error("--with-exact needs --range-atoms")
+    if args.with_exact and args.out is None:
+        parser.error("--with-exact needs --out")
     if args.buildings is not None and not 0 < args.buildings <= 1:
         parser.error("--buildings must be in (0, 1]")
     if args.out is not None and args.out.resolve().is_relative_to(SUMMARIES.resolve()):

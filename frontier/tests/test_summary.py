@@ -1,5 +1,6 @@
 import json
 import math
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -526,6 +527,7 @@ def test_the_building_sample_flags_are_checked_before_any_work(tmp_path):
             str(tmp_path),
         ],
         ["r", "--with-exact"],
+        ["r", "--range-atoms", "--with-exact"],
     ):
         with pytest.raises(SystemExit) as exit:
             summary.main(argv)
@@ -894,6 +896,7 @@ def test_kept_subset_reads_the_listed_buildings_and_units_draw_by_draw(tmp_path)
         "walk": rng.normal(size=(2, 7, 5, 4)),
         "unit": rng.normal(size=(2, 7, 9)),
         "building_trend": np.zeros((2, 7, 1)),
+        "fslope": np.zeros((2, 7, 1, 1)),
     }
     whole = {k: v.astype(np.float32) for k, v in whole.items()}
     path = tmp_path / "posterior.npz"
@@ -901,7 +904,8 @@ def test_kept_subset_reads_the_listed_buildings_and_units_draw_by_draw(tmp_path)
         path, **{f"kept/{k}": v for k, v in whole.items()}, units=np.arange(9)
     )
     buildings, units = np.array([0, 3, 4]), np.array([2, 8])
-    got = summary.kept_subset(path, buildings, units, 5, 9, block=4)
+    got, standing_in = summary.kept_subset(path, buildings, units, 5, 9, block=4)
+    assert standing_in == {"building_trend", "fslope"}
     flat = {k: v.reshape(-1, *v.shape[2:]).astype(np.float64) for k, v in whole.items()}
     assert set(got) == set(flat)
     np.testing.assert_array_equal(got["alpha"], flat["alpha"])
@@ -911,8 +915,25 @@ def test_kept_subset_reads_the_listed_buildings_and_units_draw_by_draw(tmp_path)
     np.testing.assert_array_equal(got["unit"], flat["unit"][:, units])
     np.testing.assert_array_equal(got["building_trend"], flat["building_trend"])
     assert got["walk"].dtype == np.float64
+    one, standing_in = summary.kept_subset(path, np.array([3]), units, 5, 9)
+    np.testing.assert_array_equal(one["building"], flat["building"][:, [3]])
+    assert standing_in == {"building_trend", "fslope"}
+    table = summary.building_table(
+        one,
+        SimpleNamespace(
+            buildings=np.arange(5), train=SimpleNamespace(building=np.array([3, 3]))
+        ),
+        standing_in,
+        np.array([3]),
+    )
+    assert "level_pct" in table and "trend_pct_per_year" not in table
     with pytest.raises(ValueError):
         summary.kept_subset(path, buildings, units, 6, 9)
+    np.savez_compressed(path, **{"kept/new_term": np.zeros((2, 7, 3))})
+    with pytest.raises(ValueError, match="key lists"):
+        summary.kept_subset(path, buildings, units, 5, 9)
+    whole_run = {k: v.reshape(-1, *v.shape[2:]) for k, v in whole.items()}
+    assert summary.stand_ins(whole_run, 5, 9) == {"building_trend", "fslope"}
 
 
 def test_cut_arrays_point_rows_at_the_same_draws():
