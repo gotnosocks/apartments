@@ -914,6 +914,11 @@ DATA_RULE_TEXT = {
     "3E, a 2,500 sq ft loft at 407 West 39th Street filed under a studio, and a "
     "top-floor duplex at 780 Greenwich Street filed under a one-bedroom. Judged from "
     "ad text, pages and sizes, not rent. No listing is dropped.",
+    "unit-reviews-v3": "The unit-reviews-v2 lines, and 4 listings at 870 Broadway split "
+    "off the one-bedrooms of 30 East 18th Street, which shares the building's page: "
+    "their records give the address 870 Broadway and sizes of 875 to 1,000 sq ft, "
+    "against 625 to 722 sq ft for the East 18th Street apartments filed under the "
+    "same unit numbers. No listing is dropped.",
 }
 
 

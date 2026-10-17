@@ -873,8 +873,37 @@ def test_unit_reviews_v2_joins_as_v1_and_splits_reviewed_listings():
     assert out.drop(columns="unit_id").equals(frame.drop(columns="unit_id"))
     assert data.RULE_SOURCES["unit-reviews-v2"] == data.UNIT_REVIEWS
     assert "unit-reviews-v2" not in data.DROPPING_RULES
-    assert "unit-reviews-v2" in autoselect.current_rules()
     assert "unit-reviews-v1" not in autoselect.current_rules()
+
+
+def test_unit_reviews_v3_adds_three_870_broadway_splits_to_v2():
+    """unit-reviews-v3 keeps v2's lines as its prefix and splits the four 870
+    Broadway listings off their units; it is the current unit-reviews rule."""
+    old = data.UNIT_REVIEWS.read_text().splitlines()
+    new = data.UNIT_REVIEWS_V3.read_text().splitlines()
+    assert new[: len(old)] == old and len(new) == len(old) + 3
+    added = [json.loads(x) for x in new[len(old) :]]
+    assert {a["action"] for a in added} == {"split_listings"}
+    assert {a["building"] for a in added} == {"870-broadway-new_york"}
+    assert sum(len(a["source_listing_ids"]) for a in added) == 4
+
+    b = "870-broadway-new_york"
+    u = "unit:b0f45b82-0fb5-523e-bc62-64ee2dd5865a"
+    frame = pd.DataFrame(
+        {
+            "building": [b, b, b],
+            "canonical_unit_url": [f"https://streeteasy.com/building/{b}/3"] * 3,
+            "unit_id": [u, u, u],
+            "source_listing_id": ["1000001", "2238992", "3874322"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v3"](frame)
+    piece = f"{u}~review-2238992"
+    assert out.unit_id.tolist() == [u, piece, piece]
+    assert data.RULE_SOURCES["unit-reviews-v3"] == data.UNIT_REVIEWS_V3
+    assert "unit-reviews-v3" not in data.DROPPING_RULES
+    assert "unit-reviews-v3" in autoselect.current_rules()
+    assert "unit-reviews-v2" not in autoselect.current_rules()
 
 
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():

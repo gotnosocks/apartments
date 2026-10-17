@@ -24,7 +24,7 @@ def test_current_rules_take_the_latest_version_of_each_family():
     assert autoselect.current_rules(
         ["unit-reviews-v1@20261007", "unit-reviews-v1"]
     ) == {"unit-reviews-v1"}
-    assert "unit-reviews-v2" in autoselect.current_rules()
+    assert "unit-reviews-v3" in autoselect.current_rules()
     # A trial version stays out until its fit wins.
     assert autoselect.current_rules(["latest-ask-v9", "latest-ask-v10"]) == {
         "latest-ask-v9"

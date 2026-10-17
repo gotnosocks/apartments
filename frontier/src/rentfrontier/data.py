@@ -1136,6 +1136,9 @@ def _join_units(frame: pd.DataFrame, groups: list[dict]) -> pd.DataFrame:
 # Reviewed units, second version (2026-10-14): the joins above, verbatim, and
 # listings split off the unit they were filed under.
 UNIT_REVIEWS = UNIT_JOINS.with_name("unit-reviews-20261014.jsonl")
+# unit-reviews-v3: v2's lines, and 870 Broadway's townhouse lofts split off the
+# 30 East 18th Street one-bedrooms filed under the same unit numbers.
+UNIT_REVIEWS_V3 = UNIT_JOINS.with_name("unit-reviews-20261017.jsonl")
 
 
 def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame:
@@ -2147,6 +2150,7 @@ DATA_RULES = {
     "pets-from-ad-v2": pets_from_ad_v2,
     "unit-reviews-v1": join_reviewed_units,
     "unit-reviews-v2": review_units,
+    "unit-reviews-v3": functools.partial(review_units, path=UNIT_REVIEWS_V3),
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
         join_reviewed_units, path=UNIT_JOINS_20261007
@@ -2208,6 +2212,7 @@ RULE_SOURCES = {
     "pets-from-ad-v2": PETS_FROM_AD_V2,
     "unit-reviews-v1": UNIT_JOINS,
     "unit-reviews-v2": UNIT_REVIEWS,
+    "unit-reviews-v3": UNIT_REVIEWS_V3,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,
