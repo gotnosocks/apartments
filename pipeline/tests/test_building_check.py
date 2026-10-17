@@ -16,8 +16,16 @@ CASES = {
     # The floor rule.
     "above": {"floors": (8, None, None, None)},
     "one above": {"floors": (6, None, None, None)},
-    "tall": {"floors": (38, None, None, None), "dated": (25.0, 1, 300, 2), "latest": (25.0, 1, 300, 2)},
-    "tower": {"floors": (21, None, None, None), "dated": (19.0, 1, 90, 2), "latest": (19.0, 1, 90, 2)},
+    "tall": {
+        "floors": (38, None, None, None),
+        "dated": (25.0, 1, 300, 2),
+        "latest": (25.0, 1, 300, 2),
+    },
+    "tower": {
+        "floors": (21, None, None, None),
+        "dated": (19.0, 1, 90, 2),
+        "latest": (19.0, 1, 90, 2),
+    },
     "gained floors": {"floors": (8, None, None, None), "latest": (9.0, 1, 10, 2)},
     "two buildings": {"floors": (8, None, None, None), "dated": (5.0, 2, 10, 2)},
     "listed floors": {"floors": (8, None, None, 10)},
