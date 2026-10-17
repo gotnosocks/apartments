@@ -113,7 +113,8 @@ def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
     assert kept == len(ctx.fetchdf("SELECT * FROM ads.price_changes")) - 9
 
 
-def test_latest_ask_cases(tmp_path, monkeypatch):
+@pytest.mark.parametrize("stale_days", [7, -1])
+def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
     """analysis.latest_ask gives these made-up rows the latest asks `rentfrontier.latest_ask`
     chooses for them:
 
@@ -138,10 +139,16 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
       one-bedrooms.
     - ad 9000134 drops to a placeholder of $300 on its last day on the market. The page price of
       $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms.
+    - at -1 stale days, the stale step drops the later changes of 9000129, 9000133 and 9000134
+      before the placeholder check reads them, with the same asks.
     - ad 9000135 goes off the market on July 1 and rises to $3,300 on July 20, more than a week
       later. The rise is stale and drops out, though it would pass the placeholder check. Ad
       9000136 rises the same way, but its record goes ACTIVE again on July 18, so the rise
-      counts."""
+      counts.
+    - ad 9000137 goes off the market on July 1 and rises to $3,300 on July 3. At 7 stale days,
+      as in latest-ask-v9, the rise counts. At -1, as in latest-ask-v10, it drops out.
+    - ad 9000138 goes on and off the market on May 1. Its change of that day falls on its
+      on-market day, so it stays at -1 as well."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -234,9 +241,18 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
                 {"changedAt": "2026-07-18T10:00:00.000-04:00", "status": "ACTIVE"},
             ],
         ),
+        ad(
+            9000137,
+            [(may, 3000), ("2026-07-03", 3300)],
+            3300,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
+        ad(9000138, [(may, 3000)], 3000, status="OFF_MARKET", offMarketAt=may),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
+    monkeypatch.setenv("PIPELINE_STALE_DAYS", str(stale_days))
     ctx = context(monkeypatch, tmp_path / "state", export)
     ctx.plan(auto_apply=True, no_prompts=True)
 
@@ -251,7 +267,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
             {
                 "listing_id": str(a.listing_id),
                 "collected_at": a.fetched.timestamp(),
-                **chain.record_latest(a.record),
+                **chain.record_latest(a.record, stale_days=stale_days),
             }
             for a in new.itertuples()
             if a.record
@@ -281,7 +297,13 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000134": 3000,
         "9000135": 3000,
         "9000136": 3300,
+        "9000137": 3300 if stale_days == 7 else 3000,
+        "9000138": 3000,
     }
+    on_day = ctx.fetchdf(
+        "SELECT count(*) AS n FROM ads.kept_changes WHERE listing_id::VARCHAR = '9000138'"
+    )
+    assert on_day.n[0] == 1
     assert set(got.how) == {
         "latest",
         "own ask, captured before the row",

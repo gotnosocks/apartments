@@ -20,7 +20,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 
 ## Inputs
 
-`pipeline/config.py` reads six environment variables:
+`pipeline/config.py` reads these environment variables, along with `PIPELINE_MEMORY`:
 
 | variable | default on thelio | holds |
 |---|---|---|
@@ -30,6 +30,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 | `PIPELINE_CITY` | `/data1/apartments/archive/city` | the city archive, as described under [City records](#city-records) |
 | `PIPELINE_CITY_CACHE` | `/data1/apartments/pipeline/city` | the city archive's files as Parquet, as described under [City tables](#city-tables) |
 | `PIPELINE_INCREMENTAL` | unset, read as 0 | 1 when `ops/pipeline/build.py` asks for a top-up build, as described under [Top-up builds](#top-up-builds) |
+| `PIPELINE_STALE_DAYS` | unset, read as 7 | the days after an ad's off-market day past which `ads.kept_changes` counts its price changes as stale, as described under [Latest ask](#latest-ask) |
 
 The build reads the ads and buildings files listed in the manifest and skips any file still
 lacking a line.
@@ -1329,11 +1330,19 @@ export the two give the same steps, as the full build below shows.
 
 From latest-ask-v9, `ads.kept_changes` first drops each stale change, as the chain does. A
 change counts as stale when its ad is no longer active and the change falls more than 7 days
-after the off-market day, unless the ad's latest record goes ACTIVE again after that day. Brokers
+after the off-market day, unless the ad's latest record goes ACTIVE again after that day or the
+change falls on the ad's on-market day. The second exception came with latest-ask-v10 (#983),
+and the chain applies it at 7 days as well. Brokers
 reuse an old ad's record for a later ad of the same apartment, so a stale change carries the
 later ad's ask. In the chain's run of Oct 17, the rule changed the asks of 9,601 of 1,751,152
 rows, 6,844 of them in the four API regions. In the fixture, it drops 5 of 385 changes, on two
 ads, and moves one row's ask from $2,375 to $2,250.
+
+`PIPELINE_STALE_DAYS` sets the 7 days. At -1, as in latest-ask-v10, every change dated on or
+after the off-market day drops out, unless it falls on the on-market day or the ad went ACTIVE
+again. The build records the value in its catalog line, and `observations.py` copies it into its
+manifest. The served build keeps 7, and a lane at -1 builds into its own state and datasets
+folders.
 
 The median reads list positions with `list_extract`. SQLMesh renders each model through
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
