@@ -127,6 +127,16 @@ These PRs merged on Oct 17:
 - #1022: the latest-ask section counts the late repeated-digit rises behind #1018.
 - #1024, from Data improvements: a review file of 239 rows on lots that never held a building.
 - #1025: the building check lists those rows under `never_built_lot`.
+- #1027: [pipeline.md](../data/pipeline.md#description-text) shows description text too weak a
+  relist signal to join on.
+- #1057: [pipeline.md](../data/pipeline.md#photo-hashes) has the first photo-hash pilot.
+- #1079: when the building on the address's lot came down, `buildings.lots` keeps that lot
+  under `address_demolished`, provided the building's ads all ran before MapPLUTO first showed
+  the lot without apartments. On the drop-lot lane build, 26 buildings and their 340 ads move.
+  The date test came from Data improvements and leaves 8 newer buildings with later ads on the
+  footprint's lot. `buildings.lots` reads the ads tables for the test, so an update to the ads
+  alone also rebuilds it and `buildings.lot_releases`, in about 12 s. The lane's scripts are in
+  `/data1/apartments/tmp/pipeline/lanes/demolished/`.
 
 The work goes on in this order:
 
@@ -148,13 +158,17 @@ The work goes on in this order:
    floors put them about 68% right and floor plans about 56%, too low to join on. On the
    47,347 candidate pairs without a shared photo, I found description text and unit labels too
    weak to join on as well. [pipeline.md](../data/pipeline.md#description-text) has the counts.
-   A pilot of photo hashes on Oct 17 matched 38.5% of a sample of those pairs, against 4.3% of
-   pairs on two apartments ([pipeline.md](../data/pipeline.md#photo-hashes)). A full run over
-   the 13,063 testable pairs waits on Ben's reply. He can pick among these runs:
-   - 3 photos per ad, about 37,200 requests;
-   - 3 photos per ad with the 6,396 testable pairs on two apartments as controls, 48,517
-     requests;
-   - 10 photos per ad, about 85,500 requests.
+   Photo hashes don't separate them either. A first pilot on Oct 17 matched 38.5% of a sample of
+   those pairs, against 4.3% of pairs on two apartments. A second pilot hashed every photo of
+   the 1,505 ads on 29 lots, for $8.08. Inside a lot, most matches are photos of the building
+   itself. With those dropped and 2 matching images required, the hashes match 7.7% (4.6 to
+   12.1) of unjoined pairs with no key in common, against 0 of 62 pairs on two apartments (0 to
+   5.8), and they find only a third of the pairs sharing a rare key.
+   [pipeline.md](../data/pipeline.md#photo-hashes-over-whole-lots) has the rules and their
+   intervals. I withdrew the full runs I had put to Ben. On Oct 17 at 7:50 PM ET I offered him
+   labels for the 1,735 matching photos (room, amenity, exterior, street, floor plan, other),
+   read by Haiku readers, for about $2 within the pilot's 9,000-request stop. They wait on his
+   own reply. A coordinator's note asked for no labels without it.
    A reader judged 17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md`
    to be unit splits or relabels, and those lots serve as labeled tests.
 2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and
