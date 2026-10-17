@@ -594,7 +594,7 @@ def design_only(spec, sha):
     if not result.exists():
         sys.exit(f"{name} is not under {OUTPUT_ROOT / 'runs'}")
     spec["result"] = json.loads(result.read_text())
-    # The summary loads the run's own dataset, and FRONTIER_DATASET is in the design's key.
+    # The summary loads the run's recorded dataset, which the key holds by its sha256.
     spec["dataset"] = spec["inputs"][0] = spec["result"]["dataset"]
     STATE.mkdir(parents=True, exist_ok=True)
     lock = open(STATE / "launch.lock", "a")
