@@ -1786,6 +1786,125 @@ against 5, and 5182171 at the Towne House, whose newer ad without a row gives no
 400 square feet. Neither building is in the served fit, so the site's 1,099 listings stay the
 same.
 
+## Datasets for the frontier fits
+
+The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
+with a line for each row. To fit on the pipeline's rows, I write such a folder from a build's
+rows file with `ops/pipeline/observations.py`, and the fit reads it with `FRONTIER_DATASET` set
+to the folder. `rentfrontier.data.load` reads it with no change to its code. For the newest
+build from a clean checkout, in the served dataset's neighbourhoods, I run in a checkout `$T`:
+
+```sh
+/data1/apartments/venvs/pipeline/bin/python -I $T/ops/pipeline/observations.py OUT
+```
+
+The script's docstring gives its steps and options. It writes both files under a hidden name
+beside OUT and renames the folder at the end, and it stops if OUT is already there. Each line
+holds the row's values under the chain's names and JSON types:
+
+- `source_listing_id` comes from `listing_id`, `canonical_unit_url` from `page`, and
+  `reported_full_bathrooms` and `reported_half_bathrooms` from `full_baths` and `half_baths`.
+  `floor_status` and `building_floor_count` go into `floor_label_provenance` as `status` and
+  `building_floor_count`.
+- `asking_rent` comes from the row's `latest_ask`, after the ledger's ask sets, so the fit's
+  `log_rent` follows the latest ask. A rows file from a build before that column holds only the
+  first asks, and the script stops on it.
+- `audit_id` repeats the chain's ID for the ad, from the chain's dataset of all scraped areas,
+  so rows of the two datasets pair up by ID. An ad missing from that dataset gets `api:` and
+  its listing ID.
+- `analysis_price_basis` reads `historical_initial_own_advertisement_ask` on every row, and
+  `description_interpreted_at` is null, so `has_description` comes out false. No frontier code
+  reads `has_description` beyond `_flatten`.
+
+`manifest.json` records the build's files with their SHA-256, its catalog line, the
+neighbourhoods with their row counts, the chain's datasets read for audit IDs, and the SHA-256
+of `observations.jsonl`. It also lists the ads the served dataset gives another audit ID than
+the dataset of all scraped areas, and on the build of Oct 16 there were none.
+
+The rows already carry the corrections ledger and the latest asks, so a fit on such a folder
+leaves out the chain's `bedrooms-ad`, `baths-ad`, `sqft-units`, `quarantine`, `fields-review`
+and `latest-ask` rules. `fields-review-v3`, the latest of its family, changes nothing, and
+`pipeline/ledger/2026-10-17-tenfold-asks.ndjson` holds the tenfold typos of `latest-ask-v8`.
+The fit still applies `unit-labels-v17`, `unit-splits-v4`, `west-coast-wings-v1`,
+`unit-reviews-v2`, `building-joins-v1`, `elevator-from-ad-v1` and `pets-from-ad-v1`, since
+neither ledger holds their changes yet.
+
+The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
+Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
+a folder written with them leaves out West Chelsea's 14,272 rows on the build of Oct 16. To keep
+them, I add West Chelsea to `--neighbourhoods`. A fit compared with the served fit needs the same
+neighbourhood levels, so for it I pass `--rename "West Chelsea=Chelsea"` instead. The script adds
+West Chelsea to the neighbourhoods itself, and the folder gives those rows the served dataset's
+name. The manifest lists each rename with the rows it moved.
+
+### Against the served dataset
+
+With `--check-against DATASET`, the script compares a folder with a chain dataset field by
+field, and its docstring lists the causes it assigns. On Oct 16, I wrote a folder from the build
+of 23:02 ET. That build came before the `latest_ask` column, so I added the column to a copy of
+its rows file, from the ads file's latest asks and the ledger's ask sets. None of the ask sets
+falls in the served dataset's neighbourhoods. I compared the folder with the served dataset
+under `latest-ask-v8`, taking the API chain's dataset of the same areas as the reference for
+the values of API records:
+
+```sh
+F=/data1/apartments/frontier/datasets
+/home/ben/code/apartments/.venv/bin/python -I $T/ops/pipeline/observations.py OUT \
+    --check-against $F/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8 \
+    --api-reference $F/api-manhattan-page-crawl-areas-analysis-20261015-run5
+```
+
+Writing the folder took 48 s at a 1.1 GiB peak. The check peaked at 3.9 GiB, so I run it in a
+scope capped at 5 GiB with swap off, once at least 6 GiB is available. It took 71 s there. The
+folder holds 335,886 rows, the served dataset holds 296,718 rows priced at the first ask, and
+277,633 ads have a row in both. Every difference on those ads has a cause, by the check's field
+names:
+
+| field | rows | cause |
+|---|--:|---|
+| `bedrooms` | 136 | 133 ledger sets, 3 item 7 |
+| `full_baths` | 16 | ledger sets |
+| `half_baths` | 10 | 9 ledger sets, 1 item 7 |
+| `square_feet` | 11 | 10 ledger sets, 1 item 7 |
+| `asking_rent` | 47 | 25 item 11, 22 item 9 |
+| `pets` | 3,126 | 3,107 item 10, 19 item 7 |
+| `floor_status` | 4,575 | item 7 |
+| `label_derived_floor` | 4,271 | item 7 |
+| `listed_floor` | 671 | item 7 |
+| `advertised_floor` | 41 | item 7 |
+| `has_description` | 7,900 | item 7 |
+| `doorman` | 1,258 | item 7 |
+| `laundry` | 609 | item 7 |
+| `elevator` | 21 | item 7 |
+| `hvac` | 5 | item 7 |
+| views and windows | 24 | item 7 |
+| `price_at` | 9 | item 7 |
+| `period` | 2 | item 7 |
+| `unit_id` and `canonical_unit_url` | 1 each | item 7 |
+| `first_ask` | 8 | item 7 |
+
+The items are those of [Differences from the chain](#differences-from-the-chain). For item 7,
+the API chain's dataset gives the folder's value. `audit_id`, `building`, `bathrooms`,
+`neighbourhood`, `building_floor_count`, `physical_floor` and `floors_above_ground` match on
+every ad. The rows of one side alone:
+
+| side | cause | rows |
+|---|---|--:|
+| folder | the chain's row for the ad lies outside the served dataset | 58,023 |
+| folder | the chain has no row for the ad | 230 |
+| served | the ad lies in West Chelsea | 13,691 |
+| served | the ad has no API record | 4,550 |
+| served | a ledger exclude | 742 |
+| served | the row prices the ad's current page | 235 |
+| served | `superseded_in_unit_month` | 75 |
+| served | `conflicting_layout_same_unit_month` | 14 |
+| served | excluded as a concession | 12 |
+| served | excluded as furnished | 1 |
+
+The folder is `/data1/apartments/tmp/pipeline/lanes/loader/out/nb9-pipeline-rows-beb8748d`, and
+the SHA-256 of its `observations.jsonl` starts `77b07cbe02a3b790`. With West Chelsea added, the
+folder beside it, `nb9-west-chelsea-pipeline-rows-beb8748d`, holds 350,158 rows.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -1820,13 +1939,30 @@ when an item here or an entry of the corrections ledger accounts for it.
 7. The values of an ad's captured page. The page-crawl chain takes an ad's values from the page
    it captured, and the pipeline takes them from the ad's latest API record. For six ads of the
    nine-area reference, listed from July to October 2026, the two give different bedroom counts
-   or sizes.
+   or sizes. Against the served dataset, the API chain's dataset of the same areas gives the
+   pipeline's value for each difference of a floor, amenity, view, window, date, unit or
+   description field, as listed under [Against the served dataset](#against-the-served-dataset).
 8. The step at which units and buildings change. The chain's `building-joins-v1` and
    `unit-reviews-v2` change the units and buildings of the dataset's rows, after the unit-month
    check, so a join can leave a unit two rows in a month. `ads.placed` applies the unit ledger
    before the check, which then keeps one row of the joined unit's month, or none when its ads
    give two layouts. `building-joins-v1` changes only a row's `building`, while a move also
    gives the ads the other building's ID.
+9. An ask from an API record newer than the chain's. The chain's latest asks read the export up
+   to run 5, fetched by 4:52 pm ET on Oct 15, and `analysis.latest_ask` reads every run. On the
+   build of Oct 16, 22 rows in the served dataset's neighbourhoods take a later price from runs
+   10 and 11. The check counts a row here only if the ad's latest record came after run 5, its
+   price differs from the last price up to run 5, and the folder's ask equals it.
+10. A pet fee in the description. As described under
+    [Attributes and exclusions](#attributes-and-exclusions), `ads.record_attributes` reads a pet
+    fee as `allowed_restrictions_unknown` when the record gives no policy, and the chain leaves
+    the policy unknown. In the served dataset's neighbourhoods, 3,107 rows differ this way.
+11. The latest ask of an ad the chain also prices at its current page. The chain gives such an
+    ad a second row, priced at the page under an ID starting `capture:refresh:`, and the latest
+    ask of its first-ask row ends at the price on that page. The rows file gives each ad a
+    single row, and its latest ask counts every later change. In the served dataset, 25 rows
+    differ this way. The check counts a row here only if the served row's ask equals the price
+    of the ad's page row.
 
 ## Planted errors
 
@@ -2004,7 +2140,7 @@ in all, and most tests add made-up ads to that export. The tests:
     file holds each ad once, and its ads with `in_rows` are the rows file's ads. The second
     build rebuilds nothing, writes the same files and appends a second catalog line. Last, the
     test adds an export file repeating an answer and checks that the build stops and leaves OUT
-    as it was. Item 46 describes the test of a top-up build;
+    as it was. Item 49 describes the test of a top-up build;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, an ask set of 0, an ask set without its recorded ask and an ask set backed only
     by a stated size and units of the same line. Then read files with a repeated line, a retract
@@ -2092,8 +2228,8 @@ in all, and most tests add made-up ads to that export. The tests:
 30. render `city.pad_streets` over the fixture and read 26c's 276 names, none of type S, with
     the fields of BROADWAY's record. The 20-character name is blank in every record of 26c.
 31. parse the text of each Python value a model reads, and find no set and no text Python can't
-    parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
-    and compare each model's fingerprint.
+    parse. Then load the project in two processes at once, with hash seeds 1 and 2 and a state
+    each, and compare each model's fingerprint.
 32. add made-up buildings to the cases, each with a record of its own, and check the lot, BIN,
     link, rank and footprint test `buildings.lots` gives each one:
     - an address written with `W.` and `St.`, and by the street's other name in PAD's
@@ -2202,7 +2338,17 @@ in all, and most tests add made-up ads to that export. The tests:
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
     `ads.placed`;
 45. read the repo's unit ledger and check that it holds a join, a split and a move;
-46. build runs 2 and 3 with `ops/pipeline/build.py`, then add run 4 and three made-up answers
+46. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
+    file, with a made-up latest ask for an ad, after giving the catalog a line from a checkout
+    with changes and a line cut short. `rentfrontier.data.load` reads the folder to the frame it
+    gives the chain's rows of the fixture with their latest asks and the made-up one, and the
+    floor fields `_flatten` leaves out match too. An ad missing from the chain's audit IDs gets
+    an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
+    script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
+    A second folder renames a neighbourhood to another, and its lines and manifest counts follow
+    the rename. A third asks only for the new name, and the rename brings in the old one's rows.
+    A rename of a neighbourhood with no rows stops the script;
+49. build runs 2 and 3 with `ops/pipeline/build.py`, then add run 4 and three made-up answers
     and build again as a top-up. One answer puts an ad of a unit back on the market at a new
     price, one adds an ad to another unit of the same building, whose ads all came in run 2,
     and one adds an ad in a new unit of the building. The test builds the same export into an
@@ -2212,10 +2358,25 @@ in all, and most tests add made-up ads to that export. The tests:
     A further build finds nothing to rebuild, and a build after deleting `STATE/merge.json`
     reads every answer and gives every table of the build into an empty state.
 
-pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
-about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
-workers, and a fork in a process with open DuckDB connections can deadlock, so
-`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
+pytest-xdist runs the tests in three worker processes, as set in `pipeline/pyproject.toml`, and a
+worker with an empty queue takes tests queued for another. The fixture comes to under 500 KB, and
+nearly all of a test's time goes to SQLMesh: it loads the project in about 2 s and plans the
+fixture in about 4 s of CPU. `pipeline/tests/conftest.py` keeps in each worker, for the whole
+session:
+
+- a context on the fixture export and an empty state, for the tests rendering models or reading
+  their definitions (items 19, 30, 31 and 33 to 36). No test plans on its state, so SQLMesh
+  renders models under their own names rather than as the tables of a build;
+- a folder for SQLMesh's optimized model queries, shared by every context of the worker.
+  SQLMesh keys each entry on a hash of the model's query, macros and parents' columns, so it
+  reuses an entry in a later context only for a model with the same text and inputs;
+- the list of the venv's packages, which SQLMesh otherwise reads on each plan.
+
+On thelio, with other jobs keeping the load average between 4 and 10, the tests take about 125 s
+at three workers and 135 s at two, and use 300 to 350 s of CPU. The longest test, the top-up
+build of item 20, takes about 20 s. SQLMesh loads models in forked workers, and a fork in a
+process with open DuckDB connections can deadlock, so `conftest.py` also sets
+`MAX_FORK_WORKERS=1`.
 
 ## Full build
 

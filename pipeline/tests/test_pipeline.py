@@ -581,12 +581,11 @@ def test_new_city_file_rebuilds_only_its_view(tmp_path, monkeypatch):
     assert ctx.fetchdf("SELECT count(*) AS n FROM city.landmarks").n[0] == 29
 
 
-def test_pad_street_fields(tmp_path, monkeypatch):
+def test_pad_street_fields(render_context):
     """The view of PAD's street names cuts each record into fields, and leaves out the header
     record and the records of type S. The fixture's 26c dictionary has 276 records of other
     types."""
-    ctx = context(monkeypatch, tmp_path / "state")
-    view = ctx.render("city.pad_streets").sql(dialect="duckdb")
+    view = render_context.render("city.pad_streets").sql(dialect="duckdb")
     streets = duckdb.sql(f"SELECT * FROM ({view}) WHERE release = '26c'")
     rows = streets.df()
     assert len(rows) == 276
@@ -708,16 +707,15 @@ def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
     )
 
 
-def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
+def test_fingerprints_hold_across_hash_seeds(tmp_path, render_context):
     """Each model has the same fingerprint in processes with different hash seeds. The text of a
     set of strings changes with the seed, so a model reading one would get a new fingerprint in
     each new build process, and the build would rebuild it and everything below it."""
     # SQLMesh fingerprints a model's Python values by their text. The test parses each value's
     # text and lists the values holding a set, or text Python can't parse, such as an object's
     # address.
-    ctx = context(monkeypatch, tmp_path / "state")
     unstable = []
-    for model in ctx.models.values():
+    for model in render_context.models.values():
         for name, value in model.python_env.items():
             if value.kind != ExecutableKind.VALUE:
                 continue
@@ -742,23 +740,31 @@ def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
         "print(json.dumps({s.name: s.fingerprint.to_identifier() "
         "for s in Context(paths=sys.argv[1]).snapshots.values()}))"
     )
+    (tmp_path / "ledger").mkdir()
 
-    def fingerprints(seed):
-        loaded = subprocess.run(
+    def load(seed):
+        return subprocess.Popen(
             [sys.executable, "-c", script, str(PROJECT)],
             env=os.environ
             | {
                 "PYTHONHASHSEED": str(seed),
+                "PIPELINE_EXPORT": str(FIXTURE / "export"),
                 "PIPELINE_STATE": str(tmp_path / f"state-{seed}"),
+                "PIPELINE_LEDGER": str(tmp_path / "ledger"),
             },
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        assert loaded.returncode == 0, loaded.stderr
-        return json.loads(loaded.stdout.splitlines()[-1])
 
-    first, second = fingerprints(1), fingerprints(2)
-    assert len(first) == len(ctx.models)
+    def fingerprints(loading):
+        out, err = loading.communicate()
+        assert loading.returncode == 0, err
+        return json.loads(out.splitlines()[-1])
+
+    # Both processes load the project at once.
+    first, second = map(fingerprints, [load(1), load(2)])
+    assert len(first) == len(render_context.models)
     assert first == second
 
 
@@ -1888,14 +1894,13 @@ def config(tmp_path, monkeypatch):
     return module
 
 
-def test_list_indexes_are_literals(tmp_path, monkeypatch):
+def test_list_indexes_are_literals(render_context):
     """No model indexes a list in brackets with a computed position. SQLMesh renders each model
     through sqlglot, and sqlglot 30.8 adds 1 to such an index once it knows the list's type, so
     the models read computed positions with list_extract."""
-    ctx = context(monkeypatch, tmp_path / "state")
     computed = [
         (name, bracket.sql("duckdb"))
-        for name, model in ctx.models.items()
+        for name, model in render_context.models.items()
         if model.is_sql
         for bracket in model.query.find_all(exp.Bracket)
         if not all(isinstance(i, exp.Literal) for i in bracket.expressions)
