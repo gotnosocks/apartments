@@ -2248,6 +2248,46 @@ answers, and the build took 6.0 min at a peak of 4.0 GiB. After I changed the re
 rebuild took 2.7 min at 4.2 GiB. The relist models took 6.7 s of that, and writing the rows, ads
 and records files most of the rest.
 
+### Description text
+
+In the lots over their count, 47,347 pairs of ads pass every test of `analysis.relist_pairs` but
+the shared photo. I tested the ads' descriptions as a second signal on the drop-lot lane's state
+of Oct 17, with the scripts in `/data1/apartments/tmp/pipeline/lanes/relist-text/`. For each pair
+I took the 4-gram Jaccard: the word 4-grams common to both descriptions, divided by the 4-grams
+in either. I also counted the rare 4-grams common to both, as the step does for photo keys. A
+rare 4-gram appears on 2 or 3 unit pages, all in one lot. As a reference group, I took pairs of
+ads on two unit pages of a lot, with the same bedrooms and baths, on the market together for
+more than 14 days at asks 3% or more apart. I take those pairs to fall on two apartments. The
+rates are shares of the pairs with a description on both ads.
+
+| pairs | count | with text | 4-gram Jaccard of 0.8 or more | 5 or more rare 4-grams in common |
+|---|---:|---:|---:|---:|
+| in `analysis.relist_pairs` | 8,482 | 7,879 | 72% | 28% |
+| without a shared photo | 47,347 | 42,783 | 56% | 6.5% |
+| on two apartments | 13,502 | 13,138 | 26% | 3.0% |
+
+Brokers reuse a description across apartments. Of the pairs on two apartments, 3,351 have a
+4-gram Jaccard of 0.8 or more. In 3,175 of those, fewer than 5 of the shared 4-grams are rare, so
+most of the shared text also appears on 4 or more unit pages, or in other lots. When I count rare
+4-grams alone, 28% of the pairs in `analysis.relist_pairs` hold five or more, against 3.0% of the
+pairs on two apartments.
+
+Among the pairs without a shared photo, 2,765 hold five or more rare 4-grams. If all 42,783 of
+those pairs with text fell on two apartments, I'd expect 3.0% of them, about 1,280, to hold five
+or more. That ceiling comes to nearly half of the 2,765, too many to join on.
+
+Readers judged a sample of 60 pairs of unit pages from a prototype of the relist step, in
+`/data1/apartments/tmp/pipeline/lanes/laned/read/`, with the first 1,500 characters of each ad's
+description in front of them. Of the 20 pairs without a shared photo, they put 12 on one
+apartment. In 2 of those 12, I found no pair of ads, one from each page, with a description on
+both. In 6 of the other 10, the closest pair of ads has a 4-gram Jaccard of 0.8 or more. None of
+the 12 have 5 rare 4-grams in common. The readers may have matched a broker's template, so I
+don't count their verdicts as support for joining on text.
+
+In 161 of the pairs without a shared photo, the two pages have the same unit label. In 12 more,
+the labels match once I drop case, spaces, punctuation and leading zeros. Together they make up
+0.4% of the pairs.
+
 ## Ads file
 
 The rows file holds the fit-ready rows only. Each build also writes `analysis.ads` to a file
