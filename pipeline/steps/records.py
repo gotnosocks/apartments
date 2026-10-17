@@ -10,21 +10,29 @@ The page parser's output gave the frontier builders each record as `raw_listing_
 `collected_at`, `snapshot_id` and `listing_type` beside it. To give the builders the same input
 from the export, the step works like this:
 
-1. It groups the export's answers with a record by listing and by `record_sha256`, in a
-   temporary table. Each group becomes a row of the file, with the times of its first and last
-   answer and the export's `response_id` of the first one.
+1. It locks `CACHE/.lock`, and stops when another records step holds that lock. With the lock
+   held, any `.part` file in the cache comes from a step that stopped, and the step deletes it.
 2. It reads each record missing from the cache with `serialize`, in worker processes, and keeps
    the results in Parquet files in the cache folder, under a folder named by the SHA-256 of this
    file. A top-up then reads only its new records, and a change to this file starts a new
-   folder. Each cache file holds up to 20,000 records sorted by listing, in row groups of 2,048.
-3. It takes the listings in ranges of 100,000 IDs. For each range it joins the range's groups
+   folder. Each cache file holds 20,000 records or a few thousand more, sorted by listing, in
+   row groups of 2,048.
+3. It groups the export's answers with a record by listing and by `record_sha256`, in a
+   temporary table. Each group becomes a row of the file, with the times of its first and last
+   answer and the export's `response_id` of the first one. Two answers at the same microsecond
+   go by the lower `response_id`, so two builds pick the same one.
+4. It takes the listings in ranges of 100,000 IDs. For each range it joins the range's groups
    to their records, which DuckDB finds by the row groups' listing IDs without reading the
    whole cache, sorts them by listing and then by first answer, and appends them to the file.
    On Oct 16 DuckDB ran out of a 1 GB limit sorting run 2's 238,532 records in one query, and a
    range holds about 60,000.
-4. It writes the file under a `.part` name, hashes it and renames it to
+5. It writes the file under a `.part` name, hashes it and renames it to
    `records-<first 16 hex digits of the SHA-256>.parquet`. When that file is already there with
    the same SHA-256, it keeps the old one.
+6. It deletes the cache folders that other versions of this file left, about 3 GB each on the
+   Oct 16 export, and then releases the lock.
+
+The step stops with an error on an export without records, rather than writing an empty file.
 
 The file has a row for each distinct record of each listing:
 
@@ -34,7 +42,8 @@ The file has a row for each distinct record of each listing:
   collector writes a snapshot on the first answer with a new body at a page's URL. The export
   keeps times in microseconds, so the value can differ from the archive's by less than one.
 - `last_collected_at`: the time of the last answer with the record.
-- `response_id`: the export's ID of the first answer. The export has no archive snapshot IDs,
+- `response_id`: the export's ID of the first answer, the lower one when two answers share the
+  first microsecond. The export has no archive snapshot IDs,
   and the frontier builders used them only to order two snapshots with the same time.
 - `listing_type`: 'rental' on every row, as the granular export gave every API record.
 - `record_sha256`: the export's SHA-256 of the record.
@@ -48,10 +57,13 @@ The file has a row for each distinct record of each listing:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import multiprocessing
 import os
+import re
+import shutil
 import sys
 import time
 import uuid
@@ -144,8 +156,7 @@ def sql_list(paths) -> str:
 
 def fill_cache(cursor, answers: str, folder: Path, workers: int) -> int:
     """Read each record missing from the cache folder into it, and return their count."""
-    # One process at a time writes the cache, so a `.part` file here comes from a step that
-    # stopped.
+    # `write` holds the cache's lock, so a `.part` file here comes from a step that stopped.
     for part in folder.glob("*.part"):
         part.unlink()
     cached = (
@@ -198,18 +209,41 @@ def write(cursor, files, cache: Path, out: Path, workers: int | None = None) -> 
     """Write the records file of the export files `files` into `out`, and return its name,
     SHA-256 and row count, with the count of records the step read into the cache."""
     workers = workers or int(os.environ.get("PIPELINE_WORKERS", "4"))
+    if not files:
+        raise ValueError("the export lists no ads files")
     folder = cache / file_sha256(Path(__file__))
     folder.mkdir(parents=True, exist_ok=True)
+    with open(cache / ".lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(
+                f"another records step holds {cache / '.lock'}"
+            ) from None
+        line = write_locked(cursor, files, folder, out, workers)
+        for other in cache.iterdir():
+            if (
+                other != folder
+                and other.is_dir()
+                and re.fullmatch("[0-9a-f]{64}", other.name)
+            ):
+                shutil.rmtree(other)
+    return line
+
+
+def write_locked(cursor, files, folder: Path, out: Path, workers: int) -> dict:
     answers = f"read_parquet({sql_list(files)})"
     cursor.execute(f"SET threads = {THREADS}")
     try:
         added = fill_cache(cursor, answers, folder, workers)
+        if not any(folder.glob("*.parquet")):
+            raise ValueError("the export holds no records")
         cursor.execute(
             f"""CREATE OR REPLACE TEMP TABLE record_groups AS
             SELECT listing_id, record_sha256,
                 epoch_us(min(fetched)) / 1e6 AS collected_at,
                 epoch_us(max(fetched)) / 1e6 AS last_collected_at,
-                arg_min(response_id, fetched) AS response_id
+                arg_min(response_id, (fetched, response_id)) AS response_id
             FROM {answers} WHERE outcome = 'record'
             GROUP BY listing_id, record_sha256"""
         )
@@ -231,6 +265,8 @@ def write_file(cursor, cached: str, out: Path) -> dict:
     groups, low, high = cursor.execute(
         "SELECT count(*), min(listing_id), max(listing_id) FROM record_groups"
     ).fetchone()
+    if not groups:
+        raise ValueError("the export holds no records")
     out.mkdir(parents=True, exist_ok=True)
     part = out / f"records-{os.getpid()}.parquet.part"
     rows, writer = 0, None
