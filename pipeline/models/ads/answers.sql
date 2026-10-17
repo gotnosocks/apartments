@@ -1,6 +1,9 @@
 MODEL (
     name ads.answers,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.changes', add = 'listing_id, response_id')
+    ),
     audits (
         unique_combination_of_columns(columns := (listing_id, response_id)),
         not_null(columns := (listing_id, fetched, response_id, outcome))
@@ -11,7 +14,16 @@ MODEL (
 -- A record's unit history repeats in the record of each ad of the unit, so a unit with n ads
 -- holds about n² copies of its events. Instead of parsing each copy, the model keeps an MD5 of
 -- the history's JSON text, and ads.history_events parses each distinct history once.
-SELECT listing_id, fetched, response_id, outcome, record_sha256,
+--
+-- The model parses the answers in ads.changes: every answer in a full build, and the new ones in
+-- a top-up build, which the materialization `merge` adds to a copy of the previous build's
+-- table. ads.identity and ads.regions read the building, unit and region fields from here.
+--
+-- The query takes each value's text with one json_extract_string of the record. A json_extract
+-- of the record keeps the unit history as a JSON value, and the history's MD5 then writes its
+-- text out again for each row. On the 238,532 answers of run 2, with 12 threads, that form ran
+-- out of DuckDB's 2 GB limit, and this one ran within 1.75 GB.
+SELECT listing_id, fetched, response_id, outcome, record_sha256, region,
     f[1] AS status,
     f[2]::DOUBLE AS page_price,
     from_json(f[3], '[{"changedAt": "VARCHAR", "status": "VARCHAR"}]') AS status_changes,
@@ -22,9 +34,12 @@ SELECT listing_id, fetched, response_id, outcome, record_sha256,
     f[8] AS on_market_at,
     f[9] AS created_at,
     f[10] AS off_market_at,
-    list_transform(from_json(f[11], '[{"key": "VARCHAR"}]'), p -> p.key) AS floor_plans
+    list_transform(from_json(f[11], '[{"key": "VARCHAR"}]'), p -> p.key) AS floor_plans,
+    f[12] AS building_id,
+    f[13] AS unit_slug
 FROM (
-    SELECT *,
-        json_extract_string(record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice', '$.onMarketAt', '$.createdAt', '$.offMarketAt', '$.media.floorPlans']) AS f
-    FROM raw.ads
+    SELECT r.*,
+        json_extract_string(r.record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice', '$.onMarketAt', '$.createdAt', '$.offMarketAt', '$.media.floorPlans', '$.buildingId', '$.slug']) AS f
+    FROM raw.ads r
+    SEMI JOIN ads.changes c USING (listing_id, response_id)
 )
