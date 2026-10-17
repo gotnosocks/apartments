@@ -15,7 +15,11 @@ BASE = {
 CASES = {
     # The floor rule.
     "above": {"floors": (8, None, None, None)},
-    "one above": {"floors": (6, None, None, None)},
+    "one above": {
+        "floors": (4, None, None, None),
+        "dated": (3.0, 1, 10, 2),
+        "latest": (3.0, 1, 10, 2),
+    },
     "tall": {
         "floors": (38, None, None, None),
         "dated": (25.0, 1, 300, 2),
@@ -27,7 +31,13 @@ CASES = {
         "latest": (19.0, 1, 90, 2),
     },
     "gained floors": {"floors": (8, None, None, None), "latest": (9.0, 1, 10, 2)},
+    "no latest floor count": {
+        "floors": (8, None, None, None),
+        "latest": (0.0, 1, 10, 2),
+    },
     "two buildings": {"floors": (8, None, None, None), "dated": (5.0, 2, 10, 2)},
+    "now two buildings": {"floors": (8, None, None, None), "latest": (5.0, 2, 10, 2)},
+    "physical": {"floors": (None, 8, None, None)},
     "listed floors": {"floors": (8, None, None, 10)},
     "label": {"floors": (None, None, 12, None), "dated": (4.0, 1, 10, 2)},
     "advertised first": {"floors": (3, None, 12, None), "dated": (4.0, 1, 10, 2)},
@@ -37,7 +47,8 @@ CASES = {
     "industrial": {"dated": (2.0, 1, 0, 6), "latest": (2.0, 1, 0, 6), "units": 2},
     "mixed": {"dated": (2.0, 1, 0, 4), "latest": (2.0, 1, 0, 4)},
     "office": {"dated": (2.0, 1, 0, 5), "latest": (2.0, 1, 0, 5)},
-    "now residential": {"dated": (2.0, 1, 0, 8), "latest": (2.0, 1, 12, 2)},
+    "now residential": {"dated": (2.0, 1, 0, 8), "latest": (2.0, 1, 12, 8)},
+    "now mixed": {"dated": (2.0, 1, 0, 6), "latest": (2.0, 1, 0, 4)},
     "four units": {"dated": (2.0, 1, 0, 6), "latest": (2.0, 1, 0, 6), "units": 4},
     "certificate": {
         "dated": (2.0, 1, 0, 6),
@@ -119,6 +130,9 @@ def test_building_check_cases(tmp_path, render_context):
 
     - `above` is on floor 8 of a lot of 5 floors in both releases.
     - `label` reads floor 12 from its unit label, on a lot of 4 floors.
+    - `physical` is on physical floor 8 of a lot of 5 floors.
+    - `no latest floor count` is on floor 8 of a lot of 5 floors, and the latest release gives
+      the lot a floor count of 0, so the dated count decides.
     - `no latest record` is on floor 8 of a lot of 5 floors, and the latest release has no
       record of the lot.
     - `industrial` is on a lot with no apartments and land use 06 in both releases, and the
@@ -129,15 +143,17 @@ def test_building_check_cases(tmp_path, render_context):
 
     The check leaves out the rest:
 
-    - `one above` is on floor 6 of 5, within the floor of slack.
+    - `one above` is on floor 4 of 3, within the floor of slack and 33% above the count.
     - `tower` is on floor 21 of a lot of 19 floors, 11% above the count.
     - `gained floors` is on floor 8, and the lot has 9 floors in the latest release.
-    - `two buildings` is on a lot of two buildings.
+    - `two buildings` is on a lot of two buildings, and `now two buildings` on a lot of two
+      buildings in the latest release.
     - `listed floors` is on floor 8, and StreetEasy gives the building 10 floors.
     - `advertised first` advertises floor 3, and its unit label reads floor 12.
     - `no floor count` is on a lot with a floor count of 0.
     - `mixed` and `office` are on lots with land use 04 and 05.
-    - `now residential` is on a lot with 12 apartments in the latest release.
+    - `now residential` is on a lot with 12 apartments in the latest release, and `now mixed`
+      on a lot with land use 04 in the latest release.
     - `four units` is in a building where the ads place four units.
     - `certificate` has a certificate of occupancy with 6 apartments, and `new building` a
       certificate of a new building."""
@@ -151,7 +167,9 @@ def test_building_check_cases(tmp_path, render_context):
         ("above", ["floor_above_lot"]),
         ("industrial", ["zero_unit_lot"]),
         ("label", ["floor_above_lot"]),
+        ("no latest floor count", ["floor_above_lot"]),
         ("no latest record", ["floor_above_lot"]),
         ("parking", ["floor_above_lot", "zero_unit_lot"]),
+        ("physical", ["floor_above_lot"]),
         ("tall", ["floor_above_lot"]),
     ]

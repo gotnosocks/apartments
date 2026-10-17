@@ -1255,7 +1255,7 @@ take an earlier certificate's.
 ## Fit-ready rows
 
 `analysis.rows` gives a fit its rows, one for each unit and month, with the values of the current
-chain's analysis datasets. I build them in six steps.
+chain's analysis datasets. I build them in seven steps.
 
 1. `buildings.details` takes each building's slug and area name from its latest record. For the
    floor count, it takes the smallest positive `floorCount` among the building's records and
@@ -1517,32 +1517,38 @@ gain floors or apartments between releases, so a reason needs both records to ag
 - `zero_unit_lot`: the lot has no apartments and a land use from industrial to vacant, codes 06
   to 11. The ads place at most three units in the building. By the ad's first day, DOB had
   issued no certificate of occupancy with apartments on the building's BIN, and no certificate
-  of a new building.
+  of a new building. For a building without a BIN, the check has no certificates to read, and
+  the lot's records and the ads decide. 289 of the rule's 1,554 rows have no BIN.
+
+When the latest release has no record of the lot, the dated record decides alone, as for 2 of
+the zero-unit rule's rows. A latest floor count of 0 also leaves the dated count to decide.
 
 The floor of slack covers a basement, a penthouse or a mezzanine that MapPLUTO counts
 differently. MapPLUTO gives the floors of the tallest building on a lot, so lots of several
 buildings stay out. I added the 30% after a first read. Without it, the rule listed 115 rows in
-47 lots on the export of runs 1 to 11. A Sonnet subagent read each lot's MapPLUTO facts,
+47 lots on the export of runs 1 to 16. A Sonnet subagent read each lot's MapPLUTO facts,
 StreetEasy's buildings on it and up to three of its listed ads, and gave the lot a cause. Eight
-lots were towers that number their floors past their story count, by 6% to 28%, as a tower does
-when it skips the 13th floor and its mechanical floors. The lots of the wrong building started
-at 38% above the count, so I set the cut at 30%. On a lot of six floors or fewer, the one floor
-of slack is the larger margin.
+lots were towers that number their floors past their story count, as a tower does when it skips
+the 13th floor and its mechanical floors. In the ads the subagent read, those towers' floors lay
+6% to 28% above the count, and the lots of the wrong building started at 38%, so I set the cut
+at 30%. On whole floors, the 30% changes the cut only on lots of seven floors or more.
 
 The city check's labels of lots with no apartments guided the zero-unit rule. Its sample held 8
-such lots with land use 05, offices:
+such lots with land use 05, commercial and office buildings:
 
 - 5 were the ad's building, an office or store building with apartments its record leaves out,
   one of them an unclear call;
 - 2 advertised commercial space;
 - 1 was the wrong building.
 
-So the rule leaves out offices, along with mixed use and the residential uses. Many units on
-StreetEasy, or a certificate with apartments, point to a conversion or a new building that DOB
-recorded before MapPLUTO did. On the export of runs 1 to 16, the rule lists 7 of the city
-check's 8 lots of the wrong building, all but the office. It also lists 4 of the 20 other lots
-the city check labeled: two it called the right building in mixed use, both unclear calls, one
-advertising commercial space and one converted since its record.
+So the rule leaves out commercial and office buildings, code 05, along with mixed residential
+and commercial use and the residential uses, codes 01 to 04. It also leaves out a building where
+the ads place four units or more, or where DOB has issued a certificate with apartments, since
+there I take the lot for a conversion or a new building that DOB recorded before MapPLUTO did.
+On the export of runs 1 to 16, the rule lists 7 of the city check's 8 lots of the wrong
+building, all but the one with land use 05. It also lists 4 of the 26 other lots the city check
+labeled: two it called the right building in mixed use, both unclear calls, one advertising
+commercial space and one converted since its record.
 
 On the export of runs 1 to 16, the check lists 1,638 of the 1,746,791 fit-ready rows, in 1,019
 lots and 1,041 buildings:
@@ -1572,10 +1578,11 @@ The subagent's labels cover every lot the floor rule lists, and 20 of the zero-u
 I set the 30% on the same labels, so the floor rule's shares hold only for this sample. The 20
 zero-unit lots lie outside the city check's sample. I drew 40 lots at random and kept the first
 20 by BBL, so 19 of the 20 are in Manhattan, where 420 of the rule's 983 lots are. The tower
-left on the list is 1 Columbus Circle, where ad 2589029 gives the 72nd floor of a lot of 54.
+left on the list is 25 Columbus Circle, where ad 2589029 gives the 72nd floor of a lot of 54,
+33% above the count.
 
 About a fifth of the labeled lots hold the right building, with a floor misread from the ad or
-a lot record behind the building. A drop on the check alone would lose their rows, so
+a lot record behind the building. Dropping every listed row would lose theirs too, so
 `analysis.rows` keeps every row the check lists, as it does for the ask check.
 
 ## Corrections ledger
@@ -2946,16 +2953,18 @@ The pipeline's `tests/test_build.py` also checks a top-up build against a build 
 
 The pipeline's `tests/test_building_check.py` checks the building check on made-up rows:
 
-75. write a row for each of 19 made-up ads, each on its own lot, and render
-    `analysis.building_check` over them. The check lists an ad on floor 8 of a lot of 5 floors,
-    one on floor 38 of a lot of 25, an ad whose unit label reads floor 12 on a lot of 4, an ad on
-    a lot missing from the latest release, an industrial lot with no apartments, and a parking lot
-    of one floor with an ad on floor 5, which gets both reasons. It leaves out the rest: an ad one
-    floor above the count, floor 21 of a tower of 19 floors, a lot that gained floors in the
-    latest release, a lot of two buildings, a building StreetEasy gives 10 floors, an ad that
-    advertises floor 3 under a label reading 12, a lot with a floor count of 0, lots of mixed use
-    and offices, a lot with apartments in the latest release, a building where the ads place four
-    units, and lots with a certificate of occupancy with apartments or of a new building.
+75. write a row for each of 23 made-up ads, each on its own lot, and render
+    `analysis.building_check` over them. The check lists an ad advertising floor 8 of a lot of 5
+    floors, one on physical floor 8 of a lot of 5, one on floor 38 of a lot of 25, an ad whose
+    unit label reads floor 12 on a lot of 4, two ads on floor 8 of a lot of 5 that the latest
+    release leaves out or gives 0 floors, an industrial lot with no apartments, and a parking lot
+    of one floor with an ad on floor 5, which gets both reasons. It leaves out the rest: an ad on
+    floor 4 of a lot of 3, one floor above the count, floor 21 of a tower of 19 floors, a lot that
+    gained floors in the latest release, a lot of two buildings in either release, a building
+    StreetEasy gives 10 floors, an ad that advertises floor 3 under a label reading 12, a lot
+    with a floor count of 0, lots with land use 04 and 05, lots with apartments or land use 04 in
+    the latest release, a building where the ads place four units, and lots with a certificate
+    of occupancy with apartments or of a new building.
 
 ## Full build
 
