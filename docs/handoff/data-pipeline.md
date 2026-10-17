@@ -98,7 +98,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
 
 ## Next
 
-On Oct 17 the overnight plan closed with these merges:
+These PRs merged on Oct 17:
 
 - #957: the build no longer waits for the GPU lock.
 - #958: the ads models build incrementally. [pipeline-measures.md](../data/pipeline-measures.md)
@@ -149,13 +149,13 @@ The work goes on in this order:
    out of the ledger. The 22,112 links without photos need another signal, such as the floor plans
    or stated sizes.
 2. A `drop_lot` change in the corrections ledger, read by `analysis.lot_facts` so the listed ads
-   get no lot. #975 put DI's list in `config/reviews/drop-lot-20261017.jsonl`: 1,274 ads that
-   `building_check` flagged and a reader put on the wrong building or under an out-of-date city
-   record. Modeling's `lots3` feature sets (#976) read that file and give those ads NaN lot
-   features, so fits don't wait on the ledger. The build rejects a change it doesn't know, so the
-   PR adds `drop_lot` to the ledger's changes and imports the file as a batch.
-3. DI's suggestion: drop a late change to a repeated-digit ask, such as $9,999, when it moves the
-   ask by 1.2x or more.
+   get no lot. #975 put Data improvements' list in `config/reviews/drop-lot-20261017.jsonl`:
+   1,274 ads that `building_check` flagged and a reader put on the wrong building or under an
+   out-of-date city record. Modeling's `lots3` feature sets (#976) read that file and give those
+   ads NaN lot features, so fits don't wait on the ledger. The build rejects a change it doesn't
+   know, so the PR adds `drop_lot` to the ledger's changes and imports the file as a batch.
+3. Data improvements' suggestion: drop a late change to a repeated-digit ask, such as $9,999, when
+   it moves the ask by 1.2x or more.
 
 `/data1/apartments/tmp/pipeline/lanes/bcheck/padlookup.py` runs `buildings.pad_link`'s SQL on an
 ad's own address and zip. Of the 704 rows a reader put on the wrong building, 544 land on the
