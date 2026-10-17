@@ -1,0 +1,15 @@
+{
+ "version": "registry-overrides-hpdpad-v1",
+ "reviewed_at": "2026-10-17",
+ "rule": "Buildings whose registry lot holds no apartments in MapPLUTO 26v2, moved to the lot where PAD's address ranges put the building's StreetEasy street address exactly (rank 0), where the lot also appears on the building's HPD rental registration and holds apartments in MapPLUTO 26v2",
+ "overrides": [
+  {
+   "building": "245-sumpter-street-brooklyn",
+   "bbl": "3015200162",
+   "bin": "3393541",
+   "label": "245 SUMPTER STREET",
+   "evidence": "PAD 26c puts 245 Sumpter Street in an address range of lot 3015200162 in zip 11233 (rank 0, a single lot); the HPD registration for 245 Sumpter Street lists lots 3015200062 and 3015200162; MapPLUTO 26v2 lot 3015200162 is 245 SUMPTER STREET, class B1, built 1997, 2 floors, 2 apartments; StreetEasy's building record gives 2 apartments, and the ad offers a 2-bedroom walk-in apartment",
+   "registry_was": "reverse, BBL 3015280001: MapPLUTO 26v2 has 245 SUMPTER STREET on block 1528, class W1 (a school), built 1895, 4 floors, 82,780 sq ft, 0 apartments"
+  }
+ ]
+}
