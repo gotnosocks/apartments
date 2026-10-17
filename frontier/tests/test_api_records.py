@@ -1,6 +1,6 @@
 import json
-import numpy as np
 
+import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
@@ -121,8 +121,8 @@ def test_a_build_without_an_ads_file_stops(records_catalog, tmp_path):
 
 
 def test_among_finds_ids_in_a_sorted_array():
-    """The batch lookup marks the ids it holds, at either end and in between, and marks nothing
-    against an empty array."""
+    """The lookup marks each batch id present in the sorted array, at either end and in
+    between, and marks none against an empty array."""
     ids = np.array([3, 8, 20], dtype=np.int64)
     found = api_records.among(ids, pa.array([1, 3, 9, 20, 25, 8]))
     assert found.tolist() == [False, True, False, True, False, True]
