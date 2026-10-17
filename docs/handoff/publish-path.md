@@ -32,7 +32,7 @@ change to its step before merge.
   design gets prepared on Modal (`ops/modal-fit --design-only`, #1084) and the summary loads it
   with `FRONTIER_DESIGN_CACHE=read`. The unit `publish-path-launch-design` launches the prep at
   bc06303d from the pinned clone `/data1/apartments/tmp/publish-path/clone`, once P1 has launched
-  and the budget covers $0.70 (log: `/data1/apartments/tmp/publish-path/logs/launch-design.log`).
+  (or its launcher has exited) and the budget covers $0.70 (log: `/data1/apartments/tmp/publish-path/logs/launch-design.log`).
 - Once the design lands in `frontier/designs`, I compute its key on thelio with
   `tools/design_key.py` in a 3G scope, at the clone commit and in the summary's env, and compare
   it with the key in `design.json`. The 9G summary (`--range-atoms --with-exact`) starts only if
