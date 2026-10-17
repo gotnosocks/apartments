@@ -2,6 +2,18 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:31 ET
+
+- #1056 adds `pipeline/ledger/2026-10-17-z6-unit-bedrooms.ndjson`, 140 bedroom-count sets. The screen took ads
+  whose unit has at least two other ads within two years, all coding another bedroom count, with sizes within 5%
+  where given: 1,398 candidates. After a 40-ad sample, Sonnet read the other 1,358
+  (`/data1/apartments/tmp/suspect/beds/full/`): 608 flex, 276 wrong, 233 unclear, 189 a different unit, 52 right.
+  `full/ledger.py` drops reads whose count differs from the backing ads, the one unit in bedrooms-ad, rows whose own
+  text states their coded count, any unit whose ads describe a flex layout (conversions, "2.5 br", junior one-bedrooms,
+  "+ office", "or study" and the like), #1051's renovation and ask screens, and 9 hand picks from review.
+- The review found flex wording the first screen missed, so expect the flex share in any later bedroom read to be
+  high. Bath ads with some other stated count (422) remain the next bath item.
+
 ## 2026-10-17 14:10 ET
 
 - #1054 adds `pipeline/ledger/2026-10-17-z5-unit-baths-twosided.ndjson`, 25 bath-count sets. Of the 183
