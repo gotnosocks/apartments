@@ -35,8 +35,9 @@ estimate_pred_lower/upper_95, _80
               `--range-atoms` (or FRONTIER_RANGE_ATOMS=1) these go and two
               columns take their place:
 noise_group   the row's residual scale among the run's noise groups;
-estimate_atoms  RANGE_ATOMS weighted quantiles of the total log rent per
-              draw, at the probabilities (i + 0.5) / RANGE_ATOMS, as float32.
+estimate_atoms  RANGE_ATOMS quantiles of the total log rent over the draws,
+              weighted by the row's importance weights, at the probabilities
+              (i + 0.5) / RANGE_ATOMS, as float32.
               The site works out the ranges from them when a listing's page
               asks (`apartments.site.ranges`). A chunk whose rows' noise
               scales differ from their group's scale gets the exact columns
@@ -73,6 +74,15 @@ complete.json         provenance (run, commits, dataset and feature-source
 mixture over draws of Student-t(nu_s) noise of scale sigma_s,g on NOISE_GRID
 points spaced evenly over NOISE_SPAN median scales on either side of zero,
 as {"groups": {group: {"lower", "step", "cdf"}}}.
+
+The ranges from the atoms approximate the exact ones. The site convolves the
+row's marginal distribution of total log rent (its atoms) with the group's
+noise mixture averaged evenly over draws. That drops the pairing within a
+draw of the total with sigma and nu, and it leaves the row's importance
+weights off the noise side. On NB9 (10% of buildings, 26,398 rows,
+2026-10-17) the bounds differed from the exact solve by 0.00027 log units at
+the median and 0.0032 at the 95th percentile, against a Monte Carlo error of
+0.0013 at the median (half the gap between the solves on even and odd draws).
 
 `--range-sample` (or FRONTIER_RANGE_SAMPLE=1) also writes range-sample.npz:
 each draw's total log rent, importance weight and residual scale for a sample
