@@ -1709,6 +1709,16 @@ def quarantine_v34(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V34))]
 
 
+QUARANTINE_V35 = QUARANTINE_V20.with_name("quarantine-v35-20261017.jsonl")
+
+
+def quarantine_v35(frame: pd.DataFrame) -> pd.DataFrame:
+    """v34's rows and 1 more: a Bushwick 2-bedroom ad filed under 124 De Kalb
+    Avenue #3 in Fort Greene. The same copy runs at 1248 De Kalb Avenue #3L, so
+    the record's address most likely lost a digit."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V35))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -2141,6 +2151,7 @@ DATA_RULES = {
     "quarantine-v32": quarantine_v32,
     "quarantine-v33": quarantine_v33,
     "quarantine-v34": quarantine_v34,
+    "quarantine-v35": quarantine_v35,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -2209,6 +2220,7 @@ RULE_SOURCES = {
     "quarantine-v32": QUARANTINE_V32,
     "quarantine-v33": QUARANTINE_V33,
     "quarantine-v34": QUARANTINE_V34,
+    "quarantine-v35": QUARANTINE_V35,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -2291,6 +2303,7 @@ DROPPING_RULES = (
     "quarantine-v32",
     "quarantine-v33",
     "quarantine-v34",
+    "quarantine-v35",
 )
 
 

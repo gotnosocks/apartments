@@ -43,10 +43,10 @@ steps:
      - `analysis_price_basis` as `historical_initial_own_advertisement_ask` and
        `description_interpreted_at` as null on every row.
 5. It writes `manifest.json`, with the build's files and their SHA-256, the catalog line's
-   build time, code and ledger files, the written neighbourhoods with their row counts, the
-   renames with the rows each moved, the audit ID
-   sources with their SHA-256, the counts of each kind of audit ID, the audit IDs the served
-   dataset gives otherwise, and the SHA-256 of `observations.jsonl`.
+   build time, code, ledger files and stale days, the written neighbourhoods with their row
+   counts, the renames with the rows each moved, the audit ID sources with their SHA-256, the
+   counts of each kind of audit ID, the audit IDs the served dataset gives otherwise, and the
+   SHA-256 of `observations.jsonl`.
 
 It writes both files into a hidden folder beside OUT and renames the folder to OUT at the end. It
 refuses an OUT already there.
@@ -156,6 +156,7 @@ def pick_build(catalog: Path, rows: Path | None, ads: Path | None) -> dict:
         "built": line.get("built"),
         "code": line.get("code"),
         "ledger": line.get("ledger", {}).get("files"),
+        "stale_days": line.get("stale_days"),
     }
     return files
 

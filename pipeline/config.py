@@ -23,6 +23,10 @@ config stops when the archive's folder is missing. `steps/city.py` explains the 
 from the previous build. `ops/pipeline/build.py` sets it when the previous build allows one, and
 `models/ads/changes.py` explains the rest. Other runs leave it unset and build from all answers.
 
+`PIPELINE_STALE_DAYS` gives `ads.kept_changes` the days after an ad's off-market day past which
+its price changes count as stale, 7 unless set, as in latest-ask-v9. -1 drops every change from
+the off-market day on, as latest-ask-v10 does. The build records the value in its catalog line.
+
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
 stream with less memory.
@@ -226,6 +230,7 @@ config = Config(
         # ads.changes reads this too, so an edit to the materialization `merge` rebuilds the
         # models of that kind from all the answers.
         "merge_code": file_sha256(PIPELINE / "materializations" / "merge.py"),
+        "stale_days": int(os.environ.get("PIPELINE_STALE_DAYS") or 7),
         "buildings": buildings,
         "buildings_version": buildings_version,
         # ops/pipeline/build.py records these in its catalog line. No model reads them, so they
