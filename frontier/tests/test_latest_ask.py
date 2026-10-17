@@ -259,7 +259,7 @@ def test_main_reads_several_datasets_from_one_crawl(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        latest_ask, "listings", lambda crawls: seen.update(crawls) or None
+        latest_ask, "listings", lambda crawls, records: seen.update(crawls) or None
     )
     monkeypatch.setattr(
         latest_ask,
@@ -291,7 +291,9 @@ def test_listing_extras_reads_a_named_crawl(tmp_path, monkeypatch):
     monkeypatch.setattr(
         listing_extras,
         "build",
-        lambda crawls: seen.update(crawls) or pd.DataFrame({"listing_id": ["1"]}),
+        lambda crawls, records: (
+            seen.update(crawls) or pd.DataFrame({"listing_id": ["1"]})
+        ),
     )
     listing_extras.main(["--crawl", "/g", "--tag", "api"])
     assert seen == {"crawl": "/g"}
@@ -314,3 +316,81 @@ def test_several_crawls_and_the_page_crawls_parse_into_one_dict():
         "",
         [Path("/d/a"), Path("/d/b")],
     )
+
+
+def test_listings_read_the_records_file_at_each_records_last_fetch(
+    records_catalog, tmp_path
+):
+    """A page crawl's capture of a listing gives way to its records, and the
+    record with the latest last fetch counts, at that fetch, over a record
+    first fetched later."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    folder = tmp_path / "page" / "listing_observations"
+    folder.mkdir(parents=True)
+    pq.write_table(
+        pa.table(
+            {
+                "listing_id": ["7"],
+                "listing_type": ["rental"],
+                "collected_at": [50.0],
+                "raw_listing_json": [record([("2025-01-01", 2900)], 2900)],
+            }
+        ),
+        folder / "part.parquet",
+    )
+    first = json.loads(record([("2025-01-01", 3000)], 3000))
+    second = json.loads(record([("2025-01-01", 3000), ("2025-02-01", 3100)], 3100))
+    records_catalog(
+        [
+            {
+                "listing_id": 7,
+                "collected_at": 100,
+                "last_collected_at": 500,
+                "record": first,
+            },
+            {
+                "listing_id": 7,
+                "collected_at": 200,
+                "last_collected_at": 400,
+                "record": second,
+            },
+        ]
+    )
+    table = latest_ask.listings({"page": str(tmp_path / "page"), "crawl-1": "records"})
+    assert table.loc["7"].changes == [("2025-01-01", 3000.0)]
+    assert table.loc["7"].collected_at == 500.0
+
+
+def test_main_names_the_records_file_it_read(records_catalog, tmp_path, monkeypatch):
+    line = records_catalog(
+        [{"listing_id": 7, "collected_at": 100, "record": json.loads(record([], 3000))}]
+    )
+    seen = {}
+    monkeypatch.setattr(latest_ask, "EXTERNAL_ROOT", tmp_path)
+    monkeypatch.setattr(
+        latest_ask, "_git", lambda *a: "" if a[0] == "status" else "abc1234def"
+    )
+    monkeypatch.setattr(
+        latest_ask.data,
+        "load",
+        lambda d: pd.DataFrame(
+            {"audit_id": ["a"], "building": ["b"], "source_listing_id": ["7"]}
+        ),
+    )
+    monkeypatch.setattr(
+        latest_ask,
+        "listings",
+        lambda crawls, records: seen.update(crawls=crawls, records=records),
+    )
+    monkeypatch.setattr(
+        latest_ask,
+        "choose",
+        lambda frame, table: frame.assign(first_ask=1.0, latest_ask=1.0, how="x"),
+    )
+    latest_ask.main(["--crawl", "records", "--tag", "api", "/d1"])
+    assert seen["crawls"] == {"crawl": "records"}
+    assert seen["records"]["sha256"] == line["records"]["sha256"]
+    (prov,) = tmp_path.glob("latest-ask/*-abc1234-api/provenance.json")
+    assert json.loads(prov.read_text())["records"] == seen["records"]

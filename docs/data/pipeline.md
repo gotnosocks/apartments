@@ -1965,6 +1965,26 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`latest_ask` reads the file with `--crawl records`, beside `--crawl page` for the page crawls,
+and lists the file's name and SHA-256 in its provenance under `records`.
+
+`descriptions` reads the file with `--records` in place of `--granular`. It keeps only the
+records of the cohort's listings, so one run covers every region, where the granular export
+took a run for each slice. Its provenance names the file under `records`.
+
+`listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
+and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
+that file decides which listings the reader keeps. With `--base`, the base file's listings keep
+their rows, as they do beside a granular crawl.
+
+`lister` reads the file with `--crawl records`, beside `--crawl page` for the page crawls. The
+records lack the building slug of the granular rows, so it takes each listing's building from
+the ads file on the same catalog line, after checking that file's SHA-256 too. That slug comes
+from the building's latest answer, as `ads.identity` gives it. For the day a listing was first
+listed, it reads the rental history in each of the listing's records, where the granular export
+read its event mentions, and keeps the earliest ACTIVE event of the listing's own episodes. Its
+provenance lists both files under `sources`.
+
 `listing_outcomes` reads the file with `--crawl records`, beside `--crawl page` for the page
 crawls, and its provenance gives the file under `records`. A listing still on the market has its
 days counted to its record's last fetch, where the granular export stopped them at the record's
@@ -2626,13 +2646,53 @@ and catalog it writes in a temporary folder:
     Then look up six IDs in a sorted array of three, finding the first, middle and last and
     missing one below, one between and one past the end, and look up two IDs in an empty array.
 
+The frontier's `frontier/tests/test_latest_ask.py` checks `latest_ask` on a records file:
+
+59. give `latest_ask.listings` a page crawl's capture of a listing and two of its records, and
+    check that it takes the record with the latest last fetch, at that fetch, over a record
+    first fetched later;
+60. run `latest_ask.main` with `--crawl records`, and check that it hands the checked file to
+    `listings` and names it in its provenance.
+
+The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a records file:
+
+61. build a cohort's description evidence from a records file with two records of a listing,
+    and check that each row takes the text of the record fetched last and that the build skips
+    listings outside the cohort;
+62. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
+    either and stops on both.
+
+The frontier's `frontier/tests/test_listing_extras.py` checks `listing_extras` on a records file:
+
+63. build the extras of a page crawl and a records file with two records of a listing, and check
+    that each listing takes its capture with the latest time, which for a record is its last
+    fetch;
+64. run `listing_extras.main` with `--crawl records`, and check that its provenance gives the
+    file's path and SHA-256, and those of the ads file on the same catalog line.
+
+The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file:
+
+65. parse made-up records whose histories hold episodes named by `listingId`, by `id` or by
+    neither, events of other statuses, without a day or not a dict, and histories of the wrong
+    type. For each, check that `record_first_listed` gives the earliest day of the own ACTIVE
+    rental events `apartments.graphql_listing` parses from it;
+66. build the lister table from a records file and an ads file with two records of a listing
+    and an earlier listing in its building, and check the lister of the record fetched last, the
+    ads file's building, the earliest listed day over both records and the earlier counts;
+67. run `lister.main` with `--crawl records`, and check that its provenance gives both files'
+    paths and SHA-256 and that a tag without a crawl stops;
+68. parse `--crawl page --crawl records`, and build the lister table from a page crawl and a
+    records file. A listing fetched last in the records file takes its lister and the ads file's
+    building, and keeps the earlier listed day of the page crawl's event mentions. A listing
+    captured last in the page crawl keeps the page crawl's lister and building.
+
 The frontier's `frontier/tests/test_listing_outcomes.py` checks `listing_outcomes` on a records
 file:
 
-59. build the outcomes of a records file with a listing still on the market and one that left
+69. build the outcomes of a records file with a listing still on the market and one that left
     it, each first fetched a day after listing and last fetched ten days after, and check that
     the first counts ten days and the second stops at its day off the market;
-60. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
+70. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
     file under `records`, that `--crawl page` adds the page crawls and that a tag without a
     crawl stops.
 

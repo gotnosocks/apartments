@@ -7,24 +7,32 @@ the builder skips sale observations:
     python -m rentfrontier.listing_extras
     python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name>
     python -m rentfrontier.listing_extras --crawl <granular dir> --tag <name> --base <file>
+    python -m rentfrontier.listing_extras --crawl records --tag <name> --base <file>
 
 writes EXTERNAL_ROOT/listing-extras/<date>-<commit>[-<tag>]/listing-extras.parquet
 and provenance.json, from the crawls in CRAWLS or from the one crawl named.
 With --base, I keep that file's rows and add the crawl's rows for the listings
 it lacks, as an extended cohort's added rows need. Refuses a dirty tree.
+
+`--crawl records` reads the API records of the newest clean build in the data
+pipeline's catalog in place of a granular crawl, after checking the file's
+SHA-256 (`rentfrontier.api_records`). Each record counts as captured at its
+last fetch. provenance.json lists the file's name and SHA-256 under `sources`,
+and those of the ads file on the same catalog line under `ads_file`, because
+the reader keeps listings by that file.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-import glob
 import hashlib
 import json
 import subprocess
 from pathlib import Path
 
 import pandas as pd
-import pyarrow.parquet as pq
+
+from rentfrontier import api_records
 
 EXTERNAL_ROOT = Path("/data1/apartments/external")
 CRAWLS = {
@@ -60,31 +68,22 @@ def record_extras(raw: str) -> dict:
     }
 
 
-def build(crawls: dict | None = None) -> pd.DataFrame:
+def build(crawls: dict | None = None, records: dict | None = None) -> pd.DataFrame:
+    """Each listing's fields from its last capture in the crawls. A crawl
+    `records` is the pipeline's records file, `records` once checked."""
     rows = []
+    columns = ["listing_id", "listing_type", "collected_at", "raw_listing_json"]
     for neighbourhood, crawl in (crawls or CRAWLS).items():
-        for path in sorted(
-            glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
-        ):
-            table = pq.read_table(
-                path,
-                columns=[
-                    "listing_id",
-                    "listing_type",
-                    "collected_at",
-                    "raw_listing_json",
-                ],
-            )
-            for r in table.to_pylist():
-                if r["listing_type"] == "rental" and r["raw_listing_json"]:
-                    rows.append(
-                        {
-                            "listing_id": str(r["listing_id"]),
-                            "collected_at": r["collected_at"],
-                            "neighbourhood": neighbourhood,
-                            **record_extras(r["raw_listing_json"]),
-                        }
-                    )
+        for r in api_records.observations(crawl, columns, records):
+            if r["listing_type"] == "rental" and r["raw_listing_json"]:
+                rows.append(
+                    {
+                        "listing_id": str(r["listing_id"]),
+                        "collected_at": r["collected_at"],
+                        "neighbourhood": neighbourhood,
+                        **record_extras(r["raw_listing_json"]),
+                    }
+                )
     out = pd.DataFrame(rows).sort_values(["collected_at", "listing_id"])
     return out.drop_duplicates("listing_id", keep="last").reset_index(drop=True)
 
@@ -106,13 +105,19 @@ def main(argv: list[str] | None = None):
         crawls, tag = {"crawl": argv[1]}, f"-{argv[3]}"
     elif argv:
         raise SystemExit(
-            "usage: listing_extras [--crawl <granular dir> --tag <name> [--base <file>]]"
+            "usage: listing_extras"
+            " [--crawl <granular dir | records> --tag <name> [--base <file>]]"
         )
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    table = build(crawls)
+    records = (
+        api_records.records_file()
+        if api_records.CRAWL in (crawls or CRAWLS).values()
+        else None
+    )
+    table = build(crawls, records)
     if base is not None:
         # The base file's listings keep their rows; the crawl adds the rest.
         kept = pd.read_parquet(base)
@@ -124,6 +129,9 @@ def main(argv: list[str] | None = None):
     table.to_parquet(path, index=False)
     sources = {}
     for name, crawl in (crawls or CRAWLS).items():
+        if crawl == api_records.CRAWL:
+            sources[name] = {"path": records["path"], "sha256": records["sha256"]}
+            continue
         complete = Path(crawl) / "complete.json"
         sources[name] = {
             "path": crawl,
@@ -131,6 +139,10 @@ def main(argv: list[str] | None = None):
             if complete.exists()
             else None,
         }
+    if records is not None:
+        # The ads file decides which listings `captures` keeps, so it is an input too.
+        ads = records["ads"]
+        sources["ads_file"] = {"path": ads["path"], "sha256": ads["sha256"]}
     (out_dir / "provenance.json").write_text(
         json.dumps(
             {
