@@ -2,7 +2,21 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-17 14:30 ET
+## 2026-10-17 13:40 ET
+
+- #1039 adds `pipeline/ledger/2026-10-17-z2-unit-sqft.ndjson`, 71 square-footage sets. The screen
+  (`/data1/apartments/tmp/suspect/sqft/screen.py`) keeps an ad when at least 2 other ads of the same unit with the
+  same bedroom count, within 730 days, agree within 5% and the ad sits 30% or more off their median. That gave 160
+  ads. Sonnet read all of them with the unit's other ads (`r0..r3.jsonl`): 111 wrong, 28 unclear, 14 right, 7 a
+  different unit. 82 of the 111 reads gave a size inside the other ads' range. Review dropped 11: one ad states a
+  third size, five may count a basement or roof deck in the larger figure, and five sit in a mixed size history.
+  `ledger.py` in the same folder writes the file.
+- A bedroom-count screen is next (`/data1/apartments/tmp/suspect/beds/screen.py`). It keeps an ad when the unit's
+  other ads within 730 days all agree on another count, with at least one before and one after. That gives 7,909
+  ads, 1,398 of them with sizes that agree. Many will be flex or convertible units, so a Sonnet read of a 40-ad
+  sample (`sample.jsonl`) comes first to measure the error rate.
+
+## 2026-10-17 13:15 ET
 
 - #1036 adds `pipeline/ledger/2026-10-17-z-unit-baths.ndjson`, 492 bath-count sets. The screen
   (`/data1/apartments/tmp/suspect/baths/mech.py`) looks at ads of the same unit with the same bedroom count within
