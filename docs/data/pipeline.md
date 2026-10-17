@@ -292,28 +292,34 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
    export's manifest, the city archive's manifest and the pipeline's code match the last
    build's, as on most of the timer's runs;
-3. takes every light slot, so no `ops/job light` job runs beside the build, and with the slots
-   held runs `ops/pipeline/room`, which checks that
+3. waits for room to build, checking that
    - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
-   - no unit named `site-build-*` or `di-*` is active, for the site builds and Data
-     improvements' jobs run outside `ops/job`;
-   - 5 GiB of memory is available;
+   - no unit named `site-build-*`, `frontier-publish-*`, `di-*` or `bd4-*` is active, for the
+     site builds and Data improvements' jobs run outside `ops/job`;
+   - 5 GiB of memory is available.
 
-   and when a check fails, it lets go of the slots and checks again a minute later, logging the
-   reason when it changes;
+   While a GPU job holds the GPU lock, it queues for the lock as the GPU jobs do and holds it
+   through the build. Once the other checks pass, it takes every light slot, so no
+   `ops/job light` job runs beside the build, and checks again with the slots held. When a
+   check fails, it lets go of every lock and checks again a minute later, logging the reason
+   when it changes;
 4. logs the locks it took and the memory available, runs `build.py` with `PIPELINE_MEMORY=3GB`
-   in the service's own cgroup, which the unit caps at 5 GiB with swap off, and lets go of the
-   slots after it;
+   in the service's own cgroup, which the unit caps at 5 GiB with swap off and keeps on the
+   light CPUs, and lets go of its locks after it;
 5. builds again when the manifest changed during the build.
 
 Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
 
-The build leaves the GPU lock free, so a GPU job queued after its start runs beside it. Ben
-agreed on 2026-10-16 to let the build skip the GPU lock this way, on the terms the checks above
-carry out. A site build or a Data improvements job run outside `ops/job` goes in a unit named
-`site-build-*` or `di-*`, so the build waits for it.
+When the build starts with the GPU lock free, it leaves the lock free, so a GPU job queued
+after its start runs beside it. Ben agreed on 2026-10-16 to let the build skip the GPU lock this
+way, on the terms the checks above carry out. The build queues for the lock behind a running GPU
+job, as it did before, so a queue of GPU jobs only delays it. The checks run at the build's
+start, so a job started during a build still overlaps it. A site build or a Data improvements
+job that must not overlap the build runs through `ops/job light`, which waits for the slots the
+build holds. One run outside `ops/job` goes in a unit named like the patterns above, so the build
+waits for it, and checks `systemctl --user is-active apartments-pipeline-build` before it starts.
 
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
@@ -2135,9 +2141,12 @@ in all, and most tests add made-up ads to that export. The tests:
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
     `ads.placed`;
 45. read the repo's unit ledger and check that it holds a join, a split and a move.
-46. run `ops/pipeline/room` with the GPU lock free, with a made-up job holding it, and with more
-    memory asked for than thelio has. Only the first run lets the build start, and the check
-    lets go of the GPU lock it tests.
+46. run `ops/pipeline/build-latest --room` with a made-up `systemctl`, as thelio's locks are
+    laid out, with the GPU lock linked to `heavy.lock`. The check lets the build start with the
+    GPU lock free, with no pattern of units to avoid, and with the lock held by the build itself.
+    It gives the reason to wait while another job holds the lock, while a unit to avoid is
+    active, when `systemctl` fails and when less memory is available than asked for. It lets go
+    of the GPU lock it tests, and it stops on a memory size it can't read.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
