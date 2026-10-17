@@ -168,6 +168,7 @@ def main(argv=None):
             {
                 "name": args.name,
                 "design": path.name,
+                "key": key,
                 "rows": len(frame),
                 "bytes": path.stat().st_size,
                 "seconds": round(time.time() - started, 1),

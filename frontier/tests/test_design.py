@@ -128,6 +128,7 @@ def test_preparing_a_runs_design_keeps_the_pickle_its_summary_loads(
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
     design.main(["r"])
     record = json.loads(capsys.readouterr().out)
+    assert record["design"] == f"design-{record['key'][:16]}.pkl"
     assert loaded == [tmp_path / "ds"] and calls == ["f1"]
     # The summary, reading from designs/, finds it under the same name.
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
