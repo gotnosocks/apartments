@@ -18,8 +18,9 @@ MODEL (
 --                  building with that slug in buildings.details. Its page and unit stay as
 --                  they are.
 -- An ad without a unit keeps none. `placements` lists the entries applied to the ad.
--- ledger.entries' rules let a page take part in one live join, an ad in one live split and a
--- building in one live move, so each ad meets at most one entry of each change.
+-- read_units, the parser behind ledger.unit_entries, lets a page take part in one live join, an
+-- ad in one live split and a building in one live move, so each ad meets at most one entry of
+-- each change.
 WITH live AS (
     SELECT u.*
     FROM ledger.unit_entries u

@@ -1455,7 +1455,7 @@ Three models read the unit ledger:
    |---|---|
    | `retract` | undoes another |
    | `retracted` | is undone by a later retract |
-   | `absent` | joins fewer than two pages with ads, splits none of the ads it lists, or moves a building with no ads |
+   | `absent` | joins fewer than two pages with ads that have a unit, splits none of the ads it lists, or moves a building with no ads |
    | `stale` | splits an ad with another page or no unit, with the ads in `differs`, or moves to a slug matching no building or several, with `to` in `differs` |
    | `live` | applies |
 

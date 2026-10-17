@@ -156,8 +156,9 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     - join absent: a unit of 260 West 91st Street and a unit with no ads.
     - join retracted: units 14 and 16 of 270 15th Street, retracted later. Unit 14 then joins
       unit 6 in a later file.
-    - split: two ads of unit 6, listed in the order the entry gives them, so the new unit ends
-      with the first listed ad rather than the lesser one.
+    - split: two ads of unit 14, the greater listed first, so the new unit ends with the first
+      listed ad rather than the lesser one. Unit 14 joins unit 6 in the later file, so the split
+      ads start from the joined unit's ID.
     - split stale: an ad of unit 16 listed under unit 12, and an ad with no record.
     - split absent: an ad with no record alone.
     - move: 1115 Union Street to 260 West 91st Street, a building with a record.
@@ -191,16 +192,24 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
             .unique()
         )
 
+    def ads(building, unit):
+        on_page = identity.building.eq(building) & identity.page.str.endswith(
+            "/" + unit
+        )
+        return sorted(identity.listing_id[on_page & identity.unit_id.notna()])
+
     adelphi = "89-adelphi-street-brooklyn"
     west_91 = "260-west-91-street-new_york"
     union = "1115-union-street-brooklyn"
     west_89 = "129-west-89-street-new_york"
     fifteenth = "270-15-street-brooklyn"
+    split_ads = ads(fifteenth, "14")[::-1][:2]
+    assert len(split_ads) == 2
     entries = {
         "join": join(adelphi, units(adelphi)),
         "join absent": join(west_91, [units(west_91)[0], "no-such-unit"]),
         "join retracted": join(fifteenth, ["14", "16"]),
-        "split": split(fifteenth, "6", ["2696253", "2072936"]),
+        "split": split(fifteenth, "14", split_ads),
         "split stale": split(fifteenth, "12", ["1", "1342669"]),
         "split absent": split(west_89, "1a", ["2"]),
         "move": move(union, west_91),
@@ -262,8 +271,10 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         expected.loc[joined, "unit_id"] = before.unit_id[joined].min()
         for ad in before.index[joined]:
             placements[ad].append(ids[entry])
-    for ad in ("2696253", "2072936"):
-        expected.loc[ad, "unit_id"] += "~review-2696253"
+    # The joins come first, so the split ads start from unit 6's ID, the lesser of the join.
+    assert (expected.unit_id[split_ads] != before.unit_id[split_ads]).all()
+    for ad in split_ads:
+        expected.loc[ad, "unit_id"] += "~review-" + split_ads[0]
         placements[ad].append(ids["split"])
     moved = before.building.eq(union)
     (west_91_id,) = before.building_id[before.building.eq(west_91)].unique()
