@@ -919,6 +919,9 @@ DATA_RULE_TEXT = {
     "their records give the address 870 Broadway and sizes of 875 to 1,000 sq ft, "
     "against 625 to 722 sq ft for the East 18th Street apartments filed under the "
     "same unit numbers. No listing is dropped.",
+    "unit-reviews-v4": "The unit-reviews-v3 lines, with the 870 Broadway loft ad filed "
+    "as #2 moved into the #3 loft's unit: the two ads carry the same copy and 1,000 sq "
+    "ft, and the #3 ad went up 16 days after the #2 ad came off. No listing is dropped.",
 }
 
 
