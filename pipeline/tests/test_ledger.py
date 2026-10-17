@@ -357,6 +357,13 @@ def test_repo_ledger_reads():
     ledger.read_units(sorted((PROJECT / "ledger" / "units").glob("*.ndjson")))
 
 
+def test_repo_unit_ledger_holds_entries():
+    """The repo's unit ledger holds joins, splits and a move, each passing read_units."""
+    rows = ledger.read_units(sorted((PROJECT / "ledger" / "units").glob("*.ndjson")))
+    changes = {row["change"] for row in rows}
+    assert {"join_units", "split_unit", "move_building"} <= changes
+
+
 @pytest.mark.parametrize("folder", ["ledger", "ledger/units"])
 def test_repo_ledger_only_grows(folder):
     """Each ledger file at the merge base with master stays as it was, and each new file sorts

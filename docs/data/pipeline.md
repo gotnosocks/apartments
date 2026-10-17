@@ -1372,10 +1372,11 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
 1848216, 1887124, 2678483, 5019133 and 5098585.
 
-The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
-`unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
-`elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to another unit or building
-go into the unit ledger, described under [Unit ledger](#unit-ledger).
+The chain's `building-joins-v1` and `unit-reviews-v2` are in the unit ledger, described under
+[Unit ledger](#unit-ledger), but for a split held for want of backing. Its other rules are not
+in a ledger yet: `west-coast-wings-v1`, `unit-splits-v4`, `unit-labels-v17`,
+`fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to
+another unit or building go into the unit ledger.
 
 ### Check build
 
@@ -1468,9 +1469,36 @@ building, a change to the unit ledger rebuilds the two unit ledger models and ev
 `ads.placed` on, 14 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
 `ledger.units`, and counts its entries by status and change.
 
-The folder holds no files yet, and `ads.placed` then gives each ad the building and unit of
-`ads.identity`. The chain's `building-joins-v1` and `unit-reviews-v2` go in with their evidence
-in a later PR.
+With no files in the folder, `ads.placed` gives each ad the building and unit of
+`ads.identity`. I imported the chain's `unit-reviews-v2` and `building-joins-v1` into
+`2026-10-17-unit-reviews.ndjson`, each entry with a `source` pointing at its review line or
+rule. For each one I looked for backing beyond the ad's own words in the API records, PLUTO and
+the lot registry:
+
+- The two joins at 110 West 26th Street rest on Ben's statement of 2026-10-07, as `owner`
+  evidence.
+- The join of 21 West 12th Street's 2, 2B, 2F and 2R rests on the sizes the ads state, about
+  800 sq ft with a 400 sq ft terrace, and on PLUTO's 8 residential units in 4 floors.
+- The splits at 1 Patchin Place and 407 West 39th Street rest on the sizes in the split ads'
+  records, 1,800 and 2,500 sq ft, against the unit's 900 to 950 and 350.
+- The split of 780 Greenwich Street 6H's 2025 ad rests on the 2022 PH6H ads, which describe
+  the same apartment as a two-bedroom duplex after a roof addition.
+- The move of 97 Horatio Street to The West Coast rests on the lot registry.
+
+I also joined 43 East 20th Street's units 2, 2A and 2S, a full-floor loft of 2,000 sq ft by its
+ads' sizes and PLUTO's floor area. I held the split of 249 West 29th Street 3E's ad 2200772. PAD
+gives 249 and 251 West 29th Street a single lot and BIN, so the ad's address points at the same
+building, and only the ad itself calls the apartment a studio. A floor plan or a stated size
+would back it. On the Oct 16 export every entry comes out `live`, and 25 ads change unit or
+building.
+
+I then ran the served fit's rules on its rows twice, once as the chain runs them and once after
+the ledger's placements. With the chain's rules all kept, the two runs agree on every row's
+unit and building but 43 East 20th Street's. Skipping `building-joins-v1` and `unit-reviews-v2`
+after the ledger loses the three splits, as well as the held one: the first step of `unit-labels-v17` gives every row of
+a building and label the least unit ID among them, and a split's ads keep their page, so their
+`~review-` IDs fall back to the unit's. The joins and the move come out as the chain's either
+way.
 
 ## Ads file
 
@@ -2039,7 +2067,8 @@ in all, and most tests add made-up ads to that export. The tests:
     entry's status and differing values and each ad's building, building ID, unit and placements
     by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
-    `ads.placed`.
+    `ads.placed`;
+45. read the repo's unit ledger and check that it holds a join, a split and a move.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
