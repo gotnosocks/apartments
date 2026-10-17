@@ -1835,6 +1835,9 @@ def test_rent_map_slices_by_bedrooms_and_neighbourhood(client, site_root):
     one = client.get("/estimates/map.json?beds=1&area=Bushwick").get_json()
     assert [b["id"] for b in one["buildings"]] == ["b"]
     assert one["rent"] == {"1": [["b1"]]}
+    some = client.get("/estimates/map.json?beds=1&area=Nowhere").get_json()
+    assert len(some["buildings"]) == 2 and set(some["rent"]) == {"1"}
+    assert some["kinds"] is False
     # unknown choices fall back to everything
     other = client.get("/estimates/map.json?beds=9&area=Nowhere").get_json()
     assert set(other["rent"]) == {"1", "2"} and len(other["buildings"]) == 2

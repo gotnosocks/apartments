@@ -109,7 +109,11 @@ function buildControls() {
       const lab = html('label', { class: 'chip' }, box);
       const inp = html('input', { type: 'radio', name: 'area', value, checked: value === '' }, lab);
       lab.appendChild(document.createTextNode(' ' + label));
-      inp.addEventListener('change', async () => { state.area = value || null; view.zoom = 1; view.cx = null; view.cy = null; if (await load()) render(); });
+      inp.addEventListener('change', async () => {
+        if (!(await load(state.bed, value || null))) return;
+        view.zoom = 1; view.cx = null; view.cy = null;
+        render();
+      });
     }
   }
   const seg = $('beds-select');
@@ -117,7 +121,7 @@ function buildControls() {
     const lab = html('label', { class: 'chip' }, seg);
     const inp = html('input', { type: 'radio', name: 'beds', value: b.key, checked: b.key === state.bed }, lab);
     lab.appendChild(document.createTextNode(' ' + b.label));
-    inp.addEventListener('change', async () => { state.bed = b.key; if (await load()) render(); });
+    inp.addEventListener('change', async () => { if (await load(b.key, state.area)) render(); });
   }
   const base = $('base-year');
   d.years.forEach((y, i) => html('option', { value: String(i), selected: i === state.base }, base, String(y)));
@@ -140,7 +144,7 @@ function buildControls() {
     }, 900);
   });
   $('show-before').addEventListener('change', (e) => { state.showBefore = e.target.checked; render(); });
-  if (d.buildings.some((b) => b.kind)) {
+  if (d.kinds ?? d.buildings.some((b) => b.kind)) {
     $('kind-label').hidden = false;
     $('kind-select').addEventListener('change', (e) => { state.kind = e.target.value || null; render(); });
   }
@@ -489,8 +493,7 @@ function readUrl() {
   if (q.get('year') && yi >= 0) state.year = yi;
   if (q.get('base') && bi >= 0) state.base = bi;
   state.showBefore = q.get('before') === '1';
-  for (const inp of document.querySelectorAll('#area-select input')) inp.checked = inp.value === (state.area || '');
-  for (const inp of document.querySelectorAll('#beds-select input')) inp.checked = inp.value === state.bed;
+  checkRadios();
   $('year-range').value = state.year;
   $('base-year').value = String(state.base);
   $('show-before').checked = state.showBefore;
@@ -536,21 +539,33 @@ async function fetchSlice(bed, area) {
   }
   return slices.get(key);
 }
-// Fetches the slice for the chosen bedroom count and neighbourhood into
-// state.data; false when a later choice overtook this one or the fetch failed.
-async function load() {
+// Fetches the slice for a bedroom count and neighbourhood, then sets
+// state.bed, state.area and state.data together, so a render while the fetch
+// runs still draws the previous choice. Returns false when a later choice
+// overtook this one or the fetch failed, and then puts the radios back.
+async function load(bed, area) {
   const mine = ++loading;
   $('map-title').textContent = 'Loading the map…';
-  let d;
+  let d = null;
   try {
-    d = await fetchSlice(state.bed, state.area);
+    d = await fetchSlice(bed, area);
   } catch {
-    if (mine === loading) $('map-title').textContent = 'The map did not load. Reload the page to try again.';
-    return false;
+    // reported below
   }
   if (mine !== loading) return false;
+  if (!d) {
+    checkRadios();
+    $('map-title').textContent = 'The map did not load. Reload the page to try again.';
+    return false;
+  }
+  state.bed = bed;
+  state.area = area;
   state.data = d;
   return true;
+}
+function checkRadios() {
+  for (const inp of document.querySelectorAll('#area-select input')) inp.checked = inp.value === (state.area || '');
+  for (const inp of document.querySelectorAll('#beds-select input')) inp.checked = inp.value === state.bed;
 }
 
 function normalize(d) {
@@ -567,19 +582,18 @@ function normalize(d) {
 
 async function main() {
   tip.el = $('tooltip');
-  // The URL's bedroom count and neighbourhood pick the first slice; readUrl
-  // drops any the map lacks.
+  // The URL's bedroom count and neighbourhood pick the first slice. readUrl
+  // keeps only the choices the map offers, and a second fetch follows when
+  // it drops one.
   const q = new URLSearchParams(location.search);
-  if (q.get('beds')) state.bed = q.get('beds');
-  state.area = q.get('area') || null;
+  const want = { bed: q.get('beds') || state.bed, area: q.get('area') || null };
   let d;
   try {
-    d = state.data = await fetchSlice(state.bed, state.area);
+    d = state.data = await fetchSlice(want.bed, want.area);
   } catch {
     $('map-kpis').textContent = 'No rent map for the served model yet.';
     return;
   }
-  if (!d.rent[state.bed]) state.bed = '1';
   $('map-definition').textContent = d.definition;
   $('map-meta').textContent = `${d.model} · ${d.feature_set} · ${d.draws.toLocaleString('en-US')} draws · made ${d.created_at.slice(0, 10)}`;
   const foot = $('map-foot');
@@ -587,8 +601,8 @@ async function main() {
   html('p', {}, foot, `Typical rents are the model's, not listings' asks: a building with few listings leans on the whole area (${d.area}) and on buildings like it. `
     + 'Intervals are the model\'s uncertainty about the typical ask, not the spread of individual asks.');
   buildControls();
-  state.area = null;
   readUrl();
+  if ((state.area !== want.area || state.bed !== want.bed) && !(await load(state.bed, state.area))) return;
   render();
   let resize;
   window.addEventListener('resize', () => { clearTimeout(resize); resize = setTimeout(render, 150); });

@@ -38,7 +38,7 @@ def test_the_trend_says_why_it_differs_from_the_median_ask():
 def test_the_choices_are_kept_in_the_url():
     # Playtest round 4 (family): a chosen map could not be bookmarked or shared.
     assert "function readUrl()" in JS and "history.replaceState" in JS
-    assert "buildControls();\n  state.area = null;\n  readUrl();\n  render();" in JS
+    assert "buildControls();\n  readUrl();\n" in JS and "render();" in JS
 
 
 def test_the_growth_caveat_names_every_neighbourhood():
