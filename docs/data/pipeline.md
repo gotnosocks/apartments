@@ -1972,6 +1972,14 @@ and lists the file's name and SHA-256 in its provenance under `records`.
 records of the cohort's listings, so one run covers every region, where the granular export
 took a run for each slice. Its provenance names the file under `records`.
 
+From the records, `descriptions` takes each listing's ACTIVE record fetched last, and its
+record fetched last when it has no ACTIVE record. StreetEasy strips or cuts an ad's description
+once it is rented or delisted, so the last ACTIVE record holds the text of the ad that asked
+the rent. This matches the cut `ads.attributes` makes in the pipeline. Each evidence line
+records its choice under `description_record`, as `last_active` or `latest`, and the
+provenance counts the rows of each under `rows_by_description_record`. A run from a granular
+export keeps the record captured last and marks every line `latest`.
+
 `listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
 and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
 that file decides which listings the reader keeps. With `--base`, the base file's listings keep
@@ -2658,7 +2666,11 @@ The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a 
 
 61. build a cohort's description evidence from a records file with two records of a listing,
     and check that each row takes the text of the record fetched last and that the build skips
-    listings outside the cohort;
+    listings outside the cohort. A second build reads four listings: a RENTED record after an
+    ACTIVE one, two ACTIVE records before a DELISTED one, a draft and a record in contract with
+    no ACTIVE one, and an ACTIVE record without a description before a DELISTED one with a
+    description. It checks that each row takes its last ACTIVE record's text, or the latest
+    record's without one, and that the last listing gets no evidence line;
 62. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
     either and stops on both.
 
