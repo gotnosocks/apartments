@@ -450,7 +450,7 @@ ops/streeteasy-collect topup
   backfill stopped by a failed region exits before the export, and the next invocation exports
   its replies.
 
-`ops/systemd/apartments-streeteasy-topup.timer` runs `topup` every Friday at 05:30 New York
+`ops/systemd/apartments-streeteasy-topup.timer` runs `topup` every Friday at 05:35 New York
 time from the master checkout, in the light slice with 2 GB of memory. Ben asked on Oct 15 for
 a weekly top-up in place of a daily one. The service and timer go into `~/.config/systemd/user`
 as links into the master checkout, and only the timer is enabled:
@@ -461,7 +461,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now apartments-streeteasy-topup.timer
 ```
 
-A backfill holding `oxylabs.lock` at 05:30 delays the top-up until it finishes, for up to 18
+A backfill holding `oxylabs.lock` at 05:35 delays the top-up until it finishes, for up to 18
 hours.
 
 ## Raw export

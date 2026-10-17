@@ -168,7 +168,7 @@ research dashboard's address) by `ops/systemd/apartments-site.service`, deployed
 heavy-job lock; see [the site doc](../site.md).
 
 `ops/systemd/apartments-streeteasy-topup.timer` runs `ops/streeteasy-collect topup` every
-Friday at 05:30 New York time. It reads each region's current StreetEasy ads through the
+Friday at 05:35 New York time. It reads each region's current StreetEasy ads through the
 GraphQL API into the archive `/data1/apartments/archive/crawls/api`, and its export starts the
 pipeline build the site reads; see [the collection note](../data/graphql-collection.md).
 
