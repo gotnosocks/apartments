@@ -561,6 +561,7 @@ async function load(bed, area) {
   state.bed = bed;
   state.area = area;
   state.data = d;
+  checkRadios();
   return true;
 }
 function checkRadios() {
