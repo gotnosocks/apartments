@@ -1,4 +1,5 @@
-"""Build the data pipeline from the scraper's export and save its fit-ready rows and its ads.
+"""Build the data pipeline from the scraper's export and save its fit-ready rows, its ads and its
+records.
 
     pipeline/.venv/bin/python ops/pipeline/build.py [--export DIR] [--state DIR] [--out DIR]
 
@@ -16,20 +17,25 @@ The script works in these steps:
    `rows-04fe7ad81836fed2.parquet`. Two builds from the same export and the same code write
    the same bytes, so the second one finds its files already there. Both models are views, and
    the script counts their rows as it writes them.
-4. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
+4. It writes the records file, `records-<hash>.parquet`, with `steps/records.py`: each distinct
+   API record of an ad, in the form the frontier builders read from the granular export. The
+   step keeps the records it has read in `STATE/records/`, so a build after a top-up reads only
+   the top-up's new records.
+5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, each export file it
    read with its SHA-256, each file of the corrections ledger with its SHA-256 and the count of
    its entries in each status, each file of the city archive with its SHA-256, the seconds each
-   rebuilt model took with its audits, each model's table and row count, the rows file and the
-   ads file with their SHA-256, the wall time of each step, and the peak memory of the script
-   and of its cgroup.
+   rebuilt model took with its audits, each model's table and row count, the rows, ads and
+   records files with their SHA-256, the wall time of each step, and the peak memory of the
+   script and of its cgroup.
    The script takes the commit before it loads the project, and the export, ledger and city
    files from the variables `config.py` gave the project.
-5. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
+6. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
    the janitor fails, the script prints a warning and still exits 0.
 
 A fit can read the rows file by its name and check its SHA-256 against the catalog. The website
-and the reviews of ads read the ads file the same way. The models' tables stay in the state
+and the reviews of ads read the ads file the same way, and the frontier builders the records
+file. The models' tables stay in the state
 folder, under the names the catalog gives, for a week after a later build replaces them.
 """
 
@@ -37,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import resource
@@ -125,7 +132,7 @@ def write(ctx, name: str, stem: str, out: Path) -> dict:
 
 
 def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict:
-    """Run the five steps and return the catalog line, or raise SystemExit on a failed plan."""
+    """Run the six steps and return the catalog line, or raise SystemExit on a failed plan."""
     os.environ["PIPELINE_EXPORT"] = str(export)
     os.environ["PIPELINE_STATE"] = str(state)
 
@@ -196,6 +203,24 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         models[name]["rows"] = files[stem]["rows"]
     steps["write"] = time.time() - mark
 
+    mark = time.time()
+    records = importlib.import_module("steps.records")
+    # The venv's editable install can load the step from another checkout, whose records would
+    # then go into the catalog line of this one.
+    if (
+        Path(records.__file__).read_bytes()
+        != (project / "steps" / "records.py").read_bytes()
+    ):
+        raise SystemExit(
+            f"the build loaded steps.records from {records.__file__}, which differs from "
+            f"{project / 'steps' / 'records.py'}; run `uv sync` in the pipeline folder of the "
+            "checkout to build"
+        )
+    files["records"] = records.write(
+        ctx.engine_adapter.connection.cursor(), variables["ads"], state / "records", out
+    )
+    steps["records"] = time.time() - mark
+
     line = {
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "code": code,
@@ -216,6 +241,7 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         "rows": files["rows"],
         # The export's files are under "ads", so the ads file goes under "ads_file".
         "ads_file": files["ads"],
+        "records": files["records"],
         "seconds": {step: round(value, 1) for step, value in steps.items()}
         | {"total": round(time.time() - started, 1)},
         "peak_mib": peak_mib(),
@@ -246,7 +272,12 @@ def main(argv=None) -> int:
     }
     print(
         json.dumps(
-            {"rebuilt": rebuilt, "rows": line["rows"], "ads_file": line["ads_file"]},
+            {
+                "rebuilt": rebuilt,
+                "rows": line["rows"],
+                "ads_file": line["ads_file"],
+                "records": line["records"],
+            },
             indent=1,
         )
     )
