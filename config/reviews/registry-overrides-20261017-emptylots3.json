@@ -1,0 +1,31 @@
+{
+ "version": "registry-overrides-emptylots-v3",
+ "reviewed_at": "2026-10-17",
+ "rule": "Buildings whose registry lot has no building in MapPLUTO 26v2 (or is missing from it), moved to the lot the pipeline's building identity step (buildings.lots) gives, where PAD's address ranges put the building's StreetEasy street address on that lot exactly (rank 0) and the lot holds apartments in MapPLUTO 26v2",
+ "overrides": [
+  {
+   "building": "165-concord-street-brooklyn",
+   "bbl": "3001080003",
+   "bin": "3325922",
+   "label": "199 BRIDGE STREET",
+   "evidence": "PAD 26c puts 165 Concord Street in an address range of lot 3001080003 in the record's zip; StreetEasy's building record gives class C1, built unknown, unknown floors, unknown apartments; MapPLUTO 26v2 lot 3001080003 is 199 BRIDGE STREET, class C1, built 1915, 4 floors, 16 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3001080001: MapPLUTO 26v2 has  BRIDGE STREET, class QG, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "59-grand-street-brooklyn",
+   "bbl": "3023787503",
+   "bin": "3425932",
+   "label": "57 GRAND STREET",
+   "evidence": "PAD 26c puts 59 Grand Street in an address range of lot 3023787503 in the record's zip; StreetEasy's building record gives class D5, built unknown, unknown floors, unknown apartments; MapPLUTO 26v2 lot 3023787503 is 57 GRAND STREET, class RM, built 1950, 5 floors, 13 apartments; the pipeline's building identity step links it (tie)",
+   "registry_was": "address, BBL 3023780030: a lot MapPLUTO 26v2 leaves out"
+  },
+  {
+   "building": "401-west-broadway-new_york",
+   "bbl": "1004870020",
+   "bin": "1079937",
+   "label": "399 WEST BROADWAY",
+   "evidence": "PAD 26c puts 401 West Broadway in an address range of lot 1004870020 in the record's zip; StreetEasy's building record gives class K4, built 1840, 4 floors, 3 apartments; MapPLUTO 26v2 lot 1004870020 is 399 WEST BROADWAY, class K4, built 1880, 3 floors, 20 apartments; the pipeline's building identity step links it (address)",
+   "registry_was": "reverse, BBL 1004900020: MapPLUTO 26v2 has 162 SPRING STREET, class Z9, built 0, 0 apartments, and no building area"
+  }
+ ]
+}
