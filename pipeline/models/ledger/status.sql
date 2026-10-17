@@ -13,7 +13,8 @@ MODEL (
 --   retract     the entry undoes another.
 --   retracted   a later entry undoes it.
 --   absent      no kept row has its ad.
---   stale       a value in its `when` differs from the kept row's. `differs` names the values.
+--   stale       a value in its `when` differs from the kept row's, or its `latest_ask` from the
+--               ask analysis.latest_ask gives the row. `differs` names the values.
 --   superseded  a later live set gives the same field of the same row.
 --   live        it applies, and analysis.rows applies it.
 WITH checked AS (
@@ -33,9 +34,12 @@ WITH checked AS (
                 AND e.when_half_baths IS DISTINCT FROM k.half_baths THEN 'half_baths ' ELSE '' END
             || CASE WHEN list_contains(e.when_keys, 'square_feet')
                 AND e.when_square_feet IS DISTINCT FROM k.square_feet THEN 'square_feet ' ELSE '' END
+            || CASE WHEN list_contains(e.when_keys, 'latest_ask')
+                AND e.when_latest_ask IS DISTINCT FROM a.latest_ask THEN 'latest_ask ' ELSE '' END
         ) AS differs
     FROM ledger.entries e
     LEFT JOIN analysis.kept k USING (listing_id)
+    LEFT JOIN analysis.latest_ask a USING (listing_id)
 ),
 failed AS (
     SELECT *,
