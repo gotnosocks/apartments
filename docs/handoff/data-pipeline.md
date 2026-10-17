@@ -124,9 +124,8 @@ These PRs merged on Oct 17:
 - #1018, from Data improvements: five `set latest_ask` entries give five ads back the asks they
   had before their takedown. Each ad had raised its ask to a repeated-digit price on or just
   after that day. [pipeline.md](../data/pipeline.md#latest-ask) has the count of such changes.
-- #1022: [pipeline.md](../data/pipeline.md#latest-ask) counts the late repeated-digit rises.
-- #1024, from Data improvements: review files for 239 rows on lots of parks, parking, rail yards
-  and vacant land.
+- #1022: the latest-ask section counts the late repeated-digit rises behind #1018.
+- #1024, from Data improvements: a review file of 239 rows on lots that never held a building.
 - #1025: the building check lists those rows under `never_built_lot`.
 
 The work goes on in this order:
@@ -146,11 +145,11 @@ The work goes on in this order:
 
    After the joins, 1,923 lots stay over their count. The 22,112 chain links without a shared
    photo need another signal: on the prototypes in `/data1/apartments/tmp/pipeline/lanes/laned/`,
-   floors put them about 68% right and floor plans about 56%, too low to join on. Description
-   text and unit labels don't separate them either, as
-   [pipeline.md](../data/pipeline.md#description-text) shows. A reader judged
-   17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` to be unit splits
-   or relabels, and those lots serve as labeled tests.
+   floors put them about 68% right and floor plans about 56%, too low to join on. On the
+   47,347 candidate pairs without a shared photo, I found description text and unit labels too
+   weak to join on as well. [pipeline.md](../data/pipeline.md#description-text) has the counts.
+   A reader judged 17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md`
+   to be unit splits or relabels, and those lots serve as labeled tests.
 2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and
    `2026-10-17-wrong-lots2.ndjson` hold Data improvements' 1,426 reviewed wrong lots from #975
    and #1012, written by `ops/pipeline/drop_lot_import.py`. On the lane build in

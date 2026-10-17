@@ -2253,29 +2253,39 @@ and records files most of the rest.
 In the lots over their count, 47,347 pairs of ads pass every test of `analysis.relist_pairs` but
 the shared photo. I tested the ads' descriptions as a second signal on the drop-lot lane's state
 of Oct 17, with the scripts in `/data1/apartments/tmp/pipeline/lanes/relist-text/`. For each pair
-I counted the word 4-grams both descriptions hold, first over all 4-grams, then over the rare
-ones, on 2 or 3 unit pages of a single lot as for photo keys. For a pair known to fall on two
-apartments, I took ads on two unit pages of a lot with the same layout, on the market together
-for more than 14 days at asks 3% or more apart.
+I counted the word 4-grams common to both descriptions, first over all 4-grams, then over rare
+4-grams alone, as the step does for photo keys. A rare 4-gram appears on 2 or 3 unit pages, all
+in one lot. To compare, I took pairs of ads on two unit pages of a lot, with the same bedrooms
+and baths, on the market together for more than 14 days at asks 3% or more apart. I take those
+pairs to fall on two apartments. The rates are shares of the pairs with a description on both
+ads.
 
-| pairs | count | 4-gram Jaccard of 0.8 or more | 5 or more rare 4-grams in common |
-|---|---:|---:|---:|
-| in `analysis.relist_pairs` | 8,482 | 72% | 26% |
-| without a shared photo | 47,347 | 56% | 5.8% |
-| on two apartments | 13,502 | 26% | 2.9% |
+| pairs | count | with text | 4-gram Jaccard of 0.8 or more | 5 or more rare 4-grams in common |
+|---|---:|---:|---:|---:|
+| in `analysis.relist_pairs` | 8,482 | 7,879 | 72% | 28% |
+| without a shared photo | 47,347 | 42,783 | 56% | 6.5% |
+| on two apartments | 13,502 | 13,138 | 26% | 3.0% |
 
-Brokers reuse a description across the apartments of a building, so a quarter of the pairs on
-two apartments share nearly all their text. Rare 4-grams leave most of that out, but only a
-quarter of the step's pairs hold five of them. Of the pairs without a shared photo, 2,765 hold
-five or more. Pairs on two apartments do so at a rate of 2.9%, and at that rate about 1,370 of
-the 2,765 could fall on two apartments, so I don't join on text.
+Brokers reuse a description across apartments. Of the pairs on two apartments, 3,351 have a
+4-gram Jaccard of 0.8 or more. In 3,175 of those, fewer than 5 of the shared 4-grams are rare, so
+most of the shared text also appears on 4 or more unit pages, or in other lots. When I count rare
+4-grams alone, 28% of the step's pairs hold five or more, against 3.0% of the pairs on two
+apartments.
 
-The readers of the earlier sample saw the start of each description. They put 12 pairs without a
-shared photo on one apartment. In 6 of those, the two descriptions share 80% or more of their
-4-grams, so the verdicts may lean on a broker's template.
+Among the pairs without a shared photo, 2,765 hold five or more rare 4-grams. If all 42,783 of
+those pairs with text fell on two apartments, I'd expect 3.0% of them, about 1,280, to hold five
+or more. That ceiling comes to nearly half of the 2,765, too many to join on.
 
-Unit labels don't help either. In 12 of the pairs without a shared photo, the two labels match
-once case, spaces, punctuation and leading zeros are dropped, and in 167 they match as given.
+Readers judged a sample of 60 pairs of unit pages from a prototype of the step, in
+`/data1/apartments/tmp/pipeline/lanes/laned/read/`, with each ad's description in front of them.
+Of the 20 pairs without a shared photo, they put 12 on one apartment. In 3 of those 12, at least
+one page has no description. In 6, the two pages' descriptions have a 4-gram Jaccard of 0.8 or
+more. None of the 12 have 5 rare 4-grams in common. The readers may have matched a broker's
+template, so I don't count their verdicts as support for joining on text.
+
+Unit labels give little more. In 161 of the pairs without a shared photo, the two pages have the
+same label. In 12 more, the labels match once I drop case, spaces, punctuation and leading
+zeros. Together they make up 0.4% of the pairs.
 
 ## Ads file
 
