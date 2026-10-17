@@ -876,8 +876,9 @@ BEDROOM_CORRECTIONS_V10 = (
 def correct_bedrooms_v10(frame: pd.DataFrame) -> pd.DataFrame:
     """v9's rows, then 68 Clinton Street #4A and #4B as 3 bedrooms on their six
     ads (2015 to 2022) coded as studios or one-bedrooms. Each ad offers a "5 room
-    duplex", and the same units' later ads (2014 and 2023 to 2026) are coded 3
-    bedrooms and describe a 3 bedroom duplex with a private roof deck.
+    duplex", and the same units' other ads (2014 and 2023 to 2026) are coded 3
+    bedrooms and offer a 3 bedroom duplex. Two #4A ads read it as 2 bedrooms, one
+    of them "2 bedroom/Conv 3", and no ad backs a studio or one-bedroom.
 
     Every row is kept; only `bedrooms` changes."""
     return _correct_bedrooms(correct_bedrooms_v9(frame), "bedrooms-ad-v10")
