@@ -1,8 +1,8 @@
 [Unit]
-Description=Copy new city records of lots and buildings every Friday at 04:00 New York time, before the StreetEasy top-up
+Description=Copy new city records of lots and buildings every Friday at 04:05 New York time, before the StreetEasy top-up
 
 [Timer]
-OnCalendar=Fri 04:00 America/New_York
+OnCalendar=Fri 04:05 America/New_York
 Persistent=true
 
 [Install]

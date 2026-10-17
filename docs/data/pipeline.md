@@ -135,10 +135,13 @@ nothing new in 4 s, and `--verify` checked the 62 files in 7 s. A copy of the fo
 214 MB, so a new copy every week adds about 11 GB a year. Weekly copies of the two certificate
 sets add about 1.2 GB a year, and four PAD and four MapPLUTO releases about 0.5 GB.
 
-`apartments-city-fetch.timer` starts the script every Friday at 04:00 ET, before the StreetEasy
+`apartments-city-fetch.timer` starts the script every Friday at 04:05 ET, before the StreetEasy
 top-up at 05:30. The service moves `/data1/apartments/serve/master` to master and runs the
-script from there on the system's Python, capped at 1 GiB. A second run exits at once while the
-first holds `.lock`. `--verify` checks each listed file's size and SHA-256. The units go in once:
+script from there on the system's Python, capped at 1 GiB. The dashboard build moves the same
+checkout every ten minutes, at :00, :10 and so on, and the Modal cleanup moves it every hour on
+the hour. At 04:05 the fetch starts between two dashboard runs, clear of both units' git steps.
+While a run holds the script's own `.lock`, a second run exits at once. `--verify` checks each
+listed file's size and SHA-256. The units go in once:
 
 ```sh
 cp /data1/apartments/serve/master/ops/systemd/apartments-city-fetch.{service,timer} ~/.config/systemd/user/
