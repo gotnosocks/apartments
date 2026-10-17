@@ -40,6 +40,8 @@ MODEL (
 --   ask_check:  for a row analysis.ask_check lists for review, the median latest ask of the
 --       building's other rows with the same bedroom count, their number and the row's ratio to
 --       the median.
+--   building_check:  for a row analysis.building_check lists for review, its reasons, the lot
+--       and release it read, the ad's floor and the lot's floor count, apartments and land use.
 --   in_rows:  whether the ad has a fit-ready row in analysis.rows.
 WITH ledger AS (
     SELECT listing_id, list_sort(list(entry)) AS ledger_entries
@@ -62,6 +64,12 @@ SELECT i.listing_id, i.unit_id, i.building_id, i.building, i.page, g.regions,
     coalesce(d.ledger_entries, []) AS ledger_entries, i.placements,
     CASE WHEN q.listing_id IS NOT NULL
         THEN {'peer_ask': q.peer_ask, 'peer_rows': q.peer_rows, 'ratio': q.ratio} END AS ask_check,
+    CASE WHEN h.listing_id IS NOT NULL
+        THEN {
+            'reasons': h.reasons, 'bbl': h.bbl, 'pluto_release': h.pluto_release,
+            'floor': h.floor, 'numfloors': h.numfloors, 'unitsres': h.unitsres,
+            'landuse': h.landuse
+        } END AS building_check,
     i.listing_id IN (SELECT listing_id FROM analysis.rows) AS in_rows
 FROM ads.placed i
 JOIN ads.latest_record l USING (listing_id)
@@ -76,3 +84,4 @@ LEFT JOIN analysis.latest_ask a USING (listing_id)
 LEFT JOIN analysis.candidates c USING (listing_id)
 LEFT JOIN ledger d USING (listing_id)
 LEFT JOIN analysis.ask_check q USING (listing_id)
+LEFT JOIN analysis.building_check h USING (listing_id)

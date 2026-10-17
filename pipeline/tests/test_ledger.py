@@ -258,8 +258,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - j: an exclude with ten times the row's latest ask goes stale.
     - an exclude of an ad with no kept row stays absent.
 
-    Only the two ledger models, analysis.ask_check and the views analysis.rows and
-    analysis.ads build again, and analysis.latest_ask stays as it was."""
+    Only the two ledger models, analysis.ask_check, analysis.building_check and the views
+    analysis.rows and analysis.ads build again, and analysis.latest_ask stays as it was."""
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     ctx.plan(auto_apply=True, no_prompts=True)
@@ -319,6 +319,7 @@ def test_ledger_cases(tmp_path, monkeypatch):
     assert changed(plan) == [
         "analysis.ads",
         "analysis.ask_check",
+        "analysis.building_check",
         "analysis.rows",
         "ledger.entries",
         "ledger.status",

@@ -232,6 +232,7 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_certificates",
+        "analysis.building_check",
         "analysis.candidates",
         "analysis.kept",
         "analysis.latest_ask",
