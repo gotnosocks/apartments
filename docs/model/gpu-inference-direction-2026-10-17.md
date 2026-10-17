@@ -195,9 +195,9 @@ review (P1), the Gibbs sampler's random-walk step for nu came to 13 to 15 times 
 The exact draw removes that step.
 
 NumPyro's `HMCGibbs` can host this pattern, with NUTS on the gradient sites and a function of my
-own for the exact draws. Its inner kernel conditions on the Gibbs sites, so the model I pass it has
-to be the marginal itself, with `w`, `v` and nu as Gibbs sites. My Gibbs function would draw
-`a_k` and `u_k` on the side. BlackJAX offers more choice of kernel:
+own for the exact draws. Its inner kernel conditions on the Gibbs sites, so I'd give it the
+marginal itself as the model, with `w`, `v` and nu as Gibbs sites. My Gibbs function would draw
+`a_k` and `u_k` first, then nu, then `w` and `v`. BlackJAX offers more choice of kernel:
 
 - MAMS, the Metropolis-adjusted microcanonical Hamiltonian Monte Carlo of Robnik, Cohn-Gordon and
   Seljak, needed up to 7 times fewer gradients than NUTS in its authors' benchmarks. BlackJAX calls
@@ -363,8 +363,10 @@ Predictions:
 ### E5. All-scraped fit (Modal, $1 to $4)
 
 I'd run it after E3 and E4 pass, and after Data improvements resolves the P6 buildings. I'd use the
-standard container, since the predicted time falls within the 1-hour cap. If E3 points to a longer
-run, the large container's exemption from the cap applies, at $5.86 an hour on an H100.
+standard container, since the predicted time for the whole run falls within the 1-hour cap. The
+standard container skips the summary bundle, which `app.py` builds only for large fits, so the
+bundle would need its own step. If E3 points to a longer run, the large container's exemption
+from the cap applies, at $5.86 an hour on an H100.
 
 - Prediction: the fit stage takes 10 to 40 minutes on an H100.
 - Prediction: with LOO and variance shares on the GPU, the run costs $1 to $4. I'd record anything
