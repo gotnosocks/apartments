@@ -10,13 +10,15 @@
 #    checkout, on the system's Python. Nothing else uses the venv. When the export's manifest,
 #    the city archive's manifest and the commit's trees for pipeline/, src/ and ops/pipeline/
 #    match the ones it wrote to $STATE/last-build after the last build, it stops there.
-# 3. It takes the GPU lock and every light slot, in the order `ops/job gpu -x` takes them, so
-#    no GPU fit or light job runs beside the build. With the locks held, it checks for 6 GiB of
-#    available memory. When less is available, it lets go of the locks and tries again in five
-#    minutes.
+# 3. It takes every light slot, so no `ops/job light` job runs beside the build, and with the
+#    slots held it runs ops/pipeline/room. That script checks that no job holds the GPU lock,
+#    that no site build or Data improvements unit runs, and that 5 GiB of memory is available.
+#    When a check fails, the script lets go of the slots and tries again a minute later. The
+#    build leaves the GPU lock free, so a GPU job can start while it runs. The log gives the
+#    locks the build took and the memory available at its start.
 # 4. It runs ops/pipeline/build.py in the service's own cgroup, where the unit caps memory and
 #    turns swap off. The build writes its rows file, ads file and catalog line to
-#    /data1/apartments/pipeline/datasets. Then the script lets go of the locks.
+#    /data1/apartments/pipeline/datasets. Then the script lets go of the slots.
 # 5. When the manifest changed while the build ran, it goes back to step 1.
 #
 # When the build fails, the script exits with the build's status and the service shows as failed.
@@ -36,14 +38,13 @@ export PIPELINE_MEMORY=${PIPELINE_MEMORY:-3GB}
 export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
 mkdir -p "$TMPDIR"
 
-# The GPU lock goes on fd 9 and the light slots on fds 5 to 7, as ops/job takes them.
-take_locks() {
-  exec 9>"$LOCKS/gpu.lock" && flock 9 || return 1
+# The light slots go on fds 5 to 7, as ops/job takes them.
+take_slots() {
   for i in 1 2 3; do
     eval "exec $((4 + i))>\"\$LOCKS/light-$i.lock\"" && flock $((4 + i)) || return 1
   done
 }
-drop_locks() { exec 5>&- 6>&- 7>&- 9>&-; }
+drop_slots() { exec 5>&- 6>&- 7>&-; }
 
 while :; do
   echo "$(date -Is) waiting for $CRAWLS/oxylabs.lock"
@@ -59,17 +60,21 @@ while :; do
     break
   fi
 
-  echo "$(date -Is) waiting for the GPU lock and the light slots"
+  echo "$(date -Is) waiting for the light slots, a free GPU lock and room to build"
+  last=
   while :; do
-    take_locks || exit 1
-    [ "$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)" -gt $((6 * 1024 * 1024)) ] && break
-    drop_locks
-    echo "$(date -Is) under 6 GiB available, trying again in five minutes"
-    sleep 300
+    take_slots || exit 1
+    room=$("$CODE/ops/pipeline/room") && break
+    drop_slots
+    # The log gets a line when the reason to wait changes, not every minute.
+    [ "${room%%:*}" = "$last" ] || echo "$(date -Is) waiting: $room"
+    last=${room%%:*}
+    sleep 60
   done
+  echo "$(date -Is) took light-1, light-2 and light-3, left the GPU lock free, $room"
   echo "$(date -Is) building from $(git -C "$CODE" rev-parse --short HEAD)"
   "$UV_PROJECT_ENVIRONMENT/bin/python" "$CODE/ops/pipeline/build.py" || exit $?
-  drop_locks
+  drop_slots
   echo "$inputs" >"$STATE/last-build"
 
   [ "$(sha256sum <"$MANIFEST")" = "$listed" ] && break

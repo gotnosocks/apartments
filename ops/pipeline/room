@@ -1,0 +1,44 @@
+#!/bin/bash
+# Check whether the data pipeline's build may start now, for ops/pipeline/build-latest, which
+# runs it while holding every light slot. The script prints a line and exits 1 when
+#   - a job holds the GPU lock, as a fit, a GPU summary or any other `ops/job gpu` job does;
+#   - a user unit matching one of the patterns in PIPELINE_BUILD_AVOID is active. The default
+#     patterns take in the site builds (`site-build-*`) and Data improvements' jobs (`di-*`),
+#     which can run outside `ops/job` and then hold no light slot;
+#   - less than PIPELINE_BUILD_GIB GiB of memory is available, 5 unless set.
+# Otherwise it prints the available memory and exits 0.
+#
+# The script tests the GPU lock with `flock -n` and lets go of it at once. The build itself
+# never holds it, so a GPU job queued after the check can start while the build runs.
+set -uo pipefail
+
+LOCKS=${APARTMENTS_LOCKS:-/data1/apartments/tmp/locks}
+AVOID=${PIPELINE_BUILD_AVOID:-site-build-* di-*}
+GIB=${PIPELINE_BUILD_GIB:-5}
+
+if ! flock -n "$LOCKS/gpu.lock" true; then
+  echo "gpu: a GPU job holds the GPU lock"
+  exit 1
+fi
+
+# The patterns go to systemctl unquoted, one argument each, and systemctl matches them itself.
+# With no pattern, systemctl would list every unit, so the script skips the check.
+units=
+if [ -n "${AVOID// /}" ]; then
+  set -f
+  # shellcheck disable=SC2086
+  units=$(systemctl --user list-units --plain --no-legend \
+    --state=active,activating,deactivating,reloading $AVOID | awk '{print $1}' | paste -sd ' ')
+  set +f
+fi
+if [ -n "$units" ]; then
+  echo "units: $units active"
+  exit 1
+fi
+
+kib=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+if [ "$kib" -lt $((GIB * 1024 * 1024)) ]; then
+  echo "memory: $((kib / 1024)) MiB available, under $GIB GiB"
+  exit 1
+fi
+echo "$((kib / 1024)) MiB available"

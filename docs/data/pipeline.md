@@ -292,16 +292,28 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
    export's manifest, the city archive's manifest and the pipeline's code match the last
    build's, as on most of the timer's runs;
-3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
-   runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
-   trying again every five minutes while less is available;
-4. runs `build.py` with `PIPELINE_MEMORY=3GB` in the service's own cgroup, which the unit caps
-   at 5 GiB with swap off, and lets go of the locks after it;
+3. takes every light slot, so no `ops/job light` job runs beside the build, and with the slots
+   held runs `ops/pipeline/room`, which checks that
+   - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
+   - no unit named `site-build-*` or `di-*` is active, for the site builds and Data
+     improvements' jobs run outside `ops/job`;
+   - 5 GiB of memory is available;
+
+   and when a check fails, it lets go of the slots and checks again a minute later, logging the
+   reason when it changes;
+4. logs the locks it took and the memory available, runs `build.py` with `PIPELINE_MEMORY=3GB`
+   in the service's own cgroup, which the unit caps at 5 GiB with swap off, and lets go of the
+   slots after it;
 5. builds again when the manifest changed during the build.
 
 Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
+
+The build leaves the GPU lock free, so a GPU job queued after its start runs beside it. Ben
+agreed on 2026-10-16 to let the build skip the GPU lock this way, on the terms the checks above
+carry out. A site build or a Data improvements job run outside `ops/job` goes in a unit named
+`site-build-*` or `di-*`, so the build waits for it.
 
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
@@ -2123,6 +2135,9 @@ in all, and most tests add made-up ads to that export. The tests:
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
     `ads.placed`;
 45. read the repo's unit ledger and check that it holds a join, a split and a move.
+46. run `ops/pipeline/room` with the GPU lock free, with a made-up job holding it, and with more
+    memory asked for than thelio has. Only the first run lets the build start, and the check
+    lets go of the GPU lock it tests.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked

@@ -118,9 +118,12 @@ The research-data build (`apartments-dashboard-build.service`) runs in the light
 light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.
 
 The data pipeline's build (`apartments-pipeline-build.service`, in `docs/data/pipeline.md`)
-takes the GPU lock and every light slot for each build, about 7 to 13 minutes, as
-`ops/job gpu -x` would. It runs as its own unit, so `ops/job status` leaves it out. When queued
-jobs wait and `ops/job status` lists no holder, check for it with:
+takes every light slot for each build, about 7 to 13 minutes. It starts only while no job holds
+the GPU lock, no `site-build-*` or `di-*` unit is active and 5 GiB of memory is available, and it
+leaves the GPU lock free, so a GPU job can start while it runs. Run a site build or a Data
+improvements job outside `ops/job` as a unit with one of those names, so the build waits for it.
+The build runs as its own unit, so `ops/job status` leaves it out. When light jobs wait and
+`ops/job status` lists no holder, check for it with:
 
 ```sh
 systemctl --user status apartments-pipeline-build
