@@ -295,6 +295,10 @@ mv -T current.new current` in `/data1/apartments/site`.
   A row read whole (iterated, or turned into a dict) counts all its columns, so the log errs
   toward keeping a column. The file has no rotation; we delete it when the measurement ends.
   `SITE_READS_LOG=0` in the unit turns it off; another path in it moves the log.
+  When the log and a search of the code and templates find no reader for a column, we stop
+  writing it. On 2026-10-17 that took out the market table's `rent_lower` and `rent_upper`
+  (the /estimates chart draws the deseasoned band) and the quarantined table's `listing_id`
+  (its pages link the ad through `listing_url`).
 - **Stop:** `systemctl --user disable --now apartments-site`.
 
 ## Production properties
