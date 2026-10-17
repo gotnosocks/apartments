@@ -158,9 +158,10 @@ The work goes on in this order:
    of the 170 stale ads. `lot_facts` gives 169 of those ads their new lots, and a live entry
    of the second file takes ad 2555747's new lot away as well.
 
-   Data improvements' review files from #1016 (8 lines) and #1021 (6 lines) wait for Ben. The
-   permission check on thelio refused the import when another thread asked for it. Once Ben agrees,
-   import them as for #1013 and check that the list falls to 173 rows.
+   Data improvements' review files from #1016 (8 lines), #1021 (6 lines) and #1024 (239 lines)
+   wait for Ben. The permission check on thelio refused the import when another thread asked
+   for it. Once Ben agrees, import them as for #1013. With the building check's never-built
+   rule, the lane's list holds 423 rows before the import and should hold 170 after it.
 
 `/data1/apartments/tmp/pipeline/lanes/bcheck/padlookup.py` runs `buildings.pad_link`'s SQL on an
 ad's own address and zip. Of the 704 rows a reader put on the wrong building, 544 land on the
