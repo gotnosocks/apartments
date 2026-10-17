@@ -267,6 +267,10 @@ def bundle_chunks(bundle: Path, size: int | None = None):
     connection = duckdb.connect()
     try:
         connection.execute("SET memory_limit = '1GB'")
+        # One thread spills the sort of a wide bundle (2 GB of rows at 1.75M
+        # rows) within the limit; with more threads DuckDB fails to pin blocks.
+        connection.execute("SET threads = 1")
+        connection.execute("SET preserve_insertion_order = false")
         connection.execute("SET temp_directory = ?", [tempfile.gettempdir()])
         pairs = connection.execute(
             "SELECT building, unit_id, COUNT(*) FROM read_parquet(?) "
