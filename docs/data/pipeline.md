@@ -1953,7 +1953,8 @@ Oct 16, 22,990 of the records file's 2,140,578 listings carry the mark:
 | TEMPORARILY_OFF_MARKET | 4 |
 
 The other 477 drafts and 57 ads under review have an ACTIVE event of their own and stay in.
-The rows hold 284 of them.
+The rows hold 284 of them. A listing missing from the ads file is skipped too, though the
+Oct 16 ads file holds every listing in the records file.
 
 Its `observations` reads whichever crawl a builder names: a granular export's folder, a Parquet
 file at a time as the builders read them, or the word `records` for the records file.
@@ -2621,6 +2622,8 @@ and catalog it writes in a temporary folder:
 58. write five listings, and an ads file that marks a draft and a rented ad with
     `no_dated_own_active_event`, gives another ad a different reason, gives one no reason and
     leaves out the fifth. `captures` and `observations` give only the two ads without the mark.
+    Then look up six IDs in a sorted array of three, at both ends and between, and in an empty
+    array.
 
 The frontier's `frontier/tests/test_listing_extras.py` checks `listing_extras` on a records file:
 
