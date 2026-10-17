@@ -1,6 +1,22 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 11:40 ET, after the short-building drop-lot reviews (#1021). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 12:15 ET
+
+- #1024 adds `drop-lot-20261017-neverbuilt.jsonl`, 239 wrong_building lines on 33 lots. Every one of the 40 MapPLUTO
+  releases from 11v1 to 26v2 gives these lots no building area and no apartments, and no 2026 footprint stands on them.
+  They are parks, parking, rail and vacant land, such as 1485 Broadway in Brooklyn (63 ads). The evidence uses city
+  records only. Scripts and tables are in `/home/ben/.cache/di-neverbuilt/` and
+  `/data1/apartments/tmp/suspect/bcheck/never-built-20261017.csv`.
+- The pipeline thread's #1025 adds a `never_built_lot` reason to `analysis.building_check`. On the drop-lot lane
+  it lists exactly these 239 rows. Three of them were already listed by zero_unit_lot. The import of #1016, #1021
+  and #1024 (253 lines) waits on Ben's word in the pipeline thread.
+- On the registry side, 133 buildings sit on a never-built registry lot while the pipeline links them to the
+  neighboring lot by footprint. Their StreetEasy year and apartment count don't back the neighbor lot
+  (`/home/ben/.cache/di-neverbuilt/reg2.csv`), so they get no registry override.
+- A screen comparing advertised units with the lot's apartments doesn't work, because `ads.placed` holds 2 to 3
+  unit ids per real apartment in large buildings.
 
 ## 2026-10-17 11:40 ET
 
