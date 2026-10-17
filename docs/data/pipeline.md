@@ -1220,6 +1220,88 @@ it in a quarantine version and `RULES` names that version.
 On a copy of a built state, the build rebuilt `analysis.ask_check` in 0.9 s, along with the views
 below it. The build took 20.4 s, 12.7 s of it writing the two files, at a peak of 3,863 MiB.
 
+## City check
+
+`ops/pipeline/citycheck.py` compares a built state with the city's records of each building's
+lot: the lot itself, the units with ads against the lot's apartments, and each row's floor
+against the lot's floors. It opens the state file read-only and writes `citycheck.json` and
+`citycheck.md` to the folder given with `--out`:
+
+```sh
+systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0 -- \
+    env TMPDIR=/data1/apartments/tmp/pipeline/tmp \
+    pipeline/.venv/bin/python -I ops/pipeline/citycheck.py STATE --out DIR
+```
+
+STATE can be `pipeline.duckdb` or a copy under any name, since the script attaches it under the
+catalog name `pipeline`, as the build's views expect. The city views read the build's city cache
+by absolute path, so a copy needs the cache left in place. DuckDB gets 2 GB unless `--memory`
+says otherwise, and spills past it to a folder under TMPDIR. Each section of the JSON report
+carries the definitions of its measures, and the Markdown summary gives the counts and the
+first ten cases of each list.
+
+For lots, I first count the buildings with ads, their ads and their fit-ready rows by the
+`link` of `buildings.lots`. Then, as a route apart from the build's PAD address ranges and
+footprints, I look up each building's street address among the lot addresses of the latest
+MapPLUTO release. I parse both addresses as `buildings.pad_link` parses StreetEasy's,
+and on both sides a street name in the PAD street dictionary becomes its street code, so
+`6th Avenue` meets AVENUE OF THE AMERICAS. For each building, MapPLUTO's address gives:
+
+- `same`: the build's lot alone;
+- `among_several`: several lots, the build's among them;
+- `other`: lots without the build's;
+- `only_mappluto`: a lot for a building without one;
+- `no_match`: no lot;
+- `unparsed`: nothing, for an address without a house number or a borough.
+
+MapPLUTO lists one address for each lot, so a corner building or a building on a range of house
+numbers often finds no match, and a `no_match` counts nothing against the build's lot. The
+report lists the `other` buildings with the lots of their MapPLUTO address.
+
+For units, I take each lot with ads and count its distinct units with ads, over all time and
+over the 12 months up to the latest first day of a candidate ad. I compare both counts with the
+city's:
+
+- the lot's `unitsres` in `analysis.lot_facts`, from the MapPLUTO release of the lot's latest
+  candidate ad;
+- the apartments on the latest certificate of occupancy of each of the lot's BINs, from
+  `analysis.building_certificates` as of the first day of the BIN's latest candidate ad, summed
+  over the BINs.
+
+Each lot falls in a class: no count, a count of 0, within the count, or above it by 1, 2 to 5,
+6 to 20 or more than 20. The report lists the lots with the largest excess over either count,
+and the lots with a `unitsres` of 0.
+
+For floors, I take each fit-ready row's advertised floor, else its physical floor, else its
+label floor, and compare it with two counts:
+
+- the `numfloors` of the row's lot, from the latest MapPLUTO release published at least 7 days
+  before the row's first day;
+- the building's StreetEasy floor count, in `building_floor_count`.
+
+Here the classes add `no_lot` and go above by 1, 2, 3 to 5, 6 to 10 and more than 10 floors.
+The build refuses a label floor above StreetEasy's count, and I compare those refused label
+floors with `numfloors` too. The report lists the buildings with the most rows above
+`numfloors`. The lot match breaks ties with StreetEasy's building class, year, floor count and
+unit count, so the StreetEasy comparisons don't stand fully apart from the lot.
+
+On a build of the sample from `ops/pipeline/sample.py`, with 673 buildings with ads and 16,080
+fit-ready rows, the check took 3.2 s at a peak of 0.73 GB. Every building had a lot. MapPLUTO's
+address gave the build's lot alone for 610 buildings, several lots with the build's among them
+for 3, another lot for 2 and no lot for 58. Both `other` buildings take their lot from the
+footprint: 903 Broadway reads lot 1008750073, and MapPLUTO gives its address to lot 1008490010.
+
+Over all time, the units with ads exceed `unitsres` in 246 of 663 lots, and over the last 12
+months in 19. A unit here is a unit page, so a unit listed under several pages counts once for
+each. 462 Keap Street in Brooklyn has 202 units with ads, 19 of them in the last 12 months, on a
+lot of 29 apartments. 18 lots have a `unitsres` of 0. Certificates give a count for 80 lots, and
+the units of the last 12 months exceed it in 2.
+
+10,567 rows have a floor. 89 of them, in 10 buildings, lie above `numfloors`, and 1 lies above
+StreetEasy's count. 21 of the 89 come from 951 Madison Street in Brooklyn, on condominium
+billing lot 3033577501 with 1 floor in MapPLUTO against 7 on StreetEasy. 15 rows read a
+`numfloors` of 0. Of the 433 rows with a refused label floor, 428 also lie above `numfloors`.
+
 ## Corrections ledger
 
 The fit-ready rows take their corrections from the ledger in `pipeline/ledger/`, a folder of
@@ -1961,7 +2043,21 @@ in all, and most tests add made-up ads to that export. The tests:
     `analysis.ask_check` lists the ads at ten times and a tenth for review, and `analysis.ads`
     gives them their median, the count of other rows and the ratio. The check passes over the ad
     at a little over five times, an ad at ten times with only two other rows and both studios.
-    Every ad of the building keeps its row.
+    Every ad of the building keeps its row;
+43. add four made-up buildings and 26 ads to the cases, build them, and run
+    `ops/pipeline/citycheck.py` on the state. The first building gets lot 12 of block 1220 from
+    its address and its map point, with 15 apartments and 5 floors in MapPLUTO and 8 floors on
+    StreetEasy. 15 of its units have ads in September 2026 and 2 more in June 2025. Unit 7a reads
+    floor 7 from its label, unit 9b's description gives the ninth floor, and unit 10c's label
+    floor of 10 lies above StreetEasy's count, so its row has no floor. The second building has
+    its map point on lot 12 and the address of lot 10, and it takes lot 12 from the footprint.
+    Its unit 2d brings lot 12 to 18 units over all time and 16 in the last 12 months. The third
+    has no map point and takes lot 9 of block 1238 from its address, and its 7 units with ads
+    lie within MapPLUTO's 9 apartments and above the 4 on its latest certificate of occupancy.
+    The fourth gets no lot. The report counts the buildings and rows of each link, lists the
+    second building against MapPLUTO's address, puts lot 12 above `unitsres` and lot 9 above
+    the certificate, and counts floors 7 and 9 above `numfloors`, floor 9 above StreetEasy's
+    count and the refused floor 10 above `numfloors`.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
