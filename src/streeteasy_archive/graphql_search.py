@@ -1571,8 +1571,6 @@ class Collector:
         self._cached = (None, None, {})
         return dict(sorted(counts.items()))
 
-    # Current listings
-
     # The whole run
 
     def report(self, writes, stopped):

@@ -1,4 +1,4 @@
-"""Check a build's ads file against the website's current captures and the ads' own histories.
+"""Check a build's ads file against the collector's last captures and the ads' own histories.
 
     pipeline/.venv/bin/python ops/pipeline/ads_check.py [--ads FILE] [--export DIR]
         [--captures DIR] [--memory SIZE]
@@ -10,13 +10,12 @@
 2. It reads each line of the collector's API captures, DIR/api-*/details/snapshot/candidates.jsonl
    with DIR /data1/apartments/archive/current-listings unless given. The collector wrote the
    last of them on Oct 16 and stopped in #949, so on a later build most captured ads have a
-   later record in the file. It counts the captured
-   ads missing from the file, the captured ads whose latest record in the file is the captured
-   answer, those with a later record in the file and those with an earlier one, which a build
-   older than the capture gives. A capture's `collected_at` is the fetch
-   time of the answer it read, so the script matches it to the file's `fetched`. The two are
-   written apart and round apart by up to a microsecond, so it takes times within a millisecond
-   as one answer. For the ads of a shared answer it counts the ads whose status, ask, layout,
+   later record in the file. It counts the captured ads missing from the file, the captured
+   ads whose latest record in the file is the captured answer, those with a later record in
+   the file and those with an earlier one, which a build older than the capture gives. A
+   capture's `collected_at` is the fetch time of the answer it read, so the script matches it
+   to the file's `fetched`. The two are written apart and round apart by up to a microsecond,
+   so it takes times within a millisecond as one answer. For the ads of a shared answer it counts the ads whose status, ask, layout,
    size, building, unit page and flags differ between the capture and the file, and prints a
    few of each. The capture's values come from the old page-capture reading with its
    corrections, and the file's layout and flags are merged over all of an ad's records before

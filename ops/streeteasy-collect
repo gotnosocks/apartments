@@ -20,8 +20,8 @@
 # then exits 1 if any did. backfill resumes the region's latest full run, finished or not, or
 # starts one, and stops at the first region that fails; running the same command again resumes
 # it. On a finished run, it counts and reads the new bands from this checkout's finer split.
-# For a fresh full run, call the collector by
-# hand with --new-run. Each run's report goes to the journal and to
+# For a fresh full run, call the collector by hand with --new-run. Each run's report goes to
+# the journal and to
 # crawls/api/graphql-search/run-N.json, and the script appends a line for each region to
 # /data1/apartments/archive/crawls/streeteasy-collect.log.
 #
