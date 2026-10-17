@@ -13,14 +13,14 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
   crawl's 13,504 and found 22% more memberships, with every shared ad on the same unit. Every
   region writes into the shared archive, `crawls/api`, and each run records its region. Collections take `crawls/oxylabs.lock`; a page crawl started beside
   them should run under `flock` on the same file so the combined rate stays within 64/min.
-  `apartments-streeteasy-topup.timer` (Fridays 05:30 ET) reads current ads of every region
+  `apartments-streeteasy-topup.timer` (Fridays 05:35 ET) reads current ads of every region
   into the archive. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
   top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16
   from 05:30 to 05:49 ET, found 7,011 ACTIVE ads in 120 requests ($0.14) as runs 6 to 10. The
   site counts an ad as on the market for 9 days after its latest answer
   (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
-  holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
+  holding `oxylabs.lock` at 05:35 delays the top-up by up to 18 hours.
   The backfill reopens a finished run with `--reopen`. A band of one price splits by bedrooms
   (#849, 8 meaning 8 or more), then by area (#834), then by map box starting from the four boxes
   around New York (#843, #853), until each part holds 1,000 ads or fewer and gets read from one

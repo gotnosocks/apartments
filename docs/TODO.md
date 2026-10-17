@@ -56,6 +56,14 @@ drop-in center, NYCHA housing, Madison Square Garden.
       the agent and a candidate Brooklyn address. Match each candidate to a collected Brooklyn
       building, move the row there, and release it from the next quarantine version. Run
       `frontier/scripts/brooklyn_screen.py` on every new dataset in the meantime.
+      Checked 2026-10-17 against the pipeline's drop-lot lane, where the file now has 63 rows. All 63
+      sit in Manhattan buildings, and the pipeline ledger excludes them. 11 ads, at 9 addresses, match
+      exactly one collected Brooklyn building: 316 and 357 7th Avenue, 509, 805 and 809 8th Avenue,
+      126 4th Avenue, 109 5th Avenue, 43 Irving Place and 80 Lexington Avenue (11238). The others name
+      streets outside the collected area, such as East 17th to 21st Streets in Flatbush, or give no
+      address. The unit ledger can move a whole building (`move_building`) or split ads within one
+      building, but it has no change for moving one ad to another building, so remapping the 11 waits
+      on such a change. Table: `/data1/apartments/tmp/suspect/bkremap/brooklyn-matches-20261017.csv`.
 
 - [ ] **Data: `text:renovated` misses "remodeled"** (2026-10-15). The 1 Patchin Place ads
       3848319 and 4404993 say "remodeled" and get no renovation flag. On NB9, 519 ads say remodel,

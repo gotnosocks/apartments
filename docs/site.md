@@ -212,7 +212,13 @@ listings fall in each band, as calibration predicts.
    with the relisting centre worked out once from every listing. It works out the research
    story's held-out accuracy, rent jumps, unit examples and border medians into meta
    (`story_checks`), so the server reads them instead of scanning every listing. The fit of
-   297,273 listings takes 4:36 with a peak of 3.8 GB (7.5 GB before streaming).
+   297,273 listings takes 4:36 with a peak of 3.8 GB (7.5 GB before streaming). The all-scraped
+   fit (1,755,430 listings in Manhattan and Brooklyn, 2026-10-17) takes 48:39 with a peak of
+   5.2 GB and writes a 10.3 GB `site.sqlite`, 7.2 GB of it the `listings` table and 2.1 GB the
+   kit's building draws. DuckDB sorts the chunks on one thread, since with more it failed to pin
+   blocks under its 1 GB limit. `estimate_build.load_kit` holds the kit's draws in flat float
+   arrays: as Python lists, the kit's 67,735 buildings with 250 draws each pushed the build past
+   8 GB.
 
    With `SITE_DETAIL_ON_REQUEST=1` the build leaves the fitted listings' dollar parts out of the
    `listings` table (`contributions` stays null) and copies them from `rows.parquet` into
@@ -313,6 +319,10 @@ mv -T current.new current` in `/data1/apartments/site`.
   (its pages link the ad through `listing_url`). The summary then stopped writing the two
   columns behind the market bounds, `reference_rent_lower_95` and `reference_rent_upper_95`, and
   the building table's `fit_units`, which no step read.
+- **Ranges in lists:** listing tables and `/listings.csv` leave out each listing's likely ask
+  range (`pred_lower_80`, `pred_upper_80`), which only its own page shows. `SITE_LIST_RANGES=1`
+  in the unit puts the column back while we watch the log; once nobody needs it, we delete the
+  flag and its template branch.
 - **Stop:** `systemctl --user disable --now apartments-site`.
 
 ## Production properties

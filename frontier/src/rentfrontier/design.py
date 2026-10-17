@@ -4,9 +4,11 @@ feature matrix and the prepared arrays.
 `prepared` builds the design the way `run` and `loo` always have. With
 FRONTIER_DESIGN_CACHE set, it also keeps the design in a pickle under
 OUTPUT_ROOT/cache, so a second reader of the same design loads it in seconds
-instead of repeating the prep. The Modal fit container sets the variable: there
+instead of repeating the prep. The Modal containers set the variable. In a fit,
 `rentfrontier.loo` and the post-fit statistics follow `rentfrontier.run` on the
 same container disk, and on the all-scraped data each prep takes about an hour.
+In a publish (`fit.py --publish-only`), the kit and the rent map load the design
+the summary built.
 
 The cache key is a sha256 over:
 
