@@ -10,7 +10,8 @@ files:
 
 `PIPELINE_LEDGER` names the folder of the corrections ledger, `pipeline/ledger` unless set.
 The config stops when the folder is missing, as a mistyped path would otherwise give a build
-with no corrections. `models/ledger/entries.py` explains the ledger.
+with no corrections. The unit ledger is the folder `units` inside it, which may be missing
+while it holds no entries. `models/ledger/entries.py` explains both.
 
 `PIPELINE_CITY` names the city archive of `ops/pipeline/city.py`, `/data1/apartments/archive/city`
 unless set, and `PIPELINE_CITY_CACHE` the folder for its Parquet files,
@@ -64,6 +65,7 @@ CITY_CACHE = Path(
 PIPELINE = Path(__file__).resolve().parent
 SRC = PIPELINE.parent / "src"
 LEDGER = Path(os.environ.get("PIPELINE_LEDGER") or PIPELINE / "ledger")
+LEDGER_UNITS = LEDGER / "units"
 ATTRIBUTES_MODULES = (
     "steps.attributes",
     "apartments",
@@ -220,10 +222,14 @@ config = Config(
         # stay out of the models' fingerprints.
         "export_files": {"ads": ads_files, "buildings": buildings_files},
         "city_files": {"archive": str(CITY), "files": city_files},
-        # Each ledger file with its SHA-256. ledger.entries reads them, and the catalog line
-        # records them.
+        # Each file of the ledger and of the unit ledger with its SHA-256. ledger.entries and
+        # ledger.unit_entries read them, and the catalog line records them.
         "ledger": {
             str(path): file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
+        },
+        "ledger_units": {
+            str(path): file_sha256(path)
+            for path in sorted(LEDGER_UNITS.glob("*.ndjson"))
         },
         # The Parquet files of each city table. A path holds the SHA-256 of the code and of
         # the manifest line, so a new file or new code gives the city views new fingerprints.
