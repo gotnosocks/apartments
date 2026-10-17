@@ -1,6 +1,28 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 08:00 ET, after quarantine-v34 (#984). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 11:00 ET, after quarantine-v35 (#992). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 11:00 ET
+
+- #987 adds `data.TRIAL_RULES`. `autoselect.current_rules` skips the versions listed there, so
+  latest-ask-v9 stays current while latest-ask-v10 waits on the fit that tests it. When a v10 fit
+  wins, the PR that serves it takes v10 out of the set and says how the fit was judged (scored on
+  shared rows). Without v10, the incumbent differs from the current rules on 3,894 of 296,176
+  rows, which is still over the 0.25% bar.
+- The pipeline thread's v10 loader rows agree with changed.csv on every row both changed. The 7
+  listings that disagree all have records fetched after the chain read the archive (Oct 15 13:10).
+- Unit reviews:
+  - v3 (#988) splits the 870 Broadway lofts off the 30 E 18th St one-bedrooms.
+  - v4 (#989) adds an optional `into` on split_listings and puts the #2 loft ad into the #3
+    loft's unit.
+  - v5 (#990) joins 444 W 20th #1 and #GARDEN. The 2011 GARDENDPLX ad has no record, so it
+    stays apart.
+  - The pipeline thread mirrors all three in #991.
+- quarantine-v35 (#992) drops 4853056, a Bushwick ad filed under 124 DeKalb #3. Its copy matches
+  4839783 at 1248 DeKalb #3L.
+- Closed without a change: the 90 Hull St placeholder ads. Their one-word descriptions explain
+  nothing, but nothing in them is wrong.
+- Open: the HPD other_lot conflicts, waiting on the pipeline's PAD lookup.
 
 ## 2026-10-17 08:00 ET
 
