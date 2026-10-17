@@ -1810,3 +1810,31 @@ def test_site_is_titled_nyc_rents(client):
     assert "<h1>NYC Rents: estimates and research</h1>" in html
     story = client.get("/research/story").get_data(as_text=True)
     assert "· NYC Rents</title>" in story
+
+
+def test_rent_map_slices_by_bedrooms_and_neighbourhood(client, site_root):
+    current = (site_root / "current").resolve()
+    (current / "map.json").write_text(
+        json.dumps(
+            {
+                "run": "m-test-run",
+                "years": [2026],
+                "median_by_area": {"Chelsea": {}, "Bushwick": {}},
+                "buildings": [
+                    {"id": "a", "neighbourhood": "Chelsea"},
+                    {"id": "b", "neighbourhood": "Bushwick"},
+                ],
+                "rent": {"1": [["a1"], ["b1"]], "2": [["a2"], ["b2"]]},
+            }
+        )
+    )
+    whole = client.get("/estimates/map.json").get_json()
+    assert set(whole["rent"]) == {"1", "2"} and len(whole["buildings"]) == 2
+    beds = client.get("/estimates/map.json?beds=2").get_json()
+    assert beds["rent"] == {"2": [["a2"], ["b2"]]} and "_index" not in beds
+    one = client.get("/estimates/map.json?beds=1&area=Bushwick").get_json()
+    assert [b["id"] for b in one["buildings"]] == ["b"]
+    assert one["rent"] == {"1": [["b1"]]}
+    # unknown choices fall back to everything
+    other = client.get("/estimates/map.json?beds=9&area=Nowhere").get_json()
+    assert set(other["rent"]) == {"1", "2"} and len(other["buildings"]) == 2

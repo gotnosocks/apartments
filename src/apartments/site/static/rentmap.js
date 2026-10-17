@@ -1,7 +1,9 @@
 // Rent map: what a typical apartment rents for in each building, by year and
 // bedroom count. Reads the published build's map.json (`rentfrontier.rentmap`
 // for the served run, bundled by `apartments.site build`) from the URL in
-// #rent-map's data-src; no dependencies. All data-derived text goes into the
+// #rent-map's data-src, asking for one bedroom count and, when one is chosen,
+// one neighbourhood, so a city-wide map downloads a quarter of its rents; no
+// dependencies. All data-derived text goes into the
 // DOM through textContent; styles go through the CSS object model, so the
 // site's CSP (no inline style attributes) holds.
 
@@ -107,7 +109,7 @@ function buildControls() {
       const lab = html('label', { class: 'chip' }, box);
       const inp = html('input', { type: 'radio', name: 'area', value, checked: value === '' }, lab);
       lab.appendChild(document.createTextNode(' ' + label));
-      inp.addEventListener('change', () => { state.area = value || null; view.zoom = 1; view.cx = null; view.cy = null; render(); });
+      inp.addEventListener('change', async () => { state.area = value || null; view.zoom = 1; view.cx = null; view.cy = null; if (await load()) render(); });
     }
   }
   const seg = $('beds-select');
@@ -115,7 +117,7 @@ function buildControls() {
     const lab = html('label', { class: 'chip' }, seg);
     const inp = html('input', { type: 'radio', name: 'beds', value: b.key, checked: b.key === state.bed }, lab);
     lab.appendChild(document.createTextNode(' ' + b.label));
-    inp.addEventListener('change', () => { state.bed = b.key; render(); });
+    inp.addEventListener('change', async () => { state.bed = b.key; if (await load()) render(); });
   }
   const base = $('base-year');
   d.years.forEach((y, i) => html('option', { value: String(i), selected: i === state.base }, base, String(y)));
@@ -520,17 +522,38 @@ function render() {
   renderTrend();
 }
 
-async function main() {
-  tip.el = $('tooltip');
+// Map slices already fetched, by bedroom key and neighbourhood.
+const slices = new Map();
+let loading = 0;
+async function fetchSlice(bed, area) {
+  const key = `${bed}|${area || ''}`;
+  if (!slices.has(key)) {
+    const q = new URLSearchParams({ beds: bed });
+    if (area) q.set('area', area);
+    const r = await fetch(`${$('rent-map').dataset.src}?${q}`, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(r.status);
+    slices.set(key, normalize(await r.json()));
+  }
+  return slices.get(key);
+}
+// Fetches the slice for the chosen bedroom count and neighbourhood into
+// state.data; false when a later choice overtook this one or the fetch failed.
+async function load() {
+  const mine = ++loading;
+  $('map-title').textContent = 'Loading the map…';
   let d;
   try {
-    const r = await fetch($('rent-map').dataset.src, { cache: 'no-cache' });
-    if (!r.ok) throw new Error(r.status);
-    d = await r.json();
+    d = await fetchSlice(state.bed, state.area);
   } catch {
-    $('map-kpis').textContent = 'No rent map for the served model yet.';
-    return;
+    if (mine === loading) $('map-title').textContent = 'The map did not load. Reload the page to try again.';
+    return false;
   }
+  if (mine !== loading) return false;
+  state.data = d;
+  return true;
+}
+
+function normalize(d) {
   // Maps from before rentfrontier named the area carry chelsea_median and no
   // area: the site's own name for its area stands in.
   d.median = d.median || d.chelsea_median;
@@ -539,7 +562,24 @@ async function main() {
   const nAreas = Object.keys(d.median_by_area || {}).length;
   if (nAreas === 2) d.area = 'both neighbourhoods';
   else if (nAreas > 2) d.area = `all ${COUNT_WORDS[nAreas] || nAreas} neighbourhoods`;
-  state.data = d;
+  return d;
+}
+
+async function main() {
+  tip.el = $('tooltip');
+  // The URL's bedroom count and neighbourhood pick the first slice; readUrl
+  // drops any the map lacks.
+  const q = new URLSearchParams(location.search);
+  if (q.get('beds')) state.bed = q.get('beds');
+  state.area = q.get('area') || null;
+  let d;
+  try {
+    d = state.data = await fetchSlice(state.bed, state.area);
+  } catch {
+    $('map-kpis').textContent = 'No rent map for the served model yet.';
+    return;
+  }
+  if (!d.rent[state.bed]) state.bed = '1';
   $('map-definition').textContent = d.definition;
   $('map-meta').textContent = `${d.model} · ${d.feature_set} · ${d.draws.toLocaleString('en-US')} draws · made ${d.created_at.slice(0, 10)}`;
   const foot = $('map-foot');
@@ -547,6 +587,7 @@ async function main() {
   html('p', {}, foot, `Typical rents are the model's, not listings' asks: a building with few listings leans on the whole area (${d.area}) and on buildings like it. `
     + 'Intervals are the model\'s uncertainty about the typical ask, not the spread of individual asks.');
   buildControls();
+  state.area = null;
   readUrl();
   render();
   let resize;

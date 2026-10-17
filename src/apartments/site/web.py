@@ -1889,7 +1889,13 @@ def create_app(
         path = database_path().parent / "map.json"
         if not path.is_file():
             abort(404, description="No rent map for the served model yet.")
-        response = Response(path.read_bytes(), mimetype="application/json")
+        body = _rent_map_slice(
+            str(path),
+            path.stat().st_mtime,
+            request.args.get("beds"),
+            request.args.get("area"),
+        )
+        response = Response(body, mimetype="application/json")
         response.headers["Cache-Control"] = "no-cache"
         return response
 
@@ -2668,6 +2674,38 @@ def _rent_map(path: str, mtime: float) -> dict:
     data = json.loads(Path(path).read_text())
     data["_index"] = {b["id"]: i for i, b in enumerate(data.get("buildings", []))}
     return data
+
+
+@functools.lru_cache(maxsize=16)
+def _rent_map_slice(
+    path: str, mtime: float, beds: str | None, area: str | None
+) -> bytes:
+    """Returns a build's map.json cut down to what the rent map page draws.
+
+    With a bedroom key from the map, the slice keeps rents for that key only.
+    With a neighbourhood from median_by_area, it keeps that neighbourhood's
+    buildings and their rents. With neither, the whole file goes back. The page
+    draws one bedroom count at a time, and a city-wide map holds rents for four
+    counts across tens of thousands of buildings."""
+    data = _rent_map(path, mtime)
+    rent = data.get("rent") or {}
+    keep_bed = beds in rent
+    keep_area = bool(area) and area in (data.get("median_by_area") or {})
+    if not keep_bed and not keep_area:
+        return Path(path).read_bytes()
+    rows = [
+        i
+        for i, b in enumerate(data.get("buildings", []))
+        if not keep_area or b.get("neighbourhood") == area
+    ]
+    out = {k: v for k, v in data.items() if k not in ("_index", "buildings", "rent")}
+    out["buildings"] = [data["buildings"][i] for i in rows]
+    out["rent"] = {
+        key: [series[i] for i in rows]
+        for key, series in rent.items()
+        if not keep_bed or key == beds
+    }
+    return json.dumps(out, separators=(",", ":")).encode()
 
 
 def chosen_by(selected_by: str) -> str:
