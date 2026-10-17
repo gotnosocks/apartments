@@ -515,6 +515,17 @@ def test_the_building_sample_flags_are_checked_before_any_work(tmp_path):
         ["r", "--out", str(tmp_path)],
         ["r", "--buildings", "1.5", "--out", str(tmp_path)],
         ["r", "--buildings", "0.04", "--out", str(summary.SUMMARIES / "r-sample")],
+        ["r", "--rows", str(tmp_path / "ids")],
+        [
+            "r",
+            "--rows",
+            str(tmp_path / "ids"),
+            "--buildings",
+            "0.04",
+            "--out",
+            str(tmp_path),
+        ],
+        ["r", "--with-exact"],
     ):
         with pytest.raises(SystemExit) as exit:
             summary.main(argv)
@@ -872,3 +883,67 @@ def test_noise_tables_are_the_mixture_cdf_on_the_grid():
         assert abs(e[50]) < 1e-12 and len(t["cdf"]) == 101
         want = stdtr(nu[None], e[:, None] / sigma[None, :, g]).mean(1)
         np.testing.assert_allclose(t["cdf"], want, atol=1e-9)
+
+
+def test_kept_subset_reads_the_listed_buildings_and_units_draw_by_draw(tmp_path):
+    rng = np.random.default_rng(3)
+    whole = {
+        "alpha": rng.normal(size=(2, 7)),
+        "beta": rng.normal(size=(2, 7, 3)),
+        "building": rng.normal(size=(2, 7, 5)),
+        "walk": rng.normal(size=(2, 7, 5, 4)),
+        "unit": rng.normal(size=(2, 7, 9)),
+    }
+    whole = {k: v.astype(np.float32) for k, v in whole.items()}
+    path = tmp_path / "posterior.npz"
+    np.savez_compressed(
+        path, **{f"kept/{k}": v for k, v in whole.items()}, units=np.arange(9)
+    )
+    buildings, units = np.array([0, 3, 4]), np.array([2, 8])
+    got = summary.kept_subset(path, buildings, units, 5, 9, block=4)
+    flat = {k: v.reshape(-1, *v.shape[2:]).astype(np.float64) for k, v in whole.items()}
+    assert set(got) == set(flat)
+    np.testing.assert_array_equal(got["alpha"], flat["alpha"])
+    np.testing.assert_array_equal(got["beta"], flat["beta"])
+    np.testing.assert_array_equal(got["building"], flat["building"][:, buildings])
+    np.testing.assert_array_equal(got["walk"], flat["walk"][:, buildings])
+    np.testing.assert_array_equal(got["unit"], flat["unit"][:, units])
+    assert got["walk"].dtype == np.float64
+    with pytest.raises(ValueError):
+        summary.kept_subset(path, buildings, units, 6, 9)
+
+
+def test_cut_arrays_point_rows_at_the_same_draws():
+    from types import SimpleNamespace
+
+    rng = np.random.default_rng(4)
+    building = rng.normal(size=(5, 8))
+    unit = rng.normal(size=(5, 12))
+    index = SimpleNamespace(
+        buildings=np.array([1, 4, 6]), units=np.array([0, 5, 7, 11])
+    )
+    a = SimpleNamespace(
+        building=rng.choice(index.buildings, 30).astype(np.int32),
+        unit=rng.choice(np.r_[index.units, -1], 30).astype(np.int32),
+    )
+    whole_b, whole_u = building[:, a.building], unit[:, np.maximum(a.unit, 0)]
+    missing = a.unit < 0
+    summary.cut_arrays(a, index)
+    np.testing.assert_array_equal(building[:, index.buildings][:, a.building], whole_b)
+    cut_u = unit[:, index.units][:, np.maximum(a.unit, 0)]
+    np.testing.assert_array_equal(cut_u[:, ~missing], whole_u[:, ~missing])
+    assert ((a.unit < 0) == missing).all()
+
+
+def test_listed_rows_take_whole_buildings(tmp_path):
+    frame = pd.DataFrame(
+        {"audit_id": ["a", "b", "c", "d", "e"], "building": [1, 1, 2, 3, 3]}
+    )
+    ids = tmp_path / "ids"
+    ids.write_text("b\nd\nmissing\n\n")
+    keep, record = summary.listed_rows(frame, ids)
+    assert keep.tolist() == [True, True, False, True, True]
+    assert (record["listed"], record["found"], record["rows"]) == (3, 2, 4)
+    ids.write_text("missing\n")
+    with pytest.raises(SystemExit):
+        summary.listed_rows(frame, ids)

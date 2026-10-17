@@ -108,6 +108,20 @@ changes only which rows go through the per-row loop: the posterior, the market,
 building and coefficient tables and each row's unit_fit_rows still come from
 the whole run, and complete.json records the fraction. DIR has to be outside
 the summaries directory, where the Modal steps look for whole bundles.
+
+`--rows FILE --out DIR` summarizes the buildings of the listings named in
+FILE, one audit id a line, and writes the bundle to DIR: for checking a few
+thousand listings of a run too large to load whole. Whole buildings go in, so
+each unit's leave-own-row-out level comes from all of its rows, as in a whole
+summary. The kept draws are read from posterior.npz a few draws at a time,
+and only those buildings' and their units' columns are kept, so memory
+follows the listings' buildings, not the run. The buildings table holds only
+those buildings; complete.json records how many ids FILE listed, how many the
+dataset has, and the file's sha256. Line-effect runs are refused, since
+their lines' draws are not cut down yet.
+
+`--with-exact`, with `--range-atoms`, writes the exact predictive intervals
+beside the atoms, on the same draws, to compare the two.
 """
 
 from __future__ import annotations
@@ -121,6 +135,7 @@ import os
 import shutil
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -226,6 +241,101 @@ TERM_TEXT = {
     "building_feature_slopes": "The building's own slopes on size and baths.",
     "unit": "The unit's own effect, from the unit's other listings only.",
 }
+
+
+# Kept draws indexed by building, or by unit, on the axis after the draws.
+BUILDING_KEYS = (
+    "building",
+    "walk",
+    "bedroom_slope",
+    "fslope",
+    "building_trend",
+    "building_mean_month",
+)
+UNIT_KEYS = ("unit", "unit_drift")
+
+
+def kept_subset(path: Path, buildings, units, n_buildings: int, n_units: int, block=20):
+    """The kept draws of posterior.npz at `path`, as `explain.load_run` gives
+    them ((draws, ...) float64), with the arrays of BUILDING_KEYS cut to the
+    sorted building indexes `buildings` and those of UNIT_KEYS to `units`. The
+    cut arrays are read from the archive `block` draws at a time, so memory
+    follows the subset."""
+    import zipfile
+
+    from numpy.lib import format as npy
+
+    out = {}
+    with zipfile.ZipFile(path) as archive:
+        for member in archive.namelist():
+            if not member.startswith("kept/"):
+                continue
+            key = member[len("kept/") : -len(".npy")]
+            with archive.open(member) as fh:
+                version = npy.read_magic(fh)
+                header = (
+                    npy.read_array_header_1_0
+                    if version == (1, 0)
+                    else npy.read_array_header_2_0
+                )
+                shape, fortran, dtype = header(fh)
+                if key in BUILDING_KEYS:
+                    index, size = np.asarray(buildings), n_buildings
+                elif key in UNIT_KEYS:
+                    index, size = np.asarray(units), n_units
+                else:
+                    index = size = None
+                if index is None:
+                    order = "F" if fortran else "C"
+                    value = np.frombuffer(fh.read(), dtype).reshape(shape, order=order)
+                    out[key] = value.reshape(-1, *shape[2:]).astype(np.float64)
+                    continue
+                if fortran or dtype.hasobject or len(shape) < 3 or shape[2] != size:
+                    raise ValueError(f"{member} is not (chains, blocks, {size}, ...)")
+                draw = shape[2:]
+                draws = shape[0] * shape[1]
+                cut = np.empty((draws, len(index), *draw[1:]))
+                per = int(np.prod(draw)) * dtype.itemsize
+                for lo in range(0, draws, block):
+                    n = min(block, draws - lo)
+                    raw = fh.read(per * n)
+                    if len(raw) != per * n:
+                        raise ValueError(f"{member} ends early")
+                    cut[lo : lo + n] = np.frombuffer(raw, dtype).reshape(n, *draw)[
+                        :, index
+                    ]
+                out[key] = cut
+    return out
+
+
+def cut_arrays(a: model.Arrays, index) -> model.Arrays:
+    """Re-index the rows' buildings and units into kept draws cut to the sorted
+    indexes `index.buildings` and `index.units` (`kept_subset`), in place."""
+    a.building = np.searchsorted(index.buildings, a.building).astype(np.int32)
+    a.unit = np.where(
+        a.unit >= 0, np.searchsorted(index.units, np.maximum(a.unit, 0)), -1
+    ).astype(np.int32)
+    return a
+
+
+def listed_rows(frame: pd.DataFrame, path: Path) -> tuple[np.ndarray, dict]:
+    """A mask over rows: the buildings of the audit ids listed in the file at
+    `path`, one a line; with a record of the listing."""
+    text = Path(path).read_text()
+    listed = {line.strip() for line in text.splitlines() if line.strip()}
+    found = frame.audit_id.isin(listed).to_numpy()
+    if not found.any():
+        raise SystemExit(
+            f"none of the {len(listed)} audit ids in {path} are in the dataset"
+        )
+    keep = frame.building.isin(frame.building[found]).to_numpy()
+    record = {
+        "listed": len(listed),
+        "found": int(found.sum()),
+        "rows": int(keep.sum()),
+        "sha256": hashlib.sha256(text.encode()).hexdigest(),
+    }
+    return keep, record
 
 
 def present_terms(config: model.ModelConfig, groups, line: bool) -> list[str]:
@@ -471,13 +581,24 @@ def _stats(prefix, values, weights, table):
 
 
 def row_table(
-    sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs, groups=None
+    sub,
+    terms,
+    log_w,
+    pareto_k,
+    fitted,
+    sigma,
+    nu,
+    names,
+    inputs,
+    groups=None,
+    with_exact=False,
 ):
     """One chunk's output rows. terms: the leave-own-row-out log terms
     (draws, rows); log_w: (draws, rows) log importance weights (0 = the
     posterior as is); fitted: (draws, rows) in-sample exp(mu); sigma: the
     residual scale, (draws, 1) or per row (draws, rows); groups: the rows'
-    noise groups, to write range atoms in place of the predictive intervals."""
+    noise groups, to write range atoms in place of the predictive intervals,
+    or beside them `with_exact`."""
     from scipy import stats
 
     weights = normalized_weights(log_w)
@@ -502,7 +623,7 @@ def row_table(
         table["noise_group"] = np.asarray(groups, dtype=np.int64)
         atoms = range_atoms(total, weights).T.astype(np.float32)
         table["estimate_atoms"] = list(atoms)
-    else:
+    if groups is None or with_exact:
         probabilities = [p for _, lo, hi in PREDICTIVE for p in (lo, hi)]
         pred = np.exp(predictive_quantiles(total, sigma, nu, weights, probabilities))
         for i, (name, _, _) in enumerate(PREDICTIVE):
@@ -777,16 +898,21 @@ def summarize(
     buildings: float | None = None,
     range_sample: bool = False,
     with_atoms: bool = False,
+    rows: Path | None = None,
+    with_exact: bool = False,
 ):
     import jax
 
     jax.config.update("jax_enable_x64", True)
-    run_dir, result, kept = explain.load_run(name)
+    if rows is None:
+        run_dir, result, kept = explain.load_run(name)
+    else:
+        # The draws are read below, cut to the listed rows' buildings.
+        run_dir = explain.RUNS / name
+        result, kept = json.loads((run_dir / "result.json").read_text()), None
     gate_status = gate(result, run_dir)
     if not gate_status["passes"] and not allow_failing:
         raise SystemExit(f"{name} fails the convergence gate: {gate_status}")
-    if "unit_drift" in kept and kept["unit_drift"].shape[1] > 1:
-        raise SystemExit("unit-drift designs are not supported (drift not integrated)")
     check_run(result)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
@@ -795,13 +921,34 @@ def summarize(
     )
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     verify_run(result, frame, heldout, prep, run_dir, post["units"], post["buildings"])
+    index = rows_record = None
+    if rows is None:
+        keep = building_sample(frame.building.to_numpy(), buildings)
+    else:
+        keep, rows_record = listed_rows(frame, rows)
+        building_of = pd.Index(prep.buildings).get_indexer(frame.building[keep])
+        unit_of = pd.Index(prep.units).get_indexer(frame.unit_id[keep])
+        index = SimpleNamespace(
+            buildings=np.unique(building_of[building_of >= 0]),
+            units=np.unique(unit_of[unit_of >= 0]),
+        )
+        kept = kept_subset(
+            run_dir / "posterior.npz",
+            index.buildings,
+            index.units,
+            len(prep.buildings),
+            len(prep.units),
+        )
+        if np.any(kept.get("line_scale", 0) > 0):
+            raise SystemExit("--rows does not cut down line effects yet")
+    if "unit_drift" in kept and kept["unit_drift"].shape[1] > 1:
+        raise SystemExit("unit-drift designs are not supported (drift not integrated)")
     draws = kept["alpha"].shape[0]
     t_units = bool((kept.get("unit_nu", np.zeros(draws)) > 0).all())
     line = bool(np.any(kept.get("line_scale", 0) > 0))
     names = present_terms(config, feats.groups, line)
     fslope_index = [feats.names.index(n) for n in config.feature_slopes]
     params = {k: kept[k] for k in ("nu", "sigma", "unit_scale", "unit_nu") if k in kept}
-    keep = building_sample(frame.building.to_numpy(), buildings)
     train_idx, held_idx = summary_rows(heldout, keep)
     if not len(train_idx):
         raise SystemExit(f"the {buildings} sample of buildings has no rows in the fit")
@@ -845,6 +992,8 @@ def summarize(
 
     def terms_for(mask):
         a = model.row_arrays(prep, frame, mask)
+        if index is not None:
+            cut_arrays(a, index)
         terms = explain.log_terms(
             kept,
             a,
@@ -910,6 +1059,7 @@ def summarize(
                 names,
                 row_inputs(feats, rows),
                 atom_groups(a),
+                with_exact,
             )
         # Held-out rows: the fit never saw them; the posterior is the estimate.
         for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / chunk))):
@@ -946,6 +1096,7 @@ def summarize(
                 names,
                 row_inputs(feats, rows),
                 atom_groups(a),
+                with_exact,
             )
         parts = tables.collect()
     table = atom_columns(pd.concat(parts).sort_index())
@@ -967,10 +1118,13 @@ def summarize(
         "names": names,
         "rows": table,
         "market": market_table(kept, prep),
-        "buildings": building_table(kept, prep),
+        "buildings": building_table(
+            kept, prep, None if index is None else index.buildings
+        ),
         "coefficients": coefficient_table(kept, feats),
         "k_threshold": loo.k_threshold(draws),
         "buildings_fraction": buildings,
+        "rows_sample": rows_record,
         **({"range_sample": sample.arrays(nu)} if sample is not None else {}),
         **(
             {"noise": noise, "range_atoms_fallback_chunks": fallback_chunks}
@@ -1004,14 +1158,18 @@ def market_table(kept, prep) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def building_table(kept, prep) -> pd.DataFrame:
+def building_table(kept, prep, index=None) -> pd.DataFrame:
+    """Per building of the run, or of the building indexes `index` that the
+    kept draws were cut to (`kept_subset`)."""
     rows = np.bincount(prep.train.building, minlength=len(prep.buildings))
-    out = {"building": prep.buildings, "fit_rows": rows}
+    if index is None:
+        index = np.arange(len(prep.buildings))
+    out = {"building": prep.buildings[index], "fit_rows": rows[index]}
     for label, log_value in (
         ("level_pct", kept["building"]),
         ("trend_pct_per_year", kept.get("building_trend")),
     ):
-        if log_value is None or log_value.shape[1] != len(prep.buildings):
+        if log_value is None or log_value.shape[1] != len(index):
             continue
         pct = 100.0 * np.expm1(log_value)
         mid, lo, hi = _summary(pct)
@@ -1151,6 +1309,11 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
             else {}
         ),
         **(
+            {"rows_sample": out["rows_sample"]}
+            if out.get("rows_sample") is not None
+            else {}
+        ),
+        **(
             {
                 "range_atoms": RANGE_ATOMS,
                 "range_atoms_fallback_chunks": out["range_atoms_fallback_chunks"],
@@ -1187,7 +1350,13 @@ def main(argv=None):
         help="summarize only this fraction of buildings, sampled by id hash (needs --out)",
     )
     parser.add_argument(
-        "--out", type=Path, help="bundle directory (only with --buildings)"
+        "--rows",
+        type=Path,
+        help="summarize only the buildings of the audit ids in this file, one a line "
+        "(needs --out)",
+    )
+    parser.add_argument(
+        "--out", type=Path, help="bundle directory (only with --buildings or --rows)"
     )
     parser.add_argument(
         "--range-sample",
@@ -1202,9 +1371,18 @@ def main(argv=None):
         help="write range atoms and noise.json in place of the predictive "
         "intervals (default with FRONTIER_RANGE_ATOMS=1)",
     )
+    parser.add_argument(
+        "--with-exact",
+        action="store_true",
+        help="with --range-atoms, also write the exact predictive intervals",
+    )
     args = parser.parse_args(argv)
-    if (args.buildings is None) != (args.out is None):
-        parser.error("--buildings and --out go together")
+    if args.buildings is not None and args.rows is not None:
+        parser.error("--buildings and --rows don't go together")
+    if (args.buildings is None and args.rows is None) != (args.out is None):
+        parser.error("--out goes with --buildings or --rows")
+    if args.with_exact and not args.range_atoms:
+        parser.error("--with-exact needs --range-atoms")
     if args.buildings is not None and not 0 < args.buildings <= 1:
         parser.error("--buildings must be in (0, 1]")
     if args.out is not None and args.out.resolve().is_relative_to(SUMMARIES.resolve()):
@@ -1224,6 +1402,8 @@ def main(argv=None):
         args.buildings,
         args.range_sample,
         args.range_atoms,
+        args.rows,
+        args.with_exact,
     )
     path = write(out, out_dir, commit, time.perf_counter() - t0)
     rows = out["rows"]
