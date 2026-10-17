@@ -61,16 +61,16 @@ A compacted database is no longer self-contained: the stripped HTML exists only 
 Never prune `bodies/` (for Chelsea that is the shared `/data1/apartments/archive/bodies`, reached
 through a symlink).
 
-`tests/archive/test_compact.py` checks that the collection audit, the granular transform
-(`listing_observations`, `event_mentions`, `snapshots`), `listing_identity.capture_evidence` and
-`ArchiveStore` give the same answers on the copy. The other readers named in the review need no
-change: `unit_history_pairs.py` reads `collection_memberships` or `scripts`, the alias tables
-and model inputs read the parquet datasets, and current-listings captures never read crawl
-databases.
+`tests/archive/test_compact.py` checks that the collection audit,
+`listing_identity.capture_evidence` and `ArchiveStore` give the same answers on the copy. The other
+readers named in the review need no change: `unit_history_pairs.py` reads `collection_memberships`
+or `scripts`, the alias tables and model inputs read the parquet datasets, and current-listings
+captures never read crawl databases.
 
 Datasets do not pin the snapshot file: their `source_evidence_sha256` hashes the parsed rows,
-and `granular_export`'s implementation hash covers parser code only. The tool does not write an
-`archive.sqlite3.sha256`; whoever swaps a compacted copy in regenerates it with `sha256sum`.
+and the implementation hash of each granular folder covers parser code only. The tool does not
+write an `archive.sqlite3.sha256`; whoever swaps a compacted copy in regenerates it with
+`sha256sum`.
 
 ## Measurements (Oct 8)
 

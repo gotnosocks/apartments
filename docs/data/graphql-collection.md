@@ -7,8 +7,8 @@ unit's history from the API in place of fetching unit pages. `streeteasy_archive
 enumerates an area's ads with StreetEasy's `searchRentals` query, reads hundreds of ads in a
 request with `rentalsByListingIds` and reads buildings with `buildingsByIds`, all on
 api-v6.streeteasy.com through the Oxylabs Realtime API. It then writes the records into an
-archive in the same steps a page crawl follows, so `granular_export` and the collection audit
-read the archive as they read a crawl's. The module docstring gives the steps and their limits.
+archive in the same steps a page crawl follows, so the collection audit reads the archive as
+it reads a crawl's. The module docstring gives the steps and their limits.
 
 ## NoMad, offline against the page crawl (Oct 15)
 

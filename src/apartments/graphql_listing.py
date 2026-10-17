@@ -9,8 +9,8 @@ The area collector (streeteasy_archive.graphql_search) reads up to 500 ads per r
      "record": {...}}
 
 The record is the ad's `RentalListing`, the object an ad page carries in its Flight data.
-parse_listing_json turns the body into the row and events granular_parse.parse_listing gives
-for the ad's page:
+parse_listing_json turns the body into a row and its history events, with the columns and event
+keys of the datasets parsed from archived ad pages:
   1. It drops `__typename` and writes integral floats as integers, as the page's JavaScript
      serializer does (-6 where the API writes -6.0). Events then serialize byte for byte as
      the page's do, so event keys match.
@@ -19,7 +19,8 @@ for the ad's page:
      parser rebuilds the link from it. On Midtown West's archived pages the rebuilt link
      matched the page's on 2,493 ads and on the latest ads of 500 unit pages
      (data/probes/graphql-rental-20261015/).
-  3. The row's other fields come from the record by granular_parse's own rules.
+  3. The row's other fields come from the record by the page datasets' rules. The helpers
+     below read numbers and text and hash events as those datasets do.
 
 The record leaves out a few page fields: `listingAddress`, `saleType` (null on rentals), the
 open houses' `showingNotes`, and in each history episode `advertisedOnSe`, `closingId`,
@@ -28,6 +29,7 @@ adds `propertyId` and each episode's `offMarketAt`. docs/data/graphql-collection
 the record with the ad page in more detail.
 
 parse_capture takes any listing capture, API or page, and sends it to the matching parser.
+The page crawler's captures go to apartments.granular_parse, which only they import.
 
 Buildings come from `buildingsByIds` and are stored the same way, under
 `"source": "buildingsByIds"` with the building's record. export_building hands the export
@@ -38,24 +40,61 @@ lists colleges, museums and parks together under `pointsOfInterest`, each with i
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from urllib.parse import urlsplit
 
-from apartments import granular_parse
-from apartments.granular_parse import (
-    _clean,
-    _event_key,
-    _json,
-    _number,
-    _occurrence_key,
-)
 from apartments.unit_canonical import unit_page
 
 SOURCE = "rentalsByListingIds"
 FIELDS_VERSION = "rental-listing-fields-v1"
 BUILDING_SOURCE = "buildingsByIds"
 BUILDING_FIELDS_VERSION = "building-fields-v2"
+
+
+def _number(value):
+    """A number, or the first number written in a string, as a float. Booleans give None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        match = re.search(r"-?\d+(?:\.\d+)?", value.replace(",", ""))
+        return float(match.group()) if match else None
+    return None
+
+
+def _clean(value):
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _json(value):
+    if value is None:
+        return None
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _event_key(
+    listing_id, event_listing_id, category, episode_index, event_index, event
+):
+    """An event's hash, from the ad the event names, its category and its JSON.
+
+    The key leaves out the ad the record came from and the event's position, so the same event
+    in two ads' histories gets the same key. _occurrence_key adds the position.
+    """
+    payload = {
+        "event_listing_id": event_listing_id,
+        "category": category,
+        "event": event,
+    }
+    return hashlib.sha256(_json(payload).encode("utf-8")).hexdigest()
+
+
+def _occurrence_key(event_key, episode_index, event_index):
+    return hashlib.sha256(
+        f"{event_key}:{episode_index}:{event_index}".encode()
+    ).hexdigest()
 
 
 def normalize(value):
@@ -202,7 +241,7 @@ def _failed(url, listing_id, error, canonical=None):
 
 
 def parse_listing_json(body, url):
-    """Parse an API ad body into granular_parse.parse_listing's row and events."""
+    """Parse an API ad body into a row and its history events."""
     return _parse(api_document(body), url)
 
 
@@ -321,10 +360,13 @@ def _parse(doc, url):
 def parse_capture(body, url):
     """Parse a listing capture with the parser for its kind of body.
 
-    granular_parse.parse_listing is looked up on each call, so parse_once's memo and test
-    patches of it still apply to page captures.
+    Only a page capture imports the page parser, so the API collector and the pipeline run
+    without it. granular_parse.parse_listing is looked up on each call, so parse_once's memo
+    and test patches of it still apply to page captures.
     """
     doc = api_document(body)
     if doc is not None:
         return _parse(doc, url)
+    from apartments import granular_parse
+
     return granular_parse.parse_listing(body, url)

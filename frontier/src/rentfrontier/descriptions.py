@@ -13,9 +13,14 @@ listing records (each listing's own ad, as last captured):
 
     python -m rentfrontier.descriptions --granular <granular dir> \\
         --dataset <cohort dir> --name west-village
+    python -m rentfrontier.descriptions --records --dataset <cohort dir> --name <name>
 
 writes OUTPUT_ROOT/descriptions/<name>-<date>-<commit>/evidence.jsonl and
-provenance.json. Refuses a dirty tree. Feature sets read it only where
+provenance.json. Refuses a dirty tree. With `--records`, I read the API records
+of the newest clean build in the data pipeline's catalog in place of a granular
+crawl, after checking the file's SHA-256 (`rentfrontier.api_records`). I keep
+only the cohort's listings, so one run covers every region, and provenance.json
+names the file under `records`. Feature sets read an evidence file only where
 `SOURCES` lists it, so every other feature set keeps its text.
 """
 
@@ -31,7 +36,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import data
+from . import api_records, data
 
 SOURCE = Path(
     os.environ.get(
@@ -172,20 +177,46 @@ def granular_descriptions(granular: Path) -> pd.Series:
     return pd.Series(text.to_numpy(), index=last.listing_id.astype(str).to_numpy())
 
 
+def record_descriptions(records: dict, wanted: set[str]) -> pd.Series:
+    """Each wanted listing id's own ad text in the pipeline's records file `records`:
+    the description of the record fetched last (None when it has none)."""
+    last = {}
+    columns = ["listing_id", "collected_at", "snapshot_id", "raw_listing_json"]
+    for r in api_records.captures(records, columns):
+        listing = r["listing_id"]
+        if listing not in wanted:
+            continue
+        key = (r["collected_at"], r["snapshot_id"])
+        if listing not in last or key >= last[listing][0]:
+            raw = r["raw_listing_json"]
+            text = (json.loads(raw) or {}).get("description") if raw else None
+            last[listing] = (key, text)
+    return pd.Series({k: text for k, (_, text) in last.items()}, dtype=object)
+
+
 def build(
-    granular: Path, dataset: Path, name: str, commit: str, skip: Path | None = None
+    granular: Path | None,
+    dataset: Path,
+    name: str,
+    commit: str,
+    skip: Path | None = None,
+    records: dict | None = None,
 ) -> Path:
     """Write the evidence file for every row of a cohort from its granular
-    crawl, in the shape `load` reads, with a provenance record. With `skip`,
-    I leave out the rows of that dataset, so an extended cohort's added rows
-    get a file beside its base's evidence."""
-    text = granular_descriptions(granular)
+    crawl, or from the checked records file `records`, in the shape `load`
+    reads, with a provenance record. With `skip`, I leave out the rows of that
+    dataset, so an extended cohort's added rows get a file beside its base's
+    evidence."""
     with open(dataset / "observations.jsonl") as f:
         rows = [json.loads(line) for line in f if line.strip()]
     if skip is not None:
         with open(skip / "observations.jsonl") as f:
             known = {json.loads(line)["audit_id"] for line in f if line.strip()}
         rows = [r for r in rows if r["audit_id"] not in known]
+    if records is None:
+        text = granular_descriptions(granular)
+    else:
+        text = record_descriptions(records, {str(r["source_listing_id"]) for r in rows})
     stamp = dt.datetime.now(dt.UTC)
     out = data.OUTPUT_ROOT / "descriptions" / f"{name}-{stamp:%Y%m%d}-{commit[:7]}"
     out.mkdir(parents=True, exist_ok=False)
@@ -206,8 +237,11 @@ def build(
             }
             f.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
     provenance = {
-        "granular": str(granular),
-        "granular_complete_sha256": data.sha256(granular / "complete.json"),
+        "granular": str(granular) if records is None else None,
+        "granular_complete_sha256": data.sha256(granular / "complete.json")
+        if records is None
+        else None,
+        "records": records,
         "dataset": str(dataset),
         "observations_sha256": data.sha256(dataset / "observations.jsonl"),
         "rule": "the listing's own ad: the description of its last captured record",
@@ -226,7 +260,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--granular", type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--granular", type=Path)
+    source.add_argument(
+        "--records",
+        action="store_true",
+        help="read the pipeline's records file in place of a granular crawl",
+    )
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--skip", type=Path, help="dataset whose rows to leave out")
@@ -236,8 +276,14 @@ def main(argv=None):
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
+    records = api_records.records_file() if args.records else None
     out = build(
-        args.granular, args.dataset, args.name, git("rev-parse", "HEAD"), args.skip
+        args.granular,
+        args.dataset,
+        args.name,
+        git("rev-parse", "HEAD"),
+        args.skip,
+        records,
     )
     print(out)
 

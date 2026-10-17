@@ -60,6 +60,19 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    rows files. On the export of Oct 16 it showed 1,099 of the 1,159 listings the captures gave,
    leaving out 57 ads off the market since Oct 10 and 3 without a fit-ready row
    ([pipeline.md](../data/pipeline.md#the-websites-current-listings)).
+   Since #954 each build writes the records file, and #961 to #965 moved the five frontier
+   builders onto it. Once `ops/pipeline/observations.py` (#955) passed its chain check, the
+   granular export went: its finalizer, quality report and media tables, both runners
+   (`models/transform_local.py`, `models/modal_granular.py`), `rentfrontier.granular_slice` and
+   `apartments.inventory_links`. Since #968 `graphql_listing` keeps its own copies of the
+   page parser's helpers and imports `apartments.granular_parse` only for a page capture, so the
+   collector, its export and the pipeline run without the page parser. The page parser stays for
+   the page crawler (`collection_policy`, `parse_once`, and `collection_audit` on page bodies)
+   and the September research code, which reads archived pages with it: modules under `models/`
+   and `docs/analysis/scripts/`, `candidate_refresh`, `description_recovery`,
+   `discovery_detail_refresh` and `frontier/scripts/unit_history_pairs.py`. Deleting it takes
+   about 100 files with it, among them fixtures that tests of other modules import, and the
+   crawler's owner asked to delete the crawler in a PR of its own.
 
 ## Raw layer
 
@@ -141,8 +154,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       `last_response_id` in `ads.events`, so `ads.price_changes` could join on the response
       instead of the fetch. No two records of an ad share a fetch on runs 1 to 5.
 
-   These replace the current chain from archive to analysis rows, which Data improvements runs
-   from `/data1/apartments/tmp/suspect/api`:
+   These replace the chain from archive to analysis rows, which Data improvements ran from
+   `/data1/apartments/tmp/suspect/api`. `ops/pipeline/observations.py` (#955) writes the
+   frontier's observations from the rows in its place, and the chain's first two steps are
+   deleted:
    1. the granular export of the API archive, `api-granular-20261015-canonical-url-v1`;
    2. `rentfrontier.granular_slice`, cutting it into building slices;
    3. `apartments.historical_dataset` on each slice. `project_advertisement` gives an ad one
