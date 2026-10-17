@@ -356,7 +356,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
   fits its exporter: files go in place before their manifest lines, a crash repair replaces the
   manifest by rename, and a manual export takes `export/.lock`, which the build never opens.
 - The website reads current listings from the ads and rows files (#945). Data improvements
-  reads `granular_export` inputs from the collector's page captures and agreed on Oct 17 to move
+  reads `granular_export` inputs from the collector's page captures and agreed on Oct 16 to move
   them to the ads file, with the same hashes on the export of Oct 16 or a diff giving every
   changed row. The page-capture rewrite goes once it has. The scraper thread runs
   `graphql_search` step 4 and `current_listings`, so it agrees to their removal first.

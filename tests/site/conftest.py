@@ -507,6 +507,9 @@ class Pipeline:
         "fetched": "TIMESTAMPTZ",
         "status": "VARCHAR",
         "page_price": "DOUBLE",
+        "bedrooms": "DOUBLE",
+        "bathrooms": "DOUBLE",
+        "square_feet": "DOUBLE",
         "on_day": "DATE",
         "days_on_market": "BIGINT",
         "break_status": "VARCHAR",
@@ -545,7 +548,10 @@ class Pipeline:
         self.root.mkdir(parents=True, exist_ok=True)
         con = duckdb.connect()
         con.execute("SET TimeZone = 'UTC'")
-        entry = {"built": "2026-10-06T16:00:00+00:00"}
+        entry = {
+            "built": "2026-10-06T16:00:00+00:00",
+            "code": {"clean": True, "commit": "0" * 40},
+        }
         for name, key, columns, values in (
             ("ads", "ads_file", self.AD, ads),
             ("rows", "rows", self.ROW, rows),

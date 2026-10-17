@@ -14,9 +14,10 @@ The build takes the files of the pipeline's newest build from its catalog
   price on the ad's page;
 - the rows file gives the ad's fit-ready values, after the corrections ledger.
 
-An ad counts as on the market when its latest answer says ACTIVE, it has a fit-ready row, and the
-pipeline fetched it within CURRENT_DAYS of the build. A fit-ready row's ask follows the chain's
-latest-ask rule and can be an earlier price, so the build prices the ask on the ad's page.
+An ad counts as on the market when its latest answer says ACTIVE and the pipeline fetched it
+within CURRENT_DAYS of the build. The build shows it when it also has a fit-ready row. A fit-ready
+row's ask follows the chain's latest-ask rule and can be an earlier price, so the build prices the
+ask on the ad's page.
 
 A listing gets its model inputs from:
 
@@ -57,8 +58,9 @@ LETTERED = re.compile(r"^(?:APT-?)?(\d{1,2})[A-Z]{1,2}$")
 NUMBERED = re.compile(r"^(\d)\d\d$")
 METHOD = "kit"
 PIPELINE = Path("/data1/apartments/pipeline/datasets")
-# Two ads of a unit on the market at once must agree on these, or the unit has no current ad.
-AGREE = ("ask", "bedrooms", "bathrooms", "square_feet")
+# Two ads of a unit on the market at once must agree on these values of the ads file, or the
+# unit has no current ad.
+AGREE = ("ask", "ad_bedrooms", "ad_bathrooms", "ad_square_feet")
 # A listing is on the market now when it was last seen active within this many
 # days of the build. The top-up runs weekly and can start up to 18 hours late
 # behind a backfill, so the window runs two days past a week.
@@ -99,15 +101,23 @@ def supported(c: dict) -> bool:
 
 
 def pipeline_files(root: Path) -> dict | None:
-    """The ads and rows files of the pipeline's newest build under `root`, from its catalog, or
-    None when there is no catalog. A newest build without both files, or a file whose sha256
-    differs from the catalog's, stops the build."""
+    """The ads and rows files of the pipeline's newest build under `root` from a clean checkout,
+    from its catalog, or None when the catalog has no such build. A newest build without both
+    files, or a file whose sha256 differs from the catalog's, stops the build.
+
+    The pipeline appends a build's line with its line break. A last line without one is still
+    being written, and the build reads the lines before it."""
     catalog = root / "catalog.ndjson"
-    lines = catalog.read_text().split("\n") if catalog.is_file() else []
-    lines = [line for line in lines if line.strip()]
-    if not lines:
+    lines = catalog.read_text().split("\n")[:-1] if catalog.is_file() else []
+    # A build from a branch or a checkout with changes may write to the same catalog.
+    clean = [
+        entry
+        for entry in map(json.loads, filter(str.strip, lines))
+        if entry.get("code", {}).get("clean") is True
+    ]
+    if not clean:
         return None
-    entry = json.loads(lines[-1])
+    entry = clean[-1]
     files = {"built": entry["built"]}
     for key, name in (("ads", "ads_file"), ("rows", "rows")):
         if name not in entry:
@@ -123,11 +133,13 @@ def pipeline_files(root: Path) -> dict | None:
 CURRENT_ADS = """
 SELECT a.listing_id, a.unit_id, a.building AS building_id, a.page AS unit_url,
   a.response_id, a.fetched::TIMESTAMP AS collected_at, a.page_price AS ask,
+  a.bedrooms AS ad_bedrooms, a.bathrooms AS ad_bathrooms, a.square_feet AS ad_square_feet,
+  r.listing_id IS NOT NULL AS in_rows,
   r.bedrooms, r.bathrooms, r.full_baths, r.half_baths, r.square_feet,
   r.advertised_floor, r.physical_floor, r.elevator, r.laundry_type,
   r.doorman_type, r.hvac_type, r.pet_policy, r.view_exposures, r.window_exposures
-FROM read_parquet($ads) a JOIN read_parquet($rows) r USING (listing_id)
-WHERE a.status = 'ACTIVE' AND a.fetched BETWEEN $start AND $at
+FROM read_parquet($ads) a LEFT JOIN read_parquet($rows) r ON r.listing_id = a.listing_id
+WHERE a.status = 'ACTIVE' AND a.unit_id IS NOT NULL AND a.fetched BETWEEN $start AND $at
 ORDER BY a.unit_id, a.fetched DESC, a.listing_id DESC
 """
 
@@ -141,9 +153,15 @@ def current_ads(
     """One ad on the market at `at` for each unit, with the values of its fit-ready row, and
     the reason the build leaves out each other ad on the market, by listing id.
 
-    When a unit has two ads on the market with another ask, bedroom count, bath count or size,
-    the ads conflict and the unit gets none, as in the dataset's current rows. The build leaves
-    out each agreeing ad the dataset dropped (`skip_listings`) and takes the one fetched last of
+    The build reads every ad of a unit on the market, with a fit-ready row or without, and
+    leaves out all of them when:
+
+    - two of them differ on the ask, the bedrooms, the baths or the size the ads file gives,
+      a missing size included;
+    - the dataset dropped one of them (`skip_listings`), since its agreeing ads repeat the
+      values the dataset dropped.
+
+    Otherwise it leaves out the ads without a fit-ready row and takes the one fetched last of
     the others. It then leaves that ad out when:
 
     - its layout or ask lies outside the dataset's range (`supported`);
@@ -182,12 +200,20 @@ def current_ads(
                 a["listing_id"]: "the unit's ads on the market conflict" for a in group
             }
             continue
+        if any(a["listing_id"] in skip_listings for a in group):
+            skipped |= {
+                a["listing_id"]: "the dataset dropped the listing"
+                if a["listing_id"] in skip_listings
+                else "the dataset dropped another ad of the unit"
+                for a in group
+            }
+            continue
         skipped |= {
-            a["listing_id"]: "the dataset dropped the listing"
+            a["listing_id"]: "the ad has no fit-ready row"
             for a in group
-            if a["listing_id"] in skip_listings
+            if not a["in_rows"]
         }
-        group = [a for a in group if a["listing_id"] not in skip_listings]
+        group = [a for a in group if a["in_rows"]]
         if not group:
             continue
         c, seen = group[0], skip_units.get(unit)

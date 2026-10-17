@@ -117,6 +117,26 @@ def test_a_file_unlike_the_catalog_stops_the_build(pipeline):
         captures.pipeline_files(pipeline.root)
 
 
+def test_the_catalog_skips_a_line_still_being_written(pipeline):
+    files = pipeline.write([ad(1)])
+    with (pipeline.root / "catalog.ndjson").open("a") as f:
+        f.write('{"built": "2026-10-07')
+    assert captures.pipeline_files(pipeline.root) == files
+
+
+def test_the_catalog_skips_a_build_from_a_checkout_with_changes(pipeline):
+    files = pipeline.write([ad(1)])
+    pipeline.write([ad(1), ad(2, unit_id="u-5")])
+    catalog = pipeline.root / "catalog.ndjson"
+    first, second = catalog.read_text().splitlines()
+    entry = json.loads(second)
+    entry["code"]["clean"] = False
+    catalog.write_text(first + "\n" + json.dumps(entry) + "\n")
+    assert captures.pipeline_files(pipeline.root) == files
+    catalog.write_text(json.dumps(entry) + "\n")
+    assert captures.pipeline_files(pipeline.root) is None
+
+
 def test_a_build_without_an_ads_file_stops_the_build(pipeline):
     pipeline.write([ad(1)])
     catalog = pipeline.root / "catalog.ndjson"
@@ -145,6 +165,7 @@ def test_the_datasets_current_row_rules_apply(pipeline):
     assert [c["listing_id"] for c in got] == ["1001"]
     assert skipped == {
         "1003": "layout or ask outside the dataset's range",
+        "1004": "the ad has no fit-ready row",
         "1006": "layout or ask outside the dataset's range",
         "1007": "layout or ask outside the dataset's range",
         "777": "the dataset dropped the listing",
@@ -182,13 +203,26 @@ def test_the_ad_fetched_last_wins_per_unit(pipeline):
     assert [c["listing_id"] for c in got] == ["1002"] and skipped == {}
 
 
-def test_a_unit_takes_its_older_ad_when_the_dataset_dropped_the_newer(pipeline):
+def test_a_unit_with_an_ad_the_dataset_dropped_has_none(pipeline):
+    """The unit's other ads agree with the dropped one, so they repeat its values."""
     files = pipeline.write(
         [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
     )
-    got, skipped = captures.current_ads(files, {"1002"}, {})
+    for dropped, other in (("1002", "1001"), ("1001", "1002")):
+        got, skipped = captures.current_ads(files, {dropped}, {})
+        assert got == []
+        assert skipped == {
+            dropped: "the dataset dropped the listing",
+            other: "the dataset dropped another ad of the unit",
+        }
+
+
+def test_a_unit_takes_its_newest_ad_with_a_row(pipeline):
+    ads = [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
+    files = pipeline.write(ads, ads[1:])
+    got, skipped = captures.current_ads(files, set(), {})
     assert [c["listing_id"] for c in got] == ["1001"]
-    assert skipped == {"1002": "the dataset dropped the listing"}
+    assert skipped == {"1002": "the ad has no fit-ready row"}
 
 
 def test_a_unit_whose_ads_on_the_market_conflict_has_none(pipeline):
@@ -199,6 +233,28 @@ def test_a_unit_whose_ads_on_the_market_conflict_has_none(pipeline):
         "1001": "the unit's ads on the market conflict",
         "1002": "the unit's ads on the market conflict",
     }
+
+
+def test_an_ad_without_a_row_conflicts_too(pipeline):
+    """The ads file's values decide the conflict, and an ad without a fit-ready row counts."""
+    ads = [ad(1), ad(2, bedrooms=2.0), ad(3, unit_id="u-5")]
+    files = pipeline.write(ads, [ads[0], ads[2]])
+    got, skipped = captures.current_ads(files, set(), {})
+    assert [c["listing_id"] for c in got] == ["1003"]
+    assert skipped == {
+        "1001": "the unit's ads on the market conflict",
+        "1002": "the unit's ads on the market conflict",
+    }
+
+
+def test_ads_without_a_unit_stay_out(pipeline):
+    ads = [
+        ad(1, unit_id=None),
+        ad(2, unit_id=None, page_price=3900.0),
+        ad(3, unit_id="u-5"),
+    ]
+    got, skipped = captures.current_ads(pipeline.write(ads), set(), {})
+    assert [c["listing_id"] for c in got] == ["1003"] and skipped == {}
 
 
 def test_an_ad_ages_out_nine_days_after_it_was_fetched(pipeline):
