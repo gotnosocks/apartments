@@ -1421,6 +1421,16 @@ again. The build records the value in its catalog line, and `observations.py` co
 manifest. The served build keeps 7, and a lane at -1 builds into its own state and datasets
 folders.
 
+With the 7-day window, 38 changes in the drop-lot lane's state of Oct 17 come after the
+off-market day and raise the ask to a price of one repeated digit, such as $3,333 or $9,999,
+by 1.2 to 2 times the change before. The placeholder check keeps all 38, since it drops a late
+change only at more than twice or under half the last kept change, or at exactly $10,000 over
+1.2 times it. 35 fall on the off-market day itself, and 36 give the ad its latest ask. Data
+improvements found another ad for the same unit asking at least 15% less for five of them, and
+#1018 puts those five back to the ask before the takedown, in
+`pipeline/ledger/2026-10-17-takedown-asks.ndjson`. The other 33 have no such backing and keep
+their asks. At -1 none of the 38 changes survive.
+
 The median reads list positions with `list_extract`. SQLMesh renders each model through
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
 so a bracket reads the next element of the sorted list.
