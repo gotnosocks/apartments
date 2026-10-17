@@ -257,10 +257,12 @@ class Observations:
 CHUNK_ROWS = 40_000
 
 
-def bundle_chunks(bundle: Path, size: int = CHUNK_ROWS):
+def bundle_chunks(bundle: Path, size: int | None = None):
     """The bundle's rows (rows.parquet) in chunks of whole buildings, about
-    `size` rows each. Buildings that share a unit go in the same chunk, so each
-    chunk holds every listing of its units and buildings."""
+    `size` rows each (CHUNK_ROWS by default). Buildings that share a unit go in
+    the same chunk, so each chunk holds every listing of its units and
+    buildings. Each row carries its place in the bundle as `_row`."""
+    size = size or CHUNK_ROWS
     path = str(bundle / "rows.parquet")
     connection = duckdb.connect()
     try:
@@ -309,7 +311,8 @@ def bundle_chunks(bundle: Path, size: int = CHUNK_ROWS):
         result = connection.execute(
             # each chunk keeps the bundle's row order, which breaks ties in time
             # for a unit's latest listing and a building's newest one
-            "SELECT r.* EXCLUDE (file_row_number), c.chunk AS _chunk "
+            "SELECT r.* EXCLUDE (file_row_number), r.file_row_number AS _row, "
+            "c.chunk AS _chunk "
             "FROM read_parquet(?, file_row_number = true) r "
             "JOIN chunk_of c ON r.building = c.building "
             "ORDER BY c.chunk, r.file_row_number",
@@ -477,6 +480,8 @@ def listing_rows(
         listing_id = str(obs["source_listing_id"])
         out.append(
             {
+                # the bundle's row order, which later steps read as a tie-break
+                **({"id": r["_row"] + 1} if "_row" in r else {}),
                 "audit_id": r["audit_id"],
                 "neighbourhood": r.get("neighbourhood")
                 or obs.get("neighbourhood")
@@ -979,10 +984,15 @@ def _write(
     # The ads on the market in the pipeline's newest build, priced with the
     # kit (captures.py); every other row is the bundle's.
     files = captures.pipeline_files(pipeline or captures.PIPELINE)
+    # units in the bundle's order, each one's listings in time order, as
+    # captures.relisting_centre visits them
     cursor = db.execute(
-        "SELECT unit_id, price_at, period, inputs FROM listings WHERE method != ? "
-        "ORDER BY unit_id, COALESCE(price_at, period), id",
-        (captures.METHOD,),
+        "SELECT l.unit_id, l.price_at, l.period, l.collected_at, l.inputs "
+        "FROM listings l JOIN (SELECT unit_id, MIN(id) AS first FROM listings "
+        "WHERE method != ? GROUP BY unit_id) u ON l.unit_id = u.unit_id "
+        "WHERE l.method != ? "
+        "ORDER BY u.first, COALESCE(NULLIF(l.price_at, ''), l.period), l.id",
+        (captures.METHOD, captures.METHOD),
     )
     cursor.row_factory = sqlite3.Row
     centre = captures.centre_of(
