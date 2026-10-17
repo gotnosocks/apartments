@@ -6,7 +6,6 @@ import duckdb
 import pandas as pd
 import pytest
 
-from apartments.graphql_listing import listing_body, parse_capture
 from steps import records
 
 FIXTURE = Path(__file__).resolve().parent / "fixture"
@@ -47,10 +46,11 @@ def answers_file(path, answers):
     return str(path)
 
 
-def test_records_match_the_granular_parser(tmp_path):
-    """Each record of the fixture export comes out as the granular export's parser read it from
-    the collector's stored body, with the time of its answer in seconds. A second run reads
-    nothing into the cache and writes the same bytes."""
+def test_records_of_the_fixture(tmp_path):
+    """Each record of the fixture export comes out serialized by `serialize`, with the time of
+    its answer in seconds. `tests/test_pipeline_records.py` in the repository's own tests
+    compares `serialize` with the granular export's parser. A second run reads nothing into the
+    cache and writes the same bytes."""
     line = write(tmp_path, FILES)
     path = tmp_path / "out" / line["path"]
     assert path.name == f"records-{line['sha256'][:16]}.parquet"
@@ -67,32 +67,19 @@ def test_records_match_the_granular_parser(tmp_path):
     )
     # Each listing of the fixture has one answer with a record.
     assert answers.listing_id.is_unique
-    assert len(frame) == line["rows"] == line["read"] == len(answers)
+    assert len(frame) == line["rows"] == line["read"] == len(answers) == 229
     assert frame.listing_id.is_monotonic_increasing
+    assert set(frame.listing_type) == {"rental"}
     for row, answer in zip(
         frame.itertuples(index=False), answers.itertuples(index=False)
     ):
-        record = json.loads(answer.record)
-        building = {
-            "id": record["buildingId"],
-            "slug": "a-building",
-            "page": "https://streeteasy.com/building/a-building",
-        }
-        url = f"https://streeteasy.com/rental/{answer.listing_id}"
-        parsed, _ = parse_capture(
-            listing_body(answer.listing_id, building, record), url
-        )
-        assert parsed["parse_status"] == "ok"
-        assert (str(row.listing_id), row.listing_type, row.raw_listing_json) == (
-            parsed["listing_id"],
-            parsed["listing_type"],
-            parsed["raw_listing_json"],
-        )
-        assert row.collected_at == row.last_collected_at == answer.fetched_us / 1e6
-        assert (row.response_id, row.record_sha256) == (
+        assert (row.listing_id, row.response_id, row.record_sha256) == (
+            answer.listing_id,
             answer.response_id,
             answer.record_sha256,
         )
+        assert row.raw_listing_json == records.serialize(answer.record)
+        assert row.collected_at == row.last_collected_at == answer.fetched_us / 1e6
     again = write(tmp_path, FILES)
     assert again == line | {"read": 0}
     assert [p.name for p in (tmp_path / "out").iterdir()] == [path.name]
