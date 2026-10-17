@@ -857,7 +857,7 @@ it, as described under [Unit ledger](#unit-ledger).
 ## Building identity
 
 `buildings.lots` gives each building with a record a lot and a BIN from the city's records. I
-link each building two ways and let the city facts on its record decide between them:
+link each building two ways and choose between the two lots when they differ:
 
 1. `buildings.latest_record` takes the building's latest answer with a record. It reads the slug,
    the street address, the zip, the city, the community district, the map point (`geoCenter`)
@@ -874,17 +874,17 @@ link each building two ways and let the city facts on its record decide between 
    billing lot.
 3. `buildings.footprint_link` tests the map point against the footprints of the latest copy. It
    keeps a footprint holding the point, or else the nearest one within 10 m.
-4. `buildings.lots` compares the two lots. Where they differ and only one of them has
-   apartments in the latest MapPLUTO release, it takes that one, as
-   [The lot with apartments](#the-lot-with-apartments) explains. Otherwise it counts the facts
-   the record shares with MapPLUTO's record of each lot, in the latest release, and takes the
-   lot with more. `link` says which way the lot came:
+4. `buildings.lots` compares the two lots. Where they differ, and the latest MapPLUTO release
+   gives one of them apartments and the other a count of 0, it takes the one with apartments, as
+   [The lot with apartments](#the-lot-with-apartments) explains. Otherwise, as for a lot missing
+   from MapPLUTO or one without a count, it counts the facts the record shares with MapPLUTO's
+   record of each lot, in the latest release, and takes the lot with more. `link` says which way the lot came:
 
    | `link` | lot and BIN |
    |---|---|
    | `both` | the address and the map point give the same lot |
-   | `address_apartments` | they differ, and only the address's lot has apartments |
-   | `footprint_apartments` | they differ, and only the footprint's lot has apartments |
+   | `address_apartments` | they differ, the address's lot has apartments and the footprint's lot a count of 0 |
+   | `footprint_apartments` | they differ, the footprint's lot has apartments and the address's lot a count of 0 |
    | `address` | they differ, and the address's lot fits the facts better |
    | `footprint` | they differ, and the footprint's lot fits better |
    | `tie` | they differ and fit equally, and the step takes the address's lot |
@@ -924,17 +924,18 @@ interval, and multiply it by the class's size:
 |---|---:|---:|---:|---:|---|---:|
 | `both`, fit 2 or more | 63,905 | 32 | 0 | 0 | 0% (0% to 10.7%) | 0 |
 | `both`, fit under 2 | 3,407 | 26 | 2 | 3 | 7.1% (2.0% to 22.6%) | 243 |
-| `address` | 1,420 | 38 | 0 | 2 | 0% (0% to 9.2%) | 0 |
+| `address` | 1,420 | 33 | 4 | 3 | 10.8% (4.3% to 24.7%) | 154 |
 | `footprint` | 271 | 29 | 4 | 4 | 12.1% (4.8% to 27.3%) | 33 |
 | `tie` | 478 | 23 | 13 | 4 | 36.1% (22.5% to 52.4%) | 173 |
 | `address_only` | 560 | 24 | 2 | 4 | 7.7% (2.1% to 24.1%) | 43 |
 | `footprint_only` | 95 | 17 | 7 | 6 | 29.2% (14.9% to 49.2%) | 28 |
 
-About 520 lots are wrong by these estimates, under 1% of the buildings. The build of Oct 16
-came before the step took the lot with apartments, so its `address`, `footprint` and `tie`
-classes still hold the buildings that rule now moves.
-[The lot with apartments](#the-lot-with-apartments) scores those buildings again. A sample of 30 bounds the
-largest class loosely, and Data improvements' registry gives better evidence there: it agrees on
+The `address` row takes the answers Data improvements gave on Oct 17, when it judged five of
+its reviews again, as [The lot with apartments](#the-lot-with-apartments) describes. About 670
+lots are wrong by these estimates, under 1% of the buildings. The build of Oct 16 came before
+the step took the lot with apartments, so its `address`, `footprint` and `tie` classes still
+hold the buildings that rule now moves, and the same section scores them again. A sample of 30
+bounds the largest class loosely, and Data improvements' registry gives better evidence there: it agrees on
 62,932 of the 63,124 buildings both hold. In the ties the reviewers chose the address's lot 23
 times and the footprint's 13 times. With the point within 10 m of a footprint but outside it,
 they chose the address's lot 12 times and the footprint's once.
@@ -966,13 +967,14 @@ of the other lots fall in the classes where the address and the footprint disagr
 
 Of the 33 reviewed `footprint` buildings with an answer, the reviewers' lot is the step's in 29
 and the registry's in 11. In the ties the registry does better, 28 against the step's 23, and in
-`address` the step's lot is right in all 38 and the registry's in 30.
+`address`, with the answers of Oct 17, the step's lot is right in 33 of 37 and the registry's in
+25.
 
 ### The lot with apartments
 
 StreetEasy lists apartments, so a building's lot ought to have some. Where the address and the
-map point give different lots and MapPLUTO gives one of them apartments and the other none,
-`buildings.lots` takes the lot with apartments, ahead of the facts. On Oct 17 I built the step
+map point give different lots and MapPLUTO gives one of them apartments and the other a count of
+0, `buildings.lots` takes the lot with apartments, ahead of the facts. On Oct 17 I built the step
 over the export of runs 1 to 10, with PAD 26c, MapPLUTO 26v2 and the footprints copy of
 Oct 11. The rule set the lot of 434 buildings: 179 by `address_apartments` and 255 by
 `footprint_apartments`. The facts had already chosen the same lot for 209 of them. It moves 225
@@ -994,12 +996,17 @@ I read two independent records against each move:
   those 185 lots vacant land. DOB's certificates of occupancy give dwelling units on 3 of the
   210 lots.
 
-The reviewed sample of Oct 16 disagrees in the moves to the footprint's lot: of the 10 reviewed
-buildings now in `footprint_apartments`, the reviewers judged 5 lots wrong, 2 right and 3
-unclear. In each of the 5, they took the address's lot because MapPLUTO's facts for it match the
-StreetEasy record, and the record calls the building vacant land or an empty lot. StreetEasy
-copies those facts from the lot it links, so a match shows its link, not where the apartments
-are. I read the five again with the footprints and the ads:
+In 197 of the 210 moves to the footprint's lot, the map point falls outside every footprint,
+within 10 m of the footprint's lot. In ties of that kind, the reviewers chose the address's lot
+12 times out of 13, as [Error rates](#error-rates) says. The rule moves none of those 14 reviewed
+ties. Two more ties of that kind move, and the reviewers left both unclear. Among the 197 moves,
+HPD lists only the footprint's lot 103 times and only the address's lot 3 times.
+
+The sample of Oct 16 holds 10 buildings now in `footprint_apartments`. The reviewers first
+judged the footprint's lot wrong for 5 of them, each time because MapPLUTO's facts for the
+address's lot match the StreetEasy record, and the record calls the building vacant land or an
+empty lot. StreetEasy copies those facts from the lot it links, so a match shows its link, not
+where the apartments are. I read the five again with the footprints and the ads:
 
 - 58 Brooklyn Avenue, 1996 Fulton Street and 356 Vernon Avenue: the address's lot is vacant land
   with no building footprint, and the footprint's lot holds a house of 2 to 4 apartments built
@@ -1012,9 +1019,12 @@ are. I read the five again with the footprints and the ads:
   footprint's lot holds a 6-floor building of 30 apartments from 1930. The ad describes a
   doorman building with floor-to-ceiling windows, which matches neither lot.
 
-I count the first four as right under the rule and the fifth as unclear. `identity_check.py`
-still prints the reviewers' answers, so its `footprint_apartments` line overstates the wrong
-lots.
+On Oct 17 Data improvements judged the five again with MapPLUTO's releases from 23v1 on and
+HPD's register, and came to the same answers: the footprint's lot for the first four, and
+unclear for 512 West 23rd Street. With the rule and those answers, `identity_check.py` scores
+`footprint_apartments` 6 right, 0 wrong and 4 unclear, and `address_apartments` 8 right, 0
+wrong and 1 unclear. Its estimate of wrong lots in all classes comes to about 490, against
+about 670 on the build of Oct 16.
 
 ### Checking a change
 

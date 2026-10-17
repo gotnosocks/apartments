@@ -26,9 +26,8 @@ context, append_answers, answers = (
 
 # Points in the fixture's footprints: in 135, 133 and 137 West 89th Street and 601 Amsterdam
 # Avenue, lots 12, 13, 10 and 1 of Manhattan block 1220, and in 61 Adelphi Street, lot 38 of
-# Brooklyn block 2045. NEAR_12 lies
-# in the street a few metres from the front of 135 West 89th Street, and AWAY a block from any
-# footprint of the fixture.
+# Brooklyn block 2045. NEAR_12 lies in the street a few metres from the front of 135 West 89th
+# Street, and AWAY a block from any footprint of the fixture.
 IN_12 = (40.789342, -73.972422)
 IN_13 = (40.789310, -73.972341)
 IN_10 = (40.78939, -73.97248)

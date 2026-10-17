@@ -7,12 +7,12 @@ MODEL (
 );
 
 -- Each building gets a lot from its address, in `buildings.pad_link`, and a lot from its map
--- point, in `buildings.footprint_link`. When the two differ and only one of them has
--- apartments in the latest MapPLUTO release, the step takes that one: StreetEasy lists
--- apartments, and HPD's register of rental buildings agreed with the lot with apartments in
--- 114 of the 118 buildings where it named one of the two lots, as docs/data/pipeline.md
--- describes under Building identity. Otherwise the city facts of the building's record
--- decide. StreetEasy shows the building class, the year built, the floor count and the
+-- point, in `buildings.footprint_link`. When the two differ, and the latest MapPLUTO release
+-- gives one of them apartments and the other a count of 0, the step takes the one with
+-- apartments: StreetEasy lists apartments, and HPD's register of residential buildings agreed
+-- with the lot with apartments in 114 of the 118 buildings where it named one of the two lots,
+-- as docs/data/pipeline.md describes under Building identity. Otherwise, as for a lot missing
+-- from MapPLUTO or one without a count, the city facts of the building's record decide. StreetEasy shows the building class, the year built, the floor count and the
 -- count of apartments mostly as city records give them for the lot it links, so its lot is
 -- usually the one whose MapPLUTO record agrees with them most. A lot's fit counts the facts
 -- its record in the latest MapPLUTO release shares with the building's record, from 0 to 4:
@@ -22,8 +22,8 @@ MODEL (
 -- `link` says how the lot came about:
 --
 -- - `both`: the address and the map point give the same lot.
--- - `address_apartments`, `footprint_apartments`: they give different lots, and only the named
---   one has apartments.
+-- - `address_apartments`, `footprint_apartments`: they give different lots, the named one has
+--   apartments, and the other has a count of 0.
 -- - `address`, `footprint`: they give different lots, and the named one fits better.
 -- - `tie`: they give different lots that fit equally well, and the step takes the address's.
 -- - `address_only`: the map point falls in no footprint and lies more than 10 m from any.

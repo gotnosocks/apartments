@@ -155,7 +155,7 @@ def report(db, args) -> None:
     moved = sum(strata.get(r["building_id"]) != r["stratum"] for r in reviews)
     print(f"reviews: {args.reviews}, {moved} of them now in another stratum")
     print(
-        f"{'stratum':16} {'size':>7} {'right':>6} {'wrong':>6} {'other':>6}"
+        f"{'stratum':20} {'size':>7} {'right':>6} {'wrong':>6} {'other':>6}"
         f" {'wrong share (95%)':>20} {'wrong lots (95%)':>22}"
     )
     total = 0.0
@@ -175,7 +175,7 @@ def report(db, args) -> None:
         estimate = [share * size, low * size, high * size]
         total += estimate[0]
         print(
-            f"{stratum:16} {size:7,} {right:6} {wrong:6} {other:6}"
+            f"{stratum:20} {size:7,} {right:6} {wrong:6} {other:6}"
             f" {share:8.1%} ({low:5.1%}-{high:5.1%})"
             f" {estimate[0]:7.0f} ({estimate[1]:5.0f}-{estimate[2]:5.0f})"
         )
