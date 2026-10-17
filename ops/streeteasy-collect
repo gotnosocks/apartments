@@ -2,8 +2,7 @@
 # Collect StreetEasy rental ads through the GraphQL API (streeteasy_archive.graphql_search),
 # one region at a time, from a frozen copy of this checkout's src/.
 #
-#   ops/streeteasy-collect topup [REGION...]     ACTIVE ads of each region (default: every region),
-#                                                written to the current-listings folder
+#   ops/streeteasy-collect topup [REGION...]     ACTIVE ads of each region (default: every region)
 #   ops/streeteasy-collect backfill REGION...    every ad of each region, with unit histories
 #
 # The script copies src/ at this checkout's commit into
@@ -20,8 +19,8 @@
 # topup runs each region with --active-only --new-run and goes on past a region that fails,
 # then exits 1 if any did. backfill resumes the region's latest full run, finished or not, or
 # starts one, and stops at the first region that fails; running the same command again resumes
-# it. On a finished run, it counts and reads the new bands from this checkout's finer split,
-# then publishes the region's current ads again. For a fresh full run, call the collector by
+# it. On a finished run, it counts and reads the new bands from this checkout's finer split.
+# For a fresh full run, call the collector by
 # hand with --new-run. Each run's report goes to the journal and to
 # crawls/api/graphql-search/run-N.json, and the script appends a line for each region to
 # /data1/apartments/archive/crawls/streeteasy-collect.log.
@@ -34,7 +33,6 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CRAWLS=/data1/apartments/archive/crawls
-CURRENT=/data1/apartments/archive/current-listings
 RUNTIMES=/data1/apartments/runtime
 PYTHON=${STREETEASY_PYTHON:-/home/ben/code/apartments/.venv/bin/python}
 ENV_FILE=/home/ben/code/apartments/.env
@@ -127,9 +125,9 @@ fi
 failed=0
 for region in "$@"; do
   if [ "$mode" = topup ]; then
-    args=(--active-only --new-run --max-requests "$TOPUP_MAX" --current-listings "$CURRENT")
+    args=(--active-only --new-run --max-requests "$TOPUP_MAX")
   else
-    args=(--reopen --max-requests "$BACKFILL_MAX" --current-listings "$CURRENT")
+    args=(--reopen --max-requests "$BACKFILL_MAX")
   fi
   echo "$(date -Is) $mode $region: start (runtime ${commit:0:12})" | tee -a "$LOG"
   status=0
