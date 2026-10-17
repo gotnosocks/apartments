@@ -1,11 +1,11 @@
 # Granular archive tables
 
-The data preparation layer preserves captures and event mentions without
-aggregating prices or attributes over time. It also derives source-declared unit
-memberships from canonical URLs. An episode/listing ID is a source label that
-links evidence. A model may later select an observation unit,
-resolve physical identities, combine repeated evidence, or construct time windows.
-Those choices do not replace these tables.
+The granular datasets hold the page crawls' captures and every history entry each
+page mentions, with no prices or attributes combined over time. They also hold the
+unit memberships the pages declare in their canonical links. A listing ID there is
+the source's label for linking evidence. Models choose an observation unit, resolve
+physical apartments, combine repeated evidence and build time windows later, and
+the tables stay as they are.
 
 The granular folders under `/data1/apartments/archive/datasets/` hold the output
 of past runs of a transform, and they stay as data. The transform read a frozen
@@ -14,8 +14,8 @@ Modal (`models/modal_granular.py`), and `apartments.granular_export` finished
 each run. The data pipeline now builds from the API export
 ([pipeline.md](pipeline.md)), so the transform's code is deleted, and git history
 holds it. `rentfrontier.listing_extras.CRAWLS` lists the page crawls' folders,
-and `listing_extras`, `lister` and `listing_outcomes` read them beside the
-pipeline's records file.
+and `listing_extras`, `lister`, `listing_outcomes`, `latest_ask` and `areas` read
+them beside the pipeline's records file.
 
 ## Row meanings
 
@@ -53,8 +53,8 @@ attribute version. Raw HTML remains addressable at
 
 All numeric timestamps are UTC Unix seconds. `collected_at` comes from the raw
 snapshot's `observed` clock; every original request clock remains independently
-available in `fetch_observations.fetched_at`. `parsed_at` records this new
-interpretation. Source-created/updated dates and history event dates are source
+available in `fetch_observations.fetched_at`. `parsed_at` records when the
+transform read the capture. Source-created/updated dates and history event dates are source
 assertions, not collection dates or guaranteed attribute-validity intervals.
 
 A 2015 price reported on a page collected in 2026 is historical price evidence.
@@ -64,13 +64,12 @@ listing JSON alongside its history without making that backward join. Source uni
 labels retain padding and punctuation; they are not silently merged into physical
 apartments. Building membership is an observed attribute too.
 
-Every run freezes the separate `corrections.jsonl` ledger and its hash. The raw
-columns are never overwritten. The current ledger is empty, so raw and corrected
-values coincide. Applying future time-bounded edits requires explicitly choosing
-the attribute effective time; preparation never substitutes collection time.
-Use `Overlay.apply` to create a separate corrected projection at that selected
-time, retaining correction IDs and the raw observation. This keeps human assertions
-separate from source evidence and avoids forcing a temporal model at this stage.
+Each run froze the separate `corrections.jsonl` ledger and its hash, and left the
+raw columns as captured. The ledger was empty, so raw and corrected values
+coincide. A time-bounded correction needs an attribute effective time chosen for
+it, since collection time is no stand-in. `apartments.corrections.Overlay.apply`
+writes a separate corrected projection at that time, with the correction IDs and
+the raw observation, so human assertions stay apart from source evidence.
 
 For retained captures, the complete source listing and nested feature/amenity/pricing
 JSON remain in the Parquet tables. The normalized numeric columns are conveniences.
@@ -92,10 +91,9 @@ extra apartments.
 
 ## Canonical unit-page evidence
 
-The normal `parse_listing` / `process_shard` transform extracts three additional
-fields for every listing capture, including when the listing object fails to
-parse. Retained observations store all three columns; exclusions retain the declared
-href and diagnostic reason:
+The transform read three fields from the HTML head of every listing capture,
+including captures whose listing object failed to parse. Retained observations
+store all three columns, and exclusions keep the declared href and the reason:
 
 - `canonical_href`: the single declared canonical href from the HTML head.
 - `canonical_unit_url`: a normalized StreetEasy building/unit URL, or null when
@@ -104,24 +102,17 @@ href and diagnostic reason:
 - `canonical_unit_error`: an explicit reason for missing/unsupported/conflicting
   evidence. Rental captures with this field set are excluded under the policy below.
 
-Extraction uses the same bounded head parser as the older-dataset evidence
-backfill. The helper is included in the transform implementation hash, so resuming
-an old run with changed canonical extraction is rejected rather than mixing
-interpretations. Start a new output dataset for the next normal transform; do not
-rewrite an already completed dataset in place.
-
-The review app reads these fields directly, without an additional backfill step
-on newly transformed datasets. Canonical extraction records source evidence; it
-preserves source observations and does not apply human review decisions. The
-canonical-URL association step below derives unit memberships during finalization;
-manually reviewed associations remain in the separate reversible identity ledger.
+The fields record source evidence with no review decisions applied. At
+finalization the transform derived unit memberships from them, as "Canonical unit
+associations" below describes. Manually reviewed associations are kept in the
+separate, reversible identity ledger.
 
 
 ## Rental inclusion rule
 
-The normal transform retains a rental capture in `listing_observations` only when
-its HTML declares a usable canonical StreetEasy unit page (`canonical_unit_url`
-is non-null). A rental-listing URL, building-only URL, foreign/unsupported URL,
+The transform kept a rental capture in `listing_observations` only when its
+HTML declares a usable canonical StreetEasy unit page (`canonical_unit_url` is
+non-null). A rental-listing URL, building-only URL, foreign/unsupported URL,
 missing/conflicting canonical link, incomplete head, or unreadable body is excluded.
 This is a page-identity rule, with no listing-date cutoff. Sale listing captures retain
 their existing behavior. Media galleries are classified separately before this rule.
@@ -135,27 +126,20 @@ collection time, canonical href/error, parse status/error, and the reason
 archived HTML remain intact. This audit table is outside the review/model listing
 inputs and does not create another manual-cleaning queue.
 
-Shard checkpoints and the quality report count exclusions. Coverage reconciles
-retained observations plus intentional exclusions against input snapshots; genuinely
-unprocessed snapshots still fail finalization. Overlaps or event/source-change
-rows from excluded captures also fail integrity checks. Empty filtered shards
-retain valid Parquet schemas and support normal resumption.
-
-The rule is recorded as `listing_filter: rental-canonical-unit-v1` in `plan.json`
-and included in the transform implementation hash. It requires a fresh output run;
-existing completed datasets and review decisions are not rewritten. Applied to the
-current reviewed rental corpus (excluding media-gallery captures), this policy
-would exclude 8,094 of 96,783 captures and retain 88,689. Failed rental-page parses
-without usable canonical evidence are also counted as exclusions.
+Each dataset made under the rule records `listing_filter: rental-canonical-unit-v1`
+in its `plan.json`, and its quality report counts the exclusions. On the reviewed
+rental corpus of the time, with media-gallery captures left out, the rule excludes
+8,094 of 96,783 captures and keeps 88,689. Failed rental-page parses without a
+usable canonical link count as exclusions too.
 
 
 ## Media-gallery pages
 
-The transform classifies recognized `/media_gallery` endpoints as `media_gallery`
-before dispatching to any listing, building, or inventory parser. This handles
-legacy snapshots whose original archive `kind` was `listing`, `building`, or null.
-`snapshots.kind` remains the original value; the new `snapshots.page_type` records
-the derived classification used for processing and coverage checks.
+The transform classified recognized `/media_gallery` endpoints as `media_gallery`
+before any listing, building or inventory parser read them, including legacy
+snapshots whose archive `kind` was `listing`, `building` or null. `snapshots.kind`
+keeps the archive's value, and `snapshots.page_type` holds the classification the
+transform used.
 
 `media_gallery_observations` retains the snapshot ID, URL, collection/parse times,
 listing ID/type when available, building ID, canonical evidence, property details,
@@ -165,15 +149,13 @@ no rows to `listing_observations`, `listing_exclusions`, `event_mentions`, or
 `source_changes`, even if its payload includes history or price-change fields.
 No photos are downloaded; the embedded source media payload is preserved.
 
-Missing, ambiguous, unresolved, or unreadable gallery payloads remain explicit
-gallery parse errors. The report separates gallery counts/errors from listing
-errors, reconciles gallery coverage, and rejects leakage into listing/history
-tables. Missing gallery history is never a parsing error.
+Missing, ambiguous, unresolved or unreadable gallery payloads are recorded as
+gallery parse errors, and a gallery without history is not an error. Each quality
+report counts gallery captures and errors apart from listing errors.
 
-`plan.json` records `page_classification: media-gallery-v1`; the gallery parser
-is included in the implementation hash. This change requires a new output run,
-so completed datasets remain immutable. All eight gallery pages in the frozen
-Chelsea archive (six sales and two rentals) have been checked against this parser.
+Datasets with this classification record `page_classification: media-gallery-v1`
+in `plan.json`. All eight gallery pages in the frozen Chelsea archive (six sales
+and two rentals) were checked against the gallery parser.
 
 
 ## Canonical unit associations
@@ -198,8 +180,8 @@ Outputs:
 IDs use UUIDv5 of the normalized canonical URL, independent of listing IDs and
 latest-listing pointers. They are stable across reruns and additional captures.
 A changed canonical URL produces a different source identity; these associations
-are not independent verification of a physical home. Review-app decisions are a
-separate overlay and are not imported into the raw transform.
+are not independent verification of a physical home. Review decisions are kept
+in a separate overlay.
 
 To access one unit's history without losing provenance:
 

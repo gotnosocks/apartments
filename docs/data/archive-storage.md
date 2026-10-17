@@ -61,9 +61,8 @@ A compacted database is no longer self-contained: the stripped HTML exists only 
 Never prune `bodies/` (for Chelsea that is the shared `/data1/apartments/archive/bodies`, reached
 through a symlink).
 
-`tests/archive/test_compact.py` checks that the collection audit, the granular transform
-(`listing_observations`, `event_mentions`, `snapshots`), `listing_identity.capture_evidence` and
-`ArchiveStore` give the same answers on the copy. The other readers named in the review need no
+`tests/archive/test_compact.py` checks that the collection audit,
+`listing_identity.capture_evidence` and `ArchiveStore` give the same answers on the copy. The other readers named in the review need no
 change: `unit_history_pairs.py` reads `collection_memberships` or `scripts`, the alias tables
 and model inputs read the parquet datasets, and current-listings captures never read crawl
 databases.
