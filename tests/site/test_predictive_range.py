@@ -24,7 +24,7 @@ def test_listing_page_shows_the_likely_ask_range(client, site_root):
     listings = " ".join(client.get("/listings").get_data(as_text=True).split())
     assert "Likely ask range</th>" not in listings
     assert "Typical rent, 95% range" not in listings
-    assert "Each listing's page shows the range" in listings
+    assert "Each listing's own page shows its range" in listings
 
 
 def test_lists_carry_the_range_with_the_flag(client, site_root, monkeypatch):

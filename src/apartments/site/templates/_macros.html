@@ -60,8 +60,8 @@ are expected to fall, in that building and month. <strong>Price</strong> says wh
 typical</em> under it, <em>Above typical</em> over it, <em>Typical</em> inside it.
 <a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
 {% elif rows and not ranges %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
-apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. Each listing's page shows the
-range its ask was likely to fall in. <a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
+apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. Each listing's own page shows
+its range. <a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
 {% elif rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
 apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. The <em>range for the typical
 rent</em> is something else: the 95% uncertainty of the model's typical rent for that apartment, not where its ask will
