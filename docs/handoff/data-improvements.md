@@ -2,6 +2,19 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:50 ET
+
+- #1061 adds `pipeline/ledger/2026-10-17-z8-unit-baths-singlead.ndjson`, 413 bath-count sets. Of 3,489 rows whose
+  unit has exactly one other ad (same bedroom count, within two years) coding another count, 512 have their own
+  text and the other ad's text both stating the other ad's count (`/data1/apartments/tmp/suspect/baths/t6/`).
+  Sonnet read them: 495 wrong, 11 unclear, 4 a different unit, 2 right. `t6/ledger.py` checks that both quotes
+  parse to the set count, and drops ask outliers, a renovation with a rent jump, and half-bath removals where the
+  full count stays (ads often skip a powder room). Review dropped 4 more. Bath sets now total 1,593.
+- The #1061 review found 150 of 417 pairs with near-identical text (similarity above 0.9), so the second ad's text often repeats the first rather
+  than confirming it. The other ad's code still backs each set.
+- Next: try the same single-ad tier for bedrooms, with stated sizes required, since flex wording dominated the
+  #1056 reads.
+
 ## 2026-10-17 14:38 ET
 
 - #1059 adds `pipeline/ledger/2026-10-17-z7-unit-baths-statedhalf.ndjson`, 179 bath-count sets, most often 1 full
