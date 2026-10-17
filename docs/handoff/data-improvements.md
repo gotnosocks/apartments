@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 20:00 ET, after the size-equals-ask sets in #1080. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 21:00 ET, after the ask outlier entries in #1086. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-17 21:00 ET
 
