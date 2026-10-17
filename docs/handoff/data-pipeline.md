@@ -57,7 +57,9 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `src/streeteasy_archive/graphql_search.py`. **Started**: since #919 each production build
    writes `analysis.ads`, every ad with a record, to `ads-<hash>.parquet` beside the rows file,
    for both readers. Since #945 the site build takes its current listings from the ads and
-   rows files.
+   rows files. On the export of Oct 16 it showed 1,099 of the 1,159 listings the captures gave,
+   leaving out 57 ads off the market since Oct 10 and 3 without a fit-ready row
+   ([pipeline.md](../data/pipeline.md#the-websites-current-listings)).
 
 ## Raw layer
 

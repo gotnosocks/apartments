@@ -1524,7 +1524,28 @@ or the served fit priced it, from the ad's `on_day`, `days_on_market` and break 
 dates an ad only when the ad is ACTIVE and its `on_day` falls on or before the New York day of
 its latest answer.
 
-COMPARISON
+On the evening of Oct 16 I built the site twice from the export of Oct 16 and the served fit,
+once with this reader and once with the code it replaced, and compared the listings on the
+market. The reader showed 1,099 against 1,159, every one of them on the old list too. It left
+out 60:
+
+- 57 ads whose answers from the top-ups of Oct 15 and 16 say RENTED (26), IN_CONTRACT (15),
+  DELISTED (9), NO_LONGER_AVAILABLE (4) or TEMPORARILY_OFF_MARKET (3). The old reader showed
+  them from captures of Oct 10, inside its 9-day window. 30 of them are in the East Village.
+- 3 ACTIVE ads without a fit-ready row. 5128314 offers a concession, 5183409 gives conflicting
+  layouts, and 5154603 shares its unit and ask with 5164886, a later ad of the month whose row
+  the rows keep and whose answer says RENTED.
+
+On the 1,099 listings of both builds the values agreed, apart from these:
+
+- The ledger sets 5163731 at 333 West 56th Street to a studio from its floor plan, so its
+  estimate fell from $5,339 to $3,841 against a $3,800 ask.
+- 74 listings gained a pet policy from the API record's amenities.
+- The 150 other listings without a unit level from the fit draw their unit levels with the
+  `audit_id` as seed. The id took its new form, so their estimates moved by at most 0.11%.
+
+Both builds took about 4 minutes at a 7.45 GiB peak RSS and 8.5 GB in their cgroup. Under a
+7 GB cap with no swap the build was killed for memory, so the comparison ran under 9 GB.
 
 ## Differences from the chain
 
