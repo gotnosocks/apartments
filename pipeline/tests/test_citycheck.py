@@ -33,7 +33,8 @@ def test_citycheck_cases(tmp_path, monkeypatch):
       the lot's 5 floors and within StreetEasy's 8. Unit 9b's ad says ninth floor, above both.
       Unit 10c's label floor of 10 is above StreetEasy's count, so its row has no floor.
     - 900204 gives 137 West 89th Street, lot 10, with its map point and its facts on lot 12.
-      The build takes lot 12 from the footprint, and MapPLUTO's address gives lot 10. Its unit
+      The build takes lot 12 from the footprint, the only one of the two lots with apartments,
+      and MapPLUTO's address gives lot 10. Its unit
       2d brings lot 12 to 18 units over all time and 16 in the last 12 months.
     - 900202 gives 259 West 90th Street with no map point, lot 9 of block 1238. MapPLUTO gives
       the lot 9 apartments, and its latest certificate of occupancy, from 2016, gives 4. 7 units
@@ -128,7 +129,7 @@ def test_citycheck_cases(tmp_path, monkeypatch):
     } == {
         "both": (1, 17, 17),
         "address_only": (3, 9, 8),
-        "footprint": (1, 1, 1),
+        "footprint_apartments": (1, 1, 1),
         "none": (2, 2, 2),
     }
     assert (lots["buildings"], lots["buildings_with_lot"]) == (7, 5)
@@ -142,7 +143,7 @@ def test_citycheck_cases(tmp_path, monkeypatch):
         "no_match": 1,
         "unparsed": 1,
     }
-    assert address["rows"]["by_link"]["footprint"]["other"] == 1
+    assert address["rows"]["by_link"]["footprint_apartments"]["other"] == 1
     assert address["buildings"]["by_link"]["address_only"]["among_several"] == 1
     assert [
         (c["building_id"], c["bbl"], c["pluto_lots"]) for c in lots["disagreements"]

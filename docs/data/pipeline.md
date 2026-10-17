@@ -874,13 +874,17 @@ link each building two ways and let the city facts on its record decide between 
    billing lot.
 3. `buildings.footprint_link` tests the map point against the footprints of the latest copy. It
    keeps a footprint holding the point, or else the nearest one within 10 m.
-4. `buildings.lots` compares the two lots. Where they differ, it counts the facts the record
-   shares with MapPLUTO's record of each lot, in the latest release, and takes the lot with more.
-   `link` says which way the lot came:
+4. `buildings.lots` compares the two lots. Where they differ and only one of them has
+   apartments in the latest MapPLUTO release, it takes that one, as
+   [The lot with apartments](#the-lot-with-apartments) explains. Otherwise it counts the facts
+   the record shares with MapPLUTO's record of each lot, in the latest release, and takes the
+   lot with more. `link` says which way the lot came:
 
    | `link` | lot and BIN |
    |---|---|
    | `both` | the address and the map point give the same lot |
+   | `address_apartments` | they differ, and only the address's lot has apartments |
+   | `footprint_apartments` | they differ, and only the footprint's lot has apartments |
    | `address` | they differ, and the address's lot fits the facts better |
    | `footprint` | they differ, and the footprint's lot fits better |
    | `tie` | they differ and fit equally, and the step takes the address's lot |
@@ -926,7 +930,10 @@ interval, and multiply it by the class's size:
 | `address_only` | 560 | 24 | 2 | 4 | 7.7% (2.1% to 24.1%) | 43 |
 | `footprint_only` | 95 | 17 | 7 | 6 | 29.2% (14.9% to 49.2%) | 28 |
 
-About 520 lots are wrong by these estimates, under 1% of the buildings. A sample of 30 bounds the
+About 520 lots are wrong by these estimates, under 1% of the buildings. The build of Oct 16
+came before the step took the lot with apartments, so its `address`, `footprint` and `tie`
+classes still hold the buildings that rule now moves.
+[The lot with apartments](#the-lot-with-apartments) scores those buildings again. A sample of 30 bounds the
 largest class loosely, and Data improvements' registry gives better evidence there: it agrees on
 62,932 of the 63,124 buildings both hold. In the ties the reviewers chose the address's lot 23
 times and the footprint's 13 times. With the point within 10 m of a footprint but outside it,
@@ -960,6 +967,54 @@ of the other lots fall in the classes where the address and the footprint disagr
 Of the 33 reviewed `footprint` buildings with an answer, the reviewers' lot is the step's in 29
 and the registry's in 11. In the ties the registry does better, 28 against the step's 23, and in
 `address` the step's lot is right in all 38 and the registry's in 30.
+
+### The lot with apartments
+
+StreetEasy lists apartments, so a building's lot ought to have some. Where the address and the
+map point give different lots and MapPLUTO gives one of them apartments and the other none,
+`buildings.lots` takes the lot with apartments, ahead of the facts. On Oct 17 I built the step
+over the export of runs 1 to 10, with PAD 26c, MapPLUTO 26v2 and the footprints copy of
+Oct 11. The rule set the lot of 434 buildings: 179 by `address_apartments` and 255 by
+`footprint_apartments`. The facts had already chosen the same lot for 209 of them. It moves 225
+buildings with 1,931 ads:
+
+| move | buildings | ads | HPD lists only the lot with apartments | only the other | both | neither |
+|---|---:|---:|---:|---:|---:|---:|
+| to the address's lot | 15 | 924 | 7 | 0 | 8 | 0 |
+| to the footprint's lot, no building on the address's lot | 185 | 918 | 98 | 4 | 70 | 13 |
+| to the footprint's lot, a building on the address's lot | 25 | 89 | 9 | 0 | 14 | 2 |
+
+I read two independent records against each move:
+
+- HPD's register of the residential buildings under its jurisdiction, fetched on Oct 17. Where
+  it lists only one of the two lots, it lists the lot with apartments 114 times and the other
+  lot 4 times.
+- The city's building footprints, drawn from aerial survey. They show no building on the lot
+  without apartments in 185 of the 210 moves to the footprint's lot, and MapPLUTO calls 94 of
+  those 185 lots vacant land. DOB's certificates of occupancy give dwelling units on 3 of the
+  210 lots.
+
+The reviewed sample of Oct 16 disagrees in the moves to the footprint's lot: of the 10 reviewed
+buildings now in `footprint_apartments`, the reviewers judged 5 lots wrong, 2 right and 3
+unclear. In each of the 5, they took the address's lot because MapPLUTO's facts for it match the
+StreetEasy record, and the record calls the building vacant land or an empty lot. StreetEasy
+copies those facts from the lot it links, so a match shows its link, not where the apartments
+are. I read the five again with the footprints and the ads:
+
+- 58 Brooklyn Avenue, 1996 Fulton Street and 356 Vernon Avenue: the address's lot is vacant land
+  with no building footprint, and the footprint's lot holds a house of 2 to 4 apartments built
+  between 1899 and 1931. The ads of 58 Brooklyn Avenue describe a walk-up with Victorian
+  details, and those of 356 Vernon Avenue a pre-war building.
+- 310 Broadway in Brooklyn: the address's lot is an 89 sq ft sliver with no footprint. The ads
+  describe a boutique rental development, and the footprint's lot holds a 6-floor condominium of
+  24 apartments built in 2019.
+- 512 West 23rd Street: the address's lot is vacant, with a 12 ft structure on it, and the
+  footprint's lot holds a 6-floor building of 30 apartments from 1930. The ad describes a
+  doorman building with floor-to-ceiling windows, which matches neither lot.
+
+I count the first four as right under the rule and the fifth as unclear. `identity_check.py`
+still prints the reviewers' answers, so its `footprint_apartments` line overstates the wrong
+lots.
 
 ### Checking a change
 
@@ -1464,13 +1519,14 @@ Each lot falls in a class: no count, a count of 0, within the count, or above it
 6 to 20 or more than 20. The report lists the lots with the largest excess over either count,
 and the lots with a `unitsres` of 0.
 
-When a building's address lot and footprint lot differ, `buildings.lots` picks the one whose
-latest MapPLUTO building class, year, `numfloors` and `unitsres` best match the StreetEasy
-record. For a lot with `link` `address` or `footprint`, the `unitsres` comparison therefore
-leans toward agreement, and so does the `numfloors` comparison below. The links `both`, `tie`,
-`address_only` and `footprint_only` involve no such choice. I split each class tally into lots
-with a building linked by `address` or `footprint` and the other lots, and print both in the
-summary.
+When a building's address lot and footprint lot differ, `buildings.lots` picks the one with
+apartments in the latest MapPLUTO release when only one has some, and otherwise the one whose
+latest building class, year, `numfloors` and `unitsres` best match the StreetEasy record. For a
+lot with `link` `address_apartments`, `footprint_apartments`, `address` or `footprint`, the
+`unitsres` comparison therefore leans toward agreement, and so does the `numfloors` comparison
+below. The links `both`, `tie`, `address_only` and `footprint_only` involve no such choice. I
+split each class tally into lots with a building linked by one of those four and the other
+lots, and print both in the summary.
 
 For floors, I take each fit-ready row's advertised floor, else its physical floor, else its
 label floor, and compare it with two counts:

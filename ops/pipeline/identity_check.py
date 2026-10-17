@@ -48,6 +48,8 @@ REVIEWS = REPO / "config" / "reviews" / "building-identity-20261016.jsonl"
 STRATA = [
     "both_fit",
     "both_lowfit",
+    "address_apartments",
+    "footprint_apartments",
     "address",
     "footprint",
     "tie",

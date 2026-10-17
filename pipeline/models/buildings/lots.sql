@@ -7,8 +7,12 @@ MODEL (
 );
 
 -- Each building gets a lot from its address, in `buildings.pad_link`, and a lot from its map
--- point, in `buildings.footprint_link`. When the two differ, the city facts of the building's
--- record decide. StreetEasy shows the building class, the year built, the floor count and the
+-- point, in `buildings.footprint_link`. When the two differ and only one of them has
+-- apartments in the latest MapPLUTO release, the step takes that one: StreetEasy lists
+-- apartments, and HPD's register of rental buildings agreed with the lot with apartments in
+-- 114 of the 118 buildings where it named one of the two lots, as docs/data/pipeline.md
+-- describes under Building identity. Otherwise the city facts of the building's record
+-- decide. StreetEasy shows the building class, the year built, the floor count and the
 -- count of apartments mostly as city records give them for the lot it links, so its lot is
 -- usually the one whose MapPLUTO record agrees with them most. A lot's fit counts the facts
 -- its record in the latest MapPLUTO release shares with the building's record, from 0 to 4:
@@ -18,6 +22,8 @@ MODEL (
 -- `link` says how the lot came about:
 --
 -- - `both`: the address and the map point give the same lot.
+-- - `address_apartments`, `footprint_apartments`: they give different lots, and only the named
+--   one has apartments.
 -- - `address`, `footprint`: they give different lots, and the named one fits better.
 -- - `tie`: they give different lots that fit equally well, and the step takes the address's.
 -- - `address_only`: the map point falls in no footprint and lies more than 10 m from any.
@@ -55,7 +61,8 @@ WITH latest AS (
             + coalesce((pf.year_built = b.year_built)::INTEGER, 0)
             + coalesce((floor(pf.floor_count) = floor(b.floor_count))::INTEGER, 0)
             + coalesce((pf.residential_units = b.residential_units)::INTEGER, 0) END
-            AS footprint_fit
+            AS footprint_fit,
+        pa.residential_units AS address_units, pf.residential_units AS footprint_units
     FROM buildings.latest_record b
     LEFT JOIN buildings.pad_link a USING (building_id)
     LEFT JOIN buildings.footprint_link f USING (building_id)
@@ -67,15 +74,17 @@ WITH latest AS (
             WHEN footprint_bbl IS NULL THEN 'address_only'
             WHEN address_bbl IS NULL THEN 'footprint_only'
             WHEN address_bbl = footprint_bbl THEN 'both'
+            WHEN address_units > 0 AND footprint_units = 0 THEN 'address_apartments'
+            WHEN footprint_units > 0 AND address_units = 0 THEN 'footprint_apartments'
             WHEN address_fit > footprint_fit THEN 'address'
             WHEN footprint_fit > address_fit THEN 'footprint'
             ELSE 'tie' END AS link
     FROM fits
 )
 SELECT building_id,
-    CASE WHEN link IN ('footprint', 'footprint_only') THEN footprint_bbl ELSE address_bbl END
-        AS bbl,
-    CASE WHEN link IN ('footprint', 'footprint_only') THEN footprint_bin
+    CASE WHEN link IN ('footprint', 'footprint_apartments', 'footprint_only') THEN footprint_bbl
+        ELSE address_bbl END AS bbl,
+    CASE WHEN link IN ('footprint', 'footprint_apartments', 'footprint_only') THEN footprint_bin
         WHEN link = 'both' AND address_bin LIKE '_000000' THEN footprint_bin
         ELSE address_bin END AS bin,
     link, address_bbl, address_bin, address_rank, address_lots, address_fit,
