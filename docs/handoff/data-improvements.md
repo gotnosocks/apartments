@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-16 20:45 ET, with the ask-check rules. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-16 21:10 ET, after #940 and the step 9 plan. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-16 15:00 ET
 
@@ -54,6 +54,30 @@ reader read the 40 flagged ads with each apartment's other ads
 Every other flagged ad stays, including the Oriana 3 bedroom at $1,061 and 53 E 64th at $1,200:
 only their price looks wrong. Typos without a backed figure also stay. After the merge I tell the
 pipeline the v33 and bedrooms-ad-v9 file names, for `ops/pipeline/ledger_import.py`.
+
+#939 merged, and the pipeline's ledger PR #941 imports v33 and bedrooms-ad-v9. #940 added v9's
+provenance. Each provenance covers only the rows its own version adds, so a reader walks
+`base_rule` back for the earlier rows and their dataset. For 2491440 ($33,333), the pipeline found
+a same-day twin ad (2580707 at $338,700) and two price changes to $33,333 seven seconds apart.
+I'll cite them in the next quarantine version's entry; the note is in
+`/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-quarantine-notes.jsonl`.
+
+On the all-scraped set, furnished, short_term, concession and floors_above_ground are null on every
+row, crawl and API alike. pet_policy is null on 80%, hvac_type on 74%, doorman_type on 57% and
+elevator on 49%. The pipeline's ads file carries furnished, short_term and concession, so they
+come with the step 9 move below.
+
+Step 9 (Ben approved it for the pipeline thread): the pipeline deletes the page-capture rewrite and
+the page parser, which it plans for Mon Oct 19. Before that, it opens PRs that move my builders
+onto its catalog files, and I review each one:
+
+1. ads file fields;
+2. latest_ask and descriptions;
+3. listing_extras, lister, listing_outcomes and cohort;
+4. granular_slice and granular_export.
+
+Each PR has to show every builder's output hash on the Oct 16 export, before and after, and name
+any changed row.
 
 API unit spelling aliases: after unit-labels-v17, 69 history-confirmed groups (339 rows, about 0.1%)
 stay split, mostly `4` against `4fl`, `4th` or `2nd-floor`. That's too small to refit for, so
