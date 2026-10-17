@@ -196,12 +196,13 @@ def test_an_ad_takes_its_values_from_its_row_and_its_ask_from_its_page(pipeline)
 
 
 def test_the_ad_fetched_last_wins_per_unit(pipeline):
-    """The files hold the older ad first, so the order comes from the reader."""
+    """The files hold the older ad first, and the newer ad has the lower ID, so neither the
+    files' order nor the IDs give the newer ad."""
     files = pipeline.write(
-        [ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1)), ad(2)]
+        [ad(2, response_id=6, fetched=SEEN - dt.timedelta(days=1)), ad(1)]
     )
     got, skipped = captures.current_ads(files, set(), {})
-    assert [c["listing_id"] for c in got] == ["1002"] and skipped == {}
+    assert [c["listing_id"] for c in got] == ["1001"] and skipped == {}
 
 
 def test_a_unit_with_an_ad_the_dataset_dropped_has_none(pipeline):
@@ -219,16 +220,17 @@ def test_a_unit_with_an_ad_the_dataset_dropped_has_none(pipeline):
 
 
 def test_a_unit_takes_its_newest_ad_with_a_row(pipeline):
-    """The files hold the ads from oldest to newest, so the order comes from the reader."""
+    """The files hold the ads from oldest to newest, and the newer of the two ads with a row
+    has the lower ID, so neither the files' order nor the IDs give it."""
     ads = [
-        ad(1, response_id=5, fetched=SEEN - dt.timedelta(days=2)),
+        ad(3, response_id=5, fetched=SEEN - dt.timedelta(days=2)),
         ad(2, response_id=6, fetched=SEEN - dt.timedelta(days=1)),
-        ad(3),
+        ad(1),
     ]
     files = pipeline.write(ads, ads[:2])
     got, skipped = captures.current_ads(files, set(), {})
     assert [c["listing_id"] for c in got] == ["1002"]
-    assert skipped == {"1003": "the ad has no fit-ready row"}
+    assert skipped == {"1001": "the ad has no fit-ready row"}
 
 
 def test_a_unit_whose_ads_on_the_market_conflict_has_none(pipeline):

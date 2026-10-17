@@ -1500,10 +1500,10 @@ The site build (`python -m apartments.site build`) reads
 `/data1/apartments/pipeline/datasets/catalog.ndjson` and takes its newest line from a build of a
 checkout with no changes (`code.clean`). It passes over a last line without its newline, which
 a pipeline build may still be writing. A clean checkout of a branch counts as well, so I build
-from a branch into a folder of its own with `--out`. It checks the SHA-256 of the ads file and the rows file
-against that line before it reads either. A line without both files stops the build, as a file
-with another SHA-256 does. `src/apartments/site/captures.py` then picks the listings on the
-market:
+from a branch into a folder of its own with `--out`. The site build checks the SHA-256 of the
+ads file and the rows file against that line before it reads either. A line without both files
+stops the build, as a file with another SHA-256 does. `src/apartments/site/captures.py` then
+picks the listings on the market:
 
 1. It reads the ads with a unit whose latest answer says ACTIVE and came in the 9 days before
    the build (`CURRENT_DAYS`), and joins each to its fit-ready row by listing id.
@@ -1517,10 +1517,10 @@ market:
    when the dataset prices its unit as current from an answer as new as the ad's or newer.
 
 Step 2 compares the four values alone. A furnished, short-stay or concession copy of an ad with
-the same ask and layout has no fit-ready row, so the unit shows the other ad. The served dataset
-drops a listing for any of its rules, while step 2 rests on the values a dropped ad shares with
-the others, so it can hide a unit whose ads the dataset dropped for another reason. On the files
-of Oct 16 no unit had both a dropped ad and another ad on the market.
+the same ask and layout has no fit-ready row, so the unit shows the other ad, unless the served
+dataset dropped the copy. A listing the served dataset dropped hides its whole unit, whichever
+of the dataset's rules dropped it, since step 2 rests on the values the dropped ad shares with
+the others. On the files of Oct 16 no unit had both a dropped ad and another ad on the market.
 
 The values come from the fit-ready row, after the corrections ledger, and the ask from
 `page_price`, since a row's `asking_rent` follows the chain's latest-ask rule and can be an

@@ -40,6 +40,7 @@ def test_last_break_is_the_ads_latest_return():
     assert ads_check.last_break(events[:1], "2026-08-10", "2026-10-05") == (None,) * 3
     # Events outside the days from `since` to `as_of` take no part.
     assert ads_check.last_break(events, "2026-08-15", "2026-09-07") is None
+    assert ads_check.last_break(events[:3], "2026-08-15", "2026-10-05") == (None,) * 3
     # Rented and back on the same day: the history lists the newer event first.
     same_day = [
         event("2026-10-05", "ACTIVE", 0),
