@@ -80,5 +80,8 @@ def test_listing_pages_render_alike(client, detail_client, site_root):
         assert a.get_data(as_text=True) == b.get_data(as_text=True)
 
 
-def test_story_renders_from_detail(detail_client):
-    assert detail_client.get("/research/story").status_code == 200
+def test_story_renders_alike_from_detail(client, detail_client):
+    a = client.get("/research/story").get_data(as_text=True)
+    b = detail_client.get("/research/story").get_data(as_text=True)
+    assert "The build-up as a table" in b
+    assert a == b

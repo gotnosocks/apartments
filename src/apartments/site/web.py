@@ -689,6 +689,7 @@ def create_app(
             if g.get("reads") is not None:
                 read_log.watch(g.db, g.queried)
             g.build = path.parent.name
+            g.build_dir = path.parent
         return g.db
 
     def parts_of(row) -> list[dict]:
@@ -696,9 +697,8 @@ def create_app(
         detail file when the build left them out of the table (detail.py)."""
         if row["contributions"] is not None:
             return json.loads(row["contributions"])
-        found = detail.lookup(
-            database_path().parent, meta()["summary_sha256"], row["audit_id"]
-        )
+        meta()  # opens the request's build, as the row's query did
+        found = detail.lookup(g.build_dir, g.meta["summary_sha256"], row["audit_id"])
         if found is None:
             raise LookupError(f"{row['audit_id']} has no parts in the build")
         return found

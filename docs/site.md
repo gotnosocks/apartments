@@ -223,8 +223,8 @@ listings fall in each band, as calibration predicts.
    cached by the bundle's sha and the audit id. Ads priced from the kit keep their parts in the
    table. On the eight-neighbourhood build the file holds 135 MB in place of 547 MB of JSON, and
    the parts it gives back for Ben's opened listings and 2,000 random ones match the stored ones
-   to the cent; on the all-scraped bundle (1.75M rows) the copy takes 20 s and 778 MB, and a
-   lookup 15 to 35 ms. The flag stays off in the publish until Website turns it on.
+   to the cent; on the all-scraped bundle (1.75M rows) the copy takes 30 s on one thread with
+   1.2 GB resident and writes 779 MB, and a lookup takes 12 to 35 ms.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from

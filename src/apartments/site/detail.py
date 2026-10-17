@@ -10,8 +10,11 @@ them. The term names go in the file's key-value metadata. `parts` scales the
 values on the way out exactly as `build.listing_rows` does for a build that
 stores them.
 
-On the all-scraped bundle (1.75M rows, 30 terms) the copy took 20 s and wrote
-778 MB, and a lookup took 15 to 35 ms after the first. A column per term made
+On the all-scraped bundle (1.75M rows, 30 terms) the copy took 30 s on one
+thread, held 1.2 GB resident and wrote 779 MB, and a lookup took 12 to 35 ms
+after the first. The copy runs inside the build while the build holds about
+2.5 GB, so it keeps to one thread and a 1 GB limit: at 2 GB it took 24 s and
+1.8 GB, and several threads under a tight limit fail to pin blocks in the sort. A column per term made
 lookups take 110 ms, since DuckDB then reads 93 column chunks per lookup.
 
 The listing page and the research story call `lookup` for a listing's parts
@@ -62,12 +65,16 @@ def parts(row: dict, names: list[str]) -> list[dict]:
 def write(bundle: Path, names: list[str], target: Path) -> dict:
     """Copy the parts of every bundle row to `target`, sorted by audit_id.
     Returns the file's row count and size for the build's record."""
-    values = ", ".join(f'"{name}_usd{side}"' for name in names for side in SIDES)
+    values = ", ".join(
+        '"{}"'.format(f"{name}_usd{side}".replace('"', '""'))
+        for name in names
+        for side in SIDES
+    )
     terms = json.dumps(names).replace("'", "''")
     connection = duckdb.connect()
     try:
-        connection.execute("SET memory_limit = '2GB'")
-        connection.execute("SET threads = 2")
+        connection.execute("SET memory_limit = '1GB'")
+        connection.execute("SET threads = 1")
         connection.execute("SET preserve_insertion_order = true")
         connection.execute("SET temp_directory = ?", [tempfile.gettempdir()])
         # DuckDB's COPY takes no bound parameters for the paths.
