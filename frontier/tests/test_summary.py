@@ -161,6 +161,48 @@ def test_row_table_contributions_add_up_to_the_estimate():
     assert table.pit.between(0, 1).all()
 
 
+def test_row_tables_from_a_pool_match_the_tables_built_in_process():
+    rng = np.random.default_rng(5)
+    draws, n = 200, 4
+    chunks = []
+    for c in range(5):
+        terms = {
+            "market": np.log(3000) + rng.normal(0, 0.01, (draws, n)),
+            "unit": rng.normal(0, 0.05, (draws, n)),
+        }
+        sub = pd.DataFrame(
+            {
+                "audit_id": [f"a{c}-{i}" for i in range(n)],
+                "unit_id": ["u"] * n,
+                "building": ["b"] * n,
+                "period": pd.to_datetime(["2020-01-01"] * n),
+                "asking_rent": np.full(n, 3500.0),
+            },
+            index=np.arange(c * n, (c + 1) * n),
+        )
+        chunks.append(
+            (
+                sub,
+                terms,
+                rng.normal(0, 0.5, (draws, n)),
+                np.zeros(n),
+                np.exp(sum(terms.values())),
+                np.full((draws, 1), 0.05),
+                np.full(draws, 5.0),
+                ["market", "unit"],
+                ["{}"] * n,
+            )
+        )
+    tables = {}
+    for workers in (1, 2):
+        t = summary.RowTables(workers)
+        for chunk in chunks:
+            t.add(*chunk)
+        tables[workers] = pd.concat(t.collect())
+    pd.testing.assert_frame_equal(tables[1], tables[2])
+    assert len(tables[2]) == 5 * n
+
+
 def test_present_terms_leave_out_terms_a_design_does_not_have():
     config = model.MODELS["m0q-btrend"]
     names = summary.present_terms(config, ["bedrooms", "bedrooms", "size"], line=False)

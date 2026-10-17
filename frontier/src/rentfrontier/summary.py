@@ -467,7 +467,59 @@ def gate(result, run_dir) -> dict:
     }
 
 
-def summarize(name: str, allow_failing: bool = False):
+def _cpu_worker():
+    """A row-table worker leaves the GPU to the main process."""
+    import os
+
+    os.environ["JAX_PLATFORMS"] = "cpu"
+
+
+class RowTables:
+    """`row_table` for each chunk `summarize` hands it, in this process with one
+    worker, or else in a pool of that many spawned processes: the predictive
+    intervals and weighted quantiles run single-threaded in scipy and numpy and
+    take most of a large summary's time (2026-10-17: a 1.6M-row summary passed
+    4 hours on one core). At most two chunks per worker wait in the pool, so
+    memory stays near that many chunks. Every 100 chunks it logs its progress."""
+
+    def __init__(self, workers: int = 1):
+        self.workers, self.done, self.pending = workers, [], []
+        self.pool, self.started, self.chunks = None, time.perf_counter(), 0
+        if workers > 1:
+            import multiprocessing
+            from concurrent.futures import ProcessPoolExecutor
+
+            self.pool = ProcessPoolExecutor(
+                workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=_cpu_worker,
+            )
+
+    def add(self, *args):
+        if self.pool is None:
+            self.done.append(row_table(*args))
+        else:
+            while len(self.pending) >= 2 * self.workers:
+                self.done.append(self.pending.pop(0).result())
+            sub, terms, *rest = args
+            terms = {k: np.asarray(v) for k, v in terms.items()}
+            self.pending.append(self.pool.submit(row_table, sub, terms, *rest))
+        self.chunks += 1
+        if self.chunks % 100 == 0:
+            print(
+                f"{self.chunks} chunks, {time.perf_counter() - self.started:.0f} s",
+                flush=True,
+            )
+
+    def collect(self) -> list[pd.DataFrame]:
+        self.done += [f.result() for f in self.pending]
+        self.pending = []
+        if self.pool is not None:
+            self.pool.shutdown()
+        return self.done
+
+
+def summarize(name: str, allow_failing: bool = False, workers: int = 1):
     import jax
 
     jax.config.update("jax_enable_x64", True)
@@ -518,7 +570,7 @@ def summarize(name: str, allow_failing: bool = False):
         )
         return a, terms
 
-    tables = []
+    tables = RowTables(workers)
     # Rows in the fit, sorted into whole units.
     train_idx = np.flatnonzero(~heldout)
     unit_of = pd.Index(prep.units).get_indexer(frame.unit_id.to_numpy()[train_idx])
@@ -552,18 +604,16 @@ def summarize(name: str, allow_failing: bool = False):
         loglik, level = loglik[:, : len(rows)], level[:, : len(rows)]
         terms["unit"] = level
         log_w, k = psis_log_weights(loglik)
-        tables.append(
-            row_table(
-                frame.loc[mask],
-                terms,
-                log_w,
-                k,
-                fitted,
-                row_scale(a),
-                nu,
-                names,
-                row_inputs(feats, rows),
-            )
+        tables.add(
+            frame.loc[mask],
+            terms,
+            log_w,
+            k,
+            fitted,
+            row_scale(a),
+            nu,
+            names,
+            row_inputs(feats, rows),
         )
     # Held-out rows: the fit never saw them; the posterior is the estimate.
     held_idx = np.flatnonzero(heldout)
@@ -581,20 +631,18 @@ def summarize(name: str, allow_failing: bool = False):
                 params, int(unseen.sum()), sub_key, t_units=t_units
             )
         fitted = np.exp(sum(terms.values()))
-        tables.append(
-            row_table(
-                frame.loc[mask],
-                terms,
-                np.zeros((draws, len(rows))),
-                np.full(len(rows), np.nan),
-                fitted,
-                row_scale(a),
-                nu,
-                names,
-                row_inputs(feats, rows),
-            )
+        tables.add(
+            frame.loc[mask],
+            terms,
+            np.zeros((draws, len(rows))),
+            np.full(len(rows), np.nan),
+            fitted,
+            row_scale(a),
+            nu,
+            names,
+            row_inputs(feats, rows),
         )
-    table = pd.concat(tables).sort_index()
+    table = pd.concat(tables.collect()).sort_index()
     if len(table) != len(frame) or table.audit_id.duplicated().any():
         raise AssertionError("every dataset row must appear exactly once")
     table.insert(5, "in_fit", ~heldout)
@@ -799,6 +847,12 @@ def main(argv=None):
         action="store_true",
         help="summarize a run that fails the convergence gate (recorded)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="processes for the per-chunk row tables (each holds about two chunks)",
+    )
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
@@ -808,7 +862,7 @@ def main(argv=None):
     if (out_dir / "complete.json").exists():
         raise SystemExit(f"{out_dir} exists")
     t0 = time.perf_counter()
-    out = summarize(args.run, args.allow_failing)
+    out = summarize(args.run, args.allow_failing, args.workers)
     path = write(out, out_dir, commit, time.perf_counter() - t0)
     rows = out["rows"]
     print(
