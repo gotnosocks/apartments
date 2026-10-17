@@ -340,7 +340,7 @@ doesn't tell whether a build is running: the build's service stays `activating` 
 waits as well as its build. `ops/autoselect-publish.sh` runs its site build under slot 1 the
 same way.
 
-A build after an export is a top-up. The 15 models of kind `merge` read the export's new
+A build after an export is a top-up. The 16 models of kind `merge` read the export's new
 answers and the ads they change, and the other ads models and the `analysis` tables read every
 ad again, as [Top-up builds](#top-up-builds) describes.
 
@@ -398,9 +398,9 @@ another report of those events. The materialization `merge`, in
 `pipeline/materializations/merge.py`, starts each model's new table from a copy of the prod
 table:
 
-- `ads.answers`, `ads.history_events` and `ads.record_attributes` add the rows of keys the copy
-  lacks: the new answers, the events of each history no earlier answer held, and the attributes
-  of each record the table lacks.
+- `ads.answers`, `ads.history_events`, `ads.record_attributes` and `ads.photos` add the rows of
+  keys the copy lacks: the new answers, the events of each history no earlier answer held, the
+  attributes of each record the table lacks, and the photos an ad shows for the first time.
 - The 12 other merge models drop the rows of the ads in `ads.touched` from the copy, then
   compute those ads again from all their answers.
 
@@ -2066,8 +2066,11 @@ steps.
    each photo. As a merge model, it reads only the new answers in a top-up build.
 2. `analysis.relist_pairs` finds the lots over their count, where the unit pages with an ad on
    the market in the 12 months to the build's as-of day outnumber the apartments of the latest
-   MapPLUTO release. Within each such lot, it pairs a kept ad with a kept ad of another unit page
-   when
+   MapPLUTO release. An ad counts when it went off the market in those months, or when its
+   latest answer falls in them while it is still on or gives no day on or off the market. A lot
+   with no apartments in MapPLUTO counts once a single page has such an ad, though
+   `ops/pipeline/citycheck.py` leaves those lots out. Within each lot over its count, the step
+   pairs a kept ad with a kept ad of another unit page when
    - the second ad comes on the market between 3 days before and 7 days after the first goes off,
    - both give the same bedrooms and bathrooms,
    - their listed floors, advertised floors and label floors agree, where both ads give one,
@@ -2126,7 +2129,9 @@ stricter rules on the same 50 units:
 - A check of bathrooms beside bedrooms moves none of the odd pages out, and splits 1 such unit.
 
 Neither helps, so I kept the 7-day window and the bedroom check. A fit reading `relist_unit` can
-leave out the units of 4 pages or more through `analysis.relist_units.pages`. An earlier sample
+leave out the units of 4 pages or more. `analysis.relist_units.pages` counts their pages, and
+the rows file gives a lower count through the distinct `unit_id` of each `relist_unit`, as it
+leaves out pages without fit-ready rows. An earlier sample
 of 72 pairs, drawn before I limited the step to lots over their count, holds 6 pairs the step now
 joins, and the readers put all 6 on one apartment.
 
@@ -2134,7 +2139,7 @@ joins, and the readers put all 6 on one apartment.
 
 I built the step on a lane state from ads runs 1 to 16, where 2,126 lots are over their count.
 
-- `analysis.relist_pairs` pairs 8,482 ads in 1,315 of those lots. The median gap is 0 days, and
+- `analysis.relist_pairs` gives 8,482 pairs of ads in 1,315 of those lots. The median gap is 0 days, and
   in 831 pairs the second ad comes on the market before the first goes off. 6,477 pairs share
   more than one rare photo.
 - `analysis.relist_links` joins 3,533 pairs, refuses 3,878 for layout and 403 for a clash, and
@@ -3208,7 +3213,7 @@ The pipeline's `tests/test_build.py` also checks a top-up build against a build 
     changed and reads every answer, `merge.json` and the catalog line give `top_up` as false, and
     `ads.regions` gives the new region. A second test copies the project, edits
     `materializations/merge.py` in the copy, and checks that only `ads.changes` gets new data and
-    that all 15 models of kind `merge` get new fingerprints.
+    that all 16 models of kind `merge` get new fingerprints.
 
 The pipeline's `tests/test_building_check.py` checks the building check on made-up rows:
 

@@ -51,14 +51,14 @@ def test_relist_cases(tmp_path, render_context):
     - u1: ad 1, 2 bedrooms on the 3rd floor at $3,000, from Jan 1 to Mar 1.
     - u2: ad 2, from 4 days after ad 1 ends, at a first ask of $3,050, sharing photo k1 with
       ad 1. It pairs with ad 1.
-    - u3: ad 3, a day closer than ad 2 and sharing k1, on the 4th floor.
+    - u3: ad 3, 2 days closer than ad 2 and sharing k1, on the 4th floor.
     - u4: ad 4, sharing only k2, which an ad of lot B shows too.
     - u5: ad 5, sharing k3 but starting 10 days after ad 1 ends.
     - u6: ad 6, sharing k4 but asking $3,200.
     - u7: ad 7, 3 days after ad 2 ends and sharing k7 with it, so it pairs with ad 2. Its ad 8,
       another 2-bedroom, was on the market with ad 1 for 41 days.
 
-    The pair of ads 2 and 7 comes second, being closer in time than ads 1 and 2, and joins u2
+    The pair of ads 2 and 7 comes first, being closer in time than ads 1 and 2, and joins u2
     and u7. Ad 8 then clashes with ad 1, so u1 stays apart. Lot B has apartments for 2, and only
     2 of its unit pages had ads in the 12 months, so its ads 11 and 12 make no pair. Photo k8
     appears on ad 1 alone.

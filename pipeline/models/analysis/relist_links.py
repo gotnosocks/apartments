@@ -15,10 +15,10 @@ every build. For each pair it finds the relist unit of each page:
 - `joined`: otherwise it joins the two relist units, under the lesser unit page ID.
 
 To find a clash, the model gives each unit page the spans of its kept ads, from the day each
-came on the market to the day it went off, or to the build's as-of day for an ad still on.
-Overlaps of up to 7 days allow for a broker who posts the new ad before taking the old one down.
-`relist_unit` and `next_relist_unit` give the relist units of the two pages after every pair,
-and analysis.relist_units lists them.
+came on the market to the day it went off, or to the day of its latest answer for an ad still
+on. Overlaps of up to 7 days allow for a broker who posts the new ad before taking the old one
+down. `relist_unit` and `next_relist_unit` give the relist units of the two pages after every
+pair, and analysis.relist_units lists them.
 """
 
 from collections import defaultdict

@@ -3,7 +3,7 @@ MODEL (
     kind VIEW,
     grain listing_id,
     audits (unique_values(columns := (listing_id))),
-    description 'The fit-ready rows: the kept rows less the ads the corrections ledger excludes, with each row''s latest ask and the values the ledger''s live sets give.'
+    description 'The fit-ready rows: the kept rows less the ads the corrections ledger excludes, with each row''s latest ask, the values the ledger''s live sets give and the relist unit of its unit page.'
 );
 
 -- ledger.status leaves at most one live set for each field of a row. A bath set gives the full
