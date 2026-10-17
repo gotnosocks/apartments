@@ -2145,6 +2145,11 @@ in all, and most tests add made-up ads to that export. The tests:
 48. copy a cache file of the records step, and check that the step stops on the repeated
     records and leaves OUT empty.
 
+pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
+about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
+workers, and a fork in a process with open DuckDB connections can deadlock, so
+`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
+
 The repository's own tests hold `tests/test_pipeline_records.py`, since the pipeline's venv lacks
 the page parser's dependencies. It compares `serialize` with the parser of
 `apartments.graphql_listing` on each of the fixture's 229 records and on the made-up record of
@@ -2158,14 +2163,9 @@ and catalog it writes in a temporary folder:
 50. add a byte to the records file, and check that the reader stops;
 51. append a clean line without a records file, and check that the reader stops;
 52. read a row back, and check its granular names: the listing ID as text, the last answer's
-    time as `collected_at` and the response ID as `snapshot_id`.
+    time as `collected_at` and the response ID as `snapshot_id`;
 53. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
-
-pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
-about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
-workers, and a fork in a process with open DuckDB connections can deadlock, so
-`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
 
 ## Full build
 
