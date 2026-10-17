@@ -9,13 +9,13 @@ Updated 2026-10-17 17:30 ET, after the PAD review of relotted empty-lot building
   Modeling counts that as negligible (about 0.12% of rows, under autoselect's 0.25%) and does not refit.
 - `/data1/apartments/tmp/suspect/emptylots/pad/` matches the 43 relotted empty-lot buildings left after #1000
   to PAD 26c address ranges. PAD puts the StreetEasy address on the registry lot for 35, on the pipeline's lot
-  for 5 and on neither for 3. #1003 already moved the well-backed cases among the 5.
+  for 5 and on neither for 3. #1003 already moved 2 of the 5 and 59 Grand St from the 35.
 - For 25 of the 35 (179 rows), PAD flags the registry lot vacant, from release 24b or later, and gives the
   address the placeholder BIN (1000000 or 3000000). In 21 of them an earlier PLUTO release gave the lot exactly
   StreetEasy's unit count (50 3rd Ave: 12 and 12). These look like demolitions. The pipeline's footprint link
   picks the next-door building, which has its own address (48 3rd Ave), and the listing's point lies outside
   that footprint. Point-in-time PLUTO gives older listings the pre-demolition building, so the registry lot stays.
-  The other 10 carry their own BIN, whose footprint lies on the registry lot or is missing. None of the 35 gets an
+  The other 10 carry their own BIN, whose footprint lies on the registry lot or is missing. The rest of the 35 get no
   override. The pipeline thread has the footprint-link finding (`pad/binlot.py`, `pad/binlot.parquet`).
 - Next: the 296 vacant-lot buildings (1,016 rows) may follow the same
   pattern. Check `ever_units` against StreetEasy before proposing any lot move.
