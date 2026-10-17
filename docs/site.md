@@ -236,9 +236,9 @@ mv -T current.new current` in `/data1/apartments/site`.
 ## Service
 
 - **Unit:** `ops/systemd/apartments-site.service`, installed to `~/.config/systemd/user/`.
-  - Waitress (8 threads) on `100.80.84.126:8600` and `127.0.0.1:8600`, MemoryMax 1536M.
-    The story page's scan of every listing needs about 1G once the build covers nine
-    neighbourhoods.
+  - Waitress (8 threads) on `100.80.84.126:8600` and `127.0.0.1:8600`, MemoryMax 3G.
+    After the story page scans every listing in a ten-neighbourhood build, the process peaks
+    near 2.8G.
   - It accepts only the Host names `localhost`, `127.0.0.1`, `[::1]`, `thelio`,
     `thelio.tail3983e0.ts.net` and the tailnet IP. Any other Host gets a 400.
   - It retries until the Tailscale address is up after a boot.

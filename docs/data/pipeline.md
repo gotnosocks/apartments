@@ -294,16 +294,47 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
    export's manifest, the city archive's manifest and the pipeline's code match the last
    build's, as on most of the timer's runs;
-3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
-   runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
-   trying again every five minutes while less is available;
-4. runs `build.py` with `PIPELINE_MEMORY=3GB` in the service's own cgroup, which the unit caps
-   at 5 GiB with swap off, and lets go of the locks after it;
+3. waits for room to build, checking that
+   - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
+   - no unit named `site-build-*`, `frontier-publish*`, `di-*`, `data-*`, `adfills-*` or `bd4-*`
+     is active, for the site builds and Data improvements' jobs run outside `ops/job`;
+   - 5 GiB of memory is available.
+
+   While a GPU job holds the GPU lock, it queues for the lock as the GPU jobs do and holds it
+   through the build. Once the other checks pass, it takes every light slot, so no
+   `ops/job light` job runs beside the build, and checks again with the slots held. When a
+   check fails, it lets go of every lock and checks again a minute later, logging the reason
+   when it changes;
+4. logs the locks it took and the memory available, runs `build.py` with `PIPELINE_MEMORY=3GB`
+   in the service's own cgroup, which the unit caps at 5 GiB with swap off and keeps on the
+   light CPUs, and lets go of its locks after it;
 5. builds again when the manifest changed during the build.
 
 Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
+
+When the build starts with the GPU lock free, it leaves the lock free. A GPU job queued after
+its start takes the GPU lock and runs beside it, while a `gpu -x` job, as full fits run, also
+waits for the light slots and so starts after the build. Ben agreed on 2026-10-16 to let the build skip the GPU lock this
+way, on the terms the checks above carry out. The build queues for the lock behind a running GPU
+job, as it did before, so a queue of GPU jobs only delays it. The checks run at the build's
+start, so a job started during a build still overlaps it. A site build or a Data improvements
+job that must not overlap the build runs through `ops/job light`, which waits for the slots the
+build holds. A job run outside `ops/job` goes in a service named like the patterns above, so the build
+waits for it, started under light slot 1:
+
+```sh
+flock /data1/apartments/tmp/locks/light-1.lock \
+    systemd-run --user --unit=di-NAME -p MemoryMax=3G -p MemorySwapMax=0 -- COMMAND
+```
+
+`flock` waits while a build holds the slots, and lets go of slot 1 only after `systemd-run` has
+started the service, so a build that starts later finds the unit active and waits for it. A
+scope in place of the service would hold slot 1 for the whole job. `systemctl --user is-active`
+doesn't tell whether a build is running: the build's service stays `activating` through its
+waits as well as its build. `ops/autoselect-publish.sh` runs its site build under slot 1 the
+same way.
 
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
@@ -1235,6 +1266,119 @@ it in a quarantine version and `RULES` names that version.
 On a copy of a built state, the build rebuilt `analysis.ask_check` in 0.9 s, along with the views
 below it. The build took 20.4 s, 12.7 s of it writing the two files, at a peak of 3,863 MiB.
 
+## City check
+
+`ops/pipeline/citycheck.py` compares a built state with the city's records of each building's
+lot: the lot itself, the units with ads against the lot's apartments, and each row's floor
+against the lot's floors. It reads a copy of the state file and writes `citycheck.json` and
+`citycheck.md` to the folder given with `--out`:
+
+```sh
+ops/job gpu -x -- cp -a /data1/apartments/pipeline/state/pipeline.duckdb COPY
+systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0 -- \
+    env TMPDIR=/data1/apartments/tmp/pipeline/tmp \
+    pipeline/.venv/bin/python -I ops/pipeline/citycheck.py COPY --out DIR
+```
+
+DuckDB locks a file it opens, even read-only, and a lock held by the check would stop the build
+from opening the live state, `/data1/apartments/pipeline/state/pipeline.duckdb`. So I run the
+check on a copy, and the script refuses the live path. The first command makes the copy: the
+build holds the GPU lock and every light slot while it runs, and `ops/job gpu -x` waits for the
+same locks, so `cp -a` reads the file between builds. The script attaches the copy under the
+catalog name `pipeline`, as the build's views expect, so any file name works. The city views
+read the build's city cache by absolute path, so the cache has to stay in place. DuckDB gets
+2 GB unless `--memory` says otherwise, and spills past it to a folder under TMPDIR. Each
+section of the JSON report carries the definitions of its measures, and the Markdown summary
+gives the counts and the first ten cases of each list.
+
+For lots, I first count the buildings with ads, their ads and their fit-ready rows by the
+`link` of `buildings.lots`. Then, as a route apart from the build's PAD address ranges and
+footprints, I look up each building's street address among the lot addresses of the latest
+MapPLUTO release. I parse both addresses as `buildings.pad_link` parses StreetEasy's,
+and on both sides a street name in the PAD street dictionary becomes its street code, so
+`6th Avenue` meets AVENUE OF THE AMERICAS. For each building, MapPLUTO's address gives:
+
+- `same`: the build's lot alone;
+- `among_several`: several lots, the build's among them;
+- `other`: lots without the build's;
+- `only_mappluto`: a lot for a building without one;
+- `no_match`: no lot;
+- `unparsed`: nothing, for an address without a house number or a borough.
+
+MapPLUTO lists one address for each lot, so a corner building or a building on a range of house
+numbers often finds no match, and a `no_match` counts nothing against the build's lot. The
+report lists the `other` and `only_mappluto` buildings with the lots of their MapPLUTO address.
+This route reads the same StreetEasy address as `buildings.pad_link`, through the same parse and
+the same street dictionary. For a building linked by its address, `same` mostly repeats PAD's
+answer, and a wrong StreetEasy address leads both routes to the same wrong lot. For a building
+linked by its footprint, the route gives a more independent test.
+
+For units, I take each lot with ads and count its distinct units in `ads.placed`, over all
+time and over the 12 months up to the latest first day of a candidate ad. I compare both counts
+with the city's:
+
+- the lot's `unitsres` in `analysis.lot_facts`, from the MapPLUTO release of the lot's latest
+  candidate ad, or from the lot's latest release when no candidate ad reads the lot. I take the
+  count and its release from the same row;
+- the apartments on the latest certificate of occupancy of each BIN of the lot's buildings with
+  ads, from `analysis.building_certificates` as of the first day of the BIN's latest candidate
+  ad, summed over the BINs. The BINs come from the buildings of the counted units, so a lot
+  gets no certificate count when one of those buildings lacks a BIN or a BIN lacks a count.
+
+Each lot falls in a class: no count, a count of 0, within the count, or above it by 1, 2 to 5,
+6 to 20 or more than 20. The report lists the lots with the largest excess over either count,
+and the lots with a `unitsres` of 0.
+
+When a building's address lot and footprint lot differ, `buildings.lots` picks the one whose
+latest MapPLUTO building class, year, `numfloors` and `unitsres` best match the StreetEasy
+record. For a lot with `link` `address` or `footprint`, the `unitsres` comparison therefore
+leans toward agreement, and so does the `numfloors` comparison below. The links `both`, `tie`,
+`address_only` and `footprint_only` involve no such choice. I split each class tally into lots
+with a building linked by `address` or `footprint` and the other lots, and print both in the
+summary.
+
+For floors, I take each fit-ready row's advertised floor, else its physical floor, else its
+label floor, and compare it with two counts:
+
+- the `numfloors` of the row's lot, from the latest MapPLUTO release published at least 7 days
+  before the row's first day;
+- the building's StreetEasy floor count, in `building_floor_count`.
+
+Here the classes add `no_lot` and go above by 1, 2, 3 to 5, 6 to 10 and more than 10 floors. A
+row's release can come from before a building's last change, so a floor above the as-of
+`numfloors` and within the latest release's count goes to `within_latest`, and the report gives
+the latest count beside the as-of one. The build refuses a label floor above StreetEasy's count,
+and I compare those refused label floors with `numfloors` too. The report lists the buildings
+with the most rows above both MapPLUTO counts, and splits the rows by link as for units.
+
+On a build of the sample from `ops/pipeline/sample.py`, with 673 buildings with ads and 16,080
+fit-ready rows, the check took 2.7 s at a peak of 0.79 GB. Every building had a lot. MapPLUTO's
+address gave the build's lot alone for 610 buildings, several lots with the build's among them
+for 3, another lot for 2 and no lot for 58. All 610 `same` buildings took their lot from PAD's
+address ranges, with `link` `both`, `address`, `tie` or `address_only`. The 3 buildings linked
+by footprint gave `among_several` once and `other` twice: 903 Broadway reads lot 1008750073,
+and MapPLUTO gives its address to lot 1008490010.
+
+Over all time, the units with ads exceed `unitsres` in 246 of 663 lots, and over the last 12
+months in 19. A unit here is a unit page, so a unit listed under several pages counts once for
+each, unless a join of the [Unit ledger](#unit-ledger) gives the pages one unit. 462 Keap
+Street in Brooklyn has 202 units with ads, 19 of them in the last 12 months, on a lot of 29
+apartments. Of the 14 lots with a building linked by `address` or `footprint`, 6 exceed
+`unitsres` over all time and none over the last 12 months. 18 lots have a `unitsres` of 0, and
+1 of them reads it from the lot's latest release. Certificates give a count for 80 lots, and the
+units of the last 12 months exceed it in 2.
+
+10,567 rows have a floor. 32 of them, in 3 buildings, lie 1 floor above `numfloors`, both as of
+the row and in the latest release, and 1 lies above StreetEasy's count. The Vanguard Chelsea
+gives 21 of the 32, with floors up to 30 against 29 in MapPLUTO and 30 on StreetEasy. 57 more
+rows, in 7 buildings, lie above the `numfloors` of their own release and within the latest
+release's. 21 of those come from 951 Madison Street in Brooklyn: its rows read releases 19v2 to
+20v4, which give condominium billing lot 3033577501 1 floor, and from 21v1 on MapPLUTO gives 7,
+as StreetEasy does. The 27 rows with a floor in buildings linked by `address` or `footprint` all
+lie within `numfloors`. 15 rows read a `numfloors` of 0. Of the 433 rows with a refused label
+floor, 425 lie above `numfloors`, and 3 more lie above it as of the row and within the latest
+release's count.
+
 ## Corrections ledger
 
 The fit-ready rows take their corrections from the ledger in `pipeline/ledger/`, a folder of
@@ -1784,14 +1928,32 @@ anonymous memory peaked at 1,904 MiB.
 
 The frontier builders read the file through `rentfrontier.api_records`. It takes the newest
 complete line of `catalog.ndjson` from a clean checkout, as the site does for the ads and rows
-files, and stops when that line lists no records file or when the file's SHA-256 differs from
-the line's. `PIPELINE_DATASETS` points it at another folder, such as a build's OUT. It reads the
+files, and stops when that line lists no records file or no ads file, or when either file's
+SHA-256 differs from the line's. `PIPELINE_DATASETS` points it at another folder, such as a build's OUT. It reads the
 file a row group at a time and hands each row over under the granular export's column names:
 
 - `listing_id` as text;
 - `collected_at` from `last_collected_at`;
 - `snapshot_id` from `response_id`;
 - `listing_type` and `raw_listing_json` as they are.
+
+It passes over each listing the same line's ads file marks with `no_dated_own_active_event`,
+whose own history holds no dated ACTIVE event. The rows leave out those ads for the same reason,
+so the builders, the ads file and the rows work from one set of listings. In the ads file of
+Oct 16, 22,990 of the records file's 2,140,578 listings carry the mark:
+
+| latest status | listings |
+|---|---:|
+| DRAFT | 11,238 |
+| RENTED | 7,436 |
+| DELISTED | 1,958 |
+| NO_LONGER_AVAILABLE | 1,924 |
+| IN_STREETEASY_REVIEW | 404 |
+| IN_BROKERAGE_REVIEW | 26 |
+| TEMPORARILY_OFF_MARKET | 4 |
+
+The other 477 drafts and 57 ads under review have an ACTIVE event of their own and stay in.
+The rows hold 284 of them.
 
 Its `observations` reads whichever crawl a builder names: a granular export's folder, a Parquet
 file at a time as the builders read them, or the word `records` for the records file.
@@ -1809,6 +1971,125 @@ from the building's latest answer, as `ads.identity` gives it. For the day a lis
 listed, it reads the rental history in each of the listing's records, where the granular export
 read its event mentions, and keeps the earliest ACTIVE event of the listing's own episodes. Its
 provenance lists both files under `sources`.
+
+## Datasets for the frontier fits
+
+The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
+with a line for each row. To fit on the pipeline's rows, I write such a folder from a build's
+rows file with `ops/pipeline/observations.py`, and the fit reads it with `FRONTIER_DATASET` set
+to the folder. `rentfrontier.data.load` reads it with no change to its code. For the newest
+build from a clean checkout, in the served dataset's neighbourhoods, I run in a checkout `$T`:
+
+```sh
+/data1/apartments/venvs/pipeline/bin/python -I $T/ops/pipeline/observations.py OUT
+```
+
+The script's docstring gives its steps and options. It writes both files under a hidden name
+beside OUT and renames the folder at the end, and it stops if OUT is already there. Each line
+holds the row's values under the chain's names and JSON types:
+
+- `source_listing_id` comes from `listing_id`, `canonical_unit_url` from `page`, and
+  `reported_full_bathrooms` and `reported_half_bathrooms` from `full_baths` and `half_baths`.
+  `floor_status` and `building_floor_count` go into `floor_label_provenance` as `status` and
+  `building_floor_count`.
+- `asking_rent` comes from the row's `latest_ask`, after the ledger's ask sets, so the fit's
+  `log_rent` follows the latest ask. A rows file from a build before that column holds only the
+  first asks, and the script stops on it.
+- `audit_id` repeats the chain's ID for the ad, from the chain's dataset of all scraped areas,
+  so rows of the two datasets pair up by ID. An ad missing from that dataset gets `api:` and
+  its listing ID.
+- `analysis_price_basis` reads `historical_initial_own_advertisement_ask` on every row, and
+  `description_interpreted_at` is null, so `has_description` comes out false. No frontier code
+  reads `has_description` beyond `_flatten`.
+
+`manifest.json` records the build's files with their SHA-256, its catalog line, the
+neighbourhoods with their row counts, the chain's datasets read for audit IDs, and the SHA-256
+of `observations.jsonl`. It also lists the ads the served dataset gives another audit ID than
+the dataset of all scraped areas, and on the build of Oct 16 there were none.
+
+The rows already carry the corrections ledger and the latest asks, so a fit on such a folder
+leaves out the chain's `bedrooms-ad`, `baths-ad`, `sqft-units`, `quarantine`, `fields-review`
+and `latest-ask` rules. `fields-review-v3`, the latest of its family, changes nothing, and
+`pipeline/ledger/2026-10-17-tenfold-asks.ndjson` holds the tenfold typos of `latest-ask-v8`.
+The fit still applies `unit-labels-v17`, `unit-splits-v4`, `west-coast-wings-v1`,
+`unit-reviews-v2`, `building-joins-v1`, `elevator-from-ad-v1` and `pets-from-ad-v1`, since
+neither ledger holds their changes yet.
+
+The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
+Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
+a folder written with them leaves out West Chelsea's 14,272 rows on the build of Oct 16. To keep
+them, I add West Chelsea to `--neighbourhoods`. A fit compared with the served fit needs the same
+neighbourhood levels, so for it I pass `--rename "West Chelsea=Chelsea"` instead. The script adds
+West Chelsea to the neighbourhoods itself, and the folder gives those rows the served dataset's
+name. The manifest lists each rename with the rows it moved.
+
+### Against the served dataset
+
+With `--check-against DATASET`, the script compares a folder with a chain dataset field by
+field, and its docstring lists the causes it assigns. On Oct 16, I wrote a folder from the build
+of 23:02 ET. That build came before the `latest_ask` column, so I added the column to a copy of
+its rows file, from the ads file's latest asks and the ledger's ask sets. None of the ask sets
+falls in the served dataset's neighbourhoods. I compared the folder with the served dataset
+under `latest-ask-v8`, taking the API chain's dataset of the same areas as the reference for
+the values of API records:
+
+```sh
+F=/data1/apartments/frontier/datasets
+/home/ben/code/apartments/.venv/bin/python -I $T/ops/pipeline/observations.py OUT \
+    --check-against $F/chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-analysis-20261014-cd891c8 \
+    --api-reference $F/api-manhattan-page-crawl-areas-analysis-20261015-run5
+```
+
+Writing the folder took 48 s at a 1.1 GiB peak. The check peaked at 3.9 GiB, so I run it in a
+scope capped at 5 GiB with swap off, once at least 6 GiB is available. It took 71 s there. The
+folder holds 335,886 rows, the served dataset holds 296,718 rows priced at the first ask, and
+277,633 ads have a row in both. Every difference on those ads has a cause, by the check's field
+names:
+
+| field | rows | cause |
+|---|--:|---|
+| `bedrooms` | 136 | 133 ledger sets, 3 item 7 |
+| `full_baths` | 16 | ledger sets |
+| `half_baths` | 10 | 9 ledger sets, 1 item 7 |
+| `square_feet` | 11 | 10 ledger sets, 1 item 7 |
+| `asking_rent` | 47 | 25 item 11, 22 item 9 |
+| `pets` | 3,126 | 3,107 item 10, 19 item 7 |
+| `floor_status` | 4,575 | item 7 |
+| `label_derived_floor` | 4,271 | item 7 |
+| `listed_floor` | 671 | item 7 |
+| `advertised_floor` | 41 | item 7 |
+| `has_description` | 7,900 | item 7 |
+| `doorman` | 1,258 | item 7 |
+| `laundry` | 609 | item 7 |
+| `elevator` | 21 | item 7 |
+| `hvac` | 5 | item 7 |
+| views and windows | 24 | item 7 |
+| `price_at` | 9 | item 7 |
+| `period` | 2 | item 7 |
+| `unit_id` and `canonical_unit_url` | 1 each | item 7 |
+| `first_ask` | 8 | item 7 |
+
+The items are those of [Differences from the chain](#differences-from-the-chain). For item 7,
+the API chain's dataset gives the folder's value. `audit_id`, `building`, `bathrooms`,
+`neighbourhood`, `building_floor_count`, `physical_floor` and `floors_above_ground` match on
+every ad. The rows of one side alone:
+
+| side | cause | rows |
+|---|---|--:|
+| folder | the chain's row for the ad lies outside the served dataset | 58,023 |
+| folder | the chain has no row for the ad | 230 |
+| served | the ad lies in West Chelsea | 13,691 |
+| served | the ad has no API record | 4,550 |
+| served | a ledger exclude | 742 |
+| served | the row prices the ad's current page | 235 |
+| served | `superseded_in_unit_month` | 75 |
+| served | `conflicting_layout_same_unit_month` | 14 |
+| served | excluded as a concession | 12 |
+| served | excluded as furnished | 1 |
+
+The folder is `/data1/apartments/tmp/pipeline/lanes/loader/out/nb9-pipeline-rows-beb8748d`, and
+the SHA-256 of its `observations.jsonl` starts `77b07cbe02a3b790`. With West Chelsea added, the
+folder beside it, `nb9-west-chelsea-pipeline-rows-beb8748d`, holds 350,158 rows.
 
 ## Differences from the chain
 
@@ -1844,13 +2125,30 @@ when an item here or an entry of the corrections ledger accounts for it.
 7. The values of an ad's captured page. The page-crawl chain takes an ad's values from the page
    it captured, and the pipeline takes them from the ad's latest API record. For six ads of the
    nine-area reference, listed from July to October 2026, the two give different bedroom counts
-   or sizes.
+   or sizes. Against the served dataset, the API chain's dataset of the same areas gives the
+   pipeline's value for each difference of a floor, amenity, view, window, date, unit or
+   description field, as listed under [Against the served dataset](#against-the-served-dataset).
 8. The step at which units and buildings change. The chain's `building-joins-v1` and
    `unit-reviews-v2` change the units and buildings of the dataset's rows, after the unit-month
    check, so a join can leave a unit two rows in a month. `ads.placed` applies the unit ledger
    before the check, which then keeps one row of the joined unit's month, or none when its ads
    give two layouts. `building-joins-v1` changes only a row's `building`, while a move also
    gives the ads the other building's ID.
+9. An ask from an API record newer than the chain's. The chain's latest asks read the export up
+   to run 5, fetched by 4:52 pm ET on Oct 15, and `analysis.latest_ask` reads every run. On the
+   build of Oct 16, 22 rows in the served dataset's neighbourhoods take a later price from runs
+   10 and 11. The check counts a row here only if the ad's latest record came after run 5, its
+   price differs from the last price up to run 5, and the folder's ask equals it.
+10. A pet fee in the description. As described under
+    [Attributes and exclusions](#attributes-and-exclusions), `ads.record_attributes` reads a pet
+    fee as `allowed_restrictions_unknown` when the record gives no policy, and the chain leaves
+    the policy unknown. In the served dataset's neighbourhoods, 3,107 rows differ this way.
+11. The latest ask of an ad the chain also prices at its current page. The chain gives such an
+    ad a second row, priced at the page under an ID starting `capture:refresh:`, and the latest
+    ask of its first-ask row ends at the price on that page. The rows file gives each ad a
+    single row, and its latest ask counts every later change. In the served dataset, 25 rows
+    differ this way. The check counts a row here only if the served row's ask equals the price
+    of the ad's page row.
 
 ## Planted errors
 
@@ -2230,18 +2528,60 @@ in all, and most tests add made-up ads to that export. The tests:
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
     `ads.placed`;
 45. read the repo's unit ledger and check that it holds a join, a split and a move;
-46. write the records file of the fixture export and compare each row with its answer: the
+46. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
+    file, with a made-up latest ask for an ad, after giving the catalog a line from a checkout
+    with changes and a line cut short. `rentfrontier.data.load` reads the folder to the frame it
+    gives the chain's rows of the fixture with their latest asks and the made-up one, and the
+    floor fields `_flatten` leaves out match too. An ad missing from the chain's audit IDs gets
+    an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
+    script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
+    A second folder renames a neighbourhood to another, and its lines and manifest counts follow
+    the rename. A third asks only for the new name, and the rename brings in the old one's rows.
+    A rename of a neighbourhood with no rows stops the script;
+47. run `ops/pipeline/build-latest --room` with a made-up `systemctl` and `git`, as thelio's
+    locks are laid out, with the GPU lock linked to `heavy.lock`. The check lets the build start
+    with the GPU lock free, with no pattern of units to avoid, and with the lock held by the build
+    itself, and it creates no temporary folder and calls no `git` on the way. It gives the reason
+    to wait while another job holds the lock, while a unit to avoid is active, when `systemctl`
+    fails and when less memory is available than asked for, and it stops on a memory size it
+    can't read;
+48. add seven made-up buildings and 29 ads to the cases, build them, copy the state under another
+    name, and run `ops/pipeline/citycheck.py` on the copy. The script refuses the state the build
+    wrote, and the copy's hash stays the same over the run. The first building gets lot 12 of
+    block 1220 from its address and its map point, with 15 apartments and 5 floors in MapPLUTO
+    and 8 floors on StreetEasy. 15 of its units have ads in September 2026 and 2 more in June
+    2025. Unit 7a reads floor 7 from its label, unit 9b's description gives the ninth floor, and
+    unit 10c's label floor of 10 lies above StreetEasy's count, so its row has no floor. The
+    second building has its map point on lot 12 and the address of lot 10, and it takes lot 12
+    from the footprint. Its unit 2d brings lot 12 to 18 units over all time and 16 in the last 12
+    months. The third has no map point and takes lot 9 of block 1238 from its address, and its 7
+    units with ads lie within MapPLUTO's 9 apartments and above the 4 on its latest certificate
+    of occupancy. The fourth gets no lot. The fifth takes condominium lot 7502 of block 1238 from
+    its address, which MapPLUTO gives to two lots. Its one ad asks $600, so no candidate ad reads
+    the lot, which takes its `unitsres` of 0 from the latest release and gets no certificate
+    count. The sixth takes lot 7503 from a PAD address that MapPLUTO lists under no lot, and its
+    June 2025 ad puts unit 8a on floor 8, above the 6 floors of release 16v2 and within the 11 of
+    the latest release. The seventh, in Queens, gets no lot, and MapPLUTO gives its address one.
+    The report counts the buildings and rows of each link and each MapPLUTO address class, lists
+    the second and seventh buildings against MapPLUTO's address, puts lot 12 above `unitsres`
+    among the lots linked by `address` or `footprint`, lot 9 above the certificate and lot 7502
+    at a `unitsres` of 0, and counts floors 7 and 9 above `numfloors`, floor 8 within the latest
+    release's count, floor 9 above StreetEasy's count and the refused floor 10 above
+    `numfloors`. A second copy gives the second building the BIN of lot 13's building, which has
+    no certificate, and gives the first building's BIN a certificate of 20 apartments. Lot 12
+    then lists both BINs and gets no certificate count;
+49. write the records file of the fixture export and compare each row with its answer: the
     listing, the response ID and SHA-256, the record as `serialize` gives it, and the answer's
     time in seconds as both the first and the last time. A second run reads nothing into the
     cache, leaves one file of the same bytes and deletes another version's cache folder;
-47. write the records file of a made-up record with integral and fractional floats in its
+50. write the records file of a made-up record with integral and fractional floats in its
     price, price changes and sizes, `__typename` keys at each depth and non-ASCII text, and
     compare its `raw_listing_json` with the expected text;
-48. write the records file of a made-up listing answered four times with a record, twice at
+51. write the records file of a made-up listing answered four times with a record, twice at
     the first time, and then once with a changed one, beside an answer without a record. The
     file gives the first record with its first and last times and the lower ID of its two first
     answers, then the changed record, and nothing for the answer without a record;
-49. copy a cache file of the records step, and check that the step stops on the repeated
+52. copy a cache file of the records step, and check that the step stops on the repeated
     records and leaves OUT empty. Then check that it also stops while another process holds
     the cache's lock, on an export without records and on an empty list of export files.
 
@@ -2268,19 +2608,23 @@ process with open DuckDB connections can deadlock, so `conftest.py` also sets
 The repository's own tests hold `tests/test_pipeline_records.py`, since the pipeline's venv lacks
 the page parser's dependencies. It compares `serialize` with the parser of
 `apartments.graphql_listing` on each of the fixture's 229 records and on the made-up record of
-item 47.
+item 50.
 
 The frontier's `frontier/tests/test_api_records.py` checks the builders' reader on a records file
 and catalog it writes in a temporary folder:
 
-50. after a clean build's line, append a dirty build's line and a partial last line, and check
+53. after a clean build's line, append a dirty build's line and a partial last line, and check
     that the reader takes the clean line's file;
-51. add a byte to the records file, and check that the reader stops;
-52. append a clean line without a records file, and check that the reader stops;
-53. read a row back, and check its granular names: the listing ID as text, the last answer's
+54. add a byte to the records file, and check that the reader stops;
+55. append a clean line without a records file, and check that the reader stops;
+    then a line without an ads file, and check that it stops again;
+56. read a row back, and check its granular names: the listing ID as text, the last answer's
     time as `collected_at` and the response ID as `snapshot_id`;
-54. read a granular folder of two Parquet files and the records file through `observations`,
-    and check that the folder's rows come in file name order.
+57. read a granular folder of two Parquet files and the records file through `observations`,
+    and check that the folder's rows come in file name order;
+58. write five listings, and an ads file that marks a draft and a rented ad with
+    `no_dated_own_active_event`, gives another ad a different reason, gives one no reason and
+    leaves out the fifth. `captures` and `observations` give only the two ads without the mark.
 
 The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file:
 

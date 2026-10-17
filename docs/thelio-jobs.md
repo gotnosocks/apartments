@@ -118,9 +118,20 @@ The research-data build (`apartments-dashboard-build.service`) runs in the light
 light CPUs, without taking a slot (it is small and runs at idle priority). After changing it, copy it to `~/.config/systemd/user/` and reload as above.
 
 The data pipeline's build (`apartments-pipeline-build.service`, in `docs/data/pipeline.md`)
-takes the GPU lock and every light slot for each build, about 7 to 13 minutes, as
-`ops/job gpu -x` would. It runs as its own unit, so `ops/job status` leaves it out. When queued
-jobs wait and `ops/job status` lists no holder, check for it with:
+takes every light slot for each build, about 7 to 13 minutes, on the light CPUs. It starts once
+no `site-build-*`, `frontier-publish*`, `di-*`, `data-*`, `adfills-*` or `bd4-*` unit is
+active and 5 GiB of memory is
+available. With the GPU lock free, it leaves the lock free, so a GPU job can start while it runs,
+though a `gpu -x` job waits for the build's light slots. While a GPU job holds the lock, the build
+queues for it with the GPU jobs and holds it through the build. The checks run only at the
+build's start. A site build or a Data improvements job that must not overlap a build runs through
+`ops/job light`, which waits for the build's slots. Run one outside `ops/job` as a service with
+one of those names, started with `flock /data1/apartments/tmp/locks/light-1.lock systemd-run
+--user --unit=di-NAME ...`: `flock` waits while a build holds the slots, and the service is
+active before slot 1 is free again, so a later build waits for it. `ops/autoselect-publish.sh`
+runs its site build in a `site-build-publish-*` scope under slot 1. The
+build runs as its own unit, so `ops/job status` leaves it out. When jobs wait and `ops/job status`
+lists no holder, check for it with:
 
 ```sh
 systemctl --user status apartments-pipeline-build
