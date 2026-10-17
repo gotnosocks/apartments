@@ -1966,7 +1966,8 @@ answer is also its record with the latest last answer, so only the time moves: t
 export dated a record seen again in a later run to its first answer.
 
 `listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
-and SHA-256 under `sources`. With `--base`, the base file's listings keep their rows, as they do
+and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
+that file decides which listings the reader keeps. With `--base`, the base file's listings keep their rows, as they do
 beside a granular crawl.
 
 ## Datasets for the frontier fits
@@ -2631,7 +2632,7 @@ The frontier's `frontier/tests/test_listing_extras.py` checks `listing_extras` o
     that each listing takes its capture with the latest time, which for a record is its last
     fetch;
 60. run `listing_extras.main` with `--crawl records`, and check that its provenance gives the
-    file's path and SHA-256.
+    file's path and SHA-256, and those of the ads file on the same catalog line.
 
 ## Full build
 

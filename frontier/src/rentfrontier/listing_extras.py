@@ -138,6 +138,10 @@ def main(argv: list[str] | None = None):
             if complete.exists()
             else None,
         }
+    if records is not None:
+        # The ads file decides which listings `captures` keeps, so it is an input too.
+        ads = records["ads"]
+        sources["ads_file"] = {"path": ads["path"], "sha256": ads["sha256"]}
     (out_dir / "provenance.json").write_text(
         json.dumps(
             {

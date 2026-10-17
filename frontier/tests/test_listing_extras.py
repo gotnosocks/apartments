@@ -64,7 +64,7 @@ def test_main_lists_the_records_file_in_its_sources(
     records_catalog, tmp_path, monkeypatch
 ):
     """`--crawl records` reads the catalog's records file, and provenance.json gives its path
-    and SHA-256."""
+    and SHA-256, and those of the ads file on the same catalog line."""
     line = records_catalog(
         [{"listing_id": 7, "collected_at": 1.0, "record": extras([], 3)}]
     )
@@ -76,7 +76,12 @@ def test_main_lists_the_records_file_in_its_sources(
     (prov,) = (tmp_path / "external").glob(
         "listing-extras/*-abc1234-api/provenance.json"
     )
-    assert json.loads(prov.read_text())["sources"]["crawl"] == {
+    sources = json.loads(prov.read_text())["sources"]
+    assert sources["crawl"] == {
         "path": str(tmp_path / line["records"]["path"]),
         "sha256": line["records"]["sha256"],
+    }
+    assert sources["ads_file"] == {
+        "path": str(tmp_path / line["ads_file"]["path"]),
+        "sha256": line["ads_file"]["sha256"],
     }
