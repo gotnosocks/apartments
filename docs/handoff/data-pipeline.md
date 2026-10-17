@@ -124,6 +124,10 @@ These PRs merged on Oct 17:
 - #1018, from Data improvements: five `set latest_ask` entries give five ads back the asks they
   had before their takedown. Each ad had raised its ask to a repeated-digit price on or just
   after that day. [pipeline.md](../data/pipeline.md#latest-ask) has the count of such changes.
+- #1022: [pipeline.md](../data/pipeline.md#latest-ask) counts the late repeated-digit rises.
+- #1024, from Data improvements: review files for 239 rows on lots of parks, parking, rail yards
+  and vacant land.
+- #1025: the building check lists those rows under `never_built_lot`.
 
 The work goes on in this order:
 
@@ -142,7 +146,9 @@ The work goes on in this order:
 
    After the joins, 1,923 lots stay over their count. The 22,112 chain links without a shared
    photo need another signal: on the prototypes in `/data1/apartments/tmp/pipeline/lanes/laned/`,
-   floors put them about 68% right and floor plans about 56%, too low to join on. A reader judged
+   floors put them about 68% right and floor plans about 56%, too low to join on. Description
+   text and unit labels don't separate them either, as
+   [pipeline.md](../data/pipeline.md#description-text) shows. A reader judged
    17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` to be unit splits
    or relabels, and those lots serve as labeled tests.
 2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and
