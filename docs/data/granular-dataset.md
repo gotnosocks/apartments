@@ -15,7 +15,7 @@ each run. The data pipeline now builds from the API export
 ([pipeline.md](pipeline.md)), so the transform's code is deleted, and git history
 holds it. `rentfrontier.listing_extras.CRAWLS` lists the page crawls' folders,
 and `listing_extras`, `lister`, `listing_outcomes`, `latest_ask` and `areas` read
-them beside the pipeline's records file.
+them. All but `areas` read the pipeline's records file beside them.
 
 ## Row meanings
 
@@ -68,8 +68,8 @@ Each run froze the separate `corrections.jsonl` ledger and its hash, and left th
 raw columns as captured. The ledger was empty, so raw and corrected values
 coincide. A time-bounded correction needs an attribute effective time chosen for
 it, since collection time is no stand-in. `apartments.corrections.Overlay.apply`
-writes a separate corrected projection at that time, with the correction IDs and
-the raw observation, so human assertions stay apart from source evidence.
+returns a corrected copy at that time, with the correction IDs and the raw
+observation, so human assertions stay apart from source evidence.
 
 For retained captures, the complete source listing and nested feature/amenity/pricing
 JSON remain in the Parquet tables. The normalized numeric columns are conveniences.

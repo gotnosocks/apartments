@@ -62,10 +62,10 @@ Never prune `bodies/` (for Chelsea that is the shared `/data1/apartments/archive
 through a symlink).
 
 `tests/archive/test_compact.py` checks that the collection audit,
-`listing_identity.capture_evidence` and `ArchiveStore` give the same answers on the copy. The other readers named in the review need no
-change: `unit_history_pairs.py` reads `collection_memberships` or `scripts`, the alias tables
-and model inputs read the parquet datasets, and current-listings captures never read crawl
-databases.
+`listing_identity.capture_evidence` and `ArchiveStore` give the same answers on the copy. The other
+readers named in the review need no change: `unit_history_pairs.py` reads `collection_memberships`
+or `scripts`, the alias tables and model inputs read the parquet datasets, and current-listings
+captures never read crawl databases.
 
 Datasets do not pin the snapshot file: their `source_evidence_sha256` hashes the parsed rows,
 and the implementation hash of each granular folder covers parser code only. The tool does not

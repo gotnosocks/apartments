@@ -2699,6 +2699,10 @@ file:
     fetched after a listing's page capture gives its outcome, that a page capture after the
     record stands, and that a listing the ads file marks `no_dated_own_active_event` keeps its
     earlier page capture.
+72. give `apartments.graphql_listing`'s number, text, JSON and event-key helpers a dozen values
+    of every kind, and check that each gives the page parser's result for each value.
+73. import the API collector, its export and `graphql_listing`'s `parse_capture` in a fresh
+    process, parse an API ad, and check that no `apartments.granular_*` module loaded.
 
 ## Full build
 
