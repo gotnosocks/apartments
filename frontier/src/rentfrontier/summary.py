@@ -298,15 +298,20 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None
 PREDICTIVE = (("95", 0.025, 0.975), ("80", 0.10, 0.90))
 
 
-def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
+def predictive_quantiles(
+    total, sigma, nu, weights, probabilities, iterations=10, tolerance=1e-12
+):
     """(len(probabilities), rows) quantiles of the posterior predictive of the
     log ask: the weighted mixture over draws of Student-t(nu_s) noise of scale
     sigma_s around total_s, the distribution `pit` evaluates. Per row, Newton
     steps on the mixture's CDF, kept inside a bracket that starts at the
     smallest and largest of the draws' own p-quantiles (the mixture's lies
-    between them) and falls back to bisection when a step leaves it. Rows
-    whose CDF is still off by more than 1e-7 after that (few heavy draws far
-    apart: Newton can cycle) are finished by bisection on their bracket.
+    between them) and falls back to bisection when a step leaves it. A row
+    stops once its CDF is within `tolerance` of p, so later steps evaluate
+    only the rows still moving (on NB9 chunks rows stop after 4 to 7 steps).
+    Rows whose CDF is still off by more than 1e-7 after `iterations` steps
+    (few heavy draws far apart: Newton can cycle) are finished by bisection
+    on their bracket.
     total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
     nu: (draws,)."""
     from scipy.special import gammaln, stdtr, stdtrit
@@ -321,30 +326,47 @@ def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10
         own = total + sigma * stdtrit(nu, p)[:, None]  # (draws, rows)
         lo, hi = own.min(0), own.max(0)
         x = (own * weights).sum(0)
-        for _ in range(iterations):
-            z = (x[None] - total) / sigma
-            f = (stdtr(nu_, z) * weights).sum(0) - p
-            d = (wpdf * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
-            lo, hi = np.where(f < 0, x, lo), np.where(f < 0, hi, x)
-            step = x - f / np.maximum(d, 1e-300)
-            inside = (step >= lo) & (step <= hi)
-            x = np.where(inside, step, 0.5 * (lo + hi))
-        z = (x[None] - total) / sigma
-        f = (stdtr(nu_, z) * weights).sum(0) - p
+        f = np.empty_like(x)
+        moving = np.arange(total.shape[1])
+        for step in range(iterations + 1):
+            t, s_ = total[:, moving], sigma[:, moving]
+            z = (x[moving][None] - t) / s_
+            f[moving] = (stdtr(nu_, z) * weights[:, moving]).sum(0) - p
+            if step == iterations:
+                break
+            fm, xm = f[moving], x[moving]
+            d = (wpdf[:, moving] * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
+            lm = np.where(fm < 0, xm, lo[moving])
+            hm = np.where(fm < 0, hi[moving], xm)
+            lo[moving], hi[moving] = lm, hm
+            newton = xm - fm / np.maximum(d, 1e-300)
+            inside = (newton >= lm) & (newton <= hm)
+            xm = np.where(inside, newton, 0.5 * (lm + hm))
+            going = np.abs(fm) >= tolerance
+            x[moving[going]] = xm[going]
+            moving = moving[going]
+            if not len(moving):
+                break
         slow = np.flatnonzero(np.abs(f) > 1e-7)
         if len(slow):
-            t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
-            a, b = (
-                np.where(f[slow] < 0, x[slow], lo[slow]),
-                np.where(f[slow] < 0, hi[slow], x[slow]),
+            a = np.where(f[slow] < 0, x[slow], lo[slow])
+            b = np.where(f[slow] < 0, hi[slow], x[slow])
+            x[slow] = _bisect(
+                total[:, slow], sigma[:, slow], nu_, weights[:, slow], p, a, b
             )
-            for _ in range(50):
-                m = 0.5 * (a + b)
-                below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p
-                a, b = np.where(below, m, a), np.where(below, b, m)
-            x[slow] = 0.5 * (a + b)
         out[q] = x
     return out
+
+
+def _bisect(total, sigma, nu_, weights, p, a, b, steps=50):
+    """The mixture's p-quantile per row by bisection on the bracket [a, b]."""
+    from scipy.special import stdtr
+
+    for _ in range(steps):
+        m = 0.5 * (a + b)
+        below = (stdtr(nu_, (m[None] - total) / sigma) * weights).sum(0) < p
+        a, b = np.where(below, m, a), np.where(below, b, m)
+    return 0.5 * (a + b)
 
 
 def _stats(prefix, values, weights, table):
