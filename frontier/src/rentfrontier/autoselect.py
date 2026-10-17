@@ -129,13 +129,15 @@ def blocked(feature_set) -> str | None:
 
 def current_rules(rules=None) -> frozenset:
     """The latest version of each data-rule family ("quarantine-v2" over
-    "quarantine-v1")."""
+    "quarantine-v1"), leaving out versions in `data.TRIAL_RULES`."""
     latest = {}
     for name in rules if rules is not None else data.DATA_RULES:
         if name.startswith(data.TUNING_PREFIX):
             continue  # tuning subsets are never part of the served rules
         if data.amended_rule(name):
             continue  # a rule as it stood before an in-place amendment
+        if name in data.TRIAL_RULES:
+            continue  # a version still waiting on the fit that tests it
         m = re.fullmatch(r".+-v(\d+)", name)
         family, version = data.rule_family(name), int(m.group(1)) if m else 0
         if family not in latest or version > latest[family][0]:

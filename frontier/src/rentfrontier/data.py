@@ -1790,6 +1790,13 @@ LATEST_ASK_V10 = Path(
     "/data1/apartments/external/latest-ask/20261017-c201c11-all-closing/latest-ask.parquet"
 )
 
+# Rule versions a fit has yet to test. `autoselect.current_rules` passes over
+# them, so the current set keeps the family's previous version until a fit with
+# the trial version wins and its name leaves this set. latest-ask-v10 moves
+# about 105,000 asks on a reading of off-day price changes the data leave open
+# (the let rent, or edits unrelated to it).
+TRIAL_RULES = frozenset({"latest-ask-v10"})
+
 
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
