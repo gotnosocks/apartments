@@ -58,12 +58,23 @@ data-rule-<rule>.jsonl  a copy of each row-dropping rule's file (the run's
 complete.json         provenance (run, commits, dataset and feature-source
                       sha256, gate, PSIS-LOO score, draws) and the sha256 of
                       every file; written last.
+
+`--buildings FRACTION --out DIR` summarizes the rows of a sample of buildings
+and writes the bundle to DIR, for measuring how the summary's cost grows with
+rows. A building goes in the sample when the first 8 bytes of the sha256 of
+its id as a string, read as a number in [0, 1), fall below FRACTION, so the 1%
+sample is a subset of the 4% sample, and both are subsets of the 16%. The sample
+changes only which rows go through the per-row loop: the posterior, the market,
+building and coefficient tables and each row's unit_fit_rows still come from
+the whole run, and complete.json records the fraction. DIR has to be outside
+the summaries directory, where the Modal steps look for whole bundles.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import math
 import shutil
@@ -393,6 +404,30 @@ def row_inputs(feats: features.Features, rows: np.ndarray) -> list[str]:
     ]
 
 
+def building_sample(buildings: np.ndarray, fraction: float | None) -> np.ndarray:
+    """A mask over rows, true where the row's building hash falls below
+    `fraction` of the range; all true when `fraction` is None."""
+    if fraction is None:
+        return np.ones(len(buildings), dtype=bool)
+    if not 0 < fraction <= 1:
+        raise ValueError(f"the building fraction must be in (0, 1], got {fraction}")
+    unique, index = np.unique(np.asarray(buildings).astype(str), return_inverse=True)
+    score = np.array(
+        [
+            int.from_bytes(hashlib.sha256(b.encode()).digest()[:8], "big") / 2**64
+            for b in unique
+        ]
+    )
+    return (score < fraction)[index]
+
+
+def summary_rows(
+    heldout: np.ndarray, keep: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Frame positions of the kept rows in the fit and of the kept held-out rows."""
+    return np.flatnonzero(~heldout & keep), np.flatnonzero(heldout & keep)
+
+
 def chunk_rows(draws: int) -> int:
     """Rows per batch of whole units, so draws x rows x terms stays near 1 GB."""
     return int(min(1024, max(256, 2_250_000 // draws)))
@@ -546,7 +581,12 @@ class RowTables:
         return self.done
 
 
-def summarize(name: str, allow_failing: bool = False, workers: int = 1):
+def summarize(
+    name: str,
+    allow_failing: bool = False,
+    workers: int = 1,
+    buildings: float | None = None,
+):
     import jax
 
     jax.config.update("jax_enable_x64", True)
@@ -570,6 +610,10 @@ def summarize(name: str, allow_failing: bool = False, workers: int = 1):
     names = present_terms(config, feats.groups, line)
     fslope_index = [feats.names.index(n) for n in config.feature_slopes]
     params = {k: kept[k] for k in ("nu", "sigma", "unit_scale", "unit_nu") if k in kept}
+    keep = building_sample(frame.building.to_numpy(), buildings)
+    train_idx, held_idx = summary_rows(heldout, keep)
+    if not len(train_idx):
+        raise SystemExit(f"the {buildings} sample of buildings has no rows in the fit")
     sigma, nu = kept["sigma"], kept["nu"]
 
     def row_scale(a):
@@ -599,7 +643,6 @@ def summarize(name: str, allow_failing: bool = False, workers: int = 1):
 
     with RowTables(workers) as tables:
         # Rows in the fit, sorted into whole units.
-        train_idx = np.flatnonzero(~heldout)
         unit_of = pd.Index(prep.units).get_indexer(frame.unit_id.to_numpy()[train_idx])
         order = np.argsort(unit_of, kind="stable")
         rows_sorted, units_sorted = train_idx[order], unit_of[order]
@@ -643,7 +686,6 @@ def summarize(name: str, allow_failing: bool = False, workers: int = 1):
                 row_inputs(feats, rows),
             )
         # Held-out rows: the fit never saw them; the posterior is the estimate.
-        held_idx = np.flatnonzero(heldout)
         for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / chunk))):
             if not len(rows):
                 continue
@@ -671,8 +713,9 @@ def summarize(name: str, allow_failing: bool = False, workers: int = 1):
             )
         parts = tables.collect()
     table = pd.concat(parts).sort_index()
-    if len(table) != len(frame) or table.audit_id.duplicated().any():
-        raise AssertionError("every dataset row must appear exactly once")
+    if len(table) != keep.sum() or table.audit_id.duplicated().any():
+        raise AssertionError("every summarized row must appear exactly once")
+    heldout = heldout[keep]
     table.insert(5, "in_fit", ~heldout)
     fit_rows = np.bincount(prep.train.unit, minlength=len(prep.units))
     unit_index = pd.Index(prep.units).get_indexer(table.unit_id)
@@ -691,6 +734,7 @@ def summarize(name: str, allow_failing: bool = False, workers: int = 1):
         "buildings": building_table(kept, prep),
         "coefficients": coefficient_table(kept, feats),
         "k_threshold": loo.k_threshold(draws),
+        "buildings_fraction": buildings,
     }
 
 
@@ -858,6 +902,11 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
             "max": float(np.nanmax(k)),
         },
         "terms": out["names"],
+        **(
+            {"buildings_fraction": out["buildings_fraction"]}
+            if out.get("buildings_fraction") is not None
+            else {}
+        ),
         "files": {p.name: data.sha256(p) for p in sorted(tmp.iterdir()) if p.is_file()},
     }
     (tmp / "complete.json").write_text(json.dumps(record, indent=2))
@@ -881,16 +930,30 @@ def main(argv=None):
         default=1,
         help="processes for the per-chunk row tables (each holds about two chunks)",
     )
+    parser.add_argument(
+        "--buildings",
+        type=float,
+        help="summarize only this fraction of buildings, sampled by id hash (needs --out)",
+    )
+    parser.add_argument(
+        "--out", type=Path, help="bundle directory (only with --buildings)"
+    )
     args = parser.parse_args(argv)
+    if (args.buildings is None) != (args.out is None):
+        parser.error("--buildings and --out go together")
+    if args.buildings is not None and not 0 < args.buildings <= 1:
+        parser.error("--buildings must be in (0, 1]")
+    if args.out is not None and args.out.resolve().is_relative_to(SUMMARIES.resolve()):
+        parser.error("--out must be outside the summaries directory")
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
-    out_dir = SUMMARIES / f"{args.run}-{commit[:7]}"
+    out_dir = args.out or SUMMARIES / f"{args.run}-{commit[:7]}"
     if (out_dir / "complete.json").exists():
         raise SystemExit(f"{out_dir} exists")
     t0 = time.perf_counter()
-    out = summarize(args.run, args.allow_failing, args.workers)
+    out = summarize(args.run, args.allow_failing, args.workers, args.buildings)
     path = write(out, out_dir, commit, time.perf_counter() - t0)
     rows = out["rows"]
     print(
