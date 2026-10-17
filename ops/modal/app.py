@@ -243,6 +243,8 @@ def _publish(spec):
         FRONTIER_DATASET=spec["dataset"],
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
         PYTHONUNBUFFERED="1",
+        # The kit and rent map then read the design the summary built (rentfrontier.design).
+        FRONTIER_DESIGN_CACHE="1",
     )
     deadline = started + min(
         LARGE_TIMEOUT - PUBLISH_MARGIN, spec.get("publish_seconds", LARGE_TIMEOUT)
