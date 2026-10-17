@@ -16,9 +16,9 @@ ExecStart=/data1/apartments/venvs/serve-site/bin/python -m apartments.site serve
 # Retries until the Tailscale address is up after a boot.
 Restart=on-failure
 RestartSec=5
-# The story page scans all ~300k listings once per build. Below about 1G the
-# process swaps and the scan outlasts the request.
-MemoryMax=1536M
+# The story page scans all ~300k listings once per build. The process peaks
+# near 2.8G after that scan, and at 1536M it swapped until requests timed out.
+MemoryMax=3G
 UMask=0077
 NoNewPrivileges=yes
 
