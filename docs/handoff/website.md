@@ -6,13 +6,26 @@ What the next turn of the website thread needs. Updated at each milestone.
 
 - Served fit: Modeling's nine-neighbourhood unitnu4 fit
   (`...-slopemin3-unitnu4-nb9-nostuy-lots2-v1-rows-5dbdc4f1-...-l2un4`, #899).
-- Live build: `/data1/apartments/site/builds/20261016T162917946120Z-5b1ded34`. It holds 297,341
-  listings and 1,159 available now, across ten neighbourhoods with Hell's Kitchen and Hudson Yards.
-- Building the NB9 data swaps at 5G, so I run it with `ops/job light -m 7G` as a
-  `systemd-run --user` unit and watch it with `wait-next --unit`. A background Bash task gets
-  killed after about 30 minutes, which a build queued behind another light job can exceed.
-- The site process needs about 1G for the story page's scan of every listing. #914 raised
-  `MemoryMax` to 1536M. After changing the unit file, copy it to `~/.config/systemd/user/` and
+- Live build: `/data1/apartments/site/builds/20261017T040220086908Z-5b1ded34`, built from the
+  pipeline's `ads-78e42540f3434cbf.parquet`. It shows 1,091 available now across ten
+  neighbourhoods. Since #945 the build reads current listings from the newest line of
+  `/data1/apartments/pipeline/datasets/catalog.ndjson`, so rebuild whenever the pipeline thread
+  reports a new ads file.
+- The NB9 site build peaks at about 7.45 GiB. Every `ops/job light` job runs inside
+  `apartments-light.slice`, which caps the whole slice at 5G whatever `-m` says, so a build there
+  swaps for hours and blocks the pipeline's builds. I run it as its own unit outside the slice,
+  only when about 10 GiB is free and no pipeline build is running:
+
+  ```sh
+  systemd-run --user --unit=site-build-NAME --working-directory=/data1/apartments/serve/site \
+    -E TMPDIR=/data1/apartments/tmp/site-serve -p MemoryMax=9G -p MemorySwapMax=0 \
+    -p StandardOutput=file:LOG -p StandardError=file:LOG \
+    /data1/apartments/venvs/serve-site/bin/python -m apartments.site build
+  ```
+
+  Then I watch it with `wait-next --unit site-build-NAME`.
+- The site process peaks near 2.8G once the story page has scanned every listing, so the unit
+  file sets `MemoryMax=3G`. After changing the unit file, copy it to `~/.config/systemd/user/` and
   run `systemctl --user daemon-reload` before `ops/site-deploy.sh`.
 - Merged: #836 (available-now window of 9 days), #776 (nb9 and lots2 words), #913 (a term such as
   `unitnu4` ahead of an `nb` set no longer starts the feature set in `design_terms`).
@@ -84,7 +97,7 @@ read the dated entries below for history.
 - Discuss fit results with the evaluation framework from the Fable review (Ben 2026-10-10
   20:03Z): paired ΔELPD against about 2 SE, the descriptive share, time-split coverage, and
   medians with 90% intervals.
-- The site build needs about 7 GB with NB9 (`ops/job light -m 7G`). Run it only when the GPU is idle.
+- The site build needs about 7.5 GiB with NB9. Run it in its own unit outside the light slice, as above.
 - Never show older exploration-fit numbers as the served model's.
 - Never put Ben's preference sheet or any copy in the repo.
 - fields-review-v2 is held by Ben's choice.
