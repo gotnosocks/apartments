@@ -199,6 +199,8 @@ def _fit(spec):
         # process on it.
         XLA_PYTHON_CLIENT_MEM_FRACTION="0.95",
         PYTHONUNBUFFERED="1",
+        # rentfrontier.loo then reads the design rentfrontier.run built (rentfrontier.design).
+        FRONTIER_DESIGN_CACHE="1",
     )
     gpu = subprocess.run(
         [
