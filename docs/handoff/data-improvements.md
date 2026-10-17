@@ -1,6 +1,31 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 05:20 ET, after latest-ask-v9 (#977). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 08:00 ET, after quarantine-v34 (#984). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 08:00 ET
+
+- #983 adds `latest_ask.CLOSING_STALE_DAYS = -1` and the rule `latest-ask-v10`, which drops every
+  change dated on or after the off-market day (on-market-day changes and ads that went ACTIVE
+  again keep theirs). `build_v10.py` in `/data1/apartments/tmp/suspect/ask-jumps/` repriced v9:
+  104,984 rows change (22,043 NB9, 82,941 API), median log change -0.045. Table and changed.csv:
+  `/data1/apartments/external/latest-ask/20261017-c201c11-all-closing/`.
+  - Modeling's NB9 refits read pipeline loader rows. The pipeline thread builds a v10 lane
+    (`PIPELINE_STALE_DAYS`, `/data1/apartments/tmp/pipeline/lanes/v10/`) and sends the
+    `nb9-chelsea-named-rows-v10-*` path to Modeling and me. It mirrors v10 in `ads.kept_changes`
+    only if the fit wins. If that path hasn't reached Modeling, relay it.
+- #984 adds `quarantine-v34` (v33 plus 15 rows) and `bedrooms-ad-v10` (v9 plus 6 rows), from
+  Sonnet reads in `/data1/apartments/tmp/suspect/q34/` (packet.json, packet2.json):
+  - 8 Brooklyn storefronts and offices from the drop-lot review, the Ridgewood ad 2638365 joined
+    to 18 Bleecker, the $21,545 Bed-Stuy studio 2121710, 3 Carlyle hotel stays and 2 lottery units
+    at 9 Cook St;
+  - 68 Clinton #4A and #4B "5 room duplex" ads recoded to 3 bedrooms, backed by the same units'
+    3 bedroom ads.
+  - 3221486 stays: its text says Park Slope, which matches its zip.
+  - The pipeline thread imports both files into its ledger (asked 08:00 ET).
+- Open from the mixing review (`/data1/apartments/tmp/suspect/mixing/labels.jsonl`): the 870
+  Broadway unit split by stated size, the 444 W 20th alias (#1 is #GARDEN), 124 DeKalb 4853056's
+  Bushwick text, the Brooklyn placeholder ads. Also open: the HPD other_lot conflicts, waiting on
+  the pipeline's PAD lookup.
 
 ## 2026-10-17 05:20 ET
 
