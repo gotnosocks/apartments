@@ -35,13 +35,21 @@ FRONTIER_DESIGN_CACHE=read: it loads the fit's own design from that directory
 when the key matches and otherwise builds one without writing it, so thelio's
 undated inputs never end up in a pickle. The key matches only when the
 summary's checkout holds the same package and config files as the fit's.
+
+`python -m rentfrontier.design NAME`, with FRONTIER_DESIGN_CACHE=1, prepares a
+finished run's design as its summary loads it and leaves the pickle in the
+cache. `ops/modal-fit --design-only` runs it in a Modal CPU container for a run
+whose prep runs out of memory on thelio, at the commit the summary will run.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
+import json
 import os
 import pickle
+import time
 import uuid
 from pathlib import Path
 
@@ -131,3 +139,43 @@ def prepared(frame: pd.DataFrame, split: str, rules, feature_set: str) -> tuple:
         # A failed write (disk, memory, pickling) still returns the design.
         tmp.unlink(missing_ok=True)
     return design
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(
+        description="Prepare a finished run's design and keep it in the cache."
+    )
+    p.add_argument("name")
+    args = p.parse_args(argv)
+    if os.environ.get("FRONTIER_DESIGN_CACHE") != "1":
+        raise SystemExit("set FRONTIER_DESIGN_CACHE=1 to keep the design in the cache")
+    from .run import RUNS
+
+    result = json.loads((RUNS / args.name / "result.json").read_text())
+    started = time.time()
+    # As rentfrontier.summary loads it, so the key comes out the same.
+    frame = data.load(Path(result["dataset"]))
+    if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
+        raise SystemExit("dataset differs from the run's recorded dataset")
+    rules = data.recorded_rules(result)
+    key = _key(frame, result["split"], rules, result["feature_set"])
+    frame, *_ = prepared(frame, result["split"], rules, result["feature_set"])
+    path = data.OUTPUT_ROOT / "cache" / f"design-{key[:16]}.pkl"
+    if not path.exists():
+        raise SystemExit(f"the design was built but not written to {path}")
+    print(
+        json.dumps(
+            {
+                "name": args.name,
+                "design": path.name,
+                "rows": len(frame),
+                "bytes": path.stat().st_size,
+                "seconds": round(time.time() - started, 1),
+            }
+        ),
+        flush=True,
+    )
+
+
+if __name__ == "__main__":
+    main()

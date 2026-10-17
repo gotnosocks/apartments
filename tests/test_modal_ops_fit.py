@@ -865,3 +865,80 @@ def test_the_container_saves_the_runs_design_and_a_publish_reads_it_back(
     monkeypatch.setattr(app, "_run", lambda *a, **k: 1)
     app._fit({**spec, "publish_only": True})
     assert (cache / "design-0123456789abcdef.pkl").read_bytes() == b"design"
+
+
+def test_a_design_only_container_saves_the_new_design_and_its_record(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    cache = tmp_path / "frontier" / "cache"
+    monkeypatch.setattr(
+        app,
+        "_stage",
+        lambda spec: (
+            cache.mkdir(parents=True, exist_ok=True),
+            (cache / "design-5555555555555555.pkl").write_bytes(b"staged"),
+        ),
+    )
+    calls = []
+
+    def run(cmd, env, log, timeout=None):
+        calls.append((cmd, env))
+        (cache / "design-0123456789abcdef.pkl").write_bytes(b"design")
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    spec = {"name": "r", "dataset": "d", "result": {"dataset": "d", "split": "rows"}}
+    meta = app._design(spec)
+    ((cmd, env),) = calls
+    assert cmd[1:] == ["-m", "rentfrontier.design", "r"]
+    assert env["FRONTIER_DESIGN_CACHE"] == "1"
+    assert env["FRONTIER_DATASET"] == "d"
+    # The run's record is where rentfrontier.design reads it.
+    assert json.loads((app.RUNS / "r" / "result.json").read_text())["split"] == "rows"
+    out = vol / "out" / "r-design"
+    assert [p.name for p in (out / "design").iterdir()] == [
+        "design-0123456789abcdef.pkl"
+    ]
+    assert meta["exit"] == 0
+    assert meta["designs"] == [{"file": "design-0123456789abcdef.pkl", "bytes": 6}]
+    assert json.loads((out / "design.json").read_text())["designs"] == meta["designs"]
+
+
+def test_a_design_only_run_downloads_to_designs_beside_the_run(tmp_path, monkeypatch):
+    files = {
+        "out/r-design/design/design-0123456789abcdef.pkl": b"design",
+        "out/r-design/design.json": b"{}",
+        "out/r-design/design.log": b"log",
+    }
+    root = tmp_path / "frontier"
+    volume = FakeVolume(files)
+    fit.download(volume, "r-design", root, local="r")
+    assert (root / "designs/design-0123456789abcdef.pkl").read_bytes() == b"design"
+    assert (root / "runs/r/modal/design.log").read_bytes() == b"log"
+    assert not (root / "cache").exists()
+    assert not (root / "runs" / "r-design").exists()
+    assert volume.removed == ["/out/r-design"]
+
+
+def test_a_design_only_run_is_charged_its_container_hour_and_needs_the_run(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    # An hour of the design container is inside the per-fit cap and costs under a dollar.
+    usd = app.DESIGN_TIMEOUT * app.design_usd_per_second()
+    assert cap.over_cap(usd, app.DESIGN_TIMEOUT) is None
+    assert 0.5 < usd < 1
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    spec = {"name": "r", "inputs": ["x"], "dataset": "x"}
+    with pytest.raises(SystemExit, match="not under"):
+        fit.design_only(spec, "abc")

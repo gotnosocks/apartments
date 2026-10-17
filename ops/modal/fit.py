@@ -11,6 +11,11 @@ still on the Volume gets its summary bundle, calibration, rent map and estimate 
 large container at COMMIT (app._publish; --allow-failing for a run that fails the gate), for a
 run too large for thelio's memory. The other positional arguments are only parsed.
 
+With --design-only --run NAME, a run already downloaded here gets its design prepared
+(python -m rentfrontier.design) at COMMIT in a Modal CPU container (app.design_cpu), and the
+pickle downloads to FRONTIER_OUTPUT_ROOT/designs, where a summary at the same commit run with
+FRONTIER_DESIGN_CACHE=read loads it. It is for a run whose prep runs out of thelio's memory.
+
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
 dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
 if the estimate is over the per-fit cap); upload only the inputs that changed since the last sync; ship a
@@ -115,8 +120,14 @@ def parse(argv):
         "already downloaded whose run is still on the Volume, instead of fitting it",
     )
     p.add_argument(
+        "--design-only",
+        action="store_true",
+        help="prepare the design of a run already downloaded, in a CPU container, and "
+        "download it to OUTPUT_ROOT/designs, instead of fitting it",
+    )
+    p.add_argument(
         "--run",
-        help="with --publish-only: the run's name, fit at another commit (COMMIT is the code "
+        help="with --publish-only or --design-only: the run's name, fit at another commit (COMMIT is the code "
         "the steps run at)",
     )
     p.add_argument(
@@ -426,6 +437,8 @@ def main(argv):
     spec = plan(args, run_args, sha, short)
     if args.publish_only:
         return publish(args, spec, sha)
+    if args.design_only:
+        return design_only(spec, sha)
     if (OUTPUT_ROOT / "runs" / spec["name"]).exists():
         sys.exit(f"{spec['name']} already exists under {OUTPUT_ROOT / 'runs'}")
     STATE.mkdir(parents=True, exist_ok=True)
@@ -565,6 +578,53 @@ def publish(args, spec, sha):
             cost = (time.monotonic() - started) * modal_app.usd_per_second(
                 args.gpu, True
             )
+        try:
+            cap.settle(launch, cost)
+        except Exception as e:  # noqa: BLE001
+            print(f"could not settle {launch} at ${cost:.2f}: {e}", flush=True)
+    return meta["exit"]
+
+
+def design_only(spec, sha):
+    """fit.py --design-only: the design of a run already under OUTPUT_ROOT/runs, prepared at
+    sha in a CPU container (app.design_cpu) and downloaded to OUTPUT_ROOT/designs. The record
+    lands in runs/<name>/modal/design.json."""
+    name = spec["name"]
+    result = OUTPUT_ROOT / "runs" / name / "result.json"
+    if not result.exists():
+        sys.exit(f"{name} is not under {OUTPUT_ROOT / 'runs'}")
+    spec["result"] = json.loads(result.read_text())
+    # The summary loads the run's own dataset, and FRONTIER_DATASET is in the design's key.
+    spec["dataset"] = spec["inputs"][0] = spec["result"]["dataset"]
+    STATE.mkdir(parents=True, exist_ok=True)
+    lock = open(STATE / "launch.lock", "a")
+    fcntl.flock(lock, fcntl.LOCK_SH)
+    stage = stage_code(sha)
+    os.environ["MODAL_FIT_STAGE"] = str(stage)
+    modal_app = importlib.import_module("app")
+    touch()
+    # Charged for the container's whole timeout; settled at the time it ran.
+    secs = modal_app.DESIGN_TIMEOUT
+    usd = round(secs * modal_app.design_usd_per_second(), 2)
+    launch, left = cap.reserve(f"{name}-design", "cpu", usd, secs=secs)
+    print(
+        f"design of {name} at {sha[:7]}; estimated ${usd:.2f}, Modal balance now ${left:.2f}",
+        flush=True,
+    )
+    import modal
+
+    started, meta = time.monotonic(), None
+    try:
+        with modal.enable_output(), modal_app.app.run():
+            sync(modal_app.volume, spec, stage)
+            meta = modal_app.design_cpu.remote(spec)
+        download(modal_app.volume, f"{name}-design", OUTPUT_ROOT, local=name)
+        print(json.dumps(meta), flush=True)
+    finally:
+        touch()
+        cost = (meta or {}).get("usd_estimate")
+        if cost is None:
+            cost = (time.monotonic() - started) * modal_app.design_usd_per_second()
         try:
             cap.settle(launch, cost)
         except Exception as e:  # noqa: BLE001

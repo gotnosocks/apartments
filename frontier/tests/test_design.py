@@ -98,3 +98,46 @@ def test_a_read_only_cache_loads_a_saved_design_and_writes_none(monkeypatch, tmp
     design.prepared(frame, "rows", (), "f1")
     assert len(calls) == 4
     assert [p.name for p in saved.parent.iterdir()] == [saved.name]
+
+
+def test_preparing_a_runs_design_keeps_the_pickle_its_summary_loads(
+    monkeypatch, tmp_path, capsys
+):
+    import json
+
+    import pytest
+
+    from rentfrontier import run
+
+    _, frame, calls = _setup(monkeypatch, tmp_path)
+    monkeypatch.setattr(run, "RUNS", tmp_path / "runs")
+    (tmp_path / "runs" / "r").mkdir(parents=True)
+    result = {
+        "dataset": str(tmp_path / "ds"),
+        "dataset_observations_sha256": "abc",
+        "split": "rows",
+        "feature_set": "f1",
+    }
+    (tmp_path / "runs" / "r" / "result.json").write_text(json.dumps(result))
+    loaded = []
+    monkeypatch.setattr(data, "load", lambda path: loaded.append(path) or frame)
+    monkeypatch.setattr(data, "recorded_rules", lambda result: ())
+    monkeypatch.delenv("FRONTIER_DESIGN_CACHE", raising=False)
+    with pytest.raises(SystemExit, match="FRONTIER_DESIGN_CACHE=1"):
+        design.main(["r"])
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
+    design.main(["r"])
+    record = json.loads(capsys.readouterr().out)
+    assert loaded == [tmp_path / "ds"] and calls == ["f1"]
+    # The summary, reading from designs/, finds it under the same name.
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
+    (tmp_path / "out" / "designs").mkdir()
+    (tmp_path / "out" / "cache" / record["design"]).rename(
+        tmp_path / "out" / "designs" / record["design"]
+    )
+    design.prepared(frame, "rows", (), "f1")
+    assert calls == ["f1"]
+    frame.attrs["source_sha256"] = "other"
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
+    with pytest.raises(SystemExit, match="dataset differs"):
+        design.main(["r"])
