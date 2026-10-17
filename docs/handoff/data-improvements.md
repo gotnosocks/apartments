@@ -2,6 +2,19 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 15:20 ET
+
+- #1063 adds `pipeline/ledger/2026-10-17-z9-unit-bedrooms-singlead.ndjson`, 56 bedroom sets. The screen in
+  `/data1/apartments/tmp/suspect/beds/single/` starts from 56,162 rows whose unit has exactly one other ad within
+  two years coding another bedroom count. It keeps pairs whose stated sizes agree within 5% (3,833), drops flex
+  wording in either text, and keeps the 126 where both texts mention only the other ad's count. Sonnet read them:
+  70 wrong, 52 flex, 4 unclear. `single/ledger.py` checks both quotes parse to the set count and applies the ask
+  and renovation screens. Bedroom sets now total 196.
+- Review dropped 10 more after reading the unit's ads outside the two-year window, which described the layout as
+  convertible, alcove, loft or office, or coded the unit as a studio. The next bedroom screen applies the flex
+  words to all of a unit's ads, not only the pair.
+- Modeling refits on the first catalog build carrying z6 to z9. Data improvements messages them when it appears.
+
 ## 2026-10-17 14:50 ET
 
 - #1061 adds `pipeline/ledger/2026-10-17-z8-unit-baths-singlead.ndjson`, 413 bath-count sets. Of 3,489 rows whose
