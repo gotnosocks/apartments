@@ -159,6 +159,7 @@ CSV_COLUMNS = (
     "pred_lower_80",  # the likely ask range, when the build has it
     "pred_upper_80",
 )
+RANGE_COLUMNS = ("pred_lower_80", "pred_upper_80")
 LABELS = {
     "doorman": {
         "full_time": "Full-time doorman",
@@ -599,6 +600,12 @@ SECTIONS = {
 }
 
 
+def list_ranges() -> bool:
+    """Whether listing tables and the CSV carry each listing's range. They do
+    with SITE_LIST_RANGES=1; otherwise only the listing's own page shows it."""
+    return os.environ.get("SITE_LIST_RANGES") == "1"
+
+
 def section_of(endpoint: str | None) -> str | None:
     return next((k for k, v in SECTIONS.items() if endpoint in v), None)
 
@@ -641,6 +648,7 @@ def create_app(
         return streetview.link(data, building_id, latitude, longitude, address)
 
     app.jinja_env.globals["street_view"] = street_view
+    app.jinja_env.globals["list_ranges"] = list_ranges
 
     def building_typical(building_id: str) -> dict | None:
         """The building's typical rent by bedroom count in the rent map's
@@ -990,6 +998,8 @@ def create_app(
         where, params = filters.where()
         have = {r["name"] for r in db().execute("PRAGMA table_info(listings)")}
         columns = [c for c in CSV_COLUMNS if c in have]
+        if not list_ranges():
+            columns = [c for c in columns if c not in RANGE_COLUMNS]
         cursor = db().execute(
             "SELECT "
             + ", ".join(f"l.{c}" for c in columns)
