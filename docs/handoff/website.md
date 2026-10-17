@@ -2,6 +2,25 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+## All-scraped fit on the site (2026-10-17 14:10 ET)
+
+- Served fit: the all-scraped Manhattan and Brooklyn fit
+  (`...-unitnu4-all-scraped-v1-rows-e694a775-a40`), 1,755,430 listings. It fails the gate
+  (max R-hat 1.093), and Ben chose to serve it anyway at 04:19 ET. `config/main-analysis.json`
+  records that choice in its `gate_override` block (#1040). Modeling's #1046 taught autoselect,
+  latestselect and the board panel to keep an overridden incumbent, so autoselect-publish can
+  run again.
+- Live build: `/data1/apartments/site/builds/20261017T163906191243Z-edc3d22a`. site.sqlite is
+  10.3 GB (listings 7.2 GB, kit draws 2.1 GB), and the publish kept only this build. A rebuild
+  needs about 11 GB free on /data1 beside it.
+- The build took 48:39 wall time with a 5.2 GB peak RSS under an 8G cap, with the cgroup full of
+  page cache for much of the run. Two changes made that fit: DuckDB sorts the listing chunks on
+  one thread, and `load_kit` holds the kit draws in flat `array('d')` rows (`Draws`), since the
+  serve-site venv has no numpy. `ops/autoselect-publish.sh` caps the build at 8G.
+- The rent map's map.json is 97 MB for this fit. Since #1049 the page fetches
+  `/estimates/map.json?beds=K[&area=A]`, which is 10.8 MB gzipped city-wide and 0.9 MB for a
+  neighbourhood. Without parameters the route returns the whole file.
+
 ## NB9 on the site (2026-10-16 13:40 ET)
 
 - Served fit: Modeling's nine-neighbourhood unitnu4 fit
