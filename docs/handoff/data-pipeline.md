@@ -36,7 +36,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
    `ops/pipeline/ledger_import.py`. #921 added the studio Ben read from the floor plan of
    333 W 56th St #3E, from `bedrooms-ad-v8`. The batch `2026-10-17-chain.ndjson` adds the new
-   decisions of `quarantine-v33` and `bedrooms-ad-v9`.
+   decisions of `quarantine-v33` and `bedrooms-ad-v9`, and `2026-10-17-v35-chain.ndjson` those
+   of `quarantine-v34`, `quarantine-v35` and `bedrooms-ad-v10`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
    rule `canonical-url-v1`, `ops/pipeline/city.py` keeps the city records for the lots
