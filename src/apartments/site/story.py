@@ -358,14 +358,20 @@ def pick_listing(db):
     reliably estimated, the one with the median ask (ties by id), from those
     available now when any are. Returns (listing, available now)."""
     for current in (True, False):
-        rows = db.execute(
-            "SELECT * FROM listings WHERE in_fit = 1 AND reliable = 1 "
+        where = (
+            " FROM listings WHERE in_fit = 1 AND reliable = 1 "
             "AND contributions IS NOT NULL AND ask IS NOT NULL"
             + (" AND is_current = 1" if current else "")
-            + " ORDER BY ask, id"
-        ).fetchall()
-        if rows:
-            return rows[(len(rows) - 1) // 2], current
+        )
+        (count,) = db.execute("SELECT COUNT(*)" + where).fetchone()
+        if count:
+            # Only the median row leaves SQLite: a build of every borough
+            # holds over a million listings.
+            row = db.execute(
+                "SELECT *" + where + " ORDER BY ask, id LIMIT 1 OFFSET ?",
+                ((count - 1) // 2,),
+            ).fetchone()
+            return row, current
     return None, False
 
 

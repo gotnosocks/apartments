@@ -187,8 +187,12 @@ listings fall in each band, as calibration predicts.
    - the bundle's copies of the run's row-dropping rules (`data-rule-<rule>.jsonl`): a dataset row
      missing from the bundle must be one of their rows, and it goes into the quarantined table.
 
-   It refuses a failing gate. It writes `/data1/apartments/site/builds/<stamp>/site.sqlite` and
-   `build.json`, swaps the `current` symlink atomically, and keeps the newest three builds. It takes
+   It refuses a run that fails the gate unless the selection records a decision to serve it anyway
+   (`gate_override`: who decided, when, and why). The home page and /research/model then say the
+   sampler did not fully settle and who chose to serve the model. It writes
+   `/data1/apartments/site/builds/<stamp>/site.sqlite` and `build.json`, swaps the `current` symlink
+   atomically, and keeps the newest three builds, or only the new one when its database is over
+   4 GB. It takes
    about 8 s with a 1.1 GB peak for Chelsea alone, and about 18 s with a 1.9 GB peak for Chelsea and
    West Village (86,568 listings), with a database of about 130 MB and 400 MB respectively. The
    eight neighbourhoods (214,931 listings) take 1:42 with a peak of about 5.0 GB.
@@ -210,7 +214,7 @@ listings fall in each band, as calibration predicts.
    every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
    overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
    the research parts of a page are left out. When the publish comes from the repository's
-   selection, the build also stores the selection's reason (`selected_by`, `selection_reason`).
+   selection, the build also stores the selection's reason (`selected_by`, `selection_reason`, `gate_override`).
 
 The research data is live: new fits appear without a deploy (Ben, 2026-10-01).
 `apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance
