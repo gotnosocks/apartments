@@ -265,9 +265,16 @@ def relisting_centre(listings: list[dict]) -> float | None:
     by_unit: dict[str, list[dict]] = {}
     for r in listings:
         by_unit.setdefault(r["unit_id"], []).append(r)
-    centres = []
     for rows in by_unit.values():
         rows.sort(key=lambda r: r["price_at"] or r["period"])
+    return centre_of(by_unit.values())
+
+
+def centre_of(units) -> float | None:
+    """`relisting_centre` from each unit's listings in time order: the median
+    over the first 200 listings with a gap to recover."""
+    centres = []
+    for rows in units:
         for prev, r in zip(rows, rows[1:]):
             x = json.loads(r["inputs"])
             if "log_months_since_last_listing" not in x:
@@ -435,31 +442,33 @@ def rows(
     files: dict,
     names: list[str],
     observations: dict[str, dict] | None = None,
-    units: dict[str, list[float]] | None = None,
+    units=None,
     at: dt.datetime | None = None,
+    *,
+    local=None,
+    fit_ids: set[str] | None = None,
+    centre: float | None = None,
 ) -> tuple[list[dict], dict]:
     """Site listing rows of the ads on the market, and a status for build.json: the pipeline's
     files, how many ads were priced, how many with the fit's own unit level, and why the
-    others were not."""
-    units = units or {}
+    others were not.
+
+    A build of every borough passes `fit_ids` (the audit ids of the fit's rows) and
+    `local`, which returns the listings and building rows of the ads' units and
+    buildings, in place of every listing; `units` may then be a function from the
+    ads' unit ids to their levels. It also passes `centre`, the relisting centre of
+    every listing (`centre_of`), which the ads' listings alone would estimate
+    differently."""
     at = at or now()
     from .build import _true_keys, price_band, unit_label
 
     terms = {b["building"]: b for b in kit_buildings}
-    info = {b["id"]: b for b in buildings}
-    by_unit: dict[str, list[dict]] = {}
-    newest: dict[str, dict] = {}
-    for r in listings:
-        by_unit.setdefault(r["unit_id"], []).append(r)
-        key = (r["period"], r["price_at"] or "")
-        if r["building_id"] not in newest or key > newest[r["building_id"]][0]:
-            newest[r["building_id"]] = (key, r)
-    centre = relisting_centre(listings)
     # The dataset's rows (`observations`, the bundle's rows when not given):
     # a listing it dropped stays out, and a unit it prices now is priced there.
     if observations is None:
         observations = {r["audit_id"]: r for r in listings}
-    fit_ids = {r["audit_id"] for r in listings}
+    if fit_ids is None:
+        fit_ids = {r["audit_id"] for r in listings}
     skip_listings: set[str] = set()
     skip_units: dict[str, dt.datetime] = {}
     for a, o in observations.items():
@@ -477,6 +486,27 @@ def rows(
             seen = pricing._timestamp(o.get("collected_at") or o["price_at"])
             skip_units[o["unit_id"]] = max(seen, skip_units.get(o["unit_id"], seen))
     ads, skipped = current_ads(files, skip_listings, skip_units, at)
+    if local is not None:
+        places = set()
+        for c in ads:
+            places.add(c["building_id"])
+            for pages, (_, split, main) in wings.SPLITS.items():
+                if c["building_id"] in pages:
+                    places |= {split, main}
+        listings, buildings = local({c["unit_id"] for c in ads}, places)
+    if callable(units):
+        units = units({c["unit_id"] for c in ads})
+    units = units or {}
+    info = {b["id"]: b for b in buildings}
+    by_unit: dict[str, list[dict]] = {}
+    newest: dict[str, dict] = {}
+    for r in listings:
+        by_unit.setdefault(r["unit_id"], []).append(r)
+        key = (r["period"], r["price_at"] or "")
+        if r["building_id"] not in newest or key > newest[r["building_id"]][0]:
+            newest[r["building_id"]] = (key, r)
+    if centre is None:
+        centre = relisting_centre(listings)
     out, fitted_levels = [], 0
     for c in ads:
         b = wings.wing(c["building_id"], unit_label(c.get("unit_url")), terms)
@@ -598,10 +628,14 @@ def price(
     names: list[str],
     observations: dict[str, dict] | None = None,
     at: dt.datetime | None = None,
+    *,
+    local=None,
+    fit_ids: set[str] | None = None,
+    centre: float | None = None,
 ) -> tuple[list[dict], dict]:
     """The ads on the market priced with the run's kit, when it scores the fit's own rows as
     the bundle does (`estimate_build.check_scoring`). `files` are the pipeline's
-    (`pipeline_files`)."""
+    (`pipeline_files`); `local`, `fit_ids` and `centre` are as in `rows`."""
     if kit_dir is None:
         return [], {"priced": 0, "reason": "no prediction kit for this run"}
     if files is None:
@@ -627,9 +661,13 @@ def price(
     )
     if not check["passes"]:
         return [], {"priced": 0, "reason": check["reason"]}
-    units = estimate_build.load_units(kit_dir)
-    if any(len(v) != len(kit.market) for v in units.values()):
-        raise estimate.KitError("units.parquet has another number of draws")
+
+    def units(ids):
+        levels = estimate_build.load_units(kit_dir, ids)
+        if any(len(v) != len(kit.market) for v in levels.values()):
+            raise estimate.KitError("units.parquet has another number of draws")
+        return levels
+
     return rows(
         kit,
         kit_buildings,
@@ -640,4 +678,7 @@ def price(
         observations,
         units,
         at=at,
+        local=local,
+        fit_ids=fit_ids,
+        centre=centre,
     )

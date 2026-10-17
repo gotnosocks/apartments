@@ -685,7 +685,9 @@ def create_app(
         if "meta" not in g:
             g.meta = {
                 row["key"]: json.loads(row["value"])
-                for row in db().execute("SELECT key, value FROM meta")
+                for row in db().execute(
+                    "SELECT key, value FROM meta WHERE key != 'story_checks'"
+                )
             }
         return g.meta
 
@@ -1421,15 +1423,21 @@ def create_app(
     story_cache: dict = {}
 
     def story_checks() -> tuple:
-        """The story's held-out accuracy, rent jumps and unit examples, which
-        scan every listing; read once per build, swapped in whole like
-        exposures()."""
+        """The story's held-out accuracy, rent jumps, unit examples and
+        borders, which scan every listing. Builds work them out into meta;
+        older builds get them worked out here. Read once per build, swapped
+        in whole like exposures()."""
         conn = db()  # also sets g.build
         cached = story_cache.get("cached")
         if cached is None or cached[0] != g.build:
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key = 'story_checks'"
+            ).fetchone()
             cached = (
                 g.build,
-                (
+                tuple(json.loads(row["value"]))
+                if row
+                else (
                     story.accuracy(conn),
                     story.rent_jumps(conn),
                     story.unit_examples(conn),
