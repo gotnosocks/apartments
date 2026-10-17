@@ -50,6 +50,7 @@ STRATA = [
     "both_lowfit",
     "address_apartments",
     "footprint_apartments",
+    "address_demolished",
     "address",
     "footprint",
     "tie",

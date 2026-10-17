@@ -885,7 +885,9 @@ link each building two ways and choose between the two lots when they differ:
    keeps a footprint holding the point, or else the nearest one within 10 m.
 4. `buildings.lots` compares the two lots. Where they differ, and the latest MapPLUTO release gives
    one of them apartments and the other a count of 0, it takes the one with apartments, as [The lot
-   with apartments](#the-lot-with-apartments) explains. Otherwise, as for a lot missing from
+   with apartments](#the-lot-with-apartments) explains. When the building on the address's lot
+   came down, it keeps the address's lot instead, as [A building that came
+   down](#a-building-that-came-down) explains. Otherwise, as for a lot missing from
    MapPLUTO or one without a count, it counts the facts the record shares with MapPLUTO's record of
    each lot, in the latest release, and takes the lot with more. `link` says which way the lot
    came:
@@ -895,6 +897,7 @@ link each building two ways and choose between the two lots when they differ:
    | `both` | the address and the map point give the same lot |
    | `address_apartments` | they differ, the address's lot has apartments and the footprint's lot a count of 0 |
    | `footprint_apartments` | they differ, the footprint's lot has apartments and the address's lot a count of 0 |
+   | `address_demolished` | as `footprint_apartments`, but the address's last record with apartments, from an earlier release, fits the facts better than the footprint's lot, and the map point lies outside the footprint |
    | `address` | they differ, and the address's lot fits the facts better |
    | `footprint` | they differ, and the footprint's lot fits better |
    | `tie` | they differ and fit equally, and the step takes the address's lot |
@@ -1035,6 +1038,50 @@ unclear for 512 West 23rd Street. With the rule and those answers, `identity_che
 `footprint_apartments` 6 right, 0 wrong and 4 unclear, and `address_apartments` 8 right, 0
 wrong and 1 unclear. Its estimate of wrong lots in all classes comes to about 490, against
 about 670 on the build of Oct 16.
+
+### A building that came down
+
+On some lots the building with the apartments came down after its ads ran, and MapPLUTO now
+gives the lot a count of 0. StreetEasy's map point for the old building then falls on open
+ground, and the nearest footprint within 10 m belongs to the building next door, so
+`footprint_apartments` took the neighbor's lot. Data improvements found the case on Oct 17
+among 43 buildings it had moved off empty lots: PAD 26c still puts the address on the lot in
+HPD's register for 35 of them.
+
+`buildings.lots` looks for it in MapPLUTO's last record of the address's lot with apartments,
+from any release since 09v1. When that record shares more facts with the StreetEasy record than
+the footprint's lot does in the latest release, and the map point lies outside the footprint,
+the step keeps the address's lot and its BIN, with `link` set to `address_demolished`. On the
+export of runs 1 to 10 it moves 36 buildings with 415 ads off `footprint_apartments`. PAD gives
+32 of those lots a placeholder BIN such as 3000000, so a join by BIN finds no building for them
+instead of the neighbor.
+
+I compared each building's ads with the first release to show its address's lot without
+apartments:
+
+| ads | buildings | ads |
+|---|---:|---:|
+| all listed before | 26 | 340 |
+| some before and some after | 2 | 56 |
+| all listed after | 8 | 19 |
+
+The 8 buildings with ads only after may hold a new building that MapPLUTO doesn't record yet, or
+their ads may belong next door.
+
+My first version kept the address's lot whenever an earlier release gave it apartments. That
+moved 50 buildings, among them 278 Cooper Street in Brooklyn, which the reviewers of Oct 16
+placed on the footprint's lot. There MapPLUTO recorded twin buildings from 1906 with 6
+apartments each, at 276 and 278, until the one at 278 came down in 2009, and the ad ran in 2019.
+StreetEasy's record fits the two equally, and the step now takes the standing building on a tie.
+That costs a little where the twin came down after the ads: the lot's facts come out the same,
+but the BIN is the neighbor's. Of the Oct 16 sample, the step moves only 910 Bergen Street, which
+the reviewers left unclear. Its record describes a two-family house from 1905, which MapPLUTO
+gave the address's lot until 2019, and the footprint's lot holds 12 apartments built in 2016.
+
+Of Data improvements' 43 buildings, 26 were in `footprint_apartments`. The step moves 14 of them
+to the lot in HPD's register. It leaves 7 twins whose facts tie, and 5 where MapPLUTO never gave
+the address's lot apartments or the map point lies inside the footprint, mostly new buildings on
+lots that were vacant.
 
 ### Checking a change
 

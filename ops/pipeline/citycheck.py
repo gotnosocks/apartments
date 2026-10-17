@@ -72,12 +72,19 @@ FLOOR_CLASSES = ["no_lot", *UNIT_CLASSES[:3], "within_latest"] + [
     f"above by {b}" for b, _ in FLOOR_BINS
 ]
 # Lots of buildings.lots chosen by MapPLUTO's facts, and the rest.
-FIT_LINKS = ("address_apartments", "footprint_apartments", "address", "footprint")
+FIT_LINKS = (
+    "address_apartments",
+    "footprint_apartments",
+    "address_demolished",
+    "address",
+    "footprint",
+)
 LINK_GROUPS = ["address_or_footprint", "other_links"]
 LINKS = [
     "both",
     "address_apartments",
     "footprint_apartments",
+    "address_demolished",
     "address",
     "footprint",
     "tie",
@@ -100,7 +107,10 @@ DEFINITIONS = {
         "link": "The `link` of the building in buildings.lots: `both` when the PAD address "
         "range and the footprint under the map point give the same lot, "
         "`address_apartments` or `footprint_apartments` when they differ and only that "
-        "route's lot has apartments in MapPLUTO, `address` or `footprint` when they differ "
+        "route's lot has apartments in MapPLUTO, `address_demolished` when only the "
+        "footprint's lot has apartments but the address's last MapPLUTO record with "
+        "apartments, from an earlier release, fits the building's record better and the map "
+        "point lies outside the footprint, `address` or `footprint` when they differ "
         "otherwise and that route's lot fits the building's record better, "
         "`tie` when they fit equally and the address's lot stands, `address_only` and "
         "`footprint_only` when one route finds nothing. `none` is a building with a record and "
@@ -143,10 +153,11 @@ DEFINITIONS = {
         "has units with ads. `within`: the units with ads are at most the city count. "
         "`above by N`: they exceed it by N.",
         "link_groups": "`address_or_footprint`: lots with a building whose `link` is "
-        "`address_apartments`, `footprint_apartments`, `address` or `footprint`. "
-        "buildings.lots chose those lots over the other route's lot by the latest MapPLUTO "
-        "release's unitsres, or by how well its class, year, numfloors and unitsres match "
-        "the StreetEasy record, so their unitsres comparisons lean toward agreement. "
+        "`address_apartments`, `footprint_apartments`, `address_demolished`, `address` or "
+        "`footprint`. buildings.lots chose those lots over the other route's lot by MapPLUTO's "
+        "unitsres, or by how well its class, year, numfloors and unitsres match "
+        "the StreetEasy record, so their unitsres comparisons lean toward agreement, except "
+        "under `address_demolished`, whose lot has a unitsres of 0 in the latest release. "
         "`other_links`: the other lots, from `both`, `tie`, `address_only` or "
         "`footprint_only`, where no such choice took place.",
         "top_above": "Lots with units_all above unitsres or co_units, the largest excess first. "

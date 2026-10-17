@@ -12,6 +12,20 @@ def lot(bbl, units, fit):
     return (bbl, "26v2", "2026-08-17 00:00:00+00", *shared, *other, units)
 
 
+def earlier(bbl, release, units):
+    """MapPLUTO's record of `bbl` in an earlier release, such as 25v1, with `units` apartments and
+    the building record's other facts."""
+    return (
+        bbl,
+        release,
+        f"20{release[:2]}-03-04 00:00:00+00",
+        "C1",
+        "1920",
+        "5",
+        units,
+    )
+
+
 def test_lot_link_cases(tmp_path, render_context):
     """Each building gets a lot from its address and a different lot from its footprint:
 
@@ -26,6 +40,14 @@ def test_lot_link_cases(tmp_path, render_context):
     - b5: both lots have 0, and the footprint's lot fits better.
     - b6: both lots have apartments, and they fit equally well, so the step takes the
       address's lot.
+    - b7: the address's lot has 0 and the footprint's lot 3, but the address's lot in release
+      25v1 had 10 apartments and fits the building record better than the footprint's lot. The map
+      point lies outside the footprint, so the step keeps the address's lot.
+    - b8: as b7, except that the map point lies inside the footprint, so the step takes the
+      footprint's lot.
+    - b9: as b7, except that the address's last record with apartments, in 25v1, has 6 and fits
+      only as well as the footprint's lot, so the step takes the footprint's lot. The 10
+      apartments of 24v1 count for nothing.
     """
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
     for schema in ("city", "buildings"):
@@ -48,9 +70,19 @@ def test_lot_link_cases(tmp_path, render_context):
             lot("1000050002", "0", 2),
             lot("1000060001", "5", 2),
             lot("1000060002", "3", 2),
+            lot("1000070001", "0", 2),
+            earlier("1000070001", "25v1", "10"),
+            lot("1000070002", "3", 3),
+            lot("1000080001", "0", 2),
+            earlier("1000080001", "25v1", "10"),
+            lot("1000080002", "3", 3),
+            lot("1000090001", "0", 2),
+            earlier("1000090001", "24v1", "10"),
+            earlier("1000090001", "25v1", "6"),
+            lot("1000090002", "3", 3),
         ],
     )
-    buildings = [f"b{n}" for n in range(1, 7)]
+    buildings = [f"b{n}" for n in range(1, 10)]
     db.execute(
         """CREATE TABLE buildings.latest_record (building_id TEXT, building_class TEXT,
         year_built INT, floor_count DOUBLE, residential_units INT)"""
@@ -65,15 +97,24 @@ def test_lot_link_cases(tmp_path, render_context):
     )
     db.executemany(
         "INSERT INTO buildings.pad_link VALUES (?, ?, ?, 1, 1)",
-        [(f"b{n}", f"10000{n}0001", f"100{n}001") for n in range(1, 7)],
+        [(f"b{n}", f"10000{n}0001", f"100{n}001") for n in range(1, 10)],
     )
     db.execute(
         """CREATE TABLE buildings.footprint_link
         (building_id TEXT, bbl TEXT, bin TEXT, inside BOOLEAN, metres DOUBLE)"""
     )
     db.executemany(
-        "INSERT INTO buildings.footprint_link VALUES (?, ?, ?, true, 0)",
-        [(f"b{n}", f"10000{n}0002", f"100{n}002") for n in range(1, 7)],
+        "INSERT INTO buildings.footprint_link VALUES (?, ?, ?, ?, ?)",
+        [
+            (
+                f"b{n}",
+                f"10000{n}0002",
+                f"100{n}002",
+                n not in (7, 9),
+                4.0 if n in (7, 9) else 0.0,
+            )
+            for n in range(1, 10)
+        ],
     )
     query = render_context.render("buildings.lots").sql(dialect="duckdb")
     db.execute(f"CREATE TABLE buildings.lots AS {query}")
@@ -88,4 +129,7 @@ def test_lot_link_cases(tmp_path, render_context):
         ("b4", "footprint", "1000040002", "1004002", 0, 1),
         ("b5", "footprint", "1000050002", "1005002", 1, 2),
         ("b6", "tie", "1000060001", "1006001", 2, 2),
+        ("b7", "address_demolished", "1000070001", "1007001", 2, 3),
+        ("b8", "footprint_apartments", "1000080002", "1008002", 2, 3),
+        ("b9", "footprint_apartments", "1000090002", "1009002", 2, 3),
     ]
