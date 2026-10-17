@@ -922,6 +922,9 @@ DATA_RULE_TEXT = {
     "unit-reviews-v4": "The unit-reviews-v3 lines, with the 870 Broadway loft ad filed "
     "as #2 moved into the #3 loft's unit: the two ads carry the same copy and 1,000 sq "
     "ft, and the #3 ad went up 16 days after the #2 ad came off. No listing is dropped.",
+    "unit-reviews-v5": "The unit-reviews-v4 lines, with 444 West 20th Street's #1 joined "
+    "to #GARDEN: the ads under both labels offer the same garden and parlor duplex in the "
+    "same words, down to a February 2018 move-in. No listing is dropped.",
 }
 
 
