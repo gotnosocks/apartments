@@ -105,3 +105,19 @@ def test_latest_ask_v9_drops_stale_changes():
     assert (row.old, row.new) == (3000, 1850)
     assert data.DATA_RULES["latest-ask-v9"].keywords == {"path": data.LATEST_ASK_V9}
     assert data.RULE_SOURCES["latest-ask-v9"] == data.LATEST_ASK_V9
+
+
+def test_latest_ask_v10_drops_closing_changes():
+    if not data.LATEST_ASK_V10.exists():
+        pytest.skip("latest asks not on this machine")
+    v9 = pd.read_parquet(data.LATEST_ASK_V9).set_index("audit_id")
+    v10 = pd.read_parquet(data.LATEST_ASK_V10).set_index("audit_id")
+    assert v10.index.equals(v9.index)
+    changed = v10.latest_ask != v9.latest_ask
+    assert changed.sum() == 104984
+    log = pd.read_csv(data.LATEST_ASK_V10.parent / "changed.csv").set_index("audit_id")
+    assert set(log.index) == set(v10.index[changed])
+    row = log[log.source_listing_id == 616433].iloc[0]
+    assert (row.old, row.new) == (11500, 11000)
+    assert data.DATA_RULES["latest-ask-v10"].keywords == {"path": data.LATEST_ASK_V10}
+    assert data.RULE_SOURCES["latest-ask-v10"] == data.LATEST_ASK_V10

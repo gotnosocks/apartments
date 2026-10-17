@@ -32,6 +32,10 @@ Before that check, the builder drops every change dated more than a week after
 the off-market day, whatever its size, unless the record's status changes show
 the listing going ACTIVE again after that day. Brokers reuse an old ad's record
 for a later ad of the same apartment, so those changes carry a later ad's asks.
+The table for latest-ask-v10 goes further with `CLOSING_STALE_DAYS` and drops
+every change from the off-market day on, so each row ends at its last ask
+while listed. It keeps the changes of an ad listed and closed on the same day,
+and those of an ad that went ACTIVE again after its off day.
 
 Each row then takes the last kept change dated from the row's own day up to
 the day of its listing's next NB8 row, so two rows of one listing each keep
@@ -84,6 +88,9 @@ PLACEHOLDER_PRICE, PLACEHOLDER_RAISE = 10000, 1.2
 # for 5 days in December 2017, and its record carries changes to $2,250 and
 # $3,000 from March 2019, the asks of a later ad for the same apartment.
 STALE_DAYS = 7
+# latest-ask-v10 passes this as `stale_days`, so it also drops the changes dated
+# on the off-market day and in the week after it.
+CLOSING_STALE_DAYS = -1
 # A latest ask outside this factor of the first ask is checked against the
 # building's other rows (check 1).
 MAX_RATIO = 2.0
@@ -131,7 +138,7 @@ def record_latest(raw: str, stale_days: int | None = STALE_DAYS) -> dict:
     kept = []
     for c in changes:
         day = _day(c["changedAt"])
-        if not still and _stale(day, off, active, stale_days):
+        if not still and day != on and _stale(day, off, active, stale_days):
             continue
         if not (still or day < off or day == on) and kept:
             ratio = c["price"] / kept[-1]["price"]
