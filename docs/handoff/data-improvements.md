@@ -1,6 +1,21 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 11:00 ET, after quarantine-v35 (#992). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 07:20 ET, after all-scraped-lots4-v1 (#997). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 07:20 ET
+
+- #996 adds `config/reviews/registry-overrides-20261017-emptylots.json`. It moves 41 buildings
+  (3,682 rows) off parks, garages, vacant land or condo unit lots, onto the lot that the
+  pipeline's `buildings.lots` matches by address. The new lot must agree with StreetEasy's year
+  (within 2) and apartment count (within 10% or 2). Old lots that ever had building area are left
+  out, and so are footprint-only matches. Scripts are in `/data1/apartments/tmp/suspect/emptylots/`.
+- #997 adds `all-scraped-lots4-v1`. It's `all-scraped-v1` on registry
+  `20261017-2c61ff1-all-lots4`, which applies the #905 and #996 overrides (54 buildings), with
+  MapPLUTO and PLUTO releases for the new lots. I sent it to Modeling for a fit paired against
+  all-scraped-v1. If Modeling moves to `all-scraped-lots3-v1`, it needs a lots3 twin.
+- Next registry revision: the rest of the 523 empty-lot buildings. The pipeline gives 104 of them
+  a lot with a building. The other 63 of those 104 failed the year or unit rule, or matched by
+  footprint only, and they need review one at a time.
 
 ## 2026-10-17 11:00 ET
 
