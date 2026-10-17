@@ -61,12 +61,6 @@ NO_LONGER_AVAILABLE or DELISTED. Those ads get a new observation on each read, a
 snapshot table gains a row only when a record changes, since an unchanged record gives the
 same body bytes.
 
-With --current-listings ROOT, a run finishing without a stop also writes the region's ads
-with an ACTIVE record fetched since the run started, in the current-listings format
-(crawl_current_listings.interpret_api), under <archive>/current-listings/<region>/. It
-links the archive into that folder and points ROOT/api-<region> at it, so the site reads
-it after the dated capture folders.
-
 The collector sends at most --rate requests a minute, never more than 64, and stops at
 --max-requests. It stops earlier on an Oxylabs credential or billing refusal, a StreetEasy
 401, 403 or 429, a challenge page, or six failed requests in a row. The client sends a
@@ -111,9 +105,7 @@ import fcntl
 import hashlib
 from itertools import islice
 import json
-import os
 from pathlib import Path
-import shutil
 import sys
 import threading
 import time
@@ -123,7 +115,6 @@ import requests
 
 from apartments.graphql_listing import (
     SOURCE,
-    api_document,
     building_body,
     building_document,
     canonical_link,
@@ -146,7 +137,6 @@ from .oxylabs import (
 from .store import ArchiveStore
 
 SEARCH_VERSION = "graphql-search-v1"
-CURRENT_VERSION = "graphql-search-current-v1"
 # The collection policy's cutoff for new archives: ads below it mostly lack a canonical unit.
 MIN_LISTING_ID = 1_210_000
 PRICE = 1.14 / 1000  # dollars per Oxylabs request
@@ -1581,152 +1571,9 @@ class Collector:
         self._cached = (None, None, {})
         return dict(sorted(counts.items()))
 
-    # Current listings
-
-    def _current_link(self, root):
-        """Return ROOT/api-REGION, raising RuntimeError if something other than a symlink is there."""
-        link = Path(root) / f"api-{self.region}"
-        if link.exists() and not link.is_symlink():
-            raise RuntimeError(f"{link} is not a symlink; leaving it in place")
-        return link
-
-    def current_listings(self, root):
-        """Write the region's ads with an ACTIVE record fetched since the run started as a
-        current-listings capture, and point ROOT at it. An ad missing from a later read
-        keeps its older record, so the fetch time of that record decides."""
-        from apartments import candidate_refresh as refresh
-        from apartments import crawl_current_listings, graphql_listing
-        from apartments.research_pipeline import digest
-        from apartments.unit_canonical import canonical_unit_id
-
-        g = self.generation
-        ids = [
-            r[0]
-            for r in self.db.execute(
-                f"""SELECT a.listing_id FROM graphql_search_ads a WHERE a.generation=:g
-                AND {MINE} AND a.status='ACTIVE' AND (SELECT r.fetched
-                FROM graphql_search_responses r WHERE r.id=a.response_id)>=:started
-                ORDER BY a.listing_id""",
-                {"g": g, "region": self.region, "started": self.started},
-            )
-        ]
-        plan = {
-            "version": CURRENT_VERSION,
-            "archive": str(self.store.root),
-            "region": self.region,
-            "run": self.run,
-            "generation": g,
-            "listing_ids": [str(i) for i in ids],
-            "implementation_sha256": {
-                p.name: digest(p)
-                for p in [
-                    *refresh._code_paths(),
-                    Path(__file__),
-                    Path(graphql_listing.__file__),
-                    Path(crawl_current_listings.__file__),
-                ]
-            },
-            "limitations": [
-                "ACTIVE is what the API said when each ad was read.",
-                "Ads with no single canonical unit are left out, as in a crawl.",
-                "No corrections overlay is applied; source attributes are as read.",
-            ],
-        }
-        plan_hash = refresh._hash(plan)
-        candidates, failures = [], []
-        for listing_id in ids:
-            url = f"https://streeteasy.com/rental/{listing_id}"
-
-            def fail(reason, url=url, listing_id=listing_id):
-                failures.append(
-                    {"source_listing_id": str(listing_id), "url": url, "reason": reason}
-                )
-
-            units = self.db.execute(
-                """SELECT DISTINCT unit_url FROM collection_memberships
-                WHERE generation=? AND listing_key=?""",
-                (g, f"rental:{listing_id}:detail"),
-            ).fetchall()
-            if len(units) != 1:
-                fail("no single canonical unit")
-                continue
-            unit = units[0][0]
-            observation = body = None
-            for candidate in (unit, url):
-                row = self.store.latest_response(candidate)
-                data = self.store.get_body(row["body_hash"]) if row else None
-                doc = api_document(data) if data else None
-                if doc and doc.get("listing_id") == str(listing_id):
-                    observation, body = dict(row), data
-                    break
-            if observation is None:
-                fail("no API capture of the ad")
-                continue
-            try:
-                unit_id = canonical_unit_id(unit)
-            except ValueError:
-                fail("canonical unit has no unit ID")
-                continue
-            target = {
-                "url": url,
-                "source_listing_id": str(listing_id),
-                "canonical_unit_url": unit,
-                "unit_id": unit_id,
-                "previous_record": {},
-            }
-            result = crawl_current_listings.interpret_api(
-                target,
-                observation,
-                body,
-                plan_hash,
-                interpreted_at=_iso(observation["fetched"]),
-            )
-            if result["status"] != "parsed":
-                fail(result.get("reason"))
-                continue
-            row = result["candidate"]
-            row["crawl_provenance"] = {
-                "plan_sha256": plan_hash,
-                "observation_id": observation["id"],
-                "requested_url": url,
-            }
-            candidates.append(row)
-        report = {
-            "version": CURRENT_VERSION,
-            "plan_sha256": plan_hash,
-            "active_advertisements": len(ids),
-            "candidates": len(candidates),
-            "failures": len(failures),
-            "collected_range": [
-                min((c["collected_at"] for c in candidates), default=None),
-                max((c["collected_at"] for c in candidates), default=None),
-            ],
-        }
-        link = self._current_link(root)
-        captures = self.store.root / "current-listings" / self.region
-        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        output = captures / f"{stamp}-run{self.run}"
-        crawl_current_listings.publish(
-            output, plan, plan_hash, candidates, failures, report
-        )
-        # A reader of the capture finds its page bodies through details/archive.
-        (output / "details" / "archive").symlink_to(self.store.root)
-        temporary = link.with_name(link.name + ".tmp")
-        if temporary.is_symlink() or temporary.exists():
-            temporary.unlink()
-        temporary.symlink_to(output)
-        os.replace(temporary, link)
-        stamps = sorted(
-            p for p in captures.iterdir() if p.is_dir() and not p.is_symlink()
-        )
-        for old in stamps[:-2]:
-            if old != output:
-                shutil.rmtree(old)
-        return {**report, "output": str(output), "link": str(link)}
-
     # The whole run
 
-    def report(self, writes, stopped, current):
+    def report(self, writes, stopped):
         g, run = self.generation, self.run
         tree = self.tree()
         calls = dict(
@@ -1786,12 +1633,9 @@ class Collector:
             "ads_read_this_run": statuses,
             "buildings": {"known": buildings[0], "no_record": buildings[1]},
             "write": writes,
-            "current_listings": current,
         }
 
-    def collect(self, current_root=None):
-        if current_root is not None:
-            self._current_link(current_root)
+    def collect(self):
         stopped = None
         try:
             self.enumerate()
@@ -1800,11 +1644,7 @@ class Collector:
         except (Stop, Budget) as exc:
             stopped = exc
         writes = self.write()
-        current = None
-        if stopped is None:
-            if current_root is not None:
-                current = self.current_listings(current_root)
-        report = self.report(writes, stopped, current)
+        report = self.report(writes, stopped)
         with self.store._tx():
             self.db.execute(
                 "UPDATE graphql_search_runs SET report=?, finished=? WHERE id=?",
@@ -1837,7 +1677,6 @@ def main(argv=None):
         action="store_true",
         help="resume the latest run, even a finished one",
     )
-    parser.add_argument("--current-listings", type=Path)
     args = parser.parse_args(argv)
     if args.area:
         areas, follow_history = args.area, True
@@ -1868,7 +1707,7 @@ def main(argv=None):
                 reopen=args.reopen,
                 workers=args.workers,
             )
-            report = collector.collect(args.current_listings)
+            report = collector.collect()
         finally:
             store.close()
     print(json.dumps(report, sort_keys=True))

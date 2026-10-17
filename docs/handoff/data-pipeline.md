@@ -52,9 +52,9 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    and feature sets. **Started**: `ops/pipeline/build.py` builds the project, writes
    `analysis.rows` to a file named by its hash and adds a line to a catalog file (#886). A path
    unit runs it after each export (#887).
-9. Delete the page-capture rewrite once its two readers move: Data improvements'
-   `granular_export` inputs and the website's current-listings publish in
-   `src/streeteasy_archive/graphql_search.py`. **Started**: since #919 each production build
+9. Delete the page-capture rewrite once its readers move: Data improvements' `granular_export`
+   inputs, and the website's current-listings publish in
+   `src/streeteasy_archive/graphql_search.py` until #949. **Started**: since #919 each production build
    writes `analysis.ads`, every ad with a record, to `ads-<hash>.parquet` beside the rows file,
    for both readers. Since #945 the site build takes its current listings from the ads and
    rows files. On the export of Oct 16 it showed 1,099 of the 1,159 listings the captures gave,
@@ -341,7 +341,12 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       between records, and 5154603's unit rented under its later ad 5164886. 5183409 is a
       candidate for the unit ledger's first import: units 2, 2A and 2S at that address give
       the same 2,000 square feet;
-   2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
+   2. the collector stops writing current-listings captures. **Done** in #949, with Ben's OK to
+      change the scraper's code: the collector loses `--current-listings` and
+      `crawl_current_listings` goes. Step 2 of `ads_check.py` still reads the captures of
+      Oct 16 and goes with them in the third PR. Ben approved one on-demand top-up of the five
+      regions after the merge, to show the site taking a top-up's ads through the pipeline with
+      no captures written;
    3. a PR deletes the page-capture rewrite and the page parser.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
    `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
@@ -364,8 +369,9 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
   for 6 GiB of available memory first. The scraper thread confirmed on Oct 16 that the trigger
   fits its exporter: files go in place before their manifest lines, a crash repair replaces the
   manifest by rename, and a manual export takes `export/.lock`, which the build never opens.
-- The website reads current listings from the ads and rows files (#945). Data improvements
-  reads `granular_export` inputs from the collector's page captures and agreed on Oct 16 to move
-  them to the ads file, with the same hashes on the export of Oct 16 or a diff giving every
-  changed row. The page-capture rewrite goes once it has. The scraper thread runs
-  `graphql_search` step 4 and `current_listings`, so it agrees to their removal first.
+- The website reads current listings from the ads and rows files (#945), and the collector
+  stopped writing current-listings captures in #949. Data improvements' builders read the
+  granular export's rewritten records. On Oct 17 it agreed to move five of them to a records
+  file from the pipeline, with the same hashes on the export of Oct 16 or a list of every
+  changed row, and to build its datasets from the rows file in place of the chain. The
+  page-capture rewrite goes once it has.

@@ -1,12 +1,8 @@
 """The area collector against a fake GraphQL API, with no network requests."""
 
-from datetime import UTC, datetime, timedelta
-import gzip
-import hashlib
 import json
 import math
 import re
-import sqlite3
 import urllib.parse
 
 import pytest
@@ -860,97 +856,10 @@ def test_topup_run_rereads_live_ads_and_finds_new_ones(tmp_path):
     )
 
 
-def test_current_listings_publish_and_point_the_site_at_the_newest(
-    tmp_path, monkeypatch
-):
-    ticks = iter(
-        datetime(2026, 10, 15, 6, tzinfo=UTC) + timedelta(minutes=i) for i in range(10)
-    )
-
-    class Clock(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return next(ticks)
-
-    monkeypatch.setattr(gs, "datetime", Clock)
-    root = tmp_path / "current"
-    root.mkdir()
-    c = make_collector(tmp_path / "archive", make_api(), active_only=True)
-    report = c.collect(current_root=root)
-
-    current = report["current_listings"]
-    assert current["active_advertisements"] == 3
-    assert current["candidates"] == 2 and current["failures"] == 1
-    link = root / "api-test"
-    assert (
-        link.is_symlink()
-        and link.resolve()
-        == (
-            tmp_path / "archive" / "current-listings" / "test" / "20261015T060000Z-run1"
-        ).resolve()
-    )
-    (path,) = root.glob("*/details/snapshot/candidates.jsonl")
-    rows = [json.loads(line) for line in path.read_text().splitlines()]
-    assert {r["crawl_provenance"]["requested_url"] for r in rows} == {
-        rental(1300005),
-        rental(1300007),
-    }
-    assert (link / "details" / "archive").resolve() == (tmp_path / "archive").resolve()
-    # Each row's page body is in the archive the capture links to.
-    archive = link / "details" / "archive"
-    bodies = sqlite3.connect(f"file:{archive / 'archive.sqlite3'}?mode=ro", uri=True)
-    try:
-        for r in rows:
-            (sha,) = c.db.execute(
-                "SELECT body_hash FROM observations WHERE id=?",
-                (r["crawl_provenance"]["observation_id"],),
-            ).fetchone()
-            (stored,) = bodies.execute(
-                "SELECT path FROM bodies WHERE hash = ?", (sha,)
-            ).fetchone()
-            raw = (archive / stored).read_bytes()
-            body = gzip.decompress(raw) if stored.endswith(".gz") else raw
-            assert hashlib.sha256(body).hexdigest() == sha
-    finally:
-        bodies.close()
-    failures = (link / "details" / "snapshot" / "failures.jsonl").read_text()
-    assert "no single canonical unit" in failures
-
-    for _ in range(2):
-        c.current_listings(root)
-    names = sorted(
-        p.name for p in (tmp_path / "archive" / "current-listings" / "test").iterdir()
-    )
-    assert names == ["20261015T060100Z-run1", "20261015T060200Z-run1"]
-    assert link.resolve().name == "20261015T060200Z-run1"
-
-    link.unlink()
-    link.mkdir()
-    with pytest.raises(RuntimeError, match="not a symlink"):
-        c.current_listings(root)
-    assert (
-        sorted(
-            p.name
-            for p in (tmp_path / "archive" / "current-listings" / "test").iterdir()
-        )
-        == names
-    )
+def test_an_ad_gone_from_the_api_keeps_its_last_record(tmp_path):
     api = make_api()
-    blocked = make_collector(tmp_path / "blocked", api, active_only=True)
-    with pytest.raises(RuntimeError, match="not a symlink"):
-        blocked.collect(current_root=root)
-    assert api.queries == []
-
-
-def test_an_ad_gone_from_the_api_leaves_the_next_capture(tmp_path):
-    api = make_api()
-    root = tmp_path / "current"
-    root.mkdir()
     first = make_collector(tmp_path / "archive", api, active_only=True)
-    assert (
-        first.collect(current_root=root)["current_listings"]["active_advertisements"]
-        == 3
-    )
+    first.collect()
     first.store.close()
 
     # Ad 1300007 drops out of the search and the API answers its read with no record.
@@ -958,9 +867,8 @@ def test_an_ad_gone_from_the_api_leaves_the_next_capture(tmp_path):
     api.search = search_rows(api.ads, [1300001, 1300005, 1300010])
     api.queries.clear()
     topup = make_collector(tmp_path / "archive", api, active_only=True, new_run=True)
-    report = topup.collect(current_root=root)
+    topup.collect()
     assert 1300007 in reads(api)
-    assert report["current_listings"]["active_advertisements"] == 2
     (status,) = topup.db.execute(
         "SELECT status FROM graphql_search_ads WHERE listing_id=1300007"
     ).fetchone()
@@ -1015,21 +923,13 @@ def test_regions_share_an_archive_and_read_only_their_own_ads(tmp_path):
     assert not [k for k in report["write"] if "waiting" in k]
     resumed.store.close()
 
-    # Each top-up run re-reads its own region's live ads and keeps its own current listings.
-    root = tmp_path / "current"
-    root.mkdir()
+    # Each top-up run re-reads its own region's live ads.
     for region, live in ((full, {1300007}), (plain, {1300005, 1300010, 1300012})):
         api.queries.clear()
         topup = make_collector(archive, api, active_only=True, new_run=True, **region)
-        topup.collect(current_root=root)
+        topup.collect()
         assert reads(api) == live
         topup.store.close()
-    links = {p.name: p.resolve() for p in root.iterdir()}
-    assert {name: path.parent.name for name, path in links.items()} == {
-        "api-full": "full",
-        "api-plain": "plain",
-    }
-    assert all(path.is_dir() for path in links.values())
 
 
 def test_an_archive_without_members_gives_each_ad_its_last_run_region(tmp_path):
@@ -1062,13 +962,12 @@ def test_a_topup_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
     api.ads["1300004"] = record(
         1300004, "4a", "RENTED", 2400, 0, [1300007, 1300004], 1300007
     )
-    archive, root = tmp_path / "archive", tmp_path / "current"
-    root.mkdir()
+    archive = tmp_path / "archive"
     history = {"region": "history", "areas": (103,), "follow_history": True}
 
     # The backfill stops after its first ad read, before it follows the units' histories.
     first = make_collector(archive, api, max_requests=3, **history)
-    assert first.collect(current_root=root)["invocation"]["stopped"] is not None
+    assert first.collect()["invocation"]["stopped"] is not None
     first.store.close()
 
     # A top-up run of a region over a parent area re-reads the backfill's ACTIVE ads.
@@ -1081,22 +980,16 @@ def test_a_topup_run_of_another_region_leaves_a_backfill_its_ads(tmp_path):
         active_only=True,
         follow_history=False,
     )
-    assert (
-        parent.collect(current_root=root)["current_listings"]["active_advertisements"]
-        == 3
-    )
+    parent.collect()
     assert reads(api) == {1300005, 1300007, 1300010}
     parent.store.close()
 
-    # The resumed backfill still follows the histories of units 12b and 4a, and its
-    # capture holds the ACTIVE ads the top-up run read after the backfill started.
+    # The resumed backfill still follows the histories of units 12b and 4a.
     api.queries.clear()
     resumed = make_collector(archive, api, **history)
-    report = resumed.collect(current_root=root)
+    report = resumed.collect()
     assert resumed.run == first.run and report["invocation"]["stopped"] is None
     assert reads(api) == {1300003, 1300004}
-    assert report["current_listings"]["active_advertisements"] == 3
-    assert {p.name for p in root.iterdir()} == {"api-history", "api-parent"}
 
 
 def test_batches_fit_in_the_url(tmp_path, monkeypatch):
