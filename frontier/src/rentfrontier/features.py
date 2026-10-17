@@ -5650,6 +5650,38 @@ for _new, _old in LOTS3_SETS.items():
     DESCRIPTION_SOURCES[_new] = DESCRIPTION_SOURCES[_old]
 
 
+# The all-areas set with the reviewed lot overrides applied to its registry:
+# config/reviews/registry-overrides-20261016-lots.json (13 buildings) and
+# registry-overrides-20261017-emptylots.json (41 buildings on parks, garages,
+# vacant land or condominium unit lots). I fetched MapPLUTO, LPC and every
+# MapPLUTO release for the 54 moved buildings' lots and put them ahead of the
+# all-areas files (`rentfrontier.snapshots union`). The moved buildings keep
+# their coordinates, and their new BINs were already in the all-areas
+# footprints, so the basemap and footprints stay the same.
+_LOTS4 = "/data1/apartments/external/{0}/20261017-2c61ff1-all-lots4/{0}.parquet"
+LOTS4_FILES = {
+    kind: _LOTS4.format(kind) for kind in ("registry", "pluto", "lpc", "plutoreleases")
+}
+FEATURE_SETS["all-scraped-lots4-v1"] = partial(
+    FEATURE_SETS["all-scraped-v1"].func,
+    **{**FEATURE_SETS["all-scraped-v1"].keywords, "id": "all-scraped-lots4-v1"},
+)
+for _group in [
+    v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+]:
+    if "all-scraped-v1" in _group:
+        _group.add("all-scraped-lots4-v1")
+LOT_SNAPSHOTS["all-scraped-lots4-v1"] = {
+    "registry": LOTS4_FILES["registry"],
+    "pluto": LOTS4_FILES["pluto"],
+}
+AREA_SNAPSHOTS["all-scraped-lots4-v1"] = AREA_SNAPSHOTS["all-scraped-v1"]
+LPC_SNAPSHOTS["all-scraped-lots4-v1"] = LOTS4_FILES["lpc"]
+PLUTO_RELEASES_SNAPSHOTS["all-scraped-lots4-v1"] = LOTS4_FILES["plutoreleases"]
+EXTRAS_SNAPSHOTS["all-scraped-lots4-v1"] = EXTRAS_SNAPSHOTS["all-scraped-v1"]
+DESCRIPTION_SOURCES["all-scraped-lots4-v1"] = DESCRIPTION_SOURCES["all-scraped-v1"]
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
