@@ -145,10 +145,12 @@ The work goes on in this order:
    `/data1/apartments/tmp/pipeline/lanes/drop-lot-build/`, 1,256 entries are live and 170
    stale, each stale one because #1006 picked the building's other lot. The building check's
    list went from 1,434 rows to 187, and the reader kept the lot of each of those 187. The
-   list is in `building_check.csv` there, and `run2.sh` rebuilds it.
+   lane's `run2.sh` rebuilds its state, and `building_check.csv` there lists
+   `analysis.building_check` with each row's `drop_lot` status.
    [pipeline.md](../data/pipeline.md#lots-taken-away) has the counts. Modeling's `lots3`
    feature sets (#976) read the first review file by listing ID, so they still drop the lots
-   of the 170 stale ads, while `lot_facts` gives those ads their new lots.
+   of the 170 stale ads. `lot_facts` gives 169 of those ads their new lots, and a live entry
+   of the second file takes ad 2555747's new lot away as well.
 3. Data improvements' suggestion: drop a late change to a repeated-digit ask, such as $9,999, when
    it moves the ask by 1.2x or more.
 
