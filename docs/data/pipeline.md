@@ -1977,6 +1977,14 @@ and SHA-256 under `sources`, with the ads file of the same catalog line under `a
 that file decides which listings the reader keeps. With `--base`, the base file's listings keep
 their rows, as they do beside a granular crawl.
 
+`lister` reads the file with `--crawl records`, beside `--crawl page` for the page crawls. The
+records lack the building slug of the granular rows, so it takes each listing's building from
+the ads file on the same catalog line, after checking that file's SHA-256 too. That slug comes
+from the building's latest answer, as `ads.identity` gives it. For the day a listing was first
+listed, it reads the rental history in each of the listing's records, where the granular export
+read its event mentions, and keeps the earliest ACTIVE event of the listing's own episodes. Its
+provenance lists both files under `sources`.
+
 ## Datasets for the frontier fits
 
 The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
@@ -2656,6 +2664,22 @@ The frontier's `frontier/tests/test_listing_extras.py` checks `listing_extras` o
     fetch;
 64. run `listing_extras.main` with `--crawl records`, and check that its provenance gives the
     file's path and SHA-256, and those of the ads file on the same catalog line.
+
+The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file:
+
+65. parse made-up records whose histories hold episodes named by `listingId`, by `id` or by
+    neither, events of other statuses, without a day or not a dict, and histories of the wrong
+    type. For each, check that `record_first_listed` gives the earliest day of the own ACTIVE
+    rental events `apartments.graphql_listing` parses from it;
+66. build the lister table from a records file and an ads file with two records of a listing
+    and an earlier listing in its building, and check the lister of the record fetched last, the
+    ads file's building, the earliest listed day over both records and the earlier counts;
+67. run `lister.main` with `--crawl records`, and check that its provenance gives both files'
+    paths and SHA-256 and that a tag without a crawl stops;
+68. parse `--crawl page --crawl records`, and build the lister table from a page crawl and a
+    records file. A listing fetched last in the records file takes its lister and the ads file's
+    building, and keeps the earlier listed day of the page crawl's event mentions. A listing
+    captured last in the page crawl keeps the page crawl's lister and building.
 
 ## Full build
 
