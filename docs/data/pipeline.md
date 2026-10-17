@@ -1421,8 +1421,8 @@ such as `ads-<hash>.parquet` in OUT, with a row for every ad with a record, kept
 adds the file's name, SHA-256 and row count to its catalog line under `ads_file`. I wrote it for
 these readers:
 
-- the website's current listings, which read the API captures under
-  `/data1/apartments/archive/current-listings` until they move to this file;
+- the site build, which takes the website's current listings and their days on the market from
+  it, as the section [The website's current listings](#the-websites-current-listings) describes;
 - Data improvements, which reads a unit's other ads when it looks for the evidence behind a
   correction.
 
@@ -1439,7 +1439,7 @@ comes from. These columns need more than a line:
   the record lists no plans, and a missing one means it has no `media`.
 - `last_change`, `break_status`, `break_day` and `back_day` come from `ads.breaks`, which reads
   the six statuses the unit's history lists. The website shows an ad back on the market with the
-  status and day of its latest break, which it now reads from the history on the ad's page. An
+  status and day of its latest break, from these columns. An
   ad gets a break only when its status and its last change are both ACTIVE. On runs 1 to 10, 6
   ads with another status have a return as their last change: 3 drafts, 2 ads in review and ad
   2101233, which is NO_LONGER_AVAILABLE and lists a return two minutes after its ending on
@@ -1493,6 +1493,37 @@ both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. T
   A reader who needs the latest record's own value for such an ad takes it from the export.
 - All 7,013 ACTIVE ads have the same last change and latest break as the history in their latest
   record, and 644 of them are back on the market after a break.
+
+### The website's current listings
+
+The site build (`python -m apartments.site build`) reads the newest line of
+`/data1/apartments/pipeline/datasets/catalog.ndjson` and checks the SHA-256 of the ads file and
+the rows file against it before it reads either. `src/apartments/site/captures.py` then picks
+the listings on the market:
+
+1. It joins each ad to its fit-ready row by listing id, so an ad without a row stays off the
+   site.
+2. It keeps the ads whose latest answer says ACTIVE and came in the 9 days before the build
+   (`CURRENT_DAYS`).
+3. For each unit it takes the ad with the latest answer. When two of the unit's ads disagree on
+   the ask, the bedrooms, the baths or the size, it takes neither.
+4. It leaves out an ad outside the layouts and asks the dataset prices, an ad the served
+   dataset dropped, and an ad of a unit the dataset prices as current from an answer as new as
+   the ad's or newer.
+
+The values come from the fit-ready row, after the corrections ledger, and the ask from
+`page_price`, since a row's `asking_rent` follows the chain's latest-ask rule and can be an
+earlier price. Each listing's `audit_id` is `api:<response_id>:<listing_id>`, which leads back
+to its answer in the export. Under `stats.current_ads` the build's `build.json` gives the two
+files with their SHA-256, the number of ads priced, and the reason for each ad on the market it
+left out.
+
+`src/apartments/site/ad_dates.py` dates each current listing by its listing id, whether the kit
+or the served fit priced it, from the ad's `on_day`, `days_on_market` and break columns. It
+dates an ad only when the ad is ACTIVE and its `on_day` falls on or before the New York day of
+its latest answer.
+
+COMPARISON
 
 ## Differences from the chain
 

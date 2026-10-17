@@ -495,6 +495,98 @@ def exposure_file(tmp_path, monkeypatch):
     return path
 
 
+class Pipeline:
+    """A made-up pipeline build: an ads file, a rows file and a catalog naming both."""
+
+    AD = {
+        "listing_id": "VARCHAR",
+        "unit_id": "VARCHAR",
+        "building": "VARCHAR",
+        "page": "VARCHAR",
+        "response_id": "BIGINT",
+        "fetched": "TIMESTAMPTZ",
+        "status": "VARCHAR",
+        "page_price": "DOUBLE",
+        "on_day": "DATE",
+        "days_on_market": "BIGINT",
+        "break_status": "VARCHAR",
+        "break_day": "DATE",
+        "back_day": "DATE",
+    }
+    ROW = {
+        "listing_id": "VARCHAR",
+        "bedrooms": "DOUBLE",
+        "bathrooms": "DOUBLE",
+        "full_baths": "BIGINT",
+        "half_baths": "BIGINT",
+        "square_feet": "DOUBLE",
+        "asking_rent": "DOUBLE",
+        "advertised_floor": "DOUBLE",
+        "physical_floor": "DOUBLE",
+        "elevator": "BOOLEAN",
+        "laundry_type": "VARCHAR",
+        "doorman_type": "VARCHAR",
+        "hvac_type": "VARCHAR",
+        "pet_policy": "VARCHAR",
+        "view_exposures": "JSON",
+        "window_exposures": "JSON",
+    }
+
+    def __init__(self, root):
+        self.root = root
+
+    def write(self, ads, rows=None):
+        """Write `ads` as the newest build's ads file and `rows` as its rows file, and give
+        the build's files. Each dict gives the values of its file's columns, and the rows
+        default to the ads' own values, one row for each ad."""
+        from apartments.site import captures
+
+        rows = ads if rows is None else rows
+        self.root.mkdir(parents=True, exist_ok=True)
+        con = duckdb.connect()
+        con.execute("SET TimeZone = 'UTC'")
+        entry = {"built": "2026-10-06T16:00:00+00:00"}
+        for name, key, columns, values in (
+            ("ads", "ads_file", self.AD, ads),
+            ("rows", "rows", self.ROW, rows),
+        ):
+            con.execute(
+                f"CREATE OR REPLACE TABLE {name} ("
+                + ", ".join(f"{c} {t}" for c, t in columns.items())
+                + ")"
+            )
+            if values:
+                con.executemany(
+                    f"INSERT INTO {name} VALUES ("
+                    + ", ".join("?" for _ in columns)
+                    + ")",
+                    [[v.get(c) for c in columns] for v in values],
+                )
+            path = self.root / f"{name}.parquet"
+            con.execute(f"COPY {name} TO '{path}' (FORMAT parquet)")
+            digest = _sha256(path)
+            path = path.rename(self.root / f"{name}-{digest[:16]}.parquet")
+            entry[key] = {"path": path.name, "sha256": digest}
+        con.close()
+        with (self.root / "catalog.ndjson").open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+        return captures.pipeline_files(self.root)
+
+
+def _sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.fixture(autouse=True)
+def pipeline(tmp_path, monkeypatch):
+    """No pipeline build unless a test writes one, never the machine's."""
+    from apartments.site import captures
+
+    root = tmp_path / "pipeline"
+    monkeypatch.setattr(captures, "PIPELINE", root)
+    return Pipeline(root)
+
+
 @pytest.fixture
 def site_root(tmp_path, bundle):
     from apartments.site import build

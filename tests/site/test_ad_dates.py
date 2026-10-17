@@ -1,138 +1,77 @@
-import gzip
-import hashlib
-import json
+import datetime as dt
 import sqlite3
 
-from apartments import granular_parse
 from apartments.site import ad_dates
 from apartments.site.web import create_app
 
 
-def _archive(root, bodies):
-    """A capture archive holding `bodies` (url -> bytes), gzipped by sha256."""
-    base = root / "20261004" / "details" / "archive"
-    base.mkdir(parents=True)
-    db = sqlite3.connect(base / "archive.sqlite3")
-    db.execute("CREATE TABLE bodies(hash TEXT, path TEXT)")
-    db.execute("CREATE TABLE observations(url TEXT, body_hash TEXT)")
-    shas = {}
-    for url, body in bodies.items():
-        sha = hashlib.sha256(body).hexdigest()
-        path = f"bodies/{sha[:2]}/{sha}.gz"
-        (base / path).parent.mkdir(parents=True, exist_ok=True)
-        (base / path).write_bytes(gzip.compress(body))
-        db.execute("INSERT INTO bodies VALUES (?, ?)", (sha, path))
-        db.execute("INSERT INTO observations VALUES (?, ?)", (url, sha))
-        shas[url] = sha
-    db.commit()
-    db.close()
-    return shas
-
-
-def _event(listing_id, date, status, index=0):
-    return {
-        "event_index": index,
-        "event_listing_id": listing_id,
-        "event_category": "rental",
-        "event_date": date,
-        "status": status,
+def _ad(listing_id, **kw):
+    a = {
+        "listing_id": listing_id,
+        "status": "ACTIVE",
+        "fetched": dt.datetime(2026, 10, 5, 15, tzinfo=dt.UTC),
+        "on_day": dt.date(2026, 8, 10),
+        "days_on_market": 40,
     }
+    return {**a, **kw}
 
 
-def test_last_break_is_the_ads_latest_return():
-    events = [
-        _event("7", "2026-08-10", "ACTIVE"),
-        _event("7", "2026-08-14", "RENTED"),
-        _event("7", "2026-08-17", "ACTIVE"),
-        _event("7", "2026-08-25", "TEMPORARILY_OFF_MARKET"),
-        _event("7", "2026-09-08", "ACTIVE"),
-    ]
-    assert ad_dates.last_break(events, "2026-08-10", "2026-10-05") == (
-        "TEMPORARILY_OFF_MARKET",
-        "2026-08-25",
-        "2026-09-08",
+def test_collect_dates_the_current_ads_on_the_market(pipeline):
+    files = pipeline.write(
+        [
+            _ad(
+                "7",
+                break_status="RENTED",
+                break_day=dt.date(2026, 8, 14),
+                back_day=dt.date(2026, 8, 17),
+            ),
+            _ad("8", status="RENTED"),
+            # On the market after the answer: a date from another listing of the unit.
+            _ad("9", on_day=dt.date(2026, 10, 6)),
+            # Fetched on the evening of Oct 5 in New York.
+            _ad(
+                "10",
+                fetched=dt.datetime(2026, 10, 6, 2, tzinfo=dt.UTC),
+                days_on_market=-3,
+            ),
+            _ad("11"),
+        ]
     )
-    assert ad_dates.last_break(events[:1], "2026-08-10", "2026-10-05") == (None,) * 3
-    # Rented and back on the same day: the page lists the newer event first.
-    same_day = [
-        _event("7", "2026-10-05", "ACTIVE", 0),
-        _event("7", "2026-10-05", "RENTED", 1),
-        _event("7", "2026-08-10", "ACTIVE", 2),
+    listings = [
+        {"audit_id": a, "listing_id": a[1:], "is_current": 1}
+        for a in ("a7", "a8", "a9", "a10")
     ]
-    assert ad_dates.last_break(same_day, "2026-08-10", "2026-10-05") == (
-        "RENTED",
-        "2026-10-05",
-        "2026-10-05",
-    )
-    # Off the market by the ad's own last event: no date at all.
-    assert ad_dates.last_break(events[:2], "2026-08-10", "2026-10-05") is None
-
-
-def test_collect_reads_this_ads_own_dates_only(tmp_path, monkeypatch):
-    pages = {
-        "https://streeteasy.com/rental/7": b"page seven",
-        "https://streeteasy.com/rental/8": b"page eight",
+    listings += [
+        {"audit_id": "k7", "listing_id": "7", "is_current": 1},
+        {"audit_id": "a11", "listing_id": "11", "is_current": 0},
+        {"audit_id": "a12", "listing_id": None, "is_current": 1},
+    ]
+    assert ad_dates.collect(None, listings) == []
+    dates = sorted(ad_dates.collect(files, listings), key=lambda d: d["audit_id"])
+    seven = {
+        "listing_id": "7",
+        "on_market_at": "2026-08-10",
+        "days_on_market": 40,
+        "as_of": "2026-10-05",
+        "break_status": "RENTED",
+        "break_at": "2026-08-14",
+        "back_at": "2026-08-17",
     }
-    shas = _archive(tmp_path / "archives", pages)
-    ads = {
-        b"page seven": {
-            "id": 7,
-            "onMarketAt": "2026-08-10T12:00:00Z",
-            "daysOnMarket": 40,
-        },
-        # The page of another ad (an earlier listing of the same unit).
-        b"page eight": {"id": 99, "onMarketAt": "2026-01-02T00:00:00Z"},
-    }
-    events = [
-        _event("7", "2026-08-10", "ACTIVE"),
-        _event("7", "2026-08-14", "RENTED"),
-        _event("7", "2026-08-17", "ACTIVE"),
-        # Another listing id on the same page never counts for ad 7.
-        _event("6", "2026-09-01", "RENTED"),
-    ]
-    monkeypatch.setattr(
-        granular_parse,
-        "parse_listing",
-        lambda body, url: ({"raw_listing_json": json.dumps(ads[body])}, events),
-    )
-    dataset = tmp_path / "dataset"
-    dataset.mkdir()
-    rows = [
-        {
-            "audit_id": "a7",
-            "source_listing_id": "7",
-            "body_sha256": shas["https://streeteasy.com/rental/7"],
-            "collected_at": "2026-10-05T03:00:00Z",
-        },
-        {
-            "audit_id": "a8",
-            "source_listing_id": "8",
-            "body_sha256": shas["https://streeteasy.com/rental/8"],
-            "collected_at": "2026-10-05T03:00:00Z",
-        },
-        {
-            "audit_id": "a9",
-            "source_listing_id": "9",
-            "body_sha256": "0" * 64,
-            "collected_at": "2026-10-05T03:00:00Z",
-        },
-    ]
-    (dataset / "current-source-evidence.jsonl").write_text(
-        "".join(json.dumps(r) + "\n" for r in rows)
-    )
-    dates = ad_dates.collect(dataset, tmp_path / "archives")
     assert dates == [
         {
-            "audit_id": "a7",
-            "listing_id": "7",
+            "audit_id": "a10",
+            "listing_id": "10",
             "on_market_at": "2026-08-10",
-            "days_on_market": 40,
+            "days_on_market": None,
             "as_of": "2026-10-05",
-            "break_status": "RENTED",
-            "break_at": "2026-08-14",
-            "back_at": "2026-08-17",
-        }
+            "break_status": None,
+            "break_at": None,
+            "back_at": None,
+        },
+        {"audit_id": "a7", **seven},
+        {"audit_id": "k7", **seven},
     ]
+    dates = [d for d in dates if d["audit_id"] == "a7"]
     db = sqlite3.connect(":memory:")
     db.row_factory = sqlite3.Row
     db.execute("CREATE TABLE listings(audit_id TEXT PRIMARY KEY)")
@@ -170,7 +109,7 @@ def _date_row(db, audit, listing, **extra):
     db.commit()
 
 
-def test_a_build_without_evidence_dates_nothing(site_root):
+def test_a_build_without_a_pipeline_build_dates_nothing(site_root):
     db, audit, _ = _current(site_root)
     assert db.execute("SELECT count(*) FROM ad_dates").fetchone() == (0,)
     assert 'id="on-market"' not in _page(site_root, audit)
