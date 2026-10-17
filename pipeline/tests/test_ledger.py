@@ -551,15 +551,18 @@ def test_quarantine_month(period, month):
             {"kind": "ad_text", "quote": "this is a 2 month sublet"},
         ),
         (
-            "gut renovated, no fee",
+            "short-term rental starts may 1, 2019 for 6 months only",
             None,
-            {"kind": "read", "detail": "gut renovated, no fee"},
+            {
+                "kind": "ad_text",
+                "quote": "short-term rental starts may 1, 2019 for 6 months only",
+            },
         ),
     ],
 )
 def test_quarantine_evidence(note, source, first):
-    """The importer files a quarantine note as the ad's words when it starts `Ad text:` or comes
-    from the regex pass, and as a read otherwise, and puts the line's reason after it."""
+    """The importer files a quarantine note as a read when a reading pass wrote it without the
+    `Ad text:` prefix, and as the ad's words otherwise, and puts the line's reason after it."""
     line = {"reason": "a reason", "evidence": note}
     if source:
         line["source"] = source

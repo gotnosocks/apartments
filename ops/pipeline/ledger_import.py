@@ -10,9 +10,9 @@ them by the ad's `listing_id`. The script works in these steps:
    gives the dataset of the lines it adds, and from bedrooms-ad-v7 on, a version's file starts
    with its base rule's lines. It takes the row's ad and its recorded values from the dataset's
    `observations.jsonl`. A quarantine line gives its ad and month itself, the month as YYYY-MM
-   or as its first day. Its `evidence` holds its reader's note. The importer files the note as
-   the ad's words when it starts `Ad text:` or when the line's `source` gives the regex pass,
-   and as a read otherwise.
+   or as its first day. Its `evidence` holds a note, most often the ad's words. The importer
+   files a note as a read only when the line comes from a reading pass and the note doesn't
+   start `Ad text:`.
 2. It gathers the evidence for each correction:
      - the ad's words, from the rule file, or Ben's own reading when the rule's line gives
        his name and the day;
@@ -111,22 +111,26 @@ def month(period):
 
 
 def quarantine_evidence(line):
-    """Give a quarantine line's evidence: its reader's note, then its reason as a read.
+    """Give a quarantine line's evidence: its note, then its reason as a read.
 
-    A note starting `Ad text:` gives the ad's words after the prefix, in quotes and often with a
-    period after them, and the importer files the words without either. The regex pass gives
-    the matched words alone, with `source` starting `regex`. The importer files any other note
-    as a read.
+    Data improvements writes a note in one of these forms:
+      - a line with no `source`, the form of the rule's first versions, gives the ad's words;
+      - a line from the regex pass, with `source` starting `regex`, gives the matched words;
+      - a line from a reading pass, with any other `source`, gives the reader's note, and a note
+        quoting the ad starts `Ad text:` with the words in quotes, often with a period after.
+    The importer files a reader's note as a read and the others as `ad_text`, without the prefix
+    and, when the rest is in quotes, without the quotes or the period after them.
     """
     evidence = [{"kind": "read", "detail": line["reason"]}]
     note = (line.get("evidence") or "").strip()
-    if note.startswith("Ad text:") or line.get("source", "").startswith("regex"):
-        quote = note.removeprefix("Ad text:").strip()
-        quoted = re.fullmatch(r'"(.*)"\.?', quote, re.DOTALL)
-        evidence.insert(0, {"kind": "ad_text", "quote": quoted[1] if quoted else quote})
-    elif note:
-        evidence.insert(0, {"kind": "read", "detail": note})
-    return evidence
+    source = line.get("source") or ""
+    if not note:
+        return evidence
+    if source and not source.startswith("regex") and not note.startswith("Ad text:"):
+        return [{"kind": "read", "detail": note}, *evidence]
+    quote = note.removeprefix("Ad text:").strip()
+    quoted = re.fullmatch(r'"(.*)"\.?', quote, re.DOTALL)
+    return [{"kind": "ad_text", "quote": quoted[1] if quoted else quote}, *evidence]
 
 
 def line_datasets(path):
