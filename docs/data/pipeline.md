@@ -1911,11 +1911,12 @@ a building and label the least unit ID among them, and a split's ads keep their 
 `~review-` IDs fall back to the unit's. The joins and the move come out as the chain's either
 way.
 
-On Oct 17 I imported Data improvements' review of 870 Broadway, lines 8 to 11 of
-`config/reviews/unit-reviews-20261017b.jsonl`, into `2026-10-17-unit-splits.ndjson`. StreetEasy
-files 870 Broadway and 30 East 18th Street as one building with unit pages 1 to 4, and PLUTO
-gives the lot 4 floors and 6 apartments. Under the 18th Street address, the ads of pages 1 to 3
-offer one-bedrooms of 625 to 720 sq ft. Four ads give 870 Broadway and larger apartments:
+On Oct 17 I imported Data improvements' reviews of 870 Broadway and 444 West 20th Street, lines
+8 to 12 of `config/reviews/unit-reviews-20261017c.jsonl`, into `2026-10-17-unit-reviews2.ndjson`.
+StreetEasy files 870 Broadway and 30 East 18th Street as one building with unit pages 1 to 4,
+and PLUTO gives the lot 4 floors and 6 apartments. Under the 18th Street address, the ads of
+pages 1 to 3 offer one-bedrooms of 625 to 720 sq ft. Four ads give 870 Broadway and larger
+apartments:
 
 - 4967090, on page 1, gives 875 sq ft and 4 rooms, against 625 and 715 sq ft and 3 rooms for
   the page's other ads. Its ad calls the size an estimate.
@@ -1928,6 +1929,12 @@ and 3874322, and a split of page 2 points 2157347 into it, so the three loft ads
 sizes and the PLUTO record. 4756550, a one-bedroom of 722 sq ft on page 2, also gives the 870
 Broadway address, so the sizes separate the apartments, and the address doesn't. All four ads
 have rows, so four rows change unit.
+
+At 444 West 20th Street, a townhouse PLUTO gives 3 apartments, a join puts the garden page and
+page 1 in one unit. The garden page's ad 2312228 offered a duplex of 2 bedrooms and 1.5 baths at
+$15,750 until 2018-02-08. Four days later, ad 2314583 on page 1 offered the same layout at the
+same ask in the same words. The garden page's ad 3215132 of 2020 repeats them and gives 2,750 sq
+ft. Both pages take the garden page's unit ID, the lesser, so 2314583's row changes unit.
 
 ## Ads file
 
