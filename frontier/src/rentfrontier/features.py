@@ -5653,8 +5653,8 @@ for _new, _old in LOTS3_SETS.items():
 # The all-areas set with the reviewed lot overrides applied to its registry:
 # config/reviews/registry-overrides-20261016-lots.json (13 buildings) and
 # registry-overrides-20261017-emptylots.json (41 buildings on parks, garages,
-# vacant land or condominium unit lots). I fetched MapPLUTO, LPC and every
-# MapPLUTO release for the 54 moved buildings' lots and put them ahead of the
+# vacant land or condominium unit lots). MapPLUTO, LPC and every MapPLUTO
+# release were fetched for the 54 moved buildings' lots and put ahead of the
 # all-areas files (`rentfrontier.snapshots union`). The moved buildings keep
 # their coordinates, and their new BINs were already in the all-areas
 # footprints, so the basemap and footprints stay the same.
