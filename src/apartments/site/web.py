@@ -50,6 +50,7 @@ from . import (
     estimate,
     estimate_build,
     exposure,
+    reads,
     story,
     streetview,
     summary,
@@ -628,6 +629,7 @@ def create_app(
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
     versions = _asset_versions(Path(app.static_folder))
     best_cache: dict = {}
+    read_log = reads.ReadLog.from_env(root, os.environ.get("SITE_READS_LOG"))
 
     def street_view(building_id, latitude=None, longitude=None, address=None):
         """A Street View link from the building's street, facing it."""
@@ -682,7 +684,9 @@ def create_app(
             g.db = sqlite3.connect(
                 f"file:{quote(str(path))}?mode=ro&immutable=1", uri=True
             )
-            g.db.row_factory = sqlite3.Row
+            g.db.row_factory = read_log.row
+            if g.get("reads") is not None:
+                read_log.watch(g.db, g.queried)
             g.build = path.parent.name
         return g.db
 
@@ -705,9 +709,18 @@ def create_app(
     @app.before_request
     def start_timer():
         g.started = time.perf_counter()
+        g.queried = set()
+        g.reads = read_log.start()
 
     @app.after_request
     def finish(response):
+        read_log.finish(
+            g.pop("reads", None),
+            endpoint=request.endpoint,
+            remote=request.remote_addr,
+            status=response.status_code,
+            queried=g.get("queried", set()),
+        )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; "
             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
