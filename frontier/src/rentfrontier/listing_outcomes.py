@@ -1,6 +1,7 @@
-"""How each listing ended, from its own StreetEasy record in the granular crawls
-(each listing's last capture), keyed by listing id: its last ask, the price
-changes on the way, and how long it was listed.
+"""How each listing ended, keyed by listing id: its last ask, the price changes
+on the way, and how long it was listed. Each listing's outcome comes from its
+own StreetEasy record at its last capture, in the page crawls or in the data
+pipeline's API records.
 
     python -m rentfrontier.listing_outcomes
     python -m rentfrontier.listing_outcomes --crawl page --crawl records --tag <name>

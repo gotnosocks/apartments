@@ -2695,6 +2695,10 @@ file:
 70. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
     file under `records` and the ads file under `records.ads`, that `--crawl page` adds the page
     crawls and that a tag without a crawl stops.
+71. build the outcomes of a page crawl and a records file together, and check that a record
+    fetched after a listing's page capture gives its outcome, that a page capture after the
+    record stands, and that a listing the ads file marks `no_dated_own_active_event` keeps its
+    earlier page capture.
 
 ## Full build
 
