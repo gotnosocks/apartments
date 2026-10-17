@@ -1098,7 +1098,7 @@ def test_exclusion_cases(tmp_path, monkeypatch):
     Ads 9000020 and 9000032 have no reason, ad 9000031's record lacks propertyDetails, and one
     of ad 9000032's records carries another ad's `id`. Ad 9000034 has two records with the same
     values, and ads 9000043 to 9000045 have two records with different values.
-    Ads 9000047 to 9000049 cover the cut at an ad's last ACTIVE answer. Ad 9000047's RENTED
+    Ads 9000047 to 9000050 cover the cut at an ad's last ACTIVE answer. Ad 9000047's RENTED
     record comes after its ACTIVE one and stays out. Ad 9000048's record off the market comes
     between two ACTIVE ones and merges. Ad 9000049 has no ACTIVE record, so all its records
     merge. Ad 9000050's DELISTED record states a concession and two bedrooms after its ACTIVE

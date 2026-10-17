@@ -542,7 +542,7 @@ disk.
 | `ads.breaks` | merge | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
 | `ads.regions` | merge | ad with an answer: the export regions of its answers |
 | `ads.record_attributes` | merge | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
-| `ads.attributes` | merge | ad with a parsed record: its rental flags, merged over its records, and its attributes, merged over its records up to its last ACTIVE one |
+| `ads.attributes` | merge | ad with a parsed record up to its last ACTIVE answer, or with any parsed record when it has no ACTIVE answer: its rental flags, merged over its records, and its attributes, merged over its records up to its last ACTIVE one |
 | `ads.exclusions` | merge | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
 | `buildings.latest_record` | table | building with a record: the slug, address, map point and city facts of its latest record |
@@ -780,14 +780,16 @@ values, so `ads.attributes` leaves such records out.
 Unlike the chain, `ads.attributes` merges an ad's attributes only over the records fetched up
 to its last answer with status ACTIVE, and over all of them when the ad has no ACTIVE answer.
 StreetEasy can strip or cut an ad's description once it is rented or delisted. A closed record
-read from that text then gave another value, or none, and the merge turned the ACTIVE records'
-value into an unknown. The fit's target is the latest ask, so the merged attributes describe
-the ad as it stood when it last asked. Data improvements sized the pattern on records-b4958178.
+read from that text then gave another value, and the merge turned the ACTIVE records' value into
+an unknown. The fit's target is the latest ask, so for an ad with an ACTIVE answer the merged
+attributes describe the ad as it stood when it last asked. Few ads have one: on the export of
+runs 1 to 16, 7,891 of the 2,140,923 ads and 5,850 of the 1,746,791 fit-ready rows, since the
+backfill fetched most ads after they closed. The other ads still merge only closed records, as
+before. Data improvements sized the pattern on records-b4958178.
 Of the 469 ads whose latest record was closed and that had an ACTIVE record, 31 had a
 description different from their last ACTIVE record's, and 14 had it blanked.
 
-On the export of runs 1 to 16, 875 of the 2,140,923 ads have records fetched after their last
-ACTIVE one, and the cut changes the attributes row of each, 657 of them with a fit-ready row.
+On that export, 875 of the 7,891 ads have records fetched after their last ACTIVE one, and the cut changes the attributes row of each, 657 of them with a fit-ready row.
 For most of them only `records`, the count of records merged, goes down. The merged values
 change in 12 ads, one field each: bedrooms in 2 ads, the doorman in 2, laundry in 1, views in 4
 and windows in 3. In each of them the conflict between records gives way to the ACTIVE records'
@@ -799,8 +801,8 @@ Its two ACTIVE records, fetched at 10:08 ET Oct 15 and 05:45 ET Oct 16, ask $4,5
 concession or lease term. Its DELISTED record, fetched at 23:26 ET Oct 16, carries the same
 description with a price of $5,017, 1.01 months free on a 12-month lease and a price delta of
 $422. $5,017 over 10.99 months of 12 comes to $4,595, so the ACTIVE ask was net of the free
-month, and only the closed record says so. With the flags cut at the last ACTIVE record, the
-ad lost its concession and its exclusion.
+month, and only the closed record says so. A cut of the flags at the last ACTIVE record would
+take away the ad's concession and its exclusion.
 
 `ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
 ask, its merged attributes and its rental flags. Its SQL describes each rule. It leaves out
@@ -2005,8 +2007,9 @@ same time.
 The step keeps each record it has serialized in Parquet files under `STATE/records/`, so any
 build, a top-up or a full one, serializes only the records missing from them. A change to
 `steps/records.py` starts a new cache folder, and once the step has written the file, it deletes
-the folders of other versions, about 3 GB each on the Oct 16 export. While it runs, the step holds a lock on `STATE/records/.lock`, and a second records step
-stops at once, such as a run of the script beside a build.
+the folders of other versions, about 3 GB each on the Oct 16 export. While it runs, the step
+holds a lock on `STATE/records/.lock`, and a second records step stops at once, such as a run of
+the script beside a build.
 
 ### Against the granular export
 

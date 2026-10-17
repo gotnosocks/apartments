@@ -11,9 +11,11 @@ MODEL (
 
 -- An ad's attributes come from the distinct records of its answers fetched up to its last answer
 -- with status ACTIVE, or of all its answers when it has no ACTIVE answer. Once an ad is rented or
--- delisted, StreetEasy strips or cuts its description, and a later record can give other values.
--- The fit's target is the latest ask, so the attributes describe the ad as it stood when it last
--- asked. The rental flags come from all of the ad's records. They describe the terms behind the
+-- delisted, StreetEasy can strip or cut its description, and a later record can give other
+-- values. The fit's target is the latest ask, so the attributes of an ad with an ACTIVE answer
+-- describe the ad as it stood when it last asked. On the export of runs 1 to 16, 7,891 of the
+-- 2,140,923 ads have an ACTIVE answer, since the backfill fetched most ads after they closed, and
+-- the others merge all their records. The rental flags come from all of the ad's records. They describe the terms behind the
 -- ask, and a record fetched after the ad closed can state them for the first time. The current
 -- parser fails on a record with another ad's `id` or without propertyDetails and gives it a
 -- capture without values, so such a record takes no part here.
