@@ -139,7 +139,7 @@ def captures(
 ) -> Iterator[dict]:
     """Each row of the checked records file `source` as a granular capture with `columns`, for
     the listings its ads file shows on the market. `source` comes from `records_file`, which
-    adds the ads file under `ads`, and I skip a listing the ads file lacks."""
+    adds the ads file under `ads`. I also skip any listing absent from the ads file."""
     columns = list(columns)
     ids = listed(source["ads"])
     file = pq.ParquetFile(source["path"])

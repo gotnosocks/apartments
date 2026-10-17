@@ -2623,8 +2623,8 @@ and catalog it writes in a temporary folder:
 58. write five listings, and an ads file that marks a draft and a rented ad with
     `no_dated_own_active_event`, gives another ad a different reason, gives one no reason and
     leaves out the fifth. `captures` and `observations` give only the two ads without the mark.
-    Then look up six IDs in a sorted array of three, at both ends and between, and in an empty
-    array.
+    Then look up six IDs in a sorted array of three, finding the first, middle and last and
+    missing one below, one between and one past the end, and look up two IDs in an empty array.
 
 The frontier's `frontier/tests/test_listing_outcomes.py` checks `listing_outcomes` on a records
 file:
