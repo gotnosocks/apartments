@@ -117,7 +117,7 @@ These PRs merged on Oct 17:
 
 The work goes on in this order:
 
-1. Lane D goes on from the relist step in #RELIST. `analysis.rows` gives each row a
+1. Lane D goes on from the relist step in #1008. `analysis.rows` gives each row a
    `relist_unit`, and `ops/pipeline/observations.py` leaves it out until Modeling asks for it.
    [pipeline.md](../data/pipeline.md#relist-units) has the rules, the counts of the Oct 17 build
    and a reading of 50 relist units: readers put 92% of the decided units on one apartment, and
