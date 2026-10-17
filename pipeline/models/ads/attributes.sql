@@ -15,10 +15,10 @@ MODEL (
 -- values. The fit's target is the latest ask, so the attributes of an ad with an ACTIVE answer
 -- describe the ad as it stood when it last asked. On the export of runs 1 to 16, 7,891 of the
 -- 2,140,923 ads have an ACTIVE answer, since the backfill fetched most ads after they closed, and
--- the others merge all their records. The rental flags come from all of the ad's records. They describe the terms behind the
--- ask, and a record fetched after the ad closed can state them for the first time. The current
--- parser fails on a record with another ad's `id` or without propertyDetails and gives it a
--- capture without values, so such a record takes no part here.
+-- the others merge all their records. The rental flags come from all of the ad's records. They
+-- describe the terms behind the ask, and a record fetched after the ad closed can state them for
+-- the first time. The current parser fails on a record with another ad's `id` or without
+-- propertyDetails and gives it a capture without values, so such a record takes no part here.
 -- For each attribute, this model compares the records' values as canonical JSON and ignores
 -- unknowns, as `project_advertisement` does: one value stands, two or more give an unknown, and
 -- the attribute's name goes into `conflicts`. The records of an ad give two or more values

@@ -784,13 +784,14 @@ read from that text then gave another value, and the merge turned the ACTIVE rec
 an unknown. The fit's target is the latest ask, so for an ad with an ACTIVE answer the merged
 attributes describe the ad as it stood when it last asked. Few ads have one: on the export of
 runs 1 to 16, 7,891 of the 2,140,923 ads and 5,850 of the 1,746,791 fit-ready rows, since the
-backfill fetched most ads after they closed. The other ads still merge only closed records, as
-before. Data improvements sized the pattern on records-b4958178.
-Of the 469 ads whose latest record was closed and that had an ACTIVE record, 31 had a
-description different from their last ACTIVE record's, and 14 had it blanked.
+backfill fetched most ads after they closed. The other ads merge all their records, none of
+them fetched while ACTIVE. Data improvements sized the pattern on records-b4958178. Of the 469
+ads whose latest record was closed and that had an ACTIVE record, 31 had a description different
+from their last ACTIVE record's, and 14 had it blanked.
 
-On that export, 875 of the 7,891 ads have records fetched after their last ACTIVE one, and the cut changes the attributes row of each, 657 of them with a fit-ready row.
-For most of them only `records`, the count of records merged, goes down. The merged values
+On that export, 875 of the 7,891 ads have records fetched after their last ACTIVE one, and the
+cut changes the attributes row of each, 657 of them with a fit-ready row. For most of them only
+`records`, the count of records merged, goes down. The merged values
 change in 12 ads, one field each: bedrooms in 2 ads, the doorman in 2, laundry in 1, views in 4
 and windows in 3. In each of them the conflict between records gives way to the ACTIVE records'
 value, and the cut adds no conflict.
