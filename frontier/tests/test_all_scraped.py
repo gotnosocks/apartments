@@ -88,3 +88,20 @@ def test_latest_ask_v8_corrects_five_backed_typos():
     assert (v7[quote], v8[quote]) == (21545, 2150)
     assert data.DATA_RULES["latest-ask-v8"].keywords == {"path": data.LATEST_ASK_V8}
     assert data.RULE_SOURCES["latest-ask-v8"] == data.LATEST_ASK_V8
+
+
+def test_latest_ask_v9_drops_stale_changes():
+    if not data.LATEST_ASK_V9.exists():
+        pytest.skip("latest asks not on this machine")
+    v8 = pd.read_parquet(data.LATEST_ASK_V8).set_index("audit_id")
+    v9 = pd.read_parquet(data.LATEST_ASK_V9).set_index("audit_id")
+    assert v9.index.equals(v8.index)
+    changed = v9.latest_ask != v8.latest_ask
+    assert changed.sum() == 9601
+    log = pd.read_csv(data.LATEST_ASK_V9.parent / "changed.csv").set_index("audit_id")
+    assert set(log.index) == set(v9.index[changed])
+    # Listing 2273410: a 5-day ad from 2017 that took a 2019 ad's $3,000.
+    row = log[log.source_listing_id == 2273410].iloc[0]
+    assert (row.old, row.new) == (3000, 1850)
+    assert data.DATA_RULES["latest-ask-v9"].keywords == {"path": data.LATEST_ASK_V9}
+    assert data.RULE_SOURCES["latest-ask-v9"] == data.LATEST_ASK_V9

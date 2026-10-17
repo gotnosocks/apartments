@@ -1740,6 +1740,14 @@ LATEST_ASK_V8 = Path(
     "/data1/apartments/external/latest-ask/20261016-5f07157-all-askcheck/latest-ask.parquet"
 )
 
+# LATEST_ASK_V8 with each row repriced after dropping price changes dated more
+# than a week after the ad's off-market day (`latest_ask.STALE_DAYS`), unless the
+# ad went ACTIVE again after that day. Such changes carry a later ad's asks for
+# the same apartment. complete.json gives the counts, changed.csv each row.
+LATEST_ASK_V9 = Path(
+    "/data1/apartments/external/latest-ask/20261017-dba39e0-all-stale/latest-ask.parquet"
+)
+
 
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
@@ -2077,6 +2085,7 @@ DATA_RULES = {
     "latest-ask-v6": functools.partial(latest_ask_v3, path=LATEST_ASK_V6),
     "latest-ask-v7": functools.partial(latest_ask_v3, path=LATEST_ASK_V7),
     "latest-ask-v8": functools.partial(latest_ask_v3, path=LATEST_ASK_V8),
+    "latest-ask-v9": functools.partial(latest_ask_v3, path=LATEST_ASK_V9),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -2139,6 +2148,7 @@ RULE_SOURCES = {
     "latest-ask-v6": LATEST_ASK_V6,
     "latest-ask-v7": LATEST_ASK_V7,
     "latest-ask-v8": LATEST_ASK_V8,
+    "latest-ask-v9": LATEST_ASK_V9,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "pets-from-ad-v2": PETS_FROM_AD_V2,
