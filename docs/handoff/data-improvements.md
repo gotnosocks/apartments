@@ -2,6 +2,19 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:30 ET
+
+- #1047 adds `pipeline/ledger/2026-10-17-z3-unit-baths-text.ndjson`, 173 bath-count sets. It starts from the
+  unanimous candidates of the 13:15 screen that #1036 left out. `/data1/apartments/tmp/suspect/baths/tier.py`
+  sorts them by the count their own text states: 824 state none, 489 agree with the row, 191 agree with the
+  other ads, 422 state some other count, 34 are mixed. Sonnet read the 191 (`t2/packets.jsonl`, `t2/r*.jsonl`):
+  188 wrong, 2 unclear, 1 a regex miss. Since the text alone can't back a coded field, each set also needs the
+  unit's other ads to agree. Review dropped 6 entries, and a screen dropped 10 more where the set gives no half
+  bath but another ad of the same unit and bedroom count codes or mentions one. `t2/ledger.py` writes the file.
+  Ad 4581625 likely went needlessly, since the ad behind the screen hit itself says 2 full baths.
+- Next bath screens: the 824 ads stating no count and the 422 stating another count. The 1,398-ad bedroom read
+  from the 13:40 entry still waits.
+
 ## 2026-10-17 13:40 ET
 
 - #1039 adds `pipeline/ledger/2026-10-17-z2-unit-sqft.ndjson`, 71 square-footage sets. The screen
