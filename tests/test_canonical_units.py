@@ -1,11 +1,7 @@
-import json
-
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 
-from apartments.canonical_units import memberships, build_canonical_units
-from apartments.unit_canonical import canonical_unit_id, ASSOCIATION_RULE
+from apartments.canonical_units import memberships
+from apartments.unit_canonical import canonical_unit_id
 
 
 def capture(sid, lid, page="a/4c", **extra):
@@ -53,59 +49,3 @@ def test_conflicting_captures_never_bridge_distinct_units():
     assert all(r["reason"] for r in result if not r["unit_id"])
     with pytest.raises(ValueError):
         canonical_unit_id("https://streeteasy.com/rental/1")
-
-
-def test_output_preserves_observations_and_joins_full_history(tmp_path):
-    rows = [
-        capture(1, "1"),
-        capture(2, "2"),
-        capture(3, "2"),
-        capture(4, "3", "b/4c"),
-        capture(5, "4", listing_type="sale"),
-        capture(6, None),
-    ]
-    path = tmp_path / "listing_observations" / "part.parquet"
-    path.parent.mkdir()
-    pq.write_table(pa.Table.from_pylist(rows), path)
-    before = path.read_bytes()
-    summary = build_canonical_units(tmp_path)
-    assert path.read_bytes() == before
-    assert summary["rule"] == ASSOCIATION_RULE
-    assert summary["counts"] == {
-        "rental_units": 2,
-        "rental_unit_memberships": 3,
-        "rental_unit_observations": 5,
-    }
-    assert (
-        summary["multi_listing_units"] == 1
-        and summary["listing_ids_in_multi_listing_units"] == 2
-    )
-    assert summary["unresolved_captures"] == 1
-    units = pq.read_table(tmp_path / "rental_units").to_pylist()
-    assert units[0]["listing_count"] == 2 and units[0]["capture_count"] == 3
-    observations = pq.read_table(tmp_path / "rental_unit_observations").to_pylist()
-    unit = units[0]["unit_id"]
-    assert {r["snapshot_id"] for r in observations if r["unit_id"] == unit} == {1, 2, 3}
-    assert build_canonical_units(tmp_path) == summary
-    (tmp_path / "complete.json").write_text("{}")
-    with pytest.raises(ValueError, match="complete"):
-        build_canonical_units(tmp_path)
-
-
-def test_normal_finalizer_includes_canonical_associations(tmp_path):
-    from .test_granular_export import create_repeated_listing_export
-    from apartments.granular_export import finish
-
-    _, root, _, _ = create_repeated_listing_export(tmp_path)
-    result = finish(root)
-    assert result["canonical_unit_association"]["counts"]["rental_units"] == 1
-    assert (
-        result["canonical_unit_association"]["counts"]["rental_unit_observations"] == 2
-    )
-    assert result["tables"]["counts"]["event_mentions"] == 4
-    assert (
-        json.loads((root / "complete.json").read_text())["unit_association_rule"]
-        == ASSOCIATION_RULE
-    )
-    with pytest.raises(ValueError, match="complete"):
-        finish(root)

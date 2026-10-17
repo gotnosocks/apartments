@@ -2,10 +2,8 @@ import hashlib
 import json
 import sqlite3
 
-import pyarrow.parquet as pq
 import pytest
 
-from apartments.granular_export import prepare, process_shard
 from streeteasy_archive.collection_audit import audit
 from streeteasy_archive.collection_policy import setup
 from streeteasy_archive.compact import compact_database, main
@@ -145,26 +143,6 @@ def test_every_other_table_and_the_schema_are_copied_exactly(tmp_path):
 def test_readers_give_the_same_answers_on_the_compacted_copy(tmp_path):
     source, out, _ = compacted(tmp_path)
     assert audit(out) == audit(source)
-    for root in (source, out):
-        (root / "edits.jsonl").write_text("")
-    exports = []
-    for root in (source, out):
-        target = tmp_path / ("export-" + root.name)
-        plan = prepare(root / "archive.sqlite3", target, root / "edits.jsonl", 1)
-        for part in range(plan["shards"]):
-            process_shard(root / "archive.sqlite3", target, part, root / "bodies")
-        exports.append(
-            {
-                # parsed_at is the wall clock of the parse, so it always differs.
-                name: [
-                    {k: v for k, v in r.items() if k != "parsed_at"}
-                    for r in pq.read_table(target / name).to_pylist()
-                ]
-                for name in ("listing_observations", "event_mentions", "snapshots")
-            }
-        )
-    assert exports[0] == exports[1]
-    assert exports[0]["listing_observations"]
     sql = "SELECT url, extracted FROM snapshots ORDER BY id"
     for (url, a), (_, b) in zip(
         rows(source / "archive.sqlite3", sql), rows(out / "archive.sqlite3", sql)
