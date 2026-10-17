@@ -1965,6 +1965,9 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`latest_ask` reads the file with `--crawl records`, beside `--crawl page` for the page crawls,
+and lists the file's name and SHA-256 in its provenance under `records`.
+
 ## Datasets for the frontier fits
 
 The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
@@ -2620,6 +2623,14 @@ and catalog it writes in a temporary folder:
     leaves out the fifth. `captures` and `observations` give only the two ads without the mark.
     Then look up six IDs in a sorted array of three, finding the first, middle and last and
     missing one below, one between and one past the end, and look up two IDs in an empty array.
+
+The frontier's `frontier/tests/test_latest_ask.py` checks `latest_ask` on a records file:
+
+59. give `latest_ask.listings` a page crawl's capture of a listing and two of its records, and
+    check that it takes the record with the latest last fetch, at that fetch, over a record
+    first fetched later;
+60. run `latest_ask.main` with `--crawl records`, and check that it hands the checked file to
+    `listings` and names it in its provenance.
 
 ## Full build
 
