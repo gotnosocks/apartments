@@ -1,15 +1,22 @@
 """Each NB8 row's latest ask: the last price its listing showed while it was on
-the market, from the listing's own StreetEasy record in the granular crawls.
+the market, from the listing's own StreetEasy record in the granular crawls or
+in the data pipeline's records file.
 
     python -m rentfrontier.latest_ask [nb9]
     python -m rentfrontier.latest_ask --crawl <granular dir> --tag <name> <dataset dir>...
     python -m rentfrontier.latest_ask --crawl page --crawl <granular dir> --tag <name> <dataset dir>
+    python -m rentfrontier.latest_ask --crawl page --crawl records --tag <name> <dataset dir>
 
 writes EXTERNAL_ROOT/latest-ask/<date>-<commit>/latest-ask.parquet (one line per
 row of data.DATASET_NB8, or of data.DATASET_NB9 with `nb9`, or of every dataset
 named after `--crawl`: audit_id, the row's first ask, its latest ask and how the latest ask
 was chosen) and provenance.json. Refuses a dirty tree. The `latest-ask-v2` data
 rule prices each row from this file.
+
+`--crawl records` reads the API records of the newest clean build in the
+pipeline's catalog, after checking the file's SHA-256 (`rentfrontier.api_records`),
+in place of an API granular export. Each record counts as captured at its last
+fetch, and provenance.json adds the file's name and SHA-256 under `records`.
 
 For each listing the builder reads the last rental capture's
 `pricing.priceChanges` in date order. A sale listing can carry a rental's id,
@@ -50,7 +57,6 @@ price is from a later change.
 from __future__ import annotations
 
 import datetime as dt
-import glob
 import hashlib
 import json
 import sys
@@ -58,9 +64,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyarrow.parquet as pq
 
-from rentfrontier import data
+from rentfrontier import api_records, data
 from rentfrontier.listing_extras import CRAWLS, EXTERNAL_ROOT, _git
 
 # A change on or after the off-market day this far from the ask before it is a
@@ -122,31 +127,21 @@ def record_latest(raw: str) -> dict:
     }
 
 
-def listings(crawls=None) -> pd.DataFrame:
-    """One line per listing id, from its last capture in any crawl."""
+def listings(crawls=None, records: dict | None = None) -> pd.DataFrame:
+    """One line per listing id, from its last capture in any crawl. A crawl
+    `records` is the pipeline's records file, `records` once checked."""
     rows = []
+    columns = ["listing_id", "listing_type", "collected_at", "raw_listing_json"]
     for crawl in (crawls or CRAWLS).values():
-        for path in sorted(
-            glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
-        ):
-            table = pq.read_table(
-                path,
-                columns=[
-                    "listing_id",
-                    "listing_type",
-                    "collected_at",
-                    "raw_listing_json",
-                ],
-            )
-            for r in table.to_pylist():
-                if r["listing_type"] == "rental" and r["raw_listing_json"]:
-                    rows.append(
-                        {
-                            "listing_id": str(r["listing_id"]),
-                            "collected_at": r["collected_at"],
-                            **record_latest(r["raw_listing_json"]),
-                        }
-                    )
+        for r in api_records.observations(crawl, columns, records):
+            if r["listing_type"] == "rental" and r["raw_listing_json"]:
+                rows.append(
+                    {
+                        "listing_id": str(r["listing_id"]),
+                        "collected_at": r["collected_at"],
+                        **record_latest(r["raw_listing_json"]),
+                    }
+                )
     out = pd.DataFrame(rows).sort_values(["collected_at", "listing_id"])
     return out.drop_duplicates("listing_id", keep="last").set_index("listing_id")
 
@@ -265,9 +260,10 @@ def parse(argv: list[str]) -> tuple[dict | None, str, list[Path]]:
     # API backfill's regions); their buildings and listings are disjoint, so
     # one pass over their rows together gives each row what a pass of its own
     # would.
-    # `--crawl page` stands for the page crawls (CRAWLS). With several --crawl
-    # flags, listings() reads every crawl named and takes each listing's last
-    # capture in any of them.
+    # `--crawl page` stands for the page crawls (CRAWLS) and `--crawl records`
+    # for the pipeline's records file. With several --crawl flags, listings()
+    # reads every crawl named and takes each listing's last capture in any of
+    # them.
     if argv[:1] != ["--crawl"]:
         return None, "", [data.DATASET_NB9 if argv == ["nb9"] else data.DATASET_NB8]
     crawls, tag = {}, ""
@@ -294,7 +290,12 @@ def main(argv: list[str]):
         if seen.duplicated().any():
             raise SystemExit(f"datasets share a {key}")
     frame = pd.concat(frames, ignore_index=True)
-    out = choose(frame, listings(crawls))
+    records = (
+        api_records.records_file()
+        if api_records.CRAWL in (crawls or CRAWLS).values()
+        else None
+    )
+    out = choose(frame, listings(crawls, records))
     out_dir = EXTERNAL_ROOT / "latest-ask" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "latest-ask.parquet"
@@ -306,6 +307,7 @@ def main(argv: list[str]):
                 "commit": commit,
                 "dataset": ", ".join(map(str, datasets)),
                 "crawls": crawls or CRAWLS,
+                "records": records,
                 "rows": len(out),
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             },
