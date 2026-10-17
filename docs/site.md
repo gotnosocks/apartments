@@ -240,7 +240,7 @@ shares land (a new directory in `/data1/apartments/frontier/runs`, `loo`, `varia
 burst of files to settle, then builds only if a finished record or master changed since the last
 build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
 meanwhile. The build only reads small records, so it runs as a light job (see
-[thelio-jobs.md](thelio-jobs.md)), on the light CPUs at idle CPU and I/O priority (about 3 minutes of one core and 600 MB; a skip takes a second). Each build is a
+[thelio-jobs.md](thelio-jobs.md)), on the light CPUs at idle CPU and I/O priority (about 4 minutes of one core and 1.6 GB, under a 2.5 GB cap with no swap; a skip takes a second). Each build is a
 new directory with the `site` symlink swapped atomically, so a page never reads a half-written file.
 
 Publishing on thelio is a light job ([thelio-jobs.md](thelio-jobs.md)):
