@@ -16,7 +16,7 @@ What the next turn of the website thread needs. Updated at each milestone.
   run `systemctl --user daemon-reload` before `ops/site-deploy.sh`.
 - Merged: #836 (available-now window of 9 days), #776 (nb9 and lots2 words), #913 (a term such as
   `unitnu4` ahead of an `nb` set no longer starts the feature set in `design_terms`).
-- Current listings come from the data pipeline's ads and rows files (PRNUM, by the data
+- Current listings come from the data pipeline's ads and rows files (#945, by the data
   pipeline thread). `captures.py` reads the newest build in
   `/data1/apartments/pipeline/datasets/catalog.ndjson`, checks both files' SHA-256, and takes
   each unit's ad on the market with its fit-ready row. `ad_dates.py` dates every current row by
