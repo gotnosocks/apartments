@@ -124,6 +124,9 @@ These PRs merged on Oct 17:
 - #1018, from Data improvements: five `set latest_ask` entries give five ads back the asks they
   had before their takedown. Each ad had raised its ask to a repeated-digit price on or just
   after that day. [pipeline.md](../data/pipeline.md#latest-ask) has the count of such changes.
+- #1022: the latest-ask section counts the late repeated-digit rises behind #1018.
+- #1024, from Data improvements: a review file of 239 rows on lots that never held a building.
+- #1025: the building check lists those rows under `never_built_lot`.
 
 The work goes on in this order:
 
@@ -142,9 +145,11 @@ The work goes on in this order:
 
    After the joins, 1,923 lots stay over their count. The 22,112 chain links without a shared
    photo need another signal: on the prototypes in `/data1/apartments/tmp/pipeline/lanes/laned/`,
-   floors put them about 68% right and floor plans about 56%, too low to join on. A reader judged
-   17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` to be unit splits
-   or relabels, and those lots serve as labeled tests.
+   floors put them about 68% right and floor plans about 56%, too low to join on. On the
+   47,347 candidate pairs without a shared photo, I found description text and unit labels too
+   weak to join on as well. [pipeline.md](../data/pipeline.md#description-text) has the counts.
+   A reader judged 17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md`
+   to be unit splits or relabels, and those lots serve as labeled tests.
 2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and
    `2026-10-17-wrong-lots2.ndjson` hold Data improvements' 1,426 reviewed wrong lots from #975
    and #1012, written by `ops/pipeline/drop_lot_import.py`. On the lane build in
@@ -158,9 +163,10 @@ The work goes on in this order:
    of the 170 stale ads. `lot_facts` gives 169 of those ads their new lots, and a live entry
    of the second file takes ad 2555747's new lot away as well.
 
-   Data improvements' review files from #1016 (8 lines) and #1021 (6 lines) wait for Ben. The
-   permission check on thelio refused the import when another thread asked for it. Once Ben agrees,
-   import them as for #1013 and check that the list falls to 173 rows.
+   Data improvements' review files from #1016 (8 lines), #1021 (6 lines) and #1024 (239 lines)
+   wait for Ben. The permission check on thelio refused the import when another thread asked
+   for it. Once Ben agrees, import them as for #1013. With the building check's never-built
+   rule, the lane's list holds 423 rows before the import and should hold 170 after it.
 
 `/data1/apartments/tmp/pipeline/lanes/bcheck/padlookup.py` runs `buildings.pad_link`'s SQL on an
 ad's own address and zip. Of the 704 rows a reader put on the wrong building, 544 land on the

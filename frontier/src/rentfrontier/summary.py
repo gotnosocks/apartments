@@ -59,6 +59,21 @@ complete.json         provenance (run, commits, dataset and feature-source
                       sha256, gate, PSIS-LOO score, draws) and the sha256 of
                       every file; written last.
 
+`--range-sample` (or FRONTIER_RANGE_SAMPLE=1) also writes range-sample.npz:
+each draw's total log rent, importance weight and residual scale for a sample
+of rows, with nu, so that a cheaper form of the predictive intervals can be
+checked against the exact ones offline. A row goes in the sample when the
+first 8 bytes of the sha256 of its audit_id, read as a number in [0, 1),
+fall below its noise group's rate.
+The rate is RANGE_SAMPLE_ROWS over the training rows, raised to
+RANGE_SAMPLE_PER_GROUP over the group's training rows where that is higher
+(with `--buildings`, counting only the sampled buildings' training rows),
+so a sparse noise group has every row in the sample. The arrays:
+
+    audit_id, group, in_fit   (rows,)
+    total, weights, sigma     (rows, draws) float32
+    nu                        (draws,)
+
 `--buildings FRACTION --out DIR` summarizes the rows of a sample of buildings
 and writes the bundle to DIR, for measuring how the summary's cost grows with
 rows. A building goes in the sample when the first 8 bytes of the sha256 of
@@ -77,6 +92,7 @@ import datetime as dt
 import hashlib
 import json
 import math
+import os
 import shutil
 import time
 from pathlib import Path
@@ -298,15 +314,20 @@ def loo_unit_levels(y, rest, seg, n_seg, params, key, *, t_units, bed_group=None
 PREDICTIVE = (("95", 0.025, 0.975), ("80", 0.10, 0.90))
 
 
-def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
+def predictive_quantiles(
+    total, sigma, nu, weights, probabilities, iterations=10, tolerance=1e-12
+):
     """(len(probabilities), rows) quantiles of the posterior predictive of the
     log ask: the weighted mixture over draws of Student-t(nu_s) noise of scale
     sigma_s around total_s, the distribution `pit` evaluates. Per row, Newton
     steps on the mixture's CDF, kept inside a bracket that starts at the
     smallest and largest of the draws' own p-quantiles (the mixture's lies
-    between them) and falls back to bisection when a step leaves it. Rows
-    whose CDF is still off by more than 1e-7 after that (few heavy draws far
-    apart: Newton can cycle) are finished by bisection on their bracket.
+    between them) and falls back to bisection when a step leaves it. A row
+    stops once its CDF is within `tolerance` of p, so later steps evaluate
+    only the rows still moving (on NB9 chunks rows stop after 4 to 7 steps).
+    Rows whose CDF is still off by more than 1e-7 after `iterations` steps
+    (few heavy draws far apart: Newton can cycle) are finished by bisection
+    on their bracket.
     total, weights: (draws, rows); sigma: (draws, 1) or (draws, rows);
     nu: (draws,)."""
     from scipy.special import gammaln, stdtr, stdtrit
@@ -321,30 +342,47 @@ def predictive_quantiles(total, sigma, nu, weights, probabilities, iterations=10
         own = total + sigma * stdtrit(nu, p)[:, None]  # (draws, rows)
         lo, hi = own.min(0), own.max(0)
         x = (own * weights).sum(0)
-        for _ in range(iterations):
-            z = (x[None] - total) / sigma
-            f = (stdtr(nu_, z) * weights).sum(0) - p
-            d = (wpdf * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
-            lo, hi = np.where(f < 0, x, lo), np.where(f < 0, hi, x)
-            step = x - f / np.maximum(d, 1e-300)
-            inside = (step >= lo) & (step <= hi)
-            x = np.where(inside, step, 0.5 * (lo + hi))
-        z = (x[None] - total) / sigma
-        f = (stdtr(nu_, z) * weights).sum(0) - p
+        f = np.empty_like(x)
+        moving = np.arange(total.shape[1])
+        for step in range(iterations + 1):
+            t, s_ = total[:, moving], sigma[:, moving]
+            z = (x[moving][None] - t) / s_
+            f[moving] = (stdtr(nu_, z) * weights[:, moving]).sum(0) - p
+            if step == iterations:
+                break
+            fm, xm = f[moving], x[moving]
+            d = (wpdf[:, moving] * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
+            lm = np.where(fm < 0, xm, lo[moving])
+            hm = np.where(fm < 0, hi[moving], xm)
+            lo[moving], hi[moving] = lm, hm
+            newton = xm - fm / np.maximum(d, 1e-300)
+            inside = (newton >= lm) & (newton <= hm)
+            xm = np.where(inside, newton, 0.5 * (lm + hm))
+            going = np.abs(fm) >= tolerance
+            x[moving[going]] = xm[going]
+            moving = moving[going]
+            if not len(moving):
+                break
         slow = np.flatnonzero(np.abs(f) > 1e-7)
         if len(slow):
-            t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
-            a, b = (
-                np.where(f[slow] < 0, x[slow], lo[slow]),
-                np.where(f[slow] < 0, hi[slow], x[slow]),
+            a = np.where(f[slow] < 0, x[slow], lo[slow])
+            b = np.where(f[slow] < 0, hi[slow], x[slow])
+            x[slow] = _bisect(
+                total[:, slow], sigma[:, slow], nu_, weights[:, slow], p, a, b
             )
-            for _ in range(50):
-                m = 0.5 * (a + b)
-                below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p
-                a, b = np.where(below, m, a), np.where(below, b, m)
-            x[slow] = 0.5 * (a + b)
         out[q] = x
     return out
+
+
+def _bisect(total, sigma, nu_, weights, p, a, b, steps=50):
+    """The mixture's p-quantile per row by bisection on the bracket [a, b]."""
+    from scipy.special import stdtr
+
+    for _ in range(steps):
+        m = 0.5 * (a + b)
+        below = (stdtr(nu_, (m[None] - total) / sigma) * weights).sum(0) < p
+        a, b = np.where(below, m, a), np.where(below, b, m)
+    return 0.5 * (a + b)
 
 
 def _stats(prefix, values, weights, table):
@@ -404,6 +442,19 @@ def row_inputs(feats: features.Features, rows: np.ndarray) -> list[str]:
     ]
 
 
+def hash_score(values) -> np.ndarray:
+    """Each value's place in [0, 1): the first 8 bytes of the sha256 of the
+    value as a string, read as a number."""
+    unique, index = np.unique(np.asarray(values).astype(str), return_inverse=True)
+    score = np.array(
+        [
+            int.from_bytes(hashlib.sha256(b.encode()).digest()[:8], "big") / 2**64
+            for b in unique
+        ]
+    )
+    return score[index]
+
+
 def building_sample(buildings: np.ndarray, fraction: float | None) -> np.ndarray:
     """A mask over rows, true where the row's building hash falls below
     `fraction` of the range; all true when `fraction` is None."""
@@ -411,14 +462,70 @@ def building_sample(buildings: np.ndarray, fraction: float | None) -> np.ndarray
         return np.ones(len(buildings), dtype=bool)
     if not 0 < fraction <= 1:
         raise ValueError(f"the building fraction must be in (0, 1], got {fraction}")
-    unique, index = np.unique(np.asarray(buildings).astype(str), return_inverse=True)
-    score = np.array(
-        [
-            int.from_bytes(hashlib.sha256(b.encode()).digest()[:8], "big") / 2**64
-            for b in unique
-        ]
-    )
-    return (score < fraction)[index]
+    return hash_score(buildings) < fraction
+
+
+RANGE_SAMPLE_ROWS = 2000
+RANGE_SAMPLE_PER_GROUP = 200
+
+
+def range_sample_rates(
+    train_groups, n_groups, rows=RANGE_SAMPLE_ROWS, per_group=RANGE_SAMPLE_PER_GROUP
+) -> np.ndarray:
+    """(n_groups,) the share of each noise group's rows the range sample takes:
+    `rows` over the training rows, or `per_group` over the group's training
+    rows where that is higher, at most 1. A group with no training rows gets 1."""
+    count = np.bincount(np.asarray(train_groups), minlength=n_groups)
+    rate = np.ones(n_groups)
+    has = count > 0
+    rate[has] = np.minimum(1.0, np.maximum(rows / count.sum(), per_group / count[has]))
+    return rate
+
+
+class RangeSample:
+    """The draws behind the predictive intervals of the rows `summarize` picks
+    for range-sample.npz, gathered chunk by chunk."""
+
+    def __init__(self, rates: np.ndarray):
+        self.rates, self.parts = rates, []
+
+    def add(self, audit_id, group, in_fit, terms, log_w, sigma):
+        """One chunk: its rows' audit ids, noise groups and in-fit flags; its
+        terms and log weights (draws, rows); sigma (draws, 1) or (draws, rows)."""
+        group = np.asarray(group)
+        pick = np.flatnonzero(hash_score(audit_id) < self.rates[group])
+        if not len(pick):
+            return
+        total = sum(np.asarray(v)[:, pick] for v in terms.values())
+        sigma = np.broadcast_to(np.asarray(sigma), np.shape(log_w))[:, pick]
+        self.parts.append(
+            {
+                "audit_id": np.asarray(audit_id).astype(str)[pick],
+                "group": group[pick],
+                "in_fit": np.full(len(pick), in_fit),
+                "total": total.T.astype(np.float32),
+                "weights": normalized_weights(log_w[:, pick]).T.astype(np.float32),
+                "sigma": sigma.T.astype(np.float32),
+            }
+        )
+
+    def arrays(self, nu) -> dict:
+        draws = len(nu)
+        empty = {
+            "audit_id": np.array([], dtype=str),
+            "group": np.array([], dtype=int),
+            "in_fit": np.array([], dtype=bool),
+            **{
+                k: np.empty((0, draws), np.float32)
+                for k in ("total", "weights", "sigma")
+            },
+        }
+        out = {
+            k: np.concatenate([v] + [p[k] for p in self.parts])
+            for k, v in empty.items()
+        }
+        out["nu"] = np.asarray(nu, dtype=np.float32)
+        return out
 
 
 def summary_rows(
@@ -536,7 +643,6 @@ class RowTables:
     def __enter__(self):
         if self.workers > 1:
             import multiprocessing
-            import os
             from concurrent.futures import ProcessPoolExecutor
 
             self.saved_env = {k: os.environ.get(k) for k in WORKER_ENV}
@@ -547,8 +653,6 @@ class RowTables:
         return self
 
     def __exit__(self, kind, error, trace):
-        import os
-
         if self.pool is not None:
             self.pool.shutdown(wait=kind is None, cancel_futures=kind is not None)
             self.pool = None
@@ -586,6 +690,7 @@ def summarize(
     allow_failing: bool = False,
     workers: int = 1,
     buildings: float | None = None,
+    range_sample: bool = False,
 ):
     import jax
 
@@ -615,6 +720,16 @@ def summarize(
     if not len(train_idx):
         raise SystemExit(f"the {buildings} sample of buildings has no rows in the fit")
     sigma, nu = kept["sigma"], kept["nu"]
+    n_groups = sigma.shape[1] if sigma.ndim == 2 else 1
+    sample = None
+    if range_sample:
+        # prep.train holds the rows in the fit in frame order; the rates count
+        # only those the building sample keeps.
+        train_groups = np.asarray(model.noise_group(n_groups, prep.train))
+        if len(train_groups) != (~heldout).sum():
+            raise AssertionError("prep.train must hold the frame's rows in the fit")
+        train_groups = train_groups[keep[~heldout]]
+        sample = RangeSample(range_sample_rates(train_groups, n_groups))
 
     def row_scale(a):
         """(draws, rows) residual scales, or (draws, 1) with one scale."""
@@ -667,13 +782,21 @@ def summarize(
                 sub_key,
                 t_units=t_units,
                 bed_group=np.r_[
-                    model.noise_group(sigma.shape[1] if sigma.ndim == 2 else 1, a),
-                    np.zeros(pad, a.bed_group.dtype),
+                    model.noise_group(n_groups, a), np.zeros(pad, a.bed_group.dtype)
                 ],
             )
             loglik, level = loglik[:, : len(rows)], level[:, : len(rows)]
             terms["unit"] = level
             log_w, k = psis_log_weights(loglik)
+            if sample is not None:
+                sample.add(
+                    frame.audit_id.to_numpy()[rows],
+                    model.noise_group(n_groups, a),
+                    True,
+                    terms,
+                    log_w,
+                    row_scale(a),
+                )
             tables.add(
                 frame.loc[mask],
                 terms,
@@ -700,6 +823,15 @@ def summarize(
                     params, int(unseen.sum()), sub_key, t_units=t_units
                 )
             fitted = np.exp(sum(terms.values()))
+            if sample is not None:
+                sample.add(
+                    frame.audit_id.to_numpy()[rows],
+                    model.noise_group(n_groups, a),
+                    False,
+                    terms,
+                    np.zeros((draws, len(rows))),
+                    row_scale(a),
+                )
             tables.add(
                 frame.loc[mask],
                 terms,
@@ -735,6 +867,7 @@ def summarize(
         "coefficients": coefficient_table(kept, feats),
         "k_threshold": loo.k_threshold(draws),
         "buildings_fraction": buildings,
+        **({"range_sample": sample.arrays(nu)} if sample is not None else {}),
     }
 
 
@@ -854,6 +987,8 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
     out["market"].to_parquet(tmp / "market.parquet", index=False)
     out["buildings"].to_parquet(tmp / "buildings.parquet", index=False)
     out["coefficients"].to_parquet(tmp / "coefficients.parquet", index=False)
+    if "range_sample" in out:
+        np.savez_compressed(tmp / "range-sample.npz", **out["range_sample"])
     (tmp / "terms.json").write_text(
         json.dumps(
             terms_record(out["names"], out["coefficients"].feature.tolist()), indent=2
@@ -938,6 +1073,12 @@ def main(argv=None):
     parser.add_argument(
         "--out", type=Path, help="bundle directory (only with --buildings)"
     )
+    parser.add_argument(
+        "--range-sample",
+        action="store_true",
+        default=os.environ.get("FRONTIER_RANGE_SAMPLE") == "1",
+        help="also write range-sample.npz (default with FRONTIER_RANGE_SAMPLE=1)",
+    )
     args = parser.parse_args(argv)
     if (args.buildings is None) != (args.out is None):
         parser.error("--buildings and --out go together")
@@ -953,7 +1094,9 @@ def main(argv=None):
     if (out_dir / "complete.json").exists():
         raise SystemExit(f"{out_dir} exists")
     t0 = time.perf_counter()
-    out = summarize(args.run, args.allow_failing, args.workers, args.buildings)
+    out = summarize(
+        args.run, args.allow_failing, args.workers, args.buildings, args.range_sample
+    )
     path = write(out, out_dir, commit, time.perf_counter() - t0)
     rows = out["rows"]
     print(

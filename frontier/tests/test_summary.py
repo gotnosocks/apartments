@@ -203,6 +203,77 @@ def test_row_tables_from_a_pool_match_the_tables_built_in_process():
     assert len(tables[2]) == 5 * n
 
 
+def test_range_sample_rates_take_every_row_of_a_sparse_group():
+    groups = np.r_[np.zeros(9000, int), np.ones(900, int), np.full(100, 2)]
+    rate = summary.range_sample_rates(groups, 4, rows=1000, per_group=200)
+    np.testing.assert_allclose(rate, [0.1, 200 / 900, 1.0, 1.0])
+
+
+def test_the_range_sample_reproduces_the_rows_predictive_intervals():
+    rng = np.random.default_rng(6)
+    draws, n = 300, 40
+    terms = {
+        "market": np.log(3000) + rng.normal(0, 0.01, (draws, n)),
+        "unit": rng.normal(0, 0.1, (draws, n)),
+    }
+    log_w = rng.normal(0, 0.5, (draws, n))
+    sigma = np.exp(rng.normal(np.log(0.1), 0.3, (draws, n)))
+    nu = np.full(draws, 4.0)
+    ids = np.array([f"a{i}" for i in range(n)])
+    group = np.r_[np.zeros(n - 5, int), np.ones(5, int)]
+    sub = pd.DataFrame(
+        {
+            "audit_id": ids,
+            "unit_id": ["u"] * n,
+            "building": ["b"] * n,
+            "period": pd.to_datetime(["2020-01-01"] * n),
+            "asking_rent": np.full(n, 3500.0),
+        }
+    )
+    table = summary.row_table(
+        sub,
+        terms,
+        log_w,
+        np.zeros(n),
+        np.exp(sum(terms.values())),
+        sigma,
+        nu,
+        ["market", "unit"],
+        ["{}"] * n,
+    )
+    sample = summary.RangeSample(np.array([0.5, 1.0]))
+    for part, in_fit in ((slice(0, 20), True), (slice(20, n), False)):
+        sample.add(
+            ids[part],
+            group[part],
+            in_fit,
+            {k: v[:, part] for k, v in terms.items()},
+            log_w[:, part],
+            sigma[:, part],
+        )
+    got = sample.arrays(nu)
+    picked = pd.Index(ids).get_indexer(got["audit_id"])
+    # Every row of the group sampled at rate 1, and about half of the other.
+    assert set(ids[-5:]) <= set(got["audit_id"]) and 5 < len(picked) < n
+    np.testing.assert_array_equal(got["in_fit"], picked < 20)
+    np.testing.assert_array_equal(got["group"], group[picked])
+    assert got["total"].shape == (len(picked), draws) and got["nu"].shape == (draws,)
+    pred = np.exp(
+        summary.predictive_quantiles(
+            got["total"].T.astype(float),
+            got["sigma"].T.astype(float),
+            got["nu"].astype(float),
+            got["weights"].T.astype(float),
+            [0.10, 0.90],
+        )
+    )
+    np.testing.assert_allclose(pred[0], table.estimate_pred_lower_80[picked], rtol=1e-5)
+    np.testing.assert_allclose(pred[1], table.estimate_pred_upper_80[picked], rtol=1e-5)
+    # A sample that picked no row still saves arrays of the right shapes.
+    none = summary.RangeSample(np.zeros(2)).arrays(nu)
+    assert none["total"].shape == (0, draws) and none["audit_id"].shape == (0,)
+
+
 def test_row_tables_drop_queued_chunks_on_an_error():
     with pytest.raises(ZeroDivisionError):
         with summary.RowTables(2) as t:
@@ -285,6 +356,11 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
     path = summary.write(out, tmp_path / "sample", "d" * 40, 1.0)
     record = json.loads((path / "complete.json").read_text())
     assert record["buildings_fraction"] == 0.04
+    out["range_sample"] = {"audit_id": np.array(["a"]), "nu": np.ones(10)}
+    path = summary.write(out, tmp_path / "ranges", "d" * 40, 1.0)
+    record = json.loads((path / "complete.json").read_text())
+    assert "range-sample.npz" in record["files"]
+    assert np.load(path / "range-sample.npz")["audit_id"].tolist() == ["a"]
 
 
 def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):
@@ -515,6 +591,98 @@ def test_predictive_quantiles_with_few_heavy_draws():
     for i, p in enumerate(probabilities):
         cdf = (stdtr(nu[:, None], (q[i][None] - total) / sigma) * weights).sum(0)
         np.testing.assert_allclose(cdf, p, atol=1e-6)
+
+
+def fixed_step_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
+    """predictive_quantiles as it ran up to 2026-10-17: `iterations` Newton steps
+    (ten by default) on every row, then 50 bisection steps on rows still off by
+    more than 1e-7."""
+    from scipy.special import gammaln, stdtr, stdtrit
+
+    sigma = np.broadcast_to(sigma, total.shape)
+    nu_ = nu[:, None]
+    const = np.exp(gammaln((nu + 1) / 2) - gammaln(nu / 2)) / np.sqrt(nu * np.pi)
+    wpdf = weights * const[:, None] / sigma
+    out = np.empty((len(probabilities), total.shape[1]))
+    for q, p in enumerate(probabilities):
+        own = total + sigma * stdtrit(nu, p)[:, None]
+        lo, hi = own.min(0), own.max(0)
+        x = (own * weights).sum(0)
+        for _ in range(iterations):
+            z = (x[None] - total) / sigma
+            f = (stdtr(nu_, z) * weights).sum(0) - p
+            d = (wpdf * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
+            lo, hi = np.where(f < 0, x, lo), np.where(f < 0, hi, x)
+            step = x - f / np.maximum(d, 1e-300)
+            inside = (step >= lo) & (step <= hi)
+            x = np.where(inside, step, 0.5 * (lo + hi))
+        z = (x[None] - total) / sigma
+        f = (stdtr(nu_, z) * weights).sum(0) - p
+        slow = np.flatnonzero(np.abs(f) > 1e-7)
+        if len(slow):
+            t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
+            a = np.where(f[slow] < 0, x[slow], lo[slow])
+            b = np.where(f[slow] < 0, hi[slow], x[slow])
+            for _ in range(50):
+                m = 0.5 * (a + b)
+                below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p
+                a, b = np.where(below, m, a), np.where(below, b, m)
+            x[slow] = 0.5 * (a + b)
+        out[q] = x
+    return out
+
+
+def bisected_rows(monkeypatch) -> list[int]:
+    """Count the rows each call of summary._bisect finishes."""
+    counts, bisect = [], summary._bisect
+
+    def spy(total, *rest):
+        counts.append(total.shape[1])
+        return bisect(total, *rest)
+
+    monkeypatch.setattr(summary, "_bisect", spy)
+    return counts
+
+
+def test_rows_that_stop_early_match_the_fixed_step_quantiles(monkeypatch):
+    """Heavy-tailed draws far apart, as in the previous test but heavier: some
+    rows need the bisection finish, and every row matches the fixed-step
+    output well inside display precision."""
+    rng = np.random.default_rng(3)
+    draws, rows = 400, 300
+    total = rng.normal(7.7, 0.1, (draws, rows))
+    sigma = rng.uniform(0.005, 0.4, (draws, rows))
+    nu = rng.uniform(1.05, 4.0, draws)
+    log_w = rng.normal(0.0, 1.0, (draws, rows))
+    log_w[:2] += 14.0
+    total[:2] += np.array([[-0.8], [0.8]])
+    weights = np.exp(log_w - log_w.max(0))
+    weights /= weights.sum(0)
+    probabilities = [0.025, 0.1, 0.9, 0.975]
+    counts = bisected_rows(monkeypatch)
+    q = summary.predictive_quantiles(total, sigma, nu, weights, probabilities)
+    # Some rows need the bisection finish, and most stop on Newton steps.
+    assert sum(counts) > 0 and max(counts) < rows // 4
+    expected = fixed_step_quantiles(total, sigma, nu, weights, probabilities)
+    np.testing.assert_allclose(q, expected, rtol=0, atol=1e-9)
+
+
+def test_every_row_gets_the_bisection_finish_with_no_newton_steps(monkeypatch):
+    """With no Newton steps every row's CDF stays off at the starting point,
+    and the bisection finish still brings each one to its quantile."""
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(4)
+    draws, rows = 200, 20
+    total = rng.normal(8.0, 0.2, (draws, rows))
+    sigma = rng.uniform(0.02, 0.2, (draws, rows))
+    nu = rng.uniform(2.0, 10.0, draws)
+    weights = np.full((draws, rows), 1.0 / draws)
+    counts = bisected_rows(monkeypatch)
+    q = summary.predictive_quantiles(total, sigma, nu, weights, [0.1], iterations=0)
+    assert counts == [rows]
+    cdf = (stdtr(nu[:, None], (q[0][None] - total) / sigma) * weights).sum(0)
+    np.testing.assert_allclose(cdf, 0.1, atol=1e-9)
 
 
 def test_predictive_bounds_agree_with_pit():

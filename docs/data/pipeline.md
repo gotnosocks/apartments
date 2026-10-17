@@ -574,7 +574,7 @@ disk.
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.building_certificates` | table | candidate ad: its BIN, and the certificates of occupancy DOB had issued on it by its first day |
-| `analysis.building_check` | table | fit-ready row whose lot's MapPLUTO record leaves no room for the ad: a floor more than one floor and 30% above the lot's floor count, or a nonresidential lot with no apartments, for review |
+| `analysis.building_check` | table | fit-ready row whose lot's MapPLUTO record leaves no room for the ad: a floor more than one floor and 30% above the lot's floor count, a nonresidential lot with no apartments, or a lot with no building in any release and no footprint, for review |
 | `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask and floor plans, its merged values, and the reasons it was dropped |
 
 A `merge` model is a table, and a top-up build adds the rows of the new answers to it, as
@@ -1615,7 +1615,8 @@ facts in its `building_check` column.
 
 The check reads each row's lot from `analysis.lot_facts`, with its facts as of the ad's first
 day, and the same lot's record in the latest release from `buildings.lot_releases`. A lot can
-gain floors or apartments between releases, so a reason needs both records to agree:
+gain floors or apartments between releases, so the floor and zero-unit rules need both records
+to agree. The check lists a row for these reasons:
 
 - `floor_above_lot`: the ad's floor, from its advertised floor, its physical floor or its unit
   label in that order, lies more than one floor and more than 30% above the lot's floor count.
@@ -1626,9 +1627,24 @@ gain floors or apartments between releases, so a reason needs both records to ag
   issued no certificate of occupancy with apartments on the building's BIN, and no certificate
   of a new building. For a building without a BIN, the check has no certificates to read, and
   the lot's records and the ads decide. 289 of the rule's 1,554 rows have no BIN.
+- `never_built_lot`: every MapPLUTO release with a record of the lot gives it a building area
+  of 0 and no apartments, and the latest copy of the building footprints holds no footprint on
+  it. The ads may place any number of units in the building. The check leaves out a lot when any
+  release gives it a blank area or apartment count, or a condominium class. As in the zero-unit
+  rule, it also leaves out a row with a certificate of occupancy for apartments or for a new
+  building.
 
 When the latest release has no record of the lot, the dated record decides alone, as for 2 of
 the zero-unit rule's rows. A latest floor count of 0 also leaves the dated count to decide.
+
+I added the never-built rule after a reader in Data improvements found 239 rows on 33 lots of
+parks, parking, rail yards and vacant land, in #1024. The zero-unit rule listed only 3 of them,
+since the ads place 4 to 50 units in most of those buildings. On the drop-lot lane's state of
+Oct 17, the rule lists those 239 rows and no others. The check's query took 2.2 s there.
+
+Recent releases give some lots a blank record. A lot with an area of 0 in its older releases may
+hold a new building by the time of the blank one, so the check leaves out any lot with a blank
+area or apartment count. On the lane's state, the check leaves out one row this way.
 
 The floor of slack covers a basement, a penthouse or a mezzanine that MapPLUTO counts
 differently. MapPLUTO gives the floors of the tallest building on a lot, so lots of several
@@ -2231,6 +2247,46 @@ I built the step on a lane state from ads runs 1 to 16, where 2,126 lots are ove
 answers, and the build took 6.0 min at a peak of 4.0 GiB. After I changed the relist models, the
 rebuild took 2.7 min at 4.2 GiB. The relist models took 6.7 s of that, and writing the rows, ads
 and records files most of the rest.
+
+### Description text
+
+In the lots over their count, 47,347 pairs of ads pass every test of `analysis.relist_pairs` but
+the shared photo. I tested the ads' descriptions as a second signal on the drop-lot lane's state
+of Oct 17, with the scripts in `/data1/apartments/tmp/pipeline/lanes/relist-text/`. For each pair
+I took the 4-gram Jaccard: the word 4-grams common to both descriptions, divided by the 4-grams
+in either. I also counted the rare 4-grams common to both, as the step does for photo keys. A
+rare 4-gram appears on 2 or 3 unit pages, all in one lot. As a reference group, I took pairs of
+ads on two unit pages of a lot, with the same bedrooms and baths, on the market together for
+more than 14 days at asks 3% or more apart. I take those pairs to fall on two apartments. The
+rates are shares of the pairs with a description on both ads.
+
+| pairs | count | with text | 4-gram Jaccard of 0.8 or more | 5 or more rare 4-grams in common |
+|---|---:|---:|---:|---:|
+| in `analysis.relist_pairs` | 8,482 | 7,879 | 72% | 28% |
+| without a shared photo | 47,347 | 42,783 | 56% | 6.5% |
+| on two apartments | 13,502 | 13,138 | 26% | 3.0% |
+
+Brokers reuse a description across apartments. Of the pairs on two apartments, 3,351 have a
+4-gram Jaccard of 0.8 or more. In 3,175 of those, fewer than 5 of the shared 4-grams are rare, so
+most of the shared text also appears on 4 or more unit pages, or in other lots. When I count rare
+4-grams alone, 28% of the pairs in `analysis.relist_pairs` hold five or more, against 3.0% of the
+pairs on two apartments.
+
+Among the pairs without a shared photo, 2,765 hold five or more rare 4-grams. If all 42,783 of
+those pairs with text fell on two apartments, I'd expect 3.0% of them, about 1,280, to hold five
+or more. That ceiling comes to nearly half of the 2,765, too many to join on.
+
+Readers judged a sample of 60 pairs of unit pages from a prototype of the relist step, in
+`/data1/apartments/tmp/pipeline/lanes/laned/read/`, with the first 1,500 characters of each ad's
+description in front of them. Of the 20 pairs without a shared photo, they put 12 on one
+apartment. In 2 of those 12, I found no pair of ads, one from each page, with a description on
+both. In 6 of the other 10, the closest pair of ads has a 4-gram Jaccard of 0.8 or more. None of
+the 12 have 5 rare 4-grams in common. The readers may have matched a broker's template, so I
+don't count their verdicts as support for joining on text.
+
+In 161 of the pairs without a shared photo, the two pages have the same unit label. In 12 more,
+the labels match once I drop case, spaces, punctuation and leading zeros. Together they make up
+0.4% of the pairs.
 
 ## Ads file
 

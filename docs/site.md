@@ -301,6 +301,10 @@ mv -T current.new current` in `/data1/apartments/site`.
   A row read whole (iterated, or turned into a dict) counts all its columns, so the log errs
   toward keeping a column. The file has no rotation; we delete it when the measurement ends.
   `SITE_READS_LOG=0` in the unit turns it off; another path in it moves the log.
+- **Ranges in lists:** listing tables and `/listings.csv` leave out each listing's likely ask
+  range (`pred_lower_80`, `pred_upper_80`), which only its own page shows. `SITE_LIST_RANGES=1`
+  in the unit puts the column back while we watch the log; once nobody needs it, we delete the
+  flag and its template branch.
 - **Stop:** `systemctl --user disable --now apartments-site`.
 
 ## Production properties
