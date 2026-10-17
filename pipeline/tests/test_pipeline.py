@@ -534,6 +534,8 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.relist_pairs",
         "analysis.relist_units",
         "analysis.rows",
+        "buildings.lot_releases",
+        "buildings.lots",
         "ledger.status",
         "ledger.unit_status",
         "raw.ads",
