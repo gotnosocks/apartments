@@ -473,7 +473,7 @@ def publish(args, spec, sha):
     if not result.exists():
         sys.exit(f"{name} is not under {OUTPUT_ROOT / 'runs'}")
     # The summary, kit and rent map load the run's own dataset, which is the one to stage.
-    dataset = str(Path(json.loads(result.read_text())["dataset"]).resolve())
+    dataset = json.loads(result.read_text())["dataset"]
     spec["dataset"] = spec["inputs"][0] = dataset
     spec["publish_seconds"] = PUBLISH_SECONDS + 3600
     STATE.mkdir(parents=True, exist_ok=True)
