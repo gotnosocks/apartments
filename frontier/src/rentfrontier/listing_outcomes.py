@@ -3,9 +3,17 @@
 changes on the way, and how long it was listed.
 
     python -m rentfrontier.listing_outcomes
+    python -m rentfrontier.listing_outcomes --crawl page --crawl records --tag <name>
 
-writes EXTERNAL_ROOT/listing-outcomes/<date>-<commit>/listing-outcomes.parquet
+writes EXTERNAL_ROOT/listing-outcomes/<date>-<commit><-name>/listing-outcomes.parquet
 and provenance.json. Refuses a dirty tree.
+
+Each `--crawl` names a granular crawl's folder, `page` for the page crawls
+(`CRAWLS`) or `records` for the API records of the newest clean build in the
+data pipeline's catalog, read after checking the file's SHA-256
+(`rentfrontier.api_records`). Each record counts as captured at its last
+fetch, so a listing still on the market has its days counted to that fetch.
+provenance.json lists the file under `records`.
 
 These are outcomes: they are known only once the listing is over, so they go
 on the frame for reading (`attach`), never into a feature set. A listing still
@@ -16,13 +24,12 @@ to that capture.
 from __future__ import annotations
 
 import datetime as dt
-import glob
 import hashlib
 import json
 
 import pandas as pd
-import pyarrow.parquet as pq
 
+from rentfrontier import api_records
 from rentfrontier.listing_extras import CRAWLS, EXTERNAL_ROOT, _git
 
 OUTCOMES_FILE = (
@@ -74,24 +81,21 @@ def record_outcomes(raw: str, collected_at: float) -> dict:
     }
 
 
-def build() -> pd.DataFrame:
+def build(crawls: dict | None = None, records: dict | None = None) -> pd.DataFrame:
+    """Each listing's outcome from its last capture in the crawls. A crawl
+    `records` is the pipeline's records file, `records` once checked."""
     rows = []
-    for crawl in CRAWLS.values():
-        for path in sorted(
-            glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
-        ):
-            table = pq.read_table(
-                path, columns=["listing_id", "collected_at", "raw_listing_json"]
-            )
-            for r in table.to_pylist():
-                if r["raw_listing_json"]:
-                    rows.append(
-                        {
-                            "listing_id": str(r["listing_id"]),
-                            "collected_at": r["collected_at"],
-                            **record_outcomes(r["raw_listing_json"], r["collected_at"]),
-                        }
-                    )
+    columns = ["listing_id", "collected_at", "raw_listing_json"]
+    for crawl in (crawls or CRAWLS).values():
+        for r in api_records.observations(crawl, columns, records):
+            if r["raw_listing_json"]:
+                rows.append(
+                    {
+                        "listing_id": str(r["listing_id"]),
+                        "collected_at": r["collected_at"],
+                        **record_outcomes(r["raw_listing_json"], r["collected_at"]),
+                    }
+                )
     out = pd.DataFrame(rows).sort_values(["collected_at", "listing_id"])
     return out.drop_duplicates("listing_id", keep="last").reset_index(drop=True)
 
@@ -106,13 +110,40 @@ def attach(frame: pd.DataFrame, path: str = OUTCOMES_FILE) -> pd.DataFrame:
     return frame.assign(**{c: table[c].to_numpy() for c in COLUMNS})
 
 
-def main():
+def parse(argv: list[str]) -> tuple[dict | None, str]:
+    """The crawls and the directory tag a command line names."""
+    crawls, tag = {}, ""
+    while argv[:1] == ["--crawl"] and len(argv) > 1:
+        if argv[1] == "page":
+            crawls.update(CRAWLS)
+        else:
+            crawls[f"crawl-{len(crawls)}" if crawls else "crawl"] = argv[1]
+        argv = argv[2:]
+    if crawls and argv[:1] == ["--tag"] and len(argv) == 2:
+        tag, argv = f"-{argv[1]}", []
+    if argv:
+        raise SystemExit(
+            "usage: listing_outcomes"
+            " [--crawl <page | granular dir | records>]... [--tag <name>]"
+        )
+    return crawls or None, tag
+
+
+def main(argv: list[str] | None = None):
+    import sys
+
+    crawls, tag = parse(sys.argv[1:] if argv is None else argv)
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    table = build()
-    out_dir = EXTERNAL_ROOT / "listing-outcomes" / f"{started:%Y%m%d}-{commit[:7]}"
+    records = (
+        api_records.records_file()
+        if api_records.CRAWL in (crawls or CRAWLS).values()
+        else None
+    )
+    table = build(crawls, records)
+    out_dir = EXTERNAL_ROOT / "listing-outcomes" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "listing-outcomes.parquet"
     table.to_parquet(path, index=False)
@@ -121,7 +152,8 @@ def main():
             {
                 "built_at": started.isoformat(),
                 "commit": commit,
-                "crawls": CRAWLS,
+                "crawls": crawls or CRAWLS,
+                "records": records,
                 "listings": len(table),
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             },

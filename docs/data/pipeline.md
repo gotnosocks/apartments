@@ -1720,6 +1720,11 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`listing_outcomes` reads the file with `--crawl records`, beside `--crawl page` for the page
+crawls, and its provenance gives the file under `records`. A listing still on the market has its
+days counted to its record's last fetch, where the granular export stopped them at the record's
+first answer.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -2166,6 +2171,16 @@ and catalog it writes in a temporary folder:
     time as `collected_at` and the response ID as `snapshot_id`;
 53. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
+
+The frontier's `frontier/tests/test_listing_outcomes.py` checks `listing_outcomes` on a records
+file:
+
+63. build the outcomes of a records file with a listing still on the market and one that left
+    it, each first fetched a day after listing and last fetched ten days after, and check that
+    the first counts ten days and the second stops at its day off the market;
+64. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
+    file under `records`, that `--crawl page` adds the page crawls and that a tag without a
+    crawl stops.
 
 ## Full build
 
