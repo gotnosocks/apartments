@@ -21,6 +21,18 @@ What the next turn of the website thread needs. Updated at each milestone.
   `/estimates/map.json?beds=K[&area=A]`, which is 10.8 MB gzipped city-wide and 0.9 MB for a
   neighbourhood. Without parameters the route returns the whole file.
 
+- On the deploy after #1049, every map slice returned 500 once anyone had opened a building
+  page. The Street View lookup leaves a `_streetview` cache in the parsed map dict, and the
+  slice copied it into its JSON. With #1052 the slice drops every key that starts with `_`.
+- The research story took 70 to 165 s on each open, spent on full scans of the listings table.
+  With #1069 the server keeps the scans' results per build. With #1071 the build stores them in
+  meta as `story_scans`, so from the next publish on even the first open is fast. The live build
+  predates #1071, and I warmed it with one open after the deploy.
+- With #1067 (publish-path), a bundle summarized with `--range-atoms` gets `ranges.parquet` and
+  `noise.json` beside site.sqlite. The listing page and the story then work out the likely ask
+  ranges when they open. Publish-path is sending me the build peak from the first atoms publish,
+  and after it lands I check a listing page and the story.
+
 ## NB9 on the site (2026-10-16 13:40 ET)
 
 - Served fit: Modeling's nine-neighbourhood unitnu4 fit
