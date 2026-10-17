@@ -315,7 +315,7 @@ def download(volume, name, root, local=None, design=True):
         if kind == "design":
             if design and "/" not in rest:
                 dst = root / "cache" / rest
-                tmp = dst.with_name(f"{rest}.{os.getpid()}.tmp")
+                tmp = dst.with_name(f"{rest}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
                 tmp.parent.mkdir(parents=True, exist_ok=True)
                 with open(tmp, "wb") as f:
                     volume.read_file_into_fileobj(entry.path, f)
