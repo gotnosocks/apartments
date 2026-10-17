@@ -2693,8 +2693,8 @@ file:
     it, each first fetched a day after listing and last fetched ten days after, and check that
     the first counts ten days and the second stops at its day off the market;
 70. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
-    file under `records` and the ads file under `records.ads`, that `--crawl page` adds the page crawls and that a tag without a
-    crawl stops.
+    file under `records` and the ads file under `records.ads`, that `--crawl page` adds the page
+    crawls and that a tag without a crawl stops.
 
 ## Full build
 
