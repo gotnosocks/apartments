@@ -6,7 +6,7 @@ FRONTIER_DESIGN_CACHE set, it also keeps the design in a pickle under
 OUTPUT_ROOT/cache, so a second reader of the same design loads it in seconds
 instead of repeating the prep. The Modal containers set the variable. In a fit,
 `rentfrontier.loo` and the post-fit statistics follow `rentfrontier.run` on the
-same container disk, and on the all-scraped data each prep takes about an hour.
+same container disk. On the all-scraped data the served run's prep took 15 minutes.
 In a publish (`fit.py --publish-only`), the kit and the rent map load the design
 the summary built.
 
@@ -61,10 +61,12 @@ CACHE_VERSION = "v1"
 PACKAGE = Path(__file__).resolve().parent
 # Variables that pick how a step runs or what it records, leaving the design as
 # it is. Without them in the key, a fit on Modal and its summary on thelio come
-# to the same key from their different environments.
+# to the same key from their different environments. FRONTIER_DATASET picks the
+# default for `data.load`, and the key already holds the loaded file's sha256.
 UNKEYED = frozenset(
     {
         "FRONTIER_COMMIT",
+        "FRONTIER_DATASET",
         "FRONTIER_DESIGN_CACHE",
         "FRONTIER_OUTPUT_ROOT",
         "FRONTIER_RANGE_ATOMS",

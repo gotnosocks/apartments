@@ -893,6 +893,7 @@ def test_a_design_only_container_saves_the_new_design_and_its_record(
     def run(cmd, env, log, timeout=None):
         calls.append((cmd, env))
         (cache / "design-0123456789abcdef.pkl").write_bytes(b"design")
+        log.write('loading\n{"key": "0123456789abcdef00"}\n')
         return 0
 
     monkeypatch.setattr(app, "_run", run)
@@ -910,7 +911,12 @@ def test_a_design_only_container_saves_the_new_design_and_its_record(
     ]
     assert meta["exit"] == 0
     assert meta["designs"] == [{"file": "design-0123456789abcdef.pkl", "bytes": 6}]
+    assert meta["record"] == {"key": "0123456789abcdef00"}
     assert json.loads((out / "design.json").read_text())["designs"] == meta["designs"]
+    # A prep that loads the staged design of its key saves nothing and fails.
+    monkeypatch.setattr(app, "_run", lambda *a, **k: 0)
+    calls.clear()
+    assert app._design(spec)["exit"] == "no new design"
 
 
 def test_a_design_only_run_downloads_to_designs_beside_the_run(tmp_path, monkeypatch):

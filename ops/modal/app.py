@@ -504,6 +504,14 @@ def _design(spec):
             (out / "design").mkdir(exist_ok=True)
             shutil.copy2(p, out / "design" / p.name)
             saved.append({"file": p.name, "bytes": p.stat().st_size})
+        if not saved:
+            # The prep loaded a staged design of the same key: nothing new comes down.
+            code = "no new design"
+    try:
+        # The CLI's record (key, rows, seconds) is the log's last line.
+        record = json.loads((out / "design.log").read_text().splitlines()[-1])
+    except (OSError, ValueError, IndexError):
+        record = None
     try:
         # cgroup v2's high-water mark of the container's memory
         peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
@@ -514,6 +522,7 @@ def _design(spec):
         "name": name,
         "exit": code,
         "designs": saved,
+        "record": record,
         "memory_peak_bytes": peak,
         "wall_seconds": round(wall, 1),
         "usd_estimate": round(wall * design_usd_per_second(), 2),

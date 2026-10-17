@@ -63,7 +63,9 @@ def test_a_fit_and_its_summary_come_to_the_same_key(monkeypatch, tmp_path):
     monkeypatch.setenv("FRONTIER_DATASET", "/d")
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
     on_modal = design._key(frame, "rows", ("r1",), "f1")
-    # The summary unit on thelio sets the output root and the range flags.
+    # The summary unit on thelio sets the output root and the range flags, and
+    # the summary loads the run's recorded dataset without FRONTIER_DATASET.
+    monkeypatch.delenv("FRONTIER_DATASET")
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
     monkeypatch.setenv("FRONTIER_OUTPUT_ROOT", str(data.OUTPUT_ROOT))
     monkeypatch.setenv("FRONTIER_RANGE_ATOMS", "1")

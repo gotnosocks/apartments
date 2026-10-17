@@ -620,6 +620,19 @@ def design_only(spec, sha):
             meta = modal_app.design_cpu.remote(spec)
         download(modal_app.volume, f"{name}-design", OUTPUT_ROOT, local=name)
         print(json.dumps(meta), flush=True)
+    except Exception:
+        # A container timeout or Modal error: keep the log that reached the Volume.
+        try:
+            download(
+                modal_app.volume,
+                f"{name}-design",
+                STATE / "failed",
+                local=name,
+                design=False,
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"no outputs to download: {e}", flush=True)
+        raise
     finally:
         touch()
         cost = (meta or {}).get("usd_estimate")
