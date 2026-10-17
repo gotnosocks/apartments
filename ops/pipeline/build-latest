@@ -47,7 +47,7 @@ export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/data1/apartments/venvs/
 export TMPDIR=${TMPDIR:-/data1/apartments/pipeline/tmp}
 export PIPELINE_MEMORY=${PIPELINE_MEMORY:-3GB}
 export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
-AVOID=${PIPELINE_BUILD_AVOID-site-build-* frontier-publish* di-* bd4-*}
+AVOID=${PIPELINE_BUILD_AVOID-site-build-* frontier-publish* di-* data-* adfills-* bd4-*}
 GIB=${PIPELINE_BUILD_GIB:-5}
 if ! [[ $GIB =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   echo "PIPELINE_BUILD_GIB=$GIB is not a number of GiB" >&2

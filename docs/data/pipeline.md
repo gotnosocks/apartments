@@ -294,8 +294,8 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    build's, as on most of the timer's runs;
 3. waits for room to build, checking that
    - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
-   - no unit named `site-build-*`, `frontier-publish*`, `di-*` or `bd4-*` is active, for the
-     site builds and Data improvements' jobs run outside `ops/job`;
+   - no unit named `site-build-*`, `frontier-publish*`, `di-*`, `data-*`, `adfills-*` or `bd4-*`
+     is active, for the site builds and Data improvements' jobs run outside `ops/job`;
    - 5 GiB of memory is available.
 
    While a GPU job holds the GPU lock, it queues for the lock as the GPU jobs do and holds it
@@ -319,10 +319,20 @@ way, on the terms the checks above carry out. The build queues for the lock behi
 job, as it did before, so a queue of GPU jobs only delays it. The checks run at the build's
 start, so a job started during a build still overlaps it. A site build or a Data improvements
 job that must not overlap the build runs through `ops/job light`, which waits for the slots the
-build holds. A job run outside `ops/job` goes in a unit named like the patterns above, so the build
-waits for it, and first takes a light slot with `flock -n /data1/apartments/tmp/locks/light-1.lock
-true`, which fails while a build holds the slots. `systemctl --user is-active` doesn't tell: the
-service stays `activating` through its waits as well as its build.
+build holds. A job run outside `ops/job` goes in a service named like the patterns above, so the build
+waits for it, started under light slot 1:
+
+```sh
+flock /data1/apartments/tmp/locks/light-1.lock \
+    systemd-run --user --unit=di-NAME -p MemoryMax=3G -p MemorySwapMax=0 -- COMMAND
+```
+
+`flock` waits while a build holds the slots, and lets go of slot 1 only after `systemd-run` has
+started the service, so a build that starts later finds the unit active and waits for it. A
+scope in place of the service would hold slot 1 for the whole job. `systemctl --user is-active`
+doesn't tell whether a build is running: the build's service stays `activating` through its
+waits as well as its build. `ops/autoselect-publish.sh` runs its site build under slot 1 the
+same way.
 
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and

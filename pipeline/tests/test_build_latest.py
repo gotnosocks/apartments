@@ -47,7 +47,15 @@ def test_room(tmp_path):
     assert free.returncode == 0, free.stdout + free.stderr
     assert free.stdout.endswith("MiB available\n")
     args = (tmp_path / "systemctl-args").read_text().split("\n")
-    assert args[-5:] == ["site-build-*", "frontier-publish*", "di-*", "bd4-*", ""]
+    assert args[-7:] == [
+        "site-build-*",
+        "frontier-publish*",
+        "di-*",
+        "data-*",
+        "adfills-*",
+        "bd4-*",
+        "",
+    ]
     # The check leaves the build's temporary folder and its checkout alone.
     assert not tmpdir.exists()
     assert not called.exists()
