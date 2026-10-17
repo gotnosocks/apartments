@@ -1720,6 +1720,10 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
+and SHA-256 under `sources`. With `--base`, the base file's listings keep their rows, as they do
+beside a granular crawl.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -2166,6 +2170,14 @@ and catalog it writes in a temporary folder:
     time as `collected_at` and the response ID as `snapshot_id`;
 53. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
+
+The frontier's `frontier/tests/test_listing_extras.py` checks `listing_extras` on a records file:
+
+58. build the extras of a page crawl and a records file with two records of a listing, and check
+    that each listing takes its capture with the latest time, which for a record is its last
+    fetch;
+59. run `listing_extras.main` with `--crawl records`, and check that its provenance gives the
+    file's path and SHA-256.
 
 ## Full build
 

@@ -291,7 +291,9 @@ def test_listing_extras_reads_a_named_crawl(tmp_path, monkeypatch):
     monkeypatch.setattr(
         listing_extras,
         "build",
-        lambda crawls: seen.update(crawls) or pd.DataFrame({"listing_id": ["1"]}),
+        lambda crawls, records: (
+            seen.update(crawls) or pd.DataFrame({"listing_id": ["1"]})
+        ),
     )
     listing_extras.main(["--crawl", "/g", "--tag", "api"])
     assert seen == {"crawl": "/g"}
