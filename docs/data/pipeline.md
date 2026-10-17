@@ -215,8 +215,8 @@ at a 2 GiB cap.
 
 ## Build command
 
-`ops/pipeline/build.py` builds the project, saves the fit-ready rows and the ads, and records the
-build:
+`ops/pipeline/build.py` builds the project, saves the fit-ready rows, the ads and the API
+records, and records the build:
 
 ```sh
 uv run --project pipeline python ops/pipeline/build.py [--export DIR] [--state DIR] [--out DIR]
@@ -228,8 +228,9 @@ It plans and applies `prod`, as the `sqlmesh plan` line above does. Then it writ
 SHA-256, as in `rows-4743b90bc5aa49b4.parquet`. It writes `analysis.ads` the same way, to a file
 such as `ads-<hash>.parquet`, described under [Ads file](#ads-file). It writes both files with
 eight of DuckDB's threads, since with all twelve the sort of the ads file ran out of the 3 GB
-limit once the file joined `analysis.ask_check`. Last, the script appends a line for the build
-to `OUT/catalog.ndjson`:
+limit once the file joined `analysis.ask_check`. Then it writes the records file, such as
+`records-<hash>.parquet`, described under [Records file](#records-file). Last, the script appends
+a line for the build to `OUT/catalog.ndjson`:
 
 | key | holds |
 |---|---|
@@ -241,7 +242,8 @@ to `OUT/catalog.ndjson`:
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
-| `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the files, and the total |
+| `records` | the records file's name, SHA-256 and row count, and under `read` the count of records the step read into its cache |
+| `seconds` | the wall time of loading the project, of the plan, of counting rows, of writing the rows and ads files and of writing the records file, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
 
 When an audit fails, the script prints the failed models and exits with status 1. It writes
@@ -1849,6 +1851,120 @@ against 5, and 5182171 at the Towne House, whose newer ad without a row gives no
 400 square feet. Neither building is in the served fit, so the site's 1,099 listings stay the
 same.
 
+## Records file
+
+The frontier builders `latest_ask`, `descriptions`, `listing_extras`, `lister` and
+`listing_outcomes` read each API record from the granular export's `listing_observations`, in
+the column `raw_listing_json`, beside `collected_at`, `snapshot_id` and `listing_type`. The
+granular export takes those rows from the page parser, after the capture rewrite has turned
+each record into a page. Both of those go away, so each build also writes a records file, such as
+`records-<hash>.parquet`, in OUT. The build adds the file's name, SHA-256 and row count to its
+catalog line under `records`, with the count of records the step read under `read`.
+`pipeline/steps/records.py` writes the file, and its docstring lists the step's stages and the
+file's columns.
+
+The file has a row for each distinct record of each listing, keyed by the listing and the
+record's SHA-256, with the times of the record's first and last answers. I chose that over a
+row for each answer. `latest_ask` and `listing_outcomes` read the last time an ad was seen, so
+each row carries its record's last time as well, and the file still comes out 0.1% smaller. In
+the Oct 16 export, the 2,162,320 answers with a record hold 2,159,897 distinct records of
+2,140,578 listings. Their file takes 3,399,451,975 bytes, close to the 3.3 GB of
+`listing_observations` in the granular export of runs 1 to 5.
+
+To give the builders the same text, the step reads each record the way
+`apartments.graphql_listing` reads it:
+
+1. It drops `__typename` keys and writes each float with an integral value as an integer, as
+   `normalize` does, so a price of 3050.0 becomes 3050 and one of 3050.5 stays.
+2. It serializes the record with sorted keys, no spaces and non-ASCII characters as they are.
+3. It gives each row the `listing_type` 'rental'.
+
+The granular export's `collected_at` holds the collector's time for the answer, a float, and
+the export keeps that time in microseconds. The step gives the first answer's time in
+microseconds divided by a million, so the two times can differ by less than a microsecond. The
+collector stores `time.time()` as a float in its archive, and `graphql_export` writes
+`round(seconds * 1_000_000)`, so the export no longer has the float, and a builder that writes
+the time out, such as `listing_extras`, gives it to the microsecond. The export has no archive
+snapshot IDs, so the step gives the first answer's `response_id` in their place, the lower one
+when two answers share the first microsecond. In the Oct 16 export no record has two answers at
+its first microsecond. The builders used snapshot IDs only to order two rows of a listing with
+the same time, and in the granular export of runs 1 to 5 no listing has two records with the
+same time.
+
+The step keeps each record it has serialized in Parquet files under `STATE/records/`, so a
+build after a top-up serializes only the new records. A change to `steps/records.py` starts a
+new cache folder, and once the step has written the file, it deletes the folders of other
+versions, about 3 GB each on the Oct 16 export. While it runs, the step holds a lock on
+`STATE/records/.lock`, and a second records step stops at once, such as a run of the script
+beside a build.
+
+### Against the granular export
+
+On Oct 16 I ran the step on its own on that day's export, runs 1 to 11, and compared its file
+with `api-granular-20261015-run5-canonical-url-v1`, the granular export of runs 1 to 5. The
+builders read that folder for their latest API outputs.
+
+- Each of the granular export's 2,130,435 rows has a row in the records file with the same
+  listing and the same `raw_listing_json`. The rows hold 2,113,441 distinct records, as the
+  collector wrote the latest ad's record again at its unit's page, with the same time.
+- Each row's `collected_at` comes from its record's first answer. It lies within 0.72 µs of
+  that answer's time, and 514,547 of the times are equal.
+- For each of the granular export's 2,113,431 listings, I took the latest record by time and
+  then by snapshot ID, and in the records file of runs 1 to 5, the latest by first answer and
+  then by SHA-256. All of them match.
+- Runs 1 to 5 give the records file 24,566 more listings. The granular export lists 8,539 of
+  them as rentals without a unit page. The other 16,027 have the state `excluded` in its
+  frontier, which the collector sets before it writes a page, and 17,364 of their 24,686
+  records are drafts.
+- Runs 6 to 11 add 21,890 records, 2,593 of them for 2,581 new listings, and they change the
+  latest record of 10,094 of the granular export's listings.
+
+The run took 262 s in a scope capped at 5 GiB with swap off, with DuckDB's limit at 5 GB. The
+main process peaked at 2,393 MiB resident, and the page cache filled the scope to its cap. On
+run 2 alone, 238,532 records, with DuckDB's limit at 3 GB, the step took 35 s and the scope's
+anonymous memory peaked at 1,904 MiB.
+
+### Reading it in the builders
+
+The frontier builders read the file through `rentfrontier.api_records`. It takes the newest
+complete line of `catalog.ndjson` from a clean checkout, as the site does for the ads and rows
+files, and stops when that line lists no records file or no ads file, or when either file's
+SHA-256 differs from the line's. `PIPELINE_DATASETS` points it at another folder, such as a build's OUT. It reads the
+file a row group at a time and hands each row over under the granular export's column names:
+
+- `listing_id` as text;
+- `collected_at` from `last_collected_at`;
+- `snapshot_id` from `response_id`;
+- `listing_type` and `raw_listing_json` as they are.
+
+It passes over each listing the same line's ads file marks with `no_dated_own_active_event`,
+whose own history holds no dated ACTIVE event. The rows leave out those ads for the same reason,
+so the builders, the ads file and the rows work from one set of listings. In the ads file of
+Oct 16, 22,990 of the records file's 2,140,578 listings carry the mark:
+
+| latest status | listings |
+|---|---:|
+| DRAFT | 11,238 |
+| RENTED | 7,436 |
+| DELISTED | 1,958 |
+| NO_LONGER_AVAILABLE | 1,924 |
+| IN_STREETEASY_REVIEW | 404 |
+| IN_BROKERAGE_REVIEW | 26 |
+| TEMPORARILY_OFF_MARKET | 4 |
+
+The other 477 drafts and 57 ads under review have an ACTIVE event of their own and stay in.
+The rows hold 284 of them. A listing missing from the ads file is skipped too, though the
+Oct 16 ads file holds every listing in the records file.
+
+Its `observations` reads whichever crawl a builder names: a granular export's folder, a Parquet
+file at a time as the builders read them, or the word `records` for the records file.
+
+A builder takes a listing's last capture as its row with the latest `collected_at`. With each
+record's last answer in that column, the builder gets the record the collector fetched last, at
+the time of that fetch. In the Oct 16 export, every listing's record with the latest first
+answer is also its record with the latest last answer, so only the time moves: the granular
+export dated a record seen again in a later run to its first answer.
+
 ## Datasets for the frontier fits
 
 The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
@@ -2198,12 +2314,14 @@ in all, and most tests add made-up ads to that export. The tests:
     checks the fates, floors, floor counts, areas, regions and sizes by value;
 19. parse every SQL model as SQLMesh loads it and look for a bracket reading a list at a
     computed index;
-20. run `ops/pipeline/build.py` on the fixture twice and check the names of the rows file and
-    the ads file and the export files' and city files' hashes against their SHA-256. The ads
-    file holds each ad once, and its ads with `in_rows` are the rows file's ads. The second
-    build rebuilds nothing, writes the same files and appends a second catalog line. Then the
-    test builds runs 2 and 3, adds run 4 and builds again, and compares that build's files with
-    a build of runs 2 to 4 into an empty state. Each pair holds the same bytes. Last, the test
+20. run `ops/pipeline/build.py` on the fixture twice and check the names of the rows file, the
+    ads file and the records file and the export files' and city files' hashes against their
+    SHA-256. The ads file holds each ad once, and its ads with `in_rows` are the rows file's
+    ads. The records file holds each of the 229 records once, sorted by listing. The second
+    build rebuilds nothing, reads no record, writes the same files and appends a second catalog
+    line. Then the test builds runs 2 and 3, adds run 4 and builds again, and compares that
+    build's files with a build of runs 2 to 4 into an empty state. Each pair holds the same
+    bytes, and the top-up reads only run 4's 49 records. Last, the test
     adds an export file repeating an answer and checks that the build stops and leaves OUT as it
     was;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
@@ -2444,7 +2562,21 @@ in all, and most tests add made-up ads to that export. The tests:
     release's count, floor 9 above StreetEasy's count and the refused floor 10 above
     `numfloors`. A second copy gives the second building the BIN of lot 13's building, which has
     no certificate, and gives the first building's BIN a certificate of 20 apartments. Lot 12
-    then lists both BINs and gets no certificate count.
+    then lists both BINs and gets no certificate count;
+49. write the records file of the fixture export and compare each row with its answer: the
+    listing, the response ID and SHA-256, the record as `serialize` gives it, and the answer's
+    time in seconds as both the first and the last time. A second run reads nothing into the
+    cache, leaves one file of the same bytes and deletes another version's cache folder;
+50. write the records file of a made-up record with integral and fractional floats in its
+    price, price changes and sizes, `__typename` keys at each depth and non-ASCII text, and
+    compare its `raw_listing_json` with the expected text;
+51. write the records file of a made-up listing answered four times with a record, twice at
+    the first time, and then once with a changed one, beside an answer without a record. The
+    file gives the first record with its first and last times and the lower ID of its two first
+    answers, then the changed record, and nothing for the answer without a record;
+52. copy a cache file of the records step, and check that the step stops on the repeated
+    records and leaves OUT empty. Then check that it also stops while another process holds
+    the cache's lock, on an export without records and on an empty list of export files.
 
 pytest-xdist runs the tests in three worker processes, as set in `pipeline/pyproject.toml`, and a
 worker with an empty queue takes tests queued for another. The fixture comes to under 500 KB, and
@@ -2465,6 +2597,29 @@ at three workers and 135 s at two, and use 300 to 350 s of CPU. The longest test
 build of item 20, takes about 20 s. SQLMesh loads models in forked workers, and a fork in a
 process with open DuckDB connections can deadlock, so `conftest.py` also sets
 `MAX_FORK_WORKERS=1`.
+
+The repository's own tests hold `tests/test_pipeline_records.py`, since the pipeline's venv lacks
+the page parser's dependencies. It compares `serialize` with the parser of
+`apartments.graphql_listing` on each of the fixture's 229 records and on the made-up record of
+item 50.
+
+The frontier's `frontier/tests/test_api_records.py` checks the builders' reader on a records file
+and catalog it writes in a temporary folder:
+
+53. after a clean build's line, append a dirty build's line and a partial last line, and check
+    that the reader takes the clean line's file;
+54. add a byte to the records file, and check that the reader stops;
+55. append a clean line without a records file, and check that the reader stops;
+    then a line without an ads file, and check that it stops again;
+56. read a row back, and check its granular names: the listing ID as text, the last answer's
+    time as `collected_at` and the response ID as `snapshot_id`;
+57. read a granular folder of two Parquet files and the records file through `observations`,
+    and check that the folder's rows come in file name order;
+58. write five listings, and an ads file that marks a draft and a rented ad with
+    `no_dated_own_active_event`, gives another ad a different reason, gives one no reason and
+    leaves out the fifth. `captures` and `observations` give only the two ads without the mark.
+    Then look up six IDs in a sorted array of three, finding the first, middle and last and
+    missing one below, one between and one past the end, and look up two IDs in an empty array.
 
 ## Full build
 

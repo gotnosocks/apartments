@@ -51,6 +51,15 @@ def test_build_writes_hashed_files_and_a_catalog_line(tmp_path, build):
         frame = frames[stem] = pd.read_parquet(path)
         assert len(frame) == first[key]["rows"] == first["models"][model]["rows"]
         assert frame.listing_id.is_monotonic_increasing
+    # The records file holds each of the fixture's 229 records once.
+    path = tmp_path / "out" / first["records"]["path"]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == first["records"]["sha256"]
+    assert path.name == f"records-{first['records']['sha256'][:16]}.parquet"
+    records = pd.read_parquet(path)
+    assert len(records) == first["records"]["rows"] == first["records"]["read"] == 229
+    assert (
+        records.listing_id.is_monotonic_increasing and records.record_sha256.is_unique
+    )
     assert frames["ads"].listing_id.is_unique
     assert set(frames["ads"].listing_id[frames["ads"].in_rows]) == set(
         frames["rows"].listing_id
@@ -71,10 +80,12 @@ def test_build_writes_hashed_files_and_a_catalog_line(tmp_path, build):
     # A second build from the same export rebuilds nothing and writes the same file.
     second = build(export, tmp_path / "state", tmp_path / "out")
     assert second["rows"] == first["rows"] and second["ads_file"] == first["ads_file"]
+    assert second["records"] == first["records"] | {"read": 0}
     assert all(model["seconds"] is None for model in second["models"].values())
     assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
         first["ads_file"]["path"],
         "catalog.ndjson",
+        first["records"]["path"],
         first["rows"]["path"],
     ]
     catalog = (tmp_path / "out" / "catalog.ndjson").read_text().splitlines()
@@ -82,14 +93,15 @@ def test_build_writes_hashed_files_and_a_catalog_line(tmp_path, build):
 
 
 def test_topup_build_equals_a_full_build(tmp_path, build):
-    """Building runs 2 and 3, then adding run 4, writes the same rows file and ads file as
-    building runs 2 to 4 into an empty state."""
+    """Building runs 2 and 3, then adding run 4, writes the same rows, ads and records files as
+    building runs 2 to 4 into an empty state. The top-up reads only run 4's records."""
     export = copy_export(tmp_path, keep=lambda line: line["run"] < 4)
     build(export, tmp_path / "state", tmp_path / "out")
     shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
     topup = build(export, tmp_path / "state", tmp_path / "out")
     full = build(export, tmp_path / "fresh", tmp_path / "out-fresh")
     assert topup["rows"] == full["rows"] and topup["ads_file"] == full["ads_file"]
+    assert topup["records"] == full["records"] | {"read": 49}
     assert topup["ads"] == full["ads"] and topup["buildings"] == full["buildings"]
     assert {name: m["rows"] for name, m in topup["models"].items()} == {
         name: m["rows"] for name, m in full["models"].items()
@@ -116,6 +128,7 @@ def test_failed_audit_writes_nothing(tmp_path, build):
     assert sorted(before) == [
         first["ads_file"]["path"],
         "catalog.ndjson",
+        first["records"]["path"],
         first["rows"]["path"],
     ]
     after = {path.name: path.read_bytes() for path in (tmp_path / "out").iterdir()}
