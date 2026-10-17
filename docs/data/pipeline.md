@@ -874,11 +874,12 @@ link each building two ways and choose between the two lots when they differ:
    billing lot.
 3. `buildings.footprint_link` tests the map point against the footprints of the latest copy. It
    keeps a footprint holding the point, or else the nearest one within 10 m.
-4. `buildings.lots` compares the two lots. Where they differ, and the latest MapPLUTO release
-   gives one of them apartments and the other a count of 0, it takes the one with apartments, as
-   [The lot with apartments](#the-lot-with-apartments) explains. Otherwise, as for a lot missing
-   from MapPLUTO or one without a count, it counts the facts the record shares with MapPLUTO's
-   record of each lot, in the latest release, and takes the lot with more. `link` says which way the lot came:
+4. `buildings.lots` compares the two lots. Where they differ, and the latest MapPLUTO release gives
+   one of them apartments and the other a count of 0, it takes the one with apartments, as [The lot
+   with apartments](#the-lot-with-apartments) explains. Otherwise, as for a lot missing from
+   MapPLUTO or one without a count, it counts the facts the record shares with MapPLUTO's record of
+   each lot, in the latest release, and takes the lot with more. `link` says which way the lot
+   came:
 
    | `link` | lot and BIN |
    |---|---|
@@ -930,15 +931,15 @@ interval, and multiply it by the class's size:
 | `address_only` | 560 | 24 | 2 | 4 | 7.7% (2.1% to 24.1%) | 43 |
 | `footprint_only` | 95 | 17 | 7 | 6 | 29.2% (14.9% to 49.2%) | 28 |
 
-The `address` row takes the answers Data improvements gave on Oct 17, when it judged five of
-its reviews again, as [The lot with apartments](#the-lot-with-apartments) describes. About 670
-lots are wrong by these estimates, under 1% of the buildings. The build of Oct 16 came before
-the step took the lot with apartments, so its `address`, `footprint` and `tie` classes still
-hold the buildings that rule now moves, and the same section scores them again. A sample of 30
-bounds the largest class loosely, and Data improvements' registry gives better evidence there: it agrees on
-62,932 of the 63,124 buildings both hold. In the ties the reviewers chose the address's lot 23
-times and the footprint's 13 times. With the point within 10 m of a footprint but outside it,
-they chose the address's lot 12 times and the footprint's once.
+The `address` row takes the answers Data improvements gave on Oct 17, when it judged five of its
+reviews again, as [The lot with apartments](#the-lot-with-apartments) describes. About 670 lots are
+wrong by these estimates, under 1% of the buildings. The build of Oct 16 came before the step took
+the lot with apartments, so its `address`, `footprint` and `tie` classes still hold the buildings
+that rule now moves, and the same section scores them again. A sample of 30 bounds the largest
+class loosely, and Data improvements' registry gives better evidence there: it agrees on 62,932 of
+the 63,124 buildings both hold. In the ties the reviewers chose the address's lot 23 times and the
+footprint's 13 times. With the point within 10 m of a footprint but outside it, they chose the
+address's lot 12 times and the footprint's once.
 
 ### Against the registry
 
@@ -998,8 +999,8 @@ I read two independent records against each move:
 
 In 197 of the 210 moves to the footprint's lot, the map point falls outside every footprint,
 within 10 m of the footprint's lot. In ties of that kind, the reviewers chose the address's lot
-12 times out of 13, as [Error rates](#error-rates) says. The rule moves none of those 14 reviewed
-ties. Two more ties of that kind move, and the reviewers left both unclear. Among the 197 moves,
+12 times and the footprint's once, as [Error rates](#error-rates) says, and left 3 unclear. Of
+those 16 ties the rule moves 2, both unclear, and none with an answer. Among the 197 moves,
 HPD lists only the footprint's lot 103 times and only the address's lot 3 times.
 
 The sample of Oct 16 holds 10 buildings now in `footprint_apartments`. The reviewers first
