@@ -14,10 +14,13 @@ from __future__ import annotations
 import contextvars
 import functools
 import hashlib
+import inspect
 import itertools
 import json
 import math
+import os
 import re
+import uuid
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -2596,9 +2599,40 @@ def _side_kind(name: str, attributes: dict) -> str | None:
     return street_kind(name, roadway)
 
 
-# Bump when the sides change for the same input files (the geometry code or
-# the SIDE_*, street-kind or grid constants).
+# Bump when the sides change for the same input files in a way the code key
+# below misses.
 SIDES_CACHE_VERSION = "v1"
+
+
+def _sides_code_key() -> str:
+    """The source of the functions and the constants the sides depend on."""
+    parts = [
+        inspect.getsource(f)
+        for f in (
+            _compute_building_sides,
+            building_outlines,
+            facade_sides,
+            _hits,
+            street_lines,
+            street_kind,
+            _side_kind,
+            facing_grid,
+            _grid_origin,
+        )
+    ]
+    parts += [
+        repr(v)
+        for v in (
+            SIDE_REACH_M,
+            SIDE_SPACING_M,
+            SIDE_MIN_EDGE_M,
+            GRID_DIRECTIONS,
+            sorted(LOUD_ROADS),
+            sorted(WIDE_STREETS),
+            FRONTAGE_BEARING_DEG,
+        )
+    ]
+    return "\n".join(parts)
 
 
 @functools.lru_cache(maxsize=2)
@@ -2608,9 +2642,10 @@ def _building_sides(
     footprints_file: str = FOOTPRINTS_FILE,
 ) -> pd.DataFrame:
     """`_compute_building_sides`, cached on disk under the frontier cache. The
-    key holds the version and the sha256 of every file the sides read,
-    including the first registry, which sets the grid's origin."""
+    key holds the version, the code the sides run, and the sha256 of every
+    file they read, including the first registry, which sets the grid's origin."""
     digest = hashlib.sha256(SIDES_CACHE_VERSION.encode())
+    digest.update(_sides_code_key().encode())
     for path in (registry_file, basemap_file, footprints_file, REGISTRY_FILE):
         digest.update(data_module.sha256(Path(path)).encode())
     cache = (
@@ -2621,9 +2656,15 @@ def _building_sides(
     if cache.exists():
         return pd.read_pickle(cache)
     sides = _compute_building_sides(registry_file, basemap_file, footprints_file)
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    sides.to_pickle(cache.with_suffix(".tmp"))
-    cache.with_suffix(".tmp").rename(cache)
+    # A per-process temporary name, so runs that finish together each write
+    # their own file and the last os.replace wins.
+    tmp = cache.with_name(f"{cache.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        sides.to_pickle(tmp)
+        os.replace(tmp, cache)
+    except OSError:  # a read-only cache still returns the sides
+        tmp.unlink(missing_ok=True)
     return sides
 
 
