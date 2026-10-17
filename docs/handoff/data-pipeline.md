@@ -148,6 +148,13 @@ The work goes on in this order:
    floors put them about 68% right and floor plans about 56%, too low to join on. On the
    47,347 candidate pairs without a shared photo, I found description text and unit labels too
    weak to join on as well. [pipeline.md](../data/pipeline.md#description-text) has the counts.
+   A pilot of photo hashes on Oct 17 matched 38.5% of a sample of those pairs, against 4.3% of
+   pairs on two apartments ([pipeline.md](../data/pipeline.md#photo-hashes)). A full run over
+   the 13,063 testable pairs waits on Ben's reply. He can pick among these runs:
+   - 3 photos per ad, about 37,200 requests;
+   - 3 photos per ad with the 6,396 testable pairs on two apartments as controls, 48,517
+     requests;
+   - 10 photos per ad, about 85,500 requests.
    A reader judged 17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md`
    to be unit splits or relabels, and those lots serve as labeled tests.
 2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and

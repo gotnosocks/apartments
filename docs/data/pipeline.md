@@ -2288,6 +2288,69 @@ In 161 of the pairs without a shared photo, the two pages have the same unit lab
 the labels match once I drop case, spaces, punctuation and leading zeros. Together they make up
 0.4% of the pairs.
 
+### Photo hashes
+
+When a broker lists an apartment again, the new ad may carry the same photos uploaded again,
+each under a new key. I tested perceptual hashes of the images as a second photo test for
+`analysis.relist_pairs`, in a pilot on Oct 17 with the scripts in
+`/data1/apartments/tmp/pipeline/lanes/photo-hash/`. Ben approved its cost of about $3.30.
+
+1. `sample.py` read the drop-lot lane's state of Oct 17 along with the pairs of the
+   [description-text study](#description-text). It counted a photo as usable when its key
+   showed on 3 unit pages or fewer. It counted a pair as testable when both ads showed a usable
+   photo. Of the 47,347 pairs without a shared photo, 13,063 (28%) were testable. The script
+   drew 140 of those at random. It also drew 100 testable pairs from the reference group on two
+   apartments, and it took the 60 pairs of the description-text study's reader sample, 42 of
+   them testable. For each ad, it kept up to 10 usable photos, in the order of the ad's latest
+   record.
+2. `fetch.py` fetched each of the 2,917 photos once, from
+   `https://photos.zillowstatic.com/fp/<key>-p_e.webp` through the Oxylabs Realtime API. It held
+   `crawls/oxylabs.lock` throughout and sent at most 55 requests a minute. Every request returned
+   an image. For each photo, the script wrote its SHA-256 and two 64-bit hashes to
+   `hashes.jsonl` before dropping the image. The hashes are dhash, from a 9x8 gradient, and
+   phash, from the low 8x8 of a 32x32 DCT. The 2,917 requests cost about $3.33 and ran from 1:19
+   to 2:13 PM ET.
+3. I scored the pairs with `match.py` and counted them with `split.py`. A pair has a hash match
+   when one photo from each ad, under two different keys, comes within 4 bits on both phash and
+   dhash.
+
+Of the 140 sampled pairs without a shared photo, 52 have a hash match at 4 bits or fewer, 40 of
+them at 0 bits. The next closest are 2 pairs at 6 bits.
+
+| pairs | testable | key in common | hash match, no key in common |
+|---|---:|---:|---:|
+| without a shared photo | 140 | 5 | 52 |
+| on two apartments | 100 | 8 | 4 |
+| readers' same apartment | 27 | 22 | 2 |
+| readers' two apartments | 10 | 7 | 1 |
+| readers unsure | 5 | 2 | 0 |
+
+In 5 of the 140 sampled pairs, the two ads do show a key in common. Each of those
+keys also shows on a third unit page, in another lot on the same block. `analysis.relist_pairs`
+counts a key as rare only when its pages all lie in one lot.
+
+Setting aside the pairs with a key in common, 52 of 135 pairs without a shared photo have a hash
+match (38.5%), against 4 of 92 pairs on two apartments (4.3%). At the first rate, the 13,063
+testable pairs would give about 5,000 matches. If they all fell on two apartments, the second
+rate would give about 570. At the observed rates, then, about 11% of the hash matches would
+join two apartments. The control rate is uncertain, though. With 4 matches in 92 pairs, its 95% interval runs from
+1.2% to 10.8%. Over that range, the bound on wrong joins goes from 3% to 28%. For description
+text, the same bound came to nearly half. In either case `analysis.relist_pairs` applies its
+other tests on top of the photo test.
+
+The readers' pairs are too few to judge by. Of their 5 same-apartment pairs without a key in
+common, 2 have a hash match. Of their 3 two-apartment pairs without one, 1 has a match. They
+judged without the photos, from the ads' fields and descriptions. They also called 7 pairs two
+apartments even though the two ads share a key.
+
+In 31 of the 52 matching pairs, the match shows on the first photo of both ads. In 44 it shows
+within the first 3. A full run over all 13,063 testable pairs (16,491 ads) would take about
+37,200 requests at 3 photos per ad ($42, 11 hours at 55 a minute), or about 85,500 at 10 photos
+per ad ($97, 26 hours). With the 6,396 testable pairs on two apartments added as controls, the
+3-photo run comes to 48,517 requests once the pilot's hashes are reused. I haven't run any of
+these, since the spend waits on Ben's approval. Joining on hashes would also make the pipeline
+read images fetched from StreetEasy's photo host as well as API records.
+
 ## Ads file
 
 The rows file holds the fit-ready rows only. Each build also writes `analysis.ads` to a file
