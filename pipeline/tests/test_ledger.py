@@ -446,3 +446,62 @@ def test_rule_evidence(text, kind):
     item = importer().rule_evidence(text)
     assert item["kind"] == kind
     assert item.get("quote", item.get("detail")) == text
+
+
+def test_line_datasets_follow_the_base_rules(tmp_path, monkeypatch):
+    """Each line of a correction file takes the dataset of the version adding it, and the
+    lines a version repeats from its base rule take the base rule's datasets."""
+    module = importer()
+    monkeypatch.setattr(module, "REPO", tmp_path)
+    folder = tmp_path / "config" / "corrections"
+    folder.mkdir(parents=True)
+
+    def version(name, audits, given):
+        text = "".join(json.dumps({"audit_id": audit}) + "\n" for audit in audits)
+        (folder / f"{name}-20261016.jsonl").write_text(text)
+        if given is not None:
+            (folder / f"{name}-20261016.provenance.json").write_text(json.dumps(given))
+        return f"config/corrections/{name}-20261016.jsonl"
+
+    version("rule-v1", ["a", "b"], {"dataset": "/d/one", "rows": 2})
+    version(
+        "rule-v2",
+        ["a", "b", "c"],
+        {"dataset": "/d/two", "rows": 1, "base_rule": "rule-v1"},
+    )
+    v3 = version(
+        "rule-v3",
+        ["a", "b", "c", "d"],
+        {"dataset": "/d/three", "rows": 1, "base_rule": "rule-v2"},
+    )
+    assert module.line_datasets(v3) == {
+        1: "/d/one",
+        2: "/d/one",
+        3: "/d/two",
+        4: "/d/three",
+    }
+
+    other = version(
+        "rule-v4",
+        ["a", "x", "e"],
+        {"dataset": "/d/four", "rows": 1, "base_rule": "rule-v1"},
+    )
+    with pytest.raises(SystemExit, match="doesn't start with the lines"):
+        module.line_datasets(other)
+    bare = version("rule-v5", ["a"], None)
+    with pytest.raises(SystemExit, match="no provenance file"):
+        module.line_datasets(bare)
+
+
+@pytest.mark.parametrize(
+    "period, month",
+    [("2016-12", "2016-12"), ("2016-12-01", "2016-12"), ("2016-12-15", None)],
+)
+def test_quarantine_month(period, month):
+    """A quarantine line gives its month as YYYY-MM or as the month's first day."""
+    module = importer()
+    if month is None:
+        with pytest.raises(SystemExit):
+            module.month(period)
+    else:
+        assert module.month(period) == month
