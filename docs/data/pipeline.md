@@ -2626,10 +2626,10 @@ and catalog it writes in a temporary folder:
 The frontier's `frontier/tests/test_listing_outcomes.py` checks `listing_outcomes` on a records
 file:
 
-64. build the outcomes of a records file with a listing still on the market and one that left
+59. build the outcomes of a records file with a listing still on the market and one that left
     it, each first fetched a day after listing and last fetched ten days after, and check that
     the first counts ten days and the second stops at its day off the market;
-65. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
+60. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
     file under `records`, that `--crawl page` adds the page crawls and that a tag without a
     crawl stops.
 
