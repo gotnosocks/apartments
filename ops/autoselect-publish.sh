@@ -45,5 +45,8 @@ echo "== site build $(date +%T)"
 # The eight-neighbourhood publish peaks at about 5.0 GB (1:42, 2026-10-10; docs/site.md):
 # cap it at 6 GB.
 cd "$SITE"
-systemd-run --user --scope -q -p MemoryMax=6G env TMPDIR="$TMPDIR" "$SITE_VENV/bin/python" -m apartments.site build
+# The pipeline build (ops/pipeline/build-latest) waits while a site-build-* unit runs, so the
+# scope takes such a name. The build holds every light slot while it runs, so waiting for slot 1
+# keeps the site build from starting beside a running build.
+flock /data1/apartments/tmp/locks/light-1.lock systemd-run --user --scope -q --unit="site-build-publish-$(date +%s)-$$" -p MemoryMax=6G env TMPDIR="$TMPDIR" "$SITE_VENV/bin/python" -m apartments.site build
 curl -s -m 10 http://127.0.0.1:8600/healthz || true; echo
