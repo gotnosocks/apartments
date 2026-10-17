@@ -335,8 +335,9 @@ FOOTPRINTS_MARGIN_M = 100.0
 
 
 def fetch_footprints(registry: pd.DataFrame, batch: int = 100, page: int = 2000):
-    bins = registry.bin.dropna().astype(str)
-    placeholder = bins.str.fullmatch(r"[1-5]000000")
+    # A registry row can have no BIN, e.g. after an override clears its lot.
+    bins = registry.bin.astype("string")
+    placeholder = bins.str.fullmatch(r"[1-5]000000").fillna(False).astype(bool)
     rows, queries = [], []
     lat = registry.latitude.dropna()
     dlat = FOOTPRINTS_MARGIN_M / 111_320.0
@@ -363,7 +364,7 @@ def fetch_footprints(registry: pd.DataFrame, batch: int = 100, page: int = 2000)
         if len(got) < page:
             break
     for field, values in (
-        ("bin", sorted(set(bins[~placeholder]))),
+        ("bin", sorted(set(bins[bins.notna() & ~placeholder]))),
         (
             "base_bbl",
             sorted(set(registry.bbl[placeholder.to_numpy()].dropna().astype(str))),
@@ -412,11 +413,12 @@ HPD_COLUMNS = (
 
 
 def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
-    bins = registry.bin.dropna().astype(str)
-    placeholder = bins.str.fullmatch(r"[1-5]000000")
+    # A registry row can have no BIN, e.g. after an override clears its lot.
+    bins = registry.bin.astype("string")
+    placeholder = bins.str.fullmatch(r"[1-5]000000").fillna(False).astype(bool)
     rows, queries = [], []
     for field, values in (
-        ("bin", sorted(set(bins[~placeholder]))),
+        ("bin", sorted(set(bins[bins.notna() & ~placeholder]))),
         ("bbl", sorted(set(registry.bbl[placeholder.to_numpy()].dropna().astype(str)))),
     ):
         for i in range(0, len(values), batch):
@@ -1339,7 +1341,7 @@ def main(argv=None):
         registry = pd.read_parquet(registry_path)
         table, queries, version = fetch_footprints(registry)
         found = set(table.bin.astype(str))
-        missing = sorted(set(registry.bin.astype(str)) - found)
+        missing = sorted(set(registry.bin.dropna().astype(str)) - found)
         details = {
             "source": f"{SOCRATA}/{FOOTPRINTS_ID}",
             "dataset": "NYC Building Footprints via NYC Open Data",
