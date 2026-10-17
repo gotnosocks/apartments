@@ -35,12 +35,13 @@ The script works in these steps:
 5. It compares the two builds ad by ad, reading the ask from the ads file's `latest_ask` and
    the bedrooms from the rows file. For each kind it counts the planted ads the planted build
    drops, by the reasons the ads file gives, and the ads it keeps with their clean value, with
-   the planted value or with another value. It counts the kept ads with the ads file's
-   `ask_check`, which the check lists for review, and the other ads it keeps with the planted
-   value as missed. For the ask errors it counts the kept ads by the step of
-   `analysis.latest_ask` giving the ask, its `how`, read from the planted build's state. It also counts the ads without an error whose row changes
-   between the builds, as a planted ad's error can move its building's median ask. It prints
-   the counts and writes them to WORK/report.json.
+   the planted value or with another value. Of the ads it keeps with the planted value, it
+   counts as flagged those the planted build's `ask_check` lists for review and the clean
+   build's doesn't, and the others as missed. For the ask errors it counts the kept ads by the
+   step of `analysis.latest_ask` giving the ask, its `how`, read from the planted build's
+   state. It also counts the ads without an error whose row changes between the builds, as a
+   planted ad's error can move its building's median ask. It prints the counts and writes them
+   to WORK/report.json.
 
 Another bedroom count means one more, or 3 for 4 bedrooms. A value counts as the planted or the
 clean value within half a percent. Each build runs with `PIPELINE_MEMORY` and
@@ -446,7 +447,7 @@ def run(
             c.latest_ask AS clean_latest_ask, c.bedrooms AS clean_bedrooms,
             p.in_rows, p.latest_ask, p.bedrooms,
             list_concat(p.exclusion_reasons, p.identity_reasons) AS reasons, p.fate,
-            p.ask_checked
+            p.ask_checked AND NOT c.ask_checked AS ask_checked
         FROM key k JOIN c USING (listing_id) JOIN p USING (listing_id)
         ORDER BY k.kind, k.listing_id"""
     ).fetchdf()
@@ -465,10 +466,11 @@ def run(
             step = steps.get(row.listing_id) or "none"
             counts.setdefault("steps", {})
             counts["steps"][step] = counts["steps"].get(step, 0) + 1
-        if row.in_rows and row.ask_checked:
-            counts["flagged"] = counts.get("flagged", 0) + 1
-        elif result.startswith("kept, planted") or result == "kept":
-            counts.setdefault("missed", []).append(row.listing_id)
+        if result.startswith("kept, planted") or result == "kept":
+            if row.ask_checked:
+                counts["flagged"] = counts.get("flagged", 0) + 1
+            else:
+                counts.setdefault("missed", []).append(row.listing_id)
     others = db.sql(
         """SELECT c.listing_id, c.in_rows AS clean_in_rows, p.in_rows,
             c.latest_ask AS clean_ask, p.latest_ask, c.bedrooms AS clean_beds, p.bedrooms
