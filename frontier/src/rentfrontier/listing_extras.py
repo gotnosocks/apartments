@@ -17,8 +17,9 @@ it lacks, as an extended cohort's added rows need. Refuses a dirty tree.
 `--crawl records` reads the API records of the newest clean build in the data
 pipeline's catalog in place of a granular crawl, after checking the file's
 SHA-256 (`rentfrontier.api_records`). Each record counts as captured at its
-last fetch, and provenance.json lists the file's name and SHA-256 under
-`sources`.
+last fetch. provenance.json lists the file's name and SHA-256 under `sources`,
+and those of the ads file on the same catalog line under `ads_file`, because
+the reader keeps listings by that file.
 """
 
 from __future__ import annotations
