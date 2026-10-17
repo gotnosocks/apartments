@@ -9,7 +9,7 @@
    other columns the website reads.
 2. It reads each line of the collector's API captures, DIR/api-*/details/snapshot/candidates.jsonl
    with DIR /data1/apartments/archive/current-listings unless given. The collector wrote the
-   last of them on Oct 16 and stopped in #PR, so on a later build most captured ads have a
+   last of them on Oct 16 and stopped in #949, so on a later build most captured ads have a
    later record in the file. It counts the captured
    ads missing from the file, the captured ads whose latest record in the file is the captured
    answer, those with a later record in the file and those with an earlier one, which a build

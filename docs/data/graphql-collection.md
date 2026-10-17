@@ -440,7 +440,7 @@ ops/streeteasy-collect topup
   `apartments-pipeline-build.path` then builds the pipeline's ads and rows files. The site's
   next data build takes its current listings from those files (#945): each ad whose latest
   answer says ACTIVE and arrived in the 9 days before the build. An ad gone from the API keeps
-  its last record, so it leaves the site 9 days after that record arrived. Until #PR, a
+  its last record, so it leaves the site 9 days after that record arrived. Until #949, a
   finished run also wrote its region's ACTIVE ads as a current-listings capture under
   `crawls/api/current-listings/REGION/`, and those captures stay there.
 - Each run's report is in `crawls/api/graphql-search/run-N.json`, and the script logs a line

@@ -198,7 +198,7 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
   date (#665) and let a newer capture replace a unit's dataset row (#667).
 - **Weekly refresh**: `apartments-streeteasy-topup.timer` (see the GraphQL entry above) reads
   every area in its regions, and since #945 the site takes its current listings from the
-  pipeline's ads file. The collector wrote current-listings captures until #PR.
+  pipeline's ads file. The collector wrote current-listings captures until #949.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
