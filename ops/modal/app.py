@@ -252,6 +252,11 @@ def _publish(spec):
     for kind, dst in (("loo", LOO), ("variance", OUTPUT / "variance")):
         if (src / kind).is_dir():
             shutil.copytree(src / kind, dst, dirs_exist_ok=True)
+    # A design the fit saved (fit.py --save-design) spares the summary its prep, if this
+    # commit's package and config match the fit's.
+    for p in sorted((src / "design").glob("design-*.pkl")):
+        (OUTPUT / "cache").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, OUTPUT / "cache" / p.name)
     out = Path("/vol/out") / f"{name}-publish"
     out.mkdir(parents=True, exist_ok=True)
     env = dict(
@@ -340,6 +345,11 @@ def _fit(spec):
             LARGE_FIT_CAP if large else FIT_CAP[spec["tier"]],
         )
         stages["fit"] = time.time() - t
+        if code == 0 and spec.get("save_design"):
+            # Right after the fit, the fresh container's cache holds the run's design alone.
+            for p in sorted((OUTPUT / "cache").glob("design-*.pkl")):
+                (out / "design").mkdir(exist_ok=True)
+                shutil.copy2(p, out / "design" / p.name)
         if code == 0:
             t = time.time()
             code = _run(

@@ -53,3 +53,36 @@ def test_design_cache_reads_until_an_input_changes(monkeypatch, tmp_path):
     design.prepared(other, "rows", ("r1",), "f1")
     assert len(calls) == 7
     assert not list((tmp_path / "out" / "cache").glob("*.tmp"))
+
+
+def test_a_fit_and_its_summary_come_to_the_same_key(monkeypatch, tmp_path):
+    _, frame, _ = _setup(monkeypatch, tmp_path)
+    for k in list(design.os.environ):
+        if k.startswith("FRONTIER_"):
+            monkeypatch.delenv(k)
+    monkeypatch.setenv("FRONTIER_DATASET", "/d")
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
+    on_modal = design._key(frame, "rows", ("r1",), "f1")
+    # The summary unit on thelio sets the output root and the range flags.
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
+    monkeypatch.setenv("FRONTIER_OUTPUT_ROOT", str(data.OUTPUT_ROOT))
+    monkeypatch.setenv("FRONTIER_RANGE_ATOMS", "1")
+    monkeypatch.setenv("FRONTIER_COMMIT", "abc")
+    assert design._key(frame, "rows", ("r1",), "f1") == on_modal
+    monkeypatch.setenv("FRONTIER_DESCRIPTIONS", "/other")
+    assert design._key(frame, "rows", ("r1",), "f1") != on_modal
+    monkeypatch.delenv("FRONTIER_DESCRIPTIONS")
+    monkeypatch.setattr(data, "OUTPUT_ROOT", tmp_path / "elsewhere")
+    assert design._key(frame, "rows", ("r1",), "f1") != on_modal
+
+
+def test_a_read_only_cache_loads_a_design_and_writes_none(monkeypatch, tmp_path):
+    _, frame, calls = _setup(monkeypatch, tmp_path)
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
+    design.prepared(frame, "rows", (), "f1")
+    assert calls == ["f1"] and not (tmp_path / "out").exists()
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
+    first = design.prepared(frame, "rows", (), "f1")
+    monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
+    assert design.prepared(frame, "rows", (), "f1")[3] == first[3]
+    assert calls == ["f1", "f1"]

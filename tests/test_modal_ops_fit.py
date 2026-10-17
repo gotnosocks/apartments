@@ -772,3 +772,80 @@ def test_a_failed_summary_skips_the_steps_reading_its_bundle(tmp_path, monkeypat
     assert calls == ["rentfrontier.summary", "rentfrontier.rentmap"]
     assert meta["post"]["kit"] == meta["post"]["calibration"] == {"exit": "skipped"}
     assert meta["exit"] == 1
+
+
+def test_a_saved_design_goes_to_the_cache_and_the_summary_reads_it(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "STATE", tmp_path / "modal")
+    argv = ["abc", "x", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
+    args, rest = fit.parse(["--save-design", *argv])
+    assert (
+        fit.plan(args, rest, "9371a18")["save_design"] and "--save-design" not in rest
+    )
+    files = {
+        "out/r/run/result.json": b"{}",
+        "out/r/design/design-0123456789abcdef.pkl": b"pickle",
+    }
+    fit.finish(FakeVolume(files), "r", {"exit": 0})
+    cache = tmp_path / "frontier" / "cache"
+    assert (cache / "design-0123456789abcdef.pkl").read_bytes() == b"pickle"
+    assert [p.name for p in cache.iterdir()] == ["design-0123456789abcdef.pkl"]
+    assert not (tmp_path / "frontier/runs/r/modal/design").exists()
+    # A failed fit's design stays off thelio.
+    fit.finish(FakeVolume(files), "r", {"exit": 1})
+    assert not (tmp_path / "modal/failed/cache").exists()
+    assert not (tmp_path / "modal/failed/runs/r/modal/design").exists()
+    calls = []
+    monkeypatch.setattr(fit.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    full = {"name": "r", "tier": "full", "dataset": "/d"}
+    fit.summarize(full)
+    assert not any("FRONTIER_DESIGN_CACHE" in c for c in calls[0])
+    fit.summarize({**full, "save_design": True})
+    assert "--setenv=FRONTIER_DESIGN_CACHE=read" in calls[1]
+
+
+def test_the_container_saves_the_runs_design_and_a_publish_reads_it_back(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    monkeypatch.setattr(app, "_post", lambda *a: {})
+    monkeypatch.setattr(app.subprocess, "run", lambda *a, **k: mock.Mock(stdout=""))
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    cache = tmp_path / "frontier" / "cache"
+
+    def run(cmd, env, log, timeout=None):
+        if cmd[2] == "rentfrontier.run":
+            cache.mkdir(parents=True, exist_ok=True)
+            (cache / "design-0123456789abcdef.pkl").write_bytes(b"design")
+        else:
+            # A later step's own design stays in the container.
+            (cache / "design-fedcba9876543210.pkl").write_bytes(b"other")
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    spec = {"name": "r", "tier": "full", "run_args": [], "dataset": "d"}
+    app._fit(spec)
+    assert not (vol / "out" / "r" / "design").exists()
+    for p in cache.iterdir():  # each fit gets a fresh container
+        p.unlink()
+    app._fit({**spec, "save_design": True})
+    saved = vol / "out" / "r" / "design"
+    assert [p.name for p in saved.iterdir()] == ["design-0123456789abcdef.pkl"]
+    # A publish container starts with that design in its cache.
+    for p in cache.iterdir():
+        p.unlink()
+    (vol / "out" / "r" / "run").mkdir(parents=True)
+    monkeypatch.setattr(app, "_run", lambda *a, **k: 1)
+    app._fit({**spec, "publish_only": True})
+    assert (cache / "design-0123456789abcdef.pkl").read_bytes() == b"design"
