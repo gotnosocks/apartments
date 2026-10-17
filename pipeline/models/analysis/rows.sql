@@ -8,8 +8,10 @@ MODEL (
 
 -- ledger.status leaves at most one live set for each field of a row. A bath set gives the full
 -- and half bathrooms and leaves `bathrooms` as recorded, as the current chain's bath rules do.
--- `asking_rent` stays the ad's first ask, as in the chain's dataset. The last column,
--- `latest_ask`, takes the ask analysis.latest_ask chooses, or the ask a live ask set gives.
+-- `asking_rent` stays the ad's first ask, as in the chain's dataset. The column `latest_ask`
+-- takes the ask analysis.latest_ask chooses, or the ask a live ask set gives. The last column,
+-- `relist_unit`, takes the relist unit analysis.relist_units gives the row's unit page, or the
+-- unit page itself.
 WITH live AS (
     SELECT s.listing_id, s.change, s.field, e.bedrooms, e.full_baths, e.half_baths, e.square_feet,
         e.latest_ask
@@ -32,8 +34,10 @@ SELECT k.* REPLACE (
     coalesce(s.full_baths, k.full_baths) AS full_baths,
     coalesce(s.half_baths, k.half_baths) AS half_baths,
     coalesce(s.square_feet, k.square_feet) AS square_feet
-), coalesce(s.latest_ask, a.latest_ask) AS latest_ask
+), coalesce(s.latest_ask, a.latest_ask) AS latest_ask,
+    coalesce(u.relist_unit, k.unit_id) AS relist_unit
 FROM analysis.kept k
 LEFT JOIN analysis.latest_ask a USING (listing_id)
 LEFT JOIN sets s USING (listing_id)
+LEFT JOIN analysis.relist_units u ON u.unit_id = k.unit_id
 WHERE k.listing_id NOT IN (SELECT listing_id FROM live WHERE change = 'exclude')
