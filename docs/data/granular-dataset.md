@@ -68,8 +68,9 @@ Each run froze the separate `corrections.jsonl` ledger and its hash, and left th
 raw columns as captured. The ledger was empty, so raw and corrected values
 coincide. A time-bounded correction needs an attribute effective time chosen for
 it, since collection time is no stand-in. `apartments.corrections.Overlay.apply`
-returns a corrected copy at that time, with the correction IDs and the raw
-observation, so human assertions stay apart from source evidence.
+returns a corrected copy at that time, and for each correction it applied, the
+correction's ID, reason, evidence, patch and changes. The record passed in stays
+as it was, so human assertions stay apart from source evidence.
 
 For retained captures, the complete source listing and nested feature/amenity/pricing
 JSON remain in the Parquet tables. The normalized numeric columns are conveniences.

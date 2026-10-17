@@ -67,10 +67,12 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    `apartments.inventory_links`. Since #968 `graphql_listing` keeps its own copies of the
    page parser's helpers and imports `apartments.granular_parse` only for a page capture, so the
    collector, its export and the pipeline run without the page parser. The page parser stays for
-   the page crawler and the September research code under `models/` and `docs/analysis/scripts/`,
-   which read archived pages with it. Deleting it takes about 100 files with it, among them
-   fixtures that tests of other modules import, and the crawler's owner asked to delete the
-   crawler in a PR of its own.
+   the page crawler (`collection_policy`, `parse_once`, and `collection_audit` on page bodies)
+   and the September research code, which reads archived pages with it: modules under `models/`
+   and `docs/analysis/scripts/`, `candidate_refresh`, `description_recovery`,
+   `discovery_detail_refresh` and `frontier/scripts/unit_history_pairs.py`. Deleting it takes
+   about 100 files with it, among them fixtures that tests of other modules import, and the
+   crawler's owner asked to delete the crawler in a PR of its own.
 
 ## Raw layer
 

@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -182,7 +183,9 @@ assert loaded == [], loaded
 """
     src = Path(__file__).resolve().parents[1] / "src"
     subprocess.run(
-        [sys.executable, "-c", program], check=True, env={"PYTHONPATH": str(src)}
+        [sys.executable, "-c", program],
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(src)},
     )
 
 
