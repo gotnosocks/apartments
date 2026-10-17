@@ -20,9 +20,19 @@ last capture, as `rentfrontier.listing_extras`), listed from the earliest
 ACTIVE rental event of the listing itself:
 
     python -m rentfrontier.lister
+    python -m rentfrontier.lister --crawl page --crawl records --tag <name>
 
-writes EXTERNAL_ROOT/lister/<date>-<commit>/lister.parquet and provenance.json.
-Refuses a dirty tree.
+writes EXTERNAL_ROOT/lister/<date>-<commit><-name>/lister.parquet and
+provenance.json. Refuses a dirty tree.
+
+Each `--crawl` names a granular crawl's folder, `page` for the page crawls
+(`CRAWLS`) or `records` for the API records of the newest clean build in the
+data pipeline's catalog (`rentfrontier.api_records`). For the records file, I
+check its SHA-256 and that of the ads file on the same catalog line, take each
+listing's building from the ads file, and read the listed day from the rental
+history in each of the listing's records, as the granular export's event
+mentions give it. Each record counts as captured at its last fetch.
+provenance.json lists both files under `sources`.
 """
 
 from __future__ import annotations
@@ -38,6 +48,7 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
+from rentfrontier import api_records
 from rentfrontier.listing_extras import CRAWLS, EXTERNAL_ROOT
 
 BROKERAGE = (
@@ -144,9 +155,82 @@ def _first_listed(crawl: str) -> pd.Series:
     return ev[own].groupby("listing_id").event_date.min()
 
 
-def build() -> pd.DataFrame:
+def record_first_listed(raw: str, listing_id: str) -> str | None:
+    """The earliest day of an ACTIVE event in the listing's own rental history
+    in one raw record, with each episode and event the granular export's parser
+    turns into an event mention."""
+    history = json.loads(raw).get("propertyHistory")
+    days = []
+    for episode in history if isinstance(history, list) else []:
+        if not isinstance(episode, dict):
+            continue
+        episode_id = episode.get("listingId") or episode.get("id")
+        if (listing_id if episode_id is None else str(episode_id)) != listing_id:
+            continue
+        events = episode.get("rentalEventsOfInterest")
+        for event in events if isinstance(events, list) else []:
+            if (
+                isinstance(event, dict)
+                and event.get("status") == "ACTIVE"
+                and event.get("date") is not None
+            ):
+                days.append(event["date"])
+    return min(days, default=None)
+
+
+def _from_records(records: dict, ads: dict) -> tuple[list[dict], pd.Series]:
+    """Each record's lister fields with the building of its listing in the ads
+    file, and each listing's earliest listed day over its records."""
+    building = dict(
+        zip(
+            *pq.read_table(ads["path"], columns=["listing_id", "building"])
+            .to_pydict()
+            .values()
+        )
+    )
+    rows, first = [], {}
+    columns = ["listing_id", "listing_type", "collected_at", "raw_listing_json"]
+    for r in api_records.captures(records, columns):
+        if r["listing_type"] != "rental" or not r["raw_listing_json"]:
+            continue
+        rows.append(
+            {
+                "listing_id": r["listing_id"],
+                "building": building.get(r["listing_id"]),
+                "collected_at": r["collected_at"],
+                **record_lister(r["raw_listing_json"]),
+            }
+        )
+        day = record_first_listed(r["raw_listing_json"], r["listing_id"])
+        if day is not None and (
+            r["listing_id"] not in first or day < first[r["listing_id"]]
+        ):
+            first[r["listing_id"]] = day
+    return rows, pd.Series(first, dtype=object)
+
+
+def catalog_files() -> tuple[dict, dict]:
+    """The records and ads files of the newest clean build in the pipeline's
+    catalog, each checked."""
+    entry = api_records.catalog_entry()
+    return api_records.checked(entry, "records"), api_records.checked(entry, "ads_file")
+
+
+def build(
+    crawls: dict | None = None, records: dict | None = None, ads: dict | None = None
+) -> pd.DataFrame:
+    """Each listing's lister from its last capture in the crawls. A crawl
+    `records` is the pipeline's records file, `records` and `ads` the checked
+    records and ads files of one catalog line."""
     rows, firsts = [], []
-    for crawl in CRAWLS.values():
+    for crawl in (crawls or CRAWLS).values():
+        if crawl == api_records.CRAWL:
+            if records is None:
+                records, ads = catalog_files()
+            added, first = _from_records(records, ads)
+            rows += added
+            firsts.append(first)
+            continue
         firsts.append(_first_listed(crawl))
         for path in sorted(
             glob.glob(f"{crawl}/listing_observations/**/*.parquet", recursive=True)
@@ -191,18 +275,48 @@ def _git(*args) -> str:
     ).stdout.strip()
 
 
-def main():
+def parse(argv: list[str]) -> tuple[dict | None, str]:
+    """The crawls and the directory tag a command line names."""
+    crawls, tag = {}, ""
+    while argv[:1] == ["--crawl"] and len(argv) > 1:
+        if argv[1] == "page":
+            crawls.update(CRAWLS)
+        else:
+            crawls[f"crawl-{len(crawls)}" if crawls else "crawl"] = argv[1]
+        argv = argv[2:]
+    if crawls and argv[:1] == ["--tag"] and len(argv) == 2:
+        tag, argv = f"-{argv[1]}", []
+    if argv:
+        raise SystemExit(
+            "usage: lister [--crawl <page | granular dir | records>]... [--tag <name>]"
+        )
+    return crawls or None, tag
+
+
+def main(argv: list[str] | None = None):
+    import sys
+
+    crawls, tag = parse(sys.argv[1:] if argv is None else argv)
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    table = build()
-    out_dir = EXTERNAL_ROOT / "lister" / f"{started:%Y%m%d}-{commit[:7]}"
+    records, ads = (
+        catalog_files()
+        if api_records.CRAWL in (crawls or CRAWLS).values()
+        else (None, None)
+    )
+    table = build(crawls, records, ads)
+    out_dir = EXTERNAL_ROOT / "lister" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "lister.parquet"
     table.to_parquet(path, index=False)
     sources = {}
-    for name, crawl in CRAWLS.items():
+    for name, crawl in (crawls or CRAWLS).items():
+        if crawl == api_records.CRAWL:
+            sources[name] = {"path": records["path"], "sha256": records["sha256"]}
+            sources["ads_file"] = {"path": ads["path"], "sha256": ads["sha256"]}
+            continue
         complete = Path(crawl) / "complete.json"
         sources[name] = {
             "path": crawl,

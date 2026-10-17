@@ -1720,6 +1720,14 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`lister` reads the file with `--crawl records`, beside `--crawl page` for the page crawls. The
+records lack the building slug of the granular rows, so it takes each listing's building from
+the ads file on the same catalog line, after checking that file's SHA-256 too. That slug comes
+from the building's latest answer, as `ads.identity` gives it. For the day a listing was first
+listed, it reads the rental history in each of the listing's records, where the granular export
+read its event mentions, and keeps the earliest ACTIVE event of the listing's own episodes. Its
+provenance lists both files under `sources`.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -2166,6 +2174,18 @@ and catalog it writes in a temporary folder:
     time as `collected_at` and the response ID as `snapshot_id`;
 53. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
+
+The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file:
+
+60. parse made-up records whose histories hold episodes named by `listingId`, by `id` or by
+    neither, events of other statuses, without a day or not a dict, and histories of the wrong
+    type. For each, check that `record_first_listed` gives the earliest day of the own ACTIVE
+    rental events `apartments.graphql_listing` parses from it;
+61. build the lister table from a records file and an ads file with two records of a listing
+    and an earlier listing in its building, and check the lister of the record fetched last, the
+    ads file's building, the earliest listed day over both records and the earlier counts;
+62. run `lister.main` with `--crawl records`, and check that its provenance gives both files'
+    paths and SHA-256 and that a tag without a crawl stops.
 
 ## Full build
 

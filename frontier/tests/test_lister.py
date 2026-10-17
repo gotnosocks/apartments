@@ -121,3 +121,155 @@ def test_nostuy_lister_set_is_registered_and_recorded(monkeypatch):
     sources = run.feature_sources("nb6-nostuy-lister-v1")
     assert sources["lister"]["path"] == features.LISTER_FILE
     assert "lister" not in run.feature_sources("nb6-nostuy-v1")
+
+
+def history_record(lister_name, episodes):
+    return {
+        "id": "7",
+        "legacy": {"sourceGroupLabel": lister_name},
+        "propertyDetails": {},
+        "propertyHistory": episodes,
+    }
+
+
+def test_record_first_listed_matches_the_granular_event_mentions():
+    """A record's earliest listed day is the earliest day the granular parser gives an own
+    ACTIVE rental event mention: an episode named by `listingId` or `id`, or by neither, and
+    events with another status, no date or no dict left out."""
+    from apartments.graphql_listing import listing_body, parse_capture
+
+    episodes = [
+        {
+            "listingId": 9,
+            "rentalEventsOfInterest": [{"status": "ACTIVE", "date": "2024-01-01"}],
+        },
+        {
+            "id": "7",
+            "rentalEventsOfInterest": [{"status": "ACTIVE", "date": "2026-03-02"}],
+        },
+        {
+            "listingId": "7",
+            "rentalEventsOfInterest": [
+                {"status": "PENDING", "date": "2025-01-01"},
+                {"status": "ACTIVE", "date": None},
+                "ACTIVE",
+                {"status": "ACTIVE", "date": "2026-03-01"},
+            ],
+        },
+        {"rentalEventsOfInterest": [{"status": "ACTIVE", "date": "2026-04-01"}]},
+        {"listingId": "7", "rentalEventsOfInterest": None},
+        "an episode",
+    ]
+    for history in (episodes, episodes[3:], episodes[4:], None, {"a": 1}):
+        record = history_record("A", history)
+        building = {
+            "id": "1",
+            "slug": "a-building",
+            "page": "https://streeteasy.com/building/a",
+        }
+        _, events = parse_capture(
+            listing_body(7, building, record), "https://streeteasy.com/rental/7"
+        )
+        mentions = pd.DataFrame(
+            events,
+            columns=[
+                "listing_id",
+                "event_listing_id",
+                "event_category",
+                "status",
+                "event_date",
+            ],
+        )
+        own = mentions[
+            mentions.listing_id.eq(mentions.event_listing_id)
+            & mentions.event_category.eq("rental")
+            & mentions.status.eq("ACTIVE")
+        ].event_date.dropna()
+        expected = own.min() if len(own) else None
+        assert lister.record_first_listed(json.dumps(record), "7") == expected
+    assert (
+        lister.record_first_listed(json.dumps(history_record("A", episodes)), "7")
+        == "2026-03-01"
+    )
+
+
+def test_lister_reads_the_records_file_and_the_ads_files_buildings(records_catalog):
+    """Listing 7's first record has the later last fetch, so its lister comes from it, while its
+    listed day is the earliest over both records. Listing 8 in the same building of the ads
+    file was listed earlier by the same lister."""
+
+    def own(day):
+        return [
+            {
+                "listingId": "7",
+                "rentalEventsOfInterest": [{"status": "ACTIVE", "date": day}],
+            }
+        ]
+
+    eight = history_record(
+        "A",
+        [
+            {
+                "listingId": "8",
+                "rentalEventsOfInterest": [{"status": "ACTIVE", "date": "2026-07-01"}],
+            }
+        ],
+    )
+    eight["id"] = "8"
+    records_catalog(
+        [
+            {
+                "listing_id": 7,
+                "collected_at": 1.0,
+                "last_collected_at": 9.0,
+                "record": history_record("A", own("2026-09-01")),
+            },
+            {
+                "listing_id": 7,
+                "collected_at": 2.0,
+                "last_collected_at": 3.0,
+                "record": history_record("B", own("2026-08-15")),
+            },
+            {"listing_id": 8, "collected_at": 1.0, "record": eight},
+        ],
+        ads=[
+            {"listing_id": "7", "building": "b"},
+            {"listing_id": "8", "building": "b"},
+        ],
+    )
+    table = lister.build({"api": lister.api_records.CRAWL}).set_index("listing_id")
+    assert table.loc["7", "lister"] == "A"
+    assert table.loc["7", "building"] == "b"
+    assert table.loc["7", "listed_at"] == pd.Timestamp("2026-08-15", tz="UTC")
+    assert (table.loc["7", "earlier"], table.loc["7", "earlier_same"]) == (1, 1)
+    assert "collected_at" not in table
+
+
+def test_main_lists_the_records_and_ads_files(records_catalog, tmp_path, monkeypatch):
+    """`--crawl records` reads both files of the catalog's newest line, and provenance.json gives
+    their paths and SHA-256. A tag without a crawl stops."""
+    import pytest
+
+    line = records_catalog(
+        [{"listing_id": 7, "collected_at": 1.0, "record": history_record("A", [])}],
+        ads=[{"listing_id": "7", "building": "b"}],
+    )
+    monkeypatch.setattr(lister, "EXTERNAL_ROOT", tmp_path / "external")
+    monkeypatch.setattr(
+        lister, "_git", lambda *a: "" if a[0] == "status" else "abc1234def"
+    )
+    lister.main(["--crawl", "records", "--tag", "api"])
+    (prov,) = (tmp_path / "external").glob("lister/*-abc1234-api/provenance.json")
+    sources = json.loads(prov.read_text())["sources"]
+    assert sources == {
+        "crawl": {
+            "path": str(tmp_path / line["records"]["path"]),
+            "sha256": line["records"]["sha256"],
+        },
+        "ads_file": {
+            "path": str(tmp_path / line["ads_file"]["path"]),
+            "sha256": line["ads_file"]["sha256"],
+        },
+    }
+    with pytest.raises(SystemExit):
+        lister.main(["--tag", "api"])
