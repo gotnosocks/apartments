@@ -5,7 +5,7 @@ MODEL (
         materialization_properties (changes = 'ads.touched', replace = 'listing_id')
     ),
     grain (listing_id, n),
-    description 'Price changes left after the check for placeholder prices.'
+    description 'Price changes left after the drop of stale changes and the check for placeholder prices.'
 );
 
 -- The step first drops every stale change, as rentfrontier.latest_ask does from latest-ask-v9.
