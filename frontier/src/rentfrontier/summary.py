@@ -289,6 +289,12 @@ def kept_subset(path: Path, buildings, units, n_buildings: int, n_units: int, bl
                     # A one-element stand-in for a term the run leaves out.
                     index = None
                 if index is None:
+                    if (
+                        size is None
+                        and len(shape) >= 3
+                        and shape[2] in (n_buildings, n_units)
+                    ):
+                        raise ValueError(f"{member} looks indexed by building or unit")
                     order = "F" if fortran else "C"
                     value = np.frombuffer(fh.read(), dtype).reshape(shape, order=order)
                     out[key] = value.reshape(-1, *shape[2:]).astype(np.float64)
