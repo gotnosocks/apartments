@@ -16,8 +16,11 @@ The cache key is a sha256 over:
 3. the FRONTIER_* environment, which picks external roots and description
    sources, and the JAX float64 setting `model.prepare` runs under
 
-External snapshots enter through their dated paths in the code. Writers put the
-pickle in place with `os.replace`, so a reader finds a whole file or none.
+External snapshots enter through their dated paths in the code. A few inputs
+sit at undated paths and could change in place, and the key leaves their bytes
+out, so the variable suits a cache that lives for a single container, as on
+Modal, and stays unset on thelio. Writers put the pickle in place with
+`os.replace`, so a reader finds a whole file or none.
 """
 
 from __future__ import annotations
