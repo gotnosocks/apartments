@@ -97,6 +97,66 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
 
 ## Next
 
+On Oct 17 the overnight plan closed with these merges:
+
+- #957: the build no longer waits for the GPU lock.
+- #958: the ads models build incrementally. [pipeline-measures.md](../data/pipeline-measures.md)
+  has the check that a top-up equals a full build.
+- #967 and #968: the page-capture rewrite is gone, and the collector runs without the page parser.
+- #969 and #970: descriptions and ad attributes stop at each ad's last ACTIVE record.
+- #971: `analysis.ads` gains `building_check`.
+
+The work goes on in this order:
+
+1. Lane D, the unit ledger's scored matching. The 17 lots in
+   `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` that a reader found to be unit
+   splits or relabels serve as labeled tests. The prototypes are in
+   `/data1/apartments/tmp/pipeline/lanes/laned/`, and each script's docstring gives its arguments:
+   - `match.py` writes every label one way. That joins 4.3% of unit pages but takes the lots above
+     their count only from 1,580 to 1,544.
+   - `chainmatch.py` links two unit pages of a lot along a broker's relist chain: an ad of one
+     starts within 7 days of an ad of the other ending, with the same bedrooms and baths and an ask
+     within 3% of the last, gross or net. It refuses a merge when ads of the two sides ran beside
+     each other for over a week at different asks. On its count, a little looser than the city
+     check's, 1,735 lots are above their legal count, and joining every chain leaves 781.
+   - `photomatch.py` links unit pages whose ads share photo keys used by at most 3 of the lot's
+     units. `both-7-1.parquet` holds the 4,814 chain links with such a photo, and
+     `chainonly-7-1.parquet` the 22,112 without. Joining only the first leaves 1,467 lots above.
+   - `cards.py` and `score_reads.py` sample pairs for Sonnet readers and tally the verdicts in
+     `read/`. Readers put 19 of 20 photo-backed chain links on the same apartment, 12 of 20 chain
+     links without photos (1 different, 7 unclear), and 7 of 20 pairs sharing photos with no chain
+     (9 different).
+   - `floors.py` compares the floors that linked labels give against alike units of the same lot.
+     Linked labels share a floor 66% of the time against 37%. Taking the photo-backed links as 95%
+     right, a true link keeps its floor 78% of the time, and the links without photos come out
+     about 68% right, at most 71%. A guard against links whose first ad ended as rented leaves that
+     unchanged.
+   - `plans.py` does the same with floor plans and stated sizes. Where both pages have a plan, 36%
+     of links without photos share one, against 53% of photo-backed links and 12% of alike units,
+     which puts them about 56% right. Stated sizes differ by over 5% on 40% of links and 60% of
+     alike units, too noisy to help.
+   - `recount.py` recounts the lots above after joining along any set of links.
+
+   Next the matcher becomes a pipeline step, with the photo-backed links first. Each row gets a
+   relist unit beside its unit page, so a fit can choose to read it, and no unit page changes.
+   Shared photos and relists aren't backing kinds under the unit ledger's rules, so the joins stay
+   out of the ledger. The 22,112 links without photos need another signal, such as the floor plans
+   or stated sizes.
+2. A `drop_lot` change in the corrections ledger, read by `analysis.lot_facts` so the listed ads
+   get no lot. DI wrote `/data1/apartments/tmp/suspect/bcheck/drop-lot.jsonl` in that form, 1,274
+   ads that `building_check` flagged and a reader put on the wrong building or under an
+   out-of-date city record. The build rejects a change it doesn't know, so the file moves into
+   `pipeline/ledger/` with the PR. Fits read their lot features from the frontier registry until
+   step 8's item 3, so Modeling's refit takes the NaN lots from DI's registry or chain rule.
+3. DI's suggestion: drop a late change to a repeated-digit ask, such as $9,999, when it moves the
+   ask by 1.2x or more.
+
+`/data1/apartments/tmp/pipeline/lanes/bcheck/padlookup.py` runs `buildings.pad_link`'s SQL on an
+ad's own address and zip. Of the 704 rows a reader put on the wrong building, 544 land on the
+flagged lot itself and 8 on another lot with apartments.
+
+The older items follow.
+
 1. Step 4 goes on from #870. Its event log builds from runs 1 to 5 in 109 s at a 5 GB cap, and
    each analysis row's `price_at` and `asking_rent` equal its ad's first day and the single
    price of that day. The worktree `/data1/apartments/tmp/pipeline/wt-events` can start the next

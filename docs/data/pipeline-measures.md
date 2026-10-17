@@ -1,9 +1,10 @@
-# Data pipeline measures, 2026-10-16
+# Data pipeline measures, 2026-10-16 and 17
 
 This file records how long the rebuilt pipeline took, and how much memory it used, to turn the
 StreetEasy API exports into fit-ready rows on Oct 16, the first day it built after every export.
 [The baseline](pipeline-baseline.md) gives the same figures for the steps run by hand on Oct 15, and
-the sections below compare the two days.
+the sections below compare the two days. A later section adds the builds of the night of Oct 16 and
+of Oct 17, the second top-up among them, and the check of #958's incremental top-up.
 
 Times, CPU and memory come from systemd accounting and the Modal ledger. Each build's seconds, row
 counts and the script's memory peak come from its line in
@@ -43,6 +44,35 @@ its 5 GiB cap in six of the eight builds, since the page cache fills whatever th
 Each build ran every model's audits before writing its files. From #925 on, a build also checks the
 export's new or changed files, and each record in them, against their hashes. The 09:53 build failed
 in two models and wrote nothing, so the rows of 06:35 stayed the latest until 11:40.
+
+## Builds on the night of Oct 16 and on Oct 17
+
+The columns are as above. The path unit started the 23:38 build when the export of runs 12 to 16
+changed the manifest at 23:32, and I started the other two by hand.
+
+| finished | code | started by | wall | CPU | build | peak MiB | rows file | notes |
+|---|---|---|--:|--:|--:|--:|---|---|
+| 23:02 | #948 | hand | 12.7 min | 2.3 min | 30 s | 3,924 | `rows-beb8748d`, 1,746,509 rows | about 12 min waiting for the locks |
+| 23:38 | #950 | manifest | 5.9 min | 16.9 min | 339 s | 4,116 | `rows-32a688be`, 1,746,794 rows | the top-up of runs 12 to 16, with every ads model rebuilt, since #958 hadn't merged |
+| 23:39 | #951 | hand | 0.7 min | 1.5 min | 27 s | 3,863 | `rows-3a408062`, 1,746,793 rows | the tenfold asks of `latest-ask-v8` in the corrections ledger |
+
+The collector's runs 12 to 16 made their last API call at about 23:30. The build started within
+seconds of the export's manifest change at 23:32 and wrote checked rows at 23:38, 8.4 minutes after
+the last call. It took the collector's lock, the GPU lock and the light slots within 9 s. Since #957,
+merged at about 01:08 on Oct 17, a build no longer waits for the GPU lock.
+
+#958 makes the ads models incremental: a top-up re-reads only the ads its new answers change, and
+copies the rest from the previous build. To check it on the same export, I ran three builds into
+empty scratch states:
+
+1. Runs 1 to 11 in full, in 755.8 s at a 4,531 MiB peak.
+2. A top-up of that state with runs 12 to 16, in 152.5 s at 4,439 MiB. It re-read 93,898 ads for
+   22,298 new answers.
+3. Runs 1 to 16 in full, in 785.4 s at 4,267 MiB.
+
+The top-up and the full build wrote the same rows file, `rows-804abbee` with 1,746,791 rows, and
+the same ads file, byte for byte. The top-up took 19% of the full build's time. Before #958, the
+top-up of Oct 16 took 27%.
 
 ## From a finished scrape to fit-ready rows
 
