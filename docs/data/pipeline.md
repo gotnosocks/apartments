@@ -2058,12 +2058,13 @@ records of the cohort's listings, so one run covers every region, where the gran
 took a run for each slice. Its provenance names the file under `records`.
 
 From the records, `descriptions` takes each listing's ACTIVE record fetched last, and its
-record fetched last when it has no ACTIVE record. StreetEasy strips or cuts an ad's description
-once it is rented or delisted, so the last ACTIVE record holds the text of the ad that asked
-the rent. This matches the cut `ads.attributes` makes in the pipeline. Each evidence line
-records its choice under `description_record`, as `last_active` or `latest`, and the
-provenance counts the rows of each under `rows_by_description_record`. A run from a granular
-export keeps the record captured last and marks every line `latest`.
+record fetched last when it has no ACTIVE record. StreetEasy can strip or cut an ad's
+description once it is rented or delisted, so the last ACTIVE record holds the text of the ad
+that asked the rent. When that record has no description, the listing gets no evidence line,
+even if another of its records has text. Each evidence line records its choice under
+`description_record`, as `last_active` or `latest`, and the provenance counts the rows of each
+under `rows_by_description_record`. A run from a granular export keeps the record captured last
+and marks every line `latest`.
 
 `listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
 and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
