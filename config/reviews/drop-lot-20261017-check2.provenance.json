@@ -3,18 +3,19 @@
  "dataset": "/data1/apartments/tmp/pipeline/lanes/drop-lot-build/datasets/ads-388680fd769c5d5e.parquet",
  "screen": "pipeline analysis.building_check after the first drop-lot import and the #1006 lot rule: 339 rows in 212 buildings, read from /data1/apartments/tmp/pipeline/lanes/drop-lot-build/building_check.csv",
  "reads": "Sonnet readers on the ad text, the flagged lot's MapPLUTO record, HPD registrations on the lot (kj4p-ruqc, fetched 2026-10-17), buildings.lots and the PAD lookup of the StreetEasy address; labels in /data1/apartments/tmp/suspect/bcheck/reader-labels-2.jsonl",
- "rows": 154,
+ "rows": 152,
  "by_reason": {
   "city_record_wrong": 73,
-  "wrong_building": 81
+  "wrong_building": 79
  },
  "outcomes": {
-  "keep: unclear": 88,
-  "drop lot: wrong_building": 81,
+  "keep: unclear": 90,
+  "drop lot: wrong_building": 79,
   "keep: mixed_use": 80,
   "drop lot: city_record_wrong": 73,
   "keep: ad_floor_error": 12,
   "keep: vanity_numbering": 5
  },
- "buildings": 72
+ "buildings": 70,
+ "reviewer_overrides": "2776355 and 2329076: readers said wrong_building on the ad text alone, while address, PAD, HPD and StreetEasy put both ads on the lot; kept as unclear"
 }
