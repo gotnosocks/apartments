@@ -27,6 +27,16 @@ change to its step before merge.
 - Before the default flips: check every `estimate_pred_*` reader (coverage, price band, board,
   rent map, site build) against a table mixing atom rows and fallback rows, and compare the
   ranges on Ben's opened pages and a random sample with the exact ones.
+- A thelio summary of the served all-scraped run died of OOM at 9 GB in the design prep after 11
+  minutes (Oct 17). Modeling asked for no more full all-scraped feature builds on thelio, so the
+  design gets prepared on Modal (`ops/modal-fit --design-only`, #1084) and the summary loads it
+  with `FRONTIER_DESIGN_CACHE=read`. The unit `publish-path-launch-design` launches the prep at
+  bc06303d from the pinned clone `/data1/apartments/tmp/publish-path/clone`, once P1 has launched
+  (or its launcher has exited) and the budget covers $0.70 (log: `/data1/apartments/tmp/publish-path/logs/launch-design.log`).
+- Once the design lands in `frontier/designs`, I compute its key on thelio with
+  `tools/design_key.py` in a 3G scope, at the clone commit and in the summary's env, and compare
+  it with the key in `design.json`. The 9G summary (`--range-atoms --with-exact`) starts only if
+  the two keys match. On an OOM or a mismatch I stop and report to Modeling without a retry.
 
 ## Next
 
