@@ -1,6 +1,9 @@
 MODEL (
     name ads.breaks,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (
         unique_values(columns := (listing_id)),
@@ -25,6 +28,10 @@ MODEL (
 --   back_day:  the day of that return.
 -- The website's ad dates read the same from the history on the ad's page, which dates each
 -- change to the day.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH changes AS (
     SELECT e.listing_id, e.kind, e.day,
         lag(e.kind) OVER (PARTITION BY e.listing_id ORDER BY e."at", e.list_index) AS previous,
@@ -33,7 +40,7 @@ WITH changes AS (
     FROM ads.events e
     JOIN ads.market m USING (listing_id)
     JOIN ads.latest_record l USING (listing_id)
-    WHERE e.source = 'status' AND e.last_seen = l.fetched
+    WHERE e.source = 'status' AND e.last_seen = l.fetched AND e.listing_id IN (SELECT listing_id FROM ads.touched)
         AND e.day BETWEEN l.on_day::DATE AND m.as_of
         AND e.kind IN (
             'ACTIVE', 'TEMPORARILY_OFF_MARKET', 'IN_CONTRACT', 'RENTED', 'NO_LONGER_AVAILABLE',

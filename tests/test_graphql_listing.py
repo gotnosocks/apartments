@@ -1,4 +1,8 @@
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -135,6 +139,54 @@ def test_parse_capture_sends_each_body_to_its_parser(monkeypatch):
     assert parse_capture(page, URL) == ({"parse_status": "patched"}, [])
     assert parse_capture(api, URL)[0]["parse_status"] == "ok"
     assert calls == [URL]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        True,
+        0,
+        7,
+        -6.0,
+        2.5,
+        "1,250 ft²",
+        " $4,100 / month ",
+        "none",
+        "",
+        [1, 2],
+        {"b": 1, "a": "é"},
+    ],
+)
+def test_helpers_give_the_page_parsers_values(value):
+    assert graphql_listing._number(value) == granular_parse._number(value)
+    assert graphql_listing._clean(value) == granular_parse._clean(value)
+    assert graphql_listing._json(value) == granular_parse._json(value)
+    key = graphql_listing._event_key("4242", "4241", "rental", 1, 2, value)
+    assert key == granular_parse._event_key("4242", "4241", "rental", 1, 2, value)
+    assert graphql_listing._occurrence_key(key, 1, 2) == granular_parse._occurrence_key(
+        key, 1, 2
+    )
+
+
+def test_api_collection_loads_without_the_page_parser():
+    """The collector, its export and the pipeline parse API ads with no page parser imported."""
+    body = listing_body("4242", BUILDING, api_record(page_listing())).decode()
+    program = f"""
+import sys
+from apartments.graphql_listing import parse_capture
+import streeteasy_archive.graphql_export, streeteasy_archive.graphql_search
+row, events = parse_capture({body!r}.encode(), {URL!r})
+assert row["parse_status"] == "ok" and events
+loaded = sorted(m for m in sys.modules if m.startswith("apartments.granular"))
+assert loaded == [], loaded
+"""
+    src = Path(__file__).resolve().parents[1] / "src"
+    subprocess.run(
+        [sys.executable, "-c", program],
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(src)},
+    )
 
 
 def test_missing_slug_leaves_no_canonical_unit():

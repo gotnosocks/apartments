@@ -19,6 +19,10 @@ unless set, and `PIPELINE_CITY_CACHE` the folder for its Parquet files,
 `steps/city.py`, which unpacks each file the archive's manifest lists and the cache lacks. The
 config stops when the archive's folder is missing. `steps/city.py` explains the cache.
 
+`PIPELINE_INCREMENTAL` set to 1 asks for a top-up build, which reads only the answers missing
+from the previous build. `ops/pipeline/build.py` sets it when the previous build allows one, and
+`models/ads/changes.py` explains the rest. Other runs leave it unset and build from all answers.
+
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
 stream with less memory.
@@ -216,6 +220,12 @@ config = Config(
     variables={
         "ads": ads,
         "ads_version": ads_version,
+        # ops/pipeline/build.py sets PIPELINE_INCREMENTAL to 1 for a top-up build. ads.changes
+        # reads the flag, so a build of the other mode gives it a new fingerprint.
+        "incremental": os.environ.get("PIPELINE_INCREMENTAL") == "1",
+        # ads.changes reads this too, so an edit to the materialization `merge` rebuilds the
+        # models of that kind from all the answers.
+        "merge_code": file_sha256(PIPELINE / "materializations" / "merge.py"),
         "buildings": buildings,
         "buildings_version": buildings_version,
         # ops/pipeline/build.py records these in its catalog line. No model reads them, so they

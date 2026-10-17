@@ -1,6 +1,9 @@
 MODEL (
     name ads.history_events,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.changes', add = 'history')
+    ),
     audits (not_null(columns := (history, listing_id, kind, day))),
     description 'Each event in each distinct unit history, filed under the ad it belongs to.'
 );
@@ -11,11 +14,16 @@ MODEL (
 -- appears once. An episode without a listingId is filed under its id. The current parser
 -- would fall back to the reporting ad's own id after that, but one history can come from
 -- several ads, so an episode with neither id stops the build at the audit.
+-- The model reads the histories of the answers in ads.changes: every answer in a full build, and
+-- the new ones in a top-up build. A history's events depend only on its text, so the
+-- materialization `merge` adds the events of each history the previous build's table lacks, and
+-- a top-up build parses each new history from its earliest new answer.
 WITH firsts AS (
     SELECT history,
         arg_min(listing_id, (fetched, response_id)) AS listing_id,
         arg_min(response_id, (fetched, response_id)) AS response_id
     FROM ads.answers
+    SEMI JOIN ads.changes USING (listing_id, response_id)
     WHERE history IS NOT NULL
     GROUP BY history
 ),

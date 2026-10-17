@@ -27,9 +27,8 @@ MODEL (
 -- The ad's building is the building of its latest record. Answers without a record take no part,
 -- as the chain reads only stored records.
 WITH records AS (
-    SELECT listing_id::VARCHAR AS listing_id, fetched, response_id,
-        json_extract_string(record, ['$.buildingId', '$.slug']) AS f
-    FROM raw.ads
+    SELECT listing_id::VARCHAR AS listing_id, fetched, response_id, [building_id, unit_slug] AS f
+    FROM ads.answers
     WHERE outcome = 'record'
 ),
 captures AS (

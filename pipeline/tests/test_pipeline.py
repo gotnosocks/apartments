@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 import sqlmesh.core.console
 from apartments.canonical_units import memberships
+from apartments.graphql_listing import canonical_link
 from apartments.unit_canonical import unit_page
 from sqlmesh import Context
 from sqlmesh.core.console import TerminalConsole
@@ -452,6 +453,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.answers",
         "ads.attributes",
         "ads.breaks",
+        "ads.changes",
         "ads.events",
         "ads.exclusions",
         "ads.first_ask",
@@ -466,6 +468,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "ads.record_attributes",
         "ads.regions",
         "ads.reported",
+        "ads.touched",
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_certificates",
@@ -1444,16 +1447,6 @@ def answers(key, records, first, fetched):
             "record": [r[1] for r in records],
         }
     )
-
-
-def canonical_link(building, record):
-    """A copy of `graphql_listing.canonical_link`, whose module needs the page parser's
-    packages."""
-    slug = building.get("slug") if isinstance(building, dict) else None
-    unit = record.get("slug") if isinstance(record, dict) else None
-    if not isinstance(slug, str) or not slug or not isinstance(unit, str) or not unit:
-        return None
-    return f"https://streeteasy.com/building/{slug}/{unit}"
 
 
 def identity_record(listing_id, building=None, slug=None):

@@ -1,6 +1,9 @@
 MODEL (
     name ads.answer_events,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     audits (
         unique_combination_of_columns(columns := (listing_id, source, kind, day, at, price)),
         not_null(columns := (listing_id, source, kind, day, own, first_seen, last_seen, first_response_id, answers))
@@ -20,12 +23,19 @@ MODEL (
 -- answer. `list_index` gives a status or price change's place in its list, counting from 1, in
 -- the latest answer that reported it. Two changes can share an instant, and the index keeps the
 -- record's order between them.
-WITH reports AS (
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
+WITH answers AS (
+    SELECT * FROM ads.answers WHERE listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
+),
+reports AS (
     SELECT listing_id, 'fetch' AS source,
         CASE WHEN outcome = 'record' THEN status ELSE 'MISSING' END AS kind,
         (fetched AT TIME ZONE 'America/New_York')::DATE AS day, fetched AS at,
         page_price AS price, fetched, response_id, NULL::BIGINT AS list_index
-    FROM ads.answers
+    FROM answers
     UNION ALL
     -- A change listed twice in one record counts once for the answer, at its last place.
     SELECT listing_id, 'status', c.status, left(c.changedAt, 10)::DATE,
@@ -33,7 +43,7 @@ WITH reports AS (
     FROM (
         SELECT listing_id, fetched, response_id,
             unnest(status_changes) AS c, generate_subscripts(status_changes, 1) AS i
-        FROM ads.answers
+        FROM answers
     )
     GROUP BY ALL
     UNION ALL
@@ -42,7 +52,7 @@ WITH reports AS (
     FROM (
         SELECT listing_id, fetched, response_id,
             unnest(price_changes) AS c, generate_subscripts(price_changes, 1) AS i
-        FROM ads.answers
+        FROM answers
     )
     GROUP BY ALL
 ),

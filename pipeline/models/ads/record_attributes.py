@@ -14,7 +14,10 @@ build hashes the files it loaded and stops if any differs from the variable, so 
 holds only rows from the code its name gives.
 
 The model's table holds a row for each distinct record of `raw.ads`: its SHA-256, the `id` in
-the record, whether the chain would parse it, and each value as canonical JSON or NULL.
+the record, whether the chain would parse it, and each value as canonical JSON or NULL. The
+model is of kind `merge`, which `materializations/merge.py` explains. It reads the records of
+the answers in `ads.changes`, every answer in a full build and the new ones in a top-up build,
+and the materialization adds the rows of records the previous build's table lacks.
 `PIPELINE_WORKERS` sets the number of worker processes, 4 unless set.
 """
 
@@ -32,6 +35,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from sqlglot import exp
 from sqlmesh import ExecutionContext, model
+from sqlmesh.core.model.kind import ModelKindName
 
 KEYS = (
     "bedrooms",
@@ -51,6 +55,12 @@ KEYS = (
     "short_term",
     "concession",
 )
+COLUMNS = {
+    "record_sha256": "VARCHAR",
+    "id": "VARCHAR",
+    "parsed": "BOOLEAN",
+    **{key: "VARCHAR" for key in KEYS},
+}
 # The build sends records to the workers in batches of BATCH and writes a cache file every
 # FLUSH rows. A build cut short then keeps most of its parsed records.
 BATCH = 500
@@ -87,13 +97,15 @@ def write_cache(folder, rows):
 
 @model(
     "ads.record_attributes",
-    kind="FULL",
-    columns={
-        "record_sha256": "VARCHAR",
-        "id": "VARCHAR",
-        "parsed": "BOOLEAN",
-        **{key: "VARCHAR" for key in KEYS},
+    kind={
+        "name": ModelKindName.CUSTOM,
+        "materialization": "merge",
+        "materialization_properties": {
+            "changes": "ads.changes",
+            "add": "record_sha256",
+        },
     },
+    columns=COLUMNS,
     grain="record_sha256",
     # SQLMesh turns an audit's string arguments into SQL strings, so the columns go in as
     # expressions.
@@ -105,6 +117,12 @@ def write_cache(folder, rows):
 )
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     ads = context.resolve_table("raw.ads")
+    answers = context.resolve_table("ads.answers")
+    changes = context.resolve_table("ads.changes")
+    # The records of the answers this build reads anew.
+    records = f"""SELECT a.record_sha256, a.response_id FROM {answers} a
+        SEMI JOIN {changes} c USING (listing_id, response_id)
+        WHERE a.outcome = 'record'"""
     code = context.var("attributes_code")
     attributes = importlib.import_module("steps.attributes")
     if tuple(attributes.KEYS) != KEYS:
@@ -134,8 +152,8 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     missing = f"""
         WITH picks AS (
             SELECT record_sha256, min(response_id) AS response_id
-            FROM {ads} WHERE outcome = 'record'
-            {f"AND record_sha256 NOT IN (SELECT record_sha256 FROM {cached})" if cached else ""}
+            FROM ({records})
+            {f"WHERE record_sha256 NOT IN (SELECT record_sha256 FROM {cached})" if cached else ""}
             GROUP BY record_sha256
         )
         SELECT a.record_sha256, a.record
@@ -167,11 +185,16 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             rows.extend(future.result())
     if rows:
         write_cache(folder, rows)
-    if not any(folder.glob("*.parquet")):
-        return
-    out = cursor.execute(
-        f"""SELECT DISTINCT ON (c.record_sha256) c.* FROM read_parquet('{folder}/*.parquet') c
-        WHERE c.record_sha256 IN (SELECT record_sha256 FROM {ads} WHERE outcome = 'record')"""
-    ).to_arrow_reader(FLUSH)
-    for batch in out:
-        yield batch.to_pandas()
+    # The model yields a query, which the materialization runs. SQLMesh passes a query with
+    # no rows to the materialization as well, and in a top-up build it copies the previous rows.
+    if any(folder.glob("*.parquet")):
+        yield exp.maybe_parse(
+            f"""SELECT DISTINCT ON (c.record_sha256) c.*
+            FROM read_parquet('{folder}/*.parquet') c
+            WHERE c.record_sha256 IN (SELECT record_sha256 FROM ({records}))""",
+            dialect="duckdb",
+        )
+    else:
+        yield exp.select(
+            *(exp.cast(exp.null(), kind).as_(name) for name, kind in COLUMNS.items())
+        ).where(exp.false())
