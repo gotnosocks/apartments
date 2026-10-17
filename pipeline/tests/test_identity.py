@@ -24,18 +24,22 @@ context, append_answers, answers = (
     helpers.answers,
 )
 
-# Points in the fixture's footprints: in 135 and 133 West 89th Street, lots 12 and 13 of
-# Manhattan block 1220, and in 61 Adelphi Street, lot 38 of Brooklyn block 2045. NEAR_12 lies
-# in the street a few metres from the front of 135 West 89th Street, and AWAY a block from any
-# footprint of the fixture.
+# Points in the fixture's footprints: in 135, 133 and 137 West 89th Street and 601 Amsterdam
+# Avenue, lots 12, 13, 10 and 1 of Manhattan block 1220, and in 61 Adelphi Street, lot 38 of
+# Brooklyn block 2045. NEAR_12 lies in the street a few metres from the front of 135 West 89th
+# Street, and AWAY a block from any footprint of the fixture.
 IN_12 = (40.789342, -73.972422)
 IN_13 = (40.789310, -73.972341)
+IN_10 = (40.78939, -73.97248)
+IN_1 = (40.78981, -73.972987)
 IN_ADELPHI = (40.695784, -73.972057)
 NEAR_12 = (40.789218, -73.972512)
 AWAY = (40.7880, -73.9740)
-# MapPLUTO 26v2's facts of lots 12 and 13, which agree, and of lot 10, 137 West 89th Street.
+# MapPLUTO 26v2's facts of lots 12 and 13, which agree, of lot 10, which has no apartments,
+# and of lot 1.
 FACTS_12 = ("C6", 1910, 5, 15)
 FACTS_10 = ("G1", 1910, 5, 0)
+FACTS_1 = ("D6", 1997, 18, 265)
 
 
 def record(building_id, street, point=None, facts=(None, None, None, None), **address):
@@ -64,8 +68,12 @@ def test_identity_cases(tmp_path, monkeypatch):
       `135 Ballet Hispanico Way`, with the map point in its footprint. The address and the point
       give lot 12.
     - 900103 and 900104 give 137 West 89th Street, lot 10, with the map point in lot 12's
-      footprint. The facts of lot 12 decide for the footprint, and those of lot 10 for the
-      address.
+      footprint. Lot 10 has no apartments and lot 12 has some, so the footprint's lot stands
+      whatever the facts. 900116 gives 135 West 89th Street with the map point in lot 10's
+      footprint and the facts of lot 10, and the address's lot stands.
+    - 900117 and 900118 give 135 West 89th Street with the map point in lot 1's footprint. Both
+      lots have apartments. The facts of lot 1 decide for the footprint, and those of lot 12
+      for the address.
     - 900105 gives 135 West 89th Street with the map point in lot 13's footprint. Lots 12 and 13
       have the same facts, so the address's lot stands.
     - 900106 has its map point far from any footprint, and 900107 has it in the street 4 m from
@@ -102,6 +110,9 @@ def test_identity_cases(tmp_path, monkeypatch):
         record(
             "900115", "258A 15th Street", zip="11215", city="Brooklyn", district=None
         ),
+        record("900116", "135 West 89th Street", IN_10, FACTS_10),
+        record("900117", "135 West 89th Street", IN_1, FACTS_1),
+        record("900118", "135 West 89th Street", IN_1, FACTS_12),
     ]
     append_answers(
         export, answers("building_id", buildings, 40, "2026-09-01T12:00Z"), "buildings"
@@ -119,8 +130,8 @@ def test_identity_cases(tmp_path, monkeypatch):
     assert rows == [
         ("900101", "both", "1012200012", "1032436", 0, True),
         ("900102", "both", "1012200012", "1032436", 0, True),
-        ("900103", "footprint", "1012200012", "1032436", 0, True),
-        ("900104", "address", "1012200010", "1032435", 0, True),
+        ("900103", "footprint_apartments", "1012200012", "1032436", 0, True),
+        ("900104", "footprint_apartments", "1012200012", "1032436", 0, True),
         ("900105", "tie", "1012200012", "1032436", 0, True),
         ("900106", "address_only", "1012200012", "1032436", 0, None),
         ("900107", "both", "1012200012", "1032436", 0, False),
@@ -132,14 +143,20 @@ def test_identity_cases(tmp_path, monkeypatch):
         ("900113", "address_only", "1012380010", "1033555", 12, None),
         ("900114", "address_only", "1012387501", "1033556", 0, None),
         ("900115", "address_only", "3010480026", "3023960", 0, None),
+        ("900116", "address_apartments", "1012200012", "1032436", 0, True),
+        ("900117", "footprint", "1012200001", "1085485", 0, True),
+        ("900118", "address", "1012200012", "1032436", 0, True),
     ]
     fits = ctx.fetchdf(
         """SELECT building_id, address_fit, footprint_fit, round(footprint_metres) AS metres
-        FROM buildings.lots WHERE building_id IN ('900103', '900104', '900107')
+        FROM buildings.lots
+        WHERE building_id IN ('900103', '900104', '900107', '900117', '900118')
         ORDER BY building_id"""
     )
     assert fits.values.tolist() == [
         ["900103", 2, 4, 3],
         ["900104", 4, 2, 3],
         ["900107", 4, 4, 4],
+        ["900117", 0, 4, 3],
+        ["900118", 4, 0, 3],
     ]
