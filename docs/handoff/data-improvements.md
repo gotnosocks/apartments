@@ -2,7 +2,7 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-17 14:30 ET
+## 2026-10-17 13:50 ET
 
 - #1047 adds `pipeline/ledger/2026-10-17-z3-unit-baths-text.ndjson`, 173 bath-count sets. It starts from the
   unanimous candidates of the 13:15 screen that #1036 left out. `/data1/apartments/tmp/suspect/baths/tier.py`
