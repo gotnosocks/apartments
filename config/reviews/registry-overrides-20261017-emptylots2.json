@@ -8,7 +8,7 @@
    "bbl": "1002487501",
    "bin": "1089771",
    "label": "225 CHERRY STREET",
-   "evidence": "StreetEasy's building record gives 252 South Street, class R0, built 2019, 80 floors, 815 apartments; MapPLUTO 26v2 lot 1002487501 is 225 CHERRY STREET, class RM, built 2015, 72 floors, 1021 apartments; the pipeline's building identity step links it (address_only); the lot is the condominium on the block next to the old parking lot, and its 72 floors and 1,099,034 sq ft match the tower at 252 South Street, and its 1,021 units likely count every condominium unit lot, not only the 815 apartments",
+   "evidence": "StreetEasy's building record gives 252 South Street, class R0, built 2019, 80 floors, 815 apartments; MapPLUTO 26v2 lot 1002487501 is 225 CHERRY STREET, class RM, built 2015, 72 floors, 1021 apartments; the pipeline's building identity step links it (address_only); the lot is the condominium on the block next to the old parking lot, and its 72 floors match the tower at 252 South Street; its 1,021 units and 1,099,034 sq ft exceed the tower alone, so the condominium lot may also cover a second building",
    "registry_was": "reverse, BBL 1002470002: MapPLUTO 26v2 has 275 CHERRY STREET, class G7, built 0, 0 apartments, and no building area"
   },
   {
