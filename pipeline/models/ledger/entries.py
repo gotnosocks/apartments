@@ -75,6 +75,8 @@ A line of the unit ledger holds one JSON object with these keys:
 - `unit`: for a split, the slug of the unit its ads leave.
 - `listings`: for a split, the IDs of its ads. The new unit's ID ends with the first of them,
   so their order matters.
+- `into`: for a split, optionally, an ad of another split of the building. The split's ads then
+  take that split's unit instead of a unit of their own.
 - `to`: for a move, the slug of the building its ads join.
 - `entry`, `evidence`, `decided`, `source` and `note`: as in the corrections ledger. The
   evidence kinds are the same.
@@ -92,6 +94,9 @@ these rules:
 4. A retract gives the ID of an earlier entry of the unit ledger, and no other retract gives it
    too. The retracted entry's pages, ads or building are free for later entries.
 5. No line repeats an earlier line.
+6. A split's `into` gives an ad of an earlier split in force in the same building, a split
+   with no `into` of its own. While the split is in force, the earlier one stays in force too,
+   so a retract of the earlier one comes after a retract of the split.
 
 `config.py` lists each ledger's files with their SHA-256, the corrections ledger's in the
 variable `ledger` and the unit ledger's in `ledger_units`, so a new or changed file gives its
@@ -415,6 +420,7 @@ UNIT_KEYS = {
     "retract": ("change", "entry", "evidence", "decided"),
 }
 UNIT_OPTIONAL = dict.fromkeys(UNIT_CHANGES, ("source", "note"))
+UNIT_OPTIONAL["split_unit"] += ("into",)
 # A city record backs a move of a building, as the lot registry backs 97 Horatio Street's.
 UNIT_BACKING = (*BACKING, "city_record")
 # The page of a unit, from its building's slug and its own, as ads.identity builds it.
@@ -428,6 +434,8 @@ UNIT_COLUMNS = {
     "building": "VARCHAR",
     "pages": "VARCHAR[]",
     "listings": "VARCHAR[]",
+    "into_ad": "VARCHAR",
+    "into_entry": "VARCHAR",
     "to_building": "VARCHAR",
     "retracts": "VARCHAR",
     "kinds": "VARCHAR[]",
@@ -475,6 +483,10 @@ def parse_unit(text: str) -> dict:
         if len(set(ads)) < len(ads):
             raise LedgerError("a split_unit gives each ad once")
         row["listings"] = ads
+        if "into" in line:
+            if not is_ad_id(line["into"]) or line["into"] in ads:
+                raise LedgerError("a split_unit's into gives an ad of another split")
+            row["into_ad"] = line["into"]
     else:
         row["to_building"] = slug(line["to"], "to")
         if row["to_building"] == building:
@@ -511,6 +523,8 @@ def read_units(paths) -> list[dict]:
     rows, seen = [], {}
     # The claims of the entries not retracted, and the buildings they move to.
     taken, targets = {}, {}
+    # The entry at each place, for the split an `into` points at.
+    at = {}
     for path, number_, text in lines(paths):
         where = f"{path.name}:{number_}"
         try:
@@ -524,10 +538,17 @@ def read_units(paths) -> list[dict]:
         if row["change"] == "retract":
             target = retracted(seen, row, where, "unit entry")
             row["building"] = target["building"]
+            if target["into_me"]:
+                raise LedgerError(
+                    f"{where}: the split at {target['into_me'][0]} points into "
+                    f"{target['where']}, so it stays in force"
+                )
             for claim in target["claims"]:
                 del taken[claim]
             if target["to"]:
                 targets[target["to"]].remove(target["where"])
+            if target["into"]:
+                seen[target["into"]]["into_me"].remove(target["where"])
             mine, to = [], None
         else:
             mine, to = claims(row), row["to_building"]
@@ -547,6 +568,15 @@ def read_units(paths) -> list[dict]:
                         f"{where}: {to} moves at {taken['moved', to]}, so nothing moves to it"
                     )
                 targets.setdefault(to, []).append(where)
+            if row["into_ad"]:
+                into = seen.get(at.get(taken.get(("ad", row["into_ad"]))))
+                if into is None or into["building"] != row["building"] or into["into"]:
+                    raise LedgerError(
+                        f"{where}: ad {row['into_ad']} is in no earlier split of "
+                        f"{row['building']} in force without an into"
+                    )
+                into["into_me"].append(where)
+                row["into_entry"] = at[into["where"]]
             taken |= dict.fromkeys(mine, where)
         seen[entry] = {
             "where": where,
@@ -554,8 +584,11 @@ def read_units(paths) -> list[dict]:
             "building": row["building"],
             "claims": mine,
             "to": to,
+            "into": row["into_entry"],
+            "into_me": [],
             "retracted": None,
         }
+        at[where] = entry
         rows.append(row)
     return rows
 
