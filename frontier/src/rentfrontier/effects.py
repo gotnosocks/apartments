@@ -30,7 +30,7 @@ import time
 
 import numpy as np
 
-from . import data, design, explain, features
+from . import data, explain, features
 from .run import git, hardware
 
 EFFECTS_ROOT = data.OUTPUT_ROOT / "effects"
@@ -81,10 +81,11 @@ def effects_run(name: str) -> dict:
     frame = data.load()
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
-    feature_set = result["feature_set"]
-    frame, heldout, feats, _ = design.prepared(
-        frame, result["split"], data.recorded_rules(result), feature_set
+    frame, heldout = data.split_and_rules(
+        frame, result["split"], data.recorded_rules(result)
     )
+    feature_set = result["feature_set"]
+    feats = features.build(feature_set, frame, ~heldout)
     base = base_of(feature_set)
     base_names = set(features.build(base, frame, ~heldout).names) if base else set()
     names = [str(n) for n in feats.names]
