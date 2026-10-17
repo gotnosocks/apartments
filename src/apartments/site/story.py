@@ -359,8 +359,7 @@ def pick_listing(db):
     available now when any are. Returns (listing, available now)."""
     for current in (True, False):
         where = (
-            " FROM listings WHERE in_fit = 1 AND reliable = 1 "
-            "AND contributions IS NOT NULL AND ask IS NOT NULL"
+            " FROM listings WHERE in_fit = 1 AND reliable = 1 AND ask IS NOT NULL"
             + (" AND is_current = 1" if current else "")
         )
         (count,) = db.execute("SELECT COUNT(*)" + where).fetchone()
@@ -701,14 +700,13 @@ def coverage_svg(groups: list[dict]) -> Markup:
     )
 
 
-def build_up(listing, labels: dict, small: float = 40.0, current=False) -> dict | None:
-    """The listing's estimate as steps: the market first, then each term in
-    the estimate's order, with terms smaller than `small` dollars gathered
-    into one step, so the bars end at the estimate."""
-    if listing is None:
-        return None
-    contributions = json.loads(listing["contributions"] or "[]")
-    if not contributions:
+def build_up(
+    listing, contributions, labels: dict, small: float = 40.0, current=False
+) -> dict | None:
+    """The listing's estimate as steps: the market first, then each of its
+    `contributions` in the estimate's order, with terms smaller than `small`
+    dollars gathered into one step, so the bars end at the estimate."""
+    if listing is None or not contributions:
         return None
     steps, minor = [], []
     for c in contributions:

@@ -44,7 +44,16 @@ from pathlib import Path
 
 import duckdb
 
-from . import ad_dates, boroughs, captures, estimate_build, exposure, story, wings
+from . import (
+    ad_dates,
+    boroughs,
+    captures,
+    detail,
+    estimate_build,
+    exposure,
+    story,
+    wings,
+)
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
@@ -106,7 +115,7 @@ CREATE TABLE listings(
   pareto_k REAL, reliable INTEGER NOT NULL,
   fitted REAL, fitted_lower REAL, fitted_upper REAL,
   pred_lower_95 REAL, pred_upper_95 REAL, pred_lower_80 REAL, pred_upper_80 REAL,
-  contributions TEXT NOT NULL, inputs TEXT NOT NULL);
+  contributions TEXT, inputs TEXT NOT NULL);
 -- Every sort key has an index ending in id, in the same direction as the key,
 -- so ORDER BY <key> <dir>, id <dir> scans it either way (no temp sort).
 CREATE TABLE quarantined(
@@ -450,7 +459,8 @@ def listing_rows(
 ) -> list[dict]:
     """Site rows of the listings. Each carries its neighbourhood: the summary's
     (combined cohorts), else the dataset's, else the build's scope. Each ask
-    matches the dataset's, or the latest ask in `asks` (`latest_asks`)."""
+    matches the dataset's, or the latest ask in `asks` (`latest_asks`). With
+    `names` None the rows carry no dollar parts (detail.py)."""
     asks = asks or {}
     out = []
     for r in rows:
@@ -460,21 +470,12 @@ def listing_rows(
         expected = asks.get(r["audit_id"], float(obs["asking_rent"]))
         if abs(expected - r["asking_rent"]) > 1e-6:
             raise BuildError(f"{r['audit_id']}: ask differs from the dataset")
-        # The estimate is the predictive median, never the mean: with
-        # Student-t apartment effects of low ν the mean of a new apartment's
-        # rent barely exists. The parts add up to the mean, so they are
-        # scaled to add up to the median.
         median = r["estimate_median"]
-        scale = median / r["estimate"] if r["estimate"] else 1.0
-        contributions = [
-            {
-                "term": name,
-                "usd": round(scale * r[f"{name}_usd"], 2),
-                "lower": round(scale * r[f"{name}_usd_lower_95"], 2),
-                "upper": round(scale * r[f"{name}_usd_upper_95"], 2),
-            }
-            for name in names
-        ]
+        contributions = (
+            json.dumps(detail.parts(r, names), separators=(",", ":"))
+            if names is not None
+            else None
+        )
         k = r["pareto_k"]
         k = None if k is None or math.isnan(k) else float(k)
         listing_id = str(obs["source_listing_id"])
@@ -541,7 +542,7 @@ def listing_rows(
                     for level in (95, 80)
                     for side in ("lower", "upper")
                 },
-                "contributions": json.dumps(contributions, separators=(",", ":")),
+                "contributions": contributions,
                 "inputs": r["inputs"],
             }
         )
@@ -855,7 +856,13 @@ def write_database(
     kits: Path | None = None,
     pipeline: Path | None = None,
     exposure_file: Path | None = None,
+    on_request: bool | None = None,
 ) -> dict:
+    """Write the site database at `path`. With `on_request` (by default
+    SITE_DETAIL_ON_REQUEST=1) the fitted listings' dollar parts go to
+    detail.parquet beside it instead of the `listings` table."""
+    if on_request is None:
+        on_request = os.environ.get("SITE_DETAIL_ON_REQUEST") == "1"
     observations = Observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
     )
@@ -871,6 +878,7 @@ def write_database(
             kits,
             pipeline,
             exposure_file,
+            path.parent / detail.FILE if on_request else None,
         )
     finally:
         db.close()
@@ -878,7 +886,16 @@ def write_database(
 
 
 def _write(
-    db, observations, record, bundle, scope, selection, kits, pipeline, exposure_file
+    db,
+    observations,
+    record,
+    bundle,
+    scope,
+    selection,
+    kits,
+    pipeline,
+    exposure_file,
+    detail_file,
 ) -> dict:
     terms = json.loads((bundle / "terms.json").read_text())
     names = [t["name"] for t in terms]
@@ -913,7 +930,12 @@ def _write(
     neighbourhoods: set[str] = set()
     for rows in bundle_chunks(bundle):
         listings = listing_rows(
-            rows, observations, names, k_threshold, scope or "Chelsea", asks
+            rows,
+            observations,
+            None if detail_file else names,
+            k_threshold,
+            scope or "Chelsea",
+            asks,
         )
         del rows
         for r in listings:
@@ -952,6 +974,8 @@ def _write(
         "calibration_by_year": calibration_by_year(fitted),
     }
     del fitted
+    if detail_file:
+        stats["detail"] = detail.write(bundle, names, detail_file)
 
     kit_dir = estimate_build.find_kit(
         record["run"], record["_sha256"], kits or estimate_build.KITS

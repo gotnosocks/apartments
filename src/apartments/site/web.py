@@ -47,6 +47,7 @@ from . import (
     best,
     boroughs,
     charts,
+    detail,
     estimate,
     estimate_build,
     exposure,
@@ -690,6 +691,18 @@ def create_app(
             g.build = path.parent.name
         return g.db
 
+    def parts_of(row) -> list[dict]:
+        """The listing's dollar parts: from its row, or from the build's
+        detail file when the build left them out of the table (detail.py)."""
+        if row["contributions"] is not None:
+            return json.loads(row["contributions"])
+        found = detail.lookup(
+            database_path().parent, meta()["summary_sha256"], row["audit_id"]
+        )
+        if found is None:
+            raise LookupError(f"{row['audit_id']} has no parts in the build")
+        return found
+
     def meta() -> dict:
         if "meta" not in g:
             g.meta = {
@@ -1053,7 +1066,7 @@ def create_app(
                 has_building=building_exists(held["building_id"]),
             )
         terms = {r["name"]: r for r in terms_list()}
-        contributions = json.loads(row["contributions"])
+        contributions = parts_of(row)
         market = next(c for c in contributions if c["term"] == "market")
         # Parts at their reference level contribute exactly nothing in every
         # draw; they are named in a note instead of drawn as empty rows.
@@ -2495,7 +2508,12 @@ def create_app(
             c["feature"]: c for c in coefficients if "concession" in c["feature"]
         }
         listing, current = story.pick_listing(db())
-        build = story.build_up(listing, labels, current=current)
+        build = story.build_up(
+            listing,
+            parts_of(listing) if listing is not None else None,
+            labels,
+            current=current,
+        )
         accuracy, jumps, units, borders = story_checks()
         counts = (
             db()

@@ -128,21 +128,15 @@ def test_build_up_ends_at_the_estimate(client):
 
 
 def test_build_up_steps_sum_to_the_estimate():
-    listing = {
-        "contributions": json.dumps(
-            [
-                {"term": "market", "usd": 3000.0, "lower": 2900, "upper": 3100},
-                {"term": "bedrooms", "usd": 500.0, "lower": 450, "upper": 550},
-                {"term": "views", "usd": 12.0, "lower": -5, "upper": 30},
-                {"term": "pets", "usd": -8.0, "lower": -20, "upper": 4},
-                {"term": "building", "usd": -200.0, "lower": -400, "upper": 0},
-            ]
-        ),
-        "ask": 3400.0,
-        "pred_lower_95": 2800.0,
-        "pred_upper_95": 3900.0,
-    }
-    b = story.build_up(listing, {"bedrooms": "Bedrooms"})
+    contributions = [
+        {"term": "market", "usd": 3000.0, "lower": 2900, "upper": 3100},
+        {"term": "bedrooms", "usd": 500.0, "lower": 450, "upper": 550},
+        {"term": "views", "usd": 12.0, "lower": -5, "upper": 30},
+        {"term": "pets", "usd": -8.0, "lower": -20, "upper": 4},
+        {"term": "building", "usd": -200.0, "lower": -400, "upper": 0},
+    ]
+    listing = {"ask": 3400.0, "pred_lower_95": 2800.0, "pred_upper_95": 3900.0}
+    b = story.build_up(listing, contributions, {"bedrooms": "Bedrooms"})
     assert [s["term"] for s in b["steps"]] == [
         "market",
         "bedrooms",

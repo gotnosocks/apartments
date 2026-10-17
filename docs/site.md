@@ -213,6 +213,18 @@ listings fall in each band, as calibration predicts.
    story's held-out accuracy, rent jumps, unit examples and border medians into meta
    (`story_checks`), so the server reads them instead of scanning every listing. The fit of
    297,273 listings takes 4:36 with a peak of 3.8 GB (7.5 GB before streaming).
+
+   With `SITE_DETAIL_ON_REQUEST=1` the build leaves the fitted listings' dollar parts out of the
+   `listings` table (`contributions` stays null) and copies them from `rows.parquet` into
+   `detail.parquet` beside `site.sqlite` (`apartments.site.detail`). The copy is sorted by
+   `audit_id` in row groups of 8,192, with each row's parts in a single list column, and
+   `meta.stats.detail` records its rows and bytes. The listing page and /research/story then read
+   a listing's parts from it through one DuckDB connection per process (one thread, 128 MB),
+   cached by the bundle's sha and the audit id. Ads priced from the kit keep their parts in the
+   table. On the eight-neighbourhood build the file holds 135 MB in place of 547 MB of JSON, and
+   the parts it gives back for Ben's opened listings and 2,000 random ones match the stored ones
+   to the cent; on the all-scraped bundle (1.75M rows) the copy takes 20 s and 778 MB, and a
+   lookup 15 to 35 ms. The flag stays off in the publish until Website turns it on.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
