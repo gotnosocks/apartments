@@ -1972,6 +1972,11 @@ and lists the file's name and SHA-256 in its provenance under `records`.
 records of the cohort's listings, so one run covers every region, where the granular export
 took a run for each slice. Its provenance names the file under `records`.
 
+`listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
+and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
+that file decides which listings the reader keeps. With `--base`, the base file's listings keep
+their rows, as they do beside a granular crawl.
+
 ## Datasets for the frontier fits
 
 The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
@@ -2643,6 +2648,14 @@ The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a 
     listings outside the cohort;
 62. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
     either and stops on both.
+
+The frontier's `frontier/tests/test_listing_extras.py` checks `listing_extras` on a records file:
+
+63. build the extras of a page crawl and a records file with two records of a listing, and check
+    that each listing takes its capture with the latest time, which for a record is its last
+    fetch;
+64. run `listing_extras.main` with `--crawl records`, and check that its provenance gives the
+    file's path and SHA-256, and those of the ads file on the same catalog line.
 
 ## Full build
 
