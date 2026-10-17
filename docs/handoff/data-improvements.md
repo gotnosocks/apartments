@@ -10,7 +10,7 @@ Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thr
   Sonnet read them: 495 wrong, 11 unclear, 4 a different unit, 2 right. `t6/ledger.py` checks that both quotes
   parse to the set count, and drops ask outliers, a renovation with a rent jump, and half-bath removals where the
   full count stays (ads often skip a powder room). Review dropped 4 more. Bath sets now total 1,593.
-- About a third of these pairs carry near-identical text, so the second ad's text often repeats the first rather
+- The #1061 review found 150 of 417 pairs with near-identical text (similarity above 0.9), so the second ad's text often repeats the first rather
   than confirming it. The other ad's code still backs each set.
 - Next: try the same single-ad tier for bedrooms, with stated sizes required, since flex wording dominated the
   #1056 reads.
