@@ -39,6 +39,9 @@ import subprocess
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
 from . import api_records, data
 
@@ -102,8 +105,23 @@ def _commit() -> str:
         return "unknown"
 
 
-def load(source: Path = SOURCE) -> pd.DataFrame:
-    digest = data.sha256(source)
+_DIGESTS: dict[tuple[str, int, int], str] = {}
+
+
+def _digest(source: Path) -> str:
+    """The evidence file's SHA-256, worked out once per path, size and
+    modification time, since a feature set calls `attach` many times."""
+    stat = os.stat(source)
+    key = (str(source), stat.st_size, stat.st_mtime_ns)
+    if key not in _DIGESTS:
+        _DIGESTS[key] = data.sha256(source)
+    return _DIGESTS[key]
+
+
+def _cache(source: Path) -> tuple[Path, str]:
+    """The extracted table's parquet for `source` and the source's SHA-256,
+    after writing the parquet when it is missing."""
+    digest = _digest(source)
     out_dir = data.OUTPUT_ROOT / "features"
     cache = out_dir / f"descriptions-{digest[:16]}.parquet"
     if not cache.exists():
@@ -143,6 +161,11 @@ def load(source: Path = SOURCE) -> pd.DataFrame:
                 indent=2,
             )
         )
+    return cache, digest
+
+
+def load(source: Path = SOURCE) -> pd.DataFrame:
+    cache, digest = _cache(source)
     table = pd.read_parquet(cache)
     table.attrs["source_sha256"] = digest
     return table
@@ -151,9 +174,29 @@ def load(source: Path = SOURCE) -> pd.DataFrame:
 def attach(frame: pd.DataFrame) -> pd.Series:
     """Lower-cased description per frame row ('' when unavailable), from the
     evidence files in `SOURCES`."""
-    table = pd.concat([load(path) for path in SOURCES.get()], ignore_index=True)
-    if table.audit_id.duplicated().any():
+    caches = [_cache(path)[0] for path in SOURCES.get()]
+    ids = pa.chunked_array(
+        [pq.read_table(c, columns=["audit_id"]).column(0) for c in caches]
+    )
+    if pc.count_distinct(ids, mode="all").as_py() != len(ids):
         raise ValueError("Description sources overlap")
+    # Only the frame's rows come out of each source, so memory follows the
+    # frame's size.
+    wanted = pa.array(frame.audit_id.dropna().unique(), type=ids.type)
+    parts = []
+    for c in caches:
+        part = pd.read_parquet(
+            c,
+            columns=["audit_id", "desc_listing_id", "description"],
+            filters=pc.field("audit_id").isin(wanted),
+        )
+        # Each source is lower-cased as it is read, so only that source's text
+        # is ever held twice. On the 1.75M all-scraped rows the text comes to
+        # 1.29 billion characters and about 2.9 GB once it is in Python strings.
+        part["description"] = part.description.str.lower()
+        parts.append(part)
+    table = pd.concat(parts, ignore_index=True)
+    del parts
     merged = frame[["audit_id", "source_listing_id"]].merge(
         table, on="audit_id", how="left"
     )
@@ -164,7 +207,7 @@ def attach(frame: pd.DataFrame) -> pd.Series:
         raise ValueError(
             f"{int(mismatch.sum())} descriptions belong to a different listing id"
         )
-    return merged.description.fillna("").str.lower().set_axis(frame.index)
+    return merged.description.fillna("").set_axis(frame.index)
 
 
 def granular_descriptions(granular: Path) -> pd.Series:

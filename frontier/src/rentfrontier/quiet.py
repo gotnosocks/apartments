@@ -200,7 +200,7 @@ def label(stated: bool, on_busy, narrow: bool, mid_block: bool) -> str:
 
 
 def compute(frame: pd.DataFrame) -> pd.DataFrame:
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     rows = pd.DataFrame(
         {
             "unit_id": frame.unit_id.to_numpy(),

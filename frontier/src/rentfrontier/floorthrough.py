@@ -81,7 +81,7 @@ def label(stated: bool, whole: bool, both: bool) -> str:
 
 
 def compute(frame: pd.DataFrame) -> pd.DataFrame:
-    text = descriptions.attach(frame).fillna("").str.lower()
+    text = descriptions.attach(frame)
     phrase = text.str.extract(f"({THROUGH_TEXT})")[0]
     lots = features.building_lots(frame)
     rows = pd.DataFrame(
