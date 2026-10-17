@@ -517,6 +517,96 @@ def test_predictive_quantiles_with_few_heavy_draws():
         np.testing.assert_allclose(cdf, p, atol=1e-6)
 
 
+def fixed_step_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
+    """predictive_quantiles as it ran up to 2026-10-17: ten Newton steps on every
+    row, then 50 bisection steps on rows still off by more than 1e-7."""
+    from scipy.special import gammaln, stdtr, stdtrit
+
+    sigma = np.broadcast_to(sigma, total.shape)
+    nu_ = nu[:, None]
+    const = np.exp(gammaln((nu + 1) / 2) - gammaln(nu / 2)) / np.sqrt(nu * np.pi)
+    wpdf = weights * const[:, None] / sigma
+    out = np.empty((len(probabilities), total.shape[1]))
+    for q, p in enumerate(probabilities):
+        own = total + sigma * stdtrit(nu, p)[:, None]
+        lo, hi = own.min(0), own.max(0)
+        x = (own * weights).sum(0)
+        for _ in range(iterations):
+            z = (x[None] - total) / sigma
+            f = (stdtr(nu_, z) * weights).sum(0) - p
+            d = (wpdf * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
+            lo, hi = np.where(f < 0, x, lo), np.where(f < 0, hi, x)
+            step = x - f / np.maximum(d, 1e-300)
+            inside = (step >= lo) & (step <= hi)
+            x = np.where(inside, step, 0.5 * (lo + hi))
+        z = (x[None] - total) / sigma
+        f = (stdtr(nu_, z) * weights).sum(0) - p
+        slow = np.flatnonzero(np.abs(f) > 1e-7)
+        if len(slow):
+            t, s_, w = total[:, slow], sigma[:, slow], weights[:, slow]
+            a = np.where(f[slow] < 0, x[slow], lo[slow])
+            b = np.where(f[slow] < 0, hi[slow], x[slow])
+            for _ in range(50):
+                m = 0.5 * (a + b)
+                below = (stdtr(nu_, (m[None] - t) / s_) * w).sum(0) < p
+                a, b = np.where(below, m, a), np.where(below, b, m)
+            x[slow] = 0.5 * (a + b)
+        out[q] = x
+    return out
+
+
+def bisected_rows(monkeypatch) -> list[int]:
+    """Count the rows each call of summary._bisect finishes."""
+    counts, bisect = [], summary._bisect
+
+    def spy(total, *rest):
+        counts.append(total.shape[1])
+        return bisect(total, *rest)
+
+    monkeypatch.setattr(summary, "_bisect", spy)
+    return counts
+
+
+def test_rows_that_stop_early_match_the_fixed_step_quantiles(monkeypatch):
+    """Heavy-tailed draws far apart, as in the previous test but heavier: some
+    rows need the bisection finish, and every row matches the fixed-step
+    output well inside display precision."""
+    rng = np.random.default_rng(3)
+    draws, rows = 400, 300
+    total = rng.normal(7.7, 0.1, (draws, rows))
+    sigma = rng.uniform(0.005, 0.4, (draws, rows))
+    nu = rng.uniform(1.05, 4.0, draws)
+    log_w = rng.normal(0.0, 1.0, (draws, rows))
+    log_w[:2] += 14.0
+    total[:2] += np.array([[-0.8], [0.8]])
+    weights = np.exp(log_w - log_w.max(0))
+    weights /= weights.sum(0)
+    probabilities = [0.025, 0.1, 0.9, 0.975]
+    counts = bisected_rows(monkeypatch)
+    q = summary.predictive_quantiles(total, sigma, nu, weights, probabilities)
+    assert sum(counts) > 0
+    expected = fixed_step_quantiles(total, sigma, nu, weights, probabilities)
+    np.testing.assert_allclose(q, expected, rtol=0, atol=1e-9)
+
+
+def test_a_row_newton_cannot_settle_gets_the_bisection_finish(monkeypatch):
+    """With no Newton steps every row's CDF stays off at the starting point,
+    and the bisection finish still brings each one to its quantile."""
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(4)
+    draws, rows = 200, 20
+    total = rng.normal(8.0, 0.2, (draws, rows))
+    sigma = rng.uniform(0.02, 0.2, (draws, rows))
+    nu = rng.uniform(2.0, 10.0, draws)
+    weights = np.full((draws, rows), 1.0 / draws)
+    counts = bisected_rows(monkeypatch)
+    q = summary.predictive_quantiles(total, sigma, nu, weights, [0.1], iterations=0)
+    assert counts == [rows]
+    cdf = (stdtr(nu[:, None], (q[0][None] - total) / sigma) * weights).sum(0)
+    np.testing.assert_allclose(cdf, 0.1, atol=1e-9)
+
+
 def test_predictive_bounds_agree_with_pit():
     """row_table's predictive bounds invert the distribution pit evaluates: an
     ask below the 80% range's lower bound has pit < 0.10, above its upper bound
