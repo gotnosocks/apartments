@@ -771,6 +771,9 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v8": "bedrooms-ad-v7, and 333 W 56th St #3E as a studio: its floor "
     "plan and photos show a divider wall, not a bedroom, and its size matches the "
     "building's studios. No listing is dropped.",
+    "bedrooms-ad-v9": "bedrooms-ad-v8, and Trump World Tower 53B and 63B as 3 "
+    "bedrooms: their 2026 ads say 3 bedrooms and the apartments' other ads agree at "
+    "2,854 square feet. No listing is dropped.",
     "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
     "more than 1.5x off the size the apartment's other listings, or the other "
     "apartments of its line, agree on. No listing is dropped.",
