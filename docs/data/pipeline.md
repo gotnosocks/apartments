@@ -536,7 +536,7 @@ disk.
 | `ads.events` | view | event the API reported for an ad, with the answers that reported it: the rows of `ads.answer_events` and `ads.history_reports` |
 | `ads.latest_record` | merge | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price and floor plan keys |
 | `ads.price_changes` | merge | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
-| `ads.kept_changes` | merge | price change left after the placeholder check |
+| `ads.kept_changes` | merge | price change left after the stale changes drop out and the placeholder check |
 | `ads.first_ask` | merge | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
 | `ads.market` | merge | ad with a record: its days on the market, its spans on the market and its ending |
 | `ads.breaks` | merge | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
@@ -1326,6 +1326,14 @@ price and was also the ad's first ask. latest-ask-v6 and earlier keep the typos,
 latest-ask-v7 gives those 12 rows the page price. The medians cover every region in
 `analysis.kept`, while the chain takes them over the rows of the datasets it reads. On the full
 export the two give the same steps, as the full build below shows.
+
+From latest-ask-v9, `ads.kept_changes` first drops each stale change, as the chain does. A
+change counts as stale when its ad is no longer active and the change falls more than 7 days
+after the off-market day, unless the ad's latest record goes ACTIVE again after that day. Brokers
+reuse an old ad's record for a later ad of the same apartment, so a stale change carries the
+later ad's ask. In the chain's run of Oct 17, the rule changed the asks of 9,601 of 1,751,152
+rows, 6,844 of them in the four API regions. In the fixture, it drops 5 of 385 changes, on two
+ads, and moves one row's ask from $2,375 to $2,250.
 
 The median reads list positions with `list_extract`. SQLMesh renders each model through
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,

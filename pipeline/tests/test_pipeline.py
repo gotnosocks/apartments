@@ -107,9 +107,10 @@ def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
         "page price",
         "page price, digit",
     }
-    # Four of 1,176 changes fail the placeholder check.
+    # Of the fixture's 385 changes, five on ads 1608181 and 2072936 are stale, and four fail the
+    # placeholder check.
     kept = ctx.fetchdf("SELECT count(*) AS n FROM ads.kept_changes").n[0]
-    assert kept == len(ctx.fetchdf("SELECT * FROM ads.price_changes")) - 4
+    assert kept == len(ctx.fetchdf("SELECT * FROM ads.price_changes")) - 9
 
 
 def test_latest_ask_cases(tmp_path, monkeypatch):
@@ -136,7 +137,11 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
       The placeholder check drops the correction, and the page price of $3,000 lies nearer the
       one-bedrooms.
     - ad 9000134 drops to a placeholder of $300 on its last day on the market. The page price of
-      $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms."""
+      $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms.
+    - ad 9000135 goes off the market on July 1 and rises to $3,300 on July 20, more than a week
+      later. The rise is stale and drops out, though it would pass the placeholder check. Ad
+      9000136 rises the same way, but its record goes ACTIVE again on July 18, so the rise
+      counts."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -210,6 +215,25 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
             status="OFF_MARKET",
             offMarketAt=july,
         ),
+        ad(
+            9000135,
+            [(may, 3000), ("2026-07-20", 3300)],
+            3300,
+            status="OFF_MARKET",
+            offMarketAt=july,
+        ),
+        ad(
+            9000136,
+            [(may, 3000), ("2026-07-20", 3300)],
+            3300,
+            status="OFF_MARKET",
+            offMarketAt=july,
+            statusChanges=[
+                {"changedAt": f"{may}T10:00:00.000-04:00", "status": "ACTIVE"},
+                {"changedAt": f"{july}T10:00:00.000-04:00", "status": "OFF_MARKET"},
+                {"changedAt": "2026-07-18T10:00:00.000-04:00", "status": "ACTIVE"},
+            ],
+        ),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
@@ -255,6 +279,8 @@ def test_latest_ask_cases(tmp_path, monkeypatch):
         "9000132": 3000,
         "9000133": 3000,
         "9000134": 3000,
+        "9000135": 3000,
+        "9000136": 3300,
     }
     assert set(got.how) == {
         "latest",
