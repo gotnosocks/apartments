@@ -477,6 +477,12 @@ def main(argv=None):
         help="Gibbs: comma-separated scales given 1-D collapsed updates ('none' for no solo updates)",
     )
     parser.add_argument(
+        "--group-noise-steps",
+        action="store_true",
+        help="Gibbs: give each noise group's log scale its own adapted step, "
+        "and adapt nu's step on its own acceptance",
+    )
+    parser.add_argument(
         "--dense-globals",
         action="store_true",
         help="nuts: dense mass matrix over the global sites (NumPyro structured mass)",
@@ -556,6 +562,7 @@ def main(argv=None):
             "chain_batch": args.chain_batch,
             "collect_segments": args.collect_segments,
             "dense_globals": True if args.dense_globals else None,
+            "group_noise_steps": True if args.group_noise_steps else None,
             "coordinates": tuple(args.coordinates.split(","))
             if args.coordinates
             else None,

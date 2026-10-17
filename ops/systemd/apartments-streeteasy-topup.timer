@@ -1,8 +1,8 @@
 [Unit]
-Description=Read current StreetEasy rental ads every Friday at 05:30 New York time
+Description=Read current StreetEasy rental ads every Friday at 05:35 New York time
 
 [Timer]
-OnCalendar=Fri *-*-* 05:30 America/New_York
+OnCalendar=Fri *-*-* 05:35 America/New_York
 Persistent=true
 
 [Install]

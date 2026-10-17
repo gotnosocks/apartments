@@ -24,11 +24,13 @@ from __future__ import annotations
 import datetime as dt
 import glob
 import hashlib
+import itertools
 import json
 import os
 import re
 import sqlite3
 import statistics
+from array import array
 from collections import Counter
 from pathlib import Path
 
@@ -87,6 +89,31 @@ def find_kit(run: str, summary_sha256: str, kits: Path = KITS) -> Path | None:
     return max(found)[1] if found else None
 
 
+KIT_BATCH_ROWS = 2048
+
+
+class Draws:
+    """A building's feature slopes over the kit's draws, a row per draw, held
+    in a flat float array."""
+
+    def __init__(self, rows: list[list[float]]):
+        self._rows = len(rows)
+        self._width = len(rows[0]) if rows else 0
+        self._data = array("d", itertools.chain.from_iterable(rows))
+
+    def __len__(self) -> int:
+        return self._rows
+
+    def __getitem__(self, s: int) -> array:
+        if not -self._rows <= s < self._rows:
+            raise IndexError(s)
+        s %= self._rows
+        return self._data[s * self._width : (s + 1) * self._width]
+
+    def tolist(self) -> list[list[float]]:
+        return [self[s].tolist() for s in range(self._rows)]
+
+
 def load_kit(kit_dir: Path) -> tuple[dict, list[dict]]:
     complete = json.loads((kit_dir / "complete.json").read_text())
     for name, expected in complete["files"].items():
@@ -99,10 +126,20 @@ def load_kit(kit_dir: Path) -> tuple[dict, list[dict]]:
             "SELECT building, level, bedroom_slope, fslope FROM read_parquet(?)",
             [str(kit_dir / "buildings.parquet")],
         )
-        buildings = [
-            {"building": b, "level": lv, "bedroom_slope": bs, "fslope": fs}
-            for b, lv, bs, fs in result.fetchall()
-        ]
+        # Each building's draws go into flat float arrays a batch at a time:
+        # as Python lists the 67,735 buildings of an all-scraped kit took
+        # several GB.
+        buildings = []
+        while batch := result.fetchmany(KIT_BATCH_ROWS):
+            buildings.extend(
+                {
+                    "building": b,
+                    "level": array("d", lv),
+                    "bedroom_slope": array("d", bs),
+                    "fslope": Draws(fs),
+                }
+                for b, lv, bs, fs in batch
+            )
     finally:
         connection.close()
     return record, buildings
@@ -301,15 +338,15 @@ def install(db, kit_dir: Path | None, listings: list[dict], observations: dict) 
     )
     db.executemany(
         "INSERT INTO kit_buildings VALUES (?,?,?,?)",
-        [
+        (
             (
                 b["building"],
-                json.dumps(b["level"]),
-                json.dumps(b["bedroom_slope"]),
-                json.dumps(b["fslope"]),
+                json.dumps(b["level"].tolist()),
+                json.dumps(b["bedroom_slope"].tolist()),
+                json.dumps(b["fslope"].tolist()),
             )
             for b in rows
-        ],
+        ),
     )
     return status | {"available": True}
 

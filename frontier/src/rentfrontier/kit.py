@@ -52,7 +52,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, explain, features, model, splits, summary
+from . import data, design, explain, model, summary
 from .run import git
 
 KITS = data.OUTPUT_ROOT / "kits"
@@ -210,10 +210,9 @@ def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
     summary.check_run(result)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
-    heldout = splits.SPLITS[result["split"]](frame)
-    frame, heldout = data.apply_rules(frame, heldout, data.recorded_rules(result))
-    feats = features.build(result["feature_set"], frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
+    frame, heldout, feats, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
+    )
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     summary.verify_run(
         result, frame, heldout, prep, run_dir, post["units"], post["buildings"]

@@ -203,6 +203,77 @@ def test_row_tables_from_a_pool_match_the_tables_built_in_process():
     assert len(tables[2]) == 5 * n
 
 
+def test_range_sample_rates_take_every_row_of_a_sparse_group():
+    groups = np.r_[np.zeros(9000, int), np.ones(900, int), np.full(100, 2)]
+    rate = summary.range_sample_rates(groups, 4, rows=1000, per_group=200)
+    np.testing.assert_allclose(rate, [0.1, 200 / 900, 1.0, 1.0])
+
+
+def test_the_range_sample_reproduces_the_rows_predictive_intervals():
+    rng = np.random.default_rng(6)
+    draws, n = 300, 40
+    terms = {
+        "market": np.log(3000) + rng.normal(0, 0.01, (draws, n)),
+        "unit": rng.normal(0, 0.1, (draws, n)),
+    }
+    log_w = rng.normal(0, 0.5, (draws, n))
+    sigma = np.exp(rng.normal(np.log(0.1), 0.3, (draws, n)))
+    nu = np.full(draws, 4.0)
+    ids = np.array([f"a{i}" for i in range(n)])
+    group = np.r_[np.zeros(n - 5, int), np.ones(5, int)]
+    sub = pd.DataFrame(
+        {
+            "audit_id": ids,
+            "unit_id": ["u"] * n,
+            "building": ["b"] * n,
+            "period": pd.to_datetime(["2020-01-01"] * n),
+            "asking_rent": np.full(n, 3500.0),
+        }
+    )
+    table = summary.row_table(
+        sub,
+        terms,
+        log_w,
+        np.zeros(n),
+        np.exp(sum(terms.values())),
+        sigma,
+        nu,
+        ["market", "unit"],
+        ["{}"] * n,
+    )
+    sample = summary.RangeSample(np.array([0.5, 1.0]))
+    for part, in_fit in ((slice(0, 20), True), (slice(20, n), False)):
+        sample.add(
+            ids[part],
+            group[part],
+            in_fit,
+            {k: v[:, part] for k, v in terms.items()},
+            log_w[:, part],
+            sigma[:, part],
+        )
+    got = sample.arrays(nu)
+    picked = pd.Index(ids).get_indexer(got["audit_id"])
+    # Every row of the group sampled at rate 1, and about half of the other.
+    assert set(ids[-5:]) <= set(got["audit_id"]) and 5 < len(picked) < n
+    np.testing.assert_array_equal(got["in_fit"], picked < 20)
+    np.testing.assert_array_equal(got["group"], group[picked])
+    assert got["total"].shape == (len(picked), draws) and got["nu"].shape == (draws,)
+    pred = np.exp(
+        summary.predictive_quantiles(
+            got["total"].T.astype(float),
+            got["sigma"].T.astype(float),
+            got["nu"].astype(float),
+            got["weights"].T.astype(float),
+            [0.10, 0.90],
+        )
+    )
+    np.testing.assert_allclose(pred[0], table.estimate_pred_lower_80[picked], rtol=1e-5)
+    np.testing.assert_allclose(pred[1], table.estimate_pred_upper_80[picked], rtol=1e-5)
+    # A sample that picked no row still saves arrays of the right shapes.
+    none = summary.RangeSample(np.zeros(2)).arrays(nu)
+    assert none["total"].shape == (0, draws) and none["audit_id"].shape == (0,)
+
+
 def test_row_tables_drop_queued_chunks_on_an_error():
     with pytest.raises(ZeroDivisionError):
         with summary.RowTables(2) as t:
@@ -285,6 +356,11 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
     path = summary.write(out, tmp_path / "sample", "d" * 40, 1.0)
     record = json.loads((path / "complete.json").read_text())
     assert record["buildings_fraction"] == 0.04
+    out["range_sample"] = {"audit_id": np.array(["a"]), "nu": np.ones(10)}
+    path = summary.write(out, tmp_path / "ranges", "d" * 40, 1.0)
+    record = json.loads((path / "complete.json").read_text())
+    assert "range-sample.npz" in record["files"]
+    assert np.load(path / "range-sample.npz")["audit_id"].tolist() == ["a"]
 
 
 def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):

@@ -48,7 +48,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, explain, features, model
+from . import data, design, explain, features, model
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
@@ -422,11 +422,9 @@ def compute(name: str) -> dict:
     if config.area_time:
         raise SystemExit("area_time runs have no neighbourhood curve here yet")
     frame = data.load(Path(result["dataset"]))
-    frame, heldout = data.split_and_rules(
-        frame, result["split"], data.recorded_rules(result)
+    frame, heldout, feats, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
     )
-    feats = features.build(result["feature_set"], frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
     # The neighbourhoods the fit covers, for the map's labels.
     area = area_name(
         frame.neighbourhood[~heldout] if "neighbourhood" in frame else ["Chelsea"]

@@ -136,7 +136,7 @@ nothing new in 4 s, and `--verify` checked the 62 files in 7 s. A copy of the fo
 sets add about 1.2 GB a year, and four PAD and four MapPLUTO releases about 0.5 GB.
 
 `apartments-city-fetch.timer` starts the script every Friday at 04:05 ET, before the StreetEasy
-top-up at 05:30. The service moves `/data1/apartments/serve/master` to master and runs the
+top-up at 05:35. The service moves `/data1/apartments/serve/master` to master and runs the
 script from there on the system's Python, capped at 1 GiB. The dashboard build moves the same
 checkout every ten minutes, at :00, :10 and so on, and the Modal cleanup moves it every hour on
 the hour. At 04:05 the fetch starts between two dashboard runs, clear of both units' git steps.
