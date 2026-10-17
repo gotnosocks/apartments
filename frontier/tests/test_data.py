@@ -291,7 +291,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V32)
+    ) | data.quarantined(data.QUARANTINE_V33)
 
 
 @pytest.mark.parametrize(
@@ -2222,3 +2222,40 @@ def test_bedrooms_v8_codes_333_w_56th_3e_as_a_studio():
     v7 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v7"])
     v8 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v8"])
     assert {k: v8[k] for k in v7} == v7 and len(v8) == len(v7) + 3
+
+
+def test_bedrooms_v9_codes_trump_world_tower_53b_and_63b_as_3_bedrooms():
+    frame = pd.DataFrame(
+        {
+            "audit_id": [
+                "7988d679e53da29221e868f08ce6d4e9d7753c88c2bbf9ce9cb486335cd557b0",
+                "b7a3ec7be0d077c72abde43a1a3ed9bec1e4b9c54a14163db2d814d8229f6afc",
+                "a4390a4242dd9ff724863c16b1c93e9db3de5f84329077a0a8fab99f07034b88",
+                "not-a-corrected-row",
+            ],
+            "bedrooms": [0.0, 0.0, 1.0, 0.0],
+        }
+    )
+    out = data.DATA_RULES["bedrooms-ad-v9"](frame)
+    assert out.bedrooms.tolist() == [3.0, 3.0, 0.0, 0.0]
+    v8 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v8"])
+    v9 = data.corrections(data.RULE_SOURCES["bedrooms-ad-v9"])
+    assert {k: v9[k] for k in v8} == v8 and len(v9) == len(v8) + 2
+
+
+def test_quarantine_v33_adds_nine_rows_to_v32():
+    with open(data.QUARANTINE_V32) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V33) as f:
+        new = [json.loads(line) for line in f]
+    assert new[: len(old)] == old
+    added = new[len(old) :]
+    assert len(added) == 9
+    assert len({r["audit_id"] for r in new}) == len(new)
+    assert all(r["evidence"] and r["reason"] for r in added)
+    actions = sorted(r["action"] for r in added)
+    assert actions.count("quarantine_nonresidential") == 5
+    assert actions.count("quarantine_malformed_ask") == 1
+    frame = pd.DataFrame({"audit_id": [added[0]["audit_id"], "kept"]})
+    assert data.DATA_RULES["quarantine-v33"](frame).audit_id.tolist() == ["kept"]
+    assert "quarantine-v33" in data.DROPPING_RULES

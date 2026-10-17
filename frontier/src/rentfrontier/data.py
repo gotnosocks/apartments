@@ -853,6 +853,21 @@ def correct_bedrooms_v8(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v7(frame), "bedrooms-ad-v8")
 
 
+BEDROOM_CORRECTIONS_V9 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v9-20261016.jsonl"
+)
+
+
+def correct_bedrooms_v9(frame: pd.DataFrame) -> pd.DataFrame:
+    """v8's rows, then Trump World Tower 53B and 63B as 3 bedrooms on their 2026
+    ads coded as studios. Each ad says 3 bedrooms and 3 en-suite baths at
+    $20,000 and $24,000, and the apartments' other ads (2015 to 2023) are all
+    3 bedrooms at 2,854 to 2,871 square feet.
+
+    Every row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v8(frame), "bedrooms-ad-v9")
+
+
 # Recorded square feet that disagree with the unit's other listings, read
 # against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
 SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
@@ -1630,6 +1645,23 @@ def quarantine_v32(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V32))]
 
 
+QUARANTINE_V33 = QUARANTINE_V20.with_name("quarantine-v33-20261016.jsonl")
+
+
+def quarantine_v33(frame: pd.DataFrame) -> pd.DataFrame:
+    """v32's rows and 9 more. The pipeline's ask check (#937) flagged 40 ads
+    asking far from their building's median, and a Sonnet reader read each ad,
+    the apartment's other ads and the listing's own price record
+    (`config/reviews/quarantine-v33-20261016.jsonl` gives each quote). The rows
+    dropped here are
+
+    - 5 stores and restaurant spaces,
+    - 1 ask of $33,333 for a 2 bedroom, with no figure close enough in time to
+      correct it,
+    - 3 summer rentals and short sublets from the API backfill's second read."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V33))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -1698,6 +1730,14 @@ LATEST_ASK_V6 = Path(
 # 12 rows.
 LATEST_ASK_V7 = Path(
     "/data1/apartments/external/latest-ask/20261016-5f07157-all-pagefix/latest-ask.parquet"
+)
+
+# LATEST_ASK_V7 with 5 more tenfold typos corrected from the pipeline's ask check
+# (#937). Each corrected figure comes from the ad's own text or from the same
+# apartment's ad with the same bedrooms within 3 months; complete.json lists the
+# rows and the evidence.
+LATEST_ASK_V8 = Path(
+    "/data1/apartments/external/latest-ask/20261016-5f07157-all-askcheck/latest-ask.parquet"
 )
 
 
@@ -1994,6 +2034,7 @@ DATA_RULES = {
     "bedrooms-ad-v6": correct_bedrooms_v6,
     "bedrooms-ad-v7": correct_bedrooms_v7,
     "bedrooms-ad-v8": correct_bedrooms_v8,
+    "bedrooms-ad-v9": correct_bedrooms_v9,
     "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
@@ -2027,6 +2068,7 @@ DATA_RULES = {
     "quarantine-v30": quarantine_v30,
     "quarantine-v31": quarantine_v31,
     "quarantine-v32": quarantine_v32,
+    "quarantine-v33": quarantine_v33,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -2034,6 +2076,7 @@ DATA_RULES = {
     "latest-ask-v5": functools.partial(latest_ask_v3, path=LATEST_ASK_V5),
     "latest-ask-v6": functools.partial(latest_ask_v3, path=LATEST_ASK_V6),
     "latest-ask-v7": functools.partial(latest_ask_v3, path=LATEST_ASK_V7),
+    "latest-ask-v8": functools.partial(latest_ask_v3, path=LATEST_ASK_V8),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -2087,6 +2130,7 @@ RULE_SOURCES = {
     "quarantine-v30": QUARANTINE_V30,
     "quarantine-v31": QUARANTINE_V31,
     "quarantine-v32": QUARANTINE_V32,
+    "quarantine-v33": QUARANTINE_V33,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -2094,6 +2138,7 @@ RULE_SOURCES = {
     "latest-ask-v5": LATEST_ASK_V5,
     "latest-ask-v6": LATEST_ASK_V6,
     "latest-ask-v7": LATEST_ASK_V7,
+    "latest-ask-v8": LATEST_ASK_V8,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "pets-from-ad-v2": PETS_FROM_AD_V2,
@@ -2122,6 +2167,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v6": BEDROOM_CORRECTIONS_V6,
     "bedrooms-ad-v7": BEDROOM_CORRECTIONS_V7,
     "bedrooms-ad-v8": BEDROOM_CORRECTIONS_V8,
+    "bedrooms-ad-v9": BEDROOM_CORRECTIONS_V9,
     "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
@@ -2159,6 +2205,7 @@ DROPPING_RULES = (
     "quarantine-v30",
     "quarantine-v31",
     "quarantine-v32",
+    "quarantine-v33",
 )
 
 
