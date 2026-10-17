@@ -20,7 +20,6 @@ What the next turn of the website thread needs. Updated at each milestone.
 - The rent map's map.json is 97 MB for this fit. Since #1049 the page fetches
   `/estimates/map.json?beds=K[&area=A]`, which is 10.8 MB gzipped city-wide and 0.9 MB for a
   neighbourhood. Without parameters the route returns the whole file.
-
 - On the deploy after #1049, every map slice returned 500 once anyone had opened a building
   page. The Street View lookup leaves a `_streetview` cache in the parsed map dict, and the
   slice copied it into its JSON. With #1052 the slice drops every key that starts with `_`.
