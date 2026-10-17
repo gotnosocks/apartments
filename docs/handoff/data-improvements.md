@@ -1,6 +1,25 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 07:45 ET, after the second empty-lot overrides (#1000). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 10:30 ET, after the second drop-lot reviews (#1012). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 10:30 ET
+
+- #1007 re-judges five Oct 16 building-identity reviews with MapPLUTO, HPD and footprints. The address class
+  now scores 33 right, 4 wrong and 3 unclear.
+- #1006 (pipeline) gives `buildings.lots` the lot with apartments when the address lot and the footprint lot differ.
+  #1010 imports the 1,274 reviews of `drop-lot-20261017.jsonl` as `drop_lot` ledger entries: 1,104 live, 170 stale
+  (their building moved lots under #1006).
+- #1012 adds `config/reviews/drop-lot-20261017-check2.jsonl` for the 339 rows the check still flagged after #1010.
+  - Sonnet readers worked from packets holding the ad, the lot's MapPLUTO record, HPD registrations on the lot,
+    the `buildings.lots` choice and the PAD lot of the StreetEasy address. Scripts: `rows.py`, `packets.py`, `write.py`
+    and `PROMPT.md` in `/data1/apartments/tmp/suspect/bcheck/`, labels in `reader-labels-2.jsonl` there.
+  - 152 rows drop their lot (79 wrong_building, 73 city_record_wrong). A reviewer moved 2776355 and 2329076 to
+    unclear, because only their ad text pointed away from the lot.
+  - 187 rows keep their lot: 90 unclear, 80 mixed use, 12 ad floor errors, 5 vanity floor numbers.
+- The pipeline thread's #1013 imports the file as `pipeline/ledger/2026-10-17-wrong-lots2.ndjson`. On its lane copy,
+  `building_check.csv` in `/data1/apartments/tmp/pipeline/lanes/drop-lot-build/` holds exactly the 187 kept rows.
+- The 90 unclear rows could take floor plans or a second ad for the same unit as evidence. Mixed-use rows
+  stay on their lot.
 
 ## 2026-10-17 08:30 ET
 
