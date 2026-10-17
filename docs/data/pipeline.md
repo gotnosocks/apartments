@@ -1767,9 +1767,10 @@ the row's count, and two of #4B's give three against at most one.
 I built the batch on a copy of the state of a lane build of Oct 17, made with the code of
 #985 and the rule of `latest-ask-v10` on the export of Oct 16. The rows file lost the 15
 excluded rows that had one and has 1,746,778 rows, and the six rows at 68 Clinton Street gave
-three bedrooms. No other value of any row changed. The ask check still lists 27 rows, and each of the 22 new entries is live. The
-build took 177 s, as the new ledger folder rebuilt the models from the unit ledger on, and
-peaked at 4,219 MiB. A second run of the importer writes nothing.
+three bedrooms. No other value of any row changed. The ask check still lists 27 rows, and each
+of the 22 new entries is live. The build took 177 s, as the new ledger folder rebuilt the
+models from the unit ledger on, and peaked at 4,219 MiB. A second run of the importer writes
+nothing.
 
 A quarantine line's `evidence` holds a note, and `quarantine_evidence` sorts it by the line's
 `source`:
