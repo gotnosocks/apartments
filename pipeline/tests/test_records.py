@@ -1,3 +1,4 @@
+import fcntl
 import hashlib
 import json
 from pathlib import Path
@@ -50,7 +51,7 @@ def test_records_of_the_fixture(tmp_path):
     """Each record of the fixture export comes out serialized by `serialize`, with the time of
     its answer in seconds. `tests/test_pipeline_records.py` in the repository's own tests
     compares `serialize` with the granular export's parser. A second run reads nothing into the
-    cache and writes the same bytes."""
+    cache, writes the same bytes and deletes another version's cache folder."""
     line = write(tmp_path, FILES)
     path = tmp_path / "out" / line["path"]
     assert path.name == f"records-{line['sha256'][:16]}.parquet"
@@ -80,9 +81,17 @@ def test_records_of_the_fixture(tmp_path):
         )
         assert row.raw_listing_json == records.serialize(answer.record)
         assert row.collected_at == row.last_collected_at == answer.fetched_us / 1e6
+    (current,) = (p for p in (tmp_path / "cache").iterdir() if p.is_dir())
+    older = tmp_path / "cache" / ("0" * 64)
+    older.mkdir()
+    (older / "old.parquet").write_bytes(b"")
     again = write(tmp_path, FILES)
     assert again == line | {"read": 0}
     assert [p.name for p in (tmp_path / "out").iterdir()] == [path.name]
+    assert sorted(p.name for p in (tmp_path / "cache").iterdir()) == [
+        ".lock",
+        current.name,
+    ]
 
 
 def test_integral_floats_become_integers(tmp_path):
@@ -128,15 +137,17 @@ def test_integral_floats_become_integers(tmp_path):
 
 
 def test_fetch_times(tmp_path):
-    """A record answered three times gives one row with its first and last answer's times and
-    the first answer's ID. A changed record gives a second row, after the first, and an answer
-    without a record gives none."""
+    """A record answered four times, twice at its first time, gives one row with its first and
+    last answer's times and the lower ID of its two first answers. A changed record gives a
+    second row, after the first, and an answer without a record gives none."""
     old = {"id": "4000002", "pricing": {"price": 3000.0}}
     new = {"id": "4000002", "pricing": {"price": 2900.0}}
     files = [
         answers_file(
             tmp_path / "a.parquet",
             [
+                # DuckDB scans this answer first, and without the tie on IDs takes its ID.
+                (4000002, "2026-10-15 01:00:00.000001+00", 8, "record", old),
                 (4000002, "2026-10-15 01:00:00.000001+00", 7, "record", old),
                 (4000002, "2026-10-15 02:00:00+00", 9, "record", old),
                 (4000003, "2026-10-15 02:00:00+00", 9, "missing", None),
@@ -179,7 +190,8 @@ def test_fetch_times(tmp_path):
 
 
 def test_a_record_twice_in_the_cache_stops(tmp_path):
-    """A cache holding a record twice stops the step, and OUT keeps no file."""
+    """A cache holding a record twice stops the step, and OUT keeps no file. So do another
+    step holding the cache's lock and an export without records."""
     files = [
         answers_file(
             tmp_path / "a.parquet",
@@ -193,3 +205,20 @@ def test_a_record_twice_in_the_cache_stops(tmp_path):
     with pytest.raises(ValueError, match="holds 1 records twice"):
         write(tmp_path, files)
     assert list((tmp_path / "out").iterdir()) == []
+    cached.with_name("copy.parquet").unlink()
+    with open(tmp_path / "cache" / ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        with pytest.raises(RuntimeError, match="another records step holds"):
+            write(tmp_path, files)
+    assert list((tmp_path / "out").iterdir()) == []
+    empty = [
+        answers_file(
+            tmp_path / "empty.parquet",
+            [(4000005, "2026-10-16 12:00:00+00", 2, "missing", None)],
+        )
+    ]
+    with pytest.raises(ValueError, match="the export holds no records"):
+        write(tmp_path / "empty", empty)
+    assert not (tmp_path / "empty" / "out").exists()
+    with pytest.raises(ValueError, match="lists no ads files"):
+        write(tmp_path / "none", [])

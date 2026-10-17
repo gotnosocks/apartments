@@ -1738,13 +1738,21 @@ To give the builders the same text, the step reads each record the way
 The granular export's `collected_at` holds the collector's time for the answer, a float, and
 the export keeps that time in microseconds. The step gives the first answer's time in
 microseconds divided by a million, so the two times can differ by less than a microsecond. The
-export has no archive snapshot IDs, so the step gives the first answer's `response_id` in their
-place. The builders used snapshot IDs only to order two rows of a listing with the same time,
-and in the granular export of runs 1 to 5 no listing has two records with the same time.
+collector stores `time.time()` as a float in its archive, and `graphql_export` writes
+`round(seconds * 1_000_000)`, so the export no longer has the float, and a builder that writes
+the time out, such as `listing_extras`, gives it to the microsecond. The export has no archive
+snapshot IDs, so the step gives the first answer's `response_id` in their place, the lower one
+when two answers share the first microsecond. In the Oct 16 export no record has two answers at
+its first microsecond. The builders used snapshot IDs only to order two rows of a listing with
+the same time, and in the granular export of runs 1 to 5 no listing has two records with the
+same time.
 
 The step keeps each record it has serialized in Parquet files under `STATE/records/`, so a
 build after a top-up serializes only the new records. A change to `steps/records.py` starts a
-new cache folder.
+new cache folder, and once the step has written the file, it deletes the folders of other
+versions, about 3 GB each on the Oct 16 export. While it runs, the step holds a lock on
+`STATE/records/.lock`, and a second records step stops at once, such as a run of the script
+beside a build.
 
 ### Against the granular export
 
@@ -2221,16 +2229,17 @@ in all, and most tests add made-up ads to that export. The tests:
 46. write the records file of the fixture export and compare each row with its answer: the
     listing, the response ID and SHA-256, the record as `serialize` gives it, and the answer's
     time in seconds as both the first and the last time. A second run reads nothing into the
-    cache and leaves one file of the same bytes;
+    cache, leaves one file of the same bytes and deletes another version's cache folder;
 47. write the records file of a made-up record with integral and fractional floats in its
     price, price changes and sizes, `__typename` keys at each depth and non-ASCII text, and
     compare its `raw_listing_json` with the expected text;
-48. write the records file of a made-up listing answered three times with a record and then
-    once with a changed one, beside an answer without a record. The file gives the first record
-    with its first and last times and its first answer's ID, then the changed record, and
-    nothing for the answer without a record;
+48. write the records file of a made-up listing answered four times with a record, twice at
+    the first time, and then once with a changed one, beside an answer without a record. The
+    file gives the first record with its first and last times and the lower ID of its two first
+    answers, then the changed record, and nothing for the answer without a record;
 49. copy a cache file of the records step, and check that the step stops on the repeated
-    records and leaves OUT empty.
+    records and leaves OUT empty. Then check that it also stops while another process holds
+    the cache's lock, on an export without records and on an empty list of export files.
 
 pytest-xdist runs the tests in three worker processes, as set in `pipeline/pyproject.toml`, and a
 worker with an empty queue takes tests queued for another. The fixture comes to under 500 KB, and
