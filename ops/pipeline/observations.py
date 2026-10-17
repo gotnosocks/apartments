@@ -59,6 +59,8 @@ of these causes to fit, checked in this order:
   - for an ask, the ad's latest API record came after export run N, the last run the chain's
     latest asks read: run 5 of the export in /data1/apartments/archive/crawls/api/export,
     unless `--chain-run` and `--export` give others,
+  - for an ask, DATASET also prices the ad's current page in a row of its own, and its
+    first-ask row then ends at the price on that page,
   - DATASET's ask matches under the rule before `latest-ask-v8` only,
   - `has_description` follows from the null `description_interpreted_at`.
 A difference fitting none of them counts as unexplained. The script sorts the rows of one side
@@ -434,9 +436,9 @@ def same(a, b, numeric: bool):
 
 def side(data, db, path: Path, cache: Path):
     """The dataset's first-ask rows as `rentfrontier.data.load` gives them, with the raw
-    fields beside them, and the count of its rows priced at a page."""
+    fields beside them, and the ads of its rows priced at a page."""
     frame = data.load(path, cache_root=cache).drop(columns="log_rent")
-    pages = int((frame.price_basis != FIRST_ASK).sum())
+    pages = frame.source_listing_id[frame.price_basis != FIRST_ASK]
     frame = frame[frame.price_basis == FIRST_ASK]
     raw = db.execute(
         RAW, {"path": str(path / "observations.jsonl"), "basis": FIRST_ASK}
@@ -484,16 +486,14 @@ def check(
     ours = ours.merge(first, on="source_listing_id", how="left")
     # The chain's latest asks come from records fetched up to the end of export run
     # `chain_run`.
-    (chain_end,) = db.execute(
-        "SELECT max(fetched) FROM read_parquet(?) WHERE run = ?",
-        [str(export / "ads" / "*" / "*.parquet"), chain_run],
-    ).fetchone()
     ads = db.execute(
         """SELECT listing_id AS source_listing_id, neighbourhood AS ads_neighbourhood,
-            fetched::VARCHAR AS fetched, coalesce(fetched > ?, false) AS after_chain, fate,
-            in_rows, identity_reasons, exclusion_reasons, ledger_entries
+            fetched::VARCHAR AS fetched,
+            coalesce(fetched > (SELECT max(fetched) FROM read_parquet(?) WHERE run = ?), false)
+                AS after_chain,
+            fate, in_rows, identity_reasons, exclusion_reasons, ledger_entries
         FROM read_parquet(?)""",
-        [chain_end, build["ads"]["path"]],
+        [str(export / "ads" / "*" / "*.parquet"), chain_run, build["ads"]["path"]],
     ).df()
     entries = ledger_sets(build)
     hoods = set(manifest["neighbourhoods"])
@@ -542,6 +542,7 @@ def check(
         if field == "asking_rent" and previous:
             cause[same(both[field], both[previous], True)] = f"{rule} only"
         if field == "asking_rent":
+            cause[both.source_listing_id.isin(set(pages)).to_numpy()] = "chain page row"
             after = (
                 both.after_chain.astype("boolean").fillna(False).to_numpy(dtype=bool)
             )
@@ -603,7 +604,7 @@ def check(
 
     one = joined[joined["_merge"] != "both"]
     sides = one.apply(alone, axis=1).value_counts().to_dict() if len(one) else {}
-    sides["chain: priced at the current page"] = pages
+    sides["chain: priced at the current page"] = len(pages)
     result = {
         "ours": str(out),
         "chain": str(dataset),
