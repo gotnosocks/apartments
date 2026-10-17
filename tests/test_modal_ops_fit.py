@@ -664,10 +664,11 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
     monkeypatch.setattr(
         app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
     )
-    calls = []
+    calls, caches = [], []
 
     def run(cmd, env, log, timeout=None):
         calls.append(cmd[2:])
+        caches.append(env.get("FRONTIER_DESIGN_CACHE"))
         if cmd[2] == "rentfrontier.summary":
             bundle = tmp_path / "summaries" / "r-abc1234"
             bundle.mkdir(parents=True)
@@ -700,6 +701,8 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
         ["rentfrontier.calibration", bundle],
         ["rentfrontier.rentmap", "r"],
     ]
+    # Every step reads the design the summary pickled.
+    assert caches == ["1"] * 4
     # The run was copied in from the Volume; a failed rent map leaves the kit alone but fails
     # the publish.
     assert (tmp_path / "runs" / "r" / "result.json").exists()
