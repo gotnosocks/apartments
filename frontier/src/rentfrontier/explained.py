@@ -36,7 +36,7 @@ import time
 
 import numpy as np
 
-from . import data, explain, features, model
+from . import data, design, explain, features, model
 from .run import git, hardware
 
 EXPLAINED_ROOT = data.OUTPUT_ROOT / "explained"
@@ -113,12 +113,10 @@ def load(name: str) -> dict:
     frame = data.load()
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("dataset differs from the run's recorded dataset")
-    frame, heldout = data.split_and_rules(
-        frame, result["split"], data.recorded_rules(result)
+    frame, heldout, own, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
     )
     train = ~heldout
-    own = features.build(result["feature_set"], frame, train)
-    prep = model.prepare(frame, heldout, own)
     a = model.row_arrays(prep, frame, train)
     levels = kept["building"]
     return {

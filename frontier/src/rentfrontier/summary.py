@@ -73,7 +73,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, explain, features, leaderboard, loo, model
+from . import data, design, explain, features, leaderboard, loo, model
 from . import run as run_module
 from .run import git, hardware
 
@@ -480,11 +480,9 @@ def summarize(name: str, allow_failing: bool = False):
     check_run(result)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load(Path(result["dataset"]))
-    frame, heldout = data.split_and_rules(
-        frame, result["split"], data.recorded_rules(result)
+    frame, heldout, feats, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
     )
-    feats = features.build(result["feature_set"], frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     verify_run(result, frame, heldout, prep, run_dir, post["units"], post["buildings"])
     draws = kept["alpha"].shape[0]
