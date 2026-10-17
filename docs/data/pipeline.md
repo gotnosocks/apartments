@@ -1720,6 +1720,10 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`descriptions` reads the file with `--records` in place of `--granular`. It keeps only the
+records of the cohort's listings, so one run covers every region, where the granular export
+took a run for each slice. Its provenance names the file under `records`.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -2166,6 +2170,14 @@ and catalog it writes in a temporary folder:
     time as `collected_at` and the response ID as `snapshot_id`;
 53. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
+
+The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a records file:
+
+56. build a cohort's description evidence from a records file with two records of a listing,
+    and check that each row takes the text of the record fetched last and that the build skips
+    listings outside the cohort;
+57. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
+    either and stops on both.
 
 ## Full build
 

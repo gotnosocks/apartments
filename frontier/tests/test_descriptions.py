@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 import pytest
-from rentfrontier import data, descriptions
+from rentfrontier import api_records, data, descriptions
 
 
 def _granular(root):
@@ -111,3 +111,69 @@ def test_only_listed_feature_sets_read_west_villages_ads(monkeypatch):
     features.build("nb-facing-v2", pd.DataFrame(), [])
     assert seen["sources"] == (descriptions.SOURCE, descriptions.WV_SOURCE)
     assert descriptions.SOURCES.get() == (descriptions.SOURCE,)
+
+
+def test_build_reads_each_rows_ad_from_the_records_file(
+    tmp_path, monkeypatch, records_catalog
+):
+    """The records file gives each row its listing's record fetched last, as the
+    granular crawl does, and the build leaves out listings no row names."""
+    monkeypatch.setattr(data, "OUTPUT_ROOT", tmp_path / "out")
+    line = records_catalog(
+        [
+            {
+                "listing_id": 1,
+                "collected_at": 1.0,
+                "last_collected_at": 5.0,
+                "record": {"description": "Sunny one bedroom"},
+            },
+            {"listing_id": 1, "collected_at": 2.0, "record": {"description": "Old ad"}},
+            {"listing_id": 2, "collected_at": 1.0, "record": {"description": None}},
+            {"listing_id": 3, "collected_at": 1.0, "record": {"description": "Perry"}},
+            {"listing_id": 4, "collected_at": 1.0, "record": {"description": "Other"}},
+        ]
+    )
+    cohort = tmp_path / "cohort"
+    cohort.mkdir()
+    rows = [("a", "1"), ("b", "2"), ("c", "3"), ("d", "9")]
+    (cohort / "observations.jsonl").write_text(
+        "".join(
+            json.dumps({"audit_id": a, "source_listing_id": s}) + "\n" for a, s in rows
+        )
+    )
+    records = api_records.records_file()
+    assert descriptions.record_descriptions(records, {"1", "2", "3"}).to_dict() == {
+        "1": "Sunny one bedroom",
+        "2": None,
+        "3": "Perry",
+    }
+    out = descriptions.build(None, cohort, "api", "abcdef0123", records=records)
+    evidence = [
+        json.loads(x) for x in (out / "evidence.jsonl").read_text().splitlines()
+    ]
+    assert [(e["audit_id"], e["description"]) for e in evidence] == [
+        ("a", "Sunny one bedroom"),
+        ("c", "Perry"),
+    ]
+    provenance = json.loads((out / "provenance.json").read_text())
+    assert provenance["records"]["sha256"] == line["records"]["sha256"]
+    assert provenance["granular"] is None
+
+
+def test_main_takes_a_granular_crawl_or_the_records_file(monkeypatch, records_catalog):
+    from rentfrontier import run
+
+    line = records_catalog(
+        [{"listing_id": 1, "collected_at": 1.0, "record": {"description": "x"}}]
+    )
+    seen = []
+    monkeypatch.setattr(run, "git", lambda *a: "" if a[0] == "status" else "abc")
+    monkeypatch.setattr(descriptions, "build", lambda *a: seen.append(a) or "out")
+    descriptions.main(["--records", "--dataset", "/d", "--name", "n"])
+    assert seen[-1][0] is None and seen[-1][5]["sha256"] == line["records"]["sha256"]
+    descriptions.main(["--granular", "/g", "--dataset", "/d", "--name", "n"])
+    assert str(seen[-1][0]) == "/g" and seen[-1][5] is None
+    with pytest.raises(SystemExit):
+        descriptions.main(
+            ["--records", "--granular", "/g", "--dataset", "/d", "--name", "n"]
+        )
