@@ -3,13 +3,16 @@ MODEL (
     kind VIEW,
     grain listing_id,
     audits (unique_values(columns := (listing_id))),
-    description 'The fit-ready rows: the kept rows less the ads the corrections ledger excludes, with the values its live sets give.'
+    description 'The fit-ready rows: the kept rows less the ads the corrections ledger excludes, with each row''s latest ask and the values the ledger''s live sets give.'
 );
 
 -- ledger.status leaves at most one live set for each field of a row. A bath set gives the full
 -- and half bathrooms and leaves `bathrooms` as recorded, as the current chain's bath rules do.
+-- `asking_rent` stays the ad's first ask, as in the chain's dataset. The last column,
+-- `latest_ask`, takes the ask analysis.latest_ask chooses, or the ask a live ask set gives.
 WITH live AS (
-    SELECT s.listing_id, s.change, s.field, e.bedrooms, e.full_baths, e.half_baths, e.square_feet
+    SELECT s.listing_id, s.change, s.field, e.bedrooms, e.full_baths, e.half_baths, e.square_feet,
+        e.latest_ask
     FROM ledger.status s JOIN ledger.entries e USING (entry)
     WHERE s.status = 'live'
 ),
@@ -18,7 +21,8 @@ sets AS (
         max(bedrooms) FILTER (WHERE field = 'bedrooms') AS bedrooms,
         max(full_baths) FILTER (WHERE field = 'baths') AS full_baths,
         max(half_baths) FILTER (WHERE field = 'baths') AS half_baths,
-        max(square_feet) FILTER (WHERE field = 'square_feet') AS square_feet
+        max(square_feet) FILTER (WHERE field = 'square_feet') AS square_feet,
+        max(latest_ask) FILTER (WHERE field = 'latest_ask') AS latest_ask
     FROM live
     WHERE change = 'set'
     GROUP BY listing_id
@@ -28,7 +32,8 @@ SELECT k.* REPLACE (
     coalesce(s.full_baths, k.full_baths) AS full_baths,
     coalesce(s.half_baths, k.half_baths) AS half_baths,
     coalesce(s.square_feet, k.square_feet) AS square_feet
-)
+), coalesce(s.latest_ask, a.latest_ask) AS latest_ask
 FROM analysis.kept k
+LEFT JOIN analysis.latest_ask a USING (listing_id)
 LEFT JOIN sets s USING (listing_id)
 WHERE k.listing_id NOT IN (SELECT listing_id FROM live WHERE change = 'exclude')

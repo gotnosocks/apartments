@@ -448,7 +448,7 @@ disk.
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
 | `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
-| `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with the values its live sets give |
+| `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with its latest ask and the values the ledger's live sets give |
 | `analysis.ask_check` | table | fit-ready row with a latest ask 6 to 16 times, or a sixteenth to a sixth of, the median of its building's other rows with the same bedroom count, for review |
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
@@ -1147,7 +1147,9 @@ chain's analysis datasets. I build them in six steps.
    give a reason to an ad lacking either, and an audit on `analysis.candidates` checks it.
 4. `analysis.kept` gives the kept candidates as a view.
 5. `analysis.rows` applies the corrections ledger to the kept rows, as described under
-   [Corrections ledger](#corrections-ledger).
+   [Corrections ledger](#corrections-ledger). It adds each row's latest ask from
+   `analysis.latest_ask` as its last column, `latest_ask`, after the ledger's ask sets.
+   `asking_rent` stays the ad's first ask, as in the chain's datasets.
 6. `analysis.ask_check` lists the rows with a latest ask far from their building's median for
    review, as described under [Ask check](#ask-check).
 
@@ -1158,7 +1160,8 @@ so a fit can choose the regions it reads.
 ## Latest ask
 
 `analysis.latest_ask` gives each kept row the latest ask `rentfrontier.latest_ask` chooses for
-it, so a ledger change leaves it as it is. An ad gives at most one kept row, priced on its first
+it, so a ledger change leaves it as it is. `analysis.rows` takes it as `latest_ask`, with the
+asks of the ledger's live ask sets in place of the chosen ones. An ad gives at most one kept row, priced on its first
 day. `analysis.latest_change`
 takes the ad's last kept change dated on or after that day, or the change in effect on that day
 when the ad has no later one and its record came after the row. The steps in
@@ -1191,11 +1194,13 @@ bedroom count. It lists the row for review when:
 
 `analysis.ads` gives the median, the number of other rows and the ratio in its `ask_check` column.
 The check reads the rows after the corrections ledger, so a live bedroom set moves a row in with the
-rows of its corrected count, and the ads the ledger excludes drop out of every median. A typo of an
+rows of its corrected count, a live ask set gives a row its corrected ask, and the ads the ledger
+excludes drop out of every median. A typo of an
 extra or a missing digit gives a ratio near 10, but a row's true ask can lie a good way from its
 building's median. On the planted sample under [Planted errors](#planted-errors), the tenfold asks
 ran from 6.8 to 15.1 times the median, so I set the band at 6 to 16. In both builds of that sample
 the check also lists ad 2121710, a studio asking $21,545 whose description gives $2,150 a month.
+The ledger excludes it, as described under [Tenfold asks](#tenfold-asks).
 
 On the export of Oct 16 the check lists 40 rows: 31 at 6.1 to 12.5 times the median, and 9 at a
 tenth to a sixth of it. Half of them have 45 or more others to compare with. A Sonnet subagent read
@@ -1219,9 +1224,10 @@ size, so a rebuilt building or a much larger unit can fall outside the band.
 
 A drop on the ratio alone would lose the three real asks and the rents of the three
 income-restricted units, prices a model should explain or mark, and it would choose rows by the
-fit's target. So `analysis.rows` keeps every row the check lists. A listed row leaves the rows
-through a ledger exclude with its evidence, as any other row does. The ledger has no field for the
-ask, so a mistyped price can leave the rows but can't take its right value there.
+fit's target. So `analysis.rows` keeps every row the check lists. A listed row leaves the list
+through a ledger entry with its evidence, as any other correction does. When another ad of the
+unit gives the right ask, an ask set gives the row that ask. When only the ad's own words give
+it, an exclude drops the row, since the ledger takes no set on the ad's words alone.
 `ops/pipeline/ledger_import.py` imports the quarantine versions of the chain named in its `RULES`,
 so a commercial space or a mistyped price leaves the pipeline's rows once Data improvements excludes
 it in a quarantine version and `RULES` names that version.
@@ -1236,12 +1242,16 @@ NDJSON files. To correct a row, a person or a script writes the decision as a li
 file and merges it through a reviewed PR. The docstring of `pipeline/models/ledger/entries.py`
 lists the keys of a line and the rules it must follow. In short, a line:
 
-- excludes an ad's row, gives one field of the row new values, or retracts an earlier entry;
+- excludes an ad's row, gives one field of the row new values, or retracts an earlier entry.
+  A set gives the bedrooms, the full and half bathrooms, the size or the latest ask;
 - gives the ad's `listing_id`;
 - gives in `when` the row's values the decision rests on, such as the recorded bedroom count
-  for a bedroom set, or the month for an exclude;
+  for a bedroom set, the latest ask `analysis.latest_ask` chose for an ask set, or the month for
+  an exclude;
 - lists its evidence. A set needs an item beyond the ad's own words: another ad for the unit, a
-  stated size, a floor plan, units of the same line, or Ben's own reading;
+  stated size, a floor plan, units of the same line, or Ben's own reading. An ask set needs
+  another ad for the unit or Ben's own reading, as a size, a plan or another unit's price says
+  nothing of the unit's ask;
 - gives the day of the decision, and the file and line it came from.
 
 Lines merged to master stay as they are, and a later file retracts a wrong entry.
@@ -1251,21 +1261,28 @@ Three models read the ledger:
 
 1. `ledger.entries` reads every file and checks each line. A line breaking a rule stops the
    build, and the error gives its file and line.
-2. `ledger.status` checks each entry against `analysis.kept` and gives it the first status
-   that fits:
+2. `ledger.status` checks each entry against `analysis.kept`, and its recorded latest ask
+   against `analysis.latest_ask`. It gives the entry the first status that fits:
 
    | status | the entry |
    |---|---|
    | `retract` | undoes another |
    | `retracted` | is undone by a later retract |
    | `absent` | is for an ad with no kept row |
-   | `stale` | gives a value in `when` other than the kept row's, and `differs` lists the values |
+   | `stale` | gives a value in `when` other than the kept row's or its latest ask, and `differs` lists the values |
    | `superseded` | sets a field a later live set of the row also sets |
    | `live` | applies |
 
 3. `analysis.rows` drops the rows of the live excludes and gives the values of the live
    sets. A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
-   chain's bath rules do.
+   chain's bath rules do. An ask set gives the row's `latest_ask` and leaves `asking_rent`, the
+   first ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
+   ads file keeps the latest ask from before the ledger.
+
+I gave the rows a `latest_ask` column for the ask sets instead of setting `asking_rent`. That
+column holds the ad's first ask, as the chain's datasets do, and the chain gives a fit the
+latest ask in a separate latest-ask file. On the build of Oct 16, 604,211 of the 1,746,515 rows
+have a latest ask other than their first.
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
 correction rules apply. A change to the ledger rebuilds only the two ledger models,
@@ -1374,10 +1391,40 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
 1848216, 1887124, 2678483, 5019133 and 5098585.
 
-The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
-`unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
-`elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to another unit or building
-go into the unit ledger, described under [Unit ledger](#unit-ledger).
+The chain's `building-joins-v1` and `unit-reviews-v2` are in the unit ledger, described under
+[Unit ledger](#unit-ledger), but for a split held for want of backing. Its other rules are not
+in a ledger yet: `west-coast-wings-v1`, `unit-splits-v4`, `unit-labels-v17`,
+`fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to
+another unit or building go into the unit ledger.
+
+### Tenfold asks
+
+latest-ask-v8 corrects five tenfold asks from the ask check's list on the export of Oct 16, as
+Data improvements read them in `tmp/suspect/askcheck/reads.jsonl`. I wrote them into
+`pipeline/ledger/2026-10-17-tenfold-asks.ndjson`. For each one, I read the records of the ad and
+of the unit's other ads in the export. Where another ad of the same unit, with the same bedroom
+count, asked the corrected figure within a few weeks, the file sets the ask and cites that ad:
+
+| ad | unit | recorded | set | the unit's other ads |
+|---|---|--:|--:|---|
+| 1472207 | 10 Hanover Square #21P, a studio | $31,025 | $3,100 | 1459327 asked $3,100 until Feb 18, 2015, the day this ad went on the market |
+| 2498289 | 234 East 52nd Street #A, a one-bedroom | $28,875 | $3,150 | 2384921 asked $3,150 from Aug 7, 2018 until it rented, and 2485003 asked $3,150 on Aug 10 |
+| 2552464 | 335 East 54th Street #4F, a one-bedroom | $28,000 | $2,800 | 2552463 went on the market the same day asking $28,000 and asked $2,800 the next day |
+| 1792236 | 1689 First Avenue #2, a three-bedroom | $37,500 | $3,750 | 1568026 asked $3,750 from Apr 28, 2016 until it rented, and 1792235 asked $37,500 and then $3,750 on the same day |
+
+The read of 2498289 cited only its ad's words, "Gross rent $3,150". The unit's other two ads
+back the figure, so the file sets the ask. The recorded $28,875 is ten times $2,887.50, the net
+effective rent of $3,150 with a month free on a 12-month lease.
+
+Only its own ad gives the right ask of 2121710, a studio at 992 Bedford Avenue #1A asking
+$21,545 whose description gives $2,150 a month. The ledger takes no set on the ad's words
+alone, so the file excludes the row with the reason `tenfold_ask_unbacked` and quotes the
+words in the note. Ad 2139816, unit #1 of the building, gives the same description apart from
+its price and asked $2,150 the next day, but it is another unit.
+
+Each entry's `when` gives the row's month and its recorded ask. The rows file and the ads file
+of the Oct 16 build give each of the five rows its recorded ask, as both its first and its
+latest ask.
 
 ### Check build
 
@@ -1470,9 +1517,36 @@ building, a change to the unit ledger rebuilds the two unit ledger models and ev
 `ads.placed` on, 14 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
 `ledger.units`, and counts its entries by status and change.
 
-The folder holds no files yet, and `ads.placed` then gives each ad the building and unit of
-`ads.identity`. The chain's `building-joins-v1` and `unit-reviews-v2` go in with their evidence
-in a later PR.
+With no files in the folder, `ads.placed` gives each ad the building and unit of
+`ads.identity`. I imported the chain's `unit-reviews-v2` and `building-joins-v1` into
+`2026-10-17-unit-reviews.ndjson`, each imported entry with a `source` pointing at its review
+line or rule. For each one I looked for backing beyond the ad's own words in the API records, PLUTO and
+the lot registry:
+
+- The two joins at 110 West 26th Street rest on Ben's statement of 2026-10-07, as `owner`
+  evidence.
+- The join of 21 West 12th Street's 2, 2B, 2F and 2R rests on the sizes the ads state, about
+  800 sq ft with a 400 sq ft terrace, and on PLUTO's 8 residential units in 4 floors.
+- The splits at 1 Patchin Place and 407 West 39th Street rest on the sizes in the split ads'
+  records, 1,800 and 2,500 sq ft, against the unit's 900 to 950 and 350.
+- The split of 780 Greenwich Street 6H's 2025 ad rests on the 2022 PH6H ads, which describe
+  the same apartment as a two-bedroom duplex after a roof addition.
+- The move of 97 Horatio Street to The West Coast rests on the lot registry.
+
+I also joined 43 East 20th Street's units 2, 2A and 2S, a full-floor loft of 2,000 sq ft by its
+ads' sizes and PLUTO's floor area. I held the split of 249 West 29th Street 3E's ad 2200772. PAD
+gives 249 and 251 West 29th Street a single lot and BIN, so the ad's address points at the same
+building, and only the ad itself calls the apartment a studio. A floor plan or a stated size
+would back it. On the Oct 16 export every entry comes out `live`, and 25 ads change unit or
+building.
+
+I then ran the served fit's rules on its rows twice, once as the chain runs them and once after
+the ledger's placements. With the chain's rules all kept, the two runs agree on every row's
+unit and building but 43 East 20th Street's. Skipping `building-joins-v1` and `unit-reviews-v2`
+after the ledger loses the three splits, as well as the held one: the first step of `unit-labels-v17` gives every row of
+a building and label the least unit ID among them, and a split's ads keep their page, so their
+`~review-` IDs fall back to the unit's. The joins and the move come out as the chain's either
+way.
 
 ## Ads file
 
@@ -1491,8 +1565,8 @@ comes from. These columns need more than a line:
 
 - `page_price` is the latest record's price, the ask an ad shows on its page now. `first_ask`
   is the ask on the ad's first day, from `ads.exclusions`, and `latest_ask` is the latest ask
-  of the ad's fit-ready row, from `analysis.latest_ask`. An ad without a kept row has no
-  `latest_ask`.
+  of the ad's kept row, from `analysis.latest_ask`, before the ledger. An ad without a kept row
+  has no `latest_ask`. The rows file's `latest_ask` gives the ask after the ledger's ask sets.
 - `status` and `days_on_market` are the latest record's own, as the API wrote them.
 - `floor_plans` lists the keys of the latest record's floor plan images. Data improvements
   fetches a plan from `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. An empty list means
@@ -1818,7 +1892,7 @@ An error in every record of an ad leaves the build nothing to compare within the
 tenfold asks in every record pass into the rows. The ask check compares each row's latest ask with
 its building's other rows, as described under [Ask check](#ask-check), and lists 41 of the 43 for
 review. The other 2 ads have fewer than three other rows with their building and bedroom count in
-the sample. A listed row stays in the rows until a ledger entry excludes it.
+the sample. A listed row keeps its ask until a ledger entry sets it or excludes the row.
 
 A bedroom count in every record still passes. It needs a size, a floor plan or the unit's other
 ads. On the production rows of Oct 16, 36,273 kept rows give a count none of their unit's other
@@ -1949,13 +2023,16 @@ in all, and most tests add made-up ads to that export. The tests:
     adds an export file repeating an answer and checks that the build stops and leaves OUT as it
     was;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
-    among them, read files with a repeated line, a retract of an unknown, a retracted or a
-    retracting entry, and a line that is not JSON, and check that `read` takes files in order
-    of name;
-22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two of
-    them in a later file, and check each entry's status and differing values. The next plan rebuilds
-    only the two ledger models, `analysis.ask_check` and the views `analysis.rows` and
-    `analysis.ads`. The first drops one row and changes four, and the latest asks stay as they
+    among them, an ask set of 0, an ask set without its recorded ask and an ask set backed only
+    by a stated size and units of the same line. Then read files with a repeated line, a retract
+    of an unknown, a retracted or a retracting entry, and a line that is not JSON, and check
+    that `read` takes files in order of name;
+22. write ledger entries for ten kept rows of the fixture and an ad without one, retract two of
+    them in a later file, and check each entry's status and differing values. Among them, an
+    exclude made on a row's latest ask applies, and one made on ten times the latest ask goes
+    stale. The next plan rebuilds only the two ledger models, `analysis.ask_check` and the views
+    `analysis.rows` and `analysis.ads`. The first drops two rows and changes four, each row's
+    `latest_ask` equals its ask in `analysis.latest_ask`, and the latest asks stay as they
     were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
@@ -2032,8 +2109,8 @@ in all, and most tests add made-up ads to that export. The tests:
 30. render `city.pad_streets` over the fixture and read 26c's 276 names, none of type S, with
     the fields of BROADWAY's record. The 20-character name is blank in every record of 26c.
 31. parse the text of each Python value a model reads, and find no set and no text Python can't
-    parse. Then load the project in processes with hash seeds 1 and 2, each with its own state,
-    and compare each model's fingerprint.
+    parse. Then load the project in two processes at once, with hash seeds 1 and 2 and a state
+    each, and compare each model's fingerprint.
 32. add made-up buildings to the cases, each with a record of its own, and check the lot, BIN,
     link, rank and footprint test `buildings.lots` gives each one:
     - an address written with `W.` and `St.`, and by the street's other name in PAD's
@@ -2123,7 +2200,12 @@ in all, and most tests add made-up ads to that export. The tests:
     `analysis.ask_check` lists the ads at ten times and a tenth for review, and `analysis.ads`
     gives them their median, the count of other rows and the ratio. The check passes over the ad
     at a little over five times, an ad at ten times with only two other rows and both studios.
-    Every ad of the building keeps its row;
+    Every ad of the building keeps its row. Then a second ledger file gives the ad at ten times
+    an ask set made on its recorded ask, and the ad at a tenth an ask set made on another ask.
+    The next plan rebuilds the same models as in item 22. The first set applies: the row's
+    `latest_ask` takes the set's ask, its `asking_rent` and its ask in the ads file stay as
+    recorded, and the check stops listing it. The second goes stale, and its row keeps its ask
+    and its place on the list;
 43. parse a unit ledger line breaking each of its rules, and read files with a repeated line, a
     page in two joins, an ad in two splits, a building moved twice, a move to a moved building,
     a move of a building other ads move to, a retract of an unknown or a retracted entry, and a
@@ -2136,49 +2218,65 @@ in all, and most tests add made-up ads to that export. The tests:
     by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
     `ads.placed`;
-45. write the records file of the fixture export and compare each row with its answer: the
+45. read the repo's unit ledger and check that it holds a join, a split and a move;
+46. write the records file of the fixture export and compare each row with its answer: the
     listing, the response ID and SHA-256, the record as `serialize` gives it, and the answer's
     time in seconds as both the first and the last time. A second run reads nothing into the
     cache and leaves one file of the same bytes;
-46. write the records file of a made-up record with integral and fractional floats in its
+47. write the records file of a made-up record with integral and fractional floats in its
     price, price changes and sizes, `__typename` keys at each depth and non-ASCII text, and
     compare its `raw_listing_json` with the expected text;
-47. write the records file of a made-up listing answered three times with a record and then
+48. write the records file of a made-up listing answered three times with a record and then
     once with a changed one, beside an answer without a record. The file gives the first record
     with its first and last times and its first answer's ID, then the changed record, and
     nothing for the answer without a record;
-48. copy a cache file of the records step, and check that the step stops on the repeated
+49. copy a cache file of the records step, and check that the step stops on the repeated
     records and leaves OUT empty.
 
-pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
-about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
-workers, and a fork in a process with open DuckDB connections can deadlock, so
-`pipeline/tests/conftest.py` sets `MAX_FORK_WORKERS=1`.
+pytest-xdist runs the tests in three worker processes, as set in `pipeline/pyproject.toml`, and a
+worker with an empty queue takes tests queued for another. The fixture comes to under 500 KB, and
+nearly all of a test's time goes to SQLMesh: it loads the project in about 2 s and plans the
+fixture in about 4 s of CPU. `pipeline/tests/conftest.py` keeps in each worker, for the whole
+session:
+
+- a context on the fixture export and an empty state, for the tests rendering models or reading
+  their definitions (items 19, 30, 31 and 33 to 36). No test plans on its state, so SQLMesh
+  renders models under their own names rather than as the tables of a build;
+- a folder for SQLMesh's optimized model queries, shared by every context of the worker.
+  SQLMesh keys each entry on a hash of the model's query, macros and parents' columns, so it
+  reuses an entry in a later context only for a model with the same text and inputs;
+- the list of the venv's packages, which SQLMesh otherwise reads on each plan.
+
+On thelio, with other jobs keeping the load average between 4 and 10, the tests take about 125 s
+at three workers and 135 s at two, and use 300 to 350 s of CPU. The longest test, the top-up
+build of item 20, takes about 20 s. SQLMesh loads models in forked workers, and a fork in a
+process with open DuckDB connections can deadlock, so `conftest.py` also sets
+`MAX_FORK_WORKERS=1`.
 
 The repository's own tests hold `tests/test_pipeline_records.py`, since the pipeline's venv lacks
 the page parser's dependencies. It compares `serialize` with the parser of
 `apartments.graphql_listing` on each of the fixture's 229 records and on the made-up record of
-item 46.
+item 47.
 
 The frontier's `frontier/tests/test_api_records.py` checks the builders' reader on a records file
 and catalog it writes in a temporary folder:
 
-49. after a clean build's line, append a dirty build's line and a partial last line, and check
+50. after a clean build's line, append a dirty build's line and a partial last line, and check
     that the reader takes the clean line's file;
-50. add a byte to the records file, and check that the reader stops;
-51. append a clean line without a records file, and check that the reader stops;
-52. read a row back, and check its granular names: the listing ID as text, the last answer's
+51. add a byte to the records file, and check that the reader stops;
+52. append a clean line without a records file, and check that the reader stops;
+53. read a row back, and check its granular names: the listing ID as text, the last answer's
     time as `collected_at` and the response ID as `snapshot_id`;
-53. read a granular folder of two Parquet files and the records file through `observations`,
+54. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
 
 The frontier's `frontier/tests/test_listing_outcomes.py` checks `listing_outcomes` on a records
 file:
 
-63. build the outcomes of a records file with a listing still on the market and one that left
+64. build the outcomes of a records file with a listing still on the market and one that left
     it, each first fetched a day after listing and last fetched ten days after, and check that
     the first counts ten days and the second stops at its day off the market;
-64. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
+65. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
     file under `records`, that `--crawl page` adds the page crawls and that a tag without a
     crawl stops.
 

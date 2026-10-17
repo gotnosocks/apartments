@@ -281,7 +281,13 @@ def test_ask_check_cases(tmp_path, monkeypatch):
       two.
     - ad 9000158 asks $40,000, 20 times the building's other studios.
     - ad 9000159 asks $26,000 as a studio, 13 times the other studios. A ledger set makes it a
-      three-bedroom, and it asks 2.2 times the other three-bedrooms."""
+      three-bedroom, and it asks 2.2 times the other three-bedrooms.
+
+    Each ad gives its ask in every record, so the latest-ask steps keep it. A second ledger file
+    then gives ad 9000145 an ask set to $3,100, made on its recorded ask, and ad 9000154 an ask
+    set made on an ask of $1,200. The first applies: the row asks $3,100, and the check stops
+    listing it. The second goes stale, and the row keeps its ask and its place on the list. The
+    ads file keeps each ad's ask from before the ledger."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     tower = json.dumps({"id": "900030", "slug": "900030-case-street-new_york"})
@@ -374,6 +380,57 @@ def test_ask_check_cases(tmp_path, monkeypatch):
     }
     assert ads.ask_check.isna().sum() == len(ads) - 2
     assert ads.in_rows.all()
+
+    other_ad = {
+        "kind": "other_ad",
+        "listing_id": "123",
+        "detail": "the same unit a month earlier",
+    }
+    asks = [
+        (ids[(1, 31000)], 3100, 31000),
+        (ids[(3, 1250)], 12500, 1200),
+    ]
+    sets = [
+        {
+            **entry,
+            "evidence": [{**other_ad, "ask": ask}],
+            "listing_id": listing_id,
+            "set": {"latest_ask": ask},
+            "when": {"period": "2026-05", "latest_ask": recorded},
+        }
+        for listing_id, ask, recorded in asks
+    ]
+    (ledger / "2026-10-17.ndjson").write_text(
+        "".join(json.dumps(line) + "\n" for line in sets)
+    )
+    ctx = context(monkeypatch, tmp_path / "state", export, ledger=ledger)
+    plan = ctx.plan(auto_apply=True, no_prompts=True)
+    assert changed(plan) == [
+        "analysis.ads",
+        "analysis.ask_check",
+        "analysis.rows",
+        "ledger.entries",
+        "ledger.status",
+    ]
+    status = ctx.fetchdf(
+        """SELECT listing_id, field, status, differs FROM ledger.status
+        WHERE file = '2026-10-17.ndjson' ORDER BY listing_id"""
+    )
+    assert status.values.tolist() == [
+        [ids[(1, 31000)], "latest_ask", "live", ""],
+        [ids[(3, 1250)], "latest_ask", "stale", "latest_ask"],
+    ]
+    rows = ctx.fetchdf(
+        f"""SELECT r.listing_id, r.asking_rent, r.latest_ask, a.latest_ask AS ads_ask
+        FROM analysis.rows r JOIN analysis.ads a USING (listing_id)
+        WHERE r.listing_id IN {(ids[(1, 31000)], ids[(3, 1250)])} ORDER BY r.listing_id"""
+    )
+    assert rows.values.tolist() == [
+        [ids[(1, 31000)], 31000, 3100, 31000],
+        [ids[(3, 1250)], 1250, 1250, 1250],
+    ]
+    flagged = ctx.fetchdf("SELECT listing_id FROM analysis.ask_check")
+    assert flagged.listing_id.tolist() == [ids[(3, 1250)]]
 
 
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
@@ -522,12 +579,11 @@ def test_new_city_file_rebuilds_only_its_view(tmp_path, monkeypatch):
     assert ctx.fetchdf("SELECT count(*) AS n FROM city.landmarks").n[0] == 29
 
 
-def test_pad_street_fields(tmp_path, monkeypatch):
+def test_pad_street_fields(render_context):
     """The view of PAD's street names cuts each record into fields, and leaves out the header
     record and the records of type S. The fixture's 26c dictionary has 276 records of other
     types."""
-    ctx = context(monkeypatch, tmp_path / "state")
-    view = ctx.render("city.pad_streets").sql(dialect="duckdb")
+    view = render_context.render("city.pad_streets").sql(dialect="duckdb")
     streets = duckdb.sql(f"SELECT * FROM ({view}) WHERE release = '26c'")
     rows = streets.df()
     assert len(rows) == 276
@@ -649,16 +705,15 @@ def test_rewritten_export_file_rebuilds(tmp_path, monkeypatch):
     )
 
 
-def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
+def test_fingerprints_hold_across_hash_seeds(tmp_path, render_context):
     """Each model has the same fingerprint in processes with different hash seeds. The text of a
     set of strings changes with the seed, so a model reading one would get a new fingerprint in
     each new build process, and the build would rebuild it and everything below it."""
     # SQLMesh fingerprints a model's Python values by their text. The test parses each value's
     # text and lists the values holding a set, or text Python can't parse, such as an object's
     # address.
-    ctx = context(monkeypatch, tmp_path / "state")
     unstable = []
-    for model in ctx.models.values():
+    for model in render_context.models.values():
         for name, value in model.python_env.items():
             if value.kind != ExecutableKind.VALUE:
                 continue
@@ -683,23 +738,31 @@ def test_fingerprints_hold_across_hash_seeds(tmp_path, monkeypatch):
         "print(json.dumps({s.name: s.fingerprint.to_identifier() "
         "for s in Context(paths=sys.argv[1]).snapshots.values()}))"
     )
+    (tmp_path / "ledger").mkdir()
 
-    def fingerprints(seed):
-        loaded = subprocess.run(
+    def load(seed):
+        return subprocess.Popen(
             [sys.executable, "-c", script, str(PROJECT)],
             env=os.environ
             | {
                 "PYTHONHASHSEED": str(seed),
+                "PIPELINE_EXPORT": str(FIXTURE / "export"),
                 "PIPELINE_STATE": str(tmp_path / f"state-{seed}"),
+                "PIPELINE_LEDGER": str(tmp_path / "ledger"),
             },
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        assert loaded.returncode == 0, loaded.stderr
-        return json.loads(loaded.stdout.splitlines()[-1])
 
-    first, second = fingerprints(1), fingerprints(2)
-    assert len(first) == len(ctx.models)
+    def fingerprints(loading):
+        out, err = loading.communicate()
+        assert loading.returncode == 0, err
+        return json.loads(out.splitlines()[-1])
+
+    # Both processes load the project at once.
+    first, second = map(fingerprints, [load(1), load(2)])
+    assert len(first) == len(render_context.models)
     assert first == second
 
 
@@ -1829,14 +1892,13 @@ def config(tmp_path, monkeypatch):
     return module
 
 
-def test_list_indexes_are_literals(tmp_path, monkeypatch):
+def test_list_indexes_are_literals(render_context):
     """No model indexes a list in brackets with a computed position. SQLMesh renders each model
     through sqlglot, and sqlglot 30.8 adds 1 to such an index once it knows the list's type, so
     the models read computed positions with list_extract."""
-    ctx = context(monkeypatch, tmp_path / "state")
     computed = [
         (name, bracket.sql("duckdb"))
-        for name, model in ctx.models.items()
+        for name, model in render_context.models.items()
         if model.is_sql
         for bracket in model.query.find_all(exp.Bracket)
         if not all(isinstance(i, exp.Literal) for i in bracket.expressions)
