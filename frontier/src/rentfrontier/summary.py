@@ -46,10 +46,11 @@ Writes /data1/apartments/frontier/summaries/<run>-<commit>/:
 rows.parquet          one row per dataset row (the columns above plus
                       audit_id, unit_id after the run's data rules, building,
                       period, asking_rent, in_fit, unit_fit_rows).
-market.parquet        per month: the market reference rent (with and without
-                      the calendar season), median and 95% interval.
+market.parquet        per month: the market reference rent's median with the
+                      calendar season, and its median and 95% interval
+                      without it.
 buildings.parquet     per building: level and yearly trend as percentages,
-                      median, 95% interval, training rows and units.
+                      median, 95% interval, and training rows.
 coefficients.parquet  per feature column: exp(beta) - 1, median, 95% interval
                       and probability positive.
 terms.json            the contribution terms in display order, with labels.
