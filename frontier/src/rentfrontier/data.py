@@ -1748,6 +1748,14 @@ LATEST_ASK_V9 = Path(
     "/data1/apartments/external/latest-ask/20261017-dba39e0-all-stale/latest-ask.parquet"
 )
 
+# LATEST_ASK_V9 with each row repriced after also dropping the price changes dated
+# on the ad's off-market day and in the week after it
+# (`latest_ask.CLOSING_STALE_DAYS`). Most such changes raise the ask as the ad
+# closes, and a fit with this table tests whether they belong in the target.
+LATEST_ASK_V10 = Path(
+    "/data1/apartments/external/latest-ask/20261017-c201c11-all-closing/latest-ask.parquet"
+)
+
 
 def latest_ask_v3(frame: pd.DataFrame, path: Path = LATEST_ASK_V3) -> pd.DataFrame:
     """`latest_ask_v2` on latest asks built from the listings' rental records
@@ -2086,6 +2094,7 @@ DATA_RULES = {
     "latest-ask-v7": functools.partial(latest_ask_v3, path=LATEST_ASK_V7),
     "latest-ask-v8": functools.partial(latest_ask_v3, path=LATEST_ASK_V8),
     "latest-ask-v9": functools.partial(latest_ask_v3, path=LATEST_ASK_V9),
+    "latest-ask-v10": functools.partial(latest_ask_v3, path=LATEST_ASK_V10),
     "tune-westcoast-split-v1": tune_westcoast_split_v1,
     "tune-westcoast-split-v2": tune_westcoast_split_v2,
     "building-joins-v1": building_joins_v1,
@@ -2149,6 +2158,7 @@ RULE_SOURCES = {
     "latest-ask-v7": LATEST_ASK_V7,
     "latest-ask-v8": LATEST_ASK_V8,
     "latest-ask-v9": LATEST_ASK_V9,
+    "latest-ask-v10": LATEST_ASK_V10,
     "elevator-from-ad-v1": ELEVATOR_FROM_AD,
     "pets-from-ad-v1": PETS_FROM_AD,
     "pets-from-ad-v2": PETS_FROM_AD_V2,
