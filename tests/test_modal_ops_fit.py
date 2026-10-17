@@ -636,6 +636,11 @@ def test_publish_only_names_the_existing_run_and_carries_the_gate_override():
     assert spec["name"] == "old-run"
     assert spec["publish_only"] and spec["allow_failing"]
     assert not {"--publish-only", "--allow-failing", "--run"} & set(rest)
+    assert not spec["range_sample"]
+    args, rest = fit.parse(["--large", "--publish-only", "--range-sample", *argv])
+    assert (
+        fit.plan(args, rest, "9371a18")["range_sample"] and "--range-sample" not in rest
+    )
 
 
 def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch):
@@ -666,11 +671,24 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
 
     monkeypatch.setattr(app, "_run", run)
     meta = app._fit(
-        {"name": "r", "publish_only": True, "allow_failing": True, "dataset": "d"}
+        {
+            "name": "r",
+            "publish_only": True,
+            "allow_failing": True,
+            "range_sample": True,
+            "dataset": "d",
+        }
     )
     bundle = str(tmp_path / "summaries" / "r-abc1234")
     assert calls == [
-        ["rentfrontier.summary", "r", "--workers", "7", "--allow-failing"],
+        [
+            "rentfrontier.summary",
+            "r",
+            "--workers",
+            "7",
+            "--allow-failing",
+            "--range-sample",
+        ],
         ["rentfrontier.kit", "r", "--summary", bundle, "--allow-failing"],
         ["rentfrontier.calibration", bundle],
         ["rentfrontier.rentmap", "r"],

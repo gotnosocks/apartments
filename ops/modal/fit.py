@@ -125,6 +125,11 @@ def parse(argv):
         help="with --publish-only: build them for a run that fails the convergence gate",
     )
     p.add_argument(
+        "--range-sample",
+        action="store_true",
+        help="the summary also writes range-sample.npz (rentfrontier.summary --range-sample)",
+    )
+    p.add_argument(
         "--explain",
         action="append",
         default=[],
@@ -182,6 +187,7 @@ def plan(args, run_args, sha, short=None):
         "summary": not args.no_summary,
         "publish_only": args.publish_only,
         "allow_failing": args.allow_failing,
+        "range_sample": args.range_sample,
     }
 
 
