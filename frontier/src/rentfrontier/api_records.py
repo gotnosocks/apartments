@@ -21,7 +21,7 @@ ads out of its rows for the same reason. About half are drafts and ads held for 
 never went on the market, and the rest ended with no ACTIVE event in their own history. Taking
 the ads file from the same catalog line keeps the builders, the ads file and the rows on one set
 of listings. A draft or an ad under review with a dated ACTIVE event of its own stays in, since
-the rows can hold it too.
+the rows can hold it too. A listing missing from the ads file is skipped as well.
 
 `captures` reads the file a row group at a time, because its record text runs to a few
 gigabytes. `observations` reads a crawl a builder names, either a granular export's folder or
@@ -111,9 +111,9 @@ def records_file(root: Path | None = None) -> dict:
     return source
 
 
-def listed(ads: dict) -> pa.Array:
-    """The listing ids of the checked ads file `ads`, as text, leaving out each ad marked
-    `NEVER_LISTED`."""
+def listed(ads: dict) -> np.ndarray:
+    """The listing ids of the checked ads file `ads`, as sorted integers, leaving out each ad
+    marked `NEVER_LISTED`."""
     table = pq.read_table(ads["path"], columns=["listing_id", "exclusion_reasons"])
     reasons = table["exclusion_reasons"].combine_chunks()
     flagged = pc.filter(
@@ -122,21 +122,31 @@ def listed(ads: dict) -> pa.Array:
     )
     keep = np.ones(table.num_rows, dtype=bool)
     keep[flagged.to_numpy()] = False
-    return pc.cast(table["listing_id"], pa.string()).combine_chunks().filter(keep)
+    return np.sort(pc.cast(table["listing_id"], pa.int64()).to_numpy()[keep])
+
+
+def among(ids: np.ndarray, listing_ids: pa.Array) -> np.ndarray:
+    """A mask over `listing_ids` marking each id found in the sorted array `ids`."""
+    wanted = pc.cast(listing_ids, pa.int64()).to_numpy(zero_copy_only=False)
+    at = np.searchsorted(ids, wanted)
+    found = at < len(ids)
+    found[found] = ids[at[found]] == wanted[found]
+    return found
 
 
 def captures(
     source: dict, columns: Iterable[str], batch_size: int = 2_000
 ) -> Iterator[dict]:
     """Each row of the checked records file `source` as a granular capture with `columns`, for
-    the listings its ads file shows on the market."""
+    the listings its ads file shows on the market. `source` comes from `records_file`, which
+    adds the ads file under `ads`, and I skip a listing the ads file lacks."""
     columns = list(columns)
     ids = listed(source["ads"])
     file = pq.ParquetFile(source["path"])
     read = list(dict.fromkeys([*(NAMES[c] for c in columns), "listing_id"]))
     for batch in file.iter_batches(batch_size=batch_size, columns=read):
-        keep = pc.is_in(pc.cast(batch["listing_id"], pa.string()), value_set=ids)
-        for row in batch.filter(keep).to_pylist():
+        keep = among(ids, batch["listing_id"])
+        for row in batch.filter(pa.array(keep)).to_pylist():
             out = {c: row[NAMES[c]] for c in columns}
             if "listing_id" in out:
                 out["listing_id"] = str(out["listing_id"])
@@ -148,7 +158,7 @@ def observations(
 ) -> Iterator[dict]:
     """The rows of a granular crawl's `listing_observations` with `columns`, a Parquet file at a
     time in name order, or the records file's rows when `crawl` is `CRAWL`. `records` is the
-    checked records file, and without it I read the catalog."""
+    checked records file from `records_file`, and without it I read the catalog."""
     columns = list(columns)
     if crawl == CRAWL:
         yield from captures(records or records_file(), columns)
