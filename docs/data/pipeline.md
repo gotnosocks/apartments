@@ -1720,6 +1720,9 @@ the time of that fetch. In the Oct 16 export, every listing's record with the la
 answer is also its record with the latest last answer, so only the time moves: the granular
 export dated a record seen again in a later run to its first answer.
 
+`latest_ask` reads the file with `--crawl records`, beside `--crawl page` for the page crawls,
+and lists the file's name and SHA-256 in its provenance under `records`.
+
 ## Differences from the chain
 
 Where the pipeline gives a value other than the current chain's on purpose, I add the
@@ -2166,6 +2169,13 @@ and catalog it writes in a temporary folder:
     time as `collected_at` and the response ID as `snapshot_id`;
 53. read a granular folder of two Parquet files and the records file through `observations`,
     and check that the folder's rows come in file name order.
+
+The frontier's `frontier/tests/test_latest_ask.py` checks `latest_ask` on a records file:
+
+54. give `latest_ask.listings` a page crawl's capture of a listing and two of its records, and
+    check that it takes the record fetched last, at its last fetch;
+55. run `latest_ask.main` with `--crawl records`, and check that it hands the checked file to
+    `listings` and names it in its provenance.
 
 ## Full build
 
