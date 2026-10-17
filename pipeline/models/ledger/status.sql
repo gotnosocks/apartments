@@ -15,7 +15,7 @@ MODEL (
 --   absent      no kept row has its ad.
 --   stale       a value in its `when` differs from the kept row's. `differs` names the values.
 --   superseded  a later live set gives the same field of the same row.
---   live        it applies, and analysis.rows applies it.
+--   live        it applies, and analysis.corrected applies it.
 WITH checked AS (
     SELECT e.entry, e.file, e.line, e.seq, e.listing_id, e.change, e.field,
         e.entry IN (SELECT retracts FROM ledger.entries WHERE change = 'retract') AS retracted,

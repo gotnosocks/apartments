@@ -32,8 +32,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    from the chain.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
-   models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
-   rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
+   models `ledger.entries` and `ledger.status`, and `analysis.corrected` applying it to the
+   kept rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
    `ops/pipeline/ledger_import.py`. #921 added the studio Ben read from the floor plan of
    333 W 56th St #3E, from `bedrooms-ad-v8`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
@@ -236,8 +236,20 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       of Oct 16 that changed the latest ask of 12 ended ads and left the rows file as it was.
       Data improvements wrote latest-ask-v7 with those 12 asks (#932), and in #933 the
       chain's `rentfrontier.latest_ask` reads the page price the same way.
-      Next: a check of each latest ask against its building's median, for the rest, and a
-      fallback to the last change before a typo in place of the first ask.
+      **Done** in #937: `analysis.corrected` applies the ledger to the kept rows, and
+      `analysis.ask_check` lists each corrected row asking 6 to 16 times, or a sixteenth to a
+      sixth of, the median of at least three other corrected rows with its building and
+      bedroom count. `analysis.rows` drops the rows it lists. On the planted sample it drops 41
+      of the 43 tenfold asks in every record that passed before. On the export of Oct 16 it
+      drops 40 rows. A Sonnet read found 23 mistyped prices, 5 shops or restaurant spaces, 4
+      with another layout or building, 3 income-restricted units, 3 real asks and 2 unclear.
+      The section "Ask check" of `docs/data/pipeline.md` has the details. It is a difference
+      from the chain, item 8, and Data improvements has the list. `build.py` now writes the
+      files with eight threads, as the ads file's sort ran out of 3 GB with twelve.
+      No bedroom check: two sources agree on another count for 14,933 production rows, and a
+      Sonnet read of 30 found 6 wrong counts, 14 flex or unclear layouts, 4 real changes, 4
+      right counts and 2 ads of another unit. A wrong count goes into the ledger with its
+      evidence. Next: a fallback to the last change before a typo in place of the first ask.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in

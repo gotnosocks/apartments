@@ -35,6 +35,9 @@ MODEL (
 --   fate:  the unit-month check's verdict in analysis.candidates, missing for an ad the chain
 --       drops before that check.
 --   ledger_entries:  the live entries of the corrections ledger for the ad.
+--   ask_check:  for a corrected row analysis.ask_check lists, the median latest ask of the
+--       building's other corrected rows with the same bedroom count, their number and the row's ratio to the
+--       median. analysis.rows drops the row.
 --   in_rows:  whether the ad has a fit-ready row in analysis.rows.
 WITH ledger AS (
     SELECT listing_id, list_sort(list(entry)) AS ledger_entries
@@ -55,6 +58,8 @@ SELECT i.listing_id, i.unit_id, i.building_id, i.building, i.page, g.regions,
     l.floor_plans,
     i.reasons AS identity_reasons, e.reasons AS exclusion_reasons, c.fate,
     coalesce(d.ledger_entries, []) AS ledger_entries,
+    CASE WHEN q.listing_id IS NOT NULL
+        THEN {'peer_ask': q.peer_ask, 'peer_rows': q.peer_rows, 'ratio': q.ratio} END AS ask_check,
     i.listing_id IN (SELECT listing_id FROM analysis.rows) AS in_rows
 FROM ads.identity i
 JOIN ads.latest_record l USING (listing_id)
@@ -68,3 +73,4 @@ LEFT JOIN ads.breaks k USING (listing_id)
 LEFT JOIN analysis.latest_ask a USING (listing_id)
 LEFT JOIN analysis.candidates c USING (listing_id)
 LEFT JOIN ledger d USING (listing_id)
+LEFT JOIN analysis.ask_check q USING (listing_id)

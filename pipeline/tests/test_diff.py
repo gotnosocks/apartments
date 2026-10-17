@@ -97,7 +97,12 @@ def test_diff_reports_each_change(tmp_path, capsys):
     ).fetchall()
     assert len(large) > 2
     models = result["models"]
-    for name in ("analysis.candidates", "analysis.kept", "analysis.rows"):
+    for name in (
+        "analysis.candidates",
+        "analysis.kept",
+        "analysis.corrected",
+        "analysis.rows",
+    ):
         model = models[name]
         assert model["changed"] == len(large) and model["changed_columns"] == {
             "square_feet": len(large)
@@ -118,6 +123,7 @@ def test_diff_reports_each_change(tmp_path, capsys):
     assert differs == {
         "analysis.candidates",
         "analysis.kept",
+        "analysis.corrected",
         "analysis.rows",
         "analysis.latest_ask",
     }
