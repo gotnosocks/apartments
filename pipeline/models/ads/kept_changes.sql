@@ -9,11 +9,15 @@ MODEL (
 );
 
 -- The step first drops every stale change, as rentfrontier.latest_ask does from latest-ask-v9.
--- A change is stale when its ad is no longer active and the change falls more than 7 days after
--- the off-market day, unless one of the record's status changes puts the ad back to ACTIVE after
--- that day. Brokers reuse an old ad's record for a later ad of the same apartment, so a stale
--- change carries the later ad's ask. Listing 2273410 ran for 5 days in December 2017, and its
--- record carries changes to $2,250 and $3,000 from March 2019. `m` numbers the changes left.
+-- A change is stale when its ad is no longer active and the change falls more than `stale_days`
+-- days after the off-market day, unless it falls on the on-market day or one of the record's
+-- status changes puts the ad back to ACTIVE after the off-market day. Brokers reuse an old ad's
+-- record for a later ad of the same apartment, so a stale change carries the later ad's ask.
+-- Listing 2273410 ran for 5 days in December 2017, and its record carries changes to $2,250 and
+-- $3,000 from March 2019. `m` numbers the changes left.
+--
+-- `PIPELINE_STALE_DAYS` sets `stale_days`, 7 unless set, as in latest-ask-v9. At -1, as in
+-- latest-ask-v10, every change from the off-market day on drops out.
 --
 -- Of those, a change counts as late when its ad is no longer active and the change falls on or
 -- after the off-market day, other than on the on-market day. A late change is a placeholder when
@@ -38,7 +42,8 @@ c AS (
         NOT (a.active OR a.off_day IS NULL OR p.day < a.off_day OR p.day = coalesce(a.on_day, '')) AS late
     FROM ads.price_changes p JOIN ads.latest_record a USING (listing_id)
     WHERE listing_id IN (SELECT listing_id FROM ads.touched)
-        AND NOT coalesce(NOT a.active AND p.day::DATE > a.off_day::DATE + 7
+        AND NOT coalesce(NOT a.active AND p.day <> coalesce(a.on_day, '')
+            AND p.day::DATE > a.off_day::DATE + @VAR('stale_days')
             AND listing_id NOT IN (SELECT listing_id FROM back), false)
 ),
 need AS (SELECT DISTINCT listing_id FROM c WHERE late AND m > 1),
