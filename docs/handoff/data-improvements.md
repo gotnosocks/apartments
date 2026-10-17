@@ -2,6 +2,20 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:38 ET
+
+- #1059 adds `pipeline/ledger/2026-10-17-z7-unit-baths-statedhalf.ndjson`, 179 bath-count sets, mostly 1 full to
+  1 full and 1 half. Of the 422 ads whose text states some other count, 200 state the count the unit's other ads
+  code. Sonnet read them (`/data1/apartments/tmp/suspect/baths/t5/`): 197 wrong, 2 right, 1 unclear.
+  `t5/ledger.py` keeps an entry only when its quote appears in the row's own text and parses to the backing value,
+  then applies the half-bath, renovation and ask screens. Review dropped 4 more where the backing ads' own text
+  contradicts their codes, as in 2580627, whose other ads say "one bath" or "two bathrooms" but code 1.5. Bath
+  sets now total 1,180.
+- Of the remaining 222, 40 state a third count and 182 agree with the row. Both groups stay as coded.
+- The review also noted ads that describe another bedroom count ("2BR/flex 3", "2 bed + loft", studio duplexes).
+  These are flex layouts, so they stay.
+- Next: units with a single other ad, where that ad's text and code and the row's text all agree.
+
 ## 2026-10-17 14:31 ET
 
 - #1056 adds `pipeline/ledger/2026-10-17-z6-unit-bedrooms.ndjson`, 140 bedroom-count sets. The screen took ads
