@@ -162,7 +162,8 @@ DEFINITIONS = {
         "buildings.lot_releases.",
         "streeteasy": "`building_floor_count` of the row: the building's floor count in its "
         "StreetEasy record, as buildings.details gives it.",
-        "classes": "`no_lot`: the row's building has no lot. `no_count`: the count is "
+        "classes": "`no_lot`: the row's building has no lot, or a live `drop_lot` entry of the "
+        "corrections ledger took it away. `no_count`: the count is "
         "missing. `zero_count`: it is 0. `within`: the floor is at most the count. "
         "`within_latest`, against `numfloors` alone: the floor is above the count and at most "
         "`latest_numfloors`, so the row's release is older than the building's current "

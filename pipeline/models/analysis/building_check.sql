@@ -12,7 +12,7 @@ MODEL (
 -- The city check in docs/data/pipeline.md read a sample of rows whose lot disagreed with the ad,
 -- and in some of them the matcher had put the ad on the wrong building. This model lists the
 -- rows where the lot's record leaves no room for the ad, so that a reader can move the ad through
--- the unit ledger or exclude it through the corrections ledger.
+-- the unit ledger, or exclude it or take its lot away through the corrections ledger.
 --
 -- The model reads each row's lot from analysis.lot_facts, with its facts as of the ad's first
 -- day, and the same lot's record in the latest release from buildings.lot_releases. A reason

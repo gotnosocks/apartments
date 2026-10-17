@@ -1153,8 +1153,9 @@ later in a month can read a release from earlier in that month.
 ### Checking a change
 
 `ops/pipeline/lot_facts_check.py` builds the three models and those below them over the export
-and a rows file, and prints the rows by release and fallback. It compares the release, the
-fallback, `latest_fields` and every fact with `released_lots`:
+and a rows file, and prints the rows by release and fallback. It gives `analysis.lot_facts` an
+empty `ledger.status`, so no `drop_lot` takes a lot away, as none does in `released_lots`. It
+compares the release, the fallback, `latest_fields` and every fact with `released_lots`:
 
 ```sh
 /data1/apartments/serve/master/ops/job light -m 6G -- \
@@ -1593,7 +1594,7 @@ release's count.
 `analysis.building_check` lists the fit-ready rows whose lot, in MapPLUTO's records, leaves no
 room for the ad. In some of the rows the city check above read, the matcher had put the ad on
 the wrong building. The check gives a reader those rows to move to the right building through
-the [Unit ledger](#unit-ledger), or to exclude through the
+the [Unit ledger](#unit-ledger), or to exclude or take away their lot through the
 [Corrections ledger](#corrections-ledger). `analysis.ads` gives the reasons, the lot and the lot's
 facts in its `building_check` column.
 
@@ -1683,34 +1684,36 @@ NDJSON files. To correct a row, a person or a script writes the decision as a li
 file and merges it through a reviewed PR. The docstring of `pipeline/models/ledger/entries.py`
 lists the keys of a line and the rules it must follow. In short, a line:
 
-- excludes an ad's row, gives one field of the row new values, or retracts an earlier entry.
-  A set gives the bedrooms, the full and half bathrooms, the size or the latest ask;
+- excludes an ad's row, gives one field of the row new values, takes the lot away from the
+  ad's lot facts with a `drop_lot`, or retracts an earlier entry. A set gives the bedrooms, the
+  full and half bathrooms, the size or the latest ask;
 - gives the ad's `listing_id`;
 - gives in `when` the row's values the decision rests on, such as the recorded bedroom count
-  for a bedroom set, the latest ask `analysis.latest_ask` chose for an ask set, or the month for
-  an exclude;
+  for a bedroom set, the latest ask `analysis.latest_ask` chose for an ask set, the month for
+  an exclude, or the lot of the ad's building for a drop_lot;
 - lists its evidence. A set needs an item beyond the ad's own words: another ad for the unit, a
   stated size, a floor plan, units of the same line, or Ben's own reading. An ask set needs
   another ad for the unit or Ben's own reading, as a size, a plan or another unit's price says
-  nothing of the unit's ask;
+  nothing of the unit's ask. A drop_lot needs a city record or Ben's own reading;
 - gives the day of the decision, and the file and line it came from.
 
 Lines merged to master stay as they are, and a later file retracts a wrong entry.
 `tests/test_ledger.py` compares each file with its version at the merge base with master.
 
-Three models read the ledger:
+Four models read the ledger:
 
 1. `ledger.entries` reads every file and checks each line. A line breaking a rule stops the
    build, and the error gives its file and line.
-2. `ledger.status` checks each entry against `analysis.kept`, and its recorded latest ask
-   against `analysis.latest_ask`. It gives the entry the first status that fits:
+2. `ledger.status` checks each entry against `analysis.kept`, its recorded latest ask
+   against `analysis.latest_ask`, and its lot against the lot `buildings.lots` gives the row's
+   building. It gives the entry the first status that fits:
 
    | status | the entry |
    |---|---|
    | `retract` | undoes another |
    | `retracted` | is undone by a later retract |
    | `absent` | is for an ad with no kept row |
-   | `stale` | gives a value in `when` other than the kept row's or its latest ask, and `differs` lists the values |
+   | `stale` | gives a value in `when` other than the kept row's, its latest ask or its lot, and `differs` lists the values |
    | `superseded` | sets a field a later live set of the row also sets |
    | `live` | applies |
 
@@ -1719,6 +1722,10 @@ Three models read the ledger:
    chain's bath rules do. An ask set gives the row's `latest_ask` and leaves `asking_rent`, the
    first ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
    ads file keeps the latest ask from before the ledger.
+4. `analysis.lot_facts` gives an ad with a live drop_lot no lot, BIN, release or facts, and
+   names the entry in `lot_entry`. The building check then leaves the ad's row out, and the
+   city check counts it among the rows without a lot. The rows file doesn't read the lot
+   facts, so a drop_lot changes no fit input.
 
 I gave the rows a `latest_ask` column for the ask sets instead of setting `asking_rent`. That
 column holds the ad's first ask, as the chain's datasets do, and the chain gives a fit the
@@ -1727,7 +1734,8 @@ have a latest ask other than their first.
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
 correction rules apply. A change to the ledger rebuilds only the two ledger models,
-`analysis.ask_check` and the views `analysis.rows` and `analysis.ads`. The catalog line of each
+`analysis.ask_check`, `analysis.lot_facts`, `analysis.building_check` and the views
+`analysis.rows` and `analysis.ads`. The catalog line of each
 build lists the ledger's files with their SHA-256, and counts the entries by status and change.
 
 ### The chain's corrections
@@ -1897,6 +1905,46 @@ its price and asked $2,150 the next day, but it is another unit.
 Each entry's `when` gives the row's month and its recorded ask. The rows file and the ads file
 of the Oct 16 build give each of the five rows its recorded ask, as both its first and its
 latest ask.
+
+### Lots taken away
+
+Data improvements read rows of the building check and wrote its decisions to
+`config/reviews/drop-lot-20261017.jsonl`. Each line gives an ad, the lot `buildings.lots` gave
+its building, a reason and the evidence. `ops/pipeline/drop_lot_import.py` writes a `drop_lot`
+entry for each line into `pipeline/ledger/2026-10-17-wrong-lots.ndjson`:
+
+- `when` gives the review's lot, so the entry goes stale once the ad's building takes another
+  lot, as a change to the lot step can give it.
+- The building check's flag with the lot's record and the PAD lookup of the ad's address
+  become `city_record` items. The ad's words become an `ad_text` quote, and the reader's note
+  a `read` naming the reader's labels file.
+- `source` gives the review file and line. The importer leaves out a line when an entry from
+  the same file and line is already in the ledger.
+
+The file holds 1,274 entries:
+
+| reason | entries | the reader found |
+|---|--:|---|
+| `wrong_building` | 704 | the ad describes a building other than the lot's |
+| `city_record_wrong` | 570 | the ad's building stands on the lot, and the lot's record predates it, as for a new building on a lot recorded as vacant |
+
+Both reasons take the lot away alike, as the frontier's `lots3` feature sets do. Those sets
+read the review file by listing ID and don't check the lot, so they keep dropping an ad's lot
+after its building takes another one, while its ledger entry goes stale.
+
+I built a copy of the relist lane's Oct 17 state with this file. The build took 4 min 36 s,
+and the build script peaked at 4,077 MiB. The ledger then gives these statuses:
+
+| reason | live | stale |
+|---|--:|--:|
+| `wrong_building` | 667 | 37 |
+| `city_record_wrong` | 437 | 133 |
+
+For each of the 170 stale entries, the building's address and its footprint give different
+lots. The reader saw one of them, and since #1006 `buildings.lots` takes the other, with
+apartments in the latest MapPLUTO release. Only 1 of those 170 ads is still on the building
+check's list. The list went from 1,434 rows to 339: live entries took 1,095 flagged rows off it,
+and the other 9 live entries belong to ads outside the list on this state.
 
 ### Check build
 

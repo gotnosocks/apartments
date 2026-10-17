@@ -6,12 +6,13 @@ model's `released_lots`.
 
 1. The script reads the rows file FILE, the newest rows-*.parquet under
    /data1/apartments/pipeline/datasets unless given, and puts its listing IDs, buildings and
-   dates in a scratch DuckDB database as `analysis.candidates`. It then renders
-   `analysis.lot_facts` with each model it reads but the candidates, and the models above
-   those, runs them in order, the views as views and the rest as tables, and prints the
-   seconds each took. It reads the export and the city cache config.py gives, or the export DIR with
-   `--export`, and leaves the build's database alone. DuckDB gets SIZE of memory, 3GB unless
-   given, and spills to the scratch folder past it.
+   dates in a scratch DuckDB database as `analysis.candidates`, next to an empty
+   `ledger.status`, so no `drop_lot` entry of the corrections ledger takes a lot away, as none
+   does in `released_lots`. It then renders `analysis.lot_facts` with each model it reads but
+   those two, and the models above those, runs them in order, the views as views and the rest
+   as tables, and prints the seconds each took. It reads the export and the city cache
+   config.py gives, or the export DIR with `--export`, and leaves the build's database alone.
+   DuckDB gets SIZE of memory, 3GB unless given, and spills to the scratch folder past it.
 2. It counts the rows by the release they read and by their fallback.
 3. It hands each distinct pair of lot and date to `released_lots` from the frontier code in DIR,
    /data1/apartments/serve/master/frontier unless given, run in the frontier's venv. That
@@ -105,8 +106,8 @@ def newest_rows() -> Path:
 
 
 def build(db, export: Path | None) -> None:
-    """Run `analysis.lot_facts`, each model it reads but `analysis.candidates`, and the models
-    above those into `db`, in order."""
+    """Run `analysis.lot_facts`, each model it reads but `analysis.candidates` and
+    `ledger.status`, and the models above those into `db`, in order."""
     with tempfile.TemporaryDirectory(prefix="lot-facts-check-") as state:
         os.environ["PIPELINE_STATE"] = state
         if export:
@@ -115,8 +116,10 @@ def build(db, export: Path | None) -> None:
 
         ctx = Context(paths=str(REPO / "pipeline"))
         facts = ctx.get_model("analysis.lot_facts")
-        candidates = ctx.get_model("analysis.candidates").fqn
-        inputs = facts.depends_on - {candidates}
+        stubs = {
+            ctx.get_model(name).fqn for name in ("analysis.candidates", "ledger.status")
+        }
+        inputs = facts.depends_on - stubs
         needed = {facts.fqn, *inputs, *(u for i in inputs for u in ctx.dag.upstream(i))}
         for fqn in [f for f in ctx.dag.sorted if f in needed]:
             model = ctx.get_model(fqn)
@@ -304,6 +307,11 @@ def main() -> None:
             CREATE TABLE analysis.candidates AS
             SELECT listing_id, building_id, price_at, period FROM read_parquet('{rows}')
         """)
+        db.execute("CREATE SCHEMA ledger")
+        db.execute(
+            """CREATE TABLE ledger.status
+            (entry VARCHAR, listing_id VARCHAR, change VARCHAR, status VARCHAR)"""
+        )
         start = time.monotonic()
         build(db, args.export)
         print(f"all models: {time.monotonic() - start:.1f} s")

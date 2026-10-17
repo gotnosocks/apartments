@@ -114,6 +114,8 @@ These PRs merged on Oct 17:
 - #1006: when a building's address and footprint give different lots and the latest MapPLUTO
   release gives one of them apartments and the other a count of 0, `buildings.lots` takes the
   one with apartments.
+- #1008: `analysis.rows` gives each row a `relist_unit`, joining the unit pages of a lot over its
+  count when their ads show a rare photo in common.
 
 The work goes on in this order:
 
@@ -135,12 +137,15 @@ The work goes on in this order:
    floors put them about 68% right and floor plans about 56%, too low to join on. A reader judged
    17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` to be unit splits
    or relabels, and those lots serve as labeled tests.
-2. A `drop_lot` change in the corrections ledger, read by `analysis.lot_facts` so the listed ads
-   get no lot. #975 put Data improvements' list in `config/reviews/drop-lot-20261017.jsonl`:
-   1,274 ads that `building_check` flagged and a reader put on the wrong building or under an
-   out-of-date city record. Modeling's `lots3` feature sets (#976) read that file and give those
-   ads NaN lot features, so fits don't wait on the ledger. The build rejects a change it doesn't
-   know, so the PR adds `drop_lot` to the ledger's changes and imports the file as a batch.
+2. The `drop_lot` change goes on from its PR. `pipeline/ledger/2026-10-17-wrong-lots.ndjson`
+   holds Data improvements' 1,274 reviewed wrong lots from #975, written by
+   `ops/pipeline/drop_lot_import.py`, and `analysis.lot_facts` gives a live entry's ad no lot.
+   On the lane build in `/data1/apartments/tmp/pipeline/lanes/drop-lot-build/`, 1,104 entries
+   are live and 170 stale, each stale one because #1006 picked the building's other lot. The
+   building check's list went from 1,434 rows to 339.
+   [pipeline.md](../data/pipeline.md#lots-taken-away) has the counts. Modeling's `lots3`
+   feature sets (#976) read the review file by listing ID, so they still drop the lots of the
+   170 stale ads, while `lot_facts` gives those ads their new lots.
 3. Data improvements' suggestion: drop a late change to a repeated-digit ask, such as $9,999, when
    it moves the ask by 1.2x or more.
 

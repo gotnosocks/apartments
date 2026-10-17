@@ -13,10 +13,12 @@ MODEL (
 --   retract     the entry undoes another.
 --   retracted   a later entry undoes it.
 --   absent      no kept row has its ad.
---   stale       a value in its `when` differs from the kept row's, or its `latest_ask` from the
---               ask analysis.latest_ask gives the row. `differs` names the values.
+--   stale       a value in its `when` differs from the kept row's, its `latest_ask` from the
+--               ask analysis.latest_ask gives the row, or its `bbl` from the lot
+--               buildings.lots gives the row's building. `differs` names the values.
 --   superseded  a later live set gives the same field of the same row.
---   live        it applies, and analysis.rows applies it.
+--   live        it applies. analysis.rows applies a live exclude or set, and
+--               analysis.lot_facts a live drop_lot.
 WITH checked AS (
     SELECT e.entry, e.file, e.line, e.seq, e.listing_id, e.change, e.field,
         e.entry IN (SELECT retracts FROM ledger.entries WHERE change = 'retract') AS retracted,
@@ -36,10 +38,13 @@ WITH checked AS (
                 AND e.when_square_feet IS DISTINCT FROM k.square_feet THEN 'square_feet ' ELSE '' END
             || CASE WHEN list_contains(e.when_keys, 'latest_ask')
                 AND e.when_latest_ask IS DISTINCT FROM a.latest_ask THEN 'latest_ask ' ELSE '' END
+            || CASE WHEN list_contains(e.when_keys, 'bbl')
+                AND e.when_bbl IS DISTINCT FROM l.bbl THEN 'bbl ' ELSE '' END
         ) AS differs
     FROM ledger.entries e
     LEFT JOIN analysis.kept k USING (listing_id)
     LEFT JOIN analysis.latest_ask a USING (listing_id)
+    LEFT JOIN buildings.lots l ON l.building_id = k.building_id
 ),
 failed AS (
     SELECT *,

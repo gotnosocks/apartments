@@ -11,6 +11,7 @@ BASE = {
     "latest": (5.0, 1, 10, 2),
     "units": 1,
     "certificate": (None, None),
+    "dropped": False,
 }
 CASES = {
     # The floor rule.
@@ -66,6 +67,13 @@ CASES = {
         "dated": (1.0, 1, 0, 10),
         "latest": (1.0, 1, 0, 10),
     },
+    # A live drop_lot of the corrections ledger leaves the ad's lot facts empty.
+    "lot taken away": {
+        "floors": (5, None, None, None),
+        "dated": (1.0, 1, 0, 10),
+        "latest": (1.0, 1, 0, 10),
+        "dropped": True,
+    },
 }
 
 
@@ -103,10 +111,13 @@ def inputs(db):
             "INSERT INTO analysis.rows VALUES (?, ?, ?, ?, ?, ?)",
             [ad, building, *case["floors"]],
         )
-        db.execute(
-            "INSERT INTO analysis.lot_facts VALUES (?, ?, '19v1', ?, ?, ?, ?, 'X1')",
-            [ad, lot, *case["dated"]],
-        )
+        if case["dropped"]:
+            db.execute("INSERT INTO analysis.lot_facts (listing_id) VALUES (?)", [ad])
+        else:
+            db.execute(
+                "INSERT INTO analysis.lot_facts VALUES (?, ?, '19v1', ?, ?, ?, ?, 'X1')",
+                [ad, lot, *case["dated"]],
+            )
         db.execute("INSERT INTO buildings.lots VALUES (?, ?, '26v2')", [building, lot])
         if case["latest"]:
             db.execute(
@@ -156,7 +167,9 @@ def test_building_check_cases(tmp_path, render_context):
       on a lot with land use 04 in the latest release.
     - `four units` is in a building where the ads place four units.
     - `certificate` has a certificate of occupancy with 6 apartments, and `new building` a
-      certificate of a new building."""
+      certificate of a new building.
+    - `lot taken away` would get both reasons as `parking` does, but a live drop_lot took its
+      lot away, so its lot facts are empty."""
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
     inputs(db)
     query = render_context.render("analysis.building_check").sql(dialect="duckdb")
