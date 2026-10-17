@@ -1,0 +1,167 @@
+{
+ "version": "registry-overrides-emptylots-v2",
+ "reviewed_at": "2026-10-17",
+ "rule": "Buildings whose registry lot has no building in MapPLUTO 26v2 (or is missing from it), moved to the lot the pipeline's building identity step (buildings.lots) gives, where MapPLUTO 26v2 records that lot under the building's own street address with a building on it; two more (One Manhattan Square, the Belnord) were read one at a time against MapPLUTO's floors, area and units",
+ "overrides": [
+  {
+   "building": "one-manhattan-square",
+   "bbl": "1002487501",
+   "bin": "1089771",
+   "label": "225 CHERRY STREET",
+   "evidence": "StreetEasy's building record gives 252 South Street, class R0, built 2019, 80 floors, 815 apartments; MapPLUTO 26v2 lot 1002487501 is 225 CHERRY STREET, class RM, built 2015, 72 floors, 1021 apartments; the pipeline's building identity step links it (address_only); the lot is the condominium on the block next to the old parking lot, and its 72 floors and 1,099,034 sq ft match the tower at 252 South Street, and its 1,021 units likely count every condominium unit lot, not only the 815 apartments",
+   "registry_was": "reverse, BBL 1002470002: MapPLUTO 26v2 has 275 CHERRY STREET, class G7, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "1355-myrtle-avenue-brooklyn",
+   "bbl": "3032560001",
+   "bin": "3414126",
+   "label": "1355 MYRTLE AVENUE",
+   "evidence": "StreetEasy's building record gives 1355 Myrtle Avenue, class C1, built 2014, 4 floors, 8 apartments; MapPLUTO 26v2 lot 3032560001 is 1355 MYRTLE AVENUE, class C1, built 2014, 4 floors, 8 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "address, BBL 3032560003: a lot MapPLUTO 26v2 leaves out"
+  },
+  {
+   "building": "the-belnord",
+   "bbl": "1012347503",
+   "bin": "1033197",
+   "label": "2360 BROADWAY",
+   "evidence": "StreetEasy's building record gives 225 West 86th Street, class R0, built 1908, 12 floors, 213 apartments; MapPLUTO 26v2 lot 1012347503 is 2360 BROADWAY, class RM, built 1920, 12 floors, 207 apartments; the pipeline's building identity step links it (both); 2360 Broadway is the Broadway address of the block-wide Belnord, and MapPLUTO gives 1920 where StreetEasy gives 1908",
+   "registry_was": "reverse, BBL 1012340101: a lot MapPLUTO 26v2 leaves out"
+  },
+  {
+   "building": "one11-residences",
+   "bbl": "1010097502",
+   "bin": "1023455",
+   "label": "111 WEST 56TH STREET",
+   "evidence": "StreetEasy's building record gives 111 West 56th Street, class H1, built 2022, 42 floors, 99 apartments; MapPLUTO 26v2 lot 1010097502 is 111 WEST 56TH STREET, class RM, built 1939, 41 floors, 99 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "reverse, BBL 1010090019: a lot MapPLUTO 26v2 leaves out; the largest building area any release from 09v1 shows on it is 537,719 sq ft"
+  },
+  {
+   "building": "the-huron",
+   "bbl": "3025207501",
+   "bin": "3428521",
+   "label": "29 HURON STREET",
+   "evidence": "StreetEasy's building record gives 29 Huron Street, class D7, built 2022, 13 floors, 171 apartments; MapPLUTO 26v2 lot 3025207501 is 29 HURON STREET, class RM, built 2020, 13 floors, 171 apartments; the pipeline's building identity step links it (address_only)",
+   "registry_was": "reverse, BBL 3025300008: MapPLUTO 26v2 has 143 INDIA STREET, class Q1, built 0, 0 apartments, and no building area; the largest building area any release from 09v1 shows on it is 466,982 sq ft"
+  },
+  {
+   "building": "686-grand-street-brooklyn",
+   "bbl": "3027880011",
+   "bin": "3069586",
+   "label": "686 GRAND STREET",
+   "evidence": "StreetEasy's building record gives 686 Grand Street, class S3, built 1920, 4 floors, 3 apartments; MapPLUTO 26v2 lot 3027880011 is 686 GRAND STREET, class S3, built 1920, 4 floors, 3 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "address, BBL 3027887504: a lot MapPLUTO 26v2 leaves out"
+  },
+  {
+   "building": "196-13-street-brooklyn",
+   "bbl": "3010330029",
+   "bin": "3023355",
+   "label": "196 13 STREET",
+   "evidence": "StreetEasy's building record gives 196 13th Street, class C0, built 1899, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3010330029 is 196 13 STREET, class C0, built 1899, 3 floors, 3 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3010330030: MapPLUTO 26v2 has 196A 13 STREET, class V0, built 0, 0 apartments, and no building area; the largest building area any release from 09v1 shows on it is 2,193 sq ft"
+  },
+  {
+   "building": "780-greene-avenue-brooklyn",
+   "bbl": "3016190037",
+   "bin": "3043975",
+   "label": "780 GREENE AVENUE",
+   "evidence": "StreetEasy's building record gives 780 Greene Avenue, class C3, built 1931, 3 floors, 4 apartments; MapPLUTO 26v2 lot 3016190037 is 780 GREENE AVENUE, class C3, built 1931, 3 floors, 4 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3016190055: MapPLUTO 26v2 has  GREENE AVENUE, class V0, built 0, 0 apartments, and no building area; the largest building area any release from 09v1 shows on it is 2,532 sq ft"
+  },
+  {
+   "building": "1070a-dekalb-avenue",
+   "bbl": "3016030031",
+   "bin": "3043272",
+   "label": "1070A DEKALB AVENUE",
+   "evidence": "StreetEasy's building record gives 1070A Dekalb Avenue, class S2, built 1931, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3016030031 is 1070A DEKALB AVENUE, class C2, built 1931, 4 floors, 5 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3016030030: MapPLUTO 26v2 has 1070 DEKALB AVENUE, class V0, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "65-graham-avenue-brooklyn",
+   "bbl": "3030967502",
+   "bin": "3325956",
+   "label": "65 GRAHAM AVENUE",
+   "evidence": "StreetEasy's building record gives 65 Graham Avenue, class D6, built 1931, 6 floors, 8 apartments; MapPLUTO 26v2 lot 3030967502 is 65 GRAHAM AVENUE, class RM, built 1931, 6 floors, 8 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "address, BBL 3030960025: a lot MapPLUTO 26v2 leaves out; the largest building area any release from 09v1 shows on it is 10,384 sq ft"
+  },
+  {
+   "building": "1014-fulton-street-brooklyn",
+   "bbl": "3020150026",
+   "bin": "3057665",
+   "label": "1014 FULTON STREET",
+   "evidence": "StreetEasy's building record gives 1014 Fulton Street, class S3, built 1930, 4 floors, 3 apartments; MapPLUTO 26v2 lot 3020150026 is 1014 FULTON STREET, class S5, built 1930, 4 floors, 6 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3020150126: MapPLUTO 26v2 has  FULTON STREET, class V1, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "689-franklin-ave-brooklyn",
+   "bbl": "3012310014",
+   "bin": "3426347",
+   "label": "689 FRANKLIN AVENUE",
+   "evidence": "StreetEasy's building record gives 689 Franklin Avenue, class C7, built 2022, 4 floors, 8 apartments; MapPLUTO 26v2 lot 3012310014 is 689 FRANKLIN AVENUE, class C7, built 2022, 4 floors, 8 apartments; the pipeline's building identity step links it (address)",
+   "registry_was": "reverse, BBL 3011637502: MapPLUTO 26v2 has 575 PARK PLACE, class R0, built 2023, unknown apartments, and no building area; the largest building area any release from 09v1 shows on it is 63,240 sq ft"
+  },
+  {
+   "building": "122-prospect-park-west-brooklyn",
+   "bbl": "3010890038",
+   "bin": "3025831",
+   "label": "122 PROSPECT PARK WEST",
+   "evidence": "StreetEasy's building record gives 122 Prospect Park West, class C2, built 1920, 3 floors, 5 apartments; MapPLUTO 26v2 lot 3010890038 is 122 PROSPECT PARK WEST, class C2, built 1896, 3 floors, 5 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 3010890039: MapPLUTO 26v2 has 122A PROSPECT PARK WEST, class V3, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "714-jefferson-avenue-brooklyn",
+   "bbl": "3016577501",
+   "bin": "3045866",
+   "label": "714 JEFFERSON AVENUE",
+   "evidence": "StreetEasy's building record gives 714 Jefferson Avenue, class c1, built 2022, 4 floors, 7 apartments; MapPLUTO 26v2 lot 3016577501 is 714 JEFFERSON AVENUE, class R1, built 2021, 4 floors, 7 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "address, BBL 3016570018: a lot MapPLUTO 26v2 leaves out; the largest building area any release from 09v1 shows on it is 5,615 sq ft"
+  },
+  {
+   "building": "123-sixth-avenue-brooklyn",
+   "bbl": "3009427504",
+   "bin": "3019079",
+   "label": "123 6TH AVENUE",
+   "evidence": "StreetEasy's building record gives 123 6th Avenue, class S2, built 1880, 4 floors, 4 apartments; MapPLUTO 26v2 lot 3009427504 is 123 6TH AVENUE, class R1, built 1899, 3 floors, 4 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "address, BBL 3009420007: a lot MapPLUTO 26v2 leaves out; the largest building area any release from 09v1 shows on it is 7,040 sq ft"
+  },
+  {
+   "building": "125-st-marks-avenue-brooklyn",
+   "bbl": "3011430066",
+   "bin": "3028073",
+   "label": "125 ST MARKS AVENUE",
+   "evidence": "StreetEasy's building record gives 125 Saint Mark's Avenue, class B3, built 1910, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3011430066 is 125 ST MARKS AVENUE, class B3, built 1872, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 3011430057: MapPLUTO 26v2 has 576 CARLTON AVENUE, class G0, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "la-botanica",
+   "bbl": "1003897502",
+   "bin": "1004699",
+   "label": "619 EAST 6TH STREET",
+   "evidence": "StreetEasy's building record gives 619 East 6th Street, class R0, built 2022, 5 floors, 5 apartments; MapPLUTO 26v2 lot 1003897502 is 619 EAST 6TH STREET, class R1, built 1900, 6 floors, 5 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "reverse, BBL 1003890051: a lot MapPLUTO 26v2 leaves out; the largest building area any release from 09v1 shows on it is 9,235 sq ft"
+  },
+  {
+   "building": "423-sterling-place-brooklyn",
+   "bbl": "3011660069",
+   "bin": "3029204",
+   "label": "423 STERLING PLACE",
+   "evidence": "StreetEasy's building record gives 423 Sterling Place, class C0, built 1901, 2 floors, 3 apartments; MapPLUTO 26v2 lot 3011660069 is 423 STERLING PLACE, class B1, built 1904, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3011660068: MapPLUTO 26v2 has  STERLING PLACE, class V3, built 0, 0 apartments, and no building area"
+  },
+  {
+   "building": "701a-monroe-street-brooklyn",
+   "bbl": "3016370057",
+   "bin": "3044689",
+   "label": "701A MONROE STREET",
+   "evidence": "StreetEasy's building record gives 701A Monroe Street, class B3, built 1899, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3016370057 is 701A MONROE STREET, class B3, built 1899, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3016370058: MapPLUTO 26v2 has 701 MONROE STREET, class V0, built 0, 0 apartments, and no building area; the largest building area any release from 09v1 shows on it is 1,800 sq ft"
+  },
+  {
+   "building": "32-west-39-street-new_york",
+   "bbl": "1008407503",
+   "bin": "1016011",
+   "label": "32 WEST 39 STREET",
+   "evidence": "StreetEasy's building record gives 32 West 39th Street, class O6, built 1925, 14 floors, 0 apartments; MapPLUTO 26v2 lot 1008407503 is 32 WEST 39 STREET, class RC, built 1925, 14 floors, 0 apartments; the pipeline's building identity step links it (footprint)",
+   "registry_was": "address, BBL 1008400066: a lot MapPLUTO 26v2 leaves out; the largest building area any release from 09v1 shows on it is 70,807 sq ft"
+  }
+ ]
+}
