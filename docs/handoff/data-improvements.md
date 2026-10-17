@@ -2,7 +2,7 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-17 15:35 ET
+## 2026-10-17 14:31 ET
 
 - #1056 adds `pipeline/ledger/2026-10-17-z6-unit-bedrooms.ndjson`, 140 bedroom-count sets. The screen took ads
   whose unit has at least two other ads within two years, all coding another bedroom count, with sizes within 5%
