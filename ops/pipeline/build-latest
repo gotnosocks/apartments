@@ -6,7 +6,7 @@
 # 1. It waits for oxylabs.lock and lets go of it at once. The collector holds the lock through
 #    each run and its export, so the build starts after the export's last file.
 # 2. It moves its own checkout, /data1/apartments/pipeline/code, to master and syncs the venv
-#    from pipeline/uv.lock. Nothing else runs code from that checkout or uses the venv. When the
+#    from pipeline/uv.lock. No other unit runs code from that checkout or uses the venv. When the
 #    export's manifest, the city archive's manifest and the commit's trees for pipeline/, src/
 #    and ops/pipeline/ match the ones it wrote to $STATE/last-build after the last build, it
 #    stops there.
