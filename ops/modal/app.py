@@ -153,7 +153,7 @@ def _summarize(spec, env, log, deadline):
             done[step] = {"exit": "skipped"}
             continue
         args = (
-            [spec["name"], *(["--range-sample"] if spec.get("range_sample") else [])]
+            [spec["name"], *_range_flags(spec)]
             if step == "summary"
             else [str(bundles[-1].parent)]
         )
@@ -212,13 +212,25 @@ def publish_steps(spec):
     exists. The rent map reads only the run, so it runs last and alone."""
     name = spec["name"]
     failing = ["--allow-failing"] if spec.get("allow_failing") else []
-    ranges = ["--range-sample"] if spec.get("range_sample") else []
+    ranges = _range_flags(spec)
     return [
         ("summary", (), lambda: ["rentfrontier.summary", name, "--workers", str(SUMMARY_WORKERS), *failing, *ranges]),
         ("kit", ("summary",), lambda: ["rentfrontier.kit", name, "--summary", str(_bundle(name)), *failing]),
         ("calibration", ("summary",), lambda: ["rentfrontier.calibration", str(_bundle(name))]),
         ("rentmap", (), lambda: ["rentfrontier.rentmap", name]),
     ]  # fmt: skip
+
+
+def _range_flags(spec):
+    """The summary's range options the spec asks for (fit.py --range-sample, --range-atoms)."""
+    return [
+        flag
+        for key, flag in (
+            ("range_sample", "--range-sample"),
+            ("range_atoms", "--range-atoms"),
+        )
+        if spec.get(key)
+    ]
 
 
 def _bundle(name):

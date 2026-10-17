@@ -132,6 +132,12 @@ def parse(argv):
         "lacks the flag fails its summary",
     )
     p.add_argument(
+        "--range-atoms",
+        action="store_true",
+        help="the summary writes range atoms and noise.json in place of the predictive "
+        "intervals (rentfrontier.summary --range-atoms), in the same places as --range-sample",
+    )
+    p.add_argument(
         "--explain",
         action="append",
         default=[],
@@ -190,6 +196,7 @@ def plan(args, run_args, sha, short=None):
         "publish_only": args.publish_only,
         "allow_failing": args.allow_failing,
         "range_sample": args.range_sample,
+        "range_atoms": args.range_atoms,
     }
 
 
@@ -359,6 +366,7 @@ def summarize(spec):
         "FRONTIER_DATASET": spec["dataset"],
         "MODAL_FIT_REPO": str(REPO),
         **({"FRONTIER_RANGE_SAMPLE": "1"} if spec.get("range_sample") else {}),
+        **({"FRONTIER_RANGE_ATOMS": "1"} if spec.get("range_atoms") else {}),
     }
     cmd = [
         "systemd-run", "--user", "--quiet", "--collect", f"--unit={unit}",
