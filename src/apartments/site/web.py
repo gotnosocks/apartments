@@ -1902,7 +1902,13 @@ def create_app(
         path = database_path().parent / "map.json"
         if not path.is_file():
             abort(404, description="No rent map for the served model yet.")
-        response = Response(path.read_bytes(), mimetype="application/json")
+        body = _rent_map_slice(
+            str(path),
+            path.stat().st_mtime,
+            request.args.get("beds"),
+            request.args.get("area"),
+        )
+        response = Response(body, mimetype="application/json")
         response.headers["Cache-Control"] = "no-cache"
         return response
 
@@ -2686,6 +2692,45 @@ def _rent_map(path: str, mtime: float) -> dict:
     data = json.loads(Path(path).read_text())
     data["_index"] = {b["id"]: i for i, b in enumerate(data.get("buildings", []))}
     return data
+
+
+def _rent_map_slice(
+    path: str, mtime: float, beds: str | None, area: str | None
+) -> bytes:
+    """Returns a build's map.json cut down to what the rent map page draws.
+
+    With a bedroom key from the map, the slice keeps rents for that key only.
+    With a neighbourhood from median_by_area, it keeps that neighbourhood's
+    buildings and their rents. Unknown values count as absent, and with
+    neither the whole file goes back. The page draws one bedroom count at a
+    time, and a city-wide map holds rents for four counts across tens of
+    thousands of buildings."""
+    data = _rent_map(path, mtime)
+    beds = beds if beds in (data.get("rent") or {}) else None
+    area = area if area and area in (data.get("median_by_area") or {}) else None
+    if beds is None and area is None:
+        return Path(path).read_bytes()
+    return _cut_rent_map(path, mtime, beds, area)
+
+
+@functools.lru_cache(maxsize=8)
+def _cut_rent_map(path: str, mtime: float, beds: str | None, area: str | None) -> bytes:
+    data = _rent_map(path, mtime)
+    rows = [
+        i
+        for i, b in enumerate(data.get("buildings", []))
+        if area is None or b.get("neighbourhood") == area
+    ]
+    out = {k: v for k, v in data.items() if k not in ("_index", "buildings", "rent")}
+    # The page decides once whether to offer the building-kind filter.
+    out["kinds"] = any(b.get("kind") for b in data.get("buildings", []))
+    out["buildings"] = [data["buildings"][i] for i in rows]
+    out["rent"] = {
+        key: [series[i] for i in rows]
+        for key, series in data["rent"].items()
+        if beds is None or key == beds
+    }
+    return json.dumps(out, separators=(",", ":")).encode()
 
 
 def chosen_by(selected_by: str) -> str:
