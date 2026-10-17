@@ -439,6 +439,10 @@ def test_a_late_change_counts_when_the_listing_went_active_again():
     ]
     r = latest_ask.record_latest(json.dumps(d))
     assert r["changes"][-1] == ("2025-06-01", 3200.0)
+    r = latest_ask.record_latest(
+        json.dumps(d), stale_days=latest_ask.CLOSING_STALE_DAYS
+    )
+    assert r["changes"][-1] == ("2025-06-01", 3200.0)
 
 
 def test_closing_stale_days_drops_changes_from_the_off_day_on():

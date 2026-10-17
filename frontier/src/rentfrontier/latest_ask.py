@@ -34,7 +34,8 @@ the listing going ACTIVE again after that day. Brokers reuse an old ad's record
 for a later ad of the same apartment, so those changes carry a later ad's asks.
 The table for latest-ask-v10 goes further with `CLOSING_STALE_DAYS` and drops
 every change from the off-market day on, so each row ends at its last ask
-while listed.
+while listed. It keeps the changes of an ad listed and closed on the same day,
+and those of an ad that went ACTIVE again after its off day.
 
 Each row then takes the last kept change dated from the row's own day up to
 the day of its listing's next NB8 row, so two rows of one listing each keep
