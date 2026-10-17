@@ -1,0 +1,10 @@
+{
+ "rule": "drop-lot-v1",
+ "screen": "fit-ready rows of analysis.rows (drop-lot-build lane) whose analysis.lot_facts lot appears in all 40 MapPLUTO releases from 11v1 to 26v2 with no building area and no apartments in any of them, and holds no building footprint in the 20261016 footprints; condominium billing lots (R0), lots with fewer than 40 releases and lots with no class at the ad's date are left out; no row already had a drop-lot review",
+ "reads": "no ad text; PLUTO releases (/data1/apartments/external/plutoreleases/20261017-2c61ff1-all-lots4), building footprints (/data1/apartments/external/footprints/20261016-5f07157-all) and the StreetEasy building record; table in /data1/apartments/tmp/suspect/bcheck/never-built-20261017.csv",
+ "rows": 239,
+ "by_reason": {
+  "wrong_building": 239
+ },
+ "left_unclear": "183 Java St, 378 8th St, 359 13th St, 1546 Broadway, 300 5th St and 665 Degraw St (condominium billing lots or lots with 2 to 6 releases, where a new building can stand on a lot created after 2011) and 230 E 111th St (no class at the ad's date)"
+}
