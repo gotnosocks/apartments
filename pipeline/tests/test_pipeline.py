@@ -409,6 +409,7 @@ def test_ask_check_cases(tmp_path, monkeypatch):
     assert changed(plan) == [
         "analysis.ads",
         "analysis.ask_check",
+        "analysis.building_check",
         "analysis.rows",
         "ledger.entries",
         "ledger.status",
@@ -472,6 +473,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_certificates",
+        "analysis.building_check",
         "analysis.candidates",
         "analysis.kept",
         "analysis.latest_ask",
@@ -523,6 +525,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_certificates",
+        "analysis.building_check",
         "analysis.candidates",
         "analysis.kept",
         "analysis.latest_ask",
