@@ -28,7 +28,8 @@ MODEL (
 --       latest record lists from `on_day` on, and the ad's latest break when its status is ACTIVE
 --       and it is back on the market.
 --   first_day, first_ask, exclusion_reasons:  ads.exclusions.
---   latest_ask:  analysis.latest_ask, for the kept rows.
+--   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger. The
+--       rows file's `latest_ask` gives the ask a live ask set corrects.
 --   bedrooms to concession, conflicts, records:  ads.attributes, the values merged over the
 --       ad's records before any correction. `full_baths`, `half_baths` and `label_floor` come
 --       from ads.reported.
