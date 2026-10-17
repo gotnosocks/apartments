@@ -229,6 +229,17 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
         new_hood if r["neighbourhood"] == old_hood else r["neighbourhood"]
         for r in lines
     ]
+    # A rename adds its old name to the neighbourhoods asked for, and a rename moving no rows
+    # stops the script.
+    only = converter.write(
+        tmp_path / "only", build_files, [new_hood], served, audit, {old_hood: new_hood}
+    )
+    assert only["neighbourhoods"] == {new_hood: moved["neighbourhoods"][new_hood]}
+    with pytest.raises(SystemExit, match="moved no rows of Nowhere"):
+        converter.write(
+            tmp_path / "none", build_files, None, served, audit, {"Nowhere": new_hood}
+        )
+    assert not (tmp_path / "none").exists()
     # A rows file the catalog lists brings its own ads file.
     assert converter.pick_build(catalog, rows, None) == build_files
     # A rows file without `latest_ask` holds only the first asks.

@@ -36,7 +36,8 @@ steps:
        rows file without `latest_ask`, as written by builds before the column, and on a row
        without a latest ask.
      - `neighbourhood` as the rows file gives it, or as NEW for each `--rename OLD=NEW`. The
-       neighbourhoods of step 2 name the rows file's neighbourhoods, before the renames.
+       neighbourhoods of step 2 name the rows file's neighbourhoods, before the renames, and
+       the script adds each OLD to them. It stops if a rename moves no rows.
      - `audit_id` from the chain's row for the ad in step 3, or `api:<listing_id>` for an ad
        the chain lacks. The script stops if two rows get one ID.
      - `analysis_price_basis` as `historical_initial_own_advertisement_ask` and
@@ -61,10 +62,11 @@ of these causes to fit, checked in this order:
   - OUT gives `pets` as `allowed_restrictions_unknown` and the API chain gives `unknown`, for a
     pet fee in the description,
   - for an ask, the ad's latest API record came after export run N, the last run the chain's
-    latest asks read: run 5 of the export in /data1/apartments/archive/crawls/api/export,
-    unless `--chain-run` and `--export` give others,
+    latest asks read, its price differs from the last price up to run N, and OUT's ask equals
+    it. Run N is run 5 of the export in /data1/apartments/archive/crawls/api/export, unless
+    `--chain-run` and `--export` give others,
   - for an ask, DATASET also prices the ad's current page in a row of its own, and its
-    first-ask row then ends at the price on that page,
+    first-ask row ends at that row's price,
   - DATASET's ask matches under the rule before `latest-ask-v8` only,
   - `has_description` follows from the null `description_interpreted_at`.
 A difference fitting none of them counts as unexplained. The script sorts the rows of one side
@@ -300,7 +302,7 @@ def write(
                 [str(served / "observations.jsonl")],
             ).fetchall()
         ]
-    hoods = sorted(set(hoods))
+    hoods = sorted(set(hoods) | set(renames))
     chain = first_ask_ids(db, audit_source)
     shown = first_ask_ids(db, served)
     differ = [
@@ -348,6 +350,12 @@ def write(
                         record(row, audit_id), sort_keys=True, allow_nan=False
                     )
                     f.write(line + "\n")
+        idle = sorted(old for old in renames if not moved.get(old))
+        if idle:
+            raise SystemExit(
+                f"--rename moved no rows of {', '.join(idle)}: the rows file has no "
+                "rows there"
+            )
         manifest = {
             "version": VERSION,
             "written": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -453,9 +461,10 @@ def same(a, b, numeric: bool):
 
 def side(data, db, path: Path, cache: Path):
     """The dataset's first-ask rows as `rentfrontier.data.load` gives them, with the raw
-    fields beside them, and the ads of its rows priced at a page."""
+    fields beside them, and the ad and price of each of its rows priced at a page."""
     frame = data.load(path, cache_root=cache).drop(columns="log_rent")
-    pages = frame.source_listing_id[frame.price_basis != FIRST_ASK]
+    paged = frame[frame.price_basis != FIRST_ASK]
+    pages = set(zip(paged.source_listing_id, paged.asking_rent.astype(float)))
     frame = frame[frame.price_basis == FIRST_ASK]
     raw = db.execute(
         RAW, {"path": str(path / "observations.jsonl"), "basis": FIRST_ASK}
@@ -502,15 +511,33 @@ def check(
     ).df()
     ours = ours.merge(first, on="source_listing_id", how="left")
     # The chain's latest asks come from records fetched up to the end of export run
-    # `chain_run`.
+    # `chain_run`. `after_chain` marks an ad whose latest record came later and gives a price
+    # other than the last price up to that run, and `price_after` holds that later price.
     ads = db.execute(
-        """SELECT listing_id AS source_listing_id, neighbourhood AS ads_neighbourhood,
-            fetched::VARCHAR AS fetched,
-            coalesce(fetched > (SELECT max(fetched) FROM read_parquet(?) WHERE run = ?), false)
-                AS after_chain,
-            fate, in_rows, identity_reasons, exclusion_reasons, ledger_entries
-        FROM read_parquet(?)""",
-        [str(export / "ads" / "*" / "*.parquet"), chain_run, build["ads"]["path"]],
+        """WITH priced AS (
+            SELECT listing_id::VARCHAR AS listing_id, fetched, run,
+                try_cast(json_extract_string(record, '$.pricing.price') AS DOUBLE) AS price
+            FROM read_parquet($export) WHERE record IS NOT NULL),
+        upto AS (
+            SELECT listing_id, arg_max(price, fetched) AS price_then FROM priced
+            WHERE run <= $run AND price IS NOT NULL GROUP BY 1),
+        latest AS (
+            SELECT listing_id, arg_max(price, fetched) AS price_after FROM priced
+            WHERE price IS NOT NULL GROUP BY 1)
+        SELECT a.listing_id AS source_listing_id, a.neighbourhood AS ads_neighbourhood,
+            a.fetched::VARCHAR AS fetched,
+            coalesce(a.fetched > (SELECT max(fetched) FROM priced WHERE run = $run)
+                AND l.price_after IS DISTINCT FROM u.price_then, false) AS after_chain,
+            l.price_after,
+            a.fate, a.in_rows, a.identity_reasons, a.exclusion_reasons, a.ledger_entries
+        FROM read_parquet($ads) a
+        LEFT JOIN upto u ON u.listing_id = a.listing_id::VARCHAR
+        LEFT JOIN latest l ON l.listing_id = a.listing_id::VARCHAR""",
+        {
+            "export": str(export / "ads" / "*" / "*.parquet"),
+            "run": chain_run,
+            "ads": build["ads"]["path"],
+        },
     ).df()
     entries = ledger_sets(build)
     hoods = set(manifest["neighbourhoods"]) | set(manifest.get("renamed", {}))
@@ -559,10 +586,14 @@ def check(
         if field == "asking_rent" and previous:
             cause[same(both[field], both[previous], True)] = f"{rule} only"
         if field == "asking_rent":
-            cause[both.source_listing_id.isin(set(pages)).to_numpy()] = "chain page row"
-            after = (
-                both.after_chain.astype("boolean").fillna(False).to_numpy(dtype=bool)
-            )
+            paged = [
+                (listing, float(ask)) in pages
+                for listing, ask in zip(both.source_listing_id, both.asking_rent_chain)
+            ]
+            cause[np.array(paged, dtype=bool)] = "chain page row"
+            after = both.after_chain.astype("boolean").fillna(False).to_numpy(
+                dtype=bool
+            ) & same(both.asking_rent, both.price_after, True)
             cause[after] = f"API record after run {chain_run}"
         if f"{field}_api" in both:
             api_value = both[f"{field}_api"]
@@ -621,7 +652,7 @@ def check(
 
     one = joined[joined["_merge"] != "both"]
     sides = one.apply(alone, axis=1).value_counts().to_dict() if len(one) else {}
-    sides["chain: priced at the current page"] = len(pages)
+    sides["chain: priced at the current page"] = len({listing for listing, _ in pages})
     result = {
         "ours": str(out),
         "chain": str(dataset),
