@@ -179,7 +179,7 @@ def test_topup_build_equals_a_full_build(tmp_path, build):
     everything = tables(tmp_path / "fresh", ["ads.changes", "ads.touched"])
     assert changes["ads.changes"][0] == 49 + len(added) < everything["ads.changes"][0]
     assert changes["ads.touched"][0] < everything["ads.touched"][0]
-    # A build with no new answers keeps the mode and rebuilds nothing. With the record of the
+    # A build with no new answers reuses the mode and rebuilds nothing. With the record of the
     # merge code deleted, a build reads every answer again.
     again = build(export, tmp_path / "state", tmp_path / "out")
     assert again["top_up"] and all(

@@ -185,8 +185,8 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             rows.extend(future.result())
     if rows:
         write_cache(folder, rows)
-    # The model yields a query, which the materialization runs. A query with no rows still
-    # reaches the materialization, which then copies the previous rows in a top-up build.
+    # The model yields a query, which the materialization runs. SQLMesh passes a query with
+    # no rows to the materialization as well, and in a top-up build it copies the previous rows.
     if any(folder.glob("*.parquet")):
         yield exp.maybe_parse(
             f"""SELECT DISTINCT ON (c.record_sha256) c.*

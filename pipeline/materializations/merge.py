@@ -1,6 +1,6 @@
 """The `merge` materialization, for models a top-up build extends instead of rebuilding.
 
-A model of this kind names a change table and how its rows merge:
+A model of this kind gives its change table and the way its rows merge in its properties:
 
     kind CUSTOM (
         materialization 'merge',

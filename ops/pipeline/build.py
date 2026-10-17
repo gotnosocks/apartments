@@ -124,9 +124,9 @@ def can_top_up(ctx, state: Path, project: Path) -> bool:
     variables, so for raw.ads the check compares the query alone. The merge code covers
     ads.changes, whose variable `incremental` gives the mode.
 
-    When raw.ads keeps its prod fingerprint, the build has no new answers to read, and the
-    function returns the mode of the last build from the record. ads.changes then keeps its
-    table, and the plan rebuilds only the models below an edit."""
+    When raw.ads has its prod fingerprint, the build has no new answers to read, and the
+    function returns the mode of the last build from the record. The plan then leaves the
+    table of ads.changes in place and rebuilds only the models below an edit."""
     try:
         record = json.loads((state / MERGE_RECORD).read_text())
     except (OSError, ValueError):

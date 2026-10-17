@@ -20,7 +20,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 
 ## Inputs
 
-`pipeline/config.py` reads five environment variables:
+`pipeline/config.py` reads six environment variables:
 
 | variable | default on thelio | holds |
 |---|---|---|
@@ -29,6 +29,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 | `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, and the unit ledger in its `units` folder, as described under [Corrections ledger](#corrections-ledger) and [Unit ledger](#unit-ledger) |
 | `PIPELINE_CITY` | `/data1/apartments/archive/city` | the city archive, as described under [City records](#city-records) |
 | `PIPELINE_CITY_CACHE` | `/data1/apartments/pipeline/city` | the city archive's files as Parquet, as described under [City tables](#city-tables) |
+| `PIPELINE_INCREMENTAL` | unset, read as 0 | 1 when `ops/pipeline/build.py` asks for a top-up build, as described under [Top-up builds](#top-up-builds) |
 
 The build reads the ads and buildings files listed in the manifest and skips any file still
 lacking a line.
@@ -243,6 +244,7 @@ to `OUT/catalog.ndjson`:
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
 | `seconds` | the wall time of loading the project, of the plan, of counting rows and of writing the files, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
+| `top_up` | true when the build read only the answers missing from the last build's tables, as [Top-up builds](#top-up-builds) describes |
 
 When an audit fails, the script prints the failed models and exits with status 1. It writes
 nothing to OUT, and the tables of the last good build stay in place. After a good build, the
@@ -304,6 +306,10 @@ Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and 
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
 
+A build after an export is a top-up. The 15 models of kind `merge` read the export's new
+answers and the ads they change, and the other ads models and the `analysis` tables read every
+ad again, as [Top-up builds](#top-up-builds) describes.
+
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
 OUT, delete that file, so the next trigger builds from master again.
@@ -326,6 +332,74 @@ cp /data1/apartments/pipeline/code/ops/systemd/apartments-pipeline-build.{path,s
 systemctl --user daemon-reload
 systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline-build.timer
 ```
+
+### Top-up builds
+
+When an export adds answers, the build reads those answers and the ads they change, and it keeps
+the rows of every other ad from the last build. Before it plans, `build.py` picks the mode:
+
+1. It loads the project with `PIPELINE_INCREMENTAL=1`. `can_top_up` then compares each model of
+   kind `merge`, and each model above one, with the prod build's snapshot of it. For `raw.ads`
+   it compares the query alone, since a new export file gives the view new variables.
+2. It reads `STATE/merge.json`, which the last build wrote with the SHA-256 of
+   `pipeline/materializations/merge.py` and `pipeline/models/ads/changes.py` and with its mode,
+   and checks the hash against the checkout's.
+3. When a check fails, it loads the project again with the variable at 0, and the plan rebuilds
+   the models below `ads.changes` from every answer.
+4. When `raw.ads` has no new files, it reuses the last build's mode. The plan then leaves the
+   table of `ads.changes` in place and rebuilds only the models below an edit.
+
+To force a full build, I delete `STATE/merge.json`.
+
+In a top-up, `ads.changes` holds the answers of `raw.ads` missing from the prod `ads.answers`.
+Before it reads them, the model checks that every previous answer is still in `raw.ads` with
+its fetch time, outcome and record hash, and that no new answer repeats one. `ads.touched` then
+holds the ads of the new answers, and the ads whose events show up in a unit history of a new
+answer, since the history adds another report of those events. The materialization `merge`, in
+`pipeline/materializations/merge.py`, starts each model's new table from a copy of the prod
+table:
+
+- `ads.answers`, `ads.history_events` and `ads.record_attributes` add the rows of keys the copy
+  lacks: the new answers, the events of each history no earlier answer held, and the attributes
+  of each record the table lacks.
+- The 12 other merge models drop the rows of the ads in `ads.touched` from the copy, then
+  compute those ads again from all their answers.
+
+`ads.identity`, `ads.placed`, the ledger models and the `analysis` tables stay full tables
+and read every ad on each build:
+
+- `ads.identity` gives an ad a page from its building's latest slug in `buildings.details`, and
+  it gives no unit to an ad whose page also comes from a record of an ad with no single page.
+  A new building record or a new answer can then change the unit of ads with no new answer. A
+  merge would need the previous and new pages of each changed ad and building and every ad on
+  them, so I left the model full. In the top-up of 23:38 ET on Oct 16 it took 18.1 s.
+- `ads.placed`, the ledger models and the `analysis` tables follow from `ads.identity` for every
+  ad. They took about 42 s in that top-up.
+- The building and city models depend on no ad, and they rebuild only when their own inputs
+  change. The building models took 41.7 s in that top-up.
+
+In that top-up, the 15 models now of kind `merge` took 205 of the 306 s its models took, with
+`ads.record_attributes` at 45.7 s and `ads.kept_changes` at 36.9 s. Each top-up still copies
+the prod tables of those 15 models, and I have no full-data time for the copies yet.
+
+On the 1% sample, with DuckDB's limit at 1 GB and two workers, I built runs 1 to 9 into an
+empty state, copied the state and added run 10's 25 answers:
+
+| build | ads read | total | models | script's peak |
+|---|--:|--:|--:|--:|
+| runs 1 to 9, from an empty state | 21,593 | 18.8 s | 12.8 s | 1,424 MiB |
+| run 10 added, as a top-up | 100 | 7.6 s | 4.2 s | 572 MiB |
+| run 10 added on the copy, with `merge.json` deleted | 21,593 | 10.2 s | 5.4 s | 1,466 MiB |
+
+The last build found every record in the attribute cache. The top-up and the full build gave
+every model the same rows, apart from `ads.changes` and `ads.touched`. Each of the 33 models
+the two builds rebuilt took about 0.1 s even with few rows, so the sample's times say little
+about the times on full data.
+
+After a top-up, an edit to a merge model or to a model above one fails the check of step 1,
+and the next build rebuilds every ads model from all the answers. The top-up of Oct 16, which
+rebuilt the same models in full, took 339 s at a peak of 4,116 MiB. A dev plan reads the variable at its default of
+0, so `sqlmesh plan dev` also rebuilds every model below `ads.changes` from all the answers.
 
 ## Change diff
 
@@ -640,8 +714,9 @@ service animals exempt, and in "pets ok upon approval, pet fee may apply".
 
 `ads.record_attributes` is a Python model. It parses each distinct record once, in worker
 processes, and keeps the results in Parquet files in `attributes/<code version>/` beside the
-DuckDB database. A later build parses only records missing from those files, so a top-up
-parses just its new records. `config.py` hashes `steps/attributes.py` and its six imports from
+DuckDB database. A later build parses only records missing from those files. In a top-up the
+model reads only the records of the new answers, and the materialization `merge` adds the
+ones the previous table lacks. `config.py` hashes `steps/attributes.py` and its six imports from
 `src/apartments`, and passes each module's SHA-256 to the model in the variable
 `attributes_code`. The cache folder takes its name from a SHA-256 over that variable. When any
 of those files changes, the model writes to a new folder and gets a new fingerprint. A test
@@ -1850,7 +1925,7 @@ in all, and most tests add made-up ads to that export. The tests:
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
    tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the 30 models below it and gives the full answer, and a further plan finds nothing to
+   and the 32 models below it and gives the full answer, and a further plan finds nothing to
    build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -1927,11 +2002,9 @@ in all, and most tests add made-up ads to that export. The tests:
 20. run `ops/pipeline/build.py` on the fixture twice and check the names of the rows file and
     the ads file and the export files' and city files' hashes against their SHA-256. The ads
     file holds each ad once, and its ads with `in_rows` are the rows file's ads. The second
-    build rebuilds nothing, writes the same files and appends a second catalog line. Then the
-    test builds runs 2 and 3, adds run 4 and builds again, and compares that build's files with
-    a build of runs 2 to 4 into an empty state. Each pair holds the same bytes. Last, the test
-    adds an export file repeating an answer and checks that the build stops and leaves OUT as it
-    was;
+    build rebuilds nothing, writes the same files and appends a second catalog line. Last, the
+    test adds an export file repeating an answer and checks that the build stops and leaves OUT
+    as it was. Item 46 describes the test of a top-up build;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, an ask set of 0, an ask set without its recorded ask and an ask set backed only
     by a stated size and units of the same line. Then read files with a repeated line, a retract
@@ -2128,7 +2201,16 @@ in all, and most tests add made-up ads to that export. The tests:
     by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
     on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
     `ads.placed`;
-45. read the repo's unit ledger and check that it holds a join, a split and a move.
+45. read the repo's unit ledger and check that it holds a join, a split and a move;
+46. build runs 2 and 3 with `ops/pipeline/build.py`, then add run 4 and three made-up answers
+    and build again as a top-up. One answer puts an ad of a unit back on the market at a new
+    price, one adds an ad to another unit of the same building, whose ads all came in run 2,
+    and one adds an ad in a new unit of the building. The test builds the same export into an
+    empty state and compares every model's table with a hash over its rows, and fails with the
+    names of the tables that differ. Only `ads.changes` and `ads.touched` differ, holding fewer
+    answers and ads in the top-up. The files and the catalog's export and building lists match.
+    A further build finds nothing to rebuild, and a build after deleting `STATE/merge.json`
+    reads every answer and gives every table of the build into an empty state.
 
 pytest-xdist runs them in three worker processes, as set in `pipeline/pyproject.toml`. They take
 about 60 s on thelio, against about 135 s in a single process. SQLMesh loads models in forked
@@ -2161,9 +2243,8 @@ tables 5.9 s together.
 
 In that build every model was a full table, so the top-up rebuilt all five tables and took as
 long as a build from nothing. [Top-up builds](#top-up-builds) describes the models a top-up
-now extends with the ads it changes. The event log of step 4
-should also shorten `ads.kept_changes`, whose placeholder check steps through each ad's changes
-one at a time.
+now extends with the ads it changes. The event log of step 4 should also shorten
+`ads.kept_changes`, whose placeholder check steps through each ad's changes one at a time.
 
 With the event log's four tables, I built runs 1 to 5 into an empty state in 109 s, at the
 unit's 5 GB cap with DuckDB's limit at 4 GB. `ads.events` holds 23,340,393 events of 2,372,913
