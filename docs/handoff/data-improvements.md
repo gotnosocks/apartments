@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 07:30 ET, after all-scraped-lots4-v1 (#997). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 07:45 ET, after the second empty-lot overrides (#1000). Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 07:45 ET
+
+- #1000 adds `config/reviews/registry-overrides-20261017-emptylots2.json`, 20 more of the 63
+  relotted empty-lot buildings (1,334 all-scraped rows, One Manhattan Square 923 of them).
+  18 have the pipeline lot under their own street address in MapPLUTO 26v2. One Manhattan
+  Square (225 Cherry St condominium, 72 floors) and the Belnord (2360 Broadway) were read one at
+  a time. Scripts: `tier2.py`, `write2.py` and `big.py` in `/data1/apartments/tmp/suspect/emptylots/`.
+- No feature set uses #1000 yet. An all-scraped registry revision with #905, #996 and #1000 waits
+  until an all-scraped fit can run within the 1-hour cap. NB9's registry now has 16 overridden
+  buildings pending (la-botanica added), still a few hundred rows; Modeling was told.
+- The other 43 are mostly footprint-only links to the house next door, plus 74 North 1st St
+  (296 Wythe, 55 apartments against 38), the Smile (a 0-unit condominium lot on E 125th) and
+  1010 Bedford Ave (a 1961 lot on Skillman St). They wait on the pipeline's PAD lookup, which
+  gives address ranges per lot.
+- Also waiting on PAD: 296 buildings (1,016 all-scraped rows) whose registry lot and pipeline lot
+  agree on a lot that never had building area, mostly V0, V1, G7 and QG. StreetEasy's own
+  building record calls most of them vacant too.
 
 ## 2026-10-17 07:30 ET
 
