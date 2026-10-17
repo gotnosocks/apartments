@@ -2,6 +2,16 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:10 ET
+
+- #1054 adds `pipeline/ledger/2026-10-17-z5-unit-baths-twosided.ndjson`, 25 bath-count sets. Of the 183
+  two-sided `no_count` ads left after #1036, 71 had no read. Sonnet read them (`/data1/apartments/tmp/suspect/baths/t4/`):
+  39 wrong, 27 right, 3 unclear, 2 a different unit. Most right reads come from counts the `tier.py` regex misses,
+  such as "2BA" or "one and a half". `t4/ledger.py` drops 14 of the 39 with the half-bath screen, a wider count
+  regex on the row's text, and #1051's renovation and ask screens. Bath sets now total 1,001.
+- The other 112 of the 183 had reads for #1036 and stay as they are. The 422 ads whose text states some other
+  count are next, though the high right rate above suggests many of them are right as coded.
+
 ## 2026-10-17 14:04 ET
 
 - #1051 adds `pipeline/ledger/2026-10-17-z4-unit-baths-onesided.ndjson`, 311 bath-count sets. It takes the 641
