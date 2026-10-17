@@ -334,7 +334,7 @@ def feature_sources(feature_set: str) -> dict:
         for name, path in features.lot_files(feature_set).items():
             out[name] = {"path": path, "sha256": data.sha256(Path(path))}
     if feature_set in features.LOT_DROP_SETS:
-        path = features.LOT_DROP_FILE
+        path = features.LOT_DROP_SETS[feature_set]
         out["lot_drops"] = {"path": str(path), "sha256": data.sha256(Path(path))}
     if feature_set in features.BASEMAP:
         path = features.area_files(feature_set)["basemap"]
