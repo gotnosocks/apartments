@@ -893,6 +893,7 @@ def test_kept_subset_reads_the_listed_buildings_and_units_draw_by_draw(tmp_path)
         "building": rng.normal(size=(2, 7, 5)),
         "walk": rng.normal(size=(2, 7, 5, 4)),
         "unit": rng.normal(size=(2, 7, 9)),
+        "building_trend": np.zeros((2, 7, 1)),
     }
     whole = {k: v.astype(np.float32) for k, v in whole.items()}
     path = tmp_path / "posterior.npz"
@@ -908,6 +909,7 @@ def test_kept_subset_reads_the_listed_buildings_and_units_draw_by_draw(tmp_path)
     np.testing.assert_array_equal(got["building"], flat["building"][:, buildings])
     np.testing.assert_array_equal(got["walk"], flat["walk"][:, buildings])
     np.testing.assert_array_equal(got["unit"], flat["unit"][:, units])
+    np.testing.assert_array_equal(got["building_trend"], flat["building_trend"])
     assert got["walk"].dtype == np.float64
     with pytest.raises(ValueError):
         summary.kept_subset(path, buildings, units, 6, 9)

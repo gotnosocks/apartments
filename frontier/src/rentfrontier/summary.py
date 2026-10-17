@@ -285,6 +285,9 @@ def kept_subset(path: Path, buildings, units, n_buildings: int, n_units: int, bl
                     index, size = np.asarray(units), n_units
                 else:
                     index = size = None
+                if index is not None and len(shape) == 3 and shape[2] == 1 != size:
+                    # A one-element stand-in for a term the run leaves out.
+                    index = None
                 if index is None:
                     order = "F" if fortran else "C"
                     value = np.frombuffer(fh.read(), dtype).reshape(shape, order=order)
