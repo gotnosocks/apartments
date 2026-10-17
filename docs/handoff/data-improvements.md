@@ -15,7 +15,9 @@ Updated 2026-10-17 07:45 ET, after the second empty-lot overrides (#1000). Threa
     They stay as they are.
 - The HPD other_lot list (`/data1/apartments/tmp/suspect/bcheck/other_lot_pad.csv`, 48 listings in 32
   buildings) is checked against PAD.
-  - For 35 listings, PAD gives the pipeline's lot.
+  - The csv's `bbl` column holds the pipeline's `buildings.lots` lot, and `pad_is = registry` marks PAD agreeing with it.
+  - For 35 listings, PAD gives the pipeline's lot. The all-scraped registry holds that lot too, except at 1614 Fulton St
+    (registry 3016990030 by reverse geocoding, PAD rank 6 only), which stays.
   - For 4 buildings (445 E 9th, 2178 2nd Ave, 236 Congress, 453 3rd Ave), the registry
     already holds the HPD lot, and only the pipeline's `buildings.lots` disagrees. The pipeline thread has the list.
   - #1004 moves 245 Sumpter St off a school lot (`registry-overrides-20261017-hpdpad.json`, 1 row).
