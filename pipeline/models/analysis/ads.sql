@@ -11,13 +11,14 @@ MODEL (
 -- `response_id`, or to the step named below. The file leaves out the ad's text, which a reader
 -- takes from that answer in the export.
 --
--- The view starts from ads.identity and adds the other per-ad steps by listing_id. Each of them
+-- The view starts from ads.placed and adds the other per-ad steps by listing_id. Each of them
 -- has at most one row per ad, so the view keeps one row per ad without an audit. The breaks and
 -- the regions are tables of their own: worked out inside the view, they took the build's sorted
 -- copy of it past 3 GB of memory.
 --
---   unit_id, building_id, building, page, identity_reasons:  ads.identity. `page` is the unit's
---       canonical page URL.
+--   unit_id, building_id, building, page, identity_reasons, placements:  ads.placed, after the
+--       unit ledger. `page` is the unit's canonical page URL, and `placements` lists the unit
+--       ledger's entries applied to the ad.
 --   regions:  ads.regions, the export regions of the ad's answers.
 --   neighbourhood:  the area of its building in buildings.details, as in analysis.candidates.
 --   response_id, fetched, page_price, on_day, off_day, floor_plans:  the latest record, as in
@@ -28,7 +29,8 @@ MODEL (
 --       latest record lists from `on_day` on, and the ad's latest break when its status is ACTIVE
 --       and it is back on the market.
 --   first_day, first_ask, exclusion_reasons:  ads.exclusions.
---   latest_ask:  analysis.latest_ask, for the kept rows.
+--   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger. The
+--       rows file's `latest_ask` gives the ask a live ask set corrects.
 --   bedrooms to concession, conflicts, records:  ads.attributes, the values merged over the
 --       ad's records before any correction. `full_baths`, `half_baths` and `label_floor` come
 --       from ads.reported.
@@ -57,11 +59,11 @@ SELECT i.listing_id, i.unit_id, i.building_id, i.building, i.page, g.regions,
     t.furnished, t.short_term, t.concession, t.conflicts, t.records,
     l.floor_plans,
     i.reasons AS identity_reasons, e.reasons AS exclusion_reasons, c.fate,
-    coalesce(d.ledger_entries, []) AS ledger_entries,
+    coalesce(d.ledger_entries, []) AS ledger_entries, i.placements,
     CASE WHEN q.listing_id IS NOT NULL
         THEN {'peer_ask': q.peer_ask, 'peer_rows': q.peer_rows, 'ratio': q.ratio} END AS ask_check,
     i.listing_id IN (SELECT listing_id FROM analysis.rows) AS in_rows
-FROM ads.identity i
+FROM ads.placed i
 JOIN ads.latest_record l USING (listing_id)
 JOIN ads.market m USING (listing_id)
 JOIN ads.exclusions e USING (listing_id)

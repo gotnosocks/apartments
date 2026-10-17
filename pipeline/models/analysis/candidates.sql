@@ -11,8 +11,9 @@ MODEL (
     description 'Each ad the current chain accepts before its unit-month check, with its fit-ready values and its fate in that check.'
 );
 
--- The candidates are the ads with a unit and with no reason in ads.exclusions. The chain keeps a
--- row for each unit and month of first day, in two steps:
+-- The candidates are the ads with a unit and with no reason in ads.exclusions. Their units and
+-- buildings come from ads.placed, after the unit ledger. The chain keeps a row for each unit and
+-- month of first day, in two steps:
 --   1. `historical_dataset` drops every ad of a unit-month whose ads give two bedroom counts or
 --      two bathroom counts. Their fate is `conflicting_layout_same_unit_month`.
 --   2. `rentfrontier.cohort` keeps the ad with the latest first day in each other unit-month,
@@ -38,7 +39,7 @@ WITH candidates AS (
         r.label_floor, r.full_baths, r.half_baths, b.floor_count, b.area,
         date_trunc('month', e.first_day)::DATE AS period
     FROM ads.exclusions e
-    JOIN ads.identity i USING (listing_id)
+    JOIN ads.placed i USING (listing_id)
     JOIN ads.attributes t USING (listing_id)
     JOIN ads.reported r USING (listing_id)
     LEFT JOIN buildings.details b ON b.building_id = i.building_id
