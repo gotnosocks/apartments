@@ -32,8 +32,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    from the chain.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
-   models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
-   rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
+   models `ledger.entries` and `ledger.status`, and `analysis.corrected` applying it to the
+   kept rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
    `ops/pipeline/ledger_import.py`. #921 added the studio Ben read from the floor plan of
    333 W 56th St #3E, from `bedrooms-ad-v8`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured

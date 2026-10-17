@@ -1183,15 +1183,15 @@ the same bedroom count. It lists the row when:
 - at least three other rows share its building and bedroom count;
 - its latest ask is 6 to 16 times the median, or a sixteenth to a sixth of it.
 
-`analysis.rows` drops each row the check lists, and `analysis.ads` gives the median, the number
-of other rows and the ratio in its `ask_check` column. The check reads the rows after the
-corrections ledger, so a live bedroom set moves a row in with the rows of its corrected count,
-and the ads the ledger excludes drop out of every median. The ledger has no change to keep a row
-the check lists. A typo of an extra or a missing digit gives a ratio near 10, but a row's true
-ask can lie a good way from its building's median. On the planted sample under [Planted
-errors](#planted-errors), the tenfold asks ran from 6.8 to 15.1 times the median, so I set the
-band at 6 to 16. In both builds of that sample the check also
-lists ad 2121710, a studio asking $21,545 whose description gives $2,150 a month.
+`analysis.rows` drops each row the check lists, and `analysis.ads` gives the median, the number of
+other rows and the ratio in its `ask_check` column. The check reads the rows after the corrections
+ledger, so a live bedroom set moves a row in with the rows of its corrected count, and the ads the
+ledger excludes drop out of every median. The ledger has no change to keep a row the check lists. A
+typo of an extra or a missing digit gives a ratio near 10, but a row's true ask can lie a good way
+from its building's median. On the planted sample under [Planted errors](#planted-errors), the
+tenfold asks ran from 6.8 to 15.1 times the median, so I set the band at 6 to 16. In both builds of
+that sample the check also lists ad 2121710, a studio asking $21,545 whose description gives $2,150
+a month.
 
 On the export of Oct 16 the check lists 40 rows: 31 at 6.1 to 12.5 times the median, and 9 at
 a tenth to a sixth of it. Half of them have 45 or more others to compare with. The rows file
@@ -1262,8 +1262,9 @@ Three models read the ledger:
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
 correction rules apply. A change to the ledger rebuilds only the two ledger models,
-`analysis.ask_check` and the views `analysis.corrected`, `analysis.rows` and `analysis.ads`. The catalog line of each build lists the ledger's
-files with their SHA-256, and counts the entries by status and change.
+`analysis.ask_check` and the views `analysis.corrected`, `analysis.rows` and `analysis.ads`. The
+catalog line of each build lists the ledger's files with their SHA-256, and counts the entries by
+status and change.
 
 ### The chain's corrections
 
@@ -1646,8 +1647,7 @@ in all, and most tests add made-up ads to that export. The tests:
     identity models, `buildings.lot_releases`, `analysis.lot_facts`, `analysis.lot_landmarks`,
     `analysis.building_certificates`, `ads.identity`, `analysis.candidates`, `analysis.kept`, the
     latest asks, `ledger.status`, `analysis.corrected`, `analysis.ask_check`, `analysis.rows` and
-    `analysis.ads`, and
-    the 49 ads of the building in that file gain their pages;
+    `analysis.ads`, and the 49 ads of the building in that file gain their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
@@ -1680,28 +1680,28 @@ in all, and most tests add made-up ads to that export. The tests:
     among them, read files with a repeated line, a retract of an unknown, a retracted or a
     retracting entry, and a line that is not JSON, and check that `read` takes files in order
     of name;
-22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two
-    of them in a later file, and check each entry's status and differing values. The next plan
-    rebuilds only the two ledger models, `analysis.ask_check` and the views
-    `analysis.corrected`, `analysis.rows` and `analysis.ads`. The
-    first drops one row and changes four, and the latest asks stay as they were;
+22. write ledger entries for eight kept rows of the fixture and an ad without one, retract two of
+    them in a later file, and check each entry's status and differing values. The next plan rebuilds
+    only the two ledger models, `analysis.ask_check` and the views `analysis.corrected`,
+    `analysis.rows` and `analysis.ads`. The first drops one row and changes four, and the latest
+    asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's ledger, and check that each of its files at the merge base with master
     stays as it was and that each new file sorts after master's files;
 25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
-    `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test
-    checks the changed rows of `analysis.candidates`, `analysis.kept`, `analysis.corrected` and
-    `analysis.rows` against the base's sizes above the bound, finds the new column and the new model, and finds
-    no other model changed. A second copy drops the price events of `ads.history_events`, a
-    model without a grain, and the test checks the count of rows only in the base. A third copy drops sizes in `pipeline/steps/attributes.py`
-    and spaces the JSON of `canonical` in `src`, and the test finds both changes in
-    `ads.record_attributes`. In a fourth copy, `analysis.rows` repeats a row. Its audit then
-    fails, and the script exits with status 1. Then the test checks that a side's process
-    imports `steps` from that side alone, and that `archive` writes `pipeline/` and `src/` at
-    HEAD. Last, it compares small tables directly: retyped grain and value columns, a repeated
-    grain, a changed grain, columns named like the join's markers, and tables with no column in
-    common.
+    `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test checks
+    the changed rows of `analysis.candidates`, `analysis.kept`, `analysis.corrected` and
+    `analysis.rows` against the base's sizes above the bound, finds the new column and the new
+    model, and finds no other model changed. A second copy drops the price events of
+    `ads.history_events`, a model without a grain, and the test checks the count of rows only in the
+    base. A third copy drops sizes in `pipeline/steps/attributes.py` and spaces the JSON of
+    `canonical` in `src`, and the test finds both changes in `ads.record_attributes`. In a fourth
+    copy, `analysis.rows` repeats a row. Its audit then fails, and the script exits with status 1.
+    Then the test checks that a side's process imports `steps` from that side alone, and that
+    `archive` writes `pipeline/` and `src/` at HEAD. Last, it compares small tables directly:
+    retyped grain and value columns, a repeated grain, a changed grain, columns named like the
+    join's markers, and tables with no column in common.
 26. write a sample of the fixture's export with a share of one half. The fixture has none of
     the following cases, so the test first adds a run with them to a copy of the export:
     - a later record of a picked ad, with a building outside the picked ones;

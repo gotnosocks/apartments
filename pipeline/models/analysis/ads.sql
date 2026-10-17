@@ -35,8 +35,8 @@ MODEL (
 --   fate:  the unit-month check's verdict in analysis.candidates, missing for an ad the chain
 --       drops before that check.
 --   ledger_entries:  the live entries of the corrections ledger for the ad.
---   ask_check:  for a kept row analysis.ask_check lists, the median latest ask of the building's
---       other kept rows with the same bedroom count, their number and the row's ratio to the
+--   ask_check:  for a corrected row analysis.ask_check lists, the median latest ask of the
+--       building's other corrected rows with the same bedroom count, their number and the row's ratio to the
 --       median. analysis.rows drops the row.
 --   in_rows:  whether the ad has a fit-ready row in analysis.rows.
 WITH ledger AS (
