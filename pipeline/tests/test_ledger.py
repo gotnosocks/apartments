@@ -450,7 +450,8 @@ def test_rule_evidence(text, kind):
 
 def test_line_datasets_follow_the_base_rules(tmp_path, monkeypatch):
     """Each line of a correction file takes the dataset of the version adding it, and the
-    lines a version repeats from its base rule take the base rule's datasets."""
+    lines a version repeats from its base rule take the base rule's datasets. A version adding
+    all its lines ends the walk, as `bedrooms-ad-v4` to `v6` do, though they give a base."""
     module = importer()
     monkeypatch.setattr(module, "REPO", tmp_path)
     folder = tmp_path / "config" / "corrections"
@@ -463,7 +464,9 @@ def test_line_datasets_follow_the_base_rules(tmp_path, monkeypatch):
             (folder / f"{name}-20261016.provenance.json").write_text(json.dumps(given))
         return f"config/corrections/{name}-20261016.jsonl"
 
-    version("rule-v1", ["a", "b"], {"dataset": "/d/one", "rows": 2})
+    version(
+        "rule-v1", ["a", "b"], {"dataset": "/d/one", "rows": 2, "base_rule": "rule-v0"}
+    )
     version(
         "rule-v2",
         ["a", "b", "c"],
@@ -491,6 +494,17 @@ def test_line_datasets_follow_the_base_rules(tmp_path, monkeypatch):
     bare = version("rule-v5", ["a"], None)
     with pytest.raises(SystemExit, match="no provenance file"):
         module.line_datasets(bare)
+    short = version("rule-v6", ["a"], {"dataset": "/d/six", "rows": 2})
+    with pytest.raises(SystemExit, match="fewer lines"):
+        module.line_datasets(short)
+    baseless = version("rule-v7", ["a", "b"], {"dataset": "/d/seven", "rows": 1})
+    with pytest.raises(SystemExit, match="no base"):
+        module.line_datasets(baseless)
+    orphan = version(
+        "rule-v8", ["a", "b"], {"dataset": "/d/eight", "rows": 1, "base_rule": "x"}
+    )
+    with pytest.raises(SystemExit, match="0 files for its base"):
+        module.line_datasets(orphan)
 
 
 @pytest.mark.parametrize(

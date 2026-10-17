@@ -10,7 +10,8 @@ them by the ad's `listing_id`. The script works in these steps:
    gives the dataset of the lines it adds, and from bedrooms-ad-v7 on, a version's file starts
    with its base rule's lines. It takes the row's ad and its recorded values from the dataset's
    `observations.jsonl`. A quarantine line gives its ad and month itself, the month as YYYY-MM
-   or as its first day.
+   or as its first day. Its `evidence` holds its reader's note. A note starting `Ad text:`
+   gives the ad's words after the prefix, and the importer files any other note as a read.
 2. It gathers the evidence for each correction:
      - the ad's words, from the rule file, or Ben's own reading when the rule's line gives
        his name and the day;
@@ -122,12 +123,20 @@ def line_datasets(path):
     start = len(numbered) - given.get("rows", len(numbered))
     if start < 0:
         raise SystemExit(f"{path} has fewer lines than its provenance file gives")
+    if start and "base_rule" not in given:
+        raise SystemExit(
+            f"{path} has more lines than its provenance file gives, and no base"
+        )
     found = {number: str(Path(given["dataset"])) for number, _ in numbered[start:]}
     if start:
-        (base,) = (REPO / "config" / "corrections").glob(
-            f"{given['base_rule']}-2*.jsonl"
+        bases = list(
+            (REPO / "config" / "corrections").glob(f"{given['base_rule']}-2*.jsonl")
         )
-        base = str(base.relative_to(REPO))
+        if len(bases) != 1:
+            raise SystemExit(
+                f"{path} has {len(bases)} files for its base {given['base_rule']}"
+            )
+        base = str(bases[0].relative_to(REPO))
         if list(lines(base)) != numbered[:start]:
             raise SystemExit(f"{path} doesn't start with the lines of {base}")
         found |= line_datasets(base)
@@ -433,8 +442,12 @@ def main(argv=None) -> int:
                     if row is not None:
                         when["bedrooms"] = row["bedrooms"]
                 evidence = [{"kind": "read", "detail": line["reason"]}]
-                if line.get("evidence"):
-                    evidence.insert(0, {"kind": "ad_text", "quote": line["evidence"]})
+                note = line.get("evidence")
+                if note and note.startswith("Ad text:"):
+                    quote = note.removeprefix("Ad text:").strip()
+                    evidence.insert(0, {"kind": "ad_text", "quote": quote})
+                elif note:
+                    evidence.insert(0, {"kind": "read", "detail": note})
                 entry = {
                     "change": "exclude",
                     "listing_id": str(line["source_listing_id"]),
