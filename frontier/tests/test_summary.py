@@ -771,7 +771,8 @@ def test_ranges_from_atoms_match_the_exact_predictive_intervals(tmp_path):
     sigma = rng.uniform(0.04, 0.12, (draws, n_groups)) * np.array([1.0, 1.5, 3.0])
     nu = rng.uniform(3.0, 30.0, draws)
     total = rng.normal(8.0, 0.06, (draws, rows))
-    weights = rng.exponential(1.0, (draws, rows)) ** 0.3
+    # Uneven enough that atoms of the unweighted draws fail the test.
+    weights = rng.lognormal(0.0, 1.0, (draws, rows))
     weights /= weights.sum(0)
     noise = summary.noise_tables(sigma, nu)
     (tmp_path / "noise.json").write_text(json.dumps(noise))
@@ -840,6 +841,22 @@ def test_the_row_table_writes_atoms_in_place_of_the_intervals():
     )
     shared = [c for c in exact if c in table]
     pd.testing.assert_frame_equal(exact[shared], table[shared])
+    # A fallback chunk beside an atoms chunk: the exact chunk's rows get no
+    # atoms and no group, and keep their intervals.
+    mixed = summary.atom_columns(pd.concat([table, exact.iloc[:2]]))
+    assert mixed.estimate_atoms.iloc[:n].notna().all()
+    assert mixed.estimate_atoms.iloc[n:].isna().all()
+    assert mixed.noise_group.isna().tolist() == [False] * n + [True] * 2
+    assert mixed.estimate_pred_lower_95.iloc[n:].notna().all()
+
+
+def test_atoms_need_noise_that_depends_on_the_group_alone():
+    sigma = np.array([[0.1, 0.2], [0.3, 0.4]])
+    groups = np.array([1, 0, 1])
+    assert summary.same_noise(sigma[:, groups], sigma, groups)
+    assert summary.same_noise(sigma[:, :1], sigma, np.array([0, 0]))
+    # Row-level noise: one row's scale differs from its group's.
+    assert not summary.same_noise(sigma[:, groups] * [1, 1, 1.01], sigma, groups)
 
 
 def test_noise_tables_are_the_mixture_cdf_on_the_grid():

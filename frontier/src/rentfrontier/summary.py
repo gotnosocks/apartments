@@ -405,6 +405,26 @@ NOISE_GRID = 4097
 NOISE_SPAN = 60.0
 
 
+def same_noise(scale, group_sigma, groups):
+    """Whether each row's (draws, rows) or (draws, 1) residual scale is its
+    group's column of `group_sigma`, so that the group's table in noise.json
+    describes the row's noise. A model with row-level noise fails this."""
+    scale = np.broadcast_to(scale, (group_sigma.shape[0], len(groups)))
+    return bool(np.array_equal(scale, group_sigma[:, groups]))
+
+
+def atom_columns(table):
+    """The row table with the atom columns of a run with `--range-atoms` made
+    parquet-ready: the rows of fallback chunks come out of the concat with NaN
+    there and exact intervals instead, and get None and a missing group."""
+    if "estimate_atoms" in table:
+        table["estimate_atoms"] = [
+            a if isinstance(a, np.ndarray) else None for a in table.estimate_atoms
+        ]
+        table["noise_group"] = table.noise_group.astype("Int64")
+    return table
+
+
 def range_atoms(total, weights, k=RANGE_ATOMS):
     """(k, rows) weighted quantiles of the total log rent at (i + 0.5) / k."""
     return weighted_quantiles(total, weights, (np.arange(k) + 0.5) / k)
@@ -756,7 +776,7 @@ def summarize(
     workers: int = 1,
     buildings: float | None = None,
     range_sample: bool = False,
-    range_atoms: bool = False,
+    with_atoms: bool = False,
 ):
     import jax
 
@@ -806,18 +826,17 @@ def summarize(
         )
 
     group_sigma = sigma if sigma.ndim == 2 else sigma[:, None]
-    noise = noise_tables(group_sigma, nu) if range_atoms else None
+    noise = noise_tables(group_sigma, nu) if with_atoms else None
     fallback_chunks = 0
 
     def atom_groups(a):
         """The rows' noise groups when each row's scale is its group's scale
         in noise.json, else None (the chunk gets the exact intervals)."""
         nonlocal fallback_chunks
-        if not range_atoms:
+        if not with_atoms:
             return None
         groups = np.asarray(model.noise_group(n_groups, a))
-        scale = np.broadcast_to(row_scale(a), (draws, len(groups)))
-        if np.array_equal(scale, group_sigma[:, groups]):
+        if same_noise(row_scale(a), group_sigma, groups):
             return groups
         fallback_chunks += 1
         return None
@@ -929,13 +948,7 @@ def summarize(
                 atom_groups(a),
             )
         parts = tables.collect()
-    table = pd.concat(parts).sort_index()
-    if "estimate_atoms" in table:
-        # Rows of fallback chunks hold NaN here; parquet takes None.
-        table["estimate_atoms"] = [
-            a if isinstance(a, np.ndarray) else None for a in table.estimate_atoms
-        ]
-        table["noise_group"] = table.noise_group.astype("Int64")
+    table = atom_columns(pd.concat(parts).sort_index())
     if len(table) != keep.sum() or table.audit_id.duplicated().any():
         raise AssertionError("every summarized row must appear exactly once")
     heldout = heldout[keep]
@@ -961,7 +974,7 @@ def summarize(
         **({"range_sample": sample.arrays(nu)} if sample is not None else {}),
         **(
             {"noise": noise, "range_atoms_fallback_chunks": fallback_chunks}
-            if range_atoms
+            if with_atoms
             else {}
         ),
     }
