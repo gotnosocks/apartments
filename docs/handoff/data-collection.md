@@ -14,10 +14,10 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
   region writes into the shared archive, `crawls/api`, and each run records its region. Collections take `crawls/oxylabs.lock`; a page crawl started beside
   them should run under `flock` on the same file so the combined rate stays within 64/min.
   `apartments-streeteasy-topup.timer` (Fridays 05:30 ET) reads current ads of every region
-  into `current-listings/api-REGION`. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
+  into the archive. Ben asked in the thread on Oct 15 (09:42 ET) for a weekly
   top-up in place of a daily one, and the timer went in that day. Its first run, Fri Oct 16
   from 05:30 to 05:49 ET, found 7,011 ACTIVE ads in 120 requests ($0.14) as runs 6 to 10. The
-  site counts an ad as on the market for 9 days after its last capture
+  site counts an ad as on the market for 9 days after its latest answer
   (`CURRENT_DAYS` in `src/apartments/site/captures.py`, widened from 7 by the Website thread
   in #836), so an ad stays on the site through the next Friday's run even when a backfill
   holding `oxylabs.lock` at 05:30 delays the top-up by up to 18 hours.
@@ -32,8 +32,9 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
   aliases `...-unit-spelling-aliases-v2` and the snapshot `snapshots/api-20261015` (taken 12:47
   ET, after the box reopen and before the bedroom and split reopens) came from
   `/data1/apartments/tmp/api-build-20261015/build.sh`. After each Friday top-up, check
-  `crawls/streeteasy-collect.log` for each region's exit and the export's, check that each
-  region's `current-listings/api-REGION` link moved, tell the coordinator so the Website thread
+  `crawls/streeteasy-collect.log` for each region's exit and the export's, check that
+  `apartments-pipeline-build` added a line to `/data1/apartments/pipeline/datasets/catalog.ndjson`
+  after the export, tell the coordinator so the Website thread
   rebuilds the site data, and message the pipeline thread's session with the new runs.
   `apartments-streeteasy-backup.timer` (09:00 ET) copies `crawls/api` to
   `/data2/apartments-backup/streeteasy-api` (Ben asked for a scheduled backup, Oct 15 03:57 ET).
@@ -193,13 +194,11 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
   `canonical_unit_mismatch` failures. Needed #662 (`rental-search-v4`: the five routes and
   StreetEasy's new `listingData` search template, live since about Oct 8). Controls:
   `data/probes/current-listings-new-areas-20261010/` (local; `run-capture.py`, `run-all.sh`).
-  The Website thread reads them; its reader measures the 7-day window from today (#665) and lets
-  a newer capture replace a unit's dataset row (#667).
-- **History crawl → current listings** (#664, Ben 19:11 UTC): `apartments.crawl_current_listings`
-  turns a finished crawl's newest-ACTIVE ads into `candidates.jsonl` with no requests, dated by
-  page capture time. Not published: the Oct 10 capture is newer for those areas.
-- **Weekly refresh**: `apartments-streeteasy-topup.timer` (see the GraphQL entry above) replaces
-  the on-demand captures for every area in its regions.
+  The Website thread read them until #945. Its reader measured the 7-day window from the build's
+  date (#665) and let a newer capture replace a unit's dataset row (#667).
+- **Weekly refresh**: `apartments-streeteasy-topup.timer` (see the GraphQL entry above) reads
+  every area in its regions, and since #945 the site takes its current listings from the
+  pipeline's ads file. The collector wrote current-listings captures until #949.
 
 ## Next
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`

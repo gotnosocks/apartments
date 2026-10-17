@@ -169,8 +169,8 @@ heavy-job lock; see [the site doc](../site.md).
 
 `ops/systemd/apartments-streeteasy-topup.timer` runs `ops/streeteasy-collect topup` every
 Friday at 05:30 New York time. It reads each region's current StreetEasy ads through the
-GraphQL API into `/data1/apartments/archive/current-listings/api-REGION`; see
-[the collection note](../data/graphql-collection.md).
+GraphQL API into the archive `/data1/apartments/archive/crawls/api`, and its export starts the
+pipeline build the site reads; see [the collection note](../data/graphql-collection.md).
 
 `ops/systemd/apartments-streeteasy-backup.timer` runs `ops/streeteasy-backup` at 09:00 New York
 time. It copies the API archive's database and files to `/data2/apartments-backup/streeteasy-api`

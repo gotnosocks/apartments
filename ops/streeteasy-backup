@@ -17,8 +17,6 @@
 #   2. Delete any archive.sqlite3-wal and archive.sqlite3-shm left in the archive folder.
 #      Otherwise SQLite replays the old WAL onto the restored copy and corrupts it.
 #   3. Copy the newest db/ copy to archive.sqlite3 in the archive folder.
-#   4. Point each /data1/apartments/archive/current-listings/api-REGION link at its region's
-#      newest capture under current-listings/ in the archive, if the links are gone.
 #
 # The backup folder's parent must already exist: /data2/apartments-backup is on the second disk,
 # so a missing folder means the disk is not mounted, and the script stops rather than fill the

@@ -432,17 +432,17 @@ ops/streeteasy-collect topup
   It stops at 4,000 requests for a region and at the first region that fails. Running it again
   resumes the region's latest run with `--reopen`, even after the run finished. On a finished
   run, it counts and reads the new bands from a newer collector's finer split, reads the ads
-  and histories still unread, and publishes the region's current ads again.
+  and histories still unread.
 - `topup` reads the ACTIVE ads of every region and re-reads each region's ads whose status is
   not RENTED, NO_LONGER_AVAILABLE or DELISTED, with at most 150 requests a region. It goes on
   past a region that fails.
-- A run that finishes writes the region's ads with an ACTIVE record fetched since the run
-  started, by any region's runs, in the current-listings format under
-  `crawls/api/current-listings/REGION/`, and points
-  `/data1/apartments/archive/current-listings/api-REGION` at them. An ad gone from the API
-  keeps its last record, so the capture goes by when that record arrived. The site's reader
-  takes the newest capture of each unit across that folder, for buildings in the served fit,
-  on the next site data build.
+- The export after the regions changes the export's manifest, and
+  `apartments-pipeline-build.path` then builds the pipeline's ads and rows files. The site's
+  next data build takes its current listings from those files (#945): each ad whose latest
+  answer says ACTIVE and arrived in the 9 days before the build. An ad gone from the API keeps
+  its last record, so it leaves the site 9 days after that record arrived. Until #949, a
+  finished run also wrote its region's ACTIVE ads as a current-listings capture under
+  `crawls/api/current-listings/REGION/`, and those captures stay there.
 - Each run's report is in `crawls/api/graphql-search/run-N.json`, and the script logs a line
   for each region in `crawls/streeteasy-collect.log`.
 - After the last region, still holding the lock, the script runs the [raw export](#raw-export)
@@ -511,10 +511,10 @@ for that. Each run goes through these steps:
 2. It runs `PRAGMA quick_check` on the copy and stops if the check reports a problem.
 3. It flushes the copy to disk, gives it its final name and deletes all but the newest 7
    database copies.
-4. It copies the bodies, the run reports, the current-listings captures and the raw export into
+4. It copies the bodies, the run reports, the old current-listings captures and the raw export into
    `files/` with rsync, leaving out the database, the collector's lock and partial `.tmp` bodies. A file gone
-   from the archive stays in the backup. A capture pruned by a collector during the copy leaves
-   rsync with exit 24, which the script accepts.
+   from the archive stays in the backup. A file removed during the copy leaves rsync with exit
+   24, which the script accepts.
 5. It appends a line to `backup.log` in the backup folder.
 
 It stops before writing anything if the archive's database is missing, or if
@@ -526,5 +526,3 @@ To restore, with no collector running:
 2. Delete any `archive.sqlite3-wal` and `archive.sqlite3-shm` left in `crawls/api`. Otherwise
    SQLite replays the old WAL onto the restored database and corrupts it.
 3. Copy the newest database copy to `crawls/api/archive.sqlite3`.
-4. If the `current-listings/api-REGION` links are gone, point each one at its region's newest
-   capture under `crawls/api/current-listings/REGION/`. The backup leaves the links out.
