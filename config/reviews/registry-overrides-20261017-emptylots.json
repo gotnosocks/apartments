@@ -1,7 +1,7 @@
 {
  "version": "registry-overrides-emptylots-v1",
  "reviewed_at": "2026-10-17",
- "rule": "Buildings whose registry lot holds no building in MapPLUTO (or is a condominium unit lot MapPLUTO leaves out), moved to the lot the pipeline's building identity step (buildings.lots) gives, where that lot's MapPLUTO record is within 2 years of StreetEasy's year built and within 10% (or 2) of its apartment count",
+ "rule": "Buildings whose registry lot is a condominium unit lot MapPLUTO leaves out, or a lot no MapPLUTO release from 09v1 to 26v2 shows building area on, moved to the lot the pipeline's building identity step (buildings.lots) gives, where that step's address match supports the lot (link both, address or address_only), the lot holds apartments in MapPLUTO 26v2, and its record is within 2 years of StreetEasy's year built and within 10% (or 2) of its apartment count",
  "overrides": [
   {
    "building": "the-ashland",
@@ -9,15 +9,15 @@
    "bin": "3424470",
    "label": "590 FULTON STREET",
    "evidence": "StreetEasy's building record gives class R0, built 2016, 53 floors, 586 apartments; MapPLUTO 26v2 lot 3021077501 is 590 FULTON STREET, class RM, built 2015, 51 floors, 586 apartments; the pipeline's building identity step links it (address_only)",
-   "registry_was": "reverse, BBL 3021070033: 262 ASHLAND PLACE, class Q9, built 0, 0 apartments"
+   "registry_was": "reverse, BBL 3021070033: MapPLUTO 26v2 has 262 ASHLAND PLACE, class Q9, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "475-clermont",
    "bbl": "3020097501",
    "bin": "3426518",
    "label": "810 FULTON STREET",
-   "evidence": "StreetEasy's building record gives class G6, built 2019, 12 floors, 363 apartments; MapPLUTO 26v2 lot 3020097501 is 810 FULTON STREET, class RM, built 2017, 12 floors, 365 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 3019750004: 879 FULTON STREET, class Q0, built 0, 0 apartments"
+   "evidence": "StreetEasy's building record gives class G6, built 2019, 12 floors, 363 apartments; MapPLUTO 26v2 lot 3020097501 is 810 FULTON STREET, class RM, built 2017, 12 floors, 363 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 3019750004: MapPLUTO 26v2 has 879 FULTON STREET, class Q0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "liberty-view",
@@ -25,23 +25,23 @@
    "bin": "1080815",
    "label": "99 BATTERY PLACE",
    "evidence": "StreetEasy's building record gives class RR, built 1988, 28 floors, 293 apartments; MapPLUTO 26v2 lot 1000167510 is 99 BATTERY PLACE, class RM, built 1988, 28 floors, 293 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1000167001: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "registry_was": "reverse, BBL 1000167001: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "the-gallery-house",
    "bbl": "1012717501",
    "bin": "1034856",
-   "label": "1360 AVENUE OF THE AMER",
-   "evidence": "StreetEasy's building record gives class RR, built 1963, 20 floors, 183 apartments; MapPLUTO 26v2 lot 1012717501 is 1360 AVENUE OF THE AMER, class RM, built 1963, 20 floors, 183 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1012710101: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "label": "1360 AVENUE OF THE AMERICAS",
+   "evidence": "StreetEasy's building record gives class RR, built 1963, 20 floors, 183 apartments; MapPLUTO 26v2 lot 1012717501 is 1360 AVENUE OF THE AMERICAS, class RM, built 1963, 20 floors, 183 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 1012710101: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "the-cove-club",
    "bbl": "1000167511",
    "bin": "1082813",
    "label": "2 SOUTH END AVENUE",
-   "evidence": "StreetEasy's building record gives class RR, built 1990, 9 floors, 163 apartments; MapPLUTO 26v2 lot 1000167511 is 2 SOUTH END AVENUE, class RM, built 1990, 0 floors, 163 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1000168001: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "evidence": "StreetEasy's building record gives class RR, built 1990, 9 floors, 163 apartments; MapPLUTO 26v2 lot 1000167511 is 2 SOUTH END AVENUE, class RM, built 1990, unknown floors, 163 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 1000168001: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "olympic-tower",
@@ -49,7 +49,7 @@
    "bin": "1035481",
    "label": "641 5 AVENUE",
    "evidence": "StreetEasy's building record gives class RR, built 1973, 51 floors, 225 apartments; MapPLUTO 26v2 lot 1012877501 is 641 5 AVENUE, class RM, built 1973, 51 floors, 224 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1012871000: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "registry_was": "reverse, BBL 1012871000: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "10-little-west-street-new_york",
@@ -57,15 +57,7 @@
    "bin": "1085789",
    "label": "10 LITTLE WEST STREET",
    "evidence": "StreetEasy's building record gives class RR, built 2003, 38 floors, 115 apartments; MapPLUTO 26v2 lot 1000167513 is 10 LITTLE WEST STREET, class RM, built 2003, 38 floors, 115 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 1000169001: not in MapPLUTO 26v2 (a condominium unit lot)"
-  },
-  {
-   "building": "1355-myrtle-avenue-brooklyn",
-   "bbl": "3032560001",
-   "bin": "3414126",
-   "label": "1355 MYRTLE AVENUE",
-   "evidence": "StreetEasy's building record gives class C1, built 2014, 4 floors, 8 apartments; MapPLUTO 26v2 lot 3032560001 is 1355 MYRTLE AVENUE, class C1, built 2014, 4 floors, 8 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3032560003: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "registry_was": "address, BBL 1000169001: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "st-tropez",
@@ -73,7 +65,7 @@
    "bin": "1044390",
    "label": "340 EAST 64 STREET",
    "evidence": "StreetEasy's building record gives class R4, built 1965, 35 floors, 300 apartments; MapPLUTO 26v2 lot 1014387501 is 340 EAST 64 STREET, class R4, built 1965, 34 floors, 300 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1014380201: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "registry_was": "reverse, BBL 1014380201: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "the-griffon",
@@ -81,7 +73,7 @@
    "bin": "1019166",
    "label": "77 PARK AVENUE",
    "evidence": "StreetEasy's building record gives class R4, built 1923, 14 floors, 107 apartments; MapPLUTO 26v2 lot 1008947501 is 77 PARK AVENUE, class R4, built 1924, 14 floors, 106 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1008940201: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "registry_was": "reverse, BBL 1008940201: a condominium unit lot, which MapPLUTO leaves out"
   },
   {
    "building": "village-house-condominium",
@@ -89,15 +81,31 @@
    "bin": "1009636",
    "label": "60 WEST 13 STREET",
    "evidence": "StreetEasy's building record gives class R4, built 1966, 14 floors, 70 apartments; MapPLUTO 26v2 lot 1005767501 is 60 WEST 13 STREET, class R4, built 1966, 14 floors, 70 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1005760201: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "registry_was": "reverse, BBL 1005760201: a condominium unit lot, which MapPLUTO leaves out"
+  },
+  {
+   "building": "huxley-condominium",
+   "bbl": "1016297504",
+   "bin": "1091627",
+   "label": "181 EAST 101ST STREET",
+   "evidence": "StreetEasy's building record gives class D7, built 2021, 9 floors, 71 apartments; MapPLUTO 26v2 lot 1016297504 is 181 EAST 101ST STREET, class RM, built 2020, 9 floors, 71 apartments; the pipeline's building identity step links it (address)",
+   "registry_was": "reverse, BBL 1016280042: MapPLUTO 26v2 has 192 EAST 101 STREET, class Q2, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "trump-parc-east",
    "bbl": "1010117505",
    "bin": "1023755",
-   "label": "1431 AVENUE OF THE AMER",
-   "evidence": "StreetEasy's building record gives class RR, built 1918, 14 floors, 79 apartments; MapPLUTO 26v2 lot 1010117505 is 1431 AVENUE OF THE AMER, class RM, built 1918, 14 floors, 78 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 1010117001: not in MapPLUTO 26v2 (a condominium unit lot)"
+   "label": "1431 AVENUE OF THE AMERICAS",
+   "evidence": "StreetEasy's building record gives class RR, built 1918, 14 floors, 79 apartments; MapPLUTO 26v2 lot 1010117505 is 1431 AVENUE OF THE AMERICAS, class RM, built 1918, 14 floors, 78 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 1010117001: a condominium unit lot, which MapPLUTO leaves out"
+  },
+  {
+   "building": "550-prospect-place-brooklyn",
+   "bbl": "3011630023",
+   "bin": "3428528",
+   "label": " PROSPECT PLACE",
+   "evidence": "StreetEasy's building record gives class D6, built 2021, 7 floors, 41 apartments; MapPLUTO 26v2 lot 3011630023 is  PROSPECT PLACE, class D6, built 2020, 7 floors, 41 apartments; the pipeline's building identity step links it (address_only)",
+   "registry_was": "reverse, BBL 3011620146: MapPLUTO 26v2 has  PROSPECT PLACE, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "1698-pacific-street-brooklyn",
@@ -105,15 +113,15 @@
    "bin": "3035679",
    "label": "1698 PACIFIC STREET",
    "evidence": "StreetEasy's building record gives class B9, built 1920, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3013420018 is 1698 PACIFIC STREET, class B9, built 1920, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3013420019:  PACIFIC STREET, class V0, built 0, 0 apartments"
+   "registry_was": "address, BBL 3013420019: MapPLUTO 26v2 has  PACIFIC STREET, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
-   "building": "244-montrose-avenue-brooklyn",
-   "bbl": "3030640010",
-   "bin": "3071261",
-   "label": "246 MONTROSE AVENUE",
-   "evidence": "StreetEasy's building record gives class C3, built 1931, 3 floors, 4 apartments; MapPLUTO 26v2 lot 3030640010 is 246 MONTROSE AVENUE, class C0, built 1930, 3 floors, 3 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3030640009: 244 MONTROSE AVENUE, class C3, built 1931, 4 apartments"
+   "building": "499-president",
+   "bbl": "3004400001",
+   "bin": "3430032",
+   "label": "499 PRESIDENT STREET",
+   "evidence": "StreetEasy's building record gives class D7, built 2025, 10 floors, 350 apartments; MapPLUTO 26v2 lot 3004400001 is 499 PRESIDENT STREET, class D7, built 2023, 9 floors, 350 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 3004400045: MapPLUTO 26v2 has 503 PRESIDENT STREET, class QG, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "356a-vernon-avenue-brooklyn",
@@ -121,7 +129,7 @@
    "bin": "3042944",
    "label": "356A VERNON AVENUE",
    "evidence": "StreetEasy's building record gives class C0, built 1931, 2 floors, 3 apartments; MapPLUTO 26v2 lot 3015890021 is 356A VERNON AVENUE, class C0, built 1931, 2 floors, 3 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3015890020: 356 VERNON AVENUE, class V0, built 0, 0 apartments"
+   "registry_was": "address, BBL 3015890020: MapPLUTO 26v2 has 356 VERNON AVENUE, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "328-east-52-street-new_york",
@@ -129,39 +137,15 @@
    "bin": "1039664",
    "label": "328 EAST 52 STREET",
    "evidence": "StreetEasy's building record gives class C4, built 1901, 4 floors, 10 apartments; MapPLUTO 26v2 lot 1013440039 is 328 EAST 52 STREET, class C4, built 1901, 4 floors, 10 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 1013440138: EAST 52 STREET, class V1, built 0, 0 apartments"
+   "registry_was": "address, BBL 1013440138: MapPLUTO 26v2 has EAST 52 STREET, class V1, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
-   "building": "686-grand-street-brooklyn",
-   "bbl": "3027880011",
-   "bin": "3069586",
-   "label": "686 GRAND STREET",
-   "evidence": "StreetEasy's building record gives class S3, built 1920, 4 floors, 3 apartments; MapPLUTO 26v2 lot 3027880011 is 686 GRAND STREET, class S3, built 1920, 4 floors, 3 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3027887504: not in MapPLUTO 26v2 (a condominium unit lot)"
-  },
-  {
-   "building": "196-13-street-brooklyn",
-   "bbl": "3010330029",
-   "bin": "3023355",
-   "label": "196 13 STREET",
-   "evidence": "StreetEasy's building record gives class C0, built 1899, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3010330029 is 196 13 STREET, class C0, built 1899, 3 floors, 3 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3010330030: 196A 13 STREET, class C0, built 1899, 3 apartments"
-  },
-  {
-   "building": "780-greene-avenue-brooklyn",
-   "bbl": "3016190037",
-   "bin": "3043975",
-   "label": "780 GREENE AVENUE",
-   "evidence": "StreetEasy's building record gives class C3, built 1931, 3 floors, 4 apartments; MapPLUTO 26v2 lot 3016190037 is 780 GREENE AVENUE, class C3, built 1931, 3 floors, 4 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3016190055:  GREENE AVENUE, class V0, built 0, 0 apartments"
-  },
-  {
-   "building": "1070a-dekalb-avenue",
-   "bbl": "3016030031",
-   "bin": "3043272",
-   "label": "1070A DEKALB AVENUE",
-   "evidence": "StreetEasy's building record gives class S2, built 1931, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3016030031 is 1070A DEKALB AVENUE, class S2, built 1931, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3016030030: 1070 DEKALB AVENUE, class V0, built 0, 0 apartments"
+   "building": "the-riverie",
+   "bbl": "3025380001",
+   "bin": "3429272",
+   "label": "0 WEST STREET",
+   "evidence": "StreetEasy's building record gives class D6, built 2025, 37 floors, 834 apartments; MapPLUTO 26v2 lot 3025380001 is 0 WEST STREET, class D6, built 2023, 37 floors, 834 apartments; the pipeline's building identity step links it (address_only)",
+   "registry_was": "reverse, BBL 3025300020: MapPLUTO 26v2 has  WEST STREET, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "16-goodwin-place-brooklyn",
@@ -169,31 +153,7 @@
    "bin": "3075270",
    "label": "16 GOODWIN PLACE",
    "evidence": "StreetEasy's building record gives class B2, built 1901, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3032930017 is 16 GOODWIN PLACE, class B2, built 1901, 3 floors, 2 apartments; the pipeline's building identity step links it (address)",
-   "registry_was": "address, BBL 3032930015: 12 GOODWIN PLACE, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "126-east-101-street-new_york",
-   "bbl": "1016280064",
-   "bin": "1051817",
-   "label": "124 EAST 101 STREET",
-   "evidence": "StreetEasy's building record gives class C0, built 1890, 3 floors, 3 apartments; MapPLUTO 26v2 lot 1016280064 is 124 EAST 101 STREET, class A5, built 1890, 4 floors, 1 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 1016280057: 1578 LEXINGTON AVENUE, class M1, built 1910, 0 apartments"
-  },
-  {
-   "building": "1014-fulton-street-brooklyn",
-   "bbl": "3020150026",
-   "bin": "3057665",
-   "label": "1014 FULTON STREET",
-   "evidence": "StreetEasy's building record gives class S3, built 1930, 4 floors, 3 apartments; MapPLUTO 26v2 lot 3020150026 is 1014 FULTON STREET, class S3, built 1930, 4 floors, 3 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3020150126:  FULTON STREET, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "287-kingston-avenue-brooklyn",
-   "bbl": "3012650005",
-   "bin": "3337854",
-   "label": "289 KINGSTON AVENUE",
-   "evidence": "StreetEasy's building record gives class S4, built 1910, 3 floors, 4 apartments; MapPLUTO 26v2 lot 3012650005 is 289 KINGSTON AVENUE, class S4, built 1910, 3 floors, 4 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3012650006: 287 KINGSTON AVENUE, class S4, built 1910, 4 apartments"
+   "registry_was": "address, BBL 3032930015: MapPLUTO 26v2 has 12 GOODWIN PLACE, class V1, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "vantage-238",
@@ -201,7 +161,15 @@
    "bin": "3396029",
    "label": "238 ST MARKS AVENUE",
    "evidence": "StreetEasy's building record gives class RR, built 2008, unknown floors, 20 apartments; MapPLUTO 26v2 lot 3011527504 is 238 ST MARKS AVENUE, class RM, built 2008, 8 floors, 20 apartments; the pipeline's building identity step links it (address)",
-   "registry_was": "reverse, BBL 3011440062:  ST MARKS AVENUE, class V1, built 0, 0 apartments"
+   "registry_was": "reverse, BBL 3011440062: MapPLUTO 26v2 has  ST MARKS AVENUE, class V1, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "28-spencer-place",
+   "bbl": "3019990029",
+   "bin": "3421368",
+   "label": "1181 FULTON STREET",
+   "evidence": "StreetEasy's building record gives class D7, built 2025, 6 floors, 16 apartments; MapPLUTO 26v2 lot 3019990029 is 1181 FULTON STREET, class D7, built 2025, 6 floors, 16 apartments; the pipeline's building identity step links it (address_only)",
+   "registry_was": "address, BBL 3019990022: MapPLUTO 26v2 has 16 SPENCER PLACE, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "382-south-3-street-brooklyn",
@@ -209,15 +177,7 @@
    "bin": "3394457",
    "label": "382 SOUTH 3 STREET",
    "evidence": "StreetEasy's building record gives class B2, built 2000, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3024380116 is 382 SOUTH 3 STREET, class B2, built 2000, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3024380015: 382 SOUTH 3 STREET, class G7, built 0, 0 apartments"
-  },
-  {
-   "building": "48a-vernon-avenue-brooklyn",
-   "bbl": "3017580035",
-   "bin": "3341945",
-   "label": "48A VERNON AVENUE",
-   "evidence": "StreetEasy's building record gives class C0, built 1931, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3017580035 is 48A VERNON AVENUE, class C0, built 1931, 3 floors, 3 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3017580034: 48 VERNON AVENUE, class V0, built 0, 0 apartments"
+   "registry_was": "address, BBL 3024380015: MapPLUTO 26v2 has 382 SOUTH 3 STREET, class G7, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "250-st-marks-avenue-brooklyn",
@@ -225,23 +185,15 @@
    "bin": "3028491",
    "label": "250 ST MARKS AVENUE",
    "evidence": "StreetEasy's building record gives class B1, built 1930, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3011520019 is 250 ST MARKS AVENUE, class B1, built 1930, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 3011520020: 252 ST MARKS AVENUE, class V0, built 0, 0 apartments"
+   "registry_was": "reverse, BBL 3011520020: MapPLUTO 26v2 has 252 ST MARKS AVENUE, class QG, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
-   "building": "806-9-avenue-new_york",
-   "bbl": "1010440003",
-   "bin": "1025391",
-   "label": "806 9 AVENUE",
-   "evidence": "StreetEasy's building record gives class O2, built 1997, 5 floors, 0 apartments; MapPLUTO 26v2 lot 1010440003 is 806 9 AVENUE, class O2, built 1997, 5 floors, 0 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 1010447502: not in MapPLUTO 26v2 (a condominium unit lot)"
-  },
-  {
-   "building": "1723-lexington-avenue-new_york",
-   "bbl": "1016350021",
-   "bin": "1052070",
-   "label": "1721 LEXINGTON AVENUE",
-   "evidence": "StreetEasy's building record gives class V1, built 1910, 4 floors, 5 apartments; MapPLUTO 26v2 lot 1016350021 is 1721 LEXINGTON AVENUE, class S5, built 1910, 4 floors, 5 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 1016350052: 1723 LEXINGTON AVENUE, class V1, built 0, 0 apartments"
+   "building": "48a-vernon-avenue-brooklyn",
+   "bbl": "3017580035",
+   "bin": "3341945",
+   "label": "48A VERNON AVENUE",
+   "evidence": "StreetEasy's building record gives class C0, built 1931, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3017580035 is 48A VERNON AVENUE, class C0, built 1931, 3 floors, 3 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3017580034: MapPLUTO 26v2 has 48 VERNON AVENUE, class QG, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "2105a-pacific-street-brooklyn",
@@ -249,7 +201,7 @@
    "bin": "3038535",
    "label": "2105A PACIFIC STREET",
    "evidence": "StreetEasy's building record gives class C0, built 1901, 2 floors, 3 apartments; MapPLUTO 26v2 lot 3014320042 is 2105A PACIFIC STREET, class C0, built 1901, 2 floors, 3 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3014320043:  PACIFIC STREET, class V0, built 0, 0 apartments"
+   "registry_was": "address, BBL 3014320043: MapPLUTO 26v2 has 2105 PACIFIC STREET, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "17a-suydam-place-brooklyn",
@@ -257,7 +209,7 @@
    "bin": "3048194",
    "label": "17A SUYDAM PLACE",
    "evidence": "StreetEasy's building record gives class B3, built 1901, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3017100004 is 17A SUYDAM PLACE, class B3, built 1901, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3017100005: 17 SUYDAM PLACE, class V0, built 0, 0 apartments"
+   "registry_was": "address, BBL 3017100005: MapPLUTO 26v2 has 17 SUYDAM PLACE, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "641-willoughby-avenue-brooklyn",
@@ -265,23 +217,7 @@
    "bin": "3048859",
    "label": "641 WILLOUGHBY AVENUE",
    "evidence": "StreetEasy's building record gives class C0, built 1901, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3017600052 is 641 WILLOUGHBY AVENUE, class C0, built 1901, 3 floors, 3 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3017600151:  WILLOUGHBY AVENUE, class V0, built 0, 0 apartments"
-  },
-  {
-   "building": "79-steuben-street-brooklyn",
-   "bbl": "3018940011",
-   "bin": "3054595",
-   "label": "81 STEUBEN STREET",
-   "evidence": "StreetEasy's building record gives class F5, built 1957, 1 floors, 0 apartments; MapPLUTO 26v2 lot 3018940011 is 81 STEUBEN STREET, class G2, built 1958, 1 floors, 0 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3018940015: 79 STEUBEN STREET, class F5, built 1957, 0 apartments"
-  },
-  {
-   "building": "33-pilling-street-brooklyn",
-   "bbl": "3034500052",
-   "bin": "3080216",
-   "label": "33 PILLING STREET",
-   "evidence": "StreetEasy's building record gives class B2, built 1899, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3034500052 is 33 PILLING STREET, class B2, built 1899, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3034500053:  PILLING STREET, class V0, built 0, 0 apartments"
+   "registry_was": "address, BBL 3017600151: MapPLUTO 26v2 has  WILLOUGHBY AVENUE, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "260-st-marks-avenue-brooklyn",
@@ -289,7 +225,15 @@
    "bin": "3028493",
    "label": "260 ST MARKS AVENUE",
    "evidence": "StreetEasy's building record gives class C3, built 1931, 4 floors, 4 apartments; MapPLUTO 26v2 lot 3011520024 is 260 ST MARKS AVENUE, class C3, built 1931, 4 floors, 4 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 3011520023: 256 ST MARKS AVENUE, class V0, built 0, 0 apartments"
+   "registry_was": "reverse, BBL 3011520023: MapPLUTO 26v2 has 256 ST MARKS AVENUE, class QG, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "33-pilling-street-brooklyn",
+   "bbl": "3034500052",
+   "bin": "3080216",
+   "label": "33 PILLING STREET",
+   "evidence": "StreetEasy's building record gives class B2, built 1899, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3034500052 is 33 PILLING STREET, class B2, built 1899, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3034500053: MapPLUTO 26v2 has  PILLING STREET, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "1996a-fulton-street-brooklyn",
@@ -297,15 +241,7 @@
    "bin": "3042104",
    "label": "1996A FULTON STREET",
    "evidence": "StreetEasy's building record gives class S2, built 1899, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3015490008 is 1996A FULTON STREET, class S2, built 1899, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3015490007:  FULTON STREET, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "31-marcus-garvey-blvd-brooklyn",
-   "bbl": "3015790001",
-   "bin": "3337952",
-   "label": "31 MARCUS GARVEY BLVD",
-   "evidence": "StreetEasy's building record gives class V0, built 1931, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3015790001 is 31 MARCUS GARVEY BLVD, class S9, built 1931, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 3015790056: 857 PARK AVENUE, class V1, built 0, 0 apartments"
+   "registry_was": "address, BBL 3015490007: MapPLUTO 26v2 has  FULTON STREET, class V1, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "515-carroll-street-brooklyn",
@@ -313,15 +249,15 @@
    "bin": "3323391",
    "label": "515 CARROLL STREET",
    "evidence": "StreetEasy's building record gives class B1, built 1905, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3004480054 is 515 CARROLL STREET, class B1, built 1905, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3004480053:  CARROLL STREET, class G7, built 0, 0 apartments"
+   "registry_was": "address, BBL 3004480053: MapPLUTO 26v2 has  CARROLL STREET, class G7, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
-   "building": "2026-bergen-street-brooklyn",
-   "bbl": "3014540015",
-   "bin": "3039106",
-   "label": "2026 BERGEN STREET",
-   "evidence": "StreetEasy's building record gives class B9, built 1910, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3014540015 is 2026 BERGEN STREET, class B9, built 1910, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3014540115: 2026A BERGEN STREET, class V0, built 0, 0 apartments"
+   "building": "31-marcus-garvey-blvd-brooklyn",
+   "bbl": "3015790001",
+   "bin": "3337952",
+   "label": "31 MARCUS GARVEY BLVD",
+   "evidence": "StreetEasy's building record gives class V0, built 1931, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3015790001 is 31 MARCUS GARVEY BLVD, class S9, built 1931, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "reverse, BBL 3015790056: MapPLUTO 26v2 has 857 PARK AVENUE, class G7, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "67-st-johns-place-brooklyn",
@@ -329,127 +265,15 @@
    "bin": "3019235",
    "label": "67 ST JOHNS PLACE",
    "evidence": "StreetEasy's building record gives class C6, built 1920, 3 floors, 5 apartments; MapPLUTO 26v2 lot 3009440052 is 67 ST JOHNS PLACE, class C6, built 1920, 3 floors, 5 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "reverse, BBL 3009440051:  ST JOHNS PLACE, class V0, built 0, 0 apartments"
+   "registry_was": "reverse, BBL 3009440051: MapPLUTO 26v2 has  ST JOHNS PLACE, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
-   "building": "1-washington-square-village-new_york",
-   "bbl": "1005330001",
-   "bin": "1077833",
-   "label": "1 WASHINGTON SQ VLLGE",
-   "evidence": "StreetEasy's building record gives class V1, built 1959, 17 floors, 1885 apartments; MapPLUTO 26v2 lot 1005330001 is 1 WASHINGTON SQ VLLGE, class H8, built 1959, 17 floors, 1904 apartments; the pipeline's building identity step links it (address_only)",
-   "registry_was": "reverse, BBL 1005330030: 1 WASHINGTON SQ VLLGE, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "1782-lexington-avenue-new_york",
-   "bbl": "1016380017",
-   "bin": "1052175",
-   "label": "141 EAST 110 STREET",
-   "evidence": "StreetEasy's building record gives class U7, built 1910, 6 floors, 15 apartments; MapPLUTO 26v2 lot 1016380017 is 141 EAST 110 STREET, class C7, built 1910, 6 floors, 15 apartments; the pipeline's building identity step links it (address)",
-   "registry_was": "reverse, BBL 1016260040: 1782 LEXINGTON AVENUE, class U7, built 0, 0 apartments"
-  },
-  {
-   "building": "174-east-108-street-new_york",
-   "bbl": "1016350042",
-   "bin": "1052088",
-   "label": "176 EAST 108 STREET",
-   "evidence": "StreetEasy's building record gives class V1, built 1910, 4 floors, 5 apartments; MapPLUTO 26v2 lot 1016350042 is 176 EAST 108 STREET, class C3, built 1910, 4 floors, 4 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 1016350043: 174 EAST 108 STREET, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "701a-monroe-street-brooklyn",
-   "bbl": "3016370057",
-   "bin": "3044689",
-   "label": "701A MONROE STREET",
-   "evidence": "StreetEasy's building record gives class B3, built 1899, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3016370057 is 701A MONROE STREET, class B3, built 1899, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3016370058: 701 MONROE STREET, class V0, built 0, 0 apartments"
-  },
-  {
-   "building": "1163-fulton-street-brooklyn",
-   "bbl": "3019990038",
-   "bin": "3057435",
-   "label": "1161 FULTON STREET",
-   "evidence": "StreetEasy's building record gives class S3, built 1930, 4 floors, 3 apartments; MapPLUTO 26v2 lot 3019990038 is 1161 FULTON STREET, class S3, built 1930, 4 floors, 3 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3019990037: 1163 FULTON STREET, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "208-nostrand-avenue-brooklyn",
-   "bbl": "3017650034",
-   "bin": "3049024",
-   "label": "206 NOSTRAND AVENUE",
-   "evidence": "StreetEasy's building record gives class C0, built 1910, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3017650034 is 206 NOSTRAND AVENUE, class C0, built 1910, 3 floors, 3 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3017650035: 208 NOSTRAND AVENUE, class C0, built 1910, 3 apartments"
-  },
-  {
-   "building": "540-willoughby-avenue-brooklyn",
-   "bbl": "3017670017",
-   "bin": "3049115",
-   "label": "538A WILLOUGHBY AVENUE",
-   "evidence": "StreetEasy's building record gives class V0, built 1910, 3 floors, 3 apartments; MapPLUTO 26v2 lot 3017670017 is 538A WILLOUGHBY AVENUE, class C0, built 1910, 3 floors, 3 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3017670018: 540 WILLOUGHBY AVENUE, class V0, built 0, 0 apartments"
-  },
-  {
-   "building": "50-rochester-avenue-brooklyn",
-   "bbl": "3017080057",
-   "bin": "3048164",
-   "label": "48 ROCHESTER AVENUE",
-   "evidence": "StreetEasy's building record gives class B3, built 1901, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3017080057 is 48 ROCHESTER AVENUE, class B3, built 1901, 3 floors, 2 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3017080058: 50 ROCHESTER AVENUE, class B3, built 1901, 2 apartments"
-  },
-  {
-   "building": "89-malcolm-x-boulevard-brooklyn",
-   "bbl": "3016220009",
-   "bin": "3044133",
-   "label": "91 MALCOLM X BOULEVARD",
-   "evidence": "StreetEasy's building record gives class B3, built 1899, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3016220009 is 91 MALCOLM X BOULEVARD, class B9, built 1899, 3 floors, 2 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3016220010: 89 MALCOLM X BOULEVARD, class B3, built 1899, 2 apartments"
-  },
-  {
-   "building": "484-quincy-street-brooklyn",
-   "bbl": "3018110005",
-   "bin": "3051035",
-   "label": "484 QUINCY STREET",
-   "evidence": "StreetEasy's building record gives class B3, built 1901, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3018110005 is 484 QUINCY STREET, class B3, built 1901, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3018110006:  QUINCY STREET, class V0, built 0, 0 apartments"
-  },
-  {
-   "building": "14-goodwin-place-brooklyn",
-   "bbl": "3032930016",
-   "bin": "3075269",
-   "label": "14 GOODWIN PLACE",
-   "evidence": "StreetEasy's building record gives class B2, built 1901, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3032930016 is 14 GOODWIN PLACE, class B2, built 1901, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3032930015: 12 GOODWIN PLACE, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "2146-atlantic-avenue-brooklyn",
-   "bbl": "3014330016",
-   "bin": "3038564",
-   "label": "2146 ATLANTIC AVENUE",
-   "evidence": "StreetEasy's building record gives class B9, built 1901, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3014330016 is 2146 ATLANTIC AVENUE, class B9, built 1901, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3014330017: 2146A ATLANTIC AVENUE, class G7, built 0, 0 apartments"
-  },
-  {
-   "building": "278-cooper-street-brooklyn",
-   "bbl": "3034430016",
-   "bin": "3080048",
-   "label": "276 COOPER STREET",
-   "evidence": "StreetEasy's building record gives class V1, built 1906, 3 floors, 6 apartments; MapPLUTO 26v2 lot 3034430016 is 276 COOPER STREET, class C2, built 1906, 3 floors, 6 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3034430017: 278 COOPER STREET, class V1, built 0, 0 apartments"
-  },
-  {
-   "building": "335-tompkins-avenue-brooklyn",
-   "bbl": "3018150003",
-   "bin": "3051209",
-   "label": "337 TOMPKINS AVENUE",
-   "evidence": "StreetEasy's building record gives class B2, built 1899, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3018150003 is 337 TOMPKINS AVENUE, class B3, built 1899, 2 floors, 2 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3018150004: 335 TOMPKINS AVENUE, class B2, built 1899, 2 apartments"
-  },
-  {
-   "building": "60-west-9-street-brooklyn",
-   "bbl": "3005390013",
-   "bin": "3323690",
-   "label": "62 WEST 9 STREET",
-   "evidence": "StreetEasy's building record gives class A9, built 1901, 2 floors, 1 apartments; MapPLUTO 26v2 lot 3005390013 is 62 WEST 9 STREET, class A9, built 1901, 2 floors, 1 apartments; the pipeline's building identity step links it (footprint)",
-   "registry_was": "address, BBL 3005390012: 60 WEST 9 STREET, class A9, built 1901, 1 apartments"
+   "building": "2026-bergen-street-brooklyn",
+   "bbl": "3014540015",
+   "bin": "3039106",
+   "label": "2026 BERGEN STREET",
+   "evidence": "StreetEasy's building record gives class B9, built 1910, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3014540015 is 2026 BERGEN STREET, class B9, built 1910, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3014540115: MapPLUTO 26v2 has 2026A BERGEN STREET, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "49-carroll-street-brooklyn",
@@ -457,15 +281,55 @@
    "bin": "3403316",
    "label": "250 COLUMBIA STREET",
    "evidence": "StreetEasy's building record gives class R0, built 1986, 2 floors, 30 apartments; MapPLUTO 26v2 lot 3003477502 is 250 COLUMBIA STREET, class R3, built 1986, 2 floors, 30 apartments; the pipeline's building identity step links it (address_only)",
-   "registry_was": "reverse, BBL 3003140001: 1 VAN BRUNT STREET, class Z9, built 0, 0 apartments"
+   "registry_was": "reverse, BBL 3003140001: MapPLUTO 26v2 has 1 VAN BRUNT STREET, class Z9, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "484-quincy-street-brooklyn",
+   "bbl": "3018110005",
+   "bin": "3051035",
+   "label": "484 QUINCY STREET",
+   "evidence": "StreetEasy's building record gives class B3, built 1901, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3018110005 is 484 QUINCY STREET, class B3, built 1901, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3018110006: MapPLUTO 26v2 has  QUINCY STREET, class V0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "2146-atlantic-avenue-brooklyn",
+   "bbl": "3014330016",
+   "bin": "3038564",
+   "label": "2146 ATLANTIC AVENUE",
+   "evidence": "StreetEasy's building record gives class B9, built 1901, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3014330016 is 2146 ATLANTIC AVENUE, class B9, built 1901, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3014330017: MapPLUTO 26v2 has 2146A ATLANTIC AVENUE, class G7, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "1-washington-square-village-new_york",
+   "bbl": "1005330001",
+   "bin": "1077833",
+   "label": "1 WASHINGTON SQ VLLGE",
+   "evidence": "StreetEasy's building record gives class V1, built 1959, 17 floors, 1885 apartments; MapPLUTO 26v2 lot 1005330001 is 1 WASHINGTON SQ VLLGE, class H8, built 1959, 17 floors, 1904 apartments; the pipeline's building identity step links it (address_only)",
+   "registry_was": "reverse, BBL 1005330030: MapPLUTO 26v2 has 1 WASHINGTON SQ VLLGE, class Q0, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   },
   {
    "building": "1610a-atlantic-avenue-brooklyn",
    "bbl": "3013340011",
    "bin": "3035506",
    "label": "1610A ATLANTIC AVENUE",
-   "evidence": "StreetEasy's building record gives class B9, built 1905, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3013340011 is 1610A ATLANTIC AVENUE, class B9, built 1905, 2 floors, 2 apartments; the pipeline's building identity step links it (both)",
-   "registry_was": "address, BBL 3013340010: 1610 ATLANTIC AVENUE, class Z9, built 0, 0 apartments"
+   "evidence": "StreetEasy's building record gives class B9, built 1905, 2 floors, 2 apartments; MapPLUTO 26v2 lot 3013340011 is 1610A ATLANTIC AVENUE, class B9, built 1905, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3013340010: MapPLUTO 26v2 has 1610 ATLANTIC AVENUE, class Z9, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "1782-lexington-avenue-new_york",
+   "bbl": "1016380017",
+   "bin": "1052175",
+   "label": "141 EAST 110 STREET",
+   "evidence": "StreetEasy's building record gives class U7, built 1910, 6 floors, 15 apartments; MapPLUTO 26v2 lot 1016380017 is 141 EAST 110 STREET, class C7, built 1910, 6 floors, 15 apartments; the pipeline's building identity step links it (address)",
+   "registry_was": "reverse, BBL 1016260040: MapPLUTO 26v2 has 1782 LEXINGTON AVENUE, class U7, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
+  },
+  {
+   "building": "14-goodwin-place-brooklyn",
+   "bbl": "3032930016",
+   "bin": "3075269",
+   "label": "14 GOODWIN PLACE",
+   "evidence": "StreetEasy's building record gives class B2, built 1901, 3 floors, 2 apartments; MapPLUTO 26v2 lot 3032930016 is 14 GOODWIN PLACE, class B2, built 1901, 3 floors, 2 apartments; the pipeline's building identity step links it (both)",
+   "registry_was": "address, BBL 3032930015: MapPLUTO 26v2 has 12 GOODWIN PLACE, class V1, built 0, 0 apartments, and no release from 09v1 to 26v2 shows building area on it"
   }
  ]
 }
