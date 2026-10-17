@@ -141,7 +141,7 @@ def parse(argv):
         "--save-design",
         action="store_true",
         help="copy the fit's prepared design (rentfrontier.design) to the Volume and down to "
-        "OUTPUT_ROOT/cache, where the summary on thelio loads it if its checkout matches",
+        "OUTPUT_ROOT/designs, where the summary on thelio loads it if its checkout matches",
     )
     p.add_argument(
         "--explain",
@@ -300,8 +300,9 @@ def download(volume, name, root, local=None, design=True):
     directories under root, log and
     modal.json into runs/<local>/modal/ (local: name unless given). A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
-    file is down. A saved design (/out/<name>/design/*) goes to root/cache/ through a
-    temporary name, unless design is False."""
+    file is down. A saved design (/out/<name>/design/*) goes to root/designs/ through a
+    temporary name, unless design is False. It stays out of root/cache/, which every fit
+    uploads as an input (INPUTS)."""
     prefix = f"out/{name}/"
     local = local or name
     incoming = root / ".incoming" / name
@@ -314,7 +315,7 @@ def download(volume, name, root, local=None, design=True):
         kind, _, rest = rel.partition("/")
         if kind == "design":
             if design and "/" not in rest:
-                dst = root / "cache" / rest
+                dst = root / "designs" / rest
                 tmp = dst.with_name(f"{rest}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
                 tmp.parent.mkdir(parents=True, exist_ok=True)
                 with open(tmp, "wb") as f:
@@ -384,7 +385,7 @@ def summarize(spec):
         "MODAL_FIT_REPO": str(REPO),
         **({"FRONTIER_RANGE_SAMPLE": "1"} if spec.get("range_sample") else {}),
         **({"FRONTIER_RANGE_ATOMS": "1"} if spec.get("range_atoms") else {}),
-        # Loads the fit's design that the download put in OUTPUT_ROOT/cache, and writes none.
+        # Loads the fit's design that the download put in OUTPUT_ROOT/designs, and writes none.
         **({"FRONTIER_DESIGN_CACHE": "read"} if spec.get("save_design") else {}),
     }
     cmd = [
@@ -472,7 +473,8 @@ def main(argv):
             + meta.get("newbuilding", {}).get("usd_estimate", 0),
             2,
         )
-        root = finish(modal_app.volume, spec["name"], meta)
+        # A large fit gets no summary on thelio, so its design would have no reader there.
+        root = finish(modal_app.volume, spec["name"], meta, design=not args.large)
         if root == OUTPUT_ROOT and wants_summary(spec, args.split):
             summarize(spec)
     except Exception:
@@ -570,11 +572,12 @@ def publish(args, spec, sha):
     return meta["exit"]
 
 
-def finish(volume, name, meta):
+def finish(volume, name, meta, design=True):
     """Download the run. A failed fit goes aside, off the research board, so a retry isn't
-    blocked; a good fit whose PSIS-LOO failed is kept, as drive.sh keeps it."""
+    blocked; a good fit whose PSIS-LOO failed is kept, as drive.sh keeps it. A saved design
+    comes down only for a good fit and when design is True."""
     root = OUTPUT_ROOT if meta.get("fit_exit", meta["exit"]) == 0 else STATE / "failed"
-    download(volume, name, root, design=root == OUTPUT_ROOT)
+    download(volume, name, root, design=design and root == OUTPUT_ROOT)
     (root / "runs" / name / "modal").mkdir(parents=True, exist_ok=True)
     (root / "runs" / name / "modal" / "modal.json").write_text(
         json.dumps(meta, indent=2)

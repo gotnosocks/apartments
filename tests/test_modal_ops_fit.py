@@ -789,13 +789,21 @@ def test_a_saved_design_goes_to_the_cache_and_the_summary_reads_it(
         "out/r/design/design-0123456789abcdef.pkl": b"pickle",
     }
     fit.finish(FakeVolume(files), "r", {"exit": 0})
-    cache = tmp_path / "frontier" / "cache"
-    assert (cache / "design-0123456789abcdef.pkl").read_bytes() == b"pickle"
-    assert [p.name for p in cache.iterdir()] == ["design-0123456789abcdef.pkl"]
+    designs = tmp_path / "frontier" / "designs"
+    assert (designs / "design-0123456789abcdef.pkl").read_bytes() == b"pickle"
+    assert [p.name for p in designs.iterdir()] == ["design-0123456789abcdef.pkl"]
     assert not (tmp_path / "frontier/runs/r/modal/design").exists()
-    # A failed fit's design stays off thelio.
+    # Every fit uploads the cache directory as an input; the designs stay out of it.
+    assert not any(
+        str(designs).startswith(i) or i.startswith(str(designs)) for i in fit.INPUTS
+    )
+    assert not (tmp_path / "frontier" / "cache").exists()
+    # A failed fit's design stays off thelio, and so does a large fit's.
     fit.finish(FakeVolume(files), "r", {"exit": 1})
-    assert not (tmp_path / "modal/failed/cache").exists()
+    assert not (tmp_path / "modal/failed/designs").exists()
+    designs.joinpath("design-0123456789abcdef.pkl").unlink()
+    fit.finish(FakeVolume(files), "r", {"exit": 0}, design=False)
+    assert not any(designs.iterdir())
     assert not (tmp_path / "modal/failed/runs/r/modal/design").exists()
     calls = []
     monkeypatch.setattr(fit.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
@@ -814,7 +822,6 @@ def test_the_container_saves_the_runs_design_and_a_publish_reads_it_back(
     monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
     monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
     monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
-    monkeypatch.setattr(app, "_stage", lambda spec: None)
     monkeypatch.setattr(app, "_post", lambda *a: {})
     monkeypatch.setattr(app.subprocess, "run", lambda *a, **k: mock.Mock(stdout=""))
     vol = tmp_path / "vol"
@@ -823,6 +830,15 @@ def test_the_container_saves_the_runs_design_and_a_publish_reads_it_back(
         app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
     )
     cache = tmp_path / "frontier" / "cache"
+    # A design that came in with the staged inputs is not the run's.
+    monkeypatch.setattr(
+        app,
+        "_stage",
+        lambda spec: (
+            cache.mkdir(parents=True, exist_ok=True),
+            (cache / "design-5555555555555555.pkl").write_bytes(b"staged"),
+        ),
+    )
 
     def run(cmd, env, log, timeout=None):
         if cmd[2] == "rentfrontier.run":

@@ -330,6 +330,8 @@ def _fit(spec):
         text=True,
     ).stdout.strip()
     stages = {}
+    # Designs staged with the inputs, so only the one the fit adds is saved.
+    staged_designs = set((OUTPUT / "cache").glob("design-*.pkl"))
     large = spec.get("large", False)
     deadline = (
         started + LARGE_TIMEOUT - LARGE_POST_MARGIN
@@ -346,8 +348,10 @@ def _fit(spec):
         )
         stages["fit"] = time.time() - t
         if code == 0 and spec.get("save_design"):
-            # Right after the fit, the fresh container's cache holds the run's design alone.
-            for p in sorted((OUTPUT / "cache").glob("design-*.pkl")):
+            # Right after the fit, the run's design is the only new one in the cache.
+            for p in sorted(
+                set((OUTPUT / "cache").glob("design-*.pkl")) - staged_designs
+            ):
                 (out / "design").mkdir(exist_ok=True)
                 shutil.copy2(p, out / "design" / p.name)
         if code == 0:

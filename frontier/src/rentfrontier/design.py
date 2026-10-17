@@ -29,8 +29,9 @@ Modal, and stays unset on thelio. Writers put the pickle in place with
 `os.replace`, so a reader finds a whole file or none.
 
 A Modal fit started with `fit.py --save-design` copies its design to the
-Volume, and the download puts it in OUTPUT_ROOT/cache on thelio. There the
-summary runs with FRONTIER_DESIGN_CACHE=read: it loads the fit's own design
+Volume, and the download puts it in OUTPUT_ROOT/designs on thelio, outside the
+cache directory the Modal fits upload as an input. There the summary runs with
+FRONTIER_DESIGN_CACHE=read: it loads the fit's own design from that directory
 when the key matches and otherwise builds one without writing it, so thelio's
 undated inputs never end up in a pickle. The key matches only when the
 summary's checkout holds the same package and config files as the fit's.
@@ -107,13 +108,19 @@ def prepared(frame: pd.DataFrame, split: str, rules, feature_set: str) -> tuple:
     if not mode:
         return _build(frame, split, rules, feature_set)
     key = _key(frame, split, rules, feature_set)
+    if mode == "read":
+        saved = data.OUTPUT_ROOT / "designs" / f"design-{key[:16]}.pkl"
+        try:
+            with open(saved, "rb") as f:
+                return pickle.load(f)
+        except Exception:
+            # No saved design, or one this environment can't unpickle.
+            return _build(frame, split, rules, feature_set)
     cache = data.OUTPUT_ROOT / "cache" / f"design-{key[:16]}.pkl"
     if cache.exists():
         with open(cache, "rb") as f:
             return pickle.load(f)
     design = _build(frame, split, rules, feature_set)
-    if mode == "read":
-        return design
     tmp = cache.with_name(f"{cache.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
     try:
         cache.parent.mkdir(parents=True, exist_ok=True)

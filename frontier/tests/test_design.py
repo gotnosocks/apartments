@@ -76,13 +76,25 @@ def test_a_fit_and_its_summary_come_to_the_same_key(monkeypatch, tmp_path):
     assert design._key(frame, "rows", ("r1",), "f1") != on_modal
 
 
-def test_a_read_only_cache_loads_a_design_and_writes_none(monkeypatch, tmp_path):
+def test_a_read_only_cache_loads_a_saved_design_and_writes_none(monkeypatch, tmp_path):
     _, frame, calls = _setup(monkeypatch, tmp_path)
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
     design.prepared(frame, "rows", (), "f1")
     assert calls == ["f1"] and not (tmp_path / "out").exists()
+    # A pickle in cache/ is a container's own; read mode loads only from designs/.
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "1")
     first = design.prepared(frame, "rows", (), "f1")
     monkeypatch.setenv("FRONTIER_DESIGN_CACHE", "read")
+    design.prepared(frame, "rows", (), "f1")
+    assert calls == ["f1", "f1", "f1"]
+    (pkl,) = (tmp_path / "out" / "cache").glob("design-*.pkl")
+    saved = tmp_path / "out" / "designs" / pkl.name
+    saved.parent.mkdir()
+    pkl.rename(saved)
     assert design.prepared(frame, "rows", (), "f1")[3] == first[3]
-    assert calls == ["f1", "f1"]
+    assert len(calls) == 3
+    # A pickle this environment can't load is rebuilt, not raised.
+    saved.write_bytes(b"not a pickle")
+    design.prepared(frame, "rows", (), "f1")
+    assert len(calls) == 4
+    assert [p.name for p in saved.parent.iterdir()] == [saved.name]
