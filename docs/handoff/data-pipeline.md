@@ -165,7 +165,7 @@ The work goes on in this order:
    12.1) of unjoined pairs with no key in common, against 0 of 62 pairs on two apartments (0 to
    5.8), and they find only a third of the pairs sharing a rare key.
    [pipeline.md](../data/pipeline.md#photo-hashes-over-whole-lots) has the rules and their
-   intervals. I withdrew the full runs I had put to Ben. On Oct 17 at 7:50 PM ET I offered him
+   intervals. I withdrew the full runs I had put to Ben. On Oct 17 at 7:44 PM ET I offered him
    labels for the 1,735 matching photos (room, amenity, exterior, street, floor plan, other),
    read by Haiku readers, for about $2 within the pilot's 9,000-request stop. They wait on his
    own reply. A coordinator's note asked for no labels without it.
