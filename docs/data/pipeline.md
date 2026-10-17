@@ -2389,13 +2389,11 @@ keys also shows on a third unit page, in another lot on the same block. `analysi
 counts a key as rare only when its pages all lie in one lot.
 
 Setting aside the pairs with a key in common, 52 of 135 pairs without a shared photo have a hash
-match (38.5%), against 4 of 92 pairs on two apartments (4.3%). At the first rate, the 13,063
-testable pairs would give about 5,000 matches. If they all fell on two apartments, the second
-rate would give about 570. At the observed rates, then, about 11% of the hash matches would
-join two apartments. The control rate is uncertain, though. With 4 matches in 92 pairs, its 95% interval runs from
-1.2% to 10.8%. Over that range, the bound on wrong joins goes from 3% to 28%. For description
-text, the same bound came to nearly half. In either case `analysis.relist_pairs` applies its
-other tests on top of the photo test.
+match (38.5%), against 4 of 92 pairs on two apartments (4.3%). With 4 matches in 92 pairs, the
+control rate's 95% interval runs from 1.2% to 10.8%. The control pairs came from across the
+city, though, and the pilot hashed only photos with a rare key. The [second
+pilot](#photo-hashes-over-whole-lots) hashed every photo of every ad on a set of lots, and inside
+a lot it found most hash matches on photos of the building itself.
 
 The readers' pairs are too few to judge by. Of their 5 same-apartment pairs without a key in
 common, 2 have a hash match. Of their 3 two-apartment pairs without one, 1 has a match. They
@@ -2403,12 +2401,72 @@ judged without the photos, from the ads' fields and descriptions. They also call
 apartments even though the two ads share a key.
 
 In 31 of the 52 matching pairs, the match shows on the first photo of both ads. In 44 it shows
-within the first 3. A full run over all 13,063 testable pairs (16,491 ads) would take about
-37,200 requests at 3 photos per ad ($42, 11 hours at 55 a minute), or about 85,500 at 10 photos
-per ad ($97, 26 hours). With the 6,396 testable pairs on two apartments added as controls, the
-3-photo run comes to 48,517 requests once the pilot's hashes are reused. I haven't run any of
-these, since the spend waits on Ben's approval. Joining on hashes would also make the pipeline
-read images fetched from StreetEasy's photo host as well as API records.
+within the first 3. From these rates I put three full runs over the 13,063 testable pairs
+(16,491 ads) to Ben: about 37,200 requests at 3 photos per ad ($42), 48,517 with the 6,396
+testable pairs on two apartments as controls, or about 85,500 at 10 photos per ad ($97). After
+the second pilot I withdrew them. Joining on hashes would also make the pipeline read images
+fetched from StreetEasy's photo host as well as API records.
+
+#### Photo hashes over whole lots
+
+Inside a building, the same lobby, roof deck or street view shows up on the ads of many
+apartments, often uploaded again under a new key. Ben asked how the photo test would hold up
+against such photos, and on Oct 17 he approved about $10 for a second pilot over whole lots.
+Its scripts are in `/data1/apartments/tmp/pipeline/lanes/photo-hash-lots/`.
+
+1. `select.py` drew lots at random from the drop-lot lane's state in two strata: lots of 300
+   photo keys or fewer, and lots of 301 to 1,200 keys, where the larger buildings with amenity
+   photos fall. In each stratum it drew lots until the keys left to fetch came to 3,650. On the
+   29 lots it took, it kept all 1,505 placed ads and each ad's first 25 photos, in the order of
+   the ad's latest record. It took the lots' pairs from the description-text study and split
+   the pairs on two apartments three ways:
+   - pairs whose unit labels read the same once cleaned, which may be one apartment on two pages;
+   - stacked pairs, with the same line on different floors, as in 4N and 6N;
+   - the rest, on different lines.
+2. `fetch.py` fetched each photo and floor plan once, skipping those the first pilot had
+   hashed, and wrote the hashes as before. It worked in 20-minute turns on `crawls/oxylabs.lock`
+   with 90 s pauses between them, at 55 requests a minute. All 7,087 requests (6,886 photos and
+   201 floor plans) returned an image. They cost $8.08 and ran from 5:11 to 7:32 PM ET.
+3. `score.py` scored each pair on both pilots' hashes. Inside each ad it grouped matching photos
+   into images, so a photo uploaded twice counts once. It flagged a matching image as a building
+   photo when it showed on more than 3 unit pages, on 2 or more lots, or on both apartments of
+   another pair known to differ. It flagged it as a floor plan when it matched a floor plan of
+   an ad in the lot. `split.py` splits the scores by lot size and by whether the two ads share a
+   key.
+
+The table gives each rule's share of the testable pairs with an exact 95% interval. The 3 pairs
+with the same label matched under no rule (0 to 70.8%).
+
+| rule | unjoined (415) | different lines (119) | stacked (29) | sharing a rare key (91) |
+|---|---:|---:|---:|---:|
+| 1. any matching image | 74.2% (69.7 to 78.4) | 73.9% (65.1 to 81.6) | 55.2% (35.7 to 73.6) | 93.4% (86.2 to 97.5) |
+| 2. after dropping building photos | 7.0% (4.7 to 9.9) | 3.4% (0.9 to 8.4) | 6.9% (0.8 to 22.8) | 47.3% (36.7 to 58.0) |
+| 3. 2 or more matching images | 62.2% (57.3 to 66.9) | 68.9% (59.8 to 77.1) | 48.3% (29.4 to 67.5) | 84.6% (75.5 to 91.3) |
+| 4. after dropping floor plans | as rule 1 | as rule 1 | as rule 1 | as rule 1 |
+| 5. rule 3 after dropping building photos | 5.1% (3.2 to 7.6) | 2.5% (0.5 to 7.2) | 0% (0 to 11.9) | 33.0% (23.5 to 43.6) |
+
+No matching image was a floor plan, so rule 4 matches the same pairs as rule 1. In 84 of the 88
+matching pairs on different lines, every matching image is a building photo. Without the
+building flag, then, a hash match says little more inside a lot than that two ads come from the
+same building.
+
+A full run would add joins only for pairs with no key in common:
+
+| pairs with no key in common | pairs | lots | rule 2 | rule 5 |
+|---|---:|---:|---:|---:|
+| unjoined | 220 | 27 | 11.4% (7.5 to 16.3) | 7.7% (4.6 to 12.1) |
+| on two apartments | 62 | 25 | 4.8% (1.0 to 13.5) | 0% (0 to 5.8) |
+
+Lots of either size give about the same rates. The intervals treat pairs as independent, but
+pairs in a lot share photos. The 17 unjoined pairs matched by rule 5 come from 7 lots, 6 of them
+from a single lot, so the real intervals are wider.
+
+Rule 5 separates the groups best, and it still falls short. It finds a third of the pairs
+sharing a rare key, mostly one apartment. At the control group's upper bound of 5.8%, up to
+three quarters of its 7.7% on unjoined pairs could be pairs on two apartments. The building
+flag also drops images of the apartment itself: in 35 of the 85 matching pairs sharing a rare
+key, a matching image also shows on two apartments known to differ, as it would when a broker
+uses one unit's photos for another. `analysis.relist_pairs` leaves photo hashes out.
 
 ## Ads file
 
