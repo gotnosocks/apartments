@@ -1,0 +1,10 @@
+{
+ "rule": "drop-lot-v1",
+ "screen": "rows of drop-lot-20261017-check2 left unclear whose flagged lot is a nonresidential lot of at most 1 floor with every footprint at most 22 ft tall, and whose ad unit label puts the apartment on floor 2 or higher",
+ "reads": "no ad text; MapPLUTO, building footprints (/data1/apartments/external/footprints/20261016-5f07157-all), StreetEasy building record, HPD registrations (kj4p-ruqc) and PAD; table in /data1/apartments/tmp/suspect/bcheck/footprint-height-20261017.csv",
+ "rows": 8,
+ "by_reason": {
+  "wrong_building": 8
+ },
+ "left_unclear": "65 Beaver #3, 637 Union #4, 174 Coffey #3, 384 McGuinness #2, 1345 Halsey #2626 and 71 Steuben #1L: their unit labels do not name a floor"
+}
