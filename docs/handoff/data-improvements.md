@@ -2,6 +2,20 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:04 ET
+
+- #1051 adds `pipeline/ledger/2026-10-17-z4-unit-baths-onesided.ndjson`, 311 bath-count sets. It takes the 641
+  ads of the 13:50 `no_count` tier whose backing ads all come before them or all after. Sonnet read all of them
+  (`/data1/apartments/tmp/suspect/baths/t3/`): 379 wrong, 175 unclear, 74 right, 13 a different unit. 359 of the
+  wrong reads gave the backing ads' count. `t3/ledger.py` drops 48 of those: 18 by the half-bath screen, 11 on
+  review, and 19 by two screens for one-sided backing. One drops an entry when the newer ads mention a renovation
+  the older ones don't and ask over 20% more, and the other drops it when the row's ask falls outside 0.75 to 1.33
+  of the backing median.
+- Quotes in `read` evidence take the `Ad text:` prefix only when they come from the row's own ad. A quote from
+  another ad of the unit reads `Listing N text:`. Bath sets from #1036, #1047 and #1051 total 976.
+- Left in the bath candidates: the 183 two-sided `no_count` ads #1036 didn't write, and the 422 whose text states
+  some other count. The 1,398-ad bedroom read still waits.
+
 ## 2026-10-17 13:50 ET
 
 - #1047 adds `pipeline/ledger/2026-10-17-z3-unit-baths-text.ndjson`, 173 bath-count sets. It starts from the
