@@ -1470,7 +1470,8 @@ I check a build's file with
 pipeline/.venv/bin/python ops/pipeline/ads_check.py [--ads FILE]
 ```
 
-The script compares the file with the website's API captures and with the histories of the
+The script compares the file with the collector's last API captures, those of Oct 16, and with
+the histories of the
 ads' latest records. Its docstring lists the steps. I built runs 1 to 10 from empty in a scratch
 state at 14:08 ET on Oct 16. The build took 229 s at a 4,199 MiB peak, against 199 s for the same
 build without the ads file, with 2.7 s in `ads.breaks`, 1.3 s in `ads.regions` and 14 s writing

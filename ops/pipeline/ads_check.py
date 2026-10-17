@@ -7,8 +7,10 @@
    /data1/apartments/pipeline/datasets unless given, and prints its size, its count of rows and
    of distinct ads, and the ads by status, by whether they have a fit-ready row and by the
    other columns the website reads.
-2. It reads each line of the website's API captures, DIR/api-*/details/snapshot/candidates.jsonl
-   with DIR /data1/apartments/archive/current-listings unless given. It counts the captured
+2. It reads each line of the collector's API captures, DIR/api-*/details/snapshot/candidates.jsonl
+   with DIR /data1/apartments/archive/current-listings unless given. The collector wrote the
+   last of them on Oct 16 and stopped in #PR, so on a later build most captured ads have a
+   later record in the file. It counts the captured
    ads missing from the file, the captured ads whose latest record in the file is the captured
    answer, those with a later record in the file and those with an earlier one, which a build
    older than the capture gives. A capture's `collected_at` is the fetch

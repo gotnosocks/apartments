@@ -337,7 +337,11 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       between records, and 5154603's unit rented under its later ad 5164886. 5183409 is a
       candidate for the unit ledger's first import: units 2, 2A and 2S at that address give
       the same 2,000 square feet;
-   2. the scraper thread drops `graphql_search` step 4 and `current_listings`;
+   2. the collector stops writing current-listings captures. **Done** in #PR, with Ben's OK to
+      change the scraper's code: `graphql_search` loses step 4 and `crawl_current_listings`
+      goes. Step 2 of `ads_check.py` still reads the captures of Oct 16 and goes with them in
+      the third PR. Ben approved one on-demand top-up of the five regions after the merge, to
+      show a top-up running from the ads file with no captures written;
    3. a PR deletes the page-capture rewrite and the page parser.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
    `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
