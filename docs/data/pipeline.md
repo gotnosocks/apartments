@@ -1946,6 +1946,17 @@ apartments in the latest MapPLUTO release. Only 1 of those 170 ads is still on t
 check's list. The list went from 1,434 rows to 339: live entries took 1,095 flagged rows off it,
 and the other 9 live entries belong to ads outside the list on this state.
 
+Data improvements then read the 339 rows left. In #1012 its reader judged 152 more lots wrong,
+79 as `wrong_building` and 73 as `city_record_wrong`, and listed them in
+`config/reviews/drop-lot-20261017-check2.jsonl`. The importer wrote them to
+`pipeline/ledger/2026-10-17-wrong-lots2.ndjson`. I rebuilt the same lane copy with both files.
+The build took 4 min 32 s, and the build script peaked at 4,141 MiB. All 152 new entries are
+live, and 170 entries stay stale. Ad 2555747 had been the only stale ad left on the list after
+the first batch. It now has a live entry on its building's new lot and is off the list. The
+list went from 339 rows to 187, with 150 flagged `zero_unit_lot` and 37 flagged
+`floor_above_lot`. The reader kept each of those rows' lots and sorted them as 90 unclear, 80
+mixed use, 12 ad floor errors and 5 vanity floor numbers.
+
 ### Check build
 
 I built a copy of the Oct 15 production state with the ledger, at `PIPELINE_MEMORY=3GB` under a

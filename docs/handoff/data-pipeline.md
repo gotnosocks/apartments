@@ -116,6 +116,8 @@ These PRs merged on Oct 17:
   one with apartments.
 - #1008: `analysis.rows` gives each row a `relist_unit`, joining the unit pages of a lot over its
   count when their ads show a rare photo in common.
+- #1010: a live `drop_lot` entry of the corrections ledger takes an ad's lot away in
+  `analysis.lot_facts`, and the building check drops the row.
 
 The work goes on in this order:
 
@@ -137,15 +139,18 @@ The work goes on in this order:
    floors put them about 68% right and floor plans about 56%, too low to join on. A reader judged
    17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md` to be unit splits
    or relabels, and those lots serve as labeled tests.
-2. The `drop_lot` change goes on from its PR. `pipeline/ledger/2026-10-17-wrong-lots.ndjson`
-   holds Data improvements' 1,274 reviewed wrong lots from #975, written by
-   `ops/pipeline/drop_lot_import.py`, and `analysis.lot_facts` gives a live entry's ad no lot.
-   On the lane build in `/data1/apartments/tmp/pipeline/lanes/drop-lot-build/`, 1,104 entries
-   are live and 170 stale, each stale one because #1006 picked the building's other lot. The
-   building check's list went from 1,434 rows to 339.
+2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and
+   `2026-10-17-wrong-lots2.ndjson` hold Data improvements' 1,426 reviewed wrong lots from #975
+   and #1012, written by `ops/pipeline/drop_lot_import.py`. On the lane build in
+   `/data1/apartments/tmp/pipeline/lanes/drop-lot-build/`, 1,256 entries are live and 170
+   stale, each stale one because #1006 picked the building's other lot. The building check's
+   list went from 1,434 rows to 187, and the reader kept the lot of each of those 187. The
+   lane's `run2.sh` rebuilds its state, and `building_check.csv` there lists
+   `analysis.building_check` with each row's `drop_lot` status.
    [pipeline.md](../data/pipeline.md#lots-taken-away) has the counts. Modeling's `lots3`
-   feature sets (#976) read the review file by listing ID, so they still drop the lots of the
-   170 stale ads, while `lot_facts` gives those ads their new lots.
+   feature sets (#976) read the first review file by listing ID, so they still drop the lots
+   of the 170 stale ads. `lot_facts` gives 169 of those ads their new lots, and a live entry
+   of the second file takes ad 2555747's new lot away as well.
 3. Data improvements' suggestion: drop a late change to a repeated-digit ask, such as $9,999, when
    it moves the ask by 1.2x or more.
 
