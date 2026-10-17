@@ -10,7 +10,7 @@ Updated 2026-10-17 07:45 ET, after the second empty-lot overrides (#1000). Threa
   Square (225 Cherry St condominium, 72 floors) and the Belnord (2360 Broadway) were read one at
   a time. Scripts: `tier2.py`, `write2.py` and `big.py` in `/data1/apartments/tmp/suspect/emptylots/`.
 - No feature set uses #1000 yet. An all-scraped registry revision with #905, #996 and #1000 waits
-  until an all-scraped fit fits under the 1-hour cap. NB9's registry now has 16 overridden
+  until an all-scraped fit can run within the 1-hour cap. NB9's registry now has 16 overridden
   buildings pending (la-botanica added), still a few hundred rows; Modeling was told.
 - The other 43 are mostly footprint-only links to the house next door, plus 74 North 1st St
   (296 Wythe, 55 apartments against 38), the Smile (a 0-unit condominium lot on E 125th) and
