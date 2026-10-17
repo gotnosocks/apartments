@@ -45,8 +45,10 @@ def test_build_writes_each_rows_own_ad_as_last_captured(tmp_path, monkeypatch):
         ("a", "Sunny one bedroom"),
         ("c", "Studio on Perry"),
     }
+    assert {e["description_record"] for e in evidence} == {"latest"}
     provenance = json.loads((out / "provenance.json").read_text())
     assert (provenance["rows"], provenance["rows_with_description"]) == (4, 2)
+    assert "last captured record" in provenance["rule"]
 
     frame = pd.DataFrame({"audit_id": ["a", "x"], "source_listing_id": ["1", "7"]})
     other = tmp_path / "other.jsonl"
@@ -116,8 +118,9 @@ def test_only_listed_feature_sets_read_west_villages_ads(monkeypatch):
 def test_build_reads_each_rows_ad_from_the_records_file(
     tmp_path, monkeypatch, records_catalog
 ):
-    """The records file gives each row its listing's record fetched last, as the
-    granular crawl does, and the build leaves out listings no row names."""
+    """With no ACTIVE record among them, the records file gives each row its
+    listing's record fetched last, as the granular crawl does, and the build
+    leaves out listings no row names."""
     monkeypatch.setattr(data, "OUTPUT_ROOT", tmp_path / "out")
     line = records_catalog(
         [
@@ -142,22 +145,85 @@ def test_build_reads_each_rows_ad_from_the_records_file(
         )
     )
     records = api_records.records_file()
-    assert descriptions.record_descriptions(records, {"1", "2", "3"}).to_dict() == {
+    table = descriptions.record_descriptions(records, {"1", "2", "3"})
+    assert table.description.to_dict() == {
         "1": "Sunny one bedroom",
         "2": None,
         "3": "Perry",
+    }
+    assert set(table.record) == {"latest"}
+    out = descriptions.build(None, cohort, "api", "abcdef0123", records=records)
+    evidence = [
+        json.loads(x) for x in (out / "evidence.jsonl").read_text().splitlines()
+    ]
+    assert [
+        (e["audit_id"], e["description"], e["description_record"]) for e in evidence
+    ] == [("a", "Sunny one bedroom", "latest"), ("c", "Perry", "latest")]
+    provenance = json.loads((out / "provenance.json").read_text())
+    assert provenance["records"]["sha256"] == line["records"]["sha256"]
+    assert provenance["granular"] is None
+    assert provenance["rows_by_description_record"] == {"latest": 2}
+
+
+def test_records_give_each_row_its_last_active_ad(
+    tmp_path, monkeypatch, records_catalog
+):
+    """A listing with an ACTIVE record takes the text of its ACTIVE record fetched
+    last, even where a closed record fetched later cut, changed or added text. A
+    listing with none takes its record fetched last. Each evidence line names the
+    record it read."""
+    monkeypatch.setattr(data, "OUTPUT_ROOT", tmp_path / "out")
+
+    def ad(listing, at, status, text):
+        return {
+            "listing_id": listing,
+            "collected_at": at,
+            "record": {"description": text, "status": status},
+        }
+
+    records_catalog(
+        [
+            ad(1, 1.0, "ACTIVE", "Sunny one bedroom"),
+            ad(1, 5.0, "RENTED", "."),
+            ad(2, 1.0, "ACTIVE", "First text"),
+            ad(2, 3.0, "ACTIVE", "Second text"),
+            ad(2, 4.0, "DELISTED", None),
+            ad(3, 1.0, "DRAFT", "Draft"),
+            ad(3, 2.0, "IN_CONTRACT", "In contract"),
+            ad(4, 1.0, "ACTIVE", None),
+            ad(4, 2.0, "DELISTED", "Added after"),
+        ]
+    )
+    cohort = tmp_path / "cohort"
+    cohort.mkdir()
+    (cohort / "observations.jsonl").write_text(
+        "".join(
+            json.dumps({"audit_id": a, "source_listing_id": a}) + "\n"
+            for a in ("1", "2", "3", "4")
+        )
+    )
+    records = api_records.records_file()
+    table = descriptions.record_descriptions(records, {"1", "2", "3", "4"})
+    assert table.to_dict("index") == {
+        "1": {"description": "Sunny one bedroom", "record": "last_active"},
+        "2": {"description": "Second text", "record": "last_active"},
+        "3": {"description": "In contract", "record": "latest"},
+        "4": {"description": None, "record": "last_active"},
     }
     out = descriptions.build(None, cohort, "api", "abcdef0123", records=records)
     evidence = [
         json.loads(x) for x in (out / "evidence.jsonl").read_text().splitlines()
     ]
-    assert [(e["audit_id"], e["description"]) for e in evidence] == [
-        ("a", "Sunny one bedroom"),
-        ("c", "Perry"),
+    assert [
+        (e["audit_id"], e["description"], e["description_record"]) for e in evidence
+    ] == [
+        ("1", "Sunny one bedroom", "last_active"),
+        ("2", "Second text", "last_active"),
+        ("3", "In contract", "latest"),
     ]
     provenance = json.loads((out / "provenance.json").read_text())
-    assert provenance["records"]["sha256"] == line["records"]["sha256"]
-    assert provenance["granular"] is None
+    assert provenance["rows_by_description_record"] == {"last_active": 2, "latest": 1}
+    assert "ACTIVE record fetched last" in provenance["rule"]
 
 
 def test_main_takes_a_granular_crawl_or_the_records_file(monkeypatch, records_catalog):
