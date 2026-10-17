@@ -8,10 +8,19 @@ The script works in these steps:
 1. It loads the SQLMesh project in `pipeline/`, with `PIPELINE_EXPORT` and `PIPELINE_STATE` set
    from its arguments. `config.py` reads the export's manifest once, as the project loads, so
    a file the exporter lists after that waits for the next build.
+   It first loads the project with `PIPELINE_INCREMENTAL` set to 1 and checks, in `can_top_up`,
+   whether the prod build's tables allow a top-up build, one that reads only the answers
+   missing from them. When the check fails, it loads the project again with the variable set
+   to 0, and the build reads every answer.
 2. It plans and applies the `prod` environment. SQLMesh rebuilds each model whose fingerprint
    changed and every model below it, and runs each model's audits as it goes. When an audit
    fails, the script prints the failed models and exits with status 1, and the tables of the
-   last good build stay in place. It writes nothing to OUT in that case.
+   last good build stay in place. It writes nothing to OUT in that case. After a plan that
+   applies, it writes the SHA-256 of the code merging a top-up's rows to `STATE/merge.json`,
+   with the value of `PIPELINE_INCREMENTAL` it loaded the project with and the mode that ran,
+   from the column `incremental` of `ads.changes`. The two differ when `ads.changes` finds the
+   previous answers changed and reads every answer. With that file deleted, the next build
+   reads every answer.
 3. It writes `analysis.rows` to a rows file and `analysis.ads` to an ads file in OUT, each
    sorted by `listing_id` and named by the first 16 hex digits of its SHA-256, such as
    `rows-04fe7ad81836fed2.parquet`. Two builds from the same export and the same code write
@@ -19,15 +28,15 @@ The script works in these steps:
    the script counts their rows as it writes them.
 4. It writes the records file, `records-<hash>.parquet`, with `steps/records.py`: each distinct
    API record of an ad, in the form the frontier builders read from the granular export. The
-   step keeps the records it has read in `STATE/records/`, so a build after a top-up reads only
-   the top-up's new records.
+   step keeps the records it has read in `STATE/records/`, so a top-up reads only its new
+   records.
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
-   finished, the commit of the code and whether the checkout had changes, each export file it
-   read with its SHA-256, each file of the corrections ledger and of the unit ledger with its
-   SHA-256 and the count of their entries in each status, each file of the city archive with
-   its SHA-256, the seconds each rebuilt model took with its audits, each model's table and row
-   count, the rows, ads and records files with their SHA-256, the wall time of each step, and
-   the peak memory of the script and of its cgroup.
+   finished, the commit of the code and whether the checkout had changes, whether the build was
+   a top-up, each export file it read with its SHA-256, each file of the corrections ledger and
+   of the unit ledger with its SHA-256 and the count of their entries in each status, each file
+   of the city archive with its SHA-256, the seconds each rebuilt model took with its audits,
+   each model's table and row count, the rows, ads and records files with their SHA-256, the
+   wall time of each step, and the peak memory of the script and of its cgroup.
    The script takes the commit before it loads the project, and the export, ledger and city
    files from the variables `config.py` gave the project.
 6. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
@@ -61,6 +70,10 @@ DEFAULT_OUT = Path("/data1/apartments/pipeline/datasets")
 # The files each build writes, by the stem of their names.
 FILES = {"rows": "analysis.rows", "ads": "analysis.ads"}
 WRITE_THREADS = 8
+# The code merging a top-up build's rows into the previous tables. The state folder keeps its
+# SHA-256 as of the last finished build in MERGE_RECORD, with that build's variable and mode.
+MERGE_CODE = ("materializations/merge.py", "models/ads/changes.py")
+MERGE_RECORD = "merge.json"
 
 
 def sha256(path: Path) -> str:
@@ -103,6 +116,56 @@ def peak_mib() -> dict:
         "cgroup": groups[0].rsplit("/", 1)[-1],
         "cgroup_peak": round(int(peak.read_text()) / 2**20) if peak.exists() else None,
     }
+
+
+def merge_code(project: Path) -> str:
+    digest = hashlib.sha256()
+    for name in MERGE_CODE:
+        digest.update((project / name).read_bytes())
+    return digest.hexdigest()
+
+
+def can_top_up(ctx, state: Path, project: Path) -> bool:
+    """Whether this build reads only the answers missing from the prod build's tables.
+
+    The context is loaded with `PIPELINE_INCREMENTAL` set to 1. A top-up needs the state
+    folder's record to give the checkout's merge code, and each model of kind `merge`, and each
+    model above one, to have the definition of its prod snapshot. A top-up gives raw.ads new
+    variables, so for raw.ads the check compares the query alone. The merge code covers
+    ads.changes, whose variable `incremental` gives the mode.
+
+    When raw.ads has its prod fingerprint, the build has no new answers to read, and the
+    function returns the variable the last build loaded with, from the record. ads.changes
+    then keeps its prod fingerprint, and the plan leaves its table in place and rebuilds only
+    the models below an edit."""
+    try:
+        record = json.loads((state / MERGE_RECORD).read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(record, dict) or record.get("code") != merge_code(project):
+        return False
+    env = ctx.state_reader.get_environment("prod")
+    if env is None or env.finalized_ts is None:
+        return False
+    before = {s.name: s for s in ctx.state_reader.get_snapshots(env.snapshots).values()}
+    names, new_answers = set(), True
+    for model in ctx.models.values():
+        if model.kind.is_custom and model.kind.materialization == "merge":
+            names.update([model.fqn, *ctx.dag.upstream(model.fqn)])
+    for name in names:
+        now, then = ctx.snapshots[name], before.get(name)
+        if then is None:
+            return False
+        if now.model.name == "raw.ads":
+            same = now.model.query.sql() == then.model.query.sql()
+            new_answers = now.fingerprint.data_hash != then.fingerprint.data_hash
+        elif now.model.name == "ads.changes":
+            same = True
+        else:
+            same = now.fingerprint.data_hash == then.fingerprint.data_hash
+        if not same:
+            return False
+    return new_answers or record.get("incremental") is True
 
 
 def write(ctx, name: str, stem: str, out: Path) -> dict:
@@ -176,7 +239,21 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     steps = {}
 
     code = code_version(project)
-    ctx = Context(paths=str(project))
+    merge = merge_code(project)
+    mode = os.environ.get("PIPELINE_INCREMENTAL")
+    try:
+        os.environ["PIPELINE_INCREMENTAL"] = "1"
+        ctx = Context(paths=str(project))
+        incremental = can_top_up(ctx, state, project)
+        if not incremental:
+            ctx.close()
+            os.environ["PIPELINE_INCREMENTAL"] = "0"
+            ctx = Context(paths=str(project))
+    finally:
+        if mode is None:
+            os.environ.pop("PIPELINE_INCREMENTAL")
+        else:
+            os.environ["PIPELINE_INCREMENTAL"] = mode
     steps["load"] = time.time() - started
     variables = ctx.config.variables
     try:
@@ -184,6 +261,13 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         ctx.plan(auto_apply=True, no_prompts=True)
     except PlanError as error:
         raise SystemExit(f"build stopped: {error}") from error
+    # ads.changes reads every answer when the previous ones no longer hold, so the mode that
+    # ran comes from its table, as the materialization `merge` reads it.
+    (top_up,) = ctx.engine_adapter.fetchone(
+        "SELECT coalesce(bool_and(incremental), true) FROM ads.changes"
+    )
+    record = {"code": merge, "incremental": incremental, "top_up": top_up}
+    (state / MERGE_RECORD).write_text(json.dumps(record) + "\n")
     steps["plan"] = time.time() - started - steps["load"]
 
     mark = time.time()
@@ -231,6 +315,7 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     line = {
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "code": code,
+        "top_up": top_up,
         "export": str(export),
         **{
             table: {

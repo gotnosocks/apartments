@@ -1,6 +1,9 @@
 MODEL (
     name ads.market,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (
         unique_values(columns := (listing_id)),
@@ -27,6 +30,10 @@ MODEL (
 -- `status`, `record_days_on_market` and `rented_price` come from the latest record, as the API
 -- wrote them. StreetEasy's daysOnMarket also leaves out days in contract or off the market,
 -- and docs/data/pipeline.md compares it with `active_days`.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH latest AS (
     SELECT listing_id::VARCHAR AS listing_id,
         max((fetched AT TIME ZONE 'America/New_York')::DATE) AS as_of,
@@ -34,7 +41,7 @@ WITH latest AS (
         arg_max_null(days_on_market, (fetched, response_id)) AS record_days_on_market,
         arg_max_null(rented_price, (fetched, response_id)) AS rented_price
     FROM ads.answers
-    WHERE outcome = 'record'
+    WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
     GROUP BY listing_id
 ),
 changes AS (
@@ -43,7 +50,7 @@ changes AS (
         lead(e.day) OVER (PARTITION BY e.listing_id ORDER BY e."at", e.list_index) AS next_day
     FROM ads.events e
     JOIN ads.latest_record r USING (listing_id)
-    WHERE e.source = 'status' AND e.last_seen = r.fetched
+    WHERE e.source = 'status' AND e.last_seen = r.fetched AND e.listing_id IN (SELECT listing_id FROM ads.touched)
 ),
 spans AS (
     SELECT c.listing_id,

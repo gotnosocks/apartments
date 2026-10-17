@@ -1,10 +1,22 @@
 MODEL (
     name ads.reported,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, records))),
     description 'Each ad with a record, with the floor its unit label reads and its full and half bathrooms, where all its records agree.'
 );
+
+-- DuckDB estimates the record answers in the export's files at a fifth of all answers, about
+-- 500,000, and in a full build ads.touched holds every ad, about 2.4 million. On those estimates
+-- DuckDB builds the hash table of the query's ads.touched filter from the records side, with
+-- every record's JSON, and on the Oct 16 export that ran out of a 3 GB limit. So this statement
+-- turns off DuckDB's choice of build side: the hash table then holds the IDs in ads.touched, and
+-- the records stream past it. The statement after the query turns it back on. The setting holds
+-- for the whole database, and SQLMesh runs one model at a time on DuckDB.
+SET disabled_optimizers = 'build_side_probe_side';
 
 -- `rentfrontier.cohort` reads three values from each of an ad's records: the unit label in
 -- propertyDetails.address.displayUnit, fullBathroomCount and halfBathroomCount. This model
@@ -27,6 +39,10 @@ MODEL (
 --
 -- `full_baths` and `half_baths` follow `consensus` of the chain: a count stands when every record
 -- gives the same whole number of zero or more, and a boolean doesn't count as a number.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH records AS (
     -- One parse of each record, for its three values as JSON.
     SELECT listing_id::VARCHAR AS listing_id,
@@ -36,7 +52,7 @@ WITH records AS (
             '$.propertyDetails.halfBathroomCount'
         ]) AS f
     FROM raw.ads
-    WHERE outcome = 'record'
+    WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
 ),
 fields AS (
     SELECT listing_id,
@@ -71,4 +87,6 @@ SELECT listing_id, count(*) AS records,
     CASE WHEN count(half_baths) = count(*) AND count(DISTINCT half_baths) = 1
         THEN min(half_baths)::BIGINT END AS half_baths
 FROM read
-GROUP BY listing_id
+GROUP BY listing_id;
+
+SET disabled_optimizers = '';

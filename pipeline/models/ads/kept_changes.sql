@@ -1,6 +1,9 @@
 MODEL (
     name ads.kept_changes,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain (listing_id, n),
     description 'Price changes left after the check for placeholder prices.'
 );
@@ -11,9 +14,14 @@ MODEL (
 -- than 20% to exactly $10,000. The first change always counts. Each check compares with the
 -- last kept change, so the step recurses, and only over ads with a late change after their
 -- first. With the recursion limited that way, the step took 20 s instead of 72 s on runs 1 to 4.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH RECURSIVE c AS (
     SELECT p.*, NOT (a.active OR a.off_day IS NULL OR p.day < a.off_day OR p.day = coalesce(a.on_day, '')) AS late
     FROM ads.price_changes p JOIN ads.latest_record a USING (listing_id)
+    WHERE listing_id IN (SELECT listing_id FROM ads.touched)
 ),
 need AS (SELECT DISTINCT listing_id FROM c WHERE late AND n > 1),
 c2 AS MATERIALIZED (SELECT * FROM c WHERE listing_id IN (SELECT listing_id FROM need)),

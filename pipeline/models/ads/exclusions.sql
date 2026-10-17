@@ -1,6 +1,9 @@
 MODEL (
     name ads.exclusions,
-    kind FULL,
+    kind CUSTOM (
+        materialization 'merge',
+        materialization_properties (changes = 'ads.touched', replace = 'listing_id')
+    ),
     grain listing_id,
     audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, reasons))),
     description 'Each ad with a record, with its first day, its first ask and the current chain''s reasons for dropping it.'
@@ -31,17 +34,21 @@ MODEL (
 -- waits for the fit-ready rows. An unparseable event
 -- date stops the build in ads.history_events, so `invalid_own_active_event_date` never
 -- appears.
+--
+-- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
+-- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
+-- the previous build's table.
 WITH ads AS (
     SELECT listing_id::VARCHAR AS listing_id,
         max((fetched AT TIME ZONE 'America/New_York')::DATE) AS last_day
     FROM ads.answers
-    WHERE outcome = 'record'
+    WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
     GROUP BY listing_id
 ),
 own_active AS (
     SELECT listing_id, max(day) AS last_active
     FROM ads.events
-    WHERE source = 'history' AND kind = 'ACTIVE' AND own
+    WHERE source = 'history' AND kind = 'ACTIVE' AND own AND listing_id IN (SELECT listing_id FROM ads.touched)
     GROUP BY listing_id
 ),
 checked AS (
