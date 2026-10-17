@@ -29,6 +29,8 @@ OTHER_AD = {
     "detail": "the same unit, a year later",
 }
 QUOTE = {"kind": "ad_text", "quote": "spacious one bedroom"}
+CITY = {"kind": "city_record", "detail": "MapPLUTO gives the lot 2 floors"}
+LOT = "1000010001"
 
 
 def line(**keys):
@@ -47,6 +49,20 @@ def exclude(listing_id, when=None, **keys):
 
 def set_(listing_id, values, when, **keys):
     return line(change="set", listing_id=listing_id, set=values, when=when, **keys)
+
+
+def drop_lot(listing_id, bbl=LOT, **keys):
+    return json.dumps(
+        {
+            "change": "drop_lot",
+            "listing_id": listing_id,
+            "reason": "wrong_building",
+            "when": {"bbl": bbl},
+            "evidence": [CITY],
+            "decided": "2026-10-17",
+        }
+        | keys
+    )
 
 
 def retract(text):
@@ -173,11 +189,34 @@ def write(folder, name, lines):
             "takes a number below",
         ),
         (set_("1", {"bedrooms": 2.0**53}, {"bedrooms": 1}), "takes a number below"),
+        (drop_lot("1", evidence=[OTHER_AD, QUOTE]), "a drop_lot needs evidence of a backing"),
+        (drop_lot("1", reason=""), "a drop_lot gives its reason"),
+        (drop_lot("1", when={}), "a drop_lot gives the lot it takes away"),
+        (
+            json.dumps({k: v for k, v in json.loads(drop_lot("1")).items() if k != "when"}),
+            "a drop_lot needs when",
+        ),
+        (
+            drop_lot("1", when={"bbl": LOT, "period": "2019-08"}),
+            "drop_lot's when maps some of bbl to values",
+        ),
+        (drop_lot("1", set={"bedrooms": 1}), "a drop_lot takes no set"),
+        (drop_lot("1", "100001000"), "when.bbl takes a lot as 10 digits"),
+        (drop_lot("1", int(LOT)), "when.bbl takes a lot as 10 digits"),
+        (drop_lot("1", "6000010001"), "when.bbl takes a lot as 10 digits"),
+        (exclude("1", {"bbl": LOT}), "exclude's when maps some of period"),
     ],
 )
 def test_parse_refuses(text, error):
     with pytest.raises(ledger.LedgerError, match=error):
         ledger.parse(text)
+
+
+def test_parse_reads_a_drop_lot():
+    row = ledger.parse(drop_lot("1", note="the ad's building is next door"))
+    assert row["change"] == "drop_lot" and row["reason"] == "wrong_building"
+    assert row["when_keys"] == ["bbl"] and row["when_bbl"] == LOT
+    assert row["kinds"] == ["city_record"] and row["field"] is None
 
 
 def test_parse_keeps_null_recorded_values():
@@ -201,7 +240,7 @@ def test_read_refuses(tmp_path):
         "repeat": ([first, first], "b.ndjson:2: repeats b.ndjson:1"),
         "unknown": (
             [first, retract(exclude("2"))],
-            "which is no earlier exclude or set",
+            "which is no earlier exclude, set or drop_lot",
         ),
         "twice": (
             [
@@ -257,13 +296,19 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - i: an exclude with the row's latest ask applies.
     - j: an exclude with ten times the row's latest ask goes stale.
     - an exclude of an ad with no kept row stays absent.
+    - k: a drop_lot with the lot of the row's building applies, and analysis.lot_facts gives
+      the ad no lot, BIN or facts.
+    - l: a drop_lot with another lot goes stale.
+    - m: a drop_lot retracted later changes nothing.
 
-    Only the two ledger models, analysis.ask_check, analysis.building_check and the views
-    analysis.rows and analysis.ads build again, and analysis.latest_ask stays as it was."""
+    Only the two ledger models, analysis.ask_check, analysis.lot_facts, analysis.building_check
+    and the views analysis.rows and analysis.ads build again, and analysis.latest_ask stays as it
+    was."""
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     ctx.plan(auto_apply=True, no_prompts=True)
     before = latest_ask(ctx)
+    lots_before = ctx.fetchdf("SELECT * FROM analysis.lot_facts ORDER BY listing_id")
     kept = ctx.fetchdf(
         """SELECT *, strftime(period, '%Y-%m') AS month FROM analysis.kept
         WHERE half_baths IS NOT NULL ORDER BY listing_id LIMIT 6"""
@@ -287,6 +332,16 @@ def test_ledger_cases(tmp_path, monkeypatch):
             WHERE listing_id NOT IN {others} ORDER BY listing_id LIMIT 2"""
         ).iterrows()
     )
+    others = (*others, i.listing_id, j.listing_id)
+    k, l, m = (
+        row
+        for _, row in ctx.fetchdf(
+            f"""SELECT k.listing_id, l.bbl FROM analysis.kept k JOIN buildings.lots l
+            USING (building_id)
+            WHERE listing_id NOT IN {others} AND l.bbl IS NOT NULL ORDER BY listing_id LIMIT 3"""
+        ).iterrows()
+    )
+    other_lot = str(int(l.bbl) + 1)
     entries = {
         "a": exclude(a.listing_id, {"period": a.month}),
         "a twice": exclude(a.listing_id, {"bedrooms": a.bedrooms}, note="twice"),
@@ -305,13 +360,16 @@ def test_ledger_cases(tmp_path, monkeypatch):
         "i": exclude(i.listing_id, {"period": i.month, "latest_ask": i.latest_ask}),
         "j": exclude(j.listing_id, {"latest_ask": j.latest_ask * 10}),
         "absent": exclude("1", {"period": "2019-08"}),
+        "k": drop_lot(k.listing_id, k.bbl),
+        "l": drop_lot(l.listing_id, other_lot),
+        "m": drop_lot(m.listing_id, m.bbl),
     }
     lines = list(entries.values())
     write(folder, "2026-10-16-cases.ndjson", lines)
     write(
         folder,
         "2026-10-17-retracts.ndjson",
-        [retract(entries["a twice"]), retract(entries["d"])],
+        [retract(entries["a twice"]), retract(entries["d"]), retract(entries["m"])],
     )
 
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
@@ -320,6 +378,7 @@ def test_ledger_cases(tmp_path, monkeypatch):
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_check",
+        "analysis.lot_facts",
         "analysis.rows",
         "ledger.entries",
         "ledger.status",
@@ -340,9 +399,27 @@ def test_ledger_cases(tmp_path, monkeypatch):
         ids["i"]: ("live", ""),
         ids["j"]: ("stale", "latest_ask"),
         ids["absent"]: ("absent", ""),
-        ledger.entry_id(retract(entries["a twice"])): ("retract", ""),
-        ledger.entry_id(retract(entries["d"])): ("retract", ""),
+        ids["k"]: ("live", ""),
+        ids["l"]: ("stale", "bbl"),
+        ids["m"]: ("retracted", ""),
+        **{
+            ledger.entry_id(retract(entries[name])): ("retract", "")
+            for name in ("a twice", "d", "m")
+        },
     }
+    lots = ctx.fetchdf("SELECT * FROM analysis.lot_facts ORDER BY listing_id")
+    dropped = lots.listing_id == k.listing_id
+    assert lots[dropped].lot_entry.tolist() == [ids["k"]]
+    facts = lots.columns.drop(["listing_id", "building_id", "lot_entry"])
+    assert lots[dropped][facts].isna().all(axis=None)
+    assert lots_before[lots_before.listing_id == k.listing_id].bbl.tolist() == [k.bbl]
+    pd.testing.assert_frame_equal(
+        lots[~dropped].drop(columns="lot_entry").reset_index(drop=True),
+        lots_before[lots_before.listing_id != k.listing_id]
+        .drop(columns="lot_entry")
+        .reset_index(drop=True),
+        check_dtype=False,
+    )
 
     (count,) = ctx.engine_adapter.fetchone(
         "SELECT (SELECT count(*) FROM analysis.kept) - (SELECT count(*) FROM analysis.rows)"
@@ -446,6 +523,58 @@ def importer():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_drop_lot_import(tmp_path, monkeypatch, capsys):
+    """The drop-lot importer turns a review line into a drop_lot entry, leaves out a line
+    already in the ledger and refuses to write over a file."""
+    spec = importlib.util.spec_from_file_location(
+        "drop_lot_import", PROJECT.parent / "ops" / "pipeline" / "drop_lot_import.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    folder = tmp_path / "pipeline" / "ledger"
+    monkeypatch.setattr(module, "REPO", tmp_path)
+    monkeypatch.setattr(module, "LEDGER", folder)
+    reviews = [
+        {
+            "listing_id": listing_id,
+            "reason": "wrong_building",
+            "bbl": LOT,
+            "decided": "2026-10-17",
+            "evidence": [
+                {"kind": "lot_record", "detail": "zero_unit_lot: vacant lot"},
+                {"kind": "ad_text", "detail": 'Ad text: "3rd floor walk-up"'},
+                {"kind": "pad_lookup", "detail": "PAD gives another lot"},
+            ],
+            "note": "the ad is next door",
+            "source": "labels.jsonl:4",
+        }
+        for listing_id in ("1", "2")
+    ]
+    path = tmp_path / "reviews.jsonl"
+    path.write_text("".join(json.dumps(review) + "\n" for review in reviews))
+    write(folder, "2026-10-16.ndjson", [drop_lot("1", source="reviews.jsonl:1")])
+
+    assert module.main([str(path), "--name", "2026-10-17"]) == 0
+    assert "1 entries, 1 already in the ledger" in capsys.readouterr().out
+    [entry] = map(json.loads, (folder / "2026-10-17.ndjson").read_text().splitlines())
+    assert entry == {
+        "change": "drop_lot",
+        "listing_id": "2",
+        "reason": "wrong_building",
+        "when": {"bbl": LOT},
+        "evidence": [
+            {"kind": "city_record", "detail": "zero_unit_lot: vacant lot"},
+            {"kind": "ad_text", "quote": "3rd floor walk-up"},
+            {"kind": "city_record", "detail": "PAD gives another lot"},
+            {"kind": "read", "detail": "the ad is next door", "file": "labels.jsonl:4"},
+        ],
+        "decided": "2026-10-17",
+        "source": "reviews.jsonl:2",
+    }
+    with pytest.raises(SystemExit, match="exists"):
+        module.main([str(path), "--name", "2026-10-17"])
 
 
 @pytest.mark.parametrize(

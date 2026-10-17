@@ -10,10 +10,11 @@ merged to master, and `tests/test_ledger.py` checks that against the merge base.
 
 A line holds one JSON object with these keys:
 
-- `change`: `exclude` drops the ad's row, `set` gives the row new values, and `retract` undoes
-  an earlier entry.
-- `listing_id`: the ad, for an exclude or a set.
-- `reason`: a short label for an exclude, such as `nonresidential`.
+- `change`: `exclude` drops the ad's row, `set` gives the row new values, `drop_lot` takes the
+  ad's lot away in `analysis.lot_facts`, and `retract` undoes an earlier entry.
+- `listing_id`: the ad, for an exclude, a set or a drop_lot.
+- `reason`: a short label for an exclude or a drop_lot, such as `nonresidential` or
+  `wrong_building`.
 - `set`: the new values of one field of the row, as `{"bedrooms": 1}`, `{"full_baths": 2,
   "half_baths": 0}`, `{"square_feet": 600}` or `{"latest_ask": 3100}`. An ask set replaces the
   latest ask `analysis.latest_ask` gives the row.
@@ -21,8 +22,10 @@ A line holds one JSON object with these keys:
 - `when` (optional for an exclude): the row's values the decision rests on, as `{"period":
   "2019-08", "bedrooms": 0}`, with the month as YYYY-MM and `null` for a value the row lacks.
   `latest_ask` holds the ask `analysis.latest_ask` gives the row, before the ledger. A set gives
-  the recorded value of each field it sets. While each value matches the row, the entry applies.
-  Otherwise it goes stale, and `ledger.status` lists it.
+  the recorded value of each field it sets. A drop_lot gives only the lot it takes away, as
+  `{"bbl": "1016820004"}`, against the lot `buildings.lots` gives the row's building. While each
+  value matches the row, the entry applies. Otherwise it goes stale, and `ledger.status` lists
+  it.
 - `evidence`: a list of items, each with a `kind` and its details. Kinds, with the details
   each needs:
     - `ad_text`: the ad's own words, as a `quote`.
@@ -51,9 +54,11 @@ rules:
 2. A set rests on evidence beyond the ad's own words: at least one item of a backing kind,
    `other_ad`, `stated_size`, `floor_plan`, `line_units` or `owner`. Ad text or a price alone
    does not back a change of a coded field. An ask set takes an `other_ad` or `owner` item, as
-   a size, a plan or the asks of other units in the line say nothing of the unit's ask.
+   a size, a plan or the asks of other units in the line say nothing of the unit's ask. A
+   drop_lot takes a `city_record` or `owner` item, as it says a city record of the lot doesn't
+   fit the building the ad describes.
 3. A set gives a size or an ask above 0.
-4. A retract names an earlier exclude or set, and no other retract names it too.
+4. A retract names an earlier exclude, set or drop_lot, and no other retract names it too.
 5. No line repeats an earlier line.
 
 The unit ledger is a second folder of NDJSON files, `units` inside the ledger's folder. It moves
@@ -118,7 +123,7 @@ import pandas as pd
 from sqlglot import exp
 from sqlmesh import ExecutionContext, model
 
-CHANGES = ("exclude", "set", "retract")
+CHANGES = ("exclude", "set", "drop_lot", "retract")
 # The fields a set changes together, under the name ledger.status gives them.
 FIELDS = {
     "bedrooms": ("bedrooms",),
@@ -126,7 +131,12 @@ FIELDS = {
     "square_feet": ("square_feet",),
     "latest_ask": ("latest_ask",),
 }
-WHEN = ("period", "bedrooms", "full_baths", "half_baths", "square_feet", "latest_ask")
+WHEN = ("period", "bedrooms", "full_baths", "half_baths", "square_feet", "latest_ask", "bbl")
+# The keys of a drop_lot's `when`, and the evidence kinds backing it.
+LOT_WHEN = ("bbl",)
+LOT_BACKING = ("city_record", "owner")
+# The `when` keys with text values.
+TEXT_WHEN = ("period", "bbl")
 INTEGERS = ("full_baths", "half_baths")
 # The fields with whole values. Bedrooms stay DOUBLE, the type of analysis.kept's column.
 WHOLE = ("bedrooms", *INTEGERS)
@@ -152,11 +162,13 @@ TEXT = {"ad_text": ("quote",), "floor_plan": ("plan", "detail")}
 KEYS = {
     "exclude": ("change", "listing_id", "reason", "when", "evidence", "decided"),
     "set": ("change", "listing_id", "set", "when", "evidence", "decided"),
+    "drop_lot": ("change", "listing_id", "reason", "when", "evidence", "decided"),
     "retract": ("change", "entry", "evidence", "decided"),
 }
 OPTIONAL = {
     "exclude": ("when", "source", "note"),
     "set": ("when", "source", "note"),
+    "drop_lot": ("source", "note"),
     "retract": ("source", "note"),
 }
 # The columns of ledger.entries, in order, with their DuckDB types.
@@ -175,7 +187,7 @@ COLUMNS = {
     "square_feet": "DOUBLE",
     "latest_ask": "DOUBLE",
     "retracts": "VARCHAR",
-    **{f"when_{key}": "VARCHAR" if key == "period" else "DOUBLE" for key in WHEN},
+    **{f"when_{key}": "VARCHAR" if key in TEXT_WHEN else "DOUBLE" for key in WHEN},
     "when_keys": "VARCHAR[]",
     "kinds": "VARCHAR[]",
     "evidence": "VARCHAR",
@@ -237,6 +249,10 @@ def check_item(item, listing_id):
 
 
 def when_value(key, value):
+    if key == "bbl":
+        if not isinstance(value, str) or not re.fullmatch(r"[1-5][0-9]{9}", value):
+            raise LedgerError(f"when.bbl takes a lot as 10 digits, not {value!r}")
+        return value
     if value is None and key != "period":
         return None
     if key == "period":
@@ -323,16 +339,23 @@ def parse(text: str) -> dict:
         raise LedgerError("listing_id is the ad's ID, written as a string of digits")
     row["listing_id"] = line["listing_id"]
     when = line.get("when", {})
-    if not isinstance(when, dict) or set(when) - set(WHEN):
-        raise LedgerError(f"when maps some of {', '.join(WHEN)} to values")
+    keys = LOT_WHEN if change == "drop_lot" else tuple(k for k in WHEN if k not in LOT_WHEN)
+    if not isinstance(when, dict) or set(when) - set(keys):
+        raise LedgerError(f"{change}'s when maps some of {', '.join(keys)} to values")
+    if change == "drop_lot" and "bbl" not in when:
+        raise LedgerError("a drop_lot gives the lot it takes away in when.bbl")
     for key, value in when.items():
         row[f"when_{key}"] = when_value(key, value)
     row["when_keys"] = sorted(when)
 
-    if change == "exclude":
+    if change in ("exclude", "drop_lot"):
         if not isinstance(line["reason"], str) or not line["reason"]:
-            raise LedgerError("an exclude gives its reason")
+            raise LedgerError(f"{'an' if change == 'exclude' else 'a'} {change} gives its reason")
         row["reason"] = line["reason"]
+        if change == "drop_lot" and not set(row["kinds"]) & set(LOT_BACKING):
+            raise LedgerError(
+                f"a drop_lot needs evidence of a backing kind ({', '.join(LOT_BACKING)})"
+            )
         return row
 
     values = line["set"]
@@ -383,7 +406,7 @@ def read(paths) -> list[dict]:
             raise LedgerError(f"{where}: repeats {seen[entry]['where']}")
         row.update(entry=entry, file=path.name, line=number_, seq=len(rows) + 1)
         if row["change"] == "retract":
-            target = retracted(seen, row, where, "exclude or set")
+            target = retracted(seen, row, where, "exclude, set or drop_lot")
             row["listing_id"] = target["listing_id"]
         seen[entry] = {
             "where": where,

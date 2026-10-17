@@ -43,6 +43,9 @@ MODEL (
 --    release. Here the step differs from the served model, which looks only at the registry's
 --    lots in Data improvements' releases file and counts a value of spaces as a value.
 --
+-- A live `drop_lot` entry of the corrections ledger takes the ad's lot away, so the ad gets no
+-- lot, BIN, release or facts, and `lot_entry` gives the entry.
+--
 -- The release, its published date and the fallback stay on each row, so each value traces to a
 -- record of `buildings.lot_releases`. The step dates ads in UTC, the zone of the published
 -- dates in the archive's manifest.
@@ -59,11 +62,20 @@ WITH releases AS (
 ), latest AS (
     SELECT * FROM buildings.lot_releases
     WHERE release = (SELECT arg_max(release, published) FROM releases)
+), dropped AS (
+    SELECT listing_id, min(entry) AS lot_entry
+    FROM ledger.status
+    WHERE change = 'drop_lot' AND status = 'live'
+    GROUP BY listing_id
 ), ads AS (
     SELECT c.listing_id, c.building_id, (c.price_at AT TIME ZONE 'UTC')::DATE AS first_day,
-        l.bbl, l.bin, l.link
+        CASE WHEN x.lot_entry IS NULL THEN l.bbl END AS bbl,
+        CASE WHEN x.lot_entry IS NULL THEN l.bin END AS bin,
+        CASE WHEN x.lot_entry IS NULL THEN l.link END AS link,
+        x.lot_entry
     FROM analysis.candidates c
     LEFT JOIN buildings.lots l USING (building_id)
+    LEFT JOIN dropped x USING (listing_id)
 ), dated AS (
     SELECT a.*,
         CASE WHEN a.bbl IS NOT NULL
@@ -80,7 +92,8 @@ SELECT d.listing_id, d.building_id, d.bbl, d.bin, d.link, d.release AS pluto_rel
         END AS pluto_fallback,
     CASE WHEN @record THEN m.fields END AS latest_fields,
     n.address, n.yearbuilt, n.latitude, n.longitude,
-    @EACH(@dated, f -> CASE WHEN @record AND k.@f THEN t.@f ELSE n.@f END AS @f)
+    @EACH(@dated, f -> CASE WHEN @record AND k.@f THEN t.@f ELSE n.@f END AS @f),
+    d.lot_entry
 FROM dated d
 LEFT JOIN releases k USING (release)
 LEFT JOIN missing m USING (release)

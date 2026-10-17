@@ -30,9 +30,10 @@ def facts(ctx):
     }
 
 
-def inputs(db, ctx, records, lots, ads=()):
-    """Write `records` to `city.pluto`, every value as text, `lots` to `buildings.lots`, and
-    `ads`, each a listing, a building and a first day, to `analysis.candidates`."""
+def inputs(db, ctx, records, lots, ads=(), entries=()):
+    """Write `records` to `city.pluto`, every value as text, `lots` to `buildings.lots`, `ads`,
+    each a listing, a building and a first day, to `analysis.candidates`, and `entries`, each
+    an entry, a listing, a change and a status, to `ledger.status`."""
     kinds = facts(ctx)
     columns = {"bbl": "TEXT", "release": "TEXT", "published": "TIMESTAMPTZ"}
     columns |= {c: "TEXT" for c in [*OTHERS, *kinds]}
@@ -41,7 +42,7 @@ def inputs(db, ctx, records, lots, ads=()):
         row = {c: DEFAULTS[kind] for c, kind in kinds.items()} | values
         row |= {"bbl": lot, "release": release, "published": PUBLISHED[release]}
         rows.append([row.get(c) for c in columns])
-    for schema in ("city", "buildings", "analysis"):
+    for schema in ("city", "buildings", "analysis", "ledger"):
         db.execute(f"CREATE SCHEMA {schema}")
     listed = ", ".join(f"{c} {kind}" for c, kind in columns.items())
     db.execute(f"CREATE TABLE city.pluto ({listed})")
@@ -60,6 +61,11 @@ def inputs(db, ctx, records, lots, ads=()):
             "INSERT INTO analysis.candidates VALUES (?, ?, (? || ' 00:00:00+00')::TIMESTAMPTZ)",
             ads,
         )
+    db.execute(
+        "CREATE TABLE ledger.status (entry TEXT, listing_id TEXT, change TEXT, status TEXT)"
+    )
+    if entries:
+        db.executemany("INSERT INTO ledger.status VALUES (?, ?, ?, ?)", entries)
 
 
 def build(db, ctx, *names):
@@ -87,7 +93,9 @@ def test_lot_facts_cases(tmp_path, render_context):
     ads 3 and 4 the day before and the day 16v2 does, at midnight UTC. The DuckDB session runs in
     New York time, where ad 4's midnight and 19v1's falls on the day before. Ad 5 comes after
     22v2's month, ad 6 after 26v2, and ad 12 after 19v1. Ads 7 to 9 read lots B and C, and ads
-    10 and 11 have buildings without a lot. Ad 13 reads lot B in 16v2."""
+    10 and 11 have buildings without a lot. Ad 13 reads lot B in 16v2. Ad 14 at lot A has a live
+    drop_lot in the corrections ledger, so it gets no lot. Ad 15 at lot A has a stale drop_lot
+    and a live exclude, so it keeps its lot."""
     ctx = render_context
     no_flags = {"pfirm15_flag": "", "firm07_flag": ""}
     records = [
@@ -126,11 +134,18 @@ def test_lot_facts_cases(tmp_path, render_context):
         ("11", "b5", "2017-01-01"),
         ("12", "b6", "2019-02-01"),
         ("13", "b2", "2017-01-01"),
+        ("14", "b1", "2026-09-01"),
+        ("15", "b1", "2026-09-01"),
+    ]
+    entries = [
+        ("e1", "14", "drop_lot", "live"),
+        ("e2", "15", "drop_lot", "stale"),
+        ("e3", "15", "exclude", "live"),
     ]
     db = duckdb.connect(
         str(tmp_path / "pipeline.duckdb"), config={"TimeZone": "America/New_York"}
     )
-    inputs(db, ctx, records, lots, ads)
+    inputs(db, ctx, records, lots, ads, entries)
     build(
         db, ctx, "city.pluto_releases", "buildings.lot_releases", "analysis.lot_facts"
     )
@@ -180,7 +195,13 @@ def test_lot_facts_cases(tmp_path, render_context):
         ("11", *none),
         ("12", "19v1", None, [], 2019, 3.0, 1, None),
         ("13", "16v2", None, [], 1950, 3.0, 1, 1),
+        ("14", *none),
+        ("15", "26v2", None, [], 1905, 8.0, None, 1),
     ]
+    assert db.execute(
+        """SELECT listing_id, bbl, lot_entry FROM analysis.lot_facts
+        WHERE listing_id IN ('06', '14', '15') ORDER BY listing_id"""
+    ).fetchall() == [("06", A, None), ("14", None, "e1"), ("15", A, None)]
     # A blank `irrlotcode` in a release carrying the field stays missing.
     assert db.execute(
         """SELECT listing_id, irrlotcode FROM analysis.lot_facts
