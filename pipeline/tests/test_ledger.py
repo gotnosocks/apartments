@@ -130,7 +130,30 @@ def write(folder, name, lines):
             set_("1", {"full_baths": 1.5, "half_baths": 0}, {}),
             "full_baths takes a whole",
         ),
-        (set_("1", {"square_feet": 0}, {"square_feet": None}), "a size above 0"),
+        (
+            set_("1", {"square_feet": 0}, {"square_feet": None}),
+            "square_feet takes a value above 0",
+        ),
+        (
+            set_("1", {"latest_ask": 0}, {"latest_ask": 31000}),
+            "latest_ask takes a value above 0",
+        ),
+        (
+            set_("1", {"latest_ask": 3100}, {"period": "2015-02"}),
+            "the recorded latest_ask in when",
+        ),
+        (
+            set_(
+                "1",
+                {"latest_ask": 3100},
+                {"latest_ask": 31000},
+                evidence=[
+                    {"kind": "stated_size", "detail": "500 square feet"},
+                    {"kind": "line_units", "listings": ["2"], "detail": "asks $3,000"},
+                ],
+            ),
+            "a set needs evidence of a backing kind for latest_ask",
+        ),
         (set_("1", {"square_feet": float("nan")}, {"square_feet": None}), "NaN is no"),
         (set_("1", {"bedrooms": 1.5}, {"bedrooms": 1}), "bedrooms takes a whole"),
         (set_("1", {"bedrooms": -1}, {"bedrooms": 1}), "at least 0"),
@@ -231,6 +254,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - f: a bedroom set made on another bedroom count goes stale.
     - g: a size set on a row with no size applies, as its `when` gives null.
     - h: a size set on a row with a size applies.
+    - i: an exclude with the row's latest ask applies.
+    - j: an exclude with ten times the row's latest ask goes stale.
     - an exclude of an ad with no kept row stays absent.
 
     Only the two ledger models, analysis.ask_check and the views analysis.rows and
@@ -253,6 +278,15 @@ def test_ledger_cases(tmp_path, monkeypatch):
         ).iloc[0]
         for sized in ("", "NOT")
     )
+    others = (*others, g.listing_id, h.listing_id)
+    i, j = (
+        row
+        for _, row in ctx.fetchdf(
+            f"""SELECT k.listing_id, strftime(k.period, '%Y-%m') AS month, a.latest_ask
+            FROM analysis.kept k JOIN analysis.latest_ask a USING (listing_id)
+            WHERE listing_id NOT IN {others} ORDER BY listing_id LIMIT 2"""
+        ).iterrows()
+    )
     entries = {
         "a": exclude(a.listing_id, {"period": a.month}),
         "a twice": exclude(a.listing_id, {"bedrooms": a.bedrooms}, note="twice"),
@@ -268,6 +302,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
         "f": set_(f.listing_id, {"bedrooms": 9}, {"bedrooms": f.bedrooms + 1}),
         "g": set_(g.listing_id, {"square_feet": 600}, {"square_feet": None}),
         "h": set_(h.listing_id, {"square_feet": 999}, {"square_feet": h.square_feet}),
+        "i": exclude(i.listing_id, {"period": i.month, "latest_ask": i.latest_ask}),
+        "j": exclude(j.listing_id, {"latest_ask": j.latest_ask * 10}),
         "absent": exclude("1", {"period": "2019-08"}),
     }
     lines = list(entries.values())
@@ -300,6 +336,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
         ids["f"]: ("stale", "bedrooms"),
         ids["g"]: ("live", ""),
         ids["h"]: ("live", ""),
+        ids["i"]: ("live", ""),
+        ids["j"]: ("stale", "latest_ask"),
         ids["absent"]: ("absent", ""),
         ledger.entry_id(retract(entries["a twice"])): ("retract", ""),
         ledger.entry_id(retract(entries["d"])): ("retract", ""),
@@ -308,10 +346,18 @@ def test_ledger_cases(tmp_path, monkeypatch):
     (count,) = ctx.engine_adapter.fetchone(
         "SELECT (SELECT count(*) FROM analysis.kept) - (SELECT count(*) FROM analysis.rows)"
     )
-    assert count == 1
+    assert count == 2
+    (count,) = ctx.engine_adapter.fetchone(
+        """SELECT count(*) FROM analysis.rows r JOIN analysis.latest_ask a USING (listing_id)
+        WHERE r.latest_ask IS DISTINCT FROM a.latest_ask"""
+    )
+    assert count == 0
     differ = ctx.fetchdf(
         """SELECT listing_id, bedrooms, full_baths, half_baths, bathrooms, square_feet
-        FROM (SELECT * FROM analysis.rows EXCEPT SELECT * FROM analysis.kept)
+        FROM (
+            SELECT * EXCLUDE (latest_ask) FROM analysis.rows
+            EXCEPT SELECT * FROM analysis.kept
+        )
         ORDER BY listing_id"""
     )
     rows = {
@@ -355,6 +401,13 @@ def test_repo_ledger_reads():
     """The repo's corrections ledger and unit ledger follow the rules."""
     ledger.read(sorted((PROJECT / "ledger").glob("*.ndjson")))
     ledger.read_units(sorted((PROJECT / "ledger" / "units").glob("*.ndjson")))
+
+
+def test_repo_unit_ledger_holds_entries():
+    """The repo's unit ledger holds joins, splits and a move, each passing read_units."""
+    rows = ledger.read_units(sorted((PROJECT / "ledger" / "units").glob("*.ndjson")))
+    changes = {row["change"] for row in rows}
+    assert {"join_units", "split_unit", "move_building"} <= changes
 
 
 @pytest.mark.parametrize("folder", ["ledger", "ledger/units"])

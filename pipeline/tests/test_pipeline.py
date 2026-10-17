@@ -281,7 +281,13 @@ def test_ask_check_cases(tmp_path, monkeypatch):
       two.
     - ad 9000158 asks $40,000, 20 times the building's other studios.
     - ad 9000159 asks $26,000 as a studio, 13 times the other studios. A ledger set makes it a
-      three-bedroom, and it asks 2.2 times the other three-bedrooms."""
+      three-bedroom, and it asks 2.2 times the other three-bedrooms.
+
+    Each ad gives its ask in every record, so the latest-ask steps keep it. A second ledger file
+    then gives ad 9000145 an ask set to $3,100, made on its recorded ask, and ad 9000154 an ask
+    set made on an ask of $1,200. The first applies: the row asks $3,100, and the check stops
+    listing it. The second goes stale, and the row keeps its ask and its place on the list. The
+    ads file keeps each ad's ask from before the ledger."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     tower = json.dumps({"id": "900030", "slug": "900030-case-street-new_york"})
@@ -374,6 +380,57 @@ def test_ask_check_cases(tmp_path, monkeypatch):
     }
     assert ads.ask_check.isna().sum() == len(ads) - 2
     assert ads.in_rows.all()
+
+    other_ad = {
+        "kind": "other_ad",
+        "listing_id": "123",
+        "detail": "the same unit a month earlier",
+    }
+    asks = [
+        (ids[(1, 31000)], 3100, 31000),
+        (ids[(3, 1250)], 12500, 1200),
+    ]
+    sets = [
+        {
+            **entry,
+            "evidence": [{**other_ad, "ask": ask}],
+            "listing_id": listing_id,
+            "set": {"latest_ask": ask},
+            "when": {"period": "2026-05", "latest_ask": recorded},
+        }
+        for listing_id, ask, recorded in asks
+    ]
+    (ledger / "2026-10-17.ndjson").write_text(
+        "".join(json.dumps(line) + "\n" for line in sets)
+    )
+    ctx = context(monkeypatch, tmp_path / "state", export, ledger=ledger)
+    plan = ctx.plan(auto_apply=True, no_prompts=True)
+    assert changed(plan) == [
+        "analysis.ads",
+        "analysis.ask_check",
+        "analysis.rows",
+        "ledger.entries",
+        "ledger.status",
+    ]
+    status = ctx.fetchdf(
+        """SELECT listing_id, field, status, differs FROM ledger.status
+        WHERE file = '2026-10-17.ndjson' ORDER BY listing_id"""
+    )
+    assert status.values.tolist() == [
+        [ids[(1, 31000)], "latest_ask", "live", ""],
+        [ids[(3, 1250)], "latest_ask", "stale", "latest_ask"],
+    ]
+    rows = ctx.fetchdf(
+        f"""SELECT r.listing_id, r.asking_rent, r.latest_ask, a.latest_ask AS ads_ask
+        FROM analysis.rows r JOIN analysis.ads a USING (listing_id)
+        WHERE r.listing_id IN {(ids[(1, 31000)], ids[(3, 1250)])} ORDER BY r.listing_id"""
+    )
+    assert rows.values.tolist() == [
+        [ids[(1, 31000)], 31000, 3100, 31000],
+        [ids[(3, 1250)], 1250, 1250, 1250],
+    ]
+    flagged = ctx.fetchdf("SELECT listing_id FROM analysis.ask_check")
+    assert flagged.listing_id.tolist() == [ids[(3, 1250)]]
 
 
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):

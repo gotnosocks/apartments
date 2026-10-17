@@ -15,12 +15,14 @@ A line holds one JSON object with these keys:
 - `listing_id`: the ad, for an exclude or a set.
 - `reason`: a short label for an exclude, such as `nonresidential`.
 - `set`: the new values of one field of the row, as `{"bedrooms": 1}`, `{"full_baths": 2,
-  "half_baths": 0}` or `{"square_feet": 600}`.
+  "half_baths": 0}`, `{"square_feet": 600}` or `{"latest_ask": 3100}`. An ask set replaces the
+  latest ask `analysis.latest_ask` gives the row.
 - `entry`: for a retract, the ID of the entry it undoes.
 - `when` (optional for an exclude): the row's values the decision rests on, as `{"period":
   "2019-08", "bedrooms": 0}`, with the month as YYYY-MM and `null` for a value the row lacks.
-  A set gives the recorded value of each field it sets. While each value matches the row, the
-  entry applies. Otherwise it goes stale, and `ledger.status` lists it.
+  `latest_ask` holds the ask `analysis.latest_ask` gives the row, before the ledger. A set gives
+  the recorded value of each field it sets. While each value matches the row, the entry applies.
+  Otherwise it goes stale, and `ledger.status` lists it.
 - `evidence`: a list of items, each with a `kind` and its details. Kinds, with the details
   each needs:
     - `ad_text`: the ad's own words, as a `quote`.
@@ -48,9 +50,11 @@ rules:
    `other_ad` or `line_units` item are other ads than the entry's own.
 2. A set rests on evidence beyond the ad's own words: at least one item of a backing kind,
    `other_ad`, `stated_size`, `floor_plan`, `line_units` or `owner`. Ad text or a price alone
-   does not back a change of a coded field.
-3. A retract names an earlier exclude or set, and no other retract names it too.
-4. No line repeats an earlier line.
+   does not back a change of a coded field. An ask set takes an `other_ad` or `owner` item, as
+   a size, a plan or the asks of other units in the line say nothing of the unit's ask.
+3. A set gives a size or an ask above 0.
+4. A retract names an earlier exclude or set, and no other retract names it too.
+5. No line repeats an earlier line.
 
 The unit ledger is a second folder of NDJSON files, `units` inside the ledger's folder. It moves
 ads to another unit or building where ads.identity placed them wrong. Its files follow the
@@ -115,8 +119,9 @@ FIELDS = {
     "bedrooms": ("bedrooms",),
     "baths": ("full_baths", "half_baths"),
     "square_feet": ("square_feet",),
+    "latest_ask": ("latest_ask",),
 }
-WHEN = ("period", "bedrooms", "full_baths", "half_baths", "square_feet")
+WHEN = ("period", "bedrooms", "full_baths", "half_baths", "square_feet", "latest_ask")
 INTEGERS = ("full_baths", "half_baths")
 # The fields with whole values. Bedrooms stay DOUBLE, the type of analysis.kept's column.
 WHOLE = ("bedrooms", *INTEGERS)
@@ -131,6 +136,10 @@ KINDS = (
     "owner",
 )
 BACKING = ("other_ad", "stated_size", "floor_plan", "line_units", "owner")
+# The backing kinds of a set of each field.
+BACKS = {**dict.fromkeys(FIELDS, BACKING), "latest_ask": ("other_ad", "owner")}
+# The fields a set gives above 0.
+POSITIVE = ("square_feet", "latest_ask")
 # The text an item of each kind gives, as one of these keys.
 TEXT = {"ad_text": ("quote",), "floor_plan": ("plan", "detail")}
 # SQLMesh fingerprints the model by the text of the values it reads, and a set's order changes
@@ -159,6 +168,7 @@ COLUMNS = {
     "full_baths": "BIGINT",
     "half_baths": "BIGINT",
     "square_feet": "DOUBLE",
+    "latest_ask": "DOUBLE",
     "retracts": "VARCHAR",
     **{f"when_{key}": "VARCHAR" if key == "period" else "DOUBLE" for key in WHEN},
     "when_keys": "VARCHAR[]",
@@ -294,7 +304,7 @@ def read_retract(line, row):
 
 
 def parse(text: str) -> dict:
-    """The columns of ledger.entries for the line `text`, checked against rules 1 and 2."""
+    """The columns of ledger.entries for the line `text`, checked against rules 1 to 3."""
     line = load_line(text, CHANGES, KEYS, OPTIONAL)
     change = line["change"]
     row = dict.fromkeys(COLUMNS)
@@ -329,15 +339,15 @@ def parse(text: str) -> dict:
         raise LedgerError(f"a set gives one of: {groups}")
     for key, value in values.items():
         row[key] = number(value, key)
-        if row[key] == 0 and key == "square_feet":
-            raise LedgerError("square_feet takes a size above 0")
+        if row[key] == 0 and key in POSITIVE:
+            raise LedgerError(f"{key} takes a value above 0")
         if key not in when:
             raise LedgerError(f"a set gives the recorded {key} in when")
     row["field"] = field
-    if not set(row["kinds"]) & set(BACKING):
+    if not set(row["kinds"]) & set(BACKS[field]):
         raise LedgerError(
-            f"a set needs evidence of a backing kind ({', '.join(BACKING)}), "
-            "beyond the ad's own words"
+            f"a set needs evidence of a backing kind for {field} "
+            f"({', '.join(BACKS[field])}), beyond the ad's own words"
         )
     return row
 
