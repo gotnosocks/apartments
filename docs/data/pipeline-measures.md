@@ -128,8 +128,8 @@ The two days don't cover the same work:
 - The baseline's building registry made a GeoSearch request for each building, 54 minutes for
   Manhattan. The pipeline reads lots and buildings from the city archive: PAD, MapPLUTO, footprints,
   LPC landmarks and DOB certificates of occupancy. Its first copy, by hand on Oct 16, fetched 62
-  files and 4.45 GB in 525 s. `apartments-city-fetch.timer` refreshes it every Friday at 04:05, from
-  Oct 23. When a run finds nothing new, it takes 4 s.
+  files and 4.45 GB in 525 s. `apartments-city-fetch.timer` refreshes it every Friday at 04:05
+  ET, from Oct 23. When a run finds nothing new, it takes 4 s.
 - The baseline checked its rows with a feature build (`data.load`, the rules and `features.build`)
   on two Manhattan regions. A pipeline build counts as checked when the export's files and records
   match their hashes and every model's audits pass. No feature build has read a pipeline rows file
