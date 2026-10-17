@@ -864,7 +864,8 @@ def write_database(
 ) -> dict:
     """Write the site database at `path`. With `on_request` (by default
     SITE_DETAIL_ON_REQUEST=1) the fitted listings' dollar parts go to
-    detail.parquet beside it instead of the `listings` table."""
+    detail.parquet beside it instead of the `listings` table. A bundle with
+    range atoms gets ranges.parquet and noise.json beside it (detail.py)."""
     if on_request is None:
         on_request = os.environ.get("SITE_DETAIL_ON_REQUEST") == "1"
     observations = Observations(
@@ -883,6 +884,7 @@ def write_database(
             pipeline,
             exposure_file,
             path.parent / detail.FILE if on_request else None,
+            path.parent / detail.RANGES_FILE,
         )
     finally:
         db.close()
@@ -900,6 +902,7 @@ def _write(
     pipeline,
     exposure_file,
     detail_file,
+    ranges_file,
 ) -> dict:
     terms = json.loads((bundle / "terms.json").read_text())
     names = [t["name"] for t in terms]
@@ -980,6 +983,11 @@ def _write(
     del fitted
     if detail_file:
         stats["detail"] = detail.write(bundle, names, detail_file)
+    # The kit's checks compare its ranges with these where the table has none.
+    likely = None
+    if detail.has_atoms(bundle):
+        stats["ranges"] = detail.write_ranges(bundle, ranges_file)
+        likely = detail.Ranges(ranges_file).likely_ask
 
     kit_dir = estimate_build.find_kit(
         record["run"], record["_sha256"], kits or estimate_build.KITS
@@ -1037,9 +1045,10 @@ def _write(
         local=local,
         fit_ids=fit_ids,
         centre=centre,
+        likely=likely,
     )
     stats["estimate_form"] = estimate_build.install(
-        db, kit_dir, StoredListings(db), observations
+        db, kit_dir, StoredListings(db), observations, likely
     )
     if captured:
         # a unit the pipeline read since the dataset last saw it is current there

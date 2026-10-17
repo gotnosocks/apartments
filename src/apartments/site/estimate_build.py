@@ -181,9 +181,21 @@ def _date(text: str | None, period: str) -> dt.date:
     return dt.date.fromisoformat(period[:10]).replace(day=15)
 
 
-def check_scoring(kit: estimate.Kit, buildings: dict, listings: list[dict]) -> dict:
-    rows = [
-        r
+def check_scoring(
+    kit: estimate.Kit, buildings: dict, listings: list[dict], likely=None
+) -> dict:
+    """Score SCORE_ROWS of the fit's own rows with the kit and compare with the
+    bundle's median and 80% range. `likely(audit_id)` gives the range of a row
+    whose bundle has range atoms in its place (detail.Ranges.likely_ask)."""
+
+    def checked(r):
+        if r["pred_lower_80"] is not None or likely is None:
+            return r
+        found = likely(r["audit_id"])
+        return None if found is None else {**r, **found}
+
+    candidates = (
+        checked(r)
         for r in listings
         if r["period"][:7] == kit.period[:7]
         and r["in_fit"]
@@ -191,8 +203,13 @@ def check_scoring(kit: estimate.Kit, buildings: dict, listings: list[dict]) -> d
         and r["pareto_k"] is not None
         and r["pareto_k"] < 0.5
         and r["building_id"] in buildings
-        and r["pred_lower_80"] is not None
-    ][:SCORE_ROWS]
+    )
+    rows = list(
+        itertools.islice(
+            (r for r in candidates if r is not None and r["pred_lower_80"] is not None),
+            SCORE_ROWS,
+        )
+    )
     if len(rows) < SCORE_MIN_ROWS:
         return {
             "passes": False,
@@ -290,9 +307,12 @@ def _plain_size(obs: dict) -> bool:
     return sqft is None or estimate.SQFT_RANGE[0] <= sqft <= estimate.SQFT_RANGE[1]
 
 
-def install(db, kit_dir: Path | None, listings: list[dict], observations: dict) -> dict:
+def install(
+    db, kit_dir: Path | None, listings: list[dict], observations: dict, likely=None
+) -> dict:
     """Check the kit and, when it passes, write the kit tables. Returns the
-    form's status for build.json: {available, reason?, kit?, checks}."""
+    form's status for build.json: {available, reason?, kit?, checks}.
+    `likely` is as in `check_scoring`."""
     db.executescript(SCHEMA)
     if kit_dir is None:
         return {"available": False, "reason": "no prediction kit for this run"}
@@ -322,7 +342,7 @@ def install(db, kit_dir: Path | None, listings: list[dict], observations: dict) 
         for b in rows
     }
     checks = {
-        "scoring": check_scoring(kit, buildings, listings),
+        "scoring": check_scoring(kit, buildings, listings, likely),
         "encoding": check_encoding(kit, listings, observations),
     }
     status["checks"] = checks

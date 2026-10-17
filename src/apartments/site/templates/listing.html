@@ -53,9 +53,9 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   <div class="figure">
     <span class="figure-label">Model estimate</span>
     <span class="figure-value">{{ usd(row.estimate) }}</span>
-    {% if row.pred_lower_80 is number %}
-    <span class="figure-note">asks for this apartment likely fall in {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}
-      (80%; {{ usd(row.pred_lower_95) }}–{{ usd(row.pred_upper_95) }} for 95%)</span>
+    {% if likely %}
+    <span class="figure-note">asks for this apartment likely fall in {{ usd(likely.pred_lower_80) }}–{{ usd(likely.pred_upper_80) }}
+      (80%; {{ usd(likely.pred_lower_95) }}–{{ usd(likely.pred_upper_95) }} for 95%)</span>
     {% else %}
     <span class="figure-note">the model is 95% sure the typical rent itself is {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}; single asks spread wider</span>
     {% endif %}
@@ -84,8 +84,8 @@ called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimat
   <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
   this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ below_share }}% of them, so
   <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
-  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}.{% if row.pred_lower_80 is number %} That middle 80% is the
-  likely ask range above, {{ usd(row.pred_lower_80) }}–{{ usd(row.pred_upper_80) }}.{% else %} The range under the estimate is the
+  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}.{% if likely %} That middle 80% is the
+  likely ask range above, {{ usd(likely.pred_lower_80) }}–{{ usd(likely.pred_upper_80) }}.{% else %} The range under the estimate is the
   95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can
   sit inside that range and still be below or above typical, or outside it and still be typical.{% endif %}</p>
   {% if row.method == "kit" %}

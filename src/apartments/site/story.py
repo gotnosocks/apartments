@@ -701,11 +701,17 @@ def coverage_svg(groups: list[dict]) -> Markup:
 
 
 def build_up(
-    listing, contributions, labels: dict, small: float = 40.0, current=False
+    listing,
+    contributions,
+    labels: dict,
+    small: float = 40.0,
+    current=False,
+    likely: dict | None = None,
 ) -> dict | None:
     """The listing's estimate as steps: the market first, then each of its
     `contributions` in the estimate's order, with terms smaller than `small`
-    dollars gathered into one step, so the bars end at the estimate."""
+    dollars gathered into one step, so the bars end at the estimate. `likely`
+    holds the listing's likely ask ranges, when it has them."""
     if listing is None or not contributions:
         return None
     steps, minor = [], []
@@ -750,8 +756,8 @@ def build_up(
         "steps": steps,
         "estimate": total,
         "ask": listing["ask"],
-        "lower": listing["pred_lower_95"],
-        "upper": listing["pred_upper_95"],
+        "lower": (likely or {}).get("pred_lower_95"),
+        "upper": (likely or {}).get("pred_upper_95"),
     }
 
 

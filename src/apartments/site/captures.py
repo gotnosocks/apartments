@@ -632,10 +632,11 @@ def price(
     local=None,
     fit_ids: set[str] | None = None,
     centre: float | None = None,
+    likely=None,
 ) -> tuple[list[dict], dict]:
     """The ads on the market priced with the run's kit, when it scores the fit's own rows as
-    the bundle does (`estimate_build.check_scoring`). `files` are the pipeline's
-    (`pipeline_files`); `local`, `fit_ids` and `centre` are as in `rows`."""
+    the bundle does (`estimate_build.check_scoring`, which takes `likely`). `files` are the
+    pipeline's (`pipeline_files`); `local`, `fit_ids` and `centre` are as in `rows`."""
     if kit_dir is None:
         return [], {"priced": 0, "reason": "no prediction kit for this run"}
     if files is None:
@@ -658,6 +659,7 @@ def price(
             for b in kit_buildings
         },
         listings,
+        likely,
     )
     if not check["passes"]:
         return [], {"priced": 0, "reason": check["reason"]}

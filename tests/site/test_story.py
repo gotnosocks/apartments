@@ -135,8 +135,10 @@ def test_build_up_steps_sum_to_the_estimate():
         {"term": "pets", "usd": -8.0, "lower": -20, "upper": 4},
         {"term": "building", "usd": -200.0, "lower": -400, "upper": 0},
     ]
-    listing = {"ask": 3400.0, "pred_lower_95": 2800.0, "pred_upper_95": 3900.0}
-    b = story.build_up(listing, contributions, {"bedrooms": "Bedrooms"})
+    listing = {"ask": 3400.0}
+    likely = {"pred_lower_95": 2800.0, "pred_upper_95": 3900.0}
+    b = story.build_up(listing, contributions, {"bedrooms": "Bedrooms"}, likely=likely)
+    assert (b["lower"], b["upper"]) == (2800.0, 3900.0)
     assert [s["term"] for s in b["steps"]] == [
         "market",
         "bedrooms",

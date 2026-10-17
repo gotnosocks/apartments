@@ -489,6 +489,24 @@ def test_the_scoring_check_scores_studios_as_studios():
     assert not few["passes"] and "only 5 rows" in few["reason"]
 
 
+def test_the_scoring_check_reads_ranges_worked_out_from_atoms():
+    r = record()
+    r["bedroom_time"] = [[0.2, 0.0, 0.0, 0.0]] * 4
+    k = estimate.Kit.from_record(r, {})
+    buildings = {GROVE: flat_building()}
+    rows = check_rows(k, studio_shift=0.2)
+    likely = {
+        row["audit_id"]: {key: row[key] for key in ("pred_lower_80", "pred_upper_80")}
+        for row in rows
+    }
+    bare = [{**row, "pred_lower_80": None, "pred_upper_80": None} for row in rows]
+    want = estimate_build.check_scoring(k, buildings, rows)
+    assert estimate_build.check_scoring(k, buildings, bare, likely.get) == want
+    # Rows without atoms either are left out.
+    none = estimate_build.check_scoring(k, buildings, bare, lambda audit_id: None)
+    assert not none["passes"] and "only 0 rows" in none["reason"]
+
+
 def test_the_encoding_check_compares_once_listed_apartments():
     k = kit()
     obs = {

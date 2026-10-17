@@ -18,6 +18,15 @@ change to its step before merge.
   rent bounds. A reviewer approved it, and Modeling looks before merge.
 - `SITE_DETAIL_ON_REQUEST=1` moves listing parts to `detail.parquet` (docs/site.md, data flow
   step 2). Website turns it on in the publish.
+- Ben dropped the 80% range from the lists (12:50 ET Oct 17). The summary's `--range-atoms`
+  (#1065, #1066 for Modal) writes 64 atoms per row and `noise.json` in place of the quantile
+  solve; on NB9 at 10% it ran in 397 s against 663 s, with a median error of 0.00027 log
+  against a Monte Carlo error of 0.0013. The site reads them from `ranges.parquet` when a
+  page opens (docs/site.md, data flow step 2). The flag stays off by default, and nobody
+  passes it on a publish of the served fit until the site change has merged.
+- Before the default flips: check every `estimate_pred_*` reader (coverage, price band, board,
+  rent map, site build) against a table mixing atom rows and fallback rows, and compare the
+  ranges on Ben's opened pages and a random sample with the exact ones.
 
 ## Next
 

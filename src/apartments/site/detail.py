@@ -21,9 +21,16 @@ The listing page and the research story call `lookup` for a listing's parts
 when its row holds none. Ads priced from the kit (captures.py) keep
 their parts in the table, since the bundle has no row for them.
 
-Each process holds one DuckDB connection per build, with one thread and a
-small memory limit, and caches lookups by the bundle's sha and the audit id.
-Everything the lookup reads sits inside the build, so a rollback of
+A bundle summarized with range atoms (`rentfrontier.summary --range-atoms`)
+holds no likely ask ranges for most rows. For such a bundle the build copies
+each row's atoms and noise group into ranges.parquet the same way, and the
+bundle's noise.json beside it. `likely_ask` works the ranges out for a listing
+with `ranges.likely_ask` when its page asks, and gives None when the file,
+the row or its noise group is missing, so the page leaves the range out.
+
+Each process holds one DuckDB connection per file of a build, with one thread
+and a small memory limit, and caches lookups by the bundle's sha and the audit
+id. Everything the lookup reads sits inside the build, so a rollback of
 site/current brings its own detail back.
 """
 
@@ -37,7 +44,10 @@ from pathlib import Path
 
 import duckdb
 
+from apartments.site import ranges
+
 FILE = "detail.parquet"
+RANGES_FILE = "ranges.parquet"
 # Rows per row group: 2048 and 32768 both made lookups slower at 1.75M rows.
 ROW_GROUP_ROWS = 8192
 SIDES = ("", "_lower_95", "_upper_95")
@@ -95,8 +105,52 @@ def write(bundle: Path, names: list[str], target: Path) -> dict:
     return {"file": FILE, "rows": rows, "bytes": target.stat().st_size}
 
 
-class Detail:
-    """The detail file of a build, opened once per process."""
+def has_atoms(bundle: Path) -> bool:
+    """Whether the bundle's rows carry range atoms."""
+    source = str(bundle / "rows.parquet").replace("'", "''")
+    return bool(
+        duckdb.sql(
+            f"SELECT COUNT(*) FROM parquet_schema('{source}') "
+            "WHERE name = 'estimate_atoms'"
+        ).fetchone()[0]
+    )
+
+
+def write_ranges(bundle: Path, target: Path) -> dict:
+    """Copy the atoms and noise group of every bundle row that has them to
+    `target`, sorted by audit_id, and the bundle's noise.json beside it.
+    Returns the file's row count and size for the build's record."""
+    connection = duckdb.connect()
+    try:
+        connection.execute("SET memory_limit = '1GB'")
+        connection.execute("SET threads = 1")
+        connection.execute("SET preserve_insertion_order = true")
+        connection.execute("SET temp_directory = ?", [tempfile.gettempdir()])
+        source = str(bundle / "rows.parquet").replace("'", "''")
+        out = str(target).replace("'", "''")
+        connection.execute(
+            "COPY (SELECT audit_id, noise_group, estimate_atoms AS atoms "
+            f"FROM read_parquet('{source}') WHERE estimate_atoms IS NOT NULL "
+            f"ORDER BY audit_id) TO '{out}' (FORMAT parquet, COMPRESSION zstd, "
+            f"ROW_GROUP_SIZE {ROW_GROUP_ROWS})"
+        )
+        (rows,) = connection.execute(
+            f"SELECT COUNT(*) FROM read_parquet('{out}')"
+        ).fetchone()
+    finally:
+        connection.close()
+    noise = target.parent / ranges.NOISE_FILE
+    noise.write_bytes((bundle / ranges.NOISE_FILE).read_bytes())
+    return {
+        "file": RANGES_FILE,
+        "rows": rows,
+        "bytes": target.stat().st_size,
+        "noise_bytes": noise.stat().st_size,
+    }
+
+
+class _File:
+    """A Parquet file of a build, opened once per process."""
 
     def __init__(self, path: Path):
         self.path = path
@@ -109,6 +163,19 @@ class Detail:
         self._connection.execute(
             f"CREATE VIEW detail AS SELECT * FROM read_parquet('{quoted}')"
         )
+
+    def fetch(self, columns: str, audit_id: str):
+        with self._lock:
+            return self._connection.execute(
+                f"SELECT {columns} FROM detail WHERE audit_id = ?", [audit_id]
+            ).fetchone()
+
+
+class Detail(_File):
+    """The detail file of a build."""
+
+    def __init__(self, path: Path):
+        super().__init__(path)
         (terms,) = self._connection.execute(
             "SELECT value FROM parquet_kv_metadata(?) WHERE key = 'terms'",
             [str(path)],
@@ -117,12 +184,7 @@ class Detail:
 
     def row(self, audit_id: str) -> dict | None:
         """The listing's estimate, median and `{name}_usd{side}` values."""
-        with self._lock:
-            found = self._connection.execute(
-                "SELECT estimate, estimate_median, parts FROM detail "
-                "WHERE audit_id = ?",
-                [audit_id],
-            ).fetchone()
+        found = self.fetch("estimate, estimate_median, parts", audit_id)
         if found is None:
             return None
         estimate, median, values = found
@@ -134,20 +196,38 @@ class Detail:
         }
 
 
-_open: dict[Path, Detail] = {}
+class Ranges(_File):
+    """The ranges file of a build, with the noise tables beside it."""
+
+    def __init__(self, path: Path):
+        super().__init__(path)
+        self.noise = ranges.load_noise(path.parent / ranges.NOISE_FILE)
+
+    def likely_ask(self, audit_id: str) -> dict | None:
+        """The listing's likely ask ranges in dollars, as `ranges.likely_ask`
+        gives them; None without atoms or a noise table for its group."""
+        found = self.fetch("noise_group, atoms", audit_id)
+        if found is None or found[0] is None or found[1] is None:
+            return None
+        noise = self.noise.get(int(found[0]))
+        return None if noise is None else ranges.likely_ask(list(found[1]), noise)
+
+
+_open: dict[tuple[type, Path], _File] = {}
 _open_lock = threading.Lock()
 
 
-def opened(path: Path) -> Detail:
-    """The process's connection to the detail file at `path`. A build
-    published since replaces the old connection, which closes once no request
-    still holds it."""
+def opened(path: Path, kind: type = Detail):
+    """The process's connection to the build's file at `path`. A build
+    published since replaces the old connections, which close once no request
+    still holds them."""
     path = path.resolve()
     with _open_lock:
-        found = _open.get(path)
+        found = _open.get((kind, path))
         if found is None:
-            _open.clear()
-            found = _open[path] = Detail(path)
+            if any(p.parent != path.parent for _, p in _open):
+                _open.clear()
+            found = _open[kind, path] = kind(path)
         return found
 
 
@@ -165,3 +245,20 @@ def lookup(build_dir: Path, sha: str, audit_id: str) -> list[dict] | None:
     bundle's sha and the audit id; None when the file has no such row."""
     found = _cached_parts((build_dir / FILE).resolve(), sha, audit_id)
     return None if found is None else [dict(p) for p in found]
+
+
+@functools.lru_cache(maxsize=2048)
+def _cached_ranges(path: Path, sha: str, audit_id: str) -> tuple | None:
+    found = opened(path, Ranges).likely_ask(audit_id)
+    return None if found is None else tuple(found.items())
+
+
+def likely_ask(build_dir: Path, sha: str, audit_id: str) -> dict | None:
+    """The listing's likely ask ranges from the build's ranges file, cached by
+    the bundle's sha and the audit id; None when the build has no ranges file
+    or the file has no ranges for the listing."""
+    path = (build_dir / RANGES_FILE).resolve()
+    if not path.is_file():
+        return None
+    found = _cached_ranges(path, sha, audit_id)
+    return None if found is None else dict(found)
