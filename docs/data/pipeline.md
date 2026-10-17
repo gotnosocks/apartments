@@ -292,16 +292,47 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
    export's manifest, the city archive's manifest and the pipeline's code match the last
    build's, as on most of the timer's runs;
-3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
-   runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
-   trying again every five minutes while less is available;
-4. runs `build.py` with `PIPELINE_MEMORY=3GB` in the service's own cgroup, which the unit caps
-   at 5 GiB with swap off, and lets go of the locks after it;
+3. waits for room to build, checking that
+   - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
+   - no unit named `site-build-*`, `frontier-publish*`, `di-*`, `data-*`, `adfills-*` or `bd4-*`
+     is active, for the site builds and Data improvements' jobs run outside `ops/job`;
+   - 5 GiB of memory is available.
+
+   While a GPU job holds the GPU lock, it queues for the lock as the GPU jobs do and holds it
+   through the build. Once the other checks pass, it takes every light slot, so no
+   `ops/job light` job runs beside the build, and checks again with the slots held. When a
+   check fails, it lets go of every lock and checks again a minute later, logging the reason
+   when it changes;
+4. logs the locks it took and the memory available, runs `build.py` with `PIPELINE_MEMORY=3GB`
+   in the service's own cgroup, which the unit caps at 5 GiB with swap off and keeps on the
+   light CPUs, and lets go of its locks after it;
 5. builds again when the manifest changed during the build.
 
 Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
+
+When the build starts with the GPU lock free, it leaves the lock free. A GPU job queued after
+its start takes the GPU lock and runs beside it, while a `gpu -x` job, as full fits run, also
+waits for the light slots and so starts after the build. Ben agreed on 2026-10-16 to let the build skip the GPU lock this
+way, on the terms the checks above carry out. The build queues for the lock behind a running GPU
+job, as it did before, so a queue of GPU jobs only delays it. The checks run at the build's
+start, so a job started during a build still overlaps it. A site build or a Data improvements
+job that must not overlap the build runs through `ops/job light`, which waits for the slots the
+build holds. A job run outside `ops/job` goes in a service named like the patterns above, so the build
+waits for it, started under light slot 1:
+
+```sh
+flock /data1/apartments/tmp/locks/light-1.lock \
+    systemd-run --user --unit=di-NAME -p MemoryMax=3G -p MemorySwapMax=0 -- COMMAND
+```
+
+`flock` waits while a build holds the slots, and lets go of slot 1 only after `systemd-run` has
+started the service, so a build that starts later finds the unit active and waits for it. A
+scope in place of the service would hold slot 1 for the whole job. `systemctl --user is-active`
+doesn't tell whether a build is running: the build's service stays `activating` through its
+waits as well as its build. `ops/autoselect-publish.sh` runs its site build under slot 1 the
+same way.
 
 After each build, the script writes the hashes of both manifests and the commit's trees to
 `/data1/apartments/pipeline/state/last-build`. After a build by hand into the default state and
@@ -2381,7 +2412,14 @@ in all, and most tests add made-up ads to that export. The tests:
     script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
     A second folder renames a neighbourhood to another, and its lines and manifest counts follow
     the rename. A third asks only for the new name, and the rename brings in the old one's rows.
-    A rename of a neighbourhood with no rows stops the script.
+    A rename of a neighbourhood with no rows stops the script;
+47. run `ops/pipeline/build-latest --room` with a made-up `systemctl` and `git`, as thelio's
+    locks are laid out, with the GPU lock linked to `heavy.lock`. The check lets the build start
+    with the GPU lock free, with no pattern of units to avoid, and with the lock held by the build
+    itself, and it creates no temporary folder and calls no `git` on the way. It gives the reason
+    to wait while another job holds the lock, while a unit to avoid is active, when `systemctl`
+    fails and when less memory is available than asked for, and it stops on a memory size it
+    can't read;
 48. add seven made-up buildings and 29 ads to the cases, build them, copy the state under another
     name, and run `ops/pipeline/citycheck.py` on the copy. The script refuses the state the build
     wrote, and the copy's hash stays the same over the run. The first building gets lot 12 of

@@ -6,14 +6,17 @@ Type=oneshot
 # The script runs from its own checkout, which it moves to master before each build. The build
 # runs in this unit's cgroup, so stopping the unit or its timeout stops the build too.
 ExecStart=/data1/apartments/pipeline/code/ops/pipeline/build-latest
-# A backfill can hold oxylabs.lock for many hours, and the GPU jobs queued ahead of the build
-# can hold the GPU lock for a few more. When the timeout stops a wait, the next trigger starts
+# A backfill can hold oxylabs.lock for many hours, and while a GPU job holds the GPU lock the
+# build queues for it with the GPU jobs. When the timeout stops a wait, the next trigger starts
 # the build again.
 TimeoutStartSec=30h
 # A build from empty peaked at 4,143 MiB on 2026-10-15. With swap off, the kernel kills the
 # build at the cap, and the GPU fits keep the swap.
 MemoryMax=5G
 MemorySwapMax=0
+# The build holds the light slots, so it runs on the light CPUs, as `ops/job light` jobs do. The
+# user manager has no cpuset controller, so the unit sets the CPU affinity, as ops/job does.
+CPUAffinity=3-5,9-11
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

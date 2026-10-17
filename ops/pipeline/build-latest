@@ -10,16 +10,29 @@
 #    checkout, on the system's Python. Nothing else uses the venv. When the export's manifest,
 #    the city archive's manifest and the commit's trees for pipeline/, src/ and ops/pipeline/
 #    match the ones it wrote to $STATE/last-build after the last build, it stops there.
-# 3. It takes the GPU lock and every light slot, in the order `ops/job gpu -x` takes them, so
-#    no GPU fit or light job runs beside the build. With the locks held, it checks for 6 GiB of
-#    available memory. When less is available, it lets go of the locks and tries again in five
-#    minutes.
+# 3. It waits for room to build, checking that
+#      - no job holds the GPU lock, as a fit, a GPU summary or any other `ops/job gpu` job does;
+#      - no user unit matching a pattern of PIPELINE_BUILD_AVOID is active. The patterns take in
+#        the site builds and Data improvements' jobs, which can run outside `ops/job` and then
+#        hold no light slot;
+#      - PIPELINE_BUILD_GIB GiB of memory is available, 5 unless set.
+#    While a GPU job holds the GPU lock, the script queues for the lock as GPU jobs do and holds
+#    it through the build, so the build never starts beside a fit and never waits behind a
+#    stream of them. With the GPU lock free, the build leaves it free, and a GPU job can start
+#    while it runs. Once the other checks pass, the script takes every light slot, so no
+#    `ops/job light` job runs beside the build, and checks again with the slots held. When a
+#    check fails, it lets go of every lock and tries again a minute later. The log gives each
+#    new reason to wait, then the locks the build took and the memory available at its start.
 # 4. It runs ops/pipeline/build.py in the service's own cgroup, where the unit caps memory and
 #    turns swap off. The build writes its rows file, ads file and catalog line to
-#    /data1/apartments/pipeline/datasets. Then the script lets go of the locks.
+#    /data1/apartments/pipeline/datasets. Then the script lets go of its locks.
 # 5. When the manifest changed while the build ran, it goes back to step 1.
 #
 # When the build fails, the script exits with the build's status and the service shows as failed.
+#
+# `build-latest --room [held]` runs only the checks of step 3, prints the reason to wait or the
+# memory available, and exits 1 or 0. With `held`, it skips the GPU lock, as when the build holds
+# it.
 set -uo pipefail
 # The script lives in the checkout it updates: read it whole before running.
 {
@@ -34,16 +47,60 @@ export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/data1/apartments/venvs/
 export TMPDIR=${TMPDIR:-/data1/apartments/pipeline/tmp}
 export PIPELINE_MEMORY=${PIPELINE_MEMORY:-3GB}
 export CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu
-mkdir -p "$TMPDIR"
+AVOID=${PIPELINE_BUILD_AVOID-site-build-* frontier-publish* di-* data-* adfills-* bd4-*}
+GIB=${PIPELINE_BUILD_GIB:-5}
+if ! [[ $GIB =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "PIPELINE_BUILD_GIB=$GIB is not a number of GiB" >&2
+  exit 2
+fi
 
-# The GPU lock goes on fd 9 and the light slots on fds 5 to 7, as ops/job takes them.
-take_locks() {
-  exec 9>"$LOCKS/gpu.lock" && flock 9 || return 1
+# The light slots go on fds 5 to 7, as ops/job takes them, and the GPU lock on fd 9.
+take_slots() {
   for i in 1 2 3; do
     eval "exec $((4 + i))>\"\$LOCKS/light-$i.lock\"" && flock $((4 + i)) || return 1
   done
 }
 drop_locks() { exec 5>&- 6>&- 7>&- 9>&-; }
+
+# The checks of step 3: print a reason to wait and return 1, or print the memory available.
+room() {
+  if [ "${1-}" != held ] && ! flock -n "$LOCKS/gpu.lock" true; then
+    echo "gpu: a GPU job holds the GPU lock"
+    return 1
+  fi
+  # The patterns go to systemctl unquoted, one argument each, and systemctl matches them. With
+  # no pattern it would list every unit, so the check needs one.
+  if [[ $AVOID =~ [^[:space:]] ]]; then
+    local units status=0
+    set -f
+    # shellcheck disable=SC2086
+    units=$(systemctl --user list-units --plain --no-legend \
+      --state=active,activating,deactivating,reloading $AVOID | awk '{print $1}' |
+      paste -sd ' ') || status=$?
+    set +f
+    if [ "$status" -ne 0 ]; then
+      echo "units: systemctl --user list-units failed"
+      return 1
+    fi
+    if [ -n "$units" ]; then
+      echo "units: $units active"
+      return 1
+    fi
+  fi
+  local kib
+  kib=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+  if ! awk -v kib="$kib" -v gib="$GIB" 'BEGIN {exit !(kib >= gib * 1048576)}'; then
+    echo "memory: $((kib / 1024)) MiB available, under $GIB GiB"
+    return 1
+  fi
+  echo "$((kib / 1024)) MiB available"
+}
+
+if [ "${1-}" = --room ]; then
+  room "${2-}"
+  exit
+fi
+mkdir -p "$TMPDIR"
 
 while :; do
   echo "$(date -Is) waiting for $CRAWLS/oxylabs.lock"
@@ -59,14 +116,31 @@ while :; do
     break
   fi
 
-  echo "$(date -Is) waiting for the GPU lock and the light slots"
+  echo "$(date -Is) waiting for room to build"
+  # The log gets a line when the reason to wait changes, not every minute.
+  last=
   while :; do
-    take_locks || exit 1
-    [ "$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)" -gt $((6 * 1024 * 1024)) ] && break
+    gpu=free
+    if ! flock -n "$LOCKS/gpu.lock" true; then
+      [ "$last" = queue ] || echo "$(date -Is) waiting: queueing for the GPU lock a GPU job holds"
+      last=queue
+      exec 9>"$LOCKS/gpu.lock" && flock 9 || exit 1
+      gpu=held
+    fi
+    if room=$(room $gpu); then
+      take_slots || exit 1
+      room=$(room $gpu) && break
+    fi
     drop_locks
-    echo "$(date -Is) under 6 GiB available, trying again in five minutes"
-    sleep 300
+    [ "${room%%:*}" = "$last" ] || echo "$(date -Is) waiting: $room"
+    last=${room%%:*}
+    sleep 60
   done
+  if [ "$gpu" = held ]; then
+    echo "$(date -Is) took light-1, light-2, light-3 and the GPU lock, $room"
+  else
+    echo "$(date -Is) took light-1, light-2 and light-3, left the GPU lock free, $room"
+  fi
   echo "$(date -Is) building from $(git -C "$CODE" rev-parse --short HEAD)"
   "$UV_PROJECT_ENVIRONMENT/bin/python" "$CODE/ops/pipeline/build.py" || exit $?
   drop_locks
