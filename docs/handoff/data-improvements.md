@@ -2,6 +2,22 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
+## 2026-10-17 14:30 ET
+
+- #1036 adds `pipeline/ledger/2026-10-17-z-unit-baths.ndjson`, 492 bath-count sets. The screen
+  (`/data1/apartments/tmp/suspect/baths/mech.py`) looks at ads of the same unit with the same bedroom count within
+  730 days. It keeps an ad when all those ads agree on another count, at least one comes before it and one after,
+  and its own text states no bath count. That left 616 ads. Sonnet read all of them (`reads*.jsonl`,
+  `p3/r*.jsonl`): 530 were wrong. Review then dropped 11 more, where a backing ad's text states the row's count.
+  `ledger.py` in the same folder writes the file.
+- The regex in `mech.py` misses hyphenated counts such as "1-bath". A wider screen of the 2,873 ads with 2 or more
+  disagreeing ads would need the before-and-after condition relaxed, and a 40-ad sample of those found only about
+  half wrong.
+- The 80 unclear drop-lot rows also stay as they are. HPD violations, rent stabilization counts and housingdb hold
+  nothing that decides them.
+- #1033 notes 11 Brooklyn misjoins (9 addresses) that match one collected Brooklyn building. Moving a single ad
+  to another building needs a ledger change that doesn't exist yet.
+
 ## 2026-10-17 12:15 ET
 
 - #1024 adds `drop-lot-20261017-neverbuilt.jsonl`, 239 wrong_building lines on 33 lots. Every one of the 40 MapPLUTO
