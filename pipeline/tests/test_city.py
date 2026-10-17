@@ -30,10 +30,11 @@ city = load("pipeline_city", CITY)
 
 
 def zipped(text):
-    """A zip holding a member named data.txt with the text."""
+    """A zip holding a member named data.txt with the text, dated 2024-01-01 so two calls give
+    the same bytes."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as z:
-        z.writestr("data.txt", text)
+        z.writestr(zipfile.ZipInfo("data.txt", date_time=(2024, 1, 1, 0, 0, 0)), text)
     return buffer.getvalue()
 
 
