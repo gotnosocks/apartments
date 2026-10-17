@@ -10,20 +10,21 @@ Updated 2026-10-17 05:20 ET, after latest-ask-v9 (#977). Thread owner: the Data 
   `/data1/apartments/tmp/suspect/bcheck/drop-lot.jsonl`.
 - Some listing records carry price changes dated long after the ad left the market. Brokers
   reuse an old ad's record for a later ad of the same apartment. In 346 W 36th St, 12 such rows
-  drove Modeling's R-hat 1.63 failure. Findings are in
+  drove Modeling's R-hat 1.63 failure. I wrote the findings up in
   `/data1/apartments/tmp/suspect/ask-jumps/off-day-changes.md`.
   - #977 adds `latest_ask.STALE_DAYS = 7` and the rule `latest-ask-v9`. A change dated more than
     7 days after the off-market day is dropped unless the record's statusChanges show ACTIVE
     after that day.
   - `build_v9.py` in the same folder reprices V8 with the rule: 9,601 of 1,751,152 rows change,
-    and V8 matched the old price on every one. Table and changed.csv:
+    and V8 matched the old price on every one. The table and changed.csv are in
     `/data1/apartments/external/latest-ask/20261017-dba39e0-all-stale/`.
   - Modeling queues the v9 fit (a rule swap on DATASET_ALL) behind lots3. The pipeline thread
     mirrors the rule in `ads.kept_changes` and moves `observations.py --latest-ask` to v9.
   - Changes dated on the off day up to 7 days after stay as they are. Modeling may take those up
     later as latest-ask-v10 with its own fit.
 - The next quarantine version also takes the 8 commercial ads, the 2 Queens ads and the 9 PAD
-  move candidates (these need backing) noted in `pending-next-quarantine-notes.jsonl`.
+  move candidates noted in `pending-next-quarantine-notes.jsonl`. No independent
+  evidence backs the PAD moves yet, so each needs a second source before it goes in.
 
 ## 2026-10-17 03:10 ET
 
