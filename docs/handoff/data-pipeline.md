@@ -106,6 +106,11 @@ On Oct 17 the overnight plan closed with these merges:
 - #967 and #968: the page-capture rewrite is gone, and the collector runs without the page parser.
 - #969 and #970: descriptions and ad attributes stop at each ad's last ACTIVE record.
 - #971: `analysis.ads` gains `building_check`.
+- #980 and #985: the build drops stale price changes as `latest-ask-v9` does, and
+  `PIPELINE_STALE_DAYS=-1` gives `latest-ask-v10`.
+- #991: a split in the unit ledger can point `into` an earlier split, for 870 Broadway and 444
+  West 20th Street.
+- #994: the corrections ledger takes `quarantine-v34`, `quarantine-v35` and `bedrooms-ad-v10`.
 
 The work goes on in this order:
 
@@ -144,11 +149,11 @@ The work goes on in this order:
    out of the ledger. The 22,112 links without photos need another signal, such as the floor plans
    or stated sizes.
 2. A `drop_lot` change in the corrections ledger, read by `analysis.lot_facts` so the listed ads
-   get no lot. DI wrote `/data1/apartments/tmp/suspect/bcheck/drop-lot.jsonl` in that form, 1,274
-   ads that `building_check` flagged and a reader put on the wrong building or under an
-   out-of-date city record. The build rejects a change it doesn't know, so the file moves into
-   `pipeline/ledger/` with the PR. Fits read their lot features from the frontier registry until
-   step 8's item 3, so Modeling's refit takes the NaN lots from DI's registry or chain rule.
+   get no lot. #975 put DI's list in `config/reviews/drop-lot-20261017.jsonl`: 1,274 ads that
+   `building_check` flagged and a reader put on the wrong building or under an out-of-date city
+   record. Modeling's `lots3` feature sets (#976) read that file and give those ads NaN lot
+   features, so fits don't wait on the ledger. The build rejects a change it doesn't know, so the
+   PR adds `drop_lot` to the ledger's changes and imports the file as a batch.
 3. DI's suggestion: drop a late change to a repeated-digit ask, such as $9,999, when it moves the
    ask by 1.2x or more.
 

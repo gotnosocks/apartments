@@ -48,13 +48,20 @@ in two models and wrote nothing, so the rows of 06:35 stayed the latest until 11
 ## Builds on the night of Oct 16 and on Oct 17
 
 The columns are as above. The path unit started the 23:38 build when the export of runs 12 to 16
-changed the manifest at 23:32, and I started the other two by hand.
+changed the manifest at 23:32. I started the builds of 23:02, 23:39 and 05:28 by hand, the last
+through the timer's service so Modeling could fit its rows before 07:15, and the timer started the
+build of 07:18. The cgroups of both reached the 5 GiB cap with no swap: a cgroup counts page cache,
+and the kernel trims the cache at the cap. Against the rows of 05:28, the rows of 07:18 lost the 15
+rows that #994 excludes, six rows changed bedrooms and five changed unit, and no other value
+changed.
 
 | finished | code | started by | wall | CPU | build | peak MiB | rows file | notes |
 |---|---|---|--:|--:|--:|--:|---|---|
 | 23:02 | #948 | hand | 12.7 min | 2.3 min | 30 s | 3,924 | `rows-beb8748d`, 1,746,509 rows | about 12 min waiting for the locks |
 | 23:38 | #950 | manifest | 5.9 min | 16.9 min | 339 s | 4,116 | `rows-32a688be`, 1,746,794 rows | the top-up of runs 12 to 16, with every ads model rebuilt, since #958 hadn't merged |
 | 23:39 | #951 | hand | 0.7 min | 1.5 min | 27 s | 3,863 | `rows-3a408062`, 1,746,793 rows | the tenfold asks of `latest-ask-v8` in the corrections ledger |
+| 05:28 | #979 | hand | 12.3 min | 27.8 min | 711 s | 4,182 | `rows-5ceca3a1`, 1,746,793 rows | a full build, since #958, #970, #971 and #980 changed its models: 223 s to plan and 465 s for the records step |
+| 07:18 | #996 | timer | 3.1 min | 6.7 min | 173 s | 4,213 | `rows-c3fa81d0`, 1,746,778 rows | no new records: it rebuilt the 17 models that depend on the two ledgers, after #991 and #994 |
 
 The collector's runs 12 to 16 made their last API call at about 23:30. The build started within
 seconds of the export's manifest change at 23:32 and wrote checked rows at 23:38, 8.4 minutes after
