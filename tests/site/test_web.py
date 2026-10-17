@@ -1832,6 +1832,11 @@ def test_rent_map_slices_by_bedrooms_and_neighbourhood(client, site_root):
     assert set(whole["rent"]) == {"1", "2"} and len(whole["buildings"]) == 2
     beds = client.get("/estimates/map.json?beds=2").get_json()
     assert beds["rent"] == {"2": [["a2"], ["b2"]]} and "_index" not in beds
+    # a building page's Street View lookup leaves a cache in the parsed map
+    path = current / "map.json"
+    web._rent_map(str(path), path.stat().st_mtime)["_streetview"] = {"f": len}
+    sliced = client.get("/estimates/map.json?beds=1&area=Chelsea")
+    assert sliced.status_code == 200 and "_streetview" not in sliced.get_json()
     one = client.get("/estimates/map.json?beds=1&area=Bushwick").get_json()
     assert [b["id"] for b in one["buildings"]] == ["b"]
     assert one["rent"] == {"1": [["b1"]]}
