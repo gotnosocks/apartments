@@ -64,6 +64,11 @@ def test_main_names_the_records_file_it_read(records_catalog, tmp_path, monkeypa
         str(tmp_path / line["records"]["path"]),
         line["records"]["sha256"],
     )
+    ads = prov["records"]["ads"]
+    assert (ads["path"], ads["sha256"]) == (
+        str(tmp_path / line["ads_file"]["path"]),
+        line["ads_file"]["sha256"],
+    )
     n = len(listing_outcomes.CRAWLS)
     assert listing_outcomes.parse(["--crawl", "page", "--crawl", "records"]) == (
         {**listing_outcomes.CRAWLS, f"crawl-{n}": "records"},

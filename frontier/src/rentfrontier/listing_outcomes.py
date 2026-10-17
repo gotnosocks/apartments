@@ -13,7 +13,8 @@ Each `--crawl` names a granular crawl's folder, `page` for the page crawls
 data pipeline's catalog, read after checking the file's SHA-256
 (`rentfrontier.api_records`). Each record counts as captured at its last
 fetch, so a listing still on the market has its days counted to that fetch.
-provenance.json lists the file under `records`.
+provenance.json lists the file under `records`, with the ads file of the same
+catalog line under `records.ads`, because the reader keeps listings by it.
 
 These are outcomes: they are known only once the listing is over, so they go
 on the frame for reading (`attach`), never into a feature set. A listing still

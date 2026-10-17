@@ -1986,9 +1986,9 @@ read its event mentions, and keeps the earliest ACTIVE event of the listing's ow
 provenance lists both files under `sources`.
 
 `listing_outcomes` reads the file with `--crawl records`, beside `--crawl page` for the page
-crawls, and its provenance gives the file under `records`. A listing still on the market has its
-days counted to its record's last fetch, where the granular export stopped them at the record's
-first answer.
+crawls, and its provenance gives the file under `records`, with the ads file of the same catalog
+line under `records.ads`. A listing still on the market has its days counted to its record's last
+fetch, where the granular export stopped them at the record's first answer.
 
 ## Datasets for the frontier fits
 
@@ -2693,7 +2693,7 @@ file:
     it, each first fetched a day after listing and last fetched ten days after, and check that
     the first counts ten days and the second stops at its day off the market;
 70. run `listing_outcomes.main` with `--crawl records`, and check that its provenance gives the
-    file under `records`, that `--crawl page` adds the page crawls and that a tag without a
+    file under `records` and the ads file under `records.ads`, that `--crawl page` adds the page crawls and that a tag without a
     crawl stops.
 
 ## Full build
