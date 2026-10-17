@@ -206,7 +206,7 @@ listings fall in each band, as calibration predicts.
    with the relisting centre worked out once from every listing. It works out the research
    story's held-out accuracy, rent jumps, unit examples and border medians into meta
    (`story_checks`), so the server reads them instead of scanning every listing. The fit of
-   297,273 listings takes 4:40 with a peak of 3.3 GB (7.5 GB before streaming).
+   297,273 listings takes 4:36 with a peak of 3.8 GB (7.5 GB before streaming).
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
