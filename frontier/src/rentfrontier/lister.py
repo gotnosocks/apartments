@@ -212,8 +212,8 @@ def _from_records(records: dict, ads: dict) -> tuple[list[dict], pd.Series]:
 def catalog_files() -> tuple[dict, dict]:
     """The records and ads files of the newest clean build in the pipeline's
     catalog, each checked."""
-    entry = api_records.catalog_entry()
-    return api_records.checked(entry, "records"), api_records.checked(entry, "ads_file")
+    records = api_records.records_file()
+    return records, records["ads"]
 
 
 def build(
