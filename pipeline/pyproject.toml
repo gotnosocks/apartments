@@ -32,4 +32,4 @@ dev-mode-dirs = [".", "../src"]
 testpaths = ["tests"]
 # pytest-xdist runs the tests in three worker processes. Each one peaks near 0.6 GB, so the suite
 # fits a 2 GB light job. A fourth worker gains nothing, as the longest tests take about 10 s.
-addopts = "-n 3"
+addopts = "-n 3 --dist worksteal"
