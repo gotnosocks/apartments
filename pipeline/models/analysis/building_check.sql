@@ -6,7 +6,7 @@ MODEL (
         unique_values(columns := (listing_id)),
         not_null(columns := (listing_id, reasons, bbl, pluto_release))
     ),
-    description 'Each fit-ready row whose lot''s MapPLUTO record rules out the ad''s building: a floor more than one floor and 30% above the lot''s floor count, or a lot with no apartments and a land use from industrial to vacant, for review.'
+    description 'Each fit-ready row whose lot''s MapPLUTO record rules out the ad''s building: a floor more than one floor and 30% above the lot''s floor count, a lot with no apartments and a land use from industrial to vacant, or a lot with no building in any release and no footprint, for review.'
 );
 
 -- The city check in docs/data/pipeline.md read a sample of rows whose lot disagreed with the ad,
@@ -34,6 +34,14 @@ MODEL (
 --       by the ad's first day, and no certificate of a new building. A lot with a new building
 --       or a conversion gains apartments in DOB's records before MapPLUTO's. A row without a
 --       BIN has no certificates to read, so only the lot's records and the ads decide.
+--   never_built_lot:  every release in buildings.lot_releases gives the lot a building area of 0
+--       and no apartments, and the latest copy of the building footprints holds no footprint on
+--       it. A lot with a condominium class in any release stays out, and so does a row with a
+--       certificate of occupancy for apartments or for a new building, as in zero_unit_lot. The
+--       ads may place any number of units in the building: a reader of the export of Oct 17
+--       found parks, parking lots, rail yards and vacant land under buildings with 4 to 50
+--       advertised units. A release with a blank area or apartment count keeps the lot out,
+--       since recent releases give some lots a blank record.
 --
 -- When the latest release has no record of the lot, the dated record decides alone.
 --
@@ -46,6 +54,17 @@ WITH units AS (
     FROM ads.placed
     GROUP BY building_id
 ),
+history AS (
+    SELECT bbl, bool_and(coalesce(bldgarea = 0 AND unitsres = 0, false)) AS never_built,
+        coalesce(bool_or(bldgclass LIKE 'R%'), false) AS condominium
+    FROM buildings.lot_releases
+    GROUP BY bbl
+),
+footprints AS (
+    SELECT DISTINCT mappluto_bbl AS bbl
+    FROM city.footprints
+    WHERE release = (SELECT arg_max(release, published) FROM city.footprints)
+),
 facts AS (
     SELECT r.listing_id, f.bbl, f.pluto_release,
         coalesce(r.advertised_floor, r.physical_floor, r.label_derived_floor) AS floor,
@@ -53,13 +72,16 @@ facts AS (
         f.numfloors, f.numbldgs, f.unitsres, f.landuse, f.bldgclass,
         t.numfloors AS latest_numfloors, t.numbldgs AS latest_numbldgs,
         t.unitsres AS latest_unitsres, t.landuse AS latest_landuse,
-        c.units AS certificate_units, c.new_building
+        c.units AS certificate_units, c.new_building,
+        h.never_built AND NOT h.condominium AND p.bbl IS NULL AS never_built
     FROM analysis.rows r
     JOIN analysis.lot_facts f USING (listing_id)
     JOIN buildings.lots l ON l.building_id = r.building_id
     LEFT JOIN buildings.lot_releases t ON t.bbl = f.bbl AND t.release = l.pluto_release
     LEFT JOIN units u ON u.building_id = r.building_id
     LEFT JOIN analysis.building_certificates c USING (listing_id)
+    LEFT JOIN history h ON h.bbl = f.bbl
+    LEFT JOIN footprints p ON p.bbl = f.bbl
 ),
 reasons AS (
     SELECT *,
@@ -79,7 +101,11 @@ reasons AS (
                     AND ad_units <= 3
                     AND NOT coalesce(certificate_units > 0, false)
                     AND NOT coalesce(new_building, false)
-                    THEN 'zero_unit_lot' END
+                    THEN 'zero_unit_lot' END,
+                CASE WHEN never_built
+                    AND NOT coalesce(certificate_units > 0, false)
+                    AND NOT coalesce(new_building, false)
+                    THEN 'never_built_lot' END
             ],
             x -> x IS NOT NULL
         ) AS reasons

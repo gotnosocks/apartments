@@ -2,17 +2,24 @@ import duckdb
 
 # Each case is an ad in its own building on its own lot: the ad's advertised, physical and
 # label floors and StreetEasy's floor count for the building; the lot's floor count, building
-# count, apartments and land use as of the ad's first day; the same facts in the latest release;
-# the count of units the ads place in the building; and the units and new-building flag of the
-# BIN's certificates of occupancy.
+# count, apartments and land use as of the ad's first day; the same facts in the latest release,
+# with the lot's building area and class there and its building area in an earlier release; the
+# copy of the building footprints holding a footprint on the lot; the count of units the ads
+# place in the building; and the units and new-building flag of the BIN's certificates of
+# occupancy.
 BASE = {
     "floors": (None, None, None, None),
     "dated": (5.0, 1, 10, 2),
     "latest": (5.0, 1, 10, 2),
+    "area": 1000.0,
+    "class": "X1",
+    "earlier": None,
+    "footprint": None,
     "units": 1,
     "certificate": (None, None),
     "dropped": False,
 }
+NEVER = {"dated": (0.0, 0, 0, 10), "latest": (0.0, 0, 0, 10), "area": 0.0, "units": 12}
 CASES = {
     # The floor rule.
     "above": {"floors": (8, None, None, None)},
@@ -61,6 +68,14 @@ CASES = {
         "latest": (2.0, 1, 0, 6),
         "certificate": (None, True),
     },
+    # The never-built rule.
+    "never built": NEVER,
+    "old footprint": NEVER | {"footprint": "20250101"},
+    "footprint": NEVER | {"footprint": "20261016"},
+    "built before": NEVER | {"earlier": 4000.0},
+    "blank record": NEVER | {"earlier": "blank"},
+    "condominium": NEVER | {"class": "R0"},
+    "rising": NEVER | {"certificate": (None, True)},
     # Both rules.
     "parking": {
         "floors": (5, None, None, None),
@@ -79,7 +94,7 @@ CASES = {
 
 def inputs(db):
     """Write the tables the check reads, with a row of each case."""
-    for schema in ("analysis", "buildings", "ads"):
+    for schema in ("analysis", "buildings", "ads", "city"):
         db.execute(f"CREATE SCHEMA {schema}")
     db.execute(
         """CREATE TABLE analysis.rows (listing_id TEXT, building_id TEXT,
@@ -95,8 +110,16 @@ def inputs(db):
     )
     db.execute(
         """CREATE TABLE buildings.lot_releases (bbl TEXT, release TEXT, numfloors DOUBLE,
-        numbldgs INT, unitsres INT, landuse INT)"""
+        numbldgs INT, unitsres INT, landuse INT, bldgarea DOUBLE, bldgclass TEXT)"""
     )
+    db.execute(
+        "CREATE TABLE city.footprints (release TEXT, published TEXT, mappluto_bbl TEXT)"
+    )
+    for release in ("20250101", "20261016"):
+        db.execute(
+            "INSERT INTO city.footprints VALUES (?, ?, '1999990001')",
+            [release, release[:4] + "-" + release[4:6] + "-" + release[6:]],
+        )
     db.execute(
         "CREATE TABLE ads.placed (listing_id TEXT, building_id TEXT, unit_id TEXT)"
     )
@@ -121,8 +144,24 @@ def inputs(db):
         db.execute("INSERT INTO buildings.lots VALUES (?, ?, '26v2')", [building, lot])
         if case["latest"]:
             db.execute(
-                "INSERT INTO buildings.lot_releases VALUES (?, '26v2', ?, ?, ?, ?)",
-                [lot, *case["latest"]],
+                "INSERT INTO buildings.lot_releases VALUES (?, '26v2', ?, ?, ?, ?, ?, ?)",
+                [lot, *case["latest"], case["area"], case["class"]],
+            )
+        if case["earlier"]:
+            db.execute(
+                "INSERT INTO buildings.lot_releases VALUES (?, '11v1', ?, ?, ?, ?, ?, ?)",
+                [
+                    lot,
+                    *case["latest"],
+                    case["earlier"] if case["earlier"] != "blank" else None,
+                    case["class"],
+                ],
+            )
+        if case["footprint"]:
+            db.execute(
+                "INSERT INTO city.footprints SELECT release, published, ? FROM city.footprints"
+                " WHERE release = ? LIMIT 1",
+                [lot, case["footprint"]],
             )
         db.execute("INSERT INTO ads.placed VALUES (?, ?, ?)", [ad, building, "u0"])
         for u in range(1, case["units"]):
@@ -151,6 +190,9 @@ def test_building_check_cases(tmp_path, render_context):
     - `parking` is on floor 5 of a one-floor lot with no apartments and land use 10, so it
       gets both reasons.
     - `tall` is on floor 38 of a lot of 25 floors, 52% above the count.
+    - `never built` is in a building of 12 advertised units, on a lot with no building area and
+      no apartments in its only release and no footprint. `old footprint` also has a footprint
+      in an earlier copy of the footprints, and the latest copy has none.
 
     The check leaves out the rest:
 
@@ -169,7 +211,10 @@ def test_building_check_cases(tmp_path, render_context):
     - `certificate` has a certificate of occupancy with 6 apartments, and `new building` a
       certificate of a new building.
     - `lot taken away` would get both reasons as `parking` does, but a live drop_lot took its
-      lot away, so its lot facts are empty."""
+      lot away, so its lot facts are empty.
+    - `footprint` has a footprint in the latest copy, `built before` a building area of 4,000
+      square feet in release 11v1, `blank record` no building area in release 11v1,
+      `condominium` the class R0 and `rising` a certificate of a new building."""
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
     inputs(db)
     query = render_context.render("analysis.building_check").sql(dialect="duckdb")
@@ -180,8 +225,10 @@ def test_building_check_cases(tmp_path, render_context):
         ("above", ["floor_above_lot"]),
         ("industrial", ["zero_unit_lot"]),
         ("label", ["floor_above_lot"]),
+        ("never built", ["never_built_lot"]),
         ("no latest floor count", ["floor_above_lot"]),
         ("no latest record", ["floor_above_lot"]),
+        ("old footprint", ["never_built_lot"]),
         ("parking", ["floor_above_lot", "zero_unit_lot"]),
         ("physical", ["floor_above_lot"]),
         ("tall", ["floor_above_lot"]),
