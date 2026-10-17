@@ -28,8 +28,8 @@ The script works in these steps:
    the script counts their rows as it writes them.
 4. It writes the records file, `records-<hash>.parquet`, with `steps/records.py`: each distinct
    API record of an ad, in the form the frontier builders read from the granular export. The
-   step keeps the records it has read in `STATE/records/`, so a top-up reads only its new
-   records.
+   step keeps the records it has read in `STATE/records/`, so a build reads only the records
+   missing from them.
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, whether the build was
    a top-up, each export file it read with its SHA-256, each file of the corrections ledger and

@@ -20,7 +20,11 @@ provenance.json. Refuses a dirty tree. With `--records`, I read the API records
 of the newest clean build in the data pipeline's catalog in place of a granular
 crawl, after checking the file's SHA-256 (`rentfrontier.api_records`). I keep
 only the cohort's listings, so one run covers every region, and provenance.json
-names the file under `records`. Feature sets read an evidence file only where
+names the file under `records`. From the records file I take each listing's
+ACTIVE record fetched last, or its record fetched last when it has no ACTIVE
+record (`record_descriptions`). Each evidence line names the record it came
+from under `description_record`: `last_active` or `latest`, and every line from
+a granular crawl reads `latest`. Feature sets read an evidence file only where
 `SOURCES` lists it, so every other feature set keeps its text.
 """
 
@@ -177,21 +181,40 @@ def granular_descriptions(granular: Path) -> pd.Series:
     return pd.Series(text.to_numpy(), index=last.listing_id.astype(str).to_numpy())
 
 
-def record_descriptions(records: dict, wanted: set[str]) -> pd.Series:
-    """Each wanted listing id's own ad text in the pipeline's records file `records`:
-    the description of the record fetched last (None when it has none)."""
-    last = {}
+def record_descriptions(records: dict, wanted: set[str]) -> pd.DataFrame:
+    """Each wanted listing id's own ad text in the pipeline's records file `records`.
+
+    I take the description of the listing's ACTIVE record fetched last. Once an ad
+    is rented or delisted, StreetEasy can cut or strip its description, and the
+    fit's target is the ask the ad carried while ACTIVE. A listing with no ACTIVE
+    record takes the description of its record fetched last. The frame's index is
+    the listing id, `description` holds the text (None when that record has
+    none), and `record` holds `last_active` or `latest` for the record I read."""
+    latest, active = {}, {}
     columns = ["listing_id", "collected_at", "snapshot_id", "raw_listing_json"]
     for r in api_records.captures(records, columns):
         listing = r["listing_id"]
         if listing not in wanted:
             continue
         key = (r["collected_at"], r["snapshot_id"])
-        if listing not in last or key >= last[listing][0]:
-            raw = r["raw_listing_json"]
-            text = (json.loads(raw) or {}).get("description") if raw else None
-            last[listing] = (key, text)
-    return pd.Series({k: text for k, (_, text) in last.items()}, dtype=object)
+        raw = r["raw_listing_json"]
+        ad = (json.loads(raw) or {}) if raw else {}
+        entry = (key, ad.get("description"))
+        if listing not in latest or key >= latest[listing][0]:
+            latest[listing] = entry
+        if ad.get("status") == "ACTIVE" and (
+            listing not in active or key >= active[listing][0]
+        ):
+            active[listing] = entry
+    rows = {
+        listing: (active[listing][1], "last_active")
+        if listing in active
+        else (text, "latest")
+        for listing, (_, text) in latest.items()
+    }
+    return pd.DataFrame.from_dict(
+        rows, orient="index", columns=["description", "record"], dtype=object
+    )
 
 
 def build(
@@ -215,12 +238,17 @@ def build(
         rows = [r for r in rows if r["audit_id"] not in known]
     if records is None:
         text = granular_descriptions(granular)
+        chosen = pd.Series("latest", index=text.index, dtype=object)
     else:
-        text = record_descriptions(records, {str(r["source_listing_id"]) for r in rows})
+        table = record_descriptions(
+            records, {str(r["source_listing_id"]) for r in rows}
+        )
+        text, chosen = table.description, table.record
     stamp = dt.datetime.now(dt.UTC)
     out = data.OUTPUT_ROOT / "descriptions" / f"{name}-{stamp:%Y%m%d}-{commit[:7]}"
     out.mkdir(parents=True, exist_ok=False)
     found = 0
+    by_record = {}
     with open(out / "evidence.jsonl", "w") as f:
         for row in rows:
             listing = str(row["source_listing_id"])
@@ -228,10 +256,12 @@ def build(
             if not isinstance(description, str):
                 continue
             found += 1
+            by_record[chosen[listing]] = by_record.get(chosen[listing], 0) + 1
             record = {
                 "audit_id": row["audit_id"],
                 "source_listing_id": listing,
                 "description": description,
+                "description_record": chosen[listing],
                 "description_source": "granular_listing_record",
                 "source_path": "/description",
             }
@@ -244,10 +274,14 @@ def build(
         "records": records,
         "dataset": str(dataset),
         "observations_sha256": data.sha256(dataset / "observations.jsonl"),
-        "rule": "the listing's own ad: the description of its last captured record",
+        "rule": "the listing's own ad: the description of its last captured record"
+        if records is None
+        else "the listing's own ad: the description of its ACTIVE record fetched last,"
+        " or of its record fetched last when it has no ACTIVE record",
         "skipped_dataset": str(skip) if skip else None,
         "rows": len(rows),
         "rows_with_description": found,
+        "rows_by_description_record": by_record,
         "evidence_sha256": data.sha256(out / "evidence.jsonl"),
         "commit": commit,
         "built_at": stamp.isoformat(),

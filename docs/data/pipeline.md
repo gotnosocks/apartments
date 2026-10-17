@@ -542,7 +542,7 @@ disk.
 | `ads.breaks` | merge | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
 | `ads.regions` | merge | ad with an answer: the export regions of its answers |
 | `ads.record_attributes` | merge | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
-| `ads.attributes` | merge | ad with a parsed record: its attributes and rental flags, merged over its records |
+| `ads.attributes` | merge | ad with a parsed record up to its last ACTIVE answer, or with any parsed record when it has no ACTIVE answer: its rental flags, merged over its records, and its attributes, merged over its records up to its last ACTIVE one |
 | `ads.exclusions` | merge | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
 | `buildings.latest_record` | table | building with a record: the slug, address, map point and city facts of its latest record |
@@ -778,6 +778,34 @@ each attribute, one known value stands, and two or more give an unknown and put 
 in `conflicts`. A rental flag is true when any record sets it. The chain fails to parse a
 record without propertyDetails or with another ad's `id`, and gives it a capture without
 values, so `ads.attributes` leaves such records out.
+
+Unlike the chain, `ads.attributes` merges an ad's attributes only over the records fetched up
+to its last answer with status ACTIVE, and over all of them when the ad has no ACTIVE answer.
+StreetEasy can strip or cut an ad's description once it is rented or delisted. A closed record
+read from that text then gave another value, and the merge turned the ACTIVE records' value into
+an unknown. The fit's target is the latest ask, so for an ad with an ACTIVE answer the merged
+attributes describe the ad as it stood when it last asked. Few ads have one: on the export of
+runs 1 to 16, 7,891 of the 2,140,923 ads and 5,850 of the 1,746,791 fit-ready rows, since the
+backfill fetched most ads after they closed. The other ads merge all their records, none of
+them fetched while ACTIVE. Data improvements sized the pattern on records-b4958178. Of the 469
+ads whose latest record was closed and that had an ACTIVE record, 31 had a description different
+from their last ACTIVE record's, and 14 had it blanked.
+
+On that export, 875 of the 7,891 ads have records fetched after their last ACTIVE one, and the
+cut changes the attributes row of each, 657 of them with a fit-ready row. For most of them only
+`records`, the count of records merged, goes down. The merged values
+change in 12 ads, one field each: bedrooms in 2 ads, the doorman in 2, laundry in 1, views in 4
+and windows in 3. In each of them the conflict between records gives way to the ACTIVE records'
+value, and the cut adds no conflict.
+
+The rental flags (furnished, short term and concession) still merge over all of an ad's
+records, since they describe the terms behind the ask. Ad 5178211 in Williamsburg shows why.
+Its two ACTIVE records, fetched at 10:08 ET Oct 15 and 05:45 ET Oct 16, ask $4,595 and give no
+concession or lease term. Its DELISTED record, fetched at 23:26 ET Oct 16, carries the same
+description with a price of $5,017, 1.01 months free on a 12-month lease and a price delta of
+$422. $5,017 over 10.99 months of 12 comes to $4,595, so the ACTIVE ask was net of the free
+month, and only the closed record says so. A cut of the flags at the last ACTIVE record would
+take away the ad's concession and its exclusion.
 
 `ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
 ask, its merged attributes and its rental flags. Its SQL describes each rule. It leaves out
@@ -2065,11 +2093,12 @@ its first microsecond. The builders used snapshot IDs only to order two rows of 
 the same time, and in the granular export of runs 1 to 5 no listing has two records with the
 same time.
 
-The step keeps each record it has serialized in Parquet files under `STATE/records/`, so a top-up
-serializes only its new records. A change to `steps/records.py` starts a new cache folder, and once
-the step has written the file, it deletes the folders of other versions, about 3 GB each on the Oct
-16 export. While it runs, the step holds a lock on `STATE/records/.lock`, and a second records step
-stops at once, such as a run of the script beside a build.
+The step keeps each record it has serialized in Parquet files under `STATE/records/`, so any
+build, a top-up or a full one, serializes only the records missing from them. A change to
+`steps/records.py` starts a new cache folder, and once the step has written the file, it deletes
+the folders of other versions, about 3 GB each on the Oct 16 export. While it runs, the step
+holds a lock on `STATE/records/.lock`, and a second records step stops at once, such as a run of
+the script beside a build.
 
 ### Against the granular export
 
@@ -2144,6 +2173,18 @@ and lists the file's name and SHA-256 in its provenance under `records`.
 `descriptions` reads the file with `--records` in place of `--granular`. It keeps only the
 records of the cohort's listings, so one run covers every region, where the granular export
 took a run for each slice. Its provenance names the file under `records`.
+
+From the records, `descriptions` takes each listing's ACTIVE record fetched last, and its
+record fetched last when it has no ACTIVE record. StreetEasy can strip or cut an ad's
+description once it is rented or delisted, so the last ACTIVE record holds the text of the ad
+that asked the rent. When that record has no description, the listing gets no evidence line,
+even if another of its records has text. Each evidence line records its choice under
+`description_record`, as `last_active` or `latest`, and the provenance counts the rows of each
+under `rows_by_description_record`. A run from a granular export keeps the record captured last
+and marks every line `latest`.
+
+The pipeline's `ads.attributes` cuts each ad's records at the same point, merging the attributes
+over the records up to the last ACTIVE one.
 
 `listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
 and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
@@ -2463,8 +2504,11 @@ in all, and most tests add made-up ads to that export. The tests:
     the edges of the ranges too: asks of $749, $750, $50,000 and $50,001, 0 and 5 bedrooms,
     half a bathroom, and 1.25 bathrooms from `bathroomCount`. Four more ads have two records
     each, with two sizes, two doorman types, leases of 12 and 3 months, or the same values in
-    both. The last ad carries a feature code for furnished. The test checks each ad's reasons,
-    first ask, bedroom count, conflicts and number of records by value;
+    both. Another ad carries a feature code for furnished. Three ads cover the cut at an ad's
+    last ACTIVE answer: a RENTED record after the ACTIVE one, a record off the market between
+    two ACTIVE ones, and two DELISTED records with no ACTIVE one. The last ad's DELISTED record
+    states a concession and two bedrooms after its ACTIVE record. The test checks each ad's
+    reasons, first ask, bedroom count, conflicts and number of records by value;
 12. build run 2 in a copy of the project, then change the copy's `steps/attributes.py` to give
     every record 9 bedrooms. A plan in the test's process stops with the mismatch error, since
     the venv loads the repo's own code. A plan in a new process, with the copy first on
@@ -2788,10 +2832,10 @@ session:
 - the list of the venv's packages, which SQLMesh otherwise reads on each plan.
 
 On thelio, with other jobs keeping the load average between 4 and 10, the tests take about 125 s
-at three workers and 135 s at two, and use 300 to 350 s of CPU. The longest test, the top-up
-build of item 20, takes about 20 s. SQLMesh loads models in forked workers, and a fork in a
-process with open DuckDB connections can deadlock, so `conftest.py` also sets
-`MAX_FORK_WORKERS=1`.
+at three workers and 135 s at two, and use 300 to 350 s of CPU. With item 74's top-up test, a
+run at two workers on Oct 17 took 184 s, and that test took 41 s, the longest of them. SQLMesh
+loads models in forked workers, and a fork in a process with open DuckDB connections can
+deadlock, so `conftest.py` also sets `MAX_FORK_WORKERS=1`.
 
 The repository's own tests hold `tests/test_pipeline_records.py`, since the pipeline's venv lacks
 the page parser's dependencies. It compares `serialize` with the parser of
@@ -2828,7 +2872,11 @@ The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a 
 
 61. build a cohort's description evidence from a records file with two records of a listing,
     and check that each row takes the text of the record fetched last and that the build skips
-    listings outside the cohort;
+    listings outside the cohort. A second build reads four listings: a RENTED record after an
+    ACTIVE one, two ACTIVE records before a DELISTED one, a draft and a record in contract with
+    no ACTIVE one, and an ACTIVE record without a description before a DELISTED one with a
+    description. It checks that each row takes its last ACTIVE record's text, or the latest
+    record's without one, and that the last listing gets no evidence line;
 62. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
     either and stops on both.
 

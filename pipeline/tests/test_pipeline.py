@@ -1054,10 +1054,18 @@ def test_event_log_cases(tmp_path, monkeypatch):
     ]
 
 
-def ad_record(listing_id, active, beds=1, pricing=None, description=None, details=True):
-    """A record of ad `listing_id`, with an ACTIVE event in its own history for each (day,
-    price) pair of `active`, `beds` bedrooms and one bathroom. Without `details` the record
-    lacks propertyDetails, and a dict in `details` updates them."""
+def ad_record(
+    listing_id,
+    active,
+    beds=1,
+    pricing=None,
+    description=None,
+    details=True,
+    status="ACTIVE",
+):
+    """A record of ad `listing_id` with status `status`, with an ACTIVE event in its own
+    history for each (day, price) pair of `active`, `beds` bedrooms and one bathroom. Without
+    `details` the record lacks propertyDetails, and a dict in `details` updates them."""
     record = json.loads(
         history_record(
             listing_id,
@@ -1077,6 +1085,7 @@ def ad_record(listing_id, active, beds=1, pricing=None, description=None, detail
             ],
         )
     )
+    record["status"] = status
     record["pricing"].update(pricing or {})
     record["description"] = description
     record["propertyDetails"] = (
@@ -1091,7 +1100,12 @@ def test_exclusion_cases(tmp_path, monkeypatch):
     """The made-up ads here cover each reason in ads.exclusions and the edges of its ranges.
     Ads 9000020 and 9000032 have no reason, ad 9000031's record lacks propertyDetails, and one
     of ad 9000032's records carries another ad's `id`. Ad 9000034 has two records with the same
-    values, and ads 9000043 to 9000045 have two records with different values."""
+    values, and ads 9000043 to 9000045 have two records with different values.
+    Ads 9000047 to 9000050 cover the cut at an ad's last ACTIVE answer. Ad 9000047's RENTED
+    record comes after its ACTIVE one and stays out. Ad 9000048's record off the market comes
+    between two ACTIVE ones and merges. Ad 9000049 has no ACTIVE record, so all its records
+    merge. Ad 9000050's DELISTED record states a concession and two bedrooms after its ACTIVE
+    record. The concession counts and the bedrooms stay out."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     may = [("2026-05-01", 3000)]
@@ -1153,6 +1167,28 @@ def test_exclusion_cases(tmp_path, monkeypatch):
         (
             9000046,
             ad_record(9000046, may, details={"features": {"list": ["FURNISHED"]}}),
+        ),
+        (9000047, ad_record(9000047, may)),
+        (9000047, ad_record(9000047, may, beds=2, status="RENTED")),
+        (9000048, ad_record(9000048, may, details={"livingAreaSize": 500})),
+        (
+            9000048,
+            ad_record(
+                9000048,
+                may,
+                details={"livingAreaSize": 600},
+                status="TEMPORARILY_OFF_MARKET",
+            ),
+        ),
+        (9000048, ad_record(9000048, may, details={"livingAreaSize": 500})),
+        (9000049, ad_record(9000049, may, status="DELISTED")),
+        (9000049, ad_record(9000049, may, beds=2, status="DELISTED")),
+        (9000050, ad_record(9000050, may)),
+        (
+            9000050,
+            ad_record(
+                9000050, may, beds=2, pricing={"monthsFree": 1}, status="DELISTED"
+            ),
         ),
     ]
     append_answers(
@@ -1229,6 +1265,24 @@ def test_exclusion_cases(tmp_path, monkeypatch):
         ["9000044", [], 3000.0, 1.0, ["doorman_type"], 2],
         ["9000045", ["excluded_short_term"], 3000.0, 1.0, [], 2],
         ["9000046", ["excluded_furnished"], 3000.0, 1.0, [], 1],
+        ["9000047", [], 3000.0, 1.0, [], 1],
+        [
+            "9000048",
+            ["conflicting_layout_within_advertisement"],
+            3000.0,
+            1.0,
+            ["square_feet"],
+            2,
+        ],
+        [
+            "9000049",
+            ["conflicting_layout_within_advertisement", layout],
+            3000.0,
+            None,
+            ["bedrooms"],
+            2,
+        ],
+        ["9000050", ["excluded_concession"], 3000.0, 1.0, [], 1],
     ]
     flags = ctx.fetchdf(
         """SELECT listing_id, bathrooms, short_term, furnished FROM ads.attributes
