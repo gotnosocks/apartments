@@ -1,6 +1,19 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 19:00 ET, after the square-footage sets in #1075 and #1076. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 20:00 ET, after the size-equals-ask sets in #1080. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 20:00 ET
+
+- #1080 adds `pipeline/ledger/2026-10-17-zzzz-unit-sqft-askcopy.ndjson`, 5 sqft sets. `/data1/apartments/tmp/suspect/sqft/askcopy/`
+  finds 34 ads whose coded size lies within $1 of the ask, so the rent went into the size field. 7 have another ad
+  for the unit coding a size. Two of those back each other at 845 sq ft against an ask of 846, so both stay out.
+  Sonnet read the other 5 and called all of them wrong. The 29 without a backing ad stay as they are.
+- `/data1/apartments/tmp/suspect/sqft/huge/` lists 49 ads with a size over 4,000 sq ft and at most one bedroom,
+  or under 200 sq ft and at least one bedroom. Apart from three #1080 rows, none has another ad with a size and
+  an ask within 0.75 to 1.33, so the ledger gets no sets from it. 25 are studios coded 4,000 to 6,000 sq ft, 14 of
+  them at $15,000 to $36,500, which look like lofts or whole houses with a missing bedroom count. 102 studios ask over
+  $10,000 with more than 1,500 sq ft.
+- The next new ledger file needs a name sorting after `2026-10-17-zzzz-unit-sqft-askcopy`, or a later date.
 
 ## 2026-10-17 19:00 ET
 
