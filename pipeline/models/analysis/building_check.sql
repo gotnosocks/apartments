@@ -42,8 +42,8 @@ MODEL (
 --       condominium class in any release, and a row with a certificate of occupancy for
 --       apartments or for a new building, as in zero_unit_lot. It also leaves out a lot with a
 --       blank area or apartment count in any release. Recent releases give some lots a blank
---       record, and a lot with an area of 0 in its older releases may hold a new building by
---       the time of the blank one.
+--       record. A lot with an area of 0 in its older releases may hold a new building by the
+--       time of the blank one.
 --
 -- When the latest release has no record of the lot, the dated record decides alone.
 --

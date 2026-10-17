@@ -5,9 +5,8 @@ import duckdb
 # count, apartments and land use as of the ad's first day; the same facts in the latest release,
 # with the lot's building area and class there; the lot's building area, apartments and class in
 # an earlier release; the copy of the building footprints holding a footprint on the lot; the
-# count of units the ads
-# place in the building; and the units and new-building flag of the BIN's certificates of
-# occupancy.
+# count of units the ads place in the building; and the units and new-building flag of the BIN's
+# certificates of occupancy.
 BASE = {
     "floors": (None, None, None, None),
     "dated": (5.0, 1, 10, 2),

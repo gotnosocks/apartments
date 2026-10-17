@@ -1616,7 +1616,7 @@ facts in its `building_check` column.
 The check reads each row's lot from `analysis.lot_facts`, with its facts as of the ad's first
 day, and the same lot's record in the latest release from `buildings.lot_releases`. A lot can
 gain floors or apartments between releases, so the floor and zero-unit rules need both records
-to agree:
+to agree. The check lists a row for these reasons:
 
 - `floor_above_lot`: the ad's floor, from its advertised floor, its physical floor or its unit
   label in that order, lies more than one floor and more than 30% above the lot's floor count.
@@ -1644,7 +1644,7 @@ Oct 17, the rule lists those 239 rows and no others. The check's query took 2.2 
 
 Recent releases give some lots a blank record. A lot with an area of 0 in its older releases may
 hold a new building by the time of the blank one, so the check leaves out any lot with a blank
-area or apartment count. On the lane's state, that leaves out one more row.
+area or apartment count. On the lane's state, the check leaves out one row this way.
 
 The floor of slack covers a basement, a penthouse or a mezzanine that MapPLUTO counts
 differently. MapPLUTO gives the floors of the tallest building on a lot, so lots of several
