@@ -32,7 +32,7 @@ MODEL (
 --   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger. The
 --       rows file's `latest_ask` gives the ask a live ask set corrects.
 --   bedrooms to concession, conflicts, records:  ads.attributes, the values merged over the
---       ad's records before any correction. `full_baths`, `half_baths` and `label_floor` come
+--       ad's records up to its last ACTIVE one, before any correction. `full_baths`, `half_baths` and `label_floor` come
 --       from ads.reported.
 --   fate:  the unit-month check's verdict in analysis.candidates, missing for an ad the chain
 --       drops before that check.

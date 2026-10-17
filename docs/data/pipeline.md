@@ -460,7 +460,7 @@ disk.
 | `ads.breaks` | table | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
 | `ads.regions` | table | ad with an answer: the export regions of its answers |
 | `ads.record_attributes` | table | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
-| `ads.attributes` | table | ad with a parsed record: its attributes and rental flags, merged over its records |
+| `ads.attributes` | table | ad with a parsed record: its rental flags, merged over its records, and its attributes, merged over its records up to its last ACTIVE one |
 | `ads.exclusions` | table | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
 | `buildings.latest_record` | table | building with a record: the slug, address, map point and city facts of its latest record |
@@ -690,6 +690,24 @@ each attribute, one known value stands, and two or more give an unknown and put 
 in `conflicts`. A rental flag is true when any record sets it. The chain fails to parse a
 record without propertyDetails or with another ad's `id`, and gives it a capture without
 values, so `ads.attributes` leaves such records out.
+
+Unlike the chain, `ads.attributes` merges an ad's attributes only over the records fetched up
+to its last answer with status ACTIVE, and over all of them when the ad has no ACTIVE answer.
+StreetEasy strips or cuts an ad's description once it is rented or delisted. A closed record
+read from that text then gave another value, or none, and the merge turned the ACTIVE records'
+value into an unknown. The fit's target is the latest ask, so the merged attributes describe
+the ad as it stood when it last asked. Data improvements sized the pattern on records-b4958178.
+Of the 469 ads whose latest record was closed and that had an ACTIVE record, 31 had a
+description different from their last ACTIVE record's, and 14 had it blanked.
+
+The rental flags (furnished, short term and concession) still merge over all of an ad's
+records, since they describe the terms behind the ask. Ad 5178211 in Williamsburg shows why.
+Its two ACTIVE records, fetched at 10:08 ET Oct 15 and 05:45 ET Oct 16, ask $4,595 and give no
+concession or lease term. Its DELISTED record, fetched at 23:26 ET Oct 16, carries the same
+description with a price of $5,017, 1.01 months free on a 12-month lease and a price delta of
+$422. $5,017 over 10.99 months of 12 comes to $4,595, so the ACTIVE ask was net of the free
+month, and only the closed record says so. With the flags cut at the last ACTIVE record, the
+ad lost its concession and its exclusion.
 
 `ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
 ask, its merged attributes and its rental flags. Its SQL describes each rule. It leaves out
@@ -2290,8 +2308,11 @@ in all, and most tests add made-up ads to that export. The tests:
     the edges of the ranges too: asks of $749, $750, $50,000 and $50,001, 0 and 5 bedrooms,
     half a bathroom, and 1.25 bathrooms from `bathroomCount`. Four more ads have two records
     each, with two sizes, two doorman types, leases of 12 and 3 months, or the same values in
-    both. The last ad carries a feature code for furnished. The test checks each ad's reasons,
-    first ask, bedroom count, conflicts and number of records by value;
+    both. Another ad carries a feature code for furnished. Three ads cover the cut at an ad's
+    last ACTIVE answer: a RENTED record after the ACTIVE one, a record off the market between
+    two ACTIVE ones, and two DELISTED records with no ACTIVE one. The last ad's DELISTED record
+    states a concession and two bedrooms after its ACTIVE record. The test checks each ad's
+    reasons, first ask, bedroom count, conflicts and number of records by value;
 12. build run 2 in a copy of the project, then change the copy's `steps/attributes.py` to give
     every record 9 bedrooms. A plan in the test's process stops with the mismatch error, since
     the venv loads the repo's own code. A plan in a new process, with the copy first on
