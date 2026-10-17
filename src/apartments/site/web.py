@@ -2721,7 +2721,13 @@ def _cut_rent_map(path: str, mtime: float, beds: str | None, area: str | None) -
         for i, b in enumerate(data.get("buildings", []))
         if area is None or b.get("neighbourhood") == area
     ]
-    out = {k: v for k, v in data.items() if k not in ("_index", "buildings", "rent")}
+    # Keys starting with "_" hold the web process's own caches (the building
+    # index, Street View lookups) and stay out of the response.
+    out = {
+        k: v
+        for k, v in data.items()
+        if not k.startswith("_") and k not in ("buildings", "rent")
+    }
     # The page decides once whether to offer the building-kind filter.
     out["kinds"] = any(b.get("kind") for b in data.get("buildings", []))
     out["buildings"] = [data["buildings"][i] for i in rows]
