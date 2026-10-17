@@ -161,8 +161,8 @@ DEFINITIONS = {
         "missing. `zero_count`: it is 0. `within`: the floor is at most the count. "
         "`within_latest`, against `numfloors` alone: the floor is above the count and at most "
         "`latest_numfloors`, so the row's release is older than the building's current "
-        "height. `above by N`: the floor exceeds both counts, and the as-of count by N, "
-        "rounded up.",
+        "height. `above by N`: the floor exceeds the as-of count by N, rounded up, and "
+        "exceeds `latest_numfloors` too, or the lot is missing from the latest release.",
         "link_groups": "`address_or_footprint`: rows of buildings whose `link` is `address` "
         "or `footprint`. buildings.lots chose their lot over the other route's lot by how "
         "well the latest MapPLUTO release's class, year, numfloors and unitsres match the "
@@ -171,7 +171,8 @@ DEFINITIONS = {
         "refused_labels": "Rows with `floor_status` above_captured_building_floor_count: the "
         "label floor of ads.reported is above the StreetEasy count, so the row has no floor. "
         "Their label floor against `numfloors`, in the same classes.",
-        "top_above_numfloors": "Buildings with rows above `numfloors` and `latest_numfloors`, "
+        "top_above_numfloors": "Buildings with rows above `numfloors` and above "
+        "`latest_numfloors` or without it, "
         "the most such rows first: their units, top floor and floor sources, the counts of "
         "their latest row, and `latest_numfloors` with its release.",
     },

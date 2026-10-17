@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
+import duckdb
 import pytest
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -51,7 +52,9 @@ def test_citycheck_cases(tmp_path, monkeypatch):
       lot. MapPLUTO gives the address to lot 40 of Queens block 8786.
 
     The script refuses the state the build writes, and runs on a renamed copy without changing
-    it."""
+    it. A second copy gives 900204 the BIN of lot 13's building, which has no certificate, and
+    gives the BIN of 900201 a certificate of 20 apartments. Lot 12 then counts a building with
+    no certificate, so it gets no co_units."""
     export = tmp_path / "export"
     shutil.copytree(FIXTURE / "cases" / "export", export)
     record = identity.record
@@ -211,3 +214,35 @@ def test_citycheck_cases(tmp_path, monkeypatch):
         5,
         ["advertised", "label"],
     )
+
+    planted = tmp_path / "planted" / "pipeline.duckdb"
+    planted.parent.mkdir()
+    shutil.copy2(copy, planted)
+    db = duckdb.connect(str(planted))
+    db.execute("CREATE SCHEMA planted")
+    for view, change in (
+        (
+            "buildings.lots",
+            "CASE WHEN building_id = '900204' THEN '1032437' ELSE bin END AS bin",
+        ),
+        (
+            "analysis.building_certificates",
+            "CASE WHEN bin = '1032436' THEN 20 ELSE units END AS units",
+        ),
+    ):
+        table = "pipeline.planted." + view.replace(".", "_")
+        db.execute(f"CREATE TABLE {table} AS FROM {view}")
+        db.execute(
+            f"CREATE OR REPLACE VIEW {view} AS SELECT * REPLACE ({change}) FROM {table}"
+        )
+    db.close()
+    out = tmp_path / "planted-report"
+    assert citycheck.main([str(planted), "--out", str(out), "--memory", "1GB"]) == 0
+    units = json.loads((out / "citycheck.json").read_text())["units"]
+    top = {c["bbl"]: c for c in units["top_above"]}
+    assert top["1012200012"]["bins"] == ["1032436", "1032437"]
+    assert top["1012200012"]["co_units"] is None
+    nonzero = {
+        k: v for k, v in units["lots_by_class"]["units_all vs co_units"].items() if v
+    }
+    assert nonzero == {"no_count": 2, "within": 1, "above by 2 to 5": 1}
