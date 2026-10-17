@@ -16,6 +16,8 @@ MODEL (
 --               of its ads, or a move finds no ad in its building.
 --   stale       a split lists an ad with another page or with no unit, or a move's `to` matches
 --               no building's slug, or more than one. `differs` gives the split's ads, or 'to'.
+--               A split with an `into` is also stale, with 'into', when the split it points
+--               into isn't live.
 --   live        it applies, and ads.placed applies it.
 -- ads.identity gives the ads' pages, units and buildings, before any entry applies.
 WITH join_pages AS (
@@ -70,14 +72,29 @@ checked AS (
     LEFT JOIN joins j USING (entry)
     LEFT JOIN splits s USING (entry)
     LEFT JOIN moves m USING (entry)
+),
+statuses AS (
+    SELECT entry, file, line, change, building,
+        CASE
+            WHEN change = 'retract' THEN 'retract'
+            WHEN retracted THEN 'retracted'
+            WHEN NOT present THEN 'absent'
+            WHEN differs <> '' THEN 'stale'
+            ELSE 'live'
+        END AS status,
+        CASE WHEN present THEN differs ELSE '' END AS differs
+    FROM checked
+),
+-- read_units lets a split point only into a split with no `into` of its own, so one step
+-- settles each split's status.
+pointed AS (
+    SELECT s.*, s.status = 'live' AND u.into_entry IS NOT NULL
+        AND t.status IS DISTINCT FROM 'live' AS dangling
+    FROM statuses s
+    JOIN ledger.unit_entries u USING (entry)
+    LEFT JOIN statuses t ON t.entry = u.into_entry
 )
 SELECT entry, file, line, change, building,
-    CASE
-        WHEN change = 'retract' THEN 'retract'
-        WHEN retracted THEN 'retracted'
-        WHEN NOT present THEN 'absent'
-        WHEN differs <> '' THEN 'stale'
-        ELSE 'live'
-    END AS status,
-    CASE WHEN present THEN differs ELSE '' END AS differs
-FROM checked
+    CASE WHEN dangling THEN 'stale' ELSE status END AS status,
+    CASE WHEN dangling THEN 'into' ELSE differs END AS differs
+FROM pointed

@@ -66,6 +66,12 @@ def write(folder, name, lines):
         (split("b", "1", [1]), "a split_unit gives its ads' IDs as listings"),
         (split("b", "1", ["5", "5"]), "a split_unit gives each ad once"),
         (
+            split("b", "1", ["5"], into="5"),
+            "a split_unit's into gives an ad of another",
+        ),
+        (split("b", "1", ["5"], into=6), "a split_unit's into gives an ad of another"),
+        (join("b", ["1", "2"], into="5"), "a join_units takes no into"),
+        (
             split("b", "1", ["123"]),
             "other_ad evidence gives other ads than the entry's own",
         ),
@@ -122,6 +128,30 @@ def test_read_units_refuses(tmp_path):
             [split("b", "1", ["5"], evidence=[QUOTE])],
             "x.ndjson:1: a split_unit needs",
         ),
+        "into no split": (
+            [split("b", "2", ["7"], into="9")],
+            "x.ndjson:1: ad 9 is in no earlier split of b in force without an into",
+        ),
+        "into a later split": (
+            [split("b", "2", ["7"], into="6"), s],
+            "x.ndjson:1: ad 6 is in no earlier split of b",
+        ),
+        "into another building": (
+            [s, split("c", "2", ["7"], into="6")],
+            "x.ndjson:2: ad 6 is in no earlier split of c",
+        ),
+        "into a pointing split": (
+            [s, split("b", "2", ["7"], into="6"), split("b", "3", ["8"], into="7")],
+            "x.ndjson:3: ad 7 is in no earlier split of b",
+        ),
+        "into a retracted split": (
+            [s, retract(s), split("b", "2", ["7"], into="6")],
+            "x.ndjson:3: ad 6 is in no earlier split of b",
+        ),
+        "retract a split pointed into": (
+            [s, split("b", "2", ["7"], into="6"), retract(s)],
+            "x.ndjson:3: the split at x.ndjson:2 points into x.ndjson:1, so it stays",
+        ),
     }
     for name, (lines, error) in cases.items():
         folder = tmp_path / name.replace(" ", "-")
@@ -150,6 +180,20 @@ def test_read_units_frees_a_retracted_entrys_claims(tmp_path):
     ]
 
 
+def test_read_units_points_into_a_split(tmp_path):
+    """A split with an `into` gives the entry of the split it points into. Once it is retracted,
+    the split it pointed into can be retracted too."""
+    s = split("b", "1", ["5", "6"])
+    pointing = split("b", "2", ["7"], into="6")
+    rows = ledger.read_units(
+        [write(tmp_path, "x.ndjson", [s, pointing, retract(pointing), retract(s)])]
+    )
+    assert [(row["into_ad"], row["into_entry"]) for row in rows[:2]] == [
+        (None, None),
+        ("6", ledger.entry_id(s)),
+    ]
+
+
 def test_unit_ledger_cases(tmp_path, monkeypatch):
     """The fixture holds five buildings. The unit ledger's entries:
     - join: the two units of 89 Adelphi Street.
@@ -157,10 +201,13 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     - join retracted: units 14 and 16 of 270 15th Street, retracted later. Unit 14 then joins
       unit 6 in a later file.
     - split: two ads of unit 14, the greater listed first, so the new unit ends with the first
-      listed ad rather than the lesser one. Unit 14 joins unit 6 in the later file, so the split
-      ads start from the joined unit's ID.
+      listed ad rather than the lesser one, then an ad with no record. Unit 14 joins unit 6 in
+      the later file, so the split ads start from the joined unit's ID.
     - split stale: an ad of unit 16 listed under unit 12, and an ad with no record.
     - split absent: an ad with no record alone.
+    - split into: an ad of another unit of 270 15th Street, into the split's ad with no record,
+      so its unit comes from the split's other ads.
+    - split into stale: an ad of 129 West 89th Street, into the absent split's ad.
     - move: 1115 Union Street to 260 West 91st Street, a building with a record.
     - move stale: to a slug of no building.
     - move absent: a building with no ads.
@@ -205,13 +252,24 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     fifteenth = "270-15-street-brooklyn"
     split_ads = ads(fifteenth, "14")[::-1][:2]
     assert len(split_ads) == 2
+    into_unit, into_ad = next(
+        (unit, ad)
+        for unit in units(fifteenth)
+        if unit not in ("14", "6")
+        for ad in ads(fifteenth, unit)
+        if ad != "1342669"
+    )
+    stale_unit = units(west_89)[0]
+    (stale_ad, *_) = ads(west_89, stale_unit)
     entries = {
         "join": join(adelphi, units(adelphi)),
         "join absent": join(west_91, [units(west_91)[0], "no-such-unit"]),
         "join retracted": join(fifteenth, ["14", "16"]),
-        "split": split(fifteenth, "14", split_ads),
+        "split": split(fifteenth, "14", [*split_ads, "3"]),
         "split stale": split(fifteenth, "12", ["1", "1342669"]),
         "split absent": split(west_89, "1a", ["2"]),
+        "split into": split(fifteenth, into_unit, [into_ad], into="3"),
+        "split into stale": split(west_89, stale_unit, [stale_ad], into="2"),
         "move": move(union, west_91),
         "move stale": move(west_89, "no-such-building"),
         "move absent": move("no-such-building-either", fifteenth),
@@ -253,6 +311,8 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         ids["split"]: ("live", ""),
         ids["split stale"]: ("stale", "1342669"),
         ids["split absent"]: ("absent", ""),
+        ids["split into"]: ("live", ""),
+        ids["split into stale"]: ("stale", "into"),
         ids["move"]: ("live", ""),
         ids["move stale"]: ("stale", "to"),
         ids["move absent"]: ("absent", ""),
@@ -277,6 +337,9 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     for ad in split_ads:
         expected.loc[ad, "unit_id"] += "~review-" + split_ads[0]
         placements[ad].append(ids["split"])
+    # The pointing split's ad takes the split's unit, whatever its own page.
+    expected.loc[into_ad, "unit_id"] = expected.unit_id[split_ads[0]]
+    placements[into_ad].append(ids["split into"])
     moved = before.building.eq(union)
     (west_91_id,) = before.building_id[before.building.eq(west_91)].unique()
     expected.loc[moved, ["building", "building_id"]] = [west_91, west_91_id]

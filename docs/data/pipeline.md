@@ -1881,7 +1881,9 @@ these:
 - `join_units` gives the ads of two or more unit pages of a building one unit, the least of
   their unit IDs, as the chain's `unit-reviews-v2` does;
 - `split_unit` gives some ads of a unit page a unit of their own, with the ID
-  `{unit_id}~review-{first listed ad}` from `unit-reviews-v2`;
+  `{unit_id}~review-{first listed ad}` from `unit-reviews-v2`. With an `into`, naming an ad of
+  an earlier split of the building, the ads take that split's unit instead, as a line of
+  `unit-reviews-v4` does;
 - `move_building` gives a building's ads the slug and ID of another building and leaves their
   pages and units alone, as `building-joins-v1` does for 97 Horatio Street;
 - `retract` undoes an earlier entry.
@@ -1889,7 +1891,9 @@ these:
 A join, split or move needs evidence of a backing kind, as a set of the corrections ledger does,
 or a city record. Among the entries still in force, a page takes part in one join at most, an ad
 in one split and a building in one move, so each ad meets at most one entry of each change. A
-building with ads moving to it stays where it is.
+building with ads moving to it stays where it is. A split points only into a split in force
+with no `into` of its own, and a retract of that split waits until the split pointing into it
+is retracted.
 
 Three models read the unit ledger:
 
@@ -1902,11 +1906,13 @@ Three models read the unit ledger:
    | `retract` | undoes another |
    | `retracted` | is undone by a later retract |
    | `absent` | joins fewer than two pages with ads that have a unit, splits none of the ads it lists, or moves a building with no ads |
-   | `stale` | splits an ad with another page or no unit, with the ads in `differs`, or moves to a slug matching no building or several, with `to` in `differs` |
+   | `stale` | splits an ad with another page or no unit, with the ads in `differs`, splits into a split that isn't live, with `into` in `differs`, or moves to a slug matching no building or several, with `to` in `differs` |
    | `live` | applies |
 
 3. `ads.placed` applies the live entries to `ads.identity`: the joins, then the splits on the
-   joined units, and the moves. `placements` lists the entries applied to each ad.
+   joined units, and the moves. The ads of a split with an `into` then take the unit of the
+   split it points into, from that split's ads with a record, since the `into` ad may have
+   none. `placements` lists the entries applied to each ad.
 
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
@@ -1944,6 +1950,32 @@ after the ledger loses the three splits, as well as the held one: the first step
 a building and label the least unit ID among them, and a split's ads keep their page, so their
 `~review-` IDs fall back to the unit's. The joins and the move come out as the chain's either
 way.
+
+On Oct 17 I imported Data improvements' reviews of 870 Broadway and 444 West 20th Street, lines
+8 to 12 of `config/reviews/unit-reviews-20261017c.jsonl`, into `2026-10-17-unit-reviews2.ndjson`.
+StreetEasy files 870 Broadway and 30 East 18th Street as one building with unit pages 1 to 4,
+and PLUTO gives the lot 4 floors and 6 apartments. Under the 18th Street address, the ads of
+pages 1 to 3 offer one-bedrooms of 625 to 720 sq ft. Four ads give 870 Broadway and larger
+apartments:
+
+- 4967090, on page 1, gives 875 sq ft and 4 rooms, against 625 and 715 sq ft and 3 rooms for
+  the page's other ads. Its ad calls the size an estimate.
+- 2157347, on page 2, and 2238992 and 3874322, on page 3, offer a 1,000 sq ft loft with no
+  bedroom, with the same description under different headlines. 2238992 came on the market
+  16 days after 2157347 came off.
+
+A split of page 1 gives 4967090 a unit of its own. A split of page 3 does the same for 2238992
+and 3874322, and a split of page 2 points 2157347 into it, so the three loft ads share
+`unit:b0f45b82-0fb5-523e-bc62-64ee2dd5865a~review-2238992`. Each split rests on the stated
+sizes and the PLUTO record. 4756550, a one-bedroom of 722 sq ft on page 2, also gives the 870
+Broadway address, so the sizes separate the apartments, and the address doesn't. All four ads
+have rows, so four rows change unit.
+
+At 444 West 20th Street, a townhouse PLUTO gives 3 apartments, a join puts the garden page and
+page 1 in one unit. The garden page's ad 2312228 offered a duplex of 2 bedrooms and 1.5 baths at
+$15,750 until 2018-02-08. Four days later, ad 2314583 on page 1 offered the same layout at the
+same ask in the same words. The garden page's ad 3215132 of 2020 repeats them and gives 2,750 sq
+ft. Both pages take the garden page's unit ID, the lesser, so 2314583's row changes unit.
 
 ## Ads file
 
@@ -2805,9 +2837,13 @@ in all, and most tests add made-up ads to that export. The tests:
     page in two joins, an ad in two splits, a building moved twice, a move to a moved building,
     a move of a building other ads move to, a retract of an unknown or a retracted entry, and a
     split backed only by the ad's words. After a retract, a later file takes the retracted
-    entries' pages, ad and building;
+    entries' pages, ad and building. Reading also stops for a split pointing into another
+    building's split, a later split, a retracted split, a split with an `into` of its own or an
+    ad of no split, and for a retract of a split another points into. A split pointing into an
+    earlier one gives that split's entry, and the two can be retracted in turn;
 44. build the fixture without a unit ledger, and check that `ads.placed` repeats `ads.identity`.
-    Then write two joins, three splits and three moves, each live, absent or stale, a join
+    Then write two joins, five splits and three moves, each live, absent or stale, a split
+    pointing into a live split's ad with no record and one into an absent split, a join
     retracted in a later file, and a later join taking one of its pages. The test checks each
     entry's status and differing values and each ad's building, building ID, unit and placements
     by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
