@@ -1,20 +1,8 @@
 import datetime
-import importlib.util
-from pathlib import Path
 
 import duckdb
 import pytest
 
-
-def load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-# pytest imports test modules by path, so the helpers of test_pipeline.py load the same way.
-context = load("pipeline_tests", Path(__file__).with_name("test_pipeline.py")).context
 
 COLUMNS = ["release", "bbl", "lp_number", "lm_type", "desdate", "status"]
 A, B, C, D, E = (f"100001000{n}" for n in range(1, 6))
@@ -65,7 +53,7 @@ def connect(tmp_path):
     )
 
 
-def test_lot_landmarks_cases(tmp_path, monkeypatch):
+def test_lot_landmarks_cases(tmp_path, render_context):
     """Lots of the case, with their designations in the copy of 2026-06-18:
 
     - Lot A became an individual landmark twice on 1989-07-11, as LP-00150 and LP-00100, an
@@ -82,7 +70,7 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
     building b4 and a building missing from `buildings.lots`, and ads 9 and 10 read lots D and
     E. The DuckDB session runs in New York time, where an ad's first day at midnight UTC falls
     on the day before."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     new, old = "2026-06-18T14:42:53Z", "2025-01-01T00:00:00Z"
     designations = [
         (new, A, "LP-00150", "Individual Landmark", " 7/11/1989 ", "DESIGNATED"),
@@ -199,20 +187,20 @@ def test_lot_landmarks_cases(tmp_path, monkeypatch):
         ((A, "LP-00100", "Individual Landmark", "7/11/89"), "7/11/89"),
     ],
 )
-def test_lot_landmarks_stops_on_odd_values(tmp_path, monkeypatch, row, message):
+def test_lot_landmarks_stops_on_odd_values(tmp_path, render_context, row, message):
     """A type outside the four, a blank date, a date in another form and a two-digit year
     stop the step."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     db = connect(tmp_path)
     inputs(db, [("2026-06-18T14:42:53Z", *row, "DESIGNATED")])
     with pytest.raises(duckdb.Error, match=message):
         build(db, ctx)
 
 
-def test_lot_landmarks_without_a_copy(tmp_path, monkeypatch):
+def test_lot_landmarks_without_a_copy(tmp_path, render_context):
     """With no copy in the archive, `city.landmarks` has only the archive's columns, and an ad
     with a lot reads both flags as missing."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     db = connect(tmp_path)
     inputs(db, [], ads=[("01", "b1", "2020-01-01")], columns=["release"])
     build(db, ctx)

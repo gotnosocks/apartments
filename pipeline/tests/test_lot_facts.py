@@ -1,20 +1,8 @@
 import datetime
-import importlib.util
-from pathlib import Path
 
 import duckdb
 import pytest
 
-
-def load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-# pytest imports test modules by path, so the helpers of test_pipeline.py load the same way.
-context = load("pipeline_tests", Path(__file__).with_name("test_pipeline.py")).context
 
 # Releases of the case, published at midnight UTC as the archive gives them. 22v2 has no
 # published date, as in the archive.
@@ -80,7 +68,7 @@ def build(db, ctx, *names):
         db.execute(f"CREATE TABLE {name} AS {query}")
 
 
-def test_lot_facts_cases(tmp_path, monkeypatch):
+def test_lot_facts_cases(tmp_path, render_context):
     """Lots of the case, with their records in the releases:
 
     - Lot A is in every release. Its floor count goes from 5 in 13v1 to 6, 6.5, 7 and 8, and
@@ -100,7 +88,7 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
     New York time, where ad 4's midnight and 19v1's falls on the day before. Ad 5 comes after
     22v2's month, ad 6 after 26v2, and ad 12 after 19v1. Ads 7 to 9 read lots B and C, and ads
     10 and 11 have buildings without a lot. Ad 13 reads lot B in 16v2."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     no_flags = {"pfirm15_flag": "", "firm07_flag": ""}
     records = [
         (
@@ -208,9 +196,11 @@ def test_lot_facts_cases(tmp_path, monkeypatch):
         ("irrlotcode", "X", "irrlotcode X on lot 1000010001 in 13v1"),
     ],
 )
-def test_lot_releases_stops_on_odd_values(tmp_path, monkeypatch, field, text, message):
+def test_lot_releases_stops_on_odd_values(
+    tmp_path, render_context, field, text, message
+):
     """A record with a value `buildings.lot_releases` can't read stops the build."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
     inputs(db, ctx, [(A, "13v1", {field: text})], [("b1", A)])
     with pytest.raises(duckdb.Error, match=message):
