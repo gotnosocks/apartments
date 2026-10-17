@@ -42,15 +42,18 @@ def test_lot_link_cases(tmp_path, render_context):
       address's lot.
     - b7: the address's lot has 0 and the footprint's lot 3, but the address's lot in release
       25v1 had 10 apartments and fits the building record better than the footprint's lot. The map
-      point lies outside the footprint, so the step keeps the address's lot.
+      point lies outside the footprint, and the building's only ad came on the market in May 2026,
+      before 26v2 showed the lot empty, so the step keeps the address's lot.
     - b8: as b7, except that the map point lies inside the footprint, so the step takes the
       footprint's lot.
     - b9: as b7, except that the address's last record with apartments, in 25v1, has 6 and fits
       only as well as the footprint's lot, so the step takes the footprint's lot. The 10
       apartments of 24v1 count for nothing.
+    - b10: as b7, except that the building has a second ad from September 2026, after 26v2, so
+      the step takes the footprint's lot.
     """
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
-    for schema in ("city", "buildings"):
+    for schema in ("city", "buildings", "ads"):
         db.execute(f"CREATE SCHEMA {schema}")
     db.execute(
         """CREATE TABLE city.pluto (bbl TEXT, release TEXT, published TIMESTAMPTZ,
@@ -80,9 +83,12 @@ def test_lot_link_cases(tmp_path, render_context):
             earlier("1000090001", "24v1", "10"),
             earlier("1000090001", "25v1", "6"),
             lot("1000090002", "3", 3),
+            lot("10000100001", "0", 2),
+            earlier("10000100001", "25v1", "10"),
+            lot("10000100002", "3", 3),
         ],
     )
-    buildings = [f"b{n}" for n in range(1, 10)]
+    buildings = [f"b{n}" for n in range(1, 11)]
     db.execute(
         """CREATE TABLE buildings.latest_record (building_id TEXT, building_class TEXT,
         year_built INT, floor_count DOUBLE, residential_units INT)"""
@@ -97,7 +103,7 @@ def test_lot_link_cases(tmp_path, render_context):
     )
     db.executemany(
         "INSERT INTO buildings.pad_link VALUES (?, ?, ?, 1, 1)",
-        [(f"b{n}", f"10000{n}0001", f"100{n}001") for n in range(1, 10)],
+        [(f"b{n}", f"10000{n}0001", f"100{n}001") for n in range(1, 11)],
     )
     db.execute(
         """CREATE TABLE buildings.footprint_link
@@ -110,11 +116,22 @@ def test_lot_link_cases(tmp_path, render_context):
                 f"b{n}",
                 f"10000{n}0002",
                 f"100{n}002",
-                n not in (7, 9),
-                4.0 if n in (7, 9) else 0.0,
+                n not in (7, 9, 10),
+                4.0 if n in (7, 9, 10) else 0.0,
             )
-            for n in range(1, 10)
+            for n in range(1, 11)
         ],
+    )
+    db.execute("CREATE TABLE ads.identity (listing_id TEXT, building_id TEXT)")
+    db.execute("CREATE TABLE ads.latest_record (listing_id TEXT, on_day TEXT)")
+    ads = [(b, "2026-05-01") for b in buildings] + [("b10", "2026-09-01")]
+    db.executemany(
+        "INSERT INTO ads.identity VALUES (?, ?)",
+        [(str(n), b) for n, (b, _) in enumerate(ads)],
+    )
+    db.executemany(
+        "INSERT INTO ads.latest_record VALUES (?, ?)",
+        [(str(n), day) for n, (_, day) in enumerate(ads)],
     )
     query = render_context.render("buildings.lots").sql(dialect="duckdb")
     db.execute(f"CREATE TABLE buildings.lots AS {query}")
@@ -124,6 +141,7 @@ def test_lot_link_cases(tmp_path, render_context):
     ).fetchall()
     assert rows == [
         ("b1", "address_apartments", "1000010001", "1001001", 0, 3),
+        ("b10", "footprint_apartments", "10000100002", "10010002", 2, 3),
         ("b2", "footprint_apartments", "1000020002", "1002002", 3, 0),
         ("b3", "address", "1000030001", "1003001", 3, 0),
         ("b4", "footprint", "1000040002", "1004002", 0, 1),

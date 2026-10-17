@@ -15,8 +15,11 @@ MODEL (
 -- instead when the building on it came down: the map point then often falls next door. It
 -- checks for that in MapPLUTO's last record of the address's lot with apartments, from an earlier
 -- release. When that record fits the building's record better than the footprint's lot does,
--- and the map point lies outside the footprint, the step keeps the address's lot. On a tie, as
--- for twin row houses, it takes the standing building.
+-- the map point lies outside the footprint, and every ad of the building ran before the first
+-- release to show the lot without apartments, the step keeps the address's lot. An ad from after
+-- that release can't be for an apartment in the old building, so the step then leaves the
+-- building on the footprint's lot. On a tie, as for twin row houses, it takes the standing
+-- building.
 -- Otherwise, as for a lot missing from
 -- MapPLUTO or one without a count, the city facts of the building's record decide. StreetEasy
 -- shows the building class, the year built, the floor count and the count of apartments mostly as
@@ -32,8 +35,9 @@ MODEL (
 -- - `address_apartments`, `footprint_apartments`: they give different lots, the named one has
 --   apartments, and the other has a count of 0.
 -- - `address_demolished`: the address's lot has a count of 0 and the footprint's lot apartments,
---   but the address's last record with apartments fits better than the footprint's lot, and the
---   map point lies outside the footprint.
+--   but the address's last record with apartments fits better than the footprint's lot, the
+--   map point lies outside the footprint, and the building's ads all ran before MapPLUTO showed
+--   the address's lot without apartments.
 -- - `address`, `footprint`: they give different lots, and the named one fits better.
 -- - `tie`: they give different lots that fit equally well, and the step takes the address's.
 -- - `address_only`: the map point falls in no footprint and lies more than 10 m from any.
@@ -48,7 +52,7 @@ MODEL (
 -- building, and the footprint on the same lot gives a numbered one.
 WITH latest AS (
     SELECT arg_max(release, published) AS release FROM city.pluto
-), records AS (
+), records AS NOT MATERIALIZED (
     SELECT try_cast(bbl AS DOUBLE)::BIGINT::VARCHAR AS bbl, release, published,
         nullif(trim(bldgclass), '') AS building_class,
         nullif(try_cast(yearbuilt AS INTEGER), 0) AS year_built,
@@ -57,12 +61,26 @@ WITH latest AS (
     FROM city.pluto
 ), pluto AS (
     SELECT * FROM records WHERE release = (SELECT release FROM latest)
+), history AS MATERIALIZED (
+    -- Each release's record of each lot an address gives.
+    SELECT * FROM records WHERE bbl IN (SELECT bbl FROM buildings.pad_link)
 ), earlier AS (
     SELECT bbl, arg_max({'building_class': building_class, 'year_built': year_built,
-        'floor_count': floor_count, 'residential_units': residential_units}, published) AS facts
-    FROM records
+        'floor_count': floor_count, 'residential_units': residential_units}, published) AS facts,
+        max(published) AS published
+    FROM history
     WHERE residential_units > 0
     GROUP BY bbl
+), emptied AS (
+    -- The first release after each lot's last record with apartments.
+    SELECT e.bbl, min(r.published) AS published
+    FROM earlier e JOIN history r ON r.bbl = e.bbl AND r.published > e.published
+    GROUP BY e.bbl
+), listed AS (
+    -- The day each building's latest ad came on the market.
+    SELECT i.building_id, max(try_cast(r.on_day AS DATE)) AS on_day
+    FROM ads.identity i JOIN ads.latest_record r USING (listing_id)
+    GROUP BY i.building_id
 ), fits AS (
     SELECT b.building_id,
         a.bbl AS address_bbl, a.bin AS address_bin, a.rank AS address_rank,
@@ -85,13 +103,16 @@ WITH latest AS (
             + coalesce((floor(ea.facts.floor_count) = floor(b.floor_count))::INTEGER, 0)
             + coalesce((ea.facts.residential_units = b.residential_units)::INTEGER, 0) END
             AS address_earlier_fit,
-        pa.residential_units AS address_units, pf.residential_units AS footprint_units
+        pa.residential_units AS address_units, pf.residential_units AS footprint_units,
+        coalesce(l.on_day < em.published::DATE, false) AS listed_before_emptied
     FROM buildings.latest_record b
     LEFT JOIN buildings.pad_link a USING (building_id)
     LEFT JOIN buildings.footprint_link f USING (building_id)
     LEFT JOIN pluto pa ON pa.bbl = a.bbl
     LEFT JOIN pluto pf ON pf.bbl = f.bbl
     LEFT JOIN earlier ea ON ea.bbl = a.bbl
+    LEFT JOIN emptied em ON em.bbl = a.bbl
+    LEFT JOIN listed l USING (building_id)
 ), linked AS (
     SELECT *,
         CASE WHEN address_bbl IS NULL AND footprint_bbl IS NULL THEN NULL
@@ -100,7 +121,7 @@ WITH latest AS (
             WHEN address_bbl = footprint_bbl THEN 'both'
             WHEN address_units > 0 AND footprint_units = 0 THEN 'address_apartments'
             WHEN footprint_units > 0 AND address_units = 0 AND address_earlier_fit > footprint_fit
-                AND NOT footprint_inside THEN 'address_demolished'
+                AND NOT footprint_inside AND listed_before_emptied THEN 'address_demolished'
             WHEN footprint_units > 0 AND address_units = 0 THEN 'footprint_apartments'
             WHEN address_fit > footprint_fit THEN 'address'
             WHEN footprint_fit > address_fit THEN 'footprint'

@@ -897,7 +897,7 @@ link each building two ways and choose between the two lots when they differ:
    | `both` | the address and the map point give the same lot |
    | `address_apartments` | they differ, the address's lot has apartments and the footprint's lot a count of 0 |
    | `footprint_apartments` | they differ, the footprint's lot has apartments and the address's lot a count of 0 |
-   | `address_demolished` | as `footprint_apartments`, but the address's last record with apartments, from an earlier release, fits the facts better than the footprint's lot, and the map point lies outside the footprint |
+   | `address_demolished` | as `footprint_apartments`, but the address's last record with apartments, from an earlier release, fits the facts better than the footprint's lot, the map point lies outside the footprint, and every ad of the building ran before the next release |
    | `address` | they differ, and the address's lot fits the facts better |
    | `footprint` | they differ, and the footprint's lot fits better |
    | `tie` | they differ and fit equally, and the step takes the address's lot |
@@ -1049,15 +1049,17 @@ among 43 buildings it had moved off empty lots: PAD 26c still puts the address o
 HPD's register for 35 of them.
 
 `buildings.lots` looks for it in MapPLUTO's last record of the address's lot with apartments,
-from any release since 09v1. When that record shares more facts with the StreetEasy record than
-the footprint's lot does in the latest release, and the map point lies outside the footprint,
-the step keeps the address's lot and its BIN, with `link` set to `address_demolished`. On the
-export of runs 1 to 10 it moves 36 buildings with 415 ads off `footprint_apartments`. PAD gives
-32 of those lots a placeholder BIN such as 3000000, so a join by BIN finds no building for them
-instead of the neighbor.
+from any release since 09v1 with a published date. 22v2 has none in
+`ops/pipeline/pluto_releases.csv`, so the step leaves it out. When that record shares more facts
+with the StreetEasy record than the footprint's lot does in the latest release, and the map
+point lies outside the footprint, the old building could hold the ads only if they ran before it
+came down. MapPLUTO dates that only roughly: the first release after the last record with
+apartments comes some months after the building went. The step keeps the address's lot and its
+BIN, with `link` set to `address_demolished`, when every ad of the building came on the market
+before that release.
 
-I compared each building's ads with the first release to show its address's lot without
-apartments:
+Without the date test, 36 buildings with 415 ads would move. I compared their ads with that
+release:
 
 | ads | buildings | ads |
 |---|---:|---:|
@@ -1065,8 +1067,17 @@ apartments:
 | some before and some after | 2 | 56 |
 | all listed after | 8 | 19 |
 
-The 8 buildings with ads only after may hold a new building that MapPLUTO doesn't record yet, or
-their ads may belong next door.
+An ad from after the release can't be for an apartment in the old building. The latest release
+classes 8 of those 10 lots as vacant land and the other 2 as a garage and a parking lot, so a
+new building on the lot is unlikely to hold the ads, and the step leaves the 10 buildings on the
+footprint's lot. One of them, 244 Montrose Avenue in Brooklyn, had 6 ads before MapPLUTO showed
+the lot empty in 2022 and 30 after. Data improvements suggested the date test on Oct 17.
+
+On the export of runs 1 to 10 the step moves 26 buildings with 340 ads off
+`footprint_apartments`. PAD gives 23 of those lots a placeholder BIN such as 3000000, so a join
+by BIN finds no building for them instead of the neighbor. The step reads every MapPLUTO record
+of the lots that addresses give, about 2.9 million rows, and on the lane copy it takes 2.3 s
+against 0.3 s before.
 
 My first version kept the address's lot whenever an earlier release gave it apartments. That
 moved 50 buildings, among them 278 Cooper Street in Brooklyn, which the reviewers of Oct 16
@@ -1078,10 +1089,10 @@ but the BIN is the neighbor's. Of the Oct 16 sample, the step moves only 910 Ber
 the reviewers left unclear. Its record describes a two-family house from 1905, which MapPLUTO
 gave the address's lot until 2019, and the footprint's lot holds 12 apartments built in 2016.
 
-Of Data improvements' 43 buildings, 26 were in `footprint_apartments`. The step moves 14 of them
-to the lot in HPD's register. It leaves 7 twins whose facts tie, and 5 where MapPLUTO never gave
-the address's lot apartments or the map point lies inside the footprint, mostly new buildings on
-lots that were vacant.
+Of Data improvements' 43 buildings, 26 were in `footprint_apartments`. The step moves 12 of them
+to the lot in HPD's register. It leaves 7 twins whose facts tie, 2 with ads from after the lot
+emptied, and 5 where MapPLUTO never gave the address's lot apartments or the map point lies
+inside the footprint, mostly new buildings on lots that were vacant.
 
 ### Checking a change
 
@@ -1605,9 +1616,10 @@ apartments in the latest MapPLUTO release when only one has some, and otherwise 
 latest building class, year, `numfloors` and `unitsres` best match the StreetEasy record. For a
 lot with `link` `address_apartments`, `footprint_apartments`, `address` or `footprint`, the
 `unitsres` comparison therefore leans toward agreement, and so does the `numfloors` comparison
-below. The links `both`, `tie`, `address_only` and `footprint_only` involve no such choice. I
-split each class tally into lots with a building linked by one of those four and the other
-lots, and print both in the summary.
+below. A lot under `address_demolished` comes from an earlier release's record and has a
+`unitsres` of 0 in the latest. The links `both`, `tie`, `address_only` and `footprint_only`
+involve no such choice. I split each class tally into lots with a building linked by one of the
+first five and the other lots, and print both in the summary.
 
 For floors, I take each fit-ready row's advertised floor, else its physical floor, else its
 label floor, and compare it with two counts:
@@ -2986,8 +2998,11 @@ in all, and most tests add made-up ads to that export. The tests:
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
    tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the 32 models below it and gives the full answer, and a further plan finds nothing to
-   build. `ads.record_attributes` parses only run 4's new records;
+   and the 39 models below it and gives the full answer, and a further plan finds nothing to
+   build. They include `buildings.lots`, which reads the days the ads came on the market, and
+   `buildings.lot_releases` below it: about 12 s on the full export. A top-up also brings new
+   building records, which rebuild both anyway. `ads.record_attributes` parses only run 4's new
+   records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
 5. add a run 5 file with a newer answer for one ad and an older answer for another. Only the
