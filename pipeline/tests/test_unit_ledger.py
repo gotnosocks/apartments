@@ -201,11 +201,12 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     - join retracted: units 14 and 16 of 270 15th Street, retracted later. Unit 14 then joins
       unit 6 in a later file.
     - split: two ads of unit 14, the greater listed first, so the new unit ends with the first
-      listed ad rather than the lesser one. Unit 14 joins unit 6 in the later file, so the split
-      ads start from the joined unit's ID.
+      listed ad rather than the lesser one, then an ad with no record. Unit 14 joins unit 6 in
+      the later file, so the split ads start from the joined unit's ID.
     - split stale: an ad of unit 16 listed under unit 12, and an ad with no record.
     - split absent: an ad with no record alone.
-    - split into: an ad of another unit of 270 15th Street, into the split's unit.
+    - split into: an ad of another unit of 270 15th Street, into the split's ad with no record,
+      so its unit comes from the split's other ads.
     - split into stale: an ad of 129 West 89th Street, into the absent split's ad.
     - move: 1115 Union Street to 260 West 91st Street, a building with a record.
     - move stale: to a slug of no building.
@@ -264,10 +265,10 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         "join": join(adelphi, units(adelphi)),
         "join absent": join(west_91, [units(west_91)[0], "no-such-unit"]),
         "join retracted": join(fifteenth, ["14", "16"]),
-        "split": split(fifteenth, "14", split_ads),
+        "split": split(fifteenth, "14", [*split_ads, "3"]),
         "split stale": split(fifteenth, "12", ["1", "1342669"]),
         "split absent": split(west_89, "1a", ["2"]),
-        "split into": split(fifteenth, into_unit, [into_ad], into=split_ads[1]),
+        "split into": split(fifteenth, into_unit, [into_ad], into="3"),
         "split into stale": split(west_89, stale_unit, [stale_ad], into="2"),
         "move": move(union, west_91),
         "move stale": move(west_89, "no-such-building"),

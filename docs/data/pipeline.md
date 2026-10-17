@@ -1871,8 +1871,9 @@ Three models read the unit ledger:
    | `live` | applies |
 
 3. `ads.placed` applies the live entries to `ads.identity`: the joins, then the splits on the
-   joined units, and the moves. The ads of a split with an `into` then take the unit of its
-   `into` ad. `placements` lists the entries applied to each ad.
+   joined units, and the moves. The ads of a split with an `into` then take the unit of the
+   split it points into, from that split's ads with a record, since the `into` ad may have
+   none. `placements` lists the entries applied to each ad.
 
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
@@ -1921,7 +1922,8 @@ apartments:
 - 4967090, on page 1, gives 875 sq ft and 4 rooms, against 625 and 715 sq ft and 3 rooms for
   the page's other ads. Its ad calls the size an estimate.
 - 2157347, on page 2, and 2238992 and 3874322, on page 3, offer a 1,000 sq ft loft with no
-  bedroom, in the same words. 2238992 came on the market 16 days after 2157347 came off.
+  bedroom, with the same description under different headlines. 2238992 came on the market
+  16 days after 2157347 came off.
 
 A split of page 1 gives 4967090 a unit of its own. A split of page 3 does the same for 2238992
 and 3874322, and a split of page 2 points 2157347 into it, so the three loft ads share
@@ -2802,7 +2804,7 @@ in all, and most tests add made-up ads to that export. The tests:
     earlier one gives that split's entry, and the two can be retracted in turn;
 44. build the fixture without a unit ledger, and check that `ads.placed` repeats `ads.identity`.
     Then write two joins, five splits and three moves, each live, absent or stale, a split
-    pointing into a live split and one into an absent split, a join
+    pointing into a live split's ad with no record and one into an absent split, a join
     retracted in a later file, and a later join taking one of its pages. The test checks each
     entry's status and differing values and each ad's building, building ID, unit and placements
     by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`

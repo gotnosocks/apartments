@@ -14,7 +14,8 @@ MODEL (
 --                  those ads.
 --   split_unit     each listed ad takes its unit ID, after any join, with '~review-' and the
 --                  split's first listed ad after it, as the chain's `review_units` does. A
---                  split with an `into` gives its ads the unit its `into` ad takes instead.
+--                  split with an `into` gives its ads the unit of the split it points into,
+--                  read from that split's ads with a record, since its `into` ad may have none.
 --   move_building  each ad of the building takes the building's new slug and the ID of the
 --                  building with that slug in buildings.details. Its page and unit stay as
 --                  they are.
@@ -38,7 +39,7 @@ joins AS (
     WHERE i.unit_id IS NOT NULL
 ),
 splits AS (
-    SELECT entry, listings[1] AS first, into_ad, unnest(listings) AS listing_id
+    SELECT entry, listings[1] AS first, into_entry, unnest(listings) AS listing_id
     FROM live
     WHERE change = 'split_unit'
 ),
@@ -58,16 +59,21 @@ placed AS (
         i.reasons,
         -- list_distinct leaves out the NULLs of the changes the ad meets no entry of.
         list_sort(list_distinct([j.entry, s.entry, m.entry])) AS placements,
-        s.into_ad
+        s.entry AS split,
+        s.into_entry
     FROM ads.identity i
     LEFT JOIN joins j USING (listing_id)
     LEFT JOIN splits s USING (listing_id)
     LEFT JOIN moves m ON m.building = i.building
-)
+),
 -- ledger.unit_status keeps a split with an `into` live only while the split it points into is
--- live, and read_units lets it point only into a split with no `into` of its own.
+-- live, and a live split's ads with a record share its page, so they share a unit. read_units
+-- lets a split point only into a split with no `into` of its own.
+targets AS (
+    SELECT split, min(unit_id) AS unit_id FROM placed WHERE split IS NOT NULL GROUP BY split
+)
 SELECT p.listing_id, p.building_id, p.building, p.records, p.page,
-    CASE WHEN p.into_ad IS NOT NULL THEN t.unit_id ELSE p.unit_id END AS unit_id,
+    CASE WHEN p.into_entry IS NOT NULL THEN t.unit_id ELSE p.unit_id END AS unit_id,
     p.reasons, p.placements
 FROM placed p
-LEFT JOIN placed t ON t.listing_id = p.into_ad
+LEFT JOIN targets t ON t.split = p.into_entry
