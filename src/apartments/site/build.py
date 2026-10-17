@@ -68,8 +68,8 @@ SCHEMA = """
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE terms(position INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL, description TEXT NOT NULL);
-CREATE TABLE market(period TEXT PRIMARY KEY, rent REAL, rent_lower REAL,
-  rent_upper REAL, deseasoned REAL, deseasoned_lower REAL, deseasoned_upper REAL);
+CREATE TABLE market(period TEXT PRIMARY KEY, rent REAL, deseasoned REAL,
+  deseasoned_lower REAL, deseasoned_upper REAL);
 CREATE TABLE coefficients(feature TEXT PRIMARY KEY, feature_group TEXT NOT NULL,
   pct REAL, pct_lower REAL, pct_upper REAL, probability_positive REAL);
 CREATE TABLE buildings(
@@ -111,7 +111,7 @@ CREATE TABLE listings(
 -- so ORDER BY <key> <dir>, id <dir> scans it either way (no temp sort).
 CREATE TABLE quarantined(
   audit_id TEXT PRIMARY KEY, building_id TEXT NOT NULL, building TEXT NOT NULL,
-  unit_id TEXT, unit_label TEXT, unit_url TEXT, listing_id TEXT, listing_url TEXT,
+  unit_id TEXT, unit_label TEXT, unit_url TEXT, listing_url TEXT,
   period TEXT NOT NULL, is_current INTEGER NOT NULL, ask REAL NOT NULL,
   bedrooms REAL, bathrooms REAL, square_feet REAL,
   rule TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL,
@@ -767,12 +767,11 @@ def rule_decisions(record: dict, bundle: Path) -> dict[str, dict]:
     return out
 
 
-def _listing_url(obs: dict) -> tuple[str, str | None]:
+def _listing_url(obs: dict) -> str | None:
     listing_id = str(obs["source_listing_id"])
-    url = (
+    return (
         f"https://streeteasy.com/rental/{listing_id}" if listing_id.isdigit() else None
     )
-    return listing_id, url
 
 
 def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
@@ -782,7 +781,7 @@ def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
         obs, d = observations[audit_id], decisions[audit_id]
         reg = located.get(obs["building"], {})
         name, address = building_names(obs["building"], title_address(reg.get("label")))
-        listing_id, listing_url = _listing_url(obs)
+        listing_url = _listing_url(obs)
         out.append(
             {
                 "audit_id": audit_id,
@@ -791,7 +790,6 @@ def quarantined_rows(missing, observations, decisions, registry) -> list[dict]:
                 "unit_id": d.get("unit_id"),
                 "unit_label": unit_label(obs.get("canonical_unit_url")),
                 "unit_url": obs.get("canonical_unit_url"),
-                "listing_id": listing_id,
                 "listing_url": listing_url,
                 "period": obs["period"],
                 "is_current": int(obs["analysis_price_basis"] != HISTORICAL_BASIS),
@@ -1052,8 +1050,6 @@ def _write(
         {
             "period": m["period"],
             "rent": m["reference_rent"],
-            "rent_lower": m["reference_rent_lower_95"],
-            "rent_upper": m["reference_rent_upper_95"],
             "deseasoned": m["reference_rent_deseasoned"],
             "deseasoned_lower": m["reference_rent_deseasoned_lower_95"],
             "deseasoned_upper": m["reference_rent_deseasoned_upper_95"],
