@@ -31,7 +31,17 @@ pit           where the ask falls in the leave-own-row-out predictive
               below 0.025 or above 0.975 unusual.
 estimate_pred_lower/upper_95, _80
               quantiles of that same predictive distribution, in dollars:
-              the range the ask is likely to fall in (95% and 80%).
+              the range the ask is likely to fall in (95% and 80%). With
+              `--range-atoms` (or FRONTIER_RANGE_ATOMS=1) these go and two
+              columns take their place:
+noise_group   the row's residual scale among the run's noise groups;
+estimate_atoms  RANGE_ATOMS quantiles of the total log rent over the draws,
+              weighted by the row's importance weights, at the probabilities
+              (i + 0.5) / RANGE_ATOMS, as float32.
+              The site works out the ranges from them when a listing's page
+              asks (`apartments.site.ranges`). A chunk whose rows' noise
+              scales differ from their group's scale gets the exact columns
+              instead, since the group's table would not describe its noise.
 fitted_rent   the in-sample posterior of exp(mu), mean and 95% interval (the
               fit saw the row's ask; a review signal, not an out-of-sample
               error).
@@ -59,6 +69,20 @@ data-rule-<rule>.jsonl  a copy of each row-dropping rule's file (the run's
 complete.json         provenance (run, commits, dataset and feature-source
                       sha256, gate, PSIS-LOO score, draws) and the sha256 of
                       every file; written last.
+
+`--range-atoms` also writes noise.json: for each noise group, the CDF of the
+mixture over draws of Student-t(nu_s) noise of scale sigma_s,g on NOISE_GRID
+points spaced evenly over NOISE_SPAN median scales on either side of zero,
+as {"groups": {group: {"lower", "step", "cdf"}}}.
+
+The ranges from the atoms approximate the exact ones. The site convolves the
+row's marginal distribution of total log rent (its atoms) with the group's
+noise mixture averaged evenly over draws. That drops the pairing within a
+draw of the total with sigma and nu, and it leaves the row's importance
+weights off the noise side. On NB9 (10% of buildings, 26,398 rows,
+2026-10-17) the bounds differed from the exact solve by 0.00027 log units at
+the median and 0.0032 at the 95th percentile, against a Monte Carlo error of
+0.0013 at the median (half the gap between the solves on even and odd draws).
 
 `--range-sample` (or FRONTIER_RANGE_SAMPLE=1) also writes range-sample.npz:
 each draw's total log rent, importance weight and residual scale for a sample
@@ -375,6 +399,58 @@ def predictive_quantiles(
     return out
 
 
+# Range atoms per row and the noise tables (`apartments.site.ranges`).
+RANGE_ATOMS = 64
+NOISE_GRID = 4097
+NOISE_SPAN = 60.0
+
+
+def same_noise(scale, group_sigma, groups):
+    """Whether each row's (draws, rows) or (draws, 1) residual scale is its
+    group's column of `group_sigma`, so that the group's table in noise.json
+    describes the row's noise. A model with row-level noise fails this."""
+    scale = np.broadcast_to(scale, (group_sigma.shape[0], len(groups)))
+    return bool(np.array_equal(scale, group_sigma[:, groups]))
+
+
+def atom_columns(table):
+    """The row table with the atom columns of a run with `--range-atoms` made
+    parquet-ready: the rows of fallback chunks come out of the concat with NaN
+    there and exact intervals instead, and get None and a missing group."""
+    if "estimate_atoms" in table:
+        table["estimate_atoms"] = [
+            a if isinstance(a, np.ndarray) else None for a in table.estimate_atoms
+        ]
+        table["noise_group"] = table.noise_group.astype("Int64")
+    return table
+
+
+def range_atoms(total, weights, k=RANGE_ATOMS):
+    """(k, rows) weighted quantiles of the total log rent at (i + 0.5) / k."""
+    return weighted_quantiles(total, weights, (np.arange(k) + 0.5) / k)
+
+
+def noise_tables(sigma, nu, grid=NOISE_GRID, span=NOISE_SPAN) -> dict:
+    """noise.json's content: per group of sigma (draws, groups), the CDF of
+    Student-t(nu_s) noise scaled by sigma_s,g, averaged over the draws."""
+    from scipy.special import stdtr
+
+    groups = {}
+    for g in range(sigma.shape[1]):
+        half = span * float(np.median(sigma[:, g]))
+        e = np.linspace(-half, half, grid)
+        cdf = np.empty(grid)
+        for lo in range(0, grid, 512):
+            z = e[lo : lo + 512, None] / sigma[None, :, g]
+            cdf[lo : lo + 512] = stdtr(nu[None, :], z).mean(1)
+        groups[str(g)] = {
+            "lower": float(e[0]),
+            "step": float(e[1] - e[0]),
+            "cdf": [round(float(c), 10) for c in cdf],
+        }
+    return {"grid": grid, "span": span, "groups": groups}
+
+
 def _bisect(total, sigma, nu_, weights, p, a, b, steps=50):
     """The mixture's p-quantile per row by bisection on the bracket [a, b]."""
     from scipy.special import stdtr
@@ -394,11 +470,14 @@ def _stats(prefix, values, weights, table):
     return mean, q
 
 
-def row_table(sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs):
+def row_table(
+    sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs, groups=None
+):
     """One chunk's output rows. terms: the leave-own-row-out log terms
     (draws, rows); log_w: (draws, rows) log importance weights (0 = the
     posterior as is); fitted: (draws, rows) in-sample exp(mu); sigma: the
-    residual scale, (draws, 1) or per row (draws, rows)."""
+    residual scale, (draws, 1) or per row (draws, rows); groups: the rows'
+    noise groups, to write range atoms in place of the predictive intervals."""
     from scipy import stats
 
     weights = normalized_weights(log_w)
@@ -419,11 +498,16 @@ def row_table(sub, terms, log_w, pareto_k, fitted, sigma, nu, names, inputs):
     table["pareto_k"] = pareto_k
     cdf = stats.t.cdf((log_ask[None] - total) / sigma, nu[:, None])
     table["pit"] = (cdf * weights).sum(0)
-    probabilities = [p for _, lo, hi in PREDICTIVE for p in (lo, hi)]
-    pred = np.exp(predictive_quantiles(total, sigma, nu, weights, probabilities))
-    for i, (name, _, _) in enumerate(PREDICTIVE):
-        table[f"estimate_pred_lower_{name}"] = pred[2 * i]
-        table[f"estimate_pred_upper_{name}"] = pred[2 * i + 1]
+    if groups is not None:
+        table["noise_group"] = np.asarray(groups, dtype=np.int64)
+        atoms = range_atoms(total, weights).T.astype(np.float32)
+        table["estimate_atoms"] = list(atoms)
+    else:
+        probabilities = [p for _, lo, hi in PREDICTIVE for p in (lo, hi)]
+        pred = np.exp(predictive_quantiles(total, sigma, nu, weights, probabilities))
+        for i, (name, _, _) in enumerate(PREDICTIVE):
+            table[f"estimate_pred_lower_{name}"] = pred[2 * i]
+            table[f"estimate_pred_upper_{name}"] = pred[2 * i + 1]
     flat = np.full_like(fitted, 1.0 / fitted.shape[0])
     _stats("fitted_rent", fitted, flat, table)
     for name in names:
@@ -692,6 +776,7 @@ def summarize(
     workers: int = 1,
     buildings: float | None = None,
     range_sample: bool = False,
+    with_atoms: bool = False,
 ):
     import jax
 
@@ -739,6 +824,22 @@ def summarize(
             if sigma.ndim == 2
             else sigma[:, None]
         )
+
+    group_sigma = sigma if sigma.ndim == 2 else sigma[:, None]
+    noise = noise_tables(group_sigma, nu) if with_atoms else None
+    fallback_chunks = 0
+
+    def atom_groups(a):
+        """The rows' noise groups when each row's scale is its group's scale
+        in noise.json, else None (the chunk gets the exact intervals)."""
+        nonlocal fallback_chunks
+        if not with_atoms:
+            return None
+        groups = np.asarray(model.noise_group(n_groups, a))
+        if same_noise(row_scale(a), group_sigma, groups):
+            return groups
+        fallback_chunks += 1
+        return None
 
     key = jax.random.PRNGKey(SEED)
 
@@ -808,6 +909,7 @@ def summarize(
                 nu,
                 names,
                 row_inputs(feats, rows),
+                atom_groups(a),
             )
         # Held-out rows: the fit never saw them; the posterior is the estimate.
         for rows in np.array_split(held_idx, max(1, math.ceil(len(held_idx) / chunk))):
@@ -843,9 +945,10 @@ def summarize(
                 nu,
                 names,
                 row_inputs(feats, rows),
+                atom_groups(a),
             )
         parts = tables.collect()
-    table = pd.concat(parts).sort_index()
+    table = atom_columns(pd.concat(parts).sort_index())
     if len(table) != keep.sum() or table.audit_id.duplicated().any():
         raise AssertionError("every summarized row must appear exactly once")
     heldout = heldout[keep]
@@ -869,6 +972,11 @@ def summarize(
         "k_threshold": loo.k_threshold(draws),
         "buildings_fraction": buildings,
         **({"range_sample": sample.arrays(nu)} if sample is not None else {}),
+        **(
+            {"noise": noise, "range_atoms_fallback_chunks": fallback_chunks}
+            if with_atoms
+            else {}
+        ),
     }
 
 
@@ -987,6 +1095,8 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
     out["coefficients"].to_parquet(tmp / "coefficients.parquet", index=False)
     if "range_sample" in out:
         np.savez_compressed(tmp / "range-sample.npz", **out["range_sample"])
+    if "noise" in out:
+        (tmp / "noise.json").write_text(json.dumps(out["noise"], separators=(",", ":")))
     (tmp / "terms.json").write_text(
         json.dumps(
             terms_record(out["names"], out["coefficients"].feature.tolist()), indent=2
@@ -1040,6 +1150,14 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
             if out.get("buildings_fraction") is not None
             else {}
         ),
+        **(
+            {
+                "range_atoms": RANGE_ATOMS,
+                "range_atoms_fallback_chunks": out["range_atoms_fallback_chunks"],
+            }
+            if "noise" in out
+            else {}
+        ),
         "files": {p.name: data.sha256(p) for p in sorted(tmp.iterdir()) if p.is_file()},
     }
     (tmp / "complete.json").write_text(json.dumps(record, indent=2))
@@ -1077,6 +1195,13 @@ def main(argv=None):
         default=os.environ.get("FRONTIER_RANGE_SAMPLE") == "1",
         help="also write range-sample.npz (default with FRONTIER_RANGE_SAMPLE=1)",
     )
+    parser.add_argument(
+        "--range-atoms",
+        action="store_true",
+        default=os.environ.get("FRONTIER_RANGE_ATOMS") == "1",
+        help="write range atoms and noise.json in place of the predictive "
+        "intervals (default with FRONTIER_RANGE_ATOMS=1)",
+    )
     args = parser.parse_args(argv)
     if (args.buildings is None) != (args.out is None):
         parser.error("--buildings and --out go together")
@@ -1093,7 +1218,12 @@ def main(argv=None):
         raise SystemExit(f"{out_dir} exists")
     t0 = time.perf_counter()
     out = summarize(
-        args.run, args.allow_failing, args.workers, args.buildings, args.range_sample
+        args.run,
+        args.allow_failing,
+        args.workers,
+        args.buildings,
+        args.range_sample,
+        args.range_atoms,
     )
     path = write(out, out_dir, commit, time.perf_counter() - t0)
     rows = out["rows"]

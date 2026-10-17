@@ -361,6 +361,13 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
     record = json.loads((path / "complete.json").read_text())
     assert "range-sample.npz" in record["files"]
     assert np.load(path / "range-sample.npz")["audit_id"].tolist() == ["a"]
+    out["noise"] = {"groups": {"0": {"lower": -1.0, "step": 1.0, "cdf": [0, 1]}}}
+    out["range_atoms_fallback_chunks"] = 0
+    path = summary.write(out, tmp_path / "atoms", "d" * 40, 1.0)
+    record = json.loads((path / "complete.json").read_text())
+    assert "noise.json" in record["files"] and record["range_atoms"] == 64
+    assert record["range_atoms_fallback_chunks"] == 0
+    assert json.loads((path / "noise.json").read_text()) == out["noise"]
 
 
 def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):
@@ -737,3 +744,131 @@ def test_summary_reports_the_median_and_the_95_interval():
     assert mid[0] == pytest.approx(1.0)
     assert lo[0] == pytest.approx(np.quantile(x[:, 0], 0.025))
     assert hi[0] == pytest.approx(np.quantile(x[:, 0], 0.975))
+
+
+def site_ranges():
+    """apartments.site.ranges, loaded by its path: the site's environments
+    have no rentfrontier and this one has no apartments package."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parents[2] / "src" / "apartments" / "site" / "ranges.py"
+    spec = importlib.util.spec_from_file_location("site_ranges", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_ranges_from_atoms_match_the_exact_predictive_intervals(tmp_path):
+    """The site's ranges from 64 atoms and the group's noise table, against
+    predictive_quantiles on the same draws, with a per-group sigma, per-draw
+    nu and unequal weights."""
+    ranges = site_ranges()
+    assert ranges.ATOMS == summary.RANGE_ATOMS
+    rng = np.random.default_rng(7)
+    draws, rows, n_groups = 1000, 12, 3
+    groups = np.arange(rows) % n_groups
+    sigma = rng.uniform(0.04, 0.12, (draws, n_groups)) * np.array([1.0, 1.5, 3.0])
+    nu = rng.uniform(3.0, 30.0, draws)
+    total = rng.normal(8.0, 0.06, (draws, rows))
+    # Uneven enough that atoms of the unweighted draws fail the test.
+    weights = rng.lognormal(0.0, 1.0, (draws, rows))
+    weights /= weights.sum(0)
+    noise = summary.noise_tables(sigma, nu)
+    (tmp_path / "noise.json").write_text(json.dumps(noise))
+    tables = ranges.load_noise(tmp_path / "noise.json")
+    atoms = summary.range_atoms(total, weights).T.astype(np.float32)
+    probabilities = [p for _, lo, hi in ranges.RANGES for p in (lo, hi)]
+    exact = summary.predictive_quantiles(
+        total, sigma[:, groups], nu, weights, probabilities
+    )
+    # The Monte Carlo yardstick: half the gap between the exact bounds on the
+    # even and the odd draws.
+    halves = [
+        summary.predictive_quantiles(
+            total[h::2], sigma[h::2, groups], nu[h::2], weights[h::2], probabilities
+        )
+        for h in (0, 1)
+    ]
+    yardstick = np.abs(halves[0] - halves[1]) / 2
+    error = np.empty_like(exact)
+    for i in range(rows):
+        got = ranges.likely_ask(atoms[i].tolist(), tables[int(groups[i])])
+        for q, (name, _, _) in enumerate(ranges.RANGES):
+            error[2 * q, i] = math.log(got[f"pred_lower_{name}"]) - exact[2 * q, i]
+            error[2 * q + 1, i] = (
+                math.log(got[f"pred_upper_{name}"]) - exact[2 * q + 1, i]
+            )
+    assert np.median(np.abs(error)) < np.median(yardstick)
+    # Within 0.06 of the group's median scale: the Monte Carlo error of a 97.5%
+    # bound from 1000 draws is near 0.08 of it.
+    assert (np.abs(error) < 0.06 * np.median(sigma, 0)[groups]).all()
+
+
+def test_the_row_table_writes_atoms_in_place_of_the_intervals():
+    rng = np.random.default_rng(8)
+    draws, n = 300, 4
+    terms = {"market": np.log(3000) + rng.normal(0, 0.05, (draws, n))}
+    sub = pd.DataFrame(
+        {
+            "audit_id": [f"a{i}" for i in range(n)],
+            "unit_id": ["u"] * n,
+            "building": ["b"] * n,
+            "period": pd.to_datetime(["2020-01-01"] * n),
+            "asking_rent": np.full(n, 3500.0),
+        }
+    )
+    args = (
+        sub,
+        terms,
+        np.zeros((draws, n)),
+        np.zeros(n),
+        np.exp(terms["market"]),
+        np.full((draws, 1), 0.05),
+        np.full(draws, 5.0),
+        ["market"],
+        ["{}"] * n,
+    )
+    exact = summary.row_table(*args)
+    table = summary.row_table(*args, np.array([0, 1, 0, 1]))
+    assert not any(c.startswith("estimate_pred_") for c in table)
+    assert table.noise_group.tolist() == [0, 1, 0, 1]
+    atoms = np.stack(table.estimate_atoms)
+    assert atoms.shape == (n, summary.RANGE_ATOMS) and atoms.dtype == np.float32
+    assert (np.diff(atoms, axis=1) >= 0).all()
+    np.testing.assert_allclose(
+        np.median(atoms, 1), np.log(exact.estimate_median), atol=0.01
+    )
+    shared = [c for c in exact if c in table]
+    pd.testing.assert_frame_equal(exact[shared], table[shared])
+    # A fallback chunk beside an atoms chunk: the exact chunk's rows get no
+    # atoms and no group, and keep their intervals.
+    mixed = summary.atom_columns(pd.concat([table, exact.iloc[:2]]))
+    assert mixed.estimate_atoms.iloc[:n].notna().all()
+    assert mixed.estimate_atoms.iloc[n:].isna().all()
+    assert mixed.noise_group.isna().tolist() == [False] * n + [True] * 2
+    assert mixed.estimate_pred_lower_95.iloc[n:].notna().all()
+
+
+def test_atoms_need_noise_that_depends_on_the_group_alone():
+    sigma = np.array([[0.1, 0.2], [0.3, 0.4]])
+    groups = np.array([1, 0, 1])
+    assert summary.same_noise(sigma[:, groups], sigma, groups)
+    assert summary.same_noise(sigma[:, :1], sigma, np.array([0, 0]))
+    # Row-level noise: one row's scale differs from its group's.
+    assert not summary.same_noise(sigma[:, groups] * [1, 1, 1.01], sigma, groups)
+
+
+def test_noise_tables_are_the_mixture_cdf_on_the_grid():
+    from scipy.special import stdtr
+
+    rng = np.random.default_rng(9)
+    sigma = rng.uniform(0.05, 0.1, (200, 2))
+    nu = rng.uniform(2.0, 20.0, 200)
+    noise = summary.noise_tables(sigma, nu, grid=101)
+    for g in (0, 1):
+        t = noise["groups"][str(g)]
+        e = t["lower"] + t["step"] * np.arange(101)
+        assert abs(e[50]) < 1e-12 and len(t["cdf"]) == 101
+        want = stdtr(nu[None], e[:, None] / sigma[None, :, g]).mean(1)
+        np.testing.assert_allclose(t["cdf"], want, atol=1e-9)
