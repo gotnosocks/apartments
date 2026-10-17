@@ -460,17 +460,20 @@ def decide(
 
     `override` is the selection's `gate_override` block: a person served the
     incumbent by hand over the gate. Then only challengers fit on the
-    incumbent's dataset are tried, so a fit on other data cannot undo the
-    choice; the first of them past the held-out guard replaces the incumbent."""
+    incumbent's dataset snapshot are tried, and the first of them past the
+    held-out guard replaces the incumbent. A challenger also has to be
+    eligible, so its snapshot must be `data.DATASET`: until `data.DATASET`
+    points at the incumbent's snapshot, the incumbent stays. With the
+    incumbent missing from the board, it stays as well."""
     rules = current_rules() if rules is None else rules
     candidates = eligible(entries, rules)
     order = ranked(candidates, paired)
     incumbent = next(
         (e for e in entries if "rows" in e["splits"] and _run(e) == incumbent_run), None
     )
-    held = override is not None and incumbent is not None
+    held = override is not None
     if held:
-        own = _record(incumbent).get("dataset")
+        own = None if incumbent is None else _record(incumbent).get("dataset")
         order = [
             e
             for e in order

@@ -358,6 +358,26 @@ def test_a_gate_override_holds_against_fits_on_other_data(tmp_path, monkeypatch)
     assert "Ben served over the gate" in d["reason"]
 
 
+def test_a_gate_override_holds_when_the_challenger_fails_the_guard(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "all")
+    served = on_dataset(
+        tmp_path, entry(tmp_path, "all", 10.0, 1300, passes_checks=False), "all"
+    )
+    again = on_dataset(tmp_path, entry(tmp_path, "all-2", 12.0, 1300), "all")
+    paired = paired_from({"all": 10.0, "all-2": 12.0})
+    override = {"by": "Ben"}
+    d = autoselect.decide(
+        [served, again], "all", RULES, paired, lambda a, b: (-5.0, 1.0), override
+    )
+    assert d["action"] == "keep" and d["run"] == "all"
+    assert d["checked"][0]["refused"].startswith("held-out worse")
+    # Missing from the board, the overridden incumbent still stays.
+    d = autoselect.decide([again], "all", RULES, paired, no_heldout_loss, override)
+    assert d["action"] == "keep" and d["run"] == "all"
+
+
 def judged(monkeypatch, verdicts):
     """Elegance judgements for test entries: {(a, b): winner or "equal"}."""
     table = {}
