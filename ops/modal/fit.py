@@ -19,7 +19,7 @@ then delete them from the Volume. For a full-tier fit on the row (or all) split,
 ops/modal/summarize in a systemd unit of its own: the summary bundle and its calibration, built
 on thelio after the fit's unit has exited.
 
-With --large (an A100-80GB or H100 only), the container has 192 GiB of host memory and a 12 h
+With --large (an A100-40GB, A100-80GB, H100 or H200), the container has 192 GiB of host memory and a 12 h
 timeout, the fit is capped at 9 h, the post-fit statistics only by that timeout, and the
 container builds the summary bundle and calibration itself; they download to
 FRONTIER_OUTPUT_ROOT/{summaries,calibration}/. The per-fit hour cap leaves large fits out (Ben,
@@ -71,7 +71,9 @@ LAST_USE = STATE / "last-use"  # ops/modal/cleanup deletes the Volume 24 h after
 def parse(argv):
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0], allow_abbrev=False)
     p.add_argument(
-        "--gpu", default="A100-40GB", help="L4, A100-40GB (default), A100-80GB or H100"
+        "--gpu",
+        default="A100-40GB",
+        help="L4, A100-40GB (default), A100-80GB or H100; H200 with --large",
     )
     p.add_argument("--dataset", default=DATASET)
     p.add_argument(
@@ -86,6 +88,16 @@ def parse(argv):
         "--large",
         action="store_true",
         help="a large container (app.LARGE_FITS) that also builds the summary bundle",
+    )
+    p.add_argument(
+        "--outside-budget",
+        action="store_true",
+        help="record the fit outside the Modal budget (cap.py; Ben, 2026-10-16 14:55Z)",
+    )
+    p.add_argument(
+        "--no-summary",
+        action="store_true",
+        help="a large fit stops after its post-fit statistics, before the summary bundle",
     )
     p.add_argument(
         "--explain",
@@ -140,6 +152,7 @@ def plan(args, run_args, sha, short=None):
         "run_args": run,
         "explain": list(args.explain),
         "large": args.large,
+        "summary": not args.no_summary,
     }
 
 
@@ -355,7 +368,14 @@ def main(argv):
     usd = cap.estimate(args.chains, args.warmup, args.draws, args.gpu, rate, args.large)
     secs = cap.seconds(args.chains, args.warmup, args.draws, rate, args.large)
     # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
-    launch, left = cap.reserve(spec["name"], args.gpu, usd, secs=secs, large=args.large)
+    launch, left = cap.reserve(
+        spec["name"],
+        args.gpu,
+        usd,
+        secs=secs,
+        large=args.large,
+        outside=args.outside_budget,
+    )
     print(
         f"{spec['name']} on {args.gpu} ({spec['tier']}); estimated ${usd:.2f}, "
         f"Modal balance now ${left:.2f}",

@@ -28,7 +28,13 @@ RUNS = Path("/data1/apartments/frontier/runs")
 LOO = Path("/data1/apartments/frontier/loo")
 # USD per GPU-hour from modal.com/pricing, 2026-10-06, for the cost estimate in modal.json.
 # Only these GPUs have float64 throughput worth paying for (docs/model/modal.md).
-GPUS = {"L4": 0.799, "A100-40GB": 2.099, "A100-80GB": 2.498, "H100": 3.949}
+GPUS = {
+    "L4": 0.799,
+    "A100-40GB": 2.099,
+    "A100-80GB": 2.498,
+    "H100": 3.949,
+    "H200": 4.54,
+}
 CPU, MEMORY_MIB = 2, 24576  # the served design peaks near 15 GB of host memory
 FIT_CAP = {"full": 3600, "exploration": 30 * 60}  # the fit alone
 # The whole container: staging, fit, PSIS-LOO, post-fit statistics. Launches are capped at an
@@ -189,6 +195,9 @@ def _fit(spec):
         PYTHONPATH=f"{WORK}/frontier/src",
         FRONTIER_DATASET=spec["dataset"],
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
+        # JAX caps its allocator at 75% of the card unless told otherwise; the fit is the only
+        # process on it.
+        XLA_PYTHON_CLIENT_MEM_FRACTION="0.95",
         PYTHONUNBUFFERED="1",
     )
     gpu = subprocess.run(
@@ -229,7 +238,7 @@ def _fit(spec):
             # Saved before the hours of post-fit work, so a container timeout keeps them.
             _save_fit(spec, out)
         post = _post(spec, env, log, deadline) if fit_code == 0 else {}
-        if large and code == 0:
+        if large and code == 0 and spec.get("summary", True):
             post |= _summarize(spec, env, log, deadline)
     _save_fit(spec, out)
     for kind in POST_KINDS:
@@ -352,7 +361,15 @@ def _large_function(gpu):
     )
 
 
-# Large fits run on 80 GB GPUs only, for datasets several times the size of NB9.
+# Large fits, for datasets several times the size of NB9, get a large container's host memory on
+# any of these GPUs. The all-scraped design (1.6M rows, 68k buildings) outgrew the H100's 80 GB on
+# 2026-10-16 while the sampler held its design and kept draws on the card; with those off the card
+# it fits an A100-40GB.
+@_large_function("A100-40GB")
+def fit_a100_40gb_large(spec):
+    return _fit(spec)
+
+
 @_large_function("A100-80GB")
 def fit_a100_80gb_large(spec):
     return _fit(spec)
@@ -363,4 +380,14 @@ def fit_h100_large(spec):
     return _fit(spec)
 
 
-LARGE_FITS = {"A100-80GB": fit_a100_80gb_large, "H100": fit_h100_large}
+@_large_function("H200")
+def fit_h200_large(spec):
+    return _fit(spec)
+
+
+LARGE_FITS = {
+    "A100-40GB": fit_a100_40gb_large,
+    "A100-80GB": fit_a100_80gb_large,
+    "H100": fit_h100_large,
+    "H200": fit_h200_large,
+}
