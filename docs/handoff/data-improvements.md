@@ -2,7 +2,26 @@
 
 Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-17 14:30 ET
+## 2026-10-17 13:40 ET
+
+- #1039 adds `pipeline/ledger/2026-10-17-z2-unit-sqft.ndjson`, 71 square-footage sets. The screen
+  (`/data1/apartments/tmp/suspect/sqft/screen.py`) keeps an ad when at least 2 other ads of the same unit with the
+  same bedroom count, within 730 days, agree within 5% and the ad sits 30% or more off their median. That gave 160
+  ads. Sonnet read all of them with the unit's other ads (`r0..r3.jsonl`): 111 wrong, 28 unclear, 14 right, 7 a
+  different unit. 82 of the 111 reads gave a size inside the other ads' range. Review dropped 11 of those 82: one ad states a
+  third size, five may count a basement or roof deck in the larger figure, and five sit in a mixed size history.
+  `ledger.py` in the same folder writes the file.
+- #1043 retracts the #1039 set on ad 1399109 (754 E 6th St 6E). Its later ads describe an 850 sq ft roof
+  terrace, and 975 plus 850 is about 1860. The sqft-units-v1 review kept 975 for this reason. A unit-page match
+  against `config/reviews/sqft-units-reads-20261015.jsonl` found no other overlap.
+- A bedroom-count screen (`/data1/apartments/tmp/suspect/beds/screen.py`) keeps an ad when the unit's other ads
+  within 730 days all agree on another count, with at least one before and one after. That gives 7,909 ads, 1,398
+  of them with sizes that agree. Sonnet read a 40-ad sample of the 1,398 (`sample.jsonl`, `sample-r.jsonl`): 21
+  flex or convertible, 8 wrong, 7 unclear, 4 a different unit. At about 20% wrong, a full read of the 1,398 would
+  yield roughly 280 corrections. That waits behind other work, and its entries would need a check against the
+  bedrooms-ad rule family first.
+
+## 2026-10-17 13:15 ET
 
 - #1036 adds `pipeline/ledger/2026-10-17-z-unit-baths.ndjson`, 492 bath-count sets. The screen
   (`/data1/apartments/tmp/suspect/baths/mech.py`) looks at ads of the same unit with the same bedroom count within
