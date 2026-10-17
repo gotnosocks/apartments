@@ -66,7 +66,8 @@ checked against the exact ones offline. A row goes in the sample when the
 first 8 bytes of the sha256 of its audit_id, read as a number in [0, 1),
 fall below its noise group's rate.
 The rate is RANGE_SAMPLE_ROWS over the training rows, raised to
-RANGE_SAMPLE_PER_GROUP over the group's training rows where that is higher,
+RANGE_SAMPLE_PER_GROUP over the group's training rows where that is higher
+(with `--buildings`, counting only the sampled buildings' training rows),
 so a sparse noise group has every row in the sample. The arrays:
 
     audit_id, group, in_fit   (rows,)
@@ -509,8 +510,20 @@ class RangeSample:
         )
 
     def arrays(self, nu) -> dict:
-        keys = ("audit_id", "group", "in_fit", "total", "weights", "sigma")
-        out = {k: np.concatenate([p[k] for p in self.parts]) for k in keys}
+        draws = len(nu)
+        empty = {
+            "audit_id": np.array([], dtype=str),
+            "group": np.array([], dtype=int),
+            "in_fit": np.array([], dtype=bool),
+            **{
+                k: np.empty((0, draws), np.float32)
+                for k in ("total", "weights", "sigma")
+            },
+        }
+        out = {
+            k: np.concatenate([v] + [p[k] for p in self.parts])
+            for k, v in empty.items()
+        }
         out["nu"] = np.asarray(nu, dtype=np.float32)
         return out
 
@@ -708,13 +721,15 @@ def summarize(
         raise SystemExit(f"the {buildings} sample of buildings has no rows in the fit")
     sigma, nu = kept["sigma"], kept["nu"]
     n_groups = sigma.shape[1] if sigma.ndim == 2 else 1
-    sample = (
-        RangeSample(
-            range_sample_rates(model.noise_group(n_groups, prep.train), n_groups)
-        )
-        if range_sample
-        else None
-    )
+    sample = None
+    if range_sample:
+        # prep.train holds the rows in the fit in frame order; the rates count
+        # only those the building sample keeps.
+        train_groups = np.asarray(model.noise_group(n_groups, prep.train))
+        if len(train_groups) != (~heldout).sum():
+            raise AssertionError("prep.train must hold the frame's rows in the fit")
+        train_groups = train_groups[keep[~heldout]]
+        sample = RangeSample(range_sample_rates(train_groups, n_groups))
 
     def row_scale(a):
         """(draws, rows) residual scales, or (draws, 1) with one scale."""

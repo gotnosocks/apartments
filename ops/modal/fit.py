@@ -127,7 +127,9 @@ def parse(argv):
     p.add_argument(
         "--range-sample",
         action="store_true",
-        help="the summary also writes range-sample.npz (rentfrontier.summary --range-sample)",
+        help="the summary also writes range-sample.npz (rentfrontier.summary --range-sample), "
+        "on thelio, in a large container or with --publish-only; a COMMIT whose summary "
+        "lacks the flag fails its summary",
     )
     p.add_argument(
         "--explain",
@@ -356,6 +358,7 @@ def summarize(spec):
         "FRONTIER_OUTPUT_ROOT": str(OUTPUT_ROOT),
         "FRONTIER_DATASET": spec["dataset"],
         "MODAL_FIT_REPO": str(REPO),
+        **({"FRONTIER_RANGE_SAMPLE": "1"} if spec.get("range_sample") else {}),
     }
     cmd = [
         "systemd-run", "--user", "--quiet", "--collect", f"--unit={unit}",

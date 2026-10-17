@@ -315,6 +315,10 @@ def test_a_passing_full_row_fit_starts_its_summary_on_thelio(tmp_path, monkeypat
     assert f"--setenv=FRONTIER_OUTPUT_ROOT={tmp_path / 'frontier'}" in cmd
     assert "--setenv=FRONTIER_DATASET=/d" in cmd
     assert f"--setenv=MODAL_FIT_REPO={tmp_path / 'repo'}" in cmd
+    assert not any("FRONTIER_RANGE_SAMPLE" in c for c in cmd)
+    calls.clear()
+    fit.summarize({**full, "range_sample": True})
+    assert "--setenv=FRONTIER_RANGE_SAMPLE=1" in calls[0]
 
     def fail(cmd, **kw):
         raise fit.subprocess.CalledProcessError(1, cmd)
@@ -596,6 +600,9 @@ def test_a_large_fit_builds_its_summary_and_calibration_in_the_container(
     # A bundle counts once its complete.json parses; downloads take both directories.
     assert app._complete(tmp_path / "summaries" / "r-abc1234")
     assert {"summaries", "calibration"} <= set(app.POST_KINDS) & set(fit.POST_KINDS)
+    calls.clear()
+    app._summarize({"name": "r", "range_sample": True}, {}, None, now + 7200)
+    assert calls[0] == (["rentfrontier.summary", "r", "--range-sample"], 7200)
     # Without a bundle, calibration is skipped.
     calls.clear()
     monkeypatch.setattr(app, "_run", lambda *a, **k: 1)

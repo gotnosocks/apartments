@@ -269,6 +269,9 @@ def test_the_range_sample_reproduces_the_rows_predictive_intervals():
     )
     np.testing.assert_allclose(pred[0], table.estimate_pred_lower_80[picked], rtol=1e-5)
     np.testing.assert_allclose(pred[1], table.estimate_pred_upper_80[picked], rtol=1e-5)
+    # A sample that picked no row still saves arrays of the right shapes.
+    none = summary.RangeSample(np.zeros(2)).arrays(nu)
+    assert none["total"].shape == (0, draws) and none["audit_id"].shape == (0,)
 
 
 def test_row_tables_drop_queued_chunks_on_an_error():
