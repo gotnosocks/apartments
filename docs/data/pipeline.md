@@ -2458,7 +2458,7 @@ A full run would add joins only for pairs with no key in common:
 | on two apartments | 62 | 25 | 4.8% (1.0 to 13.5) | 0% (0 to 5.8) |
 
 Lots of either size give about the same rates. The intervals treat pairs as independent, but
-pairs in a lot share photos. The 17 unjoined pairs matched by rule 5 come from 10 lots, 6 of them
+pairs in a lot share photos. The 17 unjoined pairs matched by rule 5 come from 7 lots, 6 of them
 from a single lot, so the real intervals are wider.
 
 Rule 5 separates the groups best, and it still falls short. It finds a third of the pairs
