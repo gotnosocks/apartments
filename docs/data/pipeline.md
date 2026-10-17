@@ -1968,6 +1968,10 @@ export dated a record seen again in a later run to its first answer.
 `latest_ask` reads the file with `--crawl records`, beside `--crawl page` for the page crawls,
 and lists the file's name and SHA-256 in its provenance under `records`.
 
+`descriptions` reads the file with `--records` in place of `--granular`. It keeps only the
+records of the cohort's listings, so one run covers every region, where the granular export
+took a run for each slice. Its provenance names the file under `records`.
+
 ## Datasets for the frontier fits
 
 The frontier fits read the chain's analysis datasets, each a folder holding `observations.jsonl`
@@ -2631,6 +2635,14 @@ The frontier's `frontier/tests/test_latest_ask.py` checks `latest_ask` on a reco
     first fetched later;
 60. run `latest_ask.main` with `--crawl records`, and check that it hands the checked file to
     `listings` and names it in its provenance.
+
+The frontier's `frontier/tests/test_descriptions.py` checks `descriptions` on a records file:
+
+61. build a cohort's description evidence from a records file with two records of a listing,
+    and check that each row takes the text of the record fetched last and that the build skips
+    listings outside the cohort;
+62. run `descriptions.main` with `--records` and with `--granular`, and check that it takes
+    either and stops on both.
 
 ## Full build
 
