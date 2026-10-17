@@ -335,7 +335,7 @@ FOOTPRINTS_MARGIN_M = 100.0
 
 
 def fetch_footprints(registry: pd.DataFrame, batch: int = 100, page: int = 2000):
-    # A building whose lot was cleared by a registry override has no BIN.
+    # A registry row can have no BIN, e.g. after an override clears its lot.
     bins = registry.bin.astype("string")
     placeholder = bins.str.fullmatch(r"[1-5]000000").fillna(False).astype(bool)
     rows, queries = [], []
@@ -413,7 +413,7 @@ HPD_COLUMNS = (
 
 
 def fetch_hpd(registry: pd.DataFrame, batch: int = 100, page: int = 50_000):
-    # A building whose lot was cleared by a registry override has no BIN.
+    # A registry row can have no BIN, e.g. after an override clears its lot.
     bins = registry.bin.astype("string")
     placeholder = bins.str.fullmatch(r"[1-5]000000").fillna(False).astype(bool)
     rows, queries = [], []
