@@ -774,6 +774,9 @@ DATA_RULE_TEXT = {
     "bedrooms-ad-v9": "bedrooms-ad-v8, and Trump World Tower 53B and 63B as 3 "
     "bedrooms: their 2026 ads say 3 bedrooms and the apartments' other ads agree at "
     "2,854 square feet. No listing is dropped.",
+    "bedrooms-ad-v10": "bedrooms-ad-v9, and 68 Clinton St #4A and #4B as 3 bedrooms: "
+    "six ads offer a 5 room duplex coded as a studio or one-bedroom, and the units' "
+    "other ads call it a 3 bedroom duplex. No listing is dropped.",
     "sqft-units-v1": "Square feet corrected on 12 listings whose recorded size is "
     "more than 1.5x off the size the apartment's other listings, or the other "
     "apartments of its line, agree on. No listing is dropped.",

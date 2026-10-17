@@ -868,6 +868,21 @@ def correct_bedrooms_v9(frame: pd.DataFrame) -> pd.DataFrame:
     return _correct_bedrooms(correct_bedrooms_v8(frame), "bedrooms-ad-v9")
 
 
+BEDROOM_CORRECTIONS_V10 = (
+    REPO / "config" / "corrections" / "bedrooms-ad-v10-20261017.jsonl"
+)
+
+
+def correct_bedrooms_v10(frame: pd.DataFrame) -> pd.DataFrame:
+    """v9's rows, then 68 Clinton Street #4A and #4B as 3 bedrooms on their six
+    ads (2015 to 2022) coded as studios or one-bedrooms. Each ad offers a "5 room
+    duplex", and the same units' later ads (2014 and 2023 to 2026) are coded 3
+    bedrooms and describe a 3 bedroom duplex with a private roof deck.
+
+    Every row is kept; only `bedrooms` changes."""
+    return _correct_bedrooms(correct_bedrooms_v9(frame), "bedrooms-ad-v10")
+
+
 # Recorded square feet that disagree with the unit's other listings, read
 # against the listing's own ad (`config/reviews/sqft-units-reads-20261015.jsonl`).
 SQFT_CORRECTIONS = REPO / "config" / "corrections" / "sqft-units-v1-20261015.jsonl"
@@ -1662,6 +1677,24 @@ def quarantine_v33(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V33))]
 
 
+QUARANTINE_V34 = QUARANTINE_V20.with_name("quarantine-v34-20261017.jsonl")
+
+
+def quarantine_v34(frame: pd.DataFrame) -> pd.DataFrame:
+    """v33's rows and 15 more. A Sonnet reader read the candidates from the
+    drop-lot review (#975) and the mixing review of the all-scraped gate failures
+    (`config/reviews/quarantine-v34-20261017.jsonl` gives each quote). The rows
+    dropped here are
+
+    - 8 storefronts, offices and commercial lofts in Brooklyn,
+    - 1 Ridgewood, Queens apartment joined to 18 Bleecker Street in Manhattan,
+    - 1 ask of $21,545 for a Bed-Stuy studio, with only the ad's own text to
+      back a corrected figure,
+    - 3 Carlyle hotel stays of one month to a year,
+    - 2 income-restricted lottery units at 9 Cook Street."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V34))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -2051,6 +2084,7 @@ DATA_RULES = {
     "bedrooms-ad-v7": correct_bedrooms_v7,
     "bedrooms-ad-v8": correct_bedrooms_v8,
     "bedrooms-ad-v9": correct_bedrooms_v9,
+    "bedrooms-ad-v10": correct_bedrooms_v10,
     "sqft-units-v1": correct_square_feet_v1,
     "baths-ad-v3": correct_baths_v3,
     "fields-review-v1": correct_fields_review_v1,
@@ -2085,6 +2119,7 @@ DATA_RULES = {
     "quarantine-v31": quarantine_v31,
     "quarantine-v32": quarantine_v32,
     "quarantine-v33": quarantine_v33,
+    "quarantine-v34": quarantine_v34,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -2149,6 +2184,7 @@ RULE_SOURCES = {
     "quarantine-v31": QUARANTINE_V31,
     "quarantine-v32": QUARANTINE_V32,
     "quarantine-v33": QUARANTINE_V33,
+    "quarantine-v34": QUARANTINE_V34,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -2188,6 +2224,7 @@ RULE_SOURCES = {
     "bedrooms-ad-v7": BEDROOM_CORRECTIONS_V7,
     "bedrooms-ad-v8": BEDROOM_CORRECTIONS_V8,
     "bedrooms-ad-v9": BEDROOM_CORRECTIONS_V9,
+    "bedrooms-ad-v10": BEDROOM_CORRECTIONS_V10,
     "sqft-units-v1": SQFT_CORRECTIONS,
     "baths-ad-v3": BATH_CORRECTIONS_V3,
     "fields-review-v1": FIELD_REVIEW,
@@ -2226,6 +2263,7 @@ DROPPING_RULES = (
     "quarantine-v31",
     "quarantine-v32",
     "quarantine-v33",
+    "quarantine-v34",
 )
 
 
