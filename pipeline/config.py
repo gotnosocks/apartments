@@ -223,6 +223,9 @@ config = Config(
         # ops/pipeline/build.py sets PIPELINE_INCREMENTAL to 1 for a top-up build. ads.changes
         # reads the flag, so a build of the other mode gives it a new fingerprint.
         "incremental": os.environ.get("PIPELINE_INCREMENTAL") == "1",
+        # ads.changes reads this too, so an edit to the materialization `merge` rebuilds the
+        # models of that kind from all the answers.
+        "merge_code": file_sha256(PIPELINE / "materializations" / "merge.py"),
         "buildings": buildings,
         "buildings_version": buildings_version,
         # ops/pipeline/build.py records these in its catalog line. No model reads them, so they

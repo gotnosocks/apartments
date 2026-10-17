@@ -37,8 +37,12 @@ MODEL (
 WITH records AS (
     -- One parse of each record, for its three values as JSON.
     SELECT listing_id::VARCHAR AS listing_id,
-        [display_unit, full_bathroom_count, half_bathroom_count] AS f
-    FROM ads.answers
+        json_extract(record, [
+            '$.propertyDetails.address.displayUnit',
+            '$.propertyDetails.fullBathroomCount',
+            '$.propertyDetails.halfBathroomCount'
+        ]) AS f
+    FROM raw.ads
     WHERE outcome = 'record' AND listing_id::VARCHAR IN (SELECT listing_id FROM ads.touched)
 ),
 fields AS (

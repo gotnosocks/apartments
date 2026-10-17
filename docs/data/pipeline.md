@@ -342,20 +342,25 @@ the rows of every other ad from the last build. Before it plans, `build.py` pick
    kind `merge`, and each model above one, with the prod build's snapshot of it. For `raw.ads`
    it compares the query alone, since a new export file gives the view new variables.
 2. It reads `STATE/merge.json`, which the last build wrote with the SHA-256 of
-   `pipeline/materializations/merge.py` and `pipeline/models/ads/changes.py` and with its mode,
-   and checks the hash against the checkout's.
+   `pipeline/materializations/merge.py` and `pipeline/models/ads/changes.py`, the value it gave
+   the variable and the mode that ran, and checks the hash against the checkout's. `config.py`
+   also passes the SHA-256 of `merge.py` to `ads.changes` as the variable `merge_code`, so an
+   edit to `merge.py` gives `ads.changes` a new fingerprint, and the plan rebuilds it and every
+   model below it.
 3. When a check fails, it loads the project again with the variable at 0, and the plan rebuilds
    the models below `ads.changes` from every answer.
-4. When `raw.ads` has no new files, it reuses the last build's mode. The plan then leaves the
-   table of `ads.changes` in place and rebuilds only the models below an edit.
+4. When `raw.ads` has no new files, it gives the variable the last build's value. The plan then
+   leaves the table of `ads.changes` in place and rebuilds only the models below an edit.
 
 To force a full build, I delete `STATE/merge.json`.
 
 In a top-up, `ads.changes` holds the answers of `raw.ads` missing from the prod `ads.answers`.
 Before it reads them, the model checks that every previous answer is still in `raw.ads` with
-its fetch time, outcome and record hash, and that no new answer repeats one. `ads.touched` then
-holds the ads of the new answers, and the ads whose events show up in a unit history of a new
-answer, since the history adds another report of those events. The materialization `merge`, in
+its fetch time, outcome, record hash and region, and that no new answer repeats one. When a
+check fails, the table holds every answer with `incremental` false, and `merge.json` and the
+catalog line give `top_up` as false. Otherwise `ads.touched` holds the ads of the new answers,
+and the ads whose events show up in a unit history of a new answer, since the history adds
+another report of those events. The materialization `merge`, in
 `pipeline/materializations/merge.py`, starts each model's new table from a copy of the prod
 table:
 
@@ -2356,7 +2361,12 @@ in all, and most tests add made-up ads to that export. The tests:
     names of the tables that differ. Only `ads.changes` and `ads.touched` differ, holding fewer
     answers and ads in the top-up. The files and the catalog's export and building lists match.
     A further build finds nothing to rebuild, and a build after deleting `STATE/merge.json`
-    reads every answer and gives every table of the build into an empty state.
+    reads every answer and gives every table of the build into an empty state. Then the test
+    writes run 4's file again with another region. The build asks for a top-up, `ads.changes`
+    finds the previous answers changed and reads every answer, `merge.json` and the catalog
+    line give `top_up` as false, and `ads.regions` gives the new region. A second test copies
+    the project, edits `materializations/merge.py` in the copy, and checks that only
+    `ads.changes` gets new data and that all 15 models of kind `merge` get new fingerprints.
 
 pytest-xdist runs the tests in three worker processes, as set in `pipeline/pyproject.toml`, and a
 worker with an empty queue takes tests queued for another. The fixture comes to under 500 KB, and

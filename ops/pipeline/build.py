@@ -16,7 +16,10 @@ The script works in these steps:
    fails, the script prints the failed models and exits with status 1, and the tables of the
    last good build stay in place. It writes nothing to OUT in that case. After a plan that
    applies, it writes the SHA-256 of the code merging a top-up's rows to `STATE/merge.json`,
-   with the build's mode. With that file deleted, the next build reads every answer.
+   with the value of `PIPELINE_INCREMENTAL` it loaded the project with and the mode that ran,
+   from the column `incremental` of `ads.changes`. The two differ when `ads.changes` finds the
+   previous answers changed and reads every answer. With that file deleted, the next build
+   reads every answer.
 3. It writes `analysis.rows` to a rows file and `analysis.ads` to an ads file in OUT, each
    sorted by `listing_id` and named by the first 16 hex digits of its SHA-256, such as
    `rows-04fe7ad81836fed2.parquet`. Two builds from the same export and the same code write
@@ -61,7 +64,7 @@ DEFAULT_OUT = Path("/data1/apartments/pipeline/datasets")
 FILES = {"rows": "analysis.rows", "ads": "analysis.ads"}
 WRITE_THREADS = 8
 # The code merging a top-up build's rows into the previous tables. The state folder keeps its
-# SHA-256 as of the last finished build in MERGE_RECORD, with that build's mode.
+# SHA-256 as of the last finished build in MERGE_RECORD, with that build's variable and mode.
 MERGE_CODE = ("materializations/merge.py", "models/ads/changes.py")
 MERGE_RECORD = "merge.json"
 
@@ -125,8 +128,9 @@ def can_top_up(ctx, state: Path, project: Path) -> bool:
     ads.changes, whose variable `incremental` gives the mode.
 
     When raw.ads has its prod fingerprint, the build has no new answers to read, and the
-    function returns the mode of the last build from the record. The plan then leaves the
-    table of ads.changes in place and rebuilds only the models below an edit."""
+    function returns the variable the last build loaded with, from the record. ads.changes
+    then keeps its prod fingerprint, and the plan leaves its table in place and rebuilds only
+    the models below an edit."""
     try:
         record = json.loads((state / MERGE_RECORD).read_text())
     except (OSError, ValueError):
@@ -154,7 +158,7 @@ def can_top_up(ctx, state: Path, project: Path) -> bool:
             same = now.fingerprint.data_hash == then.fingerprint.data_hash
         if not same:
             return False
-    return new_answers or record.get("top_up") is True
+    return new_answers or record.get("incremental") is True
 
 
 def write(ctx, name: str, stem: str, out: Path) -> dict:
@@ -219,8 +223,8 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     try:
         os.environ["PIPELINE_INCREMENTAL"] = "1"
         ctx = Context(paths=str(project))
-        top_up = can_top_up(ctx, state, project)
-        if not top_up:
+        incremental = can_top_up(ctx, state, project)
+        if not incremental:
             ctx.close()
             os.environ["PIPELINE_INCREMENTAL"] = "0"
             ctx = Context(paths=str(project))
@@ -236,9 +240,13 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         ctx.plan(auto_apply=True, no_prompts=True)
     except PlanError as error:
         raise SystemExit(f"build stopped: {error}") from error
-    (state / MERGE_RECORD).write_text(
-        json.dumps({"code": merge, "top_up": top_up}) + "\n"
+    # ads.changes reads every answer when the previous ones no longer hold, so the mode that
+    # ran comes from its table, as the materialization `merge` reads it.
+    (top_up,) = ctx.engine_adapter.fetchone(
+        "SELECT coalesce(bool_and(incremental), true) FROM ads.changes"
     )
+    record = {"code": merge, "incremental": incremental, "top_up": top_up}
+    (state / MERGE_RECORD).write_text(json.dumps(record) + "\n")
     steps["plan"] = time.time() - started - steps["load"]
 
     mark = time.time()

@@ -137,7 +137,8 @@ def test_topup_build_equals_a_full_build(tmp_path, build):
     put ad 4554594 of unit 12 of building 72793 back on the market at a new price, add an ad
     in unit 16, whose ads all came in run 2, and add an ad in a new unit of the building. A
     further build finds nothing to rebuild, and one without `STATE/merge.json` reads every
-    answer again."""
+    answer again. Last, a run 4 file written again with another region makes ads.changes read
+    every answer, and the build records that mode."""
     export = copy_export(tmp_path, keep=lambda line: line["run"] < 4)
     first = build(export, tmp_path / "state", tmp_path / "out")
     shutil.copy(FIXTURE / "export" / "manifest.ndjson", export / "manifest.ndjson")
@@ -191,6 +192,65 @@ def test_topup_build_equals_a_full_build(tmp_path, build):
     assert redone["ads_file"] == full["ads_file"]
     every = sorted(full["models"])
     assert tables(tmp_path / "state", every) == tables(tmp_path / "fresh", every)
+    # The build asks for a top-up, since raw.ads has a new file, but the previous answers of
+    # run 4 no longer hold.
+    lines = [json.loads(line) for line in open(export / "manifest.ndjson")]
+    (line,) = [line for line in lines if line["table"] == "ads" and line["run"] == 4]
+    path = export / line["path"]
+    db = duckdb.connect()
+    db.execute(
+        f"""COPY (SELECT * REPLACE ('manhattan-59th-110th' AS region) FROM '{path}')
+        TO '{path}.new' (FORMAT parquet)"""
+    )
+    db.close()
+    Path(f"{path}.new").replace(path)
+    line["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (export / "manifest.ndjson").write_text(
+        "".join(json.dumps(line, sort_keys=True) + "\n" for line in lines)
+    )
+    moved = build(export, tmp_path / "state", tmp_path / "out")
+    record = json.loads((tmp_path / "state" / "merge.json").read_text())
+    assert not moved["top_up"] and record["incremental"] and not record["top_up"]
+    db = duckdb.connect(str(tmp_path / "state" / "pipeline.duckdb"), read_only=True)
+    regions = db.execute("SELECT DISTINCT unnest(regions) FROM ads.regions").fetchall()
+    db.close()
+    assert sorted(regions) == [
+        ("brooklyn-prospect-park",),
+        ("cases",),
+        ("manhattan-59th-110th",),
+    ]
+
+
+def test_merge_code_change_rebuilds_the_merge_models(tmp_path, monkeypatch):
+    """An edit to the materialization `merge` gives ads.changes new data, and so every model of
+    kind `merge` a new fingerprint, and the plan rebuilds them."""
+    project = tmp_path / "project"
+    shutil.copytree(
+        helpers.PROJECT,
+        project,
+        ignore=shutil.ignore_patterns(".venv", "tests", "logs", "__pycache__"),
+    )
+    (tmp_path / "src").symlink_to(helpers.PROJECT.parent / "src")
+
+    def fingerprints():
+        ctx = helpers.context(monkeypatch, tmp_path / "state", project=project)
+        try:
+            return {s.name: s.fingerprint for s in ctx.snapshots.values()}, {
+                model.fqn
+                for model in ctx.models.values()
+                if model.kind.is_custom and model.kind.materialization == "merge"
+            }
+        finally:
+            ctx.close()
+
+    before, merges = fingerprints()
+    code = project / "materializations" / "merge.py"
+    code.write_text(code.read_text() + "\n# An edit.\n")
+    after, _ = fingerprints()
+    assert [n for n in before if before[n].data_hash != after[n].data_hash] == [
+        '"pipeline"."ads"."changes"'
+    ]
+    assert len(merges) == 15 and merges <= {n for n in before if before[n] != after[n]}
 
 
 def test_failed_audit_writes_nothing(tmp_path, build):

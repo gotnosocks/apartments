@@ -11,12 +11,17 @@ still points to the previous build's table, so the model takes no dependency on 
 build reads only the new answers, the model checks that the previous answers still hold:
 
 1. The prod view exists.
-2. Each previous answer is in `raw.ads` with the same fetch time, outcome and record hash.
+2. Each previous answer is in `raw.ads` with the same fetch time, outcome, record hash and
+   region.
 3. `raw.ads` holds as many answers as the previous answers and the new ones together, so an
    answer given twice still fails the audit of `ads.answers`.
 
 When a check fails, the table holds every answer with `incremental` false, and the build is a
 full one.
+
+The model also reads the variable `merge_code`, the SHA-256 of `materializations/merge.py`. An
+edit to that file then gives the model a new fingerprint, and the plan rebuilds it and every
+model below it, the models of kind `merge` among them.
 """
 
 from sqlglot import exp
@@ -39,7 +44,8 @@ def previous_holds(cursor, ads):
                 SELECT 1 FROM {ads} r
                 WHERE r.listing_id = p.listing_id AND r.response_id = p.response_id
                     AND r.fetched = p.fetched AND r.outcome = p.outcome
-                    AND r.record_sha256 IS NOT DISTINCT FROM p.record_sha256)),
+                    AND r.record_sha256 IS NOT DISTINCT FROM p.record_sha256
+                    AND r.region IS NOT DISTINCT FROM p.region)),
             (SELECT count(*) FROM {ads})
                 = (SELECT count(*) FROM ads.answers)
                 + (SELECT count(*) FROM {ads} r ANTI JOIN ads.answers p
@@ -58,6 +64,8 @@ def previous_holds(cursor, ads):
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     ads = context.resolve_table("raw.ads")
     cursor = context.engine_adapter.connection.cursor()
+    # The variable only enters the model's fingerprint.
+    context.var("merge_code")
     incremental = bool(context.var("incremental")) and previous_holds(cursor, ads)
     query = f"SELECT listing_id, response_id, {incremental} AS incremental FROM {ads} r"
     if incremental:
