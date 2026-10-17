@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-16 18:30 ET, after #932. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-16 20:45 ET, with the ask-check rules. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-16 15:00 ET
 
@@ -40,10 +40,20 @@ pipeline ledger (#888, owned by the pipeline session).
 - 3691335 (unit 1D, ground floor) stays at 0. Units 2D to 5D are 1 BR, which doesn't settle 1D.
 - No `bedrooms-ad-v8` is needed.
 
-The regex second pass over the API keep reads found 3 short-stay offers (95636be7a9, 6895cf8373,
-6508409251). They wait in `/data1/apartments/tmp/suspect/api5/screens/merge/pending-next-quarantine.jsonl`
-for `quarantine-v33`. I'm holding that version until more rows accumulate, since a merged rule
-version makes the served fit unservable.
+The pipeline's ask check (#937) flags ads asking far from their building's median. A Sonnet
+reader read the 40 flagged ads with each apartment's other ads
+(`/data1/apartments/tmp/suspect/askcheck/reads.jsonl`). From those reads I wrote:
+
+- `latest-ask-v8`: v7 with 5 tenfold typos corrected. Each figure comes from the ad's text or the
+  apartment's ad with the same bedrooms within 3 months.
+- `quarantine-v33`: v32 plus 5 stores and restaurant spaces, a $33,333 2 bedroom, and the 3
+  short-stay offers from the API keep reads.
+- `bedrooms-ad-v9`: Trump World Tower 53B and 63B as 3 bedrooms, backed by their other ads at
+  2,854 square feet.
+
+Every other flagged ad stays, including the Oriana 3 bedroom at $1,061 and 53 E 64th at $1,200:
+only their price looks wrong. Typos without a backed figure also stay. After the merge I tell the
+pipeline the v33 and bedrooms-ad-v9 file names, for `ops/pipeline/ledger_import.py`.
 
 API unit spelling aliases: after unit-labels-v17, 69 history-confirmed groups (339 rows, about 0.1%)
 stay split, mostly `4` against `4fl`, `4th` or `2nd-floor`. That's too small to refit for, so

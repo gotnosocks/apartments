@@ -35,8 +35,8 @@ def build(monkeypatch, tmp_path):
 def test_planted_errors(tmp_path, build):
     """Two ads of each kind, planted in the fixture export. The planted copy passes the
     config's checks of the export, and the build drops or corrects each error with a check of
-    its own. `analysis.ask_check` drops the tenfold asks in every record of an ad, and a bedroom
-    count changed in every record passes into the rows."""
+    its own. A tenfold ask and a bedroom count changed in every record of an ad pass into the
+    rows, and `analysis.ask_check` lists the tenfold asks for review."""
     export = helpers.copy_export(tmp_path)
     report = plant.run(export, tmp_path / "work", per_kind=2, build=build)
     outcomes = {kind: counts["outcomes"] for kind, counts in report["kinds"].items()}
@@ -47,7 +47,7 @@ def test_planted_errors(tmp_path, build):
             "dropped: conflicting_layout_within_advertisement, invalid_or_missing_layout": 2
         },
         "future_active": {"dropped: future_own_active_event": 2},
-        "ask_x10_all": {"dropped: ask_check": 2},
+        "ask_x10_all": {"kept, planted value": 2},
         "ask_x100_all": {"dropped: invalid_or_extreme_initial_ask": 2},
         "beds_flip_all": {"kept, planted value": 2},
     }
@@ -59,9 +59,11 @@ def test_planted_errors(tmp_path, build):
     assert steps == {
         "ask_x10_latest": {"first, nearer building": 2},
         "ask_div10_latest": {"first, nearer building": 2},
-        "ask_x10_all": None,
+        "ask_x10_all": {"latest": 2},
         "ask_x100_all": None,
     }
+    assert report["kinds"]["ask_x10_all"]["flagged"] == 2
+    assert "missed" not in report["kinds"]["ask_x10_all"]
     key = json.loads((tmp_path / "work" / "planted" / "key.json").read_text())
     assert len(key) == 14
     assert report["other_ads_changed"] == 0

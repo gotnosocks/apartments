@@ -73,3 +73,18 @@ def test_latest_ask_v7_reads_the_page_price_of_the_typo_asks():
     assert (v6[helena], v7[helena]) == (37380, 3738)
     assert data.DATA_RULES["latest-ask-v7"].keywords == {"path": data.LATEST_ASK_V7}
     assert data.RULE_SOURCES["latest-ask-v7"] == data.LATEST_ASK_V7
+
+
+def test_latest_ask_v8_corrects_five_backed_typos():
+    if not data.LATEST_ASK_V8.exists():
+        pytest.skip("latest asks not on this machine")
+    v7 = pd.read_parquet(data.LATEST_ASK_V7).set_index("audit_id").latest_ask
+    v8 = pd.read_parquet(data.LATEST_ASK_V8).set_index("audit_id").latest_ask
+    assert v8.index.equals(v7.index)
+    changed = v8[v8 != v7]
+    assert len(changed) == 5
+    assert (v7[changed.index] / changed).between(9, 11).all()
+    quote = "2acab9d140df746900cbce615cffcc23d4e90bcf7cdfa27b0e80dbb8a9b6cb59"
+    assert (v7[quote], v8[quote]) == (21545, 2150)
+    assert data.DATA_RULES["latest-ask-v8"].keywords == {"path": data.LATEST_ASK_V8}
+    assert data.RULE_SOURCES["latest-ask-v8"] == data.LATEST_ASK_V8
