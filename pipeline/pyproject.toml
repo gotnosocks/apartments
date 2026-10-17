@@ -30,6 +30,6 @@ dev-mode-dirs = [".", "../src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# pytest-xdist runs the tests in three worker processes. Each one peaks near 0.6 GB, so the suite
-# fits a 2 GB light job. A fourth worker gains nothing, as the longest tests take about 10 s.
-addopts = "-n 3"
+# pytest-xdist runs the tests in three worker processes, and a worker with an empty queue takes
+# tests queued for another. The suite's memory peaks near 2.4 GB.
+addopts = "-n 3 --dist worksteal"

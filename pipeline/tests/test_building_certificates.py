@@ -1,20 +1,8 @@
 import datetime
-import importlib.util
-from pathlib import Path
 
 import duckdb
 import pytest
 
-
-def load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-# pytest imports test modules by path, so the helpers of test_pipeline.py load the same way.
-context = load("pipeline_tests", Path(__file__).with_name("test_pipeline.py")).context
 
 EARLIER = [
     "release",
@@ -90,7 +78,7 @@ def connect(tmp_path):
     )
 
 
-def test_building_certificates_cases(tmp_path, monkeypatch):
+def test_building_certificates_cases(tmp_path, render_context):
     """BINs of the case, with their certificates in the latest copy of each set:
 
     - BIN 1000001 got a new building, job 121, with certificates on 2015-08-19 for 10
@@ -114,7 +102,7 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
     second certificate, and ads 6 to 10 read BIN 1000003, building b4, a building missing from
     `buildings.lots` and buildings b6 and b7. The DuckDB session runs in New York time, where
     an ad's first day at midnight UTC falls on the day before."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     earlier = [
         (NEW, "1000001", "121", "001", "NB", "2015-08-19T00:00:00.000", "10"),
         (NEW, "1000001", "121", "002", "NB", "2105-11-05T00:00:00.000", None),
@@ -329,12 +317,12 @@ def test_building_certificates_cases(tmp_path, monkeypatch):
     ],
 )
 def test_building_certificates_stop_on_odd_values(
-    tmp_path, monkeypatch, earlier, later, message
+    tmp_path, render_context, earlier, later, message
 ):
     """A job type outside the two kinds, a blank issue date in the earlier set and a date in
     another form in either set, a two-digit year in the earlier set and a four-digit one in
     DOB NOW among them, stop the step."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     db = connect(tmp_path)
     inputs(
         db,
@@ -346,10 +334,10 @@ def test_building_certificates_stop_on_odd_values(
 
 
 @pytest.mark.parametrize("missing", ["dob_co", "dob_now_co"])
-def test_building_certificates_without_a_copy(tmp_path, monkeypatch, missing):
+def test_building_certificates_without_a_copy(tmp_path, render_context, missing):
     """With no copy of a set in the archive, its table has only the archive's columns, and an
     ad with a BIN reads both flags as missing but keeps the other set's certificates."""
-    ctx = context(monkeypatch, tmp_path / "state")
+    ctx = render_context
     db = connect(tmp_path)
     earlier = [(NEW, "1000001", "121", "001", "NB", "2015-08-19T00:00:00.000", "10")]
     later = [
