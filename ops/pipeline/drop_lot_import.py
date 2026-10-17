@@ -17,9 +17,10 @@ The script works in these steps:
    so the entry goes stale when the ad's building takes another lot. The lot record and the
    PAD lookup become `city_record` items, the ad's words an `ad_text` quote, and the reader's
    note a `read` with the review's source file. `source` gives the review file and line.
-2. It leaves out a line when an entry of the ledger came from the same review file and line.
-3. It writes the lines to `pipeline/ledger/NAME.ndjson`, stopping when the file exists, checks
-   the new file with the ledger's own parser and prints the counts.
+2. It leaves out a line when an entry of the ledger came from the same review file and line,
+   and checks each other line with the ledger's own parser, stopping at the first it refuses.
+3. It writes the lines to `pipeline/ledger/NAME.ndjson`, stopping when the file exists, and
+   prints the counts. When every line is already in the ledger, it writes no file.
 """
 
 from __future__ import annotations
@@ -97,7 +98,15 @@ def main(argv=None) -> int:
             "decided": review["decided"],
             "source": source,
         }
-        lines.append(json.dumps(line, sort_keys=True, ensure_ascii=False))
+        text = json.dumps(line, sort_keys=True, ensure_ascii=False)
+        try:
+            entries.parse(text)
+        except entries.LedgerError as error:
+            raise SystemExit(f"{source}: {error}")
+        lines.append(text)
+    if not lines:
+        print(f"{label}: all {skipped} lines already in the ledger, no file written")
+        return 0
     out.write_text("".join(f"{line}\n" for line in lines))
     rows = entries.read([out])
     print(

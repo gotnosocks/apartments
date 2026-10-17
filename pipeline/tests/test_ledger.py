@@ -532,7 +532,8 @@ def importer():
 
 def test_drop_lot_import(tmp_path, monkeypatch, capsys):
     """The drop-lot importer turns a review line into a drop_lot entry, leaves out a line
-    already in the ledger and refuses to write over a file."""
+    already in the ledger and refuses to write over a file. With every line in the ledger, it
+    writes no file. It refuses a line the ledger's parser refuses, before writing anything."""
     spec = importlib.util.spec_from_file_location(
         "drop_lot_import", PROJECT.parent / "ops" / "pipeline" / "drop_lot_import.py"
     )
@@ -580,6 +581,15 @@ def test_drop_lot_import(tmp_path, monkeypatch, capsys):
     }
     with pytest.raises(SystemExit, match="exists"):
         module.main([str(path), "--name", "2026-10-17"])
+    capsys.readouterr()
+    assert module.main([str(path), "--name", "2026-10-18"]) == 0
+    assert "all 2 lines already in the ledger" in capsys.readouterr().out
+    assert not (folder / "2026-10-18.ndjson").exists()
+    bad = tmp_path / "bad.jsonl"
+    bad.write_text(json.dumps(reviews[0] | {"bbl": "123"}) + "\n")
+    with pytest.raises(SystemExit, match="bad.jsonl:1: "):
+        module.main([str(bad), "--name", "2026-10-19"])
+    assert not (folder / "2026-10-19.ndjson").exists()
 
 
 @pytest.mark.parametrize(

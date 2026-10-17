@@ -1153,8 +1153,9 @@ later in a month can read a release from earlier in that month.
 ### Checking a change
 
 `ops/pipeline/lot_facts_check.py` builds the three models and those below them over the export
-and a rows file, and prints the rows by release and fallback. It compares the release, the
-fallback, `latest_fields` and every fact with `released_lots`:
+and a rows file, and prints the rows by release and fallback. It gives `analysis.lot_facts` an
+empty `ledger.status`, so no `drop_lot` takes a lot away, as none does in `released_lots`. It
+compares the release, the fallback, `latest_fields` and every fact with `released_lots`:
 
 ```sh
 /data1/apartments/serve/master/ops/job light -m 6G -- \
