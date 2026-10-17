@@ -5,8 +5,8 @@ feature matrix and the prepared arrays.
 FRONTIER_DESIGN_CACHE set, it also keeps the design in a pickle under
 OUTPUT_ROOT/cache, so a second reader of the same design loads it in seconds
 instead of repeating the prep. The Modal fit container sets the variable: there
-`rentfrontier.loo` follows `rentfrontier.run` on the same container disk, and on
-the all-scraped data each prep takes about an hour.
+`rentfrontier.loo` and the post-fit statistics follow `rentfrontier.run` on the
+same container disk, and on the all-scraped data each prep takes about an hour.
 
 The cache key is a sha256 over:
 
@@ -14,7 +14,10 @@ The cache key is a sha256 over:
    config directory, which hold the data rules, corrections and reviews
 2. the observations file's sha256, the split, the data rules and the feature set
 3. the FRONTIER_* environment, which picks external roots and description
-   sources, and the JAX float64 setting `model.prepare` runs under
+   sources
+
+`model.prepare` and the features build in numpy, so a reader running JAX in
+float32 or float64 loads the same design.
 
 External snapshots enter through their dated paths in the code. A few inputs
 sit at undated paths and could change in place, and the key leaves their bytes
@@ -40,8 +43,6 @@ PACKAGE = Path(__file__).resolve().parent
 
 
 def _key(frame: pd.DataFrame, split: str, rules, feature_set: str) -> str:
-    import jax
-
     digest = hashlib.sha256(CACHE_VERSION.encode())
     config = data.REPO / "config"
     for path in sorted(PACKAGE.glob("*.py")) + sorted(
@@ -58,7 +59,6 @@ def _key(frame: pd.DataFrame, split: str, rules, feature_set: str) -> str:
                 tuple(rules),
                 feature_set,
                 env,
-                bool(jax.config.jax_enable_x64),
             )
         ).encode()
     )

@@ -39,7 +39,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from . import data, features, model
+from . import data, design, model
 from .run import RUNS
 
 FIXED_TERMS = (
@@ -160,11 +160,9 @@ def explain(name, rows="current"):
     run_dir, result, kept = load_run(name)
     config = model.MODELS[result["model"]["name"]]
     frame = data.load()
-    frame, heldout = data.split_and_rules(
-        frame, result["split"], data.recorded_rules(result)
+    frame, heldout, feats, prep = design.prepared(
+        frame, result["split"], data.recorded_rules(result), result["feature_set"]
     )
-    feats = features.build(result["feature_set"], frame, ~heldout)
-    prep = model.prepare(frame, heldout, feats)
     select = {
         "current": frame.price_basis.ne(
             "historical_initial_own_advertisement_ask"
