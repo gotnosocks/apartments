@@ -231,6 +231,17 @@ listings fall in each band, as calibration predicts.
    the parts it gives back for Ben's opened listings and 2,000 random ones match the stored ones
    to the cent; on the all-scraped bundle (1.75M rows) the copy takes 30 s on one thread with
    1.2 GB resident and writes 779 MB, and a lookup takes 12 to 35 ms.
+
+   A bundle summarized with `--range-atoms` (`FRONTIER_RANGE_ATOMS=1`, #1065) carries 64 range
+   atoms and a noise group per row in place of the likely ask ranges, plus `noise.json`. For
+   such a bundle the build copies the atoms into `ranges.parquet` (sorted by `audit_id`, rows
+   with atoms only) and `noise.json` beside `site.sqlite`, and `meta.stats.ranges` records the
+   rows and bytes. The listing page and /research/story work out a listing's 95% and 80% ranges
+   from its atoms (`apartments.site.ranges`) when the table holds none, cached by the bundle's
+   sha and the audit id; rows from a summary chunk that fell back to the exact solve keep their
+   ranges in the table. The kit's scoring check reads its reference ranges the same way, for the
+   few hundred rows it scores. A listing with no atoms or no noise table for its group shows no
+   range. The lists show no ranges for these rows (Ben, 2026-10-17).
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from

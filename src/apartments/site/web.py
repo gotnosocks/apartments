@@ -711,6 +711,30 @@ def create_app(
             raise LookupError(f"{row['audit_id']} has no parts in the build")
         return found
 
+    def likely_of(row) -> dict | None:
+        """The listing's likely ask ranges: from its row, or worked out from
+        the build's range atoms when the bundle has those in their place
+        (detail.py); None when neither has them, or when the atoms or noise
+        tables can't be read, so the page leaves the range out."""
+        if row["pred_lower_80"] is not None:
+            return {
+                k: row[k]
+                for k in (
+                    "pred_lower_80",
+                    "pred_upper_80",
+                    "pred_lower_95",
+                    "pred_upper_95",
+                )
+            }
+        meta()
+        try:
+            return detail.likely_ask(
+                g.build_dir, g.meta["summary_sha256"], row["audit_id"]
+            )
+        except Exception:
+            log.exception("no likely ask range for %s", row["audit_id"])
+            return None
+
     def meta() -> dict:
         if "meta" not in g:
             g.meta = {
@@ -1170,6 +1194,7 @@ def create_app(
             relabelled=relabelled,
             meta=meta(),
             row=row,
+            likely=likely_of(row),
             terms=terms,
             market=market,
             parts=parts,
@@ -2529,6 +2554,7 @@ def create_app(
             parts_of(listing) if listing is not None else None,
             labels,
             current=current,
+            likely=likely_of(listing) if listing is not None else None,
         )
         accuracy, jumps, units, borders = story_checks()
         counts = (
