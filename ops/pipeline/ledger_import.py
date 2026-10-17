@@ -68,10 +68,10 @@ RULES = [
     "config/corrections/bedrooms-ad-v4-20261015.jsonl",
     "config/corrections/bedrooms-ad-v5-20261015.jsonl",
     "config/corrections/bedrooms-ad-v6-20261015.jsonl",
-    "config/corrections/bedrooms-ad-v9-20261016.jsonl",
+    "config/corrections/bedrooms-ad-v10-20261017.jsonl",
     "config/corrections/baths-ad-v3-20261008.jsonl",
     "config/corrections/sqft-units-v1-20261015.jsonl",
-    "config/reviews/quarantine-v33-20261016.jsonl",
+    "config/reviews/quarantine-v34-20261017.jsonl",
 ]
 READS = [
     "config/reviews/ad-fit-reads-20261015-bedrooms.jsonl",
