@@ -2628,14 +2628,14 @@ and catalog it writes in a temporary folder:
 
 The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file:
 
-61. parse made-up records whose histories hold episodes named by `listingId`, by `id` or by
+59. parse made-up records whose histories hold episodes named by `listingId`, by `id` or by
     neither, events of other statuses, without a day or not a dict, and histories of the wrong
     type. For each, check that `record_first_listed` gives the earliest day of the own ACTIVE
     rental events `apartments.graphql_listing` parses from it;
-62. build the lister table from a records file and an ads file with two records of a listing
+60. build the lister table from a records file and an ads file with two records of a listing
     and an earlier listing in its building, and check the lister of the record fetched last, the
     ads file's building, the earliest listed day over both records and the earlier counts;
-63. run `lister.main` with `--crawl records`, and check that its provenance gives both files'
+61. run `lister.main` with `--crawl records`, and check that its provenance gives both files'
     paths and SHA-256 and that a tag without a crawl stops.
 
 ## Full build
