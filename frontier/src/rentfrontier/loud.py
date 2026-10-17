@@ -74,7 +74,7 @@ def unit_terms(frame: pd.DataFrame) -> dict[str, np.ndarray]:
     """Per row: "looks": its apartment looks onto a busy road (its own
     listings, pooled); "chance": for an apartment that shows no side, the chance
     one of its facades is busy (0 otherwise)."""
-    b = frame.building.to_numpy()
+    b = features.lot_buildings(frame)
     sides = building_street_sides().reindex(b)
     has_sides = sides.notna().all(axis=1).to_numpy()
     windows = np.zeros(len(frame), bool)

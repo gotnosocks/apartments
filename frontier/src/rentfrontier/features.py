@@ -1790,6 +1790,48 @@ def lot_registry() -> str:
     return (_LOTS.get() or (REGISTRY_FILE, PLUTO_FILE))[0]
 
 
+# Ads whose registry building sits on the wrong tax lot, by listing id
+# (config/reviews/drop-lot-20261017.jsonl, rule drop-lot-v1): readers of the ad
+# text, HPD registrations and a PAD lookup of the ad's own address found the
+# lot rules out the building the ad describes (`reason` wrong_building or
+# city_record_wrong). Sets in LOT_DROP_SETS read these ads' lots as unknown.
+LOT_DROP_FILE = data_module.REPO / "config" / "reviews" / "drop-lot-20261017.jsonl"
+# The building key a dropped row's lot lookups read: no registry, MapPLUTO,
+# footprint or lot-keyed table holds it, so each lookup comes back empty.
+NO_LOT = "~no-lot"
+# The listing ids whose lot the set being built drops (`LOT_DROP_SETS`).
+_LOT_DROPS: contextvars.ContextVar[frozenset[str] | None] = contextvars.ContextVar(
+    "lot_drops", default=None
+)
+# Whether the set being built gives a lot with no building class its own
+# "unknown" class level (`CLASS_UNKNOWN_SETS`), in place of "other".
+_CLASS_UNKNOWN: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "class_unknown", default=False
+)
+
+
+@functools.lru_cache(maxsize=4)
+def lot_drops(path: str | Path = LOT_DROP_FILE) -> frozenset[str]:
+    """The listing ids of a drop-lot review file."""
+    with open(path) as f:
+        return frozenset(
+            str(json.loads(line)["listing_id"]) for line in f if line.strip()
+        )
+
+
+def lot_buildings(frame: pd.DataFrame) -> np.ndarray:
+    """Per row: the building key for its lot lookups. A row with its listing
+    id in the drop list of the set being built (`_LOT_DROPS`) gets NO_LOT, and
+    every other row gets its building. Position lookups go on reading
+    `frame.building`, since the registry's geocode of the ad's address stands."""
+    buildings = frame.building.to_numpy()
+    drops = _LOT_DROPS.get()
+    if not drops:
+        return buildings
+    dropped = frame.source_listing_id.astype(str).isin(drops).to_numpy()
+    return np.where(dropped, NO_LOT, buildings).astype(object)
+
+
 def _grid_origin() -> tuple[float, float]:
     """The facing grid's origin: the first registry's mean position, whichever
     registry a set reads, so buildings a correction leaves alone keep their sides."""
@@ -1810,7 +1852,7 @@ def building_lots(frame: pd.DataFrame) -> pd.DataFrame:
             "west-coast-wings-v1 with a set that reads a registry with the wing"
         )
     pluto = pd.read_parquet(pluto_file).set_index("bbl")
-    lot = registry.set_index("building").bbl.reindex(frame.building.to_numpy())
+    lot = registry.set_index("building").bbl.reindex(lot_buildings(frame))
     lots = pluto.reindex(lot.to_numpy()).reset_index(drop=True)
     if _ALTER_DATED.get():
         lots = dated_alterations(frame, lot.to_numpy(), lots, _ALTER_DATED.get())
@@ -1926,7 +1968,7 @@ def lpc_as_of(frame: pd.DataFrame, path: str) -> tuple[np.ndarray, np.ndarray]:
     lpc["desdate"] = pd.to_datetime(lpc.desdate, format="%m/%d/%Y")
     lpc = lpc[lpc.status.eq("DESIGNATED")]
     registry = pd.read_parquet(lot_registry()).set_index("building").bbl
-    bbl = registry.reindex(frame.building.to_numpy()).astype(str).to_numpy()
+    bbl = registry.reindex(lot_buildings(frame)).astype(str).to_numpy()
     listed = pd.to_datetime(frame.price_at, utc=True).dt.tz_localize(None).to_numpy()
     out = []
     for district in (False, True):
@@ -1949,7 +1991,9 @@ def pluto_v1(
     which in Chelsea marks the western blocks (location), not flood risk.
     `latest_alteration=True` dates "altered since 2000" by the later of the
     lot's two recorded alterations; yearalter1 alone misses an alteration in
-    2000 or later recorded only in yearalter2."""
+    2000 or later recorded only in yearalter2. In a set of CLASS_UNKNOWN_SETS,
+    a lot with no building class (or no lot) takes the class "unknown"; other
+    sets put it in "other"."""
     base = FEATURE_SETS[base](frame, train)
     lot = building_lots(frame)
     num = {
@@ -1996,6 +2040,8 @@ def pluto_v1(
         .str[0]
         .map(lambda c: c if c in ("C", "D", "R", "S") else "other")
     )
+    if _CLASS_UNKNOWN.get():
+        family = family.where(lot.bldgclass.notna(), "unknown")
     b.categorical("building class", family, reference="D")
     if _LPC.get():
         landmark, district = lpc_as_of(frame, _LPC.get())
@@ -2297,7 +2343,7 @@ def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
     listings."""
     from . import descriptions
 
-    frontage = building_frontage().reindex(frame.building.to_numpy())
+    frontage = building_frontage().reindex(lot_buildings(frame))
     front_dir = frontage.front.to_numpy()
     windows = {d: frame[f"window_{d}"].eq("yes").to_numpy() for d in OPPOSITE}
     known = pd.notna(front_dir)
@@ -2716,9 +2762,9 @@ def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
     from window directions against its building's sides, front/rear labels,
     ad text and views (text, labels and views place the front on the address
     street)."""
-    sides = building_sides().reindex(frame.building.to_numpy())
+    sides = building_sides().reindex(lot_buildings(frame))
     address_kind = (
-        building_frontage().street_type.reindex(frame.building.to_numpy()).to_numpy()
+        building_frontage().street_type.reindex(lot_buildings(frame)).to_numpy()
     )
     has_sides = sides.notna().all(axis=1).to_numpy()
     looks = {
@@ -2793,7 +2839,7 @@ def building_violations(
     period = frame.period.to_numpy().astype("datetime64[ns]")
     start = period - np.timedelta64(days, "D")
     out = np.zeros(len(frame))
-    for building, idx in frame.groupby("building").indices.items():
+    for building, idx in frame.groupby(lot_buildings(frame)).indices.items():
         if building not in registry.index:
             continue
         r = registry.loc[building]
@@ -3124,7 +3170,7 @@ def stabilized_units(frame: pd.DataFrame) -> np.ndarray:
     }
     cutoff = pd.DatetimeIndex(frame.period).year.to_numpy() - 1
     out = np.zeros(len(frame))
-    for building, idx in frame.groupby("building").indices.items():
+    for building, idx in frame.groupby(lot_buildings(frame)).indices.items():
         if building not in registry.index:
             continue
         years, units = by_lot.get(str(registry.loc[building].bbl), (None, None))
@@ -3199,7 +3245,7 @@ def lot_open_share(frame: pd.DataFrame) -> np.ndarray:
     lotarea = pd.to_numeric(building_lots(frame).lotarea, errors="coerce").to_numpy()
     year = pd.DatetimeIndex(frame.period).year.to_numpy()
     out = np.full(len(frame), np.nan)
-    for building, idx in frame.groupby("building").indices.items():
+    for building, idx in frame.groupby(lot_buildings(frame)).indices.items():
         if building not in registry.index:
             continue
         r = registry.loc[building]
@@ -3351,7 +3397,7 @@ def lot_open_share_v2(frame: pd.DataFrame) -> np.ndarray:
     year = pd.DatetimeIndex(frame.period).year.to_numpy()
     by_year = {y: unions(y) for y in np.unique(year)}
     out = np.full(len(frame), np.nan)
-    for building, idx in frame.groupby("building").indices.items():
+    for building, idx in frame.groupby(lot_buildings(frame)).indices.items():
         if building not in registry.index:
             continue
         r = registry.loc[building]
@@ -3445,7 +3491,7 @@ def single_owner_complex(frame: pd.DataFrame) -> np.ndarray:
     in_complex = {
         building: str(bbl) in complex_lots for building, bbl in registry.bbl.items()
     }
-    return frame.building.map(in_complex).fillna(False).to_numpy(bool)
+    return pd.Series(lot_buildings(frame)).map(in_complex).fillna(False).to_numpy(bool)
 
 
 def sizefill_v1(
@@ -5573,6 +5619,37 @@ DESCRIPTION_SOURCES["all-scraped-v1"] = {
 }
 
 
+# The NB9+API set and the all-areas set with the lots of drop-lot-v1's ads
+# dropped (`LOT_DROP_FILE`, `lot_buildings`): a dropped row reads no MapPLUTO
+# lot, LPC designation, footprint, facing sides, frontage or lot-keyed table
+# (HPD, rent stabilization, open space, complexes), so each of its lot terms
+# comes out unknown. Its position terms read the registry's geocode of the
+# ad's address as before. A lot with no building class takes its own class
+# level, "unknown" (`CLASS_UNKNOWN_SETS`).
+LOTS3_SETS = {
+    "nb9-nostuy-lots3-v1": "nb9-nostuy-api-v1",
+    "all-scraped-lots3-v1": "all-scraped-v1",
+}
+LOT_DROP_SETS = {name: LOT_DROP_FILE for name in LOTS3_SETS}
+CLASS_UNKNOWN_SETS = set(LOTS3_SETS)
+for _new, _old in LOTS3_SETS.items():
+    FEATURE_SETS[_new] = partial(
+        FEATURE_SETS[_old].func,
+        **{**FEATURE_SETS[_old].keywords, "id": _new},
+    )
+    for _group in [
+        v for k, v in list(globals().items()) if k.isupper() and isinstance(v, set)
+    ]:
+        if _old in _group:
+            _group.add(_new)
+    LOT_SNAPSHOTS[_new] = LOT_SNAPSHOTS[_old]
+    AREA_SNAPSHOTS[_new] = AREA_SNAPSHOTS[_old]
+    LPC_SNAPSHOTS[_new] = LPC_SNAPSHOTS[_old]
+    PLUTO_RELEASES_SNAPSHOTS[_new] = PLUTO_RELEASES_SNAPSHOTS[_old]
+    EXTRAS_SNAPSHOTS[_new] = EXTRAS_SNAPSHOTS[_old]
+    DESCRIPTION_SOURCES[_new] = DESCRIPTION_SOURCES[_old]
+
+
 def lot_files(name: str) -> dict:
     """The registry and MapPLUTO files a feature set's building lots read."""
     return LOT_SNAPSHOTS.get(name, {"registry": REGISTRY_FILE, "pluto": PLUTO_FILE})
@@ -5603,6 +5680,10 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
     )
     parks_token = _PARKS.set(PARKS_SNAPSHOTS.get(name))
     places_token = _PLACES.set(PLACES_SNAPSHOTS.get(name))
+    drops_token = _LOT_DROPS.set(
+        lot_drops(LOT_DROP_SETS[name]) if name in LOT_DROP_SETS else None
+    )
+    class_token = _CLASS_UNKNOWN.set(name in CLASS_UNKNOWN_SETS)
     text_token = descriptions_module.SOURCES.set(
         tuple(Path(p) for p in description_files(name).values())
     )
@@ -5618,4 +5699,6 @@ def build(name: str, frame: pd.DataFrame, train: np.ndarray) -> Features:
         _RELEASED.reset(released_token)
         _PARKS.reset(parks_token)
         _PLACES.reset(places_token)
+        _LOT_DROPS.reset(drops_token)
+        _CLASS_UNKNOWN.reset(class_token)
         descriptions_module.SOURCES.reset(text_token)
