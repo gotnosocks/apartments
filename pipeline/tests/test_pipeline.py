@@ -458,6 +458,7 @@ def test_ask_check_cases(tmp_path, monkeypatch):
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_check",
+        "analysis.lot_facts",
         "analysis.rows",
         "ledger.entries",
         "ledger.status",
