@@ -273,3 +273,80 @@ def test_main_lists_the_records_and_ads_files(records_catalog, tmp_path, monkeyp
     }
     with pytest.raises(SystemExit):
         lister.main(["--tag", "api"])
+
+
+def test_lister_takes_page_crawls_and_records_together(records_catalog, tmp_path):
+    """`--crawl page --crawl records` names the page crawls and the records file. Listing 7's
+    record is fetched after its page capture, so its lister and building come from the record
+    and the ads file, while its listed day is the earlier one, from the page crawl's event
+    mentions. Listing 8's page capture comes after its record, so the page crawl's building and
+    lister stand."""
+    crawls, tag = lister.parse(["--crawl", "page", "--crawl", "records"])
+    assert crawls == {
+        **lister.CRAWLS,
+        f"crawl-{len(lister.CRAWLS)}": lister.api_records.CRAWL,
+    }
+    assert tag == ""
+
+    page = tmp_path / "page"
+    (page / "listing_observations").mkdir(parents=True)
+    (page / "event_mentions").mkdir()
+    pd.DataFrame(
+        {
+            "listing_id": ["7", "8"],
+            "listing_type": ["rental", "rental"],
+            "building_slug": ["page-b", "page-b"],
+            "collected_at": [5.0, 20.0],
+            "raw_listing_json": [
+                json.dumps(history_record("P", [])),
+                json.dumps(history_record("P", [])),
+            ],
+        }
+    ).to_parquet(page / "listing_observations" / "part-0.parquet")
+    pd.DataFrame(
+        {
+            "listing_id": ["7"],
+            "event_listing_id": ["7"],
+            "event_category": ["rental"],
+            "event_date": ["2026-07-01"],
+            "status": ["ACTIVE"],
+        }
+    ).to_parquet(page / "event_mentions" / "part-0.parquet")
+    seven = history_record(
+        "A",
+        [
+            {
+                "listingId": "7",
+                "rentalEventsOfInterest": [{"status": "ACTIVE", "date": "2026-08-15"}],
+            }
+        ],
+    )
+    eight = history_record("A", [])
+    eight["id"] = "8"
+    records_catalog(
+        [
+            {
+                "listing_id": 7,
+                "collected_at": 1.0,
+                "last_collected_at": 9.0,
+                "record": seven,
+            },
+            {
+                "listing_id": 8,
+                "collected_at": 1.0,
+                "last_collected_at": 3.0,
+                "record": eight,
+            },
+        ],
+        ads=[
+            {"listing_id": "7", "building": "ads-b"},
+            {"listing_id": "8", "building": "ads-b"},
+        ],
+    )
+    table = lister.build(
+        {"page": str(page), "api": lister.api_records.CRAWL}
+    ).set_index("listing_id")
+    assert table.loc["7", ["lister", "building"]].tolist() == ["A", "ads-b"]
+    assert table.loc["7", "listed_at"] == pd.Timestamp("2026-07-01", tz="UTC")
+    assert table.loc["8", ["lister", "building"]].tolist() == ["P", "page-b"]
+    assert pd.isna(table.loc["8", "listed_at"])

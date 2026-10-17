@@ -178,12 +178,13 @@ def record_first_listed(raw: str, listing_id: str) -> str | None:
     return min(days, default=None)
 
 
-def _from_records(records: dict, ads: dict) -> tuple[list[dict], pd.Series]:
+def _from_records(records: dict) -> tuple[list[dict], pd.Series]:
     """Each record's lister fields with the building of its listing in the ads
-    file, and each listing's earliest listed day over its records."""
+    file of the same catalog line, and each listing's earliest listed day over
+    its records. The reader keeps listings by the same ads file."""
     building = dict(
         zip(
-            *pq.read_table(ads["path"], columns=["listing_id", "building"])
+            *pq.read_table(records["ads"]["path"], columns=["listing_id", "building"])
             .to_pydict()
             .values()
         )
@@ -209,25 +210,16 @@ def _from_records(records: dict, ads: dict) -> tuple[list[dict], pd.Series]:
     return rows, pd.Series(first, dtype=object)
 
 
-def catalog_files() -> tuple[dict, dict]:
-    """The records and ads files of the newest clean build in the pipeline's
-    catalog, each checked."""
-    records = api_records.records_file()
-    return records, records["ads"]
-
-
-def build(
-    crawls: dict | None = None, records: dict | None = None, ads: dict | None = None
-) -> pd.DataFrame:
+def build(crawls: dict | None = None, records: dict | None = None) -> pd.DataFrame:
     """Each listing's lister from its last capture in the crawls. A crawl
-    `records` is the pipeline's records file, `records` and `ads` the checked
-    records and ads files of one catalog line."""
+    `records` is the pipeline's records file, and `records` the file as
+    `api_records.records_file` checks it, with its ads file under `ads`."""
     rows, firsts = [], []
     for crawl in (crawls or CRAWLS).values():
         if crawl == api_records.CRAWL:
             if records is None:
-                records, ads = catalog_files()
-            added, first = _from_records(records, ads)
+                records = api_records.records_file()
+            added, first = _from_records(records)
             rows += added
             firsts.append(first)
             continue
@@ -301,12 +293,12 @@ def main(argv: list[str] | None = None):
         raise SystemExit("refusing a dirty tree")
     commit = _git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
-    records, ads = (
-        catalog_files()
+    records = (
+        api_records.records_file()
         if api_records.CRAWL in (crawls or CRAWLS).values()
-        else (None, None)
+        else None
     )
-    table = build(crawls, records, ads)
+    table = build(crawls, records)
     out_dir = EXTERNAL_ROOT / "lister" / f"{started:%Y%m%d}-{commit[:7]}{tag}"
     out_dir.mkdir(parents=True, exist_ok=False)
     path = out_dir / "lister.parquet"
@@ -315,6 +307,7 @@ def main(argv: list[str] | None = None):
     for name, crawl in (crawls or CRAWLS).items():
         if crawl == api_records.CRAWL:
             sources[name] = {"path": records["path"], "sha256": records["sha256"]}
+            ads = records["ads"]
             sources["ads_file"] = {"path": ads["path"], "sha256": ads["sha256"]}
             continue
         complete = Path(crawl) / "complete.json"

@@ -2639,7 +2639,11 @@ The frontier's `frontier/tests/test_lister.py` checks `lister` on a records file
     and an earlier listing in its building, and check the lister of the record fetched last, the
     ads file's building, the earliest listed day over both records and the earlier counts;
 61. run `lister.main` with `--crawl records`, and check that its provenance gives both files'
-    paths and SHA-256 and that a tag without a crawl stops.
+    paths and SHA-256 and that a tag without a crawl stops;
+62. parse `--crawl page --crawl records`, and build the lister table from a page crawl and a
+    records file. A listing fetched last in the records file takes its lister and the ads file's
+    building, and keeps the earlier listed day of the page crawl's event mentions. A listing
+    captured last in the page crawl keeps the page crawl's lister and building.
 
 ## Full build
 
