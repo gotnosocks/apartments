@@ -6,7 +6,7 @@ Updated 2026-10-17 19:00 ET, after the square-footage sets in #1075 and #1076. T
 
 - #1075 adds `pipeline/ledger/2026-10-17-zz-unit-sqft-singlead.ndjson`, 17 sqft sets. The screen in
   `/data1/apartments/tmp/suspect/sqft/single/` takes 1,408 rows whose unit has one other ad coding another size
-  and narrows them to 24 by stated sizes and asks. Sonnet read them: 19 wrong, 3 unclear, 1 a different unit,
+  and narrows them to 24 by stated sizes. Sonnet read them: 19 wrong, 3 unclear, 1 a different unit,
   1 right. `ledger.py` needs an exact quote parsing to the set value, the other ad's code within 3% and an ask
   ratio from 0.75 to 1.33, which dropped 2. In 8 of the 17 the coded figure is interior plus outdoor space.
 - `/data1/apartments/tmp/suspect/sqft/outdoor/` follows that pattern across the catalog. 734 rows code the sum
@@ -18,7 +18,7 @@ Updated 2026-10-17 19:00 ET, after the square-footage sets in #1075 and #1076. T
   dropped 4091232 (16,000 against 12,000).
 - Follow-up: two 2020 ads for the 2386604 unit (3017599, 2985097) code 2,500, which is 1,900 sq ft indoor plus
   the 600 sq ft garden. They are candidates for a set to 1,900 in a later pass.
-- Both files reach the catalog at the next build, Sun 07:15 ET.
+- The next build, Sun 07:15 ET, applies both files.
 
 ## 2026-10-17 17:30 ET
 
