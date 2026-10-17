@@ -153,6 +153,18 @@ def test_a_missing_noise_group_leaves_the_range_out(atoms_root, atoms_client):
     )
 
 
+def test_unreadable_atoms_leave_the_range_out(atoms_root, atoms_client):
+    current = (atoms_root / "current").resolve()
+    noise = json.loads((current / ranges.NOISE_FILE).read_text())
+    noise["groups"]["1"]["cdf"] = []
+    (current / ranges.NOISE_FILE).write_text(json.dumps(noise))
+    detail._open.clear()
+    detail._cached_ranges.cache_clear()
+    response = atoms_client.get("/listings/a2")
+    assert response.status_code == 200
+    assert "likely fall in" not in " ".join(response.get_data(as_text=True).split())
+
+
 def test_a_build_without_atoms_has_no_ranges_file(site_root):
     assert not (site_root / "current" / detail.RANGES_FILE).exists()
     assert detail.likely_ask((site_root / "current").resolve(), "x", "a1") is None

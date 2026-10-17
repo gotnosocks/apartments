@@ -714,7 +714,8 @@ def create_app(
     def likely_of(row) -> dict | None:
         """The listing's likely ask ranges: from its row, or worked out from
         the build's range atoms when the bundle has those in their place
-        (detail.py); None when neither has them."""
+        (detail.py); None when neither has them, or when the atoms or noise
+        tables can't be read, so the page leaves the range out."""
         if row["pred_lower_80"] is not None:
             return {
                 k: row[k]
@@ -726,7 +727,13 @@ def create_app(
                 )
             }
         meta()
-        return detail.likely_ask(g.build_dir, g.meta["summary_sha256"], row["audit_id"])
+        try:
+            return detail.likely_ask(
+                g.build_dir, g.meta["summary_sha256"], row["audit_id"]
+            )
+        except Exception:
+            log.exception("no likely ask range for %s", row["audit_id"])
+            return None
 
     def meta() -> dict:
         if "meta" not in g:
