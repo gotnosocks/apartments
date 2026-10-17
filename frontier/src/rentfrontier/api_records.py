@@ -15,6 +15,14 @@ The builders read these rows where they read a granular export's `listing_observ
 - `snapshot_id` from `response_id`, the record's first answer;
 - `listing_type` and `raw_listing_json` as the file has them.
 
+`captures` passes over the records of a listing whose own history holds no dated ACTIVE event,
+as the build's ads file marks it with `no_dated_own_active_event`. The pipeline leaves these
+ads out of its rows for the same reason. About half are drafts and ads held for review, which
+never went on the market, and the rest ended with no ACTIVE event in their own history. Taking
+the ads file from the same catalog line keeps the builders, the ads file and the rows on one set
+of listings. A draft or an ad under review with a dated ACTIVE event of its own stays in, since
+the rows can hold it too.
+
 `captures` reads the file a row group at a time, because its record text runs to a few
 gigabytes. `observations` reads a crawl a builder names, either a granular export's folder or
 `CRAWL` for the records file.
@@ -29,6 +37,9 @@ import os
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
+import numpy as np
+import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 DATASETS = Path(
@@ -44,6 +55,8 @@ NAMES = {
     "snapshot_id": "response_id",
     "raw_listing_json": "raw_listing_json",
 }
+# The ads file's reason for an ad whose own history holds no dated ACTIVE event.
+NEVER_LISTED = "no_dated_own_active_event"
 
 
 def _sha256(path: Path) -> str:
@@ -90,20 +103,40 @@ def checked(entry: dict, key: str, root: Path | None = None) -> dict:
 
 
 def records_file(root: Path | None = None) -> dict:
-    """The records file of the newest clean build under `root`, checked."""
-    return checked(catalog_entry(root), "records", root)
+    """The records file of the newest clean build under `root`, checked, with the same build's
+    ads file, checked, under `ads`."""
+    entry = catalog_entry(root)
+    source = checked(entry, "records", root)
+    source["ads"] = checked(entry, "ads_file", root)
+    return source
+
+
+def listed(ads: dict) -> pa.Array:
+    """The listing ids of the checked ads file `ads`, as text, leaving out each ad marked
+    `NEVER_LISTED`."""
+    table = pq.read_table(ads["path"], columns=["listing_id", "exclusion_reasons"])
+    reasons = table["exclusion_reasons"].combine_chunks()
+    flagged = pc.filter(
+        pc.list_parent_indices(reasons),
+        pc.equal(pc.list_flatten(reasons), NEVER_LISTED),
+    )
+    keep = np.ones(table.num_rows, dtype=bool)
+    keep[flagged.to_numpy()] = False
+    return pc.cast(table["listing_id"], pa.string()).combine_chunks().filter(keep)
 
 
 def captures(
     source: dict, columns: Iterable[str], batch_size: int = 2_000
 ) -> Iterator[dict]:
-    """Each row of the checked records file `source` as a granular capture with `columns`."""
+    """Each row of the checked records file `source` as a granular capture with `columns`, for
+    the listings its ads file shows on the market."""
     columns = list(columns)
+    ids = listed(source["ads"])
     file = pq.ParquetFile(source["path"])
-    for batch in file.iter_batches(
-        batch_size=batch_size, columns=[NAMES[c] for c in columns]
-    ):
-        for row in batch.to_pylist():
+    read = list(dict.fromkeys([*(NAMES[c] for c in columns), "listing_id"]))
+    for batch in file.iter_batches(batch_size=batch_size, columns=read):
+        keep = pc.is_in(pc.cast(batch["listing_id"], pa.string()), value_set=ids)
+        for row in batch.filter(keep).to_pylist():
             out = {c: row[NAMES[c]] for c in columns}
             if "listing_id" in out:
                 out["listing_id"] = str(out["listing_id"])
