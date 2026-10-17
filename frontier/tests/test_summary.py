@@ -518,8 +518,9 @@ def test_predictive_quantiles_with_few_heavy_draws():
 
 
 def fixed_step_quantiles(total, sigma, nu, weights, probabilities, iterations=10):
-    """predictive_quantiles as it ran up to 2026-10-17: ten Newton steps on every
-    row, then 50 bisection steps on rows still off by more than 1e-7."""
+    """predictive_quantiles as it ran up to 2026-10-17: `iterations` Newton steps
+    (ten by default) on every row, then 50 bisection steps on rows still off by
+    more than 1e-7."""
     from scipy.special import gammaln, stdtr, stdtrit
 
     sigma = np.broadcast_to(sigma, total.shape)
@@ -584,12 +585,13 @@ def test_rows_that_stop_early_match_the_fixed_step_quantiles(monkeypatch):
     probabilities = [0.025, 0.1, 0.9, 0.975]
     counts = bisected_rows(monkeypatch)
     q = summary.predictive_quantiles(total, sigma, nu, weights, probabilities)
-    assert sum(counts) > 0
+    # Some rows need the bisection finish, and most stop on Newton steps.
+    assert sum(counts) > 0 and max(counts) < rows // 4
     expected = fixed_step_quantiles(total, sigma, nu, weights, probabilities)
     np.testing.assert_allclose(q, expected, rtol=0, atol=1e-9)
 
 
-def test_a_row_newton_cannot_settle_gets_the_bisection_finish(monkeypatch):
+def test_every_row_gets_the_bisection_finish_with_no_newton_steps(monkeypatch):
     """With no Newton steps every row's CDF stays off at the starting point,
     and the bisection finish still brings each one to its quantile."""
     from scipy.special import stdtr

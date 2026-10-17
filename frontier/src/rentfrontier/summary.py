@@ -336,11 +336,12 @@ def predictive_quantiles(
                 break
             fm, xm = f[moving], x[moving]
             d = (wpdf[:, moving] * (1 + z * z / nu_) ** (-(nu_ + 1) / 2)).sum(0)
-            lo[moving] = np.where(fm < 0, xm, lo[moving])
-            hi[moving] = np.where(fm < 0, hi[moving], xm)
+            lm = np.where(fm < 0, xm, lo[moving])
+            hm = np.where(fm < 0, hi[moving], xm)
+            lo[moving], hi[moving] = lm, hm
             newton = xm - fm / np.maximum(d, 1e-300)
-            inside = (newton >= lo[moving]) & (newton <= hi[moving])
-            xm = np.where(inside, newton, 0.5 * (lo[moving] + hi[moving]))
+            inside = (newton >= lm) & (newton <= hm)
+            xm = np.where(inside, newton, 0.5 * (lm + hm))
             going = np.abs(fm) >= tolerance
             x[moving[going]] = xm[going]
             moving = moving[going]
