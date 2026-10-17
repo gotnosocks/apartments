@@ -295,16 +295,47 @@ at 07:15 ET, to catch a missed trigger or a pipeline change merged to master. Th
    `/data1/apartments/venvs/pipeline` from `pipeline/uv.lock`, and stops there when the
    export's manifest, the city archive's manifest and the pipeline's code match the last
    build's, as on most of the timer's runs;
-3. takes the GPU lock and every light slot, as `ops/job gpu -x` does, so no GPU fit or light job
-   runs beside the build, and checks for 6 GiB of available memory, letting go of the locks and
-   trying again every five minutes while less is available;
-4. runs `build.py` with `PIPELINE_MEMORY=3GB` in the service's own cgroup, which the unit caps
-   at 5 GiB with swap off, and lets go of the locks after it;
+3. waits for room to build, checking that
+   - no job holds the GPU lock, so no fit or other GPU job runs on thelio;
+   - no unit named `site-build-*`, `frontier-publish*`, `di-*`, `data-*`, `adfills-*` or `bd4-*`
+     is active, for the site builds and Data improvements' jobs run outside `ops/job`;
+   - 5 GiB of memory is available.
+
+   While a GPU job holds the GPU lock, it queues for the lock as the GPU jobs do and holds it
+   through the build. Once the other checks pass, it takes every light slot, so no
+   `ops/job light` job runs beside the build, and checks again with the slots held. When a
+   check fails, it lets go of every lock and checks again a minute later, logging the reason
+   when it changes;
+4. logs the locks it took and the memory available, runs `build.py` with `PIPELINE_MEMORY=3GB`
+   in the service's own cgroup, which the unit caps at 5 GiB with swap off and keeps on the
+   light CPUs, and lets go of its locks after it;
 5. builds again when the manifest changed during the build.
 
 Manual exports with `streeteasy_archive.graphql_export` take `export/.lock` and exit when it is
 held, so the script waits on `oxylabs.lock` alone. When such an export appends its lines during
 a build, step 5 builds again.
+
+When the build starts with the GPU lock free, it leaves the lock free. A GPU job queued after
+its start takes the GPU lock and runs beside it, while a `gpu -x` job, as full fits run, also
+waits for the light slots and so starts after the build. Ben agreed on 2026-10-16 to let the build skip the GPU lock this
+way, on the terms the checks above carry out. The build queues for the lock behind a running GPU
+job, as it did before, so a queue of GPU jobs only delays it. The checks run at the build's
+start, so a job started during a build still overlaps it. A site build or a Data improvements
+job that must not overlap the build runs through `ops/job light`, which waits for the slots the
+build holds. A job run outside `ops/job` goes in a service named like the patterns above, so the build
+waits for it, started under light slot 1:
+
+```sh
+flock /data1/apartments/tmp/locks/light-1.lock \
+    systemd-run --user --unit=di-NAME -p MemoryMax=3G -p MemorySwapMax=0 -- COMMAND
+```
+
+`flock` waits while a build holds the slots, and lets go of slot 1 only after `systemd-run` has
+started the service, so a build that starts later finds the unit active and waits for it. A
+scope in place of the service would hold slot 1 for the whole job. `systemctl --user is-active`
+doesn't tell whether a build is running: the build's service stays `activating` through its
+waits as well as its build. `ops/autoselect-publish.sh` runs its site build under slot 1 the
+same way.
 
 A build after an export is a top-up. The 15 models of kind `merge` read the export's new
 answers and the ads they change, and the other ads models and the `analysis` tables read every
@@ -1318,6 +1349,119 @@ it in a quarantine version and `RULES` names that version.
 
 On a copy of a built state, the build rebuilt `analysis.ask_check` in 0.9 s, along with the views
 below it. The build took 20.4 s, 12.7 s of it writing the two files, at a peak of 3,863 MiB.
+
+## City check
+
+`ops/pipeline/citycheck.py` compares a built state with the city's records of each building's
+lot: the lot itself, the units with ads against the lot's apartments, and each row's floor
+against the lot's floors. It reads a copy of the state file and writes `citycheck.json` and
+`citycheck.md` to the folder given with `--out`:
+
+```sh
+ops/job gpu -x -- cp -a /data1/apartments/pipeline/state/pipeline.duckdb COPY
+systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0 -- \
+    env TMPDIR=/data1/apartments/tmp/pipeline/tmp \
+    pipeline/.venv/bin/python -I ops/pipeline/citycheck.py COPY --out DIR
+```
+
+DuckDB locks a file it opens, even read-only, and a lock held by the check would stop the build
+from opening the live state, `/data1/apartments/pipeline/state/pipeline.duckdb`. So I run the
+check on a copy, and the script refuses the live path. The first command makes the copy: the
+build holds the GPU lock and every light slot while it runs, and `ops/job gpu -x` waits for the
+same locks, so `cp -a` reads the file between builds. The script attaches the copy under the
+catalog name `pipeline`, as the build's views expect, so any file name works. The city views
+read the build's city cache by absolute path, so the cache has to stay in place. DuckDB gets
+2 GB unless `--memory` says otherwise, and spills past it to a folder under TMPDIR. Each
+section of the JSON report carries the definitions of its measures, and the Markdown summary
+gives the counts and the first ten cases of each list.
+
+For lots, I first count the buildings with ads, their ads and their fit-ready rows by the
+`link` of `buildings.lots`. Then, as a route apart from the build's PAD address ranges and
+footprints, I look up each building's street address among the lot addresses of the latest
+MapPLUTO release. I parse both addresses as `buildings.pad_link` parses StreetEasy's,
+and on both sides a street name in the PAD street dictionary becomes its street code, so
+`6th Avenue` meets AVENUE OF THE AMERICAS. For each building, MapPLUTO's address gives:
+
+- `same`: the build's lot alone;
+- `among_several`: several lots, the build's among them;
+- `other`: lots without the build's;
+- `only_mappluto`: a lot for a building without one;
+- `no_match`: no lot;
+- `unparsed`: nothing, for an address without a house number or a borough.
+
+MapPLUTO lists one address for each lot, so a corner building or a building on a range of house
+numbers often finds no match, and a `no_match` counts nothing against the build's lot. The
+report lists the `other` and `only_mappluto` buildings with the lots of their MapPLUTO address.
+This route reads the same StreetEasy address as `buildings.pad_link`, through the same parse and
+the same street dictionary. For a building linked by its address, `same` mostly repeats PAD's
+answer, and a wrong StreetEasy address leads both routes to the same wrong lot. For a building
+linked by its footprint, the route gives a more independent test.
+
+For units, I take each lot with ads and count its distinct units in `ads.placed`, over all
+time and over the 12 months up to the latest first day of a candidate ad. I compare both counts
+with the city's:
+
+- the lot's `unitsres` in `analysis.lot_facts`, from the MapPLUTO release of the lot's latest
+  candidate ad, or from the lot's latest release when no candidate ad reads the lot. I take the
+  count and its release from the same row;
+- the apartments on the latest certificate of occupancy of each BIN of the lot's buildings with
+  ads, from `analysis.building_certificates` as of the first day of the BIN's latest candidate
+  ad, summed over the BINs. The BINs come from the buildings of the counted units, so a lot
+  gets no certificate count when one of those buildings lacks a BIN or a BIN lacks a count.
+
+Each lot falls in a class: no count, a count of 0, within the count, or above it by 1, 2 to 5,
+6 to 20 or more than 20. The report lists the lots with the largest excess over either count,
+and the lots with a `unitsres` of 0.
+
+When a building's address lot and footprint lot differ, `buildings.lots` picks the one whose
+latest MapPLUTO building class, year, `numfloors` and `unitsres` best match the StreetEasy
+record. For a lot with `link` `address` or `footprint`, the `unitsres` comparison therefore
+leans toward agreement, and so does the `numfloors` comparison below. The links `both`, `tie`,
+`address_only` and `footprint_only` involve no such choice. I split each class tally into lots
+with a building linked by `address` or `footprint` and the other lots, and print both in the
+summary.
+
+For floors, I take each fit-ready row's advertised floor, else its physical floor, else its
+label floor, and compare it with two counts:
+
+- the `numfloors` of the row's lot, from the latest MapPLUTO release published at least 7 days
+  before the row's first day;
+- the building's StreetEasy floor count, in `building_floor_count`.
+
+Here the classes add `no_lot` and go above by 1, 2, 3 to 5, 6 to 10 and more than 10 floors. A
+row's release can come from before a building's last change, so a floor above the as-of
+`numfloors` and within the latest release's count goes to `within_latest`, and the report gives
+the latest count beside the as-of one. The build refuses a label floor above StreetEasy's count,
+and I compare those refused label floors with `numfloors` too. The report lists the buildings
+with the most rows above both MapPLUTO counts, and splits the rows by link as for units.
+
+On a build of the sample from `ops/pipeline/sample.py`, with 673 buildings with ads and 16,080
+fit-ready rows, the check took 2.7 s at a peak of 0.79 GB. Every building had a lot. MapPLUTO's
+address gave the build's lot alone for 610 buildings, several lots with the build's among them
+for 3, another lot for 2 and no lot for 58. All 610 `same` buildings took their lot from PAD's
+address ranges, with `link` `both`, `address`, `tie` or `address_only`. The 3 buildings linked
+by footprint gave `among_several` once and `other` twice: 903 Broadway reads lot 1008750073,
+and MapPLUTO gives its address to lot 1008490010.
+
+Over all time, the units with ads exceed `unitsres` in 246 of 663 lots, and over the last 12
+months in 19. A unit here is a unit page, so a unit listed under several pages counts once for
+each, unless a join of the [Unit ledger](#unit-ledger) gives the pages one unit. 462 Keap
+Street in Brooklyn has 202 units with ads, 19 of them in the last 12 months, on a lot of 29
+apartments. Of the 14 lots with a building linked by `address` or `footprint`, 6 exceed
+`unitsres` over all time and none over the last 12 months. 18 lots have a `unitsres` of 0, and
+1 of them reads it from the lot's latest release. Certificates give a count for 80 lots, and the
+units of the last 12 months exceed it in 2.
+
+10,567 rows have a floor. 32 of them, in 3 buildings, lie 1 floor above `numfloors`, both as of
+the row and in the latest release, and 1 lies above StreetEasy's count. The Vanguard Chelsea
+gives 21 of the 32, with floors up to 30 against 29 in MapPLUTO and 30 on StreetEasy. 57 more
+rows, in 7 buildings, lie above the `numfloors` of their own release and within the latest
+release's. 21 of those come from 951 Madison Street in Brooklyn: its rows read releases 19v2 to
+20v4, which give condominium billing lot 3033577501 1 floor, and from 21v1 on MapPLUTO gives 7,
+as StreetEasy does. The 27 rows with a floor in buildings linked by `address` or `footprint` all
+lie within `numfloors`. 15 rows read a `numfloors` of 0. Of the 433 rows with a refused label
+floor, 425 lie above `numfloors`, and 3 more lie above it as of the row and within the latest
+release's count.
 
 ## Corrections ledger
 
@@ -2353,6 +2497,38 @@ in all, and most tests add made-up ads to that export. The tests:
     A second folder renames a neighbourhood to another, and its lines and manifest counts follow
     the rename. A third asks only for the new name, and the rename brings in the old one's rows.
     A rename of a neighbourhood with no rows stops the script;
+47. run `ops/pipeline/build-latest --room` with a made-up `systemctl` and `git`, as thelio's
+    locks are laid out, with the GPU lock linked to `heavy.lock`. The check lets the build start
+    with the GPU lock free, with no pattern of units to avoid, and with the lock held by the build
+    itself, and it creates no temporary folder and calls no `git` on the way. It gives the reason
+    to wait while another job holds the lock, while a unit to avoid is active, when `systemctl`
+    fails and when less memory is available than asked for, and it stops on a memory size it
+    can't read;
+48. add seven made-up buildings and 29 ads to the cases, build them, copy the state under another
+    name, and run `ops/pipeline/citycheck.py` on the copy. The script refuses the state the build
+    wrote, and the copy's hash stays the same over the run. The first building gets lot 12 of
+    block 1220 from its address and its map point, with 15 apartments and 5 floors in MapPLUTO
+    and 8 floors on StreetEasy. 15 of its units have ads in September 2026 and 2 more in June
+    2025. Unit 7a reads floor 7 from its label, unit 9b's description gives the ninth floor, and
+    unit 10c's label floor of 10 lies above StreetEasy's count, so its row has no floor. The
+    second building has its map point on lot 12 and the address of lot 10, and it takes lot 12
+    from the footprint. Its unit 2d brings lot 12 to 18 units over all time and 16 in the last 12
+    months. The third has no map point and takes lot 9 of block 1238 from its address, and its 7
+    units with ads lie within MapPLUTO's 9 apartments and above the 4 on its latest certificate
+    of occupancy. The fourth gets no lot. The fifth takes condominium lot 7502 of block 1238 from
+    its address, which MapPLUTO gives to two lots. Its one ad asks $600, so no candidate ad reads
+    the lot, which takes its `unitsres` of 0 from the latest release and gets no certificate
+    count. The sixth takes lot 7503 from a PAD address that MapPLUTO lists under no lot, and its
+    June 2025 ad puts unit 8a on floor 8, above the 6 floors of release 16v2 and within the 11 of
+    the latest release. The seventh, in Queens, gets no lot, and MapPLUTO gives its address one.
+    The report counts the buildings and rows of each link and each MapPLUTO address class, lists
+    the second and seventh buildings against MapPLUTO's address, puts lot 12 above `unitsres`
+    among the lots linked by `address` or `footprint`, lot 9 above the certificate and lot 7502
+    at a `unitsres` of 0, and counts floors 7 and 9 above `numfloors`, floor 8 within the latest
+    release's count, floor 9 above StreetEasy's count and the refused floor 10 above
+    `numfloors`. A second copy gives the second building the BIN of lot 13's building, which has
+    no certificate, and gives the first building's BIN a certificate of 20 apartments. Lot 12
+    then lists both BINs and gets no certificate count;
 49. build runs 2 and 3 with `ops/pipeline/build.py`, then add run 4 and three made-up answers
     and build again as a top-up. One answer puts an ad of a unit back on the market at a new
     price, one adds an ad to another unit of the same building, whose ads all came in run 2,
