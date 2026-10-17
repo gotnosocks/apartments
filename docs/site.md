@@ -292,6 +292,8 @@ mv -T current.new current` in `/data1/apartments/site`.
 - **Column reads:** the site appends a JSON line per request to `/data1/apartments/site/reads.jsonl`
   with the route, the client, the table.column names its statements read and the result columns
   the code used (`src/apartments/site/reads.py`). We use it to find outputs no page reads.
+  A row read whole (iterated, or turned into a dict) counts all its columns, so the log errs
+  toward keeping a column. The file has no rotation; we delete it when the measurement ends.
   `SITE_READS_LOG=0` in the unit turns it off; another path in it moves the log.
 - **Stop:** `systemctl --user disable --now apartments-site`.
 

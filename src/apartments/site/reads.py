@@ -9,11 +9,15 @@ log with the route, the address, the status and both sets:
      "queried": ["listings.ask", ...], "used": ["ask", ...]}
 
 `queried` holds every table.column a statement named, so `SELECT *` lists the whole table.
-`used` holds the result columns the code or a template read, by name. A column counts as read
-by a route when both sets have it.
+`used` holds the result columns the code or a template read, by name or by position. A column
+counts as read by a route when both sets have it. Some reads count more than they use:
+  - iterating a row, or `dict(row)`, marks every column of that row;
+  - a row kept in a per-build cache counts only for the request that filled the cache.
+So `used` errs toward keeping a column, and a column missing from it went unread.
 
 The site writes the log to SITE_READS_LOG, by default reads.jsonl in the site root, and leaves
-it off when SITE_READS_LOG is 0.
+it off when SITE_READS_LOG is 0. The log has no rotation: it grows by a line for each page
+request that touches the database, and we delete it once the measurement ends.
 """
 
 from __future__ import annotations
@@ -34,17 +38,28 @@ class Row(sqlite3.Row):
     """sqlite3.Row that notes each column read by name during a logged request."""
 
     def __getitem__(self, key):
-        if isinstance(key, str):
-            seen = _used.get()
-            if seen is not None:
+        seen = _used.get()
+        if seen is not None:
+            if isinstance(key, str):
                 seen.add(key)
+            elif isinstance(key, int):
+                seen.add(self.keys()[key])
+            elif isinstance(key, slice):
+                seen.update(self.keys()[key])
         return super().__getitem__(key)
+
+    def __iter__(self):
+        seen = _used.get()
+        if seen is not None:
+            seen.update(self.keys())
+        return super().__iter__()
 
 
 class ReadLog:
     def __init__(self, path: Path | None):
         self.path = path
         self.lock = threading.Lock()
+        self.row = Row if path is not None else sqlite3.Row
 
     @classmethod
     def from_env(cls, root: Path, value: str | None) -> ReadLog:

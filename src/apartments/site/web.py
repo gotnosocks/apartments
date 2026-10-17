@@ -684,7 +684,7 @@ def create_app(
             g.db = sqlite3.connect(
                 f"file:{quote(str(path))}?mode=ro&immutable=1", uri=True
             )
-            g.db.row_factory = reads.Row
+            g.db.row_factory = read_log.row
             if g.get("reads") is not None:
                 read_log.watch(g.db, g.queried)
             g.build = path.parent.name
@@ -714,6 +714,13 @@ def create_app(
 
     @app.after_request
     def finish(response):
+        read_log.finish(
+            g.pop("reads", None),
+            endpoint=request.endpoint,
+            remote=request.remote_addr,
+            status=response.status_code,
+            queried=g.get("queried", set()),
+        )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; "
             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
@@ -737,13 +744,6 @@ def create_app(
             response.make_conditional(request)
             _compress(response)
         elapsed = (time.perf_counter() - g.get("started", time.perf_counter())) * 1e3
-        read_log.finish(
-            g.pop("reads", None),
-            endpoint=request.endpoint,
-            remote=request.remote_addr,
-            status=response.status_code,
-            queried=g.get("queried", set()),
-        )
         log.info(
             "%s %s %s %d %.1fms",
             request.remote_addr,
