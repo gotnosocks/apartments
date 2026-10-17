@@ -1142,6 +1142,9 @@ UNIT_REVIEWS_V3 = UNIT_JOINS.with_name("unit-reviews-20261017.jsonl")
 # unit-reviews-v4: v3's lines, and 870 Broadway's #2 loft listing moved into the #3
 # loft's unit, since both ads give the same copy and size.
 UNIT_REVIEWS_V4 = UNIT_JOINS.with_name("unit-reviews-20261017b.jsonl")
+# unit-reviews-v5: v4's lines, and 444 West 20th Street's #1 joined to #GARDEN, the
+# same garden and parlor duplex by its ad copy.
+UNIT_REVIEWS_V5 = UNIT_JOINS.with_name("unit-reviews-20261017c.jsonl")
 
 
 def review_units(frame: pd.DataFrame, path: Path = UNIT_REVIEWS) -> pd.DataFrame:
@@ -2159,6 +2162,7 @@ DATA_RULES = {
     "unit-reviews-v2": review_units,
     "unit-reviews-v3": functools.partial(review_units, path=UNIT_REVIEWS_V3),
     "unit-reviews-v4": functools.partial(review_units, path=UNIT_REVIEWS_V4),
+    "unit-reviews-v5": functools.partial(review_units, path=UNIT_REVIEWS_V5),
     # The rule as fit before its amendment, for runs that recorded the first list.
     "unit-reviews-v1@20261007": functools.partial(
         join_reviewed_units, path=UNIT_JOINS_20261007
@@ -2222,6 +2226,7 @@ RULE_SOURCES = {
     "unit-reviews-v2": UNIT_REVIEWS,
     "unit-reviews-v3": UNIT_REVIEWS_V3,
     "unit-reviews-v4": UNIT_REVIEWS_V4,
+    "unit-reviews-v5": UNIT_REVIEWS_V5,
     "unit-reviews-v1@20261007": UNIT_JOINS_20261007,
     "unit-labels-v2": UNIT_ALIASES,
     "unit-labels-v3": UNIT_ALIASES,

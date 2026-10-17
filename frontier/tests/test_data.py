@@ -940,8 +940,34 @@ def test_unit_reviews_v4_moves_the_870_broadway_2_loft_into_the_3_loft():
     ]
     assert data.RULE_SOURCES["unit-reviews-v4"] == data.UNIT_REVIEWS_V4
     assert "unit-reviews-v4" not in data.DROPPING_RULES
-    assert "unit-reviews-v4" in autoselect.current_rules()
     assert "unit-reviews-v3" not in autoselect.current_rules()
+
+
+def test_unit_reviews_v5_joins_444_west_20th_1_and_garden():
+    """unit-reviews-v5 keeps v4's lines as its prefix and joins 444 West 20th
+    Street's #1 and #GARDEN, leaving GARDENDPLX apart."""
+    old = data.UNIT_REVIEWS_V4.read_text().splitlines()
+    new = data.UNIT_REVIEWS_V5.read_text().splitlines()
+    assert new[: len(old)] == old and len(new) == len(old) + 1
+
+    b = "444-west-20-street-new_york"
+    frame = pd.DataFrame(
+        {
+            "building": [b, b, b],
+            "canonical_unit_url": [
+                f"https://streeteasy.com/building/{b}/{u}"
+                for u in ("1", "garden", "gardendplx")
+            ],
+            "unit_id": ["u44", "u0a", "uf2"],
+            "source_listing_id": ["2314583", "2312228", "724330"],
+        }
+    )
+    out = data.DATA_RULES["unit-reviews-v5"](frame)
+    assert out.unit_id.tolist() == ["u0a", "u0a", "uf2"]
+    assert data.RULE_SOURCES["unit-reviews-v5"] == data.UNIT_REVIEWS_V5
+    assert "unit-reviews-v5" not in data.DROPPING_RULES
+    assert "unit-reviews-v5" in autoselect.current_rules()
+    assert "unit-reviews-v4" not in autoselect.current_rules()
 
 
 def test_quarantine_v6_is_v5_and_110_west_26th_bare_numbers():
