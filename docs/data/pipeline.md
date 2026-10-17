@@ -779,12 +779,19 @@ values, so `ads.attributes` leaves such records out.
 
 Unlike the chain, `ads.attributes` merges an ad's attributes only over the records fetched up
 to its last answer with status ACTIVE, and over all of them when the ad has no ACTIVE answer.
-StreetEasy strips or cuts an ad's description once it is rented or delisted. A closed record
+StreetEasy can strip or cut an ad's description once it is rented or delisted. A closed record
 read from that text then gave another value, or none, and the merge turned the ACTIVE records'
 value into an unknown. The fit's target is the latest ask, so the merged attributes describe
 the ad as it stood when it last asked. Data improvements sized the pattern on records-b4958178.
 Of the 469 ads whose latest record was closed and that had an ACTIVE record, 31 had a
 description different from their last ACTIVE record's, and 14 had it blanked.
+
+On the export of runs 1 to 16, 875 of the 2,140,923 ads have records fetched after their last
+ACTIVE one, and the cut changes the attributes row of each, 657 of them with a fit-ready row.
+For most of them only `records`, the count of records merged, goes down. The merged values
+change in 12 ads, one field each: bedrooms in 2 ads, the doorman in 2, laundry in 1, views in 4
+and windows in 3. In each of them the conflict between records gives way to the ACTIVE records'
+value, and the cut adds no conflict.
 
 The rental flags (furnished, short term and concession) still merge over all of an ad's
 records, since they describe the terms behind the ask. Ad 5178211 in Williamsburg shows why.
@@ -2083,6 +2090,9 @@ even if another of its records has text. Each evidence line records its choice u
 `description_record`, as `last_active` or `latest`, and the provenance counts the rows of each
 under `rows_by_description_record`. A run from a granular export keeps the record captured last
 and marks every line `latest`.
+
+The pipeline's `ads.attributes` cuts each ad's records at the same point, merging the attributes
+over the records up to the last ACTIVE one.
 
 `listing_extras` reads the file with `--crawl records`, and its provenance gives the file's path
 and SHA-256 under `sources`, with the ads file of the same catalog line under `ads_file`, since
