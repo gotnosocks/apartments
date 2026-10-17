@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 17:30 ET, after the PAD review of relotted empty-lot buildings. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 19:00 ET, after the square-footage sets in #1075 and #1076. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 19:00 ET
+
+- #1075 adds `pipeline/ledger/2026-10-17-zz-unit-sqft-singlead.ndjson`, 17 sqft sets. The screen in
+  `/data1/apartments/tmp/suspect/sqft/single/` takes 1,408 rows whose unit has one other ad coding another size
+  and narrows them to 24 by stated sizes. Sonnet read them: 19 wrong, 3 unclear, 1 a different unit,
+  1 right. `ledger.py` needs an exact quote parsing to the set value, the other ad's code within 3% and an ask
+  ratio from 0.75 to 1.33, which dropped 2. In 8 of the 17 the coded figure is interior plus outdoor space.
+- `/data1/apartments/tmp/suspect/sqft/outdoor/` follows that pattern across the catalog. 734 rows code the sum
+  of two stated sizes, 265 of them with an outdoor label. Of the 286 with other ads, 218 have another ad coding
+  the same sum, so agents code the sum consistently for those units. The ledger leaves them alone. Modeling has
+  the proposal for an additive text feature with interior and outdoor sqft parsed apart.
+- #1076 adds `pipeline/ledger/2026-10-17-zzz-unit-sqft-outdoor.ndjson`, 8 sets to the interior size, for rows
+  where another ad codes the interior and none codes the sum. Sonnet read 11: 9 wrong, 2 right. The ask check
+  dropped 4091232 (16,000 against 12,000).
+- Follow-up: two 2020 ads for the 2386604 unit (3017599, 2985097) code 2,500, which is 1,900 sq ft indoor plus
+  the 600 sq ft garden. They are candidates for a set to 1,900 in a later pass.
+- The next build, Sun 07:15 ET, applies both files.
 
 ## 2026-10-17 17:30 ET
 
@@ -17,8 +35,8 @@ Updated 2026-10-17 17:30 ET, after the PAD review of relotted empty-lot building
   that footprint. Point-in-time PLUTO gives older listings the pre-demolition building, so the registry lot stays.
   The other 10 carry their own BIN, whose footprint lies on the registry lot or is missing. The rest of the 35 get no
   override. The pipeline thread has the footprint-link finding (`pad/binlot.py`, `pad/binlot.parquet`).
-- Next: the 296 vacant-lot buildings (1,016 rows) may follow the same
-  pattern. Check `ever_units` against StreetEasy before proposing any lot move.
+- The 296 vacant-lot buildings (1,016 rows) need no new check: an earlier section records that PAD agrees with
+  their lots, so they stay.
 
 ## 2026-10-17 17:10 ET
 
