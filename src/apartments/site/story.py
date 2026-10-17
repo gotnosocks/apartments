@@ -374,6 +374,29 @@ def pick_listing(db):
     return None, False
 
 
+def scans(db) -> dict:
+    """The story's example listing (by id), the neighbourhoods and the fit's
+    counts. Each scans every listing, so the build works them out once."""
+    listing, current = pick_listing(db)
+    areas = sorted(
+        r[0]
+        for r in db.execute("SELECT DISTINCT neighbourhood FROM listings")
+        if r[0] is not None
+    )
+    counts = list(
+        db.execute(
+            "SELECT COUNT(*), COUNT(DISTINCT unit_id), COUNT(DISTINCT building_id), "
+            "MIN(period), MAX(period) FROM listings WHERE in_fit = 1"
+        ).fetchone()
+    )
+    return {
+        "listing": None if listing is None else listing["id"],
+        "current": current,
+        "areas": areas,
+        "counts": counts,
+    }
+
+
 def _median_miss(rows) -> float:
     """The median gap between ask and estimate, as a percentage of the estimate."""
     gaps = sorted(abs(r["ask"] - r["estimate"]) / r["estimate"] for r in rows)

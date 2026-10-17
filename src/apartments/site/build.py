@@ -1164,6 +1164,7 @@ def _write(
         "price_bands": PRICE_BANDS,
         "selection": selection,
         "story_checks": story_checks(db),
+        "story_scans": story_checks(db, story.scans),
     }
     db.executemany(
         "INSERT INTO meta VALUES (?,?)",
@@ -1179,13 +1180,16 @@ def _write(
     return stats
 
 
-def story_checks(db) -> list:
+def story_checks(db, check=None):
     """The research story's held-out accuracy, rent jumps, unit examples and
-    border medians. Each scans every listing or building, so the build works
-    them out once and the server reads them from meta."""
+    border medians, or `check(db)` when given. Each scans every listing or
+    building, so the build works them out once and the server reads them
+    from meta."""
     factory = db.row_factory
     db.row_factory = sqlite3.Row
     try:
+        if check is not None:
+            return check(db)
         return [
             story.accuracy(db),
             story.rent_jumps(db),

@@ -740,7 +740,8 @@ def create_app(
             g.meta = {
                 row["key"]: json.loads(row["value"])
                 for row in db().execute(
-                    "SELECT key, value FROM meta WHERE key != 'story_checks'"
+                    "SELECT key, value FROM meta "
+                    "WHERE key NOT IN ('story_checks', 'story_scans')"
                 )
             }
         return g.meta
@@ -1517,27 +1518,25 @@ def create_app(
 
     def story_scans() -> tuple:
         """The story's example listing, the neighbourhoods and the fit's
-        counts, which scan every listing (about a minute at 1.75M rows).
-        Worked out once per build, like story_checks()."""
+        counts. Builds work them out into meta (story.scans); older builds get
+        them worked out here, once per build like story_checks()."""
         conn = db()
         cached = story_cache.get("scans")
         if cached is None or cached[0] != g.build:
-            listing, current = story.pick_listing(conn)
-            areas = {
-                r[0]
-                for r in conn.execute("SELECT DISTINCT neighbourhood FROM listings")
-            }
-            counts = tuple(
-                conn.execute(
-                    "SELECT COUNT(*), COUNT(DISTINCT unit_id), "
-                    "COUNT(DISTINCT building_id), MIN(period), MAX(period) "
-                    "FROM listings WHERE in_fit = 1"
-                ).fetchone()
-            )
-            listing = dict(listing) if listing is not None else None
-            cached = (g.build, (listing, current, areas, counts))
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key = 'story_scans'"
+            ).fetchone()
+            cached = (g.build, json.loads(row["value"]) if row else story.scans(conn))
             story_cache["scans"] = cached
-        return cached[1]
+        found = cached[1]
+        listing = (
+            None
+            if found["listing"] is None
+            else conn.execute(
+                "SELECT * FROM listings WHERE id = ?", (found["listing"],)
+            ).fetchone()
+        )
+        return listing, found["current"], set(found["areas"]), found["counts"]
 
     def has_quarantine() -> bool:
         """Builds before schema 2 have no quarantined table."""
