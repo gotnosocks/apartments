@@ -118,6 +118,12 @@ These PRs merged on Oct 17:
   count when their ads show a rare photo in common.
 - #1010: a live `drop_lot` entry of the corrections ledger takes an ad's lot away in
   `analysis.lot_facts`, and the building check drops the row.
+- #1013: the ledger takes Data improvements' second batch of 152 wrong lots. The building
+  check's list falls to 187 rows.
+- #1015: the city fetch starts Fridays at 04:05 ET, between two dashboard runs.
+- #1018, from Data improvements: five `set latest_ask` entries give five ads back the asks they
+  had before their takedown. Each ad had raised its ask to a repeated-digit price on or just
+  after that day. [pipeline.md](../data/pipeline.md#latest-ask) has the count of such changes.
 
 The work goes on in this order:
 
@@ -151,8 +157,10 @@ The work goes on in this order:
    feature sets (#976) read the first review file by listing ID, so they still drop the lots
    of the 170 stale ads. `lot_facts` gives 169 of those ads their new lots, and a live entry
    of the second file takes ad 2555747's new lot away as well.
-3. Data improvements' suggestion: drop a late change to a repeated-digit ask, such as $9,999, when
-   it moves the ask by 1.2x or more.
+
+   Data improvements' review files from #1016 (8 lines) and #1021 (6 lines) wait for Ben. The
+   permission check on thelio refused the import when another thread asked for it. Once Ben agrees,
+   import them as for #1013 and check that the list falls to 173 rows.
 
 `/data1/apartments/tmp/pipeline/lanes/bcheck/padlookup.py` runs `buildings.pad_link`'s SQL on an
 ad's own address and zip. Of the 704 rows a reader put on the wrong building, 544 land on the
