@@ -50,8 +50,9 @@ SCHEMA_VERSION = 4
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
-# A build whose database passes this size (one of every borough is ~8 GB)
-# keeps only itself, as three such builds would fill /data1.
+# A build whose database is larger than this keeps only itself. A build of
+# every borough makes a database of about 8 GB, and three of those would fill
+# /data1.
 LARGE_BYTES = 4 << 30
 # Rent maps of runs (`rentfrontier.rentmap`): <run>-<7-hex commit>/map.json.
 MAPS = Path(os.environ.get("FRONTIER_MAPS", "/data1/apartments/frontier/maps"))

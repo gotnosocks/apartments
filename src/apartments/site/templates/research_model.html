@@ -26,13 +26,13 @@ target hardware within the fit-time window, the most accurate. When several are 
      was chosen, and this one in the latest decision. #}
   <p>When it was chosen: {{ sel.selection_reason | replace("the incumbent", "the model it replaced") | replace("The incumbent", "The model it replaced") }}</p>
   <p class="note">Chosen by {{ sel.selected_by }}.{% if sel.uncertainty %} {{ sel.uncertainty }}{% endif %}</p>
-  {% if sel.gate_override %}
+  {% else %}
+  <p class="note">These estimates were published by hand, not from the repository's model selection.</p>
+  {% endif %}
+  {% if sel and sel.gate_override and not p.gate.passes %}
   <p class="note">This model fails the convergence gate (max R-hat {{ "%.3f" | format(p.gate.max_rhat) }}), so the sampler did not
     fully settle on one answer for some of its terms. {{ sel.gate_override.by }} chose on {{ sel.gate_override.at[:10] }} to serve it anyway:
     {{ sel.gate_override.reason }}</p>
-  {% endif %}
-  {% else %}
-  <p class="note">These estimates were published by hand, not from the repository's model selection.</p>
   {% endif %}
   {% if autoselect %}
   {% set pending = autoselect.action == "switch" and autoselect.run and autoselect.run != p.run %}

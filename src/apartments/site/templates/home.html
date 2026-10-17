@@ -59,7 +59,7 @@
       baseline{% else %}Not clearly better than the simplest baseline at predicting asks it has not seen{% endif %}</dd>
     {% endif %}
     {% if selection and selection.selected_by %}<dt>Chosen by</dt><dd>{{ chosen_by(selection.selected_by) }}</dd>{% endif %}
-    {% if selection and selection.gate_override %}<dt>Convergence</dt><dd>The sampler did not fully settle on this model
+    {% if selection and selection.gate_override and not p.gate.passes %}<dt>Convergence</dt><dd>The sampler did not fully settle on this model
       (<a href="{{ url_for('research_model', _anchor='why') }}">details</a>). {{ selection.gate_override.by }} chose to serve it anyway.</dd>{% endif %}
   </dl>
   <details class="table-view">
