@@ -1,27 +1,28 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 07:20 ET, after all-scraped-lots4-v1 (#997). Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 07:30 ET, after all-scraped-lots4-v1 (#997). Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-17 07:20 ET
+## 2026-10-17 07:30 ET
 
 - #996 adds `config/reviews/registry-overrides-20261017-emptylots.json`. It moves 41 buildings
   (3,682 rows) off parks, garages, vacant land or condo unit lots, onto the lot that the
   pipeline's `buildings.lots` matches by address. The new lot must agree with StreetEasy's year
   (within 2) and apartment count (within 10% or 2). Old lots that ever had building area are left
   out, and so are footprint-only matches. Scripts are in `/data1/apartments/tmp/suspect/emptylots/`.
-- #997 adds `all-scraped-lots4-v1`. It's `all-scraped-v1` on registry
-  `20261017-2c61ff1-all-lots4`, which applies the #905 and #996 overrides (54 buildings), with
-  MapPLUTO and PLUTO releases for the new lots. I sent it to Modeling for a fit paired against
-  all-scraped-v1. Modeling (07:25 ET) stays on the v1 line, since lots3 lost on NB9 (+20.8, SE
-  19.0). An all-scraped fit runs about 3 hours, past the 1-hour cap, so lots4 waits on a fit that
-  fits the cap or on Ben's exception.
-- 15 of the 54 buildings are in NB9's registry (11 in lots2's), with a few hundred NB9 rows in all.
-  That's too small for an NB9 refit by itself. Carry them into the next NB9 registry revision.
+- #997 adds `all-scraped-lots4-v1`, which is `all-scraped-v1` on registry
+  `20261017-2c61ff1-all-lots4`. The registry applies the #905 and #996 overrides (54 buildings),
+  and the set carries MapPLUTO and PLUTO releases for the new lots. Modeling has it queued for a
+  fit paired against all-scraped-v1 and stays on the v1 line: on NB9, lots3 was +20.8 paired LOO
+  (SE 19.0), under the 2 SE bar. An all-scraped fit runs about 3 hours, past the 1-hour cap, so
+  lots4 stays queued until a redesigned fit comes in under the cap or Ben grants an exception.
+- 15 of the 54 buildings are in NB9's registry `20261016-104dfa2-mw-api` (11 in lots2's
+  `20261015-a959a8c`), with a few hundred NB9 rows in all. That is too small for an NB9 refit by
+  itself. Carry them into the next NB9 registry revision.
 - Next registry revision: the rest of the 523 empty-lot buildings. The pipeline gives 104 of them
   a lot with a building. The other 63 of those 104 failed the year or unit rule, or matched by
   footprint only, and they need review one at a time.
 
-## 2026-10-17 11:00 ET
+## 2026-10-17 06:20 ET
 
 - #987 adds `data.TRIAL_RULES`. `autoselect.current_rules` skips the versions listed there, so
   latest-ask-v9 stays current while latest-ask-v10 waits on the fit that tests it. When a v10 fit
@@ -43,7 +44,7 @@ Updated 2026-10-17 07:20 ET, after all-scraped-lots4-v1 (#997). Thread owner: th
   nothing, but nothing in them is wrong.
 - Open: the HPD other_lot conflicts, waiting on the pipeline's PAD lookup.
 
-## 2026-10-17 08:00 ET
+## 2026-10-17 05:40 ET
 
 - #983 adds `latest_ask.CLOSING_STALE_DAYS = -1` and the rule `latest-ask-v10`, which drops every
   change dated on or after the off-market day (on-market-day changes and ads that went ACTIVE
