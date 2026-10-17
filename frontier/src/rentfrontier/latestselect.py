@@ -105,6 +105,12 @@ def decide(
         problems["serve"].append("not on the rows split")
     if Path(s["dataset"]).resolve() != Path(data.DATASET).resolve():
         problems["serve"].append("not on the current dataset")
+    held = incumbent.get("gate_override")
+    if held and Path(s["dataset"]).resolve() != Path(incumbent["dataset"]).resolve():
+        problems["serve"].append(
+            f"not on the dataset of the served fit, which {held.get('by', 'a person')} "
+            "chose over the gate"
+        )
     if frozenset(s.get("data_rules", ())) != rules and not autoselect.negligible(
         s, rules
     ):

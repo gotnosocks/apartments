@@ -338,7 +338,7 @@ def test_selection_decision(monkeypatch, tmp_path):
     (repo / "config" / "main-analysis.json").write_text(json.dumps({"run": "served"}))
     calls = []
 
-    def decide(entries, run):
+    def decide(entries, run, override=None):
         calls.append(run)
         return {"action": "keep", "reason": "the incumbent ranks first"}
 
@@ -349,7 +349,7 @@ def test_selection_decision(monkeypatch, tmp_path):
     }
     assert calls == ["served"]
 
-    def broken(entries, run):
+    def broken(entries, run, override=None):
         raise ValueError("no pointwise file")
 
     monkeypatch.setattr(autoselect, "decide", broken)

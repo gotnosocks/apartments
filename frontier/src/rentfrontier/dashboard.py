@@ -334,7 +334,9 @@ def selection_decision(entries) -> dict | None:
     if not isinstance(selection, dict):
         return None
     try:
-        return autoselect.decide(entries, selection.get("run"))
+        return autoselect.decide(
+            entries, selection.get("run"), override=selection.get("gate_override")
+        )
     except (OSError, KeyError, ValueError, ArithmeticError) as error:
         # The board must build even if a pairing fails.
         return {"error": f"{type(error).__name__}: {error}"}

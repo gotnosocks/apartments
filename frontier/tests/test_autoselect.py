@@ -328,6 +328,56 @@ def test_a_fit_on_another_dataset_is_not_served(tmp_path, monkeypatch):
     assert "not the current combined" in autoselect.why_not(e, RULES)
 
 
+def on_dataset(tmp_path, e, dataset):
+    path = tmp_path / "runs" / e["splits"]["rows"]["run"] / "result.json"
+    rec = json.loads(path.read_text())
+    rec["dataset"] = str(tmp_path / dataset)
+    path.write_text(json.dumps(rec))
+    return e
+
+
+def test_a_gate_override_holds_against_fits_on_other_data(tmp_path, monkeypatch):
+    monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "nb9")
+    served = on_dataset(
+        tmp_path, entry(tmp_path, "all", 10.0, 1300, passes_checks=False), "all"
+    )
+    nb9 = on_dataset(tmp_path, entry(tmp_path, "nb9", 9.0, 1300), "nb9")
+    paired, es = paired_from({"all": 10.0, "nb9": 9.0}), [served, nb9]
+    d = autoselect.decide(es, "all", RULES, paired, no_heldout_loss)
+    assert d["action"] == "switch" and d["run"] == "nb9"
+    override = {"by": "Ben", "at": "2026-10-17T04:19-04:00"}
+    d = autoselect.decide(es, "all", RULES, paired, no_heldout_loss, override)
+    assert d["action"] == "keep" and d["run"] == "all"
+    assert "Ben served the incumbent over the gate" in d["reason"]
+    # A fit on the served data that passes the gate replaces it.
+    monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "all")
+    again = on_dataset(tmp_path, entry(tmp_path, "all-2", 9.5, 1300), "all")
+    paired = paired_from({"all": 10.0, "nb9": 9.0, "all-2": 9.5})
+    d = autoselect.decide([*es, again], "all", RULES, paired, no_heldout_loss, override)
+    assert d["action"] == "switch" and d["run"] == "all-2"
+    assert "Ben served over the gate" in d["reason"]
+
+
+def test_a_gate_override_holds_when_the_challenger_fails_the_guard(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(autoselect.data, "DATASET", tmp_path / "all")
+    served = on_dataset(
+        tmp_path, entry(tmp_path, "all", 10.0, 1300, passes_checks=False), "all"
+    )
+    again = on_dataset(tmp_path, entry(tmp_path, "all-2", 12.0, 1300), "all")
+    paired = paired_from({"all": 10.0, "all-2": 12.0})
+    override = {"by": "Ben"}
+    d = autoselect.decide(
+        [served, again], "all", RULES, paired, lambda a, b: (-5.0, 1.0), override
+    )
+    assert d["action"] == "keep" and d["run"] == "all"
+    assert d["checked"][0]["refused"].startswith("held-out worse")
+    # Missing from the board, the overridden incumbent still stays.
+    d = autoselect.decide([again], "all", RULES, paired, no_heldout_loss, override)
+    assert d["action"] == "keep" and d["run"] == "all"
+
+
 def judged(monkeypatch, verdicts):
     """Elegance judgements for test entries: {(a, b): winner or "equal"}."""
     table = {}
