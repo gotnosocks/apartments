@@ -448,6 +448,7 @@ def decide(
     rules=None,
     paired=leaderboard.paired_loo,
     heldout=leaderboard.paired,
+    override: dict | None = None,
 ) -> dict:
     """keep or switch, with the reason and the comparisons behind it.
 
@@ -455,13 +456,31 @@ def decide(
     pass the held-out guard, and must clearly beat an eligible incumbent. The
     first one that does is chosen. An incumbent that cannot be paired (not on
     the board, unscored, or a fit of another price target) gives no guard, so
-    the top-ranked fit is chosen."""
+    the top-ranked fit is chosen.
+
+    `override` is the selection's `gate_override` block: a person served the
+    incumbent by hand over the gate. Then only challengers fit on the
+    incumbent's dataset are tried, so a fit on other data cannot undo the
+    choice; the first of them past the held-out guard replaces the incumbent."""
     rules = current_rules() if rules is None else rules
     candidates = eligible(entries, rules)
     order = ranked(candidates, paired)
     incumbent = next(
         (e for e in entries if "rows" in e["splits"] and _run(e) == incumbent_run), None
     )
+    held = override is not None and incumbent is not None
+    if held:
+        own = _record(incumbent).get("dataset")
+        order = [
+            e
+            for e in order
+            if e is incumbent
+            or (
+                own is not None
+                and _record(e).get("dataset") is not None
+                and Path(_record(e)["dataset"]).resolve() == Path(own).resolve()
+            )
+        ]
     inc_why = (
         "the selected run is not on the board"
         if incumbent is None
@@ -494,6 +513,7 @@ def decide(
             for e in order
         ],
         "checked": [],
+        "override": override,
         # Tied pairs no judge agent has judged yet (rentfrontier.elegance).
         "pending_judgements": sorted(
             p for p in tie_pairs(candidates, paired) if elegance.compare(*p) is None
@@ -579,7 +599,14 @@ def decide(
                 else "it ties the incumbent on PSIS-LOO, is judged as elegant, and is "
                 f"more than {TIME_TIE:.0%} faster"
             )
-        why = won if inc_ok else f"the incumbent cannot be served: {inc_why}"
+        why = (
+            won
+            if inc_ok
+            else "it passes the gate on the data of the incumbent, which "
+            f"{override.get('by', 'a person')} served over the gate"
+            if held
+            else f"the incumbent cannot be served: {inc_why}"
+        )
         out.update(action="switch", run=_run(e), reason=why)
         return out
     if inc_ok:
@@ -589,6 +616,11 @@ def decide(
             else "the incumbent is the only eligible fit"
             if len(order) == 1
             else "the incumbent ranks first"
+        )
+    elif held:
+        reason = (
+            f"{override.get('by', 'a person')} served the incumbent over the gate, "
+            "and no eligible fit on its dataset passes the held-out guard"
         )
     else:
         reason = (
@@ -688,9 +720,11 @@ def main(argv=None):
         "--write", type=Path, metavar="SUMMARY", help="write the selection for a switch"
     )
     args = parser.parse_args(argv)
-    incumbent = json.loads(args.selection.read_text())["run"]
+    selection = json.loads(args.selection.read_text())
     board = leaderboard.build(keep_dirs=True)
-    decision = decide(board["entries"], incumbent)
+    decision = decide(
+        board["entries"], selection["run"], override=selection.get("gate_override")
+    )
     print(json.dumps(decision, indent=2, default=str))
     if args.write:
         if decision["action"] != "switch":
