@@ -139,12 +139,16 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
       one-bedrooms.
     - ad 9000134 drops to a placeholder of $300 on its last day on the market. The page price of
       $300 enters the digit step, and the ask of $3,000 lies nearer the one-bedrooms.
+    - at -1 stale days, the stale step drops the later changes of 9000129, 9000133 and 9000134
+      before the placeholder check reads them, with the same asks.
     - ad 9000135 goes off the market on July 1 and rises to $3,300 on July 20, more than a week
       later. The rise is stale and drops out, though it would pass the placeholder check. Ad
       9000136 rises the same way, but its record goes ACTIVE again on July 18, so the rise
       counts.
     - ad 9000137 goes off the market on July 1 and rises to $3,300 on July 3. At 7 stale days,
-      as in latest-ask-v9, the rise counts. At -1, as in latest-ask-v10, it drops out."""
+      as in latest-ask-v9, the rise counts. At -1, as in latest-ask-v10, it drops out.
+    - ad 9000138 goes on and off the market on May 1. Its change of that day falls on its
+      on-market day, so it stays at -1 as well."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -244,6 +248,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
             status="OFF_MARKET",
             offMarketAt=july,
         ),
+        ad(9000138, [(may, 3000)], 3000, status="OFF_MARKET", offMarketAt=may),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
@@ -293,7 +298,12 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
         "9000135": 3000,
         "9000136": 3300,
         "9000137": 3300 if stale_days == 7 else 3000,
+        "9000138": 3000,
     }
+    on_day = ctx.fetchdf(
+        "SELECT count(*) AS n FROM ads.kept_changes WHERE listing_id::VARCHAR = '9000138'"
+    )
+    assert on_day.n[0] == 1
     assert set(got.how) == {
         "latest",
         "own ask, captured before the row",
