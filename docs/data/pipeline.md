@@ -1265,15 +1265,21 @@ build lists the ledger's files with their SHA-256, and counts the entries by sta
 
 ### The chain's corrections
 
-`ops/pipeline/ledger_import.py` wrote the corrections of the chain's latest rules into
-`pipeline/ledger/2026-10-16-chain.ndjson`. For each correction, it reads the dataset listed
-in the rule's provenance file to find the row's ad and its recorded values. Then it gathers the
-evidence:
+`ops/pipeline/ledger_import.py` writes the corrections of the chain's latest rules into the
+ledger as a batch file for each run: `pipeline/ledger/2026-10-16-chain.ndjson` first, then
+`2026-10-16-west-56th-studio.ndjson` and `2026-10-17-chain.ndjson`. For each correction, it
+finds the row's ad and its recorded values in the dataset of the rule version adding the line. A version's provenance file gives the
+dataset of the lines it adds. From `bedrooms-ad-v7` on, a version's file starts with its base
+rule's lines, so the importer follows the base rules back to the version adding each line.
+Then it gathers the evidence:
 
 - the ad's words from the rule file, or Ben's own reading when the rule's line gives his name
   and the day;
 - the reads and floor plans in `config/reviews/` that decided the correction;
-- the unit's other ads in the latest analysis dataset.
+- the unit's other ads in the latest analysis dataset. The first two batches read them in the
+  dataset of the fit's areas from Oct 15. `2026-10-17-chain.ndjson` reads them in the dataset
+  of all scraped areas from Oct 16, `all-scraped-analysis-20261016-5f07157`, as the first one
+  leaves out buildings outside the fit's areas.
 
 The unit's other ads back a set when more of them give the corrected value than give the recorded one. A size
 set rests on the unit's other ads with the same bedroom count and a size within 10% of the
@@ -1295,7 +1301,7 @@ with the counts of the unit's other ads, for a reader to look for backing. A sec
 importer writes nothing to either file. It leaves out each correction from a rule file and line
 already in the ledger, each one repeating the latest entry for its ad and field or a retracted
 entry, and each held set an earlier held file lists. A later run thus writes only a new rule
-version's new decisions.
+version's new decisions. The table counts the first batch.
 
 | rule | corrections | in the chain batch | backed by a later read | held |
 |---|--:|--:|--:|--:|
@@ -1326,6 +1332,38 @@ the fourth, from June 2023, already gave a studio. The rule's
 lines give his reading with his name and the day in place of the ad's words, and the importer
 takes such a line as a floor plan item when it mentions a floor plan and as an `owner` item
 otherwise. The unit's 600 sq ft also matches the building's studios.
+
+`pipeline/ledger/2026-10-17-chain.ndjson` holds the new decisions of `quarantine-v33` and
+`bedrooms-ad-v9`, which `RULES` lists in place of v32 and v8. Quarantine-v33 adds nine lines to
+v32's 889. Six exclude rows of the ask check's list: five shops or restaurant spaces, and a
+two-bedroom asking $33,333, a run of one digit, whose unit last asked $2,556 in 2017. The other
+three repeat the excludes of `2026-10-16-short-stay.ndjson`. The new lines give each month as
+its first day, and the importer writes it as YYYY-MM. `bedrooms-ad-v9` adds two sets from a
+studio to three bedrooms, for ads 4966432 and 5036591 of Trump World Tower, also from the ask
+check's list. Each ad describes three bedrooms with three en-suite baths, and the unit's other
+ads back the sets, three of them for 4966432 and one for 5036591.
+
+On a copy of the state of the Oct 16 export, the rows file loses the six excluded rows and
+has 1,746,509 rows. The ask check lists 32 rows, as the excluded rows leave and the two Trump
+World Tower units now compare with the building's three-bedrooms. A second run of the importer
+writes nothing.
+
+A quarantine line's `evidence` holds a note, and `quarantine_evidence` sorts it by the line's
+`source`:
+  - The first 889 lines of `quarantine-v33` have no `source`, and 858 of their notes give the
+    ad's words. The importer files a note of such a line as the ad's words.
+  - A line whose `source` starts `regex` comes from Data improvements' regex pass, and its note
+    gives the matched words alone. The importer files it as the ad's words too. The three lines
+    of that pass in `quarantine-v33` repeat the excludes of `2026-10-16-short-stay.ndjson`.
+  - A line with any other `source` comes from a reading pass, and its note is the reader's. A
+    note quoting the ad starts `Ad text:`, as the five new notes on shops do, and the importer
+    files the words in the quotes as the ad's words. It files any other note of a reading pass
+    as a read, as it does the note on the $33,333 ask, which gives the reader's reasoning.
+
+The first batch filed every note as the ad's words, so 13 of its excludes hold a reader's note
+as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812, 1718693, 1725378,
+2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
+1848216, 1887124, 2678483, 5019133 and 5098585.
 
 The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
 `unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,

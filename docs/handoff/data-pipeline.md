@@ -35,7 +35,8 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
    rows, with the latest bedroom, bath, size and quarantine rules of the chain imported by
    `ops/pipeline/ledger_import.py`. #921 added the studio Ben read from the floor plan of
-   333 W 56th St #3E, from `bedrooms-ad-v8`.
+   333 W 56th St #3E, from `bedrooms-ad-v8`. The batch `2026-10-17-chain.ndjson` adds the new
+   decisions of `quarantine-v33` and `bedrooms-ad-v9`.
 6. Link ads to units and buildings to lots as a separate step, with match scores and a measured
    error rate. **Started**: `ads.identity` gives each ad its unit and building by the chain's
    rule `canonical-url-v1`, `ops/pipeline/city.py` keeps the city records for the lots
@@ -245,9 +246,10 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       asks and 2 unclear. #937 dropped the listed rows. Data improvements pointed out that a
       drop on price alone selects rows on the fit's target and loses real rents, so in #938
       `analysis.rows` keeps them, and a row leaves only through a ledger entry with its
-      evidence. Data improvements is putting the typos and commercial spaces into its next
-      quarantine version: add that file to `RULES` in `ops/pipeline/ledger_import.py` and
-      import it. A corrected price needs an ask field in the ledger, which it lacks so far.
+      evidence. Data improvements put the commercial spaces and a $33,333 ask into
+      quarantine-v33, and two Trump World Tower studios with three bedrooms into
+      bedrooms-ad-v9. `pipeline/ledger/2026-10-17-chain.ndjson` imports both, and the check
+      then lists 32 rows. A corrected price needs an ask field in the ledger, which it lacks so far.
       `build.py` writes the files with eight threads, as the ads file's sort ran out of 3 GB
       with twelve.
       No bedroom check: two sources agree on another count for 14,933 production rows, and a
