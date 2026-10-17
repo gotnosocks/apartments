@@ -1931,7 +1931,19 @@ Both reasons take the lot away alike, as the frontier's `lots3` feature sets do.
 read the review file by listing ID and don't check the lot, so they keep dropping an ad's lot
 after its building takes another one, while its ledger entry goes stale.
 
-DROP_LOT_BUILD
+I built a copy of the relist lane's Oct 17 state with this file. The build took 4 min 36 s,
+and the build script peaked at 4,077 MiB. The ledger then gives these statuses:
+
+| reason | live | stale |
+|---|--:|--:|
+| `wrong_building` | 667 | 37 |
+| `city_record_wrong` | 437 | 133 |
+
+For each of the 170 stale entries, the building's address and its footprint give different
+lots. The reader saw one of them, and since #1006 `buildings.lots` takes the other, with
+apartments in the latest MapPLUTO release. Only 1 of those 170 ads is still on the building
+check's list. The list went from 1,434 rows to 339: live entries took 1,095 flagged rows off it,
+and the other 9 live entries belong to ads outside the list on this state.
 
 ### Check build
 
