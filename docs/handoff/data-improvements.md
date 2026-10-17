@@ -8,15 +8,15 @@ Updated 2026-10-17 11:40 ET, after the short-building drop-lot reviews (#1021). 
   label names floor 2 or higher, and its lot holds a single one-story nonresidential footprint of 11 to 20 ft.
   The source table is `/data1/apartments/tmp/suspect/bcheck/footprint-height-20261017.csv`.
 - #1021 adds `drop-lot-20261017-shortbuildings.jsonl`, 6 wrong_building lines on three walkups of 31 to 37 ft
-  (958 Halsey, 126 16th St, 792 Kent). The ads claim floors 5 to 9 in elevator buildings. All six use the same
-  contact template, so the address looks false. The source table is `short-building-20261017.csv` in the same folder.
+  (958 Halsey, 126 16th St, 792 Kent). The ads put the apartment on floors 5 to 9. The source table is
+  `short-building-20261017.csv` in the same folder.
 - The pipeline thread imports both files into the ledger. Its permission check refused the #1016 write from
   another thread, so that import waits on Ben's OK, and #1021 may too.
 - #1018 adds `pipeline/ledger/2026-10-17-takedown-asks.ndjson`. It sets the latest ask of 5 repeated-digit
   takedown asks (3333, 4444, 5555, 9999) back to the ask in another ad for the same unit. That ad has to be
   within 3 years and at least 15% lower. The other 33 of the pipeline's 38 rows have no such ad, so they stay.
-- 80 drop-lot rows remain unclear (`/home/ben/.cache/di-bcheck2/unclear.csv`), most of them on church, school
-  or office lots. Certificates of occupancy gave no units for them, and footprints decide only the short ones.
+- 80 drop-lot rows remain unclear (`/home/ben/.cache/di-bcheck2/unclear.csv`), 29 of them on church or school
+  lots. Certificates of occupancy gave no units for them, and footprints decide only the short ones.
   32 Remsen #5B (58 ft footprint) and 440 E 9th St (9 ads whose labels may not name floors) stay.
 
 ## 2026-10-17 10:30 ET
