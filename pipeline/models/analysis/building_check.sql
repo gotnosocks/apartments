@@ -34,14 +34,16 @@ MODEL (
 --       by the ad's first day, and no certificate of a new building. A lot with a new building
 --       or a conversion gains apartments in DOB's records before MapPLUTO's. A row without a
 --       BIN has no certificates to read, so only the lot's records and the ads decide.
---   never_built_lot:  every release in buildings.lot_releases gives the lot a building area of 0
---       and no apartments, and the latest copy of the building footprints holds no footprint on
---       it. A lot with a condominium class in any release stays out, and so does a row with a
---       certificate of occupancy for apartments or for a new building, as in zero_unit_lot. The
---       ads may place any number of units in the building: a reader of the export of Oct 17
---       found parks, parking lots, rail yards and vacant land under buildings with 4 to 50
---       advertised units. A release with a blank area or apartment count keeps the lot out,
---       since recent releases give some lots a blank record.
+--   never_built_lot:  every release in buildings.lot_releases with a record of the lot gives it
+--       a building area of 0 and no apartments, and the latest copy of the building footprints
+--       holds no footprint on it. The ads may place any number of units in the building: a
+--       reader of the export of Oct 17 found parks, parking lots, rail yards and vacant land
+--       under buildings with 4 to 50 advertised units. The model leaves out a lot with a
+--       condominium class in any release, and a row with a certificate of occupancy for
+--       apartments or for a new building, as in zero_unit_lot. It also leaves out a lot with a
+--       blank area or apartment count in any release. Recent releases give some lots a blank
+--       record, and a lot with an area of 0 in its older releases may hold a new building by
+--       the time of the blank one.
 --
 -- When the latest release has no record of the lot, the dated record decides alone.
 --

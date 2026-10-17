@@ -574,7 +574,7 @@ disk.
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
 | `analysis.building_certificates` | table | candidate ad: its BIN, and the certificates of occupancy DOB had issued on it by its first day |
-| `analysis.building_check` | table | fit-ready row whose lot's MapPLUTO record leaves no room for the ad: a floor more than one floor and 30% above the lot's floor count, or a nonresidential lot with no apartments, for review |
+| `analysis.building_check` | table | fit-ready row whose lot's MapPLUTO record leaves no room for the ad: a floor more than one floor and 30% above the lot's floor count, a nonresidential lot with no apartments, or a lot with no building in any release and no footprint, for review |
 | `analysis.ads` | view | ad with a record, kept or dropped: its unit, its latest record's status, dates, ask and floor plans, its merged values, and the reasons it was dropped |
 
 A `merge` model is a table, and a top-up build adds the rows of the new answers to it, as
@@ -1615,8 +1615,8 @@ facts in its `building_check` column.
 
 The check reads each row's lot from `analysis.lot_facts`, with its facts as of the ad's first
 day, and the same lot's record in the latest release from `buildings.lot_releases`. A lot can
-gain floors or apartments between releases, so a reason needs both records to agree. The
-never-built rule reads every release of the lot:
+gain floors or apartments between releases, so the floor and zero-unit rules need both records
+to agree:
 
 - `floor_above_lot`: the ad's floor, from its advertised floor, its physical floor or its unit
   label in that order, lies more than one floor and more than 30% above the lot's floor count.
@@ -1627,11 +1627,12 @@ never-built rule reads every release of the lot:
   issued no certificate of occupancy with apartments on the building's BIN, and no certificate
   of a new building. For a building without a BIN, the check has no certificates to read, and
   the lot's records and the ads decide. 289 of the rule's 1,554 rows have no BIN.
-- `never_built_lot`: every MapPLUTO release gives the lot a building area of 0 and no
-  apartments, and the latest copy of the building footprints holds no footprint on it. A blank
-  area or apartment count in any release keeps the lot out, as does a condominium class in any
-  release. As in the zero-unit rule, a certificate of occupancy with apartments or for a new
-  building keeps the row out. The ads may place any number of units in the building.
+- `never_built_lot`: every MapPLUTO release with a record of the lot gives it a building area
+  of 0 and no apartments, and the latest copy of the building footprints holds no footprint on
+  it. The ads may place any number of units in the building. The check leaves out a lot when any
+  release gives it a blank area or apartment count, or a condominium class. As in the zero-unit
+  rule, it also leaves out a row with a certificate of occupancy for apartments or for a new
+  building.
 
 When the latest release has no record of the lot, the dated record decides alone, as for 2 of
 the zero-unit rule's rows. A latest floor count of 0 also leaves the dated count to decide.
@@ -1639,11 +1640,11 @@ the zero-unit rule's rows. A latest floor count of 0 also leaves the dated count
 I added the never-built rule after a reader in Data improvements found 239 rows on 33 lots of
 parks, parking, rail yards and vacant land, in #1024. The zero-unit rule listed only 3 of them,
 since the ads place 4 to 50 units in most of those buildings. On the drop-lot lane's state of
-Oct 17, the rule lists those 239 rows and no others, and the check's query takes 2.2 s. Recent
-releases give some lots a blank record, and the first draft of the rule, which skipped blank
-records, also listed a row on such a lot. Before the 253 reviews of #1016, #1021 and #1024 go
-into the ledger, the check lists 423 rows on the lane's state. Once they do, it should list
-170.
+Oct 17, the rule lists those 239 rows and no others. The check's query took 2.2 s there.
+
+Recent releases give some lots a blank record. A lot with an area of 0 in its older releases may
+hold a new building by the time of the blank one, so the check leaves out any lot with a blank
+area or apartment count. On the lane's state, that leaves out one more row.
 
 The floor of slack covers a basement, a penthouse or a mezzanine that MapPLUTO counts
 differently. MapPLUTO gives the floors of the tallest building on a lot, so lots of several

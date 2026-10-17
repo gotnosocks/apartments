@@ -3,8 +3,9 @@ import duckdb
 # Each case is an ad in its own building on its own lot: the ad's advertised, physical and
 # label floors and StreetEasy's floor count for the building; the lot's floor count, building
 # count, apartments and land use as of the ad's first day; the same facts in the latest release,
-# with the lot's building area and class there and its building area in an earlier release; the
-# copy of the building footprints holding a footprint on the lot; the count of units the ads
+# with the lot's building area and class there; the lot's building area, apartments and class in
+# an earlier release; the copy of the building footprints holding a footprint on the lot; the
+# count of units the ads
 # place in the building; and the units and new-building flag of the BIN's certificates of
 # occupancy.
 BASE = {
@@ -72,9 +73,13 @@ CASES = {
     "never built": NEVER,
     "old footprint": NEVER | {"footprint": "20250101"},
     "footprint": NEVER | {"footprint": "20261016"},
-    "built before": NEVER | {"earlier": 4000.0},
-    "blank record": NEVER | {"earlier": "blank"},
+    "built before": NEVER | {"earlier": (4000.0, 0, "X1")},
+    "blank area": NEVER | {"earlier": (None, 0, "X1")},
+    "blank count": NEVER | {"earlier": (0.0, None, "X1")},
     "condominium": NEVER | {"class": "R0"},
+    "condominium before": NEVER | {"earlier": (0.0, 0, "R4")},
+    "no releases": NEVER | {"latest": None},
+    "apartments": NEVER | {"certificate": (6, False)},
     "rising": NEVER | {"certificate": (None, True)},
     # Both rules.
     "parking": {
@@ -148,14 +153,11 @@ def inputs(db):
                 [lot, *case["latest"], case["area"], case["class"]],
             )
         if case["earlier"]:
+            area, apartments, kind = case["earlier"]
+            floors, count, _, use = case["latest"]
             db.execute(
                 "INSERT INTO buildings.lot_releases VALUES (?, '11v1', ?, ?, ?, ?, ?, ?)",
-                [
-                    lot,
-                    *case["latest"],
-                    case["earlier"] if case["earlier"] != "blank" else None,
-                    case["class"],
-                ],
+                [lot, floors, count, apartments, use, area, kind],
             )
         if case["footprint"]:
             db.execute(
@@ -212,9 +214,12 @@ def test_building_check_cases(tmp_path, render_context):
       certificate of a new building.
     - `lot taken away` would get both reasons as `parking` does, but a live drop_lot took its
       lot away, so its lot facts are empty.
-    - `footprint` has a footprint in the latest copy, `built before` a building area of 4,000
-      square feet in release 11v1, `blank record` no building area in release 11v1,
-      `condominium` the class R0 and `rising` a certificate of a new building."""
+    - Of the lots like `never built`'s, `footprint` has a footprint in the latest copy. `built
+      before` has a building area of 4,000 square feet in release 11v1. `blank area` has a blank
+      building area in release 11v1 and `blank count` a blank apartment count there.
+      `condominium` has the class R0, and `condominium before` the class R4 in release 11v1
+      only. `no releases` has no record in any release. `apartments` has a certificate of
+      occupancy with 6 apartments, and `rising` a certificate of a new building."""
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
     inputs(db)
     query = render_context.render("analysis.building_check").sql(dialect="duckdb")
