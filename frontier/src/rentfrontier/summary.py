@@ -46,10 +46,11 @@ Writes /data1/apartments/frontier/summaries/<run>-<commit>/:
 rows.parquet          one row per dataset row (the columns above plus
                       audit_id, unit_id after the run's data rules, building,
                       period, asking_rent, in_fit, unit_fit_rows).
-market.parquet        per month: the market reference rent (with and without
-                      the calendar season), median and 95% interval.
+market.parquet        per month: the market reference rent's median with the
+                      calendar season, and its median and 95% interval
+                      without it.
 buildings.parquet     per building: level and yearly trend as percentages,
-                      median, 95% interval, training rows and units.
+                      median, 95% interval, and training rows.
 coefficients.parquet  per feature column: exp(beta) - 1, median, 95% interval
                       and probability positive.
 terms.json            the contribution terms in display order, with labels.
@@ -885,22 +886,19 @@ def market_table(kept, prep) -> pd.DataFrame:
     calendar = prep.periods.month.to_numpy() - 1
     trend = prep.offset + kept["alpha"][:, None] + kept["trend"][:, months]
     out = {"period": prep.periods.strftime("%Y-%m-%d")}
-    for label, log_rent in (
-        ("reference_rent", trend + kept["season"][:, calendar]),
-        ("reference_rent_deseasoned", trend),
-    ):
-        mid, lo, hi = _summary(np.exp(log_rent))
-        out[label], out[f"{label}_lower_95"], out[f"{label}_upper_95"] = mid, lo, hi
+    out["reference_rent"] = np.median(
+        np.exp(trend + kept["season"][:, calendar]), axis=0
+    )
+    mid, lo, hi = _summary(np.exp(trend))
+    out["reference_rent_deseasoned"] = mid
+    out["reference_rent_deseasoned_lower_95"] = lo
+    out["reference_rent_deseasoned_upper_95"] = hi
     return pd.DataFrame(out)
 
 
 def building_table(kept, prep) -> pd.DataFrame:
     rows = np.bincount(prep.train.building, minlength=len(prep.buildings))
-    first_unit_building = (
-        pd.Series(prep.train.building).groupby(prep.train.unit).first()
-    )
-    units = np.bincount(first_unit_building.to_numpy(), minlength=len(prep.buildings))
-    out = {"building": prep.buildings, "fit_rows": rows, "fit_units": units}
+    out = {"building": prep.buildings, "fit_rows": rows}
     for label, log_value in (
         ("level_pct", kept["building"]),
         ("trend_pct_per_year", kept.get("building_trend")),

@@ -342,8 +342,6 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None, neighbourhoods=None) 
             {
                 "period": f"{year}-01-01",
                 "reference_rent": 3000.0 + 50 * i,
-                "reference_rent_lower_95": 2900.0 + 50 * i,
-                "reference_rent_upper_95": 3100.0 + 50 * i,
                 "reference_rent_deseasoned": 3010.0 + 50 * i,
                 "reference_rent_deseasoned_lower_95": 2910.0 + 50 * i,
                 "reference_rent_deseasoned_upper_95": 3110.0 + 50 * i,
@@ -357,7 +355,6 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None, neighbourhoods=None) 
             {
                 "building": "the-grove-250-west-19th-street-new_york",
                 "fit_rows": 3,
-                "fit_units": 2,
                 "level_pct": 10.4,
                 "level_pct_lower_95": 8.0,
                 "level_pct_upper_95": 13.0,
@@ -368,7 +365,6 @@ def make_bundle(root: Path, *, gate=True, rule_lines=None, neighbourhoods=None) 
             {
                 "building": "134-west-23-street-new_york",
                 "fit_rows": 2,
-                "fit_units": 1,
                 "level_pct": -3.0,
                 "level_pct_lower_95": -9.0,
                 "level_pct_upper_95": 2.5,

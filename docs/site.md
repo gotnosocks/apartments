@@ -304,7 +304,9 @@ mv -T current.new current` in `/data1/apartments/site`.
   When the log and a search of the code and templates find no reader for a column, we stop
   writing it. On 2026-10-17 that took out the market table's `rent_lower` and `rent_upper`
   (the /estimates chart draws the deseasoned band) and the quarantined table's `listing_id`
-  (its pages link the ad through `listing_url`).
+  (its pages link the ad through `listing_url`). The summary then stopped writing the two
+  columns behind the market bounds, `reference_rent_lower_95` and `reference_rent_upper_95`, and
+  the building table's `fit_units`, which no step read.
 - **Ranges in lists:** listing tables and `/listings.csv` leave out each listing's likely ask
   range (`pred_lower_80`, `pred_upper_80`), which only its own page shows. `SITE_LIST_RANGES=1`
   in the unit puts the column back while we watch the log; once nobody needs it, we delete the
