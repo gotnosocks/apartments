@@ -86,3 +86,34 @@ def test_observations_read_a_granular_folder_or_the_records_file(
     assert [r["listing_id"] for r in got] == ["1", "2", "3"]
     got = api_records.observations(api_records.CRAWL, ["listing_id", "collected_at"])
     assert list(got) == [{"listing_id": "7", "collected_at": 250.0}]
+
+
+def test_captures_skip_listings_never_on_the_market(records_catalog):
+    """A draft with no ACTIVE event of its own, a rented ad with none, and a listing missing
+    from the ads file give no captures. A draft with an ACTIVE event of its own and an ad with
+    another exclusion reason stay in, as the pipeline's rows can hold them."""
+    rows = [
+        {"listing_id": i, "collected_at": float(i), "record": {"id": str(i)}}
+        for i in (7, 8, 9, 10, 11)
+    ]
+    never = api_records.NEVER_LISTED
+    ads = [
+        {"listing_id": 7, "exclusion_reasons": ["no_unit", never]},
+        {"listing_id": 8, "exclusion_reasons": []},
+        {"listing_id": 9, "exclusion_reasons": [never]},
+        {"listing_id": 11, "exclusion_reasons": ["no_unit"]},
+    ]
+    records_catalog(rows, ads)
+    source = api_records.records_file()
+    got = api_records.captures(source, ["collected_at"])
+    assert list(got) == [{"collected_at": 8.0}, {"collected_at": 11.0}]
+    got = api_records.observations(api_records.CRAWL, ["listing_id"])
+    assert [r["listing_id"] for r in got] == ["8", "11"]
+
+
+def test_a_build_without_an_ads_file_stops(records_catalog, tmp_path):
+    line = records_catalog(_rows(3000))
+    with open(tmp_path / "catalog.ndjson", "a") as f:
+        f.write(json.dumps({k: v for k, v in line.items() if k != "ads_file"}) + "\n")
+    with pytest.raises(ValueError, match="has no ads_file"):
+        api_records.records_file()
