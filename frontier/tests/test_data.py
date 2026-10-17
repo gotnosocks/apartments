@@ -291,7 +291,9 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V15
     ) | data.quarantined(data.QUARANTINE_V16) | data.quarantined(
         data.QUARANTINE_V17
-    ) | data.quarantined(data.QUARANTINE_V33) | data.quarantined(data.QUARANTINE_V34)
+    ) | data.quarantined(data.QUARANTINE_V33) | data.quarantined(
+        data.QUARANTINE_V34
+    ) | data.quarantined(data.QUARANTINE_V35)
 
 
 @pytest.mark.parametrize(
@@ -2389,3 +2391,18 @@ def test_quarantine_v34_adds_fifteen_rows_to_v33():
     frame = pd.DataFrame({"audit_id": [added[0]["audit_id"], "kept"]})
     assert data.DATA_RULES["quarantine-v34"](frame).audit_id.tolist() == ["kept"]
     assert "quarantine-v34" in data.DROPPING_RULES
+
+
+def test_quarantine_v35_adds_the_124_dekalb_bushwick_ad_to_v34():
+    with open(data.QUARANTINE_V34) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V35) as f:
+        new = [json.loads(line) for line in f]
+    assert new[: len(old)] == old
+    (added,) = new[len(old) :]
+    assert len({r["audit_id"] for r in new}) == len(new)
+    assert added["source_listing_id"] == "4853056"
+    assert added["action"] == "quarantine_location_conflict"
+    frame = pd.DataFrame({"audit_id": [added["audit_id"], "kept"]})
+    assert data.DATA_RULES["quarantine-v35"](frame).audit_id.tolist() == ["kept"]
+    assert "quarantine-v35" in data.DROPPING_RULES
