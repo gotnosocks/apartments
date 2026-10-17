@@ -61,12 +61,13 @@ complete.json         provenance (run, commits, dataset and feature-source
 
 `--buildings FRACTION --out DIR` summarizes the rows of a sample of buildings
 and writes the bundle to DIR, for measuring how the summary's cost grows with
-rows. A building goes in the sample when the sha256 of its id, read as a number
-in [0, 1), falls below FRACTION, so the 1% sample is a subset of the 4% sample,
-and both are subsets of the 16%. The sample changes only which rows go through the
-per-row loop: the posterior, the market, building and coefficient tables and
-each row's unit_fit_rows still come from the whole run, and complete.json
-records the fraction.
+rows. A building goes in the sample when the first 8 bytes of the sha256 of
+its id as a string, read as a number in [0, 1), fall below FRACTION, so the 1%
+sample is a subset of the 4% sample, and both are subsets of the 16%. The sample
+changes only which rows go through the per-row loop: the posterior, the market,
+building and coefficient tables and each row's unit_fit_rows still come from
+the whole run, and complete.json records the fraction. DIR has to be outside
+the summaries directory, where the Modal steps look for whole bundles.
 """
 
 from __future__ import annotations
@@ -404,8 +405,8 @@ def row_inputs(feats: features.Features, rows: np.ndarray) -> list[str]:
 
 
 def building_sample(buildings: np.ndarray, fraction: float | None) -> np.ndarray:
-    """True for the buildings whose sha256 falls below `fraction` of the range;
-    every building when `fraction` is None."""
+    """A mask over rows, true where the row's building hash falls below
+    `fraction` of the range; all true when `fraction` is None."""
     if fraction is None:
         return np.ones(len(buildings), dtype=bool)
     if not 0 < fraction <= 1:
@@ -611,6 +612,8 @@ def summarize(
     params = {k: kept[k] for k in ("nu", "sigma", "unit_scale", "unit_nu") if k in kept}
     keep = building_sample(frame.building.to_numpy(), buildings)
     train_idx, held_idx = summary_rows(heldout, keep)
+    if not len(train_idx):
+        raise SystemExit(f"the {buildings} sample of buildings has no rows in the fit")
     sigma, nu = kept["sigma"], kept["nu"]
 
     def row_scale(a):
@@ -938,6 +941,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if (args.buildings is None) != (args.out is None):
         parser.error("--buildings and --out go together")
+    if args.buildings is not None and not 0 < args.buildings <= 1:
+        parser.error("--buildings must be in (0, 1]")
+    if args.out is not None and args.out.resolve().is_relative_to(SUMMARIES.resolve()):
+        parser.error("--out must be outside the summaries directory")
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")

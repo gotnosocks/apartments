@@ -281,6 +281,10 @@ def test_write_records_every_file_and_renames_last(tmp_path, monkeypatch):
     assert record["data_rule_files"] == {}
     assert "buildings_fraction" not in record
     assert not (tmp_path / "s.tmp").exists()
+    out["buildings_fraction"] = 0.04
+    path = summary.write(out, tmp_path / "sample", "d" * 40, 1.0)
+    record = json.loads((path / "complete.json").read_text())
+    assert record["buildings_fraction"] == 0.04
 
 
 def test_write_copies_the_row_dropping_rules_file(tmp_path, monkeypatch):
@@ -420,6 +424,18 @@ def test_building_samples_nest_keep_whole_buildings_and_match_the_fraction():
     assert summary.building_sample(buildings, 1.0).all()
     with pytest.raises(ValueError):
         summary.building_sample(buildings, 0.0)
+
+
+def test_the_building_sample_flags_are_checked_before_any_work(tmp_path):
+    for argv in (
+        ["r", "--buildings", "0.04"],
+        ["r", "--out", str(tmp_path)],
+        ["r", "--buildings", "1.5", "--out", str(tmp_path)],
+        ["r", "--buildings", "0.04", "--out", str(summary.SUMMARIES / "r-sample")],
+    ):
+        with pytest.raises(SystemExit) as exit:
+            summary.main(argv)
+        assert exit.value.code == 2
 
 
 def test_chunk_rows_bounds_the_batch():
