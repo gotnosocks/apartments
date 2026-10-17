@@ -101,7 +101,10 @@ fits of A.
 
 The sampler draws all Gaussian latents jointly by Cholesky, with units integrated out and building
 blocks eliminated. That trick needs every unit nested in one building and every local term nested
-in its building, so the sampler refuses line effects that cross buildings and any spatial field.
+in its building. Anything outside that structure gets drawn on its own, given the rest: line
+effects already work that way (`line_draw`), and so would a spatial field. A term drawn apart from
+the block it correlates with mixes slowly, and the more such terms the model gains, the slower it
+mixes.
 The goal asks for location as a map of value explained by measurable things, which calls for
 effects crossing buildings: a smooth field over the street graph, subway catchments, school zones
 and blocks.
