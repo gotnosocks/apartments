@@ -166,12 +166,16 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
    1. backing for the 71 held sets in `config/reviews/ledger-held-2026-10-16-chain.jsonl`. Data
       improvements read the first list. A stated size backs a bedroom set when it rules out the
       recorded count and each count between, as agreed with Data improvements on Oct 16;
-   2. entries keyed on units and buildings, as Data improvements asked on Oct 16.
-      `unit-reviews-v2` joins and splits units, so its entries key on the unit and also apply
-      to later ads of the unit. `building-joins-v1` moves a building to a lot and keys on the
-      building or its address. The `brooklyn_misjoin` and `location_conflict` excludes become
-      building sets once the right building is collected, with `other_ad` or `city_record`
-      evidence;
+   2. entries keyed on units and buildings, as Data improvements asked on Oct 16. **Started**
+      in #PR: the unit ledger in `pipeline/ledger/units/` joins unit pages, splits ads off a
+      unit and moves a building's ads to another building, and `ads.placed` applies its live
+      entries before the unit-month check. Its entries key on pages and buildings, so they
+      also apply to later ads of a unit. The folder holds no files yet, and on the export of
+      Oct 16 the rows file stays the same. Next, a PR imports `unit-reviews-v2` and
+      `building-joins-v1` with their evidence, and units 2, 2A and 2S of 43 East 20th Street
+      join on their stated 2,000 square feet. Data improvements gets the format then. The
+      `brooklyn_misjoin` and `location_conflict` excludes become moves once the right building
+      is collected, with `other_ad` or `city_record` evidence;
    3. `west-coast-wings-v1` and `unit-splits-v4`, rules over the rows, as pipeline steps with
       their tests, and the splits checked against the frozen rows;
    4. `unit-labels-v17`, `fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The
