@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import contextvars
 import functools
+import hashlib
+import inspect
 import itertools
 import json
 import math
+import os
 import re
+import uuid
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -2526,19 +2530,23 @@ def building_outlines(registry_file: str, footprints_file: str, reach: float):
     length = np.hypot(*(e1 - e0).T)
     midpoints = cKDTree((e0 + e1) / 2)
     slack = 1.5 * float(length.max())
-    by_bin = footprints.groupby(footprints.bin.astype(str))
-    by_lot = footprints.groupby(footprints.base_bbl.astype(str))
+    # Row positions per BIN and per lot, looked up as plain arrays: a get_group
+    # per building costs a take over the whole Arrow-backed frame.
+    by_bin = footprints.groupby(footprints.bin.astype(str)).indices
+    by_lot = footprints.groupby(footprints.base_bbl.astype(str)).indices
+    fp_bins = footprints.bin.to_numpy(object)
+    fp_geometries = footprints.geometry.to_numpy(object)
     for building, r in registry.iterrows():
         key_bin, key_lot = str(r.bin), str(r.bbl)
-        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin.groups:
-            rows = by_bin.get_group(key_bin)
-        elif key_lot in by_lot.groups:
-            rows = by_lot.get_group(key_lot)
+        if not re.fullmatch(r"[1-5]000000", key_bin) and key_bin in by_bin:
+            rows = by_bin[key_bin]
+        elif key_lot in by_lot:
+            rows = by_lot[key_lot]
         else:
             continue
         rings = [
             (str(fp_bin), ring)
-            for fp_bin, g in zip(rows.bin, rows.geometry)
+            for fp_bin, g in zip(fp_bins[rows], fp_geometries[rows])
             for ring in rings_of(g)
         ]
         # The outline nearest the registry point (a lot can hold several buildings).
@@ -2591,11 +2599,77 @@ def _side_kind(name: str, attributes: dict) -> str | None:
     return street_kind(name, roadway)
 
 
+# Bump when the sides change for the same input files in a way the code key
+# below misses.
+SIDES_CACHE_VERSION = "v1"
+
+
+def _sides_code_key() -> str:
+    """The source of the functions and the constants the sides depend on."""
+    parts = [
+        inspect.getsource(f)
+        for f in (
+            _compute_building_sides,
+            building_outlines,
+            facade_sides,
+            _hits,
+            street_lines,
+            street_kind,
+            _side_kind,
+            facing_grid,
+            _grid_origin,
+        )
+    ]
+    parts += [
+        repr(v)
+        for v in (
+            SIDE_REACH_M,
+            SIDE_SPACING_M,
+            SIDE_MIN_EDGE_M,
+            GRID_DIRECTIONS,
+            sorted(LOUD_ROADS),
+            sorted(WIDE_STREETS),
+            FRONTAGE_BEARING_DEG,
+        )
+    ]
+    return "\n".join(parts)
+
+
 @functools.lru_cache(maxsize=2)
 def _building_sides(
     registry_file: str,
     basemap_file: str = BASEMAP_FILE,
     footprints_file: str = FOOTPRINTS_FILE,
+) -> pd.DataFrame:
+    """`_compute_building_sides`, cached on disk under the frontier cache. The
+    key holds the version, the code the sides run, and the sha256 of every
+    file they read, including the first registry, which sets the grid's origin."""
+    digest = hashlib.sha256(SIDES_CACHE_VERSION.encode())
+    digest.update(_sides_code_key().encode())
+    for path in (registry_file, basemap_file, footprints_file, REGISTRY_FILE):
+        digest.update(data_module.sha256(Path(path)).encode())
+    cache = (
+        data_module.OUTPUT_ROOT
+        / "cache"
+        / f"building-sides-{digest.hexdigest()[:16]}.pkl"
+    )
+    if cache.exists():
+        return pd.read_pickle(cache)
+    sides = _compute_building_sides(registry_file, basemap_file, footprints_file)
+    # A per-process temporary name, so runs that finish together each write
+    # their own file and the last os.replace wins.
+    tmp = cache.with_name(f"{cache.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        sides.to_pickle(tmp)
+        os.replace(tmp, cache)
+    except OSError:  # a read-only cache still returns the sides
+        tmp.unlink(missing_ok=True)
+    return sides
+
+
+def _compute_building_sides(
+    registry_file: str, basemap_file: str, footprints_file: str
 ) -> pd.DataFrame:
     streets = street_lines(basemap_file, _side_kind)
     out = {

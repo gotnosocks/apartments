@@ -446,3 +446,130 @@ def test_rule_evidence(text, kind):
     item = importer().rule_evidence(text)
     assert item["kind"] == kind
     assert item.get("quote", item.get("detail")) == text
+
+
+def test_line_datasets_follow_the_base_rules(tmp_path, monkeypatch):
+    """Each line of a correction file takes the dataset of the version adding it, and the
+    lines a version repeats from its base rule take the base rule's datasets. A version adding
+    all its lines ends the walk, as `bedrooms-ad-v4` to `v6` do, though they give a base."""
+    module = importer()
+    monkeypatch.setattr(module, "REPO", tmp_path)
+    folder = tmp_path / "config" / "corrections"
+    folder.mkdir(parents=True)
+
+    def version(name, audits, given):
+        text = "".join(json.dumps({"audit_id": audit}) + "\n" for audit in audits)
+        (folder / f"{name}-20261016.jsonl").write_text(text)
+        if given is not None:
+            (folder / f"{name}-20261016.provenance.json").write_text(json.dumps(given))
+        return f"config/corrections/{name}-20261016.jsonl"
+
+    version(
+        "rule-v1", ["a", "b"], {"dataset": "/d/one", "rows": 2, "base_rule": "rule-v0"}
+    )
+    version(
+        "rule-v2",
+        ["a", "b", "c"],
+        {"dataset": "/d/two", "rows": 1, "base_rule": "rule-v1"},
+    )
+    v3 = version(
+        "rule-v3",
+        ["a", "b", "c", "d"],
+        {"dataset": "/d/three", "rows": 1, "base_rule": "rule-v2"},
+    )
+    assert module.line_datasets(v3) == {
+        1: "/d/one",
+        2: "/d/one",
+        3: "/d/two",
+        4: "/d/three",
+    }
+
+    other = version(
+        "rule-v4",
+        ["a", "x", "e"],
+        {"dataset": "/d/four", "rows": 1, "base_rule": "rule-v1"},
+    )
+    with pytest.raises(SystemExit, match="doesn't start with the lines"):
+        module.line_datasets(other)
+    bare = version("rule-v5", ["a"], None)
+    with pytest.raises(SystemExit, match="no provenance file"):
+        module.line_datasets(bare)
+    short = version("rule-v6", ["a"], {"dataset": "/d/six", "rows": 2})
+    with pytest.raises(SystemExit, match="fewer lines"):
+        module.line_datasets(short)
+    baseless = version("rule-v7", ["a", "b"], {"dataset": "/d/seven", "rows": 1})
+    with pytest.raises(SystemExit, match="no base"):
+        module.line_datasets(baseless)
+    orphan = version(
+        "rule-v8", ["a", "b"], {"dataset": "/d/eight", "rows": 1, "base_rule": "x"}
+    )
+    with pytest.raises(SystemExit, match="0 files for its base"):
+        module.line_datasets(orphan)
+
+
+@pytest.mark.parametrize(
+    "period, month",
+    [("2016-12", "2016-12"), ("2016-12-01", "2016-12"), ("2016-12-15", None)],
+)
+def test_quarantine_month(period, month):
+    """A quarantine line gives its month as YYYY-MM or as the month's first day."""
+    module = importer()
+    if month is None:
+        with pytest.raises(SystemExit):
+            module.month(period)
+    else:
+        assert module.month(period) == month
+
+
+@pytest.mark.parametrize(
+    "note, source, first",
+    [
+        (
+            'Ad text: "corner space huge windows. vented former restaurant".',
+            "ask-check reads (pipeline #937 flags)",
+            {
+                "kind": "ad_text",
+                "quote": "corner space huge windows. vented former restaurant",
+            },
+        ),
+        (
+            'Ad text: "two levels ... food is welcome."',
+            "ask-check reads (pipeline #937 flags)",
+            {"kind": "ad_text", "quote": "two levels ... food is welcome."},
+        ),
+        (
+            "Ask 33,333 for a 2BR is repeated digits; same unit asked $2,556 (2017)",
+            "ask-check reads (pipeline #937 flags)",
+            {
+                "kind": "read",
+                "detail": "Ask 33,333 for a 2BR is repeated digits; same unit asked $2,556 (2017)",
+            },
+        ),
+        (
+            "this is a 2 month sublet",
+            "regex second pass over the API keep reads",
+            {"kind": "ad_text", "quote": "this is a 2 month sublet"},
+        ),
+        (
+            "short-term rental starts may 1, 2019 for 6 months only",
+            None,
+            {
+                "kind": "ad_text",
+                "quote": "short-term rental starts may 1, 2019 for 6 months only",
+            },
+        ),
+    ],
+)
+def test_quarantine_evidence(note, source, first):
+    """The importer files a quarantine note as a read when a reading pass wrote it without the
+    `Ad text:` prefix, and as the ad's words otherwise, and puts the line's reason after it."""
+    line = {"reason": "a reason", "evidence": note}
+    if source:
+        line["source"] = source
+    assert importer().quarantine_evidence(line) == [
+        first,
+        {"kind": "read", "detail": "a reason"},
+    ]
+    assert importer().quarantine_evidence({"reason": "a reason"}) == [
+        {"kind": "read", "detail": "a reason"}
+    ]

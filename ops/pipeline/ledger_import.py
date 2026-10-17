@@ -6,9 +6,13 @@ The chain keys its corrections by `audit_id`, a row of one of its datasets, and 
 them by the ad's `listing_id`. The script works in these steps:
 
 1. It reads the rule files in `RULES`, in the order `rentfrontier.data` applies them. For each
-   correction it reads the dataset listed in the rule's provenance file, and takes the row's ad
-   and its recorded values from the dataset's `observations.jsonl`. A quarantine line gives its ad and
-   month itself.
+   correction it reads the dataset of the version adding the line. A version's provenance file
+   gives the dataset of the lines it adds, and from bedrooms-ad-v7 on, a version's file starts
+   with its base rule's lines. It takes the row's ad and its recorded values from the dataset's
+   `observations.jsonl`. A quarantine line gives its ad and month itself, the month as YYYY-MM
+   or as its first day. Its `evidence` holds a note, most often the ad's words. The importer
+   files a note as a read only when the line comes from a reading pass and the note doesn't
+   start `Ad text:`.
 2. It gathers the evidence for each correction:
      - the ad's words, from the rule file, or Ben's own reading when the rule's line gives
        his name and the day;
@@ -56,8 +60,7 @@ import duckdb
 REPO = Path(__file__).resolve().parents[2]
 LEDGER = REPO / "pipeline" / "ledger"
 DATASET = Path(
-    "/data1/apartments/frontier/datasets/"
-    "chelsea-wv-gv-flatiron-gramercy-stuy-nomad-ev-mw-api-analysis-20261015-c9eea95"
+    "/data1/apartments/frontier/datasets/all-scraped-analysis-20261016-5f07157"
 )
 # The files of the latest version of each correction and quarantine rule of the chain.
 RULES = [
@@ -65,10 +68,10 @@ RULES = [
     "config/corrections/bedrooms-ad-v4-20261015.jsonl",
     "config/corrections/bedrooms-ad-v5-20261015.jsonl",
     "config/corrections/bedrooms-ad-v6-20261015.jsonl",
-    "config/corrections/bedrooms-ad-v8-20261016.jsonl",
+    "config/corrections/bedrooms-ad-v9-20261016.jsonl",
     "config/corrections/baths-ad-v3-20261008.jsonl",
     "config/corrections/sqft-units-v1-20261015.jsonl",
-    "config/reviews/quarantine-v32-20261016.jsonl",
+    "config/reviews/quarantine-v33-20261016.jsonl",
 ]
 READS = [
     "config/reviews/ad-fit-reads-20261015-bedrooms.jsonl",
@@ -94,6 +97,74 @@ def lines(path):
         for number, text in enumerate(f, start=1):
             if text.strip():
                 yield number, json.loads(text)
+
+
+def quarantine(path):
+    return Path(path).name.startswith("quarantine-")
+
+
+def month(period):
+    """Give a quarantine line's period as YYYY-MM, from YYYY-MM or the month's first day."""
+    if not re.fullmatch(r"\d{4}-\d{2}(-01)?", period):
+        raise SystemExit(f"the quarantine period {period!r} isn't a month")
+    return period[:7]
+
+
+def quarantine_evidence(line):
+    """Give a quarantine line's evidence: its note, then its reason as a read.
+
+    Data improvements writes a note in one of these forms:
+      - a line with no `source`, the form of the rule's first versions, gives the ad's words;
+      - a line from the regex pass, with `source` starting `regex`, gives the matched words;
+      - a line from a reading pass, with any other `source`, gives the reader's note, and a note
+        quoting the ad starts `Ad text:` with the words in quotes, often with a period after.
+    The importer files a reader's note as a read and the others as `ad_text`, without the prefix
+    and, when the rest is in quotes, without the quotes or the period after them.
+    """
+    evidence = [{"kind": "read", "detail": line["reason"]}]
+    note = (line.get("evidence") or "").strip()
+    source = line.get("source") or ""
+    if not note:
+        return evidence
+    if source and not source.startswith("regex") and not note.startswith("Ad text:"):
+        return [{"kind": "read", "detail": note}, *evidence]
+    quote = note.removeprefix("Ad text:").strip()
+    quoted = re.fullmatch(r'"(.*)"\.?', quote, re.DOTALL)
+    return [{"kind": "ad_text", "quote": quoted[1] if quoted else quote}, *evidence]
+
+
+def line_datasets(path):
+    """Give the dataset of each line of the correction file at `path`, by line number.
+
+    A version's provenance gives the dataset of the rows it adds, its last `rows` lines. From
+    bedrooms-ad-v7 on, a version's file starts with its base rule's lines, and those take the
+    datasets the base rule's provenance gives them."""
+    provenance = REPO / path.replace(".jsonl", ".provenance.json")
+    if not provenance.exists():
+        raise SystemExit(f"{path} has no provenance file to give its dataset")
+    given = json.loads(provenance.read_text())
+    numbered = list(lines(path))
+    start = len(numbered) - given.get("rows", len(numbered))
+    if start < 0:
+        raise SystemExit(f"{path} has fewer lines than its provenance file gives")
+    if start and "base_rule" not in given:
+        raise SystemExit(
+            f"{path} has more lines than its provenance file gives, and no base"
+        )
+    found = {number: str(Path(given["dataset"])) for number, _ in numbered[start:]}
+    if start:
+        bases = list(
+            (REPO / "config" / "corrections").glob(f"{given['base_rule']}-2*.jsonl")
+        )
+        if len(bases) != 1:
+            raise SystemExit(
+                f"{path} has {len(bases)} files for its base {given['base_rule']}"
+            )
+        base = str(bases[0].relative_to(REPO))
+        if list(lines(base)) != numbered[:start]:
+            raise SystemExit(f"{path} doesn't start with the lines of {base}")
+        found |= line_datasets(base)
+    return found
 
 
 def by_audit(paths, verdict=None):
@@ -317,13 +388,14 @@ def main(argv=None) -> int:
         if row["entry"] in retracts:
             retracted.add((slot(row), key(row)))
 
-    sources = {}
-    for path in RULES:
-        provenance = REPO / path.replace(".jsonl", ".provenance.json")
-        if provenance.exists():
-            sources[path] = str(Path(json.loads(provenance.read_text())["dataset"]))
-    datasets = sorted({*sources.values(), str(DATASET)})
-    sources = {path: datasets.index(dataset) for path, dataset in sources.items()}
+    sources = {path: line_datasets(path) for path in RULES if not quarantine(path)}
+    datasets = sorted(
+        {*(d for found in sources.values() for d in found.values()), str(DATASET)}
+    )
+    sources = {
+        path: {number: datasets.index(d) for number, d in found.items()}
+        for path, found in sources.items()
+    }
     latest_dataset = datasets.index(str(DATASET))
     db = duckdb.connect(config={"memory_limit": "1500MB", "threads": 4})
     observations(db, datasets)
@@ -386,29 +458,26 @@ def main(argv=None) -> int:
             if source in imported:
                 counts[f"{rule}: in the ledger"] += 1
                 continue
-            if path not in sources:
+            if quarantine(path):
                 action = line["action"]
-                when = {"period": line["period"]}
+                when = {"period": month(line["period"])}
                 if action == "quarantine_bedrooms_unknown":
                     row = row_of(latest_dataset, line["audit_id"])
                     if row is not None:
                         when["bedrooms"] = row["bedrooms"]
-                evidence = [{"kind": "read", "detail": line["reason"]}]
-                if line.get("evidence"):
-                    evidence.insert(0, {"kind": "ad_text", "quote": line["evidence"]})
                 entry = {
                     "change": "exclude",
                     "listing_id": str(line["source_listing_id"]),
                     "reason": action.removeprefix("quarantine_"),
                     "when": when,
-                    "evidence": evidence,
+                    "evidence": quarantine_evidence(line),
                     "decided": line["review"],
                     "source": source,
                 }
                 add(rule, entry)
                 continue
 
-            row = row_of(sources[path], line["audit_id"])
+            row = row_of(sources[path][number], line["audit_id"])
             if row is None:
                 counts[f"{rule}: row missing from its dataset"] += 1
                 continue

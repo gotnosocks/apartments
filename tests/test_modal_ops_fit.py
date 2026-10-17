@@ -602,3 +602,26 @@ def test_a_large_fit_builds_its_summary_and_calibration_in_the_container(
     (tmp_path / "summaries" / "r-abc1234" / "complete.json").unlink()
     done = app._summarize({"name": "r"}, {}, None, now + 7200)
     assert done["summary"]["exit"] == 1 and done["calibration"]["exit"] == "skipped"
+
+
+def test_a_fit_outside_the_budget_is_recorded_but_leaves_the_balance_alone(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    day = cap.START + datetime.timedelta(days=1)
+    have = cap.balance([], day)
+    launch, left = cap.reserve("all", "H100", 17.71, ledger, day, outside=True)
+    assert left == pytest.approx(have)
+    cap.settle(launch, 20.0, ledger, day)
+    rows = cap.launches(ledger)
+    assert [r.get("kind") for r in rows] == ["outside", "settle"]
+    assert cap.balance(rows, day) == pytest.approx(have)
+    with pytest.raises(cap.CapReached):
+        cap.reserve("all", "H100", 17.71, ledger, day)
+
+
+def test_a_large_fit_can_stop_before_its_summary():
+    argv = ["abc", "all", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
+    args, rest = fit.parse(["--large", "--gpu", "H100", *argv])
+    assert fit.plan(args, rest, "9371a18")["summary"]
+    args, rest = fit.parse(["--large", "--no-summary", "--outside-budget", *argv])
+    assert args.outside_budget and not fit.plan(args, rest, "9371a18")["summary"]
+    assert "--no-summary" not in rest and "--outside-budget" not in rest

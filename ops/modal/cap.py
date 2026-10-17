@@ -24,6 +24,11 @@ its dollar estimate.
                                                               # fit (default: the served full fit),
                                                               # exit 2 if it is over the per-fit cap
     python3 ops/modal/cap.py --check-launch ARGS...           # the same, from ops/modal-fit's ARGS
+
+Ben approved fits outside the budget for the full all-scraped dataset (2026-10-16 14:55Z). A
+launch with --outside-budget goes in the ledger as an "outside" row carrying its estimate, and it
+settles like any other launch, so its cost stays on record. The balance skips those rows, and the
+balance check lets such a launch through.
 """
 
 import datetime
@@ -43,7 +48,12 @@ START = datetime.datetime(2026, 10, 7, 21, 59, 49, tzinfo=datetime.UTC)  # Ben's
 # imports modal, so the launcher's plain python3 can't import it).
 USD_PER_HOUR = {"L4": 1.0851, "A100-40GB": 2.3851, "A100-80GB": 2.7841, "H100": 4.2351}
 # The same for a large fit's container, app.usd_per_second(gpu, large=True) * 3600.
-USD_PER_HOUR_LARGE = {"A100-80GB": 4.4097, "H100": 5.8607}
+USD_PER_HOUR_LARGE = {
+    "A100-40GB": 4.0107,
+    "A100-80GB": 4.4097,
+    "H100": 5.8607,
+    "H200": 6.4517,
+}
 # Wall time of a fit's GPU container: OVERHEAD_SECONDS for the upload, image, PSIS-LOO and the
 # post-fit statistics, plus the fit stage at SECONDS_PER_ITERATION an iteration per pair of
 # chains, or at the model's own rate on its last Modal fit if that was slower (measured_rate).
@@ -202,7 +212,7 @@ def balance(rows, now=None):
         if row.get("kind") == "settle":
             if row["id"] in estimates:  # launches before START aren't charged
                 events.append((at, estimates[row["id"]] - row["usd"]))
-        elif at >= START:
+        elif at >= START and row.get("kind") != "outside":
             # A row from the old launcher (no estimate) counts as a served full fit.
             usd = row.get("usd_estimate", NB5_SERVED_FIT_USD)
             estimates[row.get("id", f"{row['name']}@{row['at']}")] = usd
@@ -256,9 +266,12 @@ def _append(ledger, decide, now):
         os.fsync(f.fileno())
 
 
-def reserve(name, gpu, usd, ledger=LEDGER, now=None, secs=None, large=False):
+def reserve(
+    name, gpu, usd, ledger=LEDGER, now=None, secs=None, large=False, outside=False
+):
     """Charge a launch of `name` its estimate `usd`, or raise CapReached if the estimate (`usd`,
-    or `secs` of Modal time) is over the per-fit cap or the balance is short.
+    or `secs` of Modal time) is over the per-fit cap or the balance is short. With `outside`, the
+    launch is recorded outside the budget: no balance check, and the balance leaves it out.
 
     Returns the launch's id, for settle, and the balance left."""
     if why := over_cap(usd, secs, large):
@@ -268,6 +281,15 @@ def reserve(name, gpu, usd, ledger=LEDGER, now=None, secs=None, large=False):
 
     def decide(rows):
         have = balance(rows, now)
+        if outside:
+            left["usd"] = have
+            return {
+                "kind": "outside",
+                "id": launch,
+                "name": name,
+                "gpu": gpu,
+                "usd_estimate": usd,
+            }
         if have < usd:
             raise CapReached(
                 f"the Modal balance is ${have:.2f}, short of this fit's ${usd:.2f} estimate; "
@@ -348,7 +370,7 @@ if __name__ == "__main__":
         if why := over_cap(usd, secs, large):
             print(f"refused: {why}", file=sys.stderr)
             sys.exit(2)
-        if balance(rows) < usd:
+        if balance(rows) < usd and "--outside-budget" not in argv:
             sys.exit(
                 f"refused: the Modal balance is ${balance(rows):.2f}, short of this fit's "
                 f"${usd:.2f} estimate; enough from {when(rows, usd)}"

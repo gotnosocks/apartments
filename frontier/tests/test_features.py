@@ -610,6 +610,38 @@ def test_facing_v4_marks_loud_streets_on_low_floors(monkeypatch):
     assert cols["looks onto a wide street, floors 1-4"].tolist() == [0, 0, 1, 0]
 
 
+def test_building_sides_cache_on_disk(monkeypatch, tmp_path):
+    """The sides come from disk while the input files keep their contents, and
+    are computed again when one changes."""
+    files = {name: tmp_path / name for name in ("registry", "basemap", "footprints")}
+    for path in files.values():
+        path.write_text(path.name)
+    calls = []
+
+    def compute(*paths):
+        calls.append(paths)
+        return pd.DataFrame({"north": ["avenue"]}, index=[f"b{len(calls)}"])
+
+    monkeypatch.setattr(features, "_compute_building_sides", compute)
+    monkeypatch.setattr(features, "REGISTRY_FILE", str(files["registry"]))
+    monkeypatch.setattr(features.data_module, "OUTPUT_ROOT", tmp_path / "out")
+    args = tuple(str(files[n]) for n in ("registry", "basemap", "footprints"))
+
+    def sides():
+        features._building_sides.cache_clear()
+        return features._building_sides(*args)
+
+    try:
+        first = sides()
+        pd.testing.assert_frame_equal(sides(), first)
+        assert len(calls) == 1
+        files["footprints"].write_text("new outlines")
+        assert sides().index.tolist() == ["b2"]
+        assert len(calls) == 2
+    finally:
+        features._building_sides.cache_clear()
+
+
 def test_facing_reads_the_build_registry(monkeypatch):
     """building_sides and building_frontage read the registry of the set being
     built (LOT_SNAPSHOTS), with the grid origin of the first registry."""
