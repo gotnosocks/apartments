@@ -20,9 +20,11 @@ def records_catalog(tmp_path, monkeypatch):
     """A writer of pipeline datasets under tmp_path, with `api_records` reading them.
 
     `write(rows, ads=None)` writes a records file of `rows` (listing_id, collected_at, an
-    optional last_collected_at and response_id, and the record as a dict) and, given `ads`
-    (listing_id and building), an ads file, then appends a clean build's catalog line for them
-    and returns it."""
+    optional last_collected_at and response_id, and the record as a dict) and an ads file of
+    `ads` (listing_id, optional exclusion_reasons and other columns such as building), then
+    appends a clean build's catalog line for them and returns it. Without `ads`, the ads file
+    lists each listing of `rows` with no exclusion reasons. As in the pipeline's ads file,
+    listing_id is text and exclusion_reasons a list of text."""
     monkeypatch.setattr(api_records, "DATASETS", tmp_path)
 
     def write(rows, ads=None):
@@ -49,10 +51,26 @@ def records_catalog(tmp_path, monkeypatch):
                 "raw_listing_json": texts,
             }
         )
+        if ads is None:
+            ads = [
+                {"listing_id": i} for i in dict.fromkeys(r["listing_id"] for r in rows)
+            ]
+        reasons = pa.array(
+            [a.get("exclusion_reasons", []) for a in ads], pa.list_(pa.string())
+        )
+        ads_table = pa.Table.from_pylist(
+            [
+                dict(a, listing_id=str(a["listing_id"]), exclusion_reasons=None)
+                for a in ads
+            ]
+        )
+        ads_table = ads_table.set_column(
+            ads_table.schema.get_field_index("exclusion_reasons"),
+            "exclusion_reasons",
+            reasons,
+        )
         line = {"built": "2026-10-16T00:00:00+00:00", "code": {"clean": True}}
-        files = [("records", "records", table)]
-        if ads is not None:
-            files.append(("ads_file", "ads", pa.Table.from_pylist(ads)))
+        files = [("records", "records", table), ("ads_file", "ads", ads_table)]
         for key, stem, data in files:
             path = tmp_path / f"{stem}-{len(rows)}.parquet"
             pq.write_table(data, path)

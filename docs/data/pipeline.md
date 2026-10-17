@@ -1784,14 +1784,32 @@ anonymous memory peaked at 1,904 MiB.
 
 The frontier builders read the file through `rentfrontier.api_records`. It takes the newest
 complete line of `catalog.ndjson` from a clean checkout, as the site does for the ads and rows
-files, and stops when that line lists no records file or when the file's SHA-256 differs from
-the line's. `PIPELINE_DATASETS` points it at another folder, such as a build's OUT. It reads the
+files, and stops when that line lists no records file or no ads file, or when either file's
+SHA-256 differs from the line's. `PIPELINE_DATASETS` points it at another folder, such as a build's OUT. It reads the
 file a row group at a time and hands each row over under the granular export's column names:
 
 - `listing_id` as text;
 - `collected_at` from `last_collected_at`;
 - `snapshot_id` from `response_id`;
 - `listing_type` and `raw_listing_json` as they are.
+
+It passes over each listing the same line's ads file marks with `no_dated_own_active_event`,
+whose own history holds no dated ACTIVE event. The rows leave out those ads for the same reason,
+so the builders, the ads file and the rows work from one set of listings. In the ads file of
+Oct 16, 22,990 of the records file's 2,140,578 listings carry the mark:
+
+| latest status | listings |
+|---|---:|
+| DRAFT | 11,238 |
+| RENTED | 7,436 |
+| DELISTED | 1,958 |
+| NO_LONGER_AVAILABLE | 1,924 |
+| IN_STREETEASY_REVIEW | 404 |
+| IN_BROKERAGE_REVIEW | 26 |
+| TEMPORARILY_OFF_MARKET | 4 |
+
+The other 477 drafts and 57 ads under review have an ACTIVE event of their own and stay in.
+The rows hold 284 of them.
 
 Its `observations` reads whichever crawl a builder names: a granular export's folder, a Parquet
 file at a time as the builders read them, or the word `records` for the records file.
@@ -2269,10 +2287,14 @@ and catalog it writes in a temporary folder:
     that the reader takes the clean line's file;
 51. add a byte to the records file, and check that the reader stops;
 52. append a clean line without a records file, and check that the reader stops;
+    then a line without an ads file, and check that it stops again;
 53. read a row back, and check its granular names: the listing ID as text, the last answer's
     time as `collected_at` and the response ID as `snapshot_id`;
 54. read a granular folder of two Parquet files and the records file through `observations`,
-    and check that the folder's rows come in file name order.
+    and check that the folder's rows come in file name order;
+55. write five listings, and an ads file that marks a draft and a rented ad with
+    `no_dated_own_active_event`, gives another ad a different reason, gives one no reason and
+    leaves out the fifth. `captures` and `observations` give only the two ads without the mark.
 
 ## Full build
 
