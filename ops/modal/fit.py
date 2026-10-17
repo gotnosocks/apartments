@@ -138,6 +138,12 @@ def parse(argv):
         "intervals (rentfrontier.summary --range-atoms), in the same places as --range-sample",
     )
     p.add_argument(
+        "--save-design",
+        action="store_true",
+        help="copy the fit's prepared design (rentfrontier.design) to the Volume and down to "
+        "OUTPUT_ROOT/designs, where the summary on thelio loads it if its checkout matches",
+    )
+    p.add_argument(
         "--explain",
         action="append",
         default=[],
@@ -197,6 +203,7 @@ def plan(args, run_args, sha, short=None):
         "allow_failing": args.allow_failing,
         "range_sample": args.range_sample,
         "range_atoms": args.range_atoms,
+        "save_design": args.save_design,
     }
 
 
@@ -287,13 +294,15 @@ POST_KINDS = (
 )
 
 
-def download(volume, name, root, local=None):
+def download(volume, name, root, local=None, design=True):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
     /out/<name>/{variance,explained,newbuilding,summaries,calibration}/* -> the same
     directories under root, log and
     modal.json into runs/<local>/modal/ (local: name unless given). A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
-    file is down."""
+    file is down. A saved design (/out/<name>/design/*) goes to root/designs/ through a
+    temporary name, unless design is False. It stays out of root/cache/, which every fit
+    uploads as an input (INPUTS)."""
     prefix = f"out/{name}/"
     local = local or name
     incoming = root / ".incoming" / name
@@ -304,6 +313,15 @@ def download(volume, name, root, local=None):
             continue
         rel = entry.path.lstrip("/").removeprefix(prefix)
         kind, _, rest = rel.partition("/")
+        if kind == "design":
+            if design and "/" not in rest:
+                dst = root / "designs" / rest
+                tmp = dst.with_name(f"{rest}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
+                tmp.parent.mkdir(parents=True, exist_ok=True)
+                with open(tmp, "wb") as f:
+                    volume.read_file_into_fileobj(entry.path, f)
+                os.replace(tmp, dst)
+            continue
         if kind == "run":
             dst = root / "runs" / local / rest
         elif kind == "loo":
@@ -367,6 +385,8 @@ def summarize(spec):
         "MODAL_FIT_REPO": str(REPO),
         **({"FRONTIER_RANGE_SAMPLE": "1"} if spec.get("range_sample") else {}),
         **({"FRONTIER_RANGE_ATOMS": "1"} if spec.get("range_atoms") else {}),
+        # Loads the fit's design that the download put in OUTPUT_ROOT/designs, and writes none.
+        **({"FRONTIER_DESIGN_CACHE": "read"} if spec.get("save_design") else {}),
     }
     cmd = [
         "systemd-run", "--user", "--quiet", "--collect", f"--unit={unit}",
@@ -453,13 +473,14 @@ def main(argv):
             + meta.get("newbuilding", {}).get("usd_estimate", 0),
             2,
         )
-        root = finish(modal_app.volume, spec["name"], meta)
+        # A large fit gets no summary on thelio, so its design would have no reader there.
+        root = finish(modal_app.volume, spec["name"], meta, design=not args.large)
         if root == OUTPUT_ROOT and wants_summary(spec, args.split):
             summarize(spec)
     except Exception:
         # A container timeout or Modal error: keep whatever reached the Volume, log included.
         try:
-            download(modal_app.volume, spec["name"], STATE / "failed")
+            download(modal_app.volume, spec["name"], STATE / "failed", design=False)
         except Exception as e:  # noqa: BLE001
             print(f"no outputs to download: {e}", flush=True)
         raise
@@ -551,11 +572,12 @@ def publish(args, spec, sha):
     return meta["exit"]
 
 
-def finish(volume, name, meta):
+def finish(volume, name, meta, design=True):
     """Download the run. A failed fit goes aside, off the research board, so a retry isn't
-    blocked; a good fit whose PSIS-LOO failed is kept, as drive.sh keeps it."""
+    blocked; a good fit whose PSIS-LOO failed is kept, as drive.sh keeps it. A saved design
+    comes down only for a good fit and when design is True."""
     root = OUTPUT_ROOT if meta.get("fit_exit", meta["exit"]) == 0 else STATE / "failed"
-    download(volume, name, root)
+    download(volume, name, root, design=design and root == OUTPUT_ROOT)
     (root / "runs" / name / "modal").mkdir(parents=True, exist_ok=True)
     (root / "runs" / name / "modal" / "modal.json").write_text(
         json.dumps(meta, indent=2)

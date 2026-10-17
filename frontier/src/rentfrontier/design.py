@@ -16,7 +16,8 @@ The cache key is a sha256 over:
    config directory, which hold the data rules, corrections and reviews
 2. the observations file's sha256, the split, the data rules and the feature set
 3. the FRONTIER_* environment, which picks external roots and description
-   sources
+   sources, less the variables in `UNKEYED`, with the resolved output root in
+   place of FRONTIER_OUTPUT_ROOT
 
 `model.prepare` and the features build in numpy, so a reader running JAX in
 float32 or float64 loads the same design.
@@ -26,6 +27,14 @@ sit at undated paths and could change in place, and the key leaves their bytes
 out, so the variable suits a cache that lives for a single container, as on
 Modal, and stays unset on thelio. Writers put the pickle in place with
 `os.replace`, so a reader finds a whole file or none.
+
+A Modal fit started with `fit.py --save-design` copies its design to the
+Volume, and the download puts it in OUTPUT_ROOT/designs on thelio, outside the
+cache directory the Modal fits upload as an input. There the summary runs with
+FRONTIER_DESIGN_CACHE=read: it loads the fit's own design from that directory
+when the key matches and otherwise builds one without writing it, so thelio's
+undated inputs never end up in a pickle. The key matches only when the
+summary's checkout holds the same package and config files as the fit's.
 """
 
 from __future__ import annotations
@@ -42,6 +51,18 @@ from . import data, features
 
 CACHE_VERSION = "v1"
 PACKAGE = Path(__file__).resolve().parent
+# Variables that pick how a step runs or what it records, leaving the design as
+# it is. Without them in the key, a fit on Modal and its summary on thelio come
+# to the same key from their different environments.
+UNKEYED = frozenset(
+    {
+        "FRONTIER_COMMIT",
+        "FRONTIER_DESIGN_CACHE",
+        "FRONTIER_OUTPUT_ROOT",
+        "FRONTIER_RANGE_ATOMS",
+        "FRONTIER_RANGE_SAMPLE",
+    }
+)
 
 
 def _key(frame: pd.DataFrame, split: str, rules, feature_set: str) -> str:
@@ -52,7 +73,11 @@ def _key(frame: pd.DataFrame, split: str, rules, feature_set: str) -> str:
     ):
         digest.update(str(path.relative_to(data.REPO)).encode())
         digest.update(data.sha256(path).encode())
-    env = sorted((k, v) for k, v in os.environ.items() if k.startswith("FRONTIER_"))
+    env = sorted(
+        (k, v)
+        for k, v in os.environ.items()
+        if k.startswith("FRONTIER_") and k not in UNKEYED
+    )
     digest.update(
         repr(
             (
@@ -61,6 +86,7 @@ def _key(frame: pd.DataFrame, split: str, rules, feature_set: str) -> str:
                 tuple(rules),
                 feature_set,
                 env,
+                str(data.OUTPUT_ROOT.resolve()),
             )
         ).encode()
     )
@@ -78,9 +104,18 @@ def _build(frame, split, rules, feature_set):
 def prepared(frame: pd.DataFrame, split: str, rules, feature_set: str) -> tuple:
     """(frame, heldout, feats, prep) for a loaded frame, as `split_and_rules`,
     `features.build` and `model.prepare` return them."""
-    if not os.environ.get("FRONTIER_DESIGN_CACHE"):
+    mode = os.environ.get("FRONTIER_DESIGN_CACHE")
+    if not mode:
         return _build(frame, split, rules, feature_set)
     key = _key(frame, split, rules, feature_set)
+    if mode == "read":
+        saved = data.OUTPUT_ROOT / "designs" / f"design-{key[:16]}.pkl"
+        try:
+            with open(saved, "rb") as f:
+                return pickle.load(f)
+        except Exception:
+            # No saved design, or one this environment can't unpickle.
+            return _build(frame, split, rules, feature_set)
     cache = data.OUTPUT_ROOT / "cache" / f"design-{key[:16]}.pkl"
     if cache.exists():
         with open(cache, "rb") as f:
