@@ -8,7 +8,7 @@ Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thr
   (`/data1/apartments/tmp/suspect/sqft/screen.py`) keeps an ad when at least 2 other ads of the same unit with the
   same bedroom count, within 730 days, agree within 5% and the ad sits 30% or more off their median. That gave 160
   ads. Sonnet read all of them with the unit's other ads (`r0..r3.jsonl`): 111 wrong, 28 unclear, 14 right, 7 a
-  different unit. 82 of the 111 reads gave a size inside the other ads' range. Review dropped 11: one ad states a
+  different unit. 82 of the 111 reads gave a size inside the other ads' range. Review dropped 11 of those 82: one ad states a
   third size, five may count a basement or roof deck in the larger figure, and five sit in a mixed size history.
   `ledger.py` in the same folder writes the file.
 - #1043 retracts the #1039 set on ad 1399109 (754 E 6th St 6E). Its later ads describe an 850 sq ft roof
