@@ -11,8 +11,8 @@ Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thr
   `p3/r*.jsonl`): 530 were wrong. Review then dropped 11 more, where a backing ad's text states the row's count.
   `ledger.py` in the same folder writes the file.
 - The regex in `mech.py` misses hyphenated counts such as "1-bath". A wider screen of the 2,873 ads with 2 or more
-  disagreeing ads would need the before-and-after condition relaxed, and a 40-ad sample of those found only about
-  half wrong.
+  disagreeing ads would need the before-and-after condition relaxed. In a 40-ad sample of them, 15 of the 28 ads
+  outside the strict filter were wrong.
 - The 80 unclear drop-lot rows also stay as they are. HPD violations, rent stabilization counts and housingdb hold
   nothing that decides them.
 - #1033 notes 11 Brooklyn misjoins (9 addresses) that match one collected Brooklyn building. Moving a single ad
