@@ -167,7 +167,7 @@ latest ask as `rentfrontier.latest_ask` on every row of the four regions.
       improvements read the first list. A stated size backs a bedroom set when it rules out the
       recorded count and each count between, as agreed with Data improvements on Oct 16;
    2. entries keyed on units and buildings, as Data improvements asked on Oct 16. **Started**
-      in #PR: the unit ledger in `pipeline/ledger/units/` joins unit pages, splits ads off a
+      in #950: the unit ledger in `pipeline/ledger/units/` joins unit pages, splits ads off a
       unit and moves a building's ads to another building, and `ads.placed` applies its live
       entries before the unit-month check. Its entries key on pages and buildings, so they
       also apply to later ads of a unit. The folder holds no files yet, and on the export of
