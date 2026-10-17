@@ -439,3 +439,17 @@ def test_a_late_change_counts_when_the_listing_went_active_again():
     ]
     r = latest_ask.record_latest(json.dumps(d))
     assert r["changes"][-1] == ("2025-06-01", 3200.0)
+
+
+def test_closing_stale_days_drops_changes_from_the_off_day_on():
+    changes = [("2025-01-01", 3000), ("2025-02-01", 2800), ("2025-03-01", 3100)]
+    raw = record(changes, 3100, status="RENTED", off="2025-03-01")
+    assert latest_ask.record_latest(raw)["changes"][-1] == ("2025-03-01", 3100.0)
+    r = latest_ask.record_latest(raw, stale_days=latest_ask.CLOSING_STALE_DAYS)
+    assert r["changes"][-1] == ("2025-02-01", 2800.0)
+    # An ad listed and closed on the same day keeps that day's changes.
+    raw = record(
+        [("2025-01-01", 3000)], 3000, status="RENTED", on="2025-01-01", off="2025-01-01"
+    )
+    r = latest_ask.record_latest(raw, stale_days=latest_ask.CLOSING_STALE_DAYS)
+    assert r["changes"] == [("2025-01-01", 3000.0)]
