@@ -1499,7 +1499,8 @@ both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. T
 The site build (`python -m apartments.site build`) reads
 `/data1/apartments/pipeline/datasets/catalog.ndjson` and takes its newest line from a build of a
 checkout with no changes (`code.clean`). It passes over a last line without its newline, which
-a pipeline build may still be writing. It checks the SHA-256 of the ads file and the rows file
+a pipeline build may still be writing. A clean checkout of a branch counts as well, so I build
+from a branch into a folder of its own with `--out`. It checks the SHA-256 of the ads file and the rows file
 against that line before it reads either. A line without both files stops the build, as a file
 with another SHA-256 does. `src/apartments/site/captures.py` then picks the listings on the
 market:
@@ -1514,6 +1515,12 @@ market:
    answer of the others.
 4. It leaves out that ad when its layout or ask lies outside the ones the dataset prices, or
    when the dataset prices its unit as current from an answer as new as the ad's or newer.
+
+Step 2 compares the four values alone. A furnished, short-stay or concession copy of an ad with
+the same ask and layout has no fit-ready row, so the unit shows the other ad. The served dataset
+drops a listing for any of its rules, while step 2 rests on the values a dropped ad shares with
+the others, so it can hide a unit whose ads the dataset dropped for another reason. On the files
+of Oct 16 no unit had both a dropped ad and another ad on the market.
 
 The values come from the fit-ready row, after the corrections ledger, and the ask from
 `page_price`, since a row's `asking_rent` follows the chain's latest-ask rule and can be an
@@ -1535,9 +1542,17 @@ out 60:
 - 57 ads whose answers from the top-ups of Oct 15 and 16 say RENTED (26), IN_CONTRACT (15),
   DELISTED (9), NO_LONGER_AVAILABLE (4) or TEMPORARILY_OFF_MARKET (3). The old reader showed
   them from captures of Oct 10, inside its 9-day window. 30 of them are in the East Village.
-- 3 ACTIVE ads without a fit-ready row. 5128314 offers a concession, 5183409 gives conflicting
-  layouts, and 5154603 shares its unit and ask with 5164886, a later ad of the month whose row
-  the rows keep and whose answer says RENTED.
+- 3 ACTIVE ads without a fit-ready row:
+  - 5128314, a four-bedroom at 536 East 5th Street, offers a month free in its record's
+    `pricing`. The old reader's rule left out concession ads too, but the capture of Oct 10
+    had no concession field.
+  - 5183409 at 43 East 20th Street gives 2 bedrooms in its first record and 3 in the two
+    records of Oct 16, and the pipeline drops an ad whose records disagree on its layout. The
+    old reader showed it as a three-bedroom. Its text describes two bedrooms and a home office in
+    2,000 square feet, as do three other ads at the address under units 2 and 2S. One of them,
+    5178940, was posted the same day at the same $17,500 and delisted.
+  - 5154603 shares its unit and ask with 5164886, a later ad of the month whose row the rows
+    keep and whose answer says RENTED on Oct 13.
 
 On the 1,099 listings of both builds the values agreed, apart from these:
 

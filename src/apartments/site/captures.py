@@ -109,7 +109,9 @@ def pipeline_files(root: Path) -> dict | None:
     being written, and the build reads the lines before it."""
     catalog = root / "catalog.ndjson"
     lines = catalog.read_text().split("\n")[:-1] if catalog.is_file() else []
-    # A build from a branch or a checkout with changes may write to the same catalog.
+    # A build from a checkout with changes may write to the same catalog, and the site leaves it
+    # out. A clean checkout of a branch counts, so a build from a branch writes to a folder of
+    # its own with --out.
     clean = [
         entry
         for entry in map(json.loads, filter(str.strip, lines))

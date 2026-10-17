@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from apartments.site import captures, estimate
+from apartments.site import ad_dates, captures, estimate
 
 BUILDING = "b-grove"
 
@@ -196,8 +196,9 @@ def test_an_ad_takes_its_values_from_its_row_and_its_ask_from_its_page(pipeline)
 
 
 def test_the_ad_fetched_last_wins_per_unit(pipeline):
+    """The files hold the older ad first, so the order comes from the reader."""
     files = pipeline.write(
-        [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
+        [ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1)), ad(2)]
     )
     got, skipped = captures.current_ads(files, set(), {})
     assert [c["listing_id"] for c in got] == ["1002"] and skipped == {}
@@ -218,11 +219,16 @@ def test_a_unit_with_an_ad_the_dataset_dropped_has_none(pipeline):
 
 
 def test_a_unit_takes_its_newest_ad_with_a_row(pipeline):
-    ads = [ad(2), ad(1, response_id=6, fetched=SEEN - dt.timedelta(days=1))]
-    files = pipeline.write(ads, ads[1:])
+    """The files hold the ads from oldest to newest, so the order comes from the reader."""
+    ads = [
+        ad(1, response_id=5, fetched=SEEN - dt.timedelta(days=2)),
+        ad(2, response_id=6, fetched=SEEN - dt.timedelta(days=1)),
+        ad(3),
+    ]
+    files = pipeline.write(ads, ads[:2])
     got, skipped = captures.current_ads(files, set(), {})
-    assert [c["listing_id"] for c in got] == ["1001"]
-    assert skipped == {"1002": "the ad has no fit-ready row"}
+    assert [c["listing_id"] for c in got] == ["1002"]
+    assert skipped == {"1003": "the ad has no fit-ready row"}
 
 
 def test_a_unit_whose_ads_on_the_market_conflict_has_none(pipeline):
@@ -332,6 +338,25 @@ def test_rows_price_an_ad_with_the_kit(pipeline):
     total = sum(p["usd"] for p in json.loads(row["contributions"]))
     assert abs(total - row["estimate"]) < 1
     assert "market" in {p["term"] for p in json.loads(row["contributions"])}
+
+
+def test_a_kit_row_takes_its_dates_on_the_market(pipeline):
+    """The build passes the kit's rows and the same files to `ad_dates.collect`."""
+    files = pipeline.write(
+        [ad(1, on_day=dt.date(2026, 9, 30), days_on_market=6)],
+        [ad(1)],
+    )
+    out, _ = captures.rows(
+        kit(),
+        [kit_building()],
+        [fitted()],
+        [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
+        files,
+        [],
+    )
+    (dated,) = ad_dates.collect(files, out)
+    assert (dated["audit_id"], dated["on_market_at"]) == ("api:7:1001", "2026-09-30")
+    assert dated["days_on_market"] == 6
 
 
 def test_a_building_outside_the_fit_is_skipped(pipeline):
