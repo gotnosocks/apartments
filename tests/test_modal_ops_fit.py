@@ -319,6 +319,10 @@ def test_a_passing_full_row_fit_starts_its_summary_on_thelio(tmp_path, monkeypat
     calls.clear()
     fit.summarize({**full, "range_sample": True})
     assert "--setenv=FRONTIER_RANGE_SAMPLE=1" in calls[0]
+    assert not any("FRONTIER_RANGE_ATOMS" in c for c in calls[0])
+    calls.clear()
+    fit.summarize({**full, "range_atoms": True})
+    assert "--setenv=FRONTIER_RANGE_ATOMS=1" in calls[0]
 
     def fail(cmd, **kw):
         raise fit.subprocess.CalledProcessError(1, cmd)
@@ -603,6 +607,14 @@ def test_a_large_fit_builds_its_summary_and_calibration_in_the_container(
     calls.clear()
     app._summarize({"name": "r", "range_sample": True}, {}, None, now + 7200)
     assert calls[0] == (["rentfrontier.summary", "r", "--range-sample"], 7200)
+    calls.clear()
+    app._summarize(
+        {"name": "r", "range_sample": True, "range_atoms": True}, {}, None, now + 7200
+    )
+    assert calls[0] == (
+        ["rentfrontier.summary", "r", "--range-sample", "--range-atoms"],
+        7200,
+    )
     # Without a bundle, calibration is skipped.
     calls.clear()
     monkeypatch.setattr(app, "_run", lambda *a, **k: 1)
@@ -643,10 +655,14 @@ def test_publish_only_names_the_existing_run_and_carries_the_gate_override():
     assert spec["name"] == "old-run"
     assert spec["publish_only"] and spec["allow_failing"]
     assert not {"--publish-only", "--allow-failing", "--run"} & set(rest)
-    assert not spec["range_sample"]
+    assert not spec["range_sample"] and not spec["range_atoms"]
     args, rest = fit.parse(["--large", "--publish-only", "--range-sample", *argv])
     assert (
         fit.plan(args, rest, "9371a18")["range_sample"] and "--range-sample" not in rest
+    )
+    args, rest = fit.parse(["--large", "--publish-only", "--range-atoms", *argv])
+    assert (
+        fit.plan(args, rest, "9371a18")["range_atoms"] and "--range-atoms" not in rest
     )
 
 
@@ -684,6 +700,7 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
             "publish_only": True,
             "allow_failing": True,
             "range_sample": True,
+            "range_atoms": True,
             "dataset": "d",
         }
     )
@@ -696,6 +713,7 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
             "7",
             "--allow-failing",
             "--range-sample",
+            "--range-atoms",
         ],
         ["rentfrontier.kit", "r", "--summary", bundle, "--allow-failing"],
         ["rentfrontier.calibration", bundle],
