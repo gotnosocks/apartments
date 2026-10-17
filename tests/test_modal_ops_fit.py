@@ -671,12 +671,14 @@ def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch)
     bundle = str(tmp_path / "summaries" / "r-abc1234")
     assert calls == [
         ["rentfrontier.summary", "r", "--allow-failing"],
+        ["rentfrontier.kit", "r", "--summary", bundle, "--allow-failing"],
         ["rentfrontier.calibration", bundle],
         ["rentfrontier.rentmap", "r"],
     ]
-    # The run was copied in from the Volume; a failed step skips the rest.
+    # The run was copied in from the Volume; a failed rent map leaves the kit alone but fails
+    # the publish.
     assert (tmp_path / "runs" / "r" / "result.json").exists()
-    assert meta["exit"] == 1 and meta["post"]["kit"] == {"exit": "skipped"}
+    assert meta["exit"] == 1 and meta["post"]["kit"]["exit"] == 0
     out = vol / "out" / "r-publish"
     assert (out / "summaries" / "r-abc1234" / "complete.json").exists()
     assert json.loads((out / "publish.json").read_text())["exit"] == 1
@@ -697,3 +699,30 @@ def test_a_publish_downloads_beside_the_run_it_belongs_to(tmp_path, monkeypatch)
     assert (root / "maps/r-abc1234/map.json").exists()
     assert (root / "runs/r/modal/publish.log").read_bytes() == b"log"
     assert not (root / "runs" / "r-publish").exists()
+
+
+def test_a_failed_summary_skips_the_steps_reading_its_bundle(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path)
+    vol = tmp_path / "vol"
+    (vol / "out" / "r" / "run").mkdir(parents=True)
+    monkeypatch.setattr(app, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "loo")
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    calls = []
+    monkeypatch.setattr(
+        app,
+        "_run",
+        lambda cmd, *a, **k: (
+            calls.append(cmd[2]) or (cmd[2] != "rentfrontier.rentmap") * 1
+        ),
+    )
+    meta = app._fit({"name": "r", "publish_only": True, "dataset": "d"})
+    assert calls == ["rentfrontier.summary", "rentfrontier.rentmap"]
+    assert meta["post"]["kit"] == meta["post"]["calibration"] == {"exit": "skipped"}
+    assert meta["exit"] == 1

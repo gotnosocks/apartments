@@ -200,15 +200,16 @@ def _stage(spec):
 
 def publish_steps(spec):
     """The publish steps for a fit already on the Volume (fit.py --publish-only), as
-    ops/autoselect-publish.sh runs them on thelio, as (step, rentfrontier arguments). The kit
-    and calibration read the bundle the summary writes, found once it exists."""
+    ops/autoselect-publish.sh runs them on thelio, as (step, steps it needs, rentfrontier
+    arguments). The kit and calibration read the bundle the summary writes, found once it
+    exists. The rent map reads only the run, so it runs last and alone."""
     name = spec["name"]
     failing = ["--allow-failing"] if spec.get("allow_failing") else []
     return [
-        ("summary", lambda: ["rentfrontier.summary", name, *failing]),
-        ("calibration", lambda: ["rentfrontier.calibration", str(_bundle(name))]),
-        ("rentmap", lambda: ["rentfrontier.rentmap", name]),
-        ("kit", lambda: ["rentfrontier.kit", name, "--summary", str(_bundle(name)), *failing]),
+        ("summary", (), lambda: ["rentfrontier.summary", name, *failing]),
+        ("kit", ("summary",), lambda: ["rentfrontier.kit", name, "--summary", str(_bundle(name)), *failing]),
+        ("calibration", ("summary",), lambda: ["rentfrontier.calibration", str(_bundle(name))]),
+        ("rentmap", (), lambda: ["rentfrontier.rentmap", name]),
     ]  # fmt: skip
 
 
@@ -220,8 +221,9 @@ def _bundle(name):
 def _publish(spec):
     """Build a downloaded fit's summary bundle, calibration, rent map and estimate kit from its
     run on the Volume, for a run too large for thelio's memory. The run and LOO stay on the
-    Volume as they are; the new directories go to /vol/out/<name>-publish/. After a failed
-    step the later ones are skipped."""
+    Volume as they are; the new directories go to /vol/out/<name>-publish/. A step whose
+    summary failed is skipped, and so is every step left once spec["publish_seconds"] or the
+    container's timeout runs out. The exit is 0 only if every step succeeded."""
     started = time.time()
     _stage(spec)
     name = spec["name"]
@@ -239,12 +241,14 @@ def _publish(spec):
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
         PYTHONUNBUFFERED="1",
     )
-    deadline = started + LARGE_TIMEOUT - PUBLISH_MARGIN
-    done, code = {}, 0
+    deadline = started + min(
+        LARGE_TIMEOUT - PUBLISH_MARGIN, spec.get("publish_seconds", LARGE_TIMEOUT)
+    )
+    done = {}
     with open(out / "publish.log", "w") as log:
-        for step, args in publish_steps(spec):
+        for step, needs, args in publish_steps(spec):
             left = int(deadline - time.time())
-            if code != 0 or left < 60:
+            if left < 60 or any(done[n]["exit"] != 0 for n in needs):
                 done[step] = {"exit": "skipped"}
                 continue
             t = time.time()
@@ -259,7 +263,7 @@ def _publish(spec):
                 shutil.copytree(d, out / kind / d.name, dirs_exist_ok=True)
     meta = {
         "name": name,
-        "exit": code,
+        "exit": next((d["exit"] for d in done.values() if d["exit"] != 0), 0),
         "post": done,
         "wall_seconds": time.time() - started,
     }

@@ -72,6 +72,7 @@ MANIFEST = (
 )  # what the Volume holds: {"volume_id": ..., "files": {path: [size, mtime_ns]}, "code": [sha]}
 # fit.py --publish-only, charged up front: the all-scraped run's PSIS-LOO took 27 min in its
 # container, and its summary, kit and rent map each read every draw of every row as it does.
+# The container stops starting steps an hour past this.
 PUBLISH_SECONDS = 3 * 3600
 LAST_USE = STATE / "last-use"  # ops/modal/cleanup deletes the Volume 24 h after this
 
@@ -468,8 +469,13 @@ def publish(args, spec, sha):
     name = spec["name"]
     if not args.large:
         sys.exit("--publish-only needs --large")
-    if not (OUTPUT_ROOT / "runs" / name / "result.json").exists():
+    result = OUTPUT_ROOT / "runs" / name / "result.json"
+    if not result.exists():
         sys.exit(f"{name} is not under {OUTPUT_ROOT / 'runs'}")
+    # The summary, kit and rent map load the run's own dataset, which is the one to stage.
+    dataset = str(Path(json.loads(result.read_text())["dataset"]).resolve())
+    spec["dataset"] = spec["inputs"][0] = dataset
+    spec["publish_seconds"] = PUBLISH_SECONDS + 3600
     STATE.mkdir(parents=True, exist_ok=True)
     lock = open(STATE / "launch.lock", "a")
     fcntl.flock(lock, fcntl.LOCK_SH)
@@ -478,6 +484,12 @@ def publish(args, spec, sha):
     modal_app = importlib.import_module("app")
     if args.gpu not in modal_app.LARGE_FITS:
         sys.exit(f"--gpu must be one of {', '.join(modal_app.LARGE_FITS)}")
+    try:
+        on_volume = any(True for _ in modal_app.volume.iterdir(f"/out/{name}/run"))
+    except Exception:  # noqa: BLE001 (Modal raises NotFoundError for a missing path)
+        on_volume = False
+    if not on_volume:
+        sys.exit(f"/out/{name}/run is not on the Volume")
     touch()
     secs = PUBLISH_SECONDS
     usd = round(secs * modal_app.usd_per_second(args.gpu, True), 2)
