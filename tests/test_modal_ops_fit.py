@@ -625,3 +625,75 @@ def test_a_large_fit_can_stop_before_its_summary():
     args, rest = fit.parse(["--large", "--no-summary", "--outside-budget", *argv])
     assert args.outside_budget and not fit.plan(args, rest, "9371a18")["summary"]
     assert "--no-summary" not in rest and "--outside-budget" not in rest
+
+
+def test_publish_only_names_the_existing_run_and_carries_the_gate_override():
+    argv = ["abc", "x", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
+    args, rest = fit.parse(
+        ["--large", "--publish-only", "--allow-failing", "--run", "old-run", *argv]
+    )
+    spec = fit.plan(args, rest, "9371a18")
+    assert spec["name"] == "old-run"
+    assert spec["publish_only"] and spec["allow_failing"]
+    assert not {"--publish-only", "--allow-failing", "--run"} & set(rest)
+
+
+def test_a_publish_builds_the_bundle_kit_and_map_in_order(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path)
+    vol = tmp_path / "vol"
+    (vol / "out" / "r" / "run").mkdir(parents=True)
+    (vol / "out" / "r" / "run" / "result.json").write_text("{}")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "loo")
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    calls = []
+
+    def run(cmd, env, log, timeout=None):
+        calls.append(cmd[2:])
+        if cmd[2] == "rentfrontier.summary":
+            bundle = tmp_path / "summaries" / "r-abc1234"
+            bundle.mkdir(parents=True)
+            (bundle / "complete.json").write_text("{}")
+        if cmd[2] == "rentfrontier.rentmap":
+            return 1
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    meta = app._fit(
+        {"name": "r", "publish_only": True, "allow_failing": True, "dataset": "d"}
+    )
+    bundle = str(tmp_path / "summaries" / "r-abc1234")
+    assert calls == [
+        ["rentfrontier.summary", "r", "--allow-failing"],
+        ["rentfrontier.calibration", bundle],
+        ["rentfrontier.rentmap", "r"],
+    ]
+    # The run was copied in from the Volume; a failed step skips the rest.
+    assert (tmp_path / "runs" / "r" / "result.json").exists()
+    assert meta["exit"] == 1 and meta["post"]["kit"] == {"exit": "skipped"}
+    out = vol / "out" / "r-publish"
+    assert (out / "summaries" / "r-abc1234" / "complete.json").exists()
+    assert json.loads((out / "publish.json").read_text())["exit"] == 1
+
+
+def test_a_publish_downloads_beside_the_run_it_belongs_to(tmp_path, monkeypatch):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    files = {
+        "out/r-publish/summaries/r-abc1234/complete.json": b"{}",
+        "out/r-publish/kits/r-abc1234/complete.json": b"{}",
+        "out/r-publish/maps/r-abc1234/map.json": b"{}",
+        "out/r-publish/publish.log": b"log",
+    }
+    root = tmp_path / "frontier"
+    fit.download(FakeVolume(files), "r-publish", root, local="r")
+    assert (root / "summaries/r-abc1234/complete.json").exists()
+    assert (root / "kits/r-abc1234/complete.json").exists()
+    assert (root / "maps/r-abc1234/map.json").exists()
+    assert (root / "runs/r/modal/publish.log").read_bytes() == b"log"
+    assert not (root / "runs" / "r-publish").exists()

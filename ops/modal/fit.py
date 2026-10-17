@@ -6,6 +6,11 @@ arguments mirror drive.sh, so the run is named "<model>-<features>-<split>-<comm
     fit.py [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows] [--chain-batch N]
            COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [rentfrontier.run options...]
 
+With --large --publish-only --run NAME, a run already downloaded here whose run directory is
+still on the Volume gets its summary bundle, calibration, rent map and estimate kit built in a
+large container at COMMIT (app._publish; --allow-failing for a run that fails the gate), for a
+run too large for thelio's memory. The other positional arguments are only parsed.
+
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
 dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
 if the estimate is over the per-fit cap); upload only the inputs that changed since the last sync; ship a
@@ -65,6 +70,9 @@ INPUTS = [
 MANIFEST = (
     STATE / "manifest.json"
 )  # what the Volume holds: {"volume_id": ..., "files": {path: [size, mtime_ns]}, "code": [sha]}
+# fit.py --publish-only, charged up front: the all-scraped run's PSIS-LOO took 27 min in its
+# container, and its summary, kit and rent map each read every draw of every row as it does.
+PUBLISH_SECONDS = 3 * 3600
 LAST_USE = STATE / "last-use"  # ops/modal/cleanup deletes the Volume 24 h after this
 
 
@@ -100,6 +108,22 @@ def parse(argv):
         help="a large fit stops after its post-fit statistics, before the summary bundle",
     )
     p.add_argument(
+        "--publish-only",
+        action="store_true",
+        help="with --large: build the summary bundle, calibration, rent map and kit of a run "
+        "already downloaded whose run is still on the Volume, instead of fitting it",
+    )
+    p.add_argument(
+        "--run",
+        help="with --publish-only: the run's name, fit at another commit (COMMIT is the code "
+        "the steps run at)",
+    )
+    p.add_argument(
+        "--allow-failing",
+        action="store_true",
+        help="with --publish-only: build them for a run that fails the convergence gate",
+    )
+    p.add_argument(
         "--explain",
         action="append",
         default=[],
@@ -123,7 +147,9 @@ def parse(argv):
 
 def plan(args, run_args, sha, short=None):
     """The container's spec: run name, tier and the rentfrontier.run arguments, as drive.sh builds them."""
-    name = f"{args.model}-{args.features}-{args.split}-{short or sha[:7]}-{args.label}"
+    name = args.run or (
+        f"{args.model}-{args.features}-{args.split}-{short or sha[:7]}-{args.label}"
+    )
     joined = " ".join(run_args)
     exploration = (
         "--tier exploration" in joined
@@ -153,6 +179,8 @@ def plan(args, run_args, sha, short=None):
         "explain": list(args.explain),
         "large": args.large,
         "summary": not args.no_summary,
+        "publish_only": args.publish_only,
+        "allow_failing": args.allow_failing,
     }
 
 
@@ -232,17 +260,26 @@ def _marker(volume_id):
     return str(path)
 
 
-POST_KINDS = ("variance", "explained", "newbuilding", "summaries", "calibration")
+POST_KINDS = (
+    "variance",
+    "explained",
+    "newbuilding",
+    "summaries",
+    "calibration",
+    "maps",
+    "kits",
+)
 
 
-def download(volume, name, root):
+def download(volume, name, root, local=None):
     """/out/<name>/run -> runs/<name>, /out/<name>/loo/* -> loo/, the post-fit statistics'
     /out/<name>/{variance,explained,newbuilding,summaries,calibration}/* -> the same
     directories under root, log and
-    modal.json into runs/<name>/modal/. A post-fit directory lands whole: it is written under
+    modal.json into runs/<local>/modal/ (local: name unless given). A post-fit directory lands whole: it is written under
     root/.incoming/<name>/ (out of every reader's glob) and renamed into place once every
     file is down."""
     prefix = f"out/{name}/"
+    local = local or name
     incoming = root / ".incoming" / name
     shutil.rmtree(incoming, ignore_errors=True)  # an interrupted download's leftovers
     staged = set()
@@ -252,7 +289,7 @@ def download(volume, name, root):
         rel = entry.path.lstrip("/").removeprefix(prefix)
         kind, _, rest = rel.partition("/")
         if kind == "run":
-            dst = root / "runs" / name / rest
+            dst = root / "runs" / local / rest
         elif kind == "loo":
             dst = root / "loo" / rest
         elif kind in POST_KINDS and "/" in rest:
@@ -260,7 +297,7 @@ def download(volume, name, root):
             staged.add((kind, d))
             dst = incoming / kind / d / inner
         else:
-            dst = root / "runs" / name / "modal" / rel
+            dst = root / "runs" / local / "modal" / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "wb") as f:
             volume.read_file_into_fileobj(entry.path, f)
@@ -349,6 +386,8 @@ def main(argv):
         check=True,
     ).stdout.strip()
     spec = plan(args, run_args, sha, short)
+    if args.publish_only:
+        return publish(args, spec, sha)
     if (OUTPUT_ROOT / "runs" / spec["name"]).exists():
         sys.exit(f"{spec['name']} already exists under {OUTPUT_ROOT / 'runs'}")
     STATE.mkdir(parents=True, exist_ok=True)
@@ -417,6 +456,68 @@ def main(argv):
         try:
             cap.settle(launch, cost)
         except Exception as e:  # noqa: BLE001 (keep the fit's own error; the estimate stays charged)
+            print(f"could not settle {launch} at ${cost:.2f}: {e}", flush=True)
+    return meta["exit"]
+
+
+def publish(args, spec, sha):
+    """fit.py --publish-only: the summary bundle, calibration, rent map and kit of a run already
+    under OUTPUT_ROOT/runs whose run is still on the Volume, built in a large container
+    (app._publish) and downloaded to OUTPUT_ROOT/{summaries,calibration,maps,kits}/. The record
+    lands in runs/<name>/modal/publish.json."""
+    name = spec["name"]
+    if not args.large:
+        sys.exit("--publish-only needs --large")
+    if not (OUTPUT_ROOT / "runs" / name / "result.json").exists():
+        sys.exit(f"{name} is not under {OUTPUT_ROOT / 'runs'}")
+    STATE.mkdir(parents=True, exist_ok=True)
+    lock = open(STATE / "launch.lock", "a")
+    fcntl.flock(lock, fcntl.LOCK_SH)
+    stage = stage_code(sha)
+    os.environ["MODAL_FIT_STAGE"] = str(stage)
+    modal_app = importlib.import_module("app")
+    if args.gpu not in modal_app.LARGE_FITS:
+        sys.exit(f"--gpu must be one of {', '.join(modal_app.LARGE_FITS)}")
+    touch()
+    secs = PUBLISH_SECONDS
+    usd = round(secs * modal_app.usd_per_second(args.gpu, True), 2)
+    launch, left = cap.reserve(
+        f"{name}-publish",
+        args.gpu,
+        usd,
+        secs=secs,
+        large=True,
+        outside=args.outside_budget,
+    )
+    print(
+        f"publish {name} on {args.gpu}; estimated ${usd:.2f}, Modal balance now ${left:.2f}",
+        flush=True,
+    )
+    import modal
+
+    started, meta = time.monotonic(), None
+    try:
+        with modal.enable_output(), modal_app.app.run():
+            sync(modal_app.volume, spec, stage)
+            meta = modal_app.LARGE_FITS[args.gpu].remote(spec)
+        meta["usd_estimate"] = round(
+            meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, True), 2
+        )
+        download(modal_app.volume, f"{name}-publish", OUTPUT_ROOT, local=name)
+        (OUTPUT_ROOT / "runs" / name / "modal" / "publish.json").write_text(
+            json.dumps(meta, indent=2)
+        )
+        print(json.dumps(meta), flush=True)
+    finally:
+        touch()
+        cost = (meta or {}).get("usd_estimate")
+        if cost is None:
+            cost = (time.monotonic() - started) * modal_app.usd_per_second(
+                args.gpu, True
+            )
+        try:
+            cap.settle(launch, cost)
+        except Exception as e:  # noqa: BLE001
             print(f"could not settle {launch} at ${cost:.2f}: {e}", flush=True)
     return meta["exit"]
 
