@@ -340,7 +340,7 @@ The older items follow.
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
       `/data1/apartments/archive/city`, along with copies of the footprints, LPC and DOB
-      certificate sets. Each file carries its publisher's date in an append-only manifest. `apartments-city-fetch.timer` runs it every Friday at 04:00 ET. The first run
+      certificate sets. Each file carries its publisher's date in an append-only manifest. `apartments-city-fetch.timer` runs it every Friday at 04:05 ET. The first run
       copied 62 files, 4.45 GB, in 525 s with a 24 MiB peak. A second run took 4 s;
    2. **Done** in #897: `pipeline/steps/city.py` unpacks each listed file to
       Parquet once, in a folder named by the hashes of its code and its manifest line, and a
