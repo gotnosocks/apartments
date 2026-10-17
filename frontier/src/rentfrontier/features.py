@@ -2343,7 +2343,7 @@ def unit_orientation(frame: pd.DataFrame) -> pd.DataFrame:
     listings."""
     from . import descriptions
 
-    frontage = building_frontage().reindex(lot_buildings(frame))
+    frontage = building_frontage().reindex(frame.building.to_numpy())
     front_dir = frontage.front.to_numpy()
     windows = {d: frame[f"window_{d}"].eq("yes").to_numpy() for d in OPPOSITE}
     known = pd.notna(front_dir)
@@ -2764,7 +2764,7 @@ def unit_sides(frame: pd.DataFrame) -> pd.DataFrame:
     street)."""
     sides = building_sides().reindex(lot_buildings(frame))
     address_kind = (
-        building_frontage().street_type.reindex(lot_buildings(frame)).to_numpy()
+        building_frontage().street_type.reindex(frame.building.to_numpy()).to_numpy()
     )
     has_sides = sides.notna().all(axis=1).to_numpy()
     looks = {
@@ -5621,10 +5621,10 @@ DESCRIPTION_SOURCES["all-scraped-v1"] = {
 
 # The NB9+API set and the all-areas set with the lots of drop-lot-v1's ads
 # dropped (`LOT_DROP_FILE`, `lot_buildings`): a dropped row reads no MapPLUTO
-# lot, LPC designation, footprint, facing sides, frontage or lot-keyed table
-# (HPD, rent stabilization, open space, complexes), so each of its lot terms
-# comes out unknown. Its position terms read the registry's geocode of the
-# ad's address as before. A lot with no building class takes its own class
+# lot, LPC designation, footprint, facing sides or lot-keyed table (HPD, rent
+# stabilization, open space, complexes), so each of its lot terms comes out
+# unknown. Its position terms, the address street's type and the front
+# direction read the registry's geocode of the ad's address as before. A lot with no building class takes its own class
 # level, "unknown" (`CLASS_UNKNOWN_SETS`).
 LOTS3_SETS = {
     "nb9-nostuy-lots3-v1": "nb9-nostuy-api-v1",

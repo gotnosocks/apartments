@@ -333,6 +333,9 @@ def feature_sources(feature_set: str) -> dict:
         # Hash the files the features read, not the provenance's record of them.
         for name, path in features.lot_files(feature_set).items():
             out[name] = {"path": path, "sha256": data.sha256(Path(path))}
+    if feature_set in features.LOT_DROP_SETS:
+        path = features.LOT_DROP_FILE
+        out["lot_drops"] = {"path": str(path), "sha256": data.sha256(Path(path))}
     if feature_set in features.BASEMAP:
         path = features.area_files(feature_set)["basemap"]
         out["basemap"] = {"path": path, "sha256": data.sha256(Path(path))}

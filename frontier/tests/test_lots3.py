@@ -218,7 +218,7 @@ def test_a_dropped_row_keeps_its_position(lots):
     assert np.abs(got.values[1]).sum() > 0
 
 
-def test_a_dropped_row_has_no_sides_or_frontage(lots, monkeypatch):
+def test_a_dropped_row_has_no_sides_but_keeps_its_frontage(lots, monkeypatch):
     from rentfrontier import descriptions
 
     frame, drops = lots
@@ -246,7 +246,5 @@ def test_a_dropped_row_has_no_sides_or_frontage(lots, monkeypatch):
     assert base.avenue.tolist() == [True, True, False, False]
     assert got.avenue.tolist() == [True, False, False, False]
     oriented = _with(drops, True, lambda: features.unit_orientation(frame))
-    assert oriented.street_type.iloc[0] == "avenue"
-    assert pd.isna(oriented.street_type.iloc[1])
-    assert oriented.facing.iloc[1] == "unknown"
-    assert features.unit_orientation(frame).facing.iloc[1] == "front"
+    pd.testing.assert_frame_equal(oriented, features.unit_orientation(frame))
+    assert oriented.street_type.iloc[1] == "avenue"

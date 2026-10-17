@@ -84,7 +84,12 @@ def unit_terms(frame: pd.DataFrame) -> dict[str, np.ndarray]:
         windows |= window
         busy_window |= window & sides[d].eq("busy").to_numpy()
     front, rear = features.front_rear(frame)
-    address_busy = quiet.building_streets().on_busy.reindex(b).eq(True).to_numpy()
+    address_busy = (
+        quiet.building_streets()
+        .on_busy.reindex(frame.building.to_numpy())
+        .eq(True)
+        .to_numpy()
+    )
     rows = pd.DataFrame(
         {"looks": busy_window | (front & address_busy), "seen": windows | front | rear}
     )
