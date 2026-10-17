@@ -53,6 +53,7 @@ DEFAULT_STATE = Path("/data1/apartments/pipeline/state")
 DEFAULT_OUT = Path("/data1/apartments/pipeline/datasets")
 # The files each build writes, by the stem of their names.
 FILES = {"rows": "analysis.rows", "ads": "analysis.ads"}
+WRITE_THREADS = 8
 
 
 def sha256(path: Path) -> str:
@@ -101,6 +102,9 @@ def write(ctx, name: str, stem: str, out: Path) -> dict:
     """Write the model `name`, sorted by `listing_id`, to OUT/<stem>-<hash>.parquet and return
     the file's name, SHA-256 and row count."""
     part = out / f"{stem}-{os.getpid()}.parquet.part"
+    # On Oct 16, sorting the ads file's 2.1M rows with all twelve threads ran out of a 3 GB
+    # limit, and eight threads wrote it in 8 s.
+    ctx.engine_adapter.execute(f"SET threads = {WRITE_THREADS}")
     try:
         (rows,) = ctx.engine_adapter.fetchone(
             f"""COPY (SELECT * FROM {name} ORDER BY listing_id) TO '{part}'
@@ -110,6 +114,8 @@ def write(ctx, name: str, stem: str, out: Path) -> dict:
     except BaseException:
         part.unlink(missing_ok=True)
         raise
+    finally:
+        ctx.engine_adapter.execute("RESET threads")
     target = out / f"{stem}-{digest[:16]}.parquet"
     if target.exists() and sha256(target) == digest:
         part.unlink()
