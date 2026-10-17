@@ -81,7 +81,7 @@ DEFINITIONS = {
         "`tie` when they fit equally and the address's lot stands, `address_only` and "
         "`footprint_only` when one route finds nothing. `none` is a building with a record and "
         "no lot, `no_record` a building of an ad with no building record.",
-        "buildings": "Buildings named by at least one ad with a record, in ads.identity.",
+        "buildings": "Buildings of at least one ad with a record, in ads.placed.",
         "ads": "Ads with a record naming the building.",
         "rows": "Fit-ready rows of analysis.rows in the building.",
         "mappluto_address": "The building's street address from its latest record, parsed as "
@@ -98,8 +98,9 @@ DEFINITIONS = {
     },
     "units": {
         "lot": "A lot of buildings.lots with at least one ad with a unit in its buildings.",
-        "units_all": "Distinct units, the unit_id of ads.identity, with at least one ad in "
-        "the lot's buildings. A unit is a unit page, so a unit under two pages counts twice.",
+        "units_all": "Distinct units, the unit_id of ads.placed, with at least one ad in "
+        "the lot's buildings. A unit is a unit page, so a unit under two pages counts twice "
+        "unless a join of the unit ledger gives the pages one unit.",
         "units_12m": "Distinct units with an ad whose first day falls in the 12 months up to "
         "`as_of`, the latest first day of a candidate ad.",
         "unitsres": "The lot's `unitsres` in analysis.lot_facts for the lot's latest "
@@ -253,7 +254,7 @@ def prepare(db) -> str:
         """
         CREATE TEMP TABLE ad_units AS
         SELECT i.listing_id, i.building_id, i.unit_id, e.first_day
-        FROM ads.identity i
+        FROM ads.placed i
         JOIN ads.exclusions e USING (listing_id)
         WHERE i.building_id IS NOT NULL
         """

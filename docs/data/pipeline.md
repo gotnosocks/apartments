@@ -26,7 +26,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 |---|---|---|
 | `PIPELINE_EXPORT` | `/data1/apartments/archive/crawls/api/export` | the scraper's export, with its manifest |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
-| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, as described under [Corrections ledger](#corrections-ledger) |
+| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, and the unit ledger in its `units` folder, as described under [Corrections ledger](#corrections-ledger) and [Unit ledger](#unit-ledger) |
 | `PIPELINE_CITY` | `/data1/apartments/archive/city` | the city archive, as described under [City records](#city-records) |
 | `PIPELINE_CITY_CACHE` | `/data1/apartments/pipeline/city` | the city archive's files as Parquet, as described under [City tables](#city-tables) |
 
@@ -237,7 +237,7 @@ to `OUT/catalog.ndjson`:
 | `code` | the checkout's commit, and `clean`, false when `pipeline/`, `src/` or `ops/pipeline/` differ from it |
 | `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
 | `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
-| `ledger` | the ledger's files with their SHA-256, and its entries counted by status and change |
+| `ledger` | the corrections ledger's files with their SHA-256, and its entries counted by status and change, with the same for the unit ledger under `units` |
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
@@ -436,6 +436,9 @@ disk.
 | `buildings.lots` | table | building with a record: its lot and BIN, the link they came from, and how well its facts fit each lot |
 | `buildings.lot_releases` | table | lot of `buildings.lots` in a MapPLUTO release: the lot's facts as the release gives them, typed |
 | `ads.identity` | table | ad with a record: its building, its unit page and its unit |
+| `ledger.unit_entries` | table | line of the unit ledger, checked against the ledger's rules |
+| `ledger.unit_status` | table | entry of the unit ledger: its status against the ads and buildings |
+| `ads.placed` | table | ad with a record: its building and unit after the live entries of the unit ledger |
 | `ads.reported` | table | ad with a record: the floor its unit labels read, and its full and half bathrooms |
 | `analysis.candidates` | table | ad the current chain accepts before its unit-month check: its fit-ready values and its fate in that check |
 | `analysis.kept` | view | candidate kept for its unit and month |
@@ -697,6 +700,9 @@ when it stored the ad, and the current chain reads the building slug from that r
 answered twice under two slugs, the chain would keep the older slug for ads stored before the
 second answer, while `ads.identity` gives every ad the newer one. Runs 1 to 5 hold one answer
 for each of their 70,137 buildings.
+
+Where `ads.identity` puts an ad in the wrong unit or building, an entry of the unit ledger moves
+it, as described under [Unit ledger](#unit-ledger).
 
 ## Building identity
 
@@ -1119,7 +1125,8 @@ chain's analysis datasets. I build them in six steps.
    bathrooms, I follow `consensus`: a count holds when every record gives the same whole number
    of zero or more, and a boolean doesn't count as a number.
 3. `analysis.candidates` joins the ads with no reason in `ads.exclusions` or `ads.identity` to
-   their attributes, their reported values and their building, and gives each ad a floor:
+   their attributes, their reported values and their building. It takes each ad's unit and
+   building from `ads.placed`, after the unit ledger. Then it gives each ad a floor:
    - its advertised floor, when it has one, with the status `explicit_source_floor`;
    - otherwise its label floor, with the status `label_proxy`.
    The chain refuses a label floor in three cases, and the status then names the case:
@@ -1258,9 +1265,9 @@ MapPLUTO lists one address for each lot, so a corner building or a building on a
 numbers often finds no match, and a `no_match` counts nothing against the build's lot. The
 report lists the `other` buildings with the lots of their MapPLUTO address.
 
-For units, I take each lot with ads and count its distinct units with ads, over all time and
-over the 12 months up to the latest first day of a candidate ad. I compare both counts with the
-city's:
+For units, I take each lot with ads and count its distinct units in `ads.placed`, over all
+time and over the 12 months up to the latest first day of a candidate ad. I compare both counts
+with the city's:
 
 - the lot's `unitsres` in `analysis.lot_facts`, from the MapPLUTO release of the lot's latest
   candidate ad;
@@ -1286,14 +1293,14 @@ floors with `numfloors` too. The report lists the buildings with the most rows a
 unit count, so the StreetEasy comparisons don't stand fully apart from the lot.
 
 On a build of the sample from `ops/pipeline/sample.py`, with 673 buildings with ads and 16,080
-fit-ready rows, the check took 3.2 s at a peak of 0.73 GB. Every building had a lot. MapPLUTO's
+fit-ready rows, the check took 2.2 s at a peak of 0.77 GB. Every building had a lot. MapPLUTO's
 address gave the build's lot alone for 610 buildings, several lots with the build's among them
 for 3, another lot for 2 and no lot for 58. Both `other` buildings take their lot from the
 footprint: 903 Broadway reads lot 1008750073, and MapPLUTO gives its address to lot 1008490010.
 
 Over all time, the units with ads exceed `unitsres` in 246 of 663 lots, and over the last 12
 months in 19. A unit here is a unit page, so a unit listed under several pages counts once for
-each. 462 Keap Street in Brooklyn has 202 units with ads, 19 of them in the last 12 months, on a
+each, unless a join of the [Unit ledger](#unit-ledger) gives the pages one unit. 462 Keap Street in Brooklyn has 202 units with ads, 19 of them in the last 12 months, on a
 lot of 29 apartments. 18 lots have a `unitsres` of 0. Certificates give a count for 80 lots, and
 the units of the last 12 months exceed it in 2.
 
@@ -1449,7 +1456,8 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 
 The chain's other rules are not in the ledger yet: `building-joins-v1`, `west-coast-wings-v1`,
 `unit-splits-v4`, `unit-labels-v17`, `unit-reviews-v2`, `fields-review-v3`,
-`elevator-from-ad-v1` and `pets-from-ad-v1`.
+`elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to another unit or building
+go into the unit ledger, described under [Unit ledger](#unit-ledger).
 
 ### Check build
 
@@ -1495,6 +1503,56 @@ Of the matched rows, 47 differ in bedrooms, 16 in bathrooms and 3 in size:
 
 In the reference's neighbourhoods, `analysis.kept` holds another 58,088 rows with no ledger
 exclude. They are API ads missing from the page crawl.
+
+## Unit ledger
+
+`ads.identity` gives each ad a unit and a building from its records alone. A reader may find two
+unit pages for one apartment, an apartment's ads filed under another unit's page, or a building
+StreetEasy lists under two pages. To fix one, the reader writes an entry in the unit ledger,
+`pipeline/ledger/units/`, a folder of NDJSON files inside the corrections ledger's folder. Its
+files follow the corrections ledger's rules for names, merges and retracts. The docstring of
+`pipeline/models/ledger/entries.py` lists the keys of a line and the rules. An entry does one of
+these:
+
+- `join_units` gives the ads of two or more unit pages of a building one unit, the least of
+  their unit IDs, as the chain's `unit-reviews-v2` does;
+- `split_unit` gives some ads of a unit page a unit of their own, with the ID
+  `{unit_id}~review-{first listed ad}` from `unit-reviews-v2`;
+- `move_building` gives a building's ads the slug and ID of another building and leaves their
+  pages and units alone, as `building-joins-v1` does for 97 Horatio Street;
+- `retract` undoes an earlier entry.
+
+A join, split or move needs evidence of a backing kind, as a set of the corrections ledger does,
+or a city record. Among the entries still in force, a page takes part in one join at most, an ad
+in one split and a building in one move, so each ad meets at most one entry of each change. A
+building with ads moving to it stays where it is.
+
+Three models read the unit ledger:
+
+1. `ledger.unit_entries` reads every file and checks each line, as `ledger.entries` does.
+2. `ledger.unit_status` checks each entry against `ads.identity` and `buildings.details` and
+   gives it the first status that fits:
+
+   | status | the entry |
+   |---|---|
+   | `retract` | undoes another |
+   | `retracted` | is undone by a later retract |
+   | `absent` | joins fewer than two pages with ads that have a unit, splits none of the ads it lists, or moves a building with no ads |
+   | `stale` | splits an ad with another page or no unit, with the ads in `differs`, or moves to a slug matching no building or several, with `to` in `differs` |
+   | `live` | applies |
+
+3. `ads.placed` applies the live entries to `ads.identity`: the joins, then the splits on the
+   joined units, and the moves. `placements` lists the entries applied to each ad.
+
+`analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
+the unit-month check runs on the placed units. Since an entry can change any ad's unit or
+building, a change to the unit ledger rebuilds the two unit ledger models and every step from
+`ads.placed` on, 14 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
+`ledger.units`, and counts its entries by status and change.
+
+The folder holds no files yet, and `ads.placed` then gives each ad the building and unit of
+`ads.identity`. The chain's `building-joins-v1` and `unit-reviews-v2` go in with their evidence
+in a later PR.
 
 ## Ads file
 
@@ -1690,6 +1748,12 @@ when an item here or an entry of the corrections ledger accounts for it.
    it captured, and the pipeline takes them from the ad's latest API record. For six ads of the
    nine-area reference, listed from July to October 2026, the two give different bedroom counts
    or sizes.
+8. The step at which units and buildings change. The chain's `building-joins-v1` and
+   `unit-reviews-v2` change the units and buildings of the dataset's rows, after the unit-month
+   check, so a join can leave a unit two rows in a month. `ads.placed` applies the unit ledger
+   before the check, which then keeps one row of the joined unit's month, or none when its ads
+   give two layouts. `building-joins-v1` changes only a row's `building`, while a move also
+   gives the ads the other building's ID.
 
 ## Planted errors
 
@@ -1788,7 +1852,7 @@ in all, and most tests add made-up ads to that export. The tests:
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
    tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the 29 models below it and gives the full answer, and a further plan finds nothing to
+   and the 30 models below it and gives the full answer, and a further plan finds nothing to
    build. `ads.record_attributes` parses only run 4's new records;
 4. write an export file again under its old name with another compression, and give the
    manifest its new hash. The next plan rebuilds the models below `raw.ads`;
@@ -1838,9 +1902,10 @@ in all, and most tests add made-up ads to that export. The tests:
 16. build every ads file but only the buildings files of runs 2 and 3, then add run 4's buildings
     file. The next plan rebuilds only `raw.buildings`, `buildings.details`, the four building
     identity models, `buildings.lot_releases`, `analysis.lot_facts`, `analysis.lot_landmarks`,
-    `analysis.building_certificates`, `ads.identity`, `analysis.candidates`, `analysis.kept`, the
-    latest asks, `ledger.status`, `analysis.rows`, `analysis.ask_check` and `analysis.ads`, and the
-    49 ads of the building in that file gain their pages;
+    `analysis.building_certificates`, `ads.identity`, `ads.placed`, `ledger.unit_status`,
+    `analysis.candidates`, `analysis.kept`, the latest asks, `ledger.status`, `analysis.rows`,
+    `analysis.ask_check` and `analysis.ads`, and the 49 ads of the building in that file gain
+    their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
     provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
@@ -1880,8 +1945,9 @@ in all, and most tests add made-up ads to that export. The tests:
     were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
-24. read the repo's ledger, and check that each of its files at the merge base with master
-    stays as it was and that each new file sorts after master's files;
+24. read the repo's corrections ledger and unit ledger, and check that each of their files at
+    the merge base with master stays as it was and that each new file sorts after master's files
+    in its folder;
 25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
     `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test checks
     the changed rows of `analysis.candidates`, `analysis.kept` and `analysis.rows` against the
@@ -2044,7 +2110,19 @@ in all, and most tests add made-up ads to that export. The tests:
     gives them their median, the count of other rows and the ratio. The check passes over the ad
     at a little over five times, an ad at ten times with only two other rows and both studios.
     Every ad of the building keeps its row;
-43. add four made-up buildings and 26 ads to the cases, build them, and run
+43. parse a unit ledger line breaking each of its rules, and read files with a repeated line, a
+    page in two joins, an ad in two splits, a building moved twice, a move to a moved building,
+    a move of a building other ads move to, a retract of an unknown or a retracted entry, and a
+    split backed only by the ad's words. After a retract, a later file takes the retracted
+    entries' pages, ad and building;
+44. build the fixture without a unit ledger, and check that `ads.placed` repeats `ads.identity`.
+    Then write two joins, three splits and three moves, each live, absent or stale, a join
+    retracted in a later file, and a later join taking one of its pages. The test checks each
+    entry's status and differing values and each ad's building, building ID, unit and placements
+    by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
+    on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
+    `ads.placed`;
+45. add four made-up buildings and 26 ads to the cases, build them, and run
     `ops/pipeline/citycheck.py` on the state. The first building gets lot 12 of block 1220 from
     its address and its map point, with 15 apartments and 5 floors in MapPLUTO and 8 floors on
     StreetEasy. 15 of its units have ads in September 2026 and 2 more in June 2025. Unit 7a reads
