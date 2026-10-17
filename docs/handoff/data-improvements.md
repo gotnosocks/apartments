@@ -11,9 +11,11 @@ Updated 2026-10-17 12:15 ET, after the never-built drop-lot reviews (#1024). Thr
   different unit. 82 of the 111 reads gave a size inside the other ads' range. Review dropped 11 of those 82: one ad states a
   third size, five may count a basement or roof deck in the larger figure, and five sit in a mixed size history.
   `ledger.py` in the same folder writes the file.
-- #1043 retracts the #1039 set on ad 1399109 (754 E 6th St 6E). Its later ads describe an 850 sq ft roof
-  terrace, and 975 plus 850 is about 1860. The sqft-units-v1 review kept 975 for this reason. A unit-page match
-  against `config/reviews/sqft-units-reads-20261015.jsonl` found no other overlap.
+- #1043 proposed retracting the #1039 set on ad 1399109 (754 E 6th St 6E, 975 to 1860), since its ads also
+  describe an 850 sq ft roof deck. Review found the 4BR duplex's 21 by 35 ft great room can't fit in 975, and no
+  ad says 1860 includes the deck, so #1043 was closed and the set stands. The sqft-units-v1 review kept 975 only
+  through a mechanical rule on outdoor-space mentions. A unit-page match against
+  `config/reviews/sqft-units-reads-20261015.jsonl` found no other overlap with #1039.
 - A bedroom-count screen (`/data1/apartments/tmp/suspect/beds/screen.py`) keeps an ad when the unit's other ads
   within 730 days all agree on another count, with at least one before and one after. That gives 7,909 ads, 1,398
   of them with sizes that agree. Sonnet read a 40-ad sample of the 1,398 (`sample.jsonl`, `sample-r.jsonl`): 21
