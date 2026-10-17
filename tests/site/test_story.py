@@ -3,6 +3,7 @@
 import json
 import math
 import re
+import sqlite3
 
 import pytest
 
@@ -35,12 +36,19 @@ def test_story_page_has_its_figures_and_their_tables(client):
     assert "style=" not in html
 
 
-def test_story_scans_listings_once_per_build(client, monkeypatch):
+def test_story_reads_its_scans_from_the_build(
+    client, site_root, research_file, monkeypatch
+):
     calls = []
     pick = story.pick_listing
     monkeypatch.setattr(story, "pick_listing", lambda db: calls.append(1) or pick(db))
-    first = _page(client)
-    assert _page(client) == first
+    built = _page(client)
+    assert calls == []
+    # A build from before story_scans: the server scans once per build.
+    with sqlite3.connect(site_root / "current" / "site.sqlite") as db:
+        db.execute("DELETE FROM meta WHERE key = 'story_scans'")
+    older = create_app(site_root, research_data=research_file).test_client()
+    assert _page(older) == _page(older) == built
     assert len(calls) == 1
 
 
