@@ -534,7 +534,7 @@ The older items follow.
    `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
    rows of 27 ads in `ads.market`, after which every `on_day` equals the record's `onMarketAt`.
    The rows and ads files stay the same, since nothing reads those days yet.
-7. **Done** in #PRN: `config.py` lists the ledger files by name, and the ledger models find
+7. **Done** in #1116: `config.py` lists the ledger files by name, and the ledger models find
    them in `PIPELINE_LEDGER` when they run. Before, a lane build from one worktree on a state
    built from another rebuilt the ledger models, `ads.placed` and every model after them, and
    the catalog listed the worktree's paths. In the lane `tmp/pipeline/lanes/ledger-names`, on a
