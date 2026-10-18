@@ -14,19 +14,23 @@ MODEL (
 -- only one equal to a change `ads.kept_changes` keeps. An ad correcting a typo on its last day
 -- on the market gives a page price equal to the correction, a change the placeholder check
 -- drops, and `analysis.latest_ask` reads that page price in its check for a slipped digit.
+-- `near_first` is the ad's last kept change from the row's day on within a factor of 2 of the
+-- row's first ask. `analysis.latest_ask` falls back to it when it rejects the latest ask.
 WITH r AS (
-    SELECT listing_id, price_at, strftime(price_at, '%Y-%m-%d') AS day FROM analysis.kept
+    SELECT listing_id, price_at, strftime(price_at, '%Y-%m-%d') AS day, asking_rent FROM analysis.kept
 ),
 hit AS (
     SELECT r.listing_id,
         arg_max(k.price, k.n) FILTER (WHERE k.day >= r.day) AS live,
-        arg_max(k.price, k.n) FILTER (WHERE k.day < r.day) AS before
+        arg_max(k.price, k.n) FILTER (WHERE k.day < r.day) AS before,
+        arg_max(k.price, k.n) FILTER (WHERE k.day >= r.day AND k.price / r.asking_rent BETWEEN 0.5 AND 2) AS near_first
     FROM r JOIN ads.kept_changes k USING (listing_id) GROUP BY r.listing_id
 )
 SELECT
     r.listing_id,
     coalesce(to_timestamp(a.collected_at) > r.price_at, false) AS last,
     CASE WHEN hit.live IS NULL AND to_timestamp(a.collected_at) > r.price_at THEN hit.before ELSE hit.live END AS live,
+    hit.near_first,
     CASE WHEN NOT EXISTS (SELECT 1 FROM ads.price_changes p WHERE p.listing_id = a.listing_id AND p.price = a.page_price)
         THEN a.page_price END AS page_price,
     CASE WHEN NOT EXISTS (SELECT 1 FROM ads.kept_changes k WHERE k.listing_id = a.listing_id AND k.price = a.page_price)
