@@ -52,7 +52,7 @@ import numpy as np
 import pandas as pd
 
 FILE = "design-parts.npz"
-VERSION = "design-parts-v1"
+VERSION = "design-parts-v2"
 # The run record's fields the parts depend on, recorded with them.
 RUN_KEYS = (
     "name",

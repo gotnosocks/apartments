@@ -244,10 +244,10 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
     (bundle / "complete.json").unlink()
 
     # Parts of another file version are passed over, too.
-    monkeypatch.setattr(design_parts, "VERSION", "design-parts-v2")
+    monkeypatch.setattr(design_parts, "VERSION", "design-parts-v3")
     found, source = design_parts.for_run(result, run_dir, bundle)
     assert source["design"] == "prepared"
-    assert "design-parts-v1, not design-parts-v2" in source["bundle_parts_unused"]
+    assert "design-parts-v2, not design-parts-v3" in source["bundle_parts_unused"]
     assert len(checked) == 9
 
 
@@ -257,5 +257,5 @@ def test_another_version_is_refused(tmp_path, monkeypatch):
     path = tmp_path / design_parts.FILE
     design_parts.write(parts, path, RUN, "r")
     monkeypatch.setattr(design_parts, "VERSION", "design-parts-v0")
-    with pytest.raises(ValueError, match="design-parts-v1"):
+    with pytest.raises(ValueError, match="design-parts-v2"):
         design_parts.load(path)
