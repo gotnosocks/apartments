@@ -27,7 +27,7 @@ helpers, build = tests.helpers, tests.build
 
 def chain_records() -> list[dict]:
     """The fixture's chain rows as the chain writes them to observations.jsonl, with the
-    pipeline's latest asks and the pet policies of `PET_FEE_ADS`."""
+    pipeline's latest asks and the fills of `ELEVATOR_FILLS` and `PET_FILLS`."""
     db = duckdb.connect(config={"TimeZone": "UTC"})
     result = db.execute(
         f"""SELECT c.* REPLACE (
@@ -52,11 +52,12 @@ def chain_records() -> list[dict]:
             row["label_derived_floor"] = int(row["label_derived_floor"])
         if row["floor_label_provenance"]["status"] == "label_proxy":
             row["listed_floor"] = int(row["listed_floor"])
-        if (
-            row["source_listing_id"] in helpers.PET_FEE_ADS
-            and row["pet_policy"] is None
+        for key, fills in (
+            ("elevator", helpers.ELEVATOR_FILLS),
+            ("pet_policy", helpers.PET_FILLS),
         ):
-            row["pet_policy"] = "allowed_restrictions_unknown"
+            if row[key] is None:
+                row[key] = fills.get(row["source_listing_id"])
         row["analysis_price_basis"] = FIRST_ASK
         row["description_interpreted_at"] = None
         records.append(row)
@@ -248,3 +249,68 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
     with pytest.raises(SystemExit, match="has no latest_ask column"):
         converter.write(tmp_path / "old", old, None, served, audit)
     assert not (tmp_path / "old").exists()
+
+
+def test_port_diff(tmp_path, monkeypatch):
+    """`port_diff.py` gives BEFORE the rules' fills, then counts the rows apart by field and by
+    whether DATASET holds them."""
+    port_diff = load("port_diff", OBSERVATIONS.with_name("port_diff.py"))
+    data = port_diff.frontier()
+    after = chain_records()
+    before = [dict(r) for r in after[1:]]
+    # A rule fills the first elevator BEFORE lacks, and BEFORE lacks a pet policy as well.
+    filled = next(r for r in before if r["elevator"] is True)
+    filled["elevator"] = None
+    lacking = next(r for r in before if r["pet_policy"] is not None)
+    lacking["pet_policy"] = None
+
+    def fill(frame):
+        frame = frame.copy()
+        frame.loc[frame.audit_id == filled["audit_id"], "elevator"] = "yes"
+        return frame
+
+    monkeypatch.setitem(data.DATA_RULES, "fill-test", fill)
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    result = port_diff.compare(
+        write_dataset(tmp_path / "before", before),
+        write_dataset(tmp_path / "after", after),
+        ["fill-test"],
+        write_dataset(tmp_path / "within", [lacking]),
+        0.0025,
+    )
+    assert result["matched"] == len(before)
+    assert result["before_alone"] == {"rows": 0, "within": 0, "outside": 0}
+    assert result["after_alone"] == {"rows": 1, "within": 0, "outside": 1}
+    assert result["changed"] == {
+        "rows": 2,
+        "within": 1,
+        "outside": 1,
+        "share": 2 / len(after),
+        "negligible": False,
+    }
+    pets = data.load(tmp_path / "after", cache_root=tmp_path / "cache").set_index(
+        "audit_id"
+    )["pets"][lacking["audit_id"]]
+    assert result["fields"] == {
+        "pets": {
+            "rows": 1,
+            "within": 1,
+            "outside": 0,
+            "pairs": [{"before": "unknown", "after": pets, "rows": 1, "within": 1}],
+            "examples": [lacking["audit_id"]],
+        }
+    }
+
+
+def test_port_diff_load_in_chunks(tmp_path):
+    """`port_diff.load` writes the loader's cache a few rows at a time, and the loader reads the
+    same frame back as it builds in one go."""
+    port_diff = load("port_diff", OBSERVATIONS.with_name("port_diff.py"))
+    data = port_diff.frontier()
+    records = chain_records()
+    assert len(records) > 3
+    folder = write_dataset(tmp_path / "rows", records)
+    pd.testing.assert_frame_equal(
+        port_diff.load(data, folder, tmp_path / "chunks", chunk=3),
+        data.load(folder, cache_root=tmp_path / "whole"),
+    )

@@ -14,7 +14,9 @@ build hashes the files it loaded and stops if any differs from the variable, so 
 holds only rows from the code its name gives.
 
 The model's table holds a row for each distinct record of `raw.ads`: its SHA-256, the `id` in
-the record, whether the chain would parse it, and each value as canonical JSON or NULL. The
+the record, whether the chain would parse it, and each value as canonical JSON or NULL. Two of
+the values, `elevator_text` and `pet_policy_text`, give the elevator and the pet policy the
+record's description states, as `steps.adtext` reads them. The
 model is of kind `merge`, which `materializations/merge.py` explains. It reads the records of
 the answers in `ads.changes`, every answer in a full build and the new ones in a top-up build,
 and the materialization adds the rows of records the previous build's table lacks.
@@ -54,6 +56,8 @@ KEYS = (
     "furnished",
     "short_term",
     "concession",
+    "elevator_text",
+    "pet_policy_text",
 )
 COLUMNS = {
     "record_sha256": "VARCHAR",

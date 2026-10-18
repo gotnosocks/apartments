@@ -76,6 +76,7 @@ LEDGER = Path(os.environ.get("PIPELINE_LEDGER") or PIPELINE / "ledger")
 LEDGER_UNITS = LEDGER / "units"
 ATTRIBUTES_MODULES = (
     "steps.attributes",
+    "steps.adtext",
     "apartments",
     "apartments.analytical",
     "apartments.attribute_evidence",
