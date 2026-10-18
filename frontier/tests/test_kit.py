@@ -224,3 +224,26 @@ def test_read_kept_gives_the_thinned_draws_and_last_knots(tmp_path):
             whole = whole[..., knots]
         assert got[k].dtype == (np.float32 if k == "unit" else np.float64), k
         np.testing.assert_array_equal(got[k], whole, err_msg=k)
+
+
+@pytest.mark.parametrize("slopes", [("f1", "f2"), ()])
+def test_buildings_parquet_holds_the_draws_as_nested_lists(tmp_path, slopes):
+    kept, prep, config, feats = toy(slopes=slopes)
+    if not slopes:
+        kept.pop("fslope")
+    _, buildings = tables(kept, prep, config, feats)
+    path = tmp_path / "buildings.parquet"
+    kit.write_frame(buildings, path)
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(path)
+    assert table.schema.field("fslope").type == pa.list_(pa.list_(pa.float64()))
+    # As the lists of lists the kit wrote before, pandas reads it back.
+    back = pd.read_parquet(path)
+    assert back.fslope.dtype == object
+    assert np.array_equal(np.stack(back.level.to_numpy()), np.stack(buildings.level))
+    d = len(kept["alpha"])
+    fslope = kept["fslope"] if slopes else np.zeros((d, len(prep.buildings), 0))
+    for b, lists in enumerate(table.column("fslope").to_pylist()):
+        assert np.array_equal(np.array(lists).reshape(d, -1), fslope[:, b, :])
