@@ -1,6 +1,24 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 09:33 ET, after the one-bedroom sets in #1131. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 10:20 ET, after the net effective retract in #1134. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 10:20 ET
+
+- Ben chose the net effective rent as the model's price target (09:41 ET). Rows whose ad states a net effective
+  figure keep that figure as the ask.
+- #1134 adds `pipeline/ledger/2026-10-18-zb-net-effective-asks-retract.ndjson`. It retracts all 269 sets of
+  #1100 (`2026-10-18-z-net-effective-asks.ndjson`), so those rows keep the coded net effective ask.
+- The API record's `pricing` block carries `price` (gross), `netEffectiveRent`, `monthsFree` and
+  `leaseTermMonths`. On the latest answer per listing, 166,909 of 2.14M listings fill them, almost all from 2020
+  on (1,353 in 2018 and 2019). For 92,369 of them, net = price × (term − free) / term. The rest come in 2 to 8%
+  below that, for an unknown reason. `ads.exclusions` drops 163k of these listings as `excluded_concession`.
+  The extract is in `/data1/apartments/tmp/duck-di/pricing.parquet`.
+- The pipeline thread owns the PR that keeps concession listings and takes the ask from `netEffectiveRent`,
+  scaling history prices by each answer's net-to-gross ratio. Modeling wants the number of concession rows
+  inside the nb9-chelsea-named scope first, because its fit already sits at the 1-hour cap. Modeling has dropped
+  the net-effective indicator term.
+- The next new ledger file needs a name sorting after `2026-10-18-zb-net-effective-asks-retract`, such as
+  `2026-10-18-zc-...`.
 
 ## 2026-10-18 09:33 ET
 
