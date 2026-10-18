@@ -42,6 +42,13 @@ CASES = [
     ("No dogs over 25 lbs.", None, "allowed_restrictions_unknown"),
     ("Guarantors considered case by case.", None, None),
     ("Pets considered case by case.", None, "approval_required"),
+    # Each of these texts holds one word of `ELEVATOR_WORDS` or `PET_WORDS` alone.
+    ("Fourth floor walk up.", False, None),
+    ("Fifth floor walkup.", False, None),
+    ("Cats welcome.", None, "allowed_restrictions_unknown"),
+    ("No animals.", None, "not_allowed"),
+    ("Under 25 lbs, case by case.", None, "approval_required"),
+    ("Up to 30 pounds, case by case.", None, "approval_required"),
     ("Cats are ok, dogs aren't allowed.", None, None),
     ("Pets: no dogs.", None, None),
     ("No board approval or pets.", None, None),
