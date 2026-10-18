@@ -21,16 +21,18 @@ MODEL (
 --       ledger's entries applied to the ad.
 --   regions:  ads.regions, the export regions of the ad's answers.
 --   neighbourhood:  the area of its building in buildings.details, as in analysis.candidates.
---   response_id, fetched, page_price, on_day, off_day, floor_plans:  the latest record, as in
---       ads.latest_record. `on_day` is the record's onMarketAt, or its createdAt without one,
---       and `floor_plans` lists the keys of its floor plan images.
+--   response_id, fetched, page_price, months_free, lease_term, on_day, off_day, floor_plans:  the
+--       latest record, as in ads.latest_record. `page_price` is the gross ask, and `months_free`
+--       and `lease_term` give the record's concession. `on_day` is the record's onMarketAt, or
+--       its createdAt without one, and `floor_plans` lists the keys of its floor plan images.
 --   status, days_on_market:  the record's status and daysOnMarket, from ads.market.
 --   last_change, break_status, break_day, back_day:  ads.breaks, the last status change the
 --       latest record lists from `on_day` on, and the ad's latest break when its status is ACTIVE
 --       and it is back on the market.
 --   first_day, first_ask, exclusion_reasons:  ads.exclusions.
---   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger. The
---       rows file's `latest_ask` gives the ask a live ask set corrects.
+--   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger and
+--       gross of any concession. The rows file gives the ask after the ledger's ask sets as
+--       `latest_gross`, and that ask net of the concession as `latest_ask`.
 --   bedrooms to concession, conflicts, from_text, records:  ads.attributes, the values merged
 --       over the ad's records up to its last ACTIVE one, before any correction, with an unknown
 --       elevator or pet policy filled from the ad's descriptions. `from_text` names the
@@ -55,7 +57,8 @@ WITH ledger AS (
 )
 SELECT i.listing_id, i.unit_id, i.building_id, i.building, i.page, g.regions,
     b.area AS neighbourhood,
-    l.response_id, l.fetched, m.status, l.page_price, l.on_day::DATE AS on_day,
+    l.response_id, l.fetched, m.status, l.page_price, l.months_free, l.lease_term,
+    l.on_day::DATE AS on_day,
     l.off_day::DATE AS off_day, m.record_days_on_market AS days_on_market,
     k.last_change, k.break_status, k.break_day, k.back_day,
     e.first_day, e.rent AS first_ask, a.latest_ask,

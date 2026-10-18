@@ -31,10 +31,11 @@ steps:
        `half_baths`, and `floor_label_provenance` as `status` and `building_floor_count` from
        `floor_status` and `building_floor_count`. The other fields keep their names.
      - `asking_rent` from the row's `latest_ask`: the ledger's ask where the ledger sets one,
-       and otherwise the latest ask `analysis.latest_ask` chooses. The rows file's
-       `asking_rent` holds the first ask, which only the check reads. The script stops on a
-       rows file without `latest_ask`, as written by builds before the column, and on a row
-       without a latest ask.
+       and otherwise the latest ask `analysis.latest_ask` chooses, in both cases net of the
+       free months of a concession. The line leaves out the rows file's `latest_gross`,
+       `months_free` and `lease_term`. The rows file's `asking_rent` holds the first ask,
+       which only the check reads. The script stops on a rows file without `latest_ask`, as written by builds
+       before the column, and on a row without a latest ask.
      - `unit_id` from the row's `split_unit`: its piece of the unit `analysis.label_units`
        joins its unit into, as the chain's `unit-labels-v17` joins it and `unit-splits-v4`
        cuts it. The script stops on a rows file without `split_unit`, as written by builds

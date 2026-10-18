@@ -538,7 +538,7 @@ disk.
 | `ads.answer_events` | merge | event an ad's own answers reported in their fetch, status changes or price changes, with those answers |
 | `ads.history_reports` | merge | event a unit history listed for an ad, with the answers holding the history |
 | `ads.events` | view | event the API reported for an ad, with the answers that reported it: the rows of `ads.answer_events` and `ads.history_reports` |
-| `ads.latest_record` | merge | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price and floor plan keys |
+| `ads.latest_record` | merge | ad, from its latest answer with a record: the answer's ID and fetch time, status, market days, page price, concession terms and floor plan keys |
 | `ads.price_changes` | merge | nonzero price change of an ad's latest record, from the event log, numbered in order of time |
 | `ads.kept_changes` | merge | price change left after the stale changes drop out and the placeholder check |
 | `ads.first_ask` | merge | ad with an ACTIVE event in its own history: its first day on the market and its asks that day |
@@ -566,10 +566,11 @@ disk.
 | `ledger.status` | table | entry of the corrections ledger: its status against the kept rows |
 | `analysis.latest_change` | table | kept row, with its ad's last kept change from the row's day on and its page price |
 | `analysis.latest_ask` | table | kept row, with its first ask, its latest ask and the step behind the latest |
+| `analysis.concessions` | table | kept row whose ad's latest record offers free months: the terms, the share of the gross ask a tenant pays, and the ad's prices before and from the price the concession began with |
 | `analysis.relist_pairs` | table | pair of kept ads on two unit pages of a lot over its count, where the second ad looks like the first listed again |
 | `analysis.relist_links` | table | pair of `analysis.relist_pairs`: the outcome of joining its unit pages, and the relist unit of each page after every pair |
 | `analysis.relist_units` | table | unit page the relist step joins with another: its relist unit and the count of pages in it |
-| `analysis.ledger_rows` | view | kept row the ledger leaves in, with its latest ask, the values the ledger's live sets give and its relist unit |
+| `analysis.ledger_rows` | view | kept row the ledger leaves in, with its latest ask net of any concession, its gross latest ask, the concession terms, the values the ledger's live sets give and its relist unit |
 | `analysis.history_pairs` | table | pair of units an ad's unit history joins: the history of an ad on one unit lists an ad on the other |
 | `analysis.label_units` | table | unit of `analysis.ledger_rows` the label rule joins with another: its label unit, the count of units in it and the layer that joined it |
 | `analysis.rows` | view | fit-ready row: a row of `analysis.ledger_rows` with the label unit of its unit |
@@ -840,10 +841,12 @@ concession or lease term. Its DELISTED record, fetched at 23:26 ET Oct 16, carri
 description with a price of $5,017, 1.01 months free on a 12-month lease and a price delta of
 $422. $5,017 over 10.99 months of 12 comes to $4,595, so the ACTIVE ask was net of the free
 month, and only the closed record says so. A cut of the flags at the last ACTIVE record would
-take away the ad's concession and its exclusion.
+take away the ad's concession. `analysis.concessions` reads the terms from the latest record,
+as described under [Concessions](#concessions), and nets the $5,017 ask back to $4,594.74.
 
 `ads.exclusions` repeats `project_advertisement`'s reasons for dropping an ad, from its first
-ask, its merged attributes and its rental flags. Its SQL describes each rule. It leaves out
+ask, its merged attributes and its rental flags, apart from the concession. Its SQL describes
+each rule. It leaves out
 three of the chain's checks. `ads.identity` makes two of them, of the unit's identity and of its
 canonical URL, as the next section describes. The check for two ads of one unit in one month
 happens in `analysis.candidates`. The chain also blanks a size outside 150 to 6,000 square feet
@@ -1455,8 +1458,9 @@ chain's analysis datasets. I build them in eight steps.
 4. `analysis.kept` gives the kept candidates as a view.
 5. `analysis.ledger_rows` applies the corrections ledger to the kept rows, as described under
    [Corrections ledger](#corrections-ledger). It adds each row's latest ask from
-   `analysis.latest_ask` as `latest_ask`, after the ledger's ask sets. `asking_rent` stays the
-   ad's first ask, as in the chain's datasets. The last column, `relist_unit`, gives the row's
+   `analysis.latest_ask`, after the ledger's ask sets, as `latest_gross`, and the same ask net
+   of any concession as `latest_ask`, as described under [Concessions](#concessions).
+   `asking_rent` stays the ad's first ask, as in the chain's datasets. The last column, `relist_unit`, gives the row's
    relist unit, as described under [Relist units](#relist-units).
 6. `analysis.label_months` checks each month of each label unit again and lists the rows it
    drops, as described under [Label months](#label-months). `analysis.rows` leaves those rows
@@ -1477,8 +1481,9 @@ so a fit can choose the regions it reads.
 
 `analysis.latest_ask` gives each kept row the latest ask `rentfrontier.latest_ask` chooses for
 it, apart from item 13 under [Differences from the chain](#differences-from-the-chain), so a
-ledger change leaves it as it is. `analysis.rows` takes it as `latest_ask`, with the
-asks of the ledger's live ask sets in place of the chosen ones. An ad gives at most one kept row, priced on its first
+ledger change leaves it as it is. `analysis.rows` takes it as `latest_gross`, with the
+asks of the ledger's live ask sets in place of the chosen ones, and as `latest_ask` net of any
+concession. An ad gives at most one kept row, priced on its first
 day. `analysis.latest_change`
 takes the ad's last kept change dated on or after that day, or the change in effect on that day
 when the ad has no later one and its record came after the row. The steps in
@@ -1540,6 +1545,65 @@ The median reads list positions with `list_extract`. SQLMesh renders each model 
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
 so a bracket reads the next element of the sorted list.
 
+### Concessions
+
+StreetEasy shows an ad's gross ask as its price when the landlord offers free months. The
+record's `pricing` adds the months free, the lease term and a net effective rent, which spreads
+the gross rent of the lease over all its months. The chain drops such an ad as
+`excluded_concession`. On Oct 18 Ben chose the net effective rent as the modeled ask, so the
+model keeps these ads and takes the free months off their latest ask.
+
+`analysis.concessions` reads the terms from each kept ad's latest record. It takes them when the
+months free lie above 0 and below the lease term, and works out the share of the gross a tenant
+pays, (term - months free) / term, as `factor`. One month free on a 12-month lease gives a factor
+of 11/12, or 0.917.
+
+An ad can gain its concession after a few asks, and its asks before then carry no free months.
+So the step lists the ad's prices in order: the row's first ask, then the changes
+`ads.kept_changes` keeps. It marks as `start` the first price whose net, the price times the
+factor, comes within $1 of the net effective rent. When no price comes that close, it marks the
+last price, since StreetEasy can leave the net effective rent of an earlier price in place after
+a change. The prices before `start` go into `gross_prices`, and the rest into `net_prices`.
+
+`analysis.ledger_rows` keeps the row's latest ask, after the ledger's ask sets, as
+`latest_gross`. For `latest_ask` it multiplies that ask by the factor and rounds to the cent,
+unless the ask equals a price in `gross_prices` and none in `net_prices`. A page price and an
+ask from the ledger take the factor in those cases too, as both give the ad's ask as it stands
+now. An ask within $1 of the net effective rent keeps its value, since StreetEasy already shows
+it net, and the factor would take the free months off a second time.
+The rows file adds `months_free` and `lease_term` for the rows with terms. An ad with the
+concession flag in `ads.attributes` and no usable terms in its latest record keeps its gross
+ask. `observations.py` writes `latest_ask` as the fit's `asking_rent` and leaves the other three
+columns out.
+
+I built the change on a copy of the NB9 lane's state of Oct 18, with master's ledger at
+2511d243, in 16 min 45 s with a 4.3 GB peak. The rows file grows from 1,736,330 to 1,896,504
+rows. 161,102 rows come back, each dropped before as `excluded_concession` alone, and 29,959 of
+them lie in the ten NB9 neighborhoods with West Chelsea. The ads coming back also take part in
+the unit-month checks, which drop 963 rows, 91 of them in NB9:
+
+- 544 superseded by a later ad of their unit-month;
+- 210 in a unit-month with two layouts;
+- 209 in the same two checks on label units.
+
+The NB9 neighborhoods go from 348,968 to 378,838 rows, 8.6% more. Of the 160,936 rows with
+terms, 160,876 take the factor, with a median cut of 8.3%, one month of 12, and a 90th
+percentile of 20%. 53 others, 17 of them in NB9, ask within $1 of their net effective rent and
+keep that ask. I counted these on the lane's rows, built before the rule kept them, when the
+factor still took their free months off a second time. The last 7 keep an ask from before the
+concession, the first ask or an earlier change, after the building's median rejected the
+latest change. 201 rows come back with the concession flag and no usable terms in the latest
+record, and they keep their gross ask. Over the 161,542 kept rows with terms, before the ledger and the label checks, the net effective rent matches the first
+price on 108,185, a later price on 52,182 and none on 1,175. No live ask set of the ledger falls
+on a row with terms.
+
+The returning ads change the label months too, and 35 rows dropped before by the label checks
+come back. With more rows in the building medians, one ask moves: ad 5050255, a five-bedroom,
+takes its $25,000 latest change in place of its $9,995 first ask. Apart from the change, #1134's
+retraction of Data improvements' gross asks moves 255 rows to the net ask StreetEasy showed. The
+lane's script and comparison are in
+`/data1/apartments/tmp/pipeline/lanes/net-effective/`.
+
 ## Ask check
 
 An error in every record of an ad leaves `analysis.latest_ask` nothing to compare within the ad,
@@ -1553,7 +1617,10 @@ bedroom count. It lists the row for review when:
 `analysis.ads` gives the median, the number of other rows and the ratio in its `ask_check` column.
 The check reads the rows after the corrections ledger, so a live bedroom set moves a row in with the
 rows of its corrected count, a live ask set gives a row its corrected ask, and the ads the ledger
-excludes drop out of every median. A typo of an
+excludes drop out of every median. The check lists a concession row's ask net of the free
+months, as the rows file gives it. A ledger entry for the row gives the ads file's `latest_ask`
+as `when.latest_ask`, since `ledger.status` compares it with `analysis.latest_ask`, the gross ask
+from before the ledger. A typo of an
 extra or a missing digit gives a ratio near 10, but a row's true ask can lie a good way from its
 building's median. On the planted sample under [Planted errors](#planted-errors), the tenfold asks
 ran from 6.8 to 15.1 times the median, so I set the band at 6 to 16. In both builds of that sample
@@ -1854,8 +1921,9 @@ Four models read the ledger:
 
 3. `analysis.ledger_rows` drops the rows of the live excludes and gives the values of the live
    sets. A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
-   chain's bath rules do. An ask set gives the row's `latest_ask` and leaves `asking_rent`, the
-   first ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
+   chain's bath rules do. An ask set gives the row's `latest_gross`, and `latest_ask` nets it of
+   any concession, as under [Concessions](#concessions). The set leaves `asking_rent`, the first
+   ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
    ads file keeps the latest ask from before the ledger.
 4. `analysis.lot_facts` gives an ad with a live drop_lot no lot, BIN, release or facts, and
    names the entry in `lot_entry`. The building check then leaves the ad's row out, and the
@@ -2819,10 +2887,13 @@ these readers:
 The comment at the top of `pipeline/models/analysis/ads.sql` lists the columns and the step each
 comes from. These columns need more than a line:
 
-- `page_price` is the latest record's price, the ask an ad shows on its page now. `first_ask`
-  is the ask on the ad's first day, from `ads.exclusions`, and `latest_ask` is the latest ask
-  of the ad's kept row, from `analysis.latest_ask`, before the ledger. An ad without a kept row
-  has no `latest_ask`. The rows file's `latest_ask` gives the ask after the ledger's ask sets.
+- `page_price` is the latest record's price, the ask an ad shows on its page now, gross of
+  any concession. `months_free` and `lease_term` give the latest record's concession terms as
+  the record states them. `first_ask` is the ask on the ad's first day, from `ads.exclusions`,
+  and `latest_ask` is the latest ask of the ad's kept row, from `analysis.latest_ask`, before
+  the ledger and gross of any concession. An ad without a kept row has no `latest_ask`. The rows
+  file's `latest_gross` gives the ask after the ledger's ask sets, and its `latest_ask` the net
+  of that ask, as described under [Concessions](#concessions).
 - `status` and `days_on_market` are the latest record's own, as the API wrote them.
 - `floor_plans` lists the keys of the latest record's floor plan images. Data improvements
   fetches a plan from `https://photos.zillowstatic.com/fp/<key>-p_e.webp`. An empty list means
@@ -2912,15 +2983,16 @@ picks the listings on the market:
 4. It leaves out that ad when its layout or ask lies outside the ones the dataset prices, or
    when the dataset prices its unit as current from an answer as new as the ad's or newer.
 
-Step 2 compares the four values alone. A furnished, short-stay or concession copy of an ad with
-the same ask and layout has no fit-ready row, so the unit shows the other ad, unless the served
+Step 2 compares the four values alone. A furnished or short-stay copy of an ad with the same
+ask and layout has no fit-ready row, so the unit shows the other ad, unless the served
 dataset dropped the copy. A listing the served dataset dropped hides its whole unit, whichever
 of the dataset's rules dropped it, since step 2 rests on the values the dropped ad shares with
 the others. On the files of Oct 16 no unit had both a dropped ad and another ad on the market.
 
 The values come from the fit-ready row, after the corrections ledger, and the ask from
 `page_price`, since a row's `asking_rent` follows the chain's latest-ask rule and can be an
-earlier price. Each listing's `audit_id` is `api:<response_id>:<listing_id>`, which leads back
+earlier price. For an ad with a concession, `page_price` is the gross ask and the model's
+estimate prices the net, as described under [Concessions](#concessions). Each listing's `audit_id` is `api:<response_id>:<listing_id>`, which leads back
 to its answer in the export. Under `stats.current_ads` the build's `build.json` gives the two
 files with their SHA-256, the number of ads priced, and the reason for each ad on the market it
 left out.
@@ -3334,6 +3406,10 @@ when an item here or an entry of the corrections ledger accounts for it.
     takes the row's first ask, and `analysis.latest_ask` takes the ad's last kept change within
     a factor of 2 of the first ask, as described under [Latest ask](#latest-ask). A comparison
     with the chain counts each row whose `how` reads `earlier change, nearer building` here.
+14. An ad with a concession. The chain drops it as `excluded_concession`, and the model keeps it
+    and gives it a latest ask net of the free months, as described under
+    [Concessions](#concessions). A comparison with the chain counts here each row whose ad has
+    the concession flag in `ads.attributes` or terms in `analysis.concessions`.
 
 ## Planted errors
 
@@ -4022,7 +4098,8 @@ have the same row counts and the same sums of row hashes in both states.
 The chain's audit of the four regions, in `/data1/apartments/tmp/pipeline/audit/audit.parquet`,
 holds the reasons and captures of 1,692,611 ads. I compared the 1,692,593 of them with no answer
 after the audit ran at 13:10 ET. Leaving out the three checks of later steps, `ads.exclusions`
-gives each of them the same reasons as the audit, and 1,466,352 have no reason in either. The
+gave each of them the same reasons as the audit, and 1,466,352 had no reason in either. From
+Oct 18 `ads.exclusions` leaves out the concession, as described under [Concessions](#concessions). The
 counts per reason:
 
 | reason | ads |
