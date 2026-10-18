@@ -327,7 +327,6 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
     gs = [jnp.asarray(d.group[lo:hi]) for lo, hi in blocks]
     wk = [jnp.asarray(d.week[lo:hi]) for lo, hi in blocks]
     fr = [jnp.asarray(d.frac[lo:hi]) for lo, hi in blocks]
-    group_n = np.bincount(d.group, minlength=4)
 
     def trend_rows(L_full, j):
         """The trend at block j's rows, from the grid L_0..L_W."""
@@ -559,7 +558,6 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
             eta=jnp.zeros(W - 1),
         )
 
-    del group_n
     return jax.jit(jax.vmap(sweep)), jax.jit(jax.vmap(init))
 
 
@@ -791,7 +789,8 @@ def scorecard(summary, season, trend) -> list:
     add(3, "phi_2 is +8% to +20%", f"{f2:+.1f}%", 8 <= f2 <= 20)
     ratio = h["half_over_full2"]["median"]
     add(4, "half bath is 0.3 to 0.6 of phi_2", f"{ratio:.2f}", 0.3 <= ratio <= 0.6)
-    peak = float(np.median(season["peak_day"]))
+    # The peak of the median curve, which a posterior straddling New Year leaves intact.
+    peak = float(season["days"][np.argmax(np.median(season["curve"], axis=0))])
     p2t = float(np.median(season["peak_to_trough_pct"]))
     month = (pd.Timestamp("2001-01-01") + pd.Timedelta(days=peak)).month
     add(

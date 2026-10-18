@@ -380,8 +380,15 @@ def score_new_buildings(modal_app, spec):
 
 def wants_summary(spec, split):
     """Whether a downloaded fit gets a summary bundle: only full-tier fits are served, and
-    rentfrontier.summary refuses the unit and latest splits."""
-    return spec["tier"] == "full" and split in ("rows", "all") and not spec.get("large")
+    rentfrontier.summary refuses the unit and latest splits, and reads no B0 run."""
+    run_args = spec.get("run_args", [])
+    b0 = ("--model", "b0") in zip(run_args, run_args[1:])
+    return (
+        spec["tier"] == "full"
+        and split in ("rows", "all")
+        and not spec.get("large")
+        and not b0
+    )
 
 
 def summarize(spec):

@@ -14,10 +14,12 @@ of the rows file:
 - `latest_day`, the day of the latest ask. `analysis.latest_ask` records how it chose the ask
   (`how`), and the script dates each choice:
     - `latest` and `latest, nearer building`: the day of the ad's last kept change on or after
-      the row's day, as `analysis.latest_change` picks the change.
+      the row's day, as `analysis.latest_change` picks the change. When the ad has none,
+      `analysis.latest_change` takes the change in effect on the row's day, and the script
+      dates it by the row's day (`row, change before`).
     - `earlier change, nearer building`: the day of the ad's last kept change on or after the
       row's day at the chosen price.
-    - `page price` and `page price, digit`: the day the ad's latest record was collected.
+    - `page price` and `page price, digit`: the day the ad's latest record was last collected.
     - `first, nearer building` and `own ask, captured before the row`: the row's own day.
   A choice the script cannot date takes the row's day, and `latest_day_how` says which case
   dated each row.
@@ -28,6 +30,8 @@ of the rows file:
 
 `OUT/manifest.json` records the build's files and their SHA-256, the state file, the row count
 and how many rows each dating case and flag covers.
+
+I take days in UTC, as the pipeline's sessions do.
 
 DuckDB locks the state file even read-only, so I run the script between builds, holding the
 same locks a build holds:
@@ -101,11 +105,11 @@ def record_flags(records: Path) -> str:
     """Each record's text flags, one pass over the records without keeping their text."""
     return f"""
 CREATE TEMP TABLE recf AS
-SELECT listing_id, collected_at,
+SELECT listing_id, greatest(collected_at, coalesce(last_collected_at, collected_at)) AS collected_at,
     coalesce(length(text) > {MIN_DESCRIPTION}, false) AS known,
     {text_flag_sql()}
 FROM (
-    SELECT listing_id, collected_at,
+    SELECT listing_id, collected_at, last_collected_at,
         lower(json_extract_string(raw_listing_json, '$.description')) AS text
     FROM read_parquet('{records}')
 )
@@ -143,6 +147,7 @@ dated AS (
                 THEN 'earlier change'
             WHEN la.how IN ('page price', 'page price, digit') AND rec.collected_at IS NOT NULL
                 THEN 'record'
+            WHEN la.how IN ('latest', 'latest, nearer building') THEN 'row, change before'
             WHEN la.how IN ('first, nearer building', 'own ask, captured before the row')
                 THEN 'row'
             ELSE 'row, undated'
@@ -176,6 +181,8 @@ def build(out: Path, state: Path, catalog: Path = CATALOG, rows: Path | None = N
     out.mkdir(parents=True, exist_ok=False)
     con = duckdb.connect()
     con.execute(f"SET memory_limit = '{os.environ.get('B0DATA_MEMORY', '4GB')}'")
+    # The pipeline's sessions run in UTC, so the days here match its own.
+    con.execute("SET TimeZone = 'UTC'")
     con.execute("SET threads = 4")
     con.execute("SET preserve_insertion_order = false")
     con.execute(
