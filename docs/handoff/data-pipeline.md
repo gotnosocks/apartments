@@ -26,7 +26,7 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
    drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
-   asks (#881), from the event log since #883. Since PR_ADFILLS `ads.attributes` fills an
+   asks (#881), from the event log since #883. Since #1090 `ads.attributes` fills an
    unknown elevator or pet policy from each ad's own description, as the chain's rules
    `elevator-from-ad-v1` and `pets-from-ad-v2` fill NB9's rows.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
@@ -289,7 +289,7 @@ The older items follow.
       `brooklyn_misjoin` and `location_conflict` excludes become moves once the right building
       is collected, with `other_ad` or `city_record` evidence;
    3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17:
-      the elevator and pet fills from each ad's text (**done** in PR_ADFILLS),
+      the elevator and pet fills from each ad's text (**done** in #1090),
       `west-coast-wings-v1` as a move in the unit ledger, `unit-labels-v17`, and
       `unit-splits-v4` last. Each PR carries a row-by-row diff: I build the export from master
       and from the branch in a scratch lane, write folders from both with `observations.py`,
