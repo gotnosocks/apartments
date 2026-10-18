@@ -5,8 +5,8 @@ MODEL (
         materialization_properties (changes = 'ads.touched', replace = 'listing_id')
     ),
     grain listing_id,
-    audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, records, conflicts))),
-    description 'Each ad''s attributes and rental flags, merged over its records as the current chain merges its captures, the attributes only up to its last ACTIVE record.'
+    audits (unique_values(columns := (listing_id)), not_null(columns := (listing_id, records, conflicts, from_text))),
+    description 'Each ad''s attributes and rental flags, merged over its records as the current chain merges its captures, the attributes only up to its last ACTIVE record, with an unknown elevator or pet policy filled from what its descriptions state.'
 );
 
 -- An ad's attributes come from the distinct records of its answers fetched up to its last answer
@@ -27,6 +27,14 @@ MODEL (
 -- A rental flag is true when any record sets it, false when the records give only false, and
 -- unknown when they give nothing. `records` holds the number of records merged for the
 -- attributes. When all of those records fail to parse, the ad gets no row.
+--
+-- Last, the model fills an unknown elevator or pet policy from the ad's descriptions, as the
+-- chain's rules `elevator-from-ad-v1` and `pets-from-ad-v2` fill a row's from its description.
+-- An unknown here includes one from a conflict, as in the chain. `ads.record_attributes` gives
+-- each record's reading in `elevator_text` and `pet_policy_text`, and the model merges the
+-- readings over the same records as the attributes: one reading stands, and records reading
+-- two give no fill. A stripped or cut description gives no reading, so it leaves the other
+-- records' reading in place. `from_text` names the attributes filled this way.
 --
 -- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
 -- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of
@@ -71,7 +79,9 @@ merged AS (
         min(hvac_type) AS hvac_type, max(hvac_type) AS hvac_type_max,
         min(pet_policy) AS pet_policy, max(pet_policy) AS pet_policy_max,
         min(view_exposures) AS view_exposures, max(view_exposures) AS view_exposures_max,
-        min(window_exposures) AS window_exposures, max(window_exposures) AS window_exposures_max
+        min(window_exposures) AS window_exposures, max(window_exposures) AS window_exposures_max,
+        min(elevator_text) AS elevator_text, max(elevator_text) AS elevator_text_max,
+        min(pet_policy_text) AS pet_policy_text, max(pet_policy_text) AS pet_policy_text_max
     FROM projected
     WHERE until_active
     GROUP BY listing_id
@@ -83,11 +93,14 @@ SELECT listing_id, records,
     CASE WHEN advertised_floor = advertised_floor_max THEN advertised_floor::DOUBLE END AS advertised_floor,
     CASE WHEN physical_floor = physical_floor_max THEN physical_floor::DOUBLE END AS physical_floor,
     CASE WHEN floors_above_ground = floors_above_ground_max THEN floors_above_ground::DOUBLE END AS floors_above_ground,
-    CASE WHEN elevator = elevator_max THEN elevator::BOOLEAN END AS elevator,
+    CASE WHEN elevator = elevator_max THEN elevator::BOOLEAN
+        WHEN elevator_text = elevator_text_max THEN elevator_text::BOOLEAN END AS elevator,
     CASE WHEN laundry_type = laundry_type_max THEN laundry_type::JSON ->> '$' END AS laundry_type,
     CASE WHEN doorman_type = doorman_type_max THEN doorman_type::JSON ->> '$' END AS doorman_type,
     CASE WHEN hvac_type = hvac_type_max THEN hvac_type::JSON ->> '$' END AS hvac_type,
-    CASE WHEN pet_policy = pet_policy_max THEN pet_policy::JSON ->> '$' END AS pet_policy,
+    CASE WHEN pet_policy = pet_policy_max THEN pet_policy::JSON ->> '$'
+        WHEN pet_policy_text = pet_policy_text_max THEN pet_policy_text::JSON ->> '$'
+        END AS pet_policy,
     CASE WHEN view_exposures = view_exposures_max THEN view_exposures::JSON END AS view_exposures,
     CASE WHEN window_exposures = window_exposures_max THEN window_exposures::JSON END AS window_exposures,
     furnished, short_term, concession,
@@ -110,6 +123,12 @@ SELECT listing_id, records,
             view_exposures <> view_exposures_max,
             window_exposures <> window_exposures_max
         ], i), false)
-    ) AS conflicts
+    ) AS conflicts,
+    list_filter([
+        CASE WHEN (elevator IS NULL OR elevator <> elevator_max)
+            AND elevator_text = elevator_text_max THEN 'elevator' END,
+        CASE WHEN (pet_policy IS NULL OR pet_policy <> pet_policy_max)
+            AND pet_policy_text = pet_policy_text_max THEN 'pet_policy' END
+    ], key -> key IS NOT NULL) AS from_text
 FROM merged
 JOIN flags USING (listing_id)

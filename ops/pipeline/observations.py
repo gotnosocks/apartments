@@ -54,13 +54,15 @@ refuses an OUT already there.
 With `--check-against DATASET`, the script writes nothing to OUT. It loads OUT and DATASET with
 `rentfrontier.data.load`, its cache in a temporary folder, matches their rows by ad and counts
 the differences field by field. Before comparing, it gives DATASET's rows the asks of the
-chain's latest ask rule, `latest-ask-v9` unless `--latest-ask` names another, and it compares the
+chain's latest ask rule, `latest-ask-v9` unless `--latest-ask` names another, and the fills of
+the rules `elevator-from-ad-v1` and `pets-from-ad-v2`, as the served fit does. It compares the
 rows file's first asks with DATASET's own asks. It then puts each difference down to the first
 of these causes to fit, checked in this order:
   - the ad has a live ledger set of the field,
   - the API chain's dataset given as `--api-reference` holds the ad with OUT's value,
-  - OUT gives `pets` as `allowed_restrictions_unknown` and the API chain gives `unknown`, for a
-    pet fee in the description,
+  - OUT gives `elevator` or `pets` a value and DATASET leaves it `unknown` after the rules' fills.
+    The pipeline reads every ad's descriptions in the export, and the rules' files hold the
+    NB9 rows alone, read from page crawls,
   - for an ask, the ad's latest API record came after export run N, the last run the chain's
     latest asks read, its price differs from the last price up to run N, and OUT's ask equals
     it. Run N is run 5 of the export in /data1/apartments/archive/crawls/api/export, unless
@@ -96,6 +98,8 @@ VERSION = "pipeline-observations-v1"
 MEMORY = os.environ.get("PIPELINE_MEMORY", "2GB")
 EXPORT = Path("/data1/apartments/archive/crawls/api/export")
 CHAIN_RUN = 5
+# The served fit's rules filling an unknown elevator or pet policy from the row's own ad.
+AD_FILLS = ("elevator-from-ad-v1", "pets-from-ad-v2")
 
 
 def frontier_data():
@@ -502,6 +506,8 @@ def check(
         ref = side(data, db, api, Path(cache))[0] if api else None
     theirs["first_ask"] = theirs.asking_rent
     theirs = data.DATA_RULES[rule](theirs).drop(columns="log_rent")
+    for fill in AD_FILLS:
+        theirs = data.DATA_RULES[fill](theirs)
     previous = {"latest-ask-v9": "latest-ask-v8", "latest-ask-v8": "latest-ask-v7"}.get(
         rule
     )
@@ -598,13 +604,11 @@ def check(
                 dtype=bool
             ) & same(both.asking_rent, both.price_after, True)
             cause[after] = f"API record after run {chain_run}"
+        if field in ("elevator", "pets"):
+            text = (both[field] != "unknown") & (both[f"{field}_chain"] == "unknown")
+            cause[text.to_numpy()] = "ad text fill"
         if f"{field}_api" in both:
             api_value = both[f"{field}_api"]
-            if field == "pets":
-                fee = (both[field] == "allowed_restrictions_unknown") & (
-                    api_value == "unknown"
-                )
-                cause[present & fee.to_numpy()] = "pet fee"
             cause[present & same(both[field], api_value, numeric)] = "API record agrees"
         cause[np.array([field in s for s in live], dtype=bool)] = "ledger set"
         counts = pd.Series(cause[differs]).value_counts().to_dict()

@@ -1623,15 +1623,48 @@ def chain_cohort():
     return module
 
 
-# The fixture's ads with a pet fee in the description and no other pet policy. The chain gives
-# them none, and `steps.attributes` reads the fee as pets allowed.
-PET_FEE_ADS = ("4771575",)
+# The fixture's ads with an elevator or a pet policy filled from their descriptions, and the
+# values filled. The chain's analysis datasets leave them unknown. In the chain, the rules
+# `elevator-from-ad-v1` and `pets-from-ad-v2` fill these fields for the NB9 rows alone.
+ELEVATOR_FILLS = {
+    "2445473": False,
+    "3047313": False,
+    "3080390": False,
+    "3101856": False,
+    "4107382": False,
+    "4202021": False,
+    "4354528": False,
+    "4439713": False,
+    "4940699": False,
+}
+PET_FILLS = {
+    "1297424": "approval_required",
+    "1342669": "approval_required",
+    "1357029": "allowed_restrictions_unknown",
+    "1684285": "approval_required",
+    "1698799": "allowed_restrictions_unknown",
+    "1840495": "approval_required",
+    "1912842": "approval_required",
+    "2037890": "approval_required",
+    "2696253": "approval_required",
+    "3213037": "approval_required",
+    "3420366": "approval_required",
+    "3438219": "not_allowed",
+    "3455744": "allowed_restrictions_unknown",
+    "4771575": "approval_required",
+}
+
+
+def filled(column, fills):
+    """SQL giving `column` of a chain row, or the value in `fills` for its ad."""
+    cases = " ".join(f"WHEN '{ad}' THEN {value!r}" for ad, value in fills.items())
+    return f"coalesce({column}, CASE source_listing_id {cases} END)"
 
 
 def test_rows_match_the_chain(tmp_path, monkeypatch):
     """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
-    with the same values in every column the pipeline rebuilds, apart from the pet policy of
-    the ads in PET_FEE_ADS."""
+    with the same values in every column the pipeline rebuilds, once the ads in ELEVATOR_FILLS
+    and PET_FILLS get their fills."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
     ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
@@ -1645,9 +1678,8 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
         reported_half_bathrooms, square_feet, listed_floor, label_derived_floor,
         floor_label_provenance ->> 'status',
         (floor_label_provenance ->> 'building_floor_count')::BIGINT, advertised_floor,
-        physical_floor, floors_above_ground, elevator, laundry_type, doorman_type, hvac_type,
-        CASE WHEN source_listing_id IN {PET_FEE_ADS} AND pet_policy IS NULL
-            THEN 'allowed_restrictions_unknown' ELSE pet_policy END,
+        physical_floor, floors_above_ground, {filled("elevator", ELEVATOR_FILLS)},
+        laundry_type, doorman_type, hvac_type, {filled("pet_policy", PET_FILLS)},
         view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
         FROM '{FIXTURE / "chain-rows.parquet"}'"""
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 229

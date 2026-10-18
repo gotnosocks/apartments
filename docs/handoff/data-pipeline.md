@@ -26,10 +26,9 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    the event log and each ad's first ask merged in #870, each ad's attributes and reasons to
    drop it in #872, days on market with the ending in `ads.market` (#876), each ad's unit
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
-   asks (#881), from the event log since #883. Since Oct 16 `steps/attributes.py` also reads
-   a pet fee in the description as pets allowed when nothing else gives a policy, at Ben's
-   suggestion and with the pattern of NB9's ad fills; it is the projection's one departure
-   from the chain.
+   asks (#881), from the event log since #883. Since PR_ADFILLS `ads.attributes` fills an
+   unknown elevator or pet policy from each ad's own description, as the chain's rules
+   `elevator-from-ad-v1` and `pets-from-ad-v2` fill NB9's rows.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
    models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
@@ -289,10 +288,17 @@ The older items follow.
       join on their stated 2,000 square feet. Data improvements gets the format then. The
       `brooklyn_misjoin` and `location_conflict` excludes become moves once the right building
       is collected, with `other_ad` or `city_record` evidence;
-   3. `west-coast-wings-v1` and `unit-splits-v4`, rules over the rows, as pipeline steps with
-      their tests, and the splits checked against the frozen rows;
-   4. `unit-labels-v17`, `fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The
-      ad-text fills key on the ad and the hash of its text, once a model gives each ad's text;
+   3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17:
+      the elevator and pet fills from each ad's text (**done** in PR_ADFILLS),
+      `west-coast-wings-v1` as a move in the unit ledger, `unit-labels-v17`, and
+      `unit-splits-v4` last. Each PR carries a row-by-row diff: I build the export from master
+      and from the branch in a scratch lane, write folders from both with `observations.py`,
+      and compare them with `ops/pipeline/port_diff.py`, the moved rules given to master's
+      folder. A share of changed rows over `NEGLIGIBLE_SHARE` (0.25%) makes the move a data
+      change, and Modeling schedules a fit for it. I tell Modeling before each merge, since a
+      merge changes the rules a fit on the folders leaves out. The ad-text fills changed 81 of
+      NB9's rows and 1.42% of the rows in its neighbourhoods;
+   4. `fields-review-v3`, after the moves of item 3;
    5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
       against 135 s in a single process.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
