@@ -81,7 +81,7 @@ def test_build_writes_hashed_files_and_a_catalog_line(tmp_path, build):
     # A second build from the same export rebuilds nothing and writes the same file.
     second = build(export, tmp_path / "state", tmp_path / "out")
     assert second["rows"] == first["rows"] and second["ads_file"] == first["ads_file"]
-    assert second["records"] == first["records"] | {"read": 0}
+    assert second["records"] == first["records"] | {"read": 0, "reused": True}
     assert all(model["seconds"] is None for model in second["models"].values())
     assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
         first["ads_file"]["path"],

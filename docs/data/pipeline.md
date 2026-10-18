@@ -247,7 +247,7 @@ a line for the build to `OUT/catalog.ndjson`:
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
-| `records` | the records file's name, SHA-256 and row count, and under `read` the count of records the step read into its cache |
+| `records` | the records file's name, SHA-256 and row count, under `read` the count of records the step read into its cache, and under `reused` whether the step returned a file it had noted for the same export |
 | `seconds` | the wall time of loading the project, of the plan, of counting rows, of writing the rows and ads files and of writing the records file, and the total |
 | `peak_mib` | the peak resident memory of the script, DuckDB's included, and the peak and name of the script's cgroup |
 | `top_up` | true when the build read only the answers missing from the last build's tables, as [Top-up builds](#top-up-builds) describes |
@@ -2921,6 +2921,15 @@ build, a top-up or a full one, serializes only the records missing from them. A 
 the folders of other versions, about 3 GB each on the Oct 16 export. While it runs, the step
 holds a lock on `STATE/records/.lock`, and a second records step stops at once, such as a run of
 the script beside a build.
+
+The build gives the step the export's version, its SHA-256 over the list of ads files and their
+hashes. After writing a file, the step notes it in the cache folder, in `written.ndjson`, with
+the version, OUT, and the file's size and modification time. On the next build, if the notes
+give a file under the same version for the same OUT, and the file still has its noted size and
+modification time, the step returns the noted line without reading the export, and the catalog
+line marks it `reused`. Without the notes, each build of the Oct 17 export rewrote and hashed
+the same 3.4 GB file, in about 90 s of a 185 s build after a code change. A top-up changes the
+version, so the step writes a new file as before.
 
 ### Against the granular export
 

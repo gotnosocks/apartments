@@ -32,6 +32,12 @@ from the export, the step works like this:
 6. It deletes the cache folders that other versions of this file left, about 3 GB each on the
    Oct 16 export, and then releases the lock.
 
+When `ops/pipeline/build.py` gives the export's version, the step reads its notes in the cache
+folder, `written.ndjson`, right after taking the lock. If they give a file under that version for
+the same OUT, and the file still has its noted size and modification time, the step returns the
+noted line and skips steps 2 to 5. Otherwise it goes on as above and notes the file it writes.
+On the Oct 17 export, writing and hashing the 3.4 GB file took about 90 s of each build.
+
 The step stops with an error on an export without records, rather than writing an empty file.
 
 The file has a row for each distinct record of each listing:
@@ -93,6 +99,8 @@ CACHE = pa.schema(
         ("raw_listing_json", pa.string()),
     ]
 )
+# The cache folder's notes of the files the step wrote, a line each.
+NOTES = "written.ndjson"
 SORT = [
     ("listing_id", "ascending"),
     ("collected_at", "ascending"),
@@ -205,9 +213,23 @@ def fill_cache(cursor, answers: str, folder: Path, workers: int) -> int:
     return count
 
 
-def write(cursor, files, cache: Path, out: Path, workers: int | None = None) -> dict:
+def write(
+    cursor,
+    files,
+    cache: Path,
+    out: Path,
+    workers: int | None = None,
+    version: str | None = None,
+) -> dict:
     """Write the records file of the export files `files` into `out`, and return its name,
-    SHA-256 and row count, with the count of records the step read into the cache."""
+    SHA-256 and row count, with the count of records the step read into the cache and whether
+    it reused an earlier file.
+
+    `ops/pipeline/build.py` passes `version`, its SHA-256 over the export's list of ads files.
+    After writing a file, the step notes it under that version in the cache folder. A later
+    call with the same version and the same code looks up the note, and when the noted file is
+    still in `out` with its noted size and modification time, the call returns the noted line
+    without reading the export."""
     workers = workers or int(os.environ.get("PIPELINE_WORKERS", "4"))
     if not files:
         raise ValueError("the export lists no ads files")
@@ -220,7 +242,11 @@ def write(cursor, files, cache: Path, out: Path, workers: int | None = None) -> 
             raise RuntimeError(
                 f"another records step holds {cache / '.lock'}"
             ) from None
-        line = write_locked(cursor, files, folder, out, workers)
+        line = written(folder, version, out) if version else None
+        if line is None:
+            line = write_locked(cursor, files, folder, out, workers) | {"reused": False}
+            if version:
+                note(folder, version, out, line)
         for other in cache.iterdir():
             if (
                 other != folder
@@ -229,6 +255,46 @@ def write(cursor, files, cache: Path, out: Path, workers: int | None = None) -> 
             ):
                 shutil.rmtree(other)
     return line
+
+
+def written(folder: Path, version: str, out: Path) -> dict | None:
+    """The line of the latest file noted under `version` for `out`, when that file keeps its
+    noted size and modification time, or None."""
+    notes = folder / NOTES
+    if not notes.exists():
+        return None
+    for text in reversed(notes.read_text().splitlines()):
+        entry = json.loads(text)
+        if entry["version"] != version or entry["out"] != str(out.resolve()):
+            continue
+        try:
+            stat = (out / entry["path"]).stat()
+        except FileNotFoundError:
+            return None
+        if (stat.st_size, stat.st_mtime_ns) != (entry["bytes"], entry["mtime_ns"]):
+            return None
+        return {key: entry[key] for key in ("path", "sha256", "rows")} | {
+            "read": 0,
+            "reused": True,
+        }
+    return None
+
+
+def note(folder: Path, version: str, out: Path, line: dict) -> None:
+    """Append the file of `line` to the notes of `folder`, under `version`, with its size and
+    modification time."""
+    stat = (out / line["path"]).stat()
+    entry = {
+        "version": version,
+        "out": str(out.resolve()),
+        "path": line["path"],
+        "sha256": line["sha256"],
+        "rows": line["rows"],
+        "bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+    with open(folder / NOTES, "a") as f:
+        f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
 def write_locked(cursor, files, folder: Path, out: Path, workers: int) -> dict:
