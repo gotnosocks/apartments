@@ -5,7 +5,7 @@ import sqlite3
 import duckdb
 import pytest
 
-from apartments.site import build
+from apartments.site import build, summary
 
 
 def query(root, sql, params=()):
@@ -70,6 +70,30 @@ def test_listing_rows_carry_the_estimate_bands_and_contributions(site_root):
     a1 = rows["a1"]
     assert a1["estimate"] == a1["estimate_median"]
     assert a1["residual_pct"] == pytest.approx(a1["ask"] / a1["estimate_median"] - 1)
+
+
+def test_listing_rows_carry_what_the_lists_show_of_their_inputs(site_root):
+    rows = query(site_root, "SELECT floor, inputs, label_floor, outdoor FROM listings")
+    assert rows
+    for r in rows:
+        inputs = json.loads(r["inputs"])
+        assert r["label_floor"] == summary.label_floor(r["floor"], inputs)
+        assert r["outdoor"] == summary.has_outdoor(inputs)
+
+
+def test_list_columns_read_the_floor_and_outdoor_space_from_the_inputs():
+    rows = build.with_list_columns(
+        [
+            {"floor": None, "inputs": '{"log_floor": 1.3863, "outdoor:patio": 1.0}'},
+            {"floor": None, "inputs": '{"floor_unknown": 1.0}'},
+            {"floor": 7, "inputs": '{"log_floor": 1.9459}'},
+        ]
+    )
+    assert [(r["label_floor"], r["outdoor"]) for r in rows] == [
+        (4, 1),
+        (None, 0),
+        (None, 0),
+    ]
 
 
 def test_units_follow_the_summary_unit_ids_and_latest_listing(site_root):

@@ -13,6 +13,8 @@ beyond their features.
 
 from __future__ import annotations
 
+import math
+
 MIN_SHARE = 0.005  # of the estimate
 MIN_USD = 25.0
 MOST = 5  # parts named on each side
@@ -123,6 +125,20 @@ def _ordinal(n: int) -> str:
         "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     )
     return f"{n}{suffix}"
+
+
+def label_floor(floor: int | None, inputs: dict[str, float]) -> int | None:
+    """The floor the model used for a listing whose ad states none: read
+    from the unit's label, like 4 for "04E". None when the ad states one
+    or the model has none either."""
+    if floor is not None or "floor_unknown" in inputs:
+        return None
+    return round(math.exp(inputs.get("log_floor", 0.0)))  # floor 1 has no input
+
+
+def has_outdoor(inputs: dict[str, float]) -> bool:
+    """Whether the model read outdoor space for the listing (an "outdoor:<kind>" input)."""
+    return any(k.startswith("outdoor:") for k in inputs)
 
 
 def _with(inputs: dict, prefix: str) -> list[str]:

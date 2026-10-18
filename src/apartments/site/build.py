@@ -52,12 +52,13 @@ from . import (
     estimate_build,
     exposure,
     story,
+    summary,
     wings,
 )
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
@@ -115,7 +116,8 @@ CREATE TABLE listings(
   pareto_k REAL, reliable INTEGER NOT NULL,
   fitted REAL, fitted_lower REAL, fitted_upper REAL,
   pred_lower_95 REAL, pred_upper_95 REAL, pred_lower_80 REAL, pred_upper_80 REAL,
-  contributions TEXT, inputs TEXT NOT NULL);
+  contributions TEXT, inputs TEXT NOT NULL,
+  label_floor INTEGER, outdoor INTEGER NOT NULL);
 -- Every sort key has an index ending in id, in the same direction as the key,
 -- so ORDER BY <key> <dir>, id <dir> scans it either way (no temp sort).
 CREATE TABLE quarantined(
@@ -742,6 +744,17 @@ def _real(value) -> float | None:
     return None if math.isnan(number) else number
 
 
+def with_list_columns(rows: list[dict]) -> list[dict]:
+    """Add two columns to each listing row from its inputs JSON: label_floor, the floor
+    read from the unit's label when the ad states none, and outdoor, whether the model
+    read outdoor space."""
+    for r in rows:
+        inputs = json.loads(r["inputs"])
+        r["label_floor"] = summary.label_floor(r["floor"], inputs)
+        r["outdoor"] = int(summary.has_outdoor(inputs))
+    return rows
+
+
 def _insert(db, table, rows, verb="INSERT"):
     if not rows:
         return
@@ -959,7 +972,7 @@ def _write(
         units = unit_rows(listings)
         _insert(db, "buildings", buildings_of(listings, units))
         _insert(db, "units", units)
-        _insert(db, "listings", listings)
+        _insert(db, "listings", with_list_columns(listings))
         fit_ids.update(r["audit_id"] for r in listings)
         neighbourhoods.update(r["neighbourhood"] for r in listings)
         del listings, units
@@ -1078,7 +1091,7 @@ def _write(
         whole = _whole_buildings(db, touched)
         units = unit_rows(whole + captured)
         _insert(db, "units", units, "INSERT OR REPLACE")
-        _insert(db, "listings", captured)
+        _insert(db, "listings", with_list_columns(captured))
         _insert(
             db, "buildings", buildings_of(whole + captured, units), "INSERT OR REPLACE"
         )
