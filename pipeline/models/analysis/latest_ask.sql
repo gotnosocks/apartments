@@ -16,7 +16,9 @@ MODEL (
 -- rows with the same bedroom count. Every kept row has a building and a bedroom count. The steps
 -- after s1 move the ask in turn:
 --   s2: an ask more than twice or under half the first ask gives way to whichever of the two
---       lies nearer the building's median.
+--       lies nearer the building's median. When the first ask wins, or the building has no
+--       median, the row takes the ad's last change within a factor of 2 of the first ask, so a
+--       typo in the latest change leaves the changes before it in place.
 --   s3 and s4 look at the ad's page price when its record was collected after the row.
 --   s3: a page price within a factor of 2 of the ask replaces it. A page price equal to one of
 --       the ad's price changes is skipped.
@@ -51,17 +53,20 @@ peer AS (
 ),
 s1 AS (
     SELECT p.listing_id, p.price_at, p.first, p.peer, l.last, l.page_price AS page, l.digit_page,
+        coalesce(l.near_first, p.first) AS near_first,
         coalesce(l.live, p.first) AS price,
         CASE WHEN l.live IS NOT NULL THEN 'latest' ELSE 'own ask, captured before the row' END AS how
     FROM peer p JOIN analysis.latest_change l USING (listing_id)
 ),
 s2 AS (
-    SELECT * EXCLUDE (wide, picked) REPLACE (
+    SELECT * EXCLUDE (wide, picked, near_first) REPLACE (
         CASE WHEN wide THEN picked ELSE price END AS price,
-        CASE WHEN wide THEN CASE WHEN picked = first THEN 'first, nearer building' ELSE 'latest, nearer building' END ELSE how END AS how)
+        CASE WHEN wide THEN CASE WHEN picked = first THEN 'first, nearer building'
+            WHEN picked = near_first THEN 'earlier change, nearer building'
+            ELSE 'latest, nearer building' END ELSE how END AS how)
     FROM (
         SELECT *, price / first > 2 OR price / first < 0.5 AS wide,
-            CASE WHEN peer IS NULL THEN first WHEN abs(ln(price) - peer) < abs(ln(first) - peer) THEN price ELSE first END AS picked
+            CASE WHEN peer IS NOT NULL AND abs(ln(price) - peer) < abs(ln(first) - peer) THEN price ELSE near_first END AS picked
         FROM s1
     )
 ),

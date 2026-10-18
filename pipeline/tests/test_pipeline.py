@@ -116,7 +116,7 @@ def test_latest_ask_matches_rentfrontier(tmp_path, monkeypatch):
 @pytest.mark.parametrize("stale_days", [7, -1])
 def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
     """analysis.latest_ask gives these made-up rows the latest asks `rentfrontier.latest_ask`
-    chooses for them:
+    chooses for them, apart from ad 9000139:
 
     - ad 9000120 changes its price after its first day. Its page price equals its first
       change, so the page price counts for nothing. Ad 9000130 changes its price only before
@@ -148,7 +148,11 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
     - ad 9000137 goes off the market on July 1 and rises to $3,300 on July 3. At 7 stale days,
       as in latest-ask-v9, the rise counts. At -1, as in latest-ask-v10, it drops out.
     - ad 9000138 goes on and off the market on May 1. Its change of that day falls on its
-      on-market day, so it stays at -1 as well."""
+      on-market day, so it stays at -1 as well.
+    - ad 9000139 rises to $3,150 in June and to $7,000 in July. The $7,000 lies more than twice
+      its first ask, and the first ask lies nearer the one-bedrooms, so the row falls back to
+      $3,150, its last change within a factor of 2 of the first ask. The chain takes the first
+      ask of $3,000."""
     monkeypatch.syspath_prepend(str(PROJECT.parent / "frontier" / "src"))
     from rentfrontier import latest_ask as chain
 
@@ -249,6 +253,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
             offMarketAt=july,
         ),
         ad(9000138, [(may, 3000)], 3000, status="OFF_MARKET", offMarketAt=may),
+        ad(9000139, [(may, 3000), (june, 3150), (july, 7000)], 7000),
     ]
     new = answers("listing_id", records, 20, "2026-09-02T12:00Z")
     append_answers(export, new)
@@ -277,7 +282,16 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
     table = table.drop_duplicates("listing_id", keep="last").set_index("listing_id")
     expected = chain.choose(rows, table).rename(columns={"audit_id": "listing_id"})
     got = latest_ask(ctx)
-    pd.testing.assert_frame_equal(got.drop(columns="price_at"), expected)
+    assert expected.set_index("listing_id").latest_ask["9000139"] == 3000
+    pd.testing.assert_frame_equal(
+        got[got.listing_id != "9000139"]
+        .drop(columns="price_at")
+        .reset_index(drop=True),
+        expected[expected.listing_id != "9000139"].reset_index(drop=True),
+    )
+    assert (
+        got.set_index("listing_id").how["9000139"] == "earlier change, nearer building"
+    )
     assert got.set_index("listing_id").how["9000133"] == "page price, digit"
     assert dict(zip(got.listing_id, got.latest_ask)) == {
         "9000120": 3200,
@@ -299,6 +313,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
         "9000136": 3300,
         "9000137": 3300 if stale_days == 7 else 3000,
         "9000138": 3000,
+        "9000139": 3150,
     }
     on_day = ctx.fetchdf(
         "SELECT count(*) AS n FROM ads.kept_changes WHERE listing_id::VARCHAR = '9000138'"
@@ -310,6 +325,7 @@ def test_latest_ask_cases(tmp_path, monkeypatch, stale_days):
         "page price",
         "first, nearer building",
         "latest, nearer building",
+        "earlier change, nearer building",
         "page price, digit",
     }
 
