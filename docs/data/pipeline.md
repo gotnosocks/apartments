@@ -2550,7 +2550,12 @@ described under [History splits](#history-splits), so a fit on the folders leave
    the history of the ad's unit page, and the history lists every ad StreetEasy files under
    that page. When a listed ad lies on another unit in `ads.placed`, the two units likely hold
    one apartment under two spellings of its label, or a broker filed an ad on the wrong page.
-   Each pair puts the lesser unit ID first and counts the links behind it.
+   Each pair puts the lesser unit ID first and counts the links behind it. The model joins each
+   ad to its page unit inside a DISTINCT on either side, before it joins the sides on the
+   history. Given both copies of `ads.placed` in one join, DuckDB at some table sizes joins the
+   copies first on their unequal page units, pairing every ad with every other. On Oct 18 that
+   plan spilled 67 GB on the 3% sample under [Planted errors](#planted-errors) before I stopped
+   it, and `tests/test_history_pairs.py` reads the plan at five table sizes.
 2. `analysis.label_units` reads the rows of `analysis.ledger_rows` and joins their units in
    seven layers, in the order v17 takes them, each layer starting from the units of the one
    before:

@@ -18,21 +18,26 @@ MODEL (
 -- The pair puts the lesser unit ID first and counts the (ad, listed ad) links behind it. Its
 -- `listing_id` and `listed_id` give the first link: an ad and an ad its history lists.
 -- analysis.label_units joins a pair's units when their bedroom counts agree.
+-- The model joins each ad to its page unit inside `reports` and `listed`. DuckDB doesn't reorder
+-- joins across their DISTINCT, so the two sides meet on the history alone. Given both copies of
+-- ads.placed in one join, DuckDB at some table sizes joins the copies first on their unequal page
+-- units, pairing every ad with every other: a 3% sample of 65,000 ads spilled 67 GB that way.
 WITH reports AS (
-    SELECT DISTINCT listing_id::VARCHAR AS listing_id, history
-    FROM ads.answers
-    WHERE history IS NOT NULL
+    SELECT DISTINCT a.listing_id::VARCHAR AS listing_id, a.history, p.page_unit AS unit
+    FROM ads.answers a
+    JOIN ads.placed p ON p.listing_id = a.listing_id::VARCHAR
+    WHERE a.history IS NOT NULL AND p.page_unit IS NOT NULL
 ),
 listed AS (
-    SELECT DISTINCT history, listing_id::VARCHAR AS listed_id FROM ads.history_events
+    SELECT DISTINCT h.history, h.listing_id::VARCHAR AS listed_id, q.page_unit AS listed_unit
+    FROM ads.history_events h
+    JOIN ads.placed q ON q.listing_id = h.listing_id::VARCHAR
+    WHERE q.page_unit IS NOT NULL
 ),
 joined AS (
-    SELECT r.listing_id, l.listed_id, p.page_unit AS unit, q.page_unit AS listed_unit
+    SELECT r.listing_id, l.listed_id, r.unit, l.listed_unit
     FROM reports r
-    JOIN listed l USING (history)
-    JOIN ads.placed p ON p.listing_id = r.listing_id
-    JOIN ads.placed q ON q.listing_id = l.listed_id
-    WHERE p.page_unit IS NOT NULL AND q.page_unit IS NOT NULL AND p.page_unit <> q.page_unit
+    JOIN listed l ON l.history = r.history AND l.listed_unit <> r.unit
 )
 SELECT least(unit, listed_unit) AS unit_id, greatest(unit, listed_unit) AS other_unit_id,
     count(DISTINCT (listing_id, listed_id)) AS links,
