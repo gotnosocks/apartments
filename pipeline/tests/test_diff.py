@@ -97,7 +97,12 @@ def test_diff_reports_each_change(tmp_path, capsys):
     ).fetchall()
     assert len(large) > 2
     models = result["models"]
-    for name in ("analysis.candidates", "analysis.kept", "analysis.rows"):
+    for name in (
+        "analysis.candidates",
+        "analysis.kept",
+        "analysis.ledger_rows",
+        "analysis.rows",
+    ):
         model = models[name]
         assert model["changed"] == len(large) and model["changed_columns"] == {
             "square_feet": len(large)
@@ -118,6 +123,7 @@ def test_diff_reports_each_change(tmp_path, capsys):
     assert differs == {
         "analysis.candidates",
         "analysis.kept",
+        "analysis.ledger_rows",
         "analysis.rows",
         "analysis.latest_ask",
     }
@@ -181,7 +187,7 @@ def test_diff_stops_on_a_failed_build(tmp_path, capsys):
     def duplicate(text):
         return text.rstrip() + "\nUNION ALL (SELECT * FROM analysis.kept LIMIT 1)\n"
 
-    root = edited(tmp_path, {"pipeline/models/analysis/rows.sql": duplicate})
+    root = edited(tmp_path, {"pipeline/models/analysis/ledger_rows.sql": duplicate})
     status, _ = run(tmp_path, root)
     assert status == 1
     assert "the edit build stopped" in capsys.readouterr().err

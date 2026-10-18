@@ -306,9 +306,9 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - l: a drop_lot with another lot goes stale.
     - m: a drop_lot retracted later changes nothing.
 
-    Only the two ledger models, analysis.ask_check, analysis.lot_facts, analysis.building_check
-    and the views analysis.rows and analysis.ads build again, and analysis.latest_ask stays as it
-    was."""
+    Only the two ledger models, analysis.ask_check, analysis.lot_facts, analysis.building_check,
+    analysis.label_units and the views analysis.ledger_rows, analysis.rows and analysis.ads build
+    again, and analysis.latest_ask stays as it was."""
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     ctx.plan(auto_apply=True, no_prompts=True)
@@ -383,6 +383,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_check",
+        "analysis.label_units",
+        "analysis.ledger_rows",
         "analysis.lot_facts",
         "analysis.rows",
         "ledger.entries",
@@ -438,7 +440,7 @@ def test_ledger_cases(tmp_path, monkeypatch):
     differ = ctx.fetchdf(
         """SELECT listing_id, bedrooms, full_baths, half_baths, bathrooms, square_feet
         FROM (
-            SELECT * EXCLUDE (latest_ask, relist_unit) FROM analysis.rows
+            SELECT * EXCLUDE (latest_ask, relist_unit) FROM analysis.ledger_rows
             EXCEPT SELECT * FROM analysis.kept
         )
         ORDER BY listing_id"""

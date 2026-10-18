@@ -569,7 +569,10 @@ disk.
 | `analysis.relist_pairs` | table | pair of kept ads on two unit pages of a lot over its count, where the second ad looks like the first listed again |
 | `analysis.relist_links` | table | pair of `analysis.relist_pairs`: the outcome of joining its unit pages, and the relist unit of each page after every pair |
 | `analysis.relist_units` | table | unit page the relist step joins with another: its relist unit and the count of pages in it |
-| `analysis.rows` | view | fit-ready row: a kept row the ledger leaves in, with its latest ask, the values the ledger's live sets give and its relist unit |
+| `analysis.ledger_rows` | view | kept row the ledger leaves in, with its latest ask, the values the ledger's live sets give and its relist unit |
+| `analysis.history_pairs` | table | pair of units an ad's unit history joins: the history of an ad on one unit lists an ad on the other |
+| `analysis.label_units` | table | unit of `analysis.ledger_rows` the label rule joins with another: its label unit, the count of units in it and the layer that joined it |
+| `analysis.rows` | view | fit-ready row: a row of `analysis.ledger_rows` with the label unit of its unit |
 | `analysis.ask_check` | table | fit-ready row with a latest ask 6 to 16 times, or a sixteenth to a sixth of, the median of its building's other rows with the same bedroom count, for review |
 | `analysis.lot_facts` | table | candidate ad: its lot and BIN, the MapPLUTO release it reads, and the lot's facts as of its first day |
 | `analysis.lot_landmarks` | table | candidate ad: its lot, and the landmark and historic district designations the LPC had made on the lot by its first day |
@@ -590,8 +593,8 @@ in `buildings.details` and the four building identity models, per lot and releas
 `buildings.lot_releases`, per release in `city.pluto_releases`, per record in
 `ads.record_attributes`, per `(listing_id, response_id)` in `ads.answers`, per `(listing_id, n)` in
 `ads.price_changes`, per `(listing_id, key)` in `ads.photos`, per pair of ads in
-`analysis.relist_pairs` and `analysis.relist_links`, per unit page in `analysis.relist_units`
-and per event in `ads.answer_events` and `ads.history_reports`. The `every_row`
+`analysis.relist_pairs` and `analysis.relist_links`, per unit page in `analysis.relist_units`,
+per unit in `analysis.label_units`, per pair of units in `analysis.history_pairs` and per event in `ads.answer_events` and `ads.history_reports`. The `every_row`
 audit, in `pipeline/audits/`, checks that `analysis.latest_ask` keeps every row of `analysis.kept`.
 When an audit fails, the plan stops, and the tables from the last good plan stay in place.
 
@@ -1412,7 +1415,7 @@ take an earlier certificate's.
 ## Fit-ready rows
 
 `analysis.rows` gives a fit its rows, one for each unit and month, with the values of the current
-chain's analysis datasets. I build them in seven steps.
+chain's analysis datasets. I build them in eight steps.
 
 1. `buildings.details` takes each building's slug and area name from its latest record. For the
    floor count, it takes the smallest positive `floorCount` among the building's records and
@@ -1450,14 +1453,16 @@ chain's analysis datasets. I build them in seven steps.
    Every candidate has a building and a bedroom count, since `ads.identity` and `ads.exclusions`
    give a reason to an ad lacking either, and an audit on `analysis.candidates` checks it.
 4. `analysis.kept` gives the kept candidates as a view.
-5. `analysis.rows` applies the corrections ledger to the kept rows, as described under
+5. `analysis.ledger_rows` applies the corrections ledger to the kept rows, as described under
    [Corrections ledger](#corrections-ledger). It adds each row's latest ask from
    `analysis.latest_ask` as `latest_ask`, after the ledger's ask sets. `asking_rent` stays the
    ad's first ask, as in the chain's datasets. The last column, `relist_unit`, gives the row's
    relist unit, as described under [Relist units](#relist-units).
-6. `analysis.ask_check` lists the rows with a latest ask far from their building's median for
+6. `analysis.rows` adds the label unit of each row's unit as its last column, `label_unit`, as
+   described under [Label units](#label-units).
+7. `analysis.ask_check` lists the rows with a latest ask far from their building's median for
    review, as described under [Ask check](#ask-check).
-7. `analysis.building_check` lists the rows whose lot's city record leaves no room for the ad,
+8. `analysis.building_check` lists the rows whose lot's city record leaves no room for the ad,
    as described under [Building check](#building-check).
 
 The chain checks a unit-month within a slice of one region's dataset, while `analysis.candidates`
@@ -1829,7 +1834,7 @@ Four models read the ledger:
    | `superseded` | sets a field a later live set of the row also sets |
    | `live` | applies |
 
-3. `analysis.rows` drops the rows of the live excludes and gives the values of the live
+3. `analysis.ledger_rows` drops the rows of the live excludes and gives the values of the live
    sets. A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
    chain's bath rules do. An ask set gives the row's `latest_ask` and leaves `asking_rent`, the
    first ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
@@ -1846,8 +1851,8 @@ have a latest ask other than their first.
 
 `analysis.latest_ask` reads `analysis.kept`, as the chain chooses each latest ask before its
 correction rules apply. A change to the ledger rebuilds only the two ledger models,
-`analysis.ask_check`, `analysis.lot_facts`, `analysis.building_check` and the views
-`analysis.rows` and `analysis.ads`. The catalog line of each
+`analysis.ask_check`, `analysis.lot_facts`, `analysis.building_check`, `analysis.label_units`
+and the views `analysis.ledger_rows`, `analysis.rows` and `analysis.ads`. The catalog line of each
 build lists the ledger's files with their SHA-256, and counts the entries by status and change.
 
 ### The chain's corrections
@@ -1985,8 +1990,9 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 
 The chain's `building-joins-v1`, `west-coast-wings-v1` and `unit-reviews-v2` are in the unit
 ledger, described under [Unit ledger](#unit-ledger), but for a split held for want of backing.
-Its other rules are not in a ledger yet: `unit-splits-v4`, `unit-labels-v17` and
-`fields-review-v3`. The rules moving ads to another unit or building go into the unit ledger.
+`analysis.label_units` joins units as `unit-labels-v17` does, as described under
+[Label units](#label-units). The chain's other rules are not in a ledger yet: `unit-splits-v4`
+and `fields-review-v3`. The rules moving ads to another unit or building go into the unit ledger.
 `ads.attributes` reads the elevator and pet policy from each ad's text in place of
 `elevator-from-ad-v1` and `pets-from-ad-v2`, as described under
 [Attributes and exclusions](#attributes-and-exclusions).
@@ -2524,6 +2530,57 @@ flag also drops images of the apartment itself: in 35 of the 85 matching pairs s
 key, a matching image also shows on two apartments known to differ, as it would when a broker
 uses one unit's photos for another. `analysis.relist_pairs` leaves photo hashes out.
 
+## Label units
+
+StreetEasy sometimes files one apartment under several unit pages of a building, with its label
+spelled another way on each: "4-B" and "4B", "ph04" and "ph4", "four" and "4", "C7" and "7C".
+The chain joins such pages in the fit with `unit-labels-v17`. I make the same joins from the API
+records in two models, and `analysis.rows` adds each row's label unit as its last column,
+`label_unit`. `ops/pipeline/observations.py` writes it as the row's `unit_id`, so a fit on the
+folders leaves the rule out.
+
+1. `analysis.history_pairs` lists the pairs of units an ad's history joins. Each answer carries
+   the history of the ad's unit page, and the history lists every ad StreetEasy files under
+   that page. When a listed ad lies on another unit in `ads.placed`, the two units likely hold
+   one apartment under two spellings of its label, or a broker filed an ad on the wrong page.
+   Each pair puts the lesser unit ID first and counts the links behind it.
+2. `analysis.label_units` reads the rows of `analysis.ledger_rows` and joins their units in
+   seven layers, in the order v17 takes them, each layer starting from the units of the one
+   before:
+   1. `labels` gives the unit pages of a building whose labels are one label written another
+      way ("APT-4B", "4-B", "04B") the least unit ID among them.
+   2. `aliases` joins the units of an alias group. I group each building's unit pages in
+      `ads.placed` by their label with case, punctuation and the leading zeros of every number
+      dropped, a bare floor ("2nd-floor", "fl-2") read as its number, and a leading apt, unit,
+      suite or residence word dropped, as `unit-spelling-alias-v2` does. A group of two or more
+      pages counts when a pair of `analysis.history_pairs` joins two of them.
+   3. `words` joins a unit labelled with a number word ("four", "third-fl") to the building's
+      unit labelled with that number.
+   4. `history` joins the two units of each pair of `analysis.history_pairs` in one building.
+   5. `swapped` joins a unit labelled letter first ("C7") to the building's unit labelled digit
+      first ("7C").
+   6. `word_letters` joins a unit labelled with a number word and a letter ("fourb") to the
+      unit labelled with that number and letter.
+   7. `spelled` joins units whose labels are one label spelled out and short ("3RDFL" and "3",
+      "PENTHOUSEA" and "PHA").
+
+   Layers 3 to 7 join two units only when the median bedroom counts of their rows agree. A
+   joined unit takes the least unit ID among its members. The model lists each unit joined with
+   another, with its label unit, the count of units in that label unit and the first layer to
+   join it.
+
+The model reads the rows after the unit-month check, as the fit applies v17, so a unit-month can
+still hold two rows of one label unit. Moving the joins ahead of the check would change the rows
+the check keeps, and I'll measure that as a change of its own. The first layer gives every row
+of a building and label the least unit ID among them. A split of the unit ledger leaves its ads
+on their page, so their `~review-` IDs fall back to the unit's, as under v17 in the fit, and the
+fit's `unit-reviews-v2` splits them again.
+
+v17 reads its history pairs and alias groups from files built from crawled unit pages, in the
+neighbourhoods of the served dataset. I build both from the API records for every building, so
+the model also joins units in the other neighbourhoods. On the test fixture, it joins two Park
+Slope units the chain's files leave out: "4th-floor" with "4", and "2nd-floor" with "2".
+
 ## Ads file
 
 The rows file holds the fit-ready rows only. Each build also writes `analysis.ads` to a file
@@ -2857,6 +2914,8 @@ holds the row's values under the chain's names and JSON types:
   `reported_full_bathrooms` and `reported_half_bathrooms` from `full_baths` and `half_baths`.
   `floor_status` and `building_floor_count` go into `floor_label_provenance` as `status` and
   `building_floor_count`.
+- `unit_id` comes from the row's `label_unit`, the unit `analysis.label_units` joins the row's
+  unit into. The script stops on a rows file without that column.
 - `asking_rent` comes from the row's `latest_ask`, after the ledger's ask sets, so the fit's
   `log_rent` follows the latest ask. A rows file from a build before that column holds only the
   first asks, and the script stops on it.
@@ -2878,11 +2937,12 @@ and `latest-ask` rules. `fields-review-v3`, the latest of its family, changes no
 `pipeline/ledger/2026-10-17-tenfold-asks.ndjson` holds the tenfold typos of `latest-ask-v8`.
 Since the rows read the elevator and pet policy from each ad's text, the fit leaves out
 `elevator-from-ad-v1` and `pets-from-ad-v2` as well. The unit ledger splits The West Coast as
-`west-coast-wings-v1` does, so the fit leaves that rule out too. It still applies
-`unit-labels-v17` and `unit-splits-v4`, since neither ledger holds their changes yet. It also
-keeps `unit-reviews-v2`, because the first step of `unit-labels-v17` undoes the ledger's splits,
-as described under [Unit ledger](#unit-ledger), and `building-joins-v1`, which changes nothing
-on the folder since the rows already carry its move.
+`west-coast-wings-v1` does, so the fit leaves that rule out too. The observations take each
+row's label unit as its `unit_id`, so the fit leaves out `unit-labels-v17` as well. It still
+applies `unit-splits-v4`, since no ledger holds its changes yet. It also keeps
+`unit-reviews-v2`, because the first layer of the label units undoes the ledger's splits, as
+described under [Label units](#label-units), and `building-joins-v1`, which changes nothing on
+the folder since the rows already carry its move.
 
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
@@ -3413,8 +3473,10 @@ in all, and most tests add made-up ads to that export. The tests:
 46. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
     file, with a made-up latest ask for an ad, after giving the catalog a line from a checkout
     with changes and a line cut short. `rentfrontier.data.load` reads the folder to the frame it
-    gives the chain's rows of the fixture with their latest asks and the made-up one, and the
-    floor fields `_flatten` leaves out match too. An ad missing from the chain's audit IDs gets
+    gives the chain's rows of the fixture with their latest asks and the made-up one, after the
+    chain's `unit-labels-v17`, and the floor fields `_flatten` leaves out match too. The chain's
+    alias table and history pairs leave out Park Slope, so the test gives two Park Slope units
+    the label units the pipeline joins them into An ad missing from the chain's audit IDs gets
     an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
     script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
     A second folder renames a neighbourhood to another, and its lines and manifest counts follow
@@ -3607,7 +3669,14 @@ The pipeline's `tests/test_building_check.py` checks the building check on made-
     StreetEasy gives 10 floors, an ad that advertises floor 3 under a label reading 12, a lot
     with a floor count of 0, lots with land use 04 and 05, lots with apartments or land use 04 in
     the latest release, a building where the ads place four units, and lots with a certificate
-    of occupancy with apartments or of a new building.
+    of occupancy with apartments or of a new building;
+76. read two dozen unit labels with `alias_key` of `analysis.label_units` and with
+    `normalize_label` under `unit-spelling-alias-v2`, and get the same keys. Group made-up unit
+    pages of a building into alias groups: only the group a history pair confirms comes out;
+77. run each layer of `analysis.label_units` on 30 made-up rows of two buildings, and compare
+    each layer's units with the units the chain's own steps of `unit-labels-v17` give the same
+    rows, pairs and alias groups. Then render the model over the rows, and check each joined
+    unit's label unit, count and layer.
 
 ## Full build
 

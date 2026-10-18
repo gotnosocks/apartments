@@ -11,6 +11,13 @@ OBSERVATIONS = (
     Path(__file__).resolve().parents[2] / "ops" / "pipeline" / "observations.py"
 )
 FIRST_ASK = "historical_initial_own_advertisement_ask"
+# The chain's alias table and history pairs cover the Manhattan neighbourhoods they were built
+# for. The pipeline builds both for every building, so it also joins two Park Slope units to the
+# units of their floor-word spellings: "4th-floor" to "4" and "2nd-floor" to "2".
+PARK_SLOPE = {
+    "unit:363741c4-1330-5f41-9e22-655ec9ae977d": "unit:357c333f-2e72-5a1f-9463-93a054593fe2",
+    "unit:5d0a7af9-8129-512c-8db7-9bdd4de0b3c7": "unit:05f12b29-34c5-5493-876c-55d1c039e589",
+}
 
 
 def load(name, path):
@@ -186,7 +193,10 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
     data = converter.frontier_data()
     chain = write_dataset(tmp_path / "chain", expected)
     ours = data.load(out, cache_root=tmp_path / "cache")
-    theirs = data.load(chain, cache_root=tmp_path / "cache")
+    theirs = data.DATA_RULES["unit-labels-v17"](
+        data.load(chain, cache_root=tmp_path / "cache")
+    )
+    theirs["unit_id"] = theirs.unit_id.replace(PARK_SLOPE)
     pd.testing.assert_frame_equal(ours, theirs, check_like=True)
     # The fields a fit's frame leaves out.
     lines = [json.loads(line) for line in (out / "observations.jsonl").open()]
