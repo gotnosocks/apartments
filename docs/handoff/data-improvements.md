@@ -1,6 +1,31 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 09:15 ET, after the 318 East 19th Street unit join in #1123. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 09:33 ET, after the one-bedroom sets in #1131. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 09:33 ET
+
+- #1131 adds `pipeline/ledger/2026-10-18-za-unit-bedrooms-onebed-coded-studio.ndjson`, the reverse of z9. It sets
+  465 studio-coded rows to 1 bedroom: each row's own ad describes a one-bedroom, and another ad for the same unit
+  codes 1 and says the same. The screen kept 826 rows. Sonnet read them as 683 one-bedroom, 107 studio and 36
+  unclear. The reviewer flagged loft bedrooms, a leasing-office ad and a unit label mismatch (3391667), and guards
+  in `ledger.py` now drop those cases. Scripts and reads are in `/data1/apartments/tmp/suspect/beds/onebed0`.
+- Modeling folds z9 and za into its next folder build.
+- The next new ledger file needs a name sorting after `2026-10-18-za-unit-bedrooms-onebed-coded-studio`, such as
+  `2026-10-18-zb-...`.
+
+## 2026-10-18 09:23 ET
+
+- #1129 adds `pipeline/ledger/2026-10-18-z9-unit-bedrooms-studio-coded-one.ndjson`, which sets 231 rows from
+  1 bedroom to 0. A text screen picked 1-bedroom rows whose ad says studio, and the tier kept 424 where every
+  other ad for the unit codes 0 and at least one of them says studio. Sonnet read all 424 (346 studio, 40
+  one-bedroom, 38 unclear). `ledger.py` then dropped rows with flex, alcove, "bedroom", "bonus room", a
+  bedroom count or two- to four-room words in either ad, renovation jumps, asks outside 0.75..1.33 of each
+  other, and listings already set. The reviewer caught a "three room studio" and a studio with a bonus room,
+  and the room-count guard now drops both. Scripts and reads are in `/data1/apartments/tmp/suspect/beds/studio1`.
+- Modeling's queued rebaseline already has z6 to z8. z9 (0.066% of 348,968 rows) goes into its next folder
+  build.
+- The next new ledger file needs a name sorting after `2026-10-18-z9-unit-bedrooms-studio-coded-one`, such
+  as `2026-10-18-za-...`.
 
 ## 2026-10-18 09:15 ET
 

@@ -2569,7 +2569,7 @@ described under [History splits](#history-splits), so a fit on the folders leave
    history. Given both copies of `ads.placed` in one join, DuckDB at some table sizes joins the
    copies first on their unequal page units, pairing every ad with every other. On Oct 18 that
    plan spilled 67 GB on the 3% sample under [Planted errors](#planted-errors) before I stopped
-   it, and `tests/test_history_pairs.py` reads the plan at five table sizes.
+   it, and `pipeline/tests/test_history_pairs.py` reads the plan at five table sizes.
 2. `analysis.label_units` reads the rows of `analysis.ledger_rows` and joins their units in
    seven layers, in the order v17 takes them, each layer starting from the units of the one
    before:
