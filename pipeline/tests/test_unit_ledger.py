@@ -260,15 +260,16 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     # Without a unit ledger, ads.placed repeats ads.identity.
     (differ,) = ctx.engine_adapter.fetchone(
         """SELECT count(*) FROM (
-            (SELECT * EXCLUDE (placements) FROM ads.placed
+            (SELECT * EXCLUDE (placements, page_unit) FROM ads.placed
                 EXCEPT ALL SELECT * FROM ads.identity)
             UNION ALL
             (SELECT * FROM ads.identity
-                EXCEPT ALL SELECT * EXCLUDE (placements) FROM ads.placed)
+                EXCEPT ALL SELECT * EXCLUDE (placements, page_unit) FROM ads.placed)
         )"""
     )
     (placed,) = ctx.engine_adapter.fetchone(
-        "SELECT count(*) FROM ads.placed WHERE placements <> []"
+        """SELECT count(*) FROM ads.placed
+        WHERE placements <> [] OR page_unit IS DISTINCT FROM unit_id"""
     )
     assert (differ, placed) == (0, 0)
     identity = ctx.fetchdf("SELECT * FROM ads.identity")
@@ -343,9 +344,12 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         "analysis.building_certificates",
         "analysis.building_check",
         "analysis.candidates",
+        "analysis.history_pairs",
         "analysis.kept",
+        "analysis.label_units",
         "analysis.latest_ask",
         "analysis.latest_change",
+        "analysis.ledger_rows",
         "analysis.lot_facts",
         "analysis.lot_landmarks",
         "analysis.relist_links",
@@ -391,7 +395,9 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         expected.loc[joined, "unit_id"] = before.unit_id[joined].min()
         for ad in before.index[joined]:
             placements[ad].append(ids[entry])
-    # The joins come first, so the split ads start from unit 6's ID, the lesser of the join.
+    # The joins come first, so the split ads start from unit 6's ID, the lesser of the join, and
+    # every ad keeps its unit after the joins as its page unit.
+    expected["page_unit"] = expected.unit_id
     assert (expected.unit_id[split_ads] != before.unit_id[split_ads]).all()
     for ad in split_ads:
         expected.loc[ad, "unit_id"] += "~review-" + split_ads[0]
@@ -435,3 +441,13 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
             (p.unit_id, p.building, p.placements)"""
     )
     assert (differ, unplaced) == (0, 0)
+    # The history pairs and label units read page units, so they name no split.
+    (splits,) = ctx.engine_adapter.fetchone(
+        """SELECT count(*) FROM (
+            SELECT unit_id FROM analysis.history_pairs
+            UNION ALL SELECT other_unit_id FROM analysis.history_pairs
+            UNION ALL SELECT unit_id FROM analysis.label_units
+            UNION ALL SELECT label_unit FROM analysis.label_units
+        ) WHERE unit_id LIKE '%~review-%'"""
+    )
+    assert splits == 0

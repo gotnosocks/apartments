@@ -35,6 +35,9 @@ steps:
        `asking_rent` holds the first ask, which only the check reads. The script stops on a
        rows file without `latest_ask`, as written by builds before the column, and on a row
        without a latest ask.
+     - `unit_id` from the row's `label_unit`: the unit `analysis.label_units` joins the row's
+       unit into, as the chain's `unit-labels-v17` joins it, or the row's unit. The script
+       stops on a rows file without `label_unit`, as written by builds before the column.
      - `neighbourhood` as the rows file gives it, or as NEW for each `--rename OLD=NEW`. The
        neighbourhoods of step 2 name the rows file's neighbourhoods, before the renames, and
        the script adds each OLD to them. It stops if a rename moves no rows.
@@ -54,9 +57,10 @@ refuses an OUT already there.
 With `--check-against DATASET`, the script writes nothing to OUT. It loads OUT and DATASET with
 `rentfrontier.data.load`, its cache in a temporary folder, matches their rows by ad and counts
 the differences field by field. Before comparing, it gives DATASET's rows the asks of the
-chain's latest ask rule, `latest-ask-v9` unless `--latest-ask` names another, and the fills of
-the rules `elevator-from-ad-v1` and `pets-from-ad-v2`, as the served fit does. It compares the
-rows file's first asks with DATASET's own asks. It then puts each difference down to the first
+chain's latest ask rule, `latest-ask-v9` unless `--latest-ask` names another, the fills of the
+rules `elevator-from-ad-v1` and `pets-from-ad-v2`, and the units of `building-joins-v1`,
+`west-coast-wings-v1` and `unit-labels-v17`, in that order, as the served fit does. It compares
+the rows file's first asks with DATASET's own asks. It then puts each difference down to the first
 of these causes to fit, checked in this order:
   - the ad has a live ledger set of the field,
   - the API chain's dataset given as `--api-reference` holds the ad with OUT's value,
@@ -101,6 +105,9 @@ EXPORT = Path("/data1/apartments/archive/crawls/api/export")
 CHAIN_RUN = 5
 # The served fit's rules filling an unknown elevator or pet policy from the row's own ad.
 AD_FILLS = ("elevator-from-ad-v1", "pets-from-ad-v2")
+# The served fit's rules moving ads to other units, in the fit's order. The rows carry their
+# changes: the unit ledger's moves and the label units.
+UNIT_RULES = ("building-joins-v1", "west-coast-wings-v1", "unit-labels-v17")
 # The fields the rules fill, with their names in the ads file's `from_text`.
 TEXT_FIELDS = {"elevator": "elevator", "pets": "pet_policy"}
 
@@ -188,7 +195,7 @@ def first_ask_ids(db, dataset: Path) -> dict:
 
 
 RECORD = """
-SELECT r.listing_id, r.unit_id, r.page, r.building,
+SELECT r.listing_id, r.label_unit, r.page, r.building,
     strftime(timezone('UTC', r.price_at), '%Y-%m-%dT%H:%M:%S+00:00') AS price_at,
     strftime(r.period, '%Y-%m-%d') AS period, r.latest_ask, r.bedrooms, r.bathrooms,
     r.full_baths, r.half_baths, r.square_feet, r.listed_floor, r.label_derived_floor,
@@ -327,6 +334,12 @@ def write(
             f"{build['rows']['path']} has no latest_ask column. Its asking_rent holds the "
             "first ask, and the fits take the latest ask, so build the rows file again "
             "with a checkout writing latest_ask."
+        )
+    if "label_unit" not in {c[0] for c in columns}:
+        raise SystemExit(
+            f"{build['rows']['path']} has no label_unit column. The fits take each row's "
+            "label unit in place of unit-labels-v17, so build the rows file again with a "
+            "checkout writing label_unit."
         )
 
     tmp = out.with_name(f".{out.name}.tmp-{os.getpid()}")
@@ -509,7 +522,7 @@ def check(
         ref = side(data, db, api, Path(cache))[0] if api else None
     theirs["first_ask"] = theirs.asking_rent
     theirs = data.DATA_RULES[rule](theirs).drop(columns="log_rent")
-    for fill in AD_FILLS:
+    for fill in AD_FILLS + UNIT_RULES:
         theirs = data.DATA_RULES[fill](theirs)
     previous = {"latest-ask-v9": "latest-ask-v8", "latest-ask-v8": "latest-ask-v7"}.get(
         rule

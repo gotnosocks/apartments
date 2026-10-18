@@ -17,7 +17,7 @@ MODEL (
 --               ask analysis.latest_ask gives the row, or its `bbl` from the lot
 --               buildings.lots gives the row's building. `differs` names the values.
 --   superseded  a later live set gives the same field of the same row.
---   live        it applies. analysis.rows applies a live exclude or set, and
+--   live        it applies. analysis.ledger_rows applies a live exclude or set, and
 --               analysis.lot_facts a live drop_lot.
 WITH checked AS (
     SELECT e.entry, e.file, e.line, e.seq, e.listing_id, e.change, e.field,
