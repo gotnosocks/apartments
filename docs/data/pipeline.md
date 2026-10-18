@@ -2926,10 +2926,11 @@ The build gives the step the export's version, its SHA-256 over the list of ads 
 hashes. After writing a file, the step notes it in the cache folder, in `written.ndjson`, with
 the version, OUT, and the file's size and modification time. On the next build, if the notes
 give a file under the same version for the same OUT, and the file still has its noted size and
-modification time, the step returns the noted line without reading the export, and the catalog
-line marks it `reused`. Without the notes, each build of the Oct 17 export rewrote and hashed
-the same 3.4 GB file, in about 90 s of a 185 s build after a code change. A top-up changes the
-version, so the step writes a new file as before.
+modification time, the step returns the noted line without reading the export, and the build
+writes `reused: true` in its catalog line. Without the notes, each build of the Oct 17 export
+rewrote and hashed the same 3.4 GB file, in about 90 s of a 185 s build after a code change.
+New ads files change the version, so after a top-up with new answers the step writes a new file
+as before.
 
 ### Against the granular export
 
@@ -3412,8 +3413,8 @@ in all, and most tests add made-up ads to that export. The tests:
     ads file and the records file and the export files' and city files' hashes against their
     SHA-256. The ads file holds each ad once, and its ads with `in_rows` are the rows file's
     ads. The records file holds each of the 229 records once, sorted by listing. The second
-    build rebuilds nothing, reads no record, writes the same files and appends a second catalog
-    line. Last, the test adds an export file repeating an answer and checks that the build stops
+    build rebuilds nothing, reads no record, writes the same rows and ads files, returns the
+    noted records file and appends a second catalog line. Last, the test adds an export file repeating an answer and checks that the build stops
     and leaves OUT as it was. Item 74 describes the test of a top-up build;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, an ask set of 0, an ask set without its recorded ask and an ask set backed only
@@ -3667,7 +3668,10 @@ in all, and most tests add made-up ads to that export. The tests:
 49. write the records file of the fixture export and compare each row with its answer: the
     listing, the response ID and SHA-256, the record as `serialize` gives it, and the answer's
     time in seconds as both the first and the last time. A second run reads nothing into the
-    cache, leaves one file of the same bytes and deletes another version's cache folder;
+    cache, leaves one file of the same bytes and deletes another version's cache folder. With
+    an export version, a second call returns the noted file without opening the export and
+    leaves its modification time alone. Another version, or a new modification time, makes the
+    step write the file again, and a version with no note reads the export;
 50. write the records file of a made-up record with integral and fractional floats in its
     price, price changes and sizes, `__typename` keys at each depth and non-ASCII text, and
     compare its `raw_listing_json` with the expected text;

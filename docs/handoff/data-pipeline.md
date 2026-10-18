@@ -407,8 +407,8 @@ The older items follow.
       evidence. Next: a fallback to the last change before a typo in place of the first ask.
    10. **Done** in #1103: the records step notes each file it writes under the export's version,
        in `written.ndjson` of its cache folder. A build of the same export and code returns the
-       noted file, while it keeps its noted size and modification time, without rewriting and
-       hashing it. In the lane `tmp/pipeline/lanes/records-reuse`, a second build of the Oct 17
+       noted file without rewriting and hashing it, as long as the file keeps its noted size and
+       modification time. In the lane `tmp/pipeline/lanes/records-reuse`, a second build of the Oct 17
        export took 28 s with 0 s in the records step. Before, that step took about 90 s of each
        build after a code change.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR

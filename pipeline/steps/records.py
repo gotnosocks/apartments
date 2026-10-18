@@ -35,7 +35,8 @@ from the export, the step works like this:
 When `ops/pipeline/build.py` gives the export's version, the step reads its notes in the cache
 folder, `written.ndjson`, right after taking the lock. If they give a file under that version for
 the same OUT, and the file still has its noted size and modification time, the step returns the
-noted line and skips steps 2 to 5. Otherwise it goes on as above and notes the file it writes.
+noted line and skips steps 2 to 5, along with step 1's removal of `.part` files, which runs at
+the start of step 2. Otherwise it goes on as above and notes the file it writes.
 On the Oct 17 export, writing and hashing the 3.4 GB file took about 90 s of each build.
 
 The step stops with an error on an export without records, rather than writing an empty file.
@@ -264,7 +265,11 @@ def written(folder: Path, version: str, out: Path) -> dict | None:
     if not notes.exists():
         return None
     for text in reversed(notes.read_text().splitlines()):
-        entry = json.loads(text)
+        # A step stopped while appending leaves a cut-off line.
+        try:
+            entry = json.loads(text)
+        except json.JSONDecodeError:
+            continue
         if entry["version"] != version or entry["out"] != str(out.resolve()):
             continue
         try:
@@ -293,8 +298,11 @@ def note(folder: Path, version: str, out: Path, line: dict) -> None:
         "bytes": stat.st_size,
         "mtime_ns": stat.st_mtime_ns,
     }
-    with open(folder / NOTES, "a") as f:
-        f.write(json.dumps(entry, sort_keys=True) + "\n")
+    path = folder / NOTES
+    # After a cut-off line, the entry starts a line of its own.
+    start = "\n" if path.exists() and not path.read_text().endswith("\n") else ""
+    with open(path, "a") as f:
+        f.write(start + json.dumps(entry, sort_keys=True) + "\n")
 
 
 def write_locked(cursor, files, folder: Path, out: Path, workers: int) -> dict:
