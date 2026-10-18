@@ -134,7 +134,8 @@ def pipeline_files(root: Path) -> dict | None:
 
 CURRENT_ADS = """
 SELECT a.listing_id, a.unit_id, a.building AS building_id, a.page AS unit_url,
-  a.response_id, a.fetched::TIMESTAMP AS collected_at, a.page_price AS ask,
+  a.response_id, a.fetched::TIMESTAMP AS collected_at, a.page_price * {net} AS ask,
+  a.page_price AS gross_ask, {months_free} AS months_free, {lease_term} AS lease_term,
   a.bedrooms AS ad_bedrooms, a.bathrooms AS ad_bathrooms, a.square_feet AS ad_square_feet,
   r.listing_id IS NOT NULL AS in_rows,
   r.bedrooms, r.bathrooms, r.full_baths, r.half_baths, r.square_feet,
@@ -144,6 +145,47 @@ FROM read_parquet($ads) a LEFT JOIN read_parquet($rows) r ON r.listing_id = a.li
 WHERE a.status = 'ACTIVE' AND a.unit_id IS NOT NULL AND a.fetched BETWEEN $start AND $at
 ORDER BY a.unit_id, a.fetched DESC, a.listing_id DESC
 """
+
+
+def _concession_columns(con, files: dict) -> dict[str, str]:
+    """The CURRENT_ADS expressions for an ad's concession, from pipeline files that have
+    its columns: the rows file's net ask over its gross ask scales the page's gross price,
+    and the ads file gives the free months and the lease term. Files from before the
+    pipeline kept concession ads give a factor of 1 and no terms."""
+
+    def columns(path):
+        return {
+            name
+            for name, *_ in con.execute(
+                "DESCRIBE SELECT * FROM read_parquet(?)", [path]
+            ).fetchall()
+        }
+
+    ads, rows = columns(files["ads"]), columns(files["rows"])
+    net = "1"
+    if {"latest_ask", "latest_gross"} <= rows:
+        net = (
+            "CASE WHEN r.latest_gross > 0 AND r.latest_ask > 0 "
+            "THEN r.latest_ask / r.latest_gross ELSE 1 END"
+        )
+    terms = {"months_free", "lease_term"} <= ads
+    return {
+        "net": net,
+        "months_free": "a.months_free" if terms else "NULL::DOUBLE",
+        "lease_term": "a.lease_term" if terms else "NULL::DOUBLE",
+    }
+
+
+def concession(c: dict) -> str | None:
+    """The ad's concession in words, with the gross price the page shows, or None when the
+    ad has no free months."""
+    free, term = c.get("months_free"), c.get("lease_term")
+    if not free or not term or not 0 < free < term:
+        return None
+    months = f"{free:g} month{'s' if free != 1 else ''}"
+    gross = c.get("gross_ask")
+    shown = f" (gross ask ${gross:,.0f})" if gross else ""
+    return f"{months} free on a {term:g}-month lease{shown}"
 
 
 def current_ads(
@@ -175,7 +217,7 @@ def current_ads(
     try:
         con.execute("SET TimeZone = 'UTC'")
         cursor = con.execute(
-            CURRENT_ADS,
+            CURRENT_ADS.format(**_concession_columns(con, files)),
             {
                 "ads": files["ads"],
                 "rows": files["rows"],
@@ -576,7 +618,7 @@ def rows(
                 "pets": c.get("pet_policy"),
                 "views": _true_keys(c.get("view_exposures")),
                 "windows": _true_keys(c.get("window_exposures")),
-                "concession": None,
+                "concession": concession(c),
                 "collected_at": c["collected_at"],
                 "in_fit": 0,
                 "unit_fit_rows": fit_rows,

@@ -534,10 +534,11 @@ class Pipeline:
     def __init__(self, root):
         self.root = root
 
-    def write(self, ads, rows=None):
+    def write(self, ads, rows=None, ad_columns=None, row_columns=None):
         """Write `ads` as the newest build's ads file and `rows` as its rows file, and give
         the build's files. Each dict gives the values of its file's columns, and the rows
-        default to the ads' own values, one row for each ad."""
+        default to the ads' own values, one row for each ad. `ad_columns` and `row_columns`
+        add columns to each file, by name and type."""
         from apartments.site import captures
 
         rows = ads if rows is None else rows
@@ -549,8 +550,8 @@ class Pipeline:
             "code": {"clean": True, "commit": "0" * 40},
         }
         for name, key, columns, values in (
-            ("ads", "ads_file", self.AD, ads),
-            ("rows", "rows", self.ROW, rows),
+            ("ads", "ads_file", {**self.AD, **(ad_columns or {})}, ads),
+            ("rows", "rows", {**self.ROW, **(row_columns or {})}, rows),
         ):
             con.execute(
                 f"CREATE OR REPLACE TABLE {name} ("
