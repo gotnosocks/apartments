@@ -13,9 +13,11 @@ MODEL (
 --   retract     the entry undoes another.
 --   retracted   a later entry undoes it.
 --   absent      a join finds ads with a unit on fewer than two of its pages, a split finds none
---               of its ads, or a move finds no ad in its building.
---   stale       a split lists an ad with another page or with no unit, or a move's `to` matches
---               no building's slug, or more than one. `differs` gives the split's ads, or 'to'.
+--               of its ads, a move finds no ad in its building, or a split_building finds no ad
+--               of its building, after the live moves, with a page its labels match.
+--   stale       a split lists an ad with another page or with no unit, a move's `to` matches
+--               no building's slug, or more than one, or a split_building's `to` matches a
+--               building's slug. `differs` gives the split's ads, or 'to'.
 --               A split with an `into` is also stale, with 'into', when the split it points
 --               into isn't live.
 --   live        it applies, and ads.placed applies it.
@@ -61,17 +63,25 @@ moves AS (
     LEFT JOIN slugs s ON s.slug = u.to_building
     WHERE u.change = 'move_building'
 ),
+wings AS (
+    SELECT u.entry, true AS present,
+        CASE WHEN s.slug IS NULL THEN '' ELSE 'to' END AS differs
+    FROM ledger.unit_entries u
+    LEFT JOIN slugs s ON s.slug = u.to_building
+    WHERE u.change = 'split_building'
+),
 checked AS (
     SELECT u.entry, u.file, u.line, u.change, u.building,
         u.entry IN (
             SELECT retracts FROM ledger.unit_entries WHERE change = 'retract'
         ) AS retracted,
-        coalesce(j.present, s.present, m.present) AS present,
-        coalesce(j.differs, s.differs, m.differs, '') AS differs
+        coalesce(j.present, s.present, m.present, w.present) AS present,
+        coalesce(j.differs, s.differs, m.differs, w.differs, '') AS differs
     FROM ledger.unit_entries u
     LEFT JOIN joins j USING (entry)
     LEFT JOIN splits s USING (entry)
     LEFT JOIN moves m USING (entry)
+    LEFT JOIN wings w USING (entry)
 ),
 statuses AS (
     SELECT entry, file, line, change, building,
@@ -85,16 +95,38 @@ statuses AS (
         CASE WHEN present THEN differs ELSE '' END AS differs
     FROM checked
 ),
+-- A split_building looks for its ads among the buildings after the live moves, as ads.placed
+-- applies it. read_units lets a building split once, so its labels meet each ad once.
+live_moves AS (
+    SELECT u.building, u.to_building
+    FROM ledger.unit_entries u
+    JOIN statuses s USING (entry)
+    WHERE s.status = 'live' AND u.change = 'move_building'
+),
+moved AS (
+    SELECT coalesce(m.to_building, i.building) AS building, i.page
+    FROM ads.identity i
+    LEFT JOIN live_moves m ON m.building = i.building
+),
+found AS (
+    SELECT DISTINCT u.entry
+    FROM ledger.unit_entries u
+    JOIN moved m ON m.building = u.building
+    WHERE u.change = 'split_building'
+        AND regexp_full_match(lower(regexp_extract(m.page, '[^/]+$')), u.labels)
+),
 -- read_units lets a split point only into a split with no `into` of its own, so one step
 -- settles each split's status.
 pointed AS (
     SELECT s.*, s.status = 'live' AND u.into_entry IS NOT NULL
-        AND t.status IS DISTINCT FROM 'live' AS dangling
+        AND t.status IS DISTINCT FROM 'live' AS dangling,
+        s.change = 'split_building' AND s.status IN ('live', 'stale')
+        AND s.entry NOT IN (SELECT entry FROM found) AS unfound
     FROM statuses s
     JOIN ledger.unit_entries u USING (entry)
     LEFT JOIN statuses t ON t.entry = u.into_entry
 )
 SELECT entry, file, line, change, building,
-    CASE WHEN dangling THEN 'stale' ELSE status END AS status,
-    CASE WHEN dangling THEN 'into' ELSE differs END AS differs
+    CASE WHEN unfound THEN 'absent' WHEN dangling THEN 'stale' ELSE status END AS status,
+    CASE WHEN unfound THEN '' WHEN dangling THEN 'into' ELSE differs END AS differs
 FROM pointed

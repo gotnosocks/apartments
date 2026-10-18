@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -43,6 +44,17 @@ def move(building, to, **keys):
     return unit_line("move_building", building=building, to=to, evidence=[CITY], **keys)
 
 
+def wing(building, labels, to, **keys):
+    return unit_line(
+        "split_building",
+        building=building,
+        labels=labels,
+        to=to,
+        evidence=[CITY],
+        **keys,
+    )
+
+
 def retract(text):
     return unit_line("retract", entry=ledger.entry_id(text))
 
@@ -75,7 +87,16 @@ def write(folder, name, lines):
             split("b", "1", ["123"]),
             "other_ad evidence gives other ads than the entry's own",
         ),
-        (move("b", "b"), "a move_building moves a building to another"),
+        (move("b", "b"), "a move_building gives its ads another slug"),
+        (wing("b", r"\d{3}", "b"), "a split_building gives its ads another slug"),
+        (wing("b", "(", "c"), "a split_building gives its labels as a regular"),
+        (wing("b", "", "c"), "a split_building gives its labels as a regular"),
+        (wing("b", 3, "c"), "a split_building gives its labels as a regular"),
+        (wing("b", "1", "c?"), "to is a slug"),
+        (
+            unit_line("split_building", building="b", to="c", evidence=[CITY]),
+            "a split_building needs labels",
+        ),
         (move("b", "c?"), "to is a slug"),
         (
             join("b", ["1", "2"], evidence=[QUOTE]),
@@ -97,6 +118,7 @@ def test_read_units_refuses(tmp_path):
     a = join("b", ["1", "2"])
     s = split("b", "1", ["5", "6"])
     m = move("b", "c")
+    w = wing("b", r"\d{3}", "b-wing")
     cases = {
         "repeat": ([a, a], "x.ndjson:2: repeats x.ndjson:1"),
         "page twice": (
@@ -115,6 +137,14 @@ def test_read_units_refuses(tmp_path):
         "moves a target": (
             [m, move("c", "d")],
             "x.ndjson:2: c takes the move at x.ndjson:1, so it stays where it is",
+        ),
+        "splits twice": (
+            [w, wing("b", "[a-z]+", "b-east")],
+            "x.ndjson:2: b splits at x.ndjson:1",
+        ),
+        "a wing's slug twice": (
+            [w, wing("c", r"\d{3}", "b-wing")],
+            "x.ndjson:2: the split_building at x.ndjson:1 gives the slug b-wing",
         ),
         "retract later": (
             [retract(a), a],
@@ -211,6 +241,11 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     - move: 1115 Union Street to 260 West 91st Street, a building with a record.
     - move stale: to a slug of no building.
     - move absent: a building with no ads.
+    - wing: 260 West 91st Street, after the move, split by labels that match a unit of 1115
+      Union Street and one of its own.
+    - wing absent: labels that match no unit of 129 West 89th Street.
+    - wing moved away: 1115 Union Street, which has no ads left after the move.
+    - wing stale: a wing of 89 Adelphi Street with the slug of 270 15th Street.
     """
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
@@ -260,6 +295,8 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         if ad != "1342669"
     )
     stale_unit = units(west_89)[0]
+    wing_units = [units(union)[0], units(west_91)[-1]]
+    labels = "|".join(re.escape(unit) for unit in wing_units)
     (stale_ad, *_) = ads(west_89, stale_unit)
     entries = {
         "join": join(adelphi, units(adelphi)),
@@ -273,6 +310,10 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         "move": move(union, west_91),
         "move stale": move(west_89, "no-such-building"),
         "move absent": move("no-such-building-either", fifteenth),
+        "wing": wing(west_91, labels, "260-west-91-street-wing"),
+        "wing absent": wing(west_89, "no-such-label", "129-west-89-street-wing"),
+        "wing moved away": wing(union, ".*", "1115-union-street-wing"),
+        "wing stale": wing(adelphi, ".*", fifteenth),
     }
     later = {
         "retract": retract(entries["join retracted"]),
@@ -319,6 +360,10 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         ids["move"]: ("live", ""),
         ids["move stale"]: ("stale", "to"),
         ids["move absent"]: ("absent", ""),
+        ids["wing"]: ("live", ""),
+        ids["wing absent"]: ("absent", ""),
+        ids["wing moved away"]: ("absent", ""),
+        ids["wing stale"]: ("stale", "to"),
         ids["retract"]: ("retract", ""),
         ids["join later"]: ("live", ""),
     }
@@ -348,6 +393,12 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
     expected.loc[moved, ["building", "building_id"]] = [west_91, west_91_id]
     for ad in before.index[moved]:
         placements[ad].append(ids["move"])
+    # The wing takes ads of both buildings, as it splits after the move. They keep their IDs.
+    winged = before.building.isin([union, west_91]) & page.isin(wing_units)
+    assert set(before.building[winged]) == {union, west_91}
+    expected.loc[winged, "building"] = "260-west-91-street-wing"
+    for ad in before.index[winged]:
+        placements[ad].append(ids["wing"])
     expected["placements"] = [sorted(placements[ad]) for ad in expected.index]
     placed["placements"] = placed.placements.map(list)
     placed["reasons"] = placed.reasons.map(list)
