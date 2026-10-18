@@ -1,6 +1,21 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 03:25 ET, after the square-foot fills in #1109. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 03:50 ET, after the big-studio bedroom sets in #1113. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 03:50 ET
+
+- #1113 adds `pipeline/ledger/2026-10-18-z6-unit-bedrooms-bigstudio.ndjson`, 8 bedroom sets on rows coded as
+  studios at 1,500 sq ft or more. `/data1/apartments/tmp/suspect/beds/bigstudio/screen.py` takes the 459 such
+  rows and keeps the 47 whose text states one bedroom count. 21 have another ad for the unit coding that count,
+  and Sonnet read them: 17 wrong, 1 right, 3 unclear. `ledger.py` adds a flex check over both whole ad texts
+  ("used as a", "or office", alcove and the like), which review asked for after 1856896 turned out to count a
+  flex room. It also drops 5172289 and 4885204, which looked like real fixes; a later file could take them.
+- The looser stated-size parse (`sqft/missing/interior2.py`) writes `stated_interior_sqft_v2.parquet`, 817 rows.
+  Haiku read 100 of them: 96 interior, 3 outdoor, 1 unclear. Most of the 6,219 unknown-size ads mentioning a size
+  give only building amenity figures (4,715 mentions over 6,000 sq ft), so about 0.5% of unknown-size rows is the
+  most that can gain a size, and Modeling keeps that fit last.
+- The next new ledger file needs a name sorting after `2026-10-18-z6-unit-bedrooms-bigstudio`, such as
+  `2026-10-18-z7-...`, or a later date.
 
 ## 2026-10-18 03:25 ET
 
@@ -18,8 +33,6 @@ Updated 2026-10-18 03:25 ET, after the square-foot fills in #1109. Thread owner:
   size. Looser versions picked up amenity and roof-deck sizes. The data is ad text alone, so it enters as a
   feature and stays out of the ledger. Modeling keeps that fit last in its queue, because 724 rows cover about 0.4%
   of the unknown-size rows. A looser parse with a checked sample would move it up.
-- The next new ledger file needs a name sorting after `2026-10-18-z5-unit-sqft-missing`, such as
-  `2026-10-18-z6-...`, or a later date.
 
 ## 2026-10-18 02:40 ET
 
