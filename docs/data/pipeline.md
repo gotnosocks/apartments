@@ -2683,7 +2683,31 @@ walks only the units with two or more bedroom counts, since a unit with one coun
 piece, and it lists the rows of the later pieces with their label unit and piece. The walk runs
 in Python over the rows sorted in DuckDB.
 
-PORT_DIFF
+### The port's diff
+
+I built the branch in the lane `tmp/pipeline/lanes/splits-port`, on the state of the labels lane.
+That lane's last folder, `out/b3`, came from code with master's models, and I compared it with the
+branch's folder using `ops/pipeline/port_diff.py`:
+
+- The worktree's ledger path changed with the same files, so the ledger models built again, and
+  with them `ads.placed` and every model after it. The build took 3:03, at a peak of 4.06 GiB,
+  and `analysis.history_splits` took 1.1 s of it.
+- With v4 given to master's folder alone, all 350,202 rows match, 23,248 of them in a later
+  piece.
+- With `building-joins-v1`, `sqft-units-v1`, `unit-reviews-v5` and `unit-splits-v4` given to
+  master's folder, as a fit applies them, and `sqft-units-v1` to the branch's, 4 rows change
+  unit, all at 249 West 29th Street 3E within NB9. The share is 0.0011%, under
+  `NEGLIGIBLE_SHARE`, so the move needs no refit.
+
+At 249 West 29th Street 3E, StreetEasy lists two one-bedroom ads of 2015 without a size, a
+studio of 2017 at $2,000 without a size or a floor plan, and one-bedroom ads of 2020, 2022 and
+2026 stating 900 to 1,000 sq ft. `unit-reviews-v5` splits the studio ad off, and the unit ledger
+holds that split back for want of backing. On master's folder, the review's split leaves the
+one-bedrooms in a single piece. On the branch's, v4 starts a piece at the studio, and the
+footage hold keeps the sized one-bedroom ads after it in that piece, as the studio gave no size.
+
+Across all scraped areas, the rows file of the build puts 130,553 of its 1,746,770 rows in a
+later piece: 77,585 pieces of 71,981 units.
 
 ## Ads file
 
@@ -3392,8 +3416,10 @@ in all, and most tests add made-up ads to that export. The tests:
 25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
     `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test checks
     the changed rows of `analysis.candidates`, `analysis.kept` and `analysis.rows` against the
-    base's sizes above the bound, finds the new column and the new model, and finds no other
-    model changed. A second copy drops the price events of
+    base's sizes above the bound. Without those sizes, `analysis.history_splits` holds fewer ads
+    in their piece, and the test checks that the rows it moves take another piece in
+    `analysis.rows`. It finds the new column and the new model, and finds no other model
+    changed. A second copy drops the price events of
     `ads.history_events`, a model without a grain, and the test checks the count of rows only in the
     base. A third copy drops sizes in `pipeline/steps/attributes.py` and spaces the JSON of
     `canonical` in `src`, and the test finds both changes in `ads.record_attributes`. In a fourth
