@@ -675,3 +675,48 @@ def test_building_suggestions(site_root, client):
     for path in ("/estimate", "/listings", "/buildings", "/estimates"):
         assert 'data-suggest="/buildings.json"' in page(client, path)
     assert 'data-suggest-id="building"' in page(client, "/estimate")
+
+
+def test_the_form_reads_the_draws_from_the_kit_file(tmp_path, site_root, client):
+    import duckdb
+
+    terms = {
+        "level": [0.1, 0.12, 0.08, 0.11],
+        "bedroom_slope": [0.01, 0.0, 0.02, 0.01],
+        "fslope": [[0.03], [0.01], [0.02], [0.0]],
+    }
+    install_kit(site_root)
+    path = (site_root / "current" / "site.sqlite").resolve()
+    db = sqlite3.connect(path)
+    db.execute(
+        "UPDATE kit_buildings SET level = ?, bedroom_slope = ?, fslope = ? "
+        "WHERE building_id = ?",
+        (*(json.dumps(v) for v in terms.values()), GROVE),
+    )
+    db.commit()
+    url = f"/estimate?building={GROVE}&bedrooms=1&sqft=650&floor=12&ask=9000"
+    stored = page(client, url)
+    kit_dir = tmp_path / "kit"
+    kit_dir.mkdir()
+    src = tmp_path / "b.jsonl"
+    src.write_text(
+        "\n".join(
+            json.dumps({"building": b, **terms}) for b in ("a-building", GROVE, "z")
+        )
+    )
+    duckdb.connect().execute(
+        f"COPY (SELECT * FROM read_json_auto('{src}')) "
+        f"TO '{kit_dir / 'buildings.parquet'}' (FORMAT parquet)"
+    )
+    record = estimate_build.write_kit_file(
+        kit_dir, path.parent / estimate_build.KIT_FILE
+    )
+    assert record["rows"] == 3 and record["sorted"]
+    db.execute("DELETE FROM kit_buildings")
+    db.commit()
+    db.close()
+    assert (
+        estimate_build.building(sqlite3.connect(path), GROVE, path.parent).fslope
+        == terms["fslope"]
+    )
+    assert page(client, url) == stored and 'id="result"' in stored

@@ -242,6 +242,14 @@ listings fall in each band, as calibration predicts.
    ranges in the table. The kit's scoring check reads its reference ranges the same way, for the
    few hundred rows it scores. A listing with no atoms or no noise table for its group shows no
    range. The lists show no ranges for these rows (Ben, 2026-10-17).
+
+   With `SITE_KIT_ON_REQUEST=1` the build leaves the `kit_buildings` table empty and copies the
+   kit's `buildings.parquet` into `kit_buildings.parquet` beside `site.sqlite`
+   (`estimate_build.write_kit_file`), in row groups of 2,048 buildings with each building's
+   feature slopes in a single list, and `meta.stats.estimate_form.kit_file` records its rows,
+   bytes and whether it came out sorted. The estimate form reads the picked building's draws from
+   it through DuckDB. On the all-scraped kit the file holds 421 MB in place of 2.08 GB of JSON,
+   the copy takes 12 s with 0.3 GB resident, and a lookup takes about 55 ms.
 3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
    needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
