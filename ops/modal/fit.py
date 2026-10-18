@@ -380,8 +380,15 @@ def score_new_buildings(modal_app, spec):
 
 def wants_summary(spec, split):
     """Whether a downloaded fit gets a summary bundle: only full-tier fits are served, and
-    rentfrontier.summary refuses the unit and latest splits."""
-    return spec["tier"] == "full" and split in ("rows", "all") and not spec.get("large")
+    rentfrontier.summary refuses the unit and latest splits, and reads no B0 run."""
+    run_args = spec.get("run_args", [])
+    b0 = ("--model", "b0") in zip(run_args, run_args[1:])
+    return (
+        spec["tier"] == "full"
+        and split in ("rows", "all")
+        and not spec.get("large")
+        and not b0
+    )
 
 
 def summarize(spec):
@@ -479,7 +486,13 @@ def main(argv):
             sync(modal_app.volume, spec, stage)
             meta = fits[args.gpu].remote(spec)
             # The new-building container's 128 GiB and hour don't stretch to a large run.
-            if meta.get("fit_exit", meta["exit"]) == 0 and not args.large:
+            # rentfrontier.newbuilding reads the frontier model's posterior, which a B0
+            # baseline run has none of.
+            if (
+                meta.get("fit_exit", meta["exit"]) == 0
+                and not args.large
+                and args.model != "b0"
+            ):
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
             meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, args.large)

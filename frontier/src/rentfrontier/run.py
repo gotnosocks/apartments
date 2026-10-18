@@ -19,6 +19,7 @@ import math
 import os
 import platform
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -437,6 +438,15 @@ def check_rules_for_split(rules, split: str) -> None:
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    # B0 (rentfrontier.b0) reads its own dataset and runs its own sampler.
+    if any(
+        a == "--model=b0" or (a == "--model" and argv[i + 1 : i + 2] == ["b0"])
+        for i, a in enumerate(argv)
+    ):
+        from . import b0
+
+        return b0.main_run(argv)
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

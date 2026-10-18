@@ -52,7 +52,7 @@ import time
 import numpy as np
 
 from . import clusterse, data, design, explain, model
-from .run import git, hardware
+from .run import RUNS, git, hardware
 
 LOO_ROOT = data.OUTPUT_ROOT / "loo"
 CHUNK = 4096  # rows per device batch (whole units only)
@@ -360,7 +360,13 @@ def main(argv=None):
             print(f"skip {name}: {out_dir} exists")
             continue
         t0 = time.perf_counter()
-        record, pointwise = score_run(name)
+        run = json.loads((RUNS / name / "result.json").read_text())
+        if run.get("sampler") == "b0":
+            from . import b0
+
+            record, pointwise = b0.score(name)
+        else:
+            record, pointwise = score_run(name)
         record.update(
             commit=commit,
             dirty=False,
