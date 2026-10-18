@@ -1,8 +1,8 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 02:00 ET, after the net-effective ask sets in #1100. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 04:00 ET, after the commercial-ad excludes in #1104. Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-18 02:00 ET
+## 2026-10-18 04:00 ET
 
 - #1096 adds `pipeline/ledger/2026-10-18-unit-baths-zerofull.ndjson`, 3 bath sets. 59 rows code 0 full baths,
   mostly with 2 half baths, the way "2 baths" comes in through the half-bath field. Sonnet read the 32 with a
@@ -17,8 +17,22 @@ Updated 2026-10-18 02:00 ET, after the net-effective ask sets in #1100. Thread o
   from 367 to 269.
 - Modeling fits a net-effective indicator term for the 7,023 unset hits, listed in
   `/data1/apartments/tmp/suspect/ask/neteff/remaining.csv`.
-- The next new ledger file needs a name sorting after `2026-10-18-z-net-effective-asks`, such as
-  `2026-10-18-z2-...`, or a later date.
+- #1102 adds `pipeline/ledger/2026-10-18-z2-unit-baths-zerofull-words.ndjson`, a bath set for 4152059 (0 full
+  and 2 half to 2 full). `/data1/apartments/tmp/suspect/baths/zero/ledger2.py` reads counts with words between the
+  number and "bath", such as "Two full marble bathrooms".
+- #1104 adds `pipeline/ledger/2026-10-18-z3-nonresidential-text.ndjson`, 7 nonresidential excludes. Sonnet read
+  the 82 in-fit rows of the served NB9 fit with residual above +150% or below -60%, and 8 were commercial ads the
+  quarantine patterns missed. To keep the excludes rent-blind, `/data1/apartments/tmp/suspect/resid/screen.py`
+  then screens all 266,513 in-fit rows by text alone: the v14 nonresidential patterns plus new ones for
+  restaurants, triple net, swing space, offices for lease and similar. It kept 605 candidates (`cands.json`),
+  Sonnet read them, and each commercial label got a check by hand. Live/work lofts and townhouses with a
+  studio floor stay in. 2045302 (an office floor at 857 Broadway) came only from the residual read, so it waits
+  for a rent-blind read of the screen's broad `retail` hits.
+- The rest of the residual read: 34 unclear, 24 plausible, 9 whole buildings, 5 wrong size, 1 short-term.
+  2220272 asks $37,380 while its text says "Monthly rent is $4,050"; ad text alone does not back a change, so
+  it waits for another ad for the unit. Results are in `/data1/apartments/tmp/suspect/resid/r0.jsonl`.
+- The next new ledger file needs a name sorting after `2026-10-18-z3-nonresidential-text`, such as
+  `2026-10-18-z4-...`, or a later date.
 
 ## 2026-10-17 22:00 ET
 
