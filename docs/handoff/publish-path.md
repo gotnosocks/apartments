@@ -5,7 +5,7 @@ rent map, estimate kit, site build, research data build) around what the pages a
 read. Modeling owns the summary and the fit queue, Website owns the site build, and each OKs a
 change to its step before merge.
 
-## State on 2026-10-17
+## State on 2026-10-18
 
 - The column reads log (`reads.jsonl`, #1017) has collected on the running site since 10:45 ET
   Oct 17. Ben's devices are 100.111.61.78 (MacBook Air) and 100.108.123.68 (iPhone); 100.80.84.126
