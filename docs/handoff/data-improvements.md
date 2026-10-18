@@ -1,6 +1,17 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 09:23 ET, after the studio bedroom sets in #1129. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 09:33 ET, after the one-bedroom sets in #1131. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 09:33 ET
+
+- #1131 adds `pipeline/ledger/2026-10-18-za-unit-bedrooms-onebed-coded-studio.ndjson`, the reverse of z9. It sets
+  465 studio-coded rows to 1 bedroom: each row's own ad describes a one-bedroom, and another ad for the same unit
+  codes 1 and says the same. The screen kept 826 rows. Sonnet read them as 683 one-bedroom, 107 studio and 36
+  unclear. The reviewer flagged loft bedrooms, a leasing-office ad and a unit label mismatch (3391667), and guards
+  in `ledger.py` now drop those cases. Scripts and reads are in `/data1/apartments/tmp/suspect/beds/onebed0`.
+- Modeling folds z9 and za into its next folder build.
+- The next new ledger file needs a name sorting after `2026-10-18-za-unit-bedrooms-onebed-coded-studio`, such as
+  `2026-10-18-zb-...`.
 
 ## 2026-10-18 09:23 ET
 
