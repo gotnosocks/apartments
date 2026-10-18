@@ -31,8 +31,8 @@ MODEL (
 --       and it is back on the market.
 --   first_day, first_ask, exclusion_reasons:  ads.exclusions.
 --   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger and
---       gross of any concession. The rows file's `latest_gross` gives the ask a live ask set
---       corrects, and its `latest_ask` the net of the two.
+--       gross of any concession. The rows file gives the ask after the ledger's ask sets as
+--       `latest_gross`, and that ask net of the concession as `latest_ask`.
 --   bedrooms to concession, conflicts, from_text, records:  ads.attributes, the values merged
 --       over the ad's records up to its last ACTIVE one, before any correction, with an unknown
 --       elevator or pet policy filled from the ad's descriptions. `from_text` names the

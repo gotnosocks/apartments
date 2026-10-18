@@ -28,7 +28,10 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
    asks (#881), from the event log since #883. Since #1090 `ads.attributes` fills an
    unknown elevator or pet policy from each ad's own description, as the chain's rules
-   `elevator-from-ad-v1` and `pets-from-ad-v2` fill NB9's rows.
+   `elevator-from-ad-v1` and `pets-from-ad-v2` fill NB9's rows. Since #{{PR}} the model keeps
+   the ads with a concession, which the chain drops, and gives each a latest ask net of its free
+   months, as Ben asked on Oct 18 ([pipeline.md](../data/pipeline.md#concessions)). The site's
+   current listings still show the gross page price.
 5. Replace versioned rule functions and quarantine copies with an append-only corrections ledger
    that refuses entries without evidence. **Started**: the ledger in `pipeline/ledger/`, its
    models `ledger.entries` and `ledger.status`, and `analysis.rows` applying it to the kept
@@ -166,8 +169,9 @@ The work goes on in this order:
    [pipeline.md](../data/pipeline.md#photo-hashes-over-whole-lots) has the rules and their
    intervals. I withdrew the full runs I had put to Ben. On Oct 17 at 7:44 PM ET I offered him
    labels for the 1,735 matching photos (room, amenity, exterior, street, floor plan, other),
-   read by Haiku readers, for about $2 within the pilot's 9,000-request stop. They wait on his
-   own reply. A coordinator's note asked for no labels without it.
+   read by Haiku readers, for about $2 within the pilot's 9,000-request stop. On Oct 18 Ben
+   closed both the labels and the photo comparison, and asked to review the lots over their
+   count himself instead.
    A reader judged 17 lots in `/data1/apartments/tmp/pipeline/lanes/citycheck/sample/causes.md`
    to be unit splits or relabels, and those lots serve as labeled tests.
 2. The `drop_lot` entries go on from #1010. `pipeline/ledger/2026-10-17-wrong-lots.ndjson` and

@@ -22,9 +22,8 @@ MODEL (
 -- from `start` on. analysis.ledger_rows takes the factor off the row's latest ask unless the ask
 -- matches a price of `gross_prices` alone.
 --
--- On the lane state of Oct 18, 166,870 ads offered free months below the term. The net effective
--- rent matched the first price on 111,816, a later price on 53,834 (the last price alone on
--- 51,301) and no price on 1,220.
+-- On a copy of the NB9 lane's state of Oct 18, 161,542 kept rows had terms. The net effective
+-- rent matched the first price on 108,185, a later price on 52,182 and no price on 1,175.
 WITH terms AS (
     SELECT k.listing_id, k.asking_rent, r.months_free, r.lease_term, r.net_effective_rent,
         (r.lease_term - r.months_free) / r.lease_term AS factor
