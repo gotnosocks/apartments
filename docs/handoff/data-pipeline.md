@@ -290,7 +290,7 @@ The older items follow.
       is collected, with `other_ad` or `city_record` evidence;
    3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17:
       the elevator and pet fills from each ad's text (**done** in #1090),
-      `west-coast-wings-v1` as a split_building in the unit ledger (**done** in #WINGS),
+      `west-coast-wings-v1` as a split_building in the unit ledger (**done** in #1093),
       `unit-labels-v17`, and `unit-splits-v4` last. Each PR carries a row-by-row diff: I build
       the export from master and from the branch in a scratch lane, write folders from both
       with `observations.py`, and compare them with `ops/pipeline/port_diff.py`, the moved
