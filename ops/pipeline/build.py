@@ -13,7 +13,9 @@ The script works in these steps:
    missing from them. When the check fails, it loads the project again with the variable set
    to 0, and the build reads every answer.
 2. It plans and applies the `prod` environment. SQLMesh rebuilds each model whose fingerprint
-   changed and every model below it, and runs each model's audits as it goes. When an audit
+   changed and every model below it, and runs each model's audits as it goes. The ledger models
+   read `PIPELINE_LEDGER` as they run, so the script sets it for the plan when it is unset, to
+   the checkout's `pipeline/ledger`. When an audit
    fails, the script prints the failed models and exits with status 1, and the tables of the
    last good build stay in place. It writes nothing to OUT in that case. After a plan that
    applies, it writes the SHA-256 of the code merging a top-up's rows to `STATE/merge.json`,
@@ -35,11 +37,11 @@ The script works in these steps:
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, whether the build was
    a top-up, the value of `PIPELINE_STALE_DAYS` it built with, each export file it read with its
-   SHA-256, each file of the corrections ledger and of the unit ledger with its SHA-256 and the
-   count of their entries in each status, each file of the city archive with its SHA-256, the
-   seconds each rebuilt model took with its audits, each model's table and row count, the rows,
-   ads and records files with their SHA-256, the wall time of each step, and the peak memory of
-   the script and of its cgroup.
+   SHA-256, the name of each file of the corrections ledger and of the unit ledger with its
+   SHA-256 and the count of their entries in each status, each file of the city archive with
+   its SHA-256, the seconds each rebuilt model took with its audits, each model's table and row
+   count, the rows, ads and records files with their SHA-256, the wall time of each step, and
+   the peak memory of the script and of its cgroup.
    The script takes the commit before it loads the project, and the export, ledger and city
    files from the variables `config.py` gave the project.
 6. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
@@ -259,11 +261,21 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
             os.environ["PIPELINE_INCREMENTAL"] = mode
     steps["load"] = time.time() - started
     variables = ctx.config.variables
+    # The ledger models look their files up in PIPELINE_LEDGER when they run. SQLMesh restored
+    # the environment after it loaded config.py, so the plan runs with the folder config.py
+    # takes when the variable is unset, and the variable goes back to its value afterwards.
+    folder = os.environ.get("PIPELINE_LEDGER")
+    os.environ["PIPELINE_LEDGER"] = folder or str(project / "ledger")
     try:
         # The console prints the failed models.
         ctx.plan(auto_apply=True, no_prompts=True)
     except PlanError as error:
         raise SystemExit(f"build stopped: {error}") from error
+    finally:
+        if folder is None:
+            os.environ.pop("PIPELINE_LEDGER", None)
+        else:
+            os.environ["PIPELINE_LEDGER"] = folder
     # ads.changes reads every answer when the previous ones no longer hold, so the mode that
     # ran comes from its table, as the materialization `merge` reads it.
     (top_up,) = ctx.engine_adapter.fetchone(
