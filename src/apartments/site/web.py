@@ -277,7 +277,7 @@ class Filters:
                 params += values
         if self.outdoor:
             # The model's own reading of the ad: an "outdoor:<kind>" input.
-            clauses.append("l.inputs LIKE '%\"outdoor:%'")
+            clauses.append("l.outdoor = 1")
         if self.faces is not None:
             values = FACES[self.faces][1]
             clauses.append(
@@ -2885,14 +2885,13 @@ def features(row, faces: str | None = None) -> list[str]:
     """A listing's floor and stated amenities in a few short words, for a
     line under its layout in listing tables (playtest round 6), with which way
     the apartment faces when it is known."""
-    inputs = json.loads(row["inputs"] or "{}")
-    floor = row["floor"] if row["floor"] is not None else read_floor(row, inputs)
+    floor = row["floor"] if row["floor"] is not None else row["label_floor"]
     out = [f"floor {floor}"] if floor is not None else []
     for kind in ("elevator", "laundry", "doorman"):
         word = FEATURE_WORDS.get((kind, row[kind]))
         if word:
             out.append(word)
-    if summary.has_outdoor(inputs):
+    if row["outdoor"]:
         out.append("outdoor space")
     if faces:
         out.append(faces)
