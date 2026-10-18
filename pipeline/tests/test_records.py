@@ -1,6 +1,7 @@
 import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import duckdb
@@ -92,6 +93,50 @@ def test_records_of_the_fixture(tmp_path):
         ".lock",
         current.name,
     ]
+
+
+def test_a_noted_file_comes_back(tmp_path):
+    """With the export's version, a second call returns the file it noted without reading the
+    export: here its only export file is missing. A cut-off last line of the notes changes
+    nothing. Another version, or a noted file with another modification time, makes the step
+    write the file again."""
+    cache, out = tmp_path / "cache", tmp_path / "out"
+    first = records.write(
+        connect().cursor(), FILES, cache, out, workers=1, version="v1"
+    )
+    assert first["reused"] is False
+    path = out / first["path"]
+    stamp = path.stat().st_mtime_ns
+    missing = [str(tmp_path / "missing.parquet")]
+    again = records.write(
+        connect().cursor(), missing, cache, out, workers=1, version="v1"
+    )
+    assert again == first | {"read": 0, "reused": True}
+    assert path.stat().st_mtime_ns == stamp
+    # A line cut off by a stopped step counts for nothing.
+    (notes,) = cache.glob(f"*/{records.NOTES}")
+    with open(notes, "a") as f:
+        f.write('{"version": "v1"')
+    again = records.write(
+        connect().cursor(), missing, cache, out, workers=1, version="v1"
+    )
+    assert again == first | {"read": 0, "reused": True}
+    other = records.write(
+        connect().cursor(), FILES, cache, out, workers=1, version="v2"
+    )
+    assert other == first | {"read": 0}
+    # The note after the cut-off line reads back.
+    again = records.write(
+        connect().cursor(), missing, cache, out, workers=1, version="v2"
+    )
+    assert again == first | {"read": 0, "reused": True}
+    os.utime(path, ns=(stamp, stamp + 1))
+    changed = records.write(
+        connect().cursor(), FILES, cache, out, workers=1, version="v1"
+    )
+    assert changed == first | {"read": 0}
+    with pytest.raises(duckdb.IOException):
+        records.write(connect().cursor(), missing, cache, out, workers=1, version="v3")
 
 
 def test_integral_floats_become_integers(tmp_path):
