@@ -1326,7 +1326,7 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
         parts_record = design_parts.write(
             design_set,
             tmp / design_parts.FILE,
-            result["dataset_observations_sha256"],
+            result,
             design_rows_sha256,
         )
     rule_files = {}

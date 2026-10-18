@@ -11,9 +11,12 @@ The summary already prepares and checks the whole design, so it writes the
 parts into its bundle as FILE (`from_design`, `write`). `rentfrontier.kit`
 and `rentfrontier.rentmap` load them from the bundle they are given
 (`for_run`), after checking them against the run as `summary.verify_run`
-checks a design:
+checks a design. The summary checked its design with `verify_run` before it
+wrote the parts, and it records the run's name, dataset, split, feature set and
+data rules with them (RUN_KEYS). `for_run` then checks:
 
-1. the dataset's sha256 equals the run's recorded one
+1. the recorded run's name, dataset, split, feature set and data rules equal
+   the run's, so another run's bundle over the same rows is passed over
 2. the held-out rows' audit ids equal the ones in the run's heldout.npz
 3. the buildings and units equal the ones in the run's saved draws
 
@@ -22,8 +25,12 @@ The parts also carry the hash of the rows after the split and data rules
 can differ while the rows are the same: the hash covers `log_rent`, and on the
 served all-scraped run the design prepared on Modal held 8 of 1.75M log rents
 1 ulp away from thelio's `np.log` of the same asks, so its hash differed from
-the fit's while every other column hashed the same. Without a bundle, or with
-parts that fail the check, `for_run` prepares the whole design. The kit then
+the fit's while every other column hashed the same. Without a bundle, with
+parts of another file version, or with parts that fail the check, `for_run`
+prepares the whole design. The same goes for parts whose sha256 differs from
+the one the bundle's complete.json records for them; parts added to a bundle
+after its summary have no such record, and the checks above stand alone. The
+kit then
 checks it with `summary.verify_run`, as it always did, and the rent map uses it
 unchecked, as it always did.
 
@@ -46,6 +53,15 @@ import pandas as pd
 
 FILE = "design-parts.npz"
 VERSION = "design-parts-v1"
+# The run record's fields the parts depend on, recorded with them.
+RUN_KEYS = (
+    "name",
+    "dataset_observations_sha256",
+    "split",
+    "feature_set",
+    "data_rules",
+    "data_rule_sources",
+)
 
 
 @dataclasses.dataclass
@@ -103,12 +119,19 @@ def from_design(frame, heldout, feats, prep) -> Parts:
     )
 
 
-def write(parts: Parts, path: Path, dataset_sha256: str, rows_sha256: str) -> dict:
-    """Write the parts to `path` with the hashes they were checked against,
-    and return the bundle's record of them."""
+def run_fields(result: dict) -> dict:
+    return {key: result.get(key) for key in RUN_KEYS}
+
+
+def write(parts: Parts, path: Path, result: dict, rows_sha256: str) -> dict:
+    """Write the parts to `path` with the fields of the run record `result`
+    they were checked against and the hash of their rows, and return the
+    bundle's record of them."""
+    hood = np.asarray(parts.hood, dtype=object)
+    missing = pd.isna(hood)
     meta = {
         "version": VERSION,
-        "dataset_observations_sha256": dataset_sha256,
+        "run": run_fields(result),
         "rows_sha256": rows_sha256,
         "offset": parts.offset,
         "names": parts.features.names,
@@ -129,9 +152,28 @@ def write(parts: Parts, path: Path, dataset_sha256: str, rows_sha256: str) -> di
             building_last=parts.building_last,
             bedroom_x=parts.bedroom_x,
             bedroom_beds=parts.bedroom_beds,
-            hood=np.asarray(parts.hood).astype(str),
+            hood=np.where(missing, "", hood).astype(str),
+            hood_missing=missing,
         )
-    return {"file": path.name, "rows_sha256": rows_sha256}
+    return {"file": path.name, "sha256": file_sha256(path), "rows_sha256": rows_sha256}
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 22), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def recorded_sha256(summary_dir: Path) -> str | None:
+    """The sha256 the bundle's complete.json records for the parts, if any. A
+    bundle given its parts after the summary records none."""
+    complete = summary_dir / "complete.json"
+    if not complete.exists():
+        return None
+    record = json.loads(complete.read_text()).get("design_parts") or {}
+    return record.get("sha256")
 
 
 def load(path: Path) -> tuple[Parts, dict]:
@@ -139,6 +181,8 @@ def load(path: Path) -> tuple[Parts, dict]:
         meta = json.loads(str(z["meta"]))
         if meta.get("version") != VERSION:
             raise ValueError(f"{path} is {meta.get('version')}, not {VERSION}")
+        hood = z["hood"].astype(object)
+        hood[z["hood_missing"]] = np.nan
         parts = Parts(
             buildings=z["buildings"].astype(object),
             units=z["units"].astype(object),
@@ -151,7 +195,7 @@ def load(path: Path) -> tuple[Parts, dict]:
             building_last=z["building_last"],
             bedroom_x=z["bedroom_x"],
             bedroom_beds=z["bedroom_beds"],
-            hood=z["hood"].astype(object),
+            hood=hood,
             area=meta["area"],
             heldout_sha256=meta["heldout_sha256"],
         )
@@ -160,10 +204,14 @@ def load(path: Path) -> tuple[Parts, dict]:
 
 def mismatch(parts: Parts, meta: dict, result: dict, run_dir: Path, post) -> str | None:
     """Why the parts do not go with the run, or None when they do."""
-    if meta["dataset_observations_sha256"] != result["dataset_observations_sha256"]:
-        return "dataset differs from the run's recorded dataset"
-    recorded = np.load(run_dir / "heldout.npz", allow_pickle=True)["audit_id"]
-    if parts.heldout_sha256 != ids_sha256(recorded):
+    recorded = meta["run"]
+    # A JSON round trip makes the run record's lists and tuples compare alike.
+    run = json.loads(json.dumps(run_fields(result)))
+    for key in RUN_KEYS:
+        if recorded.get(key) != run[key]:
+            return f"{key} differs from the run's"
+    heldout = np.load(run_dir / "heldout.npz", allow_pickle=True)["audit_id"]
+    if parts.heldout_sha256 != ids_sha256(heldout):
         return "held-out rows differ from the run's recorded rows"
     if not (
         np.array_equal(parts.units, post["units"])
@@ -187,8 +235,16 @@ def for_run(
     if summary_dir is not None:
         path = summary_dir / FILE
         if path.exists():
-            parts, meta = load(path)
-            reason = mismatch(parts, meta, result, run_dir, post)
+            recorded = recorded_sha256(summary_dir)
+            if recorded is not None and recorded != file_sha256(path):
+                reason = "the file differs from the sha256 the bundle records"
+            else:
+                try:
+                    parts, meta = load(path)
+                except ValueError as error:
+                    reason = str(error)
+                else:
+                    reason = mismatch(parts, meta, result, run_dir, post)
             if reason is None:
                 return parts, {
                     "design": "summary bundle",

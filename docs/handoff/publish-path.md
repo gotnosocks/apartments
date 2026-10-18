@@ -19,11 +19,17 @@ change to its step before merge.
   to 25860f7, so the next publish builds with both files. Before those flags the live site had
   /estimate at 0.19 s, a listing page at 0.87 s and site.sqlite at 10.3 GB; Website times the
   pages again after the next publish.
-- The rent map and the kit read the design's parts (`rentfrontier.design_parts`, about 100 MB)
-  from the summary bundle in place of the whole design (6.3 GB on all-scraped), after checking
-  the dataset hash, the rows hash and the draws' units and buildings against the run.
-  Bundles written before that change have no parts, and the two steps then prepare the design
-  as before. The all-scraped posterior.npz (13.4 GB, 9 GB of it the walk) still does not load
+- The rent map and the kit read the design's parts (`rentfrontier.design_parts`, 31 MB on
+  all-scraped) from the summary bundle in place of the whole design (6.3 GB), after checking
+  the run's name, dataset, split, feature set and rules, the held-out audit ids and the draws'
+  units and buildings against the run (#1120). Bundles written before that change have no
+  parts, and the two steps then prepare the design as before. Modeling agreed to backfill the
+  served all-scraped bundle's parts into a copy from the saved design pickle
+  (`/data1/apartments/tmp/publish-path/tools/backfill-parts.py`), keeping complete.json and so
+  the bundle's sha.
+- `data.rows_sha256` depends on the CPU: the design prepared on Modal for the all-scraped run
+  holds 8 of 1.75M log rents 1 ulp from thelio's `np.log`, so its rows hash misses the fit's.
+  The parts record whether the hash matches and don't require it (Modeling, Oct 18). The all-scraped posterior.npz (13.4 GB, 9 GB of it the walk) still does not load
   on thelio, since `explain.load_run` reads every array as float64; streaming the draws is
   the next proposal to Modeling.
 - Ben dropped the 80% range from the lists (12:50 ET Oct 17). The summary's `--range-atoms`

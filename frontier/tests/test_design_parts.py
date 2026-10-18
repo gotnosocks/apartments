@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -99,13 +100,29 @@ def test_parts_give_the_rent_map_what_the_whole_design_gave(tmp_path):
     assert parts.area == "Chelsea and West Village"
 
 
+RUN = {
+    "name": "m-run",
+    "dataset": "/d",
+    "dataset_observations_sha256": "d",
+    "split": "rows",
+    "feature_set": "f",
+    "data_rules": ["q"],
+    "data_rule_sources": {"q": "qsha"},
+}
+
+
 def test_parts_read_back_as_written(tmp_path):
     frame, heldout, feats, prep = toy()
     parts = design_parts.from_design(frame, heldout, feats, prep)
-    record = design_parts.write(parts, tmp_path / design_parts.FILE, "d", "r")
-    assert record == {"file": design_parts.FILE, "rows_sha256": "r"}
+    path = tmp_path / design_parts.FILE
+    record = design_parts.write(parts, path, RUN, "r")
+    assert record == {
+        "file": design_parts.FILE,
+        "sha256": design_parts.file_sha256(path),
+        "rows_sha256": "r",
+    }
     back, meta = design_parts.load(tmp_path / design_parts.FILE)
-    assert meta["dataset_observations_sha256"] == "d"
+    assert meta["run"] == {k: v for k, v in RUN.items() if k != "dataset"}
     assert meta["rows_sha256"] == "r"
     assert np.array_equal(back.buildings, prep.buildings)
     assert back.buildings.dtype == object
@@ -127,6 +144,7 @@ def test_parts_read_back_as_written(tmp_path):
         ), field
     # A building without listings in the fit reads back as missing, too.
     assert list(back.hood[:5]) == list(parts.hood[:5])
+    assert pd.isna(back.hood[5])
     assert back.area == parts.area
     assert back.heldout_sha256 == parts.heldout_sha256
 
@@ -136,13 +154,7 @@ def write_run(tmp_path, frame, heldout, prep, rows_sha256="r"):
     run_dir.mkdir()
     np.savez(run_dir / "posterior.npz", units=prep.units, buildings=prep.buildings)
     np.savez(run_dir / "heldout.npz", audit_id=frame.audit_id.to_numpy()[heldout])
-    return run_dir, {
-        "dataset": "/d",
-        "dataset_observations_sha256": "d",
-        "rows_sha256": rows_sha256,
-        "split": "rows",
-        "feature_set": "f",
-    }
+    return run_dir, RUN | {"rows_sha256": rows_sha256}
 
 
 def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
@@ -152,7 +164,7 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
     parts = design_parts.from_design(frame, heldout, feats, prep)
     bundle = tmp_path / "bundle"
     bundle.mkdir()
-    design_parts.write(parts, bundle / design_parts.FILE, "d", "r")
+    design_parts.write(parts, bundle / design_parts.FILE, RUN, "r")
     run_dir, result = write_run(tmp_path, frame, heldout, prep)
     prepared, checked = [], []
     monkeypatch.setattr(data, "load", lambda path: frame)
@@ -183,6 +195,22 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
     assert source["bundle_parts_unused"].startswith("dataset")
     assert len(checked) == 1
 
+    # Another run's bundle over the same rows, buildings and units.
+    for change in (
+        {"name": "m-other"},
+        {"feature_set": "g"},
+        {"data_rules": ["q", "r"]},
+        {"data_rule_sources": {"q": "other"}},
+    ):
+        found, source = design_parts.for_run(result | change, run_dir, bundle)
+        key = next(iter(change))
+        assert source["bundle_parts_unused"] == f"{key} differs from the run's"
+    # The record's rules read back as a list wherever they came from.
+    found, source = design_parts.for_run(
+        result | {"data_rules": ("q",)}, run_dir, bundle
+    )
+    assert source["design"] == "summary bundle"
+
     np.savez(run_dir / "heldout.npz", audit_id=frame.audit_id.to_numpy()[:1])
     found, source = design_parts.for_run(result, run_dir, bundle)
     assert source["bundle_parts_unused"].startswith("held-out rows")
@@ -200,17 +228,34 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
         "design": "prepared",
         "bundle_parts_unused": "no summary bundle given",
     }
-    assert len(checked) == 3
     assert np.array_equal(found.building_x, parts.building_x)
 
+    np.savez(run_dir / "posterior.npz", units=prep.units, buildings=prep.buildings)
+    # Parts that differ from the bundle's record of them are passed over.
+    record = design_parts.write(parts, bundle / design_parts.FILE, RUN, "r")
+    (bundle / "complete.json").write_text(json.dumps({"design_parts": record}))
+    found, source = design_parts.for_run(result, run_dir, bundle)
+    assert source["design"] == "summary bundle"
+    (bundle / "complete.json").write_text(
+        json.dumps({"design_parts": record | {"sha256": "other"}})
+    )
+    found, source = design_parts.for_run(result, run_dir, bundle)
+    assert source["bundle_parts_unused"].startswith("the file differs")
+    (bundle / "complete.json").unlink()
 
-def test_another_version_is_refused(tmp_path):
+    # Parts of another file version are passed over, too.
+    monkeypatch.setattr(design_parts, "VERSION", "design-parts-v2")
+    found, source = design_parts.for_run(result, run_dir, bundle)
+    assert source["design"] == "prepared"
+    assert "design-parts-v1, not design-parts-v2" in source["bundle_parts_unused"]
+    assert len(checked) == 9
+
+
+def test_another_version_is_refused(tmp_path, monkeypatch):
     frame, heldout, feats, prep = toy()
     parts = design_parts.from_design(frame, heldout, feats, prep)
     path = tmp_path / design_parts.FILE
-    design_parts.write(parts, path, "d", "r")
-    monkeypatch = pytest.MonkeyPatch()
+    design_parts.write(parts, path, RUN, "r")
     monkeypatch.setattr(design_parts, "VERSION", "design-parts-v0")
     with pytest.raises(ValueError, match="design-parts-v1"):
         design_parts.load(path)
-    monkeypatch.undo()
