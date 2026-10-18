@@ -12,7 +12,9 @@
 # The run and its summary bundle come from the serving checkout's selection
 # (config/main-analysis.json). Steps 1 and 2 run at the master checkout's
 # commit (both refuse a dirty tree) as light jobs; an output that already
-# exists for this run and commit is kept. Usage: ops/autoselect-publish.sh
+# exists for this run and commit is kept. Both read the design's parts from the
+# summary bundle when it has them (rentfrontier.design_parts) and otherwise
+# prepare the whole design. Usage: ops/autoselect-publish.sh
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -33,7 +35,7 @@ cd "$MASTER/frontier"
 if [ -e "$FRONTIER/maps/$RUN-$COMMIT/map.json" ]; then
   echo "rent map exists"
 else
-  "$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.rentmap "$RUN"
+  "$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.rentmap "$RUN" --summary "$SUMMARY"
 fi
 if [ -e "$FRONTIER/kits/$RUN-$COMMIT/complete.json" ]; then
   echo "kit exists"

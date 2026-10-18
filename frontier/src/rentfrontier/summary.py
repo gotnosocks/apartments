@@ -64,6 +64,9 @@ buildings.parquet     per building: level and yearly trend as percentages,
 coefficients.parquet  per feature column: exp(beta) - 1, median, 95% interval
                       and probability positive.
 terms.json            the contribution terms in display order, with labels.
+design-parts.npz      the design's indexes and averages that the estimate kit
+                      and the rent map read (`rentfrontier.design_parts`),
+                      with the hash of the run's rows it was made from.
 data-rule-<rule>.jsonl  a copy of each row-dropping rule's file (the run's
                       hash): the rows the bundle leaves out, with reasons.
 complete.json         provenance (run, commits, dataset and feature-source
@@ -140,7 +143,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from . import data, design, explain, features, leaderboard, loo, model
+from . import data, design, design_parts, explain, features, leaderboard, loo, model
 from . import run as run_module
 from .run import git, hardware
 
@@ -967,6 +970,11 @@ def summarize(
     )
     post = np.load(run_dir / "posterior.npz", allow_pickle=True)
     verify_run(result, frame, heldout, prep, run_dir, post["units"], post["buildings"])
+    # Made from the whole design, also when only some rows are summarized.
+    design_set = (
+        design_parts.from_design(frame, heldout, feats, prep),
+        data.rows_sha256(frame, heldout),
+    )
     index = rows_record = None
     if rows is None:
         keep = building_sample(frame.building.to_numpy(), buildings)
@@ -1162,6 +1170,7 @@ def summarize(
         "result": result,
         "run_dir": run_dir,
         "gate": gate_status,
+        "design_parts": design_set,
         "draws": draws,
         "names": names,
         "rows": table,
@@ -1311,6 +1320,15 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
         )
     )
     result = out["result"]
+    parts_record = None
+    if "design_parts" in out:
+        design_set, design_rows_sha256 = out["design_parts"]
+        parts_record = design_parts.write(
+            design_set,
+            tmp / design_parts.FILE,
+            result,
+            design_rows_sha256,
+        )
     rule_files = {}
     for rule in data.recorded_rules(result):
         # Only the rules that drop rows have per-row decisions the site lists
@@ -1353,6 +1371,7 @@ def write(out: dict, out_dir: Path, commit: str, seconds: float) -> Path:
             "max": float(np.nanmax(k)),
         },
         "terms": out["names"],
+        **({"design_parts": parts_record} if parts_record else {}),
         **(
             {"buildings_fraction": out["buildings_fraction"]}
             if out.get("buildings_fraction") is not None

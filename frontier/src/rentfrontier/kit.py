@@ -37,6 +37,10 @@ bedroom count from the bundle's rows (log square feet less the row's
 `log_sqft_vs_bedroom_median`); each build checks its encoder against the
 bundle's inputs.
 
+The kit reads the design's indexes and averages from the bundle's design parts
+(`rentfrontier.design_parts`) when they go with the run, and otherwise prepares
+the whole design and checks it against the run; kit.json records which.
+
 Writes /data1/apartments/frontier/kits/<run>-<commit>/. Refuses designs the
 formula above does not cover (line effects, unit drift) and a run that fails
 the convergence gate, as `summary` does.
@@ -52,7 +56,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, design, explain, model, summary
+from . import data, design_parts, explain, model, summary
 from .run import git
 
 KITS = data.OUTPUT_ROOT / "kits"
@@ -209,17 +213,11 @@ def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
         raise SystemExit(f"{name} fails the convergence gate: {gate_status}")
     summary.check_run(result)
     config = model.MODELS[result["model"]["name"]]
-    frame = data.load(Path(result["dataset"]))
-    frame, heldout, feats, prep = design.prepared(
-        frame, result["split"], data.recorded_rules(result), result["feature_set"]
-    )
-    post = np.load(run_dir / "posterior.npz", allow_pickle=True)
-    summary.verify_run(
-        result, frame, heldout, prep, run_dir, post["units"], post["buildings"]
-    )
-    record, buildings = kit_tables(kept, prep, config, feats)
-    units = unit_table(kept, prep)
+    parts, design_source = design_parts.for_run(result, run_dir, summary_dir)
+    record, buildings = kit_tables(kept, parts, config, parts.features)
+    units = unit_table(kept, parts)
     record |= {
+        "design": design_source,
         "run": result["name"],
         "run_commit": result["commit"],
         "model": result["model"],

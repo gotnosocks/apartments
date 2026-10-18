@@ -12,12 +12,26 @@ change to its step before merge.
   is thelio.
 - Ben has the decision table, a row per output with a keep, compute-on-request or remove
   recommendation. We carry on with the recommendations behind flags until he answers.
-- #1028 drops three site columns no page reads. Its merge waits for Website to say the
-  all-scraped build is live.
-- #1030 is stacked on #1028 and stops the summary writing `fit_units` and the seasonal reference
-  rent bounds. A reviewer approved it, and Modeling looks before merge.
-- `SITE_DETAIL_ON_REQUEST=1` moves listing parts to `detail.parquet` (docs/site.md, data flow
-  step 2). Website turns it on in the publish.
+- Merged so far: #1028 and #1030 (columns and summary outputs nobody reads), #1065 and #1066
+  (range atoms behind a flag), #1084 (the design prepared on Modal), #1111, #1112 and #1115
+  (listing parts in `detail.parquet` and the form's draws in `kit_buildings.parquet`, both on by
+  default in `ops/autoselect-publish.sh`). Website moved serve/master to 7243a467 and serve/site
+  to 25860f7, so the next publish builds with both files. Before those flags the live site had
+  /estimate at 0.19 s, a listing page at 0.87 s and site.sqlite at 10.3 GB; Website times the
+  pages again after the next publish.
+- The rent map and the kit read the design's parts (`rentfrontier.design_parts`, 31 MB on
+  all-scraped) from the summary bundle in place of the whole design (6.3 GB), after checking
+  the run's name, dataset, split, feature set and rules, the held-out audit ids and the draws'
+  units and buildings against the run (#1120). Bundles written before that change have no
+  parts, and the two steps then prepare the design as before. Modeling agreed to backfill the
+  served all-scraped bundle's parts into a copy from the saved design pickle
+  (`/data1/apartments/tmp/publish-path/tools/backfill-parts.py`), keeping complete.json and so
+  the bundle's sha.
+- `data.rows_sha256` depends on the CPU: the design prepared on Modal for the all-scraped run
+  holds 8 of 1.75M log rents 1 ulp from thelio's `np.log`, so its rows hash misses the fit's.
+  The parts record whether the hash matches and don't require it (Modeling, Oct 18). The all-scraped posterior.npz (13.4 GB, 9 GB of it the walk) still does not load
+  on thelio, since `explain.load_run` reads every array as float64; streaming the draws is
+  the next proposal to Modeling.
 - Ben dropped the 80% range from the lists (12:50 ET Oct 17). The summary's `--range-atoms`
   (#1065, #1066 for Modal) writes 64 atoms per row and `noise.json` in place of the quantile
   solve; on NB9 at 10% it ran in 397 s against 663 s, with a median error of 0.00027 log
@@ -45,8 +59,10 @@ change to its step before merge.
 1. Move the other listing-page-only columns (`fitted*`, `pred_*_95`) and the per-listing
    `inputs` to the detail file. The build's own steps read `inputs` (captures, estimate_build,
    best), so they need another source first.
-2. Give each publish step a key from its inputs' hashes and skip unchanged steps. `kit.py` and
-   `rentmap.py` rebuild the prepared features that `design.prepared` caches for the summary.
-3. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
+2. Give each publish step a key from its inputs' hashes and skip unchanged steps. The rent map
+   and the kit are keyed by the master commit, so any merge reruns both; key them by the
+   posterior's sha, the bundle's sha and their own module sources.
+3. Stream the draws in the kit and the rent map, so the all-scraped publish runs on thelio.
+4. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
 
 Scratch notes and tools are in `/data1/apartments/tmp/publish-path/`.
