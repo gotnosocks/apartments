@@ -51,6 +51,19 @@ def shapes(path: Path) -> dict[str, tuple]:
     return found
 
 
+def _fill(fh, view) -> int:
+    """Read into `view` a few MB at a time, which glibc serves from its heap
+    and reuses, and return the bytes read."""
+    filled = 0
+    while filled < len(view):
+        part = fh.read(min(1 << 22, len(view) - filled))
+        if not part:
+            break
+        view[filled : filled + len(part)] = part
+        filled += len(part)
+    return filled
+
+
 def read(
     path: Path,
     keys=None,
@@ -87,26 +100,41 @@ def read(
                 if np.any(np.diff(index) <= 0):
                     raise ValueError("draws must be increasing")
                 per = int(np.prod(rest, dtype=np.int64)) * stored.itemsize
-                fn = take.get(key, lambda v: v)
+                fn = take.get(key)
+                width = min(block, n)
+                # The buffers are reused for every block: a fresh array per block
+                # faults its pages in again, which on the all-scraped run is most
+                # of a step's system time.
+                raw = bytearray(per * width)
+                picked = np.empty((width, *rest), stored)
+                cast = np.empty((width, *rest), dtype) if fn and dtype else None
                 kept, filled = None, 0
                 for lo in range(0, n, block):
                     hi = min(lo + block, n)
-                    raw = fh.read(per * (hi - lo))
-                    if len(raw) != per * (hi - lo):
+                    if _fill(fh, memoryview(raw)[: per * (hi - lo)]) != per * (hi - lo):
                         raise ValueError(f"{member} ends early")
                     wanted = index[(index >= lo) & (index < hi)]
                     if not len(wanted):
                         continue
-                    value = np.frombuffer(raw, stored).reshape(hi - lo, *rest)
-                    value = value[wanted - lo]
-                    value = fn(value if dtype is None else value.astype(dtype))
+                    value = np.frombuffer(raw, stored).reshape(width, *rest)[: hi - lo]
+                    if len(wanted) < hi - lo:
+                        # mode="clip" writes straight into `picked`; "raise" buffers.
+                        sel = picked[: len(wanted)]
+                        np.take(value, wanted - lo, axis=0, out=sel, mode="clip")
+                        value = sel
+                    if fn:
+                        if cast is not None:
+                            np.copyto(cast[: len(value)], value, casting="unsafe")
+                            value = cast[: len(value)]
+                        value = fn(value)
                     if kept is None:
                         # The whole array at once, so it is never held twice.
-                        kept = np.empty((len(index), *value.shape[1:]), value.dtype)
+                        kind = value.dtype if fn or dtype is None else dtype
+                        kept = np.empty((len(index), *value.shape[1:]), kind)
                     kept[filled : filled + len(value)] = value
                     filled += len(value)
                 if kept is None:
                     empty = np.empty((0, *rest), stored if dtype is None else dtype)
-                    kept = fn(empty)
+                    kept = fn(empty) if fn else empty
                 out[key] = kept
     return out
