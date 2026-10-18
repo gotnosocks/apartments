@@ -446,7 +446,7 @@ The older items follow.
       No bedroom check: two sources agree on another count for 14,933 production rows, and a
       Sonnet read of 30 found 6 wrong counts, 14 flex or unclear layouts, 4 real changes, 4
       right counts and 2 ads of another unit. A wrong count goes into the ledger with its
-      evidence. **Done** in #NNNN: when the building's median rejects the latest ask,
+      evidence. **Done** in #1136: when the building's median rejects the latest ask,
       `analysis.latest_ask` takes the ad's last kept change within a factor of 2 of the first
       ask in place of the first ask. All 100 planted price typos in a later answer keep the
       clean latest ask, where 31 took another ask on master, and on a copy of the NB9 lane's
