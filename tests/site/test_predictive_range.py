@@ -49,7 +49,7 @@ def test_the_build_reads_the_bundle_fields():
     assert build._real(row.get("estimate_pred_lower_80")) == 100.0
     assert build._real(row.get("estimate_pred_upper_80")) is None
     assert build._real(row.get("estimate_pred_lower_95")) is None
-    assert build.SCHEMA_VERSION == 4
+    assert build.SCHEMA_VERSION == 5
 
 
 def test_csv_carries_the_likely_ask_range_with_the_flag(client, site_root, monkeypatch):

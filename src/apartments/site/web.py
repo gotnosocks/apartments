@@ -2900,6 +2900,7 @@ def features(row, faces: str | None = None) -> list[str]:
 
 
 def read_floor(row, inputs: dict[str, float]) -> int | None:
+    """The floor from the unit's label (see summary.label_floor)."""
     return summary.label_floor(row["floor"], inputs)
 
 

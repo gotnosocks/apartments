@@ -58,7 +58,7 @@ from . import (
 from .selection import SELECTION, selection_note
 
 VERSION = "listings-site-v1"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 DEFAULT_ROOT = Path(os.environ.get("SITE_ROOT", "/data1/apartments/site"))
 SELECTION_VERSION = "main-analysis-selection-v2"
 KEEP = 3
@@ -745,9 +745,9 @@ def _real(value) -> float | None:
 
 
 def with_list_columns(rows: list[dict]) -> list[dict]:
-    """The listing rows with what the lists show of their model inputs, so a list page
-    reads no inputs JSON: the floor read from the unit's label when the ad states none,
-    and whether the model read outdoor space."""
+    """Add two columns to each listing row from its inputs JSON: label_floor, the floor
+    read from the unit's label when the ad states none, and outdoor, whether the model
+    read outdoor space."""
     for r in rows:
         inputs = json.loads(r["inputs"])
         r["label_floor"] = summary.label_floor(r["floor"], inputs)
