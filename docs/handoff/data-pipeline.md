@@ -339,7 +339,20 @@ The older items follow.
       takes `fields-review-v1`'s 16 corrections out of the fit's rules, and the pipeline
       never read v1's file;
    5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
-      against 135 s in a single process.
+      against 135 s in a single process;
+   6. the unit-month check on label units, agreed with Modeling on Oct 18 as a data change worth
+      a fit. `analysis.candidates` checks each month on page units, as the chain does, so two
+      pages joined into one label unit could each keep a row in a month. `analysis.label_months`
+      runs the check again on label units, after the corrections ledger, and `analysis.rows` and
+      `analysis.history_splits` leave out the rows it lists. The lane is
+      `tmp/pipeline/lanes/label-check`, built on the state of `records-reuse`. The check changes
+      0.354% of NB9's rows, 0.294% as superseded, 0.048% as conflicting and 0.011% taking
+      another piece, and 0.612% across all scraped areas. Sonnet readers judged 23 of 30 sampled
+      bedroom conflicts one apartment and 6 false joins, so conflicts still drop every row of
+      the month. In 568 of 8,915 superseded label-months a dropped ad changed its price after
+      the kept ad's last change. The numbers are under "Label months" in
+      [pipeline.md](../data/pipeline.md#label-months). Modeling schedules the NB9 fit, and the
+      fit on all scraped areas waits on the hour's cap.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
    [pipeline.md](../data/pipeline.md#build-command): 769 s from empty and 399 s for run 5 as a
    top-up, as light jobs at about 4 GiB, with the same rows file either way. The rest of step 8,
