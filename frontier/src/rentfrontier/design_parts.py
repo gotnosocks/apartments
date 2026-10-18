@@ -10,18 +10,22 @@ about 100 MB for these parts.
 The summary already prepares and checks the whole design, so it writes the
 parts into its bundle as FILE (`from_design`, `write`). `rentfrontier.kit`
 and `rentfrontier.rentmap` load them from the bundle they are given
-(`for_run`), after checking them against the run:
+(`for_run`), after checking them against the run as `summary.verify_run`
+checks a design:
 
-1. the dataset's sha256 and the hash of the rows after the split and data
-   rules (`data.rows_sha256`, which covers the held-out mask) equal the
-   run's recorded ones
-2. the buildings and units equal the ones in the run's saved draws
+1. the dataset's sha256 equals the run's recorded one
+2. the held-out rows' audit ids equal the ones in the run's heldout.npz
+3. the buildings and units equal the ones in the run's saved draws
 
-The summary computes the rows hash from the design it prepared, so the
-check fails when the summary's checkout built other rows than the fit did.
-Without a bundle, or with parts that fail the check, `for_run` prepares the
-whole design. The kit then checks it with `summary.verify_run`, as it always
-did, and the rent map uses it unchecked, as it always did.
+The parts also carry the hash of the rows after the split and data rules
+(`data.rows_sha256`), and `for_run` records whether it equals the run's. It
+can differ while the rows are the same: the hash covers `log_rent`, and on the
+served all-scraped run the design prepared on Modal held 8 of 1.75M log rents
+1 ulp away from thelio's `np.log` of the same asks, so its hash differed from
+the fit's while every other column hashed the same. Without a bundle, or with
+parts that fail the check, `for_run` prepares the whole design. The kit then
+checks it with `summary.verify_run`, as it always did, and the rent map uses it
+unchecked, as it always did.
 
 The averages come from the same functions in both cases (`rentmap.x_means`,
 `rentmap.building_years`, `rentmap.building_hoods`), so a kit or a map from
@@ -31,6 +35,7 @@ the parts matches one from the whole design.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -66,6 +71,13 @@ class Parts:
     # Each building's neighbourhood, and the neighbourhoods the fit covers.
     hood: np.ndarray
     area: str
+    # `ids_sha256` of the held-out rows' audit ids.
+    heldout_sha256: str
+
+
+def ids_sha256(audit_ids) -> str:
+    """A hash of audit ids in their order."""
+    return hashlib.sha256(json.dumps([str(a) for a in audit_ids]).encode()).hexdigest()
 
 
 def from_design(frame, heldout, feats, prep) -> Parts:
@@ -87,6 +99,7 @@ def from_design(frame, heldout, feats, prep) -> Parts:
         bedroom_beds=bedroom_beds,
         hood=rentmap.building_hoods(frame, heldout, prep.buildings),
         area=rentmap.fit_area(frame, heldout),
+        heldout_sha256=ids_sha256(frame.audit_id.to_numpy()[heldout]),
     )
 
 
@@ -101,6 +114,7 @@ def write(parts: Parts, path: Path, dataset_sha256: str, rows_sha256: str) -> di
         "names": parts.features.names,
         "groups": parts.features.groups,
         "area": parts.area,
+        "heldout_sha256": parts.heldout_sha256,
     }
     with open(path, "wb") as f:
         np.savez_compressed(
@@ -139,16 +153,18 @@ def load(path: Path) -> tuple[Parts, dict]:
             bedroom_beds=z["bedroom_beds"],
             hood=z["hood"].astype(object),
             area=meta["area"],
+            heldout_sha256=meta["heldout_sha256"],
         )
     return parts, meta
 
 
-def mismatch(parts: Parts, meta: dict, result: dict, post) -> str | None:
+def mismatch(parts: Parts, meta: dict, result: dict, run_dir: Path, post) -> str | None:
     """Why the parts do not go with the run, or None when they do."""
     if meta["dataset_observations_sha256"] != result["dataset_observations_sha256"]:
         return "dataset differs from the run's recorded dataset"
-    if meta["rows_sha256"] != result.get("rows_sha256"):
-        return "rows after the split and rules differ from the run's"
+    recorded = np.load(run_dir / "heldout.npz", allow_pickle=True)["audit_id"]
+    if parts.heldout_sha256 != ids_sha256(recorded):
+        return "held-out rows differ from the run's recorded rows"
     if not (
         np.array_equal(parts.units, post["units"])
         and np.array_equal(parts.buildings, post["buildings"])
@@ -172,9 +188,14 @@ def for_run(
         path = summary_dir / FILE
         if path.exists():
             parts, meta = load(path)
-            reason = mismatch(parts, meta, result, post)
+            reason = mismatch(parts, meta, result, run_dir, post)
             if reason is None:
-                return parts, {"design": "summary bundle", "file": str(path)}
+                return parts, {
+                    "design": "summary bundle",
+                    "file": str(path),
+                    "rows_sha256_matches_run": meta["rows_sha256"]
+                    == result.get("rows_sha256"),
+                }
             print(f"not using {path}: {reason}", file=sys.stderr)
         else:
             reason = f"the bundle has no {FILE}"

@@ -31,6 +31,7 @@ def toy(seed=0, rows=60, buildings=6, months=30):
         {
             "building": np.concatenate([prep.buildings[building], ["b5"]]),
             "neighbourhood": np.concatenate([hoods[building], ["Chelsea"]]),
+            "audit_id": [f"a{i}" for i in range(rows + 1)],
         }
     )
     heldout = np.r_[np.zeros(rows, dtype=bool), True]
@@ -127,12 +128,14 @@ def test_parts_read_back_as_written(tmp_path):
     # A building without listings in the fit reads back as missing, too.
     assert list(back.hood[:5]) == list(parts.hood[:5])
     assert back.area == parts.area
+    assert back.heldout_sha256 == parts.heldout_sha256
 
 
-def write_run(tmp_path, prep, rows_sha256="r"):
+def write_run(tmp_path, frame, heldout, prep, rows_sha256="r"):
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     np.savez(run_dir / "posterior.npz", units=prep.units, buildings=prep.buildings)
+    np.savez(run_dir / "heldout.npz", audit_id=frame.audit_id.to_numpy()[heldout])
     return run_dir, {
         "dataset": "/d",
         "dataset_observations_sha256": "d",
@@ -150,7 +153,7 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
     bundle = tmp_path / "bundle"
     bundle.mkdir()
     design_parts.write(parts, bundle / design_parts.FILE, "d", "r")
-    run_dir, result = write_run(tmp_path, prep)
+    run_dir, result = write_run(tmp_path, frame, heldout, prep)
     prepared, checked = [], []
     monkeypatch.setattr(data, "load", lambda path: frame)
     monkeypatch.setattr(data, "recorded_rules", lambda result: [])
@@ -163,18 +166,27 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
 
     found, source = design_parts.for_run(result, run_dir, bundle)
     assert source["design"] == "summary bundle"
+    assert source["rows_sha256_matches_run"]
     assert not prepared and not checked
     assert np.array_equal(found.building_x, parts.building_x)
 
-    for change, reason in (
-        ({"dataset_observations_sha256": "other"}, "dataset"),
-        ({"rows_sha256": "other"}, "rows"),
-        ({"rows_sha256": None}, "rows"),
-    ):
+    # The rows hash can differ by a last bit of a log rent, so it is recorded.
+    for change in ({"rows_sha256": "other"}, {"rows_sha256": None}):
         found, source = design_parts.for_run(result | change, run_dir, bundle)
-        assert source["design"] == "prepared"
-        assert source["bundle_parts_unused"].startswith(reason)
-    assert len(checked) == 3
+        assert source["design"] == "summary bundle"
+        assert not source["rows_sha256_matches_run"]
+
+    found, source = design_parts.for_run(
+        result | {"dataset_observations_sha256": "other"}, run_dir, bundle
+    )
+    assert source["design"] == "prepared"
+    assert source["bundle_parts_unused"].startswith("dataset")
+    assert len(checked) == 1
+
+    np.savez(run_dir / "heldout.npz", audit_id=frame.audit_id.to_numpy()[:1])
+    found, source = design_parts.for_run(result, run_dir, bundle)
+    assert source["bundle_parts_unused"].startswith("held-out rows")
+    np.savez(run_dir / "heldout.npz", audit_id=frame.audit_id.to_numpy()[heldout])
 
     other = SimpleNamespace(**vars(prep))
     other.units = prep.units[::-1]
@@ -188,7 +200,7 @@ def test_the_bundle_parts_stand_in_only_when_they_go_with_the_run(
         "design": "prepared",
         "bundle_parts_unused": "no summary bundle given",
     }
-    assert len(checked) == 4
+    assert len(checked) == 3
     assert np.array_equal(found.building_x, parts.building_x)
 
 
