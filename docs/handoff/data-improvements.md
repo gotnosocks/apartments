@@ -1,6 +1,26 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 07:05 ET, after the wider big-studio bedroom sets in #1118. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 09:15 ET, after the 318 East 19th Street unit join in #1123. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 09:15 ET
+
+- #1121 adds `pipeline/ledger/2026-10-18-z8-unit-baths-triplex.ndjson`, which sets 4885204 to 3 full and 1
+  half bath. Its own ad and ad 4779852 for the same unit both state 3.5 baths, and 4779852 codes them.
+- Modeling asked about two buildings that fail the NB9 gate. #1123 joins units 1 and 10 at 318 East 19th
+  Street in `pipeline/ledger/units/2026-10-18-units-318-east-19th.ndjson`: all four ads repeat the same copy
+  and room sizes. #991 had already joined garden and 1 at 444 West 20th Street on 2026-10-17. The 4f and 3r
+  codes there need no change. Scripts and texts are in `/data1/apartments/tmp/suspect/gate2`.
+- A doorman fill from earlier ads in the same building could reach 249,935 of the 994,628 rows coding no
+  doorman, and 19,767 unknown rows name a doorman or concierge in their text. It stays unfitted, because the
+  elevator version of the fill tied (+0.4 +- 2.3) once the building effect took up the building-level field.
+  Notes are in `/data1/apartments/tmp/suspect/doorfill/NOTE.md`.
+- 27 rows give `bathrooms` different from full + half/2. They are chain bath sets, which leave `bathrooms` as
+  recorded on purpose, and the model reads the full and half counts, so nothing needs fixing.
+- The pipeline thread is changing the s2 fallback in `analysis.latest_ask` to take the last change within a
+  factor of 2 of the first ask (branch pipeline-ask-fallback). 1872519 and 1888050 ask about $2,000, which
+  reads like a year, but they are real asks, so they stay out of quarantine.
+- The next new ledger file needs a name sorting after `2026-10-18-z8-unit-baths-triplex`, such as
+  `2026-10-18-z9-...`. A unit ledger file needs one sorting after `2026-10-18-units-318-east-19th`.
 
 ## 2026-10-18 07:05 ET
 
