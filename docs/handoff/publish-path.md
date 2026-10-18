@@ -70,13 +70,13 @@ change to its step before merge.
   Two summaries of the same fit differ by up to 0.43 log on a few rows, because the summary's
   leave-own-row-out unit levels draw their jitter from per-chunk keys. A row-by-row check of two
   summaries needs that noise in its yardstick. Modeling has the details.
-- Cost on nested samples of the served all-scraped run (Oct 18, thelio, systemd units, cold
-  page cache):
+- Cost on nested samples of the served all-scraped run (Oct 18, thelio, systemd units):
   - #1137 reads each draws block into a reused buffer and reuses the map's rent arrays across
     years. Kernel time fell from 39 to 15 s in the kit and from 83 to 92 s down to 22 s in the
-    250-draw map, with byte-identical outputs. The full kit takes 98 s at 4.0 GB and the map
-    142 s at 4.8 GB. From p16 to full, 6.2x the buildings, the kit's CPU grows 5.7x and the
-    map's 3.1x.
+    250-draw map, with byte-identical outputs. Cold, the full kit takes 98 s at 4.0 GB and
+    the map 142 s at 4.8 GB. Rerun cold on the 16% sample with the same code, the kit takes 19.8 s
+    and 17.7 CPU s, the map 24.5 s and 60.3 CPU s. So from p16 to full, with 6.2x the
+    buildings, the kit's CPU grows 4.7x and the map's 3.3x.
   - The site build with `SITE_DETAIL_ON_REQUEST=1` and `SITE_KIT_ON_REQUEST=1` takes 0.55, 0.70,
     0.69 and 0.79 s per 1,000 rows on p01, p04, p16 and the full 1.755M rows, and writes about
     2.5 KB a row. The full build ran in 23:12, peaked at 4.26 GB and wrote 4.47 GB (site.sqlite
@@ -88,9 +88,11 @@ change to its step before merge.
 1. Move the other listing-page-only columns (`fitted*`, `pred_*_95`) and the per-listing
    `inputs` to the detail file. The build's own steps read `inputs` (captures, estimate_build,
    best), so they need another source first.
-2. Draw the Student t samples in `estimate.score` with numpy per listing rather than per sample
-   in Python. On the full build `random.gammavariate` and `random.gauss` take 30% of the time.
-   Website owns the site build, so that change goes through Website.
+2. Speed up `estimate._student_t`, which `estimate.score` and `captures.contributions` call
+   per sample. On the full build it takes 30% of the time, 24% of it in `random.gammavariate`
+   and `random.gauss`. The site server's venv has no numpy, so the sampler stays pure Python:
+   Bailey's polar method draws an exact Student t from one point in the unit disc at a third
+   of the cost. Website agreed (Oct 18) as long as the seeding stays deterministic per listing.
 3. Measure the summary, calibration and research data build on the all-scraped run under
    systemd, and run the whole publish from a downloaded fit.
 
