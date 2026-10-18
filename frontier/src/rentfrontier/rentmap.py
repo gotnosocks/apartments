@@ -453,21 +453,43 @@ def year_quantiles(base, path, own, inside: dict) -> tuple:
     """The rent quantiles per building and year, (P, B, Y), and those of the
     per-draw median building, (P, Y), overall and within each area of `inside`
     (area -> building mask). `base` is (d, Y), `own` is (d, B), and `path(y)`
-    gives year y's (d, B) path. The rents are computed a year at a time, so
-    only a (d, B) slice of them is held."""
+    gives year y's (d, B) path, all three in the same float type. The rents are
+    computed a year at a time, so only a (d, B) slice of them is held.
+
+    The function allocates its (d, B) arrays once, reuses them every year,
+    and has numpy partition them in place for the medians and quantiles. A
+    fresh (d, B) array per year and per median costs tens of millions of page
+    faults on the all-scraped run, most of the step's system time."""
     n_p, n_b, n_y = len(PROBABILITIES), own.shape[1], base.shape[1]
     q = np.empty((n_p, n_b, n_y))
     c = np.empty((n_p, n_y))
     c_area = {a: np.empty((n_p, n_y)) for a in inside}
+    # Each area's buildings side by side, so its median works on a slice.
+    members = [np.flatnonzero(mask) for mask in inside.values()]
+    order = np.concatenate(members) if members else np.zeros(0, int)
+    assert not len(order) or (order.min() >= 0 and order.max() < n_b)
+    sizes = np.array([len(m) for m in members], int)
+    spans = list(zip(inside, np.cumsum(sizes) - sizes, np.cumsum(sizes)))
+    rent = np.empty_like(own, dtype=np.result_type(base, own))
+    scratch = np.empty((own.shape[0], max(n_b, len(order))), rent.dtype)
     for y in range(n_y):
-        rent = np.exp(base[:, None, y] + path(y) + own)  # (d, B)
-        q[:, :, y] = np.quantile(rent, PROBABILITIES, axis=0)
+        np.add(base[:, None, y], path(y), out=rent)
+        rent += own
+        np.exp(rent, out=rent)  # (d, B)
         # The median building of the fit, per draw (robust to the dearest ones).
-        c[:, y] = np.quantile(np.median(rent, axis=1), PROBABILITIES, axis=0)
+        held = scratch[:, :n_b]
+        np.copyto(held, rent)
+        per_draw = np.median(held, axis=1, overwrite_input=True)
+        c[:, y] = np.quantile(per_draw, PROBABILITIES, axis=0)
         # The same within each neighbourhood: the median of its buildings.
-        for a, mask in inside.items():
-            per_draw = np.median(rent[:, mask], axis=1)
+        grouped = scratch[:, : len(order)]
+        # With mode="raise" numpy would buffer the output; `order` comes from
+        # flatnonzero on the masks, so it is in range.
+        np.take(rent, order, axis=1, out=grouped, mode="clip")
+        for a, lo, hi in spans:
+            per_draw = np.median(grouped[:, lo:hi], axis=1, overwrite_input=True)
             c_area[a][:, y] = np.quantile(per_draw, PROBABILITIES, axis=0)
+        q[:, :, y] = np.quantile(rent, PROBABILITIES, axis=0, overwrite_input=True)
     return q, c, c_area
 
 
