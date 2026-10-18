@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -365,3 +366,40 @@ def test_port_diff_load_in_chunks(tmp_path):
         port_diff.load(data, folder, tmp_path / "chunks", chunk=3),
         data.load(folder, cache_root=tmp_path / "whole"),
     )
+
+
+def test_ledger_sets_names_and_paths(tmp_path, converter, monkeypatch, capsys):
+    """`ledger_sets` reads a build's ledger file by name from this checkout's ledger, an older
+    build's by its absolute path, and warns of a listed file it lacks."""
+    ledger = tmp_path / "repo" / "pipeline" / "ledger"
+    ledger.mkdir(parents=True)
+    monkeypatch.setattr(converter, "REPO", tmp_path / "repo")
+    lines = {
+        ledger / "2026-01-01-a.ndjson": '{"change": "exclude"}',
+        tmp_path
+        / "old"
+        / "2025-01-01-b.ndjson": '{"change": "set", "set": {"bedrooms": 2}}',
+    }
+    for path, line in lines.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(line + "\n")
+    digest = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in lines}
+    build = {
+        "catalog": {
+            "ledger": {
+                "2026-01-01-a.ndjson": digest[ledger / "2026-01-01-a.ndjson"],
+                str(tmp_path / "old" / "2025-01-01-b.ndjson"): digest[
+                    tmp_path / "old" / "2025-01-01-b.ndjson"
+                ],
+                "2026-01-02-c.ndjson": "0" * 64,
+            }
+        }
+    }
+    key = {
+        line: hashlib.sha256(line.encode()).hexdigest()[:16] for line in lines.values()
+    }
+    assert converter.ledger_sets(build) == {
+        key['{"change": "exclude"}']: ("exclude", []),
+        key['{"change": "set", "set": {"bedrooms": 2}}']: ("set", ["bedrooms"]),
+    }
+    assert "2026-01-02-c.ndjson is missing" in capsys.readouterr().err

@@ -9,6 +9,7 @@ files:
 - `PIPELINE_STATE`: the folder for the DuckDB database, its spill files and SQLMesh's cache.
 
 `PIPELINE_LEDGER` names the folder of the corrections ledger, `pipeline/ledger` unless set.
+The ledger models read it again when they run, so a script running a plan sets it first.
 The config stops when the folder is missing, as a mistyped path would otherwise give a build
 with no corrections. The unit ledger is the folder `units` inside it, which may be missing
 while it holds no entries. `models/ledger/entries.py` explains both.
@@ -238,13 +239,17 @@ config = Config(
         # stay out of the models' fingerprints.
         "export_files": {"ads": ads_files, "buildings": buildings_files},
         "city_files": {"archive": str(CITY), "files": city_files},
-        # Each file of the ledger and of the unit ledger with its SHA-256. ledger.entries and
-        # ledger.unit_entries read them, and the catalog line records them.
+        # The name of each file of the ledger and of the unit ledger with its SHA-256.
+        # ledger.entries and ledger.unit_entries read them, and the catalog line records them.
+        # The names keep a checkout's path out of the ledger models' fingerprints. The models
+        # look the files up in PIPELINE_LEDGER when they run, which ops/pipeline/build.py sets
+        # for its plan when it is unset, since SQLMesh restores the environment after it loads
+        # this file.
         "ledger": {
-            str(path): file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
+            path.name: file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
         },
         "ledger_units": {
-            str(path): file_sha256(path)
+            path.name: file_sha256(path)
             for path in sorted(LEDGER_UNITS.glob("*.ndjson"))
         },
         # The Parquet files of each city table. A path holds the SHA-256 of the code and of

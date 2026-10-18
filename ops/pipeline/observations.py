@@ -458,13 +458,25 @@ WHERE analysis_price_basis = $basis
 def ledger_sets(build: dict) -> dict:
     """Live ledger entry ID -> the fields its set gives, over the build's ledger files.
 
-    An entry's ID is the first 16 hex digits of the SHA-256 of its line. The files of this
-    checkout's ledger join the build's, in case a build's file has moved since."""
-    files = set((build.get("catalog") or {}).get("ledger") or {})
-    files |= {str(p) for p in (REPO / "pipeline" / "ledger").glob("*.ndjson")}
+    An entry's ID is the first 16 hex digits of the SHA-256 of its line. The build's catalog
+    line gives its files by name, or by absolute path for builds before #1116, and a name
+    points into this checkout's ledger. The files of this checkout's ledger join the build's,
+    in case a build's file has moved since. A build's file missing here, or differing from its
+    SHA-256 in the catalog line, gets a warning, as a lane's ledger can hold files this
+    checkout lacks."""
+    folder = REPO / "pipeline" / "ledger"
+    files = set(folder.glob("*.ndjson"))
+    listed = (build.get("catalog") or {}).get("ledger") or {}
+    for name, digest in listed.items():
+        path = folder / name
+        if not path.is_file() or sha256(path) != digest:
+            print(
+                f"warning: {path} is missing or differs from the build's ledger file",
+                file=sys.stderr,
+            )
+        files.add(path)
     fields = {}
-    for name in sorted(files):
-        path = Path(name)
+    for path in sorted(files):
         if not path.is_file():
             continue
         for line in path.read_text().splitlines():

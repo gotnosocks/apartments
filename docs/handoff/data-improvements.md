@@ -1,6 +1,21 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 03:50 ET, after the big-studio bedroom sets in #1113. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 07:05 ET, after the wider big-studio bedroom sets in #1118. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 07:05 ET
+
+- #1118 adds `pipeline/ledger/2026-10-18-z7-unit-bedrooms-bigstudio-words.ndjson`, which sets 4136013 to 2
+  bedrooms and 4885204 to 5. `beds/bigstudio/ledger.py` now matches wider count wording, such as "(2) Bedroom"
+  and "4 LARGE BEDROOM", and skips the IDs z6 already sets. With z6 that makes 10 big-studio fixes, and the
+  screen is done. 4885204 codes 1 full bath for a triplex its ads describe with 3.5 baths, so a later bath file
+  could fix that.
+- `/data1/apartments/tmp/suspect/beds/smallmulti/screen.py` checks the reverse case: 234 rows coding 2 or more
+  bedrooms under 150 + 150 x bedrooms sq ft. 9 have a larger size in another ad, but none states a size in its
+  own text, so the check gives no backed fixes.
+- 2220272 needs no ledger entry, because the pipeline's latest_ask for it is already 3738 and no other ad exists
+  for the unit.
+- The next new ledger file needs a name sorting after `2026-10-18-z7-unit-bedrooms-bigstudio-words`, such as
+  `2026-10-18-z8-...`, or a later date.
 
 ## 2026-10-18 03:50 ET
 

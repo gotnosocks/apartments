@@ -308,3 +308,45 @@ def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
     catalog = (tmp_path / "out" / "catalog.ndjson").read_text().splitlines()
     assert [json.loads(entry) for entry in catalog] == [line]
     assert "janitor failed: planted" in capsys.readouterr().err
+
+
+def test_ledger_in_another_folder_rebuilds_nothing(tmp_path, build, monkeypatch):
+    """The catalog line gives the ledger files by name. A build with the same files in another
+    folder, as from another checkout, reuses every model. The first folder is gone by then, so
+    a later edit in the second folder rebuilds the ledger models from there."""
+    export = copy_export(tmp_path)
+    names = {"": "2026-01-01-a.ndjson", "units": "2026-01-01-b.ndjson"}
+    for folder in (tmp_path / "ledger", tmp_path / "elsewhere" / "ledger"):
+        for sub, name in names.items():
+            (folder / sub).mkdir(parents=True, exist_ok=True)
+            (folder / sub / name).write_text("\n")
+    digest = hashlib.sha256(b"\n").hexdigest()
+    first = build(export, tmp_path / "state", tmp_path / "out")
+    assert first["ledger"]["files"] == {names[""]: digest}
+    assert first["ledger"]["units"]["files"] == {names["units"]: digest}
+    shutil.rmtree(tmp_path / "ledger")
+    monkeypatch.setenv("PIPELINE_LEDGER", str(tmp_path / "elsewhere" / "ledger"))
+    second = build(export, tmp_path / "state", tmp_path / "out")
+    assert second["ledger"] == first["ledger"]
+    assert all(model["seconds"] is None for model in second["models"].values())
+    for sub in names:
+        (tmp_path / "elsewhere" / "ledger" / sub / names[sub]).write_text("\n\n")
+    third = build(export, tmp_path / "state", tmp_path / "out")
+    assert third["models"]["ledger.entries"]["seconds"] is not None
+    assert third["models"]["ledger.unit_entries"]["seconds"] is not None
+    assert third["rows"] == first["rows"]
+
+
+def test_build_sets_an_unset_ledger_folder(tmp_path, build, monkeypatch):
+    """With `PIPELINE_LEDGER` unset, `config.py` lists the checkout's ledger, and the build runs
+    its plan with the variable set to that folder, as SQLMesh restores the environment after it
+    loads `config.py`. The variable is unset again afterwards."""
+    monkeypatch.delenv("PIPELINE_LEDGER")
+    ledger = BUILD.parents[2] / "pipeline" / "ledger"
+    line = build(copy_export(tmp_path), tmp_path / "state", tmp_path / "out")
+    assert line["ledger"]["files"] == {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in ledger.glob("*.ndjson")
+    }
+    assert line["models"]["ledger.entries"]["seconds"] is not None
+    assert "PIPELINE_LEDGER" not in os.environ

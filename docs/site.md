@@ -245,7 +245,8 @@ listings fall in each band, as calibration predicts.
    few hundred rows it scores. A listing with no atoms or no noise table for its group shows no
    range. The lists show no ranges for these rows (Ben, 2026-10-17).
 
-   With `SITE_KIT_ON_REQUEST=1` the build leaves the `kit_buildings` table empty and copies the
+   With `SITE_KIT_ON_REQUEST=1`, which `ops/autoselect-publish.sh` also sets unless the caller sets
+   it to another value, the build leaves the `kit_buildings` table empty and copies the
    kit's `buildings.parquet` into `kit_buildings.parquet` beside `site.sqlite`
    (`estimate_build.write_kit_file`), in row groups of 2,048 buildings with each building's
    feature slopes in a single list, and `meta.stats.estimate_form.kit_file` records its rows,

@@ -13,7 +13,7 @@ pandas below 3, and the repo's lock holds pandas 3.0.5.
 
 ```sh
 uv sync --project pipeline --extra dev
-uv run --project pipeline sqlmesh -p pipeline plan --auto-apply --no-prompts
+PIPELINE_LEDGER=$PWD/pipeline/ledger uv run --project pipeline sqlmesh -p pipeline plan --auto-apply --no-prompts
 uv run --project pipeline sqlmesh -p pipeline fetchdf "SELECT how, count(*) FROM analysis.latest_ask GROUP BY 1"
 uv run --project pipeline --extra dev pytest pipeline/tests
 ```
@@ -26,7 +26,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 |---|---|---|
 | `PIPELINE_EXPORT` | `/data1/apartments/archive/crawls/api/export` | the scraper's export, with its manifest |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
-| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, and the unit ledger in its `units` folder, as described under [Corrections ledger](#corrections-ledger) and [Unit ledger](#unit-ledger) |
+| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, and the unit ledger in its `units` folder, as described under [Corrections ledger](#corrections-ledger) and [Unit ledger](#unit-ledger). The ledger models read it again as they run, after SQLMesh has restored the environment it loaded `config.py` in, so a plan needs it set: `build.py` and `diff.py` set it, and a `sqlmesh plan` by hand takes it on its command line |
 | `PIPELINE_CITY` | `/data1/apartments/archive/city` | the city archive, as described under [City records](#city-records) |
 | `PIPELINE_CITY_CACHE` | `/data1/apartments/pipeline/city` | the city archive's files as Parquet, as described under [City tables](#city-tables) |
 | `PIPELINE_INCREMENTAL` | unset, read as 0 | 1 when `ops/pipeline/build.py` asks for a top-up build, as described under [Top-up builds](#top-up-builds) |
@@ -243,7 +243,7 @@ a line for the build to `OUT/catalog.ndjson`:
 | `code` | the checkout's commit, and `clean`, false when `pipeline/`, `src/` or `ops/pipeline/` differ from it |
 | `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
 | `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
-| `ledger` | the corrections ledger's files with their SHA-256, and its entries counted by status and change, with the same for the unit ledger under `units` |
+| `ledger` | the corrections ledger's files by name with their SHA-256, and its entries counted by status and change, with the same for the unit ledger under `units` |
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |
@@ -601,7 +601,7 @@ When an audit fails, the plan stops, and the tables from the last good plan stay
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
 ```sh
-uv run --project pipeline sqlmesh -p pipeline plan dev --auto-apply --no-prompts
+PIPELINE_LEDGER=$PWD/pipeline/ledger uv run --project pipeline sqlmesh -p pipeline plan dev --auto-apply --no-prompts
 uv run --project pipeline sqlmesh -p pipeline table_diff prod:dev -m analysis.latest_ask -o listing_id --show-sample
 ```
 
@@ -2184,8 +2184,8 @@ Three models read the unit ledger:
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
 building, a change to the unit ledger rebuilds the two unit ledger models and every step from
-`ads.placed` on, 23 models in all. The catalog line lists the unit ledger's files with their
-SHA-256 under `ledger.units`, and counts its entries by status and change.
+`ads.placed` on, 23 models in all. The catalog line lists the unit ledger's files by name with
+their SHA-256 under `ledger.units`, and counts its entries by status and change.
 
 With no files in the folder, `ads.placed` gives each ad the building and unit of
 `ads.identity`. I imported the chain's `unit-reviews-v2` and `building-joins-v1` into
