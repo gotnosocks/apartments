@@ -33,9 +33,9 @@ the chain's corrections:
 It returns the class's coded level from `CODED`. The coded field has no level for "no dogs", so a
 text of that class gives None, as does a text with no class.
 
-Most descriptions mention no elevator or walk-up, and many mention no pet. Before running its
-patterns, each reading looks for the words in `ELEVATOR_WORDS` or `PET_WORDS`, and it gives None
-at once to a text without any of them.
+Most descriptions mention no elevator or walk-up, and many mention no pet. Before running a
+pattern, `elevator` checks the text for a word from `ELEVATOR_WORDS`, and `pets` checks it for one
+from `PET_WORDS`. Without one, the function returns None at once.
 """
 
 import re
@@ -163,7 +163,9 @@ APPLICATION_APPROVAL = r"\b(?:no|easy|fast|quick) (?:board )?approvals?\b"
 # Each alternative of `ELEVATOR_NO` and `ELEVATOR_YES` contains one of these words.
 ELEVATOR_WORDS = ("elevator", "flights", "walk up", "walk-up", "walkup")
 # `pets` gives a reading only after a match of `NO_PETS`, `ALLOWED`, `PET_FEE`, `PET_LIMIT` or
-# `CASE_PETS`, and each alternative of those patterns contains one of these words.
+# `CASE_PETS`, and each alternative of those patterns contains one of these words. `pets` runs
+# `NO_PETS` and `CASE_PETS` on texts with some phrases replaced by a space, which adds none of
+# these words.
 PET_WORDS = ("pet", "dog", "cat", "animal", "lbs", "pound")
 
 _CLASSES = tuple((name, re.compile(pattern)) for name, pattern in CLASSES)
