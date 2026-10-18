@@ -2578,10 +2578,11 @@ row's page unit: the unit of its ad after the unit ledger's joins and before its
 `ads.placed` keeps as `page_unit`. The rows of a split count toward their page unit's bedrooms
 there, and `analysis.rows` then leaves them in their split, as no label unit carries a
 `~review-` ID. At 870 Broadway, the split of #3 holds an ad of #2's page. The layers count that
-ad under #2, so #2 and #3 stay apart, as in the fit. `analysis.history_pairs` reads page units
-as well, so the ads of a unit and of its own split form no pair. The first version of the model
-read each row's unit after the splits. Its first layer then gave a split's rows their page's
-unit back, and at 870 Broadway it joined #2 and #3 through the split.
+ad under #2, so #2 and #3 stay apart, as in the served fit on the chain's rows.
+`analysis.history_pairs` reads page units as well, so the ads of a unit and of its own split
+form no pair. The first version of the model read each row's unit after the splits. Its first
+layer then gave a split's rows their page's unit back, and at 870 Broadway it joined #2 and #3
+through the split, as the chain's v17 does on a folder holding the ledger's splits.
 
 v17 reads its history pairs and alias groups from files built from crawled unit pages, in the
 neighbourhoods of the served dataset. I build both from the API records for every building, so
@@ -2591,26 +2592,31 @@ Slope units the chain's files leave out: "4th-floor" with "4", and "2nd-floor" w
 The model works on integer codes for the units, with the least code for the least unit ID, and
 reads each distinct label once: 50,183 labels over the 1,746,770 rows. I first wrote it over the
 unit IDs as strings, and pandas then took 89 s for the build's step, most of it in a
-group-by minimum over strings. The coded model takes 10.3 s and writes the same table.
+group-by minimum over strings. The coded model took 13.9 s in the lane's latest build.
 
 ### The port's diff
 
 I built the export of Oct 16 in the lane `tmp/pipeline/lanes/labels-port`, from master and
 from the branch, and compared their folders with `ops/pipeline/port_diff.py`:
 
-- Master took 16:26 from empty, at a peak of 4.42 GiB. After that, rebuilding `label_units`
-  and the models after it on the branch took 2:15, at 4.04 GiB, and left the rows file the same
-  as before. In that rebuild, `label_units` took 10.3 s and `history_pairs` 1.3 s.
-- All 350,202 rows match by audit ID. With v17 given to master's folder alone, 659 rows change
-  unit, a share of 0.188%, 496 of them within NB9. With the fit's other unit rules on both
-  sides, `building-joins-v1`, `unit-reviews-v2` and `unit-splits-v4`, 730 rows change, a share
-  of 0.208%. Both shares come out under `NEGLIGIBLE_SHARE`, so the move needs no refit.
-- Of the 730 rows, 599 keep the same rows per unit under another ID. The chain names a joined
-  unit after a member of its alias table with no rows in the frozen data, such as "8c" of 281
-  Avenue C, and the pipeline names the unit after its least member with rows. The other 136
-  rows sit in units joined differently: 125 rows in units the model joins and the chain
-  doesn't, and 11 rows of two of those units, which `unit-reviews-v2` and `unit-splits-v4`
-  split another way. The model leaves apart none of the units the chain joins.
+- Master took 16:26 from empty, at a peak of 4.42 GiB. Rebuilding `ads.placed` and the models
+  after it on the branch then took 3:06, at 4.05 GiB, with 5.7 s for `ads.placed`, 13.9 s for
+  `label_units` and 1.8 s for `history_pairs`. The branch's rows file matches master's row for
+  row, apart from its new `label_unit` column.
+- All 350,202 rows match by audit ID. With v17 given to master's folder alone, 669 rows change
+  unit, a share of 0.191%, 506 of them within NB9. With `building-joins-v1`, `sqft-units-v1`,
+  `unit-reviews-v5` and `unit-splits-v4` given to both folders as well, as a fit applies them,
+  734 rows change, a share of 0.210%, 525 of them within NB9. Both shares come out under
+  `NEGLIGIBLE_SHARE`, so the move needs no refit.
+- Of the 734 rows, 599 keep the same rows per unit under another ID. Both sides name a joined
+  unit after its least member, but they count different members. The chain counts the units
+  with rows and the units of its alias table, while the model counts every unit of
+  `ads.placed`, with rows or without. With v17 alone, 175 units differ only in their ID, and
+  the chain's ID is the lesser in 97 of them, as at 281 Avenue C.
+- The other 135 rows sit in units the two sides group differently, 243 rows in all. The
+  model's extra joins hold 227 of them. At 154 8th Avenue and 97 East 7th Street,
+  `unit-splits-v4` cuts a unit the model joins in other places than it cuts the chain's
+  smaller units. At 870 Broadway, the chain's v17 joins #2 and #3.
 
 The model joins 88 units the chain leaves apart, 39 of them within NB9: 24 in the West Village,
 13 in Chelsea and 2 elsewhere. The aliases layer makes 70 of them, the history layer 14 and the
@@ -2618,6 +2624,15 @@ labels layer 4. Nearly all join a floor word with a number, such as "3fl" or "th
 "3". The chain's alias table follows `unit-spelling-alias-v1` in the West Village, which keeps
 floor words apart from numbers, has no Chelsea groups at all, and follows v2 in the other six
 neighbourhoods. The model follows v2 in every building.
+
+The chain joins 6 units the model leaves apart, moving 8 rows, and each of those joins
+undoes a split of the unit ledger. Its labels layer gives a split's ads back to the unit of
+their page, at 1 Patchin Place, 407 West 39th Street, 780 Greenwich Street and 870 Broadway.
+`unit-reviews-v5` then splits the first three again, as the fit still applies it. At 870
+Broadway, though, the chain's labels layer also joins #2 and #3 through the ad of #2's page in
+the split of #3. After the fit's rules, the chain's side files four ads of #3's page with #2's
+ad, and the split of #3 keeps only the ad of #2's page, against the review's lines. The model's
+side gives each of the three units the ads the review assigns it.
 
 I drew 40 of the 88 joins at random, 30 within NB9 and 10 outside it. Two Sonnet readers read
 each pair's ads for bedrooms, size, floor and layout:
@@ -2632,10 +2647,10 @@ At that rate, about 26 of the 88 joins are false, 16 of them within NB9. A histo
 confirm a floor-word group. At 44 Ninth Avenue, the history of the page "fl2" lists the ad of
 the page "2ndfl", although the two ads went up on the same day, a studio and a one-bedroom.
 Requiring equal bedroom medians wouldn't separate them either. The words and spelled layers
-already join floor-word pairs whose medians agree, so 63 of the 68 units the aliases layer
-adds mix bedroom counts, and 17 of the 22 pairs read as the same apartment do too. Modeling
-and I left the floor-folded groups in every neighbourhood to a measured change of their own;
-4 of the 14 false joins hold two ads on the market at once.
+already join floor-word pairs whose medians agree. The aliases layer's 70 joins fall in 68 label
+units, and the bedroom medians of the members disagree in 63 of them, as in 17 of the 22 pairs
+read as the same apartment. Modeling and I left the floor-folded groups in every neighbourhood
+to a measured change of their own; 4 of the 14 false joins hold two ads on the market at once.
 
 ## Ads file
 
