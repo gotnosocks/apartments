@@ -243,7 +243,7 @@ a line for the build to `OUT/catalog.ndjson`:
 | `code` | the checkout's commit, and `clean`, false when `pipeline/`, `src/` or `ops/pipeline/` differ from it |
 | `export`, `ads`, `buildings` | the export folder, and for each table its version from `config.py` and each file it listed, with the file's SHA-256 |
 | `models` | each model's table in the state and its row count, and the seconds its evaluation and audits took, or null when the build left the model as it was |
-| `ledger` | the corrections ledger's files with their SHA-256, and its entries counted by status and change, with the same for the unit ledger under `units` |
+| `ledger` | the corrections ledger's files by name with their SHA-256, and its entries counted by status and change, with the same for the unit ledger under `units` |
 | `city` | the city archive's folder, and each file it lists for a source the city tables read, with the file's SHA-256 |
 | `rows` | the rows file's name, SHA-256 and row count |
 | `ads_file` | the ads file's name, SHA-256 and row count, under its own key since `ads` lists the export's files |

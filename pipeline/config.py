@@ -9,6 +9,7 @@ files:
 - `PIPELINE_STATE`: the folder for the DuckDB database, its spill files and SQLMesh's cache.
 
 `PIPELINE_LEDGER` names the folder of the corrections ledger, `pipeline/ledger` unless set.
+The ledger models read it again when they run, so a script running a plan sets it first.
 The config stops when the folder is missing, as a mistyped path would otherwise give a build
 with no corrections. The unit ledger is the folder `units` inside it, which may be missing
 while it holds no entries. `models/ledger/entries.py` explains both.
@@ -192,9 +193,6 @@ ads, ads_version, ads_files = exported("ads")
 buildings, buildings_version, buildings_files = exported("buildings")
 if not LEDGER.is_dir():
     raise FileNotFoundError(f"no ledger folder at {LEDGER}")
-# The variables below give the ledger files by name, so a checkout's path stays out of the
-# ledger models' fingerprints. The models find the folder in this variable when they run.
-os.environ["PIPELINE_LEDGER"] = str(LEDGER)
 if not CITY.is_dir():
     raise FileNotFoundError(f"no city archive at {CITY}")
 # The config loads steps/city.py from this checkout by its path. The venv's editable install
@@ -243,6 +241,10 @@ config = Config(
         "city_files": {"archive": str(CITY), "files": city_files},
         # The name of each file of the ledger and of the unit ledger with its SHA-256.
         # ledger.entries and ledger.unit_entries read them, and the catalog line records them.
+        # The names keep a checkout's path out of the ledger models' fingerprints. The models
+        # look the files up in PIPELINE_LEDGER when they run, which ops/pipeline/build.py sets
+        # for its plan when it is unset, since SQLMesh restores the environment after it loads
+        # this file.
         "ledger": {
             path.name: file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
         },

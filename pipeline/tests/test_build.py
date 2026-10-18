@@ -312,8 +312,8 @@ def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
 
 def test_ledger_in_another_folder_rebuilds_nothing(tmp_path, build, monkeypatch):
     """The catalog line gives the ledger files by name. A build with the same files in another
-    folder, as from another checkout, reuses every model, and a later edit there rebuilds the
-    ledger models from that folder."""
+    folder, as from another checkout, reuses every model once the first folder is gone, and a
+    later edit there rebuilds the ledger models from that folder."""
     export = copy_export(tmp_path)
     names = {"": "2026-01-01-a.ndjson", "units": "2026-01-01-b.ndjson"}
     for folder in (tmp_path / "ledger", tmp_path / "elsewhere" / "ledger"):
@@ -324,6 +324,7 @@ def test_ledger_in_another_folder_rebuilds_nothing(tmp_path, build, monkeypatch)
     first = build(export, tmp_path / "state", tmp_path / "out")
     assert first["ledger"]["files"] == {names[""]: digest}
     assert first["ledger"]["units"]["files"] == {names["units"]: digest}
+    shutil.rmtree(tmp_path / "ledger")
     monkeypatch.setenv("PIPELINE_LEDGER", str(tmp_path / "elsewhere" / "ledger"))
     second = build(export, tmp_path / "state", tmp_path / "out")
     assert second["ledger"] == first["ledger"]
@@ -334,3 +335,18 @@ def test_ledger_in_another_folder_rebuilds_nothing(tmp_path, build, monkeypatch)
     assert third["models"]["ledger.entries"]["seconds"] is not None
     assert third["models"]["ledger.unit_entries"]["seconds"] is not None
     assert third["rows"] == first["rows"]
+
+
+def test_build_sets_an_unset_ledger_folder(tmp_path, build, monkeypatch):
+    """With `PIPELINE_LEDGER` unset, `config.py` lists the checkout's ledger, and the build runs
+    its plan with the variable set to that folder, as SQLMesh restores the environment after it
+    loads `config.py`. The variable is unset again afterwards."""
+    monkeypatch.delenv("PIPELINE_LEDGER")
+    ledger = BUILD.parents[2] / "pipeline" / "ledger"
+    line = build(copy_export(tmp_path), tmp_path / "state", tmp_path / "out")
+    assert line["ledger"]["files"] == {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in ledger.glob("*.ndjson")
+    }
+    assert line["models"]["ledger.entries"]["seconds"] is not None
+    assert "PIPELINE_LEDGER" not in os.environ

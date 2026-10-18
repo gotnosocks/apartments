@@ -117,10 +117,9 @@ these rules:
 the variable `ledger` and the unit ledger's in `ledger_units`, so a new or changed file gives
 its model a new fingerprint. The folder stays out of the variables, so a build from another
 checkout with the same files reuses both models and everything after them. When a model runs,
-it finds the files in the folder `PIPELINE_LEDGER` gives, which `config.py` sets as the project
-loads, reads them again and stops when one differs from its hash, as a file edited after the
-project loaded would. The parsers live in this file, so the models' fingerprints cover the rules
-too.
+it finds the files in the folder `PIPELINE_LEDGER` gives, reads them again and stops when one
+differs from its hash, as a file edited after the project loaded would. The parsers live in
+this file, so the models' fingerprints cover the rules too.
 """
 
 from __future__ import annotations
@@ -673,7 +672,13 @@ def read_units(paths) -> list[dict]:
 
 def located(listed, folder=""):
     """The files of `listed`, file names with their SHA-256, as paths in the folder
-    `PIPELINE_LEDGER` gives, or in its subfolder `folder`."""
+    `PIPELINE_LEDGER` gives, or in its subfolder `folder`. `config.py` falls back to
+    `pipeline/ledger` when the variable is unset, and SQLMesh restores the environment after
+    loading it, so `ops/pipeline/build.py` sets the variable for its plan."""
+    if not os.environ.get("PIPELINE_LEDGER"):
+        raise LedgerError(
+            "PIPELINE_LEDGER is unset; set it to the ledger folder of the build"
+        )
     root = Path(os.environ["PIPELINE_LEDGER"]) / folder
     return {str(root / name): digest for name, digest in listed.items()}
 
