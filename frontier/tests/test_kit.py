@@ -51,6 +51,15 @@ def toy(
     return kept, prep, config, feats
 
 
+def tables(kept, prep, config, feats):
+    """kit_tables on draws with the whole walk, cut to its last-month knots as
+    read_kept reads them."""
+    knots = kit.walk_knots(prep, config, kept["walk"].shape[-1])
+    return kit.kit_tables(
+        kept | {"walk": kept["walk"][..., knots]}, prep, config, feats
+    )
+
+
 def kit_total(record, buildings, x, b, bedrooms, year_frac, calendar):
     """The site's formula, in numpy: every term but the unit level."""
     beta = np.array(record["beta"])
@@ -90,7 +99,7 @@ def test_kit_reproduces_log_terms_at_the_last_month(slopes, months, spacing, dai
     )
     if not slopes:
         kept.pop("fslope")
-    record, buildings = kit.kit_tables(kept, prep, config, feats)
+    record, buildings = tables(kept, prep, config, feats)
     rng = np.random.default_rng(1)
     n = 30
     month = len(prep.periods) - 1
@@ -133,7 +142,7 @@ def test_kit_reproduces_log_terms_at_the_last_month(slopes, months, spacing, dai
 
 def test_noise_and_unit_prior_are_the_thinned_draws():
     kept, prep, config, feats = toy(draws=600)
-    record, _ = kit.kit_tables(kept, prep, config, feats)
+    record, _ = tables(kept, prep, config, feats)
     idx = kit.thin(600)
     np.testing.assert_array_equal(record["sigma"], kept["sigma"][idx])
     for name in ("nu", "unit_scale", "unit_nu", "market"):
@@ -143,7 +152,7 @@ def test_noise_and_unit_prior_are_the_thinned_draws():
     np.testing.assert_array_equal(record["unit_nu"], kept["unit_nu"][idx])
     assert record["t_units"]
     one = kept | {"sigma": kept["sigma"][:, 0]}
-    record, _ = kit.kit_tables(one, prep, config, feats)
+    record, _ = tables(one, prep, config, feats)
     assert np.shape(record["sigma"]) == (250, 1)
 
 
@@ -152,7 +161,7 @@ def test_noise_by_year_exports_the_last_years_scales():
     years = 3
     # Group-major: column g * years + y is bedroom group g in year y.
     by_year = np.random.default_rng(1).uniform(0.05, 0.2, (600, 4 * years))
-    record, _ = kit.kit_tables(kept | {"sigma": by_year}, prep, config, feats)
+    record, _ = tables(kept | {"sigma": by_year}, prep, config, feats)
     idx = kit.thin(600)
     np.testing.assert_array_equal(
         record["sigma"], by_year[idx][:, [g * years + years - 1 for g in range(4)]]
@@ -165,7 +174,7 @@ def test_thinning_keeps_evenly_spaced_draws():
     )
     assert kit.thin(10).tolist() == list(range(10))
     kept, prep, config, feats = toy(draws=600)
-    record, buildings = kit.kit_tables(kept, prep, config, feats)
+    record, buildings = tables(kept, prep, config, feats)
     assert record["draws"] == 250 and len(record["nu"]) == 250
     assert len(buildings.level[0]) == 250
 
@@ -173,9 +182,9 @@ def test_thinning_keeps_evenly_spaced_draws():
 def test_unsupported_designs_are_refused():
     kept, prep, config, feats = toy()
     with pytest.raises(SystemExit, match="line-effects"):
-        kit.kit_tables(kept | {"line_scale": np.full(12, 0.1)}, prep, config, feats)
+        tables(kept | {"line_scale": np.full(12, 0.1)}, prep, config, feats)
     with pytest.raises(SystemExit, match="unit-drift"):
-        kit.kit_tables(kept | {"unit_drift": np.zeros((12, 3))}, prep, config, feats)
+        tables(kept | {"unit_drift": np.zeros((12, 3))}, prep, config, feats)
 
 
 def test_unit_levels_are_the_fits_thinned_unit_draws():
@@ -190,3 +199,22 @@ def test_unit_levels_are_the_fits_thinned_unit_draws():
             units.level[j], kept["unit"][idx, j].astype(np.float32), rtol=0, atol=0
         )
     assert len(units.level[0]) == 250
+
+
+def test_read_kept_gives_the_thinned_draws_and_last_knots(tmp_path):
+    kept, prep, config, feats = toy(draws=600, months=19)
+    stored = {
+        k: v.astype(np.float32).reshape(2, 300, *v.shape[1:]) for k, v in kept.items()
+    }
+    np.savez(tmp_path / "posterior.npz", **{f"kept/{k}": v for k, v in stored.items()})
+    got = kit.read_kept(tmp_path, prep, config)
+    idx = kit.thin(600)
+    knots = kit.walk_knots(prep, config, kept["walk"].shape[-1])
+    # The last month (18) is the walk's last knot (3), which stands in for the next.
+    assert knots.tolist() == [3, 3]
+    for k, v in stored.items():
+        whole = v.reshape(600, *v.shape[2:])[idx]
+        if k == "walk":
+            whole = whole[..., knots]
+        assert got[k].dtype == (np.float32 if k == "unit" else np.float64), k
+        np.testing.assert_array_equal(got[k], whole, err_msg=k)
