@@ -77,7 +77,9 @@ def read(
 
     Each block of draws is cast to `dtype` (None keeps the stored type) and
     passed through `take[key]`, when given, before it is kept; the function
-    gets and returns arrays with the draws on the first axis.
+    gets and returns arrays with the draws on the first axis. The array it
+    gets is a view of a buffer the next block overwrites, so a function that
+    keeps it has to copy it.
     """
     take = take or {}
     out = {}
@@ -107,7 +109,11 @@ def read(
                 # of a step's system time.
                 raw = bytearray(per * width)
                 picked = np.empty((width, *rest), stored)
-                cast = np.empty((width, *rest), dtype) if fn and dtype else None
+                cast = (
+                    np.empty((width, *rest), dtype)
+                    if fn and dtype is not None
+                    else None
+                )
                 kept, filled = None, 0
                 for lo in range(0, n, block):
                     hi = min(lo + block, n)
@@ -116,6 +122,8 @@ def read(
                     wanted = index[(index >= lo) & (index < hi)]
                     if not len(wanted):
                         continue
+                    # mode="clip" below never raises, so the range is checked here.
+                    assert wanted[0] >= lo and wanted[-1] < hi
                     value = np.frombuffer(raw, stored).reshape(width, *rest)[: hi - lo]
                     if len(wanted) < hi - lo:
                         # mode="clip" writes straight into `picked`; "raise" buffers.
