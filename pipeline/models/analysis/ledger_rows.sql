@@ -12,8 +12,9 @@ MODEL (
 -- ask analysis.latest_ask chooses, or the ask a live ask set gives. For a row with a concession
 -- in analysis.concessions, `latest_ask` takes `latest_gross` times the concession's factor,
 -- rounded to the cent. A latest ask equal to a price before the concession began, and to none
--- from it on, stays gross, as when analysis.latest_ask falls back to the first ask. A page price
--- or an ask set counts as current and takes the factor. `months_free` and `lease_term` give the
+-- from it on, stays gross, as when analysis.latest_ask falls back to the first ask. So does an
+-- ask within $1 of the net effective rent, which StreetEasy shows already net. Otherwise a page
+-- price or an ask set counts as current and takes the factor. `months_free` and `lease_term` give the
 -- terms, and a row without a concession has neither. The last column, `relist_unit`, takes the
 -- relist unit analysis.relist_units gives the row's unit page, or the unit page itself.
 WITH live AS (
@@ -39,8 +40,10 @@ SELECT k.* REPLACE (
     coalesce(s.half_baths, k.half_baths) AS half_baths,
     coalesce(s.square_feet, k.square_feet) AS square_feet
 ), CASE
-        WHEN c.listing_id IS NOT NULL AND (s.latest_ask IS NOT NULL OR a.how LIKE 'page price%'
-            OR NOT list_contains(c.gross_prices, a.latest_ask) OR list_contains(c.net_prices, a.latest_ask))
+        WHEN c.listing_id IS NOT NULL
+            AND NOT coalesce(abs(coalesce(s.latest_ask, a.latest_ask) - c.net_effective_rent) <= 1, false)
+            AND (s.latest_ask IS NOT NULL OR a.how LIKE 'page price%'
+                OR NOT list_contains(c.gross_prices, a.latest_ask) OR list_contains(c.net_prices, a.latest_ask))
             THEN round(coalesce(s.latest_ask, a.latest_ask) * c.factor, 2)
         ELSE coalesce(s.latest_ask, a.latest_ask)
     END AS latest_ask,

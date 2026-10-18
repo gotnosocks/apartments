@@ -20,7 +20,7 @@ MODEL (
 -- is the n of the last price, since StreetEasy can leave the net effective rent of an earlier
 -- price in place. `gross_prices` lists the prices before `start`, and `net_prices` the prices
 -- from `start` on. analysis.ledger_rows takes the factor off the row's latest ask unless the ask
--- matches a price of `gross_prices` alone.
+-- matches a price of `gross_prices` alone or lies within $1 of the net effective rent.
 --
 -- On a copy of the NB9 lane's state of Oct 18, 161,542 kept rows had terms. The net effective
 -- rent matched the first price on 108,185, a later price on 52,182 and no price on 1,175.

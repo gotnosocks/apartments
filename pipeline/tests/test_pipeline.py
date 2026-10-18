@@ -524,6 +524,12 @@ def test_concession_cases(tmp_path, monkeypatch):
     - ad 9000176 offers 2 months free on 12, and a ledger set gives it an ask of $3,600, which
       nets to $3,000.
     - ad 9000177 offers no concession.
+    - ad 9000178 asks $3,300 from June 1 with a net effective rent of $3,300, so StreetEasy
+      shows its ask already net, and the row keeps $3,300.
+    - ad 9000179 offers 1.5 months free on 12 with no net effective rent, so the concession
+      counts from the last price. Its ask nets to $2,625.
+    - ad 9000180 has the prices and terms of ad 9000173, and a ledger set gives it an ask of
+      $3,600, which nets to $3,300 though $3,300 came before the concession.
 
     The chain drops an ad with a concession, and the pipeline keeps each of these."""
     export = tmp_path / "export"
@@ -568,26 +574,37 @@ def test_concession_cases(tmp_path, monkeypatch):
         ad(9000175, may, monthsFree=12, leaseTermMonths=12, netEffectiveRent=250),
         ad(9000176, may, monthsFree=2, leaseTermMonths=12, netEffectiveRent=2500),
         ad(9000177, may),
+        ad(9000178, june, **one, netEffectiveRent=3300),
+        ad(9000179, may, monthsFree=1.5, leaseTermMonths=12),
+        ad(9000180, june + [("2026-07-01", 9000)], **one, netEffectiveRent=8250),
     ]
     append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
-    entry = {
-        "decided": "2026-10-18",
-        "evidence": [
-            {
-                "kind": "other_ad",
-                "listing_id": "123",
-                "detail": "the same unit a month later",
-                "ask": 3600,
-            }
-        ],
-        "change": "set",
-        "listing_id": "9000176",
-        "set": {"latest_ask": 3600},
-        "when": {"period": "2026-05", "latest_ask": 3000},
-    }
+
+    def entry(listing_id, ask):
+        """A ledger set of an ask of $3,600 for ad `listing_id`, first asking in May with the
+        latest ask `ask`."""
+        return {
+            "decided": "2026-10-18",
+            "evidence": [
+                {
+                    "kind": "other_ad",
+                    "listing_id": "123",
+                    "detail": "the same unit a month later",
+                    "ask": 3600,
+                }
+            ],
+            "change": "set",
+            "listing_id": listing_id,
+            "set": {"latest_ask": 3600},
+            "when": {"period": "2026-05", "latest_ask": ask},
+        }
+
     ledger = tmp_path / "ledger"
     ledger.mkdir()
-    (ledger / "2026-10-18.ndjson").write_text(json.dumps(entry) + "\n")
+    lines = [entry("9000176", 3000), entry("9000180", 3300)]
+    (ledger / "2026-10-18.ndjson").write_text(
+        "".join(json.dumps(e) + "\n" for e in lines)
+    )
     ctx = context(monkeypatch, tmp_path / "state", export, ledger=ledger)
     ctx.plan(auto_apply=True, no_prompts=True)
 
@@ -604,6 +621,9 @@ def test_concession_cases(tmp_path, monkeypatch):
         ["9000173", 0.9167, 3, [3000, 3000, 3300], [9000]],
         ["9000174", 0.9167, 1, [3000], [3000]],
         ["9000176", 0.8333, 0, [], [3000, 3000]],
+        ["9000178", 0.9167, 2, [3000, 3000], [3300]],
+        ["9000179", 0.875, 1, [3000], [3000]],
+        ["9000180", 0.9167, 3, [3000, 3000, 3300], [9000]],
     ]
     rows = ctx.fetchdf(
         """SELECT r.listing_id, r.asking_rent, r.latest_gross, r.latest_ask, r.months_free,
@@ -621,6 +641,9 @@ def test_concession_cases(tmp_path, monkeypatch):
         ["9000175", 3000, 3000, 3000, None, None, 3000],
         ["9000176", 3000, 3600, 3000, 2, 12, 3000],
         ["9000177", 3000, 3000, 3000, None, None, 3000],
+        ["9000178", 3000, 3300, 3300, 1, 12, 3300],
+        ["9000179", 3000, 3000, 2625, 1.5, 12, 3000],
+        ["9000180", 3000, 3600, 3300, 1, 12, 3300],
     ]
 
 

@@ -1568,7 +1568,9 @@ a change. The prices before `start` go into `gross_prices`, and the rest into `n
 `analysis.ledger_rows` keeps the row's latest ask, after the ledger's ask sets, as
 `latest_gross`. For `latest_ask` it multiplies that ask by the factor and rounds to the cent,
 unless the ask equals a price in `gross_prices` and none in `net_prices`. A page price and an
-ask from the ledger take the factor in every case, as both give the ad's ask as it stands now.
+ask from the ledger take the factor in those cases too, as both give the ad's ask as it stands
+now. An ask within $1 of the net effective rent keeps its value, since StreetEasy already shows
+it net, and the factor would take the free months off a second time.
 The rows file adds `months_free` and `lease_term` for the rows with terms. An ad with the
 concession flag in `ads.attributes` and no usable terms in its latest record keeps its gross
 ask. `observations.py` writes `latest_ask` as the fit's `asking_rent` and leaves the other three
@@ -1585,11 +1587,13 @@ the unit-month checks, which drop 963 rows, 91 of them in NB9:
 - 209 in the same two checks on label units.
 
 The NB9 neighborhoods go from 348,968 to 378,838 rows, 8.6% more. Of the 160,936 rows with
-terms, 160,929 take the factor, with a median cut of 8.3%, one month of 12, and a 90th
-percentile of 20%. The 7 others keep an ask from before the concession, the first ask or an
-earlier change, after the building's median rejected the latest change. 201 rows come back with the concession flag and
-no usable terms in the latest record, and they keep their gross ask. Over the 161,542 kept rows
-with terms, before the ledger and the label checks, the net effective rent matches the first
+terms, 160,876 take the factor, with a median cut of 8.3%, one month of 12, and a 90th
+percentile of 20%. 53 others, 17 of them in NB9, ask within $1 of their net effective rent and
+keep that ask. I counted these on the lane's rows, built before the rule kept them, when the
+factor still took their free months off a second time. The last 7 keep an ask from before the
+concession, the first ask or an earlier change, after the building's median rejected the
+latest change. 201 rows come back with the concession flag and no usable terms in the latest
+record, and they keep their gross ask. Over the 161,542 kept rows with terms, before the ledger and the label checks, the net effective rent matches the first
 price on 108,185, a later price on 52,182 and none on 1,175. No live ask set of the ledger falls
 on a row with terms.
 
@@ -1613,7 +1617,9 @@ bedroom count. It lists the row for review when:
 `analysis.ads` gives the median, the number of other rows and the ratio in its `ask_check` column.
 The check reads the rows after the corrections ledger, so a live bedroom set moves a row in with the
 rows of its corrected count, a live ask set gives a row its corrected ask, and the ads the ledger
-excludes drop out of every median. A typo of an
+excludes drop out of every median. The check lists a concession row's ask net of the free
+months, as the rows file gives it. A ledger entry for the row gives the row's `latest_gross` as
+`when.latest_ask`, since `ledger.status` compares it with `analysis.latest_ask`. A typo of an
 extra or a missing digit gives a ratio near 10, but a row's true ask can lie a good way from its
 building's median. On the planted sample under [Planted errors](#planted-errors), the tenfold asks
 ran from 6.8 to 15.1 times the median, so I set the band at 6 to 16. In both builds of that sample
@@ -1914,8 +1920,9 @@ Four models read the ledger:
 
 3. `analysis.ledger_rows` drops the rows of the live excludes and gives the values of the live
    sets. A bath set gives the full and half bathrooms and leaves `bathrooms` as recorded, as the
-   chain's bath rules do. An ask set gives the row's `latest_ask` and leaves `asking_rent`, the
-   first ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
+   chain's bath rules do. An ask set gives the row's `latest_gross`, and `latest_ask` nets it of
+   any concession, as under [Concessions](#concessions). The set leaves `asking_rent`, the first
+   ask, as recorded. `analysis.ask_check` reads the corrected ask from the rows, and the
    ads file keeps the latest ask from before the ledger.
 4. `analysis.lot_facts` gives an ad with a live drop_lot no lot, BIN, release or facts, and
    names the entry in `lot_entry`. The building check then leaves the ad's row out, and the
