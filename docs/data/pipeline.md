@@ -1995,8 +1995,9 @@ under [Unit ledger](#unit-ledger), with the lines of `unit-reviews-v5`, the late
 `unit-reviews-v2`, but for a split held for want of backing.
 `analysis.label_units` joins units as `unit-labels-v17` does, as described under
 [Label units](#label-units), and `analysis.history_splits` cuts units as `unit-splits-v4` does,
-as described under [History splits](#history-splits). The chain's `fields-review-v3` is not in a
-ledger yet. The rules moving ads to another unit or building go into the unit ledger.
+as described under [History splits](#history-splits). The chain's `fields-review-v3` needs no
+ledger lines, as it returns the rows unchanged. The rules moving ads to another unit or building
+go into the unit ledger.
 `ads.attributes` reads the elevator and pet policy from each ad's text in place of
 `elevator-from-ad-v1` and `pets-from-ad-v2`, as described under
 [Attributes and exclusions](#attributes-and-exclusions).
