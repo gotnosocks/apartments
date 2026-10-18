@@ -458,13 +458,15 @@ WHERE analysis_price_basis = $basis
 def ledger_sets(build: dict) -> dict:
     """Live ledger entry ID -> the fields its set gives, over the build's ledger files.
 
-    An entry's ID is the first 16 hex digits of the SHA-256 of its line. The files of this
-    checkout's ledger join the build's, in case a build's file has moved since."""
-    files = set((build.get("catalog") or {}).get("ledger") or {})
-    files |= {str(p) for p in (REPO / "pipeline" / "ledger").glob("*.ndjson")}
+    An entry's ID is the first 16 hex digits of the SHA-256 of its line. The build's catalog
+    line gives its files by name, or by absolute path for builds before Oct 18, and a name
+    points into this checkout's ledger. The files of this checkout's ledger join the build's,
+    in case a build's file has moved since."""
+    folder = REPO / "pipeline" / "ledger"
+    files = {folder / name for name in (build.get("catalog") or {}).get("ledger") or {}}
+    files |= set(folder.glob("*.ndjson"))
     fields = {}
-    for name in sorted(files):
-        path = Path(name)
+    for path in sorted(files):
         if not path.is_file():
             continue
         for line in path.read_text().splitlines():

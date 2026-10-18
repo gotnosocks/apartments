@@ -192,6 +192,9 @@ ads, ads_version, ads_files = exported("ads")
 buildings, buildings_version, buildings_files = exported("buildings")
 if not LEDGER.is_dir():
     raise FileNotFoundError(f"no ledger folder at {LEDGER}")
+# The variables below give the ledger files by name, so a checkout's path stays out of the
+# ledger models' fingerprints. The models find the folder in this variable when they run.
+os.environ["PIPELINE_LEDGER"] = str(LEDGER)
 if not CITY.is_dir():
     raise FileNotFoundError(f"no city archive at {CITY}")
 # The config loads steps/city.py from this checkout by its path. The venv's editable install
@@ -238,13 +241,13 @@ config = Config(
         # stay out of the models' fingerprints.
         "export_files": {"ads": ads_files, "buildings": buildings_files},
         "city_files": {"archive": str(CITY), "files": city_files},
-        # Each file of the ledger and of the unit ledger with its SHA-256. ledger.entries and
-        # ledger.unit_entries read them, and the catalog line records them.
+        # The name of each file of the ledger and of the unit ledger with its SHA-256.
+        # ledger.entries and ledger.unit_entries read them, and the catalog line records them.
         "ledger": {
-            str(path): file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
+            path.name: file_sha256(path) for path in sorted(LEDGER.glob("*.ndjson"))
         },
         "ledger_units": {
-            str(path): file_sha256(path)
+            path.name: file_sha256(path)
             for path in sorted(LEDGER_UNITS.glob("*.ndjson"))
         },
         # The Parquet files of each city table. A path holds the SHA-256 of the code and of

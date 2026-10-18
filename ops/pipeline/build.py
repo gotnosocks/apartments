@@ -35,8 +35,8 @@ The script works in these steps:
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, whether the build was
    a top-up, the value of `PIPELINE_STALE_DAYS` it built with, each export file it read with its
-   SHA-256, each file of the corrections ledger and of the unit ledger with its SHA-256 and the
-   count of their entries in each status, each file of the city archive with its SHA-256, the
+   SHA-256, the name of each file of the corrections ledger and of the unit ledger with its
+   SHA-256 and the count of their entries in each status, each file of the city archive with its SHA-256, the
    seconds each rebuilt model took with its audits, each model's table and row count, the rows,
    ads and records files with their SHA-256, the wall time of each step, and the peak memory of
    the script and of its cgroup.

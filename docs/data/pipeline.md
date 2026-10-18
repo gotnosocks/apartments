@@ -2184,8 +2184,8 @@ Three models read the unit ledger:
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
 building, a change to the unit ledger rebuilds the two unit ledger models and every step from
-`ads.placed` on, 23 models in all. The catalog line lists the unit ledger's files with their
-SHA-256 under `ledger.units`, and counts its entries by status and change.
+`ads.placed` on, 23 models in all. The catalog line lists the unit ledger's files by name with
+their SHA-256 under `ledger.units`, and counts its entries by status and change.
 
 With no files in the folder, `ads.placed` gives each ad the building and unit of
 `ads.identity`. I imported the chain's `unit-reviews-v2` and `building-joins-v1` into

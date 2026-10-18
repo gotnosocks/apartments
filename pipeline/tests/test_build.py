@@ -308,3 +308,29 @@ def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
     catalog = (tmp_path / "out" / "catalog.ndjson").read_text().splitlines()
     assert [json.loads(entry) for entry in catalog] == [line]
     assert "janitor failed: planted" in capsys.readouterr().err
+
+
+def test_ledger_in_another_folder_rebuilds_nothing(tmp_path, build, monkeypatch):
+    """The catalog line gives the ledger files by name. A build with the same files in another
+    folder, as from another checkout, reuses every model, and a later edit there rebuilds the
+    ledger models from that folder."""
+    export = copy_export(tmp_path)
+    names = {"": "2026-01-01-a.ndjson", "units": "2026-01-01-b.ndjson"}
+    for folder in (tmp_path / "ledger", tmp_path / "elsewhere" / "ledger"):
+        for sub, name in names.items():
+            (folder / sub).mkdir(parents=True, exist_ok=True)
+            (folder / sub / name).write_text("\n")
+    digest = hashlib.sha256(b"\n").hexdigest()
+    first = build(export, tmp_path / "state", tmp_path / "out")
+    assert first["ledger"]["files"] == {names[""]: digest}
+    assert first["ledger"]["units"]["files"] == {names["units"]: digest}
+    monkeypatch.setenv("PIPELINE_LEDGER", str(tmp_path / "elsewhere" / "ledger"))
+    second = build(export, tmp_path / "state", tmp_path / "out")
+    assert second["ledger"] == first["ledger"]
+    assert all(model["seconds"] is None for model in second["models"].values())
+    for sub in names:
+        (tmp_path / "elsewhere" / "ledger" / sub / names[sub]).write_text("\n\n")
+    third = build(export, tmp_path / "state", tmp_path / "out")
+    assert third["models"]["ledger.entries"]["seconds"] is not None
+    assert third["models"]["ledger.unit_entries"]["seconds"] is not None
+    assert third["rows"] == first["rows"]

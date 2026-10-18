@@ -113,11 +113,14 @@ these rules:
    with no `into` of its own. While the split is in force, the earlier one stays in force too,
    so a retract of the earlier one comes after a retract of the split.
 
-`config.py` lists each ledger's files with their SHA-256, the corrections ledger's in the
-variable `ledger` and the unit ledger's in `ledger_units`, so a new or changed file gives its
-model a new fingerprint. Each model reads its files again when it runs and stops when one
-differs from its hash, as a file edited after the project loaded would. The parsers live in
-this file, so the models' fingerprints cover the rules too.
+`config.py` lists each ledger's files by name with their SHA-256, the corrections ledger's in
+the variable `ledger` and the unit ledger's in `ledger_units`, so a new or changed file gives
+its model a new fingerprint. The folder stays out of the variables, so a build from another
+checkout with the same files reuses both models and everything after them. When a model runs,
+it finds the files in the folder `PIPELINE_LEDGER` gives, which `config.py` sets as the project
+loads, reads them again and stops when one differs from its hash, as a file edited after the
+project loaded would. The parsers live in this file, so the models' fingerprints cover the rules
+too.
 """
 
 from __future__ import annotations
@@ -125,6 +128,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -667,6 +671,13 @@ def read_units(paths) -> list[dict]:
     return rows
 
 
+def located(listed, folder=""):
+    """The files of `listed`, file names with their SHA-256, as paths in the folder
+    `PIPELINE_LEDGER` gives, or in its subfolder `folder`."""
+    root = Path(os.environ["PIPELINE_LEDGER"]) / folder
+    return {str(root / name): digest for name, digest in listed.items()}
+
+
 def unchanged(listed):
     """Stop when a file of `listed`, the files with their SHA-256, changed after the project
     loaded."""
@@ -695,7 +706,7 @@ def unchanged(listed):
     description="Each entry of the corrections ledger, checked against its rules.",
 )
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
-    listed = context.var("ledger")
+    listed = located(context.var("ledger"))
     unchanged(listed)
     rows = read(listed)
     if rows:
@@ -722,7 +733,7 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     description="Each entry of the unit ledger, checked against its rules.",
 )
 def execute_units(context: ExecutionContext, start, end, execution_time, **kwargs):
-    listed = context.var("ledger_units")
+    listed = located(context.var("ledger_units"), "units")
     unchanged(listed)
     rows = read_units(listed)
     if rows:
