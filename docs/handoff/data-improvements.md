@@ -1,6 +1,15 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 22:00 ET, after the half-bath sets in #1091. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 02:00 ET, after the zero-full-bath sets in #1096. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-18 02:00 ET
+
+- #1096 adds `pipeline/ledger/2026-10-18-unit-baths-zerofull.ndjson`, 3 bath sets. 59 rows code 0 full baths,
+  mostly with 2 half baths, the way "2 baths" comes in through the half-bath field. Sonnet read the 32 with a
+  same-bedroom ad for the unit (23 wrong, 4 right, 5 unclear), and `/data1/apartments/tmp/suspect/baths/zero/ledger.py`
+  applies the #1091 checks. 7 were already set. Most of the rest fail because the other ad's quote has no count
+  the parser reads (for example "Two full marble bathrooms").
+- The next new ledger file needs a name sorting after `2026-10-18-unit-baths-zerofull`, or a later date.
 
 ## 2026-10-17 22:00 ET
 
@@ -17,7 +26,6 @@ Updated 2026-10-17 22:00 ET, after the half-bath sets in #1091. Thread owner: th
 - About 425 half-bath rows have no row-level backing. Modeling codes half_baths as a categorical with one "2+"
   level, so a 5 counts as a 2. Modeling plans a free check of their share of that level and tests a cap rule only
   if the share is large.
-- The next new ledger file needs a name sorting after `2026-10-17-zzzzzzz-unit-baths-halfcount`, or a later date.
 
 ## 2026-10-17 21:00 ET
 
