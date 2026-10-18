@@ -2892,7 +2892,7 @@ def features(row, faces: str | None = None) -> list[str]:
         word = FEATURE_WORDS.get((kind, row[kind]))
         if word:
             out.append(word)
-    if any(k.startswith("outdoor:") for k in inputs):
+    if summary.has_outdoor(inputs):
         out.append("outdoor space")
     if faces:
         out.append(faces)
@@ -2900,12 +2900,7 @@ def features(row, faces: str | None = None) -> list[str]:
 
 
 def read_floor(row, inputs: dict[str, float]) -> int | None:
-    """The floor the model used for a listing whose ad states none: read
-    from the unit's label, like 4 for "04E". None when the ad states one
-    or the model has none either."""
-    if row["floor"] is not None or "floor_unknown" in inputs:
-        return None
-    return round(math.exp(inputs.get("log_floor", 0.0)))  # floor 1 has no input
+    return summary.label_floor(row["floor"], inputs)
 
 
 def carried_size(row, inputs: dict[str, float], others) -> dict | None:
