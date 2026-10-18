@@ -446,7 +446,14 @@ The older items follow.
       No bedroom check: two sources agree on another count for 14,933 production rows, and a
       Sonnet read of 30 found 6 wrong counts, 14 flex or unclear layouts, 4 real changes, 4
       right counts and 2 ads of another unit. A wrong count goes into the ledger with its
-      evidence. Next: a fallback to the last change before a typo in place of the first ask.
+      evidence. **Done** in #NNNN: when the building's median rejects the latest ask,
+      `analysis.latest_ask` takes the ad's last kept change within a factor of 2 of the first
+      ask in place of the first ask. All 100 planted price typos in a later answer keep the
+      clean latest ask, where 31 took another ask on master, and on a copy of the NB9 lane's
+      state 72 rows move. **Done** in #1133: on Oct 18 the planted run stopped three times at
+      its spill watchdog, as DuckDB joined the two copies of `ads.placed` in
+      `analysis.history_pairs` on their unequal page units. Each side of that model now joins
+      its ads' page units inside its own DISTINCT, and a test reads the plan at five sizes.
    10. **Done** in #1103: the records step notes each file it writes under the export's version,
        in `written.ndjson` of its cache folder. A build of the same export and code returns the
        noted file without rewriting and hashing it, as long as the file keeps its noted size and

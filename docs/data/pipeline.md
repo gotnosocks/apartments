@@ -1476,7 +1476,8 @@ so a fit can choose the regions it reads.
 ## Latest ask
 
 `analysis.latest_ask` gives each kept row the latest ask `rentfrontier.latest_ask` chooses for
-it, so a ledger change leaves it as it is. `analysis.rows` takes it as `latest_ask`, with the
+it, apart from item 13 under [Differences from the chain](#differences-from-the-chain), so a
+ledger change leaves it as it is. `analysis.rows` takes it as `latest_ask`, with the
 asks of the ledger's live ask sets in place of the chosen ones. An ad gives at most one kept row, priced on its first
 day. `analysis.latest_change`
 takes the ad's last kept change dated on or after that day, or the change in effect on that day
@@ -1521,6 +1522,19 @@ For five of these ads, Data improvements found another ad for the same unit with
 least 15% below the repeated-digit ask. #1018 gives those five ads back their ask from before
 the takedown, in `pipeline/ledger/2026-10-17-takedown-asks.ndjson`. The other 33 have no such
 backing and keep their asks. At -1 none of the 38 changes survive.
+
+When the latest ask lies more than twice or under half the row's first ask, the step weighs the
+two against the median first ask of the building's other rows with the same bedroom count. If
+the first ask lies nearer, or the building has no such rows, the chain takes the first ask and
+drops every change the ad made before the typo along with it. `analysis.latest_ask` takes the
+ad's last kept change on or after the row's day within a factor of 2 of the first ask, which
+`analysis.latest_change` gives as `near_first`, and the first ask only when no change
+qualifies. Its `how` then reads `earlier change, nearer building`. In ad 1896441 the asks fell
+from $3,550 to $3,150 over three changes and then to $800, and the row's latest ask is $3,150
+where the chain gives $3,550. On a copy of the NB9 lane's state of Oct 18, the fallback moves
+72 of 1,736,330 rows, by a median of 9.6%. On the planted sample under
+[Planted errors](#planted-errors), all 100 tenfold or tenth price changes in a later answer
+keep the clean latest ask, where 31 took another ask before.
 
 The median reads list positions with `list_extract`. SQLMesh renders each model through
 sqlglot, and sqlglot 30.8 adds 1 to a computed index in brackets once it knows the list's type,
@@ -3316,6 +3330,10 @@ when an item here or an entry of the corrections ledger accounts for it.
     `analysis.label_months` checks each label unit's months after the ledger and drops rows as
     described under [Label months](#label-months). No chain rule makes this check, so a
     comparison with the chain's datasets counts each row of `analysis.label_months` here.
+13. The latest ask of an ad when the building's median rejects its latest change. The chain
+    takes the row's first ask, and `analysis.latest_ask` takes the ad's last kept change within
+    a factor of 2 of the first ask, as described under [Latest ask](#latest-ask). A comparison
+    with the chain counts each row whose `how` reads `earlier change, nearer building` here.
 
 ## Planted errors
 
@@ -3360,6 +3378,14 @@ building's median. The other ad has no row sharing its building and bedroom coun
 step takes its first ask by default. Either way it drops the ad's earlier changes along with
 the typo. In the 31 ads where the first ask differs from the clean latest ask, it differs by a
 median of 4.8%, and lies between 0.55 and 1.22 times the clean ask.
+
+On Oct 18 I planted the same errors with master and with the fallback to an earlier change
+described under [Latest ask](#latest-ask). Both runs planted the same ads. With master, 31 of
+the 100 planted price changes again gave a first ask other than the clean latest ask. With the
+fallback, all 100 kept the clean latest ask: 34 through an earlier change, 59 through the first
+ask, which was also their clean latest ask, and 7 through the latest ask. Both runs gave the
+other kinds the same counts. In both, 41 tenfold asks in every record passed and 9 dropped for
+an initial ask over $50,000, against 43 and 7 on Oct 16, and the ask check listed 38 of the 41.
 
 Five ads without an error gained a row in the planted build. A planted ad had superseded each
 of them in its unit's month, and the planted build drops that ad.
