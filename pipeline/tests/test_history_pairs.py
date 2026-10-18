@@ -1,14 +1,16 @@
 """Tests of analysis.history_pairs."""
 
+import re
+
 import duckdb
 import pytest
 
 
 @pytest.mark.parametrize("ads", [500, 1000, 2000, 3000, 4000])
 def test_history_pairs_plan(tmp_path, render_context, ads):
-    """Put `ads` ads two to a page unit and two to a history, list each history's ads in its
-    events four times, and read DuckDB's plan for the model. Every join in the plan is a hash
-    join on the history or an ad's ID.
+    """Put `ads` ads two to a page unit and two to a history, list two ads in each history's
+    events four times each, and read DuckDB's plan for the model. Every join in the plan is a
+    hash join on the history or an ad's ID.
 
     At 500, 2,000 and 4,000 ads, DuckDB 1.5.5 plans a nested loop join for a query holding both
     copies of ads.placed in one join, on their unequal page units, which pairs every ad with
@@ -29,6 +31,6 @@ def test_history_pairs_plan(tmp_path, render_context, ads):
     )
     query = render_context.render("analysis.history_pairs").sql(dialect="duckdb")
     plan = "\n".join(row[1] for row in db.sql(f"EXPLAIN {query}").fetchall())
-    assert "HASH_JOIN" in plan
-    for operator in ("NESTED_LOOP_JOIN", "PIECEWISE_MERGE_JOIN", "CROSS_PRODUCT"):
-        assert operator not in plan
+    joins = re.findall(r"\b\w+_JOIN\b|\bCROSS_PRODUCT\b", plan)
+    assert joins
+    assert set(joins) == {"HASH_JOIN"}

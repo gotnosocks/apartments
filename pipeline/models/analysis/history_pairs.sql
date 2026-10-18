@@ -19,9 +19,10 @@ MODEL (
 -- `listing_id` and `listed_id` give the first link: an ad and an ad its history lists.
 -- analysis.label_units joins a pair's units when their bedroom counts agree.
 -- The model joins each ad to its page unit inside `reports` and `listed`. DuckDB doesn't reorder
--- joins across their DISTINCT, so the two sides meet on the history alone. Given both copies of
--- ads.placed in one join, DuckDB at some table sizes joins the copies first on their unequal page
--- units, pairing every ad with every other: a 3% sample of 65,000 ads spilled 67 GB that way.
+-- joins across their DISTINCT, so the two sides meet in a single join on the history, with the
+-- unequal units as its second condition. Given both copies of ads.placed in one join, DuckDB at
+-- some table sizes joins the copies first on their unequal page units, pairing every ad with
+-- every other: a 3% sample of 65,000 ads spilled 67 GB that way.
 WITH reports AS (
     SELECT DISTINCT a.listing_id::VARCHAR AS listing_id, a.history, p.page_unit AS unit
     FROM ads.answers a
