@@ -2565,16 +2565,23 @@ folders leaves the rule out.
       "PENTHOUSEA" and "PHA").
 
    Layers 3 to 7 join two units only when the median bedroom counts of their rows agree. A
-   joined unit takes the least unit ID among its members. The model lists each unit joined with
-   another, with its label unit, the count of units in that label unit and the first layer to
-   join it.
+   joined unit takes the least unit ID among its members. The model lists each page unit joined
+   with another, with its label unit, the count of page units in that label unit and the first
+   layer to join it.
 
 The model reads the rows after the unit-month check, as the fit applies v17, so a unit-month can
 still hold two rows of one label unit. Moving the joins ahead of the check would change the rows
-the check keeps, and I'll measure that as a change of its own. The first layer gives every row
-of a building and label the least unit ID among them. A split of the unit ledger leaves its ads
-on their page, so their `~review-` IDs fall back to the unit's, as under v17 in the fit, and the
-fit's `unit-reviews-v2` splits them again.
+the check keeps, and I'll measure that as a change of its own.
+
+The fit runs v17 before `unit-reviews-v5` splits units, so the model runs the layers on each
+row's page unit: the unit of its ad after the unit ledger's joins and before its splits, which
+`ads.placed` keeps as `page_unit`. The rows of a split count toward their page unit's bedrooms
+there, and `analysis.rows` then leaves them in their split, as no label unit carries a
+`~review-` ID. At 870 Broadway, the split of #3 holds an ad of #2's page. The layers count that
+ad under #2, so #2 and #3 stay apart, as in the fit. `analysis.history_pairs` reads page units
+as well, so the ads of a unit and of its own split form no pair. The first version of the model
+read each row's unit after the splits. Its first layer then gave a split's rows their page's
+unit back, and at 870 Broadway it joined #2 and #3 through the split.
 
 v17 reads its history pairs and alias groups from files built from crawled unit pages, in the
 neighbourhoods of the served dataset. I build both from the API records for every building, so
@@ -2989,9 +2996,9 @@ Since the rows read the elevator and pet policy from each ad's text, the fit lea
 `west-coast-wings-v1` does, so the fit leaves that rule out too. The observations take each
 row's label unit as its `unit_id`, so the fit leaves out `unit-labels-v17` as well. It still
 applies `unit-splits-v4`, since no ledger holds its changes yet. It also keeps
-`unit-reviews-v2`, because the first layer of the label units undoes the ledger's splits, as
-described under [Label units](#label-units), and `building-joins-v1`, which changes nothing on
-the folder since the rows already carry its move.
+`unit-reviews-v5`, since the unit ledger holds each of its lines except the held split of 249
+West 29th Street, and `building-joins-v1`, which changes nothing on the folder since the rows
+already carry its move.
 
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
@@ -3514,10 +3521,10 @@ in all, and most tests add made-up ads to that export. The tests:
     Then write two joins, five splits and three moves, each live, absent or stale, a split
     pointing into a live split's ad with no record and one into an absent split, a join
     retracted in a later file, and a later join taking one of its pages. The test checks each
-    entry's status and differing values and each ad's building, building ID, unit and placements
-    by value. The plan rebuilds the two unit ledger models and the 12 models from `ads.placed`
-    on, and `analysis.candidates` and `analysis.ads` give each ad the unit and building of
-    `ads.placed`;
+    entry's status and differing values and each ad's building, building ID, unit, page unit and
+    placements by value. The plan rebuilds the two unit ledger models and the 12 models from
+    `ads.placed` on, `analysis.candidates` and `analysis.ads` give each ad the unit and building
+    of `ads.placed`, and `analysis.history_pairs` and `analysis.label_units` name no split;
 45. read the repo's unit ledger and check that it holds a join, a split and a move;
 46. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
     file, with a made-up latest ask for an ad, after giving the catalog a line from a checkout
@@ -3525,7 +3532,7 @@ in all, and most tests add made-up ads to that export. The tests:
     gives the chain's rows of the fixture with their latest asks and the made-up one, after the
     chain's `unit-labels-v17`, and the floor fields `_flatten` leaves out match too. The chain's
     alias table and history pairs leave out Park Slope, so the test gives two Park Slope units
-    the label units the pipeline joins them into An ad missing from the chain's audit IDs gets
+    the label units the pipeline joins them into. An ad missing from the chain's audit IDs gets
     an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
     script refuses to write the folder again, and it stops on a rows file without `latest_ask`.
     A second folder renames a neighbourhood to another, and its lines and manifest counts follow
@@ -3722,10 +3729,11 @@ The pipeline's `tests/test_building_check.py` checks the building check on made-
 76. read two dozen unit labels with `alias_key` of `analysis.label_units` and with
     `normalize_label` under `unit-spelling-alias-v2`, and get the same keys. Group made-up unit
     pages of a building into alias groups: only the group a history pair confirms comes out;
-77. run each layer of `analysis.label_units` on 30 made-up rows of two buildings, and compare
+77. run each layer of `analysis.label_units` on 35 made-up rows of three buildings, and compare
     each layer's units with the units the chain's own steps of `unit-labels-v17` give the same
-    rows, pairs and alias groups. Then render the model over the rows, and check each joined
-    unit's label unit, count and layer.
+    rows, pairs and alias groups. Then render the model over the rows, three of them in splits
+    of the unit ledger, and check each joined page unit's label unit, count and layer. A split
+    holding ads of two pages joins neither page's unit, and no split appears in the table.
 
 ## Full build
 

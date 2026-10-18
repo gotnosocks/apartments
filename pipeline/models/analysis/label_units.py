@@ -29,11 +29,15 @@ pages, in the neighbourhoods of the served dataset. The model builds both from t
 for every building, so it also joins units in the other neighbourhoods.
 
 The model reads the rows of analysis.ledger_rows, so it joins units after the unit-month check,
-as the fit does. A row's unit there can carry a split of the unit ledger, and the first layer
-gives such a row its page's unit back, as v17 does in the fit. The model lists each unit of the
-rows joined with another unit or given another unit's ID, with its label unit, the count of the
-rows' units in that label unit and the layer that first joined it. analysis.rows gives each row
-the label unit of its unit, or the unit itself, and the observations take it as `unit_id`.
+as the fit does. It takes each row's `page_unit` from ads.placed, the unit of its ad after the
+unit ledger's joins and before its splits, and runs the layers on those units, as the fit runs
+v17 before the unit reviews split units. The rows of a split count toward the bedrooms of their
+page's unit there. A split's ID carries a `~review-` suffix and matches no page unit, so
+analysis.rows finds no label unit for its rows and leaves them in the split. The model lists
+each page unit of the rows joined with another unit or given another unit's ID, with its label
+unit, the count of page units in that label unit and the layer that first joined it.
+analysis.rows gives each row the label unit of its unit, or the unit itself, and the
+observations take it as `unit_id`.
 """
 
 import re
@@ -402,16 +406,16 @@ def label_units(ids: np.ndarray, unit: np.ndarray, steps: list) -> pd.DataFrame:
             {"columns": [exp.column(name) for name in COLUMNS]},
         ),
     ],
-    description="Each unit of analysis.ledger_rows the label rule joins with another unit, with its label unit, the count of units in that label unit and the layer that first joined it.",
+    description="Each page unit of analysis.ledger_rows the label rule joins with another unit, with its label unit, the count of page units in that label unit and the layer that first joined it.",
 )
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     rows_table = context.resolve_table("analysis.ledger_rows")
     pairs_table = context.resolve_table("analysis.history_pairs")
     placed = context.resolve_table("ads.placed")
     rows = context.fetchdf(
-        f"""SELECT unit_id, building, nullif(regexp_extract(page, '/([^/]+)$', 1), '') AS label,
-            bedrooms
-        FROM {rows_table} ORDER BY listing_id"""
+        f"""SELECT p.page_unit AS unit_id, r.building,
+            nullif(regexp_extract(r.page, '/([^/]+)$', 1), '') AS label, r.bedrooms
+        FROM {rows_table} r JOIN {placed} p USING (listing_id) ORDER BY listing_id"""
     )
     if rows.empty:
         return
@@ -424,8 +428,8 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
         f"""SELECT unit_id, nullif(regexp_extract(page, '{PAGE}', 1), '') AS building,
             nullif(regexp_extract(page, '{PAGE}', 2), '') AS label
         FROM (
-            SELECT unit_id, min(page) AS page FROM {placed}
-            WHERE unit_id IS NOT NULL GROUP BY unit_id
+            SELECT page_unit AS unit_id, min(page) AS page FROM {placed}
+            WHERE page_unit IS NOT NULL GROUP BY page_unit
         )"""
     )
     ids, unit, steps = coded_layers(rows, pairs, alias_groups(pages, pairs))

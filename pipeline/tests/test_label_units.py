@@ -21,12 +21,13 @@ def load(name, path):
 
 labels = load("label_units", MODELS / "analysis" / "label_units.py")
 
-# The rows in the order of their ads: unit, building, label and bedrooms. The comments give
-# the layer expected to join each case.
+# The rows in the order of their ads: page unit, building, label and bedrooms, then the unit a
+# split of the unit ledger gives the row, if any. The comments give the layer expected to join
+# each case.
 ROWS = [
     # labels: one label written three ways, and a split of the first unit by the unit ledger.
     ("u:01", "b1", "4-b", 2),
-    ("u:01~review-7", "b1", "4-b", 2),
+    ("u:01", "b1", "4-b", 2, "u:01~review-7"),
     ("u:02", "b1", "4b", 2),
     ("u:03", "b1", "apt-4b", 2),
     # aliases: a group with u:12, a unit with no rows, which a history pair confirms. The
@@ -62,13 +63,19 @@ ROWS = [
     ("u:64", "b2", "GARDEN", 2),
     ("u:65", "b2", "G", 2),
     ("u:65", "b2", "G", 3),
+    # A split with an ad of u:71's page and an ad of u:70's page, as the unit ledger's `into`
+    # gives. Each ad counts for its page, so u:70 and u:72 join and u:71 stays apart.
+    ("u:70", "b3", "2", 1),
+    ("u:70", "b3", "2", 1, "u:71~review-9"),
+    ("u:71", "b3", "3", 1, "u:71~review-9"),
+    ("u:71", "b3", "3", 1),
+    ("u:72", "b3", "02", 1),
 ]
 PAIRS = [("u:30", "u:31"), ("u:32", "u:33"), ("u:32", "u:34"), ("u:11", "u:12")]
 EXPECTED = {
-    "u:01": ("u:01", 4, "labels"),
-    "u:01~review-7": ("u:01", 4, "labels"),
-    "u:02": ("u:01", 4, "labels"),
-    "u:03": ("u:01", 4, "labels"),
+    "u:01": ("u:01", 3, "labels"),
+    "u:02": ("u:01", 3, "labels"),
+    "u:03": ("u:01", 3, "labels"),
     "u:10": ("u:10", 2, "aliases"),
     "u:11": ("u:10", 2, "aliases"),
     "u:20": ("u:20", 2, "words"),
@@ -85,6 +92,8 @@ EXPECTED = {
     "u:61": ("u:60", 2, "spelled"),
     "u:62": ("u:62", 2, "spelled"),
     "u:63": ("u:62", 2, "spelled"),
+    "u:70": ("u:70", 2, "labels"),
+    "u:72": ("u:70", 2, "labels"),
 }
 
 
@@ -93,14 +102,19 @@ def page(building, label):
 
 
 def frame() -> pd.DataFrame:
-    rows = pd.DataFrame(ROWS, columns=["unit_id", "building", "label", "bedrooms"])
+    """The rows of ROWS with their page unit as `unit_id`, as the layers read them, and the unit
+    the unit ledger gives them as `ledger_unit`."""
+    rows = pd.DataFrame(
+        [row[:4] for row in ROWS], columns=["unit_id", "building", "label", "bedrooms"]
+    )
     rows["bedrooms"] = rows.bedrooms.astype(float)
+    rows["ledger_unit"] = [row[4] if len(row) > 4 else row[0] for row in ROWS]
     return rows
 
 
 def pages() -> list:
-    """Each unit's page in ads.placed. A split of the unit ledger has no page of its own."""
-    found = {u: page(b, label) for u, b, label, _ in ROWS if "~" not in u}
+    """Each page unit's page in ads.placed."""
+    found = {row[0]: page(row[1], row[2]) for row in ROWS}
     found["u:12"] = page("b1", "PH004")
     return sorted(found.items())
 
@@ -174,7 +188,7 @@ def test_layers_match_the_chain(tmp_path):
         letters,
         functools.partial(data.merge_spelled_labels, base=letters),
     ]
-    rows = frame()
+    rows = frame().drop(columns="ledger_unit")
     chain = rows.assign(
         canonical_unit_url=[page(b, x) for b, x in zip(rows.building, rows.label)]
     )
@@ -184,6 +198,9 @@ def test_layers_match_the_chain(tmp_path):
 
 
 def test_label_units_model():
+    """The model joins page units. The rows of the unit ledger's splits keep their split's
+    unit, which the table leaves out, so u:71's split, with an ad of u:70's page, joins neither
+    u:70 nor u:71."""
     db = duckdb.connect()
     db.execute("CREATE SCHEMA analysis; CREATE SCHEMA ads")
     rows = frame()
@@ -192,18 +209,19 @@ def test_label_units_model():
     db.register("frame", rows)
     db.execute(
         "CREATE TABLE analysis.ledger_rows AS "
-        "SELECT listing_id, unit_id, building, page, bedrooms FROM frame"
+        "SELECT listing_id, ledger_unit AS unit_id, building, page, bedrooms FROM frame"
     )
     db.execute(
         "CREATE TABLE analysis.history_pairs (unit_id VARCHAR, other_unit_id VARCHAR)"
     )
     db.executemany("INSERT INTO analysis.history_pairs VALUES (?, ?)", PAIRS)
+    # The ads of the rows, and an ad of u:12, a unit with no rows.
     db.execute(
-        "CREATE TABLE ads.placed (listing_id VARCHAR, unit_id VARCHAR, page VARCHAR)"
+        "CREATE TABLE ads.placed AS "
+        "SELECT listing_id, ledger_unit AS unit_id, page, unit_id AS page_unit FROM frame"
     )
-    db.executemany(
-        "INSERT INTO ads.placed VALUES (?, ?, ?)",
-        [(str(i), u, p) for i, (u, p) in enumerate(pages())],
+    db.execute(
+        "INSERT INTO ads.placed VALUES ('1', 'u:12', ?, 'u:12')", [page("b1", "PH004")]
     )
     (table,) = labels.execute.__wrapped__(Fetcher(db), None, None, None)
     assert list(table.columns) == list(labels.COLUMNS)

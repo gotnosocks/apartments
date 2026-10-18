@@ -6,7 +6,7 @@ MODEL (
         unique_values(columns := (listing_id)),
         not_null(columns := (listing_id, records, reasons, placements))
     ),
-    description 'Each ad with a record, with its building and unit after the live entries of the unit ledger.'
+    description 'Each ad with a record, with its building and unit after the live entries of the unit ledger, and its unit before the ledger''s splits.'
 );
 
 -- The model starts from ads.identity and applies each live entry of ledger.unit_status:
@@ -23,7 +23,10 @@ MODEL (
 --                  the entry's `labels` match, in lower case, takes the wing's slug. It keeps
 --                  its building ID, so it keeps the building's lot. Its page and unit stay as
 --                  they are.
--- An ad without a unit keeps none. `placements` lists the entries applied to the ad.
+-- An ad without a unit keeps none. `placements` lists the entries applied to the ad, and
+-- `page_unit` keeps its unit after any join and before any split: the unit of its page, which
+-- analysis.label_units and analysis.history_pairs read, as the chain joins labels before it
+-- splits units.
 -- read_units, the parser behind ledger.unit_entries, lets a page take part in one live join, an
 -- ad in one live split and a building in one live move and one live split_building, so each ad
 -- meets at most one entry of each change.
@@ -63,6 +66,7 @@ placed AS (
         i.records, i.page,
         CASE WHEN i.unit_id IS NOT NULL THEN coalesce(j.unit_id, i.unit_id)
             || CASE WHEN s.entry IS NOT NULL THEN '~review-' || s.first ELSE '' END END AS unit_id,
+        CASE WHEN i.unit_id IS NOT NULL THEN coalesce(j.unit_id, i.unit_id) END AS page_unit,
         i.reasons,
         -- list_distinct leaves out the NULLs of the changes the ad meets no entry of.
         list_sort(list_distinct([j.entry, s.entry, m.entry, w.entry])) AS placements,
@@ -83,6 +87,6 @@ targets AS (
 )
 SELECT p.listing_id, p.building_id, p.building, p.records, p.page,
     CASE WHEN p.into_entry IS NOT NULL THEN t.unit_id ELSE p.unit_id END AS unit_id,
-    p.reasons, p.placements
+    p.reasons, p.placements, p.page_unit
 FROM placed p
 LEFT JOIN targets t ON t.split = p.into_entry

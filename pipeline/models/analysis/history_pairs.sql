@@ -12,6 +12,9 @@ MODEL (
 -- An ad's answer carries the history of its unit page, and the history lists every ad StreetEasy
 -- files under that page. Where a listed ad has another unit in ads.placed, the two units hold ads
 -- for one apartment under two spellings of its label, or a broker filed an ad on the wrong page.
+-- The model reads each ad's `page_unit`, which ads.placed takes before the unit ledger's splits,
+-- as the chain builds its pairs from crawled pages. A unit and a split of it share a page unit,
+-- so their ads form no pair.
 -- The pair puts the lesser unit ID first and counts the (ad, listed ad) links behind it. Its
 -- `listing_id` and `listed_id` give the first link: an ad and an ad its history lists.
 -- analysis.label_units joins a pair's units when their bedroom counts agree.
@@ -24,12 +27,12 @@ listed AS (
     SELECT DISTINCT history, listing_id::VARCHAR AS listed_id FROM ads.history_events
 ),
 joined AS (
-    SELECT r.listing_id, l.listed_id, p.unit_id AS unit, q.unit_id AS listed_unit
+    SELECT r.listing_id, l.listed_id, p.page_unit AS unit, q.page_unit AS listed_unit
     FROM reports r
     JOIN listed l USING (history)
     JOIN ads.placed p ON p.listing_id = r.listing_id
     JOIN ads.placed q ON q.listing_id = l.listed_id
-    WHERE p.unit_id IS NOT NULL AND q.unit_id IS NOT NULL AND p.unit_id <> q.unit_id
+    WHERE p.page_unit IS NOT NULL AND q.page_unit IS NOT NULL AND p.page_unit <> q.page_unit
 )
 SELECT least(unit, listed_unit) AS unit_id, greatest(unit, listed_unit) AS other_unit_id,
     count(DISTINCT (listing_id, listed_id)) AS links,
