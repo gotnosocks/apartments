@@ -5,7 +5,7 @@ rent map, estimate kit, site build, research data build) around what the pages a
 read. Modeling owns the summary and the fit queue, Website owns the site build, and each OKs a
 change to its step before merge.
 
-## State on 2026-10-17
+## State on 2026-10-18
 
 - The column reads log (`reads.jsonl`, #1017) has collected on the running site since 10:45 ET
   Oct 17. Ben's devices are 100.111.61.78 (MacBook Air) and 100.108.123.68 (iPhone); 100.80.84.126
@@ -27,16 +27,18 @@ change to its step before merge.
 - Before the default flips: check every `estimate_pred_*` reader (coverage, price band, board,
   rent map, site build) against a table mixing atom rows and fallback rows, and compare the
   ranges on Ben's opened pages and a random sample with the exact ones.
-- A thelio summary of the served all-scraped run died of OOM at 9 GB in the design prep after 11
-  minutes (Oct 17). Modeling asked for no more full all-scraped feature builds on thelio, so the
-  design gets prepared on Modal (`ops/modal-fit --design-only`, #1084) and the summary loads it
-  with `FRONTIER_DESIGN_CACHE=read`. The unit `publish-path-launch-design` launches the prep at
-  bc06303d from the pinned clone `/data1/apartments/tmp/publish-path/clone`, once P1 has launched
-  (or its launcher has exited) and the budget covers $0.70 (log: `/data1/apartments/tmp/publish-path/logs/launch-design.log`).
-- Once the design lands in `frontier/designs`, I compute its key on thelio with
-  `tools/design_key.py` in a 3G scope, at the clone commit and in the summary's env, and compare
-  it with the key in `design.json`. The 9G summary (`--range-atoms --with-exact`) starts only if
-  the two keys match. On an OOM or a mismatch I stop and report to Modeling without a retry.
+- A full thelio summary of the served all-scraped run runs out of memory: 9 GB in the design
+  prep (Oct 17), and Modeling asked for no more full all-scraped feature builds on thelio. The
+  design is now prepared on Modal (`ops/modal-fit --design-only`, #1084), and summaries on
+  thelio load it with `FRONTIER_DESIGN_CACHE=read`. A thelio summary of whole buildings
+  (`--rows`) fits under 9 GB up to about 175k rows: RSS sits near 6 GB after the draws load and
+  grows about 14 KB a row. A full summary needs the Modal LARGE container.
+- On the served all-scraped run (Oct 18, 59,851 rows including Ben's opened listings), the
+  ranges the site computes from the atoms came within 0.00025 log of the same run's exact
+  intervals at the median and 0.059 at the worst row, against a Monte Carlo error of 0.0011.
+  Two summaries of the same fit differ by up to 0.43 log on a few rows, because the summary's
+  leave-own-row-out unit levels draw their jitter from per-chunk keys. A row-by-row check of two
+  summaries needs that noise in its yardstick. Modeling has the details.
 
 ## Next
 
