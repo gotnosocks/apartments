@@ -521,9 +521,10 @@ The older items follow.
       apartments as missing. `ops/pipeline/certificates_check.py` reruns the comparison in 22 s
       at a 2.6 GB peak, 19 s of it in the models.
 6. Step 9 goes on from the ads file. On runs 1 to 10 the build writes it with the rows file in
-   229 s at a 4,199 MiB peak, 30 s more than without it. `ops/pipeline/ads_check.py` compares it
-   with the website's API captures and the histories of the ACTIVE ads in 5 s:
-   [pipeline.md](../data/pipeline.md#ads-file) has the numbers. The rest of step 9, in order:
+   229 s at a 4,199 MiB peak, 30 s more than without it. On Oct 16 `ops/pipeline/ads_check.py`
+   compared it with the website's API captures and the histories of the ACTIVE ads in 5 s, and
+   since #1127 it checks the histories alone: [pipeline.md](../data/pipeline.md#ads-file) has
+   the numbers. The rest of step 9, in order:
    1. the website's current listings and Data improvements' reads of other ads move to the
       file. **Done** for the website in #945, deployed by the Website thread on Oct 16. Of the
       three ACTIVE ads the site no longer shows for want of a fit-ready row, none should show:
@@ -532,10 +533,9 @@ The older items follow.
       units 2, 2A and 2S at that address on their stated 2,000 square feet;
    2. the collector stops writing current-listings captures. **Done** in #949, with Ben's OK to
       change the scraper's code: the collector loses `--current-listings` and
-      `crawl_current_listings` goes. Step 2 of `ads_check.py` still reads the captures of
-      Oct 16 and goes with them in the third PR. Ben approved one on-demand top-up of the five
-      regions after the merge, to show the site taking a top-up's ads through the pipeline with
-      no captures written;
+      `crawl_current_listings` goes. Ben approved one on-demand top-up of the five regions
+      after the merge, to show the site taking a top-up's ads through the pipeline with no
+      captures written;
    3. a PR deletes the page-capture rewrite and the page parser. #967 deleted the rewrite, and
       #968 runs the collector without the parser. The parser stays with the page crawler, as
       the paragraph of step 9 above says, and its PR waits on the crawler's owner. #1127 drops

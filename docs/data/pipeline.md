@@ -2846,9 +2846,10 @@ I check a build's file with
 pipeline/.venv/bin/python ops/pipeline/ads_check.py [--ads FILE]
 ```
 
-The script compares the file with the collector's last API captures, those of Oct 16, and with
-the histories of the ads' latest records. Its docstring lists the steps. I built runs 1 to 10 from empty in a scratch
-state at 14:08 ET on Oct 16. The build took 229 s at a 4,199 MiB peak, against 199 s for the same
+The script checks the file against the histories of the ads' latest records, and its docstring
+lists the steps. Until #1127 it also compared the file with the collector's last API captures,
+those of Oct 16, and the first two items below come from that comparison. I built runs 1 to 10
+from empty in a scratch state at 14:08 ET on Oct 16. The build took 229 s at a 4,199 MiB peak, against 199 s for the same
 build without the ads file, with 2.7 s in `ads.breaks`, 1.3 s in `ads.regions` and 14 s writing
 both files. The ads file holds 2,140,578 ads in 117 MiB, 7,013 of them ACTIVE. The check took
 5 s at a 493 MiB peak:
