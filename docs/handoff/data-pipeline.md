@@ -538,7 +538,7 @@ The older items follow.
       no captures written;
    3. a PR deletes the page-capture rewrite and the page parser. #967 deleted the rewrite, and
       #968 runs the collector without the parser. The parser stays with the page crawler, as
-      the paragraph of step 9 above says, and its PR waits on the crawler's owner. #NNNN drops
+      the paragraph of step 9 above says, and its PR waits on the crawler's owner. #1127 drops
       the step of `ads_check.py` comparing the ads file with the collector's last captures, of
       Oct 16.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
