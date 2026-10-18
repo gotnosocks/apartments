@@ -308,6 +308,59 @@ def test_a_newer_ad_wins_over_the_datasets_current_row(pipeline):
     assert priced("2026-09-20T00:00:00+00:00") == 1  # seen over a week ago
 
 
+CONCESSION_ADS = {"months_free": "DOUBLE", "lease_term": "DOUBLE"}
+CONCESSION_ROWS = {"latest_ask": "DOUBLE", "latest_gross": "DOUBLE"}
+
+
+def test_a_concession_ad_takes_its_net_ask(pipeline):
+    a = ad(1, page_price=5200.0, months_free=1.0, lease_term=13.0)
+    row = {**a, "latest_ask": 4800.0, "latest_gross": 5200.0}
+    files = pipeline.write([a], [row], CONCESSION_ADS, CONCESSION_ROWS)
+    ((c,), _) = captures.current_ads(files, set(), {})
+    assert c["ask"] == 4800 and c["gross_ask"] == 5200
+    assert (
+        captures.concession(c) == "1 month free on a 13-month lease (gross ask $5,200)"
+    )
+
+
+def test_an_ad_the_page_already_shows_net_keeps_its_ask(pipeline):
+    a = ad(1, page_price=4800.0, months_free=1.0, lease_term=13.0)
+    row = {**a, "latest_ask": 4800.0, "latest_gross": 4800.0}
+    files = pipeline.write([a], [row], CONCESSION_ADS, CONCESSION_ROWS)
+    ((c,), _) = captures.current_ads(files, set(), {})
+    assert c["ask"] == 4800
+    assert captures.concession(c) == "1 month free on a 13-month lease"
+
+
+def test_files_without_concession_columns_keep_the_page_price(pipeline):
+    ((c,), _) = captures.current_ads(pipeline.write([ad(1)]), set(), {})
+    assert c["ask"] == 4000 and c["months_free"] is None
+    assert captures.concession(c) is None
+
+
+def test_an_ad_without_free_months_has_no_concession(pipeline):
+    a = ad(1, months_free=0.0, lease_term=12.0)
+    row = {**a, "latest_ask": None, "latest_gross": None}
+    files = pipeline.write([a], [row], CONCESSION_ADS, CONCESSION_ROWS)
+    ((c,), _) = captures.current_ads(files, set(), {})
+    assert c["ask"] == 4000 and captures.concession(c) is None
+
+
+def test_rows_price_a_concession_ad_at_its_net_ask(pipeline):
+    a = ad(1, page_price=3575.0, months_free=1.0, lease_term=13.0)
+    row = {**a, "latest_ask": 3300.0, "latest_gross": 3575.0}
+    out, _ = captures.rows(
+        kit(sigma=0.05, unit_scale=0.05),
+        [kit_building()],
+        [fitted(), fitted(audit_id="obs:2", in_fit=0)],
+        [{"id": BUILDING, "neighbourhood": "Greenwich Village", "floors": 6}],
+        pipeline.write([a], [row], CONCESSION_ADS, CONCESSION_ROWS),
+        [],
+    )
+    ((r,),) = (out,)
+    assert r["ask"] == 3300 and r["concession"].startswith("1 month free")
+
+
 def kit_building(level=0.0):
     return {
         "building": BUILDING,
