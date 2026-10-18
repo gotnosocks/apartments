@@ -125,6 +125,11 @@ def _run(cmd, env, log, timeout=None):
 def post_steps(spec):
     """The post-fit statistics for a finished fit, as (step, rentfrontier arguments)."""
     name = spec["name"]
+    # The B0 baseline (rentfrontier.b0) writes its own statistics; the variance and explained
+    # shares read the frontier model's design, which a B0 run has none of.
+    run_args = spec.get("run_args", [])
+    if ("--model", "b0") in zip(run_args, run_args[1:]):
+        return []
     steps = [("variance", ["rentfrontier.variance", name])]
     if spec.get("explain"):
         steps.append(("explained", ["rentfrontier.explained", name, *spec["explain"]]))

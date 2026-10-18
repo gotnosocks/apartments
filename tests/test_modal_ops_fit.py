@@ -278,6 +278,12 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
     assert [s for s, _ in app.post_steps({"name": "r", "tier": "exploration"})] == [
         "variance"
     ]
+    b0 = {
+        "name": "r",
+        "tier": "full",
+        "run_args": ["--split", "latest", "--model", "b0"],
+    }
+    assert app.post_steps(b0) == []
     calls = []
 
     def run(cmd, env, log, timeout=None):

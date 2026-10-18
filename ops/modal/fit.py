@@ -479,7 +479,13 @@ def main(argv):
             sync(modal_app.volume, spec, stage)
             meta = fits[args.gpu].remote(spec)
             # The new-building container's 128 GiB and hour don't stretch to a large run.
-            if meta.get("fit_exit", meta["exit"]) == 0 and not args.large:
+            # rentfrontier.newbuilding reads the frontier model's posterior, which a B0
+            # baseline run has none of.
+            if (
+                meta.get("fit_exit", meta["exit"]) == 0
+                and not args.large
+                and args.model != "b0"
+            ):
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
             meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, args.large)
