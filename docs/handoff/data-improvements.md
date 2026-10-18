@@ -1,6 +1,23 @@
 # Data improvements — handoff
 
-Updated 2026-10-17 21:00 ET, after the ask outlier entries in #1086. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-17 22:00 ET, after the half-bath sets in #1091. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-17 22:00 ET
+
+- #1089 adds `pipeline/ledger/2026-10-17-zzzzzz-unit-baths-excess.ndjson`, 2 bath sets.
+  `/data1/apartments/tmp/suspect/baths/excess/` lists 139 ads with at least 3 more full baths than bedrooms, 44
+  of them one-bedrooms with 4. Sonnet read the 23 with a same-unit ad coding another count: 19 wrong, 4 unclear.
+  Six have a stated count in the other ad, and four of those were already set, which leaves 3708301 (4 to 1)
+  and 4801366 (4 to 2).
+- #1091 adds `pipeline/ledger/2026-10-17-zzzzzzz-unit-baths-halfcount.ndjson`, 35 sets. 500 ads code 3 to 8
+  half baths, read directly from StreetEasy's halfBathroomCount. Most are "1.5 baths" entered as 1 full and
+  5 half. Sonnet read the 160 with a same-unit ad coding another count (146 wrong, 14 unclear), and
+  `/data1/apartments/tmp/suspect/baths/halfx/ledger.py` keeps the ones where the other ad codes and states
+  the count. 39 were already set.
+- About 425 half-bath rows have no row-level backing. Modeling codes half_baths as a categorical with one "2+"
+  level, so a 5 counts as a 2. Modeling plans a free check of their share of that level and tests a cap rule only
+  if the share is large.
+- The next new ledger file needs a name sorting after `2026-10-17-zzzzzzz-unit-baths-halfcount`, or a later date.
 
 ## 2026-10-17 21:00 ET
 
@@ -16,7 +33,6 @@ Updated 2026-10-17 21:00 ET, after the ask outlier entries in #1086. Thread owne
   - 2622356 coded its $795 per-room price. The ad gives $3,950 for the whole apartment and ad 2584040 for the
     unit asks the same, so the ledger sets its latest ask to $3,950.
 - The 4 different-unit reads, the 7 unclear ones and the draft-ad 23,142 pair (3421832, 3743201) stay as they are.
-- The next new ledger file needs a name sorting after `2026-10-17-zzzzz-ask-outliers`, or a later date.
 
 ## 2026-10-17 20:00 ET
 
