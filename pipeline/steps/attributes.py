@@ -1,5 +1,5 @@
-"""Each API record's attributes and rental flags, as the current chain reads them, with a pet
-fee read from the description.
+"""Each API record's attributes and rental flags, as the current chain reads them, with the
+elevator and the pet policy its description states.
 
 The current chain parses each stored answer with `apartments.graphql_listing` into a capture,
 and `apartments.historical_dataset.project_advertisement` then reads each capture of an ad. For
@@ -15,13 +15,10 @@ a record of the export, `project` repeats both steps:
 3. It calls `analytical.attributes` and `analytical._rental_flags`, and it marks the ad
    furnished when the flag is unknown and `historical_dataset._description_furnished` finds a
    furnished phrase in the description.
-4. When none of those steps gives a pet policy and the evidence holds no conflict over one, it
-   looks for a pet fee in the description with `PET_FEE`. On finding one, it gives the record
-   the policy `allowed_restrictions_unknown`. Step 2 reads a ban in the description as
-   `not_allowed`, and a fee leaves that ban in place. `attribute_evidence` reads no partial
-   rule such as "no dogs", so a fee beside one still gives pets allowed, as the building takes
-   cats. NB9's ad fills skip the fee on such a text. The chain reads no fees, and this step is
-   the projection's one departure from it.
+4. It reads the description with `steps.adtext`, as the chain's rules `elevator-from-ad-v1` and
+   `pets-from-ad-v2` read a row's description, into `elevator_text` and `pet_policy_text`.
+   `ads.attributes` merges these readings over an ad's records and fills an unknown elevator
+   or pet policy from them, as those rules fill a row's.
 
 The projection depends on the record alone. The ask comes from the ad's events. For API
 records the chain runs no description recovery, and its ledger of corrections is empty.
@@ -40,16 +37,11 @@ from apartments import analytical
 from apartments.attribute_evidence import extract_attribute_evidence
 from apartments.corrections import canonical
 from apartments.historical_dataset import _description_furnished
+from steps import adtext
 
 FLAGS = ("furnished", "short_term", "concession")
-KEYS = analytical.ATTRIBUTE_KEYS + FLAGS
-# A pet fee, deposit, rent or charge in any spelling, as NB9's ad fills read one. A building
-# charging for pets takes them in some form, and it holds for "no pet fee" as well: of the NB9
-# rows with a pet code and a description matching this, 1,065 of 1,066 are coded allowed.
-PET_FEE = re.compile(
-    r"\bpets? (?:fees?|deposits?|rent|charges?)\b|\bpet[- ](?:fee|deposit)s?\b"
-    r"|\b(?:fees?|deposits?|charges?) (?:for|per) (?:pets?|dogs?|cats?)\b"
-)
+TEXT = ("elevator_text", "pet_policy_text")
+KEYS = analytical.ATTRIBUTE_KEYS + FLAGS + TEXT
 
 
 def normalize(value):
@@ -116,13 +108,9 @@ def project(record):
     description = str(listing.get("description") or "").lower()
     if flags["furnished"] is None and _description_furnished(description):
         flags["furnished"] = True
-    if (
-        values["pet_policy"] is None
-        and "pet_policy" not in evidence.get("conflicts", {})
-        and PET_FEE.search(re.sub(r"\s+", " ", description))
-    ):
-        values["pet_policy"] = "allowed_restrictions_unknown"
     values.update(flags)
+    values["elevator_text"] = adtext.elevator(description)
+    values["pet_policy_text"] = adtext.pets(description)
     return record_id, {
         key: None if values[key] is None else canonical(values[key]) for key in KEYS
     }

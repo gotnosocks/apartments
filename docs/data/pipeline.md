@@ -545,8 +545,8 @@ disk.
 | `ads.market` | merge | ad with a record: its days on the market, its spans on the market and its ending |
 | `ads.breaks` | merge | ad with a status change in its latest record since that record's first day on the market: its last change, and its latest break when it is ACTIVE and back |
 | `ads.regions` | merge | ad with an answer: the export regions of its answers |
-| `ads.record_attributes` | merge | distinct API record: its attributes and rental flags, as the current chain reads them, and a pet policy from a pet fee |
-| `ads.attributes` | merge | ad with a parsed record up to its last ACTIVE answer, or with any parsed record when it has no ACTIVE answer: its rental flags, merged over its records, and its attributes, merged over its records up to its last ACTIVE one |
+| `ads.record_attributes` | merge | distinct API record: its attributes and rental flags, as the current chain reads them, and the elevator and pet policy its description states |
+| `ads.attributes` | merge | ad with a parsed record up to its last ACTIVE answer, or with any parsed record when it has no ACTIVE answer: its rental flags, merged over its records, and its attributes, merged over its records up to its last ACTIVE one, with an unknown elevator or pet policy filled from those records' descriptions |
 | `ads.exclusions` | merge | ad with a record: its first day, its first ask and the current chain's reasons for dropping it |
 | `buildings.details` | table | building with a record: the slug and area of its latest record, and its floor count |
 | `buildings.latest_record` | table | building with a record: the slug, address, map point and city facts of its latest record |
@@ -721,53 +721,75 @@ hundred lines. If I rewrote them in SQL, the repo would hold two copies to keep 
 That module copies a few lines from the page parser, since the page parser retires with the
 move to API records. Its docstring lists the steps.
 
-The module adds a reading of its own. When a record gives no pet policy and its evidence holds
-no conflict over one, I take a pet fee, deposit, rent or charge in the description as
-`allowed_restrictions_unknown`. Ben pointed out on Oct 16 that a fee means the building takes
-pets in some form. I took the pattern from NB9's ad fills: of NB9's rows with a pet code and
-such wording, 1,065 of 1,066 are coded allowed. A ban read by `attribute_evidence` still wins,
-since that module reads the description first. NB9 reads pets with its own patterns, and it
-skips the fee on a text with a partial rule such as no dogs. I compared the two readings on the
-230,996 distinct descriptions of NB9's eight areas, 4,250 of them with a fee:
+The module also reads the elevator and pet policy an ad's own text states. The served fit fills
+an unknown elevator or pet policy with the chain's rules `elevator-from-ad-v1` and
+`pets-from-ad-v2`. These rules read each NB9 row's description with `rentfrontier.adfills` and
+keep the readings in files by audit ID, so the rows outside NB9 get no fill. On Oct 17
+Modeling agreed that the pipeline takes these rules over, with the rows kept as the chain gives
+them on the frozen rows and a row-by-row diff in the PR.
 
-| pipeline | NB9 | descriptions |
-|---|---|--:|
-| `allowed_restrictions_unknown` | the same | 4,126 |
-| `approval_required` | the same | 35 |
-| `not_allowed` | the same | 18 |
-| `allowed_restrictions_unknown` | `approval_required` | 43 |
-| `allowed_restrictions_unknown` | no pet line | 19 |
-| `not_allowed` | `allowed_restrictions_unknown` | 6 |
-| `allowed_restrictions_unknown` | `not_allowed` | 2 |
-| `not_allowed` | `approval_required` | 1 |
+The pipeline's venv has no `rentfrontier`, so `pipeline/steps/adtext.py` holds a copy of
+`adfills.elevator` and `adfills.pets`. I copied the patterns unchanged and read one text at a
+time in place of a pandas column. `pipeline/tests/test_adtext.py` loads the chain's own module
+and checks that both read the same value on its cases and on every description of the
+fixture's records. `steps/attributes.py` stores each record's readings as `elevator_text` and
+`pet_policy_text`. `ads.attributes` merges them over the same records as the attributes, and
+fills the elevator or the pet policy where the merge leaves it unknown, from no record giving
+one or from a conflict, as the rules do. Two readings give no fill. A record whose description
+StreetEasy stripped gives no reading, so the other records' reading stands. A cut description
+still gives a reading of the text left. A cut after "walk-up" and before "elevator" reads as no
+elevator, which blocks the fill when another record reads one, and fills the ad wrongly when no
+other record gives a reading. Most ads have no ACTIVE answer and merge their closed records
+too, as described below. The ads file's `from_text` lists the fields filled this way.
 
-Of the 19 without an NB9 line, 16 take cats and no dogs, and 3 say the building charges no
-amenity or pet fees. A building taking cats still takes pets in some form, so I kept the fee's
-reading for them. The 2 descriptions NB9 reads as a ban say no cats or dogs except emotional
-support animals, and `attribute_evidence` misses that ban. The pipeline's `not_allowed` on 7
-descriptions comes from `attribute_evidence`, fee or not.
+The port replaces a reading of my own from Oct 16, which took any pet fee in the description as
+pets allowed. `pets-from-ad-v2` reads a fee the same way, apart from texts it reads otherwise: a
+ban, cats and no dogs, or approval beside the fee. In the fixture, ad 4771575 asks for approval
+and charges a fee, so it now reads `approval_required`.
 
-I put the pattern in `steps/attributes.py` and left `apartments.attribute_evidence` alone,
-because the chain imports that module as well and keeps running unchanged until the pipeline
-takes its place. In the fixture, ad 4771575 gains a policy from its one-time pet fee of $500,
-and `test_rows_match_the_chain` expects it. `pipeline/tests/test_attributes.py` covers fees in
-other spellings, a ban beside a fee, a conflict, a text with no dogs and approval read from the
-description.
+I measured the port in a scratch lane on Oct 17, building the export once from master and once
+from the branch, with the same records and ledger. The master build took 6 min 51 s at a
+4.5 GB peak. The branch build took 16 min 46 s at 4.4 GB, since its new code version makes
+`ads.record_attributes` parse all 2,180,406 records again. Later builds parse only new
+records. From each build I wrote a folder of the NB9 neighbourhoods and a folder of all scraped
+areas with `observations.py`. `ops/pipeline/port_diff.py` loads a pair of such folders, gives
+the master folder the two rules' fills as a fit on it would, matches the rows by audit ID and
+counts the differences column by column. Its docstring lists the steps. On the folders of all
+scraped areas it took 2 min 1 s at a 4.9 GiB peak, in a scope capped at 5 GiB.
 
-I rebuilt the scratch state of runs 1 to 10 with the fee. Every record has a new code version,
-so `ads.record_attributes` parsed them all again in 525 s of the 580 s build, at a 4.4 GiB
-peak. Of the 1,746,515 rows, 14,845 gained `allowed_restrictions_unknown`, and the rows
-without a policy fell from 1,388,356 (79.5%) to 1,373,511 (78.6%). No other column of the rows
-file changed. In a sample of 18 of those rows, the match was "pet fee", "pet fees" or "pet
-deposit". The ads named it in leases' lists of possible charges, in "no pet fees", in fees with
-service animals exempt, and in "pets ok upon approval, pet fee may apply".
+In both pairs every row has a match, and only `elevator` and `pets` differ. The NB9 column
+counts the rows whose audit ID the served dataset holds:
+
+| | NB9 neighbourhoods | all scraped areas | NB9 |
+|---|--:|--:|--:|
+| rows | 350,202 | 1,746,770 | 296,718 |
+| rows changed | 4,979 (1.42%) | 96,800 (5.54%) | 81 (0.027%) |
+| `elevator` unknown to `no` | 1,636 | 21,689 | 0 |
+| `elevator` unknown to `yes` | 10 | 821 | 0 |
+| `elevator` `no` or `yes` to unknown | 8 | 8 | 8 |
+| `pets` unknown to `allowed_restrictions_unknown` | 2,556 | 51,042 | 0 |
+| `pets` unknown to `approval_required` | 530 | 20,557 | 0 |
+| `pets` unknown to `not_allowed` | 280 | 3,359 | 0 |
+| `pets` `allowed_restrictions_unknown` to `approval_required` | 36 | 813 | 34 |
+| `pets` `allowed_restrictions_unknown` to `not_allowed` | 2 | 11 | 2 |
+| `pets` a value to unknown | 40 | 353 | 40 |
+
+On NB9's rows the port changes 81 rows, under `NEGLIGIBLE_SHARE`. 36 of them carried the pet fee
+reading of Oct 16, and the port reads them as the rule does. The other 45 lose a fill, because
+the rules' files read the description of the ad's page crawl and the pipeline reads the API
+record's. For most of these ads the API record holds an empty or short description. Ad 1707396
+has a full one, but only its page says pets are considered case by case. Over all rows the
+port changes 1.42% in the NB9 neighbourhoods and 5.54% over all scraped areas, nearly all of
+them fills of rows the rules' files never held. That share makes the port a data change of its
+own, and Modeling schedules a fit for it. A fit on a folder from this build leaves `elevator-from-ad-v1` and
+`pets-from-ad-v2` out of its feature set's rules.
 
 `ads.record_attributes` is a Python model. It parses each distinct record once, in worker
 processes, and keeps the results in Parquet files in `attributes/<code version>/` beside the
 DuckDB database. A later build parses only records missing from those files. In a top-up the
 model reads only the records of the new answers, and the materialization `merge` adds the
-ones the previous table lacks. `config.py` hashes `steps/attributes.py` and its six imports from
-`src/apartments`, and passes each module's SHA-256 to the model in the variable
+ones the previous table lacks. `config.py` hashes `steps/attributes.py`, `steps/adtext.py` and
+the six modules of `src/apartments` it imports, and passes each module's SHA-256 to the model in the variable
 `attributes_code`. The cache folder takes its name from a SHA-256 over that variable. When any
 of those files changes, the model writes to a new folder and gets a new fingerprint. A test
 compares the list of modules with the projection's imports. `PIPELINE_WORKERS` sets the number
@@ -1963,9 +1985,11 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 
 The chain's `building-joins-v1`, `west-coast-wings-v1` and `unit-reviews-v2` are in the unit
 ledger, described under [Unit ledger](#unit-ledger), but for a split held for want of backing.
-Its other rules are not in a ledger yet: `unit-splits-v4`, `unit-labels-v17`,
-`fields-review-v3`, `elevator-from-ad-v1` and `pets-from-ad-v1`. The rules moving ads to
-another unit or building go into the unit ledger.
+Its other rules are not in a ledger yet: `unit-splits-v4`, `unit-labels-v17` and
+`fields-review-v3`. The rules moving ads to another unit or building go into the unit ledger.
+`ads.attributes` reads the elevator and pet policy from each ad's text in place of
+`elevator-from-ad-v1` and `pets-from-ad-v2`, as described under
+[Attributes and exclusions](#attributes-and-exclusions).
 
 ### Tenfold asks
 
@@ -2205,6 +2229,29 @@ page 1 in one unit. The garden page's ad 2312228 offered a duplex of 2 bedrooms 
 $15,750 until 2018-02-08. Four days later, ad 2314583 on page 1 offered the same layout at the
 same ask in the same words. The garden page's ad 3215132 of 2020 repeats them and gives 2,750 sq
 ft. Both pages take the garden page's unit ID, the lesser, so 2314583's row changes unit.
+
+On Oct 17 I moved the chain's `west-coast-wings-v1` into `2026-10-17-west-coast-wings.ndjson`, as
+a split_building of `the-west-coast`. StreetEasy files The West Coast's nine converted warehouses
+as one building, and its units carry two numbering schemes: three-digit labels, such as 620 on
+the West Street end, and a floor and letter, such as 9L at the corner of Washington and
+Gansevoort Streets. The entry rests on Ben's floor plans of those two units and on the Landmarks
+Preservation Commission's 2003 Gansevoort Market report. The report gives the West Street and
+Horatio warehouses 6 or 7 stories and the Washington Street end 9, and the three-digit labels
+run over floors 1 to 7, the others over floors 2 to 10. With `labels` of `\d{3}`, the entry
+gives the three-digit units the slug `the-west-coast-west-wing`, and both slugs keep the lot's
+building ID.
+
+On the build of Oct 17, 377 of the building's 617 ads and 321 of its 527 rows take the wing's
+slug. `analysis.latest_ask` and `analysis.ask_check` compare an ad's asks with others under its
+building slug, so they now look within the wing. The other models join on the building ID. I
+wrote two folders for the served dataset's neighbourhoods with `observations.py`, one from a
+build of master and one from a build with the entry, and compared them with
+`ops/pipeline/port_diff.py`:
+
+- With the chain's `west-coast-wings-v1` applied to master's folder, the two agree on all
+  350,202 rows.
+- With the fit's other unit rules on both sides as well, `building-joins-v1`, `unit-labels-v17`,
+  `unit-reviews-v2` and `unit-splits-v4`, they agree on all 350,202 rows again.
 
 ## Relist units
 
@@ -2825,9 +2872,12 @@ The rows already carry the corrections ledger and the latest asks, so a fit on s
 leaves out the chain's `bedrooms-ad`, `baths-ad`, `sqft-units`, `quarantine`, `fields-review`
 and `latest-ask` rules. `fields-review-v3`, the latest of its family, changes nothing, and
 `pipeline/ledger/2026-10-17-tenfold-asks.ndjson` holds the tenfold typos of `latest-ask-v8`.
-The fit still applies `unit-labels-v17`, `unit-splits-v4`, `unit-reviews-v2`,
-`building-joins-v1`, `west-coast-wings-v1`, `elevator-from-ad-v1` and `pets-from-ad-v1`, since
-neither ledger holds their changes yet.
+Since the rows read the elevator and pet policy from each ad's text, the fit leaves out
+`elevator-from-ad-v1` and `pets-from-ad-v2` as well. The unit ledger splits The West Coast as
+`west-coast-wings-v1` does, so the fit leaves that rule out too. It still applies
+`unit-labels-v17` and `unit-splits-v4`, since neither ledger holds their changes yet. It also
+keeps `unit-reviews-v2` and `building-joins-v1`, because the first step of `unit-labels-v17`
+undoes the ledger's splits, as described under [Unit ledger](#unit-ledger).
 
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
@@ -2953,10 +3003,16 @@ when an item here or an entry of the corrections ledger accounts for it.
    build of Oct 16, 22 rows in the served dataset's neighbourhoods take a later price from runs
    10 and 11. The check counts a row here only if the ad's latest record came after run 5, its
    price differs from the last price up to run 5, and the folder's ask equals it.
-10. A pet fee in the description. As described under
-    [Attributes and exclusions](#attributes-and-exclusions), `ads.record_attributes` reads a pet
-    fee as `allowed_restrictions_unknown` when the record gives no policy, and the chain leaves
-    the policy unknown. In the served dataset's neighbourhoods, 3,107 rows differ this way.
+10. The elevator and pet policy read from an ad's text. As described under
+    [Attributes and exclusions](#attributes-and-exclusions), `ads.attributes` fills these
+    fields from the descriptions of every ad's API records. The chain's rules
+    `elevator-from-ad-v1` and `pets-from-ad-v2` fill the NB9 rows alone, from the descriptions
+    of page crawls, and its analysis datasets leave the fields unknown. `--check-against` gives
+    the served dataset the rules' fills before it compares. In the check of Oct 16, before the
+    port, 3,107 rows in the served dataset's neighbourhoods differed by a pet fee read as pets
+    allowed. In the check of Oct 17, on the branch's folder of the NB9 neighbourhoods, a single
+    elevator differed this way. The API chain's dataset gave the folder's value for the other
+    24 elevators and all 25 pet policies apart from the served dataset.
 11. The latest ask of an ad the chain also prices at its current page. The chain gives such an
     ad a second row, priced at the page under an ID starting `capture:refresh:`, and the latest
     ask of its first-ask row ends at the price on that page. The rows file gives each ad a

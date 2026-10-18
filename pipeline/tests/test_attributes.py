@@ -21,25 +21,39 @@ ALLOWED = '"allowed_restrictions_unknown"'
 
 
 @pytest.mark.parametrize(
-    "description, details, policy",
+    "description, policy, text",
     [
-        ("Sunny one bedroom. Pet\n fee $500 at signing.", {}, ALLOWED),
-        ("A deposit per dog of $300.", {}, ALLOWED),
-        ("Charges for cats: $25 a month.", {}, ALLOWED),
-        # No pet fee says the building takes pets as well.
-        ("Cozy studio, no pet fees!", {}, ALLOWED),
-        ("No broker fee, no deposit for the gym.", {}, None),
-        # A ban wins over a fee.
-        ("No pets. Pet deposit required.", {}, '"not_allowed"'),
-        # Evidence for and against pets leaves the policy unknown, fee or not.
-        ("No pets allowed. Pets welcome. Pet fee $500.", {}, None),
-        # A building taking cats and no dogs takes pets in some form.
-        ("Cats only, no dogs. Pet fee $25 a month.", {}, ALLOWED),
-        # Approval read from the description stays.
-        ("Pets on approval, pet fee $500.", {}, '"approval_required"'),
+        ("Sunny one bedroom. Pet\n fee $500 at signing.", None, ALLOWED),
+        ("No broker fee, no deposit for the gym.", None, None),
+        # The chain's evidence reads a ban, and the text reads one too.
+        ("No pets. Pet deposit required.", '"not_allowed"', '"not_allowed"'),
+        # Evidence for and against pets leaves the policy unknown, and the text reads the ban.
+        ("No pets allowed. Pets welcome. Pet fee $500.", None, '"not_allowed"'),
+        # The coded field has no level for a building taking cats and no dogs.
+        ("Cats only, no dogs. Pet fee $25 a month.", None, None),
+        (
+            "Pets on approval, pet fee $500.",
+            '"approval_required"',
+            '"approval_required"',
+        ),
     ],
 )
-def test_pet_fee(description, details, policy):
-    """A pet fee in the description gives pets allowed when nothing else gives a policy."""
-    _, values = project(record(description, **details))
+def test_pet_text(description, policy, text):
+    """The record's pet policy comes from the chain's reading, and `pet_policy_text` from the
+    description's."""
+    _, values = project(record(description))
     assert values["pet_policy"] == policy
+    assert values["pet_policy_text"] == text
+
+
+@pytest.mark.parametrize(
+    "description, text",
+    [
+        ("A five-story walk-up.", "false"),
+        ("Elevator building.", "true"),
+        ("Steps from the park.", None),
+    ],
+)
+def test_elevator_text(description, text):
+    _, values = project(record(description))
+    assert values["elevator_text"] == text

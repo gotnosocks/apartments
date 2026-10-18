@@ -459,7 +459,13 @@ def retracted(seen, row, where, kinds):
 
 # The unit ledger, `units/*.ndjson` inside the ledger's folder. Its entries place ads in units
 # and buildings, keyed on the unit's page or the building's slug rather than on one ad.
-UNIT_CHANGES = ("join_units", "split_unit", "move_building", "split_building", "retract")
+UNIT_CHANGES = (
+    "join_units",
+    "split_unit",
+    "move_building",
+    "split_building",
+    "retract",
+)
 UNIT_KEYS = {
     "join_units": ("change", "building", "units", "evidence", "decided"),
     "split_unit": ("change", "building", "unit", "listings", "evidence", "decided"),

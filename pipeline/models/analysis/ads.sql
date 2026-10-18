@@ -31,9 +31,11 @@ MODEL (
 --   first_day, first_ask, exclusion_reasons:  ads.exclusions.
 --   latest_ask:  analysis.latest_ask, for the kept rows, before the corrections ledger. The
 --       rows file's `latest_ask` gives the ask a live ask set corrects.
---   bedrooms to concession, conflicts, records:  ads.attributes, the values merged over the
---       ad's records up to its last ACTIVE one, before any correction. `full_baths`,
---       `half_baths` and `label_floor` come from ads.reported.
+--   bedrooms to concession, conflicts, from_text, records:  ads.attributes, the values merged
+--       over the ad's records up to its last ACTIVE one, before any correction, with an unknown
+--       elevator or pet policy filled from the ad's descriptions. `from_text` names the
+--       attributes filled that way. `full_baths`, `half_baths` and `label_floor` come from
+--       ads.reported.
 --   fate:  the unit-month check's verdict in analysis.candidates, missing for an ad the chain
 --       drops before that check.
 --   ledger_entries:  the live entries of the corrections ledger for the ad.
@@ -58,7 +60,7 @@ SELECT i.listing_id, i.unit_id, i.building_id, i.building, i.page, g.regions,
     t.bedrooms, t.bathrooms, r.full_baths, r.half_baths, t.square_feet, t.advertised_floor,
     t.physical_floor, r.label_floor, t.floors_above_ground, t.elevator, t.laundry_type,
     t.doorman_type, t.hvac_type, t.pet_policy, t.view_exposures, t.window_exposures,
-    t.furnished, t.short_term, t.concession, t.conflicts, t.records,
+    t.furnished, t.short_term, t.concession, t.conflicts, t.from_text, t.records,
     l.floor_plans,
     i.reasons AS identity_reasons, e.reasons AS exclusion_reasons, c.fate,
     coalesce(d.ledger_entries, []) AS ledger_entries, i.placements,

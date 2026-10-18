@@ -1360,6 +1360,71 @@ def test_exclusion_cases(tmp_path, monkeypatch):
     assert unparsed.id.tolist() == ["9000031"]
 
 
+def test_text_fill_cases(tmp_path, monkeypatch):
+    """The made-up ads here cover the fill's merge in ads.attributes. The structured parse
+    reads the description too, so a walk-up's text gives a structured "no elevator".
+    - Ad 9000060 lists an elevator in one record, and the other's text reads as a walk-up.
+      The structured values conflict, the text gives one reading, and it fills the elevator.
+    - Ad 9000061's records read an elevator and a walk-up in their texts. The structured values
+      conflict, and so do the readings, so the elevator stays unknown.
+    - Ad 9000062 lists pets allowed, and its text reads approval required. The listed policy
+      stands."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    may = [("2026-05-01", 3000)]
+    amenities = {"amenities": {"list": ["ELEVATOR"]}}
+    walk_up = "This walk-up has no elevator."
+    records = [
+        (9000060, ad_record(9000060, may, details=amenities)),
+        (9000060, ad_record(9000060, may, description=walk_up)),
+        (9000061, ad_record(9000061, may, description="An elevator building.")),
+        (9000061, ad_record(9000061, may, description=walk_up)),
+        (
+            9000062,
+            ad_record(
+                9000062,
+                may,
+                description="Pets allowed with approval.",
+                details={"amenities": {"list": ["PETS_ALLOWED"]}},
+            ),
+        ),
+    ]
+    append_answers(
+        export,
+        pd.DataFrame(
+            {
+                "listing_id": [r[0] for r in records],
+                "fetched": pd.Timestamp("2026-09-02T12:00:00Z")
+                + pd.to_timedelta(range(len(records)), unit="min"),
+                "response_id": range(60, 60 + len(records)),
+                "run": 5,
+                "region": "cases",
+                "generation": 1,
+                "outcome": "record",
+                "record_sha256": [
+                    hashlib.sha256(r[1].encode()).hexdigest() for r in records
+                ],
+                "record": [r[1] for r in records],
+            }
+        ),
+    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    got = ctx.fetchdf(
+        """SELECT listing_id, elevator, pet_policy, conflicts, from_text FROM ads.attributes
+        WHERE listing_id >= '9000060' ORDER BY listing_id"""
+    )
+    got = [
+        [r[0], r[1], r[2], list(r[3]), list(r[4])]
+        for r in got.astype(object).where(got.notna(), None).values.tolist()
+    ]
+    assert got == [
+        ["9000060", False, None, ["elevator"], ["elevator"]],
+        ["9000061", None, None, ["elevator"], []],
+        ["9000062", None, "allowed_restrictions_unknown", [], []],
+    ]
+
+
 def market_record(listing_id, changes, days=None, rented=None):
     """A record of ad `listing_id` with a status change for each (day, status) pair of
     `changes`, at 10:00 New York time or at the hour a third item gives, and its daysOnMarket
@@ -1623,15 +1688,48 @@ def chain_cohort():
     return module
 
 
-# The fixture's ads with a pet fee in the description and no other pet policy. The chain gives
-# them none, and `steps.attributes` reads the fee as pets allowed.
-PET_FEE_ADS = ("4771575",)
+# The fixture's ads with an elevator or a pet policy filled from their descriptions, and the
+# values filled. The chain's analysis datasets leave them unknown. In the chain, the rules
+# `elevator-from-ad-v1` and `pets-from-ad-v2` fill these fields for the NB9 rows alone.
+ELEVATOR_FILLS = {
+    "2445473": False,
+    "3047313": False,
+    "3080390": False,
+    "3101856": False,
+    "4107382": False,
+    "4202021": False,
+    "4354528": False,
+    "4439713": False,
+    "4940699": False,
+}
+PET_FILLS = {
+    "1297424": "approval_required",
+    "1342669": "approval_required",
+    "1357029": "allowed_restrictions_unknown",
+    "1684285": "approval_required",
+    "1698799": "allowed_restrictions_unknown",
+    "1840495": "approval_required",
+    "1912842": "approval_required",
+    "2037890": "approval_required",
+    "2696253": "approval_required",
+    "3213037": "approval_required",
+    "3420366": "approval_required",
+    "3438219": "not_allowed",
+    "3455744": "allowed_restrictions_unknown",
+    "4771575": "approval_required",
+}
+
+
+def filled(column, fills):
+    """SQL giving `column` of a chain row, or the value in `fills` for its ad."""
+    cases = " ".join(f"WHEN '{ad}' THEN {value!r}" for ad, value in fills.items())
+    return f"coalesce({column}, CASE source_listing_id {cases} END)"
 
 
 def test_rows_match_the_chain(tmp_path, monkeypatch):
     """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
-    with the same values in every column the pipeline rebuilds, apart from the pet policy of
-    the ads in PET_FEE_ADS."""
+    with the same values in every column the pipeline rebuilds, once the ads in ELEVATOR_FILLS
+    and PET_FILLS get their fills."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
     ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
@@ -1645,9 +1743,8 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
         reported_half_bathrooms, square_feet, listed_floor, label_derived_floor,
         floor_label_provenance ->> 'status',
         (floor_label_provenance ->> 'building_floor_count')::BIGINT, advertised_floor,
-        physical_floor, floors_above_ground, elevator, laundry_type, doorman_type, hvac_type,
-        CASE WHEN source_listing_id IN {PET_FEE_ADS} AND pet_policy IS NULL
-            THEN 'allowed_restrictions_unknown' ELSE pet_policy END,
+        physical_floor, floors_above_ground, {filled("elevator", ELEVATOR_FILLS)},
+        laundry_type, doorman_type, hvac_type, {filled("pet_policy", PET_FILLS)},
         view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
         FROM '{FIXTURE / "chain-rows.parquet"}'"""
     assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 229
