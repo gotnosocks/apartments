@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 02:00 ET, after the zero-full-bath sets in #1096. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 02:00 ET, after the net-effective ask sets in #1100. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-18 02:00 ET
 
@@ -9,7 +9,16 @@ Updated 2026-10-18 02:00 ET, after the zero-full-bath sets in #1096. Thread owne
   same-bedroom ad for the unit (23 wrong, 4 right, 5 unclear), and `/data1/apartments/tmp/suspect/baths/zero/ledger.py`
   applies the #1091 checks. 7 were already set. Most of the rest fail because the other ad's quote has no count
   the parser reads (for example "Two full marble bathrooms").
-- The next new ledger file needs a name sorting after `2026-10-18-unit-baths-zerofull`, or a later date.
+- #1100 adds `pipeline/ledger/2026-10-18-z-net-effective-asks.ndjson`, 269 latest_ask sets. 7,292 rows ask the
+  figure an ad writes next to "net effective" while the ad states a gross up to 1.4 times higher. Sonnet read
+  the 477 with another ad for the unit asking within 3% of the gross (468 net effective).
+  `/data1/apartments/tmp/suspect/ask/neteff/ledger.py` sets the gross only when a backing ad asks it and the
+  backing ad's text mentions no concession, sublet, takeover or short-term rental. Review narrowed the file
+  from 367 to 269.
+- Modeling fits a net-effective indicator term for the 7,023 unset hits, listed in
+  `/data1/apartments/tmp/suspect/ask/neteff/remaining.csv`.
+- The next new ledger file needs a name sorting after `2026-10-18-z-net-effective-asks`, such as
+  `2026-10-18-z2-...`, or a later date.
 
 ## 2026-10-17 22:00 ET
 
