@@ -25,8 +25,8 @@ MODEL (
 --                  they are.
 -- An ad without a unit keeps none. `placements` lists the entries applied to the ad.
 -- read_units, the parser behind ledger.unit_entries, lets a page take part in one live join, an
--- ad in one live split and a building in one live move or split_building, so each ad meets at
--- most one entry of each change.
+-- ad in one live split and a building in one live move and one live split_building, so each ad
+-- meets at most one entry of each change.
 WITH live AS (
     SELECT u.*
     FROM ledger.unit_entries u

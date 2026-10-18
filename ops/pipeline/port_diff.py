@@ -11,10 +11,10 @@ follows the order a fit gives them. The script checks how far the two agree:
 1. It loads both folders with `rentfrontier.data.load`, its cache in a temporary folder, and
    applies each side's rules with `rentfrontier.data.apply_rules`, which checks their order as a
    fit does. A port of one rule among the unit rules leaves the others in both lists, so the
-   counts compare the rows both fits would read. Built in one go, the loader's list of 1.75 million rows of the dataset of all
-   scraped areas would take most of thelio's memory. So the script first writes the loader's
-   cache file in chunks of 100,000 rows, flattened with the loader's own function, and the
-   loader then reads that file.
+   counts compare the rows both fits would read. Built in one go, the loader's list of 1.75
+   million rows of the dataset of all scraped areas would take most of thelio's memory. So the
+   script first writes the loader's cache file in chunks of 100,000 rows, flattened with the
+   loader's own function, and the loader then reads that file.
 2. It matches the rows by `audit_id` and counts the rows of one side alone.
 3. For each column both sides hold, it counts the matched rows whose values differ, a column
    at a time. Two missing values count as the same. It lists up to 10 pairs of values per
@@ -39,6 +39,7 @@ import json
 import os
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
 from itertools import islice
@@ -93,7 +94,7 @@ def compare(
     rules: list[str],
     within: Path | None,
     negligible: float,
-    after_rules: list[str] = (),
+    after_rules: Sequence[str] = (),
 ) -> dict:
     """The counts of the module docstring, with a share up to `negligible` as negligible."""
     data = frontier()

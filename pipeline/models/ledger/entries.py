@@ -89,9 +89,9 @@ A line of the unit ledger holds one JSON object with these keys:
   new slug, which no building of buildings.details holds.
 - `labels`: for a split_building, a regular expression. An ad of the building takes the wing's
   slug when the expression matches the last part of its unit page in full, in lower case, as
-  the chain's west-coast-wings rule matches it. parse_unit checks the expression with Python's
-  `re`, while ledger.unit_status and ads.placed match it with DuckDB's RE2, so the expression
-  keeps to the syntax both engines read.
+  the chain's west-coast-wings rule matches it. ledger.unit_status and ads.placed match it with
+  DuckDB's RE2, and parse_unit compiles it with Python's `re` and with DuckDB, refusing an
+  expression either engine can't read.
 - `entry`, `evidence`, `decided`, `source` and `note`: as in the corrections ledger. The
   evidence kinds are the same.
 
@@ -100,8 +100,8 @@ these rules:
 
 1. Every entry has evidence, and each item gives the details its kind needs. A split's own ads
    are its listings, so an `other_ad` or `line_units` item cites other ads.
-2. A join, split, move or split_building rests on at least one item of a backing kind: those of rule 2 above,
-   or `city_record`.
+2. A join, split, move or split_building rests on at least one item of a backing kind: those
+   of rule 2 above, or `city_record`.
 3. Among the entries still in force, a page takes part in one join at most, an ad in one split
    and a building in one move. A building with ads moving to it stays where it is, and no ads
    move to a building on the move. A building splits once at most, and each split_building
@@ -129,6 +129,7 @@ import re
 from datetime import date
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 from sqlglot import exp
 from sqlmesh import ExecutionContext, model
@@ -550,7 +551,9 @@ def parse_unit(text: str) -> dict:
                 if not isinstance(labels, str) or not labels:
                     raise TypeError
                 re.compile(labels)
-            except (TypeError, re.error):
+                with duckdb.connect() as con:
+                    con.execute("SELECT regexp_full_match('', ?)", [labels])
+            except (TypeError, re.error, duckdb.Error):
                 raise LedgerError(
                     "a split_building gives its labels as a regular expression"
                 ) from None

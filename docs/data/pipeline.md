@@ -2163,9 +2163,10 @@ Three models read the unit ledger:
    | `live` | applies |
 
 3. `ads.placed` applies the live entries to `ads.identity`: the joins, then the splits on the
-   joined units, the moves, and then the split_buildings on the moved buildings. The ads of a split with an `into` then take the unit of the
-   split it points into, from that split's ads with a record, since the `into` ad may have
-   none. `placements` lists the entries applied to each ad.
+   joined units, the moves, and then the split_buildings on the moved buildings. The ads of a
+   split with an `into` then take the unit of the split it points into, from that split's ads
+   with a record, since the `into` ad may have none. `placements` lists the entries applied to
+   each ad.
 
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
@@ -2243,7 +2244,10 @@ building ID.
 
 On the build of Oct 17, 377 of the building's 617 ads and 321 of its 527 rows take the wing's
 slug. `analysis.latest_ask` and `analysis.ask_check` compare an ad's asks with others under its
-building slug, so they now look within the wing. The other models join on the building ID. I
+building slug, so they now look within the wing. The chain's `rentfrontier.latest_ask` reads
+each dataset before its rules and takes in the whole of The West Coast, as it leaves 97 Horatio
+Street apart from it. On the build of Oct 17 the wing changes no row's ask. The other models
+join on the building ID. I
 wrote two folders for the served dataset's neighbourhoods with `observations.py`, one from a
 build of master and one from a build with the entry, and compared them with
 `ops/pipeline/port_diff.py`:
@@ -2876,8 +2880,9 @@ Since the rows read the elevator and pet policy from each ad's text, the fit lea
 `elevator-from-ad-v1` and `pets-from-ad-v2` as well. The unit ledger splits The West Coast as
 `west-coast-wings-v1` does, so the fit leaves that rule out too. It still applies
 `unit-labels-v17` and `unit-splits-v4`, since neither ledger holds their changes yet. It also
-keeps `unit-reviews-v2` and `building-joins-v1`, because the first step of `unit-labels-v17`
-undoes the ledger's splits, as described under [Unit ledger](#unit-ledger).
+keeps `unit-reviews-v2`, because the first step of `unit-labels-v17` undoes the ledger's splits,
+as described under [Unit ledger](#unit-ledger), and `building-joins-v1`, which changes nothing
+on the folder since the rows already carry its move.
 
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so

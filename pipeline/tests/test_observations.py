@@ -326,6 +326,8 @@ def test_port_diff_after_rules(tmp_path, monkeypatch):
     alone = port_diff.compare(*folders, [], None, 0.0025)
     assert alone["changed"]["rows"] == 1
     assert list(alone["fields"]) == ["pets"]
+    after = port_diff.compare(*folders, [], None, 0.0025, ["clear-test"])
+    assert after["changed"]["rows"] == 0
     both = port_diff.compare(*folders, ["clear-test"], None, 0.0025, ["clear-test"])
     assert both["after"]["rules"] == ["clear-test"]
     assert both["changed"] == {"rows": 0, "share": 0.0, "negligible": True}
