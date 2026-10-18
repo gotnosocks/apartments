@@ -16,7 +16,8 @@ change to its step before merge.
   (range atoms behind a flag), #1084 (the design prepared on Modal), #1111, #1112 and #1115
   (listing parts in `detail.parquet` and the form's draws in `kit_buildings.parquet`, both on by
   default in `ops/autoselect-publish.sh`), #1122 (the kit and rent map read the draws a block at
-  a time). Website moved serve/master to 7243a467 and serve/site
+  a time), #1125 (the all-scraped kit in 4.2 GB), #1126 (the rent map and the kit keyed by
+  their inputs' hashes in `rentfrontier.step_key`, kept when the key is current). Website moved serve/master to 7243a467 and serve/site
   to 25860f7, so the next publish builds with both files. Before those flags the live site had
   /estimate at 0.19 s, a listing page at 0.87 s and site.sqlite at 10.3 GB; Website times the
   pages again after the next publish.
@@ -75,9 +76,6 @@ change to its step before merge.
 1. Move the other listing-page-only columns (`fitted*`, `pred_*_95`) and the per-listing
    `inputs` to the detail file. The build's own steps read `inputs` (captures, estimate_build,
    best), so they need another source first.
-2. Give each publish step a key from its inputs' hashes and skip unchanged steps. The rent map
-   and the kit are keyed by the master commit, so any merge reruns both; key them by the
-   posterior's sha, the bundle's sha and their own module sources.
-3. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
+2. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
 
 Scratch notes and tools are in `/data1/apartments/tmp/publish-path/`.
