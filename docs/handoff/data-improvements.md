@@ -16,7 +16,7 @@ Updated 2026-10-18 03:25 ET, after the square-foot fills in #1109. Thread owner:
   stated_interior_sqft) in the same folder, 724 rows, for Modeling's queued stated-size fit. It keeps sizes in
   250 to 6000 with no outdoor, amenity, building, office or room words nearby, and only ads stating one distinct
   size. Looser versions picked up amenity and roof-deck sizes. The data is ad text alone, so it enters as a
-  feature, never as a ledger fill. Modeling keeps that fit last in its queue, because 724 rows cover about 0.4%
+  feature and stays out of the ledger. Modeling keeps that fit last in its queue, because 724 rows cover about 0.4%
   of the unknown-size rows. A looser parse with a checked sample would move it up.
 - The next new ledger file needs a name sorting after `2026-10-18-z5-unit-sqft-missing`, such as
   `2026-10-18-z6-...`, or a later date.
