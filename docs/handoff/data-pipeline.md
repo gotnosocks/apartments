@@ -290,8 +290,9 @@ The older items follow.
       is collected, with `other_ad` or `city_record` evidence;
    3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17: the
       elevator and pet fills from each ad's text (**done** in #1090), `west-coast-wings-v1` as a
-      split_building in the unit ledger (**done** in #1093), `unit-labels-v17` (**done** in the
-      PR of branch `pipeline-labels`), and `unit-splits-v4` last. Each PR carries a row-by-row
+      split_building in the unit ledger (**done** in #1093), `unit-labels-v17` (**done** in
+      #1094), and `unit-splits-v4` last, on branch `pipeline-splits` in the worktree
+      `tmp/pipeline/wt-splits`. Each PR carries a row-by-row
       diff: I build the export from master and from the branch in a scratch lane, write folders
       from both with `observations.py`, and compare them with `ops/pipeline/port_diff.py`, the
       moved rules given to master's folder. `--after-rules` gives both folders the unit rules a
@@ -309,7 +310,14 @@ The older items follow.
       reviewed units, which the chain's v17 joins on master's folder. The model joins 88 units
       the chain leaves apart, mostly floor words with numbers in the West Village and Chelsea,
       and Sonnet readers judged 14 of 40 sampled joins false. Modeling agreed to merge it with
-      no refit, in the lane `tmp/pipeline/lanes/labels-port`. After `unit-splits-v4`, or beside
+      no refit, in the lane `tmp/pipeline/lanes/labels-port`. `analysis.history_splits` cuts
+      label units as v4 does and matched the chain's v4 on all 350,202 rows of the labels lane's
+      folder in a draft. A fit on the folders then leaves out v4, `unit-reviews-v5` and
+      `building-joins-v1`, and the one expected change is 4 rows of 249 West 29th Street 3E,
+      where the unit ledger holds back v5's split of ad 2200772 for want of backing. The lane
+      `tmp/pipeline/lanes/splits-port` built the branch on the labels lane's state, whose
+      folder `out/b3` stands as master's: v4 alone changed none of the 350,202 rows, and with
+      the fit's unit rules the 4 rows of 249 West 29th Street 3E changed, 0.0011%. After `unit-splits-v4`, or beside
       it, I test the floor-folded alias groups of every neighbourhood as a measured change, as
       agreed with Modeling on Oct 17. Two ads on the market at once on the two pages make two
       units, and a bedroom and size check applies only where both ads state a size. I rerun the

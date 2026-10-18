@@ -307,8 +307,8 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - m: a drop_lot retracted later changes nothing.
 
     Only the two ledger models, analysis.ask_check, analysis.lot_facts, analysis.building_check,
-    analysis.label_units and the views analysis.ledger_rows, analysis.rows and analysis.ads build
-    again, and analysis.latest_ask stays as it was."""
+    analysis.label_units, analysis.history_splits and the views analysis.ledger_rows,
+    analysis.rows and analysis.ads build again, and analysis.latest_ask stays as it was."""
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     ctx.plan(auto_apply=True, no_prompts=True)
@@ -383,6 +383,7 @@ def test_ledger_cases(tmp_path, monkeypatch):
         "analysis.ads",
         "analysis.ask_check",
         "analysis.building_check",
+        "analysis.history_splits",
         "analysis.label_units",
         "analysis.ledger_rows",
         "analysis.lot_facts",

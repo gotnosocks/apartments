@@ -1458,8 +1458,10 @@ chain's analysis datasets. I build them in eight steps.
    `analysis.latest_ask` as `latest_ask`, after the ledger's ask sets. `asking_rent` stays the
    ad's first ask, as in the chain's datasets. The last column, `relist_unit`, gives the row's
    relist unit, as described under [Relist units](#relist-units).
-6. `analysis.rows` adds the label unit of each row's unit as its last column, `label_unit`, as
-   described under [Label units](#label-units).
+6. `analysis.rows` adds the label unit of each row's unit as `label_unit`, as described under
+   [Label units](#label-units). `analysis.history_splits` cuts label units by their bedroom
+   history, and `analysis.rows` adds each row's piece as its last column, `split_unit`, as
+   described under [History splits](#history-splits).
 7. `analysis.ask_check` lists the rows with a latest ask far from their building's median for
    review, as described under [Ask check](#ask-check).
 8. `analysis.building_check` lists the rows whose lot's city record leaves no room for the ad,
@@ -1988,11 +1990,13 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
 1848216, 1887124, 2678483, 5019133 and 5098585.
 
-The chain's `building-joins-v1`, `west-coast-wings-v1` and `unit-reviews-v2` are in the unit
-ledger, described under [Unit ledger](#unit-ledger), but for a split held for want of backing.
+The chain's `building-joins-v1` and `west-coast-wings-v1` are in the unit ledger, described
+under [Unit ledger](#unit-ledger), with the lines of `unit-reviews-v5`, the latest version of
+`unit-reviews-v2`, but for a split held for want of backing.
 `analysis.label_units` joins units as `unit-labels-v17` does, as described under
-[Label units](#label-units). The chain's other rules are not in a ledger yet: `unit-splits-v4`
-and `fields-review-v3`. The rules moving ads to another unit or building go into the unit ledger.
+[Label units](#label-units), and `analysis.history_splits` cuts units as `unit-splits-v4` does,
+as described under [History splits](#history-splits). The chain's `fields-review-v3` is not in a
+ledger yet. The rules moving ads to another unit or building go into the unit ledger.
 `ads.attributes` reads the elevator and pet policy from each ad's text in place of
 `elevator-from-ad-v1` and `pets-from-ad-v2`, as described under
 [Attributes and exclusions](#attributes-and-exclusions).
@@ -2177,7 +2181,7 @@ Three models read the unit ledger:
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
 building, a change to the unit ledger rebuilds the two unit ledger models and every step from
-`ads.placed` on, 14 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
+`ads.placed` on, 22 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
 `ledger.units`, and counts its entries by status and change.
 
 With no files in the folder, `ads.placed` gives each ad the building and unit of
@@ -2535,9 +2539,9 @@ uses one unit's photos for another. `analysis.relist_pairs` leaves photo hashes 
 StreetEasy sometimes files one apartment under several unit pages of a building, with its label
 spelled another way on each: "4-B" and "4B", "ph04" and "ph4", "four" and "4", "C7" and "7C".
 The chain joins such pages in the fit with `unit-labels-v17`. I make the same joins from the API
-records in two models, and `analysis.rows` adds each row's label unit as its last column,
-`label_unit`. `ops/pipeline/observations.py` writes it as the row's `unit_id`, so a fit on the
-folders leaves the rule out.
+records in two models, and `analysis.rows` adds each row's label unit as `label_unit`.
+`ops/pipeline/observations.py` writes the row's piece of its label unit as its `unit_id`, as
+described under [History splits](#history-splits), so a fit on the folders leaves the rule out.
 
 1. `analysis.history_pairs` lists the pairs of units an ad's history joins. Each answer carries
    the history of the ad's unit page, and the history lists every ad StreetEasy files under
@@ -2566,8 +2570,8 @@ folders leaves the rule out.
 
    Layers 3 to 7 join two units only when the median bedroom counts of their rows agree. A
    joined unit takes the least unit ID among its members. The model lists each page unit joined
-   with another, with its label unit, the count of page units in that label unit and the first
-   layer to join it.
+   with another, with its label unit, the count of page units with rows in that label unit and
+   the first layer to join it.
 
 The model reads the rows after the unit-month check, as the fit applies v17, so a unit-month can
 still hold two rows of one label unit. Moving the joins ahead of the check would change the rows
@@ -2582,7 +2586,9 @@ ad under #2, so #2 and #3 stay apart, as in the served fit on the chain's rows.
 `analysis.history_pairs` reads page units as well, so the ads of a unit and of its own split
 form no pair. The first version of the model read each row's unit after the splits. Its first
 layer then gave a split's rows their page's unit back, and at 870 Broadway it joined #2 and #3
-through the split, as the chain's v17 does on a folder holding the ledger's splits.
+through the split, as the chain's v17 does on a folder holding the ledger's splits. The unit
+ledger holds the joins of `unit-reviews-v5` as well, so the layers run after those joins, while
+the fit applies them after v17.
 
 v17 reads its history pairs and alias groups from files built from crawled unit pages, in the
 neighbourhoods of the served dataset. I build both from the API records for every building, so
@@ -2651,6 +2657,61 @@ already join floor-word pairs whose medians agree. The aliases layer's 70 joins 
 units, and the bedroom medians of the members disagree in 63 of them, as in 17 of the 22 pairs
 read as the same apartment. Modeling and I left the floor-folded groups in every neighbourhood
 to a measured change of their own; 4 of the 14 false joins hold two ads on the market at once.
+
+## History splits
+
+A unit page sometimes collects the ads of apartments of different sizes, after a combination, a
+rebuild or a miscoded ad: a one-bedroom at $3,395 and a four-bedroom at $14,999 under one page.
+The chain cuts such units in the fit with `unit-splits-v4`, after every other rule.
+`analysis.history_splits` makes the same cuts on the pipeline's rows, and `analysis.rows` gives
+each row its piece as `split_unit`, which `ops/pipeline/observations.py` writes as the row's
+`unit_id`.
+
+The model takes each row's label unit from `analysis.label_units`, or its unit from
+`analysis.ledger_rows` where no label unit joins it, after the unit ledger's splits. It walks
+each label unit's rows by price date, then by listing ID as a string, as v4 does, and starts a
+new piece at an ad whose bedroom count differs from the last ad with a count:
+
+1. An ad with no bedroom count stays in the piece of the ad before it.
+2. An ad with a bedroom count the unit has had before goes back to that count's latest piece,
+   so a convertible apartment coded 1, 2, 1 keeps its one-bedroom ads together.
+3. A change of one bedroom keeps the piece when the last ad with a count gave no size and this
+   ad gives one. At 110 West 26th Street, lofts of 1,400 to 1,650 sq ft go out as anything from
+   a studio to a three-bedroom, and size-less one-bedroom ads would otherwise split away from
+   the lofts' full listings.
+
+The first piece keeps the unit's ID, and later pieces add "~1", "~2" and so on. Each step looks
+only at earlier ads, so a row's piece depends on its own ad and the ads before it. The model
+walks only the units with two or more bedroom counts, since a unit with one count keeps a single
+piece, and it lists the rows of the later pieces with their label unit and piece. The walk runs
+in Python over the rows sorted in DuckDB.
+
+### The port's diff
+
+I built the branch in the lane `tmp/pipeline/lanes/splits-port`, on the state of the labels lane.
+That lane's last folder, `out/b3`, came from code with master's models, and I compared it with the
+branch's folder using `ops/pipeline/port_diff.py`:
+
+- The worktree's ledger path changed with the same files, so the ledger models built again, and
+  with them `ads.placed` and every model after it. The build took 3:03, at a peak of 4.06 GiB,
+  and `analysis.history_splits` took 1.1 s of it.
+- With v4 given to master's folder alone, all 350,202 rows match, 23,248 of them in a later
+  piece.
+- With `building-joins-v1`, `unit-reviews-v5` and `unit-splits-v4` given to master's folder,
+  as a fit on it applies them, 4 rows change unit, all at 249 West 29th Street 3E within NB9.
+  I gave `sqft-units-v1` to both folders as well, as in the labels port. It replaces one size
+  with another, so it changes no footage hold. The share is 0.0011%, under
+  `NEGLIGIBLE_SHARE`, so the move needs no refit.
+
+At 249 West 29th Street 3E, StreetEasy lists two one-bedroom ads of 2015 without a size, a
+studio of 2017 at $2,000 without a size or a floor plan, and one-bedroom ads of 2020, 2022 and
+2026 stating 900 to 1,000 sq ft. `unit-reviews-v5` splits the studio ad off, and the unit ledger
+holds that split back for want of backing. On master's folder, the review's split leaves the
+one-bedrooms in a single piece. On the branch's, v4 starts a piece at the studio, and the
+footage hold keeps the sized one-bedroom ads after it in that piece, as the studio gave no size.
+
+Across all scraped areas, the rows file of the build puts 130,553 of its 1,746,770 rows in a
+later piece: 77,585 pieces of 71,981 units.
 
 ## Ads file
 
@@ -2985,8 +3046,9 @@ holds the row's values under the chain's names and JSON types:
   `reported_full_bathrooms` and `reported_half_bathrooms` from `full_baths` and `half_baths`.
   `floor_status` and `building_floor_count` go into `floor_label_provenance` as `status` and
   `building_floor_count`.
-- `unit_id` comes from the row's `label_unit`, the unit `analysis.label_units` joins the row's
-  unit into. The script stops on a rows file without that column.
+- `unit_id` comes from the row's `split_unit`: its piece of the unit `analysis.label_units`
+  joins the row's unit into, as `analysis.history_splits` cuts it. The script stops on a rows
+  file without that column.
 - `asking_rent` comes from the row's `latest_ask`, after the ledger's ask sets, so the fit's
   `log_rent` follows the latest ask. A rows file from a build before that column holds only the
   first asks, and the script stops on it.
@@ -3009,11 +3071,10 @@ and `latest-ask` rules. `fields-review-v3`, the latest of its family, changes no
 Since the rows read the elevator and pet policy from each ad's text, the fit leaves out
 `elevator-from-ad-v1` and `pets-from-ad-v2` as well. The unit ledger splits The West Coast as
 `west-coast-wings-v1` does, so the fit leaves that rule out too. The observations take each
-row's label unit as its `unit_id`, so the fit leaves out `unit-labels-v17` as well. It still
-applies `unit-splits-v4`, since no ledger holds its changes yet. It also keeps
-`unit-reviews-v5`, since the unit ledger holds each of its lines except the held split of 249
-West 29th Street, and `building-joins-v1`, which changes nothing on the folder since the rows
-already carry its move.
+row's piece of its label unit as its `unit_id`, so the fit leaves out `unit-labels-v17` and
+`unit-splits-v4` as well. It leaves out `unit-reviews-v5` too, as the unit ledger holds each of
+its lines but the held split of 249 West 29th Street, and `building-joins-v1`, which changes
+nothing on the folder since the rows already carry its move.
 
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so
@@ -3068,6 +3129,11 @@ names:
 | `period` | 2 | item 7 |
 | `unit_id` and `canonical_unit_url` | 1 each | item 7 |
 | `first_ask` | 8 | item 7 |
+
+The table comes from a check before the history splits. The check now gives `unit-splits-v4`
+to the served dataset's own bedroom counts, so where the ledger sets another count, the two
+sides can cut a unit in different places, and the `unit_id` differences follow the `bedrooms`
+row.
 
 The items are those of [Differences from the chain](#differences-from-the-chain). For item 7,
 the API chain's dataset gives the folder's value. `audit_id`, `building`, `bathrooms`,
@@ -3360,8 +3426,10 @@ in all, and most tests add made-up ads to that export. The tests:
 25. run `ops/pipeline/diff.py` on a copy of the checkout with a narrower size bound in
     `analysis.candidates`, a new column in `analysis.latest_ask` and a new model. The test checks
     the changed rows of `analysis.candidates`, `analysis.kept` and `analysis.rows` against the
-    base's sizes above the bound, finds the new column and the new model, and finds no other
-    model changed. A second copy drops the price events of
+    base's sizes above the bound. Without those sizes, `analysis.history_splits` holds fewer ads
+    in their piece, and the test checks that the rows it moves take another piece in
+    `analysis.rows`. It finds the new column and the new model, and finds no other model
+    changed. A second copy drops the price events of
     `ads.history_events`, a model without a grain, and the test checks the count of rows only in the
     base. A third copy drops sizes in `pipeline/steps/attributes.py` and spaces the JSON of
     `canonical` in `src`, and the test finds both changes in `ads.record_attributes`. In a fourth
@@ -3537,15 +3605,17 @@ in all, and most tests add made-up ads to that export. The tests:
     pointing into a live split's ad with no record and one into an absent split, a join
     retracted in a later file, and a later join taking one of its pages. The test checks each
     entry's status and differing values and each ad's building, building ID, unit, page unit and
-    placements by value. The plan rebuilds the two unit ledger models and the 12 models from
-    `ads.placed` on, `analysis.candidates` and `analysis.ads` give each ad the unit and building
-    of `ads.placed`, and `analysis.history_pairs` and `analysis.label_units` name no split;
+    placements by value. The plan rebuilds the two unit ledger models, `ledger.status`,
+    `ads.placed` and the 18 models after it. `analysis.candidates` and `analysis.ads` give each ad
+    the unit and building of `ads.placed`, `analysis.history_pairs` and `analysis.label_units`
+    name no split, and `analysis.rows` gives each split's rows the split as their label unit;
 45. read the repo's unit ledger and check that it holds a join, a split and a move;
 46. write a dataset folder with `ops/pipeline/observations.py` from the fixture build's rows
     file, with a made-up latest ask for an ad, after giving the catalog a line from a checkout
     with changes and a line cut short. `rentfrontier.data.load` reads the folder to the frame it
     gives the chain's rows of the fixture with their latest asks and the made-up one, after the
-    chain's `unit-labels-v17`, and the floor fields `_flatten` leaves out match too. The chain's
+    chain's `unit-labels-v17` and `unit-splits-v4`, and the floor fields `_flatten` leaves out
+    match too. The chain's
     alias table and history pairs leave out Park Slope, so the test gives two Park Slope units
     the label units the pipeline joins them into. An ad missing from the chain's audit IDs gets
     an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
@@ -3748,7 +3818,13 @@ The pipeline's `tests/test_building_check.py` checks the building check on made-
     each layer's units with the units the chain's own steps of `unit-labels-v17` give the same
     rows, pairs and alias groups. Then render the model over the rows, three of them in splits
     of the unit ledger, and check each joined page unit's label unit, count and layer. A split
-    holding ads of two pages joins neither page's unit, and no split appears in the table.
+    holding ads of two pages joins neither page's unit, and no split appears in the table;
+78. walk 16 made-up ads of five units with `pieces` of `analysis.history_splits`, and compare
+    each ad's piece with the unit the chain's `unit-splits-v4` gives it. The ads hold a split and
+    a return to the first piece, a change of one bedroom, an ad with no bedroom count, a third
+    piece, a change of one held by a stated size, a change of two, two ads of one day and a unit
+    with one bedroom count. Then render the model over the ads with a sixth unit joined into the
+    first by `analysis.label_units`, and check the rows it lists with their units and pieces.
 
 ## Full build
 

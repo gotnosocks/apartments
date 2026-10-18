@@ -101,7 +101,6 @@ def test_diff_reports_each_change(tmp_path, capsys):
         "analysis.candidates",
         "analysis.kept",
         "analysis.ledger_rows",
-        "analysis.rows",
     ):
         model = models[name]
         assert model["changed"] == len(large) and model["changed_columns"] == {
@@ -115,6 +114,14 @@ def test_diff_reports_each_change(tmp_path, capsys):
             row["values"]["square_feet"][1] is None
             for row in model["examples"]["changed"]
         )
+    # Without the larger sizes, analysis.history_splits holds fewer ads in their piece, and the
+    # rows of the ads it moves take another piece in analysis.rows.
+    rows, splits = models["analysis.rows"], models["analysis.history_splits"]
+    assert rows["changed_columns"]["square_feet"] == len(large)
+    assert set(rows["changed_columns"]) == {"square_feet", "split_unit"}
+    assert rows["only_in_base"] == rows["only_in_edit"] == 0
+    moved = splits["only_in_base"] + splits["only_in_edit"] + splits["changed"]
+    assert moved == rows["changed_columns"]["split_unit"] > 0
     assert models["analysis.latest_ask"]["columns_only_in_edit"] == ["probe"]
     assert not models["analysis.latest_ask"]["changed"]
     assert result["models_only_in_edit"] == ["analysis.probe"]
@@ -125,6 +132,7 @@ def test_diff_reports_each_change(tmp_path, capsys):
         "analysis.kept",
         "analysis.ledger_rows",
         "analysis.rows",
+        "analysis.history_splits",
         "analysis.latest_ask",
     }
     printed = capsys.readouterr().out
