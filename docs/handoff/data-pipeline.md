@@ -291,7 +291,8 @@ The older items follow.
    3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17:
       the elevator and pet fills from each ad's text (**done** in #1090),
       `west-coast-wings-v1` as a split_building in the unit ledger (**done** in #1093),
-      `unit-labels-v17`, and `unit-splits-v4` last. Each PR carries a row-by-row diff: I build
+      `unit-labels-v17` (**done** in the PR of branch `pipeline-labels`), and `unit-splits-v4`
+      last. Each PR carries a row-by-row diff: I build
       the export from master and from the branch in a scratch lane, write folders from both
       with `observations.py`, and compare them with `ops/pipeline/port_diff.py`, the moved
       rules given to master's folder. `--after-rules` gives both folders the unit rules a fit
@@ -301,7 +302,16 @@ The older items follow.
       changed 81 of NB9's rows and 1.42% of the rows in its neighbourhoods. Modeling queued the
       refit on all scraped areas, 5.54% of rows changed, as blocked by the hour's cap. The
       wing changed none of the 350,202 rows, with or without the other unit rules on both
-      sides. The lane is `tmp/pipeline/lanes/wings`;
+      sides. The lane is `tmp/pipeline/lanes/wings`. The label units changed 730 rows, 0.208%,
+      and 599 of them only take another ID. The model joins 88 units the chain leaves apart,
+      mostly floor words with numbers in the West Village and Chelsea, and Sonnet readers
+      judged 14 of 40 sampled joins false. Modeling agreed to merge it with no refit, in the
+      lane `tmp/pipeline/lanes/labels-port`. After `unit-splits-v4`, or beside it, I test the
+      floor-folded alias groups of every neighbourhood as a measured change, as agreed with
+      Modeling on Oct 17. Two ads on the market at once on the two pages make two units, and
+      a bedroom and size check applies only where both ads state a size. I rerun the Sonnet
+      sample on the result. If the false joins drop and the true ones stay, Modeling
+      schedules its fit once the share is known;
    4. `fields-review-v3`, after the moves of item 3;
    5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
       against 135 s in a single process.
