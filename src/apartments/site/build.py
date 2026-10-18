@@ -861,13 +861,19 @@ def write_database(
     pipeline: Path | None = None,
     exposure_file: Path | None = None,
     on_request: bool | None = None,
+    kit_on_request: bool | None = None,
 ) -> dict:
     """Write the site database at `path`. With `on_request` (by default
     SITE_DETAIL_ON_REQUEST=1) the fitted listings' dollar parts go to
-    detail.parquet beside it instead of the `listings` table. A bundle with
-    range atoms gets ranges.parquet and noise.json beside it (detail.py)."""
+    detail.parquet beside it instead of the `listings` table. With
+    `kit_on_request` (by default SITE_KIT_ON_REQUEST=1) the estimate form's
+    per-building draws go to kit_buildings.parquet beside it instead of the
+    `kit_buildings` table. A bundle with range atoms gets ranges.parquet and
+    noise.json beside it (detail.py)."""
     if on_request is None:
         on_request = os.environ.get("SITE_DETAIL_ON_REQUEST") == "1"
+    if kit_on_request is None:
+        kit_on_request = os.environ.get("SITE_KIT_ON_REQUEST") == "1"
     observations = Observations(
         Path(record["dataset"]), record["dataset_observations_sha256"]
     )
@@ -885,6 +891,7 @@ def write_database(
             exposure_file,
             path.parent / detail.FILE if on_request else None,
             path.parent / detail.RANGES_FILE,
+            path.parent / estimate_build.KIT_FILE if kit_on_request else None,
         )
     finally:
         db.close()
@@ -903,6 +910,7 @@ def _write(
     exposure_file,
     detail_file,
     ranges_file,
+    kit_file,
 ) -> dict:
     terms = json.loads((bundle / "terms.json").read_text())
     names = [t["name"] for t in terms]
@@ -1048,7 +1056,7 @@ def _write(
         likely=likely,
     )
     stats["estimate_form"] = estimate_build.install(
-        db, kit_dir, StoredListings(db), observations, likely
+        db, kit_dir, StoredListings(db), observations, likely, kit_file
     )
     if captured:
         # a unit the pipeline read since the dataset last saw it is current there

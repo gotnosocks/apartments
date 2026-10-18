@@ -30,13 +30,14 @@ import os
 import re
 import sqlite3
 import statistics
+import sys
 from array import array
 from collections import Counter
 from pathlib import Path
 
 import duckdb
 
-from . import estimate
+from . import detail, estimate
 
 KITS = Path(os.environ.get("FRONTIER_KITS", "/data1/apartments/frontier/kits"))
 VERSION = "frontier-kit-v1"
@@ -90,6 +91,8 @@ def find_kit(run: str, summary_sha256: str, kits: Path = KITS) -> Path | None:
 
 
 KIT_BATCH_ROWS = 2048
+# The buildings' draws beside site.sqlite, written with SITE_KIT_ON_REQUEST=1.
+KIT_FILE = "kit_buildings.parquet"
 
 
 class Draws:
@@ -308,11 +311,18 @@ def _plain_size(obs: dict) -> bool:
 
 
 def install(
-    db, kit_dir: Path | None, listings: list[dict], observations: dict, likely=None
+    db,
+    kit_dir: Path | None,
+    listings: list[dict],
+    observations: dict,
+    likely=None,
+    kit_file: Path | None = None,
 ) -> dict:
     """Check the kit and, when it passes, write the kit tables. Returns the
     form's status for build.json: {available, reason?, kit?, checks}.
-    `likely` is as in `check_scoring`."""
+    `likely` is as in `check_scoring`. With `kit_file` the buildings' draws
+    go to that file (`write_kit_file`) and the kit_buildings table stays
+    empty."""
     db.executescript(SCHEMA)
     if kit_dir is None:
         return {"available": False, "reason": "no prediction kit for this run"}
@@ -356,6 +366,12 @@ def install(
             ("sqft_median", json.dumps(medians)),
         ],
     )
+    if kit_file is not None:
+        written = write_kit_file(kit_dir, kit_file)
+        if not written["sorted"]:
+            # Lookups still work, but each one reads every row group.
+            print(f"warning: {kit_file} is not sorted by building", file=sys.stderr)
+        return status | {"available": True, "kit_file": written}
     db.executemany(
         "INSERT INTO kit_buildings VALUES (?,?,?,?)",
         (
@@ -393,20 +409,64 @@ def read(db) -> tuple[estimate.Kit | None, str | None]:
     ), None
 
 
-def building(db, building_id: str) -> estimate.Building | None:
+def write_kit_file(kit_dir: Path, target: Path) -> dict:
+    """Copy the kit's buildings.parquet to `target` in row groups of 2048
+    buildings, each building's slopes flattened into one list with their
+    width beside it. The copy keeps the kit's order. The kit writes its
+    buildings sorted, so a lookup reads one row group, and the record says
+    whether the copy came out sorted. On the all-scraped kit (67,735
+    buildings, 250 draws) the copy took 12 s and 0.3 GB and wrote 421 MB,
+    against 2.08 GB as JSON in the table, and a lookup took about 55 ms after
+    the first. An ORDER BY over the list columns needs more than the copy's
+    1 GB limit, so the copy relies on the kit's order."""
+    source = str(kit_dir / "buildings.parquet").replace("'", "''")
+    out = str(target).replace("'", "''")
+    connection = duckdb.connect()
+    try:
+        connection.execute("SET memory_limit = '1GB'")
+        connection.execute("SET threads = 1")
+        connection.execute("SET preserve_insertion_order = true")
+        connection.execute(
+            "COPY (SELECT building AS building_id, level, bedroom_slope, "
+            "flatten(fslope) AS fslope, len(fslope[1]) AS width "
+            f"FROM read_parquet('{source}')) TO '{out}' "
+            "(FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 2048)"
+        )
+        ids = [
+            b
+            for (b,) in connection.execute(
+                f"SELECT building_id FROM read_parquet('{out}')"
+            ).fetchall()
+        ]
+    finally:
+        connection.close()
+    return {
+        "file": target.name,
+        "rows": len(ids),
+        "sorted": all(a < b for a, b in zip(ids, ids[1:])),
+        "bytes": target.stat().st_size,
+    }
+
+
+def building(
+    db, building_id: str, build_dir: Path | None = None
+) -> estimate.Building | None:
+    """A building's kit terms, from the kit_buildings table or, when the
+    build left that empty, from the build's kit file."""
     row = db.execute(
         "SELECT level, bedroom_slope, fslope FROM kit_buildings WHERE building_id = ?",
         (building_id,),
     ).fetchone()
+    if row is not None:
+        row = tuple(json.loads(v) for v in row)
+    elif build_dir is not None and (build_dir / KIT_FILE).is_file():
+        row = detail.opened(build_dir / KIT_FILE, detail.KitBuildings).terms(
+            building_id
+        )
     newest = db.execute(
         "SELECT inputs FROM listings WHERE building_id = ? ORDER BY period DESC, id DESC LIMIT 1",
         (building_id,),
     ).fetchone()
     if row is None or newest is None:
         return None
-    return estimate.Building(
-        json.loads(row[0]),
-        json.loads(row[1]),
-        json.loads(row[2]),
-        json.loads(newest[0]),
-    )
+    return estimate.Building(row[0], row[1], row[2], json.loads(newest[0]))

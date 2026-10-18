@@ -1840,7 +1840,7 @@ def create_app(
                 )
         result = parts = facts = None
         if kit is not None and b is not None:
-            terms = estimate_build.building(db(), b["id"])
+            terms = estimate_build.building(db(), b["id"], g.build_dir)
             if terms is not None:
                 x = estimate.encode(form, kit, terms.inputs)
                 today = dt.datetime.now(dt.UTC).date()
