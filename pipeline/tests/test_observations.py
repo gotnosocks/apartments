@@ -197,6 +197,7 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
         data.load(chain, cache_root=tmp_path / "cache")
     )
     theirs["unit_id"] = theirs.unit_id.replace(PARK_SLOPE)
+    theirs = data.DATA_RULES["unit-splits-v4"](theirs)
     pd.testing.assert_frame_equal(ours, theirs, check_like=True)
     # The fields a fit's frame leaves out.
     lines = [json.loads(line) for line in (out / "observations.jsonl").open()]

@@ -31,13 +31,14 @@ for every building, so it also joins units in the other neighbourhoods.
 The model reads the rows of analysis.ledger_rows, so it joins units after the unit-month check,
 as the fit does. It takes each row's `page_unit` from ads.placed, the unit of its ad after the
 unit ledger's joins and before its splits, and runs the layers on those units, as the fit runs
-v17 before the unit reviews split units. The rows of a split count toward the bedrooms of their
-page's unit there. A split's ID carries a `~review-` suffix and matches no page unit, so
+v17 before the unit reviews split units. The unit ledger holds the joins of `unit-reviews-v5`
+as well, so the layers run after them, while the fit applies them after v17. The rows of a split
+count toward the bedrooms of their page's unit there. A split's ID carries a `~review-` suffix and matches no page unit, so
 analysis.rows finds no label unit for its rows and leaves them in the split. The model lists
 each page unit of the rows joined with another unit or given another unit's ID, with its label
-unit, the count of page units in that label unit and the layer that first joined it.
-analysis.rows gives each row the label unit of its unit, or the unit itself, and the
-observations take it as `unit_id`.
+unit, the count of page units with rows in that label unit and the layer that first joined it.
+analysis.rows gives each row the label unit of its unit, or the unit itself, as `label_unit`,
+and analysis.history_splits then cuts label units as `unit-splits-v4` does.
 """
 
 import re

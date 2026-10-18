@@ -35,9 +35,10 @@ steps:
        `asking_rent` holds the first ask, which only the check reads. The script stops on a
        rows file without `latest_ask`, as written by builds before the column, and on a row
        without a latest ask.
-     - `unit_id` from the row's `label_unit`: the unit `analysis.label_units` joins the row's
-       unit into, as the chain's `unit-labels-v17` joins it, or the row's unit. The script
-       stops on a rows file without `label_unit`, as written by builds before the column.
+     - `unit_id` from the row's `split_unit`: its piece of the unit `analysis.label_units`
+       joins its unit into, as the chain's `unit-labels-v17` joins it and `unit-splits-v4`
+       cuts it. The script stops on a rows file without `split_unit`, as written by builds
+       before the column.
      - `neighbourhood` as the rows file gives it, or as NEW for each `--rename OLD=NEW`. The
        neighbourhoods of step 2 name the rows file's neighbourhoods, before the renames, and
        the script adds each OLD to them. It stops if a rename moves no rows.
@@ -59,8 +60,9 @@ With `--check-against DATASET`, the script writes nothing to OUT. It loads OUT a
 the differences field by field. Before comparing, it gives DATASET's rows the asks of the
 chain's latest ask rule, `latest-ask-v9` unless `--latest-ask` names another, the fills of the
 rules `elevator-from-ad-v1` and `pets-from-ad-v2`, and the units of `building-joins-v1`,
-`west-coast-wings-v1` and `unit-labels-v17`, in that order, as the served fit does. It compares
-the rows file's first asks with DATASET's own asks. It then puts each difference down to the first
+`west-coast-wings-v1`, `unit-labels-v17`, `unit-reviews-v5` and `unit-splits-v4`, in the fit's
+order. The served fit applies `unit-reviews-v2`, and the unit ledger holds the lines of v5, its
+latest version. It compares the rows file's first asks with DATASET's own asks. It then puts each difference down to the first
 of these causes to fit, checked in this order:
   - the ad has a live ledger set of the field,
   - the API chain's dataset given as `--api-reference` holds the ad with OUT's value,
@@ -105,9 +107,15 @@ EXPORT = Path("/data1/apartments/archive/crawls/api/export")
 CHAIN_RUN = 5
 # The served fit's rules filling an unknown elevator or pet policy from the row's own ad.
 AD_FILLS = ("elevator-from-ad-v1", "pets-from-ad-v2")
-# The served fit's rules moving ads to other units, in the fit's order. The rows carry their
-# changes: the unit ledger's moves and the label units.
-UNIT_RULES = ("building-joins-v1", "west-coast-wings-v1", "unit-labels-v17")
+# The chain's rules moving ads to other units, in the fit's order. The rows carry their changes:
+# the unit ledger's moves, the label units and the history splits.
+UNIT_RULES = (
+    "building-joins-v1",
+    "west-coast-wings-v1",
+    "unit-labels-v17",
+    "unit-reviews-v5",
+    "unit-splits-v4",
+)
 # The fields the rules fill, with their names in the ads file's `from_text`.
 TEXT_FIELDS = {"elevator": "elevator", "pets": "pet_policy"}
 
@@ -195,7 +203,7 @@ def first_ask_ids(db, dataset: Path) -> dict:
 
 
 RECORD = """
-SELECT r.listing_id, r.label_unit, r.page, r.building,
+SELECT r.listing_id, r.split_unit, r.page, r.building,
     strftime(timezone('UTC', r.price_at), '%Y-%m-%dT%H:%M:%S+00:00') AS price_at,
     strftime(r.period, '%Y-%m-%d') AS period, r.latest_ask, r.bedrooms, r.bathrooms,
     r.full_baths, r.half_baths, r.square_feet, r.listed_floor, r.label_derived_floor,
@@ -335,11 +343,11 @@ def write(
             "first ask, and the fits take the latest ask, so build the rows file again "
             "with a checkout writing latest_ask."
         )
-    if "label_unit" not in {c[0] for c in columns}:
+    if "split_unit" not in {c[0] for c in columns}:
         raise SystemExit(
-            f"{build['rows']['path']} has no label_unit column. The fits take each row's "
-            "label unit in place of unit-labels-v17, so build the rows file again with a "
-            "checkout writing label_unit."
+            f"{build['rows']['path']} has no split_unit column. The fits take each row's "
+            "piece of its label unit in place of unit-labels-v17 and unit-splits-v4, so "
+            "build the rows file again with a checkout writing split_unit."
         )
 
     tmp = out.with_name(f".{out.name}.tmp-{os.getpid()}")
