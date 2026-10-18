@@ -47,6 +47,7 @@ echo "== site build $(date +%T)"
 cd "$SITE"
 # The pipeline build (ops/pipeline/build-latest) waits while a site-build-* unit runs, so the
 # scope takes such a name. The build holds every light slot while it runs, so waiting for slot 1
-# keeps the site build from starting beside a running build.
-flock /data1/apartments/tmp/locks/light-1.lock systemd-run --user --scope -q --unit="site-build-publish-$(date +%s)-$$" -p MemoryMax=8G env TMPDIR="$TMPDIR" "$SITE_VENV/bin/python" -m apartments.site build
+# keeps the site build from starting beside a running build. The listings' dollar parts go to
+# detail.parquet rather than the listings table (3.2 GB of the all-scraped site.sqlite; docs/site.md).
+flock /data1/apartments/tmp/locks/light-1.lock systemd-run --user --scope -q --unit="site-build-publish-$(date +%s)-$$" -p MemoryMax=8G env TMPDIR="$TMPDIR" SITE_DETAIL_ON_REQUEST="${SITE_DETAIL_ON_REQUEST:-1}" "$SITE_VENV/bin/python" -m apartments.site build
 curl -s -m 10 http://127.0.0.1:8600/healthz || true; echo
