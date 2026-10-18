@@ -220,8 +220,10 @@ listings fall in each band, as calibration predicts.
    arrays: as Python lists, the kit's 67,735 buildings with 250 draws each pushed the build past
    8 GB.
 
-   With `SITE_DETAIL_ON_REQUEST=1` the build leaves the fitted listings' dollar parts out of the
-   `listings` table (`contributions` stays null) and copies them from `rows.parquet` into
+   With `SITE_DETAIL_ON_REQUEST=1`, which `ops/autoselect-publish.sh` sets unless the caller sets
+   it to another value, the build leaves the fitted listings' dollar parts out of the `listings`
+   table (`contributions` stays null; 3.2 GB of the 10.3 GB all-scraped `site.sqlite` of Oct 17
+   by a column scan) and copies them from `rows.parquet` into
    `detail.parquet` beside `site.sqlite` (`apartments.site.detail`). The copy is sorted by
    `audit_id` in row groups of 8,192, with each row's parts in a single list column, and
    `meta.stats.detail` records its rows and bytes. The listing page and /research/story then read
