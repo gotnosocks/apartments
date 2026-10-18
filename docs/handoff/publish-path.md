@@ -15,7 +15,8 @@ change to its step before merge.
 - Merged so far: #1028 and #1030 (columns and summary outputs nobody reads), #1065 and #1066
   (range atoms behind a flag), #1084 (the design prepared on Modal), #1111, #1112 and #1115
   (listing parts in `detail.parquet` and the form's draws in `kit_buildings.parquet`, both on by
-  default in `ops/autoselect-publish.sh`). Website moved serve/master to 7243a467 and serve/site
+  default in `ops/autoselect-publish.sh`), #1122 (the kit and rent map read the draws a block at
+  a time). Website moved serve/master to 7243a467 and serve/site
   to 25860f7, so the next publish builds with both files. Before those flags the live site had
   /estimate at 0.19 s, a listing page at 0.87 s and site.sqlite at 10.3 GB; Website times the
   pages again after the next publish.
@@ -39,6 +40,14 @@ change to its step before merge.
   all 1000 draws, at 2.67 GB (6.95 GB before). The 250-draw map's rents differ from the
   1000-draw map's by a median of 0.0046 log, 0.66 Monte Carlo SEs (0.67 for a normal), with
   5.5% of cells past 2 SE against 4.6%, since thinned draws still carry some autocorrelation.
+- On the all-scraped run on thelio (Oct 18, 9G unit, design parts from the served bundle):
+  - The 250-draw rent map peaked at 4.87 GB in 212 s. Against production's 1000-draw map its
+    rents sit a median 0.655 Monte Carlo SEs away (5.4% of cells past 2 SE, 0.52% past 3),
+    a median of 0.0049 log, and its overall medians agree within 0.0021 log.
+  - The kit first ran out of memory at 9G. It built all 23 feature groups' terms on reference
+    rows where they are 0 (3 GB), copied the units through an identity index (0.9 GB) and
+    turned fslope into Python lists (3 GB). Without those it peaks at 4.21 GB in 132 s, and
+    its parquet columns and kit.json come out identical to production's kit.
 - Ben dropped the 80% range from the lists (12:50 ET Oct 17). The summary's `--range-atoms`
   (#1065, #1066 for Modal) writes 64 atoms per row and `noise.json` in place of the quantile
   solve; on NB9 at 10% it ran in 397 s against 663 s, with a median error of 0.00027 log
@@ -69,8 +78,6 @@ change to its step before merge.
 2. Give each publish step a key from its inputs' hashes and skip unchanged steps. The rent map
    and the kit are keyed by the master commit, so any merge reruns both; key them by the
    posterior's sha, the bundle's sha and their own module sources.
-3. Run the all-scraped rent map and kit on thelio under systemd, once Modeling has copied the
-   design parts into the served bundle.
-4. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
+3. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
 
 Scratch notes and tools are in `/data1/apartments/tmp/publish-path/`.

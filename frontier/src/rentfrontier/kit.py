@@ -72,6 +72,19 @@ def thin(n: int, keep: int = DRAWS) -> np.ndarray:
     return np.unique(np.linspace(0, n - 1, min(n, keep)).round().astype(int))
 
 
+def thinned(kept, keep: int = DRAWS, skip=(), only=None) -> dict:
+    """The arrays of `kept` (those in `only`, or all but `skip`) at `thin`'s
+    draws. Draws `read_kept` already thinned are kept as they are, since
+    indexing would copy them (0.9 GB for the units on the all-scraped run)."""
+    n = np.asarray(kept["alpha"]).shape[0]
+    idx = thin(n, keep)
+    return {
+        k: np.asarray(v) if len(idx) == n else np.asarray(v)[idx]
+        for k, v in kept.items()
+        if np.ndim(v) and k not in skip and (only is None or k in only)
+    }
+
+
 def last_month_rows(prep, n_features: int) -> model.Arrays:
     """One reference row per building at the last month: no features, a
     one-bedroom (no bedroom curve or premium), a unit without training rows,
@@ -128,14 +141,19 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
         raise SystemExit("line-effects designs are not supported")
     if "unit_drift" in kept and kept["unit_drift"].shape[1] > 1:
         raise SystemExit("unit-drift designs are not supported")
-    idx = thin(kept["alpha"].shape[0], keep)
-    kept = {k: np.asarray(v)[idx] for k, v in kept.items() if np.ndim(v)}
-    d = len(idx)
+    kept = thinned(kept, keep, skip={"unit"})
+    d = kept["alpha"].shape[0]
     a = last_month_rows(prep, len(feats.names))
+    if np.any(a.x):
+        raise AssertionError("reference rows must have no feature terms")
     spacing = model.walk_spacing(config)
     # log_terms without the walk, which is added below from its two knots as
-    # model.walk_term interpolates it.
-    terms = explain.log_terms(kept, a, feats.groups, 0, False, False, prep.offset)
+    # model.walk_term interpolates it, and without the feature groups, which
+    # are 0 on the reference rows: each is a (draws, buildings) array, 3 GB
+    # in all on the all-scraped run.
+    # The reference rows have no fitted unit, so their unit term is 0 too.
+    no_unit = {"unit": np.zeros((d, 1))}
+    terms = explain.log_terms(kept | no_unit, a, (), 0, False, False, prep.offset)
     if spacing:
         _, frac = model.walk_position(a, spacing)
         w = kept["walk"]
@@ -143,9 +161,6 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
             raise ValueError(f"the walk has {w.shape[-1]} knots, not walk_knots' 2")
         walk = (1 - frac) * w[..., a.building, 0] + frac * w[..., a.building, 1]
         terms["building_drift"] = walk + terms["building_drift"]
-    for g in dict.fromkeys(feats.groups):
-        if np.any(terms[g]):
-            raise AssertionError("reference rows must have no feature terms")
     month = len(prep.periods) - 1
     market = prep.offset + kept["alpha"] + kept["trend"][:, month]
     daily = kept.get("season_daily_coef", np.zeros((1, 1))).shape[-1] > 1
@@ -208,20 +223,36 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
             "building": list(prep.buildings),
             "level": list(level.T),
             "bedroom_slope": list(slope.T),
-            "fslope": [fslope[:, b, :] for b in range(level.shape[1])],
+            "fslope": draw_lists(fslope.transpose(1, 0, 2)),
         }
     )
-    buildings["fslope"] = buildings.fslope.map(lambda m: [list(r) for r in m])
     return record, buildings
+
+
+def draw_lists(a: np.ndarray) -> pd.Series:
+    """(buildings, draws, slopes) as a column of lists over draws of lists
+    over slopes, in Arrow: as Python lists the all-scraped run's fslope takes
+    3 GB."""
+    import pyarrow as pa
+
+    b, d, s = a.shape
+    values = pa.array(np.ascontiguousarray(a, dtype=np.float64).reshape(-1))
+    inner = pa.ListArray.from_arrays(
+        pa.array(np.arange(0, b * d + 1) * s, pa.int32()), values
+    )
+    outer = pa.ListArray.from_arrays(
+        pa.array(np.arange(0, b + 1) * d, pa.int32()), inner
+    )
+    return pd.Series(pd.arrays.ArrowExtensionArray(outer))
 
 
 def unit_table(kept, prep, keep: int = DRAWS) -> pd.DataFrame:
     """Per fitted unit, its level over the kept draws (thinned as `kit_tables`),
     in float32: the posterior unit effect a relisted apartment carries."""
-    idx = thin(np.asarray(kept["alpha"]).shape[0], keep)
     if "unit" not in kept or not len(prep.units):
         return pd.DataFrame({"unit": pd.Series(dtype=str), "level": []})
-    level = np.asarray(kept["unit"])[idx].astype(np.float32)  # (draws, units)
+    level = thinned(kept, keep, only={"unit"})["unit"]
+    level = level.astype(np.float32, copy=False)  # (draws, units)
     return pd.DataFrame({"unit": list(prep.units), "level": list(level.T)})
 
 
@@ -255,11 +286,31 @@ def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
     return record, buildings, units
 
 
+def write_frame(frame: pd.DataFrame, path: Path) -> None:
+    """`frame.to_parquet`, recording the Arrow columns (`draw_lists`) as
+    object columns, as lists of lists were recorded: pandas cannot read back
+    the Arrow type it would record."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.Table.from_pandas(frame, preserve_index=False)
+    meta = json.loads(table.schema.metadata[b"pandas"])
+    for column in meta["columns"]:
+        if column["numpy_type"].endswith("[pyarrow]"):
+            column["numpy_type"] = "object"
+    pq.write_table(
+        table.replace_schema_metadata(
+            table.schema.metadata | {b"pandas": json.dumps(meta).encode()}
+        ),
+        path,
+    )
+
+
 def write(record, buildings, units, out_dir: Path, commit: str) -> Path:
     tmp = out_dir.with_name(out_dir.name + ".tmp")
     tmp.mkdir(parents=True, exist_ok=False)
     (tmp / "kit.json").write_text(json.dumps(record, separators=(",", ":")))
-    buildings.to_parquet(tmp / "buildings.parquet", index=False)
+    write_frame(buildings, tmp / "buildings.parquet")
     units.to_parquet(tmp / "units.parquet", index=False)
     complete = {
         "version": VERSION,
