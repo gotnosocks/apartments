@@ -1458,7 +1458,9 @@ chain's analysis datasets. I build them in eight steps.
    `analysis.latest_ask` as `latest_ask`, after the ledger's ask sets. `asking_rent` stays the
    ad's first ask, as in the chain's datasets. The last column, `relist_unit`, gives the row's
    relist unit, as described under [Relist units](#relist-units).
-6. `analysis.rows` adds the label unit of each row's unit as `label_unit`, as described under
+6. `analysis.label_months` checks each month of each label unit again and lists the rows it
+   drops, as described under [Label months](#label-months). `analysis.rows` leaves those rows
+   out and adds the label unit of each row's unit as `label_unit`, as described under
    [Label units](#label-units). `analysis.history_splits` cuts label units by their bedroom
    history, and `analysis.rows` adds each row's piece as its last column, `split_unit`, as
    described under [History splits](#history-splits).
@@ -2182,8 +2184,8 @@ Three models read the unit ledger:
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
 building, a change to the unit ledger rebuilds the two unit ledger models and every step from
-`ads.placed` on, 22 models in all. The catalog line lists the unit ledger's files with their SHA-256 under
-`ledger.units`, and counts its entries by status and change.
+`ads.placed` on, 23 models in all. The catalog line lists the unit ledger's files with their
+SHA-256 under `ledger.units`, and counts its entries by status and change.
 
 With no files in the folder, `ads.placed` gives each ad the building and unit of
 `ads.identity`. I imported the chain's `unit-reviews-v2` and `building-joins-v1` into
@@ -2659,6 +2661,75 @@ units, and the bedroom medians of the members disagree in 63 of them, as in 17 o
 read as the same apartment. Modeling and I left the floor-folded groups in every neighbourhood
 to a measured change of their own; 4 of the 14 false joins hold two ads on the market at once.
 
+## Label months
+
+The chain checks each unit-month on the unit pages, before `unit-labels-v17` joins pages into
+label units. When two pages of an apartment each keep a row in a month, often as the ads of two
+brokers, a fit on the chain's datasets counts the apartment twice in that month.
+`analysis.label_months` runs the check again on label units, after the corrections ledger, and
+lists the rows it drops with their label unit, month and fate. `analysis.rows` and
+`analysis.history_splits` leave those rows out, and the ads file gives each one's fate as
+`label_fate`.
+
+The model gives each row of `analysis.ledger_rows` the label unit `analysis.rows` gives it: the
+unit `analysis.label_units` joins the row's unit into, or else the unit itself. In each month of
+each label unit, it then takes the chain's two steps:
+
+1. When the month's rows give two bedroom counts or two bathroom counts, every row of the month
+   drops with the fate `conflicting_layout_same_label_month`. A bedroom set of the ledger counts
+   here. A bath set leaves `bathrooms` as recorded, so it changes nothing in this step.
+2. Otherwise the row with the latest first day stays, and on a tie the one with the greatest ad
+   ID compared as text. The other rows drop with the fate `superseded_in_label_month`.
+
+A split of the unit ledger keeps its own unit ID, which no label unit joins, so its rows form
+months of their own. In the fixture, the check drops three rows. Ad 2426687 shares June 2018
+with ad 2425161, a later ad on another page of the same three-bedroom. Ads 3946929 and 3959881
+share September 2022 in a label unit as a two-bedroom and a one-bedroom.
+
+### The check on the export of runs 1 to 16
+
+I built master and the branch on the state of the lane `tmp/pipeline/lanes/records-reuse`, in
+the lane `tmp/pipeline/lanes/label-check`. The branch rebuilt `analysis.label_months` and the
+models after it in 3:21, at a peak of 4.24 GiB. I wrote an observations folder from each build
+and compared them with `ops/pipeline/port_diff.py`. A row changes when the check drops it, or
+when a dropped row had started its piece in `analysis.history_splits`, so the row takes another
+piece:
+
+| fate | all scraped areas | NB9's neighbourhoods | NB9 |
+| --- | ---: | ---: | ---: |
+| rows | 1,746,763 | 350,195 | 296,953 |
+| `conflicting_layout_same_label_month` | 1,243 (0.071%) | 165 (0.047%) | 143 (0.048%) |
+| `superseded_in_label_month` | 9,187 (0.526%) | 1,059 (0.302%) | 873 (0.294%) |
+| another piece | 263 (0.015%) | 43 (0.012%) | 34 (0.011%) |
+| all changes | 10,693 (0.612%) | 1,267 (0.362%) | 1,050 (0.354%) |
+
+All three shares come out over `NEGLIGIBLE_SHARE` (0.25%), so the check counts as a data change,
+and a fit on it needs its own run. The NB9 column counts the rows of NB9's dataset holding the
+folder's audit IDs: 291,312 of its rows.
+
+The conflicting rows come from 605 label-months: 381 with two bedroom counts and 780 rows, and
+224 with two bathroom counts alone and 463 rows. Sonnet readers read 30 of the 381, drawn at
+random, each with every page's ads in the month and up to four other ads per page:
+
+- 18 one apartment with a flex room or a changed layout, such as a "1BR with home office" coded
+  once as 1 and once as 2, or an open loft "walls allowed for 2/3 bedrooms";
+- 5 one apartment with a miscoded ad, such as ad 2367837, coded as a one-bedroom while its text
+  opens "2 Bed / 2 Bath", beside a two-bedroom ad at the same $3,000 ask;
+- 6 different apartments under a false join, such as page `5` with a two-bedroom at $2,450 and
+  page `5th` with a 350 sq ft studio at $1,895;
+- 1 unclear.
+
+With 23 of 30 reads judged one apartment, the check keeps dropping every row of a month with two
+layouts, as the chain's check on unit pages does. Keeping both rows would count those apartments
+twice. A false join loses both rows of its month, about a fifth of the 780.
+
+The superseded step keeps the ad posted last in its month. Its row carries that ad's latest ask,
+the fit's target, and the dropped ads' asks leave with their rows. In 8,347 of the 8,915
+label-months with a superseded row, no dropped ad changed its price after the kept ad's last
+change. In the other 568, the dropped ad's last change came a median of 11 days later, usually
+as a cut: 327 of those asks lie below the kept ask, 110 above it and 131 at it, and the two asks
+differ by a median of 2.2%. Across all 9,187 superseded rows, 4,563 ask the same as the kept row.
+
 ## History splits
 
 A unit page sometimes collects the ads of apartments of different sizes, after a combination, a
@@ -2752,6 +2823,8 @@ comes from. These columns need more than a line:
 - `building_check` holds, for a row `analysis.building_check` lists for review, its reasons, the
   lot and the MapPLUTO release it read, the ad's floor and the lot's floor count, apartments and
   land use.
+- `label_fate` gives the fate `analysis.label_months` gives a row it drops, as described under
+  [Label months](#label-months).
 - `in_rows` says whether the ad has a fit-ready row.
 
 The file leaves out the ad's description and its other text. A reader takes them from the
@@ -3232,6 +3305,11 @@ when an item here or an entry of the corrections ledger accounts for it.
     single row, and its latest ask counts every later change. In the served dataset, 25 rows
     differ this way. The check counts a row here only if the served row's ask equals the price
     of the ad's page row.
+12. A second unit-month check, on label units. The chain checks unit-months on the unit pages
+    alone, and `unit-labels-v17` can then leave a label unit two rows in a month.
+    `analysis.label_months` checks each label unit's months after the ledger and drops rows as
+    described under [Label months](#label-months). No chain rule makes this check, so a
+    comparison with the chain's datasets counts each row of `analysis.label_months` here.
 
 ## Planted errors
 
@@ -3330,7 +3408,7 @@ in all, and most tests add made-up ads to that export. The tests:
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
    tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the 39 models below it and gives the full answer, and a further plan finds nothing to
+   and the 44 models below it and gives the full answer, and a further plan finds nothing to
    build. They include `buildings.lots`, which reads the days the ads came on the market, and
    `buildings.lot_releases` below it: about 12 s on the full export. A top-up also brings new
    building records, which rebuild both anyway. `ads.record_attributes` parses only run 4's new
@@ -3392,7 +3470,9 @@ in all, and most tests add made-up ads to that export. The tests:
     their pages;
 17. build the fixture and compare `analysis.rows` with `fixture/chain-rows.parquet`, which
     `make_fixture.py` copies from the chain's analysis datasets that the latest-ask run's
-    provenance lists. Each of the 229 rows agrees in every value the pipeline rebuilds;
+    provenance lists. `analysis.label_months` drops 3 of the 229 rows, the ads of
+    `LABEL_MONTH_DROPS` in `test_pipeline.py`, and each of the other 226 agrees in every value
+    the pipeline rebuilds;
 18. add made-up ads and buildings to the cases:
     - two ads of a unit in one month, two ads of another unit on the same day, a unit whose ads
       give one bedroom and two bedrooms in a month, and a unit whose ads give one bathroom and
@@ -3426,10 +3506,12 @@ in all, and most tests add made-up ads to that export. The tests:
 22. write ledger entries for ten kept rows of the fixture and an ad without one, retract two of
     them in a later file, and check each entry's status and differing values. Among them, an
     exclude made on a row's latest ask applies, and one made on ten times the latest ask goes
-    stale. The next plan rebuilds only the two ledger models, `analysis.ask_check` and the views
-    `analysis.rows` and `analysis.ads`. The first drops two rows and changes four, each row's
-    `latest_ask` equals its ask in `analysis.latest_ask`, and the latest asks stay as they
-    were;
+    stale. The next plan rebuilds only the two ledger models, `analysis.ask_check`,
+    `analysis.lot_facts`, `analysis.building_check`, `analysis.label_units`,
+    `analysis.label_months`, `analysis.history_splits` and the views `analysis.ledger_rows`,
+    `analysis.rows` and `analysis.ads`. `analysis.rows` drops two rows, beside the three rows of
+    `analysis.label_months`, and changes four. Each row's `latest_ask` equals its ask in
+    `analysis.latest_ask`, and the latest asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's corrections ledger and unit ledger, and check that each of their files at
@@ -3618,7 +3700,7 @@ in all, and most tests add made-up ads to that export. The tests:
     retracted in a later file, and a later join taking one of its pages. The test checks each
     entry's status and differing values and each ad's building, building ID, unit, page unit and
     placements by value. The plan rebuilds the two unit ledger models, `ledger.status`,
-    `ads.placed` and the 18 models after it. `analysis.candidates` and `analysis.ads` give each ad
+    `ads.placed` and the 19 models after it. `analysis.candidates` and `analysis.ads` give each ad
     the unit and building of `ads.placed`, `analysis.history_pairs` and `analysis.label_units`
     name no split, and `analysis.rows` gives each split's rows the split as their label unit;
 45. read the repo's unit ledger and check that it holds a join, a split and a move;
@@ -3627,7 +3709,8 @@ in all, and most tests add made-up ads to that export. The tests:
     with changes and a line cut short. `rentfrontier.data.load` reads the folder to the frame it
     gives the chain's rows of the fixture with their latest asks and the made-up one, after the
     chain's `unit-labels-v17` and `unit-splits-v4`, and the floor fields `_flatten` leaves out
-    match too. The chain's
+    match too. Between the two rules, the chain's side drops the rows of `LABEL_MONTH_DROPS`, as
+    `analysis.label_months` drops them after the label units. The chain's
     alias table and history pairs leave out Park Slope, so the test gives two Park Slope units
     the label units the pipeline joins them into. An ad missing from the chain's audit IDs gets
     an `api:` ID, and the manifest lists an ad the served dataset gives another audit ID. The
@@ -3839,7 +3922,13 @@ The pipeline's `tests/test_building_check.py` checks the building check on made-
     a return to the first piece, a change of one bedroom, an ad with no bedroom count, a third
     piece, a change of one held by a stated size, a change of two, two ads of one day and a unit
     with one bedroom count. Then render the model over the ads with a sixth unit joined into the
-    first by `analysis.label_units`, and check the rows it lists with their units and pieces.
+    first by `analysis.label_units` and an ad listed in `analysis.label_months`, and check the
+    rows it lists with their units and pieces;
+79. render `analysis.label_months` over 12 made-up rows of nine unit pages in five label units,
+    and check each row's fate. The rows hold two pages of a label unit in a month, a ledger
+    split in the same month, a month with two bedroom counts and one with two bathroom counts, a
+    month where a row with no bedroom count meets a counted one, and two ads of one day with the
+    IDs "999" and "1000".
 
 ## Full build
 

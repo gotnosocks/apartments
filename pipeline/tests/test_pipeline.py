@@ -459,6 +459,7 @@ def test_ask_check_cases(tmp_path, monkeypatch):
         "analysis.ask_check",
         "analysis.building_check",
         "analysis.history_splits",
+        "analysis.label_months",
         "analysis.label_units",
         "analysis.ledger_rows",
         "analysis.lot_facts",
@@ -531,6 +532,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.history_pairs",
         "analysis.history_splits",
         "analysis.kept",
+        "analysis.label_months",
         "analysis.label_units",
         "analysis.latest_ask",
         "analysis.latest_change",
@@ -592,6 +594,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.history_pairs",
         "analysis.history_splits",
         "analysis.kept",
+        "analysis.label_months",
         "analysis.label_units",
         "analysis.latest_ask",
         "analysis.latest_change",
@@ -1729,6 +1732,17 @@ PET_FILLS = {
     "3455744": "allowed_restrictions_unknown",
     "4771575": "approval_required",
 }
+# The fixture's ads analysis.label_months drops, and their fates. The chain checks each
+# unit-month on unit pages alone, so its analysis datasets keep these rows.
+# - Ad 2426687 shares June 2018 with ad 2425161, a later ad on another page of the same
+#   three-bedroom.
+# - Ads 3946929 and 3959881 share September 2022 in one label unit, as a two-bedroom and a
+#   one-bedroom.
+LABEL_MONTH_DROPS = {
+    "2426687": "superseded_in_label_month",
+    "3946929": "conflicting_layout_same_label_month",
+    "3959881": "conflicting_layout_same_label_month",
+}
 
 
 def filled(column, fills):
@@ -1740,9 +1754,11 @@ def filled(column, fills):
 def test_rows_match_the_chain(tmp_path, monkeypatch):
     """analysis.rows gives the fixture's ads the rows the chain's analysis datasets give them,
     with the same values in every column the pipeline rebuilds, once the ads in ELEVATOR_FILLS
-    and PET_FILLS get their fills."""
+    and PET_FILLS get their fills and the rows of LABEL_MONTH_DROPS drop."""
     ctx = context(monkeypatch, tmp_path / "state")
     ctx.plan(auto_apply=True, no_prompts=True)
+    drops = ctx.fetchdf("SELECT listing_id, fate FROM analysis.label_months")
+    assert dict(zip(drops.listing_id, drops.fate)) == LABEL_MONTH_DROPS
     ours = """SELECT listing_id, price_at, period, unit_id, page, building, asking_rent,
         bedrooms, bathrooms, full_baths, half_baths, square_feet, listed_floor,
         label_derived_floor, floor_status, building_floor_count, advertised_floor,
@@ -1757,9 +1773,10 @@ def test_rows_match_the_chain(tmp_path, monkeypatch):
         physical_floor, floors_above_ground, {filled("elevator", ELEVATOR_FILLS)},
         laundry_type, doorman_type, hvac_type, {filled("pet_policy", PET_FILLS)},
         view_exposures::VARCHAR, window_exposures::VARCHAR, neighbourhood
-        FROM '{FIXTURE / "chain-rows.parquet"}'"""
-    assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 229
-    assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({ours})").n[0] == 229
+        FROM '{FIXTURE / "chain-rows.parquet"}'
+        WHERE source_listing_id NOT IN ({", ".join(f"'{a}'" for a in LABEL_MONTH_DROPS)})"""
+    assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({chain})").n[0] == 226
+    assert ctx.fetchdf(f"SELECT count(*) AS n FROM ({ours})").n[0] == 226
     assert ctx.fetchdf(f"{ours} EXCEPT {chain}").empty
     assert ctx.fetchdf(f"{chain} EXCEPT {ours}").empty
 

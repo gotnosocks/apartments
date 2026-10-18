@@ -307,8 +307,9 @@ def test_ledger_cases(tmp_path, monkeypatch):
     - m: a drop_lot retracted later changes nothing.
 
     Only the two ledger models, analysis.ask_check, analysis.lot_facts, analysis.building_check,
-    analysis.label_units, analysis.history_splits and the views analysis.ledger_rows,
-    analysis.rows and analysis.ads build again, and analysis.latest_ask stays as it was."""
+    analysis.label_units, analysis.label_months, analysis.history_splits and the views
+    analysis.ledger_rows, analysis.rows and analysis.ads build again, and analysis.latest_ask
+    stays as it was."""
     folder = tmp_path / "ledger"
     ctx = context(monkeypatch, tmp_path / "state", ledger=folder)
     ctx.plan(auto_apply=True, no_prompts=True)
@@ -384,6 +385,7 @@ def test_ledger_cases(tmp_path, monkeypatch):
         "analysis.ask_check",
         "analysis.building_check",
         "analysis.history_splits",
+        "analysis.label_months",
         "analysis.label_units",
         "analysis.ledger_rows",
         "analysis.lot_facts",
@@ -429,10 +431,14 @@ def test_ledger_cases(tmp_path, monkeypatch):
         check_dtype=False,
     )
 
+    # The ledger excludes a and i, and analysis.label_months drops the fixture's rows of
+    # LABEL_MONTH_DROPS.
+    drops = ctx.fetchdf("SELECT listing_id, fate FROM analysis.label_months")
+    assert dict(zip(drops.listing_id, drops.fate)) == helpers.LABEL_MONTH_DROPS
     (count,) = ctx.engine_adapter.fetchone(
         "SELECT (SELECT count(*) FROM analysis.kept) - (SELECT count(*) FROM analysis.rows)"
     )
-    assert count == 2
+    assert count == 2 + len(drops)
     (count,) = ctx.engine_adapter.fetchone(
         """SELECT count(*) FROM analysis.rows r JOIN analysis.latest_ask a USING (listing_id)
         WHERE r.latest_ask IS DISTINCT FROM a.latest_ask"""

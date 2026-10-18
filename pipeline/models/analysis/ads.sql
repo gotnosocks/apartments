@@ -38,6 +38,8 @@ MODEL (
 --       ads.reported.
 --   fate:  the unit-month check's verdict in analysis.candidates, missing for an ad the chain
 --       drops before that check.
+--   label_fate:  the fate analysis.label_months gives a row it drops in its unit-month check on
+--       label units.
 --   ledger_entries:  the live entries of the corrections ledger for the ad.
 --   ask_check:  for a row analysis.ask_check lists for review, the median latest ask of the
 --       building's other rows with the same bedroom count, their number and the row's ratio to
@@ -62,7 +64,7 @@ SELECT i.listing_id, i.unit_id, i.building_id, i.building, i.page, g.regions,
     t.doorman_type, t.hvac_type, t.pet_policy, t.view_exposures, t.window_exposures,
     t.furnished, t.short_term, t.concession, t.conflicts, t.from_text, t.records,
     l.floor_plans,
-    i.reasons AS identity_reasons, e.reasons AS exclusion_reasons, c.fate,
+    i.reasons AS identity_reasons, e.reasons AS exclusion_reasons, c.fate, lm.fate AS label_fate,
     coalesce(d.ledger_entries, []) AS ledger_entries, i.placements,
     CASE WHEN q.listing_id IS NOT NULL
         THEN {'peer_ask': q.peer_ask, 'peer_rows': q.peer_rows, 'ratio': q.ratio} END AS ask_check,
@@ -84,6 +86,7 @@ LEFT JOIN buildings.details b ON b.building_id = i.building_id
 LEFT JOIN ads.breaks k USING (listing_id)
 LEFT JOIN analysis.latest_ask a USING (listing_id)
 LEFT JOIN analysis.candidates c USING (listing_id)
+LEFT JOIN analysis.label_months lm USING (listing_id)
 LEFT JOIN ledger d USING (listing_id)
 LEFT JOIN analysis.ask_check q USING (listing_id)
 LEFT JOIN analysis.building_check h USING (listing_id)
