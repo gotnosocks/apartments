@@ -65,6 +65,18 @@ def test_the_key_follows_every_input(run_dir, summary_dir, tmp_path):
     assert digest() != with_parts
 
 
+def test_a_prepared_design_puts_the_config_in_the_key(run_dir, summary_dir, tmp_path):
+    cache = tmp_path / "cache"
+    bare = step_key.inputs("kit", run_dir, summary_dir, {}, cache)
+    assert "config" in bare["design"] and bare["design"]["config"]
+    (summary_dir / "design-parts.npz").write_bytes(b"parts")
+    with_parts = step_key.inputs("kit", run_dir, summary_dir, {}, cache)
+    assert "design" not in with_parts
+    assert step_key.settle(with_parts, {"design": "summary bundle"}) == with_parts
+    settled = step_key.settle(with_parts, {"design": "prepared"})
+    assert settled["design"] == bare["design"]
+
+
 def test_recorded_refuses_an_output_of_another_key(tmp_path):
     path = tmp_path / "complete.json"
     assert not step_key.recorded(path, "abc")
@@ -88,7 +100,13 @@ def steps(monkeypatch, run_dir, tmp_path):
 
 
 def test_the_kit_is_made_once_per_key(steps, summary_dir, monkeypatch):
-    record = {"run": "r", "period": "2026-10", "summary_sha256": "s", "draws": 2}
+    record = {
+        "run": "r",
+        "period": "2026-10",
+        "summary_sha256": "s",
+        "draws": 2,
+        "design": {"design": "summary bundle"},
+    }
     buildings = pd.DataFrame({"building_id": ["b"], "level": [1.0]})
     units = pd.DataFrame({"unit_id": ["u"], "level": [0.5]})
     made = []
@@ -124,7 +142,7 @@ def test_the_rent_map_is_made_once_per_key(steps, summary_dir, monkeypatch):
 
     def compute(run, summary, keep):
         made.append(keep)
-        return {"run": run}
+        return {"run": run, "design": {"design": "summary bundle"}}
 
     monkeypatch.setattr(rentmap, "compute", compute)
     argv = ["r", "--summary", str(summary_dir)]
@@ -141,3 +159,43 @@ def test_the_rent_map_is_made_once_per_key(steps, summary_dir, monkeypatch):
 
     rentmap.main([*argv, "--draws", "0"])
     assert made == [kit.DRAWS, None]
+
+
+def test_a_kit_whose_bundle_parts_are_passed_over_is_made_again(
+    steps, summary_dir, monkeypatch
+):
+    (summary_dir / "design-parts.npz").write_bytes(b"parts")
+    record = {
+        "run": "r",
+        "period": "2026-10",
+        "summary_sha256": "s",
+        "draws": 2,
+        "design": {"design": "prepared"},
+    }
+    frame = pd.DataFrame({"building_id": ["b"], "level": [1.0]})
+    made = []
+
+    def build(run, summary, allow_failing):
+        made.append(run)
+        return record, frame, frame
+
+    monkeypatch.setattr(kit, "build_kit", build)
+    argv = ["r", "--summary", str(summary_dir)]
+    kit.main(argv)
+    (out,) = (steps / "kits").iterdir()
+    assert "design" in json.loads((out / "complete.json").read_text())["key_inputs"]
+    kit.main(argv)
+    assert made == ["r", "r"]
+    assert len(list((steps / "kits").iterdir())) == 1
+
+
+def test_a_step_refuses_a_directory_made_for_another_key(
+    steps, summary_dir, monkeypatch
+):
+    monkeypatch.setattr(rentmap, "compute", lambda *a: pytest.fail("computed"))
+    monkeypatch.setattr(step_key, "key", lambda record: "a" * 64)
+    path = steps / "maps" / "r-aaaaaaa" / "map.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"key": "a" * 7 + "b" * 57}))
+    with pytest.raises(SystemExit):
+        rentmap.main(["r", "--summary", str(summary_dir)])

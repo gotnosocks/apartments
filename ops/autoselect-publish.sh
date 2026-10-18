@@ -23,7 +23,6 @@ export PATH="$HOME/.local/bin:$PATH"
 MASTER=${MASTER:-/data1/apartments/serve/master}
 SITE=${SITE_SERVE:-/data1/apartments/serve/site}
 SITE_VENV=${SITE_VENV:-/data1/apartments/venvs/serve-site}
-FRONTIER=${FRONTIER:-/data1/apartments/frontier}
 export TMPDIR=${TMPDIR:-/data1/apartments/tmp} JAX_PLATFORMS=cpu XLA_PYTHON_CLIENT_PREALLOCATE=false
 
 read -r RUN SUMMARY < <(python3 -c "

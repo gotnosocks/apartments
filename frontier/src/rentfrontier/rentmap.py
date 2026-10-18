@@ -614,6 +614,14 @@ def main(argv=None):
         print(f"kept {path}: its key {digest[:7]} is current")
         return
     out = compute(args.run, args.summary, None if args.draws == 0 else args.draws)
+    inputs = step_key.settle(inputs, out["design"])
+    digest = step_key.key(inputs)
+    out_dir = step_key.out_dir(MAPS, args.run, digest)
+    path = out_dir / "map.json"
+    if step_key.recorded(path, digest):
+        os.utime(path)
+        print(f"kept {path}: its key {digest[:7]} is current")
+        return
     out["commit"] = commit
     out["created_at"] = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
     out["key"] = digest

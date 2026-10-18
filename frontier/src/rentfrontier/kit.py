@@ -371,6 +371,13 @@ def main(argv=None):
         print(f"kept {out_dir}: its key {digest[:7]} is current")
         return
     record, buildings, units = build_kit(args.run, args.summary, args.allow_failing)
+    inputs = step_key.settle(inputs, record["design"])
+    digest = step_key.key(inputs)
+    out_dir = step_key.out_dir(KITS, args.run, digest)
+    if step_key.recorded(out_dir / "complete.json", digest):
+        keep(out_dir)
+        print(f"kept {out_dir}: its key {digest[:7]} is current")
+        return
     path = write(
         record, buildings, units, out_dir, commit, {"key": digest, "key_inputs": inputs}
     )
