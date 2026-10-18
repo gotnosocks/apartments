@@ -13,7 +13,7 @@ Updated 2026-10-18 03:50 ET, after the big-studio bedroom sets in #1113. Thread 
 - The looser stated-size parse (`sqft/missing/interior2.py`) writes `stated_interior_sqft_v2.parquet`, 817 rows.
   Haiku read 100 of them: 96 interior, 3 outdoor, 1 unclear. Most of the 6,219 unknown-size ads mentioning a size
   give only building amenity figures (4,715 mentions over 6,000 sq ft), so about 0.5% of unknown-size rows is the
-  ceiling, and Modeling keeps that fit last.
+  most that can gain a size, and Modeling keeps that fit last.
 - The next new ledger file needs a name sorting after `2026-10-18-z6-unit-bedrooms-bigstudio`, such as
   `2026-10-18-z7-...`, or a later date.
 
