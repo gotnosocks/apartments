@@ -28,6 +28,10 @@ bundle's noise.json beside it. `likely_ask` works the ranges out for a listing
 with `ranges.likely_ask` when its page asks, and gives None when the file,
 the row or its noise group is missing, so the page leaves the range out.
 
+A build with SITE_KIT_ON_REQUEST=1 puts the estimate form's per-building
+draws in kit_buildings.parquet the same way (`estimate_build.write_kit_file`),
+and the form reads one building's with `KitBuildings`.
+
 Each process holds one DuckDB connection per file of a build, with one thread
 and a small memory limit, and caches lookups by the bundle's sha and the audit
 id. Everything the lookup reads sits inside the build, so a rollback of
@@ -150,7 +154,10 @@ def write_ranges(bundle: Path, target: Path) -> dict:
 
 
 class _File:
-    """A Parquet file of a build, opened once per process."""
+    """A Parquet file of a build, opened once per process, with a row per
+    value of its KEY column."""
+
+    KEY = "audit_id"
 
     def __init__(self, path: Path):
         self.path = path
@@ -164,10 +171,10 @@ class _File:
             f"CREATE VIEW detail AS SELECT * FROM read_parquet('{quoted}')"
         )
 
-    def fetch(self, columns: str, audit_id: str):
+    def fetch(self, columns: str, key: str):
         with self._lock:
             return self._connection.execute(
-                f"SELECT {columns} FROM detail WHERE audit_id = ?", [audit_id]
+                f"SELECT {columns} FROM detail WHERE {self.KEY} = ?", [key]
             ).fetchone()
 
 
@@ -211,6 +218,22 @@ class Ranges(_File):
             return None
         noise = self.noise.get(int(found[0]))
         return None if noise is None else ranges.likely_ask(list(found[1]), noise)
+
+
+class KitBuildings(_File):
+    """The kit file of a build (`estimate_build.write_kit_file`)."""
+
+    KEY = "building_id"
+
+    def terms(self, building_id: str) -> tuple | None:
+        """The building's levels, bedroom slopes and feature slopes over the
+        kit's draws, as the kit_buildings table holds them."""
+        found = self.fetch("level, bedroom_slope, fslope, width", building_id)
+        if found is None:
+            return None
+        level, bedroom_slope, flat, width = found
+        fslope = [flat[s * width : (s + 1) * width] for s in range(len(level))]
+        return level, bedroom_slope, fslope
 
 
 _open: dict[tuple[type, Path], _File] = {}
