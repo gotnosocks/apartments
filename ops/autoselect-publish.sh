@@ -3,16 +3,18 @@
 # site deployed (ops/site-deploy.sh): the rent map, then the estimate kit, then
 # the site build, which bundles both and publishes the selection.
 #
-#   1. rent map    rentfrontier.rentmap  -> /data1/apartments/frontier/maps/<run>-<commit>/
-#   2. kit         rentfrontier.kit      -> /data1/apartments/frontier/kits/<run>-<commit>/
+#   1. rent map    rentfrontier.rentmap  -> /data1/apartments/frontier/maps/<run>-<key>/
+#   2. kit         rentfrontier.kit      -> /data1/apartments/frontier/kits/<run>-<key>/
 #                  (the /estimate form; the site build finds it by the summary
 #                  bundle's sha256, and without it the form says "not available")
 #   3. site build  apartments.site build -> /data1/apartments/site/builds/<id>
 #
 # The run and its summary bundle come from the serving checkout's selection
 # (config/main-analysis.json). Steps 1 and 2 run at the master checkout's
-# commit (both refuse a dirty tree) as light jobs; an output that already
-# exists for this run and commit is kept. Both read the design's parts from the
+# commit (both refuse a dirty tree) as light jobs. Each hashes the run's
+# result and draws, the summary bundle, the frontier package's code and its
+# own options into a key (rentfrontier.step_key), and keeps an output already
+# made for the key, so a step whose inputs are unchanged takes seconds. Both read the design's parts from the
 # summary bundle when it has them (rentfrontier.design_parts) and otherwise
 # prepare the whole design. Usage: ops/autoselect-publish.sh
 set -euo pipefail
@@ -32,16 +34,8 @@ COMMIT=$(git -C "$MASTER" rev-parse HEAD | cut -c1-7)
 echo "== $RUN at $COMMIT $(date +%T)"
 
 cd "$MASTER/frontier"
-if [ -e "$FRONTIER/maps/$RUN-$COMMIT/map.json" ]; then
-  echo "rent map exists"
-else
-  "$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.rentmap "$RUN" --summary "$SUMMARY"
-fi
-if [ -e "$FRONTIER/kits/$RUN-$COMMIT/complete.json" ]; then
-  echo "kit exists"
-else
-  "$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.kit "$RUN" --summary "$SUMMARY"
-fi
+"$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.rentmap "$RUN" --summary "$SUMMARY"
+"$MASTER/ops/job" light -m 5G -- uv run --frozen --extra gpu python -m rentfrontier.kit "$RUN" --summary "$SUMMARY"
 
 echo "== site build $(date +%T)"
 # The all-scraped publish peaks at about 5.2 GB resident (48:39, 2026-10-17; docs/site.md),

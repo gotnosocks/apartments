@@ -44,7 +44,8 @@ reads the thinned draws from posterior.npz a block at a time
 (`rentfrontier.draws`, `read_kept`): of the building walk, only the two knots
 the last month falls between, and the unit levels in their stored float32.
 
-Writes /data1/apartments/frontier/kits/<run>-<commit>/. Refuses designs the
+Writes /data1/apartments/frontier/kits/<run>-<key>/, keyed by the step's inputs
+(`rentfrontier.step_key`), and keeps a kit already made for the key. Refuses designs the
 formula above does not cover (line effects, unit drift) and a run that fails
 the convergence gate, as `summary` does.
 """
@@ -54,12 +55,13 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from . import data, design_parts, draws, explain, model, summary
+from . import data, design_parts, draws, explain, model, step_key, summary
 from .run import git
 
 KITS = data.OUTPUT_ROOT / "kits"
@@ -306,7 +308,9 @@ def write_frame(frame: pd.DataFrame, path: Path) -> None:
     )
 
 
-def write(record, buildings, units, out_dir: Path, commit: str) -> Path:
+def write(
+    record, buildings, units, out_dir: Path, commit: str, key: dict | None = None
+) -> Path:
     tmp = out_dir.with_name(out_dir.name + ".tmp")
     tmp.mkdir(parents=True, exist_ok=False)
     (tmp / "kit.json").write_text(json.dumps(record, separators=(",", ":")))
@@ -321,10 +325,23 @@ def write(record, buildings, units, out_dir: Path, commit: str) -> Path:
         "summary_sha256": record["summary_sha256"],
         "draws": record["draws"],
         "files": {p.name: data.sha256(p) for p in sorted(tmp.iterdir()) if p.is_file()},
-    }
+    } | (key or {})
     (tmp / "complete.json").write_text(json.dumps(complete, indent=2))
     tmp.rename(out_dir)
     return out_dir
+
+
+def keep(out_dir: Path) -> None:
+    """Make a kept kit the newest for its summary bundle again. The site takes
+    the kit with the latest created_at among those for the bundle, so the step
+    sets created_at to now and records the first build's time as built_at."""
+    path = out_dir / "complete.json"
+    complete = json.loads(path.read_text())
+    complete.setdefault("built_at", complete["created_at"])
+    complete["created_at"] = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
+    tmp = path.with_name(f".complete.json.{os.getpid()}")
+    tmp.write_text(json.dumps(complete, indent=2))
+    os.replace(tmp, path)
 
 
 def main(argv=None):
@@ -341,11 +358,22 @@ def main(argv=None):
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
-    out_dir = KITS / f"{args.run}-{commit[:7]}"
-    if (out_dir / "complete.json").exists():
-        raise SystemExit(f"{out_dir} exists")
+    inputs = step_key.inputs(
+        "kit",
+        draws.run(args.run)[0],
+        args.summary,
+        {"allow_failing": args.allow_failing},
+    )
+    digest = step_key.key(inputs)
+    out_dir = step_key.out_dir(KITS, args.run, digest)
+    if step_key.recorded(out_dir / "complete.json", digest):
+        keep(out_dir)
+        print(f"kept {out_dir}: its key {digest[:7]} is current")
+        return
     record, buildings, units = build_kit(args.run, args.summary, args.allow_failing)
-    path = write(record, buildings, units, out_dir, commit)
+    path = write(
+        record, buildings, units, out_dir, commit, {"key": digest, "key_inputs": inputs}
+    )
     print(
         f"wrote {path}: {len(buildings)} buildings, {len(units)} units, "
         f"{record['draws']} draws"
