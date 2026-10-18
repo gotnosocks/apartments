@@ -278,16 +278,15 @@ The older items follow.
    1. backing for the 71 held sets in `config/reviews/ledger-held-2026-10-16-chain.jsonl`. Data
       improvements read the first list. A stated size backs a bedroom set when it rules out the
       recorded count and each count between, as agreed with Data improvements on Oct 16;
-   2. entries keyed on units and buildings, as Data improvements asked on Oct 16. **Started**
-      in #950: the unit ledger in `pipeline/ledger/units/` joins unit pages, splits ads off a
-      unit and moves a building's ads to another building, and `ads.placed` applies its live
-      entries before the unit-month check. Its entries key on pages and buildings, so they
-      also apply to later ads of a unit. The folder holds no files yet, and on the export of
-      Oct 16 the rows file stays the same. Next, a PR imports `unit-reviews-v2` and
-      `building-joins-v1` with their evidence, and units 2, 2A and 2S of 43 East 20th Street
-      join on their stated 2,000 square feet. Data improvements gets the format then. The
-      `brooklyn_misjoin` and `location_conflict` excludes become moves once the right building
-      is collected, with `other_ad` or `city_record` evidence;
+   2. entries keyed on units and buildings, as Data improvements asked on Oct 16. **Done** in
+      #950, #953, #991 and #1093: the unit ledger in `pipeline/ledger/units/` joins unit pages,
+      splits ads off a unit, moves a building's ads to another building and splits a building,
+      and `ads.placed` applies its live entries before the unit-month check. Its entries key on
+      pages and buildings, so they also apply to later ads of a unit. #953 imported
+      `unit-reviews-v2` and `building-joins-v1` with their evidence, and joined units 2, 2A and
+      2S of 43 East 20th Street on their stated 2,000 square feet. The 241 `brooklyn_misjoin`
+      and `location_conflict` excludes of the corrections ledger can become moves once the
+      right building is collected, with `other_ad` or `city_record` evidence;
    3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17: the
       elevator and pet fills from each ad's text (**done** in #1090), `west-coast-wings-v1` as a
       split_building in the unit ledger (**done** in #1093), `unit-labels-v17` (**done** in
@@ -340,8 +339,8 @@ The older items follow.
       never read v1's file;
    5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
       against 135 s in a single process;
-   6. the unit-month check on label units, agreed with Modeling on Oct 18 as a data change worth
-      a fit. `analysis.candidates` checks each month on page units, as the chain does, so two
+   6. **Done** in #1107: the unit-month check on label units, agreed with Modeling on Oct 18 as
+      a data change worth a fit. `analysis.candidates` checks each month on page units, as the chain does, so two
       pages joined into one label unit could each keep a row in a month. `analysis.label_months`
       runs the check again on label units, after the corrections ledger, and `analysis.rows` and
       `analysis.history_splits` leave out the rows it lists. The lane is
@@ -391,7 +390,14 @@ The older items follow.
       the build finished at 23:38 ET the night before, so a top-up's own times wait for the
       next top-up. The records step took 464 s of that build, as it filled its cache from
       empty, and about 90 s in each build after it;
-   6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist;
+   6. catalog lines for ledger versions and feature sets. **Done** for ledger versions in
+      #1116: each build's line lists the files of both ledgers by name with their SHA-256,
+      and each city file it read. A fit names its dataset folder, and the manifest
+      `observations.py` writes in the folder names the build and its ledger files, so a fit
+      traces back to its build without a line of its own. Feature sets stay in the frontier.
+      A line for each folder or feature set would need the readers of the catalog to skip it:
+      `observations.py`, the site's `apartments.site.captures` and the frontier's
+      `rentfrontier.api_records` each read the newest line as a build;
    7. **Done** in #918: `ads.events` is a view of two tables, `ads.answer_events` and
       `ads.history_reports`. As one query it spilled at `PIPELINE_MEMORY=3GB`, and in the
       service's build at 09:53 ET on Oct 16 it ran out of memory; the next build, at 11:38 ET,
@@ -531,7 +537,10 @@ The older items follow.
       Oct 16 and goes with them in the third PR. Ben approved one on-demand top-up of the five
       regions after the merge, to show the site taking a top-up's ads through the pipeline with
       no captures written;
-   3. a PR deletes the page-capture rewrite and the page parser.
+   3. a PR deletes the page-capture rewrite and the page parser. #967 deleted the rewrite, and
+      #968 runs the collector without the parser. The parser stays with the page crawler, as
+      the paragraph of step 9 above says, and its PR waits on the crawler's owner. Step 2 of
+      `ads_check.py` can go with it.
    **Done** in #935: `ads.market` reads only the latest record's status changes, as
    `ads.breaks` does. On the export of Oct 16 that drops 68 changes of 53 ads and changes the
    rows of 27 ads in `ads.market`, after which every `on_day` equals the record's `onMarketAt`.
@@ -557,8 +566,7 @@ The older items follow.
   fits its exporter: files go in place before their manifest lines, a crash repair replaces the
   manifest by rename, and a manual export takes `export/.lock`, which the build never opens.
 - The website reads current listings from the ads and rows files (#945), and the collector
-  stopped writing current-listings captures in #949. Data improvements' builders read the
-  granular export's rewritten records. On Oct 17 it agreed to move five of them to a records
-  file from the pipeline, with the same hashes on the export of Oct 16 or a list of every
-  changed row, and to build its datasets from the rows file in place of the chain. The
-  page-capture rewrite goes once it has.
+  stopped writing current-listings captures in #949. On Oct 17 Data improvements agreed to
+  move its five frontier builders to the pipeline's records file, and to build its datasets
+  from the rows file in place of the chain. #961 to #965 moved the builders, and #967 deleted
+  the granular export and the page-capture rewrite.
