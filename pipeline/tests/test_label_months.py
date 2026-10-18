@@ -15,7 +15,9 @@ ROWS = [
     ("41", "u:4", "u:3", "2024-03-10", 3, 1, "conflicting_layout_same_label_month"),
     ("51", "u:5", "u:5", "2024-03-01", 1, 1, "conflicting_layout_same_label_month"),
     ("61", "u:6", "u:5", "2024-03-02", 1, 2, "conflicting_layout_same_label_month"),
-    # A missing count conflicts with no other count.
+    # A missing count conflicts with no other count. analysis.ledger_rows holds no such row
+    # at present, since ads.exclusions drops an ad without both counts, so this case only
+    # guards the check against one.
     ("52", "u:5", "u:5", "2024-04-01", 1, 1, "superseded_in_label_month"),
     ("62", "u:6", "u:5", "2024-04-02", None, 1, None),
     # On one day, the greater ad ID as text stays: "999" over "1000".

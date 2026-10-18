@@ -436,7 +436,8 @@ def run(
     ]
     db.register("key", pd.DataFrame(rows))
     side = """SELECT a.listing_id, a.in_rows, a.latest_ask, r.bedrooms, a.exclusion_reasons,
-        a.identity_reasons, a.ask_check IS NOT NULL AS ask_checked, a.fate
+        a.identity_reasons, a.ask_check IS NOT NULL AS ask_checked,
+        coalesce(a.label_fate, a.fate) AS fate
         FROM read_parquet('{ads}') a LEFT JOIN read_parquet('{rows}') r USING (listing_id)"""
     db.execute(f"CREATE TEMP VIEW c AS {side.format(ads=clean_ads, rows=clean_rows)}")
     db.execute(

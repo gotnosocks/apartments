@@ -3408,7 +3408,7 @@ in all, and most tests add made-up ads to that export. The tests:
    earlier one, and a placeholder price after the ad left the market. A last ad corrects a
    tenfold typo on the day it left the market, and both give it the page price;
 3. build runs 2 and 3, then add run 4's files to the manifest. The next plan rebuilds `raw.ads`
-   and the 40 models below it and gives the full answer, and a further plan finds nothing to
+   and the 44 models below it and gives the full answer, and a further plan finds nothing to
    build. They include `buildings.lots`, which reads the days the ads came on the market, and
    `buildings.lot_releases` below it: about 12 s on the full export. A top-up also brings new
    building records, which rebuild both anyway. `ads.record_attributes` parses only run 4's new
@@ -3506,11 +3506,12 @@ in all, and most tests add made-up ads to that export. The tests:
 22. write ledger entries for ten kept rows of the fixture and an ad without one, retract two of
     them in a later file, and check each entry's status and differing values. Among them, an
     exclude made on a row's latest ask applies, and one made on ten times the latest ask goes
-    stale. The next plan rebuilds only the two ledger models, `analysis.ask_check` and the views
-    `analysis.rows` and `analysis.ads`. The first drops two rows, beside the three rows of
-    `analysis.label_months`, and changes four, each row's
-    `latest_ask` equals its ask in `analysis.latest_ask`, and the latest asks stay as they
-    were;
+    stale. The next plan rebuilds only the two ledger models, `analysis.ask_check`,
+    `analysis.lot_facts`, `analysis.building_check`, `analysis.label_units`,
+    `analysis.label_months`, `analysis.history_splits` and the views `analysis.ledger_rows`,
+    `analysis.rows` and `analysis.ads`. `analysis.rows` drops two rows, beside the three rows of
+    `analysis.label_months`, and changes four. Each row's `latest_ask` equals its ask in
+    `analysis.latest_ask`, and the latest asks stay as they were;
 23. write a set backed only by the ad's words. The plan stops at `ledger.entries`, naming the
     file and line;
 24. read the repo's corrections ledger and unit ledger, and check that each of their files at

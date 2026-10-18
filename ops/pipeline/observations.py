@@ -79,7 +79,7 @@ of these causes to fit, checked in this order:
   - DATASET's ask matches under the rule before `latest-ask-v9` only,
   - `has_description` follows from the null `description_interpreted_at`.
 A difference fitting none of them counts as unexplained. The script sorts the rows of one side
-alone by their ad's fate in the build's ads file. `--report FILE` saves the counts and up to 50
+alone by their ad's fate or label fate in the build's ads file. `--report FILE` saves the counts and up to 50
 unexplained differences of each field as JSON.
 """
 
@@ -546,8 +546,18 @@ def check(
     # The chain's latest asks come from records fetched up to the end of export run
     # `chain_run`. `after_chain` marks an ad whose latest record came later and gives a price
     # other than the last price up to that run, and `price_after` holds that later price.
+    # Ads files written before analysis.label_months carry no `label_fate`.
+    columns = {
+        name
+        for (name,) in db.execute(
+            "SELECT name FROM parquet_schema(?)", [build["ads"]["path"]]
+        ).fetchall()
+    }
+    label_fate = (
+        "a.label_fate" if "label_fate" in columns else "NULL::VARCHAR AS label_fate"
+    )
     ads = db.execute(
-        """WITH priced AS (
+        f"""WITH priced AS (
             SELECT listing_id::VARCHAR AS listing_id, fetched, run,
                 try_cast(json_extract_string(record, '$.pricing.price') AS DOUBLE) AS price
             FROM read_parquet($export) WHERE record IS NOT NULL),
@@ -562,8 +572,8 @@ def check(
             coalesce(a.fetched > (SELECT max(fetched) FROM priced WHERE run = $run)
                 AND l.price_after IS DISTINCT FROM u.price_then, false) AS after_chain,
             l.price_after,
-            a.fate, a.in_rows, a.identity_reasons, a.exclusion_reasons, a.ledger_entries,
-            a.from_text
+            a.fate, {label_fate}, a.in_rows, a.identity_reasons, a.exclusion_reasons,
+            a.ledger_entries, a.from_text
         FROM read_parquet($ads) a
         LEFT JOIN upto u ON u.listing_id = a.listing_id::VARCHAR
         LEFT JOIN latest l ON l.listing_id = a.listing_id::VARCHAR""",
@@ -676,6 +686,8 @@ def check(
             if row.ads_neighbourhood not in hoods:
                 return f"chain: neighbourhood {row.ads_neighbourhood}"
             return "chain: in the rows file"
+        if isinstance(row.label_fate, str):
+            return f"chain: {row.label_fate}"
         if row.fate == "kept":
             return "chain: ledger exclude"
         if isinstance(row.fate, str):
