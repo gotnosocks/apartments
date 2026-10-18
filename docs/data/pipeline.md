@@ -1618,8 +1618,9 @@ bedroom count. It lists the row for review when:
 The check reads the rows after the corrections ledger, so a live bedroom set moves a row in with the
 rows of its corrected count, a live ask set gives a row its corrected ask, and the ads the ledger
 excludes drop out of every median. The check lists a concession row's ask net of the free
-months, as the rows file gives it. A ledger entry for the row gives the row's `latest_gross` as
-`when.latest_ask`, since `ledger.status` compares it with `analysis.latest_ask`. A typo of an
+months, as the rows file gives it. A ledger entry for the row gives the ads file's `latest_ask`
+as `when.latest_ask`, since `ledger.status` compares it with `analysis.latest_ask`, the gross ask
+from before the ledger. A typo of an
 extra or a missing digit gives a ratio near 10, but a row's true ask can lie a good way from its
 building's median. On the planted sample under [Planted errors](#planted-errors), the tenfold asks
 ran from 6.8 to 15.1 times the median, so I set the band at 6 to 16. In both builds of that sample
