@@ -1,9 +1,10 @@
 """What a typical apartment rents for in each building, each year: the data of
 the rent map (research dashboard).
 
-    uv run python -m rentfrontier.rentmap <run-name>
+    uv run python -m rentfrontier.rentmap <run-name> [--summary <bundle>]
 
-Reads a recorded run's kept joint draws and the dataset it was fit on; never
+Reads a recorded run's kept joint draws, and the design parts in its summary
+bundle (`rentfrontier.design_parts`) or else the dataset it was fit on; never
 fits. For every building, calendar year and bedroom group (studio, 1, 2, 3+),
 the posterior of the typical asking rent of an apartment with:
 
@@ -48,7 +49,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, design, explain, features, model
+from . import data, design_parts, explain, features, model
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
@@ -163,52 +164,80 @@ def building_hoods(frame: pd.DataFrame, heldout, buildings) -> np.ndarray:
     ).to_numpy()
 
 
-def typical_rows(prep: model.Prepared) -> dict:
-    """Per bedroom group: the apartment part of x (the average over the
-    fit's rows with that many bedrooms) and each building's own part, (buildings,
-    features); plus the group's average centred bedroom count."""
+def fit_area(frame: pd.DataFrame, heldout) -> str:
+    """The neighbourhoods the fit covers, for the map's labels."""
+    return area_name(
+        frame.neighbourhood[~np.asarray(heldout)]
+        if "neighbourhood" in frame
+        else ["Chelsea"]
+    )
+
+
+def x_means(prep: model.Prepared) -> tuple:
+    """The averages of x over the fit's rows: per building (buildings,
+    features), and per bedroom group (groups, features), with the group's
+    average centred bedroom count (groups,)."""
     tr = prep.train
-    groups = np.asarray(prep.features.groups)
-    names = prep.features.names
-    building_cols = np.isin(groups, list(BUILDING_GROUPS))
-    price = np.array([n == "current_capture_ask" for n in names])
     n_b = len(prep.buildings)
     counts = np.bincount(tr.building, minlength=n_b)
-    own = np.zeros((n_b, len(names)))
+    own = np.zeros((n_b, tr.x.shape[1]))
     np.add.at(own, tr.building, tr.x)
     own /= np.maximum(counts, 1)[:, None]
     beds = tr.beds_centered + 1
-    out = {}
-    for key, _, values in BEDROOMS:
+    apartment, centred = [], []
+    for _, _, values in BEDROOMS:
         rows = np.isin(beds, values)
-        apartment = tr.x[rows].mean(0)
-        x = np.where(building_cols[None], own, apartment[None])
+        apartment.append(tr.x[rows].mean(0))
+        centred.append(float(tr.beds_centered[rows].mean()))
+    return own, np.array(apartment), np.array(centred)
+
+
+def typical_rows(parts) -> dict:
+    """Per bedroom group: the apartment part of x (the average over the
+    fit's rows with that many bedrooms) and each building's own part, (buildings,
+    features); plus the group's average centred bedroom count. `parts` is a
+    `design_parts.Parts`."""
+    groups = np.asarray(parts.features.groups)
+    names = parts.features.names
+    building_cols = np.isin(groups, list(BUILDING_GROUPS))
+    price = np.array([n == "current_capture_ask" for n in names])
+    out = {}
+    for gi, (key, _, _) in enumerate(BEDROOMS):
+        x = np.where(building_cols[None], parts.building_x, parts.bedroom_x[gi][None])
         x[:, price] = 0.0
-        out[key] = (x, float(tr.beds_centered[rows].mean()))
+        out[key] = (x, float(parts.bedroom_beds[gi]))
     return out
 
 
-def building_table(prep: model.Prepared, years, registry_file=None) -> list[dict]:
+def building_years(prep: model.Prepared) -> tuple:
+    """Per building: its rows in the fit, and the first and last calendar year
+    of those rows (NaN for a building without rows)."""
+    tr = prep.train
+    n_b = len(prep.buildings)
+    years = pd.Series(prep.periods[tr.month].year).groupby(tr.building)
+    first = years.min().reindex(range(n_b)).to_numpy(dtype=float)
+    last = years.max().reindex(range(n_b)).to_numpy(dtype=float)
+    return np.bincount(tr.building, minlength=n_b), first, last
+
+
+def building_table(parts, years, registry_file=None) -> list[dict]:
     registry = pd.read_parquet(registry_file or features.REGISTRY_FILE).set_index(
         "building"
     )
-    tr = prep.train
-    first = pd.Series(prep.periods[tr.month].year).groupby(tr.building).min()
-    last = pd.Series(prep.periods[tr.month].year).groupby(tr.building).max()
-    rows = np.bincount(tr.building, minlength=len(prep.buildings))
     out = []
-    for i, b in enumerate(prep.buildings):
+    for i, b in enumerate(parts.buildings):
         r = registry.loc[b] if b in registry.index else None
         label = str(r.label).split(", New York")[0].title() if r is not None else b
+        first, last = parts.building_first[i], parts.building_last[i]
         out.append(
             {
                 "id": b,
                 "label": label,
                 "lat": None if r is None else round(float(r.latitude), 6),
                 "lon": None if r is None else round(float(r.longitude), 6),
-                "fit_listings": int(rows[i]),
-                "first_year": int(first.get(i, years[-1])),
-                "last_year": int(last.get(i, years[0])),
+                "fit_listings": int(parts.building_rows[i]),
+                "first_year": int(years[-1] if np.isnan(first) else first),
+                "last_year": int(years[0] if np.isnan(last) else last),
             }
         )
     return out
@@ -416,19 +445,15 @@ def feature_slope_term(fslope, x, cols) -> np.ndarray:
     return np.einsum("dbj,bj->db", fslope, x[:, cols])
 
 
-def compute(name: str) -> dict:
-    _, result, kept = explain.load_run(name)
+def compute(name: str, summary_dir: Path | None = None) -> dict:
+    run_dir, result, kept = explain.load_run(name)
     config = model.MODELS[result["model"]["name"]]
     if config.area_time:
         raise SystemExit("area_time runs have no neighbourhood curve here yet")
-    frame = data.load(Path(result["dataset"]))
-    frame, heldout, feats, prep = design.prepared(
-        frame, result["split"], data.recorded_rules(result), result["feature_set"]
+    prep, design_source = design_parts.for_run(
+        result, run_dir, summary_dir, verify=False
     )
-    # The neighbourhoods the fit covers, for the map's labels.
-    area = area_name(
-        frame.neighbourhood[~heldout] if "neighbourhood" in frame else ["Chelsea"]
-    )
+    area = prep.area
     missing = unsupported_terms(config)
     if missing:
         raise SystemExit(
@@ -449,7 +474,7 @@ def compute(name: str) -> dict:
     level = kept["building"]  # (d, B)
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
     fcols = [prep.features.names.index(n) for n in config.feature_slopes]
-    hood = building_hoods(frame, heldout, prep.buildings)
+    hood = prep.hood
     areas = sorted(set(hood))
     out_rent, median_rent = {}, {}
     median_area = {a: {} for a in areas}
@@ -518,6 +543,7 @@ def compute(name: str) -> dict:
         # Per neighbourhood: {neighbourhood: {bedroom key: (year, [low, median, high])}}.
         "median_by_area": median_area,
         "area": area,
+        "design": design_source,
     }
 
 
@@ -526,12 +552,18 @@ def main(argv=None):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("run")
+    parser.add_argument(
+        "--summary",
+        type=Path,
+        help="the run's summary bundle, whose design parts stand in for the "
+        "whole design when they go with the run",
+    )
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
-    out = compute(args.run)
+    out = compute(args.run, args.summary)
     out["commit"] = commit
     out["created_at"] = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
     out_dir = MAPS / f"{args.run}-{commit[:7]}"
