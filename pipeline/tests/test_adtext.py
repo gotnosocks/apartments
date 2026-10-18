@@ -82,6 +82,33 @@ def chain_adfills(monkeypatch):
     return package.adfills
 
 
+# The patterns `adtext` copies from each of the chain's modules.
+PETSTEXT = ("SIZE", "NO_PETS", "NO_DOGS", "CASE", "ALLOWED", "CLASSES")
+ADFILLS = (
+    "ELEVATOR_NO",
+    "ELEVATOR_YES",
+    "CASE_PETS",
+    "PET_LIMIT",
+    "PET_FEE",
+    "DOGS_BANNED",
+    "PET_APPROVAL",
+    "NO_APPROVAL_OR_PETS",
+    "NO_PET_KIND",
+    "APPLICATION_APPROVAL",
+)
+
+
+def test_patterns_match_the_chain(monkeypatch):
+    """Each pattern of `adtext` equals the chain's, so a branch no text of the cases or the
+    fixture reaches still reads as the chain's does. `CODED` leaves out the chain's "no_dogs"
+    level, which the fill's `keep` never reads."""
+    chain = chain_adfills(monkeypatch)
+    petstext = sys.modules["rentfrontier.petstext"]
+    assert [n for n in PETSTEXT if getattr(adtext, n) != getattr(petstext, n)] == []
+    assert [n for n in ADFILLS if getattr(adtext, n) != getattr(chain, n)] == []
+    assert petstext.CODED == {**adtext.CODED, "no_dogs": "no_dogs"}
+
+
 def test_readings_match_the_chain(monkeypatch):
     """`adtext` reads the cases and every description of the fixture's records as the chain's
     pandas functions read them."""

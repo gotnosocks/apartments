@@ -60,9 +60,10 @@ rows file's first asks with DATASET's own asks. It then puts each difference dow
 of these causes to fit, checked in this order:
   - the ad has a live ledger set of the field,
   - the API chain's dataset given as `--api-reference` holds the ad with OUT's value,
-  - OUT gives `elevator` or `pets` a value and DATASET leaves it `unknown` after the rules' fills.
-    The pipeline reads every ad's descriptions in the export, and the rules' files hold the
-    NB9 rows alone, read from page crawls,
+  - the ads file's `from_text` lists the field, so the pipeline filled OUT's value from the
+    ad's descriptions, and DATASET leaves it `unknown` after the rules' fills. The pipeline
+    reads every ad's descriptions in the export, and the rules' files hold the NB9 rows alone,
+    read from page crawls,
   - for an ask, the ad's latest API record came after export run N, the last run the chain's
     latest asks read, its price differs from the last price up to run N, and OUT's ask equals
     it. Run N is run 5 of the export in /data1/apartments/archive/crawls/api/export, unless
@@ -100,6 +101,8 @@ EXPORT = Path("/data1/apartments/archive/crawls/api/export")
 CHAIN_RUN = 5
 # The served fit's rules filling an unknown elevator or pet policy from the row's own ad.
 AD_FILLS = ("elevator-from-ad-v1", "pets-from-ad-v2")
+# The fields the rules fill, with their names in the ads file's `from_text`.
+TEXT_FIELDS = {"elevator": "elevator", "pets": "pet_policy"}
 
 
 def frontier_data():
@@ -538,7 +541,8 @@ def check(
             coalesce(a.fetched > (SELECT max(fetched) FROM priced WHERE run = $run)
                 AND l.price_after IS DISTINCT FROM u.price_then, false) AS after_chain,
             l.price_after,
-            a.fate, a.in_rows, a.identity_reasons, a.exclusion_reasons, a.ledger_entries
+            a.fate, a.in_rows, a.identity_reasons, a.exclusion_reasons, a.ledger_entries,
+            a.from_text
         FROM read_parquet($ads) a
         LEFT JOIN upto u ON u.listing_id = a.listing_id::VARCHAR
         LEFT JOIN latest l ON l.listing_id = a.listing_id::VARCHAR""",
@@ -604,9 +608,15 @@ def check(
                 dtype=bool
             ) & same(both.asking_rent, both.price_after, True)
             cause[after] = f"API record after run {chain_run}"
-        if field in ("elevator", "pets"):
-            text = (both[field] != "unknown") & (both[f"{field}_chain"] == "unknown")
-            cause[text.to_numpy()] = "ad text fill"
+        if field in TEXT_FIELDS:
+            filled = [
+                TEXT_FIELDS[field] in (names if names is not None else ())
+                for names in both.from_text
+            ]
+            text = np.array(filled, dtype=bool) & (
+                both[f"{field}_chain"] == "unknown"
+            ).to_numpy(dtype=bool)
+            cause[text] = "ad text fill"
         if f"{field}_api" in both:
             api_value = both[f"{field}_api"]
             cause[present & same(both[field], api_value, numeric)] = "API record agrees"

@@ -8,11 +8,11 @@ written the same way from a build with it. A fit on BEFORE applies the chain rul
 `--rules`, and a fit on AFTER leaves them out. The script checks how far the two agree:
 
 1. It loads both folders with `rentfrontier.data.load`, its cache in a temporary folder, and
-   applies the rules to BEFORE in the order given, as `rentfrontier.data.DATA_RULES` gives
-   them. Built in one go, the loader's list of 1.75 million rows of the dataset of all scraped
-   areas would take most of thelio's memory. So the script first writes the loader's cache
-   file in chunks of 100,000 rows, flattened with the loader's own function, and the loader
-   then reads that file.
+   applies the rules to BEFORE with `rentfrontier.data.apply_rules`, which checks their order
+   as a fit does. Built in one go, the loader's list of 1.75 million rows of the dataset of all
+   scraped areas would take most of thelio's memory. So the script first writes the loader's
+   cache file in chunks of 100,000 rows, flattened with the loader's own function, and the
+   loader then reads that file.
 2. It matches the rows by `audit_id` and counts the rows of one side alone.
 3. For each column both sides hold, it counts the matched rows whose values differ, a column
    at a time. Two missing values count as the same. It lists up to 10 pairs of values per
@@ -24,6 +24,10 @@ written the same way from a build with it. A fit on BEFORE applies the chain rul
 With `--within DATASET`, it splits each count by whether DATASET holds the row's audit ID.
 The rules filling fields from ads' texts hold NB9's rows alone, so for them DATASET is NB9.
 `--report FILE` saves the counts as JSON.
+
+The script compares values alone. A fit draws its held-out rows by position within each
+dataset, so the two folders' held-out flags differ wherever a row is missing from one of them,
+and the script passes `apply_rules` an empty held-out mask.
 """
 
 from __future__ import annotations
@@ -56,16 +60,16 @@ def frontier():
     return data
 
 
-def load(data, folder: Path, cache_root: Path):
-    """`data.load(folder)`, after writing its cache file in chunks."""
+def load(data, folder: Path, cache_root: Path, chunk: int = 100_000):
+    """`data.load(folder)`, after writing its cache file in chunks of `chunk` rows."""
     source = folder / "observations.jsonl"
     digest = data.sha256(source)
     cache = cache_root / "cache" / f"observations-{digest[:16]}-{data.SCHEMA}.parquet"
     cache.parent.mkdir(parents=True, exist_ok=True)
     tables = []
     with open(source) as f:
-        while chunk := list(islice(f, 100_000)):
-            rows = [data._flatten(json.loads(line)) for line in chunk if line.strip()]
+        while lines := list(islice(f, chunk)):
+            rows = [data._flatten(json.loads(line)) for line in lines if line.strip()]
             tables.append(
                 pa.Table.from_pandas(pd.DataFrame(rows), preserve_index=False)
             )
@@ -90,8 +94,7 @@ def compare(
     with tempfile.TemporaryDirectory(dir=tmp, prefix="port-diff-") as cache:
         ours = load(data, after, Path(cache))
         theirs = load(data, before, Path(cache))
-    for rule in rules:
-        theirs = data.DATA_RULES[rule](theirs)
+    theirs, _ = data.apply_rules(theirs, np.zeros(len(theirs), dtype=bool), rules)
     held = set()
     if within is not None:
         held = {

@@ -1360,6 +1360,71 @@ def test_exclusion_cases(tmp_path, monkeypatch):
     assert unparsed.id.tolist() == ["9000031"]
 
 
+def test_text_fill_cases(tmp_path, monkeypatch):
+    """The made-up ads here cover the fill's merge in ads.attributes. The structured parse
+    reads the description too, so a walk-up's text gives a structured "no elevator".
+    - Ad 9000060 lists an elevator in one record, and the other's text reads as a walk-up.
+      The structured values conflict, the text gives one reading, and it fills the elevator.
+    - Ad 9000061's records read an elevator and a walk-up in their texts. The structured values
+      conflict, and so do the readings, so the elevator stays unknown.
+    - Ad 9000062 lists pets allowed, and its text reads approval required. The listed policy
+      stands."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    may = [("2026-05-01", 3000)]
+    amenities = {"amenities": {"list": ["ELEVATOR"]}}
+    walk_up = "This walk-up has no elevator."
+    records = [
+        (9000060, ad_record(9000060, may, details=amenities)),
+        (9000060, ad_record(9000060, may, description=walk_up)),
+        (9000061, ad_record(9000061, may, description="An elevator building.")),
+        (9000061, ad_record(9000061, may, description=walk_up)),
+        (
+            9000062,
+            ad_record(
+                9000062,
+                may,
+                description="Pets allowed with approval.",
+                details={"amenities": {"list": ["PETS_ALLOWED"]}},
+            ),
+        ),
+    ]
+    append_answers(
+        export,
+        pd.DataFrame(
+            {
+                "listing_id": [r[0] for r in records],
+                "fetched": pd.Timestamp("2026-09-02T12:00:00Z")
+                + pd.to_timedelta(range(len(records)), unit="min"),
+                "response_id": range(60, 60 + len(records)),
+                "run": 5,
+                "region": "cases",
+                "generation": 1,
+                "outcome": "record",
+                "record_sha256": [
+                    hashlib.sha256(r[1].encode()).hexdigest() for r in records
+                ],
+                "record": [r[1] for r in records],
+            }
+        ),
+    )
+    ctx = context(monkeypatch, tmp_path / "state", export)
+    ctx.plan(auto_apply=True, no_prompts=True)
+    got = ctx.fetchdf(
+        """SELECT listing_id, elevator, pet_policy, conflicts, from_text FROM ads.attributes
+        WHERE listing_id >= '9000060' ORDER BY listing_id"""
+    )
+    got = [
+        [r[0], r[1], r[2], list(r[3]), list(r[4])]
+        for r in got.astype(object).where(got.notna(), None).values.tolist()
+    ]
+    assert got == [
+        ["9000060", False, None, ["elevator"], ["elevator"]],
+        ["9000061", None, None, ["elevator"], []],
+        ["9000062", None, "allowed_restrictions_unknown", [], []],
+    ]
+
+
 def market_record(listing_id, changes, days=None, rented=None):
     """A record of ad `listing_id` with a status change for each (day, status) pair of
     `changes`, at 10:00 New York time or at the hour a third item gives, and its daysOnMarket

@@ -735,9 +735,12 @@ and checks that both read the same value on its cases and on every description o
 fixture's records. `steps/attributes.py` stores each record's readings as `elevator_text` and
 `pet_policy_text`. `ads.attributes` merges them over the same records as the attributes, and
 fills the elevator or the pet policy where the merge leaves it unknown, from no record giving
-one or from a conflict, as the rules do. A record whose description StreetEasy stripped or
-cut gives no reading, so the other records' reading stands. Two readings give no fill. The ads
-file's `from_text` lists the fields filled this way.
+one or from a conflict, as the rules do. Two readings give no fill. A record whose description
+StreetEasy stripped gives no reading, so the other records' reading stands. A cut description
+still gives a reading of the text left. A cut after "walk-up" and before "elevator" reads as no
+elevator, which blocks the fill when another record reads one, and fills the ad wrongly when no
+other record gives a reading. Most ads have no ACTIVE answer and merge their closed records
+too, as described below. The ads file's `from_text` lists the fields filled this way.
 
 The port replaces a reading of my own from Oct 16, which took any pet fee in the description as
 pets allowed. `pets-from-ad-v2` reads a fee the same way, apart from texts it reads otherwise: a

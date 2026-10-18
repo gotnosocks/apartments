@@ -33,8 +33,10 @@ MODEL (
 -- An unknown here includes one from a conflict, as in the chain. `ads.record_attributes` gives
 -- each record's reading in `elevator_text` and `pet_policy_text`, and the model merges the
 -- readings over the same records as the attributes: one reading stands, and records reading
--- two give no fill. A stripped or cut description gives no reading, so it leaves the other
--- records' reading in place. `from_text` names the attributes filled this way.
+-- two give no fill. A stripped description gives no reading, so the other records' reading
+-- stands. A cut description gives a reading of the text left, which may differ from the full
+-- text's: it blocks the fill when another record reads otherwise, and makes the fill alone when
+-- no other record gives a reading. `from_text` names the attributes filled this way.
 --
 -- The model reads the ads in ads.touched: every ad in a full build, and in a top-up build the ads
 -- the new answers change. A top-up's materialization `merge` replaces those ads' rows in a copy of

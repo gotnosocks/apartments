@@ -300,3 +300,17 @@ def test_port_diff(tmp_path, monkeypatch):
             "examples": [lacking["audit_id"]],
         }
     }
+
+
+def test_port_diff_load_in_chunks(tmp_path):
+    """`port_diff.load` writes the loader's cache a few rows at a time, and the loader reads the
+    same frame back as it builds in one go."""
+    port_diff = load("port_diff", OBSERVATIONS.with_name("port_diff.py"))
+    data = port_diff.frontier()
+    records = chain_records()
+    assert len(records) > 3
+    folder = write_dataset(tmp_path / "rows", records)
+    pd.testing.assert_frame_equal(
+        port_diff.load(data, folder, tmp_path / "chunks", chunk=3),
+        data.load(folder, cache_root=tmp_path / "whole"),
+    )
