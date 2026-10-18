@@ -29,7 +29,9 @@ The script works in these steps:
 4. It writes the records file, `records-<hash>.parquet`, with `steps/records.py`: each distinct
    API record of an ad, in the form the frontier builders read from the granular export. The
    step keeps the records it has read in `STATE/records/`, so a build reads only the records
-   missing from them.
+   missing from them. When the step noted a file in OUT under the same list of ads files, and
+   the file keeps its noted size and modification time, the step returns it without reading
+   the export.
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, whether the build was
    a top-up, the value of `PIPELINE_STALE_DAYS` it built with, each export file it read with its
@@ -309,7 +311,11 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
 
     mark = time.time()
     files["records"] = records.write(
-        ctx.engine_adapter.connection.cursor(), variables["ads"], state / "records", out
+        ctx.engine_adapter.connection.cursor(),
+        variables["ads"],
+        state / "records",
+        out,
+        version=variables["ads_version"],
     )
     steps["records"] = time.time() - mark
 
