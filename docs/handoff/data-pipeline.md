@@ -28,7 +28,7 @@ The work goes in nine steps, each as small reviewed PRs, so a run stays possible
    in `ads.identity` (#877), the fit-ready rows in `analysis.rows` (#880), and their latest
    asks (#881), from the event log since #883. Since #1090 `ads.attributes` fills an
    unknown elevator or pet policy from each ad's own description, as the chain's rules
-   `elevator-from-ad-v1` and `pets-from-ad-v2` fill NB9's rows. Since #{{PR}} the model keeps
+   `elevator-from-ad-v1` and `pets-from-ad-v2` fill NB9's rows. Since #1139 the model keeps
    the ads with a concession, which the chain drops, and gives each a latest ask net of its free
    months, as Ben asked on Oct 18 ([pipeline.md](../data/pipeline.md#concessions)). The site's
    current listings still show the gross page price.
