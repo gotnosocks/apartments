@@ -1,8 +1,27 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 04:00 ET, after the commercial-ad excludes in #1104. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-18 03:25 ET, after the square-foot fills in #1109. Thread owner: the Data improvements project thread (bridge session on thelio).
 
-## 2026-10-18 04:00 ET
+## 2026-10-18 03:25 ET
+
+- #1106 adds `pipeline/ledger/2026-10-18-z4-nonresidential-broad.ndjson`, 3 more commercial excludes (2045302,
+  4735844, 5002550). `/data1/apartments/tmp/suspect/resid/broad.py` takes the 199 hits that match only the broad
+  `retail` pattern and carry two or fewer dwelling words, and Sonnet read them (`r2_b0.jsonl`).
+- #1109 adds `pipeline/ledger/2026-10-18-z5-unit-sqft-missing.ndjson`, 8 square_feet sets on rows coding no size.
+  `/data1/apartments/tmp/suspect/sqft/missing/count.py` finds 167,811 in-fit rows with sqft_unknown, and 4,988
+  of their ads state one size. `screen.py` pairs them with another ad for the same unit and bedrooms that codes
+  a size within 3% of the stated one, and `ledger.py` writes those. Each `when` records `"square_feet": null`,
+  as the ledger test requires for a set on an empty field.
+- For the rest, `interior.py` writes `stated_interior_sqft.parquet` (audit_id, listing_id, unit_id, period,
+  stated_interior_sqft) in the same folder, 724 rows, for Modeling's queued stated-size fit. It keeps sizes in
+  250 to 6000 with no outdoor, amenity, building, office or room words nearby, and only ads stating one distinct
+  size. Looser versions picked up amenity and roof-deck sizes. The data is ad text alone, so it enters as a
+  feature and stays out of the ledger. Modeling keeps that fit last in its queue, because 724 rows cover about 0.4%
+  of the unknown-size rows. A looser parse with a checked sample would move it up.
+- The next new ledger file needs a name sorting after `2026-10-18-z5-unit-sqft-missing`, such as
+  `2026-10-18-z6-...`, or a later date.
+
+## 2026-10-18 02:40 ET
 
 - #1096 adds `pipeline/ledger/2026-10-18-unit-baths-zerofull.ndjson`, 3 bath sets. 59 rows code 0 full baths,
   mostly with 2 half baths, the way "2 baths" comes in through the half-bath field. Sonnet read the 32 with a
@@ -31,8 +50,6 @@ Updated 2026-10-18 04:00 ET, after the commercial-ad excludes in #1104. Thread o
 - The rest of the residual read: 34 unclear, 24 plausible, 9 whole buildings, 5 wrong size, 1 short-term.
   2220272 asks $37,380 while its text says "Monthly rent is $4,050"; ad text alone does not back a change, so
   it waits for another ad for the unit. Results are in `/data1/apartments/tmp/suspect/resid/r0.jsonl`.
-- The next new ledger file needs a name sorting after `2026-10-18-z3-nonresidential-text`, such as
-  `2026-10-18-z4-...`, or a later date.
 
 ## 2026-10-17 22:00 ET
 
