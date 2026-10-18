@@ -184,7 +184,7 @@ def concession(c: dict) -> str | None:
         return None
     months = f"{free:g} month{'s' if free != 1 else ''}"
     gross = c.get("gross_ask")
-    shown = f" (gross ask ${gross:,.0f})" if gross else ""
+    shown = f" (gross ask ${gross:,.0f})" if gross and gross != c.get("ask") else ""
     return f"{months} free on a {term:g}-month lease{shown}"
 
 

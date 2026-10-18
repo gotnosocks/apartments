@@ -329,6 +329,7 @@ def test_an_ad_the_page_already_shows_net_keeps_its_ask(pipeline):
     files = pipeline.write([a], [row], CONCESSION_ADS, CONCESSION_ROWS)
     ((c,), _) = captures.current_ads(files, set(), {})
     assert c["ask"] == 4800
+    assert captures.concession(c) == "1 month free on a 13-month lease"
 
 
 def test_files_without_concession_columns_keep_the_page_price(pipeline):
