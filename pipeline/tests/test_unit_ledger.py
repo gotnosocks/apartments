@@ -452,9 +452,10 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         ) WHERE unit_id LIKE '%~review-%'"""
     )
     assert splits == 0
-    # analysis.rows leaves the rows of a split in their split.
-    split_rows, moved = ctx.engine_adapter.fetchone(
-        """SELECT count(*), count(*) FILTER (WHERE label_unit IS DISTINCT FROM unit_id)
+    # analysis.rows leaves the rows of a split in their split, and its pieces.
+    split_rows, moved, cut = ctx.engine_adapter.fetchone(
+        """SELECT count(*), count(*) FILTER (WHERE label_unit IS DISTINCT FROM unit_id),
+            count(*) FILTER (WHERE NOT starts_with(split_unit, unit_id))
         FROM analysis.rows WHERE unit_id LIKE '%~review-%'"""
     )
-    assert split_rows > 0 and moved == 0
+    assert split_rows > 0 and moved == 0 and cut == 0
