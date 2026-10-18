@@ -319,8 +319,9 @@ The older items follow.
       floor-folded alias groups of every neighbourhood, as agreed with Modeling on Oct 17. They
       missed, so `analysis.label_units` stays as it is, and Modeling closed the test. In the
       labels lane, 4,274 floor joins have rows on both sides. I gave Sonnet readers two fresh
-      samples of them. They judged 47 of 50 joins across all areas to be one apartment, with 3
-      unclear, and 24 of 30 in NB9's neighbourhoods, with 1 different and 5 unclear.
+      samples of them, leaving out the earlier sample's pages. They judged 47 of 50 joins across
+      all areas to be one apartment, with 3 unclear, and 24 of 30 in NB9's neighbourhoods, with
+      1 different and 5 unclear.
       - If I split joins whose pages had ads on the market at once for more than 7 days, I
         would split 474. The readers judged 16 of the 17 sampled ones to be one apartment, and
         the other unclear. Often a broker had posted the same text under both spellings.
@@ -331,8 +332,8 @@ The older items follow.
         the 20 sampled ones, the readers judged 16 to be one apartment, 1 different and 3
         unclear.
 
-      The earlier sample, with 14 false joins of 40, read the 88 units the pipeline joins and
-      the chain leaves apart. In the 80 fresh reads, one join was different. The lane is
+      The earlier sample's 40 joins, 14 of them false, came from the 88 units the pipeline
+      joins and the chain leaves apart. In the 80 fresh reads, one join was different. The lane is
       `tmp/pipeline/lanes/floor-joins`;
    4. **Done** with nothing to port: `fields-review-v3` returns the rows unchanged. It only
       takes `fields-review-v1`'s 16 corrections out of the fit's rules, and the pipeline
