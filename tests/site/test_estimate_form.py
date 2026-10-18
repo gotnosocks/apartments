@@ -3,6 +3,7 @@
 import datetime as dt
 import json
 import math
+import random
 import re
 import sqlite3
 
@@ -214,6 +215,17 @@ def test_the_likely_range_is_the_noise_quantiles():
     assert out["estimate"] == out["median"]  # never the mean
     again = estimate.score(k, flat_building(50), {}, 1, DAY, seed="s", samples=400)
     assert again == out  # the same inputs give the same numbers
+
+
+@pytest.mark.parametrize(
+    "nu, q975", [(3.0, 3.182446305), (4.0, 2.776445105), (30.0, 2.042272456)]
+)
+def test_student_t_draws_follow_the_t_distribution(nu, q975):
+    rng = random.Random(7)
+    z = sorted(estimate._student_t(rng, nu) for _ in range(200_000))
+    assert estimate._quantile(z, 0.975) == pytest.approx(q975, abs=0.03)
+    assert estimate._quantile(z, 0.025) == pytest.approx(-q975, abs=0.03)
+    assert estimate._quantile(z, 0.5) == pytest.approx(0.0, abs=0.01)
 
 
 def test_terms_add_up_on_the_log_scale():
