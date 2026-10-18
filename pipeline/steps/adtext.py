@@ -32,6 +32,10 @@ the chain's corrections:
 
 It returns the class's coded level from `CODED`. The coded field has no level for "no dogs", so a
 text of that class gives None, as does a text with no class.
+
+Most descriptions mention no elevator or walk-up, and many mention no pet. Before running its
+patterns, each reading looks for the words in `ELEVATOR_WORDS` or `PET_WORDS`, and it gives None
+at once to a text without any of them.
 """
 
 import re
@@ -156,6 +160,12 @@ NO_PET_KIND = r"\bno pets? (?:dogs?|cats?)\b|\bpets?: ?no (?!pets?\b|animals?\b)
 # pets subject to approval when a pet word follows.
 APPLICATION_APPROVAL = r"\b(?:no|easy|fast|quick) (?:board )?approvals?\b"
 
+# Each alternative of `ELEVATOR_NO` and `ELEVATOR_YES` contains one of these words.
+ELEVATOR_WORDS = ("elevator", "flights", "walk up", "walk-up", "walkup")
+# `pets` gives a reading only after a match of `NO_PETS`, `ALLOWED`, `PET_FEE`, `PET_LIMIT` or
+# `CASE_PETS`, and each alternative of those patterns contains one of these words.
+PET_WORDS = ("pet", "dog", "cat", "animal", "lbs", "pound")
+
 _CLASSES = tuple((name, re.compile(pattern)) for name, pattern in CLASSES)
 _SPACE = re.compile(r"\s+")
 _NO = re.compile(ELEVATOR_NO)
@@ -188,22 +198,31 @@ def classify(text):
 def elevator(text):
     """True or False for a description stating one of them, else None."""
     text = normalize(text)
+    if not any(word in text for word in ELEVATOR_WORDS):
+        return None
     no = _NO.search(text) is not None
     # "no elevator" also contains "elevator", so a "no" text counts as "yes" only when it names
     # an elevator again outside the "no" phrase.
-    yes = _YES.search(_NO.sub(" ", text)) is not None
+    yes = _YES.search(_NO.sub(" ", text) if no else text) is not None
     return None if no == yes else yes
 
 
 def pets(text):
     """The coded pet level a description states, else None."""
     text = normalize(text)
+    if not any(word in text for word in PET_WORDS):
+        return None
     found = classify(text)
+    # `classify` has tried `ALLOWED` already when it gives "allowed" or "none".
+    if found in ("allowed", "none"):
+        allowed = found == "allowed"
+    else:
+        allowed = _ALLOWED.search(text) is not None
     fee = _PET_FEE.search(text) is not None
+    allowed = allowed or fee
     if found == "none" and fee:
         found = "allowed"
     no_pets = _NO_PETS.search(_NO_PET_KIND.sub(" ", text)) is not None
-    allowed = _ALLOWED.search(text) is not None or fee
     application = _APPLICATION_APPROVAL.sub(" ", text)
     case = _CASE_PETS.search(application) is not None
     limit = found == "case_by_case" and not case and _PET_LIMIT.search(text) is not None

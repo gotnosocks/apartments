@@ -109,15 +109,20 @@ def test_patterns_match_the_chain(monkeypatch):
     assert petstext.CODED == {**adtext.CODED, "no_dogs": "no_dogs"}
 
 
-def test_readings_match_the_chain(monkeypatch):
-    """`adtext` reads the cases and every description of the fixture's records as the chain's
-    pandas functions read them."""
+def all_texts():
+    """The cases' texts and every description of the fixture's records."""
     descriptions = duckdb.sql(
         f"""SELECT DISTINCT json_extract_string(record, '$.description')
         FROM read_parquet('{FIXTURE / "export" / "ads" / "**" / "*.parquet"}')
         WHERE outcome = 'record'"""
     ).fetchall()
-    texts = pd.Series([text for text, *_ in CASES] + [text for (text,) in descriptions])
+    return [text for text, *_ in CASES] + [text for (text,) in descriptions]
+
+
+def test_readings_match_the_chain(monkeypatch):
+    """`adtext` reads the cases and every description of the fixture's records as the chain's
+    pandas functions read them."""
+    texts = pd.Series(all_texts())
     assert len(texts) > 200
     chain = chain_adfills(monkeypatch)
     elevator = chain.elevator(texts).elevator.map({"yes": True, "no": False})
@@ -128,3 +133,13 @@ def test_readings_match_the_chain(monkeypatch):
     # The texts give each reading of each field.
     assert set(elevator) == {True, False}
     assert set(pets) == set(adtext.CODED.values())
+
+
+def test_word_checks_change_no_reading(monkeypatch):
+    """`adtext` reads the cases and the fixture's descriptions the same way when its word checks
+    let every text through."""
+    texts = all_texts()
+    readings = [(adtext.elevator(text), adtext.pets(text)) for text in texts]
+    monkeypatch.setattr(adtext, "ELEVATOR_WORDS", ("",))
+    monkeypatch.setattr(adtext, "PET_WORDS", ("",))
+    assert [(adtext.elevator(text), adtext.pets(text)) for text in texts] == readings
