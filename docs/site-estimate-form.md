@@ -32,7 +32,7 @@ of `explain.log_terms` at the fit's last month, a unit level from the unit prior
 clipped to `loo`'s ±40 unit scales), and Student-t noise.
 
 The site has no numpy or JAX, so `rentfrontier.kit` (PR #228) writes a **prediction kit** per run to
-`/data1/apartments/frontier/kits/<run>-<commit>/`. The kit names its summary bundle by sha256. From 250 thinned
+`/data1/apartments/frontier/kits/<run>-<key>/`, keyed by the hashes of its inputs (`rentfrontier.step_key`). The kit names its summary bundle by sha256. From 250 thinned
 draws it holds:
 
 - `kit.json`, per draw:

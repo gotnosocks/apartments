@@ -36,7 +36,8 @@ The map under the buildings comes from the basemap snapshot
 (`rentfrontier.external basemap`): streets at their recorded width, paths,
 parks and the shoreline, in the same grid coordinates as the buildings.
 
-Writes /data1/apartments/frontier/maps/<run>-<commit>/map.json.
+Writes /data1/apartments/frontier/maps/<run>-<key>/map.json, keyed by the step's
+inputs (`rentfrontier.step_key`), and keeps a map already made for the key.
 """
 
 from __future__ import annotations
@@ -45,13 +46,14 @@ import argparse
 import datetime as dt
 import json
 import math
+import os
 import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from . import data, design_parts, draws, features, kit, model
+from . import data, design_parts, draws, features, kit, model, step_key
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
@@ -600,13 +602,34 @@ def main(argv=None):
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
+    inputs = step_key.inputs(
+        "rentmap", draws.run(args.run)[0], args.summary, {"draws": args.draws}
+    )
+    digest = step_key.key(inputs)
+    out_dir = step_key.out_dir(MAPS, args.run, digest)
+    path = out_dir / "map.json"
+    if step_key.recorded(path, digest):
+        # The site takes the run's map with the latest mtime.
+        os.utime(path)
+        print(f"kept {path}: its key {digest[:7]} is current")
+        return
     out = compute(args.run, args.summary, None if args.draws == 0 else args.draws)
+    inputs = step_key.settle(inputs, out["design"])
+    digest = step_key.key(inputs)
+    out_dir = step_key.out_dir(MAPS, args.run, digest)
+    path = out_dir / "map.json"
+    if step_key.recorded(path, digest):
+        os.utime(path)
+        print(f"kept {path}: its key {digest[:7]} is current")
+        return
     out["commit"] = commit
     out["created_at"] = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
-    out_dir = MAPS / f"{args.run}-{commit[:7]}"
-    out_dir.mkdir(parents=True, exist_ok=False)
-    path = out_dir / "map.json"
-    path.write_text(json.dumps(out, separators=(",", ":")))
+    out["key"] = digest
+    out["key_inputs"] = inputs
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tmp = out_dir / f".map.json.{os.getpid()}"
+    tmp.write_text(json.dumps(out, separators=(",", ":")))
+    os.replace(tmp, path)
     print(f"wrote {path} ({path.stat().st_size / 1e6:.1f} MB)")
 
 
