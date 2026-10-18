@@ -15,14 +15,13 @@ The script works in these steps:
 2. It plans and applies the `prod` environment. SQLMesh rebuilds each model whose fingerprint
    changed and every model below it, and runs each model's audits as it goes. The ledger models
    read `PIPELINE_LEDGER` as they run, so the script sets it for the plan when it is unset, to
-   the checkout's `pipeline/ledger`. When an audit
-   fails, the script prints the failed models and exits with status 1, and the tables of the
-   last good build stay in place. It writes nothing to OUT in that case. After a plan that
-   applies, it writes the SHA-256 of the code merging a top-up's rows to `STATE/merge.json`,
-   with the value of `PIPELINE_INCREMENTAL` it loaded the project with and the mode that ran,
-   from the column `incremental` of `ads.changes`. The two differ when `ads.changes` finds the
-   previous answers changed and reads every answer. With that file deleted, the next build
-   reads every answer.
+   the checkout's `pipeline/ledger`. When an audit fails, the script prints the failed models
+   and exits with status 1, and the tables of the last good build stay in place. It writes
+   nothing to OUT in that case. After a plan that applies, it writes the SHA-256 of the code
+   merging a top-up's rows to `STATE/merge.json`, with the value of `PIPELINE_INCREMENTAL` it
+   loaded the project with and the mode that ran, from the column `incremental` of
+   `ads.changes`. The two differ when `ads.changes` finds the previous answers changed and reads
+   every answer. With that file deleted, the next build reads every answer.
 3. It writes `analysis.rows` to a rows file and `analysis.ads` to an ads file in OUT, each
    sorted by `listing_id` and named by the first 16 hex digits of its SHA-256, such as
    `rows-04fe7ad81836fed2.parquet`. Two builds from the same export and the same code write
