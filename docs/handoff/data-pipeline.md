@@ -312,9 +312,10 @@ The older items follow.
       no refit, in the lane `tmp/pipeline/lanes/labels-port`. `analysis.history_splits` cuts
       label units as v4 does, and a fit on the folders now leaves out v4, `unit-reviews-v5` and
       `building-joins-v1`. In the lane `tmp/pipeline/lanes/splits-port`, built on the labels
-      lane's state, v4 alone changed none of the 350,202 rows. With the fit's unit rules 4 rows
+      lane's state, v4 alone changed none of the 350,202 rows. With the fit's unit rules, 4 rows
       of 249 West 29th Street 3E changed, 0.0011%, where the unit ledger holds back v5's split of
-      ad 2200772 for want of backing. Modeling agreed to merge it with no refit. Next I test the
+      ad 2200772 for want of backing. That share is under `NEGLIGIBLE_SHARE`, so the splits port
+      needed no refit, and Modeling cleared its merge. Next I test the
       floor-folded alias groups of every neighbourhood as a measured change, as agreed with
       Modeling on Oct 17. Two ads on the market at once on the two pages make two
       units, and a bedroom and size check applies only where both ads state a size. I rerun the
