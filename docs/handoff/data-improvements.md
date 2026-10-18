@@ -11,7 +11,8 @@ Updated 2026-10-18 09:23 ET, after the studio bedroom sets in #1129. Thread owne
   bedroom count or two- to four-room words in either ad, renovation jumps, asks outside 0.75..1.33 of each
   other, and listings already set. The reviewer caught a "three room studio" and a studio with a bonus room,
   and the room-count guard now drops both. Scripts and reads are in `/data1/apartments/tmp/suspect/beds/studio1`.
-- Modeling has been told to batch z6 to z9 into the next ledger refit.
+- Modeling's queued rebaseline already has z6 to z8. z9 (0.066% of 348,968 rows) goes into its next folder
+  build.
 - The next new ledger file needs a name sorting after `2026-10-18-z9-unit-bedrooms-studio-coded-one`, such
   as `2026-10-18-za-...`.
 
