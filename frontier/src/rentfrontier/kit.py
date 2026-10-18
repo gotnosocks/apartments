@@ -39,7 +39,10 @@ bundle's inputs.
 
 The kit reads the design's indexes and averages from the bundle's design parts
 (`rentfrontier.design_parts`) when they go with the run, and otherwise prepares
-the whole design and checks it against the run; kit.json records which.
+the whole design and checks it against the run; kit.json records which. It
+reads the thinned draws from posterior.npz a block at a time
+(`rentfrontier.draws`, `read_kept`): of the building walk, only the two knots
+the last month falls between, and the unit levels in their stored float32.
 
 Writes /data1/apartments/frontier/kits/<run>-<commit>/. Refuses designs the
 formula above does not cover (line effects, unit drift) and a run that fails
@@ -56,7 +59,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, design_parts, explain, model, summary
+from . import data, design_parts, draws, explain, model, summary
 from .run import git
 
 KITS = data.OUTPUT_ROOT / "kits"
@@ -94,8 +97,33 @@ def last_month_rows(prep, n_features: int) -> model.Arrays:
     )
 
 
+def walk_knots(prep, config, n_knots: int) -> np.ndarray:
+    """The two walk knots the last month falls between. When the last month
+    is a knot, the second one has weight 0, and past the walk's last knot the
+    last knot stands in for it."""
+    knot, _ = model.walk_position(last_month_rows(prep, 0), model.walk_spacing(config))
+    k = int(knot[0])
+    return np.array([k, min(k + 1, n_knots - 1)])
+
+
+def read_kept(run_dir: Path, prep, config, keep: int = DRAWS) -> dict:
+    """The run's kept draws as `kit_tables` and `unit_table` read them: the
+    `thin` draws, the walk at `walk_knots`, the unit levels in float32 as
+    stored and the rest in float64."""
+    path = run_dir / "posterior.npz"
+    stored = draws.shapes(path)
+    idx = thin(stored["alpha"][0] * stored["alpha"][1], keep)
+    take = {}
+    if model.walk_spacing(config):
+        knots = walk_knots(prep, config, stored["walk"][-1])
+        take["walk"] = lambda w: w[..., knots]
+    kept = draws.read(path, set(stored) - {"unit"}, idx, take)
+    return kept | draws.read(path, {"unit"}, idx, dtype=None)
+
+
 def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
-    """(per-draw record, per-building frame) for the kept draws."""
+    """(per-draw record, per-building frame) for the kept draws, with the walk
+    at `walk_knots` only, (draws, buildings, 2)."""
     if np.any(kept.get("line_scale", 0) > 0):
         raise SystemExit("line-effects designs are not supported")
     if "unit_drift" in kept and kept["unit_drift"].shape[1] > 1:
@@ -104,20 +132,17 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     kept = {k: np.asarray(v)[idx] for k, v in kept.items() if np.ndim(v)}
     d = len(idx)
     a = last_month_rows(prep, len(feats.names))
-    # walk_term reads knot + 1, one past the last knot when the last month is
-    # a knot (its weight is then 0): repeat the last knot so numpy can index it.
-    padded = dict(kept)
-    if "walk" in kept:
-        padded["walk"] = np.concatenate([kept["walk"], kept["walk"][..., -1:]], axis=-1)
-    terms = explain.log_terms(
-        padded,
-        a,
-        feats.groups,
-        model.walk_spacing(config),
-        False,
-        False,
-        prep.offset,
-    )
+    spacing = model.walk_spacing(config)
+    # log_terms without the walk, which is added below from its two knots as
+    # model.walk_term interpolates it.
+    terms = explain.log_terms(kept, a, feats.groups, 0, False, False, prep.offset)
+    if spacing:
+        _, frac = model.walk_position(a, spacing)
+        w = kept["walk"]
+        if w.shape[-1] != 2:
+            raise ValueError(f"the walk has {w.shape[-1]} knots, not walk_knots' 2")
+        walk = (1 - frac) * w[..., a.building, 0] + frac * w[..., a.building, 1]
+        terms["building_drift"] = walk + terms["building_drift"]
     for g in dict.fromkeys(feats.groups):
         if np.any(terms[g]):
             raise AssertionError("reference rows must have no feature terms")
@@ -207,13 +232,14 @@ def build_kit(name: str, summary_dir: Path, allow_failing: bool = False):
     bundle = json.loads((summary_dir / "complete.json").read_text())
     if bundle.get("run") != name:
         raise SystemExit(f"{summary_dir} summarizes {bundle.get('run')}, not {name}")
-    run_dir, result, kept = explain.load_run(name)
+    run_dir, result = draws.run(name)
     gate_status = summary.gate(result, run_dir)
     if not gate_status["passes"] and not allow_failing:
         raise SystemExit(f"{name} fails the convergence gate: {gate_status}")
     summary.check_run(result)
     config = model.MODELS[result["model"]["name"]]
     parts, design_source = design_parts.for_run(result, run_dir, summary_dir)
+    kept = read_kept(run_dir, parts, config)
     record, buildings = kit_tables(kept, parts, config, parts.features)
     units = unit_table(kept, parts)
     record |= {

@@ -29,9 +29,16 @@ change to its step before merge.
   the bundle's sha.
 - `data.rows_sha256` depends on the CPU: the design prepared on Modal for the all-scraped run
   holds 8 of 1.75M log rents 1 ulp from thelio's `np.log`, so its rows hash misses the fit's.
-  The parts record whether the hash matches and don't require it (Modeling, Oct 18). The all-scraped posterior.npz (13.4 GB, 9 GB of it the walk) still does not load
-  on thelio, since `explain.load_run` reads every array as float64; streaming the draws is
-  the next proposal to Modeling.
+  The parts record whether the hash matches and don't require it (Modeling, Oct 18).
+- The all-scraped posterior.npz (13.4 GB, 9 GB of it the walk) does not load on thelio
+  through `explain.load_run`, which reads every array whole as float64 (about 28 GB). The kit
+  and the rent map now read it through `rentfrontier.draws`, a block of draws at a time: the
+  kit takes 250 thinned draws and the walk's two last knots, and the rent map averages the walk
+  over each year as it reads and keeps 250 draws by default (`--draws 0` keeps all). On NB9 the
+  kit came out identical to master's at 2.67 GB peak (5.19 GB before), and so did the map on
+  all 1000 draws, at 2.67 GB (6.95 GB before). The 250-draw map's rents differ from the
+  1000-draw map's by a median of 0.0046 log, 0.66 Monte Carlo SEs (0.67 for a normal), with
+  5.5% of cells past 2 SE against 4.6%, since thinned draws still carry some autocorrelation.
 - Ben dropped the 80% range from the lists (12:50 ET Oct 17). The summary's `--range-atoms`
   (#1065, #1066 for Modal) writes 64 atoms per row and `noise.json` in place of the quantile
   solve; on NB9 at 10% it ran in 397 s against 663 s, with a median error of 0.00027 log
@@ -62,7 +69,8 @@ change to its step before merge.
 2. Give each publish step a key from its inputs' hashes and skip unchanged steps. The rent map
    and the kit are keyed by the master commit, so any merge reruns both; key them by the
    posterior's sha, the bundle's sha and their own module sources.
-3. Stream the draws in the kit and the rent map, so the all-scraped publish runs on thelio.
+3. Run the all-scraped rent map and kit on thelio under systemd, once Modeling has copied the
+   design parts into the served bundle.
 4. Measure each step on nested samples (1%, 4%, 16%) and on the all-scraped run under systemd.
 
 Scratch notes and tools are in `/data1/apartments/tmp/publish-path/`.

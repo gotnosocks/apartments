@@ -5,7 +5,9 @@ the rent map (research dashboard).
 
 Reads a recorded run's kept joint draws, and the design parts in its summary
 bundle (`rentfrontier.design_parts`) or else the dataset it was fit on; never
-fits. For every building, calendar year and bedroom group (studio, 1, 2, 3+),
+fits. It reads the draws a block at a time (`rentfrontier.draws`), the kit's
+250 of them by default (`--draws`), and keeps each draw's walk only as its
+average over each calendar year. For every building, calendar year and bedroom group (studio, 1, 2, 3+),
 the posterior of the typical asking rent of an apartment with:
 
 - the apartment's own attributes (bedrooms, bathrooms, size, laundry, heating
@@ -49,7 +51,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, design_parts, explain, features, model
+from . import data, design_parts, draws, features, kit, model
 from .run import git
 
 MAPS = data.OUTPUT_ROOT / "maps"
@@ -445,8 +447,34 @@ def feature_slope_term(fslope, x, cols) -> np.ndarray:
     return np.einsum("dbj,bj->db", fslope, x[:, cols])
 
 
-def compute(name: str, summary_dir: Path | None = None) -> dict:
-    run_dir, result, kept = explain.load_run(name)
+def year_quantiles(base, path, own, inside: dict) -> tuple:
+    """The rent quantiles per building and year, (P, B, Y), and those of the
+    per-draw median building, (P, Y), overall and within each area of `inside`
+    (area -> building mask). `base` is (d, Y), `own` is (d, B), and `path(y)`
+    gives year y's (d, B) path. The rents are computed a year at a time, so
+    only a (d, B) slice of them is held."""
+    n_p, n_b, n_y = len(PROBABILITIES), own.shape[1], base.shape[1]
+    q = np.empty((n_p, n_b, n_y))
+    c = np.empty((n_p, n_y))
+    c_area = {a: np.empty((n_p, n_y)) for a in inside}
+    for y in range(n_y):
+        rent = np.exp(base[:, None, y] + path(y) + own)  # (d, B)
+        q[:, :, y] = np.quantile(rent, PROBABILITIES, axis=0)
+        # The median building of the fit, per draw (robust to the dearest ones).
+        c[:, y] = np.quantile(np.median(rent, axis=1), PROBABILITIES, axis=0)
+        # The same within each neighbourhood: the median of its buildings.
+        for a, mask in inside.items():
+            per_draw = np.median(rent[:, mask], axis=1)
+            c_area[a][:, y] = np.quantile(per_draw, PROBABILITIES, axis=0)
+    return q, c, c_area
+
+
+def compute(
+    name: str, summary_dir: Path | None = None, keep: int | None = kit.DRAWS
+) -> dict:
+    """The map's data from `keep` evenly spaced draws (`kit.thin`; None for
+    every draw)."""
+    run_dir, result = draws.run(name)
     config = model.MODELS[result["model"]["name"]]
     if config.area_time:
         raise SystemExit("area_time runs have no neighbourhood curve here yet")
@@ -460,22 +488,32 @@ def compute(name: str, summary_dir: Path | None = None) -> dict:
             f"the rent map does not model this design: {', '.join(missing)}"
         )
     years, by_year, walk_year = year_weights(prep.periods, model.walk_spacing(config))
+    fcols = [prep.features.names.index(n) for n in config.feature_slopes]
+    keys = {"alpha", "trend", "building", "beta"}
+    keys |= (
+        {"walk"} if config.building_walk else {"building_trend", "building_mean_month"}
+    )
+    keys |= {"bedroom_slope"} if config.bedroom_slope else set()
+    keys |= {"bedroom_time"} if config.bedroom_time else set()
+    keys |= {"fslope"} if fcols else set()
+    posterior = run_dir / "posterior.npz"
+    alpha = draws.shapes(posterior)["alpha"]
+    idx = None if keep is None else kit.thin(alpha[0] * alpha[1], keep)
+    # Each draw's walk averaged over each year's months, (d, B, Y).
+    take = {"walk": lambda w: w @ walk_year[: w.shape[2]]}
+    kept = draws.read(posterior, keys, idx, take)
     market = prep.offset + kept["alpha"][:, None] + kept["trend"] @ by_year.T  # (d, Y)
     if config.building_walk:
-        path = kept["walk"] @ walk_year[: kept["walk"].shape[2]]  # (d, B, Y)
+        path = lambda y: kept["walk"][:, :, y]  # (d, B)
     else:
         centre = kept["building_mean_month"]  # (d, B)
         mid = by_year @ np.arange(len(prep.periods))  # (Y,)
-        path = (
-            kept["building_trend"][..., None]
-            * (mid[None, None] - centre[..., None])
-            / 12
-        )
+        path = lambda y: kept["building_trend"] * (mid[y] - centre) / 12
     level = kept["building"]  # (d, B)
     slope = kept["bedroom_slope"] if config.bedroom_slope else np.zeros_like(level)
-    fcols = [prep.features.names.index(n) for n in config.feature_slopes]
     hood = prep.hood
     areas = sorted(set(hood))
+    inside = {a: hood == a for a in areas}
     out_rent, median_rent = {}, {}
     median_area = {a: {} for a in areas}
     for gi, (key, (x, beds)) in enumerate(typical_rows(prep).items()):
@@ -485,26 +523,18 @@ def compute(name: str, summary_dir: Path | None = None) -> dict:
             if config.bedroom_time
             else 0.0
         )
-        log = (
-            (market + curve)[:, None, :]
-            + path
-            + (
-                level
-                + np.einsum("bf,df->db", x, kept["beta"])
-                + slope * beds
-                + (feature_slope_term(kept["fslope"], x, fcols) if fcols else 0.0)
-            )[..., None]
-        )  # (d, B, Y)
-        q = np.quantile(np.exp(log), PROBABILITIES, axis=0)  # (3, B, Y)
+        base = market + curve  # (d, Y)
+        own = (
+            level
+            + np.einsum("bf,df->db", x, kept["beta"])
+            + slope * beds
+            + (feature_slope_term(kept["fslope"], x, fcols) if fcols else 0.0)
+        )  # (d, B)
+        q, c, c_area = year_quantiles(base, path, own, inside)
         out_rent[key] = np.rint(np.moveaxis(q, 0, -1)).astype(int).tolist()
-        # The median building of the fit, per draw (robust to the dearest ones).
-        c = np.quantile(np.median(np.exp(log), axis=1), PROBABILITIES, axis=0)
         median_rent[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
-        # The same within each neighbourhood: the median of its buildings, per draw.
         for a in areas:
-            inside = np.exp(log[:, hood == a, :])
-            c = np.quantile(np.median(inside, axis=1), PROBABILITIES, axis=0)
-            median_area[a][key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
+            median_area[a][key] = np.rint(c_area[a].T).astype(int).tolist()  # (Y, 3)
     months = (by_year > 0).sum(1)
     # The registry the run's features read (the first snapshot for older runs).
     recorded = (result.get("feature_sources") or {}).get("registry") or {}
@@ -558,12 +588,19 @@ def main(argv=None):
         help="the run's summary bundle, whose design parts stand in for the "
         "whole design when they go with the run",
     )
+    parser.add_argument(
+        "--draws",
+        type=int,
+        default=kit.DRAWS,
+        help="evenly spaced draws to read (0: every draw; default %(default)s, "
+        "the estimate kit's)",
+    )
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
-    out = compute(args.run, args.summary)
+    out = compute(args.run, args.summary, None if args.draws == 0 else args.draws)
     out["commit"] = commit
     out["created_at"] = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
     out_dir = MAPS / f"{args.run}-{commit[:7]}"
