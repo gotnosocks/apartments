@@ -24,12 +24,14 @@ MODEL (
 --     without one.
 --   conflicting_layout_within_advertisement: its records give two values for the bedrooms,
 --     bathrooms or size.
---   excluded_furnished, excluded_short_term, excluded_concession: a record sets the flag.
+--   excluded_furnished, excluded_short_term: a record sets the flag.
 --   invalid_or_extreme_initial_ask: it lacks a single first ask from $750 to $50,000.
 --   invalid_or_missing_layout: it lacks a whole bedroom count from 0 to 5 or a bathroom count
 --     from 1 to 5 in halves.
--- The chain stops at no_dated_own_active_event, since the other checks need a first day. Three
--- of the chain's reasons are left out: ads.identity gives the reasons of the checks of the
+-- The chain also drops an ad with a concession, `excluded_concession`. The model keeps it, and
+-- analysis.concessions takes the free months off its latest ask. The chain stops at
+-- no_dated_own_active_event, since the other checks need a first day. Three more of the chain's
+-- reasons are left out: ads.identity gives the reasons of the checks of the
 -- unit's identity and of the canonical URL, and the check for two ads of one unit in one month
 -- waits for the fit-ready rows. An unparseable event
 -- date stops the build in ads.history_events, so `invalid_own_active_event_date` never
@@ -54,7 +56,7 @@ own_active AS (
 checked AS (
     SELECT a.listing_id, f.first_day, f.prices, f.missing_price,
         CASE WHEN len(f.prices) = 1 THEN f.prices[1] END AS rent,
-        t.records, t.bedrooms, t.bathrooms, t.conflicts, t.furnished, t.short_term, t.concession,
+        t.records, t.bedrooms, t.bathrooms, t.conflicts, t.furnished, t.short_term,
         o.last_active > a.last_day AS future
     FROM ads a
     LEFT JOIN ads.first_ask f USING (listing_id)
@@ -71,7 +73,6 @@ SELECT listing_id, first_day, rent,
             THEN 'conflicting_layout_within_advertisement' END,
         CASE WHEN furnished THEN 'excluded_furnished' END,
         CASE WHEN short_term THEN 'excluded_short_term' END,
-        CASE WHEN concession THEN 'excluded_concession' END,
         CASE WHEN rent IS NULL OR NOT rent BETWEEN 750 AND 50000 THEN 'invalid_or_extreme_initial_ask' END,
         CASE WHEN bedrooms IS NULL OR NOT bedrooms BETWEEN 0 AND 5 OR bedrooms % 1 <> 0
             OR bathrooms IS NULL OR NOT bathrooms BETWEEN 1 AND 5 OR (bathrooms * 2) % 1 <> 0

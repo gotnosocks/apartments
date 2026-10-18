@@ -3,15 +3,19 @@ MODEL (
     kind VIEW,
     grain listing_id,
     audits (unique_values(columns := (listing_id))),
-    description 'The kept rows less the ads the corrections ledger excludes, with each row''s latest ask, the values the ledger''s live sets give and the relist unit of its unit page.'
+    description 'The kept rows less the ads the corrections ledger excludes, with each row''s latest ask net of any concession, its gross latest ask and concession terms, the values the ledger''s live sets give and the relist unit of its unit page.'
 );
 
 -- ledger.status leaves at most one live set for each field of a row. A bath set gives the full
 -- and half bathrooms and leaves `bathrooms` as recorded, as the current chain's bath rules do.
--- `asking_rent` stays the ad's first ask, as in the chain's dataset. The column `latest_ask`
--- takes the ask analysis.latest_ask chooses, or the ask a live ask set gives. The last column,
--- `relist_unit`, takes the relist unit analysis.relist_units gives the row's unit page, or the
--- unit page itself.
+-- `asking_rent` stays the ad's first ask, as in the chain's dataset. `latest_gross` takes the
+-- ask analysis.latest_ask chooses, or the ask a live ask set gives. For a row with a concession
+-- in analysis.concessions, `latest_ask` takes `latest_gross` times the concession's factor,
+-- rounded to the cent. A latest ask equal to a price before the concession began, and to none
+-- from it on, stays gross, as when analysis.latest_ask falls back to the first ask. A page price
+-- or an ask set counts as current and takes the factor. `months_free` and `lease_term` give the
+-- terms, and a row without a concession has neither. The last column, `relist_unit`, takes the
+-- relist unit analysis.relist_units gives the row's unit page, or the unit page itself.
 WITH live AS (
     SELECT s.listing_id, s.change, s.field, e.bedrooms, e.full_baths, e.half_baths, e.square_feet,
         e.latest_ask
@@ -34,10 +38,19 @@ SELECT k.* REPLACE (
     coalesce(s.full_baths, k.full_baths) AS full_baths,
     coalesce(s.half_baths, k.half_baths) AS half_baths,
     coalesce(s.square_feet, k.square_feet) AS square_feet
-), coalesce(s.latest_ask, a.latest_ask) AS latest_ask,
+), CASE
+        WHEN c.listing_id IS NOT NULL AND (s.latest_ask IS NOT NULL OR a.how LIKE 'page price%'
+            OR NOT list_contains(c.gross_prices, a.latest_ask) OR list_contains(c.net_prices, a.latest_ask))
+            THEN round(coalesce(s.latest_ask, a.latest_ask) * c.factor, 2)
+        ELSE coalesce(s.latest_ask, a.latest_ask)
+    END AS latest_ask,
+    coalesce(s.latest_ask, a.latest_ask) AS latest_gross,
+    c.months_free,
+    c.lease_term,
     coalesce(u.relist_unit, k.unit_id) AS relist_unit
 FROM analysis.kept k
 LEFT JOIN analysis.latest_ask a USING (listing_id)
 LEFT JOIN sets s USING (listing_id)
+LEFT JOIN analysis.concessions c USING (listing_id)
 LEFT JOIN analysis.relist_units u ON u.unit_id = k.unit_id
 WHERE k.listing_id NOT IN (SELECT listing_id FROM live WHERE change = 'exclude')

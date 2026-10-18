@@ -504,6 +504,126 @@ def test_ask_check_cases(tmp_path, monkeypatch):
     assert flagged.listing_id.tolist() == [ids[(3, 1250)]]
 
 
+def test_concession_cases(tmp_path, monkeypatch):
+    """analysis.concessions and analysis.rows give these made-up one-bedrooms of building
+    900040 their asks net of the free months their latest records offer. Each first asks
+    $3,000 on May 1.
+
+    - ad 9000170 gives 1 month free on a 12-month lease and a net effective rent of $2,750,
+      $3,000 times 11/12. Its ask nets to $2,750.
+    - ad 9000171 asks $3,300 from June 1, and its net effective rent of $3,025 matches that
+      price, so the concession began with it. Its ask nets to $3,025.
+    - ad 9000172 asks $3,300 from June 1 with a net effective rent of $2,500, which matches no
+      price, so the concession counts from the last price. Its ask nets to $3,025.
+    - ad 9000173 asks $3,300 from June 1 and $9,000 from July 1, and the concession began with
+      $9,000. The latest-ask steps fall back to $3,300, a price from before the concession,
+      and the row keeps it gross.
+    - ad 9000174 shows a page price of $3,200 against its change to $3,000, and the page price
+      nets to $2,933.33.
+    - ad 9000175 offers 12 months free on a 12-month lease, which leaves no terms to take.
+    - ad 9000176 offers 2 months free on 12, and a ledger set gives it an ask of $3,600, which
+      nets to $3,000.
+    - ad 9000177 offers no concession.
+
+    The chain drops an ad with a concession, and the pipeline keeps each of these."""
+    export = tmp_path / "export"
+    shutil.copytree(FIXTURE / "cases" / "export", export)
+    tower = json.dumps({"id": "900040", "slug": "900040-case-street-new_york"})
+    append_answers(
+        export,
+        answers("building_id", [("900040", tower)], 40, "2026-09-01T12:00Z"),
+        "buildings",
+    )
+
+    def ad(listing_id, changes, page=None, **terms):
+        """A record of ad `listing_id` for its own unit of building 900040, first asking $3,000
+        on May 1, with a price change on each (day, price) of `changes`, the last change's
+        price as its page price unless `page` gives one, and the concession `terms`."""
+        pricing = {
+            "price": page or changes[-1][1],
+            "priceChanges": [
+                {"changedAt": f"{day}T10:00:00.000-04:00", "price": price}
+                for day, price in changes
+            ],
+            **terms,
+        }
+        text = row_record(
+            listing_id,
+            "2026-05-01",
+            f"{listing_id % 100}a",
+            building="900040",
+            pricing=pricing,
+        )
+        return listing_id, text
+
+    may = [("2026-05-01", 3000)]
+    june = may + [("2026-06-01", 3300)]
+    one = {"monthsFree": 1, "leaseTermMonths": 12}
+    records = [
+        ad(9000170, may, **one, netEffectiveRent=2750),
+        ad(9000171, june, **one, netEffectiveRent=3025),
+        ad(9000172, june, **one, netEffectiveRent=2500),
+        ad(9000173, june + [("2026-07-01", 9000)], **one, netEffectiveRent=8250),
+        ad(9000174, may, page=3200, **one, netEffectiveRent=2934),
+        ad(9000175, may, monthsFree=12, leaseTermMonths=12, netEffectiveRent=250),
+        ad(9000176, may, monthsFree=2, leaseTermMonths=12, netEffectiveRent=2500),
+        ad(9000177, may),
+    ]
+    append_answers(export, answers("listing_id", records, 20, "2026-09-02T12:00Z"))
+    entry = {
+        "decided": "2026-10-18",
+        "evidence": [
+            {
+                "kind": "other_ad",
+                "listing_id": "123",
+                "detail": "the same unit a month later",
+                "ask": 3600,
+            }
+        ],
+        "change": "set",
+        "listing_id": "9000176",
+        "set": {"latest_ask": 3600},
+        "when": {"period": "2026-05", "latest_ask": 3000},
+    }
+    ledger = tmp_path / "ledger"
+    ledger.mkdir()
+    (ledger / "2026-10-18.ndjson").write_text(json.dumps(entry) + "\n")
+    ctx = context(monkeypatch, tmp_path / "state", export, ledger=ledger)
+    ctx.plan(auto_apply=True, no_prompts=True)
+
+    terms = ctx.fetchdf(
+        """SELECT listing_id, round(factor, 4) AS factor, start, gross_prices, net_prices
+        FROM analysis.concessions ORDER BY listing_id"""
+    )
+    assert [
+        [r[0], r[1], r[2], list(r[3]), list(r[4])] for r in terms.values.tolist()
+    ] == [
+        ["9000170", 0.9167, 0, [], [3000, 3000]],
+        ["9000171", 0.9167, 2, [3000, 3000], [3300]],
+        ["9000172", 0.9167, 2, [3000, 3000], [3300]],
+        ["9000173", 0.9167, 3, [3000, 3000, 3300], [9000]],
+        ["9000174", 0.9167, 1, [3000], [3000]],
+        ["9000176", 0.8333, 0, [], [3000, 3000]],
+    ]
+    rows = ctx.fetchdf(
+        """SELECT r.listing_id, r.asking_rent, r.latest_gross, r.latest_ask, r.months_free,
+            r.lease_term, a.latest_ask AS ads_ask
+        FROM analysis.rows r JOIN analysis.ads a USING (listing_id)
+        WHERE r.listing_id >= '9000170' ORDER BY r.listing_id"""
+    )
+    rows = rows.astype(object).where(rows.notna(), None)
+    assert rows.values.tolist() == [
+        ["9000170", 3000, 3000, 2750, 1, 12, 3000],
+        ["9000171", 3000, 3300, 3025, 1, 12, 3300],
+        ["9000172", 3000, 3300, 3025, 1, 12, 3300],
+        ["9000173", 3000, 3300, 3300, 1, 12, 3300],
+        ["9000174", 3000, 3200, 2933.33, 1, 12, 3200],
+        ["9000175", 3000, 3000, 3000, None, None, 3000],
+        ["9000176", 3000, 3600, 3000, 2, 12, 3000],
+        ["9000177", 3000, 3000, 3000, None, None, 3000],
+    ]
+
+
 def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
     export = copy_export(
         tmp_path, keep=lambda line: line["run"] < 4 or line["table"] == "buildings"
@@ -545,6 +665,7 @@ def test_new_export_file_rebuilds_only_downstream(tmp_path, monkeypatch):
         "analysis.building_certificates",
         "analysis.building_check",
         "analysis.candidates",
+        "analysis.concessions",
         "analysis.history_pairs",
         "analysis.history_splits",
         "analysis.kept",
@@ -607,6 +728,7 @@ def test_new_buildings_file_rebuilds_only_what_reads_buildings(tmp_path, monkeyp
         "analysis.building_certificates",
         "analysis.building_check",
         "analysis.candidates",
+        "analysis.concessions",
         "analysis.history_pairs",
         "analysis.history_splits",
         "analysis.kept",
@@ -1186,7 +1308,8 @@ def ad_record(
 
 def test_exclusion_cases(tmp_path, monkeypatch):
     """The made-up ads here cover each reason in ads.exclusions and the edges of its ranges.
-    Ads 9000020 and 9000032 have no reason, ad 9000031's record lacks propertyDetails, and one
+    Ads 9000020 and 9000032 have no reason, and neither have ads 9000028 and 9000050, whose
+    concessions the chain drops them for. Ad 9000031's record lacks propertyDetails, and one
     of ad 9000032's records carries another ad's `id`. Ad 9000034 has two records with the same
     values, and ads 9000043 to 9000045 have two records with different values.
     Ads 9000047 to 9000050 cover the cut at an ad's last ACTIVE answer. Ad 9000047's RENTED
@@ -1327,7 +1450,7 @@ def test_exclusion_cases(tmp_path, monkeypatch):
         ],
         ["9000026", ["excluded_furnished"], 3000.0, 1.0, [], 1],
         ["9000027", ["excluded_short_term"], 3000.0, 1.0, [], 1],
-        ["9000028", ["excluded_concession"], 3000.0, 1.0, [], 1],
+        ["9000028", [], 3000.0, 1.0, [], 1],
         ["9000029", [ask], 600.0, 1.0, [], 1],
         ["9000030", [layout], 3000.0, 6.0, [], 1],
         ["9000031", ["no_dated_own_active_event"], 3000.0, None, None, None],
@@ -1370,19 +1493,22 @@ def test_exclusion_cases(tmp_path, monkeypatch):
             ["bedrooms"],
             2,
         ],
-        ["9000050", ["excluded_concession"], 3000.0, 1.0, [], 1],
+        ["9000050", [], 3000.0, 1.0, [], 1],
     ]
     flags = ctx.fetchdf(
-        """SELECT listing_id, bathrooms, short_term, furnished FROM ads.attributes
-        WHERE listing_id IN ('9000020', '9000041', '9000042', '9000045', '9000046')
+        """SELECT listing_id, bathrooms, short_term, furnished, concession FROM ads.attributes
+        WHERE listing_id IN ('9000020', '9000028', '9000041', '9000042', '9000045', '9000046',
+            '9000050')
         ORDER BY listing_id"""
     )
     assert flags.astype(object).where(flags.notna(), None).values.tolist() == [
-        ["9000020", 1.0, None, None],
-        ["9000041", 0.5, None, None],
-        ["9000042", 1.25, None, None],
-        ["9000045", 1.0, True, None],
-        ["9000046", 1.0, None, True],
+        ["9000020", 1.0, None, None, None],
+        ["9000028", 1.0, None, None, True],
+        ["9000041", 0.5, None, None, None],
+        ["9000042", 1.25, None, None, None],
+        ["9000045", 1.0, True, None, None],
+        ["9000046", 1.0, None, True, None],
+        ["9000050", 1.0, None, None, True],
     ]
     unparsed = ctx.fetchdf(
         "SELECT id FROM ads.record_attributes WHERE NOT parsed AND id >= '9000020'"

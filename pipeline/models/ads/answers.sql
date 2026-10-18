@@ -8,7 +8,7 @@ MODEL (
         unique_combination_of_columns(columns := (listing_id, response_id)),
         not_null(columns := (listing_id, fetched, response_id, outcome))
     ),
-    description 'Each API answer for an ad, with the fields the event log, the latest-ask steps and the ads file read, parsed once.'
+    description 'Each API answer for an ad, with the fields the event log, the latest-ask steps, the concession terms and the ads file read, parsed once.'
 );
 
 -- A record's unit history repeats in the record of each ad of the unit, so a unit with n ads
@@ -36,10 +36,13 @@ SELECT listing_id, fetched, response_id, outcome, record_sha256, region,
     f[10] AS off_market_at,
     list_transform(from_json(f[11], '[{"key": "VARCHAR"}]'), p -> p.key) AS floor_plans,
     f[12] AS building_id,
-    f[13] AS unit_slug
+    f[13] AS unit_slug,
+    f[14]::DOUBLE AS months_free,
+    f[15]::DOUBLE AS lease_term,
+    f[16]::DOUBLE AS net_effective_rent
 FROM (
     SELECT r.*,
-        json_extract_string(r.record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice', '$.onMarketAt', '$.createdAt', '$.offMarketAt', '$.media.floorPlans', '$.buildingId', '$.slug']) AS f
+        json_extract_string(r.record, ['$.status', '$.pricing.price', '$.statusChanges', '$.pricing.priceChanges', '$.propertyHistory', '$.daysOnMarket', '$.pricing.rentedPrice', '$.onMarketAt', '$.createdAt', '$.offMarketAt', '$.media.floorPlans', '$.buildingId', '$.slug', '$.pricing.monthsFree', '$.pricing.leaseTermMonths', '$.pricing.netEffectiveRent']) AS f
     FROM raw.ads r
     SEMI JOIN ads.changes c USING (listing_id, response_id)
 )
