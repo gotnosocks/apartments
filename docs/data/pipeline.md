@@ -1983,9 +1983,9 @@ as `ad_text`. Seven of those notes give the reader's reasoning: 1544571, 1569812
 2384625, 3421461 and 3780443. The other six give another listing carrying the same ad: 1404306,
 1848216, 1887124, 2678483, 5019133 and 5098585.
 
-The chain's `building-joins-v1` and `unit-reviews-v2` are in the unit ledger, described under
-[Unit ledger](#unit-ledger), but for a split held for want of backing. Its other rules are not
-in a ledger yet: `west-coast-wings-v1`, `unit-splits-v4`, `unit-labels-v17` and
+The chain's `building-joins-v1`, `west-coast-wings-v1` and `unit-reviews-v2` are in the unit
+ledger, described under [Unit ledger](#unit-ledger), but for a split held for want of backing.
+Its other rules are not in a ledger yet: `unit-splits-v4`, `unit-labels-v17` and
 `fields-review-v3`. The rules moving ads to another unit or building go into the unit ledger.
 `ads.attributes` reads the elevator and pet policy from each ad's text in place of
 `elevator-from-ad-v1` and `pets-from-ad-v2`, as described under
@@ -2134,11 +2134,16 @@ these:
   `unit-reviews-v4` does;
 - `move_building` gives a building's ads the slug and ID of another building and leaves their
   pages and units alone, as `building-joins-v1` does for 97 Horatio Street;
+- `split_building` gives some ads of a building, after the moves, a slug of their own, as a
+  wing of the building, and leaves their building ID, pages and units alone. Its `labels`, a
+  regular expression, pick the ads by the last part of their unit page, in lower case, as
+  `west-coast-wings-v1` picks The West Coast's three-digit units;
 - `retract` undoes an earlier entry.
 
-A join, split or move needs evidence of a backing kind, as a set of the corrections ledger does,
-or a city record. Among the entries still in force, a page takes part in one join at most, an ad
-in one split and a building in one move, so each ad meets at most one entry of each change. A
+A join, split, move or split_building needs evidence of a backing kind, as a set of the
+corrections ledger does, or a city record. Among the entries still in force, a page takes part
+in one join at most, an ad in one split, and a building in one move and one split_building, so
+each ad meets at most one entry of each change. Each split_building gives a slug of its own. A
 building with ads moving to it stays where it is. A split points only into a split in force
 with no `into` of its own, and a retract of that split waits until the split pointing into it
 is retracted.
@@ -2153,14 +2158,15 @@ Three models read the unit ledger:
    |---|---|
    | `retract` | undoes another |
    | `retracted` | is undone by a later retract |
-   | `absent` | joins fewer than two pages with ads that have a unit, splits none of the ads it lists, or moves a building with no ads |
-   | `stale` | splits an ad with another page or no unit, with the ads in `differs`, splits into a split that isn't live, with `into` in `differs`, or moves to a slug matching no building or several, with `to` in `differs` |
+   | `absent` | joins fewer than two pages with ads that have a unit, splits none of the ads it lists, moves a building with no ads, or splits a building with no ad, after the live moves, on a page its labels match |
+   | `stale` | splits an ad with another page or no unit, with the ads in `differs`, splits into a split that isn't live, with `into` in `differs`, moves to a slug matching no building or several, or splits to a slug some building already holds, with `to` in `differs` |
    | `live` | applies |
 
 3. `ads.placed` applies the live entries to `ads.identity`: the joins, then the splits on the
-   joined units, and the moves. The ads of a split with an `into` then take the unit of the
-   split it points into, from that split's ads with a record, since the `into` ad may have
-   none. `placements` lists the entries applied to each ad.
+   joined units, the moves, and then the split_buildings on the moved buildings. The ads of a
+   split with an `into` then take the unit of the split it points into, from that split's ads
+   with a record, since the `into` ad may have none. `placements` lists the entries applied to
+   each ad.
 
 `analysis.candidates` and the ads file take each ad's unit and building from `ads.placed`, so
 the unit-month check runs on the placed units. Since an entry can change any ad's unit or
@@ -2224,6 +2230,32 @@ page 1 in one unit. The garden page's ad 2312228 offered a duplex of 2 bedrooms 
 $15,750 until 2018-02-08. Four days later, ad 2314583 on page 1 offered the same layout at the
 same ask in the same words. The garden page's ad 3215132 of 2020 repeats them and gives 2,750 sq
 ft. Both pages take the garden page's unit ID, the lesser, so 2314583's row changes unit.
+
+On Oct 17 I moved the chain's `west-coast-wings-v1` into `2026-10-17-west-coast-wings.ndjson`, as
+a split_building of `the-west-coast`. StreetEasy files The West Coast's nine converted warehouses
+as one building, and its units carry two numbering schemes: three-digit labels, such as 620 on
+the West Street end, and a floor and letter, such as 9L at the corner of Washington and
+Gansevoort Streets. The entry rests on Ben's floor plans of those two units and on the Landmarks
+Preservation Commission's 2003 Gansevoort Market report. The report gives the West Street and
+Horatio warehouses 6 or 7 stories and the Washington Street end 9, and the three-digit labels
+run over floors 1 to 7, the others over floors 2 to 10. With `labels` of `\d{3}`, the entry
+gives the three-digit units the slug `the-west-coast-west-wing`, and both slugs keep the lot's
+building ID.
+
+On the build of Oct 17, 377 of the building's 617 ads and 321 of its 527 rows take the wing's
+slug. `analysis.latest_ask` and `analysis.ask_check` compare an ad's asks with others under its
+building slug, so they now look within the wing. The chain's `rentfrontier.latest_ask` reads
+each dataset before its rules and takes in the whole of The West Coast, as it leaves 97 Horatio
+Street apart from it. On the build of Oct 17 the wing changes no row's ask. The other models
+join on the building ID. I
+wrote two folders for the served dataset's neighbourhoods with `observations.py`, one from a
+build of master and one from a build with the entry, and compared them with
+`ops/pipeline/port_diff.py`:
+
+- With the chain's `west-coast-wings-v1` applied to master's folder, the two agree on all
+  350,202 rows.
+- With the fit's other unit rules on both sides as well, `building-joins-v1`, `unit-labels-v17`,
+  `unit-reviews-v2` and `unit-splits-v4`, they agree on all 350,202 rows again.
 
 ## Relist units
 
@@ -2845,9 +2877,12 @@ leaves out the chain's `bedrooms-ad`, `baths-ad`, `sqft-units`, `quarantine`, `f
 and `latest-ask` rules. `fields-review-v3`, the latest of its family, changes nothing, and
 `pipeline/ledger/2026-10-17-tenfold-asks.ndjson` holds the tenfold typos of `latest-ask-v8`.
 Since the rows read the elevator and pet policy from each ad's text, the fit leaves out
-`elevator-from-ad-v1` and `pets-from-ad-v2` as well. It still applies `unit-labels-v17`,
-`unit-splits-v4`, `west-coast-wings-v1`, `unit-reviews-v2` and `building-joins-v1`, since
-neither ledger holds their changes yet.
+`elevator-from-ad-v1` and `pets-from-ad-v2` as well. The unit ledger splits The West Coast as
+`west-coast-wings-v1` does, so the fit leaves that rule out too. It still applies
+`unit-labels-v17` and `unit-splits-v4`, since neither ledger holds their changes yet. It also
+keeps `unit-reviews-v2`, because the first step of `unit-labels-v17` undoes the ledger's splits,
+as described under [Unit ledger](#unit-ledger), and `building-joins-v1`, which changes nothing
+on the folder since the rows already carry its move.
 
 The served dataset files West Chelsea's ads under Chelsea, while the rows file gives West
 Chelsea a neighbourhood of its own. The default neighbourhoods come from the served dataset, so

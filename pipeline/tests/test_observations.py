@@ -302,6 +302,38 @@ def test_port_diff(tmp_path, monkeypatch):
     }
 
 
+def test_port_diff_after_rules(tmp_path, monkeypatch):
+    """With `after_rules`, `port_diff.py` runs those rules on AFTER too, and a row they bring
+    into line with BEFORE counts as unchanged."""
+    port_diff = load("port_diff", OBSERVATIONS.with_name("port_diff.py"))
+    data = port_diff.frontier()
+    after = chain_records()
+    before = [dict(r) for r in after]
+    lacking = next(r for r in before if r["pet_policy"] is not None)
+    lacking["pet_policy"] = None
+
+    def clear(frame):
+        frame = frame.copy()
+        frame.loc[frame.audit_id == lacking["audit_id"], "pets"] = "unknown"
+        return frame
+
+    monkeypatch.setitem(data.DATA_RULES, "clear-test", clear)
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    folders = (
+        write_dataset(tmp_path / "before", before),
+        write_dataset(tmp_path / "after", after),
+    )
+    alone = port_diff.compare(*folders, [], None, 0.0025)
+    assert alone["changed"]["rows"] == 1
+    assert list(alone["fields"]) == ["pets"]
+    after = port_diff.compare(*folders, [], None, 0.0025, ["clear-test"])
+    assert after["changed"]["rows"] == 0
+    both = port_diff.compare(*folders, ["clear-test"], None, 0.0025, ["clear-test"])
+    assert both["after"]["rules"] == ["clear-test"]
+    assert both["changed"] == {"rows": 0, "share": 0.0, "negligible": True}
+    assert both["fields"] == {}
+
+
 def test_port_diff_load_in_chunks(tmp_path):
     """`port_diff.load` writes the loader's cache a few rows at a time, and the loader reads the
     same frame back as it builds in one go."""

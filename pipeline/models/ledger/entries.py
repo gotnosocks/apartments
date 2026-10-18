@@ -74,15 +74,24 @@ A line of the unit ledger holds one JSON object with these keys:
     - `join_units` puts the ads of two or more unit pages of a building into one unit.
     - `split_unit` takes some ads of a unit page into a unit of their own.
     - `move_building` gives a building's ads another building.
+    - `split_building` gives the ads of some units of a building a slug of their own, as a
+      wing of the building. They keep the building's ID, and with it its lot.
     - `retract` undoes an earlier entry of the unit ledger.
-- `building`: the building's slug, as the ads' unit pages give it before any move.
+- `building`: the building's slug, as the ads' unit pages give it before any move. For a
+  split_building it is the slug after the moves, so the ads a move brings in can join the wing.
 - `units`: for a join, the slugs of its units, as their pages end.
 - `unit`: for a split, the slug of the unit its ads leave.
 - `listings`: for a split, the IDs of its ads. The new unit's ID ends with the first of them,
   so their order matters.
 - `into`: for a split, optionally, an ad of another split of the building. The split's ads then
   take that split's unit instead of a unit of their own.
-- `to`: for a move, the slug of the building its ads join.
+- `to`: for a move, the slug of the building its ads join. For a split_building, the wing's
+  new slug, which no building of buildings.details holds.
+- `labels`: for a split_building, a regular expression. An ad of the building takes the wing's
+  slug when the expression matches the last part of its unit page in full, in lower case, as
+  the chain's west-coast-wings rule matches it. ledger.unit_status and ads.placed match it with
+  DuckDB's RE2, and parse_unit compiles it with Python's `re` and with DuckDB, refusing an
+  expression either engine can't read.
 - `entry`, `evidence`, `decided`, `source` and `note`: as in the corrections ledger. The
   evidence kinds are the same.
 
@@ -91,11 +100,12 @@ these rules:
 
 1. Every entry has evidence, and each item gives the details its kind needs. A split's own ads
    are its listings, so an `other_ad` or `line_units` item cites other ads.
-2. A join, split or move rests on at least one item of a backing kind: those of rule 2 above,
-   or `city_record`.
+2. A join, split, move or split_building rests on at least one item of a backing kind: those
+   of rule 2 above, or `city_record`.
 3. Among the entries still in force, a page takes part in one join at most, an ad in one split
    and a building in one move. A building with ads moving to it stays where it is, and no ads
-   move to a building on the move.
+   move to a building on the move. A building splits once at most, and each split_building
+   gives a slug of its own.
 4. A retract gives the ID of an earlier entry of the unit ledger, and no other retract gives it
    too. The retracted entry's pages, ads or building are free for later entries.
 5. No line repeats an earlier line.
@@ -119,6 +129,7 @@ import re
 from datetime import date
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 from sqlglot import exp
 from sqlmesh import ExecutionContext, model
@@ -449,11 +460,18 @@ def retracted(seen, row, where, kinds):
 
 # The unit ledger, `units/*.ndjson` inside the ledger's folder. Its entries place ads in units
 # and buildings, keyed on the unit's page or the building's slug rather than on one ad.
-UNIT_CHANGES = ("join_units", "split_unit", "move_building", "retract")
+UNIT_CHANGES = (
+    "join_units",
+    "split_unit",
+    "move_building",
+    "split_building",
+    "retract",
+)
 UNIT_KEYS = {
     "join_units": ("change", "building", "units", "evidence", "decided"),
     "split_unit": ("change", "building", "unit", "listings", "evidence", "decided"),
     "move_building": ("change", "building", "to", "evidence", "decided"),
+    "split_building": ("change", "building", "labels", "to", "evidence", "decided"),
     "retract": ("change", "entry", "evidence", "decided"),
 }
 UNIT_OPTIONAL = dict.fromkeys(UNIT_CHANGES, ("source", "note"))
@@ -474,6 +492,7 @@ UNIT_COLUMNS = {
     "into_ad": "VARCHAR",
     "into_entry": "VARCHAR",
     "to_building": "VARCHAR",
+    "labels": "VARCHAR",
     "retracts": "VARCHAR",
     "kinds": "VARCHAR[]",
     "evidence": "VARCHAR",
@@ -526,8 +545,21 @@ def parse_unit(text: str) -> dict:
             row["into_ad"] = line["into"]
     else:
         row["to_building"] = slug(line["to"], "to")
+        if change == "split_building":
+            labels = line["labels"]
+            try:
+                if not isinstance(labels, str) or not labels:
+                    raise TypeError
+                re.compile(labels)
+                with duckdb.connect() as con:
+                    con.execute("SELECT regexp_full_match('', ?)", [labels])
+            except (TypeError, re.error, duckdb.Error):
+                raise LedgerError(
+                    "a split_building gives its labels as a regular expression"
+                ) from None
+            row["labels"] = labels
         if row["to_building"] == building:
-            raise LedgerError("a move_building moves a building to another")
+            raise LedgerError(f"a {change} gives its ads another slug")
     read_evidence(line, row, ads)
     if not set(row["kinds"]) & set(UNIT_BACKING):
         raise LedgerError(
@@ -539,11 +571,13 @@ def parse_unit(text: str) -> dict:
 
 def claims(row):
     """What the entry `row` takes for itself: the pages of a join, the ads of a split, the
-    building a move moves."""
+    building a move moves, and the building and new slug of a split_building."""
     if row["change"] == "join_units":
         return [("page", page) for page in row["pages"]]
     if row["change"] == "split_unit":
         return [("ad", ad) for ad in row["listings"]]
+    if row["change"] == "split_building":
+        return [("split", row["building"]), ("wing", row["to_building"])]
     return [("moved", row["building"])]
 
 
@@ -551,6 +585,8 @@ CLAIMED = {
     "page": "the page {} is in the join at {}",
     "ad": "ad {} is in the split at {}",
     "moved": "{} moves at {}",
+    "split": "{} splits at {}",
+    "wing": "the split_building at {1} gives the slug {0}",
 }
 
 
@@ -588,7 +624,8 @@ def read_units(paths) -> list[dict]:
                 seen[target["into"]]["into_me"].remove(target["where"])
             mine, to = [], None
         else:
-            mine, to = claims(row), row["to_building"]
+            mine = claims(row)
+            to = row["to_building"] if row["change"] == "move_building" else None
             for kind, key in mine:
                 if (kind, key) in taken:
                     raise LedgerError(

@@ -290,14 +290,18 @@ The older items follow.
       is collected, with `other_ad` or `city_record` evidence;
    3. the chain's rules over the rows, one PR each, in the order Modeling agreed on Oct 17:
       the elevator and pet fills from each ad's text (**done** in #1090),
-      `west-coast-wings-v1` as a move in the unit ledger, `unit-labels-v17`, and
-      `unit-splits-v4` last. Each PR carries a row-by-row diff: I build the export from master
-      and from the branch in a scratch lane, write folders from both with `observations.py`,
-      and compare them with `ops/pipeline/port_diff.py`, the moved rules given to master's
-      folder. A share of changed rows over `NEGLIGIBLE_SHARE` (0.25%) makes the move a data
-      change, and Modeling schedules a fit for it. I tell Modeling before each merge, since a
-      merge changes the rules a fit on the folders leaves out. The ad-text fills changed 81 of
-      NB9's rows and 1.42% of the rows in its neighbourhoods;
+      `west-coast-wings-v1` as a split_building in the unit ledger (**done** in #1093),
+      `unit-labels-v17`, and `unit-splits-v4` last. Each PR carries a row-by-row diff: I build
+      the export from master and from the branch in a scratch lane, write folders from both
+      with `observations.py`, and compare them with `ops/pipeline/port_diff.py`, the moved
+      rules given to master's folder. `--after-rules` gives both folders the unit rules a fit
+      still applies. A share of changed rows over `NEGLIGIBLE_SHARE` (0.25%) makes the move a
+      data change, and Modeling schedules a fit for it. I tell Modeling before each merge,
+      since a merge changes the rules a fit on the folders leaves out. The ad-text fills
+      changed 81 of NB9's rows and 1.42% of the rows in its neighbourhoods. Modeling queued the
+      refit on all scraped areas, 5.54% of rows changed, as blocked by the hour's cap. The
+      wing changed none of the 350,202 rows, with or without the other unit rules on both
+      sides. The lane is `tmp/pipeline/lanes/wings`;
    4. `fields-review-v3`, after the moves of item 3;
    5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
       against 135 s in a single process.

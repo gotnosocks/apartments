@@ -1,18 +1,20 @@
 """Compare two dataset folders row by row, for a chain rule moving into the pipeline.
 
-    python ops/pipeline/port_diff.py BEFORE AFTER --rules NAME,... [--within DATASET]
-        [--report FILE]
+    python ops/pipeline/port_diff.py BEFORE AFTER --rules NAME,... [--after-rules NAME,...]
+        [--within DATASET] [--report FILE]
 
 BEFORE is a folder written by `observations.py` from a build without the port, and AFTER one
 written the same way from a build with it. A fit on BEFORE applies the chain rules in
-`--rules`, and a fit on AFTER leaves them out. The script checks how far the two agree:
+`--rules`, and a fit on AFTER applies those in `--after-rules`, none by default. Each list
+follows the order a fit gives them. The script checks how far the two agree:
 
 1. It loads both folders with `rentfrontier.data.load`, its cache in a temporary folder, and
-   applies the rules to BEFORE with `rentfrontier.data.apply_rules`, which checks their order
-   as a fit does. Built in one go, the loader's list of 1.75 million rows of the dataset of all
-   scraped areas would take most of thelio's memory. So the script first writes the loader's
-   cache file in chunks of 100,000 rows, flattened with the loader's own function, and the
-   loader then reads that file.
+   applies each side's rules with `rentfrontier.data.apply_rules`, which checks their order as a
+   fit does. A port of one rule among the unit rules leaves the others in both lists, so the
+   counts compare the rows both fits would read. Built in one go, the loader's list of 1.75
+   million rows of the dataset of all scraped areas would take most of thelio's memory. So the
+   script first writes the loader's cache file in chunks of 100,000 rows, flattened with the
+   loader's own function, and the loader then reads that file.
 2. It matches the rows by `audit_id` and counts the rows of one side alone.
 3. For each column both sides hold, it counts the matched rows whose values differ, a column
    at a time. Two missing values count as the same. It lists up to 10 pairs of values per
@@ -27,7 +29,7 @@ The rules filling fields from ads' texts hold NB9's rows alone, so for them DATA
 
 The script compares values alone. A fit draws its held-out rows by position within each
 dataset, so the two folders' held-out flags differ wherever a row is missing from one of them,
-and the script passes `apply_rules` an empty held-out mask.
+and the script passes `apply_rules` empty held-out masks.
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ import json
 import os
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
 from itertools import islice
@@ -86,7 +89,12 @@ def differs(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def compare(
-    before: Path, after: Path, rules: list[str], within: Path | None, negligible: float
+    before: Path,
+    after: Path,
+    rules: list[str],
+    within: Path | None,
+    negligible: float,
+    after_rules: Sequence[str] = (),
 ) -> dict:
     """The counts of the module docstring, with a share up to `negligible` as negligible."""
     data = frontier()
@@ -95,6 +103,7 @@ def compare(
         ours = load(data, after, Path(cache))
         theirs = load(data, before, Path(cache))
     theirs, _ = data.apply_rules(theirs, np.zeros(len(theirs), dtype=bool), rules)
+    ours, _ = data.apply_rules(ours, np.zeros(len(ours), dtype=bool), after_rules)
     held = set()
     if within is not None:
         held = {
@@ -156,7 +165,7 @@ def compare(
     rows = int(changed.sum()) + len(before_alone) + len(after_alone)
     return {
         "before": {"folder": str(before), "rows": len(theirs), "rules": rules},
-        "after": {"folder": str(after), "rows": len(ours)},
+        "after": {"folder": str(after), "rows": len(ours), "rules": list(after_rules)},
         "within": None if within is None else str(within),
         "matched": len(common),
         "before_alone": split(before_alone),
@@ -175,6 +184,7 @@ def main(argv=None) -> None:
     parser.add_argument("before", type=Path)
     parser.add_argument("after", type=Path)
     parser.add_argument("--rules", required=True)
+    parser.add_argument("--after-rules", default="")
     parser.add_argument("--within", type=Path)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args(argv)
@@ -182,7 +192,10 @@ def main(argv=None) -> None:
     from rentfrontier.autoselect import NEGLIGIBLE_SHARE
 
     rules = [r for r in args.rules.split(",") if r]
-    result = compare(args.before, args.after, rules, args.within, NEGLIGIBLE_SHARE)
+    after_rules = [r for r in args.after_rules.split(",") if r]
+    result = compare(
+        args.before, args.after, rules, args.within, NEGLIGIBLE_SHARE, after_rules
+    )
     text = json.dumps(result, indent=2)
     if args.report:
         args.report.write_text(text + "\n")
