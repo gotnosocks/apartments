@@ -410,7 +410,7 @@ The older items follow.
        noted file, while it keeps its noted size and modification time, without rewriting and
        hashing it. In the lane `tmp/pipeline/lanes/records-reuse`, a second build of the Oct 17
        export took 28 s with 0 s in the records step. Before, that step took about 90 s of each
-       build after a code change;
+       build after a code change.
 5. Steps 6 and 7 go on from the city archive, as agreed with Data improvements on Oct 16. A PR
    each:
    1. **Done** in #896: `ops/pipeline/city.py` keeps each PAD and MapPLUTO release in
