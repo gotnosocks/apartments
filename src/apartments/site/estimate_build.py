@@ -30,6 +30,7 @@ import os
 import re
 import sqlite3
 import statistics
+import sys
 from array import array
 from collections import Counter
 from pathlib import Path
@@ -366,10 +367,11 @@ def install(
         ],
     )
     if kit_file is not None:
-        return status | {
-            "available": True,
-            "kit_file": write_kit_file(kit_dir, kit_file),
-        }
+        written = write_kit_file(kit_dir, kit_file)
+        if not written["sorted"]:
+            # Lookups still work, but each one reads every row group.
+            print(f"warning: {kit_file} is not sorted by building", file=sys.stderr)
+        return status | {"available": True, "kit_file": written}
     db.executemany(
         "INSERT INTO kit_buildings VALUES (?,?,?,?)",
         (
@@ -415,7 +417,8 @@ def write_kit_file(kit_dir: Path, target: Path) -> dict:
     whether the copy came out sorted. On the all-scraped kit (67,735
     buildings, 250 draws) the copy took 12 s and 0.3 GB and wrote 421 MB,
     against 2.08 GB as JSON in the table, and a lookup took about 55 ms after
-    the first. Sorting in the copy ran out of a 1 GB limit."""
+    the first. An ORDER BY over the list columns needs more than the copy's
+    1 GB limit, so the copy relies on the kit's order."""
     source = str(kit_dir / "buildings.parquet").replace("'", "''")
     out = str(target).replace("'", "''")
     connection = duckdb.connect()

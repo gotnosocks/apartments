@@ -720,3 +720,6 @@ def test_the_form_reads_the_draws_from_the_kit_file(tmp_path, site_root, client)
         == terms["fslope"]
     )
     assert page(client, url) == stored and 'id="result"' in stored
+    # Without the file or a table row the building has no draws.
+    (path.parent / estimate_build.KIT_FILE).unlink()
+    assert estimate_build.building(sqlite3.connect(path), GROVE, path.parent) is None
