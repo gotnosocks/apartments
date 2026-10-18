@@ -87,12 +87,18 @@ def converter(monkeypatch):
 
 def test_observations_load_as_the_chains(tmp_path, build, converter):
     """The dataset folder written from the fixture build's rows file loads with
-    `rentfrontier.data.load` to the chain's rows, with the rows file's latest asks."""
+    `rentfrontier.data.load` to the chain's rows, with the rows file's latest asks. On the
+    chain's side, the rows of `LABEL_MONTH_DROPS` drop after `unit-labels-v17` joins the unit
+    pages, as analysis.label_months drops them after analysis.label_units."""
     catalog = tmp_path / "out"
     line = build(helpers.copy_export(tmp_path), tmp_path / "state", catalog)
     original, ads = catalog / line["rows"]["path"], catalog / line["ads_file"]["path"]
-    expected = chain_records()
-    assert len(expected) == 229
+    every = chain_records()
+    assert len(every) == 229
+    # The records are shared, so a change to a record of `expected` changes it in `every`.
+    expected = [
+        r for r in every if r["source_listing_id"] not in helpers.LABEL_MONTH_DROPS
+    ]
     # The build's rows file with a made-up latest ask for an ad, as a ledger set of the ask
     # gives it, and an ad whose API record has no views or windows. Then the rows file of a
     # build from before the `latest_ask` column.
@@ -172,9 +178,9 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
     ]
     assert not list(tmp_path.glob(".dataset.tmp-*"))
     assert json.loads((out / "manifest.json").read_text()) == manifest
-    assert manifest["rows"] == 229
+    assert manifest["rows"] == 226
     assert list(manifest["neighbourhoods"]) == hoods
-    assert manifest["audit_ids"]["from_chain"] == 228
+    assert manifest["audit_ids"]["from_chain"] == 225
     assert manifest["audit_ids"]["api"] == 1
     assert manifest["served"]["audit_id_differs"] == [
         {
@@ -191,12 +197,14 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
     assert manifest["rows_file"]["path"].endswith(".parquet")
 
     data = converter.frontier_data()
-    chain = write_dataset(tmp_path / "chain", expected)
+    chain = write_dataset(tmp_path / "chain", every)
     ours = data.load(out, cache_root=tmp_path / "cache")
     theirs = data.DATA_RULES["unit-labels-v17"](
         data.load(chain, cache_root=tmp_path / "cache")
     )
     theirs["unit_id"] = theirs.unit_id.replace(PARK_SLOPE)
+    dropped = theirs.source_listing_id.isin(list(helpers.LABEL_MONTH_DROPS))
+    theirs = theirs[~dropped].reset_index(drop=True)
     theirs = data.DATA_RULES["unit-splits-v4"](theirs)
     pd.testing.assert_frame_equal(ours, theirs, check_like=True)
     # The fields a fit's frame leaves out.

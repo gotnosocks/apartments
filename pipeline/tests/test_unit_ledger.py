@@ -347,6 +347,7 @@ def test_unit_ledger_cases(tmp_path, monkeypatch):
         "analysis.history_pairs",
         "analysis.history_splits",
         "analysis.kept",
+        "analysis.label_months",
         "analysis.label_units",
         "analysis.latest_ask",
         "analysis.latest_change",

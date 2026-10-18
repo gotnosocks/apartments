@@ -3,9 +3,10 @@ MODEL (
     kind VIEW,
     grain listing_id,
     audits (unique_values(columns := (listing_id))),
-    description 'The fit-ready rows: the rows of analysis.ledger_rows, each with the label unit of its unit and its piece of that label unit.'
+    description 'The fit-ready rows: the rows of analysis.ledger_rows the unit-month check on label units keeps, each with the label unit of its unit and its piece of that label unit.'
 );
 
+-- The model leaves out the rows analysis.label_months drops, a row for each label unit and month.
 -- `label_unit` takes the unit analysis.label_units joins the row's unit into, or the row's unit
 -- itself. The last column, `split_unit`, takes the piece analysis.history_splits gives the row,
 -- or its label unit. The observations take it as the row's `unit_id`.
@@ -14,3 +15,4 @@ SELECT r.*, coalesce(l.label_unit, r.unit_id) AS label_unit,
 FROM analysis.ledger_rows r
 LEFT JOIN analysis.label_units l USING (unit_id)
 LEFT JOIN analysis.history_splits s USING (listing_id)
+WHERE r.listing_id NOT IN (SELECT listing_id FROM analysis.label_months)

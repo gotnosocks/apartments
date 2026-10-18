@@ -86,8 +86,9 @@ class Fetcher:
 
 def test_history_splits_model():
     """The model walks label units: u:6's page unit joins u:1's label unit, so its two-bedroom ad
-    of 2023 counts as a change from u:1's one-bedroom ad of 2022. It lists only the ads moved out
-    of the first piece."""
+    of 2023 counts as a change from u:1's one-bedroom ad of 2022. It leaves out ad 102, which
+    analysis.label_months drops, so the two-bedroom ad starts u:1's second piece. It lists only
+    the ads moved out of the first piece."""
     db = duckdb.connect()
     db.execute("CREATE SCHEMA analysis")
     rows = frame()
@@ -108,16 +109,16 @@ def test_history_splits_model():
     db.execute(
         "CREATE TABLE analysis.label_units AS SELECT 'u:6' AS unit_id, 'u:1' AS label_unit"
     )
+    db.execute("CREATE TABLE analysis.label_months AS SELECT '102' AS listing_id")
     (table,) = splits.execute.__wrapped__(Fetcher(db), None, None, None)
     assert list(table.columns) == list(splits.COLUMNS)
     found = sorted(table.itertuples(index=False, name=None))
     assert found == [
-        ("102", "u:1", "u:1~1"),
         ("202", "u:2", "u:2~1"),
         ("203", "u:2", "u:2~1"),
         ("205", "u:2", "u:2~2"),
         ("303", "u:3", "u:3~1"),
         ("304", "u:3", "u:3~2"),
-        ("601", "u:1", "u:1~2"),
+        ("601", "u:1", "u:1~1"),
         ("999", "u:4", "u:4~1"),
     ]

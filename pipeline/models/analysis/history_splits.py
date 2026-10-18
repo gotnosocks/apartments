@@ -18,6 +18,7 @@ it. The first piece keeps the unit's ID, and later pieces take the ID with "~1",
 
 The fit runs v4 after every other rule, so the model reads each row's label unit from
 analysis.label_units, or its unit from analysis.ledger_rows, after the unit ledger's splits. It
+leaves out the rows analysis.label_months drops in its unit-month check on label units, and it
 walks only the units holding two or more bedroom counts, as a unit with one count keeps a single
 piece. It lists the rows of the later pieces, each with its label unit and its piece.
 analysis.rows gives each row its piece, or its label unit, as `split_unit`, and the observations
@@ -86,11 +87,13 @@ def pieces(rows: pd.DataFrame) -> list:
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
     rows_table = context.resolve_table("analysis.ledger_rows")
     labels_table = context.resolve_table("analysis.label_units")
+    months_table = context.resolve_table("analysis.label_months")
     rows = context.fetchdf(
         f"""WITH r AS (
             SELECT r.listing_id, coalesce(l.label_unit, r.unit_id) AS unit, r.price_at,
                 r.bedrooms, r.square_feet
             FROM {rows_table} r LEFT JOIN {labels_table} l USING (unit_id)
+            WHERE r.listing_id NOT IN (SELECT listing_id FROM {months_table})
         )
         SELECT unit, listing_id, bedrooms, square_feet FROM r
         WHERE unit IN (SELECT unit FROM r GROUP BY unit HAVING count(DISTINCT bedrooms) > 1)
