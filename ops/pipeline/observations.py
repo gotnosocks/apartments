@@ -471,7 +471,8 @@ def ledger_sets(build: dict) -> dict:
         path = folder / name
         if not path.is_file() or sha256(path) != digest:
             print(
-                f"warning: {path} differs from the build's ledger file", file=sys.stderr
+                f"warning: {path} is missing or differs from the build's ledger file",
+                file=sys.stderr,
             )
         files.add(path)
     fields = {}

@@ -402,4 +402,4 @@ def test_ledger_sets_names_and_paths(tmp_path, converter, monkeypatch, capsys):
         key['{"change": "exclude"}']: ("exclude", []),
         key['{"change": "set", "set": {"bedrooms": 2}}']: ("set", ["bedrooms"]),
     }
-    assert "2026-01-02-c.ndjson differs" in capsys.readouterr().err
+    assert "2026-01-02-c.ndjson is missing" in capsys.readouterr().err

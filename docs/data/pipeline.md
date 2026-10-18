@@ -13,7 +13,7 @@ pandas below 3, and the repo's lock holds pandas 3.0.5.
 
 ```sh
 uv sync --project pipeline --extra dev
-uv run --project pipeline sqlmesh -p pipeline plan --auto-apply --no-prompts
+PIPELINE_LEDGER=$PWD/pipeline/ledger uv run --project pipeline sqlmesh -p pipeline plan --auto-apply --no-prompts
 uv run --project pipeline sqlmesh -p pipeline fetchdf "SELECT how, count(*) FROM analysis.latest_ask GROUP BY 1"
 uv run --project pipeline --extra dev pytest pipeline/tests
 ```
@@ -26,7 +26,7 @@ uv run --project pipeline --extra dev pytest pipeline/tests
 |---|---|---|
 | `PIPELINE_EXPORT` | `/data1/apartments/archive/crawls/api/export` | the scraper's export, with its manifest |
 | `PIPELINE_STATE` | `/data1/apartments/pipeline/state` | the DuckDB database, spill files and SQLMesh's cache |
-| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, and the unit ledger in its `units` folder, as described under [Corrections ledger](#corrections-ledger) and [Unit ledger](#unit-ledger) |
+| `PIPELINE_LEDGER` | `pipeline/ledger` in the checkout | the corrections ledger, and the unit ledger in its `units` folder, as described under [Corrections ledger](#corrections-ledger) and [Unit ledger](#unit-ledger). The ledger models read it again as they run, after SQLMesh has restored the environment it loaded `config.py` in, so a plan needs it set: `build.py` and `diff.py` set it, and a `sqlmesh plan` by hand takes it on its command line |
 | `PIPELINE_CITY` | `/data1/apartments/archive/city` | the city archive, as described under [City records](#city-records) |
 | `PIPELINE_CITY_CACHE` | `/data1/apartments/pipeline/city` | the city archive's files as Parquet, as described under [City tables](#city-tables) |
 | `PIPELINE_INCREMENTAL` | unset, read as 0 | 1 when `ops/pipeline/build.py` asks for a top-up build, as described under [Top-up builds](#top-up-builds) |
@@ -601,7 +601,7 @@ When an audit fails, the plan stops, and the tables from the last good plan stay
 To try an edit, I build it in a dev environment beside prod and list the rows it changes:
 
 ```sh
-uv run --project pipeline sqlmesh -p pipeline plan dev --auto-apply --no-prompts
+PIPELINE_LEDGER=$PWD/pipeline/ledger uv run --project pipeline sqlmesh -p pipeline plan dev --auto-apply --no-prompts
 uv run --project pipeline sqlmesh -p pipeline table_diff prod:dev -m analysis.latest_ask -o listing_id --show-sample
 ```
 

@@ -13,7 +13,9 @@ The script works in these steps:
    missing from them. When the check fails, it loads the project again with the variable set
    to 0, and the build reads every answer.
 2. It plans and applies the `prod` environment. SQLMesh rebuilds each model whose fingerprint
-   changed and every model below it, and runs each model's audits as it goes. When an audit
+   changed and every model below it, and runs each model's audits as it goes. The ledger models
+   read `PIPELINE_LEDGER` as they run, so the script sets it for the plan when it is unset, to
+   the checkout's `pipeline/ledger`. When an audit
    fails, the script prints the failed models and exits with status 1, and the tables of the
    last good build stay in place. It writes nothing to OUT in that case. After a plan that
    applies, it writes the SHA-256 of the code merging a top-up's rows to `STATE/merge.json`,
@@ -262,16 +264,18 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     # The ledger models look their files up in PIPELINE_LEDGER when they run. SQLMesh restored
     # the environment after it loaded config.py, so the plan runs with the folder config.py
     # takes when the variable is unset, and the variable goes back to its value afterwards.
-    ledger = os.environ.get("PIPELINE_LEDGER")
-    os.environ["PIPELINE_LEDGER"] = ledger or str(project / "ledger")
+    folder = os.environ.get("PIPELINE_LEDGER")
+    os.environ["PIPELINE_LEDGER"] = folder or str(project / "ledger")
     try:
         # The console prints the failed models.
         ctx.plan(auto_apply=True, no_prompts=True)
     except PlanError as error:
         raise SystemExit(f"build stopped: {error}") from error
     finally:
-        if not ledger:
-            os.environ.pop("PIPELINE_LEDGER")
+        if folder is None:
+            os.environ.pop("PIPELINE_LEDGER", None)
+        else:
+            os.environ["PIPELINE_LEDGER"] = folder
     # ads.changes reads every answer when the previous ones no longer hold, so the mode that
     # ran comes from its table, as the materialization `merge` reads it.
     (top_up,) = ctx.engine_adapter.fetchone(

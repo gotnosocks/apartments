@@ -385,11 +385,11 @@ The older items follow.
       on both sides in about 19 s. The sample holds the answers of its last run, so rerun it
       after a top-up for the new answers;
    5. **Done** in #958: `ads.record_attributes` and the other ads models take a top-up's new
-      answers alone. In the first build after it, at 05:16 ET on Oct 17,
+      answers alone. In the first build after it, started at 05:16 ET on Oct 17,
       `ads.record_attributes` took 8.4 s and the models 220 s in all, 38 s of it in the
-      `analysis` models, which still rebuild in full. That build read the 45 export files the
-      build of 23:38 ET the night before had read, so a top-up's own times wait for the next
-      top-up. The records step took 464 s of that build, as it filled its cache from
+      `analysis` models, which still rebuild in full. That build read the 45 export files of
+      the build finished at 23:38 ET the night before, so a top-up's own times wait for the
+      next top-up. The records step took 464 s of that build, as it filled its cache from
       empty, and about 90 s in each build after it;
    6. catalog lines for ledger versions and feature sets, once steps 5 and 7 exist;
    7. **Done** in #918: `ads.events` is a view of two tables, `ads.answer_events` and

@@ -312,8 +312,8 @@ def test_failed_janitor_warns(tmp_path, build, monkeypatch, capsys):
 
 def test_ledger_in_another_folder_rebuilds_nothing(tmp_path, build, monkeypatch):
     """The catalog line gives the ledger files by name. A build with the same files in another
-    folder, as from another checkout, reuses every model once the first folder is gone, and a
-    later edit there rebuilds the ledger models from that folder."""
+    folder, as from another checkout, reuses every model. The first folder is gone by then, so
+    a later edit in the second folder rebuilds the ledger models from there."""
     export = copy_export(tmp_path)
     names = {"": "2026-01-01-a.ndjson", "units": "2026-01-01-b.ndjson"}
     for folder in (tmp_path / "ledger", tmp_path / "elsewhere" / "ledger"):
