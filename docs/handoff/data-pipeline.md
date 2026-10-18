@@ -315,13 +315,24 @@ The older items follow.
       lane's state, v4 alone changed none of the 350,202 rows. With the fit's unit rules, 4 rows
       of 249 West 29th Street 3E changed, 0.0011%, where the unit ledger holds back v5's split of
       ad 2200772 for want of backing. That share is under `NEGLIGIBLE_SHARE`, so the splits port
-      needed no refit, and Modeling cleared its merge. Next I test the
-      floor-folded alias groups of every neighbourhood as a measured change, as agreed with
-      Modeling on Oct 17. Two ads on the market at once on the two pages make two
-      units, and a bedroom and size check applies only where both ads state a size. I rerun the
-      Sonnet sample on the result. If the false joins drop and the true ones stay, Modeling
-      schedules its fit once the share is known;
-   4. `fields-review-v3`, after the moves of item 3;
+      needed no refit, and Modeling cleared its merge. On Oct 18 I tested checks on the
+      floor-folded alias groups of every neighbourhood, as agreed with Modeling on Oct 17. They
+      missed, so `analysis.label_units` stays as it is, and Modeling closed the test. The labels
+      lane has 4,274 floor joins with rows on both sides. Fresh Sonnet samples read 47 of 50
+      joins across all areas as the same apartment, with 3 unclear, and 24 of 30 in NB9's
+      neighbourhoods, with 1 different and 5 unclear.
+      - Two ads on the market at once for more than 7 days would split 474 joins. All 16
+        sampled ones were one apartment, mostly a broker posting the same text on both
+        spellings at once.
+      - Sizes more than 20% apart, where both ads state one, would split 190 joins. Of the 10
+        sampled, 8 were one apartment with inconsistent sizes and 2 were unclear.
+      - The median-bedroom guard of layers 3 to 7 would split 1,160 joins, 16 true ones for
+        each false one in the fresh samples.
+
+      The earlier sample's 14 false joins of 40 came from the 88 units the pipeline joins and
+      the chain leaves apart. In random floor joins the readers found about one false join in
+      80. The lane is `tmp/pipeline/lanes/floor-joins`;
+   4. `fields-review-v3`, next;
    5. **Done** in #892: the test suite runs in about 60 s, in three pytest-xdist workers,
       against 135 s in a single process.
 4. Step 8 goes on from the build command. Its timings on runs 1 to 5 are in
