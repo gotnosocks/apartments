@@ -163,3 +163,21 @@ def test_building_hoods_follow_the_fit_rows():
     assert list(hoods) == ["Chelsea", "West Village"]
     no_hood = rentmap.building_hoods(frame[["building"]], heldout, ["a", "b"])
     assert list(no_hood) == ["Chelsea", "Chelsea"]
+
+
+def test_year_quantiles_match_the_rents_of_every_year_at_once():
+    rng = np.random.default_rng(0)
+    d, b, y = 40, 9, 5
+    base = rng.normal(8, 0.1, (d, y))
+    walk = rng.normal(0, 0.2, (d, b, y))
+    own = rng.normal(0, 0.3, (d, b))
+    hood = np.array(["A", "B", "A", "B", "A", "A", "B", "A", "B"])
+    inside = {a: hood == a for a in ("A", "B")}
+    q, c, c_area = rentmap.year_quantiles(base, lambda i: walk[:, :, i], own, inside)
+    rent = np.exp(base[:, None, :] + walk + own[:, :, None])  # (d, B, Y)
+    p = rentmap.PROBABILITIES
+    assert np.array_equal(q, np.quantile(rent, p, axis=0))
+    assert np.array_equal(c, np.quantile(np.median(rent, axis=1), p, axis=0))
+    for a, mask in inside.items():
+        per_draw = np.median(rent[:, mask], axis=1)
+        assert np.array_equal(c_area[a], np.quantile(per_draw, p, axis=0))

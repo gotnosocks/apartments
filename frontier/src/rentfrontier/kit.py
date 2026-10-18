@@ -139,6 +139,8 @@ def kit_tables(kept, prep, config, feats, keep: int = DRAWS):
     if spacing:
         _, frac = model.walk_position(a, spacing)
         w = kept["walk"]
+        if w.shape[-1] != 2:
+            raise ValueError(f"the walk has {w.shape[-1]} knots, not walk_knots' 2")
         walk = (1 - frac) * w[..., a.building, 0] + frac * w[..., a.building, 1]
         terms["building_drift"] = walk + terms["building_drift"]
     for g in dict.fromkeys(feats.groups):

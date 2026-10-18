@@ -447,6 +447,28 @@ def feature_slope_term(fslope, x, cols) -> np.ndarray:
     return np.einsum("dbj,bj->db", fslope, x[:, cols])
 
 
+def year_quantiles(base, path, own, inside: dict) -> tuple:
+    """The rent quantiles per building and year, (P, B, Y), and those of the
+    per-draw median building, (P, Y), overall and within each area of `inside`
+    (area -> building mask). `base` is (d, Y), `own` is (d, B), and `path(y)`
+    gives year y's (d, B) path. The rents are computed a year at a time, so
+    only a (d, B) slice of them is held."""
+    n_p, n_b, n_y = len(PROBABILITIES), own.shape[1], base.shape[1]
+    q = np.empty((n_p, n_b, n_y))
+    c = np.empty((n_p, n_y))
+    c_area = {a: np.empty((n_p, n_y)) for a in inside}
+    for y in range(n_y):
+        rent = np.exp(base[:, None, y] + path(y) + own)  # (d, B)
+        q[:, :, y] = np.quantile(rent, PROBABILITIES, axis=0)
+        # The median building of the fit, per draw (robust to the dearest ones).
+        c[:, y] = np.quantile(np.median(rent, axis=1), PROBABILITIES, axis=0)
+        # The same within each neighbourhood: the median of its buildings.
+        for a, mask in inside.items():
+            per_draw = np.median(rent[:, mask], axis=1)
+            c_area[a][:, y] = np.quantile(per_draw, PROBABILITIES, axis=0)
+    return q, c, c_area
+
+
 def compute(
     name: str, summary_dir: Path | None = None, keep: int | None = kit.DRAWS
 ) -> dict:
@@ -494,7 +516,6 @@ def compute(
     inside = {a: hood == a for a in areas}
     out_rent, median_rent = {}, {}
     median_area = {a: {} for a in areas}
-    n_p, n_b, n_y = len(PROBABILITIES), level.shape[1], len(years)
     for gi, (key, (x, beds)) in enumerate(typical_rows(prep).items()):
         # BEDROOMS is in model.BEDROOM_GROUPS order: the group's own curve.
         curve = (
@@ -509,19 +530,7 @@ def compute(
             + slope * beds
             + (feature_slope_term(kept["fslope"], x, fcols) if fcols else 0.0)
         )  # (d, B)
-        q = np.empty((n_p, n_b, n_y))
-        c = np.empty((n_p, n_y))
-        c_area = {a: np.empty((n_p, n_y)) for a in areas}
-        # A year at a time, so only a (d, B) slice of the rents is held.
-        for y in range(n_y):
-            rent = np.exp(base[:, None, y] + path(y) + own)  # (d, B)
-            q[:, :, y] = np.quantile(rent, PROBABILITIES, axis=0)
-            # The median building of the fit, per draw (robust to the dearest ones).
-            c[:, y] = np.quantile(np.median(rent, axis=1), PROBABILITIES, axis=0)
-            # The same within each neighbourhood: the median of its buildings.
-            for a in areas:
-                per_draw = np.median(rent[:, inside[a]], axis=1)
-                c_area[a][:, y] = np.quantile(per_draw, PROBABILITIES, axis=0)
+        q, c, c_area = year_quantiles(base, path, own, inside)
         out_rent[key] = np.rint(np.moveaxis(q, 0, -1)).astype(int).tolist()
         median_rent[key] = np.rint(c.T).astype(int).tolist()  # (Y, 3)
         for a in areas:

@@ -121,7 +121,7 @@ def test_kit_reproduces_log_terms_at_the_last_month(slopes, months, spacing, dai
     )
     fidx = [feats.names.index(s) for s in slopes]
     # log_terms on numpy cannot index past the last knot (JAX clamps); the
-    # reference repeats it, as the kit does, where its weight is 0.
+    # reference repeats it where its weight is 0.
     padded = kept | {"walk": np.concatenate([kept["walk"], kept["walk"][..., -1:]], -1)}
     terms = explain.log_terms(
         padded, a, feats.groups, spacing, True, True, prep.offset, fidx
@@ -199,6 +199,12 @@ def test_unit_levels_are_the_fits_thinned_unit_draws():
             units.level[j], kept["unit"][idx, j].astype(np.float32), rtol=0, atol=0
         )
     assert len(units.level[0]) == 250
+
+
+def test_the_whole_walk_is_refused():
+    kept, prep, config, feats = toy(spacing=3)
+    with pytest.raises(ValueError, match="knots"):
+        kit.kit_tables(kept, prep, config, feats)
 
 
 def test_read_kept_gives_the_thinned_draws_and_last_knots(tmp_path):
