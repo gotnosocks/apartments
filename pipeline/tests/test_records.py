@@ -125,6 +125,11 @@ def test_a_noted_file_comes_back(tmp_path):
         connect().cursor(), FILES, cache, out, workers=1, version="v2"
     )
     assert other == first | {"read": 0}
+    # The note after the cut-off line reads back.
+    again = records.write(
+        connect().cursor(), missing, cache, out, workers=1, version="v2"
+    )
+    assert again == first | {"read": 0, "reused": True}
     os.utime(path, ns=(stamp, stamp + 1))
     changed = records.write(
         connect().cursor(), FILES, cache, out, workers=1, version="v1"

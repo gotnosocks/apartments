@@ -3414,8 +3414,9 @@ in all, and most tests add made-up ads to that export. The tests:
     SHA-256. The ads file holds each ad once, and its ads with `in_rows` are the rows file's
     ads. The records file holds each of the 229 records once, sorted by listing. The second
     build rebuilds nothing, reads no record, writes the same rows and ads files, returns the
-    noted records file and appends a second catalog line. Last, the test adds an export file repeating an answer and checks that the build stops
-    and leaves OUT as it was. Item 74 describes the test of a top-up build;
+    noted records file and appends a second catalog line. Last, the test adds an export file
+    repeating an answer and checks that the build stops and leaves OUT as it was. Item 74
+    describes the test of a top-up build;
 21. parse a line breaking each of the ledger's rules, the details each evidence kind needs
     among them, an ask set of 0, an ask set without its recorded ask and an ask set backed only
     by a stated size and units of the same line. Then read files with a repeated line, a retract
