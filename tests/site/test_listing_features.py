@@ -28,8 +28,7 @@ def test_laundry_doorman_and_outdoor_filters(client, site_root):
     db.execute("UPDATE listings SET laundry = NULL, doorman = NULL")
     db.commit()
     db.close()
-    inputs = json.dumps({"outdoor:balcony": 1.0})
-    _set(site_root, "a1", laundry="in_unit", doorman="unspecified", inputs=inputs)
+    _set(site_root, "a1", laundry="in_unit", doorman="unspecified", outdoor=1)
     assert _count(client, "laundry=in_unit") == 1
     assert _count(client, "laundry=any") == 1
     assert _count(client, "doorman=any") == 1
@@ -57,6 +56,12 @@ def test_listing_tables_show_floor_and_amenities(client, site_root):
     _set(site_root, "a1", floor=3, laundry="in_unit", elevator="yes")
     html = client.get("/listings").get_data(as_text=True)
     assert '<span class="feat">floor 3 · elevator · W/D in unit' in html
+    _set(site_root, "a1", floor=None, label_floor=4, outdoor=1)
+    html = client.get("/listings").get_data(as_text=True)
+    assert (
+        '<span class="feat">floor 4 · elevator · W/D in unit · doorman · outdoor space'
+        in html
+    )
 
 
 def test_a_floor_read_from_the_unit_number_says_so(client, site_root):
