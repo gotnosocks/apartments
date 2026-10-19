@@ -68,6 +68,15 @@ RUNS = (
 # The new-building score's CPU container (app.newbuilding_cpu) after each finished fit: 202 to
 # 227 s, $0.14, on 2026-10-13, at app.nb_usd_per_second() * 3600 an hour (kept equal by a test).
 NEWBUILDING_SECONDS, NEWBUILDING_USD_PER_HOUR = 240, 2.5321
+# The baseline scoring's CPU container (app.score_cpu, fit.py --cpu-score) after a GPU stage that
+# leaves its draws on the Volume: the container's staging and start (SCORE_OVERHEAD_SECONDS), then
+# SCORE_SECONDS_PER_DRAW a kept draw, measured on 8 of thelio's 12 cores (80.8 s) for B0.1's 656-draw,
+# 1.2M-row w1500 run, with the 16 cores of the container taken as no faster. USD_PER_HOUR is
+# app.score_usd_per_second() * 3600 (kept equal by a test).
+SCORE_OVERHEAD_SECONDS, SCORE_SECONDS_PER_DRAW, SCORE_USD_PER_HOUR = 90, 0.12, 1.0103
+# PSIS-LOO inside the GPU container, per kept draw, when no earlier fit of the model measured it:
+# B0.1's w1500 run took 1,215 s for its 656 draws (2026-10-18).
+GPU_LOO_SECONDS_PER_DRAW = 1.9
 SERVED_FIT = (
     2,
     300,
@@ -145,9 +154,11 @@ def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
 
 def measured_gradients(model, features, runs=RUNS):
     """The latest successful Modal fit of a BlackJAX `model` on `features` under `runs`: its
-    fit-stage seconds a gradient, mean leapfrog steps a warmup iteration and a draw, PSIS-LOO
-    seconds a kept draw, other seconds outside the fit stage, chains and leapfrog limit. None
-    if there is no such fit."""
+    fit-stage seconds a gradient, mean leapfrog steps a warmup iteration and a draw, the
+    PSIS-LOO seconds a kept draw in its GPU container (None if its draws were scored on a CPU
+    container), the scoring container's overhead and seconds a kept draw (None if there was
+    none), other seconds in the GPU container outside the fit stage, chains and leapfrog limit.
+    None if there is no such fit."""
     latest = None
     for meta in runs.glob(f"{model}-{features}-*/modal/modal.json"):
         try:
@@ -160,14 +171,21 @@ def measured_gradients(model, features, runs=RUNS):
             ):
                 continue
             chees, s = result["chees"], result["sampler_settings"]
-            fit, loo = m["stages"]["fit"], m["stages"]["loo"]
+            fit, loo = m["stages"]["fit"], m["stages"].get("loo")
             kept = s["chains"] * (s["draws"] // s["keep_every"])
+            score = m.get("score") or {}
+            if "score_seconds" not in score:
+                score = {}
             measured = {
                 "per_gradient": fit / chees["gradients"],
                 "warm_steps": chees["warmup_mean_steps"],
                 "draw_steps": chees["mean_steps"],
-                "loo_per_draw": loo / kept,
-                "other": m["wall_seconds"] - fit - loo,
+                "loo_per_draw": loo / kept if loo is not None else None,
+                "score_overhead": (
+                    score["wall_seconds"] - score["score_seconds"] if score else None
+                ),
+                "score_per_draw": score["score_seconds"] / kept if score else None,
+                "other": m["wall_seconds"] - fit - (loo or 0),
                 "chains": s["chains"],
                 "max_leapfrog_steps": s["max_leapfrog_steps"],
             }
@@ -192,16 +210,54 @@ def fit_estimate(
     runs=RUNS,
     keep=1,
     max_leapfrog_steps=None,
+    cpu_score=False,
 ):
-    """Estimated (USD, seconds) of a Modal fit. A BlackJAX fit with the chains and leapfrog
-    limit of its model's last Modal fit is estimated from that fit's time a gradient and step
-    counts, with PSIS-LOO scaled by the kept draws, since its time an iteration follows its
-    trajectory lengths and not the Gibbs rate. A model in STAND_IN with no such fit of its
-    own is estimated from its stand-in's. Every other fit comes from `estimate` and
-    `seconds`."""
+    """Estimated (USD, seconds) of a Modal fit: `fit_stages` summed, the GPU container then the
+    scoring container, which run one after the other."""
+    stages = fit_stages(
+        model,
+        features,
+        chains,
+        warmup,
+        draws,
+        gpu,
+        large,
+        runs,
+        keep,
+        max_leapfrog_steps,
+        cpu_score,
+    )
+    return (
+        round(sum(usd for usd, _ in stages.values()), 2),
+        sum(secs for _, secs in stages.values()),
+    )
+
+
+def fit_stages(
+    model,
+    features,
+    chains,
+    warmup,
+    draws,
+    gpu,
+    large=False,
+    runs=RUNS,
+    keep=1,
+    max_leapfrog_steps=None,
+    cpu_score=False,
+):
+    """Estimated {container: (USD, seconds)} of a Modal fit, each stage at its own price: "gpu",
+    plus "score" for a baseline scored on a CPU container (`cpu_score`). A BlackJAX fit with the
+    chains and leapfrog limit of its model's last Modal fit is estimated from that fit's time a
+    gradient and step counts, with PSIS-LOO scaled by the kept draws, since its time an
+    iteration follows its trajectory lengths and not the Gibbs rate. A model in STAND_IN with no
+    such fit of its own is estimated from its stand-in's. Every other fit comes from `estimate`
+    and `seconds`, with the scoring container added to them. In the GPU container, scoring on
+    the CPU container takes the place of PSIS-LOO."""
     hmc = measured_gradients(model, features, runs)
     if hmc is None and model in STAND_IN:
         hmc = measured_gradients(STAND_IN[model], features, runs)
+    kept = int(chains) * (int(draws) // int(keep))
     if (
         hmc
         and not large
@@ -210,16 +266,26 @@ def fit_estimate(
         and int(max_leapfrog_steps) == hmc["max_leapfrog_steps"]
     ):
         steps = int(warmup) * hmc["warm_steps"] + int(draws) * hmc["draw_steps"]
-        kept = int(chains) * (int(draws) // int(keep))
-        secs = round(
-            hmc["other"] + hmc["per_gradient"] * steps + hmc["loo_per_draw"] * kept
-        )
-        return round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs
-    rate = measured_rate(model, features, runs)
-    return (
-        estimate(chains, warmup, draws, gpu, rate, large),
-        seconds(chains, warmup, draws, rate, large),
-    )
+        secs = hmc["other"] + hmc["per_gradient"] * steps
+        if not cpu_score:
+            secs += (hmc["loo_per_draw"] or GPU_LOO_SECONDS_PER_DRAW) * kept
+        secs = round(secs)
+        stages = {"gpu": (round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs)}
+    else:
+        rate = measured_rate(model, features, runs)
+        stages = {
+            "gpu": (
+                estimate(chains, warmup, draws, gpu, rate, large),
+                seconds(chains, warmup, draws, rate, large),
+            )
+        }
+    if cpu_score:
+        # A measured scoring container, or the constants.
+        overhead = (hmc or {}).get("score_overhead") or SCORE_OVERHEAD_SECONDS
+        per_draw = (hmc or {}).get("score_per_draw") or SCORE_SECONDS_PER_DRAW
+        secs = round(overhead + per_draw * kept)
+        stages["score"] = (round(secs * SCORE_USD_PER_HOUR / 3600, 2), secs)
+    return stages
 
 
 def max_leapfrog_steps(argv):
@@ -462,6 +528,7 @@ if __name__ == "__main__":
                 large,
                 keep=_positional(argv)[0][7],
                 max_leapfrog_steps=max_leapfrog_steps(argv),
+                cpu_score="--cpu-score" in argv,
             )
         except (TypeError, ValueError, KeyError, IndexError):
             sys.exit(

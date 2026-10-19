@@ -83,7 +83,10 @@ EPOCH = pd.Timestamp(
 # Rows of a block while summing over all rows, so the (chains, block, coefficients) arrays stay
 # well under a gigabyte.
 BLOCK = 1 << 18
-LOO_BLOCK = 50_000  # rows per (draws, rows) log-density block while scoring
+LOO_BLOCK = 10_000  # most rows per (draws, rows) log-density block while scoring
+BLOCK_CELLS = (
+    6_500_000  # draws x rows a scoring block holds at most (about 50 MB a float array)
+)
 
 
 @dataclass(frozen=True)
@@ -676,41 +679,80 @@ def prior_predictive(d: Design, priors: Priors, draws=200, rows=50_000, seed=0) 
 # ------------------------------------------------------------------ scoring
 
 
-def loglik_rows(d: Design, kept: dict, lo: int, hi: int) -> np.ndarray:
-    """(draws, rows) Student-t log densities of rows lo..hi under the kept draws."""
+def linear_predictor(d: Design, kept: dict, lo: int, hi: int) -> np.ndarray:
+    """(draws, rows) log-rent location of rows lo..hi under the kept draws."""
     beta = kept["beta"].reshape(-1, kept["beta"].shape[-1])
     L = kept["L"].reshape(-1, kept["L"].shape[-1])
-    nu = kept["nu"].reshape(-1)
-    sigma = kept["sigma"].reshape(-1, 4)
     wk, f = d.week[lo:hi], d.frac[lo:hi]
-    mu = beta @ d.x[lo:hi].T + (1 - f) * L[:, wk] + f * L[:, wk + 1]
-    from scipy.stats import t as student
-
-    return student.logpdf(
-        d.y[lo:hi][None, :] - mu, nu[:, None], scale=sigma[:, d.group[lo:hi]]
-    )
+    mu = beta @ d.x[lo:hi].T
+    mu += (1 - f) * L[:, wk]
+    mu += f * L[:, wk + 1]
+    return mu
 
 
-def predictive(d: Design, kept: dict, per_draw=10, seed=0, block=5_000) -> dict:
-    """Held-out rows' predictive medians and 80%/95% intervals of log rent, by simulation."""
-    rng = np.random.default_rng(seed)
-    beta = kept["beta"].reshape(-1, kept["beta"].shape[-1])
-    L = kept["L"].reshape(-1, kept["L"].shape[-1])
+def loglik_rows(
+    d: Design, kept: dict, lo: int, hi: int, mu: np.ndarray | None = None
+) -> np.ndarray:
+    """(draws, rows) Student-t log densities of rows lo..hi under the kept draws.
+    A `mu` from `linear_predictor` for the same rows is reused, and overwritten."""
+    from scipy.special import gammaln
+
     nu = kept["nu"].reshape(-1)
     sigma = kept["sigma"].reshape(-1, 4)
-    q = np.array([0.025, 0.1, 0.5, 0.9, 0.975])
-    out = np.empty((len(d.y), len(q)))
+    group = d.group[lo:hi]
+    if mu is None:
+        mu = linear_predictor(d, kept, lo, hi)
+    # scipy.stats.t.logpdf in closed form, with its gamma terms taken once a draw rather than
+    # once a cell and the arrays reused in place: a twelfth of the time, equal to 2e-15.
+    out = np.log(sigma)[:, group]
+    np.negative(out, out=out)
+    out += (gammaln((nu + 1) / 2) - gammaln(nu / 2) - 0.5 * np.log(nu * math.pi))[
+        :, None
+    ]
+    z = np.subtract(d.y[lo:hi][None, :], mu, out=mu)
+    z /= sigma[:, group]
+    z *= z
+    z /= nu[:, None]
+    np.log1p(z, out=z)
+    z *= ((nu + 1) / 2)[:, None]
+    out -= z
+    return out
+
+
+PRED_BLOCK = (
+    2_000  # most held-out rows per simulation block, each with its own random stream
+)
+QUANTILES = np.array([0.025, 0.1, 0.5, 0.9, 0.975])
+
+
+def predictive_block(
+    d: Design, kept: dict, lo: int, hi: int, mu: np.ndarray, per_draw=10, seed=0
+) -> np.ndarray:
+    """(rows, 5) predictive quantiles of log rent for rows lo..hi, by simulation from their
+    linear predictor `mu`. The stream is seeded by (seed, lo), so a row's draws do not depend
+    on which block boundaries or workers surround it."""
+    rng = np.random.default_rng([seed, lo])
+    nu = kept["nu"].reshape(-1)
+    sigma = kept["sigma"].reshape(-1, 4)
+    sims = rng.standard_t(np.broadcast_to(nu[None, :, None], (per_draw, *mu.shape)))
+    sims *= sigma[:, d.group[lo:hi]][None]
+    sims += mu[None]
+    return np.quantile(sims.reshape(-1, hi - lo), QUANTILES, axis=0).T
+
+
+def predictive(d: Design, kept: dict, per_draw=10, seed=0, block=None) -> dict:
+    """Held-out rows' predictive medians and 80%/95% intervals of log rent, by simulation, in
+    the row blocks `score` uses unless `block` says otherwise."""
+    if block is None:
+        block, _ = _row_blocks(
+            len(d.y), int(kept["nu"].size), PRED_BLOCK, BLOCK_CELLS // 5
+        )
+    out = np.empty((len(d.y), len(QUANTILES)))
     for lo in range(0, len(d.y), block):
         hi = min(lo + block, len(d.y))
-        wk, f = d.week[lo:hi], d.frac[lo:hi]
-        mu = beta @ d.x[lo:hi].T + (1 - f) * L[:, wk] + f * L[:, wk + 1]
-        sims = (
-            mu[None]
-            + rng.standard_t(np.broadcast_to(nu[None, :, None], (per_draw, *mu.shape)))
-            * sigma[:, d.group[lo:hi]][None]
-        )
-        out[lo:hi] = np.quantile(sims.reshape(-1, hi - lo), q, axis=0).T
-    return {"quantiles": q, "values": out}
+        mu = linear_predictor(d, kept, lo, hi)
+        out[lo:hi] = predictive_block(d, kept, lo, hi, mu, per_draw, seed)
+    return {"quantiles": QUANTILES, "values": out}
 
 
 def coverage(d: Design, pred: dict) -> dict:
@@ -1023,10 +1065,51 @@ def diagnostics(trace: dict, names) -> dict:
     }
 
 
-def score(name: str, model: str = NAME, spec=None) -> tuple[dict, dict]:
+def _row_blocks(rows: int, draws: int, most: int, cells: int):
+    """Row offsets of the scoring blocks: `most` rows, or fewer where `cells` draws x rows
+    would be exceeded, so memory stays bounded as the kept draws grow."""
+    size = max(100, min(most, cells // max(draws, 1)))
+    return size, range(0, rows, size)
+
+
+def _loo_block(train, kept, lo, size):
+    """PSIS-LOO elpd, Pareto k, MCSE and lppd of training rows lo..lo + LOO_BLOCK."""
+    from . import loo
+
+    ll = loglik_rows(train, kept, lo, min(lo + size, len(train.y)))
+    return (*loo.psis_loo(ll), loo.lppd(ll))
+
+
+def _heldout_block(test, kept, lo, size, per_draw=10):
+    """Predictive quantiles and lppd of held-out rows lo..lo + size, from one linear
+    predictor."""
+    from . import loo
+
+    hi = min(lo + size, len(test.y))
+    mu = linear_predictor(test, kept, lo, hi)
+    values = predictive_block(test, kept, lo, hi, mu, per_draw)
+    return values, loo.lppd(loglik_rows(test, kept, lo, hi, mu))
+
+
+def score(
+    name: str,
+    model: str = NAME,
+    spec=None,
+    workers: int = 1,
+    loo_step: bool = True,
+    heldout_step: bool = True,
+) -> tuple[dict, dict]:
     """PSIS-LOO over the run's training rows, and the held-out rows' predictive medians,
     intervals and coverage, as `rentfrontier.loo` writes them: (record, pointwise arrays).
+    `loo_step` and `heldout_step` switch those two scores; a record without one leaves its
+    fields out, and `record["steps"]` says which ran. The summaries, season curve and trend
+    always come from the kept draws.
+    With workers > 1, threads score row blocks in parallel (the numpy work releases the
+    GIL); each row's numbers come out the same however many workers run, since every block has
+    its own random stream.
     `spec` is a module with its own `design`, `summarize` and `scorecard`, as for `main_run`."""
+    from concurrent.futures import ThreadPoolExecutor
+
     from . import clusterse, loo
     from . import run as runmod
 
@@ -1043,47 +1126,70 @@ def score(name: str, model: str = NAME, spec=None) -> tuple[dict, dict]:
     full = spec.design(frame, pd.Timestamp(result["grid_start"]))
     train, test = subset(full, ~heldout), subset(full, heldout)
     t0 = time.perf_counter()
-    elpd, k, mcse, lp = [], [], [], []
-    for lo in range(0, len(train.y), LOO_BLOCK):
-        ll = loglik_rows(train, kept, lo, min(lo + LOO_BLOCK, len(train.y)))
-        e, kk, m = loo.psis_loo(ll)
-        elpd.append(e)
-        k.append(kk)
-        mcse.append(m)
-        lp.append(loo.lppd(ll))
-    elpd, k, mcse, lp = map(np.concatenate, (elpd, k, mcse, lp))
-    n = len(elpd)
     draws = int(kept["nu"].size)
-    threshold = loo.k_threshold(draws)
-    buildings = frame.building.astype(str).to_numpy()[~heldout]
+    loo_size, train_blocks = _row_blocks(len(train.y), draws, LOO_BLOCK, BLOCK_CELLS)
+    # A simulation block holds per_draw (10) times the cells of a log-density block.
+    held_size, held_blocks = _row_blocks(
+        len(test.y), draws, PRED_BLOCK, BLOCK_CELLS // 5
+    )
+    train_blocks = train_blocks if loo_step else ()
+    held_blocks = held_blocks if heldout_step else ()
+    with ThreadPoolExecutor(max(1, workers)) as pool:
+        # Submitted first: held-out blocks cost the most a row.
+        held = [
+            pool.submit(_heldout_block, test, kept, lo, held_size) for lo in held_blocks
+        ]
+        parts = [
+            pool.submit(_loo_block, train, kept, lo, loo_size) for lo in train_blocks
+        ]
+        held = [f.result() for f in held]
+        parts = [f.result() for f in parts]
+    seconds = time.perf_counter() - t0
     record = {
         "run": name,
         "model": model,
-        "elpd_loo": float(elpd.sum()),
-        "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(n)),
-        "elpd_loo_building_se": clusterse.cluster_se(elpd, buildings),
-        "elpd_loo_mcse": float(math.sqrt(np.sum(mcse**2))),
-        "p_loo": float(lp.sum() - elpd.sum()),
-        "rows": n,
+        "rows": len(train.y),
         "draws": draws,
-        "pareto_k": {
-            "threshold": threshold,
-            "max": float(k.max()),
-            "over_0.7": int((k > 0.7).sum()),
-            "over_threshold": int((k > threshold).sum()),
-        },
-        "loo_seconds": time.perf_counter() - t0,
+        "steps": {"loo": loo_step, "heldout": heldout_step},
+        "workers": workers,
+        "score_seconds": seconds,
     }
-    t0 = time.perf_counter()
-    pred = predictive(test, kept)
-    ll_test = [
-        loo.lppd(loglik_rows(test, kept, lo, min(lo + LOO_BLOCK, len(test.y))))
-        for lo in range(0, len(test.y), LOO_BLOCK)
-    ]
-    record["heldout"] = coverage(test, pred) | {
-        "elpd": float(np.concatenate(ll_test).sum()) if ll_test else None
-    }
-    record["heldout_seconds"] = time.perf_counter() - t0
+    pointwise = {}
+    if loo_step:
+        elpd, k, mcse, lp = (np.concatenate(p) for p in zip(*parts))
+        n = len(elpd)
+        threshold = loo.k_threshold(draws)
+        buildings = frame.building.astype(str).to_numpy()[~heldout]
+        record |= {
+            "elpd_loo": float(elpd.sum()),
+            "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(n)),
+            "elpd_loo_building_se": clusterse.cluster_se(elpd, buildings),
+            "elpd_loo_mcse": float(math.sqrt(np.sum(mcse**2))),
+            "p_loo": float(lp.sum() - elpd.sum()),
+            "pareto_k": {
+                "threshold": threshold,
+                "max": float(k.max()),
+                "over_0.7": int((k > 0.7).sum()),
+                "over_threshold": int((k > threshold).sum()),
+            },
+        }
+        pointwise |= dict(
+            audit_id=frame.audit_id.to_numpy()[~heldout].astype(str),
+            elpd_loo=elpd,
+            pareto_k=k,
+        )
+    if heldout_step:
+        values = np.concatenate([h[0] for h in held]) if held else np.empty((0, 5))
+        pred = {"quantiles": QUANTILES, "values": values}
+        lppd_held = np.concatenate([h[1] for h in held]) if held else np.empty(0)
+        record["heldout"] = coverage(test, pred) | {
+            "elpd": float(lppd_held.sum()) if len(lppd_held) else None
+        }
+        pointwise |= dict(
+            heldout_audit_id=frame.audit_id.to_numpy()[heldout].astype(str),
+            heldout_quantiles=values,
+            heldout_y=test.y,
+        )
     summary = spec.summarize(kept, names)
     season = season_curve(kept, names)
     trend = trend_summary(kept, full.start, full.weeks)
@@ -1099,13 +1205,7 @@ def score(name: str, model: str = NAME, spec=None) -> tuple[dict, dict]:
     record["trend"] = {k: v for k, v in trend.items() if k not in ("dates", "L")}
     record["scorecard"] = spec.scorecard(summary, season, trend)
     record["descriptive_share"] = 0.0
-    pointwise = dict(
-        audit_id=frame.audit_id.to_numpy()[~heldout].astype(str),
-        elpd_loo=elpd,
-        pareto_k=k,
-        heldout_audit_id=frame.audit_id.to_numpy()[heldout].astype(str),
-        heldout_quantiles=pred["values"],
-        heldout_y=test.y,
+    pointwise |= dict(
         trend_dates=np.asarray(trend["dates"]),
         trend_L=trend["L"],
         season_days=season["days"],

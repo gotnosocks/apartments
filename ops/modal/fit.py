@@ -16,6 +16,12 @@ With --design-only --run NAME, a run already downloaded here gets its design pre
 pickle downloads to FRONTIER_OUTPUT_ROOT/designs, where a summary at the same commit run with
 FRONTIER_DESIGN_CACHE=read loads it. It is for a run whose prep runs out of thelio's memory.
 
+With --cpu-score (a baseline model: b0.1, b0.2, ...), the GPU container stops after the fit and
+saves its draws to the Volume. A second container with 16 CPU cores and no GPU (app.score_cpu)
+then runs rentfrontier.loo on them, with --no-loo and --no-heldout leaving out PSIS-LOO or the
+held-out scoring, and the A100 is not billed for that work. cap.py prices the two containers
+apart and applies the per-fit cap to the sum of their seconds.
+
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
 dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
 if the estimate is over the per-fit cap); upload only the inputs that changed since the last sync; ship a
@@ -149,6 +155,23 @@ def parse(argv):
         "intervals (rentfrontier.summary --range-atoms), in the same places as --range-sample",
     )
     p.add_argument(
+        "--cpu-score",
+        action="store_true",
+        help="B0 family only: the GPU container stops after the fit and leaves its draws on "
+        "the Volume, and a CPU container (app.score_cpu) scores them (PSIS-LOO, held-out "
+        "predictive quantiles and coverage), priced at its own rate",
+    )
+    p.add_argument(
+        "--no-loo",
+        action="store_true",
+        help="B0 family only: score without PSIS-LOO (the record and its pointwise file lack it)",
+    )
+    p.add_argument(
+        "--no-heldout",
+        action="store_true",
+        help="B0 family only: score without the held-out rows' quantiles and coverage",
+    )
+    p.add_argument(
         "--save-design",
         action="store_true",
         help="copy the fit's prepared design (rentfrontier.design) to the Volume and down to "
@@ -215,6 +238,9 @@ def plan(args, run_args, sha, short=None):
         "range_sample": args.range_sample,
         "range_atoms": args.range_atoms,
         "save_design": args.save_design,
+        "cpu_score": args.cpu_score,
+        "loo": not args.no_loo,
+        "heldout": not args.no_heldout,
     }
 
 
@@ -378,18 +404,35 @@ def score_new_buildings(modal_app, spec):
         }
 
 
+def score_on_cpu(modal_app, spec):
+    """The scoring (PSIS-LOO and the held-out rows' statistics) of a baseline fit that finished,
+    in a CPU container (app.score_cpu) while its run is on the Volume. A failure comes back as
+    the stage's record and leaves the fit's run in place, as a GPU container's failed PSIS-LOO
+    does."""
+    started = time.monotonic()
+    try:
+        return modal_app.score_cpu.remote(spec)
+    except Exception as e:  # noqa: BLE001
+        print(f"scoring failed: {e!r}", flush=True)
+        # The balance still pays for the container time it ran.
+        seconds = time.monotonic() - started
+        return {
+            "exit": repr(e),
+            "wall_seconds": round(seconds, 1),
+            "usd_estimate": round(seconds * modal_app.score_usd_per_second(), 2),
+        }
+
+
+BASELINE_MODELS = ("b0", "b0.1", "b0.2", "b0.3")
+
+
 def wants_summary(spec, split):
     """Whether a downloaded fit gets a summary bundle: only full-tier fits are served, and
     rentfrontier.summary refuses the unit and latest splits, and reads no B0, B0.1 or B0.2 run."""
     run_args = spec.get("run_args", [])
     b0 = any(
         pair in zip(run_args, run_args[1:])
-        for pair in (
-            ("--model", "b0"),
-            ("--model", "b0.1"),
-            ("--model", "b0.2"),
-            ("--model", "b0.3"),
-        )
+        for pair in (("--model", name) for name in BASELINE_MODELS)
     )
     return (
         spec["tier"] == "full"
@@ -450,6 +493,12 @@ def main(argv):
         check=True,
     ).stdout.strip()
     spec = plan(args, run_args, sha, short)
+    if (args.cpu_score or args.no_loo or args.no_heldout) and (
+        args.model not in BASELINE_MODELS or args.large
+    ):
+        sys.exit(
+            "--cpu-score, --no-loo and --no-heldout apply to a B0, B0.1 or B0.2 fit that is not --large"
+        )
     if args.publish_only:
         return publish(args, spec, sha)
     if args.design_only:
@@ -468,7 +517,7 @@ def main(argv):
     if args.gpu not in fits:
         sys.exit(f"--gpu must be one of {', '.join(fits)}")
     touch()
-    usd, secs = cap.fit_estimate(
+    stages = cap.fit_stages(
         args.model,
         args.features,
         args.chains,
@@ -479,7 +528,10 @@ def main(argv):
         OUTPUT_ROOT / "runs",
         keep=args.keep,
         max_leapfrog_steps=cap.max_leapfrog_steps(run_args),
+        cpu_score=args.cpu_score,
     )
+    usd = round(sum(u for u, _ in stages.values()), 2)
+    secs = sum(t for _, t in stages.values())
     # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
     launch, left = cap.reserve(
         spec["name"],
@@ -494,6 +546,14 @@ def main(argv):
         f"Modal balance now ${left:.2f}",
         flush=True,
     )
+    if len(stages) > 1:
+        print(
+            "  "
+            + "; ".join(
+                f"{name} {t / 60:.0f} min ${u:.2f}" for name, (u, t) in stages.items()
+            ),
+            flush=True,
+        )
     import modal
 
     started, meta = time.monotonic(), None
@@ -501,18 +561,28 @@ def main(argv):
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
             meta = fits[args.gpu].remote(spec)
+            if args.cpu_score and meta.get("fit_exit", meta["exit"]) == 0:
+                meta["score"] = score_on_cpu(modal_app, spec)
+                if meta["score"]["exit"] != 0:
+                    # The fit and its draws stay; finish() keeps a good fit whose scoring failed.
+                    meta["exit"] = (
+                        meta["score"]["exit"]
+                        if isinstance(meta["score"]["exit"], int)
+                        else 1
+                    )
             # The new-building container's 128 GiB and hour don't stretch to a large run.
             # rentfrontier.newbuilding reads the frontier model's posterior, which a B0
             # baseline run has none of.
             if (
                 meta.get("fit_exit", meta["exit"]) == 0
                 and not args.large
-                and args.model not in ("b0", "b0.1", "b0.2", "b0.3")
+                and args.model not in BASELINE_MODELS
             ):
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
             meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, args.large)
-            + meta.get("newbuilding", {}).get("usd_estimate", 0),
+            + meta.get("newbuilding", {}).get("usd_estimate", 0)
+            + meta.get("score", {}).get("usd_estimate", 0),
             2,
         )
         # A large fit gets no summary on thelio, so its design would have no reader there.

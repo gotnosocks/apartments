@@ -59,6 +59,11 @@ USD_PER_CORE_SECOND, USD_PER_GIB_SECOND = 0.0000131, 0.00000222
 # The new-building score (rentfrontier.newbuilding) is numpy over row chunks, one process
 # per core: a CPU container scores a run's kept draws in parallel after its fit.
 NB_CPU, NB_MEMORY_MIB, NB_TIMEOUT = 32, 131072, 3600
+# The baseline models' scoring (rentfrontier.loo: PSIS-LOO, held-out predictive quantiles and
+# coverage) after a fit with --cpu-score: threads over blocks of rows, numpy only, on the draws
+# the GPU container left on the Volume (9.5 MB for 656 draws), so the A100 isn't billed for it.
+# SCORE_CPU threads each hold a (draws x rows) block of about 50 MB and a few copies of it.
+SCORE_CPU, SCORE_MEMORY_MIB, SCORE_TIMEOUT = 16, 32768, 30 * 60
 # A run's design alone (fit.py --design-only), for a run whose prep runs out of thelio's memory:
 # the all-scraped run's prep took 15 min in its large container and was killed at 9 GB on thelio.
 DESIGN_CPU, DESIGN_MEMORY_MIB, DESIGN_TIMEOUT = 4, 65536, 3600
@@ -88,6 +93,13 @@ def usd_per_second(gpu, large=False):
 
 def nb_usd_per_second():
     return NB_CPU * USD_PER_CORE_SECOND + NB_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
+
+
+def score_usd_per_second():
+    """List price of the scoring container (about $1.01 an hour)."""
+    return (
+        SCORE_CPU * USD_PER_CORE_SECOND + SCORE_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
+    )
 
 
 def design_usd_per_second():
@@ -143,6 +155,19 @@ def post_steps(spec):
     if spec.get("explain"):
         steps.append(("explained", ["rentfrontier.explained", name, *spec["explain"]]))
     return steps
+
+
+def loo_command(spec, workers=None):
+    """rentfrontier.loo for the run, with the scoring steps the spec leaves on (B0 family runs)."""
+    return [
+        "/venv/bin/python",
+        "-m",
+        "rentfrontier.loo",
+        *(["--workers", str(workers)] if workers else []),
+        *(["--no-loo"] if not spec.get("loo", True) else []),
+        *(["--no-heldout"] if not spec.get("heldout", True) else []),
+        spec["name"],
+    ]
 
 
 def _post(spec, env, log, deadline):
@@ -211,9 +236,10 @@ def _complete(d):
         return False
 
 
-def _stage(spec):
-    """Copy the fit's inputs back to their thelio paths and check out the commit at WORK."""
-    for path in spec["inputs"]:
+def _stage(spec, inputs=None):
+    """Copy the fit's inputs (or just `inputs`) back to their thelio paths and check out the
+    commit at WORK."""
+    for path in spec["inputs"] if inputs is None else inputs:
         src = Path("/vol/inputs") / path.lstrip("/")
         dst = Path(path)
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -378,10 +404,11 @@ def _fit(spec):
             ):
                 (out / "design").mkdir(exist_ok=True)
                 shutil.copy2(p, out / "design" / p.name)
-        if code == 0:
+        # With cpu_score the draws leave on the Volume and score_cpu scores them.
+        if code == 0 and not spec.get("cpu_score"):
             t = time.time()
             code = _run(
-                ["/venv/bin/python", "-m", "rentfrontier.loo", spec["name"]],
+                loo_command(spec),
                 env,
                 log,
                 int(max(deadline - time.time(), 60)) if large else None,
@@ -470,6 +497,56 @@ def newbuilding_cpu(spec):
         "stage_seconds": round(staged, 1),
         "wall_seconds": round(wall, 1),
         "usd_estimate": round(wall * nb_usd_per_second(), 2),
+    }
+    volume.commit()
+    return meta
+
+
+@app.function(
+    cpu=SCORE_CPU,
+    memory=SCORE_MEMORY_MIB,
+    timeout=SCORE_TIMEOUT,
+    volumes={"/vol": volume},
+)
+def score_cpu(spec):
+    return _score(spec)
+
+
+def _score(spec):
+    """Score the baseline run under /vol/out/<name>/run with rentfrontier.loo on SCORE_CPU
+    threads, and leave its PSIS-LOO directory under /vol/out/<name>/loo/ for the download.
+    The container stages the code and the run's dataset only: scoring reads no other input."""
+    started = time.time()
+    volume.reload()
+    _stage(spec, inputs=spec["inputs"][:1])
+    out = Path("/vol/out") / spec["name"]
+    shutil.copytree(out / "run", RUNS / spec["name"], dirs_exist_ok=True)
+    staged = time.time() - started
+    env = dict(
+        os.environ,
+        PYTHONPATH=f"{WORK}/frontier/src",
+        FRONTIER_DATASET=spec["dataset"],
+        JAX_PLATFORMS="cpu",
+        PYTHONUNBUFFERED="1",
+        # The scoring threads fill the cores; a BLAS pool in each would oversubscribe them.
+        OMP_NUM_THREADS="1",
+        OPENBLAS_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
+    )
+    t = time.time()
+    with open(out / "score.log", "w") as log:
+        code = _run(loo_command(spec, SCORE_CPU), env, log, SCORE_TIMEOUT - 3 * 60)
+    scored = time.time() - t
+    for d in LOO.glob(f"{spec['name']}-*"):
+        shutil.copytree(d, out / "loo" / d.name, dirs_exist_ok=True)
+    wall = time.time() - started
+    meta = {
+        "exit": code,
+        "cpu": SCORE_CPU,
+        "stage_seconds": round(staged, 1),
+        "score_seconds": round(scored, 1),
+        "wall_seconds": round(wall, 1),
+        "usd_estimate": round(wall * score_usd_per_second(), 2),
     }
     volume.commit()
     return meta

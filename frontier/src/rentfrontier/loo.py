@@ -137,16 +137,16 @@ def integrated_loglik(
     return jax.lax.map(one, (jnp.asarray(mu), p))
 
 
-def psis_loo(loglik, block=4000):
+def psis_loo(loglik, block=4000, impl="vectorized"):
     """PSIS-LOO from (draws, rows) log densities: pointwise elpd, k, MCSE.
     `lppd` gives the in-sample log predictive density for p_loo.
 
-    Rows are processed in blocks so memory stays bounded at large draw counts."""
+    Rows are processed in blocks so memory stays bounded at large draw counts. `impl` is
+    "vectorized" (`_psis_block`: the Pareto tail fits of a whole block at once) or "arviz"
+    (`_psis_block_arviz`: arviz_stats' psislw, one Python call a row); they agree to rounding."""
     loglik = np.asarray(loglik, float)
-    parts = [
-        _psis_block(loglik[:, lo : lo + block])
-        for lo in range(0, loglik.shape[1], block)
-    ]
+    one = _psis_block_arviz if impl == "arviz" else _psis_block
+    parts = [one(loglik[:, lo : lo + block]) for lo in range(0, loglik.shape[1], block)]
     return tuple(np.concatenate(p) for p in zip(*parts))
 
 
@@ -166,7 +166,15 @@ def lppd(loglik, block=4000):
     )
 
 
-def _psis_block(loglik):
+def _mcse(ll, lw, elpd):
+    """Delta-method Monte Carlo error of each log estimate (kept draws are thinned far
+    apart, so relative efficiency is taken as 1). ll, lw: (rows, draws)."""
+    w = np.exp(lw)
+    ratio = np.exp(ll - elpd[:, None])
+    return np.sqrt(np.sum(w * w * (ratio - 1.0) ** 2, axis=1))
+
+
+def _psis_block_arviz(loglik):
     from arviz_stats.base import array_stats
     from scipy.special import logsumexp
 
@@ -175,12 +183,105 @@ def _psis_block(loglik):
     lw, k = array_stats.psislw(ll, axis=-1)
     lw = np.asarray(lw) - logsumexp(lw, axis=1, keepdims=True)
     elpd = logsumexp(lw + ll, axis=1)
-    # Delta-method Monte Carlo error of each log estimate (kept draws are
-    # thinned far apart, so relative efficiency is taken as 1).
-    w = np.exp(lw)
-    ratio = np.exp(ll - elpd[:, None])
-    mcse = np.sqrt(np.sum(w * w * (ratio - 1.0) ** 2, axis=1))
-    return elpd, np.asarray(k, float), mcse
+    return elpd, np.asarray(k, float), _mcse(ll, lw, elpd)
+
+
+def _psis_block(loglik, chunk=2000):
+    """`_psis_block_arviz`'s numbers, with arviz_stats' per-row steps (tail selection, the
+    empirical-Bayes generalized Pareto fit of `_gpdfit`, the smoothed tail from `_gpinv`) done
+    for `chunk` rows at a time. loglik: (draws, rows)."""
+    from scipy.special import logsumexp
+
+    ll = np.ascontiguousarray(loglik.T)  # (rows, draws)
+    lw = np.empty_like(ll)
+    k = np.empty(len(ll))
+    for lo in range(0, len(ll), chunk):
+        lw[lo : lo + chunk], k[lo : lo + chunk] = _smooth_tails(-ll[lo : lo + chunk])
+    lw -= logsumexp(lw, axis=1, keepdims=True)
+    elpd = logsumexp(lw + ll, axis=1)
+    return elpd, k, _mcse(ll, lw, elpd)
+
+
+def tail_size(draws: int) -> int:
+    """Draws in the importance-weight tail PSIS smooths (arviz_stats `_get_ps_tails`, r_eff 1)."""
+    n = math.floor(3 * math.sqrt(draws)) if draws > 225 else draws // 5
+    if n < 5:
+        raise ValueError("n_draws_tail must be at least 5")
+    return n
+
+
+def _smooth_tails(logratio):
+    """Pareto-smoothed log importance weights of each row of `logratio` (rows, draws), and each
+    row's Pareto k: arviz_stats' `_ps_tail` (right tail, log weights, smoothed), `_gpdfit` and
+    `_gpinv` over all rows at once."""
+    from scipy.special import logsumexp
+
+    rows, n_draws = logratio.shape
+    n_tail = tail_size(n_draws)
+    x = logratio - logratio.max(axis=1, keepdims=True)
+    first = n_draws - n_tail
+    # The tail's positions and the largest value below it, ascending by value.
+    top = np.argpartition(x, first - 1, axis=1)[:, first - 1 :]
+    top = np.take_along_axis(top, np.argsort(np.take_along_axis(x, top, 1), axis=1), 1)
+    values = np.take_along_axis(x, top, 1)
+    cutoff, tail = values[:, 0], values[:, 1:]
+    if (tail[:, -1] - tail[:, 0] < np.finfo(float).tiny).any():
+        raise ValueError("All tail values are the same")
+    with np.errstate(all="ignore"):
+        excess = np.exp(tail) - np.exp(cutoff)[:, None]
+        khat, sigma = _gpdfit(excess)
+        p = (np.arange(n_tail) + 0.5) / n_tail
+        kappa, scale = khat[:, None], sigma[:, None]
+        # gpinv: the quantiles of the fitted tail above exp(cutoff), on the log scale.
+        zero = kappa == 0
+        shape = np.where(zero, 1.0, kappa)
+        q = np.where(
+            zero,
+            -np.log1p(-p)[None],
+            np.expm1(-shape * np.log1p(-p)[None]) / shape,
+        )
+        smoothed = np.log(np.exp(cutoff)[:, None] + scale * q)
+        smoothed = np.where(scale > 0, smoothed, np.nan)
+        smoothed = np.where(smoothed > tail[:, -1:], tail[:, -1:], smoothed)
+    # Rows whose fit is not finite keep their raw tail.
+    fitted = np.isfinite(khat)
+    rows_fitted = np.flatnonzero(fitted)
+    x[rows_fitted[:, None], top[rows_fitted, 1:]] = smoothed[rows_fitted]
+    x -= logsumexp(x, axis=1, keepdims=True)
+    return x, khat
+
+
+def _gpdfit(excess):
+    """(kappa, sigma) of the generalized Pareto fit to each ascending row of `excess`: arviz_stats'
+    `_gpdfit` (Zhang and Stephens's empirical-Bayes estimate with a prior on kappa), for all
+    rows at once. Rows whose first quartile is not above their minimum give (nan, nan)."""
+    from scipy.special import logsumexp
+
+    prior_bs, prior_k = 3, 10
+    rows, n = excess.shape
+    m = 30 + int(n**0.5)
+    xstar = excess[:, int((n / 4 + 0.5) - 1)]
+    degenerate = xstar <= excess[:, 0]
+    b = (1 - np.sqrt(m / (np.arange(1, m + 1, dtype=float) - 0.5)))[None, :]
+    b = b / (prior_bs * xstar[:, None]) + 1 / excess[:, -1:]  # (rows, m)
+    k = np.log1p(-b[:, :, None] * excess[:, None, :]).mean(axis=2)
+    log_len = n * (np.log(-b / k) - k - 1)
+    w = np.exp(log_len - logsumexp(log_len, axis=1, keepdims=True))
+    # Negligible weights drop out, as in arviz_stats.
+    # A row whose candidate fits are all unusable keeps no weight, giving b_post 0, sigma nan and
+    # kappa 5 / (n + 10), as in arviz_stats.
+    w = np.where(w >= 10 * np.finfo(float).eps, w, 0.0)
+    total = w.sum(axis=1, keepdims=True)
+    w /= np.where(total > 0, total, 1.0)
+    b_post = (np.where(w > 0, b, 0.0) * w).sum(axis=1)
+    kappa = np.log1p(-b_post[:, None] * excess).mean(axis=1)
+    sigma = -kappa / b_post
+    kappa = (n * kappa + prior_k * 0.5) / (n + prior_k)
+    kappa = np.where(np.isnan(kappa), np.inf, kappa)
+    sigma = np.where(np.isnan(kappa), np.nan, sigma)
+    kappa = np.where(degenerate, np.nan, kappa)
+    sigma = np.where(degenerate, np.nan, sigma)
+    return kappa, sigma
 
 
 def chunk_rows(draws: int) -> int:
@@ -349,13 +450,33 @@ def main(argv=None):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("runs", nargs="+")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="threads for a B0, B0.1 or B0.2 run's row blocks (other runs score on one)",
+    )
+    parser.add_argument(
+        "--no-loo", action="store_true", help="skip PSIS-LOO (B0 family runs only)"
+    )
+    parser.add_argument(
+        "--no-heldout",
+        action="store_true",
+        help="skip the held-out rows' quantiles and coverage (B0 family runs only)",
+    )
     args = parser.parse_args(argv)
     dirty = git("status", "--porcelain")
     if dirty:
         raise SystemExit(f"Refusing to run on a dirty working tree:\n{dirty}")
     commit = git("rev-parse", "HEAD")
     for name in args.runs:
-        out_dir = LOO_ROOT / f"{name}-{commit[:7]}"
+        # A run scored with a step switched off goes beside the full score, not over it.
+        skipped = "".join(
+            f"-{flag}"
+            for flag, off in (("noloo", args.no_loo), ("noheldout", args.no_heldout))
+            if off
+        )
+        out_dir = LOO_ROOT / f"{name}-{commit[:7]}{skipped}"
         if (out_dir / "result.json").exists():
             print(f"skip {name}: {out_dir} exists")
             continue
@@ -365,7 +486,18 @@ def main(argv=None):
             from . import b0, b0_2, b0_3
 
             spec = {"b0.2": b0_2, "b0.3": b0_3}.get(run["sampler"])
-            record, pointwise = b0.score(name, run["sampler"], spec)
+            record, pointwise = b0.score(
+                name,
+                run["sampler"],
+                spec,
+                args.workers,
+                loo_step=not args.no_loo,
+                heldout_step=not args.no_heldout,
+            )
+        elif skipped:
+            raise SystemExit(
+                f"{name}: --no-loo and --no-heldout apply to B0 family runs"
+            )
         else:
             record, pointwise = score_run(name)
         record.update(
@@ -377,13 +509,19 @@ def main(argv=None):
         out_dir.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(out_dir / "pointwise.npz", **pointwise)
         (out_dir / "result.json").write_text(json.dumps(record, indent=2))
-        k = record["pareto_k"]
-        print(
-            f"{name}: elpd_loo {record['elpd_loo']:.1f} ± {record['elpd_loo_se']:.1f} "
-            f"(mcse {record['elpd_loo_mcse']:.2f}), k>{k['threshold']:.2f}: "
-            f"{k['over_threshold']} rows, {record['seconds']:.0f} s",
-            flush=True,
-        )
+        if "elpd_loo" in record:
+            k = record["pareto_k"]
+            print(
+                f"{name}: elpd_loo {record['elpd_loo']:.1f} ± {record['elpd_loo_se']:.1f} "
+                f"(mcse {record['elpd_loo_mcse']:.2f}), k>{k['threshold']:.2f}: "
+                f"{k['over_threshold']} rows, {record['seconds']:.0f} s",
+                flush=True,
+            )
+        else:
+            print(
+                f"{name}: scored without PSIS-LOO, {record['seconds']:.0f} s",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":
