@@ -126,3 +126,21 @@ Before a two-zone fit, I recommend:
   small eastern fringe of Bushwick.
 - Have the design refuse, or at least count and report, any row without coordinates, rather
   than folding it into a zone's intercept.
+
+## The registry gap, filled
+
+No step of the pipeline added buildings to the registry after the hand-cut lists of 2026-10-15.
+I added `rentfrontier.registry_extend`, which `apartments-registry-extend.service` runs after
+each pipeline build (`docs/data/pipeline.md`). Its first run, against the build of 2026-10-18,
+found 901 buildings with no registry row and wrote
+`/data1/apartments/external/registry/20261019-bcfbb52-extend/registry.parquet`: the 69,274 rows
+of `20261017-2c61ff1-all-lots4` unchanged, then the 901 new ones.
+
+- GeoSearch matched 856 by slug address and 45 by reverse geocoding. Median distance to the
+  StreetEasy point is 3.8 m, and the largest is 125 m.
+- The BBL gives Manhattan for 476 and Brooklyn for 425. Every one agrees with the borough of the
+  record's mail city, and with the NTA holding both the StreetEasy point and the registry point.
+- All 76 unlocated B0 buildings now have a lot and a point: 312 rows in Manhattan and 23 in
+  Brooklyn, the split the NTA test gave above. With the new snapshot no B0 row is unlocated. B0.4
+  still reads `20261017-2c61ff1-all-lots4`, and a fit picks up the new snapshot once its model
+  names it.
