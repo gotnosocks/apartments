@@ -66,6 +66,10 @@ def test_relist_cases(tmp_path, render_context):
     Lot C has an apartment for 1 and 2 unit pages with ads in the 12 months. Ad 22 on w2 starts
     2 days after ad 21 on w1 ends and shares k9 with it, so the two pair first. Ad 23, a
     1-bedroom on w1, keeps the pages apart.
+
+    Every ad above belongs to region r1, where the latest answer came on Oct 10, 2026. Ad 99, in
+    region r2 alone, has an answer from June 2027. If r1's window ran to that day, lot A would
+    fall under its count and lose its pairs.
     """
     db = duckdb.connect(str(tmp_path / "pipeline.duckdb"))
     for schema in ("ads", "analysis", "buildings", "city"):
@@ -104,6 +108,9 @@ def test_relist_cases(tmp_path, render_context):
         "CREATE TABLE ads.placed (listing_id TEXT, unit_id TEXT, building_id TEXT)"
     )
     db.execute("CREATE TABLE ads.photos (listing_id TEXT, key TEXT)")
+    db.execute("CREATE TABLE ads.regions (listing_id TEXT, regions TEXT[])")
+    db.execute("INSERT INTO ads.market VALUES ('99', DATE '2027-06-01', NULL, NULL)")
+    db.execute("INSERT INTO ads.regions VALUES ('99', ['r2'])")
     db.execute("CREATE TABLE ads.reported (listing_id TEXT, label_floor INTEGER)")
     db.execute(
         """CREATE TABLE analysis.kept (listing_id TEXT, unit_id TEXT, building_id TEXT,
@@ -123,6 +130,7 @@ def test_relist_cases(tmp_path, render_context):
             [listing, on, off],
         )
         db.execute("INSERT INTO ads.placed VALUES (?, ?, ?)", [listing, unit, building])
+        db.execute("INSERT INTO ads.regions VALUES (?, ['r1'])", [listing])
         db.execute("INSERT INTO ads.reported VALUES (?, NULL)", [listing])
         db.execute(
             "INSERT INTO analysis.kept VALUES (?, ?, ?, ?, 1, ?, NULL)",

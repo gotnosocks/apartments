@@ -2421,8 +2421,11 @@ steps.
 1. `ads.photos` lists the photos each ad shows in any of its answers, by the key StreetEasy gives
    each photo. As a merge model, it reads only the new answers in a top-up build.
 2. `analysis.relist_pairs` finds the lots over their count, where the unit pages with an ad on
-   the market in the 12 months to the build's as-of day outnumber the apartments of the latest
-   MapPLUTO release. An ad counts when it went off the market in those months, or when its
+   the market in the 12 months to the lot's as-of day outnumber the apartments of the latest
+   MapPLUTO release. I take a lot's as-of day from the latest answer in any collection region
+   its ads belong to. With one day for the whole build, the New Jersey backfill of Oct 19 moved
+   every NYC window from Oct 16 to Oct 19, and 18 NYC rows in 4 lots lost their relist units.
+   An ad counts when it went off the market in those months, or when its
    latest answer falls in them while it is still on or gives no day on or off the market. A lot
    with no apartments in MapPLUTO counts once a single page has such an ad, though
    `ops/pipeline/citycheck.py` leaves those lots out. Within each lot over its count, the step
