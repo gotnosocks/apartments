@@ -9,7 +9,7 @@ Updated 2026-10-19 18:30 ET. Thread owner: the Data collection project thread (b
   1. Lots: `rentfrontier.njregistry` (#1162) writes an NJ registry after each build, from the
      state's tax parcels. Its building key differs from the NYC BBL, and `registry_extend`
      leaves NJ rows out, so the #1157 geocode step runs as before. The Oct 19 registry,
-     `external/registry-nj/20261019-2d485c6`, places 6,029 buildings (4,615 by address, 639 by
+     `external/registry-nj/20261019-2d485c6`, places 6,011 of 6,029 buildings (4,615 by address, 639 by
      street, 477 near, 280 by parcel) and leaves 18 unplaced.
   2. City: `rentfrontier.njcity` (#1163) snapshots NJ Transit rail and light rail stops, NY
      Waterway landings and OpenStreetMap parks. `external/njcity/20261019-8c51149` holds 3 rail
