@@ -103,6 +103,9 @@ STAND_IN["centered-walk"] = "b0.3"
 STAND_IN["level-walk"] = "centered-walk"
 # The total walk has them too, with the season moved into the levels.
 STAND_IN["total-walk"] = "centered-walk"
+# Free bath has the total walk's, with each bath step sampled directly in place of the pooled
+# steps, their means and their spread.
+STAND_IN["free-bath"] = "centered-walk"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -114,6 +117,7 @@ BASELINES = (
     "centered-walk",
     "level-walk",
     "total-walk",
+    "free-bath",
 )
 
 

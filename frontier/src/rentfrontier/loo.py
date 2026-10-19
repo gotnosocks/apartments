@@ -493,8 +493,17 @@ def main(argv=None):
             "centered-walk",
             "level-walk",
             "total-walk",
+            "free-bath",
         ):
-            from . import b0, b0_2, b0_3, centered_walk, level_walk, total_walk
+            from . import (
+                b0,
+                b0_2,
+                b0_3,
+                centered_walk,
+                free_bath,
+                level_walk,
+                total_walk,
+            )
 
             spec = {
                 "b0.2": b0_2,
@@ -502,6 +511,7 @@ def main(argv=None):
                 "centered-walk": centered_walk,
                 "level-walk": level_walk,
                 "total-walk": total_walk,
+                "free-bath": free_bath,
             }.get(run["sampler"])
             record, pointwise = b0.score(
                 name,

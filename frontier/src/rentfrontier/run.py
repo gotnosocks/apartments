@@ -447,7 +447,8 @@ def main(argv=None):
     # B0.4 (rentfrontier.b0_4) adds a borough offset and a rent surface over each borough.
     # The centered walk (rentfrontier.centered_walk) samples B0.3's trend as levels, and the
     # level walk (rentfrontier.level_walk) folds its intercept into them, and the total walk
-    # (rentfrontier.total_walk) folds in the season as well.
+    # (rentfrontier.total_walk) folds in the season as well. Free bath (rentfrontier.free_bath)
+    # is the total walk with each bath step on its own prior.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -457,6 +458,7 @@ def main(argv=None):
         ("centered-walk", "centered_walk"),
         ("level-walk", "level_walk"),
         ("total-walk", "total_walk"),
+        ("free-bath", "free_bath"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
