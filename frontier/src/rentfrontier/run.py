@@ -444,11 +444,13 @@ def main(argv=None):
     # (rentfrontier.b0_1) is the same model on BlackJAX's ChEES-HMC, and B0.2
     # (rentfrontier.b0_2) changes its trend and bed-bath steps on the same sampler. B0.3
     # (rentfrontier.b0_3) measures B0.2's bath steps from each bedroom level's usual bath count.
+    # B0.4 (rentfrontier.b0_4) adds a borough offset and a rent surface over each borough.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
         ("b0.2", "b0_2"),
         ("b0.3", "b0_3"),
+        ("b0.4", "b0_4"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

@@ -931,7 +931,8 @@ def main_run(
     """`rentfrontier.run --model b0`: fit B0 on the split's training rows and save the run.
     B0.1 (`rentfrontier.b0_1`) passes its own parser, settings and sampler for the same model.
     B0.2 (`rentfrontier.b0_2`) also passes `spec`, a module with its own `Priors`, `design` and
-    `diagnostics` (this module's by default)."""
+    `diagnostics` (this module's by default). A spec may also bring its own `subset` and a
+    `run_record` of extra fields for result.json, as B0.4 does."""
     from . import run as runmod
 
     spec = spec or sys.modules[__name__]
@@ -955,8 +956,10 @@ def main_run(
     frame = load_frame()
     heldout = splits.SPLITS[args.split](frame)
     full = spec.design(frame)
-    train = subset(full, ~heldout)
-    test = subset(full, heldout)
+    # B0.4 carries each row's building with its design, so it slices its own.
+    cut = getattr(spec, "subset", subset)
+    train = cut(full, ~heldout)
+    test = cut(full, heldout)
     prep_seconds = time.perf_counter() - t0
     log_lines = []
 
@@ -1032,6 +1035,7 @@ def main_run(
         },
         "grid_start": str(full.start.date()),
         "counts": full.count,
+        **(spec.run_record(full) if hasattr(spec, "run_record") else {}),
         "hardware": runmod.hardware(),
         "seconds": {"prepare": prep_seconds, **out["seconds"]},
         "cost_usd": None,

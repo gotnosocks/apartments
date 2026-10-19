@@ -16,13 +16,14 @@ With --design-only --run NAME, a run already downloaded here gets its design pre
 pickle downloads to FRONTIER_OUTPUT_ROOT/designs, where a summary at the same commit run with
 FRONTIER_DESIGN_CACHE=read loads it. It is for a run whose prep runs out of thelio's memory.
 
-With --cpu-score (a baseline model: b0.1, b0.2, ...), the GPU container stops after the fit and
-saves its draws to the Volume. A second container with 16 CPU cores and no GPU (app.score_cpu)
-then runs rentfrontier.loo on them, with --no-loo and --no-heldout leaving out PSIS-LOO or the
-held-out scoring, and the A100 is not billed for that work. cap.py prices the two containers
-apart and applies the per-fit cap to the sum of their seconds. With both --no-loo and
---no-heldout, nothing runs after the fit: no rentfrontier.loo step, no scoring container, no
-loo/ record, and the run can be scored later with rentfrontier.loo.
+A baseline fit (b0, b0.1, b0.2, ...) runs fit-only unless --score asks for its scoring (Ben,
+2026-10-19 14:30Z): nothing runs after the fit, with no rentfrontier.loo step, no scoring
+container and no loo/ record, and the run can be scored later with rentfrontier.loo. With
+--score, --no-loo and --no-heldout leave out PSIS-LOO or the held-out scoring. With --score
+--cpu-score, the GPU container stops after the fit and saves its draws to the Volume, and a
+second container with 16 CPU cores and no GPU (app.score_cpu) then runs rentfrontier.loo on
+them, so the A100 is not billed for that work. cap.py prices the two containers apart and
+applies the per-fit cap to the sum of their seconds.
 
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
 dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
@@ -164,14 +165,20 @@ def parse(argv):
         "predictive quantiles and coverage), priced at its own rate",
     )
     p.add_argument(
+        "--score",
+        action="store_true",
+        help="B0 family only: score the fit after it (PSIS-LOO, held-out predictive quantiles "
+        "and coverage); without it a baseline fit runs fit-only",
+    )
+    p.add_argument(
         "--no-loo",
         action="store_true",
-        help="B0 family only: score without PSIS-LOO (the record and its pointwise file lack it)",
+        help="B0 family only, with --score: score without PSIS-LOO (the record and its pointwise file lack it)",
     )
     p.add_argument(
         "--no-heldout",
         action="store_true",
-        help="B0 family only: score without the held-out rows' quantiles and coverage",
+        help="B0 family only, with --score: score without the held-out rows' quantiles and coverage",
     )
     p.add_argument(
         "--save-design",
@@ -220,6 +227,9 @@ def plan(args, run_args, sha, short=None):
         "--warmup", args.warmup, "--draws", args.draws, "--keep-every", args.keep,
         "--name", name, *run_args,
     ]  # fmt: skip
+    loo, heldout = cap.scoring_steps(
+        args.model, args.large, args.score, args.no_loo, args.no_heldout
+    )
     inputs = [
         str(Path(args.dataset).resolve()),
         *INPUTS,
@@ -241,10 +251,10 @@ def plan(args, run_args, sha, short=None):
         "range_atoms": args.range_atoms,
         "save_design": args.save_design,
         "cpu_score": args.cpu_score,
-        "loo": not args.no_loo,
-        "heldout": not args.no_heldout,
+        "loo": loo,
+        "heldout": heldout,
         # With both steps off, nothing runs after the fit.
-        "score": not (args.no_loo and args.no_heldout),
+        "score": loo or heldout,
     }
 
 
@@ -427,7 +437,7 @@ def score_on_cpu(modal_app, spec):
         }
 
 
-BASELINE_MODELS = ("b0", "b0.1", "b0.2", "b0.3")
+BASELINE_MODELS = cap.BASELINES
 
 
 def wants_summary(spec, split):
@@ -497,11 +507,12 @@ def main(argv):
         check=True,
     ).stdout.strip()
     spec = plan(args, run_args, sha, short)
-    if (args.cpu_score or args.no_loo or args.no_heldout) and (
+    if (args.score or args.cpu_score or args.no_loo or args.no_heldout) and (
         args.model not in BASELINE_MODELS or args.large
     ):
         sys.exit(
-            "--cpu-score, --no-loo and --no-heldout apply to a baseline fit (b0 to b0.3) that is not --large"
+            "--score, --cpu-score, --no-loo and --no-heldout apply to a baseline fit (b0 to "
+            "b0.4) that is not --large"
         )
     if args.publish_only:
         return publish(args, spec, sha)

@@ -1138,11 +1138,19 @@ def test_the_pre_check_prices_a_cpu_scored_fit_in_both_stages(tmp_path, monkeypa
 def test_plan_carries_the_scoring_switches():
     argv = ["abc", "x", "b0.1", "b0", "16", "1500", "500", "12"]
     spec = fit.plan(*fit.parse(argv), "9371a18")
+    # A baseline fit runs fit-only unless --score asks for its scoring.
+    assert (spec["loo"], spec["heldout"], spec["score"]) == (False, False, False)
+    spec = fit.plan(*fit.parse(["--score", *argv]), "9371a18")
     assert (spec["cpu_score"], spec["loo"], spec["heldout"]) == (False, True, True)
-    args, rest = fit.parse(["--cpu-score", "--no-loo", "--no-heldout", *argv])
+    args, rest = fit.parse(["--score", "--cpu-score", "--no-loo", *argv])
     spec = fit.plan(args, rest, "9371a18")
-    assert (spec["cpu_score"], spec["loo"], spec["heldout"]) == (True, False, False)
-    assert not {"--cpu-score", "--no-loo", "--no-heldout"} & set(spec["run_args"])
+    assert (spec["cpu_score"], spec["loo"], spec["heldout"]) == (True, False, True)
+    assert not {"--score", "--cpu-score", "--no-loo"} & set(spec["run_args"])
+    # A frontier model scores in its own way, whatever the switches.
+    spec = fit.plan(
+        *fit.parse(["abc", "x", "m7", "nb8-v1", "4", "500", "500", "1"]), "9371a18"
+    )
+    assert (spec["loo"], spec["heldout"], spec["score"]) == (True, True, True)
 
 
 def test_a_failed_scoring_container_is_still_charged(monkeypatch):
@@ -1243,7 +1251,7 @@ def test_a_cpu_scored_fit_leaves_scoring_to_the_cpu_container(tmp_path, monkeypa
     assert steps == ["rentfrontier.run"] and "loo" not in meta["stages"]
 
 
-def test_a_fit_that_left_out_a_scoring_step_is_not_measured(tmp_path):
+def test_a_fit_that_left_out_a_scoring_step_prices_only_its_gradients(tmp_path):
     _b01_run(
         tmp_path,
         {
@@ -1253,7 +1261,40 @@ def test_a_fit_that_left_out_a_scoring_step_is_not_measured(tmp_path):
             "score": {"wall_seconds": 100, "score_seconds": 20.0, "exit": 0},
         },
     )
-    assert cap.measured_gradients("b0.1", "b0", tmp_path) is None
+    m = cap.measured_gradients("b0.1", "b0", tmp_path)
+    assert m["per_gradient"] == 456 / 13680
+    assert m["loo_per_draw"] is None and m["score_per_draw"] is None
+
+
+def test_b0_4_is_priced_from_b0_3_until_it_has_a_fit_of_its_own(tmp_path):
+    run = _modal_run(tmp_path, "b0.3", "b0", 456, name="latest-ce3f6da4-dense")
+    (run / "modal/modal.json").write_text(
+        json.dumps(
+            {
+                "fit_exit": 0,
+                "wall_seconds": 800,
+                "stages": {"fit": 456},
+                "steps": {"loo": False, "heldout": False},
+            }
+        )
+    )
+    result = json.loads((run / "result.json").read_text())
+    result |= {
+        "feature_set": "b0.3",
+        "chees": {"gradients": 13680, "warmup_mean_steps": 24, "mean_steps": 33},
+        "sampler_settings": {
+            "chains": 16, "warmup": 300, "draws": 200, "keep_every": 5,
+            "max_leapfrog_steps": 64,
+        },
+    }  # fmt: skip
+    (run / "result.json").write_text(json.dumps(result))
+    kw = dict(runs=tmp_path, keep=12, max_leapfrog_steps=64, scoring=False)
+    stages = cap.fit_stages("b0.4", "b0", 16, 1500, 500, "A100-40GB", **kw)
+    steps = 1500 * 24 + 500 * 33
+    assert stages["gpu"][1] == round(800 - 456 + 456 / 13680 * steps)
+    assert cap.scoring_steps("b0.4") == (False, False)
+    assert cap.scoring_steps("b0.4", score=True, no_loo=True) == (False, True)
+    assert cap.scoring_steps("m7", score=False) == (True, True)
 
 
 def test_a_fit_with_both_scoring_steps_off_is_priced_and_run_as_the_fit_alone(
@@ -1280,7 +1321,11 @@ def test_a_fit_with_both_scoring_steps_off_is_priced_and_run_as_the_fit_alone(
         "--no-heldout",
     ]
     assert fit.plan(*fit.parse(argv), "9371a18")["score"] is False
-    assert fit.plan(*fit.parse([*argv[:8], "--no-loo"]), "9371a18")["score"] is True
+    assert fit.plan(*fit.parse(argv[:8]), "9371a18")["score"] is False
+    assert (
+        fit.plan(*fit.parse([*argv[:8], "--score", "--no-loo"]), "9371a18")["score"]
+        is True
+    )
     # The GPU container starts no scoring step.
     monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
     app = load("app")
