@@ -1264,9 +1264,8 @@ def test_a_fit_with_both_scoring_steps_off_is_priced_and_run_as_the_fit_alone(
     fit_only = cap.fit_stages(*SIZE, scoring=False, **kw)
     assert fit_only == cap.fit_stages(*SIZE, cpu_score=True, scoring=False, **kw)
     assert list(fit_only) == ["gpu"]
-    assert (
-        fit_only["gpu"][1] < cap.fit_stages(*SIZE, cpu_score=True, **kw)["gpu"][1] + 1
-    )
+    # The GPU stage is the one a CPU-scored fit has: the fit and its staging, no PSIS-LOO.
+    assert fit_only["gpu"] == cap.fit_stages(*SIZE, cpu_score=True, **kw)["gpu"]
     # The pre-check reads the switches from the launch arguments.
     argv = [
         "abc",
