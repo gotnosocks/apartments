@@ -384,7 +384,12 @@ def wants_summary(spec, split):
     run_args = spec.get("run_args", [])
     b0 = any(
         pair in zip(run_args, run_args[1:])
-        for pair in (("--model", "b0"), ("--model", "b0.1"), ("--model", "b0.2"))
+        for pair in (
+            ("--model", "b0"),
+            ("--model", "b0.1"),
+            ("--model", "b0.2"),
+            ("--model", "b0.3"),
+        )
     )
     return (
         spec["tier"] == "full"
@@ -502,7 +507,7 @@ def main(argv):
             if (
                 meta.get("fit_exit", meta["exit"]) == 0
                 and not args.large
-                and args.model not in ("b0", "b0.1", "b0.2")
+                and args.model not in ("b0", "b0.1", "b0.2", "b0.3")
             ):
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(

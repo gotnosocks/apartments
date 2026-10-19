@@ -442,8 +442,14 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     # B0 (rentfrontier.b0) reads its own dataset and runs its own sampler; B0.1
     # (rentfrontier.b0_1) is the same model on BlackJAX's ChEES-HMC, and B0.2
-    # (rentfrontier.b0_2) changes its trend and bed-bath steps on the same sampler.
-    for m, module in (("b0", "b0"), ("b0.1", "b0_1"), ("b0.2", "b0_2")):
+    # (rentfrontier.b0_2) changes its trend and bed-bath steps on the same sampler. B0.3
+    # (rentfrontier.b0_3) measures B0.2's bath steps from each bedroom level's usual bath count.
+    for m, module in (
+        ("b0", "b0"),
+        ("b0.1", "b0_1"),
+        ("b0.2", "b0_2"),
+        ("b0.3", "b0_3"),
+    ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
             for i, a in enumerate(argv)
