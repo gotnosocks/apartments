@@ -196,6 +196,10 @@ REGIONS = {
         [115, 163, 157, 116, 158, 113, 159, 117, 106, 124, 146, 152],
         True,
     ),
+    # Jersey City's Historic Downtown, Waterfront (with its child area Paulus Hook, 1001270) and
+    # Newport, and Hoboken, from the API's `areas` list (data/probes/nj-areas-20261019/). The
+    # boxes of root_boxes cover them, since New York's box reaches west to -74.26.
+    "nj-jersey-city-hoboken": ([1001150, 1001250, 1117007, 1004000], True),
 }
 
 # The fields of an ad page's listing object that the API gives (frag2.graphql in

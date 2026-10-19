@@ -104,6 +104,7 @@ $1.14 per 1,000 requests.
 | `brooklyn-prospect-park` | 14 areas north and west of Prospect Park | yes | about 1,100 |
 | `brooklyn-north-crown-heights` | north Brooklyn and Crown Heights | yes | about 2,900 |
 | `manhattan-page-crawl-areas` | the 12 areas page crawls already collected | yes, from Oct 16 | 2,054 in run 5, then weekly top-ups |
+| `nj-jersey-city-hoboken` | Historic Downtown, Waterfront with Paulus Hook and Newport in Jersey City, and Hoboken | yes | 407 in a separate archive on Oct 19 |
 
 Ben approved the backfill of the first four (about 8,500 requests, about $9.70) on Oct 15 at
 00:37 ET, with north Brooklyn, Crown Heights and Manhattan up to 110th St. StreetEasy has no
@@ -112,6 +113,13 @@ the histories of areas collected by page crawls is not part of the backfill. Ben
 re-read of those areas' ads, without unit histories, on Oct 15 at 15:50 ET (run 5, below).
 Since Oct 16 the region reads unit histories too, for about 6 more requests
 ([below](#unit-histories-in-the-page-crawl-areas-oct-16)).
+Ben asked on Oct 19 for the New Jersey side across from lower Manhattan, and at 16:13 ET for it
+to join the dataset. A first run into a separate archive,
+`/data1/apartments/archive/crawls/streeteasy-nj`, read its 80,478 ads in 407 requests ($0.46),
+with no band truncated. The region then goes into `crawls/api` like the others, so the Friday
+top-up, the backup, the export and the pipeline build cover it. Its rows carry the region in
+`regions`, and the fit datasets leave them out unless a fit names their neighbourhoods.
+
 Writing the records sends no requests and takes about 7 ms an ad on thelio, half of it in the
 two disk flushes for each ad's body file, so the four regions' 1.5 million or so ads take about
 3 hours to write.
