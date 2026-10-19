@@ -22,7 +22,8 @@ these steps:
    borough of the record's city (NEW YORK is Manhattan), and writes
    EXTERNAL_ROOT/registry/<date>-<commit>-extend/registry.parquet: the base rows unchanged, then
    the new rows. A building GeoSearch can't place gets a row of method `none`, and the next run
-   tries it again when its record has a point. When nothing is missing, it writes
+   tries it again when its record has a point. A run writes a snapshot only when it adds a
+   building or places one it tried again, and `--check` counts only buildings with no row. When nothing is missing, it writes
    nothing. Without `--base` it stops when more than MAX_NEW buildings are missing, since the
    newest snapshot is then likely a partial registry.
 
@@ -35,6 +36,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 
@@ -168,12 +170,14 @@ def main(argv=None):
         args.catalog.parent / build["rows"]["path"], columns=["building", "building_id"]
     )
     todo = missing(base, wanted(export_buildings(build), rows))
+    new = todo[~todo.building.isin(base.building)]
     print(
-        f"{base_dir.name}: {len(todo)} buildings of the {build['built']} build have no row"
-        + (f", e.g. {', '.join(todo.building.head(5))}" if len(todo) else "")
+        f"{base_dir.name}: {len(new)} buildings of the {build['built']} build have no row"
+        + (f", e.g. {', '.join(new.building.head(5))}" if len(new) else "")
+        + f"; {len(todo) - len(new)} unplaced ones to try again"
     )
     if args.check:
-        raise SystemExit(1 if len(todo) else 0)
+        raise SystemExit(1 if len(new) else 0)
     if not args.base and len(todo) > MAX_NEW:
         raise SystemExit(
             f"{len(todo)} buildings to geocode, over {MAX_NEW}: is {base_dir} a whole"
@@ -187,14 +191,18 @@ def main(argv=None):
     commit = git("rev-parse", "HEAD")
     started = dt.datetime.now(dt.UTC)
     table, added = extend(base, todo, args.pause)
+    placed = added.building[added.method != "none"]
+    if new.empty and placed.empty:
+        print("GeoSearch placed none of the buildings tried again; no new snapshot")
+        return
     out_dir = EXTERNAL_ROOT / "registry" / f"{started:%Y%m%d}-{commit[:7]}-extend"
     if out_dir.exists():
         out_dir = out_dir.with_name(f"{out_dir.name}-{started:%H%M%S}")
-    # The snapshot goes together in a hidden folder and takes its name at the end, so a reader
-    # looking for the newest registry.parquet never finds a half-written one.
-    work = out_dir.with_name(f".{out_dir.name}.partial")
-    work.mkdir(parents=True)
-    table.to_parquet(work / "registry.parquet", index=False)
+    out_dir.mkdir(parents=True)
+    # registry.parquet takes its name last, so a reader looking for the newest one never finds
+    # a half-written file.
+    scratch = out_dir / "registry.parquet.tmp"
+    table.to_parquet(scratch, index=False)
     base_path = base_dir / "registry.parquet"
     provenance = {
         "base": str(base_dir),
@@ -209,11 +217,11 @@ def main(argv=None):
         "added_boroughs": added.bbl.dropna().str[0].value_counts().to_dict(),
         "max_distance_m": MAX_DISTANCE_M,
         "added_median_distance_m": float(added.distance_m.median()),
-        "sha256": hashlib.sha256((work / "registry.parquet").read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(scratch.read_bytes()).hexdigest(),
     }
-    (work / "provenance.json").write_text(json.dumps(provenance, indent=2))
-    work.rename(out_dir)
+    (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
     path = out_dir / "registry.parquet"
+    os.replace(scratch, path)
     print(f"wrote {path}: {len(added)} added, {provenance['added_methods']}")
 
 

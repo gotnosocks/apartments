@@ -214,3 +214,30 @@ def test_main_writes_a_named_snapshot_with_provenance(tmp_path, monkeypatch):
     assert list(table.building) == ["a-new_york", "b-new_york"]
     prov = json.loads((snap / "provenance.json").read_text())
     assert prov["added"] == 1 and prov["added_boroughs"] == {"1": 1}
+
+
+def test_main_writes_nothing_when_retries_still_fail(tmp_path, monkeypatch):
+    catalog = _catalog(
+        tmp_path,
+        {
+            "building_id": [1],
+            "fetched": pd.to_datetime(["2026-10-15"]),
+            "record": [_record("e-brooklyn", "BROOKLYN")],
+        },
+        {"building": ["e-brooklyn"], "building_id": [1]},
+    )
+    base = tmp_path / "registry" / "base"
+    base.mkdir(parents=True)
+    _base().assign(building="e-brooklyn", method="none").to_parquet(
+        base / "registry.parquet"
+    )
+    monkeypatch.setattr(m, "EXTERNAL_ROOT", tmp_path)
+    monkeypatch.setattr(m, "git", lambda *a: "" if a[0] == "status" else "abcdef123")
+    monkeypatch.setattr(
+        m, "locate", lambda slug, *a: {"building": slug, "method": "none"}
+    )
+    m.main(["--base", str(base), "--catalog", str(catalog), "--pause", "0"])
+    assert [p.name for p in (tmp_path / "registry").iterdir()] == ["base"]
+    with pytest.raises(SystemExit) as e:
+        m.main(["--check", "--base", str(base), "--catalog", str(catalog)])
+    assert e.value.code == 0
