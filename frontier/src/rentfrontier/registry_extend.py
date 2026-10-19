@@ -23,8 +23,8 @@ these steps:
    EXTERNAL_ROOT/registry/<date>-<commit>-extend/registry.parquet: the base rows unchanged, then
    the new rows. A building GeoSearch can't place gets a row of method `none`, and the next run
    tries it again when its record has a point. A run writes a snapshot only when it adds a
-   building or places one it tried again, and `--check` counts only buildings with no row. When nothing is missing, it writes
-   nothing. Without `--base` it stops when more than MAX_NEW buildings are missing, since the
+   building or places one it tried again, and `--check` counts only buildings with no row.
+   Without `--base` it stops when more than MAX_NEW buildings are missing, since the
    newest snapshot is then likely a partial registry.
 
 Model code reads a fixed snapshot path, so a new snapshot changes no fit until a model names it.
