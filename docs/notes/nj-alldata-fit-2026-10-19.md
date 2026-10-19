@@ -21,7 +21,8 @@ afterwards from the saved draws, as the median residual of the NJ rows against t
 2. I set aside the 197 NJ listings that quarantine-v36 (draft #1168,
    `config/reviews/quarantine-v36-20261019.jsonl`) adds over v35, into
    `b0-30b3edae310c2fae-alldata-v36`. The pipeline already drops v35's rows. The manifest's
-   `quarantine` entry gives the rule file, its SHA-256 and the count.
+   `quarantine` entry gives the rule file, its SHA-256 and the count. The step is
+   `docs/notes/nj-alldata-setaside-v36.py SRC OUT V36 V35`.
 3. `python -m rentfrontier.b0trim` into `b0-30b3edae310c2fae-alldata-v36-dense`.
 
 The fit reads no registry, so snapshot `20261019-bcfbb52-extend` stays as it is and registry-nj
@@ -29,9 +30,12 @@ goes unused. The NYC rows come from the same pipeline code as #1156's, from a la
 
 ## The fit
 
-    ops/modal-fit --dataset /data1/apartments/frontier/datasets/b0-30b3edae310c2fae-alldata-v36-dense --split latest <master> dense-w1500 normal-walk b0 16 1500 500 12 --max-leapfrog-steps 64 --seed 20261019 --no-loo --no-heldout
+    ops/modal-fit --dataset /data1/apartments/frontier/datasets/b0-30b3edae310c2fae-alldata-v36-dense --split latest ea4bcbd6 dense-w1500 normal-walk b0 16 1500 500 12 --max-leapfrog-steps 64 --seed 20261019 --no-loo --no-heldout
 
-#1156 took 20 minutes and cost $0.83 on 1,896,486 rows. This dataset has about 4% more rows.
+#1156 took 20 minutes and cost $0.83 on 1,896,486 rows. The datasets came out at 1,969,299 rows
+from b0data, 1,969,102 after the v36 set-aside and 1,969,084 after the trim (dense start
+2013-12-02, 18 rows set aside, as in #1156), 3.8% more than #1156. cap.py estimated $0.83 with a
+balance of $2.87, and the fit started at 18:49 ET as `normal-walk-b0-latest-ea4bcbd6-dense-w1500`.
 
 ## Predictions (written before the fit)
 
