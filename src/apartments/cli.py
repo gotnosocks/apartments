@@ -12,7 +12,6 @@ from .rentcast import collect
 from .streeteasy import (
     infer_furnishing_periods,
     ingest_export,
-    reparse_capture_histories,
 )
 
 app = typer.Typer(
@@ -108,15 +107,6 @@ def import_streeteasy_archive(
     )
     if counts["failed"]:
         raise typer.Exit(1)
-
-
-@app.command("reparse-history")
-def reparse_history(
-    root: Path = typer.Argument(Path("data")),
-    db: Path = typer.Option(DEFAULT_DB),
-):
-    units, events = reparse_capture_histories(root, str(db))
-    typer.echo(f"Reparsed {events} history events for {units} units into {db}")
 
 
 @app.command("backfill-temporal")

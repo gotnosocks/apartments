@@ -465,65 +465,6 @@ def ingest_item(
     return source_id, event_count
 
 
-def reparse_capture_histories(
-    root: Path,
-    db_path: str = "data/apartments.duckdb",
-) -> tuple[int, int]:
-    """Replace structured history with rows reparsed from each latest rendered page."""
-    latest: dict[str, tuple[str, Path, dict]] = {}
-    for structured_path in root.rglob("structured.json"):
-        if ":Zone.Identifier" in str(structured_path):
-            continue
-        item = json.loads(structured_path.read_text(encoding="utf-8"))
-        source_id = item.get("source_listing_id")
-        html_path = structured_path.parent / "page.html"
-        if (
-            not source_id
-            or not html_path.exists()
-            or unit_is_excluded(item.get("building_slug"), item.get("unit"))
-        ):
-            continue
-        captured_at = item.get("captured_at") or ""
-        if source_id not in latest or captured_at > latest[source_id][0]:
-            latest[source_id] = (captured_at, html_path, item)
-
-    db = connect(db_path)
-    units_reparsed = 0
-    events_written = 0
-    for source_id, (_, html_path, _) in sorted(latest.items()):
-        events = parse_price_history_html(
-            html_path.read_text(encoding="utf-8", errors="replace")
-        )
-        if not events:
-            continue
-        db.execute(
-            "DELETE FROM listing_events WHERE source='streeteasy' AND source_listing_id=?",
-            [source_id],
-        )
-        for event in events:
-            event_at = _event_datetime(event.get("date"))
-            event_type = event.get("event") or ""
-            event_price = event.get("base_rent")
-            key_text = f"streeteasy|{source_id}|{event_at}|{event_type}|{event_price}|{event.get('listing_url')}"
-            event_key = hashlib.sha256(key_text.encode()).hexdigest()
-            db.execute(
-                """INSERT INTO listing_events VALUES (?, 'streeteasy', ?, ?, ?, ?, ?)
-                   ON CONFLICT DO NOTHING""",
-                [
-                    event_key,
-                    source_id,
-                    event_at,
-                    event_type,
-                    event_price,
-                    json.dumps(event),
-                ],
-            )
-        units_reparsed += 1
-        events_written += len(events)
-    db.close()
-    return units_reparsed, events_written
-
-
 def infer_furnishing_periods(
     db_path: str = "data/apartments.duckdb",
     building_slug: str = "the-sierra-chelsea",
