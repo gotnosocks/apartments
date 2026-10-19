@@ -51,6 +51,7 @@ from . import (
     estimate,
     estimate_build,
     exposure,
+    observed,
     reads,
     story,
     streetview,
@@ -102,6 +103,25 @@ log = logging.getLogger("apartments.site")
 NEW_YORK = ZoneInfo("America/New_York")
 
 PER_PAGE = (25, 50, 100)
+OBSERVED_CSV_COLUMNS = (
+    "listing_id",
+    "neighbourhood",
+    "building",
+    "unit_label",
+    "period",
+    "is_current",
+    "ask",
+    "bedrooms",
+    "bathrooms",
+    "square_feet",
+    "floor",
+    "elevator",
+    "laundry",
+    "doorman",
+    "pets",
+    "concession",
+    "listing_url",
+)
 BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
 STATUS = {"all": "All listings", "current": "Available now", "past": "Past listings"}
 # Fewer "Available now" matches than this point to the past listings too.
@@ -457,6 +477,72 @@ def _escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+class ObservedFilters:
+    """Filters of the observed listings (`/new-jersey`); invalid values are dropped."""
+
+    SORTS = {"date": "period", "ask": "ask"}
+
+    def __init__(self, args, areas):
+        nb = (args.get("nb") or "").strip()
+        self.nb = nb if nb in areas else None
+        self.beds = [b for b in args.getlist("beds") if b in BEDROOMS]
+        self.min_ask = _number(args.get("min_ask"))
+        self.max_ask = _number(args.get("max_ask"))
+        self.status = args.get("status") if args.get("status") in STATUS else "all"
+        self.sort = args.get("sort") if args.get("sort") in self.SORTS else "date"
+        default_order = "desc" if self.sort == "date" else "asc"
+        order = args.get("order")
+        self.order = order if order in ("asc", "desc") else default_order
+        self.per = 50
+        self.page = max(1, _int(args.get("page"), 1))
+
+    def where(self):
+        clauses, params = [], []
+        if self.nb:
+            clauses.append("neighbourhood = ?")
+            params.append(self.nb)
+        if self.beds:
+            parts = []
+            for b in self.beds:
+                if b == "4":
+                    parts.append("bedrooms >= 4")
+                else:
+                    parts.append("bedrooms = ?")
+                    params.append(float(b))
+            clauses.append("(" + " OR ".join(parts) + ")")
+        if self.min_ask is not None:
+            clauses.append("ask >= ?")
+            params.append(self.min_ask)
+        if self.max_ask is not None:
+            clauses.append("ask <= ?")
+            params.append(self.max_ask)
+        if self.status == "current":
+            clauses.append("is_current = 1")
+        elif self.status == "past":
+            clauses.append("is_current = 0")
+        return (" WHERE " + " AND ".join(clauses) if clauses else ""), params
+
+    def order_by(self):
+        key, order = self.SORTS[self.sort], self.order.upper()
+        return f" ORDER BY {key} {order}, listing_id {order}"
+
+    def args(self, **changes):
+        values = {
+            "nb": self.nb,
+            "beds": self.beds,
+            "min_ask": None if self.min_ask is None else f"{self.min_ask:g}",
+            "max_ask": None if self.max_ask is None else f"{self.max_ask:g}",
+            "status": None if self.status == "all" else self.status,
+            "sort": None if self.sort == "date" else self.sort,
+            "order": None
+            if self.order == ("desc" if self.sort == "date" else "asc")
+            else self.order,
+            "page": None if self.page == 1 else self.page,
+        }
+        values.update(changes)
+        return {k: v for k, v in values.items() if v not in (None, [], "")}
+
+
 def _int(value, default):
     try:
         return int(value)
@@ -580,6 +666,7 @@ SECTIONS = {
         "buildings",
         "building",
         "quarantined",
+        "observed_listings",
         "best_listings",
         "about",
         "estimates_map",
@@ -1559,6 +1646,105 @@ def create_app(
                 (value,),
             )
             .fetchall()
+        )
+
+    def has_observed() -> bool:
+        """Builds before the observed table have no NJ listings."""
+        return (
+            db()
+            .execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'observed'"
+            )
+            .fetchone()
+            is not None
+        )
+
+    def observed_areas() -> dict[str, int]:
+        if not has_observed():
+            return {}
+        return dict(
+            db()
+            .execute(
+                "SELECT neighbourhood, COUNT(*) FROM observed "
+                "GROUP BY neighbourhood ORDER BY neighbourhood"
+            )
+            .fetchall()
+        )
+
+    @app.get("/new-jersey")
+    def observed_listings():
+        areas = observed_areas()
+        filters = ObservedFilters(request.args, areas)
+        where, params = filters.where()
+        rows, total, medians = [], 0, []
+        if areas:
+            total = (
+                db()
+                .execute("SELECT COUNT(*) FROM observed" + where, params)
+                .fetchone()[0]
+            )
+            # The median ask of each layout among the matching listings.
+            asks: dict[int, list[float]] = {}
+            for beds, ask in db().execute(
+                "SELECT bedrooms, ask FROM observed" + where, params
+            ):
+                if beds is not None:
+                    asks.setdefault(min(round(beds), 4), []).append(ask)
+            medians = [
+                (BEDROOMS[str(b)], statistics.median(v), len(v))
+                for b, v in sorted(asks.items())
+            ]
+        pages = max(1, math.ceil(total / filters.per))
+        filters.page = min(filters.page, pages)
+        if areas:
+            rows = (
+                db()
+                .execute(
+                    "SELECT * FROM observed"
+                    + where
+                    + filters.order_by()
+                    + " LIMIT ? OFFSET ?",
+                    [*params, filters.per, (filters.page - 1) * filters.per],
+                )
+                .fetchall()
+            )
+        status = meta().get("stats", {}).get("observed", {})
+        return render_template(
+            "observed.html",
+            meta=meta(),
+            areas=areas,
+            filters=filters,
+            rows=rows,
+            total=total,
+            pages=pages,
+            medians=medians,
+            left_out=status.get("left_out", {}),
+            HIDDEN=observed.HIDDEN,
+            csv_url=url_for("observed_csv") + "?" + _query(filters.args(page=None)),
+        )
+
+    @app.get("/new-jersey.csv")
+    def observed_csv():
+        filters = ObservedFilters(request.args, observed_areas())
+        where, params = filters.where()
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(OBSERVED_CSV_COLUMNS)
+        if has_observed():
+            writer.writerows(
+                db().execute(
+                    "SELECT "
+                    + ", ".join(OBSERVED_CSV_COLUMNS)
+                    + " FROM observed"
+                    + where
+                    + filters.order_by(),
+                    params,
+                )
+            )
+        return Response(
+            buffer.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=new-jersey.csv"},
         )
 
     @app.get("/quarantined")
