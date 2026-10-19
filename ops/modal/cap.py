@@ -81,6 +81,10 @@ PER_FIT_USD = None
 # row from the old launcher (no estimate) are 10 x and 1 x the NB5 served-fit estimate, kept
 # fixed so recalibrating the estimate never reprices the past.
 NB5_SERVED_FIT_USD = 0.88
+# A BlackJAX model with no Modal fit yet is estimated from the model it runs beside on the same
+# sampler: B0.2 has B0.1's rows, sampler and about as many parameters, with the 15 bed-bath
+# interaction steps in place of the slope walk's scale and its smoothness.
+STAND_IN = {"b0.2": "b0.1"}
 
 
 class CapReached(RuntimeError):
@@ -191,9 +195,12 @@ def fit_estimate(
     """Estimated (USD, seconds) of a Modal fit. A BlackJAX fit with the chains and leapfrog
     limit of its model's last Modal fit is estimated from that fit's time a gradient and step
     counts, with PSIS-LOO scaled by the kept draws, since its time an iteration follows its
-    trajectory lengths and not the Gibbs rate. Every other fit comes from `estimate` and
+    trajectory lengths and not the Gibbs rate. A model in STAND_IN with no such fit of its
+    own is estimated from its stand-in's. Every other fit comes from `estimate` and
     `seconds`."""
     hmc = measured_gradients(model, features, runs)
+    if hmc is None and model in STAND_IN:
+        hmc = measured_gradients(STAND_IN[model], features, runs)
     if (
         hmc
         and not large

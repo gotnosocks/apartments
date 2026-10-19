@@ -361,10 +361,11 @@ def main(argv=None):
             continue
         t0 = time.perf_counter()
         run = json.loads((RUNS / name / "result.json").read_text())
-        if run.get("sampler") in ("b0", "b0.1"):
-            from . import b0
+        if run.get("sampler") in ("b0", "b0.1", "b0.2"):
+            from . import b0, b0_2
 
-            record, pointwise = b0.score(name, run["sampler"])
+            spec = b0_2 if run["sampler"] == "b0.2" else None
+            record, pointwise = b0.score(name, run["sampler"], spec)
         else:
             record, pointwise = score_run(name)
         record.update(
