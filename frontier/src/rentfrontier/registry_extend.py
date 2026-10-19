@@ -21,9 +21,10 @@ these steps:
 4. Otherwise it geocodes each missing building with `registry.locate`, giving GeoSearch the
    borough of the record's city (NEW YORK is Manhattan), and writes
    EXTERNAL_ROOT/registry/<date>-<commit>-extend/registry.parquet: the base rows unchanged, then
-   the new rows. A building GeoSearch can't place gets a row of method `none`, so the next run
-   skips it and the count of such rows stays visible in provenance.json. When nothing is
-   missing, it writes nothing.
+   the new rows. A building GeoSearch can't place gets a row of method `none`, and the next run
+   tries it again when its record has a point. When nothing is missing, it writes
+   nothing. Without `--base` it stops when more than MAX_NEW buildings are missing, since the
+   newest snapshot is then likely a partial registry.
 
 Model code reads a fixed snapshot path, so a new snapshot changes no fit until a model names it.
 """
@@ -55,6 +56,8 @@ COLUMNS = [
     "longitude",
     "distance_m",
 ]
+# More buildings than this to geocode means the base is likely a partial registry.
+MAX_NEW = 5000
 CITY_BOROUGH = {"NEW YORK": "Manhattan", "MANHATTAN": "Manhattan"}
 
 
@@ -114,7 +117,14 @@ def wanted(export: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def missing(base: pd.DataFrame, buildings: pd.DataFrame) -> pd.DataFrame:
-    return buildings[~buildings.building.isin(base.building)]
+    """The buildings with no base row, or with a base row of method `none` and a point to
+    geocode again."""
+    located = base.building[base.method != "none"]
+    retry = buildings.building.isin(base.building) & buildings.latitude.notna()
+    return buildings[
+        ~buildings.building.isin(located)
+        & (retry | ~buildings.building.isin(base.building))
+    ]
 
 
 def geocode(todo: pd.DataFrame, pause: float = 0.1) -> pd.DataFrame:
@@ -132,9 +142,13 @@ def geocode(todo: pd.DataFrame, pause: float = 0.1) -> pd.DataFrame:
 
 
 def extend(base: pd.DataFrame, todo: pd.DataFrame, pause: float = 0.1):
-    """The base rows, then a geocoded row for each building of `todo`, with the base's dtypes."""
+    """The base rows, less those `todo` geocodes again, then a geocoded row for each building of
+    `todo`, with the base's dtypes."""
+    if list(base.columns) != COLUMNS:
+        raise SystemExit(f"the base has columns {list(base.columns)}, not {COLUMNS}")
     added = geocode(todo, pause)
-    table = pd.concat([base[COLUMNS], added], ignore_index=True)
+    kept = base[~base.building.isin(todo.building)]
+    table = pd.concat([kept, added], ignore_index=True)
     return table.astype(base[COLUMNS].dtypes.to_dict()), added
 
 
@@ -160,6 +174,11 @@ def main(argv=None):
     )
     if args.check:
         raise SystemExit(1 if len(todo) else 0)
+    if not args.base and len(todo) > MAX_NEW:
+        raise SystemExit(
+            f"{len(todo)} buildings to geocode, over {MAX_NEW}: is {base_dir} a whole"
+            " registry? Name the base with --base to go on."
+        )
     if todo.empty:
         return
     dirty = git("status", "--porcelain")
@@ -171,9 +190,11 @@ def main(argv=None):
     out_dir = EXTERNAL_ROOT / "registry" / f"{started:%Y%m%d}-{commit[:7]}-extend"
     if out_dir.exists():
         out_dir = out_dir.with_name(f"{out_dir.name}-{started:%H%M%S}")
-    out_dir.mkdir(parents=True)
-    path = out_dir / "registry.parquet"
-    table.to_parquet(path, index=False)
+    # The snapshot goes together in a hidden folder and takes its name at the end, so a reader
+    # looking for the newest registry.parquet never finds a half-written one.
+    work = out_dir.with_name(f".{out_dir.name}.partial")
+    work.mkdir(parents=True)
+    table.to_parquet(work / "registry.parquet", index=False)
     base_path = base_dir / "registry.parquet"
     provenance = {
         "base": str(base_dir),
@@ -188,9 +209,11 @@ def main(argv=None):
         "added_boroughs": added.bbl.dropna().str[0].value_counts().to_dict(),
         "max_distance_m": MAX_DISTANCE_M,
         "added_median_distance_m": float(added.distance_m.median()),
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256((work / "registry.parquet").read_bytes()).hexdigest(),
     }
-    (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2))
+    (work / "provenance.json").write_text(json.dumps(provenance, indent=2))
+    work.rename(out_dir)
+    path = out_dir / "registry.parquet"
     print(f"wrote {path}: {len(added)} added, {provenance['added_methods']}")
 
 

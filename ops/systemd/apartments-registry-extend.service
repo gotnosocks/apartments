@@ -23,4 +23,5 @@ CPUAffinity=3-5 9-11
 MemoryMax=3G
 MemorySwapMax=0
 Nice=19
+CPUSchedulingPolicy=idle
 IOSchedulingClass=idle

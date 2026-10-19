@@ -155,3 +155,62 @@ def test_extend_keeps_the_base_and_adds_a_row_per_building(monkeypatch):
     assert list(table.building) == ["a-new_york", "c-ridgewood", "d-brooklyn"]
     assert list(added.method) == ["address", "none"]
     assert table.dtypes.to_dict() == _base().dtypes.to_dict()
+
+
+def test_missing_retries_unplaced_buildings_with_a_point():
+    base = pd.concat(
+        [
+            _base(),
+            _base().assign(building="e-brooklyn", method="none", bbl=pd.NA),
+            _base().assign(building="f-brooklyn", method="none", bbl=pd.NA),
+        ]
+    )
+    buildings = pd.DataFrame(
+        {
+            "building": ["a-new_york", "e-brooklyn", "f-brooklyn", "g-brooklyn"],
+            "latitude": [40.7, 40.69, None, None],
+        }
+    )
+    assert list(m.missing(base, buildings).building) == ["e-brooklyn", "g-brooklyn"]
+
+
+def test_main_writes_a_named_snapshot_with_provenance(tmp_path, monkeypatch):
+    catalog = _catalog(
+        tmp_path,
+        {
+            "building_id": [1, 2],
+            "fetched": pd.to_datetime(["2026-10-15", "2026-10-16"]),
+            "record": [
+                _record("a-new_york", "NEW YORK"),
+                _record("b-new_york", "NEW YORK"),
+            ],
+        },
+        {"building": ["a-new_york", "b-new_york"], "building_id": [1, 2]},
+    )
+    base = tmp_path / "registry" / "base"
+    base.mkdir(parents=True)
+    _base().to_parquet(base / "registry.parquet")
+    monkeypatch.setattr(m, "EXTERNAL_ROOT", tmp_path)
+    monkeypatch.setattr(m, "git", lambda *a: "" if a[0] == "status" else "abcdef123")
+    monkeypatch.setattr(
+        m,
+        "locate",
+        lambda slug, lat, lon, borough: {
+            "building": slug,
+            "method": "address",
+            "bbl": "1000020002",
+            "latitude": lat,
+            "longitude": lon,
+            "distance_m": 1.0,
+        },
+    )
+    for _ in range(2):
+        m.main(["--base", str(base), "--catalog", str(catalog), "--pause", "0"])
+    out = sorted(p.name for p in (tmp_path / "registry").iterdir() if p.name != "base")
+    assert len(out) == 2 and out[0].endswith("-abcdef1-extend")
+    assert out[1].startswith(out[0] + "-")
+    snap = tmp_path / "registry" / out[0]
+    table = pd.read_parquet(snap / "registry.parquet")
+    assert list(table.building) == ["a-new_york", "b-new_york"]
+    prov = json.loads((snap / "provenance.json").read_text())
+    assert prov["added"] == 1 and prov["added_boroughs"] == {"1": 1}
