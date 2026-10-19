@@ -198,3 +198,58 @@ def test_run_and_score(tmp_path, monkeypatch):
     assert 0.5 < record["heldout"]["coverage_95"] <= 1
     assert len(record["scorecard"]) == 8
     assert pointwise["heldout_quantiles"].shape == (result["sizes"]["heldout"], 5)
+
+
+def test_record_flags_date_page_prices_by_the_off_market_day(tmp_path):
+    duckdb = pytest.importorskip("duckdb")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    def record(off, changes):
+        return json.dumps(
+            {
+                "description": "a sunny one bedroom with roommate wanted",
+                "offMarketAt": off,
+                "statusChanges": [{"changedAt": d, "status": s} for d, s in changes],
+            }
+        )
+
+    rows = {
+        1: record("2014-09-19T04:00:00Z", [("2014-09-09T00:00:00Z", "ACTIVE")]),
+        # A draft has no offMarketAt; its move off the market comes after its last ACTIVE change.
+        2: record(
+            None,
+            [
+                ("2018-07-06T00:00:00Z", "ACTIVE"),
+                ("2023-07-27T00:00:00Z", "NO_LONGER_AVAILABLE"),
+                ("2023-07-28T00:00:00Z", "DRAFT"),
+            ],
+        ),
+        # Going into contract leaves the ad on the market.
+        3: record(
+            None,
+            [
+                ("2021-07-19T00:00:00Z", "ACTIVE"),
+                ("2021-07-20T00:00:00Z", "IN_CONTRACT"),
+                ("2021-07-21T00:00:00Z", "TEMPORARILY_OFF_MARKET"),
+            ],
+        ),
+        4: record(None, [("2026-10-01T00:00:00Z", "ACTIVE")]),
+    }
+    path = tmp_path / "records.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "listing_id": list(rows),
+                "collected_at": [1.76e9] * len(rows),
+                "last_collected_at": [None] * len(rows),
+                "raw_listing_json": list(rows.values()),
+            }
+        ),
+        path,
+    )
+    con = duckdb.connect()
+    con.execute(b0data.record_flags(path))
+    got = dict(con.sql("SELECT listing_id, off_day FROM recf").fetchall())
+    assert got == {1: "2014-09-19", 2: "2023-07-27", 3: "2021-07-21", 4: None}
+    assert con.sql("SELECT bool_and(shared_space) FROM recf").fetchone()[0]

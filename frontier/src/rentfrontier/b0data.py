@@ -19,7 +19,13 @@ of the rows file:
       dates it by the row's day (`row, change before`).
     - `earlier change, nearer building`: the day of the ad's last kept change on or after the
       row's day at the chosen price.
-    - `page price` and `page price, digit`: the day the ad's latest record was last collected.
+    - `page price` and `page price, digit`: the price on the ad's page, which the ad's price
+      history never lists, so it carries no day of its own. The ad asked it until it left the
+      market, so the script dates it by the off-market day in the ad's latest record:
+      `offMarketAt`, or else the first move off the market in `statusChanges` after the ad's last
+      `ACTIVE` change (`record, off market`). A move to `IN_CONTRACT` or
+      `IN_STREETEASY_REVIEW` does not count as one. When the record gives neither, the script
+      takes the day the record was last collected (`record`).
     - `first, nearer building` and `own ask, captured before the row`: the row's own day.
   A choice the script cannot date takes the row's day, and `latest_day_how` says which case
   dated each row.
@@ -59,6 +65,8 @@ TEXT_FLAGS = {
     "rent_stabilized": r"rent[- ]stabiliz",
 }
 MIN_DESCRIPTION = 20
+# Statuses of an ad still on the market, which a move off the market in `statusChanges` skips.
+STILL_LISTED = "'ACTIVE', 'IN_CONTRACT', 'IN_STREETEASY_REVIEW'"
 # The catalog key of each file (the line's `ads` key lists the ad responses read).
 KINDS = {"rows": "rows", "ads": "ads_file", "records": "records"}
 
@@ -106,12 +114,26 @@ def record_flags(records: Path) -> str:
     return f"""
 CREATE TEMP TABLE recf AS
 SELECT listing_id, greatest(collected_at, coalesce(last_collected_at, collected_at)) AS collected_at,
+    coalesce(
+        nullif(left(off_market_at, 10), ''),
+        list_min(list_transform(
+            list_filter(changes, c -> c.status NOT IN ({STILL_LISTED})
+                AND (last_active IS NULL OR c.changedAt > last_active)),
+            c -> left(c.changedAt, 10)))
+    ) AS off_day,
     coalesce(length(text) > {MIN_DESCRIPTION}, false) AS known,
     {text_flag_sql()}
 FROM (
-    SELECT listing_id, collected_at, last_collected_at,
-        lower(json_extract_string(raw_listing_json, '$.description')) AS text
-    FROM read_parquet('{records}')
+    SELECT *, list_max(list_transform(list_filter(changes, c -> c.status = 'ACTIVE'),
+        c -> c.changedAt)) AS last_active
+    FROM (
+        SELECT listing_id, collected_at, last_collected_at,
+            json_extract_string(raw_listing_json, '$.offMarketAt') AS off_market_at,
+            from_json(json_extract(raw_listing_json, '$.statusChanges'),
+                '[{{"changedAt": "VARCHAR", "status": "VARCHAR"}}]') AS changes,
+            lower(json_extract_string(raw_listing_json, '$.description')) AS text
+        FROM read_parquet('{records}')
+    )
 )
 """
 
@@ -134,6 +156,7 @@ k AS (
 ),
 rec AS (
     SELECT listing_id, max(collected_at) AS collected_at,
+        arg_max(off_day, collected_at) AS off_day,
         arg_max(known, collected_at) AS known,
         {", ".join(f"arg_max({f}, collected_at) AS {f}" for f in TEXT_FLAGS)}
     FROM recf GROUP BY listing_id
@@ -145,6 +168,8 @@ dated AS (
                 THEN 'change'
             WHEN la.how = 'earlier change, nearer building' AND k.near_day IS NOT NULL
                 THEN 'earlier change'
+            WHEN la.how IN ('page price', 'page price, digit') AND rec.off_day IS NOT NULL
+                THEN 'record, off market'
             WHEN la.how IN ('page price', 'page price, digit') AND rec.collected_at IS NOT NULL
                 THEN 'record'
             WHEN la.how IN ('latest', 'latest, nearer building') THEN 'row, change before'
@@ -152,7 +177,7 @@ dated AS (
                 THEN 'row'
             ELSE 'row, undated'
         END AS latest_day_how,
-        k.live_day, k.near_day,
+        k.live_day, k.near_day, rec.off_day,
         strftime(to_timestamp(rec.collected_at), '%Y-%m-%d') AS record_day,
         coalesce(rec.known, false) AS known, {", ".join(f"coalesce(rec.{f}, false) AS {f}" for f in TEXT_FLAGS)}
     FROM r LEFT JOIN la USING (listing_id) LEFT JOIN k USING (listing_id)
@@ -163,6 +188,7 @@ SELECT d.listing_id, CAST(d.listing_id AS VARCHAR) AS audit_id, d.building, d.un
     CAST(CASE d.latest_day_how
         WHEN 'change' THEN d.live_day
         WHEN 'earlier change' THEN d.near_day
+        WHEN 'record, off market' THEN greatest(d.off_day, d.day)
         WHEN 'record' THEN greatest(d.record_day, d.day)
         ELSE d.day END AS DATE) AS latest_day,
     d.latest_day_how, d.how AS latest_ask_how,
