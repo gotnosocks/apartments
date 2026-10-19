@@ -874,11 +874,22 @@ def run_parser():
     return p
 
 
-def main_run(argv) -> None:
-    """`rentfrontier.run --model b0`: fit B0 on the split's training rows and save the run."""
+def main_run(
+    argv,
+    parser=None,
+    name=NAME,
+    settings_cls=None,
+    sample=None,
+    settings_extra=None,
+    line="baseline",
+) -> None:
+    """`rentfrontier.run --model b0`: fit B0 on the split's training rows and save the run.
+    B0.1 (`rentfrontier.b0_1`) passes its own parser, settings and sampler for the same model."""
     from . import run as runmod
 
-    args, ignored = run_parser().parse_known_args(argv)
+    settings_cls = settings_cls or Settings
+    sample = sample or run
+    args, ignored = (parser or run_parser()).parse_known_args(argv)
     commit = os.environ.get("FRONTIER_COMMIT")
     dirty = "" if commit else runmod.git("status", "--porcelain")
     commit = commit or runmod.git("rev-parse", "HEAD")
@@ -887,19 +898,9 @@ def main_run(argv) -> None:
     out_dir = runmod.RUNS / args.name
     if (out_dir / "result.json").exists():
         raise SystemExit(f"{out_dir} already has a result; choose a new --name")
-    settings = Settings(
-        **{
-            k: v
-            for k, v in {
-                "chains": args.chains,
-                "warmup": args.warmup,
-                "draws": args.draws,
-                "keep_every": args.keep_every,
-                "seed": args.seed,
-            }.items()
-            if v is not None
-        }
-    )
+    fields = {f.name for f in dataclasses.fields(settings_cls)}
+    given = {k: v for k, v in vars(args).items() if k in fields and v is not None}
+    settings = settings_cls(**given, **(settings_extra or {}))
     priors = Priors()
     started = time.time()
     t0 = time.perf_counter()
@@ -920,7 +921,7 @@ def main_run(argv) -> None:
         f"{len(test.y)} held out, {full.weeks} weeks from {full.start.date()}"
         + (f"; ignored {' '.join(ignored)}" if ignored else "")
     )
-    out = run(train, priors, settings, log=log)
+    out = sample(train, priors, settings, log=log)
     diag = diagnostics(out["trace"], full.names)
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), "
@@ -942,11 +943,11 @@ def main_run(argv) -> None:
         "dataset_observations_sha256": frame.attrs["source_sha256"],
         "split": args.split,
         "split_seed": splits.SEED,
-        "feature_set": NAME,
+        "feature_set": name,
         "data_rules": [],
-        "model": {"name": NAME, "priors": priors.to_dict()},
-        "sampler": NAME,
-        "line": "baseline",
+        "model": {"name": name, "priors": priors.to_dict()},
+        "sampler": name,
+        "line": line,
         "tier": args.tier,
         "sampler_settings": settings.to_dict(),
         "sizes": {
@@ -962,6 +963,7 @@ def main_run(argv) -> None:
         "cost_usd": None,
         "diagnostics": diag,
         "log": log_lines,
+        **out.get("result", {}),
     }
     (out_dir / "result.json").write_text(json.dumps(result, indent=2, default=str))
     print(f"wrote {out_dir}")
@@ -990,7 +992,7 @@ def diagnostics(trace: dict, names) -> dict:
     }
 
 
-def score(name: str) -> tuple[dict, dict]:
+def score(name: str, model: str = NAME) -> tuple[dict, dict]:
     """PSIS-LOO over the run's training rows, and the held-out rows' predictive medians,
     intervals and coverage, as `rentfrontier.loo` writes them: (record, pointwise arrays)."""
     from . import clusterse, loo
@@ -1023,7 +1025,7 @@ def score(name: str) -> tuple[dict, dict]:
     buildings = frame.building.astype(str).to_numpy()[~heldout]
     record = {
         "run": name,
-        "model": NAME,
+        "model": model,
         "elpd_loo": float(elpd.sum()),
         "elpd_loo_se": float(elpd.std(ddof=1) * math.sqrt(n)),
         "elpd_loo_building_se": clusterse.cluster_se(elpd, buildings),

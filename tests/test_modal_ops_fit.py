@@ -284,6 +284,10 @@ def test_post_fit_steps_by_tier_and_explain(monkeypatch):
         "run_args": ["--split", "latest", "--model", "b0"],
     }
     assert app.post_steps(b0) == []
+    assert (
+        app.post_steps({**b0, "run_args": ["--split", "latest", "--model", "b0.1"]})
+        == []
+    )
     calls = []
 
     def run(cmd, env, log, timeout=None):

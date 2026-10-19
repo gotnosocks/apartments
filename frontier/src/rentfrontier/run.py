@@ -14,6 +14,7 @@ marked not reportable. Outputs go to /data1/apartments/frontier/runs/<name>/:
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import math
 import os
@@ -439,14 +440,14 @@ def check_rules_for_split(rules, split: str) -> None:
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
-    # B0 (rentfrontier.b0) reads its own dataset and runs its own sampler.
-    if any(
-        a == "--model=b0" or (a == "--model" and argv[i + 1 : i + 2] == ["b0"])
-        for i, a in enumerate(argv)
-    ):
-        from . import b0
-
-        return b0.main_run(argv)
+    # B0 (rentfrontier.b0) reads its own dataset and runs its own sampler; B0.1
+    # (rentfrontier.b0_1) is the same model on BlackJAX's ChEES-HMC.
+    for m, module in (("b0", "b0"), ("b0.1", "b0_1")):
+        if any(
+            a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
+            for i, a in enumerate(argv)
+        ):
+            return importlib.import_module(f".{module}", __package__).main_run(argv)
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
