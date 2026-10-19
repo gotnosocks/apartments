@@ -101,9 +101,24 @@ STAND_IN = {"b0.2": "b0.1", "b0.3": "b0.1", "b0.4": "b0.3"}
 STAND_IN["centered-walk"] = "b0.3"
 # The level walk has the centered walk's parameters, with the intercept moved into the levels.
 STAND_IN["level-walk"] = "centered-walk"
+# The total walk has them too, with the season moved into the levels.
+STAND_IN["total-walk"] = "centered-walk"
+# The normal walk has the total walk's, with each bath step sampled directly in place of the
+# pooled steps, their means and their spread, and no shock degrees of freedom.
+STAND_IN["normal-walk"] = "centered-walk"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
-BASELINES = ("b0", "b0.1", "b0.2", "b0.3", "b0.4", "centered-walk", "level-walk")
+BASELINES = (
+    "b0",
+    "b0.1",
+    "b0.2",
+    "b0.3",
+    "b0.4",
+    "centered-walk",
+    "level-walk",
+    "total-walk",
+    "normal-walk",
+)
 
 
 def scoring_steps(model, large=False, score=False, no_loo=False, no_heldout=False):
