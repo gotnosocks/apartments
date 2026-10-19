@@ -278,3 +278,52 @@ def test_bedroom_check_needs_two_other_units_at_the_level():
     ]
     frame = _frame([dict(square_feet=None, **r) for r in rows])
     assert not adfit.bedroom_conflicts(frame).any()
+
+
+def test_room_share_phrases_from_the_nj_reads():
+    rows = [
+        dict(audit_id=a, unit_id=a, bedrooms=1, square_feet=600, rent=3000)
+        for a in "abcdefgh"
+    ]
+    text = pd.Series(
+        [
+            "looking for a female roommate to share our place",
+            "one bedroom available in a 3 bedroom apartment",
+            "two rooms for rent near the path",
+            "open room in our sunny duplex",
+            "there are additional storage rooms for rent as well",
+            "the living room in a 2-bed layout is large",
+            "studio plus open bedroom in a elevator building",
+            "large living room for rent-stabilized tenants",
+        ]
+    )
+    hits = adfit.screen(_frame(rows), text, COORDS, CENTRES).set_index("audit_id")
+    assert set(hits.index) == {"a", "b", "c", "d"}
+    assert all(f == ["room_share"] for f in hits["flags"])
+
+
+def test_an_nj_building_skips_commutes_and_hobokens_midtown():
+    coords = pd.DataFrame(
+        {"latitude": [40.745, 40.745], "longitude": [-74.030, -73.992]},
+        index=["hoboken", "b"],
+    )
+    centres = {
+        **CENTRES,
+        "midtown": [(40.754, -73.984)],
+        "williamsburg": [(40.714, -73.958)],
+    }
+    texts = {
+        "a": ("hoboken", "a one bedroom located in midtown hoboken"),
+        "b": ("hoboken", "minutes to williamsburg by ferry"),
+        "c": ("hoboken", "a 2 bedroom in prime williamsburg"),
+        "d": ("b", "minutes to williamsburg by subway"),
+    }
+    rows = [
+        dict(audit_id=a, unit_id=a, building=b, bedrooms=1, square_feet=600, rent=3000)
+        for a, (b, _) in texts.items()
+    ]
+    text = pd.Series([t for _, t in texts.values()])
+    hits = adfit.screen(_frame(rows), text, coords, centres).set_index("audit_id")
+    assert set(hits.index) == {"c", "d"}
+    assert adfit.nj_side(40.745, -74.030) and not adfit.nj_side(40.745, -74.019)
+    assert not adfit.nj_side(40.60, -74.10)

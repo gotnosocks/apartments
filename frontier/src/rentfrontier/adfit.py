@@ -11,7 +11,8 @@ each hit into a tier for reading:
 2. B: the ad's words describe something other than a whole apartment in this
    building: a room share, a bath or kitchen shared with other units, a
    nightly or short stay, or a neighbourhood more than `FAR_KM` from the
-   building.
+   building. For a building in Hoboken or Jersey City (`nj_side`) I skip
+   commute phrases and Hoboken's own Midtown (`NJ_COMMUTE`, `NJ_PLACES`).
 3. C: a stated size far from the unit's other stated sizes, alone.
 4. E: a bedroom count out of line with its building (`beds_price_bldg`).
 5. D: price alone.
@@ -110,8 +111,13 @@ TERMS = {
         r"(?<!living )\broom for rent",
         r"\broom in an? (?:apartment|apt|shared)",
         r"private (?:bed)?room (?:in|available)",
-        r"(?:looking for|seeking) (?:a |one )?room ?mate",
+        r"(?:looking for|seeking) (?:a |an? |one )?(?:male |female )?room ?mate",
         r"room ?mate wanted",
+        r"(?<!living )(?<!storage )\brooms for rent\b",
+        r"(?<!living )\b(?:bed)?room (?:available )?in (?:an? |our |my )?"
+        r"(?:\d|two|three|four|five)[- ]?(?:bed|br\b|bedroom)",
+        r"open (?:bed)?room in (?:our|my)\b",
+        r"take over (?:a|my|the) room\b",
     ),
     "shared_bath": (
         r"shared (?:bath|bathroom|toilet|shower|kitchen)s?\b",
@@ -144,8 +150,18 @@ NEAR = (
 )
 # Building names and phrases that read like a far place.
 PLACE_FALSE_ALARMS = re.compile(
-    r"kensington house|brooklyn fare|clinton (?:hill )?park"
+    r"kensington house|brooklyn fare|clinton (?:hill )?park|the belmont|claremont cove"
 )
+# Hoboken and Jersey City sit across the Hudson from every NTA, so an ad there
+# names Manhattan places as commutes ("minutes to the west village"), and
+# Hoboken's own Midtown shares a name with Manhattan's. For a building on the
+# New Jersey side the screen skips these leads and names. NJ_SIDE holds the
+# south, north and east bounds of that side: west of the river's Manhattan
+# shore, which runs east of -74.021 between these latitudes, and north of
+# Staten Island.
+NJ_SIDE = (40.69, 40.77, -74.021)
+NJ_COMMUTE = re.compile(r"^(?:close to|minutes? (?:to|from)|near|steps (?:to|from))\b")
+NJ_PLACES = frozenset({"midtown"})
 # Amounts of money, with or without a dollar sign.
 DOLLARS = re.compile(
     r"\$\s?\d[\d,]*(?:\.\d+)?k?"
@@ -257,6 +273,12 @@ def place_centres(path: Path = NTA_CENTRES) -> dict[str, list[tuple[float, float
     return centres
 
 
+def nj_side(lat: float, lon: float) -> bool:
+    """Whether a building lies across the Hudson in Hoboken or Jersey City."""
+    south, north, east = NJ_SIDE
+    return south <= lat <= north and lon < east
+
+
 def _km(lat, lon, a, b):
     return math.hypot((lat - a) * 111.2, (lon - b) * 111.2 * 0.757)
 
@@ -321,7 +343,10 @@ def screen(
             phrase["shared_bath"][i] = m.group(0) if m else None
         if np.isnan(lat[i]):
             continue
+        nj = nj_side(lat[i], lon[i])
         for m in place_rx.finditer(PLACE_FALSE_ALARMS.sub(" ", ad)):
+            if nj and (m.group(1) in NJ_PLACES or NJ_COMMUTE.match(m.group(0))):
+                continue
             d = min(_km(lat[i], lon[i], a, b) for a, b in centres[m.group(1)])
             if d > FAR_KM:
                 phrase["far_place"][i] = m.group(0)
