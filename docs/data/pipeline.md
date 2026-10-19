@@ -383,6 +383,25 @@ NYC GeoSearch has no lots in Jersey City or Hoboken and its reverse geocode woul
 nearest Manhattan lot. Until 2026-10-19 no step did this, and the 901 buildings
 whose records came in after the hand-cut lists of 2026-10-15 had no lot and no point.
 
+The service then runs `python -m rentfrontier.njregistry registry` for the NJ buildings. It
+keys each one to a tax lot of Hoboken (municipality 0905) or Jersey City (0906) from the snapshot
+under `/data1/apartments/external/njparcels`, which `njregistry parcels` reads from the NJ Office
+of GIS parcel composite with its MOD-IV tax list fields. The lot is the parcel's PAMS_PIN without
+the condominium qualifier, so `0905_13_1_C002A` belongs to lot `0905_13_1`. I try these in turn:
+
+1. `address`: a parcel of the building's city at the record's street address, after both sides
+   go through the same spelling rules (ordinals as numbers, `STREET` as `ST`, ranges such as
+   `121-125 GARDEN ST` as each number).
+2. `street`: a lot on the same street and side within 10 house numbers and 60 m of the point.
+3. `parcel` or `near`: the parcel holding the `geoCenter` point, or the nearest one within
+   30 m. StreetEasy gives the point to four decimals, about 10 m, so these lots are often the
+   neighbour's.
+
+On the 6,029 NJ buildings of the Oct 19 collection, 4,615 matched by address, 639 by street,
+280 by parcel and 477 as near, and 18 got no lot. The snapshot goes to
+`/data1/apartments/external/registry-nj/<date>-<commit>/registry.parquet`, apart from the NYC
+registry, and the step writes none when the newest one already holds every NJ building.
+
 To count the buildings without a registry row, without geocoding:
 
 ```sh
