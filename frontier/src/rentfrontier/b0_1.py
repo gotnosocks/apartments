@@ -190,6 +190,9 @@ def run(
         settings.initial_step_size,
         optax.adam(settings.learning_rate),
         settings.warmup,
+        # Sizes the Halton sequence behind the step-count jitter, so it runs through warmup
+        # and every draw without repeating.
+        max_sampling_steps=settings.draws,
     )
     warm_steps = np.asarray(warm.info.num_integration_steps)
     warm_divergent = np.asarray(warm.info.is_divergent)
@@ -203,6 +206,7 @@ def run(
     )
     kernel = blackjax.dynamic_hmc(logdensity, **params)
     per = settings.draws // settings.chunks
+    assert per * settings.chunks == settings.draws, "draws must be a multiple of chunks"
 
     @jax.jit
     def chunk(key, state):
