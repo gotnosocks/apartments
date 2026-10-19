@@ -543,6 +543,28 @@ def test_a_model_slower_than_the_default_rate_is_estimated_at_its_own(tmp_path):
     assert cap.measured_rate("m7-new", "nb8-v1", tmp_path) is None
 
 
+def test_a_blackjax_model_is_estimated_from_its_time_a_gradient(tmp_path):
+    run = _modal_run(tmp_path, "b0.1", "b0", 456, name="latest-97cd9e3c-offmarket")
+    meta = json.loads((run / "modal/modal.json").read_text())
+    (run / "modal/modal.json").write_text(json.dumps({**meta, "wall_seconds": 1741}))
+    result = json.loads((run / "result.json").read_text())
+    chees = {"gradients": 13680, "warmup_mean_steps": 24, "mean_steps": 33}
+    result |= {"feature_set": "b0.1", "chees": chees}
+    (run / "result.json").write_text(json.dumps(result))
+    # 1,285 s outside the fit stage, then 1/30 s a gradient for 1,500 x 24 + 500 x 33.
+    usd, secs = cap.fit_estimate(
+        "b0.1", "b0", 16, 1500, 500, "A100-40GB", runs=tmp_path
+    )
+    assert secs == round(1285 + 52500 / 30)
+    assert usd == round(secs * cap.USD_PER_HOUR["A100-40GB"] / 3600, 2)
+    assert cap.over_cap(usd, secs) is None
+    # A model with no BlackJAX fit is estimated as before.
+    assert cap.fit_estimate("m7", "nb8-v1", 2, 300, 4500, "L4", runs=tmp_path) == (
+        cap.estimate(2, 300, 4500, "L4"),
+        cap.seconds(2, 300, 4500),
+    )
+
+
 def test_the_pre_check_reads_the_model_from_modal_fit_arguments():
     argv = ["--gpu", "L4", "abc", "lab", "m7-x", "nb8-v1", "2", "300", "4500", "9"]
     assert cap.fit_model(argv) == ("m7-x", "nb8-v1")

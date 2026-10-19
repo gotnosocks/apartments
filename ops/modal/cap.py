@@ -138,6 +138,58 @@ def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
     return round((gpu_usd + nb_usd) / 3600, 2)
 
 
+def measured_gradients(model, features, runs=RUNS):
+    """From the latest Modal fit of a BlackJAX `model` on `features` under `runs`: its fit-stage
+    seconds a gradient, its mean leapfrog steps a warmup iteration and a draw, and its seconds
+    outside the fit stage (PSIS-LOO and scoring). None if there is no such fit."""
+    latest = None
+    for meta in runs.glob(f"{model}-{features}-*/modal/modal.json"):
+        try:
+            m = json.loads(meta.read_text())
+            result = json.loads((meta.parents[1] / "result.json").read_text())
+            # A baseline (b0.1) records its own name as its feature set.
+            if result["model"]["name"] != model or result["feature_set"] not in (
+                features,
+                model,
+            ):
+                continue
+            chees = result["chees"]
+            fit = m["stages"]["fit"]
+            measured = (
+                fit / chees["gradients"],
+                chees["warmup_mean_steps"],
+                chees["mean_steps"],
+                m["wall_seconds"] - fit,
+            )
+        except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError):
+            continue
+        if m.get("fit_exit", m.get("exit")) != 0:
+            continue
+        mtime = meta.stat().st_mtime
+        if latest is None or mtime > latest[0]:
+            latest = (mtime, measured)
+    return latest and latest[1]
+
+
+def fit_estimate(model, features, chains, warmup, draws, gpu, large=False, runs=RUNS):
+    """Estimated (USD, seconds) of a Modal fit. A BlackJAX model measured on Modal before is
+    estimated from its time a gradient and its step counts, since its time an iteration
+    follows its trajectory lengths and not the Gibbs rate; every other fit from `estimate`
+    and `seconds`."""
+    if (hmc := measured_gradients(model, features, runs)) and not large:
+        per_gradient, warm_steps, draw_steps, outside = hmc
+        secs = round(
+            outside
+            + per_gradient * (int(warmup) * warm_steps + int(draws) * draw_steps)
+        )
+        return round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs
+    rate = measured_rate(model, features, runs)
+    return (
+        estimate(chains, warmup, draws, gpu, rate, large),
+        seconds(chains, warmup, draws, rate, large),
+    )
+
+
 def over_cap(usd, secs, large=False):
     """Why a fit estimated at `usd` and `secs` is over the per-fit cap, or None. A large fit
     (fit.py --large) has no time cap (Ben, 2026-10-16 06:37Z: the all-scraped fit is not
@@ -360,9 +412,8 @@ if __name__ == "__main__":
         try:
             argv = sys.argv[sys.argv.index("--check-launch") + 1 :]
             *fit, gpu = fit_size(argv)
-            rate = measured_rate(*fit_model(argv))
             large = "--large" in argv
-            usd, secs = estimate(*fit, gpu, rate, large), seconds(*fit, rate, large)
+            usd, secs = fit_estimate(*fit_model(argv), *fit, gpu, large)
         except (TypeError, ValueError, KeyError):
             sys.exit(
                 0
