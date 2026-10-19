@@ -141,13 +141,14 @@ BASELINES = (
     ("--model", "b0.2"),
     ("--model", "b0.3"),
     ("--model", "b0.4"),
+    ("--model", "b0.5"),
 )
 
 
 def post_steps(spec):
     """The post-fit statistics for a finished fit, as (step, rentfrontier arguments)."""
     name = spec["name"]
-    # The B0 baselines (rentfrontier.b0 to b0_4) write their own statistics; the variance
+    # The B0 baselines (rentfrontier.b0 to b0_5) write their own statistics; the variance
     # and explained shares read the frontier model's design, which their runs have none of.
     run_args = spec.get("run_args", [])
     if any(pair in zip(run_args, run_args[1:]) for pair in BASELINES):
