@@ -1254,3 +1254,52 @@ def test_a_fit_that_left_out_a_scoring_step_is_not_measured(tmp_path):
         },
     )
     assert cap.measured_gradients("b0.1", "b0", tmp_path) is None
+
+
+def test_a_fit_with_both_scoring_steps_off_is_priced_and_run_as_the_fit_alone(
+    tmp_path, monkeypatch
+):
+    _b01_run(tmp_path, {"wall_seconds": 1741, "stages": {"fit": 456, "loo": 1216}})
+    kw = dict(runs=tmp_path, keep=12, max_leapfrog_steps=64)
+    fit_only = cap.fit_stages(*SIZE, scoring=False, **kw)
+    assert fit_only == cap.fit_stages(*SIZE, cpu_score=True, scoring=False, **kw)
+    assert list(fit_only) == ["gpu"]
+    assert (
+        fit_only["gpu"][1] < cap.fit_stages(*SIZE, cpu_score=True, **kw)["gpu"][1] + 1
+    )
+    # The pre-check reads the switches from the launch arguments.
+    argv = [
+        "abc",
+        "lab",
+        "b0.1",
+        "b0",
+        "16",
+        "1500",
+        "500",
+        "12",
+        "--no-loo",
+        "--no-heldout",
+    ]
+    assert fit.plan(*fit.parse(argv), "9371a18")["score"] is False
+    assert fit.plan(*fit.parse([*argv[:8], "--no-loo"]), "9371a18")["score"] is True
+    # The GPU container starts no scoring step.
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
+    monkeypatch.setattr(app, "_post", lambda *a: {})
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    monkeypatch.setattr(app.subprocess, "run", lambda *a, **k: mock.Mock(stdout=""))
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    steps = []
+    monkeypatch.setattr(
+        app, "_run", lambda cmd, env, log, timeout=None: steps.append(cmd[2]) or 0
+    )
+    spec = {"name": "r", "tier": "full", "run_args": [], "dataset": "d", "score": False}
+    meta = app._fit(spec)
+    assert steps == ["rentfrontier.run"] and "loo" not in meta["stages"]

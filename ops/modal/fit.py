@@ -20,7 +20,9 @@ With --cpu-score (a baseline model: b0.1, b0.2, ...), the GPU container stops af
 saves its draws to the Volume. A second container with 16 CPU cores and no GPU (app.score_cpu)
 then runs rentfrontier.loo on them, with --no-loo and --no-heldout leaving out PSIS-LOO or the
 held-out scoring, and the A100 is not billed for that work. cap.py prices the two containers
-apart and applies the per-fit cap to the sum of their seconds.
+apart and applies the per-fit cap to the sum of their seconds. With both --no-loo and
+--no-heldout, nothing runs after the fit: no rentfrontier.loo step, no scoring container, no
+loo/ record, and the run can be scored later with rentfrontier.loo.
 
 Steps: refuse if the run already exists here; spend the fit's estimated cost from the Modal balance (cap.py:
 dollars accrue at 10 full fits a day; refused until the balance covers it, and refused outright
@@ -241,6 +243,8 @@ def plan(args, run_args, sha, short=None):
         "cpu_score": args.cpu_score,
         "loo": not args.no_loo,
         "heldout": not args.no_heldout,
+        # With both steps off, nothing runs after the fit.
+        "score": not (args.no_loo and args.no_heldout),
     }
 
 
@@ -529,6 +533,7 @@ def main(argv):
         keep=args.keep,
         max_leapfrog_steps=cap.max_leapfrog_steps(run_args),
         cpu_score=args.cpu_score,
+        scoring=spec["score"],
     )
     usd = round(sum(u for u, _ in stages.values()), 2)
     secs = sum(t for _, t in stages.values())
@@ -562,7 +567,11 @@ def main(argv):
             sync(modal_app.volume, spec, stage)
             meta = fits[args.gpu].remote(spec)
             meta["steps"] = {"loo": spec["loo"], "heldout": spec["heldout"]}
-            if args.cpu_score and meta.get("fit_exit", meta["exit"]) == 0:
+            if (
+                args.cpu_score
+                and spec["score"]
+                and meta.get("fit_exit", meta["exit"]) == 0
+            ):
                 meta["score"] = score_on_cpu(modal_app, spec)
                 if meta["score"]["exit"] != 0:
                     # The fit and its draws stay; finish() keeps a good fit whose scoring failed.

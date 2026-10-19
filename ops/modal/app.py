@@ -404,8 +404,9 @@ def _fit(spec):
             ):
                 (out / "design").mkdir(exist_ok=True)
                 shutil.copy2(p, out / "design" / p.name)
-        # With cpu_score the draws leave on the Volume and score_cpu scores them.
-        if code == 0 and not spec.get("cpu_score"):
+        # With cpu_score the draws leave on the Volume and score_cpu scores them; with both
+        # scoring steps off, nothing scores them.
+        if code == 0 and spec.get("score", True) and not spec.get("cpu_score"):
             t = time.time()
             code = _run(
                 loo_command(spec),

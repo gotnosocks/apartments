@@ -214,6 +214,7 @@ def fit_estimate(
     keep=1,
     max_leapfrog_steps=None,
     cpu_score=False,
+    scoring=True,
 ):
     """Estimated (USD, seconds) of a Modal fit: `fit_stages` summed, the GPU container then the
     scoring container, which run one after the other."""
@@ -229,6 +230,7 @@ def fit_estimate(
         keep,
         max_leapfrog_steps,
         cpu_score,
+        scoring,
     )
     return (
         round(sum(usd for usd, _ in stages.values()), 2),
@@ -248,6 +250,7 @@ def fit_stages(
     keep=1,
     max_leapfrog_steps=None,
     cpu_score=False,
+    scoring=True,
 ):
     """Estimated {container: (USD, seconds)} of a Modal fit, each stage at its own price: "gpu",
     plus "score" for a baseline scored on a CPU container (`cpu_score`). A BlackJAX fit with the
@@ -270,7 +273,7 @@ def fit_stages(
     ):
         steps = int(warmup) * hmc["warm_steps"] + int(draws) * hmc["draw_steps"]
         secs = hmc["other"] + hmc["per_gradient"] * steps
-        if not cpu_score:
+        if scoring and not cpu_score:
             secs += (hmc["loo_per_draw"] or GPU_LOO_SECONDS_PER_DRAW) * kept
         secs = round(secs)
         stages = {"gpu": (round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs)}
@@ -282,7 +285,7 @@ def fit_stages(
                 seconds(chains, warmup, draws, rate, large),
             )
         }
-    if cpu_score:
+    if cpu_score and scoring:
         # A measured scoring container, or the constants.
         overhead = (hmc or {}).get("score_overhead") or SCORE_OVERHEAD_SECONDS
         per_draw = (hmc or {}).get("score_per_draw") or SCORE_SECONDS_PER_DRAW
@@ -532,6 +535,7 @@ if __name__ == "__main__":
                 keep=_positional(argv)[0][7],
                 max_leapfrog_steps=max_leapfrog_steps(argv),
                 cpu_score="--cpu-score" in argv,
+                scoring=not ("--no-loo" in argv and "--no-heldout" in argv),
             )
         except (TypeError, ValueError, KeyError, IndexError):
             sys.exit(
