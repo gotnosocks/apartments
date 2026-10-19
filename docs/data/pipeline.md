@@ -409,6 +409,18 @@ around Hoboken and Jersey City, each with its routes, from the GTFS feeds the Mo
 mirrors. Its `parks.parquet` holds the OpenStreetMap parks there with their outlines and acres.
 PATH stations already have a snapshot under `external/path`. No feature reads these yet.
 
+`apartments-nj-fetch.timer` runs both NJ snapshot steps every Friday at 04:35 ET, before the
+StreetEasy top-up: first `njregistry parcels`, then `njcity`. The parcel layer carries only the
+current MOD-IV release, so each run writes a new `njparcels` snapshot, and the registry step after
+the next pipeline build keys the NJ buildings to it. The units go in with the others, and stay
+disabled while the project's timers stay paused (since 2026-10-18):
+
+```sh
+cp /data1/apartments/serve/master/ops/systemd/apartments-nj-fetch.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now apartments-nj-fetch.timer   # only once the timers resume
+```
+
 To count the buildings without a registry row, without geocoding:
 
 ```sh

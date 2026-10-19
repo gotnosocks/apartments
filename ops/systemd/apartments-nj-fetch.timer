@@ -1,0 +1,9 @@
+[Unit]
+Description=Snapshot the NJ tax parcels and NJ transit and parks every Friday at 04:35 New York time, after the city fetch starts and before the StreetEasy top-up
+
+[Timer]
+OnCalendar=Fri 04:35 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target
