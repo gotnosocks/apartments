@@ -93,8 +93,9 @@ NB5_SERVED_FIT_USD = 0.88
 # A BlackJAX model with no Modal fit yet is estimated from the model it runs beside on the same
 # sampler: B0.2 has B0.1's rows, sampler and about as many parameters, with the 15 bed-bath
 # interaction steps in place of the slope walk's scale and its smoothness. B0.3 has B0.2's
-# parameters with the bath steps regrouped, and B0.4 B0.3's with about 810 location
-# coefficients evaluated at the buildings.
+# parameters with the bath steps regrouped, and B0.4 B0.3's with 915 location coefficients
+# (340 Manhattan, 575 Brooklyn) evaluated at 68k buildings, which makes each gradient dearer
+# than B0.3's, so its first fit can run over the estimate.
 STAND_IN = {"b0.2": "b0.1", "b0.3": "b0.1", "b0.4": "b0.3"}
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).

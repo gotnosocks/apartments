@@ -15,7 +15,8 @@ Location. I place each building at its registry coordinates (REGISTRY, the lot's
 longitude) and its borough at the first digit of its BBL.
 
 1. Borough_i is an offset from Manhattan: `boro:brooklyn` for Brooklyn, `boro:queens` for the
-   few Queens buildings, and `boro:unlocated` for buildings the registry gives no coordinates.
+   few Queens buildings, and `boro:unlocated` for buildings the registry gives no coordinates
+   (and any Bronx or Staten Island building, none of which are in the data).
    Each has the prior Normal(0, 0.5).
 2. F_b is a Gaussian process over borough b's buildings, with mean zero and a
    squared-exponential kernel of amplitude a_b and length-scale LENGTHSCALE (500 m, fixed in
