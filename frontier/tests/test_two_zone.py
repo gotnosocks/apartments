@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from rentfrontier import normal_walk, two_zone
+from rentfrontier import normal_walk, two_zone, two_zone_1k
 from test_b0 import frame_of
 from test_b0_4 import registry_of
 from test_normal_walk import _points
@@ -115,7 +115,26 @@ def test_prior_predictive_runs():
     assert 0 < out["share_1000_30000"] <= 1
 
 
-def test_run(tmp_path, monkeypatch):
+def test_1k_halves_the_waves_and_keeps_the_boxes():
+    frame, _ = located()
+    d5 = two_zone.design(frame, registry=registry_of())
+    d1 = two_zone_1k.design(frame, registry=registry_of())
+    for s5, s1 in zip(d5.surfaces, d1.surfaces):
+        assert s1["angle"] == s5["angle"]
+        assert s1["half_width_km"] == s5["half_width_km"]
+        for m5, m1, L in zip(s5["waves"], s1["waves"], s1["half_width_km"]):
+            assert m1 == math.ceil(1.75 * L / 1.0)
+            assert m1 <= (m5 + 1) // 2 + 1
+        assert s1["lengthscale_km"] == 1.0 and s5["lengthscale_km"] == 0.5
+        # The first wave's spectral sd at unit amplitude: sqrt(2 pi l^2 exp(-l^2 w^2 / 2)).
+        L1, L2 = s1["half_width_km"]
+        w2 = (math.pi / (2 * L1)) ** 2 + (math.pi / (2 * L2)) ** 2
+        assert s1["sd"][0] == pytest.approx(math.sqrt(2 * math.pi * math.exp(-w2 / 2)))
+    assert two_zone_1k.run_record(d1)["lengthscale_km"] == 1.0
+
+
+@pytest.mark.parametrize("name", ["two-zone", "two-zone-1k"])
+def test_run(tmp_path, monkeypatch, name):
     from rentfrontier import run as runmod
 
     frame, _ = located(n=1500, weeks=60, seed=5)
@@ -130,14 +149,14 @@ def test_run(tmp_path, monkeypatch):
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")
     runmod.main(
         [
-            "--split", "latest", "--model", "two-zone", "--features", "base-v1",
+            "--split", "latest", "--model", name, "--features", "base-v1",
             "--chains", "4", "--warmup", "60", "--draws", "40", "--keep-every", "2",
             "--max-leapfrog-steps", "20", "--name", "tz-test", "--tier", "full",
         ]
     )  # fmt: skip
     out = tmp_path / "runs" / "tz-test"
     result = json.loads((out / "result.json").read_text())
-    assert result["sampler"] == "two-zone"
+    assert result["sampler"] == name
     assert [s["name"] for s in result["surfaces"]] == ["manhattan", "outer"]
     per_quantity = result["diagnostics"]["per_quantity"]
     assert {"amp[manhattan]", "amp[outer]", "zone_gap"} <= per_quantity.keys()

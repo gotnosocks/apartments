@@ -450,7 +450,7 @@ def main(argv=None):
     # (rentfrontier.total_walk) folds in the season as well. The normal walk
     # (rentfrontier.normal_walk) is the total walk with Normal shocks and each bath step on its
     # own prior. Two-zone location (rentfrontier.two_zone) adds a rent surface over Manhattan and
-    # one over the located buildings outside it.
+    # one over the located buildings outside it, and two_zone_1k sets their length-scale to 1 km.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -462,6 +462,7 @@ def main(argv=None):
         ("total-walk", "total_walk"),
         ("normal-walk", "normal_walk"),
         ("two-zone", "two_zone"),
+        ("two-zone-1k", "two_zone_1k"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

@@ -109,6 +109,8 @@ STAND_IN["normal-walk"] = "centered-walk"
 # Two-zone location has the normal walk's, with 780 location coefficients over the same 68k
 # buildings, so B0.4's fit stands in for it.
 STAND_IN["two-zone"] = "b0.4"
+# At 1 km it has 195 location coefficients in place of 780, and the 500 m fit stands in for it.
+STAND_IN["two-zone-1k"] = "two-zone"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -122,6 +124,7 @@ BASELINES = (
     "total-walk",
     "normal-walk",
     "two-zone",
+    "two-zone-1k",
 )
 
 
