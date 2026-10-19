@@ -97,9 +97,11 @@ NB5_SERVED_FIT_USD = 0.88
 # (340 Manhattan, 575 Brooklyn) evaluated at 68k buildings, which makes each gradient dearer
 # than B0.3's, so its first fit can run over the estimate.
 STAND_IN = {"b0.2": "b0.1", "b0.3": "b0.1", "b0.4": "b0.3"}
+# The centered walk has B0.3's parameters, with the 672 levels in place of its 672 shocks.
+STAND_IN["centered-walk"] = "b0.3"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
-BASELINES = ("b0", "b0.1", "b0.2", "b0.3", "b0.4")
+BASELINES = ("b0", "b0.1", "b0.2", "b0.3", "b0.4", "centered-walk")
 
 
 def scoring_steps(model, large=False, score=False, no_loo=False, no_heldout=False):
