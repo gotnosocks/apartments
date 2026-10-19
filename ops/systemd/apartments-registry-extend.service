@@ -17,6 +17,10 @@ WorkingDirectory=/data1/apartments/serve/master/frontier
 # registry, then stops. GeoSearch answers about 5 buildings a second, so the 901 buildings of
 # 2026-10-19 took a few minutes and a daily top-up takes seconds.
 ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.registry_extend
+# The New Jersey buildings, which registry_extend leaves out, go to their own registry keyed to
+# NJ tax parcels (rentfrontier.njregistry). It writes a snapshot only when the build has an NJ
+# building the newest one lacks.
+ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.njregistry registry
 TimeoutStartSec=2h
 Slice=apartments-light.slice
 CPUAffinity=3-5 9-11
