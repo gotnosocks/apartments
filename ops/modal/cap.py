@@ -106,6 +106,9 @@ STAND_IN["total-walk"] = "centered-walk"
 # The normal walk has the total walk's, with each bath step sampled directly in place of the
 # pooled steps, their means and their spread, and no shock degrees of freedom.
 STAND_IN["normal-walk"] = "centered-walk"
+# Two-zone location has the normal walk's, with 780 location coefficients over the same 68k
+# buildings, so B0.4's fit stands in for it.
+STAND_IN["two-zone"] = "b0.4"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -118,6 +121,7 @@ BASELINES = (
     "level-walk",
     "total-walk",
     "normal-walk",
+    "two-zone",
 )
 
 

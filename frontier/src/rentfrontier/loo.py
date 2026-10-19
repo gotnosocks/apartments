@@ -481,9 +481,10 @@ def main(argv=None):
             continue
         t0 = time.perf_counter()
         run = json.loads((RUNS / name / "result.json").read_text())
-        if run.get("sampler") == "b0.4":
+        if run.get("sampler") in ("b0.4", "two-zone"):
             raise SystemExit(
-                f"{name}: B0.4's scoring needs its location surfaces, not written yet"
+                f"{name}: {run['sampler']}'s scoring needs its location surfaces,"
+                " not written yet"
             )
         if run.get("sampler") in (
             "b0",
