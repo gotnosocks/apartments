@@ -543,6 +543,51 @@ def test_a_model_slower_than_the_default_rate_is_estimated_at_its_own(tmp_path):
     assert cap.measured_rate("m7-new", "nb8-v1", tmp_path) is None
 
 
+def test_a_blackjax_model_is_estimated_from_its_time_a_gradient(tmp_path):
+    run = _modal_run(tmp_path, "b0.1", "b0", 456, name="latest-97cd9e3c-offmarket")
+    meta = {"fit_exit": 0, "wall_seconds": 1741, "stages": {"fit": 456, "loo": 1216}}
+    (run / "modal/modal.json").write_text(json.dumps(meta))
+    result = json.loads((run / "result.json").read_text())
+    settings = {"chains": 16, "warmup": 300, "draws": 200, "keep_every": 5}
+    result |= {
+        "feature_set": "b0.1",
+        "chees": {"gradients": 13680, "warmup_mean_steps": 24, "mean_steps": 33},
+        "sampler_settings": {**settings, "max_leapfrog_steps": 64},
+    }
+    (run / "result.json").write_text(json.dumps(result))
+    size = ("b0.1", "b0", 16, 1500, 500, "A100-40GB")
+    # 69 s outside the fit and LOO stages, 1/30 s a gradient for 1,500 x 24 + 500 x 33, and
+    # 1,216 s / 640 = 1.9 s a kept draw for 16 x 41 kept draws.
+    usd, secs = cap.fit_estimate(*size, runs=tmp_path, keep=12, max_leapfrog_steps=64)
+    assert secs == round(69 + 52500 / 30 + 1.9 * 656)
+    assert usd == round(secs * cap.USD_PER_HOUR["A100-40GB"] / 3600, 2)
+    assert cap.over_cap(usd, secs) is None
+    # Keeping every draw scales LOO up, past the cap.
+    _, secs = cap.fit_estimate(*size, runs=tmp_path, keep=1, max_leapfrog_steps=64)
+    assert cap.over_cap(None, secs)
+    # Other chains or another leapfrog limit, or a model with no BlackJAX fit, are
+    # estimated as before.
+    for chains, leapfrog in ((32, 64), (16, 128), (16, None)):
+        assert cap.fit_estimate(
+            "b0.1",
+            "b0",
+            chains,
+            1500,
+            500,
+            "A100-40GB",
+            runs=tmp_path,
+            keep=12,
+            max_leapfrog_steps=leapfrog,
+        ) == (cap.estimate(chains, 1500, 500), cap.seconds(chains, 1500, 500))
+    assert cap.fit_estimate("m7", "nb8-v1", 2, 300, 4500, "L4", runs=tmp_path) == (
+        cap.estimate(2, 300, 4500, "L4"),
+        cap.seconds(2, 300, 4500),
+    )
+    argv = ["abc", "lab", "b0.1", "b0", "16", "1500", "500", "12"]
+    assert cap.max_leapfrog_steps(argv + ["--max-leapfrog-steps", "64"]) == "64"
+    assert cap.max_leapfrog_steps(argv) is None
+
+
 def test_the_pre_check_reads_the_model_from_modal_fit_arguments():
     argv = ["--gpu", "L4", "abc", "lab", "m7-x", "nb8-v1", "2", "300", "4500", "9"]
     assert cap.fit_model(argv) == ("m7-x", "nb8-v1")

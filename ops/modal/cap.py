@@ -138,6 +138,92 @@ def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
     return round((gpu_usd + nb_usd) / 3600, 2)
 
 
+def measured_gradients(model, features, runs=RUNS):
+    """The latest successful Modal fit of a BlackJAX `model` on `features` under `runs`: its
+    fit-stage seconds a gradient, mean leapfrog steps a warmup iteration and a draw, PSIS-LOO
+    seconds a kept draw, other seconds outside the fit stage, chains and leapfrog limit. None
+    if there is no such fit."""
+    latest = None
+    for meta in runs.glob(f"{model}-{features}-*/modal/modal.json"):
+        try:
+            m = json.loads(meta.read_text())
+            result = json.loads((meta.parents[1] / "result.json").read_text())
+            # A baseline (b0.1) records its own name as its feature set.
+            if result["model"]["name"] != model or result["feature_set"] not in (
+                features,
+                model,
+            ):
+                continue
+            chees, s = result["chees"], result["sampler_settings"]
+            fit, loo = m["stages"]["fit"], m["stages"]["loo"]
+            kept = s["chains"] * (s["draws"] // s["keep_every"])
+            measured = {
+                "per_gradient": fit / chees["gradients"],
+                "warm_steps": chees["warmup_mean_steps"],
+                "draw_steps": chees["mean_steps"],
+                "loo_per_draw": loo / kept,
+                "other": m["wall_seconds"] - fit - loo,
+                "chains": s["chains"],
+                "max_leapfrog_steps": s["max_leapfrog_steps"],
+            }
+        except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError):
+            continue
+        if m.get("fit_exit", m.get("exit")) != 0:
+            continue
+        mtime = meta.stat().st_mtime
+        if latest is None or mtime > latest[0]:
+            latest = (mtime, measured)
+    return latest and latest[1]
+
+
+def fit_estimate(
+    model,
+    features,
+    chains,
+    warmup,
+    draws,
+    gpu,
+    large=False,
+    runs=RUNS,
+    keep=1,
+    max_leapfrog_steps=None,
+):
+    """Estimated (USD, seconds) of a Modal fit. A BlackJAX fit with the chains and leapfrog
+    limit of its model's last Modal fit is estimated from that fit's time a gradient and step
+    counts, with PSIS-LOO scaled by the kept draws, since its time an iteration follows its
+    trajectory lengths and not the Gibbs rate. Every other fit comes from `estimate` and
+    `seconds`."""
+    hmc = measured_gradients(model, features, runs)
+    if (
+        hmc
+        and not large
+        and int(chains) == hmc["chains"]
+        and max_leapfrog_steps is not None
+        and int(max_leapfrog_steps) == hmc["max_leapfrog_steps"]
+    ):
+        steps = int(warmup) * hmc["warm_steps"] + int(draws) * hmc["draw_steps"]
+        kept = int(chains) * (int(draws) // int(keep))
+        secs = round(
+            hmc["other"] + hmc["per_gradient"] * steps + hmc["loo_per_draw"] * kept
+        )
+        return round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs
+    rate = measured_rate(model, features, runs)
+    return (
+        estimate(chains, warmup, draws, gpu, rate, large),
+        seconds(chains, warmup, draws, rate, large),
+    )
+
+
+def max_leapfrog_steps(argv):
+    """The --max-leapfrog-steps value in a fit's arguments, or None."""
+    for i, arg in enumerate(argv):
+        if arg == "--max-leapfrog-steps" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--max-leapfrog-steps="):
+            return arg.split("=", 1)[1]
+    return None
+
+
 def over_cap(usd, secs, large=False):
     """Why a fit estimated at `usd` and `secs` is over the per-fit cap, or None. A large fit
     (fit.py --large) has no time cap (Ben, 2026-10-16 06:37Z: the all-scraped fit is not
@@ -360,10 +446,16 @@ if __name__ == "__main__":
         try:
             argv = sys.argv[sys.argv.index("--check-launch") + 1 :]
             *fit, gpu = fit_size(argv)
-            rate = measured_rate(*fit_model(argv))
             large = "--large" in argv
-            usd, secs = estimate(*fit, gpu, rate, large), seconds(*fit, rate, large)
-        except (TypeError, ValueError, KeyError):
+            usd, secs = fit_estimate(
+                *fit_model(argv),
+                *fit,
+                gpu,
+                large,
+                keep=_positional(argv)[0][7],
+                max_leapfrog_steps=max_leapfrog_steps(argv),
+            )
+        except (TypeError, ValueError, KeyError, IndexError):
             sys.exit(
                 0
             )  # bad arguments: fit.py reports them, and reserves before any launch
