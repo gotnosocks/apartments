@@ -48,7 +48,7 @@ def test_model_log_density_matches_b0_2_written_out():
     point = {
         "main": main,
         "s_int": 0.07,
-        "inter": steps,
+        "inter_z": steps / 0.07,
         "g": 0.0005,
         "tau": 0.002,
         "nu_t": 1.5,
@@ -67,7 +67,7 @@ def test_model_log_density_matches_b0_2_written_out():
     want = (
         stats.norm.logpdf(main, m_fix, s_fix).sum()
         + np.log(2) + stats.norm.logpdf(0.07, 0, priors.s_int)
-        + stats.norm.logpdf(steps, 0, 0.07).sum()
+        + stats.norm.logpdf(steps / 0.07, 0, 1).sum()
         + stats.norm.logpdf(0.0005, *priors.g)
         + np.log(tau_rate) - tau_rate * 0.002
         + stats.gamma.logpdf(1.5, priors.nu_t[0], scale=1 / priors.nu_t[1])

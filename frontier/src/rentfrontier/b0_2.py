@@ -20,13 +20,14 @@ mean adds up every step at or below it:
   bedrooms, the column `bed>=i&full>=j`. Its indicator is 1[beds >= i and full baths >= j].
 
 The bedroom and studio bath steps keep B0's priors. The 15 interaction steps share a scale:
-theta_ij ~ Normal(0, s_int) with s_int ~ HalfNormal(0.1). When a cell holds few ads, its
-interaction step shrinks toward zero, and its mean falls back to B0's sum of a bedroom step
-and a bath step. On the 2026-10-19 off-market rows the thinnest interaction column,
-5+ bedrooms with 4+ full baths, still has 975 ads, so the likelihood pins every interaction
-step and I sample them centered. The thinnest cells are studios and one-bedrooms with 3+
-baths (60 to 171 ads); their own steps are the studio bath steps, which the interactions
-leave free.
+theta_ij ~ Normal(0, s_int) with s_int ~ HalfNormal(0.1). Each theta_ij is a second
+difference of four neighbouring cells, (i, j) - (i-1, j) - (i, j-1) + (i-1, j-1), so a
+step next to a thin cell is weakly identified even when its column holds many ads: on the
+2026-10-19 off-market rows theta_14 rests on cells of 15, 60, 44 and 171 ads. Shrinking
+s_int pulls such steps toward zero, and then the bath step full>=j serves every bedroom
+count alike, as in B0, with the thin cells borrowing it from the larger ones. The weak
+steps and the shared scale make a funnel, so I sample the interaction steps non-centered,
+theta_ij = s_int u_ij with u_ij ~ Normal(0, 1).
 
 The trend. The weekly level moves by a drift and a Student-t shock:
 
@@ -105,6 +106,8 @@ def design(frame: pd.DataFrame, start: pd.Timestamp | None = None) -> b0.Design:
     for i in range(1, BEDS + 1):
         for j in range(2, BATHS + 1):
             n = f"bed>={i}&full>={j}"
+            if f"bed>={i}" not in names or f"full>={j}" not in names:
+                continue
             col = d.x[:, names.index(f"bed>={i}")] * d.x[:, names.index(f"full>={j}")]
             count[n] = int(col.sum())
             if count[n] > 0:
@@ -147,9 +150,10 @@ def model(d: b0.Design, priors: Priors):
     def fn():
         main = numpyro.sample("main", dist.Normal(m_fix, s_fix).to_event(1))
         s_int = numpyro.sample("s_int", dist.HalfNormal(priors.s_int))
-        steps = numpyro.sample(
-            "inter", dist.Normal(0, s_int).expand([len(inter)]).to_event(1)
+        u = numpyro.sample(
+            "inter_z", dist.Normal(0, 1).expand([len(inter)]).to_event(1)
         )
+        steps = s_int * u
         beta = jnp.zeros(len(d.names)).at[fixed].set(main).at[inter].set(steps)
         numpyro.deterministic("beta", beta)
         g = numpyro.sample("g", dist.Normal(*priors.g))
@@ -177,8 +181,8 @@ def model(d: b0.Design, priors: Priors):
 
 
 def initial_values(d: b0.Design, priors: Priors, chains: int, seed: int) -> dict:
-    """Unconstrained starting points, one per chain: B0.1's scatter, a flat trend at the mean
-    log rent, and interaction steps at zero."""
+    """Unconstrained starting points, one per chain: B0.1's scatter, the intercept at the mean
+    log rent, the trend near its prior drift, and interaction steps near zero."""
     rng = np.random.default_rng(seed)
     m_fix, _ = prior_arrays(priors, d.names)
     _, inter = split_index(d.names)
@@ -189,7 +193,7 @@ def initial_values(d: b0.Design, priors: Priors, chains: int, seed: int) -> dict
     return {
         "main": main,
         "s_int": np.log(0.1) + 0.3 * rng.standard_normal(chains),
-        "inter": 0.01 * rng.standard_normal((chains, len(inter))),
+        "inter_z": 0.1 * rng.standard_normal((chains, len(inter))),
         "g": np.full(chains, priors.g[0]),
         "tau": np.log(0.002) + 0.3 * rng.standard_normal(chains),
         "nu_t": np.log(nu_t - priors.nu_t_min),
