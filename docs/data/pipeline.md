@@ -378,7 +378,9 @@ master and runs `python -m rentfrontier.registry_extend` from there. The module 
 buildings of the newest build, from its rows file and the export's building records, with no row
 in the newest registry snapshot under `/data1/apartments/external/registry`. It geocodes them
 from each record's slug address and `geoCenter` and writes a `<date>-<commit>-extend` snapshot,
-the old rows followed by the new ones. Until 2026-10-19 no step did this, and the 901 buildings
+the old rows followed by the new ones. It leaves out the buildings whose record gives the state NJ, since
+NYC GeoSearch has no lots in Jersey City or Hoboken and its reverse geocode would put them on the
+nearest Manhattan lot. Until 2026-10-19 no step did this, and the 901 buildings
 whose records came in after the hand-cut lists of 2026-10-15 had no lot and no point.
 
 To count the buildings without a registry row, without geocoding:
