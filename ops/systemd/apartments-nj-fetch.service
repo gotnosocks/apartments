@@ -16,7 +16,8 @@ WorkingDirectory=/data1/apartments/serve/master/frontier
 # The parcel layer holds the current MOD-IV release only, so each run writes a new njparcels
 # snapshot. The next registry step (apartments-registry-extend.service, after the pipeline
 # build) then reads it and keys the NJ buildings to its lots again.
-ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.njregistry parcels
+# A failed parcel fetch leaves the last snapshot in place, and the run goes on to njcity.
+ExecStart=-/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.njregistry parcels
 # NJ Transit and NY Waterway stops from their GTFS feeds, and the OpenStreetMap parks.
 ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.njcity
 TimeoutStartSec=2h
