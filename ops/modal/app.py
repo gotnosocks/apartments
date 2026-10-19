@@ -122,13 +122,17 @@ def _run(cmd, env, log, timeout=None):
     ).returncode
 
 
+# The baseline models, which carry their own scoring and no frontier design.
+BASELINES = (("--model", "b0"), ("--model", "b0.1"))
+
+
 def post_steps(spec):
     """The post-fit statistics for a finished fit, as (step, rentfrontier arguments)."""
     name = spec["name"]
-    # The B0 baseline (rentfrontier.b0) writes its own statistics; the variance and explained
-    # shares read the frontier model's design, which a B0 run has none of.
+    # The B0 and B0.1 baselines (rentfrontier.b0, b0_1) write their own statistics; the variance
+    # and explained shares read the frontier model's design, which their runs have none of.
     run_args = spec.get("run_args", [])
-    if ("--model", "b0") in zip(run_args, run_args[1:]):
+    if any(pair in zip(run_args, run_args[1:]) for pair in BASELINES):
         return []
     steps = [("variance", ["rentfrontier.variance", name])]
     if spec.get("explain"):
