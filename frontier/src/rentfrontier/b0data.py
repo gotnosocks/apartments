@@ -22,9 +22,10 @@ of the rows file:
     - `page price` and `page price, digit`: the price on the ad's page, which the ad's price
       history never lists, so it carries no day of its own. The ad asked it until it left the
       market, so the script dates it by the off-market day in the ad's latest record:
-      `offMarketAt`, or else the first move off the market in `statusChanges` after the ad's last
-      `ACTIVE` change (`record, off market`). A move to `IN_CONTRACT` or
-      `IN_STREETEASY_REVIEW` does not count as one. When the record gives neither, the script
+      `offMarketAt`, unless it comes before the ad's last `ACTIVE` change in `statusChanges`
+      (a relisted ad), or else the first move off the market after that change
+      (`record, off market`). A move to `IN_CONTRACT`, `IN_STREETEASY_REVIEW` or
+      `IN_BROKERAGE_REVIEW` does not count as one. When the record gives neither, the script
       takes the day the record was last collected (`record`).
     - `first, nearer building` and `own ask, captured before the row`: the row's own day.
   A choice the script cannot date takes the row's day, and `latest_day_how` says which case
@@ -66,7 +67,7 @@ TEXT_FLAGS = {
 }
 MIN_DESCRIPTION = 20
 # Statuses of an ad still on the market, which a move off the market in `statusChanges` skips.
-STILL_LISTED = "'ACTIVE', 'IN_CONTRACT', 'IN_STREETEASY_REVIEW'"
+STILL_LISTED = "'ACTIVE', 'IN_CONTRACT', 'IN_STREETEASY_REVIEW', 'IN_BROKERAGE_REVIEW'"
 # The catalog key of each file (the line's `ads` key lists the ad responses read).
 KINDS = {"rows": "rows", "ads": "ads_file", "records": "records"}
 
@@ -115,7 +116,8 @@ def record_flags(records: Path) -> str:
 CREATE TEMP TABLE recf AS
 SELECT listing_id, greatest(collected_at, coalesce(last_collected_at, collected_at)) AS collected_at,
     coalesce(
-        nullif(left(off_market_at, 10), ''),
+        CASE WHEN last_active IS NULL OR left(off_market_at, 10) >= left(last_active, 10)
+            THEN nullif(left(off_market_at, 10), '') END,
         list_min(list_transform(
             list_filter(changes, c -> c.status NOT IN ({STILL_LISTED})
                 AND (last_active IS NULL OR c.changedAt > last_active)),
@@ -156,7 +158,7 @@ k AS (
 ),
 rec AS (
     SELECT listing_id, max(collected_at) AS collected_at,
-        arg_max(off_day, collected_at) AS off_day,
+        arg_max_null(off_day, collected_at) AS off_day,
         arg_max(known, collected_at) AS known,
         {", ".join(f"arg_max({f}, collected_at) AS {f}" for f in TEXT_FLAGS)}
     FROM recf GROUP BY listing_id

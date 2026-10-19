@@ -235,6 +235,16 @@ def test_record_flags_date_page_prices_by_the_off_market_day(tmp_path):
             ],
         ),
         4: record(None, [("2026-10-01T00:00:00Z", "ACTIVE")]),
+        # A relisted ad's old offMarketAt gives way to its move off the market after relisting.
+        5: record(
+            "2019-03-01T00:00:00Z",
+            [
+                ("2019-02-01T00:00:00Z", "ACTIVE"),
+                ("2019-03-01T00:00:00Z", "RENTED"),
+                ("2020-05-01T00:00:00Z", "ACTIVE"),
+                ("2020-05-20T00:00:00Z", "NO_LONGER_AVAILABLE"),
+            ],
+        ),
     }
     path = tmp_path / "records.parquet"
     pq.write_table(
@@ -251,5 +261,11 @@ def test_record_flags_date_page_prices_by_the_off_market_day(tmp_path):
     con = duckdb.connect()
     con.execute(b0data.record_flags(path))
     got = dict(con.sql("SELECT listing_id, off_day FROM recf").fetchall())
-    assert got == {1: "2014-09-19", 2: "2023-07-27", 3: "2021-07-21", 4: None}
+    assert got == {
+        1: "2014-09-19",
+        2: "2023-07-27",
+        3: "2021-07-21",
+        4: None,
+        5: "2020-05-20",
+    }
     assert con.sql("SELECT bool_and(shared_space) FROM recf").fetchone()[0]
