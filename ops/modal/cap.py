@@ -93,8 +93,23 @@ NB5_SERVED_FIT_USD = 0.88
 # A BlackJAX model with no Modal fit yet is estimated from the model it runs beside on the same
 # sampler: B0.2 has B0.1's rows, sampler and about as many parameters, with the 15 bed-bath
 # interaction steps in place of the slope walk's scale and its smoothness. B0.3 has B0.2's
-# parameters with the bath steps regrouped.
-STAND_IN = {"b0.2": "b0.1", "b0.3": "b0.1"}
+# parameters with the bath steps regrouped, and B0.4 B0.3's with 915 location coefficients
+# (340 Manhattan, 575 Brooklyn) evaluated at 68k buildings, which makes each gradient dearer
+# than B0.3's, so its first fit can run over the estimate.
+STAND_IN = {"b0.2": "b0.1", "b0.3": "b0.1", "b0.4": "b0.3"}
+# The baselines, whose fits skip their scoring unless the launch asks for it with --score
+# (Ben, 2026-10-19 14:30Z: fit-only by default).
+BASELINES = ("b0", "b0.1", "b0.2", "b0.3", "b0.4")
+
+
+def scoring_steps(model, large=False, score=False, no_loo=False, no_heldout=False):
+    """(PSIS-LOO, held-out scoring) for a fit of `model`: both for a frontier or large fit,
+    which score in their own way, and for a baseline only those --score asks for."""
+    if model not in BASELINES or large:
+        return True, True
+    if not score:
+        return False, False
+    return not no_loo, not no_heldout
 
 
 class CapReached(RuntimeError):
@@ -170,20 +185,20 @@ def measured_gradients(model, features, runs=RUNS):
                 model,
             ):
                 continue
-            # A fit that left out a scoring step measured too little of it to price the next.
-            if not all(m.get("steps", {}).values()):
-                continue
+            # A fit that left out a scoring step still measured its gradients, but too little
+            # of its PSIS-LOO to price the next one's.
+            scored = all(m.get("steps", {}).values())
             chees, s = result["chees"], result["sampler_settings"]
             fit, loo = m["stages"]["fit"], m["stages"].get("loo")
             kept = s["chains"] * (s["draws"] // s["keep_every"])
             score = m.get("score") or {}
-            if "score_seconds" not in score:
+            if "score_seconds" not in score or not scored:
                 score = {}
             measured = {
                 "per_gradient": fit / chees["gradients"],
                 "warm_steps": chees["warmup_mean_steps"],
                 "draw_steps": chees["mean_steps"],
-                "loo_per_draw": loo / kept if loo is not None else None,
+                "loo_per_draw": loo / kept if loo is not None and scored else None,
                 "score_overhead": (
                     score["wall_seconds"] - score["score_seconds"] if score else None
                 ),
@@ -535,7 +550,15 @@ if __name__ == "__main__":
                 keep=_positional(argv)[0][7],
                 max_leapfrog_steps=max_leapfrog_steps(argv),
                 cpu_score="--cpu-score" in argv,
-                scoring=not ("--no-loo" in argv and "--no-heldout" in argv),
+                scoring=any(
+                    scoring_steps(
+                        fit_model(argv)[0],
+                        large,
+                        "--score" in argv,
+                        "--no-loo" in argv,
+                        "--no-heldout" in argv,
+                    )
+                ),
             )
         except (TypeError, ValueError, KeyError, IndexError):
             sys.exit(
