@@ -402,6 +402,13 @@ On the 6,029 NJ buildings of the Oct 19 collection, 4,615 matched by address, 63
 `/data1/apartments/external/registry-nj/<date>-<commit>/registry.parquet`, apart from the NYC
 registry, and the step writes none when the newest one already holds every NJ building.
 
+For what an NJ building walks to, `python -m rentfrontier.njcity` writes
+`/data1/apartments/external/njcity/<date>-<commit>/`. Its `transit.parquet` holds the NJ Transit
+rail stops (the Hudson-Bergen Light Rail and Hoboken Terminal) and the NY Waterway landings
+around Hoboken and Jersey City, each with its routes, from the GTFS feeds the Mobility Database
+mirrors. Its `parks.parquet` holds the OpenStreetMap parks there with their outlines and acres.
+PATH stations already have a snapshot under `external/path`. No feature reads these yet.
+
 To count the buildings without a registry row, without geocoding:
 
 ```sh
