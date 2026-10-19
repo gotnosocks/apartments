@@ -170,6 +170,9 @@ def measured_gradients(model, features, runs=RUNS):
                 model,
             ):
                 continue
+            # A fit that left out a scoring step measured too little of it to price the next.
+            if not all(m.get("steps", {}).values()):
+                continue
             chees, s = result["chees"], result["sampler_settings"]
             fit, loo = m["stages"]["fit"], m["stages"].get("loo")
             kept = s["chains"] * (s["draws"] // s["keep_every"])

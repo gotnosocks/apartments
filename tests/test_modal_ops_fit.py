@@ -1241,3 +1241,16 @@ def test_a_cpu_scored_fit_leaves_scoring_to_the_cpu_container(tmp_path, monkeypa
     steps.clear()
     meta = app._fit({**spec, "cpu_score": True})
     assert steps == ["rentfrontier.run"] and "loo" not in meta["stages"]
+
+
+def test_a_fit_that_left_out_a_scoring_step_is_not_measured(tmp_path):
+    _b01_run(
+        tmp_path,
+        {
+            "wall_seconds": 800,
+            "stages": {"fit": 456},
+            "steps": {"loo": False, "heldout": True},
+            "score": {"wall_seconds": 100, "score_seconds": 20.0, "exit": 0},
+        },
+    )
+    assert cap.measured_gradients("b0.1", "b0", tmp_path) is None

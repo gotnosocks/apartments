@@ -428,7 +428,7 @@ BASELINE_MODELS = ("b0", "b0.1", "b0.2", "b0.3")
 
 def wants_summary(spec, split):
     """Whether a downloaded fit gets a summary bundle: only full-tier fits are served, and
-    rentfrontier.summary refuses the unit and latest splits, and reads no B0, B0.1 or B0.2 run."""
+    rentfrontier.summary refuses the unit and latest splits, and reads no baseline run."""
     run_args = spec.get("run_args", [])
     b0 = any(
         pair in zip(run_args, run_args[1:])
@@ -497,7 +497,7 @@ def main(argv):
         args.model not in BASELINE_MODELS or args.large
     ):
         sys.exit(
-            "--cpu-score, --no-loo and --no-heldout apply to a B0, B0.1 or B0.2 fit that is not --large"
+            "--cpu-score, --no-loo and --no-heldout apply to a baseline fit (b0 to b0.3) that is not --large"
         )
     if args.publish_only:
         return publish(args, spec, sha)
@@ -561,6 +561,7 @@ def main(argv):
         with modal.enable_output(), modal_app.app.run():
             sync(modal_app.volume, spec, stage)
             meta = fits[args.gpu].remote(spec)
+            meta["steps"] = {"loo": spec["loo"], "heldout": spec["heldout"]}
             if args.cpu_score and meta.get("fit_exit", meta["exit"]) == 0:
                 meta["score"] = score_on_cpu(modal_app, spec)
                 if meta["score"]["exit"] != 0:

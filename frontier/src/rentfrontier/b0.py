@@ -729,8 +729,9 @@ def predictive_block(
     d: Design, kept: dict, lo: int, hi: int, mu: np.ndarray, per_draw=10, seed=0
 ) -> np.ndarray:
     """(rows, 5) predictive quantiles of log rent for rows lo..hi, by simulation from their
-    linear predictor `mu`. The stream is seeded by (seed, lo), so a row's draws do not depend
-    on which block boundaries or workers surround it."""
+    linear predictor `mu`. The stream is seeded by (seed, lo) and drawn for the block's whole
+    shape, so the draws follow the block's start and size and are the same for any number of
+    workers."""
     rng = np.random.default_rng([seed, lo])
     nu = kept["nu"].reshape(-1)
     sigma = kept["sigma"].reshape(-1, 4)
@@ -1073,7 +1074,7 @@ def _row_blocks(rows: int, draws: int, most: int, cells: int):
 
 
 def _loo_block(train, kept, lo, size):
-    """PSIS-LOO elpd, Pareto k, MCSE and lppd of training rows lo..lo + LOO_BLOCK."""
+    """PSIS-LOO elpd, Pareto k, MCSE and lppd of training rows lo..lo + size."""
     from . import loo
 
     ll = loglik_rows(train, kept, lo, min(lo + size, len(train.y)))
@@ -1088,6 +1089,7 @@ def _heldout_block(test, kept, lo, size, per_draw=10):
     hi = min(lo + size, len(test.y))
     mu = linear_predictor(test, kept, lo, hi)
     values = predictive_block(test, kept, lo, hi, mu, per_draw)
+    # predictive_block has read mu; loglik_rows then overwrites it in place.
     return values, loo.lppd(loglik_rows(test, kept, lo, hi, mu))
 
 

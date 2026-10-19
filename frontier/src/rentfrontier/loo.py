@@ -278,7 +278,6 @@ def _gpdfit(excess):
     sigma = -kappa / b_post
     kappa = (n * kappa + prior_k * 0.5) / (n + prior_k)
     kappa = np.where(np.isnan(kappa), np.inf, kappa)
-    sigma = np.where(np.isnan(kappa), np.nan, sigma)
     kappa = np.where(degenerate, np.nan, kappa)
     sigma = np.where(degenerate, np.nan, sigma)
     return kappa, sigma

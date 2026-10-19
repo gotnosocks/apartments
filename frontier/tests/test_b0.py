@@ -238,6 +238,10 @@ def test_psis_vectorized_matches_arviz():
     scale = rng.uniform(0.05, 2.0, rows)
     ll = -0.5 * (rng.standard_t(4, (656, rows)) * scale) ** 2 - np.log(scale)
     ll[:, 5] = 1e-3 * rng.normal(size=656)
+    # Rows with tied values, mostly zeros, and one huge draw.
+    ll[:, 6] = np.round(ll[:, 6])
+    ll[:, 7] = np.where(rng.random(656) < 0.97, 0.0, ll[:, 7])
+    ll[3, 8] = 1e3
     # A short block and a long one.
     for draws in (60, 656):
         want = loo.psis_loo(ll[:draws], block=77, impl="arviz")
