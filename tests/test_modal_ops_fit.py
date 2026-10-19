@@ -1007,3 +1007,298 @@ def test_a_design_only_run_is_charged_its_container_hour_and_needs_the_run(
     spec = {"name": "r", "inputs": ["x"], "dataset": "x"}
     with pytest.raises(SystemExit, match="not under"):
         fit.design_only(spec, "abc")
+
+
+def _b01_run(runs, meta):
+    """A finished B0.1 Modal fit under `runs`: 16 chains x 41 kept draws, 13,680 gradients."""
+    run = _modal_run(runs, "b0.1", "b0", 456, name="latest-97cd9e3c-offmarket")
+    (run / "modal/modal.json").write_text(json.dumps({"fit_exit": 0, **meta}))
+    result = json.loads((run / "result.json").read_text())
+    result |= {
+        "feature_set": "b0.1",
+        "chees": {"gradients": 13680, "warmup_mean_steps": 24, "mean_steps": 33},
+        "sampler_settings": {
+            "chains": 16,
+            "warmup": 300,
+            "draws": 200,
+            "keep_every": 5,
+            "max_leapfrog_steps": 64,
+        },
+    }
+    (run / "result.json").write_text(json.dumps(result))
+
+
+SIZE = ("b0.1", "b0", 16, 1500, 500, "A100-40GB")
+
+
+def test_scoring_on_a_cpu_container_is_priced_apart_from_the_gpu_stage(tmp_path):
+    _b01_run(
+        tmp_path,
+        {"wall_seconds": 1741, "stages": {"fit": 456, "loo": 1216}},
+    )
+    kw = dict(runs=tmp_path, keep=12, max_leapfrog_steps=64)
+    gpu_loo = cap.fit_stages(*SIZE, **kw)
+    assert list(gpu_loo) == ["gpu"]
+    split = cap.fit_stages(*SIZE, cpu_score=True, **kw)
+    # The A100 no longer waits for PSIS-LOO (656 draws at 1.9 s), and the CPU stage is its
+    # staging plus SCORE_SECONDS_PER_DRAW a draw, at the CPU container's price.
+    assert split["gpu"][1] == gpu_loo["gpu"][1] - round(1216 / 640 * 656)
+    score_secs = round(cap.SCORE_OVERHEAD_SECONDS + cap.SCORE_SECONDS_PER_DRAW * 656)
+    assert split["score"] == (
+        round(score_secs * cap.SCORE_USD_PER_HOUR / 3600, 2),
+        score_secs,
+    )
+    assert split["gpu"][0] == round(
+        split["gpu"][1] * cap.USD_PER_HOUR["A100-40GB"] / 3600, 2
+    )
+    usd, secs = cap.fit_estimate(*SIZE, cpu_score=True, **kw)
+    assert secs == split["gpu"][1] + score_secs
+    assert usd == pytest.approx(split["gpu"][0] + split["score"][0], abs=0.01)
+    assert usd < cap.fit_estimate(*SIZE, **kw)[0]
+    # The hour cap counts both stages: a fit whose GPU stage alone fits under it can go over.
+    assert cap.over_cap(None, 3600 - 10) is None
+    assert cap.over_cap(None, 3600 - 10 + score_secs)
+
+
+def test_a_measured_scoring_container_replaces_the_constants(tmp_path):
+    meta = {
+        "wall_seconds": 1000,
+        "stages": {"fit": 456},
+        "score": {"wall_seconds": 200, "score_seconds": 131.2, "exit": 0},
+    }
+    _b01_run(tmp_path, meta)
+    kw = dict(runs=tmp_path, keep=12, max_leapfrog_steps=64)
+    # 544 s outside the fit stage, none of it scoring; 640 draws were scored, 656 will be.
+    stages = cap.fit_stages(*SIZE, cpu_score=True, **kw)
+    assert stages["score"][1] == round(68.8 + 131.2 / 640 * 656)
+    assert stages["gpu"][1] == round(544 + 52500 / 30)
+    # Scoring in the GPU container, with no measured rate for it, takes the constant.
+    in_gpu = cap.fit_stages(*SIZE, **kw)
+    assert in_gpu["gpu"][1] == round(
+        544 + 52500 / 30 + cap.GPU_LOO_SECONDS_PER_DRAW * 656
+    )
+    # B0.2 starts from B0.1's scoring container too.
+    assert cap.fit_stages("b0.2", *SIZE[1:], cpu_score=True, **kw) == stages
+    # Another model with no fit of its own: the Gibbs estimate, plus the container.
+    other = cap.fit_stages(
+        "m7", "nb8-v1", 2, 300, 4500, "L4", runs=tmp_path, cpu_score=True
+    )
+    assert other["gpu"] == (cap.estimate(2, 300, 4500, "L4"), cap.seconds(2, 300, 4500))
+    assert other["score"][1] == round(
+        cap.SCORE_OVERHEAD_SECONDS + cap.SCORE_SECONDS_PER_DRAW * 9000
+    )
+
+
+def test_the_cpu_container_prices_match_the_launchers_constants(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert app.score_usd_per_second() * 3600 == pytest.approx(
+        cap.SCORE_USD_PER_HOUR, abs=1e-4
+    )
+    # The container's timeout covers its estimated stage with room to spare.
+    assert app.SCORE_TIMEOUT > 4 * (
+        cap.SCORE_OVERHEAD_SECONDS + cap.SCORE_SECONDS_PER_DRAW * 1500
+    )
+
+
+def test_the_pre_check_prices_a_cpu_scored_fit_in_both_stages(tmp_path, monkeypatch):
+    _b01_run(tmp_path, {"wall_seconds": 1741, "stages": {"fit": 456, "loo": 1216}})
+    monkeypatch.setattr(cap, "RUNS", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["cap.py"])
+    argv = [
+        "abc",
+        "lab",
+        "b0.1",
+        "b0",
+        "16",
+        "1500",
+        "500",
+        "12",
+        "--max-leapfrog-steps",
+        "64",
+    ]
+    base = cap.fit_estimate(
+        *cap.fit_model(argv),
+        *cap.fit_size(argv),
+        keep="12",
+        max_leapfrog_steps="64",
+        runs=tmp_path,
+    )
+    scored = cap.fit_estimate(
+        *cap.fit_model(argv),
+        *cap.fit_size(argv),
+        keep="12",
+        max_leapfrog_steps="64",
+        runs=tmp_path,
+        cpu_score=True,
+    )
+    assert scored[0] < base[0] and scored[1] < base[1]
+
+
+def test_plan_carries_the_scoring_switches():
+    argv = ["abc", "x", "b0.1", "b0", "16", "1500", "500", "12"]
+    spec = fit.plan(*fit.parse(argv), "9371a18")
+    assert (spec["cpu_score"], spec["loo"], spec["heldout"]) == (False, True, True)
+    args, rest = fit.parse(["--cpu-score", "--no-loo", "--no-heldout", *argv])
+    spec = fit.plan(args, rest, "9371a18")
+    assert (spec["cpu_score"], spec["loo"], spec["heldout"]) == (True, False, False)
+    assert not {"--cpu-score", "--no-loo", "--no-heldout"} & set(spec["run_args"])
+
+
+def test_a_failed_scoring_container_is_still_charged(monkeypatch):
+    clock = iter([100.0, 400.0])
+    monkeypatch.setattr(fit.time, "monotonic", lambda: next(clock))
+
+    def broken(spec):
+        raise TimeoutError("container timeout")
+
+    app = type(
+        "App",
+        (),
+        {
+            "score_cpu": type("F", (), {"remote": broken}),
+            "score_usd_per_second": staticmethod(lambda: 0.001),
+        },
+    )
+    out = fit.score_on_cpu(app, {"name": "r"})
+    assert out["usd_estimate"] == 0.3
+    assert out["exit"].startswith("TimeoutError")
+
+
+def test_the_scoring_container_scores_the_runs_draws_and_leaves_the_loo_beside_the_run(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    (vol / "out" / "r" / "run").mkdir(parents=True)
+    (vol / "out" / "r" / "run" / "posterior.npz").write_bytes(b"draws")
+    staged, commands = [], []
+    monkeypatch.setattr(app, "_stage", lambda spec, inputs=None: staged.append(inputs))
+
+    def run(cmd, env, log, timeout=None):
+        commands.append((cmd, env, timeout))
+        (app.LOO / "r-abc1234").mkdir(parents=True)
+        (app.LOO / "r-abc1234" / "result.json").write_text("{}")
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    spec = {
+        "name": "r",
+        "dataset": "/d",
+        "inputs": ["/d", "/external"],
+        "commit": "abc",
+    }
+    meta = app._score(spec)
+    # Only the dataset is staged, and the run's draws arrive from the Volume.
+    assert staged == [["/d"]]
+    assert (app.RUNS / "r" / "posterior.npz").read_bytes() == b"draws"
+    cmd, env, timeout = commands[0]
+    assert cmd[2:] == ["rentfrontier.loo", "--workers", str(app.SCORE_CPU), "r"]
+    assert env["JAX_PLATFORMS"] == "cpu" and env["OPENBLAS_NUM_THREADS"] == "1"
+    assert timeout < app.SCORE_TIMEOUT
+    assert (vol / "out" / "r" / "loo" / "r-abc1234" / "result.json").exists()
+    assert meta["exit"] == 0 and meta["cpu"] == app.SCORE_CPU
+    assert meta["usd_estimate"] == round(
+        meta["wall_seconds"] * app.score_usd_per_second(), 2
+    )
+    # The steps a spec leaves off reach the scorer.
+    assert app.loo_command({"name": "r", "loo": False, "heldout": False}, 4)[3:] == [
+        "--workers", "4", "--no-loo", "--no-heldout", "r",
+    ]  # fmt: skip
+
+
+def test_a_cpu_scored_fit_leaves_scoring_to_the_cpu_container(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
+    monkeypatch.setattr(app, "_post", lambda *a: {})
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    monkeypatch.setattr(app.subprocess, "run", lambda *a, **k: mock.Mock(stdout=""))
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    steps = []
+
+    def run(cmd, env, log, timeout=None):
+        steps.append(cmd[2])
+        return 0
+
+    monkeypatch.setattr(app, "_run", run)
+    spec = {"name": "r", "tier": "full", "run_args": [], "dataset": "d"}
+    app._fit(spec)
+    assert steps == ["rentfrontier.run", "rentfrontier.loo"]
+    steps.clear()
+    meta = app._fit({**spec, "cpu_score": True})
+    assert steps == ["rentfrontier.run"] and "loo" not in meta["stages"]
+
+
+def test_a_fit_that_left_out_a_scoring_step_is_not_measured(tmp_path):
+    _b01_run(
+        tmp_path,
+        {
+            "wall_seconds": 800,
+            "stages": {"fit": 456},
+            "steps": {"loo": False, "heldout": True},
+            "score": {"wall_seconds": 100, "score_seconds": 20.0, "exit": 0},
+        },
+    )
+    assert cap.measured_gradients("b0.1", "b0", tmp_path) is None
+
+
+def test_a_fit_with_both_scoring_steps_off_is_priced_and_run_as_the_fit_alone(
+    tmp_path, monkeypatch
+):
+    _b01_run(tmp_path, {"wall_seconds": 1741, "stages": {"fit": 456, "loo": 1216}})
+    kw = dict(runs=tmp_path, keep=12, max_leapfrog_steps=64)
+    fit_only = cap.fit_stages(*SIZE, scoring=False, **kw)
+    assert fit_only == cap.fit_stages(*SIZE, cpu_score=True, scoring=False, **kw)
+    assert list(fit_only) == ["gpu"]
+    # The GPU stage is the one a CPU-scored fit has: the fit and its staging, no PSIS-LOO.
+    assert fit_only["gpu"] == cap.fit_stages(*SIZE, cpu_score=True, **kw)["gpu"]
+    # The pre-check reads the switches from the launch arguments.
+    argv = [
+        "abc",
+        "lab",
+        "b0.1",
+        "b0",
+        "16",
+        "1500",
+        "500",
+        "12",
+        "--no-loo",
+        "--no-heldout",
+    ]
+    assert fit.plan(*fit.parse(argv), "9371a18")["score"] is False
+    assert fit.plan(*fit.parse([*argv[:8], "--no-loo"]), "9371a18")["score"] is True
+    # The GPU container starts no scoring step.
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
+    monkeypatch.setattr(app, "_post", lambda *a: {})
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    monkeypatch.setattr(app.subprocess, "run", lambda *a, **k: mock.Mock(stdout=""))
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    steps = []
+    monkeypatch.setattr(
+        app, "_run", lambda cmd, env, log, timeout=None: steps.append(cmd[2]) or 0
+    )
+    spec = {"name": "r", "tier": "full", "run_args": [], "dataset": "d", "score": False}
+    meta = app._fit(spec)
+    assert steps == ["rentfrontier.run"] and "loo" not in meta["stages"]

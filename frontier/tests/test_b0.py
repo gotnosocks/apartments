@@ -198,6 +198,85 @@ def test_run_and_score(tmp_path, monkeypatch):
     assert 0.5 < record["heldout"]["coverage_95"] <= 1
     assert len(record["scorecard"]) == 8
     assert pointwise["heldout_quantiles"].shape == (result["sizes"]["heldout"], 5)
+    # Threads over several row blocks give every row the same numbers, and the same numbers as
+    # one block holding every row.
+    monkeypatch.setattr(b0, "LOO_BLOCK", 700)
+    monkeypatch.setattr(b0, "PRED_BLOCK", 100)
+    record2, pointwise2 = b0.score("b0-test", workers=3)
+    for key in ("elpd_loo", "pareto_k"):
+        np.testing.assert_allclose(pointwise2[key], pointwise[key], rtol=1e-12)
+    assert record2["elpd_loo"] == pytest.approx(record["elpd_loo"], rel=1e-12)
+    assert record2["pareto_k"] == record["pareto_k"]
+    # Held-out draws are seeded by block, so they follow the block size but not the workers.
+    record3, pointwise3 = b0.score("b0-test", workers=1)
+    np.testing.assert_array_equal(
+        pointwise3["heldout_quantiles"], pointwise2["heldout_quantiles"]
+    )
+    assert record3["heldout"] == record2["heldout"]
+    assert record2["heldout"]["elpd"] == pytest.approx(
+        record["heldout"]["elpd"], rel=1e-12
+    )
+    # Switching a step off leaves the other as it was and drops the first's fields.
+    only_held, pw = b0.score("b0-test", workers=2, loo_step=False)
+    assert "elpd_loo" not in only_held and "elpd_loo" not in pw
+    assert only_held["steps"] == {"loo": False, "heldout": True}
+    assert only_held["heldout"] == record2["heldout"]
+    only_loo, pw = b0.score("b0-test", workers=2, heldout_step=False)
+    assert "heldout" not in only_loo and "heldout_quantiles" not in pw
+    assert only_loo["elpd_loo"] == record2["elpd_loo"]
+    assert only_loo["summary"] == record["summary"]
+    neither, pw = b0.score("b0-test", loo_step=False, heldout_step=False)
+    assert "elpd_loo" not in neither and "heldout" not in neither
+    assert neither["steps"] == {"loo": False, "heldout": False}
+
+
+def test_psis_vectorized_matches_arviz():
+    from rentfrontier import loo
+
+    rng = np.random.default_rng(0)
+    rows = 300
+    scale = rng.uniform(0.05, 2.0, rows)
+    ll = -0.5 * (rng.standard_t(4, (656, rows)) * scale) ** 2 - np.log(scale)
+    ll[:, 5] = 1e-3 * rng.normal(size=656)
+    # Rows with tied values, mostly zeros, and one huge draw.
+    ll[:, 6] = np.round(ll[:, 6])
+    ll[:, 7] = np.where(rng.random(656) < 0.97, 0.0, ll[:, 7])
+    ll[3, 8] = 1e3
+    # A short block and a long one.
+    for draws in (60, 656):
+        want = loo.psis_loo(ll[:draws], block=77, impl="arviz")
+        got = loo.psis_loo(ll[:draws], block=77)
+        for a, b in zip(want, got):
+            np.testing.assert_allclose(b, a, rtol=1e-9, atol=1e-11, equal_nan=True)
+    # The block size does not change a row.
+    np.testing.assert_allclose(
+        loo.psis_loo(ll, block=50)[0], loo.psis_loo(ll, block=300)[0], rtol=1e-12
+    )
+
+
+def test_loglik_rows_matches_scipy():
+    from scipy.stats import t as student
+
+    frame, _ = frame_of(n=500, weeks=60, seed=3)
+    d = b0.design(frame)
+    rng = np.random.default_rng(1)
+    kept = {
+        "beta": rng.normal(0, 0.1, (2, 5, d.x.shape[1]))
+        + np.r_[8, [0] * (d.x.shape[1] - 1)],
+        "L": rng.normal(0, 0.05, (2, 5, d.weeks + 1)),
+        "nu": rng.uniform(3, 30, (2, 5)),
+        "sigma": rng.uniform(0.1, 0.4, (2, 5, 4)),
+    }
+    beta, L = kept["beta"].reshape(10, -1), kept["L"].reshape(10, -1)
+    mu = beta @ d.x.T + (1 - d.frac) * L[:, d.week] + d.frac * L[:, d.week + 1]
+    want = student.logpdf(
+        d.y[None] - mu,
+        kept["nu"].reshape(-1)[:, None],
+        scale=kept["sigma"].reshape(10, 4)[:, d.group],
+    )
+    np.testing.assert_allclose(
+        b0.loglik_rows(d, kept, 0, len(d.y)), want, rtol=1e-12, atol=1e-14
+    )
 
 
 def test_record_flags_date_page_prices_by_the_off_market_day(tmp_path):
