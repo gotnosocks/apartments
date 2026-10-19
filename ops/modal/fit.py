@@ -472,6 +472,8 @@ def main(argv):
         args.gpu,
         args.large,
         OUTPUT_ROOT / "runs",
+        keep=args.keep,
+        max_leapfrog_steps=cap.max_leapfrog_steps(run_args),
     )
     # Raises CapReached if the estimate is over the per-fit cap or the balance is short.
     launch, left = cap.reserve(

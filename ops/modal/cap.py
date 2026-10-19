@@ -139,9 +139,10 @@ def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
 
 
 def measured_gradients(model, features, runs=RUNS):
-    """From the latest Modal fit of a BlackJAX `model` on `features` under `runs`: its fit-stage
-    seconds a gradient, its mean leapfrog steps a warmup iteration and a draw, and its seconds
-    outside the fit stage (PSIS-LOO and scoring). None if there is no such fit."""
+    """The latest successful Modal fit of a BlackJAX `model` on `features` under `runs`: its
+    fit-stage seconds a gradient, mean leapfrog steps a warmup iteration and a draw, PSIS-LOO
+    seconds a kept draw, other seconds outside the fit stage, chains and leapfrog limit. None
+    if there is no such fit."""
     latest = None
     for meta in runs.glob(f"{model}-{features}-*/modal/modal.json"):
         try:
@@ -153,14 +154,18 @@ def measured_gradients(model, features, runs=RUNS):
                 model,
             ):
                 continue
-            chees = result["chees"]
-            fit = m["stages"]["fit"]
-            measured = (
-                fit / chees["gradients"],
-                chees["warmup_mean_steps"],
-                chees["mean_steps"],
-                m["wall_seconds"] - fit,
-            )
+            chees, s = result["chees"], result["sampler_settings"]
+            fit, loo = m["stages"]["fit"], m["stages"]["loo"]
+            kept = s["chains"] * (s["draws"] // s["keep_every"])
+            measured = {
+                "per_gradient": fit / chees["gradients"],
+                "warm_steps": chees["warmup_mean_steps"],
+                "draw_steps": chees["mean_steps"],
+                "loo_per_draw": loo / kept,
+                "other": m["wall_seconds"] - fit - loo,
+                "chains": s["chains"],
+                "max_leapfrog_steps": s["max_leapfrog_steps"],
+            }
         except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError):
             continue
         if m.get("fit_exit", m.get("exit")) != 0:
@@ -171,16 +176,35 @@ def measured_gradients(model, features, runs=RUNS):
     return latest and latest[1]
 
 
-def fit_estimate(model, features, chains, warmup, draws, gpu, large=False, runs=RUNS):
-    """Estimated (USD, seconds) of a Modal fit. A BlackJAX model measured on Modal before is
-    estimated from its time a gradient and its step counts, since its time an iteration
-    follows its trajectory lengths and not the Gibbs rate; every other fit from `estimate`
-    and `seconds`."""
-    if (hmc := measured_gradients(model, features, runs)) and not large:
-        per_gradient, warm_steps, draw_steps, outside = hmc
+def fit_estimate(
+    model,
+    features,
+    chains,
+    warmup,
+    draws,
+    gpu,
+    large=False,
+    runs=RUNS,
+    keep=1,
+    max_leapfrog_steps=None,
+):
+    """Estimated (USD, seconds) of a Modal fit. A BlackJAX fit with the chains and leapfrog
+    limit of its model's last Modal fit is estimated from that fit's time a gradient and step
+    counts, with PSIS-LOO scaled by the kept draws, since its time an iteration follows its
+    trajectory lengths and not the Gibbs rate. Every other fit comes from `estimate` and
+    `seconds`."""
+    hmc = measured_gradients(model, features, runs)
+    if (
+        hmc
+        and not large
+        and int(chains) == hmc["chains"]
+        and max_leapfrog_steps is not None
+        and int(max_leapfrog_steps) == hmc["max_leapfrog_steps"]
+    ):
+        steps = int(warmup) * hmc["warm_steps"] + int(draws) * hmc["draw_steps"]
+        kept = int(chains) * (int(draws) // int(keep))
         secs = round(
-            outside
-            + per_gradient * (int(warmup) * warm_steps + int(draws) * draw_steps)
+            hmc["other"] + hmc["per_gradient"] * steps + hmc["loo_per_draw"] * kept
         )
         return round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs
     rate = measured_rate(model, features, runs)
@@ -188,6 +212,16 @@ def fit_estimate(model, features, chains, warmup, draws, gpu, large=False, runs=
         estimate(chains, warmup, draws, gpu, rate, large),
         seconds(chains, warmup, draws, rate, large),
     )
+
+
+def max_leapfrog_steps(argv):
+    """The --max-leapfrog-steps value in a fit's arguments, or None."""
+    for i, arg in enumerate(argv):
+        if arg == "--max-leapfrog-steps" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--max-leapfrog-steps="):
+            return arg.split("=", 1)[1]
+    return None
 
 
 def over_cap(usd, secs, large=False):
@@ -413,7 +447,14 @@ if __name__ == "__main__":
             argv = sys.argv[sys.argv.index("--check-launch") + 1 :]
             *fit, gpu = fit_size(argv)
             large = "--large" in argv
-            usd, secs = fit_estimate(*fit_model(argv), *fit, gpu, large)
+            usd, secs = fit_estimate(
+                *fit_model(argv),
+                *fit,
+                gpu,
+                large,
+                keep=_positional(argv)[0][7],
+                max_leapfrog_steps=max_leapfrog_steps(argv),
+            )
         except (TypeError, ValueError, KeyError):
             sys.exit(
                 0
