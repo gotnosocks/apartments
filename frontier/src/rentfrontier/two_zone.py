@@ -97,21 +97,33 @@ def rotation(x: np.ndarray, y: np.ndarray, step: float = 0.5) -> float:
     return angle
 
 
-def zone_basis(x: np.ndarray, y: np.ndarray):
+def box(u: np.ndarray, lengthscale: float) -> tuple[float, float, int]:
+    """B0.4's box on one axis (`b0_4.box`) at the given length-scale: the centre, widened
+    half-width L and wave count."""
+    lo, hi = np.quantile(u, [0.001, 0.999])
+    S = max((hi - lo) / 2, lengthscale)
+    return (
+        float((lo + hi) / 2),
+        float(b0_4.C * S),
+        int(math.ceil(1.75 * b0_4.C * S / lengthscale)),
+    )
+
+
+def zone_basis(x: np.ndarray, y: np.ndarray, lengthscale: float = LENGTHSCALE):
     """A zone's unscaled HSGP basis at its buildings, the spectral sd of each column, and the
     box it spans."""
     angle = rotation(x, y)
     t = math.radians(angle)
     u = x * math.cos(t) - y * math.sin(t)
     v = x * math.sin(t) + y * math.cos(t)
-    cu, Lu, mu_ = b0_4.box(u)
-    cv, Lv, mv = b0_4.box(v)
+    cu, Lu, mu_ = box(u, lengthscale)
+    cv, Lv, mv = box(v, lengthscale)
     u = np.clip(u - cu, -Lu, Lu)
     v = np.clip(v - cv, -Lv, Lv)
     clipped = int(np.sum((np.abs(u) >= Lu) | (np.abs(v) >= Lv)))
     pu, wu = b0_4.waves(u, Lu, mu_)
     pv, wv = b0_4.waves(v, Lv, mv)
-    l2 = LENGTHSCALE**2
+    l2 = lengthscale**2
     w2 = wu[:, None] ** 2 + wv[None, :] ** 2
     sd = np.sqrt(2 * np.pi * l2 * np.exp(-l2 * w2 / 2)).reshape(-1)
     B = (pu[:, :, None] * pv[:, None, :]).reshape(len(u), -1)
@@ -122,6 +134,7 @@ def zone_basis(x: np.ndarray, y: np.ndarray):
         "box_km": [2 * Lu, 2 * Lv],
         "waves": [mu_, mv],
         "clipped": clipped,
+        "lengthscale_km": lengthscale,
     }
     return B, sd, shape
 
@@ -130,6 +143,7 @@ def design(
     frame: pd.DataFrame,
     start: pd.Timestamp | None = None,
     registry: pd.DataFrame | None = None,
+    lengthscale: float = LENGTHSCALE,
 ) -> Design:
     """The normal walk's design of `frame`, with each row's building placed on its zone's
     surface."""
@@ -156,7 +170,7 @@ def design(
         on = sites[zone == k]
         if len(on) == 0:
             continue
-        B, sd, shape = zone_basis(on.x.to_numpy(), on.y.to_numpy())
+        B, sd, shape = zone_basis(on.x.to_numpy(), on.y.to_numpy(), lengthscale)
         surfaces.append(
             {
                 "name": name,
@@ -185,7 +199,7 @@ def run_record(d: Design) -> dict:
             | {"basis": s["basis"].shape[1]}
             for s in d.surfaces
         ],
-        "lengthscale_km": LENGTHSCALE,
+        "lengthscale_km": d.surfaces[0]["lengthscale_km"],
         "registry": str(REGISTRY),
     }
 

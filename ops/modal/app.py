@@ -146,6 +146,7 @@ BASELINES = (
     ("--model", "total-walk"),
     ("--model", "normal-walk"),
     ("--model", "two-zone"),
+    ("--model", "two-zone-1k"),
 )
 
 
