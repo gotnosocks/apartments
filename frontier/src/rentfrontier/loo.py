@@ -485,12 +485,22 @@ def main(argv=None):
             raise SystemExit(
                 f"{name}: B0.4's scoring needs its location surfaces, not written yet"
             )
-        if run.get("sampler") in ("b0", "b0.1", "b0.2", "b0.3", "centered-walk"):
-            from . import b0, b0_2, b0_3, centered_walk
+        if run.get("sampler") in (
+            "b0",
+            "b0.1",
+            "b0.2",
+            "b0.3",
+            "centered-walk",
+            "level-walk",
+        ):
+            from . import b0, b0_2, b0_3, centered_walk, level_walk
 
-            spec = {"b0.2": b0_2, "b0.3": b0_3, "centered-walk": centered_walk}.get(
-                run["sampler"]
-            )
+            spec = {
+                "b0.2": b0_2,
+                "b0.3": b0_3,
+                "centered-walk": centered_walk,
+                "level-walk": level_walk,
+            }.get(run["sampler"])
             record, pointwise = b0.score(
                 name,
                 run["sampler"],
