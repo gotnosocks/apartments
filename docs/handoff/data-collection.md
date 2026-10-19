@@ -1,8 +1,50 @@
 # Data collection — handoff
 
-Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (bridge session on thelio).
+Updated 2026-10-19 18:30 ET. Thread owner: the Data collection project thread (bridge session on thelio).
 
 ## State
+- **New Jersey (Oct 19).** Ben asked at 15:48 ET for Historic Downtown, Newport, Waterfront,
+  Paulus Hook and Hoboken, and at 16:13 ET for NJ to reach the NYC standard inside the dataset.
+  The collector region is `nj-jersey-city-hoboken` (#1160, #1161). I brought it in this way:
+  1. Lots: `rentfrontier.njregistry` (#1162) writes an NJ registry after each build, from the
+     state's tax parcels. Its building key differs from the NYC BBL, and `registry_extend`
+     leaves NJ rows out, so the #1157 geocode step runs as before. The Oct 19 registry,
+     `external/registry-nj/20261019-2d485c6`, places 6,011 of 6,029 buildings (4,615 by address, 639 by
+     street, 477 near, 280 by parcel) and leaves 18 unplaced.
+  2. City: `rentfrontier.njcity` (#1163) snapshots NJ Transit rail and light rail stops, NY
+     Waterway landings and OpenStreetMap parks. `external/njcity/20261019-8c51149` holds 3 rail
+     stops, 19 light rail stops, 6 ferry landings and 140 parks. PATH already had a snapshot.
+  3. Relists: #1165 ends each lot's 12-month relist window at the latest answer of its own
+     regions. Before it, the first NJ build moved 18 NYC `relist_unit` values.
+  4. Build: `rows-30b3edae310c2fae.parquet` (code 9e165c4, Oct 19 17:06 ET) holds 1,969,299
+     rows. Of those, 72,795 are NJ (Hoboken 26,739, Historic Downtown 13,736, Waterfront
+     12,575, Newport 12,093, Paulus Hook 7,652). The other 1,896,504 rows match
+     `rows-1ed2cd98fe208d45` in every column. The `regions` column marks NJ rows, so a reader
+     drops them with one filter.
+  5. Model inputs: `frontier/datasets/nj-jersey-city-hoboken-analysis-20261019-9e165c4` and
+     `frontier/descriptions/nj-jersey-city-hoboken-20261019-9e165c4` hold the NJ rows on their
+     own. Snapshot `20261019-bcfbb52-extend` stays as it was. No fit reads NJ yet, under Ben's
+     Oct 19 fit hold.
+
+  Ben left the paused timers off (Oct 19, 16:51 ET; see `ops/paused-timers-2026-10-18.md` in
+  the project files), so I run the NJ build and top-up steps by hand. With the timers off, no
+  Friday top-up and no backup covers NJ (or NYC) until he turns them back on.
+
+  The ad screen found no NJ row under the current data rules. A crude screen on price, size and
+  baths flagged 294 ads, and Sonnet readers read the first 300 characters of each. About 200
+  are not whole apartments: about 176 room shares carrying the whole unit's bedroom count, 24
+  shops or offices, and a nightly rental. Leads for wrong fields: 2549526, 3909758, 3140907,
+  3444678. Unsure: 3796179 ($44,350), 3335370, 5023541. The files are
+  `/data1/apartments/tmp/nj-screen*.jsonl` and `nj-screen.csv`. The standing screen
+  (`rentfrontier.adfit.screen`) needs work before it covers NJ:
+  - `room_share` matches 54 NJ ads. NJ room shares use other phrasing ("looking for a female
+    roommate", "1 bedroom in a 3 bedroom", "take over a room", "rooms for rent"). With those
+    phrases it matches 132. A bare "roommate" pattern is too loose, since NJ brokers often
+    write "perfect for roommates" about whole apartments.
+  - `far_place` reads "midtown" as Manhattan and flags about 520 Hoboken ads, where Midtown
+    Hoboken is the ad's own neighbourhood.
+  A rule version with NJ quarantines would make the served fit unservable once merged, so the
+  quarantines wait for full-ad reads and a version planned with Modeling.
 - **Area collection through the GraphQL API (Oct 15).** Ben, Oct 14 22:23 ET, asked for a
   cheaper scraper to collect Manhattan below 59th St and Brooklyn north and west of Prospect
   Park, and to top up the dataset on a schedule. At 22:57 ET he agreed that units' histories may
@@ -201,6 +243,11 @@ Updated 2026-10-16 10:10 ET. Thread owner: the Data collection project thread (b
   pipeline's ads file. The collector wrote current-listings captures until #949.
 
 ## Next
+- **NJ** (see State): full-ad reads of the NJ screen leads, then an NJ quarantine rule version
+  planned with Modeling; the `room_share` and `far_place` fixes in `rentfrontier.adfit`; NJ
+  observed listings on the site through the Website thread; floor plans and photos for NJ ads,
+  as for NYC; NJ in a fit after Ben lifts the hold. The state publishes one MOD-IV release at a
+  time, so the NJ registry has no as-of history before Oct 19.
 - **Storage review** (Ben, Oct 8): see `docs/data/archive-storage.md`. `streeteasy_archive.compact`
   (#471) copies a database without the duplicate provider HTML, saving 44%; the GV trial gave
   30.1 → 16.8 GB with an identical audit. Proposals:
