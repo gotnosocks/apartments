@@ -455,7 +455,7 @@ if __name__ == "__main__":
                 keep=_positional(argv)[0][7],
                 max_leapfrog_steps=max_leapfrog_steps(argv),
             )
-        except (TypeError, ValueError, KeyError):
+        except (TypeError, ValueError, KeyError, IndexError):
             sys.exit(
                 0
             )  # bad arguments: fit.py reports them, and reserves before any launch
