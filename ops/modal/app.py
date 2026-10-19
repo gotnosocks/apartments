@@ -143,6 +143,7 @@ BASELINES = (
     ("--model", "b0.4"),
     ("--model", "centered-walk"),
     ("--model", "level-walk"),
+    ("--model", "total-walk"),
 )
 
 
