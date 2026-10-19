@@ -1,0 +1,27 @@
+[Unit]
+Description=Geocode the buildings of the newest pipeline build that the lot registry lacks (rentfrontier.registry_extend)
+
+[Service]
+Type=oneshot
+Environment=UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier
+Environment=TMPDIR=/data1/apartments/tmp/registry-extend
+Environment=JAX_PLATFORMS=cpu
+# Before each run the service moves /data1/apartments/serve/master to master, as the dashboard
+# build does, and runs the module from there. The module writes a snapshot only from a clean
+# checkout, and the snapshot's provenance gives master's commit.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
+ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/registry-extend
+WorkingDirectory=/data1/apartments/serve/master/frontier
+# With nothing missing the run reads the catalog, the export's building records and the
+# registry, then stops. GeoSearch answers about 5 buildings a second, so the 901 buildings of
+# 2026-10-19 took a few minutes and a daily top-up takes seconds.
+ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.registry_extend
+TimeoutStartSec=2h
+Slice=apartments-light.slice
+CPUAffinity=3-5 9-11
+MemoryMax=3G
+MemorySwapMax=0
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle

@@ -1,0 +1,10 @@
+[Unit]
+Description=Extend the lot registry when a pipeline build adds a line to the catalog
+
+[Path]
+# ops/pipeline/build.py appends the catalog line after it writes the build's rows and ads files.
+PathChanged=/data1/apartments/pipeline/datasets/catalog.ndjson
+Unit=apartments-registry-extend.service
+
+[Install]
+WantedBy=paths.target
