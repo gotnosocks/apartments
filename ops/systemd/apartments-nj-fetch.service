@@ -1,0 +1,29 @@
+[Unit]
+Description=Snapshot the Hoboken and Jersey City tax parcels and what NJ buildings walk to (rentfrontier.njregistry parcels, rentfrontier.njcity)
+
+[Service]
+Type=oneshot
+Environment=UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier
+Environment=TMPDIR=/data1/apartments/tmp/nj-fetch
+Environment=JAX_PLATFORMS=cpu
+# Before each run the service moves /data1/apartments/serve/master to master, as the city fetch
+# and the registry step do, and runs the modules from there. Both write a snapshot only from a
+# clean checkout, and its provenance gives master's commit.
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master fetch -q origin master
+ExecStartPre=-/usr/bin/git -C /data1/apartments/serve/master checkout -q --force --detach origin/master
+ExecStartPre=/usr/bin/mkdir -p /data1/apartments/tmp/nj-fetch
+WorkingDirectory=/data1/apartments/serve/master/frontier
+# The parcel layer holds the current MOD-IV release only, so each run writes a new njparcels
+# snapshot. The next registry step (apartments-registry-extend.service, after the pipeline
+# build) then reads it and keys the NJ buildings to its lots again.
+ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.njregistry parcels
+# NJ Transit and NY Waterway stops from their GTFS feeds, and the OpenStreetMap parks.
+ExecStart=/home/ben/.local/bin/uv run --locked -q python -m rentfrontier.njcity
+TimeoutStartSec=2h
+Slice=apartments-light.slice
+CPUAffinity=3-5 9-11
+MemoryMax=3G
+MemorySwapMax=0
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
