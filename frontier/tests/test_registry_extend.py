@@ -23,11 +23,11 @@ def _base():
     return frame.astype({c: "string" for c in m.COLUMNS[:7]})
 
 
-def _record(slug, city, lat=40.69, lon=-73.9):
+def _record(slug, city, lat=40.69, lon=-73.9, state="NY"):
     return json.dumps(
         {
             "slug": slug,
-            "address": {"city": city},
+            "address": {"city": city, "state": state},
             "geoCenter": {"latitude": lat, "longitude": lon},
         }
     )
@@ -92,6 +92,29 @@ def test_rows_slug_missing_from_export_takes_its_ids_point():
     out = m.wanted(export, rows).set_index("building")
     assert list(out.index) == ["new-slug", "old-slug"]
     assert out.loc["old-slug", "latitude"] == 40.69
+
+
+def test_check_leaves_out_new_jersey_buildings(tmp_path):
+    """A Hoboken building in the export gets no registry row and doesn't fail the check, since
+    NYC GeoSearch has no lot for it."""
+    catalog = _catalog(
+        tmp_path,
+        {
+            "building_id": [1, 2],
+            "fetched": pd.to_datetime(["2026-10-15", "2026-10-19"]),
+            "record": [
+                _record("a-new_york", "NEW YORK"),
+                _record("1-hudson-st-hoboken", "HOBOKEN", 40.74, -74.03, state="NJ"),
+            ],
+        },
+        {"building": ["a-new_york", "1-hudson-st-hoboken"], "building_id": [1, 2]},
+    )
+    base = tmp_path / "registry" / "base"
+    base.mkdir(parents=True)
+    _base().to_parquet(base / "registry.parquet")
+    with pytest.raises(SystemExit) as e:
+        m.main(["--check", "--base", str(base), "--catalog", str(catalog)])
+    assert e.value.code == 0
 
 
 def test_check_fails_while_a_listed_building_has_no_registry_row(tmp_path, monkeypatch):
