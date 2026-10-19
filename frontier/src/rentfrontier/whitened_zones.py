@@ -11,23 +11,28 @@ diagonal mass, the precision had largest eigenvalue 805,000, which caps the leap
 precision is a median 77,000 (Manhattan) and 211,000 (outer) times their prior precision, so
 this is no funnel.
 
-So I change the coordinates the sampler moves in and leave the model alone. For each zone k
-I build, once from the design, the precision the coefficients would have at reference noise
-and amplitude:
+So I change the coordinates the sampler moves in and leave the model alone. I build, once
+from the design, the precision all the zones' coefficients would have together at reference
+noise and amplitude:
 
-    H_k = Bc_k' diag(c) Bc_k + diag(1 / (A sd_k)^2)
+    H = Bc' diag(c) Bc + diag(1 / (A sd)^2)
 
-1. Bc_k holds the zone's waves at every located building, zero off the zone, minus their
-   row-weighted mean over all buildings, the centring of `two_zone.model`;
+1. Bc holds every zone's waves at every located building, each zone's columns zero off the
+   zone, minus their row-weighted mean over all buildings, the centring of `two_zone.model`;
 2. c holds each building's row count times the Student-t information (nu + 1) / (nu + 3) /
    sigma^2 at SIGMA_REF and NU_REF;
-3. A is AMP_REF and sd_k the waves' spectral sds at unit amplitude.
+3. A is AMP_REF and sd the waves' spectral sds at unit amplitude.
 
-With H_k = L_k L_k' (Cholesky), I set T_k = inverse(L_k)' and sample z_k with a flat density.
-The model's coefficients are w_k = T_k z_k, saved as `gp_w`, and I add the coefficients'
-Normal(0, a_k sd_k) prior on w as a factor. The posterior of w is then that of two-zone-1k,
-and the log density in z differs from it by the constant log |det T|. At the stalled fit's
-medians the whitened precision's largest scaled eigenvalue is 12.8, a step bound of 0.56,
+With H = L L' (Cholesky), I set T = inverse(L)' and sample z with a flat density. The model's
+coefficients are w = T z, saved as `gp_w`, and I add the coefficients' Normal(0, a_k sd_k)
+prior on w as a factor. The posterior of w is then that of two-zone-1k, and the log density
+in z differs from it by the constant log |det T|.
+
+I whiten the zones together. The centring subtracts one mean from every zone, so after it
+each zone's lowest wave, nearly flat over the zone, is close to the zone's centred indicator,
+and Manhattan's centred indicator is minus the outer zone's. Whitened one zone at a time, the
+stalled fit's linearised posterior keeps a stiff direction along Manhattan's lowest wave
+against the outer zone's, with a step bound of 0.026. Whitened together, the bound is 0.56,
 against the normal walk's 0.57 with no surface at all.
 
 The zones. A building whose BBL starts with 1 sits on the Manhattan surface and any other
@@ -40,7 +45,7 @@ registry stands in for the region tag, which the frontier datasets do not carry.
 with no NJ buildings has the two NYC zones alone.
 
 The NJ surface is built as the others: its own minimum-area rotated box, widened by 1.5, at
-the 1 km length-scale and B0.4's wave density, with its own amplitude and its own whitening.
+the 1 km length-scale and B0.4's wave density, with its own amplitude.
 
     python -m rentfrontier.whitened_zones prior DATASET [--rows N]
     python -m rentfrontier.run --model whitened-zones --split latest --name NAME [--chains 16 ...]
@@ -176,22 +181,21 @@ def design(
     )
 
 
-def whitening(d: Design) -> list[np.ndarray]:
-    """Each zone's map T from whitened coordinates z to wave coefficients w = T z, from the
-    precision of its centred waves on the rows of `d` at the reference point."""
+def whitening(d: Design) -> np.ndarray:
+    """The map T from whitened coordinates z to all the zones' wave coefficients w = T z, from
+    the precision of the centred waves on the rows of `d` at the reference point."""
     share = site_share(d)
     n = len(share)
     info = (NU_REF + 1) / (NU_REF + 3) / SIGMA_REF**2
     c = info * np.bincount(d.site, minlength=n).astype(float)
-    out = []
-    for s in d.surfaces:
-        B = np.zeros((n, s["basis"].shape[1]))
-        B[s["first"] : s["first"] + s["sites"]] = s["basis"]
-        B -= share @ B
-        H = (B * c[:, None]).T @ B + np.diag(1 / (AMP_REF * s["sd"]) ** 2)
-        L = np.linalg.cholesky(H)
-        out.append(np.linalg.inv(L).T)
-    return out
+    ends = np.cumsum([0] + [s["basis"].shape[1] for s in d.surfaces])
+    B = np.zeros((n, ends[-1]))
+    for k, s in enumerate(d.surfaces):
+        B[s["first"] : s["first"] + s["sites"], ends[k] : ends[k + 1]] = s["basis"]
+    B -= share @ B
+    sd = np.concatenate([s["sd"] for s in d.surfaces])
+    H = (B * c[:, None]).T @ B + np.diag(1 / (AMP_REF * sd) ** 2)
+    return np.linalg.inv(np.linalg.cholesky(H)).T
 
 
 def run_record(d: Design) -> dict:
@@ -227,7 +231,7 @@ def model(d: Design, priors: Priors):
     B = jnp.asarray(grid_season(d))
     season = jnp.asarray([d.names.index(n) for n in SEASON])
     bases = [jnp.asarray(s["basis"]) for s in d.surfaces]
-    whiten = [jnp.asarray(t) for t in whitening(d)]
+    T = jnp.asarray(whitening(d))
     sds = jnp.concatenate([jnp.asarray(s["sd"]) for s in d.surfaces])
     which = jnp.asarray(
         np.concatenate([np.full(len(s["sd"]), k) for k, s in enumerate(d.surfaces)])
@@ -253,9 +257,7 @@ def model(d: Design, priors: Priors):
         z = numpyro.sample(
             "gp_z", dist.ImproperUniform(constraints.real_vector, (), (int(ends[-1]),))
         )
-        w = jnp.concatenate(
-            [T @ z[ends[k] : ends[k + 1]] for k, T in enumerate(whiten)]
-        )
+        w = T @ z
         numpyro.deterministic("gp_w", w)
         numpyro.factor("gp_w_prior", dist.Normal(0, amp[which] * sds).log_prob(w).sum())
         F = jnp.concatenate(

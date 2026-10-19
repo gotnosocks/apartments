@@ -74,18 +74,18 @@ def _design(n=600, weeks=25, seed=4):
 
 
 def test_whitening_turns_the_reference_precision_into_the_identity():
+    """T' H T = I, with H built row by row from the centred surface each unit coefficient
+    gives every building, the zones together."""
     d = _design()
-    share = whitened_zones.site_share(d)
+    K = sum(len(s["sd"]) for s in d.surfaces)
+    Bc = whitened_zones.surface_draws(d, {"gp_w": np.eye(K)}).T
+    A = Bc[d.site]
     info = (whitened_zones.NU_REF + 1) / (whitened_zones.NU_REF + 3)
-    c = info / whitened_zones.SIGMA_REF**2 * np.bincount(d.site, minlength=len(share))
-    for s, T in zip(d.surfaces, whitened_zones.whitening(d), strict=True):
-        B = np.zeros((len(share), s["basis"].shape[1]))
-        B[s["first"] : s["first"] + s["sites"]] = s["basis"]
-        B -= share @ B
-        H = (B * c[:, None]).T @ B + np.diag(
-            1 / (whitened_zones.AMP_REF * s["sd"]) ** 2
-        )
-        np.testing.assert_allclose(T.T @ H @ T, np.eye(len(T)), atol=1e-8)
+    sd = np.concatenate([s["sd"] for s in d.surfaces])
+    H = info / whitened_zones.SIGMA_REF**2 * A.T @ A
+    H += np.diag(1 / (whitened_zones.AMP_REF * sd) ** 2)
+    T = whitened_zones.whitening(d)
+    np.testing.assert_allclose(T.T @ H @ T, np.eye(K), atol=1e-8)
 
 
 def test_whitened_coordinates_give_two_zones_density_at_w():
@@ -106,14 +106,11 @@ def test_whitened_coordinates_give_two_zones_density_at_w():
     d1 = two_zone_1k.subset(two_zone_1k.design(frame, registry=registry_of()), keep)
     priors = two_zone.Priors()
     T = whitened_zones.whitening(d)
-    k = [len(t) for t in T]
     rng = np.random.default_rng(2)
     gaps = []
     for amp in (np.array([0.2, 0.1]), np.array([0.7, 1.3])):
-        z = rng.normal(0, 1, sum(k))
-        w = np.concatenate(
-            [t @ z[a : a + n] for t, a, n in zip(T, np.cumsum([0] + k), k)]
-        )
+        z = rng.normal(0, 1, len(T))
+        w = T @ z
         fn = handlers.substitute(
             whitened_zones.model(d, priors), data=point | {"amp": amp, "gp_z": z}
         )
