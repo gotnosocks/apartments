@@ -28,7 +28,7 @@ def test_columns_step_from_each_levels_modal_bath():
     # 4 beds: the modal count is 2, so one full bath sits a step below it.
     if "bed=4:full>=2" in x:
         assert set(np.unique(x["bed=4:full>=2"])) <= {0.0, -1.0}
-        assert -x["bed=4:full>=2"].sum() == (known & (beds == 4) & (full < 2)).sum()
+        assert -x["bed=4:full>=2"].sum() == ((beds == 4) & (full < 2)).sum()
     assert [
         b0_3.pool(n) for n in ("bed=0:full>=2", "bed=3:full>=4", "bed=4:full>=2")
     ] == [
@@ -37,6 +37,14 @@ def test_columns_step_from_each_levels_modal_bath():
         "bath-1",
     ]
     assert b0_3.pool("bed=5:full>=4") == "bath+2"
+
+
+def test_design_survives_a_frame_of_studios_with_one_bath():
+    frame, _ = frame_of(n=400, weeks=20, seed=6)
+    frame = frame.assign(bedrooms=0.0, full_baths=1.0)
+    d = b0_3.design(frame)
+    assert not any(n.startswith(("bed>=", "bed=")) for n in d.names)
+    assert d.x.shape == (len(frame), len(d.names))
 
 
 def test_ladder_sums_the_spine_and_bath_steps_of_each_cell():
@@ -50,7 +58,8 @@ def test_ladder_sums_the_spine_and_bath_steps_of_each_cell():
     assert cells[(0, 1)] == 0.0
     known, beds, full = cells_of(frame)
     want = np.array([cells[(b, f)] for b, f in zip(beds, full)])
-    assert np.allclose((d.x @ beta)[known], want[known])
+    # Rows with no full-bath count read their level's 1-bath cell, as in B0.
+    assert (~known).any() and np.allclose(d.x @ beta, want)
 
 
 def test_modal_contrasts_read_the_modal_path():
@@ -159,5 +168,5 @@ def test_run_and_score(tmp_path, monkeypatch):
     assert s["cells"]["0bed_1bath"]["median"] == 0.0
     assert "4 bed: -1 full bath from 2" in s["modal_contrasts"]
     assert set(s["shared_bath_steps"]) == set(b0_3.POOLS)
-    assert [r["n"] for r in record["scorecard"]] == list(range(1, 9))
+    assert [r["n"] for r in record["scorecard"]] == list(range(1, 10))
     assert pointwise["heldout_quantiles"].shape == (result["sizes"]["heldout"], 5)

@@ -13,7 +13,8 @@ of studio ads). I measure bath steps instead against the bath count most ads at 
 level have. The modal count, from the 2026-10-19 off-market rows, is one full bath for
 studios through 3 bedrooms and two for 4 and 5+ bedrooms (MODAL). A cell (b, f) has
 bedrooms b (0 to 5, 5 or more capped at 5) and full baths f (1 to 4, 4 or more capped at 4,
-none counted as 1), and its mean comes in two parts:
+none counted as 1). As in B0, an ad with no full-bath count goes into the 1-bath cell of its
+bedroom level, with B0's `bath_unknown` step on top. A cell's mean comes in two parts:
 
     Ladder(b, f) = Spine(b) + Bath_b(f)
 
@@ -125,7 +126,7 @@ def design(frame: pd.DataFrame, start: pd.Timestamp | None = None) -> b0.Design:
     keep = [j for j, n in enumerate(d.names) if not n.startswith("full>=")]
     names = [d.names[j] for j in keep]
     count = {n: c for n, c in d.count.items() if not n.startswith("full>=")}
-    at = max(j for j, n in enumerate(names) if n.startswith("bed>=")) + 1
+    at = 1 + max((j for j, n in enumerate(names) if n.startswith("bed>=")), default=0)
     new, new_names = [], []
     for b in range(BEDS + 1):
         at_b = known & (beds == b)
@@ -133,14 +134,15 @@ def design(frame: pd.DataFrame, start: pd.Timestamp | None = None) -> b0.Design:
             if j > MODAL[b]:
                 col = (at_b & (full >= j)).astype(float)
             else:
-                col = -(at_b & (full < j)).astype(float)
+                col = -((beds == b) & (~known | (full < j))).astype(float)
             n = bath_step(b, j)
             count[n] = int(np.abs(col).sum())
             if count[n] > 0:
                 new.append(col)
                 new_names.append(n)
     x = d.x[:, keep]
-    x = np.hstack([x[:, :at], np.stack(new, axis=1), x[:, at:]])
+    new = np.stack(new, axis=1) if new else np.zeros((len(x), 0))
+    x = np.hstack([x[:, :at], new, x[:, at:]])
     names = names[:at] + new_names + names[at:]
     return dataclasses.replace(d, x=x, names=names, count=count)
 
@@ -397,6 +399,14 @@ def scorecard(summary, season, trend) -> list:
         f"g {g:+.2f}%/yr, tau {tau:.4f}, nu_T {nt:.2f}",
         1 <= g <= 4 and 0.0012 <= tau <= 0.004 and nt < 2,
     )
+    peak = float(season["days"][np.argmax(np.median(season["curve"], axis=0))])
+    month = (pd.Timestamp("2001-01-01") + pd.Timedelta(days=peak)).month
+    add(
+        9,
+        "season peaks May to July",
+        f"peak day {peak:.0f} (month {month})",
+        5 <= month <= 7,
+    )
     return rows
 
 
@@ -447,6 +457,9 @@ def prior_predictive(d: b0.Design, priors: Priors, draws=200, rows=50_000, seed=
             zip(map(str, q), np.quantile(rent, q).round(0).tolist())
         ),
         "share_1000_30000": float(np.mean((rent >= 1000) & (rent <= 30000))),
+        "trend_end_quantiles": dict(
+            zip(map(str, q), np.quantile(pr["L"][:, -1], q).round(3).tolist())
+        ),
     }
 
 
