@@ -370,6 +370,34 @@ systemctl --user daemon-reload
 systemctl --user enable --now apartments-pipeline-build.path apartments-pipeline-build.timer
 ```
 
+### Extending the lot registry after a build
+
+Each build appends its catalog line, and `apartments-registry-extend.path` then starts
+`apartments-registry-extend.service`. The service moves `/data1/apartments/serve/master` to
+master and runs `python -m rentfrontier.registry_extend` from there. The module lists the
+buildings of the newest build, from its rows file and the export's building records, with no row
+in the newest registry snapshot under `/data1/apartments/external/registry`. It geocodes them
+from each record's slug address and `geoCenter` and writes a `<date>-<commit>-extend` snapshot,
+the old rows followed by the new ones. Until 2026-10-19 no step did this, and the 901 buildings
+whose records came in after the hand-cut lists of 2026-10-15 had no lot and no point.
+
+To count the buildings without a registry row, without geocoding:
+
+```sh
+cd /data1/apartments/serve/master/frontier
+UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier uv run --locked -q python -m rentfrontier.registry_extend --check
+```
+
+The units go in once:
+
+```sh
+cp /data1/apartments/serve/master/ops/systemd/apartments-registry-extend.{path,service} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now apartments-registry-extend.path
+```
+
+Model code names a fixed snapshot, so a new snapshot changes a fit only once a model reads it.
+
 ### Top-up builds
 
 When an export adds answers, the build reads those answers and the ads they change, and it keeps
