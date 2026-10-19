@@ -11,7 +11,8 @@ themselves and let each scale see them directly:
 
 1. The trend. I sample the weekly levels L_1..L_W (L_0 = 0) and score their steps,
    L_w - L_{w-1} ~ Student-t(nu_t, g, tau). This is B0.4's random walk with drift written on
-   the levels; the map from B0.4's z is linear with unit Jacobian. eta = L_w - L_{w-1} - g
+   the levels. The levels are a unit-Jacobian map of the steps, and the Student-t's scale
+   carries the factor tau^W that the map from B0.4's z would add. eta = L_w - L_{w-1} - g
    is kept as before.
 2. The surfaces. I keep each surface's basis unscaled, Phi_b (sines, centred on the
    borough's row-weighted mean), and sample its coefficients w_bk ~ Normal(0, a_b sqrt(S_k)),
@@ -152,7 +153,8 @@ def model(d: Design, priors: Priors):
 
 def initial_values(d: Design, priors: Priors, chains: int, seed: int) -> dict:
     """B0.4's starting points moved to the centred sites: the levels near the drift's path,
-    the surface coefficients and bath steps near zero and their pool means, tau near 0.005."""
+    the surface coefficients near zero, the bath steps at their pool means, and tau near
+    0.005."""
     rng = np.random.default_rng(seed)
     out = b0_4.initial_values(d, priors, chains, seed)
     _, steps, pools = b0_3.split_index(d.names)
