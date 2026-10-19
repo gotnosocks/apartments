@@ -11,7 +11,9 @@ these steps:
 
 1. It reads the newest line of the pipeline's catalog. From it I take the build's rows file, for
    the buildings its ads name, and the export's building files, for each building's StreetEasy
-   record: its slug, its `geoCenter` point and the city of its address.
+   record: its slug, its `geoCenter` point and the city and state of its address. It drops the
+   buildings in New Jersey (Jersey City and Hoboken), since NYC GeoSearch has no lots there and
+   its reverse geocode would place them on the nearest Manhattan lot.
 2. It reads the base snapshot, the newest `registry.parquet` under EXTERNAL_ROOT/registry unless
    given, and lists the buildings of the export and of the rows file with no row there. A rows
    file slug missing from the export takes its point from the export record of the same
@@ -85,7 +87,7 @@ def latest_build(catalog: Path = CATALOG) -> dict:
 
 def export_buildings(build: dict) -> pd.DataFrame:
     """Each building of the build's export at its latest record: building_id, building (slug),
-    latitude, longitude, city."""
+    latitude, longitude, city, state."""
     root = Path(build["export"])
     parts = [
         pd.read_parquet(root / f, columns=["building_id", "fetched", "record"])
@@ -102,8 +104,16 @@ def export_buildings(build: dict) -> pd.DataFrame:
             "latitude": [p.get("latitude") for p in point],
             "longitude": [p.get("longitude") for p in point],
             "city": [(r.get("address") or {}).get("city") for r in records],
+            "state": [(r.get("address") or {}).get("state") for r in records],
         }
     )
+
+
+def in_new_york(buildings: pd.DataFrame) -> pd.DataFrame:
+    """The buildings outside New Jersey. A building with no state, such as a rows-file slug with
+    no export record, stays in."""
+    state = buildings.state.fillna("NY").astype(str).str.upper()
+    return buildings[state != "NJ"]
 
 
 def wanted(export: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
@@ -169,7 +179,7 @@ def main(argv=None):
     rows = pd.read_parquet(
         args.catalog.parent / build["rows"]["path"], columns=["building", "building_id"]
     )
-    todo = missing(base, wanted(export_buildings(build), rows))
+    todo = missing(base, in_new_york(wanted(export_buildings(build), rows)))
     new = todo[~todo.building.isin(base.building)]
     print(
         f"{base_dir.name}: {len(new)} buildings of the {build['built']} build have no row"
