@@ -116,8 +116,9 @@ Since Oct 16 the region reads unit histories too, for about 6 more requests
 Ben asked on Oct 19 for the New Jersey side across from lower Manhattan, and at 16:13 ET for it
 to join the dataset. A first run into a separate archive,
 `/data1/apartments/archive/crawls/streeteasy-nj`, read its 80,478 ads in 407 requests ($0.46),
-with no band truncated. The region then goes into `crawls/api` like the others, so the Friday
-top-up, the backup, the export and the pipeline build cover it. Its rows carry the region in
+with no band truncated. I then backfill the region afresh into `crawls/api`, about 400 more
+requests, rather than copying that archive over. From there the Friday top-up, the backup, the
+export and the pipeline build cover it like the others. Its rows carry the region in
 `regions`, and the fit datasets leave them out unless a fit names their neighbourhoods.
 
 Writing the records sends no requests and takes about 7 ms an ad on thelio, half of it in the
