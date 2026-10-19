@@ -27,6 +27,7 @@ import hashlib
 import io
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -42,8 +43,8 @@ FEEDS = {
     "njt-rail": "https://files.mobilitydatabase.org/mdb-509/latest.zip",
     "ny-waterway": "https://files.mobilitydatabase.org/mdb-3192/latest.zip",
 }
-# GTFS route_type to mode.
-MODES = {"0": "light rail", "2": "rail", "4": "ferry"}
+# GTFS route_type to mode, in the order a stop served by several modes takes its mode from.
+MODES = {"2": "rail", "0": "light rail", "4": "ferry"}
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "rentfrontier-research/1.0 (one-off lookup)"
 M_PER_DEG_LAT = 111_320.0
@@ -51,15 +52,17 @@ SQ_M_PER_ACRE = 4046.8564224
 
 
 def _read(url: str, data: bytes | None = None, tries: int = 6) -> bytes:
-    """The body at the URL. The public Overpass server often answers 502 or 504 when busy, so a
-    failed request goes again after 5, 10, 20, 40 and 80 seconds."""
+    """The body at the URL. The public Overpass server often answers 502 or 504 when busy, so after
+    a 5xx answer or a network error I send the request again after 5, 10, 20, 40 and 80 seconds.
+    A 4xx answer fails at once."""
     request = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
     for attempt in range(tries):
         try:
             with urllib.request.urlopen(request, timeout=300) as response:
                 return response.read()
-        except OSError:
-            if attempt == tries - 1:
+        except OSError as error:
+            client = isinstance(error, urllib.error.HTTPError) and error.code < 500
+            if client or attempt == tries - 1:
                 raise
             time.sleep(5 * 2**attempt)
     raise AssertionError
@@ -76,7 +79,8 @@ def in_box(lat: float, lon: float) -> bool:
 
 def stops(source: str, blob: bytes) -> pd.DataFrame:
     """The feed's stops inside BOX that some trip stops at, with the short names (or long
-    names) of the routes stopping there and the mode of the first."""
+    names) of the routes stopping there. A stop served by several modes takes the first of
+    them in MODES order."""
     z = zipfile.ZipFile(io.BytesIO(blob))
     routes = {r["route_id"]: r for r in _table(z, "routes.txt")}
     trip_route = {t["trip_id"]: t["route_id"] for t in _table(z, "trips.txt")}
@@ -98,7 +102,8 @@ def stops(source: str, blob: bytes) -> pd.DataFrame:
                 for r in route_ids
             }
         )
-        mode = MODES.get(routes[sorted(route_ids)[0]]["route_type"], "other")
+        types = {routes[r]["route_type"] for r in route_ids}
+        mode = next((m for t, m in MODES.items() if t in types), "other")
         rows.append(
             (
                 source,
@@ -198,7 +203,9 @@ def outline(element: dict) -> dict | None:
 
 
 def parks() -> tuple[pd.DataFrame, str]:
-    """OpenStreetMap parks inside BOX with their outlines, and the query sent."""
+    """OpenStreetMap parks inside BOX with their outlines, and the query sent. A park way that is
+    also a member of a park relation counts once, as part of the relation. A reply carrying an
+    Overpass runtime remark is incomplete, so I refuse it."""
     south, west, north, east = BOX
     box = f"({south},{west},{north},{east})"
     query = (
@@ -208,8 +215,19 @@ def parks() -> tuple[pd.DataFrame, str]:
     reply = json.loads(
         _read(OVERPASS_URL, urllib.parse.urlencode({"data": query}).encode())
     )
+    if "remark" in reply:
+        raise RuntimeError(f"Overpass remark: {reply['remark']}")
+    in_relation = {
+        m["ref"]
+        for e in reply["elements"]
+        if e["type"] == "relation"
+        for m in e.get("members", [])
+        if m.get("type") == "way"
+    }
     rows = []
     for e in reply["elements"]:
+        if e["type"] == "way" and e["id"] in in_relation:
+            continue
         g = outline(e)
         if g is None:
             continue
