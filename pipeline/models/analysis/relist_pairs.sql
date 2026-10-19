@@ -12,7 +12,10 @@ MODEL (
 -- A broker who lists an apartment again often starts a new unit page under another label, and
 -- the lot then shows more unit pages than it has apartments. The step looks for these relists
 -- only in lots over their count: lots where the unit pages with an ad on the market in the 12
--- months to the build's as-of day outnumber the apartments of the latest MapPLUTO release.
+-- months to the lot's as-of day outnumber the apartments of the latest MapPLUTO release. A lot's
+-- as-of day is the latest answer in any collection region its ads belong to. Collection runs
+-- one region at a time, so a backfill of one region leaves the window of every other region
+-- where it was.
 -- Within such a lot, it pairs a kept ad with a kept ad of another unit page when
 --
 -- 1. the second ad comes on the market between 3 days before and 7 days after the first goes
@@ -34,8 +37,11 @@ MODEL (
 -- Readers judged a sample of these pairs from the ads alone, without the photos, as
 -- docs/data/pipeline.md describes under Relist units. analysis.relist_links decides which pairs
 -- join their unit pages.
-WITH as_of AS (
-    SELECT max(as_of) AS day FROM ads.market
+WITH region_day AS (
+    SELECT region, max(m.as_of) AS day
+    FROM ads.market m
+    JOIN (SELECT listing_id, unnest(regions) AS region FROM ads.regions) r USING (listing_id)
+    GROUP BY region
 ), apartments AS (
     SELECT try_cast(bbl AS DOUBLE)::BIGINT::VARCHAR AS bbl,
         any_value(try_cast(unitsres AS DOUBLE)::INTEGER) AS apartments
@@ -48,12 +54,19 @@ WITH as_of AS (
     FROM ads.placed p
     JOIN buildings.lots l USING (building_id)
     WHERE p.unit_id IS NOT NULL AND l.bbl IS NOT NULL
+), lot_day AS (
+    SELECT p.bbl, max(d.day) AS day
+    FROM placed p
+    JOIN (SELECT listing_id, unnest(regions) AS region FROM ads.regions) r USING (listing_id)
+    JOIN region_day d USING (region)
+    GROUP BY p.bbl
 ), over AS (
     SELECT p.bbl
     FROM placed p
     JOIN ads.market m USING (listing_id)
     JOIN apartments a USING (bbl)
-    WHERE coalesce(m.off_day, m.as_of) > (SELECT day FROM as_of) - INTERVAL 12 MONTH
+    JOIN lot_day d USING (bbl)
+    WHERE coalesce(m.off_day, m.as_of) > d.day - INTERVAL 12 MONTH
     GROUP BY p.bbl, a.apartments
     HAVING count(DISTINCT p.unit_id) > a.apartments
 ), candidate_keys AS (
