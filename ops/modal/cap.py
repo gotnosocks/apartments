@@ -83,8 +83,9 @@ PER_FIT_USD = None
 NB5_SERVED_FIT_USD = 0.88
 # A BlackJAX model with no Modal fit yet is estimated from the model it runs beside on the same
 # sampler: B0.2 has B0.1's rows, sampler and about as many parameters, with the 15 bed-bath
-# interaction steps in place of the slope walk's scale and its smoothness.
-STAND_IN = {"b0.2": "b0.1"}
+# interaction steps in place of the slope walk's scale and its smoothness. B0.3 has B0.2's
+# parameters with the bath steps regrouped.
+STAND_IN = {"b0.2": "b0.1", "b0.3": "b0.1"}
 
 
 class CapReached(RuntimeError):
