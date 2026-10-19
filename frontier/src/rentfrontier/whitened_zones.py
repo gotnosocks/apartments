@@ -42,7 +42,8 @@ lot's point. The two registries share no building; the design stops on any build
 in both or in neither. In pipeline build rows-30b3edae310c2fae the 5,480 buildings tagged
 with region nj-jersey-city-hoboken are exactly the buildings of the NJ registry, so the
 registry stands in for the region tag, which the frontier datasets do not carry. A design
-with no NJ buildings has the two NYC zones alone.
+with no NJ buildings has the two NYC zones alone, and the design stops when either NYC zone
+is empty, so the zones keep their positions in ZONES.
 
 The NJ surface is built as the others: its own minimum-area rotated box, widened by 1.5, at
 the 1 km length-scale and B0.4's wave density, with its own amplitude.
@@ -106,13 +107,13 @@ def sites_of(
     """One row per building in `frame`: its zone number (None without a point) and its
     position in km east and north of B0.4's origin."""
     nyc = registry.drop_duplicates("building").set_index("building")
-    nyc = nyc[nyc.bbl.notna()]
     nj = nj_registry.drop_duplicates("building").set_index("building")
     both = nyc.index.intersection(nj.index)
     if len(both):
         raise ValueError(
             f"{len(both)} buildings are in both registries, e.g. {list(both[:5])}"
         )
+    nyc = nyc[nyc.bbl.notna()]
     out = pd.DataFrame(index=pd.Index(frame.building.unique(), name="building"))
     out = out.join(nyc[["bbl", "latitude", "longitude"]])
     on_nj = out.index.isin(nj.index)
@@ -156,6 +157,8 @@ def design(
     surfaces, first, index = [], 0, {}
     for k, name in enumerate(ZONES):
         on = sites[sites.zone == k]
+        if len(on) == 0 and name != "nj":
+            raise ValueError(f"no buildings on the {name} surface")
         if len(on) == 0:
             continue
         B, sd, shape = two_zone.zone_basis(

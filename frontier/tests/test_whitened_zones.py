@@ -65,6 +65,27 @@ def test_design_refuses_a_building_in_both_registries():
         whitened_zones.design(frame, registry=registry_of(), nj_registry=nj)
 
 
+def test_design_refuses_a_missing_nyc_zone():
+    frame, _ = frame_of(n=3000, weeks=20, seed=3)
+    frame = frame[frame.building.astype(int) >= 150].reset_index(drop=True)
+    with pytest.raises(ValueError, match="manhattan surface"):
+        whitened_zones.design(
+            frame, registry=registry_of(), nj_registry=nj_registry_of()
+        )
+
+
+def test_whitening_reads_the_training_rows_only():
+    """Dropping rows changes T, so `whitening` reads the rows of the design it is given."""
+    frame, _ = frame_of(n=600, weeks=25, seed=4)
+    d = whitened_zones.design(
+        frame, registry=registry_of(), nj_registry=nj_registry_of()
+    )
+    keep = np.arange(len(d.y)) % 2 == 0
+    T_all = whitened_zones.whitening(whitened_zones.subset(d, np.ones(len(d.y), bool)))
+    T_half = whitened_zones.whitening(whitened_zones.subset(d, keep))
+    assert not np.allclose(T_all, T_half)
+
+
 def _design(n=600, weeks=25, seed=4):
     frame, _ = frame_of(n=n, weeks=weeks, seed=seed)
     d = whitened_zones.design(
@@ -74,8 +95,8 @@ def _design(n=600, weeks=25, seed=4):
 
 
 def test_whitening_turns_the_reference_precision_into_the_identity():
-    """T' H T = I, with H built row by row from the centred surface each unit coefficient
-    gives every building, the zones together."""
+    """T' H T = I, with H built row by row from the centred surface `surface_draws` gives
+    each unit coefficient at every building, the zones together."""
     d = _design()
     K = sum(len(s["sd"]) for s in d.surfaces)
     Bc = whitened_zones.surface_draws(d, {"gp_w": np.eye(K)}).T
