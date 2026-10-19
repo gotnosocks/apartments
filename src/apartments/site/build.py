@@ -51,6 +51,7 @@ from . import (
     detail,
     estimate_build,
     exposure,
+    observed,
     story,
     summary,
     wings,
@@ -127,6 +128,17 @@ CREATE TABLE quarantined(
   bedrooms REAL, bathrooms REAL, square_feet REAL,
   rule TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL,
   evidence TEXT, external_evidence TEXT);
+-- Listings of regions no served fit covers (observed.py): what the ad states, no estimate.
+CREATE TABLE observed(
+  listing_id TEXT PRIMARY KEY, unit_id TEXT, unit_url TEXT, unit_label TEXT,
+  building TEXT, building_name TEXT NOT NULL, neighbourhood TEXT,
+  listing_url TEXT, period TEXT NOT NULL, price_at TEXT, seen_at TEXT,
+  is_current INTEGER NOT NULL, ask REAL NOT NULL, bedrooms REAL, bathrooms REAL,
+  square_feet REAL, floor INTEGER, elevator TEXT, laundry TEXT, doorman TEXT,
+  pets TEXT, concession TEXT);
+CREATE INDEX observed_period ON observed(period, listing_id);
+CREATE INDEX observed_ask ON observed(ask, listing_id);
+CREATE INDEX observed_neighbourhood ON observed(neighbourhood, period);
 CREATE INDEX quarantined_building ON quarantined(building_id, period);
 CREATE INDEX quarantined_unit ON quarantined(unit_id, period);
 CREATE INDEX quarantined_period ON quarantined(period, audit_id);
@@ -1144,6 +1156,10 @@ def _write(
         "quarantined_current": sum(r["is_current"] for r in quarantined),
     }
     _insert(db, "quarantined", quarantined)
+    # Regions outside the served fit, with their observed values only.
+    observed_rows, stats["observed"] = observed.rows(files, at)
+    _insert(db, "observed", observed_rows)
+    del observed_rows
     _insert(db, "market", market)
     _insert(db, "coefficients", coefficients)
     current_rows = [

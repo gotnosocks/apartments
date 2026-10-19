@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Hoboken and Jersey City listings{% endblock %}
+{% block content %}
+<h1>Hoboken and Jersey City listings</h1>
+<p class="lede">These are StreetEasy ads in Hoboken and in Jersey City's Historic Downtown, Newport, Waterfront and Paulus
+Hook, with the asks and layouts the ads give. No fit covers New Jersey yet, so these listings have no estimate.
+The ask is each listing's latest, net of any free months.</p>
+{% if left_out %}
+<p class="note">Readers went through every flagged New Jersey ad in full, and the site leaves out
+{{ "{:,}".format(left_out.values() | sum) }} that are not leases of a whole apartment:
+{% for verdict, count in left_out.items() %}{{ "{:,}".format(count) }} {{ HIDDEN[verdict][0 if count == 1 else 1] if verdict in HIDDEN else verdict }}{{ ", " if not loop.last else "." }}{% endfor %}</p>
+{% endif %}
+
+{% if not areas %}
+<p class="empty">This build has no New Jersey listings.</p>
+{% else %}
+<form class="filters" action="{{ url_for('observed_listings') }}" method="get" aria-label="Filter New Jersey listings">
+  <div class="field">
+    <label for="f-nb">Neighbourhood</label>
+    <select id="f-nb" name="nb">
+      <option value=""{% if not filters.nb %} selected{% endif %}>All</option>
+      {% for name, count in areas.items() %}<option value="{{ name }}"{% if filters.nb == name %} selected{% endif %}>{{ name }} ({{ "{:,}".format(count) }})</option>{% endfor %}
+    </select>
+  </div>
+  <fieldset class="field">
+    <legend>Bedrooms</legend>
+    <div class="checks">
+    {% for key, label in BEDROOMS.items() %}
+      <label class="check"><input type="checkbox" name="beds" value="{{ key }}"{% if key in filters.beds %} checked{% endif %}> {{ label }}</label>
+    {% endfor %}
+    </div>
+  </fieldset>
+  <div class="field">
+    <label for="f-min">Ask from</label>
+    <input id="f-min" name="min_ask" inputmode="numeric" size="7" value="{{ '{:g}'.format(filters.min_ask) if filters.min_ask is not none }}" placeholder="$">
+  </div>
+  <div class="field">
+    <label for="f-max">to</label>
+    <input id="f-max" name="max_ask" inputmode="numeric" size="7" value="{{ '{:g}'.format(filters.max_ask) if filters.max_ask is not none }}" placeholder="$">
+  </div>
+  <div class="field">
+    <label for="f-status">Show</label>
+    <select id="f-status" name="status">
+      {% for key, label in STATUS.items() %}<option value="{{ key }}"{% if filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field actions"><button type="submit">Apply</button></div>
+</form>
+
+{% if medians %}
+<section class="card">
+  <h2>Median ask</h2>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th scope="col">Layout</th><th scope="col" class="num">Median ask</th><th scope="col" class="num">Listings</th></tr></thead>
+    <tbody>
+    {% for label, median, count in medians %}
+      <tr><td>{{ label }}</td><td class="num">{{ usd(median) }}</td><td class="num">{{ "{:,}".format(count) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <p class="results-links">{{ "{:,}".format(total) }} listing{{ "" if total == 1 else "s" }} · <a href="{{ csv_url }}">Download CSV</a></p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        {{ m.sort_th("Listed", "date", filters, "observed_listings") }}
+        <th scope="col">Building · unit</th>
+        <th scope="col">Neighbourhood</th>
+        <th scope="col">Layout</th>
+        {{ m.sort_th("Ask", "ask", filters, "observed_listings", num=True) }}
+        <th scope="col">StreetEasy</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td class="nowrap">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
+        <td>{% if row.unit_url %}<a href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">{{ row.building_name }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}</a>{% else %}{{ row.building_name }}{% endif %}</td>
+        <td>{{ row.neighbourhood or "" }}</td>
+        <td class="nowrap">{{ m.layout(row) }}</td>
+        <td class="num">{{ usd(row.ask) }}{% if row.concession %} <span class="muted" title="{{ row.concession }}">*</span>{% endif %}</td>
+        <td class="nowrap">{% if row.listing_url %}<a href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">Ad ↗<span class="visually-hidden"> for {{ month(row.period) }} on StreetEasy</span></a>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">No listings match these filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ m.pager(filters, pages, "observed_listings") }}
+</section>
+{% endif %}
+{% endblock %}
