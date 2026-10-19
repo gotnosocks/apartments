@@ -40,6 +40,9 @@ def test_address_keys_read_ranges_ordinals_and_slashes():
     assert keys("1117 GRAND/1118 CLINTON") == ["1117 GRAND", "1118 CLINTON"]
     assert keys("45 RIVER DR.SOUTH") == ["45 RIVER DR S"]
     assert keys("SECAUCUS RD.") == []
+    assert keys("123 1/2 MAIN ST") == ["123 MAIN ST"]
+    assert keys("10-15 MAIN ST") == ["10 MAIN ST"]
+    assert keys("77 Hudson Street #3") == ["77 HUDSON ST"]
     assert keys(None) == []
 
 

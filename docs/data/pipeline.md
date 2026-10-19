@@ -397,8 +397,8 @@ the condominium qualifier, so `0905_13_1_C002A` belongs to lot `0905_13_1`. I tr
    30 m. StreetEasy gives the point to four decimals, about 10 m, so these lots are often the
    neighbour's.
 
-On the 6,029 NJ buildings of the Oct 19 collection, 4,531 matched by address, 625 by street,
-343 by parcel and 512 as near, and 18 got no lot. The snapshot goes to
+On the 6,029 NJ buildings of the Oct 19 collection, 4,615 matched by address, 639 by street,
+280 by parcel and 477 as near, and 18 got no lot. The snapshot goes to
 `/data1/apartments/external/registry-nj/<date>-<commit>/registry.parquet`, apart from the NYC
 registry, and the step writes none when the newest one already holds every NJ building.
 

@@ -17,16 +17,19 @@ built, dwellings, acreage) and the release date of the parcel and tax data. As w
 from its rent roll, so a feature reading it would be partly circular. The layer holds the
 current release only, so the snapshot dates each lot by its `PCL_PBDATE`.
 
-`registry` reads the newest pipeline build's export building records (`registry_extend`), keeps
-the NJ ones and places each StreetEasy `geoCenter` point in a parcel:
+`registry` reads the newest pipeline build's export building records, keeps the NJ ones and
+keys each to a lot, the PIN without its condominium qualifier (`0905_13_1_C002A` is a unit of
+lot `0905_13_1`). Among several parcels of the chosen lot the largest one gives the PIN. I try
+these in turn:
 
-1. A parcel containing the point gives method `parcel`. Condominium units have their own
-   small parcels (qualifier `C002A` and the like) inside the lot, so I key the building to the
-   lot: `lot` is the PIN without its qualifier, and among several lots containing the point
-   the one with the larger parcel wins.
-2. A point in no parcel, as on a street, takes the nearest parcel vertex within NEAR_M, as
-   method `near`, with the distance in `distance_m`.
-3. Anything else gets method `none` and keeps its point.
+1. `address`: a parcel of the building's city at the record's street address, after both go
+   through `address_keys`.
+2. `street`: a lot on the same street and side within STREET_NUMBERS house numbers and
+   STREET_M meters of the `geoCenter` point.
+3. `parcel`: the parcel holding the point.
+4. `near`: the nearest parcel vertex within NEAR_M. StreetEasy gives the point to four
+   decimals, about 10 m, so the lots of these last two are often the neighbour's.
+5. Anything else gets method `none` and keeps its point.
 
 It writes EXTERNAL_ROOT/registry-nj/<date>-<commit>/registry.parquet (building, building_id,
 method, lot, pams_pin, label, latitude, longitude, distance_m) and provenance.json. The NYC
@@ -227,8 +230,9 @@ def address_keys(address: str | None) -> list[str]:
     if not address or not isinstance(address, str):
         return []
     keys = []
-    for part in address.upper().split("/"):
-        part = re.sub(r"[.,#]", " ", part).strip()
+    address = re.sub(r"\s1/2\b", "", address.upper().split("#")[0])
+    for part in address.split("/"):
+        part = re.sub(r"[.,]", " ", part).strip()
         m = HOUSE.match(part)
         if not m:
             continue
@@ -237,10 +241,9 @@ def address_keys(address: str | None) -> list[str]:
         numbers = [int(start)]
         if end:
             stop = int(start[: max(len(start) - len(end), 0)] + end)
-            if start[0] != "0" and 0 < stop - int(start) <= MAX_SPAN:
+            span = stop - int(start)
+            if start[0] != "0" and 0 < span <= MAX_SPAN and span % 2 == 0:
                 numbers = list(range(int(start), stop + 1, 2))
-                if stop not in numbers:
-                    numbers.append(stop)
         keys += [f"{n} {street}" for n in numbers]
     return keys
 
@@ -395,7 +398,9 @@ def newest(root: Path, name: str) -> Path:
 
 
 def write(table: pd.DataFrame, out_dir: Path, name: str, provenance: dict) -> Path:
-    out_dir.mkdir(parents=True, exist_ok=False)
+    if out_dir.exists():
+        out_dir = out_dir.with_name(f"{out_dir.name}-{dt.datetime.now(dt.UTC):%H%M%S}")
+    out_dir.mkdir(parents=True)
     scratch = out_dir / f"{name}.tmp"
     table.to_parquet(scratch, index=False)
     provenance["sha256"] = hashlib.sha256(scratch.read_bytes()).hexdigest()
