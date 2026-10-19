@@ -55,6 +55,7 @@ import dataclasses
 import json
 import math
 import os
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -882,11 +883,15 @@ def main_run(
     sample=None,
     settings_extra=None,
     line="baseline",
+    spec=None,
 ) -> None:
     """`rentfrontier.run --model b0`: fit B0 on the split's training rows and save the run.
-    B0.1 (`rentfrontier.b0_1`) passes its own parser, settings and sampler for the same model."""
+    B0.1 (`rentfrontier.b0_1`) passes its own parser, settings and sampler for the same model.
+    B0.2 (`rentfrontier.b0_2`) also passes `spec`, a module with its own `Priors`, `design` and
+    `diagnostics` (this module's by default)."""
     from . import run as runmod
 
+    spec = spec or sys.modules[__name__]
     settings_cls = settings_cls or Settings
     sample = sample or run
     args, ignored = (parser or run_parser()).parse_known_args(argv)
@@ -901,12 +906,12 @@ def main_run(
     fields = {f.name for f in dataclasses.fields(settings_cls)}
     given = {k: v for k, v in vars(args).items() if k in fields and v is not None}
     settings = settings_cls(**given, **(settings_extra or {}))
-    priors = Priors()
+    priors = spec.Priors()
     started = time.time()
     t0 = time.perf_counter()
     frame = load_frame()
     heldout = splits.SPLITS[args.split](frame)
-    full = design(frame)
+    full = spec.design(frame)
     train = subset(full, ~heldout)
     test = subset(full, heldout)
     prep_seconds = time.perf_counter() - t0
@@ -929,7 +934,7 @@ def main_run(
         flat["names"] = np.asarray(full.names)
         np.savez_compressed(out_dir / "partial.npz", **flat)
         try:
-            diag = diagnostics(partial["trace"], full.names)
+            diag = spec.diagnostics(partial["trace"], full.names)
         except Exception as e:  # noqa: BLE001 (too few draws yet; the draws still save)
             diag = {"error": repr(e)}
         (out_dir / "partial.json").write_text(
@@ -948,7 +953,7 @@ def main_run(
     # B0's own sampler saves nothing partway.
     extra = {} if sample is run else {"checkpoint": checkpoint}
     out = sample(train, priors, settings, log=log, **extra)
-    diag = diagnostics(out["trace"], full.names)
+    diag = spec.diagnostics(out["trace"], full.names)
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), "
         f"min ESS {diag['min_ess']:.0f} ({diag['min_ess_name']})"
@@ -1018,9 +1023,10 @@ def diagnostics(trace: dict, names) -> dict:
     }
 
 
-def score(name: str, model: str = NAME) -> tuple[dict, dict]:
+def score(name: str, model: str = NAME, spec=None) -> tuple[dict, dict]:
     """PSIS-LOO over the run's training rows, and the held-out rows' predictive medians,
-    intervals and coverage, as `rentfrontier.loo` writes them: (record, pointwise arrays)."""
+    intervals and coverage, as `rentfrontier.loo` writes them: (record, pointwise arrays).
+    `spec` is a module with its own `design`, `summarize` and `scorecard`, as for `main_run`."""
     from . import clusterse, loo
     from . import run as runmod
 
@@ -1033,7 +1039,8 @@ def score(name: str, model: str = NAME) -> tuple[dict, dict]:
     frame = load_frame(result["dataset"])
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit("the dataset changed since the run")
-    full = design(frame, pd.Timestamp(result["grid_start"]))
+    spec = spec or sys.modules[__name__]
+    full = spec.design(frame, pd.Timestamp(result["grid_start"]))
     train, test = subset(full, ~heldout), subset(full, heldout)
     t0 = time.perf_counter()
     elpd, k, mcse, lp = [], [], [], []
@@ -1077,7 +1084,7 @@ def score(name: str, model: str = NAME) -> tuple[dict, dict]:
         "elpd": float(np.concatenate(ll_test).sum()) if ll_test else None
     }
     record["heldout_seconds"] = time.perf_counter() - t0
-    summary = summarize(kept, names)
+    summary = spec.summarize(kept, names)
     season = season_curve(kept, names)
     trend = trend_summary(kept, full.start, full.weeks)
     record["summary"] = summary
@@ -1090,7 +1097,7 @@ def score(name: str, model: str = NAME) -> tuple[dict, dict]:
         },
     }
     record["trend"] = {k: v for k, v in trend.items() if k not in ("dates", "L")}
-    record["scorecard"] = scorecard(summary, season, trend)
+    record["scorecard"] = spec.scorecard(summary, season, trend)
     record["descriptive_share"] = 0.0
     pointwise = dict(
         audit_id=frame.audit_id.to_numpy()[~heldout].astype(str),

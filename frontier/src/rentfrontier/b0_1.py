@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import sys
 import time
 from dataclasses import dataclass
 
@@ -144,6 +145,8 @@ def initial_values(d: b0.Design, priors: b0.Priors, chains: int, seed: int) -> d
 
 
 KEPT = ("beta", "g", "L", "nu", "sigma", "h", "rho", "tau", "nu_t", "eta")
+TRACED = b0.TRACED
+PROGRESS = ("nu", "h", "tau")  # the progress line's per-chain values
 
 
 def log_density(d: b0.Design, priors: b0.Priors):
@@ -157,21 +160,32 @@ def log_density(d: b0.Design, priors: b0.Priors):
 
 
 def run(
-    d: b0.Design, priors: b0.Priors, settings: Settings, log=print, checkpoint=None
+    d: b0.Design,
+    priors: b0.Priors,
+    settings: Settings,
+    log=print,
+    checkpoint=None,
+    spec=None,
 ) -> dict:
     """Sample the posterior of design `d` with BlackJAX's ChEES-HMC. Returns what `b0.run`
     returns, plus the sampler's tuning, step counts and divergences. After each round of
-    draws, `checkpoint` (if given) gets the same for the draws so far."""
+    draws, `checkpoint` (if given) gets the same for the draws so far. B0.2 passes `spec`, a
+    module with its own `log_density`, `initial_values`, `KEPT`, `TRACED` and `PROGRESS`
+    (this module's by default)."""
     jax, jnp = b0._jax()
+    spec = spec or sys.modules[__name__]
+    KEPT, TRACED = spec.KEPT, spec.TRACED
     import blackjax
     import optax
     from blackjax.adaptation.base import get_filter_adapt_info_fn
 
     t0 = time.perf_counter()
-    logdensity, constrain = log_density(d, priors)
+    logdensity, constrain = spec.log_density(d, priors)
     init = {
         k: jnp.asarray(v)
-        for k, v in initial_values(d, priors, settings.chains, settings.seed).items()
+        for k, v in spec.initial_values(
+            d, priors, settings.chains, settings.seed
+        ).items()
     }
     key_warm, key_draw = jax.random.split(jax.random.PRNGKey(settings.seed))
     warmup = blackjax.chees_adaptation(
@@ -245,7 +259,7 @@ def run(
         }
         keep = slice(settings.keep_every - 1, None, settings.keep_every)
         return {
-            "trace": {k: every[k] for k in b0.TRACED},
+            "trace": {k: every[k] for k in TRACED},
             "kept": {k: v[:, keep] for k, v in every.items()},
             "seconds": {"warmup": warmup_seconds, "sampling": sampling_seconds},
             "result": {"chees": chees},
@@ -263,9 +277,9 @@ def run(
         last = samples[-1]
         log(
             f"draws {(i + 1) * per}/{settings.draws}: {steps[-1].mean():.0f} leapfrog steps "
-            f"per draw, acceptance {accept[-1].mean():.2f}, nu {last['nu'][:4, -1].round(2)}, "
-            f"h {last['h'][:4, -1].round(1)}, tau {last['tau'][:4, -1]}, "
-            f"{time.perf_counter() - t0:.0f}s"
+            f"per draw, acceptance {accept[-1].mean():.2f}, "
+            + "".join(f"{k} {last[k][:4, -1].round(4)}, " for k in spec.PROGRESS)
+            + f"{time.perf_counter() - t0:.0f}s"
         )
         if i + 1 < settings.chunks and checkpoint is not None:
             checkpoint(output(samples, steps, divergent, accept))

@@ -562,6 +562,10 @@ def test_a_blackjax_model_is_estimated_from_its_time_a_gradient(tmp_path):
     assert secs == round(69 + 52500 / 30 + 1.9 * 656)
     assert usd == round(secs * cap.USD_PER_HOUR["A100-40GB"] / 3600, 2)
     assert cap.over_cap(usd, secs) is None
+    # B0.2 has no Modal fit of its own and is estimated from B0.1's.
+    assert cap.fit_estimate(
+        "b0.2", *size[1:], runs=tmp_path, keep=12, max_leapfrog_steps=64
+    ) == (usd, secs)
     # Keeping every draw scales LOO up, past the cap.
     _, secs = cap.fit_estimate(*size, runs=tmp_path, keep=1, max_leapfrog_steps=64)
     assert cap.over_cap(None, secs)
