@@ -451,6 +451,8 @@ def main(argv=None):
     # (rentfrontier.normal_walk) is the total walk with Normal shocks and each bath step on its
     # own prior. Two-zone location (rentfrontier.two_zone) adds a rent surface over Manhattan and
     # one over the located buildings outside it, and two_zone_1k sets their length-scale to 1 km.
+    # Whitened zones (rentfrontier.whitened_zones) samples two-zone-1k's coefficients in
+    # whitened coordinates and adds a zone for Hoboken and Jersey City.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -463,6 +465,7 @@ def main(argv=None):
         ("normal-walk", "normal_walk"),
         ("two-zone", "two_zone"),
         ("two-zone-1k", "two_zone_1k"),
+        ("whitened-zones", "whitened_zones"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

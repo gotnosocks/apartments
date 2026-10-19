@@ -111,6 +111,9 @@ STAND_IN["normal-walk"] = "centered-walk"
 STAND_IN["two-zone"] = "b0.4"
 # At 1 km it has 195 location coefficients in place of 780, and the 500 m fit stands in for it.
 STAND_IN["two-zone-1k"] = "two-zone"
+# Whitened zones has two-zone-1k's gradient plus the NJ rows, its zone and a matrix product
+# per zone, and the stalled 1 km fit stands in for it.
+STAND_IN["whitened-zones"] = "two-zone-1k"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -125,6 +128,7 @@ BASELINES = (
     "normal-walk",
     "two-zone",
     "two-zone-1k",
+    "whitened-zones",
 )
 
 
