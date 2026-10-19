@@ -112,7 +112,7 @@ def export_buildings(build: dict) -> pd.DataFrame:
 def in_new_york(buildings: pd.DataFrame) -> pd.DataFrame:
     """The buildings outside New Jersey. A building with no state, such as a rows-file slug with
     no export record, stays in."""
-    state = buildings.state.fillna("NY").astype(str).str.upper()
+    state = buildings.state.fillna("NY").astype(str).str.strip().str.upper()
     return buildings[state != "NJ"]
 
 
