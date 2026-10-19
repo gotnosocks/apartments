@@ -129,3 +129,10 @@ def test_page_shows_nj_listings_without_estimates(
     assert [line.split(",")[0] for line in lines[1:]] == ["1001", "1004"]
     listings = client.get("/listings").get_data(as_text=True)
     assert "50 Washington Street Hoboken" not in listings
+
+
+def test_the_recorded_reads_leave_out_ads():
+    """The reads file ships with the repo, so a deploy hides the read non-apartments."""
+    assert observed.READS.is_file()
+    assert set(observed.hidden().values()) <= set(observed.HIDDEN)
+    assert len(observed.hidden()) > 0
