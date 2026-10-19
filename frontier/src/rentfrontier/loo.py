@@ -481,9 +481,9 @@ def main(argv=None):
             continue
         t0 = time.perf_counter()
         run = json.loads((RUNS / name / "result.json").read_text())
-        if run.get("sampler") == "b0.4":
+        if run.get("sampler") in ("b0.4", "b0.5"):
             raise SystemExit(
-                f"{name}: B0.4's scoring needs its location surfaces, not written yet"
+                f"{name}: {run['sampler'].upper()}'s scoring needs its location surfaces, not written yet"
             )
         if run.get("sampler") in ("b0", "b0.1", "b0.2", "b0.3"):
             from . import b0, b0_2, b0_3

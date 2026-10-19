@@ -512,7 +512,7 @@ def main(argv):
     ):
         sys.exit(
             "--score, --cpu-score, --no-loo and --no-heldout apply to a baseline fit (b0 to "
-            "b0.4) that is not --large"
+            "b0.5) that is not --large"
         )
     if args.publish_only:
         return publish(args, spec, sha)
