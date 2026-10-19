@@ -80,6 +80,9 @@ def test_run_and_score(tmp_path, monkeypatch):
         ]
     )  # fmt: skip
     result = json.loads((tmp_path / "runs" / "b01-test" / "result.json").read_text())
+    partial = json.loads((tmp_path / "runs" / "b01-test" / "partial.json").read_text())
+    assert 0 < partial["chees"]["gradients"] < result["chees"]["gradients"]
+    assert (tmp_path / "runs" / "b01-test" / "partial.npz").exists()
     assert result["sampler"] == "b0.1" and result["line"] == "baseline-blackjax"
     assert result["sampler_settings"]["max_leapfrog_steps"] == 20
     assert 0 < result["chees"]["gradients"] <= 100 * 20

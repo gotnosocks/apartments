@@ -44,7 +44,8 @@ NAME = "b0.1"
 @dataclass(frozen=True)
 class Settings:
     # ChEES adapts from statistics pooled across chains. A gradient over every training row
-    # costs about the same for 4 or 16 chains on a GPU (docs/model/b0.1-blackjax-2026-10-19.md).
+    # took 0.050 s for 4 chains and 0.084 s for 16 on thelio's 8 GB GPU, which ran out of
+    # memory at 32.
     chains: int = 16
     warmup: int = 1000
     draws: int = 1000
@@ -155,9 +156,12 @@ def log_density(d: b0.Design, priors: b0.Priors):
     return (lambda p: -info.potential_fn(p)), info.postprocess_fn
 
 
-def run(d: b0.Design, priors: b0.Priors, settings: Settings, log=print) -> dict:
+def run(
+    d: b0.Design, priors: b0.Priors, settings: Settings, log=print, checkpoint=None
+) -> dict:
     """Sample the posterior of design `d` with BlackJAX's ChEES-HMC. Returns what `b0.run`
-    returns, plus the sampler's tuning, step counts and divergences."""
+    returns, plus the sampler's tuning, step counts and divergences. After each round of
+    draws, `checkpoint` (if given) gets the same for the draws so far."""
     jax, jnp = b0._jax()
     import blackjax
     import optax
@@ -216,6 +220,33 @@ def run(d: b0.Design, priors: b0.Priors, settings: Settings, log=print) -> dict:
 
         return jax.lax.scan(one, state, jax.random.split(key, per))
 
+    def output(samples, steps, divergent, accept):
+        sampling_seconds = time.perf_counter() - t1
+        every = {k: np.concatenate([c[k] for c in samples], axis=1) for k in KEPT}
+        steps = np.concatenate(steps, axis=1)
+        divergent = np.concatenate(divergent, axis=1)
+        # Every chain takes the same jittered step count, so a draw's count is one gradient
+        # for all chains at once.
+        grads = int(warm_steps[:, 0].sum() + steps[0].sum())
+        chees = {
+            "step_size": step_size,
+            "max_leapfrog_steps": leapfrog,
+            "warmup_mean_steps": float(warm_steps.mean()),
+            "mean_steps": float(steps.mean()),
+            "acceptance": float(np.concatenate(accept, axis=1).mean()),
+            "divergences": int(divergent.sum()),
+            "warmup_divergences": int(warm_divergent.sum()),
+            "gradients": grads,
+            "seconds_per_gradient": (warmup_seconds + sampling_seconds) / grads,
+        }
+        keep = slice(settings.keep_every - 1, None, settings.keep_every)
+        return {
+            "trace": {k: every[k] for k in b0.TRACED},
+            "kept": {k: v[:, keep] for k, v in every.items()},
+            "seconds": {"warmup": warmup_seconds, "sampling": sampling_seconds},
+            "result": {"chees": chees},
+        }
+
     samples, steps, divergent, accept = [], [], [], []
     t1 = time.perf_counter()
     for i, key in enumerate(jax.random.split(key_draw, settings.chunks)):
@@ -232,35 +263,16 @@ def run(d: b0.Design, priors: b0.Priors, settings: Settings, log=print) -> dict:
             f"h {last['h'][:4, -1].round(1)}, tau {last['tau'][:4, -1]}, "
             f"{time.perf_counter() - t0:.0f}s"
         )
-    sampling_seconds = time.perf_counter() - t1
-    every = {k: np.concatenate([c[k] for c in samples], axis=1) for k in KEPT}
-    steps = np.concatenate(steps, axis=1)
-    divergent = np.concatenate(divergent, axis=1)
-    # Every chain takes the same jittered step count, so a draw's count is one gradient for
-    # all chains at once.
-    grads = int(warm_steps[:, 0].sum() + steps[0].sum())
-    chees = {
-        "step_size": step_size,
-        "max_leapfrog_steps": leapfrog,
-        "warmup_mean_steps": float(warm_steps.mean()),
-        "mean_steps": float(steps.mean()),
-        "acceptance": float(np.concatenate(accept, axis=1).mean()),
-        "divergences": int(divergent.sum()),
-        "warmup_divergences": int(warm_divergent.sum()),
-        "gradients": grads,
-        "seconds_per_gradient": (warmup_seconds + sampling_seconds) / grads,
-    }
+        if i + 1 < settings.chunks and checkpoint is not None:
+            checkpoint(output(samples, steps, divergent, accept))
+    out = output(samples, steps, divergent, accept)
+    chees = out["result"]["chees"]
     log(
-        f"sampling {sampling_seconds:.0f}s, {chees['mean_steps']:.0f} leapfrog steps per "
-        f"draw, acceptance {chees['acceptance']:.2f}, {chees['divergences']} divergences"
+        f"sampling {out['seconds']['sampling']:.0f}s, {chees['mean_steps']:.0f} leapfrog "
+        f"steps per draw, acceptance {chees['acceptance']:.2f}, "
+        f"{chees['divergences']} divergences"
     )
-    keep = slice(settings.keep_every - 1, None, settings.keep_every)
-    return {
-        "trace": {k: every[k] for k in b0.TRACED},
-        "kept": {k: v[:, keep] for k, v in every.items()},
-        "seconds": {"warmup": warmup_seconds, "sampling": sampling_seconds},
-        "result": {"chees": chees},
-    }
+    return out
 
 
 def main_run(argv) -> None:

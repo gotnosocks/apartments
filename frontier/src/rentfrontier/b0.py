@@ -921,7 +921,33 @@ def main_run(
         f"{len(test.y)} held out, {full.weeks} weeks from {full.start.date()}"
         + (f"; ignored {' '.join(ignored)}" if ignored else "")
     )
-    out = sample(train, priors, settings, log=log)
+
+    def checkpoint(partial):
+        """Save the draws so far, so a run stopped at its time cap leaves them to read."""
+        out_dir.mkdir(parents=True, exist_ok=True)
+        flat = {f"kept/{k}": v for k, v in partial["kept"].items()}
+        flat["names"] = np.asarray(full.names)
+        np.savez_compressed(out_dir / "partial.npz", **flat)
+        try:
+            diag = diagnostics(partial["trace"], full.names)
+        except Exception as e:  # noqa: BLE001 (too few draws yet; the draws still save)
+            diag = {"error": repr(e)}
+        (out_dir / "partial.json").write_text(
+            json.dumps(
+                {
+                    "diagnostics": diag,
+                    "seconds": partial["seconds"],
+                    "log": log_lines,
+                    **partial.get("result", {}),
+                },
+                indent=2,
+                default=str,
+            )
+        )
+
+    # B0's own sampler saves nothing partway.
+    extra = {} if sample is run else {"checkpoint": checkpoint}
+    out = sample(train, priors, settings, log=log, **extra)
     diag = diagnostics(out["trace"], full.names)
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), "
