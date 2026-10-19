@@ -283,7 +283,7 @@ def test_bedroom_check_needs_two_other_units_at_the_level():
 def test_room_share_phrases_from_the_nj_reads():
     rows = [
         dict(audit_id=a, unit_id=a, bedrooms=1, square_feet=600, rent=3000)
-        for a in "abcdefgh"
+        for a in "abcdefghi"
     ]
     text = pd.Series(
         [
@@ -295,6 +295,7 @@ def test_room_share_phrases_from_the_nj_reads():
             "the living room in a 2-bed layout is large",
             "studio plus open bedroom in a elevator building",
             "large living room for rent-stabilized tenants",
+            "if you're looking for roommates, we can help",
         ]
     )
     hits = adfit.screen(_frame(rows), text, COORDS, CENTRES).set_index("audit_id")
@@ -311,12 +312,15 @@ def test_an_nj_building_skips_commutes_and_hobokens_midtown():
         **CENTRES,
         "midtown": [(40.754, -73.984)],
         "williamsburg": [(40.714, -73.958)],
+        "belmont": [(40.855, -73.886)],
     }
     texts = {
         "a": ("hoboken", "a one bedroom located in midtown hoboken"),
         "b": ("hoboken", "minutes to williamsburg by ferry"),
         "c": ("hoboken", "a 2 bedroom in prime williamsburg"),
         "d": ("b", "minutes to williamsburg by subway"),
+        "e": ("hoboken", "a one bedroom located in the belmont building"),
+        "f": ("b", "a one bedroom located in the belmont"),
     }
     rows = [
         dict(audit_id=a, unit_id=a, building=b, bedrooms=1, square_feet=600, rent=3000)
@@ -324,6 +328,6 @@ def test_an_nj_building_skips_commutes_and_hobokens_midtown():
     ]
     text = pd.Series([t for _, t in texts.values()])
     hits = adfit.screen(_frame(rows), text, coords, centres).set_index("audit_id")
-    assert set(hits.index) == {"c", "d"}
+    assert set(hits.index) == {"c", "d", "f"}
     assert adfit.nj_side(40.745, -74.030) and not adfit.nj_side(40.745, -74.019)
     assert not adfit.nj_side(40.60, -74.10)

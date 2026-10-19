@@ -12,7 +12,8 @@ each hit into a tier for reading:
    building: a room share, a bath or kitchen shared with other units, a
    nightly or short stay, or a neighbourhood more than `FAR_KM` from the
    building. For a building in Hoboken or Jersey City (`nj_side`) I skip
-   commute phrases and Hoboken's own Midtown (`NJ_COMMUTE`, `NJ_PLACES`).
+   commute phrases, Hoboken's own Midtown and two building names (`NJ_COMMUTE`,
+   `NJ_PLACES`, `NJ_FALSE_ALARMS`).
 3. C: a stated size far from the unit's other stated sizes, alone.
 4. E: a bedroom count out of line with its building (`beds_price_bldg`).
 5. D: price alone.
@@ -111,7 +112,9 @@ TERMS = {
         r"(?<!living )\broom for rent",
         r"\broom in an? (?:apartment|apt|shared)",
         r"private (?:bed)?room (?:in|available)",
-        r"(?:looking for|seeking) (?:a |an? |one )?(?:male |female )?room ?mate",
+        # "If you're looking for roommates, we can help" is broker boilerplate.
+        r"(?<!you're )(?<!you are )(?:looking for|seeking) (?:a |an? |one )?"
+        r"(?:male |female )?room ?mate",
         r"room ?mate wanted",
         r"(?<!living )(?<!storage )\brooms for rent\b",
         r"(?<!living )\b(?:bed)?room (?:available )?in (?:an? |our |my )?"
@@ -150,8 +153,10 @@ NEAR = (
 )
 # Building names and phrases that read like a far place.
 PLACE_FALSE_ALARMS = re.compile(
-    r"kensington house|brooklyn fare|clinton (?:hill )?park|the belmont|claremont cove"
+    r"kensington house|brooklyn fare|clinton (?:hill )?park"
 )
+# NJ building names that read like Bronx places.
+NJ_FALSE_ALARMS = re.compile(r"the belmont|claremont cove")
 # Hoboken and Jersey City sit across the Hudson from every NTA, so an ad there
 # names Manhattan places as commutes ("minutes to the west village"), and
 # Hoboken's own Midtown shares a name with Manhattan's. For a building on the
@@ -344,7 +349,10 @@ def screen(
         if np.isnan(lat[i]):
             continue
         nj = nj_side(lat[i], lon[i])
-        for m in place_rx.finditer(PLACE_FALSE_ALARMS.sub(" ", ad)):
+        cleaned = PLACE_FALSE_ALARMS.sub(" ", ad)
+        if nj:
+            cleaned = NJ_FALSE_ALARMS.sub(" ", cleaned)
+        for m in place_rx.finditer(cleaned):
             if nj and (m.group(1) in NJ_PLACES or NJ_COMMUTE.match(m.group(0))):
                 continue
             d = min(_km(lat[i], lon[i], a, b) for a, b in centres[m.group(1)])

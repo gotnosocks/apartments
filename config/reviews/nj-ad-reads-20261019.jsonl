@@ -2,7 +2,7 @@
 {"listing_id": "2968184", "verdict": "UNSURE", "field": null, "text_value": null, "evidence": "Ad text: Please inquire at the end of the decade", "note": "Joke ad; absurd ask for studio"}
 {"listing_id": "2969475", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: Looking for a female roommate", "note": "Roommate wanted in 2BR"}
 {"listing_id": "2969733", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: We have an open bedroom in our apartment", "note": "One room in 4BR loft"}
-{"listing_id": "2981601", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: ONLY FEMALES", "note": "Share, room possibly shared by two"}
+{"listing_id": "2981601", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: ONLY FEMALES :) 5 min walk from Washington street", "note": "Share, room possibly shared by two"}
 {"listing_id": "2995433", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: looking for someone to take over a room", "note": "Room in shared apartment"}
 {"listing_id": "3003321", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: 1 Bedroom available in a 2 Bedroom 1 Bath Apartment", "note": "One room of two"}
 {"listing_id": "3006752", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: Seeking 1 roommate for 1 bedroom in a 3 bedroom", "note": "Master room in shared apt"}
@@ -18,7 +18,7 @@
 {"listing_id": "3053735", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: You'd be living with 2 other roommates", "note": "One BR in 3BR"}
 {"listing_id": "3060756", "verdict": "OK", "field": null, "text_value": null, "evidence": "Ad text: Washer and Dryer in the Unit", "note": "No contradiction in text"}
 {"listing_id": "3070109", "verdict": "OK", "field": null, "text_value": null, "evidence": "Ad text: 2 Bedroom in downtown Jersey city", "note": "Month to month, 3-4 months min"}
-{"listing_id": "3079828", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: Ladies only please", "note": "Room, roommate moving out"}
+{"listing_id": "3079828", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: About your roommate: -My current roommate is moving in with significant other.", "note": "Room, roommate moving out"}
 {"listing_id": "3088173", "verdict": "OK", "field": null, "text_value": null, "evidence": "Ad text: studio apt. Close to path station downtown", "note": "Garden studio"}
 {"listing_id": "3097704", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: looking for someone to take over the bedroom", "note": "Room, roommate leaving"}
 {"listing_id": "3098338", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: 1 Bedroom with PRIVATE bathroom available in this expansive three bedroom", "note": "One room, two roommates"}
@@ -170,7 +170,7 @@
 {"listing_id": "4059406", "verdict": "OK", "field": null, "text_value": null, "evidence": "Ad text: Freshly painted 4 room railroad apartment", "note": "Whole apartment, one bedroom"}
 {"listing_id": "4076348", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: seeking a third roommate to join us", "note": "Single room"}
 {"listing_id": "4140652", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: Segregated spacious bedroom in living space", "note": "Walled-off room in 2br"}
-{"listing_id": "4203431", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: -one bedroom", "note": "Single room, shared utilities"}
+{"listing_id": "4203431", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: -3 beds and 2 baths -one bedroom -single occupancy", "note": "Single room, shared utilities"}
 {"listing_id": "4290031", "verdict": "OK", "field": null, "text_value": null, "evidence": "Ad text: 88 Regent offers access to all that Jersey City has to offer.", "note": "Building blurb, nothing contradicts"}
 {"listing_id": "4313204", "verdict": "ROOM_SHARE", "field": null, "text_value": null, "evidence": "Ad text: We are looking for a new roommate to join our 5 bedroom apartment", "note": "Single room"}
 {"listing_id": "4358366", "verdict": "OK", "field": null, "text_value": null, "evidence": "Ad text: expansive 2500 square foot 3 bedroom 3.5 bath home", "note": "Matches coded fields"}
