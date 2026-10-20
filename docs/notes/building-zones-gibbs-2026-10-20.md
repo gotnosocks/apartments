@@ -108,3 +108,54 @@ sweeps had not converged, but I saw them before writing these.
 | G5 | The building share of location variance lands between 0.50 and 0.70 in Manhattan and between 0.33 and 0.55 in the outer zone. |
 | G6 | tau lands between 0.005 and 0.008. |
 | G7 | The amplitudes land between 0.5 and 1.2 in Manhattan, 0.25 and 0.6 in the outer zone and 0.25 and 1.0 in NJ. |
+
+## Results
+
+The fit `building-zones-gibbs-b0-latest-f1cd5984-dense-w650` ran on a Modal A100-40GB from
+17:08 to 17:18 ET on 2026-10-20, fit-only, seed 20261020. The fit stage took 532 s and the
+whole container 569 s, and the Modal ledger settled it at $0.38. The A100 swept all four
+chains in 0.54 s, five times faster than the 2.72 s projected above from thelio's two-chain
+rate, so cap.py's stated rate
+overstated the cost about sixfold. The next launch takes this fit's own rate.
+
+It misses the repo's convergence gate (split R-hat at or below 1.01, bulk ESS above 400) on
+three of 50 quantities:
+
+| quantity | R-hat | bulk ESS |
+|---|---|---|
+| beta[bed=2:full>=4] | 1.0177 | 402 |
+| beta[bed=0:full>=3] | 1.0136 | 414 |
+| amp[outer] | 1.0062 | 367 |
+
+The two bath steps cover few ads, studios with three full baths and two-bedrooms with four,
+and they mix slowest among the fixed coefficients. tau, the slowest quantity on 5% of the
+rows, reached 743 effective draws here. Every other quantity passes, most with ESS over 1,000.
+
+| # | Prediction | Posterior median (90% interval) | Result |
+|---|---|---|---|
+| G1 | max R-hat under 1.05, min ESS over 100 | max R-hat 1.018, min ESS 367 | hit, though the repo gate fails |
+| G2 | fit stage under 40 min, run under 55, under $2.20 | 8.9 min, 9.5 min, $0.38 | hit |
+| G3 | nu 3.6 to 4.2 | 3.85 (3.83 to 3.87) | hit |
+| G4 | building spread 0.23 to 0.30 Manhattan, 0.13 to 0.18 outer, 0.12 to 0.20 NJ | 0.266, 0.150, 0.161 | hit |
+| G5 | building share 0.50 to 0.70 Manhattan, 0.33 to 0.55 outer | 0.559, 0.402 (NJ 0.660) | hit |
+| G6 | tau 0.005 to 0.008 | 0.0044 (0.0041 to 0.0046) | miss |
+| G7 | amplitude 0.5 to 1.2 Manhattan, 0.25 to 0.6 outer, 0.25 to 1.0 NJ | 1.10, 0.476, 0.719 | hit |
+
+The noise scales are 0.086, 0.085, 0.091 and 0.104. On all rows tau fell by a third from the
+5% sample's 0.0063. My guess is that the sample's sparse weeks let noise into the walk, but
+I have not checked that. The building spreads rose above the 5% fit's in every
+zone, by 21% in Manhattan, and the Manhattan amplitude rose from 0.80 to 1.10.
+
+I compared the zones by averaging each zone's map over its own ads. Manhattan comes out 37.3%
+(36.8 to 37.9) above Brooklyn + Queens. The whitened-zones and two-zone 1 km fits put that gap
+at 32.2% and 32.3%, so it rose about five points once each building had its own level. I have
+not checked why. NJ comes out 5.1% (4.3 to 5.8) above Brooklyn + Queens. These intervals count
+only the map's uncertainty, so they are narrow.
+
+A tour of the fit drawn from its saved draws, with each chain shown, is at
+https://claude.ai/artifact/KeHuAEF5jutBYu9cFGSLnc.
+
+Under Ben's standing rule, a fit that fails to converge is not retried on another seed. The
+slow bath steps and amp[outer] are the place to look: the bath steps through how their sparse
+cells are coded, and amp[outer] through an interweaving step for the waves like b0's, which
+the reviewer of #1180 suggested for slow scale parameters.
