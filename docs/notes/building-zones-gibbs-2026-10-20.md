@@ -141,8 +141,8 @@ rows, reached 743 effective draws here. Every other quantity passes, most with E
 | G7 | amplitude 0.5 to 1.2 Manhattan, 0.25 to 0.6 outer, 0.25 to 1.0 NJ | 1.10, 0.476, 0.719 | hit |
 
 The noise scales are 0.086, 0.085, 0.091 and 0.104. On all rows tau fell by a third from the
-5% sample's 0.0063: with twenty times the ads each week, less of the week-to-week movement in
-the sample's walk survives as signal. The building spreads rose above the 5% fit's in every
+5% sample's 0.0063. My guess is that the sample's sparse weeks let noise into the walk, but
+I have not checked that. The building spreads rose above the 5% fit's in every
 zone, by 21% in Manhattan, and the Manhattan amplitude rose from 0.80 to 1.10.
 
 Under Ben's standing rule, a fit that fails to converge is not retried on another seed. The
