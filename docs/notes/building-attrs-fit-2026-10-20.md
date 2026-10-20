@@ -72,9 +72,28 @@ snapshot`. It covers every building of the dataset's rows. Share of rows at each
 
 The model, starting values and sampler are the normal walk's, unchanged.
 
-## The fit (not launched)
+## The fit, on NYC rows only
 
-    ops/modal-fit --dataset /data1/apartments/frontier/datasets/b0-30b3edae310c2fae-alldata-v36-dense --split latest <commit> dense-w1500 building-attrs b0 16 1500 500 12 --max-leapfrog-steps 64 --seed 20261020 --no-loo --no-heldout
+Ben chose to run the fit without the NJ rows, whose floor and elevator coverage is thin (see
+the table above). I wrote `b0-30b3edae310c2fae-alldata-v36-dense-nyc` with `python -m
+rentfrontier.b0nyc` (#1177): it keeps 1,896,486 rows and sets aside the 72,598 rows whose
+building is in the NJ registry.
+
+    ops/modal-fit --dataset /data1/apartments/frontier/datasets/b0-30b3edae310c2fae-alldata-v36-dense-nyc --split latest <commit> dense-w1500 building-attrs b0 16 1500 500 12 --max-leapfrog-steps 64 --seed 20261020 --no-loo --no-heldout
+
+The base fit ea4bcbd6 included NJ, so its sigma does not compare directly. I took its
+residuals at the posterior medians on training rows and found, per noise group, the Student-t
+scale with the most likelihood at its median nu (21.5). On all rows that recovers the
+posterior sigma to within 0.0001. On NYC rows alone the base scales come to:
+
+| Group | Posterior sigma, all rows | Scale on NYC rows |
+|---|---|---|
+| 0 | 0.2354 | 0.2360 |
+| 1 | 0.2802 | 0.2819 |
+| 2 | 0.2842 | 0.2839 |
+| 3 | 0.3399 | 0.3414 |
+
+The script is `/data1/apartments/tmp/battrs/sigma_nyc.py`.
 
 ## Predictions (written before the fit)
 
@@ -85,7 +104,7 @@ Convergence, against ea4bcbd6:
 | max R-hat over all traced quantities | 1.004 | under 1.02 |
 | min bulk ESS | 2,296 | over 800 |
 | divergences while sampling | 0 | 0 |
-| wall time | 23 min | 35 min or less |
+| wall time | 23 min | 35 min or less (4% fewer rows) |
 | cost | $0.83 | $0.80 to $1.30 |
 
 Estimates, each a posterior median (B1 to B7 are in `building_attrs.scorecard`):
@@ -99,6 +118,6 @@ Estimates, each a posterior median (B1 to B7 are in `building_attrs.scorecard`):
 | B5 | A full-time doorman adds -2% to +12%. |
 | B6 | A virtual doorman is -9% to +1%. |
 | B7 | Built 2005 on is -18% to -3% against before 1980. The model has no location term, so I expect this to carry where new buildings stand rather than what being new is worth. |
-| B8 | Each of the four noise scales sigma[0..3] falls by 3% to 12% against ea4bcbd6. |
+| B8 | Each of the four noise scales sigma[0..3] falls by 3% to 12% against ea4bcbd6's scale on NYC rows (the table above). |
 | B9 | The bedroom and bath contrasts of the normal walk's scorecard items 1 to 4 each move by under 4 percentage points. |
 | B10 | tau moves by under 15%, and the 2020 trough by under 2 points. |
