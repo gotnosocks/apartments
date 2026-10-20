@@ -85,7 +85,7 @@ NAME = "building-attrs"
 ATTRS = Path(
     os.environ.get(
         "FRONTIER_BUILDING_ATTRS",
-        EXTERNAL_ROOT / "building-attrs" / "20261020-pending" / "attrs.parquet",
+        EXTERNAL_ROOT / "building-attrs" / "20261020-98ded48" / "attrs.parquet",
     )
 )
 REGISTRY = EXTERNAL_ROOT / "registry" / "20261019-bcfbb52-extend" / "registry.parquet"
