@@ -454,6 +454,8 @@ def main(argv=None):
     # Whitened zones (rentfrontier.whitened_zones) samples two-zone-1k's coefficients in
     # whitened coordinates and adds a zone for Hoboken and Jersey City. Building zones
     # (rentfrontier.building_zones) gives each building a level around its zone's surface.
+    # Building attributes (rentfrontier.building_attrs) adds a few measured qualities of each
+    # row's building to the normal walk.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -468,6 +470,7 @@ def main(argv=None):
         ("two-zone-1k", "two_zone_1k"),
         ("whitened-zones", "whitened_zones"),
         ("building-zones", "building_zones"),
+        ("building-attrs", "building_attrs"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
