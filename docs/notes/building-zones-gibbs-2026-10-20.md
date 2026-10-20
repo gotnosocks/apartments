@@ -114,11 +114,12 @@ sweeps had not converged, but I saw them before writing these.
 The fit `building-zones-gibbs-b0-latest-f1cd5984-dense-w650` ran on a Modal A100-40GB from
 17:08 to 17:18 ET on 2026-10-20, fit-only, seed 20261020. The fit stage took 532 s and the
 whole container 569 s, and the Modal ledger settled it at $0.38. The A100 swept all four
-chains in 0.54 s, five times faster than thelio's rate for two, so cap.py's stated rate
+chains in 0.54 s, five times faster than the 2.72 s projected above from thelio's two-chain
+rate, so cap.py's stated rate
 overstated the cost about sixfold. The next launch takes this fit's own rate.
 
 It misses the repo's convergence gate (split R-hat at or below 1.01, bulk ESS above 400) on
-three of 52 quantities:
+three of 50 quantities:
 
 | quantity | R-hat | bulk ESS |
 |---|---|---|
@@ -135,7 +136,7 @@ rows, reached 743 effective draws here. Every other quantity passes, most with E
 | G1 | max R-hat under 1.05, min ESS over 100 | max R-hat 1.018, min ESS 367 | hit, though the repo gate fails |
 | G2 | fit stage under 40 min, run under 55, under $2.20 | 8.9 min, 9.5 min, $0.38 | hit |
 | G3 | nu 3.6 to 4.2 | 3.85 (3.83 to 3.87) | hit |
-| G4 | building spread 0.23 to 0.30 Manhattan, 0.13 to 0.18 outer, 0.12 to 0.20 NJ | 0.266, 0.151, 0.161 | hit |
+| G4 | building spread 0.23 to 0.30 Manhattan, 0.13 to 0.18 outer, 0.12 to 0.20 NJ | 0.266, 0.150, 0.161 | hit |
 | G5 | building share 0.50 to 0.70 Manhattan, 0.33 to 0.55 outer | 0.559, 0.402 (NJ 0.660) | hit |
 | G6 | tau 0.005 to 0.008 | 0.0044 (0.0041 to 0.0046) | miss |
 | G7 | amplitude 0.5 to 1.2 Manhattan, 0.25 to 0.6 outer, 0.25 to 1.0 NJ | 1.10, 0.476, 0.719 | hit |
