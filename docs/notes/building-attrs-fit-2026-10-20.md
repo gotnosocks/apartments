@@ -121,3 +121,49 @@ Estimates, each a posterior median (B1 to B7 are in `building_attrs.scorecard`):
 | B8 | Each of the four noise scales sigma[0..3] falls by 3% to 12% against ea4bcbd6's scale on NYC rows (the table above). |
 | B9 | The bedroom and bath contrasts of the normal walk's scorecard items 1 to 4 each move by under 4 percentage points. |
 | B10 | tau moves by under 15%, and the 2020 trough by under 2 points. |
+
+## Results
+
+The fit `building-attrs-b0-latest-041e6aa9-dense-w1500` ran on Modal from 07:16 to 07:41 ET
+on 2026-10-20, fit-only on the NYC dataset. It converged: max R-hat 1.004 (tau), min bulk ESS
+2,108 (tau), no divergences while sampling, 25 min and about $0.92. The convergence, time and
+cost predictions all hit.
+
+| # | Prediction | Posterior median | Result |
+|---|---|---|---|
+| B1 | elevator +6% to +22% | +12.2% | hit |
+| B2 | condo +6% to +22% | +5.9% | miss |
+| B3 | co-op +3% to +16% | 0.0% | miss |
+| B4 | e times as tall +6% to +16% | +13.4% | hit |
+| B5 | full-time doorman -2% to +12% | +6.7% | hit |
+| B6 | virtual doorman -9% to +1% | -1.8% | hit |
+| B7 | built 2005 on -18% to -3% | -2.5% | miss |
+| B8 | sigma falls 3% to 12% | falls 24% to 33% (0.165, 0.187, 0.213, 0.260) | miss |
+| B9 | items 1 to 4 move under 4 points | +4.8, +12.7, -29.7, +4.4 points | miss |
+| B10 | tau under 15%, trough under 2 points | tau -36% (0.0074), trough +1.7 points (-22.5%) | miss on tau |
+
+The other terms: part-time doorman +9.4%, built 1980 to 2004 -1.6%, floors unknown -13.0%,
+elevator unknown +7.7%, year unknown +4.3%. Each 90% interval is under half a point wide.
+The model treats ads as independent while ads in a building share a great deal, so these
+intervals are far too narrow.
+
+The tail parameter nu fell from 21.5 to 6.9, so the sigmas do not compare one for one. On
+the NYC training rows both fits share, I took the residuals at the posterior medians
+(`/data1/apartments/tmp/battrs/resid_cmp.py`):
+
+| Residual spread | Base | Building attributes |
+|---|---|---|
+| all rows, sd | 0.301 | 0.245 |
+| between buildings (5+ rows), sd of means | 0.280 | 0.248 |
+| within a building, sd | 0.149 | 0.130 |
+
+The between-building fall matches the screen. The within-building fall cannot come from the
+new columns, which are constant inside a building. It comes from the bedroom and bath terms,
+which moved: 2 beds over 1 went from +1.5% to +14.2%, and a second full bath on a 2-bed from
++67% to +37%. My reading is that the base fit's bath and bedroom terms carried part of
+building type, since extra baths and bedrooms go with newer elevator buildings. With building
+type in the design those terms fit the differences between units in the same building better.
+
+The run is fit-only (no PSIS-LOO or grouped building holdout), so it is not scored for
+selection or served. Co-op and built 2005 on likely carry location, which the design leaves
+out.
