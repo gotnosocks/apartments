@@ -64,6 +64,8 @@ TRACED = whitened_zones.TRACED + ("bld_sd",)
 # The building spread's prior scale, and the spread the sampler's coordinates assume.
 BLD_SD_PRIOR = 0.3
 BLD_SD_REF = 0.2
+# The fewest leapfrog steps ChEES may hand its kernel before the jitter (see `run`).
+MIN_LEAPFROG_STEPS = 64
 
 
 def site_zone(d: Design) -> np.ndarray:
@@ -124,6 +126,7 @@ def run_record(d: Design) -> dict:
             "sd_ref": BLD_SD_REF,
         },
         "length_floor": False,
+        "min_leapfrog_steps": MIN_LEAPFROG_STEPS,
     }
 
 
@@ -397,27 +400,62 @@ def prior_predictive(d: Design, priors: Priors, draws=200, rows=50_000, seed=0):
 
 
 def run(d, priors, settings, log=print, checkpoint=None):
-    """B0.1's ChEES-HMC on the building zones, with ChEES's trajectory-length floor off.
+    """B0.1's ChEES-HMC on the building zones, with ChEES's own trajectory-length floor off
+    and a fixed floor of MIN_LEAPFROG_STEPS in its place.
 
-    For the floor, the installed ChEES accumulates the ensemble's full covariance, a matrix
+    For its floor, the installed ChEES accumulates the ensemble's full covariance, a matrix
     of side the number of coordinates. With a level for every building that side is about
-    74k, and the float64 matrix needs 41 GiB, more than an 80 GB GPU holds beside the rest.
-    So for the length of this call I swap `blackjax.chees_adaptation` for a copy with
-    `_length_floor=False`, the switch ChEES offers for leaving the floor out. Step size,
-    trajectory length and the diagonal mass matrix adapt as in every other B0.1 fit.
+    74k, and the float64 matrix needs 41 GiB. So I pass `_length_floor=False`, the switch
+    ChEES offers for leaving that floor out.
+
+    Without any floor, ChEES fits its trajectory length to the bulk of the coordinates, the
+    building levels, and on all data it settled on 3 leapfrog steps. The amplitudes, waves
+    and walk then barely moved from their starting values in 1,500 warmup draws (run
+    building-zones-b0-latest-70e1b061-dense-w1500). On a 5% sample, NUTS ran 127 steps a
+    draw and reached the same posterior from that start. So I raise the step count ChEES
+    hands its kernel to at least MIN_LEAPFROG_STEPS, capped at `max_leapfrog_steps`, before
+    the Halton jitter, in warmup and in sampling. As with ChEES's own floor, I floor only
+    the count it uses, not the trajectory length its optimiser adapts.
     """
-    import functools
+    import types
 
     import blackjax
+    import blackjax.adaptation.chees_adaptation as chees_module
+    import jax.numpy as jnp
+    from blackjax.mcmc import dynamic_hmc
+
+    floor = min(MIN_LEAPFROG_STEPS, settings.max_leapfrog_steps)
+
+    def build_kernel(*, integration_steps_fn, **kwargs):
+        def steps(arg, n):
+            return integration_steps_fn(arg, jnp.maximum(n, floor))
+
+        return dynamic_hmc.build_kernel(integration_steps_fn=steps, **kwargs)
 
     chees = blackjax.chees_adaptation
-    blackjax.chees_adaptation = functools.partial(chees, _length_floor=False)
+
+    def adaptation(*args, **kwargs):
+        algorithm = chees(*args, _length_floor=False, **kwargs)
+
+        def run_warmup(*run_args, **run_kwargs):
+            (state, params), info = algorithm.run(*run_args, **run_kwargs)
+            n = params["integration_steps_params"][0]
+            params = params | {"integration_steps_params": (jnp.maximum(n, floor),)}
+            return (state, params), info
+
+        return types.SimpleNamespace(run=run_warmup)
+
+    blackjax.chees_adaptation = adaptation
+    chees_module.dynamic_hmc = types.SimpleNamespace(
+        **vars(dynamic_hmc) | {"build_kernel": build_kernel}
+    )
     try:
         return b0_1.run(
             d, priors, settings, log, checkpoint, spec=sys.modules[__name__]
         )
     finally:
         blackjax.chees_adaptation = chees
+        chees_module.dynamic_hmc = dynamic_hmc
 
 
 def main_run(argv) -> None:
