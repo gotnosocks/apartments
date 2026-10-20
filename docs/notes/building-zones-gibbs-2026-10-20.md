@@ -145,6 +145,15 @@ The noise scales are 0.086, 0.085, 0.091 and 0.104. On all rows tau fell by a th
 I have not checked that. The building spreads rose above the 5% fit's in every
 zone, by 21% in Manhattan, and the Manhattan amplitude rose from 0.80 to 1.10.
 
+I compared the zones by averaging each zone's map over its own ads. Manhattan comes out 37.3%
+(36.8 to 37.9) above Brooklyn + Queens. The whitened-zones and two-zone 1 km fits put that gap
+at 32.2% and 32.3%, so it rose about five points once each building had its own level. I have
+not checked why. NJ comes out 5.1% (4.3 to 5.8) above Brooklyn + Queens. These intervals count
+only the map's uncertainty, so they are narrow.
+
+A tour of the fit drawn from its saved draws, with each chain shown, is at
+https://claude.ai/artifact/KeHuAEF5jutBYu9cFGSLnc.
+
 Under Ben's standing rule, a fit that fails to converge is not retried on another seed. The
 slow bath steps and amp[outer] are the place to look: the bath steps through how their sparse
 cells are coded, and amp[outer] through an interweaving step for the waves like b0's, which
