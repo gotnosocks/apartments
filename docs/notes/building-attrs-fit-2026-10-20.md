@@ -54,7 +54,7 @@ with the flag prior Normal(0, 0.5):
 Tenure and doorman have no unknown level. A lot with no MapPLUTO match (about 3.7% of rows)
 counts as rental, and a building whose ads state no doorman counts as none stated.
 
-The snapshot is `/data1/apartments/external/building-attrs/20261020-98ded48/attrs.parquet`,
+The snapshot is `/data1/apartments/external/building-attrs/20261020-0a7254f/attrs.parquet`,
 built from pipeline rows `rows-30b3edae310c2fae` with `python -m rentfrontier.building_attrs
 snapshot`. It covers every building of the dataset's rows. Share of rows at each level:
 
