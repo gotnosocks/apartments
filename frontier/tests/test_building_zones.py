@@ -140,6 +140,14 @@ def test_run(tmp_path, monkeypatch):
     assert result["sampler"] == "building-zones"
     assert floors == [False] and result["length_floor"] is False
     assert blackjax.chees_adaptation is spy
+    import blackjax.adaptation.chees_adaptation as chees_module
+    from blackjax.mcmc import dynamic_hmc
+
+    assert chees_module.dynamic_hmc is dynamic_hmc
+    # The floor (64) is above the cap (20), so every draw runs the cap before the jitter.
+    assert result["min_leapfrog_steps"] == building_zones.MIN_LEAPFROG_STEPS == 64
+    assert result["chees"]["max_leapfrog_steps"] == 20
+    assert result["chees"]["warmup_mean_steps"] > 8
     assert result["buildings"]["sd_ref"] == building_zones.BLD_SD_REF
     assert {"bld_sd[manhattan]", "bld_sd[nj]"} <= result["diagnostics"][
         "per_quantity"
