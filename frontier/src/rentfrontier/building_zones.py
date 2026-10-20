@@ -10,8 +10,8 @@ The building effect is b_s = eta_s - F(s), saved as `bld`. The model is the same
 b_s ~ Normal(0, b_z) to whitened zones' mean (`plain_model`): the map from (b, w) to (eta, w)
 shifts b by F, so the two log densities differ by a constant.
 
-I sample the levels centred on the surface because a building with many ads pins eta_s and
-leaves b_s and F(s) free to trade against each other. With eta_s sampled, the waves meet the
+I sample the levels centred on the surface. When a building has many ads, the data fix eta_s
+closely, while b_s and F(s) can still trade against each other. With eta_s sampled, the waves meet the
 data only through the 73k levels, each weighted by 1 / b_z^2.
 
 The coordinates the sampler moves in:
