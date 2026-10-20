@@ -119,6 +119,15 @@ def test_run(tmp_path, monkeypatch):
     monkeypatch.setenv("FRONTIER_DATASET", str(dataset))
     monkeypatch.setenv("FRONTIER_COMMIT", "abc1234")
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")
+    import blackjax
+
+    chees, floors = blackjax.chees_adaptation, []
+
+    def spy(*args, **kwargs):
+        floors.append(kwargs.get("_length_floor", True))
+        return chees(*args, **kwargs)
+
+    monkeypatch.setattr(blackjax, "chees_adaptation", spy)
     runmod.main(
         [
             "--split", "latest", "--model", "building-zones", "--features", "base-v1",
@@ -129,6 +138,8 @@ def test_run(tmp_path, monkeypatch):
     out = tmp_path / "runs" / "bz-test"
     result = json.loads((out / "result.json").read_text())
     assert result["sampler"] == "building-zones"
+    assert floors == [False] and result["length_floor"] is False
+    assert blackjax.chees_adaptation is spy
     assert result["buildings"]["sd_ref"] == building_zones.BLD_SD_REF
     assert {"bld_sd[manhattan]", "bld_sd[nj]"} <= result["diagnostics"][
         "per_quantity"

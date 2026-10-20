@@ -122,7 +122,8 @@ def run_record(d: Design) -> dict:
             "count": int(sum(s["sites"] for s in d.surfaces)),
             "sd_prior": BLD_SD_PRIOR,
             "sd_ref": BLD_SD_REF,
-        }
+        },
+        "length_floor": False,
     }
 
 
@@ -396,8 +397,27 @@ def prior_predictive(d: Design, priors: Priors, draws=200, rows=50_000, seed=0):
 
 
 def run(d, priors, settings, log=print, checkpoint=None):
-    """B0.1's ChEES-HMC on the building zones."""
-    return b0_1.run(d, priors, settings, log, checkpoint, spec=sys.modules[__name__])
+    """B0.1's ChEES-HMC on the building zones, with ChEES's trajectory-length floor off.
+
+    For the floor, the installed ChEES accumulates the ensemble's full covariance, a matrix
+    of side the number of coordinates. With a level for every building that side is about
+    74k, and the float64 matrix needs 41 GiB, more than an 80 GB GPU holds beside the rest.
+    So for the length of this call I swap `blackjax.chees_adaptation` for a copy with
+    `_length_floor=False`, the switch ChEES offers for leaving the floor out. Step size,
+    trajectory length and the diagonal mass matrix adapt as in every other B0.1 fit.
+    """
+    import functools
+
+    import blackjax
+
+    chees = blackjax.chees_adaptation
+    blackjax.chees_adaptation = functools.partial(chees, _length_floor=False)
+    try:
+        return b0_1.run(
+            d, priors, settings, log, checkpoint, spec=sys.modules[__name__]
+        )
+    finally:
+        blackjax.chees_adaptation = chees
 
 
 def main_run(argv) -> None:
