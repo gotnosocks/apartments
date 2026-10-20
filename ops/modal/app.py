@@ -150,6 +150,7 @@ BASELINES = (
     ("--model", "whitened-zones"),
     ("--model", "building-zones"),
     ("--model", "building-attrs"),
+    ("--model", "building-zones-gibbs"),
 )
 
 

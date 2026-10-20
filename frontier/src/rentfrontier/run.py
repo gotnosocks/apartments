@@ -455,7 +455,9 @@ def main(argv=None):
     # whitened coordinates and adds a zone for Hoboken and Jersey City. Building zones
     # (rentfrontier.building_zones) gives each building a level around its zone's surface.
     # Building attributes (rentfrontier.building_attrs) adds a few measured qualities of each
-    # row's building to the normal walk.
+    # row's building to the normal walk. Building zones on Gibbs
+    # (rentfrontier.building_zones_gibbs) samples the building-zones model with a blocked Gibbs
+    # sweep in place of ChEES.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -471,6 +473,7 @@ def main(argv=None):
         ("whitened-zones", "whitened_zones"),
         ("building-zones", "building_zones"),
         ("building-attrs", "building_attrs"),
+        ("building-zones-gibbs", "building_zones_gibbs"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
