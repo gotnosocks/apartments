@@ -148,6 +148,7 @@ BASELINES = (
     ("--model", "two-zone"),
     ("--model", "two-zone-1k"),
     ("--model", "whitened-zones"),
+    ("--model", "building-zones"),
 )
 
 

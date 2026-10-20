@@ -452,7 +452,8 @@ def main(argv=None):
     # own prior. Two-zone location (rentfrontier.two_zone) adds a rent surface over Manhattan and
     # one over the located buildings outside it, and two_zone_1k sets their length-scale to 1 km.
     # Whitened zones (rentfrontier.whitened_zones) samples two-zone-1k's coefficients in
-    # whitened coordinates and adds a zone for Hoboken and Jersey City.
+    # whitened coordinates and adds a zone for Hoboken and Jersey City. Building zones
+    # (rentfrontier.building_zones) gives each building a level around its zone's surface.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -466,6 +467,7 @@ def main(argv=None):
         ("two-zone", "two_zone"),
         ("two-zone-1k", "two_zone_1k"),
         ("whitened-zones", "whitened_zones"),
+        ("building-zones", "building_zones"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

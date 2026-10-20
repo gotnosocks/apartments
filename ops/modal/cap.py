@@ -114,6 +114,9 @@ STAND_IN["two-zone-1k"] = "two-zone"
 # Whitened zones has two-zone-1k's gradient plus the NJ rows, its zone and a matrix product
 # per zone, and the stalled 1 km fit stands in for it.
 STAND_IN["whitened-zones"] = "two-zone-1k"
+# Building zones adds a level per building to whitened zones' gradient, and the whitened fit
+# stands in for it.
+STAND_IN["building-zones"] = "whitened-zones"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -129,6 +132,7 @@ BASELINES = (
     "two-zone",
     "two-zone-1k",
     "whitened-zones",
+    "building-zones",
 )
 
 
