@@ -126,7 +126,7 @@ Estimates, each a posterior median (B1 to B7 are in `building_attrs.scorecard`):
 
 The fit `building-attrs-b0-latest-041e6aa9-dense-w1500` ran on Modal from 07:16 to 07:41 ET
 on 2026-10-20, fit-only on the NYC dataset. It converged: max R-hat 1.004 (tau), min bulk ESS
-2,108 (tau), no divergences while sampling, 25 min and about $0.92. The convergence, time and
+2,108 (tau), no divergences while sampling, 25 min and $1.00 (settled in the Modal ledger). The convergence, time and
 cost predictions all hit.
 
 | # | Prediction | Posterior median | Result |
