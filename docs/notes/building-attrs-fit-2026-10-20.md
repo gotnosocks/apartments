@@ -51,6 +51,9 @@ with the flag prior Normal(0, 0.5):
 4. condo and co-op (against rental);
 5. built 1980 to 2004, built 2005 on, and year unknown (against before 1980).
 
+Tenure and doorman have no unknown level. A lot with no MapPLUTO match (about 3.7% of rows)
+counts as rental, and a building whose ads state no doorman counts as none stated.
+
 The snapshot is `/data1/apartments/external/building-attrs/20261020-98ded48/attrs.parquet`,
 built from pipeline rows `rows-30b3edae310c2fae` with `python -m rentfrontier.building_attrs
 snapshot`. It covers every building of the dataset's rows. Share of rows at each level:

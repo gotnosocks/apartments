@@ -11,8 +11,9 @@ twelve columns to its fixed design. Each column describes the row's building:
 5. `bld:built_1980_2004`, `bld:built_2005_on` and `bld:built_unknown`, against a building
    built before 1980.
 
-A building I have no record of takes every unknown level, and a known level never borrows
-from an unknown one. Each coefficient gets the Normal(0, 0.5) prior that `b0.prior_arrays`
+A building with no floor count, elevator record or year built takes that column's unknown
+level. Tenure and doorman have no unknown level: a lot with no MapPLUTO match (about 3.7% of
+rows) counts as rental, and a building whose ads state no doorman counts as none stated. Each coefficient gets the Normal(0, 0.5) prior that `b0.prior_arrays`
 gives a column outside its named groups (the flag prior), so I reuse the normal walk's model,
 starting values and sampler unchanged.
 
@@ -31,7 +32,7 @@ rows and writes one row per building to EXTERNAL_ROOT/building-attrs/<date>-<com
   The ads come first because MapPLUTO counts the primary building of a lot, and on lots with
   a podium or several buildings it gives 8 floors for 8 Spruce (76 in the ads) and 14 for
   Gotham West (32).
-- elevator: the majority of the ads that state yes or no, else the MapPLUTO class (D, R4,
+- elevator: the majority of the ads that state yes or no (a tie counts as yes), else the MapPLUTO class (D, R4,
   R9 and RR have one; A, B, C, S, R2 and R3 do not), else unknown. NJ parcels carry no class
   that says, so NJ buildings read the ads alone.
 - doorman: full when over a fifth of the ads say full time, part when over a fifth say part
@@ -152,7 +153,8 @@ def nj_lots(registry: pd.DataFrame, parcels: pd.DataFrame) -> pd.DataFrame:
     """Per NJ building, its lot's median year built and whether the lot holds condo units
     (parcels with a C qualifier)."""
     parcels = parcels.assign(
-        condo=parcels.qualifier.fillna("").astype(str).str.upper().str.startswith("C")
+        year_built=parcels.year_built.where(parcels.year_built >= 1800),
+        condo=parcels.qualifier.fillna("").astype(str).str.upper().str.startswith("C"),
     )
     lots = parcels.groupby("lot").agg(
         yearbuilt=("year_built", "median"), condo=("condo", "any")
