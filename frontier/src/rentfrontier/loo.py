@@ -487,6 +487,7 @@ def main(argv=None):
             "two-zone-1k",
             "whitened-zones",
             "building-zones",
+            "building-zones-gibbs",
         ):
             raise SystemExit(
                 f"{name}: {run['sampler']}'s scoring needs its location surfaces,"

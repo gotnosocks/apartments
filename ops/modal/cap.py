@@ -120,6 +120,10 @@ STAND_IN["building-zones"] = "whitened-zones"
 # Building attributes adds twelve fixed columns to the normal walk's design, and the normal
 # walk's fit stands in for it.
 STAND_IN["building-attrs"] = "normal-walk"
+# Seconds an iteration per pair of chains for a model with no Modal fit of its own yet. Building
+# zones on the Gibbs sampler swept the v36 dense dataset's 1.77M training rows at 1.36 s for two
+# chains on thelio's GPU (2026-10-20), and an A100's double precision runs no slower.
+STATED_RATE = {"building-zones-gibbs": 1.4}
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -137,6 +141,7 @@ BASELINES = (
     "whitened-zones",
     "building-zones",
     "building-attrs",
+    "building-zones-gibbs",
 )
 
 
@@ -331,7 +336,7 @@ def fit_stages(
         secs = round(secs)
         stages = {"gpu": (round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs)}
     else:
-        rate = measured_rate(model, features, runs)
+        rate = measured_rate(model, features, runs) or STATED_RATE.get(model)
         stages = {
             "gpu": (
                 estimate(chains, warmup, draws, gpu, rate, large),
