@@ -85,7 +85,7 @@ model's building effects take up the building-level part.
 
 ## Results
 
-The fit `building-zones-unit-b0-latest-a3aec3ff-dense-w650` ran on a Modal A100 from 09:46 to
+The fit `building-zones-unit-b0-latest-a3aec3ff-dense-w650` ran on a Modal A100 from 09:47 to
 09:57 ET on 2026-10-21, fit-only, seed 20261021. The fit stage took 593 s and the whole
 container 616 s, at an estimated $0.41.
 
@@ -95,7 +95,7 @@ ESS 456 on `amp[outer]`. The new coefficients have R-hat at or below 1.006 and b
 
 | column | premium, median (90% interval) | 1 km run |
 |---|---|---|
-| size, per unit of log(size / bedroom median) | +28.6% (28.4 to 28.8) | |
+| size, per unit of log(size / bedroom median) | +28.6% (28.5 to 28.8) | |
 | size imputed from the unit or line | -0.63% (-0.67 to -0.58) | |
 | size unknown | -3.89% (-3.94 to -3.84) | |
 | laundry in unit, against unstated | +6.48% (6.41 to 6.55) | |
@@ -117,7 +117,9 @@ ESS 456 on `amp[outer]`. The new coefficients have R-hat at or below 1.006 and b
 | 3 bed, 3 full baths | +27.39% (27.09 to 27.69) | +32.88% |
 
 The size slope of 0.25 on the log scale means a unit 10% larger than its bedroom median asks
-2.4% more. Every bath step fell by 3 to 14 points, while the bedroom steps moved by at most 1.5.
+2.4% more. The common bath steps fell by 3 to 14 points, while the bedroom steps moved by at most 1.5.
+The rare ones moved both ways: a 1 bed with 3 full baths rose 2.9 points, on 155 rows, and a
+studio with 4 full baths rose 13 points, on 14 rows.
 Until this fit the bath steps were carrying part of the size difference between units with the
 same bedroom count. A 2 bed with 3 full baths is mostly a larger 2 bed.
 
@@ -166,9 +168,9 @@ between them (the same 300,000 sampled pairs as in the frontage note):
 | 41 to 70 ft | different | 11,489 | 0.262 | 0.217 |
 | over 70 ft | same | 267 | 0.181 | 0.142 |
 
-Every row fell by 15% to 22%. The step from no street to a 41 to 70 ft street stays near 0.03,
-so the units' size and fittings explain much of how neighboring buildings differ, and nothing
-here explains the extra gap across a mid-width street.
+Every row fell by 15% to 22%. The step from no street to a 41 to 70 ft street went from 0.028 to
+0.023, so the new columns account for a share of the difference between neighboring buildings
+without explaining the extra gap across a mid-width street.
 
 Examples, at posterior medians with 90% predictive intervals:
 
@@ -178,7 +180,8 @@ Examples, at posterior medians with 90% predictive intervals:
 | 23 Eagle Street, Brooklyn, 1 bed, 2026-10-16 | yes | $6,059 | $4,908 | $4,110 to $5,796 |
 | 85 East End Avenue, 1 bed, 2026-10-16 | yes | $6,183 | $5,513 | $4,661 to $6,539 |
 
-The Eagle Street ad states no size and falls above its interval.
+The Eagle Street ad has no size from any layer (its `unit:size_unknown` term is set) and falls
+above its interval.
 
 | # | Prediction | Result | Score |
 |---|---|---|---|
@@ -189,14 +192,14 @@ The Eagle Street ad states no size and falls above its interval.
 | U5 | in-unit laundry +5% to +10%, in-building 0% to +4% | +6.5%, +1.7% | hit |
 | U6 | dishwasher +1% to +4% | +2.1% | hit |
 | U7 | through truck route -4% to -0.5% | -4.2% (-5.0 to -3.5) | miss, just beyond |
-| U8 | attributes within 2 points, doorman full-time and condo likeliest to fall | condo -3.9 points, doorman full-time -2.4, the rest within 1.1 | miss on the range, hit on which fell |
-| U9 | spread falls 0.010 to 0.030 and 0.005 to 0.020; amplitudes fall 0 to 0.05 and 0 to 0.03 | falls of 0.040 and 0.023; amplitudes 1.03 to 0.90 and 0.38 to 0.38 | miss: larger falls in Manhattan |
+| U8 | attributes within 2 points, doorman full-time and condo likeliest to fall | condo -3.9 points, doorman full-time -2.4, the other building columns within 1.1 | miss on the range, hit on which fell; the bath steps were not part of this prediction and fell further |
+| U9 | spread falls 0.010 to 0.030 and 0.005 to 0.020; amplitudes fall 0 to 0.05 and 0 to 0.03 | falls of 0.040 and 0.023; amplitudes 1.03 to 0.90 and 0.379 to 0.385 | miss: both spreads and the Manhattan amplitude fell more, and the outer amplitude rose 0.006 |
 | U10 | each sigma falls 0.001 to 0.006, nu within 0.1 of 3.83 | falls of 0.0009 to 0.0024, nu 4.11 | miss on nu and one sigma |
 | U11 | `T` variance falls to 0.050 to 0.057 | 0.0530 | hit |
 | U12 | pair gaps 0.215 to 0.228 and 0.190 to 0.200 | 0.191 and 0.168 | miss: both fell more |
 
 I underestimated how much of the building and map spread was unit size. I set the size slope
-from the screen's within-block bands, but the fitted slope sits lower, likely because imputed
+from the bands of the residual screen's joint fit within tax blocks, but the fitted slope sits lower, likely because imputed
 sizes add noise and because the bath steps were already holding part of it. The size unknown
 flag at -3.9% matches the skew in `size-coverage-2026-10-21.md`, where ads with no size sit
 below the rest within the same building.
