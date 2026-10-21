@@ -37,7 +37,7 @@ ops/modal-fit --dataset /data1/apartments/frontier/datasets/b0-edc83b49f9bacd8c-
 ```
 
 `building-zones-gym-b0-latest-f2d01c92-dense-w650` ran on a Modal A100 from 12:14 to 12:24 ET
-on 2026-10-21. The fit stage took 557 s and the container 577 s, at an estimated $0.38.
+on 2026-10-21. The fit stage took 557 s and the container 577 s, at $0.38 by `ops/modal-fit`'s estimate.
 
 It fails the convergence gate. Max R-hat is 1.0149 on `amp[outer]`, the Brooklyn + Queens map
 amplitude, against the 1.01 bar, and min bulk ESS is 415 on the same quantity. The four
@@ -120,8 +120,9 @@ variance, 50 permutations), the gym flag explains 1.15% of the unit run's buildi
 0.90% of the attrs base's. Both beat the null, whose 95th percentile is below zero.
 
 On the 71,632 training ads in truck route buildings, the predicted log rent rose by 0.04 points
-on average (0.003 points for other ads). Their building effects rose by 5.1 points and the map
-fell by 0.7 points, offsetting the removed -4.2% term. On held-out truck route ads the change is
+on average (0.003 points for other ads). In the unit run their building effects had risen to
+cancel the -4.2% term. With the term gone, they fell by 5.1 points and the map value fell by
+0.7 points, and the gym term and the shifted building columns made up the rest. On held-out truck route ads the change is
 also 0.04 points.
 
 Held-out ads of the latest split (189,649 ads, 68 draws per run, Student-t log density; elpd is
@@ -138,9 +139,10 @@ the gym run minus the named run):
 
 Coverage of the 90% predictive interval is 0.882 (unit 0.882, attrs 0.879), and of the 50%
 interval 0.482 (0.482, 0.479). Median absolute error is 0.0670 for both the gym and unit runs.
-The held-out predictions are nearly identical to the unit run's: for buildings with training
-ads, the building effects already carried the gym difference. The held-out set has few
-buildings with no training ads, where a measured gym could help.
+The held-out predictions are nearly identical to the unit run's. My reading is that for
+buildings with training ads, the unit run's building effects already carried most of the gym
+difference, as the shift in mean building effects above suggests. I have not counted the
+held-out ads in buildings with no training ads, where a measured gym would matter most.
 
 Examples, at posterior medians with 90% predictive intervals. All three are gym buildings:
 
