@@ -19,7 +19,7 @@ ops/modal-fit --dataset /data1/apartments/frontier/datasets/b0-edc83b49f9bacd8c-
 
 `building-zones-age-b0-latest-f023987f-dense-w1000` ran on a Modal A100 from 14:57 to 15:11 ET
 on 2026-10-21, with 300 warmup and 1,000 sampling sweeps per chain against 150 and 650 for the
-gym run. The fit stage took 799 s (warmup 99 s, sampling 588 s) and the container 820 s, at
+gym run. The fit stage took 799 s by `ops/modal-fit`'s timer (the sampler itself logged 99 s of warmup and 588 s of sampling) and the container 820 s, at
 $0.54 by `ops/modal-fit`'s estimate.
 
 It passes the convergence gate. Max R-hat is 1.0044 on `beta[flag:income_restricted]` and min
@@ -130,13 +130,15 @@ route in the same 500 m cells (log points times 100):
 | 100 or more | 145 | 53,171 | +2.2 | -3.1 |
 
 Year built did not close the gap. Across all truck route buildings it went from 5.3 points in
-the unit run to 4.6, and within the 2000 to 2009 band it widened from 5.4 to 5.8. Only for
-buildings from 2010 on, which the new term rates +4%, did it close: from 1.9 points to 1.3.
-Buildings with 20 or more training ads still sit 4 to 5 points above their neighbors, enough
-to cancel the -3.9% coefficient. In buildings with few ads, whose effects shrink toward the
-map, the coefficient applies in full. The -3.9% therefore still reads as a discount on small,
-thinly listed truck route buildings. Large truck route buildings carry building effects that
-year built, alteration, retail, gym, doorman and elevator do not explain.
+the unit run to 4.6. By era it narrowed in four bands, from 8.2 to 6.6 points for 1940 to
+1979, 7.7 to 5.7 for 1980 to 1999, 1.2 to 0.8 for 1900 to 1939 and 1.9 to 1.3 for 2010 on. It
+widened for 2000 to 2009, from 5.4 to 5.8, and before 1900, from 2.7 to 2.9. Buildings with 20
+or more training ads still sit 4 to 5 points above their neighbors, enough to cancel the -3.9%
+coefficient. In buildings with few ads, whose effects shrink toward the map, the coefficient
+applies in full. The -3.9% therefore still reads as a discount on small, thinly listed truck
+route buildings. For the large ones, none of the building columns in this model accounts for
+the 4 to 5 point gap. This fit cannot say whether the gap comes from something unmeasured or
+from how the building effects split credit with the truck coefficient.
 
 ### Held-out ads
 
@@ -163,10 +165,11 @@ By the building's training ads, elpd against the gym run:
 | built 2000 on | +7.1 (SE 2.9), 542 | +0.6 (SE 3.5), 2,453 | +7.3 (SE 3.8), 39,379 |
 | all | +28.2 (SE 9.8), 5,943 | -11.5 (SE 10.4), 23,210 | +15.0 (SE 11.6), 160,496 |
 
-No held-out ad is in a building with no training ads. The overall gain of +32 is under 2 SE.
-The clearest gains are in Brooklyn + Queens (+41, about 3 SE), in buildings from 2000 on
-(+15, 2.5 SE) and in buildings with 1 to 4 training ads (+28, 2.9 SE), where the measured
-columns matter most. Coverage of the 90% predictive interval is 0.883 (gym 0.882), and of the
+No held-out ad is in a building with no training ads. The overall gain of +32 is under 2 SE,
+so the fit does not clear the bar. Among the subgroups, which I chose after the fit and so
+treat as exploratory, Brooklyn + Queens gains +41 (about 3 SE), buildings from 2000 on +15
+(2.5 SE) and buildings with 1 to 4 training ads +28 (2.9 SE). Manhattan loses 9.6 (0.8 SE) and
+buildings with 5 to 19 training ads lose 11.5 (1.1 SE). Coverage of the 90% predictive interval is 0.883 (gym 0.882), and of the
 50% interval 0.481 (0.482). Median absolute error is 0.0669, against 0.0670.
 
 My first pass at these scores used 100 draws for the age run and 68 for the others, and gave
@@ -198,8 +201,9 @@ Examples, at posterior medians with 90% predictive intervals:
 I expected the new terms to work like a premium for recent construction and to take credit
 from the doormen, the elevator and the gym. Instead the fit priced the oldest buildings as high
 as the newest, and the full-time doorman premium rose. The test of Ben's alternative came out
-against it. Truck route buildings are newer than their neighbors, but their age does not
-explain why the large ones rent above their neighbors.
+against it. Truck route buildings lean newer: 10.3% of ads in buildings from 2000 to 2009 are
+on a truck route, against 2.6% in buildings from 1900 to 1939 (#1194). Their age still does
+not account for why the large ones rent above their neighbors.
 
 The scripts are in `building-zones-age-2026-10-21/` (`agecov.py` computed the PR's coverage
 tables), and the draws-derived data (map grid, buildings, coefficients with chain medians and
