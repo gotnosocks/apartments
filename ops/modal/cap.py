@@ -124,6 +124,15 @@ STAND_IN["building-attrs"] = "normal-walk"
 # zones on the Gibbs sampler swept the v36 dense dataset's 1.77M training rows at 1.36 s for two
 # chains on thelio's GPU (2026-10-20), and an A100's double precision runs no slower.
 STATED_RATE = {"building-zones-gibbs": 1.4}
+# At 500 m the two zones carry 780 waves against 1 km's 195, and the global block grows from 908
+# coefficients to 1,493. On thelio's GPU a two-chain sweep took 2.44 s against 1.34 s at 1 km
+# (2026-10-21), and the 1 km model's Modal fit ran at 0.33 s an iteration per pair of chains.
+# 0.7 s allows for the A100 scaling worse than thelio's card on the bigger dense factor.
+STATED_RATE["building-zones-attrs-500m"] = 0.7
+# A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
+# Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
+# columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
+RATE_STAND_IN = {"building-zones-attrs": "building-zones-gibbs"}
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -142,6 +151,8 @@ BASELINES = (
     "building-zones",
     "building-attrs",
     "building-zones-gibbs",
+    "building-zones-attrs",
+    "building-zones-attrs-500m",
 )
 
 
@@ -336,7 +347,15 @@ def fit_stages(
         secs = round(secs)
         stages = {"gpu": (round(secs * USD_PER_HOUR[gpu] / 3600, 2), secs)}
     else:
-        rate = measured_rate(model, features, runs) or STATED_RATE.get(model)
+        rate = (
+            measured_rate(model, features, runs)
+            or (
+                model in RATE_STAND_IN
+                and measured_rate(RATE_STAND_IN[model], features, runs)
+            )
+            or STATED_RATE.get(model)
+            or STATED_RATE.get(RATE_STAND_IN.get(model))
+        )
         stages = {
             "gpu": (
                 estimate(chains, warmup, draws, gpu, rate, large),
