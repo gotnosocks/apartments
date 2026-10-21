@@ -131,6 +131,60 @@ After 11 sweeps at 500 m Manhattan's spread was 0.221 and 0.224 and the outer zo
 | B7 | The zone gap within 2 points of the 1 km fit's. |
 | B8 | nu and the sigmas within 0.01 and 0.002 of the 1 km fit's. |
 
-## Results
+## Results at 1 km
 
-The fits have not run yet.
+The fit `building-zones-attrs-b0-latest-9bd8c1a3-dense-w650` ran on a Modal A100 from 20:48 to
+20:57 ET on 2026-10-20, fit-only, seed 20261020. The fit stage took 535 s and the whole
+container 557 s, at an estimated $0.37.
+
+It misses the repo's convergence gate on the same sparse bath step as the last run:
+
+| quantity | R-hat | bulk ESS |
+|---|---|---|
+| beta[bed=2:full>=4] | 1.0212 | 325 |
+| tau | 1.0150 | 654 |
+
+Every building coefficient has R-hat at or below 1.0023 and bulk ESS of 1,486 or more, and the
+four chains' medians agree to within about 0.2 points.
+
+| column | premium, median (90% interval) |
+|---|---|
+| roof height, per e-fold | -0.73% (-1.10 to -0.38) |
+| height unknown | +0.23% (-0.52 to +0.99) |
+| elevator | +9.05% (8.65 to 9.43) |
+| elevator unknown | +1.73% |
+| condo | +14.76% (14.25 to 15.32) |
+| doorman, full-time | +19.57% (18.66 to 20.61) |
+| doorman, part-time | +11.96% (11.13 to 12.86) |
+| doorman, virtual | +4.39% (4.10 to 4.73) |
+
+| # | Prediction | Posterior median | Result |
+|---|---|---|---|
+| A1 | max R-hat 1.005 to 1.025, min ESS 300 to 700, gamma ESS over 1,000 | 1.021, 325, gamma 1,486 or more | hit, though the repo gate fails |
+| A2 | fit stage 7 to 12 min, $0.30 to $0.50 | 8.9 min, $0.37 | hit |
+| A3 | roof height +4% to +11% | -0.7% | miss |
+| A4 | elevator +4% to +10% | +9.1% | hit |
+| A5 | condo +2% to +7% | +14.8% | miss |
+| A6 | doorman full +3% to +9%, part +3% to +9%, virtual -3% to +2% | +19.6%, +12.0%, +4.4% | miss |
+| A7 | spread 0.220 to 0.240 Manhattan, 0.135 to 0.145 BK+Q | 0.228, 0.141 | hit |
+| A8 | share 0.45 to 0.53 Manhattan, 0.34 to 0.40 BK+Q | 0.494, 0.363 | hit |
+| A9 | 2-bed second bath +20.5% to +23.5% | +23.49% (23.40 to 23.59) | hit, at the edge |
+| A10 | zone gap 29% to 35% | +30.1% (29.6 to 30.6) | hit |
+| A11 | nu within 0.05 of 3.85, sigmas within 0.003 | 3.83; 0.086, 0.086, 0.092, 0.103 | hit |
+
+The map amplitudes fell from 1.10 to 1.03 in Manhattan and from 0.48 to 0.38 in Brooklyn +
+Queens, and tau stayed at 0.0043.
+
+The misses all come from the building columns. I expected the map to take part of the premiums
+the no-location fit found, so I put every coefficient below that fit's. Instead condo and every
+doorman level came out larger, and roof height fell to slightly below zero once elevator and
+doorman enter. That earlier fit had much heavier noise (nu 6.85, sigmas 0.165 to 0.26), so its
+coefficients are not directly comparable, and I have not checked which difference moved them.
+
+The explainer data (map grid, buildings net of attributes, gamma with chain medians, R-hat,
+ESS and traces, and a comparison with the last run) is at
+https://claude.ai/artifact/DLdQHZgDQy6nWqkw7wyEdL.
+
+## Results at 500 m
+
+The fit is running.
