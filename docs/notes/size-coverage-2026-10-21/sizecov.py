@@ -117,16 +117,6 @@ for nm, df in [("ads", f), ("units", U)]:
         d = df[df.beds == bd]
         t[bd + " bed"] = cov(d, np.ones(len(d)))
     res[nm] = t
-# unit-level coverage: a unit counts as covered at the best layer of any of its training ads
-Ul = (
-    f[f.ukey.notna()]
-    .groupby("ukey")
-    .agg(
-        zone=("zone", "first"),
-        beds=("beds", "first"),
-        a=("layer", lambda s: (s == "a stated").any()),
-    )
-)
 # holdout among ads that state a size
 h = f[a].copy()
 # (b): other listings of the same unit, excluding this one
