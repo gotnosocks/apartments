@@ -187,4 +187,39 @@ https://claude.ai/artifact/DLdQHZgDQy6nWqkw7wyEdL.
 
 ## Results at 500 m
 
-The fit is running.
+The fit `building-zones-attrs-500m-b0-latest-9bd8c1a3-dense-w650` ran on a Modal A100 from
+20:58 to 21:08 ET on 2026-10-20, fit-only, seed 20261020. The fit stage took 576 s and the
+whole container 594 s, and the Modal ledger settled it at $0.39. The A100 swept the larger
+global block almost as fast as the 1 km one, so my estimate from thelio's card was about
+three times too long.
+
+It misses the gate on four quantities:
+
+| quantity | R-hat | bulk ESS |
+|---|---|---|
+| amp[outer] | 1.0243 | 303 |
+| amp[manhattan] | 1.0225 | 256 |
+| beta[bed=2:full>=4] | 1.0211 | 324 |
+| tau | 1.0141 | 679 |
+
+| # | Prediction | Posterior median | Result |
+|---|---|---|---|
+| B1 | max R-hat 1.005 to 1.03, min ESS 200 to 600, amplitudes among the slowest | 1.024, 256, both amplitudes slowest | hit |
+| B2 | fit stage 14 to 30 min, run under 35, $0.60 to $1.30 | 9.6 min, 9.9 min, $0.39 | miss |
+| B3 | spread 0.005 to 0.015 lower in Manhattan, 0 to 0.008 lower in BK+Q | 0.2204 (0.008 lower), 0.1391 (0.0016 lower) | hit |
+| B4 | share 0.02 to 0.08 lower in each zone | 0.468 (0.026 lower), 0.361 (0.002 lower) | half: hit in Manhattan, miss in BK+Q |
+| B5 | each amplitude 0% to 40% higher | 0.336 (67% lower), 0.176 (54% lower) | miss |
+| B6 | each gamma within 2 points | largest move +0.41 points (height unknown) | hit |
+| B7 | zone gap within 2 points | +29.9% (29.3 to 30.4), 0.2 lower | hit |
+| B8 | nu within 0.01, sigmas within 0.002 | nu 3.83, sigmas unchanged to 0.0001 | hit |
+
+The building coefficients barely move: elevator +8.9%, condo +14.7%, full-time doorman +20.0%,
+part-time +12.4%, virtual +4.5%, roof height -0.8% per e-fold.
+
+I got B5 wrong about what the amplitude measures. It scales the waves' spectral weights, and
+those weights change with the lengthscale. The map itself barely changed: its row-weighted
+spread over Manhattan's buildings went from 0.183 to 0.188, and over Brooklyn + Queens' it
+stayed at 0.167. At 500 m the map takes a little more of Manhattan's building-to-building
+variation and almost none of the outer zone's, as earlier fits found.
+
+The explainer data is at https://claude.ai/artifact/Gay8BUWr5iqNC1JdEAj2Mh.
