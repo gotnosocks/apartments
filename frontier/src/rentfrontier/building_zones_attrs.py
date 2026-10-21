@@ -32,6 +32,12 @@ x_s' gamma, each building's departure from the map net of its attributes.
 The surfaces are whitened zones' at LENGTHSCALE, 1 km. `rentfrontier.building_zones_attrs_500m`
 runs the same model with every zone's surface at 500 m.
 
+I cap the 2 bedroom bath ladder at three full baths: the design drops B0.3's step
+`bed=2:full>=4` (DROPPED_STEPS), so a 2 bedroom with four or more full baths takes the
+premium of one with three. Few ads set that step, and its draws failed the convergence
+gate in both fits of 2026-10-20 (R-hat 1.021, ESS about 325). The other bedroom levels
+keep all their steps.
+
     python -m rentfrontier.run --model building-zones-attrs --split latest --name NAME
 """
 
@@ -80,6 +86,7 @@ FOOTPRINTS = Path(
 )
 LENGTHSCALE = whitened_zones.LENGTHSCALE  # km
 HEIGHT_REF = 78.0  # feet
+DROPPED_STEPS = ("bed=2:full>=4",)  # B0.3 bath steps this design leaves out
 COLUMNS = (
     "bld:log_height",
     "bld:height_unknown",
@@ -167,7 +174,7 @@ def design(
 ) -> Design:
     """Whitened zones' design of `frame` with the building columns appended. I leave out a
     column no row sets, as B0 does for its indicators. `lengthscale` (km) rebuilds the
-    surfaces at another scale."""
+    surfaces at another scale. I drop the bath steps in DROPPED_STEPS."""
     if registry is None:
         registry = pd.read_parquet(
             whitened_zones.REGISTRY,
@@ -178,6 +185,11 @@ def design(
     if footprints is None:
         footprints = pd.read_parquet(FOOTPRINTS, columns=["bin", "height_roof"])
     d = whitened_zones.design(frame, start, registry=registry, nj_registry=nj_registry)
+    on = [j for j, n in enumerate(d.names) if n not in DROPPED_STEPS]
+    count = {n: c for n, c in d.count.items() if n not in DROPPED_STEPS}
+    d = dataclasses.replace(
+        d, x=d.x[:, on], names=[d.names[j] for j in on], count=count
+    )
     lengthscale = LENGTHSCALE if lengthscale is None else lengthscale
     if lengthscale != whitened_zones.LENGTHSCALE:
         d = dataclasses.replace(

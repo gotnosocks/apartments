@@ -201,3 +201,30 @@ def test_500m_rebuilds_the_surfaces_with_the_same_buildings():
         assert (s1["first"], s1["sites"]) == (s5["first"], s5["sites"])
         assert s5["lengthscale_km"] == 0.5
         assert len(s5["sd"]) > 2 * len(s1["sd"])
+
+
+def test_caps_the_2_bedroom_bath_ladder_at_3_full_baths():
+    from rentfrontier import b0_3, whitened_zones
+
+    reg = registry_with_bins()
+    footprints, attrs = tables_of(reg)
+    frame = _nyc_frame(2000, 20, 3)
+    assert ((frame.bedrooms == 2) & (frame.full_baths >= 4)).sum() > 0
+    d = bza.design(
+        frame, registry=reg, nj_registry=NO_NJ, attrs=attrs, footprints=footprints
+    )
+    base = whitened_zones.design(frame, registry=reg, nj_registry=NO_NJ)
+    assert "bed=2:full>=4" in base.names
+    assert "bed=2:full>=4" not in d.names
+    # Every other column of the whitened-zones design comes through unchanged.
+    kept = [n for n in base.names if n != "bed=2:full>=4"]
+    assert d.names[: len(kept)] == kept
+    assert b0_3.bath_step(1, 4) in d.names and b0_3.bath_step(3, 4) in d.names
+    np.testing.assert_array_equal(
+        d.x[:, : len(kept)], base.x[:, [base.names.index(n) for n in kept]]
+    )
+    # A 2 bedroom with four full baths takes the 3-bath cell's premium.
+    beta = np.random.default_rng(0).normal(size=(5, len(d.names)))
+    cells = b0_3.cell_log_premiums(beta, d.names)
+    np.testing.assert_array_equal(cells[(2, 4)], cells[(2, 3)])
+    assert not np.allclose(cells[(1, 4)], cells[(1, 3)])
