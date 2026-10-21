@@ -30,11 +30,11 @@ and the tables are on the data page at https://claude.ai/artifact/18EAWB1h8yYdZP
 | 3 bed | 23.4% | 35.7% | 38.1% |
 | 4+ bed | 24.7% | 37.0% | 38.1% |
 
-Counted by unit (878,377 building and label pairs), the layers reach 25.9%, 32.4% and 38.2%.
-Units with many ads are likelier to have stated a size on one of them, so (b) adds less per
-unit than per ad. Line matches help most in Manhattan and for studios and 1-beds, where large
-buildings repeat a line up many floors. Brooklyn + Queens gains 3 points from (c), since its
-labels are often bare floor numbers or letters with no line.
+Counted by unit (878,377 building and label pairs, each scored on its first training ad), the
+layers reach 25.9%, 32.4% and 38.2%. (b) adds less per unit than per ad, which fits units with
+many ads being likelier to have stated a size on one of them. Line matches add the most in
+Manhattan and for studios and 1-beds, and only 3 points in Brooklyn + Queens. I have not split
+the cause by label type.
 
 18.4% of the ads still missing after (c) have a floor plan attached. Reading every plan would
 bring coverage to 55.1% at most.
@@ -51,7 +51,7 @@ Errors are absolute log differences.
 | (b), then (c) | 330,120 | 0.000 | 0.112 | 88.1% |
 
 The zero medians mean brokers often copy the same figure from ad to ad, so the 90th percentile
-is the more useful number: one imputed size in ten misses by 11% or more.
+is the more useful number: one imputed size in ten misses by about 12% or more.
 
 ## Skew
 
@@ -65,7 +65,7 @@ is the more useful number: one imputed size in ten misses by 11% or more.
 The leftover is in log points against the zone mean. Ads stating a size sit 10 points above
 the rest across the city, but within the same building the gap is 0.9 points. Size is stated
 mostly in buildings that rent above the model. Within a building, an ad stating its size rents
-less than 1% more. The ads still missing after (c) lean toward Brooklyn + Queens and larger units.
+less than 1 log point more. The ads still missing after (c) lean toward Brooklyn + Queens and larger units.
 
 ## Next steps
 

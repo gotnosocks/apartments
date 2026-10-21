@@ -1,6 +1,6 @@
 import pandas as pd, json
 
-exec(open("sizecov.py").read().split("res={}")[0])
+exec(open("sizecov.py").read().split("res = {}")[0])
 pf = pd.read_parquet("pipe_fields.parquet", columns=["listing_id", "floor plans"])
 f = f.merge(pf, on="listing_id", how="left")
 m = f.layer == "none"
