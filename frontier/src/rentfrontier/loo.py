@@ -490,6 +490,7 @@ def main(argv=None):
             "building-zones-gibbs",
             "building-zones-attrs",
             "building-zones-attrs-500m",
+            "building-zones-front",
         ):
             raise SystemExit(
                 f"{name}: {run['sampler']}'s scoring needs its location surfaces,"

@@ -153,6 +153,7 @@ BASELINES = (
     ("--model", "building-zones-gibbs"),
     ("--model", "building-zones-attrs"),
     ("--model", "building-zones-attrs-500m"),
+    ("--model", "building-zones-front"),
 )
 
 
