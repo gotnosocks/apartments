@@ -30,7 +30,7 @@ It passes the convergence gate. Max R-hat is 1.0097 and min bulk ESS 590, both o
 `amp[outer]`, the same quantity that sat lowest in the age run (604). The four process
 hyperparameters have R-hat at most 1.0013 and ESS from 3,685 to 4,010. Every curve value has
 R-hat at most 1.004 and ESS of at least 1,690, and the four chains' medians agree to within
-0.05 points at every floor.
+0.08 points at every floor.
 
 ## The floor curves
 
@@ -116,7 +116,7 @@ with the column set, and the column's contribution, the variance of x·beta over
 | unit:laundry_in_unit | +6.32% (6.26 to 6.39) | +6.42% | 29.0% | 7.75e-04 |
 
 The data page lists every column. `bld:elevator` lost 3.2 points to the elevator curve. The
-bath steps for units with two or more full baths fell by 0.7 to 1.4 points, since those large
+most bath steps for units with two or more full baths fell, by 0.5 to 1.9 points, since those large
 units sit on higher floors on average. The step for studios with four full baths, set on 14
 training ads, rose 2.6 points. Every other column stayed within 0.6 points of the age run.
 
@@ -190,13 +190,13 @@ points. The building spread fell from 0.1300 to 0.1290 among buildings with floo
 
 The map value correlates 0.99998 with the age run's, with a change of SD 0.15 points against
 a spread of 22.4 points. The Manhattan map amplitude went from 0.897 to 0.916 and the outer
-zone's stayed at 0.361.
+zone's from 0.361 to 0.360.
 
 ## Predictions, scored
 
 | # | Prediction | Result | Score |
 |---|---|---|---|
-| F1 | elevator curve rises steadily with log floor, no dip | rises from +1.2% at floor 2 to +15.5% at floor 46, with nine dips of at most 0.6 points | hit |
+| F1 | elevator curve rises steadily with log floor, no dip | rises from +1.2% at floor 2 to +15.5% at floor 46, with nine dips of at most 0.6 points | miss |
 | F2 | elevator floor 2: +1% to +4% | +1.2% (1.1 to 1.3) | hit |
 | F3 | elevator floor 10: +4% to +12%, about +7% | +3.8% (3.6 to 3.9) | miss |
 | F4 | elevator floor 30: +8% to +20% | +10.0% (9.7 to 10.3) | hit |
@@ -220,7 +220,7 @@ zone's stayed at 0.361.
 | F22 | most of that fall is in elevator buildings | 6.8% in elevator buildings, 1.0% in walk-ups | hit |
 | F23 | every quantity passes the convergence gate | max R-hat 1.010, min ESS 590 | hit |
 
-18 hits and 5 misses. I expected a steeper elevator curve at floor 10 and a small walk-up
+17 hits and 6 misses. The curve rises overall but dips between some neighboring floors. I expected a steeper elevator curve at floor 10 and a small walk-up
 premium for the first floors up, and both came in lower. The floor also explains more of the
 residual than I expected.
 
