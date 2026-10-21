@@ -133,6 +133,8 @@ STATED_RATE["building-zones-attrs-500m"] = 0.7
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
 # columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
 RATE_STAND_IN = {"building-zones-attrs": "building-zones-gibbs"}
+# Building zones with frontage adds six columns to the 1 km model with attributes.
+RATE_STAND_IN["building-zones-front"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -153,6 +155,7 @@ BASELINES = (
     "building-zones-gibbs",
     "building-zones-attrs",
     "building-zones-attrs-500m",
+    "building-zones-front",
 )
 
 

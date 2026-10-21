@@ -460,6 +460,8 @@ def main(argv=None):
     # sweep in place of ChEES. Building zones with attributes (rentfrontier.building_zones_attrs)
     # centres each building's level on its map value plus a few measured qualities, and its
     # 500 m variant (rentfrontier.building_zones_attrs_500m) halves the surfaces' length-scale.
+    # Building zones with frontage (rentfrontier.building_zones_front) adds the width of the
+    # widest street each building faces and whether it stands on a corner.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -478,6 +480,7 @@ def main(argv=None):
         ("building-zones-gibbs", "building_zones_gibbs"),
         ("building-zones-attrs", "building_zones_attrs"),
         ("building-zones-attrs-500m", "building_zones_attrs_500m"),
+        ("building-zones-front", "building_zones_front"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
