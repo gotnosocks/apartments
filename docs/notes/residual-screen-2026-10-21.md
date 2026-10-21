@@ -147,7 +147,7 @@ laundry, it takes part of that credit back.
 
 Through truck routes are the one street measure here with a within-block sign matching Ben's
 prior: a building on a through route rents 3.2% below its tax block (25,327 ads). Facing 4 or
-more travel lanes costs 9 to 12 log points across the city and almost nothing within a 500 m
+more travel lanes costs 9 to 12 log points across the city and under 2 within a 500 m
 cell, so wide roads run through cheaper parts of the map without a price of their own within a
 block.
 
