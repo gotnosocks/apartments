@@ -23,8 +23,8 @@ The input is the log of the floor. Going from floor 2 to 4 changes the light, th
 the stairs a lot more than going from 32 to 34, so I expect the curve to move fast near the
 ground and slowly high up, and a single lengthscale fits that on the log scale. Each group's
 squared amplitude has an InvGamma(GP_AMP) prior and its lengthscale a LogNormal(GP_LS) prior,
-and the sampler draws both every sweep, as a block. I keep every floor column even where no training row sets it,
-so the process fills in those floors from their neighbours.
+and the sampler draws both every sweep, as a block. I keep every floor column even where no
+training row sets it, so the process fills in those floors from their neighbours.
 
 On top of the curve at the unit's floor I add these flags, against a unit without them:
 
