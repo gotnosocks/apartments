@@ -463,7 +463,8 @@ def main(argv=None):
     # Building zones with frontage (rentfrontier.building_zones_front) adds the width of the
     # widest street each building faces and whether it stands on a corner. Building zones with
     # unit features (rentfrontier.building_zones_unit) adds unit size, laundry, dishwasher and
-    # through truck routes.
+    # through truck routes. Building zones with a gym (rentfrontier.building_zones_gym) swaps the
+    # truck routes for whether the building has a gym.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -484,6 +485,7 @@ def main(argv=None):
         ("building-zones-attrs-500m", "building_zones_attrs_500m"),
         ("building-zones-front", "building_zones_front"),
         ("building-zones-unit", "building_zones_unit"),
+        ("building-zones-gym", "building_zones_gym"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
