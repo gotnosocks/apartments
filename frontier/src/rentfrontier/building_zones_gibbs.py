@@ -23,6 +23,8 @@ Gaussian. A sweep then runs these steps in order:
 4. I draw nu and sigma with lam integrated out, from the Student-t likelihood of the
    residuals, then lam given them.
 5. I draw tau given the walk and each zone's amplitude given its waves.
+6. With Gaussian process priors on some coefficients (`make_sampler`'s `gp`), I draw each
+   process's amplitude and lengthscale given its coefficients.
 
 Steps 1 to 3 draw (theta, b, eta) with eta marginalised until it is drawn last, and steps 4
 draw (nu, sigma, lam) the same way, so every step leaves the posterior unchanged. The walk
@@ -63,6 +65,12 @@ from .building_zones import (  # noqa: F401  (the spec interface b0.main_run and
 from .two_zone import site_share
 
 NAME = "building-zones-gibbs"
+# The nugget on a Gaussian process prior's covariance, in units of its amplitude squared:
+# each coefficient's own variation of sd amp / 10 on top of the smooth curve. It keeps the
+# covariance of closely spaced inputs invertible and lets the amplitude mix: on simulated
+# floors at 1e-4, the amplitude's ESS from 4 x 1000 sweeps was 81, and at 1e-2 it was 313
+# with sparse high floors and 986 with every floor filled.
+GP_NUGGET = 1e-2
 
 
 @dataclass(frozen=True)
@@ -91,6 +99,14 @@ def run_record(d: Design) -> dict:
     return out
 
 
+def gp_cov(jnp, x, ls):
+    """The unit-amplitude squared exponential covariance of a process at inputs `x`, given
+    its value 0 at input 0, with a nugget of GP_NUGGET on the diagonal."""
+    K = jnp.exp(-0.5 * (x[:, None] - x[None, :]) ** 2 / ls**2)
+    k0 = jnp.exp(-0.5 * x**2 / ls**2)
+    return K - jnp.outer(k0, k0) + GP_NUGGET * jnp.eye(x.shape[0])
+
+
 def _prior_vectors(d: Design, priors: Priors):
     """Prior means and sds of the coefficients other than alpha, in `names` order, and
     alpha's mean and sd."""
@@ -116,9 +132,20 @@ def _prior_vectors(d: Design, priors: Priors):
     )
 
 
-def make_sampler(d: Design, priors: Priors, settings: Settings):
+def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
     """The jitted sweep, the initial state and the global system for design `d`. The sweep and
-    the initial state are vmapped over chains; `global_system` takes one chain's state."""
+    the initial state are vmapped over chains; `global_system` takes one chain's state.
+
+    `gp` (optional) gives some coefficients a Gaussian process prior in place of their own
+    Normal priors. It is a sequence of dicts, one per process, with
+    - `cols`: the coefficients' names in `d.names`;
+    - `x`: each coefficient's input, a float array as long as `cols`;
+    - `amp`: the (shape, scale) of the inverse gamma prior on the process's amplitude squared;
+    - `ls`: the (mean, sd) of the log of its lengthscale.
+    Each process has a squared exponential kernel pinned to 0 at input 0 (`gp_cov`), so the
+    coefficients are the process at their inputs, measured from its value at 0. I draw them in
+    the global block with prior precision Kc^-1 / amp^2, then each process's amplitude and
+    lengthscale given them as a block (`update_gp`), into the state's `gp_amp` and `gp_ls`."""
     jax, jnp = b0._jax()
     seg = jax.ops.segment_sum
     alpha = d.names.index("alpha")
@@ -136,6 +163,13 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
         slice(pb + W1 + 1, G),
     )
     m_b, s_b, m_a, s_a = _prior_vectors(d, priors)
+    # The coefficients' own prior precision and linear term, without those under a process.
+    prec_b, lin_b = 1 / s_b**2, m_b / s_b**2
+    gps = []
+    for spec in gp or ():
+        pos = np.searchsorted(others, [d.names.index(c) for c in spec["cols"]])
+        prec_b[pos], lin_b[pos] = 0.0, 0.0
+        gps.append((pos, np.asarray(spec["x"], float), spec["amp"], spec["ls"]))
     m_g, s_g = priors.g
     tau_rate = -math.log(priors.tau_alpha) / priors.tau_u
     which = np.concatenate([np.full(len(s["sd"]), k) for k, s in enumerate(d.surfaces)])
@@ -177,7 +211,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
     zone_j = jnp.asarray(zone)
     which_j = jnp.asarray(which)
     sds_j = jnp.asarray(sds)
-    m_b, s_b = jnp.asarray(m_b), jnp.asarray(s_b)
+    prec_b, lin_b = jnp.asarray(prec_b), jnp.asarray(lin_b)
     # The walk's prior on (M, g): E (M, g) = diff(M) - g.
     E = np.zeros((W1 - 1, W1 + 1))
     E[np.arange(W1 - 1), np.arange(W1 - 1)] = -1
@@ -264,8 +298,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
         A = A.at[sl_w, sl_w].set(ww + jnp.diag(1 / (st["amp"][which_j] * sds_j) ** 2))
         h = h.at[:R].set(hR).at[sl_w].set(hw)
         # Priors: beta, alpha on M_0, the walk on (M, g), and g.
-        A = A.at[sl_b, sl_b].add(jnp.diag(1 / s_b**2))
-        h = h.at[sl_b].add(m_b / s_b**2)
+        A = A.at[sl_b, sl_b].add(jnp.diag(prec_b))
+        h = h.at[sl_b].add(lin_b)
+        for k, (pos, x, _, _) in enumerate(gps):
+            Lk = jnp.linalg.cholesky(gp_cov(jnp, x, st["gp_ls"][k]))
+            Ki = jax.scipy.linalg.cho_solve((Lk, True), jnp.eye(len(pos)))
+            A = A.at[np.ix_(pos, pos)].add(Ki / st["gp_amp"][k] ** 2)
         A = A.at[pb, pb].add(1 / s_a**2)
         h = h.at[pb].add(m_a / s_a**2)
         A = A.at[pb : i_g + 1, pb : i_g + 1].add(EtE / st["tau"] ** 2)
@@ -345,6 +383,42 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
 
         return jnp.exp(b0.slice_vec(key, jnp.log(st["amp"]), logp, 0.1))
 
+    def update_gp(key, st, theta):
+        """Each process's lengthscale, then its amplitude, given its coefficients f, with
+        f ~ Normal(0, amp^2 Kc(ls)), amp^2 ~ InvGamma(a, b) and log ls ~ Normal. Amplitude and
+        lengthscale trade off against each other given f, so I draw them as a block: the
+        lengthscale from its density with amp^2 integrated out,
+            |Kc|^-1/2 (b + q / 2)^-(a + n / 2),  q = f' Kc^-1 f,
+        then amp^2 from its inverse gamma conditional."""
+        k1, k2 = jax.random.split(key)
+        f = [theta[sl_b][pos] for pos, _, _, _ in gps]
+
+        def quad(k, ls):
+            Lk = jnp.linalg.cholesky(gp_cov(jnp, gps[k][1], ls))
+            z = jax.scipy.linalg.solve_triangular(Lk, f[k], lower=True)
+            return z @ z, 2 * jnp.sum(jnp.log(jnp.diag(Lk)))
+
+        cnt = jnp.asarray([len(pos) for pos, _, _, _ in gps], dtype=theta.dtype)
+        shape = jnp.asarray([a[0] for _, _, a, _ in gps]) + cnt / 2
+        rate = jnp.asarray([a[1] for _, _, a, _ in gps])
+        mu = jnp.asarray([m for _, _, _, (m, _) in gps])
+        sd = jnp.asarray([s for _, _, _, (_, s) in gps])
+
+        def parts(ll):
+            out = [quad(k, jnp.exp(ll[k])) for k in range(len(gps))]
+            return jnp.stack([o[0] for o in out]), jnp.stack([o[1] for o in out])
+
+        def logp_ls(ll):
+            q, ld = parts(ll)
+            return (
+                -ld / 2 - shape * jnp.log(rate + q / 2) - (ll - mu) ** 2 / (2 * sd**2)
+            )
+
+        ll = b0.slice_vec(k1, jnp.log(st["gp_ls"]), logp_ls, 0.3)
+        q, _ = parts(ll)
+        amp2 = (rate + q / 2) / jax.random.gamma(k2, shape)
+        return jnp.sqrt(amp2), jnp.exp(ll)
+
     def outputs(theta, lev, F):
         """The kept quantities building zones' NumPyro model reports, from one state."""
         M = theta[sl_M]
@@ -400,12 +474,16 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
             tau=tau,
             amp=amp,
         )
+        if gps:
+            new["gp_amp"], new["gp_ls"] = update_gp(
+                jax.random.fold_in(key, 7), st, theta
+            )
         return new, outputs(theta, lev, F)
 
     def init(key):
         k = jax.random.split(key, 5)
         jit = lambda kk, shape, sd: jnp.exp(sd * jax.random.normal(kk, shape))  # noqa: E731
-        return dict(
+        out = dict(
             theta=jnp.zeros(G),
             lev=jnp.zeros(S),
             bld_sd=0.2 * jit(k[0], (nz,), 0.1),
@@ -415,6 +493,15 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
             tau=0.005 * jit(k[3], (), 0.2),
             amp=0.5 * jit(k[4], (nz,), 0.2),
         )
+        if gps:
+            kg = jax.random.split(jax.random.fold_in(key, 7))
+            out["gp_amp"] = jnp.asarray(
+                [(a[1] / a[0]) ** 0.5 for _, _, a, _ in gps]
+            ) * jit(kg[0], (len(gps),), 0.2)
+            out["gp_ls"] = jnp.exp(jnp.asarray([m for _, _, _, (m, _) in gps])) * jit(
+                kg[1], (len(gps),), 0.2
+            )
+        return out
 
     swept = jax.jit(jax.vmap(sweep, in_axes=(None, 0, 0)))
     return (
@@ -424,20 +511,33 @@ def make_sampler(d: Design, priors: Priors, settings: Settings):
     )
 
 
-def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
+def run(
+    d: Design,
+    priors: Priors,
+    settings: Settings,
+    log=print,
+    checkpoint=None,
+    gp=None,
+):
     """Sample the posterior of design `d` with the blocked Gibbs sweep. Returns the kept draws
     and the trace as building zones' ChEES run does, (chains, draws, ...), and timings.
-    `checkpoint` (if given) gets the same for the draws so far after each round."""
+    `checkpoint` (if given) gets the same for the draws so far after each round. With `gp`
+    (see `make_sampler`) the trace and the kept draws also carry `gp_amp` and `gp_ls`."""
     jax, _ = b0._jax()
     t0 = time.perf_counter()
-    sweep, init, _ = make_sampler(d, priors, settings)
+    sweep, init, _ = make_sampler(d, priors, settings, gp=gp)
+    scales = ("nu", "sigma", "tau", "amp", "bld_sd") + (
+        ("gp_amp", "gp_ls") if gp else ()
+    )
+    traced = TRACED + (("gp_amp", "gp_ls") if gp else ())
+    kept_names = KEPT + (("gp_amp", "gp_ls") if gp else ())
     key = jax.random.PRNGKey(settings.seed)
     key, sub = jax.random.split(key)
     st = init(jax.random.split(sub, settings.chains))
     jax.block_until_ready(st)
     setup_seconds = time.perf_counter() - t0
-    trace = {k: [] for k in TRACED}
-    kept = {k: [] for k in KEPT}
+    trace = {k: [] for k in traced}
+    kept = {k: [] for k in kept_names}
     total = settings.warmup + settings.draws
     per = max(1, settings.draws // settings.chunks)
     marks = {"warmup": None}
@@ -447,7 +547,7 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         now = time.perf_counter()
         sampling = now - marks["warmup"] if marks["warmup"] else 0.0
         warm = (marks["warmup"] or now) - t_first
-        done = len(trace[TRACED[0]])
+        done = len(trace[traced[0]])
         return {
             "trace": {k: stack(v) for k, v in trace.items()},
             "kept": {k: stack(v) for k, v in kept.items()},
@@ -481,11 +581,11 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
             marks["warmup"] = time.perf_counter()
         if i >= settings.warmup:
             j = i - settings.warmup
-            full = out | {k: st[k] for k in ("nu", "sigma", "tau", "amp", "bld_sd")}
-            for k in TRACED:
+            full = out | {k: st[k] for k in scales}
+            for k in traced:
                 trace[k].append(np.asarray(full[k]))
             if (j + 1) % settings.keep_every == 0:
-                for k in KEPT:
+                for k in kept_names:
                     kept[k].append(np.asarray(full[k]))
             if (j + 1) % per == 0:
                 log(
@@ -493,7 +593,13 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
                     f"tau {np.asarray(st['tau'])[:4].round(5)}, "
                     f"amp {np.asarray(st['amp'])[:2].round(3).tolist()}, "
                     f"bld_sd {np.asarray(st['bld_sd'])[:2].round(4).tolist()}, "
-                    f"{time.perf_counter() - t0:.0f}s"
+                    + (
+                        f"gp_amp {np.asarray(st['gp_amp'])[:2].round(3).tolist()}, "
+                        f"gp_ls {np.asarray(st['gp_ls'])[:2].round(3).tolist()}, "
+                        if gp
+                        else ""
+                    )
+                    + f"{time.perf_counter() - t0:.0f}s"
                 )
                 if j + 1 < settings.draws and checkpoint is not None and kept["beta"]:
                     checkpoint(output())

@@ -466,7 +466,9 @@ def main(argv=None):
     # through truck routes. Building zones with a gym (rentfrontier.building_zones_gym) swaps the
     # truck routes for whether the building has a gym. Building zones with building age
     # (rentfrontier.building_zones_age) keeps the truck routes and the gym and adds year built,
-    # alteration since 2000 and ground-floor retail.
+    # alteration since 2000 and ground-floor retail. Building zones with the unit's floor
+    # (rentfrontier.building_zones_floor) adds a floor curve for elevator buildings, another for
+    # walk-ups and flags for special floors to it.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -489,6 +491,7 @@ def main(argv=None):
         ("building-zones-unit", "building_zones_unit"),
         ("building-zones-gym", "building_zones_gym"),
         ("building-zones-age", "building_zones_age"),
+        ("building-zones-floor", "building_zones_floor"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
