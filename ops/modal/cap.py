@@ -135,6 +135,8 @@ STATED_RATE["building-zones-attrs-500m"] = 0.7
 RATE_STAND_IN = {"building-zones-attrs": "building-zones-gibbs"}
 # Building zones with frontage adds six columns to the 1 km model with attributes.
 RATE_STAND_IN["building-zones-front"] = "building-zones-attrs"
+# Building zones with unit features adds seven columns to the 1 km model with attributes.
+RATE_STAND_IN["building-zones-unit"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -156,6 +158,7 @@ BASELINES = (
     "building-zones-attrs",
     "building-zones-attrs-500m",
     "building-zones-front",
+    "building-zones-unit",
 )
 
 
