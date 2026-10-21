@@ -457,7 +457,9 @@ def main(argv=None):
     # Building attributes (rentfrontier.building_attrs) adds a few measured qualities of each
     # row's building to the normal walk. Building zones on Gibbs
     # (rentfrontier.building_zones_gibbs) samples the building-zones model with a blocked Gibbs
-    # sweep in place of ChEES.
+    # sweep in place of ChEES. Building zones with attributes (rentfrontier.building_zones_attrs)
+    # centres each building's level on its map value plus a few measured qualities, and its
+    # 500 m variant (rentfrontier.building_zones_attrs_500m) halves the surfaces' length-scale.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -474,6 +476,8 @@ def main(argv=None):
         ("building-zones", "building_zones"),
         ("building-attrs", "building_attrs"),
         ("building-zones-gibbs", "building_zones_gibbs"),
+        ("building-zones-attrs", "building_zones_attrs"),
+        ("building-zones-attrs-500m", "building_zones_attrs_500m"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

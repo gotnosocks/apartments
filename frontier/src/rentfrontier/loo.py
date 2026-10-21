@@ -488,6 +488,8 @@ def main(argv=None):
             "whitened-zones",
             "building-zones",
             "building-zones-gibbs",
+            "building-zones-attrs",
+            "building-zones-attrs-500m",
         ):
             raise SystemExit(
                 f"{name}: {run['sampler']}'s scoring needs its location surfaces,"
