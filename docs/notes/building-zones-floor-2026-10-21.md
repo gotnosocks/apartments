@@ -115,8 +115,8 @@ with the column set, and the column's contribution, the variance of x·beta over
 | unit:log_size_rel | +28.65% (28.51 to 28.80) | +28.64% | 43.1% | 2.05e-03 |
 | unit:laundry_in_unit | +6.32% (6.26 to 6.39) | +6.42% | 29.0% | 7.75e-04 |
 
-The data page lists every column. `bld:elevator` lost 3.2 points to the elevator curve. The
-most bath steps for units with two or more full baths fell, by 0.5 to 1.9 points, since those large
+The data page lists every column. `bld:elevator` lost 3.2 points to the elevator curve. Most
+bath steps for units with two or more full baths fell, by 0.5 to 1.9 points, since those large
 units sit on higher floors on average. The step for studios with four full baths, set on 14
 training ads, rose 2.6 points. Every other column stayed within 0.6 points of the age run.
 
