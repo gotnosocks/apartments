@@ -10,7 +10,7 @@ levels' mean moved:
 x_s holds eight columns, each constant within a building:
 
 1. `bld:log_height`, the log of the building's roof height in the NYC building footprints
-   (`height_roof`, joined on the registry's BIN), over HEIGHT_REF. HEIGHT_REF is about the
+   (`height_roof`, joined on the registry's BIN), over HEIGHT_REF. HEIGHT_REF, 78 ft, rounds the
    geometric mean height of the NYC-only v36 dense rows with a height, 78.5 ft. I set
    `bld:height_unknown` where the BIN is a placeholder (N000000) or missing, or where no
    footprint gives it a positive height, and give those buildings no fallback to MapPLUTO's

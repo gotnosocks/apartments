@@ -23,7 +23,7 @@ TRUTH = {
 }
 
 
-def registry_with_bins(n=290, seed=0):
+def registry_with_bins(seed=0):
     """`registry_of`, every NYC building with a BIN, ten of them placeholders."""
     reg = registry_of(seed)
     b = reg.building.astype(int).to_numpy()
@@ -92,7 +92,9 @@ def test_columns_code_heights_and_attributes():
     a = attrs.set_index("building").reindex(frame.building)
     np.testing.assert_array_equal(x["bld:elevator"], a.elevator.eq("yes"))
     np.testing.assert_array_equal(x["bld:condo"], a.tenure.eq("condo"))
-    np.testing.assert_array_equal(x["bld:doorman_part"], a.doorman.eq("part"))
+    np.testing.assert_array_equal(x["bld:elevator_unknown"], a.elevator.eq("unknown"))
+    for level in ("full", "part", "virtual"):
+        np.testing.assert_array_equal(x[f"bld:doorman_{level}"], a.doorman.eq(level))
     # Two zones without NJ.
     assert [s["name"] for s in d.surfaces] == ["manhattan", "outer"]
 

@@ -130,8 +130,8 @@ STATED_RATE = {"building-zones-gibbs": 1.4}
 # 0.7 s allows for the A100 scaling worse than thelio's card on the bigger dense factor.
 STATED_RATE["building-zones-attrs-500m"] = 0.7
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
-# Building zones with attributes adds eight columns to building zones on Gibbs' global block
-# of 922.
+# Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
+# columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
 RATE_STAND_IN = {"building-zones-attrs": "building-zones-gibbs"}
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
@@ -354,6 +354,7 @@ def fit_stages(
                 and measured_rate(RATE_STAND_IN[model], features, runs)
             )
             or STATED_RATE.get(model)
+            or STATED_RATE.get(RATE_STAND_IN.get(model))
         )
         stages = {
             "gpu": (
