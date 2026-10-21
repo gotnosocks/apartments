@@ -157,6 +157,7 @@ BASELINES = (
     ("--model", "building-zones-unit"),
     ("--model", "building-zones-gym"),
     ("--model", "building-zones-age"),
+    ("--model", "building-zones-floor"),
 )
 
 

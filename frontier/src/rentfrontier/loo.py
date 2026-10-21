@@ -494,6 +494,7 @@ def main(argv=None):
             "building-zones-unit",
             "building-zones-gym",
             "building-zones-age",
+            "building-zones-floor",
         ):
             raise SystemExit(
                 f"{name}: {run['sampler']}'s scoring needs its location surfaces,"
