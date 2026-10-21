@@ -35,7 +35,7 @@ runs the same model with every zone's surface at 500 m.
 I cap the 2 bedroom bath ladder at three full baths: the design drops B0.3's step
 `bed=2:full>=4` (DROPPED_STEPS), so a 2 bedroom with four or more full baths takes the
 premium of one with three. Few ads set that step, and its draws failed the convergence
-gate in both fits of 2026-10-21 (R-hat 1.021, ESS about 325). The other bedroom levels
+gate in both fits of 2026-10-20 (R-hat 1.021, ESS about 325). The other bedroom levels
 keep all their steps.
 
     python -m rentfrontier.run --model building-zones-attrs --split latest --name NAME
@@ -186,7 +186,10 @@ def design(
         footprints = pd.read_parquet(FOOTPRINTS, columns=["bin", "height_roof"])
     d = whitened_zones.design(frame, start, registry=registry, nj_registry=nj_registry)
     on = [j for j, n in enumerate(d.names) if n not in DROPPED_STEPS]
-    d = dataclasses.replace(d, x=d.x[:, on], names=[d.names[j] for j in on])
+    count = {n: c for n, c in d.count.items() if n not in DROPPED_STEPS}
+    d = dataclasses.replace(
+        d, x=d.x[:, on], names=[d.names[j] for j in on], count=count
+    )
     lengthscale = LENGTHSCALE if lengthscale is None else lengthscale
     if lengthscale != whitened_zones.LENGTHSCALE:
         d = dataclasses.replace(
