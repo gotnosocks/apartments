@@ -141,7 +141,7 @@ RATE_STAND_IN["building-zones-unit"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-gym"] = "building-zones-attrs"
 # Building zones with building age adds ten columns to the unit model.
 RATE_STAND_IN["building-zones-age"] = "building-zones-attrs"
-# Building zones with the unit's floor adds 46 floor curve columns and seven flags to the age
+# Building zones with the unit's floor adds 51 floor curve columns and seven flags to the age
 # model.
 RATE_STAND_IN["building-zones-floor"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score

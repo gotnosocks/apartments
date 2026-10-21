@@ -467,7 +467,8 @@ def main(argv=None):
     # truck routes for whether the building has a gym. Building zones with building age
     # (rentfrontier.building_zones_age) keeps the truck routes and the gym and adds year built,
     # alteration since 2000 and ground-floor retail. Building zones with the unit's floor
-    # (rentfrontier.building_zones_floor) adds floor bands, penthouse and walk-up floors to it.
+    # (rentfrontier.building_zones_floor) adds a floor curve for elevator buildings, another for
+    # walk-ups and flags for special floors to it.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),

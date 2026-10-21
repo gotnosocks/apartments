@@ -22,8 +22,8 @@ them a Gaussian process prior in place of separate Normal priors
 The input is the log of the floor. Going from floor 2 to 4 changes the light, the noise and
 the stairs a lot more than going from 32 to 34, so I expect the curve to move fast near the
 ground and slowly high up, and a single lengthscale fits that on the log scale. Each group's
-amplitude has a HalfNormal(GP_AMP) prior and its lengthscale a LogNormal(GP_LS) prior, and the
-sampler draws both every sweep. I keep every floor column even where no training row sets it,
+squared amplitude has an InvGamma(GP_AMP) prior and its lengthscale a LogNormal(GP_LS) prior,
+and the sampler draws both every sweep, as a block. I keep every floor column even where no training row sets it,
 so the process fills in those floors from their neighbours.
 
 On top of the curve at the unit's floor I add these flags, against a unit without them:
@@ -90,8 +90,9 @@ FLOOR_SNAPSHOT = Path(
 ELEV_CAP = 47
 WALKUP_CAP = 6
 GROUPS = (("elev", ELEV_CAP), ("walkup", WALKUP_CAP))
-# The amplitude's HalfNormal scale, and the mean and sd of the log lengthscale on log floor.
-GP_AMP = 0.2
+# The shape and scale of the inverse gamma prior on the amplitude squared (median amplitude
+# 0.15, 90% between 0.09 and 0.34), and the mean and sd of the log lengthscale on log floor.
+GP_AMP = (2.0, 0.04)
 GP_LS = (math.log(0.7), 0.5)
 FLAGS = (
     "unit:elev_top",
@@ -246,7 +247,7 @@ def run_record(d: Design) -> dict:
         "floor_gp": {
             "caps": dict(GROUPS),
             "input": "log floor",
-            "amp_halfnormal": GP_AMP,
+            "amp2_invgamma": list(GP_AMP),
             "log_ls_normal": list(GP_LS),
             "nugget": building_zones_gibbs.GP_NUGGET,
         },
