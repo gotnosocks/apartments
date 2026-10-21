@@ -3,6 +3,17 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-21 01:10 UTC): building zones with building attributes
+
+- #1182 adds `building-zones-attrs` (roof height, elevator, condo, doorman on the building
+  levels' mean) and its 500 m twin. Ben's go covered these two fits only; the FIT HOLD applies
+  again after them.
+- The 1 km fit `building-zones-attrs-b0-latest-9bd8c1a3-dense-w650` misses the gate on
+  beta[bed=2:full>=4] only (R-hat 1.021). Results are in
+  `docs/notes/building-zones-attrs-2026-10-21.md`.
+- The 500 m fit runs as unit `modal-fit-20261020-205809-633841`. Export scripts are in
+  `/data1/apartments/tmp/bza` (`summ.py`, `explainer/export.py`, `explainer/page.py`).
+
 ## Update (2026-10-16 10:00 UTC): NB9 serve, all-scraped fit held on the budget
 
 - NB9 board baseline: `m0-base-base-v1-rows-4ec4f3c9-a100-300w1500d-nb-nb9`, fit on a Modal A100
