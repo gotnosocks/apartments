@@ -209,7 +209,7 @@ It misses the gate on four quantities:
 | B3 | spread 0.005 to 0.015 lower in Manhattan, 0 to 0.008 lower in BK+Q | 0.2204 (0.008 lower), 0.1391 (0.0016 lower) | hit |
 | B4 | share 0.02 to 0.08 lower in each zone | 0.468 (0.026 lower), 0.361 (0.002 lower) | half: hit in Manhattan, miss in BK+Q |
 | B5 | each amplitude 0% to 40% higher | 0.336 (67% lower), 0.176 (54% lower) | miss |
-| B6 | each gamma within 2 points | largest move +0.41 points (height unknown) | hit |
+| B6 | each gamma within 2 points | largest moves +0.41 points (height unknown, part-time doorman) | hit |
 | B7 | zone gap within 2 points | +29.9% (29.3 to 30.4), 0.2 lower | hit |
 | B8 | nu within 0.01, sigmas within 0.002 | nu 3.83, sigmas unchanged to 0.0001 | hit |
 

@@ -11,7 +11,7 @@ in `/data1/apartments/tmp/bridge` (thelio).
 - The 1 km fit `building-zones-attrs-b0-latest-9bd8c1a3-dense-w650` misses the gate on
   beta[bed=2:full>=4] only (R-hat 1.021). Results are in
   `docs/notes/building-zones-attrs-2026-10-21.md`.
-- The 500 m fit misses the gate on both amplitudes (R-hat 1.024). Export scripts are in
+- The 500 m fit misses the gate on both amplitudes, the bath step and tau (max R-hat 1.024). Export scripts are in
   `/data1/apartments/tmp/bza` (`summ.py`, `explainer/export.py`, `explainer/page.py`).
 
 ## Update (2026-10-16 10:00 UTC): NB9 serve, all-scraped fit held on the budget
