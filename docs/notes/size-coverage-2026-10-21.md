@@ -64,8 +64,8 @@ is the more useful number: one imputed size in ten misses by 11% or more.
 
 The leftover is in log points against the zone mean. Ads stating a size sit 10 points above
 the rest across the city, but within the same building the gap is 0.9 points. Size is stated
-mostly in buildings that rent above the model, and an ad in a building does not rent more for
-stating it. The ads still missing after (c) lean toward Brooklyn + Queens and larger units.
+mostly in buildings that rent above the model. Within a building, an ad stating its size rents
+less than 1% more. The ads still missing after (c) lean toward Brooklyn + Queens and larger units.
 
 ## Next steps
 
