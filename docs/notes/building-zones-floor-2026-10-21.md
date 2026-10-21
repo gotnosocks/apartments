@@ -9,7 +9,7 @@ flag per group. The PR has the snapshot's coverage tables, the design and the pr
 
 The data page with every table and curve is at
 https://claude.ai/artifact/FxkYoSW942AWctAVGrf1iF, and the step-through explainer of the fit
-is at EXPLAINER_URL.
+is at https://claude.ai/artifact/1HnpNRK5AJqHXnD5udwHg3.
 
 ## The run
 
