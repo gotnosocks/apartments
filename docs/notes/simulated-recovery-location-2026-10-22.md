@@ -41,8 +41,8 @@ All numbers are in points of log rent x100.
 | `bld:log1p_noise` | -0.60 | -0.56 (-0.72 to -0.38) |
 
 The water term comes back 0.49 smaller in size, and its interval reaches 0. In the nearest
-fifth by water distance the map runs 0.45 above the truth, which accounts for that gap: the map
-took a little of the water's level. The big-park term goes the other way, 0.15 larger in size
+fifth by water distance the map runs 0.45 above the truth, which is consistent with the map
+taking a little of the water's level. The big-park term goes the other way, 0.15 larger in size
 than planted, and the map in the nearest fifth by big-park distance runs 0.35 below the truth.
 Both moves are smaller than each term's posterior SD.
 
@@ -61,15 +61,15 @@ comes back at 0.170 and 0.102 against realized spreads of 0.176 and 0.101.
 
 ## Reading it
 
-When the six location terms are true, the model returns them, and the map doesn't absorb them.
-The leakage between the map and the water term runs under half a point, and the big-park term
-around Central and Prospect Park comes back whole.
+When the six location terms are true, the model returns five of them closely and the water term
+loosely. The map takes about 0.45 points of the water's level in its nearest fifth, and the
+big-park term around Central and Prospect Park comes back whole.
 
 This helps read the building holdout. There the location fit's map moved against the columns
 at held-out buildings, so its forecasts barely changed. Here, with the columns true by
-construction, the model keeps them apart from the map, so the holdout result doesn't come from
-the model failing to tell the two apart. It fits a simpler reading: the floor fit's map already
-holds the level near big parks and the water, both fits describe the same level, and the
-columns name part of it without adding information a new building's forecast can use. The
-simulation can't say whether the columns cause that level, only that the model would find them
-if they did.
+construction and set at the location fit's own medians, the model keeps them mostly apart from
+the map, so the holdout result is unlikely to come from the model failing to tell the two
+apart. My reading is that the floor fit's map already holds the level near big parks and the
+water, both fits describe the same level, and the columns account for part of it without adding
+information a new building's forecast can use. The simulation can't say whether the columns
+cause that level, only that the model would find them if they did.
