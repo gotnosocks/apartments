@@ -7,7 +7,8 @@ script prints the summed elpd difference with three standard errors:
     row: the plain sd of per-ad differences times sqrt(n),
     building: the sum of differences clustered by building,
     two-way: clustered by building and by listing week (Cameron, Gelbach and Miller 2011),
-        V = V_building + V_week - V_building-week.
+        V = V_building + V_week - V_building-week, floored at V_building when the
+        difference comes out smaller.
 """
 
 import sys

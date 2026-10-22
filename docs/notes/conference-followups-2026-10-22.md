@@ -52,14 +52,14 @@ The map uses a fixed lengthscale of 1.0 km (`whitened_zones.LENGTHSCALE`). I bui
 2. Take the 0.1 to 99.9% quantile box.
 3. Widen it by the boundary factor C = 1.5.
 
-Each axis then gets ceil(1.75 · C · S / l) waves, where S is the half-width.
+Each axis then gets ceil(1.75 · L / l) waves, where L = C · S is the widened half-width and S the half-width of the quantile box.
 
-| zone | angle | half-widths S (km) | box (km) | waves | basis functions | smallest resolvable lengthscale (km) |
+| zone | angle | widened half-widths L (km) | box (km) | waves | basis functions | smallest resolvable lengthscale (km) |
 |---|---|---|---|---|---|---|
 | Manhattan | 25.5° | 2.625 × 9.436 | 5.25 × 18.87 | 5 × 17 | 85 | 0.92 × 0.97 |
 | not Manhattan | 39.0° | 5.672 × 6.262 | 11.34 × 12.52 | 10 × 11 | 110 | 0.99 × 1.00 |
 
-The smallest resolvable lengthscale per axis is 1.75 · L / m, where L is the widened half-width and m the number of waves. The rule puts it at about 1 km by construction, in line with the fixed lengthscale.
+The smallest resolvable lengthscale per axis is 1.75 · L / m, where m is the number of waves. The rule puts it at about 1 km by construction, in line with the fixed lengthscale.
 
 The `gp_ls` in the fit summary belongs to the floor curves and is measured in log-floor units, not km. The floor-curve prior:
 - amplitude² is InvGamma(2, 0.04);
