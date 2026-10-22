@@ -22,7 +22,7 @@ The coefficient is in points of log rent x100 per unit of log(1 + complaints a y
 |---|---|---|
 | passes the gate | max R-hat 1.004 (`unit:elev_f16`), min ESS 586 (`amp[outer]`) | yes |
 | `bld:log1p_noise` between -2 and +0.5, interval reaching 0 or just below it | -0.58 (-0.75 to -0.39) | yes on the point, no on the interval, which lies clearly below 0 |
-| map amplitudes move by under 1% | Manhattan 0.916 to 0.902 (-2%), outside 0.360 to 0.380 (+6%) | no |
+| map amplitudes move by under 1% | Manhattan 0.916 to 0.902 (-2%), outside 0.360 to 0.380 (+5.5%) | no |
 | `bld_sd` moves by under 1% | 0.183 and 0.114, unchanged | yes |
 | unit premiums move by under 0.1 | all unit columns move by under 0.01 | yes |
 | held-out log score within 1 SE of the base | not scored, the fit ran fit-only | not run |
@@ -57,3 +57,5 @@ itself may be stronger than 0.58. A measure that doesn't depend on who calls, li
 building's own street, would separate the two.
 
 Neither model is served, so the site doesn't change.
+
+The explainer page for this fit is https://claude.ai/artifact/4uWDtwv3nLHcmNGWxsd3h6.
