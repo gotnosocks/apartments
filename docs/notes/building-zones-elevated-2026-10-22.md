@@ -51,7 +51,7 @@ changed by 0.05 or less.
 
 The held-out sample includes 1,005 ads in 46 elevated-track buildings. The location model priced
 them 0.62 points too high on average, so it already had them about right. The elevated fit lowers
-them by 2.5 and leaves them 1.48 too low. On those ads elpd falls by 6.6 (SE 32.4 by building),
+them by about 2.1 and leaves them 1.48 too low. On those ads elpd falls by 6.6 (SE 32.4 by building),
 RMSE stays at 15.49, and 90% coverage goes from 91.6% to 92.0%. On the other 183,432 ads elpd
 falls by 34.0 (SE 40.0). Over all held-out ads the change is -40.6 with SE 51.3.
 
@@ -62,8 +62,8 @@ of 0.043%, and the prediction change explains -0.054%, against 0.27%.
 ## Reading it
 
 Training buildings along the track rent below their neighbors, and the 46 held-out ones don't.
-With only 46 held-out buildings, the held-out sample can't tell a 2.5-point discount from none: the elpd SE on them is 32 and the
-whole effect on their ads is a few points. So the held-out buildings neither confirm nor rule out
+With only 46 held-out buildings, the held-out sample can't tell a 2.5-point discount from
+none: the elpd SE on them is 32, and the whole effect on their ads is a few points. So the held-out buildings neither confirm nor rule out
 the training estimate, and they lean toward a smaller one.
 
 ## Selection
