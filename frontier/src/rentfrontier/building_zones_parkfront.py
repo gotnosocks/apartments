@@ -50,7 +50,7 @@ NAME = "building-zones-parkfront"
 PARK_FRONT_SNAPSHOT = Path(
     os.environ.get(
         "FRONTIER_BUILDING_PARK_FRONT",
-        EXTERNAL_ROOT / "building-park-front" / "20261022-9723e553",
+        EXTERNAL_ROOT / "building-park-front" / "20261022-5ddc0e5d",
     )
 )
 FRONT_M = 40.0

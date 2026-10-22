@@ -10,15 +10,17 @@ those two buildings. I wrote these predictions before launching the fit.
 
 `rentfrontier.building_park_front` measures, for each registry building, the distance from its
 footprint outline to the edge of the nearest NYC Parks property of 5 acres or more. I leave out
-malls, parkways, traffic triangles and plazas, and managed sites, since the Broadway and Eastern
-Parkway medians and Grand Army Plaza's circle aren't parks to look onto. The snapshot is
-`building-park-front/20261022-9723e553`: 70,175 buildings, 68,650 of them with an outline.
+malls, parkways, traffic triangles and plazas, managed sites and institutional grounds, since the
+Broadway and Eastern Parkway medians, Grand Army Plaza's circle and the lawns around the Natural
+History Museum aren't parks to look onto. I keep the High Line and the Battery Park City
+esplanade, which are open green space a window can look onto. The snapshot is
+`building-park-front/20261022-5ddc0e5d`: 70,175 buildings, 68,650 of them with an outline.
 
 `rentfrontier.building_zones_parkfront` adds one building column to `building-zones-location`:
 `bld:park_front` is 1 when that distance is under 40 m, which takes in a building across a
 street or an avenue from the park. A building with no outline gets 0.
 
-On the latest split's 1,706,837 training ads, 55,905 (3.3%) are in the 1,159 buildings under
+On the latest split's 1,706,837 training ads, 52,661 (3.1%) are in the 1,124 buildings under
 40 m.
 
 ## The free check
@@ -31,12 +33,12 @@ training ads:
 
 | threshold | buildings | gap in 300 m cells | gap in 150 m cells |
 |---|---|---|---|
-| under 30 m | 848 | +3.6 (SE 1.2, 138 cells) | +2.0 (SE 1.1, 178 cells) |
-| under 40 m | 1,159 | +4.9 (SE 1.2, 162 cells) | +4.0 (SE 1.0, 227 cells) |
-| under 60 m | 1,751 | +4.4 (SE 1.1, 175 cells) | +4.0 (SE 0.9, 246 cells) |
+| under 30 m | 838 | +3.3 (SE 1.2, 134 cells) | +1.8 (SE 1.1, 174 cells) |
+| under 40 m | 1,124 | +4.8 (SE 1.2, 157 cells) | +3.9 (SE 1.1, 219 cells) |
+| under 60 m | 1,708 | +4.2 (SE 1.1, 170 cells) | +4.0 (SE 0.9, 238 cells) |
 
-The medians run lower, 1.6 to 2.8, so a few cells with large gaps lift the means. Buildings
-within 200 m of a park that don't face it average -2.8, against +1.7 for those facing it. I
+The medians run lower, 1.6 to 3.0, so a few cells with large gaps lift the means. Buildings
+within 200 m of a park that don't face it average -2.8, against +1.6 for those facing it. I
 chose 40 m before fitting, as the threshold closest to a street's width plus sidewalks.
 
 ## The fit
