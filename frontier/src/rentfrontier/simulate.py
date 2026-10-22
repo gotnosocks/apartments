@@ -1,6 +1,7 @@
 """Simulated rents with known effects, for checking that a building-zones fit recovers them.
 
-I take a finished fit of `building-zones-floor` or `building-zones-location` and its exact
+I take a finished fit of `building-zones-floor`, `building-zones-location` or
+`building-zones-parkfront` and its exact
 design: the same rows, columns, missing values, buildings, zones, map bases and weeks. I set
 every term to a known value, the truth, and draw each row's log rent from the model:
 
@@ -27,7 +28,8 @@ scenario then changes some of it:
    its value. A building with no MapPLUTO floor count gains nothing.
 4. `fitted`: the medians as they are. On a `building-zones-location` fit this plants the
    transit, parks and noise terms at the fit's values, so a fit on the copy shows whether they
-   come back without moving into the map.
+   come back without moving into the map. On a `building-zones-parkfront` fit it also plants
+   `bld:park_front`.
 
     python -m rentfrontier.simulate make RUN SCENARIO OUT [--seed N] [--root DIR]
     python -m rentfrontier.simulate score SIM_RUN TRUTH_DIR OUT_JSON [--root DIR]
@@ -57,6 +59,7 @@ from . import (
     building_attrs,
     building_zones_floor,
     building_zones_location,
+    building_zones_parkfront,
     splits,
     whitened_zones,
 )
@@ -68,6 +71,7 @@ SCENARIOS = ("realistic", "null", "height", "fitted")
 SPECS = {
     building_zones_floor.NAME: building_zones_floor,
     building_zones_location.NAME: building_zones_location,
+    building_zones_parkfront.NAME: building_zones_parkfront,
 }
 WALKUP_SLOPE = 0.004  # log points a flight above floor 1, in the realistic set
 ELEV_TOP = math.log(1.04)  # a 4% top-floor bump in elevator buildings
@@ -86,6 +90,7 @@ SNAPSHOT_KEYS = (
     "building_transit",
     "building_parks",
     "building_noise",
+    "building_park_front",
 )
 LEVEL = 0.90
 # The prefix of the building-mean columns a fit may add to the truth's (building_zones_mundlak).

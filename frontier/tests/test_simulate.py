@@ -121,7 +121,11 @@ def test_fitted_keeps_the_medians():
     np.testing.assert_array_equal(t["beta"], med["beta"])
     np.testing.assert_array_equal(t["bld"], med["bld"])
     assert not t["planted"].any()
-    assert set(simulate.SPECS) == {"building-zones-floor", "building-zones-location"}
+    assert set(simulate.SPECS) == {
+        "building-zones-floor",
+        "building-zones-location",
+        "building-zones-parkfront",
+    }
 
 
 def test_term_rows_with_no_terms():
