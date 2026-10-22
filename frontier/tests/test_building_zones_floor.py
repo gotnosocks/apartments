@@ -3,16 +3,15 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-
 import test_building_zones_age as tbs
 import test_building_zones_attrs as tba
 import test_building_zones_gym as tby
 import test_building_zones_unit as tbu
-from rentfrontier import building_zones
+
+from rentfrontier import building_zones, unit_floor
 from rentfrontier import building_zones_age as bzs
 from rentfrontier import building_zones_floor as bzf
 from rentfrontier import building_zones_gibbs as bzg
-from rentfrontier import unit_floor
 
 # A curve rising with log floor in elevator buildings and falling with each flight of stairs
 # in walk-ups, and the flags.
@@ -212,19 +211,21 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-parkfront",
         "building-zones-waterfront",
         "building-zones-elevated",
+        "building-zones-floor-parkfront",
     ],
 )
 def test_run(tmp_path, monkeypatch, model):
-    from rentfrontier import building_attrs, run as runmod, whitened_zones
+    from rentfrontier import building_attrs, whitened_zones
     from rentfrontier import building_zones_attrs as bza
+    from rentfrontier import building_zones_elevated as bze
     from rentfrontier import building_zones_front as bzfront
     from rentfrontier import building_zones_gym as bzy
     from rentfrontier import building_zones_noise as bzn
-    from rentfrontier import building_zones_elevated as bze
     from rentfrontier import building_zones_parkfront as bzk
     from rentfrontier import building_zones_parks as bzp
     from rentfrontier import building_zones_transit as bzt
     from rentfrontier import building_zones_unit as bzu
+    from rentfrontier import run as runmod
 
     frame = tba._nyc_frame(1500, 60, 5)
     dataset = tmp_path / "b0-data"
