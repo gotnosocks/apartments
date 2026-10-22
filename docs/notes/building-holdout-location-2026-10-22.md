@@ -116,3 +116,5 @@ help a forecast, as a street's noise or a building's view of the park might, and
 distances mostly vary more slowly. I haven't tested that.
 
 Neither fit is served, and the site doesn't change.
+
+The explainer page for these fits is https://claude.ai/artifact/WPb5gigeP4qpMQSmqLiDVj.
