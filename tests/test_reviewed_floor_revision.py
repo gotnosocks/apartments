@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 import pytest

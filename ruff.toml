@@ -198,6 +198,7 @@ extend-exclude = [
     "src/apartments/candidate_search.py",
     "src/apartments/candidate_snapshot.py",
     "src/apartments/corrections.py",
+    "src/apartments/description_recovery.py",
     "src/apartments/direct_floor_projection.py",
     "src/apartments/discovery_detail_refresh.py",
     "src/apartments/elevator_corrections.py",
