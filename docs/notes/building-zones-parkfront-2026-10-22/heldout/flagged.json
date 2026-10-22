@@ -1,0 +1,27 @@
+{
+ "column": "bld:park_front",
+ "flagged": {
+  "ads": 5204,
+  "buildings": 122,
+  "elpd_diff": 51.6,
+  "se_buildings": 66.6,
+  "rmse": 19.576,
+  "rmse_base": 19.902,
+  "mean_resid_base": 4.27,
+  "mean_resid_new": 1.62,
+  "cover90": 0.9264,
+  "cover90_base": 0.9268
+ },
+ "rest": {
+  "ads": 179233,
+  "buildings": 6676,
+  "elpd_diff": 135.4,
+  "se_buildings": 44.7,
+  "rmse": 18.101,
+  "rmse_base": 18.113,
+  "mean_resid_base": -0.54,
+  "mean_resid_new": -0.47,
+  "cover90": 0.9271,
+  "cover90_base": 0.9272
+ }
+}
