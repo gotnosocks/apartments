@@ -13,7 +13,8 @@ footprint outline to the edge of the nearest NYC Parks property of 5 acres or mo
 malls, parkways, traffic triangles and plazas, managed sites and institutional grounds, since the
 Broadway and Eastern Parkway medians, Grand Army Plaza's circle and the lawns around the Natural
 History Museum aren't parks to look onto. I keep the High Line and the Battery Park City
-esplanade, which are open green space a window can look onto. The snapshot is
+esplanade, which are open green space a window can look onto. The flag doesn't change over time, so an
+ad from before the High Line's sections opened (2009 to 2014) still gets it. The snapshot is
 `building-park-front/20261022-5ddc0e5d`: 70,175 buildings, 68,650 of them with an outline.
 
 `rentfrontier.building_zones_parkfront` adds one building column to `building-zones-location`:
