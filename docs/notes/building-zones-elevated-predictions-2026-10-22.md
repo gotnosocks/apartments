@@ -13,13 +13,16 @@ tracks and the one around the corner. I wrote these predictions before launching
 shape, it keeps the stretch between consecutive stops whose station structure is Elevated or
 Viaduct in the MTA station list. It then measures, for each registry building, the distance
 from its footprint outline to the nearest point of that track. A stretch between an elevated
-stop and an underground one is left out, so the block or two before a portal reads as not
-elevated. The snapshot is `building-elevated/20261022-c9be347c`: 70,175 buildings, 68,650 of
+stop and an underground one is left out, so the track between the last elevated stop and the
+portal reads as not elevated. On Broadway that covers the block east of Marcy Avenue, where the
+structure runs on toward the Williamsburg Bridge. The GTFS shape also cuts the curve from
+Broadway onto Myrtle Avenue about 50 m south of the street, so a few dozen buildings there read
+too far. The snapshot is `building-elevated/20261022-c9be347c`: 70,175 buildings, 68,650 of
 them with an outline.
 
 `rentfrontier.building_zones_elevated` adds one building column to `building-zones-location`:
-`bld:elevated` is 1 when that distance is under 30 m. Half the width of Broadway in Bushwick
-plus its sidewalk comes to about 15 to 20 m, so 30 m takes in the buildings on both sides of
+`bld:elevated` is 1 when that distance is under 30 m. Buildings facing the structure on
+Broadway and Myrtle Avenue measure 9 to 13 m, so 30 m takes in the buildings on both sides of
 the street and leaves out the ones on the side streets.
 
 On the latest split's 1,706,837 training ads, 11,162 (0.7%) are in the 518 buildings under
