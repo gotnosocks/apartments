@@ -77,3 +77,16 @@ def test_building_split_holds_out_whole_buildings():
     assert (by["min"] == by["max"]).all()
     assert by["max"].sum() == round(0.1 * frame.building.nunique())
     np.testing.assert_array_equal(held, splits.SPLITS["buildings"](frame))
+
+
+def test_building_split_survives_split_and_rules():
+    import numpy as np
+    import pandas as pd
+
+    from rentfrontier import data, splits
+
+    rng = np.random.default_rng(3)
+    frame = pd.DataFrame({"building": rng.integers(0, 200, 3000)})
+    out, held = data.split_and_rules(frame, "buildings", [])
+    np.testing.assert_array_equal(held, splits.building_split(out))
+    assert held.sum() > 0
