@@ -30,7 +30,7 @@ All numbers are in points of log rent x100.
 | prediction | result | |
 |---|---|---|
 | passes the gate | max R-hat 1.006, min ESS 682 (`amp[outer]`) | held |
-| 17 to 22 minutes, $0.75 to $0.95 | 18 min, $0.74 | held on time, a cent under on cost |
+| 17 to 22 minutes, $0.75 to $0.95 | 18 min, $0.74 | time held, cost missed by a cent |
 | median of `bld:avenue_midblock` in -2.5 to +0.5, 90% interval reaching 0 | -1.83, interval -2.48 to -1.27 | median held, interval missed |
 | `bld:truck_through` moves under 0.5 | +0.56 | missed |
 | other terms move under 0.1 | `bld:log_big_park_km` -0.18, the rest under 0.1 | missed |
