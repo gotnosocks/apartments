@@ -40,7 +40,7 @@ percentile buildings:
 
 | term | median distance | p10 to p90 of the term |
 |---|---|---|
-| big park, 30 acres or more | 1.05 km | -1.9 to +2.9, a spread of 4.8 points |
+| big park, 30 acres or more | 1.05 km | -1.9 to +2.8, a spread of 4.8 points |
 | shoreline | 1.15 km | -1.8 to +1.4, a spread of 3.2 points |
 | park of 1 acre or more | 0.24 km | -0.4 to -0.1, a spread of 0.3 points |
 | all three | | -2.9 to +2.7, a spread of 5.7 points |

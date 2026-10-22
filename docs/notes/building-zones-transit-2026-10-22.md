@@ -23,7 +23,7 @@ All coefficients in points of log rent x100.
 | `bld:log_station_km` within 2 of 0, interval covering 0 or slightly below | -0.32 (-0.55 to -0.12) | partly: the point is close to 0, but the interval sits wholly below it |
 | each zone's map amplitude falls 0% to 8% | Manhattan 0.916 to 0.887 (-3%), outside 0.360 to 0.332 (-8%) | yes |
 | `bld_sd` moves by under 2% | 0.183 and 0.114, unchanged | yes |
-| the unit premiums move by under 0.2 | all nine unit-premium columns move by under 0.003 | yes |
+| the unit premiums move by under 0.2 | all unit columns move by under 0.01 | yes |
 | held-out log score within 2 SE of the base | not scored, the fit ran fit-only | not run |
 
 The routes coefficient came out much smaller than the free check suggested. That check
