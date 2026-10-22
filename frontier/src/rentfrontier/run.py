@@ -479,6 +479,8 @@ def main(argv=None):
     # (rentfrontier.building_zones_avenue) adds a flag for mid-block avenue frontage on top.
     # Building zones with park frontage (rentfrontier.building_zones_parkfront) adds instead a
     # flag for a building within 40 m of a large park.
+    # Building zones with waterfront (rentfrontier.building_zones_waterfront) adds a flag for a
+    # building within 150 m of the shoreline.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -509,6 +511,7 @@ def main(argv=None):
         ("building-zones-location", "building_zones_location"),
         ("building-zones-avenue", "building_zones_avenue"),
         ("building-zones-parkfront", "building_zones_parkfront"),
+        ("building-zones-waterfront", "building_zones_waterfront"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
