@@ -25,6 +25,8 @@ score` and check leakage with a version of the location recovery's `leak.py` fro
 
 ## Predictions
 
+All numbers are in points of log rent x100.
+
 - It passes the gate (R-hat <= 1.01, ESS > 400), in 16 to 24 minutes.
 - The 90% interval of `bld:park_front` covers 3.46, and its median lands within 0.6 of it.
 - The six smooth location terms' intervals cover their planted values, and 90% coverage across
