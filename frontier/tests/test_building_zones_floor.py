@@ -208,11 +208,13 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-parks",
         "building-zones-noise",
         "building-zones-location",
+        "building-zones-avenue",
     ],
 )
 def test_run(tmp_path, monkeypatch, model):
     from rentfrontier import building_attrs, run as runmod, whitened_zones
     from rentfrontier import building_zones_attrs as bza
+    from rentfrontier import building_zones_front as bzfront
     from rentfrontier import building_zones_gym as bzy
     from rentfrontier import building_zones_noise as bzn
     from rentfrontier import building_zones_parks as bzp
@@ -281,6 +283,14 @@ def test_run(tmp_path, monkeypatch, model):
         {"building": blds, "noise_per_year": np.linspace(0.0, 300.0, len(blds))}
     ).to_parquet(nsnap / "noise.parquet")
     monkeypatch.setattr(bzn, "NOISE_SNAPSHOT", nsnap)
+    pd.DataFrame(
+        {
+            "building": blds,
+            "front_width_ft": np.where(np.arange(len(blds)) % 3 == 0, 70.0, 30.0),
+            "corner": (np.arange(len(blds)) % 2).astype(float),
+        }
+    ).to_parquet(tmp_path / "frontage.parquet")
+    monkeypatch.setattr(bzfront, "FRONTAGE", tmp_path / "frontage.parquet")
     monkeypatch.setenv("FRONTIER_DATASET", str(dataset))
     monkeypatch.setenv("FRONTIER_COMMIT", "abc1234")
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")

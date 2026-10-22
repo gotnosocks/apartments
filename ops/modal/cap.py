@@ -154,6 +154,8 @@ RATE_STAND_IN["building-zones-parks"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-noise"] = "building-zones-attrs"
 # Building zones with location adds the transit, parks and noise columns together.
 RATE_STAND_IN["building-zones-location"] = "building-zones-attrs"
+# Building zones with avenue adds one building column to the location model.
+RATE_STAND_IN["building-zones-avenue"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -184,6 +186,7 @@ BASELINES = (
     "building-zones-parks",
     "building-zones-noise",
     "building-zones-location",
+    "building-zones-avenue",
 )
 
 
