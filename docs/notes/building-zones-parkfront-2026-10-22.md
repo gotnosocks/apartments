@@ -62,7 +62,7 @@ buildings with the same measured traits, and the held-out park-facing buildings 
 sign and on most of the size. The free check before the fit gave a gap of 3.9 (SE 1.1) between
 park-facing buildings and others in the same 150 m cell, close to the fitted value.
 
-This is the first block-scale column tonight to beat the location fit on held-out buildings by
+Of the block-scale columns fit on this split so far (avenue and park), it is the only one to beat the location fit on held-out buildings by
 more than 2 SE. The explained-share test, though, misses its null by a hair on the prediction
 change and clearly on the column's own contribution, so the evidence is short of the evaluation
 rules' bar for a building-level feature.
