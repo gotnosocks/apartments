@@ -7,12 +7,13 @@ training ads. The `buildings` split from #1212 holds out 6,798 of the 67,977 bui
 night's settings: 4 chains, 300 warmup, 1,000 sweeps with every 5th kept, seed 20261021,
 fit-only.
 
-| fit | run | time | cost |
+| fit | run | fit stages | Modal cost estimate |
 |---|---|---|---|
-| floor | `building-zones-floor-b0-buildings-35131df8-dense-w1000` | 20 min | $0.78 |
-| location | `building-zones-location-b0-buildings-35131df8-dense-w1000` | 21 min | $0.83 |
+| floor | `building-zones-floor-b0-buildings-35131df8-dense-w1000` | 18 min | $0.78 |
+| location | `building-zones-location-b0-buildings-35131df8-dense-w1000` | 19 min | $0.83 |
 
-The predictions are in docs/notes/building-holdout-location-predictions-2026-10-22.md.
+The cost estimates come from the `ops/modal-fit` log line of each run. The predictions are in
+docs/notes/building-holdout-location-predictions-2026-10-22.md.
 
 In the folder `building-holdout-location-2026-10-22`:
 
@@ -39,8 +40,7 @@ All numbers are in points of log rent x100.
 | the location contribution's explained share of the floor fit's building residuals beats the 95th percentile of a within-zone permutation null | -0.021 against a null 95th percentile of -0.011 | no |
 
 The floor fit's four chains agree on `amp[outer]`: their medians run from 0.329 to 0.342, and
-each chain's 90% band is about 0.14 wide. That parameter has had the lowest ESS of every fit
-tonight. I haven't rerun it on another seed, and I score it anyway. The comparison below rests on
+each chain's 90% band is about 0.14 wide. It also has the lowest ESS of the location fit. I haven't rerun it on another seed, and I score it anyway. The comparison below rests on
 predictions, which a slow amplitude moves little.
 
 ## The coefficients
@@ -90,9 +90,10 @@ I averaged each fit's predictions over every held-out building's ads and compare
 - The location fit's prediction minus the floor fit's has an SD of 0.64 points, against a
   floor-fit residual SD of 13.9.
 
-The six columns change the map, not the prediction. Where a building sits near a big park or
-the water, the floor fit's map already carries that rent level at the map's scale, and the
-location fit's map drops it again to make room for the columns. The floor fit's residual does
+The six columns change the map much more than the prediction. My reading of the -0.97
+correlation is that the floor fit's map already carries the rent level near big parks and the
+water at the map's scale, and the location fit's map lowers it there to make room for the
+columns. The floor fit's residual does
 go the way the change points: its slope on the prediction change is 0.65, weighted by ads. But
 the change is too small to show against a residual this size, and its explained share (0.0006)
 falls inside the null (95th percentile 0.004).
@@ -100,16 +101,17 @@ falls inside the null (95th percentile 0.004).
 ## Reading it
 
 This is the outside check the location columns needed, and they fail it as predictors. The
-coefficients hold up on a tenth fewer buildings, and they hold up against each other, but they
-don't predict a new building's rent better than the map does. They split the map into parts
+coefficients hold up on a tenth fewer buildings, and each stays within 0.1 of its single fit
+when the other columns are in, but they don't predict a new building's rent detectably better
+than the map does. They split the map into parts
 with names. The big-park and water terms say how much of the map's level along Central Park,
 Prospect Park and the shore those distances account for, at about 4.7 and 3.5 points across the
-middle 80% of buildings. At a 1 km scale the map already holds the level of those places, so the
-names add nothing to a forecast.
+middle 80% of buildings. If the map already holds the level of those places at a 1 km scale, as
+the correlation suggests, the names add little to a forecast.
 
 My prediction of +300 to +2,000 assumed the columns would add to the map at new buildings. They
-mostly replace it. For these columns to help a forecast they would need to vary within the
-map's scale, as a street's noise or a building's view of the park does, and the distances here
-mostly don't.
+mostly replace it. My guess is that a column would need to vary within the map's scale to
+help a forecast, as a street's noise or a building's view of the park might, and that these
+distances mostly vary more slowly. I haven't tested that.
 
 Neither fit is served, and the site doesn't change.
