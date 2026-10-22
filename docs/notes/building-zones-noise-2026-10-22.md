@@ -21,7 +21,7 @@ The coefficient is in points of log rent x100 per unit of log(1 + complaints a y
 | prediction | result | hit |
 |---|---|---|
 | passes the gate | max R-hat 1.004 (`unit:elev_f16`), min ESS 586 (`amp[outer]`) | yes |
-| `bld:log1p_noise` between -2 and +0.5, interval reaching 0 or just below it | -0.58 (-0.75 to -0.39) | yes on the point, and the interval sits below 0 |
+| `bld:log1p_noise` between -2 and +0.5, interval reaching 0 or just below it | -0.58 (-0.75 to -0.39) | yes on the point, no on the interval, which lies clearly below 0 |
 | map amplitudes move by under 1% | Manhattan 0.916 to 0.902 (-2%), outside 0.360 to 0.380 (+6%) | no |
 | `bld_sd` moves by under 1% | 0.183 and 0.114, unchanged | yes |
 | unit premiums move by under 0.1 | all unit columns move by under 0.01 | yes |
@@ -29,7 +29,11 @@ The coefficient is in points of log rent x100 per unit of log(1 + complaints a y
 
 The amplitude miss is a miss against what I wrote, but like the falls in the transit and parks
 fits, both moves sit well inside each fit's own uncertainty on the amplitude, whose 90% interval
-spans about a third of its median.
+spans 35% (Manhattan) to 40% (outside) of its median.
+
+The predictions note said a zero-reaching interval would mean recording noise as not
+explaining building levels. The interval excludes 0, so I record noise as explaining a small
+part of them.
 
 ## The size of it
 
@@ -48,8 +52,8 @@ variance made it look like nothing, but a small slope over a column with this mu
 adds up to about a point across buildings.
 
 A complaint count mixes two things: how loud a block is, and how ready its residents are to call
-311, which rises with rent. The second pushes the coefficient up, so the cost of noise itself
-may be larger than 0.58. A measure that doesn't depend on who calls, like traffic volume on the
+311, which rises with rent. The second makes the coefficient less negative, so the association with noise
+itself may be stronger than 0.58. A measure that doesn't depend on who calls, like traffic volume on the
 building's own street, would separate the two.
 
 Neither model is served, so the site doesn't change.
