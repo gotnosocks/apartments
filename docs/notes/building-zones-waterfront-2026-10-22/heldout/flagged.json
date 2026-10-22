@@ -1,0 +1,27 @@
+{
+ "column": "bld:waterfront",
+ "flagged": {
+  "ads": 3622,
+  "buildings": 42,
+  "elpd_diff": -174.7,
+  "se_buildings": 102.1,
+  "rmse": 18.65,
+  "rmse_base": 17.751,
+  "mean_resid_base": -4.13,
+  "mean_resid_new": -7.0,
+  "cover90": 0.915,
+  "cover90_base": 0.9279
+ },
+ "rest": {
+  "ads": 180815,
+  "buildings": 6756,
+  "elpd_diff": -54.3,
+  "se_buildings": 77.8,
+  "rmse": 18.182,
+  "rmse_base": 18.174,
+  "mean_resid_base": -0.33,
+  "mean_resid_new": -0.28,
+  "cover90": 0.9272,
+  "cover90_base": 0.9272
+ }
+}
