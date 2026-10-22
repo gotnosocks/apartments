@@ -246,3 +246,20 @@ extend-exclude = [
     "models/bayesian_attribute_design_v2.py",
     "models/bayesian_structure_graph_v3.py",
 ]
+
+# Lint rules (docs/coding-standards.md, Ben 2026-10-22): mistakes, not style.
+# ops/lint runs them; tests/test_lint.py checks the files a branch changes.
+[lint]
+select = ["F", "E9", "I", "B006", "B904", "UP017"]
+
+[lint.per-file-ignores]
+# pytest fixtures arrive as arguments that shadow the imported fixture.
+"tests/**" = ["F811"]
+"frontier/tests/**" = ["F811"]
+# Dated one-off scripts are a record of what was run, not library code.
+"docs/notes/**" = ["ALL"]
+# Package __init__ files re-export names.
+"**/__init__.py" = ["F401"]
+
+[lint.isort]
+known-first-party = ["apartments", "streeteasy_archive", "rentfrontier", "models"]

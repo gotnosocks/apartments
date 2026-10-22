@@ -38,11 +38,14 @@ starting a second one. Leave out `--gpu` only when you don't own GPU work.
 - After any wake, including a resume after a park or a usage-limit stop, check state yourself
   (`ops/job status`, `gh pr list`, your logs) and start `wait-next` again before ending the turn.
 
-## Format Python with ruff
+## Format and lint Python with ruff
 
 Run `ops/fmt` before every commit (Ben, 2026-10-06). It formats the whole repo with the pinned
 ruff and skips the hash-locked files in `ruff.toml`; `tests/test_formatting.py` fails on anything
 unformatted. After merging master into a branch, run `ops/fmt` again before committing.
+
+Then run `ops/lint --changed` (`tests/test_lint.py` runs it too). The lint rules and the rest of
+the repo's coding standards are in `docs/coding-standards.md` (Ben, 2026-10-22).
 
 ## Keep the context small
 

@@ -60,6 +60,13 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Imported for annotations only: this module runs outside the frontier
+    # venv, and traced_columns imports both itself when it runs inside it.
+    import numpy as np
+    import pandas as pd
 
 ROOT = Path(
     os.environ.get("PIPELINE_REFERENCE_ROOT", "/data1/apartments/pipeline/reference")
