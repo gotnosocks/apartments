@@ -94,7 +94,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -388,7 +388,7 @@ def write(
             )
         manifest = {
             "version": VERSION,
-            "written": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "written": datetime.now(UTC).isoformat(timespec="seconds"),
             "code": code(),
             "rows_file": build["rows"],
             "ads_file": build["ads"],

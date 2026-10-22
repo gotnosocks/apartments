@@ -78,7 +78,7 @@ def test_browser_live_history_source_and_read_only(tmp_path):
 
 
 def test_empty_archive_shell_and_missing_body(tmp_path):
-    store = ArchiveStore(tmp_path)
+    ArchiveStore(tmp_path)
     client = create_app(tmp_path).test_client()
     assert client.get("/api/summary").json["generation"] is None
     assert client.get("/api/pages").json["total"] == 0

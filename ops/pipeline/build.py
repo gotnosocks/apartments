@@ -63,7 +63,7 @@ import resource
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -331,7 +331,7 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
     steps["records"] = time.time() - mark
 
     line = {
-        "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "built": datetime.now(UTC).isoformat(timespec="seconds"),
         "code": code,
         "top_up": top_up,
         "stale_days": variables["stale_days"],

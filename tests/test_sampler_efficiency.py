@@ -1,3 +1,5 @@
+from datetime import UTC
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -70,7 +72,7 @@ def test_no_timing_from_unfinished_or_unbracketed_chains(indices):
 def wall_events():
     from datetime import datetime, timedelta, timezone
 
-    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
     # Chain 0 warms up sooner; chain 1 finishes last. Neither individual
     # chain's elapsed time, nor their sum, is the shared sampling interval.
     return [

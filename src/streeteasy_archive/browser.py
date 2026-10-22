@@ -4,21 +4,21 @@
 from __future__ import annotations
 
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import suppress
-from pathlib import Path
-from scrapy.http import HtmlResponse
-from scrapy.core.downloader.handlers.http11 import HTTP11DownloadHandler
-from selenium.common.exceptions import WebDriverException
 import base64
 import json
 import queue
 import threading
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import asdict, is_dataclass
+from pathlib import Path
 from urllib.parse import urlsplit
 
+from scrapy.core.downloader.handlers.http11 import HTTP11DownloadHandler
+from scrapy.http import HtmlResponse
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.bidi.network import DataType
 from selenium.webdriver.firefox.options import Options
 
@@ -164,7 +164,6 @@ def capture_main_document(
     response_events: queue.Queue = queue.Queue()
     request_handler = None
     policy = None
-    response_handler = None
     try:
         network = driver.network
         network._conn.response_wait_timeout = 15
@@ -194,9 +193,7 @@ def capture_main_document(
         policy.intercept = network.add_intercept(phases=["beforeRequestSent"])[
             "intercept"
         ]
-        response_handler = network.add_event_handler(
-            "response_completed", response_complete
-        )
+        network.add_event_handler("response_completed", response_complete)
         navigation_error = None
         try:
             driver.get(url)

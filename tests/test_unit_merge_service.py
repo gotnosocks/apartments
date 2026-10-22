@@ -2,6 +2,7 @@ import pytest
 
 from apartments.review_ledger import ReviewConflict
 from apartments.unit_merge_service import UnitMergeService
+
 from .test_review_service import service
 
 
@@ -124,7 +125,7 @@ def test_merge_refuses_stale_review_or_identity_and_unknown_listing(service):
     detail = u.inspect({"listing_ids": ["1", "2"]})
     with pytest.raises(ValueError, match="unknown rental"):
         save(u, {**detail, "listing_ids": ["1", "3"]})
-    event = save(u, detail)
+    save(u, detail)
     with pytest.raises(ReviewConflict):
         save(u, detail, "another-request")
     assert len(u.ledger.events()) == 1
@@ -303,7 +304,7 @@ def test_shared_latest_group_saved_identity_does_not_follow_changing_latest(serv
     u._source.pages = {}
     u._source.history = {1: {"1"}, 2: {"2"}}
     preview = u.association_preview({})
-    saved = u.association_apply({"token": preview["token"], "author": "Ben"})
+    u.association_apply({"token": preview["token"], "author": "Ben"})
     before = u.mapping({})["listing_to_unit"]
     assert len(set(before.values())) == 1
     unit_id = before["1"]

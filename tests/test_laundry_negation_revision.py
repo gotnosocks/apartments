@@ -1,7 +1,7 @@
-from copy import deepcopy
-from datetime import datetime, timezone
 import hashlib
 import json
+from copy import deepcopy
+from datetime import UTC, datetime
 
 import pytest
 
@@ -17,7 +17,7 @@ WHEN = "2026-09-19T03:00:00+00:00"
 @pytest.fixture
 def source(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        corrections, "now", lambda: datetime(2026, 9, 19, 3, tzinfo=timezone.utc)
+        corrections, "now", lambda: datetime(2026, 9, 19, 3, tzinfo=UTC)
     )
     row = {
         "audit_id": "a",

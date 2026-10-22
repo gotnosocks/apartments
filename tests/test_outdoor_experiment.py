@@ -6,7 +6,8 @@ import pytest
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, publish_bundle
-from models import outdoor_experiment as experiment, minimal_rent_model as baseline
+from models import minimal_rent_model as baseline
+from models import outdoor_experiment as experiment
 
 
 def fixture(tmp_path):
@@ -44,7 +45,7 @@ def fixture(tmp_path):
             )
     parent = {"dataset_version": "fixture"}
     interior = tmp_path / "interior"
-    dm = publish_bundle(
+    publish_bundle(
         interior,
         {"observations.jsonl": "".join(canonical(r) + "\n" for r in rows)},
         {
