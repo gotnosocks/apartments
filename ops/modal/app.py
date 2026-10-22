@@ -162,6 +162,7 @@ BASELINES = (
     ("--model", "building-zones-transit"),
     ("--model", "building-zones-parks"),
     ("--model", "building-zones-noise"),
+    ("--model", "building-zones-location"),
 )
 
 

@@ -474,7 +474,8 @@ def main(argv=None):
     # the distance to the nearest subway or PATH stop and the services within 0.8 km. Building zones with parks
     # (rentfrontier.building_zones_parks) adds instead the distances to parks and the shoreline,
     # and building zones with noise (rentfrontier.building_zones_noise) the outdoor 311 noise
-    # complaints nearby.
+    # complaints nearby. Building zones with location (rentfrontier.building_zones_location) adds
+    # all six of those columns together.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -502,6 +503,7 @@ def main(argv=None):
         ("building-zones-transit", "building_zones_transit"),
         ("building-zones-parks", "building_zones_parks"),
         ("building-zones-noise", "building_zones_noise"),
+        ("building-zones-location", "building_zones_location"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

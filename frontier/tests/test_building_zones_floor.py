@@ -207,6 +207,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-transit",
         "building-zones-parks",
         "building-zones-noise",
+        "building-zones-location",
     ],
 )
 def test_run(tmp_path, monkeypatch, model):
