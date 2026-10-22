@@ -20,15 +20,16 @@ All coefficients in points of log rent x100.
 |---|---|---|
 | passes the gate | max R-hat 1.008, min ESS 711 (both `amp[outer]`) | yes |
 | `bld:log1p_routes` between +3 and +10, 90% interval above 0 | +0.99 (0.57 to 1.40) | no, a third of the low end |
-| `bld:log_station_km` within 2 of 0, interval covering 0 or slightly below | -0.32 (-0.55 to -0.12) | yes |
+| `bld:log_station_km` within 2 of 0, interval covering 0 or slightly below | -0.32 (-0.55 to -0.12) | partly: the point is close to 0, but the interval sits wholly below it |
 | each zone's map amplitude falls 0% to 8% | Manhattan 0.916 to 0.887 (-3%), outside 0.360 to 0.332 (-8%) | yes |
 | `bld_sd` moves by under 2% | 0.183 and 0.114, unchanged | yes |
 | the unit premiums move by under 0.2 | all five move by under 0.01 | yes |
 | held-out log score within 2 SE of the base | not scored, the fit ran fit-only | not run |
 
 The routes coefficient came out much smaller than the free check suggested. That check
-regressed the simulated site levels on the two columns with no map in the model, so the map's
-share went to the routes count. In the fit the map keeps most of that share.
+regressed the simulated site levels, map value included, on the two columns and the zone alone.
+A likely reason for the gap is that the fit's map, which bends to any smooth pattern, keeps most
+of the share the check gave to the routes count. I haven't tested that directly.
 
 ## The size of it
 

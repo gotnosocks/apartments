@@ -1,6 +1,6 @@
 """Compare a location fit with the floor base fit and write summary.json.
 
-python loc_summary.py NEW_RUN OUT_JSON
+python build_summary.py NEW_RUN OUT_JSON
 """
 
 import json
