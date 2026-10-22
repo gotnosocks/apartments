@@ -3,6 +3,30 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-22 17:20 UTC): location columns, building holdout, simulated recovery
+
+Ben approved fits until 17:30 ET on 2026-10-22, within the Modal budget. The FIT HOLD applies
+again after that. Every fit ran fit-only at seed 20261021 with 4 chains, 300 warmup and 1,000
+sweeps (every 5th kept). None is served, and the site didn't change.
+
+- Transit, parks and noise each went into the floor model alone, and then all six columns
+  together (#1213, `docs/notes/building-zones-location-2026-10-22.md`). Each coefficient holds
+  within 0.1 points across the fits. Big-park distance carries 4.7 points over the middle 80% of
+  buildings, the water 3.5. On the latest split no fit beats the floor by 2 SE.
+- On the whole-building split from #1212, the location fit beats the floor fit by +26 (SE 116)
+  on 184,437 held-out ads (#1214, `docs/notes/building-holdout-location-2026-10-22.md`). The
+  location fit's map moves against the columns (correlation -0.97). The floor fit there missed
+  the gate by 0.0005 on `amp[outer]`, and I recorded it as a miss without a seed rerun.
+- The simulated recovery on the location fit's own medians returns all six terms within their
+  intervals, with water loosest (-1.16 against -1.65), and the map error stays under 0.5 points
+  in the nearest and farthest fifths (#1215,
+  `docs/notes/simulated-recovery-location-2026-10-22.md`).
+- Scratch is in `/data1/apartments/tmp/locheld` (holdout scoring) and
+  `/data1/apartments/tmp/sim-location` (simulated dataset, truth and leak check).
+- Open idea, untested: a column has to vary within the map's 1 km scale to help a new building's
+  forecast. Candidates are street-level measures such as traffic on the building's own block or
+  park views.
+
 ## Update (2026-10-21 01:10 UTC): building zones with building attributes
 
 - #1182 adds `building-zones-attrs` (roof height, elevator, condo, doorman on the building

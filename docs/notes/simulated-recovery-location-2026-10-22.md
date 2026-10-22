@@ -73,3 +73,5 @@ apart. My reading is that the floor fit's map already holds the level near big p
 water, both fits describe the same level, and the columns account for part of it without adding
 information a new building's forecast can use. The simulation can't say whether the columns
 cause that level, only that the model would find them if they did.
+
+The explainer page for this fit is https://claude.ai/artifact/HdTLyaRcpHCYL6BLDzbAUp.
