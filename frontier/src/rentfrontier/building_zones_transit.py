@@ -1,6 +1,6 @@
-"""Building zones with building means, plus each building's access to rapid transit.
+"""Building zones with the unit's floor, plus each building's access to rapid transit.
 
-The model is building zones with building means (`rentfrontier.building_zones_mundlak`) with
+The model is building zones with the unit's floor (`rentfrontier.building_zones_floor`) with
 two more `bld:` columns, read from the transit snapshot (`rentfrontier.building_transit`):
 
     bld:log_station_km   the log of the straight-line distance to the nearest subway or PATH
@@ -24,8 +24,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import b0, building_zones_mundlak
-from .building_zones_mundlak import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
+from . import b0, building_zones_floor
+from .building_zones_floor import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
     BLD_SD_PRIOR,
     KEPT,
     PROGRESS,
@@ -72,11 +72,11 @@ def design(
     transit: pd.DataFrame | None = None,
     **tables,
 ) -> Design:
-    """Building zones with building means' design of `frame` with the transit columns
+    """Building zones with the unit's floor's design of `frame` with the transit columns
     appended."""
     if transit is None:
         transit = pd.read_parquet(TRANSIT_SNAPSHOT / "transit.parquet")
-    d = building_zones_mundlak.design(frame, start, **tables)
+    d = building_zones_floor.design(frame, start, **tables)
     new = columns(frame, transit)
     count = dict(d.count) | {
         n: int((new[:, j] != 0).sum()) for j, n in enumerate(COLUMNS)
@@ -90,8 +90,8 @@ def design(
 
 
 def run_record(d: Design) -> dict:
-    """Building zones with building means' record, with the transit snapshot."""
-    return building_zones_mundlak.run_record(d) | {
+    """Building zones with the unit's floor's record, with the transit snapshot."""
+    return building_zones_floor.run_record(d) | {
         "building_transit": str(TRANSIT_SNAPSHOT)
     }
 

@@ -5,7 +5,7 @@ import pandas as pd
 
 import test_building_zones_floor as tbf
 from rentfrontier import building_parks as bp
-from rentfrontier import building_zones_mundlak as bzm
+from rentfrontier import building_zones_floor as bzm
 from rentfrontier import building_zones_parks as bzp
 
 

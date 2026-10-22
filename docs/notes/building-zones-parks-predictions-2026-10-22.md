@@ -1,9 +1,8 @@
-# Parks and the waterfront in the building-means model: predictions, 2026-10-22
+# Parks and the waterfront in the floor model: predictions, 2026-10-22
 
 This is the second explanatory location feature on the night's queue. I wrote these
-predictions before launching the fit. Like transit, it goes on top of the building-means
-(Mundlak) model if Fit B makes that model the base, and on top of the floor model otherwise.
-It does not include the transit columns, so each feature gets its own comparison against the
+predictions before launching the fit. Like transit, it goes on top of the floor model. It
+does not include the transit columns, so each feature gets its own comparison against the
 same base.
 
 ## The data

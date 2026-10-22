@@ -1,8 +1,7 @@
-# Outdoor noise in the building-means model: predictions, 2026-10-22
+# Outdoor noise in the floor model: predictions, 2026-10-22
 
 This is the third explanatory location feature on the night's queue. I wrote these predictions
-before launching the fit. Like transit and parks, it goes on top of the building-means
-(Mundlak) model if Fit B makes that model the base, and on top of the floor model otherwise. It
+before launching the fit. Like transit and parks, it goes on top of the floor model. It
 leaves out the transit and parks columns, so it gets its own comparison against the same base.
 
 ## The data

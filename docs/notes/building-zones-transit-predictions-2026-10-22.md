@@ -1,9 +1,14 @@
-# Transit access in the building-means model: predictions, 2026-10-22
+# Transit access in the floor model: predictions, 2026-10-22
 
 This is the first explanatory location feature on the night's queue. I wrote these predictions
-before launching the fit. I'll fit it on top of the building-means (Mundlak) model if Fit B
-makes that model the base, and on top of the floor model otherwise. The comparisons below are
-against whichever base the fit uses.
+before launching the fit.
+
+All three location features sit on the floor model
+(`building-zones-floor-b0-latest-6b5a5b4a-dense-w1000` is the base fit), not on the building-means
+model. On the realistic simulation (docs/notes/building-zones-mundlak-sim-2026-10-22.md) the
+building means shrank the building-level terms by about 20% to 55%, while the floor model got
+them back within about 0.5 points. Transit, parks and noise are building-level terms, and the
+question is their own worth, so I fit them where the simulation recovers terms like them.
 
 ## The data
 

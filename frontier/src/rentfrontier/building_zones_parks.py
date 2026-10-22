@@ -1,6 +1,6 @@
-"""Building zones with building means, plus each building's distance to parks and the water.
+"""Building zones with the unit's floor, plus each building's distance to parks and the water.
 
-The model is building zones with building means (`rentfrontier.building_zones_mundlak`) with
+The model is building zones with the unit's floor (`rentfrontier.building_zones_floor`) with
 three more `bld:` columns, read from the parks snapshot (`rentfrontier.building_parks`):
 
     bld:log_park_km       log of the distance to the nearest park of 1 acre or more, in km
@@ -23,8 +23,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import b0, building_zones_mundlak
-from .building_zones_mundlak import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
+from . import b0, building_zones_floor
+from .building_zones_floor import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
     BLD_SD_PRIOR,
     KEPT,
     PROGRESS,
@@ -79,11 +79,11 @@ def design(
     parks: pd.DataFrame | None = None,
     **tables,
 ) -> Design:
-    """Building zones with building means' design of `frame` with the parks columns
+    """Building zones with the unit's floor's design of `frame` with the parks columns
     appended."""
     if parks is None:
         parks = pd.read_parquet(PARKS_SNAPSHOT / "parks.parquet")
-    d = building_zones_mundlak.design(frame, start, **tables)
+    d = building_zones_floor.design(frame, start, **tables)
     new = columns(frame, parks)
     count = dict(d.count) | {
         n: int((new[:, j] != 0).sum()) for j, n in enumerate(COLUMNS)
@@ -97,10 +97,8 @@ def design(
 
 
 def run_record(d: Design) -> dict:
-    """Building zones with building means' record, with the parks snapshot."""
-    return building_zones_mundlak.run_record(d) | {
-        "building_parks": str(PARKS_SNAPSHOT)
-    }
+    """Building zones with the unit's floor's record, with the parks snapshot."""
+    return building_zones_floor.run_record(d) | {"building_parks": str(PARKS_SNAPSHOT)}
 
 
 def main_run(argv) -> None:
