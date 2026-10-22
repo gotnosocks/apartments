@@ -201,12 +201,18 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
 
 @pytest.mark.parametrize(
     "model",
-    ["building-zones-floor", "building-zones-mundlak", "building-zones-transit"],
+    [
+        "building-zones-floor",
+        "building-zones-mundlak",
+        "building-zones-transit",
+        "building-zones-parks",
+    ],
 )
 def test_run(tmp_path, monkeypatch, model):
     from rentfrontier import building_attrs, run as runmod, whitened_zones
     from rentfrontier import building_zones_attrs as bza
     from rentfrontier import building_zones_gym as bzy
+    from rentfrontier import building_zones_parks as bzp
     from rentfrontier import building_zones_transit as bzt
     from rentfrontier import building_zones_unit as bzu
 
@@ -255,6 +261,17 @@ def test_run(tmp_path, monkeypatch, model):
         }
     ).to_parquet(tsnap / "transit.parquet")
     monkeypatch.setattr(bzt, "TRANSIT_SNAPSHOT", tsnap)
+    psnap = tmp_path / "building-parks"
+    psnap.mkdir()
+    pd.DataFrame(
+        {
+            "building": blds,
+            "park_km": np.linspace(0.02, 0.9, len(blds)),
+            "big_park_km": np.linspace(0.5, 3.0, len(blds)),
+            "water_km": np.linspace(3.0, 0.1, len(blds)),
+        }
+    ).to_parquet(psnap / "parks.parquet")
+    monkeypatch.setattr(bzp, "PARKS_SNAPSHOT", psnap)
     monkeypatch.setenv("FRONTIER_DATASET", str(dataset))
     monkeypatch.setenv("FRONTIER_COMMIT", "abc1234")
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")
