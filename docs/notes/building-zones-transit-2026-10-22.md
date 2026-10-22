@@ -34,15 +34,14 @@ of the share the check gave to the routes count. I haven't tested that directly.
 ## The size of it
 
 Both terms point the expected way: more services nearby and a shorter walk to the nearest stop
-go with higher rent. Over the snapshot's 76,204 buildings, which include NJ and buildings with no rows in the fit,
-the two terms together add 0.8
-points at the 10th percentile, 1.7 at the median and 2.9 at the 90th. A building with 6
+go with higher rent. Over the fit's 67,977 buildings, the two terms together add 1.0 points at the 10th percentile,
+1.8 at the median and 3.0 at the 90th. A building with 6
 services within 0.8 km, the Manhattan median, gets about 0.8 points more from the routes term
 than one with 2, the median outside Manhattan. A building 0.8 km from a stop gets about 0.45
 points less than one 0.2 km away.
 
 The intercept falls by 2.1 points, which takes back the new terms' average over the fit's rows.
-That average sits above the 1.8-point average over buildings, since the rows lean toward Manhattan. No other
+That row average is 2.08 points, above the 1.9-point average over buildings, since the rows lean toward Manhattan. No other
 term moves by more than 0.11 points.
 
 ## Reading it
