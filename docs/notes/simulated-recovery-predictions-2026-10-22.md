@@ -31,7 +31,7 @@ The datasets are under `/data1/apartments/frontier/datasets/`, and the truths ar
 The simulated log rents have SD 0.437, 0.389 and 0.434 on all rows, against 0.440 in the real
 data. Each correlates 0.92, 0.86 and 0.92 with the real log rent. The noise SD on training rows
 is 0.122 in all three. MapPLUTO has a floor count for 99.1% of training rows' buildings. The
-planted height term has SD 0.99 points across buildings.
+planted height term has SD 0.99 points across buildings, and 2.45 points weighted by training rows, since the tall buildings have the most ads.
 
 ## The fits
 

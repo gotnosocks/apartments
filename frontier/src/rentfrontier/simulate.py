@@ -8,7 +8,9 @@ truth, and draw each row's log rent from the model:
 
 Then I write a copy of the fit's dataset with `latest_ask` replaced by exp(y), so a fit of the
 unchanged model on that copy reads simulated rents and nothing else changes. The design reads
-no price column, so the copy differs from the original only in its target.
+no price column besides `latest_ask`, so the fit's rows differ from the original only in their
+target. Other price columns of the copy keep their real values, so a feature set reading one of
+them needs its own simulated copy.
 
 The truth starts from the posterior medians of the fit's kept draws: the coefficients, the walk,
 the map's wave coefficients, every building's residual level `bld`, nu and the four sigmas. The
@@ -200,6 +202,8 @@ def make(run: str, scenario: str, out: Path, seed: int) -> None:
         raise SystemExit(f"{out} exists; choose a new dataset name")
     source = Path(result["dataset"])
     frame = b0.load_frame(source)
+    if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
+        raise SystemExit(f"{source} holds other rows than the fit read")
     heldout = splits.SPLITS[result["split"]](frame)
     full = building_zones_floor.design(frame)
     record = building_zones_floor.run_record(full)
@@ -285,6 +289,9 @@ def _write_design(full, frame, train, rows, share, buildings, floors, result) ->
     """The scenario-free design facts the scoring reads, in SIM_ROOT/design.npz."""
     path = SIM_ROOT / "design.npz"
     if path.exists():
+        with np.load(path) as z:
+            if str(z["run"]) != result["name"]:
+                raise SystemExit(f"{path} comes from {z['run']}, not {result['name']}")
         return
     n = len(rows)
     zone = np.concatenate([np.full(s["sites"], k) for k, s in enumerate(full.surfaces)])
@@ -308,6 +315,8 @@ def _write_design(full, frame, train, rows, share, buildings, floors, result) ->
     site_elev[full.site] = elev
     np.savez_compressed(
         path,
+        run=np.asarray(result["name"]),
+        zone_names=np.asarray([s["name"] for s in full.surfaces]),
         names=np.asarray(names),
         col_rows=col_rows,
         site_rows=rows,
@@ -400,6 +409,17 @@ def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
         if [str(n) for n in z["names"]] != names:
             raise SystemExit("the fit's columns differ from the truth's")
     result = json.loads((RUNS / sim_run / "result.json").read_text())
+    sim = json.loads((Path(result["dataset"]) / "manifest.json").read_text()).get(
+        "simulated"
+    )
+    if (
+        not sim
+        or sim["scenario"] != tdir.name
+        or sim["truth_sha256"] != sha256(tdir / "truth.npz")
+    ):
+        raise SystemExit(
+            f"{sim_run} was not fitted on the data drawn from {tdir}/truth.npz"
+        )
     chains, draws = kept["beta"].shape[:2]
     terms = term_rows(kept["beta"], t["beta"], names)
     for r in terms:
@@ -420,17 +440,21 @@ def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
         "bld_sd": {
             "truth_realized_sd_with_rows": [
                 float(t["bld"][(dz["site_zone"] == k) & (dz["site_rows"] > 0)].std())
-                for k in range(2)
+                for k in range(len(dz["basis_sizes"]))
             ],
             "source_fit_median": [float(v) for v in t["fit_bld_sd"]],
-            "recovered": [_q(kept["bld_sd"][..., k]) for k in range(2)],
+            "recovered": [
+                _q(kept["bld_sd"][..., k]) for k in range(len(dz["basis_sizes"]))
+            ],
         },
         "amp": {
             "source_fit_median": [float(v) for v in t["fit_amp"]],
-            "recovered": [_q(kept["amp"][..., k]) for k in range(2)],
+            "recovered": [
+                _q(kept["amp"][..., k]) for k in range(len(dz["basis_sizes"]))
+            ],
         },
-        "gp_amp": [_q(kept["gp_amp"][..., k]) for k in range(2)],
-        "gp_ls": [_q(kept["gp_ls"][..., k]) for k in range(2)],
+        "gp_amp": [_q(kept["gp_amp"][..., k]) for k in range(kept["gp_amp"].shape[-1])],
+        "gp_ls": [_q(kept["gp_ls"][..., k]) for k in range(kept["gp_ls"].shape[-1])],
     }
 
     basis = [dz[f"basis_{k}"].astype(float) for k in range(len(dz["basis_sizes"]))]
@@ -440,7 +464,7 @@ def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
     rows = dz["site_rows"]
     zone = dz["site_zone"]
     maps = {}
-    for k, zname in enumerate(("manhattan", "outer")):
+    for k, zname in enumerate(str(z) for z in dz["zone_names"]):
         on = zone == k
         maps[zname] = {
             "F": site_coverage(F[:, on], t["F"][on], rows[on]),
@@ -493,8 +517,8 @@ def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
             "30_up": float(np.mean([r["covered"] for r in high])),
         },
         "misses": [
-            {k: r[k] for k in ("term", "truth", "median", "q05", "q95", "rows")}
-            for r in terms
+            {k: r.get(k) for k in ("term", "truth", "median", "q05", "q95", "rows")}
+            for r in terms + sigma_rows + nu_rows
             if not r["covered"]
         ],
         "walk_coverage_90": float(np.mean([r["covered"] for r in walk])),
