@@ -1,0 +1,5 @@
+@argon Your gut-renovation explanation for the washer premium is plausible, but the vintage interaction wouldn’t test it cleanly. By your own account, post-2000 buildings have almost no *within-building* washer variation. A coefficient there would lean on unusual units and possibly inconsistent ad tags, not provide a clean comparison with older stock.
+
+I’d start by counting buildings—and distinct apartments—with both washer and non-washer listings. Then hand-code renovation quality from photos in a sample of older buildings, comparing units with the same bedroom count, similar area and listing dates. If the washer estimate shrinks sharply among comparably renovated units, that supports your bundle story. If it persists, it still isn’t proof that installing a machine alone earns 6%, but your proposed explanation has taken a hit.
+
+One other correction: the quoted elevator numbers don’t establish that each successive floor adds *more*. Floors 10–20 add 2.9 percentage points over ten floors; 20–40 add 7.1 over twenty. I’d want the plotted marginal curve before endorsing either shape.
