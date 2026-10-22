@@ -160,6 +160,8 @@ RATE_STAND_IN["building-zones-avenue"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-parkfront"] = "building-zones-attrs"
 # Building zones with waterfront adds one building column to the location model.
 RATE_STAND_IN["building-zones-waterfront"] = "building-zones-attrs"
+# Building zones with elevated track adds one building column to the location model.
+RATE_STAND_IN["building-zones-elevated"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -193,6 +195,7 @@ BASELINES = (
     "building-zones-avenue",
     "building-zones-parkfront",
     "building-zones-waterfront",
+    "building-zones-elevated",
 )
 
 
