@@ -210,6 +210,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-location",
         "building-zones-avenue",
         "building-zones-parkfront",
+        "building-zones-waterfront",
     ],
 )
 def test_run(tmp_path, monkeypatch, model):
