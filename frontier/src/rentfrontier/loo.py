@@ -504,6 +504,8 @@ def main(argv=None):
             "building-zones-parkfront",
             "building-zones-waterfront",
             "building-zones-elevated",
+            "building-zones-floor-asof",
+            "building-zones-mundlak-asof",
         ):
             raise SystemExit(
                 f"{name}: {run['sampler']}'s scoring needs its location surfaces,"
@@ -524,8 +526,8 @@ def main(argv=None):
                 b0_2,
                 b0_3,
                 centered_walk,
-                normal_walk,
                 level_walk,
+                normal_walk,
                 total_walk,
             )
 

@@ -162,6 +162,10 @@ RATE_STAND_IN["building-zones-parkfront"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-waterfront"] = "building-zones-attrs"
 # Building zones with elevated track adds one building column to the location model.
 RATE_STAND_IN["building-zones-elevated"] = "building-zones-attrs"
+# Building zones with the floor as of the split has the floor model's columns, and the version
+# with building means adds nine building columns to it.
+RATE_STAND_IN["building-zones-floor-asof"] = "building-zones-attrs"
+RATE_STAND_IN["building-zones-mundlak-asof"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -196,6 +200,8 @@ BASELINES = (
     "building-zones-parkfront",
     "building-zones-waterfront",
     "building-zones-elevated",
+    "building-zones-floor-asof",
+    "building-zones-mundlak-asof",
 )
 
 
