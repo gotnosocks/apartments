@@ -484,7 +484,11 @@ def main(argv=None):
     # (rentfrontier.building_zones_elevated) a flag for a building within 30 m of an elevated
     # subway track. Building zones with the floor and park frontage
     # (rentfrontier.building_zones_floor_parkfront) adds the park frontage flag to the floor
-    # model alone.
+    # model alone. Building zones with the floor as of the split
+    # (rentfrontier.building_zones_floor_asof) is the floor model with its size, building and
+    # top-floor features rebuilt from the split's training rows, and building zones with
+    # building means as of the split (rentfrontier.building_zones_mundlak_asof) adds to it the
+    # building means over training rows.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -518,6 +522,8 @@ def main(argv=None):
         ("building-zones-waterfront", "building_zones_waterfront"),
         ("building-zones-elevated", "building_zones_elevated"),
         ("building-zones-floor-parkfront", "building_zones_floor_parkfront"),
+        ("building-zones-floor-asof", "building_zones_floor_asof"),
+        ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
