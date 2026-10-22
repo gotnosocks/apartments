@@ -164,6 +164,7 @@ BASELINES = (
     ("--model", "building-zones-noise"),
     ("--model", "building-zones-location"),
     ("--model", "building-zones-avenue"),
+    ("--model", "building-zones-parkfront"),
 )
 
 

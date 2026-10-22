@@ -477,6 +477,8 @@ def main(argv=None):
     # complaints nearby. Building zones with location (rentfrontier.building_zones_location) adds
     # all six of those columns together, and building zones with avenue
     # (rentfrontier.building_zones_avenue) adds a flag for mid-block avenue frontage on top.
+    # Building zones with park frontage (rentfrontier.building_zones_parkfront) adds instead a
+    # flag for a building within 40 m of a large park.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -506,6 +508,7 @@ def main(argv=None):
         ("building-zones-noise", "building_zones_noise"),
         ("building-zones-location", "building_zones_location"),
         ("building-zones-avenue", "building_zones_avenue"),
+        ("building-zones-parkfront", "building_zones_parkfront"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
