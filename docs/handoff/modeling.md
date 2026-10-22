@@ -3,6 +3,32 @@
 What the next turn of the modeling thread needs. Updated at each milestone. Scripts and logs are
 in `/data1/apartments/tmp/bridge` (thelio).
 
+## Update (2026-10-22 20:00 UTC): block-scale columns on held-out buildings
+
+I tested four block-scale columns on the location model, each as its own fit on the
+whole-building split from #1212 and scored against the location fit on the same 184,437
+held-out ads. The held-out scoring scripts are in each note's `heldout/` folder, and the working
+copies are in `/data1/apartments/tmp/frontcols`. None is served.
+
+| column | PRs | training term | held-out elpd (SE) | note |
+|---|---|---|---|---|
+| mid-block avenue frontage | #1217, #1220 | -1.8 | +86 (89) | `building-zones-avenue-2026-10-22.md` |
+| within 40 m of a park of 5 acres or more | #1218, #1221 | +3.5 | +187 (80) | `building-zones-parkfront-2026-10-22.md` |
+| within 150 m of the shoreline | #1219, #1224 | +5.2 | -229 (130) | `building-zones-waterfront-2026-10-22.md` |
+| within 30 m of an elevated subway track | #1222, #1223, #1225 | -2.5 | -41 (51) | `building-zones-elevated-2026-10-22.md` |
+
+- Park frontage is the only column to beat the location fit by more than 2 SE, but its
+  explained share misses the permutation null, so it falls short of the bar for a building-level
+  feature. A latest-split fit with it would be the next step toward serving.
+- The waterfront step takes over the smooth `bld:log_water_km` gradient and makes the held-out
+  waterfront buildings worse (mean residual -4.1 to -7.0).
+- The elevated column's 46 held-out buildings, with 1,005 ads, are too few to confirm or rule out
+  the training estimate.
+- The avenue column mixes mid-block frontage with corners. A wide-corner column would overlap
+  the street-width bands from #1187, which Ben asked not to rerun.
+- A heavy-traffic (AADT) column is untested. `bld:truck_through` is already in the location
+  model, and the avenue column came out neutral, so AADT would largely repeat them.
+
 ## Update (2026-10-22 17:20 UTC): location columns, building holdout, simulated recovery
 
 Ben approved fits until 17:30 ET on 2026-10-22, within the Modal budget. The FIT HOLD applies

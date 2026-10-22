@@ -1,0 +1,27 @@
+{
+ "column": "bld:elevated",
+ "flagged": {
+  "ads": 1005,
+  "buildings": 46,
+  "elpd_diff": -6.6,
+  "se_buildings": 32.4,
+  "rmse": 15.491,
+  "rmse_base": 15.492,
+  "mean_resid_base": -0.62,
+  "mean_resid_new": 1.48,
+  "cover90": 0.9204,
+  "cover90_base": 0.9164
+ },
+ "rest": {
+  "ads": 183432,
+  "buildings": 6752,
+  "elpd_diff": -34.0,
+  "se_buildings": 40.0,
+  "rmse": 18.183,
+  "rmse_base": 18.179,
+  "mean_resid_base": -0.41,
+  "mean_resid_new": -0.42,
+  "cover90": 0.9277,
+  "cover90_base": 0.9273
+ }
+}
