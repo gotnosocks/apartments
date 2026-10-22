@@ -1,0 +1,67 @@
+{
+ "all": {
+  "ads": 184437,
+  "buildings": 6798,
+  "elpd_diff": 85.8,
+  "se_buildings": 89.4,
+  "rmse": 18.152,
+  "rmse_floor": 18.166,
+  "cover90": 0.9269,
+  "cover90_floor": 0.9272
+ },
+ "by_column": {
+  "bld:avenue_midblock": {
+   "bottom_fifth": {
+    "ads": 175759,
+    "buildings": 6562,
+    "elpd_diff": 23.1,
+    "se_buildings": 66.8,
+    "rmse": 18.183,
+    "rmse_floor": 18.19,
+    "cover90": 0.9256,
+    "cover90_floor": 0.926
+   },
+   "middle": {
+    "ads": 0,
+    "buildings": 0,
+    "elpd_diff": 0.0,
+    "se_buildings": NaN,
+    "rmse": NaN,
+    "rmse_floor": NaN,
+    "cover90": NaN,
+    "cover90_floor": NaN
+   },
+   "top_fifth": {
+    "ads": 184437,
+    "buildings": 6798,
+    "elpd_diff": 85.8,
+    "se_buildings": 89.4,
+    "rmse": 18.152,
+    "rmse_floor": 18.166,
+    "cover90": 0.9269,
+    "cover90_floor": 0.9272
+   }
+  }
+ },
+ "explained_share": {
+  "buildings": 6798,
+  "residual_sd_x100": 13.87,
+  "location_contribution": {
+   "explained": 0.00129,
+   "null_mean": -0.00087,
+   "null_95": 0.00288,
+   "beats_null": false,
+   "sd_x100": 0.38,
+   "slope_of_residual": 1.343
+  },
+  "prediction_change": {
+   "explained": 0.00277,
+   "null_mean": -0.00123,
+   "null_95": 0.00363,
+   "beats_null": false,
+   "sd_x100": 0.47,
+   "slope_of_residual": 1.683
+  },
+  "corr_contribution_map_change": -0.112
+ }
+}

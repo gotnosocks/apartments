@@ -1,0 +1,27 @@
+{
+ "column": "bld:avenue_midblock",
+ "flagged": {
+  "ads": 8678,
+  "buildings": 236,
+  "elpd_diff": 62.7,
+  "se_buildings": 59.4,
+  "rmse": 17.512,
+  "rmse_base": 17.669,
+  "mean_resid_base": -2.73,
+  "mean_resid_new": -1.18,
+  "cover90": 0.9522,
+  "cover90_base": 0.9511
+ },
+ "rest": {
+  "ads": 175759,
+  "buildings": 6562,
+  "elpd_diff": 23.1,
+  "se_buildings": 66.8,
+  "rmse": 18.183,
+  "rmse_base": 18.19,
+  "mean_resid_base": -0.29,
+  "mean_resid_new": -0.4,
+  "cover90": 0.9256,
+  "cover90_base": 0.926
+ }
+}

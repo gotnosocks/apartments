@@ -1,0 +1,29 @@
+{
+ "rows_train": 1706837,
+ "rows_mid": 96016,
+ "rows_corner_wide": 156900,
+ "bld_mid": 2424,
+ "bld_total": 67977,
+ "truck_among_mid_rows": 0.13320696550574904,
+ "bld_mean_mid": -2.546981427622783,
+ "bld_mean_corner_wide": 4.504387296077204,
+ "bld_mean_side": -2.329543099879433,
+ "xy_span": [
+  10.304352233543945,
+  16.45933963000018
+ ],
+ "cell300m": {
+  "cells": 313,
+  "mid_buildings": 2404,
+  "gap_mean": -0.6342584490776062,
+  "gap_se": 0.6961250369270956,
+  "gap_median": -1.9675339460372925
+ },
+ "cell150m": {
+  "cells": 522,
+  "mid_buildings": 2254,
+  "gap_mean": -0.8515697121620178,
+  "gap_se": 0.6035799991665717,
+  "gap_median": -1.9190449714660645
+ }
+}
