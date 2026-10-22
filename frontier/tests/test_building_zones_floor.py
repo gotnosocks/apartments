@@ -11,6 +11,7 @@ import test_building_zones_unit as tbu
 from rentfrontier import building_zones, unit_floor
 from rentfrontier import building_zones_age as bzs
 from rentfrontier import building_zones_floor as bzf
+from rentfrontier import building_zones_floor_asof as bzfa
 from rentfrontier import building_zones_gibbs as bzg
 
 # A curve rising with log floor in elevator buildings and falling with each flight of stairs
@@ -212,10 +213,14 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-waterfront",
         "building-zones-elevated",
         "building-zones-floor-parkfront",
+        "building-zones-floor-asof",
+        "building-zones-mundlak-asof",
     ],
 )
 def test_run(tmp_path, monkeypatch, model):
-    from rentfrontier import building_attrs, whitened_zones
+    import test_building_zones_floor_asof as tbfa
+
+    from rentfrontier import building_attrs, unit_features, whitened_zones
     from rentfrontier import building_zones_attrs as bza
     from rentfrontier import building_zones_elevated as bze
     from rentfrontier import building_zones_front as bzfront
@@ -315,6 +320,15 @@ def test_run(tmp_path, monkeypatch, model):
         }
     ).to_parquet(esnap / "elevated.parquet")
     monkeypatch.setattr(bze, "ELEVATED_SNAPSHOT", esnap)
+    ads = tbfa.ads_for(frame)
+    ads.to_parquet(tmp_path / "pipeline-rows.parquet")
+    monkeypatch.setattr(unit_features, "ROWS", tmp_path / "pipeline-rows.parquet")
+    msnap = tmp_path / "listing-amenities"
+    msnap.mkdir()
+    tbfa.amenities_for(ads).to_parquet(msnap / "amenities.parquet")
+    monkeypatch.setattr(bzfa, "AMENITIES", msnap)
+    lots = tbfa.lots_for(frame)
+    monkeypatch.setattr(bzfa, "load_lots", lambda: lots)
     monkeypatch.setenv("FRONTIER_DATASET", str(dataset))
     monkeypatch.setenv("FRONTIER_COMMIT", "abc1234")
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")
@@ -328,7 +342,11 @@ def test_run(tmp_path, monkeypatch, model):
     out = tmp_path / "runs" / "bzf-test"
     result = json.loads((out / "result.json").read_text())
     assert result["sampler"] == model
-    assert result["unit_floor"] == str(fsnap)
+    if model.endswith("-asof"):
+        assert result["asof"]["split"] == "latest"
+        assert result["unit_floor"].startswith("rebuilt")
+    else:
+        assert result["unit_floor"] == str(fsnap)
     assert result["floor_gp"]["caps"] == {
         "elev": bzf.ELEV_CAP,
         "walkup": bzf.WALKUP_CAP,
