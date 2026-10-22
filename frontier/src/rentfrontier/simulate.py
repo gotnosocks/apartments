@@ -374,6 +374,8 @@ def _interval(draws: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 def term_rows(draws: np.ndarray, truth_v: np.ndarray, names) -> list[dict]:
     """Per-term truth, median, 90% interval, coverage and chain medians. `draws` is
     (chains, draws, terms)."""
+    if not len(names):
+        return []
     flat = draws.reshape(-1, draws.shape[-1])
     q05, q50, q95 = _interval(flat)
     chain = np.median(draws, axis=1)

@@ -1,0 +1,86 @@
+{
+ "by_column": {
+  "bld:log_station_km": {
+   "nearest_or_lowest_fifth": {
+    "sites": 11571,
+    "rows": 341408,
+    "mean_error_x100": -0.043
+   },
+   "farthest_or_highest_fifth": {
+    "sites": 13935,
+    "rows": 341395,
+    "mean_error_x100": 0.143
+   }
+  },
+  "bld:log1p_routes": {
+   "nearest_or_lowest_fifth": {
+    "sites": 12685,
+    "rows": 341957,
+    "mean_error_x100": 0.156
+   },
+   "farthest_or_highest_fifth": {
+    "sites": 8387,
+    "rows": 341760,
+    "mean_error_x100": -0.044
+   }
+  },
+  "bld:log_park_km": {
+   "nearest_or_lowest_fifth": {
+    "sites": 12304,
+    "rows": 341414,
+    "mean_error_x100": -0.031
+   },
+   "farthest_or_highest_fifth": {
+    "sites": 13117,
+    "rows": 341395,
+    "mean_error_x100": 0.045
+   }
+  },
+  "bld:log_big_park_km": {
+   "nearest_or_lowest_fifth": {
+    "sites": 14081,
+    "rows": 341550,
+    "mean_error_x100": -0.352
+   },
+   "farthest_or_highest_fifth": {
+    "sites": 11689,
+    "rows": 341394,
+    "mean_error_x100": 0.216
+   }
+  },
+  "bld:log_water_km": {
+   "nearest_or_lowest_fifth": {
+    "sites": 7366,
+    "rows": 342232,
+    "mean_error_x100": 0.451
+   },
+   "farthest_or_highest_fifth": {
+    "sites": 25137,
+    "rows": 341389,
+    "mean_error_x100": -0.244
+   }
+  },
+  "bld:log1p_noise": {
+   "nearest_or_lowest_fifth": {
+    "sites": 22258,
+    "rows": 341397,
+    "mean_error_x100": -0.035
+   },
+   "farthest_or_highest_fifth": {
+    "sites": 9124,
+    "rows": 341406,
+    "mean_error_x100": 0.042
+   }
+  }
+ },
+ "manhattan": {
+  "slope_of_map_error_on_planted_contribution": -0.0244,
+  "planted_contribution_sd_x100": 1.94,
+  "map_error_sd_x100": 0.544
+ },
+ "outer": {
+  "slope_of_map_error_on_planted_contribution": -0.0322,
+  "planted_contribution_sd_x100": 2.33,
+  "map_error_sd_x100": 0.447
+ }
+}
