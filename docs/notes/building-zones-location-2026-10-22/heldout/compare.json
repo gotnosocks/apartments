@@ -1,0 +1,146 @@
+{
+ "transit": {
+  "ads": 189649,
+  "elpd_diff": 0.2,
+  "se_ads": 0.7,
+  "se_buildings": 0.7,
+  "rmse": 11.538,
+  "rmse_floor": 11.538,
+  "cover90": 0.9042,
+  "cover90_floor": 0.9045,
+  "by_training_ads": {
+   "1-2": {
+    "ads": 2438,
+    "buildings": 2347,
+    "elpd_diff": -0.1,
+    "se_buildings": 0.4
+   },
+   "3-5": {
+    "ads": 5357,
+    "buildings": 4485,
+    "elpd_diff": 0.2,
+    "se_buildings": 0.3
+   },
+   "6-20": {
+    "ads": 22667,
+    "buildings": 12769,
+    "elpd_diff": -0.0,
+    "se_buildings": 0.3
+   },
+   "21-1000000000": {
+    "ads": 159187,
+    "buildings": 16641,
+    "elpd_diff": 0.1,
+    "se_buildings": 0.5
+   }
+  }
+ },
+ "parks": {
+  "ads": 189649,
+  "elpd_diff": 2.9,
+  "se_ads": 1.2,
+  "se_buildings": 1.6,
+  "rmse": 11.538,
+  "rmse_floor": 11.538,
+  "cover90": 0.9042,
+  "cover90_floor": 0.9045,
+  "by_training_ads": {
+   "1-2": {
+    "ads": 2438,
+    "buildings": 2347,
+    "elpd_diff": -0.5,
+    "se_buildings": 0.6
+   },
+   "3-5": {
+    "ads": 5357,
+    "buildings": 4485,
+    "elpd_diff": 1.0,
+    "se_buildings": 0.5
+   },
+   "6-20": {
+    "ads": 22667,
+    "buildings": 12769,
+    "elpd_diff": 1.0,
+    "se_buildings": 1.2
+   },
+   "21-1000000000": {
+    "ads": 159187,
+    "buildings": 16641,
+    "elpd_diff": 1.3,
+    "se_buildings": 0.6
+   }
+  }
+ },
+ "noise": {
+  "ads": 189649,
+  "elpd_diff": -0.3,
+  "se_ads": 0.8,
+  "se_buildings": 0.8,
+  "rmse": 11.538,
+  "rmse_floor": 11.538,
+  "cover90": 0.9043,
+  "cover90_floor": 0.9045,
+  "by_training_ads": {
+   "1-2": {
+    "ads": 2438,
+    "buildings": 2347,
+    "elpd_diff": 0.2,
+    "se_buildings": 0.5
+   },
+   "3-5": {
+    "ads": 5357,
+    "buildings": 4485,
+    "elpd_diff": 0.7,
+    "se_buildings": 0.4
+   },
+   "6-20": {
+    "ads": 22667,
+    "buildings": 12769,
+    "elpd_diff": -0.3,
+    "se_buildings": 0.4
+   },
+   "21-1000000000": {
+    "ads": 159187,
+    "buildings": 16641,
+    "elpd_diff": -0.9,
+    "se_buildings": 0.4
+   }
+  }
+ },
+ "location": {
+  "ads": 189649,
+  "elpd_diff": 1.9,
+  "se_ads": 1.4,
+  "se_buildings": 1.7,
+  "rmse": 11.537,
+  "rmse_floor": 11.538,
+  "cover90": 0.9046,
+  "cover90_floor": 0.9045,
+  "by_training_ads": {
+   "1-2": {
+    "ads": 2438,
+    "buildings": 2347,
+    "elpd_diff": -0.4,
+    "se_buildings": 0.8
+   },
+   "3-5": {
+    "ads": 5357,
+    "buildings": 4485,
+    "elpd_diff": 1.4,
+    "se_buildings": 0.7
+   },
+   "6-20": {
+    "ads": 22667,
+    "buildings": 12769,
+    "elpd_diff": 0.8,
+    "se_buildings": 1.2
+   },
+   "21-1000000000": {
+    "ads": 159187,
+    "buildings": 16641,
+    "elpd_diff": 0.2,
+    "se_buildings": 0.6
+   }
+  }
+ }
+}
