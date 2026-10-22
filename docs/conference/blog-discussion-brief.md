@@ -9,3 +9,14 @@ Write one top-level comment (at most 350 words) under the handle you are given. 
 ## Round 2: your reply
 
 You will then see every round-1 comment. Write one reply (at most 200 words) to the comment you most want to push back on or build on, starting with "@handle". Disagree where you disagree. You may also answer a point raised about your own comment.
+
+## Author's note for round 2 (Ben, the project's owner)
+
+"We do not have information that tells us what people actually pay, so that question is not answerable. The best
+that we can do is treat the asking rents that go off market as a sort of closing price that led to a rental. In
+general, I'm content just modeling the asking prices because that's what we can observe. But I want to leave the
+research direction open-ended so that the community can figure out something that's interesting and try to do good
+science on explaining the observations."
+
+So in round 2, don't relitigate asks versus contract rents. Push on what would explain the observed asks, and which
+checks would break or confirm the results.

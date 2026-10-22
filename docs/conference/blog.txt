@@ -14,8 +14,7 @@ Our model gives every one of 67,977 buildings its own price level and gives the 
 A feature that changes inside a building, like the floor, is then priced by comparing units in the same building.
 
 Throughout, we'll translate percentages into dollars on an example $4,000 a month apartment. All figures are
-asking rents on StreetEasy in Manhattan and Brooklyn, net of advertised free months, not what tenants finally sign
-for.
+asking rents on StreetEasy in Manhattan and Brooklyn, net of advertised free months.
 
 ## Height pays, but only with an elevator
 
@@ -88,7 +87,15 @@ the time, which is what they should do. We also tested the model on fake rents w
 recovered the map and the floor curve well. It overstated unit features by a fraction of a point, and its stated
 uncertainty about individual features was too narrow, so we report ranges, not decimals.
 
-The biggest open question is whether asking rents tell the same story as the rents people actually pay. That's
-next.
+## What we're modelling, and what's open
+
+Nobody publishes what New York tenants actually sign for, so we don't try to guess it. What we can observe is the
+ask, and we treat the last ask before a listing goes off the market as the closest thing to a closing price: the
+price at which the apartment found a taker. Every number above is about those prices.
+
+Within that, the direction is wide open. The floor curve, the missing-square-footage discount and the park-facing
+premium are the parts we can explain so far; the map that still carries a quarter of the variance is the part we
+can't. If you have an idea about what in the observations would explain it, or a check that would break one of the
+results above, that's what the comments are for.
 
 The model, data and every test behind this post are in the project's research notes from 21–22 October 2026. Dollar figures apply the percentage premiums to an illustrative $4,000 rent and are rounded.
