@@ -123,3 +123,5 @@ others are in.
 
 The model isn't served. The latest split can't tell the combined fit from the floor fit, so the
 selection rules don't pass, and the site doesn't change.
+
+The explainer page for this fit is https://claude.ai/artifact/5r2e1LBJXPu6sXKps6Fd8n.
