@@ -13,7 +13,7 @@ steps between the first row and the rest. I wrote these predictions before launc
 location model's `bld:log_water_km` comes from, so it needs no new data. The shoreline there is
 the borough boundaries less their land borders, so it includes the Harlem River and Newtown
 Creek. 150 m takes in a building with the FDR Drive, the West Side Highway or an esplanade between
-it and the water, plus half a lot's depth.
+it and the water, and a lot of 30 to 60 m depth.
 
 On the latest split's 1,706,837 training ads, 51,663 (3.0%) are in the 429 buildings within
 150 m.
