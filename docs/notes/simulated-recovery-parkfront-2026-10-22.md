@@ -4,8 +4,8 @@ I fit `building-zones-parkfront` on rents I drew from the park frontage fit's ow
 (`sim-parkfront-fitted-20261022`, made with `python -m rentfrontier.simulate make` at seed
 20261023), at the code of #1227 (752f6fb4). I used the whole-building split and the night's
 settings: 4 chains, 300 warmup, 1,000 sweeps with every 5th kept, seed 20261021, fit-only. The
-run is `building-zones-parkfront-b0-buildings-752f6fb4-dense-w1000`. Its fit stages took 17.3
-minutes, at a Modal cost estimate of $0.72 from the `ops/modal-fit` log. The predictions are in
+run is `building-zones-parkfront-b0-buildings-752f6fb4-dense-w1000`. The `ops/modal-fit` log
+gives 17.3 minutes for its fit stages and a Modal cost estimate of $0.72. The predictions are in
 docs/notes/simulated-recovery-parkfront-predictions-2026-10-22.md, and the explainer is
 https://claude.ai/artifact/TxV4ULdAbT2yc1V5p6wmo4.
 
@@ -50,11 +50,12 @@ interval from -2.75 to -0.26. Both map amplitudes cover the source fit's values.
 ## The coverage miss
 
 39 of the 126 scalar terms fall outside their 90% intervals, a coverage of 69%, against 82% in
-the location recovery (#1215). The misses are almost all unit-level terms with very narrow intervals: the
-bedroom and bath steps, the floor curves and floor flags, size, laundry and the dishwasher. For
-example, `bed>=1` returns 22.75 for a planted 22.85 with an interval 0.09 wide, and
-`unit:log_size_rel` returns 25.84 for 25.38 with an interval 0.20 wide. The errors are a few
-tenths of a point at most. The location recovery missed many of the same terms, so I read this as
+the location recovery (#1215). The misses are almost all unit-level terms with very narrow
+intervals: the bedroom and bath steps, the floor curves and floor flags, size, laundry and the
+dishwasher. For example, `bed>=1` returns 22.75 for a planted 22.85 with an interval 0.09 wide,
+and `unit:log_size_rel` returns 25.84 for 25.38 with an interval 0.20 wide. 36 of the 39 misses
+are off by under 0.5 points. The largest is `bed=5:full>=3`, 1.0 points off, followed by
+`bld:condo` at 0.52. The location recovery missed many of the same terms, so I read this as
 intervals on the row-level terms running too narrow in both recoveries, worse on this draw. I
 haven't checked whether the whole-building split, the source fit or the simulation seed accounts
 for the difference between 82% and 69%. None of the missed terms is a location column.
