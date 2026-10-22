@@ -42,8 +42,10 @@ which takes back the term's average. No other term moves by more than 0.09 point
 
 Outdoor noise complaints go with slightly lower rent once the map and the building attributes
 are in: about 1.2 points across the middle 80% of buildings, smaller than transit's 2 and much
-smaller than parks' 5.7. The free check found nothing, and the fit finds a small, clear effect,
-so the map and the building terms were hiding part of it in the simple regression.
+smaller than parks' 5.7. The free check's coefficient on
+the building residual, -0.9 points, is close to the fit's -0.58. The check's 0.2% share of
+variance made it look like nothing, but a small slope over a column with this much spread still
+adds up to about a point across buildings.
 
 A complaint count mixes two things: how loud a block is, and how ready its residents are to call
 311, which rises with rent. The second pushes the coefficient up, so the cost of noise itself
