@@ -1,0 +1,32 @@
+{
+ "manhattan": {
+  "map": {
+   "park_facing_x100": 0.133,
+   "others_x100": -0.019,
+   "difference_x100": 0.152
+  },
+  "building_level": {
+   "park_facing_x100": -0.0,
+   "others_x100": -0.0,
+   "difference_x100": -0.0
+  },
+  "park_facing_sites": 514,
+  "park_facing_rows": 45249,
+  "map_plus_level_park_facing_x100": 0.133
+ },
+ "outer": {
+  "map": {
+   "park_facing_x100": 0.036,
+   "others_x100": 0.019,
+   "difference_x100": 0.017
+  },
+  "building_level": {
+   "park_facing_x100": -0.0,
+   "others_x100": -0.0,
+   "difference_x100": -0.0
+  },
+  "park_facing_sites": 488,
+  "park_facing_rows": 8807,
+  "map_plus_level_park_facing_x100": 0.036
+ }
+}
