@@ -498,6 +498,7 @@ def main(argv=None):
             "building-zones-mundlak",
             "building-zones-transit",
             "building-zones-parks",
+            "building-zones-noise",
         ):
             raise SystemExit(
                 f"{name}: {run['sampler']}'s scoring needs its location surfaces,"

@@ -150,6 +150,8 @@ RATE_STAND_IN["building-zones-mundlak"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-transit"] = "building-zones-attrs"
 # Building zones with parks adds three building columns to the building-means model.
 RATE_STAND_IN["building-zones-parks"] = "building-zones-attrs"
+# Building zones with noise adds one building column to the building-means model.
+RATE_STAND_IN["building-zones-noise"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -178,6 +180,7 @@ BASELINES = (
     "building-zones-mundlak",
     "building-zones-transit",
     "building-zones-parks",
+    "building-zones-noise",
 )
 
 
