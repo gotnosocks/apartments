@@ -1,17 +1,16 @@
 import numpy as np
 import pandas as pd
 import pytest
-
 import test_building_zones_age as tbs
 import test_building_zones_floor as tbf
 import test_building_zones_gym as tby
 import test_building_zones_unit as tbu
-from rentfrontier import building_attrs, building_gym, splits, unit_features
+
+from rentfrontier import building_attrs, building_gym, splits, unit_features, unit_floor
 from rentfrontier import building_zones_floor as bzf
 from rentfrontier import building_zones_floor_asof as bzfa
 from rentfrontier import building_zones_mundlak as bzm
 from rentfrontier import building_zones_mundlak_asof as bzma
-from rentfrontier import unit_floor
 
 LABELS = ("4B", "12C", "3A", "2F", "25A", "1204", "PH", "GARDEN", "LL", "7")
 

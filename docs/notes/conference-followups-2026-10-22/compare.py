@@ -1,9 +1,10 @@
 """Paired held-out comparisons and interval coverage from the per-ad scores of score.py.
 
-    python compare.py DIR
+    python compare.py DIR [A:B ...]
 
-DIR holds floor-latest.npz, mundlak-latest.npz and age-latest.npz. For each pair the
-script prints the summed elpd difference with three standard errors:
+DIR holds NAME-latest.npz for each named run. With no pairs given, the script compares
+mundlak:floor and floor:age. For each pair A:B it checks that both files list the same
+held-out ads in the same order, then prints the summed elpd difference with three standard errors:
     row: the plain sd of per-ad differences times sqrt(n),
     building: the sum of differences clustered by building,
     two-way: clustered by building and by listing week (Cameron, Gelbach and Miller 2011),
@@ -15,7 +16,9 @@ import sys
 
 import numpy as np
 
-d = {n: np.load(f"{sys.argv[1]}/{n}-latest.npz") for n in ("floor", "mundlak", "age")}
+pairs = [a.split(":") for a in sys.argv[2:]] or [["mundlak", "floor"], ["floor", "age"]]
+names = dict.fromkeys(n for pair in pairs for n in pair)
+d = {n: np.load(f"{sys.argv[1]}/{n}-latest.npz") for n in names}
 
 
 def cluster_var(x, g):
@@ -30,10 +33,10 @@ def ses(x, building, week):
     return np.sqrt(len(x) * x.var()), np.sqrt(vb), np.sqrt(max(vb + vw - vbw, vb))
 
 
-f = d["floor"]
-for a, b in (("mundlak", "floor"), ("floor", "age")):
+for a, b in pairs:
+    assert (d[a]["listing"] == d[b]["listing"]).all()
     x = d[a]["elpd"] - d[b]["elpd"]
-    r, cb, cw = ses(x, f["building"], f["week"])
+    r, cb, cw = ses(x, d[b]["building"], d[b]["week"])
     print(
         f"{a} - {b}: elpd {x.sum():.0f}  SE row {r:.0f} building {cb:.0f} two-way {cw:.0f}"
     )

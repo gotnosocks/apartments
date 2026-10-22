@@ -105,7 +105,7 @@ The posterior median falls between nine pairs of neighboring floors:
 | 41→42 | −0.14 | 0.67 |
 | 44→45 | −0.05 | 0.54 |
 
-Eight of the drops are under 0.15 points, with P(dip) between 0.54 and 0.71. The drop at 40→41 is half a point, with P = 0.92. Floor 40 sits half a point above its neighbors, so the mark there likely comes from a few large buildings with many ads on that floor. Follow-up (g) counts the buildings per floor.
+Eight of the drops are under 0.15 points, with P(dip) between 0.54 and 0.71. The drop at 40→41 is half a point, with P = 0.92. Floor 40 sits half a point above its neighbors. I first guessed that a few large buildings with many ads on that floor drove it, but (g) finds no such concentration.
 
 ## (e) The map amplitude against its prior
 
@@ -142,4 +142,66 @@ The paper should describe the split as a test of each repeated unit's latest ad,
 | `bld:gym` (`building_gym.py`) | share over all of the building's listings | uses held-out and later ads |
 | laundry, dishwasher | the ad itself | own ad |
 
-The leak runs both ways. A held-out ad can feed its own row through its own description, and it can feed earlier training rows of its unit and building as well. None of this carries a rent. The same paths stay open on the whole-building split, but only within held-out buildings, since every ad of a held-out building is held out together. A leak-free version would rebuild the size fills and building shares from training ads only, with `sizefill.asof_size` reading earlier days, and rerun both splits.
+The leak runs both ways. A held-out ad can feed its own row through its own description, and it can feed earlier training rows of its unit and building as well. None of this carries a rent. The same paths stay open on the whole-building split, but only within held-out buildings, since every ad of a held-out building is held out together. `conference-followups-2026-10-22/asof_counts.py` measures the reach of these paths on the latest split by rebuilding each feature from training rows only, with sizes from earlier days, and counting the rows whose value changes:
+- 7.4% of training rows take a unit or line size fill with no earlier training ad to fill from. That is 39% of the filled training rows.
+- Square footage changes on 14.1% of training rows and 11.1% of held-out rows. Square footage or relative size changes on 30.6% and 33.3%.
+- The elevator flag changes on 0.26% of training rows and 0.29% of held-out rows, the doorman flag on 1.26% and 1.48%, and the gym flag on 0.06% and 0.10%. Floor count and top floor do not change.
+- By building, 1.18% change some attribute: 0.20% elevator, 0.83% doorman and 0.16% gym.
+
+A leak-free version would rebuild the size fills and building shares from training ads only, with `sizefill.asof_size` reading earlier days, and rerun both splits.
+
+## (h) Unit features against building attributes, scored directly
+
+Table 1 row 2 compared the unit-features fit with the attributes fit by way of the gym fit. Here I paired the two directly on the same 189,649 held-out ads of the latest split. The model code has changed since both runs, so I scored each with the source tree of its own commit (`git archive a3aec3ff` and `git archive 9bd8c1a3`). With today's code the design columns no longer match the saved draws.
+
+| fit | held-out elpd | RMSE | 50% | 80% | 90% | 95% |
+|---|---|---|---|---|---|---|
+| unit features `building-zones-unit-b0-latest-a3aec3ff-dense-w650` | 146,323 | 0.1173 | 0.494 | 0.799 | 0.903 | 0.955 |
+| attributes `building-zones-attrs-b0-latest-9bd8c1a3-dense-w650` | 136,511 | 0.1243 | 0.491 | 0.795 | 0.901 | 0.952 |
+
+| pair | elpd difference | SE row | SE building | SE two-way |
+|---|---|---|---|---|
+| unit features − attributes | +9,812 | 161 | 309 | 316 |
+| floor − unit features | +2,980 | 84 | 172 | 172 |
+
+The unit features add 9,812 elpd over the attributes fit, about 31 two-way SEs. The RMSE of 0.1173 belongs to the unit-features fit, and the age fit in (a) comes to 0.1172. A table row that shows 0.1173 for the age fit has probably picked up the unit-features number.
+
+## (g) Support for the top elevator floors
+
+`conference-followups-2026-10-22/floor_support.py` takes the training ads in elevator buildings on the latest split and joins each ad's floor from the snapshot `unit-floor/20261021-d84914c0`. For each floor from 30 up it counts the ads and buildings, the buildings with ads on some other elevator floor, and the share of the floor's ads in its largest building and its three largest. The ad counts come out a little lower than the counts in (d), which came from the fit's own floor index.
+
+| floor | ads | buildings | buildings with another floor | top building | top 3 |
+|---|---|---|---|---|---|
+| 30 | 4,217 | 359 | 358 | 0.028 | 0.058 |
+| 31 | 3,941 | 334 | 334 | 0.029 | 0.065 |
+| 32 | 3,337 | 309 | 309 | 0.022 | 0.054 |
+| 33 | 3,376 | 287 | 286 | 0.025 | 0.059 |
+| 34 | 2,800 | 247 | 247 | 0.022 | 0.059 |
+| 35 | 2,643 | 224 | 223 | 0.030 | 0.067 |
+| 36 | 2,261 | 196 | 195 | 0.034 | 0.090 |
+| 37 | 1,952 | 182 | 180 | 0.032 | 0.074 |
+| 38 | 1,833 | 170 | 170 | 0.032 | 0.091 |
+| 39 | 1,651 | 149 | 149 | 0.042 | 0.100 |
+| 40 | 1,598 | 150 | 150 | 0.040 | 0.096 |
+| 41 | 1,464 | 135 | 135 | 0.038 | 0.096 |
+| 42 | 1,458 | 127 | 127 | 0.049 | 0.123 |
+| 43 | 1,221 | 110 | 109 | 0.055 | 0.114 |
+| 44 | 1,054 | 90 | 90 | 0.050 | 0.138 |
+| 45 | 1,079 | 93 | 92 | 0.040 | 0.117 |
+| 46 | 917 | 81 | 81 | 0.048 | 0.135 |
+| 47+ | 7,822 | 104 | 98 | 0.098 | 0.205 |
+
+Up to floor 46 every floor draws on at least 81 buildings. Nearly all of them have ads on other floors too, so the building levels separate each floor's effect from the building. No floor leans on one building, with the largest holding at most 5.5% of a floor's ads. Floor 40 has 150 buildings, and its largest holds 4%. A single building does not explain the half-point bump at 40, so the bump stays unexplained.
+
+The 47+ node holds 7,822 training ads from 104 buildings. Its largest building holds 9.8% of those ads and the top three hold 20.5%. The floors behind it:
+
+| floors | training ads |
+|---|---|
+| 47 to 50 | 2,981 |
+| 51 to 55 | 2,257 |
+| 56 to 60 | 1,334 |
+| 61 to 70 | 918 |
+| 71 to 80 | 299 |
+| 81 and up | 33 |
+
+Their mean is 54.3, the median 52, the quartiles 49 and 58, the 99th percentile 78 and the maximum 104.
