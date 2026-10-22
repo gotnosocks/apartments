@@ -1,8 +1,8 @@
 """Simulated rents with known effects, for checking that a building-zones fit recovers them.
 
-I take a finished fit of `building-zones-floor` or `building-zones-location` and its exact design: the same rows, columns,
-missing values, buildings, zones, map bases and weeks. I set every term to a known value, the
-truth, and draw each row's log rent from the model:
+I take a finished fit of `building-zones-floor` or `building-zones-location` and its exact
+design: the same rows, columns, missing values, buildings, zones, map bases and weeks. I set
+every term to a known value, the truth, and draw each row's log rent from the model:
 
     y = x beta + L(t) + F(site) + bld(site) + sigma_group * StudentT(nu)
 
@@ -29,14 +29,14 @@ scenario then changes some of it:
    transit, parks and noise terms at the fit's values, so a fit on the copy shows whether they
    come back without moving into the map.
 
-    python -m rentfrontier.simulate make RUN SCENARIO DATASET_OUT [--seed N] [--root DIR]
+    python -m rentfrontier.simulate make RUN SCENARIO OUT [--seed N] [--root DIR]
     python -m rentfrontier.simulate score SIM_RUN TRUTH_DIR OUT_JSON [--root DIR]
 
-`make` writes DATASET_OUT (rows.parquet, set_aside.parquet and manifest.json) and puts the
+`make` writes OUT (rows.parquet, set_aside.parquet and manifest.json) and puts the
 truth in ROOT/SCENARIO/truth.npz, with the scenario-free design facts in ROOT/design.npz.
 ROOT is SIM_ROOT unless `--root` gives another folder, which a second source fit needs, since
-each ROOT's design.npz belongs to one fit. `score` compares a fit on the simulated data with that truth and writes
-a JSON of medians, 90% intervals and coverage.
+each ROOT's design.npz belongs to one fit. `score` compares a fit on the simulated data with
+that truth and writes a JSON of medians, 90% intervals and coverage.
 """
 
 from __future__ import annotations
