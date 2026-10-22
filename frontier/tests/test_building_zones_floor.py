@@ -211,6 +211,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-avenue",
         "building-zones-parkfront",
         "building-zones-waterfront",
+        "building-zones-elevated",
     ],
 )
 def test_run(tmp_path, monkeypatch, model):
@@ -219,6 +220,7 @@ def test_run(tmp_path, monkeypatch, model):
     from rentfrontier import building_zones_front as bzfront
     from rentfrontier import building_zones_gym as bzy
     from rentfrontier import building_zones_noise as bzn
+    from rentfrontier import building_zones_elevated as bze
     from rentfrontier import building_zones_parkfront as bzk
     from rentfrontier import building_zones_parks as bzp
     from rentfrontier import building_zones_transit as bzt
@@ -303,6 +305,15 @@ def test_run(tmp_path, monkeypatch, model):
         }
     ).to_parquet(ksnap / "park_front.parquet")
     monkeypatch.setattr(bzk, "PARK_FRONT_SNAPSHOT", ksnap)
+    esnap = tmp_path / "elevated"
+    esnap.mkdir()
+    pd.DataFrame(
+        {
+            "building": blds,
+            "elevated_m": np.where(np.arange(len(blds)) % 5 == 0, 15.0, 300.0),
+        }
+    ).to_parquet(esnap / "elevated.parquet")
+    monkeypatch.setattr(bze, "ELEVATED_SNAPSHOT", esnap)
     monkeypatch.setenv("FRONTIER_DATASET", str(dataset))
     monkeypatch.setenv("FRONTIER_COMMIT", "abc1234")
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")
