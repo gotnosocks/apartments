@@ -1,6 +1,6 @@
 """Simulated rents with known effects, for checking that a building-zones fit recovers them.
 
-I take a finished fit of `building-zones-floor` and its exact design: the same rows, columns,
+I take a finished fit of `building-zones-floor` or `building-zones-location` and its exact design: the same rows, columns,
 missing values, buildings, zones, map bases and weeks. I set every term to a known value, the
 truth, and draw each row's log rent from the model:
 
@@ -25,13 +25,17 @@ scenario then changes some of it:
 3. `height`: both floor curves and every floor flag are 0, and each building's level gains
    HEIGHT_SLOPE per MapPLUTO floor, centred on the training rows' mean so the intercept keeps
    its value. A building with no MapPLUTO floor count gains nothing.
+4. `fitted`: the medians as they are. On a `building-zones-location` fit this plants the
+   transit, parks and noise terms at the fit's values, so a fit on the copy shows whether they
+   come back without moving into the map.
 
-    python -m rentfrontier.simulate make RUN SCENARIO DATASET_OUT [--seed N]
-    python -m rentfrontier.simulate score SIM_RUN TRUTH_DIR OUT_JSON
+    python -m rentfrontier.simulate make RUN SCENARIO DATASET_OUT [--seed N] [--root DIR]
+    python -m rentfrontier.simulate score SIM_RUN TRUTH_DIR OUT_JSON [--root DIR]
 
 `make` writes DATASET_OUT (rows.parquet, set_aside.parquet and manifest.json) and puts the
-truth in SIM_ROOT/SCENARIO/truth.npz, with the scenario-free design facts in
-SIM_ROOT/design.npz. `score` compares a fit on the simulated data with that truth and writes
+truth in ROOT/SCENARIO/truth.npz, with the scenario-free design facts in ROOT/design.npz.
+ROOT is SIM_ROOT unless `--root` gives another folder, which a second source fit needs, since
+each ROOT's design.npz belongs to one fit. `score` compares a fit on the simulated data with that truth and writes
 a JSON of medians, 90% intervals and coverage.
 """
 
@@ -48,11 +52,23 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import b0, building_attrs, building_zones_floor, splits, whitened_zones
+from . import (
+    b0,
+    building_attrs,
+    building_zones_floor,
+    building_zones_location,
+    splits,
+    whitened_zones,
+)
 from .run import RUNS
 
 SIM_ROOT = Path("/data1/apartments/tmp/sim-recovery")
-SCENARIOS = ("realistic", "null", "height")
+SCENARIOS = ("realistic", "null", "height", "fitted")
+# The models a source fit may come from, by feature set.
+SPECS = {
+    building_zones_floor.NAME: building_zones_floor,
+    building_zones_location.NAME: building_zones_location,
+}
 WALKUP_SLOPE = 0.004  # log points a flight above floor 1, in the realistic set
 ELEV_TOP = math.log(1.04)  # a 4% top-floor bump in elevator buildings
 HEIGHT_SLOPE = 0.002  # log points a MapPLUTO floor: 2% for every 10 floors
@@ -67,6 +83,9 @@ SNAPSHOT_KEYS = (
     "building_gym",
     "building_age",
     "unit_floor",
+    "building_transit",
+    "building_parks",
+    "building_noise",
 )
 LEVEL = 0.90
 # The prefix of the building-mean columns a fit may add to the truth's (building_zones_mundlak).
@@ -114,7 +133,9 @@ def truth(names, med: dict, scenario: str, height: np.ndarray | None = None) -> 
     beta = med["beta"].copy()
     bld = med["bld"].copy()
     planted = np.zeros_like(bld)
-    if scenario == "realistic":
+    if scenario == "fitted":
+        pass
+    elif scenario == "realistic":
         for k in range(2, building_zones_floor.WALKUP_CAP + 1):
             beta[ix[f"unit:walkup_f{k}"]] = WALKUP_SLOPE * (k - 1)
         beta[ix["unit:elev_top"]] = ELEV_TOP
@@ -193,12 +214,13 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def make(run: str, scenario: str, out: Path, seed: int) -> None:
-    """Write the simulated dataset `out` and the scenario's truth."""
+def make(run: str, scenario: str, out: Path, seed: int, root: Path = SIM_ROOT) -> None:
+    """Write the simulated dataset `out` and the scenario's truth under `root`."""
     result = json.loads((RUNS / run / "result.json").read_text())
-    if result["feature_set"] != building_zones_floor.NAME:
+    spec = SPECS.get(result["feature_set"])
+    if spec is None:
         raise SystemExit(
-            f"{run} is a {result['feature_set']} fit, not {building_zones_floor.NAME}"
+            f"{run} is a {result['feature_set']} fit, not one of {', '.join(SPECS)}"
         )
     if out.exists():
         raise SystemExit(f"{out} exists; choose a new dataset name")
@@ -207,8 +229,8 @@ def make(run: str, scenario: str, out: Path, seed: int) -> None:
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit(f"{source} holds other rows than the fit read")
     heldout = splits.SPLITS[result["split"]](frame)
-    full = building_zones_floor.design(frame)
-    record = building_zones_floor.run_record(full)
+    full = spec.design(frame)
+    record = spec.run_record(full)
     for k in SNAPSHOT_KEYS:
         if str(record.get(k)) != str(result.get(k)):
             raise SystemExit(
@@ -241,7 +263,7 @@ def make(run: str, scenario: str, out: Path, seed: int) -> None:
     if (source / "set_aside.parquet").exists():
         shutil.copy2(source / "set_aside.parquet", out / "set_aside.parquet")
 
-    tdir = SIM_ROOT / scenario
+    tdir = root / scenario
     tdir.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         tdir / "truth.npz",
@@ -262,7 +284,7 @@ def make(run: str, scenario: str, out: Path, seed: int) -> None:
         mu_train=mu[train].astype(np.float32),
         y_train=y[train].astype(np.float32),
     )
-    _write_design(full, frame, train, rows, share, buildings, floors, result)
+    _write_design(full, frame, train, rows, share, buildings, floors, result, root)
 
     manifest = json.loads((source / "manifest.json").read_text())
     manifest["rows_sha256"] = sha256(out / "rows.parquet")
@@ -287,9 +309,11 @@ def make(run: str, scenario: str, out: Path, seed: int) -> None:
     )
 
 
-def _write_design(full, frame, train, rows, share, buildings, floors, result) -> None:
-    """The scenario-free design facts the scoring reads, in SIM_ROOT/design.npz."""
-    path = SIM_ROOT / "design.npz"
+def _write_design(
+    full, frame, train, rows, share, buildings, floors, result, root=SIM_ROOT
+) -> None:
+    """The scenario-free design facts the scoring reads, in `root`/design.npz."""
+    path = root / "design.npz"
     if path.exists():
         with np.load(path) as z:
             if str(z["run"]) != result["name"]:
@@ -401,10 +425,10 @@ def site_coverage(draws: np.ndarray, truth_v: np.ndarray, rows: np.ndarray) -> d
     return out
 
 
-def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
+def score(sim_run: str, tdir: Path, out_json: Path, root: Path = SIM_ROOT) -> dict:
     """Compare the fit `sim_run` with the truth in `tdir` and write the scores."""
     t = dict(np.load(tdir / "truth.npz"))
-    dz = dict(np.load(SIM_ROOT / "design.npz"))
+    dz = dict(np.load(root / "design.npz"))
     names = [str(n) for n in t["names"]]
     with np.load(RUNS / sim_run / "posterior.npz") as z:
         kept = {k[5:]: z[k] for k in z.files if k.startswith("kept/")}
@@ -620,15 +644,17 @@ def main(argv=None) -> None:
     m.add_argument("scenario", choices=SCENARIOS)
     m.add_argument("out", type=Path)
     m.add_argument("--seed", type=int, default=20261022)
+    m.add_argument("--root", type=Path, default=SIM_ROOT)
     s = sub.add_parser("score")
     s.add_argument("sim_run")
     s.add_argument("truth_dir", type=Path)
     s.add_argument("out_json", type=Path)
+    s.add_argument("--root", type=Path, default=SIM_ROOT)
     args = p.parse_args(argv)
     if args.cmd == "make":
-        make(args.run, args.scenario, args.out, args.seed)
+        make(args.run, args.scenario, args.out, args.seed, args.root)
     else:
-        score(args.sim_run, args.truth_dir, args.out_json)
+        score(args.sim_run, args.truth_dir, args.out_json, args.root)
 
 
 if __name__ == "__main__":
