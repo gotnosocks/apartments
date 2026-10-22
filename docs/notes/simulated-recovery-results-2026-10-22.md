@@ -50,19 +50,19 @@ direction.
 
 All figures are in points of log rent ×100. Each of these misses its own interval, and each moves
 the same way in every run. The intervals of the common unit columns are 0.1 to 0.2 points wide,
-and the bias is 0.13 to 0.67 points.
+and the bias is 0.13 to 0.68 points.
 
 I checked the likely cause on the realistic truth. For each building with training rows I took
 its true residual level and its mean of each unit column, then the row-weighted correlation:
 
 | unit column | correlation with the building's true level | bias in the fit |
 |---|---|---|
-| `log_size_rel` | +0.24 | +0.64 to +0.67 |
+| `log_size_rel` | +0.24 | +0.59 to +0.68 |
 | `laundry_in_unit` | +0.22 | +0.39 to +0.43 |
 | `dishwasher` | +0.21 | +0.13 to +0.17 |
 | `size_unknown` | -0.12 | -0.16 to -0.17 |
-| `size_imputed` | +0.01 | -0.05 to -0.06 |
-| `laundry_in_building` | -0.01 | +0.21 to +0.26 |
+| `size_imputed` | +0.01 | -0.03 to -0.07 |
+| `laundry_in_building` | -0.01 | +0.22 to +0.26 |
 
 Buildings with bigger units, in-unit laundry and dishwashers have higher residual levels in the
 fit's own estimates, and the simulated truth inherits that. The model gives each building a
@@ -80,9 +80,9 @@ columns as a `bld:` term (Mundlak), would test it. Both are model changes and wa
 |---|---|---|
 | elevator curve inside the 90% band at every floor 2 to 30 | 26 of 29 floors; at 17, 21 and 28 the median is 0.22 to 0.27 points high and the band misses the truth by 0.01 to 0.02 | miss |
 | elevator error under 0.5 points at every floor up to 40 | largest 0.58 at floor 40, 0.45 at 35 | miss |
-| walk-up median positive at 3 to 6, rising 2 to 5 | 0.39, 0.78, 1.24, 1.57, 1.90 at floors 2 to 6 | hit |
+| walk-up median positive at 3 to 6, rising 2 to 5 | 0.39, 0.78, 1.23, 1.57, 1.90 at floors 2 to 6 | hit |
 | walk-up band covers the truth at 4 or more of 5 floors | all 5 | hit |
-| `unit:lower` covers 0 with an interval of at least 1.5 points | -0.54 [-1.30, +0.31], 1.4 points wide | miss on width |
+| `unit:lower` covers 0 with an interval of at least 1.5 points | -0.54 [-1.30, +0.31], 1.6 points wide | hit |
 | `unit:elev_top` covers 3.92%, median 3.6 to 4.2% | 3.90 [3.82, 3.97] | hit |
 | coverage 80 to 97% | 80.7% | hit |
 | elevator coverage at 30 and up within 20 points of coverage below 30 | 88.9% against 89.3% | hit |
@@ -92,7 +92,7 @@ columns as a `bld:` term (Mundlak), would test it. Both are model changes and wa
 
 | prediction | result | |
 |---|---|---|
-| curve intervals cover 0 at 90% or more of floors | elevator 70% (19 of 29 floors from 2 to 30), walk-up 100% | miss |
+| curve intervals cover 0 at 90% or more of floors | elevator 66% (19 of 29 floors from 2 to 30), walk-up 100% | miss |
 | no elevator median above 0.5 points up to floor 40 | largest 0.40 at floor 40 | hit |
 | at most one floor flag misses 0 | four: garden +0.62, walk-up unknown +0.22, `elev_top` -0.10, `walkup_top` +0.10 | miss |
 | at most three feature terms miss 0 | five: in-unit laundry +0.41, condo -0.59, elevator unknown +0.45, in-building laundry +0.26, dishwasher +0.13 | miss |
@@ -141,8 +141,11 @@ least one training row, so the empty-building bin has no sites. bld_sd comes bac
 
 ## The misses
 
-- The elevator curve's misses don't cluster at floors 30 and up. In the realistic run, coverage is
-  89% above 30 and 89% below.
+- The elevator curve's misses don't cluster at floors 30 and up. Coverage at 30 and up against
+  below 30 is 89% and 89% in the realistic run, and 72% and 68% in the null run. In the height
+  run it's 100% against 64%, a gap of 36 points, so my prediction of a gap under 20 misses there.
+  The low floors miss in that run, not the high ones: the +0.1 to +0.2 offset at low floors
+  falls outside the narrower intervals there.
 - They don't cluster in sparse places either: building-level coverage is lowest among buildings
   with 1 to 4 rows (88% Manhattan), but only by a few points.
 - They also don't cluster on rare flags. `unit:lower` (564 rows) and `bld:built_unknown` (7,368)
