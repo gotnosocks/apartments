@@ -14,12 +14,12 @@ docs/notes/building-zones-mundlak-predictions-2026-10-22.md, and the numbers bel
 | prediction | result | hit |
 |---|---|---|
 | passes the gate | max R-hat 1.005, min ESS 796 | yes |
-| the six unit columns' bias under 0.1 points each | largest 0.02 points | yes |
+| the six unit columns' bias under 0.1 points each | largest 0.03 points | yes |
 | at least 5 of the 6 cover their truth | 6 of 6 | yes |
 | coverage over all scalar terms rises to 84% to 95% | 80.7%, unchanged | no |
 | the size and in-unit laundry means come back positive | +20.0 and +6.0 points | yes |
 | `bld:condo` within 0.3 points of its truth of 9.99 | 6.62 | no |
-| the elevator curve keeps about 90% coverage at floors 2 to 30 | 100% | yes |
+| the elevator curve keeps about 90% coverage at floors 2 to 30 | 100% below floor 30; 89% from 30 up, as in run 1 | yes |
 
 The unit columns, in points of log rent x100:
 
@@ -51,10 +51,21 @@ to 41%, and their RMS error goes from 0.24 to 1.16 points:
 
 The means do not come back near 0: `bld:mean_log_size_rel` is +20.0 points,
 `bld:mean_laundry_in_unit` +6.0, `bld:mean_dishwasher` +4.4 and `bld:mean_garden` +3.8. The
-Manhattan building spread falls from 0.169 to 0.145 (realized truth 0.176). Each map's slope on
-its truth falls from 0.99 to 0.90 in Manhattan and 0.93 outside it. The scorer's map and level
-comparisons leave out the part of each building's level the means carry, so those coverages
-(47% and 52% in Manhattan) understate Fit A, and I don't read them as misses of the map.
+Manhattan building spread falls from 0.169 to 0.145 (realized truth 0.176).
+
+The site maps get worse as well. Slopes on the truth, Manhattan and then outside it:
+
+| map | run 1 | Fit A |
+|---|---|---|
+| F, the location surface | 0.99, 0.99 | 0.90, 0.93 |
+| bld, the building residual | 0.89, 0.78 | 0.71, 0.65 |
+| level, F plus bld | 0.95, 0.93 | 0.82, 0.85 |
+
+The level map's 90% coverage falls from 88% to 52% in Manhattan and from 90% to 70% outside it,
+and its RMSE goes from 0.050 to 0.081 in Manhattan. The scorer compares F and bld with the
+truth's, and in Fit A part of each building's level goes to the means, which these maps leave
+out. Some of the drop may come from that, but I haven't run a scorer that adds the means' part
+back, so I count these as real losses for now.
 
 ## Reading it
 
@@ -63,15 +74,16 @@ within a building and land on their truth. The cost falls on everything measured
 buildings. The simulated truth makes that cost larger than it may be on real data. The truth's
 building residuals come out of the floor fit, which estimated them alongside the building
 attributes, so they are uncorrelated with the attributes but correlated with each building's
-unit mix. Given the means, the fit lets them carry that unit-mix correlation, and since the mix
-also goes with condo, doorman and new construction, the means take part of those terms' share
-as well. A truth drawn from a different fit would split the building level differently, and
+unit mix, which is how run 1 came to bias the unit columns. My reading, which I haven't
+checked directly, is that the means pick up that correlation and, since the unit mix also goes
+with condo, doorman and new construction, take part of those terms' share with it. A truth drawn from a different fit would split the building level differently, and
 this simulation can't say which split real buildings follow.
 
 For the location features this matters directly. Transit, parks and noise are building-level
 columns, like condo. On the building-means base they would share their variance with the
-means, and in this simulation building-level terms on that base lost 10% to 50% of their size.
-On the floor base the same terms came back within about 0.4 points.
+means. In this simulation the six building terms in the table above lost about 20% to 55% of
+their size on that base, and `bld:log_height` lost 85%. On the floor base every building term
+came back within about 0.5 points.
 
 Fit B, the same model on real data, is running now. I'll decide the base for the location fits
 from both results.
