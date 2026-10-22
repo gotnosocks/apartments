@@ -1,7 +1,7 @@
 import csv
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .db import connect
@@ -31,9 +31,7 @@ def ingest_csv(path: Path, scope: str, db_path: str = "data/apartments.duckdb") 
                     f"{source}|{address}|{row.get('unit')}|{row_number}".encode()
                 ).hexdigest()[:20]
             )
-            observed_at = (
-                row.get("observed_at") or datetime.now(timezone.utc).isoformat()
-            )
+            observed_at = row.get("observed_at") or datetime.now(UTC).isoformat()
             raw = json.dumps(row)
             db.execute(
                 """INSERT INTO listings (

@@ -102,7 +102,7 @@ def main(argv=None) -> int:
         try:
             entries.parse(text)
         except entries.LedgerError as error:
-            raise SystemExit(f"{source}: {error}")
+            raise SystemExit(f"{source}: {error}") from error
         lines.append(text)
     if not lines:
         print(f"{label}: all {skipped} lines already in the ledger, no file written")

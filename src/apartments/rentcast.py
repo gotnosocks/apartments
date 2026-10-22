@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +61,7 @@ def ingest_payload(
     observed_at: datetime | None = None,
 ) -> int:
     targets = load_targets()
-    observed_at = observed_at or datetime.now(timezone.utc)
+    observed_at = observed_at or datetime.now(UTC)
     db = connect(db_path)
     accepted = 0
     for item in payload:
@@ -143,7 +143,7 @@ def collect(
     if not api_key:
         raise RuntimeError("RENTCAST_API_KEY is missing; copy .env.example to .env")
     run_id = str(uuid.uuid4())
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     payload = fetch_rentals(api_key)
     raw_path = Path("data/raw/rentcast") / f"{started:%Y-%m-%dT%H-%M-%SZ}_{scope}.json"
     raw_path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,7 +156,7 @@ def collect(
             run_id,
             scope,
             started,
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
             len(payload),
             accepted,
             str(raw_path),

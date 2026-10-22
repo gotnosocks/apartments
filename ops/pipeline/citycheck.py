@@ -48,7 +48,7 @@ import shutil
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -960,7 +960,7 @@ def main(argv=None) -> int:
         "state": {
             "path": str(state),
             "bytes": stat.st_size,
-            "modified": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+            "modified": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
         },
         "as_of": as_of,
         "seconds": round(time.monotonic() - start, 1),

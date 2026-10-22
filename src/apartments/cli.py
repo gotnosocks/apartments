@@ -1,11 +1,10 @@
 from pathlib import Path
 
-import duckdb
 import typer
 from dotenv import load_dotenv
 
-from .csv_import import ingest_csv
 from .archive_import import import_archive
+from .csv_import import ingest_csv
 from .db import DEFAULT_DB, connect
 from .nyc import ingest_pluto
 from .rentcast import collect
@@ -116,6 +115,7 @@ def backfill_temporal(
 ):
     """Retain attribute versions and fetch evidence from existing local data."""
     import sqlite3
+
     from .temporal import backfill_capture_history, sync_observations
 
     source = sqlite3.connect(
@@ -179,6 +179,7 @@ def correction_add(
 ):
     """Append an edit or explicit revision from a JSON specification."""
     import json
+
     from .corrections import append
 
     record = append(
@@ -200,6 +201,7 @@ def correction_retract(
 ):
     """Withdraw an active correction without deleting its history."""
     import json
+
     from .corrections import append
 
     typer.echo(
@@ -217,6 +219,7 @@ def correction_list(
 ):
     """Inspect the ledger and active edits at a knowledge-time cutoff."""
     import json
+
     from .corrections import Overlay
 
     overlay = Overlay(ledger, as_of=as_of)
@@ -242,6 +245,7 @@ def observation_export(
 ):
     """Export raw and corrected attribute observations; run large exports on Modal."""
     import json
+
     from .corrections import Overlay
     from .observation_dataset import export_observations
 
@@ -274,6 +278,7 @@ def analytical_build(
 ):
     """Build dated attributes and contemporary price observations; identical reruns verify and reuse."""
     import json
+
     from .analytical import build_dataset
 
     typer.echo(
@@ -295,6 +300,7 @@ def pricing_fit_legacy(
 ):
     """Fit the archived robust/ridge baseline; not the main Bayesian model."""
     import json
+
     from .research_pipeline import fit_dataset
 
     typer.echo(
@@ -407,9 +413,11 @@ def pricing_fit(
     """
     import json
     from argparse import Namespace
+
+    from threadpoolctl import threadpool_limits
+
     from models import bayesian_disk_experiment as disk_runner
     from models import bayesian_floor_spline_experiment as spline_runner
-    from threadpoolctl import threadpool_limits
 
     args = Namespace(
         dataset=dataset,
@@ -481,6 +489,7 @@ def pricing_fit(
         if executor == "modal":
             # Lazy: local fits never import Modal or need `--extra modal`.
             from models import modal_remote_fit
+
             from .remote_fit_pricing import submit_argv
 
             modal_remote_fit.main(
@@ -519,6 +528,7 @@ def apartment_analyze(
     UI. This command never fits, scrapes, edits source data or selects a new fit.
     """
     import json
+
     from . import main_analysis
     from .bayesian_analysis import BayesianAnalysis
 
@@ -563,8 +573,8 @@ def apartment_analyze(
                 raise ValueError(
                     "Selected source annotations require their matching description archive"
                 )
-            from .source_issues import load_source_issues, merge_notes
             from .bayesian_source_review import load_source_review
+            from .source_issues import load_source_issues, merge_notes
 
             evidence = main_analysis.resolve_path(selected["evidence"])
             review_notes = (
@@ -628,6 +638,7 @@ def historical_build(
 ):
     """Reconstruct historical own-advertisement asking rents with dated corrections."""
     import json
+
     from .historical_dataset import build_historical_dataset
 
     typer.echo(
@@ -663,6 +674,7 @@ def apartment_rank(
 ):
     """Rank an explicit candidate JSONL snapshot by dollar preferences and Pareto efficiency."""
     import json
+
     from .research_pipeline import rank_candidates
 
     typer.echo(
@@ -699,6 +711,7 @@ def apartment_score(
 ):
     """Legacy robust scoring; use rank-current-apartments for the selected PyMC fit."""
     import json
+
     from .candidate_search import score_candidates
 
     typer.echo(
@@ -737,6 +750,7 @@ def current_apartment_rank(
 ):
     """Rank fitted current listings by preferences with separate PyMC posterior diagnostics."""
     import json
+
     from .bayesian_candidate_search import run
     from .main_analysis import DEFAULT_SELECTION
 
@@ -767,6 +781,7 @@ def candidate_build(
 ):
     """Build canonical capture-time search records, retaining active and inactive ads."""
     import json
+
     from .candidate_snapshot import build_snapshot
 
     typer.echo(

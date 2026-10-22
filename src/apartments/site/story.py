@@ -15,6 +15,7 @@ import os
 import re
 import statistics
 import threading
+from datetime import UTC
 from pathlib import Path
 
 from markupsafe import Markup, escape
@@ -853,7 +854,7 @@ def build_up_svg(b: dict | None) -> Markup:
         f"{usd(b['ask'])}</text></g>"
     )
     label = (
-        f"The estimate for one apartment, built term by term: "
+        "The estimate for one apartment, built term by term: "
         + "; ".join(
             f"{s['label']} {usd(s['usd'], signed=s['term'] != 'market')}" for s in steps
         )
@@ -1489,9 +1490,9 @@ def history_svg(switches: list[dict], lives: list[dict]) -> Markup:
     strip_top = top + lane * len(era_keys) + 26
     height = strip_top + row * len(lives) + 8
     out = []
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    start = datetime.fromtimestamp(d0 * 86400, timezone.utc).date()
+    start = datetime.fromtimestamp(d0 * 86400, UTC).date()
     for k in range(0, int(d1 - d0) + 1):
         day = start + timedelta(days=k)
         if k % 2:

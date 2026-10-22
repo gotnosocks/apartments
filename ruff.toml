@@ -253,9 +253,9 @@ extend-exclude = [
 select = ["F", "E9", "I", "B006", "B904", "UP017"]
 
 [lint.per-file-ignores]
-# pytest fixtures arrive as arguments that shadow the imported fixture.
-"tests/**" = ["F811"]
-"frontier/tests/**" = ["F811"]
+# pytest fixtures are imported for use as arguments, which shadow the import.
+"tests/**" = ["F401", "F811"]
+"frontier/tests/**" = ["F401", "F811"]
 # Dated one-off scripts are a record of what was run, not library code.
 "docs/notes/**" = ["ALL"]
 # Package __init__ files re-export names.

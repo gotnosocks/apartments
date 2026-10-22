@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import pandas as pd
 import pytest
@@ -16,7 +16,7 @@ WHEN = "2026-09-19T04:00:00+00:00"
 @pytest.fixture
 def source(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        corrections, "now", lambda: datetime(2026, 9, 19, 4, tzinfo=timezone.utc)
+        corrections, "now", lambda: datetime(2026, 9, 19, 4, tzinfo=UTC)
     )
     rows, reviews = [], []
     for key, decision in [

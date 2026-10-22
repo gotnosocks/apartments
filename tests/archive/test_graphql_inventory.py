@@ -209,7 +209,7 @@ def test_block_or_challenge_stops_the_crawl(tmp_path, monkeypatch, status, body)
 
 def test_fallback_keeps_the_browser_paths_retries(tmp_path, monkeypatch):
     s = spider(tmp_path, monkeypatch, batch=1)
-    request = s._request()
+    s._request()
     gi.fall_back(s.store, s.generation, VIEW, "test")
     assert state(s, VIEW) == "pending" and attempts(s, VIEW) == 0
     s.store.close()

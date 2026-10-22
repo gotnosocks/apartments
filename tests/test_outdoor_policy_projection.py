@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from apartments.outdoor_evidence import extract
 from apartments.corrections import canonical
+from apartments.outdoor_evidence import extract
 from apartments.research_pipeline import publish_bundle
 from models.outdoor_policy_projection import run
 
@@ -48,7 +48,7 @@ def test_corroboration_preserves_cohort_raw_categories_shared_and_replay(tmp_pat
         {"version": "fixture"},
     )
     structured = tmp_path / "structured"
-    dm = publish_bundle(
+    publish_bundle(
         structured,
         {"observations.jsonl": "".join(canonical(r) + "\n" for r in rows)},
         {

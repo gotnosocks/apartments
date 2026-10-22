@@ -6,9 +6,6 @@ binds the new interpretation to the exact old listing payload and capture body.
 
 from __future__ import annotations
 
-from collections import Counter
-from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime, timezone
 import fcntl
 import gzip
 import hashlib
@@ -16,13 +13,17 @@ import importlib.metadata
 import json
 import multiprocessing
 import os
-from pathlib import Path
 import re
 import tempfile
+from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
+from datetime import UTC, datetime
+from pathlib import Path
 
-from . import granular_parse, unit_canonical, research_pipeline
-from .research_pipeline import digest, read_bundle
 from streeteasy_archive import extract, flight
+
+from . import granular_parse, research_pipeline, unit_canonical
+from .research_pipeline import digest, read_bundle
 
 VERSION = "description-recovery-v1"
 _REFERENCE = re.compile(r"\$[0-9a-f]+")
@@ -107,7 +108,7 @@ def recover_capture(capture, body_root, *, max_body_bytes=32 * 1024 * 1024):
         "source_body_sha256": capture.get("body_hash"),
         "original_raw_listing_sha256": hashlib.sha256(raw_string.encode()).hexdigest(),
         "original_description_reference": reference,
-        "interpreted_at": datetime.now(timezone.utc).isoformat(),
+        "interpreted_at": datetime.now(UTC).isoformat(),
         "recovery_version": VERSION,
         "parser_version": granular_parse.VERSION,
         "flight_decoder_version": flight.VERSION,
@@ -405,7 +406,7 @@ def build_description_recovery(
             "coverage": coverage,
             "files": files,
             "clock_contract": "interpreted_at is new interpretation knowledge, never a new capture or attribute effective date",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
         }
         _atomic(out / "complete.json", _json(manifest) + "\n")
         return read_bundle(out)

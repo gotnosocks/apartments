@@ -1,6 +1,7 @@
 """Extract canonical unit pages from archived HTML; never fetch live listings."""
 
 from __future__ import annotations
+
 import argparse
 import gzip
 import hashlib
@@ -8,10 +9,12 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from .unit_canonical import Head, head_fields, unit_page
+
 import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+from .unit_canonical import Head, head_fields
 
 VERSION = "canonical-unit-v1"
 ASSOCIATION_RULE = "shared-latest-v2"

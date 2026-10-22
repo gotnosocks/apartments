@@ -2,7 +2,9 @@ import gzip
 
 import pytest
 
-from apartments.unit_source import SourceEvidence, extract, unit_page
+from apartments.unit_canonical import unit_page
+from apartments.unit_source import SourceEvidence, extract
+
 from .test_review_service import service
 
 
@@ -113,6 +115,7 @@ def test_generic_canonical_page_cannot_automatically_establish_a_home():
 def test_backfill_is_bound_to_the_exact_dataset_snapshots(service):
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     from apartments.unit_source import VERSION, fingerprint, snapshot_rows
 
     root = service.root / "snapshots"
