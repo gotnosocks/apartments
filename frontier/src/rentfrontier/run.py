@@ -470,6 +470,8 @@ def main(argv=None):
     # (rentfrontier.building_zones_floor) adds a floor curve for elevator buildings, another for
     # walk-ups and flags for special floors to it. Building zones with building means
     # (rentfrontier.building_zones_mundlak) adds each building's mean of its unit columns.
+    # Building zones with transit (rentfrontier.building_zones_transit) adds the distance to the
+    # nearest subway or PATH stop and the services within 0.8 km.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -494,6 +496,7 @@ def main(argv=None):
         ("building-zones-age", "building_zones_age"),
         ("building-zones-floor", "building_zones_floor"),
         ("building-zones-mundlak", "building_zones_mundlak"),
+        ("building-zones-transit", "building_zones_transit"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

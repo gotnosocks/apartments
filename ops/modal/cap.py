@@ -146,6 +146,8 @@ RATE_STAND_IN["building-zones-age"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-floor"] = "building-zones-attrs"
 # Building zones with building means adds nine building columns to the floor model.
 RATE_STAND_IN["building-zones-mundlak"] = "building-zones-attrs"
+# Building zones with transit adds two building columns to the building-means model.
+RATE_STAND_IN["building-zones-transit"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -172,6 +174,7 @@ BASELINES = (
     "building-zones-age",
     "building-zones-floor",
     "building-zones-mundlak",
+    "building-zones-transit",
 )
 
 
