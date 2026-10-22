@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import test_building_zones_age as tbs
 import test_building_zones_attrs as tba
@@ -198,7 +199,8 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         assert np.ptp(v[..., 0]) > 0
 
 
-def test_run(tmp_path, monkeypatch):
+@pytest.mark.parametrize("model", ["building-zones-floor", "building-zones-mundlak"])
+def test_run(tmp_path, monkeypatch, model):
     from rentfrontier import building_attrs, run as runmod, whitened_zones
     from rentfrontier import building_zones_attrs as bza
     from rentfrontier import building_zones_gym as bzy
@@ -243,14 +245,14 @@ def test_run(tmp_path, monkeypatch):
     monkeypatch.setattr(runmod, "RUNS", tmp_path / "runs")
     runmod.main(
         [
-            "--split", "latest", "--model", "building-zones-floor", "--features", "base-v1",
+            "--split", "latest", "--model", model, "--features", "base-v1",
             "--chains", "2", "--warmup", "20", "--draws", "40", "--keep-every", "4",
             "--site-block", "16", "--name", "bzf-test", "--tier", "full",
         ]
     )  # fmt: skip
     out = tmp_path / "runs" / "bzf-test"
     result = json.loads((out / "result.json").read_text())
-    assert result["sampler"] == "building-zones-floor"
+    assert result["sampler"] == model
     assert result["unit_floor"] == str(fsnap)
     assert result["floor_gp"]["caps"] == {
         "elev": bzf.ELEV_CAP,

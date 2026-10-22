@@ -69,6 +69,8 @@ SNAPSHOT_KEYS = (
     "unit_floor",
 )
 LEVEL = 0.90
+# The prefix of the building-mean columns a fit may add to the truth's (building_zones_mundlak).
+EXTRA_PREFIX = "bld:mean_"
 DENSITY_BINS = ((0, 0, "0"), (1, 4, "1-4"), (5, 19, "5-19"), (20, 99, "20-99"))
 DENSITY_BINS += ((100, 10**9, "100+"),)
 
@@ -406,8 +408,17 @@ def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
     names = [str(n) for n in t["names"]]
     with np.load(RUNS / sim_run / "posterior.npz") as z:
         kept = {k[5:]: z[k] for k in z.files if k.startswith("kept/")}
-        if [str(n) for n in z["names"]] != names:
-            raise SystemExit("the fit's columns differ from the truth's")
+        fit_names = [str(n) for n in z["names"]]
+    extra = fit_names[len(names) :]
+    if fit_names[: len(names)] != names or not all(
+        n.startswith(EXTRA_PREFIX) for n in extra
+    ):
+        raise SystemExit("the fit's columns differ from the truth's")
+    # A fit with building means (rentfrontier.building_zones_mundlak) has columns the truth
+    # lacks. Their true value is 0, since the truth's building levels have no such term, but
+    # the means take up part of the residual levels, so I report them apart from the terms.
+    extra_rows = term_rows(kept["beta"][..., len(names) :], np.zeros(len(extra)), extra)
+    kept["beta"] = kept["beta"][..., : len(names)]
     result = json.loads((RUNS / sim_run / "result.json").read_text())
     sim = json.loads((Path(result["dataset"]) / "manifest.json").read_text()).get(
         "simulated"
@@ -540,6 +551,8 @@ def score(sim_run: str, tdir: Path, out_json: Path) -> dict:
         "curves": curves,
         "maps": maps,
     }
+    if extra:
+        out["extra_terms"] = extra_rows
     if np.any(t["planted"] != 0):
         out["height"] = height_leak(kept, t, dz, names, F, bld, curves)
     out_json.parent.mkdir(parents=True, exist_ok=True)
