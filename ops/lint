@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Lint Python with the repo's pinned ruff (rules in ruff.toml, standards in
+# docs/coding-standards.md).
+#
+#   ops/lint                 check every Python file in the repo
+#   ops/lint --fix           apply ruff's safe fixes too
+#   ops/lint --changed       check only files changed since the merge base with
+#                            origin/master (committed or not); what the test runs
+#   ops/lint path/to/x.py    check only these paths
+#
+# Files listed in ruff.toml's extend-exclude are hashed by saved fits and
+# datasets and are skipped even when named on the command line. Keep
+# RUFF_VERSION in step with ops/fmt.
+set -euo pipefail
+RUFF_VERSION=0.16.10
+root="$(cd "$(dirname "$0")/.." && pwd)"
+args=()
+if [[ ${1:-} == --fix ]]; then
+    args=(--fix)
+    shift
+elif [[ ${1:-} == --changed ]]; then
+    shift
+    base="$(git -C "$root" merge-base HEAD "${1:-origin/master}")"
+    mapfile -t files < <(
+        cd "$root" && { git diff --name-only --diff-filter=d "$base"; git ls-files --others --exclude-standard; } |
+            grep '\.py$' | sort -u
+    )
+    if ((${#files[@]} == 0)); then
+        exit 0
+    fi
+    cd "$root"
+    exec uvx "ruff@$RUFF_VERSION" check --force-exclude "${files[@]}"
+fi
+exec uvx "ruff@$RUFF_VERSION" check "${args[@]}" --force-exclude "${@:-$root}"

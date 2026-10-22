@@ -302,10 +302,12 @@ def bundle_chunks(bundle: Path, size: int | None = None):
         ).fetchall()
         parent: dict[str, str] = {}
 
+        # pyflakes reads the `del parent` below as leaving this closure's
+        # name undefined; root() is only called before that line.
         def root(b):
-            while parent[b] != b:
-                parent[b] = parent[parent[b]]
-                b = parent[b]
+            while parent[b] != b:  # noqa: F821
+                parent[b] = parent[parent[b]]  # noqa: F821
+                b = parent[b]  # noqa: F821
             return b
 
         home: dict[str, str] = {}
