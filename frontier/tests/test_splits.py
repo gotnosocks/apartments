@@ -62,3 +62,18 @@ def test_split_and_rules_draws_latest_after_the_rules(monkeypatch):
     # Other splits keep the old order: drawn first, rules after.
     a, ha = data.split_and_rules(frame, "all", ["merge-test"])
     assert not ha.any() and len(a) == 4
+
+
+def test_building_split_holds_out_whole_buildings():
+    import numpy as np
+    import pandas as pd
+
+    from rentfrontier import splits
+
+    rng = np.random.default_rng(2)
+    frame = pd.DataFrame({"building": rng.integers(0, 200, 3000)})
+    held = splits.building_split(frame)
+    by = pd.Series(held).groupby(frame.building).agg(["min", "max"])
+    assert (by["min"] == by["max"]).all()
+    assert by["max"].sum() == round(0.1 * frame.building.nunique())
+    np.testing.assert_array_equal(held, splits.SPLITS["buildings"](frame))

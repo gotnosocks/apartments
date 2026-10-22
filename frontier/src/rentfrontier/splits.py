@@ -14,6 +14,11 @@ the promoted model's held-out rows by audit_id:
   ask through features built from the same unit's earlier listings (Ben,
   2026-10-05: leak-free feature evaluation; docs/leak-free-scoring.md). It is
   drawn after the data rules, so the units are the merged ones.
+- buildings: every row of 10% of buildings, drawn from all buildings with equal
+  chance (same seed). A held-out building has no training row, so the fit sees
+  it only through its columns and the map: the grouped building holdout of the
+  Fable research review (2026-10-08, §3) for building-level features. It is
+  drawn after the data rules, on the kept rows' buildings.
 
 The promoted model's runs additionally dropped a few held-out rows outside its
 training floor range or time horizon. Paired comparisons use the intersection
@@ -81,6 +86,15 @@ def latest_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray
     return data.audit_id.isin(set(chosen)).to_numpy()
 
 
+def building_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
+    """Boolean held-out mask for the building split."""
+    buildings = np.sort(data.building.astype(str).unique())
+    chosen = np.random.default_rng(seed).choice(
+        buildings, size=round(fraction * len(buildings)), replace=False
+    )
+    return data.building.astype(str).isin(set(chosen)).to_numpy()
+
+
 def no_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     """No held-out rows: the analysis fit on all data (residuals, contributions)."""
     return np.zeros(len(data), dtype=bool)
@@ -90,7 +104,8 @@ SPLITS = {
     "rows": row_split,
     "units": unit_split,
     "latest": latest_split,
+    "buildings": building_split,
     "all": no_split,
 }
 # Splits drawn after the data rules (on merged units and kept rows).
-AFTER_RULES = {"latest"}
+AFTER_RULES = {"latest", "buildings"}
