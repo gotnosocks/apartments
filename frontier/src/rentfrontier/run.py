@@ -472,7 +472,9 @@ def main(argv=None):
     # (rentfrontier.building_zones_mundlak) adds each building's mean of its unit columns.
     # Building zones with transit (rentfrontier.building_zones_transit) adds the distance to the
     # nearest subway or PATH stop and the services within 0.8 km. Building zones with parks
-    # (rentfrontier.building_zones_parks) adds instead the distances to parks and the shoreline.
+    # (rentfrontier.building_zones_parks) adds instead the distances to parks and the shoreline,
+    # and building zones with noise (rentfrontier.building_zones_noise) the outdoor 311 noise
+    # complaints nearby.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -499,6 +501,7 @@ def main(argv=None):
         ("building-zones-mundlak", "building_zones_mundlak"),
         ("building-zones-transit", "building_zones_transit"),
         ("building-zones-parks", "building_zones_parks"),
+        ("building-zones-noise", "building_zones_noise"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

@@ -161,6 +161,7 @@ BASELINES = (
     ("--model", "building-zones-mundlak"),
     ("--model", "building-zones-transit"),
     ("--model", "building-zones-parks"),
+    ("--model", "building-zones-noise"),
 )
 
 
