@@ -158,6 +158,7 @@ BASELINES = (
     ("--model", "building-zones-gym"),
     ("--model", "building-zones-age"),
     ("--model", "building-zones-floor"),
+    ("--model", "building-zones-mundlak"),
 )
 
 

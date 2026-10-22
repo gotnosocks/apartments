@@ -468,7 +468,8 @@ def main(argv=None):
     # (rentfrontier.building_zones_age) keeps the truck routes and the gym and adds year built,
     # alteration since 2000 and ground-floor retail. Building zones with the unit's floor
     # (rentfrontier.building_zones_floor) adds a floor curve for elevator buildings, another for
-    # walk-ups and flags for special floors to it.
+    # walk-ups and flags for special floors to it. Building zones with building means
+    # (rentfrontier.building_zones_mundlak) adds each building's mean of its unit columns.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -492,6 +493,7 @@ def main(argv=None):
         ("building-zones-gym", "building_zones_gym"),
         ("building-zones-age", "building_zones_age"),
         ("building-zones-floor", "building_zones_floor"),
+        ("building-zones-mundlak", "building_zones_mundlak"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
