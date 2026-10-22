@@ -40,7 +40,7 @@ In points of log rent x100, medians with 90% intervals:
   now that the other columns take part of the shoreline pattern.
 - `bld:log1p_routes` shrinks toward 0, landing between +0.3 and +1.0. Services and noise both
   run high in the dense parts of each zone, so part of each one's term goes to the other.
-- `bld:log1p_noise` lands between -0.7 and -0.2, the same sign with less magnitude.
+- `bld:log1p_noise` lands between -0.7 and -0.2, keeping its sign.
 - `bld:log_station_km` and `bld:log_park_km` stay within 0.3 points of their single fits.
 - No term changes sign with an interval that excludes 0.
 - The Manhattan map amplitude falls by 3% to 12% from the floor fit's 0.916, and the outside
