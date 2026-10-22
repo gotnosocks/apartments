@@ -112,3 +112,13 @@ def test_pluto_floors_joins_through_bbl(tmp_path, monkeypatch):
     )
     np.testing.assert_array_equal(np.isnan(f), [False, True, True, True])
     assert f[0] == 4.0
+
+
+def test_fitted_keeps_the_medians():
+    *_, d = tbf._design()
+    med = _medians(d)
+    t = simulate.truth(list(d.names), med, "fitted")
+    np.testing.assert_array_equal(t["beta"], med["beta"])
+    np.testing.assert_array_equal(t["bld"], med["bld"])
+    assert not t["planted"].any()
+    assert set(simulate.SPECS) == {"building-zones-floor", "building-zones-location"}
