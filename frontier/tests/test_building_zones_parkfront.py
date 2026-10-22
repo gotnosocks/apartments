@@ -37,8 +37,8 @@ def _square(x0, y0, side):
 def test_table_measures_outline_to_park_edge():
     registry = pd.DataFrame(
         {
-            "building": ["near", "far", "nofoot"],
-            "bin": [1000001.0, 1000002.0, 1000000.0],
+            "building": ["near", "far", "nofoot", "lost"],
+            "bin": [1000001.0, 1000002.0, 1000000.0, 1000003.0],
         }
     )
     footprints = pd.DataFrame(
@@ -64,6 +64,7 @@ def test_table_measures_outline_to_park_edge():
     assert 29.0 < t["near"] < 31.0
     assert t["far"] > 250.0
     assert np.isnan(t["nofoot"])
+    assert np.isnan(t["lost"])
 
 
 def test_design_appends_parkfront():

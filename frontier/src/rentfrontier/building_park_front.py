@@ -10,7 +10,10 @@ nearly the same. Here I measure from the footprint instead:
 2. I trace every NYC Parks property of FRONT_ACRES or more (`building_parks.PARKS`) with
    points every STEP_M along its edges, in the same metres as the outline. I leave out the
    types in NOT_PARKS: the Broadway and Eastern Parkway medians, Grand Army Plaza's traffic
-   circle and the Brooklyn Museum's grounds are Parks properties but not a park to look onto.
+   circle, the Brooklyn Museum's grounds, and the institutional grounds around the Natural
+   History Museum and the Botanic Garden are Parks properties but not a park to look onto. I
+   keep the High Line and the Battery Park City esplanade: both are open green space a window
+   can look onto, and a building beside the High Line can stand under 1 m from it.
 3. `park_edge_m` is the distance from the nearest outline point to the nearest park point.
 
 A building facing a park across a street lands at about the street's width plus its sidewalks,
@@ -35,7 +38,13 @@ from scipy.spatial import cKDTree
 from . import building_parks, frontage
 
 FRONT_ACRES = 5.0
-NOT_PARKS = ("Mall", "Parkway", "Triangle/Plaza", "Managed Sites")
+NOT_PARKS = (
+    "Mall",
+    "Parkway",
+    "Triangle/Plaza",
+    "Managed Sites",
+    "Buildings/Institutions",
+)
 STEP_M = 5.0
 
 
