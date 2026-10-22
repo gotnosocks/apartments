@@ -12,8 +12,13 @@ training rows at design time:
    `rentfrontier.unit_features`). Where it states none, I fill it with
    `sizefill.asof_size`, which reads only rows priced on earlier days, and I blank the stated
    sizes of held-out rows before the fill, so none of them fills another row. I keep the
-   unit and line layers (FILLS) and drop the building layer, so the fill stays as close to
-   the floor model's as the as-of filler allows. `unit:log_size_rel` divides by the median
+   unit and line layers (FILLS) and drop the building layer. The as-of filler differs from
+   the snapshot's fill even with no rows held out:
+   - it groups units by `unit_id`, where the snapshot uses the unit label from the URL;
+   - its line key adds full baths, and it keeps top floors and penthouse labels in the line;
+   - it fills with a mean of log sizes, where the snapshot takes a median;
+   - it reads only source sizes from 150 to 8,000 sq ft.
+   `unit:log_size_rel` divides by the median
    stated size for the bedroom count (4 or more pooled) over training rows, and keeps the
    clip of plus or minus log 2.5.
 2. Elevator, doorman and building floor count. I run `building_attrs.ad_attributes` on the
@@ -26,6 +31,10 @@ training rows at design time:
 4. The unit's floor. The top-floor flag and a penthouse's floor need the building's top floor,
    which comes from MapPLUTO's floor count, else the highest floor any listing of the building
    states. I take that fallback over training rows and then run `unit_floor.floor_table`.
+
+I read only the frame's rows. The snapshots read every pipeline row, including the rows the
+data rules drop, so with no rows held out the elevator, doorman, gym and top floors here can
+still differ from the snapshots on real data.
 
 Each building value comes from that building's training ads, at any date, and applies to all of
 its rows, held-out ones included. Laundry, dishwasher and the floor and flags of the row's own

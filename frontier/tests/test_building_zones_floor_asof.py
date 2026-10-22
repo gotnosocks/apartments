@@ -145,9 +145,11 @@ def test_held_out_rows_ignore_other_held_out_ads():
         a2, m2 = perturb(ads, amenities, others)
         got = features(frame, a2, m2, lots, held)
         pd.testing.assert_series_equal(got.iloc[r], base.iloc[r])
-    # The perturbation reaches the held-out rows' own sizes, so the check has teeth.
+    # Changing every held-out ad leaves the training rows' features as they were, and it
+    # reaches the held-out rows' own sizes, so the check has teeth.
     a2, m2 = perturb(ads, amenities, set(lid[held]))
     got = features(frame, a2, m2, lots, held)
+    pd.testing.assert_frame_equal(got[~held], base[~held])
     assert not got.sqft[held].equals(base.sqft[held])
 
 
