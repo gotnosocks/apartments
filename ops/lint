@@ -2,33 +2,46 @@
 # Lint Python with the repo's pinned ruff (rules in ruff.toml, standards in
 # docs/coding-standards.md).
 #
-#   ops/lint                 check every Python file in the repo
-#   ops/lint --fix           apply ruff's safe fixes too
-#   ops/lint --changed       check only files changed since the merge base with
-#                            origin/master (committed or not); what the test runs
-#   ops/lint path/to/x.py    check only these paths
+#   ops/lint                  check every Python file in the repo
+#   ops/lint path/to/x.py     check only these paths
+#   ops/lint --changed        check only the tracked files changed since the merge
+#                             base with origin/master, committed or not (what
+#                             tests/test_lint.py runs); --base REF picks another base
+#   ops/lint --fix PATHS      apply ruff's safe fixes to these paths
+#   ops/lint --fix --changed  apply them to the changed files
 #
-# Files listed in ruff.toml's extend-exclude are hashed by saved fits and
-# datasets and are skipped even when named on the command line. Keep
-# RUFF_VERSION in step with ops/fmt.
+# --fix needs paths or --changed: a repo-wide fix re-sorts imports in files a
+# running fit may hash. Files listed in ruff.toml's extend-exclude are hashed by
+# saved fits and datasets and are skipped even when named on the command line.
+# Keep RUFF_VERSION in step with ops/fmt.
 set -euo pipefail
 RUFF_VERSION=0.16.10
 root="$(cd "$(dirname "$0")/.." && pwd)"
-args=()
-if [[ ${1:-} == --fix ]]; then
-    args=(--fix)
+fix=()
+changed=0
+base=origin/master
+paths=()
+while (($#)); do
+    case $1 in
+    --fix) fix=(--fix) ;;
+    --changed) changed=1 ;;
+    --base)
+        base=$2
+        shift
+        ;;
+    *) paths+=("$1") ;;
+    esac
     shift
-elif [[ ${1:-} == --changed ]]; then
-    shift
-    base="$(git -C "$root" merge-base HEAD "${1:-origin/master}")"
-    mapfile -t files < <(
-        cd "$root" && { git diff --name-only --diff-filter=d "$base"; git ls-files --others --exclude-standard; } |
-            grep '\.py$' | sort -u
-    )
-    if ((${#files[@]} == 0)); then
+done
+if ((changed)); then
+    cd "$root"
+    merge_base="$(git merge-base HEAD "$base")"
+    mapfile -d '' paths < <(git diff -z --name-only --diff-filter=d "$merge_base" -- '*.py')
+    if ((${#paths[@]} == 0)); then
         exit 0
     fi
-    cd "$root"
-    exec uvx "ruff@$RUFF_VERSION" check --force-exclude "${files[@]}"
+elif ((${#fix[@]})) && ((${#paths[@]} == 0)); then
+    echo "ops/lint --fix needs paths or --changed" >&2
+    exit 2
 fi
-exec uvx "ruff@$RUFF_VERSION" check "${args[@]}" --force-exclude "${@:-$root}"
+exec uvx "ruff@$RUFF_VERSION" check "${fix[@]}" --force-exclude "${paths[@]:-$root}"

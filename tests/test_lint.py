@@ -24,7 +24,7 @@ def test_changed_python_passes_lint():
         [ROOT / "ops/lint", "--changed"], capture_output=True, text=True
     )
     assert result.returncode == 0, (
-        "Run ops/lint --fix on these files, or fix them by hand:\n"
+        "Run ops/lint --fix --changed, or fix these by hand:\n"
         + result.stdout
         + result.stderr
     )

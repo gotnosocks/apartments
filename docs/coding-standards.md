@@ -1,17 +1,20 @@
 # Coding standards
 
-Approved by Ben on 2026-10-22. Rules 1 to 3 are enforced by tests; the rest are checked in
-review. Nothing here asks for a change that alters how code behaves.
+Approved by Ben on 2026-10-22. Rules 1 and 2 are enforced by tests and rule 3 by the exclude
+list in `ruff.toml`; the rest are checked in review. Nothing here asks for a change that alters how code behaves.
 
 1. **Format with `ops/fmt`** before every commit (Ben, 2026-10-06). `tests/test_formatting.py`
    fails on anything unformatted.
 2. **Lint with `ops/lint`.** It runs the pinned ruff with the rules in `ruff.toml`: pyflakes
    (`F`), syntax errors (`E9`), import order (`I`), mutable default arguments (`B006`),
    `raise ... from` inside `except` (`B904`) and `datetime.UTC` (`UP017`). They catch mistakes,
-   not style. `tests/test_lint.py` runs `ops/lint --changed`, which checks only the files a
-   branch changes, so older code that predates the rules doesn't fail an unrelated branch.
-   `ops/lint --fix` applies ruff's safe fixes. The backlog in older files is cleaned up in small
-   PRs, and the test moves to the whole repo once it is zero.
+   not style. `tests/test_lint.py` runs `ops/lint --changed`, which checks only the tracked
+   files a branch changes since its merge base with `origin/master`, so older code that
+   predates the rules doesn't fail an unrelated branch (run `git fetch origin master` first if
+   your `origin/master` is stale). `ops/lint --fix --changed`, or `--fix` with paths, applies
+   ruff's safe fixes; a repo-wide `--fix` is refused because re-sorting imports can touch files
+   a running fit hashes. The backlog in older files is cleaned up in small PRs, and the test
+   moves to the whole repo once it is zero.
 3. **Never edit a hash-locked file.** Saved fits and datasets record the SHA-256 of the code
    that made them. The list in `ruff.toml`'s `extend-exclude` is the source of truth; both
    `ops/fmt` and `ops/lint` skip those files.
