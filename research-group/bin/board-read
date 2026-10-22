@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Read the research group board, oldest first. Usage: board-read [--since POST_ID] [--list]
+set -euo pipefail
+BOARD="${BOARD:-/data1/apartments/research-group/board}"
+since=""; list=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --since) since="$2"; shift 2 ;;
+    --list) list=1; shift ;;
+    *) echo "unknown arg $1" >&2; exit 2 ;;
+  esac
+done
+for f in $(ls "$BOARD"/*.md 2>/dev/null | sort); do
+  id="$(basename "$f" .md)"
+  if [ -n "$since" ] && [[ ! "$id" > "$since" ]]; then continue; fi
+  if [ -n "$list" ]; then
+    printf '%s  %s\n' "$id" "$(grep -m1 '^title:' "$f" | cut -c8-)"
+  else
+    echo "=================== $id"; cat "$f"; echo
+  fi
+done

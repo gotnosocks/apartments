@@ -1,0 +1,2 @@
+model_name,build,heldout_asks,median_miss_pct,range_coverage_80_pct,range_coverage_95_pct,typical_ask_usd
+m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-nb5-coded-v2-rows-fedd83d-a100-4500k9cb1-nb5-ul11r1s4q10ad3,2026-10-08T18:48:10+00:00,13569,3.74,79.2,94.9,4200.0

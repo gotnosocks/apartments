@@ -1,0 +1,107 @@
+# A deeper version of the fit-to-website task
+
+*Written 2026-10-17 for Ben. It builds on the Oct 16 rewrite of the summary task ([deeper-summary-task-2026-10-16.md](/mnt/project-files/modeling/deeper-summary-task-2026-10-16.md)), which covers the summary's internals: Monte Carlo precision, reusing the LOO likelihoods, building-by-building blocks. I don't repeat that here. This note widens the view to the whole path from a finished fit to a published site, and to who uses each piece of it.*
+
+*I checked these on thelio, read-only: the code at master `dca944d9` (`ops/modal/summarize`, `ops/autoselect-publish.sh`, `src/apartments/site/`), the newest site build's database, and the site's request log in the journal, which goes back to Sep 26. The figures for the all-scraped run (the 4-hour Modal limit, 8.6 hours in the likely-ask math, about 40 GB and 8 GB for the site build) come from the Modeling and Website threads. I didn't measure them.*
+
+## What the path looks like at present
+
+After a fit comes down from Modal, these steps run in order:
+
+1. `rentfrontier.summary` on the GPU (8 GB cap), then `rentfrontier.calibration`.
+2. After a serve, `ops/autoselect-publish.sh` runs the rent map, then the estimate kit, then `apartments.site build` (6 GB cap), which writes `site.sqlite`.
+3. The research data build writes the board's `data.json`.
+
+Each of the summary, kit and rent map reloads the dataset and rebuilds the features.
+
+**The site database (newest build, 297,273 listings, 1.59 GB file):**
+
+| Table or column | Size | Share |
+|---|---:|---:|
+| `listings` table | 1,164 MB | 73% of the file |
+| inside it, `contributions` (each listing's dollar parts with intervals, as JSON) | 1,831 B a row | 64% of the table |
+| inside it, `inputs` (each listing's model inputs, as JSON) | 371 B a row | 13% of the table |
+| `kit_buildings` (for /estimate) | 198 MB | 12% |
+| everything else | about 230 MB | 15% |
+
+At 3.9 KB a listing, 1.6M rows come to about 6.3 GB for `listings` alone, which matches Website's 8 GB. The per-listing parts make up most of that, and the summary spends a large share of its time producing them (the LMDI split plus an interval on every part, about 13 of 67 CPU minutes in the Oct 16 test on NB9-shaped arrays).
+
+**Use, from the request log (Sep 26 to Oct 17):**
+
+- 4,662 requests in all. A third come from 127.0.0.1 (playtest agents and health checks).
+- From your tailnet devices: 86 distinct listing pages opened in three weeks, out of 297,273 listings precomputed. The rest of the device traffic goes to /research, /listings lists, /estimates, /, /buildings and /best.
+- Device traffic peaked Oct 5 (654 requests) and has been under 35 a day since Oct 11.
+
+So the path computes and stores detail for every listing, while people open a few dozen. The parts table is the clearest case, and it costs the most.
+
+## 1. What a top professional would do that you aren't asking for
+
+By "top professional" I mean someone who runs the serving side of a statistical product: an analytics engineer at a forecasting team, or the people who build the data layer behind a site like Zillow's estimates. Your prompt asks to cut work and to check each consumer. They would do that, and also:
+
+1. **Split the outputs by what they're for, before cutting any.**
+   - Some outputs carry the project goal: what each quality is worth, the location map, coverage and PIT, held-out and forecast scores. These are aggregates. They need every row as input, but they produce small outputs.
+   - Some outputs exist for browsing: a listing's estimate, range, parts and inputs. These are per-row detail.
+   - Aggregates get computed in full on every publish. Per-row detail gets computed when a page asks for it, for the rows people open, and cached. That one change takes the cost of detail from "every row ever scraped" to "rows viewed".
+2. **Decide which rows the site serves at all.** The all-scraped run fits 1.6M rows, most of them ads taken down long ago. The fit needs them all. The site's lists probably need current and recent ads, with older ones looked up on request. A professional would decide this with the request log, not by default.
+3. **Treat the path as a build graph with cached steps.** Each step gets a key from the hashes of its inputs (run, bundle, dataset, code), so a step whose inputs haven't changed is skipped and a publish rebuilds only what changed. The scripts already skip a rent map or kit that exists for the run and commit. A professional would extend that to every step and add the prepared features as a saved input, so no step rebuilds them.
+4. **Question the database itself.** The site build copies the bundle into SQLite, which at 1.6M rows means about 40 GB of build memory and an 8 GB file. The site could instead query the bundle's Parquet files directly with DuckDB, and hold only small aggregate tables in SQLite. Then the build step mostly goes away.
+5. **Put a number on each feature and let you decide with it.** For every output: compute minutes, memory, bytes in the database, page opens, and which part of the goal it serves. You get one table and decide keep, compute on request, or remove for each row of it. That makes "ask me if I want to keep them" a decision on evidence.
+6. **Remove behind a flag and watch.** Turn a feature off with a flag the build and the server both read, watch the request log for errors and slow pages for a while, and only then delete the code.
+
+## 2. The rawest material
+
+- **The request log**: every request since Sep 26 with client address, path, status and time (`journalctl --user -u apartments-site.service`). It shows use directly. Playtest reports are agents' opinions about use.
+- **Column-level reads, recorded while the site runs.** SQLite reports each column a query reads through `Connection.set_authorizer`. Logging that per route for a week shows which columns each page actually reads, which is more exact than reading templates.
+- **The site database's own layout**: `dbstat` gives bytes per table and index, and a scan gives bytes per column, as above.
+- **systemd's accounting for each step's unit** (peak memory, CPU time), and profiles of the real runs (py-spy, memray), instead of estimates. The all-scraped run's Modal log shows where it stopped.
+- **The posterior draws and the run's record**, as the Oct 16 note describes, since any on-request computation reads from them or from the kit.
+- **The history of each feature**: the PR that added it and its stated reason (`git log -S`, the archive/pr-N tags). That answers why each output is produced, from the record rather than from memory.
+
+## 3. Methods and tools
+
+- **Lineage**: map every output column to its readers, from the authorizer log and from code search across `src/apartments/site/`, the research data build and the frontier checks. An output with no reader goes first.
+- **Cost accounting per feature**: profile each step under systemd, then attribute time and bytes to the features that need them (the parts split, the likely-ask ranges, the inputs JSON, the fitted rent, and so on).
+- **Lazy computation with a cache**: a listing page computes its parts and ranges from the kit or from that building's draws when opened, and stores the result keyed by bundle hash. The /estimate form already prices an apartment from the kit this way, and `captures.contributions` already computes parts from the kit for current ads.
+- **Content-addressed build steps**: hash keys per step, as in make, DVC or Snakemake. A small script over the existing steps is enough; no new framework is needed.
+- **DuckDB over Parquet** for row-level queries, compared against SQLite on page latency at 1.6M rows.
+- **Scaling curves**: run the whole path on nested samples of the all-scraped run (1%, 4%, 16%) and fit time and memory against rows for each step. Any step growing faster than rows is a defect. Per-row detail should end up growing with page opens instead.
+- **Flags with a watch period**, then deletion, as in point 6 above.
+
+## 4. What, other than you or me, would show the result is right
+
+1. **The request log after the change**: no new errors or slow responses on the pages people open, judged by status codes and the logged milliseconds.
+2. **Page-by-page comparison**: render a sample of pages (including every one of the 86 listing pages opened from your devices, plus a random sample) from the old and new builds and compare them. They should match, except for features you chose to remove, and on-request numbers should agree with the precomputed ones within Monte Carlo error.
+3. **The goal's checks, unchanged**: coverage against nominal 0.79/0.95, PIT, held-out scores and dated forecast scores computed from the slimmer outputs should agree with those from the current outputs within Monte Carlo error. These are the checks the project relies on, so they can't be among the things cut.
+4. **The meters at full size**: the all-scraped run goes from a downloaded fit to a published site on thelio, each step inside its cap, with times and peaks taken from systemd's accounting.
+5. **The scaling curves**: every step's cost grows no faster than rows, and per-row detail grows with page opens.
+
+## 5. The rewritten prompt
+
+> **Reorganize the path from a finished fit to the published site around what people and the project goal actually use: compute the goal's aggregates in full, compute per-listing detail when a page asks for it, and decide every other output with me on evidence.**
+>
+> The path is the summary, calibration, rent map, estimate kit, site build and research data build. On the all-scraped run (1.6M rows) the summary ran past Modal's 4-hour limit, and the site build needs about 40 GB and writes an 8 GB database. In the newest build (297,273 listings), each listing's dollar parts take 64% of the `listings` table and its inputs JSON another 13%, while the request log shows 86 distinct listing pages opened from my devices since Sep 26. The Oct 16 note (`/mnt/project-files/modeling/deeper-summary-task-2026-10-16.md`) covers the summary's internals; this task covers the whole path and what it is for.
+>
+> **Start from the raw material.**
+> - The site's request log (`journalctl --user -u apartments-site.service`), with my tailnet devices told apart from 127.0.0.1.
+> - A week of column-level reads, logged per route with SQLite's `set_authorizer` on the running site.
+> - The site database's bytes per table and column (`dbstat` and a column scan).
+> - systemd's accounting and py-spy and memray profiles of each step on a real run.
+> - The PR history of each output, for why it was added.
+>
+> **Do this, in order.**
+> 1. **Map every output to its readers.** For each column or file the path writes, list the pages, checks and steps that read it. Outputs with no reader are removed at once, with a note in the docs.
+> 2. **Cost every output.** Attribute each step's measured time, memory and database bytes to the outputs that need them.
+> 3. **Bring me one table.** One row per output: what it shows, which part of the goal it serves, its cost, how often it was opened. Recommend keep, compute on request, or remove for each, and ask me once. Carry on with your recommendations while I answer, behind flags, and delete nothing until I have answered.
+> 4. **Compute aggregates in full and detail on request.** The goal's outputs (worth of each quality, the location map, coverage and PIT, held-out and forecast scores) are computed on every publish. A listing's parts, ranges and inputs are computed when its page is opened, from the kit or that building's draws, and cached by bundle hash. Decide from the log which rows the lists show at all.
+> 5. **Cache the build steps.** Give each step a key from its inputs' hashes so unchanged steps are skipped, and save the prepared features once so no step rebuilds them.
+> 6. **Try DuckDB over the bundle's Parquet** for row-level pages, and keep SQLite only for small tables, if page latency at 1.6M rows allows it.
+> 7. **Remove behind flags, watch the log, then delete** the code and docs for what was removed.
+>
+> **It's done when checks outside the code agree.**
+> - The request log shows no new errors or slow pages after each change.
+> - Pages rendered from the old and new builds match, apart from removed features, for every listing page opened from my devices and a random sample. On-request numbers agree with the precomputed ones within Monte Carlo error.
+> - Coverage against 0.79/0.95, PIT, held-out and forecast scores agree with the current ones within Monte Carlo error.
+> - The all-scraped run goes from a downloaded fit to a published site on thelio, each step inside its cap, measured by systemd.
+> - On nested samples (1%, 4%, 16%), no step's cost grows faster than rows.
+>
+> **Keep the standing rules.** The summary keeps its refusals. Modeling owns the summary and the fit queue, Website owns the site build: agree with each before changing its step, and work in small reviewed PRs that keep a publish working at every point. Free checks on thelio need no approval; Modal use keeps to the budget and the one-hour cap.

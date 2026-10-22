@@ -1,0 +1,28 @@
+<section class="col">
+<h2>7a. Follow-up experiments</h2>
+<p>Requested by the referees and approved on 22 October. Results are added here as each check or fit finishes.</p>
+<h3>Done: checks on saved draws</h3>
+<div class="tw"><table>
+<thead><tr><th>Check</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>Held-out score of the Mundlak fit, latest split</td><td>Mundlak minus base: −25 elpd (SE 29, by building and week). RMSE 0.1154 for both; 50/80/90/95% coverage 0.494/0.798/0.904/0.955 against 0.494/0.799/0.904/0.955. The two specifications forecast equally well, so the choice between them rests on the simulation audit and on what "alike" should mean.</td></tr>
+<tr><td>Coverage of the base fit at other levels</td><td>0.494 at 50%, 0.799 at 80%, 0.904 at 90%, 0.955 at 95% on 189,649 held-out ads.</td></tr>
+<tr><td>Clustering of the headline SE</td><td>Floor minus previous model +2,945: SE 83 by row, 82 by week, 172 by building (36,242 buildings), 171 by building and week (668 weeks). About 17 SE.</td></tr>
+<tr><td>Surface basis</td><td>Lengthscale fixed at 1 km; 85 basis functions (Manhattan) and 110 (Brooklyn and Queens), resolving down to 0.9 to 1.0 km.</td></tr>
+<tr><td>Top of the floor curve</td><td>Floors 47+ hold 9,105 ads, median floor 52; most of the 3.4-point step at the cap is the slope continuing. Eight of nine dips are within noise.</td></tr>
+<tr><td>Surface amplitude and its prior</td><td>Manhattan 0.916 (0.77 to 1.09), prior tail probability 0.002; outer zone 0.360, tail probability 0.23.</td></tr>
+</tbody></table></div>
+<h3>Queued fits and checks</h3>
+<div class="tw"><table>
+<thead><tr><th>Experiment</th><th>Question</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Floor + park frontage, latest split</td><td>Candidate base model</td><td><span class="pill open">in review</span></td></tr>
+<tr><td>Floor + park frontage alone, building split, with permutation test</td><td>Is the gain the park's own, without the distance terms?</td><td><span class="pill open">queued</span></td></tr>
+<tr><td>Wider surface-amplitude prior</td><td>Prior sensitivity</td><td><span class="pill open">queued</span></td></tr>
+<tr><td>Unit or line effect for repeat ads</td><td>Within-unit identification; interval width</td><td><span class="pill open">queued</span></td></tr>
+<tr><td>Period-specific coefficients (before 2020-03, 2020-03 to 2021, 2022 on)</td><td>Did implicit prices move?</td><td><span class="pill open">queued</span></td></tr>
+<tr><td>Two more fake-rent replicates, one with a Mundlak truth; prior-draw calibration if budget allows</td><td>Calibration with replication</td><td><span class="pill open">queued</span></td></tr>
+<tr><td>Floor cap raised</td><td>Shape above floor 40</td><td><span class="pill open">queued</span></td></tr>
+<tr><td>Split definition and look-ahead audit; high-floor support; direct score of Table 1 row 2</td><td>Leakage and Table 1</td><td><span class="pill open">queued</span></td></tr>
+</tbody></table></div>
+</section>

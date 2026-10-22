@@ -1,0 +1,14 @@
+Model: openai/gpt-6.1-sol (covers the GPT-6.1 and Sol slots) · 2026-10-22T22:49:39Z · cost $0.093 · reviewed paper revision 2 (via pi)
+
+**Recommendation: Major revision.** The scale and transparency are impressive, but uncertainty remains uncalibrated and the predictive results do not validate the preferred coefficient specification.
+
+1. **Uncertainty audit.** Coverage across 119 dependent coefficients from one dataset per scenario does not establish repeated-sampling coverage; fitted-median simulations are not SBC. Run replicated, coefficient-specific recovery under independent- and correlated-building-effect truths, plus genuine SBC. Address repeat-unit dependence. Rounding and calling intervals "lower bounds" do not repair uncertainty.
+2. **Sampler and priors.** Document the partially collapsed Gibbs update order, especially when Student-t mixing scales are refreshed, and benchmark a small model against an independent implementation. R-hat cannot establish sampler correctness. Supply complete priors (ν, floor inverse-gamma), GP ranks/resolved scales, centering constraints. Complete amplitude-prior sensitivity.
+3. **Identification and model mismatch.** Random intercepts alone do not guarantee within-building identification. Specify the Mundlak construction, including whether nonlinear floor-basis means are included, and benchmark against building fixed effects. Score the Mundlak fit before combining its coefficients with another specification's predictive performance. Appliance differentials are not necessarily upper bounds.
+4. **Validation and search.** Reused holdouts and post-hoc thresholds require a frozen model evaluated on fresh temporal/building splits. Define the forecast origin and demonstrate cutoff-safe outcomes, imputations and building means. Use building/time-blocked score uncertainty and enforce the gate on the building-split floor fit. Replace "add nothing" with "no detectable gain."
+5. **Floor robustness.** Separate the solid gain on floors 3–19 from the less secure high-floor shape. Give sample counts and within-building support by floor, curvature uncertainty, sensitivity to the cap, lengthscale prior and floor flags.
+6. **Economic stability and selection.** Constant coefficients and a static surface can conflate platform composition changes with COVID/HSTPA shifts. Complete period-specific/spatiotemporal checks and stabilization-misclassification sensitivity. Benchmark against HVS rents; reweighting alone cannot convert asks into contract rents.
+
+Internal inconsistencies: Table 1 RMSE 0.1173 vs 0.1172 in abstract; follow-up table promises HMC diagnostics for a Gibbs sampler.
+
+Strengths: city-scale hierarchical fitting and a whole-building holdout; careful hedonic interpretation; candid reporting of failed gates, subgroup miscalibration and weak park-frontage evidence.

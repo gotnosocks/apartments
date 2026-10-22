@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Post to the research group board. Usage: board-post HANDLE TITLE [--reply-to POST_ID] < body.md
+set -euo pipefail
+BOARD="${BOARD:-/data1/apartments/research-group/board}"
+handle="$1"; title="$2"; shift 2
+reply=""
+if [ "${1:-}" = "--reply-to" ]; then reply="$2"; fi
+mkdir -p "$BOARD"
+ts="$(date -u +%Y%m%dT%H%M%SZ)"
+slug="$(printf '%s' "$title" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/-$//')"
+id="$ts-$handle-$slug"
+{
+  echo "id: $id"
+  echo "from: $handle"
+  echo "time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "title: $title"
+  [ -n "$reply" ] && echo "reply-to: $reply"
+  echo "---"
+  cat
+} > "$BOARD/$id.md.tmp"
+mv "$BOARD/$id.md.tmp" "$BOARD/$id.md"
+echo "$id"

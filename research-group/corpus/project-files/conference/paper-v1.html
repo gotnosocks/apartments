@@ -1,0 +1,381 @@
+<title>Floors, Dishwashers and Parks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Short conference paper on the floor model of NYC asking rents">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: one reading column, ~68ch, with wide figures allowed to break out to 920px. */
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --fg:#17202B; --muted:#586476; --rule:#D6DCE4;
+  --accent:#0A6A70; --accent-soft:rgba(10,106,112,.12); --alt:#9A5806; --alt-soft:rgba(154,88,6,.14);
+  --good:#2F7D32; --bad:#B23A2E; --grid:rgba(23,32,43,.08);
+  --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10151C; --surface:#161D26; --fg:#E4E9EF; --muted:#97A3B4; --rule:#2B3542;
+  --accent:#4CBFC4; --accent-soft:rgba(76,191,196,.16); --alt:#E5A54C; --alt-soft:rgba(229,165,76,.16);
+  --good:#7CC47F; --bad:#EE8A7E; --grid:rgba(228,233,239,.08); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151C; --surface:#161D26; --fg:#E4E9EF; --muted:#97A3B4; --rule:#2B3542;
+  --accent:#4CBFC4; --accent-soft:rgba(76,191,196,.16); --alt:#E5A54C; --alt-soft:rgba(229,165,76,.16);
+  --good:#7CC47F; --bad:#EE8A7E; --grid:rgba(228,233,239,.08); color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--serif);font-size:17.5px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:40px 80px}
+main{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:0}
+.col{max-width:68ch;width:100%;margin:0 auto}
+header.top{max-width:68ch;margin:0 auto 28px;width:100%}
+.kicker{font-family:var(--sans);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--sans);font-weight:600;font-size:clamp(28px,4.4vw,40px);line-height:1.15;margin:.35em 0 .3em;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--sans);font-weight:600;font-size:22px;line-height:1.25;margin:2.1em 0 .5em;text-wrap:balance}
+h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:1.6em 0 .3em}
+p{margin:.7em 0}
+.lede{font-size:20px;line-height:1.5;color:var(--fg)}
+.byline{font-family:var(--sans);font-size:14px;color:var(--muted)}
+a{color:var(--accent);text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num,td.n,th.n{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.86em}
+.muted{color:var(--muted)}
+.tw{overflow-x:auto;margin:1em 0;max-width:100%}
+table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:14.5px;line-height:1.4}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1.5px solid var(--fg);padding:6px 10px 6px 0}
+td{border-bottom:1px solid var(--rule);padding:7px 10px 7px 0;vertical-align:top}
+td.n,th.n{text-align:right;white-space:nowrap}
+.tw td:first-child{min-width:13em}
+caption{caption-side:bottom;text-align:left;font-size:13px;color:var(--muted);padding-top:8px;font-family:var(--sans)}
+figure{margin:1.6em auto;max-width:920px;width:100%}
+figure .frame{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 16px 8px}
+figcaption{font-family:var(--sans);font-size:13.5px;color:var(--muted);margin-top:8px;max-width:68ch;line-height:1.45}
+figcaption b{color:var(--fg);font-weight:600}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:12px}
+svg .lab{fill:var(--fg);font-size:12.5px}
+svg .grid{stroke:var(--grid);stroke-width:1}
+svg .axis{stroke:var(--rule);stroke-width:1}
+svg .zero{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+svg .band-a{fill:var(--accent-soft)} svg .line-a{stroke:var(--accent);fill:none;stroke-width:2}
+svg .dot-a{fill:var(--accent)} svg .dot-b{fill:var(--alt)}
+svg .bar-a{stroke:var(--accent);stroke-width:2.2} svg .bar-b{stroke:var(--alt);stroke-width:2.2}
+svg .line-b{stroke:var(--alt);fill:none;stroke-width:2}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:var(--sans);font-size:13px;color:var(--muted);margin:2px 0 6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.sw.a{background:var(--accent)} .sw.b{background:var(--alt)}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 20px;margin:1.2em 0}
+.card h3{margin-top:0}
+.pill{display:inline-block;font-family:var(--sans);font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.keep{background:var(--accent-soft);color:var(--accent)}
+.pill.drop{background:rgba(178,58,46,.12);color:var(--bad)}
+.pill.open{background:var(--alt-soft);color:var(--alt)}
+.eq{font-family:var(--mono);font-size:14px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;overflow-x:auto;white-space:pre;line-height:1.7}
+.stack{display:flex;height:34px;border-radius:4px;overflow:hidden;border:1px solid var(--rule);font-family:var(--sans);font-size:12px}
+.stack div{display:flex;align-items:center;justify-content:center;color:var(--bg);font-weight:600;white-space:nowrap;overflow:hidden}
+ol.refs{font-size:15px;padding-left:1.4em} ol.refs li{margin:.35em 0}
+.qa dt{font-family:var(--sans);font-weight:600;margin-top:1.2em}
+.qa dd{margin:.3em 0 0 0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:1.4em 0}
+.facts div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;min-width:0}
+.facts b{display:block;font-family:var(--mono);font-size:21px;font-weight:500;color:var(--fg)}
+.facts span{font-family:var(--sans);font-size:13px;color:var(--muted);line-height:1.35;display:block;margin-top:2px}
+footer{max-width:68ch;margin:3em auto 0;font-family:var(--sans);font-size:13px;color:var(--muted);border-top:1px solid var(--rule);padding-top:14px;width:100%}
+@media (max-width:560px){body{font-size:16.5px}.lede{font-size:18px}table{font-size:13px}}
+</style>
+
+<main>
+<header class="top">
+  <div class="kicker">Short paper · Draft of 22 October 2026</div>
+  <h1>What a floor, a dishwasher and a park are worth: a Bayesian hedonic model of 1.9 million New York rental ads</h1>
+  <p class="byline">Apartments project</p>
+</header>
+
+<section class="col">
+<div class="card">
+<h3>Abstract</h3>
+<p style="margin:0">We estimate the asking-rent value of apartment qualities in Manhattan and Brooklyn from 1,896,486
+StreetEasy rental listings, 2010 to 2026, in 67,977 buildings. The model combines a weekly market walk, a
+Gaussian-process rent surface for each of two zones, a partially pooled level for every building, unit and building
+attributes, and a Gaussian-process floor curve. Adding the floor curve improves the held-out log score on the newest
+189,649 ads by 2,945 (SE 83) and lowers RMSE from 11.7% to 11.5%, with calibrated 90% predictive intervals (90.4%
+coverage). In elevator buildings rent rises with floor and rises faster with height: +3.8% at floor 10, +6.7% at 20
+and +13.8% at 40 over floor 1 (90% intervals within ±0.5 points); in walk-ups it falls slightly. A unit 10% larger
+than typical for its bedroom count asks 2.3 to 2.4% more; in-unit laundry is worth 5.7 to 6.3% and a dishwasher 1.8
+to 2.0%, where each range spans a random-effects and a Mundlak estimate. Simulations with known truth show the
+random-effects estimates of unit features are biased upward by 0.1 to 0.7 points and that posterior intervals for
+coefficients cover their truth only 69 to 81% of the time. Of seven named location features tested on buildings
+withheld from fitting, only frontage on a large park (+3.5%, 90% 2.6 to 4.3) improves forecasts; distances to parks,
+water and transit relabel the rent surface without improving forecasts for unseen buildings.</p>
+</div>
+</section>
+
+<section class="col">
+<h2>1. Introduction</h2>
+<p>Hedonic models price a good as a bundle of qualities (Rosen, 1974). For rental housing the bundle has three
+layers that are hard to separate: the unit, the building it sits in, and the place the building sits. A doorman
+building on a park in a desirable neighbourhood has larger, better-equipped units, so a regression that pools these
+layers will credit the unit with value that belongs to the building or the block.</p>
+<p>We take worth to mean the difference in asking rent between two apartments that are alike except for one
+quality. Our design makes that comparison explicit at each layer. Unit qualities are identified within buildings,
+because every building has its own level. Building qualities are identified between buildings at the same point on a
+smooth rent surface. Location is the surface itself, and we test whether measurable features of the city can
+explain it.</p>
+<p>The contributions are: (i) a model that runs on 1.7 million training rows in about twenty minutes on one GPU, with
+68,000 building effects and two reduced-rank Gaussian-process surfaces; (ii) a floor curve that is the largest
+predictive gain after unit size; (iii) a simulation audit that quantifies the bias random building effects impose on
+unit features and the undercoverage of coefficient intervals; and (iv) a negative result on location: smooth distance
+features recover stable coefficients but add nothing to forecasts for buildings the model has not seen.</p>
+</section>
+
+<section class="col">
+<h2>2. Data</h2>
+<p>The data are rental listings scraped from StreetEasy between July 2010 and October 2026. The unit of
+observation is an ad; the target is the ad's latest net-effective ask, that is, the last asking rent after
+advertised concessions, on the log scale. Furnished and short-term listings are excluded. Each building is matched to
+a tax lot (BBL) in MapPLUTO, which supplies year built, alterations, floor count and footprint; the registry is
+extended by geocoding so that every row has a location. Manhattan has 21,994 buildings and 1,115,906 ads; Brooklyn
+and a small part of Queens (Ridgewood and Glendale) have 45,983 buildings and 780,580 ads.</p>
+<p>Unit fields come from the listing: bedrooms, full and half baths, stated size (44.9% of training rows; a further
+18.8% filled from the same unit's or the same line's other ads), laundry (in unit 29.0%, in building 36.8%),
+dishwasher (54.8%), floor and unit label. Building fields come from listings and city data: doorman (full, part,
+virtual), elevator, condo, gym, retail, height, year built, alterations, and frontage on a through truck route.
+Rent stabilization, income restriction and shared space are taken as stated in the ad.</p>
+<p>We hold out the newest 189,649 ads (the <i>latest split</i>). Every held-out ad's building also has training
+ads, so this split tests prediction of new ads in known buildings. A second split holds out 6,798 whole buildings
+and their 184,437 ads (the <i>building split</i>) and is the only one that can test a building-level feature.</p>
+</section>
+
+<section class="col">
+<h2>3. Model</h2>
+<p>For ad <i>i</i> in building <i>b</i> in zone <i>z</i>,</p>
+<div class="eq">y_i  = L(t_i) + S(d_i) + x_i'β + f_g(i)(log floor_i) + η_b + ε_i,    ε_i ~ t_ν(0, σ_k(i))
+η_b  = F_z(s_b) + w_b'γ + u_b,                                       u_b ~ N(0, b_z²)
+F_z  ~ GP(0, a_z² k_SE(·,·; ℓ_z))   (Hilbert-space basis, rotated box per zone)
+f_g  ~ GP(0, c_g² k_SE(·,·; λ_g)),  f_g(0) = 0,   g ∈ {elevator, walk-up}</div>
+<p>L is a weekly random walk with drift and normal shocks; S has two annual harmonics. The vector x holds
+cumulative bedroom steps, bath steps by bedroom count, log size relative to the median stated size for the bedroom
+count (with imputed and unknown flags), laundry, dishwasher and floor flags (penthouse, garden, lower level, top
+floor, floor unknown). The building level η<sub>b</sub> is centred on the zone surface F<sub>z</sub> plus building
+attributes w<sub>b</sub>. The residual scale σ varies by bedroom group and ν is estimated.</p>
+<p>The two zones, Manhattan and Brooklyn plus Queens, are split at the river. Each surface uses a reduced-rank
+Hilbert-space approximation (Solin and Särkkä, 2020; Riutort-Mayol et al., 2023) on a box rotated to the zone's
+footprint. The floor curves are exact GPs on log floor, pinned to zero at floor 1 and capped at floor 47 (elevator)
+and 6 (walk-up), roughly the 99th percentile of each. Coefficients take Normal(0, 0.5) priors; amplitudes and
+building spreads take HalfNormal(0.3); the floor amplitude squared takes an inverse gamma with median amplitude
+0.15.</p>
+<p>We sample with NumPyro (Phan et al., 2019) using ChEES-adapted HMC (Hoffman et al., 2021): four chains, 300
+warmup and 1,000 sweeps, keeping every fifth. The surface coefficients are sampled in coordinates whitened by
+their approximate posterior precision, which raised the stable step size by two orders of magnitude; the floor
+lengthscale is drawn with the amplitude integrated out. The fit takes 19 minutes on one A100 and costs $0.73.</p>
+</section>
+
+<section class="col">
+<h2>4. Evaluation protocol</h2>
+<p>Each candidate term is a separate full fit. Before launch we write predictions for its coefficients, cost and
+scores, and we record misses as misses. A fit must pass a convergence gate (rank-normalised R-hat ≤ 1.01 and bulk
+ESS ≥ 400 on every traced quantity; Vehtari et al., 2021). Fits are compared by the paired held-out log predictive
+density (elpd) on shared rows, with standard errors from per-building sums; we require a gain of about 2 SE.
+Building-level features must also beat a within-zone permutation null on their share of explained held-out building
+residuals. We report predictive medians and intervals. Separately, we fit the model to rents simulated from a known
+truth and score coverage of the truth, in the spirit of simulation-based calibration (Cook et al., 2006; Talts et
+al., 2018), though with a fixed truth rather than draws from the prior.</p>
+</section>
+
+<section class="col">
+<h2>5. Results</h2>
+<h3>5.1 Fit and forecast</h3>
+<p>The model passes the gate (max R-hat 1.0097, min ESS 590, both on the outer zone's surface amplitude; all floor
+hyperparameters R-hat ≤ 1.001). Table 1 shows the path to it.</p>
+<div class="tw"><table>
+<thead><tr><th>Model</th><th class="n">Δ elpd vs previous (SE)</th><th class="n">RMSE</th><th class="n">90% cov.</th></tr></thead>
+<tbody>
+<tr><td>Zones + building levels + building attributes</td><td class="n">n/a</td><td class="n">0.1244</td><td class="n"></td></tr>
+<tr><td>+ size, laundry, dishwasher, truck route</td><td class="n">+9,818 (≈160)</td><td class="n">0.1173</td><td class="n"></td></tr>
+<tr><td>+ gym</td><td class="n">−11 (3)</td><td class="n">0.1173</td><td class="n">88.2%</td></tr>
+<tr><td>+ year built, alteration, retail</td><td class="n">+32 (18)</td><td class="n">0.1173</td><td class="n">88.3%</td></tr>
+<tr><td><b>+ floor curve and flags</b></td><td class="n"><b>+2,945 (83)</b></td><td class="n"><b>0.1154</b></td><td class="n"><b>90.4%</b></td></tr>
+</tbody>
+<caption>Table 1. Held-out scores on the latest split (189,649 ads). RMSE is on log rent. Coverage for the earlier rows was computed with fewer draws (68 against 400), which narrows sampled intervals; the floor fit's own comparison at 400 draws gives 90.4% for both it and its predecessor.</caption>
+</table></div>
+<p>The floor gain is concentrated where theory says it should be: elevator floors 3 to 19 (+1,972), top floors
+(+911) and penthouses (+706), where the previous model's median error of +10.5% falls to −0.3%. On the building
+split, a new building's level is drawn from its zone's prior; RMSE rises to 0.182 and 90% coverage is 92.7%. The
+heavy tails are real: ν ≈ 4.1.</p>
+
+<h3>5.2 Floor</h3>
+<p>Figure 1 shows the two curves. In elevator buildings each doubling of the floor adds more than the last above
+floor 2: 0.3 points from 2 to 4, 1.6 from 4 to 8, 2.6 from 8 to 16 and 4.8 from 16 to 32. A penthouse adds 8.3%
+(90% 8.1 to 8.5) above its floor's value and the top floor of an elevator building 1.75%. Walk-ups decline by about
+0.2 points per floor, to −0.9% at floor 5, consistent with a small discount for stairs. Adding the curve moves the
+elevator premium from 6.8% to 3.6%, since elevator units sit higher, and leaves the building effects nearly unchanged
+(correlation 0.998), so floor explains within-building variation that building terms cannot.</p>
+</section>
+<figure>
+  <div class="frame">
+    <div class="legend"><span><i class="sw a"></i>Elevator buildings, median and 90% interval</span><span><i class="sw b"></i>Walk-ups</span></div>
+    <div id="floor"></div>
+  </div>
+  <figcaption><b>Figure 1.</b> Asking-rent premium over floor 1 of the same building. Floors 47 and above share one value.</figcaption>
+</figure>
+
+<section class="col">
+<h3>5.3 Unit qualities</h3>
+<p>Figure 2 reports unit premiums from the model (teal) and from a variant that adds each building's mean of the
+unit columns to the building level (Mundlak, 1978; Bell and Jones, 2015), which identifies unit coefficients from
+within-building contrasts only. Size has an elasticity of 0.252 (90% 0.251 to 0.253), 0.242 under Mundlak. In-unit
+laundry is worth 6.3% (6.26 to 6.39) against unstated laundry, 5.7% under Mundlak; laundry in the building 1.7% and
+1.4%; a dishwasher 2.0% and 1.85%; a private garden or outdoor space 2.9% and 2.3%. A unit with no stated size asks
+4.0% less than one of typical size, which we read as a disclosure effect. Bedroom and bath steps barely move between
+the two models.</p>
+</section>
+<figure>
+  <div class="frame">
+    <div class="legend"><span><i class="sw a"></i>Random building effects</span><span><i class="sw b"></i>With building means (Mundlak)</span></div>
+    <div id="unit"></div>
+  </div>
+  <figcaption><b>Figure 2.</b> Unit-level premiums, 100(e<sup>β</sup>−1), posterior median and 90% interval.</figcaption>
+</figure>
+
+<section class="col">
+<h3>5.4 Building qualities</h3>
+<p>Between buildings at the same point on the surface, a full-time doorman is worth 15.0% (14.2 to 15.8), a condo
+building 10.5%, a part-time doorman 8.4%, a gym 6.7%, construction since 2010 4.1%, construction before 1900 4.0% and
+an elevator 3.6%. Ground-floor retail costs 1.9% and frontage on a through truck route 3.9%. Ads stating rent
+stabilization ask 2.4% less, and income-restricted ads 10.4% less. Under Mundlak these building terms shrink by a
+sixth to a half (condo to 6.2%, construction since 2010 to 2.0%), because the building means absorb part of what
+distinguishes such buildings (Figure 3). The two numbers answer different questions: the first compares buildings
+as they are, the second compares buildings with the same unit mix.</p>
+</section>
+<figure>
+  <div class="frame">
+    <div class="legend"><span><i class="sw a"></i>Random building effects</span><span><i class="sw b"></i>With building means (Mundlak)</span></div>
+    <div id="bld"></div>
+  </div>
+  <figcaption><b>Figure 3.</b> Building-level premiums and ad flags, 100(e<sup>β</sup>−1), posterior median and 90% interval.</figcaption>
+</figure>
+
+<section class="col">
+<h3>5.5 Location</h3>
+<p>Of the variance of log rent across training ads (0.192), the surface carries 23% and the residual building levels
+8%. We tested whether named features explain the surface (Table 2). Six smooth distances (nearest station, routes
+served, any park, parks of 30+ acres, shoreline, a noise index) take 7.6% of the surface's variance with coefficients
+that are stable across splits; the largest is −2.1 points per log km from a large park. On the building split they
+improve the held-out log score by only 26 (SE 116), and their contribution correlates −0.97 with the change in the
+surface: they relabel the surface rather than add to it.</p>
+<div class="tw"><table>
+<thead><tr><th>Feature (separate fit)</th><th class="n">Premium, 90% interval</th><th class="n">Δ elpd, building split (SE)</th></tr></thead>
+<tbody>
+<tr><td>Six smooth distances, jointly</td><td class="n">big park 4.7 pts, water 3.5 pts (p10–p90)</td><td class="n">+26 (116)</td></tr>
+<tr><td>Faces a park of ≥ 5 acres (within 40 m)</td><td class="n">+3.5% (2.6, 4.3)</td><td class="n">+187 (80)</td></tr>
+<tr><td>Within 150 m of shoreline</td><td class="n">+5.4% (3.5, 7.4)</td><td class="n">−229 (130)</td></tr>
+<tr><td>Within 30 m of an elevated track</td><td class="n">−2.4% (−3.5, −1.5)</td><td class="n">−41 (51)</td></tr>
+<tr><td>Mid-block on an avenue</td><td class="n">−1.8% (−2.5, −1.3)</td><td class="n">+86 (89)</td></tr>
+</tbody>
+<caption>Table 2. Location features. The four step features were each added to the six-distance model and compared with it on the building split (6,798 held-out buildings, 184,437 ads).</caption>
+</table></div>
+<p>Park frontage is the one exception. Held-out park-facing buildings were underpriced by 4.3 points by the model
+without it and by 1.6 with it. On rents simulated with a planted 3.46-point step, the model returned 3.54 (2.75 to
+4.27) and moved the surface and building levels at park-facing buildings by 0.1 point or less. It nonetheless falls
+short of the permutation test (0.30% explained share against a null 95th percentile of 0.46%), so we treat it as
+provisional. Waterfront looks strong in training but worsens forecasts for its 42 held-out buildings.</p>
+</section>
+
+<section class="col">
+<h2>6. Simulation audit</h2>
+<p>We simulated rents from the fitted model's medians under three scenarios (realistic, a null with zero floor and
+feature effects, and a planted building-height effect) and refit. All three pass the gate. Coverage of 90% intervals
+over 119 scalar terms was 80.7%, 75.6% and 73.9%; a fourth recovery for park frontage gave 69%. The misses repeat in
+every run, in the same direction: size comes back 0.6 to 0.7 points high, in-unit laundry 0.4, dishwasher 0.1 to 0.2.
+Each unit column's bias follows its correlation with the true building level (size +0.24, laundry +0.22, dishwasher
++0.21), the familiar bias of random effects correlated with regressors. Adding building means reduces every unit
+bias to 0.03 points or less, but shrinks building attributes toward zero (condo 6.6 against a truth of 10.0) and
+worsens recovery of the surface. The surface itself recovers well in every scenario (slope 0.99, coverage 94 to 99%)
+and building levels cover at 90%, shrinking toward zero in buildings with few ads as they should.</p>
+<p>The audit's caveat is that the truth was drawn from the fitted model, whose building levels were estimated
+alongside its attributes, which favours the random-effects split of variance. A truth from a different model could
+favour Mundlak's.</p>
+</section>
+
+<section class="col">
+<h2>7. Discussion and limitations</h2>
+<p><b>Asking rents.</b> We model asks net of advertised concessions, not rents paid. Validation against independent
+records of contract rents is the most important next step.</p>
+<p><b>Interpretation.</b> Coefficients are conditional differences, not causal effects. Within-building contrasts
+(floor, size, laundry) remove building and block confounding but not unmeasured unit quality such as renovation or
+light. We report the random-effects and Mundlak estimates as a range because neither is correct by construction.</p>
+<p><b>Uncertainty.</b> Predictive intervals are calibrated, but coefficient intervals are too narrow: for the common unit
+terms the audit's biases (0.1 to 0.7 points) exceed the intervals' half-widths (0.05 to 0.1), because the intervals
+omit model uncertainty. We would not
+publish the second decimal place.</p>
+<p><b>Selection on one split.</b> Many fits were compared on the same latest split. Pre-registered predictions limit,
+but do not remove, adaptive overfitting for gains near 2 SE. The floor gain (36 SE) is far outside that range.</p>
+<p><b>Coverage of the city and of the protocol.</b> The data omit the Bronx, Staten Island and most of Queens. The
+framework's 80% and 95% coverage on a time-split refit and in-sample PSIS-LOO (Vehtari et al., 2017) were not
+computed for this fit. We have not benchmarked against a flexible learner and make no claim about relative accuracy.</p>
+</section>
+
+<section class="col">
+<h2>8. Conclusion</h2>
+<p>A hedonic model that gives every building its own level and every zone its own smooth surface can price unit
+qualities from within-building contrasts, at city scale, on one GPU. Floor is the largest such quality after size,
+and its value depends on the elevator. The model's weak points are measurable: unit coefficients carry a small upward
+bias that a Mundlak term removes at a cost to building terms, and coefficient intervals understate uncertainty.
+Location remains mostly described rather than explained. The features that help forecasts vary faster than the
+surface, as park frontage does, which suggests looking at block-scale and view-scale qualities next.</p>
+</section>
+
+<section class="col">
+<h2>References</h2>
+<ol class="refs">
+<li>Bell, A. and Jones, K. (2015). Explaining fixed effects: random effects modeling of time-series cross-sectional and panel data. <i>Political Science Research and Methods</i> 3(1), 133–153.</li>
+<li>Cook, S. R., Gelman, A. and Rubin, D. B. (2006). Validation of software for Bayesian models using posterior quantiles. <i>Journal of Computational and Graphical Statistics</i> 15(3), 675–692.</li>
+<li>Hoffman, M., Radul, A. and Sountsov, P. (2021). An adaptive MCMC scheme for setting trajectory lengths in Hamiltonian Monte Carlo. <i>AISTATS</i>.</li>
+<li>Mundlak, Y. (1978). On the pooling of time series and cross section data. <i>Econometrica</i> 46(1), 69–85.</li>
+<li>Phan, D., Pradhan, N. and Jankowiak, M. (2019). Composable effects for flexible and accelerated probabilistic programming in NumPyro. arXiv:1912.11554.</li>
+<li>Riutort-Mayol, G., Bürkner, P.-C., Andersen, M. R., Solin, A. and Vehtari, A. (2023). Practical Hilbert space approximate Bayesian Gaussian processes for probabilistic programming. <i>Statistics and Computing</i> 33, 17.</li>
+<li>Rosen, S. (1974). Hedonic prices and implicit markets: product differentiation in pure competition. <i>Journal of Political Economy</i> 82(1), 34–55.</li>
+<li>Solin, A. and Särkkä, S. (2020). Hilbert space methods for reduced-rank Gaussian process regression. <i>Statistics and Computing</i> 30, 419–446.</li>
+<li>Talts, S., Betancourt, M., Simpson, D., Vehtari, A. and Gelman, A. (2018). Validating Bayesian inference algorithms with simulation-based calibration. arXiv:1804.06788.</li>
+<li>Vehtari, A., Gelman, A. and Gabry, J. (2017). Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. <i>Statistics and Computing</i> 27, 1413–1432.</li>
+<li>Vehtari, A., Gelman, A., Simpson, D., Carpenter, B. and Bürkner, P.-C. (2021). Rank-normalization, folding, and localization: an improved R-hat for assessing convergence of MCMC. <i>Bayesian Analysis</i> 16(2), 667–718.</li>
+</ol>
+</section>
+<footer>Run: building-zones-floor-b0-latest-6b5a5b4a-dense-w1000 (base); building-zones-mundlak-b0-latest-a6d25054-dense-w1000 (Mundlak); building-split and simulation runs as named in the project's results notes of 21–22 October 2026.</footer>
+</main>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+function el(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e}
+function txt(p,x,y,s,a){const e=el('text',Object.assign({x,y},a||{}),p);e.textContent=s;return e}
+function niceTicks(lo,hi,n){const span=hi-lo,step0=span/n,mag=Math.pow(10,Math.floor(Math.log10(step0)));
+  const step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0);const out=[];for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step)out.push(+v.toFixed(6));return out}
+function floorChart(id,elev,walk){
+  const host=document.getElementById(id);const W=860,H=340,L=52,R=20,Tp=14,B=44;
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',role:'img','aria-label':'Rent premium by floor'},host);
+  const lx=v=>Math.log(v),x0=lx(1),x1=lx(48);const X=v=>L+(lx(v)-x0)/(x1-x0)*(W-L-R);
+  const ylo=-2,yhi=21;const Y=v=>Tp+(yhi-v)/(yhi-ylo)*(H-Tp-B);
+  for(const t of [0,5,10,15,20]){el('line',{x1:L,x2:W-R,y1:Y(t),y2:Y(t),class:t===0?'zero':'grid'},s);txt(s,L-8,Y(t)+4,(t>0?'+':'')+t+'%',{'text-anchor':'end'})}
+  for(const f of [1,2,3,5,10,20,30,47]){el('line',{x1:X(f),x2:X(f),y1:Y(yhi),y2:Y(ylo),class:'grid'},s);txt(s,X(f),H-B+18,f===47?'47+':String(f),{'text-anchor':'middle'})}
+  txt(s,(L+W-R)/2,H-6,'Floor (log scale)',{'text-anchor':'middle'});
+  let d='';elev.forEach((r,i)=>{d+=(i?'L':'M')+X(r[0])+' '+Y(r[3])});for(let i=elev.length-1;i>=0;i--)d+='L'+X(elev[i][0])+' '+Y(elev[i][2]);el('path',{d:d+'Z',class:'band-a'},s);
+  el('path',{d:elev.map((r,i)=>(i?'L':'M')+X(r[0])+' '+Y(r[1])).join(''),class:'line-a'},s);
+  el('path',{d:walk.map((r,i)=>(i?'L':'M')+X(r[0])+' '+Y(r[1])).join(''),class:'line-b'},s);
+  walk.forEach(r=>el('circle',{cx:X(r[0]),cy:Y(r[1]),r:2.6,class:'dot-b'},s));
+  const last=elev[elev.length-1];txt(s,X(last[0])-6,Y(last[1])-10,'elevator',{'text-anchor':'end',class:'lab'});
+  txt(s,X(6)+8,Y(walk[5][1])+16,'walk-up',{class:'lab'});
+}
+function forest(id,rows,opts){
+  const host=document.getElementById(id);const W=860,rowH=30,Tp=8,B=40,L=opts.left||250,R=24;const H=Tp+B+rows.length*rowH;
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',role:'img','aria-label':opts.aria||'Premiums with 90% intervals'},host);
+  let lo=Math.min(0,...rows.flatMap(r=>[r.f[1],r.m?r.m[1]:r.f[1]])),hi=Math.max(0,...rows.flatMap(r=>[r.f[2],r.m?r.m[2]:r.f[2]]));
+  const pad=(hi-lo)*.06;lo-=pad;hi+=pad;const X=v=>L+(v-lo)/(hi-lo)*(W-L-R);
+  for(const t of niceTicks(lo,hi,6)){el('line',{x1:X(t),x2:X(t),y1:Tp,y2:H-B+4,class:t===0?'zero':'grid'},s);txt(s,X(t),H-B+20,(t>0?'+':'')+t+(opts.unit||''),{'text-anchor':'middle'})}
+  if(opts.xlabel)txt(s,(L+W-R)/2,H-6,opts.xlabel,{'text-anchor':'middle'});
+  rows.forEach((r,i)=>{const y=Tp+i*rowH+rowH/2;txt(s,L-12,y+4,r.label,{'text-anchor':'end',class:'lab'});
+    const ya=r.m?y-5:y;el('line',{x1:X(r.f[1]),x2:X(r.f[2]),y1:ya,y2:ya,class:'bar-a'},s);el('circle',{cx:X(r.f[0]),cy:ya,r:4,class:'dot-a'},s);
+    if(r.m){el('line',{x1:X(r.m[1]),x2:X(r.m[2]),y1:y+5,y2:y+5,class:'bar-b'},s);el('rect',{x:X(r.m[0])-3.5,y:y+1.5,width:7,height:7,class:'dot-b'},s)}});
+}
+
+const ELEV=[[1, 0, 0, 0], [2, 1.23, 1.11, 1.34], [3, 1.33, 1.22, 1.44], [4, 1.52, 1.41, 1.63], [5, 2.08, 1.97, 2.2], [6, 2.52, 2.4, 2.64], [7, 3.01, 2.87, 3.15], [8, 3.09, 2.94, 3.25], [9, 3.49, 3.34, 3.65], [10, 3.77, 3.61, 3.93], [11, 4.26, 4.12, 4.43], [12, 4.21, 4.03, 4.38], [13, 4.78, 4.5, 5.07], [14, 4.73, 4.55, 4.91], [15, 5.07, 4.86, 5.26], [16, 5.64, 5.46, 5.85], [17, 5.78, 5.57, 5.98], [18, 6.64, 6.41, 6.87], [19, 6.55, 6.33, 6.77], [20, 6.68, 6.41, 6.89], [21, 7.08, 6.87, 7.33], [22, 7.04, 6.8, 7.28], [23, 7.09, 6.82, 7.33], [24, 7.43, 7.18, 7.68], [25, 8.09, 7.8, 8.36], [26, 8.39, 8.12, 8.66], [27, 8.44, 8.14, 8.73], [28, 9.23, 8.94, 9.51], [29, 9.41, 9.13, 9.7], [30, 9.98, 9.66, 10.3], [31, 9.94, 9.65, 10.25], [32, 10.49, 10.15, 10.81], [33, 10.62, 10.28, 10.91], [34, 11.28, 10.92, 11.64], [35, 11.14, 10.77, 11.54], [36, 11.6, 11.24, 12.02], [37, 12.05, 11.57, 12.47], [38, 12.41, 12.0, 12.86], [39, 12.56, 12.09, 13.05], [40, 13.8, 13.36, 14.27], [41, 13.24, 12.77, 13.75], [42, 13.09, 12.56, 13.59], [43, 14.1, 13.55, 14.57], [44, 14.9, 14.28, 15.46], [45, 14.84, 14.28, 15.45], [46, 15.53, 14.96, 16.15], [47, 19.53, 19.2, 19.87]];const WALK=[[1, 0, 0, 0], [2, -0.31, -0.4, -0.23], [3, -0.41, -0.51, -0.32], [4, -0.61, -0.72, -0.5], [5, -0.88, -1.02, -0.71], [6, -0.72, -0.99, -0.39]];const UNIT=[{"label": "In-unit laundry", "f": [6.32, 6.26, 6.39], "m": [5.71, 5.64, 5.78]}, {"label": "Laundry in building", "f": [1.71, 1.64, 1.77], "m": [1.4, 1.34, 1.47]}, {"label": "Dishwasher", "f": [2.0, 1.96, 2.04], "m": [1.85, 1.81, 1.89]}, {"label": "Private garden / outdoor", "f": [2.88, 2.63, 3.12], "m": [2.25, 2.0, 2.52]}, {"label": "Penthouse (over floor curve)", "f": [8.31, 8.13, 8.49], "m": [8.3, 8.12, 8.48]}, {"label": "Top floor, elevator bldg", "f": [1.75, 1.67, 1.83], "m": [1.77, 1.68, 1.84]}, {"label": "Below grade / lower level", "f": [-3.7, -4.55, -2.81], "m": [-3.76, -4.62, -2.87]}, {"label": "Size not stated", "f": [-4.05, -4.1, -4.0], "m": [-3.83, -3.88, -3.78]}];const BLD=[{"label": "Full-time doorman", "f": [14.96, 14.18, 15.81], "m": [11.04, 10.38, 11.76]}, {"label": "Condo building", "f": [10.51, 10.02, 10.94], "m": [6.19, 5.77, 6.57]}, {"label": "Part-time doorman", "f": [8.42, 7.63, 9.15], "m": [6.82, 6.18, 7.49]}, {"label": "Gym", "f": [6.68, 6.09, 7.22], "m": [5.64, 5.14, 6.13]}, {"label": "Built 2010 or later", "f": [4.09, 3.62, 4.58], "m": [1.99, 1.52, 2.44]}, {"label": "Built before 1900", "f": [4.0, 3.74, 4.26], "m": [2.46, 2.22, 2.71]}, {"label": "Major alteration since 2000", "f": [3.89, 3.71, 4.05], "m": [2.87, 2.69, 3.02]}, {"label": "Elevator", "f": [3.59, 3.22, 3.94], "m": [2.22, 1.88, 2.55]}, {"label": "Virtual doorman", "f": [2.95, 2.68, 3.21], "m": [1.57, 1.3, 1.82]}, {"label": "Ground-floor retail", "f": [-1.89, -2.13, -1.63], "m": [-0.84, -1.07, -0.62]}, {"label": "Faces a through truck route", "f": [-3.93, -4.62, -3.27], "m": [-3.01, -3.64, -2.39]}, {"label": "Rent stabilized (ad says)", "f": [-2.38, -2.51, -2.26], "m": [-2.34, -2.47, -2.22]}, {"label": "Income restricted", "f": [-10.39, -10.94, -9.81], "m": [-10.35, -10.9, -9.77]}];
+floorChart('floor',ELEV,WALK);
+forest('unit',UNIT,{unit:'%',xlabel:'Premium, % of rent'});
+forest('bld',BLD,{unit:'%',xlabel:'Premium, % of rent'});
+</script>

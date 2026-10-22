@@ -1,0 +1,62 @@
+date,theory_id,theory,outcome,gain_psis_loo,standard_error,pr
+2026-10-02,+2slopes,each building's own price for two more features,made it worse,-192.1,36.2,89
+2026-10-02,+2slopes,each building's own price for two more features,made it worse,-193.9,36.4,89
+2026-10-02,+floorslope,each building's own price for height,no clear effect,29.5,47.5,92
+2026-10-02,+tunits,a few apartments far off their building,helped,1553.6,82.9,86
+2026-10-02,+tunits,a few apartments far off their building,helped,1549.2,83.4,86
+2026-10-02,+tunits,a few apartments far off their building,helped,1584.9,83.6,86
+2026-10-02,+tunits,a few apartments far off their building,helped,2479.1,98.4,86
+2026-10-03,+bedtime,each size of apartment has its own trend,helped,195.5,30.6,
+2026-10-03,+bedtime,each size of apartment has its own trend,helped,214.2,30.1,
+2026-10-03,+dayfourier,"a smooth season, at each ask's own date",helped,77.1,17.2,168
+2026-10-03,+dayfourier3,a simpler smooth season,helped,71.7,17.0,
+2026-10-03,+fourier,"a smooth season, by calendar month",no clear effect,4.7,12.7,144
+2026-10-03,nb-bedtext-v1,ad states fewer or more bedrooms than the record,helped,73.1,24.6,149
+2026-10-04,nb-coded-v1,listing record's outdoor space types and extra rooms,helped,109.4,30.7,
+2026-10-04,nb-prevprice-v1,how the unit's previous listing was repriced,set aside,747.3,40.7,211
+2026-10-04,nb-relist-v1,months since the apartment's previous listing,helped,39.9,14.9,173
+2026-10-05,+bednoise,bigger apartments' asks scatter more,helped,376.3,38.6,154
+2026-10-05,+bednoise,bigger apartments' asks scatter more,helped,500.5,45.6,154
+2026-10-05,+bedtime,each size of apartment has its own trend,helped,200.8,31.3,
+2026-10-05,+bedtime,each size of apartment has its own trend,helped,170.5,29.1,
+2026-10-05,+dayfourier,"a smooth season, at each ask's own date",helped,89.0,19.0,168
+2026-10-05,+dayfourier,"a smooth season, at each ask's own date",helped,92.8,18.3,168
+2026-10-05,+tunits,a few apartments far off their building,helped,2009.2,89.4,86
+2026-10-05,+yearnoise,asks scatter more in some years,helped,745.3,53.8,295
+2026-10-05,nb3-lineface-v1,orientation read from the apartment's line,no clear effect,-8.9,14.4,
+2026-10-06,nb3-access-v1,jobs within 30 minutes by walking and subway (LODES),no clear effect,-12.6,14.1,358
+2026-10-06,nb3-attrs-v1,"ad states one of 15 attributes: walk-in closet, live-in super, utilities included, pre-war and others",no clear effect,-8.0,21.8,390
+2026-10-06,nb3-bedsize-v1,bed size from the ad text,no clear effect,-24.7,15.8,359
+2026-10-06,nb3-garden-v1,rear windows over the open block or a wall,no clear effect,11.7,14.1,328
+2026-10-06,nb3-lines-v1,each subway line group within an 8-minute walk,no clear effect,14.7,15.8,357
+2026-10-06,nb3-lines-v1,each subway line group within an 8-minute walk,no clear effect,20.5,17.1,357
+2026-10-06,nb3-loud-v1,a building side fronting a busy street,no clear effect,-9.9,14.4,344
+2026-10-06,nb3-nearby-v1,"walk to dog run, hospital, EMS, drop-in center, NYCHA, MSG",no clear effect,-2.3,14.2,346
+2026-10-06,nb3-parks-v1,parks within reach,no clear effect,-5.2,14.3,364
+2026-10-06,nb3-quiet-v1,"quiet street: busy road, narrow roadway, mid-block",no clear effect,7.9,14.1,330
+2026-10-06,nb3-retail-v1,storefronts and food places within 150 m,no clear effect,11.1,15.1,347
+2026-10-06,nb3-retail-v1,storefronts and food places within 150 m,no clear effect,7.0,15.3,347
+2026-10-06,nb3-through-v1,"floor-through: apartments per floor, ad says floor-through",no clear effect,3.4,15.6,329
+2026-10-06,nb3-transit-v1,weekday-morning subway minutes to midtown,no clear effect,-7.9,14.7,345
+2026-10-07,+bednoise,bigger apartments' asks scatter more,helped,360.2,38.0,154
+2026-10-07,+bednoise,bigger apartments' asks scatter more,helped,349.5,36.8,154
+2026-10-07,+bedtime,each size of apartment has its own trend,helped,183.8,28.6,
+2026-10-07,+bedtime,each size of apartment has its own trend,helped,180.0,28.7,
+2026-10-07,+bedtime,each size of apartment has its own trend,helped,194.1,27.7,
+2026-10-07,+bedtime,each size of apartment has its own trend,helped,200.7,30.8,
+2026-10-07,+bedtime12,"the trend by size, in a finer variant",helped,116.6,25.5,
+2026-10-07,+dayfourier,"a smooth season, at each ask's own date",helped,93.6,19.1,168
+2026-10-07,+dayfourier,"a smooth season, at each ask's own date",helped,94.6,17.9,168
+2026-10-07,+yearnoise,asks scatter more in some years,helped,812.4,55.1,295
+2026-10-07,nb3-loc-v1,"smooth location surface: Gaussian bumps 250 m apart, so neighbouring buildings share a premium",no clear effect,10.0,15.0,
+2026-10-07,nb3-prevprice-v2,"the same repricing idea, retested once Greenwich Village joined",set aside,1072.1,49.0,
+2026-10-07,nb3-prevprice-v2,"the same repricing idea, retested once Greenwich Village joined",set aside,985.1,47.3,
+2026-10-07,nb3-prevprice-v2,"the same repricing idea, retested once Greenwich Village joined",set aside,972.5,47.2,
+2026-10-07,nb3-prevprice-v2,"the same repricing idea, retested once Greenwich Village joined",set aside,948.4,45.3,
+2026-10-07,nb3-renov-v1,flag: the ad says newly or gut renovated and the unit's previous ad (with text) did not; the leak-free form of a renovation split,set aside,2.0,14.8,422
+2026-10-07,nb3-text-v1,the text-v1 phrases scored on the West Village and Greenwich Village rows only,no clear effect,43.7,23.5,390
+2026-10-07,unit-labels-v10,"spelled-out unit labels joined to their short spellings (126 groups, 262 rows), paired with fa61d6c's coded-v2 arm on v9 + splits-v4",helped,49.2,21.9,420
+2026-10-07,unit-labels-v9,"number-word-and-letter unit labels (fourb, five-a) joined to their twins when bedrooms agree",no clear effect,29.9,20.0,394
+2026-10-07,unit-splits-v1,a unit's history splits where an ad's bedroom count differs by 2 or more from the previous ad's,helped,475.4,56.4,397
+2026-10-08,nb5-plutoasof-v1,every MapPLUTO field of the building as the release of the year before the listing had it (2009 on),set aside,-71.1,20.4,439
+2026-10-08,nb5-stab-v1,"rent-stabilized units of the building's lot from the DOF tax bill of the year before the listing (taxbills.nyc 2007–2017, JustFix 2018–2024)",set aside,-1.1,2.5,435

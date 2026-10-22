@@ -1,0 +1,212 @@
+<title>Rent by the Floor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Blog post on what apartment features add to New York asking rents">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: one reading column, ~68ch, with wide figures allowed to break out to 920px. */
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --fg:#17202B; --muted:#586476; --rule:#D6DCE4;
+  --accent:#0A6A70; --accent-soft:rgba(10,106,112,.12); --alt:#9A5806; --alt-soft:rgba(154,88,6,.14);
+  --good:#2F7D32; --bad:#B23A2E; --grid:rgba(23,32,43,.08);
+  --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10151C; --surface:#161D26; --fg:#E4E9EF; --muted:#97A3B4; --rule:#2B3542;
+  --accent:#4CBFC4; --accent-soft:rgba(76,191,196,.16); --alt:#E5A54C; --alt-soft:rgba(229,165,76,.16);
+  --good:#7CC47F; --bad:#EE8A7E; --grid:rgba(228,233,239,.08); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151C; --surface:#161D26; --fg:#E4E9EF; --muted:#97A3B4; --rule:#2B3542;
+  --accent:#4CBFC4; --accent-soft:rgba(76,191,196,.16); --alt:#E5A54C; --alt-soft:rgba(229,165,76,.16);
+  --good:#7CC47F; --bad:#EE8A7E; --grid:rgba(228,233,239,.08); color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--serif);font-size:17.5px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:40px 80px}
+main{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:0}
+.col{max-width:68ch;width:100%;margin:0 auto}
+header.top{max-width:68ch;margin:0 auto 28px;width:100%}
+.kicker{font-family:var(--sans);font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--sans);font-weight:600;font-size:clamp(28px,4.4vw,40px);line-height:1.15;margin:.35em 0 .3em;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--sans);font-weight:600;font-size:22px;line-height:1.25;margin:2.1em 0 .5em;text-wrap:balance}
+h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:1.6em 0 .3em}
+p{margin:.7em 0}
+.lede{font-size:20px;line-height:1.5;color:var(--fg)}
+.byline{font-family:var(--sans);font-size:14px;color:var(--muted)}
+a{color:var(--accent);text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num,td.n,th.n{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.86em}
+.muted{color:var(--muted)}
+.tw{overflow-x:auto;margin:1em 0;max-width:100%}
+table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:14.5px;line-height:1.4}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1.5px solid var(--fg);padding:6px 10px 6px 0}
+td{border-bottom:1px solid var(--rule);padding:7px 10px 7px 0;vertical-align:top}
+td.n,th.n{text-align:right;white-space:nowrap}
+.tw td:first-child{min-width:13em}
+caption{caption-side:bottom;text-align:left;font-size:13px;color:var(--muted);padding-top:8px;font-family:var(--sans)}
+figure{margin:1.6em auto;max-width:920px;width:100%}
+figure .frame{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 16px 8px}
+figcaption{font-family:var(--sans);font-size:13.5px;color:var(--muted);margin-top:8px;max-width:68ch;line-height:1.45}
+figcaption b{color:var(--fg);font-weight:600}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:12px}
+svg .lab{fill:var(--fg);font-size:12.5px}
+svg .grid{stroke:var(--grid);stroke-width:1}
+svg .axis{stroke:var(--rule);stroke-width:1}
+svg .zero{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+svg .band-a{fill:var(--accent-soft)} svg .line-a{stroke:var(--accent);fill:none;stroke-width:2}
+svg .dot-a{fill:var(--accent)} svg .dot-b{fill:var(--alt)}
+svg .bar-a{stroke:var(--accent);stroke-width:2.2} svg .bar-b{stroke:var(--alt);stroke-width:2.2}
+svg .line-b{stroke:var(--alt);fill:none;stroke-width:2}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:var(--sans);font-size:13px;color:var(--muted);margin:2px 0 6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.sw.a{background:var(--accent)} .sw.b{background:var(--alt)}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 20px;margin:1.2em 0}
+.card h3{margin-top:0}
+.pill{display:inline-block;font-family:var(--sans);font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.keep{background:var(--accent-soft);color:var(--accent)}
+.pill.drop{background:rgba(178,58,46,.12);color:var(--bad)}
+.pill.open{background:var(--alt-soft);color:var(--alt)}
+.eq{font-family:var(--mono);font-size:14px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;overflow-x:auto;white-space:pre;line-height:1.7}
+.stack{display:flex;height:34px;border-radius:4px;overflow:hidden;border:1px solid var(--rule);font-family:var(--sans);font-size:12px}
+.stack div{display:flex;align-items:center;justify-content:center;color:var(--bg);font-weight:600;white-space:nowrap;overflow:hidden}
+ol.refs{font-size:15px;padding-left:1.4em} ol.refs li{margin:.35em 0}
+.qa dt{font-family:var(--sans);font-weight:600;margin-top:1.2em}
+.qa dd{margin:.3em 0 0 0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:1.4em 0}
+.facts div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;min-width:0}
+.facts b{display:block;font-family:var(--mono);font-size:21px;font-weight:500;color:var(--fg)}
+.facts span{font-family:var(--sans);font-size:13px;color:var(--muted);line-height:1.35;display:block;margin-top:2px}
+footer{max-width:68ch;margin:3em auto 0;font-family:var(--sans);font-size:13px;color:var(--muted);border-top:1px solid var(--rule);padding-top:14px;width:100%}
+@media (max-width:560px){body{font-size:16.5px}.lede{font-size:18px}table{font-size:13px}}
+</style>
+
+<main>
+<header class="top">
+  <div class="kicker">Blog · Apartments project</div>
+  <h1>What the 20th floor, a dishwasher and a park view add to a New York rent</h1>
+  <p class="byline">22 October 2026 · About a seven-minute read</p>
+</header>
+
+<section class="col">
+<p class="lede">Every New York renter has asked some version of this: is a higher floor worth $200 more a month? Is
+in-unit laundry? We built a model from 1.9 million rental ads to answer that question for each feature, one at a
+time, along with how sure we are.</p>
+
+<p>The trick is comparing like with like. Apartments with washers tend to be in newer buildings in pricier
+neighbourhoods, so if you just compare rents, you credit the washer with what is really the building and the block.
+Our model gives every one of 67,977 buildings its own price level and gives the map its own smooth surface of rent.
+A feature that changes inside a building, like the floor, is then priced by comparing units in the same building.</p>
+
+<p>Throughout, we'll translate percentages into dollars on an example $4,000 a month apartment. All figures are
+asking rents on StreetEasy in Manhattan and Brooklyn, net of advertised free months.</p>
+
+<h2>Height pays, but only with an elevator</h2>
+<p>In an elevator building, each floor up adds a little, and the steps grow as you climb. Against floor 1 of the
+same building, the 10th floor asks about 3.8% more (about $150 on our example), the 20th about 6.7% (about $270) and
+the 40th about 13.8% ($550). A penthouse adds another 8.3% on top of whatever floor it is on.</p>
+</section>
+<figure>
+  <div class="frame">
+    <div class="legend"><span><i class="sw a"></i>Elevator buildings (shaded: 90% range)</span><span><i class="sw b"></i>Walk-ups</span></div>
+    <div id="floor"></div>
+  </div>
+  <figcaption><b>Rent premium over the first floor of the same building.</b> The floor axis is stretched at the bottom, because going from floor 1 to 2 changes more than going from 31 to 32.</figcaption>
+</figure>
+<section class="col">
+<p>Walk-ups go the other way. Each flight of stairs takes about 0.2% off, so a fifth-floor walk-up asks about 0.9%
+less than the ground floor. That's around $35 a month for five flights.</p>
+<p>This was the biggest single improvement to the model since we added apartment size. When we hid the latest ad of about
+190,000 apartments that had been listed before and asked the model to price them, it predicted them clearly better. Penthouses had been underpriced
+by about 10%; now the model is off by less than half a percent.</p>
+
+<h2>What features are worth</h2>
+<p>For features that vary within a building, the numbers are tight. We give a range because two reasonable versions
+of the model disagree slightly, and the truth is most likely in between.</p>
+<div class="tw"><table>
+<thead><tr><th>Feature</th><th class="n">Premium</th><th class="n">On $4,000</th></tr></thead>
+<tbody>
+<tr><td>Washer and dryer in the unit (vs. laundry not mentioned)</td><td class="n">+5.7 to +6.3%</td><td class="n">$230 to $250</td></tr>
+<tr><td>Laundry room in the building</td><td class="n">+1.4 to +1.7%</td><td class="n">$55 to $70</td></tr>
+<tr><td>Dishwasher</td><td class="n">+1.8 to +2.0%</td><td class="n">$75 to $80</td></tr>
+<tr><td>Private garden or outdoor space</td><td class="n">+2.3 to +2.9%</td><td class="n">$90 to $115</td></tr>
+<tr><td>10% more space than usual for the bedroom count</td><td class="n">+2.3 to +2.4%</td><td class="n">about $95</td></tr>
+<tr><td>Ad doesn't say how big the unit is</td><td class="n">−3.8 to −4.0%</td><td class="n">about −$155</td></tr>
+</tbody>
+<caption>Ranges span our main model and a version that compares buildings with the same mix of units.</caption>
+</table></div>
+<p>That last line is our favourite. Ads that leave out the square footage ask about 4% less than ads for otherwise
+similar apartments. Small units are probably the ones that don't mention it.</p>
+
+<h2>Building features are harder to pin down</h2>
+<p>A full-time doorman goes with about 11 to 15% more rent than a comparable building nearby without one. A condo
+building runs 6 to 11% higher, a gym about 6%, and new construction since 2010 2 to 4%. These ranges are wider, and
+the reason is instructive: doorman buildings also have bigger units with more washers, so how much of the gap belongs
+to the doorman depends on whether you compare buildings as they are or buildings with the same mix of units.</p>
+<p>Ads that say the unit is rent stabilized ask about 2.4% less, and income-restricted units about 10% less.</p>
+
+<h2>Location is still mostly a map</h2>
+<p>Where a building sits explains about a quarter of the spread in rents, more than any feature above. We'd love
+to say exactly why: the subway, the parks, the river. So we tested it, by hiding about 6,800 buildings from the
+model and asking whether knowing their distance to a station, a park or the water helped predict their rents.</p>
+<p>Mostly it didn't. Distance to Central Park or Prospect Park does line up with rent, but the model's map already
+knew that, because those parks are big and the map is drawn at about a kilometre's resolution. A feature that changes
+more slowly than the map can't teach it anything new.</p>
+<p>One feature did help: <b>a building directly facing a park of five acres or more</b>. Those buildings ask about
+3.5% more (about $140 on our example) than nearby buildings that don't face the park, with a likely range of 2.6 to 4.3%. That
+held up on buildings the model never saw, and when we planted a fake park premium in simulated rents, the model found
+it. We're calling it provisional until it passes one more statistical test. Being right on the waterfront, by
+contrast, looked great in training and made predictions worse for new waterfront buildings, so we dropped it.</p>
+
+<h2>How sure are we?</h2>
+<p>For a typical ad the model's middle guess is off by about 7%, and its 90% ranges contain the actual ask 90% of
+the time, which is what they should do. We also tested the model on fake rents where we knew the right answers. It
+recovered the map and the floor curve well. It overstated unit features by a fraction of a point, and its stated
+uncertainty about individual features was too narrow, so we report ranges, not decimals.</p>
+<h2>What we're modelling, and what's open</h2>
+<p>Nobody publishes what New York tenants actually sign for, so we don't try to guess it. What we can observe is the
+ask, and we treat the last ask before a listing goes off the market as the closest thing to a closing price: the
+price at which the apartment found a taker. Every number above is about those prices.</p>
+<p>Within that, the direction is wide open. The floor curve, the missing-square-footage discount and the park-facing
+premium are the parts we can explain so far; the map that still carries a quarter of the variance is the part we
+can't. If you have an idea about what in the observations would explain it, or a check that would break one of the
+results above, that's what the comments are for.</p>
+</section>
+
+<footer>The model, data and every test behind this post are in the project's research notes from 21–22 October 2026. Dollar figures apply the percentage premiums to an illustrative $4,000 rent and are rounded.</footer>
+</main>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+function el(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e}
+function txt(p,x,y,s,a){const e=el('text',Object.assign({x,y},a||{}),p);e.textContent=s;return e}
+function niceTicks(lo,hi,n){const span=hi-lo,step0=span/n,mag=Math.pow(10,Math.floor(Math.log10(step0)));
+  const step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0);const out=[];for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step)out.push(+v.toFixed(6));return out}
+function floorChart(id,elev,walk){
+  const host=document.getElementById(id);const W=860,H=340,L=52,R=20,Tp=14,B=44;
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',role:'img','aria-label':'Rent premium by floor'},host);
+  const lx=v=>Math.log(v),x0=lx(1),x1=lx(48);const X=v=>L+(lx(v)-x0)/(x1-x0)*(W-L-R);
+  const ylo=-2,yhi=21;const Y=v=>Tp+(yhi-v)/(yhi-ylo)*(H-Tp-B);
+  for(const t of [0,5,10,15,20]){el('line',{x1:L,x2:W-R,y1:Y(t),y2:Y(t),class:t===0?'zero':'grid'},s);txt(s,L-8,Y(t)+4,(t>0?'+':'')+t+'%',{'text-anchor':'end'})}
+  for(const f of [1,2,3,5,10,20,30,47]){el('line',{x1:X(f),x2:X(f),y1:Y(yhi),y2:Y(ylo),class:'grid'},s);txt(s,X(f),H-B+18,f===47?'47+':String(f),{'text-anchor':'middle'})}
+  txt(s,(L+W-R)/2,H-6,'Floor (log scale)',{'text-anchor':'middle'});
+  let d='';elev.forEach((r,i)=>{d+=(i?'L':'M')+X(r[0])+' '+Y(r[3])});for(let i=elev.length-1;i>=0;i--)d+='L'+X(elev[i][0])+' '+Y(elev[i][2]);el('path',{d:d+'Z',class:'band-a'},s);
+  el('path',{d:elev.map((r,i)=>(i?'L':'M')+X(r[0])+' '+Y(r[1])).join(''),class:'line-a'},s);
+  el('path',{d:walk.map((r,i)=>(i?'L':'M')+X(r[0])+' '+Y(r[1])).join(''),class:'line-b'},s);
+  walk.forEach(r=>el('circle',{cx:X(r[0]),cy:Y(r[1]),r:2.6,class:'dot-b'},s));
+  const last=elev[elev.length-1];txt(s,X(last[0])-6,Y(last[1])-10,'elevator',{'text-anchor':'end',class:'lab'});
+  txt(s,X(6)+8,Y(walk[5][1])+16,'walk-up',{class:'lab'});
+}
+function forest(id,rows,opts){
+  const host=document.getElementById(id);const W=860,rowH=30,Tp=8,B=40,L=opts.left||250,R=24;const H=Tp+B+rows.length*rowH;
+  const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',role:'img','aria-label':opts.aria||'Premiums with 90% intervals'},host);
+  let lo=Math.min(0,...rows.flatMap(r=>[r.f[1],r.m?r.m[1]:r.f[1]])),hi=Math.max(0,...rows.flatMap(r=>[r.f[2],r.m?r.m[2]:r.f[2]]));
+  const pad=(hi-lo)*.06;lo-=pad;hi+=pad;const X=v=>L+(v-lo)/(hi-lo)*(W-L-R);
+  for(const t of niceTicks(lo,hi,6)){el('line',{x1:X(t),x2:X(t),y1:Tp,y2:H-B+4,class:t===0?'zero':'grid'},s);txt(s,X(t),H-B+20,(t>0?'+':'')+t+(opts.unit||''),{'text-anchor':'middle'})}
+  if(opts.xlabel)txt(s,(L+W-R)/2,H-6,opts.xlabel,{'text-anchor':'middle'});
+  rows.forEach((r,i)=>{const y=Tp+i*rowH+rowH/2;txt(s,L-12,y+4,r.label,{'text-anchor':'end',class:'lab'});
+    const ya=r.m?y-5:y;el('line',{x1:X(r.f[1]),x2:X(r.f[2]),y1:ya,y2:ya,class:'bar-a'},s);el('circle',{cx:X(r.f[0]),cy:ya,r:4,class:'dot-a'},s);
+    if(r.m){el('line',{x1:X(r.m[1]),x2:X(r.m[2]),y1:y+5,y2:y+5,class:'bar-b'},s);el('rect',{x:X(r.m[0])-3.5,y:y+1.5,width:7,height:7,class:'dot-b'},s)}});
+}
+
+const ELEV=[[1, 0, 0, 0], [2, 1.23, 1.11, 1.34], [3, 1.33, 1.22, 1.44], [4, 1.52, 1.41, 1.63], [5, 2.08, 1.97, 2.2], [6, 2.52, 2.4, 2.64], [7, 3.01, 2.87, 3.15], [8, 3.09, 2.94, 3.25], [9, 3.49, 3.34, 3.65], [10, 3.77, 3.61, 3.93], [11, 4.26, 4.12, 4.43], [12, 4.21, 4.03, 4.38], [13, 4.78, 4.5, 5.07], [14, 4.73, 4.55, 4.91], [15, 5.07, 4.86, 5.26], [16, 5.64, 5.46, 5.85], [17, 5.78, 5.57, 5.98], [18, 6.64, 6.41, 6.87], [19, 6.55, 6.33, 6.77], [20, 6.68, 6.41, 6.89], [21, 7.08, 6.87, 7.33], [22, 7.04, 6.8, 7.28], [23, 7.09, 6.82, 7.33], [24, 7.43, 7.18, 7.68], [25, 8.09, 7.8, 8.36], [26, 8.39, 8.12, 8.66], [27, 8.44, 8.14, 8.73], [28, 9.23, 8.94, 9.51], [29, 9.41, 9.13, 9.7], [30, 9.98, 9.66, 10.3], [31, 9.94, 9.65, 10.25], [32, 10.49, 10.15, 10.81], [33, 10.62, 10.28, 10.91], [34, 11.28, 10.92, 11.64], [35, 11.14, 10.77, 11.54], [36, 11.6, 11.24, 12.02], [37, 12.05, 11.57, 12.47], [38, 12.41, 12.0, 12.86], [39, 12.56, 12.09, 13.05], [40, 13.8, 13.36, 14.27], [41, 13.24, 12.77, 13.75], [42, 13.09, 12.56, 13.59], [43, 14.1, 13.55, 14.57], [44, 14.9, 14.28, 15.46], [45, 14.84, 14.28, 15.45], [46, 15.53, 14.96, 16.15], [47, 19.53, 19.2, 19.87]];const WALK=[[1, 0, 0, 0], [2, -0.31, -0.4, -0.23], [3, -0.41, -0.51, -0.32], [4, -0.61, -0.72, -0.5], [5, -0.88, -1.02, -0.71], [6, -0.72, -0.99, -0.39]];const UNIT=[{"label": "In-unit laundry", "f": [6.32, 6.26, 6.39], "m": [5.71, 5.64, 5.78]}, {"label": "Laundry in building", "f": [1.71, 1.64, 1.77], "m": [1.4, 1.34, 1.47]}, {"label": "Dishwasher", "f": [2.0, 1.96, 2.04], "m": [1.85, 1.81, 1.89]}, {"label": "Private garden / outdoor", "f": [2.88, 2.63, 3.12], "m": [2.25, 2.0, 2.52]}, {"label": "Penthouse (over floor curve)", "f": [8.31, 8.13, 8.49], "m": [8.3, 8.12, 8.48]}, {"label": "Top floor, elevator bldg", "f": [1.75, 1.67, 1.83], "m": [1.77, 1.68, 1.84]}, {"label": "Below grade / lower level", "f": [-3.7, -4.55, -2.81], "m": [-3.76, -4.62, -2.87]}, {"label": "Size not stated", "f": [-4.05, -4.1, -4.0], "m": [-3.83, -3.88, -3.78]}];const BLD=[{"label": "Full-time doorman", "f": [14.96, 14.18, 15.81], "m": [11.04, 10.38, 11.76]}, {"label": "Condo building", "f": [10.51, 10.02, 10.94], "m": [6.19, 5.77, 6.57]}, {"label": "Part-time doorman", "f": [8.42, 7.63, 9.15], "m": [6.82, 6.18, 7.49]}, {"label": "Gym", "f": [6.68, 6.09, 7.22], "m": [5.64, 5.14, 6.13]}, {"label": "Built 2010 or later", "f": [4.09, 3.62, 4.58], "m": [1.99, 1.52, 2.44]}, {"label": "Built before 1900", "f": [4.0, 3.74, 4.26], "m": [2.46, 2.22, 2.71]}, {"label": "Major alteration since 2000", "f": [3.89, 3.71, 4.05], "m": [2.87, 2.69, 3.02]}, {"label": "Elevator", "f": [3.59, 3.22, 3.94], "m": [2.22, 1.88, 2.55]}, {"label": "Virtual doorman", "f": [2.95, 2.68, 3.21], "m": [1.57, 1.3, 1.82]}, {"label": "Ground-floor retail", "f": [-1.89, -2.13, -1.63], "m": [-0.84, -1.07, -0.62]}, {"label": "Faces a through truck route", "f": [-3.93, -4.62, -3.27], "m": [-3.01, -3.64, -2.39]}, {"label": "Rent stabilized (ad says)", "f": [-2.38, -2.51, -2.26], "m": [-2.34, -2.47, -2.22]}, {"label": "Income restricted", "f": [-10.39, -10.94, -9.81], "m": [-10.35, -10.9, -9.77]}];floorChart('floor',ELEV,WALK);</script>
