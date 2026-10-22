@@ -11,6 +11,8 @@ location fit on the same split.
 | location | `building-zones-location-b0-buildings-35131df8-dense-w1000` | 19 min | $0.83 |
 | waterfront | `building-zones-waterfront-b0-buildings-201e8224-dense-w1000` | 22.0 min | $0.91 |
 
+The fit-stage times and cost estimates come from the last line of each run's `ops/modal-fit` log.
+
 The predictions are in docs/notes/building-zones-waterfront-predictions-2026-10-22.md, and the
 explainer is https://claude.ai/artifact/9pcPNDye2ZwhV3kMuMCdP5.
 
