@@ -470,8 +470,8 @@ def main(argv=None):
     # (rentfrontier.building_zones_floor) adds a floor curve for elevator buildings, another for
     # walk-ups and flags for special floors to it. Building zones with building means
     # (rentfrontier.building_zones_mundlak) adds each building's mean of its unit columns.
-    # Building zones with transit (rentfrontier.building_zones_transit) adds the distance to the
-    # nearest subway or PATH stop and the services within 0.8 km. Building zones with parks
+    # Building zones with transit (rentfrontier.building_zones_transit) adds to the floor model
+    # the distance to the nearest subway or PATH stop and the services within 0.8 km. Building zones with parks
     # (rentfrontier.building_zones_parks) adds instead the distances to parks and the shoreline,
     # and building zones with noise (rentfrontier.building_zones_noise) the outdoor 311 noise
     # complaints nearby.
