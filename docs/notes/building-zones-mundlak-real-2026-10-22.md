@@ -20,12 +20,14 @@ All in points of log rent x100.
 | `unit:laundry_in_unit` from 6.1 to 5.3 to 6.0 | 5.55 | yes |
 | `unit:laundry_in_building` from 1.7 to 1.2 to 1.7 | 1.39 | yes |
 | `unit:dishwasher` from 2.0 to 1.6 to 2.0 | 1.83 | yes |
-| `unit:size_unknown` from -4.1 to -4.1 to -3.6 | -3.91 | yes |
-| the elevator curve falls 0 to 0.5 points, floor 10 within 1 point | elevator floors move -0.08 to +0.02; floor 10 3.70 to 3.65 | yes |
+| `unit:size_unknown` stays between -4.1 and -3.6 | -3.91 | yes |
+| the elevator curve falls 0 to 0.5 points, floor 10 within 1 point | the floor terms move -0.06 to +0.02, so the curve falls by less than 0.1; floor 10 3.70 to 3.65 | yes on floor 10, the fall smaller than predicted |
 | the size and in-unit laundry means come back positive | +26.5 and +8.1 | yes |
+| `bld_sd` falls 2% to 10% in each zone | Manhattan 0.183 to 0.147 (-20%), outside 0.114 to 0.107 (-6%) | no in Manhattan |
+| held-out log score within 2 SE of the floor fit's | not scored, the fit ran fit-only | not run |
 
 The unit columns fall by more than the simulation's bias: size by 0.95 points against a
-simulated bias of 0.64, and in-unit laundry by 0.58 against 0.39. As the predictions note
+simulated bias of 0.65, and in-unit laundry by 0.58 against 0.39. As the predictions note
 expected, the real bias can be larger, since the simulation drew its truth after the floor
 fit's shrinkage had already taken part of it.
 
@@ -53,21 +55,32 @@ centered.
 
 ## Reading it
 
-The real fit follows the simulation term by term. On the realistic simulation the floor model
-got the building terms right and the unit terms wrong, and the means model did the reverse.
-Real data gives the same two pictures, so the simulation is a good guide to which numbers
-each model gets right, as long as real buildings split their levels roughly the way the floor
-fit did.
+The real fit moves the same way the simulation did. The unit columns fall a little, and the
+building attributes shrink by much more: condo by 40%, `built_2010_on` by 51% and `log_height`
+by 81%. Real data has no truth to score against, so this result can't say which model gets
+the building terms right. The simulation showed the means pulling building terms away from a
+truth that came out of the floor fit, but the real numbers also fit a different reading: the
+means may be picking up building signal that the floor model gives to condo, doorman and the
+rest.
 
 The two models answer different questions about a building quality. On the floor model,
 `bld:condo` is the rent difference between a condo and a rental building that differ in
 nothing else the model measures. On the means model it is the difference between two such
 buildings with the same unit mix. Condos have bigger units with more in-unit laundry, so part
-of what a condo is worth goes to the means. The goal asks for the first, so I'm keeping the
-building and location terms on the floor model and taking the unit premiums from the means
-model: size 24.3, in-unit laundry 5.6, in-building laundry 1.4, dishwasher 1.8.
+of what a condo is worth goes to the means. The project goal defines worth as the rent
+difference between two apartments alike except for the quality, and a renter choosing between
+buildings compares them with their unit mix as it is, so I read the floor model's number as
+the closer match.
+
+Taking the unit premiums from the means model and the building and location terms from the
+floor model is my judgment, not a result of either fit. The two sets come from different
+models, and the means fit's unit premiums sit beside building terms that are themselves shrunk.
+The unit premiums I'd quote are size 24.3, in-unit laundry 5.6, in-building laundry 1.4 and
+dishwasher 1.8.
 
 The three location fits (transit, parks, noise) therefore go on the floor model.
 
 I haven't scored either fit's held-out rows. The night ran fit-only, and neither model is the
 served one, so this result doesn't change the site.
+
+The explainer page for this fit is https://claude.ai/artifact/KxtQzWehRfipZJtt6tggVn.
