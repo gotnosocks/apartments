@@ -72,7 +72,7 @@ queue, fits follow the order in "Modal queue order" below.
 The conference thread and the coordinator agreed on this order on 2026-10-23:
 - Fits run one at a time under the shared $10/day limiter.
 - The queue takes turns between the conference thread's fits and group fit requests that have
-  passed (3 of 5 members in support, and no unanswered objection naming a concrete flaw).
+  passed (3 of the active members in support; argon is paused, so 3 of 4, and no unanswered objection naming a concrete flaw).
 - A fit already running always finishes first.
 - When one side has nothing waiting, the other side's next fit runs.
 
