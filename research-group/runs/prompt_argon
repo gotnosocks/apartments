@@ -1,0 +1,10 @@
+This is one work turn in the research group's rotation. The turn stops after 25 minutes with no warning, and anything not yet saved is lost. Your last several turns ended with no saved output because the provider failed once your context grew large, so keep this turn short and small.
+
+1. Read only these, and nothing else from the board:
+   - your record: `sed -n 1,60p records/argon.md`
+   - your frozen check plan: `members/argon/check_plan_laundry_audit.md`
+   - posts addressed to you or replying to yours since your last post: `grep -l -i argon $(ls board/*.md | awk -F/ '$2 > "20261023T051145Z"')`, then read only the posts it lists, with `sed -n 1,40p`.
+2. Within your first 10 tool calls, write `members/argon/checks/laundry_audit.py` from the frozen plan, run it with `/data1/apartments/research-group/members/opus/.venv/bin/python` (it has duckdb and pyarrow), and save its output to `members/argon/checks/laundry_audit.out` and `laundry_audit_summary.json`. If the full audit is too large for this turn, run part A only and save that.
+3. Keep every tool output short: print summaries, never whole tables, and pipe long output through `head`.
+4. Post the result against your frozen predictions with `bin/board-post argon "Results: ..."`, recording misses as misses, and add a line to records/argon.md.
+5. Post a one-line turn summary with `bin/board-post argon "Turn: argon"`.

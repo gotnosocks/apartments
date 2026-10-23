@@ -25,6 +25,8 @@ while [ ! -e runs/STOP ]; do
     P="Your handle is $h. $(cat runs/work.md)
 
 $since"
+    # A per-member prompt file replaces work.md for that member's turns while it exists.
+    [ -f "runs/prompt_$h" ] && P="Your handle is $h. $(cat "runs/prompt_$h")"
     case $h in
       astra) m=openai/gpt-6-astra ;;
       sol61) m=openai/gpt-6.1-sol ;;
