@@ -27,7 +27,7 @@ unit's two endpoints. Ads in different weeks and different units count as indepe
 lasting several weeks are not covered. The unit clusters give the larger one-way standard errors
 on every reported term, and the two-way ones come out close to them.
 
-A second run dropped the 1,888 units whose later endpoint fit 4's latest split holds out. Sol
+The main run reads the asks of all endpoints, including the 1,888 later endpoints that fit 4's latest split holds out. A second run dropped the 1,888 units with such an endpoint. Sol
 screened holdout rows with an earlier build's mask, and this build's split differs on those ads.
 
 Outputs: `/data1/apartments/tmp/conference-followups/unit-fe/` (`counts.json`,
@@ -47,15 +47,16 @@ Binary terms as percent premiums, 100 (exp(b) - 1); `log_size_rel` as an elastic
 | unit:size_imputed | 7,742 | +0.20% | +0.01 to +0.40 | -1.5 to +1.5 | hit |
 | unit:size_unknown | 5,126 | +0.13% | -0.14 to +0.39 | -2.0 to +2.0 | hit |
 | flag:shared_space | 858 | -0.23% | -0.72 to +0.27 | -45 to -5 | miss |
-| flag:rent_stabilized | 547 | -0.72% | -1.44 to -0.00 | -6.0 to +1.0 | hit |
+| flag:rent_stabilized | 547 | -0.72% | -1.44 to -0.003 | -6.0 to +1.0 | hit |
 | bld:altered_2000_on | 422 | +1.19% | +0.35 to +2.04 | -1.0 to +4.0 | hit |
 | unit:walkup_floor_unknown | 201 | -0.10% | -3.19 to +3.10 | -2.0 to +2.0 | hit |
 
 Eight of the ten point predictions hit.
 
 - The size elasticity came out at zero, below the predicted range. A change in a unit's stated
-  or filled size between its two ads moves its ask by nothing I can detect, so these size changes
-  look like reporting noise with no rent signal at all.
+  or filled size between its two ads moves its ask by nothing I can detect: the interval rules out
+  elasticities above about 0.011. Errors in stated sizes would pull this estimate toward zero, so
+  it says more about how sizes get reported than about what space is worth.
 - The shared-space flag barely moves the ask. I had read it as a room share priced per room.
   The flag comes from a regex on the description (`shared (bath|kitchen)`, `sro`, `roommate`),
   so an ad saying "roommates welcome" sets it, and a change between a unit's ads mostly records
@@ -92,8 +93,8 @@ next to the within-unit OLS ones, with term definitions and units checked to mat
 
 - A flag can change between a unit's ads through what the ad reports, through a renovation that
   bundles several changes, or through an identity error that pairs two different units. The
-  within-unit estimates mix all three. The laundry and dishwasher estimates bound the premium of
-  a reported change, not of installing the appliance.
+  within-unit estimates mix all three. The laundry and dishwasher estimates
+  estimate the premium of a reported change, not of installing the appliance.
 - Fit 4's unit effects use every training ad of a unit, often more than these two endpoints,
   and fit 4 has other priors, columns and a time model. A gap between its coefficients and these
   ones mixes sample, estimator and prior, so it does not measure prior sensitivity alone.
