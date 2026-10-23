@@ -6,7 +6,7 @@ This note reports follow-up fit 8, planned in `building-zones-floor-asof3-cap64-
 |---|---|---|---|---|---|
 | `building-zones-floor-asof3-cap64-b0-latest-26504752-cap64-w1000` | 21 min | 881 s | about $0.83 | 1.0078 (`amp[outer]`) | 554 (`amp[outer]`) |
 
-The sweep took 0.78 s. Every quantity other than `amp[outer]` has R-hat under 1.006 and ESS over 630, and the next worst is the thin studio bath step `bed=0:full>=3` (1.0053, 635). On the coefficients, the four chains' medians spread by 0.3 points or less, apart from three studio and one-bedroom bath steps with under 200 rows (`bed=0:full>=3` 0.80, `bed=1:full>=4` 0.40, `bed=1:full>=3` 0.30). The widest spread on the new floors is 0.27, at floor 59.
+The sweep took 0.78 s. Every quantity other than `amp[outer]` has R-hat under 1.006 and ESS over 630, and the next worst is the thin studio bath step `bed=0:full>=3` (1.0053, 635). On the coefficients, the four chains' medians spread by 0.3 points or less, apart from two studio and one-bedroom bath steps with under 50 rows (`bed=0:full>=3` 0.80, `bed=1:full>=4` 0.40). The widest spread on the new floors is 0.27, at floor 59.
 
 ## The top of the elevator curve
 
@@ -21,7 +21,7 @@ The sweep took 0.78 s. Every quantity other than `amp[outer]` has R-hat under 1.
 | 60 | 379 | 23.04 (22.22 to 23.98) | |
 | 64 and up | 976 | 25.71 (25.06 to 26.46) | |
 
-Below 47 the curve stays where it was, within 0.06 points at every floor. Above 47 it climbs about 0.66 points a floor, twice its slope of about 0.30 a floor between 30 and 46. Floors 55 to 63 have 133 to 379 training rows each. The curve's lengthscale in log floor, `gp_ls[elev]`, falls from 0.98 (0.68 to 1.34) to 0.48 (0.38 to 0.62), which lets the curve bend upward over the top floors. Its amplitude `gp_amp[elev]` barely moves (0.074 to 0.072).
+Below 47 the curve stays where it was, within 0.06 points at every floor. Above 47 it climbs about 0.66 points a floor, twice its slope of about 0.30 a floor between 30 and 46. Floors 55 to 63 have 133 to 379 training rows each. The curve's lengthscale in log floor, `gp_ls[elev]`, falls from 0.98 (0.68 to 1.34) to 0.48 (0.38 to 0.62), which lets the curve bend upward over the top floors. Its amplitude `gp_amp[elev]` barely moves (0.074 to 0.071).
 
 ## Held-out ads
 
@@ -47,7 +47,7 @@ I took each ad's floor from the unit floor snapshot `20261021-d84914c0` (`floor_
 - `gp_ls[elev]` changes by under 15%: it falls by 51%. Miss.
 - Held-out elpd on elevator ads at floor 48 and up rises by 5 to 60: +27.3. Hit.
 - On all shared held-out ads the change stays within 2 SE by building: +52 at 2.2 SE. Miss, narrowly.
-- Other coefficients move by under 0.3 points: 0.24 at most (`bed=0:full>=3`). Hit.
+- Other coefficients move by under 0.3 points: 0.24 at most (`bed=0:full>=3`). Hit. The new build has no rows for `bed=0:full>=4`, so fit 8 drops that column.
 - `bld_sd`, `sigma` and `nu` move by under 1%: 0.04% at most. Hit.
 - From `amp-joint-predictions-2026-10-23.md`, without the joint step `amp[outer]` again has the worst R-hat or the least ESS, with an IAT of 5.5 to 8 sweeps: it has both, with an IAT of 7.3 from `amp_diag.py` (`amp[manhattan]` 3.8). Hit.
 
