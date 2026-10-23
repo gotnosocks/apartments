@@ -181,6 +181,8 @@ RATE_STAND_IN["building-zones-floor-asof3-cap64"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-floor-asof3-unit"] = "building-zones-attrs"
 # The asof3 version with amenity premiums split by period adds up to 12 columns.
 RATE_STAND_IN["building-zones-floor-asof3-periods"] = "building-zones-attrs"
+# The version with unit effects and unit means adds 8 columns.
+RATE_STAND_IN["building-zones-floor-asof3-unitmean"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -224,6 +226,7 @@ BASELINES = (
     "building-zones-floor-asof3-cap64",
     "building-zones-floor-asof3-unit",
     "building-zones-floor-asof3-periods",
+    "building-zones-floor-asof3-unitmean",
     "building-zones-mundlak-asof",
 )
 
