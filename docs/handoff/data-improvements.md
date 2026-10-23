@@ -1,6 +1,23 @@
 # Data improvements — handoff
 
-Updated 2026-10-22 21:40 ET, after the studio 3+ bath cell corrections in #1235. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-23 01:30 ET, after the rentals-only outcomes fix in #1254. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-23 01:30 ET
+The delist audit (#1251) found that `latest_ask` matches the outcomes' final ask on only 90.5% of
+finished rows. Of the 21,624 mismatches:
+- 14,696 are net effective against gross, by design. The model rows' `latest_ask` spreads free
+  months over the lease (b0data.py).
+- 1,920 come from `ads.kept_changes` dropping price changes logged more than 7 days after off_day.
+- 5,008 were a bug. Page crawls hold sale pages too, and sale and rental ids collide, so a later
+  sale capture replaced the rental's outcome. #1254 keeps only rental captures.
+
+The rebuilt file is `listing-outcomes/20261023-7b6f543`. On it, 99.0% of 316,367 finished rows
+match exactly or as net effective, and 5 rows have a final ask over $50k (5,012 before). The
+tuning rules tune-finalask-v1 and tune-latestask-v1 still pin the older files with sale rows.
+Moving them means a new rule version, a call for Modeling. The audit's other check,
+`days_on_market` against off_day minus on_day, disagrees because the field is StreetEasy's count
+without paused days. #1242 earlier excluded three studios coded with 4+ baths. Scratch is in
+`/data1/apartments/tmp/di-askcheck`.
 
 ## 2026-10-22 21:40 ET
 The as-of base fit missed the gate on its studio cell with 3+ full baths (70 training rows in
