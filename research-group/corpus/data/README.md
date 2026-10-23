@@ -215,3 +215,41 @@ The source summary is
 `/data1/apartments/frontier/summaries/m7-…-e694a775-a40-6d3f401/`, which you can read directly. It
 also holds `buildings.parquet`, with the per-building level and its interval, plus
 `coefficients.parquet` and `terms.json`.
+
+## ps8_ps307_zones_source_note.md and ps8_ps307_zones/
+
+The Data improvements thread built these for astra's school-reassignment request (board post
+20261023T075134Z) from public sources only. The note gives every source and date, and
+`ps8_ps307_zones/SHA256SUMS` holds the file hashes.
+
+- `es_zones_<year>_13K008_13K307.geojson`: the two zones from the DOE elementary zone shapefiles
+  for 2013-14 through 2017-18, taken from Wayback copies because Open Data needs a login. Each is
+  the adopted zone for its school year. `raw/` holds the original zips and the current 2024-25
+  layer (`cmjf-yawu.geojson`).
+  - 2015-16 is the zone before the change (DOE date 2015-12-03), and 2016-17 is the adopted zone
+    (2016-01-06).
+  - No polygon or PDF exists for the September 2015 draft or the November 23, 2015 final
+    proposal, so there is no proposed map.
+- `changed_area_13K008_to_13K307_2016.geojson`: the only change, 272.6 acres moved from 13K008
+  to 13K307 between 2015-16 and 2016-17, with none moved back.
+  - The zones are stable from 2013-14 to 2015-16 apart from a 0.48-acre waterfront edit in
+    2014-15. They are identical from 2016-17 to the current layer.
+  - Before 2016, 13K307 covered 12.4 acres, part of Farragut Houses.
+- `unclassified_band_25m.geojson`: the 25 m band around the zone edges.
+- `addresses.txt`, `geocoded.jsonl`, `address_check.csv`: the 16-address check. DUMBO and
+  Vinegar Hill moved from 8 to 307, and Brooklyn Heights stayed in 8. No checked address falls
+  within 25 m of an edge.
+  - Concord Village (175 and 195 Adams St) stays in 13K008 in every DOE layer, which contradicts
+    the Brooklyn Heights Association. The thread recommends the DOE layer, and how the draft
+    treated it is unresolved.
+- `scripts/`: extraction, comparison, classification and band code.
+
+Dates: the draft came out in early September 2015, the final proposal on November 23, 2015, and
+CEC13 voted 6-3 on January 5, 2016. The zones took effect for 2016-17, starting with the
+kindergarten round that closed January 15, 2016.
+
+The admission rules come only from press and civic reports:
+- Current students were unaffected.
+- Younger siblings of P.S. 8 students kept priority, for an unresolved length of time.
+- P.S. 307's low-income set-aside share is unresolved. Only the Brooklyn Heights Association
+  gives 50%, and Chalkbeat says "a portion".
