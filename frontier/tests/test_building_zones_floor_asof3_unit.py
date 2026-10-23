@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import pytest
 import test_building_zones_age as tbs
 import test_building_zones_attrs as tba
 import test_building_zones_floor_asof as tbfa
@@ -48,7 +49,8 @@ def test_design_numbers_the_training_units(tmp_path, monkeypatch):
     assert rec["unit_effect"]["units"] == a.units
 
 
-def test_recovers_a_planted_unit_sd(monkeypatch):
+@pytest.mark.parametrize("joint", [False, True])
+def test_recovers_a_planted_unit_sd(monkeypatch, joint):
     reg = tba.registry_with_bins()
     footprints, attrs = tba.tables_of(reg)
     frame = tba._nyc_frame(6000, 30, 9)
@@ -78,7 +80,7 @@ def test_recovers_a_planted_unit_sd(monkeypatch):
     out = bzu3.run(
         d,
         building_zones.Priors(),
-        bzg.Settings(chains=2, warmup=100, draws=300, keep_every=5),
+        bzg.Settings(chains=2, warmup=100, draws=300, keep_every=5, joint_amp=joint),
         log=lambda m: None,
     )
     su = out["trace"]["unit_sd"]

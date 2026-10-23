@@ -155,6 +155,7 @@ def main_run(argv) -> None:
     parser.prog = f"rentfrontier.run --model {NAME}"
     parser.set_defaults(model=NAME)
     parser.add_argument("--site-block", type=int)
+    parser.add_argument("--joint-amp", action="store_true", default=None)
     building_zones_floor_asof.SPLIT = parser.parse_known_args(argv)[0].split
     b0.main_run(
         argv,
