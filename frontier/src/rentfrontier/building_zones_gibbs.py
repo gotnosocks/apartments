@@ -22,7 +22,9 @@ Gaussian. A sweep then runs these steps in order:
 3. I draw every building's level eta_s given theta and b_z, independently, centred on F(s).
 4. I draw nu and sigma with lam integrated out, from the Student-t likelihood of the
    residuals, then lam given them.
-5. I draw tau given the walk and each zone's amplitude given its waves.
+5. I draw tau given the walk and each zone's amplitude given its waves. With
+   `Settings.joint_amp` I draw the amplitudes and the waves together given the levels instead
+   (`rentfrontier.amp_joint`).
 6. With Gaussian process priors on some coefficients (`make_sampler`'s `gp`), I draw each
    process's amplitude and lengthscale given its coefficients.
 
@@ -44,7 +46,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import b0, building_zones, normal_walk
+from . import amp_joint, b0, building_zones, normal_walk
 from .building_zones import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
     BLD_SD_PRIOR,
     KEPT,
@@ -84,6 +86,9 @@ class Settings:
     site_block: int = 4096
     # Rounds of draws between progress lines and checkpoints.
     chunks: int = 10
+    # Draw each zone's amplitude with the waves integrated out, then the waves, given the
+    # building levels (`rentfrontier.amp_joint`), in place of the amplitude given the waves.
+    joint_amp: bool = False
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -174,6 +179,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
     tau_rate = -math.log(priors.tau_alpha) / priors.tau_u
     which = np.concatenate([np.full(len(s["sd"]), k) for k, s in enumerate(d.surfaces)])
     zone = site_zone(d)
+    joint = (
+        amp_joint.make_step(Bc, sds, which, zone, priors.amp)
+        if settings.joint_amp
+        else None
+    )
     S = len(zone)
     rows_per_site = site_rows(d)
     n = len(d.y)
@@ -463,7 +473,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         r = D["y"] - m - lev[D["site"]]
         nu, sigma, lam = update_noise(k4, st, r, D["group"])
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
-        amp = update_amp(k6, st, w)
+        if joint is None:
+            amp = update_amp(k6, st, w)
+        else:
+            amp, w = joint(k6, lev, bsd, st["amp"])
+            theta = theta.at[sl_w].set(w)
+            F = D["Bc"] @ w
         new = dict(
             theta=theta,
             lev=lev,

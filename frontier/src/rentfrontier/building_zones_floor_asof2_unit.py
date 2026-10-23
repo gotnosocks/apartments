@@ -40,6 +40,9 @@ changed in four places:
 Steps 2 and 3 draw (b, eta, su, v) given theta: each step integrates out only what a later
 step draws again, so the sweep leaves the posterior unchanged.
 
+With `Settings.joint_amp` I draw the zone amplitudes and the waves together given the levels
+(`rentfrontier.amp_joint`), as `building_zones_gibbs` does.
+
 I keep no draws of v: 935k effects over 4 chains and 1000 draws would take 30 GB. In their
 place each chain keeps a running mean and variance of every effect over its draws after warmup
 (Welford's update), saved as the kept arrays `unit_mean` and `unit_var`, (chains, units). su is
@@ -62,6 +65,7 @@ import numpy as np
 import pandas as pd
 
 from . import (
+    amp_joint,
     b0,
     building_zones_floor_asof,
     building_zones_floor_asof2,
@@ -173,6 +177,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
     tau_rate = -math.log(priors.tau_alpha) / priors.tau_u
     which = np.concatenate([np.full(len(s["sd"]), k) for k, s in enumerate(d.surfaces)])
     zone = site_zone(d)
+    joint = (
+        amp_joint.make_step(Bc, sds, which, zone, priors.amp)
+        if settings.joint_amp
+        else None
+    )
     S = len(zone)
     rows_per_site = site_rows(d)
     n = len(d.y)
@@ -491,7 +500,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         r = r0 - v[D["unit"]]
         nu, sigma, lam = update_noise(k4, st, r, D["group"])
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
-        amp = update_amp(k6, st, w)
+        if joint is None:
+            amp = update_amp(k6, st, w)
+        else:
+            amp, w = joint(k6, lev, bsd, st["amp"])
+            theta = theta.at[sl_w].set(w)
+            F = D["Bc"] @ w
         new = dict(
             theta=theta,
             lev=lev,
