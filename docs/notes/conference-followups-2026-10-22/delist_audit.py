@@ -280,17 +280,20 @@ def demean(M, groups, tol=1e-8, itmax=1000):
     raise RuntimeError("alternating projections did not converge")
 
 
-def fit(mask, y_first, y_last, fe):
-    """Both targets over `mask`, with building, own-date month and `fe` fixed effects, and the
-    two-way clustered covariance of the stacked coefficients. Buildings with one row in the
-    sample are dropped first, since a building effect fits them exactly."""
+def fit(mask, y_first, y_last, fe, dates=("first", "last")):
+    """Both targets over `mask`, with building, month and `fe` fixed effects, and the
+    two-way clustered covariance of the stacked coefficients. `dates` picks the dating of
+    each target in turn, so the last ask can also be dated at the first ask's day.
+    Buildings with one row in the sample are dropped first, since a building effect fits
+    them exactly."""
     b = codes["building"][mask]
     mask = mask.copy()
     mask[np.flatnonzero(mask)[np.bincount(b)[b] == 1]] = False
     cb = code(codes["building"][mask])
     fits, its = {}, {}
+    when = dict(zip(("first", "last"), dates, strict=True))
     for t, y in (("first", y_first[mask]), ("last", y_last[mask])):
-        groups = [cb, code(dating[t]["month"][mask]), code(codes[fe][mask])]
+        groups = [cb, code(dating[when[t]]["month"][mask]), code(codes[fe][mask])]
         D, its[t] = demean(np.column_stack([Xm[mask], y]), groups)
         x, yy = D[:, :-1], D[:, -1]
         # A column the fixed effects absorb (the bedroom steps under bedroom-by-bath effects)
@@ -312,7 +315,7 @@ def fit(mask, y_first, y_last, fe):
     names, k = fits["first"]["names"], len(fits["first"]["names"])
     # Building and week codes stay in the shared spaces built above; refactorizing them per
     # target would give the same integer different meanings in the two fits.
-    w = {t: dating[t]["week"][mask].astype(np.int64) for t in fits}
+    w = {t: dating[when[t]]["week"][mask].astype(np.int64) for t in fits}
     nw = int(weeks.max()) + 1
     # Cluster ids on a shared index space, so a cluster gathers scores from both targets.
     ids = {
@@ -408,6 +411,22 @@ step3 = {}
 for name, args in {
     "observed_first_vs_latest": (main, log_obs, log_latest, "bath"),
     "observed_first_vs_latest_bedbath_fe": (main, log_obs, log_latest, "bedbath"),
+    # The total difference in two steps on the same ads: the price change with both asks
+    # dated at the first ask's day, then the date change with the last ask on both sides.
+    "price_step_first_vs_latest_at_first_date": (
+        main,
+        log_obs,
+        log_latest,
+        "bath",
+        ("first", "first"),
+    ),
+    "date_step_latest_at_first_date_vs_latest": (
+        main,
+        log_latest,
+        log_latest,
+        "bath",
+        ("first", "last"),
+    ),
     "manhattan_outcomes_first_vs_final": (
         manhattan,
         log_oc_first,
