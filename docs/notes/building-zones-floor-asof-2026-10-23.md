@@ -47,7 +47,7 @@ Run: `building-zones-floor-asof-amp1-b0-latest-2015f8ef-dense-w1000`, fit-only o
 
 The fit misses the gate on the same quantity, R-hat 1.0102 and bulk ESS 373, for the reason above.
 
-The Manhattan amplitude goes from 0.905 to 1.027 (+0.12), and the outer amplitude from 0.370 to 0.385 (+0.015). The largest coefficient move is 0.015 points (`bed=0:full>=4`), and `bld_sd`, `sigma` and `nu` don't change at the reported precision. The old prior held the Manhattan amplitude about 13% lower.
+The Manhattan amplitude goes from 0.905 to 1.027 (+0.12), and the outer amplitude from 0.370 to 0.385 (+0.015). The largest coefficient move is 0.015 points (`bed=0:full>=4`), and `bld_sd`, `sigma` and `nu` don't change at the reported precision. The old prior held the Manhattan amplitude about 12% lower.
 
 On held-out ads fit 3 matches the as-of base: elpd 149,128 in both, a difference under 1 with SE under 1, RMSE 0.1154, coverage 0.494 / 0.800 / 0.905 / 0.955. Against the floor fit it is -174, SE 104 by building.
 
