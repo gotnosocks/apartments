@@ -65,7 +65,7 @@ On the 184,437 held-out ads in 6,798 held-out buildings:
 
 RMSE falls from 0.18169 to 0.18145, and 90% coverage goes from 0.9273 to 0.9272. The mean residual of the park-facing held-out ads falls from +4.71 points to +1.64.
 
-The park frontage fit scores 2.6 SE better overall, but three quarters of that gain is on ads the flag doesn't touch. Their predictions differ only through the small shifts in shared terms, such as `alpha` at -0.148, and through the comparison run's unconverged `amp[outer]`. On the park-facing ads the gain is 10 times larger per ad, at 0.9 SE, and the flag closes two thirds of their mean residual. So these 122 held-out buildings agree with the flag in direction and size, though they are too few for the gain to clear 2 SE.
+The park frontage fit scores 2.6 SE better overall, but three quarters of that gain is on ads the flag doesn't touch. Their predictions differ only through the small shifts in shared terms, such as `alpha` at -0.148, and through the comparison run's unconverged `amp[outer]`. On the park-facing ads the gain is about 12 times larger per ad, at 0.9 SE, and the flag closes two thirds of their mean residual. So these 122 held-out buildings agree with the flag in direction and size, though they are too few for the gain to clear 2 SE.
 
 The explained share of the held-out buildings' residuals is 0.00367, below the permutation null's 95th percentile of 0.00477. As with the location fit, the flag explains too little of the building-to-building spread to beat a random relabeling of buildings within zones.
 
