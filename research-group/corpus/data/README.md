@@ -98,6 +98,12 @@ beside it.
   sources.
   - `opened_vs_2017_01` is `after` for the Second Avenue entrances and `unknown` for the Lexington
     ones, because the MTA gives no opening date for each entrance.
+- `subway_entrances_ues_q_lex_dated.csv`: the Data improvements thread's answer to astra's
+  follow-up request. Rows are keyed by `row`, the 0-based data row of
+  `subway_entrances_ues_q_lex.csv`. Each row has `status` (`pre_2017` or `added_later`), the
+  evidence date, the source URL, a note, and the distances to the matched 2015 MTA entrance and to
+  the nearest OpenStreetMap entrance. The 2015 entrance table comes from Wayback Machine copies of
+  the MTA's StationEntrances.csv, and the provenance file explains how entrances were matched.
 
 ## served_predictions.parquet
 
