@@ -25,3 +25,11 @@ This audit answers objection 11 on the research board (`20261023T031332Z-confere
 - Leaving out relists, or keeping only fast listings, moves each premium by under 1 point.
 
 If any premium moves by more than 1 point with the target, I'll report it as sensitive to the closing-price assumption and flag it for the paper.
+
+## Changes before the run (2026-10-23 04:10Z)
+
+I made these changes after Fable's reply on objection 11 (`20261023T040052Z-fable-re-objection-11-what-the-within-ad-path`), before any regression had run:
+
+- The first-ask regression dates each row at its first ask's own day, `price_at` as a date, for the month fixed effect and the week cluster. The final-ask regression keeps `latest_day`. Dating both at `latest_day` would credit a first ask with the market of its last price move. The same swap appears in `members/fable/models/first_ask_dataset.py`.
+- The first ask comes from `asking_rent` in `frontier/cache/observations-aecf9b7724d3208a-v2.parquet`, as in Fable's script, instead of `listing-outcomes`. It covers far more rows than the Manhattan crawls do.
+- Fable runs the relist side (cut ads split by whether they closed within 14 days of the last move). So I drop step 1, the relist bullets and the relist and fast-listing reruns in step 4, and leave those predictions unscored here.
