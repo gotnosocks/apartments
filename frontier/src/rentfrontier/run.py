@@ -494,6 +494,8 @@ def main(argv=None):
     # as of the split on a later pipeline build (rentfrontier.building_zones_floor_asof2) reads
     # its ads from the build after the studio 3+ bath corrections, and the version with the
     # elevator curve to floor 64 (rentfrontier.building_zones_floor_asof2_cap64) raises its cap.
+    # Both have versions on the build after the #1242 ledger rows
+    # (rentfrontier.building_zones_floor_asof3 and building_zones_floor_asof3_cap64).
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -531,6 +533,8 @@ def main(argv=None):
         ("building-zones-floor-asof-amp1", "building_zones_floor_asof_amp1"),
         ("building-zones-floor-asof2", "building_zones_floor_asof2"),
         ("building-zones-floor-asof2-cap64", "building_zones_floor_asof2_cap64"),
+        ("building-zones-floor-asof3", "building_zones_floor_asof3"),
+        ("building-zones-floor-asof3-cap64", "building_zones_floor_asof3_cap64"),
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
     ):
         if any(
