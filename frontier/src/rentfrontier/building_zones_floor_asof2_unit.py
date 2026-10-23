@@ -9,8 +9,8 @@ The model is `rentfrontier.building_zones_floor_asof2` with one more term in eac
 A unit is a pair of the frame's building and `unit_id`, so every unit sits inside a building.
 On the corrected build's data each `unit_id` already lies in a single building. I number the
 units with at least MIN_UNIT_ROWS training rows, in sorted order of their keys. Every other
-row carries -1 and gets no effect; with MIN_UNIT_ROWS = 1 those are the held-out ads of units
-with no training row.
+row carries -1 and gets no effect. With MIN_UNIT_ROWS = 1 those are the rows with no
+`unit_id` and the held-out ads of units with no training row.
 With MIN_UNIT_ROWS = 1 a unit with a single training row gets an effect too. Its data hardly
 separates the effect from that row's noise, so its posterior stays close to the prior, but the
 model is then the same for every unit, and a held-out ad of a unit that was listed once before
