@@ -29,7 +29,9 @@ class Text(HTMLParser):
 
 src = sys.stdin.read()
 if sys.argv[1:] == ["--ddg"]:
-    for href, title in re.findall(r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', src, re.S):
+    for href, title in re.findall(
+        r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', src, re.S
+    ):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(html.unescape(href)).query)
         url = q.get("uddg", [html.unescape(href)])[0]
         print(re.sub(r"<[^>]+>", "", html.unescape(title)).strip(), "\n  ", url)
