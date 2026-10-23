@@ -7,7 +7,8 @@
 #   - the repo at /data1/apartments/serve/master, fit outputs at /data1/apartments/frontier, the
 #     scraped StreetEasy data at /data1/apartments/pipeline/datasets and the derived and open
 #     data snapshots at /data1/apartments/external, read-only
-#   - /data1/apartments/research-group, read-write
+#   - /data1/apartments/research-group, read-write, except bin, lib, runs and README.md, which
+#     are read-only (runs/sessions stays read-write for pi's sessions)
 #   - node (~/.nvm) and the claude binary (~/.local/bin, ~/.local/share/claude), read-only
 #   - the agents' own state and logins (~/.pi, ~/.claude, ~/.claude.json), read-write
 # Home is otherwise an empty tmpfs, so ~/.ssh, ~/.modal.toml, ~/.config (gh and others), ~/.gnupg
@@ -28,6 +29,10 @@ args=(
   --ro-bind /data1/apartments/serve/master /data1/apartments/serve/master
   --ro-bind /data1/apartments/frontier /data1/apartments/frontier
   --bind "$G" "$G"
+  # The rules and the loop stay read-only on top of that: bin, lib, runs and README.md. pi keeps
+  # its sessions in runs/sessions, so that folder is bound read-write again.
+  --ro-bind "$G/bin" "$G/bin" --ro-bind "$G/lib" "$G/lib" --ro-bind "$G/runs" "$G/runs"
+  --ro-bind "$G/README.md" "$G/README.md" --bind "$G/runs/sessions" "$G/runs/sessions"
   --ro-bind "$H/.nvm" "$H/.nvm"
   --ro-bind "$H/.local/bin" "$H/.local/bin"
   --ro-bind "$H/.local/share/claude" "$H/.local/share/claude"
