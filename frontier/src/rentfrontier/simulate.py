@@ -1,9 +1,9 @@
 """Simulated rents with known effects, for checking that a building-zones fit recovers them.
 
-I take a finished fit of `building-zones-floor`, `building-zones-location` or
-`building-zones-parkfront` and its exact
-design: the same rows, columns, missing values, buildings, zones, map bases and weeks. I set
-every term to a known value, the truth, and draw each row's log rent from the model:
+I take a finished fit of `building-zones-floor`, `building-zones-location`,
+`building-zones-parkfront` or `building-zones-floor-asof2` and its exact design: the same rows,
+columns, missing values, buildings, zones, map bases and weeks. I set every term to a known
+value, the truth, and draw each row's log rent from the model:
 
     y = x beta + L(t) + F(site) + bld(site) + sigma_group * StudentT(nu)
 
@@ -12,6 +12,17 @@ unchanged model on that copy reads simulated rents and nothing else changes. The
 no price column besides `latest_ask`, so the fit's rows differ from the original only in their
 target. Other price columns of the copy keep their real values, so a feature set reading one of
 them needs its own simulated copy.
+
+The as-of design (`building_zones_floor_asof2`) rebuilds its size, building and floor tables
+from the training rows of the fit's split. Before I rebuild it, I set SPLIT on every loaded
+`rentfrontier` module that has one to the fit's split. That design joins each row to its ad in
+the pipeline rows file `building_zones_floor_asof2.ROWS` by listing id and reads only ad
+fields (size, floors, elevator, doorman, the page), plus the frame's listing, unit, building,
+bedrooms, baths and dates. A fit on the copy, run with `ops/modal-fit --input` on its
+rows.parquet and `--dataset` on its folder, keeps reading the real pipeline rows, whose ad
+fields the copy leaves alone, so its design matches the source fit's in everything but `y`.
+I compare the rebuilt run record's `asof` entry with the fit's, which catches a design that
+reads another pipeline build or split.
 
 The truth starts from the posterior medians of the fit's kept draws: the coefficients, the walk,
 the map's wave coefficients, every building's residual level `bld`, nu and the four sigmas. The
@@ -30,12 +41,25 @@ scenario then changes some of it:
    transit, parks and noise terms at the fit's values, so a fit on the copy shows whether they
    come back without moving into the map. On a `building-zones-parkfront` fit it also plants
    `bld:park_front`.
+5. `mundlak`: the medians, with contextual building effects taken from a
+   `building-zones-mundlak` fit (`--mundlak RUN`):
+   - every coefficient the source design shares by name with the Mundlak fit gets the Mundlak
+     fit's median;
+   - each building's level gains sum_j gamma_j * m_j, where gamma_j is the Mundlak fit's
+     median for the building mean j (`bld:mean_<x>`) and m_j is the building's mean of the
+     matching unit columns, from `building_zones_mundlak.columns` on the source design. I
+     centre the added level on the training rows' mean so the intercept keeps its value.
+   The residual building levels, walk, map and noise stay at the source fit's medians. A fit
+   with no mean columns should then show each unit coefficient biased in the direction of its gamma,
+   so `score` lists each gamma next to the fit's bias on the unit columns its mean averages.
 
     python -m rentfrontier.simulate make RUN SCENARIO OUT [--seed N] [--root DIR]
+        [--mundlak MUNDLAK_RUN]
     python -m rentfrontier.simulate score SIM_RUN TRUTH_DIR OUT_JSON [--root DIR]
 
 `make` writes OUT (rows.parquet, set_aside.parquet and manifest.json) and puts the
-truth in ROOT/SCENARIO/truth.npz, with the scenario-free design facts in ROOT/design.npz.
+truth in ROOT/SCENARIO/truth.npz (with the gammas, the planted level of each site and the
+Mundlak run for the mundlak scenario), with the scenario-free design facts in ROOT/design.npz.
 ROOT is SIM_ROOT unless `--root` gives another folder, which a second source fit needs, since
 each ROOT's design.npz belongs to one fit. `score` compares a fit on the simulated data with
 that truth and writes a JSON of medians, 90% intervals and coverage.
@@ -58,7 +82,9 @@ from . import (
     b0,
     building_attrs,
     building_zones_floor,
+    building_zones_floor_asof2,
     building_zones_location,
+    building_zones_mundlak,
     building_zones_parkfront,
     splits,
     whitened_zones,
@@ -66,12 +92,13 @@ from . import (
 from .run import RUNS
 
 SIM_ROOT = Path("/data1/apartments/tmp/sim-recovery")
-SCENARIOS = ("realistic", "null", "height", "fitted")
+SCENARIOS = ("realistic", "null", "height", "fitted", "mundlak")
 # The models a source fit may come from, by feature set.
 SPECS = {
     building_zones_floor.NAME: building_zones_floor,
     building_zones_location.NAME: building_zones_location,
     building_zones_parkfront.NAME: building_zones_parkfront,
+    building_zones_floor_asof2.NAME: building_zones_floor_asof2,
 }
 WALKUP_SLOPE = 0.004  # log points a flight above floor 1, in the realistic set
 ELEV_TOP = math.log(1.04)  # a 4% top-floor bump in elevator buildings
@@ -91,6 +118,7 @@ SNAPSHOT_KEYS = (
     "building_parks",
     "building_noise",
     "building_park_front",
+    "asof",
 )
 LEVEL = 0.90
 # The prefix of the building-mean columns a fit may add to the truth's (building_zones_mundlak).
@@ -129,16 +157,23 @@ def surface(basis: list[np.ndarray], share: np.ndarray, w: np.ndarray) -> np.nda
     return F - (F @ share)[..., None]
 
 
-def truth(names, med: dict, scenario: str, height: np.ndarray | None = None) -> dict:
+def truth(
+    names,
+    med: dict,
+    scenario: str,
+    height: np.ndarray | None = None,
+    context: dict | None = None,
+) -> dict:
     """The scenario's true beta and building levels, from the fit's medians `med`.
-    `height` is each building's planted level for the height scenario."""
+    `height` is each building's planted level for the height scenario, and `context` is
+    `contextual`'s result for the mundlak scenario."""
     if scenario not in SCENARIOS:
         raise ValueError(f"unknown scenario {scenario!r}")
     ix = {n: j for j, n in enumerate(names)}
     beta = med["beta"].copy()
     bld = med["bld"].copy()
     planted = np.zeros_like(bld)
-    if scenario == "fitted":
+    if scenario in ("fitted", "mundlak"):
         pass
     elif scenario == "realistic":
         for k in range(2, building_zones_floor.WALKUP_CAP + 1):
@@ -148,6 +183,13 @@ def truth(names, med: dict, scenario: str, height: np.ndarray | None = None) -> 
     else:
         for n in floor_terms(names):
             beta[ix[n]] = 0.0
+    if scenario == "mundlak":
+        if context is None:
+            raise ValueError("the mundlak scenario needs the Mundlak fit's terms")
+        for n, v in context["beta"].items():
+            beta[ix[n]] = v
+        planted = np.asarray(context["planted"], dtype=float)
+        bld = bld + planted
     if scenario == "null":
         for n in feature_terms(names):
             beta[ix[n]] = 0.0
@@ -211,6 +253,68 @@ def planted_height(floors: np.ndarray, rows: np.ndarray) -> np.ndarray:
     return np.where(known, HEIGHT_SLOPE * (floors - centre), 0.0)
 
 
+def site_means(x: np.ndarray, names, site: np.ndarray, n: int) -> np.ndarray:
+    """Each of the `n` sites' building means (`building_zones_mundlak.COLUMNS`) of design
+    `x`, as `building_zones_mundlak.columns` computes them over all the design's rows."""
+    per_row = building_zones_mundlak.columns(x, list(names), site)
+    out = np.zeros((n, per_row.shape[1]))
+    out[site] = per_row
+    return out
+
+
+def contextual(
+    names, mk_names, mk_beta: np.ndarray, means: np.ndarray, rows: np.ndarray
+) -> dict:
+    """The mundlak scenario's terms from a Mundlak fit's posterior medians `mk_beta` over
+    its columns `mk_names`:
+
+    - `beta`: the fit's median for every column it shares with the source design `names`;
+    - `gamma`: its median for each building mean in `building_zones_mundlak.COLUMNS`;
+    - `planted`: each site's `means` (`site_means`) times gamma, less the mean over the
+      sites weighted by their training `rows`, so the intercept keeps its value.
+    """
+    mk = {str(n): float(v) for n, v in zip(mk_names, mk_beta)}
+    missing = [c for c in building_zones_mundlak.COLUMNS if c not in mk]
+    if missing:
+        raise ValueError(f"the Mundlak fit has no {', '.join(missing)}")
+    gamma = np.array([mk[c] for c in building_zones_mundlak.COLUMNS])
+    level = means @ gamma
+    level = level - np.average(level, weights=np.maximum(rows, 0) + 1e-12)
+    return {
+        "beta": {n: mk[n] for n in names if n in mk},
+        "gamma": gamma,
+        "planted": level,
+    }
+
+
+def set_split(split: str) -> None:
+    """Point every loaded `rentfrontier` module with a SPLIT (the as-of designs) at the
+    fit's split, so its design rebuilds features from that split's training rows."""
+    for m in list(sys.modules.values()):
+        if getattr(m, "__name__", "").startswith("rentfrontier.") and hasattr(
+            m, "SPLIT"
+        ):
+            m.SPLIT = split
+
+
+def same(a, b) -> bool:
+    """Whether two run-record values agree once both go through JSON."""
+    return json.dumps(a, sort_keys=True, default=str) == json.dumps(
+        b, sort_keys=True, default=str
+    )
+
+
+def mundlak_medians(run: str) -> tuple[list[str], np.ndarray]:
+    """A building-zones-mundlak fit's column names and posterior median coefficients."""
+    result = json.loads((RUNS / run / "result.json").read_text())
+    if result["feature_set"] != building_zones_mundlak.NAME:
+        raise SystemExit(f"{run} is a {result['feature_set']} fit, not a Mundlak fit")
+    with np.load(RUNS / run / "posterior.npz") as z:
+        names = [str(n) for n in z["names"]]
+        beta = np.asarray(z["kept/beta"], dtype=float)
+    return names, np.median(beta.reshape(-1, beta.shape[-1]), axis=0)
+
+
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -219,8 +323,18 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def make(run: str, scenario: str, out: Path, seed: int, root: Path = SIM_ROOT) -> None:
-    """Write the simulated dataset `out` and the scenario's truth under `root`."""
+def make(
+    run: str,
+    scenario: str,
+    out: Path,
+    seed: int,
+    root: Path = SIM_ROOT,
+    mundlak: str | None = None,
+) -> None:
+    """Write the simulated dataset `out` and the scenario's truth under `root`. The mundlak
+    scenario reads its contextual effects from the Mundlak fit `mundlak`."""
+    if (scenario == "mundlak") != (mundlak is not None):
+        raise SystemExit("--mundlak RUN goes with the mundlak scenario and no other")
     result = json.loads((RUNS / run / "result.json").read_text())
     spec = SPECS.get(result["feature_set"])
     if spec is None:
@@ -234,10 +348,11 @@ def make(run: str, scenario: str, out: Path, seed: int, root: Path = SIM_ROOT) -
     if frame.attrs["source_sha256"] != result["dataset_observations_sha256"]:
         raise SystemExit(f"{source} holds other rows than the fit read")
     heldout = splits.SPLITS[result["split"]](frame)
+    set_split(result["split"])
     full = spec.design(frame)
     record = spec.run_record(full)
     for k in SNAPSHOT_KEYS:
-        if str(record.get(k)) != str(result.get(k)):
+        if not same(record.get(k), result.get(k)):
             raise SystemExit(
                 f"{k}: the design reads {record.get(k)}, the fit read {result.get(k)}"
             )
@@ -257,7 +372,12 @@ def make(run: str, scenario: str, out: Path, seed: int, root: Path = SIM_ROOT) -
     F = surface(basis, share, med["gp_w"])
     buildings = site_buildings(frame, full.site, n_sites)
     floors = pluto_floors(buildings, Path(result["registry"]))
-    t = truth(names, med, scenario, planted_height(floors, rows))
+    context = None
+    if scenario == "mundlak":
+        mk_names, mk_beta = mundlak_medians(mundlak)
+        means = site_means(full.x, names, full.site, n_sites)
+        context = contextual(names, mk_names, mk_beta, means, rows)
+    t = truth(names, med, scenario, planted_height(floors, rows), context)
     mu = mean(full, t["beta"], med["L"], F, t["bld"])
     y = draw(full, mu, med["nu"], med["sigma"], seed)
 
@@ -288,6 +408,15 @@ def make(run: str, scenario: str, out: Path, seed: int, root: Path = SIM_ROOT) -
         fit_amp=med["amp"],
         mu_train=mu[train].astype(np.float32),
         y_train=y[train].astype(np.float32),
+        **(
+            {
+                "gamma_names": np.asarray(building_zones_mundlak.COLUMNS),
+                "gamma": context["gamma"],
+                "mundlak_run": np.asarray(mundlak),
+            }
+            if context
+            else {}
+        ),
     )
     _write_design(full, frame, train, rows, share, buildings, floors, result, root)
 
@@ -305,6 +434,16 @@ def make(run: str, scenario: str, out: Path, seed: int, root: Path = SIM_ROOT) -
         "elev_top": ELEV_TOP if scenario == "realistic" else None,
         "height_slope": HEIGHT_SLOPE if scenario == "height" else None,
     }
+    if context:
+        manifest["simulated"] |= {
+            "mundlak_run": mundlak,
+            "gamma": dict(
+                zip(building_zones_mundlak.COLUMNS, context["gamma"].tolist())
+            ),
+            "planted_sd_rows": float(
+                np.sqrt(np.average(context["planted"] ** 2, weights=rows + 1e-12))
+            ),
+        }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     resid = y[train] - mu[train]
     print(
@@ -446,9 +585,15 @@ def score(sim_run: str, tdir: Path, out_json: Path, root: Path = SIM_ROOT) -> di
     ):
         raise SystemExit("the fit's columns differ from the truth's")
     # A fit with building means (rentfrontier.building_zones_mundlak) has columns the truth
-    # lacks. Their true value is 0, since the truth's building levels have no such term, but
-    # the means take up part of the residual levels, so I report them apart from the terms.
-    extra_rows = term_rows(kept["beta"][..., len(names) :], np.zeros(len(extra)), extra)
+    # lacks. Their true value is the planted gamma in the mundlak scenario and 0 in the
+    # others, whose building levels have no such term, but the means take up part of the
+    # residual levels, so I report them apart from the terms.
+    gamma = dict(zip((str(n) for n in t.get("gamma_names", ())), t.get("gamma", ())))
+    extra_rows = term_rows(
+        kept["beta"][..., len(names) :],
+        np.array([gamma.get(n, 0.0) for n in extra]),
+        extra,
+    )
     kept["beta"] = kept["beta"][..., : len(names)]
     result = json.loads((RUNS / sim_run / "result.json").read_text())
     sim = json.loads((Path(result["dataset"]) / "manifest.json").read_text()).get(
@@ -584,7 +729,9 @@ def score(sim_run: str, tdir: Path, out_json: Path, root: Path = SIM_ROOT) -> di
     }
     if extra:
         out["extra_terms"] = extra_rows
-    if np.any(t["planted"] != 0):
+    if gamma:
+        out["contextual"] = contextual_bias(terms, gamma)
+    elif np.any(t["planted"] != 0):
         out["height"] = height_leak(kept, t, dz, names, F, bld, curves)
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(out, indent=1))
@@ -599,6 +746,31 @@ def _q(x) -> dict:
     x = np.asarray(x, dtype=float).reshape(-1)
     lo, mid, hi = np.quantile(x, [(1 - LEVEL) / 2, 0.5, (1 + LEVEL) / 2])
     return {"median": float(mid), "q05": float(lo), "q95": float(hi)}
+
+
+def contextual_bias(terms: list[dict], gamma: dict) -> list[dict]:
+    """Each building mean's planted gamma next to the fit's bias (median less truth) on the
+    unit columns the mean averages (`building_zones_mundlak.MEANS`). A fit without the
+    means leaves the planted contextual effect to those columns. `bld:mean_log_floor`
+    averages the floor curves, whose bias is under `curves`, so I list its gamma alone."""
+    by = {r["term"]: r for r in terms}
+    out = []
+    for mean_term, cols in building_zones_mundlak.MEANS + (("bld:mean_log_floor", ()),):
+        out.append(
+            {
+                "mean_term": mean_term,
+                "gamma": gamma[mean_term],
+                "unit_terms": [
+                    {
+                        k: by[c][k]
+                        for k in ("term", "truth", "median", "error", "covered")
+                    }
+                    for c in cols
+                    if c in by
+                ],
+            }
+        )
+    return out
 
 
 def height_leak(kept, t, dz, names, F, bld, curves) -> dict:
@@ -652,6 +824,9 @@ def main(argv=None) -> None:
     m.add_argument("out", type=Path)
     m.add_argument("--seed", type=int, default=20261022)
     m.add_argument("--root", type=Path, default=SIM_ROOT)
+    m.add_argument(
+        "--mundlak", help="the building-zones-mundlak fit (mundlak scenario)"
+    )
     s = sub.add_parser("score")
     s.add_argument("sim_run")
     s.add_argument("truth_dir", type=Path)
@@ -659,7 +834,7 @@ def main(argv=None) -> None:
     s.add_argument("--root", type=Path, default=SIM_ROOT)
     args = p.parse_args(argv)
     if args.cmd == "make":
-        make(args.run, args.scenario, args.out, args.seed, args.root)
+        make(args.run, args.scenario, args.out, args.seed, args.root, args.mundlak)
     else:
         score(args.sim_run, args.truth_dir, args.out_json, args.root)
 
