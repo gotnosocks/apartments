@@ -26,10 +26,11 @@ def _toy(seed=0):
 
 def _grid_posterior(Bc, sds, which, zone, bsd, eta, prior):
     """The amplitudes' posterior given the levels on a grid, from the levels' Gaussian density
-    with the waves integrated out, and E[w | eta] under it."""
+    with the waves integrated out, and the mean and variance of w given eta under it."""
     g = np.linspace(0.01, 1.6, 160)
     logp = np.zeros((len(g), len(g)))
     Ew = np.zeros((len(g), len(g), len(sds)))
+    Vw = np.zeros((len(g), len(g), len(sds)))
     Db = np.diag(bsd[zone] ** 2)
     for i, a0 in enumerate(g):
         for j, a1 in enumerate(g):
@@ -39,9 +40,13 @@ def _grid_posterior(Bc, sds, which, zone, bsd, eta, prior):
             sol = np.linalg.solve(V, eta)
             logp[i, j] = -logdet / 2 - eta @ sol / 2 - (a0**2 + a1**2) / (2 * prior**2)
             Ew[i, j] = dw * (Bc.T @ sol)
+            BD = Bc * dw
+            Vw[i, j] = dw - np.einsum("sk,sk->k", BD, np.linalg.solve(V, BD))
     p = np.exp(logp - logp.max())
     p /= p.sum()
-    return g, p, np.einsum("ij,ijk->k", p, Ew)
+    mean = np.einsum("ij,ijk->k", p, Ew)
+    var = np.einsum("ij,ijk->k", p, Vw + Ew**2) - mean**2
+    return g, p, mean, var
 
 
 def test_step_draws_the_amplitudes_posterior_given_the_levels():
@@ -57,14 +62,15 @@ def test_step_draws_the_amplitudes_posterior_given_the_levels():
     keys = jax.random.split(jax.random.PRNGKey(3), 6000)
     _, (amps, ws) = jax.lax.scan(body, jnp.asarray([0.9, 0.9]), keys)
     amps, ws = np.asarray(amps)[500:], np.asarray(ws)[500:]
-    g, p, Ew = _grid_posterior(Bc, sds, which, zone, bsd, eta, prior)
+    g, p, Ew, Vw = _grid_posterior(Bc, sds, which, zone, bsd, eta, prior)
     mean = np.array([p.sum(1) @ g, p.sum(0) @ g])
     sd = np.sqrt(np.array([p.sum(1) @ g**2, p.sum(0) @ g**2]) - mean**2)
-    # 5,500 draws of a chain with little autocorrelation: the means agree to a few hundredths
-    # of a posterior sd.
+    # 5,500 draws of a chain with little autocorrelation: the means agree to within a tenth of
+    # a posterior sd.
     assert np.all(np.abs(amps.mean(0) - mean) < 0.1 * sd), (amps.mean(0), mean, sd)
     assert np.all(np.abs(amps.std(0) / sd - 1) < 0.1), (amps.std(0), sd)
     assert np.allclose(ws.mean(0), Ew, atol=0.05 * np.abs(Ew).max())
+    assert np.all(np.abs(ws.std(0) / np.sqrt(Vw) - 1) < 0.1), (ws.std(0), np.sqrt(Vw))
 
 
 def test_gibbs_sweep_runs_with_the_joint_step():

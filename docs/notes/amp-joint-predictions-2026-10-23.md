@@ -10,7 +10,7 @@
 | fit 6, simulated | 0.360, 0.369, 0.368, 0.364 | 6.6 | 0.71 | 0.17 | 0.01 |
 | fit 7, simulated | 0.352, 0.361, 0.356, 0.356 | 6.4 | 0.70 | 0.17 | 0.00 |
 
-IAT is the integrated autocorrelation time, from Geyer's initial positive sequence on the autocorrelations of the 1,000 traced draws, averaged over the four chains. `amp[manhattan]` has an IAT of 3.0 to 3.7 and a lag-1 autocorrelation of about 0.53 in the same runs.
+IAT is the integrated autocorrelation time, from Geyer's initial positive sequence on the autocorrelations of the 1,000 traced draws, with the autocorrelations averaged over the four chains before the sum. `amp[manhattan]` has an IAT of 3.0 to 3.7 and a lag-1 autocorrelation of about 0.53 in the same runs.
 
 The slow mixing doesn't come from another block. Over the draws, `amp[outer]` correlates with the outer zone's building spread, mean level, building sd and building variance by 0.06 or less in absolute value, and with the field's variance `zone_var_f[outer]` by 0.06 to 0.11. Within each run the chains agree on those quantities to the fourth decimal.
 
@@ -18,7 +18,7 @@ The field and the amplitude move very differently. The outer field's variance ha
 
 ## Change
 
-`rentfrontier.amp_joint` adds a step that draws the amplitudes and the waves together, given the building levels. With the waves integrated out, the levels' density given the amplitudes is Gaussian with a 216 by 216 precision, so I slice-sample each zone's log amplitude on that density and then draw w given the new amplitudes. Nothing else in the model reads w, so the step is a block of the posterior. The sweeps of `building_zones_gibbs` and `building_zones_floor_asof2_unit` use it in place of step 5's amplitude draw when `Settings.joint_amp` is on, which `--joint-amp` sets for the `building-zones-floor-asof3-unitmean` and `building-zones-floor-asof3-periods` runs. It is off by default, so every earlier run and fit 8 sample as before.
+`rentfrontier.amp_joint` adds a step that draws the amplitudes and the waves together, given the building levels. With the waves integrated out, the levels' density given the amplitudes is Gaussian with a precision over the waves, one row and column per wave, so I slice-sample each zone's log amplitude on that density and then draw w given the new amplitudes. Nothing else in the model reads w, so the step is a block of the posterior. The sweeps of `building_zones_gibbs` and `building_zones_floor_asof2_unit` use it in place of step 5's amplitude draw when `Settings.joint_amp` is on, which `--joint-amp` sets for the `building-zones-floor-asof3-unitmean` and `building-zones-floor-asof3-periods` runs. It is off by default, so every earlier run and fit 8 sample as before.
 
 `tests/test_amp_joint.py` checks the step against the amplitudes' posterior given the levels on a grid, on a toy of two zones with waves centred across both, and runs the Gibbs sweep with it. `test_recovers_a_planted_unit_sd` runs the unit sweep with and without it.
 
@@ -48,7 +48,7 @@ For each of fits 4 and 5 run with the step, from its trace of 4 chains by 1,000 
 4. `amp[manhattan]` has an IAT of 3.0 or less, against 3.0 to 3.7.
 5. The run passes the gate on every quantity.
 6. Its median `amp[outer]` lies between 0.32 and 0.42 and its median `amp[manhattan]` between 0.80 and 1.00, as in the centred runs on the as-of floor model (0.36 to 0.37 and 0.89 to 0.91 on asof2's real data).
-7. Seconds per sweep rise by under 10% against fit 8's. The step adds about 60 factorizations of a 216 by 216 matrix per chain to a sweep over 1.9 million rows.
+7. Seconds per sweep rise by under 10% against fit 8's. The step adds about 60 factorizations of that precision per chain to a sweep over 1.9 million rows.
 
 For fit 8, without the step: `amp[outer]` again carries the worst R-hat or the least ESS, with IAT between 5.5 and 8.
 
