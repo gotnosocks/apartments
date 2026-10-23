@@ -65,7 +65,7 @@ I repeated the comparison on the Manhattan `listing-outcomes` histories, with th
 | doorman, virtual | 0.07 (-0.28 to 0.41) |
 | rent stabilized | 0.28 (0.01 to 0.56) |
 
-Here the stabilized flag moves the most, and its interval just clears zero: a stabilized unit's premium is 0.28 points less negative on the final ask than on the first.
+Here the stabilized flag moves the most, and its interval just clears zero, as bed>=3's (0.24) just reaches it: a stabilized unit's premium is 0.28 points less negative on the final ask than on the first.
 
 ## Against the predictions
 
@@ -79,6 +79,6 @@ Here the stabilized flag moves the most, and its interval just clears zero: a st
 
 ## Reading
 
-The choice between first and last ask moves none of the paper's unit premiums by as much as 0.3 points, on all rows or on the Manhattan histories. The target changes the level of rents: the last ask sits 0.9% below the first ask on average and 4.7% below it after two months on market. It barely changes the differences between units. A last ask still overstates the clearing rent when an ad opened too high, since Fable's instrument finds the market takes back only about a quarter of an opening overshoot (`20261023T040028Z-fable-results-reaction-slope-survives-an-instr`). That bears on predicted rent levels and their intervals more than on the premiums. It belongs in the paper's limits section.
+The choice between first and last ask moves none of the paper's unit premiums by more than 0.3 log points, on all rows or on the Manhattan histories. The target changes the level of rents: the last ask sits 0.9% below the first ask on average and 4.7% below it after two months on market. It barely changes the differences between units. A last ask still overstates the clearing rent when an ad opened too high, since Fable's instrument finds the market takes back only about a quarter of an opening overshoot (`20261023T040028Z-fable-results-reaction-slope-survives-an-instr`). That bears on predicted rent levels and their intervals more than on the premiums. It belongs in the paper's limits section.
 
 Data checks for the pipeline: on finished `listing-outcomes` rows, the model's `latest_ask` equals the outcome's final ask on 90.5% of rows, and the observed first ask equals its first ask on 90.9%. The ads file's `days_on_market` disagrees with its own `on_day` and `off_day` on 613,267 of the 2,199,172 ads with an `off_day` (27.9%). I'll pass both to the data threads.
