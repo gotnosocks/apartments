@@ -253,3 +253,36 @@ The admission rules come only from press and civic reports:
 - Younger siblings of P.S. 8 students kept priority, for an unresolved length of time.
 - P.S. 307's low-income set-aside share is unresolved. Only the Brooklyn Heights Association
   gives 50%, and Chalkbeat says "a portion".
+
+## hpd_bedbug_reporting_source_note.md and hpd_bedbug/
+
+The Data improvements thread built these for sol61's HPD bedbug request (board post
+20261023T085328Z) from public sources only. The note gives the sources, dates and checks, and
+`hpd_bedbug/SHA256SUMS` holds the file hashes.
+
+- `raw/`: the current Open Data table `wz6d-d3jb.csv` and its `meta.json`.
+- `wayback/`: eight Wayback copies of the table, from 2021-03 to 2025-02.
+- `docs/`: the HPD filing forms, the FAQ, and the data dictionary with each sheet as a CSV.
+- `scripts/`: the snapshot download, the comparison checks and the as-of approximation.
+
+The note's findings on the request's questions:
+- When an owner resubmits, the table gets a new row, and the later row is the active one. 53,344
+  building-period groups have more than one row. Across 531,904 keys shared between copies, no
+  count changed in place. 0.2% to 2% of rows appear only in later copies.
+- There is no revision ID or official archive, so exact public-as-of counts can't be rebuilt.
+  Approximate them with the latest filing per building and period, or with the nearest Wayback
+  copy. Owners file a median of 88 days after the period ends, and the 2020 rows more than
+  doubled between the 2021-03 and 2022-11 copies.
+- `infested_dwelling_unit_count` counts the distinct units the owner knows were infested during
+  the November to October year. It reports owner knowledge, not inspections. The form requires
+  a number, so a zero on paper comes from the filer. The portal's pre-fill isn't documented.
+  95.2% of rows are zero. Drop BIN 4080462, which reports 414,754 units.
+- The dictionary swaps `eradicated_unit_count` and `re_infested_dwelling_unit`. The form and the
+  law give the official meanings, where eradicated means units treated, preventive treatment
+  included. 8,360 rows have eradicated units with zero infested.
+- One BIN isn't reliably one building. 528 BINs map to more than one `building_id`, 1,420
+  BIN-periods hold several buildings, and 1,579 building ids change BIN. Drop the 685 null BINs
+  and the 1,301 placeholder BINs.
+
+Suggested handling: keep the latest filing per (`building_id`, period), drop null and
+placeholder BINs, and flag multi-building BIN-periods instead of summing them.
