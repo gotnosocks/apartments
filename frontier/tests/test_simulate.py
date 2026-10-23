@@ -1,9 +1,17 @@
+import sys
+import types
+
 import numpy as np
 import pandas as pd
-
+import pytest
 import test_building_zones_floor as tbf
+import test_building_zones_floor_asof as tba
+
 from rentfrontier import building_zones_floor as bzf
-from rentfrontier import simulate, two_zone
+from rentfrontier import building_zones_floor_asof as bzfa
+from rentfrontier import building_zones_floor_asof2 as bzfa2
+from rentfrontier import building_zones_mundlak as bzm
+from rentfrontier import simulate, splits, two_zone
 
 
 def _medians(d, seed=0):
@@ -125,8 +133,136 @@ def test_fitted_keeps_the_medians():
         "building-zones-floor",
         "building-zones-location",
         "building-zones-parkfront",
+        "building-zones-floor-asof2",
     }
 
 
 def test_term_rows_with_no_terms():
     assert simulate.term_rows(np.zeros((4, 10, 0)), np.zeros(0), []) == []
+
+
+def test_set_split_points_the_asof_design_at_the_fits_split(monkeypatch):
+    monkeypatch.setattr(bzfa, "SPLIT", None)
+    other = types.ModuleType("rentfrontier._sim_probe")
+    other.SPLIT = None
+    monkeypatch.setitem(sys.modules, other.__name__, other)
+    frame, tables, units, trucks = tba.tbu._design()
+    tables.pop("attrs")
+    ads = tba.ads_for(frame)
+    kw = dict(
+        ads=ads,
+        amenities=tba.amenities_for(ads),
+        lots=tba.lots_for(frame),
+        units=units,
+        trucks=trucks,
+        ages=tba.tbs.ages_for(frame),
+        **tables,
+    )
+    asof = bzfa.design(frame, held=splits.latest_split(frame), **kw)
+    simulate.set_split("latest")
+    assert bzfa.SPLIT == "latest" and other.SPLIT == "latest"
+    # With no mask the as-of design draws the fit's split, as the fit's own run did.
+    d = bzfa2.design(frame, **kw)
+    assert list(d.names) == list(asof.names)
+    np.testing.assert_array_equal(d.x, asof.x)
+    rec = bzfa2.run_record(d)
+    assert rec["asof"]["split"] == "latest"
+    assert rec["asof"]["pipeline_rows"] == str(bzfa2.ROWS)
+
+
+def test_record_values_compare_through_json():
+    rec = {"split": "latest", "lots": ["a", "b"], "pipeline_rows": "/r2"}
+    fit = {"pipeline_rows": "/r2", "lots": ["a", "b"], "split": "latest"}
+    assert simulate.same(rec, fit)
+    assert not simulate.same(rec, fit | {"pipeline_rows": "/r1"})
+    assert not simulate.same(rec | {"split": None}, fit)
+    assert simulate.same(None, None)
+    assert "asof" in simulate.SNAPSHOT_KEYS
+
+
+def _mundlak(d, rows, seed=5):
+    """A Mundlak fit's medians over the source columns and the building means."""
+    rng = np.random.default_rng(seed)
+    names = list(d.names)
+    mk_names = names + list(bzm.COLUMNS)
+    mk_beta = rng.normal(0, 0.05, len(mk_names))
+    n = sum(s["sites"] for s in d.surfaces)
+    means = simulate.site_means(d.x, names, d.site, n)
+    return (
+        mk_names,
+        mk_beta,
+        means,
+        simulate.contextual(names, mk_names, mk_beta, means, rows),
+    )
+
+
+def test_site_means_are_the_mundlak_columns():
+    *_, d = tbf._design()
+    names = list(d.names)
+    n = sum(s["sites"] for s in d.surfaces)
+    means = simulate.site_means(d.x, names, d.site, n)
+    assert means.shape == (n, len(bzm.COLUMNS))
+    np.testing.assert_allclose(means[d.site], bzm.columns(d.x, names, d.site))
+
+
+def test_mundlak_truth_maps_gammas_and_centres_the_level():
+    *_, d = tbf._design()
+    names = list(d.names)
+    n = sum(s["sites"] for s in d.surfaces)
+    rows = np.bincount(d.site, minlength=n).astype(float)
+    rows[::7] = 0  # sites with no training rows still get a level
+    mk_names, mk_beta, means, ctx = _mundlak(d, rows)
+    by = dict(zip(mk_names, mk_beta))
+
+    # Each gamma is the Mundlak fit's median for the mean of the same position in COLUMNS.
+    np.testing.assert_allclose(ctx["gamma"], [by[c] for c in bzm.COLUMNS])
+    assert set(ctx["beta"]) == set(names)
+    raw = means @ ctx["gamma"]
+    np.testing.assert_allclose(ctx["planted"] - raw, (ctx["planted"] - raw)[0])
+    assert abs(np.average(ctx["planted"], weights=rows)) < 1e-12
+
+    med = _medians(d)
+    t = simulate.truth(names, med, "mundlak", context=ctx)
+    np.testing.assert_allclose(t["beta"], [by[c] for c in names])
+    np.testing.assert_allclose(t["bld"], med["bld"] + ctx["planted"])
+    np.testing.assert_array_equal(t["planted"], ctx["planted"])
+
+    # A coefficient the Mundlak fit lacks keeps the source fit's median.
+    drop = names[3]
+    keep = [i for i, c in enumerate(mk_names) if c != drop]
+    ctx2 = simulate.contextual(
+        names, [mk_names[i] for i in keep], mk_beta[keep], means, rows
+    )
+    t2 = simulate.truth(names, med, "mundlak", context=ctx2)
+    assert t2["beta"][3] == med["beta"][3]
+
+    with pytest.raises(ValueError, match="mundlak"):
+        simulate.truth(names, med, "mundlak")
+    with pytest.raises(ValueError, match="bld:mean_garden"):
+        simulate.contextual(
+            names,
+            [c for c in mk_names if c != "bld:mean_garden"],
+            np.array([b for c, b in zip(mk_names, mk_beta) if c != "bld:mean_garden"]),
+            means,
+            rows,
+        )
+
+
+def test_contextual_bias_pairs_gammas_with_unit_terms():
+    gamma = {c: 0.01 * (j + 1) for j, c in enumerate(bzm.COLUMNS)}
+    terms = [
+        {"term": c, "truth": 0.1, "median": 0.13, "error": 0.03, "covered": False}
+        for c in ("unit:log_size_rel", "unit:elev_floor_unknown", "unit:dishwasher")
+    ]
+    out = {r["mean_term"]: r for r in simulate.contextual_bias(terms, gamma)}
+    assert set(out) == set(bzm.COLUMNS)
+    assert out["bld:mean_log_size_rel"]["gamma"] == gamma["bld:mean_log_size_rel"]
+    assert [u["term"] for u in out["bld:mean_log_size_rel"]["unit_terms"]] == [
+        "unit:log_size_rel"
+    ]
+    assert out["bld:mean_log_size_rel"]["unit_terms"][0]["error"] == 0.03
+    assert [u["term"] for u in out["bld:mean_floor_unknown"]["unit_terms"]] == [
+        "unit:elev_floor_unknown"
+    ]
+    assert out["bld:mean_garden"]["unit_terms"] == []
+    assert out["bld:mean_log_floor"]["unit_terms"] == []
