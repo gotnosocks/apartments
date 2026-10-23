@@ -46,7 +46,7 @@ I took each ad's floor from the unit floor snapshot `20261021-d84914c0` (`floor_
 - The curve below 47 moves by under 0.3 points at every floor: 0.06 at most. Hit.
 - `gp_ls[elev]` changes by under 15%: it falls by 51%. Miss.
 - Held-out elpd on elevator ads at floor 48 and up rises by 5 to 60: +27.3. Hit.
-- On all shared held-out ads the change stays within 2 SE by building: +52 at 2.2 SE. Miss, narrowly.
+- On all shared held-out ads the change stays within 2 SE by building: +52.5 at 2.1 SE (SE 24.5). Miss, narrowly.
 - Other coefficients move by under 0.3 points: 0.24 at most (`bed=0:full>=3`). Hit. The new build has no rows for `bed=0:full>=4`, so fit 8 drops that column.
 - `bld_sd`, `sigma` and `nu` move by under 1%: 0.04% at most. Hit.
 - From `amp-joint-predictions-2026-10-23.md`, without the joint step `amp[outer]` again has the worst R-hat or the least ESS, with an IAT of 5.5 to 8 sweeps: it has both, with an IAT of 7.3 from `amp_diag.py` (`amp[manhattan]` 3.8). Hit.
