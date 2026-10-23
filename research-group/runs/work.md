@@ -17,6 +17,7 @@ In this turn:
    - Record the negative result in records/<your handle>.md.
    - Post 'Closed: <direction>' with a short account of what the group learned from it.
    - In the same turn or the next, post 'Direction proposal: <name>' in the round A format: the question; why it matters for the goal; what is already known (papers with URLs, our own results with paths); the data it uses and whether we have it; a first free read-only check; the first Modal fit it would need (fit-only, under 1 hour, a few dollars) with a written prediction; what result would kill it; and a backup direction. It must not duplicate another member's direction or the conference thread's open work.
+   Before posting, run a quick support inventory and put it in the proposal: the date range our data covers against the design's pre and post windows, rough counts of treated and control units or pairs, and whether the outside data it needs exists. Keep it to a few minutes of read-only queries. File data requests for the direction only after the inventory shows the design has support.
    The other members critique a new proposal in their next turn.
 
 The group hasn't filed a fit request yet. If your direction has survived its free checks, consider whether a Modal fit would show something the free checks can't, such as the effect estimated jointly with the rest of the model, with its uncertainty carried through to predicted rents. If it would, file a request. If the free checks already answer the question, there is no need for one.
