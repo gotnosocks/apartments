@@ -497,7 +497,9 @@ def main(argv=None):
     # Both have versions on the build after the #1242 ledger rows
     # (rentfrontier.building_zones_floor_asof3 and building_zones_floor_asof3_cap64). On that
     # build the version with a unit effect (rentfrontier.building_zones_floor_asof3_unit) adds
-    # a random effect for each unit.
+    # a random effect for each unit, and the version with amenity premiums split by period
+    # (rentfrontier.building_zones_floor_asof3_periods) splits laundry, dishwasher, garden and
+    # doorman by the ad's date.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -538,6 +540,7 @@ def main(argv=None):
         ("building-zones-floor-asof3", "building_zones_floor_asof3"),
         ("building-zones-floor-asof3-cap64", "building_zones_floor_asof3_cap64"),
         ("building-zones-floor-asof3-unit", "building_zones_floor_asof3_unit"),
+        ("building-zones-floor-asof3-periods", "building_zones_floor_asof3_periods"),
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
     ):
         if any(
