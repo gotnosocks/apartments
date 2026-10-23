@@ -52,4 +52,51 @@ The as-of floor model recovers its own truth about as well as the floor model di
 
 ## Fit 7, contextual truth
 
-Fit 7 waits on the limiter and follows fit 6. I'll add its results here when it lands.
+| run | wall | sampling | cost | max R-hat | min ESS |
+|---|---|---|---|---|---|
+| `building-zones-floor-asof2-b0-latest-0e260c3a-sim-mundlak-w1000` | 1,161 s | 812 s | $0.77 | 1.0115 (`amp[outer]`) | 591 (`amp[outer]`) |
+
+Fit 7 misses the gate on `amp[outer]`, the outer zone's map amplitude, by 0.0015 in R-hat. Every other quantity in the run's diagnostics has R-hat under 1.005 (worst `unit:walkup_f4`, 1.0042) and ESS above 1,150 (least `amp[manhattan]`, 1,174). On the seven unit columns in the table below the four chains' medians spread by 0.01 points or less, and on the building columns by 0.24 or less (widest `bld:built_unknown`). As in fit 6, the thin studio and one-bedroom bath steps spread the most, `bed=0:full>=4` by 0.61 and `bed=1:full>=4` by 0.45. The same amplitude carried the worst R-hat and least ESS in fit 6 (1.0089, 609) and in the earlier floor fits recorded in `building-holdout-location-2026-10-22.md` and #1245, so this is the model's weakest-mixing quantity rather than something the planted term caused. I score the run as a recovery check, since none of the terms below depends on that amplitude's last digit, and I don't rerun it.
+
+Coverage of 90% intervals, against fit 6:
+
+| group | terms | fit 7 | fit 6 |
+|---|---|---|---|
+| all scalar terms | 119 | 71.4% | 86.6% |
+| floor curves | 51 | 92.2% | 96.1% |
+| floor flags | 7 | 71.4% | 71.4% |
+| building features | 22 | 27.3% | 81.8% |
+| other terms | 34 | 67.6% | 82.4% |
+| nu and sigmas | 5 | 80% | 60% |
+
+The unit columns, with each one's bias in fit 6 for the part a fit shows with no contextual term in its truth:
+
+| term | truth | fit 7 median (90%) | bias | fit 6 bias | real-data gap, floor minus Mundlak |
+|---|---|---|---|---|---|
+| `unit:log_size_rel` | 24.25 | 25.46 (25.34 to 25.57) | +1.21 | +0.67 | +1.79 |
+| `unit:laundry_in_unit` | 5.55 | 6.24 (6.18 to 6.30) | +0.69 | +0.45 | +0.61 |
+| `unit:laundry_in_building` | 1.39 | 1.81 (1.75 to 1.87) | +0.42 | +0.25 | |
+| `unit:dishwasher` | 1.83 | 1.99 (1.95 to 2.03) | +0.16 | +0.13 | +0.11 |
+| `unit:size_unknown` | -3.91 | -4.15 (-4.20 to -4.10) | -0.24 | -0.16 | |
+| `unit:garden` | 2.23 | 2.79 (2.57 to 3.00) | +0.56 | +0.58 | |
+| `unit:size_imputed` | -0.47 | -0.49 (-0.54 to -0.44) | -0.02 | -0.05 | |
+
+The building columns take up most of the planted term. Sixteen of the 22 terms in that group miss their intervals, among them `bld:condo` +3.87, `bld:doorman_full` +3.70, `bld:doorman_part` +2.37, `bld:built_2010_on` +2.12, `bld:built_pre1900` +1.65 and `bld:elevator` +1.52. `alpha` comes back 2.80 points low. Building levels cover their truth on 63% of Manhattan buildings and 79% of outer ones, against 91% and 90% in fit 6, with slopes of recovered on true level of 0.87 and 0.78.
+
+### Against the predictions
+
+- Passes the gate: max R-hat 1.0115 on `amp[outer]`. Miss.
+- `unit:log_size_rel` 1.0 to 2.5 points above its truth and outside its 90% interval: +1.21, outside. Hit.
+- `unit:laundry_in_unit` 0.3 to 1.0 above its truth: +0.69. Hit.
+- `unit:dishwasher` within 0.4 of its truth: +0.16. Hit.
+- The three biases share the real-data gap's sign, and the size bias lands within 1 point of 1.79: all three positive, and 1.21 is 0.58 from 1.79. Hit.
+- Building feature coverage below run 1's 73%: 27.3%. Hit.
+- Overall coverage below fit 6's: 71.4% against 86.6%. Hit.
+
+That gives 6 hits and 1 miss.
+
+### Reading
+
+A contextual effect of the size the Mundlak fit found, planted in the truth and left out of the model, pushes the as-of floor model's size elasticity 1.21 points above its truth and in-unit laundry 0.69 above. On real data the floor model sits 1.79 and 0.61 points above the Mundlak fit. So the planted effect reproduces the laundry gap and about two thirds of the size gap. About half of the size bias, 0.67 points, shows up in fit 6 too, with no contextual term in the truth, so the partial pooling of building levels accounts for that part and the contextual term for the rest. The run supports the Mundlak reading of the real-data gap: the floor model's unit coefficients carry some between-building difference. It also leaves about 0.6 points of the size gap to something this simulation leaves out.
+
+The building columns pay for the omission. Condo, doorman and age terms move by 1.5 to 3.9 points to absorb building means the model has no column for, and building-level coverage falls by about a quarter in Manhattan.
