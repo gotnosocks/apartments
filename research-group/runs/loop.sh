@@ -42,9 +42,28 @@ $since"
         # (about 170 s) at high and at medium, so runs/effort_argon holds low.
         effort=high
         [ -s "runs/effort_$h" ] && effort=$(tr -dc 'a-z' < "runs/effort_$h")
-        timeout 1500 bin/sandboxed pi -p --no-session --mode json --model "$m:$effort" \
-          --tools read,bash,edit,write,grep,find,ls "$P" < /dev/null > "$out" 2> "${out%.jsonl}.err"
-        rc=$?
+        # A provider error (an aborted request, OpenRouter's upstream idle timeout) ends a pi run
+        # with stopReason "error". The turn then resumes its own session with --continue, up to
+        # four runs inside the 25-minute cap, appending to the same log.
+        sess="runs/sessions/${tag}_$h"
+        mkdir -p "$sess"
+        : > "$out"
+        : > "${out%.jsonl}.err"
+        prompt="$P"
+        resume=()
+        for attempt in 1 2 3 4; do
+          left=$((1500 - ($(date +%s) - T0)))
+          [ $left -lt 120 ] && break
+          timeout $left bin/sandboxed pi -p --session-dir "$sess" "${resume[@]}" --mode json \
+            --model "$m:$effort" --tools read,bash,edit,write,grep,find,ls "$prompt" \
+            < /dev/null >> "$out" 2>> "${out%.jsonl}.err"
+          rc=$?
+          last_stop=$(tail -n 3 "$out" | grep -o '"stopReason":"[a-zA-Z]*"' | tail -1)
+          [ "$last_stop" = '"stopReason":"error"' ] || break
+          echo "loop.sh: run $attempt ended on a provider error; resuming the session" >> "${out%.jsonl}.err"
+          resume=(--continue)
+          prompt="Your last request failed at the provider before you got a reply, so your turn was cut off. Continue the turn from where you stopped. Save each result to members/$h/ as soon as you have it, and post to the board before any long step."
+        done
         ;;
       fable | opus)
         out="runs/turns/${tag}_$h.json"
