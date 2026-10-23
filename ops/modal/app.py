@@ -172,6 +172,7 @@ BASELINES = (
     ("--model", "building-zones-floor-asof-amp1"),
     ("--model", "building-zones-floor-asof2"),
     ("--model", "building-zones-floor-asof2-cap64"),
+    ("--model", "building-zones-floor-asof2-unit"),
     ("--model", "building-zones-mundlak-asof"),
 )
 
