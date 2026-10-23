@@ -5,6 +5,7 @@ runs = {
     "asof2 real": "building-zones-floor-asof2-b0-latest-d5de95e7-dense-w1000",
     "fit 6 sim": "building-zones-floor-asof2-b0-latest-0e260c3a-sim-realistic-w1000",
     "fit 7 sim": "building-zones-floor-asof2-b0-latest-0e260c3a-sim-mundlak-w1000",
+    "fit 8 real": "building-zones-floor-asof3-cap64-b0-latest-26504752-cap64-w1000",
 }
 
 
