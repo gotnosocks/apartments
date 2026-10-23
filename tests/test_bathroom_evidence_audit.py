@@ -1,4 +1,5 @@
 import pytest
+
 from models.bathroom_evidence_audit import consensus, reported_bathrooms, screen
 
 
@@ -83,8 +84,10 @@ def test_no_description_is_unknown_not_a_negative_feature():
 @pytest.fixture
 def audit_fixture(tmp_path):
     import hashlib
+
     import duckdb
     import pandas as pd
+
     from apartments.corrections import canonical
     from apartments.research_pipeline import digest, publish_bundle
 
@@ -170,6 +173,7 @@ def test_source_bound_audit_and_projection_replay_preserve_cohort(
     audit_fixture, tmp_path
 ):
     import json
+
     from models.bathroom_evidence_audit import run
     from models.bathroom_projection import run as project_run
 

@@ -1,7 +1,9 @@
 from copy import deepcopy
 from types import SimpleNamespace
+
 import numpy as np
 import pytest
+
 from models import floor_spline_fit_comparison as m
 from tests.test_bayesian_floor_increment_design import train
 from tests.test_bayesian_floor_spline_design import spline_train

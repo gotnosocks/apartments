@@ -1,5 +1,5 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import numpy as np
 import pytest
@@ -10,7 +10,7 @@ from apartments.research_pipeline import publish_bundle
 from models import elevator_fit_comparison as m
 from models.bayesian_floor_increment_design import FeatureDesign
 from tests.test_bayesian_category_contrasts import training
-from tests.test_elevator_correction_projection import fixture, extend
+from tests.test_elevator_correction_projection import extend, fixture
 from tests.test_quarantine_fit_comparison import protocols as previous_protocols
 
 

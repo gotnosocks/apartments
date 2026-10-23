@@ -1,5 +1,5 @@
-from streeteasy_archive.store import ArchiveStore
 from streeteasy_archive.scope import enroll
+from streeteasy_archive.store import ArchiveStore
 
 ROOT = "https://streeteasy.com/building/example"
 

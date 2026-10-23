@@ -3,10 +3,10 @@
 import numpy as np
 import pandas as pd
 import pytest
-from scipy.stats import t, halfnorm
+from scipy.stats import halfnorm, t
 
-from models import bayesian_feature_graph_v3 as graph
 from models import bayesian_feature_graph as old_graph
+from models import bayesian_feature_graph_v3 as graph
 from models import bayesian_feature_model as feature
 
 

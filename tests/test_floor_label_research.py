@@ -86,8 +86,10 @@ def test_inconsistent_reference_or_identity_rejected():
 @pytest.fixture
 def source_fixture(tmp_path):
     import hashlib
+
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     from apartments.corrections import canonical
     from apartments.research_pipeline import digest, publish_bundle
 
@@ -152,6 +154,7 @@ def source_fixture(tmp_path):
 
 def test_verified_source_audit_uses_own_label_and_replays(source_fixture):
     import json
+
     from models.floor_label_research import run
 
     first = run(**source_fixture)

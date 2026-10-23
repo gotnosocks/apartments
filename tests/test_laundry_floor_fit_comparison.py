@@ -194,8 +194,9 @@ def test_residual_membership_or_targets_must_not_drift(fault):
 )
 def test_category_analysis_must_bind_the_exact_complete_posterior(tmp_path, fault):
     from types import SimpleNamespace
-    from apartments.research_pipeline import publish_bundle, digest
+
     from apartments.corrections import canonical
+    from apartments.research_pipeline import digest, publish_bundle
 
     experiment, dataset, analysis = [
         tmp_path / name for name in ("experiment", "dataset", "analysis")

@@ -1,5 +1,5 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 
@@ -7,6 +7,7 @@ from apartments import residual_scope_projection as contract
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
 from models import project_residual_scope as project
+
 from .test_residual_scope_projection import CLOCK, decision_for, fixture
 
 

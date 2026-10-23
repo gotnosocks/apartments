@@ -1,5 +1,6 @@
 import pytest
-from models.ensuite_count_audit import screen, select, STRATA
+
+from models.ensuite_count_audit import STRATA, screen, select
 
 
 def test_screen_retains_exact_offsets_and_does_not_assign_counts():
@@ -65,6 +66,7 @@ def test_unknown_and_absent_text_produce_no_physical_negative():
 
 def test_source_bound_bundle_replays_with_json_normalized_selection_metadata(tmp_path):
     import hashlib
+
     from apartments.corrections import canonical
     from apartments.research_pipeline import publish_bundle
     from models.ensuite_count_audit import run

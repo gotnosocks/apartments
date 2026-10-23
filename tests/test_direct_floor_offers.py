@@ -3,9 +3,12 @@ import json
 from pathlib import Path
 
 import pytest
+
+from apartments.attribute_evidence import (
+    DIRECT_OFFER_FLOOR_RULE,
+)
 from apartments.attribute_evidence import (
     extract_attribute_evidence as extract,
-    DIRECT_OFFER_FLOOR_RULE,
 )
 
 

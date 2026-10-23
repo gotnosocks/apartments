@@ -1,7 +1,7 @@
 """Posterior arithmetic and artifact integrity without stochastic sampling."""
 
-from types import SimpleNamespace
 import json
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd

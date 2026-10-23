@@ -1,10 +1,11 @@
 import json
 import sqlite3
+
 from apartments.db import connect
 from apartments.streeteasy import ingest_item
 from apartments.temporal import (
-    retain_capture,
     backfill_capture_history,
+    retain_capture,
     sync_observations,
 )
 

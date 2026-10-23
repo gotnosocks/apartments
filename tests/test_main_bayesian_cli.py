@@ -12,9 +12,9 @@ from apartments.cli import app
 
 @pytest.fixture
 def fit_route(monkeypatch):
+    from apartments import research_pipeline
     from models import bayesian_disk_experiment as runner
     from models import bayesian_floor_spline_experiment as spline
-    from apartments import research_pipeline
 
     seen = []
 
@@ -313,7 +313,7 @@ def test_legacy_fitter_has_explicit_separate_command(monkeypatch):
 
 @pytest.fixture
 def analysis_route(monkeypatch):
-    from apartments import main_analysis, bayesian_analysis
+    from apartments import bayesian_analysis, main_analysis
 
     calls = []
     selection = {"model_family": "pymc_bayesian", "protocol_sha256": "bound"}
@@ -461,7 +461,7 @@ def test_runner_scope_restores_caller_blas_thread_count(fit_route):
 def test_analysis_exposes_merged_review_and_issue_notes_without_losing_detail(
     analysis_route, monkeypatch
 ):
-    from apartments import main_analysis, source_issues, bayesian_source_review
+    from apartments import bayesian_source_review, main_analysis, source_issues
 
     calls, _ = analysis_route
     original = main_analysis.load_selection

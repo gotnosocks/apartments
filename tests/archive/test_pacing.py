@@ -1,6 +1,7 @@
 import pytest
 from scrapy.crawler import Crawler
 from scrapy.settings import Settings
+
 from streeteasy_archive.cli import resolve_delay
 from streeteasy_archive.crawler import ArchiveSpider
 

@@ -1,10 +1,9 @@
-from copy import deepcopy
 import hashlib
+from copy import deepcopy
 
 import pytest
 
 from models import recover_floor_report as m
-
 
 ORIGINAL = "dims=('floor_contrast','feature')\ncoords={'floor_contrast':np.arange(len(pairs))}\njoint.isel(floor_contrast=i)"
 

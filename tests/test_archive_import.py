@@ -1,6 +1,7 @@
 import gzip
 import json
 import sqlite3
+
 import pytest
 
 from apartments.archive_import import import_archive, normalize_listing

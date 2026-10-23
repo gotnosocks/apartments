@@ -1,7 +1,9 @@
 from copy import deepcopy
+
 import pytest
+
 from apartments import floor_label_projection as f
-from apartments.reviewed_cohort_quarantine import sha, records_hash
+from apartments.reviewed_cohort_quarantine import records_hash, sha
 
 
 def project(*args, **kwargs):

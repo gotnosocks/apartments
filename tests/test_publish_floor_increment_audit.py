@@ -1,7 +1,7 @@
 import pytest
 
-from models.publish_floor_increment_audit import _publish
 from apartments.research_pipeline import _verified_bundle, digest
+from models.publish_floor_increment_audit import _publish
 
 
 def test_binary_design_publication_replay_and_immutability(tmp_path):

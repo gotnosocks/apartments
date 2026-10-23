@@ -81,8 +81,9 @@ def test_audit_rejects_description_identity_and_hash_mismatch(tmp_path, monkeypa
     import hashlib
     import json
     from types import SimpleNamespace
-    from models import group_effect_audit as audit
+
     from apartments.corrections import canonical
+    from models import group_effect_audit as audit
 
     source = row("a", 2000, 0.1)
     protocol = {"settings": {"building_penalty": 10, "unit_penalty": 8}}

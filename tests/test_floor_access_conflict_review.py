@@ -1,10 +1,10 @@
-from copy import deepcopy
 import hashlib
+from copy import deepcopy
 
 import pytest
 
-from docs.analysis.scripts import review_floor_access_conflicts as m
 from apartments import reviewed_cohort_quarantine as q
+from docs.analysis.scripts import review_floor_access_conflicts as m
 
 
 def case():

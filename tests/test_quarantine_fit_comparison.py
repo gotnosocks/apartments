@@ -1,5 +1,5 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import numpy as np
 import pytest
@@ -8,13 +8,17 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
 from models import (
     quarantine_fit_comparison as m,
+)
+from models import (
     reviewed_cohort_projection as projection,
 )
 from tests.test_laundry_floor_fit_comparison import (
     protocols as laundry_protocols,
+)
+from tests.test_laundry_floor_fit_comparison import (
     residual_fixture,
 )
-from tests.test_reviewed_cohort_quarantine import fixture, CLOCK
+from tests.test_reviewed_cohort_quarantine import CLOCK, fixture
 
 
 def protocols():
@@ -222,6 +226,7 @@ def test_joint_building_analysis_reads_all_draws_and_enforces_convergence(
     tmp_path, fault
 ):
     from types import SimpleNamespace
+
     import xarray as xr
 
     rng = np.random.default_rng(402)

@@ -5,8 +5,8 @@ from scipy.optimize import minimize
 
 from models.amenity_solver_diagnostic import (
     objective_gradient,
-    refine,
     prediction_change,
+    refine,
 )
 
 

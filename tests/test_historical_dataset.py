@@ -1,9 +1,10 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 
-from apartments import corrections, historical_dataset as historical
+from apartments import corrections
+from apartments import historical_dataset as historical
 
 
 def capture(listing="old", snapshot=1, beds=0, when="2026-09-01T00:00:00+00:00"):
@@ -202,6 +203,7 @@ def test_deterministic_capture_order():
 def test_bundle_real_parquet_hashes_idempotence_and_rejected_month(tmp_path):
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     from apartments.research_pipeline import read_bundle
 
     dataset = tmp_path / "source"
@@ -256,8 +258,10 @@ def test_bundle_real_parquet_hashes_idempotence_and_rejected_month(tmp_path):
 
 def recovered_source(tmp_path):
     import hashlib
+
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     from apartments.research_pipeline import digest, publish_bundle
 
     dataset = tmp_path / "source"
@@ -476,6 +480,7 @@ def test_furnished_description_requires_positive_phrase(description, excluded):
 
 def test_recovery_jsonl_unicode_line_separator_is_not_a_record_boundary(tmp_path):
     import hashlib
+
     from apartments.research_pipeline import publish_bundle
 
     dataset, record, bundle = recovered_source(tmp_path)

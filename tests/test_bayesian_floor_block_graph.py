@@ -1,11 +1,12 @@
 import numpy as np
 import pytest
-from models import bayesian_floor_block_graph as blocks
+
 from models import bayesian_feature_graph_v3 as reference
-from models import bayesian_floor_increment_design as floor
+from models import bayesian_floor_block_graph as blocks
 from models import bayesian_floor_elevator_design as elevator
-from tests.test_bayesian_floor_elevator_design import data
+from models import bayesian_floor_increment_design as floor
 from tests.test_bayesian_feature_graph_v3 import points
+from tests.test_bayesian_floor_elevator_design import data
 
 
 @pytest.mark.parametrize("mode", ["floor", "pooled", "separate"])

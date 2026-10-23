@@ -7,7 +7,8 @@ import shutil
 import pytest
 from scrapy.http import HtmlResponse
 
-from apartments import candidate_refresh as refresh, corrections
+from apartments import candidate_refresh as refresh
+from apartments import corrections
 from apartments.corrections import canonical
 from apartments.research_pipeline import publish_bundle
 from apartments.unit_canonical import canonical_unit_id

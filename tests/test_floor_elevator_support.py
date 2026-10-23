@@ -2,7 +2,7 @@ import json
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import publish_bundle
-from models.floor_elevator_support import summarize, ambiguity_sensitivity, run
+from models.floor_elevator_support import ambiguity_sensitivity, run, summarize
 
 
 def row(floor, elevator, unit, building):

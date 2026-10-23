@@ -6,9 +6,10 @@ import json
 import duckdb
 import pytest
 
-from apartments import candidate_snapshot as snapshot, corrections
-from apartments.research_pipeline import digest, publish_bundle
+from apartments import candidate_snapshot as snapshot
+from apartments import corrections
 from apartments.corrections import canonical
+from apartments.research_pipeline import digest, publish_bundle
 
 
 def capture():

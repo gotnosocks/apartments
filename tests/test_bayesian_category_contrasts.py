@@ -128,13 +128,14 @@ def test_floor_contrasts_reconstruct_math_despite_changed_launcher(tmp_path, fau
     import hashlib
     import json
     from pathlib import Path
+
     from apartments.corrections import canonical
     from apartments.research_pipeline import digest
     from models import bayesian_floor_increment_design as floor
     from tests.test_bayesian_source_sensitivity import (
+        converted,
         design_archive,
         design_source,
-        converted,
         publish_binary,
     )
 

@@ -1,8 +1,10 @@
-from copy import deepcopy
 import hashlib
+from copy import deepcopy
+
 import pytest
+
 from apartments.corrections import canonical
-from apartments.research_pipeline import publish_bundle, digest
+from apartments.research_pipeline import digest, publish_bundle
 from models import bathroom_research_revision as revision
 
 

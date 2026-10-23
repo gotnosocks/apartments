@@ -10,7 +10,6 @@ from streeteasy_archive import cli, crawler
 from streeteasy_archive.crawler import ArchiveSpider
 from streeteasy_archive.store import ArchiveStore
 
-
 URL = "https://streeteasy.com/building/example"
 
 

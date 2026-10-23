@@ -12,6 +12,7 @@ import pytest
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, publish_bundle
 from models import bayesian_feature_sensitivity as m
+
 from .test_bayesian_feature_report import experiment, publish_binary
 
 

@@ -1,5 +1,7 @@
 from copy import deepcopy
+
 import pytest
+
 from models.current_spatial_features import (
     aggregate,
     bound_building,

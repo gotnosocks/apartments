@@ -1,11 +1,12 @@
 import gzip
 import json
+
 from streeteasy_archive.extract import (
-    is_gallery_url,
-    kind_for,
     canonical_url,
     discover,
     extract,
+    is_gallery_url,
+    kind_for,
 )
 
 
@@ -163,6 +164,7 @@ def test_main_building_inventory_intents_and_other_parameters_are_preserved():
 
 def test_flight_urls_split_across_script_tags():
     import json
+
     from streeteasy_archive.extract import discover
 
     base = "https://streeteasy.com/building/ohm-312-11th-avenue-new_york"

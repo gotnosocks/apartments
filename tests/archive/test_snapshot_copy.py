@@ -3,9 +3,10 @@ import sqlite3
 
 def test_bulk_copy_rejects_uncheckpointed_wal(tmp_path):
     import pytest
+
     from streeteasy_archive.snapshot_copy import (
-        copy_closed_database,
         checkpoint_database,
+        copy_closed_database,
     )
 
     source = tmp_path / "source.sqlite3"

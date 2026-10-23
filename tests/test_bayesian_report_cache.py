@@ -1,7 +1,9 @@
 from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import xarray as xr
+
 from models.bayesian_report_cache import UnitSamples, bounded_unit_samples, build_cache
 
 
@@ -63,8 +65,8 @@ def test_unsupported_matrix_operation_cannot_silently_materialize_all_units():
 
 
 def test_scientific_reports_are_byte_identical_with_disk_unit_access(tmp_path):
-    from tests.test_bayesian_feature_model import train
     from models import bayesian_feature_experiment_v2 as reports
+    from tests.test_bayesian_feature_model import train
 
     frame = train.__wrapped__().copy()
     frame["audit_id"] = ["a" + str(i) for i in range(len(frame))]

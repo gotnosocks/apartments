@@ -288,9 +288,9 @@ def test_refreshed_evidence_rejects_wrong_binding_coverage_or_clock(tmp_path, fa
 def test_quarantine_evidence_requires_inverse_lineage_and_returns_survivors_only(
     tmp_path, fault
 ):
-    from apartments.reviewed_source_lineage import REFRESHED, LAUNDRY, FLOOR
-    from tests.test_reviewed_source_lineage import revise
+    from apartments.reviewed_source_lineage import FLOOR, LAUNDRY, REFRESHED
     from tests.test_reviewed_cohort_quarantine import quarantine_last
+    from tests.test_reviewed_source_lineage import revise
 
     old, em, captures = refreshed_parts(tmp_path)
     rows = [
@@ -358,11 +358,11 @@ def test_expanded_floor_evidence_verifies_each_inverse_stage(
     tmp_path, fault, outer_scope
 ):
     from apartments import reviewed_source_lineage as lineage
-    from tests.test_reviewed_source_lineage import revise
-    from tests.test_reviewed_cohort_quarantine import quarantine_last
     from tests.test_elevator_correction_projection import extend as elevator_extend
-    from tests.test_floor_label_projection import extend as label_extend
     from tests.test_expanded_floor_projection import extend as expanded_extend
+    from tests.test_floor_label_projection import extend as label_extend
+    from tests.test_reviewed_cohort_quarantine import quarantine_last
+    from tests.test_reviewed_source_lineage import revise
 
     old, em, captures = refreshed_parts(tmp_path)
     rows = [

@@ -6,7 +6,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from apartments.archive_cutover import CutoverError, DATASET_ID, finalize
+from apartments.archive_cutover import DATASET_ID, CutoverError, finalize
 
 
 def _fixture(tmp_path, *, include_ledger=True):

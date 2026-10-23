@@ -504,7 +504,7 @@ def test_loader_preserves_review_overlay_without_mutating_v2(setup, tmp_path, ve
     manifest = {"version": version}
     sidecar_files = {}
     if version in m.reviewed_source_lineage.VERSIONS:
-        from tests.test_reviewed_source_lineage import revise, observations_hash
+        from tests.test_reviewed_source_lineage import observations_hash, revise
 
         for row in rows:
             row.update(

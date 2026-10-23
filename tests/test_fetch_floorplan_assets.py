@@ -1,8 +1,8 @@
 import base64
 from io import BytesIO
 
-from PIL import Image
 import pytest
+from PIL import Image
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import publish_bundle

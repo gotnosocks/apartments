@@ -1,23 +1,24 @@
 """Spline reports retain source, prior and convergence gates without step semantics."""
 
-from copy import deepcopy
 import json
 import math
+from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest
-from models import bayesian_floor_spline_contract as contract
 from models import bayesian_feature_report as report
+from models import bayesian_floor_spline_contract as contract
+
 from .test_bayesian_feature_report import (
     diagnostics,
-    interval,
     experiment,
-    v3_fixture,
-    rewrite_v3,
+    interval,
     publish_binary,
+    rewrite_v3,
+    v3_fixture,
 )
 
 
@@ -254,8 +255,9 @@ from .test_bayesian_feature_design_v2 import data
 
 def test_actual_spline_loader_and_joint_contrast_match(data, tmp_path):
     import numpy as np
-    from models.bayesian_floor_spline_design import FeatureDesign
+
     from models.bayesian_feature_design_v2 import load_design
+    from models.bayesian_floor_spline_design import FeatureDesign
 
     trained = FeatureDesign(data)
     trained.save(tmp_path)
@@ -283,9 +285,11 @@ def test_actual_spline_loader_and_joint_contrast_match(data, tmp_path):
 def test_actual_spline_source_reconstruction_binds_basis_and_helper(data, tmp_path):
     import hashlib
     import importlib.metadata
+
     from apartments.research_pipeline import publish_bundle
     from models import bayesian_source_sensitivity as source
-    from .test_bayesian_source_sensitivity import design_source, converted
+
+    from .test_bayesian_source_sensitivity import converted, design_source
 
     rows = design_source(data)
     frame = converted(rows)
@@ -344,6 +348,7 @@ def test_actual_spline_source_reconstruction_binds_basis_and_helper(data, tmp_pa
 def test_producer_joint_floor_summaries_pass_reader_contract(data, tmp_path):
     import numpy as np
     import xarray as xr
+
     from models.bayesian_floor_spline_design import FeatureDesign
     from models.bayesian_floor_spline_experiment import floor_contrasts
 

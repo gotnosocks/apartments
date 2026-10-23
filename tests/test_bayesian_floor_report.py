@@ -7,12 +7,12 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import digest
 from models import bayesian_feature_report as m
 from tests.test_bayesian_feature_report import (
-    experiment,
-    v3_fixture,
-    rewrite_v3,
-    publish_binary,
     diagnostics,
+    experiment,
     interval,
+    publish_binary,
+    rewrite_v3,
+    v3_fixture,
 )
 
 
