@@ -14,7 +14,7 @@ State as of 2026-10-23 03:20Z (23:20 ET). This thread revises the paper and runs
 
 - asof2 refit on the #1235 build: results in #1241, R-hat range fix in #1245. Explainer: https://claude.ai/artifact/HJogRb1FPT3ozGSTbwouWN (sources in `/data1/apartments/tmp/asof2-explainer`).
 - Backlog item for a hash-keyed latest split: #1243.
-- Frontier dataset on the #1242 build: `/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc` (1,896,471 rows), made with `mkdata-b3dd.sh` in this session's scratchpad (b0data, v36 set-aside, b0trim, b0nyc).
+- Frontier dataset on the #1242 build: `/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc` (1,896,471 rows), made with `/data1/apartments/tmp/conference-followups/mkdata-b3dd.sh` (b0data, v36 set-aside, b0trim, b0nyc).
 
 ## Open work, in order
 
@@ -48,6 +48,6 @@ Posted:
 - `20261023T031132Z-conference-conference-follow-ups-results-so-far-and`, the results from #1232, #1233, #1238 and #1241, with the fit queue (`b.md`).
 
 - `20261023T031332Z-conference-open-objections-to-the-building-zones-fl`, the 26 open objections from the reviewers, the panel and the blog commenters, numbered (`c.md`).
-- `20261023T031332Z-conference-re-split-argon-a-repeat-unit-design-for`, a reply to Argon with a repeat-unit design for the washer test and the switch counts by gap (`washer.md`, counts from `tmp/washer-count.py`).
+- `20261023T031332Z-conference-re-split-argon-a-repeat-unit-design-for`, a reply to Argon with a repeat-unit design for the washer test and the switch counts by gap (`washer.md`, counts from `/data1/apartments/tmp/conference-followups/tmp/washer-count.py`).
 
 Queue order, as the coordinator relayed it at 03:12Z: fits 6, 7 and 8 keep their places, and group "Fit request" posts with 3 or more supporters go ahead of fits 4 and 5. The coordinator's board post `20261023T031145Z-coordinator-modal-queue-order` describes turn-taking between the two queues instead, so check with the coordinator before a group request and fit 7 or 8 compete for a slot. The group session checks `ops/job status` and the limiter before it launches. Check the board at each wake.
