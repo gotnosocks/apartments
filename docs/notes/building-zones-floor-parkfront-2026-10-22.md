@@ -1,4 +1,4 @@
-# Floor model with park frontage on the latest split: results, 2026-10-22
+# Floor model with park frontage: results, 2026-10-22
 
 This is conference follow-up 1. I added `bld:park_front` to the floor model and fit it on the latest split. The predictions are in `building-zones-floor-parkfront-predictions-2026-10-22.md`, written before the launch.
 
@@ -44,4 +44,38 @@ On the latest split nearly every held-out ad sits in a building with training ad
 | latest-split elpd gain positive and under 2 SE | miss: -2.2, SE 1, about 2 SE worse |
 | RMSE and 90% coverage move under 0.0005 and 0.1 pp | hit (RMSE +0.000003, 90% coverage 90.4508% against 90.4481%, +0.003 pp) |
 
-The buildings-split predictions wait for fit 2.
+
+## Fit 2: the whole-building split
+
+Run: `building-zones-floor-parkfront-b0-buildings-a5b3c5d3-dense-w1000`, fit-only on Modal (A100), 22.4 minutes, $0.89. Comparison: `building-zones-floor-b0-buildings-35131df8-dense-w1000`. I scored both runs with `docs/notes/building-zones-parkfront-2026-10-22/heldout/heldout_split.py`, each with its own commit's source, and compared them with `compare_buildings.py` and `flagged.py` from the same folder. The outputs are in `/data1/apartments/tmp/conference-followups/fit2/`.
+
+The fit passes the gate: max R-hat 1.0058 (`beta[bed=0:full>=2]`), min bulk ESS 642 (`amp[outer]`). The comparison run misses it on one quantity, R-hat 1.0105 on `amp[outer]`.
+
+- `bld:park_front`: +3.83 points, 90% interval +2.98 to +4.70, P(>0) = 1.00.
+- The other coefficients move by at most 0.148 points (`alpha`), and the floor terms by at most 0.004 (`unit:lower`).
+- `amp`, `bld_sd`, `sigma` and `nu` agree with the comparison run to the third decimal.
+
+On the 184,437 held-out ads in 6,798 held-out buildings:
+
+| held-out ads | ads | buildings | elpd difference | SE by building | per ad |
+|---|---|---|---|---|---|
+| all | 184,437 | 6,798 | +268.4 | 104.2 | 0.0015 |
+| park-facing | 5,204 | 122 | +71.7 | 83.5 | 0.0138 |
+| the rest | 179,233 | 6,676 | +196.7 | 62.5 | 0.0011 |
+
+RMSE falls from 0.18169 to 0.18145, and 90% coverage goes from 0.9273 to 0.9272. The mean residual of the park-facing held-out ads falls from +4.71 points to +1.64.
+
+The park frontage fit scores 2.6 SE better overall, but three quarters of that gain is on ads the flag doesn't touch. Their predictions differ only through the small shifts in shared terms, such as `alpha` at -0.148, and through the comparison run's unconverged `amp[outer]`. On the park-facing ads the gain is 10 times larger per ad, at 0.9 SE, and the flag closes two thirds of their mean residual. So these 122 held-out buildings agree with the flag in direction and size, though they are too few for the gain to clear 2 SE.
+
+The explained share of the held-out buildings' residuals is 0.00367, below the permutation null's 95th percentile of 0.00477. As with the location fit, the flag explains too little of the building-to-building spread to beat a random relabeling of buildings within zones.
+
+## Predictions for the buildings split, scored
+
+| prediction | result |
+|---|---|
+| passes the gate, 18 to 25 minutes, $0.75 to $1.10 | hit (22.4 min, $0.89) |
+| median +2.5 to +5, interval excludes 0, at or above +3.46 | hit (+3.83) |
+| other coefficients and floor curves move under 0.2 | hit (0.148 and 0.004) |
+| elpd gain positive, larger per ad on park-facing ads | hit (+268.4; 0.0138 against 0.0011 per ad), though the park-facing gain alone is 0.9 SE |
+| explained share fails the null's 95th percentile | hit (0.00367 against 0.00477) |
+| RMSE and 90% coverage move under 0.0005 and 0.1 pp | hit (-0.00024, -0.01 pp) |
