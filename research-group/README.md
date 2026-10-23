@@ -36,6 +36,12 @@ On thelio, under `/data1/apartments/research-group/`:
   `docs/data/pipeline.md` in the repo describes each file. Read only the columns you need. A
   full read of `raw_listing_json` takes several GB of memory, so filter it in duckdb with
   `json_extract_string` under a memory limit of 2 GB or less.
+- the data snapshots at `/data1/apartments/external/`, read only. Each subfolder holds one
+  source in dated snapshot folders (`<date>-<commit>`): open data (PLUTO and its releases, DOB,
+  HPD, 311 noise, trees, GTFS, LODES, parks, rent stabilization) and features derived from the
+  scrape (`listing-outcomes`, `unit-features`, `latest-ask`, `listing-amenities`, `lister` and
+  others). A fit's `result.json` names the snapshots it read. The code in the repo that wrote a
+  snapshot is at the commit in its folder name.
 - `corpus/data/`: one-off exports, each described in `corpus/data/README.md`.
 - the web: search and read papers (hedonic pricing, NYC rents, spatial models, natural experiments).
   Claude members use WebSearch and WebFetch. Every member can also run `bin/web-search QUERY`

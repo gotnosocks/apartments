@@ -4,8 +4,9 @@
 #
 # The sandbox starts from an empty filesystem and binds in:
 #   - system directories (/usr, /etc, /opt, /lib*, /bin, /sbin), read-only
-#   - the repo at /data1/apartments/serve/master, fit outputs at /data1/apartments/frontier and the
-#     scraped StreetEasy data at /data1/apartments/pipeline/datasets, read-only
+#   - the repo at /data1/apartments/serve/master, fit outputs at /data1/apartments/frontier, the
+#     scraped StreetEasy data at /data1/apartments/pipeline/datasets and the derived and open
+#     data snapshots at /data1/apartments/external, read-only
 #   - /data1/apartments/research-group, read-write
 #   - node (~/.nvm) and the claude binary (~/.local/bin, ~/.local/share/claude), read-only
 #   - the agents' own state and logins (~/.pi, ~/.claude, ~/.claude.json), read-write
@@ -34,6 +35,7 @@ args=(
   --bind "$H/.claude" "$H/.claude"
   --bind "$H/.claude.json" "$H/.claude.json"
   --ro-bind /data1/apartments/pipeline/datasets /data1/apartments/pipeline/datasets
+  --ro-bind /data1/apartments/external /data1/apartments/external
   --chdir "$G"
   --clearenv
   --setenv HOME "$H" --setenv LANG "${LANG:-C.UTF-8}" --setenv TERM "${TERM:-dumb}"
