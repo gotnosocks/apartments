@@ -1,0 +1,584 @@
+{
+ "rows": 1866262,
+ "ads_with_line": 1142868,
+ "ads_text_any": null,
+ "park_front": {
+  "ads": 58888,
+  "buildings": 1118,
+  "units": 26178,
+  "ads_with_line": 34635,
+  "buildings_2plus_lines": 574,
+  "ads_front_rear_label": 4347,
+  "ads_floor_known": 46761,
+  "ads_text": 46503,
+  "ads_se_park_view": 8598,
+  "ads_text_park_view": 8312,
+  "ads_text_park_any": 10037,
+  "ads_park_view_either": 11969,
+  "ads_se_any_view": 19833,
+  "ads_window_exposure": 8193,
+  "ads_text_cemetery": 0,
+  "ads_text_rail": 260,
+  "buildings_park_view_contrast": 660,
+  "ads_in_contrast_buildings": 51040,
+  "buildings_line_contrast": 311,
+  "ads_in_line_contrast_buildings": 24551
+ },
+ "park_near": {
+  "ads": 252085,
+  "buildings": 8131,
+  "units": 119831,
+  "ads_with_line": 158173,
+  "buildings_2plus_lines": 4163,
+  "ads_front_rear_label": 24712,
+  "ads_floor_known": 180325,
+  "ads_text": 218185,
+  "ads_se_park_view": 10786,
+  "ads_text_park_view": 5794,
+  "ads_text_park_any": 18717,
+  "ads_park_view_either": 13772,
+  "ads_se_any_view": 68354,
+  "ads_window_exposure": 18684,
+  "ads_text_cemetery": 19,
+  "ads_text_rail": 2308,
+  "buildings_park_view_contrast": 1546,
+  "ads_in_contrast_buildings": 123963,
+  "buildings_line_contrast": 472,
+  "ads_in_line_contrast_buildings": 37360
+ },
+ "cemetery_front": {
+  "ads": 553,
+  "buildings": 29,
+  "units": 309,
+  "ads_with_line": 439,
+  "buildings_2plus_lines": 7,
+  "ads_front_rear_label": 50,
+  "ads_floor_known": 444,
+  "ads_text": 486,
+  "ads_se_park_view": 64,
+  "ads_text_park_view": 2,
+  "ads_text_park_any": 2,
+  "ads_park_view_either": 64,
+  "ads_se_any_view": 200,
+  "ads_window_exposure": 8,
+  "ads_text_cemetery": 13,
+  "ads_text_rail": 0,
+  "buildings_park_view_contrast": 5,
+  "ads_in_contrast_buildings": 451,
+  "buildings_line_contrast": 2,
+  "ads_in_line_contrast_buildings": 421
+ },
+ "cemetery_near": {
+  "ads": 3946,
+  "buildings": 333,
+  "units": 2323,
+  "ads_with_line": 2569,
+  "buildings_2plus_lines": 131,
+  "ads_front_rear_label": 944,
+  "ads_floor_known": 2606,
+  "ads_text": 3707,
+  "ads_se_park_view": 132,
+  "ads_text_park_view": 2,
+  "ads_text_park_any": 8,
+  "ads_park_view_either": 133,
+  "ads_se_any_view": 753,
+  "ads_window_exposure": 66,
+  "ads_text_cemetery": 1,
+  "ads_text_rail": 59,
+  "buildings_park_view_contrast": 50,
+  "ads_in_contrast_buildings": 1529,
+  "buildings_line_contrast": 13,
+  "ads_in_line_contrast_buildings": 376
+ },
+ "rail_front": {
+  "ads": 2030,
+  "buildings": 39,
+  "units": 1149,
+  "ads_with_line": 385,
+  "buildings_2plus_lines": 16,
+  "ads_front_rear_label": 126,
+  "ads_floor_known": 1747,
+  "ads_text": 1356,
+  "ads_se_park_view": 72,
+  "ads_text_park_view": 14,
+  "ads_text_park_any": 14,
+  "ads_park_view_either": 84,
+  "ads_se_any_view": 542,
+  "ads_window_exposure": 415,
+  "ads_text_cemetery": 0,
+  "ads_text_rail": 2,
+  "buildings_park_view_contrast": 6,
+  "ads_in_contrast_buildings": 1390,
+  "buildings_line_contrast": 1,
+  "ads_in_line_contrast_buildings": 251
+ },
+ "rail_near": {
+  "ads": 21872,
+  "buildings": 807,
+  "units": 10818,
+  "ads_with_line": 14019,
+  "buildings_2plus_lines": 392,
+  "ads_front_rear_label": 2260,
+  "ads_floor_known": 15621,
+  "ads_text": 17738,
+  "ads_se_park_view": 688,
+  "ads_text_park_view": 119,
+  "ads_text_park_any": 1122,
+  "ads_park_view_either": 726,
+  "ads_se_any_view": 5198,
+  "ads_window_exposure": 1392,
+  "ads_text_cemetery": 0,
+  "ads_text_rail": 168,
+  "buildings_park_view_contrast": 138,
+  "ads_in_contrast_buildings": 8487,
+  "buildings_line_contrast": 35,
+  "ads_in_line_contrast_buildings": 2351
+ },
+ "vacant_front": {
+  "ads": 0,
+  "buildings": 0,
+  "units": 0,
+  "ads_with_line": 0,
+  "buildings_2plus_lines": 0,
+  "ads_front_rear_label": 0,
+  "ads_floor_known": 0,
+  "ads_text": 0,
+  "ads_se_park_view": 0,
+  "ads_text_park_view": 0,
+  "ads_text_park_any": 0,
+  "ads_park_view_either": 0,
+  "ads_se_any_view": 0,
+  "ads_window_exposure": 0,
+  "ads_text_cemetery": 0,
+  "ads_text_rail": 0,
+  "buildings_park_view_contrast": 0,
+  "ads_in_contrast_buildings": 0,
+  "buildings_line_contrast": 0,
+  "ads_in_line_contrast_buildings": 0
+ },
+ "vacant_near": {
+  "ads": 0,
+  "buildings": 0,
+  "units": 0,
+  "ads_with_line": 0,
+  "buildings_2plus_lines": 0,
+  "ads_front_rear_label": 0,
+  "ads_floor_known": 0,
+  "ads_text": 0,
+  "ads_se_park_view": 0,
+  "ads_text_park_view": 0,
+  "ads_text_park_any": 0,
+  "ads_park_view_either": 0,
+  "ads_se_any_view": 0,
+  "ads_window_exposure": 0,
+  "ads_text_cemetery": 0,
+  "ads_text_rail": 0,
+  "buildings_park_view_contrast": 0,
+  "ads_in_contrast_buildings": 0,
+  "buildings_line_contrast": 0,
+  "ads_in_line_contrast_buildings": 0
+ },
+ "highway_front": {
+  "ads": 26678,
+  "buildings": 628,
+  "units": 13545,
+  "ads_with_line": 15219,
+  "buildings_2plus_lines": 319,
+  "ads_front_rear_label": 2307,
+  "ads_floor_known": 20838,
+  "ads_text": 23407,
+  "ads_se_park_view": 1719,
+  "ads_text_park_view": 346,
+  "ads_text_park_any": 639,
+  "ads_park_view_either": 1823,
+  "ads_se_any_view": 9573,
+  "ads_window_exposure": 1855,
+  "ads_text_cemetery": 8,
+  "ads_text_rail": 129,
+  "buildings_park_view_contrast": 144,
+  "ads_in_contrast_buildings": 15764,
+  "buildings_line_contrast": 49,
+  "ads_in_line_contrast_buildings": 3495
+ },
+ "highway_near": {
+  "ads": 141586,
+  "buildings": 4349,
+  "units": 68655,
+  "ads_with_line": 82717,
+  "buildings_2plus_lines": 1847,
+  "ads_front_rear_label": 12470,
+  "ads_floor_known": 107136,
+  "ads_text": 32716,
+  "ads_se_park_view": 4905,
+  "ads_text_park_view": 565,
+  "ads_text_park_any": 1628,
+  "ads_park_view_either": 5149,
+  "ads_se_any_view": 38629,
+  "ads_window_exposure": 9242,
+  "ads_text_cemetery": 0,
+  "ads_text_rail": 342,
+  "buildings_park_view_contrast": 554,
+  "ads_in_contrast_buildings": 63471,
+  "buildings_line_contrast": 172,
+  "ads_in_line_contrast_buildings": 18883
+ },
+ "tracts": {
+  "cemetery": [
+   {
+    "acres": 1252.6465794306703,
+    "lots": 37,
+    "owner": "HIGHLD VIEW CEMTY CP"
+   },
+   {
+    "acres": 7.133654729109274,
+    "lots": 1,
+    "owner": "RECTOR CHURCHWARDNSETAL"
+   },
+   {
+    "acres": 9.412718089990816,
+    "lots": 1,
+    "owner": "TRINITY CHURCH CORP"
+   },
+   {
+    "acres": 466.23186409550044,
+    "lots": 1,
+    "owner": "GREENWOOD CEMETRY"
+   },
+   {
+    "acres": 70.01836547291093,
+    "lots": 1,
+    "owner": "CYPRESS HILLS CEMETER"
+   },
+   {
+    "acres": 9.756657483930212,
+    "lots": 1,
+    "owner": "MOUNT HOPE CEMETERY ASSOCIATIO"
+   },
+   {
+    "acres": 22.598852157943067,
+    "lots": 1,
+    "owner": "THE ROMAN CATHOLIC CHURCH OF THE MOST HOLY TRINITY"
+   },
+   {
+    "acres": 65.49763544536272,
+    "lots": 1,
+    "owner": "SAINT JOHN'S CEMETERY"
+   },
+   {
+    "acres": 89.18021120293848,
+    "lots": 6,
+    "owner": "WASHINGTON CEMETRY CORP"
+   },
+   {
+    "acres": 25.252525252525253,
+    "lots": 1,
+    "owner": "WASHINGTON CEMETERY C"
+   },
+   {
+    "acres": 6.695454545454545,
+    "lots": 1,
+    "owner": "CYPRESS HILLS CEMETERY"
+   },
+   {
+    "acres": 102.40371900826446,
+    "lots": 1,
+    "owner": "CEMETERY OF THE EVERGREENS"
+   },
+   {
+    "acres": 13.251951331496786,
+    "lots": 1,
+    "owner": "VETERANS ADMINISTRATI"
+   },
+   {
+    "acres": 34.43526170798898,
+    "lots": 1,
+    "owner": "SALEM FIELDS CEMETERY"
+   },
+   {
+    "acres": 7.09366391184573,
+    "lots": 1,
+    "owner": "MAIMONIDES BENEVOLENT"
+   },
+   {
+    "acres": 21.5,
+    "lots": 1,
+    "owner": "LINDEN HILL UN METH C"
+   },
+   {
+    "acres": 18.781726354453628,
+    "lots": 1,
+    "owner": "TR-ST PATRICKS CATHEDRAL"
+   },
+   {
+    "acres": 63.07598714416896,
+    "lots": 2,
+    "owner": "ST MICHAELS CREMETORY"
+   },
+   {
+    "acres": 14.650298438934803,
+    "lots": 1,
+    "owner": "WASHINGTON CEMETERY C"
+   },
+   {
+    "acres": 210.07116620752984,
+    "lots": 1,
+    "owner": "ST JOHNS CEMETERY"
+   },
+   {
+    "acres": 63.10376492194674,
+    "lots": 1,
+    "owner": "ST JOHNS CEMETERY"
+   },
+   {
+    "acres": 82.40360422405877,
+    "lots": 1,
+    "owner": "TR-ST PATRICKS CATHEDRAL"
+   },
+   {
+    "acres": 35.94175849403122,
+    "lots": 2,
+    "owner": "MT CARMEL CEMETERY"
+   },
+   {
+    "acres": 21.389164370982552,
+    "lots": 1,
+    "owner": "TR-ST PATRICKS CATHEDRAL"
+   },
+   {
+    "acres": 6.002410468319559,
+    "lots": 1,
+    "owner": "TR-ST PATRICKS CATHEDRAL"
+   },
+   {
+    "acres": 39.47141873278237,
+    "lots": 1,
+    "owner": "LUTHERAN CEMETERY"
+   }
+  ],
+  "rail": [
+   {
+    "acres": 662.833769513315,
+    "lots": 98,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 16.506611570247934,
+    "lots": 2,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 5.457392102846648,
+    "lots": 1,
+    "owner": "NATIONAL RAILROAD PASSENGER CORP"
+   },
+   {
+    "acres": 11.974288337924701,
+    "lots": 1,
+    "owner": "NATIONAL RR PASS CORP"
+   },
+   {
+    "acres": 6.755624426078971,
+    "lots": 1,
+    "owner": "AMTRAK HEADQUARTERS"
+   },
+   {
+    "acres": 12.752525252525253,
+    "lots": 1,
+    "owner": "AMTRAK HEADQUARTERS"
+   },
+   {
+    "acres": 46.25250229568412,
+    "lots": 1,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 6.100482093663912,
+    "lots": 2,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 5.9392102846648305,
+    "lots": 1,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 2.5220156106519744,
+    "lots": 1,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 2.403351698806244,
+    "lots": 1,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 56.799265381083565,
+    "lots": 13,
+    "owner": "METROPOLITAN TRANSPORTATION AUTHORI"
+   },
+   {
+    "acres": 5.44811753902663,
+    "lots": 1,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 5.238108356290175,
+    "lots": 2,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 18.735881542699726,
+    "lots": 1,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 35.07047750229568,
+    "lots": 1,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 17.364669421487605,
+    "lots": 1,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 12.226147842056932,
+    "lots": 4,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 20.426056014692378,
+    "lots": 2,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 35.23601928374656,
+    "lots": 2,
+    "owner": "NYC TRANSIT AUTHORITY"
+   },
+   {
+    "acres": 10.348668503213958,
+    "lots": 1,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 2.21421028466483,
+    "lots": 1,
+    "owner": "MTA - LIRR"
+   },
+   {
+    "acres": 11.741483011937557,
+    "lots": 3,
+    "owner": "MTA - LIRR"
+   }
+  ]
+ },
+ "cemetery_front_buildings": {
+  "105-vanderveer-street-brooklyn": 300,
+  "96-de-sales-place-brooklyn": 121,
+  "81-de-sales-place-brooklyn": 22,
+  "76-de-sales-place-brooklyn": 18,
+  "86-aberdeen-street-brooklyn": 13,
+  "115-vanderveer-street-brooklyn": 13,
+  "78-de-sales-place-brooklyn": 11,
+  "89-de-sales-place-brooklyn": 6,
+  "102-vanderveer-street-brooklyn": 5,
+  "63-stewart-street-brooklyn": 5,
+  "75-stewart-street-brooklyn": 5,
+  "112-vanderveer-street-brooklyn": 4,
+  "106-vanderveer-street-brooklyn": 4,
+  "94-vanderveer-street-brooklyn": 4,
+  "1601-bushwick-avenue-brooklyn": 2,
+  "110-vanderveer-street-brooklyn": 2,
+  "108-vanderveer-street-brooklyn": 2,
+  "73-stewart-street-brooklyn": 2,
+  "1605-bushwick-avenue-brooklyn": 2,
+  "84-granite-street-brooklyn": 2,
+  "80_52-57-street-ridgewood": 2,
+  "722a-central-avenue-brooklyn": 1,
+  "61-stewart-street-brooklyn": 1,
+  "82-aberdeen-street-brooklyn": 1,
+  "80-aberdeen-street-brooklyn": 1,
+  "83-de-sales-place-brooklyn": 1,
+  "85-de-sales-place-brooklyn": 1,
+  "114-vanderveer-street-brooklyn": 1,
+  "90-aberdeen-street-brooklyn": 1
+ },
+ "rail_front_buildings": {
+  "595-dean-street-brooklyn": 509,
+  "550-vanderbilt-avenue-brooklyn": 479,
+  "246-johnson-avenue-brooklyn": 251,
+  "834-pacific-street-brooklyn": 174,
+  "535-carlton-avenue-brooklyn": 126,
+  "35-hudson-yards-manhattan": 100,
+  "137-albany-avenue-brooklyn": 81,
+  "1519-dean-street-brooklyn": 44,
+  "143-albany-avenue-brooklyn": 38,
+  "1513-dean-street-brooklyn": 28,
+  "304-meserole-street-brooklyn": 27,
+  "96-troy-avenue-brooklyn": 20,
+  "1549-dean-street-brooklyn": 19,
+  "139-albany-avenue-brooklyn": 17,
+  "1509-dean-street-brooklyn": 14,
+  "98-troy-avenue-brooklyn": 13,
+  "1517-dean-street-brooklyn": 10,
+  "516-carlton-avenue-brooklyn": 9,
+  "1557-dean-street-brooklyn": 9,
+  "1503-dean-street-brooklyn": 9,
+  "1521-dean-street-brooklyn": 7,
+  "1511-dean-street-brooklyn": 7,
+  "1501-dean-street-brooklyn": 6,
+  "123-albany-avenue-brooklyn": 6,
+  "246-montrose-avenue-brooklyn": 4,
+  "141-albany-avenue-brooklyn": 3,
+  "259-west-30-street-new_york": 3,
+  "125-albany-avenue-brooklyn": 3,
+  "133-albany-avenue-brooklyn": 2,
+  "135-albany-avenue-brooklyn": 2,
+  "1563-dean-street-brooklyn": 2,
+  "1551-dean-street-brooklyn": 1,
+  "795-atlantic-avenue-brooklyn": 1,
+  "380-11-avenue-new_york": 1,
+  "252-west-31-street-new_york": 1,
+  "1507-dean-street-brooklyn": 1,
+  "1504_1566-dean-street-brooklyn": 1,
+  "145-albany-avenue-brooklyn": 1,
+  "1505-dean-street-brooklyn": 1
+ },
+ "park_front_by_floor": {
+  "0-2": {
+   "ads": 5738,
+   "park_view": 1651
+  },
+  "3-5": {
+   "ads": 12377,
+   "park_view": 2808
+  },
+  "6-10": {
+   "ads": 12177,
+   "park_view": 2112
+  },
+  "11-20": {
+   "ads": 10765,
+   "park_view": 1953
+  },
+  "21+": {
+   "ads": 5704,
+   "park_view": 836
+  }
+ },
+ "park_front_floor_quartiles": {
+  "0.25": 4.0,
+  "0.5": 7.0,
+  "0.75": 14.0,
+  "0.9": 22.0
+ },
+ "park_front_view_share_quantiles": {
+  "0.1": 0.0,
+  "0.25": 0.0,
+  "0.5": 0.23507130124777184,
+  "0.75": 0.5488636363636363,
+  "0.9": 0.9009677419354841
+ },
+ "park_front_buildings_no_view_ad": 358
+}
