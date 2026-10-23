@@ -2,7 +2,7 @@
 
 This fit reruns the as-of floor model on the build with the studio 3+ bath corrections (#1235): dataset `b0-b495f6dd53222649-alldata-v36-dense-nyc`, ads from `rows-b495f6dd53222649.parquet`. The predictions are in `building-zones-floor-asof2-predictions-2026-10-23.md`, written before the launch. The fits on the old build are in `building-zones-floor-asof-2026-10-23.md`.
 
-Run: `building-zones-floor-asof2-b0-latest-d5de95e7-dense-w1000`, fit-only on Modal, 21 minutes (15.4 of them sampling), $0.92.
+Run: `building-zones-floor-asof2-b0-latest-d5de95e7-dense-w1000`, fit-only on Modal, 21 minutes (15.4 of them sampling), $0.92 by the settle line in the limiter ledger.
 
 ## Gate
 
