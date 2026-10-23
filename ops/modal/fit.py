@@ -244,7 +244,8 @@ def plan(args, run_args, sha, short=None):
         "run_args": run,
         "explain": list(args.explain),
         "large": args.large,
-        "summary": not args.no_summary,
+        # rentfrontier.summary reads no baseline run.
+        "summary": not args.no_summary and args.model not in BASELINE_MODELS,
         "publish_only": args.publish_only,
         "allow_failing": args.allow_failing,
         "range_sample": args.range_sample,
@@ -508,11 +509,11 @@ def main(argv):
     ).stdout.strip()
     spec = plan(args, run_args, sha, short)
     if (args.score or args.cpu_score or args.no_loo or args.no_heldout) and (
-        args.model not in BASELINE_MODELS or args.large
+        args.model not in BASELINE_MODELS
     ):
         sys.exit(
             "--score, --cpu-score, --no-loo and --no-heldout apply to a baseline fit (b0 to "
-            "b0.4) that is not --large"
+            "b0.4, the building-zones family)"
         )
     if args.publish_only:
         return publish(args, spec, sha)

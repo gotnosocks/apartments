@@ -13,8 +13,8 @@ Ben asked on 2026-10-23 for a kitchen sink model: fit 8's surface, building leve
 
 | fit | run name | state |
 |---|---|---|
-| (a) 1 km | `ks-jointamp-w1000` | not launched |
-| (b) 150 m | `ks150-jointamp-w1000` | not launched; H100 |
+| (a) 1 km | `ks-jointamp-w1000` | launched 2026-10-23 17:34 ET at a12cd507 (unit ks-queue-a, log /data1/apartments/modal/logs/modal-fit-20261023-173411-1677250.log) |
+| (b) 150 m | `ks150-jointamp-w1000` | not launched; H100 in the large container (`--large --no-loo --no-heldout`, 12 h timeout), since Ben allowed it past the hour cap on 2026-10-23 at 6:06 PM ET; estimate $5.11 |
 
 Launch line for (a), from serve/master after a fetch:
 

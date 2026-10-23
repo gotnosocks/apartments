@@ -705,6 +705,30 @@ def test_a_large_fit_can_stop_before_its_summary():
     assert "--no-summary" not in rest and "--outside-budget" not in rest
 
 
+def test_a_large_baseline_fit_runs_as_the_fit_alone():
+    argv = [
+        "abc",
+        "ks150",
+        "building-zones-kitchen-sink-150m",
+        "nb9",
+        "2",
+        "300",
+        "4500",
+        "9",
+    ]
+    args, rest = fit.parse(
+        ["--large", "--gpu", "H100", "--no-loo", "--no-heldout", *argv]
+    )
+    spec = fit.plan(args, rest, "9371a18")
+    assert spec["large"] and not spec["loo"] and not spec["heldout"]
+    assert not spec["summary"]
+    assert cap.scoring_steps("building-zones-kitchen-sink-150m", large=True) == (
+        False,
+        False,
+    )
+    assert cap.scoring_steps("m7", large=True) == (True, True)
+
+
 def test_publish_only_names_the_existing_run_and_carries_the_gate_override():
     argv = ["abc", "x", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
     args, rest = fit.parse(
