@@ -1,6 +1,8 @@
 import numpy as np
+from test_building_zones import _design
 
-from rentfrontier import amp_joint, b0
+from rentfrontier import amp_joint, b0, building_zones
+from rentfrontier import building_zones_gibbs as bzg
 
 
 def _toy(seed=0):
@@ -66,9 +68,6 @@ def test_step_draws_the_amplitudes_posterior_given_the_levels():
 
 
 def test_gibbs_sweep_runs_with_the_joint_step():
-    from rentfrontier import building_zones, building_zones_gibbs as bzg
-    from test_building_zones import _design
-
     d = _design(n=300, weeks=12, seed=4)
     out = bzg.run(
         d,
