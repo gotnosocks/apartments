@@ -1,6 +1,8 @@
 """Per-ad held-out log density and predictive quantiles on a split for one run.
 
-    python score.py MODULE RUN OUT.npz SPLIT
+    python score.py MODULE RUN OUT.npz SPLIT [DATASET]
+
+DATASET defaults to the edc83b49 build's NYC dataset; a run on another build names its own.
 
 400 draws per run (100 per chain, spread evenly), Student-t likelihood, chunks of 20,000 ads,
 as in docs/notes/building-zones-floor-2026-10-21/heldout.py. Besides the 90% interval this
@@ -29,7 +31,7 @@ for m in list(sys.modules.values()):
         m.SPLIT = sys.argv[4]
 run, out = sys.argv[2], sys.argv[3]
 
-frame = b0.load_frame(DATASET)
+frame = b0.load_frame(sys.argv[5] if len(sys.argv) > 5 else DATASET)
 held = splits.SPLITS[sys.argv[4]](frame)
 z = np.load(RUNS + run + "/posterior.npz")
 assert (z["heldout"] == held).all()

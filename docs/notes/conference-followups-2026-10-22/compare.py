@@ -3,8 +3,8 @@
     python compare.py DIR [A:B ...]
 
 DIR holds NAME-latest.npz for each named run. With no pairs given, the script compares
-mundlak:floor and floor:age. For each pair A:B it checks that both files list the same
-held-out ads in the same order, then prints the summed elpd difference with three standard errors:
+mundlak:floor and floor:age. For each pair A:B it keeps the held-out ads both files list,
+which are all of them when both runs come from the same build, then prints the summed elpd difference with three standard errors:
     row: the plain sd of per-ad differences times sqrt(n),
     building: the sum of differences clustered by building,
     two-way: clustered by building and by listing week (Cameron, Gelbach and Miller 2011),
@@ -34,11 +34,14 @@ def ses(x, building, week):
 
 
 for a, b in pairs:
-    assert (d[a]["listing"] == d[b]["listing"]).all()
-    x = d[a]["elpd"] - d[b]["elpd"]
-    r, cb, cw = ses(x, d[b]["building"], d[b]["week"])
+    la, lb = d[a]["listing"], d[b]["listing"]
+    assert len(np.unique(la)) == len(la) and len(np.unique(lb)) == len(lb)
+    _, ia, ib = np.intersect1d(la, lb, assume_unique=True, return_indices=True)
+    x = d[a]["elpd"][ia] - d[b]["elpd"][ib]
+    r, cb, cw = ses(x, d[b]["building"][ib], d[b]["week"][ib])
     print(
         f"{a} - {b}: elpd {x.sum():.0f}  SE row {r:.0f} building {cb:.0f} two-way {cw:.0f}"
+        f"  on {len(x)} shared ads ({len(la) - len(x)} only in {a}, {len(lb) - len(x)} only in {b})"
     )
 for n, z in d.items():
     y, q = z["y"], z["q"]
