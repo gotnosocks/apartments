@@ -105,6 +105,30 @@ beside it.
   the nearest OpenStreetMap entrance. The 2015 entrance table comes from Wayback Machine copies of
   the MTA's StationEntrances.csv, and the provenance file explains how entrances were matched.
 
+## listing_outcomes.parquet
+
+This is a copy of the listing-outcomes file built at commit 7b6f543 (PR #1254), with its
+provenance in `listing_outcomes.provenance.json`. The sha256 checks match the original. The
+builder reads the eight page crawls, keeps only rental captures, and writes one row per
+StreetEasy rental id: 359,181 rows, 1,726 of them still listed.
+
+The columns are `listing_id`, `collected_at`, `first_ask`, `final_ask`, `n_changes`, `n_cuts`,
+`n_raises`, `days_listed`, `still_listed` and `status`.
+
+Before #1254 the builder also read sale pages. StreetEasy numbers sales and rentals separately,
+so about 5,008 rental outcomes in the 2026-10-13 file carried a sale's asks. If you ever work
+from that older file, drop rows with `final_ask` over $50,000. This copy still has 94 rows over
+$50,000, so check those before using them.
+
+Notes from the Data improvements thread on comparing this file with the model rows:
+- `days_on_market` in the observations is StreetEasy's own count. It leaves out days in
+  contract or off the market, so it runs shorter than the date span on 91% of the ads where
+  the two disagree. For calendar time, use `off_day - on_day` or `active_days`.
+- `latest_ask` in the observations is net effective rent, gross x (lease - free months) / lease,
+  so it differs from `final_ask` by design on ads with free months. The rows also drop price
+  changes logged more than 7 days after `off_day`. With both accounted for, 99.0% of the
+  finished rows that match model rows agree.
+
 ## served_predictions.parquet
 
 This file has the served fit's estimate for each of its 1,750,254 rows, 1,575,187 of them in the fit. I took the served summary's `rows.parquet`
