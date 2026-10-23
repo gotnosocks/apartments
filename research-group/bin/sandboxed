@@ -15,6 +15,8 @@
 set -euo pipefail
 G=/data1/apartments/research-group
 H="$HOME"
+# systemd units start without nvm on PATH, so take node from the newest nvm install.
+NODE_BIN=$(ls -d "$H"/.nvm/versions/node/*/bin | sort -V | tail -1)
 args=(
   --die-with-parent --new-session --unshare-all --share-net
   --proc /proc --dev /dev --tmpfs /tmp --tmpfs /run
@@ -33,7 +35,7 @@ args=(
   --chdir "$G"
   --clearenv
   --setenv HOME "$H" --setenv LANG "${LANG:-C.UTF-8}" --setenv TERM "${TERM:-dumb}"
-  --setenv PATH "$G/bin:$(dirname "$(readlink -f "$(command -v node)")"):$H/.local/bin:/usr/local/bin:/usr/bin:/bin"
+  --setenv PATH "$G/bin:$NODE_BIN:$H/.local/bin:/usr/local/bin:/usr/bin:/bin"
   --setenv TMPDIR /tmp
 )
 for d in /bin /sbin /lib /lib64 /lib32; do
