@@ -6,17 +6,11 @@ State as of 2026-10-23 05:30Z (01:30 ET). This thread revises the paper and runs
 
 Each fit waits in its own systemd user unit, in queue order. A unit waits for the one before it to finish, then for no `modal-fit-*` unit to be active, then for the limiter to cover the fit (`cap.py --check-launch`), and then it launches. The scripts are in `/data1/apartments/tmp/conference-followups/`.
 
-- `conf-queue-sims` (`queue-sims.sh`): fit 6 and then fit 7 on `building-zones-floor-asof2` at 0e260c3a. Fit 6 is done (see Done). Fit 7 waits on the limiter, which needs about $1.42.
-  - When fit 7 lands, score it against `mundlak/` and fill the "Fit 7, contextual truth" section of `docs/notes/simulated-recovery-asof2-2026-10-23.md`.
-  - Fit 6: `--dataset .../sim-asof2-realistic-20261023`, tag `sim-realistic-w1000`.
-  - Fit 7: `--dataset .../sim-asof2-mundlak-20261023`, tag `sim-mundlak-w1000`.
-  - Predictions: `docs/notes/simulated-recovery-asof2-predictions-2026-10-23.md` (#1244).
-  - Scoring: `python -m rentfrontier.simulate score RUN /data1/apartments/tmp/sim-recovery-asof2/<scenario> OUT --root /data1/apartments/tmp/sim-recovery-asof2`.
-- `conf-queue-fit8` (`queue-fit8.sh`): fit 8, `building-zones-floor-asof3-cap64` at 26504752 on the b3ddebf dataset, tag `cap64-w1000`. Predictions: `docs/notes/building-zones-floor-asof3-cap64-predictions-2026-10-23.md`.
-- `conf-queue-fit4` (`queue-fit4.sh`): fit 4, `building-zones-floor-asof3-unit` at 7af9d5d9, tag `unit-w1000`. Predictions: `docs/notes/building-zones-floor-asof3-unit-predictions-2026-10-23.md`. Before scoring, extend `score.py` to add each held-out ad's unit effect from `unit_mean` and `unit_var`. Check R-hat on `alpha`, which the reviewer flagged as a mixing risk. If a group "Fit request" passes before fit 4 launches, stop `conf-queue-fit4` and let the request go first. When fit 4 lands, fill the fit 4 section of `docs/notes/endpoint-unit-fe-2026-10-23.md` with its within-unit coefficients beside the unit fixed-effects OLS, reported as posterior intervals with no cluster adjustment.
-- `conf-queue-fit5` (`queue-fit5.sh`, from worktree `conf-fit5-run`): fit 5, `building-zones-floor-asof3-periods` at d5a03b20, tag `periods-w1000`. Predictions: `docs/notes/building-zones-floor-asof3-periods-predictions-2026-10-23.md`.
+- `conf-queue-fit8` (`queue-fit8.sh`): fit 8, `building-zones-floor-asof3-cap64` at 26504752 on the b3ddebf dataset, tag `cap64-w1000`, with the centred amplitude step. Predictions: `docs/notes/building-zones-floor-asof3-cap64-predictions-2026-10-23.md`, plus the fit 8 line in `docs/notes/amp-joint-predictions-2026-10-23.md`.
+- `conf-queue-fit4j` (`queue-fit4j.sh`, from worktree `conf-fit4-run`): fit 4, `building-zones-floor-asof3-unitmean` at 96a9156e with `--joint-amp`, tag `unitmean-jointamp-w1000`. Predictions: `docs/notes/building-zones-floor-asof3-unit-predictions-2026-10-23.md` and the amplitude predictions in `amp-joint-predictions-2026-10-23.md`. Before scoring, extend `score.py` to add each held-out ad's unit effect from `unit_mean` and `unit_var`. Check R-hat on `alpha`, which the reviewer flagged as a mixing risk. If a group "Fit request" passes before fit 4 launches, stop `conf-queue-fit4j` and let the request go first. When fit 4 lands, fill the fit 4 section of `docs/notes/endpoint-unit-fe-2026-10-23.md` with its within-unit coefficients beside the unit fixed-effects OLS, reported as posterior intervals with no cluster adjustment.
+- `conf-queue-fit5j` (`queue-fit5j.sh`, from worktree `conf-fit5-run`): fit 5, `building-zones-floor-asof3-periods` at 96a9156e with `--joint-amp`, tag `periods-jointamp-w1000`. Predictions: `docs/notes/building-zones-floor-asof3-periods-predictions-2026-10-23.md` and `amp-joint-predictions-2026-10-23.md`.
 
-The fit 8 and fit 4 scripts run from agent worktrees (`agent-a189fcf149e116772`, `agent-aa681c812eb7d2b6e`), because `serve/master` had not yet pulled #1247 and #1248, and `cap.py` there didn't know the new models.
+The fit 8 script runs from agent worktree `agent-a189fcf149e116772`, because `serve/master` had not yet pulled #1247 when it was queued. The worktrees `conf-fit4-run` and `conf-fit5-run` are checked out detached at 96a9156e. The old `conf-queue-fit4` and `conf-queue-fit5` units, without the joint step, are stopped.
 
 ## Done
 
@@ -31,10 +25,12 @@ The fit 8 and fit 4 scripts run from agent worktrees (`agent-a189fcf149e116772`,
 - Park placebo: predictions #1256, results #1260.
 - Stabilized split: results note `docs/notes/stabilized-split-2026-10-23.md`.
 - Within-unit OLS on Sol's audited endpoints: predictions #1262, results #1263. The fit 4 comparison is still open.
+- Fit 7 (simulated recovery, contextual truth): results in #1266, 6 hits and 1 miss; it missed the gate on `amp[outer]` (R-hat 1.0115).
+- `amp[outer]` diagnosis and the opt-in joint amplitude and wave step (`rentfrontier.amp_joint`, `--joint-amp`): #1267, with predictions in `docs/notes/amp-joint-predictions-2026-10-23.md`. The diagnostic scripts are `amp_diag.py` and `amp_toy_iat.py` in `docs/notes/conference-followups-2026-10-22/`.
 
 ## Open work, in order
 
-1. Fits 7, 8, 4 and 5 as queued above.
+1. Fits 8, 4 and 5 as queued above. Score fits 4 and 5 against the amplitude predictions as well as their own, and fit 8 against its amplitude line.
 2. Fit 9 (SBC) only if budget remains.
 3. After each fit: results note, explainer artifact, and a board post.
 4. Fable asked for a table of `latest_ask` against the outcomes' final ask, split by sign, on finished Manhattan rows. It's a small addition to `delist_audit.py`'s coverage step.
