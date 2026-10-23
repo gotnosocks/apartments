@@ -176,6 +176,7 @@ BASELINES = (
     ("--model", "building-zones-floor-asof3-cap64"),
     ("--model", "building-zones-floor-asof3-unit"),
     ("--model", "building-zones-floor-asof3-periods"),
+    ("--model", "building-zones-floor-asof3-unitmean"),
     ("--model", "building-zones-mundlak-asof"),
 )
 

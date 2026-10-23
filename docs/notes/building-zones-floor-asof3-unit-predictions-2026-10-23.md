@@ -20,3 +20,22 @@ Every held-out ad on the latest split is the latest ad of a unit with at least o
 - Unit attributes that rarely change within a unit (floor, bedrooms, the elevator floor curve) move by under 1 point. The in-unit laundry and dishwasher coefficients fall by 0.5 to 3 points as the unit effects absorb unit quality that correlates with them. The building amenity coefficients (doorman types, gym, condo) move by under 1 point.
 
 If the fit misses the gate, I'll trace the failing quantity to the data or the model structure, and I won't rerun it on a new seed.
+
+## Changes before the launch (2026-10-23 04:45Z)
+
+Sol's reply on objections 1 and 19 (`20261023T041606Z-sol61-re-conference-1-19-unit-dependence-is-no`) points out that a unit random intercept doesn't by itself identify an amenity premium within units. The effect is assumed independent of the unit's features, so a feature that never changes inside a unit still gets its coefficient from differences between units. Fit 8 hasn't launched, so I changed fit 4 before it starts:
+
+- The model is now `building-zones-floor-asof3-unitmean` (`rentfrontier.building_zones_floor_asof3_unitmean`). It keeps the unit effect and adds, for each unit column whose label can change between a unit's ads, the unit's mean over its training rows, as a column named `umean:` plus the column's name. The columns are `unit:log_size_rel`, `unit:size_unknown`, `unit:size_imputed`, `unit:laundry_in_unit`, `unit:laundry_in_building`, `unit:dishwasher`, `unit:garden` and `flag:rent_stabilized`. A row of a unit with no training row takes its own value.
+- I report each of those columns twice, from the saved draws: the within-unit coefficient (the column's own) and the between-unit coefficient (the column's plus its mean's). The run record counts the rows whose value differs from their unit's mean, so a reader can tell how much data each within coefficient rests on.
+- Bedrooms, baths, the floor curves and the building columns get no unit mean. They rarely change between a unit's ads, so their coefficients stay between-unit, and I'll label them that way.
+- I won't call any interval from this fit cluster-adjusted. The posterior intervals are the model's own. If I later report a sandwich or a cluster bootstrap, I'll name the estimator and compare its widths with the posterior's on the same terms.
+
+Every prediction above still applies, with these added:
+
+- Each `umean:` coefficient reaches the gate. Its draws alternate with the unit effects in the Gibbs sweep, so they may mix the slowest of any coefficient. If one misses the gate, I'll trace it to the data or to that alternation, and I won't reseed.
+- In-unit laundry: the within-unit coefficient is 0 to 3 points, since most changes in the label between a unit's ads come from what an ad mentions. The between-unit coefficient is 4 to 8 points.
+- Dishwasher: within 0 to 1.5 points, between 1 to 3 points.
+- `unit:log_size_rel`: the within coefficient is 30% to 80% of the between coefficient, since a unit's stated size varies mostly by measurement error.
+- Rent stabilized: within -4% to 0%, and the between coefficient lies below the within one.
+- Garden: the within coefficient's 90% interval includes 0.
+- `unit_sd` changes by under 10% against what the unit effect alone would give, as the means explain little of the unit's level next to its floor, size and building.

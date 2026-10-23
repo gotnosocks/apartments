@@ -499,7 +499,9 @@ def main(argv=None):
     # build the version with a unit effect (rentfrontier.building_zones_floor_asof3_unit) adds
     # a random effect for each unit, and the version with amenity premiums split by period
     # (rentfrontier.building_zones_floor_asof3_periods) splits laundry, dishwasher, garden and
-    # doorman by the ad's date.
+    # doorman by the ad's date. The version with unit means
+    # (rentfrontier.building_zones_floor_asof3_unitmean) adds to the unit effect each unit's
+    # means of the columns that change between its ads.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -541,6 +543,7 @@ def main(argv=None):
         ("building-zones-floor-asof3-cap64", "building_zones_floor_asof3_cap64"),
         ("building-zones-floor-asof3-unit", "building_zones_floor_asof3_unit"),
         ("building-zones-floor-asof3-periods", "building_zones_floor_asof3_periods"),
+        ("building-zones-floor-asof3-unitmean", "building_zones_floor_asof3_unitmean"),
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
     ):
         if any(
