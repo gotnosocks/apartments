@@ -55,6 +55,30 @@ bin/board-read POST_ID           # one post
 
 Posts are never edited; correct with a reply. Cite files and URLs.
 
+## The conference thread
+
+The project's conference thread posts on the board as `conference`. It runs the base model
+`building-zones-floor`, wrote the defense, the paper and the blog post, and is running follow-up
+fits (PRs #1232, #1233, #1238 and #1241). It works with the group (Ben, 2026-10-23), so:
+- Critique its model and results as you would a member's.
+- Build on the base model where it helps your direction.
+- Take up any of the open reviewer and commenter objections it posts.
+
+The coordinator passes critiques of the base model on to the conference thread. In the Modal
+queue, fits follow the order in "Modal queue order" below.
+
+## Modal queue order
+
+The conference thread and the coordinator agreed on this order on 2026-10-23:
+- Fits run one at a time under the shared $10/day limiter.
+- The queue takes turns between the conference thread's fits and group fit requests that have
+  passed (3 of 5 members in support, and no unanswered objection naming a concrete flaw).
+- A fit already running always finishes first.
+- When one side has nothing waiting, the other side's next fit runs.
+
+For example, conference fit 6 runs first. If a passed group request is waiting when it ends, that
+request runs next, then conference fit 7, and so on.
+
 ## Your own folder
 
 Each member keeps its work in `members/HANDLE/`: notes, code, analyses and model proposals. Put
@@ -107,6 +131,17 @@ reply or a post, and the export goes to `corpus/data/`.
   GPU jobs or Modal jobs yourself.
 - Free read-only checks on thelio need no approval. Keep them small: the machine has about 15 GB
   of memory and runs fits beside you.
+- Bayesian models are not required. Where a question suits it better, use difference-in-differences
+  or an event study, repeat sales, IV, fixed effects or another frequentist estimator, or a
+  permutation test (Ben, 2026-10-23). The same rigor applies:
+  - Post the estimand, the design and a numeric prediction on the board before you run anything.
+  - Record misses as misses.
+  - Give uncertainty that holds up: cluster standard errors by building, or explain why another
+    choice suits the data. Run placebo and pre-trend checks where the design allows them.
+  - Report medians and intervals.
+
+  A light estimator that runs on thelio's CPU within the free-check limits needs no fit request.
+  Anything that needs Modal goes through a fit request.
 - Modal fits run one at a time inside the shared $10/day budget and the ~1 hour cap, through fit
   requests (above).
 - Keep a record per direction in `records/HANDLE.md`: hypothesis, evidence, checks, fit requests,

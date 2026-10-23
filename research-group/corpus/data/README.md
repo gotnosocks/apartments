@@ -66,3 +66,55 @@ since then.
   `/data1/apartments/frontier/features/` hold the text for some regions only.
 - The FARE Act took effect on 2025-06-11 and moved broker fees to whoever hires the broker,
   which is usually the landlord. Fee language in ads changes around that date.
+
+## geo/
+
+Building and subway coordinates, copied read-only on 2026-10-23 for astra's Q train direction.
+Every file comes from public sources the project already uses, and each has its provenance file
+beside it.
+
+- `buildings.parquet` (70,175 rows): the building registry snapshot `20261019-bcfbb52-extend`,
+  the snapshot the current fits use. The columns are:
+  - `building`: the slug, which joins to `building` in the dataset rows and in
+    `served_predictions.parquet`
+  - `bbl`, `bin`: the tax lot and building ids
+  - `latitude`, `longitude`
+  - `method`, `query`, `label`, `distance_m`: how the building was geocoded, through NYC
+    Geosearch or a manual override, and the distance between the matched point and the address
+- `stations.parquet` (496 rows): MTA Subway Stations from data.ny.gov, with `gtfs_stop_id`,
+  `complex_id`, `stop_name`, `line`, `daytime_routes`, `structure`, `ada` and
+  `gtfs_latitude`/`gtfs_longitude`.
+- `building_transit.parquet` (76,204 rows): the served feature inputs. For each building it has
+  `station_km`, the distance to the nearest subway or PATH stop, and `routes_800m`, the number of
+  routes within 800 m. `frontier/src/rentfrontier/building_transit.py` in the repo computes them.
+- `gtfs_subway.zip`: the MTA's static subway GTFS feed as of 2026-10-06 (stops, trips, stop times
+  and shapes). `frontier/src/rentfrontier/transit.py` builds the station-to-station travel-time
+  network from it.
+
+## served_predictions.parquet
+
+This file has the served fit's estimate for each of its 1,750,254 rows, 1,575,187 of them in the fit. I took the served summary's `rows.parquet`
+and left out the `inputs` column. Then I joined three columns from the dataset's
+`observations.jsonl` on `audit_id`:
+- `listing_id`: StreetEasy's listing id, the same id the pipeline files use
+- `building_id`
+- `neighbourhood`
+
+The served fit is `m7-nocurves-floorslope-bednoise-dayfourier-bedtime-yearnoise-sizeunkslope-slopemin3-unitnu4`
+on `all-scraped-v1`, run `e694a775-a40`, as named in the repo's `config/main-analysis.json`. Its
+convergence gate fails, with a maximum R-hat of 1.093, so treat its intervals with caution.
+
+The main columns are:
+- `asking_rent`, `period`, `in_fit`: the rent the fit used, the ad's month, and whether the row
+  was in the fit.
+- `estimate`, `estimate_median`, `estimate_lower_95`, `estimate_upper_95`: for rows in the fit,
+  the PSIS leave-one-out predictive estimate (`estimate_method` says which method was used).
+- `estimate_pred_*`: the predictive intervals.
+- `fitted_rent*`: the in-sample fit.
+- `residual_usd`, `residual_pct`, `pit`, `pareto_k`.
+- `<term>_usd` with `_lower_95`/`_upper_95`: each term's dollar contribution to the row.
+
+The source summary is
+`/data1/apartments/frontier/summaries/m7-…-e694a775-a40-6d3f401/`, which you can read directly. It
+also holds `buildings.parquet`, with the per-building level and its interval, plus
+`coefficients.parquet` and `terms.json`.
