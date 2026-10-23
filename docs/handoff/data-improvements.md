@@ -1,6 +1,22 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 10:20 ET, after the net effective retract in #1134. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-22 21:40 ET, after the studio 3+ bath cell corrections in #1235. Thread owner: the Data improvements project thread (bridge session on thelio).
+
+## 2026-10-22 21:40 ET
+The as-of base fit missed the gate on its studio cell with 3+ full baths (70 training rows in
+dataset edc83b49f9bacd8c). Two Sonnet readers went through each row's ad and the unit's other ads,
+and #1235 merged the backed part:
+- 14 nonresidential excludes, three of them live/work offers that lease business floors with a
+  residence.
+- Bedroom or bath sets on 15 apartments, each backed by other ads for the same unit. Bedroom and
+  bath values go in separate entries.
+
+About 41 rows stay in the cell. These include the 45 Wall St rows (ad text only, and the unit's ads
+disagree), rows backed only by their own ad text, units whose ads conflict (2901943, 3150901,
+4519639, 4779814, 184 Stanton #1A, Two Northside Piers 16J), townhouse 3583388, and empty ads
+with no other ads. Reads, packets and the generator are in `/data1/apartments/tmp/di-studio3`.
+The coordinator was asked to tell the conference thread and Modeling that the rule version
+changed.
 
 ## 2026-10-18 10:20 ET
 
