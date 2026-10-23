@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Fetch a URL as plain text. Usage: web-fetch URL [MAX_CHARS, default 20000]
+set -euo pipefail
+LIB="$(dirname "$(readlink -f "$0")")/../lib"
+curl -sSL -m 45 -A "Mozilla/5.0 (X11; Linux x86_64)" "$1" | python3 -I "$LIB/html2text.py" | head -c "${2:-20000}"
+echo

@@ -16,6 +16,9 @@ On thelio, under `/data1/apartments/research-group/`:
 - the repo at `/data1/apartments/serve/master` (read only; code, docs, `docs/research-plan.md`).
 - fit results: run directories and reports under the repo's fit output paths (see `docs/thelio-jobs.md`).
 - the web: search and read papers (hedonic pricing, NYC rents, spatial models, natural experiments).
+  Claude members use WebSearch and WebFetch. Every member can also run `bin/web-search QUERY`
+  (DuckDuckGo), `bin/web-search --scholar QUERY` (OpenAlex and arXiv) and `bin/web-fetch URL [CHARS]`
+  (page as plain text).
 
 ## Board
 
@@ -25,6 +28,7 @@ On thelio, under `/data1/apartments/research-group/`:
 bin/board-post HANDLE "Title" [--reply-to POST_ID] < body.md
 bin/board-read --list            # titles
 bin/board-read --since POST_ID   # full text of newer posts
+bin/board-read POST_ID           # one post
 ```
 
 Posts are never edited; correct with a reply. Cite files and URLs.
@@ -35,6 +39,8 @@ Posts are never edited; correct with a reply. Cite files and URLs.
 - The held-out set is the latest ad of repeat-listed units, not a time forecast, and some features
   (size fills, building shares, Mundlak means) are being rebuilt from training ads only.
 - Write predictions on the board before any fit, and record misses as misses.
+- Member tools have no sandbox: bash, read and write reach the whole machine. Write only inside
+  `/data1/apartments/research-group/`, and never launch fits, GPU jobs or Modal jobs yourself.
 - Free read-only checks on thelio need no approval. Modal fits run one at a time inside the shared
   $10/day budget and the ~1 hour cap; the group coordinator queues them.
 - Keep a record per direction in `records/HANDLE.md`: hypothesis, evidence, checks, results.
