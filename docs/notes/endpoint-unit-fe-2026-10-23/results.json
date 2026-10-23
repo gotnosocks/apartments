@@ -1,0 +1,1200 @@
+{
+ "inputs": {
+  "endpoints": "/data1/apartments/tmp/conference-followups/unit-fe/endpoint_design.parquet",
+  "model_rows": "/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc/rows.parquet",
+  "counts": "/data1/apartments/tmp/conference-followups/unit-fe/counts.json"
+ },
+ "target": "log latest_ask",
+ "fixed_effects": [
+  "unit",
+  "calendar month of own latest_day"
+ ],
+ "clusters": "two-way: unit and ISO week of own latest_day",
+ "columns": [
+  "flag:shared_space",
+  "flag:income_restricted",
+  "flag:rent_stabilized",
+  "unit:log_size_rel",
+  "unit:size_imputed",
+  "unit:size_unknown",
+  "unit:laundry_in_unit",
+  "unit:laundry_in_building",
+  "unit:dishwasher",
+  "bld:altered_2000_on",
+  "unit:elev_f2",
+  "unit:elev_f3",
+  "unit:elev_f4",
+  "unit:elev_f5",
+  "unit:elev_f6",
+  "unit:elev_f7",
+  "unit:elev_f8",
+  "unit:elev_f9",
+  "unit:elev_f10",
+  "unit:elev_f11",
+  "unit:elev_f12",
+  "unit:elev_f13",
+  "unit:elev_f14",
+  "unit:elev_f15",
+  "unit:elev_f16",
+  "unit:elev_f17",
+  "unit:elev_f18",
+  "unit:elev_f20",
+  "unit:elev_f21",
+  "unit:elev_f23",
+  "unit:elev_f27",
+  "unit:elev_f30",
+  "unit:elev_f34",
+  "unit:elev_f47",
+  "unit:walkup_f2",
+  "unit:walkup_f3",
+  "unit:walkup_f4",
+  "unit:walkup_f5",
+  "unit:walkup_f6",
+  "unit:elev_top",
+  "unit:walkup_top",
+  "unit:elev_floor_unknown",
+  "unit:walkup_floor_unknown"
+ ],
+ "runs": {
+  "all_pairs": {
+   "rows": 123828,
+   "units": 61914,
+   "months": 60,
+   "weeks": 262,
+   "iterations": 50,
+   "dropped_columns": [],
+   "terms": {
+    "flag:shared_space": {
+     "estimate": [
+      -0.23,
+      -0.72,
+      0.27
+     ],
+     "scale": "percent",
+     "log_coef": -0.00229,
+     "se_two_way": 0.00252,
+     "se_unit": 0.0026,
+     "se_week": 0.00173,
+     "units_changing": 858
+    },
+    "flag:income_restricted": {
+     "estimate": [
+      -4.0,
+      -7.98,
+      0.15
+     ],
+     "scale": "percent",
+     "log_coef": -0.04081,
+     "se_two_way": 0.02158,
+     "se_unit": 0.02196,
+     "se_week": 0.01499,
+     "units_changing": 10
+    },
+    "flag:rent_stabilized": {
+     "estimate": [
+      -0.72,
+      -1.44,
+      -0.0
+     ],
+     "scale": "percent",
+     "log_coef": -0.00726,
+     "se_two_way": 0.00369,
+     "se_unit": 0.00371,
+     "se_week": 0.00259,
+     "units_changing": 547
+    },
+    "unit:log_size_rel": {
+     "estimate": [
+      0.002,
+      -0.0073,
+      0.0113
+     ],
+     "scale": "elasticity",
+     "log_coef": 0.00204,
+     "se_two_way": 0.00474,
+     "se_unit": 0.00469,
+     "se_week": 0.00338,
+     "units_changing": 9339
+    },
+    "unit:size_imputed": {
+     "estimate": [
+      0.2,
+      0.01,
+      0.4
+     ],
+     "scale": "percent",
+     "log_coef": 0.00202,
+     "se_two_way": 0.001,
+     "se_unit": 0.00095,
+     "se_week": 0.00074,
+     "units_changing": 7742
+    },
+    "unit:size_unknown": {
+     "estimate": [
+      0.13,
+      -0.14,
+      0.39
+     ],
+     "scale": "percent",
+     "log_coef": 0.00127,
+     "se_two_way": 0.00134,
+     "se_unit": 0.00133,
+     "se_week": 0.00096,
+     "units_changing": 5126
+    },
+    "unit:laundry_in_unit": {
+     "estimate": [
+      0.78,
+      0.49,
+      1.08
+     ],
+     "scale": "percent",
+     "log_coef": 0.00782,
+     "se_two_way": 0.00149,
+     "se_unit": 0.00148,
+     "se_week": 0.00107,
+     "units_changing": 5651
+    },
+    "unit:laundry_in_building": {
+     "estimate": [
+      0.43,
+      0.19,
+      0.67
+     ],
+     "scale": "percent",
+     "log_coef": 0.00427,
+     "se_two_way": 0.00123,
+     "se_unit": 0.00123,
+     "se_week": 0.00087,
+     "units_changing": 6129
+    },
+    "unit:dishwasher": {
+     "estimate": [
+      0.53,
+      0.38,
+      0.68
+     ],
+     "scale": "percent",
+     "log_coef": 0.00525,
+     "se_two_way": 0.00076,
+     "se_unit": 0.00075,
+     "se_week": 0.00055,
+     "units_changing": 11992
+    },
+    "bld:altered_2000_on": {
+     "estimate": [
+      1.19,
+      0.35,
+      2.04
+     ],
+     "scale": "percent",
+     "log_coef": 0.01186,
+     "se_two_way": 0.00426,
+     "se_unit": 0.00401,
+     "se_week": 0.00318,
+     "units_changing": 422
+    },
+    "unit:elev_f2": {
+     "estimate": [
+      2.86,
+      -2.82,
+      8.87
+     ],
+     "scale": "percent",
+     "log_coef": 0.02823,
+     "se_two_way": 0.02898,
+     "se_unit": 0.0291,
+     "se_week": 0.0204,
+     "units_changing": 13
+    },
+    "unit:elev_f3": {
+     "estimate": [
+      0.52,
+      -5.93,
+      7.42
+     ],
+     "scale": "percent",
+     "log_coef": 0.00521,
+     "se_two_way": 0.03387,
+     "se_unit": 0.03375,
+     "se_week": 0.02403,
+     "units_changing": 14
+    },
+    "unit:elev_f4": {
+     "estimate": [
+      0.71,
+      -5.8,
+      7.66
+     ],
+     "scale": "percent",
+     "log_coef": 0.00705,
+     "se_two_way": 0.03408,
+     "se_unit": 0.0345,
+     "se_week": 0.0238,
+     "units_changing": 14
+    },
+    "unit:elev_f5": {
+     "estimate": [
+      3.13,
+      -3.76,
+      10.51
+     ],
+     "scale": "percent",
+     "log_coef": 0.03081,
+     "se_two_way": 0.03528,
+     "se_unit": 0.03526,
+     "se_week": 0.02496,
+     "units_changing": 10
+    },
+    "unit:elev_f6": {
+     "estimate": [
+      -0.43,
+      -6.86,
+      6.44
+     ],
+     "scale": "percent",
+     "log_coef": -0.00434,
+     "se_two_way": 0.03406,
+     "se_unit": 0.03476,
+     "se_week": 0.02359,
+     "units_changing": 10
+    },
+    "unit:elev_f7": {
+     "estimate": [
+      0.7,
+      -5.9,
+      7.76
+     ],
+     "scale": "percent",
+     "log_coef": 0.00695,
+     "se_two_way": 0.0346,
+     "se_unit": 0.03429,
+     "se_week": 0.02468,
+     "units_changing": 2
+    },
+    "unit:elev_f8": {
+     "estimate": [
+      1.76,
+      -4.91,
+      8.91
+     ],
+     "scale": "percent",
+     "log_coef": 0.01747,
+     "se_two_way": 0.03461,
+     "se_unit": 0.03682,
+     "se_week": 0.02281,
+     "units_changing": 7
+    },
+    "unit:elev_f9": {
+     "estimate": [
+      2.96,
+      -5.31,
+      11.95
+     ],
+     "scale": "percent",
+     "log_coef": 0.02918,
+     "se_two_way": 0.04272,
+     "se_unit": 0.04347,
+     "se_week": 0.02967,
+     "units_changing": 1
+    },
+    "unit:elev_f10": {
+     "estimate": [
+      -0.09,
+      -6.2,
+      6.43
+     ],
+     "scale": "percent",
+     "log_coef": -0.00087,
+     "se_two_way": 0.03222,
+     "se_unit": 0.03213,
+     "se_week": 0.02285,
+     "units_changing": 5
+    },
+    "unit:elev_f11": {
+     "estimate": [
+      -12.61,
+      -17.73,
+      -7.17
+     ],
+     "scale": "percent",
+     "log_coef": -0.13479,
+     "se_two_way": 0.0308,
+     "se_unit": 0.03092,
+     "se_week": 0.0217,
+     "units_changing": 1
+    },
+    "unit:elev_f12": {
+     "estimate": [
+      3.77,
+      -8.14,
+      17.23
+     ],
+     "scale": "percent",
+     "log_coef": 0.03705,
+     "se_two_way": 0.0622,
+     "se_unit": 0.06292,
+     "se_week": 0.04347,
+     "units_changing": 3
+    },
+    "unit:elev_f13": {
+     "estimate": [
+      -13.79,
+      -26.89,
+      1.66
+     ],
+     "scale": "percent",
+     "log_coef": -0.14833,
+     "se_two_way": 0.08409,
+     "se_unit": 0.08013,
+     "se_week": 0.06214,
+     "units_changing": 2
+    },
+    "unit:elev_f14": {
+     "estimate": [
+      -2.98,
+      -10.4,
+      5.06
+     ],
+     "scale": "percent",
+     "log_coef": -0.03023,
+     "se_two_way": 0.04059,
+     "se_unit": 0.04005,
+     "se_week": 0.02907,
+     "units_changing": 6
+    },
+    "unit:elev_f15": {
+     "estimate": [
+      17.12,
+      10.26,
+      24.41
+     ],
+     "scale": "percent",
+     "log_coef": 0.15803,
+     "se_two_way": 0.03081,
+     "se_unit": 0.03079,
+     "se_week": 0.02181,
+     "units_changing": 2
+    },
+    "unit:elev_f16": {
+     "estimate": [
+      -0.11,
+      -9.86,
+      10.71
+     ],
+     "scale": "percent",
+     "log_coef": -0.00106,
+     "se_two_way": 0.05243,
+     "se_unit": 0.05297,
+     "se_week": 0.03669,
+     "units_changing": 3
+    },
+    "unit:elev_f17": {
+     "estimate": [
+      5.19,
+      -0.97,
+      11.72
+     ],
+     "scale": "percent",
+     "log_coef": 0.05056,
+     "se_two_way": 0.03077,
+     "se_unit": 0.03087,
+     "se_week": 0.02168,
+     "units_changing": 1
+    },
+    "unit:elev_f18": {
+     "estimate": [
+      1.25,
+      -6.9,
+      10.11
+     ],
+     "scale": "percent",
+     "log_coef": 0.01238,
+     "se_two_way": 0.04281,
+     "se_unit": 0.04353,
+     "se_week": 0.02975,
+     "units_changing": 1
+    },
+    "unit:elev_f20": {
+     "estimate": [
+      -5.32,
+      -10.83,
+      0.54
+     ],
+     "scale": "percent",
+     "log_coef": -0.05462,
+     "se_two_way": 0.0306,
+     "se_unit": 0.03081,
+     "se_week": 0.02149,
+     "units_changing": 2
+    },
+    "unit:elev_f21": {
+     "estimate": [
+      12.66,
+      6.08,
+      19.66
+     ],
+     "scale": "percent",
+     "log_coef": 0.11924,
+     "se_two_way": 0.03075,
+     "se_unit": 0.03094,
+     "se_week": 0.0216,
+     "units_changing": 1
+    },
+    "unit:elev_f23": {
+     "estimate": [
+      1.14,
+      -4.74,
+      7.39
+     ],
+     "scale": "percent",
+     "log_coef": 0.01138,
+     "se_two_way": 0.03056,
+     "se_unit": 0.03084,
+     "se_week": 0.02141,
+     "units_changing": 1
+    },
+    "unit:elev_f27": {
+     "estimate": [
+      -9.38,
+      -14.65,
+      -3.78
+     ],
+     "scale": "percent",
+     "log_coef": -0.09851,
+     "se_two_way": 0.03058,
+     "se_unit": 0.03082,
+     "se_week": 0.02146,
+     "units_changing": 1
+    },
+    "unit:elev_f30": {
+     "estimate": [
+      39.15,
+      30.95,
+      47.87
+     ],
+     "scale": "percent",
+     "log_coef": 0.33039,
+     "se_two_way": 0.03101,
+     "se_unit": 0.03095,
+     "se_week": 0.02196,
+     "units_changing": 1
+    },
+    "unit:elev_f34": {
+     "estimate": [
+      36.6,
+      28.62,
+      45.08
+     ],
+     "scale": "percent",
+     "log_coef": 0.31189,
+     "se_two_way": 0.03073,
+     "se_unit": 0.0309,
+     "se_week": 0.0216,
+     "units_changing": 1
+    },
+    "unit:elev_f47": {
+     "estimate": [
+      20.62,
+      -2.21,
+      48.79
+     ],
+     "scale": "percent",
+     "log_coef": 0.1875,
+     "se_two_way": 0.10709,
+     "se_unit": 0.10723,
+     "se_week": 0.07562,
+     "units_changing": 2
+    },
+    "unit:walkup_f2": {
+     "estimate": [
+      -0.2,
+      -3.0,
+      2.69
+     ],
+     "scale": "percent",
+     "log_coef": -0.00196,
+     "se_two_way": 0.01454,
+     "se_unit": 0.01434,
+     "se_week": 0.01042,
+     "units_changing": 94
+    },
+    "unit:walkup_f3": {
+     "estimate": [
+      0.57,
+      -2.74,
+      3.99
+     ],
+     "scale": "percent",
+     "log_coef": 0.00564,
+     "se_two_way": 0.01706,
+     "se_unit": 0.01701,
+     "se_week": 0.0121,
+     "units_changing": 77
+    },
+    "unit:walkup_f4": {
+     "estimate": [
+      -0.01,
+      -3.72,
+      3.84
+     ],
+     "scale": "percent",
+     "log_coef": -0.00011,
+     "se_two_way": 0.0193,
+     "se_unit": 0.01889,
+     "se_week": 0.01393,
+     "units_changing": 47
+    },
+    "unit:walkup_f5": {
+     "estimate": [
+      0.73,
+      -3.57,
+      5.22
+     ],
+     "scale": "percent",
+     "log_coef": 0.00726,
+     "se_two_way": 0.02228,
+     "se_unit": 0.02236,
+     "se_week": 0.01569,
+     "units_changing": 24
+    },
+    "unit:walkup_f6": {
+     "estimate": [
+      0.89,
+      -3.58,
+      5.55
+     ],
+     "scale": "percent",
+     "log_coef": 0.00883,
+     "se_two_way": 0.02308,
+     "se_unit": 0.02335,
+     "se_week": 0.01612,
+     "units_changing": 18
+    },
+    "unit:elev_top": {
+     "estimate": [
+      -3.65,
+      -9.31,
+      2.36
+     ],
+     "scale": "percent",
+     "log_coef": -0.03723,
+     "se_two_way": 0.03089,
+     "se_unit": 0.03087,
+     "se_week": 0.02185,
+     "units_changing": 13
+    },
+    "unit:walkup_top": {
+     "estimate": [
+      -0.27,
+      -2.84,
+      2.37
+     ],
+     "scale": "percent",
+     "log_coef": -0.0027,
+     "se_two_way": 0.01331,
+     "se_unit": 0.01386,
+     "se_week": 0.00901,
+     "units_changing": 54
+    },
+    "unit:elev_floor_unknown": {
+     "estimate": [
+      0.28,
+      -5.55,
+      6.48
+     ],
+     "scale": "percent",
+     "log_coef": 0.0028,
+     "se_two_way": 0.03059,
+     "se_unit": 0.03074,
+     "se_week": 0.02152,
+     "units_changing": 67
+    },
+    "unit:walkup_floor_unknown": {
+     "estimate": [
+      -0.1,
+      -3.19,
+      3.1
+     ],
+     "scale": "percent",
+     "log_coef": -0.00097,
+     "se_two_way": 0.01605,
+     "se_unit": 0.01582,
+     "se_week": 0.01151,
+     "units_changing": 201
+    }
+   }
+  },
+  "without_fit4_held_out_units": {
+   "rows": 120052,
+   "units": 60026,
+   "months": 60,
+   "weeks": 262,
+   "iterations": 50,
+   "dropped_columns": [
+    "unit:elev_f27"
+   ],
+   "terms": {
+    "flag:shared_space": {
+     "estimate": [
+      -0.18,
+      -0.69,
+      0.33
+     ],
+     "scale": "percent",
+     "log_coef": -0.00181,
+     "se_two_way": 0.00261,
+     "se_unit": 0.00265,
+     "se_week": 0.00181,
+     "units_changing": 825
+    },
+    "flag:income_restricted": {
+     "estimate": [
+      -3.97,
+      -7.93,
+      0.16
+     ],
+     "scale": "percent",
+     "log_coef": -0.04049,
+     "se_two_way": 0.02149,
+     "se_unit": 0.02189,
+     "se_week": 0.01491,
+     "units_changing": 10
+    },
+    "flag:rent_stabilized": {
+     "estimate": [
+      -0.59,
+      -1.29,
+      0.12
+     ],
+     "scale": "percent",
+     "log_coef": -0.00587,
+     "se_two_way": 0.00362,
+     "se_unit": 0.00374,
+     "se_week": 0.00247,
+     "units_changing": 526
+    },
+    "unit:log_size_rel": {
+     "estimate": [
+      0.0008,
+      -0.0084,
+      0.01
+     ],
+     "scale": "elasticity",
+     "log_coef": 0.00083,
+     "se_two_way": 0.00469,
+     "se_unit": 0.00469,
+     "se_week": 0.00332,
+     "units_changing": 9043
+    },
+    "unit:size_imputed": {
+     "estimate": [
+      0.24,
+      0.04,
+      0.44
+     ],
+     "scale": "percent",
+     "log_coef": 0.00238,
+     "se_two_way": 0.00101,
+     "se_unit": 0.00096,
+     "se_week": 0.00075,
+     "units_changing": 7517
+    },
+    "unit:size_unknown": {
+     "estimate": [
+      0.14,
+      -0.13,
+      0.41
+     ],
+     "scale": "percent",
+     "log_coef": 0.0014,
+     "se_two_way": 0.00136,
+     "se_unit": 0.00135,
+     "se_week": 0.00097,
+     "units_changing": 4976
+    },
+    "unit:laundry_in_unit": {
+     "estimate": [
+      0.76,
+      0.46,
+      1.06
+     ],
+     "scale": "percent",
+     "log_coef": 0.00756,
+     "se_two_way": 0.00151,
+     "se_unit": 0.0015,
+     "se_week": 0.00107,
+     "units_changing": 5492
+    },
+    "unit:laundry_in_building": {
+     "estimate": [
+      0.41,
+      0.16,
+      0.66
+     ],
+     "scale": "percent",
+     "log_coef": 0.0041,
+     "se_two_way": 0.00125,
+     "se_unit": 0.00124,
+     "se_week": 0.00089,
+     "units_changing": 5943
+    },
+    "unit:dishwasher": {
+     "estimate": [
+      0.51,
+      0.35,
+      0.66
+     ],
+     "scale": "percent",
+     "log_coef": 0.00504,
+     "se_two_way": 0.00077,
+     "se_unit": 0.00076,
+     "se_week": 0.00056,
+     "units_changing": 11630
+    },
+    "bld:altered_2000_on": {
+     "estimate": [
+      1.29,
+      0.41,
+      2.17
+     ],
+     "scale": "percent",
+     "log_coef": 0.01279,
+     "se_two_way": 0.00444,
+     "se_unit": 0.00421,
+     "se_week": 0.00329,
+     "units_changing": 398
+    },
+    "unit:elev_f2": {
+     "estimate": [
+      3.47,
+      -5.33,
+      13.08
+     ],
+     "scale": "percent",
+     "log_coef": 0.03407,
+     "se_two_way": 0.04534,
+     "se_unit": 0.04556,
+     "se_week": 0.0319,
+     "units_changing": 12
+    },
+    "unit:elev_f3": {
+     "estimate": [
+      0.95,
+      -7.89,
+      10.64
+     ],
+     "scale": "percent",
+     "log_coef": 0.00945,
+     "se_two_way": 0.04676,
+     "se_unit": 0.04674,
+     "se_week": 0.03308,
+     "units_changing": 14
+    },
+    "unit:elev_f4": {
+     "estimate": [
+      0.47,
+      -8.39,
+      10.18
+     ],
+     "scale": "percent",
+     "log_coef": 0.00467,
+     "se_two_way": 0.04709,
+     "se_unit": 0.04753,
+     "se_week": 0.03298,
+     "units_changing": 13
+    },
+    "unit:elev_f5": {
+     "estimate": [
+      3.63,
+      -5.64,
+      13.8
+     ],
+     "scale": "percent",
+     "log_coef": 0.03563,
+     "se_two_way": 0.0478,
+     "se_unit": 0.04771,
+     "se_week": 0.03387,
+     "units_changing": 10
+    },
+    "unit:elev_f6": {
+     "estimate": [
+      -0.01,
+      -8.91,
+      9.76
+     ],
+     "scale": "percent",
+     "log_coef": -7e-05,
+     "se_two_way": 0.04755,
+     "se_unit": 0.04785,
+     "se_week": 0.03341,
+     "units_changing": 9
+    },
+    "unit:elev_f7": {
+     "estimate": [
+      2.37,
+      -6.31,
+      11.86
+     ],
+     "scale": "percent",
+     "log_coef": 0.02344,
+     "se_two_way": 0.04524,
+     "se_unit": 0.04553,
+     "se_week": 0.03178,
+     "units_changing": 2
+    },
+    "unit:elev_f8": {
+     "estimate": [
+      1.71,
+      -7.27,
+      11.55
+     ],
+     "scale": "percent",
+     "log_coef": 0.01693,
+     "se_two_way": 0.04714,
+     "se_unit": 0.04956,
+     "se_week": 0.03152,
+     "units_changing": 6
+    },
+    "unit:elev_f9": {
+     "estimate": [
+      2.39,
+      -7.92,
+      13.86
+     ],
+     "scale": "percent",
+     "log_coef": 0.02362,
+     "se_two_way": 0.05417,
+     "se_unit": 0.05443,
+     "se_week": 0.03812,
+     "units_changing": 1
+    },
+    "unit:elev_f10": {
+     "estimate": [
+      1.15,
+      -7.65,
+      10.79
+     ],
+     "scale": "percent",
+     "log_coef": 0.01147,
+     "se_two_way": 0.04643,
+     "se_unit": 0.04659,
+     "se_week": 0.03272,
+     "units_changing": 4
+    },
+    "unit:elev_f11": {
+     "estimate": [
+      -12.1,
+      -19.4,
+      -4.14
+     ],
+     "scale": "percent",
+     "log_coef": -0.12899,
+     "se_two_way": 0.04424,
+     "se_unit": 0.0444,
+     "se_week": 0.03116,
+     "units_changing": 1
+    },
+    "unit:elev_f12": {
+     "estimate": [
+      3.72,
+      -9.38,
+      18.72
+     ],
+     "scale": "percent",
+     "log_coef": 0.03655,
+     "se_two_way": 0.0689,
+     "se_unit": 0.06969,
+     "se_week": 0.04815,
+     "units_changing": 3
+    },
+    "unit:elev_f13": {
+     "estimate": [
+      -0.59,
+      -10.0,
+      9.81
+     ],
+     "scale": "percent",
+     "log_coef": -0.00589,
+     "se_two_way": 0.05074,
+     "se_unit": 0.05077,
+     "se_week": 0.03587,
+     "units_changing": 1
+    },
+    "unit:elev_f14": {
+     "estimate": [
+      -0.31,
+      -9.36,
+      9.65
+     ],
+     "scale": "percent",
+     "log_coef": -0.00309,
+     "se_two_way": 0.04856,
+     "se_unit": 0.04891,
+     "se_week": 0.0341,
+     "units_changing": 6
+    },
+    "unit:elev_f15": {
+     "estimate": [
+      17.8,
+      8.0,
+      28.5
+     ],
+     "scale": "percent",
+     "log_coef": 0.16382,
+     "se_two_way": 0.04434,
+     "se_unit": 0.04431,
+     "se_week": 0.03137,
+     "units_changing": 2
+    },
+    "unit:elev_f16": {
+     "estimate": [
+      0.44,
+      -10.37,
+      12.54
+     ],
+     "scale": "percent",
+     "log_coef": 0.00435,
+     "se_two_way": 0.05806,
+     "se_unit": 0.0585,
+     "se_week": 0.04074,
+     "units_changing": 3
+    },
+    "unit:elev_f17": {
+     "estimate": [
+      5.85,
+      -2.93,
+      15.43
+     ],
+     "scale": "percent",
+     "log_coef": 0.05686,
+     "se_two_way": 0.04419,
+     "se_unit": 0.04437,
+     "se_week": 0.03112,
+     "units_changing": 1
+    },
+    "unit:elev_f18": {
+     "estimate": [
+      0.71,
+      -9.45,
+      12.0
+     ],
+     "scale": "percent",
+     "log_coef": 0.00704,
+     "se_two_way": 0.05423,
+     "se_unit": 0.05447,
+     "se_week": 0.03817,
+     "units_changing": 1
+    },
+    "unit:elev_f20": {
+     "estimate": [
+      -4.78,
+      -12.65,
+      3.81
+     ],
+     "scale": "percent",
+     "log_coef": -0.04895,
+     "se_two_way": 0.04406,
+     "se_unit": 0.04434,
+     "se_week": 0.03095,
+     "units_changing": 1
+    },
+    "unit:elev_f21": {
+     "estimate": [
+      13.28,
+      3.89,
+      23.53
+     ],
+     "scale": "percent",
+     "log_coef": 0.12472,
+     "se_two_way": 0.04417,
+     "se_unit": 0.04443,
+     "se_week": 0.03104,
+     "units_changing": 1
+    },
+    "unit:elev_f23": {
+     "estimate": [
+      1.65,
+      -6.73,
+      10.79
+     ],
+     "scale": "percent",
+     "log_coef": 0.01639,
+     "se_two_way": 0.04393,
+     "se_unit": 0.04436,
+     "se_week": 0.03076,
+     "units_changing": 1
+    },
+    "unit:elev_f30": {
+     "estimate": [
+      39.96,
+      28.28,
+      52.7
+     ],
+     "scale": "percent",
+     "log_coef": 0.33617,
+     "se_two_way": 0.04447,
+     "se_unit": 0.04443,
+     "se_week": 0.03147,
+     "units_changing": 1
+    },
+    "unit:elev_f34": {
+     "estimate": [
+      37.36,
+      25.97,
+      49.77
+     ],
+     "scale": "percent",
+     "log_coef": 0.31741,
+     "se_two_way": 0.04416,
+     "se_unit": 0.04439,
+     "se_week": 0.03106,
+     "units_changing": 1
+    },
+    "unit:elev_f47": {
+     "estimate": [
+      20.57,
+      -3.91,
+      51.29
+     ],
+     "scale": "percent",
+     "log_coef": 0.18708,
+     "se_two_way": 0.11579,
+     "se_unit": 0.1159,
+     "se_week": 0.0818,
+     "units_changing": 2
+    },
+    "unit:walkup_f2": {
+     "estimate": [
+      -0.34,
+      -3.24,
+      2.64
+     ],
+     "scale": "percent",
+     "log_coef": -0.00344,
+     "se_two_way": 0.01505,
+     "se_unit": 0.01483,
+     "se_week": 0.0108,
+     "units_changing": 91
+    },
+    "unit:walkup_f3": {
+     "estimate": [
+      0.61,
+      -2.77,
+      4.11
+     ],
+     "scale": "percent",
+     "log_coef": 0.00612,
+     "se_two_way": 0.01744,
+     "se_unit": 0.01736,
+     "se_week": 0.01239,
+     "units_changing": 76
+    },
+    "unit:walkup_f4": {
+     "estimate": [
+      0.41,
+      -3.26,
+      4.23
+     ],
+     "scale": "percent",
+     "log_coef": 0.00412,
+     "se_two_way": 0.01902,
+     "se_unit": 0.01865,
+     "se_week": 0.01371,
+     "units_changing": 46
+    },
+    "unit:walkup_f5": {
+     "estimate": [
+      -0.49,
+      -4.33,
+      3.49
+     ],
+     "scale": "percent",
+     "log_coef": -0.00496,
+     "se_two_way": 0.02004,
+     "se_unit": 0.02008,
+     "se_week": 0.01414,
+     "units_changing": 23
+    },
+    "unit:walkup_f6": {
+     "estimate": [
+      0.56,
+      -3.96,
+      5.29
+     ],
+     "scale": "percent",
+     "log_coef": 0.00557,
+     "se_two_way": 0.02348,
+     "se_unit": 0.02381,
+     "se_week": 0.01636,
+     "units_changing": 17
+    },
+    "unit:elev_top": {
+     "estimate": [
+      -2.53,
+      -8.39,
+      3.7
+     ],
+     "scale": "percent",
+     "log_coef": -0.02567,
+     "se_two_way": 0.03162,
+     "se_unit": 0.03157,
+     "se_week": 0.02239,
+     "units_changing": 13
+    },
+    "unit:walkup_top": {
+     "estimate": [
+      0.08,
+      -2.51,
+      2.73
+     ],
+     "scale": "percent",
+     "log_coef": 0.00076,
+     "se_two_way": 0.01334,
+     "se_unit": 0.01385,
+     "se_week": 0.00905,
+     "units_changing": 52
+    },
+    "unit:elev_floor_unknown": {
+     "estimate": [
+      0.87,
+      -7.48,
+      9.97
+     ],
+     "scale": "percent",
+     "log_coef": 0.00867,
+     "se_two_way": 0.04407,
+     "se_unit": 0.04428,
+     "se_week": 0.03101,
+     "units_changing": 64
+    },
+    "unit:walkup_floor_unknown": {
+     "estimate": [
+      -0.12,
+      -3.28,
+      3.15
+     ],
+     "scale": "percent",
+     "log_coef": -0.00118,
+     "se_two_way": 0.01643,
+     "se_unit": 0.01621,
+     "se_week": 0.01177,
+     "units_changing": 197
+    }
+   }
+  }
+ },
+ "held_out_check_moves": {
+  "unit:laundry_in_unit": -0.02,
+  "unit:laundry_in_building": -0.02,
+  "unit:dishwasher": -0.02,
+  "unit:log_size_rel": -0.0012,
+  "unit:size_imputed": 0.04,
+  "unit:size_unknown": 0.01,
+  "flag:shared_space": 0.05,
+  "flag:rent_stabilized": 0.13,
+  "bld:altered_2000_on": 0.1,
+  "unit:walkup_floor_unknown": -0.02
+ },
+ "seconds": 12.0
+}
