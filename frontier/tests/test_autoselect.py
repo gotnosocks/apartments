@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+
 from rentfrontier import autoselect, data
 
 RULES = frozenset({"unit-labels-v1", "quarantine-v2"})
@@ -769,6 +770,8 @@ def test_rules_give_their_price_target():
     assert data.price_target(RULES | {"latest-ask-v2"}) == "latest ask"
     assert data.price_target({"tune-latestask-v1"}) == "latest ask"
     assert data.price_target({"tune-finalask-v1"}) == "final ask"
+    assert data.price_target({"tune-latestask-v2"}) == "latest ask"
+    assert data.price_target({"tune-finalask-v2"}) == "final ask"
     assert data.rule_family("unit-reviews-v1@20261007") == "unit-reviews"
     with pytest.raises(ValueError):
         data.price_target({"latest-ask-v2", "tune-finalask-v1"})
