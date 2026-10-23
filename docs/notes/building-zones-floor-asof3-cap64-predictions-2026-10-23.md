@@ -6,7 +6,7 @@ This is follow-up fit 8, moved to the build made after the #1242 ledger rows. Th
 
 - Model `building-zones-floor-asof3-cap64`, split latest, dataset `b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc`, input `rows-b3ddebf19af1dc1e.parquet`.
 - 4 chains, 300 warmup, 1,000 sweeps with every 5th kept, seed 20261021, fit-only.
-- It runs after fits 6 and 7. I score it with `docs/notes/conference-followups-2026-10-22/score.py` (400 draws) and compare it with the asof2 fit of #1241 using `compare.py`, on the held-out ads both runs list. The two builds differ by three rows, so nearly every held-out ad is shared.
+- It runs after fits 6 and 7. I score it with `docs/notes/conference-followups-2026-10-22/score.py` (400 draws) and compare it with the asof2 fit of #1241 using `compare.py`, on the held-out ads both runs list. Removing rows from a build reshuffles the latest split's held-out draw (see `docs/notes/building-zones-floor-asof2-2026-10-23.md`, where 119,502 of 189,647 held-out ads were shared across builds), so I expect about two thirds of the held-out ads to be shared and compare on those alone.
 
 ## Predictions
 

@@ -221,6 +221,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-floor-asof2-cap64",
         "building-zones-floor-asof3",
         "building-zones-floor-asof3-cap64",
+        "building-zones-floor-asof3-unit",
         "building-zones-mundlak-asof",
     ],
 )
