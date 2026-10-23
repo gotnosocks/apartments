@@ -138,6 +138,35 @@ Notes from the Data improvements thread on comparing this file with the model ro
   changes logged more than 7 days after `off_day`. With both accounted for, 99.0% of the
   finished rows that match model rows agree.
 
+## season_endpoints_identity_bridge.parquet
+
+The Data improvements thread built this file for sol61's 2023-24 seasonal replication (data
+request 20261023T055334Z). It has one row for each of the 30,726 frozen endpoint ads and no
+prices. The method is in `season_endpoints_identity_bridge.provenance.json`.
+
+The identity columns compare the frozen b0 (edc83b49) with the current b0 (b3ddebf1):
+- `b0_unit_changed` and `b0_building_changed` are false on every row.
+- The 4,492 mismatches in the old observation cache came from that cache holding the raw page
+  unit instead of the model unit.
+- `page_to_unit` classes each page's mapping to a model unit:
+  - same id: 25,579
+  - bedroom-history piece only: 2,984
+  - relist or label join: 1,911
+  - both: 252
+- `unit_pages` (up to 5) and `page_unit_pieces` (up to 4) give the cardinality, and
+  `one_to_one` marks the 72% of endpoints that are one to one on both.
+
+The own-ad columns come from each ad's own records before any ledger corrections, with no fills
+from the unit or building:
+- `laundry_type` / `laundry_status`: 22,617 stated and 8,109 unknown. StreetEasy has no "none"
+  value, and there are no conflicts.
+- `square_feet`: 6,882 stated.
+- Floors: `label_floor` is present on 74% of rows, and `advertised_floor` on under 1%.
+- `description_masked` has dollar figures masked and is present on 99.6% of rows.
+- `renovation_terms` and `renovation_snippet` flag 44% of rows, mostly on the loose words
+  "renovated" and "updated".
+- `ledger_entries` counts live correction-ledger entries, which 95 endpoints have.
+
 ## served_predictions.parquet
 
 This file has the served fit's estimate for each of its 1,750,254 rows, 1,575,187 of them in the fit. I took the served summary's `rows.parquet`
