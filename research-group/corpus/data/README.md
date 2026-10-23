@@ -118,7 +118,16 @@ The columns are `listing_id`, `collected_at`, `first_ask`, `final_ask`, `n_chang
 Before #1254 the builder also read sale pages. StreetEasy numbers sales and rentals separately,
 so about 5,008 rental outcomes in the 2026-10-13 file carried a sale's asks. If you ever work
 from that older file, drop rows with `final_ask` over $50,000. This copy still has 94 rows over
-$50,000, so check those before using them.
+$50,000. These are rental captures, not sale collisions:
+- The pipeline keeps 89 of them out of the model rows, because the ads carry flags such as
+  `invalid_or_extreme_initial_ask`, `furnished` or an invalid layout.
+- Of the 5 that are model rows, 3751997 and 4549241 are real four-bedroom luxury rents ($60,000
+  and $57,000).
+- 4821998, 3878524 and 4916648 are broker typos in the raw price. Their model `latest_ask` values
+  are $6,037, $5,500 and $3,400.
+
+This file records the asks as StreetEasy showed them. When you compare it with model rows, use the
+model's `latest_ask`, or drop rows where `final_ask` is more than 3 times `latest_ask`.
 
 Notes from the Data improvements thread on comparing this file with the model rows:
 - `days_on_market` in the observations is StreetEasy's own count. It leaves out days in
