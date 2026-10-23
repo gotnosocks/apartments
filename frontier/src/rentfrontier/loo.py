@@ -511,6 +511,7 @@ def main(argv=None):
             "building-zones-floor-asof2-cap64",
             "building-zones-floor-asof3",
             "building-zones-floor-asof3-cap64",
+            "building-zones-floor-asof3-unit",
             "building-zones-mundlak-asof",
         ):
             raise SystemExit(

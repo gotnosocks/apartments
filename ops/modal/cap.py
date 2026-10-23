@@ -177,6 +177,8 @@ RATE_STAND_IN["building-zones-floor-asof2-cap64"] = "building-zones-attrs"
 # So do both on the build after the #1242 ledger rows.
 RATE_STAND_IN["building-zones-floor-asof3"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-floor-asof3-cap64"] = "building-zones-attrs"
+# The version with a random effect per unit has the columns of the as-of floor model.
+RATE_STAND_IN["building-zones-floor-asof3-unit"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -218,6 +220,7 @@ BASELINES = (
     "building-zones-floor-asof2-cap64",
     "building-zones-floor-asof3",
     "building-zones-floor-asof3-cap64",
+    "building-zones-floor-asof3-unit",
     "building-zones-mundlak-asof",
 )
 
