@@ -13,8 +13,10 @@ Ben asked on 2026-10-23 for a kitchen sink model: fit 8's surface, building leve
 
 | fit | run name | state |
 |---|---|---|
-| (a) 1 km | `ks-jointamp-w1000` | launched 2026-10-23 17:34 ET at a12cd507 (unit ks-queue-a, log /data1/apartments/modal/logs/modal-fit-20261023-173411-1677250.log) |
-| (b) 150 m | `ks150-jointamp-w1000` | not launched; H100 in the large container (`--large --no-loo --no-heldout`, 12 h timeout), since Ben allowed it past the hour cap on 2026-10-23 at 6:06 PM ET; estimate $5.11 |
+| (a) 1 km | `ks-jointamp-w1000` | done at a12cd507; passed the gate; results in `docs/notes/kitchen-sink-2026-10-23.md`, explainer https://claude.ai/artifact/TopriQc7pSVGcdK8Zm7izN |
+| (b) 150 m | `ks150-jointamp-w1000` | queued as unit ks-queue-b (`/data1/apartments/tmp/kitchen-sink/queue-ks150.sh f9680424`), launching when the limiter covers it; H100 in the large container (`--large --no-loo --no-heldout`, 12 h timeout), since Ben allowed it past the hour cap on 2026-10-23 at 6:06 PM ET; estimate $5.11 |
+
+| (c) 1 km + unit effects | `ksu-jointamp-w1000` | module `building_zones_kitchen_sink_unit`, predictions in `docs/notes/kitchen-sink-unit-predictions-2026-10-23.md`; queues behind (b) |
 
 Launch line for (a), from serve/master after a fetch:
 
@@ -24,5 +26,8 @@ Launch line for (a), from serve/master after a fetch:
       --seed 20261021 --joint-amp --no-loo --no-heldout
 
 ## Next
+
+I score each fit on the latest split's held-out ads with `docs/notes/kitchen-sink-2026-10-23/modal_score.py` (give it absolute output paths, since it changes into the worktree) and compute shares with `shares.py` beside it. Fit (a) beat fit 8 by 7,871 elpd and lost to fit 4 by 21,032.
+
 
 After each fit: convergence checks, PSIS-LOO on shared rows against the served fit and the latest split, the results note with coefficient intervals, within against between next to fit 4, the change in the rebuilt base coefficients against fit 8, the explainer artifact, and a copy of the note in `/mnt/project-files/modeling/` when that is reachable.
