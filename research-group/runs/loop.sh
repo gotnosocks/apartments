@@ -37,10 +37,11 @@ $since"
       astra | sol61 | argon)
         out="runs/turns/${tag}_$h.jsonl"
         mkdir -p runs/turns
-        # argon's long high-effort reasoning steps hit OpenRouter's upstream idle timeout
-        # (20 timeouts in each of its 05:08 and 06:02 turns), so it runs at medium.
+        # runs/effort_<handle> overrides the default effort and is read every turn, so a change
+        # needs no restart. argon's long reasoning steps stall past OpenRouter's idle limit
+        # (about 170 s) at high and at medium, so runs/effort_argon holds low.
         effort=high
-        [ "$h" = argon ] && effort=medium
+        [ -s "runs/effort_$h" ] && effort=$(tr -dc 'a-z' < "runs/effort_$h")
         timeout 1500 bin/sandboxed pi -p --no-session --mode json --model "$m:$effort" \
           --tools read,bash,edit,write,grep,find,ls "$P" < /dev/null > "$out" 2> "${out%.jsonl}.err"
         rc=$?
