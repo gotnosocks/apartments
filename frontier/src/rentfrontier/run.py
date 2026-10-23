@@ -545,6 +545,8 @@ def main(argv=None):
         ("building-zones-floor-asof3-periods", "building_zones_floor_asof3_periods"),
         ("building-zones-floor-asof3-unitmean", "building_zones_floor_asof3_unitmean"),
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
+        ("building-zones-kitchen-sink", "building_zones_kitchen_sink"),
+        ("building-zones-kitchen-sink-150m", "building_zones_kitchen_sink_150m"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])

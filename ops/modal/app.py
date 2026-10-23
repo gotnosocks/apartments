@@ -178,6 +178,8 @@ BASELINES = (
     ("--model", "building-zones-floor-asof3-periods"),
     ("--model", "building-zones-floor-asof3-unitmean"),
     ("--model", "building-zones-mundlak-asof"),
+    ("--model", "building-zones-kitchen-sink"),
+    ("--model", "building-zones-kitchen-sink-150m"),
 )
 
 

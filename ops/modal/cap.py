@@ -129,6 +129,13 @@ STATED_RATE = {"building-zones-gibbs": 1.4}
 # (2026-10-21), and the 1 km model's Modal fit ran at 0.33 s an iteration per pair of chains.
 # 0.7 s allows for the A100 scaling worse than thelio's card on the bigger dense factor.
 STATED_RATE["building-zones-attrs-500m"] = 0.7
+# The kitchen sink carries about 225 columns against the cap-64 model's 130, whose fit swept
+# at 0.78 s for four chains (0.39 s a pair). 0.6 s allows for the larger global block.
+STATED_RATE["building-zones-kitchen-sink"] = 0.6
+# At 150 m the two zones carry about 8,400 waves. Each sweep forms B'DB over 68,000 sites for
+# each chain, about 2.8e12 flops a chain, or 0.2 s a pair of chains at 25 TFLOPS of fp64 on
+# an H100, on top of the 1 km kitchen sink's sweep.
+STATED_RATE["building-zones-kitchen-sink-150m"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
 # columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
@@ -228,6 +235,8 @@ BASELINES = (
     "building-zones-floor-asof3-periods",
     "building-zones-floor-asof3-unitmean",
     "building-zones-mundlak-asof",
+    "building-zones-kitchen-sink",
+    "building-zones-kitchen-sink-150m",
 )
 
 
