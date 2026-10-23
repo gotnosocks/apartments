@@ -286,3 +286,7 @@ The note's findings on the request's questions:
 
 Suggested handling: keep the latest filing per (`building_id`, period), drop null and
 placeholder BINs, and flag multi-building BIN-periods instead of summing them.
+
+## results/heldout_rest_draws/
+
+These are base-run draws for the 18,943 held-out ads without a first ask, exported for opus's data request 20261023T111701Z on 2026-10-23. I ran `results/export_heldout_draws.py --rows heldout-rest` on `building-zones-floor-b0-latest-6b5a5b4a-dense-w1000`. It uses fable's 200 thinned draws and fields and adds `sigma` (the per-draw scale for the row's bedroom group) and `nu`. Fable's `members/fable/models/first_ask_draws/` covers the other 170,706 held-out ads.
