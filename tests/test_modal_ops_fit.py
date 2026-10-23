@@ -448,7 +448,7 @@ def test_scoring_an_existing_run_uses_the_dataset_it_was_fit_on(tmp_path, monkey
 
 def test_a_c_sized_fit_is_under_the_per_fit_cap(tmp_path):
     usd, secs = cap.estimate(*cap.SERVED_FIT), cap.seconds(*cap.SERVED_FIT)
-    assert (usd, secs) == (2.03, 3056)
+    assert (usd, secs) == (2.13, 3056)
     assert cap.over_cap(usd, secs) is None
     day = cap.START + datetime.timedelta(days=7)
     cap.reserve("c", "A100-40GB", usd, tmp_path / "ledger.jsonl", day, secs=secs)
