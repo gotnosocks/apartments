@@ -4,7 +4,7 @@ This note reports follow-up fits 6 and 7, planned in `simulated-recovery-asof2-p
 
 ## Fit 6, realistic truth
 
-| run | unit wall | sampling | cost | max R-hat | min ESS |
+| run | wall | sampling | cost | max R-hat | min ESS |
 |---|---|---|---|---|---|
 | `building-zones-floor-asof2-b0-latest-0e260c3a-sim-realistic-w1000` | 1,199 s | 773 s | $0.79 | 1.0089 (`amp[outer]`) | 609 (`amp[outer]`) |
 
