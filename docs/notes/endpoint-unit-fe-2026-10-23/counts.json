@@ -1,0 +1,653 @@
+{
+ "inputs": {
+  "dataset": "/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc",
+  "endpoints": "/data1/apartments/research-group/members/sol61/checks/season_exploratory_endpoints.parquet",
+  "core": "/data1/apartments/research-group/members/sol61/checks/season_exploratory_core_ids.parquet",
+  "model": "building-zones-floor-asof3-unit",
+  "split": "latest"
+ },
+ "endpoints": 123828,
+ "units": 61914,
+ "buildings": 15565,
+ "endpoints_matching_unit_and_building": 123828,
+ "endpoints_held_out_by_fit4_split": 1888,
+ "units_with_fit4_unit_effect": 61914,
+ "strict_pairs": 8842,
+ "dates": {
+  "endpoint0": [
+   "2014-01-01",
+   "2018-03-29"
+  ],
+  "endpoint1": [
+   "2014-10-01",
+   "2018-12-31"
+  ],
+  "months": 60,
+  "weeks": 262,
+  "gap_days_quantiles": {
+   "0": 270,
+   "0.1": 351,
+   "0.25": 392,
+   "0.5": 505,
+   "0.75": 752,
+   "0.9": 871,
+   "1": 1095
+  },
+  "endpoints_by_year": {
+   "2014": 14780,
+   "2015": 23995,
+   "2016": 31890,
+   "2017": 30487,
+   "2018": 22676
+  }
+ },
+ "terms": {
+  "bed=0:full>=2": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0013,
+   "on": 0,
+   "off": 0
+  },
+  "bed=0:full>=3": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0,
+   "on": 0,
+   "off": 0
+  },
+  "bed=1:full>=2": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0057,
+   "on": 0,
+   "off": 0
+  },
+  "bed=1:full>=3": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0001,
+   "on": 0,
+   "off": 0
+  },
+  "bed=2:full>=2": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0881,
+   "on": 0,
+   "off": 0
+  },
+  "bed=2:full>=3": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0006,
+   "on": 0,
+   "off": 0
+  },
+  "bed=3:full>=2": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0373,
+   "on": 0,
+   "off": 0
+  },
+  "bed=3:full>=3": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0089,
+   "on": 0,
+   "off": 0
+  },
+  "bed=3:full>=4": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0002,
+   "on": 0,
+   "off": 0
+  },
+  "bed=4:full>=2": {
+   "units_changing": 0,
+   "share_at_1_or_mean": -0.0057,
+   "units_changing_over_0_05": 0,
+   "sd_change": 0.0
+  },
+  "bed=4:full>=3": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0028,
+   "on": 0,
+   "off": 0
+  },
+  "bed=4:full>=4": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0012,
+   "on": 0,
+   "off": 0
+  },
+  "bed=5:full>=2": {
+   "units_changing": 0,
+   "share_at_1_or_mean": -0.0002,
+   "units_changing_over_0_05": 0,
+   "sd_change": 0.0
+  },
+  "bed=5:full>=3": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0006,
+   "on": 0,
+   "off": 0
+  },
+  "bed=5:full>=4": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0003,
+   "on": 0,
+   "off": 0
+  },
+  "flag:shared_space": {
+   "units_changing": 858,
+   "share_at_1_or_mean": 0.01,
+   "on": 449,
+   "off": 409
+  },
+  "flag:income_restricted": {
+   "units_changing": 10,
+   "share_at_1_or_mean": 0.0001,
+   "on": 5,
+   "off": 5
+  },
+  "flag:rent_stabilized": {
+   "units_changing": 547,
+   "share_at_1_or_mean": 0.0085,
+   "on": 243,
+   "off": 304
+  },
+  "bld:log_height": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1391,
+   "units_changing_over_0_05": 0,
+   "sd_change": 0.0
+  },
+  "bld:height_unknown": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0196,
+   "on": 0,
+   "off": 0
+  },
+  "bld:elevator": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.5585,
+   "on": 0,
+   "off": 0
+  },
+  "bld:elevator_unknown": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0042,
+   "on": 0,
+   "off": 0
+  },
+  "bld:condo": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1754,
+   "on": 0,
+   "off": 0
+  },
+  "bld:doorman_full": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.2173,
+   "on": 0,
+   "off": 0
+  },
+  "bld:doorman_part": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1517,
+   "on": 0,
+   "off": 0
+  },
+  "bld:doorman_virtual": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1245,
+   "on": 0,
+   "off": 0
+  },
+  "unit:log_size_rel": {
+   "units_changing": 9339,
+   "share_at_1_or_mean": -0.0051,
+   "units_changing_over_0_05": 6576,
+   "sd_change": 0.0808
+  },
+  "unit:size_imputed": {
+   "units_changing": 7742,
+   "share_at_1_or_mean": 0.1201,
+   "on": 6576,
+   "off": 1166
+  },
+  "unit:size_unknown": {
+   "units_changing": 5126,
+   "share_at_1_or_mean": 0.5562,
+   "on": 0,
+   "off": 5126
+  },
+  "unit:laundry_in_unit": {
+   "units_changing": 5651,
+   "share_at_1_or_mean": 0.2479,
+   "on": 3041,
+   "off": 2610
+  },
+  "unit:laundry_in_building": {
+   "units_changing": 6129,
+   "share_at_1_or_mean": 0.3728,
+   "on": 3455,
+   "off": 2674
+  },
+  "unit:dishwasher": {
+   "units_changing": 11992,
+   "share_at_1_or_mean": 0.468,
+   "on": 8088,
+   "off": 3904
+  },
+  "bld:truck_through": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0432,
+   "on": 0,
+   "off": 0
+  },
+  "bld:gym": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.3298,
+   "on": 0,
+   "off": 0
+  },
+  "bld:built_pre1900": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1127,
+   "on": 0,
+   "off": 0
+  },
+  "bld:built_1940_1979": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1133,
+   "on": 0,
+   "off": 0
+  },
+  "bld:built_1980_1999": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0843,
+   "on": 0,
+   "off": 0
+  },
+  "bld:built_2000_2009": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.1226,
+   "on": 0,
+   "off": 0
+  },
+  "bld:built_2010_on": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0592,
+   "on": 0,
+   "off": 0
+  },
+  "bld:built_unknown": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0016,
+   "on": 0,
+   "off": 0
+  },
+  "bld:altered_2000_on": {
+   "units_changing": 422,
+   "share_at_1_or_mean": 0.1876,
+   "on": 422,
+   "off": 0
+  },
+  "bld:retail": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.5253,
+   "on": 0,
+   "off": 0
+  },
+  "bld:retail_unknown": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0024,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f2": {
+   "units_changing": 13,
+   "share_at_1_or_mean": 0.0506,
+   "on": 10,
+   "off": 3
+  },
+  "unit:elev_f3": {
+   "units_changing": 14,
+   "share_at_1_or_mean": 0.0535,
+   "on": 7,
+   "off": 7
+  },
+  "unit:elev_f4": {
+   "units_changing": 14,
+   "share_at_1_or_mean": 0.0509,
+   "on": 6,
+   "off": 8
+  },
+  "unit:elev_f5": {
+   "units_changing": 10,
+   "share_at_1_or_mean": 0.0452,
+   "on": 4,
+   "off": 6
+  },
+  "unit:elev_f6": {
+   "units_changing": 10,
+   "share_at_1_or_mean": 0.0356,
+   "on": 5,
+   "off": 5
+  },
+  "unit:elev_f7": {
+   "units_changing": 2,
+   "share_at_1_or_mean": 0.0246,
+   "on": 1,
+   "off": 1
+  },
+  "unit:elev_f8": {
+   "units_changing": 7,
+   "share_at_1_or_mean": 0.0194,
+   "on": 4,
+   "off": 3
+  },
+  "unit:elev_f9": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0187,
+   "on": 0,
+   "off": 1
+  },
+  "unit:elev_f10": {
+   "units_changing": 5,
+   "share_at_1_or_mean": 0.0173,
+   "on": 2,
+   "off": 3
+  },
+  "unit:elev_f11": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0155,
+   "on": 1,
+   "off": 0
+  },
+  "unit:elev_f12": {
+   "units_changing": 3,
+   "share_at_1_or_mean": 0.0138,
+   "on": 2,
+   "off": 1
+  },
+  "unit:elev_f13": {
+   "units_changing": 2,
+   "share_at_1_or_mean": 0.0022,
+   "on": 1,
+   "off": 1
+  },
+  "unit:elev_f14": {
+   "units_changing": 6,
+   "share_at_1_or_mean": 0.0115,
+   "on": 4,
+   "off": 2
+  },
+  "unit:elev_f15": {
+   "units_changing": 2,
+   "share_at_1_or_mean": 0.0102,
+   "on": 0,
+   "off": 2
+  },
+  "unit:elev_f16": {
+   "units_changing": 3,
+   "share_at_1_or_mean": 0.0091,
+   "on": 3,
+   "off": 0
+  },
+  "unit:elev_f17": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0077,
+   "on": 0,
+   "off": 1
+  },
+  "unit:elev_f18": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0076,
+   "on": 1,
+   "off": 0
+  },
+  "unit:elev_f19": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0069,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f20": {
+   "units_changing": 2,
+   "share_at_1_or_mean": 0.0063,
+   "on": 2,
+   "off": 0
+  },
+  "unit:elev_f21": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0056,
+   "on": 0,
+   "off": 1
+  },
+  "unit:elev_f22": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0048,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f23": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0044,
+   "on": 1,
+   "off": 0
+  },
+  "unit:elev_f24": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0042,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f25": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0043,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f26": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0042,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f27": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0037,
+   "on": 0,
+   "off": 1
+  },
+  "unit:elev_f28": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0032,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f29": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0031,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f30": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0031,
+   "on": 1,
+   "off": 0
+  },
+  "unit:elev_f31": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0031,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f32": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0024,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f33": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0025,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f34": {
+   "units_changing": 1,
+   "share_at_1_or_mean": 0.0016,
+   "on": 0,
+   "off": 1
+  },
+  "unit:elev_f35": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0019,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f36": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0017,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f37": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0011,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f38": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0013,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f39": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.001,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f40": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0011,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f41": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0008,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f42": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0008,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f43": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0007,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f44": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0007,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f45": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0006,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f46": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0005,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_f47": {
+   "units_changing": 2,
+   "share_at_1_or_mean": 0.0038,
+   "on": 0,
+   "off": 2
+  },
+  "unit:walkup_f2": {
+   "units_changing": 94,
+   "share_at_1_or_mean": 0.058,
+   "on": 51,
+   "off": 43
+  },
+  "unit:walkup_f3": {
+   "units_changing": 77,
+   "share_at_1_or_mean": 0.0601,
+   "on": 28,
+   "off": 49
+  },
+  "unit:walkup_f4": {
+   "units_changing": 47,
+   "share_at_1_or_mean": 0.0457,
+   "on": 21,
+   "off": 26
+  },
+  "unit:walkup_f5": {
+   "units_changing": 24,
+   "share_at_1_or_mean": 0.0222,
+   "on": 12,
+   "off": 12
+  },
+  "unit:walkup_f6": {
+   "units_changing": 18,
+   "share_at_1_or_mean": 0.0041,
+   "on": 8,
+   "off": 10
+  },
+  "unit:elev_top": {
+   "units_changing": 13,
+   "share_at_1_or_mean": 0.0495,
+   "on": 6,
+   "off": 7
+  },
+  "unit:walkup_top": {
+   "units_changing": 54,
+   "share_at_1_or_mean": 0.0509,
+   "on": 26,
+   "off": 28
+  },
+  "unit:penthouse": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0101,
+   "on": 0,
+   "off": 0
+  },
+  "unit:garden": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0025,
+   "on": 0,
+   "off": 0
+  },
+  "unit:lower": {
+   "units_changing": 0,
+   "share_at_1_or_mean": 0.0001,
+   "on": 0,
+   "off": 0
+  },
+  "unit:elev_floor_unknown": {
+   "units_changing": 67,
+   "share_at_1_or_mean": 0.0629,
+   "on": 32,
+   "off": 35
+  },
+  "unit:walkup_floor_unknown": {
+   "units_changing": 201,
+   "share_at_1_or_mean": 0.2087,
+   "on": 107,
+   "off": 94
+  }
+ },
+ "seconds": 78.6
+}
