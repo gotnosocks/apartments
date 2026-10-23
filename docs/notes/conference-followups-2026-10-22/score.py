@@ -8,6 +8,14 @@ DATASET defaults to the edc83b49 build's NYC dataset; a run on another build nam
 as in docs/notes/building-zones-floor-2026-10-21/heldout.py. Besides the 90% interval this
 keeps the predictive quantiles for the 50%, 80%, 90% and 95% central intervals, and each ad's
 building and week for clustered standard errors.
+
+For a model with unit effects (a design with `unit`, such as
+`building_zones_floor_asof2_unit`), the run keeps no draws of the effects, only each chain's
+running mean and variance of every effect. So I give each draw from chain c an effect drawn
+from Normal(unit_mean[c], unit_var[c]) for an ad whose unit has training rows. An ad with a
+`unit_id` but no training row for its unit gets an effect drawn from Normal(0, su^2), with su
+from the same draw. An ad with no `unit_id` gets no effect, as its training rows did. The output
+then also holds `unit_seen`: 1, 0 or -1 for those three cases.
 """
 
 import importlib
@@ -53,12 +61,37 @@ Bw = B[h.site] @ w.T
 del t, full, B
 res = {"elpd": [], "pred": [], "q": []}
 rng = np.random.default_rng(0)
+extra = {}
+if hasattr(h, "unit"):
+    um = z["kept/unit_mean"].astype(float)
+    usd = np.sqrt(z["kept/unit_var"].astype(float))
+    su = k("unit_sd")
+    chain = np.arange(beta.shape[0]) // DRAWS
+    has_id = frame[held].unit_id.notna().to_numpy()
+    extra["unit_seen"] = np.where(h.unit >= 0, 1, np.where(has_id, 0, -1)).astype(
+        np.int8
+    )
+
+
+def unit_draws(sl):
+    """Each ad's unit effect for every draw, (ads, draws)."""
+    u = h.unit[sl]
+    seen = u >= 0
+    eps = rng.standard_normal((len(u), len(chain)))
+    v = np.where(has_id[sl, None], su[None, :] * eps, 0.0)
+    uc = np.maximum(u[seen], 0)
+    v[seen] = um[:, uc][chain].T + usd[:, uc][chain].T * eps[seen]
+    return v
+
+
 for a0 in range(0, len(h.y), 20000):
     sl = slice(a0, a0 + 20000)
     site, week, frac = h.site[sl], h.week[sl], h.frac[sl]
     mu = h.x[sl] @ beta.T
     mu += (1 - frac)[:, None] * L[:, week].T + frac[:, None] * L[:, week + 1].T
     mu += Bw[sl] + bld[:, site].T
+    if extra:
+        mu += unit_draws(sl)
     s = sig[:, h.group[sl]].T
     r = (h.y[sl, None] - mu) / s
     lp = (
@@ -80,5 +113,6 @@ np.savez_compressed(
     listing=frame[held].listing_id.astype(str).to_numpy().astype("U"),
     quantiles=np.array(Q),
     **{n: np.concatenate(v) for n, v in res.items()},
+    **extra,
 )
 print(run, len(h.y), beta.shape[0], flush=True)
