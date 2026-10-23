@@ -168,6 +168,8 @@ RATE_STAND_IN["building-zones-floor-parkfront"] = "building-zones-attrs"
 # with building means adds nine building columns to it.
 RATE_STAND_IN["building-zones-floor-asof"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-mundlak-asof"] = "building-zones-attrs"
+# The as-of floor model with a wider amplitude prior has the same columns.
+RATE_STAND_IN["building-zones-floor-asof-amp1"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -204,6 +206,7 @@ BASELINES = (
     "building-zones-elevated",
     "building-zones-floor-parkfront",
     "building-zones-floor-asof",
+    "building-zones-floor-asof-amp1",
     "building-zones-mundlak-asof",
 )
 

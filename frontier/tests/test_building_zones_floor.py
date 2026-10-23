@@ -214,6 +214,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-elevated",
         "building-zones-floor-parkfront",
         "building-zones-floor-asof",
+        "building-zones-floor-asof-amp1",
         "building-zones-mundlak-asof",
     ],
 )
@@ -342,7 +343,7 @@ def test_run(tmp_path, monkeypatch, model):
     out = tmp_path / "runs" / "bzf-test"
     result = json.loads((out / "result.json").read_text())
     assert result["sampler"] == model
-    if model.endswith("-asof"):
+    if "-asof" in model:
         assert result["asof"]["split"] == "latest"
         assert result["unit_floor"].startswith("rebuilt")
     else:
