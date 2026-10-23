@@ -182,6 +182,7 @@ BASELINES = (
     ("--model", "building-zones-mundlak-asof"),
     ("--model", "building-zones-kitchen-sink"),
     ("--model", "building-zones-kitchen-sink-150m"),
+    ("--model", "building-zones-kitchen-sink-unit"),
 )
 
 

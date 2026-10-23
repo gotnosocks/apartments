@@ -136,6 +136,9 @@ STATED_RATE["building-zones-kitchen-sink"] = 0.6
 # each chain, about 2.8e12 flops a chain, or 0.2 s a pair of chains at 25 TFLOPS of fp64 on
 # an H100, on top of the 1 km kitchen sink's sweep.
 STATED_RATE["building-zones-kitchen-sink-150m"] = 0.9
+# Fit 4's unit effects took its sweep from fit 8's 0.78 s to 0.86 s for four chains. The kitchen
+# sink swept at 1.34 s, so with the unit effects 0.75 s a pair of chains leaves some room.
+STATED_RATE["building-zones-kitchen-sink-unit"] = 0.75
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
 # columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
@@ -237,6 +240,7 @@ BASELINES = (
     "building-zones-mundlak-asof",
     "building-zones-kitchen-sink",
     "building-zones-kitchen-sink-150m",
+    "building-zones-kitchen-sink-unit",
 )
 
 

@@ -46,7 +46,7 @@ The columns' share rises by 1.5 points, about half a point each from the residua
 | quantity | fit 8 | kitchen sink | change |
 |---|---|---|---|
 | `sigma`, groups 0 to 3 | 0.0834, 0.0820, 0.0882, 0.1011 | 0.0808, 0.0791, 0.0851, 0.0979 | -3.1% to -3.5% |
-| `bld_sd`, Manhattan and outer | 0.185, 0.114 | 0.162, 0.107 | -12%, -7% |
+| `bld_sd`, Manhattan and outer | 0.185, 0.114 | 0.162, 0.107 | -12%, -6% |
 | `amp`, Manhattan and outer | 0.901, 0.370 | 0.763, 0.369 | -15%, 0% |
 | `zone_sd`, Manhattan and outer | 0.198, 0.161 | 0.181, 0.156 | -9%, -3% |
 | `gp_amp` (floor curves) | 0.0715, 0.0996 | 0.0671, 0.0996 | |
@@ -119,7 +119,7 @@ The bath steps fall from fit 8's by 2 to 9 points (studio with two full baths 28
 
 1. Passes the checks, with a thin column worst: R-hat 1.0065 and ESS 537 on a 38-row bath step. Hit.
 2. `sigma` falls 2 to 6%: 3.1% to 3.5%. Hit.
-3. `bld_sd` falls 5 to 15%: 12% and 7%. Hit.
+3. `bld_sd` falls 5 to 15%: 12% and 6%. Hit.
 4. Doorman stays the largest building premium, pool, concierge, roof deck and parking at +1 to +4 points: the doorman falls to 1.25, below the D class and condo columns, and concierge, roof deck and parking come in under 1 point. Miss.
 5. The rebuilt columns move by under 0.5 points: the full doorman moves 12.8 points. Miss.
 6. Photos, floor plan and 3D tour positive, pets-not-allowed negative, all within 2 points: the photos and the 3D tour come in negative. Miss.
