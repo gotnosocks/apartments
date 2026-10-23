@@ -132,8 +132,20 @@ run also drops the units the rebuilt mask touches, so it is clear of both.
 
 ## Comparison with fit 4
 
-Fit 4 has not run. When it does, this section will set its coefficients on the ten terms above
-next to the within-unit OLS ones, with term definitions and units checked to match.
+Fit 4 ran as `building-zones-floor-asof3-unitmean`, with each changing unit column's unit mean
+beside it, so its own coefficient on such a column is a within-unit one.
+`building-zones-floor-asof3-unitmean-2026-10-23.md` sets its coefficients on the ten terms next to
+these, in the same percent units. On the seven terms with a unit mean:
+
+- the dishwasher agrees (+0.59% against +0.53%);
+- laundry in the building comes close (+0.75% against +0.43%);
+- in-unit laundry is almost three times larger in fit 4 (+2.11% against +0.78%), and the
+  intervals don't overlap;
+- the size elasticity is 0.043 in fit 4 against 0.002 here.
+
+`shared_space`, `altered_2000_on` and `walkup_floor_unknown` have no unit mean in fit 4, so its
+coefficients on them mix within and between units and don't measure the same thing. Fit 4
+misses the gate on its floor, bedroom and bath coefficients, but its eight unit-mean pairs pass.
 
 ## Caveats
 
