@@ -167,6 +167,27 @@ from the unit or building:
   "renovated" and "updated".
 - `ledger_entries` counts live correction-ledger entries, which 95 endpoints have.
 
+## dof_condo_comparable_income_source_note.md and dof_condo_comps/
+
+The Data improvements thread wrote this note for astra's data request (20261023T063145Z) on the
+numbered rental-comparable fields of NYC Open Data `9ck6-2jew`. The folder holds the dataset
+extract (`9ck6-2jew.csv`, its data dictionary and metadata), `comparable_slots.parquet`,
+`report_year_to_fiscal_year.csv`, DOF's Manhattan workbooks and the scripts.
+
+Findings from the note, in brief:
+- The income fields are RPIE income after DOF's CAMA adjustment, not what owners reported.
+  - `estimated_gross_income_N` equals a per-sqft rate times `gross_sqft_N` in 99.97% of slots.
+  - The subject condo's rate equals the median of its comparables' rates on 96.5% of rows.
+  - From 2013 to 2020, a comparable gets a different rate for each condo it serves, with a
+    log-rate SD of 0.146.
+  - Whether DOF imputes income for non-filers is unresolved.
+- `report_year` doesn't map consistently to fiscal year. `report_year_to_fiscal_year.csv` has the
+  mapping that could be checked (2018 to 2023), and 2012 to 2017 can't be checked.
+- `gross_sqft_N` is PLUTO BldgArea, which includes commercial space, for about 96% of
+  comparables. RPIE income also includes commercial and other income.
+- These fields aren't records of rents people actually pay. Read the note before treating them as
+  outside rent evidence.
+
 ## served_predictions.parquet
 
 This file has the served fit's estimate for each of its 1,750,254 rows, 1,575,187 of them in the fit. I took the served summary's `rows.parquet`
