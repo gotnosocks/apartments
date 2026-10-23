@@ -6,7 +6,7 @@ This note reports follow-up fits 6 and 7, planned in `simulated-recovery-asof2-p
 
 | run | unit wall | sampling | cost | max R-hat | min ESS |
 |---|---|---|---|---|---|
-| `building-zones-floor-asof2-b0-latest-0e260c3a-sim-realistic-w1000` | 20.5 min | 773 s | $0.79 | 1.0089 (`amp[outer]`) | 609 (`amp[outer]`) |
+| `building-zones-floor-asof2-b0-latest-0e260c3a-sim-realistic-w1000` | 1,199 s | 773 s | $0.79 | 1.0089 (`amp[outer]`) | 609 (`amp[outer]`) |
 
 The four chains agree. On every unit coefficient and every floor of both curves, their medians spread by under 0.13 points, apart from three studio and one-bedroom bath steps with few rows (`bed=0:full>=4` 0.90, `bed=1:full>=4` 0.60, `bed=0:full>=3` 0.41).
 
@@ -21,7 +21,7 @@ Coverage of 90% intervals, against the first recovery's realistic run (`simulate
 | other terms | 34 | 82.4% | 79.4% |
 | nu and sigmas | 5 | 60% | 80% |
 
-The unit columns repeat the first recovery's pattern, with nearly the same biases:
+The unit columns repeat the first recovery's pattern, with biases within 0.12 points of the first recovery's:
 
 | term | truth | fit 6 median (90%) | bias | first recovery bias |
 |---|---|---|---|---|
