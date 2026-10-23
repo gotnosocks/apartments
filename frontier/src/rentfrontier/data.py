@@ -1305,6 +1305,45 @@ def latest_ask_v1(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.assign(asking_rent=price, log_rent=np.log(price))
 
 
+# Final and latest asks on the rebuilt outcomes file (2026-10-23, #1254): the
+# earlier files matched some rentals to sale listings with the same id, so
+# those rows were left out (final ask) or kept their own ask (latest ask).
+# Tuning names, like v1: never served or paired.
+ASK_OUTCOMES_V2 = Path(
+    "/data1/apartments/external/listing-outcomes/20261023-7b6f543/listing-outcomes.parquet"
+)
+
+
+def final_ask_outcomes_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """`final_ask_v1` on `ASK_OUTCOMES_V2`."""
+    from . import listing_outcomes
+
+    out = listing_outcomes.attach(frame, ASK_OUTCOMES_V2)
+    ratio = out.final_ask / out.asking_rent
+    keep = (
+        out.final_ask.notna()
+        & out.still_listed.eq(False)
+        & ratio.between(1 / FINAL_ASK_MAX_RATIO, FINAL_ASK_MAX_RATIO)
+    ).to_numpy()
+    final = out.final_ask.to_numpy()[keep]
+    return frame[keep].assign(asking_rent=final, log_rent=np.log(final))
+
+
+def latest_ask_outcomes_v2(frame: pd.DataFrame) -> pd.DataFrame:
+    """`latest_ask_v1` on `ASK_OUTCOMES_V2`."""
+    from . import listing_outcomes
+
+    out = listing_outcomes.attach(frame, ASK_OUTCOMES_V2)
+    ratio = (out.final_ask / out.asking_rent).to_numpy()
+    take = (
+        out.final_ask.notna().to_numpy()
+        & (ratio >= 1 / FINAL_ASK_MAX_RATIO)
+        & (ratio <= FINAL_ASK_MAX_RATIO)
+    )
+    price = np.where(take, out.final_ask.to_numpy(), frame.asking_rent.to_numpy())
+    return frame.assign(asking_rent=price, log_rent=np.log(price))
+
+
 QUARANTINE_V14 = REPO / "config" / "reviews" / "quarantine-v14-20261014.jsonl"
 # The rows the screen behind v14's new rows read: every hit outside v9's and
 # v10's screens (frontier/scripts/quarantine_v14_screen.py).
@@ -2009,6 +2048,8 @@ DATA_RULES = {
     "tune-holdout-lots-v1": drop_holdout_lots,
     "tune-finalask-v1": final_ask_v1,
     "tune-latestask-v1": latest_ask_v1,
+    "tune-finalask-v2": final_ask_outcomes_v2,
+    "tune-latestask-v2": latest_ask_outcomes_v2,
     "unit-labels-v1": merge_unit_labels,
     "unit-labels-v2": merge_unit_aliases,
     "unit-labels-v3": merge_word_labels,
@@ -2196,6 +2237,8 @@ RULE_SOURCES = {
         "listing-outcomes.parquet"
     ),
     "tune-latestask-v1": LATEST_ASK_OUTCOMES,
+    "tune-finalask-v2": ASK_OUTCOMES_V2,
+    "tune-latestask-v2": ASK_OUTCOMES_V2,
     "quarantine-v1": QUARANTINE_V1,
     "quarantine-v2": QUARANTINE_V2,
     "quarantine-v3": QUARANTINE_V3,

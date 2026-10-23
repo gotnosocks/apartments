@@ -345,3 +345,37 @@ def test_latest_ask_rule_keeps_every_row_at_its_latest_ask(monkeypatch):
     np.testing.assert_allclose(out.log_rent, np.log(out.asking_rent))
     assert seen == [data.LATEST_ASK_OUTCOMES]
     assert data.RULE_SOURCES["tune-latestask-v1"] == data.LATEST_ASK_OUTCOMES
+
+
+def test_ask_rules_v2_read_the_rebuilt_outcomes(monkeypatch):
+    import pandas as pd
+
+    from rentfrontier import data, listing_outcomes
+
+    frame = pd.DataFrame(
+        {
+            "source_listing_id": ["1", "2", "3", "4", "5"],
+            "asking_rent": [3000.0] * 5,
+            "log_rent": np.log([3000.0] * 5),
+        }
+    )
+    final = np.array([2900.0, np.nan, 3100.0, 900000.0, 2800.0])
+    seen = []
+
+    def attach(f, path):
+        seen.append(path)
+        return f.assign(
+            final_ask=final, still_listed=[False, False, True, False, False]
+        )
+
+    monkeypatch.setattr(listing_outcomes, "attach", attach)
+    out = data.DATA_RULES["tune-finalask-v2"](frame)
+    assert out.source_listing_id.tolist() == ["1", "5"]
+    assert out.asking_rent.tolist() == [2900.0, 2800.0]
+    np.testing.assert_allclose(out.log_rent, np.log([2900.0, 2800.0]))
+    out = data.DATA_RULES["tune-latestask-v2"](frame)
+    assert out.asking_rent.tolist() == [2900.0, 3000.0, 3100.0, 3000.0, 2800.0]
+    np.testing.assert_allclose(out.log_rent, np.log(out.asking_rent))
+    assert seen == [data.ASK_OUTCOMES_V2] * 2
+    for rule in ("tune-finalask-v2", "tune-latestask-v2"):
+        assert data.RULE_SOURCES[rule] == data.ASK_OUTCOMES_V2

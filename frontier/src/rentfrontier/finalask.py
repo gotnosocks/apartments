@@ -37,6 +37,8 @@ RULE = "tune-finalask-v1"
 PRICES = {
     RULE: "final ask",
     "tune-latestask-v1": "latest ask",
+    "tune-finalask-v2": "final ask",
+    "tune-latestask-v2": "latest ask",
     "latest-ask-v2": "latest ask",
     "latest-ask-v3": "latest ask",
 }
