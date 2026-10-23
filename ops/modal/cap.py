@@ -172,6 +172,8 @@ RATE_STAND_IN["building-zones-mundlak-asof"] = "building-zones-attrs"
 RATE_STAND_IN["building-zones-floor-asof-amp1"] = "building-zones-attrs"
 # So does the as-of floor model on the later pipeline build.
 RATE_STAND_IN["building-zones-floor-asof2"] = "building-zones-attrs"
+# The version with the elevator curve to floor 64 adds 17 curve columns.
+RATE_STAND_IN["building-zones-floor-asof2-cap64"] = "building-zones-attrs"
 # The baselines, whose fits skip their scoring unless the launch asks for it with --score
 # (Ben, 2026-10-19 14:30Z: fit-only by default).
 BASELINES = (
@@ -210,6 +212,7 @@ BASELINES = (
     "building-zones-floor-asof",
     "building-zones-floor-asof-amp1",
     "building-zones-floor-asof2",
+    "building-zones-floor-asof2-cap64",
     "building-zones-mundlak-asof",
 )
 

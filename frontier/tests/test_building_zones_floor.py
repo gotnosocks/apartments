@@ -217,6 +217,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-floor-asof",
         "building-zones-floor-asof-amp1",
         "building-zones-floor-asof2",
+        "building-zones-floor-asof2-cap64",
         "building-zones-mundlak-asof",
     ],
 )
@@ -352,7 +353,7 @@ def test_run(tmp_path, monkeypatch, model):
     else:
         assert result["unit_floor"] == str(fsnap)
     assert result["floor_gp"]["caps"] == {
-        "elev": bzf.ELEV_CAP,
+        "elev": 64 if model.endswith("-cap64") else bzf.ELEV_CAP,
         "walkup": bzf.WALKUP_CAP,
     }
     rows = result["diagnostics"]["per_quantity"]
