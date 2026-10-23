@@ -47,13 +47,13 @@ On the latest split nearly every held-out ad sits in a building with training ad
 
 ## Fit 2: the whole-building split
 
-Run: `building-zones-floor-parkfront-b0-buildings-a5b3c5d3-dense-w1000`, fit-only on Modal (A100), 22.4 minutes, $0.89. Comparison: `building-zones-floor-b0-buildings-35131df8-dense-w1000`. I scored both runs with `docs/notes/building-zones-parkfront-2026-10-22/heldout/heldout_split.py`, each with its own commit's source, and compared them with `compare_buildings.py` and `flagged.py` from the same folder. The outputs are in `/data1/apartments/tmp/conference-followups/fit2/`.
+Run: `building-zones-floor-parkfront-b0-buildings-a5b3c5d3-dense-w1000`, fit-only on Modal (A100), 22.4 minutes of wall time, $0.89 settled in the Modal ledger. Comparison: `building-zones-floor-b0-buildings-35131df8-dense-w1000`. I scored both runs with `docs/notes/building-zones-parkfront-2026-10-22/heldout/heldout_split.py`, each with its own commit's source, and compared them with `compare_buildings.py` and `flagged.py` from the same folder. The outputs are in `/data1/apartments/tmp/conference-followups/fit2/`.
 
 The fit passes the gate: max R-hat 1.0058 (`beta[bed=0:full>=2]`), min bulk ESS 642 (`amp[outer]`). The comparison run misses it on one quantity, R-hat 1.0105 on `amp[outer]`.
 
 - `bld:park_front`: +3.83 points, 90% interval +2.98 to +4.70, P(>0) = 1.00.
 - The other coefficients move by at most 0.148 points (`alpha`), and the floor terms by at most 0.004 (`unit:lower`).
-- `amp`, `bld_sd`, `sigma` and `nu` agree with the comparison run to the third decimal.
+- Posterior medians against the comparison run: `amp` 0.896 and 0.336 against 0.891 and 0.335; `bld_sd` and `sigma` agree to the fourth decimal; `nu` 4.254 against 4.253.
 
 On the 184,437 held-out ads in 6,798 held-out buildings:
 
@@ -65,9 +65,9 @@ On the 184,437 held-out ads in 6,798 held-out buildings:
 
 RMSE falls from 0.18169 to 0.18145, and 90% coverage goes from 0.9273 to 0.9272. The mean residual of the park-facing held-out ads falls from +4.71 points to +1.64.
 
-The park frontage fit scores 2.6 SE better overall, but three quarters of that gain is on ads the flag doesn't touch. Their predictions differ only through the small shifts in shared terms, such as `alpha` at -0.148, and through the comparison run's unconverged `amp[outer]`. On the park-facing ads the gain is about 12 times larger per ad, at 0.9 SE, and the flag closes two thirds of their mean residual. So these 122 held-out buildings agree with the flag in direction and size, though they are too few for the gain to clear 2 SE.
+The park frontage fit scores 2.6 SE better overall, but three quarters of that gain is on ads the flag doesn't touch. Their predictions can differ only through the shared terms: the small coefficient shifts, such as `alpha` at -0.148, and the zone maps, whose outer amplitude moves from 0.891 to 0.896 and misses the gate in the comparison run. I haven't split the gain between these. On the park-facing ads the gain is about 12 times larger per ad, at 0.9 SE, and the flag closes two thirds of their mean residual. So these 122 held-out buildings agree with the flag in direction and size, though they are too few for the gain to clear 2 SE.
 
-The explained share of the held-out buildings' residuals is 0.00367, below the permutation null's 95th percentile of 0.00477. As with the location fit, the flag explains too little of the building-to-building spread to beat a random relabeling of buildings within zones.
+The explained share of the held-out buildings' residuals is 0.00367, below the permutation null's 95th percentile of 0.00477. As with the location fit, the flag explains too little of the building-to-building spread to beat a random relabeling of buildings within zones. That test reads the flag's own contribution. The same script's test on the whole change in predictions does clear its null (0.00462 against 0.00425), but that change includes the shifts in shared terms above, so it doesn't test the flag.
 
 ## Predictions for the buildings split, scored
 
