@@ -23,6 +23,10 @@ DATASET = (
 )
 Q = (0.025, 0.05, 0.1, 0.25, 0.75, 0.9, 0.95, 0.975)
 mod = importlib.import_module("rentfrontier." + sys.argv[1])
+for m in list(sys.modules.values()):
+    if m.__name__.startswith("rentfrontier.") and hasattr(m, "SPLIT"):
+        # As-of modules rebuild features from the training rows of the named split.
+        m.SPLIT = sys.argv[4]
 run, out = sys.argv[2], sys.argv[3]
 
 frame = b0.load_frame(DATASET)

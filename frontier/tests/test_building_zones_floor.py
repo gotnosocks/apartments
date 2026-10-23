@@ -12,6 +12,7 @@ from rentfrontier import building_zones, unit_floor
 from rentfrontier import building_zones_age as bzs
 from rentfrontier import building_zones_floor as bzf
 from rentfrontier import building_zones_floor_asof as bzfa
+from rentfrontier import building_zones_floor_asof2 as bzfa2
 from rentfrontier import building_zones_gibbs as bzg
 
 # A curve rising with log floor in elevator buildings and falling with each flight of stairs
@@ -215,6 +216,7 @@ def test_recovers_simulated_floor_curves_and_flags(monkeypatch):
         "building-zones-floor-parkfront",
         "building-zones-floor-asof",
         "building-zones-floor-asof-amp1",
+        "building-zones-floor-asof2",
         "building-zones-mundlak-asof",
     ],
 )
@@ -324,6 +326,7 @@ def test_run(tmp_path, monkeypatch, model):
     ads = tbfa.ads_for(frame)
     ads.to_parquet(tmp_path / "pipeline-rows.parquet")
     monkeypatch.setattr(unit_features, "ROWS", tmp_path / "pipeline-rows.parquet")
+    monkeypatch.setattr(bzfa2, "ROWS", tmp_path / "pipeline-rows.parquet")
     msnap = tmp_path / "listing-amenities"
     msnap.mkdir()
     tbfa.amenities_for(ads).to_parquet(msnap / "amenities.parquet")

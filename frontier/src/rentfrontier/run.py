@@ -490,7 +490,9 @@ def main(argv=None):
     # building means as of the split (rentfrontier.building_zones_mundlak_asof) adds to it the
     # building means over training rows. Building zones with the floor as of the split and a
     # wider amplitude prior (rentfrontier.building_zones_floor_asof_amp1) refits the as-of floor
-    # model with HalfNormal(1.0) on the zone map amplitude.
+    # model with HalfNormal(1.0) on the zone map amplitude, and building zones with the floor
+    # as of the split on a later pipeline build (rentfrontier.building_zones_floor_asof2) reads
+    # its ads from the build after the studio 3+ bath corrections.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -526,6 +528,7 @@ def main(argv=None):
         ("building-zones-floor-parkfront", "building_zones_floor_parkfront"),
         ("building-zones-floor-asof", "building_zones_floor_asof"),
         ("building-zones-floor-asof-amp1", "building_zones_floor_asof_amp1"),
+        ("building-zones-floor-asof2", "building_zones_floor_asof2"),
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
     ):
         if any(
