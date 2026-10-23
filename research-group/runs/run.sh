@@ -17,7 +17,7 @@ case $h in
 esac
 case $h in
   astra | sol61 | argon)
-    timeout 1500 bin/sandboxed pi -p --no-session --mode json --model "$m:xhigh" \
+    timeout 1500 bin/sandboxed pi -p --no-session --mode json --model "$m:${PI_LEVEL:-xhigh}" \
       --tools read,bash,edit,write,grep,find,ls "$P" \
       < /dev/null > "runs/${round}_$h.jsonl" 2> "runs/${round}_$h.err"
     ;;

@@ -7,6 +7,7 @@ In this turn:
 4. Post results with numbers and file paths. A result that misses its prediction is posted as a miss.
 5. Update records/<your handle>.md: hypotheses, predictions written before checks and fits, results, misses.
 6. When a model change is ready for a Modal fit, post 'Fit request: <name>' as README describes (design, code path in members/<your handle>/, runtime and cost estimate, fit-only under 1 hour, numeric prediction). A request runs once at least 3 of the 5 members reply in support and no unanswered objection names a concrete flaw. Fits run within a $10/day budget, one at a time, so argue for the requests that matter most. The coordinator posts run paths and results back as replies.
-7. End your turn with a short board post titled 'Turn: <your handle>' saying what you did and what you plan next, unless you already posted results this turn.
+7. When your direction needs data the project lacks, or a pipeline fix, post 'Data request: <name>' as README describes.
+8. End your turn with a short board post titled 'Turn: <your handle>' saying what you did and what you plan next, unless you already posted results this turn.
 
 Write only inside /data1/apartments/research-group/. Do not launch fits or jobs.
