@@ -17,19 +17,26 @@ latest ask, so the fit has a mixed response:
 | rows | count |
 |---|---:|
 | all | 1,896,486 |
-| with a first ask | 1,733,963 (91.4%) |
-| first ask equal to latest ask | 1,137,557 |
-| first ask differs from latest ask | 596,406 |
-| latest ask kept, no first ask | 162,523 (8.6%) |
+| first ask swapped in | 1,733,940 (91.4%) |
+| first ask equal to latest ask | 1,137,555 |
+| first ask differs from latest ask | 596,385 |
+| latest ask kept, no first ask | 162,523 |
+| latest ask kept, first ask before the grid start | 23 |
 
 Only `price_basis = historical_initial_own_advertisement_ask` counts as a first ask. The cache
 also has 235 capture-basis rows. 88 of them sit beside a historical row for the same listing, and
 50 of those 88 have a different value, so the script drops all capture-basis rows. The 147
 listings with only a capture-basis value keep their latest ask.
 
-The script asserts one first ask per listing. It then runs `latest_split` on the base rows and on
-the copy and asserts that the two held-out masks match. Both assertions passed when the script
-wrote `/data1/apartments/frontier/datasets/b0-edc83b49f9bacd8c-alldata-v36-dense-nyc-firstask`,
+`b0.design` starts the model's weekly grid at the earliest `latest_day`, 2013-12-03 in the base.
+23 rows have a first ask posted before that day, 12 of them in 2011 and 2012. Swapping those in
+would stretch the walk back by about 130 weeks with almost no data, so those rows keep their
+latest ask and the copy's grid starts on the base's day.
+
+The script asserts one first ask per listing. It also runs `latest_split` on the base rows and
+on the copy and asserts the masks match. `latest_split` reads only `price_at`, `unit_id` and
+`audit_id`, which the copy leaves alone, so that check guards against a later edit to those
+columns, and it can't fail on this copy. Both assertions passed when the script wrote `/data1/apartments/frontier/datasets/b0-edc83b49f9bacd8c-alldata-v36-dense-nyc-firstask`,
 which has 189,649 held-out ads, listed in its `heldout_ids.json`.
 
 ## The run

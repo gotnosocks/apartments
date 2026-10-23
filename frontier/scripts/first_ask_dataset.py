@@ -12,16 +12,18 @@ and write OUT_DIR/rows.parquet with these changes on every row that has a positi
   the date the first ask was posted rather than at the last price move;
 - `latest_ask_how` and `latest_day_how` record the swap.
 
-Rows without a first ask (about 162,000 of 1,896,486) keep their latest ask, and the manifest
-counts them. The split function orders ads by `price_at`, which the copy leaves alone, so the
-latest split's held-out mask matches the base run's. set_aside.parquet is copied unchanged, and
-manifest.json gains a `first_ask` section with the counts and the source files' SHA-256.
+Rows without a first ask (about 162,000 of 1,896,486) keep their latest ask. So do the 23 rows
+posted before the base's first `latest_day`, because `b0.design` starts the weekly grid at
+`latest_day.min()` and those rows would stretch the walk back by about 130 weeks. The manifest
+counts both groups. set_aside.parquet is copied unchanged. manifest.json gets recounted
+`latest_day_how` values and a `first_ask` section with the counts and the source files' SHA-256.
 
-This mirrors the swap `rentfrontier.simulate` performs for a simulated rows.parquet, so the
-copy runs through `ops/modal-fit --dataset OUT_DIR` with the unchanged `building-zones-floor`
-model. `--check` only prints the counts and writes nothing. The write asserts a unique first
-ask per listing and an identical held-out mask, and writes the held-out listing ids to
-OUT_DIR/heldout_ids.json. Run it with the frontier venv, since the mask check imports
+The copy runs through `ops/modal-fit --dataset OUT_DIR` with the unchanged
+`building-zones-floor` model. `--check` only prints the counts and writes nothing. The write
+asserts a unique first ask per listing. It also runs `latest_split` on the base rows and the
+copy and asserts the masks match. That check guards the split's inputs (`price_at`, `unit_id`,
+`audit_id`), which the copy leaves alone. The held-out listing ids go to
+OUT_DIR/heldout_ids.json. Run the script with the frontier venv, since the mask check imports
 `rentfrontier.splits`.
 
 The research group's fable wrote this script for its first-ask fit request (board post
@@ -73,10 +75,15 @@ def main() -> None:
         "more than one historical first ask for a listing"
     )
     first = rows.listing_id.map(obs.set_index("source_listing_id").asking_rent)
-    ok = first.notna().to_numpy()
+    # b0.design starts the weekly grid at latest_day.min(). Rows posted before the base's first
+    # latest_day keep their latest ask, so the copy's walk covers the base's weeks and no more.
+    day = pd.to_datetime(rows.price_at, utc=True).dt.date
+    early = (first.notna() & (day < rows.latest_day.min())).to_numpy()
+    ok = first.notna().to_numpy() & ~early
     counts = {
         "rows": int(len(rows)),
         "with_first_ask": int(ok.sum()),
+        "first_ask_before_grid_start": int(early.sum()),
         "kept_latest_ask": int((~ok).sum()),
         "first_equals_latest": int((np.isclose(first[ok], rows.latest_ask[ok])).sum()),
     }
@@ -88,7 +95,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=False)
     copy = rows.copy()
     copy.loc[ok, "latest_ask"] = first[ok].to_numpy(float)
-    copy.loc[ok, "latest_day"] = pd.to_datetime(rows.price_at[ok], utc=True).dt.date
+    copy.loc[ok, "latest_day"] = day[ok]
     copy.loc[ok, "latest_ask_how"] = "first ask"
     copy.loc[ok, "latest_day_how"] = "row"
     copy.to_parquet(out / "rows.parquet")
@@ -101,6 +108,7 @@ def main() -> None:
         "observations_sha256": sha256(OBS),
         **counts,
     }
+    manifest["latest_day_how"] = copy.latest_day_how.value_counts().to_dict()
     manifest["rows_sha256"] = sha256(out / "rows.parquet")
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     # Held-out identity: the latest split must pick the same ads from the copy as from the base.
