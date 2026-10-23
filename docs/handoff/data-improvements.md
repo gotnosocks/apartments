@@ -1,6 +1,6 @@
 # Data improvements — handoff
 
-Updated 2026-10-18 10:20 ET, after the net effective retract in #1134. Thread owner: the Data improvements project thread (bridge session on thelio).
+Updated 2026-10-22 21:40 ET, after the studio 3+ bath cell corrections in #1235. Thread owner: the Data improvements project thread (bridge session on thelio).
 
 ## 2026-10-22 21:40 ET
 The as-of base fit missed the gate on its studio cell with 3+ full baths (70 training rows in
