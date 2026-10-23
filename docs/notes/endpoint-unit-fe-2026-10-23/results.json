@@ -9,7 +9,7 @@
   "unit",
   "calendar month of own latest_day"
  ],
- "clusters": "two-way: unit and ISO week of own latest_day",
+ "clusters": "two-way: unit and ISO week of own latest_day; also building and ISO week",
  "columns": [
   "flag:shared_space",
   "flag:income_restricted",
@@ -59,6 +59,7 @@
   "all_pairs": {
    "rows": 123828,
    "units": 61914,
+   "buildings": 15565,
    "months": 60,
    "weeks": 262,
    "iterations": 50,
@@ -70,6 +71,14 @@
       -0.72,
       0.27
      ],
+     "estimate_building_week": [
+      -0.23,
+      -0.75,
+      0.29
+     ],
+     "se_building_week": 0.00266,
+     "se_ratio_building_week_to_unit_week": 1.054,
+     "se_building": 0.00273,
      "scale": "percent",
      "log_coef": -0.00229,
      "se_two_way": 0.00252,
@@ -83,6 +92,14 @@
       -7.98,
       0.15
      ],
+     "estimate_building_week": [
+      -4.0,
+      -8.04,
+      0.22
+     ],
+     "se_building_week": 0.02194,
+     "se_ratio_building_week_to_unit_week": 1.016,
+     "se_building": 0.02231,
      "scale": "percent",
      "log_coef": -0.04081,
      "se_two_way": 0.02158,
@@ -96,6 +113,14 @@
       -1.44,
       -0.0
      ],
+     "estimate_building_week": [
+      -0.72,
+      -1.53,
+      0.09
+     ],
+     "se_building_week": 0.00418,
+     "se_ratio_building_week_to_unit_week": 1.133,
+     "se_building": 0.00422,
      "scale": "percent",
      "log_coef": -0.00726,
      "se_two_way": 0.00369,
@@ -109,6 +134,14 @@
       -0.0073,
       0.0113
      ],
+     "estimate_building_week": [
+      0.002,
+      -0.0082,
+      0.0122
+     ],
+     "se_building_week": 0.00521,
+     "se_ratio_building_week_to_unit_week": 1.098,
+     "se_building": 0.00517,
      "scale": "elasticity",
      "log_coef": 0.00204,
      "se_two_way": 0.00474,
@@ -122,6 +155,14 @@
       0.01,
       0.4
      ],
+     "estimate_building_week": [
+      0.2,
+      -0.04,
+      0.44
+     ],
+     "se_building_week": 0.00123,
+     "se_ratio_building_week_to_unit_week": 1.237,
+     "se_building": 0.0012,
      "scale": "percent",
      "log_coef": 0.00202,
      "se_two_way": 0.001,
@@ -135,6 +176,14 @@
       -0.14,
       0.39
      ],
+     "estimate_building_week": [
+      0.13,
+      -0.19,
+      0.44
+     ],
+     "se_building_week": 0.0016,
+     "se_ratio_building_week_to_unit_week": 1.193,
+     "se_building": 0.0016,
      "scale": "percent",
      "log_coef": 0.00127,
      "se_two_way": 0.00134,
@@ -148,6 +197,14 @@
       0.49,
       1.08
      ],
+     "estimate_building_week": [
+      0.78,
+      0.44,
+      1.13
+     ],
+     "se_building_week": 0.00176,
+     "se_ratio_building_week_to_unit_week": 1.18,
+     "se_building": 0.00176,
      "scale": "percent",
      "log_coef": 0.00782,
      "se_two_way": 0.00149,
@@ -161,6 +218,14 @@
       0.19,
       0.67
      ],
+     "estimate_building_week": [
+      0.43,
+      0.14,
+      0.72
+     ],
+     "se_building_week": 0.00146,
+     "se_ratio_building_week_to_unit_week": 1.187,
+     "se_building": 0.00147,
      "scale": "percent",
      "log_coef": 0.00427,
      "se_two_way": 0.00123,
@@ -174,6 +239,14 @@
       0.38,
       0.68
      ],
+     "estimate_building_week": [
+      0.53,
+      0.34,
+      0.71
+     ],
+     "se_building_week": 0.00095,
+     "se_ratio_building_week_to_unit_week": 1.243,
+     "se_building": 0.00094,
      "scale": "percent",
      "log_coef": 0.00525,
      "se_two_way": 0.00076,
@@ -187,6 +260,14 @@
       0.35,
       2.04
      ],
+     "estimate_building_week": [
+      1.19,
+      -0.01,
+      2.41
+     ],
+     "se_building_week": 0.0061,
+     "se_ratio_building_week_to_unit_week": 1.43,
+     "se_building": 0.00599,
      "scale": "percent",
      "log_coef": 0.01186,
      "se_two_way": 0.00426,
@@ -200,6 +281,14 @@
       -2.82,
       8.87
      ],
+     "estimate_building_week": [
+      2.86,
+      -2.84,
+      8.9
+     ],
+     "se_building_week": 0.02909,
+     "se_ratio_building_week_to_unit_week": 1.004,
+     "se_building": 0.02922,
      "scale": "percent",
      "log_coef": 0.02823,
      "se_two_way": 0.02898,
@@ -213,6 +302,14 @@
       -5.93,
       7.42
      ],
+     "estimate_building_week": [
+      0.52,
+      -5.89,
+      7.37
+     ],
+     "se_building_week": 0.03365,
+     "se_ratio_building_week_to_unit_week": 0.993,
+     "se_building": 0.03353,
      "scale": "percent",
      "log_coef": 0.00521,
      "se_two_way": 0.03387,
@@ -226,6 +323,14 @@
       -5.8,
       7.66
      ],
+     "estimate_building_week": [
+      0.71,
+      -5.89,
+      7.76
+     ],
+     "se_building_week": 0.03456,
+     "se_ratio_building_week_to_unit_week": 1.014,
+     "se_building": 0.03497,
      "scale": "percent",
      "log_coef": 0.00705,
      "se_two_way": 0.03408,
@@ -239,6 +344,14 @@
       -3.76,
       10.51
      ],
+     "estimate_building_week": [
+      3.13,
+      -3.57,
+      10.29
+     ],
+     "se_building_week": 0.03427,
+     "se_ratio_building_week_to_unit_week": 0.971,
+     "se_building": 0.03425,
      "scale": "percent",
      "log_coef": 0.03081,
      "se_two_way": 0.03528,
@@ -252,6 +365,14 @@
       -6.86,
       6.44
      ],
+     "estimate_building_week": [
+      -0.43,
+      -6.91,
+      6.49
+     ],
+     "se_building_week": 0.0343,
+     "se_ratio_building_week_to_unit_week": 1.007,
+     "se_building": 0.03499,
      "scale": "percent",
      "log_coef": -0.00434,
      "se_two_way": 0.03406,
@@ -265,6 +386,14 @@
       -5.9,
       7.76
      ],
+     "estimate_building_week": [
+      0.7,
+      -5.97,
+      7.84
+     ],
+     "se_building_week": 0.03497,
+     "se_ratio_building_week_to_unit_week": 1.011,
+     "se_building": 0.03467,
      "scale": "percent",
      "log_coef": 0.00695,
      "se_two_way": 0.0346,
@@ -278,6 +407,14 @@
       -4.91,
       8.91
      ],
+     "estimate_building_week": [
+      1.76,
+      -5.22,
+      9.26
+     ],
+     "se_building_week": 0.03628,
+     "se_ratio_building_week_to_unit_week": 1.048,
+     "se_building": 0.0384,
      "scale": "percent",
      "log_coef": 0.01747,
      "se_two_way": 0.03461,
@@ -291,6 +428,14 @@
       -5.31,
       11.95
      ],
+     "estimate_building_week": [
+      2.96,
+      -5.47,
+      12.14
+     ],
+     "se_building_week": 0.04358,
+     "se_ratio_building_week_to_unit_week": 1.02,
+     "se_building": 0.04433,
      "scale": "percent",
      "log_coef": 0.02918,
      "se_two_way": 0.04272,
@@ -304,6 +449,14 @@
       -6.2,
       6.43
      ],
+     "estimate_building_week": [
+      -0.09,
+      -6.21,
+      6.43
+     ],
+     "se_building_week": 0.03225,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.03216,
      "scale": "percent",
      "log_coef": -0.00087,
      "se_two_way": 0.03222,
@@ -317,6 +470,14 @@
       -17.73,
       -7.17
      ],
+     "estimate_building_week": [
+      -12.61,
+      -17.75,
+      -7.15
+     ],
+     "se_building_week": 0.03091,
+     "se_ratio_building_week_to_unit_week": 1.004,
+     "se_building": 0.03103,
      "scale": "percent",
      "log_coef": -0.13479,
      "se_two_way": 0.0308,
@@ -330,6 +491,14 @@
       -8.14,
       17.23
      ],
+     "estimate_building_week": [
+      3.77,
+      -8.05,
+      17.12
+     ],
+     "se_building_week": 0.06171,
+     "se_ratio_building_week_to_unit_week": 0.992,
+     "se_building": 0.06243,
      "scale": "percent",
      "log_coef": 0.03705,
      "se_two_way": 0.0622,
@@ -343,6 +512,14 @@
       -26.89,
       1.66
      ],
+     "estimate_building_week": [
+      -13.79,
+      -26.92,
+      1.71
+     ],
+     "se_building_week": 0.08431,
+     "se_ratio_building_week_to_unit_week": 1.003,
+     "se_building": 0.08035,
      "scale": "percent",
      "log_coef": -0.14833,
      "se_two_way": 0.08409,
@@ -356,6 +533,14 @@
       -10.4,
       5.06
      ],
+     "estimate_building_week": [
+      -2.98,
+      -10.22,
+      4.85
+     ],
+     "se_building_week": 0.03959,
+     "se_ratio_building_week_to_unit_week": 0.975,
+     "se_building": 0.03905,
      "scale": "percent",
      "log_coef": -0.03023,
      "se_two_way": 0.04059,
@@ -369,6 +554,14 @@
       10.26,
       24.41
      ],
+     "estimate_building_week": [
+      17.12,
+      10.25,
+      24.42
+     ],
+     "se_building_week": 0.03085,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.03083,
      "scale": "percent",
      "log_coef": 0.15803,
      "se_two_way": 0.03081,
@@ -382,6 +575,14 @@
       -9.86,
       10.71
      ],
+     "estimate_building_week": [
+      -0.11,
+      -8.88,
+      9.52
+     ],
+     "se_building_week": 0.04692,
+     "se_ratio_building_week_to_unit_week": 0.895,
+     "se_building": 0.04753,
      "scale": "percent",
      "log_coef": -0.00106,
      "se_two_way": 0.05243,
@@ -395,6 +596,14 @@
       -0.97,
       11.72
      ],
+     "estimate_building_week": [
+      5.19,
+      -0.98,
+      11.73
+     ],
+     "se_building_week": 0.03081,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.03092,
      "scale": "percent",
      "log_coef": 0.05056,
      "se_two_way": 0.03077,
@@ -408,6 +617,14 @@
       -6.9,
       10.11
      ],
+     "estimate_building_week": [
+      1.25,
+      -7.07,
+      10.3
+     ],
+     "se_building_week": 0.04371,
+     "se_ratio_building_week_to_unit_week": 1.021,
+     "se_building": 0.04443,
      "scale": "percent",
      "log_coef": 0.01238,
      "se_two_way": 0.04281,
@@ -421,6 +638,14 @@
       -10.83,
       0.54
      ],
+     "estimate_building_week": [
+      -5.32,
+      -10.84,
+      0.55
+     ],
+     "se_building_week": 0.03065,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.03087,
      "scale": "percent",
      "log_coef": -0.05462,
      "se_two_way": 0.0306,
@@ -434,6 +659,14 @@
       6.08,
       19.66
      ],
+     "estimate_building_week": [
+      12.66,
+      6.06,
+      19.67
+     ],
+     "se_building_week": 0.0308,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.031,
      "scale": "percent",
      "log_coef": 0.11924,
      "se_two_way": 0.03075,
@@ -447,6 +680,14 @@
       -4.74,
       7.39
      ],
+     "estimate_building_week": [
+      1.14,
+      -4.75,
+      7.4
+     ],
+     "se_building_week": 0.03062,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.03091,
      "scale": "percent",
      "log_coef": 0.01138,
      "se_two_way": 0.03056,
@@ -460,6 +701,14 @@
       -14.65,
       -3.78
      ],
+     "estimate_building_week": [
+      -9.38,
+      -14.66,
+      -3.78
+     ],
+     "se_building_week": 0.03062,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.03086,
      "scale": "percent",
      "log_coef": -0.09851,
      "se_two_way": 0.03058,
@@ -473,6 +722,14 @@
       30.95,
       47.87
      ],
+     "estimate_building_week": [
+      39.15,
+      30.91,
+      47.91
+     ],
+     "se_building_week": 0.03115,
+     "se_ratio_building_week_to_unit_week": 1.005,
+     "se_building": 0.0311,
      "scale": "percent",
      "log_coef": 0.33039,
      "se_two_way": 0.03101,
@@ -486,6 +743,14 @@
       28.62,
       45.08
      ],
+     "estimate_building_week": [
+      36.6,
+      28.6,
+      45.1
+     ],
+     "se_building_week": 0.03081,
+     "se_ratio_building_week_to_unit_week": 1.003,
+     "se_building": 0.03099,
      "scale": "percent",
      "log_coef": 0.31189,
      "se_two_way": 0.03073,
@@ -499,6 +764,14 @@
       -2.21,
       48.79
      ],
+     "estimate_building_week": [
+      20.62,
+      -2.25,
+      48.85
+     ],
+     "se_building_week": 0.10727,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.10741,
      "scale": "percent",
      "log_coef": 0.1875,
      "se_two_way": 0.10709,
@@ -512,6 +785,14 @@
       -3.0,
       2.69
      ],
+     "estimate_building_week": [
+      -0.2,
+      -2.99,
+      2.68
+     ],
+     "se_building_week": 0.01449,
+     "se_ratio_building_week_to_unit_week": 0.996,
+     "se_building": 0.01427,
      "scale": "percent",
      "log_coef": -0.00196,
      "se_two_way": 0.01454,
@@ -525,6 +806,14 @@
       -2.74,
       3.99
      ],
+     "estimate_building_week": [
+      0.57,
+      -2.64,
+      3.87
+     ],
+     "se_building_week": 0.01652,
+     "se_ratio_building_week_to_unit_week": 0.968,
+     "se_building": 0.01647,
      "scale": "percent",
      "log_coef": 0.00564,
      "se_two_way": 0.01706,
@@ -538,6 +827,14 @@
       -3.72,
       3.84
      ],
+     "estimate_building_week": [
+      -0.01,
+      -3.74,
+      3.86
+     ],
+     "se_building_week": 0.01939,
+     "se_ratio_building_week_to_unit_week": 1.005,
+     "se_building": 0.01898,
      "scale": "percent",
      "log_coef": -0.00011,
      "se_two_way": 0.0193,
@@ -551,6 +848,14 @@
       -3.57,
       5.22
      ],
+     "estimate_building_week": [
+      0.73,
+      -3.56,
+      5.21
+     ],
+     "se_building_week": 0.02222,
+     "se_ratio_building_week_to_unit_week": 0.997,
+     "se_building": 0.02231,
      "scale": "percent",
      "log_coef": 0.00726,
      "se_two_way": 0.02228,
@@ -564,6 +869,14 @@
       -3.58,
       5.55
      ],
+     "estimate_building_week": [
+      0.89,
+      -3.57,
+      5.55
+     ],
+     "se_building_week": 0.02305,
+     "se_ratio_building_week_to_unit_week": 0.999,
+     "se_building": 0.02332,
      "scale": "percent",
      "log_coef": 0.00883,
      "se_two_way": 0.02308,
@@ -577,6 +890,14 @@
       -9.31,
       2.36
      ],
+     "estimate_building_week": [
+      -3.65,
+      -9.49,
+      2.56
+     ],
+     "se_building_week": 0.03188,
+     "se_ratio_building_week_to_unit_week": 1.032,
+     "se_building": 0.03187,
      "scale": "percent",
      "log_coef": -0.03723,
      "se_two_way": 0.03089,
@@ -590,6 +911,14 @@
       -2.84,
       2.37
      ],
+     "estimate_building_week": [
+      -0.27,
+      -2.83,
+      2.36
+     ],
+     "se_building_week": 0.01327,
+     "se_ratio_building_week_to_unit_week": 0.997,
+     "se_building": 0.01381,
      "scale": "percent",
      "log_coef": -0.0027,
      "se_two_way": 0.01331,
@@ -603,6 +932,14 @@
       -5.55,
       6.48
      ],
+     "estimate_building_week": [
+      0.28,
+      -5.56,
+      6.48
+     ],
+     "se_building_week": 0.03062,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.03077,
      "scale": "percent",
      "log_coef": 0.0028,
      "se_two_way": 0.03059,
@@ -616,6 +953,14 @@
       -3.19,
       3.1
      ],
+     "estimate_building_week": [
+      -0.1,
+      -3.21,
+      3.12
+     ],
+     "se_building_week": 0.01615,
+     "se_ratio_building_week_to_unit_week": 1.006,
+     "se_building": 0.01593,
      "scale": "percent",
      "log_coef": -0.00097,
      "se_two_way": 0.01605,
@@ -628,6 +973,7 @@
   "without_fit4_held_out_units": {
    "rows": 120052,
    "units": 60026,
+   "buildings": 15194,
    "months": 60,
    "weeks": 262,
    "iterations": 50,
@@ -641,6 +987,14 @@
       -0.69,
       0.33
      ],
+     "estimate_building_week": [
+      -0.18,
+      -0.72,
+      0.36
+     ],
+     "se_building_week": 0.00276,
+     "se_ratio_building_week_to_unit_week": 1.06,
+     "se_building": 0.00281,
      "scale": "percent",
      "log_coef": -0.00181,
      "se_two_way": 0.00261,
@@ -654,6 +1008,14 @@
       -7.93,
       0.16
      ],
+     "estimate_building_week": [
+      -3.97,
+      -7.99,
+      0.23
+     ],
+     "se_building_week": 0.02184,
+     "se_ratio_building_week_to_unit_week": 1.016,
+     "se_building": 0.02223,
      "scale": "percent",
      "log_coef": -0.04049,
      "se_two_way": 0.02149,
@@ -667,6 +1029,14 @@
       -1.29,
       0.12
      ],
+     "estimate_building_week": [
+      -0.59,
+      -1.37,
+      0.2
+     ],
+     "se_building_week": 0.00402,
+     "se_ratio_building_week_to_unit_week": 1.111,
+     "se_building": 0.00414,
      "scale": "percent",
      "log_coef": -0.00587,
      "se_two_way": 0.00362,
@@ -680,6 +1050,14 @@
       -0.0084,
       0.01
      ],
+     "estimate_building_week": [
+      0.0008,
+      -0.0093,
+      0.011
+     ],
+     "se_building_week": 0.00517,
+     "se_ratio_building_week_to_unit_week": 1.103,
+     "se_building": 0.00518,
      "scale": "elasticity",
      "log_coef": 0.00083,
      "se_two_way": 0.00469,
@@ -693,6 +1071,14 @@
       0.04,
       0.44
      ],
+     "estimate_building_week": [
+      0.24,
+      -0.01,
+      0.48
+     ],
+     "se_building_week": 0.00125,
+     "se_ratio_building_week_to_unit_week": 1.237,
+     "se_building": 0.00122,
      "scale": "percent",
      "log_coef": 0.00238,
      "se_two_way": 0.00101,
@@ -706,6 +1092,14 @@
       -0.13,
       0.41
      ],
+     "estimate_building_week": [
+      0.14,
+      -0.18,
+      0.46
+     ],
+     "se_building_week": 0.00163,
+     "se_ratio_building_week_to_unit_week": 1.195,
+     "se_building": 0.00162,
      "scale": "percent",
      "log_coef": 0.0014,
      "se_two_way": 0.00136,
@@ -719,6 +1113,14 @@
       0.46,
       1.06
      ],
+     "estimate_building_week": [
+      0.76,
+      0.41,
+      1.11
+     ],
+     "se_building_week": 0.00178,
+     "se_ratio_building_week_to_unit_week": 1.178,
+     "se_building": 0.00178,
      "scale": "percent",
      "log_coef": 0.00756,
      "se_two_way": 0.00151,
@@ -732,6 +1134,14 @@
       0.16,
       0.66
      ],
+     "estimate_building_week": [
+      0.41,
+      0.12,
+      0.7
+     ],
+     "se_building_week": 0.00148,
+     "se_ratio_building_week_to_unit_week": 1.185,
+     "se_building": 0.00148,
      "scale": "percent",
      "log_coef": 0.0041,
      "se_two_way": 0.00125,
@@ -745,6 +1155,14 @@
       0.35,
       0.66
      ],
+     "estimate_building_week": [
+      0.51,
+      0.32,
+      0.7
+     ],
+     "se_building_week": 0.00096,
+     "se_ratio_building_week_to_unit_week": 1.247,
+     "se_building": 0.00096,
      "scale": "percent",
      "log_coef": 0.00504,
      "se_two_way": 0.00077,
@@ -758,6 +1176,14 @@
       0.41,
       2.17
      ],
+     "estimate_building_week": [
+      1.29,
+      0.07,
+      2.52
+     ],
+     "se_building_week": 0.00616,
+     "se_ratio_building_week_to_unit_week": 1.387,
+     "se_building": 0.00606,
      "scale": "percent",
      "log_coef": 0.01279,
      "se_two_way": 0.00444,
@@ -771,6 +1197,14 @@
       -5.33,
       13.08
      ],
+     "estimate_building_week": [
+      3.47,
+      -5.36,
+      13.11
+     ],
+     "se_building_week": 0.04548,
+     "se_ratio_building_week_to_unit_week": 1.003,
+     "se_building": 0.04569,
      "scale": "percent",
      "log_coef": 0.03407,
      "se_two_way": 0.04534,
@@ -784,6 +1218,14 @@
       -7.89,
       10.64
      ],
+     "estimate_building_week": [
+      0.95,
+      -7.85,
+      10.59
+     ],
+     "se_building_week": 0.04655,
+     "se_ratio_building_week_to_unit_week": 0.995,
+     "se_building": 0.04653,
      "scale": "percent",
      "log_coef": 0.00945,
      "se_two_way": 0.04676,
@@ -797,6 +1239,14 @@
       -8.39,
       10.18
      ],
+     "estimate_building_week": [
+      0.47,
+      -8.3,
+      10.07
+     ],
+     "se_building_week": 0.04658,
+     "se_ratio_building_week_to_unit_week": 0.989,
+     "se_building": 0.04703,
      "scale": "percent",
      "log_coef": 0.00467,
      "se_two_way": 0.04709,
@@ -810,6 +1260,14 @@
       -5.64,
       13.8
      ],
+     "estimate_building_week": [
+      3.63,
+      -5.49,
+      13.63
+     ],
+     "se_building_week": 0.04701,
+     "se_ratio_building_week_to_unit_week": 0.983,
+     "se_building": 0.04692,
      "scale": "percent",
      "log_coef": 0.03563,
      "se_two_way": 0.0478,
@@ -823,6 +1281,14 @@
       -8.91,
       9.76
      ],
+     "estimate_building_week": [
+      -0.01,
+      -8.92,
+      9.78
+     ],
+     "se_building_week": 0.04764,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.04794,
      "scale": "percent",
      "log_coef": -7e-05,
      "se_two_way": 0.04755,
@@ -836,6 +1302,14 @@
       -6.31,
       11.86
      ],
+     "estimate_building_week": [
+      2.37,
+      -6.29,
+      11.84
+     ],
+     "se_building_week": 0.04512,
+     "se_ratio_building_week_to_unit_week": 0.997,
+     "se_building": 0.04541,
      "scale": "percent",
      "log_coef": 0.02344,
      "se_two_way": 0.04524,
@@ -849,6 +1323,14 @@
       -7.27,
       11.55
      ],
+     "estimate_building_week": [
+      1.71,
+      -7.44,
+      11.76
+     ],
+     "se_building_week": 0.04809,
+     "se_ratio_building_week_to_unit_week": 1.02,
+     "se_building": 0.05047,
      "scale": "percent",
      "log_coef": 0.01693,
      "se_two_way": 0.04714,
@@ -862,6 +1344,14 @@
       -7.92,
       13.86
      ],
+     "estimate_building_week": [
+      2.39,
+      -8.03,
+      13.99
+     ],
+     "se_building_week": 0.05475,
+     "se_ratio_building_week_to_unit_week": 1.011,
+     "se_building": 0.05501,
      "scale": "percent",
      "log_coef": 0.02362,
      "se_two_way": 0.05417,
@@ -875,6 +1365,14 @@
       -7.65,
       10.79
      ],
+     "estimate_building_week": [
+      1.15,
+      -7.63,
+      10.77
+     ],
+     "se_building_week": 0.04634,
+     "se_ratio_building_week_to_unit_week": 0.998,
+     "se_building": 0.04649,
      "scale": "percent",
      "log_coef": 0.01147,
      "se_two_way": 0.04643,
@@ -888,6 +1386,14 @@
       -19.4,
       -4.14
      ],
+     "estimate_building_week": [
+      -12.1,
+      -19.41,
+      -4.13
+     ],
+     "se_building_week": 0.04429,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.04445,
      "scale": "percent",
      "log_coef": -0.12899,
      "se_two_way": 0.04424,
@@ -901,6 +1407,14 @@
       -9.38,
       18.72
      ],
+     "estimate_building_week": [
+      3.72,
+      -9.29,
+      18.6
+     ],
+     "se_building_week": 0.06837,
+     "se_ratio_building_week_to_unit_week": 0.992,
+     "se_building": 0.06917,
      "scale": "percent",
      "log_coef": 0.03655,
      "se_two_way": 0.0689,
@@ -914,6 +1428,14 @@
       -10.0,
       9.81
      ],
+     "estimate_building_week": [
+      -0.59,
+      -10.15,
+      10.0
+     ],
+     "se_building_week": 0.05163,
+     "se_ratio_building_week_to_unit_week": 1.017,
+     "se_building": 0.05164,
      "scale": "percent",
      "log_coef": -0.00589,
      "se_two_way": 0.05074,
@@ -927,6 +1449,14 @@
       -9.36,
       9.65
      ],
+     "estimate_building_week": [
+      -0.31,
+      -9.25,
+      9.51
+     ],
+     "se_building_week": 0.04794,
+     "se_ratio_building_week_to_unit_week": 0.987,
+     "se_building": 0.04829,
      "scale": "percent",
      "log_coef": -0.00309,
      "se_two_way": 0.04856,
@@ -940,6 +1470,14 @@
       8.0,
       28.5
      ],
+     "estimate_building_week": [
+      17.8,
+      7.99,
+      28.5
+     ],
+     "se_building_week": 0.04435,
+     "se_ratio_building_week_to_unit_week": 1.0,
+     "se_building": 0.04432,
      "scale": "percent",
      "log_coef": 0.16382,
      "se_two_way": 0.04434,
@@ -953,6 +1491,14 @@
       -10.37,
       12.54
      ],
+     "estimate_building_week": [
+      0.44,
+      -9.64,
+      11.63
+     ],
+     "se_building_week": 0.05391,
+     "se_ratio_building_week_to_unit_week": 0.929,
+     "se_building": 0.0544,
      "scale": "percent",
      "log_coef": 0.00435,
      "se_two_way": 0.05806,
@@ -966,6 +1512,14 @@
       -2.93,
       15.43
      ],
+     "estimate_building_week": [
+      5.85,
+      -2.93,
+      15.43
+     ],
+     "se_building_week": 0.04418,
+     "se_ratio_building_week_to_unit_week": 1.0,
+     "se_building": 0.04436,
      "scale": "percent",
      "log_coef": 0.05686,
      "se_two_way": 0.04419,
@@ -979,6 +1533,14 @@
       -9.45,
       12.0
      ],
+     "estimate_building_week": [
+      0.71,
+      -9.55,
+      12.13
+     ],
+     "se_building_week": 0.05481,
+     "se_ratio_building_week_to_unit_week": 1.011,
+     "se_building": 0.05506,
      "scale": "percent",
      "log_coef": 0.00704,
      "se_two_way": 0.05423,
@@ -992,6 +1554,14 @@
       -12.65,
       3.81
      ],
+     "estimate_building_week": [
+      -4.78,
+      -12.66,
+      3.81
+     ],
+     "se_building_week": 0.04406,
+     "se_ratio_building_week_to_unit_week": 1.0,
+     "se_building": 0.04435,
      "scale": "percent",
      "log_coef": -0.04895,
      "se_two_way": 0.04406,
@@ -1005,6 +1575,14 @@
       3.89,
       23.53
      ],
+     "estimate_building_week": [
+      13.28,
+      3.89,
+      23.53
+     ],
+     "se_building_week": 0.04416,
+     "se_ratio_building_week_to_unit_week": 1.0,
+     "se_building": 0.04443,
      "scale": "percent",
      "log_coef": 0.12472,
      "se_two_way": 0.04417,
@@ -1018,6 +1596,14 @@
       -6.73,
       10.79
      ],
+     "estimate_building_week": [
+      1.65,
+      -6.74,
+      10.8
+     ],
+     "se_building_week": 0.04395,
+     "se_ratio_building_week_to_unit_week": 1.0,
+     "se_building": 0.04438,
      "scale": "percent",
      "log_coef": 0.01639,
      "se_two_way": 0.04393,
@@ -1031,6 +1617,14 @@
       28.28,
       52.7
      ],
+     "estimate_building_week": [
+      39.96,
+      28.25,
+      52.73
+     ],
+     "se_building_week": 0.04457,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.04454,
      "scale": "percent",
      "log_coef": 0.33617,
      "se_two_way": 0.04447,
@@ -1044,6 +1638,14 @@
       25.97,
       49.77
      ],
+     "estimate_building_week": [
+      37.36,
+      25.96,
+      49.79
+     ],
+     "se_building_week": 0.04421,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.04444,
      "scale": "percent",
      "log_coef": 0.31741,
      "se_two_way": 0.04416,
@@ -1057,6 +1659,14 @@
       -3.91,
       51.29
      ],
+     "estimate_building_week": [
+      20.57,
+      -3.95,
+      51.36
+     ],
+     "se_building_week": 0.11603,
+     "se_ratio_building_week_to_unit_week": 1.002,
+     "se_building": 0.11615,
      "scale": "percent",
      "log_coef": 0.18708,
      "se_two_way": 0.11579,
@@ -1070,6 +1680,14 @@
       -3.24,
       2.64
      ],
+     "estimate_building_week": [
+      -0.34,
+      -3.23,
+      2.63
+     ],
+     "se_building_week": 0.01501,
+     "se_ratio_building_week_to_unit_week": 0.997,
+     "se_building": 0.01477,
      "scale": "percent",
      "log_coef": -0.00344,
      "se_two_way": 0.01505,
@@ -1083,6 +1701,14 @@
       -2.77,
       4.11
      ],
+     "estimate_building_week": [
+      0.61,
+      -2.67,
+      4.01
+     ],
+     "se_building_week": 0.01693,
+     "se_ratio_building_week_to_unit_week": 0.97,
+     "se_building": 0.01685,
      "scale": "percent",
      "log_coef": 0.00612,
      "se_two_way": 0.01744,
@@ -1096,6 +1722,14 @@
       -3.26,
       4.23
      ],
+     "estimate_building_week": [
+      0.41,
+      -3.27,
+      4.24
+     ],
+     "se_building_week": 0.01908,
+     "se_ratio_building_week_to_unit_week": 1.003,
+     "se_building": 0.01871,
      "scale": "percent",
      "log_coef": 0.00412,
      "se_two_way": 0.01902,
@@ -1109,6 +1743,14 @@
       -4.33,
       3.49
      ],
+     "estimate_building_week": [
+      -0.49,
+      -4.32,
+      3.48
+     ],
+     "se_building_week": 0.02,
+     "se_ratio_building_week_to_unit_week": 0.998,
+     "se_building": 0.02005,
      "scale": "percent",
      "log_coef": -0.00496,
      "se_two_way": 0.02004,
@@ -1122,6 +1764,14 @@
       -3.96,
       5.29
      ],
+     "estimate_building_week": [
+      0.56,
+      -3.97,
+      5.3
+     ],
+     "se_building_week": 0.0235,
+     "se_ratio_building_week_to_unit_week": 1.001,
+     "se_building": 0.02384,
      "scale": "percent",
      "log_coef": 0.00557,
      "se_two_way": 0.02348,
@@ -1135,6 +1785,14 @@
       -8.39,
       3.7
      ],
+     "estimate_building_week": [
+      -2.53,
+      -8.53,
+      3.86
+     ],
+     "se_building_week": 0.03241,
+     "se_ratio_building_week_to_unit_week": 1.025,
+     "se_building": 0.03237,
      "scale": "percent",
      "log_coef": -0.02567,
      "se_two_way": 0.03162,
@@ -1148,6 +1806,14 @@
       -2.51,
       2.73
      ],
+     "estimate_building_week": [
+      0.08,
+      -2.5,
+      2.73
+     ],
+     "se_building_week": 0.01333,
+     "se_ratio_building_week_to_unit_week": 0.999,
+     "se_building": 0.01384,
      "scale": "percent",
      "log_coef": 0.00076,
      "se_two_way": 0.01334,
@@ -1161,6 +1827,14 @@
       -7.48,
       9.97
      ],
+     "estimate_building_week": [
+      0.87,
+      -7.48,
+      9.97
+     ],
+     "se_building_week": 0.04406,
+     "se_ratio_building_week_to_unit_week": 1.0,
+     "se_building": 0.04428,
      "scale": "percent",
      "log_coef": 0.00867,
      "se_two_way": 0.04407,
@@ -1174,6 +1848,14 @@
       -3.28,
       3.15
      ],
+     "estimate_building_week": [
+      -0.12,
+      -3.3,
+      3.17
+     ],
+     "se_building_week": 0.01652,
+     "se_ratio_building_week_to_unit_week": 1.006,
+     "se_building": 0.01632,
      "scale": "percent",
      "log_coef": -0.00118,
      "se_two_way": 0.01643,
@@ -1196,5 +1878,5 @@
   "bld:altered_2000_on": 0.1,
   "unit:walkup_floor_unknown": -0.02
  },
- "seconds": 12.0
+ "seconds": 8.9
 }
