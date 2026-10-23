@@ -1,6 +1,6 @@
 """Row counts for the park frontage line and placebo tests. Reads no rents.
 
-    PYTHONPATH=frontier/src python counts.py LOTS_GEOJSON OUT_DIR
+    PYTHONPATH=frontier/src python3 counts.py LOTS_GEOJSON OUT_DIR
 
 LOTS_GEOJSON holds MapPLUTO 26v2 lots from City Planning's ArcGIS feature service (sha256
 310e82af2cd053a409c2dda531931c098e5a8805f2a5416cbb76d4fd1b7ebea9, kept at
@@ -23,6 +23,14 @@ from rentfrontier import building_parks, building_park_front as bpf, frontage
 LOTS = sys.argv[1]
 OUT = sys.argv[2]
 FRONT_M, NEAR_M = 40.0, 200.0
+# Park-facing buildings on these avenues make the prestige group: Manhattan's Central Park West,
+# Central Park South, Fifth Avenue and Riverside Drive, and Brooklyn's Prospect Park West.
+# Fifth Avenue slugs need the Manhattan suffix, since Brooklyn and Queens have Fifth Avenues too.
+PRESTIGE = (
+    r"(?:^|-)(?:central-park-west|central-park-south|riverside-drive)(?:-new_york)?$"
+    r"|(?:^|-)(?:5|fifth)-avenue-new_york$"
+    r"|(?:^|-)prospect-park-west(?:-brooklyn)?$"
+)
 ROWS = "/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc/rows.parquet"
 PIPE = "/data1/apartments/pipeline/datasets/rows-b3ddebf19af1dc1e.parquet"
 PARK = "/data1/apartments/external/building-park-front/20261022-5ddc0e5d/park_front.parquet"
@@ -113,12 +121,6 @@ for f in g["features"]:
         )
     ):
         kind = "rail"
-    elif (
-        open_land
-        and a["LandUse"] == "11"
-        and not re.search(r"PARKS|BATTERY PARK", owner)
-    ):
-        kind = "vacant"
     else:
         continue
     lots.append(
@@ -160,10 +162,7 @@ lots["tract_acres"] = lots.groupby("tract").acres.transform("sum")
 
 placebo = {}
 tracts = {}
-for kind in ("cemetery", "rail", "vacant"):
-    if kind == "vacant":
-        r["vacant_m"] = np.nan
-        continue
+for kind in ("cemetery", "rail"):
     sub = lots[(lots.kind == kind) & (lots.tract_acres >= bpf.FRONT_ACRES)]
     frame = pd.DataFrame(
         {"acres": 1e3, "typecategory": "placebo", "geometry": sub.geometry}
@@ -198,7 +197,7 @@ frame = pd.DataFrame(
 t = bpf.table(reg, fps, frame).set_index("building").park_edge_m
 r["highway_m"] = t.reindex(r.building).to_numpy()
 
-for k in ("park", "cemetery", "rail", "vacant", "highway"):
+for k in ("park", "cemetery", "rail", "highway"):
     d = r[f"{k}_m"]
     r[f"{k}_front"] = d < FRONT_M
     r[f"{k}_near"] = (d >= FRONT_M) & (d < NEAR_M)
@@ -212,6 +211,7 @@ groups = (
     | r.highway_front
     | r.cemetery_near
     | r.rail_near
+    | r.highway_near
 )
 want = set(r.listing_id[groups].astype(str))
 sid = re.compile(r'"source_listing_id": "([^"]+)"')
@@ -294,11 +294,76 @@ out = {
     "ads_with_line": int(r.line.notna().sum()),
     "ads_text_any": None,
 }
-for k in ("park", "cemetery", "rail", "vacant", "highway"):
+for k in ("park", "cemetery", "rail", "highway"):
     other = ~r.park_front if k != "park" else True
     out[f"{k}_front"] = summary(r[r[f"{k}_front"] & other])
     out[f"{k}_near"] = summary(r[r[f"{k}_near"] & ~r.park_front & other])
+out["lots_fetched"] = len(g["features"])
+out["lots_kept"] = lots.kind.value_counts().to_dict()
 out["tracts"] = tracts
+
+# view marks in park-facing buildings: overlap of the field and the text
+pf = r[r.park_front]
+out["park_front_marks"] = {
+    "both": int((pf.se_park_view & pf.text_park_view).sum()),
+    "field_only": int((pf.se_park_view & ~pf.text_park_view).sum()),
+    "text_only": int((~pf.se_park_view & pf.text_park_view).sum()),
+    "either": int(pf.park_view.sum()),
+    "with_text_both": int((pf.has_text & pf.se_park_view & pf.text_park_view).sum()),
+    "with_text_field_only": int(
+        (pf.has_text & pf.se_park_view & ~pf.text_park_view).sum()
+    ),
+    "with_text_text_only": int(
+        (pf.has_text & ~pf.se_park_view & pf.text_park_view).sum()
+    ),
+    "no_text_field": int((~pf.has_text & pf.se_park_view).sum()),
+}
+
+# lines in park-facing buildings: a view line has at least half its ads marked
+L = pf.dropna(subset=["line"])
+bl = L.groupby(["building", "line"]).park_view.agg(["size", "mean"])
+bl["view"] = bl["mean"] >= 0.5
+c = bl.groupby(level=0).view.agg(["min", "max"])
+cb = c.index[(c["min"] == 0) & (c["max"] == 1)]
+x = bl.loc[cb]
+two = bl[bl["size"] >= 2]
+out["park_front_lines"] = {
+    "contrast_buildings": int(len(cb)),
+    "lines": int(len(x)),
+    "view_lines": int(x.view.sum()),
+    "other_lines": int((~x.view).sum()),
+    "ads_view_lines": int(x["size"][x.view].sum()),
+    "ads_other_lines": int(x["size"][~x.view].sum()),
+    "lines_2plus_ads": int(len(two)),
+    "lines_2plus_ads_mixed_share": float(
+        ((two["mean"] > 0) & (two["mean"] < 1)).mean()
+    ),
+}
+
+# prestige avenues among park-facing buildings
+pres = pf.building.str.contains(PRESTIGE, regex=True)
+out["park_front_prestige"] = {
+    "ads": int(pres.sum()),
+    "buildings": int(pf.building[pres].nunique()),
+    "other_ads": int((~pres).sum()),
+    "other_buildings": int(pf.building[~pres].nunique()),
+    "by_avenue": {
+        k: {
+            "ads": int(m.sum()),
+            "buildings": int(pf.building[m].nunique()),
+        }
+        for k, m in (
+            (k, pres & pf.building.str.contains(k, regex=True))
+            for k in (
+                "central-park-west",
+                "central-park-south",
+                "(?:5|fifth)-avenue",
+                "riverside-drive",
+                "prospect-park-west",
+            )
+        )
+    },
+}
 for k in ("cemetery", "rail"):
     out[f"{k}_front_buildings"] = (
         r[r[f"{k}_front"] & ~r.park_front].building.value_counts().to_dict()
@@ -335,7 +400,7 @@ r[
         "exp",
         "has_text",
     ]
-    + [f"{k}_m" for k in ("park", "cemetery", "rail", "vacant", "highway")]
+    + [f"{k}_m" for k in ("park", "cemetery", "rail", "highway")]
 ].to_parquet(OUT + "/groups.parquet")
 json.dump(out, open(OUT + "/counts.json", "w"), indent=1, default=str)
 print(json.dumps(out, indent=1, default=str))
