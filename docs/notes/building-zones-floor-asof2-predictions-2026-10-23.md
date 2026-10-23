@@ -15,7 +15,7 @@ The as-of base fit on the old build (`building-zones-floor-asof-b0-latest-9070e1
 ## Predictions
 
 - The fit passes the gate (R-hat at most 1.01, bulk ESS over 400) and takes 18 to 30 minutes on Modal, at $0.75 to $1.20.
-- `bed=0:full>=3` falls from 41.0 points to under 25. The 30 rows the corrections moved out of from the cell priced like larger units.
+- `bed=0:full>=3` falls from 41.0 points to under 25. The 30 rows the corrections moved out of the cell priced like larger units.
 - Every other coefficient moves by under 0.3 points against the as-of base on the old build. `bld_sd`, `sigma`, `nu` and the zone amplitudes change by under 1%.
 - On shared held-out ads, elpd changes by under 30 against the as-of base, and the difference to the floor fit stays within 1 SE by building of the old -175.
 - RMSE and 90% coverage move by under 0.0005 and 0.1 percentage points.
