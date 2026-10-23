@@ -145,6 +145,7 @@ def test_the_later_capture_wins_across_page_crawls_and_records(
     pd.DataFrame(
         {
             "listing_id": ["7", "8", "9"],
+            "listing_type": ["rental"] * 3,
             "collected_at": [OCT_1 + 5 * DAY, OCT_1 + 20 * DAY, OCT_1 + 2 * DAY],
             "raw_listing_json": [
                 json.dumps(outcome("ACTIVE")),
@@ -209,3 +210,23 @@ def test_the_later_capture_wins_across_page_crawls_and_records(
         True,
         OCT_1 + 2 * DAY,
     )
+
+
+def test_a_sale_with_a_rentals_id_leaves_the_rental_outcome(tmp_path):
+    """Sale 7 shares its id with rental 7 and is captured later. The outcome keeps the
+    rental's ask."""
+    page = tmp_path / "page"
+    (page / "listing_observations").mkdir(parents=True)
+    sale = outcome("ACTIVE")
+    sale["pricing"] = {"price": 1_650_000, "priceChanges": []}
+    pd.DataFrame(
+        {
+            "listing_id": ["7", "7"],
+            "listing_type": ["rental", "sale"],
+            "collected_at": [OCT_1, OCT_1 + DAY],
+            "raw_listing_json": [json.dumps(outcome("RENTED")), json.dumps(sale)],
+        }
+    ).to_parquet(page / "listing_observations" / "part-0.parquet")
+    table = listing_outcomes.build({"page": str(page)})
+    assert table.listing_id.tolist() == ["7"]
+    assert (table.final_ask.iloc[0], table.status.iloc[0]) == (3000, "RENTED")

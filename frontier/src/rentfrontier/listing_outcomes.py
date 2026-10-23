@@ -1,7 +1,7 @@
 """How each listing ended, keyed by listing id: its last ask, the price changes
 on the way, and how long it was listed. Each listing's outcome comes from its
-own StreetEasy record at its last capture, in the page crawls or in the data
-pipeline's API records.
+own StreetEasy rental record at its last capture, in the page crawls or in the
+data pipeline's API records.
 
     python -m rentfrontier.listing_outcomes
     python -m rentfrontier.listing_outcomes --crawl page --crawl records --tag <name>
@@ -84,13 +84,17 @@ def record_outcomes(raw: str, collected_at: float) -> dict:
 
 
 def build(crawls: dict | None = None, records: dict | None = None) -> pd.DataFrame:
-    """Each listing's outcome from its last capture in the crawls. A crawl
-    `records` is the pipeline's records file, `records` once checked."""
+    """Each listing's outcome from its last rental capture in the crawls. A crawl
+    `records` is the pipeline's records file, `records` once checked.
+
+    StreetEasy numbers sale and rental listings separately, and the page crawls hold both, so
+    the same id can name a sale and a rental. The builder keeps only rental captures. Sale 1545201 in
+    the Chelsea crawl asks $8,295,000, and rental 1545201 asks $4,250."""
     rows = []
-    columns = ["listing_id", "collected_at", "raw_listing_json"]
+    columns = ["listing_id", "listing_type", "collected_at", "raw_listing_json"]
     for crawl in (crawls or CRAWLS).values():
         for r in api_records.observations(crawl, columns, records):
-            if r["raw_listing_json"]:
+            if r["raw_listing_json"] and r["listing_type"] == "rental":
                 rows.append(
                     {
                         "listing_id": str(r["listing_id"]),
