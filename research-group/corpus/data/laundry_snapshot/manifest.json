@@ -1,0 +1,22 @@
+{
+ "snapshot": "/data1/apartments/external/unit-features/20261021-16cea7c/unit_features.parquet",
+ "snapshot_sha256": "51da8b299ac757dcb42c7b40a67e7e78d440284566d553b2cee265630cf2a583",
+ "snapshot_bytes": 14720366,
+ "snapshot_rows": 1969299,
+ "snapshot_duplicate_listing_ids": 0,
+ "snapshot_null_laundry": 0,
+ "snapshot_laundry_counts": {
+  "in_building": 718403,
+  "unstated": 663474,
+  "in_unit": 587422
+ },
+ "endpoints": "/data1/apartments/research-group/members/sol61/checks/laundry_audit_endpoints.parquet",
+ "endpoints_sha256": "7fecda017ced37dde34d75fb48320bce7cfc64b2be1e2c3bcd81f52e8b0f66ad",
+ "endpoint_rows": 240272,
+ "endpoint_snapshot_rows_counts": {
+  "1": 240272
+ },
+ "snapshot_writer": "commit 16cea7c2, frontier/src/rentfrontier/unit_features.py: laundry() takes each listing's first pipeline row (drop_duplicates on listing_id) and keeps laundry_type in_unit or in_building, else unstated",
+ "snapshot_input": "pipeline rows of rows-edc83b49f9bacd8c (as the writer's docstring names)",
+ "model_reader": "commit 6b5a5b4a, frontier/src/rentfrontier/building_zones_unit.py: columns() takes the first snapshot row per listing_id, reads a missing listing as unstated, and sets unit:laundry_in_unit and unit:laundry_in_building as indicators against unstated"
+}

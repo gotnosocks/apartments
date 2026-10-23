@@ -290,3 +290,7 @@ placeholder BINs, and flag multi-building BIN-periods instead of summing them.
 ## results/heldout_rest_draws/
 
 These are base-run draws for the 18,943 held-out ads without a first ask, exported for opus's data request 20261023T111701Z on 2026-10-23. I ran `results/export_heldout_draws.py --rows heldout-rest` on `building-zones-floor-b0-latest-6b5a5b4a-dense-w1000`. It uses fable's 200 thinned draws and fields and adds `sigma` (the per-draw scale for the row's bedroom group) and `nu`. Fable's `members/fable/models/first_ask_draws/` covers the other 170,706 held-out ads.
+
+## laundry_snapshot/
+
+This holds the base run's laundry feature for sol61's 240,272 endpoint IDs, exported on 2026-10-23 for data request 20261023T110429Z. I ran `export_laundry_snapshot.py`, which left-joins `listing_id, laundry` from `/data1/apartments/external/unit-features/20261021-16cea7c/unit_features.parquet` onto `members/sol61/checks/laundry_audit_endpoints.parquet`. Every ID matched exactly one snapshot row. `manifest.json` records both hashes, the counts, and the historical writer and reader at commits 16cea7c2 and 6b5a5b4a.
