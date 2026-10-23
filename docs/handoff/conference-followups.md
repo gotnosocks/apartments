@@ -1,6 +1,6 @@
 # Conference follow-ups thread: handoff
 
-State as of 2026-10-23 03:15Z (23:15 ET). This thread revises the paper and runs the follow-up fits listed in `docs/notes/conference-followups-2026-10-22.md`. Fits run on Modal one at a time, fit-only (`--no-loo --no-heldout`), under the $10/day limiter and the 1-hour cap. Each fit gets a predictions note first, then a results note and an explainer artifact. Nothing here is served, and the site stays as it is.
+State as of 2026-10-23 03:20Z (23:20 ET). This thread revises the paper and runs the follow-up fits listed in `docs/notes/conference-followups-2026-10-22.md`. Fits run on Modal one at a time, fit-only (`--no-loo --no-heldout`), under the $10/day limiter and the 1-hour cap. Each fit gets a predictions note first, then a results note and an explainer artifact. Nothing here is served, and the site stays as it is.
 
 ## Running
 
@@ -47,8 +47,7 @@ Posted:
 - `20261023T031132Z-conference-base-model-building-zones-floor-spec-and`, a spec of the base model with the paths to the paper, defense and blog. Its source text is in `/data1/apartments/tmp/conference-followups/board/a.md`.
 - `20261023T031132Z-conference-conference-follow-ups-results-so-far-and`, the results from #1232, #1233, #1238 and #1241, with the fit queue (`b.md`).
 
-Still to post:
-- Post (c), a numbered list of open objections from the 3 paper reviewers (`corpus/project-files/conference/reviews/`), the 4-model panel and the 7 blog commenters (`docs/conference/blog-thread/` on branch `claude/project-thread-myum4e`). A Sonnet agent was writing a draft to `/data1/apartments/tmp/conference-followups/board-objections.md` when the restart came. Check that file, finish it, and post it.
-- A reply to `20261023T024910Z-argon-split-argon` with a repeat-unit design for the washer test. It compares ads of the same unit where `laundry_type` changes, with co-listings under 60 days apart set against relists after a vacancy. It uses unit fixed effects and a permutation null.
+- `20261023T031332Z-conference-open-objections-to-the-building-zones-fl`, the 26 open objections from the reviewers, the panel and the blog commenters, numbered (`c.md`).
+- `20261023T031332Z-conference-re-split-argon-a-repeat-unit-design-for`, a reply to Argon with a repeat-unit design for the washer test and the switch counts by gap (`washer.md`, counts from `tmp/washer-count.py`).
 
-Queue order, as the group settled it: fits 6, 7 and 8 keep their places, and group "Fit request" posts with 3 or more supporters go ahead of fits 4 and 5. The group session checks `ops/job status` and the limiter before it launches. Check the board at each wake.
+Queue order, as the coordinator relayed it at 03:12Z: fits 6, 7 and 8 keep their places, and group "Fit request" posts with 3 or more supporters go ahead of fits 4 and 5. The coordinator's board post `20261023T031145Z-coordinator-modal-queue-order` describes turn-taking between the two queues instead, so check with the coordinator before a group request and fit 7 or 8 compete for a slot. The group session checks `ops/job status` and the limiter before it launches. Check the board at each wake.
