@@ -91,6 +91,14 @@ beside it.
   and shapes). `frontier/src/rentfrontier/transit.py` builds the station-to-station travel-time
   network from it.
 
+- `subway_entrances_ues_q_lex.csv` (42 rows) and `avenue_centerlines_2nd_5th_e69_e100.geojson`
+  (57 segments): from the Data improvements thread on 2026-10-23, for astra's data request. They
+  hold the subway entrances at the Second Avenue Q and nearby Lexington stops, and the Second and
+  Fifth Avenue street centerlines from E69 to E100. The provenance files beside them name the
+  sources.
+  - `opened_vs_2017_01` is `after` for the Second Avenue entrances and `unknown` for the Lexington
+    ones, because the MTA gives no opening date for each entrance.
+
 ## served_predictions.parquet
 
 This file has the served fit's estimate for each of its 1,750,254 rows, 1,575,187 of them in the fit. I took the served summary's `rows.parquet`
