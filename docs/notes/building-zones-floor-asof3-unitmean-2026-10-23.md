@@ -10,11 +10,11 @@ The fit misses the gate. The sweep took 0.86 s, against fit 8's 0.78 s.
 
 ## The gate miss
 
-68 of the 121 coefficients miss, with R-hat over 1.01 or ESS under 400. Every other quantity passes, including `unit_sd` (1.0025, 716), the zone amplitudes, the noise scales and all eight unit-mean coefficients (R-hat at most 1.0091, ESS at least 405). The misses are the 47 elevator floor steps, the 7 walk-up floor steps, 9 bath steps, 3 bedroom steps, `elev_top` and `penthouse`. Those columns stay fixed between a unit's ads and vary between units of a building. The building columns (doorman, condo, gym, age, height) and the unit columns that change between ads pass. Over the bedroom, bath and elevator floor coefficients the median ESS falls from 2,090 in fit 8 to 308.
+68 of the 121 coefficients miss, with R-hat over 1.01 or ESS under 400. Every other quantity passes, including `unit_sd` (1.0025, 716), the zone amplitudes, the noise scales and all eight unit-mean coefficients (R-hat at most 1.0091, ESS at least 405). The misses are the elevator floor steps f2 to f47 with `elev_floor_unknown` (47 in all), the walk-up floor steps with `walkup_top` and `walkup_floor_unknown` (7), 9 bath steps, 3 bedroom steps, `elev_top` and `penthouse`. Those columns stay fixed between a unit's ads and vary between units of a building. The building columns (doorman, condo, gym, age, height) and the unit columns that change between ads pass. The `umean:` columns are also fixed within a unit, but they pass only narrowly, with ESS of 405 to 709 against 1,174 to 1,343 for the within columns. Over the bedroom, bath and elevator floor coefficients the median ESS falls from 2,090 in fit 8 to 308.
 
-The four chains still agree closely on most of the failing terms: their medians spread by 0.2 points or less, except the thin studio and one-bedroom bath steps (`bed=0:full>=3` 1.38, `bed=1:full>=3` 0.64). The kept draws of `bed>=1`, every 5th sweep, have a lag-1 autocorrelation of 0.44 to 0.59 in each chain.
+The four chains still agree closely on most of the failing terms: their medians spread by 0.2 points or less, except three thin bath steps (`bed=0:full>=3` 1.38, `bed=1:full>=3` 0.64, `bed=5:full>=4` 0.27). The kept draws of `bed>=1`, every 5th sweep, have a lag-1 autocorrelation of 0.44 to 0.59 in each chain.
 
-I traced this to the model structure, through the order of the Gibbs blocks, and not to the data. The miss covers bedroom steps with hundreds of thousands of rows as well as the thin bath steps, so thin data can't explain it. The sweep draws the coefficients with the building levels integrated out and the unit effects held at their last draw (step 1 in the `building_zones_floor_asof2_unit` docstring). For a column that stays fixed inside a unit, shifting its coefficient and the effects of every unit with that value in opposite directions leaves the likelihood almost unchanged. Only the effects' prior, with `su` near 0.08 against a noise scale near 0.05, holds them apart, so each alternation moves the pair a short way. Building columns don't suffer, since step 1 already integrates out the building levels. The fix I'd make is to integrate the unit effects out of the coefficient draw in the same way. With the weights g_k = 1 / (1 + su^2 C_k) from step 2, that comes down to a correction to the coefficients' precision from each unit's sums of c x. I'd write it as a new module with its own tests and predictions, and I won't refit on a new seed.
+My working diagnosis, which no run has tested yet, puts this in the model structure, through the order of the Gibbs blocks, rather than in the data. The miss covers bedroom steps with hundreds of thousands of rows as well as the thin bath steps, so thin data can't explain it. The sweep draws the coefficients with the building levels integrated out and the unit effects held at their last draw (step 1 in the `building_zones_floor_asof2_unit` docstring). For a column that stays fixed inside a unit, shifting its coefficient and the effects of every unit with that value in opposite directions leaves the likelihood almost unchanged. Only the effects' prior, with `su` near 0.08 against a noise scale near 0.05, holds them apart, so each alternation moves the pair a short way. Building columns don't suffer, since step 1 already integrates out the building levels. The unit means hold up better than the steps, probably because each is a single smooth column, but their low ESS fits the same explanation. The fix I'd make is to integrate the unit effects out of the coefficient draw in the same way. With the weights g_k = 1 / (1 + su^2 C_k) from step 2, that comes down to a correction to the coefficients' precision from each unit's sums of c x. I'd write it as a new module with its own tests and predictions, and I won't refit on a new seed.
 
 ## Within and between units
 
@@ -31,7 +31,7 @@ Binary columns are percent premiums, 100 (exp(b) - 1), and `unit:log_size_rel` i
 | flag:rent_stabilized | 40,695 | -1.32 (-1.45 to -1.19) | -3.48 (-3.67 to -3.29) |
 | unit:garden | 3 | +9 (-54 to +136) | +2.44 (2.17 to 2.72) |
 
-Within units, every premium is a fraction of the between-unit one: about a quarter for the laundry and stabilized terms, a fifth for the dishwasher, and an eighth for the size elasticity. The garden label differs from its unit's mean on 3 rows, so its within coefficient rests on almost nothing.
+Within units, every premium apart from the garden label is a fraction of the between-unit one: about a quarter for in-unit laundry, 0.29 for laundry in the building, 0.38 for the stabilized discount, a fifth for the dishwasher, and a seventh for the size elasticity. The garden label differs from its unit's mean on 3 rows, so its within coefficient (+9, against +2.44 between) rests on almost nothing.
 
 ### Against the unit fixed-effects OLS of #1263
 
@@ -72,7 +72,7 @@ Every held-out ad on this split is the latest ad of a unit with training rows, s
 | fit 8 | 148,234 | 0.1158 | 0.493, 0.798, 0.903, 0.954 | 0.364 |
 | fit 4 | 177,137 | 0.1018 | 0.496, 0.789, 0.893, 0.949 | 0.301 |
 
-The elpd change is +28,903, with SEs of 297 by row, 483 by building and 688 two-way by building and week. `unit_heldout.py` gives the RMSE, coverage and width. Fit 4's coefficients haven't converged, but their chains agree to within 0.2 points on all but two thin bath steps, so the held-out gain doesn't depend on which chain one reads.
+The elpd change is +28,903, with SEs of 297 by row, 483 by building and 688 two-way by building and week. `unit_heldout.py` gives the RMSE, coverage and width. Fit 4's coefficients haven't converged, but their chains agree to within 0.2 points on all but three thin bath steps, so the held-out gain doesn't depend on which chain one reads.
 
 ## Against the predictions
 
@@ -107,9 +107,9 @@ From `amp-joint-predictions-2026-10-23.md`, with IATs from `amp_diag.py`:
 4. `amp[manhattan]` IAT of 3.0 or less: 1.2. Hit.
 5. The run passes the gate: it misses on the coefficients. Miss, for a reason outside the step.
 6. Medians between 0.32 and 0.42 (outer) and 0.80 and 1.00 (Manhattan): 0.370 and 0.867. Hit.
-7. Seconds per sweep rise by under 10% against fit 8: 0.857 against 0.775, up 10.6%. Miss, narrowly, and fit 4 also adds the unit effects to every sweep, so the rise overstates the step's own cost.
+7. Seconds per sweep rise by under 10% against fit 8: 0.857 against 0.775, up 10.5%. Miss, narrowly, and fit 4 also adds the unit effects to every sweep, so the rise overstates the step's own cost.
 
-That gives 5 hits and 2 misses. The joint step fixes `amp[outer]`.
+That gives 5 hits and 2 misses. In this run the joint step mixes `amp[outer]` well, though a single run is thin evidence.
 
 ## Reading
 
