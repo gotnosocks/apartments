@@ -9,8 +9,9 @@ import pytest
 from apartments import robust_pricing
 from apartments.corrections import canonical
 from apartments.research_pipeline import publish_bundle
-from models import amenity_rent_model as amenities, minimal_rent_model as baseline
+from models import amenity_rent_model as amenities
 from models import fit_robust_analysis as analysis
+from models import minimal_rent_model as baseline
 from models import residual_review
 
 

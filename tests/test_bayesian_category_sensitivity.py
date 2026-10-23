@@ -1,7 +1,9 @@
 """Prior comparisons require identical source, contrasts and endpoint support."""
 
 import copy
+
 import pytest
+
 from models import bayesian_category_sensitivity as m
 
 

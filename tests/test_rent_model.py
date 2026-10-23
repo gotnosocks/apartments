@@ -1,7 +1,7 @@
 """Data-selection regressions; these tests never run the sampler."""
 
-from pathlib import Path
 import importlib.util
+from pathlib import Path
 
 import pytest
 

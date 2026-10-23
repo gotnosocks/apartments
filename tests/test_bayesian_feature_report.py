@@ -2,9 +2,9 @@
 
 import copy
 import hashlib
-from html.parser import HTMLParser
 import json
 import math
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -486,7 +486,7 @@ def rewrite_v3(root, protocol, files):
 def test_corrected_source_report_requires_exact_review_lineage(
     experiment, tmp_path, version, fault
 ):
-    from tests.test_reviewed_source_lineage import revise, observations_hash
+    from tests.test_reviewed_source_lineage import observations_hash, revise
 
     root, dataset, protocol, files, _ = v3_fixture(experiment, mode="shared")
     rows = m.jsonl((dataset / "observations.jsonl").read_bytes())

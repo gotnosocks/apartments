@@ -1,14 +1,15 @@
-from copy import deepcopy
 import json
 import math
+from copy import deepcopy
 
 import pytest
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest
 from models import bayesian_source_sensitivity as m
-from .test_research_scope_overlay import bundles
+
 from .test_bayesian_feature_report import interval
+from .test_research_scope_overlay import bundles
 
 
 def reseal(folder, name, value):
@@ -261,6 +262,7 @@ import numpy as np
 import pandas as pd
 
 from apartments.research_pipeline import publish_bundle
+
 from .test_bayesian_feature_model import train
 from .test_bayesian_feature_report import diagnostics, publish_binary
 from .test_research_scope_overlay import decision

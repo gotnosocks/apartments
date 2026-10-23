@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 
 from models import residual_scope_fit_comparison as m
-from tests.test_floor_spline_fit_comparison import protocols as base_protocols
 from tests.test_bayesian_floor_increment_design import train
 from tests.test_bayesian_floor_spline_design import spline_train
+from tests.test_floor_spline_fit_comparison import protocols as base_protocols
 from tests.test_laundry_floor_fit_comparison import residual_fixture
 
 
@@ -318,9 +318,10 @@ def test_source_inverse_preserves_exact_retained_rows_and_both_floor_layers(
     tmp_path, monkeypatch, fault, policy_mode
 ):
     import json
+
     from apartments.corrections import canonical
     from apartments.research_pipeline import publish_bundle
-    from tests.test_residual_scope_projection import fixture, decision_for, bundle
+    from tests.test_residual_scope_projection import bundle, decision_for, fixture
 
     rows, _, _ = fixture()
     rows.append({**deepcopy(rows[-1]), "audit_id": "kept", "source_listing_id": "kept"})

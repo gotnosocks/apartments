@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from models import rolling_rent_validation as rolling
 from models import amenity_rent_model as amenities
 from models import minimal_rent_model as baseline
+from models import rolling_rent_validation as rolling
 
 
 def sample():

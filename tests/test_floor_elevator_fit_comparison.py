@@ -1,15 +1,15 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import numpy as np
 import pytest
 import xarray as xr
 
 from apartments.corrections import canonical
-from models import floor_elevator_fit_comparison as m
 from models import bayesian_floor_elevator_experiment as experiment
-from tests.test_bayesian_floor_elevator_design import data
+from models import floor_elevator_fit_comparison as m
 from tests.test_bayesian_feature_report import publish_binary
+from tests.test_bayesian_floor_elevator_design import data
 from tests.test_quarantine_fit_comparison import protocols as old_protocols
 
 

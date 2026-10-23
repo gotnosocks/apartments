@@ -8,15 +8,15 @@ import pandas as pd
 import pytest
 from typer.testing import CliRunner
 
-from apartments import robust_pricing, pricing
+from apartments import pricing, robust_pricing
 from apartments.candidate_search import (
-    select_candidates,
-    score_candidates,
     market_comparison,
+    score_candidates,
+    select_candidates,
 )
 from apartments.cli import app
 from apartments.corrections import canonical
-from apartments.research_pipeline import publish_bundle, digest
+from apartments.research_pipeline import digest, publish_bundle
 from models import amenity_ablation as ablation
 from models import amenity_rent_model as amenities
 from models import minimal_rent_model as baseline

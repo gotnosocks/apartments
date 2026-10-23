@@ -1,4 +1,4 @@
-from streeteasy_archive.scope import configure, expand, directory_page
+from streeteasy_archive.scope import configure, directory_page, expand
 from streeteasy_archive.store import ArchiveStore
 
 

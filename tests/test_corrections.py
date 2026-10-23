@@ -1,8 +1,8 @@
 """Evidence-preserving correction overlays; all tests use small synthetic records."""
 
+import json
 from copy import deepcopy
 from datetime import UTC, datetime
-import json
 
 import pytest
 from typer.testing import CliRunner

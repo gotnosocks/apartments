@@ -7,7 +7,7 @@ import pytest
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
-from models.outdoor_feature_audit import run, category
+from models.outdoor_feature_audit import category, run
 
 
 def test_cohort_audit_binds_sources_counts_rows_and_replays(tmp_path, monkeypatch):

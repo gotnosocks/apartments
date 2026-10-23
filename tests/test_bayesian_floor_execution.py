@@ -2,7 +2,9 @@ import copy
 import hashlib
 import json
 from types import SimpleNamespace
+
 import pytest
+
 from apartments.corrections import canonical
 from models import bayesian_disk_protocol as protocol
 from models import bayesian_floor_execution as execution
@@ -106,6 +108,7 @@ def test_sampler_forwards_explicit_depth_and_records_intent(
     tmp_path, monkeypatch, depth
 ):
     import nutpie
+
     from models import bayesian_disk_sampling as sampler
 
     model = SimpleNamespace(
@@ -145,9 +148,9 @@ def test_sampler_forwards_explicit_depth_and_records_intent(
 
 
 def frozen_proof():
+    from apartments.research_pipeline import digest
     from models import bayesian_disk_experiment as runner
     from models import bayesian_feature_experiment_v4 as floor
-    from apartments.research_pipeline import digest
 
     code = {p.name: digest(p) for p in runner.implementation_paths(floor)}
     fields = {

@@ -1,5 +1,5 @@
-from copy import deepcopy
 import hashlib
+from copy import deepcopy
 
 import pytest
 
@@ -367,8 +367,9 @@ def test_decision_rejects_unbound_or_inexact_evidence(fault):
 
 
 def test_add_and_extend_full_expanded_fixture():
-    from tests.test_expanded_floor_projection import example, extend as expand
     from apartments import floor_label_projection as old
+    from tests.test_expanded_floor_projection import example
+    from tests.test_expanded_floor_projection import extend as expand
 
     parent, row, change, _ = example()
     # Build the additional row into the complete old projection before expansion.

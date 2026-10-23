@@ -1,10 +1,11 @@
-from scrapy.http import HtmlResponse
+import pytest
 from scrapy.crawler import Crawler
+from scrapy.http import HtmlResponse
 from scrapy.settings import Settings
+from twisted.python.failure import Failure
+
 from streeteasy_archive.crawler import ArchiveSpider
 from streeteasy_archive.oxylabs import RetryableOxylabsError
-from twisted.python.failure import Failure
-import pytest
 
 
 def spider(tmp_path, budget=0, transport="oxylabs"):

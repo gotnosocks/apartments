@@ -2,9 +2,10 @@ import json
 
 import pytest
 
-from apartments import main_analysis as m
 from apartments import bayesian_evidence
+from apartments import main_analysis as m
 from apartments.research_pipeline import publish_bundle
+
 from .test_bayesian_feature_report import experiment
 
 

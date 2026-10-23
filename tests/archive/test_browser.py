@@ -87,6 +87,7 @@ def test_firefox_entity_conditional_and_redirect():
 def test_interception_races_are_not_uncaught_and_real_failures_remain_visible():
     pytest.importorskip("selenium")
     from selenium.common.exceptions import WebDriverException
+
     from streeteasy_archive.browser import RequestPolicy
 
     class Network:
@@ -157,6 +158,7 @@ def test_interception_races_are_not_uncaught_and_real_failures_remain_visible():
 def test_interception_failure_saves_document_before_pausing(tmp_path):
     from scrapy import Request
     from scrapy.http import HtmlResponse
+
     from streeteasy_archive.crawler import ArchiveSpider
 
     store = ArchiveStore(tmp_path)

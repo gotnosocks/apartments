@@ -1,5 +1,5 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 
@@ -7,7 +7,7 @@ from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
 from apartments.reviewed_cohort_quarantine import records_hash, sha
 from docs.analysis.scripts import build_floor_movement_review as m
-from tests.test_expanded_floor_projection import example, extend, bundle, mask_for
+from tests.test_expanded_floor_projection import bundle, example, extend, mask_for
 
 
 def fixture(expanded=True, masked=False):

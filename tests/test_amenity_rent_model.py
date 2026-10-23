@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from apartments.research_pipeline import publish_bundle
 from models import amenity_rent_model as model
 from models import minimal_rent_model as base
-from apartments.research_pipeline import publish_bundle
 
 
 def fixture():

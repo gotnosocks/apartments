@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from scrapy.crawler import CrawlerProcess
 from scrapy.http import Response
+
 from streeteasy_archive.crawler import ArchiveSpider
 from streeteasy_archive.store import ArchiveStore
 

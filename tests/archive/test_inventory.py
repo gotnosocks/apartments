@@ -1,8 +1,10 @@
 import asyncio
+
 import pytest
 from scrapy.crawler import Crawler
 from scrapy.http import HtmlResponse
 from scrapy.settings import Settings
+
 from streeteasy_archive.extract import extract, kind_for
 from streeteasy_archive.scope import configure_building, discovery_links, expand
 from streeteasy_archive.store import ArchiveStore
@@ -100,8 +102,9 @@ def test_flight_summary_prevents_false_empty_inventory():
 
 def test_inventory_transport_expands_correct_category(monkeypatch):
     from scrapy import Request
-    from streeteasy_archive.oxylabs import OxylabsDownloadHandler
+
     from streeteasy_archive import oxylabs
+    from streeteasy_archive.oxylabs import OxylabsDownloadHandler
 
     monkeypatch.setattr(oxylabs, "_credentials", lambda: ("user", "password"))
     payloads = []

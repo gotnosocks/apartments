@@ -1,5 +1,6 @@
-from apartments.attribute_evidence import extract_attribute_evidence as extract
 import pytest
+
+from apartments.attribute_evidence import extract_attribute_evidence as extract
 
 
 def test_nested_structured_evidence_and_compatibility():

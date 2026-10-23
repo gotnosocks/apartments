@@ -1,9 +1,9 @@
 """Real source/design/posterior reader integration; synthetic draws, no fit claims."""
 
-from contextlib import closing
 import hashlib
 import json
 import math
+from contextlib import closing
 
 import numpy as np
 import pytest
@@ -16,13 +16,13 @@ from apartments.research_pipeline import publish_bundle
 from models import bayesian_feature_report as report
 from models import bayesian_floor_elevator_experiment as experiment
 from models import bayesian_source_sensitivity as verification
+from tests.test_bayesian_feature_report import interval, publish_binary
 from tests.test_bayesian_floor_elevator_design import data
 from tests.test_bayesian_source_sensitivity import (
-    design_source,
-    converted,
     complete_synthetic_fit,
+    converted,
+    design_source,
 )
-from tests.test_bayesian_feature_report import publish_binary, interval
 
 
 @pytest.fixture(params=["pooled", "separate"])

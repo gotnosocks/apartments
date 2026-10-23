@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from models.bayesian_feature_model import FeatureDesign
 from models.bayesian_feature_design_v2 import load_design
+from models.bayesian_feature_model import FeatureDesign
 
 
 @pytest.fixture

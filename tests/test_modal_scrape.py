@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+
 import pytest
 
 pytest.importorskip("modal")
@@ -47,7 +48,8 @@ def test_continuation_never_calls_incomplete_scope_complete(code, queue, expecte
 
 
 def test_clone_preserves_source(tmp_path):
-    import sqlite3, json
+    import json
+    import sqlite3
 
     base = tmp_path / "source"
     base.mkdir()
@@ -68,7 +70,8 @@ def test_clone_preserves_source(tmp_path):
 
 
 def test_publish_new_snapshot_and_readiness(tmp_path):
-    import sqlite3, json
+    import json
+    import sqlite3
 
     snapshots = tmp_path / "snapshots"
     snapshots.mkdir()

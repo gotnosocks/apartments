@@ -1,5 +1,5 @@
-from copy import deepcopy
 import importlib.util
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -74,8 +74,9 @@ def test_publication_reload_and_replay_preserve_annotations_and_linkage(
 ):
     """Real source-issue and linkage publishers; only verified evidence is mocked."""
     import json
+
     from apartments.corrections import canonical
-    from apartments.research_pipeline import publish_bundle, digest, _verified_bundle
+    from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 
     reference, candidate, evidence, previous, output, linkage = [
         tmp_path / name

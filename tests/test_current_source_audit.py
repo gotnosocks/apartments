@@ -1,5 +1,7 @@
 from copy import deepcopy
+
 import pytest
+
 from models.current_source_audit import inspect
 
 ROW = {

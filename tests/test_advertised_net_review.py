@@ -1,11 +1,11 @@
-from copy import deepcopy
 import hashlib
+from copy import deepcopy
 
 import pytest
 
 from apartments.rent_basis_measurement import measure
 from docs.analysis.scripts import adjudicate_advertised_net_review as m
-from tests.test_reviewed_cohort_quarantine import fixture, CLOCK
+from tests.test_reviewed_cohort_quarantine import CLOCK, fixture
 
 
 def case(ad="1694924", text="Net effective rent listed.", price=3000):

@@ -6,9 +6,11 @@ import pytest
 
 from apartments import robust_pricing
 from apartments.corrections import canonical
-from apartments.research_pipeline import publish_bundle, _verified_bundle
-from models import fit_robust_analysis as analysis, refit_analysis_revision as revision
-from models import amenity_rent_model as amenities, minimal_rent_model as baseline
+from apartments.research_pipeline import _verified_bundle, publish_bundle
+from models import amenity_rent_model as amenities
+from models import fit_robust_analysis as analysis
+from models import minimal_rent_model as baseline
+from models import refit_analysis_revision as revision
 
 
 def test_quarantine_is_explicit_and_never_rewrites_source_price():

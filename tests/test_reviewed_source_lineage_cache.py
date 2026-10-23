@@ -5,6 +5,8 @@ import pytest
 
 from apartments import (
     reviewed_lineage_cache as lineage,
+)
+from apartments import (
     reviewed_source_lineage as source,
 )
 

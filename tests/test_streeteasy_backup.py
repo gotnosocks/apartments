@@ -1,9 +1,9 @@
 """ops/streeteasy-backup against a small archive in a temporary folder."""
 
 import os
-from pathlib import Path
 import sqlite3
 import subprocess
+from pathlib import Path
 
 import pytest
 

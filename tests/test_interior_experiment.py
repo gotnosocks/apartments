@@ -7,7 +7,8 @@ import pytest
 from apartments import interior_evidence
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, publish_bundle
-from models import interior_experiment as experiment, minimal_rent_model as baseline
+from models import interior_experiment as experiment
+from models import minimal_rent_model as baseline
 
 
 def fixture(tmp_path):

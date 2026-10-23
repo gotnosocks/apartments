@@ -1,5 +1,6 @@
 import json
-from streeteasy_archive.scope import expand, configure, SEEDS
+
+from streeteasy_archive.scope import SEEDS, configure, expand
 from streeteasy_archive.store import ArchiveStore
 
 
@@ -194,6 +195,7 @@ def test_resume_watermark_skips_old_evidence_and_reads_new(tmp_path, monkeypatch
 
 def test_scope_batch_rolls_back_its_watermark_on_failure(tmp_path, monkeypatch):
     import pytest
+
     import streeteasy_archive.scope as scope
 
     s = ArchiveStore(tmp_path)

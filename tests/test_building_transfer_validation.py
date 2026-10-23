@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from models import building_transfer_validation as transfer
 from models import amenity_rent_model as amenities
+from models import building_transfer_validation as transfer
 from models import minimal_rent_model as baseline
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 
-from models.bayesian_parameter_audit import inventory, variation
 from models.bayesian_feature_model import FeatureDesign
+from models.bayesian_parameter_audit import inventory, variation
 from tests.test_bayesian_feature_model import train
 
 

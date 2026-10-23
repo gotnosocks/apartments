@@ -1,10 +1,11 @@
 import json
-import xarray as xr
+
 import pytest
+import xarray as xr
 
 from apartments.research_pipeline import digest
 from models import bayesian_disk_experiment as m
-from tests.test_bayesian_feature_experiment_v3 import setup, posterior
+from tests.test_bayesian_feature_experiment_v3 import posterior, setup
 
 
 def configure(setup, monkeypatch, floor=False):

@@ -5,8 +5,8 @@ import duckdb
 import pytest
 
 from apartments.corrections import canonical
-from apartments.research_pipeline import digest, publish_bundle
 from apartments.rent_basis_measurement import measure
+from apartments.research_pipeline import digest, publish_bundle
 from models.rent_basis_price_review import own_event_review, run
 
 

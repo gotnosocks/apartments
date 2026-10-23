@@ -9,8 +9,10 @@ import hashlib
 import pytest
 
 from apartments.attribute_evidence import (
-    extract_attribute_evidence as extract,
     NAMED_UNIT_FLOOR_RULE,
+)
+from apartments.attribute_evidence import (
+    extract_attribute_evidence as extract,
 )
 
 REVIEWED_DESCRIPTIONS = {

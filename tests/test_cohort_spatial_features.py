@@ -2,11 +2,11 @@ import pytest
 
 from apartments.research_pipeline import publish_bundle
 from models.cohort_spatial_features import (
-    check_listing,
-    resolve_building,
-    feature_summary,
-    verified_manifest,
     bound_archived_building,
+    check_listing,
+    feature_summary,
+    resolve_building,
+    verified_manifest,
 )
 
 
@@ -175,8 +175,10 @@ def test_complete_local_source_join_decodes_real_flight_and_is_replayable(
     import gzip
     import hashlib
     import json
+
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     from apartments.corrections import canonical
     from apartments.research_pipeline import digest
     from models import cohort_spatial_features as m

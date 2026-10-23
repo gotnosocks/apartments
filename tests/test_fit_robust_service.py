@@ -8,9 +8,9 @@ import pytest
 
 from apartments import robust_pricing
 from models import amenity_rent_model as amenities
+from models import fit_robust_service as serving
 from models import minimal_rent_model as baseline
 from models import rolling_rent_validation as rolling
-from models import fit_robust_service as serving
 
 
 def test_refit_parity_reuse_and_future_source_rejection(tmp_path, monkeypatch):

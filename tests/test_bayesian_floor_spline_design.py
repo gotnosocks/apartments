@@ -5,7 +5,7 @@ import pytest
 
 from models.bayesian_feature_model import FeatureDesign as Previous
 from models.bayesian_floor_spline_design import FeatureDesign, knot_specification
-from tests.test_bayesian_floor_increment_design import train, cases
+from tests.test_bayesian_floor_increment_design import cases, train
 
 
 @pytest.fixture

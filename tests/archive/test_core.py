@@ -1,5 +1,5 @@
-from streeteasy_archive.store import ArchiveStore
 from streeteasy_archive.crawler import approved_links, retry_after
+from streeteasy_archive.store import ArchiveStore
 
 
 def test_crash_recovery_and_atomic_discovery(tmp_path):

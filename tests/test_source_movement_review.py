@@ -1,5 +1,7 @@
 from copy import deepcopy
+
 import pytest
+
 from models.source_movement_review import compare_details, select_cases
 
 

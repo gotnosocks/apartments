@@ -1,5 +1,5 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import numpy as np
 import pytest
@@ -157,8 +157,9 @@ def test_no_parity_proof_refuses_sampling_before_creating_output(tmp_path):
 
 
 def configure_runner(setup, monkeypatch, acceptable=True):
-    from tests.test_bayesian_disk_experiment import configure as configure_disk
     import pandas as pd
+
+    from tests.test_bayesian_disk_experiment import configure as configure_disk
 
     args, design, events = configure_disk(setup, monkeypatch)
     args.interaction_mode = "pooled"

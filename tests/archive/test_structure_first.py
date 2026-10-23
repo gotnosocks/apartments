@@ -2,9 +2,7 @@ import inspect
 
 import pytest
 
-from streeteasy_archive import cli
-
-from streeteasy_archive import structure_first
+from streeteasy_archive import cli, structure_first
 from streeteasy_archive.collection_policy import setup
 from streeteasy_archive.store import ArchiveStore
 

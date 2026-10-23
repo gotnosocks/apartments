@@ -1,11 +1,10 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 
 from models import direct_floor_fit_checks as checks
-
 
 ARCHIVE = Path(
     "data/model/chelsea-bayesian-commercial-scope-spline-disk-20260920/protocol"

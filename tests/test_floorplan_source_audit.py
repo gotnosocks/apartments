@@ -1,9 +1,13 @@
-import gzip, hashlib, json
+import gzip
+import hashlib
+import json
+
 import pytest
+
 from models.floorplan_source_audit import (
-    floorplan_metadata,
     body_references,
     checked_body,
+    floorplan_metadata,
 )
 
 

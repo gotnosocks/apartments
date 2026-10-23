@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from models.floor_prior_stability import audit_priors, covariance, contrast_sd
+from models.floor_prior_stability import audit_priors, contrast_sd, covariance
 
 
 def test_missing_integer_thresholds_marginalize_to_gap_variance():

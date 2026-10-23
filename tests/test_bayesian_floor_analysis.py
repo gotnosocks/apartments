@@ -10,12 +10,12 @@ from apartments.corrections import canonical
 from models import bayesian_floor_increment_design as floor
 from models import bayesian_source_sensitivity as verification
 from tests.test_bayesian_feature_model import train
+from tests.test_bayesian_feature_report import publish_binary
 from tests.test_bayesian_source_sensitivity import (
+    converted,
     design_archive,
     design_source,
-    converted,
 )
-from tests.test_bayesian_feature_report import publish_binary
 
 
 @pytest.fixture

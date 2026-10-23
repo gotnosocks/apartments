@@ -1,5 +1,5 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -8,11 +8,11 @@ import pytest
 from apartments.corrections import canonical
 from apartments.research_pipeline import publish_bundle
 from models import expanded_floor_fit_comparison as m
+from tests.test_bayesian_feature_report import publish_binary
 from tests.test_bayesian_floor_increment_design import train
 from tests.test_bayesian_floor_spline_design import spline_train
-from tests.test_floor_spline_fit_comparison import protocols as original_protocols
 from tests.test_expanded_floor_projection import example, extend
-from tests.test_bayesian_feature_report import publish_binary
+from tests.test_floor_spline_fit_comparison import protocols as original_protocols
 
 
 def protocols():

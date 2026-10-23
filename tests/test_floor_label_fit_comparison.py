@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from models import floor_label_fit_comparison as m
-from tests.test_bayesian_floor_elevator_design import data
 from tests.test_bayesian_feature_report import publish_binary
+from tests.test_bayesian_floor_elevator_design import data
 from tests.test_quarantine_fit_comparison import protocols as prior_protocols
 
 
@@ -220,8 +220,8 @@ def test_residual_slices_are_explicit_not_a_representative_benchmark():
 
 @pytest.mark.parametrize("fault", [None, "bedrooms", "price", "identity", "sidecar"])
 def test_published_revision_rejects_source_tampering(tmp_path, fault):
-    from apartments.research_pipeline import publish_bundle
     from apartments.corrections import canonical
+    from apartments.research_pipeline import publish_bundle
     from apartments.reviewed_cohort_quarantine import records_hash, sha
     from tests.test_floor_label_projection import example
 

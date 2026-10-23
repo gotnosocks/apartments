@@ -39,8 +39,8 @@ def test_curve_identification_is_zero_sum_and_group_centered():
 
 
 def test_reader_location_terms_match_graph_groups_and_skip_other_versions():
-    from models import bayesian_location_terms as terms
     from models import bayesian_floor_spline_contract as contract
+    from models import bayesian_location_terms as terms
 
     assert terms.BEDROOM_GROUPS == graph.GROUP_LABELS
     assert terms.BEDROOM_TIME_EXPERIMENT == contract.BEDROOM_TIME_EXPERIMENT

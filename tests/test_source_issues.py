@@ -4,8 +4,8 @@ The evidence loader is mocked only at its verified boundary: these captures
 stand in for exact, already validated archive records, as in source-review tests.
 """
 
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 
