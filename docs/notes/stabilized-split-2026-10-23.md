@@ -20,7 +20,7 @@ Within-building OLS on log latest ask, 1,866,262 ads in the frontier dataset `b0
 | built 1974 to 2007 | 3,363 | -1.49 (-2.81 to -0.14) | -1.13 (-2.43 to 0.18) |
 | built 2008 on | 8,810 | -2.78 (-3.90 to -1.66) | -1.98 (-3.01 to -0.94) |
 
-Pre-1974 minus 2008-on is -1.05 log points (SE 0.65, z -1.61) on all ads and -1.83 (SE 0.60, z -3.03) without the income-restricted ads. Both lie outside the within-building permutation null (2.5 to 97.5 percentiles -0.30 to 0.33).
+Pre-1974 minus 2008-on is -1.05 log points (SE 0.65, z -1.61) on all ads and -1.83 (SE 0.60, z -3.03) without the income-restricted ads. Both lie outside their within-building permutation nulls (2.5 to 97.5 percentiles -0.30 to 0.33 on all ads and -0.30 to 0.35 without the income-restricted ads).
 
 By period, before and after 2019-06-14:
 
@@ -31,15 +31,17 @@ By period, before and after 2019-06-14:
 | 2008 on, before | 1,608 | +0.83 (-0.81 to 2.50) | +1.57 (-0.12 to 3.29) |
 | 2008 on, after | 7,202 | -3.43 (-4.64 to -2.21) | -1.94 (-3.15 to -0.72) |
 
-| after minus before, log points | estimate (SE) | null median, building-by-period shuffle (2.5 to 97.5) |
-|---|---|---|
-| pre-1974 | -0.09 (0.52) | -0.09 (-0.37 to 0.22) |
-| pre-1974, age-by-month | -0.03 (0.51) | -0.03 (-0.31 to 0.28) |
-| 2008 on | -4.32 (0.92) | -2.41 (-2.89 to -1.85) |
-| 2008 on, age-by-month | -3.52 (0.98) | -2.83 (-3.32 to -2.27) |
-| 2008 on, without income-restricted ads | -4.18 (0.87) | -2.46 (-2.96 to -1.89) |
+The differences and their nulls below are in percentage points, from the percent coefficients above. The building shuffle is the null I planned. The building-by-period shuffle replaced it after the first pass.
 
-The null for the 2008-on contrast doesn't center on zero. The shuffle keeps each building's flag rate in each period, so buildings built 2008 on whose flagged share rose after 2019, and whose rents fell against the city, move the null as much as the estimate. Against that null, the change beyond chance is about 1.9 log points with month effects and 0.7 with age-by-month effects. The estimate falls below every null draw in each version.
+| after minus before, percentage points | estimate (z) | null median, building-by-period shuffle (2.5 to 97.5) | null median, building shuffle as planned (2.5 to 97.5) |
+|---|---|---|---|
+| pre-1974 | -0.09 (-0.18) | -0.09 (-0.37 to 0.22) | -0.84 (-1.11 to -0.51) |
+| pre-1974, age-by-month | -0.03 (-0.06) | -0.03 (-0.31 to 0.28) | not run |
+| 2008 on | -4.27 (-4.69) | -2.41 (-2.89 to -1.85) | -0.83 (-1.33 to -0.25) |
+| 2008 on, age-by-month | -3.51 (-3.59) | -2.83 (-3.32 to -2.27) | not run |
+| 2008 on, without income-restricted ads | -4.15 (-4.81) | -2.46 (-2.96 to -1.89) | not run |
+
+Neither null centers on zero. The building shuffle mixes each building's flagged ads across both periods, so a building whose flagged share changed after 2019 carries its rent drift into that null: the pre-1974 estimate sits above every one of its draws. The building-by-period shuffle keeps each building's flag rate in each period, so buildings built 2008 on whose flagged share rose after 2019, and whose rents fell against the city, move this null as much as the estimate. Against the building-by-period null, the 2008-on change beyond chance is about 1.9 points with month effects and 0.7 with age-by-month effects. Against the planned building null, it is about 3.4 points. The estimate falls below every draw of both nulls in each version.
 
 Tax-bill split, Manhattan lots, flag coefficient in percent:
 
@@ -49,7 +51,7 @@ Tax-bill split, Manhattan lots, flag coefficient in percent:
 | condo lots dropped | 183 | -5.22 (-9.05 to -1.22) | -3.46 (-3.99 to -2.92) | +1.84 (SE 2.14) |
 | lots that could hold stabilized units | 90 | -5.19 (-9.76 to -0.39) | -3.42 (-3.95 to -2.88) | +1.85 (SE 2.54) |
 
-Of 1,107,438 Manhattan ads, 282,433 sit on a lot with no entry in the tax-bill file. The file lists lots with stabilized units on their bills, so "no entry" means either no stabilized units or a lot the file misses. It doesn't mean a bill with zero stabilized units.
+Of 1,107,438 Manhattan ads, 282,433 sit on a lot with no entry in the tax-bill file. The file lists lots with stabilized units on their bills, so "no entry" means either no stabilized units or a lot the file misses. It doesn't mean a bill with zero stabilized units. The last version narrows only the no-entry group; its other group matches the version without condo lots.
 
 814 of the flagged ads (2.7%) sit in buildings with no unflagged ad to compare with.
 
@@ -67,7 +69,7 @@ That gives 3 hits and 5 misses.
 
 ## Reading
 
-The flag's discount doesn't follow the split I predicted. Pre-1974 buildings carry a steady discount of about 3.8% inside the building, unchanged across the 2019 law. The 2008-on buildings, mostly 421-a rentals, show no discount before 2019 and about 2% to 3.4% after it. Part of that change comes from buildings whose flagged share and rent path moved together, as the period null shows, and the age-by-month control cuts the part beyond that null from 1.9 to 0.7 log points. The income-restricted set-asides don't explain it.
+The flag's discount doesn't follow the split I predicted. Pre-1974 buildings carry a steady discount of about 3.8% inside the building, unchanged across the 2019 law. The 2008-on buildings, mostly 421-a rentals, show no discount before 2019 and about 2% to 3.4% after it. Part of that change comes from buildings whose flagged share and rent path moved together, as the building-by-period null shows, and the age-by-month control cuts the part beyond that null from 1.9 to 0.7 points. The income-restricted set-asides don't explain it.
 
 Within a building, the flag compares a unit advertised as stabilized with its neighbors that aren't, so the 3.8% is the gap among units of one building and not the gap between a stabilized unit's legal rent and the market's. The stabilized ads that sit far below market may be the ones that are never advertised.
 
