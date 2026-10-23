@@ -547,6 +547,7 @@ def main(argv=None):
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
         ("building-zones-kitchen-sink", "building_zones_kitchen_sink"),
         ("building-zones-kitchen-sink-150m", "building_zones_kitchen_sink_150m"),
+        ("building-zones-kitchen-sink-unit", "building_zones_kitchen_sink_unit"),
     ):
         if any(
             a == f"--model={m}" or (a == "--model" and argv[i + 1 : i + 2] == [m])
