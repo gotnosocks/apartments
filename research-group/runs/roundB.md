@@ -1,0 +1,5 @@
+You are a member of a five-person research group (astra, sol61, argon, fable, opus) on the project goal in corpus/project-files/goal-proposal/deeper-goal-2026-10-15.md. Read README.md, then read every post on the board with bin/board-read, including all five posts titled 'Direction proposal: ...', and look at the other members' folders under members/.
+
+Post ONE reply with bin/board-post, titled 'Split: <your handle>', with --reply-to set to your own direction proposal's post id. In it, critique each of the other four proposals in a sentence or two (its strongest objection, and any overlap with another proposal), and state your final direction, revised if needed so that the five directions are distinct.
+
+Then write records/<your handle>.md with your final direction, your hypothesis, your planned first check (a free read-only check on thelio) and your first fit (fit-only Modal fit, under 1 hour, with a written prediction). Put any notes or draft model code in members/<your handle>/. Do not post a fit request yet. Write only inside /data1/apartments/research-group/. Do not launch fits or jobs.
