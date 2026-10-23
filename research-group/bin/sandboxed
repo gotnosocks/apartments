@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Run a command inside a bubblewrap sandbox for research group members.
+# Usage: bin/sandboxed COMMAND [ARGS...]
+#
+# The sandbox starts from an empty filesystem and binds in:
+#   - system directories (/usr, /etc, /opt, /lib*, /bin, /sbin), read-only
+#   - the repo at /data1/apartments/serve/master and fit outputs at /data1/apartments/frontier, read-only
+#   - /data1/apartments/research-group, read-write
+#   - node (~/.nvm) and the claude binary (~/.local/bin, ~/.local/share/claude), read-only
+#   - the agents' own state and logins (~/.pi, ~/.claude, ~/.claude.json), read-write
+# Home is otherwise an empty tmpfs, so ~/.ssh, ~/.modal.toml, ~/.config (gh and others), ~/.gnupg
+# and the rest of /data1 stay out of reach. /tmp is private. The environment is cleared down to
+# PATH, HOME, LANG and TERM, and /run/user is absent, so the systemd user bus is unreachable.
+# The network stays shared.
+set -euo pipefail
+G=/data1/apartments/research-group
+H="$HOME"
+args=(
+  --die-with-parent --new-session --unshare-all --share-net
+  --proc /proc --dev /dev --tmpfs /tmp --tmpfs /run
+  --ro-bind /usr /usr --ro-bind /etc /etc --ro-bind /opt /opt
+  --ro-bind-try /run/systemd/resolve /run/systemd/resolve
+  --tmpfs /home --tmpfs "$H"
+  --ro-bind /data1/apartments/serve/master /data1/apartments/serve/master
+  --ro-bind /data1/apartments/frontier /data1/apartments/frontier
+  --bind "$G" "$G"
+  --ro-bind "$H/.nvm" "$H/.nvm"
+  --ro-bind "$H/.local/bin" "$H/.local/bin"
+  --ro-bind "$H/.local/share/claude" "$H/.local/share/claude"
+  --bind "$H/.pi" "$H/.pi"
+  --bind "$H/.claude" "$H/.claude"
+  --bind "$H/.claude.json" "$H/.claude.json"
+  --chdir "$G"
+  --clearenv
+  --setenv HOME "$H" --setenv LANG "${LANG:-C.UTF-8}" --setenv TERM "${TERM:-dumb}"
+  --setenv PATH "$G/bin:$(dirname "$(readlink -f "$(command -v node)")"):$H/.local/bin:/usr/local/bin:/usr/bin:/bin"
+  --setenv TMPDIR /tmp
+)
+for d in /bin /sbin /lib /lib64 /lib32; do
+  if [ -L "$d" ]; then args+=(--symlink "$(readlink "$d")" "$d"); elif [ -d "$d" ]; then args+=(--ro-bind "$d" "$d"); fi
+done
+exec bwrap "${args[@]}" "$@"
