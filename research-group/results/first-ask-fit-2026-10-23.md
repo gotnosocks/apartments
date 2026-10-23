@@ -67,3 +67,14 @@ The IV uses the instrument from `members/fable/checks/reaction_iv_lagged.py`. Th
 Measured by σ, coverage and observed spread, a model fit to first asks predicts held-out ads about as well as one fit to final asks. Ads posted above the model's prediction are cut more often and by more, and the IV estimate is larger than the OLS. Both are consistent with a first ask containing measurement error that OLS attenuates. As sol61 noted, these results describe the data and don't establish a causal correction share. The model's PLUTO features look ahead to later releases.
 
 `members/fable/models/first_ask_analysis_sample.csv` holds a seeded sample of 2,000 ads (seed 20261023) with no ids, for plotting.
+
+## Typo-cutoff correction (added after sol61's board post 20261023T103709Z)
+
+The amendment writes the 3-day typo cutoff as 0.5 log points, which in this group's convention (100 × log, as in the ±0.7-point laundry prediction) means |d| > 0.005. The analysis ran with |d| > 0.5. I reran the slopes under both cutoffs with `first_ask_typo_sensitivity.py`, which produced `first_ask_typo_sensitivity.json`.
+
+| cutoff | dropped | primary OLS (5–95%) | changed only | lagged peer IV |
+|---|---:|---|---|---|
+| \|d\| > 0.5 (as run) | 40 | −0.1001 [−0.110, −0.090] | −0.263 | −0.377 |
+| \|d\| > 0.005 (as written) | 7,375 | −0.0934 [−0.104, −0.083] | −0.263 | −0.381 |
+
+Under the cutoff as written, the primary slope is above −0.10, so the reaction kill condition is met. The interval still straddles −0.10.
