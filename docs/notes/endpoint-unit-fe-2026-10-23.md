@@ -24,11 +24,14 @@ Standard errors are two-way clustered by unit and by the ISO week of the row's o
 (262 weeks). The week-dependence target allows any correlation among the errors of ads dated in
 the same ISO week, first or second endpoints, from any unit, plus any correlation between a
 unit's two endpoints. Ads in different weeks and different units count as independent, so shocks
-lasting several weeks are not covered. The unit clusters give the larger one-way standard errors
-on every reported term, and the two-way ones come out close to them.
+lasting several weeks are not covered. Of the unit and week clusters, the unit ones give the
+larger one-way standard errors on every reported term, and the two-way ones come out close to them.
+A second set of standard errors, clustered by building and week, follows in
+[Building clustering](#building-clustering).
 
-The main run reads the asks of all endpoints, including the 1,888 later endpoints that fit 4's latest split holds out. A second run dropped the 1,888 units with such an endpoint. Sol
-screened holdout rows with an earlier build's mask, and this build's split differs on those ads.
+The main run reads the asks of all endpoints, including the 1,888 later endpoints that fit 4's
+latest split holds out. A second run dropped the 1,888 units with such an endpoint.
+[Holdout masks](#holdout-masks) says which mask each count comes from.
 
 Outputs: `/data1/apartments/tmp/conference-followups/unit-fe/` (`counts.json`,
 `endpoint_design.parquet`, `results.json`, `tables.md`), with copies of the two json files in the
@@ -83,6 +86,49 @@ between -0.2% and +0.9% (18 to 94 units each), `income_restricted` -4.0% (10). T
 floor steps change in 14 or fewer units each, several in a single unit, and with one changing
 unit a cluster-robust interval means nothing. I list them in `results.json` without reading
 them.
+
+## Building clustering
+
+Added 2026-10-23, after Astra asked on the board for standard errors clustered by building and
+endpoint week. I added them to `unit_fe.py` and reran it on the same 123,828 endpoints. They
+are two-way, by building (15,565 buildings) and by the ISO week of each row's own `latest_day`,
+and `results.json` keeps them beside the unit and week ones. The estimates don't change.
+
+| column | estimate | 95%, unit and week | 95%, building and week | SE ratio |
+|---|---:|---|---|---:|
+| unit:laundry_in_unit | +0.78% | +0.49 to +1.08 | +0.44 to +1.13 | 1.18 |
+| unit:laundry_in_building | +0.43% | +0.19 to +0.67 | +0.14 to +0.72 | 1.19 |
+| unit:dishwasher | +0.53% | +0.38 to +0.68 | +0.34 to +0.71 | 1.24 |
+| unit:log_size_rel | 0.002 | -0.007 to 0.011 | -0.008 to 0.012 | 1.10 |
+| unit:size_imputed | +0.20% | +0.01 to +0.40 | -0.04 to +0.44 | 1.24 |
+| unit:size_unknown | +0.13% | -0.14 to +0.39 | -0.19 to +0.44 | 1.19 |
+| flag:shared_space | -0.23% | -0.72 to +0.27 | -0.75 to +0.29 | 1.05 |
+| flag:rent_stabilized | -0.72% | -1.44 to -0.003 | -1.53 to +0.09 | 1.13 |
+| bld:altered_2000_on | +1.19% | +0.35 to +2.04 | -0.01 to +2.41 | 1.43 |
+| unit:walkup_floor_unknown | -0.10% | -3.19 to +3.10 | -3.21 to +3.12 | 1.01 |
+
+The SE ratio divides the building and week standard error by the unit and week one. The
+intervals widen on all ten terms, by 1% to 43% in standard error. The largest change is on
+`altered_2000_on`, which is a building column, so its changes cluster within buildings. Three
+intervals that excluded zero now reach it: `size_imputed`, `rent_stabilized` and
+`altered_2000_on`. The laundry and dishwasher intervals stay clear of zero and below the pooled
+premiums, so the scores above don't change. The run without fit 4's held-out units gives ratios
+between 1.01 and 1.39 on the same terms.
+
+## Holdout masks
+
+Two masks enter this note:
+
+1. Sol's 61,914 pairs come from rows outside the official holdout of the original fit
+   (`building-zones-floor-b0-latest-6b5a5b4a-dense-w1000`, its `heldout` array over
+   `b0-edc83b49f9bacd8c-alldata-v36-dense-nyc`). That mask excludes 189,649 rows, and no
+   endpoint here is one of them.
+2. The 1,888 count comes from the rebuilt fit 4 split, `splits.SPLITS["latest"]` on
+   `b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc`, which `counts.py` records as `fit4_held_out`.
+   Those 1,888 later endpoints pass the original mask and fail the rebuilt one.
+
+The main run uses Sol's sample as screened by the original mask, the 1,888 included. The second
+run also drops the units the rebuilt mask touches, so it is clear of both.
 
 ## Comparison with fit 4
 

@@ -16,7 +16,8 @@ one regression.
 Standard errors are two-way clustered by unit and by the ISO week of each row's own latest_day
 (Cameron, Gelbach and Miller 2011), with the larger one-way variance where the two-way one comes
 out negative. A week cluster gathers the first and second endpoints dated in that week, from
-any unit.
+any unit. I also cluster by building and by own week, which covers dependence between units of
+a building across different weeks, and report both.
 
 I fit twice: on all pairs, and without the units whose later endpoint fit 4's latest split
 holds out. I write results.json and tables.md to OUT_DIR.
@@ -90,8 +91,9 @@ def demean(M, groups, tol=1e-10, itmax=5000):
 
 def fit(F):
     """The unit and month fixed-effects fit on the rows of F, with two-way clustered
-    standard errors by unit and by own week."""
+    standard errors by unit and by own week, and again by building and by own week."""
     unit, month, week = code(F.unit_id), code(F.month), code(F.week)
+    building = code(F.building)
     X = F[NAMES].to_numpy(float)
     y = np.log(F.latest_ask.to_numpy(float))
     D, its = demean(np.column_stack([X, y]), [unit, month])
@@ -108,33 +110,45 @@ def fit(F):
         "unit": unit,
         "week": week,
         "unit_week": unit.astype(np.int64) * nw + week,
+        "building": building,
+        "building_week": building.astype(np.int64) * nw + week,
     }.items():
         u, inv = np.unique(ids, return_inverse=True)
         S = np.zeros((len(u), x.shape[1]))
         np.add.at(S, inv, score)
         V[dim] = A @ (len(u) / (len(u) - 1) * (S.T @ S)) @ A
-    two = V["unit"] + V["week"] - V["unit_week"]
-    se = np.sqrt(
-        np.where(
-            np.diag(two) > 0,
-            np.diag(two),
-            np.maximum(np.diag(V["unit"]), np.diag(V["week"])),
+
+    def two_way(g):
+        two = V[g] + V["week"] - V[g + "_week"]
+        return np.sqrt(
+            np.where(
+                np.diag(two) > 0,
+                np.diag(two),
+                np.maximum(np.diag(V[g]), np.diag(V["week"])),
+            )
         )
-    )
-    one_way = {d: np.sqrt(np.diag(V[d])) for d in ("unit", "week")}
+
+    se, se_bw = two_way("unit"), two_way("building")
+    one_way = {d: np.sqrt(np.diag(V[d])) for d in ("unit", "week", "building")}
     pair = F.sort_values(["unit_id", "endpoint"])
     first, last = (pair[pair.endpoint == k].set_index("unit_id") for k in (0, 1))
     changing = (last[names] - first[names].reindex(last.index)).abs().gt(1e-9).sum()
     terms = {}
-    for i, n in enumerate(names):
-        b, s = beta[i], se[i]
+
+    def interval(n, b, s):
         lo, hi = b - 1.96 * s, b + 1.96 * s
         if n in ELASTICITY:
-            est = [round(float(v), 4) for v in (b, lo, hi)]
-        else:
-            est = [round(100 * float(np.expm1(v)), 2) for v in (b, lo, hi)]
+            return [round(float(v), 4) for v in (b, lo, hi)]
+        return [round(100 * float(np.expm1(v)), 2) for v in (b, lo, hi)]
+
+    for i, n in enumerate(names):
+        b, s = beta[i], se[i]
         terms[n] = dict(
-            estimate=est,
+            estimate=interval(n, b, s),
+            estimate_building_week=interval(n, b, se_bw[i]),
+            se_building_week=round(float(se_bw[i]), 5),
+            se_ratio_building_week_to_unit_week=round(float(se_bw[i] / s), 3),
+            se_building=round(float(one_way["building"][i]), 5),
             scale="elasticity" if n in ELASTICITY else "percent",
             log_coef=round(float(b), 5),
             se_two_way=round(float(s), 5),
@@ -145,6 +159,7 @@ def fit(F):
     return dict(
         rows=int(len(F)),
         units=int(unit.max() + 1),
+        buildings=int(building.max() + 1),
         months=int(month.max() + 1),
         weeks=int(week.max() + 1),
         iterations=its,
@@ -174,7 +189,7 @@ out = dict(
     ),
     target="log latest_ask",
     fixed_effects=["unit", "calendar month of own latest_day"],
-    clusters="two-way: unit and ISO week of own latest_day",
+    clusters="two-way: unit and ISO week of own latest_day; also building and ISO week",
     columns=NAMES,
     runs=runs,
     held_out_check_moves=moves,
@@ -187,14 +202,16 @@ for k, r in runs.items():
     lines += [
         f"## {k}: {r['rows']} rows, {r['units']} units, {r['weeks']} weeks",
         "",
-        "| column | units changing | estimate | 95% interval | se unit / week / two-way |",
-        "|---|---:|---:|---|---|",
+        "| column | units changing | estimate | 95% unit and week | 95% building and week |"
+        " se unit / week / two-way | se building and week |",
+        "|---|---:|---:|---|---|---|---|",
     ]
     for n, t in r["terms"].items():
         b, lo, hi = t["estimate"]
+        _, blo, bhi = t["estimate_building_week"]
         lines.append(
-            f"| {n} | {t['units_changing']} | {b} | {lo} to {hi} | "
-            f"{t['se_unit']} / {t['se_week']} / {t['se_two_way']} |"
+            f"| {n} | {t['units_changing']} | {b} | {lo} to {hi} | {blo} to {bhi} | "
+            f"{t['se_unit']} / {t['se_week']} / {t['se_two_way']} | {t['se_building_week']} |"
         )
     lines.append("")
 (OUT / "tables.md").write_text("\n".join(lines))
