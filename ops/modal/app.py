@@ -35,7 +35,9 @@ GPUS = {
     "H100": 3.949,
     "H200": 4.54,
 }
-CPU, MEMORY_MIB = 2, 24576  # the served design peaks near 15 GB of host memory
+# The served design peaks near 15 GB of host memory, and the kitchen sink's design of 1.9M rows
+# near 15 GB before the fit's own copies (2026-10-23), so the container reserves 40 GiB.
+CPU, MEMORY_MIB = 2, 40960
 FIT_CAP = {"full": 3600, "exploration": 30 * 60}  # the fit alone
 # The whole container: staging, fit, PSIS-LOO, post-fit statistics. Launches are capped at an
 # estimated hour (cap.PER_FIT_SECONDS); this stops a runaway at 75 min, past the 69 min of the
@@ -81,7 +83,7 @@ SUMMARY_WORKERS = LARGE_CPU - 1
 
 
 def usd_per_second(gpu, large=False):
-    """List price of one container: the GPU plus its reserved cores and memory (about $0.29 an
+    """List price of one container: the GPU plus its reserved cores and memory (about $0.42 an
     hour, or $1.90 for a large fit)."""
     cpu, memory = (LARGE_CPU, LARGE_MEMORY_MIB) if large else (CPU, MEMORY_MIB)
     return (
@@ -475,10 +477,19 @@ def _fit(spec):
         "stages": stages,
         "post": post,
         "wall_seconds": time.time() - started,
+        "memory_peak_bytes": _memory_peak(),
     }
     (out / "modal.json").write_text(json.dumps(meta, indent=2))
     volume.commit()
     return meta
+
+
+def _memory_peak():
+    """cgroup v2's high-water mark of the container's memory, or None."""
+    try:
+        return int(Path("/sys/fs/cgroup/memory.peak").read_text())
+    except (OSError, ValueError):
+        return None
 
 
 def _save_fit(spec, out):

@@ -126,6 +126,8 @@ PLUTO_FIELDS = (
 )
 MIN_ROWS = 2000
 MIN_BUILDINGS = 100
+# Columns a block in past_sums.
+BLOCK = 16
 UNIT_LISTS = ("feat", "private_outdoor", "views", "fireplace")
 BUILDING_LISTS = ("amen", "parking", "shared_outdoor", "storage")
 # Codes the design already carries: dishwasher, laundry and furnished (`unit:`, `flag:`), and the doorman,
@@ -253,11 +255,16 @@ def past_sums(
     key = group.astype(np.int64) * (1 << 20) + (day - day.min())
     o = np.argsort(key, kind="stable")
     k = key[o]
-    xs = np.vstack([np.zeros((1, x.shape[1])), np.cumsum(x[o] * w[o, None], axis=0)])
     ws = np.concatenate([[0.0], np.cumsum(w[o])])
     hi = np.searchsorted(k, key, side="left")
     lo = np.searchsorted(k, group.astype(np.int64) * (1 << 20), side="left")
-    return xs[hi] - xs[lo], ws[hi] - ws[lo]
+    # A block of columns at a time, so the cumulative sums of 1.9M rows stay small.
+    out = np.empty(x.shape)
+    for j in range(0, x.shape[1], BLOCK):
+        xs = np.cumsum(x[o, j : j + BLOCK] * w[o, None], axis=0)
+        xs = np.vstack([np.zeros((1, xs.shape[1])), xs])
+        out[:, j : j + BLOCK] = xs[hi] - xs[lo]
+    return out, ws[hi] - ws[lo]
 
 
 def past_means(
