@@ -283,8 +283,9 @@ def demean(M, groups, tol=1e-8, itmax=1000):
 def fit(mask, y_first, y_last, fe, dates=("first", "last")):
     """Both targets over `mask`, with building, month and `fe` fixed effects, and the
     two-way clustered covariance of the stacked coefficients. `dates` picks the dating of
-    each target in turn, so the last ask can also be dated at the first ask's day. Buildings with one row in the
-    sample are dropped first, since a building effect fits them exactly."""
+    each target in turn, so the last ask can also be dated at the first ask's day.
+    Buildings with one row in the sample are dropped first, since a building effect fits
+    them exactly."""
     b = codes["building"][mask]
     mask = mask.copy()
     mask[np.flatnonzero(mask)[np.bincount(b)[b] == 1]] = False

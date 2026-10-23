@@ -105,7 +105,7 @@ The price step carries nearly all of each difference, and the date step moves no
 The rerun leaves the reconciliations with the pipeline as follows:
 
 - The ads file's `days_on_market` disagrees with `off_day` minus `on_day` on 27.9% of ads because the field leaves out days in contract or off market. The audit uses the dates.
-- The model's `latest_ask` equals the outcome's final ask on 90.7% of finished rows in the rebuilt file (90.5% in the first). Most of the remaining gap comes from ads priced at net effective rent, then from the pipeline's 7-day cut. The 5,008 sale-id collisions that #1254 removed explain little of it, since removing them moves the match from 90.5% to 90.7%.
+- The model's `latest_ask` equals the outcome's final ask on 90.7% of finished rows in the rebuilt file (90.5% in the first). This audit doesn't measure the sources of the remaining gap. The data threads trace most of it to ads priced at net effective rent, then to the pipeline's 7-day cut. The 5,008 sale-id collisions that #1254 removed explain little of it, since removing them moves the match from 90.5% to 90.7%.
 
 ## Reading
 
