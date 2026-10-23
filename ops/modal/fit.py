@@ -110,7 +110,8 @@ def parse(argv):
     p.add_argument(
         "--large",
         action="store_true",
-        help="a large container (app.LARGE_FITS) that also builds the summary bundle",
+        help="a large container (app.LARGE_FITS) that also builds the summary bundle (none for "
+        "a baseline)",
     )
     p.add_argument(
         "--outside-budget",
