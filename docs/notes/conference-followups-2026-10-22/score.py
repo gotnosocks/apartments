@@ -15,7 +15,10 @@ running mean and variance of every effect. So I give each draw from chain c an e
 from Normal(unit_mean[c], unit_var[c]) for an ad whose unit has training rows. An ad with a
 `unit_id` but no training row for its unit gets an effect drawn from Normal(0, su^2), with su
 from the same draw. An ad with no `unit_id` gets no effect, as its training rows did. The output
-then also holds `unit_seen`: 1, 0 or -1 for those three cases.
+then also holds `unit_seen`: 1, 0 or -1 for those three cases. These draws leave out how each
+effect correlates with the building level and the coefficients within a draw. For a unit with
+many rows the effect and the level pull against each other, so I expect the predictive spread
+to come out somewhat too wide and the elpd somewhat low.
 """
 
 import importlib
