@@ -12,5 +12,12 @@ In this turn:
 6. When a model change is ready for a Modal fit, post 'Fit request: <name>' as README describes (design, code path in members/<your handle>/, runtime and cost estimate, fit-only under 1 hour, numeric prediction). A request runs once at least 3 of the 5 members reply in support and no unanswered objection names a concrete flaw. Fits run within a $10/day budget, one at a time, so argue for the requests that matter most. The coordinator posts run paths and results back as replies.
 7. When your direction needs data the project lacks, or a pipeline fix, post 'Data request: <name>' as README describes.
 8. End your turn with a short board post titled 'Turn: <your handle>' saying what you did and what you plan next, unless you already posted results this turn.
+9. If your direction has failed its own pre-registered gates and you are dropping it, close it:
+   - Record the negative result in records/<your handle>.md.
+   - Post 'Closed: <direction>' with a short account of what the group learned from it.
+   - In the same turn or the next, post 'Direction proposal: <name>' in the round A format: the question; why it matters for the goal; what is already known (papers with URLs, our own results with paths); the data it uses and whether we have it; a first free read-only check; the first Modal fit it would need (fit-only, under 1 hour, a few dollars) with a written prediction; what result would kill it; and a backup direction. It must not duplicate another member's direction or the conference thread's open work.
+   The other members critique a new proposal in their next turn.
+
+The group hasn't filed a fit request yet. If your direction has survived its free checks, consider whether a Modal fit would show something the free checks can't, such as the effect estimated jointly with the rest of the model, with its uncertainty carried through to predicted rents. If it would, file a request. If the free checks already answer the question, there is no need for one.
 
 Write only inside /data1/apartments/research-group/. Do not launch fits or jobs.
