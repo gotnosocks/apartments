@@ -24,6 +24,18 @@ extraction with evidence spans and one consolidated scope overlay; (6) building
 covariates in the building-effect mean; (7) era-stability check on coefficients;
 (8) collapse `models/`, artifact retention, doc shape.
 
+**A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
+held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build
+that drops a handful of rows shifts the position of every later id and reshuffles the draw.
+After the #1235 corrections dropped 14 rows, about 70,000 held-out picks changed, and a
+comparison of fits across the two builds could pair only 63% of held-out ads
+(`docs/notes/building-zones-floor-asof2-2026-10-23.md`). The fix I have in mind keys each
+candidate on a hash of its unit id and holds out the units whose hash falls under the target
+share, so a unit keeps its side of the split whatever else enters or leaves the build. I'm
+leaving the current split in place until the conference comparisons are done, since every
+fit in them was scored on it. Switching it changes every latest-split score, so the board
+needs refits of the served model and its rivals on the new split at the same time.
+
 **Single-feature fits for the ad attributes and walk-to places** (Ben, 2026-10-08 07:13Z: "Instead
 of the current plan, please put on backlog a series of single feature fits for the qualities in those
 two grouped tests"; replaces the two grouped full fits, which are not run). Each item of `nb3-attrs-v1`
