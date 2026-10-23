@@ -27,6 +27,8 @@ The time walk already carries the citywide swing in rents across 2020 and 2021. 
 
 ## Predictions
 
+A point here is a percentage point of rent, 100 × (exp(β) − 1), the scale the run summary reports. The table above gives log coefficients, so a doorman coefficient of 0.140 is a premium of 15.1%.
+
 - The fit passes the gate (R-hat at most 1.01, bulk ESS over 400) and takes 25 to 50 minutes on Modal. The twelve extra columns cost under 5% more time per sweep than asof3.
 - In-unit laundry is worth 1 to 3 points more in `2020-03to2021` than in `pre2020-03`, since people spent more time at home. In `2022on` it sits between the two.
 - The garden premium is 1 to 5 points higher in `2020-03to2021` than in `pre2020-03`. Its 90% intervals are wide enough that the difference may not clear them.
