@@ -124,8 +124,18 @@ out["units"] = dict(
 )
 m = m.merge(rows.drop(columns="unit_id"), on="listing_id", how="left")
 del rows
-ads = pd.read_parquet(ADS, columns=["listing_id", "on_day", "off_day"])
+ads = pd.read_parquet(
+    ADS, columns=["listing_id", "on_day", "off_day", "days_on_market"]
+)
 ads["days"] = (pd.to_datetime(ads.off_day) - pd.to_datetime(ads.on_day)).dt.days
+dated = ads.days.notna()
+out["ads_days_on_market_check"] = dict(
+    ads=int(len(ads)),
+    with_off_day=int(dated.sum()),
+    days_on_market_disagrees_with_off_minus_on=int(
+        (ads.days_on_market != ads.days)[dated].sum()
+    ),
+)
 m["days"] = m.listing_id.map(ads.set_index("listing_id").days)
 del ads
 oc = pd.read_parquet(
@@ -230,9 +240,14 @@ def code(s):
     return pd.factorize(s)[0]
 
 
-def week(day):
+def iso_week(day):
     iso = day.dt.isocalendar()
-    return code(iso.year.astype(str) + "-" + iso.week.astype(str))
+    return (iso.year.astype(str) + "-" + iso.week.astype(str)).to_numpy()
+
+
+# One factorize over both targets' weeks, so a code means the same calendar week in each fit
+# and a stacked week cluster gathers both targets' rows from that week.
+weeks = code(np.concatenate([iso_week(m.first_day), iso_week(m.last_day)]))
 
 
 baths = m.full_baths.fillna(-1).astype(int).astype(str)
@@ -242,8 +257,8 @@ codes = {
     "bedbath": code(pd.Series(beds.astype(int).astype(str)) + "x" + baths.to_numpy()),
 }
 dating = {
-    "first": dict(month=code(m.first_day.dt.to_period("M")), week=week(m.first_day)),
-    "last": dict(month=code(m.last_day.dt.to_period("M")), week=week(m.last_day)),
+    "first": dict(month=code(m.first_day.dt.to_period("M")), week=weeks[: len(m)]),
+    "last": dict(month=code(m.last_day.dt.to_period("M")), week=weeks[len(m) :]),
 }
 
 
@@ -295,8 +310,10 @@ def fit(mask, y_first, y_last, fe):
         )
     assert fits["first"]["names"] == fits["last"]["names"]
     names, k = fits["first"]["names"], len(fits["first"]["names"])
-    w = {t: code(dating[t]["week"][mask]) for t in fits}
-    nw = max(w["first"].max(), w["last"].max()) + 1
+    # Building and week codes stay in the shared spaces built above; refactorizing them per
+    # target would give the same integer different meanings in the two fits.
+    w = {t: dating[t]["week"][mask].astype(np.int64) for t in fits}
+    nw = int(weeks.max()) + 1
     # Cluster ids on a shared index space, so a cluster gathers scores from both targets.
     ids = {
         "building": {t: cb for t in fits},
@@ -422,6 +439,12 @@ def md(t):
 
 lines = ["# First ask against last ask", "", "## Coverage", ""]
 lines += [md(pd.Series(out["coverage"]).to_frame("value")), ""]
+lines += [
+    "## Ads days on market",
+    "",
+    md(pd.Series(out["ads_days_on_market_check"]).to_frame("value")),
+    "",
+]
 for k, v in out["step2"].items():
     t = pd.DataFrame({b: s for b, s in v.items() if isinstance(s, dict)})
     lines += [f"## Step 2, {k}", "", md(t), ""]
