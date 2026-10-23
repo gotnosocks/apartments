@@ -488,7 +488,9 @@ def main(argv=None):
     # (rentfrontier.building_zones_floor_asof) is the floor model with its size, building and
     # top-floor features rebuilt from the split's training rows, and building zones with
     # building means as of the split (rentfrontier.building_zones_mundlak_asof) adds to it the
-    # building means over training rows.
+    # building means over training rows. Building zones with the floor as of the split and a
+    # wider amplitude prior (rentfrontier.building_zones_floor_asof_amp1) refits the as-of floor
+    # model with HalfNormal(1.0) on the zone map amplitude.
     for m, module in (
         ("b0", "b0"),
         ("b0.1", "b0_1"),
@@ -523,6 +525,7 @@ def main(argv=None):
         ("building-zones-elevated", "building_zones_elevated"),
         ("building-zones-floor-parkfront", "building_zones_floor_parkfront"),
         ("building-zones-floor-asof", "building_zones_floor_asof"),
+        ("building-zones-floor-asof-amp1", "building_zones_floor_asof_amp1"),
         ("building-zones-mundlak-asof", "building_zones_mundlak_asof"),
     ):
         if any(
