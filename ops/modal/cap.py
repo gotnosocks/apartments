@@ -241,9 +241,10 @@ BASELINES = (
 
 
 def scoring_steps(model, large=False, score=False, no_loo=False, no_heldout=False):
-    """(PSIS-LOO, held-out scoring) for a fit of `model`: both for a frontier or large fit,
-    which score in their own way, and for a baseline only those --score asks for."""
-    if model not in BASELINES or large:
+    """(PSIS-LOO, held-out scoring) for a fit of `model`: both for a frontier fit, which
+    scores in its own way, and for a baseline only those --score asks for, in a large
+    container as in a standard one."""
+    if model not in BASELINES:
         return True, True
     if not score:
         return False, False
