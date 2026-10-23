@@ -88,7 +88,7 @@ def build(crawls: dict | None = None, records: dict | None = None) -> pd.DataFra
     `records` is the pipeline's records file, `records` once checked.
 
     StreetEasy numbers sale and rental listings separately, and the page crawls hold both, so
-    the same id can name a sale and a rental. I read only the rental captures. Sale 1545201 in
+    the same id can name a sale and a rental. The builder keeps only rental captures. Sale 1545201 in
     the Chelsea crawl asks $8,295,000, and rental 1545201 asks $4,250."""
     rows = []
     columns = ["listing_id", "listing_type", "collected_at", "raw_listing_json"]
