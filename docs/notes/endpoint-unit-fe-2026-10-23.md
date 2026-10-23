@@ -93,7 +93,7 @@ next to the within-unit OLS ones, with term definitions and units checked to mat
 
 - A flag can change between a unit's ads through what the ad reports, through a renovation that
   bundles several changes, or through an identity error that pairs two different units. The
-  within-unit estimates mix all three. The laundry and dishwasher estimates
+  within-unit estimates mix all three. The laundry and dishwasher coefficients
   estimate the premium of a reported change, not of installing the appliance.
 - Fit 4's unit effects use every training ad of a unit, often more than these two endpoints,
   and fit 4 has other priors, columns and a time model. A gap between its coefficients and these
