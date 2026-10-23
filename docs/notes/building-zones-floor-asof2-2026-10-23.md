@@ -8,7 +8,7 @@ Run: `building-zones-floor-asof2-b0-latest-d5de95e7-dense-w1000`, fit-only on Mo
 
 The fit misses the gate on one quantity, the outer zone's map amplitude `amp[outer]`, at R-hat 1.0129 against the 1.01 limit. Its bulk ESS is 541, and the least ESS anywhere is 523, on `beta[bed=0:full>=3]`. The studio cell that failed on the old build now converges.
 
-Over the kept draws, the four chain medians of `amp[outer]` run from 0.363 to 0.379, inside a pooled 90% interval of 0.305 to 0.468. On the old build the as-of base put them at 0.364 to 0.375 and passed this quantity. In the earlier floor fits on real and simulated rents, `amp[outer]` was also the worst-mixing quantity, at R-hat 1.005 to 1.008. I read the miss as slow mixing of a quantity that has always mixed slowest, which the corrections didn't cause. I didn't refit on a new seed.
+Over the kept draws, the four chain medians of `amp[outer]` run from 0.363 to 0.379, inside a pooled 90% interval of 0.305 to 0.468. On the old build the as-of base put them at 0.364 to 0.375 and passed this quantity. It has mixed slowly in every earlier floor fit too: its R-hat ran from 1.007 to 1.011 on real rents (1.0097 in the floor fit on the old build, 1.0105 on the buildings split) and from 1.005 to 1.008 on simulated rents. I read the miss as slow mixing of a quantity that has always mixed slowest, which the corrections didn't cause. I didn't refit on a new seed.
 
 ## Held-out ads across builds
 
