@@ -96,20 +96,20 @@ Limits:
 from __future__ import annotations
 
 import argparse
+import fcntl
+import hashlib
+import json
+import sys
+import threading
+import time
+import urllib.parse
 from collections import Counter, deque
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import fcntl
-import hashlib
 from itertools import islice
-import json
 from pathlib import Path
-import sys
-import threading
-import time
-import urllib.parse
 
 import requests
 

@@ -14,14 +14,15 @@ import numpy as np
 import pandas as pd
 import pytest
 import sqlmesh.core.console
-from apartments.canonical_units import memberships
-from apartments.graphql_listing import canonical_link
-from apartments.unit_canonical import unit_page
+from sqlglot import exp
 from sqlmesh import Context
 from sqlmesh.core.console import TerminalConsole
 from sqlmesh.utils.errors import PlanError
 from sqlmesh.utils.metaprogramming import ExecutableKind
-from sqlglot import exp
+
+from apartments.canonical_units import memberships
+from apartments.graphql_listing import canonical_link
+from apartments.unit_canonical import unit_page
 
 PROJECT = Path(__file__).resolve().parents[1]
 FIXTURE = Path(__file__).resolve().parent / "fixture"

@@ -7,7 +7,6 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 import pytest
-
 from steps import adtext
 
 PROJECT = Path(__file__).resolve().parents[1]

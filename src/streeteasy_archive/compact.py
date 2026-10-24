@@ -22,8 +22,8 @@ import gzip
 import hashlib
 import json
 import os
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 STRIPPED_KEY = "content_sha256"
 

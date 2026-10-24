@@ -3,7 +3,6 @@ import datetime
 import duckdb
 import pytest
 
-
 EARLIER = [
     "release",
     "bin_number",

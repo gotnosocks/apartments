@@ -6,10 +6,10 @@ import argparse
 import hashlib
 import json
 import os
-import threading
 import sys
 import tarfile
 import tempfile
+import threading
 import time
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace

@@ -1,7 +1,6 @@
 import json
 
 import pytest
-
 from steps.attributes import project
 
 

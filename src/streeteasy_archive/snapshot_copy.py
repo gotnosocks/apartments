@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-import sqlite3
 import shutil
+import sqlite3
+from pathlib import Path
 
 
 def checkpoint_database(source):

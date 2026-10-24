@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import fcntl
+import hashlib
 import json
 import re
 import uuid
@@ -14,14 +14,14 @@ from .corrections import canonical
 from .review_ledger import GENESIS, ReviewConflict, listing_exclusions
 from .unit_identity import (
     UnitIdentityLedger,
+    active_decisions,
+    active_separations,
     expand_ids,
     identity_map,
     listing_ids,
-    active_decisions,
     merge_decisions,
-    active_separations,
-    separation_conflicts,
     separated_pairs,
+    separation_conflicts,
 )
 
 

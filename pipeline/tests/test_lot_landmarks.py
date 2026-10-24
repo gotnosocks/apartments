@@ -3,7 +3,6 @@ import datetime
 import duckdb
 import pytest
 
-
 COLUMNS = ["release", "bbl", "lp_number", "lm_type", "desdate", "status"]
 A, B, C, D, E = (f"100001000{n}" for n in range(1, 6))
 LOTS = [("b1", A), ("b2", B), ("b3", C), ("b4", None), ("b6", D), ("b7", E)]
