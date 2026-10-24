@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import gzip
 import json
-from pathlib import Path
 import sqlite3
+from collections import Counter
+from pathlib import Path
 
 from apartments.graphql_listing import parse_capture
 

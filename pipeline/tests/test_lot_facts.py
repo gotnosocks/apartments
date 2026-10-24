@@ -3,7 +3,6 @@ import datetime
 import duckdb
 import pytest
 
-
 # Releases of the case, published at midnight UTC as the archive gives them. 22v2 has no
 # published date, as in the archive.
 PUBLISHED = {

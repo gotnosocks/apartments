@@ -53,8 +53,8 @@ import time
 import urllib.parse
 
 import requests
-from scrapy.http import HtmlResponse
 import scrapy
+from scrapy.http import HtmlResponse
 
 from .capture import capture_metadata
 from .crawler import ArchiveSpider, is_challenge, retry_after

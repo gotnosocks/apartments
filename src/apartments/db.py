@@ -1,7 +1,8 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 import duckdb
+
 from .temporal import SCHEMA as TEMPORAL_SCHEMA
 
 DEFAULT_DB = Path("data/apartments.duckdb")

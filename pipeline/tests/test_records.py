@@ -7,7 +7,6 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 import pytest
-
 from steps import records
 
 FIXTURE = Path(__file__).resolve().parent / "fixture"

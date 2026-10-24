@@ -5,9 +5,9 @@ loader remain exact. Verification semantics are unchanged; only repeated
 reconstruction of an identical, hash-checked bundle is skipped.
 """
 
-from copy import deepcopy
 import hashlib
 import json
+from copy import deepcopy
 
 from . import reviewed_source_lineage as L
 

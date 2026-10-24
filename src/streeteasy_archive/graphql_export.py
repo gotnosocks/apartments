@@ -44,12 +44,12 @@ import gzip
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import sqlite3
 import sys
 import time
 import urllib.parse
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.compute as pc
