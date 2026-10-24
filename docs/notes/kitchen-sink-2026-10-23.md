@@ -138,6 +138,10 @@ Neither fit enters the served model's selection. The building-zones family sits 
 
 The kitchen sink also costs interpretability. Rebuilding the building labels as of each ad changes what their coefficients measure, so the doorman's 1.25 isn't comparable to fit 8's 14.04, and neither is the doorman's worth by itself.
 
-Next comes a third fit, the kitchen sink with fit 4's unit effects, after fit (b). Its predictions note comes first.
-
 The explainer for this fit is at https://claude.ai/artifact/TopriQc7pSVGcdK8Zm7izN.
+
+## Fits (b) and (c)
+
+I launched fit (b), the 150 m twin (`ks150-jointamp-w1000` at f9680424), on 2026-10-23 at 11:19 PM ET in the large H100 80 GB container. It ran out of GPU memory in the first sweep, asking for a single 39.5 GiB block, and stopped after about 6 minutes with no draws, at about $0.68. JAX also warned of 5.7 GB of captured constants. At 150 m the zones carry about 3,400 and 5,000 waves. The global block over about 8,650 coefficients needs roughly 1.2 GB for four chains, so the 39.5 GiB most likely holds a dense matrix of the 1.7 million training ads against about 6,000 waves. I didn't confirm which array it was. Since the model's structure causes the failure, a larger GPU or another seed won't help. Fixing it would take a sweep that builds the wave products zone by zone in chunks of ads, or a local, sparse basis for the 150 m surface. Ben chose to stop here on 2026-10-24, so fit (b) stays blocked by GPU memory.
+
+Ben cancelled fit (c), the kitchen sink with fit 4's unit effects, on 2026-10-23 before it launched. Its module (`building_zones_kitchen_sink_unit`) and predictions (`kitchen-sink-unit-predictions-2026-10-23.md`) are merged, and nothing has been fitted.
