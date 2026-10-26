@@ -1,0 +1,78 @@
+<title>165 Church 5S Pricing</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Source+Serif+4:ital,wght@0,500;1,400&display=swap">
+<style>
+/* Layout: one dark stage, caption and step controls under it, scene chips above; reference tables below. Single dark look, matching the earlier posterior tours. */
+:root {
+  --bg: #0d1520; --panel: #121c29; --fg: #ece6da; --muted: #8d99a8; --grid: #223040;
+  --blue: #58c4dd; --brown: #cd853f; --yellow: #f7d96f; --teal: #5cd0b3; --red: #fc6255; --pink: #c58ad8;
+  --sans: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 48px; display: grid; gap: 16px; }
+header { display: grid; gap: 6px; }
+h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 4vw, 36px); margin: 0; text-wrap: balance; }
+h1 em { color: var(--blue); font-style: italic; font-weight: 400; }
+h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; margin: 12px 0 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.sub b { color: var(--fg); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 12px/1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; background: transparent; color: var(--muted);
+  border: 1px solid var(--grid); border-radius: 999px; padding: 7px 11px; cursor: pointer; }
+.chip[aria-current="true"] { color: var(--bg); background: var(--blue); border-color: var(--blue); }
+.chip:focus-visible, .nav button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.stage { background: var(--panel); border-radius: 6px; overflow: hidden; }
+canvas { display: block; width: 100%; cursor: pointer; }
+.cap { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.cap p { margin: 0; max-width: 72ch; min-width: 0; font-size: 17px; }
+.cap p b { color: var(--yellow); font-weight: 600; }
+.nav { display: flex; gap: 8px; align-items: center; }
+.nav button { font: 600 14px/1 var(--sans); background: var(--grid); color: var(--fg); border: 0; border-radius: 4px; padding: 10px 14px; cursor: pointer; }
+.nav button:disabled { opacity: 0.35; cursor: default; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; min-width: 44px; text-align: center; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+td.n { text-align: right; white-space: nowrap; }
+td.m { color: var(--muted); }
+ul.cav { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 76ch; }
+.foot { color: var(--muted); font-size: 13px; max-width: 80ch; }
+code { font-size: 12px; color: var(--muted); word-break: break-all; }
+@media (max-width: 560px) { .cap { grid-template-columns: 1fr; } .cap p { font-size: 16px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>5S at 165 Church Street, <em>priced term by term</em></h1>
+    <p class="sub">A 5-bed, 3-bath, 2,000 sq ft Tribeca apartment on the 5th floor of a 1938 building, listed at <b>$12,500</b> on 30 April 2025, raised to <b>$13,500</b> the day it went into contract, rented 13 May 2025. Every number below comes from the served model's own saved draws (1,000 draws over 2 chains). The model puts it at <b>$13,257</b> left out of the fit, 80% range $11,834 to $14,745. No term shows its two chains disagreeing.</p>
+  </header>
+  <nav class="chips" id="chips" aria-label="Scenes"></nav>
+  <div class="stage"><canvas id="cv" aria-label="Animated chart of the current scene"></canvas></div>
+  <div class="cap">
+    <p id="caption" aria-live="polite"></p>
+    <div class="nav">
+      <button id="prev" type="button" aria-label="Previous step">&larr;</button>
+      <span class="count" id="count"></span>
+      <button id="next" type="button" aria-label="Next step">&rarr;</button>
+    </div>
+  </div>
+
+  <h2>Every term</h2>
+  <p class="sub">Log points are the model's additive scale; the multiplier is what the term does to the rent. Ranges are 95% posterior intervals. "Against typical" compares with the median Manhattan row of April 2025, a one-bedroom at 379 East 10th Street fitted at $4,559.</p>
+  <div class="tbl"><table id="tt"><thead><tr><th>Term</th><th>What it is</th><th class="n">Log points</th><th class="n">95% range</th><th class="n">×</th><th class="n">Against typical</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>What could move this</h2>
+  <ul class="cav">
+    <li>The $13,500 dates from the day the listing went into contract. It may be the agreed rent rather than an ask that tested the market. The model treats it as the closing ask and dates it to the first day of the listing.</li>
+    <li>Bedrooms carry most of the premium (×1.82). Every 5-bed in the building lists 2,000 to 2,200 sq ft and 9 rooms, about 400 sq ft a bedroom, so a miscoded count would move the price more than anything else. The ad mentions bay windows in each bedroom. Nothing was changed.</li>
+    <li>The ad leaves the elevator blank, which costs 1%. PLUTO codes the building D7, an elevator building.</li>
+    <li>The building's own level and walk are the widest terms. With 13 rows over 12 years, both 95% ranges include zero, and together they take about 15% off what Tribeca and the unit's features alone would give.</li>
+    <li>A DOB alteration certificate is dated 28 April 2025, a day before the listing went up. The renovation may be worth more than the "renovated" text flag captures.</li>
+  </ul>
+  <p class="foot">Served run <code id="run"></code>. The fit reaches 5S as one of its training rows; my rebuild of its fitted rent from the draws matches the published bundle to within 0.01%. Observation noise is Student-t with scale 0.033 and 2.2 degrees of freedom; the unit effect has scale 0.037. The leave-out interval is the site's PSIS-LOO number. Term medians add to 9.509 log points; the median of the total is 9.507, because medians of sums are not sums of medians. No fit was run for this page.</p>
+</div>
