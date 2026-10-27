@@ -1767,6 +1767,24 @@ def quarantine_v35(frame: pd.DataFrame) -> pd.DataFrame:
     return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V35))]
 
 
+QUARANTINE_V36 = QUARANTINE_V20.with_name("quarantine-v36-20261019.jsonl")
+
+
+def quarantine_v36(frame: pd.DataFrame) -> pd.DataFrame:
+    """v35's rows and 197 more from Hoboken and Jersey City (cohort
+    nj-jersey-city-hoboken-analysis-20261019-9e165c4). The ad-fit screen and a
+    price screen flagged 294 NJ ads, and Sonnet readers read each one in full
+    (`config/reviews/nj-ad-reads-20261019.jsonl` holds every read and its quote).
+    The rows dropped here are
+
+    - 171 rooms in shared apartments,
+    - 25 shops, offices and other commercial spaces,
+    - 1 vacation rental.
+
+    The NYC rows are v35's, unchanged."""
+    return frame[~frame.audit_id.isin(quarantined(QUARANTINE_V36))]
+
+
 # Latest asks (Ben, 2026-10-14: the target is each listing's most current
 # price): every row priced at its listing's last on-market ask, built by
 # latest_ask.py from the listings' own records.
@@ -2202,6 +2220,7 @@ DATA_RULES = {
     "quarantine-v33": quarantine_v33,
     "quarantine-v34": quarantine_v34,
     "quarantine-v35": quarantine_v35,
+    "quarantine-v36": quarantine_v36,
     "latest-ask-v2": latest_ask_v2,
     "latest-ask-v3": latest_ask_v3,
     "latest-ask-v4": functools.partial(latest_ask_v3, path=LATEST_ASK_V4),
@@ -2273,6 +2292,7 @@ RULE_SOURCES = {
     "quarantine-v33": QUARANTINE_V33,
     "quarantine-v34": QUARANTINE_V34,
     "quarantine-v35": QUARANTINE_V35,
+    "quarantine-v36": QUARANTINE_V36,
     "latest-ask-v2": LATEST_ASK,
     "latest-ask-v3": LATEST_ASK_V3,
     "latest-ask-v4": LATEST_ASK_V4,
@@ -2356,6 +2376,7 @@ DROPPING_RULES = (
     "quarantine-v33",
     "quarantine-v34",
     "quarantine-v35",
+    "quarantine-v36",
 )
 
 

@@ -293,7 +293,7 @@ def test_the_alias_file_is_hashed_but_drops_no_rows():
         data.QUARANTINE_V17
     ) | data.quarantined(data.QUARANTINE_V33) | data.quarantined(
         data.QUARANTINE_V34
-    ) | data.quarantined(data.QUARANTINE_V35)
+    ) | data.quarantined(data.QUARANTINE_V35) | data.quarantined(data.QUARANTINE_V36)
 
 
 @pytest.mark.parametrize(
@@ -2406,3 +2406,26 @@ def test_quarantine_v35_adds_the_124_dekalb_bushwick_ad_to_v34():
     frame = pd.DataFrame({"audit_id": [added["audit_id"], "kept"]})
     assert data.DATA_RULES["quarantine-v35"](frame).audit_id.tolist() == ["kept"]
     assert "quarantine-v35" in data.DROPPING_RULES
+
+
+def test_quarantine_v36_adds_the_read_nj_non_apartments_to_v35():
+    with open(data.QUARANTINE_V35) as f:
+        old = [json.loads(line) for line in f]
+    with open(data.QUARANTINE_V36) as f:
+        new = [json.loads(line) for line in f]
+    assert new[: len(old)] == old
+    added = new[len(old) :]
+    assert len({r["audit_id"] for r in new}) == len(new)
+    actions = [r["action"] for r in added]
+    assert actions.count("quarantine_product_scope") == 171
+    assert actions.count("quarantine_nonresidential") == 25
+    assert actions.count("quarantine_explicit_short_term_offer") == 1
+    with open(data.REPO / "config" / "reviews" / "nj-ad-reads-20261019.jsonl") as f:
+        reads = {r["listing_id"]: r for r in map(json.loads, f)}
+    for r in added:
+        read = reads[r["source_listing_id"]]
+        assert read["verdict"] in ("ROOM_SHARE", "COMMERCIAL", "SHORT_STAY")
+        assert r["evidence"] and r["evidence"] in read["evidence"]
+    frame = pd.DataFrame({"audit_id": [added[0]["audit_id"], "kept"]})
+    assert data.DATA_RULES["quarantine-v36"](frame).audit_id.tolist() == ["kept"]
+    assert "quarantine-v36" in data.DROPPING_RULES
