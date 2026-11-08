@@ -1,0 +1,87 @@
+<title>704 Degraw #2 Pricing</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Source+Serif+4:ital,wght@0,500;1,400&display=swap">
+<style>
+/* Layout: one dark stage, caption and step controls under it, scene chips above; reference tables below. Single dark look, matching the earlier posterior tours. */
+:root {
+  --bg: #0d1520; --panel: #121c29; --fg: #ece6da; --muted: #8d99a8; --grid: #223040;
+  --blue: #58c4dd; --brown: #cd853f; --yellow: #f7d96f; --teal: #5cd0b3; --red: #fc6255; --pink: #c58ad8;
+  --sans: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 48px; display: grid; gap: 16px; }
+header { display: grid; gap: 6px; }
+h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 4vw, 36px); margin: 0; text-wrap: balance; }
+h1 em { color: var(--blue); font-style: italic; font-weight: 400; }
+h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; margin: 12px 0 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.sub b { color: var(--fg); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 12px/1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; background: transparent; color: var(--muted);
+  border: 1px solid var(--grid); border-radius: 999px; padding: 7px 11px; cursor: pointer; }
+.chip[aria-current="true"] { color: var(--bg); background: var(--blue); border-color: var(--blue); }
+.chip:focus-visible, .nav button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.stage { background: var(--panel); border-radius: 6px; overflow: hidden; }
+canvas { display: block; width: 100%; cursor: pointer; }
+.cap { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.cap p { margin: 0; max-width: 72ch; min-width: 0; font-size: 17px; }
+.cap p b { color: var(--yellow); font-weight: 600; }
+.nav { display: flex; gap: 8px; align-items: center; }
+.nav button { font: 600 14px/1 var(--sans); background: var(--grid); color: var(--fg); border: 0; border-radius: 4px; padding: 10px 14px; cursor: pointer; }
+.nav button:disabled { opacity: 0.35; cursor: default; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; min-width: 44px; text-align: center; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+td.n { text-align: right; white-space: nowrap; }
+td.m { color: var(--muted); }
+ul.cav { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 76ch; }
+.foot { color: var(--muted); font-size: 13px; max-width: 80ch; }
+code { font-size: 12px; color: var(--muted); word-break: break-all; }
+@media (max-width: 560px) { .cap { grid-template-columns: 1fr; } .cap p { font-size: 16px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>#2 at 704 Degraw Street, <em>priced term by term</em></h1>
+    <p class="sub">A 2-bed, 1-bath apartment on the second floor of a three-family 1901 brownstone in Park Slope, listed at <b>$4,700</b> on 11 June 2026 and off the market five days later. The served model never saw that ad: the run's random row split held it out. It did learn from three earlier ads for the same unit, from 2019, 2020 and 2023. Every number below comes from the model's saved draws (1,000 draws over 2 chains). The model puts the ask at <b>$5,231</b>, 80% range $4,574 to $5,968, so $4,700 falls at the <b>15th percentile</b>. Nearby 2-bed walk-ups asked a median <b>$4,500</b> that summer. No term shows its two chains disagreeing.</p>
+  </header>
+  <nav class="chips" id="chips" aria-label="Scenes"></nav>
+  <div class="stage"><canvas id="cv" aria-label="Animated chart of the current scene"></canvas></div>
+  <div class="cap">
+    <p id="caption" aria-live="polite"></p>
+    <div class="nav">
+      <button id="prev" type="button" aria-label="Previous step">&larr;</button>
+      <span class="count" id="count"></span>
+      <button id="next" type="button" aria-label="Next step">&rarr;</button>
+    </div>
+  </div>
+
+  <h2>Every term</h2>
+  <p class="sub">Log points are the model's additive scale; the multiplier is what the term does to the rent. Ranges are 95% posterior intervals. "Against typical" compares with the median row outside Manhattan in June 2026, a 3-bed, 2-bath at 762 Madison Street in Stuyvesant Heights fitted at $4,152.</p>
+  <div class="tbl"><table id="tt"><thead><tr><th>Term</th><th>What it is</th><th class="n">Log points</th><th class="n">95% range</th><th class="n">×</th><th class="n">Against typical</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Every ad for the unit</h2>
+  <p class="sub">All five StreetEasy listings for #2, each a 2-bed, 1-bath with no size given. "In fit" rows trained the model. The estimate for a row in the fit is its PSIS-LOO median; for a held-out row it is the plain prediction.</p>
+  <div class="tbl"><table id="lt"><thead><tr><th>Listing</th><th>Live</th><th class="n">Asks</th><th>Fit</th><th class="n">Estimate</th><th class="n">Percentile</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Comparables</h2>
+  <p class="sub" id="csub"></p>
+  <div class="tbl"><table id="ct"><thead><tr><th>Unit</th><th>Priced</th><th class="n">Ask</th><th class="n">Sq ft</th><th class="n">Miles</th><th class="n">Model</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>What could move this</h2>
+  <ul class="cav">
+    <li>The building's own level, walk and slopes together add <b>+0.20</b> log points (×1.22), 95% from +0.02 to +0.40. The model learned them from this unit's three training ads, the only rows it holds for the building. The 2019 ad asked above the model (97th percentile) and the 2023 ad asked a little above it. These terms are most of the gap between the model's $5,231 and the $4,500 median of nearby walk-ups.</li>
+    <li>From January 2024 to June 2026 the ask went from $4,500 to $4,700 (+4%). Over the same months the model's market trend rose by 0.13 log points (+14%), and the model passes that rise to the unit in full. In January 2024 the model predicted $4,370 for the held-out $4,500 ad, which was close.</li>
+    <li>The ad came off the market five days after it went live. A quick rental fits an ask set at or under what the apartment could fetch. It could also mean the landlord priced for a fast fill. The ad offers no concession.</li>
+    <li>No ad states a size, so the size-unknown column takes 2.4% off. PLUTO lists 2,700 residential sq ft over three apartments, about 900 sq ft each. 679 Degraw #2, across the street at 950 sq ft, asked $4,900 the next day. I changed no field.</li>
+    <li>Every ad says "2nd floor", but the coded floor is unresolved, so the floor-unknown column applies (+0.7%). Coding floor 2 would move the price by about a percent. Ad text alone is no grounds for a correction under the project's rules.</li>
+    <li>The 2020 ad fell from $3,850 to $2,790 in six cuts during the pandemic. The model counts only the last ask, below the 2nd percentile of its prediction. That row pulls the unit's own effect down and the building terms have to make up the rest.</li>
+  </ul>
+  <p class="foot">Served run <code id="run"></code>. The June 2026 ad is a held-out row of this run; my rebuild of its fitted rent from the draws matches the published bundle to within 0.1%. Observation noise is Student-t with scale 0.029 and 2.2 degrees of freedom; the unit effect has scale 0.037. The "own unit" interval uses #2's own unit effect and equals the bundle's held-out interval; the "new unit" interval draws a fresh unit effect from the prior. Term medians add to 8.554 log points; the median of the total is 8.562, because medians of sums are not sums of medians. No fit was run for this page.</p>
+</div>
