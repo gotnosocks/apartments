@@ -5,28 +5,32 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 09:32Z
+## State at 2026-11-10 09:46Z
 
 - **Served model.** `drift`. Its three full fits passed the gate (f6 on the latest split,
   m6 on the market dataset, k6 on the backtest; run names `drift-b0-latest-fabd6f9d-f6`,
   `drift-b0-market-fabd6f9d-m6`, `drift-b0-market-fabd6f9d-k6`). Held-out elpd 195,320,
   median abs error 0.0506, coverage 0.513 / 0.799 / 0.896 / 0.949.
 - **Deals.** `/data1/apartments/site/deals` was published at 09:04Z from m6 with k6 and f6
-  (6,774 ads). The site code that reads it is in PR #1281 and goes live with its merge and
-  `ops/site-deploy.sh`.
-- **Branch and PR.** `claude/project-thread-09vaqy`, PR #1281. The PR holds the model, the
-  Deals page and the docs, because this thread may push one branch only.
+  (6,774 ads). The site was deployed from master `252a82a` at 09:42Z and `/deals` shows
+  the table, the model line and the backtest.
+- **Branch and PR.** PR #1281 (the model, the Deals page and the docs) was squash-merged
+  as `252a82a`. Its head was `f1380fc`; the tag `archive/pr-1281` is not pushed, because
+  this thread can push only its own branch (Ben has been told). Follow-up work is on the
+  same branch, `claude/project-thread-09vaqy`, with master merged in (a force push to
+  restart it was refused), and goes in a new PR.
 - **`drift-building`.** Better by 35,565 elpd (230,885; median abs error 0.0406) and not
   served. Round six ran each fit as containers of 4 chains pooled by `drift_pool`: b6
   (latest, 12 chains) misses on drift_tau at R-hat 1.0106, n6 (market) on bld_sd[outer] at
-  1.0135, and the backtest part j6a has frozen chain-to-chain offsets in bld_sd[outer]
-  (R-hat 1.07). Pooled runs on thelio: `drift-building-b0-latest-7023bba1-b6`,
-  `drift-building-b0-market-7023bba1-n6`. The lesson: R-hat is set by a chain's length, and
+  1.0135, and the backtest j6 (8 chains of 1,550) on bld_sd[outer] at 1.0447 with ESS 68:
+  two chains sit near 0.0923 and six near 0.0927 to 0.0928 for the whole run. Pooled runs
+  on thelio: `drift-building-b0-latest-7023bba1-b6`, `drift-building-b0-market-7023bba1-n6`,
+  `drift-building-b0-market-7023bba1-j6`. The lesson: R-hat is set by a chain's length, and
   an hour of 4 chains gives 1,600 draws where about 4,000 are needed.
 - **Round seven, in flight.** The same code with 2 chains a container, three containers a
   fit: `b7a` to `b7c` on the latest split, `n7a` to `n7c` on the market dataset. `b7a` was
-  launched at 09:29Z; the other five follow only if it sweeps in 0.75 s or less.
-  Predictions are in the note. If the pooled market fit n7 passes, the Deals folder can be
+  launched at 09:29Z and swept in 0.62 s, so the other five were launched at 09:41Z; all
+  six are due by about 10:35Z. Predictions are in the note. If the pooled market fit n7 passes, the Deals folder can be
   republished from it (its backtest j6 missed the gate and `meta.json` will say so).
 - **Data.** A one-off scrape on 2026-11-10 brought the listings to 2026-11-09 (pipeline build
   `ddd2fe8f5da041b8`). On thelio: `frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market`
@@ -45,21 +49,22 @@ window and no stale jobs to be run.
   lam with u integrated out, letting lam ride on its filtered distribution. For the frozen
   offsets in bld_sd[outer]: any traced quantity moving with it, and lone rows trading
   level against outlier weight (a toy mixes in 3.5 sweeps).
-- **Review.** The model reviewer approved the fit code through `5c13cab`. The Deals page
-  and docs were approved at `c290f9d`; everything in docs and the explainer since then
-  needs the docs pass before merge.
+- **Review.** Everything in PR #1281 was reviewed before its merge. Work after it needs a
+  fresh review: a model reviewer for model, selection, data or ops code, a Sonnet reviewer
+  for docs and site pages.
 - **Presentation.** `docs/notes/drift-2026-11-10/artifact/`: `pagedata.py` turns
   `artifact-data/extract-full.json` (written by `artifact-data/extract.py` on thelio) into
   the page's data and `build.py` writes the page.
-- **Modal spend.** $70.94 through round six with j6b at its estimate; round seven is about
-  $25 more if all six run.
+- **Modal spend.** $68.71 settled through round six. Round seven's six containers are
+  estimated at $4.19 each, which would bring the total to about $95.50 of the $100.
 
 ## Next, in order
 
-1. Build the explainer from `extract-full.json`, publish it as an Artifact, and commit the
-   built page as `docs/model/drift-explainer.html`.
-2. Docs review, then merge PR #1281 (squash, tag `archive/pr-1281`), deploy the site with
-   `ops/site-deploy.sh`, and check `/deals`.
+1. Done: the explainer is published (https://claude.ai/artifact/CidAo43kMNH2Kw7GHwTHf7,
+   built page `docs/model/drift-explainer.html`), PR #1281 is merged and the site deployed.
+2. Find what holds bld_sd[outer] in two states on the market and backtest data, from the
+   runs on disk (no Modal): compare the kept predictions between the two groups of chains
+   and scan the training rows for outer-borough buildings far from their surroundings.
 3. Round seven: score the predictions when the fits land, and replace the "was running
    when this was written" sentences in `README.md`, `docs/model/drift.md` and the round
    seven row of `docs/research-record.md` with the result. If n7 and b7 pass, republish and
