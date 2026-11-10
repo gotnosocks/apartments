@@ -291,7 +291,7 @@ ROUND-SEVEN-ROWS
 ## 6. Open questions the notes leave
 
 - **`drift-building` through the gate (2026-11-10).** It needs chains of about 4,000 draws at 16 sweeps a draw; four chains in an hour give 1,600. Open ways: fewer chains a container, `slow_within=0.001` (0.12 s a sweep), a fit continued from a saved state. ROUND-SEVEN-OPEN `docs/notes/drift-2026-11-10.md`
-- **The frozen offsets in bld_sd[outer]** on the market and backtest datasets under `drift-building`: chain means that differ by up to 0.8 posterior sd and do not move within 1,550 draws. No traced quantity moves with them. Untested guess: a few buildings with gross residuals explained either as the building or as outlier rows. `docs/notes/drift-2026-11-10.md`
+- **The frozen offsets in bld_sd[outer]** on the market and backtest datasets under `drift-building`: chain means that differ by up to 0.0005 where the posterior sd is 0.0006, and do not move within 1,550 draws. No traced quantity moves with them. Untested guess: a few buildings with gross residuals explained either as the building or as outlier rows. `docs/notes/drift-2026-11-10.md`
 - **First asks against final asks.** The deal score is built on a model of final asks, so an uncut first ask reads high. A model of the first ask, or of the cut, would level the score. `docs/model/drift.md`
 - **A monthly building path** scored 2,590 above the quarterly one and does not fit the hour. `docs/notes/drift-2026-11-10.md`
 - **Small buildings.** "Small buildings remain the open problem": no change moves their rows much, and location surfaces give only +12 to +17 (about 1.5 to 2 SE). `docs/research-plan.md`

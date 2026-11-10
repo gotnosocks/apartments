@@ -34,10 +34,11 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   79% were cut.
 - **Calibration.** The 50, 80, 90 and 95% ranges held 51.3, 79.9, 89.6 and 94.9% of the
   held-out asks.
-- **What is next.** `drift-building` predicts much better and its chains agree, but each of
-  its fits misses the R-hat line on one quantity (1.0106 and 1.0135 against 1.01), so it is
-  not served. The cause is chain length within the hour a fit gets, plus a slow component
-  of the outer boroughs' building spread on the market data. ROUND-SEVEN-PLACEHOLDER
+- **What is next.** `drift-building` predicts much better, but each of its fits misses the
+  R-hat line on one quantity (1.0106 and 1.0135 against 1.01), so it is not served. On the
+  latest split the miss fits chain length: four chains in an hour are too short, and round
+  seven tests that. On the market data the outer boroughs' building spread differs a
+  little from chain to chain, and the cause of that is not known. ROUND-SEVEN-PLACEHOLDER
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)

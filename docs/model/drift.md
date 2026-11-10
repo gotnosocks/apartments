@@ -34,7 +34,7 @@ On the 189,647 held-out ads (the newest ad of every apartment with at least two)
 | `drift-building` (b6, pooled) | 230,885 | 0.0406 | 0.0825 | 0.525 / 0.808 / 0.901 / 0.952 | missed by 0.0006 |
 
 Posterior means in f6: the unit's lasting level `ss` 0.0483, its drift `sd` 0.0786 with a
-time scale `tau` of 5.56 years, `nu` about 1.7.
+time scale `tau` of 5.56 years.
 
 The backtest (k6): the 9,346 ads open on 2025-11-10, each scored at its first ask.
 
@@ -47,11 +47,13 @@ The backtest (k6): the 9,346 ads open on 2025-11-10, each scored at its first as
 | highest tenth | 2,367 | 62 | 79% |
 
 `drift-building` adds a path per building and is worth another 35,565 elpd on the same
-ads. Its chains agree on every scale to three digits, and its pooled fits miss the gate on
-one quantity each: drift_tau at R-hat 1.0106 on the latest split and bld_sd[outer] at
-1.0135 on the market data. It is not served. The note gives the reason (a chain of four in
-an hour is too short for the R-hat line, whatever the number of chains) and what was tried
-next. ROUND-SEVEN-PLACEHOLDER
+ads. Its pooled fits miss the gate on one quantity each: drift_tau at R-hat 1.0106 on the
+latest split and bld_sd[outer] at 1.0135 on the market data. It is not served. On the
+latest split the twelve chains agree on every scale to three digits and the miss fits
+chain length (a chain of four in an hour is too short for the R-hat line, whatever the
+number of chains). On the market and backtest data bld_sd[outer] also differs from chain
+to chain by more than its autocorrelation allows, and the cause is not known. The note has
+both and what was tried next. ROUND-SEVEN-PLACEHOLDER
 
 ## The model
 
@@ -294,8 +296,9 @@ number of chains second.
   ads against each other well (the backtest), and its level is conservative for an ad that
   has not yet been cut.
 - **The building path steps by quarter**, to fit a fit in its hour. A monthly path scored
-  2,590 elpd higher in round two (233,273 against 230,683), all of it on ads with another
-  unit's ad in the same quarter.
+  2,590 elpd higher in round two (233,273 against 230,683; the monthly fit's chains did not
+  mix, so the gap is a guide). The quarterly path was 2,762
+  behind on ads with another unit's ad in the same quarter and slightly ahead elsewhere.
 - **`drift-building` has not passed the gate.** Its pooled fits of round six miss by 0.0006
   and 0.0035 in R-hat on one quantity each. On the market and backtest data the outer
   boroughs' building spread also holds a small offset from chain to chain that does not
