@@ -37,8 +37,8 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   FREE").
 - [ ] A sampler move for a building in two states under `drift-building`: new weights for
   the building's rows, accepted on its marginal likelihood with level, path and units
-  integrated out. About five buildings in 68,000 need it, and they hold the model's one
-  failing R-hat.
+  integrated out. About five buildings in 68,000 are seen to need it, and they are the
+  most likely source of the model's one failing R-hat.
 - [ ] Review the bed counts of the buildings the building model cannot settle (1259
   Jefferson Ave, 866 Knickerbocker Ave, 310 Linden St, 391 Greene Ave in Brooklyn): ads
   coded as studios at the rents of their 3- and 4-bedrooms. 8,717 units (2.2% of those with

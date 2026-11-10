@@ -230,8 +230,8 @@ units, an office suite, an apartment open only to the building's owners, and oth
 ads carry more than one bedroom count, `off_market` from the ad's status. A caution changes
 no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
 many. The text patterns were kept or dropped by reading every ad on the market that a
-wider set of candidates matched (237 ads); the kept income pattern matches 56 ads, 55 of
-them rightly. The dataset's own `income_restricted` flag, a model input, catches 22 of
+wider set of candidates matched (237 ads); the kept income pattern matches 55 ads, the 55
+the readers classed as income-restricted. The dataset's own `income_restricted` flag, a model input, catches 22 of
 those 55.
 
 ## How a fit is judged
