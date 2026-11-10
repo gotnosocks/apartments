@@ -33,20 +33,27 @@ before its own draw:
    and the coefficients of columns that are constant within a unit mixed slowly against the
    935k effects (68 of 121 coefficients missed the gate in fit 4). With u integrated out the
    draw of theta is exact given the scales.
-2. Each zone's building spread b_z, then every building's level eta, with u integrated out.
-3. u given theta and eta, by Matheron's rule: a draw from the prior, corrected by
+2. The scales (ss, sd, tau), each group's sigma and nu together, with u and the buildings'
+   levels integrated out (`update_scales`). The marginal likelihood of each unit's rows comes
+   from a Kalman filter on the state (s, d), and each building's level adds a term from the
+   row sums of W. nu moves with the mixing scales lam carried along: each row keeps its
+   standardized log lam, so nu is not pinned by the lam drawn at its old value. I slice
+   sample along eight directions, which start as the axes. The run sets them twice in the
+   warmup from the draws' covariance, since the scales trade off against each other.
+3. Each zone's building spread b_z, then every building's level eta, with u integrated out,
+   at the new scales.
+4. u given theta and eta, by Matheron's rule: a draw from the prior, corrected by
    K W (e - prior draw - noise draw), where e = y - mean without u.
-4. nu, sigma and lam from the residuals e - u (`building_zones_gibbs`'s noise step).
-5. (ss, sd, tau) given theta, eta and the new scales, with u integrated out. The marginal
-   likelihood of each unit's e comes from a Kalman filter on the state (s, d), and I slice
-   sample along three directions in (log ss, log sd, log tau). The directions start as the
-   axes. After two thirds of the warmup the run sets them from the warmup draws' covariance,
-   since the three trade off against each other.
+5. nu, sigma and lam from the residuals e - u (`building_zones_gibbs`'s noise step). With
+   step 2 this draws nu and sigma twice a sweep, once free of u and the levels and once
+   free of lam.
 6. tau of the walk, the zone amplitudes and waves, and the floor curves' Gaussian process
    scales, as in `building_zones_gibbs`.
 
-Steps 1, 2 and 5 integrate u out, and no step reads u between step 5 and the next sweep's
-step 3, which draws it again. So the sweep leaves the posterior unchanged.
+Step 2 integrates out u and the levels, and steps 3 and 4 draw both again before any step
+reads them. So the sweep leaves the posterior unchanged. The first fits of 2026-11-10 drew
+sigma given u, the unit scales given the levels and nu given u only, and missed the gate
+on those scales: the chains agreed and crept.
 
 Predictions. A unit's level at a new ad depends on its training ads, so the run predicts
 every row outside the training rows (the held-out ads of a split, or the ads on the market
@@ -67,7 +74,8 @@ local-drift terms from `groups_of`, each one more term in the row's mean:
 
 for group g (a building, or a neighbourhood) and step m (a quarter). `drift` itself runs with
 none; `rentfrontier.drift_building` adds the buildings' and `rentfrontier.drift_local` the
-buildings' and the neighbourhoods'. Steps 1 and 2 run on y less the terms' current paths.
+buildings' and the neighbourhoods'. Steps 1 and 2 run on y less the terms' current paths
+(step 2 with the collapsed term's paths integrated out as well, through `level_loglik`).
 
 The buildings' term is collapsed (`update_cells`). A building's state is its level eta and
 its path at its cells, the steps in which it has a row. With u integrated out the rows of a
@@ -126,6 +134,15 @@ from .building_zones_kitchen_sink import (  # noqa: F401  (the spec interface b0
 from .two_zone import site_share
 
 NAME = "drift"
+# Bath steps this design leaves out, as `building_zones_attrs.DROPPED_STEPS` leaves out
+# `bed=2:full>=4`. The steps are cumulative, so a studio with three full baths then takes the
+# premium of one with two, and a 1 bedroom with four that of one with three. On the latest
+# split's training rows the two steps are set by 37 ads of 34 units and by 26 ads of 26
+# units. The first drew a premium of 52% from ads that read like larger apartments entered
+# with no bedrooms (median rent $6,095 against a studio's $2,500), and it missed the gate in
+# every fit of 2026-11-10: with so few units behind it, the coefficient and whether its rows
+# count as outliers trade places slowly.
+DROPPED_STEPS = ("bed=0:full>=3", "bed=1:full>=4")
 # The HalfNormal scales of the lasting level's sd ss and the drift's sd sd, on log rent. Units
 # of one building with the same columns rarely differ by more than 10 to 20% in rent, so 0.1
 # puts most of the prior mass below 0.2 and leaves 0 open.
@@ -141,6 +158,7 @@ LOCAL_SD_PRIOR = 0.1
 # logit rho).
 HYP_WIDTH = 0.3
 SIGMA_WIDTH = 0.1
+NU_WIDTH = 0.02
 AR_WIDTHS = (0.5, 1.0)
 # The collapsed building term (`cell_layout`): a building's cells are padded to these sizes,
 # the slice interval's length for each zone's log spread, the lengths along (log sd, logit
@@ -218,7 +236,9 @@ def design(
     inputs.json (`rentfrontier.market`) names the snapshots the design reads."""
     market.apply_inputs(frame.attrs.get("dataset"))
     held = building_zones_floor_asof.held_out(frame, held)
-    d = building_zones_kitchen_sink.design(frame, start, held=held, **kw)
+    d = drop_columns(
+        building_zones_kitchen_sink.design(frame, start, held=held, **kw), DROPPED_STEPS
+    )
     unit, units = unit_index(frame, held)
     nbhd = nbhd_index(frame)
     return Design(
@@ -226,6 +246,17 @@ def design(
         unit=unit,
         units=units,
         nbhd=nbhd.astype(np.int64),
+    )
+
+
+def drop_columns(d, names):
+    """Design `d` without the columns in `names`."""
+    on = [j for j, n in enumerate(d.names) if n not in names]
+    return dataclasses.replace(
+        d,
+        x=d.x[:, on],
+        names=[d.names[j] for j in on],
+        count={n: c for n, c in d.count.items() if n not in names},
     )
 
 
@@ -299,6 +330,50 @@ def groups_of(d: Design, which) -> list[dict]:
             )
         )
     return out
+
+
+def slice_along(key, x, lp, logp, dirs, shrink=32):
+    """A slice update of vector `x` along each column of `dirs` in turn, for a scalar log
+    density `logp` with `lp` = logp(x). Returns the new x and its log density.
+
+    Along a column the interval is one column long, placed at random around the current
+    point, and it only shrinks. `b0.slice_vec` steps the interval out a fixed number of
+    times on each side first, which narrows the draws when the slice is longer than the
+    stepped-out interval. Placing a wide interval at random needs no stepping out and is
+    exact at any width. The log density at each accepted point is carried to the next
+    column, so a column costs one evaluation for each point it tries."""
+    jax, jnp = b0._jax()
+    for k, kk in enumerate(jax.random.split(key, dirs.shape[1])):
+        v = dirs[:, k]
+        k1, k2, k3 = jax.random.split(kk, 3)
+        level = lp - jax.random.exponential(k1)
+        lo = -jax.random.uniform(k2)
+
+        def cond(s):
+            return (s[0] < shrink) & ~s[5]
+
+        def body(s, x=x, v=v, level=level):
+            i, lo, hi, t, lpt, _, key = s
+            key, sub = jax.random.split(key)
+            prop = lo + (hi - lo) * jax.random.uniform(sub)
+            lpp = logp(x + prop * v)
+            ok = lpp > level
+            lo = jnp.where(~ok & (prop < 0), prop, lo)
+            hi = jnp.where(~ok & (prop >= 0), prop, hi)
+            return (
+                i + 1,
+                lo,
+                hi,
+                jnp.where(ok, prop, t),
+                jnp.where(ok, lpp, lpt),
+                ok,
+                key,
+            )
+
+        start = (0, lo, lo + 1.0, jnp.zeros(()), lp, jnp.zeros((), bool), k3)
+        _, _, _, t, lp, _, _ = jax.lax.while_loop(cond, body, start)
+        x = x + t * v
+    return x, lp
 
 
 def cell_layout(site, step, pi, pj, size: int, steps: int, pads=CELL_PADS) -> dict:
@@ -901,42 +976,95 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
 
-    def scale_logp(D, x, lam, e):
-        """The log density of x = (log ss, log sd, log tau, log sigma of each group) given
-        the mixing scales lam and the rows' remainders e, with u integrated out.
-        `unit_loglik` leaves out the rows' log c / 2, which holds -log sigma of each row."""
-        ls = x[3:]
-        sig = jnp.exp(ls)
-        return (
-            hyp_logp(D, x[:3], lam / sig[D["group"]] ** 2, e)
-            - jnp.sum(group_rows * ls)
-            - jnp.sum(sig**2) / (2 * priors.sigma**2)
-            + jnp.sum(ls)
+    def level_loglik(D, bsd, par, F, om_d, om_off, tgt):
+        """What integrating the buildings' levels (and the collapsed term's paths) out adds
+        to the log density of `tgt` = y less every other term, on top of the units' own
+        marginal density of tgt: the sum over buildings of
+        log |P|^(1/2) |Q|^(-1/2) exp(lin' Q^-1 lin / 2 - mu' P mu / 2), for the building
+        state's prior precision P and mean mu and its posterior precision Q and linear term
+        lin at the units' precisions (om_d, om_off)."""
+        if col is not None:
+            sums = cell_sums(D, om_d, om_off, tgt)
+            return jnp.sum(cell_loglik(D, jnp.log(bsd), par, sums, F))
+        ctil = om_d + seg(om_off, D["pi"], num_segments=n)
+        C = seg(ctil, D["site"], num_segments=S)
+        Rs = seg(apply_W(D, om_d, om_off, tgt), D["site"], num_segments=S)
+        b2 = bsd[zone_j] ** 2
+        return jnp.sum(
+            -0.5 * jnp.log1p(b2 * C)
+            + 0.5 * (Rs + F / b2) ** 2 / (C + 1 / b2)
+            - 0.5 * F * F / b2
         )
 
-    def update_hyp(D, key, st, lam, sigma, e):
-        """(log ss, log sd, log tau) and the groups' log sigma together, given lam and with
-        u integrated out: a slice update along each column of the state's `hyp_dirs` in
-        turn. Returns the three and sigma.
+    def lam_moments(lnu):
+        """The mean and sd of log lam for lam ~ Gamma(nu / 2, rate nu / 2)."""
+        a = jnp.exp(lnu) / 2
+        return (
+            jax.scipy.special.digamma(a) - jnp.log(a),
+            jnp.sqrt(jax.scipy.special.polygamma(1, a)),
+        )
 
-        The noise step draws sigma given u, and u given sigma, and a unit's drift over a
-        short time looks like noise, so on their own those two steps move sigma and the
-        drift's scale along their trade-off a little at a time (the first full fits missed
-        the gate on exactly these). Here they move together with u out of the way.
+    def scales_logp(D, x, eta, tgt, bsd, par, F):
+        """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu)
+        given theta, the buildings' spreads, the collapsed path's scales and the rows'
+        standardized log mixing scales eta, with u, the buildings' levels and the collapsed
+        paths integrated out.
 
-        The interval is one column long, placed at random around the current point, and
-        only shrinks: `b0.slice_vec`'s stepping out stops after a fixed count on each side,
-        which narrows the draws when the slice is longer than that."""
-        x = jnp.concatenate([st["hyp"], jnp.log(sigma)])
-        for k, kk in enumerate(jax.random.split(key, x.shape[0])):
-            v = st["hyp_dirs"][:, k]
+        nu moves with the mixing scales in tow: log lam = m(nu) + s(nu) eta, where m and s
+        are the mean and sd of log lam under Gamma(nu / 2, nu / 2). Holding eta fixed keeps
+        each row's place in the distribution of lam roughly where it was, so nu is not
+        pinned by 1.7 million lam drawn at its old value. The map is a bijection of lam for
+        each nu, and its Jacobian (lam s for each row) is in the density.
 
-            def logp(s, x=x, v=v):
-                return scale_logp(D, x + s[0] * v, lam, e)[None]
+        `unit_loglik` leaves out the rows' log c / 2."""
+        ls, lnu = x[3:7], x[7]
+        sig = jnp.exp(ls)
+        a = jnp.exp(lnu) / 2
+        m, sd = lam_moments(lnu)
+        loglam = m + sd * eta
+        lam = jnp.exp(loglam)
+        c = lam / sig[D["group"]] ** 2
+        w1, Wb = unit_W(D, x[:3], c)
+        om_d, om_off = pair_weights(D, w1, Wb)
+        a_nu, b_nu = priors.nu
+        return (
+            hyp_logp(D, x[:3], c, tgt)
+            + 0.5 * jnp.sum(loglam)
+            - jnp.sum(group_rows * ls)
+            + level_loglik(D, bsd, par, F, om_d, om_off, tgt)
+            # lam's Gamma(a, rate a) density, with the map's Jacobian.
+            + n * (a * jnp.log(a) - jax.scipy.special.gammaln(a) + jnp.log(sd))
+            + a * jnp.sum(loglam)
+            - a * jnp.sum(lam)
+            - jnp.sum(sig**2) / (2 * priors.sigma**2)
+            + jnp.sum(ls)
+            + a_nu * lnu
+            - b_nu * 2 * a
+        )
 
-            s = b0.slice_vec(kk, jnp.zeros(1), logp, 1.0, steps_out=0, shrink=32)
-            x = x + s[0] * v
-        return x[:3], jnp.exp(x[3:])
+    def update_scales(D, key, st, tgt, F):
+        """The unit scales, the groups' sigma and nu together, with u, the buildings' levels
+        and the collapsed paths integrated out (`scales_logp`): a slice update along each
+        column of the state's `hyp_dirs` in turn. Returns hyp, sigma, nu and lam.
+
+        Each of these scales was at first drawn given a latent that pins it: sigma given u,
+        the unit scales given the buildings' levels and paths, nu given u. The chains then
+        agreed with each other and crept, and the fits of 2026-11-10 missed the gate on
+        exactly these. Here every one of those latents is out of the way.
+
+        The slices are `slice_along`'s."""
+        lnu = jnp.log(st["nu"])
+        m, sd = lam_moments(lnu)
+        eta = (jnp.log(st["lam"]) - m) / sd
+        bsd, par = st["bld_sd"], st["ar_par"][0] if col is not None else None
+
+        def logp(x):
+            return scales_logp(D, x, eta, tgt, bsd, par, F)
+
+        x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
+        x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
+        m, sd = lam_moments(x[7])
+        return x[:3], jnp.exp(x[3:7]), jnp.exp(x[7]), jnp.exp(m + sd * eta)
 
     def ar_filter(par, C, R):
         """The Kalman filter of one local-drift term's processes over its steps, from each
@@ -988,7 +1116,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     def update_ar(key, k, par, C, R):
         """One term's (log sd, logit rho) with its paths integrated out, by a slice update of
-        each in turn, then the paths. As in `update_hyp` the interval only shrinks, from
+        each in turn, then the paths. As in `update_scales` the interval only shrinks, from
         AR_WIDTHS, which are several times the scales' posterior spread on any dataset."""
         prior_sd = ars[k]["sd_prior"]
 
@@ -1141,22 +1269,18 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         lb = b0.slice_vec(
             k1, jnp.log(st["bld_sd"]), logp_b, SPREAD_WIDTH, steps_out=0, shrink=32
         )
-        for k, kk in enumerate(jax.random.split(k2, 2)):
-            v = st["cell_dirs"][:, k]
 
-            def logp(t, par=par, v=v):
-                x = par + t[0] * v
-                rho = jax.nn.sigmoid(x[1])
-                return (
-                    jnp.sum(cell_loglik(D, lb, x, sums, F))
-                    - jnp.exp(2 * x[0]) / (2 * prior_sd**2)
-                    + x[0]
-                    + jnp.log(rho)
-                    + jnp.log1p(-rho)
-                )[None]
+        def logp(x):
+            rho = jax.nn.sigmoid(x[1])
+            return (
+                jnp.sum(cell_loglik(D, lb, x, sums, F))
+                - jnp.exp(2 * x[0]) / (2 * prior_sd**2)
+                + x[0]
+                + jnp.log(rho)
+                + jnp.log1p(-rho)
+            )
 
-            t = b0.slice_vec(kk, jnp.zeros(1), logp, 1.0, steps_out=0, shrink=32)
-            par = par + t[0] * v
+        par, _ = slice_along(k2, par, logp(par), logp, st["cell_dirs"])
         bsd = jnp.exp(lb)
         b2 = bsd[zone_j] ** 2
         # A building with no row keeps its prior.
@@ -1298,11 +1422,21 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         c = weights(D, st)
         w1, Wb = unit_W(D, st["hyp"], c)
         y_eff = D["y"] - offsets(D, st)
-        theta, (om_d, om_off, ctil) = draw_theta(D, k1, st, c, w1, Wb, y_eff)
+        theta, _ = draw_theta(D, k1, st, c, w1, Wb, y_eff)
         w = theta[sl_w]
         F = D["Bc"] @ w
         e0 = y_eff - all_means(D, theta)
+        # y less every term but the buildings' levels, the collapsed paths and u.
+        tgt = e0 if col is None else e0 + st["ar"][0].ravel()[D["ar_cell"][0]]
+        # The scales move with all three integrated out, so the three are drawn afresh
+        # below, at the new scales, before anything reads them.
+        hyp, sigma, nu, lam = update_scales(D, k8, st, tgt, F)
+        st = st | dict(hyp=hyp, sigma=sigma, nu=nu, lam=lam)
+        c = weights(D, st)
+        w1, Wb = unit_W(D, hyp, c)
+        om_d, om_off = pair_weights(D, w1, Wb)
         if col is None:
+            ctil = om_d + seg(om_off, D["pi"], num_segments=n)
             C = seg(ctil, D["site"], num_segments=S)
             Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
             bsd = update_spread(k2, st, C, Rs, F)
@@ -1313,7 +1447,6 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             first = 0
         else:
             cell = D["ar_cell"][0]
-            tgt = e0 + st["ar"][0].ravel()[cell]
             sums = cell_sums(D, om_d, om_off, tgt)
             bsd, lev, par, path = update_cells(D, k2, st, sums, F)
             e = tgt - lev[D["site"]] - path.ravel()[cell]
@@ -1322,11 +1455,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
                 "ar_par": st["ar_par"].at[0].set(par),
             }
             first = 1
-        u = draw_u(D, k7, st["hyp"], c, w1, Wb, e)
+        u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
-        e = r + u
         nu, sigma, lam = update_noise(k4, st, r, D["group"])
-        hyp, sigma = update_hyp(D, k8, st, lam, sigma, e)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
         if joint is None:
             amp = update_amp(k6, st, w)
@@ -1411,7 +1542,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             amp=0.5 * jit(k[4], (nz,), 0.2),
             hyp=jnp.log(jnp.asarray([0.05, 0.08, 3.0]))
             + 0.2 * jax.random.normal(k[5], (3,)),
-            hyp_dirs=jnp.diag(jnp.asarray([HYP_WIDTH] * 3 + [SIGMA_WIDTH] * 4)),
+            hyp_dirs=jnp.diag(
+                jnp.asarray([HYP_WIDTH] * 3 + [SIGMA_WIDTH] * 4 + [NU_WIDTH])
+            ),
         )
         if ars:
             out["ar"] = tuple(jnp.zeros((a["size"], a["T"])) for a in ars)
@@ -1447,8 +1580,10 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             apply_W=apply_W,
             global_system=global_system,
             unit_loglik=unit_loglik,
-            update_hyp=update_hyp,
-            scale_logp=scale_logp,
+            update_scales=update_scales,
+            scales_logp=scales_logp,
+            lam_moments=lam_moments,
+            level_loglik=level_loglik,
             draw_theta=draw_theta,
             update_noise=update_noise,
             ar_filter=ar_filter,
@@ -1474,9 +1609,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
 
 def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
-    """The slice directions for (log ss, log sd, log tau, log sigma of each group) from
-    warmup draws `hyp` (chains, sweeps, 7): four times the Cholesky factor of the draws'
-    covariance within chains, so that the interval of `update_hyp` covers the slice. The
+    """The slice directions for (log ss, log sd, log tau, log sigma of each group, log nu)
+    from warmup draws `hyp` (chains, sweeps, 8): four times the Cholesky factor of the draws'
+    covariance within chains, so that the interval of `update_scales` covers the slice. The
     same for the collapsed building path's (log sd, logit rho)."""
     dev = hyp - hyp.mean(axis=1, keepdims=True)
     cov = np.einsum("csi,csj->ij", dev, dev) / max(dev.shape[0] * (dev.shape[1] - 1), 1)
@@ -1523,7 +1658,7 @@ def run(
     total = settings.warmup + settings.draws
     per = max(1, settings.draws // settings.chunks)
     marks = {"warmup": None}
-    # The slice directions of `update_hyp` are set twice in the warmup, at a third and at two
+    # The slice directions of `update_scales` are set twice in the warmup, at a third and at two
     # thirds of it, each time from the sweeps of the sixth of the warmup before: the first
     # setting lets the scales move along their trade-offs, and the second measures them.
     adapt_at = {
@@ -1595,11 +1730,16 @@ def run(
             log(f"first sweep (compile) {compile_seconds:.1f}s")
         if i < settings.warmup:
             warm_hyp[i] = np.concatenate(
-                [np.asarray(st["hyp"]), np.log(np.asarray(st["sigma"]))], axis=1
+                [
+                    np.asarray(st["hyp"]),
+                    np.log(np.asarray(st["sigma"])),
+                    np.log(np.asarray(st["nu"]))[:, None],
+                ],
+                axis=1,
             )
             if "cell_dirs" in st:
                 warm_cell[i] = np.asarray(st["ar_par"])[:, 0]
-        if i + 1 in adapt_at and i + 1 - adapt_at[i + 1] >= 8:
+        if i + 1 in adapt_at and i + 1 - adapt_at[i + 1] >= 10:
             window = [warm_hyp[j] for j in range(adapt_at[i + 1], i + 1)]
             dirs = adapted_dirs(np.stack(window, axis=1))
             st = st | {

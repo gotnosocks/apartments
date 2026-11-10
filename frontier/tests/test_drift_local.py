@@ -277,6 +277,37 @@ def test_a_slice_that_only_shrinks_leaves_its_target_unchanged():
     assert spread(0.2, 4) < 0.85
 
 
+def test_slice_along_leaves_a_correlated_target_unchanged():
+    jax, jnp = b0._jax()
+    cov = np.array([[1.0, 0.9, 0.2], [0.9, 1.0, 0.1], [0.2, 0.1, 0.5]])
+    prec = jnp.asarray(np.linalg.inv(cov))
+    chol = np.linalg.cholesky(cov)
+
+    def logp(x):
+        return -0.5 * x @ prec @ x
+
+    def spread(dirs, sweeps=60):
+        def one(key):
+            k0, k1 = jax.random.split(key)
+            x = jnp.asarray(chol) @ jax.random.normal(k0, (3,))
+
+            def step(c, k):
+                return drift.slice_along(k, c[0], c[1], logp, dirs), None
+
+            (x, lp), _ = jax.lax.scan(step, (x, logp(x)), jax.random.split(k1, sweeps))
+            # The carried log density is the point's own.
+            return x, lp - logp(x)
+
+        x, gap = jax.vmap(one)(jax.random.split(jax.random.PRNGKey(1), 3000))
+        assert float(jnp.abs(gap).max()) < 1e-9
+        return np.cov(np.asarray(x).T)
+
+    # Started in the target, the draws stay in it: along the axes with an interval far
+    # longer or shorter than the slice, and along the target's own directions.
+    for dirs in (8.0 * np.eye(3), 0.3 * np.eye(3), 4.0 * chol):
+        np.testing.assert_allclose(spread(jnp.asarray(dirs)), cov, atol=0.09)
+
+
 def _cells(seed=4, drop=()):
     """A small design with the collapsed building term in weekly steps: the sampler's parts,
     one chain's state, and in the sampler's row order the rows' building and step, a random
@@ -487,3 +518,36 @@ def test_update_cells_places_the_joint_draw_and_keeps_the_prior_where_no_row_is(
     assert not active[drop].any() and np.abs(path[drop]).min() > 0
     np.testing.assert_array_equal(np.asarray(D["ar_cell"][0]), site * a["T"] + step)
     assert active.sum() == len(np.unique(site * a["T"] + step))
+
+
+def test_scales_logp_matches_the_dense_density_with_the_paths_integrated_out():
+    parts, st, site, step, tgt, F, cov, sums = _cells()
+    jax, jnp = b0._jax()
+    full = td._design()
+    train, _, _ = td._split(full)
+    D = parts["data"]
+    zone = np.asarray(parts["zone"])
+    par = np.array([-2.5, 1.0])
+    m, s = parts["lam_moments"](jnp.log(st["nu"]))
+    eta = (np.log(np.asarray(st["lam"])) - float(m)) / float(s)
+    # The path's own covariance, on top of the levels' that the dense density adds.
+    path = _cell_cov(site, step, zone, np.full(2, -50.0), par)
+
+    def both(hyp, sigma, nu):
+        x = np.concatenate([np.log(hyp), np.log(sigma), [np.log(nu)]])
+        got = parts["scales_logp"](
+            D,
+            jnp.asarray(x),
+            jnp.asarray(eta),
+            jnp.asarray(tgt),
+            st["bld_sd"],
+            jnp.asarray(par),
+            jnp.asarray(F),
+        )
+        return float(got), td._scales_want(train, parts, st, eta, tgt, F, x, path)
+
+    base = both(*td.SCALES[0])
+    for at in td.SCALES[1:]:
+        got, want = both(*at)
+        np.testing.assert_allclose(got - base[0], want - base[1], rtol=1e-8)
+        assert abs(want - base[1]) > 1.0

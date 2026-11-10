@@ -108,6 +108,17 @@ def test_unit_index_keeps_whole_keys_when_a_unit_id_is_missing(tmp_path):
     )
 
 
+def test_drop_columns_takes_the_columns_their_names_and_their_counts():
+    d = _design(n=300)
+    gone = (d.names[3], d.names[10], "no such column")
+    out = drift.drop_columns(d, gone)
+    keep = [j for j in range(len(d.names)) if j not in (3, 10)]
+    assert out.names == [d.names[j] for j in keep]
+    np.testing.assert_array_equal(out.x, d.x[:, keep])
+    assert set(out.count) == set(d.count) - set(gone)
+    assert {"bed=0:full>=3", "bed=1:full>=4"} == set(drift.DROPPED_STEPS)
+
+
 def test_unit_layout_places_every_row_and_pair():
     unit = np.array([0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 4])
     t = np.arange(len(unit), dtype=float)
@@ -203,47 +214,122 @@ def test_unit_loglik_matches_the_dense_density():
     np.testing.assert_allclose(a[0] - b[0], a[1] - b[1], rtol=1e-9)
 
 
-def test_scale_logp_matches_the_dense_density_as_sigma_and_the_unit_scales_move():
+def _scales_want(train, parts, st, eta, tgt, F, x, extra=None):
+    """The dense log density that `scales_logp` stands for at x = (log ss, log sd, log tau,
+    log sigma of each group, log nu): the rows' Gaussian density with u and the buildings'
+    levels integrated out (`extra` adds a covariance, for a collapsed path), the mixing
+    scales' Gamma density with the Jacobian of their map, and the priors."""
+    from scipy import special, stats
+
+    prior = building_zones.Priors()
+    order = parts["order"]
+    site = train.site[order]
+    ss, sd, tau = np.exp(x[:3])
+    sigma, nu = np.exp(x[3:7]), np.exp(x[7])
+    a = nu / 2
+    m, s = special.digamma(a) - np.log(a), np.sqrt(special.polygamma(1, a))
+    lam = np.exp(m + s * eta)
+    _, jnp = b0._jax()
+    at = st | {
+        "hyp": jnp.asarray(x[:3]),
+        "sigma": jnp.asarray(sigma),
+        "lam": jnp.asarray(lam),
+    }
+    V, _, _ = _dense_cov(train, parts, at)
+    b2 = np.asarray(st["bld_sd"])[np.asarray(parts["zone"])] ** 2
+    V = V + np.where(site[:, None] == site[None, :], b2[site][:, None], 0.0)
+    if extra is not None:
+        V = V + extra
+    dev = tgt - F[site]
+    a_nu, b_nu = prior.nu
+    return (
+        -0.5 * np.linalg.slogdet(V)[1]
+        - 0.5 * dev @ np.linalg.solve(V, dev)
+        + stats.gamma.logpdf(lam, a, scale=1 / a).sum()
+        + np.log(lam * s).sum()
+        # The priors, with the Jacobians of the logs.
+        - ss**2 / (2 * drift.UNIT_SD_PRIOR**2)
+        - sd**2 / (2 * drift.DRIFT_SD_PRIOR**2)
+        - (np.log(tau) - drift.TAU_LOG_PRIOR[0]) ** 2
+        / (2 * drift.TAU_LOG_PRIOR[1] ** 2)
+        + np.log(ss)
+        + np.log(sd)
+        - np.sum(sigma**2) / (2 * prior.sigma**2)
+        + np.sum(np.log(sigma))
+        + a_nu * np.log(nu)
+        - b_nu * nu
+    )
+
+
+SCALES = (
+    # The unit scales, the groups' sigma and nu, each line moving one more of them.
+    ((0.08, 0.1, 0.2), (0.05, 0.06, 0.07, 0.08), 4.0),
+    ((0.03, 0.2, 1.5), (0.05, 0.06, 0.07, 0.08), 4.0),
+    ((0.08, 0.1, 0.2), (0.09, 0.04, 0.11, 0.05), 4.0),
+    ((0.08, 0.1, 0.2), (0.05, 0.06, 0.07, 0.08), 1.8),
+    ((0.05, 0.07, 0.6), (0.07, 0.05, 0.06, 0.1), 2.6),
+)
+
+
+def test_scales_logp_matches_the_dense_density_as_every_scale_moves():
     full = _design(per_unit=9)
     train, _, _ = _split(full)
     _, init, _, parts = _sampler(train)
     jax, jnp = b0._jax()
     D = parts["data"]
     rng = np.random.default_rng(5)
-    e = 0.2 * rng.standard_normal(len(train.y))
     st = _state(init, parts)
-    prior = building_zones.Priors()
-    group = np.asarray(D["group"])
+    S = len(parts["zone"])
+    F = 0.1 * rng.standard_normal(S)
+    tgt = F[train.site[parts["order"]]] + 0.2 * rng.standard_normal(len(train.y))
+    m, s = parts["lam_moments"](jnp.log(st["nu"]))
+    eta = (np.log(np.asarray(st["lam"])) - float(m)) / float(s)
+    assert len(np.unique(np.asarray(D["group"]))) > 1
 
-    def both(hyp, sigma):
-        sigma = np.asarray(sigma)
-        x = jnp.asarray(np.concatenate([np.log(hyp), np.log(sigma)]))
-        got = float(parts["scale_logp"](D, x, st["lam"], jnp.asarray(e)))
-        at = st | {"hyp": jnp.log(jnp.asarray(hyp)), "sigma": jnp.asarray(sigma)}
-        V, _, _ = _dense_cov(train, parts, at)
-        _, logdet = np.linalg.slogdet(V)
-        ss, sd, tau = hyp
-        want = (
-            -0.5 * logdet
-            - 0.5 * e @ np.linalg.solve(V, e)
-            # The priors, with the Jacobians of the logs.
-            - ss**2 / (2 * drift.UNIT_SD_PRIOR**2)
-            - sd**2 / (2 * drift.DRIFT_SD_PRIOR**2)
-            - (np.log(tau) - drift.TAU_LOG_PRIOR[0]) ** 2
-            / (2 * drift.TAU_LOG_PRIOR[1] ** 2)
-            + np.log(ss)
-            + np.log(sd)
-            - np.sum(sigma**2) / (2 * prior.sigma**2)
-            + np.sum(np.log(sigma))
+    def both(hyp, sigma, nu):
+        x = np.concatenate([np.log(hyp), np.log(sigma), [np.log(nu)]])
+        got = parts["scales_logp"](
+            D,
+            jnp.asarray(x),
+            jnp.asarray(eta),
+            jnp.asarray(tgt),
+            st["bld_sd"],
+            None,
+            jnp.asarray(F),
         )
-        return got, want
+        return float(got), _scales_want(train, parts, st, eta, tgt, F, x)
 
-    assert len(np.unique(group)) > 1
-    a = both((0.08, 0.1, 0.2), (0.05, 0.06, 0.07, 0.08))
-    b = both((0.03, 0.2, 1.5), (0.09, 0.04, 0.11, 0.05))
-    c = both((0.08, 0.1, 0.2), (0.09, 0.04, 0.11, 0.05))
-    np.testing.assert_allclose(a[0] - b[0], a[1] - b[1], rtol=1e-9)
-    np.testing.assert_allclose(a[0] - c[0], a[1] - c[1], rtol=1e-9)
+    base = both(*SCALES[0])
+    for at in SCALES[1:]:
+        got, want = both(*at)
+        np.testing.assert_allclose(got - base[0], want - base[1], rtol=1e-8)
+        assert abs(want - base[1]) > 1.0
+
+
+def test_update_scales_keeps_each_rows_place_among_the_mixing_scales():
+    full = _design(per_unit=9)
+    train, _, _ = _split(full)
+    _, init, _, parts = _sampler(train)
+    jax, jnp = b0._jax()
+    D = parts["data"]
+    rng = np.random.default_rng(6)
+    st = _state(init, parts)
+    F = jnp.asarray(0.1 * rng.standard_normal(len(parts["zone"])))
+    tgt = jnp.asarray(0.2 * rng.standard_normal(len(train.y)))
+    hyp, sigma, nu, lam = parts["update_scales"](D, jax.random.PRNGKey(4), st, tgt, F)
+    assert float(jnp.abs(hyp - st["hyp"]).min()) > 0
+    assert float(jnp.abs(sigma - st["sigma"]).min()) > 0 and float(nu) != float(
+        st["nu"]
+    )
+    # lam moved with nu: every row's standardized log lam is what it was.
+    m0, s0 = parts["lam_moments"](jnp.log(st["nu"]))
+    m1, s1 = parts["lam_moments"](jnp.log(nu))
+    np.testing.assert_allclose(
+        (np.log(np.asarray(lam)) - float(m1)) / float(s1),
+        (np.log(np.asarray(st["lam"])) - float(m0)) / float(s0),
+        atol=1e-9,
+    )
+    assert float(jnp.abs(lam - st["lam"]).max()) > 0
 
 
 def test_draw_u_has_the_conditional_mean_and_covariance():
