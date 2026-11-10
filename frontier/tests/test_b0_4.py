@@ -176,7 +176,7 @@ def test_run_records_the_surfaces_and_scoring_refuses(tmp_path, monkeypatch):
     assert post["kept/gp_z"].shape[-1] == k and post["kept/amp"].shape[-1] == 2
     monkeypatch.setattr(loo, "git", lambda *a: "" if a[0] == "status" else "abc1234")
     monkeypatch.setattr(loo, "LOO_ROOT", tmp_path / "loo")
-    with pytest.raises(SystemExit, match="B0.4"):
+    with pytest.raises(SystemExit, match="scoring needs its location surfaces"):
         loo.main(["b04-test"])
 
 
