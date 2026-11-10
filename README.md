@@ -11,9 +11,13 @@ earlier lines.
 
 ## Where things stand
 
-**The served model is `drift`**, fitted on 2026-11-10. It is the first model in the project
-with a term for the individual apartment to pass the convergence gate on the full data, and
-it passes on all three of its fits (held-out split, today's market, a backtest a year back).
+**The served model is `drift-building`** with a Student-t prior on building levels
+(`--level-dof 4`), fitted on 2026-11-10. It gives each apartment a level that drifts and
+each building a path of its own, and it passes the convergence gate on all three of its
+fits (held-out split, today's market, a backtest a year back). `drift`, the same model
+without the building's path, was the first model in the project with a term for the
+individual apartment to pass the gate on the full data, and was served for the first
+hours of that day (from 09:42Z).
 
 Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 
@@ -22,8 +26,8 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 | Fit 8 (no memory of the apartment) | 148,234 | 6.9% | 79.8% | passed |
 | Kitchen sink (2026-10-24, every column on hand) | 156,105 | 6.6% | 80.1% | passed |
 | Fit 4 (a fixed level per apartment) | 177,137 | 5.8% | 78.9% | missed |
-| **`drift`** (a level per apartment that drifts) | **195,320** | **5.2%** | **79.9%** | **passed** |
-| `drift-building` (plus a path per building) | 230,885 | 4.1% | 80.8% | missed on one scale |
+| `drift` (a level per apartment that drifts) | 195,320 | 5.2% | 79.9% | passed |
+| **`drift-building`** (plus a path per building; Student-t building levels) | **230,989** | **4.1%** | **80.7%** | **passed** |
 
 - **The Deals page** (`/deals` on the site) ranks the 6,774 ads on the market on 2026-11-09
   by how low each ask is for its apartment. It was published from the market fit with its
@@ -34,16 +38,15 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   with no plain reason for the low ask; before the cautions it was 10 of 22.
 - **The backtest.** Fitted on what was known on 2025-11-10 and scored on the first asks of
   the 9,346 ads open that day: ads in the lowest tenth of the score left the market in a
-  median of 28 days and 18% had their ask cut; ads in the highest tenth took 61 days and
-  60% were cut. (Until 2026-11-10 10:05Z this read 62 days and 79%: the check compared a
-  gross first ask with a net final ask for the ads with free months.)
-- **Calibration.** The 50, 80, 90 and 95% ranges held 51.3, 79.9, 89.6 and 94.9% of the
+  median of 26 days and 18% had their ask cut; ads in the highest tenth took 71 days and
+  61% were cut. (`drift` gave 28 and 61 days, 18% and 60%.)
+- **Calibration.** The 50, 80, 90 and 95% ranges held 52.5, 80.7, 90.1 and 95.2% of the
   held-out asks.
-- **What is next.** `drift-building` predicts much better, but each of its fits misses the
-  R-hat line, so it is not served. Round seven ran it with chains twice as long. Every
-  quantity that missed for chain length now passes with room, the held-out score is the
-  same (230,861), and one quantity still misses on both fits: the spread of building
-  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). The
+- **How the building model came to pass.** Under a normal prior on building levels
+  `drift-building` predicted much better than `drift` and every one of its fits missed
+  the R-hat line. With chains twice as long (round seven) every quantity that had missed
+  for chain length passed with room and one still missed on both fits: the spread of
+  building levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). The
   best-supported cause is about ten buildings. Most of them have listings coded with 0
   bedrooms at the rents of the building's 3-bedrooms (in the eight that were read, every
   such ad has a blank or placeholder text and the source's own count of 0). The sampler
@@ -54,10 +57,14 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   studio-coded ads whose text names two or more bedrooms, 25 of 40 read were whole
   apartments, so roughly 750 to 1,250; and 4,517 placeholder listings) and in the model:
   a Student-t prior on building levels (`Settings.level_dof`). Round eight ran it
-  on one container with the seed that had failed. The leverage is gone, the container
-  passes the gate, and its held-out score is 126 above the same container under the
-  normal prior. The three full fits it would take to serve the building model (about
-  $33) are outside this window's budget. The note of 2026-11-10 has the evidence.
+  on one container with the seed that had failed: the leverage was gone, the container
+  passed the gate, and its held-out score was 126 above the same container under the
+  normal prior. Round nine ran the three full fits (nine containers, $33.02, on budget
+  Ben added for it), with predictions written first: all three pass, with the outer
+  spread's R-hat at 1.005 or under, and the held-out score is 128 above the normal
+  prior's. The note of 2026-11-10 has the evidence.
+- **What is next.** The data rule for studio-coded ads that are not studios, the choice
+  of 4 degrees of freedom, and free months stated only in words: `docs/TODO.md`.
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)
@@ -72,9 +79,9 @@ Each ad's log asking rent is the sum of
 | Columns | Bedrooms, baths, size, floor curves, amenities, building attributes, ad text codes: about 250 coefficients | `building_zones_kitchen_sink.py` |
 | Citywide time | A weekly random walk plus season | `building_zones_gibbs.py` |
 | Location | A smooth surface per zone (Manhattan, outer boroughs) at 1 km | `building_zones.py` |
-| Building | A level for each of 68,000 buildings around its zone's surface | `building_zones.py` |
+| Building | A level for each of 68,000 buildings around its zone's surface, with a Student-t prior (4 degrees of freedom) in the served fits | `building_zones.py`, `drift.py` |
 | Unit | A lasting level for each apartment plus a drift that fades over a few years | `drift.py` |
-| Building drift (`drift-building`, not yet served) | A path per building that wanders and returns, one step a quarter | `drift.py`, `drift_building.py` |
+| Building drift (`drift-building`) | A path per building that wanders and returns, one step a quarter | `drift.py`, `drift_building.py` |
 | Noise | Student-t, with a scale per bedroom group | `b0.py` |
 
 The unit term is what makes the model useful for deals. An apartment that asked 8% over its
