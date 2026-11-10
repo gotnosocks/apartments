@@ -5,7 +5,7 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 12:50Z
+## State at 2026-11-10 12:45Z
 
 - **Served model.** `drift`. Its three full fits passed the gate (f6 on the latest split,
   m6 on the market dataset, k6 on the backtest; run names `drift-b0-latest-fabd6f9d-f6`,
