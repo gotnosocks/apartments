@@ -1,5 +1,8 @@
 # Chelsea pricing research backlog
 
+> Historical: the backlog of the PyMC and frontier lines (2026-09 to 2026-10). The current
+> model is in [drift.md](drift.md) and its open items are in [../TODO.md](../TODO.md).
+
 ## Served-model review and ranked hypotheses (2026-10-08, during the run pause)
 
 An independent review from the Fable thread, with its eighteen-round free-check exchange with

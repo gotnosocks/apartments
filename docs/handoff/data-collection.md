@@ -26,7 +26,7 @@ Updated 2026-10-19 18:30 ET. Thread owner: the Data collection project thread (b
      own. Snapshot `20261019-bcfbb52-extend` stays as it was. No fit reads NJ yet, under Ben's
      Oct 19 fit hold.
 
-  Ben left the paused timers off (Oct 19, 16:51 ET; see `ops/paused-timers-2026-10-18.md` in
+  Ben left the paused timers off (Oct 19, 16:51 ET; see `/mnt/project-files/ops/paused-timers-2026-10-18.md` in
   the project files), so I run the NJ build and top-up steps by hand. With the timers off, no
   Friday top-up and no backup covers NJ (or NYC) until he turns them back on.
 

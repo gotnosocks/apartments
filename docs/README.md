@@ -21,7 +21,7 @@ Start with the three files at the top. The rest is the record behind them.
 | [model/modal.md](model/modal.md) | Running fits on Modal: budget, the per-fit cap, the convergence gate. |
 | [site.md](site.md) | The listings site: pages, build and deploy. |
 | [research-plan.md](research-plan.md) | The plan and log of the frontier line (2026-09-24 to 2026-10-17). Historical since the B0 line began. |
-| [TODO.md](TODO.md) | Small open items. |
+| [TODO.md](TODO.md) | Open items of the current model and the Deals page. The list before 2026-11-10 is in `archive/TODO-2026-10.md`. |
 
 ## The record
 
