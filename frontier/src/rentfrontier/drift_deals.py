@@ -238,6 +238,17 @@ def _checked(
     return result, market
 
 
+def _gate(result: dict) -> dict:
+    """A run's convergence gate as its record has it."""
+    diag = result.get("diagnostics") or {}
+    return {
+        "passes": bool(diag.get("passes")),
+        "max_rhat": diag.get("max_rhat"),
+        "min_ess": diag.get("min_ess"),
+        "chains": (result.get("sampler_settings") or {}).get("chains"),
+    }
+
+
 def publish(
     run_dir: Path,
     out: Path,
@@ -251,15 +262,26 @@ def publish(
     scores on ads it never saw. Each ads table comes from its run's dataset manifest.
 
     The three runs must be fits of one model, the market run on a market dataset and the
-    backtest run on a backtest dataset. Everything is computed before anything is written.
+    backtest run on a backtest dataset. The market run must have passed the convergence
+    gate: the page ranks real ads by its draws. `meta.json` records the gate of each run,
+    so a backtest or held-out fit that missed it is shown as such and not hidden.
+    Everything is computed before anything is written.
     `meta.json` goes last and holds the sha256 of the other two files: the site shows a
     meta or a backtest only beside the table it was published with."""
     result, market = _checked(run_dir, backtest=False)
     model = result["model"]["name"]
+    gate = {"market": _gate(result)}
+    if not gate["market"]["passes"]:
+        raise SystemExit(
+            f"{run_dir.name} did not pass the convergence gate (max R-hat "
+            f"{gate['market']['max_rhat']}, min ESS {gate['market']['min_ess']}); "
+            "the Deals page is published only from a fit that did"
+        )
     table = deals(run_dir, Path(market["ads"]), registry)
     meta = {
         "model": model,
         "run": run_dir.name,
+        "gate": gate,
         "scoring_day": market["scoring_day"],
         "ads": int(len(table)),
         "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -270,13 +292,15 @@ def publish(
             raise SystemExit(
                 f"{heldout.name} is a {record['model']['name']} fit, not {model}"
             )
+        gate["heldout"] = _gate(record)
         scores = np.load(heldout / "pred_scores.npz")
         meta["heldout"] = drift_score.summary(
             {k: scores[k] for k in ("y", "q", "pred", "elpd")}
         ) | {"run": heldout.name, "split": record.get("split")}
     check = None
     if backtest is not None:
-        _, past = _checked(backtest, backtest=True, model=model)
+        past_result, past = _checked(backtest, backtest=True, model=model)
+        gate["backtest"] = _gate(past_result)
         check = validate(backtest, Path(past["ads"])) | {"as_of": past["scoring_day"]}
         meta["backtest_run"] = backtest.name
     out.mkdir(parents=True, exist_ok=True)

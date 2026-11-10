@@ -90,6 +90,8 @@ def _run(tmp_path, backtest=False, model="drift-building"):
         "dataset_observations_sha256": manifest["rows_sha256"],
         "split": "market",
         "model": {"name": model},
+        "sampler_settings": {"chains": 4},
+        "diagnostics": {"passes": True, "max_rhat": 1.004, "min_ess": 612.0},
     }
     (run / "result.json").write_text(json.dumps(result))
     reg = pd.DataFrame(
@@ -176,6 +178,8 @@ def test_publish_writes_the_sites_folder_from_the_runs_manifests(tmp_path, monke
     )
     assert meta["heldout"]["rows"] == 4 and meta["heldout"]["run"] == "r"
     assert meta["backtest_run"] == "r"
+    passed = {"passes": True, "max_rhat": 1.004, "min_ess": 612.0, "chains": 4}
+    assert meta["gate"] == {"market": passed, "heldout": passed, "backtest": passed}
     assert meta["deals_sha256"] == sha256(out / "deals.json")
     assert meta["validation_sha256"] == sha256(out / "validation.json")
     rows = json.loads((out / "deals.json").read_text())
@@ -227,3 +231,25 @@ def test_publish_refuses_runs_in_the_wrong_places(tmp_path):
     with pytest.raises(SystemExit, match="changed since the dataset"):
         drift_deals.publish(run, out)
     assert not out.exists()
+
+
+def test_publish_refuses_a_market_fit_that_missed_the_gate(tmp_path):
+    run, _, reg = _scored(tmp_path / "m")
+    past, _, _ = _scored(tmp_path / "b", backtest=True)
+    out = tmp_path / "site" / "deals"
+    missed = {"passes": False, "max_rhat": 1.03, "min_ess": 188.0}
+    result = json.loads((run / "result.json").read_text())
+    for diagnostics in (missed, None):
+        (run / "result.json").write_text(
+            json.dumps(result | {"diagnostics": diagnostics})
+        )
+        with pytest.raises(SystemExit, match="did not pass the convergence gate"):
+            drift_deals.publish(run, out, reg, backtest=past)
+        assert not out.exists()
+    # A backtest that missed it is published with the market fit and marked.
+    (run / "result.json").write_text(json.dumps(result))
+    record = json.loads((past / "result.json").read_text())
+    (past / "result.json").write_text(json.dumps(record | {"diagnostics": missed}))
+    meta = drift_deals.publish(run, out, reg, backtest=past)
+    assert meta["gate"]["market"]["passes"] and not meta["gate"]["backtest"]["passes"]
+    assert meta["gate"]["backtest"]["max_rhat"] == 1.03
