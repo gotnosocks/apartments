@@ -267,9 +267,14 @@ ops/modal-fit --gpu H100 --dataset DIR --split latest COMMIT LABEL drift-buildin
 python -m rentfrontier.drift_pool RUN PART PART ...   # one run from a fit's containers
 python -m rentfrontier.drift_score RUN       # pred_scores.npz and the headline scores
 python -m rentfrontier.drift_deals validate BACKTEST_RUN --ads ADS --out validation.json
+python -m rentfrontier.drift_deals texts MARKET_RUN --out TEXTS.parquet   # the ads' own texts
 python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/site/deals \
-    --registry REGISTRY --backtest BACKTEST_RUN --heldout LATEST_RUN
+    --registry REGISTRY --backtest BACKTEST_RUN --heldout LATEST_RUN --texts TEXTS.parquet
 ```
+
+`texts` reads the pipeline's records file of the newest clean build (about a minute and
+4 GB on thelio) and refuses a build other than the dataset's. Without `--texts` the table
+carries only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
 The three model names are `drift`, `drift-building` and `drift-local`
 (`drift.py`, `drift_building.py`, `drift_local.py`). `--split market` fits a market or
