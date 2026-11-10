@@ -3,13 +3,16 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from rentfrontier import drift_deals
+from rentfrontier.b0data import sha256
 
 
-def _run(tmp_path, backtest=False):
+def _run(tmp_path, backtest=False, model="drift-building"):
     """A run directory with four held-out ads among six rows, predicted at log 3000 with
-    little spread, and its dataset, ads and registry."""
+    little spread, and its dataset (a market dataset, or a backtest), ads and registry."""
+    tmp_path.mkdir(exist_ok=True)
     data = tmp_path / "data"
     data.mkdir()
     rows = pd.DataFrame(
@@ -30,7 +33,6 @@ def _run(tmp_path, backtest=False):
     rows.to_parquet(data / "rows.parquet", index=False)
     run = tmp_path / "runs" / "r"
     run.mkdir(parents=True)
-    (run / "result.json").write_text(json.dumps({"dataset": str(data)}))
     held = np.array([False, True, True, True, False, True])
     shape = (2, 50, 4)
     rng = np.random.default_rng(0)
@@ -73,6 +75,23 @@ def _run(tmp_path, backtest=False):
         }
     )
     ads.to_parquet(tmp_path / "ads.parquet", index=False)
+    manifest = {
+        "rows_sha256": sha256(data / "rows.parquet"),
+        "market": {
+            "ads": str(tmp_path / "ads.parquet"),
+            "ads_sha256": sha256(tmp_path / "ads.parquet"),
+            "scoring_day": "2025-11-10" if backtest else "2026-11-09",
+            "backtest": backtest,
+        },
+    }
+    (data / "manifest.json").write_text(json.dumps(manifest))
+    result = {
+        "dataset": str(data),
+        "dataset_observations_sha256": manifest["rows_sha256"],
+        "split": "market",
+        "model": {"name": model},
+    }
+    (run / "result.json").write_text(json.dumps(result))
     reg = pd.DataFrame(
         {
             "building": ["a", "b", "c"],
@@ -132,19 +151,17 @@ def test_title_address_and_unit_label():
     assert drift_deals.unit_label(None) == ""
 
 
+def _scored(tmp_path, **kw):
+    run, ads, reg = _run(tmp_path, **kw)
+    np.savez(run / "pred_scores.npz", **drift_deals.drift_score.score_run(run))
+    return run, ads, reg
+
+
 def test_publish_writes_the_sites_folder_from_the_runs_manifests(tmp_path, monkeypatch):
-    run, ads, reg = _run(tmp_path)
-    result = json.loads((run / "result.json").read_text())
-    data = tmp_path / "data"
-    market = {"market": {"ads": str(ads), "scoring_day": "2026-11-09"}}
-    (data / "manifest.json").write_text(json.dumps(market))
-    (run / "result.json").write_text(
-        json.dumps(result | {"model": {"name": "drift-building"}})
-    )
-    scores = drift_deals.drift_score.score_run(run)
-    np.savez(run / "pred_scores.npz", **scores)
+    run, _, reg = _scored(tmp_path / "m")
+    past, _, _ = _scored(tmp_path / "b", backtest=True)
     out = tmp_path / "site" / "deals"
-    meta = drift_deals.publish(run, out, reg, backtest=run, heldout=run)
+    meta = drift_deals.publish(run, out, reg, backtest=past, heldout=run)
     assert sorted(p.name for p in out.iterdir()) == [
         "deals.json",
         "meta.json",
@@ -158,14 +175,55 @@ def test_publish_writes_the_sites_folder_from_the_runs_manifests(tmp_path, monke
         4,
     )
     assert meta["heldout"]["rows"] == 4 and meta["heldout"]["run"] == "r"
+    assert meta["backtest_run"] == "r"
+    assert meta["deals_sha256"] == sha256(out / "deals.json")
+    assert meta["validation_sha256"] == sha256(out / "validation.json")
     rows = json.loads((out / "deals.json").read_text())
     assert [r["listing_id"] for r in rows][0] == "2" and rows[0]["address"]
     check = json.loads((out / "validation.json").read_text())
-    assert check["as_of"] == "2026-11-09" and check["ads_with_first_ask"] == 4
+    assert check["as_of"] == "2025-11-10" and check["ads_with_first_ask"] == 4
+    # Without a backtest, the earlier publish's backtest goes.
+    meta = drift_deals.publish(run, out)
+    assert not (out / "validation.json").exists() and "validation_sha256" not in meta
+    assert "address" not in json.loads((out / "deals.json").read_text())[0]
     # A fit that ran elsewhere names a path this machine lacks: the dataset of the same
-    # name in this machine's datasets folder is used.
+    # name in this machine's datasets folder is used, when its rows are the run's.
     (tmp_path / "datasets").mkdir()
-    data.rename(tmp_path / "datasets" / "data")
+    (tmp_path / "m" / "data").rename(tmp_path / "datasets" / "data")
     monkeypatch.setattr(drift_deals.run_module, "RUNS", tmp_path / "runs")
     assert drift_deals.publish(run, out)["ads"] == 4
-    assert "address" not in json.loads((out / "deals.json").read_text())[0]
+    manifest = tmp_path / "datasets" / "data" / "manifest.json"
+    manifest.write_text(
+        json.dumps(json.loads(manifest.read_text()) | {"rows_sha256": "0"})
+    )
+    with pytest.raises(SystemExit, match="not on this machine"):
+        drift_deals.publish(run, out)
+
+
+def test_publish_refuses_runs_in_the_wrong_places(tmp_path):
+    run, _, _ = _scored(tmp_path / "m")
+    past, _, _ = _scored(tmp_path / "b", backtest=True)
+    other, _, _ = _scored(tmp_path / "o", backtest=True, model="drift")
+    out = tmp_path / "site" / "deals"
+    for kw, words in (
+        (dict(run_dir=past), "not a run on the market split of the market"),
+        (
+            dict(run_dir=run, backtest=run),
+            "not a run on the market split of a backtest",
+        ),
+        (dict(run_dir=run, backtest=other), "is a drift fit, not drift-building"),
+        (dict(run_dir=run, heldout=other), "is a drift fit, not drift-building"),
+    ):
+        with pytest.raises(SystemExit, match=words):
+            drift_deals.publish(out=out, **kw)
+    # A latest-split run is not a market run, and a changed ads table is refused.
+    result = json.loads((run / "result.json").read_text())
+    (run / "result.json").write_text(json.dumps(result | {"split": "latest"}))
+    with pytest.raises(SystemExit, match="not a run on the market split"):
+        drift_deals.publish(run, out)
+    (run / "result.json").write_text(json.dumps(result))
+    ads = pd.read_parquet(tmp_path / "m" / "ads.parquet")
+    ads.assign(first_ask=ads.first_ask + 1).to_parquet(tmp_path / "m" / "ads.parquet")
+    with pytest.raises(SystemExit, match="changed since the dataset"):
+        drift_deals.publish(run, out)
+    assert not out.exists()

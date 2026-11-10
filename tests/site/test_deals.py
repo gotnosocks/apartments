@@ -1,5 +1,6 @@
 """The Deals page: ads on the market ordered by how low the ask is for the apartment."""
 
+import hashlib
 import json
 
 from apartments.site import deals
@@ -94,10 +95,18 @@ def publish(site_root, rows=ROWS, meta=META, validation=VALIDATION):
     folder = site_root / "deals"
     folder.mkdir(exist_ok=True)
     (folder / "deals.json").write_text(json.dumps(rows))
-    if meta is not None:
-        (folder / "meta.json").write_text(json.dumps(meta))
+    stamps = {"deals_sha256": sha(folder / "deals.json")}
+    (folder / "validation.json").unlink(missing_ok=True)
     if validation is not None:
         (folder / "validation.json").write_text(json.dumps(validation))
+        stamps["validation_sha256"] = sha(folder / "validation.json")
+    (folder / "meta.json").unlink(missing_ok=True)
+    if meta is not None:
+        (folder / "meta.json").write_text(json.dumps(meta | stamps))
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_load_keeps_scored_rows_and_words_the_backtest(site_root):
@@ -214,3 +223,21 @@ def test_bad_query_strings_and_a_replaced_file(client, site_root):
     publish(site_root, rows=ROWS[:1])
     html = client.get("/deals").get_data(as_text=True)
     assert "<strong>1</strong> of 1 ad on the market" in html
+
+
+def test_a_meta_or_backtest_from_another_publish_is_not_shown(client, site_root):
+    publish(site_root)
+    folder = site_root / "deals"
+    # A new table lands before its meta: the old meta and backtest say nothing about it.
+    (folder / "deals.json").write_text(json.dumps(ROWS[:2]))
+    data = deals.load(site_root)
+    assert len(data["rows"]) == 2 and data["meta"] == {}
+    assert data["validation"]["by_first_ask_place"] == []
+    html = client.get("/deals").get_data(as_text=True)
+    assert "drift-building" not in html and "Does a low ask mean anything" not in html
+    # A backtest the meta does not name is left out, and the meta stays.
+    publish(site_root)
+    (folder / "validation.json").write_text(json.dumps(VALIDATION | {"as_of": "x"}))
+    data = deals.load(site_root)
+    assert data["meta"]["run"] == "run-x"
+    assert data["validation"]["by_first_ask_place"] == []

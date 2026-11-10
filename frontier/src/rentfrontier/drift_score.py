@@ -159,14 +159,23 @@ def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
 
 def dataset_dir(run_dir: Path) -> Path | None:
     """The folder of the run's dataset: the path its `result.json` names or, for a fit that
-    ran on another machine, the dataset of that name in this machine's datasets folder. None
-    when neither holds a `rows.parquet`."""
+    ran on another machine, the dataset of that name in this machine's datasets folder. A
+    folder counts only when its manifest's rows hash is the one the run recorded, so a
+    rebuilt dataset of the same name is not taken for the run's. None when neither does."""
     result = run_dir / "result.json"
     if not result.exists():
         return None
-    named = Path(json.loads(result.read_text())["dataset"])
+    record = json.loads(result.read_text())
+    named, want = Path(record["dataset"]), record.get("dataset_observations_sha256")
     for folder in (named, run_module.RUNS.parent / "datasets" / named.name):
-        if (folder / "rows.parquet").exists():
+        manifest = folder / "manifest.json"
+        if (
+            want is None
+            or not manifest.exists()
+            or not (folder / "rows.parquet").exists()
+        ):
+            continue
+        if json.loads(manifest.read_text()).get("rows_sha256") == want:
             return folder
     return None
 

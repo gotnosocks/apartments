@@ -24,6 +24,7 @@ market agrees that they were cheap.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -35,6 +36,7 @@ import pandas as pd
 
 from . import drift_score
 from . import run as run_module
+from .b0data import sha256
 
 AD_FIELDS = (
     "listing_id",
@@ -75,7 +77,9 @@ def unit_label(page) -> str:
 def _dataset(run_dir: Path) -> Path:
     dataset = drift_score.dataset_dir(run_dir)
     if dataset is None:
-        raise SystemExit(f"the dataset of {run_dir} is not on this machine")
+        raise SystemExit(
+            f"the dataset of {run_dir} is not on this machine, or its rows changed"
+        )
     return dataset
 
 
@@ -202,12 +206,36 @@ def _manifest(run_dir: Path) -> dict:
     return json.loads((_dataset(run_dir) / "manifest.json").read_text())["market"]
 
 
-def _replace(path: Path, text: str) -> None:
-    """Write `text` to `path` under a temporary name, then rename it, so a reader never
-    sees half a file."""
-    tmp = path.with_name(path.name + ".tmp")
+def _replace(path: Path, text: str) -> str:
+    """Write `text` to `path` under a temporary name of this process's, then rename it, so
+    a reader never sees half a file. Returns the text's sha256."""
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     tmp.write_text(text)
     os.replace(tmp, path)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _checked(
+    run_dir: Path, backtest: bool, model: str | None = None
+) -> tuple[dict, dict]:
+    """The result and the dataset's market manifest of a run on the market split of a market
+    dataset (`backtest` false) or of a backtest dataset (true), fitted with `model` when
+    given. Anything else is refused, as is an ads table that changed since the dataset was
+    built."""
+    result = json.loads((run_dir / "result.json").read_text())
+    market = _manifest(run_dir)
+    kind = "a backtest" if backtest else "the market"
+    if result.get("split") != "market" or bool(market.get("backtest")) != backtest:
+        raise SystemExit(
+            f"{run_dir.name} is not a run on the market split of {kind} dataset"
+        )
+    if model is not None and result["model"]["name"] != model:
+        raise SystemExit(
+            f"{run_dir.name} is a {result['model']['name']} fit, not {model}"
+        )
+    if sha256(Path(market["ads"])) != market["ads_sha256"]:
+        raise SystemExit(f"{market['ads']} changed since the dataset of {run_dir.name}")
+    return result, market
 
 
 def publish(
@@ -220,28 +248,45 @@ def publish(
     """Write the site's Deals folder `out` from the market run at `run_dir`: `deals.json`,
     `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
     held-out split whose `pred_scores.npz` (`rentfrontier.drift_score`) gives the model's
-    scores on ads it never saw. Each ads table comes from its run's dataset manifest."""
-    market = _manifest(run_dir)
+    scores on ads it never saw. Each ads table comes from its run's dataset manifest.
+
+    The three runs must be fits of one model, the market run on a market dataset and the
+    backtest run on a backtest dataset. Everything is computed before anything is written.
+    `meta.json` goes last and holds the sha256 of the other two files: the site shows a
+    meta or a backtest only beside the table it was published with."""
+    result, market = _checked(run_dir, backtest=False)
+    model = result["model"]["name"]
     table = deals(run_dir, Path(market["ads"]), registry)
-    result = json.loads((run_dir / "result.json").read_text())
     meta = {
-        "model": result["model"]["name"],
+        "model": model,
         "run": run_dir.name,
         "scoring_day": market["scoring_day"],
         "ads": int(len(table)),
         "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if heldout is not None:
+        record = json.loads((heldout / "result.json").read_text())
+        if record["model"]["name"] != model:
+            raise SystemExit(
+                f"{heldout.name} is a {record['model']['name']} fit, not {model}"
+            )
         scores = np.load(heldout / "pred_scores.npz")
         meta["heldout"] = drift_score.summary(
             {k: scores[k] for k in ("y", "q", "pred", "elpd")}
-        ) | {"run": heldout.name}
-    out.mkdir(parents=True, exist_ok=True)
+        ) | {"run": heldout.name, "split": record.get("split")}
+    check = None
     if backtest is not None:
-        past = _manifest(backtest)
+        _, past = _checked(backtest, backtest=True, model=model)
         check = validate(backtest, Path(past["ads"])) | {"as_of": past["scoring_day"]}
-        _replace(out / "validation.json", json.dumps(check, indent=2))
-    _replace(out / "deals.json", table.to_json(orient="records"))
+        meta["backtest_run"] = backtest.name
+    out.mkdir(parents=True, exist_ok=True)
+    if check is None:
+        (out / "validation.json").unlink(missing_ok=True)
+    else:
+        meta["validation_sha256"] = _replace(
+            out / "validation.json", json.dumps(check, indent=2)
+        )
+    meta["deals_sha256"] = _replace(out / "deals.json", table.to_json(orient="records"))
     _replace(out / "meta.json", json.dumps(meta, indent=2))
     return meta
 

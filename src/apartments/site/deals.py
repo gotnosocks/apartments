@@ -5,7 +5,9 @@ one row per ad on the market on the scoring day, `meta.json` (the run, the scori
 model's held-out scores) and `validation.json` (the backtest: what happened to the ads of a
 year earlier, by where their first ask sat in the model's range). The page reads those three
 files and nothing else, so it shows whatever was published last and never a half-written
-file: the publish step writes each file under a temporary name and renames it.
+file: the publish step writes each file under a temporary name and renames it. `meta.json`
+is written last and holds the sha256 of the other two, and the page shows a meta or a
+backtest only when it was published with the table beside it.
 
 `below_share` is the share of the model's predictive distribution for the apartment that lies
 below the ask. The page shows its complement as "lower than": an ask lower than 95% of what the
@@ -14,6 +16,7 @@ model expects for this apartment, on this date, is a candidate deal.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -34,7 +37,9 @@ NO_NAME = {"", "nan", "none", "<na>", "null"}
 
 @lru_cache(maxsize=4)
 def _read(path: str, stamp: tuple[int, int]):
-    return json.loads(Path(path).read_text())
+    """The file's content and its sha256."""
+    raw = Path(path).read_bytes()
+    return json.loads(raw), hashlib.sha256(raw).hexdigest()
 
 
 def _file(folder: Path, name: str):
@@ -43,7 +48,7 @@ def _file(folder: Path, name: str):
         stat = path.stat()
         return _read(str(path), (stat.st_mtime_ns, stat.st_size))
     except (OSError, ValueError):
-        return None
+        return None, None
 
 
 def _name(value) -> str | None:
@@ -134,14 +139,25 @@ def load_rows(rows) -> list[dict]:
 def load(root: Path) -> dict | None:
     """The published table, or None when none has been published."""
     folder = Path(root) / "deals"
-    rows = _file(folder, "deals.json")
+    rows, rows_sha = _file(folder, "deals.json")
     if not isinstance(rows, list):
         return None
     out = load_rows(rows)
+    # A meta from another publish than the table's says nothing about it, and neither does
+    # a backtest the meta does not name.
+    meta, _ = _file(folder, "meta.json")
+    if not isinstance(meta, dict) or meta.get("deals_sha256") != rows_sha:
+        meta = {}
+    validation, validation_sha = _file(folder, "validation.json")
+    if (
+        not isinstance(validation, dict)
+        or meta.get("validation_sha256") != validation_sha
+    ):
+        validation = {}
     return {
         "rows": out,
-        "meta": _file(folder, "meta.json") or {},
-        "validation": _backtest(_file(folder, "validation.json") or {}),
+        "meta": meta,
+        "validation": _backtest(validation),
         "hoods": sorted(
             {
                 (r["neighbourhood"], r["hood_label"])
