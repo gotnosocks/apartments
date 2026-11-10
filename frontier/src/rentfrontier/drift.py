@@ -106,6 +106,7 @@ which the filter carries past the group's last ad by the same recursion.
 
 from __future__ import annotations
 
+import argparse
 import dataclasses
 import math
 import sys
@@ -2114,7 +2115,12 @@ def run_record(d: Design, groups=()) -> dict:
 def _level_dof(text: str) -> float | None:
     """`--level-dof`'s value. 0 asks for the normal prior, which a model whose default is
     a Student-t has no other way to name."""
-    return float(text) or None
+    value = float(text)
+    if not (0 <= value < float("inf")):
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a number of degrees of freedom (0 for the normal prior)"
+        )
+    return value or None
 
 
 def run_parser(name=NAME, level_dof=None):

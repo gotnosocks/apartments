@@ -704,6 +704,9 @@ def test_the_building_model_takes_student_t_levels_unless_told_otherwise(monkeyp
     assert building.parse_args([*base, "--level-dof", "6"]).level_dof == 6.0
     # 0 names the normal prior: `b0.main_run` leaves a setting that is None at its default.
     assert building.parse_args([*base, "--level-dof", "0"]).level_dof is None
+    for bad in ("-1", "nan", "inf"):
+        with pytest.raises(SystemExit):
+            building.parse_args([*base, "--level-dof", bad])
 
     # Each model's entry point hands `b0.main_run` a parser with its own default.
     seen = {}
@@ -712,4 +715,5 @@ def test_the_building_model_takes_student_t_levels_unless_told_otherwise(monkeyp
     for module, dof in ((drift_building, 4.0), (drift_local, None), (drift, None)):
         module.main_run(base)
         assert seen["name"] == module.NAME
+        assert seen["settings_cls"] is drift.Settings
         assert seen["parser"].parse_args(base).level_dof == dof

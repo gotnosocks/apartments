@@ -29,7 +29,10 @@ Runs `drift-building-b0-latest-67d14e17-b9`, `drift-building-b0-market-67d14e17-
 the code of that day needed. Since then 4 is `drift-building`'s own default
 (`drift_building.LEVEL_DOF`), so a refit by the model's name is this model, and
 `--level-dof 0` asks for the normal prior, under which every pooled fit of this model
-missed the gate (below). `drift` and `drift-local` keep the normal prior unless given the
+missed the gate (below). That holds from the merge of #1287 on: at `67d14e17`, the
+commit of the served fits, and at every earlier commit the name without the flag is the
+normal prior. A run's `sampler_settings.level_dof` in its `result.json` says which it
+had. `drift` and `drift-local` keep the normal prior unless given the
 flag.
 
 `drift`, the same model without the building's path, was served from 09:42Z until then.
