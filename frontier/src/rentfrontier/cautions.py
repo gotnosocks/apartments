@@ -76,10 +76,10 @@ TEXT = {
     "not_home": r"professional suite|your practice|(?<!not for )(?<!no )commercial use",
     "owners_only": r"only to (?:current )?(?:owners|shareholders)",
     "takeover": (
-        # "No lease assignments", "may not reassign the lease": a building's rule. The
+        # "No lease assignments", "cannot re-assign the lease": a building's rule. The
         # guard reads only the word right before the phrase, so "lease assignments are
         # not permitted" and "lease assignment fee: $500" still match.
-        r"(?<!\bno )(?<!\bnot )\b(?:lease[- ]take[- ]?over"
+        r"(?<!\bno )(?<!not )(?<!re-)\b(?:lease[- ]take[- ]?over"
         r"|tak(?:e|ing)[- ]?over (?:of )?"
         r"(?:(?:my|the|our|a|an|this|existing|current) )?(?:\w+ )?lease"
         r"|lease[- ](?:re-?)?assignment"
