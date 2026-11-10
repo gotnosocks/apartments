@@ -85,33 +85,53 @@ terms that would otherwise pin what it draws.
    and the unit levels integrated out. This is the step that fit 4 lacked: its coefficients
    were drawn with the unit effects held fixed, and mixed slowly against them.
 3. **Every scale of the units and the noise together** (`update_scales`): `(ss, sd, tau)`,
-   the four `sigma` and `nu`, slice sampled along eight directions set from the warmup
-   draws' covariance, with `u`, the building levels and the building paths all integrated
-   out. The density is the units' Kalman likelihood plus one term a building from
+   the four `sigma` and `nu`, slice sampled along eight directions set in the warmup,
+   with `u`, the building levels and the building paths all integrated out. The density is the units' Kalman likelihood plus one term a building from
    `B' W B`, where `B` maps the building's state to its rows, and `W` is rebuilt at every
    point tried. `nu` has no closed form with `lam` integrated out, so `lam` rides along:
    each row keeps its standardized `log lam` while `nu` moves.
-4. **Buildings** (`update_cells`). A building's state is its level and its path at the
+4. **Building columns** (`update_slow`, with a building path only). The coefficients of
+   the `bld:` columns are drawn once more with `u`, the levels and the paths integrated
+   out. A building amenity code is set from the building's ads up to each row's day, so it
+   changes within a building over time and a path can stand in for it: given the paths,
+   as step 2 has them, these coefficients are pinned.
+5. **Buildings** (`update_cells`). A building's state is its level and its path at the
    quarters where it has an ad. Each zone's spread and the path's `(log s, logit rho)` are
    slice sampled with the states and `u` integrated out, then every building's state is
    drawn in one go from a dense system of at most 53 dimensions, and the path's other
    quarters are filled in between.
-5. **Unit levels** `u`, by Matheron's rule: a draw from the prior, corrected toward the data.
-6. **Noise**: `nu`, `sigma`, then the scales `lam`, given `u`.
-7. The walk's step size, the surface amplitudes and the Gaussian process scales, as in the
+6. **Unit levels** `u`, by Matheron's rule: a draw from the prior, corrected toward the data.
+7. **Noise**: `nu`, `sigma`, then the scales `lam`, given `u`.
+8. The walk's step size, the surface amplitudes and the Gaussian process scales, as in the
    kitchen sink.
 
 The model failed the convergence gate four times on 2026-11-10 before this sweep, each
 time for the same reason one level apart: a scale was drawn given a latent that pinned it
 (sigma given `u`, a building's path given `u`, the unit scales given the paths, `nu` given
-`u`). The chains agreed with each other and crept. Steps 3 and 4 are what came of it, and
+`u`). The chains agreed with each other and crept. Steps 3 to 5 are what came of it, and
 [the note](../notes/drift-2026-11-10.md) has each round's predictions and results.
+
+**The directions of step 3.** The step samples the scales given theta and the rows'
+standardized mixing scales, and that density is narrower than the posterior and tilted
+against it: with the mixing scales held, `nu` and the four `sigma` can move a long way
+together and hardly at all apart. Directions cut from the covariance of the warmup draws
+cross that ridge at an angle, and the unit scales then took 23 to 37 sweeps to forget where
+they were. So the warmup sets the directions twice, each time first from the draws'
+covariance and then from the curvature of the step's own density at the chains' states
+(`scales_curvature`, `conditional_dirs`). With those the unit scales take 8 to 10 sweeps.
+The fit's log prints how much of the posterior's variance one scale update can renew along
+each axis; in the pilot the least was a quarter.
 
 The slice updates place an interval at random around the current point and only shrink it
 (`slice_along`). The project's older samplers step the interval out a fixed number of times
 on each side first, and a review of this model showed that the fixed count narrows the
 draws when the slice is longer than the stepped-out interval (`test_drift_local.py` holds
 the check). The older fits' scale parameters may be slightly too tight for that reason.
+
+**Time.** A fit has an hour (`ops/modal/cap.py`). Outside the sweeps it spends 13 to 15
+minutes on the image, the design, the compile and the output. The sweeps stop at a kept draw
+once they have taken 42 minutes (`Settings.budget_seconds`), and the fit reports the draws it
+has. Mid-run checkpoints cost 2 to 4 minutes each and are off (`Settings.checkpoints`).
 
 SAMPLER-TIMING-PLACEHOLDER
 
