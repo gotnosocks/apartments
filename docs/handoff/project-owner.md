@@ -5,7 +5,7 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 11:09Z
+## State at 2026-11-10 12:25Z
 
 - **Served model.** `drift`. Its three full fits passed the gate (f6 on the latest split,
   m6 on the market dataset, k6 on the backtest; run names `drift-b0-latest-fabd6f9d-f6`,
@@ -37,10 +37,13 @@ window and no stale jobs to be run.
   `drift-building-b0-latest-7023bba1-b6` and `-b7`, `drift-building-b0-market-7023bba1-n6`,
   `-n7` and `-j6`. Scripts for every check: `/data1/apartments/tmp/overhaul/artifact-data/`
   (`qoffset.py`, `holds.py`, `crossings.py`, `conflicts.py`, `leverage.py`, `jobe/`).
-- **Round eight.** One container, `b8c`: `drift-building --level-dof 4` (a Student-t prior
-  on building levels) on the latest split with `b7c`'s settings and seed. Predictions are
-  in the note. If it is not launched or not scored when you read this, check the note's
-  last section before doing anything.
+- **Round eight, done.** One container, `b8c` (`drift-building-b0-latest-7aab6e47-b8c`):
+  `drift-building --level-dof 4`, a Student-t prior on building levels, on the latest
+  split with `b7c`'s settings and seed. Its own gate passes (worst R-hat 1.0090), the
+  leverage is gone (R squared 0.02 against 0.84), elpd 230,794 against `b7c`'s 230,668.
+  The launch command is in the note's "Round eight". Ben was asked at 12:24Z whether to
+  approve up to $40 more for the three full fits; without his yes nothing more is
+  launched.
 - **Data.** A one-off scrape on 2026-11-10 brought the listings to 2026-11-09 (pipeline build
   `ddd2fe8f5da041b8`). On thelio: `frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market`
   (6,774 ads on the market) and `...-asof-20251110` (the backtest, 9,346 on the market that
@@ -67,21 +70,24 @@ window and no stale jobs to be run.
 - **Presentation.** `docs/notes/drift-2026-11-10/artifact/`: `pagedata.py` turns
   `artifact-data/extract-full.json` (written by `artifact-data/extract.py` on thelio) into
   the page's data and `build.py` writes the page.
-- **Modal spend.** $90.79 settled after round seven ($92.44 with two upper bounds, one a
-  preempted run's minutes and one a stopped launch). Round eight's container is about
-  $3.85. Nothing else is to be launched inside the $100.
+- **Modal spend.** $94.42 settled after round eight ($96.07 with two upper bounds, one a
+  preempted run's minutes and one a stopped launch). Nothing else is to be launched
+  inside the $100.
 
 ## Next, in order
 
-1. Round eight: launch `b8c` after the code review, score its six predictions in the note,
-   and say in `README.md`, `docs/model/drift.md` and the record what it showed.
-2. The third PR: review (a model reviewer for the code, a Sonnet reviewer for the docs),
-   squash-merge, then republish the Deals folder and deploy, and check that 655 Hart St
-   2F carries the beds caution.
+1. The third PR (round seven and eight, the cause of the miss, `level_dof`, the wider beds
+   caution): review, squash-merge, then republish the Deals folder with the same command
+   as above and deploy, and check that 655 Hart St 2F carries the beds caution (972 ads
+   with a caution, 328 of them beds).
+2. If Ben approves the extra budget: write the predictions, then launch nine containers
+   of `drift-building --level-dof 4` (2 chains, 500 warmup, 9,000 draws, keep 40, seeds 1
+   to 3) on the latest split, the market dataset and the backtest dataset; pool each
+   with `drift_pool`; score the latest one; if all three pass the gate, publish Deals
+   from the market fit with `--backtest` and `--heldout` and the texts, rebuild the
+   explainer and tell Ben. If any pool misses, it is not published: look at what missed.
 3. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
-4. After the window, with a new budget: the three full fits of `drift-building` under
-   whichever fix round eight supports, then publish from it. The data rule for
-   studio-coded ads that are not studios is in `docs/TODO.md`.
+4. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
 
 ## Things a newcomer would trip on
 

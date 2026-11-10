@@ -87,9 +87,23 @@ ad and the held-out predictions show no mark of it.
 What fixes it, in the project's order. The data: about 1,000 training ads coded as
 studios name two or more bedrooms in their own text, and 4,517 more are placeholder
 listings no text can sort; a rule for either needs a dataset and a fit of its own. The
-model: a Student-t prior on the levels (`Settings.level_dof`) takes the leverage away
-whatever the data hold, and round eight tests it on one container. The note has the
-evidence, the scored predictions of round seven and round eight's.
+model: a Student-t prior on the levels (`Settings.level_dof`, 4 degrees of freedom) takes
+the leverage away whatever the data hold. Round eight ran it on one container, `b8c`,
+with the settings and seed of `b7c`, the part of b7 that failed alone:
+
+| | `b8c` (Student-t levels) | `b7c` (normal levels) |
+|---|---|---|
+| Own gate, two chains of 3,440 draws | passes, worst R-hat 1.0090 (nu) | fails, 1.0218 on bld_sd[outer] |
+| bld_sd[outer], R-hat | 1.0057 | 1.0218 |
+| The spread regressed on the ten buildings' squares, within chains | R squared 0.02 | R squared 0.84 |
+| Held-out elpd | 230,794 | 230,668 |
+| Median abs. error (log), coverage at 80% | 0.0407, 0.806 | 0.0407, 0.806 |
+
+(A container of two chains scores about 190 under a pool of six, which is why both sit
+under b7's 230,861.) One container is not a fit to publish from: `n7a` and `n7b` each
+passed alone while their pool failed. The next step is the three full fits with
+`--level-dof 4`, pooled from three containers each. The note has the evidence and the
+scored predictions of rounds seven and eight.
 
 ## The model
 

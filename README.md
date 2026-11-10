@@ -50,8 +50,11 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   whole zone's spread, so the chains are still arriving when a fit ends. Ten buildings
   explain 95 to 98% of the differences between chains. The fix is in the data (about
   1,000 whole apartments coded as studios, and 4,517 placeholder listings) and in the
-  model (a Student-t prior on building levels, `Settings.level_dof`, tested on one
-  container in round eight). The note of 2026-11-10 has the evidence.
+  model: a Student-t prior on building levels (`Settings.level_dof`). Round eight ran it
+  on one container with the seed that had failed. The leverage is gone, the container
+  passes the gate, and its held-out score is 126 above the same container under the
+  normal prior. The three full fits it would take to serve the building model (about
+  $33) are outside this window's budget. The note of 2026-11-10 has the evidence.
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)
