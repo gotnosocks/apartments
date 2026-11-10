@@ -1,0 +1,699 @@
+<title>How the Rent Model Finds Deals</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Source+Serif+4:ital,wght@0,500;1,400&display=swap">
+<style>
+/* Layout: one dark stage in the middle of the page, a caption under it, scene chips above. */
+:root {
+  --bg: #0d1520;
+  --panel: #121c29;
+  --fg: #ece6da;
+  --muted: #8d99a8;
+  --grid: #223040;
+  --blue: #58c4dd;
+  --brown: #cd853f;
+  --yellow: #f7d96f;
+  --teal: #5cd0b3;
+  --red: #fc6255;
+  --sans: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 40px; display: grid; gap: 16px; }
+header { display: grid; gap: 6px; }
+h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 4vw, 36px); margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
+h1 em { color: var(--blue); font-style: italic; font-weight: 400; }
+h2 { font-family: var(--serif); font-weight: 500; font-size: 20px; margin: 12px 0 0; }
+.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: 600 12px/1 var(--sans); letter-spacing: 0.06em; text-transform: uppercase;
+  background: transparent; color: var(--muted); border: 1px solid var(--grid); border-radius: 999px; padding: 7px 11px; cursor: pointer;
+}
+.chip[aria-current="true"] { color: var(--bg); background: var(--blue); border-color: var(--blue); }
+.chip:focus-visible, .nav button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.stage { position: relative; background: var(--panel); border-radius: 6px; overflow: hidden; }
+canvas { display: block; width: 100%; cursor: pointer; }
+.cap { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.cap p { margin: 0; max-width: 72ch; min-width: 0; font-size: 17px; }
+.cap p b { color: var(--yellow); font-weight: 600; }
+.nav { display: flex; gap: 8px; align-items: center; }
+.nav button {
+  font: 600 14px/1 var(--sans); background: var(--grid); color: var(--fg); border: 0; border-radius: 4px; padding: 10px 14px; cursor: pointer;
+}
+.nav button:disabled { opacity: 0.35; cursor: default; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; min-width: 44px; text-align: center; }
+.foot { color: var(--muted); font-size: 13px; margin: 0; max-width: 100ch; }
+.notes { display: grid; gap: 8px; max-width: 76ch; }
+.notes p, .notes ul { margin: 0; }
+.notes ul { padding-left: 20px; display: grid; gap: 6px; }
+.notes b { color: var(--fg); font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; min-width: 520px; }
+th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; }
+td.bad { color: var(--red); }
+td.good { color: var(--teal); }
+tr.win td { color: var(--yellow); }
+@media (max-width: 560px) {
+  .cap { grid-template-columns: 1fr; }
+  .cap p { font-size: 16px; }
+}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <h1>How the rent model <em>finds deals</em></h1>
+    <p class="sub" id="sub"></p>
+  </header>
+  <nav class="chips" id="chips" aria-label="Scenes"></nav>
+  <div class="stage"><canvas id="cv" aria-label="Animated chart of the current scene"></canvas></div>
+  <div class="cap">
+    <p id="caption" aria-live="polite"></p>
+    <div class="nav">
+      <button id="prev" type="button" aria-label="Previous step">&larr;</button>
+      <span class="count" id="count"></span>
+      <button id="next" type="button" aria-label="Next step">&rarr;</button>
+    </div>
+  </div>
+  <p class="foot">Arrow keys or a tap on the chart step through.</p>
+
+  <section class="notes">
+    <h2>The fits behind this page</h2>
+    <div class="tablewrap"><table id="fits"></table></div>
+    <p class="foot" id="fitnote"></p>
+    <h2>What the score cannot tell you</h2>
+    <ul>
+      <li><b>Why an ask is low.</b> A landlord priced low, the apartment has a flaw the ad does not state, or the ad is wrong. The model sees all three as the same low ask.</li>
+      <li><b>What it rented for.</b> The data holds asking rents, gross of free months. An ad that left the market may have rented for less.</li>
+      <li><b>Apartments it has never seen.</b> A unit with no earlier ad is priced from its features, its building and its block's recent drift. Its range is wider, so a low ask there is weaker evidence.</li>
+      <li><b>The backtest is not fully blind.</b> An ad's feature list comes from its latest record, which can be newer than the backtest's day. No price crosses that line.</li>
+    </ul>
+    <p class="foot" id="source"></p>
+  </section>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const css = getComputedStyle(document.documentElement);
+const C = {};
+for (const k of ["bg","panel","fg","muted","grid","blue","brown","yellow","teal","red"]) C[k] = css.getPropertyValue("--" + k).trim();
+const SANS = css.getPropertyValue("--sans").trim(), SERIF = css.getPropertyValue("--serif").trim();
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------- drawing kit ----------
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+let W = 0, H = 0;
+function resize() {
+  const w = cv.parentElement.clientWidth;
+  const h = Math.round(w < 560 ? w * 1.12 : Math.min(560, Math.max(380, w * 0.58)));
+  const r = window.devicePixelRatio || 1;
+  cv.width = Math.round(w * r); cv.height = Math.round(h * r); cv.style.height = h + "px";
+  ctx.setTransform(r, 0, 0, r, 0, 0); W = w; H = h;
+}
+const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+const seg = (t, a, b) => ease((t - a) / (b - a));
+const lerp = (a, b, t) => a + (b - a) * t;
+const narrow = () => W < 560;
+const exp = Math.exp, log = Math.log;
+const dollars = v => "$" + Math.round(v).toLocaleString("en-US");
+const num = v => Math.round(v).toLocaleString("en-US");
+const pm = v => "±" + (100 * Math.expm1(v)).toFixed(100 * Math.expm1(v) < 9.95 ? 1 : 0) + "%";
+const pc = (v, d = 0) => (100 * v).toFixed(d) + "%";
+function font(px, w = 400, fam = SANS) { ctx.font = `${w} ${px}px ${fam}`; }
+function text(s, x, y, o = {}) {
+  ctx.save(); ctx.globalAlpha *= o.a ?? 1; ctx.fillStyle = o.c || C.fg;
+  font(o.px || 12, o.w || 400, o.serif ? SERIF : SANS);
+  if (o.bg) {
+    const m = ctx.measureText(s), al = o.al || "left", h = (o.px || 12) + 6;
+    const x0 = al === "center" ? x - m.width / 2 : al === "right" ? x - m.width : x;
+    ctx.fillStyle = o.bg; ctx.fillRect(x0 - 4, y - h / 2, m.width + 8, h); ctx.fillStyle = o.c || C.fg;
+  }
+  ctx.textAlign = o.al || "left"; ctx.textBaseline = o.bl || "middle"; ctx.fillText(s, x, y); ctx.restore();
+}
+function frame(xr, yr, o = {}) {
+  const m = { l: o.l ?? (narrow() ? 46 : 60), r: o.r ?? 18, t: o.t ?? (narrow() ? 76 : 58), b: o.b ?? 40 };
+  const top = o.top ?? 0, bot = o.bot ?? H, left = o.left ?? 0, right = o.right ?? W;
+  const X0 = left + m.l, X1 = right - m.r, Y0 = bot - m.b, Y1 = top + m.t;
+  const fx = v => o.xlog ? log(v) : v, fy = v => o.ylog ? log(v) : v;
+  return {
+    X0, X1, Y0, Y1, xr, yr,
+    x: v => X0 + (fx(v) - fx(xr[0])) / (fx(xr[1]) - fx(xr[0])) * (X1 - X0),
+    y: v => Y0 - (fy(v) - fy(yr[0])) / (fy(yr[1]) - fy(yr[0])) * (Y0 - Y1),
+  };
+}
+function axes(f, o = {}) {
+  const a = o.a ?? 1;
+  ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  for (const v of o.yt || []) {
+    const y = f.y(v); if (y < f.Y1 - 1 || y > f.Y0 + 1) continue;
+    ctx.beginPath(); ctx.moveTo(f.X0, y); ctx.lineTo(f.X1, y); ctx.stroke();
+    text(o.yf ? o.yf(v) : String(v), f.X0 - 6, y, { al: "right", c: C.muted, px: 11 });
+  }
+  (o.xt || []).forEach((v, i) => {
+    const x = f.x(v); if (x < f.X0 - 1 || x > f.X1 + 1) return;
+    ctx.beginPath(); ctx.moveTo(x, f.Y0); ctx.lineTo(x, f.Y0 + 4); ctx.stroke();
+    text(o.xf ? o.xf(v, i) : String(v), x, f.Y0 + 15, { al: "center", c: C.muted, px: 11 });
+  });
+  ctx.strokeStyle = C.muted; ctx.beginPath(); ctx.moveTo(f.X0, f.Y1); ctx.lineTo(f.X0, f.Y0); ctx.lineTo(f.X1, f.Y0); ctx.stroke();
+  if (o.ylab) text(o.ylab, f.X0, f.Y1 - 16, { c: C.muted, px: 12, serif: true });
+  if (o.xlab) text(o.xlab, f.X1, f.Y0 + 31, { c: C.muted, px: 12, serif: true, al: "right" });
+  ctx.restore();
+}
+function path(f, xs, ys, t = 1, o = {}) {
+  const n = Math.max(1, Math.floor(xs.length * t));
+  ctx.save(); ctx.globalAlpha *= o.a ?? 1; ctx.strokeStyle = o.c || C.fg; ctx.lineWidth = o.lw || 2;
+  if (o.dash) ctx.setLineDash(o.dash);
+  ctx.lineJoin = "round"; ctx.beginPath();
+  let pen = false;
+  for (let i = 0; i < n; i++) {
+    if (ys[i] == null || !isFinite(ys[i])) { pen = false; continue; }
+    const x = f.x(xs[i]), y = f.y(ys[i]);
+    pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true;
+  }
+  ctx.stroke(); ctx.restore();
+}
+function band(f, xs, lo, hi, t = 1, o = {}) {
+  const n = Math.max(2, Math.floor(xs.length * t));
+  ctx.save(); ctx.globalAlpha *= o.a ?? 0.25; ctx.fillStyle = o.c || C.blue; ctx.beginPath();
+  for (let i = 0; i < n; i++) ctx.lineTo(f.x(xs[i]), f.y(hi[i]));
+  for (let i = n - 1; i >= 0; i--) ctx.lineTo(f.x(xs[i]), f.y(lo[i]));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function rect(x, y, w, h, c, a = 1) { ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = c; ctx.fillRect(x, y, w, h); ctx.restore(); }
+function line(x0, y0, x1, y1, c, a = 1, lw = 1.5, dash) {
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = c; ctx.lineWidth = lw; if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.restore();
+}
+function dot(x, y, r, c, a = 1) { ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.restore(); }
+function ring(x, y, r, c, a = 1) { ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = c; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); ctx.restore(); }
+function title(s, a = 1) {
+  const x = narrow() ? 14 : 20, px = narrow() ? 14 : 16;
+  font(px, 400, SERIF);
+  if (ctx.measureText(s).width <= W - 2 * x) return text(s, x, 18, { px, serif: true, a });
+  const words = s.split(" "); let first = "";
+  while (words.length && ctx.measureText(first + words[0]).width <= W - 2 * x) first += words.shift() + " ";
+  text(first.trim(), x, 16, { px, serif: true, a }); text(words.join(" "), x, 34, { px, serif: true, a });
+}
+function note(s, x, y, o = {}) { text(s, x, y, { px: 12, w: 600, ...o }); }
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { return Math.sqrt(-2 * log(1 - r())) * Math.cos(6.283185307 * r()); }
+const yearOf = s => { const d = new Date(s + "T00:00:00Z"), y = d.getUTCFullYear(); return y + (d - Date.UTC(y, 0, 1)) / (Date.UTC(y + 1, 0, 1) - Date.UTC(y, 0, 1)); };
+
+// ---------- the fitted scales ----------
+const WIN = D.winner, HY = D.hyp;
+const NOISE = HY.sigma_mid;                      // a typical bedroom group's noise scale
+const kUnit = g => HY.unit_sd ** 2 + HY.drift_sd ** 2 * exp(-g / HY.drift_tau);
+const K0 = kUnit(0);
+const bedsLabel = b => b == null ? "" : b < 0.5 ? "studio" : `${Math.round(b)}-bedroom`;
+
+// ---------- 1. the question ----------
+const HERO = D.hero;
+const T5 = 1.476;                                // the 90% point of a Student-t with 5 degrees of freedom
+function heroDensity() {
+  const m = log(HERO.median), sl = (m - log(HERO.lo80)) / T5, sr = (log(HERO.hi80) - m) / T5;
+  return x => { const z = (x - m) / (x < m ? sl : sr); return Math.pow(1 + z * z / 5, -3); };
+}
+function heroFrame(t) {
+  const lo = Math.min(HERO.ask, HERO.lo80) * 0.86, hi = HERO.hi80 * 1.2;
+  const f = frame([lo, hi], [0, 1.18], { xlog: true, t: 86, b: 46 });
+  const step = (hi - lo > 2400 ? 500 : 250) * (narrow() ? 2 : 1), xt = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) xt.push(v);
+  axes(f, { xt, xf: dollars, xlab: "monthly asking rent", a: seg(t, 0, 0.25) });
+  return f;
+}
+function heroCurve(f, t, upto) {
+  const pdf = heroDensity(), xs = [], ys = [];
+  for (let i = 0; i <= 160; i++) { const v = lerp(log(f.xr[0]), log(f.xr[1]), i / 160); xs.push(exp(v)); ys.push(pdf(v)); }
+  const k = xs.findIndex(v => v > HERO.lo80), k2 = xs.findIndex(v => v > HERO.hi80);
+  band(f, xs.slice(k, k2), xs.slice(k, k2).map(() => 0), ys.slice(k, k2), 1, { c: C.blue, a: 0.22 * seg(t, 0.35, 0.6) });
+  if (upto != null) {
+    const j = xs.findIndex(v => v > HERO.ask);
+    band(f, xs.slice(0, j + 1), xs.slice(0, j + 1).map(() => 0), ys.slice(0, j + 1), 1, { c: C.yellow, a: 0.75 * upto });
+  }
+  path(f, xs, ys, seg(t, 0.05, 0.5), { c: C.blue, lw: 2.5 });
+  return { xs, ys };
+}
+function sceneQ1(t) {
+  title(`A ${bedsLabel(HERO.bedrooms)} in ${HERO.hood}, on the market ${D.meta.scoring_day_label}`, seg(t, 0, 0.2));
+  const f = heroFrame(t);
+  heroCurve(f, t);
+  const a = seg(t, 0.55, 0.8);
+  line(f.x(HERO.median), f.Y0, f.x(HERO.median), f.y(1), C.blue, a, 1.5, [4, 4]);
+  note("the model's middle estimate", f.x(HERO.median), f.y(1) - 26, { c: C.blue, al: "center", a });
+  text(dollars(HERO.median), f.x(HERO.median), f.y(1) - 10, { c: C.blue, al: "center", px: 15, w: 600, a });
+  const b = seg(t, 0.75, 1), yb = f.Y0 - 12;
+  line(f.x(HERO.lo80), yb, f.x(HERO.hi80), yb, C.blue, b, 3);
+  note(`8 times in 10: ${dollars(HERO.lo80)} to ${dollars(HERO.hi80)}`, (f.x(HERO.lo80) + f.x(HERO.hi80)) / 2, yb - 16, { c: C.fg, al: "center", a: b, bg: C.panel });
+}
+function sceneQ2(t) {
+  title(`A ${bedsLabel(HERO.bedrooms)} in ${HERO.hood}, on the market ${D.meta.scoring_day_label}`);
+  const f = heroFrame(1);
+  heroCurve(f, 1, seg(t, 0.45, 0.85));
+  line(f.x(HERO.median), f.Y0, f.x(HERO.median), f.y(1), C.blue, 0.6, 1.5, [4, 4]);
+  const a = seg(t, 0.05, 0.4), x = f.x(HERO.ask), y1 = lerp(f.Y1 - 30, f.y(0.62), a);
+  line(x, f.Y0, x, y1, C.yellow, a, 2.5);
+  note("the ask", x, y1 - 26, { c: C.yellow, al: "center", a });
+  text(dollars(HERO.ask), x, y1 - 10, { c: C.yellow, al: "center", px: 15, w: 600, a });
+  const b = seg(t, 0.7, 1);
+  text(`lower than ${pc(1 - HERO.below_share, 1 - HERO.below_share > 0.95 ? 1 : 0)}`, f.X1, f.Y1 - 8, { al: "right", px: narrow() ? 20 : 26, serif: true, c: C.yellow, a: b });
+  text("of what the model expects this apartment to ask", f.X1, f.Y1 + 16, { al: "right", px: 13, c: C.muted, a: b });
+}
+
+// ---------- 2. the layers ----------
+const LAYERS = [
+  ["What the ad says", "bedrooms, baths, size, floor, features, amenities", `${num(D.meta.coefficients)} coefficients`, "fg"],
+  ["When", "a citywide level for every week, plus season", `${num(D.meta.weeks)} weeks`, "fg"],
+  ["Where", "a smooth surface over the map, 1 km fine", "2 zones", "fg"],
+  ["Which building", "each building's level around that surface", `${num(D.meta.buildings)} buildings`, "brown"],
+  ["Which apartment", "a lasting level, plus one that drifts", `${num(D.meta.units)} apartments`, "blue"],
+  ["What the block is doing lately", "a monthly path per building, a quarterly one per neighbourhood", "new", "teal"],
+  ["Noise", "whatever one ad does on its own", "heavy tails", "muted"],
+];
+function sceneLayers1(t) {
+  title("The log of the asking rent is a sum of seven parts", seg(t, 0, 0.2));
+  const top = 56, rowH = (H - top - 18) / LAYERS.length, x0 = narrow() ? 14 : 28;
+  LAYERS.forEach((r, i) => {
+    const a = seg(t, 0.08 + 0.1 * i, 0.3 + 0.1 * i), y = top + rowH * (i + 0.5), new_ = i === 4 || i === 5;
+    rect(x0, y - rowH * 0.36, 4, rowH * 0.72, C[r[3]], a);
+    text((i ? "+ " : "") + r[0], x0 + 14, y - (narrow() ? 9 : 0), { px: narrow() ? 15 : 17, serif: true, c: new_ ? C.yellow : C.fg, a });
+    if (narrow()) text(r[1], x0 + 14, y + 10, { px: 11.5, c: C.muted, a });
+    else { text(r[1], W * 0.36, y, { px: 13, c: C.muted, a }); text(r[2], W - 24, y, { px: 13, c: new_ ? C.yellow : C.muted, al: "right", w: 600, a }); }
+  });
+}
+function sceneLayers2(t) {
+  title("How far each part typically moves an ask", seg(t, 0, 0.2));
+  const rows = [
+    ["Building level", HY.building_sd, C.brown, "a building against its neighbourhood"],
+    ["Apartment, lasting", HY.unit_sd, C.blue, "this unit against its building, for good"],
+    ["Apartment, drifting", HY.drift_sd, C.blue, `fades with a ${HY.drift_tau.toFixed(1)}-year time scale`],
+  ];
+  if (HY.building_ar_sd != null) rows.push(["Building, lately", HY.building_ar_sd, C.teal, `month to month correlation ${HY.building_ar_rho.toFixed(2)}`]);
+  if (HY.nbhd_ar_sd != null) rows.push(["Neighbourhood, lately", HY.nbhd_ar_sd, C.teal, `quarter to quarter correlation ${HY.nbhd_ar_rho.toFixed(2)}`]);
+  rows.push(["Noise in one ad", NOISE, C.muted, "the middle bedroom group's scale"]);
+  const top = 64, rowH = (H - top - 20) / rows.length, xl = narrow() ? 14 : 28, xb = narrow() ? 14 : W * 0.3;
+  const max = Math.max(...rows.map(r => r[1])), bw = W - xb - (narrow() ? 70 : 90);
+  rows.forEach((r, i) => {
+    const a = seg(t, 0.05 + 0.1 * i, 0.3 + 0.1 * i), y = top + rowH * (i + 0.5), g = seg(t, 0.15 + 0.1 * i, 0.55 + 0.1 * i);
+    const yb = narrow() ? y + 6 : y, h = Math.min(22, rowH * 0.34), w = bw * r[1] / max * g;
+    text(r[0], xl, narrow() ? y - 16 : y - 8, { px: 15, serif: true, a });
+    if (!narrow()) text(r[3], xl, y + 11, { px: 11.5, c: C.muted, a });
+    rect(xb, yb - h / 2, w, h, r[2], 0.85 * a);
+    text(pm(r[1]), xb + w + 8, yb, { px: 15, w: 600, c: r[2] === C.muted ? C.fg : r[2], a });
+  });
+}
+
+// ---------- 3. time ----------
+function sceneWalk(t) {
+  const w = D.walk, xs = w.dates.map(yearOf), base = w.mean[0];
+  const rel = a => a.map(v => 100 * Math.expm1(v - base));
+  const m = rel(w.mean), lo = rel(w.lo), hi = rel(w.hi);
+  title("The citywide level, week by week", seg(t, 0, 0.2));
+  const yr = [Math.floor(Math.min(...lo) / 10) * 10, Math.ceil(Math.max(...hi) / 10) * 10];
+  const f = frame([Math.floor(xs[0]), Math.ceil(xs[xs.length - 1] + 0.01)], yr);
+  const yt = []; for (let v = yr[0]; v <= yr[1]; v += 10) yt.push(v);
+  const xt = []; for (let v = f.xr[0]; v <= f.xr[1]; v += 2) xt.push(v);
+  axes(f, { yt, yf: v => (v > 0 ? "+" : "") + v + "%", xt, ylab: `asking rents against ${w.dates[0].slice(0, 4)}, everything else held fixed`, a: seg(t, 0, 0.25) });
+  band(f, xs, lo, hi, seg(t, 0.1, 0.9), { a: 0.3 });
+  path(f, xs, m, seg(t, 0.1, 0.9), { c: C.yellow, lw: 2 });
+}
+
+// ---------- 4. the apartment remembers ----------
+const UC = D.unit_corr, UCX = UC.map(r => r.mid);
+function corrFrame(t, o = {}) {
+  const f = frame([0, 10.5], [0, 0.8]);
+  axes(f, { yt: [0, 0.2, 0.4, 0.6, 0.8], yf: v => pc(v), xt: [0, 2, 4, 6, 8, 10], xlab: "years between the two ads", ylab: narrow() ? "share of the leftover two ads have in common" : "share of the leftover that two ads of one apartment have in common", a: o.a ?? seg(t, 0, 0.25) });
+  return f;
+}
+function corrDots(f, t) {
+  UC.forEach((r, i) => { const a = seg(t, 0.2 + 0.08 * i, 0.4 + 0.08 * i); dot(f.x(r.mid), f.y(r.r), 5.5, C.brown, a); });
+}
+function sceneMem1(t) {
+  title("Take a model with no memory of the apartment. What is left over?", seg(t, 0, 0.2));
+  const f = corrFrame(t); corrDots(f, t);
+  const a = seg(t, 0.8, 1), first = UC[0], last = UC[UC.length - 1];
+  note(pc(first.r), f.x(first.mid) + 10, f.y(first.r) - 4, { c: C.brown, px: 14, a });
+  note(pc(last.r), f.x(last.mid), f.y(last.r) - 16, { c: C.brown, px: 14, al: "center", a });
+}
+function sceneMem2(t) {
+  title("A fixed effect per apartment is a flat line. The data is a decay.");
+  const f = corrFrame(1, { a: 1 }); corrDots(f, 1);
+  const flat = UC.reduce((s, r) => s + r.r * r.pairs, 0) / UC.reduce((s, r) => s + r.pairs, 0);
+  const a = seg(t, 0.05, 0.4);
+  line(f.x(0), f.y(flat), f.x(0) + (f.x(10.5) - f.x(0)) * a, f.y(flat), C.red, 1, 2, [6, 5]);
+  note("one level per apartment, forever", f.x(5.2), f.y(flat) - 12, { c: C.red, a: seg(t, 0.3, 0.5) });
+  const xs = [], ys = [];
+  for (let i = 0; i <= 100; i++) { const g = 10.5 * i / 100; xs.push(g); ys.push(D.corr_fit.a + D.corr_fit.b * exp(-g / D.corr_fit.tau)); }
+  path(f, xs, ys, seg(t, 0.45, 0.95), { c: C.blue, lw: 2.5 });
+  const b = seg(t, 0.8, 1);
+  note("a lasting level", f.x(8.6), f.y(D.corr_fit.a) + 16, { c: C.blue, al: "center", a: b });
+  note("plus a level that drifts", f.x(1.6), f.y(ys[15]) - 14, { c: C.blue, a: b });
+}
+function unitPanel(u, f, t, big) {
+  const days = u.ads.map(a => yearOf(a.day));
+  u.ads.forEach((a, i) => {
+    if (a.held) return;
+    const s = seg(t, 0.1 + 0.5 * i / u.ads.length, 0.3 + 0.5 * i / u.ads.length);
+    dot(f.x(days[i]), f.y(a.ask), big ? 4.5 : 3.2, C.brown, s);
+  });
+  const k = u.ads.findIndex(a => a.held), x = f.x(days[k]), a = seg(t, 0.6, 0.85);
+  line(x, f.y(u.q[0]), x, f.y(u.q[6]), C.blue, 0.45 * a, big ? 3 : 2);
+  line(x, f.y(u.q[1]), x, f.y(u.q[5]), C.blue, a, big ? 7 : 5);
+  line(x - 6, f.y(u.q[3]), x + 6, f.y(u.q[3]), C.fg, a, 2);
+  dot(x, f.y(u.ads[k].ask), big ? 5 : 3.6, C.yellow, seg(t, 0.85, 1));
+  ring(x, f.y(u.ads[k].ask), big ? 5 : 3.6, C.bg, seg(t, 0.85, 1));
+}
+function unitFrame(u, o) {
+  const asks = u.ads.map(a => a.ask).concat([u.q[0], u.q[6]]), lo = Math.min(...asks), hi = Math.max(...asks);
+  const ys = u.ads.map(a => yearOf(a.day));
+  return frame([Math.floor(Math.min(...ys)), Math.ceil(Math.max(...ys) + 0.3)], [lo * 0.93, hi * 1.07], { ylog: true, ...o });
+}
+function niceTicks(lo, hi, n) {
+  const raw = (hi - lo) / n, p = Math.pow(10, Math.floor(Math.log10(raw))), s = [1, 2, 2.5, 5, 10].map(m => m * p).find(v => v >= raw);
+  const out = []; for (let v = Math.ceil(lo / s) * s; v <= hi; v += s) out.push(v); return out;
+}
+function sceneMem3(t) {
+  const u = D.units[0];
+  title(`One apartment's ads: a ${bedsLabel(u.bedrooms)} in ${u.hood}`, seg(t, 0, 0.2));
+  const f = unitFrame(u, {});
+  const xt = []; for (let v = f.xr[0]; v <= f.xr[1]; v += (f.xr[1] - f.xr[0] > 8 ? 2 : 1)) xt.push(v);
+  axes(f, { yt: niceTicks(f.yr[0], f.yr[1], 5), yf: dollars, xt, ylab: "asking rent", a: seg(t, 0, 0.25) });
+  unitPanel(u, f, t, true);
+  const k = u.ads.findIndex(a => a.held), x = f.x(yearOf(u.ads[k].day)), a = seg(t, 0.7, 0.9), left = x > (f.X0 + f.X1) / 2;
+  note("the model's range for the next ad,", x + (left ? -14 : 14), f.y(u.q[6]) + 2, { c: C.blue, al: left ? "right" : "left", a });
+  note("from the earlier ones only", x + (left ? -14 : 14), f.y(u.q[6]) + 18, { c: C.blue, al: left ? "right" : "left", a });
+  note("what it asked", x + (left ? -14 : 14), f.y(u.ads[k].ask) + (u.ads[k].ask < u.q[3] ? 14 : -14), { c: C.yellow, al: left ? "right" : "left", a: seg(t, 0.88, 1) });
+}
+function sceneMem4(t) {
+  title("Five more apartments, each predicted from its own past", seg(t, 0, 0.2));
+  const us = D.units.slice(1, narrow() ? 5 : 6), cols = narrow() ? 2 : us.length >= 5 ? 3 : 2, rows = Math.ceil(us.length / cols);
+  const top = narrow() ? 52 : 40, cw = W / cols, ch = (H - top) / rows;
+  us.forEach((u, i) => {
+    const cx = i % cols, cy = Math.floor(i / cols);
+    const f = unitFrame(u, { left: cx * cw, right: (cx + 1) * cw, top: top + cy * ch, bot: top + (cy + 1) * ch, t: 34, b: 26, l: narrow() ? 44 : 54, r: 12 });
+    axes(f, { yt: niceTicks(f.yr[0], f.yr[1], 3), yf: dollars, xt: [f.xr[0], f.xr[1]], a: seg(t, 0, 0.25) });
+    text(`${bedsLabel(u.bedrooms)}, ${u.hood}`, f.X0, f.Y1 - 16, { c: C.muted, px: 12, serif: true, a: seg(t, 0, 0.25) });
+    unitPanel(u, f, t, false);
+  });
+  if (us.length % cols) {
+    const x = (us.length % cols) * cw + (narrow() ? 20 : 54), y = top + (rows - 1) * ch + 46, a = seg(t, 0.6, 0.9);
+    dot(x, y, 3.2, C.brown, a); text("earlier asks", x + 14, y, { px: 12.5, c: C.muted, a });
+    line(x, y + 16, x, y + 36, C.blue, a, 5); text("the model's 8-in-10 range", x + 14, y + 26, { px: 12.5, c: C.muted, a });
+    line(x, y + 44, x, y + 64, C.blue, 0.45 * a, 2); text("its 95% range", x + 14, y + 54, { px: 12.5, c: C.muted, a });
+    dot(x, y + 82, 3.6, C.yellow, a); text("what the newest ad asked", x + 14, y + 82, { px: 12.5, c: C.muted, a });
+  }
+}
+
+// ---------- 5. how wide the range is ----------
+const GAPS = D.by_gap, GW = GAPS.models[WIN];
+function sceneRange(t) {
+  title("The range is narrow for an apartment seen lately, and wide for a stranger", seg(t, 0, 0.2));
+  const half = GW.width80.map(w => 100 * Math.expm1(w / 2)), newHalf = D.market.width_new / 2, top = Math.max(...half, newHalf) * 1.2;
+  const n = half.length, f = frame([-0.6, n + 0.9], [0, top], { b: 52 });
+  axes(f, { yt: niceTicks(0, top, 5), yf: v => "±" + v + "%", ylab: "half-width of the 8-in-10 range", a: seg(t, 0, 0.25) });
+  const bw = (f.x(1) - f.x(0)) * 0.62;
+  half.forEach((v, i) => {
+    const g = seg(t, 0.1 + 0.07 * i, 0.4 + 0.07 * i), y = f.y(v * g);
+    rect(f.x(i) - bw / 2, y, bw, f.Y0 - y, C.blue, 0.85);
+    text("±" + v.toFixed(narrow() ? 0 : 1) + "%", f.x(i), y - 10, { al: "center", px: 12, w: 600, c: C.blue, a: seg(t, 0.4 + 0.07 * i, 0.6 + 0.07 * i) });
+    text((narrow() ? GAPS.short : GAPS.labels)[i], f.x(i), f.Y0 + 14, { al: "center", px: narrow() ? 9.5 : 11, c: C.muted });
+  });
+  const g = seg(t, 0.7, 0.95), y = f.y(newHalf * g);
+  rect(f.x(n + 0.2) - bw / 2, y, bw, f.Y0 - y, C.brown, 0.85);
+  text("±" + newHalf.toFixed(1) + "%", f.x(n + 0.2), y - 10, { al: "center", px: 12, w: 600, c: C.brown, a: seg(t, 0.9, 1) });
+  text("never", f.x(n + 0.2), f.Y0 + 14, { al: "center", px: narrow() ? 9.5 : 11, c: C.brown });
+  text("years since the apartment's last ad", f.x((n - 1) / 2), f.Y0 + 34, { al: "center", px: 12, c: C.muted, serif: true });
+}
+
+// ---------- 6. the block ----------
+const BC = D.building_corr;
+function sceneBlock1(t) {
+  title("Different apartments, same building: their leftovers move together, briefly", seg(t, 0, 0.2));
+  const n = BC.length, f = frame([-0.6, n - 0.4], [-0.1, 0.3], { b: 52 });
+  axes(f, { yt: [-0.1, 0, 0.1, 0.2, 0.3], yf: v => v.toFixed(1), ylab: narrow() ? "correlation of two neighbours' leftovers" : "correlation of two neighbours' leftovers, apartment levels removed", a: seg(t, 0, 0.25) });
+  const bw = (f.x(1) - f.x(0)) * 0.62;
+  BC.forEach((r, i) => {
+    const g = seg(t, 0.1 + 0.07 * i, 0.4 + 0.07 * i), y0 = f.y(0), y = f.y(r.r * g);
+    rect(f.x(i) - bw / 2, Math.min(y, y0), bw, Math.abs(y0 - y), r.r > 0 ? C.teal : C.muted, 0.85);
+    text((r.r > 0 ? "+" : "−") + Math.abs(r.r).toFixed(2), f.x(i), r.r > 0 ? y - 10 : y + 12, { al: "center", px: 12, w: 600, c: r.r > 0 ? C.teal : C.muted, a: seg(t, 0.4 + 0.07 * i, 0.6 + 0.07 * i) });
+    text(narrow() ? r.short : r.label, f.x(i), f.Y0 + 14, { al: "center", px: narrow() ? 9.5 : 11, c: C.muted });
+  });
+  text("years between the two ads", f.x((n - 1) / 2), f.Y0 + 34, { al: "center", px: 12, c: C.muted, serif: true });
+}
+function arPaths(sd, rho, steps, k, seed) {
+  const r = rng(seed), out = [];
+  for (let j = 0; j < k; j++) {
+    const p = [sd * gauss(r)];
+    for (let i = 1; i < steps; i++) p.push(rho * p[i - 1] + sd * Math.sqrt(1 - rho * rho) * gauss(r));
+    out.push(p);
+  }
+  return out;
+}
+function sceneBlock2(t) {
+  const sd = HY.building_ar_sd, rho = HY.building_ar_rho, steps = 61;
+  title("So each building gets a path of its own, month by month", seg(t, 0, 0.2));
+  const paths = arPaths(sd, rho, steps, 3, 11), xs = paths[0].map((_, i) => i);
+  const lim = Math.ceil(100 * Math.expm1(2.6 * sd));
+  const f = frame([0, steps - 1], [-lim, lim]);
+  axes(f, { yt: niceTicks(-lim, lim, 4), yf: v => (v > 0 ? "+" : "") + v + "%", xt: [0, 12, 24, 36, 48, 60], xf: v => v ? v + " mo" : "0", ylab: narrow() ? "three simulated buildings at the fitted scales" : "a building against its own long-run level (three simulated buildings at the fitted scales)", a: seg(t, 0, 0.25) });
+  line(f.X0, f.y(0), f.X1, f.y(0), C.muted, 0.6, 1, [3, 4]);
+  [C.teal, C.yellow, C.brown].forEach((c, j) => path(f, xs, paths[j].map(v => 100 * Math.expm1(v)), seg(t, 0.1 + 0.15 * j, 0.7 + 0.15 * j), { c, lw: 2 }));
+  const a = seg(t, 0.8, 1), half = log(0.5) / log(rho);
+  note(`typical size ${pm(sd)}`, f.X1 - 6, f.Y1 + 4, { c: C.teal, al: "right", a });
+  note(`half of a move is gone after ${half < 18 ? half.toFixed(0) + " months" : (half / 12).toFixed(1) + " years"}`, f.X1 - 6, f.Y1 + 22, { c: C.teal, al: "right", a });
+}
+
+// ---------- 7. is the range honest? ----------
+const SC = D.scores, SW = SC.find(s => s.name === WIN);
+function sceneCal1(t) {
+  const S = D.sample, n = S.y.length;
+  title(`${num(SW.rows)} ads the model never saw: each apartment's newest`, seg(t, 0, 0.2));
+  const lo = log(1200), hi = log(12000), f = frame([1200, 12000], [1200, 12000], { xlog: true, ylog: true, b: 46 });
+  const tk = [1500, 2500, 4000, 6000, 10000];
+  axes(f, { yt: tk, yf: dollars, xt: tk, xf: dollars, ylab: "what the ad asked", xlab: "the model's middle estimate", a: seg(t, 0, 0.25) });
+  line(f.x(1200), f.y(1200), f.x(12000), f.y(12000), C.muted, seg(t, 0.1, 0.3), 1, [4, 4]);
+  ctx.save(); ctx.beginPath(); ctx.rect(f.X0, f.Y1, f.X1 - f.X0, f.Y0 - f.Y1); ctx.clip();
+  const m = Math.floor(n * seg(t, 0.15, 0.85));
+  ctx.fillStyle = C.blue; ctx.globalAlpha = 0.55;
+  for (let i = 0; i < m; i++) {
+    if (S.med[i] < lo || S.med[i] > hi) continue;
+    ctx.beginPath(); ctx.arc(f.x(exp(S.med[i])), f.y(exp(S.y[i])), 1.7, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  const a = seg(t, 0.8, 1);
+  text(`typical miss ${(100 * Math.expm1(SW.median_abs_error)).toFixed(1)}%`, f.X0 + 14, f.Y1 + 12, { px: narrow() ? 17 : 22, serif: true, c: C.yellow, a });
+  text(`half of the ${num(SW.rows)} asks land closer than that`, f.X0 + 14, f.Y1 + 36, { px: 12.5, c: C.muted, a });
+}
+function sceneCal2(t) {
+  title("Honest ranges: each one should hold the ask as often as it claims", seg(t, 0, 0.2));
+  const rows = [["50", 0.5], ["80", 0.8], ["90", 0.9], ["95", 0.95]];
+  const f = frame([-0.6, 3.6], [0, 1], { b: 46 });
+  axes(f, { yt: [0, 0.25, 0.5, 0.75, 1], yf: v => pc(v), ylab: "share of held-out asks inside the range", a: seg(t, 0, 0.25) });
+  const bw = (f.x(1) - f.x(0)) * 0.5;
+  rows.forEach(([k, want], i) => {
+    const got = SW.coverage[k], g = seg(t, 0.1 + 0.12 * i, 0.5 + 0.12 * i), y = f.y(got * g);
+    rect(f.x(i) - bw / 2, y, bw, f.Y0 - y, C.blue, 0.85);
+    line(f.x(i) - bw * 0.72, f.y(want), f.x(i) + bw * 0.72, f.y(want), C.yellow, seg(t, 0.5, 0.7), 2.5);
+    text(pc(got, 1), f.x(i), y - 12, { al: "center", px: 14, w: 600, c: C.blue, a: seg(t, 0.55 + 0.1 * i, 0.75 + 0.1 * i) });
+    text(`the ${k}% range`, f.x(i), f.Y0 + 15, { al: "center", px: 12, c: C.muted });
+  });
+  note("yellow: what a perfectly honest model would get", f.X1, f.Y1 - 16, { c: C.yellow, al: "right", a: seg(t, 0.6, 0.8) });
+}
+function sceneCal3(t) {
+  const P = D.pit[WIN], n = P.length, tot = P.reduce((a, b) => a + b, 0), even = tot / n;
+  title("Where each held-out ask fell inside its own range", seg(t, 0, 0.2));
+  const top = Math.max(...P) * 1.25, f = frame([0, 1], [0, top], { b: 46 });
+  axes(f, { yt: [], xt: [0, 0.25, 0.5, 0.75, 1], xf: v => v === 0 ? "bottom" : v === 1 ? "top" : pc(v), xlab: "place of the ask in the model's range", ylab: "held-out ads", a: seg(t, 0, 0.25) });
+  const bw = (f.X1 - f.X0) / n;
+  P.forEach((c, i) => { const g = seg(t, 0.1 + 0.02 * i, 0.5 + 0.02 * i), y = f.y(c * g); rect(f.X0 + i * bw + 1, y, bw - 2, f.Y0 - y, C.blue, 0.8); });
+  line(f.X0, f.y(even), f.X1, f.y(even), C.yellow, seg(t, 0.6, 0.8), 2, [6, 5]);
+  note("perfectly even", f.X1 - 6, f.y(even) - 12, { c: C.yellow, al: "right", a: seg(t, 0.7, 0.9) });
+}
+
+// ---------- 8. the scoreboard ----------
+function sceneScore(t) {
+  title("Held-out score of each model on the same ads, as a gain over the first", seg(t, 0, 0.2));
+  const base = SC[0].elpd, max = Math.max(...SC.map(s => s.elpd));
+  const top = 56, rowH = (H - top - 44) / SC.length, xl = narrow() ? 14 : 28, xb = narrow() ? 14 : W * 0.3, bw = W - xb - (narrow() ? 74 : 96);
+  const x = v => xb + bw * (v - base) / (max - base || 1);
+  SC.forEach((s, i) => {
+    const a = seg(t, 0.05 + 0.1 * i, 0.3 + 0.1 * i), g = seg(t, 0.15 + 0.1 * i, 0.6 + 0.1 * i), y = top + rowH * (i + 0.5);
+    const yb = narrow() ? y + 7 : y, h = Math.min(22, rowH * 0.36), c = !s.gate ? C.red : s.name === WIN ? C.yellow : s.new ? C.blue : C.muted;
+    text(s.label, xl, narrow() ? y - 14 : y - 7, { px: 15, serif: true, a, c: s.name === WIN ? C.yellow : C.fg });
+    if (!narrow()) text(s.note, xl, y + 11, { px: 11.5, c: s.gate ? C.muted : C.red, a });
+    const w = (x(s.elpd) - xb) * g;
+    line(xb, yb - h / 2 - 3, xb, yb + h / 2 + 3, C.muted, a, 1.5);
+    if (s.gate) rect(xb, yb - h / 2, w, h, c, 0.85 * a);
+    else if (w > 1) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.strokeRect(xb, yb - h / 2, w, h); ctx.restore(); }
+    text(i ? "+" + num(s.elpd - base) : "the baseline", xb + w + 8, yb, { px: 14, w: 600, c, a: seg(t, 0.5 + 0.08 * i, 0.7 + 0.08 * i) });
+  });
+  text(narrow() ? "log predictive density over the held-out ads. Dashed: did not converge." : "Gain in log predictive density, summed over the held-out ads. Dashed red: the fit did not converge, so its score does not count.", xl, H - 18, { px: narrow() ? 10 : 12, c: C.muted, a: seg(t, 0.7, 1) });
+}
+function sceneGap(t) {
+  title("Where the gain comes from: apartments with a recent ad", seg(t, 0, 0.2));
+  const names = D.gap_compare, n = GAPS.labels.length;
+  const vals = names.map(k => GAPS.models[k].mae.map(v => 100 * Math.expm1(v))), top = Math.max(...vals.flat()) * 1.15;
+  const f = frame([-0.5, n - 0.5], [0, top], { b: 52 });
+  axes(f, { yt: niceTicks(0, top, 5), yf: v => v + "%", ylab: "typical miss of the middle estimate", a: seg(t, 0, 0.25) });
+  (narrow() ? GAPS.short : GAPS.labels).forEach((l, i) => text(l, f.x(i), f.Y0 + 14, { al: "center", px: narrow() ? 9.5 : 11, c: C.muted }));
+  text("years since the apartment's last ad", f.x((n - 1) / 2), f.Y0 + 34, { al: "center", px: 12, c: C.muted, serif: true });
+  const cols = [C.muted, C.brown, C.blue, C.yellow, C.teal];
+  names.forEach((k, j) => {
+    const c = k === WIN ? C.yellow : cols[j % cols.length], xs = vals[j].map((_, i) => i), s = SC.find(q => q.name === k);
+    path(f, xs, vals[j], seg(t, 0.1 + 0.15 * j, 0.6 + 0.15 * j), { c, lw: k === WIN ? 3 : 2 });
+    vals[j].forEach((v, i) => dot(f.x(i), f.y(v), 3.5, c, seg(t, 0.2 + 0.15 * j + 0.04 * i, 0.4 + 0.15 * j + 0.04 * i)));
+    note(s ? s.label : k, f.X0 + 14, f.Y1 + 6 + 18 * j, { c, a: seg(t, 0.2 + 0.15 * j, 0.5 + 0.15 * j) });
+  });
+}
+
+// ---------- 9. the backtest ----------
+const BT = D.backtest;
+function btBars(t, key, o) {
+  const rows = BT.rows, n = rows.length, vals = rows.map(r => r[key] * (o.scale || 1)), top = Math.max(...vals) * 1.22;
+  const f = frame([-0.6, n - 0.4], [0, top], { b: 52 });
+  axes(f, { yt: niceTicks(0, top, 5), yf: o.yf, ylab: o.ylab, a: seg(t, 0, 0.25) });
+  const bw = (f.x(1) - f.x(0)) * 0.66;
+  rows.forEach((r, i) => {
+    const g = seg(t, 0.1 + 0.05 * i, 0.45 + 0.05 * i), y = f.y(vals[i] * g), c = i === 0 ? C.yellow : i < 2 ? C.teal : C.blue;
+    rect(f.x(i) - bw / 2, y, bw, f.Y0 - y, c, 0.85);
+    text(o.vf(vals[i]), f.x(i), y - 10, { al: "center", px: narrow() ? 10 : 12, w: 600, c, a: seg(t, 0.45 + 0.05 * i, 0.65 + 0.05 * i) });
+    text(narrow() ? r.short : r.lower_than, f.x(i), f.Y0 + 14, { al: "center", px: narrow() ? 9 : 10.5, c: C.muted });
+  });
+  text(narrow() ? "first ask lower than this share of the range" : "the first ask was lower than this share of the model's range", f.x((n - 1) / 2), f.Y0 + 34, { al: "center", px: 12, c: C.muted, serif: true });
+}
+function sceneBack1(t) {
+  title(`Backtest: the ${num(BT.ads)} ads on the market on ${BT.as_of_label}, scored with no later price`, seg(t, 0, 0.2));
+  btBars(t, "median_days_on_market", { yf: v => v + " d", vf: v => v.toFixed(0) + " d", ylab: "median days until the ad left the market" });
+}
+function sceneBack2(t) {
+  title("And the high asks were the ones that got cut", seg(t, 0, 0.2));
+  btBars(t, "share_cut", { scale: 100, yf: v => v + "%", vf: v => v.toFixed(0) + "%", ylab: "share whose ask was cut before the ad closed" });
+}
+
+// ---------- 10. the market ----------
+const MK = D.market;
+function sceneMarket1(t) {
+  title(`The ${num(MK.ads)} ads on the market on ${D.meta.scoring_day_label}, by score`, seg(t, 0, 0.2));
+  const P = MK.hist, n = P.length, top = Math.max(...P) * 1.25, f = frame([0, 1], [0, top], { b: 46 });
+  axes(f, { yt: niceTicks(0, top, 4), xt: [0, 0.25, 0.5, 0.75, 1], xf: v => pc(1 - v), xlab: "the ask is lower than this share of the model's range", ylab: "ads", a: seg(t, 0, 0.25) });
+  const bw = (f.X1 - f.X0) / n;
+  P.forEach((c, i) => { const g = seg(t, 0.1 + 0.02 * i, 0.5 + 0.02 * i), y = f.y(c * g); rect(f.X0 + i * bw + 1, y, bw - 2, f.Y0 - y, i === 0 ? C.yellow : C.blue, 0.8); });
+  const a = seg(t, 0.7, 0.95);
+  note(`${num(P[0])} ads ask less than ${pc(1 - 1 / n)} of their range`, f.X0 + bw + 10, f.y(P[0]) + 8, { c: C.yellow, a });
+}
+function sceneMarket2(t) {
+  title("The lowest asks for what they are", seg(t, 0, 0.2));
+  const rows = MK.top.slice(0, narrow() ? 9 : 12), top = 52, rowH = (H - top - 12) / (rows.length + 1);
+  const cols = narrow()
+    ? [["Where", 14, "left"], ["Ask", W * 0.56, "right"], ["Middle", W * 0.74, "right"], ["Lower than", W - 12, "right"]]
+    : [["Where", 28, "left"], ["Size", W * 0.27, "left"], ["Ask", W * 0.54, "right"], ["Model's middle", W * 0.69, "right"], ["8-in-10 range", W * 0.87, "right"], ["Lower than", W - 24, "right"]];
+  cols.forEach(c => text(c[0], c[1], top + rowH * 0.5, { al: c[2], c: C.muted, px: 12, w: 600, a: seg(t, 0, 0.2) }));
+  line(narrow() ? 14 : 28, top + rowH * 0.95, W - (narrow() ? 12 : 24), top + rowH * 0.95, C.grid, seg(t, 0, 0.2), 1);
+  rows.forEach((r, i) => {
+    const a = seg(t, 0.1 + 0.05 * i, 0.3 + 0.05 * i), y = top + rowH * (i + 1.5), px = narrow() ? 12.5 : 14;
+    const cells = narrow()
+      ? [r.hood, dollars(r.ask), dollars(r.model_median), (100 * (1 - r.below_share)).toFixed(1) + "%"]
+      : [r.hood, bedsLabel(r.bedrooms) + (r.unit_ads ? "" : " · new to the model"), dollars(r.ask), dollars(r.model_median), `${dollars(r.model_lo80)} to ${dollars(r.model_hi80)}`, (100 * (1 - r.below_share)).toFixed(1) + "%"];
+    cells.forEach((s, j) => text(s, cols[j][1], y, { al: cols[j][2], px, a, c: j === cells.length - 1 ? C.yellow : j === 0 ? C.fg : C.muted, w: j === cells.length - 1 ? 600 : 400 }));
+  });
+}
+
+// ---------- beats ----------
+const share = (a, b) => pc(a / b);
+const has = k => HY[k] != null;
+const low = BT.rows[0], mid = BT.rows[Math.floor(BT.rows.length / 2)], high = BT.rows[BT.rows.length - 1];
+const BEATS = [
+  { s: "Question", d: sceneQ1, cap: `A deal is an ask that is low <b>for this apartment, on this day</b>. So the model's job is to say what the apartment would usually ask, and how sure it is. For this one it says about ${dollars(HERO.median)}, and 8 times in 10 between ${dollars(HERO.lo80)} and ${dollars(HERO.hi80)}.` },
+  { s: "Question", d: sceneQ2, cap: `The ad asks <b>${dollars(HERO.ask)}</b>. The yellow area is the share of the model's range below that: ${pc(HERO.below_share, 1)}. That share is the deal score. The smaller it is, the more surprising the ask. Everything that follows is about getting the curve's middle and width right.` },
+  { s: "Parts", d: sceneLayers1, cap: `The middle is a sum. The first three parts and the building levels are the project's earlier model. The <b>two parts in yellow are new</b>: what this particular apartment has asked before, and what its building and neighbourhood have been doing in the last few months.` },
+  { s: "Parts", d: sceneLayers2, cap: `The fit learns how large each part usually is. A building typically sits ${pm(HY.building_sd)} off its neighbourhood, an apartment <b>${pm(Math.sqrt(K0))}</b> off its building, and a single ad ${pm(NOISE)} off all of that. An apartment's own history is the largest thing an earlier ad can tell you.` },
+  D.walk && { s: "Parts", d: sceneWalk, cap: `One of the parts, drawn out: the citywide level for each week with its 90% band, after everything else is accounted for. The model follows the market down in 2020 and up since, so an old ad is read in the prices of its own week.` },
+  { s: "Memory", d: sceneMem1, cap: `Here is the evidence for the new part. Fit a model that knows nothing about the individual apartment, and look at what it misses. Two ads of the <b>same apartment</b> half a year apart share ${pc(UC[0].r)} of that miss. Eight years apart they still share ${pc(UC[UC.length - 1].r)}.` },
+  { s: "Memory", d: sceneMem2, cap: `An earlier model gave each apartment one fixed level. That is the red line: it treats a ten-year-old ad like last month's. The blue curve is the new model's shape: a level that lasts, plus one that <b>drifts and fades</b>. Fitted on all the data, the lasting part is ${pm(HY.unit_sd)}, the drifting part ${pm(HY.drift_sd)}, and the drift's time scale ${HY.drift_tau.toFixed(1)} years.` },
+  { s: "Memory", d: sceneMem3, cap: `What that buys. The brown dots are one apartment's earlier asks. The model was fitted without its newest ad, then asked to predict it: the thick bar is the 8-in-10 range, the thin one 95%, the tick the middle. <b>The yellow dot is what the ad asked.</b>` },
+  { s: "Memory", d: sceneMem4, cap: `Five more, picked at random among apartments with a long history. The model weighs every earlier ad by how long ago it ran, and it knows that rents citywide moved in between. Ranges are narrow where the last ad is recent and wider where it is old.` },
+  { s: "Memory", d: sceneRange, cap: `The same thing across all ${num(SW.rows)} held-out ads. With an ad in the last three months the 8-in-10 range is about <b>±${(100 * Math.expm1(GW.width80[0] / 2)).toFixed(0)}%</b>. After eight years it is ±${(100 * Math.expm1(GW.width80[GW.width80.length - 1] / 2)).toFixed(0)}%. For an apartment the model has never seen, on today's market, it is ±${(MK.width_new / 2).toFixed(0)}%. A low ask means more when the range is narrow.` },
+  { s: "Block", d: sceneBlock1, cap: `With apartments accounted for, something is still left. Two <b>different</b> apartments in one building, listed within three months of each other, miss in the same direction: correlation ${BC[0].r.toFixed(2)}. A year apart it is nearly gone. A landlord reprices a whole building at once, and one apartment's history cannot see that.` },
+  has("building_ar_sd") && { s: "Block", d: sceneBlock2, cap: `So the model gives every building a monthly path that wanders and returns. When one apartment lists high this month, the model raises its estimate for its neighbours too, and lets that fade.` + (has("nbhd_ar_sd") ? ` Neighbourhoods get the same, by quarter, at a smaller scale (${pm(HY.nbhd_ar_sd)}).` : "") },
+  { s: "Honesty", d: sceneCal1, cap: `The test that matters: hold out the newest ad of every apartment with at least two, fit on the rest, and predict it. The middle estimate's typical miss is <b>${(100 * Math.expm1(SW.median_abs_error)).toFixed(1)}%</b> of the rent. (A sample of ${num(D.sample.y.length)} of the ${num(SW.rows)} is drawn.)` },
+  { s: "Honesty", d: sceneCal2, cap: `A deal score is only as good as the width of the range. If the model says 8 in 10, the ask should land inside 8 times in 10. On the held-out ads the 80% range held <b>${pc(SW.coverage["80"], 1)}</b> and the 95% range ${pc(SW.coverage["95"], 1)}.` },
+  { s: "Honesty", d: sceneCal3, cap: `A finer check. For each held-out ad, ask where it fell in its own range, from bottom to top. If the ranges are honest, every slice gets the same number of ads. A hump in the middle would mean ranges too wide, and piles at the ends would mean ranges too narrow.` },
+  { s: "Score", d: sceneScore, cap: D.score_caption },
+  D.gap_compare && D.gap_compare.length > 1 && { s: "Score", d: sceneGap, cap: D.gap_caption },
+  { s: "Backtest", d: sceneBack1, cap: `Does a low score find real deals? Go back to ${BT.as_of_label}, fit the model on what was known then, and score each ad's first ask. Ads in the lowest tenth left the market in <b>${low.median_days_on_market.toFixed(0)} days</b> at the median. The middle took ${mid.median_days_on_market.toFixed(0)} and the highest tenth ${high.median_days_on_market.toFixed(0)}. Renters took the low asks first.` },
+  { s: "Backtest", d: sceneBack2, cap: `Landlords agreed with the model too. Of the ads it placed in the highest tenth, <b>${pc(high.share_cut)}</b> had their ask cut before they closed, against ${pc(low.share_cut)} of the lowest tenth. The score was computed from the first ask only, and it sorted what happened next.` },
+  { s: "Market", d: sceneMarket1, cap: `The market on ${D.meta.scoring_day_label}. If asks were drawn from the model's ranges, the bars would be level. ${D.market_caption}` },
+  { s: "Market", d: sceneMarket2, cap: `The top of the list. Each of these asks sits below nearly all of what the model expects for that apartment. Some are deals and some are flaws the ad does not state: the list says where to look first. The site's Deals page has all of them with filters and links.` },
+].filter(Boolean);
+const SCENES = [...new Set(BEATS.map(b => b.s))];
+
+// ---------- the page around the stage ----------
+document.getElementById("sub").textContent = D.meta.sub;
+document.getElementById("source").textContent = D.meta.source;
+document.getElementById("fitnote").textContent = D.meta.fitnote;
+(function fits() {
+  const el = document.getElementById("fits"), head = ["Fit", "Ads fitted", "Ads predicted", "Worst R-hat", "Least ESS", "Gate", "Held-out score", "Cost"];
+  const tr = cells => "<tr" + (cells.win ? ' class="win"' : "") + ">" + cells.map((c, i) => `<td${c.cls ? ` class="${c.cls}"` : ""}>${c.v ?? c}</td>`).join("") + "</tr>";
+  el.innerHTML = "<tr>" + head.map(h => `<th>${h}</th>`).join("") + "</tr>" + D.fits.map(r => {
+    const cells = [r.label, num(r.train), num(r.predicted), r.rhat.toFixed(3), num(r.ess), { v: r.gate ? "passed" : "missed", cls: r.gate ? "good" : "bad" }, r.elpd == null ? "" : num(r.elpd), "$" + r.cost.toFixed(2)];
+    cells.win = r.name === WIN && r.elpd != null; return tr(cells);
+  }).join("");
+})();
+
+// ---------- player ----------
+let cur = 0, t0 = 0, raf = 0;
+const chipsEl = document.getElementById("chips");
+SCENES.forEach(s => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.type = "button"; b.textContent = s; b.id = "chip-" + s.toLowerCase();
+  b.onclick = () => go(BEATS.findIndex(x => x.s === s));
+  chipsEl.appendChild(b);
+});
+function render(t) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = C.panel; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = 1; BEATS[cur].d(t); ctx.restore();
+}
+function loop(now) {
+  const dur = 2000, t = REDUCED ? 1 : Math.min(1, (now - t0) / dur);
+  render(t);
+  if (t < 1) raf = requestAnimationFrame(loop);
+}
+function go(i) {
+  i = Math.max(0, Math.min(BEATS.length - 1, i));
+  cur = i; t0 = performance.now();
+  document.getElementById("caption").innerHTML = BEATS[i].cap;
+  document.getElementById("count").textContent = `${i + 1} / ${BEATS.length}`;
+  document.getElementById("prev").disabled = i === 0;
+  document.getElementById("next").disabled = i === BEATS.length - 1;
+  for (const b of chipsEl.children) b.setAttribute("aria-current", b.textContent === BEATS[i].s ? "true" : "false");
+  try { localStorage.setItem("drifttour", String(i)); } catch (e) {}
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+}
+window.tourGo = (i, still) => { go(i); if (still) { cancelAnimationFrame(raf); render(1); } };
+window.tourBeats = BEATS.length;
+document.getElementById("prev").onclick = () => go(cur - 1);
+document.getElementById("next").onclick = () => go(cur + 1);
+cv.onclick = () => go(cur + 1);
+addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); go(cur + 1); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); go(cur - 1); }
+});
+addEventListener("resize", () => { resize(); render(1); });
+resize();
+let start = 0;
+try { start = +localStorage.getItem("drifttour") || 0; } catch (e) {}
+const hash = location.hash.slice(1);
+if (hash && SCENES.map(s => s.toLowerCase()).includes(hash)) start = BEATS.findIndex(b => b.s.toLowerCase() === hash);
+if (start >= BEATS.length) start = 0;
+render(0);
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => go(start));
+</script>

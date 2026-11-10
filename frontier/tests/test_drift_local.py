@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import pandas as pd
 import test_drift as td
 
 from rentfrontier import b0, building_zones, drift, drift_building, drift_local
@@ -182,3 +183,94 @@ def test_recovers_a_planted_building_process():
         "building_ar_sd",
         "building_ar_rho",
     }
+
+
+def test_rows_with_no_neighbourhood_share_a_group_of_their_own():
+    frame = pd.DataFrame({"neighbourhood": ["b", None, "a", "b", np.nan]})
+    np.testing.assert_array_equal(drift.nbhd_index(frame), [2, 0, 1, 2, 0])
+    whole = pd.DataFrame({"neighbourhood": ["b", "a", "b"]})
+    np.testing.assert_array_equal(drift.nbhd_index(whole), [1, 0, 1])
+
+
+def test_update_local_sums_the_cells_and_swaps_the_paths():
+    full = td._design()
+    full = dataclasses.replace(full, nbhd=full.site % 5)
+    train, _, _ = td._split(full)
+    groups = [
+        g | {"per_year": per_year}
+        for g, per_year in zip(drift.groups_of(train, drift_local.GROUPS), (52, 26))
+    ]
+    _, init, _, parts = _sampler(train, groups)
+    jax, jnp = b0._jax()
+    D = parts["data"]
+    st = td._state(init, parts)
+    rng = np.random.default_rng(8)
+    n = len(train.y)
+    old = tuple(
+        jnp.asarray(0.05 * rng.standard_normal((a["size"], a["T"])))
+        for a in parts["ars"]
+    )
+    st = st | {"ar": old}
+    c = rng.gamma(2.0, 200.0, n)
+    r = 0.1 * rng.standard_normal(n)
+    order = parts["order"]
+    t = drift.years(train)[order]
+    rows = (train.site[order], train.nbhd[order])
+    # The cell sums are the rows' sums by group and step.
+    for k, (a, per_year) in enumerate(zip(parts["ars"], (52, 26))):
+        cell = rows[k] * a["T"] + np.floor(t * per_year).astype(int)
+        C, R = parts["ar_sums"](D, k, jnp.asarray(c), jnp.asarray(r))
+        size = a["size"] * a["T"]
+        np.testing.assert_allclose(
+            np.asarray(C).ravel(), np.bincount(cell, c, size), rtol=1e-10
+        )
+        np.testing.assert_allclose(
+            np.asarray(R).ravel(), np.bincount(cell, c * r, size), atol=1e-8
+        )
+    keys = jax.random.split(jax.random.PRNGKey(2), 2)
+    r_new, ar, ar_par = parts["update_local"](
+        D, keys, st, jnp.asarray(c), jnp.asarray(r)
+    )
+    assert len(ar) == len(ar_par) == 2
+    # The rows' remainder plus the paths is the same before and after: only the paths moved.
+    before = r + np.asarray(parts["offsets"](D, st))
+    after = np.asarray(r_new) + np.asarray(parts["offsets"](D, st | {"ar": ar}))
+    np.testing.assert_allclose(after, before, atol=1e-10)
+    for new, was in zip(ar, old):
+        assert new.shape == was.shape and float(jnp.abs(new - was).max()) > 1e-3
+    # The second term is drawn given the first one's new path: its sums are those of the
+    # remainder with the first path swapped.
+    a = parts["ars"][0]
+    cell0 = rows[0] * a["T"] + np.floor(t * 52).astype(int)
+    swapped = r + np.asarray(old[0]).ravel()[cell0] - np.asarray(ar[0]).ravel()[cell0]
+    tgt = swapped + np.asarray(old[1]).ravel()[np.asarray(D["ar_cell"][1])]
+    C1, R1 = parts["ar_sums"](D, 1, jnp.asarray(c), jnp.asarray(tgt))
+    _, mf, pf = parts["ar_filter"](ar_par[1], C1, R1)
+    k3 = jax.random.split(keys[1], 3)[2]
+    np.testing.assert_allclose(
+        np.asarray(parts["ar_draw"](k3, ar_par[1], mf, pf)),
+        np.asarray(ar[1]),
+        atol=1e-9,
+    )
+
+
+def test_a_slice_that_only_shrinks_leaves_its_target_unchanged():
+    # `b0.slice_vec` steps out a fixed count on each side, which narrows the draws when
+    # the slice is longer than that. The scale updates here use no stepping out.
+    jax, jnp = b0._jax()
+
+    def logp(x):
+        return -0.5 * x * x
+
+    def spread(width, steps_out):
+        def step(x, key):
+            return b0.slice_vec(key, x, logp, width, steps_out=steps_out), None
+
+        key = jax.random.PRNGKey(0)
+        x0 = jax.random.normal(key, (4000,))
+        x, _ = jax.lax.scan(step, x0, jax.random.split(jax.random.fold_in(key, 1), 400))
+        return float(jnp.var(x))
+
+    for width in (0.2, 5.0):
+        assert 0.93 < spread(width, 0) < 1.07, width
+    assert spread(0.2, 4) < 0.85

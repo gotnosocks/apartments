@@ -95,6 +95,12 @@ terms that would otherwise slow it.
 8. The walk's step size, the surface amplitudes and the Gaussian process scales, as in the
    kitchen sink.
 
+The slice updates in steps 5 and 7 place an interval at random around the current point and
+only shrink it. The project's older samplers step the interval out a fixed number of times on
+each side first, and a review of this model showed that the fixed count narrows the draws
+when the slice is longer than the stepped-out interval (`test_drift_local.py` holds the
+check). The older fits' scale parameters may be slightly too tight for that reason.
+
 A full fit (300 warmup sweeps, 1,000 draws, 1.9 million rows) takes about 10 minutes to
 build its design, 4 to compile and under a second a sweep on an A100.
 

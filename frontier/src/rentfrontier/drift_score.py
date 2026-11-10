@@ -56,6 +56,8 @@ def mixture(nu, nodes: int = NODES):
     sigma from its location gives the integrand's peak (to lam near a / (a + 1800)), and ends
     past the upper tail's exp(-a e^x)."""
     a = np.asarray(nu, float)[:, None] / 2
+    if a.min() < 0.5 or a.max() > 5000:
+        raise ValueError("the mixture grid is checked for nu from 1 to 10,000")
     lo = -(1.0 + 30.0 / a) - np.log1p(1800.0 / a)
     hi = np.log(1.0 + 12.0 / np.sqrt(a) + 30.0 / a)
     x = lo + (hi - lo) * np.linspace(0.0, 1.0, nodes)[None, :]

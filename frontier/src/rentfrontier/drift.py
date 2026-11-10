@@ -124,6 +124,10 @@ DRIFT_SD_PRIOR = 0.1
 TAU_LOG_PRIOR = (math.log(3.0), 1.0)
 # The HalfNormal scale of a local-drift process's sd, on log rent.
 LOCAL_SD_PRIOR = 0.1
+# The slice intervals' lengths: along each of (log ss, log sd, log tau) until the warmup sets
+# the directions, and for a local-drift term's (log sd, logit rho).
+HYP_WIDTH = 0.3
+AR_WIDTHS = (0.5, 1.0)
 # Units are padded to these sizes, so that each size's units stack into one array.
 PADS = (2, 3, 4, 5, 6, 8, 10, 14, 22)
 YEAR_WEEKS = 365.25 / 7
@@ -194,13 +198,20 @@ def design(
     held = building_zones_floor_asof.held_out(frame, held)
     d = building_zones_kitchen_sink.design(frame, start, held=held, **kw)
     unit, units = unit_index(frame, held)
-    nbhd, _ = pd.factorize(frame.neighbourhood.astype(str), sort=True)
+    nbhd = nbhd_index(frame)
     return Design(
         **{f.name: getattr(d, f.name) for f in dataclasses.fields(d)},
         unit=unit,
         units=units,
         nbhd=nbhd.astype(np.int64),
     )
+
+
+def nbhd_index(frame: pd.DataFrame) -> np.ndarray:
+    """Each row's neighbourhood number. Rows with no neighbourhood share one of their own:
+    `factorize` would number them -1, and they would read the last neighbourhood's path."""
+    hood = frame.neighbourhood.astype(object)
+    return pd.factorize(hood.where(hood.notna(), "").astype(str), sort=True)[0]
 
 
 def subset(d: Design, mask: np.ndarray) -> Design:
@@ -775,7 +786,10 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     def update_hyp(D, key, st, c, e):
         """(log ss, log sd, log tau) with u integrated out: a slice update along each
-        column of the state's `hyp_dirs` in turn."""
+        column of the state's `hyp_dirs` in turn. The interval is one column long, placed at
+        random around the current point, and only shrinks: `b0.slice_vec`'s stepping out
+        stops after a fixed count on each side, which narrows the draws when the slice is
+        longer than that."""
         hyp = st["hyp"]
         for k, kk in enumerate(jax.random.split(key, 3)):
             v = st["hyp_dirs"][:, k]
@@ -783,7 +797,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             def logp(s, hyp=hyp, v=v):
                 return hyp_logp(D, hyp + s[0] * v, c, e)[None]
 
-            s = b0.slice_vec(kk, jnp.zeros(1), logp, 1.0, steps_out=4, shrink=32)
+            s = b0.slice_vec(kk, jnp.zeros(1), logp, 1.0, steps_out=0, shrink=32)
             hyp = hyp + s[0] * v
         return hyp
 
@@ -837,7 +851,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     def update_ar(key, k, par, C, R):
         """One term's (log sd, logit rho) with its paths integrated out, by a slice update of
-        each in turn, then the paths."""
+        each in turn, then the paths. As in `update_hyp` the interval only shrinks, from
+        AR_WIDTHS, which are several times the scales' posterior spread on any dataset."""
         prior_sd = ars[k]["sd_prior"]
 
         def logp(x):
@@ -852,16 +867,39 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             )
 
         k1, k2, k3 = jax.random.split(key, 3)
-        for j, (kk, width) in enumerate(((k1, 0.05), (k2, 0.2))):
+        for j, (kk, width) in enumerate(zip((k1, k2), AR_WIDTHS)):
 
             def along(v, par=par, j=j):
                 return logp(par.at[j].set(v[0]))[None]
 
             par = par.at[j].set(
-                b0.slice_vec(kk, par[j][None], along, width, steps_out=4, shrink=32)[0]
+                b0.slice_vec(kk, par[j][None], along, width, steps_out=0, shrink=32)[0]
             )
         _, mf, pf = ar_filter(par, C, R)
         return par, ar_draw(k3, par, mf, pf)
+
+    def ar_sums(D, k, c, tgt):
+        """Term k's cell sums of the row weights c and of c times the rows' `tgt`, each
+        (groups, steps)."""
+        a, cell = ars[k], D["ar_cell"][k]
+        cells = a["size"] * a["T"]
+        C = jax.ops.segment_sum(c, cell, num_segments=cells)
+        R = jax.ops.segment_sum(c * tgt, cell, num_segments=cells)
+        return C.reshape(a["size"], a["T"]), R.reshape(a["size"], a["T"])
+
+    def update_local(D, keys, st, c, r):
+        """Each local-drift term in turn, given the other terms: its scales, then its paths.
+        `r` is y less every other term of the mean and less all the current paths. Returns r
+        with the new paths in place of the old, the paths and the scales."""
+        ar, ar_par = [], []
+        for k in range(len(ars)):
+            cell = D["ar_cell"][k]
+            tgt = r + st["ar"][k].ravel()[cell]
+            par, path = update_ar(keys[k], k, st["ar_par"][k], *ar_sums(D, k, c, tgt))
+            ar.append(path)
+            ar_par.append(par)
+            r = tgt - path.ravel()[cell]
+        return r, tuple(ar), tuple(ar_par)
 
     def update_noise(key, st, r, group_all):
         """nu, then sigma, with lam integrated out, then lam: b0's noise step."""
@@ -991,19 +1029,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         lev = (Rs + F / b2) / P + jax.random.normal(k3, (S,)) / jnp.sqrt(P)
         e = e0 - lev[D["site"]]
         u = draw_u(D, k7, st["hyp"], c, w1, Wb, e)
-        # Each local-drift term in turn, given u and the other terms.
-        r = e - u
-        ar, ar_par = [], []
-        for k, a in enumerate(ars):
-            cell = D["ar_cell"][k]
-            cells = a["size"] * a["T"]
-            tgt = r + st["ar"][k].ravel()[cell]
-            Cc = seg(c, cell, num_segments=cells).reshape(a["size"], a["T"])
-            Rc = seg(c * tgt, cell, num_segments=cells).reshape(a["size"], a["T"])
-            par, path = update_ar(ks[9 + k], k, st["ar_par"][k], Cc, Rc)
-            ar.append(path)
-            ar_par.append(par)
-            r = tgt - path.ravel()[cell]
+        r, ar, ar_par = update_local(D, ks[9:], st, c, e - u)
         e = r + u
         nu, sigma, lam = update_noise(k4, st, r, D["group"])
         hyp = update_hyp(D, k8, st, lam / sigma[D["group"]] ** 2, e)
@@ -1089,7 +1115,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             amp=0.5 * jit(k[4], (nz,), 0.2),
             hyp=jnp.log(jnp.asarray([0.05, 0.08, 3.0]))
             + 0.2 * jax.random.normal(k[5], (3,)),
-            hyp_dirs=0.05 * jnp.eye(3),
+            hyp_dirs=HYP_WIDTH * jnp.eye(3),
         )
         if ars:
             out["ar"] = tuple(jnp.zeros((a["size"], a["T"])) for a in ars)
@@ -1128,6 +1154,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             update_noise=update_noise,
             ar_filter=ar_filter,
             ar_draw=ar_draw,
+            ar_sums=ar_sums,
+            update_local=update_local,
             offsets=offsets,
             ars=ars,
             draw_u=draw_u,
@@ -1141,11 +1169,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
 def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
     """The slice directions for (log ss, log sd, log tau) from warmup draws `hyp`
-    (chains, sweeps, 3): twice the Cholesky factor of the draws' covariance within chains."""
+    (chains, sweeps, 3): four times the Cholesky factor of the draws' covariance within
+    chains, so that the interval of `update_hyp` covers the slice."""
     dev = hyp - hyp.mean(axis=1, keepdims=True)
     cov = np.einsum("csi,csj->ij", dev, dev) / max(dev.shape[0] * (dev.shape[1] - 1), 1)
     cov = cov + 1e-10 * np.eye(3)
-    return 2.0 * np.linalg.cholesky(cov)
+    return 4.0 * np.linalg.cholesky(cov)
 
 
 def run(
