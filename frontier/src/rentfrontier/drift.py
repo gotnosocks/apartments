@@ -1111,13 +1111,20 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         K = x0.shape[0]
         eye = jnp.eye(K)
         i, j = np.triu_indices(K, 1)
-        pts = h * jnp.concatenate([jnp.zeros((1, K)), eye, -eye, eye[i] + eye[j]])
+        corner = eye[i] + eye[j]
+        pts = h * jnp.concatenate([jnp.zeros((1, K)), eye, -eye, corner, -corner])
         f = jax.lax.map(
             lambda a: scales_logp(D, x0 + st["hyp_dirs"] @ a, eta, tgt, bsd, par, F),
             pts,
         )
-        f0, up, down, both = f[0], f[1 : K + 1], f[K + 1 : 2 * K + 1], f[2 * K + 1 :]
-        H = jnp.zeros((K, K)).at[i, j].set((both - up[i] - up[j] + f0) / h**2)
+        f0, up, down = f[0], f[1 : K + 1], f[K + 1 : 2 * K + 1]
+        both = f[2 * K + 1 :].reshape(2, -1).sum(axis=0)
+        ends = up + down
+        H = (
+            jnp.zeros((K, K))
+            .at[i, j]
+            .set((both - ends[i] - ends[j] + 2 * f0) / (2 * h**2))
+        )
         return H + H.T + jnp.diag((up + down - 2 * f0) / h**2)
 
     def ar_filter(par, C, R):
@@ -1758,8 +1765,10 @@ def conditional_dirs(dirs: np.ndarray, H: np.ndarray):
     pilots of 2026-11-10 showed it: the unit scales' autocorrelation time went from 8 to 28
     sweeps when the scale step took more parameters with directions from the posterior.
 
-    Returns (`dirs`, None) when -H is not positive definite, which a state far from the
-    mode of a skewed density can give."""
+    Returns (`dirs`, None) when H is not finite or -H is not positive definite, which a
+    state far from the mode of a skewed density can give."""
+    if not np.isfinite(H).all():
+        return dirs, None
     w, V = np.linalg.eigh(-(H + H.T) / 2)
     if w.min() <= 0:
         return dirs, None

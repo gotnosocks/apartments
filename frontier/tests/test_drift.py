@@ -386,6 +386,8 @@ def test_conditional_dirs_span_the_covariance_the_curvature_implies():
     H[0, 0] = 1.0
     kept, share = drift.conditional_dirs(dirs, H)
     assert kept is dirs and share is None
+    kept, share = drift.conditional_dirs(dirs, np.full((5, 5), np.nan))
+    assert kept is dirs and share is None
 
 
 def test_draw_u_has_the_conditional_mean_and_covariance():
