@@ -199,6 +199,11 @@ class Settings:
     # diagnostics of every traced scalar and stacks the kept predictions: 110 to 230 s a
     # time on the full data, which a fit capped at an hour cannot spare three times.
     checkpoints: bool = False
+    # Stop drawing once the sweeps after the first have taken this long, at the next kept
+    # draw, and report the draws there are. Modal stops a fit's container at 75 minutes and
+    # the project's rule is an hour a fit; outside the sweeps a full fit takes about 17
+    # minutes (image, design, compile, output). None runs every draw asked for.
+    budget_seconds: float | None = 2520.0
     # With a collapsed building term, the columns whose names start with one of these are
     # drawn a second time with the buildings' paths integrated out (`update_slow`).
     slow_columns: tuple[str, ...] = ("bld:",)
@@ -1963,6 +1968,18 @@ def run(
                 mid = settings.checkpoints and j + 1 < settings.draws
                 if mid and checkpoint is not None and kept["beta"]:
                     checkpoint(output())
+            spent = time.perf_counter() - t_first
+            if (
+                settings.budget_seconds is not None
+                and spent > settings.budget_seconds
+                and (j + 1) % settings.keep_every == 0
+                and j + 1 < settings.draws
+            ):
+                log(
+                    f"stopping at draw {j + 1} of {settings.draws}: the sweeps have taken "
+                    f"{spent:.0f}s of a budget of {settings.budget_seconds:.0f}s"
+                )
+                break
         elif (i + 1) % max(1, settings.warmup // 5) == 0:
             log(
                 f"warmup {i + 1}/{settings.warmup}: "

@@ -390,6 +390,25 @@ def test_conditional_dirs_span_the_covariance_the_curvature_implies():
     assert kept is dirs and share is None
 
 
+def test_run_stops_at_a_kept_draw_when_its_time_is_up():
+    full = _design(n=400)
+    train, _, held = _split(full)
+    lines = []
+    out = drift.run(
+        train,
+        building_zones.Priors(),
+        drift.Settings(chains=2, warmup=4, draws=40, keep_every=3, budget_seconds=0.0),
+        log=lines.append,
+        gp=None,
+    )
+    # The budget is spent by the first draw, so the run ends at the first kept one.
+    assert out["trace"]["unit_sd"].shape == (2, 3)
+    assert out["kept"]["beta"].shape[:2] == (2, 1)
+    assert out["kept"]["pred_loc"].shape == (2, 1, held.sum())
+    assert out["result"]["gibbs"]["sweeps"] == 7
+    assert any(m.startswith("stopping at draw 3 of 40") for m in lines)
+
+
 def test_draw_u_has_the_conditional_mean_and_covariance():
     full = _design(n=400, per_unit=9)
     train, _, _ = _split(full)
