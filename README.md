@@ -43,13 +43,15 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   R-hat line, so it is not served. Round seven ran it with chains twice as long. Every
   quantity that missed for chain length now passes with room, the held-out score is the
   same (230,861), and one quantity still misses on both fits: the spread of building
-  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). The cause is a
-  handful of buildings whose few ads fall into two price clusters. Warmup leaves such a
-  building at the high cluster and it moves to the low one, once and for good, after
-  hundreds to thousands of sweeps, so the chains are still arriving when a fit ends. The
-  fix is in the data (ads with a bed count their rent contradicts) and in a sampler move
-  that takes a building across directly; neither is run yet. The note of 2026-11-10 has
-  the evidence.
+  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). About ten buildings
+  hold it: each has listings with no description and no bedroom count at the rents of its
+  3-bedrooms, the sampler takes thousands of sweeps to decide whether the building is
+  dear or the ads are outliers, and under a normal prior each such building moves the
+  whole zone's spread, so the chains are still arriving when a fit ends. Ten buildings
+  explain 95 to 98% of the differences between chains. The fix is in the data (about
+  1,000 whole apartments coded as studios, and 4,517 placeholder listings) and in the
+  model (a Student-t prior on building levels, `Settings.level_dof`, tested on one
+  container in round eight). The note of 2026-11-10 has the evidence.
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)
