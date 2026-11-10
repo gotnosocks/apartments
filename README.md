@@ -43,14 +43,17 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   R-hat line, so it is not served. Round seven ran it with chains twice as long. Every
   quantity that missed for chain length now passes with room, the held-out score is the
   same (230,861), and one quantity still misses on both fits: the spread of building
-  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). About ten buildings
-  hold it: each has listings with no description and no bedroom count at the rents of its
-  3-bedrooms, the sampler takes thousands of sweeps to decide whether the building is
-  dear or the ads are outliers, and under a normal prior each such building moves the
-  whole zone's spread, so the chains are still arriving when a fit ends. Ten buildings
-  explain 95 to 98% of the differences between chains. The fix is in the data (about
-  1,000 whole apartments coded as studios, and 4,517 placeholder listings) and in the
-  model: a Student-t prior on building levels (`Settings.level_dof`). Round eight ran it
+  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). The
+  best-supported cause is about ten buildings. Most of them have listings coded with 0
+  bedrooms at the rents of the building's 3-bedrooms (in the eight that were read, every
+  such ad has a blank or placeholder text and the source's own count of 0). The sampler
+  takes thousands of sweeps to decide whether such a building is dear or its ads are
+  outliers, and under a normal prior each one moves the whole zone's spread, so the
+  chains are probably still arriving when a fit ends. Ten buildings' levels explain 95
+  to 98% of the differences between chains. The fix is in the data (of 1,596
+  studio-coded ads whose text names two or more bedrooms, 25 of 40 read were whole
+  apartments, so roughly 750 to 1,250; and 4,517 placeholder listings) and in the model:
+  a Student-t prior on building levels (`Settings.level_dof`). Round eight ran it
   on one container with the seed that had failed. The leverage is gone, the container
   passes the gate, and its held-out score is 126 above the same container under the
   normal prior. The three full fits it would take to serve the building model (about

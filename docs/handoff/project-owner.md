@@ -30,8 +30,8 @@ window and no stale jobs to be run.
   not served: every pooled fit misses the gate. Round seven (2 chains a container, chains
   of 2,920 to 3,440 draws) cured round six's misses on drift_tau and the sigmas and left
   one, bld_sd[outer]: R-hat 1.0130 in b7 (latest split), 1.0202 in n7 (market), 1.0447 in
-  j6 (backtest, round six). The cause is found: about ten buildings of placeholder
-  listings coded as studios at 3-bedroom rents sit 5 to 6 spreads out, cross one way
+  j6 (backtest, round six). The best-supported cause: about ten buildings, most of them with
+  placeholder listings coded as studios at 3-bedroom rents, sit 5 to 6 spreads out, cross one way
   over thousands of sweeps, and move the zone's spread by leverage under the normal prior
   on levels (the note, "Leverage"). Pooled runs on thelio:
   `drift-building-b0-latest-7023bba1-b6` and `-b7`, `drift-building-b0-market-7023bba1-n6`,

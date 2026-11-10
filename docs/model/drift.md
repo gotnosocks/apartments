@@ -68,24 +68,30 @@ Round six's misses on drift_tau and sigma were chain length: with chains twice a
 (next worst R-hat 1.0067 in b7 and 1.0048 in n7), and the score does not move. The one
 that is left is bld_sd[outer], the spread of building levels in the outer boroughs.
 
-About ten buildings in 68,000 hold it. Each has a cluster of ads coded as studios or
-1-bedrooms at the rents of the building's 3- and 4-bedrooms: listings with no
-description, a placeholder for a text, and the source's own count of 0 bedrooms. A
+The best-supported cause is about ten buildings in 68,000. Seven or eight of the ten
+have a cluster of ads coded as studios or 1-bedrooms at the rents of the building's 3-
+and 4-bedrooms. In the eight buildings whose ads were read, every such ad has a blank or
+placeholder text and the source's own count of 0 bedrooms; what those apartments really
+are is inferred from their rents and unit labels. One of the ten may be an honest
+mixture and one is a building far below its neighbourhood. A
 studio at a 3-bedroom's rent is 0.5 to 0.8 above what the model expects, a building of
 them sits 5 to 6 spreads from its neighbourhood, and the sampler takes thousands of
 sweeps to settle whether the building is dear or the rows are outliers: warmup leaves it
 dear, and in round seven's longer chains these buildings move to the other answer one at
 a time and none moves back. Under the normal prior on the levels each such building
-moves the zone's spread by its square over 2 b N, with N about 14,000, and every
+moves the zone's spread by its square over 2 b N, with an N of about 14,000 implied by
+the fitted slope, and every
 building with little data follows the spread. Across chains the summed squares of ten
 buildings explain 95 to 98% of the differences in bld_sd[outer], in all three pooled
-runs, where ten buildings picked at random explain nothing. So a fit ends with its chains
-at different stages of the same arrival, which is what R-hat reports, and the outer
-spread it gives (0.091) is high by about 0.0003. None of these buildings has a predicted
+runs, where ten buildings picked at random explain nothing (within chains the R squared
+is 0.16 to 0.51). So a fit probably ends with its chains at different stages of the same
+arrival, which is what R-hat would then be reporting, and the outer spread it gives
+(0.091) is probably high by about 0.0003. None of these buildings has a predicted
 ad and the held-out predictions show no mark of it.
 
-What fixes it, in the project's order. The data: about 1,000 training ads coded as
-studios name two or more bedrooms in their own text, and 4,517 more are placeholder
+What fixes it, in the project's order. The data: 1,596 training ads coded as
+studios name two or more bedrooms in a text that never says "studio" (25 of 40 read were
+whole apartments, so roughly 750 to 1,250 of them), and 4,517 more are placeholder
 listings no text can sort; a rule for either needs a dataset and a fit of its own. The
 model: a Student-t prior on the levels (`Settings.level_dof`, 4 degrees of freedom) takes
 the leverage away whatever the data hold. Round eight ran it on one container, `b8c`,

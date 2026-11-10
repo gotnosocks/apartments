@@ -43,8 +43,8 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   the latest split, 1,596 in 908 buildings name two to five bedrooms in a text that never
   says "studio" (25 of 40 read were whole apartments, 11 studios), and 4,517 in 1,701
   buildings are placeholder listings (text under 30 characters or starting "draft", with
-  `roomCount` 1) whose bedroom count of 0 is the source's default. Ten buildings of such
-  ads hold the building model's one failing R-hat (1259 Jefferson Ave, 310 Linden St, 866
+  `roomCount` 1) whose bedroom count of 0 is the source's default. Eight buildings of such
+  ads are among the ten behind the building model's one failing R-hat (1259 Jefferson Ave, 310 Linden St, 866
   Knickerbocker Ave, 386 St John's Pl, 1030 DeKalb Ave, 1405 Lincoln Pl, 391 Greene Ave,
   662 Nostrand Ave). Write the rule on a reading, rebuild, refit.
 - [ ] The three full fits of `drift-building` with `--level-dof 4` (latest split, market,
