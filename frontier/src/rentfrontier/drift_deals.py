@@ -143,8 +143,13 @@ def _cautions(
     without `texts`). `texts` must be the table `texts` wrote for the build whose ads file
     has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
-    counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
-    varied = (unit_key[held].map(counts).fillna(0) > 1).to_numpy() & known[held]
+    # The dataset starts a new piece of a unit, "~1", "~2", where its ads' bedroom count
+    # changes by two or more (`data.split_unit_histories`). The caution is about the
+    # apartment, so it reads the pieces together. A piece a review split off ("~review-")
+    # is another apartment and stays apart.
+    whole = unit_key.str.replace(PIECE, "", regex=True)
+    counts = frame.bedrooms[known].groupby(whole[known]).nunique()
+    varied = (whole[held].map(counts).fillna(0) > 1).to_numpy() & known[held]
     flagged = (
         h.income_restricted.fillna(False).astype(bool).to_numpy()
         if "income_restricted" in h
@@ -250,6 +255,8 @@ def deals(
 # The least an ad's net ask can be of the rent its page shows and still be a concession:
 # half is six months free in twelve. Below it the two prices are not one ad's.
 NET_FLOOR = 0.5
+# The end of a unit id that `data.split_unit_histories` gave a later piece of the unit.
+PIECE = r"~\d+$"
 
 
 def first_net(first, final, page, months_free) -> np.ndarray:

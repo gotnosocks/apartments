@@ -49,9 +49,14 @@ def _split(d, every=8):
     return drift.subset(d, ~held), drift.subset(d, held), held
 
 
-def _sampler(train, block=7, joint=False):
+def _sampler(train, block=7, joint=False, dof=None):
     settings = drift.Settings(
-        chains=2, warmup=10, draws=10, site_block=block, joint_amp=joint
+        chains=2,
+        warmup=10,
+        draws=10,
+        site_block=block,
+        joint_amp=joint,
+        level_dof=dof,
     )
     return drift.make_sampler(train, building_zones.Priors(), settings)
 
@@ -64,10 +69,20 @@ def _state(init, parts, seed=0, hyp=(0.08, 0.1, 0.2)):
     )
     rng = np.random.default_rng(seed)
     n = st["lam"].shape[0]
-    return st | {
+    st = st | {
         "lam": jnp.asarray(rng.gamma(2.0, 0.5, n)),
         "hyp": jnp.log(jnp.asarray(hyp)),
     }
+    if "kap" in st:
+        # Under the Student-t prior on the levels, the buildings' mixing scales.
+        st = st | {"kap": jnp.asarray(rng.gamma(2.0, 0.5, st["kap"].shape[0]))}
+    return st
+
+
+def _level_var(st, zone):
+    """Each building's prior variance of its level at state `st`."""
+    b2 = np.asarray(st["bld_sd"])[np.asarray(zone)] ** 2
+    return b2 / np.asarray(st["kap"]) if "kap" in st else b2
 
 
 def _dense_cov(train, parts, st):
@@ -145,14 +160,14 @@ def test_unit_layout_places_every_row_and_pair():
     np.testing.assert_array_equal(lay["slot"][[1, 4], 1], [3, 11])
 
 
-@pytest.mark.parametrize("block", [7, 4096])
-def test_global_system_matches_the_dense_marginal(block):
+@pytest.mark.parametrize(("block", "dof"), [(7, None), (4096, None), (7, 4.0)])
+def test_global_system_matches_the_dense_marginal(block, dof):
     """theta's precision and linear term with the levels and u integrated out equal
     J' V^-1 J and J' V^-1 y for the rows' dense marginal covariance V. Units of up to 17 rows
-    reach the padded buckets."""
+    reach the padded buckets. With `dof`, each building's level has its own variance."""
     full = _design(per_unit=9)
     train, _, _ = _split(full)
-    _, init, _, parts = _sampler(train, block=block)
+    _, init, _, parts = _sampler(train, block=block, dof=dof)
     jax, jnp = b0._jax()
     st = _state(init, parts)
     D = parts["data"]
@@ -170,7 +185,8 @@ def test_global_system_matches_the_dense_marginal(block):
     V, _, _ = _dense_cov(train, parts, st)
     zone = drift.site_zone(train)
     site = train.site[order]
-    b2 = np.asarray(st["bld_sd"])[zone] ** 2
+    b2 = _level_var(st, zone)
+    assert (dof is None) == (np.ptp(b2[zone == zone[0]]) == 0)
     V = V + np.where(site[:, None] == site[None, :], b2[site][:, None], 0.0)
     sl_b, sl_M, i_g, sl_w = parts["slices"]
     alpha = train.names.index("alpha")
@@ -236,7 +252,7 @@ def _scales_want(train, parts, st, eta, tgt, F, x, extra=None):
         "lam": jnp.asarray(lam),
     }
     V, _, _ = _dense_cov(train, parts, at)
-    b2 = np.asarray(st["bld_sd"])[np.asarray(parts["zone"])] ** 2
+    b2 = _level_var(st, parts["zone"])
     V = V + np.where(site[:, None] == site[None, :], b2[site][:, None], 0.0)
     if extra is not None:
         V = V + extra
@@ -271,10 +287,11 @@ SCALES = (
 )
 
 
-def test_scales_logp_matches_the_dense_density_as_every_scale_moves():
+@pytest.mark.parametrize("dof", [None, 4.0])
+def test_scales_logp_matches_the_dense_density_as_every_scale_moves(dof):
     full = _design(per_unit=9)
     train, _, _ = _split(full)
-    _, init, _, parts = _sampler(train)
+    _, init, _, parts = _sampler(train, dof=dof)
     jax, jnp = b0._jax()
     D = parts["data"]
     rng = np.random.default_rng(5)
@@ -296,6 +313,7 @@ def test_scales_logp_matches_the_dense_density_as_every_scale_moves():
             st["bld_sd"],
             None,
             jnp.asarray(F),
+            st.get("kap"),
         )
         return float(got), _scales_want(train, parts, st, eta, tgt, F, x)
 
@@ -523,3 +541,39 @@ def test_recovers_planted_unit_scales(joint):
     assert sd.mean((0, 1))[seen].mean() < 0.9 * sd.mean((0, 1))[~seen].mean()
     diag = drift.diagnostics(out["trace"], train.names)
     assert set(drift.HYP) <= set(diag["per_quantity"])
+
+
+def test_a_level_with_no_row_follows_the_student_t_prior():
+    """With `level_dof`, a building with no training row has its level drawn from the scale
+    mixture (the level given its mixing scale, the scale given the level), so its level
+    less its neighbourhood's, over the zone's spread, is Student-t in the kept draws."""
+    from scipy import stats
+
+    dof = 4.0
+    full = _design()
+    train, _, _ = _split(full)
+    sites = np.unique(train.site)
+    drop = sites[:: max(1, len(sites) // 40)]
+    train = drift.subset(train, ~np.isin(train.site, drop))
+    out = drift.run(
+        train,
+        building_zones.Priors(),
+        drift.Settings(chains=2, warmup=60, draws=600, keep_every=2, level_dof=dof),
+        log=lambda m: None,
+        gp=None,
+    )
+    assert out["settings"]["level_dof"] == dof if "settings" in out else True
+    zone = drift.site_zone(train)
+    bld, bsd = out["kept"]["bld"], out["kept"]["bld_sd"]
+    assert bld.shape[:2] == (2, 300) and np.isfinite(bld).all()
+    z = (bld[:, :, drop] / bsd[:, :, zone[drop]]).ravel()
+    assert len(z) >= 2 * 300 * 30
+    for q in (0.75, 0.975):
+        cut = stats.t.ppf(q, dof)
+        share = np.mean(np.abs(z) > cut)
+        want = 2 * (1 - q)
+        assert abs(share - want) < 0.2 * want, (q, share, want)
+    # A normal prior would put 0.55% beyond the t's 97.5% point, not 5%.
+    assert np.mean(np.abs(z) > stats.t.ppf(0.975, dof)) > 3 * 2 * stats.norm.sf(
+        stats.t.ppf(0.975, dof)
+    )

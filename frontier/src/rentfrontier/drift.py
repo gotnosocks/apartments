@@ -177,6 +177,8 @@ SPREAD_WIDTH = 0.05
 CURV_STEP = 0.05
 CELL_WIDTHS = (0.1, 0.3)
 PIN = 1e14
+# What the sweep's key is folded with for the buildings' mixing scales (`Settings.level_dof`).
+KAP_KEY = 97
 # Units are padded to these sizes, so that each size's units stack into one array.
 PADS = (2, 3, 4, 5, 6, 8, 10, 14, 22)
 YEAR_WEEKS = 365.25 / 7
@@ -215,6 +217,13 @@ class Settings:
     slow_within: float = 0.0
     # Draw each zone's amplitude with the waves integrated out (`rentfrontier.amp_joint`).
     joint_amp: bool = True
+    # The degrees of freedom of a Student-t prior on each building's level about its
+    # neighbourhood's, in place of the normal one: level_s ~ Normal(F_s, b_z^2 / kap_s) with
+    # kap_s ~ Gamma(dof / 2, rate dof / 2). None keeps the normal prior and the sweep as it
+    # was. Under the normal prior a building 5 to 6 spreads from its neighbourhood moves its
+    # zone's spread by its square over 2 b N, and the fits of 2026-11-10 missed the gate on
+    # bld_sd[outer] through ten such buildings (docs/notes/drift-2026-11-10.md).
+    level_dof: float | None = None
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -618,6 +627,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         else None
     )
     S = len(zone)
+    dof = settings.level_dof
+    assert dof is None or dof > 0, "level_dof is a number of degrees of freedom"
     rows_per_site = site_rows(d)
     n = len(d.y)
     assert (d.unit >= 0).all(), "every training row needs a unit"
@@ -777,6 +788,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         """Each row's weight c_i = lam_i / sigma_g^2."""
         return st["lam"] / st["sigma"][D["group"]] ** 2
 
+    def site_var(bsd, kap=None):
+        """Each building's prior variance of its level: its zone's spread squared, over the
+        building's mixing scale `kap` under the Student-t prior (`Settings.level_dof`)."""
+        b2 = bsd[zone_j] ** 2
+        return b2 if kap is None else b2 / kap
+
     def scales(hyp):
         ss, sd, tau = jnp.exp(hyp[0]), jnp.exp(hyp[1]), jnp.exp(hyp[2])
         return ss, sd, tau
@@ -826,7 +843,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         xs, wk, fr, loc, Bact = (D[k] for k in ("xs", "wk", "fr", "loc", "Bact"))
         y_all = D["y"] - offsets(D, st) if y_all is None else y_all
         site_all = D["site"]
-        bsd2 = st["bld_sd"][zone_j] ** 2
+        bsd2 = site_var(st["bld_sd"], st.get("kap"))
         om_d, om_off = pair_weights(D, w1, Wb)
         ctil = om_d + seg(om_off, D["pi"], num_segments=n)
         Wy = apply_W(D, om_d, om_off, y_all)
@@ -929,7 +946,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         Rp = Rs - C * F
 
         def logp(lb):
-            b2 = jnp.exp(2 * lb)[zone_j]
+            b2 = site_var(jnp.exp(lb), st.get("kap"))
             per = -0.5 * jnp.log1p(b2 * C) + 0.5 * Rp**2 / (C + 1 / b2)
             ll = seg(per, zone_j, num_segments=nz)
             return ll - jnp.exp(2 * lb) / (2 * BLD_SD_PRIOR**2) + lb
@@ -1025,7 +1042,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
 
-    def level_loglik(D, bsd, par, F, om_d, om_off, tgt):
+    def level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap=None):
         """What integrating the buildings' levels (and the collapsed term's paths) out adds
         to the log density of `tgt` = y less every other term, on top of the units' own
         marginal density of tgt: the sum over buildings of
@@ -1034,11 +1051,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         lin at the units' precisions (om_d, om_off)."""
         if col is not None:
             sums = cell_sums(D, om_d, om_off, tgt)
-            return jnp.sum(cell_loglik(D, jnp.log(bsd), par, sums, F))
+            return jnp.sum(cell_loglik(D, jnp.log(bsd), par, sums, F, kap))
         ctil = om_d + seg(om_off, D["pi"], num_segments=n)
         C = seg(ctil, D["site"], num_segments=S)
         Rs = seg(apply_W(D, om_d, om_off, tgt), D["site"], num_segments=S)
-        b2 = bsd[zone_j] ** 2
+        b2 = site_var(bsd, kap)
         return jnp.sum(
             -0.5 * jnp.log1p(b2 * C)
             + 0.5 * (Rs + F / b2) ** 2 / (C + 1 / b2)
@@ -1053,7 +1070,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             jnp.sqrt(jax.scipy.special.polygamma(1, a)),
         )
 
-    def scales_logp(D, x, eta, tgt, bsd, par, F):
+    def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None):
         """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu)
         given theta, the buildings' spreads, the collapsed path's scales and the rows'
         standardized log mixing scales eta, with u, the buildings' levels and the collapsed
@@ -1080,7 +1097,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             hyp_logp(D, x[:3], c, tgt)
             + 0.5 * jnp.sum(loglam)
             - jnp.sum(group_rows * ls)
-            + level_loglik(D, bsd, par, F, om_d, om_off, tgt)
+            + level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap)
             # lam's Gamma(a, rate a) density, with the map's Jacobian.
             + n * (a * jnp.log(a) - jax.scipy.special.gammaln(a) + jnp.log(sd))
             + a * jnp.sum(loglam)
@@ -1108,7 +1125,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         bsd, par = st["bld_sd"], st["ar_par"][0] if col is not None else None
 
         def logp(x):
-            return scales_logp(D, x, eta, tgt, bsd, par, F)
+            return scales_logp(D, x, eta, tgt, bsd, par, F, st.get("kap"))
 
         x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
         x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
@@ -1136,7 +1153,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         corner = eye[i] + eye[j]
         pts = h * jnp.concatenate([jnp.zeros((1, K)), eye, -eye, corner, -corner])
         f = jax.lax.map(
-            lambda a: scales_logp(D, x0 + st["hyp_dirs"] @ a, eta, tgt, bsd, par, F),
+            lambda a: scales_logp(
+                D, x0 + st["hyp_dirs"] @ a, eta, tgt, bsd, par, F, st.get("kap")
+            ),
             pts,
         )
         f0, up, down = f[0], f[1 : K + 1], f[K + 1 : 2 * K + 1]
@@ -1332,7 +1351,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         G, A = jax.lax.map(one, jnp.asarray(slow))
         lin = sum(x[:, slow].T @ Wt[r0:r1] for x, (_, _, r0, r1) in zip(xs, blocks))
         par = st["ar_par"][0]
-        b2 = st["bld_sd"][zone_j] ** 2
+        b2 = site_var(st["bld_sd"], st.get("kap"))
         Gs = []
         for (H, h), b, ids, gap in zip(sums, col["buckets"], cl["sites"], cl["gap"]):
             nb, m = gap.shape
@@ -1383,11 +1402,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         _, mf, pf = ar_filter(par, C, C * at)
         return jnp.where(active, at, ar_draw(key, par, mf, pf))
 
-    def cell_loglik(D, lb, par, sums, F):
+    def cell_loglik(D, lb, par, sums, F, kap=None):
         """Each zone's sum of its buildings' log marginal likelihoods at log spreads `lb`
-        and the path's `par`, with the levels, the paths and u integrated out."""
+        and the path's `par`, with the levels, the paths and u integrated out. `kap` is
+        the buildings' mixing scales under the Student-t prior on the levels."""
         out = jnp.zeros(nz)
-        b2 = jnp.exp(2 * lb)[zone_j]
+        b2 = site_var(jnp.exp(lb), kap)
         for (H, h), ids, gap in zip(sums, D["cells"]["sites"], D["cells"]["gap"]):
             _, _, ll = cell_system(par, b2[ids], F[ids], H, h, gap)
             out = out + seg(ll, zone_j[ids], num_segments=nz)
@@ -1405,9 +1425,10 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         k1, k2, k3, k4 = jax.random.split(key, 4)
         par = st["ar_par"][0]
         prior_sd = ars[0]["sd_prior"]
+        kap = st.get("kap")
 
         def logp_b(lb):
-            ll = cell_loglik(D, lb, par, sums, F)
+            ll = cell_loglik(D, lb, par, sums, F, kap)
             return ll - jnp.exp(2 * lb) / (2 * BLD_SD_PRIOR**2) + lb
 
         lb = b0.slice_vec(
@@ -1417,7 +1438,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         def logp(x):
             rho = jax.nn.sigmoid(x[1])
             return (
-                jnp.sum(cell_loglik(D, lb, x, sums, F))
+                jnp.sum(cell_loglik(D, lb, x, sums, F, kap))
                 - jnp.exp(2 * x[0]) / (2 * prior_sd**2)
                 + x[0]
                 + jnp.log(rho)
@@ -1426,7 +1447,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
         par, _ = slice_along(k2, par, logp(par), logp, st["cell_dirs"])
         bsd = jnp.exp(lb)
-        b2 = bsd[zone_j] ** 2
+        b2 = site_var(bsd, kap)
         # A building with no row keeps its prior.
         lev = F + jnp.sqrt(b2) * jax.random.normal(k3, (S,))
         a = ars[0]
@@ -1584,7 +1605,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             C = seg(ctil, D["site"], num_segments=S)
             Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
             bsd = update_spread(k2, st, C, Rs, F)
-            b2 = bsd[zone_j] ** 2
+            b2 = site_var(bsd, st.get("kap"))
             P = C + 1 / b2
             lev = (Rs + F / b2) / P + jax.random.normal(k3, (S,)) / jnp.sqrt(P)
             e = e0 - lev[D["site"]]
@@ -1610,7 +1631,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         if joint is None:
             amp = update_amp(k6, st, w)
         else:
-            amp, w = joint(k6, lev, bsd, st["amp"])
+            amp, w = joint(k6, lev, bsd, st["amp"], st.get("kap"))
             theta = theta.at[sl_w].set(w)
             F = D["Bc"] @ w
         new = dict(
@@ -1625,6 +1646,14 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             hyp=hyp,
             hyp_dirs=st["hyp_dirs"],
         )
+        if dof is not None:
+            # Each building's mixing scale given its level, its neighbourhood's and the
+            # spread: the scale mixture's Gamma. Its key is folded in, so the other steps'
+            # keys are the ones they had without this step.
+            z2 = (lev - F) ** 2 / bsd[zone_j] ** 2
+            new["kap"] = jax.random.gamma(
+                jax.random.fold_in(key, KAP_KEY), (dof + 1) / 2, (S,)
+            ) / ((dof + z2) / 2)
         if gps:
             new["gp_amp"], new["gp_ls"] = update_gp(k_gp, st, theta)
         ss, sd, tu = scales(hyp)
@@ -1694,6 +1723,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
                 jnp.asarray([HYP_WIDTH] * 3 + [SIGMA_WIDTH] * 4 + [NU_WIDTH])
             ),
         )
+        if dof is not None:
+            out["kap"] = jnp.ones(S)
         if ars:
             out["ar"] = tuple(jnp.zeros((a["size"], a["T"])) for a in ars)
             out["ar_par"] = jnp.tile(
@@ -2087,6 +2118,11 @@ def main_run(argv, name=NAME, sample=None, spec=None) -> None:
     parser.prog = f"rentfrontier.run --model {name}"
     parser.set_defaults(model=name)
     parser.add_argument("--site-block", type=int)
+    parser.add_argument(
+        "--level-dof",
+        type=float,
+        help="degrees of freedom of a Student-t prior on the buildings' levels",
+    )
     building_zones_floor_asof.SPLIT = parser.parse_known_args(argv)[0].split
     b0.main_run(
         argv,

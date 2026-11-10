@@ -44,7 +44,10 @@ def make_step(
 ):
     """The step for waves `Bc` (buildings x waves) with spectral sds `sds`, each wave's zone
     `which`, each building's zone `zone` and the HalfNormal scale `prior` of the amplitudes.
-    The returned function takes (key, eta, bld_sd, amp) for one chain and returns (amp, w)."""
+    The returned function takes (key, eta, bld_sd, amp) for one chain and returns (amp, w).
+    A fifth argument, `kap`, gives each building's level the variance b_z(s)^2 / kap_s (the
+    scale mixture of a Student-t prior on the levels); the levels' part of Lambda is then
+    built from the buildings' own precisions."""
     jax, jnp = b0._jax()
     nz = int(zone.max()) + 1
     # Bc' Bc over each zone's buildings, so that Bc' diag(1 / b^2) Bc = sum_z BtB_z / b_z^2.
@@ -55,35 +58,41 @@ def make_step(
     zone_j = jnp.asarray(zone)
     cnt = jnp.asarray(np.bincount(which, minlength=nz), dtype=float)
 
-    def system(amp, bsd):
-        """Lambda at amplitudes `amp` and spreads `bsd`, with its diagonal scaling."""
-        A = jnp.einsum("z,zjk->jk", 1 / bsd**2, BtB) + jnp.diag(
-            1 / (amp[which_j] * sds_j) ** 2
-        )
+    def levels_part(bsd, kap=None):
+        """Bc' diag(1 / var) Bc for the levels' variances: b_z^2, over `kap` if given."""
+        if kap is None:
+            return jnp.einsum("z,zjk->jk", 1 / bsd**2, BtB)
+        return (Bc_j * (kap / bsd[zone_j] ** 2)[:, None]).T @ Bc_j
+
+    def system(amp, A0):
+        """Lambda at amplitudes `amp` and the levels' part `A0`, with its diagonal
+        scaling."""
+        A = A0 + jnp.diag(1 / (amp[which_j] * sds_j) ** 2)
         s = 1 / jnp.sqrt(jnp.diag(A))
         return jnp.linalg.cholesky(A * s[:, None] * s[None, :]), s
 
-    def logp_amp(amp, bsd, h):
+    def logp_amp(amp, A0, h):
         """The levels' log density given `amp`, with w integrated out, up to a constant."""
-        L, s = system(amp, bsd)
+        L, s = system(amp, A0)
         hs = h * s
         u = jax.scipy.linalg.solve_triangular(L, hs, lower=True)
         logdet = 2 * jnp.sum(jnp.log(jnp.diag(L))) - 2 * jnp.sum(jnp.log(s))
         return -cnt @ jnp.log(amp) - logdet / 2 + u @ u / 2
 
-    def step(key, eta, bsd, amp):
-        h = Bc_j.T @ (eta / bsd[zone_j] ** 2)
+    def step(key, eta, bsd, amp, kap=None):
+        h = Bc_j.T @ ((eta if kap is None else eta * kap) / bsd[zone_j] ** 2)
+        A0 = levels_part(bsd, kap)
         keys = jax.random.split(key, nz + 1)
         for z in range(nz):
 
             def logp(la, z=z, amp=amp):
                 a = amp.at[z].set(jnp.exp(la[0]))
                 prior_z = -(a[z] ** 2) / (2 * prior**2) + la[0]
-                return (logp_amp(a, bsd, h) + prior_z)[None]
+                return (logp_amp(a, A0, h) + prior_z)[None]
 
             la = b0.slice_vec(keys[z], jnp.log(amp[z])[None], logp, 0.1)[0]
             amp = amp.at[z].set(jnp.exp(la))
-        L, s = system(amp, bsd)
+        L, s = system(amp, A0)
         mean = jax.scipy.linalg.cho_solve((L, True), h * s)
         dev = jax.scipy.linalg.solve_triangular(
             L.T, jax.random.normal(keys[nz], h.shape), lower=False
