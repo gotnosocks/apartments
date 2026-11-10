@@ -58,7 +58,7 @@ def test_the_latest_fit_alone_and_without_saved_scores(tmp_path):
     frame, meta = drift_estimates.estimates(latest)
     assert meta["ads"] == {"all": 4, "latest": 4, "market": 0}
     assert set(frame.source) == {"latest"}
-    assert "heldout" not in meta and frame.address.eq("").all()
+    assert meta["heldout"]["rows"] == 4 and frame.address.eq("").all()
     assert frame.day.tolist() == ["2026-11-09"] * 4
 
 
@@ -89,3 +89,42 @@ def test_publish_refuses_wrong_splits_models_and_missed_gates(tmp_path):
     with pytest.raises(SystemExit, match="did not pass the convergence gate"):
         drift_estimates.publish(latest, out, market)
     assert not out.exists()
+
+
+def test_an_ad_held_out_by_both_fits_takes_the_market_fits_row(tmp_path):
+    def rename(rows):
+        rows.loc[5, "listing_id"] = "60"
+
+    latest, reg = _latest(tmp_path / "l", change=rename)
+    market, _, _ = _run(tmp_path / "m")
+    frame, meta = drift_estimates.estimates(latest, market, reg)
+    assert meta["ads"] == {"all": 5, "latest": 1, "market": 4}
+    assert frame.set_index("listing_id").source.to_dict() == {
+        "2": "market",
+        "3": "market",
+        "4": "market",
+        "6": "market",
+        "60": "latest",
+    }
+    assert meta["datasets"]["latest"]["dataset"] == "data"
+
+
+def test_a_backtest_or_a_changed_ads_table_is_not_the_market(tmp_path):
+    latest, _ = _latest(tmp_path / "l")
+    past, _, _ = _run(tmp_path / "b", backtest=True)
+    with pytest.raises(SystemExit, match="not a run on the market split of the market"):
+        drift_estimates.estimates(latest, past)
+    market, ads, _ = _run(tmp_path / "m")
+    frame = pd.read_parquet(ads)
+    frame.assign(first_ask=frame.first_ask + 1).to_parquet(ads)
+    with pytest.raises(SystemExit, match="changed since the dataset"):
+        drift_estimates.estimates(latest, market)
+
+
+def test_scores_of_another_target_are_refused(tmp_path):
+    latest, _ = _latest(tmp_path / "l")
+    z = dict(np.load(latest / "pred_scores.npz"))
+    z["y"] = z["y"] + 0.1
+    np.savez(latest / "pred_scores.npz", **z)
+    with pytest.raises(SystemExit, match="not of its held-out asks"):
+        drift_estimates.estimates(latest)

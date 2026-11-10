@@ -84,17 +84,21 @@ def _scores(run_dir: Path, held_ids: pd.Series) -> dict:
             ids = z["listing"].astype(str)
             if len(ids) != len(held_ids) or (ids != held_ids.to_numpy(str)).any():
                 raise SystemExit(f"{path} does not score {run_dir.name}'s held-out ads")
-            return {k: z[k] for k in ("q", "pred", "cdf")}
+            return {k: z[k] for k in ("q", "pred", "cdf", "y", "elpd")}
     return drift_score.score_run(run_dir)
 
 
-def table(run_dir: Path, source: str, registry: pd.DataFrame | None) -> pd.DataFrame:
-    """One row per ad the run at `run_dir` held out."""
+def table(
+    run_dir: Path, source: str, registry: pd.DataFrame | None
+) -> tuple[pd.DataFrame, dict]:
+    """One row per ad the run at `run_dir` held out, and the scores they came from."""
     frame, h, held = drift_deals._held_frame(run_dir)
     res = _scores(run_dir, h.listing_id.astype(str))
     q = np.exp(np.asarray(res["q"], float))
     median = np.exp(np.asarray(res["pred"], float))
     ask = h.latest_ask.to_numpy(float)
+    if not np.allclose(np.exp(np.asarray(res["y"], float)), ask, rtol=1e-4):
+        raise SystemExit(f"{run_dir.name}'s scores are not of its held-out asks")
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
     text = lambda c: h[c].where(h[c].notna(), "").astype(str)  # noqa: E731
@@ -130,7 +134,14 @@ def table(run_dir: Path, source: str, registry: pd.DataFrame | None) -> pd.DataF
         out["address"] = [drift_deals.title_address(v) for v in reg.label]
         out["latitude"] = reg.latitude.to_numpy(float).round(5)
         out["longitude"] = reg.longitude.to_numpy(float).round(5)
-    return out[list(COLUMNS)]
+    return out[list(COLUMNS)], res
+
+
+def _provenance(record: dict) -> dict:
+    return {
+        "dataset": Path(record["dataset"]).name,
+        "rows_sha256": record.get("dataset_observations_sha256"),
+    }
 
 
 def _registry(path: Path | None) -> pd.DataFrame | None:
@@ -147,32 +158,26 @@ def estimates(
     record = _result(latest, "latest")
     model = record["model"]["name"]
     reg = _registry(registry)
-    parts = [table(latest, "latest", reg)]
+    past, res = table(latest, "latest", reg)
+    parts = [past]
     meta = {
         "model": model,
         "runs": {"latest": latest.name},
+        "datasets": {"latest": _provenance(record)},
         "gate": {"latest": drift_deals._gate(record)},
+        "heldout": drift_score.summary(res),
     }
-    z = (
-        np.load(latest / "pred_scores.npz")
-        if (latest / "pred_scores.npz").exists()
-        else None
-    )
-    if z is not None and all(k in z for k in ("y", "q", "pred", "elpd")):
-        meta["heldout"] = drift_score.summary(
-            {k: z[k] for k in ("y", "q", "pred", "elpd")}
-        )
     if market is not None:
-        other = _result(market, "market")
-        if other["model"]["name"] != model:
-            raise SystemExit(
-                f"{market.name} is a {other['model']['name']} fit, not {model}"
-            )
+        # The market fit must be on the market split of a market dataset, not a backtest,
+        # with its ads table unchanged since the dataset was built.
+        other, manifest = drift_deals._checked(market, backtest=False, model=model)
+        _result(market, "market")
         meta["runs"]["market"] = market.name
+        meta["datasets"]["market"] = _provenance(other)
         meta["gate"]["market"] = drift_deals._gate(other)
-        meta["scoring_day"] = drift_deals._manifest(market).get("scoring_day")
-        now = table(market, "market", reg)
-        parts = [parts[0][~parts[0].listing_id.isin(now.listing_id)], now]
+        meta["scoring_day"] = manifest.get("scoring_day")
+        now, _ = table(market, "market", reg)
+        parts = [past[~past.listing_id.isin(now.listing_id)], now]
     out = pd.concat(parts, ignore_index=True)
     out = out.sort_values(["day", "listing_id"], kind="stable").reset_index(drop=True)
     meta["ads"] = {
