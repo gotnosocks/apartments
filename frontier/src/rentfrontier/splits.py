@@ -100,12 +100,23 @@ def no_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
     return np.zeros(len(data), dtype=bool)
 
 
+def market_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
+    """Boolean held-out mask for the ads on the market now: the rows whose `status`
+    (`rentfrontier.market` adds the column) says the latest ask is not final."""
+    from .market import OPEN
+
+    if "status" not in data:
+        raise ValueError("the market split needs a dataset from rentfrontier.market")
+    return data.status.isin(OPEN).to_numpy()
+
+
 SPLITS = {
     "rows": row_split,
     "units": unit_split,
     "latest": latest_split,
     "buildings": building_split,
     "all": no_split,
+    "market": market_split,
 }
 # Splits drawn after the data rules (on merged units and kept rows).
 AFTER_RULES = {"latest", "buildings"}
