@@ -46,6 +46,12 @@ from .drift import (  # noqa: F401  (the spec interface b0.main_run and b0.score
 )
 
 NAME = "drift-building"
+# The buildings' levels take a Student-t prior with this many degrees of freedom unless
+# `--level-dof` says otherwise (0 for the normal prior). Under the normal prior about ten
+# buildings far from their neighbourhoods held the outer boroughs' spread and every pooled
+# fit missed the convergence gate; with 4 all three fits of 2026-11-10 pass
+# (docs/notes/drift-2026-11-10.md, rounds seven to nine).
+LEVEL_DOF = 4.0
 # The local-drift terms, in the order the sweep draws them (`drift.groups_of`).
 GROUPS = ("building",)
 
@@ -65,4 +71,6 @@ def run_record(d: Design) -> dict:
 def main_run(argv) -> None:
     """`rentfrontier.run --model drift-building`: fit on the split's training rows and save the
     run."""
-    drift.main_run(argv, name=NAME, sample=run, spec=sys.modules[__name__])
+    drift.main_run(
+        argv, name=NAME, sample=run, spec=sys.modules[__name__], level_dof=LEVEL_DOF
+    )
