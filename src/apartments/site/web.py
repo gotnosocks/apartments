@@ -1389,8 +1389,12 @@ def create_app(
             abort(503, description="No deals table has been published yet.")
         choice = deals.choice(request.args)
         rows = deals.choose(data["rows"], **choice)
+        # How many ads the other filters keep that a caution leaves out.
+        with_cautioned = deals.choose(data["rows"], **(choice | {"cautioned": True}))
         return render_template(
             "deals.html",
+            left_out=len(with_cautioned) - len(rows),
+            show_all=url_for("deals_page", **(request.args.to_dict() | {"all": "1"})),
             meta=meta(),
             info=data["meta"],
             validation=data["validation"],

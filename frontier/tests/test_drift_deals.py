@@ -9,9 +9,10 @@ from rentfrontier import drift_deals
 from rentfrontier.b0data import sha256
 
 
-def _run(tmp_path, backtest=False, model="drift-building"):
+def _run(tmp_path, backtest=False, model="drift-building", change=None):
     """A run directory with four held-out ads among six rows, predicted at log 3000 with
-    little spread, and its dataset (a market dataset, or a backtest), ads and registry."""
+    little spread, and its dataset (a market dataset, or a backtest), ads and registry.
+    `change` edits the dataset's rows before they are written."""
     tmp_path.mkdir(exist_ok=True)
     data = tmp_path / "data"
     data.mkdir()
@@ -30,6 +31,8 @@ def _run(tmp_path, backtest=False, model="drift-building"):
             "status": ["RENTED", "ACTIVE", "ACTIVE", "ACTIVE", "RENTED", "ACTIVE"],
         }
     )
+    if change is not None:
+        change(rows)
     rows.to_parquet(data / "rows.parquet", index=False)
     run = tmp_path / "runs" / "r"
     run.mkdir(parents=True)
@@ -253,3 +256,99 @@ def test_publish_refuses_a_market_fit_that_missed_the_gate(tmp_path):
     meta = drift_deals.publish(run, out, reg, backtest=past)
     assert meta["gate"]["market"]["passes"] and not meta["gate"]["backtest"]["passes"]
     assert meta["gate"]["backtest"]["max_rhat"] == 1.03
+
+
+AFFORDABLE = (
+    "THIS IS AN AFFORDABLE UNIT. MAXIMUM INCOME ALLOWED for two people is listed."
+)
+OFFICE = (
+    "Give your practice its own front door. Three private offices and a waiting room."
+)
+
+
+def _texts(tmp_path, texts):
+    path = tmp_path / "texts.parquet"
+    pd.DataFrame(
+        {"listing_id": list(texts), "description": list(texts.values())}
+    ).to_parquet(path, index=False)
+    return path
+
+
+def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
+    def change(rows):
+        # Unit u1's two ads disagree on its bedrooms, listing 4 carries the dataset's
+        # flag, and listing 6 is off the market for now.
+        rows.loc[0, "bedrooms"] = 3.0
+        rows["income_restricted"] = [False, False, False, True, False, False]
+        rows.loc[5, "status"] = "TEMPORARILY_OFF_MARKET"
+
+    run, ads, reg = _run(tmp_path, change=change)
+    plain = drift_deals.deals(run, ads, reg).set_index("listing_id")
+    assert plain.attrs["ads_with_text"] is None
+    assert plain.cautions.to_dict() == {
+        "2": ["beds"],
+        "3": [],
+        "4": ["income"],
+        "6": ["off_market"],
+    }
+    texts = _texts(
+        tmp_path,
+        {
+            "2": "Sunny one bedroom. Income must be 40x the rent.",
+            "3": AFFORDABLE,
+            "4": "This is an income-restricted apartment.",
+            "6": OFFICE,
+            "99": AFFORDABLE,
+        },
+    )
+    t = drift_deals.deals(run, ads, reg, texts)
+    assert t.attrs["ads_with_text"] == 4
+    # The scores and the order are the same with and without the texts.
+    assert t.listing_id.tolist() == drift_deals.deals(run, ads, reg).listing_id.tolist()
+    assert t.set_index("listing_id").cautions.to_dict() == {
+        "2": ["beds"],
+        "3": ["income"],
+        "4": ["income"],
+        "6": ["not_home", "off_market"],
+    }
+    out = tmp_path / "site" / "deals"
+    meta = drift_deals.publish(run, out, reg, texts=texts)
+    assert meta["cautions"] == {
+        "ads": 4,
+        "by_code": {
+            "income": 2,
+            "not_home": 1,
+            "owners_only": 0,
+            "beds": 1,
+            "off_market": 1,
+        },
+        "ads_with_text": 4,
+    }
+    rows = {r["listing_id"]: r for r in json.loads((out / "deals.json").read_text())}
+    assert rows["6"]["cautions"] == ["not_home", "off_market"]
+    assert drift_deals.publish(run, out, reg)["cautions"]["ads_with_text"] is None
+    with pytest.raises(SystemExit, match="no text for any ad"):
+        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"98": AFFORDABLE}))
+
+
+def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypatch):
+    from rentfrontier import descriptions
+
+    run, ads, _ = _run(tmp_path)
+    asked = {}
+
+    def record_descriptions(records, wanted):
+        asked["wanted"] = wanted
+        return pd.DataFrame(
+            {"description": [AFFORDABLE, None], "record": ["last_active", "latest"]},
+            index=["2", "3"],
+        )
+
+    monkeypatch.setattr(descriptions, "record_descriptions", record_descriptions)
+    records = {"path": "records.parquet", "ads": {"sha256": sha256(ads)}}
+    table = drift_deals.texts(run, records)
+    assert asked["wanted"] == {"2", "3", "4", "6"}
+    assert table.columns.tolist() == ["listing_id", "description", "record"]
+    assert table.listing_id.tolist() == ["2", "3"]
+    with pytest.raises(SystemExit, match="another build"):
+        drift_deals.texts(run, records | {"ads": {"sha256": "0"}})

@@ -2,6 +2,8 @@
 
     python -m rentfrontier.drift_deals deals RUN --ads ADS.parquet --registry REGISTRY.parquet --out DIR
     python -m rentfrontier.drift_deals validate RUN --ads ADS.parquet --out FILE.json
+    python -m rentfrontier.drift_deals texts RUN --out TEXTS.parquet
+    python -m rentfrontier.drift_deals publish RUN --out DIR [--texts TEXTS.parquet] ...
 
 `deals` reads a run on the `market` split of a `rentfrontier.market` dataset. Its held-out
 rows are the ads on the market on the scoring day. For each one the table gives the ask, the
@@ -10,7 +12,11 @@ model's predictive median and intervals for the ad's final ask in dollars, and
   is lower than 95% of what the model expects for this apartment on that day;
 - `discount_pct`: how far the ask sits under the predictive median, in percent of the ask;
 - `unit_ads`: the unit's ads in the training rows. A unit with earlier ads carries its own
-  level, so its range is narrower than a new unit's.
+  level, so its range is narrower than a new unit's;
+- `cautions`: reasons the ask may be low that the model does not know, as the codes of
+  `rentfrontier.cautions`. They change no score. The ones read from an ad's text need
+  `--texts`, the table `texts` writes: each ad's own description from the pipeline's
+  records file, which must be the build the run's dataset was made from.
 The table is sorted by `below_share`. It is written as deals.parquet and deals.json.
 
 A low ask can mark a bargain or a flaw the ad does not state. `validate` measures which, on
@@ -34,6 +40,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import cautions as cautions_module
 from . import drift_score
 from . import run as run_module
 from .b0data import sha256
@@ -97,8 +104,63 @@ def _ads(ads: Path, listing_ids) -> pd.DataFrame:
     return a.set_index("listing_id").reindex(pd.Index(listing_ids).astype(str))
 
 
-def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFrame:
-    """One row per ad on the market, lowest `below_share` first."""
+def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
+    """Each held-out ad's own description (`descriptions.record_descriptions`) from the
+    checked records file `records`, by default the pipeline's newest clean build. A build
+    other than the one the run's dataset was made from is refused: its ads are not these."""
+    from . import api_records, descriptions
+
+    records = records or api_records.records_file()
+    market = _manifest(run_dir)
+    if records["ads"]["sha256"] != market["ads_sha256"]:
+        raise SystemExit(
+            f"the records file {records['path']} is of another build than the dataset of "
+            f"{run_dir.name} (its ads file is not {market['ads']})"
+        )
+    _, h, _ = _held_frame(run_dir)
+    table = descriptions.record_descriptions(records, set(h.listing_id.astype(str)))
+    return table.rename_axis("listing_id").reset_index()
+
+
+def _cautions(frame, h, held, unit_key, texts: Path | None) -> tuple[list, int | None]:
+    """Each held-out row's caution codes, and how many of the rows have a text (None
+    without `texts`)."""
+    known = frame.unit_id.notna().to_numpy()
+    counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
+    varied = (unit_key[held].map(counts).fillna(0) > 1).to_numpy() & known[held]
+    flagged = (
+        h.income_restricted.fillna(False).astype(bool).to_numpy()
+        if "income_restricted" in h
+        else np.zeros(len(h), bool)
+    )
+    off = (h.status.astype(str) == cautions_module.OFF_MARKET).to_numpy()
+    described, with_text = [None] * len(h), None
+    if texts is not None:
+        t = pd.read_parquet(texts, columns=["listing_id", "description"])
+        t = t.assign(listing_id=t.listing_id.astype(str)).drop_duplicates("listing_id")
+        described = (
+            t.set_index("listing_id").description.reindex(h.listing_id.astype(str))
+        ).tolist()
+        with_text = sum(isinstance(d, str) and bool(d.strip()) for d in described)
+        if not with_text:
+            raise SystemExit(f"{texts} has no text for any ad of the run")
+    out = []
+    for text, income, beds, away in zip(described, flagged, varied, off):
+        codes = cautions_module.from_text(text)
+        codes += ["income"] * bool(income) + ["beds"] * bool(beds)
+        codes += ["off_market"] * bool(away)
+        out.append(cautions_module.ordered(codes))
+    return out, with_text
+
+
+def deals(
+    run_dir: Path,
+    ads: Path,
+    registry: Path | None = None,
+    texts: Path | None = None,
+) -> pd.DataFrame:
+    """One row per ad on the market, lowest `below_share` first. The frame's
+    `attrs["ads_with_text"]` is how many of the ads `texts` has a description for."""
     frame, h, held = _held_frame(run_dir)
     res = drift_score.score_run(run_dir)
     a = _ads(ads, h.listing_id)
@@ -108,6 +170,7 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
+    codes, with_text = _cautions(frame, h, held, unit_key, texts)
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -142,6 +205,7 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
             .astype(int)
             .to_numpy(),
             "unit_sd": res["unit_sd"].round(4),
+            "cautions": codes,
         }
     )
     if registry is not None:
@@ -154,7 +218,9 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
         out["address"] = [title_address(v) for v in reg.label]
         out["latitude"] = reg.latitude.to_numpy(float).round(5)
         out["longitude"] = reg.longitude.to_numpy(float).round(5)
-    return out.sort_values("below_share", kind="stable").reset_index(drop=True)
+    out = out.sort_values("below_share", kind="stable").reset_index(drop=True)
+    out.attrs["ads_with_text"] = with_text
+    return out
 
 
 def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
@@ -255,11 +321,14 @@ def publish(
     registry: Path | None = None,
     backtest: Path | None = None,
     heldout: Path | None = None,
+    texts: Path | None = None,
 ) -> dict:
     """Write the site's Deals folder `out` from the market run at `run_dir`: `deals.json`,
     `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
     held-out split whose `pred_scores.npz` (`rentfrontier.drift_score`) gives the model's
     scores on ads it never saw. Each ads table comes from its run's dataset manifest.
+    `texts` is the table the `texts` command wrote for this run; without it the rows carry
+    only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
     The three runs must be fits of one model, the market run on a market dataset and the
     backtest run on a backtest dataset. The market run must have passed the convergence
@@ -277,13 +346,21 @@ def publish(
             f"{gate['market']['max_rhat']}, min ESS {gate['market']['min_ess']}); "
             "the Deals page is published only from a fit that did"
         )
-    table = deals(run_dir, Path(market["ads"]), registry)
+    table = deals(run_dir, Path(market["ads"]), registry, texts)
+    listed = table.cautions.explode().dropna()
     meta = {
         "model": model,
         "run": run_dir.name,
         "gate": gate,
         "scoring_day": market["scoring_day"],
         "ads": int(len(table)),
+        "cautions": {
+            "ads": int(table.cautions.map(bool).sum()),
+            "by_code": {
+                code: int((listed == code).sum()) for code in cautions_module.CODES
+            },
+            "ads_with_text": table.attrs["ads_with_text"],
+        },
         "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if heldout is not None:
@@ -319,7 +396,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("command", choices=("deals", "validate", "publish"))
+    p.add_argument("command", choices=("deals", "validate", "publish", "texts"))
     p.add_argument("run")
     p.add_argument("--ads", type=Path, help="the ads table (deals and validate)")
     p.add_argument("--registry", type=Path)
@@ -327,8 +404,16 @@ def main(argv=None):
     p.add_argument("--runs", default=str(run_module.RUNS))
     p.add_argument("--backtest", help="publish: the backtest run")
     p.add_argument("--heldout", help="publish: a scored run on a held-out split")
+    p.add_argument(
+        "--texts", type=Path, help="deals and publish: the ads' descriptions"
+    )
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
+    if args.command == "texts":
+        table = texts(run_dir)
+        table.to_parquet(args.out, index=False)
+        print(f"wrote {len(table)} ads, {table.description.notna().sum()} with a text")
+        return
     if args.command == "publish":
         meta = publish(
             run_dir,
@@ -336,6 +421,7 @@ def main(argv=None):
             args.registry,
             Path(args.runs) / args.backtest if args.backtest else None,
             Path(args.runs) / args.heldout if args.heldout else None,
+            args.texts,
         )
         print(json.dumps(meta, indent=2))
         return
@@ -346,7 +432,7 @@ def main(argv=None):
         args.out.write_text(json.dumps(out, indent=2))
         print(json.dumps(out, indent=2))
         return
-    table = deals(run_dir, args.ads, args.registry)
+    table = deals(run_dir, args.ads, args.registry, args.texts)
     args.out.mkdir(parents=True, exist_ok=True)
     table.to_parquet(args.out / "deals.parquet", index=False)
     table.to_json(args.out / "deals.json", orient="records")

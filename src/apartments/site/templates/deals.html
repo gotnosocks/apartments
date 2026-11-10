@@ -30,6 +30,9 @@ the ask is below 95% of the asks the model would expect for this apartment.</p>
     <label class="check"><input type="checkbox" name="known" value="1"{% if choice.known %} checked{% endif %}> Only apartments with earlier ads</label>
   </div>
   <div class="field">
+    <label class="check"><input type="checkbox" name="all" value="1"{% if choice.cautioned %} checked{% endif %}> Include ads with a caution</label>
+  </div>
+  <div class="field">
     <label for="d-sort">Order by</label>
     <select id="d-sort" name="sort">
       {% for key, words in sorts.items() %}<option value="{{ key }}"{% if choice.sort == key %} selected{% endif %}>{{ words }}</option>{% endfor %}
@@ -41,10 +44,13 @@ the ask is below 95% of the asks the model would expect for this apartment.</p>
 <p class="note">A low ask is a lead, not a verdict. The model describes asking rents and cannot see an apartment's condition, a
 broker fee, a short lease or a mistake in the ad. The range is tighter for an apartment with recent ads of its own, so the same
 gap counts for more there. Free months are part of what the model knows about an ad: the range is for an ad with the same
-concession.</p>
+concession. Some low asks have a plain reason the model does not know: the ad says the apartment is income-restricted, it reads
+like an office, the apartment has been listed with another bedroom count, or the ad is off the market for now. Those ads carry
+a caution and are left out of the list unless you include them.</p>
 
 <div class="results-head">
-  <p><strong>{{ total }}</strong> of {{ current }} ad{{ "" if current == 1 else "s" }} on the market{% if total > rows | length %}, the first {{ rows | length }} shown{% endif %}.</p>
+  <p><strong>{{ "{:,}".format(total) }}</strong> of {{ "{:,}".format(current) }} ad{{ "" if current == 1 else "s" }} on the market{% if total > rows | length %}, the first {{ rows | length }} shown{% endif %}.{% if left_out %}
+  {{ "{:,}".format(left_out) }} more {{ "is" if left_out == 1 else "are" }} left out for a caution. <a href="{{ show_all }}">Include {{ "it" if left_out == 1 else "them" }}</a>.{% endif %}</p>
 </div>
 <div class="table-wrap">
 <table class="data deals">
@@ -60,7 +66,8 @@ concession.</p>
     <tr>
       <td class="num c-rank">{{ loop.index }}</td>
       <td class="c-listing">{% if r.url %}<a href="{{ r.url }}" rel="noopener noreferrer" target="_blank">{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %} ↗<span class="visually-hidden"> on StreetEasy</span></a>{% else %}{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %}{% endif %}
-        <span class="feat">{{ beds_label(r.bedrooms) }}{% if r.neighbourhood %} · {{ r.hood_label }}{% endif %}{% if r.months_free %} · {{ "{:g}".format(r.months_free) }} month{{ "" if r.months_free == 1 else "s" }} free{% endif %}{% if r.status == "TEMPORARILY_OFF_MARKET" %} · temporarily off the market{% endif %}</span></td>
+        <span class="feat">{{ beds_label(r.bedrooms) }}{% if r.neighbourhood %} · {{ r.hood_label }}{% endif %}{% if r.months_free %} · {{ "{:g}".format(r.months_free) }} month{{ "" if r.months_free == 1 else "s" }} free{% endif %}</span>
+        {% if r.cautions %}<span class="feat caution">Check first: {{ r.cautions | join("; ") }}.</span>{% endif %}</td>
       <td class="num" data-label="Ask">{{ usd(r.ask) }}</td>
       <td class="num nowrap" data-label="Model's middle">{{ usd(r.model_median) }} <span class="muted">(ask {{ pct(-r.gap_pct) }})</span></td>
       <td class="num nowrap" data-label="Likely range">{{ usd(r.model_lo80) }} to {{ usd(r.model_hi80) }}</td>

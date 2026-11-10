@@ -12,6 +12,10 @@ backtest only when it was published with the table beside it.
 `below_share` is the share of the model's predictive distribution for the apartment that lies
 below the ask. The page shows its complement as "lower than": an ask lower than 95% of what the
 model expects for this apartment, on this date, is a candidate deal.
+
+A row's `cautions` are reasons its ask may be low that the model does not know
+(`rentfrontier.cautions` writes the codes). The page leaves cautioned ads out of the list
+unless asked for them, says how many it left out, and names each ad's cautions when shown.
 """
 
 from __future__ import annotations
@@ -31,6 +35,15 @@ SORTS = {
 SHOWN = 200
 FILES = ("deals.json", "meta.json", "validation.json")
 LISTING = "https://streeteasy.com/rental/"
+# A caution's code as the page words it. A code the page does not know is not shown.
+CAUTIONS = {
+    "income": "the ad says it is income-restricted or in an affordable-housing program",
+    "not_home": "the ad reads like an office, not a home",
+    "owners_only": "open only to the building's owners",
+    "beds": "listed before with a different bedroom count",
+    "off_market": "temporarily off the market",
+}
+OFF_MARKET = "TEMPORARILY_OFF_MARKET"
 # What a table writes for a missing name.
 NO_NAME = {"", "nan", "none", "<na>", "null"}
 
@@ -103,6 +116,16 @@ def _backtest(validation: dict) -> dict:
     return validation | {"by_first_ask_place": rows}
 
 
+def caution_words(row) -> list[str]:
+    """The row's cautions in the page's words. A table from before the cautions still
+    says when an ad is off the market, from its status."""
+    codes = row.get("cautions")
+    codes = [c for c in codes if isinstance(c, str)] if isinstance(codes, list) else []
+    if row.get("status") == OFF_MARKET and "off_market" not in codes:
+        codes.append("off_market")
+    return [CAUTIONS[c] for c in dict.fromkeys(codes) if c in CAUTIONS]
+
+
 def load_rows(rows) -> list[dict]:
     """The table's rows with the page's numbers. Rows without an ask, a score or a middle
     estimate are dropped."""
@@ -131,6 +154,7 @@ def load_rows(rows) -> list[dict]:
                 "unit_ads": int(_number(r.get("unit_ads")) or 0),
                 "months_free": _number(r.get("months_free")) or 0.0,
                 "hood_label": hood_label(_name(r.get("neighbourhood"))),
+                "cautions": caution_words(r),
             }
         )
     return out
@@ -179,13 +203,23 @@ def choice(args) -> dict:
         "max_rent": max_rent if max_rent and max_rent > 0 else None,
         "hood": args.get("hood") or None,
         "known": args.get("known") == "1",
+        "cautioned": args.get("all") == "1",
         "sort": sort if sort in SORTS else "score",
     }
 
 
-def choose(rows, beds=None, max_rent=None, hood=None, known=False, sort="score"):
-    """The rows the filters keep, in the chosen order. `beds` 3 means three or more, and
-    `known` keeps the apartments with at least one earlier ad in the model's data."""
+def choose(
+    rows,
+    beds=None,
+    max_rent=None,
+    hood=None,
+    known=False,
+    cautioned=False,
+    sort="score",
+):
+    """The rows the filters keep, in the chosen order. `beds` 3 means three or more,
+    `known` keeps the apartments with at least one earlier ad in the model's data, and
+    ads with a caution are left out unless `cautioned`."""
     out = []
     for r in rows:
         b = r["bedrooms"]
@@ -196,6 +230,8 @@ def choose(rows, beds=None, max_rent=None, hood=None, known=False, sort="score")
         if hood is not None and r.get("neighbourhood") != hood:
             continue
         if known and r["unit_ads"] < 1:
+            continue
+        if not cautioned and r["cautions"]:
             continue
         out.append(r)
     if sort == "discount":
