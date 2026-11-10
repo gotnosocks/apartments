@@ -101,13 +101,11 @@ def no_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
 
 
 def market_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
-    """Boolean held-out mask for the ads on the market now: the rows whose `status`
-    (`rentfrontier.market` adds the column) says the latest ask is not final."""
-    from .market import OPEN
-
-    if "status" not in data:
+    """Boolean held-out mask for the ads on the market on the dataset's scoring day: the rows
+    that `rentfrontier.market` marks `open`."""
+    if "open" not in data:
         raise ValueError("the market split needs a dataset from rentfrontier.market")
-    return data.status.isin(OPEN).to_numpy()
+    return data.open.to_numpy(bool)
 
 
 SPLITS = {

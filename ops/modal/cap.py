@@ -139,6 +139,9 @@ STATED_RATE["building-zones-kitchen-sink-150m"] = 0.9
 # Fit 4's unit effects took its sweep from fit 8's 0.78 s to 0.86 s for four chains. The kitchen
 # sink swept at 1.34 s, so with the unit effects 0.75 s a pair of chains leaves some room.
 STATED_RATE["building-zones-kitchen-sink-unit"] = 0.75
+# The drift model's sweep adds each unit's precision matrix and the pairs' products to the
+# kitchen sink's. 1.25 s a pair of chains is a ceiling until its first Modal fit is measured.
+STATED_RATE["drift"] = 1.25
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
 # columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
@@ -241,6 +244,7 @@ BASELINES = (
     "building-zones-kitchen-sink",
     "building-zones-kitchen-sink-150m",
     "building-zones-kitchen-sink-unit",
+    "drift",
 )
 
 

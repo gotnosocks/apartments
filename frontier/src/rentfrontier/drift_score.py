@@ -45,9 +45,12 @@ def _hermite(nodes: int):
     return x, w / w.sum()
 
 
-def score_rows(loc, usd, sigma, nu, y, seed=0, nodes=NODES, samples=SAMPLES) -> dict:
+def score_rows(
+    loc, usd, sigma, nu, y, seed=0, nodes=NODES, samples=SAMPLES, at=None
+) -> dict:
     """Scores for a block of rows: `loc` and `usd` (draws, rows), `sigma` (draws, rows) the
-    noise scale of each row's group, `nu` (draws,), `y` (rows,)."""
+    noise scale of each row's group, `nu` (draws,), `y` (rows,). With `at` (rows,), also
+    `cdf_at`, the predictive probability of a log rent below `at`."""
     x, w = _hermite(nodes)
     loc, usd, sigma = (np.asarray(v, float) for v in (loc, usd, sigma))
     nu_ = np.asarray(nu, float)[:, None, None]
@@ -70,17 +73,24 @@ def score_rows(loc, usd, sigma, nu, y, seed=0, nodes=NODES, samples=SAMPLES) -> 
         + sigma * rng.standard_t(np.broadcast_to(nu_[:, :, 0], loc.shape), size=shape)
     ).reshape(-1, loc.shape[1])
     q = np.quantile(rep, Q, axis=0).T
-    return dict(
+    out = dict(
         elpd=elpd,
         cdf=cdf,
         q=q.astype(np.float32),
         pred=np.median(rep, axis=0),
         unit_sd=usd.mean(axis=0),
     )
+    if at is not None:
+        za = (at[None, :, None] - loc[:, :, None] - usd[:, :, None] * x) / sigma[
+            :, :, None
+        ]
+        out["cdf_at"] = (stats.t.cdf(za, nu_) * w).sum(axis=2).mean(axis=0)
+    return out
 
 
-def score_run(run_dir: Path, seed: int = 0) -> dict:
-    """Scores for every row the run at `run_dir` predicted."""
+def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
+    """Scores for every row the run at `run_dir` predicted. `at` (rows,) asks for `cdf_at`,
+    the predictive probability of a log rent below each row's value."""
     z = np.load(run_dir / "posterior.npz")
     if "kept/pred_loc" not in z:
         raise SystemExit(f"{run_dir} predicted no rows")
@@ -93,10 +103,19 @@ def score_run(run_dir: Path, seed: int = 0) -> dict:
     )
     y, group = z["kept/pred_y"], z["kept/pred_group"]
     out = {k: [] for k in ("elpd", "cdf", "q", "pred", "unit_sd")}
+    if at is not None:
+        out["cdf_at"] = []
+        at = np.asarray(at, float)
     for a in range(0, len(y), CHUNK):
         sl = slice(a, a + CHUNK)
         part = score_rows(
-            loc[:, sl], usd[:, sl], sig[:, group[sl]], nu, y[sl], seed + a
+            loc[:, sl],
+            usd[:, sl],
+            sig[:, group[sl]],
+            nu,
+            y[sl],
+            seed + a,
+            at=None if at is None else at[sl],
         )
         for k, v in part.items():
             out[k].append(v)

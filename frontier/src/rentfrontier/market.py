@@ -1,16 +1,30 @@
-"""The dataset of a fit that scores the ads on the market now.
+"""The dataset of a fit that scores the ads on the market on a given day.
 
-    python -m rentfrontier.market SRC OUT --ads ADS.parquet [--input MODULE.NAME=PATH]...
+    python -m rentfrontier.market SRC OUT --ads ADS.parquet [--as-of DAY] [--input MODULE.NAME=PATH]...
 
 SRC is a dataset directory (`rentfrontier.b0nyc` writes the NYC one). OUT gets its rows with
-four columns from the pipeline's ads parquet, joined on `listing_id`:
+columns from the pipeline's ads parquet, joined on `listing_id`:
 - `status`: the ad's latest status (ACTIVE, RENTED, ...);
 - `first_day` and `first_ask`: the day the ad was first listed and its first ask;
-- `off_day`: the day it left the market, missing for an ad still on it.
+- `off_day`: the day it left the market, missing for an ad still on it;
+and with
+- `open`: whether the ad is on the market on the scoring day;
+- `final_day`: the row's own `latest_day`, before the change below.
 
-The `market` split (`rentfrontier.splits.market_split`) holds out the rows whose status is in
-OPEN. Their latest ask is not a final ask yet, so the fit trains on the closed ads and
-predicts the open ones (`rentfrontier.drift` keeps the predictions).
+Without `--as-of` the scoring day is the newest `latest_day` in SRC, and the open ads are those
+whose status is in OPEN. Their latest ask is not a final ask yet.
+
+With `--as-of DAY` the dataset is a backtest of that day. An ad first listed on or before DAY
+that left the market after it is open, and its row keeps its final ask, so a fit can be scored
+on asks it has not seen. An ad first listed after DAY, or still on the market now, is set
+aside (`set_aside.parquet`), because the first was not there to see and the second has no
+final ask.
+
+An open row's `latest_day` and `price_at` are moved to the scoring day. The model then
+predicts the ad's final ask at the market's level on that day, and the as-of features read
+every training ad as earlier. The `market` split (`rentfrontier.splits.market_split`) holds
+out the open rows, so a fit trains on the closed ads and predicts the open ones
+(`rentfrontier.drift` keeps the predictions).
 
 OUT also gets `inputs.json`, written from the `--input` options. The feature modules read
 their snapshots (the rows parquet, the listing codes, the building registry, ...) from paths
@@ -38,7 +52,13 @@ COLUMNS = ("status", "first_day", "first_ask", "off_day")
 INPUTS = "inputs.json"
 
 
-def with_status(src: Path, out: Path, ads: Path, inputs: dict | None = None) -> dict:
+def with_status(
+    src: Path,
+    out: Path,
+    ads: Path,
+    inputs: dict | None = None,
+    as_of: str | None = None,
+) -> dict:
     frame = pd.read_parquet(src / "rows.parquet")
     manifest = json.loads((src / "manifest.json").read_text())
     a = pd.read_parquet(ads, columns=["listing_id", *COLUMNS])
@@ -46,18 +66,46 @@ def with_status(src: Path, out: Path, ads: Path, inputs: dict | None = None) -> 
     a = a.set_index("listing_id").reindex(frame.listing_id.astype(str))
     for c in COLUMNS:
         frame[c] = a[c].to_numpy()
+    last = pd.to_datetime(frame.latest_day)
+    still = frame.status.isin(OPEN).to_numpy()
+    if as_of is None:
+        day = last.max()
+        is_open = still
+        keep = pd.Series(True, index=frame.index).to_numpy()
+    else:
+        day = pd.Timestamp(as_of)
+        first = pd.to_datetime(frame.first_day).fillna(
+            pd.to_datetime(frame.price_at).dt.tz_localize(None)
+        )
+        end = pd.to_datetime(frame.off_day).fillna(last)
+        keep = (first <= day).to_numpy() & ~still
+        is_open = keep & (end > day).to_numpy()
+    frame["open"] = is_open
+    frame["final_day"] = frame.latest_day
+    # Move the open rows to the scoring day, in each column's own type.
+    frame["latest_day"] = last.where(~is_open, day).astype(last.dtype).dt.date
+    at = pd.to_datetime(frame.price_at)
+    stamp = day.tz_localize(at.dt.tz) if at.dt.tz is not None else day
+    frame["price_at"] = at.where(~is_open, stamp).astype(at.dtype)
     out.mkdir(parents=True, exist_ok=False)
-    frame.to_parquet(out / "rows.parquet", index=False)
+    kept = frame[keep]
+    kept.to_parquet(out / "rows.parquet", index=False)
+    if not keep.all():
+        frame[~keep].to_parquet(out / "set_aside.parquet", index=False)
     (out / INPUTS).write_text(json.dumps(inputs or {}, indent=2))
     manifest |= {
+        "rows": int(keep.sum()),
         "rows_sha256": sha256(out / "rows.parquet"),
         "market": {
             "source": str(src),
             "source_rows_sha256": manifest["rows_sha256"],
             "ads": str(ads),
             "ads_sha256": sha256(ads),
-            "status": frame.status.fillna("missing").value_counts().to_dict(),
-            "open": int(frame.status.isin(OPEN).sum()),
+            "scoring_day": str(day.date()),
+            "backtest": as_of is not None,
+            "status": kept.status.fillna("missing").value_counts().to_dict(),
+            "open": int(kept.open.sum()),
+            "set_aside": int((~keep).sum()),
             "inputs": inputs or {},
         },
     }
@@ -90,14 +138,12 @@ def main(argv=None):
     p.add_argument("src", type=Path)
     p.add_argument("out", type=Path)
     p.add_argument("--ads", type=Path, required=True)
+    p.add_argument("--as-of", help="a backtest's scoring day, YYYY-MM-DD")
     p.add_argument("--input", action="append", default=[], metavar="MODULE.NAME=PATH")
     args = p.parse_args(argv)
     inputs = dict(item.split("=", 1) for item in args.input)
-    print(
-        json.dumps(
-            with_status(args.src, args.out, args.ads, inputs)["market"], indent=2
-        )
-    )
+    m = with_status(args.src, args.out, args.ads, inputs, args.as_of)
+    print(json.dumps(m["market"], indent=2))
 
 
 if __name__ == "__main__":
