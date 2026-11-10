@@ -30,7 +30,7 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
 - [ ] A new market snapshot and refit. The Deals list is the market of 2026-11-09, scraped
   once on 2026-11-10, and goes stale as ads close. The three fits of the served model
   (`drift-building --level-dof 4`: latest split, market, backtest; three containers of
-  two chains each, pooled) cost $33.02 on 2026-11-10 and took about 55 minutes. Launch
+  two chains each, pooled) cost $33.02 on 2026-11-10, each container running 50 to 52 minutes. Launch
   the first container of a new commit alone, then the rest.
 - [ ] Rewrite the text flags the model reads (`features.DESCRIPTION_FLAGS`, copied in
   `b0data.TEXT_FLAGS`). `income_restricted` missed 33 of the 55 income-restricted ads on the
