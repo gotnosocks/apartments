@@ -1,5 +1,30 @@
 # Working in this repo from a project thread
 
+## What the project is for
+
+The aim, set by Ben on 2026-11-10: a superb descriptive model of NYC asking rents that helps
+find good deals. A model earns its place by predicting held-out asks with honest uncertainty,
+not by having tidy coefficients. Start with `README.md`, then `docs/model/drift.md` (the
+current model) and `docs/research-record.md` (everything tried so far, so nothing is tried
+twice by accident). `docs/handoff/project-owner.md` says where the last session stopped.
+
+Rules for model work, all in force:
+
+- Write a fit's predictions into its note under `docs/notes/` and commit them before the fit
+  is launched. Score them in the same note afterwards.
+- One change per fit, compared on the same held-out ads (the latest split) by elpd, the
+  median's error and interval coverage (`python -m rentfrontier.drift_score RUN`).
+- The convergence gate is split R-hat at most 1.01 and bulk ESS above 400 on every scalar
+  and coefficient. A fit that misses it is not rerun on another seed: look at the data, then
+  the model, then the sampler.
+- A row's rent reaches a fit only as its target (`docs/leak-free-scoring.md`).
+- Full fits run on Modal through `ops/modal-fit` (`docs/model/modal.md`), within the budget
+  Ben has approved. Do not launch queued or stale jobs left by earlier work.
+- The Deals page shows what `python -m rentfrontier.drift_deals publish` last wrote. Publish
+  only from a fit that passed the gate, with its backtest.
+
+The rest of this file is about running a team of threads on thelio.
+
 Ben runs the project as a team of Claude threads (Modeling, Data improvements, Data collection,
 Website), each with a Remote Control session on thelio. The goal is continuous improvement with
 no idle hours, so these rules are about never going quiet. They apply to the top-level session of

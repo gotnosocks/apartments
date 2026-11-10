@@ -543,6 +543,35 @@ def test_a_model_slower_than_the_default_rate_is_estimated_at_its_own(tmp_path):
     assert cap.measured_rate("m7-new", "nb8-v1", tmp_path) is None
 
 
+def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
+    # A drift fit stops its sweeps at a budget, so a long request stays under the hour.
+    budget = cap.SWEEP_BUDGET_SECONDS["drift"]
+    for model in ("drift", "drift-building", "drift-local"):
+        _, secs = cap.fit_estimate(
+            model, "b0", 4, 500, 6000, "H100", runs=tmp_path, scoring=False
+        )
+        assert secs == 800 + budget + 240
+        assert cap.over_cap(None, secs) is None
+    # A short one is estimated from its sweeps, as before.
+    _, short = cap.fit_estimate(
+        "drift", "b0", 4, 200, 300, "A100-40GB", runs=tmp_path, scoring=False
+    )
+    assert short == round(800 + 0.42 * 500 * 2 + 240)
+    # A model with no budget is not capped.
+    _, long = cap.fit_estimate(
+        "building-zones-kitchen-sink", "b0", 4, 500, 6000, "H100", runs=tmp_path
+    )
+    assert long > 3600
+    # A fit stopped at its budget is rated by the sweeps it ran, not the draws asked for.
+    run = _modal_run(tmp_path, "drift", "b0", 2700)
+    result = json.loads((run / "result.json").read_text())
+    (run / "result.json").write_text(json.dumps(result | {"gibbs": {"sweeps": 3000}}))
+    assert cap.measured_rate("drift", "b0", tmp_path) == pytest.approx(2700 / 3000)
+    # The budget is the one the fit loop reads.
+    source = (OPS.parents[1] / "frontier/src/rentfrontier/drift.py").read_text()
+    assert f"budget_seconds: float | None = {budget}.0" in source
+
+
 def test_a_blackjax_model_is_estimated_from_its_time_a_gradient(tmp_path):
     run = _modal_run(tmp_path, "b0.1", "b0", 456, name="latest-97cd9e3c-offmarket")
     meta = {"fit_exit": 0, "wall_seconds": 1741, "stages": {"fit": 456, "loo": 1216}}

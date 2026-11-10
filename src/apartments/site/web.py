@@ -47,6 +47,7 @@ from . import (
     best,
     boroughs,
     charts,
+    deals,
     detail,
     estimate,
     estimate_build,
@@ -73,6 +74,8 @@ from .research import (
     best_over_time,
     board_rows,
     compute_by_line,
+    default_hardware,
+    descriptive_share,
     designs,
     elegance_pairs,
     elegance_standings,
@@ -81,8 +84,6 @@ from .research import (
     entry_for_run,
     frontier_view,
     full_fits_of,
-    default_hardware,
-    descriptive_share,
     hardware_classes,
     implementations,
     judgements,
@@ -668,6 +669,7 @@ SECTIONS = {
         "quarantined",
         "observed_listings",
         "best_listings",
+        "deals_page",
         "about",
         "estimates_map",
         "estimate_apartment",
@@ -1378,6 +1380,26 @@ def create_app(
             sorts=best.SORTS,
             label=best.label,
             csv_url=url_for("best_csv") + ("?" + _query(query) if query else ""),
+        )
+
+    @app.get("/deals")
+    def deals_page():
+        data = deals.load(root)
+        if data is None:
+            abort(503, description="No deals table has been published yet.")
+        choice = deals.choice(request.args)
+        rows = deals.choose(data["rows"], **choice)
+        return render_template(
+            "deals.html",
+            meta=meta(),
+            info=data["meta"],
+            validation=data["validation"],
+            hoods=data["hoods"],
+            rows=rows[: deals.SHOWN],
+            total=len(rows),
+            current=len(data["rows"]),
+            choice=choice,
+            sorts=deals.SORTS,
         )
 
     @app.get("/best.csv")
