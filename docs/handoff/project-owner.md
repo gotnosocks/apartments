@@ -5,47 +5,55 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 02:20Z
+## State at 2026-11-10 05:20Z
 
-- **Branch and PR.** `claude/project-thread-09vaqy`, PR #1281. Head `1becc8c`. The PR now
-  holds the model, the Deals page and the docs, because this thread may push one branch only.
+- **Branch and PR.** `claude/project-thread-09vaqy`, PR #1281, head `1552f44` plus notes. The
+  PR holds the model, the Deals page and the docs, because this thread may push one branch
+  only.
 - **Data.** A one-off scrape on 2026-11-10 brought the listings to 2026-11-09 (pipeline build
-  `ddd2fe8f5da041b8`). `ops/market-dataset ddd2fe8f5da041b8` built, on thelio,
-  `frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market` (1,900,276 ads, 6,774 on
-  the market) and `...-asof-20251110` (the backtest: 1,763,952 ads, 9,346 on the market that
-  day), each with an `inputs.json` that points the feature snapshots at the new build.
+  `ddd2fe8f5da041b8`). On thelio: `frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market`
+  (6,774 ads on the market) and `...-asof-20251110` (the backtest, 9,346 on the market that
+  day). The latest split is on `b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc`.
 - **Model code.** `rentfrontier.drift` (unit level plus drift), `drift_building` (plus a
-  monthly process per building) and `drift_local` (plus a quarterly one per neighbourhood).
-  Scoring is `drift_score`; the deals table, its backtest check and the site's files are
-  `drift_deals` (`deals`, `validate`, `publish`).
-- **Fits.** A 16-draw pilot of `drift` scored elpd 193,385 on the latest split (fit 4:
-  177,137). Round one (F2, B1, L1, F4, F5 from `00aa62e`, launched 01:55Z) is running. The
-  second review found that the capped stepping out of `b0.slice_vec` narrows scale draws, and
-  that rows with no neighbourhood read the wrong path; `ad2f827` fixes both. Round two (the
-  same five plus `drift-local` on the market and backtest datasets, from `1becc8c`) is the
-  record; round one stays as the check on how much the fix matters. Predictions for both
-  rounds are in `docs/notes/drift-2026-11-10.md`.
-- **Review.** Two passes on the model code, findings fixed through `ad2f827`. A third pass on
-  the fixes and a separate review of the Deals page and docs are running.
+  quarterly AR(1) path per building, integrated out of the scale draws) and `drift_local`
+  (plus a path per neighbourhood, not refit after round two: it added 952 elpd). Scoring is
+  `drift_score`; the deals table, its backtest check and the site's files are `drift_deals`.
+- **Fits.** No fit has passed the gate yet. Held-out elpd on the 189,647 ads: kitchen sink
+  156,105, `drift` 195,315, `drift-building` 233,273 (monthly, round two) and 230,683
+  (quarterly, pilot). Rounds one to four each missed the gate on a scale drawn given a
+  latent that pinned it. Round five (`1552f44`) draws every unit and noise scale with the
+  unit levels, building levels and building paths integrated out; its pilots `p5d` and
+  `p5b` were launched at 05:08Z. `docs/notes/drift-2026-11-10.md` has every round's
+  predictions and results.
+- **Limits on a fit.** `ops/modal/cap.py` refuses a launch estimated over an hour, and the
+  container is killed at 75 minutes. The design build takes about 10 minutes and the compile
+  4 to 5, so sampling has about 45.
+- **Review.** The model reviewer approved through `1552f44`. The Deals page and docs were
+  approved at `c290f9d`; the explainer's `pagedata.py` and the rewrite of
+  `docs/model/drift.md` since then still need a docs pass.
 - **Site.** `src/apartments/site/deals.py`, `templates/deals.html`, route `/deals`. It reads
   `<site root>/deals/{deals,meta,validation}.json`, which `drift_deals publish` writes.
-- **Presentation.** Source in `docs/notes/drift-2026-11-10/artifact/` (`page.html`,
-  `build.py`). It needs one data file; the thelio worker's `extract.py` (Task X) produces the
-  raw numbers from the scored runs.
-- **Modal spend.** $0.94 settled, about $26 committed with both rounds, of $100.
+  Nothing is published yet, because no fit has passed the gate.
+- **Presentation.** `docs/notes/drift-2026-11-10/artifact/`: `pagedata.py` turns the output
+  of `artifact-data/extract.py` into the page's data, and `build.py` writes the page. Tested
+  end to end on a round-two extract (`artifact-data/smoke-round2.json`, to delete before
+  merge).
+- **Modal spend.** $22.97 settled, about $27 with the two pilots, of $100.
 
 ## Next, in order
 
-1. When the fits land: score the note's predictions, pick the winner (highest held-out elpd
-   among the fits that pass the gate), write the results into the note, `docs/model/drift.md`
-   and `README.md` (each has a `RESULTS-PLACEHOLDER` line), and add the 2026-11-10 section to
-   `docs/research-record.md`.
-2. `drift_deals publish` from the winner's market run, with its backtest and held-out runs.
-3. Build the explainer from the Task X numbers, publish it as an Artifact, and commit the
-   built page as `docs/model/drift-explainer.html`.
-4. Merge PR #1281 after the reviewers approve (squash, tag `archive/pr-1281`), deploy the
+1. From the pilots' sweep times, size the full round five fits to end inside the hour and
+   launch `drift` and `drift-building` on the latest split, the market dataset and the
+   backtest dataset. Score round five's predictions in the note.
+2. Pick the winner (highest held-out elpd among the fits that pass the gate), write the
+   results into the note, `docs/model/drift.md` and `README.md` (each has a
+   `RESULTS-PLACEHOLDER` line), and add the 2026-11-10 section to `docs/research-record.md`.
+3. `drift_deals publish` from the winner's market run, with its backtest and held-out runs.
+4. Build the explainer, publish it as an Artifact, and commit the built page as
+   `docs/model/drift-explainer.html`.
+5. Merge PR #1281 after the reviewers approve (squash, tag `archive/pr-1281`), deploy the
    site with `ops/site-deploy.sh`, and check `/deals`.
-5. Final summary to Ben: links, Modal spend, what remains.
+6. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
 
 ## Things a newcomer would trip on
 

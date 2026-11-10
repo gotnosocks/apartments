@@ -22,7 +22,7 @@ mean_i = x_i beta                 columns
        + L(t_i)                   citywide time
        + eta_building(i)          building level
        + u_i                      unit level
-       + a_building(i)(month_i)   building drift      (drift-building, drift-local)
+       + a_building(i)(quarter_i) building drift      (drift-building, drift-local)
        + a_nbhd(i)(quarter_i)     neighbourhood drift (drift-local)
 ```
 
@@ -32,13 +32,14 @@ mean_i = x_i beta                 columns
 | `L(t)` | A weekly random walk plus season | one level a week since 2015 |
 | `eta_s` | `Normal(F(s), b_zone)`, with `F` a smooth surface at 1 km resolution in each zone (Manhattan, the outer boroughs) | 68,000 buildings |
 | `u_i = s_k + d_k(t_i)` | `s_k ~ Normal(0, ss^2)`, the unit's lasting level. `d_k` is an Ornstein-Uhlenbeck process: `Var d_k(t) = sd^2`, `Corr(d_k(t), d_k(t')) = exp(-abs(t - t') / tau)`, with `t` in years | 935,000 units |
-| `a_g(m)` | A stationary AR(1) per group: `a_g(m) = rho a_g(m-1) + Normal(0, s^2 (1 - rho^2))`. Monthly for buildings, quarterly for neighbourhoods. `s ~ HalfNormal(0.1)`, `rho ~ Uniform(0, 1)` | one path per building, one per neighbourhood |
+| `a_g(m)` | A stationary AR(1) per group: `a_g(m) = rho a_g(m-1) + Normal(0, s^2 (1 - rho^2))`. One step a quarter. `s ~ HalfNormal(0.1)`, `rho ~ Uniform(0, 1)` | one path per building, one per neighbourhood |
 | Noise | Student-t, with `sigma` per bedroom group and one `nu` | |
 
 A unit is a pair of building and `unit_id`. A row with no `unit_id` is a unit of its own.
 
 The first three terms are the kitchen sink model of 2026-10-24
-(`building_zones_kitchen_sink.py`), unchanged. The unit term and the two drift terms are new.
+(`building_zones_kitchen_sink.py`), less two bath steps that 37 and 26 ads set
+(`drift.DROPPED_STEPS`). The unit term and the two drift terms are new.
 
 ### Why a unit level that drifts
 
@@ -73,36 +74,46 @@ boroughs. The neighbourhood term follows that.
 A blocked Gibbs sweep in JAX on one GPU, four chains. The Student-t is written as a scale
 mixture, `y_i ~ Normal(mean_i, sigma^2 / lam_i)`, so that given the scales `lam` every
 location term is Gaussian. The sweep is partially collapsed: each step integrates out the
-terms that would otherwise slow it.
+terms that would otherwise pin what it draws.
 
 1. **Unit precisions.** Given the scales, a unit's rows are jointly Gaussian once `u` is
    integrated out, with covariance `D^-1 + K`, where `D` holds the rows' precisions and
    `K_ij = ss^2 + sd^2 exp(-abs(t_i - t_j) / tau)`. No unit has more than 22 ads, so the
-   precision `W = (D^-1 + K)^-1` is a small dense matrix, built for every unit in each sweep
-   in padded batches.
+   precision `W = (D^-1 + K)^-1` is a small dense matrix, built for every unit in padded
+   batches.
 2. **Coefficients, walk and surface** (`theta`), drawn in one block with the building levels
    and the unit levels integrated out. This is the step that fit 4 lacked: its coefficients
    were drawn with the unit effects held fixed, and mixed slowly against them.
-3. **Building spread and levels**, with the unit levels integrated out.
-4. **Unit levels** `u`, by Matheron's rule: a draw from the prior, corrected toward the data.
-5. **Local drift**, one term at a time, given everything else. The pair `(log s, logit rho)`
-   is slice sampled on the marginal likelihood from a Kalman filter over each group's steps,
-   with the paths integrated out. Then the paths are drawn by backward sampling.
-6. **Noise**: `nu`, `sigma`, then the scales `lam`.
-7. **Unit scales** `(ss, sd, tau)`, slice sampled on a Kalman filter's marginal likelihood
-   of each unit's rows with `u` integrated out, along three directions set from the warmup
-   draws' covariance, since the three trade off against each other.
-8. The walk's step size, the surface amplitudes and the Gaussian process scales, as in the
+3. **Every scale of the units and the noise together** (`update_scales`): `(ss, sd, tau)`,
+   the four `sigma` and `nu`, slice sampled along eight directions set from the warmup
+   draws' covariance, with `u`, the building levels and the building paths all integrated
+   out. The density is the units' Kalman likelihood plus one term a building from
+   `B' W B`, where `B` maps the building's state to its rows, and `W` is rebuilt at every
+   point tried. `nu` has no closed form with `lam` integrated out, so `lam` rides along:
+   each row keeps its standardized `log lam` while `nu` moves.
+4. **Buildings** (`update_cells`). A building's state is its level and its path at the
+   quarters where it has an ad. Each zone's spread and the path's `(log s, logit rho)` are
+   slice sampled with the states and `u` integrated out, then every building's state is
+   drawn in one go from a dense system of at most 53 dimensions, and the path's other
+   quarters are filled in between.
+5. **Unit levels** `u`, by Matheron's rule: a draw from the prior, corrected toward the data.
+6. **Noise**: `nu`, `sigma`, then the scales `lam`, given `u`.
+7. The walk's step size, the surface amplitudes and the Gaussian process scales, as in the
    kitchen sink.
 
-The slice updates in steps 5 and 7 place an interval at random around the current point and
-only shrink it. The project's older samplers step the interval out a fixed number of times on
-each side first, and a review of this model showed that the fixed count narrows the draws
-when the slice is longer than the stepped-out interval (`test_drift_local.py` holds the
-check). The older fits' scale parameters may be slightly too tight for that reason.
+The model failed the convergence gate four times on 2026-11-10 before this sweep, each
+time for the same reason one level apart: a scale was drawn given a latent that pinned it
+(sigma given `u`, a building's path given `u`, the unit scales given the paths, `nu` given
+`u`). The chains agreed with each other and crept. Steps 3 and 4 are what came of it, and
+[the note](../notes/drift-2026-11-10.md) has each round's predictions and results.
 
-A full fit (300 warmup sweeps, 1,000 draws, 1.9 million rows) takes about 10 minutes to
-build its design, 4 to compile and under a second a sweep on an A100.
+The slice updates place an interval at random around the current point and only shrink it
+(`slice_along`). The project's older samplers step the interval out a fixed number of times
+on each side first, and a review of this model showed that the fixed count narrows the
+draws when the slice is longer than the stepped-out interval (`test_drift_local.py` holds
+the check). The older fits' scale parameters may be slightly too tight for that reason.
+
+SAMPLER-TIMING-PLACEHOLDER
 
 The convergence gate is the project's: split R-hat at most 1.01 and bulk ESS above 400 on
 every scalar and coefficient. A fit that misses the gate is not rerun on another seed.
