@@ -21,8 +21,8 @@ it has never seen in any listing, the miss is wider: half land within {{ "{:.1f}
 ranges, meant to hold 80% of asks, hold {{ "{:.0f}".format(accuracy.likely) }}%{% if accuracy.new and accuracy.new.likely < 75 %},
 but only {{ "{:.0f}".format(accuracy.new.likely) }}% for apartments it has never seen{% endif %}
 (<a href="#accuracy">how close it gets</a>, and <a href="#one-estimate">what that means for one estimate</a>).
-{% endif %}This page is about the model. For how rents themselves have changed, by neighbourhood and bedroom count,
-see the <a href="{{ url_for('estimates_map') }}">rent map</a>.</p>
+{% endif %}This page is about the model. For what the served model expects of each ad it held out, see
+<a href="{{ url_for('listings') }}">the estimates</a>.</p>
 
 {% set chapters = [
   ("shape", "An ask is a sum of a few stories", true),
@@ -161,7 +161,7 @@ baths in an apartment that is otherwise the same, not the typical two-bath apart
 <section id="build-up">
 <h2>One apartment, term by term</h2>
 <p>Here is a real ask, chosen because it is the median ask among the {{ "listings available now" if build.current else "listings in the fit" }}:
-<a href="{{ url_for('listing', audit_id=l.audit_id) }}">{{ l.unit_label or "an apartment" }}</a>
+<a href="{{ url_for('listing', key=l.audit_id) }}">{{ l.unit_label or "an apartment" }}</a>
 in {{ l.neighbourhood }}, {{ beds_label(l.bedrooms) | lower }}{% if l.square_feet %}, {{ "{:,.0f}".format(l.square_feet) }} sq ft{% endif %}{% if l.floor %}, floor {{ l.floor }}{% endif %}.{% if build.current and accuracy and build.ask > accuracy.typical %}
 Its ask, {{ usd(build.ask) }}, is above the typical ${{ "{:,.0f}".format(accuracy.typical) }} quoted at the top. That
 figure is the median of the held-out asks from every year in the data; asks for listings available now run higher.{% endif %}

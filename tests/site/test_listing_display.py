@@ -3,28 +3,6 @@
 import sqlite3
 
 
-def test_views_are_marked_as_listed_by_the_broker(client, site_root):
-    db = sqlite3.connect(site_root / "current" / "site.sqlite")
-    db.execute(
-        "UPDATE listings SET views = ? WHERE audit_id = 'a1'", ('["city", "park"]',)
-    )
-    db.commit()
-    db.close()
-    html = client.get("/listings/a1").get_data(as_text=True)
-    assert "(as listed by the broker)" in html
-
-
-def test_a_large_studio_is_flagged(client, site_root):
-    db = sqlite3.connect(site_root / "current" / "site.sqlite")
-    db.execute(
-        "UPDATE listings SET bedrooms = 0, square_feet = 1173 WHERE audit_id = 'a1'"
-    )
-    db.commit()
-    db.close()
-    html = client.get("/listings/a1").get_data(as_text=True)
-    assert "<dt>Note</dt>" in html and "An unusual combination for a studio" in html
-
-
 def test_a_unit_whose_layout_jumps_says_so(client, site_root):
     db = sqlite3.connect(site_root / "current" / "site.sqlite")
     unit = db.execute("SELECT unit_id FROM listings WHERE audit_id = 'a1'").fetchone()[
@@ -50,46 +28,6 @@ def _unit_rows(db, audit_id):
     ).fetchall()
 
 
-def test_a_listing_says_when_its_advertisement_started_and_the_cut(client, site_root):
-    db = sqlite3.connect(site_root / "current" / "site.sqlite")
-    rows = _unit_rows(db, "a1")
-    (first, _), (last, last_audit) = rows[0], rows[-1]
-    db.execute(
-        "UPDATE listings SET listing_id = 'ad-7' WHERE id IN (?, ?)", (first, last)
-    )
-    db.execute("UPDATE listings SET ask = 11000 WHERE id = ?", (first,))
-    db.execute("UPDATE listings SET ask = 9995 WHERE id = ?", (last,))
-    db.commit()
-    db.close()
-    html = " ".join(
-        client.get(f"/listings/{last_audit}").get_data(as_text=True).split()
-    )
-    assert 'id="ad-start"' in html and "asking $11,000; this ask is 9% lower" in html
-    first_html = client.get(f"/listings/{rows[0][1]}").get_data(as_text=True)
-    assert 'id="ad-start"' not in first_html  # nothing earlier to compare
-
-
-def test_a_listing_says_when_the_apartment_was_listed_with_other_bedrooms(
-    client, site_root
-):
-    db = sqlite3.connect(site_root / "current" / "site.sqlite")
-    rows = _unit_rows(db, "a1")
-    db.execute("UPDATE listings SET bedrooms = 2 WHERE id = ?", (rows[0][0],))
-    db.execute("UPDATE listings SET bedrooms = 1 WHERE id = ?", (rows[-1][0],))
-    db.commit()
-    db.close()
-    html = " ".join(
-        client.get(f"/listings/{rows[-1][1]}").get_data(as_text=True).split()
-    )
-    assert 'id="relabelled"' in html and "listed as 2 BR in" in html
-
-
-def test_the_breakdown_says_a_features_line_is_only_its_own_part(client):
-    # Playtest round 4 (broker): a penthouse +$750 and views +$20 looked too small.
-    html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
-    assert "A feature's line is only what it adds on its own" in html
-
-
 def test_jargon_term_labels_get_plain_words(client, site_root):
     # Playtest round 4: "Building size and bath slopes", "HVAC" read as jargon.
     db = sqlite3.connect(site_root / "current" / "site.sqlite")
@@ -106,7 +44,7 @@ def test_jargon_term_labels_get_plain_words(client, site_root):
 def test_asks_and_estimates_moving_opposite_ways_are_explained(client, site_root):
     db = sqlite3.connect(site_root / "current" / "site.sqlite")
     rows = _unit_rows(db, "a1")
-    (first, first_audit), (last, _) = rows[0], rows[-1]
+    (first, _), (last, _) = rows[0], rows[-1]
     unit = db.execute("SELECT unit_id FROM listings WHERE id = ?", (first,)).fetchone()[
         0
     ]
@@ -116,7 +54,7 @@ def test_asks_and_estimates_moving_opposite_ways_are_explained(client, site_root
     db.execute("UPDATE listings SET ask = 4000, estimate = 4800 WHERE id = ?", (last,))
     db.commit()
     db.close()
-    for url in (f"/listings/{first_audit}", f"/units/{unit}"):
+    for url in (f"/units/{unit}",):
         html = " ".join(client.get(url).get_data(as_text=True).split())
         assert 'id="opposite-moves"' in html
         assert "each estimate leans toward the other listing's price" in html
@@ -129,7 +67,10 @@ def test_asks_and_estimates_moving_together_need_no_note(client, site_root):
     db.execute(
         "UPDATE listings SET ask = 5000, estimate = 4900 WHERE id = ?", (rows[-1][0],)
     )
+    (unit,) = db.execute(
+        "SELECT unit_id FROM listings WHERE id = ?", (rows[0][0],)
+    ).fetchone()
     db.commit()
     db.close()
-    html = client.get(f"/listings/{rows[0][1]}").get_data(as_text=True)
+    html = client.get(f"/units/{unit}").get_data(as_text=True)
     assert 'id="opposite-moves"' not in html

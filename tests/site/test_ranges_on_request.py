@@ -81,17 +81,6 @@ def atoms_root(atoms_bundle, tmp_path):
     return root
 
 
-@pytest.fixture
-def atoms_client(atoms_root, research_file):
-    from apartments.site.web import create_app
-
-    app = create_app(
-        atoms_root, allowed_hosts=["thelio.example.ts.net"], research_data=research_file
-    )
-    app.config["TESTING"] = True
-    return app.test_client()
-
-
 def test_the_build_copies_atoms_and_noise_beside_the_database(atoms_root):
     current = atoms_root / "current"
     db = sqlite3.connect(current / "site.sqlite")
@@ -127,16 +116,7 @@ def test_ranges_on_request_match_the_exact_ranges(atoms_root):
     assert detail.likely_ask(build_dir, sha, "no-such-row") is None
 
 
-def test_the_listing_page_shows_ranges_from_either_source(atoms_client):
-    for audit_id in ("a1", "a2"):
-        html = " ".join(
-            atoms_client.get(f"/listings/{audit_id}").get_data(as_text=True).split()
-        )
-        assert "asks for this apartment likely fall in" in html, audit_id
-        assert "That middle 80% is the likely ask range above" in html
-
-
-def test_a_missing_noise_group_leaves_the_range_out(atoms_root, atoms_client):
+def test_a_missing_noise_group_leaves_the_range_out(atoms_root):
     current = (atoms_root / "current").resolve()
     noise = json.loads((current / ranges.NOISE_FILE).read_text())
     del noise["groups"]["1"]
@@ -146,23 +126,9 @@ def test_a_missing_noise_group_leaves_the_range_out(atoms_root, atoms_client):
     rows = summary_rows()
     # a2 is in group 1, a3 in group 0.
     assert rows[1]["audit_id"] == "a2" and rows[2]["audit_id"] == "a3"
-    html = " ".join(atoms_client.get("/listings/a2").get_data(as_text=True).split())
-    assert "95% sure the typical rent itself is" in html
-    assert "likely fall in" in " ".join(
-        atoms_client.get("/listings/a3").get_data(as_text=True).split()
-    )
-
-
-def test_unreadable_atoms_leave_the_range_out(atoms_root, atoms_client):
-    current = (atoms_root / "current").resolve()
-    noise = json.loads((current / ranges.NOISE_FILE).read_text())
-    noise["groups"]["1"]["cdf"] = []
-    (current / ranges.NOISE_FILE).write_text(json.dumps(noise))
-    detail._open.clear()
-    detail._cached_ranges.cache_clear()
-    response = atoms_client.get("/listings/a2")
-    assert response.status_code == 200
-    assert "likely fall in" not in " ".join(response.get_data(as_text=True).split())
+    sha = json.loads((current / "build.json").read_text())["summary_sha256"]
+    assert detail.likely_ask(current, sha, "a2") is None
+    assert detail.likely_ask(current, sha, "a3") is not None
 
 
 def test_a_build_without_atoms_has_no_ranges_file(site_root):

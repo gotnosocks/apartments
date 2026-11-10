@@ -25,10 +25,8 @@
   <div class="subnav"><nav class="wrap" aria-label="Estimates">
     <a href="{{ url_for('estimates') }}"{% if here == "estimates" %} aria-current="page"{% endif %}>Overview</a>
     <a href="{{ url_for('listings') }}"{% if here in ("listings", "listing", "unit") and request.args.get("status") != "current" %} aria-current="page"{% endif %}>Listings</a>
-    <a href="{{ url_for('listings', status='current', sort='diff_pct') }}"{% if here == "listings" and request.args.get("status") == "current" %} aria-current="page"{% endif %}>Available now</a>
+    <a href="{{ url_for('listings', status='current', sort='low') }}"{% if here == "listings" and request.args.get("status") == "current" %} aria-current="page"{% endif %}>On the market</a>
     <a href="{{ url_for('buildings') }}"{% if here in ("buildings", "building") %} aria-current="page"{% endif %}>Buildings</a>
-    <a href="{{ url_for('estimates_map') }}"{% if here == "estimates_map" %} aria-current="page"{% endif %}>Rent map</a>
-    <a href="{{ url_for('estimate_apartment') }}"{% if here == "estimate_apartment" %} aria-current="page"{% endif %}>Estimate an apartment</a>
     <a href="{{ url_for('deals_page') }}"{% if here == "deals_page" %} aria-current="page"{% endif %}>Deals</a>
     <a href="{{ url_for('best_listings') }}"{% if here == "best_listings" %} aria-current="page"{% endif %}>Best for you</a>
     <a href="{{ url_for('quarantined') }}"{% if here == "quarantined" %} aria-current="page"{% endif %}>Left out</a>

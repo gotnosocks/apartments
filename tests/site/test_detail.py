@@ -72,14 +72,6 @@ def test_parts_on_request_match_the_stored_parts(site_root, detail_root):
     assert detail.lookup(build_dir, sha, "no-such-row") is None
 
 
-def test_listing_pages_render_alike(client, detail_client, site_root):
-    for audit_id in list(_parts(site_root))[:5]:
-        a = client.get(f"/listings/{audit_id}")
-        b = detail_client.get(f"/listings/{audit_id}")
-        assert a.status_code == b.status_code == 200
-        assert a.get_data(as_text=True) == b.get_data(as_text=True)
-
-
 def test_story_renders_alike_from_detail(client, detail_client):
     a = client.get("/research/story").get_data(as_text=True)
     b = detail_client.get("/research/story").get_data(as_text=True)

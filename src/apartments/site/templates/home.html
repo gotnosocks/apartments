@@ -13,12 +13,10 @@
 <section class="card" id="start" aria-labelledby="start-title">
   <h2 id="start-title">Start here</h2>
   <div class="tasks">
-    <a class="task" href="{{ url_for('listings', status='current', sort='diff_pct') }}"><strong>Looking for an apartment</strong>
-      <span>What's available now, each with what the model expects it to ask. Filter by bedrooms, elevator, laundry or which way it faces.</span></a>
-    {% if estimate_form %}<a class="task" href="{{ url_for('estimate_apartment') }}"><strong>Pricing an apartment</strong>
-      <span>Your own, or one you're offered: an estimate, the range asks for it are likely to fall in, and where your price sits.</span></a>{% endif %}
-    <a class="task" href="{{ url_for('estimates_map') }}"><strong>How rents have changed</strong>
-      <span>Typical rents by area, building and bedroom count, year by year since {{ s.first_period[:4] }}.</span></a>
+    <a class="task" href="{{ url_for('deals_page') }}"><strong>Looking for an apartment</strong>
+      <span>The ads on the market, lowest ask for the apartment first, each with the range of asks the model expects.</span></a>
+    <a class="task" href="{{ url_for('listings', status='current', sort='low') }}"><strong>Checking an ask</strong>
+      <span>Every ad on the market and the newest ad of each apartment, with what the model expected it to ask. Filter by bedrooms, ask or neighbourhood.</span></a>
     <a class="task" href="{{ url_for('about') }}"><strong>How the estimates work</strong>
       <span>What the model takes into account, and how often asks land inside its ranges.</span></a>
   </div>
@@ -27,8 +25,8 @@
 <div class="columns">
 <section class="card section-card">
   <h2><a href="{{ url_for('estimates') }}">Estimates</a></h2>
-  <p>Each listing's ask next to the model's estimate for that apartment, made without seeing the listing's own ask, so the
-  gap is a fair sign of over- or under-pricing.</p>
+  <p>Each held-out ad's ask next to what the model expected for that apartment, from a fit that never saw that ask, so the
+  gap is a fair sign of over- or under-pricing. The figures below count the scraped listings.</p>
   <div class="tiles compact" aria-label="Coverage">
     <a class="tile" href="{{ url_for('listings') }}"><span class="tile-label">Listings</span><span class="tile-value">{{ "{:,}".format(s.listings) }}</span></a>
     {% set covered = coverage | selectattr("listings") | map(attribute="neighbourhood") | select | list %}
@@ -38,10 +36,9 @@
   <p class="note">{{ month(s.first_period) }} to {{ month(s.last_period) }}{% if counts.quarantined %}; {{ "{:,}".format(counts.quarantined) }} more listings are
   <a href="{{ url_for('quarantined') }}">left out</a> because their own ads show they are not an open-market apartment lease{% endif %}.</p>
   <ul class="link-list">
-    <li><a href="{{ url_for('listings', status='current', sort='diff_pct') }}">Available now, lowest ask against estimate first</a></li>
-    <li><a href="{{ url_for('listings') }}">Browse and filter every listing</a></li>
-    {% if estimate_form %}<li><a href="{{ url_for('estimate_apartment') }}">Estimate an apartment that isn't listed</a>: your own, or one you're offered</li>{% endif %}
-    <li><a href="{{ url_for('estimates_map') }}">Rent map</a>: typical rents by area, building and bedrooms, and how they have changed</li>
+    <li><a href="{{ url_for('deals_page') }}">Deals</a>: the ads on the market with the lowest asks for their apartment</li>
+    <li><a href="{{ url_for('listings', status='current', sort='low') }}">On the market, lowest ask against the model first</a></li>
+    <li><a href="{{ url_for('listings') }}">Browse and filter every estimate</a></li>
     <li><a href="{{ url_for('buildings') }}">Buildings</a> · <a href="{{ url_for('about') }}">How estimates work</a></li>
   </ul>
 </section>

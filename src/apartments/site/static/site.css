@@ -313,6 +313,14 @@ details.aside summary { cursor: pointer; color: var(--link); font-size: 0.9rem; 
 .cbar .bar.up { fill: var(--up); }
 .cbar .bar.down { fill: var(--down); }
 .cbar .whisker { stroke: var(--ink-2); stroke-width: 1.5; stroke-linecap: round; }
+.istrip { display: block; width: 100%; max-width: 560px; height: auto; }
+.istrip .band { fill: var(--s1); }
+.istrip .band-95 { fill-opacity: 0.16; }
+.istrip .band-80 { fill-opacity: 0.32; }
+.istrip .band-50 { fill-opacity: 0.55; }
+.istrip .median { stroke: var(--ink); stroke-width: 2; }
+.istrip .ask { fill: var(--s2); stroke: var(--surface); stroke-width: 2; }
+.istrip .tick { fill: var(--ink-2); font-size: 12px; }
 
 @media (max-width: 640px) {
   body { font-size: 14px; }

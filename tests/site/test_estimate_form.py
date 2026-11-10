@@ -1,4 +1,6 @@
-"""Estimate an unlisted apartment from the served run's prediction kit."""
+"""The served run's prediction kit: encoding an apartment, scoring it, and the build's
+checks of it. The estimate form that read it was retired on 2026-11-10; the build still
+installs the kit, and its captures are priced with it."""
 
 import datetime as dt
 import json
@@ -304,48 +306,6 @@ def test_the_fixture_build_records_why_it_has_no_form(site_root, client):
         "available": False,
         "reason": "no prediction kit for this run",
     }
-    html = page(client, "/estimate")
-    assert "not available for this build" in html
-
-
-def test_estimate_page_scores_an_apartment(site_root, client):
-    install_kit(site_root)
-    html = page(
-        client, f"/estimate?building={GROVE}&bedrooms=1&sqft=650&floor=12&ask=9000"
-    )
-    assert 'id="result"' in html and "An apartment like this at The Grove" in html
-    assert "Typical rent" in html and "Likely ask range" in html
-    assert "above the likely range" in html
-    assert "market level as of Sep 2026" in html
-    assert 'id="floor-caveat"' not in html  # The Grove has 20 floors
-    assert "only 3 listings from this building" in html
-    assert "What makes up the estimate" in html and "This building" in html
-
-
-def test_a_floor_above_the_building_is_flagged(site_root, client):
-    install_kit(site_root)
-    html = page(client, f"/estimate?building={GROVE}&floor=40")
-    assert 'id="floor-caveat"' in html and "above the 20 floors" in html
-
-
-def test_building_search_picks_or_lists(site_root, client):
-    install_kit(site_root)
-    html = page(client, "/estimate?q=250+west+19&bedrooms=2")
-    assert "An apartment like this at The Grove" in html  # one match: chosen
-    html = page(client, "/estimate?q=west&bedrooms=2")
-    assert "Which building?" in html and 'id="result"' not in html
-    assert f"building={GROVE}" in html and "bedrooms=2" in html  # the form is kept
-    html = page(client, "/estimate?q=nowhere")
-    assert "No building matches" in html
-
-
-def test_a_build_without_kit_tables_still_serves_the_page(site_root, client):
-    path = (site_root / "current" / "site.sqlite").resolve()
-    db = sqlite3.connect(path)
-    db.execute("DROP TABLE kit")
-    db.commit()
-    db.close()
-    assert "not available for this build" in page(client, "/estimate")
 
 
 def test_install_refuses_a_kit_of_unknown_inputs(tmp_path):
@@ -399,42 +359,6 @@ def test_find_kit_matches_the_summary(tmp_path):
     assert estimate_build.find_kit("run-a", "y", tmp_path).name == "run-a-2222222"
     assert estimate_build.find_kit("run-a", "z", tmp_path) is None
     assert estimate_build.find_kit("run-b", "y", tmp_path) is None
-
-
-def test_building_pages_link_the_form_when_it_is_available(site_root, client):
-    assert "Estimate an apartment in this building" not in page(
-        client, f"/buildings/{GROVE}"
-    )
-    install_kit(site_root)
-    html = page(client, f"/buildings/{GROVE}")
-    assert f'class="action" href="/estimate?building={GROVE}"' in html
-
-
-def test_a_building_pick_carries_only_the_forms_keys(site_root, client):
-    install_kit(site_root)
-    for extra in ("endpoint=x", "_anchor=zz", "_method=POST", "_external=1"):
-        r = client.get(f"/estimate?q=west&bedrooms=2&{extra}")
-        assert r.status_code == 200, extra
-        html = r.get_data(as_text=True)
-        assert (
-            "bedrooms=2" in html
-            and "_external" not in html
-            and "http://" not in html.split("Which building?")[1][:2000]
-        )
-
-
-def test_adding_an_ask_leaves_the_estimate_as_it_was(site_root, client):
-    install_kit(site_root)
-    base = f"/estimate?building={GROVE}&bedrooms=1&sqft=650"
-
-    def figures(html):
-        head = html.split('id="result"')[1].split("Likely ask range")
-        likely = head[1].split("for 95%")[0]
-        return re.findall(r"\$[\d,]+", head[0] + likely)
-
-    plain, asked = page(client, base), page(client, base + "&ask=5200")
-    assert len(figures(plain)) == 7  # estimate, its range, the 80% and 95% ranges
-    assert figures(plain) == figures(asked) and "Your ask" in asked
 
 
 def test_the_parts_show_the_season():
@@ -541,23 +465,6 @@ def test_the_encoding_check_compares_once_listed_apartments():
     )  # listed twice: skipped
 
 
-def test_home_links_the_form_only_when_it_is_available(site_root, client):
-    assert "Estimate an apartment that isn't listed" not in page(client, "/")
-    install_kit(site_root)
-    assert 'href="/estimate">Estimate an apartment that isn' in page(client, "/")
-
-
-def test_the_form_says_which_building_facts_it_takes(site_root, client):
-    install_kit(site_root)
-    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
-    assert (
-        'id="form-facts"' in html and "From the building's records and listings" in html
-    )
-    assert 'name="elevator"' in html and 'name="doorman"' in html
-    assert 'id="facts-h"' in html and f'href="/buildings/{GROVE}">listings</a>' in html
-    assert 'id="form-facts"' not in page(client, "/estimate")
-
-
 def test_the_form_can_set_the_elevator_and_doorman():
     k = kit()
     walk_up = {"elevator=no": 1.0}
@@ -587,82 +494,6 @@ def test_line_facing_counts_only_when_the_apartments_own_is_not_given():
     assert "line" not in estimate.Form().canonical()
 
 
-def test_a_set_elevator_shows_beside_the_buildings(site_root, client):
-    install_kit(site_root)
-    html = " ".join(
-        page(client, f"/estimate?building={GROVE}&bedrooms=1&elevator=no").split()
-    )
-    assert "(as you set it; its listings say" in html
-    assert '<option value="no" selected>' in html
-
-
-def test_your_ask_says_which_side_of_the_simulated_asks_it_is_on(site_root, client):
-    install_kit(site_root)
-    base = f"/estimate?building={GROVE}&bedrooms=1&sqft=650&ask="
-    low, high = (" ".join(page(client, base + a).split()) for a in ("500", "90000"))
-    assert "below the likely range: lower than nearly all simulated asks" in low
-    assert "above the likely range: higher than nearly all simulated asks" in high
-    assert "higher than 0%" not in low
-
-
-def test_the_skip_link_and_the_result_take_focus(site_root, client):
-    # Fragment navigation focuses only a focusable target (playtest round 4, keyboard).
-    install_kit(site_root)
-    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
-    assert '<main id="main" class="wrap" tabindex="-1">' in html
-    assert 'id="result" tabindex="-1"' in html
-
-
-def test_the_building_choices_say_enough_to_tell_them_apart(site_root, client):
-    install_kit(site_root)
-    db = sqlite3.connect(site_root / "current" / "site.sqlite")
-    grove = db.execute("SELECT * FROM buildings WHERE id = ?", (GROVE,)).fetchone()
-    cols = [r[1] for r in db.execute("PRAGMA table_info(buildings)")]
-    twin = dict(zip(cols, grove), id="grove-twin", name=None, bbl="1000000001")
-    db.execute(
-        f"INSERT INTO buildings ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
-        [twin[c] for c in cols],
-    )
-    db.execute("UPDATE buildings SET bbl = '1000000001' WHERE id = ?", (GROVE,))
-    db.commit()
-    db.close()
-    html = page(client, "/estimate?q=250+west+19")
-    assert "Which building?" in html and "listings since" in html
-    assert (
-        "Same address and tax lot as The Grove, but listed as a separate building"
-        in html
-    )
-
-
-def test_the_estimate_says_it_is_a_market_ask_not_a_renewal(site_root, client):
-    # Playtest round 4 (tablet): a stabilized tenant compared the estimate with a renewal.
-    install_kit(site_root)
-    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
-    assert 'id="market-rate"' in html and "Rent Guidelines Board" in html
-    assert "not the legal rent of an existing lease" not in html
-    html = page(client, f"/estimate?building={GROVE}&bedrooms=1&extras=rent_stabilized")
-    assert "not the legal rent of an existing lease" in html
-
-
-def test_the_estimate_says_first_listings_run_narrow(site_root, client):
-    # Playtest round 4 (economist): single-listing under-coverage was only on the model page.
-    install_kit(site_root)
-    html = page(client, f"/estimate?building={GROVE}&bedrooms=1")
-    assert 'id="single-coverage"' in html and "within the 95% ask range" in html
-    path = (site_root / "current" / "site.sqlite").resolve()
-    db = sqlite3.connect(path)
-    stats = json.loads(
-        db.execute("SELECT value FROM meta WHERE key='stats'").fetchone()[0]
-    )
-    del stats["calibration"]["single"]
-    db.execute("UPDATE meta SET value=? WHERE key='stats'", (json.dumps(stats),))
-    db.commit()
-    db.close()
-    assert 'id="single-coverage"' not in page(
-        client, f"/estimate?building={GROVE}&bedrooms=1"
-    )
-
-
 def test_building_suggestions(site_root, client):
     # Playtest round 4 (keyboard, broker, tablet): no autocomplete in building search.
     install_kit(site_root)
@@ -672,9 +503,7 @@ def test_building_suggestions(site_root, client):
     assert client.get("/buildings.json?q=g").get_json() == []
     assert client.get("/buildings.json?q=%25%25").get_json() == []
     assert len(client.get("/buildings.json?q=st").get_json()) <= 8
-    for path in ("/estimate", "/listings", "/buildings", "/estimates"):
-        assert 'data-suggest="/buildings.json"' in page(client, path)
-    assert 'data-suggest-id="building"' in page(client, "/estimate")
+    assert 'data-suggest="/buildings.json"' in page(client, "/buildings")
 
 
 def test_the_form_reads_the_draws_from_the_kit_file(tmp_path, site_root, client):
@@ -694,8 +523,7 @@ def test_the_form_reads_the_draws_from_the_kit_file(tmp_path, site_root, client)
         (*(json.dumps(v) for v in terms.values()), GROVE),
     )
     db.commit()
-    url = f"/estimate?building={GROVE}&bedrooms=1&sqft=650&floor=12&ask=9000"
-    stored = page(client, url)
+    stored = estimate_build.building(sqlite3.connect(path), GROVE, path.parent)
     kit_dir = tmp_path / "kit"
     kit_dir.mkdir()
     src = tmp_path / "b.jsonl"
@@ -715,11 +543,9 @@ def test_the_form_reads_the_draws_from_the_kit_file(tmp_path, site_root, client)
     db.execute("DELETE FROM kit_buildings")
     db.commit()
     db.close()
-    assert (
-        estimate_build.building(sqlite3.connect(path), GROVE, path.parent).fslope
-        == terms["fslope"]
-    )
-    assert page(client, url) == stored and 'id="result"' in stored
+    read = estimate_build.building(sqlite3.connect(path), GROVE, path.parent)
+    assert read.fslope == terms["fslope"] == stored.fslope
+    assert (read.level, read.bedroom_slope) == (stored.level, stored.bedroom_slope)
     # Without the file or a table row the building has no draws.
     (path.parent / estimate_build.KIT_FILE).unlink()
     assert estimate_build.building(sqlite3.connect(path), GROVE, path.parent) is None

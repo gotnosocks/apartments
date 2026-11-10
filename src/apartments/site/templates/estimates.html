@@ -1,68 +1,86 @@
 {% extends "base.html" %}
-{% import "_macros.html" as m with context %}
 {% block title %}Estimates{% endblock %}
 {% block content %}
-{% set s = meta.stats %}
+{% set ads = info.ads or {} %}
 <section class="intro">
-  <h1>{% if all_areas %}All rental listings{% else %}{{ meta.scope }} rental listings{% endif %}, with what the model expects each to ask</h1>
-  <p class="lede">Every listing's estimate uses the building, the apartment's features, the market that month and the unit's
-  <em>other</em> listings, never the listing's own ask. That makes the gap between ask and estimate a fair signal of
-  over- or under-pricing. <a href="{{ url_for('about') }}">How the estimates work</a></p>
+  <h1>What the model expected each ad to ask</h1>
+  <p class="lede">For each ad here, the served model gives the range of asks it would expect for that apartment, on that date,
+  from what it knows about the apartment, its building, its block and the market, and from the apartment's own earlier ads
+  when it has any. It never saw the ask it is compared with. Each past ad is the newest ad of its apartment, predicted by a fit
+  that learned from every earlier ad but not that one. Each ad on the market is scored by a fit made without the asks on the
+  market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}. So the gap between an ad's ask and the model's middle
+  estimate is a fair reading of whether it asks more or less than the model expects.</p>
   <form class="search" action="{{ url_for('listings') }}" method="get" role="search">
-    <label for="q" class="visually-hidden">Building, address or unit</label>
-    <input id="q" name="q" type="search" placeholder="Building, address or unit (e.g. 23C)" autocomplete="off"
-    data-suggest="{{ url_for('building_suggestions') }}">
-    <button type="submit">Search listings</button>
+    <label for="q" class="visually-hidden">Address or building</label>
+    <input id="q" name="q" type="search" placeholder="Address or building (e.g. 250 West 19th)" autocomplete="off">
+    <button type="submit">Search estimates</button>
   </form>
 </section>
 
-<section class="tiles" aria-label="Coverage">
-  <div class="tile"><span class="tile-label">Listings</span><span class="tile-value">{{ "{:,}".format(s.listings) }}</span></div>
-  <div class="tile"><span class="tile-label">Available now</span><span class="tile-value">{{ "{:,}".format(s.current_listings) }}</span></div>
-  <div class="tile"><span class="tile-label">Buildings</span><span class="tile-value">{{ "{:,}".format(s.buildings) }}</span></div>
-  <div class="tile"><span class="tile-label">Units</span><span class="tile-value">{{ "{:,}".format(s.units) }}</span></div>
-  <div class="tile"><span class="tile-label">Period</span><span class="tile-value tile-small">{{ month(s.first_period) }} – {{ month(s.last_period) }}</span></div>
-</section>
-{% if quarantined %}
-<p class="note">{{ "{:,}".format(quarantined) }} more listings are <a href="{{ url_for('quarantined') }}">quarantined</a>: their own ads
-show they are not an open-market lease of a whole apartment at their address (offices and shops, other addresses, SRO rooms,
-income-restricted and short-stay offers), so the model leaves them out and gives them no estimate.</p>
-{% endif %}
-
-<section class="card">
-  <div class="card-head">
-    <h2>Available now, lowest ask against estimate first</h2>
-    <a href="{{ url_for('listings', status='current', sort='diff_pct') }}">All {{ s.current_listings }} available listings →</a>
-  </div>
-  {{ m.coverage_note(coverage) }}
-  {{ m.listing_table(current) }}
-  <p class="note">Asks as captured on {{ month(s.last_period) }}. <span class="warn-mark">*</span> marks a less reliable estimate.</p>
+<section class="tiles" aria-label="Counts">
+  <a class="tile" href="{{ url_for('listings') }}"><span class="tile-label">Estimates</span><span class="tile-value">{{ "{:,}".format(ads.all or 0) }}</span></a>
+  <a class="tile" href="{{ url_for('listings', status='past') }}"><span class="tile-label">Past ads</span><span class="tile-value">{{ "{:,}".format(ads.latest or 0) }}</span></a>
+  <a class="tile" href="{{ url_for('listings', status='current', sort='low') }}"><span class="tile-label">On the market</span><span class="tile-value">{{ "{:,}".format(ads.market or 0) }}</span></a>
+  {% if hoods %}<div class="tile"><span class="tile-label">Neighbourhoods</span><span class="tile-value">{{ "{:,}".format(hoods | length) }}</span></div>{% endif %}
 </section>
 
-<section class="card">
-  <div class="card-head">
-    <h2>Market reference rent</h2>
+<section class="card" id="accuracy">
+  <h2>How close it gets</h2>
+  {% if heldout %}
+  <p>On {{ "{:,}".format(heldout.rows) }} past ads it never saw, the model's middle estimate was off by
+  {% if heldout.median_error_pct is not none %}<strong>{{ pct(heldout.median_error_pct, signed=False, digits=1) }}</strong>{% else %}an unknown share{% endif %}
+  of the ask on a typical one: half of the asks were closer than that, half further away.</p>
+  {% if heldout.coverage %}
+  <div class="table-wrap">
+  <table class="data">
+    <caption class="visually-hidden">How often the asks fell inside the model's ranges</caption>
+    <thead><tr><th scope="col">Range</th><th scope="col" class="num">Meant to hold</th><th scope="col" class="num">Held</th></tr></thead>
+    <tbody>
+    {% for c in heldout.coverage %}
+      <tr><th scope="row">{{ c.nominal }}% range</th><td class="num">{{ c.nominal }}% of asks</td><td class="num">{{ pct(c.share, signed=False, digits=1) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
   </div>
-  <p class="note">A reference apartment (one bedroom, one bath, every attribute at its reference level) in an average {% if all_areas %}building across {{ all_areas }}{% else %}{{ meta.scope }}
-  building{% endif %}, seasonally adjusted, with its 95% interval. Every estimate starts from this and adds the listing's features,
-  building and unit.</p>
-  <p class="note">This is a starting point, not what a typical one-bedroom asks: the reference apartment has every feature at its
-  baseline. For what a one-bedroom asks in a typical building, see the <a href="{{ url_for('estimates_map') }}">rent map</a>'s
-  median building, which is higher because real apartments have features that add to the rent.
-  <a href="{{ url_for('research_glossary') }}">Glossary of terms</a>.</p>
-  {{ market_chart }}
-  <details class="table-view">
-    <summary>Table view</summary>
-    <div class="table-wrap tall">
-    <table class="data">
-      <thead><tr><th scope="col">Month</th><th scope="col" class="num">Seasonally adjusted</th><th scope="col" class="num">95% interval</th><th scope="col" class="num">With season</th></tr></thead>
-      <tbody>
-      {% for r in market | reverse %}
-        <tr><td>{{ month(r.period) }}</td><td class="num">{{ usd(r.deseasoned) }}</td><td class="num muted">{{ usd(r.deseasoned_lower) }}–{{ usd(r.deseasoned_upper) }}</td><td class="num">{{ usd(r.rent) }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </details>
+  <p class="note">A range that holds about as many asks as it is meant to is honest about how sure the model is.</p>
+  {% endif %}
+  {% else %}
+  <p>The publish carried no held-out scores for this model.</p>
+  {% endif %}
+  {% if summary and summary.past %}
+  <p class="note">Of the {{ "{:,}".format(summary.past) }} past ads listed here, {{ pct(100 * summary.inside_80, signed=False) }} asked
+  within the model's 80% range and {{ pct(100 * summary.inside_95, signed=False) }} within its 95% range.</p>
+  {% endif %}
+</section>
+
+<section class="card" id="model">
+  <h2>The model and its fits</h2>
+  <dl class="facts">
+    <dt>Model</dt><dd><code>{{ info.model }}</code></dd>
+    {% for source, words in (("latest", "Past ads"), ("market", "Ads on the market")) %}
+    {% set run = (info.runs or {}).get(source) %}
+    {% if run %}
+    {% set gate = (info.gate or {}).get(source) or {} %}
+    <dt>{{ words }}</dt><dd>run <code>{{ run }}</code>{% if gate %}: {% if gate.passes %}passed{% else %}missed{% endif %} the convergence test
+      (largest R-hat {{ "{:.3f}".format(gate.max_rhat) if gate.max_rhat is number else "unknown" }}, smallest effective sample size
+      {{ "{:,.0f}".format(gate.min_ess) if gate.min_ess is number else "unknown" }}{% if gate.chains %}, {{ gate.chains }} chains{% endif %}){% endif %}</dd>
+    {% endif %}
+    {% endfor %}
+    {% if info.published %}<dt>Published</dt><dd>{{ day(info.published[:10]) }}</dd>{% endif %}
+  </dl>
+  <p class="note">The convergence test asks for an R-hat of at most 1.01 and an effective sample size above 400 on every
+  quantity the model estimates. Estimates are published only from fits that pass it.</p>
+</section>
+
+<section class="card">
+  <h2>Where to look</h2>
+  <ul class="link-list">
+    <li><a href="{{ url_for('listings', status='current', sort='low') }}">On the market, lowest ask against the model first</a></li>
+    <li><a href="{{ url_for('listings') }}">Every estimate, newest first</a>, with filters</li>
+    <li><a href="{{ url_for('listings_csv') }}" download>Download every estimate as CSV</a></li>
+    <li><a href="{{ url_for('deals_page') }}">Deals</a>: the ads on the market ranked by how low each ask is, with cautions and a backtest</li>
+  </ul>
+  <p class="note">Only ads the model held out have an estimate here. An apartment's earlier ads are what the model learned from,
+  so a prediction for them would not be a fair test. The model cannot see an apartment's condition, a broker fee or a mistake in the ad.</p>
 </section>
 {% endblock %}

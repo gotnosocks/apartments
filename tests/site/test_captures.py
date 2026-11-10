@@ -437,30 +437,6 @@ def test_no_kit_or_pipeline_build_prices_nothing(pipeline):
     }
 
 
-def as_kit_row(site_root):
-    """A current fixture listing turned into one the kit priced."""
-    db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
-    audit_id, unit_url = db.execute(
-        "SELECT audit_id, unit_url FROM listings WHERE is_current = 1 LIMIT 1"
-    ).fetchone()
-    db.execute(
-        "UPDATE listings SET method = 'kit', in_fit = 0, fitted = NULL, "
-        "collected_at = '2026-10-06T15:00:00+00:00' WHERE audit_id = ?",
-        (audit_id,),
-    )
-    db.commit()
-    db.close()
-    return audit_id
-
-
-def test_listing_page_says_the_kit_priced_it(site_root, client):
-    audit_id = as_kit_row(site_root)
-    page = client.get(f"/listings/{audit_id}").get_data(as_text=True)
-    assert "Priced with the kit, not in the fit" in page
-    assert "priced with the kit, not in the fit (captured 2026-10-06)" in page
-    assert "In-sample fit" not in page
-
-
 UNIT_TERMS = (
     ("first_listing_of_unit", "relisting"),
     ("log_months_since_last_listing", "relisting"),
@@ -593,30 +569,6 @@ def test_unit_levels_load_from_the_kit_when_it_has_them(tmp_path):
         pass
     else:
         raise AssertionError("an unhashed units.parquet must not load")
-
-
-def test_listing_page_says_when_the_unit_level_is_the_fits(site_root, client):
-    audit_id = as_kit_row(site_root)
-    db = sqlite3.connect((site_root / "current" / "site.sqlite").resolve())
-    (parts,) = db.execute(
-        "SELECT contributions FROM listings WHERE audit_id = ?", (audit_id,)
-    ).fetchone()
-    parts = [
-        {**p, "from_fit": True} if p["term"] == "unit" else p for p in json.loads(parts)
-    ]
-    if not any(p["term"] == "unit" for p in parts):
-        parts.append(
-            {"term": "unit", "usd": -5, "lower": -9, "upper": -1, "from_fit": True}
-        )
-    db.execute(
-        "UPDATE listings SET contributions = ? WHERE audit_id = ?",
-        (json.dumps(parts), audit_id),
-    )
-    db.commit()
-    db.close()
-    page = client.get(f"/listings/{audit_id}").get_data(as_text=True)
-    assert "level is the one the fit learned from its" in page
-    assert "drawn from the prior" not in page
 
 
 def test_a_west_coast_ad_is_priced_on_its_labels_wing(pipeline):

@@ -4,13 +4,15 @@ http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500, the old r
 address, so its links keep working).
 
 One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
-sections"). **Estimates** shows the scraped listings with the selected model's rent estimates.
+sections"). **Estimates** shows the served drift model's held-out estimates, and the scraped
+listings' histories.
 **Research** shows how candidate models are compared and which one is served. It replaces the old
 static research dashboard.
 
-The estimates use the building, the features, the market that month and the unit's
-other listings, never the listing's own ask (**leave-own-row-out**). The gap between ask and estimate
-is therefore a fair signal of over- or under-pricing ([what an estimate is](model/listing-estimates.md)).
+Each estimate comes from a fit that never saw the ask it is compared with: the newest ad of each
+apartment is held out of the fit on the latest split, and the ads on the market out of the fit on
+the market split ([leak-free scoring](leak-free-scoring.md)). The gap between ask and estimate is
+therefore a fair signal of over- or under-pricing.
 
 ## Pages
 
@@ -27,27 +29,56 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
   Publish only from a fit that passed the gate, with its backtest. Since 2026-11-10 it is
   published from `drift-building` ([model/drift.md](model/drift.md)).
 
-The Estimates section below was last built on 2026-10-19 from the earlier model line and has
-not been rebuilt from `drift`; the Deals page is the current model's view of the market.
-
 ### Estimates
 
-- **Overview** (`/estimates`): coverage figures, the listings available now (lowest ask against
-  estimate first), and the market reference rent over time.
-- **Listings** (`/listings`), with filters in one row above the table:
-  - building, address or unit label; bedrooms; ask range; years; status (all, available now, past);
-    and the ask against the model (below typical, typical, above typical);
-  - sortable columns and 25/50/100 per page;
-  - CSV download of the filtered rows (`/listings.csv`, same query string).
-- **Listing:** ask, estimate with its 95% range, and the gap, labelled by where the ask falls in the
-  model's predictive range.
-  - The page explains how the estimate was made: held out, from the unit's other listings, or, for a
-    unit's only listing, from the building and features alone.
-  - It shows the dollar contributions that add up to the estimate, the listing's attributes and ad-text
-    flags, the in-sample fit for comparison, the unit's other listings, and links to StreetEasy.
-  - Listings with an unstable leave-own-row-out correction are marked \* and explained: Pareto k
-    above the run's threshold (`loo.k_threshold`: 0.7, or lower for fewer than about 2,150 draws;
-    0.675 at 1,200).
+Since 2026-11-10 the Estimates section shows the served model's held-out estimates (Ben chose
+to rebuild it on `drift-building`, without the earlier model's per-listing dollar parts, its
+estimate form and its rent map). `python -m rentfrontier.drift_estimates publish LATEST_RUN
+--market MARKET_RUN --registry REGISTRY --out <root>/estimates` writes `estimates.parquet`, one
+row per ad a fit held out, and then `meta.json` (the model, the two runs and their convergence
+gates, the latest fit's held-out scores, the counts, and the table's sha256). A row's `source`
+is `latest`, a past ad that is the newest ad of its apartment, whose final ask the fit on the
+latest split never saw, or `market`, an ad on the market on the scoring day, held out by the
+fit on the market split. An apartment's earlier ads have no estimate: the fits learned from
+their asks. Both runs must be fits of one model that passed the gate.
+
+`apartments.site.estimates` reads only that folder. It refuses a table whose sha256 is not the
+one in `meta.json` (the pages answer 503 until the next publish), hashes a table once per file
+version, and queries it with DuckDB: one connection per process, one thread, 256 MB.
+
+- **Overview** (`/estimates`): what the estimates are, the model and its two runs with their
+  gates, held-out accuracy (the median error as a percent of the ask, `exp(x) - 1` of the
+  log-scale median absolute error, and how often the 50/80/90/95% ranges held the asks against
+  what they are meant to), the counts, and links to the list, the CSV and Deals.
+- **Listings** (`/listings`): the estimates, 50 a page, filtered by address or building,
+  neighbourhood (grouped by borough when there are several), bedrooms, ask range, years and
+  which ads (`status`: all, `current` for the ads on the market, `past` for the latest fit's),
+  and ordered newest first, by the ask against the model (`sort=low` or `high`, by
+  `below_share`) or by the ask. The earlier page's query keys still work (`sort=diff_pct`
+  reads as `low`, with `order=desc` as `high`). Each row has the ask, the model's middle
+  estimate, its 80% range, where the ask sits ("lower than 95%" of the asks the model would
+  expect) and links to the estimate's page and to StreetEasy. With a filter, a line sums up
+  the matches: count, median ask, median of the model's medians, and the share of the past
+  ads inside the 80% and 95% ranges.
+- **CSV** (`/listings.csv`, the same query string): every column of the table, streamed in
+  chunks of 5,000 rows.
+- **Estimate** (`/listings/<listing id or audit id>`): the ask against the model's middle
+  estimate and its 50/80/95% ranges (drawn as nested bands), where the ask sits in words, how
+  many of the apartment's earlier ads the model learned from (none makes it a new apartment to
+  the model, with a wider range), the fit and run that made it, and links to StreetEasy and
+  Street View. An ad with no estimate answers 404 and says why; a quarantined ad of the
+  Oct 19 build keeps its page explaining why it was left out.
+- **Retired:** the estimate form (`/estimate`) and the rent map (`/estimates/map`,
+  `/estimates/map.json`) came from the earlier model and answer 410 Gone, pointing to the list
+  and Deals.
+- Without an `estimates/` folder the three pages answer 503 "No estimates have been published
+  yet."
+
+The pages below still read the Oct 19 `site.sqlite` (the earlier m7 line, which missed its
+convergence gate) for listing histories: units, buildings, Best for you, Left out, the New
+Jersey listings and the research story. Their links to `/listings/<audit id>` open an
+estimate's page when the ad has one and a 404 otherwise.
+
 - **Unit:** asks and estimates of each of its listings over time.
 - **Best for you** (`/best`, `apartments.site.best`): current listings ranked by a renter's
   preference sheet, with pluses and minuses per listing.
@@ -66,16 +97,9 @@ not been rebuilt from `drift`; the Deals page is the current model's view of the
 - **Quarantined listings** (`/quarantined`, and a section on each building and unit page): the
   listings the selected fit's data rules leave out (its `quarantine-vN` review file). Each
   shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
-  A quarantined listing's URL opens a page that explains why. A building or unit with only
+  A quarantined listing's URL (`/listings/<audit id>`) opens a page that explains why. A building or unit with only
   quarantined listings redirects to its list. Quarantined listings are not in the listings search
   or any estimate statistic; the home page and the Estimates overview count them.
-- **Rent map** (`/estimates/map`): what a typical apartment rents for in each building, by bedrooms
-  and year, from the served model (`rentfrontier.rentmap`; its definition is on the page). It has
-  zoom, pan, hover and play, the median building's trend by bedroom count, and table views.
-  `apartments.site build` bundles the served run's newest map (`/data1/apartments/frontier/maps`,
-  `FRONTIER_MAPS` overrides it) and refuses a map of another run, so map and estimates always come
-  from the same model. The page says when there is no map yet. The data is at
-  `/estimates/map.json`.
 - **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
   estimate type, and why some listings are left out.
 
@@ -85,7 +109,7 @@ else the dataset's, else the build's `--scope`, or "Chelsea" when no `--scope` i
 Village"; `build.scope_of`). Past twelve names, `boroughs.scope_words` gives the boroughs instead
 ("Manhattan and Brooklyn"). Pages use that name where they describe the data's coverage; the site's
 title, header and home heading read "NYC Rents" whatever the scope. Where every neighbourhood is meant (the
-estimates heading and reference note, the rent map's lede, titles and all-choice), a build with several
+home heading, titles and all-choice), a build with several
 names them by count ("all eight neighbourhoods", "All neighbourhoods"), not as a list. The listings and buildings pages show a
 neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
 more than one, so a Chelsea-only build looks as before. Older builds without the column are served
@@ -190,12 +214,17 @@ listings fall in each band, as calibration predicts.
 
 ## Data flow
 
-1. **Estimates.** `python -m rentfrontier.summary <run>` (frontier package; see
+1. **Estimates.** The Estimates pages read `<root>/estimates/`, which
+   `python -m rentfrontier.drift_estimates publish` writes from a passing pair of drift fits
+   (above). The rest of this section is the older path that made the Oct 19 `site.sqlite`,
+   which the unit, building and other listing-history pages still read:
+   `python -m rentfrontier.summary <run>` (frontier package; see
    [listing estimates](model/listing-estimates.md)) writes a summary bundle under
    `/data1/apartments/frontier/summaries/`. Only runs that pass the convergence gate are accepted.
 2. **Publish.** After an autoselect switch is merged and deployed, `ops/autoselect-publish.sh`
    runs the three publish steps for the served run: the rent map (`rentfrontier.rentmap`), the
-   estimate kit (`rentfrontier.kit`, for /estimate) and the site build below. Each step keeps an
+   estimate kit (`rentfrontier.kit`, which the build checks and prices captures with; the
+   form that read it is retired) and the site build below. Each step keeps an
    output that already exists for the run and commit.
    `python -m apartments.site build` publishes the summary that `config/main-analysis.json`
    selects (checked against the selection's sha256); `--summary <bundle>` publishes another one. It writes one SQLite snapshot and
@@ -263,11 +292,11 @@ listings fall in each band, as calibration predicts.
    kit's `buildings.parquet` into `kit_buildings.parquet` beside `site.sqlite`
    (`estimate_build.write_kit_file`), in row groups of 2,048 buildings with each building's
    feature slopes in a single list, and `meta.stats.estimate_form.kit_file` records its rows,
-   bytes and whether it came out sorted. The estimate form reads the picked building's draws from
+   bytes and whether it came out sorted. `estimate_build.building` reads a building's draws from
    it through DuckDB. On the all-scraped kit the file holds 421 MB in place of 2.08 GB of JSON,
    the copy takes 12 s with 0.3 GB resident, and a lookup takes about 55 ms.
-3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, so a publish
-   needs no restart.
+3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, and
+   reads `estimates/` and `deals/` by their files' versions, so a publish needs no restart.
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
    `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
@@ -354,8 +383,8 @@ mv -T current.new current` in `/data1/apartments/site`.
   (its pages link the ad through `listing_url`). The summary then stopped writing the two
   columns behind the market bounds, `reference_rent_lower_95` and `reference_rent_upper_95`, and
   the building table's `fit_units`, which no step read.
-- **Ranges in lists:** listing tables and `/listings.csv` leave out each listing's likely ask
-  range (`pred_lower_80`, `pred_upper_80`), which only its own page shows. `SITE_LIST_RANGES=1`
+- **Ranges in lists:** the listing tables of building pages leave out each listing's likely
+  ask range (`pred_lower_80`, `pred_upper_80`). `SITE_LIST_RANGES=1`
   in the unit puts the column back while we watch the log; once nobody needs it, we delete the
   flag and its template branch.
 - **Stop:** `systemctl --user disable --now apartments-site`.

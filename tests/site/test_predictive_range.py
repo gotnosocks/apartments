@@ -5,6 +5,8 @@ import sqlite3
 
 from apartments.site import build
 
+BUILDING = "/buildings/the-grove-250-west-19th-street-new_york"
+
 
 def with_predictive(site_root):
     db = sqlite3.connect(site_root / "current" / "site.sqlite")
@@ -16,31 +18,20 @@ def with_predictive(site_root):
     db.close()
 
 
-def test_listing_page_shows_the_likely_ask_range(client, site_root):
+def test_lists_leave_the_range_out_without_the_flag(client, site_root):
     with_predictive(site_root)
-    html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
-    assert "asks for this apartment likely fall in" in html and "(80%;" in html
-    assert "That middle 80% is the likely ask range above" in html
-    listings = " ".join(client.get("/listings").get_data(as_text=True).split())
+    listings = " ".join(client.get(BUILDING).get_data(as_text=True).split())
     assert "Likely ask range</th>" not in listings
     assert "Typical rent, 95% range" not in listings
-    assert "Each listing's own page shows its range" in listings
 
 
 def test_lists_carry_the_range_with_the_flag(client, site_root, monkeypatch):
     with_predictive(site_root)
     monkeypatch.setenv("SITE_LIST_RANGES", "1")
-    listings = client.get("/listings").get_data(as_text=True)
+    listings = client.get(BUILDING).get_data(as_text=True)
     assert (
         "Likely ask range</th>" in listings
         and "Typical rent, 95% range" not in listings
-    )
-
-
-def test_without_it_the_typical_rent_range_stays(client):
-    html = " ".join(client.get("/listings/a1").get_data(as_text=True).split())
-    assert (
-        "95% sure the typical rent itself is" in html and "likely fall in" not in html
     )
 
 
@@ -50,18 +41,3 @@ def test_the_build_reads_the_bundle_fields():
     assert build._real(row.get("estimate_pred_upper_80")) is None
     assert build._real(row.get("estimate_pred_lower_95")) is None
     assert build.SCHEMA_VERSION == 5
-
-
-def test_csv_carries_the_likely_ask_range_with_the_flag(client, site_root, monkeypatch):
-    import csv
-    import io
-
-    with_predictive(site_root)
-
-    def rows():
-        text = client.get("/listings.csv").get_data(as_text=True)
-        return list(csv.DictReader(io.StringIO(text)))
-
-    assert rows() and "pred_lower_80" not in rows()[0]
-    monkeypatch.setenv("SITE_LIST_RANGES", "1")
-    assert float(rows()[0]["pred_lower_80"]) > 0

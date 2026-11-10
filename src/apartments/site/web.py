@@ -1,15 +1,16 @@
-"""The listings site: a read-only Flask app over the published SQLite snapshot.
+"""The listings site: a read-only Flask app over the published files.
 
 Each request opens <root>/current/site.sqlite read-only (immutable), so a new
-publish (`apartments.site.build`) is picked up by the next request. Filters are
-parsed leniently: an invalid value is ignored, never an error page.
+publish (`apartments.site.build`) is picked up by the next request. The Estimates
+pages (/estimates, /listings and each estimate's page) read instead the served
+drift model's held-out estimates in <root>/estimates/ (`estimates.py`), and the
+Deals page <root>/deals/ (`deals.py`). Filters are parsed leniently: an invalid
+value is ignored, never an error page.
 """
 
 from __future__ import annotations
 
-import copy
 import csv
-import dataclasses
 import datetime as dt
 import functools
 import gzip
@@ -37,20 +38,16 @@ from flask import (
     redirect,
     render_template,
     request,
-    stream_with_context,
     url_for,
 )
 from markupsafe import Markup
 
 from . import (
-    ad_dates,
     best,
     boroughs,
     charts,
     deals,
     detail,
-    estimate,
-    estimate_build,
     exposure,
     observed,
     reads,
@@ -58,6 +55,7 @@ from . import (
     streetview,
     summary,
 )
+from . import estimates as estimates_table
 from .anatomy import LEVELS as ANATOMY_LEVELS
 from .anatomy import describe, differences
 from .research import (
@@ -125,8 +123,6 @@ OBSERVED_CSV_COLUMNS = (
 )
 BEDROOMS = {"0": "Studio", "1": "1 BR", "2": "2 BR", "3": "3 BR", "4": "4+ BR"}
 STATUS = {"all": "All listings", "current": "Available now", "past": "Past listings"}
-# Fewer "Available now" matches than this point to the past listings too.
-FEW_CURRENT = 10
 BEST_SHOWN = 100  # rows on /best; the CSV has them all
 BANDS = {
     "all": "Any price",
@@ -157,31 +153,6 @@ BUILDING_SORTS = {
     "diff_pct": ("b.median_residual_pct", "Median ask vs estimate"),
     "recent": ("b.last_period", "Most recent listing"),
 }
-CSV_COLUMNS = (
-    "audit_id",
-    "building_id",
-    "neighbourhood",  # left out for builds from before neighbourhoods
-    "unit_label",
-    "period",
-    "is_current",
-    "ask",
-    "estimate",
-    "estimate_lower",
-    "estimate_upper",
-    "residual_usd",
-    "residual_pct",
-    "pit",
-    "price_band",
-    "reliable",
-    "bedrooms",
-    "bathrooms",
-    "square_feet",
-    "floor",
-    "listing_url",
-    "pred_lower_80",  # the likely ask range, when the build has it
-    "pred_upper_80",
-)
-RANGE_COLUMNS = ("pred_lower_80", "pred_upper_80")
 LABELS = {
     "doorman": {
         "full_time": "Full-time doorman",
@@ -404,7 +375,7 @@ BATHS = ("1", "1.5", "2", "3")
 LISTING_JOIN = " JOIN buildings b ON b.id = l.building_id"
 
 
-# Count words for "all eight neighbourhoods"; matches COUNT_WORDS in static/rentmap.js.
+# Count words for "all eight neighbourhoods".
 COUNT_WORDS = (
     None,
     "one",
@@ -418,34 +389,6 @@ COUNT_WORDS = (
     "nine",
     "ten",
 )
-
-
-def asks_summary(db, filters: Filters) -> dict | None:
-    """The filtered listings' asks in brief: their median and middle 80%
-    (10th to 90th percentile), and the median of their estimates; None when
-    nothing matches."""
-    where, params = filters.where()
-    join = LISTING_JOIN if "b." in where else ""
-    rows = db.execute(f"SELECT l.ask, l.estimate FROM listings l{join}{where}", params)
-    asks, estimates = [], []
-    for ask, est in rows:
-        asks.append(ask)
-        if est is not None:
-            estimates.append(est)
-    if not asks:
-        return None
-    asks.sort()
-    out = {
-        "n": len(asks),
-        "median": statistics.median(asks),
-        "low": None,
-        "high": None,
-        "estimate": statistics.median(estimates) if estimates else None,
-    }
-    if len(asks) >= 5:  # a middle 80% of fewer asks says little
-        deciles = statistics.quantiles(asks, n=10, method="inclusive")
-        out["low"], out["high"] = deciles[0], deciles[-1]
-    return out
 
 
 def count_query(filters: Filters):
@@ -673,6 +616,7 @@ SECTIONS = {
         "about",
         "estimates_map",
         "estimate_apartment",
+        "estimates_map_data",
     ),
     "research": (
         "research_frontier",
@@ -691,8 +635,8 @@ SECTIONS = {
 
 
 def list_ranges() -> bool:
-    """Whether listing tables and the CSV carry each listing's range. They do
-    with SITE_LIST_RANGES=1; otherwise only the listing's own page shows it."""
+    """Whether the listing tables of building pages carry each listing's range.
+    They do with SITE_LIST_RANGES=1."""
     return os.environ.get("SITE_LIST_RANGES") == "1"
 
 
@@ -904,6 +848,7 @@ def create_app(
         response.headers["Vary"] = "Accept-Encoding"
 
     @app.errorhandler(400)
+    @app.errorhandler(410)
     @app.errorhandler(404)
     @app.errorhandler(503)
     def http_error(error):
@@ -1045,257 +990,179 @@ def create_app(
             selection=served_selection(m),
             counts=counts,
             entry=entry,
-            estimate_form=estimate_build.available(db()),
             milestones=latest_milestones(data),
             research_at=data.get("generated_at") if data else None,
         )
 
+    def estimates_or_503() -> estimates_table.Table:
+        """The published estimates, or a 503 when none are, or when the table is not
+        the one its meta names."""
+        try:
+            table = estimates_table.load(root)
+        except estimates_table.Refused as refused:
+            log.error("estimates refused: %s", refused)
+            abort(503, description=str(refused))
+        if table is None:
+            abort(503, description="No estimates have been published yet.")
+        return table
+
+    def estimate_list_url(endpoint: str, c, **changes) -> str:
+        query = _query(c.args(**changes))
+        base = url_for(endpoint)
+        return f"{base}?{query}" if query else base
+
     @app.get("/estimates")
     def estimates():
-        m = meta()
-        current = (
-            db()
-            .execute(
-                "SELECT l.*, b.name AS building_name, b.address AS building_address "
-                "FROM listings l JOIN buildings b ON b.id = l.building_id "
-                "WHERE l.is_current = 1 ORDER BY l.residual_pct LIMIT 12"
-            )
-            .fetchall()
-        )
-        market = db().execute("SELECT * FROM market ORDER BY period").fetchall()
-        quarantined = (
-            db().execute("SELECT COUNT(*) FROM quarantined").fetchone()[0]
-            if has_quarantine()
-            else 0
-        )
-        chart = charts.band_line(
-            [
-                {
-                    "period": r["period"],
-                    "value": r["deseasoned"],
-                    "lower": r["deseasoned_lower"],
-                    "upper": r["deseasoned_upper"],
-                }
-                for r in market
-            ],
-            label="Market reference rent over time, seasonally adjusted, "
-            "with its 95% interval",
-            value_label="Reference rent",
-        )
+        table = estimates_or_503()
+        info = table.meta
         return render_template(
             "estimates.html",
-            meta=m,
-            coverage=current_coverage(),
-            current=current,
-            quarantined=quarantined,
-            market=market,
-            market_chart=chart,
+            meta=None,
+            info=info,
+            heldout=estimates_table.held_out(info),
+            summary=table.summary(estimates_table.Choice()),
+            hoods=table.hood_names(),
         )
 
     @app.get("/listings")
     def listings():
-        filters = checked(Filters(request.args))
-        rows, total, pages = listings_query(filters)
-        # Few listings are on the market at once, so "Available now" with
-        # narrow filters can leave one or none (playtest round 3): say how
-        # many past listings match the same filters.
-        past = None
-        if filters.status == "current" and total < FEW_CURRENT:
-            every = copy.copy(filters)
-            every.status = "past"
-            past = db().execute(*count_query(every)).fetchone()[0]
+        table = estimates_or_503()
+        c = estimates_table.choice(request.args, table.hoods())
+        rows, total, pages = table.page(c)
+        names = table.hood_names()
         return render_template(
             "listings.html",
-            past=past,
-            summary=asks_summary(db(), filters) if filters.active() else None,
-            meta=meta(),
-            coverage=current_coverage() if filters.status == "current" else [],
+            meta=None,
+            info=table.meta,
             rows=rows,
             total=total,
             pages=pages,
-            filters=filters,
-            csv_url=url_for("listings_csv")
-            + "?"
-            + _query(filters.args(page=None, per=None)),
+            choice=c,
+            summary=table.summary(c) if c.active() else None,
+            hood_groups=boroughs.grouped(names),
+            show_hoods=len(names) > 1,
+            list_url=lambda **changes: estimate_list_url("listings", c, **changes),
+            csv_url=estimate_list_url("listings_csv", c, page=None),
+            sorts=estimates_table.SORTS,
+            statuses=estimates_table.STATUS,
+            bedrooms=estimates_table.BEDROOMS,
+            per_page=estimates_table.PER_PAGE,
         )
 
     @app.get("/listings.csv")
     def listings_csv():
-        filters = checked(Filters(request.args))
-        where, params = filters.where()
-        have = {r["name"] for r in db().execute("PRAGMA table_info(listings)")}
-        columns = [c for c in CSV_COLUMNS if c in have]
-        if not list_ranges():
-            columns = [c for c in columns if c not in RANGE_COLUMNS]
-        cursor = db().execute(
-            "SELECT "
-            + ", ".join(f"l.{c}" for c in columns)
-            + " FROM listings l JOIN buildings b ON b.id = l.building_id"
-            + where
-            + filters.order_by(),
-            params,
-        )
-        connection = g.pop("db")  # the stream outlives the request context
+        table = estimates_or_503()
+        c = estimates_table.choice(request.args, table.hoods())
+        columns = table.csv_columns()
 
         def generate():
-            try:
-                buffer = io.StringIO()
-                writer = csv.writer(buffer)
-                writer.writerow(columns)
-                for row in cursor:
-                    writer.writerow(row)
-                    if buffer.tell() > 64 * 1024:
-                        yield buffer.getvalue()
-                        buffer.seek(0)
-                        buffer.truncate()
-                yield buffer.getvalue()
-            finally:
-                connection.close()
+            buffer = io.StringIO()
+            writer = csv.writer(buffer)
+            writer.writerow(columns)
+            for row in table.csv_rows(c):
+                writer.writerow(row)
+                if buffer.tell() > 64 * 1024:
+                    yield buffer.getvalue()
+                    buffer.seek(0)
+                    buffer.truncate()
+            yield buffer.getvalue()
 
-        response = Response(
-            stream_with_context(generate()),
+        return Response(
+            generate(),
             mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=listings.csv"},
+            headers={"Content-Disposition": "attachment; filename=estimates.csv"},
         )
-        response.call_on_close(connection.close)
-        return response
 
-    @app.get("/listings/<path:audit_id>")
-    def listing(audit_id):
-        row = (
-            db()
-            .execute(
-                "SELECT l.*, b.name AS building_name, b.address AS building_address, "
-                "b.latitude, b.longitude "
-                "FROM listings l JOIN buildings b ON b.id = l.building_id "
-                "WHERE l.audit_id = ?",
-                (audit_id,),
-            )
-            .fetchone()
-        )
+    @app.get("/listings/<path:key>")
+    def listing(key):
+        table = estimates_or_503()
+        row = table.row(key)
         if row is None:
-            held = (
-                db()
-                .execute("SELECT * FROM quarantined WHERE audit_id = ?", (audit_id,))
-                .fetchone()
-                if has_quarantine()
-                else None
-            )
-            if held is None:
-                abort(404, description="No listing with that id.")
-            return render_template(
-                "quarantined_listing.html",
-                meta=meta(),
-                row=held,
-                has_building=building_exists(held["building_id"]),
-            )
-        terms = {r["name"]: r for r in terms_list()}
-        contributions = parts_of(row)
-        market = next(c for c in contributions if c["term"] == "market")
-        # Parts at their reference level contribute exactly nothing in every
-        # draw; they are named in a note instead of drawn as empty rows.
-        parts = [
-            c
-            for c in contributions
-            if c["term"] != "market" and (c["lower"], c["upper"]) != (0, 0)
-        ]
-        reference = [
-            terms[c["term"]]["label"] if c["term"] in terms else c["term"]
-            for c in contributions
-            if c["term"] != "market" and (c["lower"], c["upper"]) == (0, 0)
-        ]
-        scale = max((max(abs(c["lower"]), abs(c["upper"])) for c in parts), default=1)
-        for c in parts:
-            c["bar"] = charts.contribution_bar(c["usd"], c["lower"], c["upper"], scale)
-        others = (
-            db()
-            .execute(
-                "SELECT * FROM listings WHERE unit_id = ? ORDER BY period",
-                (row["unit_id"],),
-            )
-            .fetchall()
-        )
-        inputs = json.loads(row["inputs"])
-        # The same advertisement seen earlier: when it first appeared and at
-        # what ask, so a price cut or rise shows (playtest round 3).
-        ad_start = next(
-            (
-                o
-                for o in others
-                if row["listing_id"]
-                and o["listing_id"] == row["listing_id"]
-                and o["period"] < row["period"]
-            ),
-            None,
-        )
-        # The latest other listing of this apartment with a different bedroom
-        # count: the ads relabelled it, or it was rebuilt.
-        relabelled = next(
-            (
-                o
-                for o in reversed(others)
-                if o["id"] != row["id"]
-                and o["bedrooms"] is not None
-                and row["bedrooms"] is not None
-                and o["bedrooms"] != row["bedrooms"]
-            ),
-            None,
-        )
-        # StreetEasy's own on-market date for this advertisement only (its
-        # listing id); the apartment's earlier ads keep their own dates.
-        on_market = ad_dates.read(db(), row["audit_id"]) if row["is_current"] else None
-        if on_market and on_market["listing_id"] != row["listing_id"]:
-            on_market = None
-        if on_market:
-            # Calendar days to our capture from the start of the ad's current
-            # stretch on the market: its return after the latest break, if any.
-            on_market["span"] = (
-                dt.date.fromisoformat(on_market["as_of"])
-                - dt.date.fromisoformat(
-                    on_market["back_at"] or on_market["on_market_at"]
+            # A quarantined ad of the earlier build keeps its page explaining why.
+            held = None
+            if database_path().is_file() and has_quarantine():
+                held = (
+                    db()
+                    .execute("SELECT * FROM quarantined WHERE audit_id = ?", (key,))
+                    .fetchone()
                 )
-            ).days
+            if held is not None:
+                return render_template(
+                    "quarantined_listing.html",
+                    meta=meta(),
+                    row=held,
+                    has_building=building_exists(held["building_id"]),
+                )
+            # Building, unit and best pages still link the earlier build's ads; an ad
+            # the model saw in fitting gets a page saying why it has no estimate.
+            seen = None
+            if database_path().is_file():
+                seen = (
+                    db()
+                    .execute(
+                        "SELECT l.*, b.name AS building_name, "
+                        "b.address AS building_address "
+                        "FROM listings l JOIN buildings b ON b.id = l.building_id "
+                        "WHERE l.audit_id = ?",
+                        (key,),
+                    )
+                    .fetchone()
+                )
+            if seen is not None:
+                return render_template("unestimated_listing.html", meta=None, row=seen)
+            abort(
+                404,
+                description="The model holds an estimate only for the ads it held out: "
+                "the newest ad of each apartment, and the ads on the market. This ad is "
+                "not one of them, or its id is not one the site knows.",
+            )
+        info = table.meta
+        lo, hi = row["model_lo95"], row["model_hi95"]
         return render_template(
             "listing.html",
-            captured=capture_day(row["collected_at"]),
-            exposure=exposure_of(row["unit_id"]),
-            unit_from_fit=any(
-                c.get("from_fit") for c in contributions if c["term"] == "unit"
-            ),
-            read_floor=read_floor(row, inputs),
-            carried_size=carried_size(row, inputs, others),
-            facing=next(
-                (
-                    k.removeprefix("looks onto ")
-                    for k in inputs
-                    if k.startswith("looks onto ")
-                ),
-                None,
-            ),
-            outdoor=[
-                k.split(":", 1)[1].replace("_", " ")
-                for k in inputs
-                if k.startswith("outdoor:")
-            ],
-            summary=summary.listing_summary(row, contributions, inputs),
-            ad_start=ad_start,
-            opposite=opposite_moves(others),
-            on_market=on_market,
-            relabelled=relabelled,
-            meta=meta(),
+            meta=None,
+            info=info,
             row=row,
-            likely=likely_of(row),
-            terms=terms,
-            market=market,
-            parts=parts,
-            reference=reference,
-            others=others,
-            views=_names(row["views"]),
-            windows=_names(row["windows"]),
-            flags=_flags(inputs, "text:"),
-            label_flags=_flags(inputs, "label:"),
-            chart=unit_chart(others) if len(others) > 1 else None,
+            run=(info.get("runs") or {}).get(row["source"]),
+            gate=(info.get("gate") or {}).get(row["source"]),
+            chart=charts.interval_strip(
+                row["ask"],
+                row["model_median"],
+                [
+                    (50, row["model_lo50"], row["model_hi50"]),
+                    (80, row["model_lo80"], row["model_hi80"]),
+                    (95, lo, hi),
+                ],
+            ),
         )
+
+    def retired(what: str):
+        """A 410 for a page of the earlier model that was retired."""
+        message = (
+            f"The {what} came from the earlier model and were retired on 2026-11-10, "
+            "when the Estimates section moved to the served drift model's held-out "
+            "estimates."
+        )
+        return render_template("retired.html", meta=None, message=message), 410
+
+    @app.get("/estimate")
+    def estimate_apartment():
+        return retired("estimate form and its results")
+
+    @app.get("/estimates/map")
+    def estimates_map():
+        return retired("rent map and its figures")
+
+    @app.get("/estimates/map.json")
+    def estimates_map_data():
+        return jsonify(
+            {
+                "error": "gone",
+                "message": "The rent map came from the earlier model and was retired "
+                "on 2026-11-10.",
+                "see": [url_for("listings"), url_for("deals_page")],
+            }
+        ), 410
 
     def ranked(profile_name: str) -> dict:
         """The profile and every current listing scored by it, cached per
@@ -1577,15 +1444,6 @@ def create_app(
             )
         return g.has_exposure
 
-    def exposure_of(unit_id: str) -> dict | None:
-        if not has_exposure():
-            return None
-        return exposure.describe(
-            db()
-            .execute("SELECT * FROM exposure WHERE unit_id = ?", (unit_id,))
-            .fetchone()
-        )
-
     def exposures() -> dict[str, str]:
         """Every labelled unit's short words, for listing tables; read once
         per build."""
@@ -1825,7 +1683,7 @@ def create_app(
                     "lower": r["estimate_lower"],
                     "upper": r["estimate_upper"],
                     "title": charts.month_label(r["period"]),
-                    "href": url_for("listing", audit_id=r["audit_id"]),
+                    "href": url_for("listing", key=r["audit_id"]),
                 }
                 for r in rows
             ],
@@ -1977,7 +1835,7 @@ def create_app(
                         ["Ask", charts.usd(p["ask"])],
                         ["Estimate", charts.usd(p["estimate"])],
                     ],
-                    "href": url_for("listing", audit_id=p["audit_id"]),
+                    "href": url_for("listing", key=p["audit_id"]),
                 }
                 for p in points
             ],
@@ -1987,7 +1845,6 @@ def create_app(
         return render_template(
             "building.html",
             typical=building_typical(building_id),
-            estimate_form=estimate_build.available(db()),
             meta=meta(),
             b=row,
             units=units,
@@ -2003,128 +1860,6 @@ def create_app(
                 if filters.status == "all"
                 or bool(q["is_current"]) == (filters.status == "current")
             ],
-        )
-
-    @app.get("/estimate")
-    def estimate_apartment():
-        kit, unavailable = estimate_build.read(db())
-        form = estimate.Form.parse(request.args)
-        building_id = (request.args.get("building") or "").strip()[:200]
-        q = (request.args.get("q") or "").strip()[:80]
-        b = (
-            db()
-            .execute("SELECT * FROM buildings WHERE id = ?", (building_id,))
-            .fetchone()
-            if building_id
-            else None
-        )
-        matches = []
-        if b is None and q:
-            matches = [
-                dict(m_)
-                for m_ in db()
-                .execute(
-                    "SELECT b.id, b.name, b.address, b.neighbourhood, b.bbl, "
-                    "b.year_built, b.floors, b.listings, b.first_period, "
-                    "(SELECT l.elevator FROM listings l WHERE l.building_id = b.id "
-                    "AND l.elevator IS NOT NULL ORDER BY l.period DESC LIMIT 1) "
-                    "AS elevator FROM buildings b "
-                    "WHERE b.search LIKE ? ESCAPE '\\' ORDER BY b.sort_key LIMIT 25",
-                    ("%" + _escape_like(q.lower()) + "%",),
-                )
-                .fetchall()
-            ]
-            # Two choices can share an address and tax lot (playtest round 4: "Ava
-            # High Line" and "507 West Chelsea", separate towers with no units in
-            # common); say so, so they can be told apart.
-            for m_ in matches:
-                m_["same"] = [
-                    o["name"] or o["address"]
-                    for o in matches
-                    if o is not m_
-                    and o["bbl"] is not None
-                    and o["bbl"] == m_["bbl"]
-                    and o["address"].lower() == m_["address"].lower()
-                ]
-            if len(matches) == 1:
-                b = (
-                    db()
-                    .execute(
-                        "SELECT * FROM buildings WHERE id = ?", (matches[0]["id"],)
-                    )
-                    .fetchone()
-                )
-        result = parts = facts = None
-        if kit is not None and b is not None:
-            terms = estimate_build.building(db(), b["id"], g.build_dir)
-            if terms is not None:
-                x = estimate.encode(form, kit, terms.inputs)
-                today = dt.datetime.now(dt.UTC).date()
-                result = estimate.score(
-                    kit,
-                    terms,
-                    x,
-                    form.bedrooms,
-                    today,
-                    seed=f"{b['id']}|{today}|{form.canonical()}",  # not the ask
-                    ask=form.ask,
-                )
-                result["day"] = today
-                labels = {t["name"]: t["label"] for t in terms_list()}
-                labels["season"] = f"Season ({today.day} {today:%B})"
-                parts = [
-                    p | {"label": labels.get(p["group"], p["group"])}
-                    for p in estimate.parts(kit, terms, x, form.bedrooms, today)
-                ]
-                facts = building_facts(x)
-                # What the building's listings say, beside what the visitor set.
-                facts["building"] = (
-                    building_facts(
-                        estimate.encode(
-                            dataclasses.replace(form, elevator="", doorman=""),
-                            kit,
-                            terms.inputs,
-                        )
-                    )
-                    if form.elevator or form.doorman
-                    else dict(facts)
-                )
-                facts["set"] = {k for k in ("elevator", "doorman") if getattr(form, k)}
-
-        def pick(chosen):
-            args = {
-                k: request.args.getlist(k)
-                for k in estimate.FORM_KEYS
-                if k in request.args
-            }
-            return (
-                url_for("estimate_apartment", **(args | {"building": chosen}))
-                + "#result"
-            )
-
-        return render_template(
-            "estimate.html",
-            meta=meta(),
-            kit=kit,
-            unavailable=unavailable,
-            form=form,
-            b=b,
-            q=q,
-            matches=matches,
-            result=result,
-            parts=parts,
-            facts=facts,
-            options=estimate,
-            pick=pick,
-        )
-
-    @app.get("/estimates/map")
-    def estimates_map():
-        db()  # 503 before any publish
-        return render_template(
-            "estimates_map.html",
-            meta=meta(),
-            has_map=(database_path().parent / "map.json").is_file(),
         )
 
     @app.get("/buildings.json")
@@ -2159,22 +1894,6 @@ def create_app(
                 for r in rows
             ]
         )
-
-    @app.get("/estimates/map.json")
-    def estimates_map_data():
-        db()
-        path = database_path().parent / "map.json"
-        if not path.is_file():
-            abort(404, description="No rent map for the served model yet.")
-        body = _rent_map_slice(
-            str(path),
-            path.stat().st_mtime,
-            request.args.get("beds"),
-            request.args.get("area"),
-        )
-        response = Response(body, mimetype="application/json")
-        response.headers["Cache-Control"] = "no-cache"
-        return response
 
     @app.get("/about")
     def about():
@@ -2948,51 +2667,6 @@ def _rent_map(path: str, mtime: float) -> dict:
     return data
 
 
-def _rent_map_slice(
-    path: str, mtime: float, beds: str | None, area: str | None
-) -> bytes:
-    """Returns a build's map.json cut down to what the rent map page draws.
-
-    With a bedroom key from the map, the slice keeps rents for that key only.
-    With a neighbourhood from median_by_area, it keeps that neighbourhood's
-    buildings and their rents. Unknown values count as absent, and with
-    neither the whole file goes back. The page draws one bedroom count at a
-    time, and a city-wide map holds rents for four counts across tens of
-    thousands of buildings."""
-    data = _rent_map(path, mtime)
-    beds = beds if beds in (data.get("rent") or {}) else None
-    area = area if area and area in (data.get("median_by_area") or {}) else None
-    if beds is None and area is None:
-        return Path(path).read_bytes()
-    return _cut_rent_map(path, mtime, beds, area)
-
-
-@functools.lru_cache(maxsize=8)
-def _cut_rent_map(path: str, mtime: float, beds: str | None, area: str | None) -> bytes:
-    data = _rent_map(path, mtime)
-    rows = [
-        i
-        for i, b in enumerate(data.get("buildings", []))
-        if area is None or b.get("neighbourhood") == area
-    ]
-    # Keys starting with "_" hold the web process's own caches (the building
-    # index, Street View lookups) and stay out of the response.
-    out = {
-        k: v
-        for k, v in data.items()
-        if not k.startswith("_") and k not in ("buildings", "rent")
-    }
-    # The page decides once whether to offer the building-kind filter.
-    out["kinds"] = any(b.get("kind") for b in data.get("buildings", []))
-    out["buildings"] = [data["buildings"][i] for i in rows]
-    out["rent"] = {
-        key: [series[i] for i in rows]
-        for key, series in data["rent"].items()
-        if beds is None or key == beds
-    }
-    return json.dumps(out, separators=(",", ":")).encode()
-
-
 def chosen_by(selected_by: str) -> str:
     """Who chose the served model, in words: the automatic rule with its
     date ("rentfrontier.autoselect, 2026-10-04 (Ben, …)"), else as written."""
@@ -3000,18 +2674,6 @@ def chosen_by(selected_by: str) -> str:
         day = re.search(r"\d{4}-\d{2}-\d{2}", selected_by)
         return "the automatic selection rule" + (f", {day.group()}" if day else "")
     return selected_by
-
-
-def _names(value) -> list[str]:
-    return [v.replace("_", " ") for v in json.loads(value)] if value else []
-
-
-def _flags(inputs: dict, prefix: str) -> list[str]:
-    return [
-        name.removeprefix(prefix).replace("_", " ")
-        for name, value in inputs.items()
-        if name.startswith(prefix) and value
-    ]
 
 
 def ordinal(n: int) -> str:
@@ -3068,23 +2730,6 @@ def lay_label(name: str, label: str) -> str:
     return LAY_LABELS.get(name, label)
 
 
-def building_facts(x: dict[str, float]) -> dict:
-    """The elevator and doorman an apartment's model inputs say, in words."""
-    return {
-        "elevator": "no"
-        if x.get("elevator=no")
-        else ("not stated" if x.get("elevator=unknown") else "yes"),
-        "doorman": next(
-            (
-                n.split("=", 1)[1].replace("_", " ")
-                for n in x
-                if n.startswith("doorman=")
-            ),
-            "not stated",
-        ),
-    }
-
-
 FEATURE_WORDS = {
     ("laundry", "in_unit"): "W/D in unit",
     ("laundry", "in_building"): "laundry in bldg",
@@ -3118,22 +2763,6 @@ def features(row, faces: str | None = None) -> list[str]:
 def read_floor(row, inputs: dict[str, float]) -> int | None:
     """The floor from the unit's label (see summary.label_floor)."""
     return summary.label_floor(row["floor"], inputs)
-
-
-def carried_size(row, inputs: dict[str, float], others) -> dict | None:
-    """The size the model used for a listing whose ad states none: the
-    unit's latest earlier ad that does (playtest round 11). None when the
-    ad states one or the model treats the size as unknown."""
-    # Only when the model used a size for this listing, so the page shows what it priced.
-    if row["square_feet"] or "log_sqft_vs_bedroom_median" not in inputs:
-        return None
-    earlier = [
-        o for o in others if o["square_feet"] and o["period"] <= row["period"]
-    ] or [o for o in others if o["square_feet"]]
-    if not earlier:
-        return None
-    o = earlier[-1]
-    return {"square_feet": o["square_feet"], "year": o["period"][:4]}
 
 
 def day_label(iso: str) -> str:

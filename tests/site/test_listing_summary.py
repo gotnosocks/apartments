@@ -127,11 +127,3 @@ def test_an_unsure_building_is_not_called_in_line():
         )
     ]
     assert listing_summary(dict(ROW, estimate=None), parts, {}) == []
-
-
-def test_listing_page_shows_the_summary(client):
-    html = client.get("/listings/a1").get_data(as_text=True)
-    card = html[html.index('id="summary"') :]
-    card = card[: card.index("</section>")]
-    assert "What the model makes of it" in card and "95%" in card
-    assert html.index('id="summary"') < html.index("What makes up the estimate")

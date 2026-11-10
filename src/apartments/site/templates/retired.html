@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Retired{% endblock %}
+{% block content %}
+<section class="card error">
+  <h1>This page was retired</h1>
+  <p>{{ message }}</p>
+  <p>Each ad's estimate from the served model is in <a href="{{ url_for('listings') }}">the list of estimates</a>, and the ads on the
+  market with the lowest asks for their apartment are on <a href="{{ url_for('deals_page') }}">Deals</a>.</p>
+</section>
+{% endblock %}

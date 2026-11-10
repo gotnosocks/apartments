@@ -18,7 +18,7 @@
 {%- endmacro %}
 
 {% macro listing_table(rows, filters=None, endpoint=None, show_building=True, show_source=False) %}
-{# The range column shows only with SITE_LIST_RANGES=1; each listing's page carries its ranges. #}
+{# The range column shows only with SITE_LIST_RANGES=1. #}
 {% set ranges = list_ranges() %}
 {% set pred = ranges and rows and (rows | selectattr("pred_lower_80", "number") | list) %}
 <div class="table-wrap">
@@ -40,7 +40,7 @@
   {% for row in rows %}
     <tr>
       <td class="nowrap c-date">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
-      <td class="c-place"><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
+      <td class="c-place"><a href="{{ url_for('listing', key=row.audit_id) }}">{% if show_building %}{{ place(row) }}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
       <td class="c-layout"><span class="nowrap">{{ layout(row) }}</span>{% set f = features(row) %}{% if f %}<span class="feat">{{ f | join(" · ") }}</span>{% endif %}</td>
       <td class="num" data-label="Ask">{{ usd(row.ask) }}</td>
       <td class="num" data-label="Estimate">{{ usd(row.estimate) }}{% if not row.reliable %} <span class="warn-mark" title="Less reliable estimate (Pareto k {{ '%.2f' | format(row.pareto_k) }})">*</span>{% endif %}</td>
@@ -60,8 +60,8 @@ are expected to fall, in that building and month. <strong>Price</strong> says wh
 typical</em> under it, <em>Above typical</em> over it, <em>Typical</em> inside it.
 <a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
 {% elif rows and not ranges %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
-apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. Each listing's own page shows
-its range. <a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
+apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%.
+<a href="{{ url_for('research_glossary', _anchor='price-band') }}">More</a>.</p>
 {% elif rows %}<p class="note band-note"><strong>Price</strong> compares the ask with the spread of asks the model expects for that
 apartment: <em>Below typical</em> is the lowest 10%, <em>Above typical</em> the highest 10%. The <em>range for the typical
 rent</em> is something else: the 95% uncertainty of the model's typical rent for that apartment, not where its ask will
@@ -110,7 +110,7 @@ apartments with few listings, so the same % gap can be typical for one apartment
   {% for row in rows %}
     <tr>
       <td class="nowrap">{{ month(row.period) }}{% if row.is_current %} <span class="tag">now</span>{% endif %}</td>
-      <td><a href="{{ url_for('listing', audit_id=row.audit_id) }}">{% if show_building %}{{ row.building }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
+      <td><a href="{{ url_for('listing', key=row.audit_id) }}">{% if show_building %}{{ row.building }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}{% else %}{{ row.unit_label or "Unit" }}{% endif %}</a></td>
       <td class="nowrap">{{ layout(row) }}</td>
       <td class="num">{{ usd(row.ask) }}</td>
       <td>{{ quarantine_chip(row) }} {{ row.reason }}</td>
@@ -121,20 +121,6 @@ apartments with few listings, so the same % gap can be typical for one apartment
 </table>
 </div>
 {% endmacro %}
-
-{% macro coverage_note(coverage) -%}
-{%- set covered = coverage | selectattr("listings") | list -%}
-{%- set without = coverage | rejectattr("listings") | map(attribute="neighbourhood") | select | list -%}
-<p class="note coverage">“Available now” means seen on the market in the latest capture{% if covered %}:
-{% for c in covered %}{% if c.neighbourhood %}{{ c.neighbourhood }}, {% endif %}{{ "{:,}".format(c.listings) }} listing{{ "" if c.listings == 1 else "s" }}{% if c.captured %} captured {{ c.captured }}{% endif %}{{ "; " if not loop.last }}{% endfor %}{% endif %}.
-{% set stale = covered | selectattr("age_days", "number") | selectattr("age_days", "gt", 7) | list %}
-{% for c in stale %}{% if c.neighbourhood %}{{ c.neighbourhood }}'s capture is{% else %}The capture is{% endif %} {{ c.age_days }} days old, so
-some of {{ "its" if c.neighbourhood else "these" }} listings may have rented since. {% endfor %}{% if stale %}The StreetEasy link on each listing
-shows whether it is still on the market.{% endif %}
-{% if without %}<strong>{{ without | join(" and ") }} {{ "has" if without | length == 1 else "have" }} no current capture yet</strong>, so
-none of {{ "its" if without | length == 1 else "their" }} listings show as available; {{ "its" if without | length == 1 else "their" }}
-recent listings are under <a href="{{ url_for('listings', nb=without[0]) if without | length == 1 else url_for('listings') }}">all listings</a>, at their first ask.{% endif %}</p>
-{%- endmacro %}
 
 {% macro opposite_note(opposite) -%}
 {% if opposite %}

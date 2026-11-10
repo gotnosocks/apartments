@@ -21,8 +21,10 @@ GROVE = "the-grove-250-west-19th-street-new_york"
         "/",
         "/listings",
         "/listings?status=current",
-        "/listings/a1",
+        "/listings?sort=low",
+        "/listings/a2",
         "/listings/a3",
+        "/listings/1005",
         "/units/u1",
         "/units/u2",
         "/buildings",
@@ -49,22 +51,6 @@ def listed(client, query=""):
     return [part.split('"')[0] for part in html.split('href="/listings/')[1:]]
 
 
-def test_listing_filters(client):
-    assert listed(client) == ["a3", "a4", "a2", "a1", "a6", "a5"]  # newest first
-    assert listed(client, "?status=current") == ["a3"]
-    assert listed(client, "?status=past&beds=0") == ["a6", "a5"]
-    assert listed(client, "?beds=2&beds=4") == ["a4"]
-    assert listed(client, "?price=below") == ["a2"]
-    assert listed(client, "?price=above") == ["a4"]
-    assert listed(client, "?min_ask=3000&max_ask=%243%2C500") == ["a3", "a1"]
-    assert listed(client, "?from=2019&to=2021") == ["a2", "a1"]
-    assert listed(client, "?q=grove") == ["a3", "a4", "a2", "a1"]
-    assert listed(client, "?q=23rd") == ["a6", "a5"]
-    assert listed(client, "?q=11-c") == ["a3"]  # exact unit label
-    assert listed(client, "?sort=ask") == ["a5", "a6", "a2", "a1", "a3", "a4"]
-    assert listed(client, "?sort=diff_pct&order=desc")[0] == "a4"
-
-
 def test_invalid_parameters_fall_back_to_defaults(client):
     default = listed(client)
     for query in (
@@ -84,46 +70,6 @@ def test_invalid_parameters_fall_back_to_defaults(client):
 def test_pagination(client):
     html = client.get("/listings?per=25&page=99").get_data(as_text=True)
     assert "Page" not in html  # one page only; out-of-range pages clamp
-
-
-def test_csv_export_follows_the_filters(client):
-    response = client.get("/listings.csv?q=grove&sort=ask")
-    assert response.status_code == 200 and response.mimetype == "text/csv"
-    rows = list(csv.DictReader(io.StringIO(response.get_data(as_text=True))))
-    assert [r["audit_id"] for r in rows] == ["a2", "a1", "a3", "a4"]
-    assert rows[0]["price_band"] == "below" and float(rows[0]["ask"]) == 2600.0
-    assert rows[0]["neighbourhood"] == "Chelsea"
-
-
-def test_listing_page_explains_the_estimate(client):
-    html = client.get("/listings/a3").get_data(as_text=True)
-    assert "Less reliable estimate" in html
-    assert (
-        "the unit&#39;s 2 other listings" in html or "unit's 2 other listings" in html
-    )
-    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html  # data is escaped
-    assert "<script>alert(1)</script>" not in html
-    assert "renovated" in html and "penthouse" in html
-    assert "At their reference level, adding nothing: Bedrooms" in html
-    single = client.get("/listings/a4").get_data(as_text=True)
-    assert "only listing in the model fit" in single and "Above typical" in single
-    held = client.get("/listings/a2").get_data(as_text=True)
-    assert "held out of the model fit" in held
-
-
-def test_listing_diagnostics_are_folded_away_and_glossed(client):
-    html = " ".join(client.get("/listings/a3").get_data(as_text=True).split())
-    assert (
-        "that shortcut is unstable (its" in html
-        and 'href="/research/glossary#pareto-k"' in html
-    )
-    assert '<details class="table-view" id="model-details">' in html
-    assert "<summary>Model details, for statisticians</summary>" in html
-    assert "(above 0.7, so less reliable)" in html
-    reliable = " ".join(client.get("/listings/a4").get_data(as_text=True).split())
-    assert "Less reliable estimate" not in reliable
-    assert "the fit reweighted as if it had not seen this ask" in reliable
-    assert "(below 0.7: the reweighting is reliable)" in reliable
 
 
 def test_building_page(client):
@@ -1041,26 +987,7 @@ def test_contents_titles_drop_markdown_and_images_resolve():
     )
 
 
-def test_rent_map_page_and_data(client, site_root):
-    page = client.get("/estimates/map").get_data(as_text=True)
-    assert "no rent map for the served model yet" in page
-    # the map script names the area from the build when the map does not
-    assert 'data-area="Chelsea"' in page
-    assert client.get("/estimates/map.json").status_code == 404
-    current = (site_root / "current").resolve()
-    (current / "map.json").write_text(
-        json.dumps({"run": "m-test-run", "years": [2026]})
-    )
-    page = client.get("/estimates/map").get_data(as_text=True)
-    assert 'data-src="/estimates/map.json"' in page and "rentmap.js" in page
-    assert 'href="/estimates/map" aria-current="page"' in page
-    data = client.get("/estimates/map.json")
-    assert data.status_code == 200 and data.get_json()["run"] == "m-test-run"
-
-
 def test_one_neighbourhood_shows_no_neighbourhood_controls(client):
-    html = client.get("/listings").get_data(as_text=True)
-    assert 'name="nb"' not in html
     assert 'name="nb"' not in client.get("/buildings").get_data(as_text=True)
 
 
@@ -1076,37 +1003,17 @@ def test_neighbourhoods_filter_listings_and_buildings(
     root = tmp_path / "nb-site"
     build.build(bundle, root, scope="Chelsea and West Village")
     client = create_app(root, research_data=research_file).test_client()
-    html = client.get("/listings").get_data(as_text=True)
-    assert '<option value="West Village">West Village (2)</option>' in html
-    assert "(West Village)" in html  # next to the building in the table
-    wv = client.get("/listings?nb=West+Village").get_data(as_text=True)
-    assert wv.count('href="/listings/a') == 2 and "/listings/a1" not in wv
-    assert (
-        client.get("/listings?nb=Nowhere")
-        .get_data(as_text=True)
-        .count('href="/listings/a')
-        == 6
-    )  # an unknown neighbourhood is ignored
+    html = client.get("/buildings").get_data(as_text=True)
+    assert '<option value="West Village">West Village</option>' in html
     buildings = client.get("/buildings?nb=Chelsea").get_data(as_text=True)
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
     # one borough: no whole-borough choice, and its name is ignored
     assert "All of Manhattan" not in html
-    assert (
-        client.get("/listings?nb=Manhattan")
-        .get_data(as_text=True)
-        .count('href="/listings/a')
-        == 6
-    )
+    every = client.get("/buildings?nb=Manhattan").get_data(as_text=True)
+    assert "The Grove" in every and "134 West 23rd Street" in every
     page = client.get("/buildings/134-west-23-street-new_york").get_data(as_text=True)
     assert '<p class="subline">West Village · ' in page
     # several neighbourhoods are named by their count, not listed (Ben, 2026-10-09)
-    estimates = client.get("/estimates").get_data(as_text=True)
-    assert "<h1>All rental listings, with" in estimates
-    assert "in an average building across both neighbourhoods," in estimates
-    assert "Chelsea and West Village" not in estimates
-    rent_map = client.get("/estimates/map").get_data(as_text=True)
-    assert 'data-area="both neighbourhoods"' in rent_map
-    assert "in each building across both neighbourhoods," in rent_map
     home = client.get("/").get_data(as_text=True)
     assert "Every scraped rental listing in both neighbourhoods," in home
     about = client.get("/about").get_data(as_text=True)
@@ -1127,11 +1034,11 @@ def test_two_boroughs_offer_each_borough_as_a_choice(
     root = tmp_path / "bk-site"
     build.build(bundle, root, scope="Chelsea and Williamsburg")
     client = create_app(root, research_data=research_file).test_client()
-    html = client.get("/listings").get_data(as_text=True)
+    html = client.get("/buildings").get_data(as_text=True)
     assert '<optgroup label="Brooklyn">' in html
-    assert '<option value="Brooklyn">All of Brooklyn (2)</option>' in html
-    brooklyn = client.get("/listings?nb=Brooklyn").get_data(as_text=True)
-    assert brooklyn.count('href="/listings/a') == 2
+    assert '<option value="Brooklyn">All of Brooklyn</option>' in html
+    brooklyn = client.get("/buildings?nb=Brooklyn").get_data(as_text=True)
+    assert "134 West 23rd Street" in brooklyn and "The Grove" not in brooklyn
     assert '<option value="Brooklyn" selected>' in brooklyn
     buildings = client.get("/buildings?nb=Manhattan").get_data(as_text=True)
     assert "The Grove" in buildings and "134 West 23rd Street" not in buildings
@@ -1551,27 +1458,19 @@ def test_a_build_from_before_neighbourhoods_still_serves(client, site_root):
         "/buildings",
         f"/buildings/{GROVE}",
         "/units/u1",
-        "/listings/a1",
-        "/estimates/map",
+        "/listings/a2",
     ):
         assert client.get(path).status_code == 200, path
-    response = client.get("/listings.csv")
-    rows = list(csv.DictReader(io.StringIO(response.get_data(as_text=True))))
-    assert rows and "neighbourhood" not in rows[0]
 
 
 def test_price_labels_are_explained_where_they_appear(client, monkeypatch):
-    listings = client.get("/listings").get_data(as_text=True)
+    listings = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
     assert "<em>Below typical</em> is the lowest 10%" in listings
     assert "Typical rent, 95% range" not in listings
     monkeypatch.setenv("SITE_LIST_RANGES", "1")
-    listings = client.get("/listings").get_data(as_text=True)
+    listings = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
     assert "Typical rent, 95% range" in listings
     assert "the same % gap can be typical for one apartment" in listings
-    page = client.get("/listings/a2").get_data(as_text=True)
-    assert "of the asks the model expects for this apartment" in page
-    assert "lower than 90% of comparable asks" not in page
-    assert "“not stated”" in page
 
 
 def test_research_model_page_shows_a_pending_switch(site_root, research_file):
@@ -1810,39 +1709,3 @@ def test_site_is_titled_nyc_rents(client):
     assert "<h1>NYC Rents: estimates and research</h1>" in html
     story = client.get("/research/story").get_data(as_text=True)
     assert "· NYC Rents</title>" in story
-
-
-def test_rent_map_slices_by_bedrooms_and_neighbourhood(client, site_root):
-    current = (site_root / "current").resolve()
-    (current / "map.json").write_text(
-        json.dumps(
-            {
-                "run": "m-test-run",
-                "years": [2026],
-                "median_by_area": {"Chelsea": {}, "Bushwick": {}},
-                "buildings": [
-                    {"id": "a", "neighbourhood": "Chelsea"},
-                    {"id": "b", "neighbourhood": "Bushwick"},
-                ],
-                "rent": {"1": [["a1"], ["b1"]], "2": [["a2"], ["b2"]]},
-            }
-        )
-    )
-    whole = client.get("/estimates/map.json").get_json()
-    assert set(whole["rent"]) == {"1", "2"} and len(whole["buildings"]) == 2
-    beds = client.get("/estimates/map.json?beds=2").get_json()
-    assert beds["rent"] == {"2": [["a2"], ["b2"]]} and "_index" not in beds
-    # a building page's Street View lookup leaves a cache in the parsed map
-    path = current / "map.json"
-    web._rent_map(str(path), path.stat().st_mtime)["_streetview"] = {"f": len}
-    sliced = client.get("/estimates/map.json?beds=1&area=Chelsea")
-    assert sliced.status_code == 200 and "_streetview" not in sliced.get_json()
-    one = client.get("/estimates/map.json?beds=1&area=Bushwick").get_json()
-    assert [b["id"] for b in one["buildings"]] == ["b"]
-    assert one["rent"] == {"1": [["b1"]]}
-    some = client.get("/estimates/map.json?beds=1&area=Nowhere").get_json()
-    assert len(some["buildings"]) == 2 and set(some["rent"]) == {"1"}
-    assert some["kinds"] is False
-    # unknown choices fall back to everything
-    other = client.get("/estimates/map.json?beds=9&area=Nowhere").get_json()
-    assert set(other["rent"]) == {"1", "2"} and len(other["buildings"]) == 2

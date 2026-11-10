@@ -2,14 +2,22 @@
 
 from pathlib import Path
 
+GROVE = "the-grove-250-west-19th-street-new_york"
 CSS = (Path(__file__).parents[2] / "src/apartments/site/static/site.css").read_text()
 
 
 def test_listing_tables_carry_the_card_layout_hooks(client):
-    html = client.get("/listings").get_data(as_text=True)
+    html = client.get(f"/buildings/{GROVE}").get_data(as_text=True)
     assert '<table class="data listings">' in html
     assert 'data-label="Ask"' in html and 'data-label="Price"' in html
     assert 'class="c-place"' in html
+
+
+def test_the_estimates_list_carries_the_card_layout_hooks(client):
+    html = client.get("/listings").get_data(as_text=True)
+    assert '<table class="data estimates">' in html
+    assert 'data-label="Ask"' in html and 'data-label="Likely range"' in html
+    assert 'class="c-listing"' in html
 
 
 def test_minor_columns_and_contained_labels(client):
