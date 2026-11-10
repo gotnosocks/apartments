@@ -1,22 +1,26 @@
 """Full-cohort log-density/gradient parity, with compilation and warm timing separated."""
 
-import hashlib
 import argparse
+import hashlib
 import importlib.metadata
-import json
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 
 import numpy as np
+
+from apartments.corrections import canonical
+from apartments.research_pipeline import digest, publish_bundle
+from models import bayesian_feature_experiment_v3 as runner
+from models import (
+    bayesian_feature_graph_v3 as compressed,
+)
 from models import (
     bayesian_feature_model as reference,
-    bayesian_feature_graph_v3 as compressed,
+)
+from models import (
     bayesian_floor_increment_design as feature,
 )
-from models import bayesian_feature_experiment_v3 as runner
-from apartments.corrections import canonical
-from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--dataset", type=Path, required=True)

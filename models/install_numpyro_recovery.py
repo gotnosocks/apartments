@@ -3,9 +3,9 @@
 import argparse
 import fcntl
 import json
-from pathlib import Path
 import shutil
 import time
+from pathlib import Path
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest

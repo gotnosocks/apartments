@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+
 from rentfrontier import features
 
 
@@ -745,6 +746,7 @@ def test_stated_bedrooms_reads_the_first_sentence():
 
 def test_nb_bedtext_flags_ads_stating_another_count(monkeypatch):
     import pandas as pd
+
     from rentfrontier import descriptions
 
     fn = features.FEATURE_SETS["nb-bedtext-v1"]

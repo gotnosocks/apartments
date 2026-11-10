@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import pytest
+from test_b0 import frame_of
 
 from rentfrontier import b0, building_attrs, normal_walk
-from test_b0 import frame_of
 
 
 def _attrs(buildings):

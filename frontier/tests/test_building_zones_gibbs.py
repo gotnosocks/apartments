@@ -2,13 +2,14 @@ import json
 
 import numpy as np
 import pytest
-
-from rentfrontier import building_zones, building_zones_gibbs as bzg, two_zone
-from rentfrontier.building_zones import site_zone, wave_matrix
 from test_b0 import frame_of
-from test_building_zones import _design
 from test_b0_4 import registry_of
+from test_building_zones import _design
 from test_whitened_zones import nj_registry_of
+
+from rentfrontier import building_zones, two_zone
+from rentfrontier import building_zones_gibbs as bzg
+from rentfrontier.building_zones import site_zone, wave_matrix
 
 
 def _state(d, seed=0):
@@ -143,7 +144,8 @@ def test_recovers_simulated_scales():
 
 
 def test_run(tmp_path, monkeypatch):
-    from rentfrontier import run as runmod, whitened_zones
+    from rentfrontier import run as runmod
+    from rentfrontier import whitened_zones
 
     frame, _ = frame_of(n=1500, weeks=60, seed=5)
     dataset = tmp_path / "b0-data"

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+
 from rentfrontier import crime, features
 
 # Metres to degrees of latitude.

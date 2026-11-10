@@ -2,6 +2,7 @@ import json
 
 import pandas as pd
 import pytest
+
 from rentfrontier import registry_extend as m
 
 

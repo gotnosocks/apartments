@@ -1,4 +1,5 @@
 import pytest
+
 from rentfrontier import registry
 from rentfrontier.registry import distance_m, slug_address
 

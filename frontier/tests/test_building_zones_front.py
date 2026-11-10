@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
-
 import test_building_zones_attrs as tba
-from rentfrontier import building_zones, building_zones_attrs as bza
-from rentfrontier import building_zones_front as bzf
-from rentfrontier import building_zones_gibbs as bzg
 from test_building_zones_attrs import _nyc_frame, registry_with_bins, tables_of
 from test_whitened_zones import NO_NJ
+
+from rentfrontier import building_zones
+from rentfrontier import building_zones_attrs as bza
+from rentfrontier import building_zones_front as bzf
+from rentfrontier import building_zones_gibbs as bzg
 
 TRUTH = tba.TRUTH | {
     "bld:front_41_60": -0.03,
@@ -78,7 +79,8 @@ def test_recovers_simulated_frontage_coefficients(monkeypatch):
 def test_run(tmp_path, monkeypatch):
     import json
 
-    from rentfrontier import building_attrs, run as runmod, whitened_zones
+    from rentfrontier import building_attrs, whitened_zones
+    from rentfrontier import run as runmod
 
     frame = _nyc_frame(1500, 60, 5)
     dataset = tmp_path / "b0-data"

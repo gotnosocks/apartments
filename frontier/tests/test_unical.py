@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
+
 from rentfrontier import features, unical
 
 ARCHIVE = """<html><body><script>var x = "Fall 1999 - Summer 2000";</script>

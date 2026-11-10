@@ -3,13 +3,14 @@ import json
 
 import numpy as np
 import pandas as pd
-
-from rentfrontier import building_zones, building_zones_attrs as bza
-from rentfrontier import building_zones_gibbs as bzg
-from rentfrontier.building_zones import site_zone, wave_matrix
 from test_b0 import frame_of
 from test_b0_4 import registry_of
 from test_whitened_zones import NO_NJ
+
+from rentfrontier import building_zones
+from rentfrontier import building_zones_attrs as bza
+from rentfrontier import building_zones_gibbs as bzg
+from rentfrontier.building_zones import site_zone, wave_matrix
 
 TRUTH = {
     "bld:log_height": 0.09,
@@ -145,7 +146,8 @@ def test_recovers_simulated_building_coefficients():
 
 
 def test_run(tmp_path, monkeypatch):
-    from rentfrontier import building_attrs, run as runmod, whitened_zones
+    from rentfrontier import building_attrs, whitened_zones
+    from rentfrontier import run as runmod
 
     frame = _nyc_frame(1500, 60, 5)
     dataset = tmp_path / "b0-data"

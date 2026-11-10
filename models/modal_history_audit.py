@@ -1,9 +1,14 @@
 """Read-only, bounded rental history quality audit; never contacts StreetEasy/Oxylabs."""
 
-import json, re, gzip, sqlite3, time, hashlib
-from collections import Counter
-from pathlib import Path
+import gzip
+import hashlib
+import json
+import re
+import sqlite3
+import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 import modal
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,8 +35,9 @@ image = (
     volumes={"/archive": volume},
 )
 def audit():
-    from streeteasy_archive.extract import _scripts, flight_text
     from parsel import Selector
+
+    from streeteasy_archive.extract import _scripts, flight_text
 
     started = time.time()
     db = sqlite3.connect(

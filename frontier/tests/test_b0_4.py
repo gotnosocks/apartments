@@ -3,9 +3,9 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
+from test_b0 import frame_of
 
 from rentfrontier import b0, b0_3, b0_4
-from test_b0 import frame_of
 
 pytest.importorskip("numpyro")
 

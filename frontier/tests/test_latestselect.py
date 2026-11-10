@@ -1,6 +1,7 @@
 import json
 
 import pytest
+
 from rentfrontier import data, features, latestselect
 
 RULES = frozenset({"unit-labels-v3", "quarantine-v5"})

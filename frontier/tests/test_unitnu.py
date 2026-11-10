@@ -1,9 +1,9 @@
 import dataclasses
 
 import numpy as np
-from rentfrontier import gibbs, model
-
 from test_gibbs import DESIGNS, synthetic
+
+from rentfrontier import gibbs, model
 
 
 def test_unitnu4_differs_from_slopemin3_only_in_the_unit_degrees_of_freedom():

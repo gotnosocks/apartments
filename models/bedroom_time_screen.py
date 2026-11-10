@@ -25,9 +25,9 @@ import pandas as pd
 from scipy import special, stats
 from threadpoolctl import threadpool_limits
 
+from . import bayesian_bedroom_time_graph as graph
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
-from . import bayesian_bedroom_time_graph as graph
 
 ERAS = (
     (2010, 2013),

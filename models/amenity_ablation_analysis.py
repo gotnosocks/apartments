@@ -11,6 +11,7 @@ import pandas as pd
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
+
 from . import amenity_rent_model as model
 from . import minimal_rent_model as baseline
 

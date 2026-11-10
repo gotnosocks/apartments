@@ -23,8 +23,8 @@ from pathlib import Path
 
 import numpy as np
 
-from models import bayesian_floor_spline_experiment as spline
 from models import bayesian_floor_spline_design as floor
+from models import bayesian_floor_spline_experiment as spline
 
 SEED = 20260923
 

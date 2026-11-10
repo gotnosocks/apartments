@@ -9,8 +9,9 @@ from apartments import direct_floor_projection as projection
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest
 from apartments.reviewed_cohort_quarantine import sha
-from . import expanded_floor_fit_comparison as expanded
+
 from . import direct_floor_fit_checks as checks
+from . import expanded_floor_fit_comparison as expanded
 
 shared, smooth, spline = expanded.shared, expanded.smooth, expanded.spline
 check_protocols = checks.check_protocols

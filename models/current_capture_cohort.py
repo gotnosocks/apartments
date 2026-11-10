@@ -39,19 +39,22 @@ analysis month:
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
-from datetime import UTC, datetime
 import hashlib
 import json
-from pathlib import Path
 import sys
+from collections import Counter, defaultdict
+from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from apartments.corrections import canonical, instant
 from apartments.research_pipeline import digest, publish_bundle
+
 from . import (
     bathroom_projection,
     fit_robust_analysis,
+)
+from . import (
     refresh_analysis_cohort as refresh,
 )
 

@@ -1,10 +1,10 @@
 import collections
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
 
 from rentfrontier import data, features
 

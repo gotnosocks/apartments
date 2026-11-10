@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import jax.numpy as jnp
 import numpy as np
+
 from rentfrontier import rescore
 
 

@@ -4,11 +4,11 @@ import math
 import numpy as np
 import pytest
 from scipy import stats
-
-from rentfrontier import normal_walk, two_zone, two_zone_1k
 from test_b0 import frame_of
 from test_b0_4 import registry_of
 from test_normal_walk import _points
+
+from rentfrontier import normal_walk, two_zone, two_zone_1k
 
 pytest.importorskip("numpyro")
 

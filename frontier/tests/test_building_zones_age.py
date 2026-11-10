@@ -2,10 +2,10 @@ import json
 
 import numpy as np
 import pandas as pd
-
 import test_building_zones_attrs as tba
 import test_building_zones_gym as tby
 import test_building_zones_unit as tbu
+
 from rentfrontier import building_age, building_zones
 from rentfrontier import building_zones_age as bzs
 from rentfrontier import building_zones_gibbs as bzg
@@ -129,8 +129,9 @@ def test_recovers_simulated_age_coefficients(monkeypatch):
 
 
 def test_run(tmp_path, monkeypatch):
-    from rentfrontier import building_attrs, run as runmod, whitened_zones
+    from rentfrontier import building_attrs, whitened_zones
     from rentfrontier import building_zones_attrs as bza
+    from rentfrontier import run as runmod
 
     frame = tba._nyc_frame(1500, 60, 5)
     dataset = tmp_path / "b0-data"

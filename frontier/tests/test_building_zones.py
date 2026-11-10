@@ -2,12 +2,12 @@ import json
 
 import numpy as np
 import pytest
-
-from rentfrontier import building_zones, two_zone, whitened_zones
 from test_b0 import frame_of
 from test_b0_4 import registry_of
 from test_normal_walk import _points
 from test_whitened_zones import nj_registry_of
+
+from rentfrontier import building_zones, two_zone, whitened_zones
 
 pytest.importorskip("numpyro")
 

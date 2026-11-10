@@ -8,6 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pytest
+
 from rentfrontier import collect, gibbs, model
 from rentfrontier.features import Features
 

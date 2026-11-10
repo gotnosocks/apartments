@@ -7,8 +7,8 @@ archive volume without copying the archive locally.
 
 from __future__ import annotations
 
-import json
 import gzip
+import json
 import re
 import sqlite3
 import time
@@ -229,8 +229,9 @@ def debug_inventory_failures(snapshot: str, limit: int = 20) -> dict:
     """Inspect a small number of failed inventory bodies without provider calls."""
     if not re.fullmatch(r"[A-Za-z0-9_-]+", snapshot):
         raise ValueError("invalid snapshot id")
-    from parsel import Selector
     from lxml import etree
+    from parsel import Selector
+
     from streeteasy_archive.extract import _scripts
     from streeteasy_archive.scope import summary_counts
 

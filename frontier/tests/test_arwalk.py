@@ -10,11 +10,12 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pytest
-from rentfrontier import gibbs, model
-from rentfrontier.features import Features
 from scipy.special import betaln
 from scipy.stats import beta, multivariate_normal
 from test_gibbs import synthetic
+
+from rentfrontier import gibbs, model
+from rentfrontier.features import Features
 
 AR = model.ModelConfig(building_walk=True, walk_ar=True)
 AR_SLOPE = model.ModelConfig(building_walk=True, walk_ar=True, bedroom_slope=True)

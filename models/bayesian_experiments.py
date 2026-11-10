@@ -8,14 +8,13 @@ sequence so a human or supervising agent can inspect the model before proceeding
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import time
-
+from datetime import UTC, datetime
+from pathlib import Path
 
 VARIANTS = {
     "building": ["--no-units"],
@@ -30,7 +29,7 @@ VARIANTS = {
 
 
 def write_state(path, state):
-    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+    state["updated_at"] = datetime.now(UTC).isoformat()
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(state, indent=2))
     temporary.replace(path)

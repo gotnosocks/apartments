@@ -1,6 +1,5 @@
 """Frozen, checksummed streaming export of the Modal archive for host migration."""
 
-from pathlib import Path
 import hashlib
 import json
 import os
@@ -8,6 +7,7 @@ import stat
 import subprocess
 import tarfile
 import time
+from pathlib import Path
 
 import modal
 

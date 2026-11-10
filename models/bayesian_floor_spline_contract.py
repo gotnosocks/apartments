@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 import math
+from collections import defaultdict
 
 EXPERIMENT = "observable-bayesian-floor-spline-experiment-v5"
 BEDROOM_TIME_EXPERIMENT = "observable-bayesian-bedroom-time-experiment-v1"
@@ -109,6 +109,7 @@ def verify_metadata(protocol, design):
 
 def verify_contrasts(protocol, design, floors, rows, summary):
     from apartments import pricing
+
     from . import bayesian_feature_report as report
 
     verify_metadata(protocol, design)

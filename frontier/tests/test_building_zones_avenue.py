@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-
 import test_building_zones_floor as tbf
+
 from rentfrontier import building_zones_avenue as bzv
 from rentfrontier import building_zones_location as bzl
 

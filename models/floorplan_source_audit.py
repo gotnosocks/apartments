@@ -1,9 +1,13 @@
 """Inventory explicitly labeled floor-plan references; never fetch or inspect images."""
 
 from __future__ import annotations
+
 import argparse
+import gzip
+import hashlib
+import json
+import re
 from collections import Counter, defaultdict
-import gzip, hashlib, json, re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -11,6 +15,7 @@ from apartments import granular_parse
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
 from streeteasy_archive import extract, flight
+
 from .interior_feature_audit import json_rows
 
 VERSION = "ensuite-floorplan-reference-audit-v1"

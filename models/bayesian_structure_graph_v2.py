@@ -29,8 +29,8 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 
-from . import bayesian_feature_graph as reference
 from . import bayesian_bedroom_time_graph as bedroom_time
+from . import bayesian_feature_graph as reference
 from . import bayesian_location_terms as location_terms
 from .bayesian_feature_graph_v3 import graph_configuration as base_configuration
 

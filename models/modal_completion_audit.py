@@ -1,12 +1,13 @@
 """Read-only completion audit of scoped buildings, inventories and their detail edges."""
 
 import json
-from collections import Counter
-from pathlib import Path
 import sqlite3
 import time
-from urllib.parse import urljoin
 import uuid
+from collections import Counter
+from pathlib import Path
+from urllib.parse import urljoin
+
 import modal
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,8 +37,8 @@ image = (
     include_source=False,
 )
 def audit():
-    from streeteasy_archive.scope import summary_counts
     from streeteasy_archive.extract import canonical_url, is_gallery_url
+    from streeteasy_archive.scope import summary_counts
 
     owner = str(uuid.uuid4())
     if not locks.put(

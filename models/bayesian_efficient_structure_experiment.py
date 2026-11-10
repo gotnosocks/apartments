@@ -23,9 +23,10 @@ from threadpoolctl import threadpool_limits
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
+
 from . import bayesian_bedroom_time_experiment as previous
-from . import bayesian_structure_graph_v3 as graph
 from . import bayesian_location_terms as location_terms
+from . import bayesian_structure_graph_v3 as graph
 
 VERSION = "observable-bayesian-efficient-structure-experiment-v1"
 BUILDING_TIME_VERSION = "building-walk-summary-v1"

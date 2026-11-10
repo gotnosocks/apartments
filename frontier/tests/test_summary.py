@@ -5,8 +5,9 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
-from rentfrontier import loo, model, summary
 from scipy import stats
+
+from rentfrontier import loo, model, summary
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+
 from rentfrontier import data, features
 
 NAME, BASE = "all-scraped-lots4-v1", "all-scraped-v1"

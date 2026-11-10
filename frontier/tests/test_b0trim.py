@@ -3,9 +3,9 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
+from test_b0 import frame_of
 
 from rentfrontier import b0, b0trim
-from test_b0 import frame_of
 
 
 def test_dense_start_skips_early_stragglers_and_a_thin_gap():

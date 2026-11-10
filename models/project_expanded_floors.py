@@ -5,15 +5,19 @@ inferred labels. Neither operation rewrites raw captures or frozen fits.
 """
 
 import argparse
-from collections import Counter
-from copy import deepcopy
 import hashlib
 import json
+from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 
 from apartments import (
     corrections,
+)
+from apartments import (
     expanded_floor_projection as contract,
+)
+from apartments import (
     floor_label_projection as original,
 )
 from apartments.bayesian_evidence import load_evidence

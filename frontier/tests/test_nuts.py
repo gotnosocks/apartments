@@ -8,8 +8,9 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from numpyro import handlers
-from rentfrontier import gibbs, model, nuts
 from test_gibbs import synthetic
+
+from rentfrontier import gibbs, model, nuts
 
 jax.config.update("jax_enable_x64", True)
 

@@ -2,9 +2,9 @@ import json
 
 import numpy as np
 import pytest
+from test_b0 import frame_of
 
 from rentfrontier import b0, b0_2
-from test_b0 import frame_of
 
 pytest.importorskip("numpyro")
 

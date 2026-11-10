@@ -8,6 +8,7 @@ import re
 import numpy as np
 import pandas as pd
 import pytest
+
 from rentfrontier import autoselect, brooklyn, data
 
 

@@ -7,17 +7,13 @@ The frozen original implementation remains with those historical artifacts.
 from __future__ import annotations
 
 import argparse
-import json
-import importlib.metadata
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 from apartments.corrections import canonical
-from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
-from . import bayesian_feature_report as report
+from apartments.research_pipeline import digest
 
 VERSION = "bayesian-feature-posterior-checks-v1"
 VARIABLE_DIMS = {

@@ -1,11 +1,13 @@
 """CPU-only archive processing. Local commands stream files; no local data analysis."""
 
 from __future__ import annotations
+
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import time
+from pathlib import Path
+
 import modal
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,15 +180,16 @@ def upload_files(snapshot, archive, database):
 )
 def prepare(snapshot: str):
     """Incrementally import, audit buildings one page at a time, and prepare model input."""
-    import sys
-    import re
     import collections
+    import re
+    import sys
 
     sys.path[:0] = ["/root/src", "/root/models"]
-    from apartments.archive_import import import_archive
-    from streeteasy_archive.scope import objects
-    from streeteasy_archive.extract import flight_text
     from rent_model import prepare_data
+
+    from apartments.archive_import import import_archive
+    from streeteasy_archive.extract import flight_text
+    from streeteasy_archive.scope import objects
 
     started = time.monotonic()
     base = Path("/archive/snapshots") / safe_id(snapshot)
