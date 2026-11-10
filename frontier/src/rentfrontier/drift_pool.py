@@ -48,6 +48,9 @@ SAME = (
 )
 # Kept arrays that are the predicted rows' data, with no chain axis.
 ROWS = ("pred_y", "pred_group")
+# How far apart two parts' copies of a predicted row's log rent may be (b6a and b6b
+# differed by 1.8e-15 in 2 of 189,647 rows).
+TOLERANCE = 1e-9
 # Sampler settings a part may differ in.
 OWN = ("seed",)
 
@@ -78,6 +81,17 @@ def check(records: list[dict]) -> None:
         raise SystemExit(f"parts from a dirty tree: {failed}")
 
 
+def same(a: np.ndarray, b: np.ndarray) -> bool:
+    """Whether two parts' copies of an array agree. Each container builds the design
+    itself, and a logarithm can differ in its last bit from one machine to the next, so
+    floats are compared to within `TOLERANCE` and everything else exactly."""
+    if a.shape != b.shape:
+        return False
+    if a.dtype.kind == "f":
+        return bool(np.allclose(a, b, rtol=0.0, atol=TOLERANCE, equal_nan=True))
+    return bool(np.array_equal(a, b))
+
+
 def pool(parts: list[dict]) -> dict:
     """The arrays of one run from the parts' arrays (each a dict as `np.load` gives): chains
     stacked along axis 0, every part cut to the shortest part's draws."""
@@ -86,7 +100,7 @@ def pool(parts: list[dict]) -> dict:
         if sorted(p) != sorted(first):
             raise SystemExit("the parts hold different arrays")
         for k in ("names", "heldout", *(f"kept/{r}" for r in ROWS if f"kept/{r}" in p)):
-            if not np.array_equal(p[k], first[k]):
+            if not same(p[k], first[k]):
                 raise SystemExit(f"the parts differ in {k}")
     out = {}
     for k in first:

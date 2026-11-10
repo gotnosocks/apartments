@@ -131,6 +131,16 @@ def test_pooling_refuses_parts_that_are_not_one_fit_on_different_seeds(tmp_path,
     ):
         with pytest.raises(SystemExit, match=why):
             drift_pool.main(["all", "a", other, "--runs", str(tmp_path)])
+    # The predicted rows may differ in a logarithm's last bit, and by no more.
+    for name, off, ok in (("last-bit", 2e-15, True), ("other-rows", 1e-6, False)):
+        arrays, _ = _part(tmp_path, name, 6, draws=40, kept=4)
+        arrays["kept/pred_y"] = arrays["kept/pred_y"] + off
+        np.savez_compressed(tmp_path / name / "posterior.npz", **arrays)
+        if ok:
+            drift_pool.main(["bit", "a", name, "--runs", str(tmp_path)])
+        else:
+            with pytest.raises(SystemExit, match="differ in kept/pred_y"):
+                drift_pool.main(["all", "a", name, "--runs", str(tmp_path)])
     with pytest.raises(SystemExit, match="at least two"):
         drift_pool.main(["all", "a", "--runs", str(tmp_path)])
     assert not (tmp_path / "all").exists()
