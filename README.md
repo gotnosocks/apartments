@@ -32,7 +32,8 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 - **The Deals page** (`/deals` on the site) ranks the 6,774 ads on the market on 2026-11-09
   by how low each ask is for its apartment. It was published from the market fit with its
   backtest. Ads whose low ask has a plain reason the model does not know (the text says
-  income-restricted, an office, owners only; the apartment's ads disagree on its bedrooms;
+  income-restricted, an office, owners only, a takeover of someone's lease; the apartment's
+  ads disagree on its bedrooms;
   the ad is off the market) carry a caution and are left out of the list unless asked for.
   Read against their own text, 36 of the first 40 ads shown are ordinary apartments with
   no plain reason for the low ask (2 have one: a lease takeover, and a text that names

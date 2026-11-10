@@ -38,7 +38,8 @@ A second reading the same day fixed `takeover` and dropped a caution for a bedro
 in the text that differs from the record. Of the 6,774 ads, 100 matched a wider set of
 candidates for a takeover and 82 were read: "lease takeover" and "take over the lease" (5
 matches, all 5 the rest of a lease), "lease assignment" and "assign the lease" (4 of 4)
-and "lease reassignment" (4 of 4) are kept. Dropped: "sublet" and "sublease" (6 of 28;
+and "lease reassignment" (4 of 5; the other is a leasing office's stray header) are kept,
+14 ads in all. Dropped: "sublet" and "sublease" (6 of 28;
 "sublets ok" is a building's policy), "lease ends" and "lease expires" (4 of 7; a new
 lease's own end date), and "short-term" (6 of 42 read; "no short term rentals"). For the
 bedroom count, 573 ads name in their text only counts that differ from the record's, and
