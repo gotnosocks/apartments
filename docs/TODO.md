@@ -24,6 +24,28 @@ extraction with evidence spans and one consolidated scope overlay; (6) building
 covariates in the building-effect mean; (7) era-stability check on coefficients;
 (8) collapse `models/`, artifact retention, doc shape.
 
+**From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
+of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.
+
+- [ ] Rewrite the text flags the model reads (`features.DESCRIPTION_FLAGS`, copied in
+  `b0data.TEXT_FLAGS`). `income_restricted` missed 33 of the 55 income-restricted ads on the
+  market of 2026-11-09 (a hyphen in "income-restricted", "income requirements", "HPD",
+  "affordable unit") and 8 of its 30 hits quote a fee schedule. `shared_space` matches
+  "roommates" in sales talk and found no room in a share. `rentfrontier.cautions` has
+  patterns that were checked by reading.
+- [ ] Parse free months written in words ("FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE
+  FREE").
+- [ ] A sampler move for a building in two states under `drift-building`: new weights for
+  the building's rows, accepted on its marginal likelihood with level, path and units
+  integrated out. About five buildings in 68,000 need it, and they hold the model's one
+  failing R-hat.
+- [ ] Review the bed counts of the buildings the building model cannot settle (1259
+  Jefferson Ave, 866 Knickerbocker Ave, 310 Linden St, 391 Greene Ave in Brooklyn): ads
+  coded as studios at the rents of their 3- and 4-bedrooms. 8,717 units (2.2% of those with
+  two or more ads) carry more than one bed count.
+- [ ] Carry an ad's concession through its price history, so a first ask can be put on
+  the net basis exactly (`drift_deals.first_net` assumes the latest concession throughout).
+
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build
 that drops a handful of rows shifts the position of every later id and reshuffles the draw.

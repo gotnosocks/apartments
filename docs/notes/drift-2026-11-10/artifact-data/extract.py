@@ -277,10 +277,13 @@ def backtest(run):
     return full | {"scoring_day": market["scoring_day"], "split": split}
 
 
-def market(run, registry):
+def market(run, registry, texts=None):
+    """The market run's deals table in summary. `lowest` is the head of the list the page
+    shows: the ads with no caution (`rentfrontier.cautions`; the text ones need `texts`)."""
     ads = drift_deals.Path(drift_deals._manifest(c.RUNS / run)["ads"])
-    t = drift_deals.deals(c.RUNS / run, ads, registry)
+    t = drift_deals.deals(c.RUNS / run, ads, registry, texts)
     seen = t.unit_ads > 0
+    clear = ~t.cautions.map(bool)
     edges = np.linspace(0, 1, 21)
     width = 100 * (t.model_hi80 - t.model_lo80) / t.model_median
     cols = [
@@ -309,7 +312,9 @@ def market(run, registry):
         "by_bedrooms": {
             str(k): int(v) for k, v in t.bedrooms.value_counts().sort_index().items()
         },
-        "lowest": json.loads(t.head(25)[cols].to_json(orient="records")),
+        "cautioned": int((~clear).sum()),
+        "texts_read": texts is not None,
+        "lowest": json.loads(t[clear].head(25)[cols].to_json(orient="records")),
     }
 
 
@@ -319,6 +324,7 @@ def main():
     p.add_argument("--backtest")
     p.add_argument("--market")
     p.add_argument("--registry", default=REGISTRY)
+    p.add_argument("--texts", help="the market run's ad texts (drift_deals texts)")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     latest = dict(x.split("=", 1) for x in a.latest)
@@ -407,7 +413,11 @@ def main():
     if a.backtest:
         out["backtest"] = backtest(a.backtest)
     if a.market:
-        out["market"] = market(a.market, drift_deals.Path(a.registry))
+        out["market"] = market(
+            a.market,
+            drift_deals.Path(a.registry),
+            drift_deals.Path(a.texts) if a.texts else None,
+        )
     text = json.dumps(sig(out), separators=(",", ":"))
     open(a.out, "w").write(text)
     print(f"{len(text) / 1024:.1f} KB to {a.out}")

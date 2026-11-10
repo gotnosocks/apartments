@@ -27,11 +27,14 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 
 - **The Deals page** (`/deals` on the site) ranks the 6,774 ads on the market on 2026-11-09
   by how low each ask is for its apartment. It was published from the market fit with its
-  backtest.
+  backtest. Ads whose low ask has a plain reason the model does not know (the text says
+  income-restricted, an office, owners only; the apartment's ads disagree on its bedrooms;
+  the ad is off the market) carry a caution and are left out of the list unless asked for.
 - **The backtest.** Fitted on what was known on 2025-11-10 and scored on the first asks of
   the 9,346 ads open that day: ads in the lowest tenth of the score left the market in a
-  median of 27 days and 18% had their ask cut; ads in the highest tenth took 62 days and
-  79% were cut.
+  median of 28 days and 18% had their ask cut; ads in the highest tenth took 61 days and
+  60% were cut. (Until 2026-11-10 10:05Z this read 62 days and 79%: the check compared a
+  gross first ask with a net final ask for the ads with free months.)
 - **Calibration.** The 50, 80, 90 and 95% ranges held 51.3, 79.9, 89.6 and 94.9% of the
   held-out asks.
 - **What is next.** `drift-building` predicts much better, but each of its fits misses the
@@ -81,7 +84,8 @@ gives the equations, the sampler and the checks, and the module docstrings give 
 4. `python -m rentfrontier.drift_score RUN` turns those into predictive densities, intervals
    and, for each ad, the share of the model's distribution below its ask.
 5. `python -m rentfrontier.drift_deals deals RUN --ads ADS --out DIR` writes the deals table,
-   lowest share first. `... validate` checks the score against what happened to the ads of
+   lowest share first, with each ad's cautions (`rentfrontier.cautions`; `... texts RUN`
+   writes the ads' own descriptions for the ones read from text). `... validate` checks the score against what happened to the ads of
    the backtest: time on the market and price cuts.
 
 ## How a change earns its place
