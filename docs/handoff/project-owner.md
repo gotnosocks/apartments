@@ -5,27 +5,33 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 12:25Z
+## State at 2026-11-10 12:50Z
 
 - **Served model.** `drift`. Its three full fits passed the gate (f6 on the latest split,
   m6 on the market dataset, k6 on the backtest; run names `drift-b0-latest-fabd6f9d-f6`,
   `drift-b0-market-fabd6f9d-m6`, `drift-b0-market-fabd6f9d-k6`). Held-out elpd 195,320,
   median abs error 0.0506, coverage 0.513 / 0.799 / 0.896 / 0.949.
-- **Deals.** `/data1/apartments/site/deals` was republished at 10:35Z from m6 with k6, f6
-  and the ad texts (`--texts /data1/apartments/tmp/overhaul/texts-m6.parquet`), from
-  master `9266983`, and the site deployed from the same commit. `/deals` shows 5,981 of
-  6,774 ads by default, 793 left out for a caution, and the corrected backtest (28 to 61
-  days on market, 18% to 60% cut, lowest tenth to highest). A reader classed 35 of the
-  first 40 ads shown as ordinary apartments (10 of 22 before the cautions).
+- **Deals.** `/data1/apartments/site/deals` was republished at about 12:35Z from m6 with
+  k6, f6 and the ad texts (`--texts /data1/apartments/tmp/overhaul/texts-m6.parquet`),
+  from master `67d14e17`, and the site deployed from the same commit. `/deals` shows 5,802
+  of 6,774 ads by default, 972 left out for a caution (646 off market, 328 beds, 55
+  income, 2 not_home, 1 owners_only), and the corrected backtest (28 to 61 days on
+  market, 18% to 60% cut, lowest tenth to highest). Scores and order are the morning's.
+  A reader classed 35 of the first 40 ads of the morning's list as ordinary apartments
+  (10 of 22 before the cautions); the list under the wider beds caution has not been
+  read again.
 - **PRs.** #1281 (the model, the Deals page, the docs) merged as `252a82a`, head `f1380fc`.
   #1282 (cautions, the backtest on one basis) merged as `9266983`, head `93bbfca`. The tags
   `archive/pr-1281` and `archive/pr-1282` are not pushed: this thread can push only its
-  own branch. Work after #1282 is on the same branch, `claude/project-thread-09vaqy`,
-  with master merged in (a force push to restart it was refused), and goes in a third PR.
-- **In the third PR, not yet merged or published.** The beds caution reads a split unit's
-  pieces together (it missed 655 Hart St 2F, rank 2 of the list); after the merge,
-  republish with the same command as above and deploy. Round seven's results and the
-  cause of the building model's miss in the docs. `Settings.level_dof`.
+  own branch. #1283 (round seven and eight, the cause of the building model's miss,
+  `Settings.level_dof`, the beds caution that reads a split unit's pieces together)
+  merged as `67d14e17`, head `51c00d5`; its tag `archive/pr-1283` is not pushed either.
+  Work after #1283 is on the same branch, `claude/project-thread-09vaqy`, with master
+  merged in (a force push to restart it was refused), and goes in a fourth PR.
+- **Round nine, running.** Ben approved up to $40 more on Modal at 12:38Z (ceiling $140).
+  Nine containers of `drift-building --level-dof 4` were launched at 12:44Z from master
+  `67d14e17`: `b9a` to `b9c` (latest split), `n9a` to `n9c` (market), `j9a` to `j9c`
+  (backtest), about $4 each. Predictions and run names are in the note's "Round nine".
 - **`drift-building`.** Better by 35,541 elpd (230,861 in b7; median abs error 0.0407) and
   not served: every pooled fit misses the gate. Round seven (2 chains a container, chains
   of 2,920 to 3,440 draws) cured round six's misses on drift_tau and the sigmas and left
@@ -71,21 +77,19 @@ window and no stale jobs to be run.
   `artifact-data/extract-full.json` (written by `artifact-data/extract.py` on thelio) into
   the page's data and `build.py` writes the page.
 - **Modal spend.** $94.42 settled after round eight ($96.07 with two upper bounds, one a
-  preempted run's minutes and one a stopped launch). Nothing else is to be launched
-  inside the $100.
+  preempted run's minutes and one a stopped launch). Round nine adds $31 to $38. The
+  ceiling is $140 and nothing beyond round nine is planned.
 
 ## Next, in order
 
-1. The third PR (round seven and eight, the cause of the miss, `level_dof`, the wider beds
-   caution): review, squash-merge, then republish the Deals folder with the same command
-   as above and deploy, and check that 655 Hart St 2F carries the beds caution (972 ads
-   with a caution, 328 of them beds).
-2. If Ben approves the extra budget: write the predictions, then launch nine containers
-   of `drift-building --level-dof 4` (2 chains, 500 warmup, 9,000 draws, keep 40, seeds 1
-   to 3) on the latest split, the market dataset and the backtest dataset; pool each
-   with `drift_pool`; score the latest one; if all three pass the gate, publish Deals
-   from the market fit with `--backtest` and `--heldout` and the texts, rebuild the
-   explainer and tell Ben. If any pool misses, it is not published: look at what missed.
+1. Round nine as it lands: pool each kind's three containers with `drift_pool` (b9, n9,
+   j9), read each pool's convergence table, score b9 with `drift_score`, and score the
+   six predictions in the note. If all three pools pass the gate, publish Deals from n9
+   with `--backtest` j9, `--heldout` b9 and the texts, deploy, rebuild the explainer
+   from an extract whose winner is the building model, and tell Ben. If any pool
+   misses, it is not published: look at what missed, and rerun nothing on another seed.
+2. The fourth PR (the explainer's section on the better model, its refreshed data, round
+   nine's record): a Sonnet reviewer for the page and docs, then squash-merge.
 3. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
 4. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
 
