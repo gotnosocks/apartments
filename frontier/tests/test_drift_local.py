@@ -277,12 +277,15 @@ def test_a_slice_that_only_shrinks_leaves_its_target_unchanged():
     assert spread(0.2, 4) < 0.85
 
 
-def _cells(seed=4):
+def _cells(seed=4, drop=()):
     """A small design with the collapsed building term in weekly steps: the sampler's parts,
     one chain's state, and in the sampler's row order the rows' building and step, a random
-    target, each building's surface value and the rows' covariance from the noise and u."""
+    target, each building's surface value and the rows' covariance from the noise and u.
+    The buildings in `drop` lose their training rows."""
     full = td._design()
     train, _, _ = td._split(full)
+    if len(drop):
+        train = drift.subset(train, ~np.isin(train.site, drop))
     _, init, _, parts = _sampler(train, _groups(train))
     jax, jnp = b0._jax()
     st = td._state(init, parts)
@@ -334,15 +337,24 @@ def test_cell_loglik_matches_the_dense_density():
     zone = parts["zone"]
 
     def both(lb, par):
+        """Each zone's log density: ours, and the dense one over the zone's rows (rows of
+        two buildings are independent given the surface)."""
         ours = parts["cell_loglik"](
             parts["data"], jnp.asarray(lb), jnp.asarray(par), sums, jnp.asarray(F)
         )
         full = cov + _cell_cov(site, step, zone, np.asarray(lb), par)
-        dev = tgt - F[site]
-        dense = -0.5 * (np.linalg.slogdet(full)[1] + dev @ np.linalg.solve(full, dev))
-        return float(ours.sum()), dense
+        dense = []
+        for z in range(len(lb)):
+            rows = np.flatnonzero(zone[site] == z)
+            dev = (tgt - F[site])[rows]
+            sub = full[np.ix_(rows, rows)]
+            dense.append(
+                -0.5 * (np.linalg.slogdet(sub)[1] + dev @ np.linalg.solve(sub, dev))
+            )
+        return np.asarray(ours), np.array(dense)
 
     base = both([-1.8, -2.2], [-2.5, 1.0])
+    assert len(base[0]) == 2 and min(np.bincount(zone[site], minlength=2)) > 50
     for lb, par in (
         ([-1.2, -2.2], [-2.5, 1.0]),
         ([-1.8, -2.9], [-1.7, 1.0]),
@@ -351,7 +363,7 @@ def test_cell_loglik_matches_the_dense_density():
     ):
         ours, dense = both(lb, par)
         np.testing.assert_allclose(ours - base[0], dense - base[1], rtol=1e-8)
-        assert abs(dense - base[1]) > 1.0
+        assert np.abs(dense - base[1]).max() > 1.0
 
 
 def test_cell_system_matches_the_dense_conditional():
@@ -429,20 +441,49 @@ def test_fill_path_draws_the_steps_between_the_cells():
     np.testing.assert_allclose(np.cov(draws[:, 1].T), cov, atol=0.003)
 
 
-def test_update_cells_keeps_the_rows_remainder_and_moves_every_part():
-    parts, st, site, step, tgt, F, cov, sums = _cells()
+def test_update_cells_places_the_joint_draw_and_keeps_the_prior_where_no_row_is():
+    full = td._design()
+    drop = np.unique(full.site)[[3, 40]]
+    parts, st, site, step, tgt, F, cov, sums = _cells(drop=drop)
     jax, jnp = b0._jax()
     D = parts["data"]
     a = parts["ars"][0]
+    lay = parts["cell_layout"]
+    zone = np.asarray(parts["zone"])
     st = st | {"ar": (jnp.zeros((a["size"], a["T"])),)}
-    bsd, lev, par, path = parts["update_cells"](
-        D, jax.random.PRNGKey(3), st, sums, jnp.asarray(F)
-    )
-    assert bsd.shape == st["bld_sd"].shape and float(jnp.abs(bsd - st["bld_sd"]).max())
+    key = jax.random.PRNGKey(3)
+    bsd, lev, par, path = parts["update_cells"](D, key, st, sums, jnp.asarray(F))
+    assert float(jnp.abs(bsd - st["bld_sd"]).min()) > 0
     assert float(jnp.abs(par - st["ar_par"][0]).min()) > 0
-    assert lev.shape == (len(parts["zone"]),) and path.shape == (a["size"], a["T"])
-    assert bool(jnp.isfinite(lev).all()) and bool(jnp.isfinite(path).all())
-    # Every building with rows left its prior draw, and the cells hold the drawn values.
-    active = np.asarray(parts["cell_layout"]["active"]).reshape(a["size"], a["T"])
+    bsd, lev, path = np.asarray(bsd), np.asarray(lev), np.asarray(path)
+    assert np.isfinite(lev).all() and np.isfinite(path).all()
+    # A replay of the draw with the step's own keys: each building's state is
+    # L^-T (x + noise) at the scales the step returns, its level first, then its cells.
+    _, _, k3, k4 = jax.random.split(key, 4)
+    keys = jax.random.split(k4, len(sums) + 1)
+    b2 = bsd[zone] ** 2
+    seen = np.zeros(len(zone), bool)
+    for kk, (H, h), b in zip(keys[1:], sums, lay["buckets"]):
+        ids = b["sites"]
+        L, x, _ = parts["cell_system"](
+            par, jnp.asarray(b2[ids]), jnp.asarray(F[ids]), H, h, jnp.asarray(b["gap"])
+        )
+        eps = np.asarray(jax.random.normal(kk, x.shape))
+        L, x = np.asarray(L), np.asarray(x)
+        for k in range(len(ids)):
+            z = np.linalg.solve(L[k].T, x[k] + eps[k])
+            steps = np.unique(step[site == ids[k]])
+            np.testing.assert_allclose(lev[ids[k]], z[0], atol=1e-12)
+            np.testing.assert_allclose(
+                path[ids[k], steps], z[1 : 1 + len(steps)], atol=1e-12
+            )
+        seen[ids] = True
+    # A building with no row keeps its prior: its level is the surface plus b times the
+    # step's noise, and it has no cell.
+    assert set(np.flatnonzero(~seen)) >= set(drop) and not seen[drop].any()
+    prior = F + np.sqrt(b2) * np.asarray(jax.random.normal(k3, (len(zone),)))
+    np.testing.assert_allclose(lev[~seen], prior[~seen], atol=1e-12)
+    active = np.asarray(lay["active"]).reshape(a["size"], a["T"])
+    assert not active[drop].any() and np.abs(path[drop]).min() > 0
+    np.testing.assert_array_equal(np.asarray(D["ar_cell"][0]), site * a["T"] + step)
     assert active.sum() == len(np.unique(site * a["T"] + step))
-    assert float(np.abs(np.asarray(path)[active]).min()) > 0
