@@ -140,8 +140,10 @@ class Settings:
     seed: int = 20261110
     # Buildings per block of the Schur complement's dense products.
     site_block: int = 4096
-    # Rounds of draws between progress lines and checkpoints.
-    chunks: int = 10
+    # Rounds of draws between progress lines and checkpoints. A checkpoint computes the
+    # diagnostics of every traced scalar, which took about 100 s a time in the pilot fit, so
+    # there are few.
+    chunks: int = 4
     # Draw each zone's amplitude with the waves integrated out (`rentfrontier.amp_joint`).
     joint_amp: bool = True
 
