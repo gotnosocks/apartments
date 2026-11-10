@@ -562,6 +562,11 @@ def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
         "building-zones-kitchen-sink", "b0", 4, 500, 6000, "H100", runs=tmp_path
     )
     assert long > 3600
+    # A fit stopped at its budget is rated by the sweeps it ran, not the draws asked for.
+    run = _modal_run(tmp_path, "drift", "b0", 2700)
+    result = json.loads((run / "result.json").read_text())
+    (run / "result.json").write_text(json.dumps(result | {"gibbs": {"sweeps": 3000}}))
+    assert cap.measured_rate("drift", "b0", tmp_path) == pytest.approx(2700 / 3000)
     # The budget is the one the fit loop reads.
     source = (OPS.parents[1] / "frontier/src/rentfrontier/drift.py").read_text()
     assert f"budget_seconds: float | None = {budget}.0" in source

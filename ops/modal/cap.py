@@ -282,7 +282,11 @@ def measured_rate(model, features, runs=RUNS):
                 continue  # a longer model or feature-set name with the same prefix
             fit = m["stages"]["fit"]
             s = result["sampler_settings"]
-            iterations = (s["warmup"] + s["draws"]) * s["chains"] / 2
+            # A drift fit stopped at its budget ran fewer sweeps than its settings ask.
+            sweeps = (result.get("gibbs") or {}).get("sweeps") or s["warmup"] + s[
+                "draws"
+            ]
+            iterations = sweeps * s["chains"] / 2
         except (OSError, ValueError, KeyError, TypeError):
             continue
         if m.get("fit_exit", m.get("exit")) != 0 or not iterations:

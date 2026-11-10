@@ -201,7 +201,7 @@ class Settings:
     checkpoints: bool = False
     # Stop drawing once the sweeps after the first have taken this long, at the next kept
     # draw, and report the draws there are. Modal stops a fit's container at 75 minutes and
-    # the project's rule is an hour a fit; outside the sweeps a full fit takes about 17
+    # the project's rule is an hour a fit; outside the sweeps the pilots took 13 to 15
     # minutes (image, design, compile, output). None runs every draw asked for.
     budget_seconds: float | None = 2520.0
     # With a collapsed building term, the columns whose names start with one of these are
