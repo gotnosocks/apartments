@@ -331,15 +331,19 @@ def _texts(tmp_path, texts, ads=None):
 
 
 def test_the_beds_caution_reads_the_pieces_of_a_split_unit_together(tmp_path):
-    def change(rows):
-        # Unit u3's held-out ad has two more bedrooms than its earlier ad, so the dataset
-        # made it a piece of its own. Unit u1's held-out ad is a piece a review split off.
-        rows.loc[3, ["unit_id", "bedrooms"]] = ["u3~1", 3.0]
+    def change(rows, beds=3.0):
+        # Unit u3's held-out ad has more bedrooms than its earlier ad, so the dataset made
+        # it a piece of its own. Unit u1's held-out ad is a piece a review split off.
+        rows.loc[3, ["unit_id", "bedrooms"]] = ["u3~1", beds]
         rows.loc[1, ["unit_id", "bedrooms"]] = ["u1~review-2", 3.0]
 
-    run, ads, reg = _run(tmp_path, change=change)
+    run, ads, reg = _run(tmp_path / "two", change=change)
     got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
     assert got == {"2": [], "3": [], "4": ["beds"], "6": []}
+    # One bedroom between the pieces is not a caution.
+    run, ads, reg = _run(tmp_path / "one", change=lambda rows: change(rows, 2.0))
+    got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
+    assert got == {"2": [], "3": [], "4": [], "6": []}
 
 
 def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):

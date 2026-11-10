@@ -17,7 +17,8 @@ own latest text and from the dataset's rows.
   program. An ad with no text to read takes the dataset's `income_restricted` flag.
 - `not_home`: the text offers an office or a commercial space.
 - `owners_only`: the text opens the apartment only to the building's owners.
-- `beds`: the apartment's ads in the dataset carry more than one bedroom count.
+- `beds`: the apartment's ads in the dataset carry more than one bedroom count, or the
+  pieces the dataset split the apartment into are two or more bedrooms apart.
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09

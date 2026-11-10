@@ -650,3 +650,46 @@ def test_scales_logp_matches_the_dense_density_with_the_paths_integrated_out(dof
         got, want = both(*at)
         np.testing.assert_allclose(got - base[0], want - base[1], rtol=1e-8)
         assert abs(want - base[1]) > 1.0
+
+
+def test_the_sweep_draws_each_buildings_mixing_scale_given_its_level():
+    """With `level_dof` and the collapsed building term, each sweep ends by drawing every
+    building's mixing scale from its Gamma given the sweep's own level, surface and spread,
+    with the key the sweep folds in for it. Buildings with and without rows are in."""
+    from scipy import stats
+
+    dof = 4.0
+    full = td._design(n=600, per_unit=4)
+    train, _, _ = td._split(full)
+    sites = np.unique(train.site)
+    train = drift.subset(train, ~np.isin(train.site, sites[::25]))
+    sweep, init, _, parts = _sampler(train, _groups(train), dof)
+    jax, jnp = b0._jax()
+    zone, sl_w = np.asarray(parts["zone"]), parts["slices"][3]
+    Bc = np.asarray(parts["data"]["Bc"])
+    key = jax.random.PRNGKey(5)
+    st = init(jax.random.split(key, 2))
+    np.testing.assert_array_equal(np.asarray(st["kap"]), 1.0)
+    drawn = []
+    for i in range(12):
+        key, sub = jax.random.split(key)
+        ks = jax.random.split(sub, 2)
+        st, out = sweep(ks, st)
+        for c in range(2):
+            F = Bc @ np.asarray(st["theta"][c])[sl_w]
+            dev = np.asarray(st["lev"][c]) - F
+            np.testing.assert_allclose(np.asarray(out["bld"][c]), dev, atol=1e-6)
+            z2 = dev**2 / np.asarray(st["bld_sd"][c])[zone] ** 2
+            g = np.asarray(st["kap"][c]) * (dof + z2) / 2
+            want = jax.random.gamma(
+                jax.random.fold_in(ks[c], drift.KAP_KEY), (dof + 1) / 2, (len(zone),)
+            )
+            np.testing.assert_allclose(g, np.asarray(want), rtol=1e-10)
+            if i >= 4:
+                drawn.append(g)
+    assert all(np.isfinite(np.asarray(v)).all() for v in jax.tree.leaves(st))
+    drawn = np.concatenate(drawn)
+    assert stats.kstest(drawn, stats.gamma((dof + 1) / 2).cdf).pvalue > 0.001
+    # The scales move with the levels: a building far from its surface gets a small one
+    # (z2 is the last chain's).
+    assert np.corrcoef(np.log(np.asarray(st["kap"][1])), np.log1p(z2))[0, 1] < -0.3
