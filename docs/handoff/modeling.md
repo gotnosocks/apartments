@@ -512,7 +512,7 @@ or pass rules on the queue line.
 - **After the pause:** modalq-pluto3.sh first; then the feature tests rebased on v3 (Data adds nb5p3-*
   copies of lines, loc, walkup, noise, parks, water, permit-v1/v2), the rule swaps unit-labels-v12 (e8b247e)
   and unit-splits-v5 (9a10335) on v3, the university calendar nb5-unical-v1 (Ben approved 15:40Z; Data
-  building on v3), and last the 21 single-feature fits (filler only, docs/TODO.md). The old queues
+  building on v3), and last the 21 single-feature fits (filler only, docs/archive/TODO-2026-10.md). The old queues
   (nb5tests … singles) were stopped on Ben's word, 14:30Z; modalq-current.sh is superseded.
 - **Variance:** run `rentfrontier.variance` on every served fit (Website's /research/story reads it);
   regenerate docs/model/cleaning.json with every switch PR.
