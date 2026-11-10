@@ -6,7 +6,7 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## State at 2026-11-10 14:27Z
+## State at 2026-11-10 14:42Z
 
 - **Served model.** `drift-building` with `--level-dof 4` (a Student-t prior on building
   levels), since 14:19Z. Its three full fits (round nine) pass the gate, each a pool of
@@ -34,9 +34,10 @@ three full fits, so the ceiling is $140.
   `Settings.level_dof`, the beds caution that reads a split unit's pieces together)
   merged as `67d14e17`, head `51c00d5`; its tag `archive/pr-1283` is not pushed either.
   #1284 (round nine's record, the docs and the explainer around the served model)
-  merged as `8d2fd1a6`, head `54113bd`; no tag either. Work after #1284 is on the same
-  branch, `claude/project-thread-09vaqy`, with master merged in (a force push to restart
-  it was refused), and goes in a fifth PR.
+  merged as `8d2fd1a6`, head `54113bd`; no tag either. #1285 (the `takeover` caution, reviewed and
+  approved at `8a690cb`) carries this handoff. All work is on the one branch,
+  `claude/project-thread-09vaqy`, with master merged in after each PR (a force push to
+  restart it was refused).
 - **Round nine, done.** Ben approved up to $40 more on Modal at 12:38Z (ceiling $140).
   Nine containers of `drift-building --level-dof 4` ran from master `67d14e17` and cost
   $33.02. All six predictions hit. Three containers stopped at Modal's image build on
@@ -94,11 +95,12 @@ three full fits, so the ceiling is $140.
 
 ## Next, in order
 
-1. Cautions, round two: the `takeover` caution is written and tested, and a pattern for a
-   bedroom count in the text that differs from the record was read and dropped (the
-   note's "Cautions, round two"; readers' files under `artifact-data/jobb/` and `jobc/`
-   on thelio). What remains: the fifth PR's review and merge, then a republish from n9
-   with the same command as the note's "Live (14:19Z)" from merged code, and a deploy.
+1. After #1285 merges: republish the Deals folder from n9 with the command of the note's
+   "Live (14:19Z)" from merged code and deploy. Expected, from the staged publish: 982
+   ads with a caution (14 takeover, 55 income, 2 not_home, 1 owners_only, 328 beds, 646
+   off market), 5,792 of 6,774 shown, `deals_sha256` `e18cedca...`, and no change to
+   any score or to the order. The readers' files of the second caution reading are
+   under `artifact-data/jobb/` and `jobc/` on thelio.
 2. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
 3. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
 
