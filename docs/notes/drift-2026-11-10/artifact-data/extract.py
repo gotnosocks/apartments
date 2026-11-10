@@ -42,7 +42,11 @@ REGISTRY = (
 
 def sig(x, n=4):
     if isinstance(x, dict):
-        return {k: sig(v, n) for k, v in x.items()}
+        # A total elpd is compared by its difference from another, so it keeps its digits.
+        return {
+            k: round(v, 1) if k == "elpd" and isinstance(v, float) else sig(v, n)
+            for k, v in x.items()
+        }
     if isinstance(x, (list, tuple)):
         return [sig(v, n) for v in x]
     if isinstance(x, (np.integer,)):
