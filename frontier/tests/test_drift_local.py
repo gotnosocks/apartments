@@ -17,9 +17,7 @@ def _groups(train, per_year=52):
 def _sampler(train, groups):
     # The simulated design's building columns are fixed in each building, so the tests
     # take them all as slow columns.
-    settings = drift.Settings(
-        chains=2, warmup=10, draws=10, site_block=7, slow_within=0.0
-    )
+    settings = drift.Settings(chains=2, warmup=10, draws=10, site_block=7)
     return drift.make_sampler(train, building_zones.Priors(), settings, groups=groups)
 
 
@@ -142,7 +140,7 @@ def test_recovers_a_planted_building_process():
     out = drift.run(
         train,
         building_zones.Priors(),
-        drift.Settings(chains=2, warmup=150, draws=300, keep_every=5, slow_within=0.0),
+        drift.Settings(chains=2, warmup=150, draws=300, keep_every=5),
         log=lambda m: None,
         gp=None,
         groups=_groups(train),
@@ -170,7 +168,7 @@ def test_recovers_a_planted_building_process():
     plain = drift.run(
         train,
         building_zones.Priors(),
-        drift.Settings(chains=2, warmup=150, draws=300, keep_every=5, slow_within=0.0),
+        drift.Settings(chains=2, warmup=150, draws=300, keep_every=5),
         log=lambda m: None,
         gp=None,
     )
@@ -507,7 +505,7 @@ def test_slow_columns_are_the_named_ones_that_change_within_a_building():
     )
     train, _, _ = td._split(td._design())
     named = [n for n in train.names if n.startswith("bld:")]
-    # Fixed in each building: none is slow at the default share, all at a share of zero.
+    # Fixed in each building: all are slow at the default share of zero, none above it.
     kw = dict(chains=2, warmup=10, draws=10, site_block=7)
     for share, want in ((0.001, 0), (0.0, len(named))):
         parts = drift.make_sampler(
@@ -517,16 +515,21 @@ def test_slow_columns_are_the_named_ones_that_change_within_a_building():
             groups=_groups(train),
         )[3]
         assert len(parts["slow"]) == want
-    # A column that changes inside buildings is slow at the default.
+    # A column that changes inside buildings is the one kept at a share above zero.
     j = train.names.index(named[0])
     x = train.x.copy()
     x[:, j] = np.arange(len(x)) % 2
     moved = dataclasses.replace(train, x=x)
     parts = drift.make_sampler(
-        moved, building_zones.Priors(), drift.Settings(**kw), groups=_groups(moved)
+        moved,
+        building_zones.Priors(),
+        drift.Settings(slow_within=0.001, **kw),
+        groups=_groups(moved),
     )[3]
     others = [k for k in range(len(train.names)) if train.names[k] != "alpha"]
     assert [others[k] for k in parts["slow"]] == [j]
+    assert sorted(parts["slow_shares"]) == sorted(named)
+    assert sum(v > 0 for v in parts["slow_shares"].values()) == 1
 
 
 def test_fill_path_draws_the_steps_between_the_cells():

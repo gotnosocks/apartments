@@ -204,13 +204,15 @@ class Settings:
     # the project's rule is an hour a fit; outside the sweeps the pilots took 13 to 15
     # minutes (image, design, compile, output). None runs every draw asked for.
     budget_seconds: float | None = 2520.0
-    # With a collapsed building term, the columns whose names start with one of these and
-    # that change within a building are drawn a second time with the buildings' paths
-    # integrated out (`update_slow`). A column counts when at least `slow_within` of its
-    # variance is within buildings: a path can only stand in for a column that moves inside
-    # a building, and one fixed in each building (its height, its lot) is left to theta.
+    # With a collapsed building term, the columns whose names start with one of these are
+    # drawn a second time with the buildings' paths integrated out (`update_slow`).
+    # `slow_within` above zero keeps only the columns with at least that share of their
+    # variance within buildings: a path can only stand in for a column that moves inside a
+    # building. The pilot that measured the step (p6b) redrew every named column, and
+    # before the step `bld:elevator` and `bld:gym` took 6 to 8 sweeps a draw against 2 for
+    # a lot's size, so the default keeps them all; the run logs each column's share.
     slow_columns: tuple[str, ...] = ("bld:",)
-    slow_within: float = 0.001
+    slow_within: float = 0.0
     # Draw each zone's amplitude with the waves integrated out (`rentfrontier.amp_joint`).
     joint_amp: bool = True
 
@@ -667,18 +669,18 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             col = cell_layout(site_sorted, step, lay["pi"], lay["pj"], S, T)
     # The collapsed term's slow columns, as places among theta's coefficients.
     held = {int(k) for pos, *_ in gps for k in pos}
+    named = {
+        k: within_share(d.x[:, j], d.site)
+        for k, j in enumerate(others)
+        if col is not None
+        and settings.slow_columns
+        and d.names[j].startswith(settings.slow_columns)
+        and k not in held
+    }
     slow = np.array(
-        [
-            k
-            for k, j in enumerate(others)
-            if col is not None
-            and settings.slow_columns
-            and d.names[j].startswith(settings.slow_columns)
-            and k not in held
-            and within_share(d.x[:, j], d.site) >= settings.slow_within
-        ],
-        dtype=int,
+        [k for k, share in named.items() if share >= settings.slow_within], dtype=int
     )
+    slow_shares = {d.names[others[k]]: share for k, share in named.items()}
     # Each block's part of every bucket. A unit's rows share a building, so a unit never
     # spans two blocks, and a bucket lists its units in row order, so a block's units are a
     # slice of it. `blk_part[j]` holds (bucket, first unit, last unit + 1) for block j,
@@ -1745,6 +1747,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             slow_system=slow_system,
             update_slow=update_slow,
             slow=slow,
+            slow_shares=slow_shares,
             fill_path=fill_path,
             zone=zone,
             update_cells=update_cells,
@@ -1897,6 +1900,12 @@ def run(
             for k, g in enumerate(groups or ())
         )
 
+    if parts["slow_shares"]:
+        log(
+            f"{len(parts['slow'])} of {len(parts['slow_shares'])} named columns are redrawn "
+            "with the building paths integrated out; each one's share of variance within "
+            f"buildings: { {k: round(v, 4) for k, v in parts['slow_shares'].items()} }"
+        )
     compile_seconds = 0.0
     t_first = time.perf_counter()
     for i in range(total):
