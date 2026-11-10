@@ -8,6 +8,11 @@ three full fits, so the ceiling is $140.
 
 ## State at 2026-11-10 15:02Z
 
+- **Housekeeping since.** A 24-hour tidy-up followed from 15:22Z ([housekeeping.md](housekeeping.md)).
+  It pushed every missing `archive/pr-N` tag (#1281 to #1289), deleted 46 old branches after
+  tagging them `archive/branch/*`, and moved September and October runs and pipeline lanes to
+  `/data2/apartments-offload/`, leaving symlinks at the old paths.
+
 - **Served model.** `drift-building` with `--level-dof 4` (a Student-t prior on building
   levels), since 14:19Z. Its three full fits (round nine) pass the gate, each a pool of
   three containers of two chains: `drift-building-b0-latest-67d14e17-b9`,
@@ -138,5 +143,8 @@ three full fits, so the ceiling is $140.
   `inputs.json` redirects them (`market.apply_inputs`), and `drift.design` applies it.
 - The full design needs about 15 GB of memory, so it is built on Modal, not on thelio.
 - All project timers on thelio are disabled since late October. Nothing is queued.
+- Most September and October run directories under `frontier/runs/`, and every
+  `tmp/pipeline/lanes/` lane, are symlinks into `/data2/apartments-offload/`. `/data2` is at
+  84%, so put new bulk output on `/data1`.
 - `config/main-analysis.json` still selects the all-scraped fit of 2026-10-17, which failed
   the gate. The site's per-listing estimate pages still come from it; the Deals page does not.
