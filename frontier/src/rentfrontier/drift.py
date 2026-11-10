@@ -124,9 +124,11 @@ DRIFT_SD_PRIOR = 0.1
 TAU_LOG_PRIOR = (math.log(3.0), 1.0)
 # The HalfNormal scale of a local-drift process's sd, on log rent.
 LOCAL_SD_PRIOR = 0.1
-# The slice intervals' lengths: along each of (log ss, log sd, log tau) until the warmup sets
-# the directions, and for a local-drift term's (log sd, logit rho).
+# The slice intervals' lengths: along each of (log ss, log sd, log tau) and each group's
+# log sigma until the warmup sets the directions, and for a local-drift term's (log sd,
+# logit rho).
 HYP_WIDTH = 0.3
+SIGMA_WIDTH = 0.1
 AR_WIDTHS = (0.5, 1.0)
 # Units are padded to these sizes, so that each size's units stack into one array.
 PADS = (2, 3, 4, 5, 6, 8, 10, 14, 22)
@@ -784,22 +786,44 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         )
         return unit_loglik(D, hyp, c, e) + prior
 
-    def update_hyp(D, key, st, c, e):
-        """(log ss, log sd, log tau) with u integrated out: a slice update along each
-        column of the state's `hyp_dirs` in turn. The interval is one column long, placed at
-        random around the current point, and only shrinks: `b0.slice_vec`'s stepping out
-        stops after a fixed count on each side, which narrows the draws when the slice is
-        longer than that."""
-        hyp = st["hyp"]
-        for k, kk in enumerate(jax.random.split(key, 3)):
+    group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
+
+    def scale_logp(D, x, lam, e):
+        """The log density of x = (log ss, log sd, log tau, log sigma of each group) given
+        the mixing scales lam and the rows' remainders e, with u integrated out.
+        `unit_loglik` leaves out the rows' log c / 2, which holds -log sigma of each row."""
+        ls = x[3:]
+        sig = jnp.exp(ls)
+        return (
+            hyp_logp(D, x[:3], lam / sig[D["group"]] ** 2, e)
+            - jnp.sum(group_rows * ls)
+            - jnp.sum(sig**2) / (2 * priors.sigma**2)
+            + jnp.sum(ls)
+        )
+
+    def update_hyp(D, key, st, lam, sigma, e):
+        """(log ss, log sd, log tau) and the groups' log sigma together, given lam and with
+        u integrated out: a slice update along each column of the state's `hyp_dirs` in
+        turn. Returns the three and sigma.
+
+        The noise step draws sigma given u, and u given sigma, and a unit's drift over a
+        short time looks like noise, so on their own those two steps move sigma and the
+        drift's scale along their trade-off a little at a time (the first full fits missed
+        the gate on exactly these). Here they move together with u out of the way.
+
+        The interval is one column long, placed at random around the current point, and
+        only shrinks: `b0.slice_vec`'s stepping out stops after a fixed count on each side,
+        which narrows the draws when the slice is longer than that."""
+        x = jnp.concatenate([st["hyp"], jnp.log(sigma)])
+        for k, kk in enumerate(jax.random.split(key, x.shape[0])):
             v = st["hyp_dirs"][:, k]
 
-            def logp(s, hyp=hyp, v=v):
-                return hyp_logp(D, hyp + s[0] * v, c, e)[None]
+            def logp(s, x=x, v=v):
+                return scale_logp(D, x + s[0] * v, lam, e)[None]
 
             s = b0.slice_vec(kk, jnp.zeros(1), logp, 1.0, steps_out=0, shrink=32)
-            hyp = hyp + s[0] * v
-        return hyp
+            x = x + s[0] * v
+        return x[:3], jnp.exp(x[3:])
 
     def ar_filter(par, C, R):
         """The Kalman filter of one local-drift term's processes over its steps, from each
@@ -1032,7 +1056,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u)
         e = r + u
         nu, sigma, lam = update_noise(k4, st, r, D["group"])
-        hyp = update_hyp(D, k8, st, lam / sigma[D["group"]] ** 2, e)
+        hyp, sigma = update_hyp(D, k8, st, lam, sigma, e)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
         if joint is None:
             amp = update_amp(k6, st, w)
@@ -1115,7 +1139,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             amp=0.5 * jit(k[4], (nz,), 0.2),
             hyp=jnp.log(jnp.asarray([0.05, 0.08, 3.0]))
             + 0.2 * jax.random.normal(k[5], (3,)),
-            hyp_dirs=HYP_WIDTH * jnp.eye(3),
+            hyp_dirs=jnp.diag(jnp.asarray([HYP_WIDTH] * 3 + [SIGMA_WIDTH] * 4)),
         )
         if ars:
             out["ar"] = tuple(jnp.zeros((a["size"], a["T"])) for a in ars)
@@ -1150,6 +1174,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             global_system=global_system,
             unit_loglik=unit_loglik,
             update_hyp=update_hyp,
+            scale_logp=scale_logp,
             draw_theta=draw_theta,
             update_noise=update_noise,
             ar_filter=ar_filter,
@@ -1168,12 +1193,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
 
 def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
-    """The slice directions for (log ss, log sd, log tau) from warmup draws `hyp`
-    (chains, sweeps, 3): four times the Cholesky factor of the draws' covariance within
-    chains, so that the interval of `update_hyp` covers the slice."""
+    """The slice directions for (log ss, log sd, log tau, log sigma of each group) from
+    warmup draws `hyp` (chains, sweeps, 7): four times the Cholesky factor of the draws'
+    covariance within chains, so that the interval of `update_hyp` covers the slice."""
     dev = hyp - hyp.mean(axis=1, keepdims=True)
     cov = np.einsum("csi,csj->ij", dev, dev) / max(dev.shape[0] * (dev.shape[1] - 1), 1)
-    cov = cov + 1e-10 * np.eye(3)
+    cov = cov + 1e-10 * np.eye(cov.shape[0])
     return 4.0 * np.linalg.cholesky(cov)
 
 
@@ -1216,10 +1241,14 @@ def run(
     total = settings.warmup + settings.draws
     per = max(1, settings.draws // settings.chunks)
     marks = {"warmup": None}
-    # The warmup sweeps whose unit scales set the slice directions, and the sweep that sets
-    # them.
-    adapt_from, adapt_at = settings.warmup // 3, (2 * settings.warmup) // 3
-    warm_hyp = []
+    # The slice directions of `update_hyp` are set twice in the warmup, at a third and at two
+    # thirds of it, each time from the sweeps of the sixth of the warmup before: the first
+    # setting lets the scales move along their trade-offs, and the second measures them.
+    adapt_at = {
+        (k * settings.warmup) // 3: (k * settings.warmup) // 3 - settings.warmup // 6
+        for k in (1, 2)
+    }
+    warm_hyp = {}
 
     def output(final=False):
         stack = lambda v: np.stack(v, axis=1)  # noqa: E731
@@ -1277,15 +1306,18 @@ def run(
             compile_seconds = time.perf_counter() - t_first
             t_first = time.perf_counter()
             log(f"first sweep (compile) {compile_seconds:.1f}s")
-        if adapt_from <= i < adapt_at:
-            warm_hyp.append(np.asarray(st["hyp"]))
-        if i == adapt_at - 1 and len(warm_hyp) >= 8:
-            dirs = adapted_dirs(np.stack(warm_hyp, axis=1))
+        if i < settings.warmup:
+            warm_hyp[i] = np.concatenate(
+                [np.asarray(st["hyp"]), np.log(np.asarray(st["sigma"]))], axis=1
+            )
+        if i + 1 in adapt_at and i + 1 - adapt_at[i + 1] >= 8:
+            window = [warm_hyp[j] for j in range(adapt_at[i + 1], i + 1)]
+            dirs = adapted_dirs(np.stack(window, axis=1))
             st = st | {
                 "hyp_dirs": jnp.broadcast_to(jnp.asarray(dirs), st["hyp_dirs"].shape)
             }
             log(
-                f"unit scales' slice directions set at sweep {i + 1}: {dirs.round(5).tolist()}"
+                f"scales' slice directions set at sweep {i + 1}: {dirs.round(5).tolist()}"
             )
         if i == settings.warmup - 1 or (settings.warmup == 0 and i == 0):
             jax.block_until_ready(st)

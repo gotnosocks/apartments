@@ -203,6 +203,49 @@ def test_unit_loglik_matches_the_dense_density():
     np.testing.assert_allclose(a[0] - b[0], a[1] - b[1], rtol=1e-9)
 
 
+def test_scale_logp_matches_the_dense_density_as_sigma_and_the_unit_scales_move():
+    full = _design(per_unit=9)
+    train, _, _ = _split(full)
+    _, init, _, parts = _sampler(train)
+    jax, jnp = b0._jax()
+    D = parts["data"]
+    rng = np.random.default_rng(5)
+    e = 0.2 * rng.standard_normal(len(train.y))
+    st = _state(init, parts)
+    prior = building_zones.Priors()
+    group = np.asarray(D["group"])
+
+    def both(hyp, sigma):
+        sigma = np.asarray(sigma)
+        x = jnp.asarray(np.concatenate([np.log(hyp), np.log(sigma)]))
+        got = float(parts["scale_logp"](D, x, st["lam"], jnp.asarray(e)))
+        at = st | {"hyp": jnp.log(jnp.asarray(hyp)), "sigma": jnp.asarray(sigma)}
+        V, _, _ = _dense_cov(train, parts, at)
+        _, logdet = np.linalg.slogdet(V)
+        ss, sd, tau = hyp
+        want = (
+            -0.5 * logdet
+            - 0.5 * e @ np.linalg.solve(V, e)
+            # The priors, with the Jacobians of the logs.
+            - ss**2 / (2 * drift.UNIT_SD_PRIOR**2)
+            - sd**2 / (2 * drift.DRIFT_SD_PRIOR**2)
+            - (np.log(tau) - drift.TAU_LOG_PRIOR[0]) ** 2
+            / (2 * drift.TAU_LOG_PRIOR[1] ** 2)
+            + np.log(ss)
+            + np.log(sd)
+            - np.sum(sigma**2) / (2 * prior.sigma**2)
+            + np.sum(np.log(sigma))
+        )
+        return got, want
+
+    assert len(np.unique(group)) > 1
+    a = both((0.08, 0.1, 0.2), (0.05, 0.06, 0.07, 0.08))
+    b = both((0.03, 0.2, 1.5), (0.09, 0.04, 0.11, 0.05))
+    c = both((0.08, 0.1, 0.2), (0.09, 0.04, 0.11, 0.05))
+    np.testing.assert_allclose(a[0] - b[0], a[1] - b[1], rtol=1e-9)
+    np.testing.assert_allclose(a[0] - c[0], a[1] - c[1], rtol=1e-9)
+
+
 def test_draw_u_has_the_conditional_mean_and_covariance():
     full = _design(n=400, per_unit=9)
     train, _, _ = _split(full)
