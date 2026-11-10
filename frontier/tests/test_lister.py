@@ -1,4 +1,6 @@
 import json
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -136,6 +138,11 @@ def test_record_first_listed_matches_the_granular_event_mentions():
     """A record's earliest listed day is the earliest day the granular parser gives an own
     ACTIVE rental event mention: an episode named by `listingId` or `id`, or by neither, and
     events with another status, no date or no dict left out."""
+    # The frontier venv does not install the root package; its parser is plain Python,
+    # so the test reads it from the checkout.
+    root_src = str(Path(__file__).resolve().parents[2] / "src")
+    if root_src not in sys.path:
+        sys.path.append(root_src)
     from apartments.graphql_listing import listing_body, parse_capture
 
     episodes = [
