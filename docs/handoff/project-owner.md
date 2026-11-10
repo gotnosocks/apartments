@@ -6,7 +6,7 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## State at 2026-11-10 14:21Z
+## State at 2026-11-10 14:27Z
 
 - **Served model.** `drift-building` with `--level-dof 4` (a Student-t prior on building
   levels), since 14:19Z. Its three full fits (round nine) pass the gate, each a pool of
@@ -33,8 +33,10 @@ three full fits, so the ceiling is $140.
   own branch. #1283 (round seven and eight, the cause of the building model's miss,
   `Settings.level_dof`, the beds caution that reads a split unit's pieces together)
   merged as `67d14e17`, head `51c00d5`; its tag `archive/pr-1283` is not pushed either.
-  Work after #1283 is on the same branch, `claude/project-thread-09vaqy`, with master
-  merged in (a force push to restart it was refused), and goes in a fourth PR.
+  #1284 (round nine's record, the docs and the explainer around the served model)
+  merged as `8d2fd1a6`, head `54113bd`; no tag either. Work after #1284 is on the same
+  branch, `claude/project-thread-09vaqy`, with master merged in (a force push to restart
+  it was refused), and goes in a fifth PR.
 - **Round nine, done.** Ben approved up to $40 more on Modal at 12:38Z (ceiling $140).
   Nine containers of `drift-building --level-dof 4` ran from master `67d14e17` and cost
   $33.02. All six predictions hit. Three containers stopped at Modal's image build on
@@ -92,9 +94,11 @@ three full fits, so the ceiling is $140.
 
 ## Next, in order
 
-1. The fourth PR (round nine's record, the docs and the explainer around the served
-   model, `pagedata.py --level-dof`): a Sonnet reviewer for the page and docs, then
-   squash-merge. No site or model code is in it.
+1. Cautions, round two (in progress at this writing): patterns for lease takeovers and
+   for a bedroom count in the text that differs from the record, fixed by reading their
+   matches on the market's ads (readers' files under `artifact-data/jobb/` on thelio).
+   Then `cautions.py` with tests, a model reviewer, the fifth PR, a republish from n9
+   with the same command as the note's "Live (14:19Z)" and a deploy.
 2. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
 3. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
 
