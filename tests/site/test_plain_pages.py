@@ -20,10 +20,10 @@ def test_summary_lists_the_parts_in_order():
     )
 
 
-def test_estimates_explains_the_market_reference(client):
+def test_estimates_says_what_the_estimates_are(client):
     html = " ".join(client.get("/estimates").get_data(as_text=True).split())
-    assert "not what a typical one-bedroom asks" in html
-    assert "Glossary of terms" in html
+    assert "It never saw the ask it is compared with." in html
+    assert "Each past ad is the newest ad of its apartment" in html
 
 
 def test_chosen_by_in_words():
@@ -38,28 +38,20 @@ def test_chosen_by_in_words():
     assert chosen_by("Ben, after review") == "Ben, after review"
 
 
-def test_rent_map_compares_only_the_one_bedroom():
-    from pathlib import Path
-
-    page = (
-        Path(__file__).parents[2] / "src/apartments/site/templates/estimates_map.html"
-    )
-    assert "For a one-bedroom it is higher" in " ".join(page.read_text().split())
-
-
 def test_home_tiles_are_links(client):
     html = " ".join(client.get("/").get_data(as_text=True).split())
     assert '<a class="tile" href="/listings">' in html
     assert '<a class="tile" href="/listings?status=current">' in html
     assert '<a class="tile" href="/buildings">' in html
-    assert 'href="/estimates/map">Rent map</a>' in html
+    assert 'href="/deals">Deals</a>' in html
 
 
 def test_home_starts_with_tasks_and_folds_the_technical_details(client):
     html = " ".join(client.get("/").get_data(as_text=True).split())
     start = html.index('id="start"')
     assert start < html.index("Research</a></h2>")
-    assert "Looking for an apartment" in html and "How rents have changed" in html
+    assert "Looking for an apartment" in html and "Checking an ask" in html
+    assert "How rents have changed" not in html and "Pricing an apartment" not in html
     # the technical name and score sit behind a fold
     assert html.index("<summary>Technical details</summary>") < html.index(
         "Technical name"

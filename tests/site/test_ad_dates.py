@@ -94,46 +94,6 @@ def _current(site_root):
     return db, audit, listing
 
 
-def _page(site_root, audit):
-    client = create_app(site_root, allowed_hosts=["localhost"]).test_client()
-    return client.get(f"/listings/{audit}", headers={"Host": "localhost"}).get_data(
-        as_text=True
-    )
-
-
-def _date_row(db, audit, listing, **extra):
-    db.execute(
-        "INSERT INTO ad_dates VALUES (?, ?, '2026-08-10', 40, '2026-10-05', ?, ?, ?)",
-        (audit, listing, extra.get("status"), extra.get("at"), extra.get("back")),
-    )
-    db.commit()
-
-
 def test_a_build_without_a_pipeline_build_dates_nothing(site_root):
     db, audit, _ = _current(site_root)
     assert db.execute("SELECT count(*) FROM ad_dates").fetchone() == (0,)
-    assert 'id="on-market"' not in _page(site_root, audit)
-
-
-def test_the_listing_page_says_when_this_ad_went_on_the_market(site_root):
-    db, audit, listing = _current(site_root)
-    _date_row(db, audit, listing)
-    html = _page(site_root, audit)
-    assert "This ad has been on StreetEasy since <strong>Aug 10, 2026</strong>" in html
-    assert "56 days before it was captured on Oct 5, 2026" in html
-    assert "The dates are for this ad only" in html
-
-
-def test_a_relisted_ad_says_when_it_came_back(site_root):
-    db, audit, listing = _current(site_root)
-    _date_row(db, audit, listing, status="RENTED", at="2026-08-14", back="2026-08-17")
-    html = " ".join(_page(site_root, audit).split())
-    assert "This ad first went on StreetEasy on Aug 10, 2026." in html
-    assert "StreetEasy marked it rented on Aug 14, 2026" in html
-    assert "back on the market since <strong>Aug 17, 2026</strong>, 49 days" in html
-
-
-def test_another_ads_date_is_not_shown(site_root):
-    db, audit, listing = _current(site_root)
-    _date_row(db, audit, f"{listing}-other")
-    assert 'id="on-market"' not in _page(site_root, audit)

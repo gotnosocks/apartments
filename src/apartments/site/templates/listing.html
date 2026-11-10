@@ -1,204 +1,91 @@
 {% extends "base.html" %}
-{% import "_macros.html" as m with context %}
-{% set bname = row.building_name or row.building_address %}
-{% block title %}{{ row.unit_label or "Unit" }} at {{ bname }}, {{ month(row.period) }}{% endblock %}
+{% set place = row.address or row.building %}
+{% block title %}{{ place }}, {{ day(row.day) if row.day else "an ad" }}{% endblock %}
 {% block content %}
 <nav class="crumbs" aria-label="Breadcrumb">
-  <a href="{{ url_for('buildings') }}">Buildings</a> ›
-  <a href="{{ url_for('building', building_id=row.building_id) }}">{{ bname }}</a> ›
-  <a href="{{ url_for('unit', unit_id=row.unit_id) }}">{{ row.unit_label or "Unit" }}</a> ›
-  <span aria-current="page">{{ month(row.period) }}</span>
+  <a href="{{ url_for('estimates') }}">Estimates</a> ›
+  <a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›
+  <span aria-current="page">{{ place }}</span>
 </nav>
-<h1>{{ row.unit_label or "Unit" }} at {{ bname }}</h1>
+<h1>{{ place }}</h1>
 <p class="subline">
-  {% if row.building_name %}{{ row.building_address }} · {% endif %}
-  {% if row.is_current %}Available now, captured {{ captured or month(row.period) }}{% else %}Listed {{ month(row.period) }}{% endif %}
-  · {{ m.layout(row) }}{% if row.floor is not none %} · floor {{ row.floor }}{% elif read_floor %} · floor {{ read_floor }}{% endif %}
+  {{ beds_label(row.bedrooms) }}{% if row.baths %} · {{ row.baths | trim_float }} bath{{ "" if row.baths == 1 else "s" }}{% endif %}{% if row.neighbourhood %} · {{ row.hood_label }}{% endif %}
+  · {% if row.source == "market" %}on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}{% else %}ad of {{ day(row.day) if row.day else "an unknown date" }}{% endif %}
 </p>
-{# Ben 2026-10-06: the StreetEasy links at the top, in the same place on every listing page. #}
-{% set sv = street_view(row.building_id, row.latitude, row.longitude, row.building_address) %}
-{% if row.listing_url or row.unit_url or sv %}<p class="links se-links" id="streeteasy">
-  {% if row.listing_url %}<a class="source" href="{{ row.listing_url }}" rel="noopener noreferrer" target="_blank">{{ "This ad" if row.is_current else "The ad" }} on StreetEasy ↗</a>{% endif %}
-  {% if row.unit_url %}<a href="{{ row.unit_url }}" rel="noopener noreferrer" target="_blank">The unit on StreetEasy ↗</a>{% endif %}
+{% set sv = street_view(row.building, row.latitude if row.latitude is finite else none, row.longitude if row.longitude is finite else none, row.address) %}
+{% if row.url or sv %}<p class="links se-links" id="streeteasy">
+  {% if row.url %}<a class="source" href="{{ row.url }}" rel="noopener noreferrer" target="_blank">The ad on StreetEasy ↗</a>{% endif %}
   {% if sv %}<a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗</a>{% endif %}
 </p>{% endif %}
-{% if ad_start %}{% set change = row.ask / ad_start.ask - 1 %}
-<p class="note" id="ad-start">This advertisement first appeared in {{ month(ad_start.period) }} asking {{ usd(ad_start.ask) }};
-{% if change < -0.005 %}this ask is {{ "{:.0f}".format(-100 * change) }}% lower{% elif change > 0.005 %}this ask is
-{{ "{:.0f}".format(100 * change) }}% higher{% elif row.ask == ad_start.ask %}the ask has not changed{% else %}this ask is
-about the same{% endif %}.</p>
-{% endif %}
-{% if on_market %}{% set days = on_market.span ~ " day" ~ ("" if on_market.span == 1 else "s") ~ " before" if on_market.span else "the day" %}
-{% set broke = {"RENTED": "marked it rented", "IN_CONTRACT": "marked it in contract",
-  "TEMPORARILY_OFF_MARKET": "took it off the market", "NO_LONGER_AVAILABLE": "marked it no longer available"} %}
-<p class="note" id="on-market">{% if on_market.back_at %}This ad first went on StreetEasy on {{ day(on_market.on_market_at) }}.
-StreetEasy {{ broke.get(on_market.break_status, "took it off the market") }} on {{ day(on_market.break_at) }}, and it has been
-back on the market since <strong>{{ day(on_market.back_at) }}</strong>, {{ days }} it was captured on
-{{ day(on_market.as_of) }}.{% else %}This ad has been on StreetEasy since <strong>{{ day(on_market.on_market_at) }}</strong>,
-{{ days }} it was captured on {{ day(on_market.as_of) }}.{% endif %} The dates are for this ad only: an earlier
-ad for the apartment is a separate listing with its own dates.</p>
-{% endif %}
-{% if relabelled %}{% macro as_beds(v) %}{{ "a studio" if v | round == 0 else beds_label(v) }}{% endmacro %}
-<p class="note" id="relabelled">This apartment was listed as {{ as_beds(relabelled.bedrooms) }} in
-{{ month(relabelled.period) }}, and as {{ as_beds(row.bedrooms) }} here. Ads often disagree on this (an alcove studio
-called a one-bedroom, say), and sometimes the apartment was rebuilt; the estimate uses this listing's layout. <a href="{{ url_for('unit', unit_id=row.unit_id) }}">Its listing history</a></p>
-{% endif %}
 
 <section class="figures" aria-label="Ask and estimate">
   <div class="figure">
     <span class="figure-label">Ask</span>
     <span class="figure-value">{{ usd(row.ask) }}</span>
-    <span class="figure-note">{{ "gross ask as captured" if row.is_current else "first ask of the advertisement" }}</span>
+    <span class="figure-note">{{ "the ask on the scoring day" if row.source == "market" else "the ad's final ask" }}</span>
   </div>
   <div class="figure">
-    <span class="figure-label">Model estimate</span>
-    <span class="figure-value">{{ usd(row.estimate) }}</span>
-    {% if likely %}
-    <span class="figure-note">asks for this apartment likely fall in {{ usd(likely.pred_lower_80) }}–{{ usd(likely.pred_upper_80) }}
-      (80%; {{ usd(likely.pred_lower_95) }}–{{ usd(likely.pred_upper_95) }} for 95%)</span>
-    {% else %}
-    <span class="figure-note">the model is 95% sure the typical rent itself is {{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}; single asks spread wider</span>
-    {% endif %}
+    <span class="figure-label">Model's middle estimate</span>
+    <span class="figure-value">{{ usd(row.model_median) }}</span>
+    <span class="figure-note">half the asks the model expects are below it, half above</span>
   </div>
+  {% if row.lower_words %}
   <div class="figure">
-    <span class="figure-label">Ask vs estimate</span>
-    <span class="figure-value">{{ usd(row.residual_usd, signed=True) }}</span>
-    <span class="figure-note">{{ pct(100 * row.residual_pct, digits=1) }} · {{ m.band_chip(row) }}</span>
+    <span class="figure-label">Ask is lower than</span>
+    <span class="figure-value">{{ row.lower_words }}</span>
+    <span class="figure-note">of the asks the model would expect for this apartment</span>
   </div>
-</section>
-
-{% if summary %}
-<section class="card" id="summary">
-  <h2>What the model makes of it</h2>
-  <p>{{ summary | join(" ") }}</p>
-  <p class="note">Read off the model's parts below, and the details the listing states: a part is named only when the model is 95%
-  sure of its sign. The <a href="{{ url_for('research_glossary', _anchor='building' | term_id) }}">building</a> sentence compares the building
-  with average buildings that have the same features; things the model does not measure, like light or noise inside, are not in it.</p>
-</section>
-{% endif %}
-
-<section class="card explain">
-  {# Shares rounded down, so "lower than N%" is never more than true; percentiles kept within 1st–99th. #}
-  {% set p = [[(row.pit * 100) | int, 1] | max, 99] | min %}
-  {% set below_share = [((1 - row.pit) * 100) | int, 99] | min %}
-  <p>The ask sits at the <strong>{{ ordinal(p) }} percentile</strong> of the asks the model expects for this apartment, in
-  this building, in {{ month(row.period) }}: {% if row.price_band == "below" %}lower than {{ below_share }}% of them, so
-  <strong>below typical</strong>{% elif row.price_band == "above" %}higher than {{ p }}% of them, so <strong>above
-  typical</strong>{% else %}within the middle 80%, so <strong>typical</strong>{% endif %}.{% if likely %} That middle 80% is the
-  likely ask range above, {{ usd(likely.pred_lower_80) }}–{{ usd(likely.pred_upper_80) }}.{% else %} The range under the estimate is the
-  95% uncertainty of the typical rent itself, not where an ask will land: individual asks spread more widely, so an ask can
-  sit inside that range and still be below or above typical, or outside it and still be typical.{% endif %}</p>
-  {% if row.method == "kit" %}
-  <p>Priced with the kit, not in the fit: this listing was captured on {{ row.collected_at[:10] }}, after the served fit's
-  data was made, so it is priced as a new apartment in its building with the fit's
-  <a href="{{ url_for('estimate_apartment') }}">prediction kit</a>, the estimate form's scoring.{% if unit_from_fit %} The unit's own
-  level is the one the fit learned from its {{ row.unit_fit_rows }} earlier listing{{ "" if row.unit_fit_rows == 1 else "s" }}.{% else %} The unit's own level is
-  drawn from the prior, not from its earlier listings, so the range is wider than for a listing in the fit.{% endif %}</p>
-  {% elif row.method == "heldout" %}
-  <p>This listing was held out of the model fit as a validation row, so the estimate never saw its ask. It uses the unit's
-  {{ row.unit_fit_rows }} other listing{{ "" if row.unit_fit_rows == 1 else "s" }}.</p>
-  {% elif row.unit_fit_rows > 1 %}
-  <p>The estimate uses the unit's {{ row.unit_fit_rows - 1 }} other listing{{ "" if row.unit_fit_rows == 2 else "s" }}, the building, the apartment's
-  features and the market that month, and leaves this listing's own ask out.</p>
-  {% else %}
-  <p>This is the unit's only listing in the model fit, so the estimate rests on the building, the apartment's features and
-  the market alone.
-  {% set c = meta.stats.calibration.get("single") %}
-  {% if c %}Such estimates are less certain than their range suggests: {{ pct(100 * c.cover95, signed=False, digits=1) }} of these asks fall
-  within the model's 95% predictive range.{% endif %}</p>
-  {% endif %}
-  {% if not row.reliable %}
-  <p class="warn"><strong>Less reliable estimate.</strong> The estimate leaves this listing's own ask out by reweighting the
-  model fit, and for this listing that shortcut is unstable (its <a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a>,
-  {{ "%.2f" | format(row.pareto_k) }}, is too high), so treat the estimate as approximate. Unusual asks and data errors often cause this.</p>
   {% endif %}
 </section>
 
-<section class="card">
-  <h2>What makes up the estimate</h2>
-  <p class="note">Dollar contributions, starting from the market reference: a one-bedroom, one-bath apartment with every attribute
-  at its reference level, in an average building that month. They add up to the estimate. Bars show each part; whiskers show its 95% interval.
-  A detail the listing leaves out (“not stated”) is a level of its own: such listings ask differently from the reference, so it
-  can add or subtract dollars too. A feature's line is only what it adds on its own: features that come with pricier apartments
-  and buildings, such as a penthouse or a view, can look small here because much of their premium shows in the “This unit” and
-  “Building” lines.</p>
+<section class="card" id="range">
+  <h2>Where the ask sits in the model's range</h2>
+  {{ chart }}
+  <p class="note">The bands are the model's ranges for this apartment's ask, the darkest holding half of the asks it expects,
+  the palest 95 in 100. The line is its middle estimate and the dot is the ask.</p>
   <div class="table-wrap">
-  <table class="data contributions">
-    <thead><tr><th scope="col">Part</th><th scope="col" class="bar-col"><span class="visually-hidden">Bar</span></th><th scope="col" class="num">Dollars</th><th scope="col" class="num col-minor">95% interval</th></tr></thead>
+  <table class="data">
+    <caption class="visually-hidden">The model's ranges for this ad's ask</caption>
+    <thead><tr><th scope="col">Range</th><th scope="col" class="num">From</th><th scope="col" class="num">To</th></tr></thead>
     <tbody>
-      <tr class="base"><th scope="row">{{ terms.market.label }}</th><td class="bar-col"></td><td class="num">{{ usd(market.usd) }}</td><td class="num muted nowrap col-minor">{{ usd(market.lower) }}–{{ usd(market.upper) }}</td></tr>
-      {% for c in parts %}
-      <tr><th scope="row" title="{{ terms[c.term].description if c.term in terms }}">{% if c.term in terms %}<a href="{{ url_for('research_glossary', _anchor=c.term | term_id) }}">{{ terms[c.term].label }}</a>{% else %}{{ c.term }}{% endif %}</th>
-        <td class="bar-col">{{ c.bar }}</td>
-        <td class="num">{{ usd(c.usd, signed=True) }}</td>
-        <td class="num muted nowrap col-minor">{{ usd(c.lower, signed=True) }} to {{ usd(c.upper, signed=True) }}</td></tr>
-      {% endfor %}
-      <tr class="total"><th scope="row">Estimate</th><td class="bar-col"></td><td class="num">{{ usd(row.estimate) }}</td><td class="num muted nowrap col-minor">{{ usd(row.estimate_lower) }}–{{ usd(row.estimate_upper) }}</td></tr>
+      <tr><th scope="row">Half of expected asks (50%)</th><td class="num">{{ usd(row.model_lo50) }}</td><td class="num">{{ usd(row.model_hi50) }}</td></tr>
+      <tr><th scope="row">8 in 10 (80%)</th><td class="num">{{ usd(row.model_lo80) }}</td><td class="num">{{ usd(row.model_hi80) }}</td></tr>
+      <tr><th scope="row">95 in 100 (95%)</th><td class="num">{{ usd(row.model_lo95) }}</td><td class="num">{{ usd(row.model_hi95) }}</td></tr>
     </tbody>
   </table>
   </div>
-  {% if reference %}<p class="note">At their reference level, adding nothing: {{ reference | join(", ") }}.</p>{% endif %}
+  {% if row.lower_than is not none %}
+  <p id="place">{% if row.lower_than >= 90 %}This ask is <strong>low</strong> for the apartment: it is lower than {{ row.lower_words }} of the asks the
+  model would expect.{% elif row.lower_than <= 10 %}This ask is <strong>high</strong> for the apartment: only {{ pct(row.lower_than, signed=False) }} of the
+  asks the model would expect are higher.{% else %}This ask is <strong>within the usual range</strong> for the apartment: it is lower than
+  {{ row.lower_words }} of the asks the model would expect.{% endif %}
+  {% if row.ask < row.model_lo95 or row.ask > row.model_hi95 %}It is outside even the 95% range.{% endif %}</p>
+  {% endif %}
 </section>
 
-<div class="columns">
-<section class="card">
-  <h2>Listing details</h2>
+<section class="card" id="how">
+  <h2>How this estimate was made</h2>
+  <p id="unit-ads">{% if row.unit_ads %}This apartment's earlier ads the model learned from: <strong>{{ row.unit_ads }}</strong>. They tell it how this
+  apartment asks against others like it, so its range is narrower than for an apartment it has never seen.{% else %}This apartment's earlier ads the
+  model learned from: <strong>none</strong>. To the model it is a new apartment, known only by its building, its block, its features and the
+  date, so its range is wider than for an apartment with ads of its own.{% endif %}</p>
+  <p>{% if row.source == "market" %}This ad was on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}. It was scored by the fit on the
+  market split{% if run %}, run <code>{{ run }}</code>{% endif %}, which was made without the asks of the ads on the market that day.{% else %}This is
+  the newest ad of its apartment. It was predicted by the fit on the latest split{% if run %}, run <code>{{ run }}</code>{% endif %}, which learned from
+  every earlier ad but never saw this ad's final ask.{% endif %}
+  {% if gate %}The fit {% if gate.passes %}passed{% else %}missed{% endif %} the project's convergence test.{% endif %}
+  Model: <code>{{ info.model }}</code>. <a href="{{ url_for('estimates', _anchor='accuracy') }}">How close it gets</a></p>
+  <p class="note">A low ask is a lead, not a verdict: the model cannot see an apartment's condition, a broker fee, a short lease or a mistake in the ad.
+  {% if row.source == "market" %}<a href="{{ url_for('deals_page') }}">Deals</a> lists the ads on the market with cautions the model does not know.{% endif %}</p>
+  <details class="table-view">
+  <summary>Technical details</summary>
   <dl class="facts">
-    <dt>Bedrooms</dt><dd>{{ beds_label(row.bedrooms) }}</dd>
-    <dt>Bathrooms</dt><dd>{{ row.bathrooms | trim_float }}{% if row.half_baths %} ({{ row.full_baths }} full, {{ row.half_baths }} half){% endif %}</dd>
-    <dt>Size</dt><dd>{% if row.square_feet %}{{ "{:,.0f} ft²".format(row.square_feet) }}{% elif carried_size %}{{ "{:,.0f} ft²".format(carried_size.square_feet) }} <span class="muted">(not in this ad: from this unit's {{ carried_size.year }} ad)</span>{% else %}not stated{% endif %}</dd>
-    {% if row.bedrooms == 0 and ((row.bathrooms or 0) >= 2 or (row.square_feet or 0) > 1000) %}
-    <dt>Note</dt><dd class="muted">An unusual combination for a studio: it may be a loft, or the ad may have
-      a detail wrong.</dd>
-    {% endif %}
-    <dt>Floor</dt><dd>{% if row.floor is not none %}{{ row.floor }}{% elif read_floor %}{{ read_floor }} <span class="muted">(not in the ad: read from the unit number)</span>{% else %}not stated{% endif %}</dd>
-    {% for kind, value in [("elevator", row.elevator), ("doorman", row.doorman), ("laundry", row.laundry), ("hvac", row.hvac), ("pets", row.pets)] %}
-    {% set text = attr_label(kind, value) %}
-    <dt>{{ kind | capitalize if kind != "hvac" else "Heating and cooling" }}</dt><dd>{{ text or "not stated" }}</dd>
-    {% endfor %}
-    {% if views %}<dt>Views</dt><dd>{{ views | join(", ") }} <span class="muted">(as listed by the broker)</span></dd>{% endif %}
-    {% if windows %}<dt>Exposures</dt><dd>{{ windows | join(", ") }}</dd>{% endif %}
-    <dt>Outdoor space</dt><dd>{{ outdoor | join(", ") | capitalize if outdoor else "none stated" }}</dd>
-    <dt><a href="{{ url_for('research_glossary', _anchor='facing' | term_id) }}">Looks onto</a></dt><dd>{{ facing | capitalize if facing else "not known" }}</dd>
-    {% if exposure %}<dt>Faces</dt><dd id="exposure">{{ exposure.long }}{% if exposure.bedroom %}. {{ exposure.bedroom }}{% endif %}.</dd>{% endif %}
-    {% if row.concession %}<dt>Concession</dt><dd>{{ row.concession }}</dd>{% endif %}
-    {% if flags %}<dt>In the ad text</dt><dd>{{ flags | join(", ") }}</dd>{% endif %}
-    {% if label_flags %}<dt>Unit label</dt><dd>{{ label_flags | join(", ") }}</dd>{% endif %}
+    <dt>Listing id</dt><dd><code>{{ row.listing_id }}</code></dd>
+    {% if row.audit_id %}<dt>Audit id</dt><dd><code>{{ row.audit_id }}</code></dd>{% endif %}
+    <dt>Building</dt><dd><code>{{ row.building }}</code></dd>
+    {% if row.status %}<dt>Status</dt><dd>{{ row.status }}</dd>{% endif %}
+    <dt>Share of expected asks below the ask</dt><dd>{{ "{:.4f}".format(row.below_share) if row.below_share is finite else "—" }}</dd>
   </dl>
-  {% if not (exposure and exposure.bedroom) %}<p class="note">The data don't say whether an apartment runs front to back (a floor-through) or which way
-  its bedroom faces{% if exposure and exposure.side == "both" %}, only that it has windows on both sides{% endif %}.</p>{% endif %}
-  {% if exposure %}<p class="note">“Faces” is read from all of this apartment's listings, or when they don't say, from the other
-  apartments of its line, which agree with an apartment's own reading 89% of the time. It can differ from “Looks onto”, which is
-  what this listing alone told the model.</p>{% endif %}
-</section>
-
-<section class="card shrink">
-  <details class="table-view" id="model-details">
-  <summary>Model details, for statisticians</summary>
-  <dl class="facts">
-    <dt>Typical rent</dt><dd>{{ usd(row.estimate_median) }}, the posterior predictive median <span class="muted">(not the
-      mean, which heavy-tailed apartment effects can pull far out)</span></dd>
-    <dt>Ask percentile</dt><dd>{{ "%.1f" | format(100 * row.pit) }}</dd>
-    <dt>Method</dt><dd>{% if row.method == "kit" %}priced with the kit, not in the fit (captured {{ row.collected_at[:10] }}){% elif row.method == "heldout" %}<a href="{{ url_for('research_glossary', _anchor='held-out') }}">held out of the fit</a>{% else %}leave-own-row-out
-      (<a href="{{ url_for('research_glossary', _anchor='psis-loo') }}">PSIS</a>): the fit reweighted as if it had not seen this ask{% endif %}</dd>
-    {% if row.pareto_k is not none %}<dt><a href="{{ url_for('research_glossary', _anchor='pareto-k') }}">Pareto k</a></dt><dd>{{ "%.2f" | format(row.pareto_k) }}{% if not row.reliable %} (above {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}, so less reliable){% else %} <span class="muted">(below {{ meta.provenance.estimate_pareto_k.threshold | round(3) }}: the reweighting is reliable)</span>{% endif %}</dd>{% endif %}
-    <dt>Unit's listings in the fit</dt><dd>{{ row.unit_fit_rows }}</dd>
-    {% if row.fitted is not none %}<dt>{{ "Model fit" if row.method == "heldout" else "In-sample fit" }}</dt><dd>{{ usd(row.fitted) }} <span class="muted">({{ usd(row.fitted_lower) }}–{{ usd(row.fitted_upper) }})</span></dd>{% endif %}
-  </dl>
-  {% if row.method == "kit" %}<p class="note">No fit saw this ask: the kit prices the apartment from its advertised details.</p>
-  {% elif row.method == "heldout" %}<p class="note">This listing was held out, so neither the fit nor the estimate saw its ask.</p>
-  {% else %}<p class="note">The in-sample fit saw this ask, so it is pulled toward it; the estimate above does not.</p>{% endif %}
   </details>
-</section>
-</div>
-
-<section class="card">
-  <div class="card-head">
-    <h2>This unit's listings</h2>
-    <a href="{{ url_for('unit', unit_id=row.unit_id) }}">Unit page →</a>
-  </div>
-  {% if chart %}{{ chart }}{% endif %}
-  {{ m.opposite_note(opposite) }}
-  {{ m.listing_table(others, show_building=False) }}
 </section>
 {% endblock %}

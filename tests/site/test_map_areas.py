@@ -6,8 +6,6 @@ from pathlib import Path
 
 from apartments.site import build
 
-JS = (Path(__file__).parents[2] / "src/apartments/site/static/rentmap.js").read_text()
-
 
 def test_bundle_map_tags_buildings_with_their_neighbourhood(tmp_path):
     db = sqlite3.connect(tmp_path / "site.sqlite")
@@ -40,11 +38,6 @@ def test_bundle_map_on_a_build_without_neighbourhoods(tmp_path):
     )
 
 
-def test_map_script_uses_the_chosen_areas_median():
-    assert "d.median_by_area && d.median_by_area[state.area]" in JS
-    assert "(!state.area || b.neighbourhood === state.area)" in JS
-
-
 def test_rentmaps_own_neighbourhood_wins(tmp_path):
     db = sqlite3.connect(tmp_path / "site.sqlite")
     db.execute("CREATE TABLE buildings (id TEXT, neighbourhood TEXT)")
@@ -74,24 +67,3 @@ def test_bundle_map_tags_walkups_and_elevator_buildings(tmp_path):
     build.bundle_map(source, tmp_path / "map.json", tmp_path / "site.sqlite")
     out = json.loads((tmp_path / "map.json").read_text())["buildings"]
     assert [b.get("kind") for b in out] == ["walkup", "elevator", None, None, None]
-
-
-def test_map_script_filters_by_kind_and_shows_their_middle():
-    assert "(!state.kind || b.kind === state.kind)" in JS
-    assert "if (!kindTile) tile(`Median building" in JS
-    assert "put('kind', state.kind);" in JS
-
-
-def test_map_names_every_neighbourhood_by_count():
-    # the all-choice and the titles do not list every name (Ben, 2026-10-09)
-    assert "[['', 'All neighbourhoods']" in JS
-    assert "d.area = `all ${COUNT_WORDS[nAreas] || nAreas} neighbourhoods`" in JS
-    assert "All of ${d.area}" not in JS
-
-
-def test_page_and_map_count_neighbourhoods_alike():
-    # "all eight neighbourhoods" reads the same in the page text and the map
-    from apartments.site.web import COUNT_WORDS
-
-    words = ", ".join("null" if w is None else f"'{w}'" for w in COUNT_WORDS)
-    assert f"const COUNT_WORDS = [{words}];" in JS

@@ -344,6 +344,46 @@ def contribution_bar(value, lower, upper, scale) -> Markup:
     )
 
 
+def interval_strip(ask, median, intervals) -> Markup:
+    """One ad's predictive intervals as nested horizontal bands, the widest palest,
+    with the median as a tick and the ask as a dot. intervals: [(level, lower, upper)],
+    narrowest first. The page states every value in words beside it."""
+    width, height = 560, 64
+    left, right, top, band = 16, 16, 10, 22
+    values = [v for _, lo, hi in intervals for v in (lo, hi)] + [ask, median]
+    lo_all, hi_all = min(values), max(values)
+    span = (hi_all - lo_all) or 1.0
+    lo_all, hi_all = lo_all - 0.05 * span, hi_all + 0.05 * span
+
+    def at(v):
+        return left + (v - lo_all) / (hi_all - lo_all) * (width - left - right)
+
+    parts = []
+    for level, lo, hi in sorted(intervals, key=lambda i: -i[0]):
+        parts.append(
+            f'<rect class="band band-{int(level)}" x="{at(lo):.1f}" y="{top}" '
+            f'width="{max(at(hi) - at(lo), 1):.1f}" height="{band}" rx="3"/>'
+        )
+    m, a = at(median), at(ask)
+    parts.append(
+        f'<line class="median" x1="{m:.1f}" x2="{m:.1f}" y1="{top - 4}" '
+        f'y2="{top + band + 4}"/>'
+    )
+    parts.append(f'<circle class="ask" cx="{a:.1f}" cy="{top + band / 2}" r="6"/>')
+    for tick in nice_ticks(lo_all, hi_all, 5):
+        if lo_all <= tick <= hi_all:
+            parts.append(
+                f'<text class="tick" x="{at(tick):.1f}" y="{height - 6}" '
+                f'text-anchor="middle">{escape(usd(tick))}</text>'
+            )
+    return Markup(
+        f'<svg class="istrip" viewBox="0 0 {width} {height}" role="img" '
+        f'aria-label="The ask at {escape(usd(ask))} against the model\'s ranges">'
+        + "".join(parts)
+        + "</svg>"
+    )
+
+
 XY_PAD = {"left": 64, "right": 16, "top": 28, "bottom": 46}
 
 

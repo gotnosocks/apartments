@@ -590,12 +590,232 @@ def pipeline(tmp_path, monkeypatch):
     return Pipeline(root)
 
 
+GROVE = "the-grove-250-west-19th-street-new_york"
+
+
+def estimate_row(
+    listing_id,
+    audit_id,
+    source,
+    building,
+    address,
+    hood,
+    beds,
+    day,
+    ask,
+    median,
+    below_share,
+    unit_ads,
+):
+    """A row of `drift_estimates publish`'s table, its ranges a fixed spread about the
+    median."""
+    spread = {
+        "lo95": 0.7,
+        "lo80": 0.8,
+        "lo50": 0.9,
+        "hi50": 1.1,
+        "hi80": 1.2,
+        "hi95": 1.3,
+    }
+    return {
+        "listing_id": listing_id,
+        "audit_id": audit_id,
+        "source": source,
+        "building": building,
+        "address": address,
+        "latitude": 40.742,
+        "longitude": -73.997,
+        "neighbourhood": hood,
+        "unit_id": f"u-{listing_id}",
+        "bedrooms": beds,
+        "full_baths": 1.0,
+        "half_baths": 0.0,
+        "day": day,
+        "status": "ACTIVE" if source == "market" else "RENTED",
+        "ask": ask,
+        "model_median": median,
+        **{f"model_{k}": round(median * v) * 1.0 for k, v in spread.items()},
+        "discount_pct": round(100 * (median / ask - 1), 1),
+        "below_share": below_share,
+        "unit_ads": unit_ads,
+    }
+
+
+# (listing_id, audit_id, source, building, address, neighbourhood, bedrooms, day, ask,
+#  model median, below_share, unit_ads): past ads (the newest of their apartments) and
+#  ads on the market.
+ESTIMATES = [
+    (
+        "1001",
+        "a2",
+        "latest",
+        GROVE,
+        "250 West 19th Street",
+        "chelsea",
+        1.0,
+        "2021-06-01",
+        2600.0,
+        3050.0,
+        0.05,
+        2,
+    ),
+    (
+        "1002",
+        "a4",
+        "latest",
+        GROVE,
+        "250 West 19th Street",
+        "chelsea",
+        2.0,
+        "2024-01-01",
+        5200.0,
+        4000.0,
+        0.97,
+        0,
+    ),
+    (
+        "1003",
+        "a6",
+        "latest",
+        "134-west-23-street-new_york",
+        "134 West 23rd Street",
+        "chelsea",
+        0.0,
+        "2018-05-01",
+        2300.0,
+        2250.0,
+        0.55,
+        1,
+    ),
+    (
+        "1004",
+        "a3",
+        "market",
+        GROVE,
+        "250 West 19th Street",
+        "chelsea",
+        1.0,
+        "2026-11-09",
+        3500.0,
+        3400.0,
+        0.6,
+        2,
+    ),
+    (
+        "1005",
+        "",
+        "market",
+        "10-bank-street-new_york",
+        "10 Bank Street",
+        "west-village",
+        3.0,
+        "2026-11-08",
+        9000.0,
+        8000.0,
+        0.8,
+        0,
+    ),
+]
+
+
+# The table's columns and types, as `drift_estimates` writes them with pandas.
+TEXT = ("listing_id", "audit_id", "source", "building", "address")
+ESTIMATE_TYPES = {
+    **dict.fromkeys(TEXT, "VARCHAR"),
+    "latitude": "DOUBLE",
+    "longitude": "DOUBLE",
+    "neighbourhood": "VARCHAR",
+    "unit_id": "VARCHAR",
+    **dict.fromkeys(("bedrooms", "full_baths", "half_baths"), "DOUBLE"),
+    "day": "VARCHAR",
+    "status": "VARCHAR",
+    "ask": "DOUBLE",
+    "model_median": "DOUBLE",
+    **{
+        f"model_{b}": "DOUBLE" for b in ("lo95", "lo80", "lo50", "hi50", "hi80", "hi95")
+    },
+    "discount_pct": "DOUBLE",
+    "below_share": "DOUBLE",
+    "unit_ads": "BIGINT",
+}
+
+
+def _estimates_parquet(path: Path, rows: list[dict]) -> None:
+    names = list(ESTIMATE_TYPES)
+    connection = duckdb.connect()
+    columns = ", ".join(f'"{k}" {t}' for k, t in ESTIMATE_TYPES.items())
+    connection.execute(f"CREATE TABLE t ({columns})")
+    connection.executemany(
+        f"INSERT INTO t VALUES ({', '.join('?' * len(names))})",
+        [[r.get(k) for k in names] for r in rows],
+    )
+    connection.execute(f"COPY t TO '{path}' (FORMAT parquet)")
+    connection.close()
+
+
+def estimates_meta(**changes):
+    meta = {
+        "model": "drift-building",
+        "runs": {"latest": "drift-latest-run", "market": "drift-market-run"},
+        "gate": {
+            "latest": {
+                "passes": True,
+                "max_rhat": 1.004,
+                "min_ess": 812.0,
+                "chains": 4,
+            },
+            "market": {
+                "passes": True,
+                "max_rhat": 1.006,
+                "min_ess": 655.0,
+                "chains": 4,
+            },
+        },
+        "heldout": {
+            "rows": 3,
+            "elpd": -1.234,
+            "rmse": 0.21,
+            "median_abs_error": 0.0953,
+            "bias": 0.01,
+            "coverage": {"50": 0.49, "80": 0.81, "90": 0.9, "95": 0.947},
+        },
+        "scoring_day": "2026-11-09",
+        "ads": {"all": 5, "latest": 3, "market": 2},
+        "published": "2026-11-10T12:00:00Z",
+    }
+    return meta | changes
+
+
+def write_estimates(root: Path, rows=None, **meta) -> Path:
+    """`drift_estimates publish`'s folder under `root`: the table, then the meta with its
+    sha256."""
+    folder = root / "estimates"
+    folder.mkdir(parents=True, exist_ok=True)
+    rows = [estimate_row(*r) for r in ESTIMATES] if rows is None else rows
+    _estimates_parquet(folder / "estimates.parquet", rows)
+    meta = estimates_meta(**meta)
+    meta.setdefault("estimates_sha256", _sha(folder / "estimates.parquet"))
+    (folder / "meta.json").write_text(json.dumps(meta, indent=2))
+    return folder
+
+
+@pytest.fixture(name="write_estimates")
+def write_estimates_fixture():
+    return write_estimates
+
+
+@pytest.fixture(name="estimate_row")
+def estimate_row_fixture():
+    return estimate_row
+
+
 @pytest.fixture
 def site_root(tmp_path, bundle):
     from apartments.site import build
 
     root = tmp_path / "site"
     build.build(bundle, root, scope="Chelsea")
+    write_estimates(root)
     return root
 
 
