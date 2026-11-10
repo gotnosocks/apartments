@@ -60,12 +60,30 @@ ROWS = [
     # No score: left out.
     {"listing_id": "14", "ask": 2000.0, "model_median": 2100.0, "below_share": None},
 ]
+# The shape `drift_deals publish` writes, with a backtest that missed the gate: the page
+# reads a few of these keys and must not mind the rest.
 META = {
     "model": "drift-building",
     "run": "run-x",
+    "gate": {
+        "market": {"passes": True, "max_rhat": 1.004, "min_ess": 1034.0, "chains": 4},
+        "heldout": {"passes": True, "max_rhat": 1.005, "min_ess": 1207.0, "chains": 4},
+        "backtest": {"passes": False, "max_rhat": 1.07, "min_ess": 18.0, "chains": 4},
+    },
     "scoring_day": "2026-11-09",
+    "ads": 6774,
     "published": "2026-11-10T12:00:00Z",
-    "heldout": {"rows": 189647, "median_abs_error": 0.041, "coverage": {"80": 0.81}},
+    "heldout": {
+        "rows": 189647,
+        "elpd": 230884.75,
+        "median_abs_error": 0.041,
+        "rmse": 0.0825,
+        "bias": -0.005,
+        "coverage": {"50": 0.52, "80": 0.81, "90": 0.9, "95": 0.95},
+        "run": "run-h",
+        "split": "latest",
+    },
+    "backtest_run": "run-k",
 }
 VALIDATION = {
     "as_of": "2025-11-10",

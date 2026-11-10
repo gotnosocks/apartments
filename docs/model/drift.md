@@ -53,7 +53,9 @@ latest split the twelve chains agree on every scale to three digits and the miss
 chain length (a chain of four in an hour is too short for the R-hat line, whatever the
 number of chains). On the market and backtest data bld_sd[outer] also differs from chain
 to chain by more than its autocorrelation allows, and the cause is not known. The note has
-both and what was tried next. ROUND-SEVEN-PLACEHOLDER
+both and what was tried next. Round seven (two long chains a container, on the latest
+split and the market data) was running when this was written; its predictions are in the
+note and its scores will be.
 
 ## The model
 

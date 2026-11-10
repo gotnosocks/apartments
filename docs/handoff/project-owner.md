@@ -60,9 +60,10 @@ window and no stale jobs to be run.
    built page as `docs/model/drift-explainer.html`.
 2. Docs review, then merge PR #1281 (squash, tag `archive/pr-1281`), deploy the site with
    `ops/site-deploy.sh`, and check `/deals`.
-3. Round seven: score the predictions when the fits land. Fill `ROUND-SEVEN-PLACEHOLDER`
-   in `README.md` and `docs/model/drift.md` and `ROUND-SEVEN-ROWS` / `ROUND-SEVEN-OPEN` in
-   `docs/research-record.md`. If n7 and b7 pass, republish and rebuild the explainer.
+3. Round seven: score the predictions when the fits land, and replace the "was running
+   when this was written" sentences in `README.md`, `docs/model/drift.md` and the round
+   seven row of `docs/research-record.md` with the result. If n7 and b7 pass, republish and
+   rebuild the explainer.
 4. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
 
 ## Things a newcomer would trip on

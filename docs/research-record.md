@@ -209,7 +209,7 @@ Rows are in date order. Where a source gives no date for an entry, the date colu
 | 2026-11-10 | Deals page first published | `drift_deals publish` from m6 with k6 and f6 | 6,774 ads on the market of 2026-11-09 | Live after the merge of PR #1281 | `docs/model/drift.md` |
 | 2026-11-10 | `drift-building`, full fits pooled from containers (b6, n6, j6) | 3, 3 and 2 containers of 4 chains on different seeds, pooled by `drift_pool` | Latest-split elpd 230,885 (+35,565 over `drift`); median abs error 0.0406; coverage 0.525 / 0.808 / 0.901 / 0.952. Gate missed on one quantity each: drift_tau R-hat 1.0106 (b6), bld_sd[outer] 1.0135 (n6). ESS 1,184 and 1,371. $30 | Not served. Pooling adds ESS and does not lower R-hat: a half-chain of 800 draws at 16 sweeps a draw sits at 1.01 however many chains there are | `docs/notes/drift-2026-11-10.md` |
 | 2026-11-10 | Within-building share of the `bld:` columns | Logged by each building fit | 23 of 56 are fixed in every building (share 0); `bld:elevator` 0.036, `bld:gym` 0.020; the rest 0.0014 to 0.32 | `slow_within=0.001` would redraw only the 33 the paths can stand in for, saving about 0.12 s a sweep; not yet used | `docs/notes/drift-2026-11-10.md` |
-ROUND-SEVEN-ROWS
+| 2026-11-10 | Round seven (`drift-building`, 2 chains a container, three containers a fit; b7 and n7) | The same code with chains long enough for the R-hat line | Launched 09:29Z; results in the note when they land | Pending | `docs/notes/drift-2026-11-10.md` |
 
 ## 3. What worked
 
@@ -290,7 +290,7 @@ ROUND-SEVEN-ROWS
 
 ## 6. Open questions the notes leave
 
-- **`drift-building` through the gate (2026-11-10).** It needs chains of about 4,000 draws at 16 sweeps a draw; four chains in an hour give 1,600. Open ways: fewer chains a container, `slow_within=0.001` (0.12 s a sweep), a fit continued from a saved state. ROUND-SEVEN-OPEN `docs/notes/drift-2026-11-10.md`
+- **`drift-building` through the gate (2026-11-10).** It needs chains of about 4,000 draws at 16 sweeps a draw; four chains in an hour give 1,600. Open ways: fewer chains a container, `slow_within=0.001` (0.12 s a sweep), a fit continued from a saved state. Round seven tests the first. `docs/notes/drift-2026-11-10.md`
 - **The frozen offsets in bld_sd[outer]** on the market and backtest datasets under `drift-building`: chain means that differ by up to 0.0005 where the posterior sd is 0.0006, and do not move within 1,550 draws. No traced quantity moves with them. Untested guess: a few buildings with gross residuals explained either as the building or as outlier rows. `docs/notes/drift-2026-11-10.md`
 - **First asks against final asks.** The deal score is built on a model of final asks, so an uncut first ask reads high. A model of the first ask, or of the cut, would level the score. `docs/model/drift.md`
 - **A monthly building path** scored 2,590 above the quarterly one and does not fit the hour. `docs/notes/drift-2026-11-10.md`

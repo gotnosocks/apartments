@@ -38,7 +38,9 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   R-hat line on one quantity (1.0106 and 1.0135 against 1.01), so it is not served. On the
   latest split the miss fits chain length: four chains in an hour are too short, and round
   seven tests that. On the market data the outer boroughs' building spread differs a
-  little from chain to chain, and the cause of that is not known. ROUND-SEVEN-PLACEHOLDER
+  little from chain to chain, and the cause of that is not known. Round
+  seven's fits (two long chains a container) were running when this was written; the note
+  of 2026-11-10 has their predictions and will have their scores.
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)
