@@ -5,7 +5,7 @@
 <p class="lede">The apartments on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}, ordered by how low each ask
 is for that apartment. For every ad the model gives a range of asks it would expect, from what it knows about the apartment, its
 building, its block and the date, and from the apartment's own earlier ads when it has any. <strong>Lower than 95%</strong> means
-the ask is below 95% of that range.</p>
+the ask is below 95% of the asks the model would expect for this apartment.</p>
 
 <form class="filters" action="{{ url_for('deals_page') }}" method="get" aria-label="Filter and sort the deals">
   <div class="field">
@@ -17,7 +17,7 @@ the ask is below 95% of that range.</p>
   </div>
   <div class="field">
     <label for="d-max">Most you'd pay</label>
-    <input id="d-max" name="max" inputmode="numeric" size="7" value="{{ '{:g}'.format(choice.max_rent) if choice.max_rent }}" placeholder="$">
+    <input id="d-max" name="max" inputmode="numeric" size="7" value="{{ '{:.0f}'.format(choice.max_rent) if choice.max_rent }}" placeholder="$">
   </div>
   <div class="field">
     <label for="d-hood">Neighbourhood</label>
@@ -59,12 +59,12 @@ concession.</p>
   {% for r in rows %}
     <tr>
       <td class="num c-rank">{{ loop.index }}</td>
-      <td class="c-listing"><a href="{{ r.url }}" rel="noopener noreferrer" target="_blank">{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %} ↗<span class="visually-hidden"> on StreetEasy</span></a>
+      <td class="c-listing">{% if r.url %}<a href="{{ r.url }}" rel="noopener noreferrer" target="_blank">{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %} ↗<span class="visually-hidden"> on StreetEasy</span></a>{% else %}{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %}{% endif %}
         <span class="feat">{{ beds_label(r.bedrooms) }}{% if r.neighbourhood %} · {{ r.hood_label }}{% endif %}{% if r.months_free %} · {{ "{:g}".format(r.months_free) }} month{{ "" if r.months_free == 1 else "s" }} free{% endif %}{% if r.status == "TEMPORARILY_OFF_MARKET" %} · temporarily off the market{% endif %}</span></td>
       <td class="num" data-label="Ask">{{ usd(r.ask) }}</td>
       <td class="num nowrap" data-label="Model's middle">{{ usd(r.model_median) }} <span class="muted">(ask {{ pct(-r.gap_pct) }})</span></td>
       <td class="num nowrap" data-label="Likely range">{{ usd(r.model_lo80) }} to {{ usd(r.model_hi80) }}</td>
-      <td class="num nowrap" data-label="Lower than">{{ pct(r.lower_than, signed=False, digits=1 if r.lower_than >= 95 else 0) }}</td>
+      <td class="num nowrap" data-label="Lower than">{{ r.lower_words }}</td>
       <td class="num" data-label="Days listed">{{ "{:.0f}".format(r.days_on_market) if r.days_on_market is not none else "—" }}</td>
       <td class="muted" data-label="Earlier ads">{% if r.unit_ads %}{{ r.unit_ads }}{% else %}none{% endif %}</td>
     </tr>
@@ -79,13 +79,13 @@ concession.</p>
 <h2 id="backtest">Does a low ask mean anything? A check on last year's ads</h2>
 <p class="lede">The same model, fitted only on what was known{% if validation.as_of %} on {{ day(validation.as_of) }}{% endif %}, scored the
 {{ "{:,}".format(validation.ads_with_first_ask) }} ads on the market that day by where their first ask sat in its range. This is
-what then happened to them.</p>
+what then happened to them. Days listed run from an ad's first day to the day it left the market.</p>
 <div class="table-wrap">
 <table class="data">
   <caption class="visually-hidden">What happened to last year's ads, by where the first ask sat in the model's range</caption>
   <thead><tr>
-    <th scope="col">First ask lower than</th><th scope="col" class="num">Ads</th><th scope="col" class="num">Median days listed</th>
-    <th scope="col" class="num">Gone within 2 weeks</th><th scope="col" class="num">Ask later cut</th><th scope="col" class="num">Ask later raised</th>
+    <th scope="col">First ask lower than this share of expected asks</th><th scope="col" class="num">Ads</th><th scope="col" class="num">Median days listed</th>
+    <th scope="col" class="num">Listed 2 weeks or less</th><th scope="col" class="num">Ask later cut</th><th scope="col" class="num">Ask later raised</th>
   </tr></thead>
   <tbody>
   {% for v in validation.by_first_ask_place %}

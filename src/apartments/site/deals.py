@@ -1,12 +1,11 @@
 """The Deals page's table: the ads on the market, scored by the drift model.
 
-`python -m rentfrontier.drift_deals deals` writes `deals.json`, one row per ad on the market on
-the scoring day, and `ops/deals-publish` copies it to the site's `deals/` folder with
-`meta.json` (the run, the scoring day, the model's held-out scores) and `validation.json` (the
-backtest: what happened to the ads of a year earlier, by where their first ask sat in the
-model's range). The page reads those three files and nothing else, so it shows whatever was
-published last and never a half-written table: the publish step writes each file under a
-temporary name and renames it.
+`python -m rentfrontier.drift_deals publish` writes the site's `deals/` folder: `deals.json`,
+one row per ad on the market on the scoring day, `meta.json` (the run, the scoring day, the
+model's held-out scores) and `validation.json` (the backtest: what happened to the ads of a
+year earlier, by where their first ask sat in the model's range). The page reads those three
+files and nothing else, so it shows whatever was published last and never a half-written
+file: the publish step writes each file under a temporary name and renames it.
 
 `below_share` is the share of the model's predictive distribution for the apartment that lies
 below the ask. The page shows its complement as "lower than": an ask lower than 95% of what the
@@ -17,6 +16,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -27,19 +27,46 @@ SORTS = {
 }
 SHOWN = 200
 FILES = ("deals.json", "meta.json", "validation.json")
+LISTING = "https://streeteasy.com/rental/"
+# What a table writes for a missing name.
+NO_NAME = {"", "nan", "none", "<na>", "null"}
 
 
 @lru_cache(maxsize=4)
-def _read(path: str, stamp: float):
+def _read(path: str, stamp: tuple[int, int]):
     return json.loads(Path(path).read_text())
 
 
 def _file(folder: Path, name: str):
     path = folder / name
     try:
-        return _read(str(path), path.stat().st_mtime)
+        stat = path.stat()
+        return _read(str(path), (stat.st_mtime_ns, stat.st_size))
     except (OSError, ValueError):
         return None
+
+
+def _name(value) -> str | None:
+    """A name from the table, or None for a missing one."""
+    value = "" if value is None else str(value).strip()
+    return None if value.lower() in NO_NAME else value
+
+
+def listing_url(row) -> str | None:
+    """The ad's page on StreetEasy, and nothing else: the row's own link when it points
+    there, else one built from a numeric listing id."""
+    url, listing = str(row.get("url") or ""), str(row.get("listing_id") or "")
+    if url.startswith("https://streeteasy.com/"):
+        return url
+    return LISTING + listing if re.fullmatch(r"\d+", listing) else None
+
+
+def lower_words(lower_than: float) -> str:
+    """'99.2%', '87%', or 'over 99.9%': the page never claims an ask lower than all of the
+    model's range."""
+    if lower_than > 99.9:
+        return "over 99.9%"
+    return f"{lower_than:.1f}%" if lower_than >= 95 else f"{lower_than:.0f}%"
 
 
 def _number(value) -> float | None:
@@ -88,12 +115,17 @@ def load_rows(rows) -> list[dict]:
                 "below_share": share,
                 "model_median": mid,
                 "lower_than": 100 * (1 - share),
+                "lower_words": lower_words(100 * (1 - share)),
+                "url": listing_url(r),
+                "neighbourhood": _name(r.get("neighbourhood")),
+                "address": _name(r.get("address")),
+                "unit": _name(r.get("unit")),
                 "gap_pct": 100 * (mid - ask) / mid,
                 "bedrooms": _number(r.get("bedrooms")),
                 "days_on_market": _number(r.get("days_on_market")),
                 "unit_ads": int(_number(r.get("unit_ads")) or 0),
                 "months_free": _number(r.get("months_free")) or 0.0,
-                "hood_label": hood_label(r.get("neighbourhood")),
+                "hood_label": hood_label(_name(r.get("neighbourhood"))),
             }
         )
     return out

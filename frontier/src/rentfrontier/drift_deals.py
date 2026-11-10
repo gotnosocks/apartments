@@ -110,7 +110,9 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
             "url": "https://streeteasy.com/rental/" + h.listing_id.astype(str),
             "building": h.building.astype(str),
             "unit": [unit_label(p) for p in a.page],
-            "neighbourhood": h.neighbourhood.astype(str),
+            "neighbourhood": h.neighbourhood.where(h.neighbourhood.notna(), "").astype(
+                str
+            ),
             "bedrooms": h.bedrooms.to_numpy(float),
             "full_baths": h.full_baths.to_numpy(float),
             "half_baths": h.half_baths.to_numpy(float),

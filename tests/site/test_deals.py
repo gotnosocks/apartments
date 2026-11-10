@@ -164,3 +164,53 @@ def test_page_stands_without_meta_or_backtest(client, site_root):
     publish(site_root, meta=None, validation=None)
     html = client.get("/deals").get_data(as_text=True)
     assert "rental/11" in html and "Does a low ask mean anything" not in html
+
+
+def test_rows_with_missing_names_and_foreign_links(client, site_root):
+    bare = {
+        "listing_id": "21",
+        "url": "javascript:alert(1)",
+        "building": "b-9",
+        "address": None,
+        "unit": None,
+        "neighbourhood": "nan",
+        "bedrooms": None,
+        "ask": 2500.0,
+        "months_free": None,
+        "days_on_market": None,
+        "model_median": 3000.0,
+        "model_lo80": None,
+        "model_hi80": None,
+        "below_share": 0.0,
+        "unit_ads": None,
+    }
+    odd = bare | {
+        "listing_id": "x<y",
+        "url": "https://example.com/rental/22",
+        "address": "<script>alert(2)</script>",
+        "neighbourhood": "<b>soho</b>",
+        "below_share": 0.3,
+    }
+    rows = deals.load_rows([bare, odd])
+    assert [r["url"] for r in rows] == ["https://streeteasy.com/rental/21", None]
+    assert rows[0]["neighbourhood"] is None and rows[0]["lower_words"] == "over 99.9%"
+    publish(site_root, rows=[bare, odd])
+    assert deals.load(site_root)["hoods"] == [("<b>soho</b>", "<B>Soho</B>")]
+    html = client.get("/deals").get_data(as_text=True)
+    assert "Nan" not in html and "javascript:" not in html and "example.com" not in html
+    assert "<script>alert(2)" not in html and "&lt;script&gt;alert(2)" in html
+    assert "<b>soho</b>" not in html and "<B>Soho</B>" not in html
+    assert "over 99.9%" in html and "100.0%" not in html
+    assert "b-9" in html
+
+
+def test_bad_query_strings_and_a_replaced_file(client, site_root):
+    publish(site_root)
+    response = client.get("/deals?beds=x&max=-5&sort=zzz&hood=nope&known=7")
+    assert response.status_code == 200
+    assert "No ad on the market matches" in response.get_data(as_text=True)
+    assert client.get("/deals?max=1e999&beds=1.5").status_code == 200
+    # A newly published table replaces the cached one.
+    publish(site_root, rows=ROWS[:1])
+    html = client.get("/deals").get_data(as_text=True)
+    assert "<strong>1</strong> of 1 ad on the market" in html

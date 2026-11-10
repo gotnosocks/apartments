@@ -161,7 +161,7 @@ the fit recovers the scales and that the held-out standardized errors have unit 
 
 ```sh
 ops/market-dataset HASH                      # market and backtest datasets from a pipeline build
-ops/modal-fit --model drift-building --dataset DIR --split latest   # or --split market
+ops/modal-fit --dataset DIR --split latest COMMIT LABEL drift-building b0 4 300 1000 5   # or --split market
 python -m rentfrontier.drift_score RUN       # pred_scores.npz and the headline scores
 python -m rentfrontier.drift_deals validate BACKTEST_RUN --ads ADS --out validation.json
 python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/site/deals \
