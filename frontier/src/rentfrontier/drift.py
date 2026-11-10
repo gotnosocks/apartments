@@ -39,7 +39,9 @@ before its own draw:
    row sums of W. nu moves with the mixing scales lam carried along: each row keeps its
    standardized log lam, so nu is not pinned by the lam drawn at its old value. I slice
    sample along eight directions, which start as the axes. The run sets them twice in the
-   warmup from the draws' covariance, since the scales trade off against each other.
+   warmup: first from the draws' covariance, then from the curvature of this step's own
+   density at the chains' states (`scales_curvature`, `conditional_dirs`), which is
+   narrower than the posterior and tilted against it.
 3. Each zone's building spread b_z, then every building's level eta, with u integrated out,
    at the new scales.
 4. u given theta and eta, by Matheron's rule: a draw from the prior, corrected by
@@ -87,6 +89,11 @@ building's level and path in one draw with u integrated out, then the path's ste
 the cells. Drawing the paths given u instead, as the first fits of 2026-11-10 did, left
 every chain creeping (R-hat 1.6): the rows pin a path far more tightly given u than they do
 once u is free to follow.
+
+Before the paths are drawn, the coefficients of the columns named by `Settings.slow_columns`
+(the `bld:` columns) are drawn once more with the paths integrated out as well
+(`update_slow`). Step 1 draws theta given the paths, and a building amenity code changes
+within a building over time, so given the paths its coefficient is pinned.
 
 A term that is not collapsed (the neighbourhoods') is drawn after step 4 given theta, eta, u
 and the other terms: (log s, logit rho) by a slice update of each on the Kalman filter's
@@ -166,6 +173,8 @@ AR_WIDTHS = (0.5, 1.0)
 # cells while the steps between them are filled in.
 CELL_PADS = (1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 44)
 SPREAD_WIDTH = 0.05
+# The step of `scales_curvature`'s finite differences, in columns of the slice directions.
+CURV_STEP = 0.05
 CELL_WIDTHS = (0.1, 0.3)
 PIN = 1e14
 # Units are padded to these sizes, so that each size's units stack into one array.
@@ -184,10 +193,15 @@ class Settings:
     seed: int = 20261110
     # Buildings per block of the Schur complement's dense products.
     site_block: int = 4096
-    # Rounds of draws between progress lines and checkpoints. A checkpoint computes the
-    # diagnostics of every traced scalar, which took about 100 s a time in the pilot fit, so
-    # there are few.
+    # Rounds of draws between progress lines.
     chunks: int = 4
+    # Write a checkpoint at each progress line but the last. A checkpoint computes the
+    # diagnostics of every traced scalar and stacks the kept predictions: 110 to 230 s a
+    # time on the full data, which a fit capped at an hour cannot spare three times.
+    checkpoints: bool = False
+    # With a collapsed building term, the columns whose names start with one of these are
+    # drawn a second time with the buildings' paths integrated out (`update_slow`).
+    slow_columns: tuple[str, ...] = ("bld:",)
     # Draw each zone's amplitude with the waves integrated out (`rentfrontier.amp_joint`).
     joint_amp: bool = True
 
@@ -632,6 +646,19 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
                 "only the first term, grouped by building, can be collapsed"
             )
             col = cell_layout(site_sorted, step, lay["pi"], lay["pj"], S, T)
+    # The collapsed term's slow columns, as places among theta's coefficients.
+    held = {int(k) for pos, *_ in gps for k in pos}
+    slow = np.array(
+        [
+            k
+            for k, j in enumerate(others)
+            if col is not None
+            and settings.slow_columns
+            and d.names[j].startswith(settings.slow_columns)
+            and k not in held
+        ],
+        dtype=int,
+    )
     # Each block's part of every bucket. A unit's rows share a building, so a unit never
     # spans two blocks, and a bucket lists its units in row order, so a block's units are a
     # slice of it. `blk_part[j]` holds (bucket, first unit, last unit + 1) for block j,
@@ -1066,6 +1093,33 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         m, sd = lam_moments(x[7])
         return x[:3], jnp.exp(x[3:7]), jnp.exp(x[7]), jnp.exp(m + sd * eta)
 
+    def scales_curvature(D, st, h=CURV_STEP):
+        """The Hessian of `scales_logp` at the state's scales, in the coordinates of the
+        state's `hyp_dirs` (x = x0 + dirs a), by finite differences of step h. Every other
+        input is the state's own: theta, the buildings' spreads and the rows' standardized
+        mixing scales. `conditional_dirs` turns it into slice directions."""
+        lnu = jnp.log(st["nu"])
+        m, sd = lam_moments(lnu)
+        eta = (jnp.log(st["lam"]) - m) / sd
+        F = D["Bc"] @ st["theta"][sl_w]
+        tgt = D["y"] - offsets(D, st) - all_means(D, st["theta"])
+        bsd, par = st["bld_sd"], None
+        if col is not None:
+            tgt = tgt + st["ar"][0].ravel()[D["ar_cell"][0]]
+            par = st["ar_par"][0]
+        x0 = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
+        K = x0.shape[0]
+        eye = jnp.eye(K)
+        i, j = np.triu_indices(K, 1)
+        pts = h * jnp.concatenate([jnp.zeros((1, K)), eye, -eye, eye[i] + eye[j]])
+        f = jax.lax.map(
+            lambda a: scales_logp(D, x0 + st["hyp_dirs"] @ a, eta, tgt, bsd, par, F),
+            pts,
+        )
+        f0, up, down, both = f[0], f[1 : K + 1], f[K + 1 : 2 * K + 1], f[2 * K + 1 :]
+        H = jnp.zeros((K, K)).at[i, j].set((both - up[i] - up[j] + f0) / h**2)
+        return H + H.T + jnp.diag((up + down - 2 * f0) / h**2)
+
     def ar_filter(par, C, R):
         """The Kalman filter of one local-drift term's processes over its steps, from each
         cell's sum of row weights C and weighted remainders R, (groups, steps). Returns the
@@ -1230,6 +1284,67 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             - 0.5 * jnp.sum(jnp.log(v), axis=1)
         )
         return L, x, ll
+
+    def slow_system(D, st, om_d, om_off, sums, tgt, F):
+        """The likelihood's precision and linear term for a shift of the slow columns'
+        coefficients from where `tgt` has them, with u, the buildings' levels and the
+        collapsed paths integrated out: X' V X and X' V (tgt - F), for the columns X and
+        the rows' marginal precision V = W - W Z Q^-1 Z' W, where Z maps a building's state
+        to its rows and Q is the state's posterior precision (`cell_system`). Also returns
+        each bucket's G = B' W X, (buildings, cells, columns)."""
+        cl, xs = D["cells"], D["xs"]
+        Wt = apply_W(D, om_d, om_off, tgt)
+
+        def one(k):
+            Wx = apply_W(D, om_d, om_off, jnp.concatenate([x[:, k] for x in xs]))
+            xtw = sum(x[:, slow].T @ Wx[r0:r1] for x, (_, _, r0, r1) in zip(xs, blocks))
+            return seg(Wx, cl["h"], num_segments=col["size_h"]), xtw
+
+        G, A = jax.lax.map(one, jnp.asarray(slow))
+        lin = sum(x[:, slow].T @ Wt[r0:r1] for x, (_, _, r0, r1) in zip(xs, blocks))
+        par = st["ar_par"][0]
+        b2 = st["bld_sd"][zone_j] ** 2
+        Gs = []
+        for (H, h), b, ids, gap in zip(sums, col["buckets"], cl["sites"], cl["gap"]):
+            nb, m = gap.shape
+            Gb = G[:, b["off_h"] : b["off_h"] + nb * m].reshape(-1, nb, m)
+            Gb = Gb.transpose(1, 2, 0)
+            Gz = jnp.concatenate([Gb.sum(axis=1, keepdims=True), Gb], axis=1)
+            L, x, _ = cell_system(par, b2[ids], F[ids], H, h, gap)
+            Y = jax.vmap(
+                lambda Lk, Gk: jax.scipy.linalg.solve_triangular(Lk, Gk, lower=True)
+            )(L, Gz)
+            A = A - jnp.einsum("bms,bmt->st", Y, Y)
+            lin = lin - jnp.einsum("bms,bm->s", Y, x)
+            Gs.append(Gb)
+        return 0.5 * (A + A.T), lin, Gs
+
+    def update_slow(D, key, st, theta, om_d, om_off, sums, tgt, F):
+        """The slow columns' coefficients given the rest of theta and the scales, with u,
+        the buildings' levels and the collapsed paths integrated out. Returns theta, and
+        `tgt` and `sums` at the new coefficients.
+
+        theta is drawn given the buildings' paths. A building amenity code is set from the
+        building's ads up to each row's day, so it changes within a building over time, and
+        a path can stand in for it: given the paths these coefficients are pinned, and the
+        pilots of the collapsed term had them at autocorrelation times of 9 to 24 sweeps
+        against 2 without the paths. This draw has the paths out of the way. The paths are
+        drawn next (`update_cells`), at the new coefficients."""
+        A, lin, Gs = slow_system(D, st, om_d, om_off, sums, tgt, F)
+        cur = theta[sl_b][slow]
+        Q = A + jnp.diag(prec_b[slow])
+        rhs = lin + A @ cur + lin_b[slow]
+        s = 1 / jnp.sqrt(jnp.diag(Q))
+        Cf = jnp.linalg.cholesky(Q * s[:, None] * s[None, :])
+        mean = jax.scipy.linalg.cho_solve((Cf, True), rhs * s)
+        dev = jax.scipy.linalg.solve_triangular(
+            Cf.T, jax.random.normal(key, (len(slow),)), lower=False
+        )
+        step = (mean + dev) * s - cur
+        theta = theta.at[sl_b].set(theta[sl_b].at[slow].add(step))
+        tgt = tgt - jnp.concatenate([x[:, slow] @ step for x in D["xs"]])
+        sums = [(H, h - Gb @ step) for (H, h), Gb in zip(sums, Gs)]
+        return theta, tgt, sums
 
     def fill_path(key, par, at, active):
         """Paths (groups, steps) that hold `at` where `active` and, at every other step, a
@@ -1448,6 +1563,10 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         else:
             cell = D["ar_cell"][0]
             sums = cell_sums(D, om_d, om_off, tgt)
+            if len(slow):
+                theta, tgt, sums = update_slow(
+                    D, k3, st, theta, om_d, om_off, sums, tgt, F
+                )
             bsd, lev, par, path = update_cells(D, k2, st, sums, F)
             e = tgt - lev[D["site"]] - path.ravel()[cell]
             st = st | {
@@ -1565,6 +1684,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     swept = jax.jit(jax.vmap(sweep, in_axes=(None, 0, 0)))
     predicted = jax.jit(jax.vmap(predict, in_axes=(None, 0)))
+    curved = jax.jit(jax.vmap(scales_curvature, in_axes=(None, 0)))
     return (
         lambda keys, st: swept(data, keys, st),
         jax.jit(jax.vmap(init)),
@@ -1582,6 +1702,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             unit_loglik=unit_loglik,
             update_scales=update_scales,
             scales_logp=scales_logp,
+            scales_curvature=scales_curvature,
+            curvature=lambda st: curved(data, st),
             lam_moments=lam_moments,
             level_loglik=level_loglik,
             draw_theta=draw_theta,
@@ -1593,6 +1715,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             cell_sums=cell_sums,
             cell_system=cell_system,
             cell_loglik=cell_loglik,
+            slow_system=slow_system,
+            update_slow=update_slow,
+            slow=slow,
             fill_path=fill_path,
             zone=zone,
             update_cells=update_cells,
@@ -1619,6 +1744,29 @@ def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
     return 4.0 * np.linalg.cholesky(cov)
 
 
+def conditional_dirs(dirs: np.ndarray, H: np.ndarray):
+    """Slice directions for the density `update_scales` samples, from its Hessian `H` in the
+    coordinates of `dirs` (`scales_curvature`): four times a square root of the covariance
+    -H^-1, mapped back through `dirs`. Also returns that covariance's eigenvalues in units
+    of `dirs` / 4, which is the share of the posterior's variance one scale update can
+    renew along each axis when `dirs` came from the posterior's covariance.
+
+    `update_scales` draws the scales given theta and the rows' standardized mixing scales,
+    and that density is narrower than the posterior and tilted against it. Directions cut
+    from the posterior's covariance cross its ridge at an angle, each slice is then short,
+    and one round of them moves the scales a small part of what the density allows. The
+    pilots of 2026-11-10 showed it: the unit scales' autocorrelation time went from 8 to 28
+    sweeps when the scale step took more parameters with directions from the posterior.
+
+    Returns (`dirs`, None) when -H is not positive definite, which a state far from the
+    mode of a skewed density can give."""
+    w, V = np.linalg.eigh(-(H + H.T) / 2)
+    if w.min() <= 0:
+        return dirs, None
+    root = V / np.sqrt(w)
+    return 4.0 * dirs @ root, np.sort(16.0 / w)
+
+
 def run(
     d: Design,
     priors: Priors,
@@ -1636,7 +1784,9 @@ def run(
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
-    sweep, init, predict, _ = make_sampler(d, priors, settings, gp=gp, groups=groups)
+    sweep, init, predict, parts = make_sampler(
+        d, priors, settings, gp=gp, groups=groups
+    )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
@@ -1748,6 +1898,22 @@ def run(
             log(
                 f"scales' slice directions set at sweep {i + 1}: {dirs.round(5).tolist()}"
             )
+            H = np.asarray(parts["curvature"](st)).mean(axis=0)
+            dirs, share = conditional_dirs(dirs, H)
+            if share is None:
+                log(
+                    "the scale step's curvature is not negative definite: directions kept"
+                )
+            else:
+                st = st | {
+                    "hyp_dirs": jnp.broadcast_to(
+                        jnp.asarray(dirs), st["hyp_dirs"].shape
+                    )
+                }
+                log(
+                    "reset along the scale step's own curvature; its variance over the "
+                    f"window's, by axis: {share.round(3).tolist()}"
+                )
             if warm_cell:
                 window = [warm_cell[j] for j in range(adapt_at[i + 1], i + 1)]
                 dirs = adapted_dirs(np.stack(window, axis=1))
@@ -1785,7 +1951,8 @@ def run(
                     )
                     + f"{time.perf_counter() - t0:.0f}s"
                 )
-                if j + 1 < settings.draws and checkpoint is not None and kept["beta"]:
+                mid = settings.checkpoints and j + 1 < settings.draws
+                if mid and checkpoint is not None and kept["beta"]:
                     checkpoint(output())
         elif (i + 1) % max(1, settings.warmup // 5) == 0:
             log(

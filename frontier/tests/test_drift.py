@@ -332,6 +332,62 @@ def test_update_scales_keeps_each_rows_place_among_the_mixing_scales():
     assert float(jnp.abs(lam - st["lam"]).max()) > 0
 
 
+def test_scales_curvature_is_the_hessian_of_the_scale_steps_density():
+    full = _design(per_unit=9)
+    train, _, _ = _split(full)
+    _, init, _, parts = _sampler(train)
+    jax, jnp = b0._jax()
+    D = parts["data"]
+    st = _state(init, parts)
+    rng = np.random.default_rng(8)
+    # Directions that are not the axes, so the map through them is checked too.
+    dirs = jnp.asarray(st["hyp_dirs"] @ (np.eye(8) + 0.3 * rng.standard_normal((8, 8))))
+    st = st | {"hyp_dirs": dirs}
+    got = np.asarray(parts["scales_curvature"](D, st, h=1e-3))
+    sl_w = parts["slices"][3]
+    m, s = parts["lam_moments"](jnp.log(st["nu"]))
+    eta = (jnp.log(st["lam"]) - m) / s
+    F = D["Bc"] @ st["theta"][sl_w]
+    tgt = D["y"] - parts["offsets"](D, st) - parts["all_means"](D, st["theta"])
+    x0 = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), jnp.log(st["nu"])[None]])
+
+    def logp(a):
+        return parts["scales_logp"](D, x0 + dirs @ a, eta, tgt, st["bld_sd"], None, F)
+
+    # The four-point central stencil, which shares no point with the function's own.
+    f = jax.jit(logp)
+    h = 2e-3
+    want = np.zeros((8, 8))
+    for i in range(8):
+        for j in range(i + 1):
+            a, b = h * np.eye(8)[i], h * np.eye(8)[j]
+            want[i, j] = want[j, i] = float(
+                f(jnp.asarray(a + b))
+                - f(jnp.asarray(a - b))
+                - f(jnp.asarray(b - a))
+                + f(jnp.asarray(-a - b))
+            ) / (4 * h * h)
+    np.testing.assert_allclose(got, got.T, atol=1e-9)
+    np.testing.assert_allclose(got, want, rtol=2e-2, atol=2e-2 * np.abs(want).max())
+    assert np.abs(want).min() > 0
+
+
+def test_conditional_dirs_span_the_covariance_the_curvature_implies():
+    rng = np.random.default_rng(2)
+    dirs = np.tril(rng.standard_normal((5, 5))) + 3 * np.eye(5)
+    A = rng.standard_normal((5, 5))
+    cov = A @ A.T + 0.5 * np.eye(5)
+    new, share = drift.conditional_dirs(dirs, -np.linalg.inv(cov))
+    # x = x0 + dirs a with Cov(a) = cov: the new directions are four standard deviations.
+    np.testing.assert_allclose(new @ new.T, 16 * dirs @ cov @ dirs.T, rtol=1e-9)
+    np.testing.assert_allclose(share, 16 * np.linalg.eigvalsh(cov), rtol=1e-9)
+    # A curvature with an upward direction leaves the directions as they were.
+    H = -np.linalg.inv(cov)
+    H[0, 0] = 1.0
+    kept, share = drift.conditional_dirs(dirs, H)
+    assert kept is dirs and share is None
+
+
 def test_draw_u_has_the_conditional_mean_and_covariance():
     full = _design(n=400, per_unit=9)
     train, _, _ = _split(full)

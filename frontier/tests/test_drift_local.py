@@ -446,6 +446,54 @@ def test_cell_system_matches_the_dense_conditional():
     assert checked > 10
 
 
+def test_slow_system_is_the_dense_regression_with_the_paths_integrated_out():
+    parts, st, site, step, tgt, F, cov, sums = _cells()
+    jax, jnp = b0._jax()
+    D = parts["data"]
+    slow = parts["slow"]
+    assert len(slow) >= 4
+    zone = parts["zone"]
+    lb, par = np.array([-1.8, -2.2]), np.array([-2.5, 1.0])
+    st = st | {
+        "bld_sd": jnp.exp(jnp.asarray(lb)),
+        "ar_par": st["ar_par"].at[0].set(jnp.asarray(par)),
+    }
+    c = parts["weights"](D, st)
+    om_d, om_off = parts["pair_weights"](D, *parts["unit_W"](D, st["hyp"], c))
+    A, lin, Gs = parts["slow_system"](
+        D, st, om_d, om_off, sums, jnp.asarray(tgt), jnp.asarray(F)
+    )
+    X = np.concatenate([np.asarray(x) for x in D["xs"]])[:, slow]
+    full = cov + _cell_cov(site, step, zone, lb, par)
+    np.testing.assert_allclose(np.asarray(A), X.T @ np.linalg.solve(full, X), rtol=1e-7)
+    np.testing.assert_allclose(
+        np.asarray(lin),
+        X.T @ np.linalg.solve(full, tgt - F[site]),
+        rtol=1e-7,
+        atol=1e-7,
+    )
+    # The step moves theta, the target and the cells' sums together.
+    theta, new_tgt, new_sums = parts["update_slow"](
+        D,
+        jax.random.PRNGKey(3),
+        st,
+        st["theta"],
+        om_d,
+        om_off,
+        sums,
+        jnp.asarray(tgt),
+        jnp.asarray(F),
+    )
+    sl_b = parts["slices"][0]
+    step_b = np.asarray(theta[sl_b] - st["theta"][sl_b])
+    assert np.abs(step_b[slow]).min() > 0
+    np.testing.assert_array_equal(np.delete(step_b, slow), 0.0)
+    np.testing.assert_allclose(np.asarray(new_tgt), tgt - X @ step_b[slow], atol=1e-10)
+    want = parts["cell_sums"](D, om_d, om_off, new_tgt)
+    for (_, h), (_, hw) in zip(new_sums, want):
+        np.testing.assert_allclose(np.asarray(h), np.asarray(hw), atol=1e-8)
+
+
 def test_fill_path_draws_the_steps_between_the_cells():
     full = td._design()
     train, _, _ = td._split(full)
