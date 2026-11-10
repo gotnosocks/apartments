@@ -59,7 +59,9 @@ def report(root, output):
     index = pd.read_parquet(root / "rent_index.parquet")
     validation = pd.read_parquet(root / "temporal_validation.parquet")
     data = pd.read_parquet(root / "model_data.parquet")
-    diagnostics = pd.read_parquet(root / "fit_diagnostics.parquet")
+    pd.read_parquet(
+        root / "fit_diagnostics.parquet"
+    )  # fails early if the fit left no diagnostics
     encoder = json.loads((root / "encoder.json").read_text())
     with np.load(root / "model.npz", allow_pickle=False) as model:
         a, b = encoder["offsets"]["season"]

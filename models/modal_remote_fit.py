@@ -331,10 +331,10 @@ def clean(args):
                     item["sha256"]
                     for item in read_json(store, f"{entry.path}/request.json")["files"]
                 }
-            except (FileNotFoundError, NotFoundError):
+            except (FileNotFoundError, NotFoundError) as err:
                 raise SystemExit(
                     f"{entry.path} has no request; refusing to prune blobs"
-                )
+                ) from err
         stale = present_blobs(store) - referenced
         for sha in sorted(stale):
             store.remove_file(f"/blobs/{sha}")
