@@ -16,6 +16,7 @@ ROWS = [
         "bedrooms": 1.0,
         "status": "ACTIVE",
         "ask": 3000.0,
+        "page_price": 3250.0,
         "months_free": 1.0,
         "days_on_market": 3.0,
         "model_median": 3600.0,
@@ -147,21 +148,50 @@ def test_load_keeps_scored_rows_and_words_the_backtest(site_root):
 
 def test_choose_filters_and_orders():
     rows = deals.load_rows(ROWS)
+    every = lambda **kw: [  # noqa: E731
+        r["listing_id"] for r in deals.choose(rows, cautioned=True, **kw)
+    ]
+    assert every() == ["11", "12", "13"]
+    assert every(sort="discount") == ["12", "11", "13"]
+    assert every(sort="new") == ["11", "12", "13"]
+    assert every(beds=3) == ["12"] and every(beds=0) == ["13"]
+    assert every(max_rent=4000) == ["11", "13"]
+    assert every(hood="chelsea") == ["13"]
+    assert every(known=True) == ["11", "13"]
+    # Ad 12 is off the market for now: a caution, so the list leaves it out unless asked.
     ids = lambda **kw: [r["listing_id"] for r in deals.choose(rows, **kw)]  # noqa: E731
-    assert ids() == ["11", "12", "13"]
-    assert ids(sort="discount") == ["12", "11", "13"]
-    assert ids(sort="new") == ["11", "12", "13"]
-    assert ids(beds=3) == ["12"] and ids(beds=0) == ["13"]
-    assert ids(max_rent=4000) == ["11", "13"]
-    assert ids(hood="chelsea") == ["13"]
-    assert ids(known=True) == ["11", "13"]
+    assert ids() == ["11", "13"] and ids(beds=3) == []
     assert deals.choice({"beds": "7", "max": "x", "sort": "nope", "known": "1"}) == {
         "beds": None,
         "max_rent": None,
         "hood": None,
         "known": True,
+        "cautioned": False,
         "sort": "score",
     }
+    assert (
+        deals.choice({"all": "1"})["cautioned"]
+        and not deals.choice({"all": "0"})["cautioned"]
+    )
+
+
+def test_cautions_are_worded_from_the_tables_codes():
+    words = lambda **row: deals.caution_words(row)  # noqa: E731
+    assert words() == [] and words(cautions=None) == [] and words(cautions=[]) == []
+    assert words(cautions={"income": 1}) == [] and words(cautions=[7, None, ""]) == []
+    assert words(cautions="income") == [deals.CAUTIONS["income"]]
+    # A code from a newer table than the page is still a caution, named by its code.
+    assert words(cautions=["income", "beds", "income", "new-code", 7]) == [
+        deals.CAUTIONS["income"],
+        deals.CAUTIONS["beds"],
+        "a caution this page has no words for (new-code)",
+    ]
+    rows = deals.load_rows([ROWS[0] | {"cautions": ["new-code"]}, ROWS[2]])
+    assert [r["listing_id"] for r in deals.choose(rows)] == ["13"]
+    # A table from before the cautions, and one with them, say an ad is off the market once.
+    off = deals.CAUTIONS["off_market"]
+    assert words(status="TEMPORARILY_OFF_MARKET") == [off]
+    assert words(status="TEMPORARILY_OFF_MARKET", cautions=["off_market"]) == [off]
 
 
 def test_page_shows_the_table_the_backtest_and_the_model(client, site_root):
@@ -175,16 +205,45 @@ def test_page_shows_the_table_the_backtest_and_the_model(client, site_root):
         and "https://streeteasy.com/rental/11" in html
     )
     assert "$3,000" in html and "$3,300 to $3,900" in html
-    assert "98.8%" in html and "1 month free" in html
-    assert "temporarily off the market" in html
-    assert "<strong>3</strong> of 3 ads on the market" in html and "Nov 9, 2026" in html
+    assert "98.8%" in html and "1 month free, so the ad shows $3,250" in html
+    # The ad off the market is left out, and the page says so and links to the full list.
+    assert "<strong>2</strong> of 3 ads on the market" in html and "Nov 9, 2026" in html
+    assert "1 more is left out for a caution" in html and "rental/12" not in html
+    assert 'href="/deals?all=1"' in html and "Check first" not in html
     assert "90% to 100%" in html and "9,000 ads" in html and "Nov 10, 2025" in html
     assert "drift-building" in html and "189,647" in html and "81%" in html
-    assert html.index("rental/11") < html.index("rental/12") < html.index("rental/13")
+    assert html.index("rental/11") < html.index("rental/13")
     assert 'aria-current="page">Deals</a>' in html
     filtered = client.get("/deals?beds=0&sort=discount").get_data(as_text=True)
     assert "rental/13" in filtered and "rental/11" not in filtered
     assert "<strong>1</strong> of 3 ads on the market" in filtered
+    assert "left out for a caution" not in filtered
+    full = client.get("/deals?all=1&sort=score").get_data(as_text=True)
+    assert "<strong>3</strong> of 3 ads on the market" in full
+    assert full.index("rental/11") < full.index("rental/12") < full.index("rental/13")
+    assert "Check first: temporarily off the market." in full
+    assert "left out for a caution" not in full
+    # The link to the full list keeps the page's own filters and nothing else.
+    kept = client.get("/deals?beds=3&sort=new").get_data(as_text=True)
+    assert "<strong>0</strong> of 3" in kept and "1 more is left out" in kept
+    assert 'href="/deals?beds=3&amp;sort=new&amp;all=1"' in kept
+    odd = client.get(
+        "/deals?endpoint=x&_method=POST&_scheme=x&_external=1&_anchor=a&beds=3&beds=0"
+    )
+    assert odd.status_code == 200
+    assert 'href="/deals?beds=3&amp;all=1"' in odd.get_data(as_text=True)
+
+
+def test_the_page_has_words_for_every_code_the_table_can_carry():
+    import importlib.util
+    from pathlib import Path
+
+    source = Path(__file__).parents[2] / "frontier/src/rentfrontier/cautions.py"
+    spec = importlib.util.spec_from_file_location("frontier_cautions", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert set(deals.CAUTIONS) == set(module.CODES)
+    assert deals.OFF_MARKET == module.OFF_MARKET
 
 
 def test_page_stands_without_meta_or_backtest(client, site_root):
@@ -259,3 +318,18 @@ def test_a_meta_or_backtest_from_another_publish_is_not_shown(client, site_root)
     data = deals.load(site_root)
     assert data["meta"]["run"] == "run-x"
     assert data["validation"]["by_first_ask_place"] == []
+
+
+def test_page_says_when_the_backtest_fit_missed_the_gate(client, site_root):
+    missed = "missed the project's convergence test"
+    publish(site_root)
+    assert missed in client.get("/deals").get_data(as_text=True)
+    passed = META | {"gate": META["gate"] | {"backtest": META["gate"]["market"]}}
+    for meta in (passed, {k: v for k, v in META.items() if k != "gate"}):
+        publish(site_root, meta=meta)
+        html = client.get("/deals").get_data(as_text=True)
+        assert "Does a low ask mean anything" in html and missed not in html
+    # A gate that is not what publish writes says nothing.
+    for gate in ("x", [1], {"backtest": "no"}, {"backtest": {"passes": 0}}):
+        publish(site_root, meta=META | {"gate": gate})
+        assert missed not in client.get("/deals").get_data(as_text=True)

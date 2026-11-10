@@ -40,11 +40,17 @@ The backtest (k6): the 9,346 ads open on 2025-11-10, each scored at its first as
 
 | Place of the first ask in the model's range | Ads | Median days on market | Share later cut |
 |---|---|---|---|
-| lowest tenth | 501 | 27 | 18% |
-| second | 454 | 32 | 26% |
-| fifth | 725 | 47 | 42% |
-| ninth | 1,319 | 56 | 69% |
-| highest tenth | 2,367 | 62 | 79% |
+| lowest tenth | 630 | 28 | 18% |
+| second | 627 | 35 | 26% |
+| fifth | 905 | 49 | 39% |
+| ninth | 1,067 | 58 | 53% |
+| highest tenth | 1,566 | 61 | 60% |
+
+The first ask of an ad with free months is put net of them, the basis of the model's asks
+(`drift_deals.first_net`). The table published before 2026-11-10 10:05Z did not do this
+and read 79% cut in the highest tenth; the note has the correction. Over the 7,092 ads
+with no free months, which need no change of basis, the stay runs from 27 to 60 days and
+the share cut from 15% to 63%.
 
 `drift-building` adds a path per building and is worth another 35,565 elpd on the same
 ads. Its pooled fits miss the gate on one quantity each: drift_tau at R-hat 1.0106 on the
@@ -52,15 +58,18 @@ latest split and bld_sd[outer] at 1.0135 on the market data. It is not served. O
 latest split the twelve chains agree on every scale to three digits and the miss fits
 chain length (a chain of four in an hour is too short for the R-hat line, whatever the
 number of chains). On the market and backtest data bld_sd[outer] also differs from chain
-to chain by more than its autocorrelation allows, and the cause is not known. The note has
-both and what was tried next. Round seven (two long chains a container, on the latest
+to chain by more than its autocorrelation allows. About a quarter of that offset is
+traced to a handful of buildings whose level sits at one of two values for a whole chain
+(their few ads fall into two price clusters); the rest is a shift shared thinly across
+the outer buildings' levels, and its cause is not known. The note has both and what was
+tried next. Round seven (two long chains a container, on the latest
 split and the market data) was running when this was written; its predictions are in the
 note and its scores will be.
 
 ## The model
 
-Each row is one ad. Its target `y` is the log of its final asking rent, gross of any free
-months.
+Each row is one ad. Its target `y` is the log of its final asking rent, net of any free
+months (the dataset's `latest_ask`).
 
 ```
 y_i ~ StudentT(nu, mean_i, sigma_group(i))
@@ -216,6 +225,18 @@ A low score has three possible causes, and the model cannot tell them apart: the
 priced low, the apartment has a flaw the ad does not state, or the ad is wrong. The
 backtest says how often it is the first.
 
+**Cautions.** A fourth cause is in plain sight in the ad and unknown to the model. Of 22
+ads read from the first 40 of the list of 2026-11-09, 12 were such: seven income-restricted
+units, an office suite, an apartment open only to the building's owners, and others.
+`rentfrontier.cautions` gives a row of the deals table a code for each reason it finds:
+`income`, `not_home` and `owners_only` from the ad's own text, `beds` when the apartment's
+ads carry more than one bedroom count, `off_market` from the ad's status. A caution changes
+no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
+many. The text patterns were kept or dropped by reading every ad on the market that a
+wider set of candidates matched (237 ads); the kept income pattern matches 55 ads, the 55
+the readers classed as income-restricted. The dataset's own `income_restricted` flag, a model input, catches 22 of
+those 55.
+
 ## How a fit is judged
 
 **Held-out ads.** The latest split holds out the newest ad of every unit with at least two
@@ -249,9 +270,14 @@ ops/modal-fit --gpu H100 --dataset DIR --split latest COMMIT LABEL drift-buildin
 python -m rentfrontier.drift_pool RUN PART PART ...   # one run from a fit's containers
 python -m rentfrontier.drift_score RUN       # pred_scores.npz and the headline scores
 python -m rentfrontier.drift_deals validate BACKTEST_RUN --ads ADS --out validation.json
+python -m rentfrontier.drift_deals texts MARKET_RUN --out TEXTS.parquet   # the ads' own texts
 python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/site/deals \
-    --registry REGISTRY --backtest BACKTEST_RUN --heldout LATEST_RUN
+    --registry REGISTRY --backtest BACKTEST_RUN --heldout LATEST_RUN --texts TEXTS.parquet
 ```
+
+`texts` reads the pipeline's records file of the newest clean build (about a minute and
+4 GB on thelio) and refuses a build other than the dataset's. Without `--texts` the table
+carries only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
 The three model names are `drift`, `drift-building` and `drift-local`
 (`drift.py`, `drift_building.py`, `drift_local.py`). `--split market` fits a market or
@@ -282,8 +308,12 @@ number of chains second.
 - **The backtest sees some later ad fields.** An ad's feature codes, amenities, laundry and
   dishwasher fields come from its latest record, which can postdate the backtest's day. No
   price leaks. The effect on the backtest's ranking should be small, and it is not measured.
-- **Asks are gross.** `first_ask` and `latest_ask` are both gross of concessions. Months
-  free enter as a column, so the model's range is for the gross ask given the concession.
+- **Asks are net of free months, and price histories are gross.** `latest_ask`, the
+  model's target, is the net-effective ask; 21% of the asks on the market of 2026-11-09
+  are net, and the ad's own page shows the higher gross rent (the Deals page shows both).
+  Months free also enter as a column. An ad's `first_ask` comes from its price history
+  and is gross, so anything that compares the two must change basis first
+  (`drift_deals.first_net`).
 - **Closed is not rented.** The data has asks, not leases. An ad that left the market at a
   price may have rented below it.
 - **A few ads train as closed that are not.** In the market dataset 1,062 ads in contract,
@@ -292,8 +322,8 @@ number of chains second.
   building and the local drift, and its range is about twice as wide as a unit with a recent
   ad. Its score is honest and less sharp.
 - **The design needs about 15 GB of host memory**, so full fits run on Modal.
-- **First asks run high.** The model is fitted to final asks. A quarter of the backtest's
-  ads opened in the top tenth of their range, and on the market of 2026-11-09 the lowest
+- **First asks run high.** The model is fitted to final asks. 17% of the backtest's ads
+  opened in the top tenth of their range and 7% in the bottom tenth, and on the market of 2026-11-09 the lowest
   twentieth of the score holds 302 ads where an even spread would put 339. The score ranks
   ads against each other well (the backtest), and its level is conservative for an ad that
   has not yet been cut.
@@ -304,6 +334,7 @@ number of chains second.
 - **`drift-building` has not passed the gate.** Its pooled fits of round six miss by 0.0006
   and 0.0035 in R-hat on one quantity each. On the market and backtest data the outer
   boroughs' building spread also holds a small offset from chain to chain that does not
-  move within a run; its cause is not known (the note gives the test to run next).
+  move within a run. A quarter of it is a handful of buildings in two states; the cause
+  of the rest is not known (the note, "The direct check").
 - **`drift-local` was not refitted** after round two, where the neighbourhood path added
   952 elpd to the building model, 2.5% of the building path's gain.

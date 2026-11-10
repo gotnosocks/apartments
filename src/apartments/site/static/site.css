@@ -130,6 +130,7 @@ h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
 .columns > .card { margin: 0.5rem 0; }
 .columns > .card.shrink { align-self: start; }
 .feat { display: block; color: var(--muted); font-size: 0.8rem; }
+.feat.caution { color: var(--warn); }
 .warn { background: var(--warn-bg); color: var(--ink); padding: 0.5rem 0.7rem; border-radius: 6px; }
 .warn-mark { color: var(--warn); font-weight: 700; cursor: help; }
 .error { max-width: 36rem; }

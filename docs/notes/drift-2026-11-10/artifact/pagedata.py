@@ -298,6 +298,8 @@ def main() -> None:
             "hist": hist,
             "width_new": mk["median_width80_pct"]["without_training_ad"],
             "top": top,
+            # Ads the page leaves out of its list, and whether their texts were read.
+            "cautioned": mk.get("cautioned", 0) if mk.get("texts_read") else 0,
         },
         "score_caption": f"The scoreboard, on the same {sw['rows']:,} held-out ads. "
         f"{sw['label']} scores <b>{sw['elpd'] - ks:,.0f}</b> above the kitchen sink, "

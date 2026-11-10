@@ -9,9 +9,10 @@ from rentfrontier import drift_deals
 from rentfrontier.b0data import sha256
 
 
-def _run(tmp_path, backtest=False, model="drift-building"):
+def _run(tmp_path, backtest=False, model="drift-building", change=None):
     """A run directory with four held-out ads among six rows, predicted at log 3000 with
-    little spread, and its dataset (a market dataset, or a backtest), ads and registry."""
+    little spread, and its dataset (a market dataset, or a backtest), ads and registry.
+    `change` edits the dataset's rows before they are written."""
     tmp_path.mkdir(exist_ok=True)
     data = tmp_path / "data"
     data.mkdir()
@@ -30,6 +31,8 @@ def _run(tmp_path, backtest=False, model="drift-building"):
             "status": ["RENTED", "ACTIVE", "ACTIVE", "ACTIVE", "RENTED", "ACTIVE"],
         }
     )
+    if change is not None:
+        change(rows)
     rows.to_parquet(data / "rows.parquet", index=False)
     run = tmp_path / "runs" / "r"
     run.mkdir(parents=True)
@@ -56,6 +59,7 @@ def _run(tmp_path, backtest=False, model="drift-building"):
                 for u in ("2a", "3b", "ph1", "4d")
             ],
             "square_feet": [700.0, np.nan, 800, 650],
+            "page_price": [2700.0, 3250, 3300, np.nan],
             "months_free": [0.0, 1, 0, 0],
             "days_on_market": [3, 10, 40, 20],
             "first_day": [
@@ -64,7 +68,8 @@ def _run(tmp_path, backtest=False, model="drift-building"):
                 date(2026, 10, 1),
                 date(2026, 10, 20),
             ],
-            "first_ask": [2700.0, 3000, 3600, 3000],
+            # Listing 3's history is gross: 3250 with a month free is its net 3000.
+            "first_ask": [2700.0, 3250, 3600, 3000],
             "status": ["ACTIVE"] * 4,
             "off_day": [
                 date(2026, 11, 5),
@@ -129,6 +134,8 @@ def test_deals_ranks_the_lowest_asks_first(tmp_path):
         "4": 1,
         "6": 0,
     }
+    # Listing 3 gives a month free: its page shows the gross rent, above the ask.
+    assert t.set_index("listing_id").page_price.to_dict()["3"] == 3250
     mid = t.set_index("listing_id").loc["3"]
     assert 0.4 < mid.below_share < 0.6 and abs(mid.discount_pct) < 1
 
@@ -143,6 +150,53 @@ def test_validate_tabulates_outcomes_by_the_first_asks_place(tmp_path):
     assert low["median_days_on_market"] < high["median_days_on_market"]
     assert high["share_cut"] > 0 and low["share_cut"] == 0
     assert out["final_ask_scores"]["rows"] == 4
+    # Listing 3 asked 3250 gross with a month free from first to last, 3000 net: no cut.
+    # Only listing 4 (3600 to 3300) was cut.
+    (every,) = drift_deals.validate(run, ads, bins=1)["by_first_ask_place"]
+    assert every["ads"] == 4 and every["share_cut"] == 0.25
+    assert every["share_raised"] == 0
+    assert out["ads_with_free_months"] == 1
+    assert out["without_free_months"]["ads"] == 3
+    assert sum(b["ads"] for b in out["without_free_months"]["by_first_ask_place"]) == 3
+
+
+def test_validate_places_the_first_ask_on_the_net_basis(tmp_path, monkeypatch):
+    run, ads, _ = _run(tmp_path)
+    score_run, seen = drift_deals.drift_score.score_run, {}
+
+    def spy(run_dir, at=None):
+        seen["at"] = at
+        return score_run(run_dir, at=at)
+
+    monkeypatch.setattr(drift_deals.drift_score, "score_run", spy)
+    drift_deals.validate(run, ads)
+    # Held-out listings 2, 3, 4 and 6. Listing 3 is scored at its net 3000, not at the
+    # 3250 its price history holds.
+    assert np.allclose(np.exp(seen["at"]), [2700, 3000, 3600, 3000])
+    # Without its page price listing 3 has no basis: it is left out and counted.
+    table = pd.read_parquet(ads)
+    table.loc[table.listing_id == 3, "page_price"] = np.nan
+    table.to_parquet(ads, index=False)
+    out = drift_deals.validate(run, ads, bins=1)
+    assert out["ads_with_first_ask"] == 3 and out["ads_with_free_months"] == 0
+    assert out["ads_left_out_without_a_basis"] == 1
+    assert out["by_first_ask_place"][0]["ads"] == 3
+
+
+def test_first_net_scales_a_gross_first_ask_only_where_months_are_free():
+    out = drift_deals.first_net(
+        first=[3250.0, 3500, 3000, 3000, 3000, 3000, np.nan, 3000],
+        final=[3000.0, 3000, 3000, 3000, 3300, 100, 3000, 3000],
+        page=[3250.0, 3250, 3250, np.nan, 3000, 3250, 3250, 3250],
+        months_free=[1, 1, 0, 1, 1, 1, 1, np.nan],
+    )
+    # A gross ask that never moved, and one cut from 3500 to 3250 gross.
+    assert out[0] == 3000 and round(out[1], 2) == round(3500 * 3000 / 3250, 2)
+    # No free months (0 or missing): the ask as it is.
+    assert out[2] == 3000 and out[7] == 3000
+    # Free months with no page price, a page price under the ask, a net ask under half
+    # the page price, or no first ask: no basis.
+    assert np.isnan(out[3:7]).all()
 
 
 def test_title_address_and_unit_label():
@@ -253,3 +307,120 @@ def test_publish_refuses_a_market_fit_that_missed_the_gate(tmp_path):
     meta = drift_deals.publish(run, out, reg, backtest=past)
     assert meta["gate"]["market"]["passes"] and not meta["gate"]["backtest"]["passes"]
     assert meta["gate"]["backtest"]["max_rhat"] == 1.03
+
+
+AFFORDABLE = (
+    "THIS IS AN AFFORDABLE UNIT. MAXIMUM INCOME ALLOWED for two people is listed."
+)
+OFFICE = (
+    "Give your practice its own front door. Three private offices and a waiting room."
+)
+
+
+def _texts(tmp_path, texts, ads=None):
+    """A texts table as `drift_deals.texts` writes it for the build of the ads file."""
+    path = tmp_path / "texts.parquet"
+    pd.DataFrame(
+        {
+            "listing_id": list(texts),
+            "description": list(texts.values()),
+            "ads_sha256": sha256(ads or tmp_path / "ads.parquet"),
+        }
+    ).to_parquet(path, index=False)
+    return path
+
+
+def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
+    def change(rows):
+        # Unit u1's two ads disagree on its bedrooms, listings 3 and 4 carry the
+        # dataset's flag, and listing 6 is off the market for now.
+        rows.loc[0, "bedrooms"] = 3.0
+        rows["income_restricted"] = [False, False, True, True, False, False]
+        rows.loc[5, "status"] = "TEMPORARILY_OFF_MARKET"
+
+    run, ads, reg = _run(tmp_path, change=change)
+    plain = drift_deals.deals(run, ads, reg).set_index("listing_id")
+    assert plain.attrs["ads_with_text"] is None
+    assert plain.cautions.to_dict() == {
+        "2": ["beds"],
+        "3": ["income"],
+        "4": ["income"],
+        "6": ["off_market"],
+    }
+    # Listing 3's text shows its flag came from a fee schedule, listing 4 has no text and
+    # keeps its flag, and listing 99 is not an ad of the run.
+    texts = _texts(
+        tmp_path,
+        {
+            "2": AFFORDABLE,
+            "3": "Bike storage $25, optional for income restricted units.",
+            "4": None,
+            "6": OFFICE,
+            "99": AFFORDABLE,
+        },
+    )
+    t = drift_deals.deals(run, ads, reg, texts)
+    assert t.attrs["ads_with_text"] == 3
+    # The scores and the order are the same with and without the texts.
+    assert t.listing_id.tolist() == drift_deals.deals(run, ads, reg).listing_id.tolist()
+    assert t.set_index("listing_id").cautions.to_dict() == {
+        "2": ["income", "beds"],
+        "3": [],
+        "4": ["income"],
+        "6": ["not_home", "off_market"],
+    }
+    out = tmp_path / "site" / "deals"
+    meta = drift_deals.publish(run, out, reg, texts=texts)
+    assert meta["cautions"] == {
+        "ads": 3,
+        "by_code": {
+            "income": 2,
+            "not_home": 1,
+            "owners_only": 0,
+            "beds": 1,
+            "off_market": 1,
+        },
+        "ads_with_text": 3,
+    }
+    rows = {r["listing_id"]: r for r in json.loads((out / "deals.json").read_text())}
+    assert rows["6"]["cautions"] == ["not_home", "off_market"]
+    assert drift_deals.publish(run, out, reg)["cautions"]["ads_with_text"] is None
+    with pytest.raises(SystemExit, match="no text for any ad"):
+        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"98": AFFORDABLE}))
+    # The texts of another build's ads are refused, and so is a table with no stamp.
+    other = tmp_path / "other.parquet"
+    pd.DataFrame({"listing_id": [2]}).to_parquet(other)
+    with pytest.raises(SystemExit, match="not written for the ads of this run"):
+        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"2": AFFORDABLE}, other))
+    pd.DataFrame({"listing_id": ["2"], "description": [AFFORDABLE]}).to_parquet(other)
+    with pytest.raises(SystemExit, match="not written for the ads of this run"):
+        drift_deals.deals(run, ads, reg, other)
+
+
+def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypatch):
+    from rentfrontier import descriptions
+
+    run, ads, _ = _run(tmp_path)
+    asked = {}
+
+    def record_descriptions(records, wanted):
+        asked["wanted"] = wanted
+        return pd.DataFrame(
+            {"description": [AFFORDABLE, None], "record": ["last_active", "latest"]},
+            index=["2", "3"],
+        )
+
+    monkeypatch.setattr(descriptions, "record_descriptions", record_descriptions)
+    records = {"path": "records.parquet", "ads": {"sha256": sha256(ads)}}
+    table = drift_deals.texts(run, records)
+    assert asked["wanted"] == {"2", "3", "4", "6"}
+    assert table.columns.tolist() == [
+        "listing_id",
+        "description",
+        "record",
+        "ads_sha256",
+    ]
+    assert table.listing_id.tolist() == ["2", "3"]
+    assert set(table.ads_sha256) == {sha256(ads)}
+    with pytest.raises(SystemExit, match="another build"):
+        drift_deals.texts(run, records | {"ads": {"sha256": "0"}})

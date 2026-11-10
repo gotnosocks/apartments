@@ -2,6 +2,8 @@
 
     python -m rentfrontier.drift_deals deals RUN --ads ADS.parquet --registry REGISTRY.parquet --out DIR
     python -m rentfrontier.drift_deals validate RUN --ads ADS.parquet --out FILE.json
+    python -m rentfrontier.drift_deals texts RUN --out TEXTS.parquet
+    python -m rentfrontier.drift_deals publish RUN --out DIR [--texts TEXTS.parquet] ...
 
 `deals` reads a run on the `market` split of a `rentfrontier.market` dataset. Its held-out
 rows are the ads on the market on the scoring day. For each one the table gives the ask, the
@@ -9,8 +11,14 @@ model's predictive median and intervals for the ad's final ask in dollars, and
 - `below_share`: the share of the predictive distribution under the ask. An ask at 0.05
   is lower than 95% of what the model expects for this apartment on that day;
 - `discount_pct`: how far the ask sits under the predictive median, in percent of the ask;
+- `page_price`: the rent the ad's own page shows. The dataset's ask is net of free months,
+  so for an ad with a concession the page shows more than the ask;
 - `unit_ads`: the unit's ads in the training rows. A unit with earlier ads carries its own
-  level, so its range is narrower than a new unit's.
+  level, so its range is narrower than a new unit's;
+- `cautions`: reasons the ask may be low that the model does not know, as the codes of
+  `rentfrontier.cautions`. They change no score. The ones read from an ad's text need
+  `--texts`, the table `texts` writes: each ad's own description from the pipeline's
+  records file, which must be the build the run's dataset was made from.
 The table is sorted by `below_share`. It is written as deals.parquet and deals.json.
 
 A low ask can mark a bargain or a flaw the ad does not state. `validate` measures which, on
@@ -19,6 +27,12 @@ each ad's first ask in the predictive distribution, a distribution fitted withou
 and reports by tenth of that position how long the ads stayed on the market and how their
 asks changed before they closed. If ads placed low are taken quickly and seldom cut, the
 market agrees that they were cheap.
+
+The model's asks are net of free months and an ad's price history is gross, so `validate`
+first puts the first ask of an ad with free months on the net basis, by the ratio of the
+ad's final net ask to the rent its page shows (`first_net`). Until 2026-11-10 it compared
+the gross first ask with the net final ask, which counted every such ad as cut and placed
+it too high: the top tenth's share cut read 79% where it is 60%.
 """
 
 from __future__ import annotations
@@ -34,6 +48,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import cautions as cautions_module
 from . import drift_score
 from . import run as run_module
 from .b0data import sha256
@@ -42,6 +57,7 @@ AD_FIELDS = (
     "listing_id",
     "page",
     "square_feet",
+    "page_price",
     "months_free",
     "days_on_market",
     "first_day",
@@ -97,8 +113,75 @@ def _ads(ads: Path, listing_ids) -> pd.DataFrame:
     return a.set_index("listing_id").reindex(pd.Index(listing_ids).astype(str))
 
 
-def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFrame:
-    """One row per ad on the market, lowest `below_share` first."""
+def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
+    """Each held-out ad's own description (`descriptions.record_descriptions`) from the
+    checked records file `records`, by default the pipeline's newest clean build. A build
+    other than the one the run's dataset was made from is refused: its ads are not these."""
+    from . import api_records, descriptions
+
+    records = records or api_records.records_file()
+    market = _manifest(run_dir)
+    if records["ads"]["sha256"] != market["ads_sha256"]:
+        raise SystemExit(
+            f"the records file {records['path']} is of another build than the dataset of "
+            f"{run_dir.name} (its ads file is not {market['ads']})"
+        )
+    _, h, _ = _held_frame(run_dir)
+    table = descriptions.record_descriptions(records, set(h.listing_id.astype(str)))
+    # The table carries its build, so `deals` can refuse the texts of another run's ads.
+    return (
+        table.rename_axis("listing_id")
+        .reset_index()
+        .assign(ads_sha256=market["ads_sha256"])
+    )
+
+
+def _cautions(
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str
+) -> tuple[list, int | None]:
+    """Each held-out row's caution codes, and how many of the rows have a text (None
+    without `texts`). `texts` must be the table `texts` wrote for the build whose ads file
+    has the SHA-256 `ads_sha`."""
+    known = frame.unit_id.notna().to_numpy()
+    counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
+    varied = (unit_key[held].map(counts).fillna(0) > 1).to_numpy() & known[held]
+    flagged = (
+        h.income_restricted.fillna(False).astype(bool).to_numpy()
+        if "income_restricted" in h
+        else np.zeros(len(h), bool)
+    )
+    off = (h.status.astype(str) == cautions_module.OFF_MARKET).to_numpy()
+    described, with_text = [None] * len(h), None
+    if texts is not None:
+        t = pd.read_parquet(texts)
+        if set(t.get("ads_sha256", [None])) != {ads_sha}:
+            raise SystemExit(f"{texts} was not written for the ads of this run")
+        t = t.assign(listing_id=t.listing_id.astype(str)).drop_duplicates("listing_id")
+        described = (
+            t.set_index("listing_id").description.reindex(h.listing_id.astype(str))
+        ).tolist()
+        with_text = sum(isinstance(d, str) and bool(d.strip()) for d in described)
+        if not with_text:
+            raise SystemExit(f"{texts} has no text for any ad of the run")
+    out = []
+    for text, income, beds, away in zip(described, flagged, varied, off):
+        codes = cautions_module.from_text(text)
+        # The dataset's flag stands in only where there is no text to read.
+        unread = not (isinstance(text, str) and text.strip())
+        codes += ["income"] * bool(income and unread) + ["beds"] * bool(beds)
+        codes += ["off_market"] * bool(away)
+        out.append(cautions_module.ordered(codes))
+    return out, with_text
+
+
+def deals(
+    run_dir: Path,
+    ads: Path,
+    registry: Path | None = None,
+    texts: Path | None = None,
+) -> pd.DataFrame:
+    """One row per ad on the market, lowest `below_share` first. The frame's
+    `attrs["ads_with_text"]` is how many of the ads `texts` has a description for."""
     frame, h, held = _held_frame(run_dir)
     res = drift_score.score_run(run_dir)
     a = _ads(ads, h.listing_id)
@@ -108,6 +191,9 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
+    codes, with_text = _cautions(
+        frame, h, held, unit_key, texts, _manifest(run_dir)["ads_sha256"]
+    )
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -124,6 +210,7 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
             "status": h.status.astype(str),
             "ask": ask,
             "first_ask": a.first_ask.to_numpy(float),
+            "page_price": a.page_price.to_numpy(float),
             "months_free": a.months_free.to_numpy(float),
             "first_day": a.first_day.astype(str).to_numpy(),
             "days_on_market": a.days_on_market.to_numpy(float),
@@ -142,6 +229,7 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
             .astype(int)
             .to_numpy(),
             "unit_sd": res["unit_sd"].round(4),
+            "cautions": codes,
         }
     )
     if registry is not None:
@@ -154,18 +242,46 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
         out["address"] = [title_address(v) for v in reg.label]
         out["latitude"] = reg.latitude.to_numpy(float).round(5)
         out["longitude"] = reg.longitude.to_numpy(float).round(5)
-    return out.sort_values("below_share", kind="stable").reset_index(drop=True)
+    out = out.sort_values("below_share", kind="stable").reset_index(drop=True)
+    out.attrs["ads_with_text"] = with_text
+    return out
+
+
+# The least an ad's net ask can be of the rent its page shows and still be a concession:
+# half is six months free in twelve. Below it the two prices are not one ad's.
+NET_FLOOR = 0.5
+
+
+def first_net(first, final, page, months_free) -> np.ndarray:
+    """An ad's first ask on the basis of its final ask. `final` is net of free months and
+    `first` and `page`, the rent the ad's page shows, are gross, so an ad with free months
+    has its first ask scaled by `final / page`. That reads the concession as there from the
+    first day: one added later was a cut in effect, and is not counted as one.
+
+    An ad with free months whose page price is missing, or not above its net ask, or more
+    than twice it, has no basis to compare on and gets NaN."""
+    first, final, page = (np.asarray(v, float) for v in (first, final, page))
+    free = np.nan_to_num(np.asarray(months_free, float)) > 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = final / page
+    sound = (ratio >= NET_FLOOR) & (ratio < 1)
+    return np.where(free, np.where(sound, first * ratio, np.nan), first)
 
 
 def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
     """By tenth of the first ask's place in the predictive distribution: the ads, their
     median days on the market, the shares whose ask was cut or raised before closing, and the
-    median change from first to final ask. Also the final asks' scores (`drift_score.summary`)."""
+    median change from first to final ask. The first ask is `first_net`. Also the final asks'
+    scores (`drift_score.summary`), and under `without_free_months` the same table over the
+    ads with no free months, whose asks need no change of basis."""
     frame, h, held = _held_frame(run_dir)
     a = _ads(ads, h.listing_id)
-    first = a.first_ask.to_numpy(float)
     final = h.latest_ask.to_numpy(float)
+    free = np.nan_to_num(a.months_free.to_numpy(float)) > 0
+    gross = a.first_ask.to_numpy(float)
+    first = first_net(gross, final, a.page_price, free)
     ok = np.isfinite(first) & (first > 0)
+    no_basis = int((np.isfinite(gross) & (gross > 0) & ~ok).sum())
     res = drift_score.score_run(run_dir, at=np.log(np.where(ok, first, final)))
     place = res["cdf_at"]
     day = pd.to_datetime(h.final_day if "final_day" in h else h.latest_day)
@@ -175,29 +291,40 @@ def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
     ok &= np.isfinite(days) & (days >= 0)
     change = final / np.where(ok, first, 1.0) - 1
     edges = np.linspace(0, 1, bins + 1)
-    rows = []
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        m = ok & (place >= lo) & ((place < hi) | (hi == 1))
-        if not m.any():
-            continue
-        rows.append(
-            {
-                "place": f"{lo:.1f} to {hi:.1f}",
-                "ads": int(m.sum()),
-                "median_days_on_market": float(np.median(days[m])),
-                "mean_days_on_market": float(days[m].mean()),
-                "share_within_14_days": float((days[m] <= 14).mean()),
-                "share_cut": float((change[m] < -0.001).mean()),
-                "share_raised": float((change[m] > 0.001).mean()),
-                "median_change_pct": float(100 * np.median(change[m])),
-                "mean_change_pct": float(100 * change[m].mean()),
-            }
-        )
+
+    def table(keep):
+        rows = []
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            m = keep & (place >= lo) & ((place < hi) | (hi == 1))
+            if not m.any():
+                continue
+            rows.append(
+                {
+                    "place": f"{lo:.1f} to {hi:.1f}",
+                    "ads": int(m.sum()),
+                    "median_days_on_market": float(np.median(days[m])),
+                    "mean_days_on_market": float(days[m].mean()),
+                    "share_within_14_days": float((days[m] <= 14).mean()),
+                    "share_cut": float((change[m] < -0.001).mean()),
+                    "share_raised": float((change[m] > 0.001).mean()),
+                    "median_change_pct": float(100 * np.median(change[m])),
+                    "mean_change_pct": float(100 * change[m].mean()),
+                }
+            )
+        return rows
+
     return {
         "run": run_dir.name,
         "ads_with_first_ask": int(ok.sum()),
+        "first_ask_basis": "net of the ad's free months, as the model's asks are",
+        "ads_with_free_months": int((ok & free).sum()),
+        "ads_left_out_without_a_basis": no_basis,
         "final_ask_scores": drift_score.summary(res),
-        "by_first_ask_place": rows,
+        "by_first_ask_place": table(ok),
+        "without_free_months": {
+            "ads": int((ok & ~free).sum()),
+            "by_first_ask_place": table(ok & ~free),
+        },
     }
 
 
@@ -255,11 +382,14 @@ def publish(
     registry: Path | None = None,
     backtest: Path | None = None,
     heldout: Path | None = None,
+    texts: Path | None = None,
 ) -> dict:
     """Write the site's Deals folder `out` from the market run at `run_dir`: `deals.json`,
     `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
     held-out split whose `pred_scores.npz` (`rentfrontier.drift_score`) gives the model's
     scores on ads it never saw. Each ads table comes from its run's dataset manifest.
+    `texts` is the table the `texts` command wrote for this run; without it the rows carry
+    only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
     The three runs must be fits of one model, the market run on a market dataset and the
     backtest run on a backtest dataset. The market run must have passed the convergence
@@ -277,13 +407,21 @@ def publish(
             f"{gate['market']['max_rhat']}, min ESS {gate['market']['min_ess']}); "
             "the Deals page is published only from a fit that did"
         )
-    table = deals(run_dir, Path(market["ads"]), registry)
+    table = deals(run_dir, Path(market["ads"]), registry, texts)
+    listed = table.cautions.explode().dropna()
     meta = {
         "model": model,
         "run": run_dir.name,
         "gate": gate,
         "scoring_day": market["scoring_day"],
         "ads": int(len(table)),
+        "cautions": {
+            "ads": int(table.cautions.map(bool).sum()),
+            "by_code": {
+                code: int((listed == code).sum()) for code in cautions_module.CODES
+            },
+            "ads_with_text": table.attrs["ads_with_text"],
+        },
         "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if heldout is not None:
@@ -319,7 +457,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("command", choices=("deals", "validate", "publish"))
+    p.add_argument("command", choices=("deals", "validate", "publish", "texts"))
     p.add_argument("run")
     p.add_argument("--ads", type=Path, help="the ads table (deals and validate)")
     p.add_argument("--registry", type=Path)
@@ -327,8 +465,16 @@ def main(argv=None):
     p.add_argument("--runs", default=str(run_module.RUNS))
     p.add_argument("--backtest", help="publish: the backtest run")
     p.add_argument("--heldout", help="publish: a scored run on a held-out split")
+    p.add_argument(
+        "--texts", type=Path, help="deals and publish: the ads' descriptions"
+    )
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
+    if args.command == "texts":
+        table = texts(run_dir)
+        table.to_parquet(args.out, index=False)
+        print(f"wrote {len(table)} ads, {table.description.notna().sum()} with a text")
+        return
     if args.command == "publish":
         meta = publish(
             run_dir,
@@ -336,6 +482,7 @@ def main(argv=None):
             args.registry,
             Path(args.runs) / args.backtest if args.backtest else None,
             Path(args.runs) / args.heldout if args.heldout else None,
+            args.texts,
         )
         print(json.dumps(meta, indent=2))
         return
@@ -346,7 +493,7 @@ def main(argv=None):
         args.out.write_text(json.dumps(out, indent=2))
         print(json.dumps(out, indent=2))
         return
-    table = deals(run_dir, args.ads, args.registry)
+    table = deals(run_dir, args.ads, args.registry, args.texts)
     args.out.mkdir(parents=True, exist_ok=True)
     table.to_parquet(args.out / "deals.parquet", index=False)
     table.to_json(args.out / "deals.json", orient="records")
