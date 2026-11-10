@@ -17,6 +17,8 @@ From 2026-10-18 a new line, "B0", started over on 1.9 million ads with a simple 
 
 As of 2026-11-09, the docs hold no dated model result after 2026-10-24. The kitchen-sink thread stopped then: no fits queued, fit (b) blocked by GPU memory, fit (c) cancelled (`docs/handoff/kitchen-sink.md`). The conference follow-up thread was paused on 2026-10-23 with fit 5 not launched (`docs/handoff/conference-followups.md`). The model behind the site is still the all-scraped Gibbs fit that failed the gate.
 
+On 2026-11-10 Ben changed the aim to a descriptive model that finds deals with honest uncertainty, and one thread rebuilt the model in a day (part F of the ledger). Two residual checks showed that an apartment's level fades over years and that a building's units move together for a few months. The `drift` model adds a unit level that lasts plus one that drifts, and after six rounds on the sampler its three full fits passed the gate: held-out elpd 195,320 against the kitchen sink's 156,105. It is the served model, and the site's Deals page is published from it. `drift-building` adds a quarterly path per building and scores 230,885; its fits miss the R-hat line by 0.0006 to 0.0035 on one quantity each and it is not served.
+
 ## 2. Ledger
 
 Rows are in date order. Where a source gives no date for an entry, the date column says so. Module names are under `frontier/src/rentfrontier/` unless noted. Part A is the early line, B the frontier and data-rule line, C the October feature tests, D the large-data and B0 line, E the building-zones line, F the drift line of 2026-11-10.
@@ -226,6 +228,11 @@ ROUND-SEVEN-ROWS
 - **Park-facing view premium within buildings.** +6.7% by the ad's view mark and +10.5% by the line's. `docs/notes/park-placebo-2026-10-23.md`
 - **Writing predictions before fits.** Every building-zones note scores its predictions as hits and misses, for example fit 8 (7 hits, 3 misses) and fit 4 (14 hits, 6 misses). `docs/handoff/conference-followups.md`
 
+- **A unit level that drifts (2026-11-10).** `s_k + d_k(t)` with `d` an OU process gave +39,215 elpd over the kitchen sink on the latest split and passed the gate, where the constant unit effect of fit 4 gave +21,032 and failed it. A path per building adds another 35,565 (gate missed narrowly). `docs/notes/drift-2026-11-10.md`
+- **Residual checks before a fit.** Two tables of residual correlations by time gap, at no fit cost, gave the shape of both new terms. `docs/notes/drift-2026-11-10.md`
+- **Integrating a term out of the draws it slows.** theta with the unit and building levels integrated out, scales with u, levels and paths out, the building level and path in one draw, the `bld:` columns with the paths out: each took a quantity from hundreds of sweeps a draw to under 20. `docs/model/drift.md`
+- **Slice directions from the step's own curvature.** Directions cut from the posterior covariance made the unit scales three times slower, because the step samples a narrower, tilted conditional. `docs/notes/drift-2026-11-10.md`
+
 ## 4. What did not work
 
 - **Walk plus trend in one model.** Walk and trend traded off (trend scale R-hat 1.077, ESS 35). `docs/research-plan.md`
@@ -253,6 +260,8 @@ ROUND-SEVEN-ROWS
 - **Convergence.**
   - A fit that misses the gate is not rerun on a new seed. Check the data first, then the model structure, then the sampler (Ben, 2026-10-14). `docs/handoff/modeling.md`, `docs/model/modal.md`
   - Thin cells cause misses: studio with 3+ full baths (38 to 70 rows), `bed=2:full>=4`, buildings with a single-row unit. `docs/notes/building-zones-gibbs-2026-10-20.md`, `docs/notes/building-zones-floor-asof-2026-10-23.md`, `docs/handoff/modeling.md`
+  - Split R-hat is set by the length of a chain, not the number of chains: its expected excess over 1 is about 1 / (2 x the effective draws in a half-chain). Pooling containers adds ESS and leaves R-hat where it was (2026-11-10). `docs/model/drift.md`
+  - A pilot of 500 sweeps predicts the full fit's ESS in proportion, and it cannot see a component slower than itself. `docs/notes/drift-2026-11-10.md`
   - `amp[outer]` is among the slowest quantities in nearly every floor-line fit. `docs/notes/building-zones-floor-asof2-2026-10-23.md`, `docs/notes/building-zones-floor-asof3-cap64-2026-10-23.md`
   - Ridges between two parameters stall chains (intercept and levels; walk and season; waves on a footprint; rho and sd with correlation +0.93). The fix was a change of coordinates, not more draws. `level_walk.py`, `total_walk.py`, `whitened_zones.py`, `docs/model/arwalk-2026-10-14.md`
   - Columns fixed within a unit mix poorly once unit effects are in (fit 4). `docs/notes/building-zones-floor-asof3-unitmean-2026-10-23.md`
@@ -281,6 +290,10 @@ ROUND-SEVEN-ROWS
 
 ## 6. Open questions the notes leave
 
+- **`drift-building` through the gate (2026-11-10).** It needs chains of about 4,000 draws at 16 sweeps a draw; four chains in an hour give 1,600. Open ways: fewer chains a container, `slow_within=0.001` (0.12 s a sweep), a fit continued from a saved state. ROUND-SEVEN-OPEN `docs/notes/drift-2026-11-10.md`
+- **The frozen offsets in bld_sd[outer]** on the market and backtest datasets under `drift-building`: chain means that differ by up to 0.8 posterior sd and do not move within 1,550 draws. No traced quantity moves with them. Untested guess: a few buildings with gross residuals explained either as the building or as outlier rows. `docs/notes/drift-2026-11-10.md`
+- **First asks against final asks.** The deal score is built on a model of final asks, so an uncut first ask reads high. A model of the first ask, or of the cut, would level the score. `docs/model/drift.md`
+- **A monthly building path** scored 2,590 above the quarterly one and does not fit the hour. `docs/notes/drift-2026-11-10.md`
 - **Small buildings.** "Small buildings remain the open problem": no change moves their rows much, and location surfaces give only +12 to +17 (about 1.5 to 2 SE). `docs/research-plan.md`
 - **Fit 4's gate.** A module that integrates the unit effects out of the coefficient draw is the stated next step. The diagnosis is untested. `docs/handoff/conference-followups.md`
 - **Fit 5.** The periods fit was not launched. `docs/handoff/conference-followups.md`
