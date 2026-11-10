@@ -2,6 +2,7 @@ import dataclasses
 
 import numpy as np
 import pandas as pd
+import pytest
 import test_drift as td
 
 from rentfrontier import b0, building_zones, drift, drift_building, drift_local
@@ -14,10 +15,12 @@ def _groups(train, per_year=52):
     return [g | {"per_year": per_year}]
 
 
-def _sampler(train, groups):
+def _sampler(train, groups, dof=None):
     # The simulated design's building columns are fixed in each building, so the tests
     # take them all as slow columns.
-    settings = drift.Settings(chains=2, warmup=10, draws=10, site_block=7)
+    settings = drift.Settings(
+        chains=2, warmup=10, draws=10, site_block=7, level_dof=dof
+    )
     return drift.make_sampler(train, building_zones.Priors(), settings, groups=groups)
 
 
@@ -310,16 +313,17 @@ def test_slice_along_leaves_a_correlated_target_unchanged():
         np.testing.assert_allclose(spread(jnp.asarray(dirs)), cov, atol=0.09)
 
 
-def _cells(seed=4, drop=()):
+def _cells(seed=4, drop=(), dof=None):
     """A small design with the collapsed building term in weekly steps: the sampler's parts,
     one chain's state, and in the sampler's row order the rows' building and step, a random
     target, each building's surface value and the rows' covariance from the noise and u.
-    The buildings in `drop` lose their training rows."""
+    The buildings in `drop` lose their training rows. With `dof` the levels' prior is
+    Student-t and the state holds the buildings' mixing scales."""
     full = td._design()
     train, _, _ = td._split(full)
     if len(drop):
         train = drift.subset(train, ~np.isin(train.site, drop))
-    _, init, _, parts = _sampler(train, _groups(train))
+    _, init, _, parts = _sampler(train, _groups(train), dof)
     jax, jnp = b0._jax()
     st = td._state(init, parts)
     rng = np.random.default_rng(seed)
@@ -355,27 +359,32 @@ def test_cell_layout_places_every_row_and_pair():
     assert lay["active"].sum() == 6 and lay["active"][[3, 7, 16, 17, 20, 42]].all()
 
 
-def _cell_cov(site, step, zone, lb, par):
-    """The rows' covariance from the buildings' levels and paths."""
+def _cell_cov(site, step, zone, lb, par, kap=None):
+    """The rows' covariance from the buildings' levels and paths. `kap` divides each
+    building's level variance."""
     same = site[:, None] == site[None, :]
     b2 = np.exp(2 * lb)[zone[site]]
+    if kap is not None:
+        b2 = b2 / np.asarray(kap)[site]
     rho = 1 / (1 + np.exp(-par[1]))
     lag = np.abs(step[:, None] - step[None, :])
     return np.where(same, b2[:, None] + np.exp(2 * par[0]) * rho**lag, 0.0)
 
 
-def test_cell_loglik_matches_the_dense_density():
-    parts, st, site, step, tgt, F, cov, sums = _cells()
+@pytest.mark.parametrize("dof", [None, 4.0])
+def test_cell_loglik_matches_the_dense_density(dof):
+    parts, st, site, step, tgt, F, cov, sums = _cells(dof=dof)
     _, jnp = b0._jax()
     zone = parts["zone"]
+    kap = st.get("kap")
 
     def both(lb, par):
         """Each zone's log density: ours, and the dense one over the zone's rows (rows of
         two buildings are independent given the surface)."""
         ours = parts["cell_loglik"](
-            parts["data"], jnp.asarray(lb), jnp.asarray(par), sums, jnp.asarray(F)
+            parts["data"], jnp.asarray(lb), jnp.asarray(par), sums, jnp.asarray(F), kap
         )
-        full = cov + _cell_cov(site, step, zone, np.asarray(lb), par)
+        full = cov + _cell_cov(site, step, zone, np.asarray(lb), par, kap)
         dense = []
         for z in range(len(lb)):
             rows = np.flatnonzero(zone[site] == z)
@@ -448,8 +457,9 @@ def test_cell_system_matches_the_dense_conditional():
     assert checked > 10
 
 
-def test_slow_system_is_the_dense_regression_with_the_paths_integrated_out():
-    parts, st, site, step, tgt, F, cov, sums = _cells()
+@pytest.mark.parametrize("dof", [None, 4.0])
+def test_slow_system_is_the_dense_regression_with_the_paths_integrated_out(dof):
+    parts, st, site, step, tgt, F, cov, sums = _cells(dof=dof)
     jax, jnp = b0._jax()
     D = parts["data"]
     slow = parts["slow"]
@@ -466,7 +476,7 @@ def test_slow_system_is_the_dense_regression_with_the_paths_integrated_out():
         D, st, om_d, om_off, sums, jnp.asarray(tgt), jnp.asarray(F)
     )
     X = np.concatenate([np.asarray(x) for x in D["xs"]])[:, slow]
-    full = cov + _cell_cov(site, step, zone, lb, par)
+    full = cov + _cell_cov(site, step, zone, lb, par, st.get("kap"))
     np.testing.assert_allclose(np.asarray(A), X.T @ np.linalg.solve(full, X), rtol=1e-7)
     np.testing.assert_allclose(
         np.asarray(lin),
@@ -558,10 +568,11 @@ def test_fill_path_draws_the_steps_between_the_cells():
     np.testing.assert_allclose(np.cov(draws[:, 1].T), cov, atol=0.003)
 
 
-def test_update_cells_places_the_joint_draw_and_keeps_the_prior_where_no_row_is():
+@pytest.mark.parametrize("dof", [None, 4.0])
+def test_update_cells_places_the_joint_draw_and_keeps_the_prior_where_no_row_is(dof):
     full = td._design()
     drop = np.unique(full.site)[[3, 40]]
-    parts, st, site, step, tgt, F, cov, sums = _cells(drop=drop)
+    parts, st, site, step, tgt, F, cov, sums = _cells(drop=drop, dof=dof)
     jax, jnp = b0._jax()
     D = parts["data"]
     a = parts["ars"][0]
@@ -578,7 +589,7 @@ def test_update_cells_places_the_joint_draw_and_keeps_the_prior_where_no_row_is(
     # L^-T (x + noise) at the scales the step returns, its level first, then its cells.
     _, _, k3, k4 = jax.random.split(key, 4)
     keys = jax.random.split(k4, len(sums) + 1)
-    b2 = bsd[zone] ** 2
+    b2 = td._level_var(st | {"bld_sd": bsd}, zone)
     seen = np.zeros(len(zone), bool)
     for kk, (H, h), b in zip(keys[1:], sums, lay["buckets"]):
         ids = b["sites"]
@@ -606,8 +617,9 @@ def test_update_cells_places_the_joint_draw_and_keeps_the_prior_where_no_row_is(
     assert active.sum() == len(np.unique(site * a["T"] + step))
 
 
-def test_scales_logp_matches_the_dense_density_with_the_paths_integrated_out():
-    parts, st, site, step, tgt, F, cov, sums = _cells()
+@pytest.mark.parametrize("dof", [None, 4.0])
+def test_scales_logp_matches_the_dense_density_with_the_paths_integrated_out(dof):
+    parts, st, site, step, tgt, F, cov, sums = _cells(dof=dof)
     jax, jnp = b0._jax()
     full = td._design()
     train, _, _ = td._split(full)
@@ -629,6 +641,7 @@ def test_scales_logp_matches_the_dense_density_with_the_paths_integrated_out():
             st["bld_sd"],
             jnp.asarray(par),
             jnp.asarray(F),
+            st.get("kap"),
         )
         return float(got), td._scales_want(train, parts, st, eta, tgt, F, x, path)
 
@@ -637,3 +650,46 @@ def test_scales_logp_matches_the_dense_density_with_the_paths_integrated_out():
         got, want = both(*at)
         np.testing.assert_allclose(got - base[0], want - base[1], rtol=1e-8)
         assert abs(want - base[1]) > 1.0
+
+
+def test_the_sweep_draws_each_buildings_mixing_scale_given_its_level():
+    """With `level_dof` and the collapsed building term, each sweep ends by drawing every
+    building's mixing scale from its Gamma given the sweep's own level, surface and spread,
+    with the key the sweep folds in for it. Buildings with and without rows are in."""
+    from scipy import stats
+
+    dof = 4.0
+    full = td._design(n=600, per_unit=4)
+    train, _, _ = td._split(full)
+    sites = np.unique(train.site)
+    train = drift.subset(train, ~np.isin(train.site, sites[::25]))
+    sweep, init, _, parts = _sampler(train, _groups(train), dof)
+    jax, jnp = b0._jax()
+    zone, sl_w = np.asarray(parts["zone"]), parts["slices"][3]
+    Bc = np.asarray(parts["data"]["Bc"])
+    key = jax.random.PRNGKey(5)
+    st = init(jax.random.split(key, 2))
+    np.testing.assert_array_equal(np.asarray(st["kap"]), 1.0)
+    drawn = []
+    for i in range(12):
+        key, sub = jax.random.split(key)
+        ks = jax.random.split(sub, 2)
+        st, out = sweep(ks, st)
+        for c in range(2):
+            F = Bc @ np.asarray(st["theta"][c])[sl_w]
+            dev = np.asarray(st["lev"][c]) - F
+            np.testing.assert_allclose(np.asarray(out["bld"][c]), dev, atol=1e-6)
+            z2 = dev**2 / np.asarray(st["bld_sd"][c])[zone] ** 2
+            g = np.asarray(st["kap"][c]) * (dof + z2) / 2
+            want = jax.random.gamma(
+                jax.random.fold_in(ks[c], drift.KAP_KEY), (dof + 1) / 2, (len(zone),)
+            )
+            np.testing.assert_allclose(g, np.asarray(want), rtol=1e-10)
+            if i >= 4:
+                drawn.append(g)
+    assert all(np.isfinite(np.asarray(v)).all() for v in jax.tree.leaves(st))
+    drawn = np.concatenate(drawn)
+    assert stats.kstest(drawn, stats.gamma((dof + 1) / 2).cdf).pvalue > 0.001
+    # The scales move with the levels: a building far from its surface gets a small one
+    # (z2 is the last chain's).
+    assert np.corrcoef(np.log(np.asarray(st["kap"][1])), np.log1p(z2))[0, 1] < -0.2

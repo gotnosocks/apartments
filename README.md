@@ -23,13 +23,15 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 | Kitchen sink (2026-10-24, every column on hand) | 156,105 | 6.6% | 80.1% | passed |
 | Fit 4 (a fixed level per apartment) | 177,137 | 5.8% | 78.9% | missed |
 | **`drift`** (a level per apartment that drifts) | **195,320** | **5.2%** | **79.9%** | **passed** |
-| `drift-building` (plus a path per building) | 230,885 | 4.1% | 80.8% | missed by 0.0006 |
+| `drift-building` (plus a path per building) | 230,885 | 4.1% | 80.8% | missed on one scale |
 
 - **The Deals page** (`/deals` on the site) ranks the 6,774 ads on the market on 2026-11-09
   by how low each ask is for its apartment. It was published from the market fit with its
   backtest. Ads whose low ask has a plain reason the model does not know (the text says
   income-restricted, an office, owners only; the apartment's ads disagree on its bedrooms;
   the ad is off the market) carry a caution and are left out of the list unless asked for.
+  Read against their own text, 35 of the first 40 ads then shown were ordinary apartments
+  with no plain reason for the low ask; before the cautions it was 10 of 22.
 - **The backtest.** Fitted on what was known on 2025-11-10 and scored on the first asks of
   the 9,346 ads open that day: ads in the lowest tenth of the score left the market in a
   median of 28 days and 18% had their ask cut; ads in the highest tenth took 61 days and
@@ -38,12 +40,24 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 - **Calibration.** The 50, 80, 90 and 95% ranges held 51.3, 79.9, 89.6 and 94.9% of the
   held-out asks.
 - **What is next.** `drift-building` predicts much better, but each of its fits misses the
-  R-hat line on one quantity (1.0106 and 1.0135 against 1.01), so it is not served. On the
-  latest split the miss fits chain length: four chains in an hour are too short, and round
-  seven tests that. On the market data the outer boroughs' building spread differs a
-  little from chain to chain, and the cause of that is not known. Round
-  seven's fits (two long chains a container) were running when this was written; the note
-  of 2026-11-10 has their predictions and will have their scores.
+  R-hat line, so it is not served. Round seven ran it with chains twice as long. Every
+  quantity that missed for chain length now passes with room, the held-out score is the
+  same (230,861), and one quantity still misses on both fits: the spread of building
+  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). The
+  best-supported cause is about ten buildings. Most of them have listings coded with 0
+  bedrooms at the rents of the building's 3-bedrooms (in the eight that were read, every
+  such ad has a blank or placeholder text and the source's own count of 0). The sampler
+  takes thousands of sweeps to decide whether such a building is dear or its ads are
+  outliers, and under a normal prior each one moves the whole zone's spread, so the
+  chains are probably still arriving when a fit ends. Ten buildings' levels explain 95
+  to 98% of the differences between chains. The fix is in the data (of 1,596
+  studio-coded ads whose text names two or more bedrooms, 25 of 40 read were whole
+  apartments, so roughly 750 to 1,250; and 4,517 placeholder listings) and in the model:
+  a Student-t prior on building levels (`Settings.level_dof`). Round eight ran it
+  on one container with the seed that had failed. The leverage is gone, the container
+  passes the gate, and its held-out score is 126 above the same container under the
+  normal prior. The three full fits it would take to serve the building model (about
+  $33) are outside this window's budget. The note of 2026-11-10 has the evidence.
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from test_building_zones import _design
 
 from rentfrontier import amp_joint, b0, building_zones
@@ -24,14 +25,15 @@ def _toy(seed=0):
     return Bc, sds, which, zone, bsd, eta
 
 
-def _grid_posterior(Bc, sds, which, zone, bsd, eta, prior):
+def _grid_posterior(Bc, sds, which, zone, bsd, eta, prior, kap=None):
     """The amplitudes' posterior given the levels on a grid, from the levels' Gaussian density
-    with the waves integrated out, and the mean and variance of w given eta under it."""
+    with the waves integrated out, and the mean and variance of w given eta under it. `kap`
+    divides each building's level variance."""
     g = np.linspace(0.01, 1.6, 160)
     logp = np.zeros((len(g), len(g)))
     Ew = np.zeros((len(g), len(g), len(sds)))
     Vw = np.zeros((len(g), len(g), len(sds)))
-    Db = np.diag(bsd[zone] ** 2)
+    Db = np.diag(bsd[zone] ** 2 / (1.0 if kap is None else kap))
     for i, a0 in enumerate(g):
         for j, a1 in enumerate(g):
             dw = (np.array([a0, a1])[which] * sds) ** 2
@@ -49,20 +51,29 @@ def _grid_posterior(Bc, sds, which, zone, bsd, eta, prior):
     return g, p, mean, var
 
 
-def test_step_draws_the_amplitudes_posterior_given_the_levels():
+@pytest.mark.parametrize("mixed", [False, True])
+def test_step_draws_the_amplitudes_posterior_given_the_levels(mixed):
+    """With `mixed`, each building's level has its own variance, b^2 over a mixing scale."""
     jax, jnp = b0._jax()
     Bc, sds, which, zone, bsd, eta = _toy()
     prior = 0.3
+    kap = np.random.default_rng(8).gamma(2.0, 0.5, len(zone)) if mixed else None
     step = jax.jit(amp_joint.make_step(Bc, sds, which, zone, prior))
 
     def body(amp, key):
-        amp, w = step(key, jnp.asarray(eta), jnp.asarray(bsd), amp)
+        amp, w = step(
+            key,
+            jnp.asarray(eta),
+            jnp.asarray(bsd),
+            amp,
+            None if kap is None else jnp.asarray(kap),
+        )
         return amp, (amp, w)
 
     keys = jax.random.split(jax.random.PRNGKey(3), 6000)
     _, (amps, ws) = jax.lax.scan(body, jnp.asarray([0.9, 0.9]), keys)
     amps, ws = np.asarray(amps)[500:], np.asarray(ws)[500:]
-    g, p, Ew, Vw = _grid_posterior(Bc, sds, which, zone, bsd, eta, prior)
+    g, p, Ew, Vw = _grid_posterior(Bc, sds, which, zone, bsd, eta, prior, kap)
     mean = np.array([p.sum(1) @ g, p.sum(0) @ g])
     sd = np.sqrt(np.array([p.sum(1) @ g**2, p.sum(0) @ g**2]) - mean**2)
     # 5,500 draws of a chain with little autocorrelation: the means agree to within a tenth of
