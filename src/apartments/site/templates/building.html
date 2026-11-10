@@ -33,11 +33,11 @@
 {% if typical %}
 <section class="card" id="typical-rent">
   <h2>Typical rent here, {{ typical.year }}{% if typical.months < 12 %} so far{% endif %}</h2>
-  <p class="note">What a typical apartment of each size asks in this building, from the earlier model's
-  rent map: baths, size, laundry, views and listed extras at their average across all
+  <p class="note">What a typical apartment of each size asks in this building, from the earlier model
+  (built on 2026-10-19): baths, size, laundry, views and listed extras at their average across all
   listings with that many bedrooms, with this building's own usual floor and amenities. Unlike the building level above, it includes what the building's features are worth, so
   two buildings with similar levels can differ a lot here. The interval ({{ typical.interval }}) is how sure the model
-  is of this typical rent, not the range of asks; a listing's own page gives the range its ask is likely to fall in.{% if typical.extrapolated %}
+  is of this typical rent, not the range of asks; the <a href="{{ url_for('listings') }}">Estimates</a> pages give the served model's range for the ads it held out.{% if typical.extrapolated %}
   <strong>The fit has none of this building's listings after {{ typical.last_year }}</strong> (any later ones below came after
   its data or were left out of it), so these figures are the model's extrapolation.{% endif %}{% if typical.fit_listings is number and typical.fit_listings < 5 %} They rest on only
   {{ typical.fit_listings }} listing{{ "" if typical.fit_listings == 1 else "s" }} here, so they lean on buildings like it.{% endif %}</p>

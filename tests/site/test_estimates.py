@@ -149,8 +149,17 @@ def test_the_detail_page_of_an_ad_on_the_market(client):
     assert "within the usual range" in page
 
 
-def test_an_ad_without_an_estimate_is_a_plain_404(client):
-    response = client.get("/listings/a1")  # an earlier ad of its apartment
+def test_an_earlier_ad_says_why_it_has_no_estimate(client):
+    # Building and unit pages still link an apartment's earlier ads.
+    response = client.get("/listings/a1")
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert "No held-out estimate for this ad" in page
+    assert 'href="/buildings/' in page and 'href="/listings"' in page
+
+
+def test_an_unknown_ad_is_a_plain_404(client):
+    response = client.get("/listings/no-such-ad")
     assert response.status_code == 404
     page = response.get_data(as_text=True)
     assert "only for the ads it held out" in page

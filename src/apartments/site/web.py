@@ -1093,6 +1093,23 @@ def create_app(
                     row=held,
                     has_building=building_exists(held["building_id"]),
                 )
+            # Building, unit and best pages still link the earlier build's ads; an ad
+            # the model saw in fitting gets a page saying why it has no estimate.
+            seen = None
+            if database_path().is_file():
+                seen = (
+                    db()
+                    .execute(
+                        "SELECT l.*, b.name AS building_name, "
+                        "b.address AS building_address "
+                        "FROM listings l JOIN buildings b ON b.id = l.building_id "
+                        "WHERE l.audit_id = ?",
+                        (key,),
+                    )
+                    .fetchone()
+                )
+            if seen is not None:
+                return render_template("unestimated_listing.html", meta=None, row=seen)
             abort(
                 404,
                 description="The model holds an estimate only for the ads it held out: "
