@@ -43,6 +43,12 @@ from rentfrontier import cautions
         ("Income qualifications: 40 times the rent, or a guarantor at 80x.", []),
         ("optional for\n  income restricted units", []),
         ("No HPD violations. Steps from Mon Ami cafe. Not for commercial use.", []),
+        ("Residential only, no commercial use allowed.", []),
+        (
+            "Income qualifications are simple and the building is friendly to guarantors "
+            "and to students: 40x the rent.",
+            [],
+        ),
         ("Home office nook, in-unit laundry, steps from the park.", []),
         ("Perfect for sharing with roommates. Owner pays heat.", []),
         ("", []),

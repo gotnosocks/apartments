@@ -51,14 +51,14 @@ TEXT = {
     "income": (
         # A fee schedule several buildings quote: "optional for income restricted units".
         r"(?<!optional for )income[- ]restrict"
-        rf"|income (?:requirement|qualif)\w*{_FORTY}"
+        rf"|income (?:requirement|qualif)\w*+{_FORTY}"
         r"|income (?:range|limit|eligib)"
         r"|(?:maximum|max)\.? (?:annual |household |allowable |allowed )?income"
         r"|\bhpd\b(?! violation)"
         r"|affordable (?:unit|housing|income)"
         r"|housing connect|housing lottery|(?<!mon )(?<!bel )\bami\b"
     ),
-    "not_home": r"professional suite|your practice|(?<!not for )commercial use",
+    "not_home": r"professional suite|your practice|(?<!not for )(?<!no )commercial use",
     "owners_only": r"only to (?:current )?(?:owners|shareholders)",
 }
 # Every code, in the order a row lists them.
