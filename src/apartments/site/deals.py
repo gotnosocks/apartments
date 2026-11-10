@@ -153,6 +153,7 @@ def load_rows(rows) -> list[dict]:
                 "days_on_market": _number(r.get("days_on_market")),
                 "unit_ads": int(_number(r.get("unit_ads")) or 0),
                 "months_free": _number(r.get("months_free")) or 0.0,
+                "page_price": _number(r.get("page_price")),
                 "hood_label": hood_label(_name(r.get("neighbourhood"))),
                 "cautions": caution_words(r),
             }

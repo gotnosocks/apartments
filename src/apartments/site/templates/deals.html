@@ -43,8 +43,8 @@ the ask is below 95% of the asks the model would expect for this apartment.</p>
 
 <p class="note">A low ask is a lead, not a verdict. The model describes asking rents and cannot see an apartment's condition, a
 broker fee, a short lease or a mistake in the ad. The range is tighter for an apartment with recent ads of its own, so the same
-gap counts for more there. Free months are part of what the model knows about an ad: the range is for an ad with the same
-concession. Some low asks have a plain reason the model does not know: the ad says the apartment is income-restricted, it reads
+gap counts for more there. An ask with free months is the rent net of them, so the ad's own page shows a higher
+rent. Free months are part of what the model knows about an ad: the range is for an ad with the same concession. Some low asks have a plain reason the model does not know: the ad says the apartment is income-restricted, it reads
 like an office, the apartment has been listed with another bedroom count, or the ad is off the market for now. Those ads carry
 a caution and are left out of the list unless you include them.</p>
 
@@ -66,7 +66,7 @@ a caution and are left out of the list unless you include them.</p>
     <tr>
       <td class="num c-rank">{{ loop.index }}</td>
       <td class="c-listing">{% if r.url %}<a href="{{ r.url }}" rel="noopener noreferrer" target="_blank">{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %} ↗<span class="visually-hidden"> on StreetEasy</span></a>{% else %}{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %}{% endif %}
-        <span class="feat">{{ beds_label(r.bedrooms) }}{% if r.neighbourhood %} · {{ r.hood_label }}{% endif %}{% if r.months_free %} · {{ "{:g}".format(r.months_free) }} month{{ "" if r.months_free == 1 else "s" }} free{% endif %}</span>
+        <span class="feat">{{ beds_label(r.bedrooms) }}{% if r.neighbourhood %} · {{ r.hood_label }}{% endif %}{% if r.months_free %} · {{ "{:g}".format(r.months_free) }} month{{ "" if r.months_free == 1 else "s" }} free{% if r.page_price and r.page_price > r.ask + 1 %}, so the ad shows {{ usd(r.page_price) }}{% endif %}{% endif %}</span>
         {% if r.cautions %}<span class="feat caution">Check first: {{ r.cautions | join("; ") }}.</span>{% endif %}</td>
       <td class="num" data-label="Ask">{{ usd(r.ask) }}</td>
       <td class="num nowrap" data-label="Model's middle">{{ usd(r.model_median) }} <span class="muted">(ask {{ pct(-r.gap_pct) }})</span></td>

@@ -59,6 +59,7 @@ def _run(tmp_path, backtest=False, model="drift-building", change=None):
                 for u in ("2a", "3b", "ph1", "4d")
             ],
             "square_feet": [700.0, np.nan, 800, 650],
+            "page_price": [2700.0, 3250, 3300, np.nan],
             "months_free": [0.0, 1, 0, 0],
             "days_on_market": [3, 10, 40, 20],
             "first_day": [
@@ -132,6 +133,8 @@ def test_deals_ranks_the_lowest_asks_first(tmp_path):
         "4": 1,
         "6": 0,
     }
+    # Listing 3 gives a month free: its page shows the gross rent, above the ask.
+    assert t.set_index("listing_id").page_price.to_dict()["3"] == 3250
     mid = t.set_index("listing_id").loc["3"]
     assert 0.4 < mid.below_share < 0.6 and abs(mid.discount_pct) < 1
 
@@ -276,10 +279,10 @@ def _texts(tmp_path, texts):
 
 def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
     def change(rows):
-        # Unit u1's two ads disagree on its bedrooms, listing 4 carries the dataset's
-        # flag, and listing 6 is off the market for now.
+        # Unit u1's two ads disagree on its bedrooms, listings 3 and 4 carry the
+        # dataset's flag, and listing 6 is off the market for now.
         rows.loc[0, "bedrooms"] = 3.0
-        rows["income_restricted"] = [False, False, False, True, False, False]
+        rows["income_restricted"] = [False, False, True, True, False, False]
         rows.loc[5, "status"] = "TEMPORARILY_OFF_MARKET"
 
     run, ads, reg = _run(tmp_path, change=change)
@@ -287,34 +290,36 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
     assert plain.attrs["ads_with_text"] is None
     assert plain.cautions.to_dict() == {
         "2": ["beds"],
-        "3": [],
+        "3": ["income"],
         "4": ["income"],
         "6": ["off_market"],
     }
+    # Listing 3's text shows its flag came from a fee schedule, listing 4 has no text and
+    # keeps its flag, and listing 99 is not an ad of the run.
     texts = _texts(
         tmp_path,
         {
-            "2": "Sunny one bedroom. Income must be 40x the rent.",
-            "3": AFFORDABLE,
-            "4": "This is an income-restricted apartment.",
+            "2": AFFORDABLE,
+            "3": "Bike storage $25, optional for income restricted units.",
+            "4": None,
             "6": OFFICE,
             "99": AFFORDABLE,
         },
     )
     t = drift_deals.deals(run, ads, reg, texts)
-    assert t.attrs["ads_with_text"] == 4
+    assert t.attrs["ads_with_text"] == 3
     # The scores and the order are the same with and without the texts.
     assert t.listing_id.tolist() == drift_deals.deals(run, ads, reg).listing_id.tolist()
     assert t.set_index("listing_id").cautions.to_dict() == {
-        "2": ["beds"],
-        "3": ["income"],
+        "2": ["income", "beds"],
+        "3": [],
         "4": ["income"],
         "6": ["not_home", "off_market"],
     }
     out = tmp_path / "site" / "deals"
     meta = drift_deals.publish(run, out, reg, texts=texts)
     assert meta["cautions"] == {
-        "ads": 4,
+        "ads": 3,
         "by_code": {
             "income": 2,
             "not_home": 1,
@@ -322,7 +327,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "beds": 1,
             "off_market": 1,
         },
-        "ads_with_text": 4,
+        "ads_with_text": 3,
     }
     rows = {r["listing_id"]: r for r in json.loads((out / "deals.json").read_text())}
     assert rows["6"]["cautions"] == ["not_home", "off_market"]

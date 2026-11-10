@@ -16,6 +16,7 @@ ROWS = [
         "bedrooms": 1.0,
         "status": "ACTIVE",
         "ask": 3000.0,
+        "page_price": 3250.0,
         "months_free": 1.0,
         "days_on_market": 3.0,
         "model_median": 3600.0,
@@ -200,7 +201,7 @@ def test_page_shows_the_table_the_backtest_and_the_model(client, site_root):
         and "https://streeteasy.com/rental/11" in html
     )
     assert "$3,000" in html and "$3,300 to $3,900" in html
-    assert "98.8%" in html and "1 month free" in html
+    assert "98.8%" in html and "1 month free, so the ad shows $3,250" in html
     # The ad off the market is left out, and the page says so and links to the full list.
     assert "<strong>2</strong> of 3 ads on the market" in html and "Nov 9, 2026" in html
     assert "1 more is left out for a caution" in html and "rental/12" not in html

@@ -11,6 +11,8 @@ model's predictive median and intervals for the ad's final ask in dollars, and
 - `below_share`: the share of the predictive distribution under the ask. An ask at 0.05
   is lower than 95% of what the model expects for this apartment on that day;
 - `discount_pct`: how far the ask sits under the predictive median, in percent of the ask;
+- `page_price`: the rent the ad's own page shows. The dataset's ask is net of free months,
+  so for an ad with a concession the page shows more than the ask;
 - `unit_ads`: the unit's ads in the training rows. A unit with earlier ads carries its own
   level, so its range is narrower than a new unit's;
 - `cautions`: reasons the ask may be low that the model does not know, as the codes of
@@ -49,6 +51,7 @@ AD_FIELDS = (
     "listing_id",
     "page",
     "square_feet",
+    "page_price",
     "months_free",
     "days_on_market",
     "first_day",
@@ -147,7 +150,9 @@ def _cautions(frame, h, held, unit_key, texts: Path | None) -> tuple[list, int |
     out = []
     for text, income, beds, away in zip(described, flagged, varied, off):
         codes = cautions_module.from_text(text)
-        codes += ["income"] * bool(income) + ["beds"] * bool(beds)
+        # The dataset's flag stands in only where there is no text to read.
+        unread = not (isinstance(text, str) and text.strip())
+        codes += ["income"] * bool(income and unread) + ["beds"] * bool(beds)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
     return out, with_text
@@ -187,6 +192,7 @@ def deals(
             "status": h.status.astype(str),
             "ask": ask,
             "first_ask": a.first_ask.to_numpy(float),
+            "page_price": a.page_price.to_numpy(float),
             "months_free": a.months_free.to_numpy(float),
             "first_day": a.first_day.astype(str).to_numpy(),
             "days_on_market": a.days_on_market.to_numpy(float),
