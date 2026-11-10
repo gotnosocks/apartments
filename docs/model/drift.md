@@ -6,6 +6,11 @@ candidate deal. This page gives the model, the sampler, the score, the checks an
 results. The predictions written before each fit, and the residual checks that led to the
 model, are in [the note of 2026-11-10](../notes/drift-2026-11-10.md).
 
+[drift-explainer.html](drift-explainer.html) is the visual walk through the model and its
+results, also published at https://claude.ai/artifact/CidAo43kMNH2Kw7GHwTHf7 (private to
+Ben unless shared). It is built from `docs/notes/drift-2026-11-10/artifact-data/extract-full.json`
+by `artifact/pagedata.py` and `artifact/build.py` in the same folder.
+
 ## Results
 
 `drift` is the served model. Its three full fits of 2026-11-10 (round six of that day's

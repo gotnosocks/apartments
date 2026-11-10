@@ -234,7 +234,7 @@ def main() -> None:
             "units": 935000,
             "sub": f"A model of asking rents fitted to {total / 1e6:.1f} million New York "
             "City rental ads, and what it says about the ads on the market now.",
-            "source": "Every number on this page comes from the fits listed below. The "
+            "source": "Every number on this page comes from the fits listed above. The "
             "code, the predictions written before each fit and the full record are in "
             "the repository under docs/notes/drift-2026-11-10.md.",
             "fitnote": "The gate is the project's: split R-hat at most 1.01 and bulk ESS "
@@ -307,6 +307,13 @@ def main() -> None:
         + (
             f" The building's path alone is worth {sw['elpd'] - by['drift']['elpd']:,.0f}."
             if win != "drift" and "drift" in by
+            else ""
+        )
+        + (
+            f" {MODELS[beyond['name']][0]} scores {beyond['gain']:,.0f} higher still. Its "
+            "fit missed the convergence gate, so its bar is dashed and nothing here "
+            "rests on it."
+            if beyond
             else ""
         ),
         "gap_caption": "The kitchen sink misses by about the same amount however "

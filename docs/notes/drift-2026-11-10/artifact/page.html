@@ -49,7 +49,8 @@ canvas { display: block; width: 100%; cursor: pointer; }
 .nav button:disabled { opacity: 0.35; cursor: default; }
 .count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; min-width: 44px; text-align: center; }
 .foot { color: var(--muted); font-size: 13px; margin: 0; max-width: 100ch; }
-.notes { display: grid; gap: 8px; max-width: 76ch; }
+.notes { display: grid; gap: 8px; }
+.notes > p, .notes > ul, .notes > h2 { max-width: 76ch; }
 .notes p, .notes ul { margin: 0; }
 .notes ul { padding-left: 20px; display: grid; gap: 6px; }
 .notes b { color: var(--fg); font-weight: 600; }
@@ -93,7 +94,7 @@ tr.win td { color: var(--yellow); }
     <ul>
       <li><b>Why an ask is low.</b> A landlord priced low, the apartment has a flaw the ad does not state, or the ad is wrong. The model sees all three as the same low ask.</li>
       <li><b>What it rented for.</b> The data holds asking rents, gross of free months. An ad that left the market may have rented for less.</li>
-      <li><b>Apartments it has never seen.</b> A unit with no earlier ad is priced from its features, its building and its block's recent drift. Its range is wider, so a low ask there is weaker evidence.</li>
+      <li><b>Apartments it has never seen.</b> A unit with no earlier ad is priced from its features, its building and its neighbourhood. Its range is wider, so a low ask there is weaker evidence.</li>
       <li><b>The backtest is not fully blind.</b> An ad's feature list comes from its latest record, which can be newer than the backtest's day. No price crosses that line.</li>
     </ul>
     <p class="foot" id="source"></p>
@@ -551,7 +552,7 @@ function sceneGap(t) {
     const c = k === WIN ? C.yellow : cols[j % cols.length], xs = vals[j].map((_, i) => i), s = SC.find(q => q.name === k);
     path(f, xs, vals[j], seg(t, 0.1 + 0.15 * j, 0.6 + 0.15 * j), { c, lw: k === WIN ? 3 : 2 });
     vals[j].forEach((v, i) => dot(f.x(i), f.y(v), 3.5, c, seg(t, 0.2 + 0.15 * j + 0.04 * i, 0.4 + 0.15 * j + 0.04 * i)));
-    note(s ? s.label : k, f.X0 + 14, f.Y1 + 6 + 18 * j, { c, a: seg(t, 0.2 + 0.15 * j, 0.5 + 0.15 * j) });
+    note((s ? s.label : k) + (s && s.new && !s.gate ? " (missed the gate)" : ""), f.X0 + 14, f.Y0 - 14 - 18 * (names.length - 1 - j), { c, a: seg(t, 0.2 + 0.15 * j, 0.5 + 0.15 * j) });
   });
 }
 
