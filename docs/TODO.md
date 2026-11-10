@@ -35,6 +35,10 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   patterns that were checked by reading.
 - [ ] Parse free months written in words ("FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE
   FREE").
+- [ ] A caution for an ad whose text gives another bedroom or bath count than its record.
+  Three of the first 40 ads shown on 2026-11-10 were of this kind (655 Hart St 2F, 329
+  Decatur St 1I, 2246 Fulton St 5G). It needs a reading first: a building's boilerplate
+  ("Two bed, two bathroom apartments" on a 1-bedroom's ad) would trip a plain pattern.
 - [ ] A sampler move for a building in two states under `drift-building`: new weights for
   the building's rows, accepted on its marginal likelihood with level, path and units
   integrated out. About five buildings in 68,000 are seen to need it. They carry about a
