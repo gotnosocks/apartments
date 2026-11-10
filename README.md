@@ -111,6 +111,9 @@ gives the equations, the sampler and the checks, and the module docstrings give 
    lowest share first, with each ad's cautions (`rentfrontier.cautions`; `... texts RUN`
    writes the ads' own descriptions for the ones read from text). `... validate` checks the score against what happened to the ads of
    the backtest: time on the market and price cuts.
+6. `python -m rentfrontier.drift_estimates publish LATEST_RUN --market MARKET_RUN --out DIR`
+   writes the Estimates table: every ad the two fits held out, with its ask beside the
+   predictive median and intervals of a fit that never saw it.
 
 ## How a change earns its place
 
