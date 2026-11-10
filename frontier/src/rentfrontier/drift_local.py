@@ -1,9 +1,9 @@
 """The drift model (`rentfrontier.drift`) with a short-term level for each building and
 each neighbourhood.
 
-`rentfrontier.drift_building` adds a monthly AR(1) process for each building. This module adds
-a second one for each neighbourhood, in quarterly steps (`drift`'s local drift, with the terms
-`building` and `nbhd`). The citywide walk moves every neighbourhood together, and the
+`rentfrontier.drift_building` adds a quarterly AR(1) process for each building. This module
+adds a second one for each neighbourhood, also in quarterly steps (`drift`'s local drift,
+with the terms `building` and `nbhd`; the neighbourhoods' is drawn given u). The citywide walk moves every neighbourhood together, and the
 surface of each zone is constant in time, so neither follows a neighbourhood that heats up
 or cools against the city. In fit 4's residuals the neighbourhood-by-year means hold about
 2.5% of the variance, most of it in 2025 and 2026 (docs/notes/drift-2026-11-10.md): small on

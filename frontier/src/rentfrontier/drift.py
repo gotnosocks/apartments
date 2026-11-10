@@ -65,14 +65,26 @@ local-drift terms from `groups_of`, each one more term in the row's mean:
 
     a_g(m) = rho a_g(m - 1) + Normal(0, s^2 (1 - rho^2)),   a_g(first) ~ Normal(0, s^2)
 
-for group g (a building, or a neighbourhood) and step m (a month, or a quarter). `drift` itself
-runs with none; `rentfrontier.drift_building` adds the buildings' and `rentfrontier.drift_local`
-the buildings' and the neighbourhoods'. Steps 1 to 3 run on y less the terms' current paths.
-After step 3 each term in turn is drawn given theta, eta, u and the other terms: (log s,
-logit rho) by a slice update of each on the Kalman filter's marginal likelihood of every
-group's cell sums, with the paths integrated out, then the paths by backward sampling. A
-prediction adds each term's path at the row's group and step, which the filter carries past
-the group's last ad by the same recursion.
+for group g (a building, or a neighbourhood) and step m (a quarter). `drift` itself runs with
+none; `rentfrontier.drift_building` adds the buildings' and `rentfrontier.drift_local` the
+buildings' and the neighbourhoods'. Steps 1 and 2 run on y less the terms' current paths.
+
+The buildings' term is collapsed (`update_cells`). A building's state is its level eta and
+its path at its cells, the steps in which it has a row. With u integrated out the rows of a
+building are jointly Gaussian in that state, with precision B' W B for the units' precisions
+W, so step 3 becomes: the zones' spreads b and the path's (log s, logit rho) by slice
+updates on the buildings' marginal likelihood with the levels, the paths and u all
+integrated out (one dense Cholesky factor of at most 1 + cells a building), then every
+building's level and path in one draw with u integrated out, then the path's steps between
+the cells. Drawing the paths given u instead, as the first fits of 2026-11-10 did, left
+every chain creeping (R-hat 1.6): the rows pin a path far more tightly given u than they do
+once u is free to follow.
+
+A term that is not collapsed (the neighbourhoods') is drawn after step 4 given theta, eta, u
+and the other terms: (log s, logit rho) by a slice update of each on the Kalman filter's
+marginal likelihood of every group's cell sums, with the paths integrated out, then the
+paths by backward sampling. A prediction adds each term's path at the row's group and step,
+which the filter carries past the group's last ad by the same recursion.
 
     python -m rentfrontier.run --model drift --split latest --name NAME
 """
@@ -130,6 +142,14 @@ LOCAL_SD_PRIOR = 0.1
 HYP_WIDTH = 0.3
 SIGMA_WIDTH = 0.1
 AR_WIDTHS = (0.5, 1.0)
+# The collapsed building term (`cell_layout`): a building's cells are padded to these sizes,
+# the slice interval's length for each zone's log spread, the lengths along (log sd, logit
+# rho) until the warmup sets the directions, and the weight that pins a path at its drawn
+# cells while the steps between them are filled in.
+CELL_PADS = (1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 44)
+SPREAD_WIDTH = 0.05
+CELL_WIDTHS = (0.1, 0.3)
+PIN = 1e14
 # Units are padded to these sizes, so that each size's units stack into one array.
 PADS = (2, 3, 4, 5, 6, 8, 10, 14, 22)
 YEAR_WEEKS = 365.25 / 7
@@ -244,16 +264,21 @@ def subset(d: Design, mask: np.ndarray) -> Design:
 
 def groups_of(d: Design, which) -> list[dict]:
     """The local-drift terms named in `which` for training design `d` (see the module
-    docstring): `building`, one process per building in monthly steps, and `nbhd`, one per
-    neighbourhood in quarterly steps. Each dict holds the term's `name`, each training row's
-    group `row`, each predicted row's group `pred`, the number of groups `size`, the steps a
-    year `per_year` and the HalfNormal scale `sd_prior` of the process's sd."""
+    docstring): `building`, one process per building, and `nbhd`, one per neighbourhood, both
+    in quarterly steps. Each dict holds the term's `name`, each training row's group `row`,
+    each predicted row's group `pred`, the number of groups `size`, the steps a year
+    `per_year`, the HalfNormal scale `sd_prior` of the process's sd and whether the sweep
+    draws the term `collapsed` (the buildings' is).
+
+    The buildings' steps were months in the first fits of 2026-11-10. Their rho came out at
+    0.94 a month, a half-life near a year, so quarters lose little, and a building then has
+    at most 52 cells in place of 155, which keeps the collapsed step's dense factors small."""
     pred = d.pred or {}
     out = []
     for name in which:
         if name == "building":
             row, prd = d.site, pred.get("site")
-            size, per_year = len(site_zone(d)), 12
+            size, per_year = len(site_zone(d)), 4
         elif name == "nbhd":
             row, prd = d.nbhd, pred.get("nbhd")
             both = [row] + ([prd] if prd is not None and len(prd) else [])
@@ -270,9 +295,85 @@ def groups_of(d: Design, which) -> list[dict]:
                 size=size,
                 per_year=per_year,
                 sd_prior=LOCAL_SD_PRIOR,
+                collapsed=name == "building",
             )
         )
     return out
+
+
+def cell_layout(site, step, pi, pj, size: int, steps: int, pads=CELL_PADS) -> dict:
+    """The static index arrays of the collapsed building term, for rows sorted by building.
+
+    A cell is a building in a step with at least one row. A building's state is its level
+    followed by its path at its cells, in step order, and the buildings are stacked by their
+    padded number of cells. `site` and `step` are the rows' building and step, `pi` and `pj`
+    the units' pairs of rows (`unit_layout`), `size` the number of buildings with and
+    without rows, and `steps` the number of steps of a path.
+
+    Returns
+    - `buckets`: one dict per padded size m, holding `sites` (buildings,), `gap` (buildings,
+      m) the steps from the cell before (0 for a building's first cell and for a padded
+      place), `cells` (buildings, m) each cell's place in the paths raveled as (buildings,
+      steps), padded with one past the end, and `off_H`, `off_h` the bucket's first place in
+      the two flat arrays below;
+    - `H_d`, `H_o`: each row's and each pair's place in the buckets' (buildings, m, m) arrays
+      raveled and laid end to end, of `size_H` entries;
+    - `h`: each row's place in the buckets' (buildings, m) arrays laid end to end, of
+      `size_h` entries;
+    - `active`: (size * steps,) whether the building has a row in the step."""
+    assert (np.diff(site) >= 0).all(), "the rows must be sorted by building"
+    cells, cell_of_row = np.unique(site * steps + step, return_inverse=True)
+    c_site, c_step = cells // steps, cells % steps
+    sites, first, count = np.unique(c_site, return_index=True, return_counts=True)
+    bld_of_cell = np.repeat(np.arange(len(sites)), count)
+    pos_of_cell = np.arange(len(cells)) - first[bld_of_cell]
+    pads = np.array(
+        sorted(
+            {p for p in pads if p < count.max(initial=1)} | {int(count.max(initial=1))}
+        )
+    )
+    pad_of = pads[np.searchsorted(pads, count)]
+    slot = np.zeros(len(sites), np.int64)
+    off_H = np.zeros(len(sites), np.int64)
+    off_h = np.zeros(len(sites), np.int64)
+    buckets, size_H, size_h = [], 0, 0
+    for m in pads:
+        which = np.flatnonzero(pad_of == m)
+        if not len(which):
+            continue
+        m = int(m)
+        slot[which] = np.arange(len(which))
+        off_H[which], off_h[which] = size_H, size_h
+        sel = pad_of[bld_of_cell] == m
+        at = (slot[bld_of_cell[sel]], pos_of_cell[sel])
+        stp = np.zeros((len(which), m), np.int64)
+        stp[at] = c_step[sel]
+        real = np.zeros((len(which), m), bool)
+        real[at] = True
+        gap = np.zeros((len(which), m), np.int64)
+        gap[:, 1:] = np.where(real[:, 1:], np.diff(stp, axis=1), 0)
+        place = np.full((len(which), m), size * steps)
+        place[at] = cells[sel]
+        buckets.append(
+            dict(sites=sites[which], gap=gap, cells=place, off_H=size_H, off_h=size_h)
+        )
+        size_H += len(which) * m * m
+        size_h += len(which) * m
+    b = bld_of_cell[cell_of_row]
+    pos = pos_of_cell[cell_of_row]
+    m = pad_of[b]
+    base = off_H[b] + slot[b] * m * m
+    active = np.zeros(size * steps, bool)
+    active[cells] = True
+    return dict(
+        buckets=buckets,
+        H_d=base + pos * m + pos,
+        H_o=base[pi] + pos[pi] * m[pi] + pos[pj],
+        h=off_h[b] + slot[b] * m + pos,
+        size_H=size_H,
+        size_h=size_h,
+        active=active,
+    )
 
 
 # ------------------------------------------------------------------ the units' layout
@@ -437,7 +538,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
     pred = pred_layout(lay, rows_to_predict["unit"], rows_to_predict["years"])
     # Local-drift terms: each row's cell (group, step) in the term's raveled (groups, steps)
     # array.
-    ars, ar_cell, ar_pcell = [], [], []
+    ars, ar_cell, ar_pcell, col = [], [], [], None
     for g in groups or ():
         step = np.floor(t_all[order] * g["per_year"]).astype(np.int64)
         pstep = np.floor(np.asarray(rows_to_predict["years"]) * g["per_year"]).astype(
@@ -449,6 +550,13 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         )
         ar_cell.append(g["row"][order] * T + step)
         ar_pcell.append(g["pred"] * T + pstep)
+        if g.get("collapsed"):
+            # The collapsed step draws the buildings' levels with the paths, so its term is
+            # the buildings' and comes first.
+            assert not ars[:-1] and np.array_equal(g["row"], d.site), (
+                "only the first term, grouped by building, can be collapsed"
+            )
+            col = cell_layout(site_sorted, step, lay["pi"], lay["pj"], S, T)
     # Each block's part of every bucket. A unit's rows share a building, so a unit never
     # spans two blocks, and a bucket lists its units in row order, so a block's units are a
     # slice of it. `blk_part[j]` holds (bucket, first unit, last unit + 1) for block j,
@@ -507,6 +615,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         p_fr=jnp.asarray(rows_to_predict["frac"]),
         ar_cell=[jnp.asarray(v) for v in ar_cell],
         ar_pcell=[jnp.asarray(v) for v in ar_pcell],
+        cells={k: jnp.asarray(v) for k, v in (col or {}).items() if k != "buckets"}
+        | {
+            k: [jnp.asarray(b[k]) for b in (col or {}).get("buckets", ())]
+            for k in ("sites", "gap", "cells")
+        },
         p_one=tuple(jnp.asarray(v) for v in pred["one"]),
         p_buckets=[tuple(jnp.asarray(v) for v in b) for b in pred["buckets"]],
     )
@@ -911,12 +1024,13 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         R = jax.ops.segment_sum(c * tgt, cell, num_segments=cells)
         return C.reshape(a["size"], a["T"]), R.reshape(a["size"], a["T"])
 
-    def update_local(D, keys, st, c, r):
-        """Each local-drift term in turn, given the other terms: its scales, then its paths.
-        `r` is y less every other term of the mean and less all the current paths. Returns r
-        with the new paths in place of the old, the paths and the scales."""
-        ar, ar_par = [], []
-        for k in range(len(ars)):
+    def update_local(D, keys, st, c, r, first=0):
+        """Each local-drift term from `first` on in turn, given the other terms: its scales,
+        then its paths. `r` is y less every other term of the mean and less all the current
+        paths. Returns r with the new paths in place of the old, the paths and the scales."""
+        ar = list(st["ar"][:first]) if first else []
+        ar_par = list(st["ar_par"][:first]) if first else []
+        for k in range(first, len(ars)):
             cell = D["ar_cell"][k]
             tgt = r + st["ar"][k].ravel()[cell]
             par, path = update_ar(keys[k], k, st["ar_par"][k], *ar_sums(D, k, c, tgt))
@@ -924,6 +1038,149 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             ar_par.append(par)
             r = tgt - path.ravel()[cell]
         return r, tuple(ar), tuple(ar_par)
+
+    def cell_sums(D, om_d, om_off, tgt):
+        """For each bucket of the collapsed term, the buildings' H = B' W B, (buildings, m,
+        m), and h = B' W tgt, (buildings, m): W is the units' precision and B maps a
+        building's cells to its rows. A padded place holds 0."""
+        cl = D["cells"]
+        H = seg(om_d, cl["H_d"], num_segments=col["size_H"]) + seg(
+            om_off, cl["H_o"], num_segments=col["size_H"]
+        )
+        h = seg(apply_W(D, om_d, om_off, tgt), cl["h"], num_segments=col["size_h"])
+        out = []
+        for b in col["buckets"]:
+            nb, m = b["gap"].shape
+            out.append(
+                (
+                    H[b["off_H"] : b["off_H"] + nb * m * m].reshape(nb, m, m),
+                    h[b["off_h"] : b["off_h"] + nb * m].reshape(nb, m),
+                )
+            )
+        return out
+
+    def cell_system(par, b2, F, H, h, gap):
+        """One bucket's buildings given `tgt` = y less every other term, with u integrated
+        out. A building's state is z = (level, path at its cells). Its prior is level ~
+        Normal(F, b2) and a stationary AR(1) path with (log sd, logit rho) = `par`, whose
+        precision at the cells is tridiagonal: consecutive cells `gap` steps apart correlate
+        at rho^gap. Returns the Cholesky factor L of z's posterior precision Q, L^-1 times
+        its linear term, and each building's log marginal likelihood up to a constant in
+        (b2, par). A padded place is an independent Normal(0, sd^2) with no rows."""
+        s2 = jnp.exp(2 * par[0])
+        rho = jax.nn.sigmoid(par[1])
+        nb, m = gap.shape
+        phi = jnp.where(gap > 0, rho ** jnp.maximum(gap, 1), 0.0)
+        v = 1 - phi * phi
+        nxt = jnp.concatenate([(phi * phi / v)[:, 1:], jnp.zeros((nb, 1))], axis=1)
+        off = -(phi / v)[:, 1:] / s2
+        i = jnp.arange(m)
+        A = (
+            H.at[:, i, i]
+            .add((1 / v + nxt) / s2)
+            .at[:, i[1:], i[:-1]]
+            .add(off)
+            .at[:, i[:-1], i[1:]]
+            .add(off)
+        )
+        r = H.sum(axis=2)
+        top = jnp.concatenate(
+            [(1 / b2 + r.sum(axis=1))[:, None, None], r[:, None, :]], axis=2
+        )
+        Q = jnp.concatenate([top, jnp.concatenate([r[:, :, None], A], axis=2)], axis=1)
+        lin = jnp.concatenate([(h.sum(axis=1) + F / b2)[:, None], h], axis=1)
+        L = jnp.linalg.cholesky(Q)
+        x = jax.vmap(
+            lambda Lk, bk: jax.scipy.linalg.solve_triangular(Lk, bk, lower=True)
+        )(L, lin)
+        ll = (
+            -jnp.sum(jnp.log(jnp.diagonal(L, axis1=1, axis2=2)), axis=1)
+            + 0.5 * jnp.sum(x * x, axis=1)
+            - 0.5 * jnp.log(b2)
+            - 0.5 * F * F / b2
+            - 0.5 * m * jnp.log(s2)
+            - 0.5 * jnp.sum(jnp.log(v), axis=1)
+        )
+        return L, x, ll
+
+    def fill_path(key, par, at, active):
+        """Paths (groups, steps) that hold `at` where `active` and, at every other step, a
+        draw given those: the filter with each active step pinned at its value, backward
+        sampling, then the pinned values themselves put back."""
+        C = jnp.where(active, PIN, 0.0)
+        _, mf, pf = ar_filter(par, C, C * at)
+        return jnp.where(active, at, ar_draw(key, par, mf, pf))
+
+    def cell_loglik(D, lb, par, sums, F):
+        """Each zone's sum of its buildings' log marginal likelihoods at log spreads `lb`
+        and the path's `par`, with the levels, the paths and u integrated out."""
+        out = jnp.zeros(nz)
+        b2 = jnp.exp(2 * lb)[zone_j]
+        for (H, h), ids, gap in zip(sums, D["cells"]["sites"], D["cells"]["gap"]):
+            _, _, ll = cell_system(par, b2[ids], F[ids], H, h, gap)
+            out = out + seg(ll, zone_j[ids], num_segments=nz)
+        return out
+
+    def update_cells(D, key, st, sums, F):
+        """The collapsed building step. Each zone's spread b, then the path's (log sd, logit
+        rho) along each column of the state's `cell_dirs`, all with the buildings' levels,
+        their paths and u integrated out. Then every building's level and path at its cells
+        in one draw with u integrated out, and the path's other steps given those.
+
+        The uncollapsed step (`update_local`) draws a path given u, where the rows pin it
+        far more tightly than they do once u is free to follow, and the sweep then creeps:
+        the fits of 2026-11-10 with that step missed the gate at R-hat 1.6."""
+        k1, k2, k3, k4 = jax.random.split(key, 4)
+        par = st["ar_par"][0]
+        prior_sd = ars[0]["sd_prior"]
+
+        def logp_b(lb):
+            ll = cell_loglik(D, lb, par, sums, F)
+            return ll - jnp.exp(2 * lb) / (2 * BLD_SD_PRIOR**2) + lb
+
+        lb = b0.slice_vec(
+            k1, jnp.log(st["bld_sd"]), logp_b, SPREAD_WIDTH, steps_out=0, shrink=32
+        )
+        for k, kk in enumerate(jax.random.split(k2, 2)):
+            v = st["cell_dirs"][:, k]
+
+            def logp(t, par=par, v=v):
+                x = par + t[0] * v
+                rho = jax.nn.sigmoid(x[1])
+                return (
+                    jnp.sum(cell_loglik(D, lb, x, sums, F))
+                    - jnp.exp(2 * x[0]) / (2 * prior_sd**2)
+                    + x[0]
+                    + jnp.log(rho)
+                    + jnp.log1p(-rho)
+                )[None]
+
+            t = b0.slice_vec(kk, jnp.zeros(1), logp, 1.0, steps_out=0, shrink=32)
+            par = par + t[0] * v
+        bsd = jnp.exp(lb)
+        b2 = bsd[zone_j] ** 2
+        # A building with no row keeps its prior.
+        lev = F + jnp.sqrt(b2) * jax.random.normal(k3, (S,))
+        a = ars[0]
+        cells = a["size"] * a["T"]
+        at = jnp.zeros(cells + 1)
+        keys = jax.random.split(k4, len(sums) + 1)
+        for kk, (H, h), ids, gap, place in zip(
+            keys[1:],
+            sums,
+            D["cells"]["sites"],
+            D["cells"]["gap"],
+            D["cells"]["cells"],
+        ):
+            L, x, _ = cell_system(par, b2[ids], F[ids], H, h, gap)
+            z = jax.vmap(
+                lambda Lk, bk: jax.scipy.linalg.solve_triangular(Lk.T, bk, lower=False)
+            )(L, x + jax.random.normal(kk, x.shape))
+            lev = lev.at[ids].set(z[:, 0])
+            at = at.at[place.ravel()].set(z[:, 1:].ravel())
+        active = D["cells"]["active"].reshape(a["size"], a["T"])
+        path = fill_path(keys[0], par, at[:cells].reshape(a["size"], a["T"]), active)
+        return bsd, lev, par, path
 
     def update_noise(key, st, r, group_all):
         """nu, then sigma, with lam integrated out, then lam: b0's noise step."""
@@ -1045,15 +1302,28 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         w = theta[sl_w]
         F = D["Bc"] @ w
         e0 = y_eff - all_means(D, theta)
-        C = seg(ctil, D["site"], num_segments=S)
-        Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
-        bsd = update_spread(k2, st, C, Rs, F)
-        b2 = bsd[zone_j] ** 2
-        P = C + 1 / b2
-        lev = (Rs + F / b2) / P + jax.random.normal(k3, (S,)) / jnp.sqrt(P)
-        e = e0 - lev[D["site"]]
+        if col is None:
+            C = seg(ctil, D["site"], num_segments=S)
+            Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
+            bsd = update_spread(k2, st, C, Rs, F)
+            b2 = bsd[zone_j] ** 2
+            P = C + 1 / b2
+            lev = (Rs + F / b2) / P + jax.random.normal(k3, (S,)) / jnp.sqrt(P)
+            e = e0 - lev[D["site"]]
+            first = 0
+        else:
+            cell = D["ar_cell"][0]
+            tgt = e0 + st["ar"][0].ravel()[cell]
+            sums = cell_sums(D, om_d, om_off, tgt)
+            bsd, lev, par, path = update_cells(D, k2, st, sums, F)
+            e = tgt - lev[D["site"]] - path.ravel()[cell]
+            st = st | {
+                "ar": (path, *st["ar"][1:]),
+                "ar_par": st["ar_par"].at[0].set(par),
+            }
+            first = 1
         u = draw_u(D, k7, st["hyp"], c, w1, Wb, e)
-        r, ar, ar_par = update_local(D, ks[9:], st, c, e - u)
+        r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
         e = r + u
         nu, sigma, lam = update_noise(k4, st, r, D["group"])
         hyp, sigma = update_hyp(D, k8, st, lam, sigma, e)
@@ -1080,6 +1350,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             new["gp_amp"], new["gp_ls"] = update_gp(k_gp, st, theta)
         ss, sd, tu = scales(hyp)
         out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
+        if col is not None:
+            new["cell_dirs"] = st["cell_dirs"]
         if ars:
             new["ar"], new["ar_par"] = tuple(ar), jnp.stack(ar_par)
             for k, a in enumerate(ars):
@@ -1146,6 +1418,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             out["ar_par"] = jnp.tile(
                 jnp.asarray([math.log(0.03), 1.5]), (len(ars), 1)
             ) + (0.2 * jax.random.normal(jax.random.fold_in(key, 11), (len(ars), 2)))
+        if col is not None:
+            out["cell_dirs"] = jnp.diag(jnp.asarray(CELL_WIDTHS))
         if gps:
             kg = jax.random.split(jax.random.fold_in(key, 7))
             out["gp_amp"] = jnp.asarray(
@@ -1181,6 +1455,13 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             ar_draw=ar_draw,
             ar_sums=ar_sums,
             update_local=update_local,
+            cell_sums=cell_sums,
+            cell_system=cell_system,
+            cell_loglik=cell_loglik,
+            fill_path=fill_path,
+            zone=zone,
+            update_cells=update_cells,
+            cell_layout=col,
             offsets=offsets,
             ars=ars,
             draw_u=draw_u,
@@ -1195,7 +1476,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
     """The slice directions for (log ss, log sd, log tau, log sigma of each group) from
     warmup draws `hyp` (chains, sweeps, 7): four times the Cholesky factor of the draws'
-    covariance within chains, so that the interval of `update_hyp` covers the slice."""
+    covariance within chains, so that the interval of `update_hyp` covers the slice. The
+    same for the collapsed building path's (log sd, logit rho)."""
     dev = hyp - hyp.mean(axis=1, keepdims=True)
     cov = np.einsum("csi,csj->ij", dev, dev) / max(dev.shape[0] * (dev.shape[1] - 1), 1)
     cov = cov + 1e-10 * np.eye(cov.shape[0])
@@ -1248,7 +1530,7 @@ def run(
         (k * settings.warmup) // 3: (k * settings.warmup) // 3 - settings.warmup // 6
         for k in (1, 2)
     }
-    warm_hyp = {}
+    warm_hyp, warm_cell = {}, {}
 
     def output(final=False):
         stack = lambda v: np.stack(v, axis=1)  # noqa: E731
@@ -1278,6 +1560,11 @@ def run(
                     / max(1, settings.warmup + done),
                     "hyp_dirs": np.asarray(st["hyp_dirs"][0]).tolist(),
                 }
+                | (
+                    {"cell_dirs": np.asarray(st["cell_dirs"][0]).tolist()}
+                    if "cell_dirs" in st
+                    else {}
+                )
             },
         }
 
@@ -1310,6 +1597,8 @@ def run(
             warm_hyp[i] = np.concatenate(
                 [np.asarray(st["hyp"]), np.log(np.asarray(st["sigma"]))], axis=1
             )
+            if "cell_dirs" in st:
+                warm_cell[i] = np.asarray(st["ar_par"])[:, 0]
         if i + 1 in adapt_at and i + 1 - adapt_at[i + 1] >= 8:
             window = [warm_hyp[j] for j in range(adapt_at[i + 1], i + 1)]
             dirs = adapted_dirs(np.stack(window, axis=1))
@@ -1319,6 +1608,15 @@ def run(
             log(
                 f"scales' slice directions set at sweep {i + 1}: {dirs.round(5).tolist()}"
             )
+            if warm_cell:
+                window = [warm_cell[j] for j in range(adapt_at[i + 1], i + 1)]
+                dirs = adapted_dirs(np.stack(window, axis=1))
+                st = st | {
+                    "cell_dirs": jnp.broadcast_to(
+                        jnp.asarray(dirs), st["cell_dirs"].shape
+                    )
+                }
+                log(f"the building path's slice directions: {dirs.round(5).tolist()}")
         if i == settings.warmup - 1 or (settings.warmup == 0 and i == 0):
             jax.block_until_ready(st)
             marks["warmup"] = time.perf_counter()
@@ -1403,6 +1701,7 @@ def run_record(d: Design, groups=()) -> dict:
         g["name"]: {
             "groups": g["size"],
             "steps_per_year": g["per_year"],
+            "collapsed": bool(g.get("collapsed")),
             "sd_prior": f"HalfNormal({g['sd_prior']})",
             "rho_prior": "Uniform(0, 1)",
         }

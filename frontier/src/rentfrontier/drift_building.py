@@ -1,7 +1,7 @@
 """The drift model (`rentfrontier.drift`) with a short-term level for each building.
 
-Each building gets one more term in its rows' means, a stationary AR(1) process in monthly
-steps (`drift`'s local drift, with the term `building`):
+Each building gets one more term in its rows' means, a stationary AR(1) process in quarterly
+steps (`drift`'s local drift, with the term `building`, drawn by its collapsed step):
 
     a_b(m) = rho a_b(m - 1) + Normal(0, s^2 (1 - rho^2))
 

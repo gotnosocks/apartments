@@ -31,10 +31,11 @@ def test_groups_of_numbers_the_rows_and_the_rows_to_predict():
     b, n = drift.groups_of(train, drift_local.GROUPS)
     assert (b["name"], b["per_year"], n["name"], n["per_year"]) == (
         "building",
-        12,
+        4,
         "nbhd",
         4,
     )
+    assert b["collapsed"] and not n["collapsed"]
     np.testing.assert_array_equal(b["row"], train.site)
     np.testing.assert_array_equal(b["pred"], test.site)
     np.testing.assert_array_equal(n["row"], train.site % 5)
@@ -274,3 +275,174 @@ def test_a_slice_that_only_shrinks_leaves_its_target_unchanged():
     for width in (0.2, 5.0):
         assert 0.93 < spread(width, 0) < 1.07, width
     assert spread(0.2, 4) < 0.85
+
+
+def _cells(seed=4):
+    """A small design with the collapsed building term in weekly steps: the sampler's parts,
+    one chain's state, and in the sampler's row order the rows' building and step, a random
+    target, each building's surface value and the rows' covariance from the noise and u."""
+    full = td._design()
+    train, _, _ = td._split(full)
+    _, init, _, parts = _sampler(train, _groups(train))
+    jax, jnp = b0._jax()
+    st = td._state(init, parts)
+    rng = np.random.default_rng(seed)
+    order = parts["order"]
+    site = train.site[order]
+    step = np.floor(drift.years(train)[order] * 52).astype(int)
+    F = 0.1 * rng.standard_normal(len(parts["zone"]))
+    tgt = F[site] + 0.2 * rng.standard_normal(len(site))
+    cov, _, _ = td._dense_cov(train, parts, st)
+    D = parts["data"]
+    c = parts["weights"](D, st)
+    om_d, om_off = parts["pair_weights"](D, *parts["unit_W"](D, st["hyp"], c))
+    sums = parts["cell_sums"](D, om_d, om_off, jnp.asarray(tgt))
+    return parts, st, site, step, tgt, F, cov, sums
+
+
+def test_cell_layout_places_every_row_and_pair():
+    site = np.array([0, 0, 0, 2, 2, 2, 2, 5])
+    step = np.array([3, 3, 7, 0, 1, 1, 4, 2])
+    pi, pj = np.array([0, 1, 4, 5]), np.array([1, 0, 5, 4])
+    lay = drift.cell_layout(site, step, pi, pj, size=7, steps=8, pads=(1, 2))
+    assert [b["gap"].shape for b in lay["buckets"]] == [(1, 1), (1, 2), (1, 3)]
+    np.testing.assert_array_equal(lay["buckets"][1]["gap"], [[0, 4]])
+    np.testing.assert_array_equal(lay["buckets"][2]["gap"], [[0, 1, 3]])
+    np.testing.assert_array_equal(lay["buckets"][2]["cells"], [[16, 17, 20]])
+    np.testing.assert_array_equal(lay["buckets"][0]["sites"], [5])
+    assert lay["size_H"] == 1 + 4 + 9 and lay["size_h"] == 1 + 2 + 3
+    # Building 0 is the bucket of two: its rows sit at cells 0, 0 and 1.
+    np.testing.assert_array_equal(lay["H_d"][:3], [1, 1, 4])
+    np.testing.assert_array_equal(lay["h"], [1, 1, 2, 3, 4, 4, 5, 0])
+    # The pairs (0, 1) and (1, 0) share cell 0 of building 0; (4, 5) cell 1 of building 2.
+    np.testing.assert_array_equal(lay["H_o"], [1, 1, 5 + 4, 5 + 4])
+    assert lay["active"].sum() == 6 and lay["active"][[3, 7, 16, 17, 20, 42]].all()
+
+
+def _cell_cov(site, step, zone, lb, par):
+    """The rows' covariance from the buildings' levels and paths."""
+    same = site[:, None] == site[None, :]
+    b2 = np.exp(2 * lb)[zone[site]]
+    rho = 1 / (1 + np.exp(-par[1]))
+    lag = np.abs(step[:, None] - step[None, :])
+    return np.where(same, b2[:, None] + np.exp(2 * par[0]) * rho**lag, 0.0)
+
+
+def test_cell_loglik_matches_the_dense_density():
+    parts, st, site, step, tgt, F, cov, sums = _cells()
+    _, jnp = b0._jax()
+    zone = parts["zone"]
+
+    def both(lb, par):
+        ours = parts["cell_loglik"](
+            parts["data"], jnp.asarray(lb), jnp.asarray(par), sums, jnp.asarray(F)
+        )
+        full = cov + _cell_cov(site, step, zone, np.asarray(lb), par)
+        dev = tgt - F[site]
+        dense = -0.5 * (np.linalg.slogdet(full)[1] + dev @ np.linalg.solve(full, dev))
+        return float(ours.sum()), dense
+
+    base = both([-1.8, -2.2], [-2.5, 1.0])
+    for lb, par in (
+        ([-1.2, -2.2], [-2.5, 1.0]),
+        ([-1.8, -2.9], [-1.7, 1.0]),
+        ([-2.0, -2.0], [-3.0, 3.5]),
+        ([-1.5, -2.5], [-2.0, -1.0]),
+    ):
+        ours, dense = both(lb, par)
+        np.testing.assert_allclose(ours - base[0], dense - base[1], rtol=1e-8)
+        assert abs(dense - base[1]) > 1.0
+
+
+def test_cell_system_matches_the_dense_conditional():
+    parts, st, site, step, tgt, F, cov, sums = _cells()
+    jax, jnp = b0._jax()
+    zone = parts["zone"]
+    lb, par = np.array([-1.8, -2.2]), np.array([-2.5, 1.0])
+    s2, rho = np.exp(2 * par[0]), 1 / (1 + np.exp(-par[1]))
+    b2 = np.exp(2 * lb)[zone]
+    lay = parts["cell_layout"]
+    T = parts["ars"][0]["T"]
+    checked = 0
+    for (H, h), b in zip(sums, lay["buckets"]):
+        ids = b["sites"]
+        L, x, _ = parts["cell_system"](
+            jnp.asarray(par),
+            jnp.asarray(b2[ids]),
+            jnp.asarray(F[ids]),
+            H,
+            h,
+            jnp.asarray(b["gap"]),
+        )
+        L, x = np.asarray(L), np.asarray(x)
+        for k in range(0, len(ids), max(1, len(ids) // 6)):
+            rows = np.flatnonzero(site == ids[k])
+            steps = np.unique(step[rows])
+            m = len(steps)
+            np.testing.assert_array_equal(b["cells"][k, :m], ids[k] * T + steps)
+            # The building's state (level, path at its cells): prior, then the rows.
+            prior = np.zeros((1 + m, 1 + m))
+            prior[0, 0] = b2[ids[k]]
+            prior[1:, 1:] = s2 * rho ** np.abs(steps[:, None] - steps[None, :])
+            B = np.zeros((len(rows), 1 + m))
+            B[:, 0] = 1
+            B[np.arange(len(rows)), 1 + np.searchsorted(steps, step[rows])] = 1
+            S = B @ prior @ B.T + cov[np.ix_(rows, rows)]
+            gain = prior @ B.T @ np.linalg.inv(S)
+            mu = np.r_[F[ids[k]], np.zeros(m)]
+            mean = mu + gain @ (tgt[rows] - B @ mu)
+            post = prior - gain @ B @ prior
+            Q = L[k] @ L[k].T
+            np.testing.assert_allclose(
+                np.linalg.solve(L[k].T, x[k])[: 1 + m], mean, atol=1e-8
+            )
+            np.testing.assert_allclose(
+                np.linalg.inv(Q)[: 1 + m, : 1 + m], post, atol=1e-9
+            )
+            checked += 1
+    assert checked > 10
+
+
+def test_fill_path_draws_the_steps_between_the_cells():
+    full = td._design()
+    train, _, _ = td._split(full)
+    _, _, _, parts = _sampler(train, _groups(train))
+    jax, jnp = b0._jax()
+    par = jnp.asarray([np.log(0.2), 1.5])
+    rho = 1 / (1 + np.exp(-1.5))
+    active = np.array([[0, 1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0]], bool)
+    at = np.array([[9.0, 0.3, 9.0, 9.0, -0.1, 9.0, 9.0], [9.0] * 7])
+    draws = np.asarray(
+        jax.vmap(
+            lambda k: parts["fill_path"](k, par, jnp.asarray(at), jnp.asarray(active))
+        )(jax.random.split(jax.random.PRNGKey(5), 20000))
+    )
+    np.testing.assert_array_equal(draws[:, 0, [1, 4]], np.tile([0.3, -0.1], (20000, 1)))
+    cov = _ar_cov(0.2, rho, 7)
+    pin, free = [1, 4], [0, 2, 3, 5, 6]
+    gain = cov[np.ix_(free, pin)] @ np.linalg.inv(cov[np.ix_(pin, pin)])
+    mean = gain @ np.array([0.3, -0.1])
+    post = cov[np.ix_(free, free)] - gain @ cov[np.ix_(pin, free)]
+    np.testing.assert_allclose(draws[:, 0, free].mean(0), mean, atol=0.006)
+    np.testing.assert_allclose(np.cov(draws[:, 0, free].T), post, atol=0.002)
+    # A path with no cell is a draw from the prior.
+    np.testing.assert_allclose(np.cov(draws[:, 1].T), cov, atol=0.003)
+
+
+def test_update_cells_keeps_the_rows_remainder_and_moves_every_part():
+    parts, st, site, step, tgt, F, cov, sums = _cells()
+    jax, jnp = b0._jax()
+    D = parts["data"]
+    a = parts["ars"][0]
+    st = st | {"ar": (jnp.zeros((a["size"], a["T"])),)}
+    bsd, lev, par, path = parts["update_cells"](
+        D, jax.random.PRNGKey(3), st, sums, jnp.asarray(F)
+    )
+    assert bsd.shape == st["bld_sd"].shape and float(jnp.abs(bsd - st["bld_sd"]).max())
+    assert float(jnp.abs(par - st["ar_par"][0]).min()) > 0
+    assert lev.shape == (len(parts["zone"]),) and path.shape == (a["size"], a["T"])
+    assert bool(jnp.isfinite(lev).all()) and bool(jnp.isfinite(path).all())
+    # Every building with rows left its prior draw, and the cells hold the drawn values.
+    active = np.asarray(parts["cell_layout"]["active"]).reshape(a["size"], a["T"])
+    assert active.sum() == len(np.unique(site * a["T"] + step))
+    assert float(np.abs(np.asarray(path)[active]).min()) > 0
