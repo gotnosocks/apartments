@@ -3,7 +3,8 @@
 What the next session needs. Updated at each milestone. Ben's brief of 2026-11-10 00:02Z: the
 aim is a superb descriptive model of NYC rents that helps find good deals; one thread owns the
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
-window and no stale jobs to be run.
+window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
+three full fits, so the ceiling is $140.
 
 ## State at 2026-11-10 14:21Z
 
@@ -55,9 +56,8 @@ window and no stale jobs to be run.
   `drift-building --level-dof 4`, a Student-t prior on building levels, on the latest
   split with `b7c`'s settings and seed. Its own gate passes (worst R-hat 1.0090), the
   leverage is gone (R squared 0.02 against 0.84), elpd 230,794 against `b7c`'s 230,668.
-  The launch command is in the note's "Round eight". Ben was asked at 12:24Z whether to
-  approve up to $40 more for the three full fits; without his yes nothing more is
-  launched.
+  The launch command is in the note's "Round eight". Ben approved the $40 for the three full fits at
+  12:38Z; round nine is above.
 - **Data.** A one-off scrape on 2026-11-10 brought the listings to 2026-11-09 (pipeline build
   `ddd2fe8f5da041b8`). On thelio: `frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market`
   (6,774 ads on the market) and `...-asof-20251110` (the backtest, 9,346 on the market that
