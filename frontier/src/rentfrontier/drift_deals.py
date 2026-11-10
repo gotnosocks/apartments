@@ -242,7 +242,7 @@ def _gate(result: dict) -> dict:
     """A run's convergence gate as its record has it."""
     diag = result.get("diagnostics") or {}
     return {
-        "passes": bool(diag.get("passes")),
+        "passes": diag.get("passes") is True,
         "max_rhat": diag.get("max_rhat"),
         "min_ess": diag.get("min_ess"),
         "chains": (result.get("sampler_settings") or {}).get("chains"),
@@ -264,7 +264,7 @@ def publish(
     The three runs must be fits of one model, the market run on a market dataset and the
     backtest run on a backtest dataset. The market run must have passed the convergence
     gate: the page ranks real ads by its draws. `meta.json` records the gate of each run,
-    so a backtest or held-out fit that missed it is shown as such and not hidden.
+    so a backtest or held-out fit that missed it is on record beside the table.
     Everything is computed before anything is written.
     `meta.json` goes last and holds the sha256 of the other two files: the site shows a
     meta or a backtest only beside the table it was published with."""

@@ -260,9 +260,13 @@ not get another.
 R-hat estimate steadier. They do not lower it: split R-hat compares half-chains, and its
 expected excess over 1 is about 1 / (2 x the effective draws in one half-chain). A quantity
 that takes 16 sweeps a draw needs half-chains of about 2,000 draws to sit near 1.004, and
-at 800 it sits at the 1.01 line however many chains there are. So size a fit by the length
-of a chain first (fewer chains a container make a sweep faster) and by the number of
-chains second.
+at 800 it sits at the 1.01 line however many chains there are (the reviewer's simulation
+of chains like these: 0.0094, 0.0092 and 0.0094 over 1 at 4, 12 and 36 chains). Put as a
+rule: the R-hat line needs well over 50 effective draws in every half-chain, so a total
+ESS well over 100 times the number of chains. With 4 chains that is the ESS gate of 400;
+with 12 it is 1,200, where the pooled fit b6 landed (1,184, R-hat 1.0106). So size a fit by
+the length of a chain first (fewer chains a container make a sweep faster) and by the
+number of chains second.
 
 ## Known limits
 
