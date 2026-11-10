@@ -116,7 +116,15 @@ def run_entry(run, with_beta=False):
         j = names.index("ad:months_free")
         v = z["trace/beta"][..., j].ravel()
         trace["beta[ad:months_free]"] = [v.mean(), *np.quantile(v, (0.05, 0.95))]
-    m = modal_record(run)
+    # A fit pooled from several containers (`rentfrontier.drift_pool`) costs their sum.
+    parts = [p["name"] for p in r.get("pooled_from", [])] or [run]
+    records = [modal_record(p) for p in parts]
+    m = {
+        k: sum(x[k] for x in records)
+        if all(x.get(k) is not None for x in records)
+        else None
+        for k in ("wall_seconds", "usd_estimate")
+    }
     return {
         "name": run,
         "model": r["model"]["name"],
@@ -124,6 +132,8 @@ def run_entry(run, with_beta=False):
         "rows_trained": r["sizes"]["train"],
         "rows_predicted": r["sizes"]["heldout"],
         "seconds_per_sweep": r["gibbs"]["seconds_per_sweep"],
+        "chains": r["sampler_settings"]["chains"],
+        "containers": len(parts),
         "wall_seconds": m.get("wall_seconds"),
         "cost_usd": m.get("usd_estimate"),
         "gate": {
