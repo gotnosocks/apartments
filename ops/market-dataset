@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# Build the drift model's market and backtest datasets from a pipeline build.
+#
+#   ops/market-dataset HASH [STEP...]
+#
+# HASH is the hash of a pipeline rows file, as in rows-HASH.parquet. The ads and records
+# files of the same build come from the pipeline catalog, and the source dataset is
+# frontier/datasets/b0-HASH-alldata-dense-nyc, which `rentfrontier.b0nyc` writes. With no
+# STEP the script runs every step in order. Each step stops before it starts when its
+# output already exists, so the script never overwrites a snapshot or a dataset.
+#
+# The kitchen sink design (`rentfrontier.drift.design` calls
+# `building_zones_kitchen_sink.design`) reads these snapshots when it builds a design from a
+# b0 dataset. A trace of every file read during the design gave the list:
+#   - the pipeline rows (`building_zones_floor_asof3.ROWS`), keyed by listing;
+#   - the building registry (`building_attrs.REGISTRY`, and `whitened_zones.REGISTRY`, which
+#     `whitened_zones` imports by name from `two_zone`), keyed by building;
+#   - the listing codes (`building_zones_kitchen_sink.CODES`), keyed by listing;
+#   - the listing amenities (`building_zones_floor_asof.AMENITIES`), keyed by listing;
+#   - the unit features and truck routes (`building_zones_unit.SNAPSHOT`), keyed by listing
+#     and by building;
+#   - the building ages (`building_zones_age.AGE_SNAPSHOT`), keyed by building;
+#   - MapPLUTO, the NJ registry, the NJ parcels and the building footprints, which hold lots
+#     and outlines and need no rebuild for new ads.
+# The as-of design rebuilds the building attributes, the gyms and the unit floors from the
+# training rows, so it reads neither `building_attrs.ATTRS`, the gym snapshot nor the floor
+# snapshot.
+#
+# Steps:
+#   codes     `rentfrontier.listing_codes` scans the records file into
+#             listing-codes/DAY-H7.
+#   amenities `building_gym.amenities` reads each listing's latest record into
+#             listing-amenities/DAY-H7. The module has no command for it, so a short
+#             Python call writes the table.
+#   units     `unit_features.main` writes unit-features/DAY-H7 from the new rows, records
+#             and registry. `dishwashers` binds the records path as a default argument when
+#             the module loads, so the call replaces that default along with ROWS.
+#   attrs     The building attributes snapshot goes to building-attrs/DAY-H7, built with the
+#             functions of `building_attrs.snapshot`. That function refuses a working tree
+#             with uncommitted changes, so the step calls its parts directly. The design
+#             does not read this snapshot, and the age step needs it for the new buildings.
+#   age       `building_age.main` writes building-age/DAY-H7 from the new attributes and
+#             registry.
+#   market    `rentfrontier.market` writes b0-HASH-alldata-dense-nyc-market, with an
+#             inputs.json that points every constant above at the new snapshots.
+#   backtest  The same command with `--as-of $ASOF` writes
+#             b0-HASH-alldata-dense-nyc-asof-ASOFDAY.
+#   verify    For each of the two datasets, a check counts statuses and open rows, sorts
+#             the open rows by whether their unit or building has training ads, measures
+#             each snapshot's coverage of the open rows, and builds `drift.design` on
+#             VERIFY_FRACTION of the buildings (the full design needs about 15 GB).
+#
+# DAY defaults to the UTC date, ASOF to 2025-11-10 and REGISTRY to the newest
+# registry/*-extend snapshot. Every Python step runs in a systemd scope capped at 6 GB with no
+# swap, and waits for 7 GB of available memory before it starts.
+set -euo pipefail
+
+hash=${1:?usage: ops/market-dataset HASH [STEP...]}
+shift
+steps=("${@:-codes amenities units attrs age market backtest verify}")
+read -r -a steps <<<"${steps[*]}"
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+py=/data1/apartments/venvs/sim-recovery/bin/python
+pipeline=/data1/apartments/pipeline/datasets
+external=/data1/apartments/external
+datasets=/data1/apartments/frontier/datasets
+day=${DAY:-$(date -u +%Y%m%d)}
+asof=${ASOF:-2025-11-10}
+fraction=${VERIFY_FRACTION:-0.1}
+h7=${hash:0:7}
+
+rows=$pipeline/rows-$hash.parquet
+read -r ads records < <(
+    "$py" -c '
+import json, sys
+for line in open(sys.argv[1]):
+    j = json.loads(line)
+    if j["rows"]["path"] == sys.argv[2]:
+        print(j["ads_file"]["path"], j["records"]["path"])
+' "$pipeline/catalog.ndjson" "rows-$hash.parquet" | tail -1
+)
+ads=$pipeline/$ads
+records=$pipeline/$records
+registry=${REGISTRY:-$(ls -d "$external"/registry/*-extend | sort | tail -1)/registry.parquet}
+src=$datasets/b0-$hash-alldata-dense-nyc
+market=$src-market
+backtest=$src-asof-${asof//-/}
+
+codes=$external/listing-codes/$day-$h7
+amenities=$external/listing-amenities/$day-$h7
+units=$external/unit-features/$day-$h7
+attrs=$external/building-attrs/$day-$h7
+age=$external/building-age/$day-$h7
+
+for f in "$rows" "$ads" "$records" "$registry" "$src/rows.parquet"; do
+    [[ -e $f ]] || { echo "missing input $f" >&2; exit 1; }
+done
+echo "rows $rows"
+echo "ads $ads"
+echo "records $records"
+echo "registry $registry"
+
+fresh() {
+    if [[ -e $1 ]]; then
+        echo "$1 exists; refusing to overwrite it" >&2
+        exit 1
+    fi
+}
+
+capped() {
+    until (($(free -g | awk '/^Mem:/ {print $7}') >= 7)); do
+        echo "waiting for 7 GB of available memory"
+        sleep 60
+    done
+    (cd "$root/frontier" && systemd-run --user --scope -q -p MemoryMax=6G -p MemorySwapMax=0 \
+        env PYTHONPATH=src JAX_PLATFORMS=cpu "$py" "$@")
+}
+
+inputs=(
+    --input "rentfrontier.building_zones_floor_asof3.ROWS=$rows"
+    --input "rentfrontier.building_zones_floor_asof2.ROWS=$rows"
+    --input "rentfrontier.unit_features.ROWS=$rows"
+    --input "rentfrontier.building_attrs.REGISTRY=$registry"
+    --input "rentfrontier.two_zone.REGISTRY=$registry"
+    --input "rentfrontier.whitened_zones.REGISTRY=$registry"
+    --input "rentfrontier.building_zones_kitchen_sink.CODES=$codes/listing-codes.parquet"
+    --input "rentfrontier.building_zones_floor_asof.AMENITIES=$amenities"
+    --input "rentfrontier.building_zones_unit.SNAPSHOT=$units"
+    --input "rentfrontier.building_zones_age.AGE_SNAPSHOT=$age"
+)
+
+for step in "${steps[@]}"; do
+    echo "== $step"
+    case $step in
+    codes)
+        fresh "$codes"
+        capped -m rentfrontier.listing_codes "$codes" "$records"
+        ;;
+    amenities)
+        fresh "$amenities"
+        capped -c '
+import sys, json, datetime as dt
+from pathlib import Path
+from rentfrontier import building_gym
+out, records = Path(sys.argv[1]), Path(sys.argv[2])
+out.mkdir(parents=True, exist_ok=False)
+t = building_gym.amenities(records)
+t.to_parquet(out / "amenities.parquet")
+(out / "provenance.json").write_text(json.dumps({"built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"), "builder": "rentfrontier.building_gym.amenities", "records": str(records), "listings": len(t)}, indent=1))
+print(len(t), "listings")
+' "$amenities" "$records"
+        ;;
+    units)
+        fresh "$units"
+        capped -c '
+import sys, json, datetime as dt
+from pathlib import Path
+from rentfrontier import frontage, unit_features as u
+out, rows, records, registry = (Path(a) for a in sys.argv[1:5])
+out.mkdir(parents=True, exist_ok=False)
+u.ROWS = rows
+u.dishwashers.__defaults__ = (records,)
+frontage.REGISTRY = registry
+u.main([str(out)])
+(out / "provenance.json").write_text(json.dumps({"built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"), "builder": "rentfrontier.unit_features.main", "rows": str(rows), "records": str(records), "registry": str(registry), "footprints": str(frontage.FOOTPRINTS), "pluto": str(frontage.PLUTO), "truck_routes": str(u.TRUCK_ROUTES)}, indent=1))
+' "$units" "$rows" "$records" "$registry"
+        ;;
+    attrs)
+        fresh "$attrs"
+        capped -c '
+import sys, json, hashlib, subprocess, datetime as dt
+from pathlib import Path
+import pandas as pd
+from rentfrontier import building_attrs as ba
+out, rows_path, registry = (Path(a) for a in sys.argv[1:4])
+out.mkdir(parents=True, exist_ok=False)
+rows = pd.read_parquet(rows_path, columns=["building", "elevator", "doorman_type", "building_floor_count"])
+reg = pd.read_parquet(registry, columns=["building", "bbl"])
+reg_nj = pd.read_parquet(ba.REGISTRY_NJ, columns=["building", "lot"])
+pluto = pd.read_parquet(ba.PLUTO)
+parcels = pd.read_parquet(ba.NJ_PARCELS, columns=["lot", "qualifier", "year_built"])
+lots = pd.concat([ba.nyc_lots(reg, pluto), ba.nj_lots(reg_nj, parcels)])
+lots = lots[~lots.index.duplicated()]
+table = ba.attributes(ba.ad_attributes(rows), lots)
+table.to_parquet(out / "attrs.parquet", index=False)
+sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True).stdout.split("\n")
+(out / "provenance.json").write_text(json.dumps({
+    "commit": commit, "dirty": [d for d in dirty if d],
+    "built_at": dt.datetime.now(dt.UTC).isoformat(),
+    "builder": "the parts of rentfrontier.building_attrs.snapshot",
+    "inputs": {str(p): sha(p) for p in (rows_path, registry, ba.REGISTRY_NJ, ba.PLUTO, ba.NJ_PARCELS)},
+    "buildings": len(table),
+    "levels": {c: table[c].value_counts().to_dict() for c in ("elevator", "doorman", "tenure")},
+    "floors_known": int(table.floors.notna().sum()),
+    "year_built_known": int(table.year_built.notna().sum()),
+    "sha256": sha(out / "attrs.parquet"),
+}, indent=2))
+print(len(table), "buildings")
+' "$attrs" "$rows" "$registry"
+        ;;
+    age)
+        fresh "$age"
+        capped -c '
+import sys, json, datetime as dt
+from pathlib import Path
+from rentfrontier import building_age, building_attrs as ba
+out, attrs, registry = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+out.mkdir(parents=True, exist_ok=False)
+ba.ATTRS, ba.REGISTRY = attrs, registry
+building_age.main([str(out)])
+(out / "provenance.json").write_text(json.dumps({"built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"), "builder": "rentfrontier.building_age.main", "attrs": str(attrs), "registry": str(registry), "pluto": str(ba.PLUTO)}, indent=1))
+' "$age" "$attrs/attrs.parquet" "$registry"
+        ;;
+    market)
+        fresh "$market"
+        capped -m rentfrontier.market "$src" "$market" --ads "$ads" "${inputs[@]}"
+        ;;
+    backtest)
+        fresh "$backtest"
+        capped -m rentfrontier.market "$src" "$backtest" --ads "$ads" --as-of "$asof" "${inputs[@]}"
+        ;;
+    verify)
+        for d in "$market" "$backtest"; do
+            capped -c '
+import sys, json
+from pathlib import Path
+import numpy as np, pandas as pd
+from rentfrontier import b0, drift, market, splits, building_zones_floor_asof as asof
+from rentfrontier import building_zones_kitchen_sink as ks, building_zones_unit as bu
+from rentfrontier import building_zones_age as ba_, building_attrs as battrs
+ds, fraction = sys.argv[1], float(sys.argv[2])
+inputs = market.apply_inputs(ds)
+frame = b0.load_frame(ds)
+asof.SPLIT = "market"
+held = splits.SPLITS["market"](frame)
+m = json.loads((Path(ds) / "manifest.json").read_text())["market"]
+print(ds)
+print("rows", len(frame), "open", int(held.sum()), "set aside", m["set_aside"], "scoring day", m["scoring_day"])
+print("status", frame.status.fillna("missing").value_counts().to_dict())
+print("open by status", frame.status[held].fillna("missing").value_counts().to_dict())
+miss = frame[frame.status.isna()]
+if len(miss):
+    print("missing status: latest_day range", miss.latest_day.min(), miss.latest_day.max(),
+          "with latest_day in the last 30 days", int((pd.to_datetime(miss.latest_day) >= pd.to_datetime(frame.latest_day).max() - pd.Timedelta(days=30)).sum()))
+train = ~held
+unit, _ = drift.unit_index(frame, held)
+b = frame.building.astype(str)
+tb = set(b[train])
+o = frame[held]
+cls = np.where(unit[held] >= 0, "unit", np.where(b[held].isin(tb), "building only", "neither"))
+print("open rows by training ads", pd.Series(cls).value_counts().to_dict())
+lid = o.listing_id.astype(str)
+cov = {
+    "listing codes": pd.read_parquet(ks.CODES, columns=["listing_id"]).listing_id.astype(str),
+    "listing amenities": pd.read_parquet(asof.AMENITIES / "amenities.parquet", columns=["listing_id"]).listing_id.astype(str),
+    "unit features": pd.read_parquet(bu.SNAPSHOT / "unit_features.parquet", columns=["listing_id"]).listing_id.astype(str),
+    "pipeline rows": pd.read_parquet(ks.building_zones_floor_asof3.ROWS, columns=["listing_id"]).listing_id.astype(str),
+}
+for k, v in cov.items():
+    print(f"open listings in {k}: {lid.isin(set(v)).mean():.4%}")
+bcov = {
+    "registry": pd.read_parquet(battrs.REGISTRY, columns=["building"]).building.astype(str),
+    "truck routes": pd.read_parquet(bu.SNAPSHOT / "truck.parquet", columns=["building"]).building.astype(str),
+    "building age": pd.read_parquet(ba_.AGE_SNAPSHOT / "age.parquet", columns=["building"]).building.astype(str),
+}
+ob = o.building.astype(str)
+for k, v in bcov.items():
+    print(f"open rows whose building is in {k}: {ob.isin(set(v)).mean():.4%}")
+bs = np.sort(b.unique())
+pick = set(np.random.default_rng(20261110).choice(bs, size=max(1, round(fraction * len(bs))), replace=False))
+on = b.isin(pick).to_numpy()
+sub = frame[on].reset_index(drop=True)
+sub.attrs = frame.attrs
+d = drift.design(sub, held=held[on])
+print(f"design on {fraction:.0%} of buildings: {len(sub)} rows, {int(held[on].sum())} open, x {d.x.shape}, units {d.units}, open rows with a training unit {int((d.unit[held[on]] >= 0).sum())}")
+print("non-finite design values", int((~np.isfinite(d.x)).sum()), "non-finite y on training rows", int((~np.isfinite(d.y[~held[on]])).sum()))
+' "$d" "$fraction"
+        done
+        ;;
+    *)
+        echo "unknown step $step" >&2
+        exit 1
+        ;;
+    esac
+done
