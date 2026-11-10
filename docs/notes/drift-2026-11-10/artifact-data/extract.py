@@ -243,8 +243,8 @@ def backtest(run):
     full = drift_deals.validate(c.RUNS / run, drift_deals.Path(market["ads"]))
     frame, h, held = drift_deals._held_frame(c.RUNS / run)
     a = drift_deals._ads(drift_deals.Path(market["ads"]), h.listing_id)
-    first = a.first_ask.to_numpy(float)
     final = h.latest_ask.to_numpy(float)
+    first = drift_deals.first_net(a.first_ask, final, a.page_price, a.months_free)
     ok = np.isfinite(first) & (first > 0)
     res = drift_score.score_run(c.RUNS / run, at=np.log(np.where(ok, first, final)))
     place = res["cdf_at"]

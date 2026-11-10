@@ -27,6 +27,12 @@ each ad's first ask in the predictive distribution, a distribution fitted withou
 and reports by tenth of that position how long the ads stayed on the market and how their
 asks changed before they closed. If ads placed low are taken quickly and seldom cut, the
 market agrees that they were cheap.
+
+The model's asks are net of free months and an ad's price history is gross, so `validate`
+first puts the first ask of an ad with free months on the net basis, by the ratio of the
+ad's final net ask to the rent its page shows (`first_net`). Until 2026-11-10 it compared
+the gross first ask with the net final ask, which counted every such ad as cut and placed
+it too high: the top tenth's share cut read 79% where it is 60%.
 """
 
 from __future__ import annotations
@@ -229,14 +235,29 @@ def deals(
     return out
 
 
+def first_net(first, final, page, months_free) -> np.ndarray:
+    """An ad's first ask on the basis of its final ask. `final` is net of free months and
+    `first` and `page`, the rent the ad's page shows, are gross, so an ad with free months
+    has its first ask scaled by `final / page`. That reads the concession as there from the
+    first day: one added later was a cut in effect, and is not counted as one."""
+    first, final, page = (np.asarray(v, float) for v in (first, final, page))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = final / page
+    scaled = (np.nan_to_num(np.asarray(months_free, float)) > 0) & (ratio > 0)
+    return np.where(scaled & (ratio < 1), first * ratio, first)
+
+
 def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
     """By tenth of the first ask's place in the predictive distribution: the ads, their
     median days on the market, the shares whose ask was cut or raised before closing, and the
-    median change from first to final ask. Also the final asks' scores (`drift_score.summary`)."""
+    median change from first to final ask. The first ask is `first_net`. Also the final asks'
+    scores (`drift_score.summary`), and under `without_free_months` the same table over the
+    ads with no free months, whose asks need no change of basis."""
     frame, h, held = _held_frame(run_dir)
     a = _ads(ads, h.listing_id)
-    first = a.first_ask.to_numpy(float)
     final = h.latest_ask.to_numpy(float)
+    free = np.nan_to_num(a.months_free.to_numpy(float)) > 0
+    first = first_net(a.first_ask, final, a.page_price, free)
     ok = np.isfinite(first) & (first > 0)
     res = drift_score.score_run(run_dir, at=np.log(np.where(ok, first, final)))
     place = res["cdf_at"]
@@ -247,29 +268,39 @@ def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
     ok &= np.isfinite(days) & (days >= 0)
     change = final / np.where(ok, first, 1.0) - 1
     edges = np.linspace(0, 1, bins + 1)
-    rows = []
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        m = ok & (place >= lo) & ((place < hi) | (hi == 1))
-        if not m.any():
-            continue
-        rows.append(
-            {
-                "place": f"{lo:.1f} to {hi:.1f}",
-                "ads": int(m.sum()),
-                "median_days_on_market": float(np.median(days[m])),
-                "mean_days_on_market": float(days[m].mean()),
-                "share_within_14_days": float((days[m] <= 14).mean()),
-                "share_cut": float((change[m] < -0.001).mean()),
-                "share_raised": float((change[m] > 0.001).mean()),
-                "median_change_pct": float(100 * np.median(change[m])),
-                "mean_change_pct": float(100 * change[m].mean()),
-            }
-        )
+
+    def table(keep):
+        rows = []
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            m = keep & (place >= lo) & ((place < hi) | (hi == 1))
+            if not m.any():
+                continue
+            rows.append(
+                {
+                    "place": f"{lo:.1f} to {hi:.1f}",
+                    "ads": int(m.sum()),
+                    "median_days_on_market": float(np.median(days[m])),
+                    "mean_days_on_market": float(days[m].mean()),
+                    "share_within_14_days": float((days[m] <= 14).mean()),
+                    "share_cut": float((change[m] < -0.001).mean()),
+                    "share_raised": float((change[m] > 0.001).mean()),
+                    "median_change_pct": float(100 * np.median(change[m])),
+                    "mean_change_pct": float(100 * change[m].mean()),
+                }
+            )
+        return rows
+
     return {
         "run": run_dir.name,
         "ads_with_first_ask": int(ok.sum()),
+        "first_ask_basis": "net of the ad's free months, as the model's asks are",
+        "ads_with_free_months": int((ok & free).sum()),
         "final_ask_scores": drift_score.summary(res),
-        "by_first_ask_place": rows,
+        "by_first_ask_place": table(ok),
+        "without_free_months": {
+            "ads": int((ok & ~free).sum()),
+            "by_first_ask_place": table(ok & ~free),
+        },
     }
 
 

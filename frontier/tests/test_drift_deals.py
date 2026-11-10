@@ -68,7 +68,8 @@ def _run(tmp_path, backtest=False, model="drift-building", change=None):
                 date(2026, 10, 1),
                 date(2026, 10, 20),
             ],
-            "first_ask": [2700.0, 3000, 3600, 3000],
+            # Listing 3's history is gross: 3250 with a month free is its net 3000.
+            "first_ask": [2700.0, 3250, 3600, 3000],
             "status": ["ACTIVE"] * 4,
             "off_day": [
                 date(2026, 11, 5),
@@ -149,6 +150,27 @@ def test_validate_tabulates_outcomes_by_the_first_asks_place(tmp_path):
     assert low["median_days_on_market"] < high["median_days_on_market"]
     assert high["share_cut"] > 0 and low["share_cut"] == 0
     assert out["final_ask_scores"]["rows"] == 4
+    # Listing 3 asked 3250 gross with a month free from first to last, 3000 net: no cut.
+    # Only listing 4 (3600 to 3300) was cut.
+    (every,) = drift_deals.validate(run, ads, bins=1)["by_first_ask_place"]
+    assert every["ads"] == 4 and every["share_cut"] == 0.25
+    assert every["share_raised"] == 0
+    assert out["ads_with_free_months"] == 1
+    assert out["without_free_months"]["ads"] == 3
+    assert sum(b["ads"] for b in out["without_free_months"]["by_first_ask_place"]) == 3
+
+
+def test_first_net_scales_a_gross_first_ask_only_where_months_are_free():
+    out = drift_deals.first_net(
+        first=[3250.0, 3500, 3000, 3000, 3000, np.nan],
+        final=[3000.0, 3000, 3000, 3000, 3300, 3000],
+        page=[3250.0, 3250, 3250, np.nan, 3000, 3250],
+        months_free=[1, 1, 0, 1, 1, 1],
+    )
+    # A gross ask that never moved; one cut from 3500 to 3250 gross; an ad with no free
+    # months, one with no page price and one whose page shows less than its ask keep theirs.
+    assert out[0] == 3000 and round(out[1], 2) == round(3500 * 3000 / 3250, 2)
+    assert out[2:5].tolist() == [3000, 3000, 3000] and np.isnan(out[5])
 
 
 def test_title_address_and_unit_label():

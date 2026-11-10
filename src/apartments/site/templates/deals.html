@@ -86,7 +86,8 @@ a caution and are left out of the list unless you include them.</p>
 <h2 id="backtest">Does a low ask mean anything? A check on last year's ads</h2>
 <p class="lede">The same model, fitted only on what was known{% if validation.as_of %} on {{ day(validation.as_of) }}{% endif %}, scored the
 {{ "{:,}".format(validation.ads_with_first_ask) }} ads on the market that day by where their first ask sat in its range. This is
-what then happened to them. Days listed run from an ad's first day to the day it left the market, or was last seen.</p>
+what then happened to them. Days listed run from an ad's first day to the day it left the market, or was last seen. An ad with
+free months is compared net of them from first ask to last, as the model's asks are.</p>
 <div class="table-wrap">
 <table class="data">
   <caption class="visually-hidden">What happened to last year's ads, by where the first ask sat in the model's range</caption>
