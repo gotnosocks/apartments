@@ -1,11 +1,13 @@
 """Turn the extract of the scored runs into the explainer page's data file.
 
 python docs/notes/drift-2026-11-10/artifact/pagedata.py EXTRACT.json PAGE.json \
-    [--more FITS.json] [--market-day 2026-11-09]
+    [--more FITS.json] [--market-day 2026-11-09] [--level-dof 4]
 
 EXTRACT.json is what `../artifact-data/extract.py` writes on thelio. `--more` names a JSON
 list of further rows for the page's table of fits (earlier rounds that missed the gate), in
-the page's own shape. The page itself is `page.html`, and `build.py` puts PAGE.json into it.
+the page's own shape. `--level-dof` is the winner's `Settings.level_dof`: with it the
+building levels' scale is a Student-t's, and the page states its standard deviation. The
+page itself is `page.html`, and `build.py` puts PAGE.json into it.
 
 The two residual checks at the top of the page come from the note of 2026-11-10 and are
 written out here, since no fit reproduces them.
@@ -97,6 +99,7 @@ def main() -> None:
     p.add_argument("out")
     p.add_argument("--more")
     p.add_argument("--market-day", default="2026-11-09")
+    p.add_argument("--level-dof", type=float)
     a = p.parse_args()
     X = json.loads(Path(a.extract).read_text())
     runs = {r["fit"]: r for r in X["runs"]}
@@ -224,6 +227,10 @@ def main() -> None:
     ks, fit4 = by["ks"]["elpd"], by["fit4"]["elpd"]
     sigma = [tr[k][0] for k in sorted(tr) if k.startswith("sigma[")]
     bld = [tr[k][0] for k in sorted(tr) if k.startswith("bld_sd[")]
+    # A Student-t's standard deviation is its scale times sqrt(dof / (dof - 2)).
+    dof = a.level_dof
+    assert dof is None or dof > 2, "the levels' variance is infinite at 2 dof or under"
+    level_sd = 1.0 if dof is None else math.sqrt(dof / (dof - 2))
     D = {
         "winner": win,
         "meta": {
@@ -248,7 +255,7 @@ def main() -> None:
             "hi80": hero["model_hi80"],
         },
         "hyp": {
-            "building_sd": sum(bld) / len(bld),
+            "building_sd": sum(bld) / len(bld) * level_sd,
             "unit_sd": mean("unit_sd"),
             "drift_sd": mean("drift_sd"),
             "drift_tau": mean("drift_tau"),

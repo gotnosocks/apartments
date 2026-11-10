@@ -13,9 +13,26 @@ by `artifact/pagedata.py` and `artifact/build.py` in the same folder.
 
 ## Results
 
-`drift` is the served model. Its three full fits of 2026-11-10 (round six of that day's
-note) all pass the convergence gate, the first fits in the project with a unit term to do
-so on the full data.
+`drift-building` with `--level-dof 4` is the served model since 2026-11-10 14:19Z: `drift`
+plus a path per building, with a Student-t prior on the building levels. Its three full
+fits (round nine of that day's note) all pass the convergence gate. Each is a pool of
+three containers of two chains (`drift_pool`).
+
+| Fit | Data | Chains x draws | Worst split R-hat | Least bulk ESS | Cost |
+|---|---|---|---|---|---|
+| b9 | latest split: 1,706,824 ads fitted, 189,647 held out | 6 x 3,440 | 1.0052 (nu) | 1,344 | $10.98 |
+| n9 | market of 2026-11-09: 1,893,502 fitted, 6,774 open ads predicted | 6 x 2,880 | 1.0064 (a bedroom step) | 1,426 | $11.13 |
+| j9 | backtest as of 2025-11-10: 1,754,606 fitted, 9,346 open ads predicted | 6 x 3,280 | 1.0050 (sigma[2]) | 1,296 | $10.91 |
+
+Runs `drift-building-b0-latest-67d14e17-b9`, `drift-building-b0-market-67d14e17-n9` and
+`drift-building-b0-market-67d14e17-j9`. **Refit this model with `--level-dof 4`.** The
+flag is off by default, which leaves the normal prior, and under the normal prior every
+pooled fit of this model missed the gate (below).
+
+`drift`, the same model without the building's path, was served from 09:42Z until then.
+Its Deals folder is kept at `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`.
+Its three full fits (round six) all pass the gate, the first fits in the project with a
+unit term to do so on the full data.
 
 | Fit | Data | Chains x draws | Worst split R-hat | Least bulk ESS | Cost |
 |---|---|---|---|---|---|
@@ -31,29 +48,37 @@ On the 189,647 held-out ads (the newest ad of every apartment with at least two)
 | Kitchen sink | 156,105 | 0.0636 | 0.1112 | 0.495 / 0.801 / 0.904 / 0.955 | passed |
 | Fit 4 | 177,137 | 0.0560 | 0.1018 | 0.496 / 0.789 / 0.893 / 0.949 | missed |
 | `drift` (f6) | 195,320 | 0.0506 | 0.0949 | 0.513 / 0.799 / 0.896 / 0.949 | passed |
-| `drift-building` (b6, pooled) | 230,885 | 0.0406 | 0.0825 | 0.525 / 0.808 / 0.901 / 0.952 | missed on one scale |
+| `drift-building`, normal levels (b6, pooled) | 230,885 | 0.0406 | 0.0825 | 0.525 / 0.808 / 0.901 / 0.952 | missed on one scale |
+| `drift-building`, Student-t levels (b9, pooled) | 230,989 | 0.0406 | 0.0823 | 0.525 / 0.807 / 0.901 / 0.952 | passed |
 
 Posterior means in f6: the unit's lasting level `ss` 0.0483, its drift `sd` 0.0786 with a
-time scale `tau` of 5.56 years.
+time scale `tau` of 5.56 years. In b9 the building levels' scale is 0.0679 in the outer
+boroughs and 0.1118 in Manhattan (a Student-t's scale with 4 degrees of freedom, so
+standard deviations of 0.096 and 0.158), and the noise's `nu` is 1.69.
 
-The backtest (k6): the 9,346 ads open on 2025-11-10, each scored at its first ask.
+The backtest: the 9,346 ads open on 2025-11-10, each scored at its first ask, under the
+served model (j9) and under `drift` (k6).
 
-| Place of the first ask in the model's range | Ads | Median days on market | Share later cut |
-|---|---|---|---|
-| lowest tenth | 630 | 28 | 18% |
-| second | 627 | 35 | 26% |
-| fifth | 905 | 49 | 39% |
-| ninth | 1,067 | 58 | 53% |
-| highest tenth | 1,566 | 61 | 60% |
+| Place of the first ask in the model's range | j9: ads | Median days on market | Share later cut | k6: ads | Days | Cut |
+|---|---|---|---|---|---|---|
+| lowest tenth | 601 | 26 | 18% | 630 | 28 | 18% |
+| second | 572 | 32 | 24% | 627 | 35 | 26% |
+| fifth | 794 | 43 | 34% | 905 | 49 | 39% |
+| ninth | 1,189 | 61 | 55% | 1,067 | 58 | 53% |
+| highest tenth | 1,721 | 71 | 61% | 1,566 | 61 | 60% |
+
+On those ads' final asks j9 scores an elpd of 9,979 against k6's 8,573, with a median
+absolute error of 0.0474 against 0.0557 and 80% coverage of 0.792 against 0.795.
 
 The first ask of an ad with free months is put net of them, the basis of the model's asks
 (`drift_deals.first_net`). The table published before 2026-11-10 10:05Z did not do this
 and read 79% cut in the highest tenth; the note has the correction. Over the 7,092 ads
-with no free months, which need no change of basis, the stay runs from 27 to 60 days and
-the share cut from 15% to 63%.
+with no free months, which need no change of basis, k6's stay runs from 27 to 60 days and
+its share cut from 15% to 63%.
 
-`drift-building` adds a path per building and is worth another 35,565 elpd on the same
-ads. It is not served: every one of its pooled fits misses the gate.
+`drift-building` adds a path per building and is worth another 35,669 elpd on the same
+ads. Under the normal prior on building levels every one of its pooled fits missed the
+gate:
 
 | Fit | Chains by draws | Worst R-hat | Least ESS | elpd |
 |---|---|---|---|---|
@@ -109,9 +134,17 @@ with the settings and seed of `b7c`, the part of b7 that failed alone:
 
 (A container of two chains scores about 190 under a pool of six, which is why both sit
 under b7's 230,861.) One container is not a fit to publish from: `n7a` and `n7b` each
-passed alone while their pool failed. The next step is the three full fits with
-`--level-dof 4`, pooled from three containers each. The note has the evidence and the
-scored predictions of rounds seven and eight.
+passed alone while their pool failed. Round nine ran the three full fits with
+`--level-dof 4`, pooled from three containers each, with predictions written first:
+
+| Pool | bld_sd[outer] R-hat, t prior | Same pool under the normal prior |
+|---|---|---|
+| latest split | 1.0048 (b9) | 1.0130 (b7) |
+| market | 1.0015 (n9) | 1.0202 (n7) |
+| backtest | 1.0050 (j9) | 1.0447 (j6) |
+
+All three pass the gate (the table at the top), and b9 scores 128 elpd over b7. The note
+has the evidence and the scored predictions of rounds seven, eight and nine.
 
 ## The model
 
@@ -133,7 +166,7 @@ mean_i = x_i beta                 columns
 |---|---|---|
 | `x beta` | Bedroom and bath steps, floor curves with Gaussian process priors, unit features, building amenities, lot attributes, ad fields, and the unit means of the unit columns | about 250 coefficients |
 | `L(t)` | A weekly random walk plus season | one level a week since 2015 |
-| `eta_s` | `Normal(F(s), b_zone)`, with `F` a smooth surface at 1 km resolution in each zone (Manhattan, the outer boroughs) | 68,000 buildings |
+| `eta_s` | `StudentT(4, F(s), b_zone)` in the served fits (`--level-dof 4`; `Normal(F(s), b_zone)` without the flag), with `F` a smooth surface at 1 km resolution in each zone (Manhattan, the outer boroughs) | 68,000 buildings |
 | `u_i = s_k + d_k(t_i)` | `s_k ~ Normal(0, ss^2)`, the unit's lasting level. `d_k` is an Ornstein-Uhlenbeck process: `Var d_k(t) = sd^2`, `Corr(d_k(t), d_k(t')) = exp(-abs(t - t') / tau)`, with `t` in years | 935,000 units |
 | `a_g(m)` | A stationary AR(1) per group: `a_g(m) = rho a_g(m-1) + Normal(0, s^2 (1 - rho^2))`. One step a quarter. `s ~ HalfNormal(0.1)`, `rho ~ Uniform(0, 1)` | one path per building, one per neighbourhood |
 | Noise | Student-t, with `sigma` per bedroom group and one `nu` | |
