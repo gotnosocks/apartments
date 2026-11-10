@@ -101,6 +101,9 @@ what then happened to them. Days listed run from an ad's first day to the day it
   </tbody>
 </table>
 </div>
+{% if info.gate and info.gate.backtest and info.gate.backtest.passes is sameas false %}
+<p class="note">The fit behind this check missed the project's convergence test, so its numbers are less settled than the list above.</p>
+{% endif %}
 {% endif %}
 
 <p class="note">{% if info.model %}Model: {{ info.model }}{% if info.run %} (run {{ info.run }}){% endif %}.{% endif %}

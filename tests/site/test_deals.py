@@ -259,3 +259,18 @@ def test_a_meta_or_backtest_from_another_publish_is_not_shown(client, site_root)
     data = deals.load(site_root)
     assert data["meta"]["run"] == "run-x"
     assert data["validation"]["by_first_ask_place"] == []
+
+
+def test_page_says_when_the_backtest_fit_missed_the_gate(client, site_root):
+    missed = "missed the project's convergence test"
+    publish(site_root)
+    assert missed in client.get("/deals").get_data(as_text=True)
+    passed = META | {"gate": META["gate"] | {"backtest": META["gate"]["market"]}}
+    for meta in (passed, {k: v for k, v in META.items() if k != "gate"}):
+        publish(site_root, meta=meta)
+        html = client.get("/deals").get_data(as_text=True)
+        assert "Does a low ask mean anything" in html and missed not in html
+    # A gate that is not what publish writes says nothing.
+    for gate in ("x", [1], {"backtest": "no"}, {"backtest": {"passes": 0}}):
+        publish(site_root, meta=META | {"gate": gate})
+        assert missed not in client.get("/deals").get_data(as_text=True)
