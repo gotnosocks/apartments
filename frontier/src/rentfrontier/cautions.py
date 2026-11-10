@@ -44,7 +44,7 @@ and "lease reassignment" (4 of 5; the other is a leasing office's stray header) 
 lease's own end date), and "short-term" (6 of 42 read; "no short term rentals"). For the
 bedroom count, 573 ads name in their text only counts that differ from the record's, and
 of 80 read 10 described the apartment itself: the rest gave the building's mix of units
-("studio, one, and two-bedroom layouts") or a yoga studio. One in eight is no caution.
+("studio, one, and two-bedroom layouts") or a "cardio studio". One in eight is no caution.
 
 The dataset's own `income_restricted` flag uses an older list
 (`features.DESCRIPTION_FLAGS`): it was right for 22 of the 30 market ads it flagged, the
@@ -76,11 +76,14 @@ TEXT = {
     "not_home": r"professional suite|your practice|(?<!not for )(?<!no )commercial use",
     "owners_only": r"only to (?:current )?(?:owners|shareholders)",
     "takeover": (
-        # "No lease assignments", "tenant may not assign the lease": a building's rule.
-        r"(?<!no )(?<!not )(?:lease take ?over"
-        r"|take ?over (?:of )?(?:my|the|our|a|an|this|existing|current) (?:\w+ )?lease"
-        r"|lease (?:re)?assignment"
-        r"|(?:re)?assign(?:ment of|ing)? (?:my |the |our )?lease)"
+        # "No lease assignments", "may not reassign the lease": a building's rule. The
+        # guard reads only the word right before the phrase, so "lease assignments are
+        # not permitted" and "lease assignment fee: $500" still match.
+        r"(?<!\bno )(?<!\bnot )\b(?:lease[- ]take[- ]?over"
+        r"|tak(?:e|ing)[- ]?over (?:of )?"
+        r"(?:(?:my|the|our|a|an|this|existing|current) )?(?:\w+ )?lease"
+        r"|lease[- ](?:re-?)?assignment"
+        r"|(?:re-?)?assign(?:ment of|ing)? (?:my |the |our )?lease)"
     ),
 }
 # Every code, in the order a row lists them.

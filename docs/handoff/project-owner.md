@@ -94,11 +94,11 @@ three full fits, so the ceiling is $140.
 
 ## Next, in order
 
-1. Cautions, round two (in progress at this writing): patterns for lease takeovers and
-   for a bedroom count in the text that differs from the record, fixed by reading their
-   matches on the market's ads (readers' files under `artifact-data/jobb/` on thelio).
-   Then `cautions.py` with tests, a model reviewer, the fifth PR, a republish from n9
-   with the same command as the note's "Live (14:19Z)" and a deploy.
+1. Cautions, round two: the `takeover` caution is written and tested, and a pattern for a
+   bedroom count in the text that differs from the record was read and dropped (the
+   note's "Cautions, round two"; readers' files under `artifact-data/jobb/` and `jobc/`
+   on thelio). What remains: the fifth PR's review and merge, then a republish from n9
+   with the same command as the note's "Live (14:19Z)" from merged code, and a deploy.
 2. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
 3. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
 
