@@ -16,8 +16,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from rentfrontier import corrections as c
 from rentfrontier import adfit, autoselect, data, descriptions, features
+from rentfrontier import corrections as c
 
 
 def main(dataset, out, *evidence):

@@ -1,9 +1,9 @@
 """Publish a reversible residual-driven scope revision with unchanged kept rows."""
 
 import argparse
-from copy import deepcopy
 import hashlib
 import json
+from copy import deepcopy
 from pathlib import Path
 
 from apartments import residual_scope_projection as contract

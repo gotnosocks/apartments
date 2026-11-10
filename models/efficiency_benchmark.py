@@ -13,7 +13,6 @@ import json
 import time
 from pathlib import Path
 
-import numpy as np
 from threadpoolctl import threadpool_limits
 
 from . import bayesian_feature_experiment_v3 as v3

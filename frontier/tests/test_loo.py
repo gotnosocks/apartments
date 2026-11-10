@@ -3,8 +3,9 @@ import math
 
 import numpy as np
 import pytest
-from rentfrontier import loo
 from scipy import integrate, stats
+
+from rentfrontier import loo
 
 jax = pytest.importorskip("jax")
 jax.config.update("jax_enable_x64", True)

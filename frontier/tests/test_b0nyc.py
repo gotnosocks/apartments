@@ -2,9 +2,9 @@ import json
 
 import pandas as pd
 import pytest
+from test_b0 import frame_of
 
 from rentfrontier import b0nyc
-from test_b0 import frame_of
 
 
 def test_nyc_only_sets_the_registry_buildings_aside(tmp_path):

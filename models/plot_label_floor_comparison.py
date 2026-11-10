@@ -1,8 +1,8 @@
 """Verified joint-posterior floor curves and source coverage; never fit or select."""
 
 import argparse
-from io import BytesIO
 import json
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +11,12 @@ from threadpoolctl import threadpool_limits
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest
-from . import floor_label_fit_comparison as label_comparison
-from . import floor_elevator_fit_comparison as elevator_comparison
+
 from . import bayesian_category_contrasts as categories
 from . import bayesian_floor_elevator_design as interaction
 from . import bayesian_floor_increment_design as floor
+from . import floor_elevator_fit_comparison as elevator_comparison
+from . import floor_label_fit_comparison as label_comparison
 from . import publish_floor_increment_audit as publisher
 
 shared = label_comparison.shared

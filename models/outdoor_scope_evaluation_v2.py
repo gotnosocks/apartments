@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 
 from apartments import outdoor_scope_v2 as outdoor_scope

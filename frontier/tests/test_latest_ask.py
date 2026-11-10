@@ -1,8 +1,8 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from rentfrontier import latest_ask
 
@@ -211,6 +211,7 @@ def test_a_sale_with_a_rentals_id_is_skipped(monkeypatch, tmp_path):
     can carry a rental's id. Both builders keep the rental's own record."""
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     from rentfrontier import listing_extras
 
     folder = tmp_path / "listing_observations"

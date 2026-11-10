@@ -22,7 +22,7 @@ from threadpoolctl import threadpool_limits
 from . import bayesian_feature_experiment_v3 as v3
 from . import bayesian_floor_spline_design as floor
 from . import bayesian_structure_graph_v5 as graph
-from .bedroom_time_screen import split, map_posterior, summarize
+from .bedroom_time_screen import map_posterior, split, summarize
 
 UNSEEN_UNIT_DRAWS = 200
 

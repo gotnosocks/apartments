@@ -1,9 +1,9 @@
 """Render a self-contained, interactive report for the local minimal model."""
 
-from pathlib import Path
 import argparse
 import html
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd

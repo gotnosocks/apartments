@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+
 from rentfrontier import rentmap
 
 
@@ -125,6 +126,7 @@ def test_clip_ring_and_thin():
 
 def test_designs_with_building_slopes_are_mapped():
     import numpy as np
+
     from rentfrontier import model
 
     assert rentmap.unsupported_terms(model.MODELS["m7-nocurves-2slopes"]) == []

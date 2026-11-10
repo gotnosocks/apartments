@@ -2,10 +2,10 @@ import json
 
 import numpy as np
 import pytest
-
-from rentfrontier import b0, level_walk, total_walk
 from test_b0 import frame_of
 from test_centered_walk import a_point
+
+from rentfrontier import b0, level_walk, total_walk
 
 pytest.importorskip("numpyro")
 

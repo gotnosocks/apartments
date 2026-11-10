@@ -6,12 +6,12 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
-from . import interior_model, minimal_rent_model as baseline
+
+from . import interior_model
 
 
 def run(experiment, dataset, parent_residuals, output):

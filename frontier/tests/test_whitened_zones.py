@@ -3,11 +3,11 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-
-from rentfrontier import two_zone, two_zone_1k, whitened_zones
 from test_b0 import frame_of
 from test_b0_4 import registry_of
 from test_normal_walk import _points
+
+from rentfrontier import two_zone, two_zone_1k, whitened_zones
 
 pytest.importorskip("numpyro")
 

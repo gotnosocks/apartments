@@ -2,6 +2,7 @@ import datetime as dt
 import json
 
 import numpy as np
+
 from rentfrontier import dashboard
 
 

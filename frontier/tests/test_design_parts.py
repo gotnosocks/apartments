@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+
 from rentfrontier import data, design, design_parts, rentmap, summary
 
 

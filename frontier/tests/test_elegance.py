@@ -1,6 +1,7 @@
 import json
 
 import pytest
+
 from rentfrontier import elegance
 
 

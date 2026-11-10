@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import time
+from datetime import UTC
+from pathlib import Path
 
 import modal
 
@@ -84,7 +85,8 @@ def run_fit(snapshot, run_id, settings, backend):
     import shutil
     import sys
     import tempfile
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     import pandas as pd
 
     sys.path.insert(0, "/root")
@@ -137,7 +139,7 @@ def run_fit(snapshot, run_id, settings, backend):
         result = json.loads((output / "metadata.json").read_text())
         elapsed = time.monotonic() - started
         result["execution"] = {
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "snapshot": snapshot,
             "run_id": run_id,
             "input_sha256": input_digest,
@@ -231,11 +233,11 @@ def main(
     chains: int = 4,
 ):
     """Submit a prepared Volume snapshot; optionally stream outputs to a new directory."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     validate_settings(draws, tune, chains)
     safe_id(snapshot)
-    run_id = safe_id(run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
+    run_id = safe_id(run_id or datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ"))
     destination = Path(output) if output else None
     if destination and destination.exists():
         raise ValueError(

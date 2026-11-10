@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 import time
+from pathlib import Path
 
 import modal
 
@@ -164,7 +164,6 @@ def resume(
     api_rps: float = 2,
 ):
     import sqlite3
-    import subprocess
     import uuid
 
     safe_id(snapshot)
@@ -329,7 +328,6 @@ def publish_workspace(
 ):
     """Cloud-only immutable snapshot export, with readiness marker written last."""
     import shutil
-    import sqlite3
 
     safe_id(new_snapshot)
     if destination.exists():

@@ -1,8 +1,12 @@
 """Read-only cloud census of captured building identities, capacity, and inventory labels."""
 
-import modal, json, re, sqlite3, time
+import json
+import re
+import sqlite3
+import time
 from pathlib import Path
-from collections import Counter, defaultdict
+
+import modal
 
 ROOT = Path(__file__).resolve().parents[1]
 app = modal.App("chelsea-building-census")
@@ -28,9 +32,10 @@ image = (
     retries=0,
 )
 def audit():
-    from streeteasy_archive.scope import objects
-    from streeteasy_archive.extract import flight_text
     from parsel import Selector
+
+    from streeteasy_archive.extract import flight_text
+    from streeteasy_archive.scope import objects
 
     c = sqlite3.connect(
         "file:/archive/crawls/chelsea-resume/archive.sqlite3?mode=ro",

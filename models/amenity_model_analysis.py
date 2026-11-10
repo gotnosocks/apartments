@@ -9,9 +9,10 @@ from pathlib import Path
 
 import numpy as np
 
-from . import amenity_rent_model as model
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest, publish_bundle
+
+from . import amenity_rent_model as model
 
 CONTRASTS = [
     ("laundry_type", "in_building", "in_unit"),

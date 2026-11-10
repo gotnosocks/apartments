@@ -19,7 +19,7 @@ import io
 import json
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import modal
@@ -276,7 +276,7 @@ def record_copy(store, run_id, destination, complete):
         {
             "destination": str(destination),
             "complete": complete,
-            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "recorded_at": datetime.now(UTC).isoformat(),
         }
     )
     with store.batch_upload(force=True) as batch:

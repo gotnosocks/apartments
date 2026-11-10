@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
 REQUEST_VERSION = "remote-fit-request-v1"
@@ -43,7 +43,7 @@ def safe_id(value):
 
 
 def new_run_id(label=""):
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return safe_id(f"{stamp}-{label}" if label else stamp)
 
 
@@ -198,7 +198,7 @@ def build_request(
     request = {
         "version": REQUEST_VERSION,
         "run_id": safe_id(run_id),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "runner": runner,
         "runner_args": list(runner_args),
         "dataset": dataset.as_posix(),
@@ -362,7 +362,7 @@ def execute(
         )
         if fit_output.exists()
         else 0,
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
     }
     (run_root / "result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n"
@@ -511,6 +511,7 @@ WORKER_PYTHON = "/.uv/.venv/bin/python"
 def modal_worker(run_id, volume_name):
     """Modal entry point; registered by ``models.modal_remote_fit`` with per-run resources."""
     import tempfile
+
     import modal
 
     volume = modal.Volume.from_name(volume_name)

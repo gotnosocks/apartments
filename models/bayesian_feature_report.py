@@ -7,17 +7,18 @@ code imports are needed to inspect a frozen experiment.
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
 import hashlib
-from html import escape
 import json
 import math
-from pathlib import Path
 import statistics
+from collections import defaultdict
+from html import escape
+from pathlib import Path
 
+from apartments import reviewed_lineage_cache, reviewed_source_lineage
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
-from apartments import reviewed_source_lineage, reviewed_lineage_cache
+
 from . import bayesian_floor_elevator_contract as interaction_contract
 from . import bayesian_floor_spline_contract as spline_contract
 

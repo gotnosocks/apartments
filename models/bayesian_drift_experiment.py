@@ -22,9 +22,10 @@ from threadpoolctl import threadpool_limits
 
 from apartments.corrections import canonical
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
+
 from . import bayesian_attribute_experiment as previous
-from . import bayesian_structure_graph_v2 as graph
 from . import bayesian_location_terms_v2 as location_terms
+from . import bayesian_structure_graph_v2 as graph
 
 structure = previous.previous
 VERSION = location_terms.DRIFT_EXPERIMENT

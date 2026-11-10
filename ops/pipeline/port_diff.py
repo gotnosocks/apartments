@@ -40,9 +40,8 @@ import os
 import sys
 import tempfile
 from collections.abc import Sequence
-from pathlib import Path
-
 from itertools import islice
+from pathlib import Path
 
 import duckdb
 import numpy as np

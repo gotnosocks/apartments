@@ -50,6 +50,7 @@ def test_data_rules_are_validated_when_parsed():
     import argparse
 
     import pytest
+
     from rentfrontier.run import _data_rules
 
     assert _data_rules("unit-labels-v1") == ("unit-labels-v1",)
@@ -59,6 +60,7 @@ def test_data_rules_are_validated_when_parsed():
 
 def test_only_the_unit_merge_is_refused_on_the_units_split():
     import pytest
+
     from rentfrontier.run import check_rules_for_split
 
     check_rules_for_split(("unit-labels-v1", "quarantine-v1"), "rows")
@@ -69,6 +71,7 @@ def test_only_the_unit_merge_is_refused_on_the_units_split():
 
 def test_unit_merging_rules_are_refused_on_the_units_split():
     import pytest
+
     from rentfrontier import run
 
     for rule in ("unit-labels-v1", "unit-labels-v2", "unit-reviews-v1"):

@@ -5,15 +5,17 @@ research projection and does not replace the serving model or original dataset.
 """
 
 from __future__ import annotations
+
 import argparse
+import hashlib
+import re
 from collections import Counter, defaultdict
 from copy import deepcopy
-import hashlib
 from pathlib import Path
-import re
 
 from apartments.corrections import canonical, instant
 from apartments.research_pipeline import _verified_bundle, digest, publish_bundle
+
 from .interior_feature_audit import json_rows
 
 VERSION = "reviewed-bathroom-counts-projection-v1"

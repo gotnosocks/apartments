@@ -33,11 +33,12 @@ or its `id` differs from the requested ad. `project` also returns the record's `
 import json
 import re
 
+from steps import adtext
+
 from apartments import analytical
 from apartments.attribute_evidence import extract_attribute_evidence
 from apartments.corrections import canonical
 from apartments.historical_dataset import _description_furnished
-from steps import adtext
 
 FLAGS = ("furnished", "short_term", "concession")
 TEXT = ("elevator_text", "pet_policy_text")
