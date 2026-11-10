@@ -192,7 +192,8 @@ the fit recovers the scales and that the held-out standardized errors have unit 
 
 ```sh
 ops/market-dataset HASH                      # market and backtest datasets from a pipeline build
-ops/modal-fit --dataset DIR --split latest COMMIT LABEL drift-building b0 4 300 1000 5   # or --split market
+ops/modal-fit --gpu H100 --dataset DIR --split latest COMMIT LABEL drift-building b0 4 500 6000 25 --seed 1
+python -m rentfrontier.drift_pool RUN PART PART ...   # one run from a fit's containers
 python -m rentfrontier.drift_score RUN       # pred_scores.npz and the headline scores
 python -m rentfrontier.drift_deals validate BACKTEST_RUN --ads ADS --out validation.json
 python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/site/deals \
@@ -200,7 +201,16 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
 ```
 
 The three model names are `drift`, `drift-building` and `drift-local`
-(`drift.py`, `drift_building.py`, `drift_local.py`).
+(`drift.py`, `drift_building.py`, `drift_local.py`). `--split market` fits a market or
+backtest dataset.
+
+**An hour a container.** A fit stops its sweeps at 2,520 s and saves the draws it has
+(`Settings.budget_seconds`), so the draws asked for are a ceiling and 6,000 means "all the
+hour holds". When one container's draws are too few for the gate, the fit is launched as
+several containers that differ only in `--seed`, and `rentfrontier.drift_pool` writes one
+run from them: every part's chains, cut to the shortest part's draws, with the convergence
+table computed over all of them. The number of containers is written in the fit's note
+before launch. A fit that misses the gate does not get another container.
 
 ## Known limits
 
