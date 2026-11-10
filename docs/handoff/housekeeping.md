@@ -51,9 +51,23 @@ and ran no fits or Modal jobs. On thelio every action and its undo command is lo
   (`/mnt/project-files/ops/paused-timers-2026-10-18.md`), and the pass left them off. With
   them off there is no weekly StreetEasy top-up and no daily backup of the StreetEasy archive
   to `/data2`. The only new ads since then came from the one-off scrape of 2026-11-10.
-- **Site.** The Deals page is current (published from drift-building n9). The Estimates
-  section was last built on 2026-10-19 from the m7 line and has not been rebuilt from the
-  drift model.
+- **Site.** The Deals page is current (published from drift-building n9). On 2026-11-10
+  the Estimates section was rebuilt on drift-building's held-out estimates (#1293, #1294),
+  at Ben's choice. `python -m rentfrontier.drift_estimates publish
+  drift-building-b0-latest-67d14e17-b9 --market drift-building-b0-market-67d14e17-n9
+  --registry <20261110-f1fc080-extend registry> --out /data1/apartments/site/estimates`
+  wrote 195,423 rows (188,649 latest-split, 6,774 market), sha256 56634eba…6da3e, and the
+  site was deployed at 33e53bb. The asks fall inside the 50/80/95% intervals 52.6%, 80.8%
+  and 95.2% of the time on the latest split. `/estimate` and `/estimates/map` now answer 410.
+  An earlier ad that a building or unit page links opens a page saying it has no held-out
+  estimate. The building, unit, best and research pages still read the Oct 19 m7
+  `site.sqlite`.
+- **Tests.** At 33e53bb the master frontier suite passes in full (1243 tests, 1 skipped)
+  once #1292 and #1295 are counted, and the pipeline suite passes 296 of 296. Run it one
+  file per pytest at a 4.5G cap, with no other light job beside it, or `systemd-oomd` kills it.
+- **Follow-ups.** `drift_deals.deals()` can't run on a latest-split run (KeyError 'market'
+  in `_manifest`). The estimates reader checks the parquet's sha256 once per file version,
+  not per query. `build.py` still builds the dead `estimate_form`.
 
 ## Shared project files
 
@@ -67,7 +81,4 @@ and `uploads/`.
 ## Left for Ben
 
 - Whether to turn the StreetEasy top-up and backup timers back on.
-- The older duplicate of the "How the Rent Model Finds Deals" explainer
-  (https://claude.ai/artifact/GK1qc5pTPKDHVsWtFV8Neh). The current one is
-  https://claude.ai/artifact/CidAo43kMNH2Kw7GHwTHf7. Only Ben can delete an artifact.
 - Whether the four old `claude/project-thread-*` branches can go.
