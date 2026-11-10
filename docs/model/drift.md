@@ -84,7 +84,7 @@ the fitted slope, and every
 building with little data follows the spread. Across chains the summed squares of ten
 buildings explain 95 to 98% of the differences in bld_sd[outer], in all three pooled
 runs, and 90 to 97% when the ten are picked on half the draws and tested on the other
-half. The ten ranked just below them by the same rule explain 0 to 26%, and random tens
+half. Tens taken from the buildings ranked 11 to 100 by the same rule explain 0 to 26%, and random tens
 reach 52 to 66% at the 95th percentile, on six to eight chain means a run (within chains
 the ten explain 16 to 51%). So a fit probably ends with its chains at different stages of the same
 arrival, which is what R-hat would then be reporting, and the outer spread it gives
