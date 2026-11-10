@@ -6,7 +6,7 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## State at 2026-11-10 14:42Z
+## State at 2026-11-10 14:52Z
 
 - **Served model.** `drift-building` with `--level-dof 4` (a Student-t prior on building
   levels), since 14:19Z. Its three full fits (round nine) pass the gate, each a pool of
@@ -18,15 +18,16 @@ three full fits, so the ceiling is $140.
   09:42Z until then and passes its gate too.
 - **Deals.** `/data1/apartments/site/deals` was published at 14:19Z from n9 with j9 as
   its backtest, b9 as its held-out fit and the ad texts
-  (`--texts /data1/apartments/tmp/overhaul/texts-m6.parquet`), from master `67d14e17`,
-  and the site deployed from the same commit. `/deals` shows 5,802 of 6,774 ads by
-  default, 972 left out for a caution (646 off market, 328 beds, 55 income, 2 not_home,
-  1 owners_only), and the backtest (26 to 71 days on market, 18% to 61% cut, lowest
-  tenth to highest). The folder as `drift` had it is kept at
+  (`--texts /data1/apartments/tmp/overhaul/texts-m6.parquet`), and again at 14:45Z from
+  master `45968c30` with the `takeover` caution; the site is deployed from that commit.
+  `/deals` shows 5,792 of 6,774 ads by default, 982 left out for a caution (646 off
+  market, 328 beds, 55 income, 14 takeover, 2 not_home, 1 owners_only), and the backtest
+  (26 to 71 days on market, 18% to 61% cut, lowest tenth to highest). Scores and order
+  are those of 14:19Z (`deals_sha256` `e18cedca...`). The folder as `drift` had it is kept at
   `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`. A reader classed 36 of the
-  first 40 ads of this list as ordinary apartments, 2 low for a plain reason (a lease
-  takeover; a text that names a fourth bedroom) and 2 it could not tell (35 of 40 on
-  the morning's `drift` list).
+  first 40 ads of the 14:19Z list as ordinary apartments, 2 low for a plain reason (a
+  lease takeover, cautioned since; a text that names a fourth bedroom) and 2 it could
+  not tell (35 of 40 on the morning's `drift` list).
 - **PRs.** #1281 (the model, the Deals page, the docs) merged as `252a82a`, head `f1380fc`.
   #1282 (cautions, the backtest on one basis) merged as `9266983`, head `93bbfca`. The tags
   `archive/pr-1281` and `archive/pr-1282` are not pushed: this thread can push only its
@@ -34,8 +35,9 @@ three full fits, so the ceiling is $140.
   `Settings.level_dof`, the beds caution that reads a split unit's pieces together)
   merged as `67d14e17`, head `51c00d5`; its tag `archive/pr-1283` is not pushed either.
   #1284 (round nine's record, the docs and the explainer around the served model)
-  merged as `8d2fd1a6`, head `54113bd`; no tag either. #1285 (the `takeover` caution, reviewed and
-  approved at `8a690cb`) carries this handoff. All work is on the one branch,
+  merged as `8d2fd1a6`, head `54113bd`; no tag either. #1285 (the `takeover` caution) merged as
+  `45968c30`, head `2eafe54`; no tag. #1286 carries this handoff and the explainer's
+  refreshed numbers, and is the last PR of the day. All work is on the one branch,
   `claude/project-thread-09vaqy`, with master merged in after each PR (a force push to
   restart it was refused).
 - **Round nine, done.** Ben approved up to $40 more on Modal at 12:38Z (ceiling $140).
@@ -81,28 +83,50 @@ three full fits, so the ceiling is $140.
   offsets in bld_sd[outer]: any traced quantity moving with it, lone rows trading level
   against outlier weight (a toy mixes in 3.5 sweeps), and conflicting ads within a unit
   (6,857 pairs in the outer boroughs, carrying 3% of it).
-- **Review.** Everything in PRs #1281 and #1282 was reviewed before its merge. Work after them needs a
-  fresh review: a model reviewer for model, selection, data or ops code, a Sonnet reviewer
+- **Review.** Every PR of the day was reviewed by a separate reviewer before its merge,
+  and each PR's description says what the review found: #1281 and #1282; #1283 (a model
+  reviewer for `level_dof` and the beds caution, a Sonnet reviewer for the docs); #1284
+  (docs, a Sonnet reviewer); #1285 (the `takeover` pattern, a default-model reviewer in
+  three passes, approved at `8a690cb`); #1286 (docs, a Sonnet reviewer). New work needs
+  the same: a model reviewer for model, selection, data or ops code, a Sonnet reviewer
   for docs and site pages.
 - **Presentation.** `docs/notes/drift-2026-11-10/artifact/`: `pagedata.py` turns
   `artifact-data/extract-full.json` (written by `artifact-data/extract.py` on thelio) into
   the page's data and `build.py` writes the page. Build it with `--level-dof 4` so the page
   states the building levels' standard deviation, not the t's scale. Published at
-  https://claude.ai/artifact/CidAo43kMNH2Kw7GHwTHf7.
+  https://claude.ai/artifact/CidAo43kMNH2Kw7GHwTHf7, last at 14:52Z from the extract of
+  commit `4f76d784`, with the live page's 982 cautioned ads.
 - **Modal spend.** $127.44 settled ($129.09 with two upper bounds, one a preempted run's
   minutes and one a stopped launch) against a ceiling of $140: the first $100 and the
   $40 Ben added for round nine. Nothing else is planned.
 
 ## Next, in order
 
-1. After #1285 merges: republish the Deals folder from n9 with the command of the note's
-   "Live (14:19Z)" from merged code and deploy. Expected, from the staged publish: 982
-   ads with a caution (14 takeover, 55 income, 2 not_home, 1 owners_only, 328 beds, 646
-   off market), 5,792 of 6,774 shown, `deals_sha256` `e18cedca...`, and no change to
-   any score or to the order. The readers' files of the second caution reading are
-   under `artifact-data/jobb/` and `jobc/` on thelio.
-2. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
-3. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
+1. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
+2. Nothing is running or queued. The items are in `docs/TODO.md` under "From the Deals
+   list of 2026-11-10"; the order here is mine, by what I judge each is worth for finding
+   deals: a new market snapshot and refit (the list is the market of 2026-11-09, and the
+   three fits cost about $33 at round nine's size); the data rule for studio-coded ads
+   that are not studios; a caution that tells an apartment's own bedroom count in the
+   text from the building's mix; making `--level-dof 4` the building model's default.
+3. To republish after any change to the cautions, from `/data1/apartments/serve/master`
+   at the merged commit, in the environment of the earlier publishes (the thelio
+   worker ran it from `/data1/apartments/tmp/overhaul/artifact-data` as
+   `pscore.py publish`, which is `drift_deals publish` with the scoring on two workers):
+
+   ```sh
+   python -m rentfrontier.drift_deals publish drift-building-b0-market-67d14e17-n9 \
+     --out /data1/apartments/site/deals \
+     --registry /data1/apartments/external/registry/20261110-f1fc080-extend/registry.parquet \
+     --backtest drift-building-b0-market-67d14e17-j9 \
+     --heldout drift-building-b0-latest-67d14e17-b9 \
+     --texts /data1/apartments/tmp/overhaul/texts-m6.parquet
+   ```
+
+   then `ops/site-deploy.sh`. Publish to a staging `--out` first and compare: scores and
+   order must not move (`deals.json` with the cautions column left out). The readers'
+   files of the caution readings are under `artifact-data/joba/`, `jobb/` and `jobc/`
+   on thelio.
 
 ## Things a newcomer would trip on
 
