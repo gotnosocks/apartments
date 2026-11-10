@@ -29,7 +29,7 @@ Start with the three files at the top. The rest is the record behind them.
 |---|---|
 | `notes/` | One dated note per fit or check since 2026-10-19: the predictions written before a fit, then its results. A folder beside a note holds its scripts and tables. |
 | `model/` | Model write-ups up to 2026-10-18: the PyMC line, the frontier line and its leaderboard, feature tests, mixing reviews. |
-| `handoff/` | One note per thread, saying where it stopped. `2026-09-24/` holds the handoff between the first two model lines. |
+| `handoff/` | One note per thread, saying where it stopped; `housekeeping.md` records the tidy-up of 2026-11-10. `2026-09-24/` holds the handoff between the first two model lines. |
 | `data/` | Data audits and pipeline notes: coverage, corrections, quarantine rules, storage. |
 | `analysis/` | The Chelsea pilot's analyses (2026-09). |
 | `operations/` | Checkpoints and incident notes from running the machine. |
