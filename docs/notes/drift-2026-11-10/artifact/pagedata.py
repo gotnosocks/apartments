@@ -120,7 +120,7 @@ def main() -> None:
                 "name": model[k],
                 "label": MODELS[model[k]][0],
                 "note": MODELS[model[k]][1]
-                + ("" if runs[k]["gate"]["passes"] else " (did not converge)"),
+                + ("" if runs[k]["gate"]["passes"] else " (missed the gate)"),
                 "elpd": s["elpd"],
                 "gate": runs[k]["gate"]["passes"],
                 "new": True,
@@ -131,6 +131,26 @@ def main() -> None:
         )
     sw = next(s for s in scores if s["name"] == win)
     by = {s["name"]: s for s in scores}
+    # A newer model that scores higher than the winner and missed the gate: the page says
+    # so where it shows what the winner cannot see.
+    ahead = [
+        k for k in latest if X["scores"][k]["elpd"] > sw["elpd"] and model[k] != win
+    ]
+    beyond = None
+    if ahead:
+        k = max(ahead, key=lambda k: X["scores"][k]["elpd"])
+        g = runs[k]["gate"]
+        beyond = {
+            "name": model[k],
+            "gain": X["scores"][k]["elpd"] - sw["elpd"],
+            "max_rhat": g["max_rhat"],
+            "min_ess": g["min_ess"],
+            "caption": f"A model that adds {MODELS[model[k]][1][5:]} scores "
+            f"<b>{X['scores'][k]['elpd'] - sw['elpd']:,.0f}</b> higher on the same held-out "
+            "ads. Its fit missed the project's convergence gate (worst R-hat "
+            f"{g['max_rhat']:.3f}, where the gate allows 1.01), so nothing on this page "
+            "is built on it.",
+        }
 
     names = {"ks_a": "ks", "fit4": "fit4"} | {k: model[k] for k in latest}
     gap_models = {}
@@ -302,6 +322,8 @@ def main() -> None:
         "run high against the model, which is fitted to final asks.",
         "fits": fits,
     }
+    if beyond:
+        D["next"] = beyond
     if walk:
         D["walk"] = {
             "dates": walk["week_start"],
