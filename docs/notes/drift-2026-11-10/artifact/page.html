@@ -90,6 +90,10 @@ tr.win td { color: var(--yellow); }
     <h2>The fits behind this page</h2>
     <div class="tablewrap"><table id="fits"></table></div>
     <p class="foot" id="fitnote"></p>
+    <h2>A better model, not served yet</h2>
+    <p>Drift + building gives each building its own path over time and predicts the same held-out ads better: its median miss is about 4.1% of the rent, against 5.1%. It is not behind the Deals list because its full fits miss the convergence gate on one number, the spread of building levels outside Manhattan (a split R-hat of 1.013 on the held-out split and 1.020 on the market's data, where the gate allows 1.01).</p>
+    <p>The best-supported cause is about ten buildings in 68,000. In the eight that were read, some ads are listed as studios with no description at the rent of the building's three-bedrooms. Under a bell-curve prior each such building pulls on the spread that every building shares, and chains that have settled those ten differently disagree about the spread.</p>
+    <p>A prior with heavier tails (a Student-t with 4 degrees of freedom) lets a building sit far from its neighbourhood without moving the rest. One trial run with it passed the gate at the same accuracy. It takes three full fits that pass before the list can rest on it, and those have not been run.</p>
     <h2>What the score cannot tell you</h2>
     <ul>
       <li><b>Why an ask is low.</b> A landlord priced low, the apartment has a flaw the ad does not state, or the ad is wrong. The model sees all three as the same low ask.</li>
