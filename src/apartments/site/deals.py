@@ -40,6 +40,7 @@ CAUTIONS = {
     "income": "the ad says it is income-restricted or in an affordable-housing program",
     "not_home": "the ad reads like an office, not a home",
     "owners_only": "open only to the building's owners",
+    "takeover": "the rest of someone's lease, not a new one",
     "beds": "listed before with a different bedroom count",
     "off_market": "temporarily off the market",
 }

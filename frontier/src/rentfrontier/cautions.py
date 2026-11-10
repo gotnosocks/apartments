@@ -17,6 +17,8 @@ own latest text and from the dataset's rows.
   program. An ad with no text to read takes the dataset's `income_restricted` flag.
 - `not_home`: the text offers an office or a commercial space.
 - `owners_only`: the text opens the apartment only to the building's owners.
+- `takeover`: the text offers the rest of someone's lease (a takeover, an assignment or a
+  reassignment), not a new one.
 - `beds`: the apartment's ads in the dataset carry more than one bedroom count, or the
   pieces the dataset split the apartment into are two or more bedrooms apart.
 - `off_market`: the ad's status is temporarily off the market.
@@ -31,6 +33,18 @@ room, a home office), "owners only" (the gym), and every pattern for a room in a
 of 67 right: "two bedrooms available", "A/C per room"). Review then added guards for
 ordinary wording the day's ads did not happen to hold: "income requirement: 40x the rent",
 "no HPD violations", "not for commercial use".
+
+A second reading the same day fixed `takeover` and dropped a caution for a bedroom count
+in the text that differs from the record. Of the 6,774 ads, 100 matched a wider set of
+candidates for a takeover and 82 were read: "lease takeover" and "take over the lease" (5
+matches, all 5 the rest of a lease), "lease assignment" and "assign the lease" (4 of 4)
+and "lease reassignment" (4 of 5; the other is a leasing office's stray header) are kept,
+14 ads in all. Dropped: "sublet" and "sublease" (6 of 28;
+"sublets ok" is a building's policy), "lease ends" and "lease expires" (4 of 7; a new
+lease's own end date), and "short-term" (6 of 42 read; "no short term rentals"). For the
+bedroom count, 573 ads name in their text only counts that differ from the record's, and
+of 80 read 10 described the apartment itself: the rest gave the building's mix of units
+("studio, one, and two-bedroom layouts") or a "cardio studio". One in eight is no caution.
 
 The dataset's own `income_restricted` flag uses an older list
 (`features.DESCRIPTION_FLAGS`): it was right for 22 of the 30 market ads it flagged, the
@@ -61,6 +75,16 @@ TEXT = {
     ),
     "not_home": r"professional suite|your practice|(?<!not for )(?<!no )commercial use",
     "owners_only": r"only to (?:current )?(?:owners|shareholders)",
+    "takeover": (
+        # "No lease assignments", "cannot re-assign the lease": a building's rule. The
+        # guard reads only the word right before the phrase, so "lease assignments are
+        # not permitted" and "lease assignment fee: $500" still match.
+        r"(?<!\bno )(?<!not )(?<!re-)\b(?:lease[- ]take[- ]?over"
+        r"|tak(?:e|ing)[- ]?over (?:of )?"
+        r"(?:(?:my|the|our|a|an|this|existing|current) )?(?:\w+ )?lease"
+        r"|lease[- ](?:re-?)?assignment"
+        r"|(?:re-?)?assign(?:ment of|ing)? (?:my |the |our )?lease)"
+    ),
 }
 # Every code, in the order a row lists them.
 CODES = (*TEXT, "beds", "off_market")

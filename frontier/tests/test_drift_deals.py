@@ -393,6 +393,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "income": 2,
             "not_home": 1,
             "owners_only": 0,
+            "takeover": 0,
             "beds": 1,
             "off_market": 1,
         },

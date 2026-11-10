@@ -36,9 +36,13 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
 - [ ] Parse free months written in words ("FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE
   FREE").
 - [ ] A caution for an ad whose text gives another bedroom or bath count than its record.
-  Three of the first 40 ads shown on 2026-11-10 were of this kind (655 Hart St 2F, 329
-  Decatur St 1I, 2246 Fulton St 5G). It needs a reading first: a building's boilerplate
-  ("Two bed, two bathroom apartments" on a 1-bedroom's ad) would trip a plain pattern.
+  Three of the first 40 ads shown on the morning of 2026-11-10 were of this kind (655
+  Hart St 2F, 329 Decatur St 1I, 2246 Fulton St 5G) and one of the afternoon's (1390
+  Madison St 1). A plain pattern was read and dropped: of 573 market ads whose text names
+  only counts that differ from the record's, 10 of 80 read described the apartment
+  itself (the note, "Cautions, round two"). A rule has to tell the apartment's own line
+  from the building's mix of units. The real ones, somewhere between 40 and 125 at the
+  sample's rate, are worth it.
 - [ ] Studio-coded ads that are not studios. Of the 292,286 studio-coded training ads of
   the latest split, 1,596 in 908 buildings name two to five bedrooms in a text that never
   says "studio" (25 of 40 read were whole apartments, 11 studios), and 4,517 in 1,701
@@ -47,9 +51,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   ads are among the ten behind the building model's one failing R-hat (1259 Jefferson Ave, 310 Linden St, 866
   Knickerbocker Ave, 386 St John's Pl, 1030 DeKalb Ave, 1405 Lincoln Pl, 391 Greene Ave,
   662 Nostrand Ave). Write the rule on a reading, rebuild, refit.
-- [ ] A caution for lease takeovers ("lease takeover", "present tenancy that expires"):
-  one was among the 237 ads read for the cautions and one is 33rd of the list of
-  2026-11-10 (484 Amsterdam Avenue 2C). Fix the pattern by reading its matches.
+- [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
+  alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
+  them firmly).
 - [ ] Make `--level-dof 4` the default of `drift-building`, or have `ops/modal-fit` refuse
   the model without it: the served fits (round nine) use it, the flag is off by default,
   and under the normal prior every pooled fit missed the gate. Needs a model review.
