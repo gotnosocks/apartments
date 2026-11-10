@@ -1,11 +1,12 @@
 import json
 from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from rentfrontier import market, splits
+from rentfrontier import building_attrs, market, splits
 from rentfrontier.b0data import sha256
 
 
@@ -125,21 +126,26 @@ def test_as_of_builds_a_backtest_with_final_asks(tmp_path):
 def test_apply_inputs_points_the_named_constants_at_the_datasets_paths(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setattr(market, "COLUMNS", market.COLUMNS)
-    (tmp_path / "inputs.json").write_text(
-        json.dumps({"rentfrontier.market.COLUMNS": "/data/x.parquet"})
-    )
-    assert market.apply_inputs(tmp_path) == {
-        "rentfrontier.market.COLUMNS": "/data/x.parquet"
-    }
-    assert str(market.COLUMNS) == "/data/x.parquet"
+
+    monkeypatch.setattr(building_attrs, "REGISTRY", building_attrs.REGISTRY)
+    name = "rentfrontier.building_attrs.REGISTRY"
+    (tmp_path / "inputs.json").write_text(json.dumps({name: "/data/x"}))
+    assert market.apply_inputs(tmp_path) == {name: "/data/x"}
+    assert building_attrs.REGISTRY == Path("/data/x")
     assert market.apply_inputs(tmp_path / "none") == {}
     assert market.apply_inputs(None) == {}
-    (tmp_path / "inputs.json").write_text(
-        json.dumps({"rentfrontier.market.NOPE": "/x"})
-    )
-    with pytest.raises(AttributeError, match="NOPE"):
-        market.apply_inputs(tmp_path)
+    # Nothing but a path constant of a rentfrontier module can be named, and a file with one
+    # bad entry changes nothing.
+    for key, value in (
+        ("rentfrontier.market.NOPE", "/x"),
+        ("rentfrontier.market.INPUTS", "/x"),
+        ("os.sep", "/x"),
+        ("rentfrontier.building_attrs.PLUTO", 3),
+    ):
+        (tmp_path / "inputs.json").write_text(json.dumps({name: "/data/y", key: value}))
+        with pytest.raises(ValueError, match=key.rsplit(".", 1)[1]):
+            market.apply_inputs(tmp_path)
+        assert building_attrs.REGISTRY == Path("/data/x")
 
 
 def test_with_status_refuses_ad_rows_that_disagree(tmp_path):

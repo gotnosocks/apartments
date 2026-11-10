@@ -1182,6 +1182,8 @@ def run(
     kept = {k: [] for k in kept_names}
     preds = {"pred_loc": [], "pred_unit_sd": []}
     has_pred = d.pred is not None and len(d.pred["unit"]) > 0
+    if not has_pred:
+        log("the split leaves no row to predict: this fit will have no pred_loc")
     total = settings.warmup + settings.draws
     per = max(1, settings.draws // settings.chunks)
     marks = {"warmup": None}

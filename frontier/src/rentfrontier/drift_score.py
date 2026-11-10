@@ -140,11 +140,8 @@ def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
             out[k].append(v)
     res = {k: np.concatenate(v) for k, v in out.items()}
     res |= dict(y=y, group=group, quantiles=np.array(Q), heldout=z["heldout"])
-    result = run_dir / "result.json"
-    dataset = (
-        Path(json.loads(result.read_text())["dataset"]) if result.exists() else None
-    )
-    if dataset is not None and (dataset / "rows.parquet").exists():
+    dataset = dataset_dir(run_dir)
+    if dataset is not None:
         import pandas as pd
 
         frame = pd.read_parquet(
@@ -156,6 +153,20 @@ def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
             day=frame.latest_day.astype(str).to_numpy().astype("U"),
         )
     return res
+
+
+def dataset_dir(run_dir: Path) -> Path | None:
+    """The folder of the run's dataset: the path its `result.json` names or, for a fit that
+    ran on another machine, the dataset of that name in this machine's datasets folder. None
+    when neither holds a `rows.parquet`."""
+    result = run_dir / "result.json"
+    if not result.exists():
+        return None
+    named = Path(json.loads(result.read_text())["dataset"])
+    for folder in (named, run_module.RUNS.parent / "datasets" / named.name):
+        if (folder / "rows.parquet").exists():
+            return folder
+    return None
 
 
 def summary(res: dict) -> dict:

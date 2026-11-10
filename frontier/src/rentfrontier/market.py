@@ -120,19 +120,26 @@ def with_status(
 
 def apply_inputs(dataset) -> dict:
     """Point the module constants named in `dataset`'s inputs.json at their paths, and return
-    the mapping. A dataset with no inputs.json leaves every constant as it is."""
+    the mapping. A dataset with no inputs.json leaves every constant as it is. Only a path
+    constant of a `rentfrontier` module can be named: the file comes with the dataset, and
+    it must not be able to set anything else."""
     path = Path(dataset) / INPUTS if dataset else None
     if path is None or not path.exists():
         return {}
     inputs = json.loads(path.read_text())
+    found = []
     for key, value in inputs.items():
-        module, name = key.rsplit(".", 1)
+        module, _, name = key.rpartition(".")
+        if not module.startswith("rentfrontier."):
+            raise ValueError(f"{INPUTS} names {key}, which is not in rentfrontier")
         mod = importlib.import_module(module)
-        if not hasattr(mod, name):
-            raise AttributeError(
-                f"{INPUTS} names {key}, which {module} does not define"
-            )
-        setattr(mod, name, Path(value))
+        if not isinstance(getattr(mod, name, None), Path):
+            raise ValueError(f"{INPUTS} names {key}, which is not a path of {module}")
+        if not isinstance(value, str):
+            raise ValueError(f"{INPUTS} gives {key} a value that is not a path")
+        found.append((mod, name, Path(value)))
+    for mod, name, value in found:
+        setattr(mod, name, value)
     return inputs
 
 

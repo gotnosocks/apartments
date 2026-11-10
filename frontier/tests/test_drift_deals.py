@@ -130,3 +130,42 @@ def test_title_address_and_unit_label():
     assert drift_deals.title_address(None) == ""
     assert drift_deals.unit_label("https://streeteasy.com/building/x/6b?y=1") == "6B"
     assert drift_deals.unit_label(None) == ""
+
+
+def test_publish_writes_the_sites_folder_from_the_runs_manifests(tmp_path, monkeypatch):
+    run, ads, reg = _run(tmp_path)
+    result = json.loads((run / "result.json").read_text())
+    data = tmp_path / "data"
+    market = {"market": {"ads": str(ads), "scoring_day": "2026-11-09"}}
+    (data / "manifest.json").write_text(json.dumps(market))
+    (run / "result.json").write_text(
+        json.dumps(result | {"model": {"name": "drift-building"}})
+    )
+    scores = drift_deals.drift_score.score_run(run)
+    np.savez(run / "pred_scores.npz", **scores)
+    out = tmp_path / "site" / "deals"
+    meta = drift_deals.publish(run, out, reg, backtest=run, heldout=run)
+    assert sorted(p.name for p in out.iterdir()) == [
+        "deals.json",
+        "meta.json",
+        "validation.json",
+    ]
+    assert meta == json.loads((out / "meta.json").read_text())
+    assert (meta["model"], meta["run"], meta["scoring_day"], meta["ads"]) == (
+        "drift-building",
+        "r",
+        "2026-11-09",
+        4,
+    )
+    assert meta["heldout"]["rows"] == 4 and meta["heldout"]["run"] == "r"
+    rows = json.loads((out / "deals.json").read_text())
+    assert [r["listing_id"] for r in rows][0] == "2" and rows[0]["address"]
+    check = json.loads((out / "validation.json").read_text())
+    assert check["as_of"] == "2026-11-09" and check["ads_with_first_ask"] == 4
+    # A fit that ran elsewhere names a path this machine lacks: the dataset of the same
+    # name in this machine's datasets folder is used.
+    (tmp_path / "datasets").mkdir()
+    data.rename(tmp_path / "datasets" / "data")
+    monkeypatch.setattr(drift_deals.run_module, "RUNS", tmp_path / "runs")
+    assert drift_deals.publish(run, out)["ads"] == 4
+    assert "address" not in json.loads((out / "deals.json").read_text())[0]

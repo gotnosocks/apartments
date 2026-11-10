@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -70,9 +72,15 @@ def unit_label(page) -> str:
     return re.sub(r"[?#].*$", "", page.rstrip("/").rsplit("/", 1)[1]).upper()
 
 
+def _dataset(run_dir: Path) -> Path:
+    dataset = drift_score.dataset_dir(run_dir)
+    if dataset is None:
+        raise SystemExit(f"the dataset of {run_dir} is not on this machine")
+    return dataset
+
+
 def _held_frame(run_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
-    result = json.loads((run_dir / "result.json").read_text())
-    frame = pd.read_parquet(Path(result["dataset"]) / "rows.parquet")
+    frame = pd.read_parquet(_dataset(run_dir) / "rows.parquet")
     held = np.load(run_dir / "posterior.npz")["heldout"]
     return frame, frame[held].reset_index(drop=True), held
 
@@ -187,18 +195,81 @@ def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
     }
 
 
+def _manifest(run_dir: Path) -> dict:
+    """The `market` part of the manifest of the run's dataset (`rentfrontier.market`)."""
+    return json.loads((_dataset(run_dir) / "manifest.json").read_text())["market"]
+
+
+def _replace(path: Path, text: str) -> None:
+    """Write `text` to `path` under a temporary name, then rename it, so a reader never
+    sees half a file."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
+def publish(
+    run_dir: Path,
+    out: Path,
+    registry: Path | None = None,
+    backtest: Path | None = None,
+    heldout: Path | None = None,
+) -> dict:
+    """Write the site's Deals folder `out` from the market run at `run_dir`: `deals.json`,
+    `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
+    held-out split whose `pred_scores.npz` (`rentfrontier.drift_score`) gives the model's
+    scores on ads it never saw. Each ads table comes from its run's dataset manifest."""
+    market = _manifest(run_dir)
+    table = deals(run_dir, Path(market["ads"]), registry)
+    result = json.loads((run_dir / "result.json").read_text())
+    meta = {
+        "model": result["model"]["name"],
+        "run": run_dir.name,
+        "scoring_day": market["scoring_day"],
+        "ads": int(len(table)),
+        "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    if heldout is not None:
+        scores = np.load(heldout / "pred_scores.npz")
+        meta["heldout"] = drift_score.summary(
+            {k: scores[k] for k in ("y", "q", "pred", "elpd")}
+        ) | {"run": heldout.name}
+    out.mkdir(parents=True, exist_ok=True)
+    if backtest is not None:
+        past = _manifest(backtest)
+        check = validate(backtest, Path(past["ads"])) | {"as_of": past["scoring_day"]}
+        _replace(out / "validation.json", json.dumps(check, indent=2))
+    _replace(out / "deals.json", table.to_json(orient="records"))
+    _replace(out / "meta.json", json.dumps(meta, indent=2))
+    return meta
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("command", choices=("deals", "validate"))
+    p.add_argument("command", choices=("deals", "validate", "publish"))
     p.add_argument("run")
-    p.add_argument("--ads", type=Path, required=True)
+    p.add_argument("--ads", type=Path, help="the ads table (deals and validate)")
     p.add_argument("--registry", type=Path)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--runs", default=str(run_module.RUNS))
+    p.add_argument("--backtest", help="publish: the backtest run")
+    p.add_argument("--heldout", help="publish: a scored run on a held-out split")
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
+    if args.command == "publish":
+        meta = publish(
+            run_dir,
+            args.out,
+            args.registry,
+            Path(args.runs) / args.backtest if args.backtest else None,
+            Path(args.runs) / args.heldout if args.heldout else None,
+        )
+        print(json.dumps(meta, indent=2))
+        return
+    if args.ads is None:
+        p.error("--ads is required for deals and validate")
     if args.command == "validate":
         out = validate(run_dir, args.ads)
         args.out.write_text(json.dumps(out, indent=2))
