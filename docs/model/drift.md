@@ -13,7 +13,7 @@ by `artifact/pagedata.py` and `artifact/build.py` in the same folder.
 
 ## Results
 
-`drift-building` with `--level-dof 4` is the served model since 2026-11-10: `drift`
+`drift-building` with `--level-dof 4` is the served model since 2026-11-10 14:19Z: `drift`
 plus a path per building, with a Student-t prior on the building levels. Its three full
 fits (round nine of that day's note) all pass the convergence gate. Each is a pool of
 three containers of two chains (`drift_pool`).
@@ -30,6 +30,7 @@ flag is off by default, which leaves the normal prior, and under the normal prio
 pooled fit of this model missed the gate (below).
 
 `drift`, the same model without the building's path, was served from 09:42Z until then.
+Its Deals folder is kept at `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`.
 Its three full fits (round six) all pass the gate, the first fits in the project with a
 unit term to do so on the full data.
 

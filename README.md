@@ -17,7 +17,7 @@ each building a path of its own, and it passes the convergence gate on all three
 fits (held-out split, today's market, a backtest a year back). `drift`, the same model
 without the building's path, was the first model in the project with a term for the
 individual apartment to pass the gate on the full data, and was served for the first
-hours of that day (from 09:42Z).
+hours of that day (09:42Z to 14:19Z).
 
 Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 
