@@ -1394,7 +1394,11 @@ def create_app(
         return render_template(
             "deals.html",
             left_out=len(with_cautioned) - len(rows),
-            show_all=url_for("deals_page", **(request.args.to_dict() | {"all": "1"})),
+            show_all=url_for(
+                "deals_page",
+                **{k: request.args[k] for k in deals.FILTERS if request.args.get(k)},
+                all="1",
+            ),
             meta=meta(),
             info=data["meta"],
             validation=data["validation"],

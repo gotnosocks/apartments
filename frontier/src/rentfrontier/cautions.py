@@ -27,7 +27,9 @@ and why: "household income" (17 of 33 right; brokers ask for it), "minimum incom
 40-times-the-rent rule), "income guidelines", "affordable apartment" and "affordable home"
 (sales talk), "private office" and "office space" (1 of 79 right; a building's co-working
 room, a home office), "owners only" (the gym), and every pattern for a room in a share (0
-of 67 right: "two bedrooms available", "A/C per room").
+of 67 right: "two bedrooms available", "A/C per room"). Review then added guards for
+ordinary wording the day's ads did not happen to hold: "income requirement: 40x the rent",
+"no HPD violations", "not for commercial use".
 
 The dataset's own `income_restricted` flag uses an older list
 (`features.DESCRIPTION_FLAGS`): it was right for 22 of the 30 market ads it flagged, the
@@ -41,30 +43,41 @@ from __future__ import annotations
 import re
 
 OFF_MARKET = "TEMPORARILY_OFF_MARKET"
-# Matched on the lowercased text.
+# The usual rule that a tenant earn forty times the rent, within a sentence of the words
+# "income requirement": an ordinary ad's wording, not a program's.
+_FORTY = r"(?![^.\n]{0,90}(?:\d ?x\b|\btimes\b))"
+# Matched on the text as `plain` leaves it: lowercase, single spaces, plain hyphens.
 TEXT = {
     "income": (
         # A fee schedule several buildings quote: "optional for income restricted units".
         r"(?<!optional for )income[- ]restrict"
-        r"|income (?:requirement|range|limit|eligib|qualif)"
+        rf"|income (?:requirement|qualif)\w*{_FORTY}"
+        r"|income (?:range|limit|eligib)"
         r"|(?:maximum|max)\.? (?:annual |household |allowable |allowed )?income"
-        r"|\bhpd\b"
+        r"|\bhpd\b(?! violation)"
         r"|affordable (?:unit|housing|income)"
-        r"|housing connect|housing lottery|\bami\b"
+        r"|housing connect|housing lottery|(?<!mon )(?<!bel )\bami\b"
     ),
-    "not_home": r"professional suite|your practice|commercial use",
+    "not_home": r"professional suite|your practice|(?<!not for )commercial use",
     "owners_only": r"only to (?:current )?(?:owners|shareholders)",
 }
 # Every code, in the order a row lists them.
 CODES = (*TEXT, "beds", "off_market")
 _COMPILED = {code: re.compile(pattern) for code, pattern in TEXT.items()}
+_DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015"), "-")
+
+
+def plain(text: str) -> str:
+    """`text` in lowercase with every run of white space a single space and every dash a
+    hyphen, so a pattern's literal space and hyphen meet what an ad's author typed."""
+    return re.sub(r"\s+", " ", text.lower().translate(_DASHES))
 
 
 def from_text(text) -> list[str]:
     """The codes an ad's description gives. A missing text gives none."""
     if not isinstance(text, str):
         return []
-    low = text.lower()
+    low = plain(text)
     return [code for code, pattern in _COMPILED.items() if pattern.search(low)]
 
 

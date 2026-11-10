@@ -18,6 +18,13 @@ from rentfrontier import cautions
             ["not_home"],
         ),
         ("available only to current owners at the building", ["owners_only"]),
+        (
+            "INCOME REQUIREMENTS: 1 person $70,000 to $140,000. 2 people $80,000",
+            ["income"],
+        ),
+        ("Units at 130% AMI. Income\u2013restricted, through HPD.", ["income"]),
+        ("this is an income\u00a0restricted home", ["income"]),
+        ("Commercial use permitted: retail, office or gallery.", ["not_home"]),
         # Ordinary wording gives no code.
         ("Income must be 40x the monthly rent. Guarantors welcome.", []),
         ("Minimum annual income: 40x the monthly rent", []),
@@ -28,6 +35,14 @@ from rentfrontier import cautions
         ("Co-Working Hub: Multiple private offices available 24/7", []),
         ("Flexible home office space. Gym for Owners only. Sorry.", []),
         ("Two Bedroom Two Bathroom Available Now! Central A/C (Per Room)", []),
+        ("Income requirement: 40x the monthly rent", []),
+        (
+            "Income Requirements: Tenants should earn an average yearly income of 40 x",
+            [],
+        ),
+        ("Income qualifications: 40 times the rent, or a guarantor at 80x.", []),
+        ("optional for\n  income restricted units", []),
+        ("No HPD violations. Steps from Mon Ami cafe. Not for commercial use.", []),
         ("Home office nook, in-unit laundry, steps from the park.", []),
         ("Perfect for sharing with roommates. Owner pays heat.", []),
         ("", []),
@@ -36,6 +51,12 @@ from rentfrontier import cautions
 )
 def test_from_text(text, codes):
     assert cautions.from_text(text) == codes
+
+
+def test_plain_folds_case_spaces_and_dashes():
+    assert cautions.plain("Income\u2013Restricted\n\n  UNIT\u00a0here") == (
+        "income-restricted unit here"
+    )
 
 
 def test_ordered_lists_each_code_once_in_the_modules_order():

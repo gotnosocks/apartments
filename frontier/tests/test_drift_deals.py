@@ -160,17 +160,43 @@ def test_validate_tabulates_outcomes_by_the_first_asks_place(tmp_path):
     assert sum(b["ads"] for b in out["without_free_months"]["by_first_ask_place"]) == 3
 
 
+def test_validate_places_the_first_ask_on_the_net_basis(tmp_path, monkeypatch):
+    run, ads, _ = _run(tmp_path)
+    score_run, seen = drift_deals.drift_score.score_run, {}
+
+    def spy(run_dir, at=None):
+        seen["at"] = at
+        return score_run(run_dir, at=at)
+
+    monkeypatch.setattr(drift_deals.drift_score, "score_run", spy)
+    drift_deals.validate(run, ads)
+    # Held-out listings 2, 3, 4 and 6. Listing 3 is scored at its net 3000, not at the
+    # 3250 its price history holds.
+    assert np.allclose(np.exp(seen["at"]), [2700, 3000, 3600, 3000])
+    # Without its page price listing 3 has no basis: it is left out and counted.
+    table = pd.read_parquet(ads)
+    table.loc[table.listing_id == 3, "page_price"] = np.nan
+    table.to_parquet(ads, index=False)
+    out = drift_deals.validate(run, ads, bins=1)
+    assert out["ads_with_first_ask"] == 3 and out["ads_with_free_months"] == 0
+    assert out["ads_left_out_without_a_basis"] == 1
+    assert out["by_first_ask_place"][0]["ads"] == 3
+
+
 def test_first_net_scales_a_gross_first_ask_only_where_months_are_free():
     out = drift_deals.first_net(
-        first=[3250.0, 3500, 3000, 3000, 3000, np.nan],
-        final=[3000.0, 3000, 3000, 3000, 3300, 3000],
-        page=[3250.0, 3250, 3250, np.nan, 3000, 3250],
-        months_free=[1, 1, 0, 1, 1, 1],
+        first=[3250.0, 3500, 3000, 3000, 3000, 3000, np.nan, 3000],
+        final=[3000.0, 3000, 3000, 3000, 3300, 100, 3000, 3000],
+        page=[3250.0, 3250, 3250, np.nan, 3000, 3250, 3250, 3250],
+        months_free=[1, 1, 0, 1, 1, 1, 1, np.nan],
     )
-    # A gross ask that never moved; one cut from 3500 to 3250 gross; an ad with no free
-    # months, one with no page price and one whose page shows less than its ask keep theirs.
+    # A gross ask that never moved, and one cut from 3500 to 3250 gross.
     assert out[0] == 3000 and round(out[1], 2) == round(3500 * 3000 / 3250, 2)
-    assert out[2:5].tolist() == [3000, 3000, 3000] and np.isnan(out[5])
+    # No free months (0 or missing): the ask as it is.
+    assert out[2] == 3000 and out[7] == 3000
+    # Free months with no page price, a page price under the ask, a net ask under half
+    # the page price, or no first ask: no basis.
+    assert np.isnan(out[3:7]).all()
 
 
 def test_title_address_and_unit_label():
@@ -291,10 +317,15 @@ OFFICE = (
 )
 
 
-def _texts(tmp_path, texts):
+def _texts(tmp_path, texts, ads=None):
+    """A texts table as `drift_deals.texts` writes it for the build of the ads file."""
     path = tmp_path / "texts.parquet"
     pd.DataFrame(
-        {"listing_id": list(texts), "description": list(texts.values())}
+        {
+            "listing_id": list(texts),
+            "description": list(texts.values()),
+            "ads_sha256": sha256(ads or tmp_path / "ads.parquet"),
+        }
     ).to_parquet(path, index=False)
     return path
 
@@ -356,6 +387,14 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
     assert drift_deals.publish(run, out, reg)["cautions"]["ads_with_text"] is None
     with pytest.raises(SystemExit, match="no text for any ad"):
         drift_deals.deals(run, ads, reg, _texts(tmp_path, {"98": AFFORDABLE}))
+    # The texts of another build's ads are refused, and so is a table with no stamp.
+    other = tmp_path / "other.parquet"
+    pd.DataFrame({"listing_id": [2]}).to_parquet(other)
+    with pytest.raises(SystemExit, match="not written for the ads of this run"):
+        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"2": AFFORDABLE}, other))
+    pd.DataFrame({"listing_id": ["2"], "description": [AFFORDABLE]}).to_parquet(other)
+    with pytest.raises(SystemExit, match="not written for the ads of this run"):
+        drift_deals.deals(run, ads, reg, other)
 
 
 def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypatch):
@@ -375,7 +414,13 @@ def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypa
     records = {"path": "records.parquet", "ads": {"sha256": sha256(ads)}}
     table = drift_deals.texts(run, records)
     assert asked["wanted"] == {"2", "3", "4", "6"}
-    assert table.columns.tolist() == ["listing_id", "description", "record"]
+    assert table.columns.tolist() == [
+        "listing_id",
+        "description",
+        "record",
+        "ads_sha256",
+    ]
     assert table.listing_id.tolist() == ["2", "3"]
+    assert set(table.ads_sha256) == {sha256(ads)}
     with pytest.raises(SystemExit, match="another build"):
         drift_deals.texts(run, records | {"ads": {"sha256": "0"}})

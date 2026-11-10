@@ -35,7 +35,7 @@ SORTS = {
 SHOWN = 200
 FILES = ("deals.json", "meta.json", "validation.json")
 LISTING = "https://streeteasy.com/rental/"
-# A caution's code as the page words it. A code the page does not know is not shown.
+# A caution's code (`rentfrontier.cautions.CODES`) as the page words it.
 CAUTIONS = {
     "income": "the ad says it is income-restricted or in an affordable-housing program",
     "not_home": "the ad reads like an office, not a home",
@@ -43,7 +43,11 @@ CAUTIONS = {
     "beds": "listed before with a different bedroom count",
     "off_market": "temporarily off the market",
 }
+# A code a later table may carry that this page has no words for: still a caution.
+UNKNOWN_CAUTION = "a caution this page has no words for ({})"
 OFF_MARKET = "TEMPORARILY_OFF_MARKET"
+# The page's own query keys besides `all`. A link the page builds carries only these.
+FILTERS = ("beds", "max", "hood", "known", "sort")
 # What a table writes for a missing name.
 NO_NAME = {"", "nan", "none", "<na>", "null"}
 
@@ -117,13 +121,23 @@ def _backtest(validation: dict) -> dict:
 
 
 def caution_words(row) -> list[str]:
-    """The row's cautions in the page's words. A table from before the cautions still
-    says when an ad is off the market, from its status."""
+    """The row's cautions in the page's words. A code the page does not know is still a
+    caution, named by its code, so an ad never reads as clear because the table is newer
+    than the page. A table from before the cautions still says when an ad is off the
+    market, from its status."""
     codes = row.get("cautions")
-    codes = [c for c in codes if isinstance(c, str)] if isinstance(codes, list) else []
+    codes = [codes] if isinstance(codes, str) else codes
+    codes = (
+        [c for c in codes if isinstance(c, str) and c]
+        if isinstance(codes, list)
+        else []
+    )
     if row.get("status") == OFF_MARKET and "off_market" not in codes:
         codes.append("off_market")
-    return [CAUTIONS[c] for c in dict.fromkeys(codes) if c in CAUTIONS]
+    return [
+        CAUTIONS[c] if c in CAUTIONS else UNKNOWN_CAUTION.format(c[:40])
+        for c in dict.fromkeys(codes)
+    ]
 
 
 def load_rows(rows) -> list[dict]:

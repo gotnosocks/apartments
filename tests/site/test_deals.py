@@ -177,13 +177,17 @@ def test_choose_filters_and_orders():
 
 def test_cautions_are_worded_from_the_tables_codes():
     words = lambda **row: deals.caution_words(row)  # noqa: E731
-    assert (
-        words() == [] and words(cautions=None) == [] and words(cautions="income") == []
-    )
+    assert words() == [] and words(cautions=None) == [] and words(cautions=[]) == []
+    assert words(cautions={"income": 1}) == [] and words(cautions=[7, None, ""]) == []
+    assert words(cautions="income") == [deals.CAUTIONS["income"]]
+    # A code from a newer table than the page is still a caution, named by its code.
     assert words(cautions=["income", "beds", "income", "new-code", 7]) == [
         deals.CAUTIONS["income"],
         deals.CAUTIONS["beds"],
+        "a caution this page has no words for (new-code)",
     ]
+    rows = deals.load_rows([ROWS[0] | {"cautions": ["new-code"]}, ROWS[2]])
+    assert [r["listing_id"] for r in deals.choose(rows)] == ["13"]
     # A table from before the cautions, and one with them, say an ad is off the market once.
     off = deals.CAUTIONS["off_market"]
     assert words(status="TEMPORARILY_OFF_MARKET") == [off]
@@ -219,10 +223,27 @@ def test_page_shows_the_table_the_backtest_and_the_model(client, site_root):
     assert full.index("rental/11") < full.index("rental/12") < full.index("rental/13")
     assert "Check first: temporarily off the market." in full
     assert "left out for a caution" not in full
-    # The link to the full list keeps the other filters.
+    # The link to the full list keeps the page's own filters and nothing else.
     kept = client.get("/deals?beds=3&sort=new").get_data(as_text=True)
     assert "<strong>0</strong> of 3" in kept and "1 more is left out" in kept
     assert 'href="/deals?beds=3&amp;sort=new&amp;all=1"' in kept
+    odd = client.get(
+        "/deals?endpoint=x&_method=POST&_scheme=x&_external=1&_anchor=a&beds=3&beds=0"
+    )
+    assert odd.status_code == 200
+    assert 'href="/deals?beds=3&amp;all=1"' in odd.get_data(as_text=True)
+
+
+def test_the_page_has_words_for_every_code_the_table_can_carry():
+    import importlib.util
+    from pathlib import Path
+
+    source = Path(__file__).parents[2] / "frontier/src/rentfrontier/cautions.py"
+    spec = importlib.util.spec_from_file_location("frontier_cautions", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert set(deals.CAUTIONS) == set(module.CODES)
+    assert deals.OFF_MARKET == module.OFF_MARKET
 
 
 def test_page_stands_without_meta_or_backtest(client, site_root):

@@ -128,12 +128,20 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
         )
     _, h, _ = _held_frame(run_dir)
     table = descriptions.record_descriptions(records, set(h.listing_id.astype(str)))
-    return table.rename_axis("listing_id").reset_index()
+    # The table carries its build, so `deals` can refuse the texts of another run's ads.
+    return (
+        table.rename_axis("listing_id")
+        .reset_index()
+        .assign(ads_sha256=market["ads_sha256"])
+    )
 
 
-def _cautions(frame, h, held, unit_key, texts: Path | None) -> tuple[list, int | None]:
+def _cautions(
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str
+) -> tuple[list, int | None]:
     """Each held-out row's caution codes, and how many of the rows have a text (None
-    without `texts`)."""
+    without `texts`). `texts` must be the table `texts` wrote for the build whose ads file
+    has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
     varied = (unit_key[held].map(counts).fillna(0) > 1).to_numpy() & known[held]
@@ -145,7 +153,9 @@ def _cautions(frame, h, held, unit_key, texts: Path | None) -> tuple[list, int |
     off = (h.status.astype(str) == cautions_module.OFF_MARKET).to_numpy()
     described, with_text = [None] * len(h), None
     if texts is not None:
-        t = pd.read_parquet(texts, columns=["listing_id", "description"])
+        t = pd.read_parquet(texts)
+        if set(t.get("ads_sha256", [None])) != {ads_sha}:
+            raise SystemExit(f"{texts} was not written for the ads of this run")
         t = t.assign(listing_id=t.listing_id.astype(str)).drop_duplicates("listing_id")
         described = (
             t.set_index("listing_id").description.reindex(h.listing_id.astype(str))
@@ -181,7 +191,9 @@ def deals(
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
-    codes, with_text = _cautions(frame, h, held, unit_key, texts)
+    codes, with_text = _cautions(
+        frame, h, held, unit_key, texts, _manifest(run_dir)["ads_sha256"]
+    )
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -235,16 +247,25 @@ def deals(
     return out
 
 
+# The least an ad's net ask can be of the rent its page shows and still be a concession:
+# half is six months free in twelve. Below it the two prices are not one ad's.
+NET_FLOOR = 0.5
+
+
 def first_net(first, final, page, months_free) -> np.ndarray:
     """An ad's first ask on the basis of its final ask. `final` is net of free months and
     `first` and `page`, the rent the ad's page shows, are gross, so an ad with free months
     has its first ask scaled by `final / page`. That reads the concession as there from the
-    first day: one added later was a cut in effect, and is not counted as one."""
+    first day: one added later was a cut in effect, and is not counted as one.
+
+    An ad with free months whose page price is missing, or not above its net ask, or more
+    than twice it, has no basis to compare on and gets NaN."""
     first, final, page = (np.asarray(v, float) for v in (first, final, page))
+    free = np.nan_to_num(np.asarray(months_free, float)) > 0
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = final / page
-    scaled = (np.nan_to_num(np.asarray(months_free, float)) > 0) & (ratio > 0)
-    return np.where(scaled & (ratio < 1), first * ratio, first)
+    sound = (ratio >= NET_FLOOR) & (ratio < 1)
+    return np.where(free, np.where(sound, first * ratio, np.nan), first)
 
 
 def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
@@ -257,8 +278,10 @@ def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
     a = _ads(ads, h.listing_id)
     final = h.latest_ask.to_numpy(float)
     free = np.nan_to_num(a.months_free.to_numpy(float)) > 0
-    first = first_net(a.first_ask, final, a.page_price, free)
+    gross = a.first_ask.to_numpy(float)
+    first = first_net(gross, final, a.page_price, free)
     ok = np.isfinite(first) & (first > 0)
+    no_basis = int((np.isfinite(gross) & (gross > 0) & ~ok).sum())
     res = drift_score.score_run(run_dir, at=np.log(np.where(ok, first, final)))
     place = res["cdf_at"]
     day = pd.to_datetime(h.final_day if "final_day" in h else h.latest_day)
@@ -295,6 +318,7 @@ def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
         "ads_with_first_ask": int(ok.sum()),
         "first_ask_basis": "net of the ad's free months, as the model's asks are",
         "ads_with_free_months": int((ok & free).sum()),
+        "ads_left_out_without_a_basis": no_basis,
         "final_ask_scores": drift_score.summary(res),
         "by_first_ask_place": table(ok),
         "without_free_months": {
