@@ -204,9 +204,13 @@ class Settings:
     # the project's rule is an hour a fit; outside the sweeps the pilots took 13 to 15
     # minutes (image, design, compile, output). None runs every draw asked for.
     budget_seconds: float | None = 2520.0
-    # With a collapsed building term, the columns whose names start with one of these are
-    # drawn a second time with the buildings' paths integrated out (`update_slow`).
+    # With a collapsed building term, the columns whose names start with one of these and
+    # that change within a building are drawn a second time with the buildings' paths
+    # integrated out (`update_slow`). A column counts when at least `slow_within` of its
+    # variance is within buildings: a path can only stand in for a column that moves inside
+    # a building, and one fixed in each building (its height, its lot) is left to theta.
     slow_columns: tuple[str, ...] = ("bld:",)
+    slow_within: float = 0.001
     # Draw each zone's amplitude with the waves integrated out (`rentfrontier.amp_joint`).
     joint_amp: bool = True
 
@@ -393,6 +397,16 @@ def slice_along(key, x, lp, logp, dirs, shrink=32):
         _, _, _, t, lp, _, _ = jax.lax.while_loop(cond, body, start)
         x = x + t * v
     return x, lp
+
+
+def within_share(x: np.ndarray, site: np.ndarray) -> float:
+    """The share of a column's variance that is within buildings (0 for a constant one)."""
+    total = float(np.var(x))
+    if total == 0:
+        return 0.0
+    count = np.bincount(site)
+    mean = np.bincount(site, weights=x) / np.maximum(count, 1)
+    return float(np.mean((x - mean[site]) ** 2)) / total
 
 
 def cell_layout(site, step, pi, pj, size: int, steps: int, pads=CELL_PADS) -> dict:
@@ -661,6 +675,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             and settings.slow_columns
             and d.names[j].startswith(settings.slow_columns)
             and k not in held
+            and within_share(d.x[:, j], d.site) >= settings.slow_within
         ],
         dtype=int,
     )
