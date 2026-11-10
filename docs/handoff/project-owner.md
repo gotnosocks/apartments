@@ -39,9 +39,9 @@ window and no stale jobs to be run.
   (latest, 12 chains) misses on drift_tau at R-hat 1.0106, n6 (market) on bld_sd[outer] at
   1.0135, and the backtest j6 (8 chains of 1,550) on bld_sd[outer] at 1.0447 with ESS 68:
   two chains sit near 0.0923 and six near 0.0927 to 0.0928 for the whole run. About five
-  buildings in 68,000 hold one of two levels for a whole chain and are the likely source;
-  by my arithmetic the ones found carry about a quarter of the offset, and a direct check
-  was running at 10:26Z (the note, "What is shown and what is not"). Pooled runs
+  buildings in 68,000 hold one of two levels for a whole chain and carry about a quarter
+  of the offset. The rest is a shift shared thinly across the outer buildings' levels,
+  frozen within a chain, source unknown (the note, "The direct check"). Pooled runs
   on thelio: `drift-building-b0-latest-7023bba1-b6`, `drift-building-b0-market-7023bba1-n6`,
   `drift-building-b0-market-7023bba1-j6`. The lesson: R-hat is set by a chain's length, and
   an hour of 4 chains gives 1,600 draws where about 4,000 are needed.

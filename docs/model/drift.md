@@ -58,8 +58,11 @@ latest split and bld_sd[outer] at 1.0135 on the market data. It is not served. O
 latest split the twelve chains agree on every scale to three digits and the miss fits
 chain length (a chain of four in an hour is too short for the R-hat line, whatever the
 number of chains). On the market and backtest data bld_sd[outer] also differs from chain
-to chain by more than its autocorrelation allows, and the cause is not known. The note has
-both and what was tried next. Round seven (two long chains a container, on the latest
+to chain by more than its autocorrelation allows. About a quarter of that offset is
+traced to a handful of buildings whose level sits at one of two values for a whole chain
+(their few ads fall into two price clusters); the rest is a shift shared thinly across
+the outer buildings' levels, and its cause is not known. The note has both and what was
+tried next. Round seven (two long chains a container, on the latest
 split and the market data) was running when this was written; its predictions are in the
 note and its scores will be.
 
@@ -331,6 +334,7 @@ number of chains second.
 - **`drift-building` has not passed the gate.** Its pooled fits of round six miss by 0.0006
   and 0.0035 in R-hat on one quantity each. On the market and backtest data the outer
   boroughs' building spread also holds a small offset from chain to chain that does not
-  move within a run; its cause is not known (the note gives the test to run next).
+  move within a run. A quarter of it is a handful of buildings in two states; the cause
+  of the rest is not known (the note, "The direct check").
 - **`drift-local` was not refitted** after round two, where the neighbourhood path added
   952 elpd to the building model, 2.5% of the building path's gain.
