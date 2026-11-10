@@ -298,25 +298,35 @@ def measured_rate(model, features, runs=RUNS):
 LARGE_SECONDS_PER_ITERATION = 2.1
 
 
-def gpu_seconds(chains, warmup, draws, rate=None, large=False):
+# A drift fit stops drawing once its sweeps have taken `rentfrontier.drift.Settings`'s
+# budget_seconds (kept equal by a test), so a long request costs the budget and no more. The
+# pilots of 2026-11-10 spent 790 to 880 s outside their sweeps, compile included.
+SWEEP_BUDGET_SECONDS = dict.fromkeys(("drift", "drift-building", "drift-local"), 2520)
+
+
+def gpu_seconds(chains, warmup, draws, rate=None, large=False, budget=None):
     """Estimated wall time of a fit's GPU container, at `rate` seconds an iteration if that is
-    slower than the default."""
+    slower than the default. A fit that stops its sweeps at `budget` seconds takes no longer
+    in them."""
     default = LARGE_SECONDS_PER_ITERATION if large and rate is None else 0
     per = max(SECONDS_PER_ITERATION, rate or 0, default)
-    return OVERHEAD_SECONDS + per * (int(warmup) + int(draws)) * (int(chains) / 2)
+    sweeps = per * (int(warmup) + int(draws)) * (int(chains) / 2)
+    return OVERHEAD_SECONDS + (sweeps if budget is None else min(sweeps, budget))
 
 
-def seconds(chains, warmup, draws, rate=None, large=False):
+def seconds(chains, warmup, draws, rate=None, large=False, budget=None):
     """Estimated Modal time of a fit: its GPU container, then the new-building container (none
     for a large fit)."""
     nb = 0 if large else NEWBUILDING_SECONDS
-    return round(gpu_seconds(chains, warmup, draws, rate, large) + nb)
+    return round(gpu_seconds(chains, warmup, draws, rate, large, budget) + nb)
 
 
-def estimate(chains, warmup, draws, gpu="A100-40GB", rate=None, large=False):
+def estimate(
+    chains, warmup, draws, gpu="A100-40GB", rate=None, large=False, budget=None
+):
     """Estimated list-price cost of a fit and its new-building score, in USD."""
     per_hour = (USD_PER_HOUR_LARGE if large else USD_PER_HOUR)[gpu]
-    gpu_usd = gpu_seconds(chains, warmup, draws, rate, large) * per_hour
+    gpu_usd = gpu_seconds(chains, warmup, draws, rate, large, budget) * per_hour
     nb_usd = 0 if large else NEWBUILDING_SECONDS * NEWBUILDING_USD_PER_HOUR
     return round((gpu_usd + nb_usd) / 3600, 2)
 
@@ -456,10 +466,11 @@ def fit_stages(
             or STATED_RATE.get(model)
             or STATED_RATE.get(RATE_STAND_IN.get(model))
         )
+        budget = SWEEP_BUDGET_SECONDS.get(model)
         stages = {
             "gpu": (
-                estimate(chains, warmup, draws, gpu, rate, large),
-                seconds(chains, warmup, draws, rate, large),
+                estimate(chains, warmup, draws, gpu, rate, large, budget),
+                seconds(chains, warmup, draws, rate, large, budget),
             )
         }
     if cpu_score and scoring:
