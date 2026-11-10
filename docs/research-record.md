@@ -19,7 +19,7 @@ As of 2026-11-09, the docs hold no dated model result after 2026-10-24. The kitc
 
 ## 2. Ledger
 
-Rows are in date order. Where a source gives no date for an entry, the date column says so. Module names are under `frontier/src/rentfrontier/` unless noted. Part A is the early line, B the frontier and data-rule line, C the October feature tests, D the large-data and B0 line, E the building-zones line.
+Rows are in date order. Where a source gives no date for an entry, the date column says so. Module names are under `frontier/src/rentfrontier/` unless noted. Part A is the early line, B the frontier and data-rule line, C the October feature tests, D the large-data and B0 line, E the building-zones line, F the drift line of 2026-11-10.
 
 ### A. August to September 24: Bayesian PyMC line
 
@@ -184,6 +184,22 @@ Rows are in date order. Where a source gives no date for an entry, the date colu
 | 2026-10-23 | Kitchen sink fit (a), 1 km (`building_zones_kitchen_sink`) | 250 columns (fit 8's 130, plus 38 ad, 25 building amenity, 12 lot, 45 unit-mean) | Passes: worst R-hat 1.0065, ESS 537; latest-split elpd 156,105 vs fit 8 148,234 (+7,871; SE 140 row, 228 building, 322 two-way) and vs fit 4 177,137 (-21,032; SE 309, 527, 851); 1,566 s sampling, 2,187 s stage, $1.57 | Not served | `docs/notes/kitchen-sink-2026-10-23.md` |
 | 2026-10-23 to 10-24 | Kitchen sink fit (b), 150 m | Twin with surfaces at 150 m | Out of memory in sweep 1 (39.5 GiB block) on H100 80 GB; no draws; $0.68 | Blocked by GPU memory | `docs/handoff/kitchen-sink.md` |
 | 2026-10-23 | Kitchen sink fit (c) with unit effects | `building_zones_kitchen_sink_unit` | Module and predictions merged | Cancelled by Ben before launch | `docs/handoff/kitchen-sink.md` |
+
+### F. 2026-11-10: the drift line
+
+| Date | Model or experiment | Change | Headline numbers | Verdict | Source |
+|---|---|---|---|---|---|
+| 2026-11-10 | Aim changed (Ben) | From explaining rents to a descriptive model that finds deals with honest uncertainty | A model is judged on held-out asks: elpd, the median's error and interval coverage | In force | `CLAUDE.md`, `docs/handoff/project-owner.md` |
+| 2026-11-10 | Residual check on fit 4 and the kitchen sink (no fit) | How much residual two ads of one unit share, by the time between them | 66% half a year apart, 21% eight years apart | A constant unit effect is the wrong shape; led to a unit level that drifts | `docs/notes/drift-2026-11-10.md` |
+| 2026-11-10 | Second residual check (no fit) | Residuals of different units of one building, with units accounted for | Correlation 0.26 within three months, 0.13 at three to six, 0.075 at six to twelve, none after two years; neighbourhood years have sd 0.013 | Led to a drift path per building and per neighbourhood | `docs/notes/drift-2026-11-10.md` |
+| 2026-11-10 | Scrape to 2026-11-09; market and backtest datasets (`rentfrontier.market`) | Datasets as of a day: later ads set aside, ads open that day held out | Market: 6,774 open ads. Backtest as of 2025-11-10: 9,346 open ads | Used for the Deals page and its check | `docs/model/drift.md` |
+| 2026-11-10 | `drift` (rounds one to three) | Kitchen sink plus a unit level `s_k + d_k(t)`, `d` an OU process; theta drawn with building and unit levels integrated out | Latest-split elpd 195,315 (kitchen sink 156,105, fit 4 177,137); median abs error 0.0507; coverage 0.513 / 0.799 / 0.896 / 0.949. Misses gate: round two R-hat 1.032, ESS 70; round three (scales and sigma together) 1.027, 188, on 10 quantities. unit_sd 0.048, drift_sd 0.079, drift_tau 5.6 years, nu 1.76. About 0.9 s a sweep, $1.5 a fit | Large gain; not served because of gate; not rerun on another seed | `docs/notes/drift-2026-11-10.md` |
+| 2026-11-10 | `drift-building` (rounds one and two, monthly path) | Plus an AR(1) path per building, drawn given the unit levels | Latest-split elpd 233,273 (+37,957 over `drift`, 37,261 of it on ads with another unit's ad in the building within six months); median abs error 0.0399; coverage 0.527 / 0.807 / 0.900 / 0.951. Misses gate badly: R-hat 1.65, ESS 5, 124 quantities. building_ar_sd 0.074, monthly rho 0.943 | Best held-out score of the project; chains creep | `docs/notes/drift-2026-11-10.md` |
+| 2026-11-10 | `drift-local` (round two) | Plus an AR(1) path per neighbourhood | +952 elpd over `drift-building` (SE 53 by row, 60 by building); R-hat 1.54, ESS 4 | Dropped: 2.5% of the building term's gain | `docs/notes/drift-2026-11-10.md` |
+| 2026-11-10 | Shrink-only slice (`slice_along`), found in review | The older samplers step a slice interval out a fixed number of times, which narrows draws on a long slice | Rounds one (old) and two (fixed) agree on every gate result | Fixed in the drift line; older fits' scales may be slightly tight | `docs/notes/drift-2026-11-10.md`, `frontier/tests/test_drift_local.py` |
+| 2026-11-10 | Round four pilot (`drift-building`, quarterly path, collapsed) | Building level and path drawn jointly with the unit levels integrated out; path steps quarterly to fit the hour | Latest-split elpd 230,683 (2,590 below monthly, all on ads with another unit's ad in the same quarter); 1.50 s a sweep; building scales mix; unit scales R-hat 1.7 to 1.8 (drawn given the paths); $0.94 | Building step works; the unit scales now pinned | `docs/notes/drift-2026-11-10.md` |
+| 2026-11-10 | Backtest first look (non-converged chains) | First asks of the ads open on 2025-11-10 by tenth of the deal score | Lowest tenth to highest: median days on market 25 to 67, share later cut 0.16 to 0.84, gone within 14 days 0.265 to 0.062 | The score orders outcomes; to be repeated on a fit that passes | `docs/notes/drift-2026-11-10.md` |
+ROUND-FIVE-ROWS
 
 ## 3. What worked
 
