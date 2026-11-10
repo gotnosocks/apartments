@@ -17,6 +17,19 @@ is therefore a fair signal of over- or under-pricing ([what an estimate is](mode
 - **Home** (`/`): the served model with its place on the board, coverage, entry points to both
   sections, and the latest merged changes and model switches.
 
+### Deals
+
+- **Deals** (`/deals`): the ads on the market on the scoring day, ranked by how low each ask sits
+  in the served model's predictive range for that apartment (`apartments.site.deals`). The page
+  reads only the `deals/` folder that `python -m rentfrontier.drift_deals publish` last wrote
+  (`deals.json`, `meta.json`, `validation.json`), so it shows the last publish and never a
+  half-written one. Ads with a caution (`rentfrontier.cautions`) are left out unless asked for.
+  Publish only from a fit that passed the gate, with its backtest. Since 2026-11-10 it is
+  published from `drift-building` ([model/drift.md](model/drift.md)).
+
+The Estimates section below was last built on 2026-10-19 from the earlier model line and has
+not been rebuilt from `drift`; the Deals page is the current model's view of the market.
+
 ### Estimates
 
 - **Overview** (`/estimates`): coverage figures, the listings available now (lowest ask against

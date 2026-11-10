@@ -106,5 +106,5 @@ next few hours of fits running or queued, with the night's full fits queued by e
 If your work depends on another thread's PR or result, watch it with `wait-next --pr N` and check
 it yourself. If it hasn't moved by the next wake, message that thread's session (ListAgents,
 SendMessage) and say exactly what you need. Meanwhile take the next item from your own backlog
-(`docs/research-plan.md`, `docs/TODO.md`) rather than idling. A decision only Ben can make goes to
+(`docs/TODO.md`) rather than idling. A decision only Ben can make goes to
 your thread once; keep working on the default you recommended while you wait.
