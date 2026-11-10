@@ -22,9 +22,10 @@ window and no stale jobs to be run.
   default, 972 left out for a caution (646 off market, 328 beds, 55 income, 2 not_home,
   1 owners_only), and the backtest (26 to 71 days on market, 18% to 61% cut, lowest
   tenth to highest). The folder as `drift` had it is kept at
-  `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`. A reader classed 35 of the
-  first 40 ads of the morning's `drift` list as ordinary apartments; the new list's
-  first 40 are being read.
+  `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`. A reader classed 36 of the
+  first 40 ads of this list as ordinary apartments, 2 low for a plain reason (a lease
+  takeover; a text that names a fourth bedroom) and 2 it could not tell (35 of 40 on
+  the morning's `drift` list).
 - **PRs.** #1281 (the model, the Deals page, the docs) merged as `252a82a`, head `f1380fc`.
   #1282 (cautions, the backtest on one basis) merged as `9266983`, head `93bbfca`. The tags
   `archive/pr-1281` and `archive/pr-1282` are not pushed: this thread can push only its
@@ -91,13 +92,11 @@ window and no stale jobs to be run.
 
 ## Next, in order
 
-1. The reading of the first 40 ads of the new list (a Sonnet reader on thelio): put
-   its counts in the note, the README and here.
-2. The fourth PR (round nine's record, the docs and the explainer around the served
+1. The fourth PR (round nine's record, the docs and the explainer around the served
    model, `pagedata.py --level-dof`): a Sonnet reviewer for the page and docs, then
    squash-merge. No site or model code is in it.
-3. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
-4. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
+2. Final summary to Ben: links, Modal spend, what remains. The window ends 2026-11-11 00:02Z.
+3. The data rule for studio-coded ads that are not studios is in `docs/TODO.md`.
 
 ## Things a newcomer would trip on
 

@@ -47,6 +47,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   ads are among the ten behind the building model's one failing R-hat (1259 Jefferson Ave, 310 Linden St, 866
   Knickerbocker Ave, 386 St John's Pl, 1030 DeKalb Ave, 1405 Lincoln Pl, 391 Greene Ave,
   662 Nostrand Ave). Write the rule on a reading, rebuild, refit.
+- [ ] A caution for lease takeovers ("lease takeover", "present tenancy that expires"):
+  one was among the 237 ads read for the cautions and one is 33rd of the list of
+  2026-11-10 (484 Amsterdam Avenue 2C). Fix the pattern by reading its matches.
 - [ ] Make `--level-dof 4` the default of `drift-building`, or have `ops/modal-fit` refuse
   the model without it: the served fits (round nine) use it, the flag is off by default,
   and under the normal prior every pooled fit missed the gate. Needs a model review.

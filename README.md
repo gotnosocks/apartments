@@ -34,8 +34,10 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
   backtest. Ads whose low ask has a plain reason the model does not know (the text says
   income-restricted, an office, owners only; the apartment's ads disagree on its bedrooms;
   the ad is off the market) carry a caution and are left out of the list unless asked for.
-  Read against their own text, 35 of the first 40 ads then shown were ordinary apartments
-  with no plain reason for the low ask; before the cautions it was 10 of 22.
+  Read against their own text, 36 of the first 40 ads shown are ordinary apartments with
+  no plain reason for the low ask (2 have one: a lease takeover, and a text that names
+  one more bedroom than the record; 2 cannot be told). Before the cautions, under
+  `drift`, it was 10 of 22.
 - **The backtest.** Fitted on what was known on 2025-11-10 and scored on the first asks of
   the 9,346 ads open that day: ads in the lowest tenth of the score left the market in a
   median of 26 days and 18% had their ask cut; ads in the highest tenth took 71 days and
