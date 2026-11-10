@@ -5,7 +5,7 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 09:46Z
+## State at 2026-11-10 09:45Z
 
 - **Served model.** `drift`. Its three full fits passed the gate (f6 on the latest split,
   m6 on the market dataset, k6 on the backtest; run names `drift-b0-latest-fabd6f9d-f6`,
@@ -78,4 +78,4 @@ window and no stale jobs to be run.
 - The full design needs about 15 GB of memory, so it is built on Modal, not on thelio.
 - All project timers on thelio are disabled since late October. Nothing is queued.
 - `config/main-analysis.json` still selects the all-scraped fit of 2026-10-17, which failed
-  the gate. The site's per-listing estimates come from it until the Deals page lands.
+  the gate. The site's per-listing estimate pages still come from it; the Deals page does not.
