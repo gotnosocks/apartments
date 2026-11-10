@@ -275,7 +275,7 @@ const LAYERS = [
   ["Where", "a smooth surface over the map, 1 km fine", "2 zones", "fg"],
   ["Which building", "each building's level around that surface", `${num(D.meta.buildings)} buildings`, "brown"],
   ["Which apartment", "a lasting level, plus one that drifts", `${num(D.meta.units)} apartments`, "blue"],
-  ["What the block is doing lately", "a monthly path per building, a quarterly one per neighbourhood", "new", "teal"],
+  ["What the block is doing lately", HY.nbhd_ar_sd != null ? "a quarterly path per building and per neighbourhood" : "a path per building, quarter by quarter", "new", "teal"],
   ["Noise", "whatever one ad does on its own", "heavy tails", "muted"],
 ];
 function sceneLayers1(t) {
@@ -296,7 +296,7 @@ function sceneLayers2(t) {
     ["Apartment, lasting", HY.unit_sd, C.blue, "this unit against its building, for good"],
     ["Apartment, drifting", HY.drift_sd, C.blue, `fades with a ${HY.drift_tau.toFixed(1)}-year time scale`],
   ];
-  if (HY.building_ar_sd != null) rows.push(["Building, lately", HY.building_ar_sd, C.teal, `month to month correlation ${HY.building_ar_rho.toFixed(2)}`]);
+  if (HY.building_ar_sd != null) rows.push(["Building, lately", HY.building_ar_sd, C.teal, `quarter to quarter correlation ${HY.building_ar_rho.toFixed(2)}`]);
   if (HY.nbhd_ar_sd != null) rows.push(["Neighbourhood, lately", HY.nbhd_ar_sd, C.teal, `quarter to quarter correlation ${HY.nbhd_ar_rho.toFixed(2)}`]);
   rows.push(["Noise in one ad", NOISE, C.muted, "the middle bedroom group's scale"]);
   const top = 64, rowH = (H - top - 20) / rows.length, xl = narrow() ? 14 : 28, xb = narrow() ? 14 : W * 0.3;
@@ -458,15 +458,15 @@ function arPaths(sd, rho, steps, k, seed) {
   return out;
 }
 function sceneBlock2(t) {
-  const sd = HY.building_ar_sd, rho = HY.building_ar_rho, steps = 61;
-  title("So each building gets a path of its own, month by month", seg(t, 0, 0.2));
+  const sd = HY.building_ar_sd, rho = HY.building_ar_rho, steps = 33;
+  title("So each building gets a path of its own, quarter by quarter", seg(t, 0, 0.2));
   const paths = arPaths(sd, rho, steps, 3, 11), xs = paths[0].map((_, i) => i);
   const lim = Math.ceil(100 * Math.expm1(2.6 * sd));
   const f = frame([0, steps - 1], [-lim, lim]);
-  axes(f, { yt: niceTicks(-lim, lim, 4), yf: v => (v > 0 ? "+" : "") + v + "%", xt: [0, 12, 24, 36, 48, 60], xf: v => v ? v + " mo" : "0", ylab: narrow() ? "three simulated buildings at the fitted scales" : "a building against its own long-run level (three simulated buildings at the fitted scales)", a: seg(t, 0, 0.25) });
+  axes(f, { yt: niceTicks(-lim, lim, 4), yf: v => (v > 0 ? "+" : "") + v + "%", xt: [0, 8, 16, 24, 32], xf: v => v ? v / 4 + " yr" : "0", ylab: narrow() ? "three simulated buildings at the fitted scales" : "a building against its own long-run level (three simulated buildings at the fitted scales)", a: seg(t, 0, 0.25) });
   line(f.X0, f.y(0), f.X1, f.y(0), C.muted, 0.6, 1, [3, 4]);
   [C.teal, C.yellow, C.brown].forEach((c, j) => path(f, xs, paths[j].map(v => 100 * Math.expm1(v)), seg(t, 0.1 + 0.15 * j, 0.7 + 0.15 * j), { c, lw: 2 }));
-  const a = seg(t, 0.8, 1), half = log(0.5) / log(rho);
+  const a = seg(t, 0.8, 1), half = 3 * log(0.5) / log(rho);
   note(`typical size ${pm(sd)}`, f.X1 - 6, f.Y1 + 4, { c: C.teal, al: "right", a });
   note(`half of a move is gone after ${half < 18 ? half.toFixed(0) + " months" : (half / 12).toFixed(1) + " years"}`, f.X1 - 6, f.Y1 + 22, { c: C.teal, al: "right", a });
 }
@@ -613,7 +613,7 @@ const low = BT.rows[0], mid = BT.rows[Math.floor(BT.rows.length / 2)], high = BT
 const BEATS = [
   { s: "Question", d: sceneQ1, cap: `A deal is an ask that is low <b>for this apartment, on this day</b>. So the model's job is to say what the apartment would usually ask, and how sure it is. For this one it says about ${dollars(HERO.median)}, and 8 times in 10 between ${dollars(HERO.lo80)} and ${dollars(HERO.hi80)}.` },
   { s: "Question", d: sceneQ2, cap: `The ad asks <b>${dollars(HERO.ask)}</b>. The yellow area is the share of the model's range below that: ${pc(HERO.below_share, 1)}. That share is the deal score. The smaller it is, the more surprising the ask. Everything that follows is about getting the curve's middle and width right.` },
-  { s: "Parts", d: sceneLayers1, cap: `The middle is a sum. The first three parts and the building levels are the project's earlier model. The <b>two parts in yellow are new</b>: what this particular apartment has asked before, and what its building and neighbourhood have been doing in the last few months.` },
+  { s: "Parts", d: sceneLayers1, cap: `The middle is a sum. The first three parts and the building levels are the project's earlier model. The <b>two parts in yellow are new</b>: what this particular apartment has asked before, and what its building has been doing lately.` },
   { s: "Parts", d: sceneLayers2, cap: `The fit learns how large each part usually is. A building typically sits ${pm(HY.building_sd)} off its neighbourhood, an apartment <b>${pm(Math.sqrt(K0))}</b> off its building, and a single ad ${pm(NOISE)} off all of that. An apartment's own history is the largest thing an earlier ad can tell you.` },
   D.walk && { s: "Parts", d: sceneWalk, cap: `One of the parts, drawn out: the citywide level for each week with its 90% band, after everything else is accounted for. The model follows the market down in 2020 and up since, so an old ad is read in the prices of its own week.` },
   { s: "Memory", d: sceneMem1, cap: `Here is the evidence for the new part. Fit a model that knows nothing about the individual apartment, and look at what it misses. Two ads of the <b>same apartment</b> half a year apart share ${pc(UC[0].r)} of that miss. Eight years apart they still share ${pc(UC[UC.length - 1].r)}.` },
@@ -622,7 +622,7 @@ const BEATS = [
   { s: "Memory", d: sceneMem4, cap: `Five more, picked at random among apartments with a long history. The model weighs every earlier ad by how long ago it ran, and it knows that rents citywide moved in between. Ranges are narrow where the last ad is recent and wider where it is old.` },
   { s: "Memory", d: sceneRange, cap: `The same thing across all ${num(SW.rows)} held-out ads. With an ad in the last three months the 8-in-10 range is about <b>±${(100 * Math.expm1(GW.width80[0] / 2)).toFixed(0)}%</b>. After eight years it is ±${(100 * Math.expm1(GW.width80[GW.width80.length - 1] / 2)).toFixed(0)}%. For an apartment the model has never seen, on today's market, it is ±${(MK.width_new / 2).toFixed(0)}%. A low ask means more when the range is narrow.` },
   { s: "Block", d: sceneBlock1, cap: `With apartments accounted for, something is still left. Two <b>different</b> apartments in one building, listed within three months of each other, miss in the same direction: correlation ${BC[0].r.toFixed(2)}. A year apart it is nearly gone. A landlord reprices a whole building at once, and one apartment's history cannot see that.` },
-  has("building_ar_sd") && { s: "Block", d: sceneBlock2, cap: `So the model gives every building a monthly path that wanders and returns. When one apartment lists high this month, the model raises its estimate for its neighbours too, and lets that fade.` + (has("nbhd_ar_sd") ? ` Neighbourhoods get the same, by quarter, at a smaller scale (${pm(HY.nbhd_ar_sd)}).` : "") },
+  has("building_ar_sd") && { s: "Block", d: sceneBlock2, cap: `So the model gives every building a path that wanders and returns, one step a quarter. When one apartment lists high this quarter, the model raises its estimate for its neighbours too, and lets that fade.` + (has("nbhd_ar_sd") ? ` Neighbourhoods get the same, by quarter, at a smaller scale (${pm(HY.nbhd_ar_sd)}).` : "") },
   { s: "Honesty", d: sceneCal1, cap: `The test that matters: hold out the newest ad of every apartment with at least two, fit on the rest, and predict it. The middle estimate's typical miss is <b>${(100 * Math.expm1(SW.median_abs_error)).toFixed(1)}%</b> of the rent. (A sample of ${num(D.sample.y.length)} of the ${num(SW.rows)} is drawn.)` },
   { s: "Honesty", d: sceneCal2, cap: `A deal score is only as good as the width of the range. If the model says 8 in 10, the ask should land inside 8 times in 10. On the held-out ads the 80% range held <b>${pc(SW.coverage["80"], 1)}</b> and the 95% range ${pc(SW.coverage["95"], 1)}.` },
   { s: "Honesty", d: sceneCal3, cap: `A finer check. For each held-out ad, ask where it fell in its own range, from bottom to top. If the ranges are honest, every slice gets the same number of ads. A hump in the middle would mean ranges too wide, and piles at the ends would mean ranges too narrow.` },
