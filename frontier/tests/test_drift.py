@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import pandas as pd
 import pytest
 import test_building_zones_attrs as tba
 
@@ -84,6 +85,29 @@ def _dense_cov(train, parts, st):
     return np.diag(1 / c) + K, K, c
 
 
+def test_unit_index_keeps_whole_keys_when_a_unit_id_is_missing(tmp_path):
+    """A missing unit_id read back from parquet is NaN: the keys must not be cut to its
+    width, and the row is a unit of its own."""
+    frame = pd.DataFrame(
+        {
+            "building": [101, 101, 102, 102, 250, 250, 250],
+            "unit_id": ["u1", "u1", "u1", None, "u2", "u2", None],
+        }
+    )
+    frame.to_parquet(tmp_path / "rows.parquet")
+    frame = pd.read_parquet(tmp_path / "rows.parquet")
+    held = np.array([False, False, False, False, False, True, True])
+    unit, units = drift.unit_index(frame, held)
+    # Sorted keys: 101|u1, 102|#row3, 102|u1, 250|u2. The held-out row with no unit_id has
+    # no training row.
+    assert units == 4
+    np.testing.assert_array_equal(unit, [0, 0, 2, 1, 3, 3, -1])
+    whole = pd.DataFrame({"building": ["a", "a", "b"], "unit_id": ["x", "x", "x"]})
+    np.testing.assert_array_equal(
+        drift.unit_index(whole, np.zeros(3, bool))[0], [0, 0, 1]
+    )
+
+
 def test_unit_layout_places_every_row_and_pair():
     unit = np.array([0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 4])
     t = np.arange(len(unit), dtype=float)
@@ -113,8 +137,9 @@ def test_unit_layout_places_every_row_and_pair():
 @pytest.mark.parametrize("block", [7, 4096])
 def test_global_system_matches_the_dense_marginal(block):
     """theta's precision and linear term with the levels and u integrated out equal
-    J' V^-1 J and J' V^-1 y for the rows' dense marginal covariance V."""
-    full = _design()
+    J' V^-1 J and J' V^-1 y for the rows' dense marginal covariance V. Units of up to 17 rows
+    reach the padded buckets."""
+    full = _design(per_unit=9)
     train, _, _ = _split(full)
     _, init, _, parts = _sampler(train, block=block)
     jax, jnp = b0._jax()
@@ -157,7 +182,7 @@ def test_global_system_matches_the_dense_marginal(block):
 
 
 def test_unit_loglik_matches_the_dense_density():
-    full = _design()
+    full = _design(per_unit=9)
     train, _, _ = _split(full)
     _, init, _, parts = _sampler(train)
     jax, jnp = b0._jax()
@@ -179,7 +204,7 @@ def test_unit_loglik_matches_the_dense_density():
 
 
 def test_draw_u_has_the_conditional_mean_and_covariance():
-    full = _design(n=400)
+    full = _design(n=400, per_unit=9)
     train, _, _ = _split(full)
     _, init, _, parts = _sampler(train)
     jax, jnp = b0._jax()
@@ -201,7 +226,7 @@ def test_draw_u_has_the_conditional_mean_and_covariance():
 
 
 def test_predict_matches_the_dense_conditional():
-    full = _design()
+    full = _design(per_unit=9)
     train, test, held = _split(full)
     assert (train.pred["unit"] == test.unit).all() and (test.unit < 0).any()
     assert test.pred is None

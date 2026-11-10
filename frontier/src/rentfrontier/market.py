@@ -62,7 +62,9 @@ def with_status(
     frame = pd.read_parquet(src / "rows.parquet")
     manifest = json.loads((src / "manifest.json").read_text())
     a = pd.read_parquet(ads, columns=["listing_id", *COLUMNS])
-    a = a.assign(listing_id=a.listing_id.astype(str)).drop_duplicates("listing_id")
+    a = a.assign(listing_id=a.listing_id.astype(str)).drop_duplicates()
+    if a.listing_id.duplicated().any():
+        raise SystemExit(f"{ads} has rows that disagree for one listing")
     a = a.set_index("listing_id").reindex(frame.listing_id.astype(str))
     for c in COLUMNS:
         frame[c] = a[c].to_numpy()
@@ -77,7 +79,10 @@ def with_status(
         first = pd.to_datetime(frame.first_day).fillna(
             pd.to_datetime(frame.price_at).dt.tz_localize(None)
         )
+        # A relisted ad can carry an ask dated after the day it first went off the market,
+        # so an ad counts as closed only when its last ask is in by the scoring day too.
         end = pd.to_datetime(frame.off_day).fillna(last)
+        end = end.where(end >= last, last)
         keep = (first <= day).to_numpy() & ~still
         is_open = keep & (end > day).to_numpy()
     frame["open"] = is_open

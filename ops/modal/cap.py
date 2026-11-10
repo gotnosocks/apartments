@@ -142,6 +142,11 @@ STATED_RATE["building-zones-kitchen-sink-unit"] = 0.75
 # The drift model's sweep adds each unit's precision matrix and the pairs' products to the
 # kitchen sink's. 1.25 s a pair of chains is a ceiling until its first Modal fit is measured.
 STATED_RATE["drift"] = 1.25
+# The local-drift terms add a Kalman filter over each building's months (and each
+# neighbourhood's quarters), run a few times a sweep by the slice updates of their scales.
+# Ceilings until their first Modal fits are measured.
+STATED_RATE["drift-building"] = 1.5
+STATED_RATE["drift-local"] = 1.6
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
 # columns, which leaves its global block at 908 coefficients against the three-zone run's 922.
@@ -245,6 +250,8 @@ BASELINES = (
     "building-zones-kitchen-sink-150m",
     "building-zones-kitchen-sink-unit",
     "drift",
+    "drift-building",
+    "drift-local",
 )
 
 

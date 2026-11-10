@@ -40,7 +40,7 @@ def _dataset(tmp_path):
                 "ACTIVE",
                 "RENTED",
                 "TEMPORARILY_OFF_MARKET",
-                "DELISTED",
+                "TEMPORARILY_OFF_MARKET",
                 "ACTIVE",
                 "RENTED",
             ],
@@ -52,7 +52,7 @@ def _dataset(tmp_path):
                 date(2026, 1, 1),
                 date(2025, 5, 1),
             ],
-            "first_ask": [3400.0, 3200, 3150, 1, 1, 3500],
+            "first_ask": [3400.0, 3200, 3150, 3150, 1, 3500],
             "off_day": [None, date(2026, 10, 21), None, None, None, date(2025, 6, 3)],
         }
     )
@@ -67,7 +67,7 @@ def test_with_status_marks_the_open_ads_and_moves_them_to_the_scoring_day(tmp_pa
     manifest = market.with_status(src, out, ads, inputs)
     frame = pd.read_parquet(out / "rows.parquet")
     assert frame.listing_id.tolist() == ["1", "2", "3", "4", "5"]
-    # Listing 1 has no ad; listing 2 keeps its first ad row.
+    # Listing 1 has no ad; listing 2's two ad rows are the same.
     assert frame.status.fillna("none").tolist() == [
         "none",
         "TEMPORARILY_OFF_MARKET",
@@ -140,3 +140,29 @@ def test_apply_inputs_points_the_named_constants_at_the_datasets_paths(
     )
     with pytest.raises(AttributeError, match="NOPE"):
         market.apply_inputs(tmp_path)
+
+
+def test_with_status_refuses_ad_rows_that_disagree(tmp_path):
+    src, ads = _dataset(tmp_path)
+    a = pd.read_parquet(ads)
+    a.loc[3, "status"] = "DELISTED"
+    a.to_parquet(ads, index=False)
+    with pytest.raises(SystemExit, match="disagree"):
+        market.with_status(src, tmp_path / "out", ads)
+
+
+def test_backtest_sets_aside_a_closed_ad_whose_last_ask_is_later(tmp_path):
+    """Listing 3 went off the market on 2026-10-21. With a last ask dated 2026-11-05 (a
+    relisting), a backtest as of 2026-10-25 must not train on that ask."""
+    src, ads = _dataset(tmp_path)
+    rows = pd.read_parquet(src / "rows.parquet")
+    at = rows.listing_id.astype(str) == "3"
+    assert pd.Timestamp(rows.latest_day[at].iloc[0]) < pd.Timestamp("2026-10-25")
+    market.with_status(src, tmp_path / "plain", ads, as_of="2026-10-25")
+    plain = pd.read_parquet(tmp_path / "plain" / "rows.parquet")
+    assert not plain.open[plain.listing_id.astype(str) == "3"].iloc[0]
+    rows.loc[at, "latest_day"] = date(2026, 11, 5)
+    rows.to_parquet(src / "rows.parquet", index=False)
+    market.with_status(src, tmp_path / "late", ads, as_of="2026-10-25")
+    late = pd.read_parquet(tmp_path / "late" / "rows.parquet")
+    assert late.open[late.listing_id.astype(str) == "3"].iloc[0]

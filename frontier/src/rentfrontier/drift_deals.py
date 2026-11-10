@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from . import drift_score
+from . import run as run_module
 
 AD_FIELDS = (
     "listing_id",
@@ -78,7 +79,9 @@ def _held_frame(run_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
 
 def _ads(ads: Path, listing_ids) -> pd.DataFrame:
     a = pd.read_parquet(ads, columns=list(AD_FIELDS))
-    a = a.assign(listing_id=a.listing_id.astype(str)).drop_duplicates("listing_id")
+    a = a.assign(listing_id=a.listing_id.astype(str)).drop_duplicates()
+    if a.listing_id.duplicated().any():
+        raise SystemExit(f"{ads} has rows that disagree for one listing")
     return a.set_index("listing_id").reindex(pd.Index(listing_ids).astype(str))
 
 
@@ -90,7 +93,9 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
     q = np.exp(res["q"].astype(float))
     ask = h.latest_ask.to_numpy(float)
     median = np.exp(res["pred"])
-    train_units = frame.unit_id[~held].value_counts()
+    # The model's unit is the pair of building and unit_id (`drift.unit_index`).
+    unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
+    train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -117,7 +122,11 @@ def deals(run_dir: Path, ads: Path, registry: Path | None = None) -> pd.DataFram
             "model_hi95": q[:, 7].round(0),
             "discount_pct": (100 * (median / ask - 1)).round(1),
             "below_share": res["cdf"].round(4),
-            "unit_ads": h.unit_id.map(train_units).fillna(0).astype(int).to_numpy(),
+            "unit_ads": unit_key[held]
+            .map(train_units)
+            .fillna(0)
+            .astype(int)
+            .to_numpy(),
             "unit_sd": res["unit_sd"].round(4),
         }
     )
@@ -187,7 +196,7 @@ def main(argv=None):
     p.add_argument("--ads", type=Path, required=True)
     p.add_argument("--registry", type=Path)
     p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--runs", default="/data1/apartments/frontier/runs")
+    p.add_argument("--runs", default=str(run_module.RUNS))
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
     if args.command == "validate":

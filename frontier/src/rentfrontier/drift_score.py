@@ -8,8 +8,14 @@ location `pred_loc` (x beta + L(t) + eta + the mean of its unit's level u) and t
 
     y = pred_loc + pred_unit_sd z + sigma_group t,   z ~ Normal(0, 1),  t ~ StudentT(nu),
 
-so its predictive density is the average over draws of a Student-t smoothed by a Normal. I
-integrate z with Gauss-Hermite quadrature. For each row the output holds
+so its predictive density is the average over draws of a Student-t smoothed by a Normal. The
+Student-t is a scale mixture of Normals: with lam ~ Gamma(nu / 2, rate nu / 2),
+
+    y | lam ~ Normal(pred_loc, pred_unit_sd^2 + sigma_group^2 / lam),
+
+and I integrate lam on a grid in log lam (`mixture`). The integrand is smooth in log lam
+whatever the ratio of the two scales, where a quadrature over z loses the Student-t's peak
+once the unit sd is a few times sigma. For each row the output holds
 - `elpd`: the log predictive density at the row's own y;
 - `cdf`: the predictive probability of a log rent below the row's y. For an ad on the market
   this is the share of the model's distribution under the ask, so a low value marks an ask
@@ -18,9 +24,10 @@ integrate z with Gauss-Hermite quadrature. For each row the output holds
 - `unit_sd`: the mean over draws of the sd of u, which is small for a unit with recent ads
   and sqrt(ss^2 + sd^2) for a unit with none;
 - `y` and `group`, and, when the run's dataset is on disk, each row's `listing`, `building`
-  and `week` as `docs/notes/conference-followups-2026-10-22/score.py` writes them.
+  and `day`.
 
-The scores read only the run's posterior.npz, so they need no design and little memory.
+The scores read only the run's posterior.npz, so they need no design. A block of `CHUNK` rows
+takes about 1 GB for 800 kept draws.
 """
 
 from __future__ import annotations
@@ -30,19 +37,40 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy import stats
-from scipy.special import gammaln, logsumexp
+from scipy.special import logsumexp, ndtr
+
+from . import run as run_module
 
 Q = (0.025, 0.05, 0.1, 0.25, 0.75, 0.9, 0.95, 0.975)
-NODES = 21
+NODES = 96
 SAMPLES = 4
-CHUNK = 2000
+CHUNK = 250
 
 
-def _hermite(nodes: int):
-    """Nodes and weights for an average over a standard Normal."""
-    x, w = np.polynomial.hermite_e.hermegauss(nodes)
-    return x, w / w.sum()
+def mixture(nu, nodes: int = NODES):
+    """A grid for the Student-t's mixing scale: for each nu, `lam` and the log weights
+    `logw`, both (len(nu), nodes), with sum(exp(logw) f(lam)) the mean of f over
+    Gamma(nu / 2, rate nu / 2). The grid is even in x = log lam, where the density is
+    exp(a x - a e^x) with a = nu / 2, and the trapezoid rule on it converges fast. The
+    grid starts where the density is exp(-30) of its peak, moved down by the shift a row 60
+    sigma from its location gives the integrand's peak (to lam near a / (a + 1800)), and ends
+    past the upper tail's exp(-a e^x)."""
+    a = np.asarray(nu, float)[:, None] / 2
+    lo = -(1.0 + 30.0 / a) - np.log1p(1800.0 / a)
+    hi = np.log(1.0 + 12.0 / np.sqrt(a) + 30.0 / a)
+    x = lo + (hi - lo) * np.linspace(0.0, 1.0, nodes)[None, :]
+    logw = a * x - a * np.exp(x)
+    logw = logw - logsumexp(logw, axis=1, keepdims=True)
+    return np.exp(x), logw
+
+
+def _density(y, loc, usd, sigma, lam, logw):
+    """The log density and the cdf at `y` (rows,) of each draw's mixture, (draws, rows)."""
+    var = usd[:, :, None] ** 2 + sigma[:, :, None] ** 2 / lam[:, None, :]
+    dev = y[None, :, None] - loc[:, :, None]
+    lp = logw[:, None, :] - 0.5 * (np.log(2 * np.pi * var) + dev * dev / var)
+    cdf = (np.exp(logw)[:, None, :] * ndtr(dev / np.sqrt(var))).sum(axis=2)
+    return logsumexp(lp, axis=2), cdf
 
 
 def score_rows(
@@ -51,20 +79,13 @@ def score_rows(
     """Scores for a block of rows: `loc` and `usd` (draws, rows), `sigma` (draws, rows) the
     noise scale of each row's group, `nu` (draws,), `y` (rows,). With `at` (rows,), also
     `cdf_at`, the predictive probability of a log rent below `at`."""
-    x, w = _hermite(nodes)
     loc, usd, sigma = (np.asarray(v, float) for v in (loc, usd, sigma))
+    y = np.asarray(y, float)
     nu_ = np.asarray(nu, float)[:, None, None]
-    z = (y[None, :, None] - loc[:, :, None] - usd[:, :, None] * x) / sigma[:, :, None]
-    lp = (
-        gammaln((nu_ + 1) / 2)
-        - gammaln(nu_ / 2)
-        - 0.5 * np.log(nu_ * np.pi)
-        - np.log(sigma[:, :, None])
-        - (nu_ + 1) / 2 * np.log1p(z * z / nu_)
-    )
-    per_draw = logsumexp(lp, axis=2, b=w)
+    lam, logw = mixture(nu, nodes)
+    per_draw, cdf = _density(y, loc, usd, sigma, lam, logw)
     elpd = logsumexp(per_draw, axis=0) - np.log(loc.shape[0])
-    cdf = (stats.t.cdf(z, nu_) * w).sum(axis=2).mean(axis=0)
+    cdf = cdf.mean(axis=0)
     rng = np.random.default_rng(seed)
     shape = (samples, *loc.shape)
     rep = (
@@ -81,10 +102,8 @@ def score_rows(
         unit_sd=usd.mean(axis=0),
     )
     if at is not None:
-        za = (at[None, :, None] - loc[:, :, None] - usd[:, :, None] * x) / sigma[
-            :, :, None
-        ]
-        out["cdf_at"] = (stats.t.cdf(za, nu_) * w).sum(axis=2).mean(axis=0)
+        at = np.asarray(at, float)
+        out["cdf_at"] = _density(at, loc, usd, sigma, lam, logw)[1].mean(axis=0)
     return out
 
 
@@ -164,7 +183,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("run")
     p.add_argument("--out")
-    p.add_argument("--runs", default="/data1/apartments/frontier/runs")
+    p.add_argument("--runs", default=str(run_module.RUNS))
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
     res = score_run(run_dir)

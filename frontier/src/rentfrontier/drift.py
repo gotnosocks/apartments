@@ -57,6 +57,23 @@ keeps, for every such row and kept draw, `pred_loc` = x beta + L(t) + eta + the 
 `pred_unit_sd`, the sd of u. `rentfrontier.drift_score` turns them into predictive densities,
 quantiles and deal scores without rebuilding the design.
 
+Local drift. With units accounted for, fit 4's residuals still move together inside a building
+over a few months (two ads of different units of one building within three months correlate
+at 0.26, and the correlation is gone a few years apart), and a little inside a neighbourhood
+in its last two years (docs/notes/drift-2026-11-10.md). `make_sampler` and `run` take `groups`, a list of
+local-drift terms from `groups_of`, each one more term in the row's mean:
+
+    a_g(m) = rho a_g(m - 1) + Normal(0, s^2 (1 - rho^2)),   a_g(first) ~ Normal(0, s^2)
+
+for group g (a building, or a neighbourhood) and step m (a month, or a quarter). `drift` itself
+runs with none; `rentfrontier.drift_building` adds the buildings' and `rentfrontier.drift_local`
+the buildings' and the neighbourhoods'. Steps 1 to 3 run on y less the terms' current paths.
+After step 3 each term in turn is drawn given theta, eta, u and the other terms: (log s,
+logit rho) by a slice update of each on the Kalman filter's marginal likelihood of every
+group's cell sums, with the paths integrated out, then the paths by backward sampling. A
+prediction adds each term's path at the row's group and step, which the filter carries past
+the group's last ad by the same recursion.
+
     python -m rentfrontier.run --model drift --split latest --name NAME
 """
 
@@ -105,6 +122,8 @@ DRIFT_SD_PRIOR = 0.1
 # The Normal prior on the log of the drift's correlation time tau in years: a median of 3 years,
 # with 0.4 to 22 years inside two sds.
 TAU_LOG_PRIOR = (math.log(3.0), 1.0)
+# The HalfNormal scale of a local-drift process's sd, on log rent.
+LOCAL_SD_PRIOR = 0.1
 # Units are padded to these sizes, so that each size's units stack into one array.
 PADS = (2, 3, 4, 5, 6, 8, 10, 14, 22)
 YEAR_WEEKS = 365.25 / 7
@@ -136,6 +155,7 @@ class Design(building_zones_kitchen_sink.Design):
         None  # (rows,) the row's unit number, -1 for a unit with no training row
     )
     units: int = 0  # the number of units with a training row
+    nbhd: np.ndarray = None  # (rows,) the row's neighbourhood number
     # The rows to predict, in the full design's order: a dict of their `unit`, `years`, `x`,
     # `site`, `week`, `frac`, `group` and `y`. `subset` fills it for the training rows.
     pred: dict = None
@@ -145,14 +165,14 @@ def unit_index(frame: pd.DataFrame, held) -> tuple[np.ndarray, int]:
     """Each row's unit number and the number of units. A unit is a (building, unit_id) pair,
     and a row with no `unit_id` is its own unit. The units with a training row are numbered
     in sorted order of their keys, and a row of any other unit carries -1."""
-    key = (frame.building.astype(str) + "|" + frame.unit_id.astype(str)).to_numpy(str)
+    building = frame.building.astype(str).to_numpy(object)
     none = frame.unit_id.isna().to_numpy()
-    if none.any():
-        key = key.astype(object)
-        key[none] = [
-            f"{b}|#row{i}" for i, b in zip(np.flatnonzero(none), frame.building[none])
-        ]
-        key = key.astype(str)
+    # A missing unit_id is NaN, and a str array sized from it would cut every key short, so
+    # the keys are built as objects.
+    unit_id = np.where(none, "", frame.unit_id.astype(object).to_numpy()).astype(str)
+    key = np.array([f"{b}|{u}" for b, u in zip(building, unit_id)], dtype=object)
+    key[none] = [f"{b}|#row{i}" for i, b in zip(np.flatnonzero(none), building[none])]
+    key = key.astype(str)
     train = ~np.asarray(held, bool)
     keys = np.unique(key[train])
     return pd.Index(keys).get_indexer(key).astype(np.int64), len(keys)
@@ -172,10 +192,12 @@ def design(
     held = building_zones_floor_asof.held_out(frame, held)
     d = building_zones_kitchen_sink.design(frame, start, held=held, **kw)
     unit, units = unit_index(frame, held)
+    nbhd, _ = pd.factorize(frame.neighbourhood.astype(str), sort=True)
     return Design(
         **{f.name: getattr(d, f.name) for f in dataclasses.fields(d)},
         unit=unit,
         units=units,
+        nbhd=nbhd.astype(np.int64),
     )
 
 
@@ -195,10 +217,47 @@ def subset(d: Design, mask: np.ndarray) -> Design:
             frac=d.frac[other],
             group=d.group[other],
             y=d.y[other],
+            nbhd=None if d.nbhd is None else d.nbhd[other],
         )
     return dataclasses.replace(
-        building_zones_kitchen_sink.subset(d, mask), unit=d.unit[mask], pred=pred
+        building_zones_kitchen_sink.subset(d, mask),
+        unit=d.unit[mask],
+        nbhd=None if d.nbhd is None else d.nbhd[mask],
+        pred=pred,
     )
+
+
+def groups_of(d: Design, which) -> list[dict]:
+    """The local-drift terms named in `which` for training design `d` (see the module
+    docstring): `building`, one process per building in monthly steps, and `nbhd`, one per
+    neighbourhood in quarterly steps. Each dict holds the term's `name`, each training row's
+    group `row`, each predicted row's group `pred`, the number of groups `size`, the steps a
+    year `per_year` and the HalfNormal scale `sd_prior` of the process's sd."""
+    pred = d.pred or {}
+    out = []
+    for name in which:
+        if name == "building":
+            row, prd = d.site, pred.get("site")
+            size, per_year = len(site_zone(d)), 12
+        elif name == "nbhd":
+            row, prd = d.nbhd, pred.get("nbhd")
+            both = [row] + ([prd] if prd is not None and len(prd) else [])
+            size, per_year = int(max(v.max() for v in both)) + 1, 4
+        else:
+            raise ValueError(f"unknown local-drift term {name!r}")
+        out.append(
+            dict(
+                name=name,
+                row=np.asarray(row, np.int64),
+                pred=np.zeros(0, np.int64)
+                if prd is None
+                else np.asarray(prd, np.int64),
+                size=size,
+                per_year=per_year,
+                sd_prior=LOCAL_SD_PRIOR,
+            )
+        )
+    return out
 
 
 # ------------------------------------------------------------------ the units' layout
@@ -295,10 +354,11 @@ def pred_layout(lay: dict, pred_unit, pred_years) -> dict:
 # ------------------------------------------------------------------ the sampler (JAX)
 
 
-def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
+def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=None):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
-    over chains. See `building_zones_gibbs.make_sampler` for `gp`."""
+    over chains. See `building_zones_gibbs.make_sampler` for `gp` and `groups_of` for
+    `groups`, the local-drift terms."""
     jax, jnp = b0._jax()
     seg = jax.ops.segment_sum
     alpha = d.names.index("alpha")
@@ -360,9 +420,44 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         frac=np.zeros(0),
     )
     pred = pred_layout(lay, rows_to_predict["unit"], rows_to_predict["years"])
-    # Each block's pairs: a unit's rows share a building, so a pair never spans two blocks.
-    pair_lo = np.searchsorted(lay["pi"], [r0 for _, _, r0, _ in blocks])
-    pair_hi = np.searchsorted(lay["pi"], [r1 for _, _, _, r1 in blocks])
+    # Local-drift terms: each row's cell (group, step) in the term's raveled (groups, steps)
+    # array.
+    ars, ar_cell, ar_pcell = [], [], []
+    for g in groups or ():
+        step = np.floor(t_all[order] * g["per_year"]).astype(np.int64)
+        pstep = np.floor(np.asarray(rows_to_predict["years"]) * g["per_year"]).astype(
+            np.int64
+        )
+        T = int(max(step.max(initial=0), pstep.max(initial=0))) + 1
+        ars.append(
+            dict(name=g["name"], size=int(g["size"]), T=T, sd_prior=g["sd_prior"])
+        )
+        ar_cell.append(g["row"][order] * T + step)
+        ar_pcell.append(g["pred"] * T + pstep)
+    # Each block's part of every bucket. A unit's rows share a building, so a unit never
+    # spans two blocks, and a bucket lists its units in row order, so a block's units are a
+    # slice of it. `blk_part[j]` holds (bucket, first unit, last unit + 1) for block j,
+    # `blk_idx[j]` those units' rows counted from the block's first row, and `blk_take[j]`
+    # each row's place in the stack of the block's rows followed by its buckets' places.
+    blk_part, blk_idx, blk_take = [], [], []
+    for _, _, r0, r1 in blocks:
+        take = np.arange(r1 - r0)
+        offset = r1 - r0
+        part, idxs = [], []
+        for b, bucket in enumerate(lay["buckets"]):
+            lo, hi = (int(v) for v in np.searchsorted(bucket["idx"][:, 0], [r0, r1]))
+            if hi == lo:
+                continue
+            idx = bucket["idx"][lo:hi] - r0
+            mask = bucket["mask"][lo:hi]
+            place = offset + np.arange(idx.size).reshape(idx.shape)
+            take[idx[mask]] = place[mask]
+            offset += idx.size
+            part.append((b, lo, hi))
+            idxs.append(idx)
+        blk_part.append(part)
+        blk_idx.append(idxs)
+        blk_take.append(take)
     x = d.x[order][:, others]
     wk_all, fr_all = d.week[order], d.frac[order]
     # The rows' data goes to the jitted sweep as an argument: closed over, it would be
@@ -373,14 +468,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         fr=[jnp.asarray(fr_all[r0:r1]) for _, _, r0, r1 in blocks],
         loc=[jnp.asarray(arank[r0:r1] - q0) for q0, _, r0, r1 in blocks],
         Bact=[jnp.asarray(Bc[active[q0:q1]]) for q0, q1, _, _ in blocks],
-        pil=[
-            jnp.asarray(lay["pi"][p0:p1] - r0)
-            for (_, _, r0, _), p0, p1 in zip(blocks, pair_lo, pair_hi)
-        ],
-        pjl=[
-            jnp.asarray(lay["pj"][p0:p1] - r0)
-            for (_, _, r0, _), p0, p1 in zip(blocks, pair_lo, pair_hi)
-        ],
+        blk_idx=[[jnp.asarray(v) for v in idxs] for idxs in blk_idx],
+        blk_take=[jnp.asarray(v) for v in blk_take],
         y=jnp.asarray(d.y[order]),
         group=jnp.asarray(d.group[order]),
         site=jnp.asarray(site_sorted),
@@ -401,6 +490,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         p_site=jnp.asarray(rows_to_predict["site"]),
         p_wk=jnp.asarray(rows_to_predict["week"]),
         p_fr=jnp.asarray(rows_to_predict["frac"]),
+        ar_cell=[jnp.asarray(v) for v in ar_cell],
+        ar_pcell=[jnp.asarray(v) for v in ar_pcell],
         p_one=tuple(jnp.asarray(v) for v in pred["one"]),
         p_buckets=[tuple(jnp.asarray(v) for v in b) for b in pred["buckets"]],
     )
@@ -469,11 +560,20 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         """W v for a vector v over rows."""
         return om_d * v + seg(om_off * v[D["pj"]], D["pi"], num_segments=n)
 
-    def global_system(D, st, c, w1, Wb):
-        """The precision and linear term of theta given the scales, with every building's
-        level and every unit's u integrated out."""
+    def offsets(D, st):
+        """Each row's sum of its local-drift terms."""
+        out = jnp.zeros(n)
+        for k in range(len(ars)):
+            out = out + st["ar"][k].ravel()[D["ar_cell"][k]]
+        return out
+
+    def global_system(D, st, c, w1, Wb, y_all=None):
+        """The precision and linear term of theta given the scales, from responses `y_all`
+        in the sorted row order (y less the local-drift terms by default), with every
+        building's level and every unit's u integrated out."""
         xs, wk, fr, loc, Bact = (D[k] for k in ("xs", "wk", "fr", "loc", "Bact"))
-        y_all, site_all = D["y"], D["site"]
+        y_all = D["y"] - offsets(D, st) if y_all is None else y_all
+        site_all = D["site"]
         bsd2 = st["bld_sd"][zone_j] ** 2
         om_d, om_off = pair_weights(D, w1, Wb)
         ctil = om_d + seg(om_off, D["pi"], num_segments=n)
@@ -488,16 +588,15 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         ww = jnp.zeros((K, K))
         hw = jnp.zeros(K)
         for j, (q0, q1, r0, r1) in enumerate(blocks):
-            p0, p1 = int(pair_lo[j]), int(pair_hi[j])
             od_j, ct, wy = om_d[r0:r1], ctil[r0:r1], Wy[r0:r1]
             a0, a1 = 1 - fr[j], fr[j]
             nq = q1 - q0
-            # Z = W x over the block's rows.
-            Z = od_j[:, None] * xs[j] + seg(
-                om_off[p0:p1, None] * xs[j][D["pjl"][j]],
-                D["pil"][j],
-                num_segments=r1 - r0,
-            )
+            # Z = W x over the block's rows: a single row's is w1 x, and a bucket's units
+            # multiply their rows of x by their W. A padded place has W = 0 and is not taken.
+            stack = [w1[r0:r1, None] * xs[j]]
+            for (b, lo, hi), idx in zip(blk_part[j], D["blk_idx"][j]):
+                stack.append((Wb[b][lo:hi] @ xs[j][idx]).reshape(-1, pb))
+            Z = jnp.concatenate(stack)[D["blk_take"][j]]
             XX = XX.at[:pb, :pb].add(xs[j].T @ Z)
             XM = seg(a0[:, None] * Z, wk[j], num_segments=W1) + seg(
                 a1[:, None] * Z, wk[j] + 1, num_segments=W1
@@ -562,8 +661,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         h = h.at[i_g].add(m_g / s_g**2)
         return A, h, (om_d, om_off, ctil)
 
-    def draw_theta(D, key, st, c, w1, Wb):
-        A, h, om = global_system(D, st, c, w1, Wb)
+    def draw_theta(D, key, st, c, w1, Wb, y_all):
+        A, h, om = global_system(D, st, c, w1, Wb, y_all)
         s = 1 / jnp.sqrt(jnp.diag(A))
         Cf = jnp.linalg.cholesky(A * s[:, None] * s[None, :])
         mean = jax.scipy.linalg.cho_solve((Cf, True), h * s)
@@ -686,6 +785,82 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
             hyp = hyp + s[0] * v
         return hyp
 
+    def ar_filter(par, C, R):
+        """The Kalman filter of one local-drift term's processes over its steps, from each
+        cell's sum of row weights C and weighted remainders R, (groups, steps). Returns the
+        log marginal likelihood up to a constant in (sd, rho), and the filtered means and
+        variances, (steps, groups)."""
+        s2 = jnp.exp(2 * par[0])
+        rho = jax.nn.sigmoid(par[1])
+        q = s2 * (1 - rho * rho)
+
+        def step(carry, x):
+            m, p, ll = carry
+            Cc, Rr, t = x
+            m = jnp.where(t > 0, rho * m, m)
+            p = jnp.where(t > 0, rho * rho * p + q, p)
+            P = Cc + 1 / p
+            h = Rr + m / p
+            ll = ll + jnp.sum(
+                -0.5 * jnp.log1p(p * Cc) + 0.5 * h * h / P - 0.5 * m * m / p
+            )
+            m, p = h / P, 1 / P
+            return (m, p, ll), (m, p)
+
+        G_, T_ = C.shape
+        init = (jnp.zeros(G_), jnp.full(G_, s2), jnp.zeros(()))
+        (_, _, ll), (mf, pf) = jax.lax.scan(step, init, (C.T, R.T, jnp.arange(T_)))
+        return ll, mf, pf
+
+    def ar_draw(key, par, mf, pf):
+        """A draw of every process's path given the filter's output (backward sampling),
+        (groups, steps)."""
+        s2 = jnp.exp(2 * par[0])
+        rho = jax.nn.sigmoid(par[1])
+        q = s2 * (1 - rho * rho)
+        z = jax.random.normal(key, mf.shape)
+        last = mf[-1] + jnp.sqrt(pf[-1]) * z[-1]
+
+        def step(nxt, x):
+            m, p, zz = x
+            pp = rho * rho * p + q
+            J = rho * p / pp
+            mean = m + J * (nxt - rho * m)
+            var = jnp.maximum(p - J * J * pp, 0.0)
+            cur = mean + jnp.sqrt(var) * zz
+            return cur, cur
+
+        _, path = jax.lax.scan(step, last, (mf[:-1], pf[:-1], z[:-1]), reverse=True)
+        return jnp.concatenate([path, last[None]], axis=0).T
+
+    def update_ar(key, k, par, C, R):
+        """One term's (log sd, logit rho) with its paths integrated out, by a slice update of
+        each in turn, then the paths."""
+        prior_sd = ars[k]["sd_prior"]
+
+        def logp(x):
+            ll, _, _ = ar_filter(x, C, R)
+            rho = jax.nn.sigmoid(x[1])
+            return (
+                ll
+                - jnp.exp(2 * x[0]) / (2 * prior_sd**2)
+                + x[0]
+                + jnp.log(rho)
+                + jnp.log1p(-rho)
+            )
+
+        k1, k2, k3 = jax.random.split(key, 3)
+        for j, (kk, width) in enumerate(((k1, 0.05), (k2, 0.2))):
+
+            def along(v, par=par, j=j):
+                return logp(par.at[j].set(v[0]))[None]
+
+            par = par.at[j].set(
+                b0.slice_vec(kk, par[j][None], along, width, steps_out=4, shrink=32)[0]
+            )
+        _, mf, pf = ar_filter(par, C, R)
+        return par, ar_draw(k3, par, mf, pf)
+
     def update_noise(key, st, r, group_all):
         """nu, then sigma, with lam integrated out, then lam: b0's noise step."""
         k1, k2, k3 = jax.random.split(key, 3)
@@ -795,13 +970,17 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         return jnp.concatenate([row_mean(D, theta, j) for j in range(len(blocks))])
 
     def sweep(D, key, st):
-        k1, k2, k3, k4, k5, k6, k7, k8 = jax.random.split(key, 8)
+        # One key per step: `fold_in(key, i)` equals `split(key, n)[i]`, so every step takes
+        # its key from this one split.
+        ks = jax.random.split(key, 9 + len(ars))
+        k1, k2, k3, k4, k5, k6, k7, k8, k_gp = ks[:9]
         c = weights(D, st)
         w1, Wb = unit_W(D, st["hyp"], c)
-        theta, (om_d, om_off, ctil) = draw_theta(D, k1, st, c, w1, Wb)
+        y_eff = D["y"] - offsets(D, st)
+        theta, (om_d, om_off, ctil) = draw_theta(D, k1, st, c, w1, Wb, y_eff)
         w = theta[sl_w]
         F = D["Bc"] @ w
-        e0 = D["y"] - all_means(D, theta)
+        e0 = y_eff - all_means(D, theta)
         C = seg(ctil, D["site"], num_segments=S)
         Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
         bsd = update_spread(k2, st, C, Rs, F)
@@ -810,7 +989,21 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         lev = (Rs + F / b2) / P + jax.random.normal(k3, (S,)) / jnp.sqrt(P)
         e = e0 - lev[D["site"]]
         u = draw_u(D, k7, st["hyp"], c, w1, Wb, e)
-        nu, sigma, lam = update_noise(k4, st, e - u, D["group"])
+        # Each local-drift term in turn, given u and the other terms.
+        r = e - u
+        ar, ar_par = [], []
+        for k, a in enumerate(ars):
+            cell = D["ar_cell"][k]
+            cells = a["size"] * a["T"]
+            tgt = r + st["ar"][k].ravel()[cell]
+            Cc = seg(c, cell, num_segments=cells).reshape(a["size"], a["T"])
+            Rc = seg(c * tgt, cell, num_segments=cells).reshape(a["size"], a["T"])
+            par, path = update_ar(ks[9 + k], k, st["ar_par"][k], Cc, Rc)
+            ar.append(path)
+            ar_par.append(par)
+            r = tgt - path.ravel()[cell]
+        e = r + u
+        nu, sigma, lam = update_noise(k4, st, r, D["group"])
         hyp = update_hyp(D, k8, st, lam / sigma[D["group"]] ** 2, e)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
         if joint is None:
@@ -832,11 +1025,15 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
             hyp_dirs=st["hyp_dirs"],
         )
         if gps:
-            new["gp_amp"], new["gp_ls"] = update_gp(
-                jax.random.fold_in(key, 7), st, theta
-            )
+            new["gp_amp"], new["gp_ls"] = update_gp(k_gp, st, theta)
         ss, sd, tu = scales(hyp)
-        return new, outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
+        out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
+        if ars:
+            new["ar"], new["ar_par"] = tuple(ar), jnp.stack(ar_par)
+            for k, a in enumerate(ars):
+                out[a["name"] + "_ar_sd"] = jnp.exp(ar_par[k][0])
+                out[a["name"] + "_ar_rho"] = jax.nn.sigmoid(ar_par[k][1])
+        return new, out
 
     def predict(D, st):
         """For each row to predict, the mean of its log rent given the state's theta, levels
@@ -849,7 +1046,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
         k0 = ss**2 + sd**2
         w1, Wb = unit_W(D, hyp, c)
         om_d, om_off = pair_weights(D, w1, Wb)
-        e = D["y"] - all_means(D, st["theta"]) - st["lev"][D["site"]]
+        e = D["y"] - offsets(D, st) - all_means(D, st["theta"]) - st["lev"][D["site"]]
         We = apply_W(D, om_d, om_off, e)
         tp = D["p_years"]
         mean = jnp.zeros(n_pred)
@@ -871,6 +1068,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
             + D["p_fr"] * M[D["p_wk"] + 1]
             + st["lev"][D["p_site"]]
         )
+        for k in range(len(ars)):
+            fixed = fixed + st["ar"][k].ravel()[D["ar_pcell"][k]]
         loc = (fixed + mean).astype(jnp.float32)
         return loc, jnp.sqrt(jnp.maximum(var, 0.0)).astype(jnp.float32), mean
 
@@ -890,6 +1089,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
             + 0.2 * jax.random.normal(k[5], (3,)),
             hyp_dirs=0.05 * jnp.eye(3),
         )
+        if ars:
+            out["ar"] = tuple(jnp.zeros((a["size"], a["T"])) for a in ars)
+            out["ar_par"] = jnp.tile(
+                jnp.asarray([math.log(0.03), 1.5]), (len(ars), 1)
+            ) + (0.2 * jax.random.normal(jax.random.fold_in(key, 11), (len(ars), 2)))
         if gps:
             kg = jax.random.split(jax.random.fold_in(key, 7))
             out["gp_amp"] = jnp.asarray(
@@ -917,6 +1121,13 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None):
             apply_W=apply_W,
             global_system=global_system,
             unit_loglik=unit_loglik,
+            update_hyp=update_hyp,
+            draw_theta=draw_theta,
+            update_noise=update_noise,
+            ar_filter=ar_filter,
+            ar_draw=ar_draw,
+            offsets=offsets,
+            ars=ars,
             draw_u=draw_u,
             predict=predict,
             all_means=all_means,
@@ -936,7 +1147,13 @@ def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
 
 
 def run(
-    d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None, gp="spec"
+    d: Design,
+    priors: Priors,
+    settings: Settings,
+    log=print,
+    checkpoint=None,
+    gp="spec",
+    groups=None,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -946,12 +1163,13 @@ def run(
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
-    sweep, init, predict, _ = make_sampler(d, priors, settings, gp=gp)
+    sweep, init, predict, _ = make_sampler(d, priors, settings, gp=gp, groups=groups)
+    local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
     )
-    traced = TRACED + HYP + (("gp_amp", "gp_ls") if gp else ())
-    kept_names = KEPT + HYP + (("gp_amp", "gp_ls") if gp else ())
+    traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ())
+    kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ())
     key = jax.random.PRNGKey(settings.seed)
     key, sub = jax.random.split(key)
     st = init(jax.random.split(sub, settings.chains))
@@ -977,7 +1195,7 @@ def run(
         warm = (marks["warmup"] or now) - t_first
         done = len(trace[traced[0]])
         extra = {}
-        if final and preds["pred_loc"]:
+        if preds["pred_loc"]:
             extra = {k: stack(v) for k, v in preds.items()} | {
                 "pred_y": np.asarray(d.pred["y"]),
                 "pred_group": np.asarray(d.pred["group"]),
@@ -1010,6 +1228,10 @@ def run(
             f"unit_sd {hyp[:4, 0].round(4).tolist()}, "
             f"drift_sd {hyp[:4, 1].round(4).tolist()}, "
             f"drift_tau {hyp[:4, 2].round(3).tolist()}, "
+        ) + "".join(
+            f"{g['name']} sd {np.exp(np.asarray(st['ar_par'])[:4, k, 0]).round(4).tolist()} "
+            f"rho {(1 / (1 + np.exp(-np.asarray(st['ar_par'])[:4, k, 1]))).round(3).tolist()}, "
+            for k, g in enumerate(groups or ())
         )
 
     compile_seconds = 0.0
@@ -1082,7 +1304,7 @@ def diagnostics(trace: dict, names) -> dict:
 
     out = building_zones_kitchen_sink.diagnostics(trace, names)
     rows = out["per_quantity"]
-    for k in HYP:
+    for k in [*HYP, *(k for k in trace if k.endswith(("_ar_sd", "_ar_rho")))]:
         x = np.asarray(trace[k])
         if np.ptp(x) > 0:
             rows[k] = {"rhat": split_rhat(x), "ess": ess(x)}
@@ -1101,36 +1323,56 @@ def summarize(kept: dict, names) -> dict:
     """The kitchen sink's summary, with the unit scales."""
     out = building_zones_kitchen_sink.summarize(kept, names)
     out["unit"] = {k: two_zone._q(np.asarray(kept[k])) for k in HYP}
+    out["local"] = {
+        k: two_zone._q(np.asarray(kept[k]))
+        for k in kept
+        if k.endswith(("_ar_sd", "_ar_rho"))
+    }
     return out
 
 
-def run_record(d: Design) -> dict:
-    """The kitchen sink's record, with the unit term's settings."""
-    return building_zones_kitchen_sink.run_record(d) | {
-        "unit": {
-            "key": "building and unit_id; a row with no unit_id is its own unit",
-            "units": int(d.units),
-            "unit_sd_prior": f"HalfNormal({UNIT_SD_PRIOR})",
-            "drift_sd_prior": f"HalfNormal({DRIFT_SD_PRIOR})",
-            "drift_tau_log_prior": list(TAU_LOG_PRIOR),
-            "kept": "pred_loc and pred_unit_sd for the rows outside the training rows",
+def run_record(d: Design, groups=()) -> dict:
+    """The kitchen sink's record, with the unit term's settings and those of the local-drift
+    terms named in `groups`."""
+    local = {
+        g["name"]: {
+            "groups": g["size"],
+            "steps_per_year": g["per_year"],
+            "sd_prior": f"HalfNormal({g['sd_prior']})",
+            "rho_prior": "Uniform(0, 1)",
         }
+        for g in groups_of(d, groups)
     }
+    return (
+        building_zones_kitchen_sink.run_record(d)
+        | ({"local": local} if local else {})
+        | {
+            "unit": {
+                "key": "building and unit_id; a row with no unit_id is its own unit",
+                "units": int(d.units),
+                "unit_sd_prior": f"HalfNormal({UNIT_SD_PRIOR})",
+                "drift_sd_prior": f"HalfNormal({DRIFT_SD_PRIOR})",
+                "drift_tau_log_prior": list(TAU_LOG_PRIOR),
+                "kept": "pred_loc and pred_unit_sd for the rows outside the training rows",
+            }
+        }
+    )
 
 
-def main_run(argv) -> None:
-    """`rentfrontier.run --model drift`: fit on the split's training rows and save the run."""
+def main_run(argv, name=NAME, sample=None, spec=None) -> None:
+    """`rentfrontier.run --model drift`: fit on the split's training rows and save the run.
+    The modules that add local-drift terms pass their own `name`, `sample` and `spec`."""
     parser = b0.run_parser()
-    parser.prog = f"rentfrontier.run --model {NAME}"
-    parser.set_defaults(model=NAME)
+    parser.prog = f"rentfrontier.run --model {name}"
+    parser.set_defaults(model=name)
     parser.add_argument("--site-block", type=int)
     building_zones_floor_asof.SPLIT = parser.parse_known_args(argv)[0].split
     b0.main_run(
         argv,
         parser=parser,
-        name=NAME,
+        name=name,
         settings_cls=Settings,
-        sample=run,
+        sample=sample or run,
         line="baseline",
-        spec=sys.modules[__name__],
+        spec=spec or sys.modules[__name__],
     )
