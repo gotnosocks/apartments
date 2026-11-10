@@ -23,7 +23,7 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 | Kitchen sink (2026-10-24, every column on hand) | 156,105 | 6.6% | 80.1% | passed |
 | Fit 4 (a fixed level per apartment) | 177,137 | 5.8% | 78.9% | missed |
 | **`drift`** (a level per apartment that drifts) | **195,320** | **5.2%** | **79.9%** | **passed** |
-| `drift-building` (plus a path per building) | 230,885 | 4.1% | 80.8% | missed by 0.0006 |
+| `drift-building` (plus a path per building) | 230,885 | 4.1% | 80.8% | missed on one scale |
 
 - **The Deals page** (`/deals` on the site) ranks the 6,774 ads on the market on 2026-11-09
   by how low each ask is for its apartment. It was published from the market fit with its
@@ -38,12 +38,16 @@ Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
 - **Calibration.** The 50, 80, 90 and 95% ranges held 51.3, 79.9, 89.6 and 94.9% of the
   held-out asks.
 - **What is next.** `drift-building` predicts much better, but each of its fits misses the
-  R-hat line on one quantity (1.0106 and 1.0135 against 1.01), so it is not served. On the
-  latest split the miss fits chain length: four chains in an hour are too short, and round
-  seven tests that. On the market data the outer boroughs' building spread differs a
-  little from chain to chain, and the cause of that is not known. Round
-  seven's fits (two long chains a container) were running when this was written; the note
-  of 2026-11-10 has their predictions and will have their scores.
+  R-hat line, so it is not served. Round seven ran it with chains twice as long. Every
+  quantity that missed for chain length now passes with room, the held-out score is the
+  same (230,861), and one quantity still misses on both fits: the spread of building
+  levels in the outer boroughs (R-hat 1.013 and 1.020 against 1.01). The cause is a
+  handful of buildings whose few ads fall into two price clusters. Warmup leaves such a
+  building at the high cluster and it moves to the low one, once and for good, after
+  hundreds to thousands of sweeps, so the chains are still arriving when a fit ends. The
+  fix is in the data (ads with a bed count their rent contradicts) and in a sampler move
+  that takes a building across directly; neither is run yet. The note of 2026-11-10 has
+  the evidence.
 
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)

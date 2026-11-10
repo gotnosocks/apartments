@@ -31,7 +31,7 @@ On the 189,647 held-out ads (the newest ad of every apartment with at least two)
 | Kitchen sink | 156,105 | 0.0636 | 0.1112 | 0.495 / 0.801 / 0.904 / 0.955 | passed |
 | Fit 4 | 177,137 | 0.0560 | 0.1018 | 0.496 / 0.789 / 0.893 / 0.949 | missed |
 | `drift` (f6) | 195,320 | 0.0506 | 0.0949 | 0.513 / 0.799 / 0.896 / 0.949 | passed |
-| `drift-building` (b6, pooled) | 230,885 | 0.0406 | 0.0825 | 0.525 / 0.808 / 0.901 / 0.952 | missed by 0.0006 |
+| `drift-building` (b6, pooled) | 230,885 | 0.0406 | 0.0825 | 0.525 / 0.808 / 0.901 / 0.952 | missed on one scale |
 
 Posterior means in f6: the unit's lasting level `ss` 0.0483, its drift `sd` 0.0786 with a
 time scale `tau` of 5.56 years.
@@ -53,18 +53,33 @@ with no free months, which need no change of basis, the stay runs from 27 to 60 
 the share cut from 15% to 63%.
 
 `drift-building` adds a path per building and is worth another 35,565 elpd on the same
-ads. Its pooled fits miss the gate on one quantity each: drift_tau at R-hat 1.0106 on the
-latest split and bld_sd[outer] at 1.0135 on the market data. It is not served. On the
-latest split the twelve chains agree on every scale to three digits and the miss fits
-chain length (a chain of four in an hour is too short for the R-hat line, whatever the
-number of chains). On the market and backtest data bld_sd[outer] also differs from chain
-to chain by more than its autocorrelation allows. About a quarter of that offset is
-traced to a handful of buildings whose level sits at one of two values for a whole chain
-(their few ads fall into two price clusters); the rest is a shift shared thinly across
-the outer buildings' levels, and its cause is not known. The note has both and what was
-tried next. Round seven (two long chains a container, on the latest
-split and the market data) was running when this was written; its predictions are in the
-note and its scores will be.
+ads. It is not served: every one of its pooled fits misses the gate.
+
+| Fit | Chains by draws | Worst R-hat | Least ESS | elpd |
+|---|---|---|---|---|
+| b6, latest split | 12 by 1,600 | 1.0106, drift_tau | 1,184 | 230,885 |
+| n6, market | 12 by 1,350 | 1.0135, bld_sd[outer] | 1,371 | |
+| j6, backtest | 8 by 1,550 | 1.0447, bld_sd[outer] | 68 | |
+| b7, latest split | 6 by 3,440 | 1.0130, bld_sd[outer] | 1,485 | 230,861 |
+| n7, market | 6 by 2,920 | 1.0202, bld_sd[outer] | 159 | |
+
+Round six's misses on drift_tau and sigma were chain length: with chains twice as long
+(round seven, two chains a container) every quantity but one is well inside the gate
+(next worst R-hat 1.0067 in b7 and 1.0048 in n7), and the score does not move. The one
+that is left is bld_sd[outer], the spread of building levels in the outer boroughs. A
+handful of buildings in 68,000 have few ads in two price clusters 0.4 to 0.65 apart in
+log rent (studios at 3-bedroom rents, a townhouse beside small rentals), and such a
+building's level can sit at either. Warmup leaves it at the high one. In round seven's
+longer chains these buildings move to the low one, one building every few hundred to few
+thousand sweeps, and none moves back, and bld_sd[outer] steps down by about 0.0001 each
+time. So a fit ends with its chains at different stages of the same arrival, which is what
+R-hat reports, and the outer spread it gives (0.091) is high by something like 0.0003.
+None of these buildings has a predicted ad and the held-out predictions show no mark of
+it. How much of the offset the ten widest buildings carry is not settled (a fifth to two
+fifths by their own share of the levels' mean square, more by the size of the steps). The
+fixes, neither run yet: correct or drop the ads whose bed count their rent contradicts,
+and give the sampler a move that takes a building from one cluster to the other. The note
+has the evidence and the scored predictions of round seven.
 
 ## The model
 
