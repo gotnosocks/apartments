@@ -50,14 +50,14 @@ GAPS = (
     ("8+", "8 and over", "8y+"),
 )
 MODELS = {
-    "drift": ("Drift", "a lasting level and a drifting one for each apartment"),
+    "drift": ("Drift", "each apartment's own level, drifting"),
     "drift-building": ("Drift + building", "plus a path for each building"),
-    "drift-local": ("Drift + building + area", "plus a path for each neighbourhood"),
+    "drift-local": ("Drift + building + area", "plus a path for each area"),
 }
 REFS = (
     ("fit8", "fit8", "Fit 8", "no memory of the apartment", True),
     ("ks_a", "ks", "Kitchen sink", "plus every feature on hand", True),
-    ("fit4", "fit4", "Fit 4", "a fixed level per apartment: did not converge", False),
+    ("fit4", "fit4", "Fit 4", "a fixed level per apartment (did not converge)", False),
 )
 SPLITS = {"latest": "held-out ads", "market": "the market"}
 
@@ -120,7 +120,7 @@ def main() -> None:
                 "name": model[k],
                 "label": MODELS[model[k]][0],
                 "note": MODELS[model[k]][1]
-                + ("" if runs[k]["gate"]["passes"] else ": did not converge"),
+                + ("" if runs[k]["gate"]["passes"] else " (did not converge)"),
                 "elpd": s["elpd"],
                 "gate": runs[k]["gate"]["passes"],
                 "new": True,

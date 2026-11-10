@@ -275,7 +275,7 @@ const LAYERS = [
   ["Where", "a smooth surface over the map, 1 km fine", "2 zones", "fg"],
   ["Which building", "each building's level around that surface", `${num(D.meta.buildings)} buildings`, "brown"],
   ["Which apartment", "a lasting level, plus one that drifts", `${num(D.meta.units)} apartments`, "blue"],
-  ["What the block is doing lately", HY.nbhd_ar_sd != null ? "a quarterly path per building and per neighbourhood" : "a path per building, quarter by quarter", "new", "teal"],
+  [HY.nbhd_ar_sd != null ? "What the block is doing lately" : "What the building is doing lately", HY.nbhd_ar_sd != null ? "a quarterly path per building and per neighbourhood" : "a path per building, quarter by quarter", "new", "teal"],
   ["Noise", "whatever one ad does on its own", "heavy tails", "muted"],
 ];
 function sceneLayers1(t) {
@@ -587,7 +587,7 @@ function sceneMarket1(t) {
   const bw = (f.X1 - f.X0) / n;
   P.forEach((c, i) => { const g = seg(t, 0.1 + 0.02 * i, 0.5 + 0.02 * i), y = f.y(c * g); rect(f.X0 + i * bw + 1, y, bw - 2, f.Y0 - y, i === 0 ? C.yellow : C.blue, 0.8); });
   const a = seg(t, 0.7, 0.95);
-  note(`${num(P[0])} ads ask less than ${pc(1 - 1 / n)} of their range`, f.X0 + bw + 10, f.y(P[0]) + 8, { c: C.yellow, a });
+  note(`${num(P[0])} ads ask less than ${pc(1 - 1 / n)} of their range`, f.X0 + 4, f.y(Math.max(...P.slice(0, narrow() ? 14 : 8))) - 22, { c: C.yellow, a });
 }
 function sceneMarket2(t) {
   title("The lowest asks for what they are", seg(t, 0, 0.2));
