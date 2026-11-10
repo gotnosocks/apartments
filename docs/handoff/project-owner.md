@@ -5,11 +5,10 @@ aim is a superb descriptive model of NYC rents that helps find good deals; one t
 repo, the model and a presentation artifact for 24 hours, with $100 of Modal approved for the
 window and no stale jobs to be run.
 
-## State at 2026-11-10 05:20Z
+## State at 2026-11-10 07:20Z
 
-- **Branch and PR.** `claude/project-thread-09vaqy`, PR #1281, head `1552f44` plus notes. The
-  PR holds the model, the Deals page and the docs, because this thread may push one branch
-  only.
+- **Branch and PR.** `claude/project-thread-09vaqy`, PR #1281, head `62291ed`. The PR holds
+  the model, the Deals page and the docs, because this thread may push one branch only.
 - **Data.** A one-off scrape on 2026-11-10 brought the listings to 2026-11-09 (pipeline build
   `ddd2fe8f5da041b8`). On thelio: `frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market`
   (6,774 ads on the market) and `...-asof-20251110` (the backtest, 9,346 on the market that
@@ -20,15 +19,23 @@ window and no stale jobs to be run.
   `drift_score`; the deals table, its backtest check and the site's files are `drift_deals`.
 - **Fits.** No fit has passed the gate yet. Held-out elpd on the 189,647 ads: kitchen sink
   156,105, `drift` 195,315, `drift-building` 233,273 (monthly, round two) and 230,683
-  (quarterly, pilot). Rounds one to four each missed the gate on a scale drawn given a
-  latent that pinned it. Round five (`1552f44`) draws every unit and noise scale with the
-  unit levels, building levels and building paths integrated out; its pilots `p5d` and
-  `p5b` were launched at 05:08Z. `docs/notes/drift-2026-11-10.md` has every round's
-  predictions and results.
+  (quarterly, pilot). Rounds one to five each missed the gate on slow scales. Round five's
+  pilots (p5d, p5b) showed sigma and nu fixed, the unit scales three times slower than in
+  round three (autocorrelation 23 to 37 sweeps) and, with the building term, the `bld:`
+  amenity coefficients slow (11 to 24 sweeps). Round six (`62291ed`) sets the scale step's
+  slice directions from the curvature of its own density and redraws the `bld:` columns
+  with the paths integrated out. Its pilots p6d and p6b were launched at 07:19Z.
+  `docs/notes/drift-2026-11-10.md` has every round's predictions and results.
 - **Limits on a fit.** `ops/modal/cap.py` refuses a launch estimated over an hour, and the
-  container is killed at 75 minutes. The design build takes about 10 minutes and the compile
-  4 to 5, so sampling has about 45.
-- **Review.** The model reviewer approved through `1552f44`. The Deals page and docs were
+  container is killed at 75 minutes. Outside the sweeps a fit takes about 14 minutes
+  (image, design, compile, output). Checkpoints are off (`Settings.checkpoints`), which
+  saves 6 to 11 minutes. A `drift` sweep is 0.9 s and a `drift-building` sweep 1.5 s on an
+  A100, so about 2,700 and 1,550 sweeps fit.
+- **What was ruled out for the slow unit scales** (so nobody tries it again): stuck slices
+  (none), directions of the wrong length (3 to 4 posterior sd), a trade-off with the
+  building spreads (they explain under 2% of the unit scales' variance), drawing lam with u
+  integrated out, and letting lam ride on its filtered distribution (both tried on a toy).
+- **Review.** The model reviewer approved through `62291ed`. The Deals page and docs were
   approved at `c290f9d`; the explainer's `pagedata.py` and the rewrite of
   `docs/model/drift.md` since then still need a docs pass.
 - **Site.** `src/apartments/site/deals.py`, `templates/deals.html`, route `/deals`. It reads
@@ -38,13 +45,14 @@ window and no stale jobs to be run.
   of `artifact-data/extract.py` into the page's data, and `build.py` writes the page. Tested
   end to end on a round-two extract (`artifact-data/smoke-round2.json`, to delete before
   merge).
-- **Modal spend.** $22.97 settled, about $27 with the two pilots, of $100.
+- **Modal spend.** $25.55 settled before round six's pilots, about $30 with them, of $100.
 
 ## Next, in order
 
-1. From the pilots' sweep times, size the full round five fits to end inside the hour and
-   launch `drift` and `drift-building` on the latest split, the market dataset and the
-   backtest dataset. Score round five's predictions in the note.
+1. Score round six's predictions in the note from its pilots. If the unit scales'
+   autocorrelation times are under about 12 sweeps, launch the full fits (`drift` 500 warmup
+   and 2,200 draws, `drift-building` 400 and 1,150) on the latest split, the market dataset
+   and the backtest dataset.
 2. Pick the winner (highest held-out elpd among the fits that pass the gate), write the
    results into the note, `docs/model/drift.md` and `README.md` (each has a
    `RESULTS-PLACEHOLDER` line), and add the 2026-11-10 section to `docs/research-record.md`.
