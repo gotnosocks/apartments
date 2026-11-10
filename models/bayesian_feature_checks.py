@@ -15,6 +15,8 @@ import xarray as xr
 from apartments.corrections import canonical
 from apartments.research_pipeline import digest
 
+from . import bayesian_feature_report as report  # noqa: F401  (tests patch m.report)
+
 VERSION = "bayesian-feature-posterior-checks-v1"
 VARIABLE_DIMS = {
     "alpha": (),
