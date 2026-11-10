@@ -8,7 +8,45 @@ model, are in [the note of 2026-11-10](../notes/drift-2026-11-10.md).
 
 ## Results
 
-RESULTS-PLACEHOLDER
+`drift` is the served model. Its three full fits of 2026-11-10 (round six of that day's
+note) all pass the convergence gate, the first fits in the project with a unit term to do
+so on the full data.
+
+| Fit | Data | Chains x draws | Worst split R-hat | Least bulk ESS | Cost |
+|---|---|---|---|---|---|
+| f6 | latest split: 1,706,824 ads fitted, 189,647 held out | 4 x 4,060 | 1.0050 | 1,207 | $3.75 |
+| m6 | market of 2026-11-09: 1,893,502 fitted, 6,774 open ads predicted | 4 x 3,680 | 1.0038 | 1,034 | $3.62 |
+| k6 | backtest as of 2025-11-10: 1,754,606 fitted, 9,346 open ads predicted | 4 x 3,740 | 1.0051 | 1,072 | $3.69 |
+
+On the 189,647 held-out ads (the newest ad of every apartment with at least two):
+
+| Model | elpd | Median abs. error (log) | RMSE | Coverage at 50 / 80 / 90 / 95% | Gate |
+|---|---|---|---|---|---|
+| Fit 8 | 148,234 | 0.0664 | 0.1158 | 0.493 / 0.798 / 0.903 / 0.954 | passed |
+| Kitchen sink | 156,105 | 0.0636 | 0.1112 | 0.495 / 0.801 / 0.904 / 0.955 | passed |
+| Fit 4 | 177,137 | 0.0560 | 0.1018 | 0.496 / 0.789 / 0.893 / 0.949 | missed |
+| `drift` (f6) | 195,320 | 0.0506 | 0.0949 | 0.513 / 0.799 / 0.896 / 0.949 | passed |
+| `drift-building` (b6, pooled) | 230,885 | 0.0406 | 0.0825 | 0.525 / 0.808 / 0.901 / 0.952 | missed by 0.0006 |
+
+Posterior means in f6: the unit's lasting level `ss` 0.0483, its drift `sd` 0.0786 with a
+time scale `tau` of 5.56 years, `nu` about 1.7.
+
+The backtest (k6): the 9,346 ads open on 2025-11-10, each scored at its first ask.
+
+| Place of the first ask in the model's range | Ads | Median days on market | Share later cut |
+|---|---|---|---|
+| lowest tenth | 501 | 27 | 18% |
+| second | 454 | 32 | 26% |
+| fifth | 725 | 47 | 42% |
+| ninth | 1,319 | 56 | 69% |
+| highest tenth | 2,367 | 62 | 79% |
+
+`drift-building` adds a path per building and is worth another 35,565 elpd on the same
+ads. Its chains agree on every scale to three digits, and its pooled fits miss the gate on
+one quantity each: drift_tau at R-hat 1.0106 on the latest split and bld_sd[outer] at
+1.0135 on the market data. It is not served. The note gives the reason (a chain of four in
+an hour is too short for the R-hat line, whatever the number of chains) and what was tried
+next. ROUND-SEVEN-PLACEHOLDER
 
 ## The model
 
@@ -133,7 +171,13 @@ minutes on the image, the design, the compile and the output. The sweeps stop at
 once they have taken 42 minutes (`Settings.budget_seconds`), and the fit reports the draws it
 has. Mid-run checkpoints cost 2 to 4 minutes each and are off (`Settings.checkpoints`).
 
-SAMPLER-TIMING-PLACEHOLDER
+Measured on the full data, four chains: a `drift` sweep takes 0.55 to 0.59 s on an H100
+(0.8 s on an A100), so an hour holds about 4,100 draws a chain after a warmup of 500. A
+`drift-building` sweep takes 1.14 to 1.28 s on an H100 (1.75 s on an A100), of which the
+redraw of the `bld:` columns is about 0.3 s, so an hour holds 1,350 to 1,600 draws a chain.
+Sweeps to an independent draw of the slowest scales: 7 to 16 in `drift` (sigma of the
+one-bedroom group slowest), 12 to 16 in `drift-building` (drift_tau slowest). In the pilot
+of round six every `bld:` coefficient took under 4.
 
 The convergence gate is the project's: split R-hat at most 1.01 and bulk ESS above 400 on
 every scalar and coefficient. A fit that misses the gate is not rerun on another seed.
@@ -206,11 +250,19 @@ backtest dataset.
 
 **An hour a container.** A fit stops its sweeps at 2,520 s and saves the draws it has
 (`Settings.budget_seconds`), so the draws asked for are a ceiling and 6,000 means "all the
-hour holds". When one container's draws are too few for the gate, the fit is launched as
-several containers that differ only in `--seed`, and `rentfrontier.drift_pool` writes one
-run from them: every part's chains, cut to the shortest part's draws, with the convergence
-table computed over all of them. The number of containers is written in the fit's note
-before launch. A fit that misses the gate does not get another container.
+hour holds". A fit can be launched as several containers that differ only in `--seed`, and
+`rentfrontier.drift_pool` writes one run from them: every part's chains, cut to the
+shortest part's draws, with the convergence table computed over all of them. The number of
+containers is written in the fit's note before launch, and a fit that misses the gate does
+not get another.
+
+**What pooling buys and what it does not.** More chains add effective draws and make the
+R-hat estimate steadier. They do not lower it: split R-hat compares half-chains, and its
+expected excess over 1 is about 1 / (2 x the effective draws in one half-chain). A quantity
+that takes 16 sweeps a draw needs half-chains of about 2,000 draws to sit near 1.004, and
+at 800 it sits at the 1.01 line however many chains there are. So size a fit by the length
+of a chain first (fewer chains a container make a sweep faster) and by the number of
+chains second.
 
 ## Known limits
 
@@ -227,3 +279,17 @@ before launch. A fit that misses the gate does not get another container.
   building and the local drift, and its range is about twice as wide as a unit with a recent
   ad. Its score is honest and less sharp.
 - **The design needs about 15 GB of host memory**, so full fits run on Modal.
+- **First asks run high.** The model is fitted to final asks. A quarter of the backtest's
+  ads opened in the top tenth of their range, and on the market of 2026-11-09 the lowest
+  twentieth of the score holds 302 ads where an even spread would put 339. The score ranks
+  ads against each other well (the backtest), and its level is conservative for an ad that
+  has not yet been cut.
+- **The building path steps by quarter**, to fit a fit in its hour. A monthly path scored
+  2,590 elpd higher in round two (233,273 against 230,683), all of it on ads with another
+  unit's ad in the same quarter.
+- **`drift-building` has not passed the gate.** Its pooled fits of round six miss by 0.0006
+  and 0.0035 in R-hat on one quantity each. On the market and backtest data the outer
+  boroughs' building spread also holds a small offset from chain to chain that does not
+  move within a run; its cause is not known (the note gives the test to run next).
+- **`drift-local` was not refitted** after round two, where the neighbourhood path added
+  952 elpd to the building model, 2.5% of the building path's gain.

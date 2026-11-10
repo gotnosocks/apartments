@@ -11,7 +11,37 @@ earlier lines.
 
 ## Where things stand
 
-RESULTS-PLACEHOLDER
+**The served model is `drift`**, fitted on 2026-11-10. It is the first model in the project
+with a term for the individual apartment to pass the convergence gate on the full data, and
+it passes on all three of its fits (held-out split, today's market, a backtest a year back).
+
+Scores on the same 189,647 held-out ads, each the newest ad of an apartment:
+
+| Model | Held-out elpd | Typical miss of the middle estimate | 80% range holds | Gate |
+|---|---|---|---|---|
+| Fit 8 (no memory of the apartment) | 148,234 | 6.9% | 79.8% | passed |
+| Kitchen sink (2026-10-24, every column on hand) | 156,105 | 6.6% | 80.1% | passed |
+| Fit 4 (a fixed level per apartment) | 177,137 | 5.8% | 78.9% | missed |
+| **`drift`** (a level per apartment that drifts) | **195,320** | **5.2%** | **79.9%** | **passed** |
+| `drift-building` (plus a path per building) | 230,885 | 4.1% | 80.8% | missed by 0.0006 |
+
+- **The Deals page** (`/deals` on the site) ranks the 6,774 ads on the market on 2026-11-09
+  by how low each ask is for its apartment. It was published from the market fit with its
+  backtest.
+- **The backtest.** Fitted on what was known on 2025-11-10 and scored on the first asks of
+  the 9,346 ads open that day: ads in the lowest tenth of the score left the market in a
+  median of 27 days and 18% had their ask cut; ads in the highest tenth took 62 days and
+  79% were cut.
+- **Calibration.** The 50, 80, 90 and 95% ranges held 51.3, 79.9, 89.6 and 94.9% of the
+  held-out asks.
+- **What is next.** `drift-building` predicts much better and its chains agree, but each of
+  its fits misses the R-hat line on one quantity (1.0106 and 1.0135 against 1.01), so it is
+  not served. The cause is chain length within the hour a fit gets, plus a slow component
+  of the outer boroughs' building spread on the market data. ROUND-SEVEN-PLACEHOLDER
+
+[docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
+through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)
+says where work stopped.
 
 ## The model in one page
 
@@ -24,7 +54,7 @@ Each ad's log asking rent is the sum of
 | Location | A smooth surface per zone (Manhattan, outer boroughs) at 1 km | `building_zones.py` |
 | Building | A level for each of 68,000 buildings around its zone's surface | `building_zones.py` |
 | Unit | A lasting level for each apartment plus a drift that fades over a few years | `drift.py` |
-| Local drift | A short-lived level per building by month, and per neighbourhood by quarter | `drift.py`, `drift_building.py`, `drift_local.py` |
+| Building drift (`drift-building`, not yet served) | A path per building that wanders and returns, one step a quarter | `drift.py`, `drift_building.py` |
 | Noise | Student-t, with a scale per bedroom group | `b0.py` |
 
 The unit term is what makes the model useful for deals. An apartment that asked 8% over its
