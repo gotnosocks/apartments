@@ -6,15 +6,17 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## State at 2026-11-10 14:52Z
+## State at 2026-11-10 15:02Z
 
 - **Served model.** `drift-building` with `--level-dof 4` (a Student-t prior on building
   levels), since 14:19Z. Its three full fits (round nine) pass the gate, each a pool of
   three containers of two chains: `drift-building-b0-latest-67d14e17-b9`,
   `drift-building-b0-market-67d14e17-n9`, `drift-building-b0-market-67d14e17-j9`.
   Held-out elpd 230,989, median abs error 0.0406, coverage 0.525 / 0.807 / 0.901 / 0.952.
-  The flag is off by default: refit this model with `--level-dof 4`, or it is the model
-  that missed the gate. `drift` (f6, m6, k6; elpd 195,320, error 0.0506) was served from
+  The fits were launched with the flag; since #1287 4 is `drift-building`'s default
+  (`drift_building.LEVEL_DOF`), and `--level-dof 0` is the normal prior that missed the
+  gate. No fit has run from the code with the new default: the first one should show
+  `level_dof` 4.0 in its run record's sampler settings. `drift` (f6, m6, k6; elpd 195,320, error 0.0506) was served from
   09:42Z until then and passes its gate too.
 - **Deals.** `/data1/apartments/site/deals` was published at 14:19Z from n9 with j9 as
   its backtest, b9 as its held-out fit and the ad texts
@@ -36,8 +38,9 @@ three full fits, so the ceiling is $140.
   merged as `67d14e17`, head `51c00d5`; its tag `archive/pr-1283` is not pushed either.
   #1284 (round nine's record, the docs and the explainer around the served model)
   merged as `8d2fd1a6`, head `54113bd`; no tag either. #1285 (the `takeover` caution) merged as
-  `45968c30`, head `2eafe54`; no tag. #1286 carries this handoff and the explainer's
-  refreshed numbers, and is the last PR of the day. All work is on the one branch,
+  `45968c30`, head `2eafe54`; no tag. #1286 carried the handoff and the explainer's
+  refreshed numbers. #1287 makes the t prior the building model's default and is the
+  last PR of the day. All work is on the one branch,
   `claude/project-thread-09vaqy`, with master merged in after each PR (a force push to
   restart it was refused).
 - **Round nine, done.** Ben approved up to $40 more on Modal at 12:38Z (ceiling $140).
@@ -87,7 +90,8 @@ three full fits, so the ceiling is $140.
   and each PR's description says what the review found: #1281 and #1282; #1283 (a model
   reviewer for `level_dof` and the beds caution, a Sonnet reviewer for the docs); #1284
   (docs, a Sonnet reviewer); #1285 (the `takeover` pattern, a default-model reviewer in
-  three passes, approved at `8a690cb`); #1286 (docs, a Sonnet reviewer). New work needs
+  three passes, approved at `8a690cb`); #1286 (docs, a Sonnet reviewer); #1287 (the
+  default, a default-model reviewer). New work needs
   the same: a model reviewer for model, selection, data or ops code, a Sonnet reviewer
   for docs and site pages.
 - **Presentation.** `docs/notes/drift-2026-11-10/artifact/`: `pagedata.py` turns
@@ -108,7 +112,7 @@ three full fits, so the ceiling is $140.
    deals: a new market snapshot and refit (the list is the market of 2026-11-09, and the
    three fits cost about $33 at round nine's size); the data rule for studio-coded ads
    that are not studios; a caution that tells an apartment's own bedroom count in the
-   text from the building's mix; making `--level-dof 4` the building model's default.
+   text from the building's mix.
 3. To republish after any change to the cautions, from `/data1/apartments/serve/master`
    at the merged commit, in the environment of the earlier publishes (the thelio
    worker ran it from `/data1/apartments/tmp/overhaul/artifact-data` as

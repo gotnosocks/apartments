@@ -59,9 +59,6 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
 - [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
   alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
   them firmly).
-- [ ] Make `--level-dof 4` the default of `drift-building`, or have `ops/modal-fit` refuse
-  the model without it: the served fits (round nine) use it, the flag is off by default,
-  and under the normal prior every pooled fit missed the gate. Needs a model review.
 - [ ] Tune or defend the 4 degrees of freedom: the levels' body looks normal and the tail
   is a few gross outliers, which sit 10 to 18 scales out under the t prior.
 - [ ] A sampler move for a building in two states, if the two above leave any: new

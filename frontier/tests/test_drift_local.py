@@ -693,3 +693,23 @@ def test_the_sweep_draws_each_buildings_mixing_scale_given_its_level():
     # The scales move with the levels: a building far from its surface gets a small one
     # (z2 is the last chain's).
     assert np.corrcoef(np.log(np.asarray(st["kap"][1])), np.log1p(z2))[0, 1] < -0.2
+
+
+def test_the_building_model_takes_student_t_levels_unless_told_otherwise(monkeypatch):
+    base = ["--split", "latest", "--name", "x"]
+    assert drift.run_parser().parse_args(base).level_dof is None
+    assert drift.run_parser().parse_args([*base, "--level-dof", "4"]).level_dof == 4.0
+    building = drift.run_parser(drift_building.NAME, drift_building.LEVEL_DOF)
+    assert building.parse_args(base).level_dof == 4.0
+    assert building.parse_args([*base, "--level-dof", "6"]).level_dof == 6.0
+    # 0 names the normal prior: `b0.main_run` leaves a setting that is None at its default.
+    assert building.parse_args([*base, "--level-dof", "0"]).level_dof is None
+
+    # Each model's entry point hands `b0.main_run` a parser with its own default.
+    seen = {}
+    monkeypatch.setattr(drift.building_zones_floor_asof, "SPLIT", None)
+    monkeypatch.setattr(drift.b0, "main_run", lambda argv, **kw: seen.update(kw))
+    for module, dof in ((drift_building, 4.0), (drift_local, None), (drift, None)):
+        module.main_run(base)
+        assert seen["name"] == module.NAME
+        assert seen["parser"].parse_args(base).level_dof == dof

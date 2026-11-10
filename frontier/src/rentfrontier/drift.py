@@ -2111,18 +2111,34 @@ def run_record(d: Design, groups=()) -> dict:
     )
 
 
-def main_run(argv, name=NAME, sample=None, spec=None) -> None:
-    """`rentfrontier.run --model drift`: fit on the split's training rows and save the run.
-    The modules that add local-drift terms pass their own `name`, `sample` and `spec`."""
+def _level_dof(text: str) -> float | None:
+    """`--level-dof`'s value. 0 asks for the normal prior, which a model whose default is
+    a Student-t has no other way to name."""
+    return float(text) or None
+
+
+def run_parser(name=NAME, level_dof=None):
+    """The command line of `rentfrontier.run --model NAME`. `level_dof` is the model's own
+    default for `Settings.level_dof`."""
     parser = b0.run_parser()
     parser.prog = f"rentfrontier.run --model {name}"
     parser.set_defaults(model=name)
     parser.add_argument("--site-block", type=int)
     parser.add_argument(
         "--level-dof",
-        type=float,
-        help="degrees of freedom of a Student-t prior on the buildings' levels",
+        type=_level_dof,
+        default=level_dof,
+        help="degrees of freedom of a Student-t prior on the buildings' levels; 0 for a "
+        f"normal prior (default: {level_dof or 'a normal prior'})",
     )
+    return parser
+
+
+def main_run(argv, name=NAME, sample=None, spec=None, level_dof=None) -> None:
+    """`rentfrontier.run --model drift`: fit on the split's training rows and save the run.
+    The modules that add local-drift terms pass their own `name`, `sample` and `spec`, and
+    may pass their own default for `--level-dof`."""
+    parser = run_parser(name, level_dof)
     building_zones_floor_asof.SPLIT = parser.parse_known_args(argv)[0].split
     b0.main_run(
         argv,

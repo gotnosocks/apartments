@@ -25,9 +25,12 @@ three containers of two chains (`drift_pool`).
 | j9 | backtest as of 2025-11-10: 1,754,606 fitted, 9,346 open ads predicted | 6 x 3,280 | 1.0050 (sigma[2]) | 1,296 | $10.91 |
 
 Runs `drift-building-b0-latest-67d14e17-b9`, `drift-building-b0-market-67d14e17-n9` and
-`drift-building-b0-market-67d14e17-j9`. **Refit this model with `--level-dof 4`.** The
-flag is off by default, which leaves the normal prior, and under the normal prior every
-pooled fit of this model missed the gate (below).
+`drift-building-b0-market-67d14e17-j9`. They were launched with `--level-dof 4`, which
+the code of that day needed. Since then 4 is `drift-building`'s own default
+(`drift_building.LEVEL_DOF`), so a refit by the model's name is this model, and
+`--level-dof 0` asks for the normal prior, under which every pooled fit of this model
+missed the gate (below). `drift` and `drift-local` keep the normal prior unless given the
+flag.
 
 `drift`, the same model without the building's path, was served from 09:42Z until then.
 Its Deals folder is kept at `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`.
@@ -166,7 +169,7 @@ mean_i = x_i beta                 columns
 |---|---|---|
 | `x beta` | Bedroom and bath steps, floor curves with Gaussian process priors, unit features, building amenities, lot attributes, ad fields, and the unit means of the unit columns | about 250 coefficients |
 | `L(t)` | A weekly random walk plus season | one level a week since 2015 |
-| `eta_s` | `StudentT(4, F(s), b_zone)` in the served fits (`--level-dof 4`; `Normal(F(s), b_zone)` without the flag), with `F` a smooth surface at 1 km resolution in each zone (Manhattan, the outer boroughs) | 68,000 buildings |
+| `eta_s` | `StudentT(4, F(s), b_zone)` in `drift-building` (its default; `--level-dof` sets the degrees of freedom and 0 gives `Normal(F(s), b_zone)`, which `drift` has by default), with `F` a smooth surface at 1 km resolution in each zone (Manhattan, the outer boroughs) | 68,000 buildings |
 | `u_i = s_k + d_k(t_i)` | `s_k ~ Normal(0, ss^2)`, the unit's lasting level. `d_k` is an Ornstein-Uhlenbeck process: `Var d_k(t) = sd^2`, `Corr(d_k(t), d_k(t')) = exp(-abs(t - t') / tau)`, with `t` in years | 935,000 units |
 | `a_g(m)` | A stationary AR(1) per group: `a_g(m) = rho a_g(m-1) + Normal(0, s^2 (1 - rho^2))`. One step a quarter. `s ~ HalfNormal(0.1)`, `rho ~ Uniform(0, 1)` | one path per building, one per neighbourhood |
 | Noise | Student-t, with `sigma` per bedroom group and one `nu` | |
