@@ -10,7 +10,7 @@ from pathlib import Path
 
 import duckdb
 
-from apartments.site import deals
+from apartments.site import deals, tags
 
 ROWS = [
     # 11: unit history (4 ads), 1 month free ($3,250 gross, $3,000 net, no net cut),
@@ -422,7 +422,7 @@ def test_url_filters_for_hoods_beds_rent_sqft_floor_and_toggles(client, site_roo
     assert "unit history, 4 ads" in html
     assert "$600/mo" in html and "$300/mo" in html
     assert "$3,250 on ad, 1 mo free" in html
-    assert "−$400" in html and "price/ft²" in html and "ask jump" in html
+    assert "cut $400" in html and "price/ft²" in html and "ask jump" in html
     assert html.count('class="deal-strip"') == 3
     # Backtest is inside a collapsed <details> block at the bottom.
     assert '<details class="card deals-backtest" id="backtest">' in html
@@ -561,3 +561,107 @@ def test_bad_query_strings_replaced_files_and_backtest_gate(client, site_root):
     assert data["validation"]["by_first_ask_place"] == []
     bare_html = client.get("/deals").get_data(as_text=True)
     assert 'id="backtest"' not in bare_html and "drift-building" not in bare_html
+
+
+def test_tagged_rows_hide_errors_and_unmodeled_but_keep_deals(client, site_root):
+    publish(site_root)
+    publish_diagnostics(site_root)
+
+    # Default rows are 15, 11, 13; tag 15 as a data error, 13 as unmodeled, 11 as deal.
+    tags.append(site_root, "15", "wrong_beds", "studio on floor plan")
+    tags.append(site_root, "13", "condition", "unrenovated")
+    tags.append(site_root, "11", "deal", "checked photos")
+
+    default_html = client.get("/deals").get_data(as_text=True)
+    assert listed_ids(default_html) == ["11"]
+    assert 'class="c-tag tag-slot" data-listing="11"' in default_html
+    assert "Real deal" in default_html
+    assert "2 tagged" in default_html
+    assert 'href="/deals?tagged=1"' in default_html
+    assert "tags.js?v=" in default_html
+
+    # `tagged=1` brings back the ruled-out rows with their tag chips.
+    shown_html = client.get("/deals?tagged=1").get_data(as_text=True)
+    assert listed_ids(shown_html) == ["15", "11", "13"]
+    assert "Wrong bedrooms" in shown_html and "Condition" in shown_html
+
+    # Clearing row 15 restores it to the default list.
+    tags.append(site_root, "15", "clear")
+    after_clear = client.get("/deals").get_data(as_text=True)
+    assert listed_ids(after_clear) == ["15", "11"]
+    assert "1 tagged" in after_clear
+
+
+def test_deals_paging_carries_filters_at_fifty_per_page(client, site_root):
+    many = [
+        ROWS[0]
+        | {
+            "listing_id": str(1000 + i),
+            "url": f"https://streeteasy.com/rental/{1000 + i}",
+            "neighbourhood": "chelsea" if i < 115 else "harlem",
+            "ask": 2500.0 + i,
+            "model_lo80": 3500.0,
+            "model_median": 3800.0,
+        }
+        for i in range(120)
+    ]
+    publish(site_root, rows=many)
+
+    p1 = client.get("/deals?hood=Chelsea").get_data(as_text=True)
+    ids_p1 = listed_ids(p1)
+    assert len(ids_p1) == 50 and ids_p1[0] == "1000" and ids_p1[-1] == "1049"
+    assert "showing 1 to 50" in p1
+    assert "Next 50" in p1 and 'href="/deals?hood=Chelsea&amp;page=2"' in p1
+
+    p2 = client.get("/deals?hood=Chelsea&page=2").get_data(as_text=True)
+    ids_p2 = listed_ids(p2)
+    assert len(ids_p2) == 50 and ids_p2[0] == "1050" and ids_p2[-1] == "1099"
+    assert "Previous" in p2 and 'href="/deals?hood=Chelsea"' in p2
+    assert 'href="/deals?hood=Chelsea&amp;page=3"' in p2
+
+    p3 = client.get("/deals?hood=Chelsea&page=99").get_data(as_text=True)
+    ids_p3 = listed_ids(p3)
+    assert len(ids_p3) == 15 and ids_p3[0] == "1100" and ids_p3[-1] == "1114"
+    assert 'href="/deals?hood=Chelsea&amp;page=2"' in p3
+
+
+def test_enriched_rows_cache_hits_and_invalidates_on_stamp_change(
+    site_root, monkeypatch
+):
+    publish(site_root)
+    publish_diagnostics(site_root)
+    calls = 0
+    real_load_rows = deals.load_rows
+
+    def counted_load_rows(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return real_load_rows(*args, **kwargs)
+
+    monkeypatch.setattr(deals, "load_rows", counted_load_rows)
+    deals._enriched_cache.clear()
+
+    first = deals.load(site_root)
+    assert calls == 1 and first["has_diagnostics"] is True
+
+    # Repeat loads and tag updates reuse cached enriched rows without rescanning.
+    tags.append(site_root, "15", "wrong_price", "net ask")
+    second = deals.load(site_root)
+    assert calls == 1
+    by_id = {r["listing_id"]: r for r in second["rows"]}
+    assert by_id["15"]["ruled_out"] is True
+    assert {r["listing_id"]: r for r in first["rows"]}["15"]["ruled_out"] is False
+
+    # Updating diagnostics invalidates the cache via the diagnostics stamp.
+    updated_diag = [
+        (d | {"floor": 19.0}) if d["listing_id"] == "11" else d for d in DIAG_ADS
+    ]
+    publish_diagnostics(site_root, ads=updated_diag)
+    third = deals.load(site_root)
+    assert calls == 2
+    assert {r["listing_id"]: r for r in third["rows"]}["11"]["floor"] == 19.0
+
+    # Updating deals.json invalidates the cache via the deals stamp.
+    publish(site_root, rows=ROWS[:2])
+    fourth = deals.load(site_root)
+    assert calls == 3 and len(fourth["rows"]) == 2

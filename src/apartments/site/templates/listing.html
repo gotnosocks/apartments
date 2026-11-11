@@ -3,7 +3,18 @@
 {% set unit_name = ad_facts.unit if ad_facts and ad_facts.unit else none %}
 {% block title %}{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}, {{ day(row.day) if row.day else "an ad" }}{% endblock %}
 {% block content %}
-<div id="tags" data-listing="{{ row.listing_id }}"></div>
+<div id="tags" data-listing="{{ row.listing_id }}">
+  {{ tag_form(row.listing_id, current_tag, url_for('listing', key=row.listing_id)) }}
+  {% if tag_history %}
+  <ul class="tag-history" aria-label="Earlier tags for this ad">
+    {% for item in tag_history %}
+    <li>
+      {% if item.tag == "clear" %}<span class="muted">Cleared</span>{% else %}<span class="chip tag-chip tag-{{ item.group }}">{{ item.label }}</span>{% endif %}{% if item.note %} <span>{{ item.note }}</span>{% endif %}{% if item.at %} <span class="muted">{{ item.at[:19] | replace("T", " ") }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
 <nav class="crumbs" aria-label="Breadcrumb">
   <a href="{{ url_for('estimates') }}">Estimates</a> ›
   {% if row.source == "market" %}<a href="{{ url_for('deals_page') }}">Deals</a> › {% endif %}<a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›

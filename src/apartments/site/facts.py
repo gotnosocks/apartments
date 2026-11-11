@@ -46,6 +46,7 @@ DEAL_COLUMNS = (
     "months_free",
     "first_ask",
     "days_on_market",
+    "miss",
     "flags",
     "model_lo95",
     "model_lo80",
@@ -55,6 +56,7 @@ DEAL_COLUMNS = (
     "model_hi95",
     "full_baths",
     "half_baths",
+    "prev_ask",
 )
 
 CORE_FEATURE_NAMES = frozenset(
@@ -337,6 +339,7 @@ def _normalize_ad(raw: dict, meta: dict) -> dict:
         "model_hi80": _finite(raw.get("model_hi80")),
         "model_hi95": _finite(raw.get("model_hi95")),
         "gap": _finite(raw.get("gap")),
+        "miss": _finite(raw.get("miss")),
         "pit": _finite(raw.get("pit")),
         "z": _finite(raw.get("z")),
         "unit_ads": unit_ads,
@@ -545,10 +548,17 @@ class Table:
     """Published diagnostics tables (`ads.parquet` and `history.parquet`) over one
     single-threaded DuckDB connection."""
 
-    def __init__(self, ads_path: Path, history_path: Path, meta: dict):
+    def __init__(
+        self,
+        ads_path: Path,
+        history_path: Path,
+        meta: dict,
+        stamp: tuple | None = None,
+    ):
         self.ads_path = ads_path
         self.history_path = history_path
         self.meta = meta
+        self.stamp = stamp
         self._lock = threading.Lock()
         self._connection = duckdb.connect()
         self._connection.execute("SET threads = 1")
@@ -797,5 +807,5 @@ def load(root: Path) -> Table | None:
         for old in _open.values():
             old.close()
         _open.clear()
-        found = _open[stamp] = Table(ads_path, history_path, meta)
+        found = _open[stamp] = Table(ads_path, history_path, meta, stamp=stamp)
         return found

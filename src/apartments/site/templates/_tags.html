@@ -1,0 +1,35 @@
+{% macro tag_form(listing_id, current=none, next_url="", compact=false) -%}
+<div class="tag-widget{% if compact %} is-compact{% endif %}">
+  {% if current and current.tag and current.tag != "clear" %}
+  <div class="tag-active">
+    <span class="chip tag-chip tag-{{ current.group }}" title="{{ current.note if current.note else current.meaning }}">{{ current.label }}</span>
+    {% if not compact and current.note %}<span class="tag-note">{{ current.note }}</span>{% endif %}
+    {% if not compact and current.at %}<span class="muted tag-at">{{ current.at[:10] }}</span>{% endif %}
+    <form method="post" action="{{ url_for('tags_post') }}" class="tag-clear-form">
+      <input type="hidden" name="listing_id" value="{{ listing_id }}">
+      <input type="hidden" name="tag" value="clear">
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+      <button type="submit" class="tag-clear">Clear</button>
+    </form>
+  </div>
+  {% endif %}
+  {% if compact %}<details class="tag-compact"><summary class="tag-summary">{{ "Edit" if current and current.tag and current.tag != "clear" else "Tag" }}</summary>{% endif %}
+  <form method="post" action="{{ url_for('tags_post') }}" class="tag-form">
+    <input type="hidden" name="listing_id" value="{{ listing_id }}">
+    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+    <select name="tag" aria-label="Tag" required>
+      <option value="">Choose tag...</option>
+      {% for group_code, group_label, items in TAG_GROUPS %}
+      <optgroup label="{{ group_label }}">
+        {% for item in items %}
+        <option value="{{ item.code }}"{% if current and current.tag == item.code %} selected{% endif %}>{{ item.label }}{% if not compact %} ({{ item.meaning }}){% endif %}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <input type="text" name="note" maxlength="500" value="{{ current.note if current and current.note else '' }}" placeholder="Optional note" aria-label="Note">
+    <button type="submit">Save</button>
+  </form>
+  {% if compact %}</details>{% endif %}
+</div>
+{%- endmacro %}
