@@ -119,6 +119,14 @@ def _text(value) -> str | None:
     return None if text.lower() in NO_TEXT else text
 
 
+def csv_cell(value):
+    """Return `value` for a CSV export, with text a spreadsheet would run as a
+    formula prefixed by an apostrophe. Numbers pass through unchanged."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def _day(value) -> str | None:
     if isinstance(value, dt.datetime):
         return value.date().isoformat()

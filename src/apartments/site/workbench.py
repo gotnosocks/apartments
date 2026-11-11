@@ -44,7 +44,7 @@ import duckdb
 from flask import Flask, Response, abort, render_template, request, url_for
 from markupsafe import Markup, escape
 
-from . import boroughs, charts
+from . import boroughs, charts, facts
 from .deals import LISTING, hood_label
 
 log = logging.getLogger("apartments.site.workbench")
@@ -1890,7 +1890,7 @@ class Diagnostics:
                 formatted = [
                     ";".join(str(x) for x in val)
                     if isinstance(val, (list, tuple))
-                    else val
+                    else facts.csv_cell(val)
                     for val in row
                 ]
                 yield formatted
