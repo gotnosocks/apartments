@@ -16,10 +16,27 @@ sprint ends about 2026-11-12 18:55Z. The findings are in
 - **Merged:** the ledger corrections (#1307), `b0income` (#1309), the closing-ask results
   (#1310) and the sprint note (#1311).
 - **c2, running.** The user unit `outlier-c2` runs `c2/run.sh`, which launches three 2-chain
-  containers of the closing dataset (seeds 11, 12 and 13) one at a time as the Modal balance
-  allows, about 10 hours apart. Its log is `c2/run.log`. After the third finishes, pool them
-  as `drift-building-b0-latest-5f766394-c2` with `rentfrontier.drift_pool`, score with
-  `drift_score`, and compare with all six of b9's chains using `compare_c1.py`. Score the
+  containers of the closing dataset, labels `c2a`, `c2b` and `c2c` with seeds 11, 12 and 13.
+  It launches one at a time as the Modal balance allows, about 10 hours apart, and checks out
+  origin/master in `/data1/apartments/serve/master` before each launch. Its log is
+  `c2/run.log`; check it with `systemctl --user status outlier-c2`. Each finished part
+  leaves `/data1/apartments/frontier/runs/drift-building-b0-latest-5f766394-<label>/result.json`,
+  and the script skips a part that has one, so restarting the unit is safe. After `c2c`
+  finishes, from `/data1/apartments/serve/master/frontier` with `PYTHONPATH=src` and the
+  bridge-frontier venv:
+
+  ```sh
+  python -m rentfrontier.drift_pool drift-building-b0-latest-5f766394-c2 \
+      drift-building-b0-latest-5f766394-c2a drift-building-b0-latest-5f766394-c2b \
+      drift-building-b0-latest-5f766394-c2c
+  python -m rentfrontier.drift_score drift-building-b0-latest-5f766394-c2
+  python /data1/apartments/tmp/outlier-sprint/compare_c1.py \
+      drift-building-b0-latest-67d14e17-b9 drift-building-b0-latest-5f766394-c2
+  ```
+
+  `compare_c1.py` is a scratch script outside the repo. It reads `pred_scores.npz` from both
+  runs and compares them on the held-out ads whose target is unchanged, with an elpd SE
+  clustered by building. Score the
   predictions in `docs/notes/closing-asks-2026-11-11.md`. If it passes the gate and wins,
   serve it under the selection rules, then change the pipeline to `PIPELINE_STALE_DAYS=-1`.
 - **Income fit, next.** It runs on the dataset c2's comparison picks; if closing wins, build
