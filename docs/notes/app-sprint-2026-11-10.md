@@ -93,7 +93,12 @@ Detector codes in `flags`:
 - `ppsf`: the ask per square foot is outside a plausible range;
 - `extreme`: |`miss`| > 4 (0.6% of the ads on 2026-11-10);
 - `building_side`: the building has at least 5 held-out ads, and at least 80% of them sit on
-  the same side of the model's 80% range.
+  the same side of the model's 80% range. Only the ads on that side carry the flag.
+
+The previous ad is the one before this ad in the apartment's order by day and then by the
+time of the price, so 162 ads have a previous ad of the same day. Building and lot attributes
+come from the newest snapshot of each table. For an old ad such a value can postdate the ad
+and differ from the value the fit read.
 
 ### `buildings.parquet`
 
