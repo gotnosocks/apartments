@@ -89,8 +89,9 @@ Cases from each cause, picked by the size of the gap:
   ad for the unit, a stated size or a floor plan. I dropped 13 proposals: ask sets with no
   other ad at the new level, excludes resting on ad text alone, and bedroom sets the unit's
   other ads contradict. None of the ask sets turns a net ask gross.
-- **Closing asks.** Many readers' price typos and placeholders were prices typed on the day an
-  ad went off market. `rentfrontier.b0closing` reprices 104,330 rows at the last ask before
+- **Closing asks.** Some of the readers' price typos and placeholders were prices typed on the
+  day an ad went off market, and 9,748 of the diagnostics ads (5.0%) take a change dated on or
+  after that day. `rentfrontier.b0closing` reprices 104,330 rows at the last ask before
   that day. The 4-chain fit c1 gained 589.5 elpd (SE 107.7) on the unchanged held-out ads
   and missed the gate on the walk's hyperparameters, so the 6-chain refit c2 is queued
   (`docs/notes/closing-asks-2026-11-11.md`).
@@ -104,5 +105,5 @@ Cases from each cause, picked by the size of the gap:
 - Wider noise for large units and the top of the price range.
 - Unit records shared by two apartments ("different unit", 16 ads). A unit record holding
   asks for a 2BR and a 4BR duplex needs splitting at the source, not a fit term.
-- Commercial spaces and rooms get through the pipeline's filters. The 13 the readers found
-  are now excluded by hand, and a text rule could catch the rest.
+- Commercial spaces and rooms get through the pipeline's filters. The ledger now excludes 12 of
+  the 13 the readers found, and a text rule could catch the rest.
