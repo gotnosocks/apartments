@@ -63,8 +63,12 @@ def design(
 
 def manhattan_doorman(d: Design) -> Design:
     """`d` with a Manhattan copy of each of its doorman columns."""
-    manhattan = site_zone(d)[d.site] == ZONES.index("manhattan")
+    # Zones are numbered by their place in `d.surfaces`, so the zone is found by its name.
+    zone = [s["name"] for s in d.surfaces].index("manhattan")
+    manhattan = site_zone(d)[d.site] == zone
     have = [n for n in DOORMAN if n in d.names]
+    if not have:
+        return d
     x = np.column_stack([d.x[:, d.names.index(n)] * manhattan for n in have])
     return building_zones_kitchen_sink.append(d, [f"{n}_manhattan" for n in have], x)
 
