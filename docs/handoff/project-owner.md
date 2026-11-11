@@ -6,6 +6,42 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
+## App sprint, state at 2026-11-11 03:40Z
+
+The site was rebuilt around Deals, the Workbench and Tags in PRs #1297 to #1302, all merged
+and deployed from master `feac6837`. The plan and the `diagnostics/` folder are described in
+[the sprint note](../notes/app-sprint-2026-11-10.md).
+
+- **Pages.** `/` and `/deals` (market ads by cautious saving), `/listings/<id>`, `/estimates`
+  and `/listings` (held-out ads), `/workbench` (overview, signals, triage, buildings, a
+  building's history), `/tags`, `/about`, `/new-jersey`. The pages of the October 19 fit are
+  deleted along with their modules and tests.
+- **Data the pages read.** `/data1/apartments/site/{deals,estimates,diagnostics}` as published
+  on 2026-11-10 from the round-nine fits, and `/data1/apartments/site/tags/` for the ledger,
+  which the site creates on the first tag. A new fit needs `drift_deals publish`,
+  `drift_estimates publish` and `drift_diagnostics publish` (see `docs/model/diagnostics.md`),
+  then `ops/site-deploy.sh`.
+- **Playtest.** Three personas read the site after #1301; their reports are in
+  `/data1/apartments/tmp/sprint/playtest/{renter,phone,modeler}/report.md`, and #1302 carries
+  the fixes. No persona has read the site since #1302.
+- **Open items.**
+    1. Deals ranks by the gap to the model, and 4,246 of 6,774 market ads ask at least 90% of
+       the median of their building's other asks of the same size. The `peers` caution hides
+       only the 216 of them asking below the model's 80% range. A ranking built on the
+       building's own asks as well as the model is the next product question.
+    2. On new units the 80% range covers 72.9% (building basis) and 66.9% (area basis) of
+       held-out asks. This is a modeling finding from the Workbench overview.
+    3. The centered signal score uses the bin's own standard error, though the reference mean
+       includes the bin. Peers of an ad include ads dated after it, up to the scoring day.
+    4. About 85 market ads have a `prev_day` in `ads.parquet` that disagrees with
+       `history.parquet`. The Workbench coverage counts include rows with a NULL interval.
+    5. The tags ledger has a single-process append test only. Spelling in the Workbench
+       templates and `observed.html` is still "Neighbourhood".
+- **Builders.** Gemini Argon and Carbon ran through `pi` with OpenRouter; the account ran out
+  of credits at 02:03Z on 2026-11-11 and needs a top-up from Ben before more delegation.
+- **Preview.** The user unit `sprint-preview3` serves the thread's checkout on port 8613 with
+  a sandboxed site root, `/data1/apartments/tmp/sprint/siteroot`.
+
 ## State at 2026-11-10 15:02Z
 
 - **Housekeeping since.** A 24-hour tidy-up followed from 15:22Z ([housekeeping.md](housekeeping.md)).
