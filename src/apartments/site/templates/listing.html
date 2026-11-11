@@ -17,7 +17,7 @@
 </div>
 <nav class="crumbs" aria-label="Breadcrumb">
   <a href="{{ url_for('estimates') }}">Estimates</a> ›
-  {% if row.source == "market" %}<a href="{{ url_for('deals_page') }}">Deals</a> › {% endif %}<a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›
+  {% if row.source == "market" %}<a href="{{ url_for('index') }}">Deals</a> › {% endif %}<a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›
   <span aria-current="page">{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}</span>
 </nav>
 <h1>{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}</h1>
@@ -26,9 +26,10 @@
   · {% if row.source == "market" %}on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}{% else %}ad of {{ day(row.day) if row.day else "an unknown date" }}{% endif %}
 </p>
 {% set sv = street_view(row.building, row.latitude if row.latitude is finite else none, row.longitude if row.longitude is finite else none, row.address) %}
-{% if row.url or sv %}<p class="links se-links" id="streeteasy">
+{% if row.url or sv or has_workbench_building %}<p class="links se-links" id="streeteasy">
   {% if row.url %}<a class="source" href="{{ row.url }}" rel="noopener noreferrer" target="_blank">The ad on StreetEasy ↗</a>{% endif %}
   {% if sv %}<a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗</a>{% endif %}
+  {% if has_workbench_building %}<a href="{{ url_for('workbench_building', building=row.building) }}">Building in Workbench</a>{% endif %}
 </p>{% endif %}
 
 <section class="card listing-head" id="range" aria-label="Ask and model range">
@@ -159,7 +160,7 @@
     <dl class="facts">
       <dt>Listing id</dt><dd><code>{{ row.listing_id }}</code></dd>
       {% if row.audit_id %}<dt>Audit id</dt><dd><code>{{ row.audit_id }}</code></dd>{% endif %}
-      <dt>Building</dt><dd><code>{{ row.building }}</code></dd>
+      <dt>Building</dt><dd>{% if has_workbench_building %}<a href="{{ url_for('workbench_building', building=row.building) }}"><code>{{ row.building }}</code></a>{% else %}<code>{{ row.building }}</code>{% endif %}</dd>
       {% if row.unit_id %}<dt>Unit id</dt><dd><code>{{ row.unit_id }}</code></dd>{% endif %}
       {% if row.status %}<dt>Status</dt><dd>{{ row.status }}</dd>{% endif %}
       {% if info.model %}<dt>Model</dt><dd><code>{{ info.model }}</code></dd>{% endif %}

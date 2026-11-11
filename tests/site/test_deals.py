@@ -560,7 +560,8 @@ def test_bad_query_strings_replaced_files_and_backtest_gate(client, site_root):
     assert len(data["rows"]) == 1 and data["meta"] == {}
     assert data["validation"]["by_first_ask_place"] == []
     bare_html = client.get("/deals").get_data(as_text=True)
-    assert 'id="backtest"' not in bare_html and "drift-building" not in bare_html
+    bare_main = bare_html.split("</main>", 1)[0]
+    assert 'id="backtest"' not in bare_main and "drift-building" not in bare_main
 
 
 def test_tagged_rows_hide_errors_and_unmodeled_but_keep_deals(client, site_root):
@@ -623,6 +624,33 @@ def test_deals_paging_carries_filters_at_fifty_per_page(client, site_root):
     ids_p3 = listed_ids(p3)
     assert len(ids_p3) == 15 and ids_p3[0] == "1100" and ids_p3[-1] == "1114"
     assert 'href="/deals?hood=Chelsea&amp;page=2"' in p3
+
+
+def test_sort_links_start_again_at_the_first_page(client, site_root):
+    many = [
+        ROWS[0]
+        | {
+            "listing_id": str(1000 + i),
+            "url": f"https://streeteasy.com/rental/{1000 + i}",
+            "ask": 2500.0 + i,
+            "model_lo80": 3500.0,
+            "model_median": 3800.0,
+        }
+        for i in range(120)
+    ]
+    publish(site_root, rows=many)
+    page = client.get("/deals?hood=Chelsea&page=2").get_data(as_text=True)
+    order = page.split('class="results-links">Order:', 1)[1].split("</p>", 1)[0]
+    links = re.findall(r'href="([^"]+)"', order)
+    assert len(links) == 3
+    assert all("page=" not in link and "hood=Chelsea" in link for link in links)
+    assert 'href="/deals?hood=Chelsea&amp;sort=new"' in order
+    # The paging links of the same page keep the chosen order.
+    newest = client.get("/deals?sort=new&page=2").get_data(as_text=True)
+    assert 'href="/deals?sort=new&amp;page=3"' in newest
+    # The form posts no page field, so a new order from it starts at page 1 too.
+    form = page.split("<form", 1)[1].split("</form>", 1)[0]
+    assert 'name="page"' not in form
 
 
 def test_enriched_rows_cache_hits_and_invalidates_on_stamp_change(

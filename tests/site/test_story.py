@@ -11,139 +11,6 @@ from apartments.site import story
 from apartments.site.web import create_app
 
 
-def _page(client) -> str:
-    response = client.get("/research/story")
-    assert response.status_code == 200
-    return response.get_data(as_text=True)
-
-
-def test_story_page_has_its_figures_and_their_tables(client):
-    html = _page(client)
-    for figure in (
-        "compose-figure",
-        "effects-figure",
-        "build-figure",
-        "trials-figure",
-        "history-figure",
-        "cleaning-figure",
-    ):
-        assert f'id="{figure}"' in html
-    # Every figure is an image with a text alternative and a table beside it.
-    assert html.count('role="img"') == 6
-    assert all(label.strip() for label in re.findall(r'aria-label="([^"]*)"', html))
-    assert html.count('class="table-view"') == 6
-    # No inline style: the site's CSP allows none.
-    assert "style=" not in html
-
-
-def test_story_reads_its_scans_from_the_build(
-    client, site_root, research_file, monkeypatch
-):
-    calls = []
-    pick = story.pick_listing
-    monkeypatch.setattr(story, "pick_listing", lambda db: calls.append(1) or pick(db))
-    built = _page(client)
-    assert calls == []
-    # A build from before story_scans: the server scans once per build.
-    with sqlite3.connect(site_root / "current" / "site.sqlite") as db:
-        db.execute("DELETE FROM meta WHERE key = 'story_scans'")
-    older = create_app(site_root, research_data=research_file).test_client()
-    assert _page(older) == _page(older) == built
-    assert len(calls) == 1
-
-
-def test_story_is_in_the_research_nav(client):
-    html = _page(client)
-    assert 'href="/research/story" aria-current="page"' in html
-
-
-def test_layers_follow_the_served_design_with_shares(client):
-    html = _page(client)
-    # The test entry has a variance breakdown, so the shares are shown.
-    assert "share of the spread in asks" in html
-    assert "between listings, not of the rent" in html
-    assert 'id="shares-pending"' not in html
-    assert (
-        html.index("The market")
-        < html.index("The building")
-        < html.index("What&#39;s left")
-    )
-
-
-def test_shares_wait_for_the_served_fits_breakdown(site_root, research_file):
-    data = json.loads(research_file.read_text())
-    for e in data["entries"]:
-        e.pop("variance", None)
-    research_file.write_text(json.dumps(data))
-    client = create_app(site_root, research_data=research_file).test_client()
-    html = _page(client)
-    assert 'id="shares-pending"' in html
-    assert "share of the spread in asks" not in html
-
-
-def test_build_up_ends_at_the_estimate(client):
-    html = _page(client)
-    m = re.search(r'class="story-svg buildup"[^>]*aria-label="([^"]*)"', html)
-    assert m and "estimate $" in m.group(1) and "the ask $" in m.group(1)
-    # a part whose interval spans zero is called out by name
-    text = re.sub(r"\s+", " ", html)
-    assert "the 95% interval for “Unit” (+$45) runs from below zero" in text
-    assert "whether it adds to the ask or takes from it" in text
-    # the example's miss is set against the typical held-out miss
-    assert re.search(r"The ask is [\d.]+% (above|below) the estimate\. That is", text)
-    assert "half of the asks the model never saw land within" in text
-    # the accuracy chapter ends with plain advice for one estimate
-    assert "What this means for one estimate." in text
-    if "the\nrange runs too narrow" in text or "range runs too narrow" in text:
-        assert "Apartments listed only once vary more" in text
-    # the effects caption explains the source tags on its labels
-    assert "“(ad)” marks a fact read from the ad’s own text" in text
-    assert "lean on the likely ask range shown with each listing" in text
-    # an example above the page's typical ask says why
-    if "the median ask among the listings available now" in text:
-        assert "asks for listings available now run higher" in text
-    # the served model is defined where it is first named; the example's band links to the ranges box
-    assert "The served model (the one behind every estimate on the site)" in text
-    assert 'its 95% range for the ask (<a href="#ranges">' in text
-    # the example's biggest part is explained in its layer's words
-    assert re.search(
-        r"The biggest part after the market is “[^”]+” \([+−-]\$[\d,]+\)\. It belongs to “[^”]+” in <a href=\"#shape\">",
-        text,
-    )
-    # a wide miss is set against the example's own 95% range
-    wide = "more than twice the typical miss" in text
-    assert wide == ("about 1 ask in 20" in text)
-    # a contents list links every chapter on the page, in order
-    nav = text[text.index('aria-label="Contents"') :]
-    toc = re.findall(r'<li><a href="#([a-z-]+)">', nav[: nav.index("</nav>")])
-    sections = re.findall(r'<section id="([a-z-]+)">', text)
-    assert toc and toc == [s for s in sections if s in toc] and toc[0] == "shape"
-    assert all(f'<section id="{s}">' in text for s in toc)
-    # the opening answers "can I trust it?" before the chapters
-    shape = text[text.index('<section id="shape">') :]
-    assert shape.index("the <em>spread</em> in asks") < shape.index("compose-figure")
-    # the layers chapter keeps its maths in a fold-out, after the figure
-    assert "(In the maths" not in shape and "(The shares split" not in shape
-    assert shape.index("compose-figure") < shape.index("the variance of the log asks")
-    assert "the range the model is 90% sure holds the true share" in text
-    # the two kinds of range are told apart once, before the chapters
-    assert text.index('id="ranges"') < text.index('<section id="shape">')
-    assert "How sure is the model of a number?" in text
-    assert "Where might an ask land?" in text and 'href="#ranges"' in text
-    # each interval level is tied to where it is used, and the width explained
-    ranges = text[text.index('id="ranges"') : text.index('<section id="shape">')]
-    assert "90% for the shares of the spread" in ranges
-    assert "95% for the" in ranges and 'href="#build-up"' in ranges
-    assert "The percentage only sets the width" in ranges
-    opening = text[: text.index('<section id="shape">')]
-    assert "An ask is the monthly rent a listing advertises" in opening
-    assert re.search(
-        r"The model’s likely ranges, meant to hold 80% of asks, hold \d+%", opening
-    )
-    # the opening points to the plain advice, which carries the anchor
-    assert 'href="#one-estimate"' in opening and 'id="one-estimate"' in text
-
-
 def test_build_up_steps_sum_to_the_estimate():
     contributions = [
         {"term": "market", "usd": 3000.0, "lower": 2900, "upper": 3100},
@@ -254,40 +121,6 @@ def test_theories_keep_every_test_and_the_latest_verdict():
     assert sorted(t["seq"] for t in entries) == [0, 1, 2, 3]
     assert by["+bednoise"]["note"] == "a residual scale by bedroom group"
     assert by["nb-prevprice-v1"]["clear_gain"] and not parks["clear_gain"]
-
-
-def test_theories_chapter_reads_the_ledger(site_root, research_file, tmp_path):
-    ledger = tmp_path / "feature-tests.md"
-    ledger.write_text(LEDGER)
-    app = create_app(site_root, research_data=research_file, feature_tests=ledger)
-    html = _page(app.test_client())
-    assert 'id="theories"' in html
-    assert "So far 4 ideas have been tried, in 5 paired fits." in html
-    assert (
-        "2 helped, 1\nmade no clear difference and 1 made it worse or were set aside."
-        in html
-    )
-    assert re.search(r"The biggest wins: [^.,]+ and [^.,]+\.", html)
-    assert "(model term: " in html
-    # the scoring is told in plain words; the technical names wait in a fold-out
-    assert "margin for luck" in html
-    assert html.index("<summary>The technical names</summary>") < html.index(
-        "#psis-loo"
-    )
-    assert "the one idea about where a building sits," in html
-    assert html.count('class="trial ') == 4
-    assert "Some ideas scored brilliantly" in html
-    # Open questions: the location idea due for a retest,
-    # and the idea set aside.
-    assert (
-        "The one idea about where a building sits\n"
-        "made no clear difference on the older, smaller data:</p>" in html
-    )
-    assert "<li>parks within reach</li>" in html
-    assert "due to be tested again on the wider data" in html
-    assert "1 of these nulls ran before the latest neighbourhoods joined" in html
-    assert "1 idea raised the score and was\nstill set aside" in html
-    assert "still set aside:</p>\n<ul>" in html and "<li>" in html
 
 
 MILESTONES = [
@@ -427,18 +260,6 @@ def test_design_history_says_what_changed():
     ]
 
 
-def test_design_chapter_reads_the_milestones(site_root, research_file):
-    data = json.loads(research_file.read_text())
-    data["milestones"] = MILESTONES
-    research_file.write_text(json.dumps(data))
-    html = _page(create_app(site_root, research_data=research_file).test_client())
-    assert 'id="history-figure"' in html
-    assert "Since Sep 18,\n5 models have been served in turn" in html
-    assert html.count('class="switch era-') == 5
-    assert "8 hours later they were withdrawn" in html
-    assert "style=" not in html
-
-
 def test_design_history_skips_malformed_milestones():
     odd = [
         {"kind": "selection", "at": "not a date", "title": "x"},
@@ -535,29 +356,6 @@ def test_cleaning_sums_each_family():
         doc = json.loads(json.dumps(CLEANING))
         doc["steps"][2].update(broken)
         assert story.cleaning(doc) is None, broken
-
-
-def test_cleaning_chapter_reads_the_steps(site_root, research_file, tmp_path):
-    path = tmp_path / "cleaning.json"
-    path.write_text(json.dumps(CLEANING))
-    app = create_app(site_root, research_data=research_file, cleaning_steps=path)
-    html = _page(app.test_client())
-    assert 'id="cleaning"' in html
-    assert "the 1,000 rows pass through\n5 data rules" in html
-    assert "so 15 unit names were joined" in html
-    assert "8.0% of the time; after the rules,\n0.7%." in html
-    assert "an earlier served fit" in html  # the test site serves another run
-    assert "Even after the cleaning, 7.0% of a unit" in html
-    # the ad-text concession term, read from the served coefficients
-    text = re.sub(r"\s+", " ", html)
-    assert (
-        "concession asks 1.1% less, all else equal (95% interval 0.9% to 1.4% less)"
-        in text
-    )
-    assert "splits the two eras is designed but has not been fitted" in text
-    path.write_text("not json")
-    html = _page(app.test_client())
-    assert 'id="cleaning"' not in html
 
 
 def test_accuracy_reads_the_held_out_asks():
@@ -750,32 +548,6 @@ def test_group_items_need_the_served_run():
     assert "Share of listings whose ad states it: Stainless steel 40.0%" in svg
 
 
-def test_group_items_chapter(site_root, research_file, tmp_path):
-    ledger = tmp_path / "feature-tests.md"
-    ledger.write_text(
-        LEDGER.replace(
-            "| 2026-10-03 | `nb-prevprice-v1`",
-            "| 2026-10-06 | `nb3-attrs-v1` | ad states one of 15 attributes | listing"
-            " | -7.6 ± 21.9 | no clear gain | | d (1) | #390 | `i` | `j` |\n"
-            "| 2026-10-03 | `nb-prevprice-v1`",
-        )
-    )
-    path = tmp_path / "group-items.json"
-    path.write_text(json.dumps(GROUP_ITEMS))
-    app = create_app(
-        site_root, research_data=research_file, feature_tests=ledger, group_items=path
-    )
-    html = _page(app.test_client())
-    assert 'id="inside-groups"' in html
-    assert "“Ad states one of 15 attributes” (-7.6 ± 21.9" in html
-    assert "the walk to nearby places." in html
-    assert "<strong>raw</strong> difference" in html
-    assert "<td>Walk-in closet</td>" in html and "+31.9%" in html
-    assert "910 m" in html
-    path.write_text(json.dumps({**GROUP_ITEMS, "run": "m-other-run"}))
-    assert 'id="inside-groups"' not in _page(app.test_client())
-
-
 def test_group_items_step_aside_once_served():
     trials = story.theories(story.parse_ledger(LEDGER))
     served = {"text:corner_unit", "log m to NYCHA housing"}
@@ -793,22 +565,6 @@ def test_label_lines_wrap_at_spaces():
     lines = story.label_lines("word " * 30)
     assert len(lines) == 2 and lines[1].endswith("…") and len(lines[1]) <= 46
     assert len(story.label_lines("word " * 30, lines=4)) == 4
-
-
-def test_theories_chart_labels_are_whole(client):
-    html = _page(client)
-    chart = html[html.index('class="story-svg trials"') :]
-    assert "…</tspan>" not in chart[: chart.index("</svg>")]
-    # wrapped lines keep a space between them, so copied text reads "two more features"
-    assert re.search(r"</tspan><tspan [^>]*> \w", chart[: chart.index("</svg>")])
-
-
-def test_theories_chapter_says_it_can_be_skipped(client):
-    html = _page(client)
-    theories = html[html.index('<section id="theories">') :]
-    hint = theories[: theories.index("A model like this")]
-    assert "the most technical" in hint and 'href="#cleaning"' in hint
-    assert "square-root" not in theories and "not equal" in theories
 
 
 def test_borders_line_buildings_up_by_distance_to_the_other_name():

@@ -15,19 +15,6 @@ def detail_root(tmp_path, bundle, monkeypatch):
     return root
 
 
-@pytest.fixture
-def detail_client(detail_root, research_file):
-    from apartments.site.web import create_app
-
-    app = create_app(
-        detail_root,
-        allowed_hosts=["thelio.example.ts.net"],
-        research_data=research_file,
-    )
-    app.config["TESTING"] = True
-    return app.test_client()
-
-
 def _parts(root):
     db = sqlite3.connect(root / "current" / "site.sqlite")
     try:
@@ -70,10 +57,3 @@ def test_parts_on_request_match_the_stored_parts(site_root, detail_root):
     for audit_id, contributions in stored.items():
         assert detail.lookup(build_dir, sha, audit_id) == json.loads(contributions)
     assert detail.lookup(build_dir, sha, "no-such-row") is None
-
-
-def test_story_renders_alike_from_detail(client, detail_client):
-    a = client.get("/research/story").get_data(as_text=True)
-    b = detail_client.get("/research/story").get_data(as_text=True)
-    assert "The build-up as a table" in b
-    assert a == b

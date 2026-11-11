@@ -7,7 +7,7 @@
 <h1>Deals</h1>
 <p class="lede">Apartments on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}, ordered by the saving against the low end of the model's range. The model can't tell condition, layout or light from an ad, so read the ad before trusting a gap.</p>
 
-<form class="filters deals-filters" action="{{ url_for('deals_page') }}" method="get" aria-label="Filter and sort the deals">
+<form class="filters deals-filters" action="{{ base_url }}" method="get" aria-label="Filter and sort the deals">
   {% if hood_groups %}
   <div class="field hood-field">
     <span class="field-label">Neighborhoods</span>
@@ -75,13 +75,14 @@
 
   <div class="field actions">
     <button type="submit">Apply</button>
-    {% if choice.active() or choice.sort != "cautious" %}<a href="{{ url_for('deals_page') }}">Reset</a>{% endif %}
+    {% if choice.active() or choice.sort != "cautious" %}<a href="{{ base_url }}">Reset</a>{% endif %}
   </div>
 </form>
 
 <div class="results-head">
   <p><strong>{{ "{:,}".format(total) }}</strong> of {{ "{:,}".format(current) }} ad{{ "" if current == 1 else "s" }} on the market{% if pages > 1 %}, showing {{ "{:,}".format((choice.page - 1) * page_size + 1) }} to {{ "{:,}".format((choice.page - 1) * page_size + (rows | length)) }}{% endif %}.{% if hidden.area or hidden.suspect or hidden.cautioned or hidden.tagged %}
   {% set sep = namespace(first=true) %}Hidden:{% if hidden.area %} <a href="{{ deals_url(area='1', page=none) }}">{{ "{:,}".format(hidden.area) }} area-only</a>{% set sep.first = false %}{% endif %}{% if hidden.suspect %}{{ "" if sep.first else "," }} <a href="{{ deals_url(suspect='1', page=none) }}">{{ "{:,}".format(hidden.suspect) }} suspect</a>{% set sep.first = false %}{% endif %}{% if hidden.cautioned %}{{ "" if sep.first else "," }} <a href="{{ deals_url(all='1', page=none) }}">{{ "{:,}".format(hidden.cautioned) }} with a caution</a>{% set sep.first = false %}{% endif %}{% if hidden.tagged %}{{ "" if sep.first else "," }} <a href="{{ deals_url(tagged='1', page=none) }}">{{ "{:,}".format(hidden.tagged) }} tagged</a>{% endif %}.{% endif %}</p>
+  <p class="results-links">Order: {% for key, short in (("cautious", "Saving"), ("score", "In range"), ("discount", "% under"), ("new", "Newest")) %}{% if not loop.first %} · {% endif %}{% if choice.sort == key %}<strong>{{ short }}</strong>{% else %}<a href="{{ deals_url(sort=key) }}">{{ short }}</a>{% endif %}{% endfor %}</p>
 </div>
 
 <div class="table-wrap">

@@ -25,8 +25,7 @@ def test_overview_names_the_model_runs_gates_and_accuracy(client):
     # exp(0.0953) - 1 is a 10.0% miss on a typical ad.
     assert "10.0%" in page
     assert "81.0%" in page and "94.7%" in page
-    assert 'href="/deals"' in page and 'href="/listings.csv"' in page
-    assert "/estimates/map" not in page and 'href="/estimate"' not in page
+    assert 'href="/">Deals</a>' in page and 'href="/listings.csv"' in page
     assert "Market reference rent" not in page
 
 
@@ -80,9 +79,7 @@ def test_a_filtered_list_sums_up_its_rows(client):
     assert "100% within its 95% range" in page
 
 
-def test_the_list_pages_by_fifty(
-    tmp_path, write_estimates, estimate_row, research_file
-):
+def test_the_list_pages_by_fifty(tmp_path, write_estimates, estimate_row):
     root = tmp_path / "site"
     rows = [
         estimate_row(
@@ -102,7 +99,7 @@ def test_the_list_pages_by_fifty(
         for i in range(120)
     ]
     write_estimates(root, rows)
-    client = create_app(root, research_data=research_file).test_client()
+    client = create_app(root).test_client()
     first = client.get("/listings?sort=ask").get_data(as_text=True)
     assert _rows(first) == [str(2000 + i) for i in range(50)]
     assert "Page 1 of 3" in first and 'href="/listings?sort=ask&amp;page=2"' in first
@@ -149,13 +146,15 @@ def test_the_detail_page_of_an_ad_on_the_market(client):
     assert "within the usual range" in page
 
 
-def test_an_earlier_ad_says_why_it_has_no_estimate(client):
-    # Building and unit pages still link an apartment's earlier ads.
-    response = client.get("/listings/a1")
-    assert response.status_code == 200
+@pytest.mark.parametrize("key", ["a1", "q1"])
+def test_an_ad_without_a_held_out_estimate_is_a_plain_404(client, key):
+    # The sqlite build of the fixture holds both ads: `a1` is an apartment's earlier
+    # ad and `q1` is a quarantined one. The estimates table holds neither.
+    response = client.get(f"/listings/{key}")
+    assert response.status_code == 404
     page = response.get_data(as_text=True)
-    assert "No held-out estimate for this ad" in page
-    assert 'href="/buildings/' in page and 'href="/listings"' in page
+    assert "only for the ads it held out" in page
+    assert "/buildings/" not in page and "retail" not in page.lower()
 
 
 def test_an_unknown_ad_is_a_plain_404(client):
@@ -166,52 +165,19 @@ def test_an_unknown_ad_is_a_plain_404(client):
     assert "the newest ad of each apartment, and the ads on the market" in page
 
 
-def test_a_quarantined_ad_keeps_its_page(client):
-    response = client.get("/listings/q1")
-    assert response.status_code == 200
-    assert "retail" in response.get_data(as_text=True).lower()
-
-
-@pytest.mark.parametrize(
-    "path", ["/estimate", "/estimate?building=x", "/estimates/map"]
-)
-def test_the_form_and_the_map_are_retired(client, path):
-    response = client.get(path)
-    assert response.status_code == 410
-    page = response.get_data(as_text=True)
-    assert "retired on 2026-11-10" in page
-    assert 'href="/listings"' in page and 'href="/deals"' in page
-
-
-def test_the_map_data_is_retired(client):
-    response = client.get("/estimates/map.json")
-    assert response.status_code == 410
-    body = response.get_json()
-    assert "retired" in body["message"] and body["see"] == ["/listings", "/deals"]
-
-
-def test_no_retired_link_is_left(client):
-    for path in ("/", "/estimates", "/listings", "/listings/1001", "/buildings"):
-        page = client.get(path).get_data(as_text=True)
-        assert 'href="/estimate"' not in page and 'href="/estimate?' not in page
-        assert "/estimates/map" not in page
-
-
 @pytest.mark.parametrize("path", ["/estimates", "/listings", "/listings/1001"])
-def test_no_folder_is_a_503(tmp_path, research_file, path):
-    client = create_app(tmp_path / "site", research_data=research_file).test_client()
+def test_no_folder_is_a_503(tmp_path, path):
+    client = create_app(tmp_path / "site").test_client()
     response = client.get(path)
     assert response.status_code == 503
     assert "No estimates have been published yet." in response.get_data(as_text=True)
     assert client.get("/listings.csv").status_code == 503
 
 
-def test_a_table_that_is_not_its_metas_is_refused(
-    tmp_path, write_estimates, research_file
-):
+def test_a_table_that_is_not_its_metas_is_refused(tmp_path, write_estimates):
     root = tmp_path / "site"
     folder = write_estimates(root, estimates_sha256="0" * 64)
-    client = create_app(root, research_data=research_file).test_client()
+    client = create_app(root).test_client()
     for path in ("/estimates", "/listings", "/listings.csv", "/listings/1001"):
         response = client.get(path)
         assert response.status_code == 503
@@ -269,7 +235,7 @@ def test_held_out_accuracy_in_the_pages_terms():
     assert estimates.held_out({}) is None
 
 
-def _client_with(tmp_path, write_estimates, estimate_row, research_file, hoods):
+def _client_with(tmp_path, write_estimates, estimate_row, hoods):
     root = tmp_path / "site"
     rows = [
         estimate_row(
@@ -289,26 +255,23 @@ def _client_with(tmp_path, write_estimates, estimate_row, research_file, hoods):
         for i, hood in enumerate(hoods)
     ]
     write_estimates(root, rows)
-    return create_app(root, research_data=research_file).test_client()
+    return create_app(root).test_client()
 
 
 def test_one_neighbourhood_shows_no_neighbourhood_choice(
-    tmp_path, write_estimates, estimate_row, research_file
+    tmp_path, write_estimates, estimate_row
 ):
-    client = _client_with(
-        tmp_path, write_estimates, estimate_row, research_file, ["chelsea"] * 2
-    )
+    client = _client_with(tmp_path, write_estimates, estimate_row, ["chelsea"] * 2)
     assert 'name="nb"' not in client.get("/listings").get_data(as_text=True)
 
 
 def test_two_boroughs_offer_each_borough_as_a_choice(
-    tmp_path, write_estimates, estimate_row, research_file
+    tmp_path, write_estimates, estimate_row
 ):
     client = _client_with(
         tmp_path,
         write_estimates,
         estimate_row,
-        research_file,
         ["chelsea", "west-village", "williamsburg", "Williamsburg"],
     )
     html = client.get("/listings").get_data(as_text=True)

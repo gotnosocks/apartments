@@ -432,11 +432,17 @@ def append(
     path = ledger_path(root)
     with _write_lock:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o644)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
             try:
-                view = memoryview(encoded)
+                size = os.fstat(fd).st_size
+                payload = (
+                    b"\n" + encoded
+                    if size > 0 and os.pread(fd, 1, size - 1) != b"\n"
+                    else encoded
+                )
+                view = memoryview(payload)
                 while view:
                     written = os.write(fd, view)
                     view = view[written:]
@@ -510,7 +516,7 @@ def _wants_json() -> bool:
 def _error_response(code: int, message: str):
     if _wants_json():
         return jsonify({"error": message}), code
-    return render_template("error.html", code=code, message=message, meta=None), code
+    return render_template("error.html", code=code, message=message), code
 
 
 def _public_tag(entry: dict[str, Any]) -> dict[str, Any]:
@@ -621,8 +627,7 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
 
         return render_template(
             "tags.html",
-            meta=None,
-            section="estimates",
+            section="tags",
             rows=rows,
             total_current=len(all_current),
             total_lines=len(ledger.lines),

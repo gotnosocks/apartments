@@ -278,7 +278,7 @@ def test_absent_folder_returns_none_and_listing_page_renders(client, site_root):
 
 @pytest.mark.parametrize("sha_style", ["dict", "stem", "flat"])
 def test_load_accepts_sha_formats_and_refuses_mismatch(
-    tmp_path, write_estimates, research_file, sha_style
+    tmp_path, write_estimates, sha_style
 ):
     root = tmp_path / "site"
     write_estimates(root)
@@ -291,7 +291,7 @@ def test_load_accepts_sha_formats_and_refuses_mismatch(
     write_diagnostics(root, sha_override={"history.parquet": "0" * 64})
     with pytest.raises(facts.Refused):
         facts.load(root)
-    client = create_app(root, research_data=research_file).test_client()
+    client = create_app(root).test_client()
     response = client.get("/listings/1004")
     assert response.status_code == 503
     assert "do not match" in response.get_data(as_text=True)
