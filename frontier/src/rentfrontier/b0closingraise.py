@@ -5,16 +5,11 @@
 `b0closing` moves every row priced at a change from its listing's off-market day back to the
 last ask before that day, 104,330 rows in the served dataset. I timed the price and status
 events in those listings' records (`docs/notes/closing-asks-2026-11-11.md`) and found
-support for the move in part of the rows:
-
-- In 57,633 rows the lister raised the ask within 5 minutes before the ad's off-market
-  status event, or after that event. A price typed then stood on the open ad for 5 minutes
-  at most. The median log raise is 0.087.
-- In 17,063 rows the lister raised the ask more than 5 minutes before the status event, with
-  a median log raise of 0.031.
-- In 29,634 rows the lister cut the ask.
-
-I move the first group and leave the other two at their off-day price.
+support for the move where the lister raised the ask within 5 minutes before the ad's
+off-market status event, or after that event. A price typed then stood on the open ad for 5
+minutes at most. I move those rows to the price standing on the ad before the raise, and
+leave the rest at their off-day price: the cuts, and the raises typed more than 5 minutes
+before the status event.
 
 I read the records file of SRC's own pipeline build (the manifest's `build.records`, checked
 against its SHA-256). On each rental listing's last capture I run
@@ -23,34 +18,40 @@ each run (`v9` and `v10`), as `b0closing` does. When the two differ I also time 
 events:
 
 - the off-market day is the day of the record's `offMarketAt`;
-- from the entries of `pricing.priceChanges` with a price and a day on or after the
-  off-market day, I take the earliest;
-- from the entries of `statusChanges` dated on the off-market day with a status other than
-  `ACTIVE`, `DRAFT` and `IN_BROKERAGE_REVIEW`, I take the earliest;
-- `wait` is the seconds from the price change to the status event, positive when the lister
-  typed the price first. A record lacking either event has no `wait`.
+- the status event is the earliest entry of `statusChanges` dated on the off-market day
+  with a status other than `ACTIVE`, `DRAFT` and `IN_BROKERAGE_REVIEW`;
+- the late changes are the entries of `pricing.priceChanges` dated on or after the
+  off-market day, among those `record_latest` keeps with `stale_days` 7. The last of them
+  gives `v9`;
+- `wait` is the seconds from the last late change to the status event, positive when the
+  lister typed the price first. A record lacking either event has no `wait`;
+- the standing price is the price of the last late change typed more than 300 seconds
+  before the status event. When no late change was typed that early, the standing price is
+  `v10`, the ad's last ask before its off-market day.
 
-I compare the two events as instants in UTC. I take each event's day from its timestamp as
-written, with its New York offset, as `record_latest` does.
+I compare events as instants in UTC. I take each event's day from its timestamp as written,
+with its New York offset, as `record_latest` does.
 
 A row changes when all of these hold:
 
 1. `b0closing.reprice` holds for it: its `latest_ask_how` is `latest`, its latest ask equals
    `v9`, and `v10` differs from `v9`;
-2. `v9` is above `v10`, so the off-day change raised the ask;
-3. `wait` is 300 seconds or less.
+2. `wait` is 300 seconds or less, so the lister typed `v9` as the ad closed or after it;
+3. `v9` is above the standing price.
 
-The row then takes `v10`, the ad's last ask before its off-market day. I write OUT with:
+The row then takes the standing price. I write OUT with:
 
 - `rows.parquet`: SRC's rows in SRC's order, with those rows' `latest_ask` replaced and their
   `latest_ask_how` set to `latest, before closing raise`. I date them as `b0closing` does: by
-  the day of the `v10` change when it falls on or after the row's day (`change`), and
-  otherwise by the row's day (`row, change before`).
+  the day of the standing price's change when it falls on or after the row's day (`change`),
+  and otherwise by the row's day (`row, change before`).
 - `set_aside.parquet`: SRC's, copied.
 - `manifest.json`: SRC's manifest with `rows_sha256` updated, and a `closing_raise` entry
   giving SRC's path and rows SHA-256, the rule, the rows `b0closing.reprice` would change,
-  the rows changed here with their median log change, and the rows left at their off-day
-  price, counted as cuts, raises with a longer wait and raises with no wait.
+  the rows changed here with their median log change and the count taking a standing price
+  typed on the off-market day, and the rows left at their off-day price: those whose ask
+  stood for more than 300 seconds, those typed as the ad closed at or below the standing
+  price, and those with no `wait`.
 
 SRC stays as it is, and OUT must not exist yet.
 """
@@ -73,7 +74,7 @@ from .b0data import sha256
 from .latest_ask import CLOSING_STALE_DAYS, STALE_DAYS, _day, record_latest
 
 HOW = "latest, before closing raise"
-# A raise typed up to this many seconds before the off-market status event, or at any time
+# A price typed up to this many seconds before the off-market status event, or at any time
 # after it, counts as typed while the ad closed.
 MAX_WAIT = 300
 # A status change to one of these leaves the ad on the market or not yet on it.
@@ -86,18 +87,30 @@ def _instant(value: str) -> dt.datetime:
     return t if t.tzinfo else t.replace(tzinfo=dt.UTC)
 
 
-def wait(raw: str) -> float:
-    """The seconds from the first price change dated on or after the off-market day of the
-    raw listing record `raw` to its first off-market status event dated on that day, or NaN
-    when the record lacks the day or either event."""
+def standing(raw: str, kept: list[tuple[str, float]]) -> tuple:
+    """For the raw listing record `raw` and the (day, price) changes `kept` by
+    `record_latest`: the seconds from the last kept price change dated on or after the
+    off-market day to the first off-market status event dated on that day, and the price
+    and day of the last such change typed more than `MAX_WAIT` seconds before that event
+    (NaN and None when no change was typed that early). All three are missing when the
+    record lacks the off-market day or either event."""
     d = json.loads(raw)
     off = _day(d.get("offMarketAt"))
+    missing = (np.nan, np.nan, None)
     if off is None:
-        return np.nan
-    priced = [
-        _instant(c["changedAt"])
-        for c in (d.get("pricing") or {}).get("priceChanges") or []
-        if c.get("price") and _day(c["changedAt"]) >= off
+        return missing
+    late = [
+        (_instant(c["changedAt"]), float(c["price"]), _day(c["changedAt"]))
+        for c in sorted(
+            (
+                c
+                for c in (d.get("pricing") or {}).get("priceChanges") or []
+                if c.get("price")
+            ),
+            key=lambda c: c["changedAt"],
+        )
+        if _day(c["changedAt"]) >= off
+        and (_day(c["changedAt"]), float(c["price"])) in kept
     ]
     closed = [
         _instant(c["changedAt"])
@@ -106,16 +119,19 @@ def wait(raw: str) -> float:
         and _day(c["changedAt"]) == off
         and c.get("status") not in OPEN
     ]
-    if not priced or not closed:
-        return np.nan
-    return (min(closed) - min(priced)).total_seconds()
+    if not late or not closed:
+        return missing
+    waits = [(min(closed) - at).total_seconds() for at, _, _ in late]
+    stood = [c for c, w in zip(late, waits) if w > MAX_WAIT]
+    return (waits[-1], *(stood[-1][1:] if stood else missing[1:]))
 
 
 def last_asks(path: Path, ids: set[str]) -> pd.DataFrame:
     """For each rental listing in `ids`, `v9`, `v10` and `d10` as `b0closing.last_asks` gives
-    them from the listing's last capture in the records file `path`, and the `wait` of that
-    capture when `v9` and `v10` differ (NaN otherwise). I read a row group at a time, and its
-    record texts only for the rows I keep, as `b0closing.last_asks` does."""
+    them from the listing's last capture in the records file `path`, and that capture's
+    `wait`, standing price and its day (`standing`) when `v9` and `v10` differ. I read a row
+    group at a time, and its record texts only for the rows I keep, as `b0closing.last_asks`
+    does."""
     seen: dict[str, tuple] = {}
     file = pq.ParquetFile(path)
     for group in range(file.num_row_groups):
@@ -137,21 +153,17 @@ def last_asks(path: Path, ids: set[str]) -> pd.DataFrame:
         for (i, t), raw in zip(rows, raws["raw_listing_json"].to_pylist()):
             if not raw or (i in seen and seen[i][0] >= t):
                 continue
-            v9, v10 = (
-                (record_latest(raw, days)["changes"] or [(None, np.nan)])[-1]
+            late, early = (
+                record_latest(raw, days)["changes"] or [(None, np.nan)]
                 for days in (STALE_DAYS, CLOSING_STALE_DAYS)
             )
-            seen[i] = (
-                t,
-                v9[1],
-                v10[1],
-                v10[0],
-                wait(raw) if v9[1] != v10[1] else np.nan,
-            )
+            v9, (d10, v10) = late[-1][1], early[-1]
+            timed = standing(raw, late) if v9 != v10 else (np.nan, np.nan, None)
+            seen[i] = (t, v9, v10, d10, *timed)
         del raws
     return pd.DataFrame(
         [(i, *v) for i, (_, *v) in seen.items()],
-        columns=["listing_id", "v9", "v10", "d10", "wait"],
+        columns=["listing_id", "v9", "v10", "d10", "wait", "stood", "stood_day"],
     ).set_index("listing_id")
 
 
@@ -165,20 +177,21 @@ def closing_raise(src: Path, out: Path) -> dict:
     frame = pd.read_parquet(src / "rows.parquet")
     lid = frame.listing_id.astype(str)
     would = reprice(frame, asks)
-    raised = would & (
-        lid.map(asks.v9).to_numpy(float) > lid.map(asks.v10).to_numpy(float)
-    )
     waited = lid.map(asks.wait).to_numpy(float)
-    change = raised & (waited <= MAX_WAIT)
-    new = lid[change].map(asks.v10).to_numpy(float)
+    stood = lid.map(asks.stood).to_numpy(float)
+    late = ~np.isnan(stood)
+    before = np.where(late, stood, lid.map(asks.v10).to_numpy(float))
+    closing = would & (waited <= MAX_WAIT)
+    change = closing & (frame.latest_ask.to_numpy(float) > before)
+    new = before[change]
     step = np.log(frame.latest_ask.to_numpy(float)[change] / new)
     frame.loc[change, "latest_ask"] = new
     frame.loc[change, "latest_ask_how"] = HOW
     day = pd.to_datetime(frame.price_at[change], utc=True).dt.strftime("%Y-%m-%d")
-    d10 = lid[change].map(asks.d10)
-    after = (d10 >= day).to_numpy()
+    changed = np.where(late, lid.map(asks.stood_day), lid.map(asks.d10))[change]
+    after = changed >= day.to_numpy()
     frame.loc[change, "latest_day"] = [
-        pd.Timestamp(d).date() for d in np.where(after, d10, day)
+        pd.Timestamp(d).date() for d in np.where(after, changed, day)
     ]
     frame.loc[change, "latest_day_how"] = np.where(
         after, "change", "row, change before"
@@ -191,20 +204,21 @@ def closing_raise(src: Path, out: Path) -> dict:
         "closing_raise": {
             "source": str(src),
             "source_rows_sha256": manifest["rows_sha256"],
-            "rule": "a row priced at a raise from its listing's off-market day, typed "
+            "rule": "a row priced at a change from its listing's off-market day, typed "
             f"within {MAX_WAIT} seconds before the off-market status event or after it, "
-            "takes the last change dated before that day",
+            "takes the price standing on the ad before that when the change raised it",
             "listings_read": len(asks),
             "closing_would_change": int(would.sum()),
             "changed": int(change.sum()),
+            "changed_to_off_day_price": int((change & late).sum()),
             "dated_by_row": int((~after).sum()),
             "median_log_change": round(float(np.median(step)), 4)
             if len(step)
             else None,
             "kept_off_day_price": {
-                "cut": int((would & ~raised).sum()),
-                "raise_wait_over_max": int((raised & (waited > MAX_WAIT)).sum()),
-                "raise_no_wait": int((raised & np.isnan(waited)).sum()),
+                "stood": int((would & (waited > MAX_WAIT)).sum()),
+                "closing_cut": int((closing & ~change).sum()),
+                "no_wait": int((would & np.isnan(waited)).sum()),
             },
         },
     }

@@ -95,11 +95,11 @@ Cases from each cause, picked by the size of the gap:
   that day. The 4-chain fit c1 gained 589.5 elpd (SE 107.7) on the unchanged held-out ads
   and missed the gate on the walk's hyperparameters. The miss comes from four chains on a ridge
   they cross slowly, not from the data (`docs/notes/closing-asks-2026-11-11.md`).
-  A second look at the records' event times narrowed the rewrite to the 57,633 rows whose
-  off-day change is a raise typed within 5 minutes before the ad's off-market status event,
-  or after it (`rentfrontier.b0closingraise`). Those raises carry the marks of a net rent
-  replaced by the lease's gross rent, and the unit's other ads sit nearer the ask before
-  them. Cuts and earlier raises keep the off-day price.
+  A second look at the records' event times narrowed the rewrite to the 59,026 rows whose
+  ask is a raise typed within 5 minutes before the ad's off-market status event, or after
+  it (`rentfrontier.b0closingraise`). No renter could answer such a price. Part of those
+  raises carry the marks of a net rent replaced by the lease's gross rent, and the unit's
+  other ads sit nearer the ask before them. Cuts and earlier raises keep the off-day price.
 - **Income flag.** The income-restricted flag missed 9 of the 13 lottery and HPD ads the
   readers found. `rentfrontier.b0income` widens it to 2,590 rows; a Sonnet check of 80 added
   rows found no market ads (`docs/notes/income-flag-2026-11-11.md`).

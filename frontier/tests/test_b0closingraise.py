@@ -66,6 +66,26 @@ RECORDS = {
         [("2024-01-01", 3000), ("2024-01-20", 2900), ("2024-02-01T15:00:00Z", 3400)],
         [LISTED, ("2024-02-02T09:00:00Z", "RENTED")],
     ),
+    # A cut typed in the morning of the off-market day, and a raise typed 10 s before RENTED.
+    "8": record(
+        [
+            ("2024-01-01", 3000),
+            ("2024-01-20", 2900),
+            ("2024-02-01T14:00:00Z", 2700),
+            ("2024-02-01T19:59:50Z", 3400),
+        ],
+        [LISTED, ("2024-02-01T20:00:00Z", "RENTED")],
+    ),
+    # A raise typed in the morning of the off-market day, and a cut typed 10 s before RENTED.
+    "9": record(
+        [
+            ("2024-01-01", 3000),
+            ("2024-01-20", 2900),
+            ("2024-02-01T14:00:00Z", 3600),
+            ("2024-02-01T19:59:50Z", 3400),
+        ],
+        [LISTED, ("2024-02-01T20:00:00Z", "RENTED")],
+    ),
 }
 
 
@@ -85,12 +105,13 @@ def src(tmp_path):
     )
     rows = pd.DataFrame(
         {
-            "listing_id": ["1", "2", "3", "4", "5", "6", "7"],
-            "latest_ask": [3400.0, 3400.0, 2600.0, 3400.0, 2750.0, 3400.0, 1500.0],
-            "latest_ask_how": ["latest"] * 7,
-            "price_at": pd.to_datetime(["2024-01-25"] * 7, utc=True),
-            "latest_day": [pd.Timestamp("2024-02-01").date()] * 7,
-            "latest_day_how": ["change"] * 7,
+            "listing_id": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            "latest_ask": [3400.0, 3400.0, 2600.0, 3400.0, 2750.0, 3400.0, 1500.0]
+            + [3400.0, 3400.0],
+            "latest_ask_how": ["latest"] * 9,
+            "price_at": pd.to_datetime(["2024-01-25"] * 9, utc=True),
+            "latest_day": [pd.Timestamp("2024-02-01").date()] * 9,
+            "latest_day_how": ["change"] * 9,
         }
     )
     d = tmp_path / "src"
@@ -105,24 +126,39 @@ def src(tmp_path):
     return d
 
 
-def test_wait_runs_from_the_first_late_price_to_the_first_off_market_status():
-    assert [b0closingraise.wait(RECORDS[i]) for i in "1234"] == [30, 7200, 0, -10800]
-    assert np.isnan(b0closingraise.wait(RECORDS["6"]))
-    # Two changes on the off-market day: the wait runs from the first. An ACTIVE event on
-    # that day is passed over, and a timestamp with no offset is read as UTC.
-    raw = record(
-        [
-            ("2024-01-01", 3000),
-            ("2024-02-01T09:00:00-05:00", 3100),
-            ("2024-02-01T15:59:50Z", 3400),
-        ],
-        [LISTED, ("2024-02-01T08:00:00Z", "ACTIVE"), ("2024-02-01T16:00:00", "RENTED")],
-    )
-    assert b0closingraise.wait(raw) == 7200
+def timed(raw):
+    kept = b0closingraise.record_latest(raw, b0closingraise.STALE_DAYS)["changes"]
+    return b0closingraise.standing(raw, kept)
+
+
+def test_standing_times_the_last_late_price_against_the_first_off_market_status():
+    assert [timed(RECORDS[i])[0] for i in "1234"] == [30, 7200, 0, -10800]
+    # A price typed more than 300 s before the status event stood on the open ad.
+    assert timed(RECORDS["2"])[1:] == (3400, "2024-02-01")
+    assert timed(RECORDS["8"]) == (10, 2700, "2024-02-01")
+    assert all(x is None or np.isnan(x) for x in timed(RECORDS["1"])[1:])
+    assert all(x is None or np.isnan(x) for x in timed(RECORDS["6"]))
+    # A price typed 300 s before the status event counts as typed while the ad closed, and
+    # one typed 301 s before it stood. An ACTIVE event on the off-market day is passed
+    # over, and a timestamp with no offset is read as UTC.
+    for seconds, stood in ((300, False), (301, True)):
+        at = pd.Timestamp("2024-02-01T16:00:00Z") - pd.Timedelta(seconds=seconds)
+        raw = record(
+            [("2024-01-01", 3000), (at.strftime("%Y-%m-%dT%H:%M:%SZ"), 3400)],
+            [
+                LISTED,
+                ("2024-02-01T08:00:00Z", "ACTIVE"),
+                ("2024-02-01T16:00:00", "RENTED"),
+            ],
+        )
+        wait, price, _ = timed(raw)
+        assert wait == seconds
+        assert (price == 3400) is stood
     # A record with no off-market day, and one with no change from that day on.
-    assert np.isnan(b0closingraise.wait(json.dumps({"pricing": {"priceChanges": []}})))
+    bare = json.dumps({"pricing": {"priceChanges": []}})
+    assert np.isnan(b0closingraise.standing(bare, [])[0])
     early = record([("2024-01-01", 3000)], [("2024-02-01T16:00:00Z", "RENTED")])
-    assert np.isnan(b0closingraise.wait(early))
+    assert np.isnan(timed(early)[0])
 
 
 def test_closing_raise_reprices_only_raises_typed_as_the_ad_closed(src, tmp_path):
@@ -130,6 +166,7 @@ def test_closing_raise_reprices_only_raises_typed_as_the_ad_closed(src, tmp_path
     out = tmp_path / "out"
     manifest = b0closingraise.closing_raise(src, out)
     rows = pd.read_parquet(out / "rows.parquet")
+    # Row 8 takes the cut of the off-market day's morning. Row 9 keeps its closing cut.
     assert rows.latest_ask.tolist() == [
         2900.0,
         3400.0,
@@ -138,28 +175,39 @@ def test_closing_raise_reprices_only_raises_typed_as_the_ad_closed(src, tmp_path
         2750.0,
         3400.0,
         1500.0,
+        2700.0,
+        3400.0,
     ]
-    changed = [True, False, False, True, False, False, False]
+    changed = [True, False, False, True, False, False, False, True, False]
     assert rows.latest_ask_how.tolist() == [
         b0closingraise.HOW if c else "latest" for c in changed
     ]
-    # The kept change of 2024-01-20 falls before the row's day of 2024-01-25, and that of
-    # 2024-01-28 after it.
-    assert [str(d) for d in rows.latest_day[changed]] == ["2024-01-25", "2024-01-28"]
-    assert rows.latest_day_how[changed].tolist() == ["row, change before", "change"]
-    assert rows.latest_day_how[~np.array(changed)].tolist() == ["change"] * 5
+    # The kept change of 2024-01-20 falls before the row's day of 2024-01-25, and those of
+    # 2024-01-28 and 2024-02-01 after it.
+    assert [str(d) for d in rows.latest_day[changed]] == [
+        "2024-01-25",
+        "2024-01-28",
+        "2024-02-01",
+    ]
+    assert rows.latest_day_how[changed].tolist() == [
+        "row, change before",
+        "change",
+        "change",
+    ]
+    assert rows.latest_day_how[~np.array(changed)].tolist() == ["change"] * 6
     entry = manifest["closing_raise"]
     assert entry["source"] == str(src)
     assert entry["source_rows_sha256"] == "abc"
-    assert entry["listings_read"] == 6
-    assert entry["closing_would_change"] == 5
-    assert entry["changed"] == 2
+    assert entry["listings_read"] == 8
+    assert entry["closing_would_change"] == 7
+    assert entry["changed"] == 3
+    assert entry["changed_to_off_day_price"] == 1
     assert entry["dated_by_row"] == 1
     assert entry["median_log_change"] == round(float(np.log(3400 / 2900)), 4)
     assert entry["kept_off_day_price"] == {
-        "cut": 1,
-        "raise_wait_over_max": 1,
-        "raise_no_wait": 1,
+        "stood": 1,
+        "closing_cut": 2,
+        "no_wait": 1,
     }
     assert manifest["rows_sha256"] == sha256(out / "rows.parquet")
     assert json.loads((out / "manifest.json").read_text()) == manifest
