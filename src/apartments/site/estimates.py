@@ -10,14 +10,12 @@ sha256), written last. A row's `source` says which fit held the ad out:
 - "market": an ad on the market on the scoring day, held out by the fit on the market split.
 
 Every other ad (an apartment's earlier ads, which the fits learned from) has no estimate here,
-since a prediction for an ask the model saw would not be a fair test.
+since a prediction for an ask the model saw would test nothing.
 
 The pages read this folder and nothing else. A table whose sha256 is not the one its meta
 names is refused (`Refused`), so a page never mixes one publish's meta with another's rows.
 Queries go through DuckDB over the parquet: one connection per process and published file,
-one thread and a small memory limit, as `detail.py` reads its files. Ben chose to rebuild the
-section on drift-building's held-out estimates, without the earlier model's per-listing
-dollar parts, estimate form or rent map (2026-11-10).
+one thread and a small memory limit, as `detail.py` reads its files.
 """
 
 from __future__ import annotations

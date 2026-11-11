@@ -562,10 +562,10 @@ def write_diagnostics(
 
 
 @pytest.fixture
-def wb_client(tmp_path, research_file):
+def wb_client(tmp_path):
     root = tmp_path / "site"
     write_diagnostics(root)
-    app = create_app(root, research_data=research_file)
+    app = create_app(root)
     app.config["TESTING"] = True
     return app.test_client()
 
@@ -622,7 +622,7 @@ def test_small_slices_are_never_marked_off_nominal(wb_client):
     assert "few ads" in html
 
 
-def test_overview_lists_only_off_nominal_neighbourhoods(tmp_path, research_file):
+def test_overview_lists_only_off_nominal_neighbourhoods(tmp_path):
     root = tmp_path / "site"
     # 120 Chelsea asks far outside the ranges, and 120 West Village asks spread so
     # that 50%, 80% and 95% of them sit inside the matching ranges.
@@ -640,7 +640,7 @@ def test_overview_lists_only_off_nominal_neighbourhoods(tmp_path, research_file)
         for i in range(120)
     ]
     write_diagnostics(root, ads=ads)
-    client = create_app(root, research_data=research_file).test_client()
+    client = create_app(root).test_client()
     html = client.get("/workbench").get_data(as_text=True)
     shown, collapsed = html[html.index('id="calibration"') :].split(
         'id="calibration-hoods"', 1
@@ -692,7 +692,7 @@ def test_signals_page_tabulates_features_and_clusters_se_by_building(wb_client):
     assert "1 / 1" in nb_html
 
 
-def test_list_views_cap_a_many_level_category(tmp_path, research_file):
+def test_list_views_cap_a_many_level_category(tmp_path):
     root = tmp_path / "site"
     # 9 building classes of 40 ads each, with gaps growing by class, plus a class of
     # 5 ads with the largest gap of all.
@@ -730,7 +730,7 @@ def test_list_views_cap_a_many_level_category(tmp_path, research_file):
     all_ratios = [b["ratio"] for b in signal["bins"]]
     assert all_ratios == sorted(all_ratios, reverse=True)
 
-    client = create_app(root, research_data=research_file).test_client()
+    client = create_app(root).test_client()
     listing = client.get("/workbench/signals").get_data(as_text=True)
     assert '<a href="/workbench/signals/doorman_type">and 4 more</a>' in listing
     detail = client.get("/workbench/signals/doorman_type").get_data(as_text=True)
@@ -841,7 +841,7 @@ def test_signal_detail_page_links_bins_to_triage(wb_client):
     assert wb_client.get("/workbench/signals/ask;DROP%20TABLE%20ads").status_code == 404
 
 
-def test_triage_orders_by_miss_where_z_has_saturated(tmp_path, research_file):
+def test_triage_orders_by_miss_where_z_has_saturated(tmp_path):
     root = tmp_path / "site"
     ads = [
         make_ad_row("1", z=3.5, miss=4.0),
@@ -849,7 +849,7 @@ def test_triage_orders_by_miss_where_z_has_saturated(tmp_path, research_file):
         make_ad_row("3", z=-3.5, miss=6.5),
     ]
     write_diagnostics(root, ads=ads)
-    client = create_app(root, research_data=research_file).test_client()
+    client = create_app(root).test_client()
     assert _triage_ids(client.get("/workbench/triage").get_data(as_text=True)) == [
         "2",
         "3",
@@ -939,7 +939,7 @@ def test_triage_queue_orders_by_abs_miss_and_filters(wb_client):
     ) == ["1003", "1005"]
 
 
-def test_triage_paging_and_csv_download(tmp_path, research_file):
+def test_triage_paging_and_csv_download(tmp_path):
     root = tmp_path / "site"
     ads = [
         make_ad_row(
@@ -952,7 +952,7 @@ def test_triage_paging_and_csv_download(tmp_path, research_file):
         for i in range(120)
     ]
     write_diagnostics(root, ads=ads)
-    app = create_app(root, research_data=research_file)
+    app = create_app(root)
     client = app.test_client()
 
     first = client.get("/workbench/triage").get_data(as_text=True)
@@ -1001,7 +1001,7 @@ def test_buildings_page_orders_filters_and_tabulates_levels(wb_client):
     assert "Doorman" in page and "Year built" in page
 
 
-def test_buildings_page_when_fit_keeps_no_building_levels(tmp_path, research_file):
+def test_buildings_page_when_fit_keeps_no_building_levels(tmp_path):
     root = tmp_path / "site"
     folder = write_diagnostics(root)
     # Rewrite buildings.parquet without zone, level, level_sd columns.
@@ -1016,7 +1016,7 @@ def test_buildings_page_when_fit_keeps_no_building_levels(tmp_path, research_fil
     meta["sha256"]["buildings"] = _sha256(folder / "buildings.parquet")
     (folder / "meta.json").write_text(json.dumps(meta))
 
-    app = create_app(root, research_data=research_file)
+    app = create_app(root)
     client = app.test_client()
     assert client.get("/workbench/buildings").status_code == 200
     assert client.get("/workbench/buildings?sort=level").status_code == 200
@@ -1068,11 +1068,9 @@ def test_single_building_page_scatter_unit_conflicts_and_heldout_ads(wb_client):
         f"/workbench/buildings/{GROVE}",
     ],
 )
-def test_missing_or_mismatched_diagnostics_folder_returns_503(
-    tmp_path, research_file, path
-):
+def test_missing_or_mismatched_diagnostics_folder_returns_503(tmp_path, path):
     root = tmp_path / "site"
-    app = create_app(root, research_data=research_file)
+    app = create_app(root)
     client = app.test_client()
 
     # Missing folder -> 503

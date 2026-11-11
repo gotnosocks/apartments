@@ -296,10 +296,6 @@ def install_kit(site_root, rec=None):
     db.close()
 
 
-def page(client, url):
-    return " ".join(client.get(url).get_data(as_text=True).split())
-
-
 def test_the_fixture_build_records_why_it_has_no_form(site_root, client):
     info = json.loads((site_root / "current" / "build.json").read_text())
     assert info["stats"]["estimate_form"] == {
@@ -492,18 +488,6 @@ def test_line_facing_counts_only_when_the_apartments_own_is_not_given():
     assert estimate.Form.parse(MultiDict({"line": "street"})).line == "street"
     assert estimate.Form.parse(MultiDict({"line": "sideways"})).line == ""
     assert "line" not in estimate.Form().canonical()
-
-
-def test_building_suggestions(site_root, client):
-    # Playtest round 4 (keyboard, broker, tablet): no autocomplete in building search.
-    install_kit(site_root)
-    rows = client.get("/buildings.json?q=grove").get_json()
-    assert rows and rows[0]["id"] == GROVE and rows[0]["value"] == "The Grove"
-    assert "250 West 19th Street" in rows[0]["label"] and "listings" in rows[0]["label"]
-    assert client.get("/buildings.json?q=g").get_json() == []
-    assert client.get("/buildings.json?q=%25%25").get_json() == []
-    assert len(client.get("/buildings.json?q=st").get_json()) <= 8
-    assert 'data-suggest="/buildings.json"' in page(client, "/buildings")
 
 
 def test_the_form_reads_the_draws_from_the_kit_file(tmp_path, site_root, client):

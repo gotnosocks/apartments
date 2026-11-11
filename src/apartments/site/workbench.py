@@ -1966,6 +1966,19 @@ class Diagnostics:
         )
         return results
 
+    def has_building(self, building_id: str | None) -> bool:
+        """Whether `building_id` has a page under `/workbench/buildings/`."""
+        bldg = _text(building_id)
+        if not bldg:
+            return False
+        row = self._one(
+            "SELECT 1 FROM buildings WHERE building = ? "
+            "UNION ALL SELECT 1 FROM ads WHERE building = ? "
+            "UNION ALL SELECT 1 FROM history WHERE building = ? LIMIT 1",
+            [bldg, bldg, bldg],
+        )
+        return row is not None
+
     def building_detail(self, building_id: str) -> dict | None:
         """Load one building's row, history, grouped units, and held-out ads."""
         b_rows = self._rows(
@@ -2246,7 +2259,6 @@ def _render(template: str, **context) -> str:
     return render_template(
         template,
         section="workbench",
-        meta=None,
         usd=_usd,
         pct=_pct,
         day=_day_label,

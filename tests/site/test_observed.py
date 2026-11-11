@@ -93,7 +93,7 @@ def test_rows_without_a_regions_column(pipeline):
 
 
 def test_page_shows_nj_listings_without_estimates(
-    pipeline, tmp_path, bundle, monkeypatch, research_file
+    pipeline, tmp_path, bundle, monkeypatch
 ):
     from apartments.site.web import create_app
 
@@ -108,9 +108,7 @@ def test_page_shows_nj_listings_without_estimates(
     monkeypatch.setattr(observed, "READS", reads(tmp_path, [("1002", "ROOM_SHARE")]))
     root = tmp_path / "site"
     build.build(bundle, root, scope="Chelsea")
-    app = create_app(
-        root, allowed_hosts=["thelio.example.ts.net"], research_data=research_file
-    )
+    app = create_app(root, allowed_hosts=["thelio.example.ts.net"])
     app.config["TESTING"] = True
     client = app.test_client()
     page = client.get("/new-jersey").get_data(as_text=True)

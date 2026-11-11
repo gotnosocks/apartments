@@ -9,7 +9,7 @@
   when it has any. It never saw the ask it is compared with. Each past ad is the newest ad of its apartment, predicted by a fit
   that learned from every earlier ad but not that one. Each ad on the market is scored by a fit made without the asks on the
   market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}. So the gap between an ad's ask and the model's middle
-  estimate is a fair reading of whether it asks more or less than the model expects.</p>
+  estimate reads whether it asks more or less than the model expects.</p>
   <form class="search" action="{{ url_for('listings') }}" method="get" role="search">
     <label for="q" class="visually-hidden">Address or building</label>
     <input id="q" name="q" type="search" placeholder="Address or building (e.g. 250 West 19th)" autocomplete="off">
@@ -42,7 +42,7 @@
     </tbody>
   </table>
   </div>
-  <p class="note">A range that holds about as many asks as it is meant to is honest about how sure the model is.</p>
+  <p class="note">A range that holds about as many asks as it is meant to states the model's uncertainty correctly.</p>
   {% endif %}
   {% else %}
   <p>The publish carried no held-out scores for this model.</p>
@@ -78,9 +78,9 @@
     <li><a href="{{ url_for('listings', status='current', sort='low') }}">On the market, lowest ask against the model first</a></li>
     <li><a href="{{ url_for('listings') }}">Every estimate, newest first</a>, with filters</li>
     <li><a href="{{ url_for('listings_csv') }}" download>Download every estimate as CSV</a></li>
-    <li><a href="{{ url_for('deals_page') }}">Deals</a>: the ads on the market ranked by how low each ask is, with cautions and a backtest</li>
+    <li><a href="{{ url_for('index') }}">Deals</a>: the ads on the market ranked by how low each ask is, with cautions and a backtest</li>
   </ul>
   <p class="note">Only ads the model held out have an estimate here. An apartment's earlier ads are what the model learned from,
-  so a prediction for them would not be a fair test. The model cannot see an apartment's condition, a broker fee or a mistake in the ad.</p>
+  so a prediction for them would test nothing. The model cannot see an apartment's condition, a broker fee or a mistake in the ad.</p>
 </section>
 {% endblock %}

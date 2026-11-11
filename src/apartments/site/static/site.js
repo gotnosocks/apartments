@@ -4,7 +4,6 @@
 // crosshair to the nearest x; point charts pick the nearest point. The same
 // readout follows the keyboard (arrow keys) when the figure has focus, and
 // every value is also in the page's tables, so nothing depends on this.
-// The zoomable fit charts are drawn by fitchart.js (Chart.js) instead.
 (function () {
   "use strict";
   var SVG = "http://www.w3.org/2000/svg";
@@ -30,8 +29,6 @@
   }
 
   function setup(figure) {
-    // Drawn by fitchart.js (Chart.js) instead.
-    if (figure.hasAttribute("data-enhanced")) return;
     var svg = figure.querySelector("svg");
     var tip = figure.querySelector(".chart-tip");
     var block = figure.querySelector("script.chart-data");
@@ -146,11 +143,9 @@
   document.querySelectorAll("figure.chart").forEach(setup);
 })();
 
-// A submitted form says it is working: the estimate and the building search
-// take a moment, and without this the button looks dead (playtest round 3).
-// The page still works without it. Back/forward restores the button, and so
-// does a timer: a resubmit to the same URL with a #fragment (the estimate
-// form's) only scrolls, and no new page comes to replace this one.
+// A submitted form says it is working, since a filtered list takes a moment
+// to come back. The page still works without it. Back/forward restores the
+// button, and so does a timer.
 (function () {
   "use strict";
   document.querySelectorAll("form[method=get]").forEach(function (form) {
@@ -171,123 +166,5 @@
       timer = setTimeout(restore, 10000);
     });
     window.addEventListener("pageshow", restore);
-  });
-})();
-
-// Building suggestions for a search box marked data-suggest (its value is the
-// /buildings.json URL), shown as a native datalist so keyboards and screen
-// readers get the browser's own list. With data-suggest-id, picking a
-// suggestion also sets a hidden input of that name to the building's id, so
-// a shared address still goes to the building chosen (two buildings with the
-// same name or address get no id). Typing on works as before.
-(function () {
-  "use strict";
-  document.querySelectorAll("input[data-suggest]").forEach(function (input) {
-    var list = document.createElement("datalist");
-    list.id = input.id + "-suggestions";
-    input.after(list);
-    input.setAttribute("list", list.id);
-    // value -> building id; null when two buildings share the value, so the
-    // text falls through to the server's list of matches.
-    var ids = new Map();
-    var hidden = null;
-    var idName = input.getAttribute("data-suggest-id");
-    if (idName) {
-      hidden = document.createElement("input");
-      hidden.type = "hidden";
-      hidden.name = idName;
-      hidden.disabled = true;
-      input.after(hidden);
-    }
-    var timer = null;
-    var asked = "";
-    function pick() {
-      if (!hidden) return;
-      var id = ids.get(input.value);
-      hidden.disabled = !id;
-      hidden.value = id || "";
-    }
-    function fetchSuggestions() {
-      var q = input.value.trim();
-      if (q.length < 2 || q === asked) return;
-      asked = q;
-      fetch(input.getAttribute("data-suggest") + "?q=" + encodeURIComponent(q))
-        .then(function (response) { return response.ok ? response.json() : []; })
-        .then(function (rows) {
-          if (q !== asked) return;
-          list.replaceChildren();
-          rows.forEach(function (row) {
-            var known = ids.get(row.value);
-            ids.set(row.value, known === undefined || known === row.id ? row.id : null);
-            var option = document.createElement("option");
-            option.value = row.value;
-            option.label = row.label;
-            list.appendChild(option);
-          });
-          pick();
-        })
-        .catch(function () {});
-    }
-    input.addEventListener("input", function () {
-      pick();
-      clearTimeout(timer);
-      timer = setTimeout(fetchSuggestions, 150);
-    });
-  });
-})();
-
-// The story's animated figures play when scrolled into view, with a replay
-// button. Without script they play once on load (static/site.css); with it,
-// a figure on screen at load plays at once and one further down stays whole
-// until it nears view.
-(function () {
-  var figures = document.querySelectorAll(".story-figure[data-play]");
-  if (!figures.length || !("IntersectionObserver" in window)) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  // Play once the figure's top reaches the upper two thirds of the screen. A
-  // share-of-the-figure threshold never fires for a figure taller than the
-  // screen, which then stays blank.
-  var seen = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (!entry.isIntersecting) return;
-      entry.target.classList.add("play");
-      seen.unobserve(entry.target);
-    });
-  }, { rootMargin: "0px 0px -35% 0px", threshold: 0 });
-  // A figure stays whole until it comes within a quarter screen of view, so
-  // print, find-in-page and full-page screenshots never catch it blank.
-  var near = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (!entry.isIntersecting) return;
-      entry.target.classList.remove("whole");
-      entry.target.classList.add("armed");
-      near.unobserve(entry.target);
-      seen.observe(entry.target);
-    });
-  }, { rootMargin: "0px 0px 25% 0px", threshold: 0 });
-  figures.forEach(function (figure) {
-    // Play the ones on screen at load now, and arm those just below it,
-    // before the first paint.
-    var box = figure.getBoundingClientRect();
-    if (box.bottom > 0 && box.top < window.innerHeight) {
-      figure.classList.add("armed", "play");
-    } else if (box.bottom > 0 && box.top < window.innerHeight * 1.25) {
-      figure.classList.add("armed");
-      seen.observe(figure);
-    } else {
-      figure.classList.add("whole");
-      near.observe(figure);
-    }
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "replay";
-    button.textContent = "Replay";
-    button.addEventListener("click", function () {
-      figure.classList.add("reset");
-      void figure.offsetWidth; // restart the CSS animations
-      figure.classList.remove("reset", "whole");
-      figure.classList.add("armed", "play");
-    });
-    figure.appendChild(button);
   });
 })();

@@ -1,108 +1,47 @@
 {% extends "base.html" %}
-{% block title %}How estimates work{% endblock %}
+{% block title %}How it works{% endblock %}
 {% block content %}
-{% set p = meta.provenance %}
-{% set s = meta.stats %}
-{% set names = terms | map(attribute="name") | list %}
-{% set building = ["its level against a building with the same listed features"] %}
-{% if "building_drift" in names %}{% set building = building + ["how that level has moved over time"] %}{% endif %}
-{% if "building_bedroom_premium" in names %}{% set building = building + ["its own premium or discount for larger apartments"] %}{% endif %}
-{% if "building_feature_slopes" in names %}{% set building = building + ["its own price for extra space and bathrooms"] %}{% endif %}
-{% if "line" in names %}{% set building = building + ["the line (column) of apartments within it"] %}{% endif %}
-<h1>How the estimates work</h1>
-<p class="lede">The words used across the site, from <em>estimate</em> to <em>PSIS-LOO</em>, are defined in the
-<a href="{{ url_for('research_glossary') }}">glossary</a>.</p>
+<h1>How it works</h1>
 
-<section class="card prose">
-  <h2>What an estimate is</h2>
-  <p>A listing's <strong>estimate</strong> is the model's typical asking rent for that apartment, in that building, in that
-  month: the median of the asks it expects, in dollars a month. It combines four things, each learned from
-  {% set fit = meta.provenance.rows_in_fit %}{% if fit and fit < s.listings %}the {{ "{:,}".format(fit) }} listings in the fit
-  (the rest of the {{ "{:,}".format(s.listings) }} are held out to check it){% else %}the {{ "{:,}".format(s.listings) }}
-  listings{% endif %}:</p>
-  <ul>
-    <li>the <strong>market</strong> that month (a trend and a calendar season{% if "bedroom_market_curve" in names %}, and each bedroom group's own path{% endif %});</li>
-    <li>the apartment's <strong>features</strong>: bedrooms, baths, size, floor, building amenities, views, and flags from the ad text;</li>
-    <li>the <strong>building</strong>: {{ building[:-1] | join(", ") }}{% if building | length > 1 %} and {% endif %}{{ building[-1] }};</li>
-    <li>the <strong>unit</strong> itself, learned from its other listings.</li>
-  </ul>
-  <p>Each estimate leaves out the listing's <strong>own ask</strong> (leave-own-row-out). A model that had seen the ask would be
-  pulled toward it, and every listing would look fairly priced. Leaving the ask out makes the gap between ask and
-  estimate an honest signal. The page shows the in-sample fit separately.</p>
-  <p><strong>Below typical</strong> and <strong>Above typical</strong> mean that the ask is in the lowest or highest
-  {{ (100 * meta.price_bands[0]) | round | int }}% of the asks the model expects for that apartment, noise included. The
-  <strong>95% range of the typical rent</strong> (“95% sure the typical rent itself is …”) is the 95% uncertainty of the typical rent itself, not
-  the spread of individual asks: it holds the actual ask much less often than 95% of the time, because asks scatter around
-  the typical rent. Where a listing page shows a <strong>likely ask range</strong>, that is the spread of asks itself: the
-  middle 80% of the asks the model expects, the same range the Below/Typical/Above label uses.</p>
-  <p>Estimates describe <strong>asking</strong> rents on StreetEasy, not leases, net effective rents or appraisals. Listings
-  from before {{ month(s.last_period) }} show the first ask of each advertisement. The model cannot see anything
-  missing from the listing data, such as renovations the ad does not mention, light or noise.</p>
-</section>
-
-<section class="card">
-  <h2>How well the estimates are calibrated</h2>
-  <p class="note">Share of asks inside the model's predictive ranges for individual asks (the spread the Price labels use,
-  noise included, so much wider than the 95% range of the typical rent). A well-calibrated model puts 95% of asks in its 95% predictive
-  range and 80% in its 80% range.</p>
-  <div class="table-wrap">
-  <table class="data">
-    <thead><tr><th scope="col">Listings</th><th scope="col" class="num">Count</th><th scope="col" class="num">In 95% range</th><th scope="col" class="num">In 80% range</th><th scope="col" class="num">Median |ask − estimate|</th></tr></thead>
-    <tbody>
-    {% for key, label in [("heldout", "Held out of the fit entirely"), ("multi", "Unit has other listings in the fit"), ("single", "Unit's only listing in the fit")] if key in s.calibration %}
-    {% set c = s.calibration[key] %}
-    <tr><th scope="row">{{ label }}</th><td class="num">{{ "{:,}".format(c.n) }}</td><td class="num">{{ pct(100 * c.cover95, signed=False, digits=1) }}</td>
-      <td class="num">{{ pct(100 * c.cover80, signed=False, digits=1) }}</td><td class="num">{{ pct(100 * c.median_abs_pct, signed=False, digits=1) }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  <p class="note">Estimates for a unit's only listing in the fit rest on the building and features alone, and their ranges are somewhat too
-  narrow. {{ "{:,}".format(s.unreliable_estimates) }} listings (marked <span class="warn-mark">*</span>) have an unstable
-  leave-own-row-out correction (Pareto k above {{ p.estimate_pareto_k.threshold | round(3) }}).</p>
-  {% if s.calibration_by_year %}
-  {# Modeling, 2026-10-05: centred every year; one noise level per bedroom group for all years, so volatile years are too narrow. #}
-  {% set narrow = s.calibration_by_year | selectattr("cover80", "lt", 0.75) | map(attribute="year") | list %}
-  <h3 id="calibration-by-year">By year</h3>
-  <p class="note">The estimates are centred in every year: the average gap between ask and estimate stays small.
-  {% if narrow %}But asks scattered more widely in some years ({{ narrow | join(", ") }}) than in others, and the model assumes the
-  same scatter every year, so fewer asks than promised fall inside the 80% range in those years.{% else %}The ranges hold about
-  as many asks as promised in every year.{% endif %}</p>
+<section class="card" id="model">
+  <h2>The model</h2>
+  <p><code>{{ diag.model if diag else "drift-building" }}</code> is a Bayesian regression on the log of each ad's asking rent, net of any free months. It adds up the ad's and the building's attributes, a citywide level for the week, a level for the building and a level for the unit. The unit's level weighs a recent ad of the same apartment more than an old one, and each building has a path of its own that moves a little every quarter.</p>
+  {% if diag and diag.terms %}
   <details class="table-view">
-  <summary>Table view ({{ s.calibration_by_year | length }} years)</summary>
-  <div class="table-wrap">
-  <table class="data">
-    <thead><tr><th scope="col">Year</th><th scope="col" class="num">Listings</th><th scope="col" class="num">In 95% range</th><th scope="col" class="num">In 80% range</th><th scope="col" class="num">Average ask vs estimate</th></tr></thead>
-    <tbody>
-    {% for c in s.calibration_by_year %}
-    <tr><th scope="row">{{ c.year }}{% if c.year in narrow %} <span class="warn-mark" title="Fewer than 75% of asks in the 80% range">*</span>{% endif %}</th><td class="num">{{ "{:,}".format(c.n) }}</td><td class="num">{{ pct(100 * c.cover95, signed=False, digits=0) }}</td>
-      <td class="num">{{ pct(100 * c.cover80, signed=False, digits=0) }}</td><td class="num">{{ pct(100 * c.mean_log_residual, digits=1) }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  <p class="note">Average ask vs estimate is the mean of log(ask ÷ estimate), as a percentage.</p>
+    <summary>The {{ diag.term_count }} terms of the model</summary>
+    <ul>
+      {% for term in diag.terms %}<li>{{ term }}</li>{% endfor %}
+    </ul>
   </details>
+  {% endif %}
+  {% if diag %}
+  <p>{% if diag.scoring_day %}The published run scores the market of {{ day(diag.scoring_day) }}. {% endif %}{% if diag.counts.ads_all is not none %}It holds {{ "{:,}".format(diag.counts.ads_all) }} held-out ads{% if diag.counts.buildings is not none %} in {{ "{:,}".format(diag.counts.buildings) }} buildings{% endif %}{% if diag.counts.history is not none %}, with {{ "{:,}".format(diag.counts.history) }} ads of history behind them{% endif %}. {% endif %}{% for g in diag.gates %}The <code>{{ g.key }}</code> fit {{ "passes" if g.passes else "misses" }} the convergence gate{% if g.max_rhat is not none and g.min_ess is not none %} (worst R-hat {{ "{:.3f}".format(g.max_rhat) }}, least effective sample size {{ "{:,.0f}".format(g.min_ess) }}){% endif %}. {% endfor %}</p>
+  {% if diag.coverage %}
+  <p>Share of the held-out asks inside each range: {% for c in diag.coverage %}{{ "{:.1f}%".format(c.held_pct) }} for the {{ c.nominal }}% range{{ ", " if not loop.last else "." }}{% endfor %}</p>
+  {% endif %}
+  {% else %}
+  <p class="note">No diagnostics are published yet, so this page has no figures for the model.</p>
   {% endif %}
 </section>
 
-<section class="card prose">
-  <h2>Listings left out</h2>
-  <p>Some listings are not an open-market lease of a whole apartment at their address: offices and shops, ads that place the
-  apartment elsewhere, single rooms, income-restricted and short-stay offers. A review of their own ads found them, and the
-  model leaves them out, so they get no estimate. They are listed with their reasons under
-  <a href="{{ url_for('quarantined') }}">Left out</a>.</p>
+<section class="card" id="held-out">
+  <h2>Held-out estimates</h2>
+  <p>An estimate here is the model's prediction for an ad whose ask it did not learn from. The <code>latest</code> fit holds out the newest ad of each apartment. The <code>market</code> fit holds out every ad on the market on the scoring day. An apartment's earlier ads have no estimate, since the model learns from them.</p>
 </section>
 
-<p class="note">The model's design, how it was chosen, its convergence checks and every feature's effect are on the research side:
-<a href="{{ url_for('research_model') }}">the served model</a>.</p>
+<section class="card" id="range-bar">
+  <h2>The range bar on Deals</h2>
+  <p>Each row of <a href="{{ url_for('index') }}">Deals</a> draws the model's ranges for the ad as three nested bands, the 50%, 80% and 95% ranges, darkest in the middle. The tick is the model's median and the dot is the ask.</p>
+  <p>The cautious saving compares the ask with the low end of the 80% range instead of the median: <code>(low end - ask) / low end</code>.</p>
+</section>
 
-<section class="card" id="source">
-  <h2>About this site and how to cite it</h2>
-  <p>A personal research project: asking rents scraped from StreetEasy listings in {{ all_areas ~ " (" ~ meta.scope ~ ")" if all_areas else meta.scope }}, estimated by a Bayesian
-  model described on the <a href="{{ url_for('research_model') }}">research pages</a>. Figures are model estimates of asking rents,
-  not leases or appraisals, from asks dated {{ month(meta.stats.first_period) }} to {{ month(meta.stats.last_period) }}.</p>
-  <p class="note">To cite a figure, name the site, the page and the date you read it: estimates change when the model is refit or
-  new listings arrive.</p>
+<section class="card" id="miss">
+  <h2>Miss on the Workbench</h2>
+  <p>The <a href="{{ url_for('workbench') }}">Workbench</a> measures each held-out ad's miss: the log of the ask less the log of the model's median, divided by the spread of the prediction. A miss of -2 is an ask two spreads below the median.</p>
+</section>
+
+<section class="card" id="tags">
+  <h2>Tags</h2>
+  <p>A tag records a reading of an ad: a real deal, an error in the data, or something the model has no term for. Deals hides ads tagged as ruled out, and the <a href="{{ url_for('tags_ledger') }}">Tags</a> page exports every tag as CSV and JSON lines for cleaning rules and feature tests.</p>
 </section>
 {% endblock %}

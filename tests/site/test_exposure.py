@@ -19,50 +19,6 @@ def write_labels(path, rows):
     con.close()
 
 
-def first_listing(root):
-    db = sqlite3.connect(root / "current" / "site.sqlite")
-    db.row_factory = sqlite3.Row
-    return db.execute(
-        "SELECT audit_id, unit_id, building_id FROM listings "
-        "ORDER BY is_current DESC, id LIMIT 1"
-    ).fetchone()
-
-
-def test_without_labels_the_pages_show_no_exposure(site_root, client):
-    row = first_listing(site_root)
-    page = f"/buildings/{row['building_id']}"
-    html = client.get(page).get_data(as_text=True)
-    assert "rear-facing" not in html
-    # A faces filter on such a build is ignored, not an error.
-    rear = client.get(page + "?faces=rear")
-    assert rear.status_code == 200
-    assert f'href="/listings/{row["audit_id"]}"' in rear.get_data(as_text=True)
-
-
-def test_labels_show_in_the_listing_table_and_filter(
-    tmp_path, bundle, exposure_file, client
-):
-    root = tmp_path / "site"
-    build.build(bundle, root, scope="Chelsea")
-    row = first_listing(root)
-    write_labels(
-        exposure_file,
-        [
-            (row["unit_id"], "rear", "line", "", 4, "rear"),
-            ("unit:not-in-this-build", "street", "own", "avenue", 0, ""),
-        ],
-    )
-    build.build(bundle, root, scope="Chelsea")
-    page = f"/buildings/{row['building_id']}"
-    rear = client.get(page + "?faces=rear&per=100").get_data(as_text=True)
-    link = f'href="/listings/{row["audit_id"]}"'
-    assert link in rear and "likely rear-facing" in rear
-    street = client.get(page + "?faces=street&per=100").get_data(as_text=True)
-    assert link not in street
-    db = sqlite3.connect(root / "current" / "site.sqlite")
-    assert db.execute("SELECT COUNT(*) FROM exposure").fetchone()[0] == 1
-
-
 def test_describe_words():
     own = exposure.describe(
         {

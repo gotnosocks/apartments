@@ -283,9 +283,7 @@ def test_tags_for_ledger_page_and_exports(client, site_root):
     assert len(csv_all) == 5
 
 
-def test_concurrent_appends_preserve_every_json_line(
-    tmp_path, write_estimates, research_file
-):
+def test_concurrent_appends_preserve_every_json_line(tmp_path, write_estimates):
     root = tmp_path / "site"
     write_estimates(root)
     barrier = threading.Barrier(2)
@@ -307,6 +305,25 @@ def test_concurrent_appends_preserve_every_json_line(
     assert len(raw_lines) == 50
     parsed = [json.loads(line) for line in raw_lines]
     assert len({item["listing_id"] for item in parsed}) == 50
-    app = create_app(root, research_data=research_file)
+    app = create_app(root)
     assert len(tags.current_tags(root)) == 50
     assert app.test_client().get("/tags").status_code == 200
+
+
+def test_append_starts_a_new_line_after_an_unfinished_one(tmp_path):
+    root = tmp_path / "site"
+    tags.append(root, "1001", "deal", "first")
+    path = tags.ledger_path(root)
+    # A writer stopped partway through a record, so the file ends without a newline.
+    with path.open("ab") as handle:
+        handle.write(b'{"listing_id":"1002","tag":"de')
+    tags.append(root, "1003", "wrong_beds", "third")
+    tags.append(root, "1004", "deal", "fourth")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 4 and lines[1] == '{"listing_id":"1002","tag":"de'
+    assert [json.loads(lines[i])["listing_id"] for i in (0, 2, 3)] == [
+        "1001",
+        "1003",
+        "1004",
+    ]
+    assert set(tags.current_tags(root)) == {"1001", "1003", "1004"}

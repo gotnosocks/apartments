@@ -16,24 +16,19 @@
   <div class="wrap top-inner">
     <a class="brand" href="{{ url_for('index') }}">NYC Rents</a>
     <nav aria-label="Sections" class="sections">
+      <a href="{{ url_for('index') }}"{% if section == "deals" %} aria-current="true"{% endif %}>Deals</a>
       <a href="{{ url_for('estimates') }}"{% if section == "estimates" %} aria-current="true"{% endif %}>Estimates</a>
-      <a href="{{ url_for('research_frontier') }}"{% if section == "research" %} aria-current="true"{% endif %}>Research</a>
       <a href="{{ url_for('workbench') }}"{% if section == "workbench" %} aria-current="true"{% endif %}>Workbench</a>
+      <a href="{{ url_for('tags_ledger') }}"{% if section == "tags" %} aria-current="true"{% endif %}>Tags</a>
     </nav>
   </div>
   {% set here = request.endpoint %}
   {% if section == "estimates" %}
   <div class="subnav"><nav class="wrap" aria-label="Estimates">
     <a href="{{ url_for('estimates') }}"{% if here == "estimates" %} aria-current="page"{% endif %}>Overview</a>
-    <a href="{{ url_for('listings') }}"{% if here in ("listings", "listing", "unit") and request.args.get("status") != "current" %} aria-current="page"{% endif %}>Listings</a>
-    <a href="{{ url_for('listings', status='current', sort='low') }}"{% if here == "listings" and request.args.get("status") == "current" %} aria-current="page"{% endif %}>On the market</a>
-    <a href="{{ url_for('buildings') }}"{% if here in ("buildings", "building") %} aria-current="page"{% endif %}>Buildings</a>
-    <a href="{{ url_for('deals_page') }}"{% if here == "deals_page" %} aria-current="page"{% endif %}>Deals</a>
-    <a href="{{ url_for('best_listings') }}"{% if here == "best_listings" %} aria-current="page"{% endif %}>Best for you</a>
-    <a href="{{ url_for('quarantined') }}"{% if here == "quarantined" %} aria-current="page"{% endif %}>Left out</a>
+    <a href="{{ url_for('listings') }}"{% if here in ("listings", "listing") %} aria-current="page"{% endif %}>All held-out ads</a>
     <a href="{{ url_for('observed_listings') }}"{% if here == "observed_listings" %} aria-current="page"{% endif %}>Hoboken and Jersey City</a>
-    <a href="{{ url_for('about') }}"{% if here == "about" %} aria-current="page"{% endif %}>How estimates work</a>
-    <a href="{{ url_for('research_glossary') }}">Glossary</a>
+    <a href="{{ url_for('about') }}"{% if here == "about" %} aria-current="page"{% endif %}>How it works</a>
   </nav></div>
   {% elif section == "workbench" %}
   <div class="subnav"><nav class="wrap" aria-label="Workbench">
@@ -42,32 +37,13 @@
     <a href="{{ url_for('workbench_triage') }}"{% if here == "workbench_triage" %} aria-current="page"{% endif %}>Triage</a>
     <a href="{{ url_for('workbench_buildings') }}"{% if here in ("workbench_buildings", "workbench_building") %} aria-current="page"{% endif %}>Buildings</a>
   </nav></div>
-  {% elif section == "research" %}
-  <div class="subnav"><nav class="wrap" aria-label="Research">
-    <a href="{{ url_for('research_story') }}"{% if here == "research_story" %} aria-current="page"{% endif %}>Story</a>
-    <a href="{{ url_for('research_frontier') }}"{% if here == "research_frontier" %} aria-current="page"{% endif %}>Frontier</a>
-    <a href="{{ url_for('research_board') }}"{% if here in ("research_board", "research_fit") %} aria-current="page"{% endif %}>Board</a>
-    <a href="{{ url_for('research_history') }}"{% if here == "research_history" %} aria-current="page"{% endif %}>History</a>
-    <a href="{{ url_for('research_designs') }}"{% if here == "research_designs" %} aria-current="page"{% endif %}>Designs</a>
-    <a href="{{ url_for('research_validation') }}"{% if here == "research_validation" %} aria-current="page"{% endif %}>Validation</a>
-    <a href="{{ url_for('research_elegance') }}"{% if here == "research_elegance" %} aria-current="page"{% endif %}>Elegance</a>
-    <a href="{{ url_for('research_model') }}"{% if here == "research_model" %} aria-current="page"{% endif %}>Served model</a>
-    <a href="{{ url_for('research_glossary') }}"{% if here == "research_glossary" %} aria-current="page"{% endif %}>Glossary</a>
-    <a href="{{ url_for('research_data_quality') }}"{% if here == "research_data_quality" %} aria-current="page"{% endif %}>Data quality</a>
-    <a href="{{ url_for('research_plan_page') }}"{% if here == "research_plan_page" %} aria-current="page"{% endif %}>Plan</a>
-  </nav></div>
   {% endif %}
 </header>
 <main id="main" class="wrap" tabindex="-1">
 {% block content %}{% endblock %}
 </main>
 <footer class="wrap foot">
-  {% if meta %}
-  {% set p = meta.provenance %}
-  <p>{{ "{:,}".format(meta.stats.listings) }} listings, {{ month(meta.stats.first_period) }} to {{ month(meta.stats.last_period) }}.
-  Estimates from <a href="{{ url_for('research_model') }}">{{ p.model.name }} + {{ p.feature_set }}</a>, fit {{ p.fit_started_at[:10] if p.fit_started_at else "" }}.
-  Model outputs, not appraisals: they describe asking rents, not what a unit would lease for.</p>
-  {% endif %}
+  <p>{% if footer_meta and footer_meta.model %}Estimates from <code>{{ footer_meta.model }}</code>{% if footer_meta.scoring_day %}, scored on the market of {{ day(footer_meta.scoring_day) }}{% endif %}. {% endif %}Model outputs, not appraisals: they describe asking rents.</p>
 </footer>
 </body>
 </html>

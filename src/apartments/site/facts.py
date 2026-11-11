@@ -114,6 +114,11 @@ def _finite(value) -> float | None:
     return float(value) if math.isfinite(value) else None
 
 
+def _int_or_none(value) -> int | None:
+    num = _finite(value)
+    return round(num) if num is not None else None
+
+
 def _text(value) -> str | None:
     text = "" if value is None else str(value).strip()
     return None if text.lower() in NO_TEXT else text
@@ -734,6 +739,66 @@ class Table:
             "building_total": building_total,
             "chart": chart,
         }
+
+    def about(self) -> dict:
+        """Summary of `diagnostics/meta.json` for `/about`."""
+        return about_summary(self.meta)
+
+
+def about_summary(meta: dict) -> dict:
+    """Fields from `diagnostics/meta.json` shown on `/about`."""
+    raw_terms = meta.get("model_terms")
+    terms = [
+        t.strip()
+        for t in (raw_terms if isinstance(raw_terms, list) else [])
+        if isinstance(t, str) and t.strip()
+    ]
+    counts = meta.get("counts") if isinstance(meta.get("counts"), dict) else {}
+    raw_ads = counts.get("ads")
+    if isinstance(raw_ads, dict):
+        ads_all = _int_or_none(raw_ads.get("all"))
+        ads_latest = _int_or_none(raw_ads.get("latest"))
+        ads_market = _int_or_none(raw_ads.get("market"))
+    else:
+        ads_all = _int_or_none(raw_ads)
+        ads_latest = None
+        ads_market = None
+    raw_cov = meta.get("coverage") if isinstance(meta.get("coverage"), dict) else {}
+    coverage = []
+    for key in ("50", "80", "95"):
+        val = _finite(raw_cov.get(key))
+        if val is not None:
+            share = val * 100.0 if val <= 1.0 else val
+            coverage.append({"nominal": int(key), "held_pct": share})
+    raw_gate = meta.get("gate") if isinstance(meta.get("gate"), dict) else {}
+    gates = []
+    for key in ("latest", "market"):
+        g = raw_gate.get(key)
+        if isinstance(g, dict):
+            gates.append(
+                {
+                    "key": key,
+                    "passes": bool(g.get("passes")),
+                    "max_rhat": _finite(g.get("max_rhat")),
+                    "min_ess": _finite(g.get("min_ess")),
+                    "chains": _int_or_none(g.get("chains")),
+                }
+            )
+    return {
+        "model": _text(meta.get("model")) or "drift-building",
+        "scoring_day": _day(meta.get("scoring_day")),
+        "term_count": len(terms),
+        "terms": terms,
+        "counts": {
+            "ads_all": ads_all,
+            "ads_latest": ads_latest,
+            "ads_market": ads_market,
+            "buildings": _int_or_none(counts.get("buildings")),
+            "history": _int_or_none(counts.get("history")),
+        },
+        "coverage": coverage,
+        "gates": gates,
+    }
 
 
 _open: dict[tuple, Table] = {}

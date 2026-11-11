@@ -78,7 +78,7 @@ _AUTO = object()
 
 @dataclasses.dataclass
 class Choice:
-    """Filters and order for `/deals` parsed from a query string."""
+    """Filters and order for Deals parsed from a query string."""
 
     hood: list[str] = dataclasses.field(default_factory=list)
     beds: list[str] = dataclasses.field(default_factory=list)
@@ -107,7 +107,11 @@ class Choice:
             "sort": None if self.sort == DEFAULT_SORT else self.sort,
             "page": self.page if self.page > 1 else None,
         }
+        if "sort" in changes and "page" not in changes:
+            changes["page"] = None
         items.update(changes)
+        if items.get("sort") == DEFAULT_SORT:
+            items["sort"] = None
         if items.get("page") in (1, "1"):
             items["page"] = None
         return {k: v for k, v in items.items() if v not in (None, [], "", False)}

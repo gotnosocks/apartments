@@ -1,46 +1,37 @@
-# Rents site: estimates and research
+# Rents site
 
-http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500, the old research dashboard's
-address, so its links keep working).
+http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500).
 
-One site in two sections, with shared navigation and style (Ben, 2026-10-01: "one site, two
-sections"). **Estimates** shows the served drift model's held-out estimates, and the scraped
-listings' histories.
-**Research** shows how candidate models are compared and which one is served. It replaces the old
-static research dashboard.
+The site shows the served drift model ([model/drift.md](model/drift.md)) in four sections with
+shared navigation and style: **Deals**, **Estimates**, **Workbench** and **Tags**. Each section
+reads a folder under the site root, written by a publish step of the model.
 
 Each estimate comes from a fit that never saw the ask it is compared with: the newest ad of each
 apartment is held out of the fit on the latest split, and the ads on the market out of the fit on
-the market split ([leak-free scoring](leak-free-scoring.md)). The gap between ask and estimate is
-therefore a fair signal of over- or under-pricing.
+the market split ([leak-free scoring](leak-free-scoring.md)).
 
 ## Pages
 
-- **Home** (`/`): the served model with its place on the board, coverage, entry points to both
-  sections, and the latest merged changes and model switches.
-
 ### Deals
 
-- **Deals** (`/deals`): the ads on the market on the scoring day, ranked by how low each ask sits
-  in the served model's predictive range for that apartment (`apartments.site.deals`). The page
-  reads only the `deals/` folder that `python -m rentfrontier.drift_deals publish` last wrote
-  (`deals.json`, `meta.json`, `validation.json`), so it shows the last publish and never a
-  half-written one. Ads with a caution (`rentfrontier.cautions`) are left out unless asked for.
-  Publish only from a fit that passed the gate, with its backtest. Since 2026-11-10 it is
-  published from `drift-building` ([model/drift.md](model/drift.md)).
+- **Deals** (`/`, and `/deals` for the same page): the ads on the market on the scoring day,
+  ranked by how low each ask sits in the served model's predictive range for that apartment
+  (`apartments.site.deals`). The page reads the `deals/` folder that
+  `python -m rentfrontier.drift_deals publish` last wrote (`deals.json`, `meta.json`,
+  `validation.json`), so it shows the last complete publish. Ads with a caution
+  (`rentfrontier.cautions`) are left out unless asked for. Publish only from a fit that passed
+  the gate, with its backtest. A link that changes the order starts again at the first page.
 
 ### Estimates
 
-Since 2026-11-10 the Estimates section shows the served model's held-out estimates (Ben chose
-to rebuild it on `drift-building`, without the earlier model's per-listing dollar parts, its
-estimate form and its rent map). `python -m rentfrontier.drift_estimates publish LATEST_RUN
---market MARKET_RUN --registry REGISTRY --out <root>/estimates` writes `estimates.parquet`, one
-row per ad a fit held out, and then `meta.json` (the model, the two runs and their convergence
-gates, the latest fit's held-out scores, the counts, and the table's sha256). A row's `source`
-is `latest`, a past ad that is the newest ad of its apartment, whose final ask the fit on the
-latest split never saw, or `market`, an ad on the market on the scoring day, held out by the
-fit on the market split. An apartment's earlier ads have no estimate: the fits learned from
-their asks. Both runs must be fits of one model that passed the gate.
+`python -m rentfrontier.drift_estimates publish LATEST_RUN --market MARKET_RUN --registry
+REGISTRY --out <root>/estimates` writes `estimates.parquet`, one row per ad a fit held out, and
+then `meta.json` (the model, the two runs and their convergence gates, the latest fit's held-out
+scores, the counts, and the table's sha256). A row's `source` is `latest`, a past ad that is the
+newest ad of its apartment, whose final ask the fit on the latest split never saw, or `market`,
+an ad on the market on the scoring day, held out by the fit on the market split. An apartment's
+earlier ads have no estimate: the fits learned from their asks. Both runs must be fits of one
+model that passed the gate.
 
 `apartments.site.estimates` reads only that folder. It refuses a table whose sha256 is not the
 one in `meta.json` (the pages answer 503 until the next publish), hashes a table once per file
@@ -50,181 +41,78 @@ version, and queries it with DuckDB: one connection per process, one thread, 256
   gates, held-out accuracy (the median error as a percent of the ask, `exp(x) - 1` of the
   log-scale median absolute error, and how often the 50/80/90/95% ranges held the asks against
   what they are meant to), the counts, and links to the list, the CSV and Deals.
-- **Listings** (`/listings`): the estimates, 50 a page, filtered by address or building,
+- **All held-out ads** (`/listings`): the estimates, 50 a page, filtered by address or building,
   neighbourhood (grouped by borough when there are several), bedrooms, ask range, years and
   which ads (`status`: all, `current` for the ads on the market, `past` for the latest fit's),
   and ordered newest first, by the ask against the model (`sort=low` or `high`, by
-  `below_share`) or by the ask. The earlier page's query keys still work (`sort=diff_pct`
-  reads as `low`, with `order=desc` as `high`). Each row has the ask, the model's middle
-  estimate, its 80% range, where the ask sits ("lower than 95%" of the asks the model would
-  expect) and links to the estimate's page and to StreetEasy. With a filter, a line sums up
-  the matches: count, median ask, median of the model's medians, and the share of the past
-  ads inside the 80% and 95% ranges.
+  `below_share`) or by the ask. Each row has the ask, the model's middle estimate, its 80%
+  range, where the ask sits ("lower than 95%" of the asks the model would expect) and links to
+  the estimate's page and to StreetEasy. With a filter, a line sums up the matches: count,
+  median ask, median of the model's medians, and the share of the past ads inside the 80% and
+  95% ranges.
 - **CSV** (`/listings.csv`, the same query string): every column of the table, streamed in
   chunks of 5,000 rows.
 - **Estimate** (`/listings/<listing id or audit id>`): the ask against the model's middle
   estimate and its 50/80/95% ranges (drawn as nested bands), where the ask sits in words, how
   many of the apartment's earlier ads the model learned from (none makes it a new apartment to
   the model, with a wider range), the fit and run that made it, and links to StreetEasy and
-  Street View. An ad with no estimate answers 404 and says why; a quarantined ad of the
-  Oct 19 build keeps its page explaining why it was left out.
-- **Retired:** the estimate form (`/estimate`) and the rent map (`/estimates/map`,
-  `/estimates/map.json`) came from the earlier model and answer 410 Gone, pointing to the list
-  and Deals.
-- Without an `estimates/` folder the three pages answer 503 "No estimates have been published
-  yet."
+  Street View. When `diagnostics/` is published, the page adds the ad's facts, its flags and the
+  building's ads, and the building's name links to its Workbench page when the Workbench has
+  the building. An ad with no held-out estimate answers 404.
+- **Hoboken and Jersey City** (`/new-jersey`, `/new-jersey.csv`): observed asks with no model,
+  read from the `observed` table of `current/site.sqlite`. Without that file the page is empty.
+- **How it works** (`/about`): the model in a few paragraphs, with its terms, gates, coverage and
+  counts from `diagnostics/meta.json`, then how to read a held-out estimate, the range bar on
+  Deals, the cautious saving, a miss on the Workbench, and tags. Without `diagnostics/` the page
+  leaves the figures out and says so.
+- Without an `estimates/` folder the overview, the list and the estimate pages answer 503 "No
+  estimates have been published yet."
 
-The pages below still read the Oct 19 `site.sqlite` (the earlier m7 line, which missed its
-convergence gate) for listing histories: units, buildings, Best for you, Left out, the New
-Jersey listings and the research story. Their links to `/listings/<audit id>` open an
-estimate's page when the ad has one and a 404 otherwise.
-
-- **Unit:** asks and estimates of each of its listings over time.
-- **Best for you** (`/best`, `apartments.site.best`): current listings ranked by a renter's
-  preference sheet, with pluses and minuses per listing.
-  - Pills (the Pluses and Minuses columns) are only for terms in the served rent model (Ben,
-    2026-10-07). No pill for a feature that is not systematic across listings, and never one for a
-    hand-labelled single listing.
-  - Other facts are informational notes under the listing, in neutral grey, with no plus or minus
-    and not counted in the fit: commute (#355, #384) and the bed size an ad states (#362).
-- **Buildings** (`/buildings`, searchable and sortable) and **building** pages:
-  - level against a building with the same listed features, with its 95% interval, and the yearly trend for designs with
-    a building trend (walk designs show the level only);
-  - the median ask against estimate;
-  - MapPLUTO facts;
-  - ask against estimate over time for every listing;
-  - its units and listings.
-- **Quarantined listings** (`/quarantined`, and a section on each building and unit page): the
-  listings the selected fit's data rules leave out (its `quarantine-vN` review file). Each
-  shows the review's reason, the ad's own words or the MapPLUTO record behind it, and no estimate.
-  A quarantined listing's URL (`/listings/<audit id>`) opens a page that explains why. A building or unit with only
-  quarantined listings redirects to its list. Quarantined listings are not in the listings search
-  or any estimate statistic; the home page and the Estimates overview count them.
-- **How estimates work** (`/about`): for renters. What an estimate is and is not, calibration by
-  estimate type, and why some listings are left out.
-
-Neighbourhoods: every listing and building carries one (the summary's `neighbourhood` per row,
-else the dataset's, else the build's `--scope`, or "Chelsea" when no `--scope` is given). Without
-`--scope` the site's name for the area comes from the listings' neighbourhoods ("Chelsea and West
-Village"; `build.scope_of`). Past twelve names, `boroughs.scope_words` gives the boroughs instead
-("Manhattan and Brooklyn"). Pages use that name where they describe the data's coverage; the site's
-title, header and home heading read "NYC Rents" whatever the scope. Where every neighbourhood is meant (the
-home heading, titles and all-choice), a build with several
-names them by count ("all eight neighbourhoods", "All neighbourhoods"), not as a list. The listings and buildings pages show a
-neighbourhood filter, and tables and building pages name the neighbourhood, only when a build covers
-more than one, so a Chelsea-only build looks as before. Older builds without the column are served
-without the filter.
-
-When a build covers neighbourhoods in more than one borough, the filter groups its choices by borough
-(`boroughs.BOROUGHS` maps the scrape's StreetEasy names). Each group opens with a whole-borough
-choice ("All of Brooklyn"), and `nb=Brooklyn` filters listings and buildings to the borough's
+When a publish covers neighbourhoods in more than one borough, the filters group their choices by
+borough (`boroughs.BOROUGHS` maps the scrape's StreetEasy names). Each group opens with a
+whole-borough choice ("All of Brooklyn"), and `nb=Brooklyn` filters to the borough's
 neighbourhoods.
 
-### Research
+### Workbench
 
-- **Frontier** (`/research`): every fit of one hardware class (default: the RTX 2060, the served
-  model's), with these parts:
-  - accuracy (PSIS-LOO ΔELPD) against fit time on the full dataset, with Ben's window (a full fit
-    within 2 hours, drawn when fits reach it; exploratory subset fits within 30 minutes). A design
-    measured at several draw counts is joined by a line, its best-measured fit solid and the others
-    faded; the tables give each fit's draws;
-  - how elegance enters (judged in pairs, so it has no chart) and how many pairs are judged;
-  - the frontier fits in a table, with whether each can be served and why not;
-  - every fit in a table view;
-  - when the research data has an `exploration` block, the current exploration: its goal, data,
-    the tier legend and the modeling notes, with a count of exploration fits.
+`python -m rentfrontier.drift_diagnostics publish` writes `diagnostics/` (`ads.parquet`,
+`buildings.parquet`, `history.parquet`, `meta.json`). `apartments.site.workbench` checks the
+tables' sha256 against `meta.json` and queries them with DuckDB.
 
-  The marks are served, on the frontier, other, fails the convergence checks, and subset; full fits
-  are circles and exploration fits diamonds (a key explains both), and the tables tag exploration
-  fits. The frontier line is drawn from gate-passing fits only; exploration fits that fail the gate are
-  shown as points off the line (Ben, 2026-10-04). Frontier
-  membership and the best come from the board's own snapshots, so "board as of" shows the
-  frontier as it stood at the end of any day with results. Subset fits (a `tune…` part in the run
-  name, for example `nb-tune35`) are exploration only. They are hidden unless asked for, and never
-  servable. Fits far below the rest (the mean-only baselines) are drawn at the chart's floor
-  unless "the full accuracy range" is ticked.
-- **Board** (`/research/board`): every fit on the board with its accuracy, fit time, its judged
-  elegance pairs counted in words ("more elegant than 1, less elegant than 2"), its effective
-  number of parameters (p_loo, sortable), checks, whether it can be served and why not, and when it landed. Filters are hardware, model
-  line, a search over design, features and commit, "only servable", "subset fits" and the tier (both, full or exploration); columns sort.
-  Servable is yes only when the research data says so (autoselect's `why_not_served`). Otherwise a
-  fit that fails the checks is "no", and anything else is "not known yet".
-- **Fit** (`/research/fits/<key>`): one fit's headline numbers, what its design does (below), whether it can be served and why
-  not, the judge agents' elegance verdicts against other designs with their
-  reasons, the board's note and annotations, the sampler and run, the accuracy in detail (ELPD, Pareto
-  k, the held-out check), each split's diagnostics, and where the variation in rents goes. An
-  exploration fit's page says what that means, gives its draws and chains, and links any full fits of
-  the same design (same model, features and data rules), newest first. Every
-  dot on the research charts and every fit in their tables links here.
-- **What the model does** (on each fit's page and the served model's, `apartments.site.anatomy`): the
-  design drawn from the `ModelConfig` its run recorded, with no hand-written per-design text:
-  - a plate diagram in HTML and CSS: market, building, apartment and listing boxes, each holding its
-    parts with their settings, and the parts the design leaves out drawn dashed;
-  - the log-rent equation in MathML (rendered by the browser, no script), one line per level, each
-    term its own element so a narrow screen wraps between terms;
-  - a table of every part: its term, a plain sentence, its prior and its number of parameters (from
-    the run's data sizes), which is also the text alternative to the diagram and equation;
-  - on a fit's page, how its design differs from the served one ("drops building drift over time").
-  Old PyMC screens record no structure and say so. A config field the module does not describe shows
-  as "other option"; `tests/site/test_anatomy.py` reads ModelConfig's fields from the frontier source
-  and fails until each one is described or listed as a prior or sampling setting.
-- **Designs** (`/research/designs`): every design on the board as a row of the same parts (tick and
-  setting, or a dash), the served design first and then by best PSIS-LOO; each links to its best fit's
-  structure. Below it, how each design differs from the served one, in words.
-- **History** (`/research/history`):
-  - the best fit's accuracy over time on one hardware class (the board's own replay);
-  - each fit's fit time by the day it landed;
-  - cumulative hours of fitting by model line (custom samplers, NumPyro NUTS, PyMC);
-  - every merged change and model switch.
-- **Validation** (`/research/validation`):
-  - each fit's PSIS-LOO score against its genuine held-out score, with their rank correlation
-    (the simple baselines far below the rest are left out of the chart and counted);
-  - where the variation in rents goes for the frontier fits;
-  - the same design fit with different samplers;
-  - the unit split (unseen apartments).
-- **Data quality** (`/research/data`): listings in the data and in the served fit, every data rule in
-  plain words with whether the served model uses it, the listings each review rule leaves out by
-  reason, and a link to them on the Estimates side.
-- **Plan** (`/research/plan`): `docs/research-plan.md` rendered with a contents list. It is read from
-  the research-data checkout, which follows master (`/data1/apartments/serve/master`; `RESEARCH_PLAN`
-  overrides it), so it is current between site deploys. Raw HTML in the source is escaped, not
-  rendered; repository links open on GitHub.
-- **Elegance** (`/research/elegance`): Ben's elegance target (2026-10-01; it replaced renter simplicity)
-  in the modeling session's words, and every judgement under its brief (`elegance_judgements`), newest
-  first: the two designs (linked to their fits), the verdict and reason, whether the two judges
-  agreed (if not, the pair counts as equal), and each judge's own answer. Pairs the automatic
-  selection is waiting on (`autoselect.pending_judgements`) are listed first.
-- **Glossary** (`/research/glossary`): every research term in plain words, with anchors the pages
-  link to.
-- **Served model** (`/research/model`):
-  - why it is served: the selection's own reason, and the latest automatic decision when the research
-    data carries it (`autoselect`), with each checked fit's elegance against the served one and the
-    pairs waiting for a judgement;
-  - its place on the board: PSIS-LOO ΔELPD, the held-out check, fit time, elegance, effective parameters, frontier and
-    gate;
-  - the fit's provenance, the parts of an estimate, and every feature coefficient.
+- **Overview** (`/workbench`): calibration of the held-out ranges, the attributes with the
+  largest misses, and the detector flags.
+- **Signals** (`/workbench/signals`, `/workbench/signals/<feature>`): the held-out miss by each
+  attribute's levels.
+- **Triage** (`/workbench/triage`, `/workbench/triage.csv`): the held-out ads ordered by miss.
+- **Buildings** (`/workbench/buildings`, `/workbench/buildings/<building>`): each building's
+  level and its held-out ads.
+
+### Tags
+
+- **Tags** (`/tags`, `/tags.jsonl`, `/tags.csv`): the ledger of readings of ads
+  (`apartments.site.tags`): a confirmed deal, a data error, or something the model has no term
+  for. A form on the listing page posts to `/tags`, and `append` adds a JSON line to
+  `tags/tags.jsonl` under a file lock. When the file ends partway through a line, `append`
+  writes a newline first, so each record stays on a line of its own.
 
 ### Service pages
 
-- `/healthz` (JSON: status, build, run, listing count) and `/robots.txt` (disallow all).
-
-"Below typical" and "above typical" mean the ask is in the lowest or highest 10% of the model's
-leave-own-row-out predictive distribution for that apartment (PIT < 0.1 or > 0.9). About 10% of
-listings fall in each band, as calibration predicts.
+- `/healthz` (JSON: status, model, scoring day, and the counts of deals and estimates; 503 when
+  neither table is published) and `/robots.txt` (disallow all).
 
 ## Data flow
 
 1. **Estimates.** The Estimates pages read `<root>/estimates/`, which
    `python -m rentfrontier.drift_estimates publish` writes from a passing pair of drift fits
-   (above). The rest of this section is the older path that made the Oct 19 `site.sqlite`,
-   which the unit, building and other listing-history pages still read:
+   (above). The rest of this section is the path that makes `site.sqlite`, whose `observed`
+   table the Hoboken and Jersey City page reads:
    `python -m rentfrontier.summary <run>` (frontier package; see
    [listing estimates](model/listing-estimates.md)) writes a summary bundle under
    `/data1/apartments/frontier/summaries/`. Only runs that pass the convergence gate are accepted.
 2. **Publish.** After an autoselect switch is merged and deployed, `ops/autoselect-publish.sh`
    runs the three publish steps for the served run: the rent map (`rentfrontier.rentmap`), the
-   estimate kit (`rentfrontier.kit`, which the build checks and prices captures with; the
-   form that read it is retired) and the site build below. Each step keeps an
+   estimate kit (`rentfrontier.kit`, which the build checks and prices captures with) and the
+   site build below. Each step keeps an
    output that already exists for the run and commit.
    `python -m apartments.site build` publishes the summary that `config/main-analysis.json`
    selects (checked against the selection's sha256); `--summary <bundle>` publishes another one. It writes one SQLite snapshot and
@@ -236,8 +124,7 @@ listings fall in each band, as calibration predicts.
      missing from the bundle must be one of their rows, and it goes into the quarantined table.
 
    It refuses a run that fails the gate unless the selection records a decision to serve it anyway
-   (`gate_override`: who decided, when, and why). The home page and /research/model then say the
-   sampler did not fully settle and who chose to serve the model. It writes
+   (`gate_override`: who decided, when, and why). It writes
    `/data1/apartments/site/builds/<stamp>/site.sqlite` and `build.json`, swaps the `current` symlink
    atomically, and keeps the newest three builds, or only the new one when its database is over
    4 GB. It takes
@@ -253,7 +140,7 @@ listings fall in each band, as calibration predicts.
    stream, and pricing the pipeline's current ads reads only the ads' own buildings and units,
    with the relisting centre worked out once from every listing. It works out the research
    story's held-out accuracy, rent jumps, unit examples and border medians into meta
-   (`story_checks`), so the server reads them instead of scanning every listing. The fit of
+   (`story_checks`). The fit of
    297,273 listings takes 4:36 with a peak of 3.8 GB (7.5 GB before streaming). The all-scraped
    fit (1,755,430 listings in Manhattan and Brooklyn, 2026-10-17) takes 48:39 with a peak of
    5.2 GB and writes a 10.3 GB `site.sqlite`, 7.2 GB of it the `listings` table and 2.1 GB the
@@ -268,7 +155,7 @@ listings fall in each band, as calibration predicts.
    by a column scan) and copies them from `rows.parquet` into
    `detail.parquet` beside `site.sqlite` (`apartments.site.detail`). The copy is sorted by
    `audit_id` in row groups of 8,192, with each row's parts in a single list column, and
-   `meta.stats.detail` records its rows and bytes. The listing page and /research/story then read
+   `meta.stats.detail` records its rows and bytes. `detail.lookup` reads
    a listing's parts from it through one DuckDB connection per process (one thread, 128 MB),
    cached by the bundle's sha and the audit id. Ads priced from the kit keep their parts in the
    table. On the eight-neighbourhood build the file holds 135 MB in place of 547 MB of JSON, and
@@ -280,12 +167,12 @@ listings fall in each band, as calibration predicts.
    atoms and a noise group per row in place of the likely ask ranges, plus `noise.json`. For
    such a bundle the build copies the atoms into `ranges.parquet` (sorted by `audit_id`, rows
    with atoms only) and `noise.json` beside `site.sqlite`, and `meta.stats.ranges` records the
-   rows and bytes. The listing page and /research/story work out a listing's 95% and 80% ranges
-   from its atoms (`apartments.site.ranges`) when the table holds none, cached by the bundle's
+   rows and bytes. `apartments.site.ranges` works out a listing's 95% and 80% ranges
+   from its atoms when the table holds none, cached by the bundle's
    sha and the audit id; rows from a summary chunk that fell back to the exact solve keep their
    ranges in the table. The kit's scoring check reads its reference ranges the same way, for the
-   few hundred rows it scores. A listing with no atoms or no noise table for its group shows no
-   range. The lists show no ranges for these rows (Ben, 2026-10-17).
+   few hundred rows it scores. A listing with no atoms or no noise table for its group has no
+   range.
 
    With `SITE_KIT_ON_REQUEST=1`, which `ops/autoselect-publish.sh` also sets unless the caller sets
    it to another value, the build leaves the `kit_buildings` table empty and copies the
@@ -295,8 +182,9 @@ listings fall in each band, as calibration predicts.
    bytes and whether it came out sorted. `estimate_build.building` reads a building's draws from
    it through DuckDB. On the all-scraped kit the file holds 421 MB in place of 2.08 GB of JSON,
    the copy takes 12 s with 0.3 GB resident, and a lookup takes about 55 ms.
-3. **Serve.** The app opens `current/site.sqlite` read-only (immutable) on each request, and
-   reads `estimates/` and `deals/` by their files' versions, so a publish needs no restart.
+3. **Serve.** The app reads `deals/`, `estimates/` and `diagnostics/` by their files' versions,
+   so a publish needs no restart. A request for the Hoboken and Jersey City page opens
+   `current/site.sqlite` read-only (immutable).
 4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
    `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
    `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
@@ -307,15 +195,13 @@ listings fall in each band, as calibration predicts.
    can), and its `tier` (`rentfrontier` fit tiers: `{name: "exploration" | "full", draws, warmup,
    chains, subset}`; none means full). Exploration fits are research points (on the frontier only when they pass
    the gate) and are never served; a fit with a `subset` has no PSIS-LOO score on the full data and shows in tables only. The
-   top-level `exploration` (goal, dataset, baseline, a legend of `tiers` and `notes`) heads the
-   frontier page. The top-level `autoselect` is autoselect's decision
+   top-level `exploration` holds the goal, dataset, baseline, a legend of `tiers` and `notes`.
+   The top-level `autoselect` is autoselect's decision
    on the current board against the served run: keep or switch, the reason, the eligible fits and
-   every fit checked; an error note replaces it if a pairing fails. The site reads `/data1/apartments/dashboard/site/data.json` (`RESEARCH_DATA`
-   overrides it) and keeps the parsed copy until the file behind the symlink changes. Without it,
-   the research parts of a page are left out. When the publish comes from the repository's
+   every fit checked; an error note replaces it if a pairing fails. The build writes
+   `/data1/apartments/dashboard/site/data.json`. When the publish comes from the repository's
    selection, the build also stores the selection's reason (`selected_by`, `selection_reason`, `gate_override`).
 
-The research data is live: new fits appear without a deploy (Ben, 2026-10-01).
 `apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance
 shares land (a new directory in `/data1/apartments/frontier/runs`, `loo`, `variance` or `rescores`), and
 `apartments-dashboard-build.timer` every 10 minutes as a fallback. The script waits a minute for a
@@ -323,7 +209,7 @@ burst of files to settle, then builds only if a finished record or master change
 build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
 meanwhile. The build reads run records, per-row LOO scores and the current dataset, without draws, and runs as a light job (see
 [thelio-jobs.md](thelio-jobs.md)), on the light CPUs at idle CPU and I/O priority (about 4 minutes of one core and 1.6 GB, under a 2.5 GB cap with no swap; a skip takes a second). Each build is a
-new directory with the `site` symlink swapped atomically, so a page never reads a half-written file.
+new directory with the `site` symlink swapped atomically, so a reader gets a complete file.
 
 Publishing on thelio is a light job ([thelio-jobs.md](thelio-jobs.md)):
 
@@ -340,8 +226,6 @@ mv -T current.new current` in `/data1/apartments/site`.
 
 - **Unit:** `ops/systemd/apartments-site.service`, installed to `~/.config/systemd/user/`.
   - Waitress (8 threads) on `100.80.84.126:8600` and `127.0.0.1:8600`, MemoryMax 3G.
-    After the story page scans every listing in a ten-neighbourhood build, the process peaks
-    near 2.8G.
   - It accepts only the Host names `localhost`, `127.0.0.1`, `[::1]`, `thelio`,
     `thelio.tail3983e0.ts.net` and the tailnet IP. Any other Host gets a 400.
   - It retries until the Tailscale address is up after a boot.
@@ -371,28 +255,12 @@ mv -T current.new current` in `/data1/apartments/site`.
   ```
 - **Logs:** one access line per request (client, method, path, status, milliseconds) in the journal:
   `journalctl --user -u apartments-site -f`.
-- **Column reads:** the site appends a JSON line per request to `/data1/apartments/site/reads.jsonl`
-  with the route, the client, the table.column names its statements read and the result columns
-  the code used (`src/apartments/site/reads.py`). We use it to find outputs no page reads.
-  A row read whole (iterated, or turned into a dict) counts all its columns, so the log errs
-  toward keeping a column. The file has no rotation; we delete it when the measurement ends.
-  `SITE_READS_LOG=0` in the unit turns it off; another path in it moves the log.
-  When the log and a search of the code and templates find no reader for a column, we stop
-  writing it. On 2026-10-17 that took out the market table's `rent_lower` and `rent_upper`
-  (the /estimates chart draws the deseasoned band) and the quarantined table's `listing_id`
-  (its pages link the ad through `listing_url`). The summary then stopped writing the two
-  columns behind the market bounds, `reference_rent_lower_95` and `reference_rent_upper_95`, and
-  the building table's `fit_units`, which no step read.
-- **Ranges in lists:** the listing tables of building pages leave out each listing's likely
-  ask range (`pred_lower_80`, `pred_upper_80`). `SITE_LIST_RANGES=1`
-  in the unit puts the column back while we watch the log; once nobody needs it, we delete the
-  flag and its template branch.
 - **Stop:** `systemctl --user disable --now apartments-site`.
 
 ## Production properties
 
-- **Read-only.** The database is opened with `mode=ro&immutable=1`, SQL is parameterized, and sort
-  columns come from fixed lists. Invalid filter values are ignored rather than turned into errors.
+- **Read-only, apart from the tags ledger.** The database is opened with `mode=ro&immutable=1`,
+  SQL is parameterized, and sort columns come from fixed lists. Invalid filter values are ignored rather than turned into errors.
 - **Headers:**
   - a strict Content-Security-Policy (`default-src 'self'`, no inline script or style);
     `X-Frame-Options: DENY`; `nosniff`; `Referrer-Policy: same-origin`;
@@ -403,9 +271,8 @@ mv -T current.new current` in `/data1/apartments/site`.
 - **Charts** are server-rendered SVG with a table or table view beside each. A small script
   (`static/site.js`) adds hover and keyboard readouts, and the pages work without it. Light and
   dark themes follow the system setting.
-- **Paging.** Every sort key has an index ending in the row id, and a page selects its ids first,
-  then fetches the full rows. Any page of any sort takes tens of milliseconds, not a whole-table sort.
-- **Tests:** `tests/site/`. A small bundle, dataset and registry go through the real builder, then
-  every route is checked: filters, sorting, CSV, escaping of source text, headers, Host checks,
-  gzip, ETag, 404 and 503, and a publish being picked up without a restart. A query-plan test
-  keeps every sort on an index.
+- **Tests:** `tests/site/`. Fixtures write small `deals/`, `estimates/` and `diagnostics/`
+  folders, and a small bundle, dataset and registry go through the real builder. The tests then
+  check the routes: filters, sorting, CSV, escaping of source text, headers, Host checks, gzip,
+  ETag, 404 and 503, a publish being picked up without a restart, and every `url_for` name in
+  the templates against the app's views.
