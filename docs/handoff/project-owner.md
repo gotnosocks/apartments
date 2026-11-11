@@ -6,15 +6,33 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## Outlier sprint, state at 2026-11-11 22:40Z
+## Outlier sprint, state at 2026-11-11 23:00Z
 
 Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
 sprint ends about 2026-11-12 18:55Z. The findings are in
 [the sprint note](../notes/outlier-sprint-2026-11-11.md), and scratch work is in
 `/data1/apartments/tmp/outlier-sprint/`.
 
-- **Merged:** the ledger corrections (#1307), `b0income` (#1309), the closing-ask results
-  (#1310) and the sprint note (#1311).
+- **Merged:** the ledger corrections (#1307), `b0closing` (#1308), `b0income` (#1309), the
+  closing-ask results (#1310), the sprint note (#1311), the walk's slow hyperparameters
+  (#1313), the causes of the off-day price changes (#1314) and the pass 2 ledger (#1315).
+- **The closing rewrite stands** on the causal test in
+  [the closing note](../notes/closing-asks-2026-11-11.md): the off-day prices sit on an ad for
+  less than a day and are mostly lease terms (net to gross about 41%, signed rents about 30%).
+  The reader calls are mostly low confidence. I suggest keeping the off-day price as a column
+  beside the closing ask for a later study of paid rents. Working files are in
+  `/data1/apartments/tmp/outlier-sprint/cause/` (`reads.parquet` has the 100 weighted reads).
+- **Pass 2 reads:** 600 ads in `/data1/apartments/tmp/outlier-sprint/p2/reads/b_*.jsonl`, with
+  the 94 proposals in `p2/actions.parquet`. 59 are in the ledger (#1315). Two problems found
+  outside the proposals are not fixed: 5074720 has a $4,000 ask set on its closing day, and
+  4760220 is coded 2 full baths though its text says 1.5.
+- **Commercial and room screen** (`/data1/apartments/tmp/outlier-sprint/nonres/matches2.parquet`):
+  no pipeline rule. The matches in the diagnostics sit near zero gap, and the clear commercial
+  outliers are already excluded in the ledger.
+- **Text flags for every row** are in `/data1/apartments/tmp/outlier-sprint/qual/flags.parquet`
+  (1,893,800 rows, 31 flags from `features.DESCRIPTION_FLAGS` plus penthouse, townhouse, full
+  floor, view, garden level and others; `qual/scan.py`). They are not yet joined to the
+  diagnostics' gaps.
 - **No Modal fits until the sprint ends** (Ben, 2026-11-11 22:07Z). He stopped c2 before
   its first container. The unit `outlier-c2` is stopped, and no Modal unit or timer is
   pending. c2 and the income fit are in `docs/TODO.md` with their predictions, and a
@@ -34,8 +52,9 @@ sprint ends about 2026-11-12 18:55Z. The findings are in
 
   `compare_c1.py` is a scratch script in `/data1/apartments/tmp/outlier-sprint/`. It
   compares two runs' `pred_scores.npz` on the held-out ads whose target is unchanged.
-- **Leads not started:** a Student-t unit level, wider noise for large units, splitting unit
-  records shared by two apartments, a text rule for commercial spaces and rooms.
+- **Leads not started:** the residuals by text flag, a Student-t unit level, wider noise for
+  large units, splitting unit records shared by two apartments, the prior-ask and large-unit
+  clusters, and the prev_day disagreements.
 
 ## Manhattan doorman fit, 2026-11-11 06:50Z
 
