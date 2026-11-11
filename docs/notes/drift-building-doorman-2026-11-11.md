@@ -74,3 +74,10 @@ The fit is the latest split of b9, as three H100 containers of 2 chains,
 7. $11 to $12 for the three containers.
 
 If the pool passes and wins, the market and backtest fits follow so Deals can switch.
+
+**As launched.** From master `cb94a194`: `drift-building-doorman-b0-latest-cb94a194-d1a`
+(seed 1) at 05:18Z and `d1b` (seed 2) at 05:25Z, on b9's input and dataset. Ben set a
+$10 limit for the night at 05:07Z, and a third container would take the night's spend to
+about $11, so the pool is two containers (4 chains) and seed 3 was not launched. Prediction 7
+becomes $7 to $8 for the two containers. Four chains of b9's length give a least bulk ESS
+near 900 if they mix as b9's did, which clears the gate's 400.
