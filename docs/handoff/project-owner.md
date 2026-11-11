@@ -6,7 +6,7 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## Outlier sprint, state at 2026-11-12 00:10Z
+## Outlier sprint, state at 2026-11-11 21:15Z
 
 Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
 sprint ends about 2026-11-12 18:55Z. The findings are in
