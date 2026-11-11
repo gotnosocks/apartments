@@ -33,7 +33,9 @@ changes. The copy is `/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-al
 
 The build read all 1,896,471 listings from the records file in 4 minutes at a 2.1 GB peak. It
 changed 104,330 rows. In 72% of them the closing change was a raise, and the median change
-dropped from the target is +4.6%. On the latest split, 10,943 of the 189,647 held-out ads
+dropped from the target is +4.6%. Each changed row takes the day of its new
+change, or its own day for the 7,537 rows whose new change came before it, as `b0data` dates
+a `latest` ask. On the latest split, 10,943 of the 189,647 held-out ads
 (5.8%) change, with a median of +3.6%. Both datasets hold out the same ads, since the split
 reads only the unit, the date and the audit id.
 

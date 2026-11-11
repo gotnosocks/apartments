@@ -45,7 +45,7 @@ def src(tmp_path):
             {
                 "listing_id": list(records),
                 "listing_type": ["rental"] * 4,
-                "collected_at": [1, 1, 1, 1],
+                "last_collected_at": [1, 1, 1, 1],
                 "raw_listing_json": list(records.values()),
             }
         ),
@@ -56,6 +56,9 @@ def src(tmp_path):
             "listing_id": ["1", "2", "3", "4", "5"],
             "latest_ask": [3400.0, 2800.0, 2750.0, 2100.0, 1500.0],
             "latest_ask_how": ["latest"] * 5,
+            "price_at": pd.to_datetime(["2024-01-25"] * 5, utc=True),
+            "latest_day": [pd.Timestamp("2024-02-01").date()] * 5,
+            "latest_day_how": ["change"] * 5,
         }
     )
     d = tmp_path / "src"
@@ -78,6 +81,10 @@ def test_closing_reprices_only_off_day_changes(src, tmp_path):
     assert rows.latest_ask.tolist() == [2900.0, 2800.0, 2750.0, 2100.0, 1500.0]
     assert rows.latest_ask_how.tolist() == [b0closing.HOW] + ["latest"] * 4
     assert manifest["closing"]["changed"] == 1
+    assert manifest["closing"]["dated_by_row"] == 1
+    # The kept change of 2024-01-20 falls before the row's day of 2024-01-25.
+    assert str(rows.latest_day[0]) == "2024-01-25"
+    assert rows.latest_day_how.tolist() == ["row, change before"] + ["change"] * 4
     assert manifest["closing"]["raised_share"] == 1.0
     assert manifest["rows_sha256"] == sha256(out / "rows.parquet")
     assert (src / "rows.parquet").read_bytes() == before

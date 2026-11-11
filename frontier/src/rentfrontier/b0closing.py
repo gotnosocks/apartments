@@ -23,7 +23,9 @@ The row then takes the last change kept with -1, the ad's last ask before its of
 day. I write OUT with:
 
 - `rows.parquet`: SRC's rows in SRC's order, with those rows' `latest_ask` replaced and their
-  `latest_ask_how` set to `latest, before off day`.
+  `latest_ask_how` set to `latest, before off day`. I date them as `b0data` dates a `latest`
+  ask: by the day of the new change when it falls on or after the row's day (`change`), and
+  otherwise by the row's day (`row, change before`).
 - `set_aside.parquet`: SRC's, copied.
 - `manifest.json`: SRC's manifest with `rows_sha256` updated, and a `closing` entry giving
   SRC's path and rows SHA-256, the rule, the rows changed and the median log change.
@@ -52,17 +54,19 @@ HOW = "latest, before off day"
 def last_asks(path: Path, ids: set[str]) -> pd.DataFrame:
     """For each rental listing in `ids`, the price of the last change `record_latest` keeps
     from its last capture in the records file `path`, with 7 days (`v9`) and with -1
-    (`v10`). A listing with no kept change gets NaN. I read a row group at a time, and its
+    (`v10`), and the day of the change kept with -1 (`d10`). A listing with no kept change
+    gets NaN and None. I take the capture with the latest `last_collected_at`, as the
+    pipeline does. I read a row group at a time, and its
     record texts only for the rows I keep, since the texts of the whole file run to tens of
     GB."""
     seen: dict[str, tuple] = {}
     file = pq.ParquetFile(path)
     for group in range(file.num_row_groups):
         head = file.read_row_group(
-            group, columns=["listing_id", "listing_type", "collected_at"]
+            group, columns=["listing_id", "listing_type", "last_collected_at"]
         )
         lid = [str(x) for x in head["listing_id"].to_pylist()]
-        at = head["collected_at"].to_pylist()
+        at = head["last_collected_at"].to_pylist()
         keep = [
             kind == "rental" and i in ids and (i not in seen or seen[i][0] < t)
             for i, kind, t in zip(lid, head["listing_type"].to_pylist(), at)
@@ -76,15 +80,15 @@ def last_asks(path: Path, ids: set[str]) -> pd.DataFrame:
         for (i, t), raw in zip(rows, raws["raw_listing_json"].to_pylist()):
             if not raw or (i in seen and seen[i][0] >= t):
                 continue
-            last = [
-                (record_latest(raw, days)["changes"] or [(None, np.nan)])[-1][1]
+            v9, v10 = (
+                (record_latest(raw, days)["changes"] or [(None, np.nan)])[-1]
                 for days in (STALE_DAYS, CLOSING_STALE_DAYS)
-            ]
-            seen[i] = (t, *last)
+            )
+            seen[i] = (t, v9[1], v10[1], v10[0])
         del raws
     return pd.DataFrame(
-        [(i, v9, v10) for i, (_, v9, v10) in seen.items()],
-        columns=["listing_id", "v9", "v10"],
+        [(i, *v) for i, (_, *v) in seen.items()],
+        columns=["listing_id", "v9", "v10", "d10"],
     ).set_index("listing_id")
 
 
@@ -114,6 +118,15 @@ def closing(src: Path, out: Path) -> dict:
     step = np.log(frame.latest_ask.to_numpy(float)[change] / new)
     frame.loc[change, "latest_ask"] = new
     frame.loc[change, "latest_ask_how"] = HOW
+    day = pd.to_datetime(frame.price_at[change], utc=True).dt.strftime("%Y-%m-%d")
+    d10 = frame.listing_id.astype(str)[change].map(asks.d10)
+    after = (d10 >= day).to_numpy()
+    frame.loc[change, "latest_day"] = [
+        pd.Timestamp(d).date() for d in np.where(after, d10, day)
+    ]
+    frame.loc[change, "latest_day_how"] = np.where(
+        after, "change", "row, change before"
+    )
     out.mkdir(parents=True, exist_ok=False)
     frame.to_parquet(out / "rows.parquet", index=False)
     shutil.copy(src / "set_aside.parquet", out / "set_aside.parquet")
@@ -126,6 +139,7 @@ def closing(src: Path, out: Path) -> dict:
             "dated before the off-market day (latest-ask-v10)",
             "listings_read": len(asks),
             "changed": int(change.sum()),
+            "dated_by_row": int((~after).sum()),
             "raised_share": round(float((step > 0).mean()), 4) if len(step) else None,
             "median_log_change": round(float(np.median(step)), 4)
             if len(step)
