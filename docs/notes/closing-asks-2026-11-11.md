@@ -153,6 +153,87 @@ variance and the walk's share of it, with `drift_tau`) would cut the autocorrela
 make a 4-chain fit's gate depend less on seeds. That is a change to the model, for a fit
 of its own.
 
+## The off-day changes, causally (2026-11-11 17:30 ET)
+
+Ben asked why the price an ad takes on the day it leaves the market should be dropped. A
+fit gain does not answer that, so I looked at the process behind the change, with free
+reads only. 104,330 rows change. 72% of the changes are raises (median +4.6%), 95% of
+listings have a single change on the off day, and that change is dated on the off day
+itself in nearly every case. The ask before it is a median 7 days old. So nearly all of
+these prices appear on an ad for less than a day, as it comes down.
+
+The status events within 3 days of the off day:
+
+| status | share | raises | median change |
+|---|---:|---:|---:|
+| rented | 52.8% | 79% | +6.3% |
+| no longer available | 28.6% | 54% | +0.2% |
+| delisted | 19.5% | 79% | +7.7% |
+
+The share of raises moves with the concession market, so I read most of them as lease
+terms and few as typing. In 2020 and 2021, when most new leases came with free months,
+82% to 84% of changes are raises, with a median of +11%. In 2014 to 2016 about half are. The off-day price is a multiple of $50 while the ask
+before it is not in 23.6% of changes, and the reverse holds in 5.9%. That pattern fits a
+lister replacing a computed net rent with the lease's round gross rent.
+
+I tested that reading with exact arithmetic. If the ask before is a net effective rent of
+a gross rent G with m months free on an L month lease, it equals G(L - m)/L. I tried L of
+12 to 16, 18 and 24 months with m from 0.5 to 4 months below L/3. Of the 69,016 raises
+over 0.5%, 28.3% match to within $1. Prices jittered at
+random match 11.5% of the time, so about 17% of raises (11,600 rows) are net to gross
+conversions beyond chance. The match rate runs 0.33 to 0.43 in 2014 to 2020 and falls to
+0.19 in 2026, with concessions. The records hold almost nothing structured about this:
+`rentedPrice` is set on 58 rows and `netEffectiveRent` on 8, and the record's price
+equals the off-day price in 98.4% of rows. Concession wording ("net effective", "months
+free", "gross") appears in 5% of the raises' ads.
+
+When the unit is listed again, its next ad asks near the off-day price: regressing the
+next ask on the two prices gives the off-day price a weight of 0.90 for raises, 1.08 for
+raises with an arithmetic match and 0.42 for cuts. These weights are not adjusted for the
+market's rise between ads, which favors the higher price of a raise, so I read them only
+as showing that the off-day price is a real number for the unit and not noise.
+
+A Sonnet reader judged 100 changes, drawn in six strata by direction, size and arithmetic
+match, from the unit's history, the building's other units and the ad text. The strata
+cover the 90,843 changes of more than 0.5%. I left out the other 13,487 (5,680 raises and
+7,807 cuts), since they barely move the target. Weighted by stratum size, the readers'
+mechanisms and the share of rows where they judged that the renter faced the off-day price:
+
+| mechanism | share | raises | cuts | renter faced the off-day price |
+|---|---:|---:|---:|---:|
+| net to gross | 40.9% | 39.1% | 1.8% | 14.3% |
+| signed rent | 30.4% | 18.7% | 11.7% | 25.7% |
+| ordinary change on the off day | 16.0% | 5.8% | 10.2% | 7.3% |
+| recording error | 2.7% | 2.6% | 0.1% | 0.7% |
+| relisting price | 2.6% | 2.5% | 0.1% | 1.2% |
+| typo | 0.1% | | 0.1% | 0.1% |
+| unclear | 7.4% | 7.2% | 0.2% | |
+
+Of the 100 calls, 58 are low confidence, and the only high ones are 7 net to gross
+cases. Many of the other net to gross calls rest on the ratio alone. The signed rents are mostly rented ads
+that move by a negotiated amount on the rented day, like 4203881, listed at $6,850 and
+rented the next day at $5,850 while the building's other 1BRs asked $6,070 to $7,600.
+
+### Conclusion
+
+The rewrite should stand, for every mechanism. The model's target is the ask: the last
+price on the ad while a renter could still answer it. On the readers' calls, about 71% of
+these off-day prices are lease terms, either the gross rent behind a net ask or a rent
+signed after negotiation. The readers often judged that the renter faced that price
+under the lease, in 49% of the weighted rows, but it stood on the ad for less than a day
+as the ad came down, so almost no renter could have answered it as an ask. Another 16%
+are asks entered on that same last day, and 5% are recording errors, relisting prices and
+typos. The calls are uncertain: 58 of 100 are low confidence and 7.4% are unclear. The
+conclusion holds without the mechanism calls, because it rests on the timing more than on the
+mechanism. Limiting the rewrite to the exact net to gross matches would keep the signed
+rents, which are not asks either, and the arithmetic finds only about 17% of raises
+beyond chance.
+
+On the readers' calls, the off-day price is a signed rent in about 30% of the 90,843
+rows. Signed rents are the only record in the project of what renters pay. I would keep
+the off-day price beside the closing ask in the closing dataset, as data for a study of
+paid rents against asks, but not as the target.
+
 ## The 6-chain fit (c2), not launched
 
 On 2026-11-11 Ben stopped c2 before its first container and ruled out Modal fits for the
