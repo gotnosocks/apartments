@@ -3,7 +3,9 @@
 Readers tag an ad as a confirmed deal, a specific data error, or a low or high ask
 explained by something the model lacks. `append` writes one JSON line per update to
 `<site root>/tags/tags.jsonl` under a file lock with `fsync`, capturing a snapshot
-of the ad from `diagnostics/` when available. The newest line for a `listing_id`
+of the ad from `diagnostics/` when available (address, unit, asks, model middle,
+size, floor, the previous ad's ask and bedrooms, and the StreetEasy URL). The times
+in the ledger are UTC, and the pages show them in US Eastern time. The newest line for a `listing_id`
 sets its active tag, and `"clear"` removes it. The parsed ledger is cached by the
 file's `(mtime_ns, size)` so `/deals`, `/listings/<id>` and `/tags` read tags in
 memory until a new line is appended.
@@ -24,6 +26,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlsplit
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -43,6 +46,8 @@ CLEAR = "clear"
 MAX_NOTE = 500
 MAX_IDS = 300
 DIGIT_ID = re.compile(r"[0-9]{1,32}")
+LISTING = "https://streeteasy.com/rental/"
+EASTERN = ZoneInfo("America/New_York")
 
 GROUPS: tuple[tuple[str, str], ...] = (
     ("deal", "Deal"),
@@ -166,6 +171,12 @@ SNAPSHOT_KEYS = (
     "flags",
     "source",
     "day",
+    "unit_id",
+    "square_feet",
+    "floor",
+    "prev_ask",
+    "prev_bedrooms",
+    "url",
 )
 
 CSV_COLUMNS = (
@@ -185,7 +196,35 @@ CSV_COLUMNS = (
     "model_median",
     "miss",
     "flags",
+    "unit_id",
+    "square_feet",
+    "floor",
+    "prev_ask",
+    "prev_bedrooms",
+    "url",
 )
+# Columns of the CSV export written from a ledger line under their own names.
+CSV_SNAPSHOT_COLUMNS = (
+    "unit_id",
+    "square_feet",
+    "floor",
+    "prev_ask",
+    "prev_bedrooms",
+    "url",
+)
+
+
+def eastern(at: str | None) -> str:
+    """A ledger time ('2026-11-10T21:05:00Z', UTC) as US Eastern wall time,
+    '2026-11-10 16:05 ET'. Text that is not a time comes back unchanged."""
+    text = str(at or "").strip()
+    try:
+        moment = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=dt.UTC)
+    return f"{moment.astimezone(EASTERN):%Y-%m-%d %H:%M} ET"
 
 
 class BadInput(ValueError):
@@ -280,6 +319,12 @@ def _enrich_line(raw: dict[str, Any]) -> dict[str, Any] | None:
         "flag_items": facts.flag_items(flag_codes),
         "source": raw.get("source"),
         "day": raw.get("day"),
+        "unit_id": raw.get("unit_id"),
+        "square_feet": raw.get("square_feet"),
+        "floor": raw.get("floor"),
+        "prev_ask": raw.get("prev_ask"),
+        "prev_bedrooms": raw.get("prev_bedrooms"),
+        "url": raw.get("url"),
     }
 
 
@@ -399,6 +444,12 @@ def _snapshot(root: Path, listing_id: str) -> dict[str, Any]:
         "flags": flags,
         "source": ad.get("source"),
         "day": ad.get("day"),
+        "unit_id": ad.get("unit_id"),
+        "square_feet": ad.get("square_feet"),
+        "floor": ad.get("floor"),
+        "prev_ask": ad.get("prev_ask"),
+        "prev_bedrooms": ad.get("prev_bedrooms"),
+        "url": LISTING + listing_id,
     }
 
 
@@ -544,6 +595,7 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
         return macro(listing_id, current, next_url, compact=compact)
 
     app.jinja_env.globals["tag_form"] = tag_form
+    app.jinja_env.globals["eastern"] = eastern
 
     @app.post("/tags")
     def tags_post():
@@ -645,6 +697,7 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
             chosen_group=chosen_group,
             chosen_tag=chosen_tag,
             filter_url=filter_url,
+            here_url=filter_url(group=chosen_group, tag=chosen_tag),
         )
 
     @app.get("/tags.jsonl")
@@ -696,6 +749,10 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
                     ),
                     "" if item.get("miss") is None else item.get("miss"),
                     ";".join(item.get("flags") or []),
+                    *(
+                        "" if item.get(name) is None else item.get(name)
+                        for name in CSV_SNAPSHOT_COLUMNS
+                    ),
                 ]
             )
         return Response(

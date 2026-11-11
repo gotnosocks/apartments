@@ -13,6 +13,14 @@ which measures how far the ask sits below the model's 10th percentile and penali
 wide ranges. The default population keeps ads whose estimate rests on the unit's own
 earlier ads or on a building with at least 5 training ads, hides no-history ads more
 than 35% below the model's middle as suspect, and hides cautioned ads unless toggled.
+
+The peer check compares each ad with its building. `facts.Table.peers` counts the
+building's other ads of the same bedroom count in the year up to the scoring day and
+takes their median ask. An ad asking below the model's 80% range, with at least
+`facts.PEER_MIN_ADS` peers and an ask of at least `facts.PEER_ASK_SHARE` of their
+median, carries the caution `peers`: the building's own asks say the ask is ordinary
+there, so the gap more likely shows the model sitting high for the building. Deals
+hides these rows unless the reader includes them.
 """
 
 from __future__ import annotations
@@ -70,6 +78,23 @@ CAUTION_LABELS: dict[str, str] = {
     "beds": "beds changed",
     "off_market": "off market",
 }
+PEERS = "peers"
+PEERS_LABEL = "at building's asks"
+# Tooltip of the Evidence chip, by basis.
+BASIS_WORDS: dict[str, str] = {
+    "unit": (
+        "The model has seen this many earlier ads of this same apartment, so the "
+        "estimate rests on the unit's own rent history."
+    ),
+    "building": (
+        "The model has seen no earlier ad of this apartment. The estimate rests on "
+        "this many ads of other apartments in the building."
+    ),
+    "area": (
+        "The model has seen no earlier ad of this apartment and fewer than 5 in the "
+        "building, so the estimate rests on the surrounding area."
+    ),
+}
 UNKNOWN_CAUTION = "a caution this page has no words for ({})"
 OFF_MARKET = "TEMPORARILY_OFF_MARKET"
 NO_NAME = frozenset({"", "nan", "none", "<na>", "null"})
@@ -89,8 +114,11 @@ class Choice:
     suspect: bool = False
     cautioned: bool = False
     tagged: bool = False
+    peers: bool = False
     sort: str = DEFAULT_SORT
     page: int = 1
+    # Query values that `choice` could not use, in words for the page.
+    ignored: list[str] = dataclasses.field(default_factory=list)
 
     def args(self, **changes) -> dict:
         """Query-string items for a link with selected filters updated."""
@@ -104,6 +132,7 @@ class Choice:
             "suspect": "1" if self.suspect else None,
             "all": "1" if self.cautioned else None,
             "tagged": "1" if self.tagged else None,
+            "peers": "1" if self.peers else None,
             "sort": None if self.sort == DEFAULT_SORT else self.sort,
             "page": self.page if self.page > 1 else None,
         }
@@ -127,7 +156,24 @@ class Choice:
             or self.suspect
             or self.cautioned
             or self.tagged
+            or self.peers
         )
+
+    def filters(self) -> list[tuple[str, dict]]:
+        """Each narrowing filter in words, with the `args` changes that drop it."""
+        out: list[tuple[str, dict]] = []
+        for name in self.hood:
+            label = f"All {name}" if name in boroughs.BOROUGHS else hood_label(name)
+            out.append((label, {"hood": [h for h in self.hood if h != name]}))
+        for key in self.beds:
+            out.append((BEDROOMS[key], {"beds": [b for b in self.beds if b != key]}))
+        if self.max_rent is not None:
+            out.append((f"at most {_usd(self.max_rent)}", {"max": None}))
+        if self.min_sqft is not None:
+            out.append((f"at least {self.min_sqft:,.0f} ft²", {"min_sqft": None}))
+        if self.min_floor is not None:
+            out.append((f"floor {self.min_floor} or higher", {"floor": None}))
+        return [(label, changes | {"page": None}) for label, changes in out]
 
 
 @lru_cache(maxsize=4)
@@ -364,12 +410,45 @@ def range_svg(
     )
 
 
+def peer_caution(
+    ask: float, low: float | None, peers: dict | None, bedrooms: float | None
+) -> dict[str, str] | None:
+    """The `peers` caution chip for an ad, or `None` when the check does not apply.
+
+    `low` is the bottom of the model's 80% range (the model's middle when the range
+    is missing), and `peers` holds the `count` and `median` of
+    `facts.Table.peers`."""
+    if not peers or low is None or ask >= low:
+        return None
+    count, median = peers["count"], peers["median"]
+    if count < facts.PEER_MIN_ADS or ask < facts.PEER_ASK_SHARE * median:
+        return None
+    beds = "same-bedroom" if bedrooms is None else beds_words(bedrooms)
+    return {
+        "code": PEERS,
+        "label": PEERS_LABEL,
+        "description": (
+            f"asks about the same as {count:,} other {beds} ads in the building "
+            f"(median {_usd(median)})"
+        ),
+    }
+
+
+def beds_words(bedrooms: float) -> str:
+    """'studio' or '2 BR' for a bedroom count."""
+    beds = round(bedrooms)
+    return "studio" if beds == 0 else f"{beds} BR"
+
+
 def load_rows(
     rows: list[dict],
     diag: dict[str, dict] | None = None,
+    peers: dict[str, dict] | None = None,
 ) -> list[dict]:
     """Prepare market ad rows with cautious savings, basis badges, cuts and chips.
-    Rows missing `ask`, `below_share` or `model_median` are dropped."""
+    Rows missing `ask`, `below_share` or `model_median` are dropped. `peers` is the
+    result of `facts.Table.peers`; a row with at least `facts.PEER_MIN_ADS` peers
+    gets `peer_count` and `peer_median`, and `peer_caution` when the check trips."""
     out: list[dict] = []
     for raw in rows:
         ask, share, mid = (
@@ -449,6 +528,12 @@ def load_rows(
 
         hood = _name(raw.get("neighbourhood"))
         c_items = caution_items(raw)
+        bedrooms = _nonneg_number(raw.get("bedrooms"))
+        near = (peers or {}).get(lid or "")
+        if near and near["count"] < facts.PEER_MIN_ADS:
+            near = None
+        peer_item = peer_caution(ask, lo80 if lo80 is not None else mid, near, bedrooms)
+        chips = c_items + ([peer_item] if peer_item else [])
         flag_list = extra.get("flags")
         if flag_list is None:
             flag_list = facts.flag_items(raw.get("flags"))
@@ -480,7 +565,7 @@ def load_rows(
                 "hood_label": hood_label(hood),
                 "address": _name(raw.get("address")),
                 "unit": _name(raw.get("unit")) or _name(extra.get("unit")),
-                "bedrooms": _nonneg_number(raw.get("bedrooms")),
+                "bedrooms": bedrooms,
                 "baths": baths,
                 "square_feet": sqft,
                 "floor": floor_val,
@@ -497,7 +582,10 @@ def load_rows(
                 "basis_badge": basis_badge(basis, unit_ads, building_ads),
                 "suspect": suspect,
                 "cautions": [item["description"] for item in c_items],
-                "caution_chips": c_items,
+                "caution_chips": chips,
+                "peer_count": near["count"] if near else None,
+                "peer_median": near["median"] if near else None,
+                "peer_caution": peer_item["description"] if peer_item else None,
                 "flags": flag_list,
                 "tag": None,
                 "ruled_out": False,
@@ -550,12 +638,14 @@ def load(root: Path, diag: facts.Table | None | object = _AUTO) -> dict | None:
         base_rows, has_diagnostics, hoods, groups = cached
     else:
         diag_map: dict[str, dict] | None = None
+        peer_map: dict[str, dict] | None = None
         if isinstance(diag_table, facts.Table):
             ids = [
                 str(r.get("listing_id") or "") for r in raw_rows if isinstance(r, dict)
             ]
             diag_map = diag_table.ads_by_id(ids)
-        built = load_rows(raw_rows, diag=diag_map)
+            peer_map = diag_table.peers(ids)
+        built = load_rows(raw_rows, diag=diag_map, peers=peer_map)
         base_rows = tuple(built)
         has_diagnostics = diag_map is not None
         hoods = sorted(
@@ -631,23 +721,55 @@ def _arg_list(args, key: str) -> list[str]:
 
 
 def choice(args) -> Choice:
-    """Parse `/deals` query parameters into a `Choice`; invalid values drop out."""
+    """Parse `/deals` query parameters into a `Choice`. A value the page cannot use
+    drops out, and `Choice.ignored` says so in words for the page."""
+    ignored: list[str] = []
+
+    def parsed(key: str, words: str, parse, expects: str):
+        text = str(args.get(key) or "").strip()
+        value = parse(text) if text else None
+        if text and value is None:
+            ignored.append(f'{words} "{text[:40]}" ({expects})')
+        return value
+
     hood = [h[:60] for h in _arg_list(args, "hood")]
-    beds = [b for b in _arg_list(args, "beds") if b in BEDROOMS]
-    sort = args.get("sort")
+    asked_beds = _arg_list(args, "beds")
+    beds = [b for b in asked_beds if b in BEDROOMS]
+    for bad in asked_beds:
+        if bad not in BEDROOMS:
+            ignored.append(f'bedrooms "{bad[:40]}" (the choices are 0 to 4)')
+    sort = str(args.get("sort") or "").strip()
+    if sort and sort not in SORTS:
+        ignored.append(f'order "{sort[:40]}" (not an order this page has)')
     return Choice(
         hood=hood,
         beds=beds,
-        max_rent=_pos_number(args.get("max")),
-        min_sqft=_pos_number(args.get("min_sqft")),
-        min_floor=_pos_int(args.get("floor")),
+        max_rent=parsed("max", "most you'd pay", _pos_number, "not a rent above $0"),
+        min_sqft=parsed("min_sqft", "min sq ft", _pos_number, "not a size above 0"),
+        min_floor=parsed("floor", "floor", _pos_int, "not a whole floor number"),
         area=args.get("area") == "1",
         suspect=args.get("suspect") == "1",
         cautioned=args.get("all") == "1",
         tagged=args.get("tagged") == "1",
+        peers=args.get("peers") == "1",
         sort=sort if sort in SORTS else DEFAULT_SORT,
-        page=_pos_int(args.get("page")) or 1,
+        page=parsed("page", "page", _pos_int, "not a page number") or 1,
+        ignored=ignored,
     )
+
+
+def hood_summary(chosen: list[str]) -> str:
+    """The Neighborhoods picker's label for the chosen areas: 'Any neighborhood',
+    'All Manhattan', 'Chelsea', '3 areas' or 'All Brooklyn + 2 areas'."""
+    whole = [f"All {name}" for name in chosen if name in boroughs.BOROUGHS]
+    areas = [name for name in chosen if name not in boroughs.BOROUGHS]
+    if not chosen:
+        return "Any neighborhood"
+    if len(areas) == 1 and not whole:
+        return hood_label(areas[0])
+    if areas:
+        whole.append(f"{len(areas)} area{'' if len(areas) == 1 else 's'}")
+    return " + ".join(whole)
 
 
 def _matches_hood(row: dict, chosen: list[str]) -> bool:
@@ -714,6 +836,8 @@ def choose(rows: list[dict], c: Choice | None = None, **overrides) -> list[dict]
             continue
         if not active.tagged and row.get("ruled_out"):
             continue
+        if not active.peers and row.get("peer_caution"):
+            continue
         out.append(row)
 
     if active.sort == "discount":
@@ -756,6 +880,7 @@ def hidden_counts(rows: list[dict], c: Choice, shown_count: int) -> dict[str, in
             0 if c.cautioned else len(choose(rows, c, cautioned=True)) - shown_count
         ),
         "tagged": (0 if c.tagged else len(choose(rows, c, tagged=True)) - shown_count),
+        "peers": (0 if c.peers else len(choose(rows, c, peers=True)) - shown_count),
     }
 
 

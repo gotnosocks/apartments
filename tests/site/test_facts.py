@@ -257,8 +257,10 @@ def test_absent_folder_returns_none_and_listing_page_renders(client, site_root):
     assert facts.load(site_root) is None
     page = client.get("/listings/1004").get_data(as_text=True)
     main = page.split('<main id="main"', 1)[1]
-    # Tags box sits at the top of the main column with the no-JS tag form.
-    assert main.index('<div id="tags" data-listing="1004">') < main.index("<h1")
+    # The tag card follows the header block and holds the no-JS tag form.
+    card = main.index('<section class="card tag-card" id="tags" data-listing="1004"')
+    assert main.index('id="range"') < card < main.index('id="the-ad"')
+    assert "Your tag for this ad</h2>" in main[card:]
     # One range bar, no duplicate quantile table, no repeating figure cards.
     assert page.count('class="istrip"') == 1
     assert 'class="figures"' not in page
@@ -304,7 +306,7 @@ def test_load_accepts_sha_formats_and_refuses_mismatch(
 def test_listing_page_shows_ad_facts_flags_and_building_evidence(client, site_root):
     write_diagnostics(site_root)
     page = client.get("/listings/1004").get_data(as_text=True)
-    assert '<div id="tags" data-listing="1004">' in page
+    assert 'id="tags" data-listing="1004"' in page
     assert "250 West 19th Street · 11C" in page
 
     ad_panel = page.split('id="the-ad"', 1)[1].split("</section>", 1)[0]
@@ -394,3 +396,29 @@ def test_csv_cell_quotes_formula_text_and_leaves_numbers():
     assert facts.csv_cell("12 West Street") == "12 West Street"
     assert facts.csv_cell(-1.5) == -1.5
     assert facts.csv_cell(None) is None
+
+
+def test_building_chart_data_escapes_angle_brackets():
+    series = [
+        {
+            "listing_id": "905",
+            "unit_id": "u-905",
+            "unit": "7B</script><script>alert(1)",
+            "day": "2025-03-15",
+            "ask": 3450.0,
+        }
+    ]
+    svg = str(
+        facts.building_asks_svg(
+            series,
+            listing_id="1004",
+            unit_id="u-1004",
+            current_day="2026-11-09",
+            current_ask=3500.0,
+            beds_text="1 BR",
+        )
+    )
+    embedded = svg.split('<script type="application/json"', 1)[1]
+    data = embedded.split(">", 1)[1].split("</script>", 1)[0]
+    assert "<" not in data and "7B\\u003c/script" in data
+    assert svg.count("</script>") == 1 and "<script>alert" not in svg

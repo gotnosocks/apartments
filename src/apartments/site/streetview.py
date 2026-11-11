@@ -4,7 +4,8 @@ Google's `map_action=pano` opens the panorama nearest the viewpoint. A
 building's own coordinates sit inside its lot, where the nearest panorama
 can be a photo inside a shop (Ben, 2026-10-06: 225 W 14th St opened inside
 a restaurant). So the viewpoint moves to the nearest point of the building's
-own street (from its address) on the rent map's street centrelines, and the
+own street (from its address) on the street centrelines of the build's
+map.json, and the
 heading turns the camera back to the building. Without a map, a known street
 nearby or coordinates, the link falls back to the building's own point, then
 to a Maps search for the address.

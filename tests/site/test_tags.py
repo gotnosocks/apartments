@@ -6,6 +6,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -29,10 +30,11 @@ def _write_diag(root: Path) -> None:
         con.execute(
             "CREATE TABLE a (listing_id VARCHAR, source VARCHAR, building VARCHAR, "
             "address VARCHAR, unit VARCHAR, day DATE, bedrooms DOUBLE, ask DOUBLE, "
-            "model_median DOUBLE, miss DOUBLE, flags VARCHAR[])"
+            "model_median DOUBLE, miss DOUBLE, flags VARCHAR[], unit_id VARCHAR, "
+            "square_feet DOUBLE, floor DOUBLE, prev_ask DOUBLE, prev_bedrooms DOUBLE)"
         )
         con.execute(
-            "INSERT INTO a VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO a VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 "1004",
                 "market",
@@ -45,6 +47,11 @@ def _write_diag(root: Path) -> None:
                 4200.0,
                 -1.85,
                 ["ppsf", "ask_jump"],
+                "u-1004",
+                680.0,
+                11.0,
+                3300.0,
+                2.0,
             ],
         )
         con.execute(f"COPY a TO '{ads_path}' (FORMAT parquet)")
@@ -212,9 +219,11 @@ def test_cross_origin_refusal_and_redirect_or_json_answers(client, site_root):
 
     # Listing page renders `tag_form` and earlier ledger lines inside `#tags`.
     listing_html = client.get("/listings/1004").get_data(as_text=True)
-    tags_box = listing_html.split('<div id="tags" data-listing="1004">', 1)[1].split(
-        "</div>\n<nav", 1
+    tags_box = listing_html.split('id="tags" data-listing="1004"', 1)[1].split(
+        "</section>", 1
     )[0]
+    assert "Your tag for this ad</h2>" in tags_box
+    assert 'name="next" value="/listings/1004#tags"' in tags_box
     assert "<optgroup" in tags_box
     assert "Short lease or furnished" in tags_box
     assert 'class="tag-history"' in tags_box
@@ -327,3 +336,77 @@ def test_append_starts_a_new_line_after_an_unfinished_one(tmp_path):
         "1004",
     ]
     assert set(tags.current_tags(root)) == {"1001", "1003", "1004"}
+
+
+def test_eastern_times_carry_the_zone():
+    assert tags.eastern("2026-11-10T21:05:09Z") == "2026-11-10 16:05 ET"
+    # Daylight time, and a day that changes on the way to Eastern time.
+    assert tags.eastern("2026-07-01T02:30:00Z") == "2026-06-30 22:30 ET"
+    assert tags.eastern(None) == "" and tags.eastern("not a time") == "not a time"
+
+
+def test_ledger_rows_clear_show_eastern_time_and_explain_columns(client, site_root):
+    _write_diag(site_root)
+    tags.append(site_root, "1004", "wrong_beds", "first note")
+    stored = json.loads((site_root / "tags" / "tags.jsonl").read_text())
+    assert stored["at"].endswith("Z")
+
+    page = client.get("/tags?group=data_error").get_data(as_text=True)
+    assert tags.eastern(stored["at"]) in page and stored["at"][:19] not in page
+    for header in ("Miss", "Source"):
+        assert re.search(
+            rf'<th scope="col"[^>]* title="[^"]{{20,}}">{header}</th>', page
+        )
+    form = page.split('<td class="c-clear"', 1)[1].split("</td>", 1)[0]
+    assert 'method="post" action="/tags"' in form
+    assert 'name="listing_id" value="1004"' in form
+    assert 'name="tag" value="clear"' in form
+    assert 'name="next" value="/tags?group=data_error"' in form
+    assert ">Clear</button>" in form
+
+    cleared = client.post(
+        "/tags",
+        data={"listing_id": "1004", "tag": "clear", "next": "/tags?group=data_error"},
+    )
+    assert cleared.status_code == 303
+    assert cleared.headers["Location"].endswith("/tags?group=data_error")
+    assert 'href="/listings/1004"' not in client.get("/tags").get_data(as_text=True)
+
+
+def test_exports_carry_the_ad_snapshot_taken_at_write_time(client, site_root):
+    _write_diag(site_root)
+    tags.append(site_root, "1004", "deal", "bright")
+    expected = {
+        "unit_id": "u-1004",
+        "square_feet": 680.0,
+        "floor": 11.0,
+        "prev_ask": 3300.0,
+        "prev_bedrooms": 2.0,
+        "url": "https://streeteasy.com/rental/1004",
+    }
+    stored = json.loads((site_root / "tags" / "tags.jsonl").read_text())
+    line = json.loads(client.get("/tags.jsonl").get_data(as_text=True))
+    for key, value in expected.items():
+        assert stored[key] == value
+        assert line[key] == value
+    row = next(
+        csv.DictReader(io.StringIO(client.get("/tags.csv").get_data(as_text=True)))
+    )
+    assert row["unit_id"] == "u-1004" and row["url"] == expected["url"]
+    assert float(row["square_feet"]) == 680.0 and float(row["floor"]) == 11.0
+    assert float(row["prev_ask"]) == 3300.0 and float(row["prev_bedrooms"]) == 2.0
+
+    # An ad the diagnostics lack keeps empty snapshot cells.
+    tags.append(site_root, "1001", "deal", "")
+    rows = list(
+        csv.DictReader(io.StringIO(client.get("/tags.csv").get_data(as_text=True)))
+    )
+    bare = next(r for r in rows if r["listing_id"] == "1001")
+    assert bare["unit_id"] == "" and bare["square_feet"] == ""
+
+
+def test_compact_tagger_says_saved_after_a_save():
+    script = (Path(tags.__file__).parent / "static" / "tags.js").read_text()
+    assert '"Saved"' in script and '"Cleared"' in script
+    assert 'setAttribute("role", "status")' in script
+    assert "FLASH_MS" in script and "setTimeout" in script

@@ -90,13 +90,27 @@
 
 <section class="card" id="calibration">
   <h2>Calibration by slice</h2>
-  <p class="note">Share of held-out asks inside the model's 50%, 80% and 95% ranges. A slice of at least {{ min_calibration_ads }} ads is marked when it is 5 points off 50% or 80%, or 3 points off 95%.</p>
+  <p class="note">Share of held-out asks inside the model's 50%, 80% and 95% ranges. A slice of at least {{ min_calibration_ads }} ads is marked when it is 5 points off 50% or 80%, or 3 points off 95%.{% if calibration.unit_share is finite %} Read calibration in the new-unit rows, since {{ pct(calibration.unit_share, signed=False, digits=0) }} of held-out ads are of units the fit read earlier ads of.{% endif %}</p>
   <div class="table-wrap">
   <table class="data">
     {{ w.calibration_head() }}
     <tbody>
-    {{ w.calibration_rows(calibration.main) }}
+    {% if calibration.new_units %}
+    {{ w.calibration_group("New units: the test of the model on apartments it has not met") }}
+    {{ w.calibration_rows(calibration.new_units) }}
+    {% endif %}
+    {% if calibration.unit %}
+    {{ w.calibration_group("Units with earlier ads: the easier case") }}
+    {{ w.calibration_rows(calibration.unit) }}
+    {% endif %}
+    {% if calibration.rest %}
+    {{ w.calibration_group("All held-out ads, by source and bedrooms") }}
+    {{ w.calibration_rows(calibration.rest) }}
+    {% endif %}
+    {% if calibration.hoods_off %}
+    {{ w.calibration_group("Neighbourhoods off nominal") }}
     {{ w.calibration_rows(calibration.hoods_off) }}
+    {% endif %}
     {% if not calibration.main %}
       <tr><td colspan="10" class="empty">The folder holds no held-out ads.</td></tr>
     {% endif %}
@@ -124,15 +138,15 @@
     <h2>Strongest signals</h2>
     <p class="results-links"><a href="{{ url_for('workbench_signals') }}">All signals ({{ (info.features or []) | length }})</a></p>
   </div>
-  <p class="note">Attributes with no term in the model come first, since a trend there is a candidate for a new term. The table reads ads of units with no earlier ads, because a unit's own history already carries its fixed attributes.</p>
+  <p class="note">Attributes with no term in the model come first, since a trend there is a candidate for a new term. The table reads ads of units with no earlier ads, because a unit's own history already carries its fixed attributes. Bin means are relative to the mean of those ads, and the score reads bins of at least {{ min_bin_ads }} ads in at least {{ min_bin_buildings }} buildings.</p>
   <div class="table-wrap">
   <table class="data">
     <thead>
       <tr>
         <th scope="col">Attribute</th>
         <th scope="col">Group</th>
-        <th scope="col" class="num" title="Largest |mean gap| / SE across bins, with standard errors clustered by building">Max |gap| / SE</th>
-        <th scope="col" class="num" title="Share of the variance of the gaps explained by bin means">Var explained</th>
+        <th scope="col" class="num" title="{{ max_score_title }}">Max |gap| / SE</th>
+        <th scope="col" class="num" title="{{ explained_title }}">Var explained</th>
         <th scope="col">Strongest bin</th>
         <th scope="col">Bin means (95% interval)</th>
       </tr>
@@ -142,9 +156,9 @@
       <tr>
         <th scope="row"><a href="{{ url_for('workbench_signal', feature=s.name) }}">{{ s.label }}</a></th>
         <td class="nowrap muted">{{ s.group_label }}</td>
-        <td class="num">{{ "{:.2f}".format(s.strength) }}</td>
-        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) }}</td>
-        <td class="nowrap">
+        <td class="num">{{ "{:.2f}".format(s.strength) if s.strength is finite else "-" }}</td>
+        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) if s.explained_pct is finite else "-" }}</td>
+        <td class="bin-label">
           {% if s.peak_bin %}
           <strong>{{ s.peak_bin.label }}</strong>: {{ pct(s.peak_bin.mean_pct, digits=1) }}
           {% if s.peak_bin.se_pct is finite %}<span class="muted">(±{{ "{:.1f}".format(s.peak_bin.se_pct) }}%)</span>{% endif %}

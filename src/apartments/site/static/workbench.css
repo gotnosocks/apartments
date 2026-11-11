@@ -27,7 +27,7 @@ td.warn-cell {
 /* Signal dot-and-whisker strips. */
 .signal-strip {
   display: block;
-  width: 260px;
+  width: 320px;
   max-width: 100%;
   height: auto;
 }
@@ -57,6 +57,41 @@ td.warn-cell {
 }
 .signal-strip .dot.missing {
   fill-opacity: 0.55;
+}
+.signal-strip .dot.small {
+  fill: var(--muted);
+  fill-opacity: 0.4;
+}
+
+/* A bin below the size floor is greyed. */
+tr.small-bin,
+tr.small-bin a {
+  color: var(--muted);
+}
+tr.small-bin th {
+  font-weight: 400;
+}
+
+/* A bin label wraps inside its cell. */
+.data .bin-label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 9rem;
+}
+
+/* Heading row over a group of calibration slices. */
+.data tr.group-head th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--neutral-bg);
+  white-space: normal;
+}
+
+/* The control showing the rest of a triage page is drawn at phone widths only. */
+.rows-toggle,
+.rows-more {
+  display: none;
 }
 
 /* Building history scatter over time (log ask axis, colored by bedrooms, held-out ringed). */
@@ -126,7 +161,43 @@ td.warn-cell {
 
 @media (max-width: 640px) {
   .signal-strip {
-    width: 200px;
+    width: 260px;
+  }
+  /* Links and controls are at least 40px tall. An inline link keeps its line
+     height, and its padding extends the area a finger can press. */
+  .top a,
+  .subnav a,
+  main a,
+  .foot a {
+    padding-block: 0.85rem;
+  }
+  main a.chip,
+  .pager a,
+  .pager span,
+  main summary,
+  main label.check,
+  .rows-more {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding-block: 0;
+  }
+  main a.tile {
+    padding-block: 0.7rem;
+  }
+  main button,
+  main select,
+  main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    min-height: 40px;
+  }
+  /* A flag chip in a triage row keeps its drawn size, and its transparent border
+     makes the pressed area 40px tall. */
+  table.triage td.c-place .flag-list a.chip {
+    display: inline-block;
+    min-height: 0;
+    border-block: 11px solid transparent;
+    background-clip: padding-box;
+    margin-block: -7px;
   }
   table.triage thead {
     position: absolute;
@@ -140,9 +211,9 @@ td.warn-cell {
   }
   table.triage tr {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.2rem 0.7rem;
-    padding: 0.65rem 0;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.1rem 0.7rem;
+    padding: 0.4rem 0;
     border-bottom: 1px solid var(--grid);
   }
   table.triage td {
@@ -171,6 +242,40 @@ td.warn-cell {
   }
   table.triage td.empty {
     grid-column: 1 / -1;
+  }
+  /* A unit id stays on a line, cut at the cell's width, with the whole id in its
+     title. */
+  #building-units tbody th code {
+    display: inline-block;
+    max-width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  /* The ads of a unit stay on a line and scroll sideways. */
+  #building-units .unit-ads-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 62vw;
+    align-items: center;
+    min-height: 40px;
+  }
+}
+
+/* Under 600px a triage page shows its first 25 rows, and the label under the table
+   checks the hidden box to show the rest. */
+@media (max-width: 599px) {
+  .rows-toggle:not(:checked) ~ .table-wrap table.triage tbody tr:nth-child(n + 26) {
+    display: none;
+  }
+  .rows-toggle:not(:checked) ~ .rows-more {
+    display: flex;
+    justify-content: center;
+    margin: 0.6rem 0;
+    color: var(--link, inherit);
+    text-decoration: underline;
+    cursor: pointer;
   }
 }
 

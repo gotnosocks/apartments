@@ -66,8 +66,9 @@ def nice_ticks(lo: float, hi: float, count: int = 5) -> list[float]:
     return ticks
 
 
-def _json(value) -> str:
-    # No "<" at all inside a script data block ("</script>", "<!--").
+def embed_json(value) -> str:
+    """JSON for a `<script type="application/json">` block. Every "<" is written as
+    `\\u003c`, so that a value holding "</script>" or "<!--" stays inside the block."""
     return json.dumps(value, separators=(",", ":")).replace("<", "\\u003c")
 
 
@@ -77,7 +78,7 @@ def _figure(kind: str, svg: str, points: list[dict], legend: str = "") -> Markup
         f'<figure class="chart" data-chart="{kind}" tabindex="0">'
         f"{legend}{svg}"
         f'<div class="chart-tip" hidden></div>'
-        f'<script type="application/json" class="chart-data">{_json(points)}</script>'
+        f'<script type="application/json" class="chart-data">{embed_json(points)}</script>'
         f"</figure>"
     )
 

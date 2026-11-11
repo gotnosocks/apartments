@@ -413,6 +413,8 @@ def create_app(
         rows = deals.choose(data["rows"], c)
         hidden = deals.hidden_counts(data["rows"], c, len(rows))
         page_rows, cur_page, pages = deals.paginate(rows, c.page)
+        if cur_page != c.page:
+            c.ignored.append(f'page "{c.page:,}" (the last page is {pages:,})')
         c.page = cur_page
         base_url = url_for(request.endpoint or "index")
 
@@ -437,6 +439,9 @@ def create_app(
             hidden=hidden,
             deals_url=deals_url,
             choice=c,
+            hood_summary=deals.hood_summary(c.hood),
+            filters=c.filters(),
+            basis_words=deals.BASIS_WORDS,
             sorts=deals.SORTS,
             bedrooms=deals.BEDROOMS,
         )
@@ -576,8 +581,23 @@ def create_app(
             else None
         )
         current_tag, tag_history = tags.for_listing(root, str(row["listing_id"]))
+        on_market = row["source"] == "market"
+        peers = None
+        if on_market:
+            market = deals.load(root, diag=diag)
+            peers = next(
+                (
+                    r
+                    for r in (market or {}).get("rows", ())
+                    if r["listing_id"] == str(row["listing_id"])
+                    and r["peer_count"] is not None
+                ),
+                None,
+            )
         return render_template(
             "listing.html",
+            section="deals" if on_market else "estimates",
+            peers=peers,
             info=info,
             row=row,
             ad_facts=ad_facts,
@@ -709,6 +729,14 @@ def create_app(
         return render_template(
             "about.html",
             diag=diag.about() if diag is not None else None,
+            cautions=[
+                {"label": deals.CAUTION_LABELS[code], "description": words}
+                for code, words in deals.CAUTIONS.items()
+            ],
+            flags=facts.flag_items(list(facts.FLAGS)),
+            peers_label=deals.PEERS_LABEL,
+            peer_min=facts.PEER_MIN_ADS,
+            peer_share=round(100 * facts.PEER_ASK_SHARE),
         )
 
     @app.get("/healthz")

@@ -2,8 +2,7 @@
 
 The served fit prices the current listings in its own dataset. The pipeline reads every ad again
 at each backfill and weekly top-up, so most ads on the market now are newer than that dataset.
-The build prices them here with the run's prediction kit, the same scoring the estimate form
-uses: an apartment in its building whose level is the fit's own for a unit the fit has seen (the
+The build prices them here with the run's prediction kit (`estimate.score`): an apartment in its building whose level is the fit's own for a unit the fit has seen (the
 kit's `units.parquet`), and otherwise drawn from the unit prior, as for a new apartment. Until a
 fit includes them, these rows are marked `method = "kit"` and say so on their pages.
 
@@ -22,7 +21,7 @@ ask on the ad's page.
 A listing gets its model inputs from:
 
 - its fit-ready row (bedrooms, baths, size, floor, laundry, views, windows), through the
-  estimate form's encoder;
+  encoder in `estimate_build.form_from_observation`;
 - the unit's label, for the floor when the ad states none and the building has that many
   floors (as `rentfrontier.features.row_floor` reads it);
 - the unit's newest earlier listing on the site, for what the dataset keeps per unit (which way
@@ -282,7 +281,7 @@ def label_floor(url: str | None, height: int | None) -> int | None:
 
 
 def form(c: dict, height: int | None = None) -> estimate.Form:
-    """The estimate form the ad's fit-ready values fill in."""
+    """The `estimate.Form` filled in from the ad's fit-ready values."""
     full = c.get("full_baths")
     return estimate_build.form_from_observation(
         {

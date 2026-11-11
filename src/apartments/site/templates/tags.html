@@ -60,18 +60,18 @@ Every line: <a href="{{ url_for('tags_csv', all='1') }}">tags.csv?all=1</a> · <
     <th scope="col">Note</th>
     <th scope="col" class="num">Ask</th>
     <th scope="col" class="num">Model middle</th>
-    <th scope="col" class="num" title="Gap between log ask and the model middle in predictive standard deviations.">Miss</th>
+    <th scope="col" class="num" title="How far the ask sits from the model's middle, counted in the model's own typical errors. Negative means the ask is below the middle; beyond 2 either way is rare.">Miss</th>
     <th scope="col">Flags</th>
-    <th scope="col">When</th>
+    <th scope="col" title="Where the ad's estimate comes from: market is an ad on the market on the scoring day, latest is the newest past ad of its apartment. The date is the ad's day.">Source</th>
+    <th scope="col" title="US Eastern time">When</th>
+    <th scope="col"><span class="visually-hidden">Clear</span></th>
   </tr></thead>
   <tbody>
   {% for r in rows %}
     <tr>
       <td class="c-listing">
         <a href="{{ url_for('listing', key=r.listing_id) }}">{{ r.address or r.building or ("Listing " ~ r.listing_id) }}{% if r.unit %} · {{ r.unit }}{% endif %}</a>
-        {% if r.bedrooms is finite or r.source or r.day %}
-        <span class="feat">{% if r.bedrooms is finite %}{{ beds_label(r.bedrooms) }}{% endif %}{% if r.source %}{% if r.bedrooms is finite %} · {% endif %}{{ r.source }}{% endif %}{% if r.day %} · {{ r.day }}{% endif %}</span>
-        {% endif %}
+        {% if r.bedrooms is finite %}<span class="feat">{{ beds_label(r.bedrooms) }}</span>{% endif %}
       </td>
       <td class="nowrap" data-label="Tag">
         <span class="chip tag-chip tag-{{ r.group }}" title="{{ r.meaning }}">{{ r.label }}</span>
@@ -85,10 +85,19 @@ Every line: <a href="{{ url_for('tags_csv', all='1') }}">tags.csv?all=1</a> · <
         <span class="deal-chips">{% for f in r.flag_items %}<span class="chip warn-chip" title="{{ f.description }}">{{ f.label }}</span>{% endfor %}</span>
         {% else %}-{% endif %}
       </td>
-      <td class="nowrap muted" data-label="When">{{ r.at[:19] | replace("T", " ") if r.at else "-" }}</td>
+      <td class="nowrap" data-label="Source">{% if r.source or r.day %}{{ r.source or "" }}{% if r.source and r.day %} · {% endif %}{{ r.day or "" }}{% else %}-{% endif %}</td>
+      <td class="nowrap muted" data-label="When">{{ eastern(r.at) if r.at else "-" }}</td>
+      <td class="c-clear">
+        <form method="post" action="{{ url_for('tags_post') }}" class="tag-clear-form">
+          <input type="hidden" name="listing_id" value="{{ r.listing_id }}">
+          <input type="hidden" name="tag" value="clear">
+          <input type="hidden" name="next" value="{{ here_url }}">
+          <button type="submit" class="tag-clear" aria-label="Clear the tag on {{ r.address or r.building or r.listing_id }}{% if r.unit %} {{ r.unit }}{% endif %}">Clear</button>
+        </form>
+      </td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="empty">No active tags{% if chosen_group or chosen_tag %} match this filter{% else %} recorded yet{% endif %}.</td></tr>
+    <tr><td colspan="10" class="empty">No active tags{% if chosen_group or chosen_tag %} match this filter{% else %} recorded yet{% endif %}.</td></tr>
   {% endfor %}
   </tbody>
 </table>

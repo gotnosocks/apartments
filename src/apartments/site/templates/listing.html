@@ -3,21 +3,11 @@
 {% set unit_name = ad_facts.unit if ad_facts and ad_facts.unit else none %}
 {% block title %}{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}, {{ day(row.day) if row.day else "an ad" }}{% endblock %}
 {% block content %}
-<div id="tags" data-listing="{{ row.listing_id }}">
-  {{ tag_form(row.listing_id, current_tag, url_for('listing', key=row.listing_id)) }}
-  {% if tag_history %}
-  <ul class="tag-history" aria-label="Earlier tags for this ad">
-    {% for item in tag_history %}
-    <li>
-      {% if item.tag == "clear" %}<span class="muted">Cleared</span>{% else %}<span class="chip tag-chip tag-{{ item.group }}">{{ item.label }}</span>{% endif %}{% if item.note %} <span>{{ item.note }}</span>{% endif %}{% if item.at %} <span class="muted">{{ item.at[:19] | replace("T", " ") }}</span>{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-</div>
 <nav class="crumbs" aria-label="Breadcrumb">
-  <a href="{{ url_for('estimates') }}">Estimates</a> ›
-  {% if row.source == "market" %}<a href="{{ url_for('index') }}">Deals</a> › {% endif %}<a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›
+  {% if row.source == "market" %}<a href="{{ url_for('index') }}">Deals</a> ›
+  {% else %}<a href="{{ url_for('estimates') }}">Estimates</a> ›
+  <a href="{{ url_for('listings', status='past') }}">Past ads</a> ›
+  {% endif %}
   <span aria-current="page">{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}</span>
 </nav>
 <h1>{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}</h1>
@@ -42,12 +32,35 @@
       <span class="listing-stat-label">Model middle</span>
       <span class="listing-stat-value">{{ usd(row.model_median) }}{% if under_words %} <span class="listing-stat-sub">({{ under_words }})</span>{% endif %}</span>
     </div>
+    {% if peers %}
+    <div class="listing-stat" id="peers">
+      <span class="listing-stat-label">Building's other {{ beds_label(row.bedrooms) }} asks</span>
+      <span class="listing-stat-value">{{ usd(peers.peer_median) }} <span class="listing-stat-sub">(median of {{ "{:,}".format(peers.peer_count) }} ads in the past year)</span></span>
+    </div>
+    {% endif %}
     {% if row.lower_than is not none %}
     <p class="listing-place" id="place">{% if row.lower_than >= 90 %}This ask is <strong>low</strong> for the apartment: lower than {{ row.lower_words }} of expected asks.{% elif row.lower_than <= 10 %}This ask is <strong>high</strong> for the apartment: lower than {{ pct(row.lower_than, signed=False) }} of expected asks.{% else %}This ask is <strong>within the usual range</strong>: lower than {{ row.lower_words }} of expected asks.{% endif %}</p>
     {% endif %}
   </div>
+  {% if peers and peers.peer_caution %}
+  <p class="notice peer-warning" id="peer-warning"><strong>Caution:</strong> this ad {{ peers.peer_caution }}. The gap may come from the model sitting high for this building.</p>
+  {% endif %}
   {{ chart }}
   <p class="note">50% range {{ usd(row.model_lo50) }} to {{ usd(row.model_hi50) }} · 80% {{ usd(row.model_lo80) }} to {{ usd(row.model_hi80) }} · 95% {{ usd(row.model_lo95) }} to {{ usd(row.model_hi95) }}.</p>
+</section>
+
+<section class="card tag-card" id="tags" data-listing="{{ row.listing_id }}" aria-labelledby="tags-title">
+  <h2 id="tags-title">Your tag for this ad</h2>
+  {{ tag_form(row.listing_id, current_tag, url_for('listing', key=row.listing_id) ~ '#tags') }}
+  {% if tag_history %}
+  <ul class="tag-history" aria-label="Earlier tags for this ad">
+    {% for item in tag_history %}
+    <li>
+      {% if item.tag == "clear" %}<span class="muted">Cleared</span>{% else %}<span class="chip tag-chip tag-{{ item.group }}">{{ item.label }}</span>{% endif %}{% if item.note %} <span>{{ item.note }}</span>{% endif %}{% if item.at %} <span class="muted">{{ eastern(item.at) }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 </section>
 
 <section class="card" id="the-ad">

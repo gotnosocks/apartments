@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html as html_lib
 import io
 import json
 import math
 import re
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import duckdb
 import pytest
+from markupsafe import escape
 
-from apartments.site import workbench
+from apartments.site import tags, workbench
 from apartments.site.web import create_app
 
 GROVE = "the-grove-250-west-19th-street-new_york"
@@ -694,17 +697,17 @@ def test_signals_page_tabulates_features_and_clusters_se_by_building(wb_client):
 
 def test_list_views_cap_a_many_level_category(tmp_path):
     root = tmp_path / "site"
-    # 9 building classes of 40 ads each, with gaps growing by class, plus a class of
-    # 5 ads with the largest gap of all.
+    # 9 building classes of 40 ads in 10 buildings each, with gaps growing by class,
+    # plus a class of 5 ads with the largest gap of all.
     ads = []
     for k in range(9):
         for i in range(40):
             row = make_ad_row(
                 str(5000 + 100 * k + i),
-                building=f"b-{k}-{i % 8}",
+                building=f"b-{k}-{i % 10}",
                 doorman_type=f"class_{k}",
             )
-            row["gap"] = 0.02 * k + 0.001 * (i % 8)
+            row["gap"] = 0.02 * k + 0.001 * (i % 10)
             ads.append(row)
     for i in range(5):
         row = make_ad_row(
@@ -725,9 +728,12 @@ def test_list_views_cap_a_many_level_category(tmp_path):
     ratios = [b["ratio"] for b in signal["list_bins"]]
     assert ratios == sorted(ratios, reverse=True)
     left_out = [b for b in signal["bins"] if b["key"] not in listed]
-    assert max(b["ratio"] for b in left_out if b["ads"] >= 30) <= min(ratios)
-    # The attribute's own page orders every bin by |mean| / SE.
-    all_ratios = [b["ratio"] for b in signal["bins"]]
+    assert max(b["ratio"] for b in left_out if b["sized"]) <= min(ratios)
+    # The attribute's own page orders the sized bins by |mean| / SE, and the bin
+    # below the size floor follows them with no score.
+    assert signal["bins"][-1]["key"] == "class_rare"
+    assert signal["bins"][-1]["ratio"] is None
+    all_ratios = [b["ratio"] for b in signal["bins"][:-1]]
     assert all_ratios == sorted(all_ratios, reverse=True)
 
     client = create_app(root).test_client()
@@ -821,9 +827,15 @@ def test_cluster_se_matches_building_clustered_formula(tmp_path):
     yes_bin = next(b for b in detail["bins"] if b["key"] == "yes")
     assert yes_bin["ads"] == 4
     assert yes_bin["buildings"] == 2
-    assert yes_bin["mean"] == pytest.approx(0.025)
+    assert yes_bin["raw_mean"] == pytest.approx(0.025)
+    # Every ad is in the bin, so the bin's mean equals the reference mean.
+    assert detail["ref_mean"] == pytest.approx(0.025)
+    assert yes_bin["mean"] == pytest.approx(0.0)
     assert yes_bin["se"] == pytest.approx(0.125)
     assert yes_bin["se_pct"] == pytest.approx(12.5)
+    # 4 ads in 2 buildings are below the size floor, so the bin has no score.
+    assert yes_bin["sized"] is False and yes_bin["ratio"] is None
+    assert detail["strength"] is None and detail["peak_bin"] is None
 
 
 def test_signal_detail_page_links_bins_to_triage(wb_client):
@@ -978,11 +990,25 @@ def test_buildings_page_orders_filters_and_tabulates_levels(wb_client):
     # BANK: 1.9 * sqrt(5) = 4.25
     # W23: 1.2 * sqrt(2) = 1.70
     # BERRY: 0.6 * sqrt(2) = 0.85
+    # The default list holds the buildings with at least 5 held-out ads.
     links = re.findall(r'href="/workbench/buildings/([^"]+)"', page)
+    assert links == [GROVE, BANK]
+    assert 'name="min_ads" inputmode="numeric" size="5" value="5"' in page
+    assert escape(workbench.MISS_SCORE_TITLE) in page
+    assert "standard error" in workbench.MISS_SCORE_TITLE
+
+    every = wb_client.get("/workbench/buildings?min_ads=1").get_data(as_text=True)
+    links = re.findall(r'href="/workbench/buildings/([^"]+)"', every)
     assert links == [GROVE, BANK, W23, BERRY]
+    assert 'size="5" value="1"' in every
+    paged = workbench.BuildingChoice(min_ads=1, page=2).args()
+    assert paged == {"min_ads": 1, "page": 2}
+    assert workbench.BuildingChoice(page=2).args() == {"page": 2}
 
     # Sort by level descending: BANK (0.18), GROVE (0.12), BERRY (-0.05), W23 (-0.08)
-    by_level = wb_client.get("/workbench/buildings?sort=level").get_data(as_text=True)
+    by_level = wb_client.get("/workbench/buildings?sort=level&min_ads=1").get_data(
+        as_text=True
+    )
     assert re.findall(r'href="/workbench/buildings/([^"]+)"', by_level) == [
         BANK,
         GROVE,
@@ -1122,3 +1148,360 @@ def test_workbench_files_and_pages_follow_prose_rules(wb_client):
         assert ".parquet" not in body and "heldout_" not in body
         for f in FEATURES:
             assert f"<code>{f['name']}</code>" not in body
+
+
+def _binned_ads(spec: dict[str, tuple[int, int, float]], **fixed) -> list[dict]:
+    """Ads for a `doorman_type` category: class -> (ads, buildings, mean gap).
+
+    Half of a class's buildings are 0.01 above its mean gap and half 0.01 below.
+    """
+    ads = []
+    for k, (name, (n_ads, n_buildings, gap)) in enumerate(spec.items()):
+        for i in range(n_ads):
+            b = i % n_buildings
+            row = make_ad_row(
+                str(10000 + 1000 * k + i),
+                building=f"{name}-b{b}",
+                doorman_type=name,
+                **fixed,
+            )
+            row["gap"] = gap + (0.01 if b % 2 else -0.01)
+            ads.append(row)
+    return ads
+
+
+def test_gap_is_shown_as_the_percent_difference_of_the_ask(tmp_path):
+    root = tmp_path / "site"
+    ads = [make_ad_row("1", ask=971.0, model_median=6793.0, z=-3.5, miss=-21.0)]
+    write_diagnostics(root, ads=ads)
+    client = create_app(root).test_client()
+
+    assert workbench._ratio_pct(math.log(971 / 6793)) == pytest.approx(
+        -85.706, abs=1e-3
+    )
+    assert workbench._ratio_pct(None) is None
+
+    triage = client.get("/workbench/triage").get_data(as_text=True)
+    assert "−85.7%" in triage and "194.5" not in triage
+    assert f'title="{escape(workbench.GAP_TITLE)}">Ask vs model</th>' in triage
+    assert 'data-label="Ask vs model"' in triage
+
+    building = client.get(f"/workbench/buildings/{GROVE}").get_data(as_text=True)
+    assert "−85.7%" in building
+    assert f'title="{escape(workbench.GAP_TITLE)}">Ask vs model</th>' in building
+    # The building's mean held-out log gap of -0.18 reads as -16.5%.
+    assert "Held-out ask vs model" in building and "−16.5%" in building
+
+    buildings = client.get("/workbench/buildings").get_data(as_text=True)
+    assert "−16.5%" in buildings
+    assert f'title="{escape(workbench.MEAN_GAP_TITLE)}">Ask vs model' in buildings
+
+    overview = client.get("/workbench").get_data(as_text=True)
+    assert "−85.7%" in overview
+    for page in (triage, building, buildings, overview):
+        assert "Gap %" not in page and "Mean gap<" not in page
+
+    # The CSV keeps the log gap.
+    rows = list(
+        csv.DictReader(
+            io.StringIO(client.get("/workbench/triage.csv").get_data(as_text=True))
+        )
+    )
+    assert float(rows[0]["gap"]) == pytest.approx(math.log(971 / 6793))
+
+
+def test_signal_bins_are_centered_on_the_reference_population(tmp_path):
+    root = tmp_path / "site"
+    spec = {"full_time": (40, 10, 0.05), "virtual": (60, 12, 0.03)}
+    write_diagnostics(root, ads=_binned_ads(spec))
+    diag = workbench.load(root)
+    signal = diag.signal_detail("doorman_type", workbench.SignalChoice())
+
+    ref = (40 * 0.05 + 60 * 0.03) / 100
+    assert signal["ref_ads"] == 100
+    assert signal["ref_mean"] == pytest.approx(ref)
+    assert signal["ref_mean_pct"] == pytest.approx(100 * math.expm1(ref))
+    by_key = {b["key"]: b for b in signal["bins"]}
+    full = by_key["full_time"]
+    assert full["raw_mean"] == pytest.approx(0.05)
+    assert full["mean"] == pytest.approx(0.05 - ref)
+    assert full["mean_pct"] == pytest.approx(100 * math.expm1(0.05 - ref))
+    assert full["ratio"] == pytest.approx(abs(0.05 - ref) / full["se"])
+    assert by_key["virtual"]["mean"] == pytest.approx(0.03 - ref)
+    assert signal["strength"] == pytest.approx(
+        max(full["ratio"], by_key["virtual"]["ratio"])
+    )
+    # Uncentered, the larger bin would score 0.03 / SE.
+    assert by_key["virtual"]["ratio"] < 0.03 / by_key["virtual"]["se"] / 2
+
+    client = create_app(root).test_client()
+    page = client.get("/workbench/signals/doorman_type").get_data(as_text=True)
+    top = page[page.index('id="reference-population"') :][:600]
+    assert "Reference population: 100 ads" in top
+    assert "+3.9%" in top and "relative to that mean" in top
+    assert "+1.2%" in page and "−0.8%" in page
+
+
+def test_small_bins_get_no_score_and_do_not_rank(tmp_path):
+    root = tmp_path / "site"
+    spec = {
+        "big_a": (40, 10, 0.00),
+        "big_b": (40, 10, 0.04),
+        # 40 ads in 5 buildings, and 5 ads, both with gaps far from the others.
+        "few_buildings": (40, 5, 0.60),
+        "few_ads": (5, 5, -0.70),
+    }
+    write_diagnostics(root, ads=_binned_ads(spec))
+    diag = workbench.load(root)
+    signal = diag.signal_detail("doorman_type", workbench.SignalChoice())
+
+    keys = [b["key"] for b in signal["bins"]]
+    assert set(keys[:2]) == {"big_a", "big_b"}
+    assert set(keys[2:]) == {"few_buildings", "few_ads"}
+    assert [b["sized"] for b in signal["bins"]] == [True, True, False, False]
+    assert all(b["ratio"] is None for b in signal["bins"][2:])
+    assert signal["small_bins"] == 2
+    assert signal["peak_bin"]["key"] in ("big_a", "big_b")
+    assert signal["strength"] == pytest.approx(signal["peak_bin"]["ratio"])
+
+    client = create_app(root).test_client()
+    page = client.get("/workbench/signals/doorman_type").get_data(as_text=True)
+    table = page[page.index('id="bin-table"') :]
+    table = table[table.index("<tbody>") :]
+    assert table.count('<tr class="small-bin"') == 2
+    assert table.index("big ") < table.index('<tr class="small-bin"')
+    small_row = table[table.index('<tr class="small-bin"') :]
+    small_row = small_row[: small_row.index("</tr>")]
+    # A greyed row shows neither an SE nor a score.
+    assert small_row.count('<td class="num">-</td>') == 2
+    assert "2 greyed bins" in page
+
+    # The overview, the signals index and the attribute's page show the same score.
+    score = "{:.2f}".format(signal["strength"])
+    assert f'<span class="figure-value">{score}</span>' in page
+    index = client.get("/workbench/signals").get_data(as_text=True)
+    overview = client.get("/workbench").get_data(as_text=True)
+    for listing in (index, overview[overview.index('id="top-signals"') :]):
+        row = listing[listing.index(">Doorman</a>") :]
+        row = row[: row.index("</tr>")]
+        assert f'<td class="num">{score}</td>' in row
+
+    strip = str(signal["svg"])
+    assert strip.count(" small") == 2
+    assert strip.count('class="whisker"') == 2
+
+
+def test_variance_explained_is_shown_up_to_20_bins(tmp_path):
+    root = tmp_path / "site"
+    many = {f"class_{k:02d}": (2, 2, 0.01 * k) for k in range(21)}
+    write_diagnostics(root, ads=_binned_ads(many))
+    diag = workbench.load(root)
+    signal = diag.signal_detail("doorman_type", workbench.SignalChoice())
+    assert len(signal["bins"]) == 21 > workbench.MAX_EXPLAINED_BINS
+    assert signal["explained_share"] is None and signal["explained_pct"] is None
+    flag = diag.signal_detail("has_outdoor", workbench.SignalChoice())
+    assert flag["explained_share"] is not None
+
+    client = create_app(root).test_client()
+    page = client.get("/workbench/signals/doorman_type").get_data(as_text=True)
+    assert 'id="variance-explained"' not in page
+    page = client.get("/workbench/signals/has_outdoor").get_data(as_text=True)
+    assert 'id="variance-explained"' in page
+    index = client.get("/workbench/signals").get_data(as_text=True)
+    row = index[index.index(">Doorman</a>") :]
+    row = row[: row.index("</tr>")]
+    assert row.count('<td class="num">-</td>') == 2
+
+
+def test_signals_index_warns_about_multiple_comparisons(wb_client):
+    page = wb_client.get("/workbench/signals").get_data(as_text=True)
+    line = page[page.index('id="signals-reading"') :]
+    line = line[: line.index("</p>")]
+    assert f"With about {len(FEATURES)} attributes" in line
+    assert "scores of 3 or so appear by chance" in line
+    assert "lead to check" in line and "both readings" in line
+    assert 'href="/workbench/buildings#building-level-signals"' in line
+
+
+def test_calibration_lists_new_unit_rows_first(wb_client, tmp_path):
+    cal = workbench.load(tmp_path / "site").calibration()
+    assert [r["label"] for r in cal["new_units"]] == ["Building", "Area"]
+    assert [r["label"] for r in cal["unit"]] == ["Unit history"]
+    assert cal["main"] == cal["new_units"] + cal["unit"] + cal["rest"]
+    assert cal["rest"][0]["label"] == "All held-out ads"
+
+    page = wb_client.get("/workbench").get_data(as_text=True)
+    table = page[page.index('id="calibration"') :]
+    order = [
+        "New units: the test of the model on apartments it has not met",
+        'href="/workbench/triage?basis=building"',
+        'href="/workbench/triage?basis=area"',
+        "Units with earlier ads: the easier case",
+        'href="/workbench/triage?basis=unit"',
+        "All held-out ads, by source and bedrooms",
+        'href="/workbench/triage?source=latest"',
+    ]
+    places = [table.index(text) for text in order]
+    assert places == sorted(places)
+    assert "Read calibration in the new-unit rows" in table
+
+
+def test_miss_header_explains_miss_and_z(wb_client):
+    assert "predictive spread" in workbench.MISS_TITLE
+    assert "3.5" in workbench.MISS_TITLE and "finite" in workbench.MISS_TITLE
+    header = f'title="{escape(workbench.MISS_TITLE)}">Miss</th>'
+    assert header in wb_client.get("/workbench/triage").get_data(as_text=True)
+    building = wb_client.get(f"/workbench/buildings/{GROVE}").get_data(as_text=True)
+    assert header in building
+
+
+def test_triage_untagged_filter_reads_the_ledger(tmp_path):
+    root = tmp_path / "site"
+    ads = [
+        make_ad_row(str(2000 + i), z=float(120 - i) / 20.0, unit_ads=0)
+        for i in range(120)
+    ]
+    write_diagnostics(root, ads=ads)
+    client = create_app(root).test_client()
+
+    # With an empty ledger the filter keeps every ad.
+    page = client.get("/workbench/triage?untagged=1").get_data(as_text=True)
+    assert "<strong>120</strong> held-out ads" in page
+    assert 'name="untagged" value="1" checked' in page
+
+    tags.append(root, "2000", "deal", "")
+    tags.append(root, "2003", "wrong_price", "")
+    tags.append(root, "2003", "clear", "")
+    plain = client.get("/workbench/triage").get_data(as_text=True)
+    assert _triage_ids(plain)[:2] == ["2000", "2001"]
+    assert 'name="untagged" value="1">' in plain
+
+    page = client.get("/workbench/triage?untagged=1").get_data(as_text=True)
+    assert "<strong>119</strong> held-out ads" in page
+    # 2000 carries a tag, and the tag on 2003 is cleared.
+    assert _triage_ids(page)[:3] == ["2001", "2002", "2003"]
+    assert 'href="/workbench/triage?untagged=1&amp;page=2"' in page
+    assert 'href="/workbench/triage.csv?untagged=1"' in page
+
+    second = client.get("/workbench/triage?untagged=1&page=2").get_data(as_text=True)
+    assert _triage_ids(second)[0] == "2051"
+
+    rows = list(
+        csv.DictReader(
+            io.StringIO(
+                client.get("/workbench/triage.csv?untagged=1").get_data(as_text=True)
+            )
+        )
+    )
+    assert len(rows) == 119
+    assert "2000" not in {r["listing_id"] for r in rows}
+
+
+def test_triage_csv_link_carries_every_filter(wb_client):
+    query = {
+        "q": ["19th"],
+        "source": ["latest"],
+        "flag": ["any"],
+        "basis": ["unit"],
+        "sign": ["low"],
+        "beds": ["1", "2"],
+        "nb": ["chelsea"],
+        "feature": ["has_outdoor"],
+        "bin": ["no"],
+        "min_miss": ["1.5"],
+        "untagged": ["1"],
+    }
+    url = "/workbench/triage?" + "&".join(
+        f"{k}={v}" for k, values in query.items() for v in values
+    )
+    page = wb_client.get(url + "&page=1").get_data(as_text=True)
+    href = re.search(r'class="download" href="([^"]+)"', page).group(1)
+    parts = urlsplit(html_lib.unescape(href))
+    assert parts.path == "/workbench/triage.csv"
+    assert parse_qs(parts.query) == query
+
+    # The CSV applies the sign filter the link carries.
+    low = wb_client.get("/workbench/triage.csv?sign=low").get_data(as_text=True)
+    high = wb_client.get("/workbench/triage.csv?sign=high").get_data(as_text=True)
+    low_gaps = [float(r["gap"]) for r in csv.DictReader(io.StringIO(low))]
+    high_gaps = [float(r["gap"]) for r in csv.DictReader(io.StringIO(high))]
+    assert low_gaps and all(g < 0 for g in low_gaps)
+    assert high_gaps and all(g > 0 for g in high_gaps)
+
+
+def test_triage_flag_list_shows_counts_rarest_first(tmp_path):
+    root = tmp_path / "site"
+    marks = [["beds_conflict"]] * 3 + [["beds_jump", "beds_conflict"]] * 2
+    marks += [["extreme"], []]
+    ads = [make_ad_row(str(3000 + i), flags=f) for i, f in enumerate(marks)]
+    write_diagnostics(root, ads=ads)
+    wb_client = create_app(root).test_client()
+    counts = {f["code"]: f["count"] for f in workbench.load(root).flag_counts()}
+    assert counts["beds_conflict"] == 5 and counts["extreme"] == 1
+    page = wb_client.get("/workbench/triage").get_data(as_text=True)
+    select = page[page.index('name="flag"') :]
+    select = select[: select.index("</select>")]
+    listed = re.findall(r'<option value="(\w+)"[^>]*>[^<(]*\(([\d,]+)\)', select)
+    listed = [(code, int(n.replace(",", ""))) for code, n in listed]
+    assert {code for code, _ in listed} == set(counts)
+    assert all(counts[code] == n for code, n in listed)
+    assert [code for code, _ in listed][:3] == ["extreme", "beds_jump", "beds_conflict"]
+    shown = [n for _, n in listed if n > 0]
+    assert shown == sorted(shown)
+    # A flag marking no ad follows the others.
+    assert [n for _, n in listed] == shown + [0] * (len(listed) - len(shown))
+
+
+def test_building_level_table_reads_buildings_below_the_ads_floor(wb_client, tmp_path):
+    diag = workbench.load(tmp_path / "site")
+    signals = diag.building_level_signals(workbench.BuildingChoice())
+    assert signals and all(s["total_ads"] == 4 for s in signals)
+
+
+def test_long_bin_labels_carry_a_title_and_wrap(wb_client):
+    label = "2,100 to 2,750 square feet of space"
+    strip = str(
+        workbench.signal_strip(
+            [{"key": "q1", "label": label, "mean_pct": 1.0, "sized": True}]
+        )
+    )
+    assert f"<title>{label}</title>" in strip
+    assert label[: workbench.STRIP_LABEL_CHARS - 2] + "..</text>" in strip
+    short = str(workbench.signal_strip([{"key": "a", "label": "Yes", "mean_pct": 1.0}]))
+    assert "<title>Yes</title>Yes</text>" in short
+
+    page = wb_client.get("/workbench/signals").get_data(as_text=True)
+    assert '<td class="bin-label">' in page
+    detail = wb_client.get("/workbench/signals/square_feet").get_data(as_text=True)
+    assert '<th scope="row" class="bin-label">' in detail
+    css = (
+        Path(workbench.__file__).resolve().parent / "static" / "workbench.css"
+    ).read_text()
+    rule = css[css.index(".data .bin-label {") :]
+    assert "white-space: normal" in rule[: rule.index("}")]
+
+
+def test_phone_rules_shorten_triage_and_enlarge_controls(tmp_path):
+    css = (
+        Path(workbench.__file__).resolve().parent / "static" / "workbench.css"
+    ).read_text()
+    phone = css[css.index("@media (max-width: 599px)") :]
+    assert f"tbody tr:nth-child(n + {workbench.PHONE_ROWS + 1})" in phone
+    assert ".rows-toggle:not(:checked)" in phone
+    assert css.count("min-height: 40px") >= 2
+    assert "padding-block: 0.85rem" in css
+    # A unit id on the building page stays on a line at phone widths.
+    assert "#building-units tbody th code {" in css
+    assert "grid-template-columns: repeat(3, 1fr)" in css
+
+    root = tmp_path / "site"
+    ads = [make_ad_row(str(2000 + i), z=float(60 - i) / 20.0) for i in range(60)]
+    write_diagnostics(root, ads=ads)
+    client = create_app(root).test_client()
+    page = client.get("/workbench/triage").get_data(as_text=True)
+    assert page.index('id="t-all-rows"') < page.index('<table class="data triage">')
+    assert '<label class="rows-more" for="t-all-rows">' in page
+    assert "Show the other 25 rows of this page" in page
+    # The second page holds 10 rows, and a page of 25 or fewer has no control.
+    second = client.get("/workbench/triage?page=2").get_data(as_text=True)
+    assert "rows-more" not in second and "t-all-rows" not in second
