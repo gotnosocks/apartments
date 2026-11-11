@@ -216,6 +216,9 @@ rented the next day at $5,850 while the building's other 1BRs asked $6,070 to $7
 
 ### Conclusion
 
+The second look at the end of this note narrows this conclusion to the raises typed as the
+ad closed.
+
 The rewrite should stand, for every mechanism. The model's target is the ask: the last
 price on the ad while a renter could still answer it. On the readers' calls, about 71% of
 these off-day prices are lease terms, either the gross rent behind a net ask or a rent
@@ -237,8 +240,9 @@ paid rents against asks, but not as the target.
 ## The 6-chain fit (c2), not launched
 
 On 2026-11-11 Ben stopped c2 before its first container and ruled out Modal fits for the
-rest of the outlier sprint. c2 and the predictions below wait for after the sprint
-(`docs/TODO.md`).
+rest of the outlier sprint. The second look at the end of this note narrows the rewrite, and
+its fit c3 takes c2's place in `docs/TODO.md`. c2's design and predictions stay here as
+written.
 
 c2 repeats the fit with b9's design: three containers of 2 chains, seeds 11, 12 and 13,
 pooled as `drift-building-b0-latest-5f766394-c2`, and compared with all 6 of b9's chains.
@@ -255,3 +259,287 @@ Predictions (written before launch):
    (80%).
 5. On the 10,943 changed ads, the 80% coverage lies between 0.76 and 0.79 (70%).
 6. $11 to $12 for the three containers.
+
+## Second look: narrow the rewrite (2026-11-11 18:30 ET)
+
+Ben restarted the sprint's session and asked for the rewrite to be judged again, with less
+weight on the readers' mechanism calls. I worked from the records' own event times, which the
+first look had read only to the day, and from tests with no reader in them. Scripts and
+tables are in `/data1/apartments/tmp/outlier-sprint/s2/A/`.
+
+Verdict: narrow. The pre-off ask replaces the off-day price only where the off-day change is
+a raise typed as the ad closed: no earlier than 5 minutes before the off-market status
+event, or after it. Such a row takes the price standing on the ad before the raise. That
+is 59,026 of the 104,330 rows. Cuts, and raises standing on the ad for more than 5 minutes
+before the status event, go back to the off-day price. c1 was never served, so the served
+data does not change.
+
+### The basis of the two prices
+
+I followed the six listings Ben pointed at (3138211, 4891129, 4908976, 5069010, 5115216,
+5140994) through `ads.answers`, `analysis.concessions`, `analysis.latest_ask` and
+`analysis.ledger_rows`. `analysis.latest_ask` holds gross prices and `analysis.ledger_rows`
+the price net of free months, and I found no path netting a price twice.
+
+The rewrite's second condition compares a row's ask with the raw last change. A row priced
+net of recorded free months fails that comparison, so the rewrite left all 160,786 such rows
+alone. It repriced 3 to 6 rows with terms, depending on the match tolerance; in 3133311 c1
+trained on a gross $3,600 where the off-day $3,000 was the net rent. So nearly every row
+the rewrite changed is an ad with no free months in its record.
+
+The rows with recorded free months give a view of the mechanism. 4,471 of them have an
+off-day change, and 2,624 of those are raises with a median of +8.8%. I netted each raised
+price by the row's own recorded factor and compared it with the pre-off ask. The median
+log difference is 0.000, the netted price falls within 0.2% of the pre-off ask in 12.7% of
+rows and within 5% in 54%, and the quartiles of the factor implied by the raise (0.846,
+0.916, 0.952) track the recorded factor's (0.846, 0.917, 0.923). In these rows the raise is
+about the size of the concession: the ad ran at the net rent and took the gross rent on its
+last day. The pipeline nets that gross price back, so those rows are already priced near
+their pre-off ask.
+
+### When the off-day price was typed
+
+Each record's `priceChanges` and `statusChanges` carry times to the second. For the 104,324
+repriced rows with an off-market status event on the off day, I took the first price change
+on or after that day and measured it against the first off-market status event:
+
+| first off-day price change | raises | cuts | under 0.5% either way |
+|---|---:|---:|---:|
+| same action: from 5 minutes before the status event to 1 minute after | 53,230 | 7,540 | 1,742 |
+| 5 minutes to 1 hour before | 2,747 | 1,699 | 369 |
+| more than 1 hour before | 10,157 | 10,616 | 10,934 |
+| more than 1 minute after | 2,880 | 1,970 | 440 |
+
+77% of the raises and 35% of the cuts were typed in the same action as the status. 12,423
+rows have a status event stamped with the listing's creation time of day, as system events
+like expiry are; I class them by the same rule (1,601 of them are same-action).
+
+The table times each listing's first off-day change, and 6,007 listings have more than one.
+The rule times the change giving the row's ask, the last of them, and compares it with the
+price standing 5 minutes before the status event. The 59,026 rows it changes are:
+
+- 57,633 whose first off-day change falls within 5 minutes before the status event or after
+  it: the 53,230 and 2,880 raises of the table and 1,523 of the changes under 0.5%. They
+  take the last ask before the off-market day.
+- 1,393 whose lister changed the price earlier on the off-market day and then raised it as
+  the ad closed. In 3257181 the ask of $2,150 was cut to $1,995 that morning and raised to
+  $2,400 13 seconds before the status event. 1,388 of these rows take the earlier off-day
+  price ($1,995 here), and 5 take the last ask before the day.
+
+The first look said nearly all of these prices stood for less than a day. To the second,
+31,707 of them stood on the ad for more than an hour before it closed, and those are asks a
+renter could answer.
+
+The raises carry marks of a net rent replaced by a gross one, in every timing class. Among
+same-action raises the ratio of the two prices is within 0.12% of 12/11 in 4.9% of rows,
+of 12/10 in 2.5% and of 14/12 in 1.6%, against 0.4% to 1.5% at ratios between them, and
+the price moves from a number off the $50 grid to a multiple of $50 in 28.7% of rows
+against 4.6% the other way. The cuts carry neither mark: 0.7% at 11/12 against 0.5% beside
+it, and 6.4% against 5.3% on the $50 grid. The record's `rentedPrice` is set on 59 of the
+104,330 rows, so it cannot say which price was agreed.
+
+### The unit's other ads
+
+For a test with no model in it, I compared each repriced ad with the same unit's next ad and previous
+ad, where that other ad is one the rewrite left alone and lies 60 days to 3 years away. I
+deflated the pair by an index of month effects fit on 870,252 pairs of consecutive
+unchanged ads of a unit, and again by the building's own path, as the median deflated
+change of other units' unchanged pairs in the same building within 6 months at both ends
+(at least 5 such pairs; about a third of the ads have them). Listings repriced daily by a
+feed (8 or more price changes) are left out. Unchanged pairs differ by a median 0.049 after
+deflation.
+
+| off-day change | pairs (next / previous) | other ad minus pre-off ask | other ad minus off-day price | pre-off ask nearer (next / previous) | same, building path removed |
+|---|---:|---:|---:|---:|---:|
+| raise, same action | 11,211 / 13,692 | +0.037 / +0.028 | -0.086 / -0.084 | 59% / 61% | 59% / 60% |
+| raise, 5 min to 1 h before | 733 / 661 | +0.048 / +0.036 | -0.061 / -0.073 | 51% / 57% | 43% / 49% |
+| raise, over 1 h before | 2,228 / 2,257 | +0.029 / +0.023 | -0.059 / -0.053 | 54% / 53% | 51% / 52% |
+| raise, after the status | 719 / 803 | +0.035 / +0.028 | -0.062 / -0.057 | 53% / 52% | 53% / 58% |
+| cut, same action | 1,042 / 1,507 | -0.084 / -0.079 | -0.030 / -0.032 | 34% / 34% | 40% / 41% |
+| cut, 5 min to 1 h before | 394 / 480 | -0.038 / -0.042 | +0.023 / +0.021 | 43% / 51% | 40% / 51% |
+| cut, over 1 h before | 2,329 / 2,522 | -0.035 / -0.029 | +0.010 / +0.013 | 44% / 49% | 46% / 46% |
+| cut, after the status | 650 / 538 | -0.045 / -0.027 | +0.005 / +0.027 | 42% / 55% | 43% / 46% |
+
+In both directions the lower of the two prices lies nearer the unit's other ads. After a
+raise the other ads sit about a third of the way from the pre-off ask to the off-day
+price, and after a cut they sit at the cut price or below it. For same-action raises the
+pre-off ask is nearer in every era, most clearly in 2020 and 2021 (59% to 69%, with a
+median raise of 14%) and least in 2022 and before 2020 (51% to 57%), and more clearly the
+larger the raise (54% to 56% under 5%, 63% to 67% over 15%). The raises standing more than
+5 minutes before the status event are close to even.
+
+The same split shows on the model's scale. On the held-out repriced ads of units and
+buildings with at most 5% of training rows repriced, I regressed the pre-off ask's gap to
+b9's median on the change. A slope of 0 puts the pre-off ask on the model's scale and -1
+puts the off-day price there. Same-action raises give -0.20 to -0.25, and cuts give -0.7 to
+-1.
+
+### Where c1's gain comes from
+
+c1's +589.5 elpd on the 178,704 held-out ads with an unchanged target, split by the
+repriced training ads of each ad's unit (SE clustered by building):
+
+| unit's training ads | held-out ads | c1 minus b9ab | per ad |
+|---|---:|---:|---:|
+| a repriced raise | 9,373 | +597.2, SE 63 | +0.064 |
+| a repriced cut | 3,322 | -110.1, SE 21.5 | -0.033 |
+| both | | +1.9 | |
+| none repriced | | +100.6, SE 61 | |
+
+For units with a single repriced training ad, by the timing of its change:
+
+| change | held-out ads | c1 minus b9ab | t |
+|---|---:|---:|---:|
+| raise, same action | 5,705 | +466.5 | 9.5 |
+| raise, 5 min to 1 h before | 410 | -3.2 | -0.3 |
+| raise, over 1 h before | 1,544 | +10.9 | 0.5 |
+| raise, after the status | 483 | -5.1 | -0.4 |
+| cut, same action | 575 | -12.6 | -1.3 |
+| cut, 5 min to 1 h before | 307 | -25.1 | -2.8 |
+| cut, over 1 h before | 1,815 | -36.4 | -2.5 |
+| cut, after the status | 491 | -29.5 | -3.9 |
+
+Among these units the gain comes from the same-action raises, and it grows with the raise,
+from +0.007 per ad for raises under 2% (t 0.8) to +0.141 for raises over 20%. Repricing a
+cut costs elpd in every timing class. Units with several repriced training ads add about
+128, which I did not split by timing. The gain is spread over 35,523 buildings, and the
+largest single building gives +23.7.
+
+The 100.6 of units with no repriced training ad is the sum of a gain in buildings with a
+repriced row and a loss in buildings with none. In the buildings with a repriced row
+(106,887 held-out ads of unrepriced units, +303.9), split by the building's repriced
+training rows (`s2/A/a9.py`):
+
+| building's repriced training rows | held-out ads | c1 minus b9ab | SE |
+|---|---:|---:|---:|
+| same-action raises only | 21,433 | +142.5 | 34.0 |
+| same-action raises and others | 53,059 | +191.8 | 55.2 |
+| earlier raises only | 4,237 | -7.7 | 6.8 |
+| cuts only | 20,073 | -24.1 | 12.4 |
+| others, no same-action raise | 8,085 | +1.4 | 10.9 |
+
+So the neighbors' gain also sits in the buildings with same-action raises.
+
+In the buildings with no repriced row (57,087 of those held-out ads) c1 loses 205.7 elpd,
+175 of it in ads from 2020 to 2022, with interval widths and coverage nearly unchanged
+(80% coverage 0.819 against 0.815). My first reading was that ads in those years with a
+concession only in their text still carry a gross ask. A split of the 2020 to 2022 ads by
+concession (`s2/A/a9b.py`) refutes it:
+
+| concession on the held-out ad | ads | c1 minus b9ab | SE |
+|---|---:|---:|---:|
+| none in the record or the text | 13,127 | -159.0 | 11.6 |
+| free months in the record | 2,188 | -18.6 | 4.7 |
+| in the text only | 296 | +2.6 | 1.5 |
+
+The loss falls on ads with no concession, and it is largest where the building has little
+history of its own: -0.029 per ad in buildings with up to 5 training rows, -0.015 with 6
+to 20, -0.005 with 21 to 100 and -0.003 above that. Their asks sit higher over c1's median
+than over b9's (+0.0054 against +0.0020 in 2020, -0.0034 against -0.0051 in 2021). My
+account, not tested further: the rewrite lowered the 2020 and 2021 asks of the buildings
+with closing raises to their net rents, their areas' time paths came down with them, and a
+building with few ads of its own borrows that path, while its asks, with no concession to
+net, fell less in those years. If so the loss is a cost of the rewrite, and it measures a
+real difference between the two kinds of building in those years, one the model has no
+term for. A concession building indicator crossed with the year is a candidate term for it.
+
+### The causal account
+
+Ben's target is the closing price, read from the last ask before the ad leaves the market.
+
+- A raise typed as the ad closes. The lister marks the ad rented or delisted and in the
+  same edit replaces the price. The size of the raise is that of a concession in part of
+  the rows: the 12/11, 12/10 and 14/12 ratios hold 9% of them, about 6 points over the
+  rate at ratios between those, the gross figures are round, the raises peak in 2020 and
+  2021, and in the rows with recorded terms the raise nets back to the pre-off ask. No
+  renter could answer the new price, and the unit's other ads sit a third of the way from
+  the old price to the new one. For the rows with a concession mark the pre-off ask is the
+  net rent the renter was offered, on the basis the pipeline uses for every ad with
+  recorded terms. The rest move on the timing alone: among the changed rows 5,363 are
+  raises over 30% and 4,614 are under 2%, and c1 shows no gain for the small ones. A rent
+  bid up over the ask and entered as the ad closes would look the same in the record, and
+  the pre-off ask would still be the last ask a renter could answer. These rows take the
+  price standing before the raise.
+- A raise typed after the status event (2,880 rows) was entered on an ad already off the
+  market, so it was never an ask either, and it carries the same ratio marks. The other-ad
+  test leans the same way but weakly (52% to 58%), and c1 shows no gain on these units. I
+  include these rows on the timing alone.
+- A raise standing more than 5 minutes before the status event (15,772 rows) was the ask
+  on the ad when it closed. The ratio marks are as strong there as in the same-action raises,
+  so some of these are the same net to gross switch made in two steps, but the other-ad
+  test is even and c1 gains nothing on their units. They keep the off-day price. This is
+  the weakest cell of the verdict.
+- A cut. A cut standing for hours is the last ask (12,315 cuts stood more than 5 minutes).
+  A cut typed in the same action or after it (9,510) was never an ask, but it carries no
+  concession mark, the unit's other ads sit at the cut price or below it, and it is most
+  plausibly the rent agreed after negotiation, entered as the ad closes. An agreed rent
+  below the ask is nearer the closing price than the ask it replaced. Cuts keep the off-day
+  price.
+- Changes under 0.5% that are not raises keep the off-day price; they move no target by
+  more than half a percent.
+
+### What this contradicts in the first look
+
+- The first conclusion kept the rewrite for all 104,330 rows. The gain it rested on comes
+  from 51% of them, and repricing the cuts costs about 104 to 110 elpd on their units.
+- The first look took the off-day prices to have stood for less than a day as the ad came
+  down. 31,707 of them stood for more than an hour before the status event.
+- The first look's next-ad regression gave the off-day price a weight of 0.90 after a
+  raise, without deflating. After deflation the unit's other ads sit a third of the way
+  from the pre-off ask to the off-day price.
+- c1's loss of 206 elpd in buildings the rewrite left alone was not reported.
+
+### Weak points and what would change the verdict
+
+- I chose the timing and direction cells while reading the same held-out split a later fit
+  will be scored on. The other-ad test does not use the model or the split, and it supports
+  the direction split strongly and the timing split among raises weakly.
+- The 5-minute margin is a judgment. Moving it to an hour moves 2,747 raises.
+- The account of same-action cuts as agreed rents rests on the other ads and the absence
+  of concession marks. No record of a paid rent backs it.
+- I did not time the off-day changes of the 4,471 rows with recorded terms, since their
+  netted price was never in question.
+- 1,533 of the changed rows have a status event stamped with the listing's creation time
+  of day, so their wait is measured against a system event. 40 changed rows were reopened
+  on the off-market day after the status event and before the raise, and in 5 of them the
+  raised price then stood for more than 5 minutes.
+- The account of c1's loss in the buildings it left alone is untested beyond the split by
+  concession.
+- The verdict would move toward the full rewrite if a fit on the narrowed dataset lost to
+  c1 on the unchanged ads of units with a cut training ad, or if a source of paid rents
+  showed the pre-off ask nearer the paid rent after a same-action cut. It would move toward
+  reverting if such a source showed same-action raises to be rents bid up over the ask,
+  which the 2022 cell (51% to 57%) leaves open for that year.
+
+### The narrowed dataset and its fit (c3)
+
+`rentfrontier.b0closingraise` writes the narrowed dataset from the served one:
+`/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise`.
+c3 is b9's design on it: three containers of 2 chains, seeds 11, 12 and 13, fit-only, pooled
+and compared with all 6 of b9's chains. It replaces c2 and waits for the end of the sprint.
+
+The build of 2026-11-11 took 4 minutes and changed 59,026 rows, with a median log raise of
+0.087. It left 45,304 rows at their off-day price: 34,691 whose ask stood for more than 5
+minutes before the status event, and 10,613 typed as the ad closed at or below the
+standing price. Against the last ask before the off-market day, 29,532 of the rows left
+alone are cuts and 15,772 are raises with a median of 0.029. A first build timed each
+listing's first off-day change and changed 57,633 rows. The second build gives those rows
+the same ask and day, which are the `-closing` dataset's, and adds the 1,393 rows above.
+Every other row equals the served dataset's (`s2/A/closingraise_verify2.py`).
+
+Predictions (written before launch):
+
+1. The pool passes the gate (70%).
+2. On the 178,704 held-out ads with a target unchanged in every dataset, elpd gains over b9
+   by more than 2 SE (85%), and by between 550 and 850 (55%).
+3. On the 3,322 of those ads whose unit has a training ad with an off-day cut, where c1 lost
+   110.1, c3 lies within 45 elpd of b9 (70%).
+4. On the ads whose unit has a single same-action raise among its training ads, c3 gains
+   0.06 to 0.10 per ad over b9 (70%).
+5. In the 57,087 ads of buildings c1's rewrite left alone, c3 still loses to b9, by between
+   150 and 300 (60%). I first wrote 80 to 220, on the reading the concession split refuted.
+   c3 moves the same raises down as c1 and leaves the cuts at their lower price, so its
+   2020 and 2021 paths lie at c1's or below.
+6. On the unchanged ads, the median abs error and the 80% coverage move by under 0.0005 and
+   0.003 (80%).
+7. $11 to $12 for the three containers.
