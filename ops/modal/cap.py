@@ -146,6 +146,7 @@ STATED_RATE["drift"] = 0.4
 # neighbourhood's quarters), run a few times a sweep by the slice updates of their scales.
 # Ceilings until their first Modal fits are measured.
 STATED_RATE["drift-building"] = 0.8
+STATED_RATE["drift-building-doorman"] = 0.8
 STATED_RATE["drift-local"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
@@ -251,6 +252,7 @@ BASELINES = (
     "building-zones-kitchen-sink-unit",
     "drift",
     "drift-building",
+    "drift-building-doorman",
     "drift-local",
 )
 
@@ -305,7 +307,9 @@ LARGE_SECONDS_PER_ITERATION = 2.1
 # A drift fit stops drawing once its sweeps have taken `rentfrontier.drift.Settings`'s
 # budget_seconds (kept equal by a test), so a long request costs the budget and no more. The
 # pilots of 2026-11-10 spent 790 to 880 s outside their sweeps, compile included.
-SWEEP_BUDGET_SECONDS = dict.fromkeys(("drift", "drift-building", "drift-local"), 2520)
+SWEEP_BUDGET_SECONDS = dict.fromkeys(
+    ("drift", "drift-building", "drift-building-doorman", "drift-local"), 2520
+)
 
 
 def gpu_seconds(chains, warmup, draws, rate=None, large=False, budget=None):

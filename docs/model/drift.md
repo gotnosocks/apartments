@@ -365,8 +365,10 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
 4 GB on thelio) and refuses a build other than the dataset's. Without `--texts` the table
 carries only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
-The three model names are `drift`, `drift-building` and `drift-local`
-(`drift.py`, `drift_building.py`, `drift_local.py`). `--split market` fits a market or
+The model names are `drift`, `drift-building`, `drift-building-doorman` and `drift-local`
+(`drift.py`, `drift_building.py`, `drift_building_doorman.py`, `drift_local.py`).
+`drift-building-doorman` adds a Manhattan copy of each doorman column to the building
+model (docs/notes/drift-building-doorman-2026-11-11.md). `--split market` fits a market or
 backtest dataset.
 
 **An hour a container.** A fit stops its sweeps at 2,520 s and saves the draws it has
