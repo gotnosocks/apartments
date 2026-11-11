@@ -74,3 +74,86 @@ The fit is the latest split of b9, as three H100 containers of 2 chains,
 7. $11 to $12 for the three containers.
 
 If the pool passes and wins, the market and backtest fits follow so Deals can switch.
+
+**As launched.** From master `cb94a194`: `drift-building-doorman-b0-latest-cb94a194-d1a`
+(seed 1) at 05:18Z and `d1b` (seed 2) at 05:25Z, on b9's input and dataset. Ben set a
+$10 limit for the night at 05:07Z, and a third container would take the night's spend to
+about $11, so the pool is two containers (4 chains) and seed 3 was not launched. Prediction 7
+becomes $7 to $8 for the two containers. Four chains of b9's length give a least bulk ESS
+near 900 if they mix as b9's did, which clears the gate's 400.
+
+## Results (scored 2026-11-11 06:50Z)
+
+The two containers ran 53 and 54 minutes and cost $7.75 by the launcher's estimate. I pooled
+them as `drift-building-doorman-b0-latest-cb94a194-d1` and scored it with `drift_score`.
+
+b9 pools six chains and d1 four, and held-out elpd falls with fewer draws. So I pooled b9's
+first two containers as `drift-building-b0-latest-67d14e17-b9ab` (four chains, the same
+draws a chain) and compare d1 with that. The SE is clustered by building.
+
+| | b9 (6 chains) | b9ab (4 chains) | d1 (4 chains) |
+|---|---|---|---|
+| Gate | pass | | pass: R-hat 1.0053 (bld_sd[outer]), least ESS 1,027 (sigma[1]) |
+| Held-out elpd | 230,989 | 230,930.8 | 230,925.9 |
+| d1 minus b9ab | | | -4.8, SE 5.9 |
+| Median abs error | 0.0406 | 0.04066 | 0.04067 |
+| Coverage 50 / 80 / 90 / 95 | .525 / .807 / .901 / .952 | .525 / .807 / .900 / .951 | .524 / .807 / .900 / .951 |
+
+The doorman coefficients, as posterior medians with 90% intervals:
+
+| class | b9 citywide | d1 outer boroughs | d1 Manhattan (citywide plus copy) |
+|---|---|---|---|
+| full | +2.73% [2.49, 2.95] | +0.41% [-0.08, 0.93] | +4.07% [3.78, 4.39] |
+| part | +2.22% [2.03, 2.42] | +0.66% [0.35, 0.92] | +3.56% [3.32, 3.85] |
+| virtual | +0.24% [0.15, 0.34] | +0.12% [0.02, 0.23] | +0.41% [0.20, 0.63] |
+
+Mean building levels by class, before and after (each chain's mean, chains agree within
+0.001):
+
+| | b9 | d1 |
+|---|---|---|
+| Manhattan full | +8.0% | +7.3% |
+| Manhattan part | +5.5% | +4.9% |
+| Outer full | +0.2% | +1.5% |
+
+In the outer boroughs the levels took up part of what the coefficient lost: the total for
+full-doorman buildings there went from about 2.9% to 1.9%.
+
+The predictions, scored:
+
+1. Gate passes: **hit**.
+2. Manhattan full premium +6% to +10%, copy above 0: **miss** on the size (+4.1%). The copy
+   is above 0.
+3. Outer full premium 0 to +3%: **hit** (+0.4%).
+4. Manhattan buildings with under 5 training ads, median bias under +5%: **hit, but
+   empty**. b9ab's median bias on those 1,042 ads is already -1.3%, and d1's is -1.2%. The
+   area-basis bias of the free check does not show up as a bias of these ads' medians.
+5. elpd gains by less than 2 SE: **miss**. It does not gain (-4.8, SE 5.9). I did not score
+   the area-basis and building-basis slices separately, since the overall score shows no gain.
+6. Error and coverage move by under 0.001 and 0.005: **hit**.
+7. $7 to $8 for two containers: **hit**.
+
+The fit does not win, and the served model stays `drift-building`.
+
+### Why the levels kept the premium
+
+The building's doorman column follows its ads over time. It is the share of the building's
+earlier ads, plus its own, that state a full-time doorman (`building_zones_kitchen_sink`,
+`building_attrs.SHARE`). Among buildings with 5 or more ads that the diagnostics class as
+full-doorman, 53% in Manhattan and 64% in the outer boroughs have ads coded both ways, and
+17% to 24% of their ads are not coded full-time. Within a building the column switches on and off
+as ads come in, so the coefficient learns partly from those switches, which the building's
+level does not explain. The premium between buildings stays with the levels: Manhattan
+full-doorman levels went from +8.0% to +7.3% while the coefficient went from 2.7% to 4.1%.
+The total for those buildings moved from about 10.7% to 11.4%.
+
+A held-out ad in a building with history has its level, so its prediction barely changes.
+The split could only help ads in buildings with little history, and those are few in this
+split.
+
+### Next
+
+A doorman column fixed for each building, taken from all its training ads up to the
+split, would make the coefficient read as the premium between buildings. It would mostly
+change how the premium is read, not the predictions, unless a split holds out whole new
+buildings.
