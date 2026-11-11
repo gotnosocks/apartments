@@ -71,9 +71,10 @@ at 14:55 and 15:03 ET: `drift-building-b0-latest-5f766394-c1a` and `-c1b`.
 
 The containers ran 51 and 50 minutes and cost $7.37 by the launcher's estimate. I pooled
 them as `drift-building-b0-latest-5f766394-c1` (4 chains of 3,400 draws, 85 kept) and scored
-it with `drift_score`. The pool misses the gate: split R-hat on `drift_tau` is 1.0114, over
-the limit of 1.01. Its least bulk ESS, also `drift_tau`, is 740. Every other quantity
-passes.
+it with `drift_score`. The pool misses the gate on split R-hat alone, on the three
+hyperparameters of the unit walk (`drift.HYP`): `drift_tau` 1.0114, `unit_sd` 1.0111 and
+`drift_sd` 1.0104, over the limit of 1.01. Every bulk ESS clears 400; the least is 740, on
+`drift_tau`. Every coefficient and the other scalars pass.
 
 So c1 cannot be served. Its scores still say whether the closing ask helps. I compared it
 with b9's first four chains (b9ab), clustering the SE by building:
@@ -95,7 +96,7 @@ The scalars move little. `nu` rises from 1.692 to 1.720, the four `sigma` rise b
 
 The predictions, scored:
 
-1. Gate passes: **miss** (`drift_tau` R-hat 1.0114).
+1. Gate passes: **miss** (R-hat 1.0104 to 1.0114 on the walk's three hyperparameters).
 2. `nu` between 1.72 and 1.95: **hit**, at the bottom edge (1.720).
 3. Each `sigma` moves by under 5%: **hit** (at most 2.2%).
 4. elpd gains on the shared ads: **hit**. By more than 2 SE: **hit** (5.5 SE).
@@ -108,18 +109,21 @@ The predictions, scored:
 
 The rule for a missed gate is to look at the data, then the model, then the sampler.
 
-- Data: the change touches the targets of 5.5% of rows, and `drift_tau` is the walk's
-  hyperparameter, not a row's. Its posterior median moves by 0.5%, and its traces wander
-  the way b9ab's do. In c1 the first chain's halves average 9.53 and 9.76. In b9ab the
+- Data: the change touches the targets of 5.5% of rows, and the three quantities are the
+  walk's hyperparameters, not a row's. They move together, since the sampler draws them as a
+  block. `drift_tau`'s posterior median moves by 0.5%, and its traces wander the way b9ab's
+  do. In c1 the first chain's halves average 9.53 and 9.76. In b9ab the
   third chain's average 9.73 and 9.59.
 - Model: `drift_tau` is the slowest quantity in every drift-building fit since b6. It is
   the least-ESS quantity in b9 (1,344 over 6 chains) and b9ab (834 over 4).
 - Sampler: a 2-chain container's `drift_tau` R-hat has run from 1.000 to 1.017 (b9a 1.0049,
-  b9b 1.0062, b9c 0.9999, b6c 1.0172, j6b 1.0141; here c1a 1.0171 and c1b 1.0026). Four
+  b9b 1.0062, b9c 0.9999, b6c 1.0172, j6b 1.0141; here c1a 1.0171 and c1b 1.0026). The
+  misses all come from c1a: on its own it has `unit_sd` at 1.0156 and `drift_sd` at 1.0140,
+  while c1b has all three under 1.004. Four
   chains of this length sit close to the limit. b9 and the other served fits used 6 chains,
   and the doorman fit's 4 chains came from the night's budget.
 
-I read this as the 4-chain design being too thin for `drift_tau`. It is not a defect of the
+I read this as the 4-chain design being too thin for the walk's hyperparameters. It is not a defect of the
 closing data. Adding a third container to c1 would rerun a failed fit, so c1 stays failed.
 
 ## The 6-chain fit (c2)
