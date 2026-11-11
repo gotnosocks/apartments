@@ -6,6 +6,45 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
+## Outlier sprint, state at 2026-11-11 21:15Z
+
+Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
+sprint ends about 2026-11-12 18:55Z. The findings are in
+[the sprint note](../notes/outlier-sprint-2026-11-11.md), and scratch work is in
+`/data1/apartments/tmp/outlier-sprint/`.
+
+- **Merged:** the ledger corrections (#1307), `b0income` (#1309), the closing-ask results
+  (#1310) and the sprint note (#1311).
+- **c2, running.** The user unit `outlier-c2` runs `c2/run.sh`, which launches three 2-chain
+  containers of the closing dataset, labels `c2a`, `c2b` and `c2c` with seeds 11, 12 and 13.
+  It launches one at a time as the Modal balance allows, about 10 hours apart, and checks out
+  origin/master in `/data1/apartments/serve/master` before each launch. Its log is
+  `c2/run.log`; check it with `systemctl --user status outlier-c2`. Each finished part
+  leaves `/data1/apartments/frontier/runs/drift-building-b0-latest-5f766394-<label>/result.json`,
+  and the script skips a part that has one, so restarting the unit is safe. After `c2c`
+  finishes, from `/data1/apartments/serve/master/frontier` with `PYTHONPATH=src` and the
+  bridge-frontier venv:
+
+  ```sh
+  python -m rentfrontier.drift_pool drift-building-b0-latest-5f766394-c2 \
+      drift-building-b0-latest-5f766394-c2a drift-building-b0-latest-5f766394-c2b \
+      drift-building-b0-latest-5f766394-c2c
+  python -m rentfrontier.drift_score drift-building-b0-latest-5f766394-c2
+  python /data1/apartments/tmp/outlier-sprint/compare_c1.py \
+      drift-building-b0-latest-67d14e17-b9 drift-building-b0-latest-5f766394-c2
+  ```
+
+  `compare_c1.py` is a scratch script outside the repo. It reads `pred_scores.npz` from both
+  runs and compares them on the held-out ads whose target is unchanged, with an elpd SE
+  clustered by building. Score the
+  predictions in `docs/notes/closing-asks-2026-11-11.md`. If it passes the gate and wins,
+  serve it under the selection rules, then change the pipeline to `PIPELINE_STALE_DAYS=-1`.
+- **Income fit, next.** It runs on the dataset c2's comparison picks; if closing wins, build
+  it with `python -m rentfrontier.b0income CLOSING OUT`. Its predictions are already in
+  `docs/notes/income-flag-2026-11-11.md`.
+- **Leads not started:** a Student-t unit level, wider noise for large units, splitting unit
+  records shared by two apartments, a text rule for commercial spaces and rooms.
+
 ## Manhattan doorman fit, 2026-11-11 06:50Z
 
 Ben approved a Manhattan copy of the doorman columns (`drift-building-doorman`, #1304) and
