@@ -669,7 +669,8 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
         writer.writerow(CSV_COLUMNS)
         for item in records:
             writer.writerow(
-                [
+                facts.csv_cell(cell)
+                for cell in [
                     item["listing_id"],
                     item["tag"],
                     item["group"] or "",

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% import "_workbench.html" as w with context %}
+{% set section = "workbench" %}
+{% block title %}Buildings · Workbench{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('workbench.css') }}">{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Buildings</h1>
+  <p class="lede">Open a building near the top to check whether the model misses all of its held-out ads the same way.</p>
+</section>
+
+<form class="filters" action="{{ url_for('workbench_buildings') }}" method="get" aria-label="Filter buildings">
+  <div class="field grow">
+    <label for="b-q">Address</label>
+    <input id="b-q" name="q" type="search" value="{{ choice.q }}" autocomplete="off">
+  </div>
+  {% if show_hoods %}
+  <div class="field">
+    <label for="b-nb">Neighbourhood</label>
+    <select id="b-nb" name="nb">
+      <option value=""{% if not choice.nb %} selected{% endif %}>All</option>
+      {{ w.area_options(hood_groups, choice.nb) }}
+    </select>
+  </div>
+  {% endif %}
+  <div class="field">
+    <label for="b-min-ads">Min ads</label>
+    <input id="b-min-ads" name="min_ads" inputmode="numeric" size="5" value="{{ choice.min_ads if choice.min_ads is not none else '' }}" placeholder="0">
+  </div>
+  <div class="field">
+    <label for="b-sort">Order by</label>
+    <select id="b-sort" name="sort">
+      {% for key, spec in sorts.items() %}
+      <option value="{{ key }}"{% if choice.sort == key %} selected{% endif %}>{{ spec[1] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field actions">
+    <button type="submit">Apply</button>
+    {% if choice.active() %}<a href="{{ url_for('workbench_buildings') }}">Reset</a>{% endif %}
+  </div>
+</form>
+
+<div class="results-head">
+  <p><strong>{{ "{:,}".format(total) }}</strong> building{{ "" if total == 1 else "s" }}{% if total > per_page %}, {{ "{:,}".format((choice.page - 1) * per_page + 1) }} to {{ "{:,}".format([choice.page * per_page, total] | min) }} shown{% endif %}.</p>
+</div>
+
+<section class="card" id="buildings-table">
+  <div class="table-wrap">
+  <table class="data buildings">
+    <thead>
+      <tr>
+        <th scope="col">Building</th>
+        <th scope="col">Area · zone</th>
+        <th scope="col" class="num" title="Posterior building level, in percent on the log scale, with one standard deviation">Level (±SD)</th>
+        <th scope="col" class="num">Train ads</th>
+        <th scope="col" class="num">Held-out ads</th>
+        <th scope="col" class="num" title="Mean gap of the held-out ads from the model's middle">Held-out gap</th>
+        <th scope="col" class="num" title="Mean held-out gap in units of the model's predictive spread">Held-out miss</th>
+        <th scope="col" class="num" title="Size of the mean miss times the square root of the held-out ads">|miss|·√ads</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for b in rows %}
+      <tr>
+        <td>
+          <a href="{{ url_for('workbench_building', building=b.building) }}">{{ b.address or b.building }}</a>
+        </td>
+        <td class="nowrap">{{ b.hood_label or "-" }}{% if b.zone %} <span class="muted">· {{ b.zone }}</span>{% endif %}</td>
+        <td class="num nowrap">
+          {{ pct(b.level_pct, digits=1) }}
+          {% if b.level_sd_pct is finite %}<span class="muted">(±{{ "{:.1f}".format(b.level_sd_pct) }}%)</span>{% endif %}
+        </td>
+        <td class="num">{{ "{:,}".format(b.train_ads) }}</td>
+        <td class="num">{{ "{:,}".format(b.heldout_ads) }}</td>
+        <td class="num">{{ pct(b.heldout_gap_pct, digits=1) }}</td>
+        <td class="num">{{ w.fmt_miss(b.heldout_miss) }}</td>
+        <td class="num">{{ "{:.2f}".format(b.miss_score) if b.miss_score is finite else "-" }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="empty">No buildings match these filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Pages">
+    {% if choice.page > 1 %}<a href="{{ list_url(page=choice.page - 1) }}" rel="prev">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+    <span>Page {{ choice.page }} of {{ "{:,}".format(pages) }}</span>
+    {% if choice.page < pages %}<a href="{{ list_url(page=choice.page + 1) }}" rel="next">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+
+<section class="card" id="building-level-signals">
+  <h2>Building level by building attribute</h2>
+  <p class="note">A trend here says the building levels are standing in for an attribute. An attribute with many bins lists its {{ list_bins }} strongest.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th scope="col">Attribute</th>
+        <th scope="col">Kind</th>
+        <th scope="col" class="num">Buildings</th>
+        <th scope="col" class="num" title="Largest |mean level| / SE across bins">Max |level| / SE</th>
+        <th scope="col" class="num" title="Share of the variance of the building levels explained by bin means">Var explained</th>
+        <th scope="col">Bin means (95% interval)</th>
+        <th scope="col">Bins</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in signals %}
+      <tr>
+        <th scope="row">
+          {% if s.name in (info.features | map(attribute='name') | list) %}
+          <a href="{{ url_for('workbench_signal', feature=s.name) }}">{{ s.label }}</a>
+          {% else %}
+          {{ s.label }}
+          {% endif %}
+        </th>
+        <td class="muted">{{ s.kind }}</td>
+        <td class="num">{{ "{:,}".format(s.non_missing_ads) }} / {{ "{:,}".format(s.total_ads) }}</td>
+        <td class="num">{{ "{:.2f}".format(s.strength) }}</td>
+        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) }}</td>
+        <td>{{ s.svg }}</td>
+        <td>{{ w.bin_list(s, unit="Bldgs") }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">The folder lists no building attributes.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

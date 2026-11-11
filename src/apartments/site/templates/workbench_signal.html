@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% import "_workbench.html" as w with context %}
+{% set section = "workbench" %}
+{% block title %}{{ signal.label }} · Signals · Workbench{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('workbench.css') }}">{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('workbench_signals', **choice.args()) }}">Signals</a> › <span aria-current="page">{{ signal.label }}</span>
+</nav>
+<section class="intro">
+  <h1>{{ signal.label }}</h1>
+  <p class="subline">{{ signal.group_label }} · Level: <strong>{{ signal.level }}</strong> · Kind: <strong>{{ signal.kind }}</strong> · {{ scopes[choice.scope] }}</p>
+  <p class="lede">Pick a bin whose mean gap is far from zero and open its ads in the triage queue.</p>
+</section>
+
+<form class="filters" action="{{ url_for('workbench_signal', feature=signal.name) }}" method="get" aria-label="Filter feature bins">
+  <div class="field">
+    <label for="sd-scope">Ads</label>
+    <select id="sd-scope" name="scope">
+      {% for key, label in scopes.items() %}
+      <option value="{{ key }}"{% if choice.scope == key %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if show_hoods %}
+  <div class="field">
+    <label for="sd-nb">Neighbourhood</label>
+    <select id="sd-nb" name="nb">
+      <option value=""{% if not choice.nb %} selected{% endif %}>All</option>
+      {{ w.area_options(hood_groups, choice.nb) }}
+    </select>
+  </div>
+  {% endif %}
+  <fieldset class="field">
+    <legend>Bedrooms</legend>
+    <div class="checks">
+      {% for key, label in bedrooms.items() %}
+      <label class="check"><input type="checkbox" name="beds" value="{{ key }}"{% if key in choice.beds %} checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="field actions">
+    <button type="submit">Apply</button>
+    {% if choice.active() %}<a href="{{ url_for('workbench_signal', feature=signal.name) }}">Reset</a>{% endif %}
+  </div>
+</form>
+
+<section class="figures" aria-label="Signal summary">
+  <div class="figure">
+    <span class="figure-label">Max |mean gap| / SE</span>
+    <span class="figure-value">{{ "{:.2f}".format(signal.strength) }}</span>
+    <span class="figure-note">standard errors clustered by building</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Variance of the gaps explained</span>
+    <span class="figure-value">{{ pct(signal.explained_pct, signed=False, digits=2) }}</span>
+    <span class="figure-note">by bin means over {{ "{:,}".format(signal.total_ads) }} ads</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Ads with a value</span>
+    <span class="figure-value">{{ "{:,}".format(signal.non_missing_ads) }}</span>
+    <span class="figure-note">{{ "{:,}".format(signal.missing_ads) }} without one</span>
+  </div>
+</section>
+
+<section class="card" id="bin-table">
+  <div class="card-head">
+    <h2>Gap by bin</h2>
+    <div>{{ signal.svg }}</div>
+  </div>
+  <p class="note">{% if signal.kind == "category" %}Bins are ordered by |mean| / SE, largest first. {% endif %}{% if signal.more_bins %}The strip draws the {{ signal.list_bins | length }} strongest bins of at least {{ min_bin_ads }} ads. {% endif %}Standard errors are clustered by building.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th scope="col">Bin</th>
+        <th scope="col" class="num">Ads</th>
+        <th scope="col" class="num">Buildings</th>
+        <th scope="col" class="num" title="Mean gap between the ask and the model's middle">Mean gap</th>
+        <th scope="col" class="num" title="Standard error, clustered by building">SE</th>
+        <th scope="col" class="num" title="Size of the mean gap over its standard error">|Mean| / SE</th>
+        <th scope="col" class="num" title="Mean gap in units of the model's predictive spread">Mean miss</th>
+        <th scope="col">Triage</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for b in signal.bins %}
+      {% set t_url = url_for('workbench_triage', **choice.triage_args(signal.name, b.key)) %}
+      <tr>
+        <th scope="row"><a href="{{ t_url }}">{{ b.label }}</a></th>
+        <td class="num">{{ "{:,}".format(b.ads) }}</td>
+        <td class="num">{{ "{:,}".format(b.buildings) }}</td>
+        <td class="num">{{ pct(b.mean_pct, digits=1) }}</td>
+        <td class="num">{{ pct(b.se_pct, signed=False, digits=1) if b.se_pct is finite else "-" }}</td>
+        <td class="num">{{ "{:.2f}".format(b.ratio) if b.ratio is finite else "-" }}</td>
+        <td class="num">{{ w.fmt_miss(b.mean_miss) }}</td>
+        <td class="nowrap"><a href="{{ t_url }}">View {{ "{:,}".format(b.ads) }} in triage</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="empty">No ads match these filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

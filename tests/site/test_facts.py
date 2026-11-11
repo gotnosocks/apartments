@@ -385,3 +385,12 @@ def test_basis_sentence_and_unknown_flags():
     items = facts.flag_items(["ppsf", "ppsf", "future_detector"])
     assert [i["code"] for i in items] == ["ppsf", "future_detector"]
     assert items[1]["label"] == "future_detector"
+
+
+def test_csv_cell_quotes_formula_text_and_leaves_numbers():
+    assert facts.csv_cell('=HYPERLINK("http://x")') == '\'=HYPERLINK("http://x")'
+    assert facts.csv_cell("@cmd") == "'@cmd"
+    assert facts.csv_cell("-2 West Street") == "'-2 West Street"
+    assert facts.csv_cell("12 West Street") == "12 West Street"
+    assert facts.csv_cell(-1.5) == -1.5
+    assert facts.csv_cell(None) is None
