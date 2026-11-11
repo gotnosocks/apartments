@@ -126,7 +126,38 @@ The rule for a missed gate is to look at the data, then the model, then the samp
 I read this as the 4-chain design being too thin for the walk's hyperparameters. It is not a defect of the
 closing data. Adding a third container to c1 would rerun a failed fit, so c1 stays failed.
 
-## The 6-chain fit (c2)
+## The slow walk hyperparameters, looked at again (2026-11-11 17:30 ET)
+
+Ben asked for the gate miss to be looked into before any refit, so I read c1's and b9's
+saved traces (3,400 draws per chain) on thelio.
+
+- Data. The closing rewrite changes no row's unit and adds no step to a unit's path. Pairs
+  of a unit's ads on the same day fall from 1,457 to 1,165, steps of more than a factor of 2
+  go from 2,802 to 2,805, and the sd of a unit's step goes from 0.171 to 0.173.
+- Model. `drift_tau`, `unit_sd` and `drift_sd` lie on a ridge: within every chain of c1
+  and b9, `drift_tau` correlates at -0.97 with `unit_sd` and at +0.97 with `drift_sd`, and
+  `unit_sd` with `drift_sd` at -0.98 to -0.99. The ridge is the split of a unit's variation
+  between its lasting level and its walk, which the data pins only in sum. `drift_tau` also
+  correlates at +0.3 with `nu` and +0.25 to +0.46 with the `sigma`s, and at 0.0 with every
+  building and zone scale. The chains of c1 and b9 mix alike, with integrated
+  autocorrelation times of 10 to 20 draws for all three quantities.
+- Sampler. With that mixing a chain's mean of `drift_tau` has a Monte Carlo error of about
+  0.04. c1's four chain means (9.64, 9.59, 9.72, 9.68) spread by 0.057 and b9ab's (9.60,
+  9.63, 9.66, 9.63) by 0.025. Every pair of b9's containers gives R-hat under 1.006 on the
+  three quantities (b9ab 1.0051, b9bc 1.0041, b9ac 1.0024), against c1's 1.0114.
+
+So c1's miss is the luck of four chains on a ridge they cross slowly. The data change does
+not cause it, and the same design passed for b9 by a margin of about 0.005. A
+reparameterization that samples the ridge's direction apart from its width (a unit's total
+variance and the walk's share of it, with `drift_tau`) would cut the autocorrelation and
+make a 4-chain fit's gate depend less on seeds. That is a change to the model, for a fit
+of its own.
+
+## The 6-chain fit (c2), not launched
+
+On 2026-11-11 Ben stopped c2 before its first container and ruled out Modal fits for the
+rest of the outlier sprint. c2 and the predictions below wait for after the sprint
+(`docs/TODO.md`).
 
 c2 repeats the fit with b9's design: three containers of 2 chains, seeds 11, 12 and 13,
 pooled as `drift-building-b0-latest-5f766394-c2`, and compared with all 6 of b9's chains.

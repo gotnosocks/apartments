@@ -5,6 +5,19 @@ Deals page, and two data items from October. The aim is in the root [README](../
 with the Chelsea pilot's and the frontier line's items, is in
 [archive/TODO-2026-10.md](archive/TODO-2026-10.md).
 
+**From the outlier sprint of 2026-11-11** (`docs/notes/outlier-sprint-2026-11-11.md`). Ben
+ruled out Modal fits for the rest of the sprint, so these wait for after it.
+
+- [ ] c2: the closing-ask dataset (`rentfrontier.b0closing`) fitted with b9's design, three
+  containers of 2 chains, seeds 11 to 13. Predictions are in
+  `docs/notes/closing-asks-2026-11-11.md`. The unit `outlier-c2` and its script
+  `/data1/apartments/tmp/outlier-sprint/c2/run.sh` are stopped.
+- [ ] The wider income flag (`rentfrontier.b0income`), on the dataset c2's comparison picks.
+  Predictions are in `docs/notes/income-flag-2026-11-11.md`.
+- [ ] Sample `drift_tau`, `unit_sd` and `drift_sd` along their ridge (correlations of 0.97 to
+  0.99 in every chain), so that 4 chains pass the gate with room to spare. Needs a note
+  with predictions.
+
 **From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
 of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.
 
