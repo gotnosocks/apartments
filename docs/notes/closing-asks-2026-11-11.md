@@ -146,8 +146,8 @@ saved traces (3,400 draws per chain) on thelio.
   9.63, 9.66, 9.63) by 0.025. Every pair of b9's containers gives R-hat under 1.006 on the
   three quantities (b9ab 1.0051, b9bc 1.0041, b9ac 1.0024), against c1's 1.0114.
 
-So c1's miss is the luck of four chains on a ridge they cross slowly. The data change does
-not cause it, and the same design passed for b9 by a margin of about 0.005. A
+c1's miss is consistent with the luck of four chains on a ridge they cross slowly. The
+data show no sign of causing it, and the same design passed for b9 by a margin of about 0.005. A
 reparameterization that samples the ridge's direction apart from its width (a unit's total
 variance and the walk's share of it, with `drift_tau`) would cut the autocorrelation and
 make a 4-chain fit's gate depend less on seeds. That is a change to the model, for a fit

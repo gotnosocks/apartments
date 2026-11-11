@@ -17,8 +17,8 @@ sprint ends about 2026-11-12 18:55Z. The findings are in
   (#1310) and the sprint note (#1311).
 - **No Modal fits until the sprint ends** (Ben, 2026-11-11 22:07Z). He stopped c2 before
   its first container. The unit `outlier-c2` is stopped, and no Modal unit or timer is
-  pending. c2, the income fit and a reparameterization of the walk's hyperparameters are in
-  `docs/TODO.md` with their predictions. To run c2 later, restart `c2/run.sh` as a user unit.
+  pending. c2 and the income fit are in `docs/TODO.md` with their predictions, and a
+  reparameterization of the walk's hyperparameters is there with none yet. To run c2 later, restart `c2/run.sh` as a user unit.
   It skips a part whose `result.json` exists. After `c2c` finishes, from
   `/data1/apartments/serve/master/frontier` with `PYTHONPATH=src` and the bridge-frontier
   venv:
