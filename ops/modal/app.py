@@ -185,6 +185,7 @@ BASELINES = (
     ("--model", "building-zones-kitchen-sink-unit"),
     ("--model", "drift"),
     ("--model", "drift-building"),
+    ("--model", "drift-building-doorman"),
     ("--model", "drift-local"),
 )
 
