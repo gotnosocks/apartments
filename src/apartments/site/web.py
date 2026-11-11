@@ -49,6 +49,7 @@ from . import (
     deals,
     detail,
     exposure,
+    facts,
     observed,
     reads,
     story,
@@ -1117,17 +1118,52 @@ def create_app(
                 "not one of them, or its id is not one the site knows.",
             )
         info = table.meta
+        try:
+            diag = facts.load(root)
+        except facts.Refused as refused:
+            log.error("diagnostics refused: %s", refused)
+            abort(503, description=str(refused))
+        ad_facts = diag.ad(str(row["listing_id"])) if diag is not None else None
+        unit_ads = (
+            ad_facts["unit_ads"]
+            if ad_facts is not None
+            else int(row.get("unit_ads") or 0)
+        )
+        building_ads = ad_facts["building_ads"] if ad_facts is not None else None
+        basis_kind = ad_facts["basis"] if ad_facts is not None else None
+        basis = facts.basis_sentence(unit_ads, building_ads, basis_kind)
+        evidence = None
+        if diag is not None:
+            evidence = diag.evidence(
+                listing_id=str(row["listing_id"]),
+                building=row.get("building"),
+                unit_id=(ad_facts or {}).get("unit_id") or row.get("unit_id"),
+                bedrooms=row.get("bedrooms"),
+                current_day=row.get("day") or info.get("scoring_day"),
+                current_ask=row.get("ask"),
+                beds_text=beds_label(row.get("bedrooms")),
+            )
         lo, hi = row["model_lo95"], row["model_hi95"]
+        mid_est = row["model_median"]
+        gap_pct = (
+            100.0 * (mid_est - row["ask"]) / mid_est
+            if mid_est and mid_est > 0
+            else None
+        )
         return render_template(
             "listing.html",
             meta=None,
             info=info,
             row=row,
+            ad_facts=ad_facts,
+            basis=basis,
+            evidence=evidence,
+            under_words=deals.under_words(gap_pct) if gap_pct is not None else None,
             run=(info.get("runs") or {}).get(row["source"]),
             gate=(info.get("gate") or {}).get(row["source"]),
             chart=charts.interval_strip(
                 row["ask"],
-                row["model_median"],
+                mid_est,
                 [
                     (50, row["model_lo50"], row["model_hi50"]),
                     (80, row["model_lo80"], row["model_hi80"]),
@@ -1251,30 +1287,38 @@ def create_app(
 
     @app.get("/deals")
     def deals_page():
-        data = deals.load(root)
+        try:
+            data = deals.load(root)
+        except facts.Refused as refused:
+            log.error("diagnostics refused: %s", refused)
+            abort(503, description=str(refused))
         if data is None:
             abort(503, description="No deals table has been published yet.")
-        choice = deals.choice(request.args)
-        rows = deals.choose(data["rows"], **choice)
-        # How many ads the other filters keep that a caution leaves out.
-        with_cautioned = deals.choose(data["rows"], **(choice | {"cautioned": True}))
+        c = deals.choice(request.args)
+        rows = deals.choose(data["rows"], c)
+        hidden = deals.hidden_counts(data["rows"], c, len(rows))
+
+        def deals_url(**changes) -> str:
+            query = _query(c.args(**changes))
+            base = url_for("deals_page")
+            return f"{base}?{query}" if query else base
+
         return render_template(
             "deals.html",
-            left_out=len(with_cautioned) - len(rows),
-            show_all=url_for(
-                "deals_page",
-                **{k: request.args[k] for k in deals.FILTERS if request.args.get(k)},
-                all="1",
-            ),
-            meta=meta(),
+            meta=None,
             info=data["meta"],
             validation=data["validation"],
-            hoods=data["hoods"],
+            hood_groups=data["hood_groups"],
+            multi_borough=len(set(data["hood_groups"]) & set(boroughs.BOROUGHS)) > 1,
+            has_diagnostics=data["has_diagnostics"],
             rows=rows[: deals.SHOWN],
             total=len(rows),
             current=len(data["rows"]),
-            choice=choice,
+            hidden=hidden,
+            deals_url=deals_url,
+            choice=c,
             sorts=deals.SORTS,
+            bedrooms=deals.BEDROOMS,
         )
 
     @app.get("/best.csv")

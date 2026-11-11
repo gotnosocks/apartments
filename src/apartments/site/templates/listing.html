@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 {% set place = row.address or row.building %}
-{% block title %}{{ place }}, {{ day(row.day) if row.day else "an ad" }}{% endblock %}
+{% set unit_name = ad_facts.unit if ad_facts and ad_facts.unit else none %}
+{% block title %}{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}, {{ day(row.day) if row.day else "an ad" }}{% endblock %}
 {% block content %}
+<div id="tags" data-listing="{{ row.listing_id }}"></div>
 <nav class="crumbs" aria-label="Breadcrumb">
   <a href="{{ url_for('estimates') }}">Estimates</a> ›
-  <a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›
-  <span aria-current="page">{{ place }}</span>
+  {% if row.source == "market" %}<a href="{{ url_for('deals_page') }}">Deals</a> › {% endif %}<a href="{{ url_for('listings', status='current' if row.source == 'market' else 'past') }}">{{ "On the market" if row.source == "market" else "Past ads" }}</a> ›
+  <span aria-current="page">{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}</span>
 </nav>
-<h1>{{ place }}</h1>
+<h1>{{ place }}{% if unit_name %} · {{ unit_name }}{% endif %}</h1>
 <p class="subline">
   {{ beds_label(row.bedrooms) }}{% if row.baths %} · {{ row.baths | trim_float }} bath{{ "" if row.baths == 1 else "s" }}{% endif %}{% if row.neighbourhood %} · {{ row.hood_label }}{% endif %}
   · {% if row.source == "market" %}on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}{% else %}ad of {{ day(row.day) if row.day else "an unknown date" }}{% endif %}
@@ -18,74 +20,143 @@
   {% if sv %}<a href="{{ sv }}" rel="noopener noreferrer" target="_blank">Street View ↗</a>{% endif %}
 </p>{% endif %}
 
-<section class="figures" aria-label="Ask and estimate">
-  <div class="figure">
-    <span class="figure-label">Ask</span>
-    <span class="figure-value">{{ usd(row.ask) }}</span>
-    <span class="figure-note">{{ "the ask on the scoring day" if row.source == "market" else "the ad's final ask" }}</span>
+<section class="card listing-head" id="range" aria-label="Ask and model range">
+  <div class="listing-stats">
+    <div class="listing-stat">
+      <span class="listing-stat-label">Ask</span>
+      <span class="listing-stat-value">{{ usd(row.ask) }}</span>
+    </div>
+    <div class="listing-stat">
+      <span class="listing-stat-label">Model middle</span>
+      <span class="listing-stat-value">{{ usd(row.model_median) }}{% if under_words %} <span class="listing-stat-sub">({{ under_words }})</span>{% endif %}</span>
+    </div>
+    {% if row.lower_than is not none %}
+    <p class="listing-place" id="place">{% if row.lower_than >= 90 %}This ask is <strong>low</strong> for the apartment: lower than {{ row.lower_words }} of expected asks.{% elif row.lower_than <= 10 %}This ask is <strong>high</strong> for the apartment: lower than {{ pct(row.lower_than, signed=False) }} of expected asks.{% else %}This ask is <strong>within the usual range</strong>: lower than {{ row.lower_words }} of expected asks.{% endif %}</p>
+    {% endif %}
   </div>
-  <div class="figure">
-    <span class="figure-label">Model's middle estimate</span>
-    <span class="figure-value">{{ usd(row.model_median) }}</span>
-    <span class="figure-note">half the asks the model expects are below it, half above</span>
-  </div>
-  {% if row.lower_words %}
-  <div class="figure">
-    <span class="figure-label">Ask is lower than</span>
-    <span class="figure-value">{{ row.lower_words }}</span>
-    <span class="figure-note">of the asks the model would expect for this apartment</span>
-  </div>
-  {% endif %}
-</section>
-
-<section class="card" id="range">
-  <h2>Where the ask sits in the model's range</h2>
   {{ chart }}
-  <p class="note">The bands are the model's ranges for this apartment's ask, the darkest holding half of the asks it expects,
-  the palest 95 in 100. The line is its middle estimate and the dot is the ask.</p>
-  <div class="table-wrap">
-  <table class="data">
-    <caption class="visually-hidden">The model's ranges for this ad's ask</caption>
-    <thead><tr><th scope="col">Range</th><th scope="col" class="num">From</th><th scope="col" class="num">To</th></tr></thead>
-    <tbody>
-      <tr><th scope="row">Half of expected asks (50%)</th><td class="num">{{ usd(row.model_lo50) }}</td><td class="num">{{ usd(row.model_hi50) }}</td></tr>
-      <tr><th scope="row">8 in 10 (80%)</th><td class="num">{{ usd(row.model_lo80) }}</td><td class="num">{{ usd(row.model_hi80) }}</td></tr>
-      <tr><th scope="row">95 in 100 (95%)</th><td class="num">{{ usd(row.model_lo95) }}</td><td class="num">{{ usd(row.model_hi95) }}</td></tr>
-    </tbody>
-  </table>
-  </div>
-  {% if row.lower_than is not none %}
-  <p id="place">{% if row.lower_than >= 90 %}This ask is <strong>low</strong> for the apartment: it is lower than {{ row.lower_words }} of the asks the
-  model would expect.{% elif row.lower_than <= 10 %}This ask is <strong>high</strong> for the apartment: only {{ pct(row.lower_than, signed=False) }} of the
-  asks the model would expect are higher.{% else %}This ask is <strong>within the usual range</strong> for the apartment: it is lower than
-  {{ row.lower_words }} of the asks the model would expect.{% endif %}
-  {% if row.ask < row.model_lo95 or row.ask > row.model_hi95 %}It is outside even the 95% range.{% endif %}</p>
+  <p class="note">50% range {{ usd(row.model_lo50) }} to {{ usd(row.model_hi50) }} · 80% {{ usd(row.model_lo80) }} to {{ usd(row.model_hi80) }} · 95% {{ usd(row.model_lo95) }} to {{ usd(row.model_hi95) }}.</p>
+</section>
+
+<section class="card" id="the-ad">
+  <h2>The ad</h2>
+  {% if ad_facts %}
+  <p class="note">Facts read from the ad and from city records on the building.</p>
+  <dl class="facts wide">
+    <dt>Square feet</dt>
+    <dd>{{ "{:,.0f} ft²".format(ad_facts.square_feet) if ad_facts.square_feet else "not stated" }}</dd>
+    <dt>Floor</dt>
+    <dd>{{ "{:g}".format(ad_facts.floor) if ad_facts.floor is not none else "not stated" }}</dd>
+    <dt>Free months</dt>
+    <dd>{{ "{:g}".format(ad_facts.months_free) if ad_facts.months_free else "none stated" }}</dd>
+    <dt>First ask</dt>
+    <dd>{% if ad_facts.first_ask %}{{ usd(ad_facts.first_ask) }}{% if ad_facts.cut_usd %} (cut {{ usd(ad_facts.cut_usd) }}, {{ pct(ad_facts.cut_pct, signed=False) }}){% elif ad_facts.months_free %} (gross, before free months){% else %} (unchanged){% endif %}{% else %}not stated{% endif %}</dd>
+    <dt>Days on market</dt>
+    <dd>{{ "{:.0f}".format(ad_facts.days_on_market) if ad_facts.days_on_market is not none else "not stated" }}</dd>
+    {% for feat in ad_facts.extra_features %}
+    <dt>{{ feat.label }}</dt>
+    <dd>{{ feat.value }}</dd>
+    {% endfor %}
+    <dt>Flags</dt>
+    <dd>
+      {% if ad_facts.flags %}
+      <ul class="flag-list">
+      {% for f in ad_facts.flags %}
+        <li><span class="chip warn-chip">{{ f.label }}</span> {{ f.description }}</li>
+      {% endfor %}
+      </ul>
+      {% else %}none{% endif %}
+    </dd>
+  </dl>
+  {% else %}
+  <p class="note">Ad diagnostics (square feet, floor, free months, first ask, days on market and detector flags) are not published yet.</p>
   {% endif %}
 </section>
 
-<section class="card" id="how">
-  <h2>How this estimate was made</h2>
-  <p id="unit-ads">{% if row.unit_ads %}This apartment's earlier ads the model learned from: <strong>{{ row.unit_ads }}</strong>. They tell it how this
-  apartment asks against others like it, so its range is narrower than for an apartment it has never seen.{% else %}This apartment's earlier ads the
-  model learned from: <strong>none</strong>. To the model it is a new apartment, known only by its building, its block, its features and the
-  date, so its range is wider than for an apartment with ads of its own.{% endif %}</p>
-  <p>{% if row.source == "market" %}This ad was on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}. It was scored by the fit on the
-  market split{% if run %}, run <code>{{ run }}</code>{% endif %}, which was made without the asks of the ads on the market that day.{% else %}This is
-  the newest ad of its apartment. It was predicted by the fit on the latest split{% if run %}, run <code>{{ run }}</code>{% endif %}, which learned from
-  every earlier ad but never saw this ad's final ask.{% endif %}
-  {% if gate %}The fit {% if gate.passes %}passed{% else %}missed{% endif %} the project's convergence test.{% endif %}
-  Model: <code>{{ info.model }}</code>. <a href="{{ url_for('estimates', _anchor='accuracy') }}">How close it gets</a></p>
-  <p class="note">A low ask is a lead, not a verdict: the model cannot see an apartment's condition, a broker fee, a short lease or a mistake in the ad.
-  {% if row.source == "market" %}<a href="{{ url_for('deals_page') }}">Deals</a> lists the ads on the market with cautions the model does not know.{% endif %}</p>
+<section class="card" id="evidence">
+  <h2>Evidence</h2>
+  <p id="basis">{{ basis }}</p>
+  {% if evidence %}
+    {{ evidence.chart }}
+    <div class="evidence-grid">
+      <div>
+        <h3>This unit's earlier ads</h3>
+        {% if evidence.unit_rows %}
+        <div class="table-wrap">
+        <table class="data">
+          <caption class="visually-hidden">Earlier ads of this unit, newest first</caption>
+          <thead><tr>
+            <th scope="col">Day</th>
+            <th scope="col">Beds</th>
+            <th scope="col" class="num">Ask</th>
+          </tr></thead>
+          <tbody>
+          {% for h in evidence.unit_rows %}
+            <tr>
+              <td class="nowrap">{% if h.heldout and h.listing_id %}<a href="{{ url_for('listing', key=h.listing_id) }}">{{ day(h.day) if h.day else h.listing_id }}</a>{% else %}{{ day(h.day) if h.day else "-" }}{% endif %}</td>
+              <td class="nowrap">{{ beds_label(h.bedrooms) if h.bedrooms is not none else "-" }}</td>
+              <td class="num nowrap">{{ usd(h.ask) if h.ask is not none else "-" }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% if evidence.unit_total > evidence.unit_rows | length %}
+        <p class="note">Newest {{ evidence.unit_rows | length }} of {{ "{:,}".format(evidence.unit_total) }} shown.</p>
+        {% endif %}
+        {% else %}
+        <p class="note">No earlier ads recorded for this unit.</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <h3>Other {{ beds_label(row.bedrooms) }} ads in this building</h3>
+        {% if evidence.building_rows %}
+        <div class="table-wrap">
+        <table class="data">
+          <caption class="visually-hidden">Other ads of the same bedroom count in this building, newest first</caption>
+          <thead><tr>
+            <th scope="col">Day</th>
+            <th scope="col">Unit</th>
+            <th scope="col" class="num">Ask</th>
+          </tr></thead>
+          <tbody>
+          {% for h in evidence.building_rows %}
+            <tr>
+              <td class="nowrap">{{ day(h.day) if h.day else "-" }}</td>
+              <td>{% if h.heldout and h.listing_id %}<a href="{{ url_for('listing', key=h.listing_id) }}">{{ h.unit or h.unit_id or "Unit" }}</a>{% else %}{{ h.unit or h.unit_id or "Unit" }}{% endif %}</td>
+              <td class="num nowrap">{{ usd(h.ask) if h.ask is not none else "-" }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% if evidence.building_total > evidence.building_rows | length %}
+        <p class="note">Newest {{ evidence.building_rows | length }} of {{ "{:,}".format(evidence.building_total) }} shown.</p>
+        {% endif %}
+        {% else %}
+        <p class="note">No other {{ beds_label(row.bedrooms) }} ads recorded in this building.</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p class="note">Unit and building ad history is not published yet.</p>
+  {% endif %}
+
   <details class="table-view">
-  <summary>Technical details</summary>
-  <dl class="facts">
-    <dt>Listing id</dt><dd><code>{{ row.listing_id }}</code></dd>
-    {% if row.audit_id %}<dt>Audit id</dt><dd><code>{{ row.audit_id }}</code></dd>{% endif %}
-    <dt>Building</dt><dd><code>{{ row.building }}</code></dd>
-    {% if row.status %}<dt>Status</dt><dd>{{ row.status }}</dd>{% endif %}
-    <dt>Share of expected asks below the ask</dt><dd>{{ "{:.4f}".format(row.below_share) if row.below_share is finite else "—" }}</dd>
-  </dl>
+    <summary>Technical details</summary>
+    <dl class="facts">
+      <dt>Listing id</dt><dd><code>{{ row.listing_id }}</code></dd>
+      {% if row.audit_id %}<dt>Audit id</dt><dd><code>{{ row.audit_id }}</code></dd>{% endif %}
+      <dt>Building</dt><dd><code>{{ row.building }}</code></dd>
+      {% if row.unit_id %}<dt>Unit id</dt><dd><code>{{ row.unit_id }}</code></dd>{% endif %}
+      {% if row.status %}<dt>Status</dt><dd>{{ row.status }}</dd>{% endif %}
+      {% if info.model %}<dt>Model</dt><dd><code>{{ info.model }}</code></dd>{% endif %}
+      {% if run %}<dt>Run</dt><dd><code>{{ run }}</code></dd>{% endif %}
+      {% if gate %}<dt>Convergence</dt><dd>{{ "passed the convergence test" if gate.passes else "missed the convergence test" }}</dd>{% endif %}
+      <dt>Share of expected asks below the ask</dt><dd>{{ "{:.4f}".format(row.below_share) if row.below_share is finite else "not available" }}</dd>
+      {% if ad_facts and ad_facts.z is not none %}<dt>Normal score (z)</dt><dd>{{ "{:+.2f}".format(ad_facts.z) }}</dd>{% endif %}
+    </dl>
   </details>
 </section>
 {% endblock %}
