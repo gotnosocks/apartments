@@ -8,12 +8,19 @@ with the Chelsea pilot's and the frontier line's items, is in
 **From the outlier sprint of 2026-11-11** (`docs/notes/outlier-sprint-2026-11-11.md`). Ben
 ruled out Modal fits for the rest of the sprint, so these wait for after it.
 
-- [ ] c2: the closing-ask dataset (`rentfrontier.b0closing`) fitted with b9's design, three
-  containers of 2 chains, seeds 11 to 13. Predictions are in
-  `docs/notes/closing-asks-2026-11-11.md`. The unit `outlier-c2` and its script
-  `/data1/apartments/tmp/outlier-sprint/c2/run.sh` are stopped.
-- [ ] The wider income flag (`rentfrontier.b0income`), on the dataset c2's comparison picks.
+- [ ] c3: the narrowed closing dataset (`rentfrontier.b0closingraise`, 57,633 rows repriced:
+  raises typed as the ad closed) fitted with b9's design, three containers of 2 chains,
+  seeds 11 to 13. Its 7 predictions are in `docs/notes/closing-asks-2026-11-11.md`. It takes
+  the place of c2, the fit of the full closing rewrite: the second look found support for
+  the rewrite in the closing raises alone. The unit `outlier-c2` and its script
+  `/data1/apartments/tmp/outlier-sprint/c2/run.sh` are stopped and stay stopped.
+- [ ] The wider income flag (`rentfrontier.b0income`), on the dataset c3's comparison picks.
   Predictions are in `docs/notes/income-flag-2026-11-11.md`.
+- [ ] Net the asks of ads whose text states free months while their record holds none. In
+  the buildings the closing rewrite left alone, c1 lost 205.7 elpd to b9, 175 of it in
+  2020 to 2022, and the text concession flag with no recorded terms carries a mean gap of
+  -0.011 on 5,502 held-out ads. Needs a parser for the stated terms, a check of its
+  precision by a reader, and a note with predictions.
 - [ ] Sample `drift_tau`, `unit_sd` and `drift_sd` along their ridge (correlations of 0.97 to
   0.99 in every chain), so that 4 chains pass the gate with room to spare. Needs a note
   with predictions.
