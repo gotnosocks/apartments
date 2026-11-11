@@ -209,8 +209,8 @@ mechanisms and the share of rows where they judged that the renter faced the off
 | typo | 0.1% | | 0.1% | 0.1% |
 | unclear | 7.4% | 7.2% | 0.2% | |
 
-58 of the 100 calls are low confidence and none outside net to gross is high. The
-readers called 7 net to gross cases high, and many of the others rest on the ratio alone. The signed rents are mostly rented ads
+Of the 100 calls, 58 are low confidence, and the only high ones are 7 net to gross
+cases. Many of the other net to gross calls rest on the ratio alone. The signed rents are mostly rented ads
 that move by a negotiated amount on the rented day, like 4203881, listed at $6,850 and
 rented the next day at $5,850 while the building's other 1BRs asked $6,070 to $7,600.
 
@@ -224,7 +224,7 @@ under the lease, in 49% of the weighted rows, but it stood on the ad for less th
 as the ad came down, so almost no renter could have answered it as an ask. Another 16%
 are asks entered on that same last day, and 5% are recording errors, relisting prices and
 typos. The calls are uncertain: 58 of 100 are low confidence and 7.4% are unclear. The
-conclusion still holds without them, because it rests on the timing more than on the
+conclusion holds without the mechanism calls, because it rests on the timing more than on the
 mechanism. Limiting the rewrite to the exact net to gross matches would keep the signed
 rents, which are not asks either, and the arithmetic finds only about 17% of raises
 beyond chance.
