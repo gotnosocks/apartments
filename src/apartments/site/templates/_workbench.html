@@ -1,0 +1,81 @@
+{% macro area_options(groups, chosen, counts=True) -%}
+{% if groups | reject("equalto", "Other") | list | length > 1 %}{% for borough, names in groups.items() %}<optgroup label="{{ borough }}">
+{% if borough != "Other" %}<option value="{{ borough }}"{% if chosen == borough %} selected{% endif %}>All of {{ borough }}{% if counts %} ({{ "{:,}".format(names.values() | sum) }}){% endif %}</option>{% endif %}
+{% for name, count in names.items() %}<option value="{{ name }}"{% if chosen == name %} selected{% endif %}>{{ name }}{% if counts %} ({{ "{:,}".format(count) }}){% endif %}</option>{% endfor %}
+</optgroup>{% endfor %}{% else %}{% for names in groups.values() %}{% for name, count in names.items() %}<option value="{{ name }}"{% if chosen == name %} selected{% endif %}>{{ name }}{% if counts %} ({{ "{:,}".format(count) }}){% endif %}</option>{% endfor %}{% endfor %}{% endif %}
+{%- endmacro %}
+
+{% macro fmt_z(val) -%}
+{%- if val is finite -%}{{ "{:+.2f}".format(val) | minus }}{%- else -%}-{%- endif -%}
+{%- endmacro %}
+
+{% macro fmt_miss(val) -%}
+{%- if val is finite -%}{{ "{:+.1f}".format(val) | minus }}{%- else -%}-{%- endif -%}
+{%- endmacro %}
+
+{% macro flag_chips(flags) -%}
+{% if flags %}
+<span class="flag-list">
+{% for f in flags %}<a class="chip serious" href="{{ url_for('workbench_triage', flag=f.code) }}" title="{{ f.rule }}">{{ f.label }}</a>{% endfor %}
+</span>
+{% else %}-{% endif %}
+{%- endmacro %}
+
+{# The bins a list view draws, and a link to the attribute's page for the rest. #}
+{% macro bin_list(s, unit="Ads", link_args=none) -%}
+<table class="data compact-table">
+  <thead>
+    <tr>
+      <th scope="col">Bin</th>
+      <th scope="col" class="num">{{ unit }}</th>
+      <th scope="col" class="num">Mean</th>
+      <th scope="col" class="num">SE</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for b in s.list_bins %}
+    <tr>
+      <td>{% if link_args is not none %}<a href="{{ url_for('workbench_triage', **link_args(s.name, b.key)) }}">{{ b.label }}</a>{% else %}{{ b.label }}{% endif %}</td>
+      <td class="num">{{ "{:,}".format(b.ads) }}</td>
+      <td class="num">{{ pct(b.mean_pct, digits=1) }}</td>
+      <td class="num">{{ pct(b.se_pct, signed=False, digits=1) if b.se_pct is finite else "-" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if s.more_bins %}<p class="more-bins"><a href="{{ url_for('workbench_signal', feature=s.name) }}">and {{ s.more_bins }} more</a></p>{% endif %}
+{%- endmacro %}
+
+{% macro calibration_rows(rows) -%}
+{% for c in rows %}
+  <tr{% if c.off_nominal %} class="off-nominal"{% endif %}>
+    <td class="muted">{{ c.group }}</td>
+    <th scope="row"><a href="{{ url_for('workbench_triage', **c.triage_args) }}">{{ c.label }}</a></th>
+    <td class="num">{{ "{:,}".format(c.ads) }}</td>
+    <td class="num{{ ' warn-cell' if c.off_50 }}">{{ pct(c.in50, signed=False, digits=1) }}</td>
+    <td class="num{{ ' warn-cell' if c.off_80 }}">{{ pct(c.in80, signed=False, digits=1) }}</td>
+    <td class="num{{ ' warn-cell' if c.off_95 }}">{{ pct(c.in95, signed=False, digits=1) }}</td>
+    <td class="num">{{ pct(c.median_abs_gap_pct, signed=False, digits=1) }}</td>
+    <td class="num">{{ pct(c.mean_gap_pct, signed=True, digits=1) }}</td>
+    <td class="num">{{ fmt_z(c.mean_z) }}</td>
+    <td>{% if c.off_nominal %}<span class="chip warn-chip" title="Coverage is far from nominal">off nominal</span>{% elif c.small %}<span class="muted" title="Too few ads to judge">few ads</span>{% else %}<span class="muted">nominal</span>{% endif %}</td>
+  </tr>
+{% endfor %}
+{%- endmacro %}
+
+{% macro calibration_head() -%}
+<thead>
+  <tr>
+    <th scope="col">Group</th>
+    <th scope="col">Slice</th>
+    <th scope="col" class="num">Ads</th>
+    <th scope="col" class="num" title="Nominal coverage: 50%">In 50%</th>
+    <th scope="col" class="num" title="Nominal coverage: 80%">In 80%</th>
+    <th scope="col" class="num" title="Nominal coverage: 95%">In 95%</th>
+    <th scope="col" class="num" title="Median size of the gap between the ask and the model's middle">Median |gap|</th>
+    <th scope="col" class="num" title="Mean gap between the ask and the model's middle">Mean gap</th>
+    <th scope="col" class="num" title="Mean normal score of the ask within the model's predictive distribution">Mean z</th>
+    <th scope="col">Status</th>
+  </tr>
+</thead>
+{%- endmacro %}

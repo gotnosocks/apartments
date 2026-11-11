@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "_workbench.html" as w with context %}
+{% set section = "workbench" %}
+{% block title %}Signals · Workbench{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('workbench.css') }}">{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Signals</h1>
+  <p class="lede">Look down each group for an attribute whose bins sit away from zero, then open it to read the ads in a bin.</p>
+</section>
+
+<form class="filters" action="{{ url_for('workbench_signals') }}" method="get" aria-label="Filter signals">
+  <div class="field">
+    <label for="s-scope">Ads</label>
+    <select id="s-scope" name="scope">
+      {% for key, label in scopes.items() %}
+      <option value="{{ key }}"{% if choice.scope == key %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if show_hoods %}
+  <div class="field">
+    <label for="s-nb">Neighbourhood</label>
+    <select id="s-nb" name="nb">
+      <option value=""{% if not choice.nb %} selected{% endif %}>All</option>
+      {{ w.area_options(hood_groups, choice.nb) }}
+    </select>
+  </div>
+  {% endif %}
+  <fieldset class="field">
+    <legend>Bedrooms</legend>
+    <div class="checks">
+      {% for key, label in bedrooms.items() %}
+      <label class="check"><input type="checkbox" name="beds" value="{{ key }}"{% if key in choice.beds %} checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="field actions">
+    <button type="submit">Apply</button>
+    {% if choice.active() %}<a href="{{ url_for('workbench_signals') }}">Reset</a>{% endif %}
+  </div>
+</form>
+
+{% for g in groups %}
+<section class="card signal-group" id="signals-{{ g.key }}">
+  <h2>{{ g.heading }} <span class="muted">· {{ g.signals | length }}</span></h2>
+  <p class="note">{{ g.note }}</p>
+  <div class="table-wrap">
+  <table class="data signals-table">
+    <thead>
+      <tr>
+        <th scope="col">Attribute</th>
+        <th scope="col">Level · kind</th>
+        <th scope="col" class="num" title="Ads with a value / ads in scope">Ads</th>
+        <th scope="col" class="num" title="Largest |mean gap| / SE across bins, with standard errors clustered by building">Max |gap| / SE</th>
+        <th scope="col" class="num" title="Share of the variance of the gaps explained by bin means">Var explained</th>
+        <th scope="col">Strongest bin</th>
+        <th scope="col">Bin means (95% interval)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in g.signals %}
+      <tr>
+        <th scope="row"><a href="{{ url_for('workbench_signal', feature=s.name, **choice.args()) }}">{{ s.label }}</a></th>
+        <td class="nowrap muted">{{ s.level }} · {{ s.kind }}</td>
+        <td class="num">{{ "{:,}".format(s.non_missing_ads) }} / {{ "{:,}".format(s.total_ads) }}</td>
+        <td class="num">{{ "{:.2f}".format(s.strength) }}</td>
+        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) }}</td>
+        <td class="nowrap">
+          {% if s.peak_bin %}
+          <a href="{{ url_for('workbench_triage', **choice.triage_args(s.name, s.peak_bin.key)) }}">{{ s.peak_bin.label }}</a>:
+          {{ pct(s.peak_bin.mean_pct, digits=1) }}
+          {% if s.peak_bin.se_pct is finite %}<span class="muted">(±{{ "{:.1f}".format(s.peak_bin.se_pct) }}%)</span>{% endif %}
+          {% else %}-{% endif %}
+        </td>
+        <td>
+          {{ s.svg }}
+          <details class="table-view">
+            <summary>Bins ({{ s.bins | length }})</summary>
+            {{ w.bin_list(s, link_args=choice.triage_args) }}
+          </details>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">No attribute in this group.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

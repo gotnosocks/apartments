@@ -1,0 +1,212 @@
+/* Workbench section styles: calibration marks, signal strips, triage queue, and building history charts. */
+
+/* Calibration table highlights for slices far from nominal coverage. */
+tr.off-nominal {
+  background: var(--warn-bg);
+}
+td.warn-cell {
+  color: var(--warn);
+  font-weight: 650;
+}
+.chip.warn-chip {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.flag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.flag-list a.chip {
+  text-decoration: none;
+}
+.flag-list a.chip:hover {
+  text-decoration: underline;
+}
+
+/* Signal dot-and-whisker strips. */
+.signal-strip {
+  display: block;
+  width: 260px;
+  max-width: 100%;
+  height: auto;
+}
+.signal-strip .zero {
+  stroke: var(--axis);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+.signal-strip .strip-label {
+  fill: var(--ink-2);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.signal-strip .whisker {
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.signal-strip .dot.up {
+  fill: var(--up);
+}
+.signal-strip .dot.down {
+  fill: var(--down);
+}
+.signal-strip .dot.neutral {
+  fill: var(--muted);
+}
+.signal-strip .dot.missing {
+  fill-opacity: 0.55;
+}
+
+/* Building history scatter over time (log ask axis, colored by bedrooms, held-out ringed). */
+.history-scatter .unit-line {
+  fill: none;
+  stroke: var(--axis);
+  stroke-width: 1.25;
+  stroke-opacity: 0.85;
+}
+.history-scatter .heldout-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.75;
+}
+.history-scatter .dot.beds-0, .key-dot.beds-0 {
+  fill: var(--s3);
+  background: var(--s3);
+}
+.history-scatter .dot.beds-1, .key-dot.beds-1 {
+  fill: var(--s1);
+  background: var(--s1);
+}
+.history-scatter .dot.beds-2, .key-dot.beds-2 {
+  fill: var(--s2);
+  background: var(--s2);
+}
+.history-scatter .dot.beds-3, .key-dot.beds-3 {
+  fill: var(--s4);
+  background: var(--s4);
+}
+.history-scatter .dot.beds-4, .key-dot.beds-4 {
+  fill: var(--up);
+  background: var(--up);
+}
+.history-scatter .dot.beds-u, .key-dot.beds-u {
+  fill: var(--muted);
+  background: var(--muted);
+}
+.key-ring {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+}
+.key-unit-line {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 1.5px solid var(--axis);
+  vertical-align: middle;
+}
+
+/* Unit ad list inside building detail page. */
+.unit-ads-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+.unit-ads-list li {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .signal-strip {
+    width: 200px;
+  }
+  table.triage thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  table.triage, table.triage tbody {
+    display: block;
+  }
+  table.triage tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.2rem 0.7rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--grid);
+  }
+  table.triage td {
+    display: block;
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+  table.data.triage td.num {
+    text-align: left;
+  }
+  table.triage td.c-place {
+    grid-column: 1 / -1;
+    font-weight: 600;
+  }
+  table.triage td.c-flags,
+  table.triage td.c-tag {
+    grid-column: 1 / -1;
+  }
+  table.triage td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 400;
+  }
+  table.triage td.empty {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The address stays on a line of its own at desktop widths. */
+@media (min-width: 761px) {
+  table.triage a.place {
+    white-space: nowrap;
+  }
+  table.triage td.c-place .feat {
+    white-space: nowrap;
+  }
+}
+
+/* Link from a capped list of bins to the attribute's page. */
+.more-bins {
+  display: block;
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+}
+
+.signal-group + .signal-group {
+  margin-top: 1.2rem;
+}
+#calibration-hoods {
+  margin-top: 0.6rem;
+}
+
+/* Flag chips under a triage row's address. */
+table.triage td.c-place .flag-list {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 0.25rem;
+}
+table.triage td.c-place .flag-list a.chip {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: auto;
+}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% import "_workbench.html" as w with context %}
+{% set section = "workbench" %}
+{% block title %}{{ b.address or b.building }} · Buildings · Workbench{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('workbench.css') }}">
+<script src="{{ static_url('tags.js') }}" defer></script>{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('workbench_buildings') }}">Buildings</a> › <span aria-current="page">{{ b.address or b.building }}</span>
+</nav>
+<section class="intro">
+  <h1>{{ b.address or b.building }}</h1>
+  <p class="subline">
+    {% if b.hood_label %}{{ b.hood_label }} · {% endif %}
+    {% if b.zone %}Zone {{ b.zone }} · {% endif %}
+    {{ "{:,}".format(b.train_ads) }} training ads, {{ "{:,}".format(b.heldout_ads) }} held-out ads
+  </p>
+</section>
+
+<section class="figures" aria-label="Building summary">
+  <div class="figure">
+    <span class="figure-label">Building level</span>
+    <span class="figure-value">{{ pct(b.level_pct, digits=1) }}</span>
+    <span class="figure-note">
+      {% if b.level_sd_pct is finite %}SD ±{{ "{:.1f}".format(b.level_sd_pct) }}% relative to zone{% else %}log level relative to zone{% endif %}
+    </span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Held-out mean gap</span>
+    <span class="figure-value">{{ pct(b.heldout_gap_pct, digits=1) }}</span>
+    <span class="figure-note">over {{ "{:,}".format(b.heldout_ads) }} held-out ads</span>
+  </div>
+  <div class="figure">
+    <span class="figure-label">Held-out mean miss</span>
+    <span class="figure-value">{{ w.fmt_miss(b.heldout_miss) }}</span>
+    <span class="figure-note">in predictive spreads; {{ "{:.2f}".format(b.miss_score) if b.miss_score is finite else "-" }} after scaling by √ads</span>
+  </div>
+</section>
+
+{% if detail.features or b.latitude is finite %}
+<section class="card" id="building-attributes">
+  <h2>Building record</h2>
+  <dl class="facts wide">
+    {% if b.address %}<dt>Address</dt><dd>{{ b.address }}</dd>{% endif %}
+    {% if b.hood_label %}<dt>Neighbourhood</dt><dd>{{ b.hood_label }}</dd>{% endif %}
+    {% if b.zone %}<dt>Zone</dt><dd>{{ b.zone }}</dd>{% endif %}
+    {% if b.latitude is finite and b.longitude is finite %}
+    <dt>Coordinates</dt><dd>{{ "{:.5f}".format(b.latitude) }}, {{ "{:.5f}".format(b.longitude) }}</dd>
+    {% endif %}
+    {% for f in detail.features %}
+    <dt>{{ f.label }}</dt>
+    <dd>{{ f.value | trim_float if f.value is finite else f.value }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+{% endif %}
+
+<section class="card" id="history-scatter">
+  <h2>Ad history over time</h2>
+  <p class="note">Asks are on a log scale and colored by bedrooms. A held-out ad has an outer ring, and a line joins the ads of a unit.</p>
+  {% if detail.scatter %}
+  {{ detail.scatter }}
+  {% else %}
+  <p class="empty-note">This building has no dated ads.</p>
+  {% endif %}
+</section>
+
+<section class="card" id="building-units">
+  <h2>Units and ad histories <span class="muted">· {{ "{:,}".format(detail.units | length) }}</span></h2>
+  <p class="note">
+    Each row is a unit as the data pipeline resolved it. {{ detail.conflict_units }} carry more than one bedroom count and {{ detail.mismatch_units }} carry more than one unit label.
+  </p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th scope="col">Unit</th>
+        <th scope="col">Page labels</th>
+        <th scope="col">Bedrooms seen</th>
+        <th scope="col">Checks</th>
+        <th scope="col">Ads (day · label · ask · beds)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for u in detail.units %}
+      <tr{% if u.bedroom_conflict or u.label_mismatch %} class="off-nominal"{% endif %}>
+        <th scope="row"><code>{{ u.unit_id }}</code></th>
+        <td>{{ u.display_label }}</td>
+        <td class="nowrap">
+          {% for b_cnt in u.beds_seen %}{{ beds_label(b_cnt) }}{% if not loop.last %}, {% endif %}{% else %}-{% endfor %}
+        </td>
+        <td class="nowrap">
+          {% if u.bedroom_conflict %}<span class="chip serious">bedroom conflict</span>{% endif %}
+          {% if u.label_mismatch %}<span class="chip warn-chip">label mismatch</span>{% endif %}
+          {% if not u.bedroom_conflict and not u.label_mismatch %}<span class="muted">clear</span>{% endif %}
+        </td>
+        <td>
+          <ul class="unit-ads-list">
+          {% for ad in u.ads %}
+            <li>
+              <a href="{{ url_for('listing', key=ad.listing_id) }}">{{ day(ad.day) if ad.day else ad.listing_id }}</a>
+              {% if ad.unit %}<code>{{ ad.unit }}</code>{% endif %}
+              <strong>{{ usd(ad.ask) }}</strong>
+              ({{ beds_label(ad.bedrooms) }}){% if ad.heldout %} <span class="tag">held out</span>{% endif %}
+            </li>
+          {% endfor %}
+          </ul>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">No unit histories for this building.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card" id="building-heldout">
+  <h2>Held-out ads against the model <span class="muted">· {{ "{:,}".format(detail.heldout_ads | length) }}</span></h2>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th scope="col">Ad · unit</th>
+        <th scope="col">Day · source</th>
+        <th scope="col">Beds</th>
+        <th scope="col" class="num">Ask</th>
+        <th scope="col" class="num">Model middle</th>
+        <th scope="col" class="num">80% range</th>
+        <th scope="col" class="num">Gap %</th>
+        <th scope="col" class="num" title="Gap in units of the model's predictive spread">Miss</th>
+        <th scope="col">Basis</th>
+        <th scope="col" class="num">Prev ask · beds</th>
+        <th scope="col">Flags</th>
+        <th scope="col" title="Mark this ad as a real deal, a data error or an unmodeled factor.">Tag</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in detail.heldout_ads %}
+      <tr>
+        <td><a href="{{ url_for('listing', key=r.listing_id) }}">{{ r.unit or r.listing_id }}</a></td>
+        <td class="nowrap">{{ day(r.day) }} · {{ r.source_words }}</td>
+        <td class="nowrap">{{ beds_label(r.bedrooms) }}</td>
+        <td class="num">{{ usd(r.ask) }}</td>
+        <td class="num">{{ usd(r.model_median) }}</td>
+        <td class="num nowrap">{{ usd(r.model_lo80) }} to {{ usd(r.model_hi80) }}</td>
+        <td class="num">{{ pct(r.gap_pct, digits=1) }}</td>
+        <td class="num">{{ w.fmt_miss(r.miss) }}</td>
+        <td class="nowrap" title="{{ r.basis_rule }} Earlier ads of the unit: {{ r.unit_ads }}. Earlier ads in the building: {{ r.building_ads }}.">{{ r.basis_label or "-" }}</td>
+        <td class="num nowrap">
+          {% if r.prev_ask is finite or r.prev_bedrooms is finite %}
+          {{ usd(r.prev_ask) }}{% if r.prev_bedrooms is finite %} · {{ beds_label(r.prev_bedrooms) }}{% endif %}
+          {% else %}-{% endif %}
+        </td>
+        <td>{{ w.flag_chips(r.flags) }}</td>
+        <td class="c-tag tag-slot" data-listing="{{ r.listing_id }}" data-label="Tag">{{ tag_form(r.listing_id, none, request.full_path, compact=True) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="12" class="empty">No held-out ads for this building.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

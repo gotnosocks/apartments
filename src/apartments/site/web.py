@@ -56,6 +56,7 @@ from . import (
     streetview,
     summary,
     tags,
+    workbench,
 )
 from . import estimates as estimates_table
 from .anatomy import LEVELS as ANATOMY_LEVELS
@@ -632,6 +633,14 @@ SECTIONS = {
         "research_model",
         "research_elegance",
         "research_story",
+    ),
+    "workbench": (
+        "workbench",
+        "workbench_signals",
+        "workbench_signal",
+        "workbench_triage",
+        "workbench_buildings",
+        "workbench_building",
     ),
 }
 
@@ -2690,6 +2699,7 @@ def create_app(
     def robots():
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
+    workbench.register(app, lambda: root)
     tags.register(app, lambda: root)
     return app
 

@@ -18,6 +18,7 @@
     <nav aria-label="Sections" class="sections">
       <a href="{{ url_for('estimates') }}"{% if section == "estimates" %} aria-current="true"{% endif %}>Estimates</a>
       <a href="{{ url_for('research_frontier') }}"{% if section == "research" %} aria-current="true"{% endif %}>Research</a>
+      <a href="{{ url_for('workbench') }}"{% if section == "workbench" %} aria-current="true"{% endif %}>Workbench</a>
     </nav>
   </div>
   {% set here = request.endpoint %}
@@ -33,6 +34,13 @@
     <a href="{{ url_for('observed_listings') }}"{% if here == "observed_listings" %} aria-current="page"{% endif %}>Hoboken and Jersey City</a>
     <a href="{{ url_for('about') }}"{% if here == "about" %} aria-current="page"{% endif %}>How estimates work</a>
     <a href="{{ url_for('research_glossary') }}">Glossary</a>
+  </nav></div>
+  {% elif section == "workbench" %}
+  <div class="subnav"><nav class="wrap" aria-label="Workbench">
+    <a href="{{ url_for('workbench') }}"{% if here == "workbench" %} aria-current="page"{% endif %}>Overview</a>
+    <a href="{{ url_for('workbench_signals') }}"{% if here in ("workbench_signals", "workbench_signal") %} aria-current="page"{% endif %}>Signals</a>
+    <a href="{{ url_for('workbench_triage') }}"{% if here == "workbench_triage" %} aria-current="page"{% endif %}>Triage</a>
+    <a href="{{ url_for('workbench_buildings') }}"{% if here in ("workbench_buildings", "workbench_building") %} aria-current="page"{% endif %}>Buildings</a>
   </nav></div>
   {% elif section == "research" %}
   <div class="subnav"><nav class="wrap" aria-label="Research">

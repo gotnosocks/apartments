@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% import "_workbench.html" as w with context %}
+{% set section = "workbench" %}
+{% block title %}Workbench{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('workbench.css') }}">{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Workbench</h1>
+  <p class="lede">Start here to see where the {{ info.model or "drift-building" }} model misses its held-out ads{% if info.scoring_day %} as of {{ day(info.scoring_day) }}{% endif %}, then open a slice, a flag or a signal to read the ads behind it.</p>
+</section>
+
+<section class="tiles" aria-label="Counts">
+  <a class="tile" href="{{ url_for('workbench_triage') }}">
+    <span class="tile-label">Held-out ads</span>
+    <span class="tile-value">{{ "{:,}".format(counts.ads) }}</span>
+  </a>
+  {% for s in counts.by_source %}
+  <a class="tile" href="{{ url_for('workbench_triage', source=s.key) }}">
+    <span class="tile-label">{{ s.label }}</span>
+    <span class="tile-value">{{ "{:,}".format(s.count) }}</span>
+  </a>
+  {% endfor %}
+  {% for b in counts.by_basis %}
+  <a class="tile" href="{{ url_for('workbench_triage', basis=b.key) }}">
+    <span class="tile-label">Basis: {{ b.label }}</span>
+    <span class="tile-value">{{ "{:,}".format(b.count) }}</span>
+  </a>
+  {% endfor %}
+  <a class="tile" href="{{ url_for('workbench_buildings') }}">
+    <span class="tile-label">Buildings</span>
+    <span class="tile-value">{{ "{:,}".format(counts.buildings) }}</span>
+  </a>
+</section>
+
+<div class="columns">
+  <section class="card" id="counts-matrix">
+    <h2>Counts by source and basis</h2>
+    <p class="note">The basis is unit history when the fit read earlier ads of the unit, building when it read at least 5 ads in the building, and area otherwise.</p>
+    <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Source</th>
+          {% for b in counts.by_basis %}
+          <th scope="col" class="num"><a href="{{ url_for('workbench_triage', basis=b.key) }}">{{ b.label | capitalize }}</a></th>
+          {% endfor %}
+          <th scope="col" class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in counts.matrix %}
+        <tr>
+          <th scope="row"><a href="{{ url_for('workbench_triage', source=row.source) }}">{{ row.source_label }}</a></th>
+          {% for cell in row.cells %}
+          <td class="num"><a href="{{ url_for('workbench_triage', source=row.source, basis=cell.basis) }}">{{ "{:,}".format(cell.count) }}</a></td>
+          {% endfor %}
+          <td class="num">{{ "{:,}".format(row.total) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="card" id="detector-flags">
+    <h2>Detector flags</h2>
+    <p class="note">Automated checks on held-out ads ({{ "{:,}".format(counts.flagged) }} ads carry at least one flag).</p>
+    <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">Flag</th>
+          <th scope="col">Rule</th>
+          <th scope="col" class="num">Ads</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for f in flags %}
+        <tr>
+          <th scope="row"><a class="chip serious" href="{{ url_for('workbench_triage', flag=f.code) }}">{{ f.label }}</a></th>
+          <td>{{ f.rule }}</td>
+          <td class="num"><a href="{{ url_for('workbench_triage', flag=f.code) }}">{{ "{:,}".format(f.count) }}</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+</div>
+
+<section class="card" id="calibration">
+  <h2>Calibration by slice</h2>
+  <p class="note">Share of held-out asks inside the model's 50%, 80% and 95% ranges. A slice of at least {{ min_calibration_ads }} ads is marked when it is 5 points off 50% or 80%, or 3 points off 95%.</p>
+  <div class="table-wrap">
+  <table class="data">
+    {{ w.calibration_head() }}
+    <tbody>
+    {{ w.calibration_rows(calibration.main) }}
+    {{ w.calibration_rows(calibration.hoods_off) }}
+    {% if not calibration.main %}
+      <tr><td colspan="10" class="empty">The folder holds no held-out ads.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+  {% if calibration.hoods %}
+  <p class="note">{{ calibration.hoods_off | length }} of {{ calibration.hoods | length }} neighbourhoods are off nominal and listed above.</p>
+  <details class="table-view" id="calibration-hoods">
+    <summary>All {{ calibration.hoods | length }} neighbourhoods</summary>
+    <div class="table-wrap">
+    <table class="data">
+      {{ w.calibration_head() }}
+      <tbody>
+      {{ w.calibration_rows(calibration.hoods) }}
+      </tbody>
+    </table>
+    </div>
+  </details>
+  {% endif %}
+</section>
+
+<section class="card" id="top-signals">
+  <div class="card-head">
+    <h2>Strongest signals</h2>
+    <p class="results-links"><a href="{{ url_for('workbench_signals') }}">All signals ({{ (info.features or []) | length }})</a></p>
+  </div>
+  <p class="note">Attributes with no term in the model come first, since a trend there is a candidate for a new term. The table reads ads of units with no earlier ads, because a unit's own history already carries its fixed attributes.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th scope="col">Attribute</th>
+        <th scope="col">Group</th>
+        <th scope="col" class="num" title="Largest |mean gap| / SE across bins, with standard errors clustered by building">Max |gap| / SE</th>
+        <th scope="col" class="num" title="Share of the variance of the gaps explained by bin means">Var explained</th>
+        <th scope="col">Strongest bin</th>
+        <th scope="col">Bin means (95% interval)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in signals %}
+      <tr>
+        <th scope="row"><a href="{{ url_for('workbench_signal', feature=s.name) }}">{{ s.label }}</a></th>
+        <td class="nowrap muted">{{ s.group_label }}</td>
+        <td class="num">{{ "{:.2f}".format(s.strength) }}</td>
+        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) }}</td>
+        <td class="nowrap">
+          {% if s.peak_bin %}
+          <strong>{{ s.peak_bin.label }}</strong>: {{ pct(s.peak_bin.mean_pct, digits=1) }}
+          {% if s.peak_bin.se_pct is finite %}<span class="muted">(±{{ "{:.1f}".format(s.peak_bin.se_pct) }}%)</span>{% endif %}
+          {% else %}-{% endif %}
+        </td>
+        <td>{{ s.svg }}{% if s.more_bins %}<span class="more-bins"><a href="{{ url_for('workbench_signal', feature=s.name) }}">and {{ s.more_bins }} more</a></span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">The folder lists no attributes.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}
