@@ -70,7 +70,10 @@
     </div>
   </fieldset>
   <div class="field">
-    <label for="t-min-miss" title="Gap in units of the model's predictive spread">Min |miss|</label>
+    <label class="check" title="Leave out the ads carrying a tag in the ledger"><input type="checkbox" name="untagged" value="1"{% if choice.untagged %} checked{% endif %}> Untagged only</label>
+  </div>
+  <div class="field">
+    <label for="t-min-miss" title="{{ miss_title }}">Min |miss|</label>
     <input id="t-min-miss" name="min_miss" inputmode="decimal" size="5" value="{{ '{:g}'.format(choice.min_miss) if choice.min_miss is not none }}" placeholder="0">
   </div>
   {% if choice.feature and choice.bin %}
@@ -99,6 +102,7 @@
   </p>
 </div>
 
+{% if rows | length > phone_rows %}<input type="checkbox" id="t-all-rows" class="rows-toggle" aria-label="Show every row of this page">{% endif %}
 <div class="table-wrap">
 <table class="data triage">
   <thead>
@@ -107,8 +111,8 @@
       <th scope="col">Beds</th>
       <th scope="col" class="num">Ask</th>
       <th scope="col" class="num">Model middle</th>
-      <th scope="col" class="num" title="Gap between the ask and the model's middle, on the log scale">Gap %</th>
-      <th scope="col" class="num" title="Gap in units of the model's predictive spread">Miss</th>
+      <th scope="col" class="num" title="{{ gap_title }}">Ask vs model</th>
+      <th scope="col" class="num" title="{{ miss_title }}">Miss</th>
       <th scope="col">Basis</th>
       <th scope="col" class="num">Prev ask · beds</th>
       <th scope="col" title="Mark this ad as a real deal, a data error or an unmodeled factor.">Tag</th>
@@ -125,7 +129,7 @@
       <td class="nowrap" data-label="Beds">{{ beds_label(r.bedrooms) }}</td>
       <td class="num" data-label="Ask">{{ usd(r.ask) }}</td>
       <td class="num" data-label="Model middle">{{ usd(r.model_median) }}</td>
-      <td class="num" data-label="Gap %">{{ pct(r.gap_pct, digits=1) }}</td>
+      <td class="num" data-label="Ask vs model">{{ pct(r.gap_pct, digits=1) }}</td>
       <td class="num" data-label="Miss">{{ w.fmt_miss(r.miss) }}</td>
       <td class="nowrap" data-label="Basis" title="{{ r.basis_rule }} Earlier ads of the unit: {{ r.unit_ads }}. Earlier ads in the building: {{ r.building_ads }}.">{{ r.basis_label or "-" }}</td>
       <td class="num nowrap" data-label="Prev ask · beds">
@@ -141,6 +145,7 @@
   </tbody>
 </table>
 </div>
+{% if rows | length > phone_rows %}<label class="rows-more" for="t-all-rows">Show the other {{ rows | length - phone_rows }} rows of this page</label>{% endif %}
 
 {% if pages > 1 %}
 <nav class="pager" aria-label="Pages">

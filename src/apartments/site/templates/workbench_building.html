@@ -26,7 +26,7 @@
     </span>
   </div>
   <div class="figure">
-    <span class="figure-label">Held-out mean gap</span>
+    <span class="figure-label" title="{{ mean_gap_title }}">Held-out ask vs model</span>
     <span class="figure-value">{{ pct(b.heldout_gap_pct, digits=1) }}</span>
     <span class="figure-note">over {{ "{:,}".format(b.heldout_ads) }} held-out ads</span>
   </div>
@@ -84,7 +84,7 @@
     <tbody>
     {% for u in detail.units %}
       <tr{% if u.bedroom_conflict or u.label_mismatch %} class="off-nominal"{% endif %}>
-        <th scope="row"><code>{{ u.unit_id }}</code></th>
+        <th scope="row"><code title="{{ u.unit_id }}">{{ u.unit_id }}</code></th>
         <td>{{ u.display_label }}</td>
         <td class="nowrap">
           {% for b_cnt in u.beds_seen %}{{ beds_label(b_cnt) }}{% if not loop.last %}, {% endif %}{% else %}-{% endfor %}
@@ -127,8 +127,8 @@
         <th scope="col" class="num">Ask</th>
         <th scope="col" class="num">Model middle</th>
         <th scope="col" class="num">80% range</th>
-        <th scope="col" class="num">Gap %</th>
-        <th scope="col" class="num" title="Gap in units of the model's predictive spread">Miss</th>
+        <th scope="col" class="num" title="{{ gap_title }}">Ask vs model</th>
+        <th scope="col" class="num" title="{{ miss_title }}">Miss</th>
         <th scope="col">Basis</th>
         <th scope="col" class="num">Prev ask · beds</th>
         <th scope="col">Flags</th>

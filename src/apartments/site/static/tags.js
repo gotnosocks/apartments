@@ -1,7 +1,9 @@
 // Compact inline tagger for table rows carrying `.tag-slot[data-listing]`.
 // Loads current tags and vocabulary in one `/tags/for` request, then renders
 // each slot's tag chip and `<details>` form (`select`, `note`, `Save`, `Clear`)
-// posting with `fetch` so rows can be labeled without leaving the page.
+// posting with `fetch` so rows can be labeled without leaving the page. After a
+// save or a clear, the slot shows "Saved" or "Cleared" in a status element for
+// a few seconds.
 (function () {
   "use strict";
 
@@ -36,6 +38,19 @@
     });
   }
 
+  var FLASH_MS = 4000;
+
+  function flash(slots, text) {
+    slots.forEach(function (slot) {
+      var widget = slot.querySelector(".tag-widget");
+      if (!widget) return;
+      var status = el("span", "tag-status tag-saved", text);
+      status.setAttribute("role", "status");
+      widget.appendChild(status);
+      setTimeout(function () { status.remove(); }, FLASH_MS);
+    });
+  }
+
   function renderSlot(slot, listingId, current, groups, byGroup, meanings, syncAll) {
     slot.replaceChildren();
     var wrap = el("div", "tag-widget is-compact");
@@ -56,7 +71,7 @@
       clearBtn.addEventListener("click", function () {
         clearBtn.disabled = true;
         postTag(listingId, "clear", "").then(
-          function () { syncAll(listingId, null); },
+          function () { syncAll(listingId, null, "Cleared"); },
           function () { clearBtn.disabled = false; }
         );
       });
@@ -119,7 +134,7 @@
       status.hidden = true;
       postTag(listingId, select.value, noteInput.value).then(
         function (saved) {
-          syncAll(listingId, saved.tag === "clear" ? null : saved);
+          syncAll(listingId, saved.tag === "clear" ? null : saved, "Saved");
         },
         function (err) {
           saveBtn.disabled = false;
@@ -185,10 +200,12 @@
         meanings[item.code] = item.meaning || "";
       });
 
-      function syncAll(listingId, updated) {
-        (byId[listingId] || []).forEach(function (slot) {
+      function syncAll(listingId, updated, message) {
+        var slots = byId[listingId] || [];
+        slots.forEach(function (slot) {
           renderSlot(slot, listingId, updated, groups, byGroup, meanings, syncAll);
         });
+        if (message) flash(slots, message);
       }
 
       ids.forEach(function (id) {

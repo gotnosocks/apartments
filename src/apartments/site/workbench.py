@@ -19,9 +19,11 @@ before serving any query, and registers the Workbench views on the Flask applica
 via `register(app, root_fn)`.
 
 The pages order and threshold ads by `miss`. `z` comes from a finite number of draws
-and stops near 3.5, so the pages read it only in the calibration table. Each
-`Diagnostics` object keeps its computed aggregates in a small cache, because the
-overview and the signals page tabulate every attribute on each request.
+and stops near 3.5, so the pages read it only in the calibration table. `gap` is
+ln(ask / middle); the pages show it as the percent difference of the ask from the
+middle, 100 * (exp(gap) - 1), and the CSV keeps the log value. Each `Diagnostics`
+object keeps its computed aggregates in a small cache, because the overview and the
+signals page tabulate every attribute on each request.
 """
 
 from __future__ import annotations
@@ -44,7 +46,7 @@ import duckdb
 from flask import Flask, Response, abort, render_template, request, url_for
 from markupsafe import Markup, escape
 
-from . import boroughs, charts, facts
+from . import boroughs, charts, facts, tags
 from .deals import LISTING, hood_label
 
 log = logging.getLogger("apartments.site.workbench")
@@ -53,10 +55,21 @@ FOLDER = "diagnostics"
 FILES = ("ads", "buildings", "history")
 META = "meta.json"
 PER_PAGE = 50
+# A phone shows this many rows of a triage page until the reader asks for the rest.
+PHONE_ROWS = 25
 CSV_CHUNK = 5000
+# A bin enters the rankings and gets an SE score with at least this many rows in at
+# least this many buildings.
 MIN_BIN_ADS = 30
+MIN_BIN_BUILDINGS = 10
+# The share of variance explained is shown for an attribute with at most this many bins.
+MAX_EXPLAINED_BINS = 20
+# The buildings list opens on buildings with at least this many held-out ads.
+DEFAULT_MIN_ADS = 5
 # List views draw at most this many bins of an attribute; its own page shows them all.
 LIST_BINS = 6
+# A strip label longer than this is cut, with the whole label in its title.
+STRIP_LABEL_CHARS = 21
 # A calibration slice with fewer ads than this is never marked off nominal.
 MIN_CALIBRATION_ADS = 100
 CACHE_ENTRIES = 64
@@ -234,6 +247,45 @@ SCOPE_ALIASES = {
     "all": "all",
 }
 
+GAP_TITLE = (
+    "Percent difference of the ask from the model's middle: 100 * (ask / middle - 1)."
+)
+MEAN_GAP_TITLE = (
+    "Mean of ln(ask / middle) over the ads, shown as a percent: 100 * (exp(mean) - 1)."
+)
+MISS_TITLE = (
+    "Miss is ln(ask / middle) divided by the predictive spread. z is the same reading "
+    "from the ask's quantile in the predictive distribution, and it stops near 3.5 "
+    "because the fit has a finite number of draws, so miss orders the largest misses."
+)
+MAX_SCORE_TITLE = (
+    f"Largest |bin mean minus the mean of all ads in scope| / SE, over bins of at "
+    f"least {MIN_BIN_ADS} ads in at least {MIN_BIN_BUILDINGS} buildings, with "
+    "standard errors clustered by building."
+)
+EXPLAINED_TITLE = (
+    "Share of the variance of ln(ask / middle) explained by bin means, for an "
+    f"attribute with at most {MAX_EXPLAINED_BINS} bins."
+)
+SMALL_BIN_TITLE = (
+    f"Fewer than {MIN_BIN_ADS} rows or {MIN_BIN_BUILDINGS} buildings: no SE score."
+)
+MISS_SCORE_TITLE = (
+    "|mean miss| times the square root of the held-out ads: the mean miss of a "
+    "building in units of its standard error."
+)
+
+
+def _ratio_pct(log_value: float | None) -> float | None:
+    """A log ratio as a percent difference, 100 * (exp(x) - 1)."""
+    if log_value is None:
+        return None
+    try:
+        return 100.0 * math.expm1(log_value)
+    except OverflowError:
+        return None
+
+
 BUILDING_SORTS = {
     "miss": (
         "ABS(COALESCE(heldout_miss, 0)) "
@@ -304,8 +356,11 @@ class TriageChoice:
     bin: str | None = None
     min_miss: float | None = None
     q: str = ""
+    untagged: bool = False
     page: int = 1
     hoods: list[str] | None = None
+    # Listing ids with a current tag, read from the ledger when `untagged` is set.
+    tagged: list[str] = dataclasses.field(default_factory=list)
 
     def args(self, **changes) -> dict:
         items = {
@@ -319,6 +374,7 @@ class TriageChoice:
             "bin": self.bin,
             "min_miss": _fmt(self.min_miss),
             "q": self.q or None,
+            "untagged": "1" if self.untagged else None,
             "page": None if self.page == 1 else self.page,
         }
         items.update(changes)
@@ -336,6 +392,7 @@ class TriageChoice:
             or self.bin
             or self.min_miss is not None
             or self.q
+            or self.untagged
         )
 
 
@@ -344,7 +401,7 @@ class BuildingChoice:
     """Filters for `/workbench/buildings`."""
 
     nb: str | None = None
-    min_ads: int | None = None
+    min_ads: int = DEFAULT_MIN_ADS
     sort: str = "miss"
     q: str = ""
     page: int = 1
@@ -353,7 +410,7 @@ class BuildingChoice:
     def args(self, **changes) -> dict:
         items = {
             "nb": self.nb,
-            "min_ads": self.min_ads,
+            "min_ads": None if self.min_ads == DEFAULT_MIN_ADS else self.min_ads,
             "sort": None if self.sort == "miss" else self.sort,
             "q": self.q or None,
             "page": None if self.page == 1 else self.page,
@@ -363,7 +420,7 @@ class BuildingChoice:
 
     def active(self) -> bool:
         return bool(
-            self.nb or self.min_ads is not None or self.sort != "miss" or self.q
+            self.nb or self.min_ads != DEFAULT_MIN_ADS or self.sort != "miss" or self.q
         )
 
 
@@ -477,6 +534,7 @@ def triage_choice(
     if min_miss is not None and min_miss < 0:
         min_miss = None
     q = (args.get("q") or "").strip()[:80]
+    untagged = (args.get("untagged") or "").strip().lower() in ("1", "on", "true")
     out = TriageChoice(
         source=source,
         flag=flag,
@@ -488,6 +546,7 @@ def triage_choice(
         bin=bin_key,
         min_miss=min_miss,
         q=q,
+        untagged=untagged,
         page=_page(args.get("page")),
     )
     out.hoods = areas(out.nb, hoods)
@@ -500,6 +559,8 @@ def building_choice(args, hoods: dict[str, int]) -> BuildingChoice:
     """Parse filters for the buildings list from a query string."""
     nb = (args.get("nb") or "").strip()[:60] or None
     min_ads = _nonneg_int(args.get("min_ads"))
+    if min_ads is None:
+        min_ads = DEFAULT_MIN_ADS
     raw_sort = (args.get("sort") or "").strip().lower()
     sort = raw_sort if raw_sort in BUILDING_SORTS else "miss"
     q = (args.get("q") or "").strip()[:80]
@@ -647,7 +708,7 @@ def _shown_ad(row: dict) -> dict:
         "prev_bedrooms": prev_beds,
         "baths": baths,
         "gap": gap,
-        "gap_pct": None if gap is None else 100.0 * gap,
+        "gap_pct": _ratio_pct(gap),
         "miss": miss,
         "basis_label": BASES.get(basis, basis) if basis else None,
         "basis_rule": BASIS_RULES.get(basis, "") if basis else "",
@@ -686,33 +747,52 @@ def _shown_building(row: dict) -> dict:
         "train_ads": t_ads,
         "heldout_ads": h_ads,
         "heldout_gap": h_gap,
-        "heldout_gap_pct": None if h_gap is None else 100.0 * h_gap,
+        "heldout_gap_pct": _ratio_pct(h_gap),
         "heldout_miss": h_miss,
         "miss_score": score,
     }
 
 
+def _signal_rank(signal: dict) -> tuple:
+    """Sort key placing the signal with the largest sized-bin score first."""
+    peak = signal.get("peak_bin")
+    return (
+        signal["strength"] or 0.0,
+        signal["explained_share"] or 0.0,
+        abs(peak["mean"]) if peak else 0.0,
+    )
+
+
 def signal_strip(bins: list[dict], scale: float | None = None) -> Markup:
-    """Build an inline SVG dot-and-whisker strip of bin means and cluster SEs."""
+    """Build an inline SVG dot-and-whisker strip of bin means and 95% intervals.
+
+    A label longer than `STRIP_LABEL_CHARS` is cut, and its `<title>` holds the whole
+    label. A bin below the size floor is drawn faded with no whisker.
+    """
     valid = [b for b in bins if _finite(b.get("mean_pct")) is not None]
     if not valid:
         return Markup("")
-    width = 280
+    width = 320
     row_h = 18
     top_pad = 6
     bot_pad = 6
-    left = 86
+    left = 132
     right = width - 12
     mid = (left + right) / 2
     half_span = (right - left) / 2 - 4
     height = top_pad + row_h * len(bins) + bot_pad
 
+    def interval(b: dict) -> tuple[float, float] | None:
+        lo, hi = _finite(b.get("lo_pct")), _finite(b.get("hi_pct"))
+        if lo is None or hi is None or not b.get("sized", True):
+            return None
+        return lo, hi
+
     if scale is None or scale <= 0:
         extents = []
         for b in valid:
-            m = abs(float(b["mean_pct"]))
-            se = _finite(b.get("se_pct")) or 0.0
-            extents.append(m + 1.96 * se)
+            ends = interval(b) or ()
+            extents.append(max(abs(float(v)) for v in (b["mean_pct"], *ends)))
         scale = max(extents, default=5.0)
         scale = max(scale, 2.0)
 
@@ -726,28 +806,33 @@ def signal_strip(bins: list[dict], scale: float | None = None) -> Markup:
     for i, b in enumerate(bins):
         y = top_pad + i * row_h + row_h / 2
         label = str(b.get("label") or b.get("key") or "")
-        short = label if len(label) <= 13 else label[:11] + ".."
+        short = (
+            label
+            if len(label) <= STRIP_LABEL_CHARS
+            else label[: STRIP_LABEL_CHARS - 2] + ".."
+        )
         parts.append(
             f'<text class="strip-label" x="{left - 6}" y="{y + 3.5:.1f}" '
-            f'text-anchor="end">{escape(short)}</text>'
+            f'text-anchor="end"><title>{escape(label)}</title>{escape(short)}</text>'
         )
         mean_pct = _finite(b.get("mean_pct"))
         if mean_pct is None:
             continue
-        se_pct = _finite(b.get("se_pct"))
-        if se_pct is not None and se_pct > 0:
-            x0 = x_at(mean_pct - 1.96 * se_pct)
-            x1 = x_at(mean_pct + 1.96 * se_pct)
+        ends = interval(b)
+        if ends is not None and ends[1] > ends[0]:
             parts.append(
-                f'<line class="whisker" x1="{x0:.1f}" x2="{x1:.1f}" '
-                f'y1="{y:.1f}" y2="{y:.1f}"/>'
+                f'<line class="whisker" x1="{x_at(ends[0]):.1f}" '
+                f'x2="{x_at(ends[1]):.1f}" y1="{y:.1f}" y2="{y:.1f}"/>'
             )
         cx = x_at(mean_pct)
         cls = "up" if mean_pct > 0.5 else ("down" if mean_pct < -0.5 else "neutral")
         if b.get("is_missing"):
             cls += " missing"
+        if not b.get("sized", True):
+            cls += " small"
         tip = f"{label}: {charts.pct(mean_pct, digits=1)}"
-        if se_pct is not None:
+        se_pct = _finite(b.get("se_pct"))
+        if ends is not None and se_pct is not None:
             tip += f" (SE {se_pct:.1f}%)"
         parts.append(
             f'<circle class="dot {cls}" cx="{cx:.1f}" cy="{y:.1f}" r="3.5">'
@@ -1267,9 +1352,9 @@ class Diagnostics:
             "in80": in80_f,
             "in95": in95_f,
             "median_abs_gap": med_f,
-            "median_abs_gap_pct": None if med_f is None else 100.0 * med_f,
+            "median_abs_gap_pct": _ratio_pct(med_f),
             "mean_gap": mean_f,
-            "mean_gap_pct": None if mean_f is None else 100.0 * mean_f,
+            "mean_gap_pct": _ratio_pct(mean_f),
             "mean_z": z_f,
             "triage_args": triage_args,
             **marks,
@@ -1291,25 +1376,17 @@ class Diagnostics:
     def calibration(self) -> dict:
         """Calibration slices overall and by source, basis, bedrooms, and area.
 
-        `main` holds the overall, source, basis and bedroom slices, `hoods` every
-        neighbourhood, and `hoods_off` the neighbourhoods marked off nominal.
+        `new_units` holds the building and area basis rows, whose ads are of units
+        the fit read no earlier ads of. `unit` holds the unit-history row, and `rest`
+        the overall, source and bedroom slices. `main` is those three in page order.
+        `hoods` holds every neighbourhood, and `hoods_off` the neighbourhoods marked
+        off nominal. `unit_share` is the percent of held-out ads on the unit basis.
         """
         return self._cached(("calibration", MIN_CALIBRATION_ADS), self._calibration)
 
     def _calibration(self) -> dict:
-        main: list[dict] = []
-        overall = self._calibration_row("All", "All held-out ads", "", [], {})
-        if overall:
-            main.append(overall)
-
-        for key, label in SOURCES.items():
-            r = self._calibration_row(
-                "Source", label, " WHERE source = ?", [key], {"source": key}
-            )
-            if r:
-                main.append(r)
-
-        for key in ("unit", "building", "area"):
+        by_basis: dict[str, dict] = {}
+        for key in ("building", "area", "unit"):
             r = self._calibration_row(
                 "Basis",
                 BASES[key].capitalize(),
@@ -1318,7 +1395,21 @@ class Diagnostics:
                 {"basis": key},
             )
             if r:
-                main.append(r)
+                by_basis[key] = r
+        new_units = [by_basis[k] for k in ("building", "area") if k in by_basis]
+        unit = [by_basis["unit"]] if "unit" in by_basis else []
+
+        rest: list[dict] = []
+        overall = self._calibration_row("All", "All held-out ads", "", [], {})
+        if overall:
+            rest.append(overall)
+
+        for key, label in SOURCES.items():
+            r = self._calibration_row(
+                "Source", label, " WHERE source = ?", [key], {"source": key}
+            )
+            if r:
+                rest.append(r)
 
         for key, label in BEDROOMS.items():
             clause, params = _beds_clause([key])
@@ -1326,7 +1417,7 @@ class Diagnostics:
                 "Bedrooms", label, f" WHERE {clause}", params, {"beds": key}
             )
             if r:
-                main.append(r)
+                rest.append(r)
 
         hoods: list[dict] = []
         for value, *stats in self._all(
@@ -1341,10 +1432,16 @@ class Diagnostics:
                 hoods.append(r)
         hoods.sort(key=lambda r: r["label"])
 
+        unit_ads = sum(r["ads"] for r in unit)
+        all_ads = overall["ads"] if overall else 0
         return {
-            "main": main,
+            "new_units": new_units,
+            "unit": unit,
+            "rest": rest,
+            "main": new_units + unit + rest,
             "hoods": hoods,
             "hoods_off": [r for r in hoods if r["off_nominal"]],
+            "unit_share": 100.0 * unit_ads / all_ads if all_ads else None,
         }
 
     def _signal_where(self, c: SignalChoice) -> tuple[str, list]:
@@ -1422,17 +1519,30 @@ class Diagnostics:
         miss_col: str,
         where_sql: str = "",
         params: list | None = None,
+        as_ratio: bool = False,
     ) -> dict:
         """Tabulate `value_col` and `miss_col` against `feature` with cluster SEs.
 
         The overview and the signals pages call this on `ads` (`value_col='gap'`,
-        `miss_col='miss'`), and the buildings page on `buildings`
+        `miss_col='miss'`, `as_ratio=True`), and the buildings page on `buildings`
         (`value_col='level'`, `miss_col='heldout_miss'`).
 
-        `bins` holds every bin. `list_bins` holds the bins a list view draws: all of
-        them up to `LIST_BINS`, and past that the `LIST_BINS` bins with the largest
-        |mean| / SE among bins of at least `MIN_BIN_ADS` rows. `more_bins` counts the
-        bins left out of `list_bins`.
+        The reference population is every row the filters keep, with or without a
+        value of the attribute. `ref_mean` is its mean of `value_col` and `ref_ads`
+        its size. Each bin's `mean` is its own mean (`raw_mean`) minus `ref_mean`,
+        and `ratio` is |mean| / SE. With `as_ratio` the percents are
+        100 * (exp(x) - 1) of the log values, and otherwise 100 * x.
+
+        A bin is `sized` when it has at least `MIN_BIN_ADS` rows in at least
+        `MIN_BIN_BUILDINGS` buildings. `strength` and `peak_bin` read the sized bins
+        only. A bin below the floor has no `ratio`, and `bins` lists it after the
+        sized bins.
+
+        `list_bins` holds the bins a list view draws: all of them up to `LIST_BINS`,
+        and past that the `LIST_BINS` sized bins with the largest ratio. `more_bins`
+        counts the bins left out of `list_bins`. `explained_share` is None for an
+        attribute with more than `MAX_EXPLAINED_BINS` bins, where the share mostly
+        counts the bins.
         """
         if table not in ("ads", "buildings"):
             raise ValueError(f"Unsupported table: {table!r}")
@@ -1541,7 +1651,7 @@ class Diagnostics:
             is_missing = bin_key == "missing"
             ads_n = int(r["ads"] or 0)
             bld_n = int(r["buildings"] or 0)
-            mean_v = _finite(r["mean_val"]) or 0.0
+            raw_mean = _finite(r["mean_val"]) or 0.0
             se_v = _finite(r["se_val"])
             mean_miss = _finite(r["mean_miss"])
             min_n = _finite(r["min_num"])
@@ -1563,29 +1673,63 @@ class Diagnostics:
             else:
                 label = bin_key.replace("_", " ")
 
-            ratio = abs(mean_v) / se_v if se_v is not None and se_v > 1e-12 else None
             bins.append(
                 {
                     "key": bin_key,
                     "label": label,
                     "ads": ads_n,
                     "buildings": bld_n,
-                    "mean": mean_v,
-                    "mean_pct": 100.0 * mean_v,
+                    "raw_mean": raw_mean,
                     "se": se_v,
-                    "se_pct": None if se_v is None else 100.0 * se_v,
-                    "ratio": ratio,
                     "mean_miss": mean_miss,
                     "min_val": min_n,
                     "max_val": max_n,
                     "is_missing": is_missing,
+                    "sized": ads_n >= MIN_BIN_ADS and bld_n >= MIN_BIN_BUILDINGS,
                     "_sum_sq": sum_sq,
                 }
             )
 
+        total_ads = sum(b["ads"] for b in bins)
+        missing_ads = sum(b["ads"] for b in bins if b["is_missing"])
+        non_missing_ads = total_ads - missing_ads
+
+        if total_ads > 0:
+            total_sum = sum(b["ads"] * b["raw_mean"] for b in bins)
+            overall_mean = total_sum / total_ads
+            total_sum_sq = sum(b["_sum_sq"] for b in bins)
+            sst = total_sum_sq - total_ads * overall_mean * overall_mean
+            ssb = sum(b["ads"] * (b["raw_mean"] - overall_mean) ** 2 for b in bins)
+            explained_share = max(0.0, min(1.0, ssb / sst)) if sst > 1e-12 else 0.0
+        else:
+            overall_mean = 0.0
+            explained_share = 0.0
+        if len(bins) > MAX_EXPLAINED_BINS:
+            explained_share = None
+
+        def shown_pct(log_value: float) -> float | None:
+            return _ratio_pct(log_value) if as_ratio else 100.0 * log_value
+
+        for b in bins:
+            b.pop("_sum_sq", None)
+            mean_v = b["raw_mean"] - overall_mean
+            se_v = b["se"]
+            has_se = se_v is not None and se_v > 1e-12
+            b["mean"] = mean_v
+            b["mean_pct"] = shown_pct(mean_v)
+            b["ratio"] = abs(mean_v) / se_v if b["sized"] and has_se else None
+            if se_v is None:
+                b["se_pct"] = b["lo_pct"] = b["hi_pct"] = None
+            else:
+                # The percent SE follows the slope of 100 * (exp(x) - 1) at the mean.
+                b["se_pct"] = 100.0 * se_v * (math.exp(mean_v) if as_ratio else 1.0)
+                b["lo_pct"] = shown_pct(mean_v - 1.96 * se_v)
+                b["hi_pct"] = shown_pct(mean_v + 1.96 * se_v)
+
         if kind == "number":
             bins.sort(
                 key=lambda b: (
+                    not b["sized"],
                     b["is_missing"],
                     int(b["key"][1:])
                     if b["key"].startswith("q") and b["key"][1:].isdigit()
@@ -1594,10 +1738,11 @@ class Diagnostics:
             )
         elif kind == "flag":
             order = {"yes": 0, "no": 1, "missing": 2}
-            bins.sort(key=lambda b: order.get(b["key"], 99))
+            bins.sort(key=lambda b: (not b["sized"], order.get(b["key"], 99)))
         else:
             bins.sort(
                 key=lambda b: (
+                    not b["sized"],
                     b["is_missing"],
                     -(b["ratio"] or 0.0),
                     -b["ads"],
@@ -1605,44 +1750,18 @@ class Diagnostics:
                 )
             )
 
-        total_ads = sum(b["ads"] for b in bins)
-        missing_ads = sum(b["ads"] for b in bins if b["is_missing"])
-        non_missing_ads = total_ads - missing_ads
-
-        if total_ads > 0:
-            total_sum = sum(b["ads"] * b["mean"] for b in bins)
-            overall_mean = total_sum / total_ads
-            total_sum_sq = sum(b["_sum_sq"] for b in bins)
-            sst = total_sum_sq - total_ads * overall_mean * overall_mean
-            ssb = sum(b["ads"] * (b["mean"] - overall_mean) ** 2 for b in bins)
-            explained_share = max(0.0, min(1.0, ssb / sst)) if sst > 1e-12 else 0.0
-        else:
-            explained_share = 0.0
-
-        for b in bins:
-            b.pop("_sum_sq", None)
-
-        # Rank by largest |mean| / se over bins with at least MIN_BIN_ADS (30) rows,
-        # falling back to bins with >= 2 rows on smaller fixtures.
-        sized_bins = [
-            b for b in bins if b["ads"] >= MIN_BIN_ADS and b["ratio"] is not None
-        ]
-        if not sized_bins:
-            sized_bins = [b for b in bins if b["ads"] >= 2 and b["ratio"] is not None]
-        strength = max((float(b["ratio"]) for b in sized_bins), default=0.0)
+        sized_bins = [b for b in bins if b["ratio"] is not None]
+        strength = max((float(b["ratio"]) for b in sized_bins), default=None)
         peak_bin = max(
-            sized_bins or bins,
-            key=lambda b: (b["ratio"] or 0.0, abs(b["mean_pct"])),
+            sized_bins,
+            key=lambda b: (b["ratio"], abs(b["mean"])),
             default=None,
         )
 
         if len(bins) <= LIST_BINS:
             list_bins = bins
         else:
-            ranked = sorted(
-                (b for b in bins if b["ads"] >= MIN_BIN_ADS and b["ratio"] is not None),
-                key=lambda b: -b["ratio"],
-            )
+            ranked = sorted(sized_bins, key=lambda b: -b["ratio"])
             list_bins = (
                 ranked[:LIST_BINS] or sorted(bins, key=lambda b: -b["ads"])[:LIST_BINS]
             )
@@ -1656,9 +1775,15 @@ class Diagnostics:
             "total_ads": total_ads,
             "non_missing_ads": non_missing_ads,
             "missing_ads": missing_ads,
+            "ref_ads": total_ads,
+            "ref_mean": overall_mean,
+            "ref_mean_pct": shown_pct(overall_mean),
+            "small_bins": sum(1 for b in bins if not b["sized"]),
             "strength": strength,
             "explained_share": explained_share,
-            "explained_pct": 100.0 * explained_share,
+            "explained_pct": (
+                None if explained_share is None else 100.0 * explained_share
+            ),
             "peak_bin": peak_bin,
             "svg": signal_strip(list_bins),
         }
@@ -1698,18 +1823,12 @@ class Diagnostics:
                 miss_col="miss",
                 where_sql=where_sql,
                 params=params,
+                as_ratio=True,
             )
             for feat in self.features
             if feat["name"] in self.ad_types
         ]
-        results.sort(
-            key=lambda r: (
-                r["strength"],
-                r["explained_share"],
-                abs(r["peak_bin"]["mean_pct"]) if r.get("peak_bin") else 0.0,
-            ),
-            reverse=True,
-        )
+        results.sort(key=_signal_rank, reverse=True)
         return results
 
     def signal_detail(self, name: str, c: SignalChoice) -> dict | None:
@@ -1728,6 +1847,7 @@ class Diagnostics:
                 miss_col="miss",
                 where_sql=where_sql,
                 params=params,
+                as_ratio=True,
             ),
         )
 
@@ -1835,6 +1955,11 @@ class Diagnostics:
         if c.min_miss is not None:
             clauses.append("ABS(miss) >= ?")
             params.append(c.min_miss)
+        if c.untagged and c.tagged:
+            clauses.append(
+                "NOT list_contains(CAST(? AS VARCHAR[]), CAST(listing_id AS VARCHAR))"
+            )
+            params.append(list(c.tagged))
         if c.q:
             esc = (
                 c.q.lower()
@@ -1898,13 +2023,15 @@ class Diagnostics:
                 return
             offset += CSV_CHUNK
 
-    def _buildings_where(self, c: BuildingChoice) -> tuple[str, list]:
+    def _buildings_where(
+        self, c: BuildingChoice, min_ads: bool = True
+    ) -> tuple[str, list]:
         clauses: list[str] = []
         params: list = []
         if c.hoods:
             clauses.append("neighbourhood IN (" + ", ".join("?" * len(c.hoods)) + ")")
             params.extend(c.hoods)
-        if c.min_ads is not None:
+        if min_ads and c.min_ads > 0:
             clauses.append("COALESCE(heldout_ads, train_ads, 0) >= ?")
             params.append(c.min_ads)
         if c.q:
@@ -1938,12 +2065,17 @@ class Diagnostics:
         return [_shown_building(r) for r in rows], total, pages
 
     def building_level_signals(self, c: BuildingChoice) -> list[dict]:
-        """Tabulate building `level` against building-level features."""
-        key = ("levels", tuple(c.hoods or ()), c.min_ads, c.q)
+        """Tabulate building `level` against building-level features.
+
+        The tabulation reads every building the neighbourhood and address filters
+        keep, whatever its count of held-out ads, since a level comes from the
+        training ads.
+        """
+        key = ("levels", tuple(c.hoods or ()), c.q)
         return self._cached(key, lambda: self._building_level_signals(c))
 
     def _building_level_signals(self, c: BuildingChoice) -> list[dict]:
-        where_sql, params = self._buildings_where(c)
+        where_sql, params = self._buildings_where(c, min_ads=False)
         results = [
             self.tabulate_feature(
                 "buildings",
@@ -1956,14 +2088,7 @@ class Diagnostics:
             for feat in self.features
             if feat["level"] == "building" and feat["name"] in self.building_types
         ]
-        results.sort(
-            key=lambda r: (
-                r["strength"],
-                r["explained_share"],
-                abs(r["peak_bin"]["mean_pct"]) if r.get("peak_bin") else 0.0,
-            ),
-            reverse=True,
-        )
+        results.sort(key=_signal_rank, reverse=True)
         return results
 
     def has_building(self, building_id: str | None) -> bool:
@@ -2265,7 +2390,16 @@ def _render(template: str, **context) -> str:
         beds_label=_beds_label,
         min_calibration_ads=MIN_CALIBRATION_ADS,
         min_bin_ads=MIN_BIN_ADS,
+        min_bin_buildings=MIN_BIN_BUILDINGS,
+        max_explained_bins=MAX_EXPLAINED_BINS,
         list_bins=LIST_BINS,
+        gap_title=GAP_TITLE,
+        mean_gap_title=MEAN_GAP_TITLE,
+        miss_title=MISS_TITLE,
+        miss_score_title=MISS_SCORE_TITLE,
+        max_score_title=MAX_SCORE_TITLE,
+        explained_title=EXPLAINED_TITLE,
+        small_bin_title=SMALL_BIN_TITLE,
         **context,
     )
 
@@ -2285,6 +2419,14 @@ def register(app: Flask, root_fn: Callable[[], Path] | Path) -> None:
         if diag is None:
             abort(503, description="No diagnostics have been published yet.")
         return diag
+
+    def _triage_choice(diag: Diagnostics) -> TriageChoice:
+        c = triage_choice(
+            request.args, diag.ad_hoods(), diag.valid_flags(), diag.features_by_name
+        )
+        if c.untagged:
+            c.tagged = sorted(tags.current_tags(_root()))
+        return c
 
     def _url_with(endpoint: str, choice_obj, **changes) -> str:
         query = urlencode(choice_obj.args(**changes), doseq=True)
@@ -2309,11 +2451,15 @@ def register(app: Flask, root_fn: Callable[[], Path] | Path) -> None:
         diag = _diag_or_503()
         c = signal_choice(request.args, diag.ad_hoods())
         names = diag.ad_hood_names()
+        groups = diag.signal_groups(c)
+        ranked = [s for g in groups for s in g["signals"]]
         return _render(
             "workbench_signals.html",
             info=diag.meta,
             choice=c,
-            groups=diag.signal_groups(c),
+            groups=groups,
+            attribute_count=len(ranked),
+            bin_count=sum(len(s["bins"]) for s in ranked),
             scopes=SCOPES,
             bedrooms=BEDROOMS,
             hood_groups=boroughs.grouped(names),
@@ -2365,12 +2511,7 @@ def register(app: Flask, root_fn: Callable[[], Path] | Path) -> None:
     @app.get("/workbench/triage")
     def workbench_triage():
         diag = _diag_or_503()
-        c = triage_choice(
-            request.args,
-            diag.ad_hoods(),
-            diag.valid_flags(),
-            diag.features_by_name,
-        )
+        c = _triage_choice(diag)
         if request.args.get("format") == "csv":
             return _stream_triage_csv(diag, c)
         rows, total, pages = diag.triage_page(c)
@@ -2391,7 +2532,10 @@ def register(app: Flask, root_fn: Callable[[], Path] | Path) -> None:
             sources=SOURCES,
             bases=BASES,
             signs=SIGNS,
-            flags=diag.flag_counts(),
+            flags=sorted(
+                diag.flag_counts(), key=lambda f: (f["count"] == 0, f["count"])
+            ),
+            phone_rows=PHONE_ROWS,
             bedrooms=BEDROOMS,
             feature_info=feature_info,
             hood_groups=boroughs.grouped(names),
@@ -2403,12 +2547,7 @@ def register(app: Flask, root_fn: Callable[[], Path] | Path) -> None:
     @app.get("/workbench/triage.csv")
     def workbench_triage_csv():
         diag = _diag_or_503()
-        c = triage_choice(
-            request.args,
-            diag.ad_hoods(),
-            diag.valid_flags(),
-            diag.features_by_name,
-        )
+        c = _triage_choice(diag)
         return _stream_triage_csv(diag, c)
 
     @app.get("/workbench/buildings")
@@ -2427,6 +2566,7 @@ def register(app: Flask, root_fn: Callable[[], Path] | Path) -> None:
             pages=pages,
             per_page=PER_PAGE,
             sorts=BUILDING_SORTS,
+            default_min_ads=DEFAULT_MIN_ADS,
             signals=level_signals,
             hood_groups=boroughs.grouped(names),
             show_hoods=len(names) > 1,

@@ -322,13 +322,16 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .hood-picker[open] summary { border-color: var(--accent); }
 .hood-panel {
   position: absolute; left: 0; top: 100%; z-index: 15; margin-top: 0.25rem;
-  min-width: 18rem; max-width: min(36rem, 92vw); max-height: 22rem; overflow-y: auto;
+  min-width: 18rem; max-width: min(36rem, 92vw); max-height: min(22rem, 60vh); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--axis); border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14); padding: 0.6rem 0.8rem;
 }
 .hood-borough { border: 0; margin: 0 0 0.55rem; padding: 0; }
-.hood-borough:last-child { margin-bottom: 0; }
-.hood-borough legend { font-weight: 650; font-size: 0.82rem; color: var(--ink-2); margin-bottom: 0.25rem; padding: 0; }
+.hood-borough:last-child { margin-bottom: 0.3rem; }
+.hood-borough legend {
+  font-weight: 700; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2);
+  width: 100%; border-bottom: 1px solid var(--grid); margin-bottom: 0.3rem; padding: 0 0 0.15rem;
+}
 .hood-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.2rem 0.6rem; }
 .hood-checks .borough-all { font-weight: 600; grid-column: 1 / -1; }
 
@@ -391,10 +394,10 @@ details.deals-backtest[open] > summary { margin-bottom: 0.5rem; }
 }
 
 /* === Tags (/tags, #tags, .tag-slot) === */
-#tags {
-  background: var(--surface); border: 1px solid var(--grid); border-radius: 8px;
-  padding: 0.65rem 0.9rem; margin: 0.6rem 0 0.8rem;
-}
+.tag-card h2 { margin-top: 0; }
+.tag-card .tag-form select { flex: 1 1 12rem; min-width: 0; }
+.tag-status.tag-saved { font-size: 0.78rem; color: var(--good); }
+td.c-clear { text-align: right; }
 .tag-widget { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.65rem; }
 .tag-widget.is-compact { gap: 0.3rem 0.45rem; position: relative; }
 .tag-active { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
@@ -411,7 +414,7 @@ details.deals-backtest[open] > summary { margin-bottom: 0.5rem; }
   background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
   border-radius: 6px; padding: 0.3rem 0.5rem; font-size: 0.86rem; max-width: 100%;
 }
-.tag-form input { min-width: 11rem; flex: 1 1 11rem; }
+.tag-form input { min-width: 0; flex: 1 1 11rem; }
 .tag-form button {
   background: var(--accent); color: #fff; border: 0; border-radius: 6px;
   padding: 0.32rem 0.7rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;
@@ -447,3 +450,48 @@ a.tag-filter.is-selected { outline: 2px solid var(--accent); outline-offset: 1px
 @media (max-width: 640px) {
   details.tag-compact[open] > .tag-form { position: static; width: 100%; box-shadow: none; }
 }
+
+.range-legend, .ignored { margin: 0.3rem 0; }
+.peer-warning { margin: 0.4rem 0 0.7rem; }
+
+/* Phones: listing charts keep 11px labels. The range strip draws larger tick text,
+   and the building chart keeps its drawn width and scrolls inside its figure. */
+@media (max-width: 640px) {
+  .istrip .tick { font-size: 21px; }
+  .history-chart { overflow-x: auto; }
+  .history-chart svg { width: 640px; max-width: none; }
+}
+
+/* Phones: every link or control a thumb taps is at least 40px tall, with 8px or
+   more between neighbors. */
+@media (max-width: 640px) {
+  .top nav, .subnav nav { gap: 0.5rem 0.9rem; }
+  .top nav a, .subnav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.15rem; }
+  .results-links a, .results-links strong { display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.3rem; margin: 0 0.2rem; }
+  .pager a, .pager .disabled { display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.5rem; }
+  .tag-widget, .tag-widget.is-compact, .tag-active { gap: 0.5rem; }
+  .tag-form { gap: 0.5rem; }
+  details.tag-compact > summary.tag-summary, .tag-clear {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 3.4rem;
+    padding: 0 0.7rem; font-size: 0.9rem;
+  }
+  .tag-form select, .tag-form input, .tag-form button { min-height: 40px; font-size: 1rem; }
+  .tag-card .tag-form select, .tag-card .tag-form input { flex: 1 1 100%; }
+  a.drop-filter { display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.3rem; }
+  .tags-groups, .tags-codes { gap: 0.5rem; }
+  a.tag-filter { display: inline-flex; align-items: center; min-height: 40px; }
+
+  /* The /tags table as stacked cards, like the Deals rows. */
+  table.tags-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.tags-table, table.tags-table tbody { display: block; }
+  table.tags-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--grid); }
+  table.tags-table td { display: block; border: 0; padding: 0; text-align: left; white-space: normal; min-width: 0; }
+  table.data.tags-table td.num { text-align: left; }
+  table.tags-table td.c-listing { grid-column: 1 / -1; font-weight: 600; }
+  table.tags-table td.c-listing .feat { font-weight: 400; }
+  table.tags-table td[data-label="Note"], table.tags-table td[data-label="Flags"], table.tags-table td.empty { grid-column: 1 / -1; }
+  table.tags-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: 0.72rem; font-weight: 400; }
+  table.tags-table td.c-clear { grid-column: 1 / -1; }
+}
+details.statistician > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem; }
+details.statistician[open] > summary { margin-bottom: 0.5rem; }

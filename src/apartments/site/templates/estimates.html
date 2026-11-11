@@ -21,7 +21,7 @@
   <a class="tile" href="{{ url_for('listings') }}"><span class="tile-label">Estimates</span><span class="tile-value">{{ "{:,}".format(ads.all or 0) }}</span></a>
   <a class="tile" href="{{ url_for('listings', status='past') }}"><span class="tile-label">Past ads</span><span class="tile-value">{{ "{:,}".format(ads.latest or 0) }}</span></a>
   <a class="tile" href="{{ url_for('listings', status='current', sort='low') }}"><span class="tile-label">On the market</span><span class="tile-value">{{ "{:,}".format(ads.market or 0) }}</span></a>
-  {% if hoods %}<div class="tile"><span class="tile-label">Neighbourhoods</span><span class="tile-value">{{ "{:,}".format(hoods | length) }}</span></div>{% endif %}
+  {% if hoods %}<div class="tile"><span class="tile-label">Neighborhoods</span><span class="tile-value">{{ "{:,}".format(hoods | length) }}</span></div>{% endif %}
 </section>
 
 <section class="card" id="accuracy">

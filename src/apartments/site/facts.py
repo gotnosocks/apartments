@@ -26,12 +26,19 @@ from pathlib import Path
 import duckdb
 from markupsafe import Markup, escape
 
+from .charts import embed_json
+
 FOLDER = "diagnostics"
 ADS_TABLE = "ads.parquet"
 HISTORY_TABLE = "history.parquet"
 META = "meta.json"
 HISTORY_CAP = 30
 SERIES_CAP = 500
+# The peer check compares a market ad's ask with the building's other ads of the same
+# bedroom count over the PEER_DAYS before the scoring day.
+PEER_DAYS = 365
+PEER_MIN_ADS = 3
+PEER_ASK_SHARE = 0.9
 
 # Columns read from `ads.parquet` when enriching the Deals table.
 DEAL_COLUMNS = (
@@ -541,7 +548,7 @@ def building_asks_svg(
         )
     legend = f'<div class="legend">{"".join(legend_items)}</div>'
     label = f"{beds_text} asks over time in this building, with this ad marked"
-    data_json = json.dumps(hover, separators=(",", ":")).replace("<", "\\u003c")
+    data_json = embed_json(hover)
     svg = (
         f'<svg viewBox="0 0 {width} {height}" role="img" '
         f'aria-label="{escape(label)}" preserveAspectRatio="xMidYMid meet">'
@@ -640,6 +647,59 @@ class Table:
             if norm["listing_id"]:
                 out[norm["listing_id"]] = norm
         return out
+
+    def peers(self, listing_ids: Iterable[str]) -> dict[str, dict]:
+        """Building peers of each market ad in `listing_ids`, from one query.
+
+        An ad's peers are the history rows of its building with the same rounded
+        bedroom count, a positive ask and a day in the PEER_DAYS up to the scoring
+        day, leaving out the ad itself and every ad of its own apartment (the
+        `unit_id` without a relisting suffix such as `~1`). Returns `count` and
+        `median` (the median peer ask) keyed by `listing_id`, for ads with at least
+        one peer. The scoring day comes from `meta.json`, or from the newest history
+        day when the meta has none."""
+        ids = sorted({str(i).strip() for i in listing_ids if i})
+        needed = {"listing_id", "building", "unit_id", "day", "ask", "bedrooms"}
+        if not ids or not needed <= set(self.history_columns):
+            return {}
+        until = _day(self.meta.get("scoring_day"))
+        if until is None:
+            found = self._one("SELECT MAX(CAST(day AS VARCHAR)) FROM history", [])
+            until = _day(found[0]) if found else None
+        if until is None:
+            return {}
+        since = (
+            dt.date.fromisoformat(until) - dt.timedelta(days=PEER_DAYS)
+        ).isoformat()
+        apartment = "regexp_replace(CAST(unit_id AS VARCHAR), '~[0-9]+$', '')"
+        rows = self._rows(
+            f"WITH own AS ("
+            f"  SELECT CAST(listing_id AS VARCHAR) AS listing_id, building, "
+            f"         {apartment} AS apartment, ROUND(bedrooms) AS beds "
+            f"  FROM history "
+            f"  WHERE CAST(listing_id AS VARCHAR) = ANY(?) "
+            f"    AND building IS NOT NULL AND bedrooms IS NOT NULL "
+            f"  QUALIFY ROW_NUMBER() OVER ("
+            f"    PARTITION BY listing_id ORDER BY day DESC NULLS LAST) = 1"
+            f"), recent AS ("
+            f"  SELECT CAST(listing_id AS VARCHAR) AS listing_id, building, "
+            f"         {apartment} AS apartment, ROUND(bedrooms) AS beds, ask "
+            f"  FROM history "
+            f"  WHERE CAST(day AS VARCHAR) >= ? AND CAST(day AS VARCHAR) <= ? "
+            f"    AND ask > 0 AND bedrooms IS NOT NULL"
+            f") "
+            f"SELECT own.listing_id, COUNT(*) AS count, MEDIAN(recent.ask) AS median "
+            f"FROM own JOIN recent "
+            f"  ON recent.building = own.building AND recent.beds = own.beds "
+            f" AND recent.listing_id <> own.listing_id "
+            f" AND recent.apartment IS DISTINCT FROM own.apartment "
+            f"GROUP BY own.listing_id",
+            [ids, since, until],
+        )
+        return {
+            r["listing_id"]: {"count": int(r["count"]), "median": float(r["median"])}
+            for r in rows
+        }
 
     def evidence(
         self,

@@ -102,7 +102,8 @@ def test_not_found(client):
         ("/deals", "Deals"),
         ("/estimates", "Estimates"),
         ("/listings", "Estimates"),
-        ("/listings/1004", "Estimates"),
+        ("/listings/1004", "Deals"),
+        ("/listings/1001", "Estimates"),
         ("/about", "Estimates"),
         ("/workbench", "Workbench"),
         ("/workbench/signals", "Workbench"),
@@ -189,8 +190,30 @@ def test_about_reads_the_diagnostics_meta(tmp_path):
     assert "81.0% for the 80% range" in page
     assert "No diagnostics are published yet" not in page
     main = page.split("<main", 1)[1].split("</main>", 1)[0]
-    words = re.sub(r"<[^>]+>", " ", "<main" + main).split()
-    assert len(words) < 400
+    renter, statistician = main.split('<details class="card statistician"', 1)
+    assert len(re.sub(r"<[^>]+>", " ", "<main" + renter).split()) < 700
+    # The renter's sections come first, in plain words.
+    for heading in (
+        "Reading a gap",
+        "The cautious saving",
+        "The range bar",
+        "The Evidence chip",
+        "Cautions and flags",
+    ):
+        assert f"<h2>{heading}</h2>" in renter
+    assert "Bayesian" not in renter and "R-hat" not in renter
+    assert "$300/mo" in renter and "unit history, 3 ads" in renter
+    assert "Read the ad on StreetEasy" in renter
+    assert "Compare the ask with the building&#39;s other asks" in renter.replace(
+        "'", "&#39;"
+    )
+    for label in ("suspect gap", "off market", "price/ft²", "building side"):
+        assert f'<span class="chip warn-chip">{label}</span>' in renter
+    assert "at building&#39;s asks</span>" in renter
+    # The statistical description sits in a closed block.
+    assert "<summary>For the statistician</summary>" in statistician
+    assert "Bayesian" in statistician and "worst R-hat 1.004" in statistician
+    assert "The 3 terms of the model" in statistician
 
 
 def test_about_renders_without_diagnostics(tmp_path):
@@ -305,3 +328,65 @@ def test_values_that_round_to_zero_carry_no_sign():
     assert charts.pct(-0.6) == "−1%"
     assert charts.usd(-0.4, signed=True) == "$0"
     assert charts.usd(-27, signed=True) == "−$27"
+
+
+def test_a_market_ad_sits_under_deals_and_a_past_ad_under_estimates(published):
+    market = " ".join(published.get("/listings/1004").get_data(as_text=True).split())
+    crumbs = market.split('class="crumbs"', 1)[1].split("</nav>", 1)[0]
+    assert re.findall(r">([^<]+)</a>", crumbs) == ["Deals"]
+    assert 'aria-current="page">250 West 19th Street' in crumbs
+    assert 'class="subnav"' not in market
+
+    past = " ".join(published.get("/listings/1001").get_data(as_text=True).split())
+    crumbs = past.split('class="crumbs"', 1)[1].split("</nav>", 1)[0]
+    assert re.findall(r">([^<]+)</a>", crumbs) == ["Estimates", "Past ads"]
+    assert 'class="subnav"' in past
+
+
+def test_embedded_chart_data_escapes_angle_brackets():
+    text = charts.embed_json({"label": "</script><b>", "n": 1})
+    assert "<" not in text
+    assert json.loads(text) == {"label": "</script><b>", "n": 1}
+
+
+@pytest.mark.parametrize(
+    "path", ["/", "/estimates", "/listings", "/listings/1004", "/about", "/tags"]
+)
+def test_pages_spell_neighborhoods_the_american_way(published, path):
+    page = published.get(path).get_data(as_text=True)
+    assert "eighbour" not in re.sub(r'(href|name|value|id|for|class)="[^"]*"', "", page)
+
+
+def phone_rules() -> str:
+    css = (Path(charts.__file__).parent / "static" / "site.css").read_text()
+    blocks = re.findall(r"@media \(max-width: 640px\) \{(.*?)\n\}", css, flags=re.S)
+    return "\n".join(blocks)
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        ".top nav a",
+        ".subnav a",
+        ".results-links a",
+        ".pager a",
+        "details.tag-compact > summary.tag-summary",
+        ".tag-clear",
+        ".tag-form select",
+        ".tag-form button",
+    ],
+)
+def test_phone_tap_targets_are_forty_pixels_tall(selector):
+    rules = [
+        body
+        for names, body in re.findall(r"([^{}]+)\{([^{}]*)\}", phone_rules())
+        if selector in [n.strip() for n in names.split(",")]
+    ]
+    assert any("min-height: 40px" in body for body in rules), selector
+
+
+def test_phone_rules_stack_the_tags_table_and_size_chart_text():
+    rules = phone_rules()
+    assert re.search(r"table\.tags-table tr \{[^}]*display: grid", rules)
+    assert re.search(r"\.history-chart svg \{[^}]*width: 640px", rules)
+    assert re.search(r"\.history-chart \{[^}]*overflow-x: auto", rules)

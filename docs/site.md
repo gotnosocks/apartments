@@ -19,7 +19,14 @@ the market split ([leak-free scoring](leak-free-scoring.md)).
   (`apartments.site.deals`). The page reads the `deals/` folder that
   `python -m rentfrontier.drift_deals publish` last wrote (`deals.json`, `meta.json`,
   `validation.json`), so it shows the last complete publish. Ads with a caution
-  (`rentfrontier.cautions`) are left out unless asked for. Publish only from a fit that passed
+  (`rentfrontier.cautions`) are left out unless asked for. With `diagnostics/` published, the
+  page runs the peer check: `facts.Table.peers` reads, in one query over `history.parquet`,
+  the other apartments' ads of each ad's building with the same bedroom count in the 365 days
+  before the scoring day. An ad asking below the model's 80% range with at least 3 such ads
+  and an ask of at least 90% of their median gets the caution `peers`, and is left out unless
+  asked for. The Hidden line counts each kind of ad left out, the reader's own ruled-out tags
+  included, with a link to show it. A filter value the page cannot use is named in an Ignored
+  line. Publish only from a fit that passed
   the gate, with its backtest. A link that changes the order starts again at the first page.
 
 ### Estimates
@@ -61,10 +68,12 @@ version, and queries it with DuckDB: one connection per process, one thread, 256
   the building. An ad with no held-out estimate answers 404.
 - **Hoboken and Jersey City** (`/new-jersey`, `/new-jersey.csv`): observed asks with no model,
   read from the `observed` table of `current/site.sqlite`. Without that file the page is empty.
-- **How it works** (`/about`): the model in a few paragraphs, with its terms, gates, coverage and
-  counts from `diagnostics/meta.json`, then how to read a held-out estimate, the range bar on
-  Deals, the cautious saving, a miss on the Workbench, and tags. Without `diagnostics/` the page
-  leaves the figures out and says so.
+- **How it works** (`/about`): for a renter first: a gap and the steps to take with it, the
+  cautious saving in dollars per month, the range bar, the Evidence chip, each caution and flag,
+  and tags. The statistical description (the model, its terms, gates, coverage and counts from
+  `diagnostics/meta.json`, a held-out estimate, a miss on the Workbench) is inside a closed
+  "For the statistician" block. Without `diagnostics/` the page leaves the figures out and
+  says so.
 - Without an `estimates/` folder the overview, the list and the estimate pages answer 503 "No
   estimates have been published yet."
 
@@ -93,7 +102,10 @@ tables' sha256 against `meta.json` and queries them with DuckDB.
   (`apartments.site.tags`): a confirmed deal, a data error, or something the model has no term
   for. A form on the listing page posts to `/tags`, and `append` adds a JSON line to
   `tags/tags.jsonl` under a file lock. When the file ends partway through a line, `append`
-  writes a newline first, so each record stays on a line of its own.
+  writes a newline first, so each record stays on a line of its own. Each line keeps a
+  snapshot of the ad (address, ask, estimate, unit, size, floor, previous ask and bedrooms,
+  StreetEasy URL), and the exports carry it. The page shows times in US Eastern time, and each
+  row has a Clear button.
 
 ### Service pages
 
@@ -185,31 +197,6 @@ tables' sha256 against `meta.json` and queries them with DuckDB.
 3. **Serve.** The app reads `deals/`, `estimates/` and `diagnostics/` by their files' versions,
    so a publish needs no restart. A request for the Hoboken and Jersey City page opens
    `current/site.sqlite` read-only (immutable).
-4. **Research data.** `rentfrontier.dashboard` (frontier environment, run from
-   `/data1/apartments/serve/master` by `ops/research-data-build.sh`) writes the board's
-   `data.json`: entries, as-of snapshots, milestones and the data-quality card. Each entry carries
-   the judge agents' pairwise `elegance` judgements of its design (`rentfrontier.elegance`: a list
-   of `{vs, verdict, reason}`, verdict "more elegant", "equal" or "less elegant"; empty when none),
-   `psis.p_loo`, its `model` (the design's ModelConfig as the run recorded it) and `sizes` (the rows
-   fit's rows, features, months, buildings and units), `why_not_served`, autoselect's plain reason the fit cannot be served (null when it
-   can), and its `tier` (`rentfrontier` fit tiers: `{name: "exploration" | "full", draws, warmup,
-   chains, subset}`; none means full). Exploration fits are research points (on the frontier only when they pass
-   the gate) and are never served; a fit with a `subset` has no PSIS-LOO score on the full data and shows in tables only. The
-   top-level `exploration` holds the goal, dataset, baseline, a legend of `tiers` and `notes`.
-   The top-level `autoselect` is autoselect's decision
-   on the current board against the served run: keep or switch, the reason, the eligible fits and
-   every fit checked; an error note replaces it if a pairing fails. The build writes
-   `/data1/apartments/dashboard/site/data.json`. When the publish comes from the repository's
-   selection, the build also stores the selection's reason (`selected_by`, `selection_reason`, `gate_override`).
-
-`apartments-dashboard-build.path` starts the build when a fit's run record, LOO score or variance
-shares land (a new directory in `/data1/apartments/frontier/runs`, `loo`, `variance` or `rescores`), and
-`apartments-dashboard-build.timer` every 10 minutes as a fallback. The script waits a minute for a
-burst of files to settle, then builds only if a finished record or master changed since the last
-build (a fingerprint in `/data1/apartments/dashboard/.last-build`), and builds again if more landed
-meanwhile. The build reads run records, per-row LOO scores and the current dataset, without draws, and runs as a light job (see
-[thelio-jobs.md](thelio-jobs.md)), on the light CPUs at idle CPU and I/O priority (about 4 minutes of one core and 1.6 GB, under a 2.5 GB cap with no swap; a skip takes a second). Each build is a
-new directory with the `site` symlink swapped atomically, so a reader gets a complete file.
 
 Publishing on thelio is a light job ([thelio-jobs.md](thelio-jobs.md)):
 

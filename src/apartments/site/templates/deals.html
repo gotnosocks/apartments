@@ -12,7 +12,7 @@
   <div class="field hood-field">
     <span class="field-label">Neighborhoods</span>
     <details class="hood-picker"{% if choice.hood %} open{% endif %}>
-      <summary>{% if choice.hood %}{{ choice.hood | join(", ") }}{% else %}Any neighborhood{% endif %}</summary>
+      <summary>{{ hood_summary }}</summary>
       <div class="hood-panel">
       {% for borough, names in hood_groups.items() %}
         <fieldset class="hood-borough">
@@ -69,6 +69,7 @@
       <label class="check" title="Include apartments with no unit history and fewer than 5 training ads in the building."><input type="checkbox" name="area" value="1"{% if choice.area %} checked{% endif %}> Area-only basis</label>
       <label class="check" title="Include apartments with no unit history asking more than 35% below the model's middle estimate."><input type="checkbox" name="suspect" value="1"{% if choice.suspect %} checked{% endif %}> Suspect gaps</label>
       <label class="check" title="Include ads flagged as income-restricted, non-residential, owners-only, lease takeovers, changed bedrooms or off market."><input type="checkbox" name="all" value="1"{% if choice.cautioned %} checked{% endif %}> Cautioned ads</label>
+      <label class="check" title="Include ads asking below the model's range and about the same as the building's other ads of the same bedroom count."><input type="checkbox" name="peers" value="1"{% if choice.peers %} checked{% endif %}> At building's asks</label>
       <label class="check" title="Include ads tagged as a data error or an unmodeled factor."><input type="checkbox" name="tagged" value="1"{% if choice.tagged %} checked{% endif %}> Ruled-out tags</label>
     </div>
   </fieldset>
@@ -80,11 +81,15 @@
 </form>
 
 <div class="results-head">
-  <p><strong>{{ "{:,}".format(total) }}</strong> of {{ "{:,}".format(current) }} ad{{ "" if current == 1 else "s" }} on the market{% if pages > 1 %}, showing {{ "{:,}".format((choice.page - 1) * page_size + 1) }} to {{ "{:,}".format((choice.page - 1) * page_size + (rows | length)) }}{% endif %}.{% if hidden.area or hidden.suspect or hidden.cautioned or hidden.tagged %}
-  {% set sep = namespace(first=true) %}Hidden:{% if hidden.area %} <a href="{{ deals_url(area='1', page=none) }}">{{ "{:,}".format(hidden.area) }} area-only</a>{% set sep.first = false %}{% endif %}{% if hidden.suspect %}{{ "" if sep.first else "," }} <a href="{{ deals_url(suspect='1', page=none) }}">{{ "{:,}".format(hidden.suspect) }} suspect</a>{% set sep.first = false %}{% endif %}{% if hidden.cautioned %}{{ "" if sep.first else "," }} <a href="{{ deals_url(all='1', page=none) }}">{{ "{:,}".format(hidden.cautioned) }} with a caution</a>{% set sep.first = false %}{% endif %}{% if hidden.tagged %}{{ "" if sep.first else "," }} <a href="{{ deals_url(tagged='1', page=none) }}">{{ "{:,}".format(hidden.tagged) }} tagged</a>{% endif %}.{% endif %}</p>
-  <p class="results-links">Order: {% for key, short in (("cautious", "Saving"), ("score", "In range"), ("discount", "% under"), ("new", "Newest")) %}{% if not loop.first %} · {% endif %}{% if choice.sort == key %}<strong>{{ short }}</strong>{% else %}<a href="{{ deals_url(sort=key) }}">{{ short }}</a>{% endif %}{% endfor %}</p>
+  <p><strong>{{ "{:,}".format(total) }}</strong> of {{ "{:,}".format(current) }} ad{{ "" if current == 1 else "s" }} on the market{% if pages > 1 %}, showing {{ "{:,}".format((choice.page - 1) * page_size + 1) }} to {{ "{:,}".format((choice.page - 1) * page_size + (rows | length)) }}{% endif %}.{% if hidden.area or hidden.suspect or hidden.cautioned or hidden.peers or hidden.tagged %}
+  {% set sep = namespace(first=true) %}Hidden:{% if hidden.area %} <a href="{{ deals_url(area='1', page=none) }}">{{ "{:,}".format(hidden.area) }} area-only</a>{% set sep.first = false %}{% endif %}{% if hidden.suspect %}{{ "" if sep.first else "," }} <a href="{{ deals_url(suspect='1', page=none) }}">{{ "{:,}".format(hidden.suspect) }} suspect</a>{% set sep.first = false %}{% endif %}{% if hidden.cautioned %}{{ "" if sep.first else "," }} <a href="{{ deals_url(all='1', page=none) }}">{{ "{:,}".format(hidden.cautioned) }} with a caution</a>{% set sep.first = false %}{% endif %}{% if hidden.peers %}{{ "" if sep.first else "," }} <a href="{{ deals_url(peers='1', page=none) }}" title="Ads asking below the model's range and about the same as the building's other ads of the same bedroom count.">{{ "{:,}".format(hidden.peers) }} at their building's asks</a>{% set sep.first = false %}{% endif %}{% if hidden.tagged %}{{ "" if sep.first else "," }} <a href="{{ deals_url(tagged='1', page=none) }}">{{ "{:,}".format(hidden.tagged) }} ruled out by your tags</a>{% endif %}.{% endif %}</p>
+  <p class="results-links">Order: {% for key, short in (("cautious", "Saving"), ("score", "Lowest in range"), ("discount", "% under"), ("new", "Newest")) %}{% if not loop.first %} · {% endif %}{% if choice.sort == key %}<strong>{{ short }}</strong>{% else %}<a href="{{ deals_url(sort=key) }}">{{ short }}</a>{% endif %}{% endfor %}</p>
 </div>
 
+{% if choice.ignored %}
+<p class="note ignored" role="status">Ignored: {{ choice.ignored | join("; ") }}.</p>
+{% endif %}
+<p class="note range-legend">Range bar: the shaded bands are the model's 50%, 80% and 95% ranges, the line is its middle, the dot is the ask and the ring is the apartment's previous ask.</p>
 <div class="table-wrap">
 <table class="data deals">
   <caption class="visually-hidden">Apartments on the market, {{ sorts[choice.sort] | lower }}</caption>
@@ -93,7 +98,7 @@
     <th scope="col" class="num" title="Net monthly rent after any free months stated on the ad; gross page rent and free months appear underneath when they differ.">Ask</th>
     <th scope="col" class="num" title="Shaded bands hold 50%, 80% and 95% of expected asks; the vertical line is the model&#39;s middle estimate, the dot is this ad&#39;s ask and the ring is the ask of the apartment&#39;s previous ad. Every row uses the same scale.">Model range</th>
     <th scope="col" class="num" title="Dollars per month below the model's 10th percentile (bottom of the 80% range). Default sort ranks by (10th percentile minus ask) / 10th percentile.">Saving</th>
-    <th scope="col" title="Training rows behind this estimate: the unit's own earlier ads, at least 5 ads in the building, or surrounding area only.">Evidence</th>
+    <th scope="col" title="The training ads behind this estimate: the unit's own earlier ads, at least 5 ads in the building, or the surrounding area only. The count is the number of those ads.">Evidence</th>
     <th scope="col" title="Mark this ad as a real deal, a data error or an unmodeled factor.">Tag</th>
   </tr></thead>
   <tbody>
@@ -130,14 +135,14 @@
         {% if r.cautious_usd is none %}-{% elif r.cautious_usd > 0 %}{{ usd(r.cautious_usd) }}/mo{% else %}<span class="muted">{{ usd(r.cautious_usd, signed=True) }}/mo</span>{% endif %}
       </td>
       <td class="nowrap c-basis" data-label="Evidence">
-        <span class="chip basis-badge basis-{{ r.basis }}">{{ r.basis_badge }}</span>
+        <span class="chip basis-badge basis-{{ r.basis }}" title="{{ basis_words[r.basis] }}">{{ r.basis_badge }}</span>
       </td>
       <td class="c-tag tag-slot" data-listing="{{ r.listing_id }}" data-label="Tag">
         {{ tag_form(r.listing_id, r.tag, next_url, compact=True) }}
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="6" class="empty">No ad on the market matches. Try wider filters or include area-only ads.</td></tr>
+    <tr><td colspan="6" class="empty">No ad on the market matches.{% if filters %} Drop a filter:{% for label, changes in filters %}{{ "" if loop.first else "," }} <a class="drop-filter" href="{{ deals_url(**changes) }}">{{ label }}</a>{% endfor %}.{% endif %}{% if hidden.area or hidden.suspect or hidden.cautioned or hidden.peers or hidden.tagged %} The Hidden line above links to the ads left out by default.{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

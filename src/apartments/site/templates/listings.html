@@ -15,7 +15,7 @@
   </div>
   {% if show_hoods %}
   <div class="field">
-    <label for="f-nb">Neighbourhood</label>
+    <label for="f-nb">Neighborhood</label>
     <select id="f-nb" name="nb">
       <option value=""{% if not choice.nb %} selected{% endif %}>All</option>
     {{ m.area_options(hood_groups, choice.nb) }}

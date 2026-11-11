@@ -28,22 +28,26 @@
     <tr>
       <th scope="col">Bin</th>
       <th scope="col" class="num">{{ unit }}</th>
-      <th scope="col" class="num">Mean</th>
+      <th scope="col" class="num" title="Bin mean minus the mean of all rows in scope">Mean</th>
       <th scope="col" class="num">SE</th>
     </tr>
   </thead>
   <tbody>
   {% for b in s.list_bins %}
-    <tr>
-      <td>{% if link_args is not none %}<a href="{{ url_for('workbench_triage', **link_args(s.name, b.key)) }}">{{ b.label }}</a>{% else %}{{ b.label }}{% endif %}</td>
+    <tr{% if not b.sized %} class="small-bin" title="{{ small_bin_title }}"{% endif %}>
+      <td class="bin-label">{% if link_args is not none %}<a href="{{ url_for('workbench_triage', **link_args(s.name, b.key)) }}">{{ b.label }}</a>{% else %}{{ b.label }}{% endif %}</td>
       <td class="num">{{ "{:,}".format(b.ads) }}</td>
       <td class="num">{{ pct(b.mean_pct, digits=1) }}</td>
-      <td class="num">{{ pct(b.se_pct, signed=False, digits=1) if b.se_pct is finite else "-" }}</td>
+      <td class="num">{{ pct(b.se_pct, signed=False, digits=1) if b.sized and b.se_pct is finite else "-" }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 {% if s.more_bins %}<p class="more-bins"><a href="{{ url_for('workbench_signal', feature=s.name) }}">and {{ s.more_bins }} more</a></p>{% endif %}
+{%- endmacro %}
+
+{% macro calibration_group(text, title="") -%}
+  <tr class="group-head"><th scope="rowgroup" colspan="10"{% if title %} title="{{ title }}"{% endif %}>{{ text }}</th></tr>
 {%- endmacro %}
 
 {% macro calibration_rows(rows) -%}
@@ -72,8 +76,8 @@
     <th scope="col" class="num" title="Nominal coverage: 50%">In 50%</th>
     <th scope="col" class="num" title="Nominal coverage: 80%">In 80%</th>
     <th scope="col" class="num" title="Nominal coverage: 95%">In 95%</th>
-    <th scope="col" class="num" title="Median size of the gap between the ask and the model's middle">Median |gap|</th>
-    <th scope="col" class="num" title="Mean gap between the ask and the model's middle">Mean gap</th>
+    <th scope="col" class="num" title="Median of |ln(ask / middle)| over the ads, shown as a percent: 100 * (exp(median) - 1).">Median |ask vs model|</th>
+    <th scope="col" class="num" title="{{ mean_gap_title }}">Ask vs model</th>
     <th scope="col" class="num" title="Mean normal score of the ask within the model's predictive distribution">Mean z</th>
     <th scope="col">Status</th>
   </tr>

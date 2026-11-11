@@ -17,8 +17,8 @@ after the first. The copy runs inside the build while the build holds about
 1.8 GB, and several threads under a tight limit fail to pin blocks in the sort. A column per term made
 lookups take 110 ms, since DuckDB then reads 93 column chunks per lookup.
 
-The listing page and the research story call `lookup` for a listing's parts
-when its row holds none. Ads priced from the kit (captures.py) keep
+`lookup` reads a listing's parts back for a caller whose row holds none; the
+build's own checks and the tests call it. Ads priced from the kit (captures.py) keep
 their parts in the table, since the bundle has no row for them.
 
 A bundle summarized with range atoms (`rentfrontier.summary --range-atoms`)
@@ -28,9 +28,9 @@ bundle's noise.json beside it. `likely_ask` works the ranges out for a listing
 with `ranges.likely_ask` when its page asks, and gives None when the file,
 the row or its noise group is missing, so the page leaves the range out.
 
-A build with SITE_KIT_ON_REQUEST=1 puts the estimate form's per-building
+A build with SITE_KIT_ON_REQUEST=1 puts the kit's per-building
 draws in kit_buildings.parquet the same way (`estimate_build.write_kit_file`),
-and the form reads one building's with `KitBuildings`.
+and `estimate_build.building` reads one building's with `KitBuildings`.
 
 Each process holds one DuckDB connection per file of a build, with one thread
 and a small memory limit, and caches lookups by the bundle's sha and the audit

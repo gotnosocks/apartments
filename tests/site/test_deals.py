@@ -288,6 +288,7 @@ def publish_diagnostics(
     site_root: Path,
     ads: list[dict] = DIAG_ADS,
     bad_sha: bool = False,
+    history: list[tuple] = (),
 ) -> None:
     folder = site_root / "diagnostics"
     folder.mkdir(exist_ok=True)
@@ -320,6 +321,8 @@ def publish_diagnostics(
             "unit VARCHAR, day DATE, ask DOUBLE, bedrooms DOUBLE, full_baths DOUBLE, "
             "heldout BOOLEAN)"
         )
+        for h in history:
+            con.execute("INSERT INTO h VALUES (?, ?, ?, ?, ?, ?, ?, 1.0, false)", h)
         con.execute(f"COPY h TO '{hist_path}' (FORMAT parquet)")
     finally:
         con.close()
@@ -577,7 +580,7 @@ def test_tagged_rows_hide_errors_and_unmodeled_but_keep_deals(client, site_root)
     assert listed_ids(default_html) == ["11"]
     assert 'class="c-tag tag-slot" data-listing="11"' in default_html
     assert "Real deal" in default_html
-    assert "2 tagged" in default_html
+    assert "2 ruled out by your tags" in default_html
     assert 'href="/deals?tagged=1"' in default_html
     assert "tags.js?v=" in default_html
 
@@ -590,7 +593,7 @@ def test_tagged_rows_hide_errors_and_unmodeled_but_keep_deals(client, site_root)
     tags.append(site_root, "15", "clear")
     after_clear = client.get("/deals").get_data(as_text=True)
     assert listed_ids(after_clear) == ["15", "11"]
-    assert "1 tagged" in after_clear
+    assert "1 ruled out by your tags" in after_clear
 
 
 def test_deals_paging_carries_filters_at_fifty_per_page(client, site_root):
@@ -693,3 +696,168 @@ def test_enriched_rows_cache_hits_and_invalidates_on_stamp_change(
     publish(site_root, rows=ROWS[:2])
     fourth = deals.load(site_root)
     assert calls == 3 and len(fourth["rows"]) == 2
+
+
+# Row 15 (2 BR in b-5, asking $2,900 under an 80% range from $3,500): its own ad, then
+# three other 2 BR apartments of the building inside the year (median $3,000), an ad of
+# its own apartment, a 1 BR and an ad older than the year. Row 11 (1 BR in b-1, asking
+# $3,000): three other apartments asking far more (median $4,000).
+PEER_HISTORY = [
+    ("15", "b-5", "u-15", "6A", "2026-11-09", 2900.0, 2.0),
+    ("150", "b-5", "u-15~2", "6A", "2026-03-01", 2000.0, 2.0),
+    ("151", "b-5", "u-51", "2A", "2026-06-01", 2800.0, 2.0),
+    ("152", "b-5", "u-52", "3A", "2026-07-01", 3000.0, 2.0),
+    ("153", "b-5", "u-53", "4A", "2025-12-01", 3100.0, 2.0),
+    ("154", "b-5", "u-54", "5A", "2026-08-01", 9000.0, 1.0),
+    ("155", "b-5", "u-55", "7A", "2025-11-01", 9000.0, 2.0),
+    ("11", "b-1", "u-11", "4B", "2026-11-09", 3000.0, 1.0),
+    ("111", "b-1", "u-61", "1B", "2026-05-01", 3900.0, 1.0),
+    ("112", "b-1", "u-62", "2B", "2026-05-02", 4000.0, 1.0),
+    ("113", "b-1", "u-63", "3B", "2026-05-03", 4100.0, 1.0),
+    ("13", "b-3", "u-13", "2F", "2026-11-09", 4000.0, 0.0),
+    ("131", "b-3", "u-71", "1F", "2026-05-03", 4000.0, 0.0),
+]
+
+
+def test_peers_reads_other_apartments_same_beds_within_the_year(site_root):
+    publish(site_root)
+    publish_diagnostics(site_root, history=PEER_HISTORY)
+    from apartments.site import facts
+
+    peers = facts.load(site_root).peers(["15", "11", "13", "16"])
+    assert peers["15"] == {"count": 3, "median": 3000.0}
+    assert peers["11"] == {"count": 3, "median": 4000.0}
+    assert peers["13"]["count"] == 1 and "16" not in peers
+    assert facts.load(site_root).peers([]) == {}
+
+
+def test_peer_caution_wording_and_thresholds():
+    peers = {"count": 3, "median": 3000.0}
+    chip = deals.peer_caution(2900.0, 3500.0, peers, 2.0)
+    assert chip["code"] == deals.PEERS
+    assert chip["description"] == (
+        "asks about the same as 3 other 2 BR ads in the building (median $3,000)"
+    )
+    # 89% of the median, two peers, or an ask inside the 80% range: no caution.
+    assert deals.peer_caution(2660.0, 3500.0, peers, 2.0) is None
+    assert deals.peer_caution(2900.0, 3500.0, peers | {"count": 2}, 2.0) is None
+    assert deals.peer_caution(2900.0, 2800.0, peers, 2.0) is None
+    assert deals.peer_caution(2900.0, 3500.0, None, 2.0) is None
+    assert "studio ads" in deals.peer_caution(2900.0, 3500.0, peers, 0.0)["description"]
+
+
+def test_peer_rows_are_hidden_counted_and_carry_the_chip(client, site_root):
+    publish(site_root)
+    publish_diagnostics(site_root, history=PEER_HISTORY)
+    rows = {r["listing_id"]: r for r in deals.load(site_root)["rows"]}
+    assert rows["15"]["peer_count"] == 3 and rows["15"]["peer_median"] == 3000.0
+    assert rows["15"]["peer_caution"].startswith("asks about the same as 3 other")
+    assert rows["11"]["peer_count"] == 3 and rows["11"]["peer_caution"] is None
+    assert rows["13"]["peer_count"] is None
+
+    html = client.get("/deals").get_data(as_text=True)
+    assert listed_ids(html) == ["11", "13"]
+    assert '<a href="/deals?peers=1"' in html
+    assert "1 at their building's asks</a>" in html
+
+    shown = client.get("/deals?peers=1").get_data(as_text=True)
+    assert listed_ids(shown) == ["15", "11", "13"]
+    assert "at building&#39;s asks</span>" in shown
+    assert "asks about the same as 3 other 2 BR ads in the building" in shown
+    # `all=1` shows the publish's cautions and leaves the peer rows hidden.
+    assert "15" not in listed_ids(client.get("/deals?all=1").get_data(as_text=True))
+
+
+def test_listing_page_shows_peers_and_the_warning(client, site_root):
+    grove = "the-grove-250-west-19th-street-new_york"
+    row = ROWS[3] | {"listing_id": "1004", "building": grove}
+    ad = DIAG_ADS[2] | {"listing_id": "1004"}
+    history = [
+        ("1004", grove, "u-15", "6A", "2026-11-09", 2900.0, 2.0),
+        ("151", grove, "u-51", "2A", "2026-06-01", 2800.0, 2.0),
+        ("152", grove, "u-52", "3A", "2026-07-01", 3000.0, 2.0),
+        ("153", grove, "u-53", "4A", "2025-12-01", 3100.0, 2.0),
+    ]
+    publish(site_root, rows=[row])
+    publish_diagnostics(site_root, ads=[ad], history=history)
+    page = " ".join(client.get("/listings/1004").get_data(as_text=True).split())
+    stat = page.split('id="peers"', 1)[1].split("</div>", 1)[0]
+    assert "$3,000" in stat and "median of 3 ads in the past year" in stat
+    warning = page.split('id="peer-warning"', 1)[1].split("</p>", 1)[0]
+    assert "asks about the same as 3 other 2 BR ads in the building" in warning
+
+    # Far below the peers' median: the figures stay and the warning goes.
+    history[0] = ("1004", grove, "u-15", "6A", "2026-11-09", 2000.0, 2.0)
+    publish(site_root, rows=[row | {"ask": 2000.0}])
+    publish_diagnostics(site_root, ads=[ad], history=history)
+    page = client.get("/listings/1004").get_data(as_text=True)
+    assert 'id="peers"' in page and 'id="peer-warning"' not in page
+
+    # A past ad has no peer figures.
+    assert 'id="peers"' not in client.get("/listings/1001").get_data(as_text=True)
+
+
+def test_ignored_values_are_listed_once(client, site_root):
+    publish(site_root)
+    html = client.get("/deals?max=abc&beds=9&sort=bogus&page=999").get_data(
+        as_text=True
+    )
+    line = html.split('<p class="note ignored" role="status">', 1)[1].split("</p>")[0]
+    assert "most you&#39;d pay &#34;abc&#34;" in line
+    assert "bedrooms &#34;9&#34;" in line and "order &#34;bogus&#34;" in line
+    assert "page &#34;999&#34; (the last page is 1)" in line
+    assert html.count('class="note ignored"') == 1
+    assert 'class="note ignored"' not in client.get("/deals?max=4000&beds=1").get_data(
+        as_text=True
+    )
+
+
+def test_hood_summary_and_borough_headings(client, site_root):
+    data_hoods = ["Chelsea", "West Village"]
+    assert deals.hood_summary([]) == "Any neighborhood"
+    assert deals.hood_summary(["Manhattan"]) == "All Manhattan"
+    assert deals.hood_summary(["Chelsea"]) == "Chelsea"
+    assert deals.hood_summary([*data_hoods, "Harlem"]) == "3 areas"
+    assert deals.hood_summary(["Brooklyn", *data_hoods]) == "All Brooklyn + 2 areas"
+
+    publish(site_root)
+    html = client.get("/deals?hood=Chelsea&hood=West+Village").get_data(as_text=True)
+    assert "<summary>2 areas</summary>" in html
+    assert "<summary>Any neighborhood</summary>" in client.get("/deals").get_data(
+        as_text=True
+    )
+    assert html.count("<legend>") >= 2 and "<legend>Brooklyn</legend>" in html
+
+
+def test_empty_result_lists_each_filter_with_a_link_to_drop_it(client, site_root):
+    publish(site_root)
+    html = client.get(
+        "/deals?hood=Chelsea&beds=3&max=1000&min_sqft=500&floor=2"
+    ).get_data(as_text=True)
+    empty = html.split('class="empty">', 1)[1].split("</td>", 1)[0]
+    drops = re.findall(r'<a class="drop-filter" href="([^"]+)">', empty)
+    assert len(drops) == 5
+    assert "/deals?beds=3&amp;max=1000&amp;min_sqft=500&amp;floor=2" in drops
+    assert all("hood=Chelsea" in d for d in drops[1:])
+    assert sum("beds=3" not in d for d in drops) == 1
+    assert sum("max=1000" not in d for d in drops) == 1
+
+
+def test_legend_sort_label_and_chip_tooltips(client, site_root):
+    publish(site_root)
+    publish_diagnostics(site_root)
+    html = client.get("/deals").get_data(as_text=True)
+    legend = html.split('<p class="note range-legend">', 1)[1].split("</p>", 1)[0]
+    for word in ("50%, 80% and 95%", "middle", "dot is the ask", "ring", "previous"):
+        assert word in legend
+    assert html.index('class="note range-legend"') < html.index("<table")
+    assert ">Lowest in range</a>" in html and ">In range<" not in html
+    for basis in ("unit", "building"):
+        assert (
+            f'class="chip basis-badge basis-{basis}" title="{deals.BASIS_WORDS[basis]}'
+            in html.replace("&#39;", "'")
+        )
+    flag = re.search(
+        r'<span class="chip[^"]*"[^>]*title="([^"]+)"[^>]*>price/ft²', html
+    )
+    assert flag and "square foot" in flag.group(1)

@@ -24,8 +24,8 @@
   </div>
   {% endif %}
   <div class="field">
-    <label for="b-min-ads">Min ads</label>
-    <input id="b-min-ads" name="min_ads" inputmode="numeric" size="5" value="{{ choice.min_ads if choice.min_ads is not none else '' }}" placeholder="0">
+    <label for="b-min-ads">Min held-out ads</label>
+    <input id="b-min-ads" name="min_ads" inputmode="numeric" size="5" value="{{ choice.min_ads }}" title="Smallest count of held-out ads a listed building has. 1 lists every building.">
   </div>
   <div class="field">
     <label for="b-sort">Order by</label>
@@ -55,9 +55,9 @@
         <th scope="col" class="num" title="Posterior building level, in percent on the log scale, with one standard deviation">Level (±SD)</th>
         <th scope="col" class="num">Train ads</th>
         <th scope="col" class="num">Held-out ads</th>
-        <th scope="col" class="num" title="Mean gap of the held-out ads from the model's middle">Held-out gap</th>
-        <th scope="col" class="num" title="Mean held-out gap in units of the model's predictive spread">Held-out miss</th>
-        <th scope="col" class="num" title="Size of the mean miss times the square root of the held-out ads">|miss|·√ads</th>
+        <th scope="col" class="num" title="{{ mean_gap_title }}">Ask vs model</th>
+        <th scope="col" class="num" title="Mean miss of the held-out ads. {{ miss_title }}">Held-out miss</th>
+        <th scope="col" class="num" title="{{ miss_score_title }}">|miss|·√ads</th>
       </tr>
     </thead>
     <tbody>
@@ -95,7 +95,7 @@
 
 <section class="card" id="building-level-signals">
   <h2>Building level by building attribute</h2>
-  <p class="note">A trend here says the building levels are standing in for an attribute. An attribute with many bins lists its {{ list_bins }} strongest.</p>
+  <p class="note">A trend here says the building levels are standing in for an attribute. The table reads every building the neighbourhood and address filters keep, bin means are relative to the mean level of those buildings, and the score reads bins of at least {{ min_bin_ads }} buildings. An attribute with many bins lists its {{ list_bins }} strongest.</p>
   <div class="table-wrap">
   <table class="data">
     <thead>
@@ -103,8 +103,8 @@
         <th scope="col">Attribute</th>
         <th scope="col">Kind</th>
         <th scope="col" class="num">Buildings</th>
-        <th scope="col" class="num" title="Largest |mean level| / SE across bins">Max |level| / SE</th>
-        <th scope="col" class="num" title="Share of the variance of the building levels explained by bin means">Var explained</th>
+        <th scope="col" class="num" title="Largest |bin mean level minus the mean level of all buildings in scope| / SE, over bins of at least {{ min_bin_ads }} buildings">Max |level| / SE</th>
+        <th scope="col" class="num" title="Share of the variance of the building levels explained by bin means, for an attribute with at most {{ max_explained_bins }} bins">Var explained</th>
         <th scope="col">Bin means (95% interval)</th>
         <th scope="col">Bins</th>
       </tr>
@@ -121,8 +121,8 @@
         </th>
         <td class="muted">{{ s.kind }}</td>
         <td class="num">{{ "{:,}".format(s.non_missing_ads) }} / {{ "{:,}".format(s.total_ads) }}</td>
-        <td class="num">{{ "{:.2f}".format(s.strength) }}</td>
-        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) }}</td>
+        <td class="num">{{ "{:.2f}".format(s.strength) if s.strength is finite else "-" }}</td>
+        <td class="num">{{ pct(s.explained_pct, signed=False, digits=2) if s.explained_pct is finite else "-" }}</td>
         <td>{{ s.svg }}</td>
         <td>{{ w.bin_list(s, unit="Bldgs") }}</td>
       </tr>

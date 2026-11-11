@@ -3,8 +3,68 @@
 {% block content %}
 <h1>How it works</h1>
 
-<section class="card" id="model">
-  <h2>The model</h2>
+<section class="card" id="renter">
+  <h2>Reading a gap</h2>
+  <p>For every apartment on the market the model estimates the rent an ad like it usually asks, with a range around a middle. A <strong>gap</strong> is an ask below that middle. A gap can be a deal, and it can also come from an error in the ad's data or from something the ad shows and the model can't read: condition, layout, light, noise.</p>
+  <p>With a gap in hand:</p>
+  <ol>
+    <li>Read the ad on StreetEasy, photos and floor plan included.</li>
+    <li>Compare the ask with the building's other asks, in the Evidence section of the ad's page here. An ask close to the neighbors' asks is ordinary for the building, whatever the model's middle says.</li>
+    <li>Check the chips on the row. Each one is a reason to doubt the gap, and each is listed below.</li>
+  </ol>
+</section>
+
+<section class="card" id="saving">
+  <h2>The cautious saving</h2>
+  <p>The Saving column of <a href="{{ url_for('index') }}">Deals</a> counts dollars per month below the low end of the model's 80% range, the rent 9 in 10 similar ads ask more than. An apartment asking $3,000 with an 80% range of $3,300 to $3,900 shows $300/mo. Measured from the middle of $3,600 the gap is $600, and the cautious figure is smaller because it leaves room for the model's own error. A wide range means an unsure estimate and a small or negative saving. Deals orders rows by this saving as a share of the low end.</p>
+</section>
+
+<section class="card" id="range-bar">
+  <h2>The range bar</h2>
+  <p>Each row of Deals draws the model's ranges as nested bands: the 50%, 80% and 95% ranges, darkest in the middle. The line is the model's middle, the dot is the ask, and the ring is the ask of the apartment's previous ad.</p>
+</section>
+
+<section class="card" id="evidence">
+  <h2>The Evidence chip</h2>
+  <p>The chip says how well the model knows the apartment, and the number counts the earlier ads it learned from.</p>
+  <dl class="facts wide">
+    <dt><span class="chip basis-badge basis-unit">unit history, 3 ads</span></dt>
+    <dd>The model has seen 3 earlier ads of this same apartment. This is the strongest footing.</dd>
+    <dt><span class="chip basis-badge basis-building">building, 26 ads</span></dt>
+    <dd>No earlier ad of this apartment, and 26 ads of other apartments in the building.</dd>
+    <dt><span class="chip basis-badge basis-area">area only</span></dt>
+    <dd>No earlier ad of the apartment and fewer than 5 in the building, so the estimate rests on the neighborhood. Deals leaves these out unless asked.</dd>
+  </dl>
+</section>
+
+<section class="card" id="chips">
+  <h2>Cautions and flags</h2>
+  <p>Deals hides ads with a caution unless asked. Flags stay in the list and mark facts worth checking in the ad.</p>
+  <dl class="facts wide">
+    <dt><span class="chip warn-chip">suspect gap</span></dt>
+    <dd>No earlier ad of the apartment and an ask more than 35% below the model's middle. A gap that large on thin evidence is more often a data error than a deal.</dd>
+    <dt><span class="chip warn-chip">{{ peers_label }}</span></dt>
+    <dd>The ask is below the model's 80% range, yet at least {{ peer_min }} other ads of the same bedroom count in the building asked about the same in the past year (the ask is {{ peer_share }}% of their median or more). The model is probably high for the building.</dd>
+    {% for c in cautions %}
+    <dt><span class="chip warn-chip">{{ c.label }}</span></dt>
+    <dd>{{ c.description | capitalize }}.</dd>
+    {% endfor %}
+    {% for f in flags %}
+    <dt><span class="chip warn-chip">{{ f.label }}</span></dt>
+    <dd>{{ f.description }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+<section class="card" id="tags">
+  <h2>Tags</h2>
+  <p>A tag records a reading of an ad: a real deal, an error in the data, or something the model has no term for. Deals hides ads tagged as ruled out, and the <a href="{{ url_for('tags_ledger') }}">Tags</a> page exports every tag as CSV and JSON lines for cleaning rules and feature tests.</p>
+</section>
+
+<details class="card statistician" id="statistician">
+  <summary>For the statistician</summary>
+  <div id="model">
+  <h3>The model</h3>
   <p><code>{{ diag.model if diag else "drift-building" }}</code> is a Bayesian regression on the log of each ad's asking rent, net of any free months. It adds up the ad's and the building's attributes, a citywide level for the week, a level for the building and a level for the unit. The unit's level weighs a recent ad of the same apartment more than an old one, and each building has a path of its own that moves a little every quarter.</p>
   {% if diag and diag.terms %}
   <details class="table-view">
@@ -22,26 +82,19 @@
   {% else %}
   <p class="note">No diagnostics are published yet, so this page has no figures for the model.</p>
   {% endif %}
-</section>
-
-<section class="card" id="held-out">
-  <h2>Held-out estimates</h2>
+</div>
+  <div id="held-out">
+  <h3>Held-out estimates</h3>
   <p>An estimate here is the model's prediction for an ad whose ask it did not learn from. The <code>latest</code> fit holds out the newest ad of each apartment. The <code>market</code> fit holds out every ad on the market on the scoring day. An apartment's earlier ads have no estimate, since the model learns from them.</p>
-</section>
-
-<section class="card" id="range-bar">
-  <h2>The range bar on Deals</h2>
-  <p>Each row of <a href="{{ url_for('index') }}">Deals</a> draws the model's ranges for the ad as three nested bands, the 50%, 80% and 95% ranges, darkest in the middle. The tick is the model's median and the dot is the ask.</p>
-  <p>The cautious saving compares the ask with the low end of the 80% range instead of the median: <code>(low end - ask) / low end</code>.</p>
-</section>
-
-<section class="card" id="miss">
-  <h2>Miss on the Workbench</h2>
+</div>
+  <div id="saving-formula">
+  <h3>Cautious saving</h3>
+  <p>Deals ranks by <code>(low end - ask) / low end</code>, with the low end the 10th percentile of the predictive distribution of the ask.</p>
+  </div>
+  <div id="miss">
+  <h3>Miss on the Workbench</h3>
   <p>The <a href="{{ url_for('workbench') }}">Workbench</a> measures each held-out ad's miss: the log of the ask less the log of the model's median, divided by the spread of the prediction. A miss of -2 is an ask two spreads below the median.</p>
-</section>
+</div>
+</details>
 
-<section class="card" id="tags">
-  <h2>Tags</h2>
-  <p>A tag records a reading of an ad: a real deal, an error in the data, or something the model has no term for. Deals hides ads tagged as ruled out, and the <a href="{{ url_for('tags_ledger') }}">Tags</a> page exports every tag as CSV and JSON lines for cleaning rules and feature tests.</p>
-</section>
 {% endblock %}
