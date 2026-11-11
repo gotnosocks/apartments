@@ -133,3 +133,13 @@ knows each such unit's level from its earlier ads. An attribute fixed for a unit
 therefore shows up in those residuals only through change over time. Its plain effect shows in
 two places: the market ads of units with no earlier ads (`basis` other than `unit`), and the
 building levels against building attributes. The Workbench pages keep these readings apart.
+
+## The peer check on Deals
+
+The first playtest found ads at the top of Deals whose asks matched the other asks of the same
+size in their building. `facts.Table.peers` therefore reads, for each market ad, the building's
+other ads of the same bedroom count in the 365 days up to the scoring day, leaving out the ad's
+own apartment. An ad with at least 3 such peers, an ask of at least 90% of their median and an
+ask below the model's 80% range carries the `peers` caution: Deals hides it by default, and the
+listing page shows the peer median beside the model middle. 216 of the 6,774 market ads of
+2026-11-09 carry it.
