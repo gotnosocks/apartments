@@ -93,11 +93,21 @@ Cases from each cause, picked by the size of the gap:
   day an ad went off market, and 9,748 of the diagnostics ads (5.0%) take a change dated on or
   after that day. `rentfrontier.b0closing` reprices 104,330 rows at the last ask before
   that day. The 4-chain fit c1 gained 589.5 elpd (SE 107.7) on the unchanged held-out ads
-  and missed the gate on the walk's hyperparameters, so the 6-chain refit c2 is queued
-  (`docs/notes/closing-asks-2026-11-11.md`).
+  and missed the gate on the walk's hyperparameters. The miss comes from four chains on a ridge
+  they cross slowly, not from the data (`docs/notes/closing-asks-2026-11-11.md`).
 - **Income flag.** The income-restricted flag missed 9 of the 13 lottery and HPD ads the
   readers found. `rentfrontier.b0income` widens it to 2,590 rows; a Sonnet check of 80 added
-  rows found no market ads. Its fit follows c2 (`docs/notes/income-flag-2026-11-11.md`).
+  rows found no market ads (`docs/notes/income-flag-2026-11-11.md`).
+
+## Fits for after the sprint
+
+Ben ruled out Modal fits for the rest of the sprint. These wait, each with its predictions
+written in its note before launch:
+
+1. c2, the closing dataset with b9's 6-chain design (`docs/notes/closing-asks-2026-11-11.md`).
+2. The income flag, on c2's winner's dataset (`docs/notes/income-flag-2026-11-11.md`).
+3. A reparameterization of the walk's hyperparameters along their ridge. It has no note or
+   predictions yet.
 
 ## Open leads
 
