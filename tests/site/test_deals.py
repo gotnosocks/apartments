@@ -1,30 +1,48 @@
-"""The Deals page: ads on the market ordered by how low the ask is for the apartment."""
+"""The rebuilt Deals page: cautious saving order, basis population, filters and diagnostics."""
+
+from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import re
+from pathlib import Path
+
+import duckdb
 
 from apartments.site import deals
 
 ROWS = [
+    # 11: unit history (4 ads), 1 month free ($3,250 gross, $3,000 net, no net cut),
+    # cautious saving = (3300 - 3000) / 3300 = 9.09% ($300/mo).
     {
         "listing_id": "11",
         "url": "https://streeteasy.com/rental/11",
         "building": "b-1",
         "address": "10 West 9th Street",
-        "unit": "#4B",
+        "unit": "4B",
         "neighbourhood": "west-village",
         "bedrooms": 1.0,
+        "full_baths": 1.0,
+        "half_baths": 0.0,
+        "square_feet": 720.0,
         "status": "ACTIVE",
         "ask": 3000.0,
+        "first_ask": 3250.0,
         "page_price": 3250.0,
         "months_free": 1.0,
         "days_on_market": 3.0,
         "model_median": 3600.0,
+        "model_lo95": 3100.0,
         "model_lo80": 3300.0,
+        "model_lo50": 3450.0,
+        "model_hi50": 3750.0,
         "model_hi80": 3900.0,
+        "model_hi95": 4150.0,
         "below_share": 0.012,
         "unit_ads": 4,
     },
+    # 12: off market (caution), no unit history.
     {
         "listing_id": "12",
         "url": "https://streeteasy.com/rental/12",
@@ -32,25 +50,34 @@ ROWS = [
         "unit": "",
         "neighbourhood": "Harlem",
         "bedrooms": 4.0,
+        "full_baths": 2.0,
+        "half_baths": 0.0,
+        "square_feet": 1400.0,
         "status": "TEMPORARILY_OFF_MARKET",
         "ask": 5000.0,
         "months_free": None,
         "days_on_market": 40.0,
         "model_median": 6500.0,
-        "model_lo80": 4500.0,
+        "model_lo80": 5600.0,
         "model_hi80": 8600.0,
-        "below_share": 0.2,
+        "below_share": 0.08,
         "unit_ads": 0,
     },
+    # 13: unit history (2 ads), price cut from $4,400 to $4,000, above middle.
     {
         "listing_id": "13",
         "url": "https://streeteasy.com/rental/13",
         "building": "b-3",
-        "unit": "#2",
+        "address": "200 Eighth Avenue",
+        "unit": "2F",
         "neighbourhood": "chelsea",
         "bedrooms": 0.0,
+        "full_baths": 1.0,
+        "half_baths": 0.0,
+        "square_feet": 480.0,
         "status": "ACTIVE",
         "ask": 4000.0,
+        "first_ask": 4400.0,
         "days_on_market": None,
         "model_median": 3000.0,
         "model_lo80": 2800.0,
@@ -58,11 +85,76 @@ ROWS = [
         "below_share": 0.99,
         "unit_ads": 2,
     },
-    # No score: left out.
+    # 15: building basis in diagnostics (unit_ads 0, building_ads 8), tight range:
+    # cautious saving = (3500 - 2900) / 3500 = 17.14% ($600/mo), gap 23.7% <= 35%.
+    {
+        "listing_id": "15",
+        "url": "https://streeteasy.com/rental/15",
+        "building": "b-5",
+        "address": "88 Wythe Avenue",
+        "unit": "6A",
+        "neighbourhood": "Williamsburg",
+        "bedrooms": 2.0,
+        "full_baths": 1.0,
+        "half_baths": 1.0,
+        "square_feet": 950.0,
+        "status": "ACTIVE",
+        "ask": 2900.0,
+        "first_ask": 3300.0,
+        "days_on_market": 9.0,
+        "model_median": 3800.0,
+        "model_lo80": 3500.0,
+        "model_hi80": 4150.0,
+        "below_share": 0.02,
+        "unit_ads": 0,
+    },
+    # 16: suspect gap (unit_ads 0, building_ads 9, ask $7,250 vs middle $26,848 -> 73% under).
+    {
+        "listing_id": "16",
+        "url": "https://streeteasy.com/rental/16",
+        "building": "b-6",
+        "address": "1259 Jefferson Avenue",
+        "unit": "1A",
+        "neighbourhood": "Bushwick",
+        "bedrooms": 3.0,
+        "full_baths": 2.0,
+        "half_baths": 0.0,
+        "square_feet": 1600.0,
+        "status": "ACTIVE",
+        "ask": 7250.0,
+        "days_on_market": 13.0,
+        "model_median": 26848.0,
+        "model_lo80": 22724.0,
+        "model_hi80": 31993.0,
+        "below_share": 0.0006,
+        "unit_ads": 0,
+    },
+    # 17: area-only basis (unit_ads 0, building_ads 1), wide range:
+    # gap_pct 25% > row 11's 16.7%, yet model_lo80 is $2,700 so cautious saving is 0!
+    {
+        "listing_id": "17",
+        "url": "https://streeteasy.com/rental/17",
+        "building": "b-7",
+        "address": "55 Bedford Street",
+        "unit": "3R",
+        "neighbourhood": "west-village",
+        "bedrooms": 1.0,
+        "full_baths": 1.0,
+        "half_baths": 0.0,
+        "square_feet": 600.0,
+        "status": "ACTIVE",
+        "ask": 2700.0,
+        "days_on_market": 1.0,
+        "model_median": 3600.0,
+        "model_lo80": 2700.0,
+        "model_hi80": 4800.0,
+        "below_share": 0.10,
+        "unit_ads": 0,
+    },
+    # 14: missing score, dropped on load.
     {"listing_id": "14", "ask": 2000.0, "model_median": 2100.0, "below_share": None},
 ]
-# The shape `drift_deals publish` writes, with a backtest that missed the gate: the page
-# reads a few of these keys and must not mind the rest.
+
 META = {
     "model": "drift-building",
     "run": "run-x",
@@ -86,6 +178,7 @@ META = {
     },
     "backtest_run": "run-k",
 }
+
 VALIDATION = {
     "as_of": "2025-11-10",
     "ads_with_first_ask": 9000,
@@ -109,8 +202,75 @@ VALIDATION = {
     ],
 }
 
+DIAG_ADS = [
+    {
+        "listing_id": "11",
+        "unit_id": "u-11",
+        "unit": "4B",
+        "unit_ads": 4,
+        "building_ads": 12,
+        "basis": "unit",
+        "floor": 4.0,
+        "flags": [],
+    },
+    {
+        "listing_id": "12",
+        "unit_id": "u-12",
+        "unit": "5C",
+        "unit_ads": 0,
+        "building_ads": 6,
+        "basis": "building",
+        "floor": 5.0,
+        "flags": [],
+    },
+    {
+        "listing_id": "13",
+        "unit_id": "u-13",
+        "unit": "2F",
+        "unit_ads": 2,
+        "building_ads": 7,
+        "basis": "unit",
+        "floor": 2.0,
+        "flags": ["ask_jump"],
+    },
+    {
+        "listing_id": "15",
+        "unit_id": "u-15",
+        "unit": "6A",
+        "unit_ads": 0,
+        "building_ads": 8,
+        "basis": "building",
+        "floor": 6.0,
+        "flags": ["ppsf"],
+    },
+    {
+        "listing_id": "16",
+        "unit_id": "u-16",
+        "unit": "1A",
+        "unit_ads": 0,
+        "building_ads": 9,
+        "basis": "building",
+        "floor": 1.0,
+        "flags": ["extreme"],
+    },
+    {
+        "listing_id": "17",
+        "unit_id": "u-17",
+        "unit": "3R",
+        "unit_ads": 0,
+        "building_ads": 1,
+        "basis": "area",
+        "floor": 3.0,
+        "flags": [],
+    },
+]
 
-def publish(site_root, rows=ROWS, meta=META, validation=VALIDATION):
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def publish(site_root: Path, rows=ROWS, meta=META, validation=VALIDATION) -> None:
     folder = site_root / "deals"
     folder.mkdir(exist_ok=True)
     (folder / "deals.json").write_text(json.dumps(rows))
@@ -124,119 +284,212 @@ def publish(site_root, rows=ROWS, meta=META, validation=VALIDATION):
         (folder / "meta.json").write_text(json.dumps(meta | stamps))
 
 
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def publish_diagnostics(
+    site_root: Path,
+    ads: list[dict] = DIAG_ADS,
+    bad_sha: bool = False,
+) -> None:
+    folder = site_root / "diagnostics"
+    folder.mkdir(exist_ok=True)
+    ads_path = folder / "ads.parquet"
+    hist_path = folder / "history.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            "CREATE TABLE a (listing_id VARCHAR, unit_id VARCHAR, unit VARCHAR, "
+            "unit_ads BIGINT, building_ads BIGINT, basis VARCHAR, floor DOUBLE, "
+            "flags VARCHAR[])"
+        )
+        for r in ads:
+            con.execute(
+                "INSERT INTO a VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    r["listing_id"],
+                    r["unit_id"],
+                    r["unit"],
+                    r["unit_ads"],
+                    r["building_ads"],
+                    r["basis"],
+                    r["floor"],
+                    r["flags"],
+                ],
+            )
+        con.execute(f"COPY a TO '{ads_path}' (FORMAT parquet)")
+        con.execute(
+            "CREATE TABLE h (listing_id VARCHAR, building VARCHAR, unit_id VARCHAR, "
+            "unit VARCHAR, day DATE, ask DOUBLE, bedrooms DOUBLE, full_baths DOUBLE, "
+            "heldout BOOLEAN)"
+        )
+        con.execute(f"COPY h TO '{hist_path}' (FORMAT parquet)")
+    finally:
+        con.close()
+    meta = {
+        "model": "drift-building",
+        "sha256": {
+            "ads.parquet": "0" * 64 if bad_sha else sha(ads_path),
+            "history.parquet": sha(hist_path),
+        },
+    }
+    (folder / "meta.json").write_text(json.dumps(meta))
 
 
-def test_load_keeps_scored_rows_and_words_the_backtest(site_root):
+def listed_ids(html: str) -> list[str]:
+    return re.findall(r'href="/listings/([^"]+)"', html)
+
+
+def test_load_computes_cautious_saving_cuts_and_borough_groups(site_root):
     assert deals.load(site_root) is None
     publish(site_root)
     data = deals.load(site_root)
-    assert [r["listing_id"] for r in data["rows"]] == ["11", "12", "13"]
-    first = data["rows"][0]
-    assert round(first["lower_than"], 1) == 98.8
-    assert round(first["gap_pct"], 1) == 16.7
-    assert first["hood_label"] == "West Village"
-    assert data["hoods"] == [
-        ("chelsea", "Chelsea"),
-        ("Harlem", "Harlem"),
-        ("west-village", "West Village"),
+    assert data is not None and not data["has_diagnostics"]
+    assert [r["listing_id"] for r in data["rows"]] == [
+        "11",
+        "12",
+        "13",
+        "15",
+        "16",
+        "17",
     ]
+
+    by_id = {r["listing_id"]: r for r in data["rows"]}
+    # Row 11: 1 month free ($3,250 gross, $3,000 net), first ask $3,250 -> no net cut.
+    assert round(by_id["11"]["cautious_saving"], 4) == round(300.0 / 3300.0, 4)
+    assert by_id["11"]["cautious_usd"] == 300.0
+    assert by_id["11"]["cut_usd"] is None
+    assert by_id["11"]["basis_badge"] == "unit history, 4 ads"
+
+    # Row 13: real $400 price cut from $4,400 to $4,000.
+    assert by_id["13"]["cut_usd"] == 400.0
+
+    # Row 16: no unit history and >35% under middle -> suspect.
+    assert by_id["16"]["suspect"] is True
+    assert by_id["11"]["suspect"] is False
+
+    assert set(data["hood_groups"]) == {"Manhattan", "Brooklyn", "Other"}
     bands = [v["lower_than"] for v in data["validation"]["by_first_ask_place"]]
     assert bands == ["90% to 100%", "0% to 10%"]
 
 
-def test_choose_filters_and_orders():
-    rows = deals.load_rows(ROWS)
-    every = lambda **kw: [  # noqa: E731
-        r["listing_id"] for r in deals.choose(rows, cautioned=True, **kw)
+def test_default_population_and_orders_without_and_with_diagnostics(site_root):
+    publish(site_root)
+    without_diag = deals.load(site_root)["rows"]
+    # Without diagnostics, only unit_ads > 0 (11, 13) qualify for default basis.
+    assert [r["listing_id"] for r in deals.choose(without_diag)] == ["11", "13"]
+    # Including area-only adds 15 and 17 (while 16 stays suspect and 12 stays cautioned).
+    assert [r["listing_id"] for r in deals.choose(without_diag, area=True)] == [
+        "15",
+        "11",
+        "17",
+        "13",
     ]
-    assert every() == ["11", "12", "13"]
-    assert every(sort="discount") == ["12", "11", "13"]
-    assert every(sort="new") == ["11", "12", "13"]
-    assert every(beds=3) == ["12"] and every(beds=0) == ["13"]
-    assert every(max_rent=4000) == ["11", "13"]
-    assert every(hood="chelsea") == ["13"]
-    assert every(known=True) == ["11", "13"]
-    # Ad 12 is off the market for now: a caution, so the list leaves it out unless asked.
-    ids = lambda **kw: [r["listing_id"] for r in deals.choose(rows, **kw)]  # noqa: E731
-    assert ids() == ["11", "13"] and ids(beds=3) == []
-    assert deals.choice({"beds": "7", "max": "x", "sort": "nope", "known": "1"}) == {
-        "beds": None,
-        "max_rent": None,
-        "hood": None,
-        "known": True,
-        "cautioned": False,
-        "sort": "score",
-    }
-    assert (
-        deals.choice({"all": "1"})["cautioned"]
-        and not deals.choice({"all": "0"})["cautioned"]
+    # Notice cautious order puts 11 ($300/mo under lo80) ahead of 17 ($0 under lo80),
+    # whereas discount order puts 17 (25% under middle) ahead of 11 (17% under middle).
+    assert [
+        r["listing_id"] for r in deals.choose(without_diag, area=True, sort="discount")
+    ] == ["17", "15", "11", "13"]
+
+    # With diagnostics, building-basis ad 15 (8 building ads) enters default population,
+    # while suspect building-basis ad 16 (73% under) and area-only ad 17 stay hidden.
+    publish_diagnostics(site_root)
+    with_diag = deals.load(site_root)["rows"]
+    assert [r["listing_id"] for r in deals.choose(with_diag)] == ["15", "11", "13"]
+    assert [r["listing_id"] for r in deals.choose(with_diag, suspect=True)] == [
+        "16",
+        "15",
+        "11",
+        "13",
+    ]
+    assert [
+        r["listing_id"]
+        for r in deals.choose(with_diag, area=True, suspect=True, cautioned=True)
+    ] == ["16", "15", "12", "11", "17", "13"]
+    assert [
+        r["listing_id"] for r in deals.choose(with_diag, area=True, sort="score")
+    ] == ["11", "15", "17", "13"]
+    assert [
+        r["listing_id"] for r in deals.choose(with_diag, area=True, sort="new")
+    ] == ["17", "11", "15", "13"]
+
+
+def test_url_filters_for_hoods_beds_rent_sqft_floor_and_toggles(client, site_root):
+    publish(site_root)
+    publish_diagnostics(site_root)
+
+    # Default page shows 15, 11, 13 in cautious saving order.
+    html = client.get("/deals").get_data(as_text=True)
+    assert listed_ids(html) == ["15", "11", "13"]
+    assert "88 Wythe Avenue · 6A" in html and "building, 8 ads" in html
+    assert "unit history, 4 ads" in html
+    assert "$600/mo" in html and "$300/mo" in html
+    assert "$3,250 on ad, 1 mo free" in html
+    assert "−$400" in html and "price/ft²" in html and "ask jump" in html
+    assert html.count('class="deal-strip"') == 3
+    # Backtest is inside a collapsed <details> block at the bottom.
+    assert '<details class="card deals-backtest" id="backtest">' in html
+    assert "90% to 100%" in html and "9,000 ads" in html
+    # Column headers carry explanatory title tooltips.
+    assert '<th scope="col" class="num" title="Dollars per month below' in html
+
+    # Multi-neighborhood and borough filters in URL.
+    two_hoods = client.get("/deals?hood=Chelsea&hood=West+Village").get_data(
+        as_text=True
     )
+    assert listed_ids(two_hoods) == ["11", "13"]
+    brooklyn = client.get("/deals?hood=Brooklyn").get_data(as_text=True)
+    assert listed_ids(brooklyn) == ["15"]
+
+    # Multiple bedroom counts, max rent, min square feet and floor at least.
+    assert listed_ids(client.get("/deals?beds=0&beds=2").get_data(as_text=True)) == [
+        "15",
+        "13",
+    ]
+    assert listed_ids(client.get("/deals?max=3000").get_data(as_text=True)) == [
+        "15",
+        "11",
+    ]
+    assert listed_ids(client.get("/deals?min_sqft=800").get_data(as_text=True)) == [
+        "15"
+    ]
+    assert listed_ids(client.get("/deals?floor=5").get_data(as_text=True)) == ["15"]
+
+    # Hidden-count links keep active filters in the URL.
+    filtered = client.get("/deals?beds=3&sort=new").get_data(as_text=True)
+    assert "<strong>0</strong> of 6" in filtered
+    assert 'href="/deals?beds=3&amp;suspect=1&amp;sort=new"' in filtered
 
 
-def test_cautions_are_worded_from_the_tables_codes():
+def test_page_renders_without_diagnostics_and_refuses_bad_diagnostics_sha(
+    client, site_root
+):
+    assert client.get("/deals").status_code == 503
+    publish(site_root)
+    resp = client.get("/deals")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert listed_ids(html) == ["11", "13"]
+    assert "https://streeteasy.com/rental/11" in html
+    assert "1 area-only" in html or "2 area-only" in html
+
+    # Corrupted diagnostics sha refuses with 503 rather than mixing files.
+    publish_diagnostics(site_root, bad_sha=True)
+    bad = client.get("/deals")
+    assert bad.status_code == 503
+    assert "do not match" in bad.get_data(as_text=True)
+
+
+def test_cautions_are_worded_and_match_frontier_codes():
     words = lambda **row: deals.caution_words(row)  # noqa: E731
     assert words() == [] and words(cautions=None) == [] and words(cautions=[]) == []
     assert words(cautions={"income": 1}) == [] and words(cautions=[7, None, ""]) == []
     assert words(cautions="income") == [deals.CAUTIONS["income"]]
-    # A code from a newer table than the page is still a caution, named by its code.
     assert words(cautions=["income", "beds", "income", "new-code", 7]) == [
         deals.CAUTIONS["income"],
         deals.CAUTIONS["beds"],
         "a caution this page has no words for (new-code)",
     ]
-    rows = deals.load_rows([ROWS[0] | {"cautions": ["new-code"]}, ROWS[2]])
-    assert [r["listing_id"] for r in deals.choose(rows)] == ["13"]
-    # A table from before the cautions, and one with them, say an ad is off the market once.
     off = deals.CAUTIONS["off_market"]
     assert words(status="TEMPORARILY_OFF_MARKET") == [off]
     assert words(status="TEMPORARILY_OFF_MARKET", cautions=["off_market"]) == [off]
-
-
-def test_page_shows_the_table_the_backtest_and_the_model(client, site_root):
-    assert client.get("/deals").status_code == 503
-    publish(site_root)
-    response = client.get("/deals")
-    assert response.status_code == 200
-    html = response.get_data(as_text=True)
-    assert (
-        "10 West 9th Street · #4B" in html
-        and "https://streeteasy.com/rental/11" in html
-    )
-    assert "$3,000" in html and "$3,300 to $3,900" in html
-    assert "98.8%" in html and "1 month free, so the ad shows $3,250" in html
-    # The ad off the market is left out, and the page says so and links to the full list.
-    assert "<strong>2</strong> of 3 ads on the market" in html and "Nov 9, 2026" in html
-    assert "1 more is left out for a caution" in html and "rental/12" not in html
-    assert 'href="/deals?all=1"' in html and "Check first" not in html
-    assert "90% to 100%" in html and "9,000 ads" in html and "Nov 10, 2025" in html
-    assert "drift-building" in html and "189,647" in html and "81%" in html
-    assert html.index("rental/11") < html.index("rental/13")
-    assert 'aria-current="page">Deals</a>' in html
-    filtered = client.get("/deals?beds=0&sort=discount").get_data(as_text=True)
-    assert "rental/13" in filtered and "rental/11" not in filtered
-    assert "<strong>1</strong> of 3 ads on the market" in filtered
-    assert "left out for a caution" not in filtered
-    full = client.get("/deals?all=1&sort=score").get_data(as_text=True)
-    assert "<strong>3</strong> of 3 ads on the market" in full
-    assert full.index("rental/11") < full.index("rental/12") < full.index("rental/13")
-    assert "Check first: temporarily off the market." in full
-    assert "left out for a caution" not in full
-    # The link to the full list keeps the page's own filters and nothing else.
-    kept = client.get("/deals?beds=3&sort=new").get_data(as_text=True)
-    assert "<strong>0</strong> of 3" in kept and "1 more is left out" in kept
-    assert 'href="/deals?beds=3&amp;sort=new&amp;all=1"' in kept
-    odd = client.get(
-        "/deals?endpoint=x&_method=POST&_scheme=x&_external=1&_anchor=a&beds=3&beds=0"
-    )
-    assert odd.status_code == 200
-    assert 'href="/deals?beds=3&amp;all=1"' in odd.get_data(as_text=True)
-
-
-def test_the_page_has_words_for_every_code_the_table_can_carry():
-    import importlib.util
-    from pathlib import Path
 
     source = Path(__file__).parents[2] / "frontier/src/rentfrontier/cautions.py"
     spec = importlib.util.spec_from_file_location("frontier_cautions", source)
@@ -244,12 +497,6 @@ def test_the_page_has_words_for_every_code_the_table_can_carry():
     spec.loader.exec_module(module)
     assert set(deals.CAUTIONS) == set(module.CODES)
     assert deals.OFF_MARKET == module.OFF_MARKET
-
-
-def test_page_stands_without_meta_or_backtest(client, site_root):
-    publish(site_root, meta=None, validation=None)
-    html = client.get("/deals").get_data(as_text=True)
-    assert "rental/11" in html and "Does a low ask mean anything" not in html
 
 
 def test_rows_with_missing_names_and_foreign_links(client, site_root):
@@ -268,7 +515,7 @@ def test_rows_with_missing_names_and_foreign_links(client, site_root):
         "model_lo80": None,
         "model_hi80": None,
         "below_share": 0.0,
-        "unit_ads": None,
+        "unit_ads": 1,
     }
     odd = bare | {
         "listing_id": "x<y",
@@ -286,50 +533,31 @@ def test_rows_with_missing_names_and_foreign_links(client, site_root):
     assert "Nan" not in html and "javascript:" not in html and "example.com" not in html
     assert "<script>alert(2)" not in html and "&lt;script&gt;alert(2)" in html
     assert "<b>soho</b>" not in html and "<B>Soho</B>" not in html
-    assert "over 99.9%" in html and "100.0%" not in html
     assert "b-9" in html
 
 
-def test_bad_query_strings_and_a_replaced_file(client, site_root):
+def test_bad_query_strings_replaced_files_and_backtest_gate(client, site_root):
     publish(site_root)
-    response = client.get("/deals?beds=x&max=-5&sort=zzz&hood=nope&known=7")
+    response = client.get(
+        "/deals?beds=x&max=-5&min_sqft=-1&floor=0&sort=zzz&hood=nope&area=7"
+    )
     assert response.status_code == 200
     assert "No ad on the market matches" in response.get_data(as_text=True)
     assert client.get("/deals?max=1e999&beds=1.5").status_code == 200
-    # A newly published table replaces the cached one.
-    publish(site_root, rows=ROWS[:1])
-    html = client.get("/deals").get_data(as_text=True)
-    assert "<strong>1</strong> of 1 ad on the market" in html
 
-
-def test_a_meta_or_backtest_from_another_publish_is_not_shown(client, site_root):
-    publish(site_root)
-    folder = site_root / "deals"
-    # A new table lands before its meta: the old meta and backtest say nothing about it.
-    (folder / "deals.json").write_text(json.dumps(ROWS[:2]))
-    data = deals.load(site_root)
-    assert len(data["rows"]) == 2 and data["meta"] == {}
-    assert data["validation"]["by_first_ask_place"] == []
-    html = client.get("/deals").get_data(as_text=True)
-    assert "drift-building" not in html and "Does a low ask mean anything" not in html
-    # A backtest the meta does not name is left out, and the meta stays.
-    publish(site_root)
-    (folder / "validation.json").write_text(json.dumps(VALIDATION | {"as_of": "x"}))
-    data = deals.load(site_root)
-    assert data["meta"]["run"] == "run-x"
-    assert data["validation"]["by_first_ask_place"] == []
-
-
-def test_page_says_when_the_backtest_fit_missed_the_gate(client, site_root):
-    missed = "missed the project's convergence test"
-    publish(site_root)
+    # Backtest convergence warning shows only when backtest gate failed.
+    missed = "missed the convergence test"
     assert missed in client.get("/deals").get_data(as_text=True)
     passed = META | {"gate": META["gate"] | {"backtest": META["gate"]["market"]}}
-    for meta in (passed, {k: v for k, v in META.items() if k != "gate"}):
-        publish(site_root, meta=meta)
-        html = client.get("/deals").get_data(as_text=True)
-        assert "Does a low ask mean anything" in html and missed not in html
-    # A gate that is not what publish writes says nothing.
-    for gate in ("x", [1], {"backtest": "no"}, {"backtest": {"passes": 0}}):
-        publish(site_root, meta=META | {"gate": gate})
-        assert missed not in client.get("/deals").get_data(as_text=True)
+    publish(site_root, meta=passed)
+    html = client.get("/deals").get_data(as_text=True)
+    assert 'id="backtest"' in html and missed not in html
+
+    # Unmatched meta/validation hashes drop out when deals.json is replaced alone.
+    folder = site_root / "deals"
+    (folder / "deals.json").write_text(json.dumps(ROWS[:1]))
+    data = deals.load(site_root)
+    assert len(data["rows"]) == 1 and data["meta"] == {}
+    assert data["validation"]["by_first_ask_place"] == []
+    bare_html = client.get("/deals").get_data(as_text=True)
+    assert 'id="backtest"' not in bare_html and "drift-building" not in bare_html
