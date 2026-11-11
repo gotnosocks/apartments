@@ -6,6 +6,20 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
+## Manhattan doorman fit, 2026-11-11 06:50Z
+
+Ben approved a Manhattan copy of the doorman columns (`drift-building-doorman`, #1304) and
+set a $10 Modal limit for the night. Two containers ran as `...-cb94a194-d1a` and `d1b`
+($7.75) and pool as `drift-building-doorman-b0-latest-cb94a194-d1`. It passes the gate but
+scores -4.8 (SE 5.9) against b9's first four chains (`...-67d14e17-b9ab`), so the served
+model stays `drift-building`. Manhattan's full-doorman premium is +4.1%, the outer boroughs'
++0.4%. The building levels kept the premium because the doorman column changes within a
+building as its ads come in. Results are in `docs/notes/drift-building-doorman-2026-11-11.md`
+(#1305), the explainer at https://claude.ai/artifact/Fd9aaEHP45MYJL9VGvB1rw. The next
+candidate is a doorman value fixed for each building from its training ads.
+
+When comparing held-out elpd, pool the same number of chains: elpd falls with fewer draws.
+
 ## App sprint, state at 2026-11-11 03:40Z
 
 The site was rebuilt around Deals, the Workbench and Tags in PRs #1297 to #1302, all merged
