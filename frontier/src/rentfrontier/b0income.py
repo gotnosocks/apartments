@@ -1,4 +1,4 @@
-"""Write a B0 dataset whose `income_restricted` flag uses the Deals caution's pattern.
+"""Write a B0 dataset whose `income_restricted` flag uses a wider, read pattern.
 
     python -m rentfrontier.b0income SRC OUT
 
@@ -10,11 +10,19 @@ the same: of the 13 ads far under the served model that its readers called incom
 ("HPD income requirements apply", "this unit is an hpd lottery", "maximum income 154k"), the
 flag covered 4.
 
+The caution's own pattern catches more than the model needs: of the 1,973 rows it adds on the
+served dataset, about half are market ads, with "40x rent annual income requirement", "income
+range of 36x-40x" or "this affordable unit is in move-in condition". So the model takes
+`INCOME`, the caution's pattern without "income requirement", "income qualif", "income range"
+and "affordable unit", and with phrases for programs the readers met: "restricted unit",
+"hpd lottery", "low income", "median income". A Sonnet reader judged 80 rows it adds, drawn at
+random: 76 income-restricted units, no market ads, 4 windows too short to tell.
+
 I read the records file of SRC's own pipeline build (the manifest's `build.records`, checked
 against its SHA-256), take each listing's capture with the latest `last_collected_at`, as
 `b0data` does, and set the flag where the row's `description_known` is true:
 
-    income_restricted = "income" in cautions.from_text(description)
+    income_restricted = INCOME.search(cautions.plain(description))
 
 A row with no known description keeps SRC's flag, which is false. I write OUT with:
 
@@ -30,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -41,10 +50,23 @@ import pyarrow.parquet as pq
 from . import cautions
 from .b0data import sha256
 
+# Matched on the text as `cautions.plain` leaves it.
+INCOME = re.compile(
+    r"(?<!optional for )income[- ]restrict"
+    r"|(?<!optional for income )restricted (?:unit|apartment|rental)"
+    r"|income (?:limit|eligib)"
+    r"|(?:maximum|max)\.? (?:annual |household |allowable |allowed )?income"
+    r"|\bhpd\b(?! violation)"
+    r"|affordable housing|housing connect"
+    r"|(?:housing|hpd|affordable|421-?a) lottery|lottery (?:unit|apartment|rental)"
+    r"|(?<!mon )(?<!bel )\bami\b"
+    r"|(?:low|middle|moderate)[- ]income|median income"
+)
+
 
 def income_flags(path: Path, ids: set[str]) -> pd.Series:
     """For each rental listing in `ids`, whether the description of its last capture in the
-    records file `path` gives the `income` caution. I read a row group at a time, and its
+    records file `path` matches `INCOME`. I read a row group at a time, and its
     record texts only for the rows I keep."""
     seen: dict[str, tuple] = {}
     file = pq.ParquetFile(path)
@@ -68,7 +90,10 @@ def income_flags(path: Path, ids: set[str]) -> pd.Series:
             if not raw or (i in seen and seen[i][0] >= t):
                 continue
             text = json.loads(raw).get("description")
-            seen[i] = (t, "income" in cautions.from_text(text))
+            seen[i] = (
+                t,
+                isinstance(text, str) and bool(INCOME.search(cautions.plain(text))),
+            )
         del raws
     return pd.Series({i: flag for i, (_, flag) in seen.items()}, dtype=bool)
 
@@ -93,7 +118,7 @@ def income(src: Path, out: Path) -> dict:
         "income": {
             "source": str(src),
             "source_rows_sha256": manifest["rows_sha256"],
-            "pattern": cautions.TEXT["income"],
+            "pattern": INCOME.pattern,
             "flagged_before": int(old.sum()),
             "flagged": int(new.sum()),
             "gained": int((new & ~old).sum()),

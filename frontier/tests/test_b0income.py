@@ -14,11 +14,17 @@ def src(tmp_path):
     records = [
         # An HPD lottery the old list misses.
         ("1", 1, "Rent stabilized. HPD income requirements apply: max income $141k."),
-        # The fee schedule the caution leaves out, flagged by the old list.
+        # A fee schedule, flagged by the old list.
         ("2", 1, "Application fee $20, optional for income restricted units."),
         # An older capture flags, the latest does not.
         ("3", 1, "Affordable housing unit through Housing Connect."),
         ("3", 2, "Sunny one bedroom with a dishwasher and laundry."),
+        # A market ad's 40x rule and sales copy.
+        (
+            "5",
+            1,
+            "Income requirement: 40x rent. This affordable unit is in move-in condition.",
+        ),
         # The row has no known description, so it keeps its flag.
         ("4", 1, ""),
     ]
@@ -40,7 +46,7 @@ def src(tmp_path):
         {
             "listing_id": ["1", "2", "3", "4", "5"],
             "income_restricted": [False, True, False, True, False],
-            "description_known": [True, True, True, False, False],
+            "description_known": [True, True, True, False, True],
         }
     )
     d = tmp_path / "src"
@@ -55,7 +61,7 @@ def src(tmp_path):
     return d
 
 
-def test_income_uses_the_caution_pattern(src, tmp_path):
+def test_income_uses_the_model_pattern(src, tmp_path):
     before = (src / "rows.parquet").read_bytes()
     out = tmp_path / "out"
     manifest = b0income.income(src, out)
