@@ -101,7 +101,7 @@ draws a chain) and compare d1 with that. The SE is clustered by building.
 
 The doorman coefficients, as posterior medians with 90% intervals:
 
-| class | b9 citywide | d1 outer boroughs | d1 Manhattan |
+| class | b9 citywide | d1 outer boroughs | d1 Manhattan (citywide plus copy) |
 |---|---|---|---|
 | full | +2.73% [2.49, 2.95] | +0.41% [-0.08, 0.93] | +4.07% [3.78, 4.39] |
 | part | +2.22% [2.03, 2.42] | +0.66% [0.35, 0.92] | +3.56% [3.32, 3.85] |
@@ -116,6 +116,9 @@ Mean building levels by class, before and after (each chain's mean, chains agree
 | Manhattan part | +5.5% | +4.9% |
 | Outer full | +0.2% | +1.5% |
 
+In the outer boroughs the levels took up part of what the coefficient lost: the total for
+full-doorman buildings there went from about 2.9% to 1.9%.
+
 The predictions, scored:
 
 1. Gate passes: **hit**.
@@ -125,7 +128,8 @@ The predictions, scored:
 4. Manhattan buildings with under 5 training ads, median bias under +5%: **hit, but
    empty**. b9ab's median bias on those 1,042 ads is already -1.3%, and d1's is -1.2%. The
    area-basis bias of the free check does not show up as a bias of these ads' medians.
-5. elpd gains by less than 2 SE: **miss**. It does not gain (-4.8, SE 5.9).
+5. elpd gains by less than 2 SE: **miss**. It does not gain (-4.8, SE 5.9). I did not score
+   the area-basis and building-basis slices separately, since the overall score shows no gain.
 6. Error and coverage move by under 0.001 and 0.005: **hit**.
 7. $7 to $8 for two containers: **hit**.
 
