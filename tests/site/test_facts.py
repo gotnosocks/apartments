@@ -257,8 +257,8 @@ def test_absent_folder_returns_none_and_listing_page_renders(client, site_root):
     assert facts.load(site_root) is None
     page = client.get("/listings/1004").get_data(as_text=True)
     main = page.split('<main id="main"', 1)[1]
-    # Tags placeholder sits empty at the top of the main column.
-    assert main.index('<div id="tags" data-listing="1004"></div>') < main.index("<h1")
+    # Tags box sits at the top of the main column with the no-JS tag form.
+    assert main.index('<div id="tags" data-listing="1004">') < main.index("<h1")
     # One range bar, no duplicate quantile table, no repeating figure cards.
     assert page.count('class="istrip"') == 1
     assert 'class="figures"' not in page
@@ -304,7 +304,7 @@ def test_load_accepts_sha_formats_and_refuses_mismatch(
 def test_listing_page_shows_ad_facts_flags_and_building_evidence(client, site_root):
     write_diagnostics(site_root)
     page = client.get("/listings/1004").get_data(as_text=True)
-    assert '<div id="tags" data-listing="1004"></div>' in page
+    assert '<div id="tags" data-listing="1004">' in page
     assert "250 West 19th Street · 11C" in page
 
     ad_panel = page.split('id="the-ad"', 1)[1].split("</section>", 1)[0]

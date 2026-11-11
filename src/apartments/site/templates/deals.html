@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Deals{% endblock %}
+{% block scripts %}
+<script src="{{ static_url('tags.js') }}" defer></script>
+{% endblock %}
 {% block content %}
 <h1>Deals</h1>
 <p class="lede">Apartments on the market{% if info.scoring_day %} on {{ day(info.scoring_day) }}{% endif %}, ordered by the saving against the low end of the model's range. The model can't tell condition, layout or light from an ad, so read the ad before trusting a gap.</p>
@@ -66,6 +69,7 @@
       <label class="check" title="Include apartments with no unit history and fewer than 5 training ads in the building."><input type="checkbox" name="area" value="1"{% if choice.area %} checked{% endif %}> Area-only basis</label>
       <label class="check" title="Include apartments with no unit history asking more than 35% below the model's middle estimate."><input type="checkbox" name="suspect" value="1"{% if choice.suspect %} checked{% endif %}> Suspect gaps</label>
       <label class="check" title="Include ads flagged as income-restricted, non-residential, owners-only, lease takeovers, changed bedrooms or off market."><input type="checkbox" name="all" value="1"{% if choice.cautioned %} checked{% endif %}> Cautioned ads</label>
+      <label class="check" title="Include ads tagged as a data error or an unmodeled factor."><input type="checkbox" name="tagged" value="1"{% if choice.tagged %} checked{% endif %}> Ruled-out tags</label>
     </div>
   </fieldset>
 
@@ -76,23 +80,20 @@
 </form>
 
 <div class="results-head">
-  <p><strong>{{ "{:,}".format(total) }}</strong> of {{ "{:,}".format(current) }} ad{{ "" if current == 1 else "s" }} on the market{% if total > rows | length %}, the first {{ rows | length }} shown{% endif %}.{% if hidden.area or hidden.suspect or hidden.cautioned %}
-  Hidden:{% if hidden.area %} <a href="{{ deals_url(area='1') }}">{{ "{:,}".format(hidden.area) }} area-only</a>{% if hidden.suspect or hidden.cautioned %},{% endif %}{% endif %}{% if hidden.suspect %} <a href="{{ deals_url(suspect='1') }}">{{ "{:,}".format(hidden.suspect) }} suspect</a>{% if hidden.cautioned %},{% endif %}{% endif %}{% if hidden.cautioned %} <a href="{{ deals_url(all='1') }}">{{ "{:,}".format(hidden.cautioned) }} with a caution</a>{% endif %}.{% endif %}</p>
+  <p><strong>{{ "{:,}".format(total) }}</strong> of {{ "{:,}".format(current) }} ad{{ "" if current == 1 else "s" }} on the market{% if pages > 1 %}, showing {{ "{:,}".format((choice.page - 1) * page_size + 1) }} to {{ "{:,}".format((choice.page - 1) * page_size + (rows | length)) }}{% endif %}.{% if hidden.area or hidden.suspect or hidden.cautioned or hidden.tagged %}
+  {% set sep = namespace(first=true) %}Hidden:{% if hidden.area %} <a href="{{ deals_url(area='1', page=none) }}">{{ "{:,}".format(hidden.area) }} area-only</a>{% set sep.first = false %}{% endif %}{% if hidden.suspect %}{{ "" if sep.first else "," }} <a href="{{ deals_url(suspect='1', page=none) }}">{{ "{:,}".format(hidden.suspect) }} suspect</a>{% set sep.first = false %}{% endif %}{% if hidden.cautioned %}{{ "" if sep.first else "," }} <a href="{{ deals_url(all='1', page=none) }}">{{ "{:,}".format(hidden.cautioned) }} with a caution</a>{% set sep.first = false %}{% endif %}{% if hidden.tagged %}{{ "" if sep.first else "," }} <a href="{{ deals_url(tagged='1', page=none) }}">{{ "{:,}".format(hidden.tagged) }} tagged</a>{% endif %}.{% endif %}</p>
 </div>
 
 <div class="table-wrap">
 <table class="data deals">
   <caption class="visually-hidden">Apartments on the market, {{ sorts[choice.sort] | lower }}</caption>
   <thead><tr>
-    <th scope="col" title="Building address, unit, neighborhood, layout, StreetEasy page and any caution or detector chips.">Apartment</th>
+    <th scope="col" title="Address, unit, neighborhood, layout, size and floor where the ad states them, days listed and any cut from the first ask.">Apartment</th>
     <th scope="col" class="num" title="Net monthly rent after any free months stated on the ad; gross page rent and free months appear underneath when they differ.">Ask</th>
-    <th scope="col" class="num" title="Shaded bands hold 50%, 80% and 95% of expected asks; the vertical line is the model's middle estimate and the dot is this ad's ask.">Model range</th>
-    <th scope="col" class="num" title="Dollars per month below the model's 10th percentile (bottom of the 80% range). Default sort ranks by (10th percentile minus ask) / 10th percentile.">Cautious saving</th>
-    <th scope="col" class="num" title="Square feet stated on the ad.">Sq ft</th>
-    <th scope="col" class="num" title="Floor read from the ad or unit label.">Floor</th>
-    <th scope="col" class="num" title="Drop from the ad's first ask to its current ask on a net-rent basis.">Price cut</th>
-    <th scope="col" class="num" title="Days since the ad was first listed.">Days listed</th>
-    <th scope="col" title="Training rows behind this estimate: the unit's own earlier ads, at least 5 ads in the building, or surrounding area only.">Basis</th>
+    <th scope="col" class="num" title="Shaded bands hold 50%, 80% and 95% of expected asks; the vertical line is the model&#39;s middle estimate, the dot is this ad&#39;s ask and the ring is the ask of the apartment&#39;s previous ad. Every row uses the same scale.">Model range</th>
+    <th scope="col" class="num" title="Dollars per month below the model's 10th percentile (bottom of the 80% range). Default sort ranks by (10th percentile minus ask) / 10th percentile.">Saving</th>
+    <th scope="col" title="Training rows behind this estimate: the unit's own earlier ads, at least 5 ads in the building, or surrounding area only.">Evidence</th>
+    <th scope="col" title="Mark this ad as a real deal, a data error or an unmodeled factor.">Tag</th>
   </tr></thead>
   <tbody>
   {% for r in rows %}
@@ -100,7 +101,8 @@
       <td class="c-listing">
         {% set title_text %}{{ r.address or r.building }}{% if r.unit %} · {{ r.unit }}{% endif %}{% endset %}
         {% if r.listing_id %}<a href="{{ url_for('listing', key=r.listing_id) }}">{{ title_text }}</a>{% else %}{{ title_text }}{% endif %}
-        <span class="feat">{% if r.neighbourhood %}{{ r.hood_label }} · {% endif %}{{ beds_label(r.bedrooms) }}{% if r.baths is not none %} · {{ r.baths | trim_float }} ba{% endif %}{% if r.url %} · <a href="{{ r.url }}" rel="noopener noreferrer" target="_blank">StreetEasy ↗</a>{% endif %}</span>
+        <span class="feat">{% if r.neighbourhood %}{{ r.hood_label }} · {% endif %}{{ beds_label(r.bedrooms) }}{% if r.baths is not none %} · {{ r.baths | trim_float }} ba{% endif %}{% if r.square_feet is not none %} · {{ "{:,.0f}".format(r.square_feet) }} ft²{% endif %}{% if r.floor is not none %} · floor {{ "{:g}".format(r.floor) }}{% endif %}</span>
+        <span class="feat">{% if r.days_on_market is not none %}{{ "{:.0f}".format(r.days_on_market) }} day{{ "" if r.days_on_market == 1 else "s" }} listed{% endif %}{% if r.cut_usd is not none %}{% if r.days_on_market is not none %} · {% endif %}cut {{ usd(r.cut_usd) }} ({{ pct(r.cut_pct, signed=False) }}){% endif %}{% if r.url %}{% if r.days_on_market is not none or r.cut_usd is not none %} · {% endif %}<a href="{{ r.url }}" rel="noopener noreferrer" target="_blank">StreetEasy ↗</a>{% endif %}</span>
         {% if r.suspect or r.caution_chips or r.flags %}
         <span class="deal-chips">
           {% if r.suspect %}<span class="chip warn-chip" title="No unit history and ask is more than 35% below the model's middle estimate.">suspect gap</span>{% endif %}
@@ -123,25 +125,29 @@
           <span class="deal-under">{{ r.under_words }}<span class="feat">{{ usd(r.model_median) }} mid</span></span>
         </div>
       </td>
-      <td class="num nowrap{% if r.cautious_usd is none %} is-empty{% endif %}" data-label="Cautious saving">
+      <td class="num nowrap{% if r.cautious_usd is none %} is-empty{% endif %}" data-label="Saving">
         {% if r.cautious_usd is none %}-{% elif r.cautious_usd > 0 %}{{ usd(r.cautious_usd) }}/mo{% else %}<span class="muted">{{ usd(r.cautious_usd, signed=True) }}/mo</span>{% endif %}
       </td>
-      <td class="num nowrap{% if r.square_feet is none %} is-empty{% endif %}" data-label="Sq ft">{{ "{:,.0f}".format(r.square_feet) if r.square_feet is not none else "-" }}</td>
-      <td class="num nowrap{% if r.floor is none %} is-empty{% endif %}" data-label="Floor">{{ "{:g}".format(r.floor) if r.floor is not none else "-" }}</td>
-      <td class="num nowrap{% if r.cut_usd is none %} is-empty{% endif %}" data-label="Price cut">
-        {% if r.cut_usd is not none %}{{ usd(-r.cut_usd, signed=True) }} <span class="muted">({{ pct(r.cut_pct, signed=False) }})</span>{% else %}-{% endif %}
-      </td>
-      <td class="num nowrap{% if r.days_on_market is none %} is-empty{% endif %}" data-label="Days listed">{{ "{:.0f}".format(r.days_on_market) if r.days_on_market is not none else "-" }}</td>
-      <td class="nowrap c-basis" data-label="Basis">
+      <td class="nowrap c-basis" data-label="Evidence">
         <span class="chip basis-badge basis-{{ r.basis }}">{{ r.basis_badge }}</span>
+      </td>
+      <td class="c-tag tag-slot" data-listing="{{ r.listing_id }}" data-label="Tag">
+        {{ tag_form(r.listing_id, r.tag, next_url, compact=True) }}
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="9" class="empty">No ad on the market matches. Try wider filters or include area-only ads.</td></tr>
+    <tr><td colspan="6" class="empty">No ad on the market matches. Try wider filters or include area-only ads.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if choice.page > 1 %}<a href="{{ deals_url(page=choice.page - 1) }}" rel="prev">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+  <span>Page {{ choice.page }} of {{ "{:,}".format(pages) }}</span>
+  {% if choice.page < pages %}<a href="{{ deals_url(page=choice.page + 1) }}" rel="next">Next 50 →</a>{% else %}<span class="disabled">Next 50 →</span>{% endif %}
+</nav>
+{% endif %}
 
 {% if validation.by_first_ask_place %}
 <details class="card deals-backtest" id="backtest">

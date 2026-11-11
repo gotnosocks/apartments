@@ -22,12 +22,13 @@ import hashlib
 import json
 import math
 import re
+import threading
 from functools import lru_cache
 from pathlib import Path
 
 from markupsafe import Markup, escape
 
-from . import boroughs, facts
+from . import boroughs, facts, tags
 
 DEFAULT_SORT = "cautious"
 SORTS: dict[str, str] = {
@@ -43,9 +44,12 @@ BEDROOMS: dict[str, str] = {
     "3": "3 BR",
     "4": "4+ BR",
 }
-SHOWN = 200
+SHOWN = 50
 SUSPECT_GAP_PCT = 35.0
 NET_FLOOR = 0.5
+# Ends of the range bars' shared scale, as ratios to the model's middle.
+RANGE_LOW = 0.6
+RANGE_HIGH = 1.3
 FILES = ("deals.json", "meta.json", "validation.json")
 LISTING = "https://streeteasy.com/rental/"
 
@@ -84,7 +88,9 @@ class Choice:
     area: bool = False
     suspect: bool = False
     cautioned: bool = False
+    tagged: bool = False
     sort: str = DEFAULT_SORT
+    page: int = 1
 
     def args(self, **changes) -> dict:
         """Query-string items for a link with selected filters updated."""
@@ -97,9 +103,13 @@ class Choice:
             "area": "1" if self.area else None,
             "suspect": "1" if self.suspect else None,
             "all": "1" if self.cautioned else None,
+            "tagged": "1" if self.tagged else None,
             "sort": None if self.sort == DEFAULT_SORT else self.sort,
+            "page": self.page if self.page > 1 else None,
         }
         items.update(changes)
+        if items.get("page") in (1, "1"):
+            items["page"] = None
         return {k: v for k, v in items.items() if v not in (None, [], "", False)}
 
     def active(self) -> bool:
@@ -112,6 +122,7 @@ class Choice:
             or self.area
             or self.suspect
             or self.cautioned
+            or self.tagged
         )
 
 
@@ -122,13 +133,20 @@ def _read(path: str, stamp: tuple[int, int]):
     return json.loads(raw), hashlib.sha256(raw).hexdigest()
 
 
-def _file(folder: Path, name: str):
+def _file_stamped(folder: Path, name: str):
     path = folder / name
     try:
         stat = path.stat()
-        return _read(str(path), (stat.st_mtime_ns, stat.st_size))
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        data, sha = _read(str(path), stamp)
+        return data, sha, (str(path.resolve()), *stamp)
     except (OSError, ValueError):
-        return None, None
+        return None, None, None
+
+
+def _file(folder: Path, name: str):
+    data, sha, _ = _file_stamped(folder, name)
+    return data, sha
 
 
 def _name(value) -> str | None:
@@ -290,21 +308,30 @@ def range_svg(
     ask: float,
     median: float,
     intervals: list[tuple[int, float, float]],
+    prev_ask: float | None = None,
 ) -> Markup:
-    """Compact inline SVG range bar (50/80/95 bands, middle tick, ask dot)."""
-    width, height = 124, 18
+    """Compact inline SVG range bar (50/80/95 bands, middle tick, ask dot).
+
+    Every bar uses the same scale, the log of the ratio to the model's middle from
+    RANGE_LOW to RANGE_HIGH, so that the middle tick is at the same place in every
+    row, a wide band shows an uncertain estimate, and the dot's distance from the
+    tick shows the size of the gap. Values beyond the scale are drawn at its edge.
+    A hollow ring marks `prev_ask`, the ask of the apartment's previous ad.
+    """
+    width, height = 170, 18
     left, right, top, band_h = 5, 5, 4, 10
-    values = [v for _, lo, hi in intervals for v in (lo, hi)] + [ask, median]
-    lo_all, hi_all = min(values), max(values)
-    span = (hi_all - lo_all) or max(abs(median) * 0.1, 1.0)
-    lo_all, hi_all = lo_all - 0.06 * span, hi_all + 0.06 * span
+    lo_all, hi_all = math.log(RANGE_LOW), math.log(RANGE_HIGH)
 
     def at(val: float) -> float:
-        return left + (val - lo_all) / (hi_all - lo_all) * (width - left - right)
+        pos = math.log(max(val, 1e-9) / median)
+        pos = min(max(pos, lo_all), hi_all)
+        return left + (pos - lo_all) / (hi_all - lo_all) * (width - left - right)
 
     tip_parts = [f"Ask {_usd(ask)}", f"Middle {_usd(median)}"]
     for level, lo, hi in sorted(intervals, key=lambda item: item[0]):
         tip_parts.append(f"{level}% {_usd(lo)} to {_usd(hi)}")
+    if prev_ask:
+        tip_parts.append(f"Previous ad {_usd(prev_ask)}")
     tip = " · ".join(tip_parts)
 
     parts = [f"<title>{escape(tip)}</title>"]
@@ -319,6 +346,12 @@ def range_svg(
     parts.append(
         f'<line class="median" x1="{mid_x:.1f}" x2="{mid_x:.1f}" '
         f'y1="1" y2="{height - 1}"/>'
+    )
+    if prev_ask:
+        parts.append(
+            f'<circle class="prev" cx="{at(prev_ask):.1f}" cy="{height / 2:.1f}" r="3.2"/>'
+        )
+    parts.append(
         f'<circle class="ask" cx="{ask_x:.1f}" cy="{height / 2:.1f}" r="3.8"/>'
     )
     return Markup(
@@ -435,7 +468,9 @@ def load_rows(
                 "lower_words": lower_words(100.0 * (1.0 - share)),
                 "gap_pct": gap_pct,
                 "under_words": under_words(gap_pct),
-                "range_bar": range_svg(ask, mid, intervals),
+                "range_bar": range_svg(
+                    ask, mid, intervals, _pos_number(extra.get("prev_ask"))
+                ),
                 "url": listing_url(raw),
                 "neighbourhood": hood,
                 "hood_label": hood_label(hood),
@@ -460,6 +495,8 @@ def load_rows(
                 "cautions": [item["description"] for item in c_items],
                 "caution_chips": c_items,
                 "flags": flag_list,
+                "tag": None,
+                "ruled_out": False,
             }
         )
     return out
@@ -475,21 +512,82 @@ def hood_groups(rows: list[dict]) -> dict[str, dict[str, int]]:
     return boroughs.grouped(dict(sorted(counts.items())))
 
 
+_enriched_lock = threading.Lock()
+_enriched_cache: dict[
+    tuple,
+    tuple[tuple[dict, ...], bool, list[tuple[str, str]], dict[str, dict[str, int]]],
+] = {}
+
+
 def load(root: Path, diag: facts.Table | None | object = _AUTO) -> dict | None:
-    """Load `<root>/deals/` and enrich rows from `<root>/diagnostics/` when present."""
+    """Load `<root>/deals/`, cache enriched market rows per `(deals, diagnostics)`
+    stamp, and apply current tags after the cache."""
     root_path = Path(root)
     folder = root_path / "deals"
-    raw_rows, rows_sha = _file(folder, "deals.json")
-    if not isinstance(raw_rows, list):
+    raw_rows, rows_sha, deals_stamp = _file_stamped(folder, "deals.json")
+    if not isinstance(raw_rows, list) or deals_stamp is None:
         return None
 
     diag_table = facts.load(root_path) if diag is _AUTO else diag
-    diag_map: dict[str, dict] | None = None
     if isinstance(diag_table, facts.Table):
-        ids = [str(r.get("listing_id") or "") for r in raw_rows if isinstance(r, dict)]
-        diag_map = diag_table.ads_by_id(ids)
+        diag_stamp = (
+            diag_table.stamp
+            if diag_table.stamp is not None
+            else ("table", id(diag_table))
+        )
+    else:
+        diag_stamp = None
 
-    out = load_rows(raw_rows, diag=diag_map)
+    cache_key = (deals_stamp, diag_stamp)
+    with _enriched_lock:
+        cached = _enriched_cache.get(cache_key)
+
+    if cached is not None:
+        base_rows, has_diagnostics, hoods, groups = cached
+    else:
+        diag_map: dict[str, dict] | None = None
+        if isinstance(diag_table, facts.Table):
+            ids = [
+                str(r.get("listing_id") or "") for r in raw_rows if isinstance(r, dict)
+            ]
+            diag_map = diag_table.ads_by_id(ids)
+        built = load_rows(raw_rows, diag=diag_map)
+        base_rows = tuple(built)
+        has_diagnostics = diag_map is not None
+        hoods = sorted(
+            {
+                (r["neighbourhood"], r["hood_label"])
+                for r in base_rows
+                if r.get("neighbourhood")
+            },
+            key=lambda pair: pair[1],
+        )
+        groups = hood_groups(built)
+        with _enriched_lock:
+            if len(_enriched_cache) >= 4:
+                _enriched_cache.clear()
+            _enriched_cache[cache_key] = (base_rows, has_diagnostics, hoods, groups)
+
+    active_tags = tags.current_tags(root_path)
+    if active_tags:
+        out = [
+            (
+                row
+                | {
+                    "tag": active_tags[row["listing_id"]],
+                    "ruled_out": (
+                        active_tags[row["listing_id"]].get("group")
+                        in tags.RULED_OUT_GROUPS
+                    ),
+                }
+                if row.get("listing_id") in active_tags
+                else row
+            )
+            for row in base_rows
+        ]
+    else:
+        out = list(base_rows)
+
     meta, _ = _file(folder, "meta.json")
     if not isinstance(meta, dict) or meta.get("deals_sha256") != rows_sha:
         meta = {}
@@ -503,16 +601,9 @@ def load(root: Path, diag: facts.Table | None | object = _AUTO) -> dict | None:
         "rows": out,
         "meta": meta,
         "validation": _backtest(validation),
-        "has_diagnostics": diag_map is not None,
-        "hoods": sorted(
-            {
-                (r["neighbourhood"], r["hood_label"])
-                for r in out
-                if r.get("neighbourhood")
-            },
-            key=lambda pair: pair[1],
-        ),
-        "hood_groups": hood_groups(out),
+        "has_diagnostics": has_diagnostics,
+        "hoods": hoods,
+        "hood_groups": groups,
     }
 
 
@@ -549,7 +640,9 @@ def choice(args) -> Choice:
         area=args.get("area") == "1",
         suspect=args.get("suspect") == "1",
         cautioned=args.get("all") == "1",
+        tagged=args.get("tagged") == "1",
         sort=sort if sort in SORTS else DEFAULT_SORT,
+        page=_pos_int(args.get("page")) or 1,
     )
 
 
@@ -615,6 +708,8 @@ def choose(rows: list[dict], c: Choice | None = None, **overrides) -> list[dict]
             continue
         if not active.cautioned and row["cautions"]:
             continue
+        if not active.tagged and row.get("ruled_out"):
+            continue
         out.append(row)
 
     if active.sort == "discount":
@@ -656,4 +751,15 @@ def hidden_counts(rows: list[dict], c: Choice, shown_count: int) -> dict[str, in
         "cautioned": (
             0 if c.cautioned else len(choose(rows, c, cautioned=True)) - shown_count
         ),
+        "tagged": (0 if c.tagged else len(choose(rows, c, tagged=True)) - shown_count),
     }
+
+
+def paginate(
+    rows: list[dict], page: int, per_page: int = SHOWN
+) -> tuple[list[dict], int, int]:
+    """Slice `rows` to one page of `per_page` items, clamping `page` into `1..pages`."""
+    pages = max(1, math.ceil(len(rows) / per_page))
+    current_page = min(max(1, page), pages)
+    start = (current_page - 1) * per_page
+    return rows[start : start + per_page], current_page, pages

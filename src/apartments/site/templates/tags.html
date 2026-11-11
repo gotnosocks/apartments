@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Tags{% endblock %}
+{% block content %}
+<h1>Tags</h1>
+<p class="lede">Reader-labeled ads for data rules and model checks: <strong>{{ "{:,}".format(total_current) }}</strong> active tag{{ "" if total_current == 1 else "s" }} across {{ "{:,}".format(total_lines) }} ledger line{{ "" if total_lines == 1 else "s" }}.
+Export current tags: <a href="{{ url_for('tags_csv') }}">tags.csv</a> · <a href="{{ url_for('tags_jsonl') }}">tags.jsonl</a>.
+Every line: <a href="{{ url_for('tags_csv', all='1') }}">tags.csv?all=1</a> · <a href="{{ url_for('tags_jsonl', all='1') }}">tags.jsonl?all=1</a>.</p>
+
+<section class="card tags-summary" aria-label="Counts by group and tag">
+  <div class="tags-groups">
+    <a class="chip tag-filter{% if not chosen_group and not chosen_tag %} is-selected{% endif %}" href="{{ filter_url() }}">All ({{ "{:,}".format(total_current) }})</a>
+    {% for g in groups %}
+    <a class="chip tag-chip tag-{{ g.code }} tag-filter{% if chosen_group == g.code and not chosen_tag %} is-selected{% endif %}" href="{{ filter_url(group=g.code) }}">{{ g.label }} ({{ "{:,}".format(g.count) }})</a>
+    {% endfor %}
+  </div>
+  <div class="tags-codes">
+    {% for v in vocab_counts %}
+    <a class="chip tag-filter{% if chosen_tag == v.code %} is-selected{% endif %}" href="{{ filter_url(tag=v.code) }}" title="{{ v.meaning }}">{{ v.label }} ({{ "{:,}".format(v.count) }})</a>
+    {% endfor %}
+  </div>
+</section>
+
+<form class="filters" action="{{ url_for('tags_ledger') }}" method="get" aria-label="Filter tags">
+  <div class="field">
+    <label for="t-group">Group</label>
+    <select id="t-group" name="group">
+      <option value="">Any group</option>
+      {% for g in groups %}<option value="{{ g.code }}"{% if chosen_group == g.code %} selected{% endif %}>{{ g.label }} ({{ "{:,}".format(g.count) }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="t-tag">Tag</label>
+    <select id="t-tag" name="tag">
+      <option value="">Any tag</option>
+      {% for group_code, group_label, items in TAG_GROUPS %}
+      <optgroup label="{{ group_label }}">
+        {% for item in items %}
+        <option value="{{ item.code }}"{% if chosen_tag == item.code %} selected{% endif %}>{{ item.label }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field actions">
+    <button type="submit">Apply</button>
+    {% if chosen_group or chosen_tag %}<a href="{{ url_for('tags_ledger') }}">Reset</a>{% endif %}
+  </div>
+</form>
+
+<div class="results-head">
+  <p><strong>{{ "{:,}".format(rows | length) }}</strong>{% if chosen_group or chosen_tag %} matching{% endif %} active tag{{ "" if (rows | length) == 1 else "s" }}, newest first.</p>
+</div>
+
+<div class="table-wrap">
+<table class="data tags-table">
+  <caption class="visually-hidden">Current apartment tags, newest first</caption>
+  <thead><tr>
+    <th scope="col">Apartment</th>
+    <th scope="col">Tag</th>
+    <th scope="col">Note</th>
+    <th scope="col" class="num">Ask</th>
+    <th scope="col" class="num">Model middle</th>
+    <th scope="col" class="num" title="Gap between log ask and the model middle in predictive standard deviations.">Miss</th>
+    <th scope="col">Flags</th>
+    <th scope="col">When</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td class="c-listing">
+        <a href="{{ url_for('listing', key=r.listing_id) }}">{{ r.address or r.building or ("Listing " ~ r.listing_id) }}{% if r.unit %} · {{ r.unit }}{% endif %}</a>
+        {% if r.bedrooms is finite or r.source or r.day %}
+        <span class="feat">{% if r.bedrooms is finite %}{{ beds_label(r.bedrooms) }}{% endif %}{% if r.source %}{% if r.bedrooms is finite %} · {% endif %}{{ r.source }}{% endif %}{% if r.day %} · {{ r.day }}{% endif %}</span>
+        {% endif %}
+      </td>
+      <td class="nowrap" data-label="Tag">
+        <span class="chip tag-chip tag-{{ r.group }}" title="{{ r.meaning }}">{{ r.label }}</span>
+      </td>
+      <td data-label="Note">{{ r.note if r.note else "-" }}</td>
+      <td class="num nowrap" data-label="Ask">{{ usd(r.ask) if r.ask is finite else "-" }}</td>
+      <td class="num nowrap" data-label="Model middle">{{ usd(r.model_median) if r.model_median is finite else "-" }}</td>
+      <td class="num nowrap" data-label="Miss">{{ ("{:+.2f}".format(r.miss) | minus) if r.miss is finite else "-" }}</td>
+      <td data-label="Flags">
+        {% if r.flag_items %}
+        <span class="deal-chips">{% for f in r.flag_items %}<span class="chip warn-chip" title="{{ f.description }}">{{ f.label }}</span>{% endfor %}</span>
+        {% else %}-{% endif %}
+      </td>
+      <td class="nowrap muted" data-label="When">{{ r.at[:19] | replace("T", " ") if r.at else "-" }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="empty">No active tags{% if chosen_group or chosen_tag %} match this filter{% else %} recorded yet{% endif %}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

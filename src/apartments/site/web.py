@@ -55,6 +55,7 @@ from . import (
     story,
     streetview,
     summary,
+    tags,
 )
 from . import estimates as estimates_table
 from .anatomy import LEVELS as ANATOMY_LEVELS
@@ -1150,6 +1151,7 @@ def create_app(
             if mid_est and mid_est > 0
             else None
         )
+        current_tag, tag_history = tags.for_listing(root, str(row["listing_id"]))
         return render_template(
             "listing.html",
             meta=None,
@@ -1158,6 +1160,8 @@ def create_app(
             ad_facts=ad_facts,
             basis=basis,
             evidence=evidence,
+            current_tag=current_tag,
+            tag_history=tag_history,
             under_words=deals.under_words(gap_pct) if gap_pct is not None else None,
             run=(info.get("runs") or {}).get(row["source"]),
             gate=(info.get("gate") or {}).get(row["source"]),
@@ -1297,6 +1301,8 @@ def create_app(
         c = deals.choice(request.args)
         rows = deals.choose(data["rows"], c)
         hidden = deals.hidden_counts(data["rows"], c, len(rows))
+        page_rows, cur_page, pages = deals.paginate(rows, c.page)
+        c.page = cur_page
 
         def deals_url(**changes) -> str:
             query = _query(c.args(**changes))
@@ -1311,7 +1317,10 @@ def create_app(
             hood_groups=data["hood_groups"],
             multi_borough=len(set(data["hood_groups"]) & set(boroughs.BOROUGHS)) > 1,
             has_diagnostics=data["has_diagnostics"],
-            rows=rows[: deals.SHOWN],
+            rows=page_rows,
+            pages=pages,
+            page_size=deals.SHOWN,
+            next_url=deals_url(),
             total=len(rows),
             current=len(data["rows"]),
             hidden=hidden,
@@ -2681,6 +2690,7 @@ def create_app(
     def robots():
         return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
 
+    tags.register(app, lambda: root)
     return app
 
 
