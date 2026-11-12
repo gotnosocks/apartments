@@ -53,15 +53,17 @@ ROWS = [
 ]
 
 
-def write(tmp_path, links=LINKS, rows=ROWS):
+def write(tmp_path, links=LINKS, rows=ROWS, still_open=("m",)):
     ads = tmp_path / "ads.parquet"
     pd.DataFrame(
         {
             "listing_id": list(ON),
             "on_day": [pd.Timestamp(d).date() for d in ON.values()],
-            # Each ad closes 5 days after it opens, and m is still open.
+            # Each ad closes 5 days after it opens, except the ads still open.
             "off_day": [
-                None if i == "m" else (pd.Timestamp(d) + pd.Timedelta(days=5)).date()
+                None
+                if i in still_open
+                else (pd.Timestamp(d) + pd.Timedelta(days=5)).date()
                 for i, d in ON.items()
             ],
         }
@@ -138,7 +140,7 @@ def test_collapse_keeps_the_latest_row_of_each_chain_under_its_established_unit(
     # u4. u7 and u8 both hold rows outside the chain from p, so r keeps u8.
     assert rows.unit_id.tolist() == ["u2", "u2", "u4", "u2", "u7", "u8", "u8"]
     assert rows.chain_ads.tolist() == [1, 3, 3, 2, 1, 1, 3]
-    assert [str(d) for d in rows.on_day] == [
+    assert [str(d) for d in rows.chain_on_day] == [
         "2023-06-01",
         "2024-01-01",
         "2024-03-01",
@@ -147,7 +149,7 @@ def test_collapse_keeps_the_latest_row_of_each_chain_under_its_established_unit(
         "2022-02-01",
         "2026-01-01",
     ]
-    assert [None if pd.isna(d) else str(d) for d in rows.off_day] == [
+    assert [None if pd.isna(d) else str(d) for d in rows.chain_off_day] == [
         "2023-06-06",
         "2024-01-25",
         "2024-03-14",
@@ -214,3 +216,43 @@ def test_collapse_refuses_a_changed_ads_file(tmp_path):
     (src / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(SystemExit):
         b0chains.collapse(src, links, tmp_path / "out")
+
+
+def test_collapse_leaves_the_off_day_missing_while_the_last_ad_is_open(tmp_path):
+    """f, the last ad of the chain from d, has no row and is still open."""
+    src, links = write(tmp_path, still_open=("m", "f"))
+    b0chains.collapse(src, links, tmp_path / "out")
+    rows = pd.read_parquet(tmp_path / "out" / "rows.parquet").set_index("listing_id")
+    assert rows.replaced["e"]
+    assert pd.isna(rows.chain_off_day["e"])
+    assert str(rows.chain_off_day["c"]) == "2024-01-25"
+
+
+def test_collapse_counts_a_row_of_another_chain_as_establishing_a_unit(tmp_path):
+    """u1 holds a and c alone, each the first ad of a chain. Each chain finds the other's
+    row outside itself, so b and d both take u1."""
+    rows = [
+        ("a", "u1", "one", 3000.0),
+        ("b", "u2", "one", 2950.0),
+        ("c", "u1", "one", 2900.0),
+        ("d", "u3", "one", 2850.0),
+    ]
+    src, links = write(tmp_path, links=[("a", "b"), ("c", "d")], rows=rows)
+    manifest = b0chains.collapse(src, links, tmp_path / "out")
+    kept = pd.read_parquet(tmp_path / "out" / "rows.parquet")
+    assert kept.listing_id.tolist() == ["b", "d"]
+    assert kept.unit_id.tolist() == ["u1", "u1"]
+    assert manifest["chains"]["kept_rows_moved"] == 2
+
+
+def test_collapse_counts_no_move_between_missing_unit_ids(tmp_path):
+    rows = [
+        ("a", None, "one", 3000.0),
+        ("b", None, "one", 2950.0),
+        ("k", None, "one", 2800.0),
+        ("n", "u1", "one", 2700.0),
+    ]
+    src, links = write(tmp_path, links=[("a", "b")], rows=rows)
+    manifest = b0chains.collapse(src, links, tmp_path / "out")
+    assert manifest["chains"]["rows_dropped"] == 1
+    assert manifest["chains"]["kept_rows_moved"] == 0

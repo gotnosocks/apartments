@@ -17,7 +17,8 @@ and the ads file of SRC's own pipeline build (the manifest's `build.ads`, checke
 its SHA-256), and then:
 
 1. I keep the links with both ads in the ads file, so that a chain stops where SRC's build
-   stopped. An ad with two links on the same side, or a ring of links, ends the run.
+   stopped. An ad with two links on the same side, a ring of links, or a link between ads
+   of two buildings ends the run, and so do two rows of one listing in SRC.
 2. I follow the links from each ad with no earlier ad, which gives every linked ad its
    chain and its place in it.
 3. Among a chain's rows in SRC I keep the row of the latest ad and drop the others. The kept
@@ -36,11 +37,11 @@ I write OUT with:
 
 - `rows.parquet`: SRC's kept rows in SRC's order, with `unit_id` set as in step 4 and four
   columns added. `chain_ads` counts the ads of the row's chain (1 outside a chain).
-  `on_day` is the day the offer came on the market: the on-market day of the chain's first
-  ad, or of the row's own ad outside a chain. `off_day` is the off-market day of the
-  chain's last ad, or of the row's own ad outside a chain, and it is missing while that ad
-  is open. The days from `on_day` to `off_day` count the offer's time on the market over
-  the whole chain. `replaced` is described under step 3.
+  `chain_on_day` is the day the offer came on the market: the on-market day of the chain's
+  first ad, or of the row's own ad outside a chain. `chain_off_day` is the off-market day
+  of the chain's last ad, or of the row's own ad outside a chain, and it is missing while
+  that ad is open. The days from `chain_on_day` to `chain_off_day` count the offer's time
+  on the market over the whole chain. `replaced` is described under step 3.
 - `collapsed.parquet`: the dropped rows as SRC has them, each with `kept_listing_id`.
 - `set_aside.parquet`: SRC's, copied.
 - `manifest.json`: SRC's manifest with `rows`, `latest_day_how`, `flags` and `rows_sha256`
@@ -92,7 +93,7 @@ def chains(links: pd.DataFrame) -> pd.DataFrame:
 def kept_units(unit: pd.Series, chain: pd.Series) -> pd.DataFrame:
     """For each chain with a row in `unit` (the unit id of each row; `chain` gives its
     chain, missing outside one): `established`, how many of the unit ids of the chain's
-    rows have a row outside the chain, and `unit`, the first of them."""
+    rows have a row outside the chain, and `unit`, one of them."""
     inside = chain.notna().to_numpy()
     here = (
         pd.DataFrame({"chain": chain[inside].to_numpy(), "unit": unit[inside]})
@@ -102,11 +103,7 @@ def kept_units(unit: pd.Series, chain: pd.Series) -> pd.DataFrame:
     )
     total = unit.value_counts()
     held = here[here.unit.map(total).to_numpy() > here.rows.to_numpy()]
-    return (
-        held.sort_values(["chain", "unit"])
-        .groupby("chain")
-        .unit.agg(established="size", unit="first")
-    )
+    return held.groupby("chain").unit.agg(established="size", unit="first")
 
 
 def collapse(src: Path, links_path: Path, out: Path) -> dict:
@@ -145,8 +142,10 @@ def collapse(src: Path, links_path: Path, out: Path) -> dict:
     kept = frame[~drop].assign(
         unit_id=unit[~drop],
         chain_ads=lid[~drop].map(table.ads).fillna(1).astype("int64"),
-        on_day=chain[~drop].map(on_day).fillna(lid[~drop].map(on_day)),
-        off_day=chain[~drop]
+        chain_on_day=chain[~drop]
+        .map(on_day)
+        .where(chain[~drop].notna(), lid[~drop].map(on_day)),
+        chain_off_day=chain[~drop]
         .map(end_day)
         .where(chain[~drop].notna(), lid[~drop].map(off_day)),
         replaced=(place[~drop] + 1 < lid[~drop].map(table.ads)).to_numpy(),
@@ -157,6 +156,8 @@ def collapse(src: Path, links_path: Path, out: Path) -> dict:
     shutil.copy(src / "set_aside.parquet", out / "set_aside.parquet")
     in_rows = chain.dropna()
     several = chain[~drop].map(held.established).gt(1)
+    before = frame.unit_id[~drop]
+    moved = ~(kept.unit_id.eq(before) | (kept.unit_id.isna() & before.isna()))
     manifest |= {
         "rows": len(kept),
         "latest_day_how": kept.latest_day_how.value_counts().to_dict(),
@@ -176,7 +177,7 @@ def collapse(src: Path, links_path: Path, out: Path) -> dict:
             "rows_in_chains": len(in_rows),
             "rows_dropped": int(drop.sum()),
             "kept_rows_replaced": int(kept.replaced.sum()),
-            "kept_rows_moved": int((kept.unit_id != frame.unit_id[~drop]).sum()),
+            "kept_rows_moved": int(moved.sum()),
             "chains_with_several_established": int(several.sum()),
             "unit_ids_before": int(frame.unit_id.nunique()),
             "unit_ids_after": int(kept.unit_id.nunique()),
