@@ -2,6 +2,7 @@
 (`rentfrontier.drift_building_unitt`), and the drift model's `unit_t` in general."""
 
 import dataclasses
+import hashlib
 
 import numpy as np
 import pytest
@@ -280,6 +281,28 @@ def test_recovers_a_heavy_and_a_light_tailed_unit_level(dof):
     assert out["kept"]["unit_dof"].shape == (2, 60)
     assert "unit_dof" in drift.diagnostics(out["trace"], train.names)["per_quantity"]
     assert "unit_dof" in drift.summarize(out["kept"], train.names)["unit"]
+
+
+# The sha256 of every traced and kept array of the run below on the CPU, as drawn at
+# 6c920023, the commit of U2's fits. A deliberate change to the model's draws changes it.
+UNITT_RUN_SHA256 = "c356e3fc351810b6f065dd8cc8b433fceda3ca1f0bd86ca791deeb50d70def71"
+
+
+def test_a_run_draws_what_it_drew_at_u2s_commit():
+    train, _, _ = td._split(td._design(n=400, per_unit=9))
+    out = drift_building_unitt.run(
+        train,
+        building_zones.Priors(),
+        drift.Settings(chains=2, warmup=60, draws=8, level_dof=4.0, seed=3),
+        log=lambda m: None,
+    )
+    arrays = {f"trace/{k}": v for k, v in out["trace"].items()}
+    arrays |= {f"kept/{k}": v for k, v in out["kept"].items()}
+    h = hashlib.sha256()
+    for k in sorted(arrays):
+        h.update(k.encode())
+        h.update(np.ascontiguousarray(arrays[k]).tobytes())
+    assert h.hexdigest() == UNITT_RUN_SHA256
 
 
 def test_the_model_is_the_building_model_with_student_t_unit_levels():
