@@ -1339,6 +1339,177 @@ open ads, so I would check the level of a candidate on a backtest before reading
 gain as a better median. The level terms of "Sizes of the explanations" (the single
 shift, and part of the levels by phase) describe the held-out set in the same way.
 
+## Ads coded 0 bedrooms across all listers
+
+The batch on Real Street and M1 Ventures left the same question open for every other
+lister. I went through the 336,205 kept ads coded 0 bedrooms with the scripts in
+`/data1/apartments/tmp/outlier-sprint/s2/Z/`, sorting them by their text and by the
+record's room count:
+
+| class | marks | ads | decided in the ledger before |
+|---|---|---|---|
+| blank, 1 room | text under 30 characters or starting "draft", without "studio"; `roomCount` 1 | 4,759 | 568 |
+| blank, more rooms | the same text; `roomCount` above 1 | 9,027 | 370 |
+| count in the text | a longer text mentioning 2 to 5 bedrooms and never "studio" | 1,739 | 50 |
+| one bedroom in the text | a longer text mentioning 1 bedroom alone, never "studio" | 5,935 | 565 |
+| says studio | a longer text with "studio" | 255,070 | |
+| other | a longer text with neither | 59,675 | |
+
+In what follows an ad is counted when it has a typed count of 1 or more, or codes 0 with
+a text of 80 characters or more outside the third class. An ad's page is its unit page,
+and two ads are near when they opened within 730 days of each other.
+
+### Most blank ads coded 0 are studios
+
+For each ad with a near counted ad on its page I asked whether those ads are all studios.
+
+| class | ads with a near page ad whose page ads are all studios |
+|---|---|
+| typed 1 or more | 1.1% |
+| says studio | 91.5% |
+| other | 89.6% |
+| blank, 1 room | 63.5% |
+| blank, more rooms | 68.6% |
+| one bedroom in the text | 56.4% |
+| count in the text | 29.8% |
+
+Reading the two blank classes as mixtures of studios and larger apartments with the first
+two rows as the pure cases puts studios at about 69% and 75% of them. Feeds and brokers
+post many studios with no description, so excluding every blank ad coded 0 would remove
+about 9,000 real studios. The room count separates little inside the class: typed studios
+have 1 room in 30% of ads and 1.5 to 2 in 63%, and a typed ad with 1 room is a studio in
+68% of cases and a one-bedroom in 32%. At 2.5 to 3 rooms 3% of typed ads are studios, and
+under 1% above that.
+
+The form default belongs to a few listers. Among each lister's blank ads coded 0 with a
+near page ad, the share with only studios on the page:
+
+| lister | blank ads with a near page ad | share with only studios there |
+|---|---|---|
+| Stuyvesant Heights Realty Corp | 64 | 3% |
+| Real Street Inc | 382 | 4% |
+| Constantinos Kaimakliotis | 16 | 6% |
+| Capital Ventures Group LLC | 44 | 18% |
+| Skyhigh Realty NYC LLC | 47 | 21% |
+| Corcoran | | 59% |
+| City Wide Apartments | | 64% |
+| REAL New York | | 76% |
+| Compass | | 87% |
+| Bozzuto, Icon | | 96% to 97% |
+
+Stuyvesant Heights posts 176 of its 190 open blank ads with the form's own "Draft rental
+description", and studios are 55 of its 1,239 ads with a typed count or a studio text. For
+it and for Real Street I read a 0 on a blank form as an empty field. From Capital
+Ventures on the shares rise without a break, so for the other listers a blank ad coded 0
+is a studio more often than not, and each ad needs evidence of its own.
+
+### Evidence for a count
+
+I tested each kind of evidence on ads with a typed count, each left out of its own backing.
+
+- **The building's one layout** (the rule of the earlier batch: at least 4 near counted
+  ads on at least 3 pages, all with one count of 1 or more; at least 90% of the building's
+  counted history with that count; the ad's opening ask within 15% of their median). On a
+  sample of 60,000 counted ads it applies to 2,547 typed 1 or more and gives the typed
+  count in 98.7% (97.2% without the ask condition). It applies to 4 of the sample's 7,566
+  studios with a full text.
+- **The page's other ads** (the near counted ads of the page all have one count of 1 or
+  more, and the ad's ask is within 15% of their median). The page gives the typed count in
+  93.5% of cases with one page ad and 96% to 97% with several, at every distance in time up to
+  two years. It applies to 75% of typed ads of 1 or more with a near page ad and to 2% of
+  typed studios, so a blank ad to which it applies is a studio in about 6% to 8% of cases. The
+  listers who post blank forms do worse than the feed on their own typed ads:
+
+  | lister | typed ads to which the page rule applies | page gives the typed count |
+  |---|---|---|
+  | all listers with 200 or more, median | | 95.6% |
+  | Corcoran, Compass | | 96% |
+  | City Wide Apartments | 4,353 | 90% |
+  | PadRabbit LLC | | 89% |
+  | Skyhigh Realty NYC LLC | | 87% |
+  | Stuyvesant Heights Realty Corp | 280 | 85% |
+  | Real Street Inc | 1,062 | 81% |
+
+  With one page ad, a lister under 90% and a building of mixed layouts the page is right
+  in 70% to 86% of cases. A set from the page alone would therefore be right in about 85%
+  of the blank ads, which is too low for a set and high enough to say the coded 0 is wrong.
+- **The text with the page.** On 150,000 typed ads of 1 or more the page rule applies to
+  44,567. Where a text without "studio" mentions the page's count (28,653 ads), the typed
+  count equals it in 98.5%, in 97.4% for listers under 90% on the page rule alone, and in
+  99.2% where the text mentions that count and no other. Where the text mentions other
+  counts only (2,243 ads) the page is right in 41.7%.
+
+A Sonnet reader then went through the 224 open ads of the third class to which the
+building rule or the page rule applies with a count their text mentions, and said for
+each whether the text gives the apartment itself that count. It did for 195. The other 29
+are flex wording ("convert the space into a huge one bedroom or a large two bedroom", 25
+ads), a building's list of layouts (3) and a text giving two counts (1).
+
+### The entries
+
+`pipeline/ledger/2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 755 lines on
+749 ads in 512 buildings:
+
+| ads | decision | evidence |
+|---|---|---|
+| 75 blank ads (57 with 1 room, 18 with more) | bedrooms set to the building's count: 1 on 34, 2 on 20, 3 on 15, 4 on 5, 5 on 1 | the building's one layout, 50 buildings |
+| 6 of those | baths set with the bedrooms | the record has the form's 1 bath and every backing ad has the same other count |
+| 195 ads with the count in the text | bedrooms set: 1 on 6, 2 on 138, 3 on 44, 4 on 7 | the text, read by Sonnet, with the building's one layout (40) or the page's other ads (155) |
+| 264 blank ads of Stuyvesant Heights (187) and Real Street (77) | excluded as `bedrooms_unknown` | the lister's form default; no building evidence for a single count |
+| 215 blank ads of other listers (137 with 1 room, 78 with 2.5 rooms or more) | excluded as `bedrooms_unknown` | the page's other ads have a count of 1 or more at a matching ask, and neither they nor the building settle which |
+
+The first and third rows correct an empty or wrong field toward what the unit's own
+building or page shows the renter was offered. The exclusions remove ads whose count
+field is empty: Real Street's excluded ads with more than 1 room are those with 3 rooms or
+more, and its 20 with 2 rooms stay. For the last row the page rule is the evidence against
+the 0 and the lister's own page score is the reason no count is set.
+On four of these pages (4253410, 4261306, 3105440 and 4596910) every counted ad within
+two years codes a studio, so those blank ads may be real studios. An exclude only removes
+the row, so I left them in.
+
+A first draft set 119 blank ads from the building's one layout. I then looked for ads in
+the same buildings whose text calls the apartment a studio, and 14 buildings hold one.
+At 216 E 28th St, BH Brokerage posts "Studio" on the same unit pages where Vickers
+Realty posts blank forms at matching asks, and the building's typed 1-bedroom ads come
+from a single lister. At 437 W 48th St a Brown Harris Stevens ad for 4D describes a studio
+with a separate kitchen. In such a building the counted ads give the typed count, while
+the studios reach the data as zeros, so a typed majority shows nothing about the blank
+ads. I dropped the 42 sets in those 14 buildings, and their ads stay coded 0. The
+reviewer then ran the same check on unit labels and found 348 E 51st St, where one lister
+posts pages labelled "studio" and "stu" with zeros asking $3,000 to $3,500 against a
+1-bedroom median of $4,500. I dropped its 2 sets as well. That leaves 75 sets in 50
+buildings with no studio in an ad's text or a unit's label.
+
+13,788 ads of the three classes stay as they are (the table counts 13,744 before the 44 dropped sets):
+
+| reason | blank, 1 room | blank, more rooms | count in the text |
+|---|---|---|---|
+| no near counted ad on the page | 2,842 | 6,081 | 1,107 |
+| the page's near ads are studios | 724 | 1,732 | 166 |
+| the page's near ads disagree | 58 | 172 | 54 |
+| the ask is more than 15% from the page's | 112 | 286 | 76 |
+| 2 rooms or fewer, or fewer rooms than the page's count needs | | 232 | |
+| a lister whose blank ads with a near page ad have only studios there in 80% of cases or more | 10 | 1 | |
+| the text mentions other counts than the page's | | | 62 |
+| the Sonnet read (flex, layouts of the building) | | | 29 |
+
+The ads left in the third class price as studios: their 85 held-out ads have a median gap
+of 0.000, against +0.26 for the 3 held-out ads among the 195 sets. Most of them repeat a
+building's boilerplate or offer a temporary wall. The 5,935 studio-coded ads mentioning one bedroom
+also stay. 2,886 of them have junior, alcove, convertible or flex wording, and the class
+has a median held-out gap of +0.02 without that wording and 0.00 with it, so the model
+prices them like studios already.
+
+31 of the 793 ads of the first draft are among the held-out ads of the latest split, with a median gap of
++0.06 and 0.07% of all squared gaps. Since the batch corrects features on so few held-out
+ads, a fit's scores will not move with it.
+
+The studio shares of the blank classes come from a mixture reading, which
+assumes that blank studios have page neighbors like those of studios with a text. The
+215 exclusions of the last row rest on the same reading: about 6% to 8% of them would be
+real studios. I read 25 of the Sonnet verdicts against their quotes and none of the full texts.
+No floor plan was fetched. Blank ads with a typed count of 1 or more were not examined.
+
 ## What I changed
 
 - **Ledger, PR #1307.** Of the readers' proposals, 46 corrections had independent evidence: 15
@@ -1356,6 +1527,14 @@ shift, and part of the levels by phase) describe the held-out set in the same wa
   retractions of merged entries, 15 `bedrooms_unknown` excludes and 3 sets. The retractions
   take back sets backed by an ad of the unit years away from the corrected ad, or by the
   page of a lister who relabels reposts.
+- **Ledger, ads coded 0 bedrooms across all listers.** The file
+  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 755 lines on 749 ads, described
+  under "Ads coded 0 bedrooms across all listers": 270 bedroom sets (75 blank forms from
+  their building's one layout, 195 ads whose text gives the count with the building or the
+  page agreeing), 6 bath sets and 479 `bedrooms_unknown` excludes (264 blank forms of
+  Stuyvesant Heights Realty and Real Street, 215 blank forms of other listers whose page
+  has a count of 1 or more at a matching ask). About 12,250 blank ads coded 0 stay, most of
+  them studios.
   Ledger corrections reach a fit when the dataset is next rebuilt. The served fit b9 was
   fitted before all of them.
 - **Closing asks.** Some of the readers' price typos and placeholders were prices typed on the
@@ -1387,10 +1566,10 @@ candidates from the text flags.
 1. c3, the narrowed closing dataset with b9's 6-chain design
    (`docs/notes/closing-asks-2026-11-11.md`). It takes the place of c2.
 2. The income flag, on c3's winner's dataset (`docs/notes/income-flag-2026-11-11.md`).
-3. No fit for the sprint's ledger entries by themselves. They change about 860 of the
-   pipeline's 1,985,235 kept ads (about 730 of them excluded), join 32 pairs of unit pages and move 69
-   ads off shared unit records, which is negligible under the rule against refits for small
-   data changes.
+3. No fit for the sprint's ledger entries by themselves. They change about 1,650 of the
+   pipeline's 1,985,235 kept ads (about 1,210 of them excluded), join 32 pairs of unit pages
+   and move 69 ads off shared unit records, which is negligible under the rule against
+   refits for small data changes.
    c3 reprices b9's dataset and does not read the ledger, so the entries first reach a fit
    when the pipeline next rebuilds the dataset for a market snapshot.
 4. L1, a noise scale by lease phase. The ad-level scale is multiplied by a factor per

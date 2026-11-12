@@ -87,13 +87,24 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   (`/data1/apartments/tmp/outlier-sprint/s2/E/results.md`). The 15 `split_unit` entries of
   2026-11-12 repair single pages until the next ad arrives on them.
 - [ ] For Data improvements: a pipeline rule for ads posted with a blank form. Real Street
-  Inc and M1 Ventures post ads with the form's fields empty, and the feed codes them as 0
-  bedrooms, 1 bath and 1 room. The marks are a description of one to three characters or
-  "Draft" for Real Street and legal boilerplate alone for M1, with 0 bedrooms, 1 bath and
-  1 room coded. The ledger of 2026-11-12 decides the 768 kept ads of this kind by hand
-  (22 take their building's count, the rest are excluded as `bedrooms_unknown`). The rule
+  Inc, M1 Ventures and Stuyvesant Heights Realty Corp post ads with the form's fields
+  empty, and the feed codes them as 0 bedrooms, 1 bath and 1 room. The marks are a
+  description of one to three characters or "Draft" for Real Street, "Draft rental
+  description" for Stuyvesant Heights and legal boilerplate alone for M1, with 0 bedrooms,
+  1 bath and 1 room coded. The ledger of 2026-11-12 decides the kept ads of this kind by
+  hand (768 of Real Street and M1, then 264 of Stuyvesant Heights and Real Street; a few
+  take their building's count and the rest are excluded as `bedrooms_unknown`). The rule
   would treat the coded count of such an ad as missing when the ad arrives, so new ones
-  need no ledger entry. Screen the other listers for the same marks first.
+  need no ledger entry. The screen of the other listers is in
+  `docs/notes/outlier-sprint-2026-11-11.md` under "Ads coded 0 bedrooms across all
+  listers": the rule has to be written per lister, since about two thirds of all blank ads
+  coded 0 are real studios. Constantinos Kaimakliotis, Capital Ventures Group, Skyhigh
+  Realty and PadRabbit have low studio shares on few ads and need a read before they join
+  the list.
+- [ ] Blank ads coded 0 with no evidence on their page. 8,923 blank ads have no counted ad
+  on their unit page within two years, and the mixture reading puts a quarter to a third of
+  the blank class at 1 bedroom or more. A floor plan or photo count per ad would decide them, and no cheaper
+  evidence exists in the records. Real Street's 20 blank ads with 2 rooms are among them.
 - [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
   for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
   or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the
@@ -203,14 +214,18 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   itself (the note, "Cautions, round two"). A rule has to tell the apartment's own line
   from the building's mix of units. The real ones, somewhere between 40 and 125 at the
   sample's rate, are worth it.
-- [ ] Studio-coded ads that are not studios. Of the 292,286 studio-coded training ads of
+- [x] Studio-coded ads that are not studios. Of the 292,286 studio-coded training ads of
   the latest split, 1,596 in 908 buildings name two to five bedrooms in a text that never
   says "studio" (25 of 40 read were whole apartments, 11 studios), and 4,517 in 1,701
   buildings are placeholder listings (text under 30 characters or starting "draft", with
-  `roomCount` 1) whose bedroom count of 0 is the source's default. Eight buildings of such
+  `roomCount` 1). Eight buildings of such
   ads are among the ten behind the building model's one failing R-hat (1259 Jefferson Ave, 310 Linden St, 866
   Knickerbocker Ave, 386 St John's Pl, 1030 DeKalb Ave, 1405 Lincoln Pl, 391 Greene Ave,
-  662 Nostrand Ave). Write the rule on a reading, rebuild, refit.
+  662 Nostrand Ave). Done on 2026-11-12 over all kept ads as far as the records allow
+  (`docs/notes/outlier-sprint-2026-11-11.md`, "Ads coded 0 bedrooms across all listers"):
+  about two thirds of the placeholder listings are real studios, so no rule excludes them
+  as a class. The ledger sets 270 ads on building or page evidence and excludes 479. The
+  ads left with a count in the text price as studios (median held-out gap 0.000).
 - [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
   alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
   them firmly).
