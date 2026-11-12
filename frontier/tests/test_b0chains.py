@@ -1,9 +1,10 @@
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
-from rentfrontier import b0chains
+from rentfrontier import b0chains, splits
 from rentfrontier.b0data import sha256
 
 # Chain a -> b -> c, with every ad in the rows. Chain d -> e -> f, where f has no row.
@@ -72,7 +73,10 @@ def write(tmp_path, links=LINKS, rows=ROWS, still_open=("m",)):
     pd.DataFrame(links, columns=["earlier", "later"]).assign(cell="S1").to_parquet(path)
     frame = pd.DataFrame(rows, columns=["listing_id", "unit_id", "building", "ask"])
     frame = frame.rename(columns={"ask": "latest_ask"}).assign(
-        latest_day_how="change", rent_stabilized=[i == 2 for i in range(len(rows))]
+        latest_day_how="change",
+        rent_stabilized=[i == 2 for i in range(len(rows))],
+        audit_id=frame.listing_id,
+        price_at=[pd.Timestamp(ON[i], tz="UTC") for i in frame.listing_id],
     )
     src = tmp_path / "src"
     src.mkdir(exist_ok=True)
@@ -117,9 +121,18 @@ def test_chains_refuses_forks_and_rings(links):
         b0chains.chains(pd.DataFrame(links, columns=["earlier", "later"]))
 
 
+def hold_out(monkeypatch, listings):
+    """Make SRC's latest split hold out `listings`."""
+    monkeypatch.setattr(
+        splits, "latest_split", lambda frame: frame.listing_id.isin(listings).to_numpy()
+    )
+
+
 def test_collapse_keeps_the_latest_row_of_each_chain_under_its_established_unit(
-    tmp_path,
+    tmp_path, monkeypatch
 ):
+    # g, p and r are the latest rows of u2, u7 and u8 in SRC.
+    hold_out(monkeypatch, {"g", "p", "r"})
     src, links = write(tmp_path)
     before = (src / "rows.parquet").read_bytes()
     out = tmp_path / "out"
@@ -160,6 +173,9 @@ def test_collapse_keeps_the_latest_row_of_each_chain_under_its_established_unit(
     ]
     # f, the last ad of the chain from d, has no row, and e carries f's off-market day.
     assert rows.replaced.tolist() == [False, False, True, False, False, False, False]
+    # g and p are dropped. r is still the latest row of u8.
+    assert rows.carried_heldout.tolist() == [False] * 6 + [True]
+    assert splits.SPLITS["carried"](rows).tolist() == rows.carried_heldout.tolist()
     dropped = pd.read_parquet(out / "collapsed.parquet")
     assert dropped.listing_id.tolist() == ["a", "b", "d", "g", "p", "q"]
     assert dropped.kept_listing_id.tolist() == ["c", "c", "e", "h", "r", "r"]
@@ -179,6 +195,9 @@ def test_collapse_keeps_the_latest_row_of_each_chain_under_its_established_unit(
     assert entry["chains_with_several_established"] == 1
     assert entry["unit_ids_before"] == 9
     assert entry["unit_ids_after"] == 4
+    assert entry["source_heldout"] == 3
+    assert entry["source_heldout_dropped"] == 2
+    assert entry["carried_heldout"] == 1
     assert manifest["rows"] == 7
     assert manifest["latest_day_how"] == {"change": 7}
     assert manifest["flags"] == {"rent_stabilized": 0}
@@ -256,3 +275,50 @@ def test_collapse_counts_no_move_between_missing_unit_ids(tmp_path):
     manifest = b0chains.collapse(src, links, tmp_path / "out")
     assert manifest["chains"]["rows_dropped"] == 1
     assert manifest["chains"]["kept_rows_moved"] == 0
+
+
+def test_collapse_carries_a_held_out_row_only_while_it_is_its_units_latest(
+    tmp_path, monkeypatch
+):
+    """b loses its unit's other row, a, to the collapse. e was the latest row of u2, and
+    the chain from d brings the later f into u2. m's unit is outside every chain."""
+    rows = [
+        ("a", "u1", "one", 3000.0),
+        ("b", "u1", "one", 2950.0),
+        ("n", "u2", "two", 4800.0),
+        ("d", "u2", "two", 4000.0),
+        ("e", "u2", "two", 3900.0),
+        ("f", "u4", "two", 3950.0),
+        ("k", "u7", "one", 2800.0),
+        ("m", "u7", "one", 5000.0),
+    ]
+    hold_out(monkeypatch, {"b", "e", "m"})
+    src, links = write(tmp_path, links=[("a", "b"), ("d", "f")], rows=rows)
+    manifest = b0chains.collapse(src, links, tmp_path / "out")
+    kept = pd.read_parquet(tmp_path / "out" / "rows.parquet")
+    assert kept.listing_id.tolist() == ["b", "n", "e", "f", "k", "m"]
+    assert kept.unit_id.tolist() == ["u1", "u2", "u2", "u2", "u7", "u7"]
+    assert kept.carried_heldout.tolist() == [False] * 5 + [True]
+    assert manifest["chains"]["source_heldout"] == 3
+    assert manifest["chains"]["source_heldout_dropped"] == 0
+    assert manifest["chains"]["carried_heldout"] == 1
+
+
+def test_carried_drops_a_row_tied_with_the_one_before_it():
+    kept = pd.DataFrame(
+        {
+            "unit_id": ["u1", "u1", "u2", "u2", None],
+            "audit_id": ["a", "b", "c", "d", "e"],
+            "price_at": pd.to_datetime(
+                ["2024-01-01", "2024-01-01", "2024-01-01", "2024-02-01", "2024-03-01"],
+                utc=True,
+            ),
+        }
+    )
+    held = np.array([False, True, False, True, True])
+    assert b0chains.carried(kept, held).tolist() == [False, False, False, True, False]
+
+
+def test_carried_split_needs_the_column():
+    with pytest.raises(ValueError):
+        splits.carried_split(pd.DataFrame({"unit_id": ["u1"]}))

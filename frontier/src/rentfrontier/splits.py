@@ -19,6 +19,11 @@ the promoted model's held-out rows by audit_id:
   it only through its columns and the map: the grouped building holdout of the
   Fable research review (2026-10-08, §3) for building-level features. It is
   drawn after the data rules, on the kept rows' buildings.
+- carried: the latest split of the dataset that `rentfrontier.b0chains` collapsed, on the
+  rows it kept. The module writes the mask as the column `carried_heldout`, leaving out a
+  held-out row that is no longer the single latest row of a unit with two or more rows.
+  A fit on the collapsed dataset is then scored on ads the source dataset's fit also held
+  out.
 
 The promoted model's runs additionally dropped a few held-out rows outside its
 training floor range or time horizon. Paired comparisons use the intersection
@@ -108,6 +113,14 @@ def market_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray
     return data.open.to_numpy(bool)
 
 
+def carried_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
+    """Boolean held-out mask carried over from the latest split of the dataset that `data`
+    was derived from: the rows that `rentfrontier.b0chains` marks `carried_heldout`."""
+    if "carried_heldout" not in data:
+        raise ValueError("the carried split needs a dataset from rentfrontier.b0chains")
+    return data.carried_heldout.to_numpy(bool)
+
+
 SPLITS = {
     "rows": row_split,
     "units": unit_split,
@@ -115,6 +128,7 @@ SPLITS = {
     "buildings": building_split,
     "all": no_split,
     "market": market_split,
+    "carried": carried_split,
 }
 # Splits drawn after the data rules (on merged units and kept rows).
 AFTER_RULES = {"latest", "buildings"}
