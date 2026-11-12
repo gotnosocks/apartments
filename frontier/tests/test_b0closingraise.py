@@ -219,6 +219,19 @@ def test_closing_raise_reprices_only_raises_typed_as_the_ad_closed(src, tmp_path
         b0closingraise.closing_raise(src, out)
 
 
+def test_closing_raise_copies_a_market_datasets_inputs(src, tmp_path):
+    (src / "set_aside.parquet").unlink()
+    (src / "inputs.json").write_text('{"market": true}')
+    out = tmp_path / "out"
+    b0closingraise.closing_raise(src, out)
+    assert sorted(f.name for f in out.iterdir()) == [
+        "inputs.json",
+        "manifest.json",
+        "rows.parquet",
+    ]
+    assert (out / "inputs.json").read_text() == '{"market": true}'
+
+
 def test_closing_raise_refuses_a_changed_records_file(src, tmp_path):
     manifest = json.loads((src / "manifest.json").read_text())
     manifest["build"]["records"]["sha256"] = "0" * 64

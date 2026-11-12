@@ -45,7 +45,8 @@ The row then takes the standing price. I write OUT with:
   `latest_ask_how` set to `latest, before closing raise`. I date them as `b0closing` does: by
   the day of the standing price's change when it falls on or after the row's day (`change`),
   and otherwise by the row's day (`row, change before`).
-- `set_aside.parquet`: SRC's, copied.
+- SRC's other files, copied: `set_aside.parquet` in a latest dataset, `inputs.json` in a
+  market dataset.
 - `manifest.json`: SRC's manifest with `rows_sha256` updated, and a `closing_raise` entry
   giving SRC's path and rows SHA-256, the rule, the rows `b0closing.reprice` would change,
   the rows changed here with their median log change and the count taking a standing price
@@ -198,7 +199,9 @@ def closing_raise(src: Path, out: Path) -> dict:
     )
     out.mkdir(parents=True, exist_ok=False)
     frame.to_parquet(out / "rows.parquet", index=False)
-    shutil.copy(src / "set_aside.parquet", out / "set_aside.parquet")
+    for f in src.iterdir():
+        if f.is_file() and f.name not in ("rows.parquet", "manifest.json"):
+            shutil.copy(f, out / f.name)
     manifest |= {
         "rows_sha256": sha256(out / "rows.parquet"),
         "closing_raise": {
