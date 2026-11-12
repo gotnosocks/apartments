@@ -676,3 +676,45 @@ $4.19 each. A first launch of `c3a` at 12:51Z left out that input, and its conta
 39 seconds in while building the design, before any sweep, with a FileNotFoundError for the
 rows file ($0.13). I relaunched it with the same seed and the input. The fit had not
 started, so this is the planned fit and not a rerun of a failed one.
+
+### c3's results (scored 2026-11-12 10:30 ET)
+
+The containers ran 49 to 50 minutes and settled at $3.63, $3.69 and $3.66, so c3 cost
+$11.11 with the failed start. I pooled them as `drift-building-b0-latest-ae875fc6-c3` (6
+chains of 3,400 draws, 85 kept) and scored it with `drift_score`. The pool passes the gate:
+the highest split R-hat is 1.0076 and the lowest bulk ESS 1,639, both on `sigma[1]`. Its
+first two parts alone, pooled as `...-c3ab` for the next fit's comparison, miss it (R-hat
+1.0108 on `sigma[1]`).
+
+I compared c3 with all 6 of b9's chains, with the SE clustered by building
+(`/data1/apartments/tmp/sprint-20261112/c3/score_c3.py`):
+
+| held-out ads | n | c3 minus b9 | SE |
+|---|---:|---:|---:|
+| target the same in b9's and c3's datasets | 183,272 | +641.5 | 100.7 |
+| target unchanged in all three datasets | 178,704 | +758.5 | 97.8 |
+| of those, units with an off-day cut among their training ads | 3,322 | +9.0 | 6.7 |
+| units with a single same-action raise among their training ads | 5,705 | +458.1 (+0.080 an ad) | 51 |
+| buildings c1's rewrite left alone | 57,087 | -179.8 | 18.7 |
+
+On the 6,375 held-out ads whose target c3 changed, its median sits 0.0464 from the new
+target and b9's 0.0494 from the old one. The scalars barely move: `nu` 1.692 to 1.716, the
+four `sigma` by under 1.5%, `drift_tau` 9.57 to 9.52, `bld_sd` 0.1117 / 0.0679 to 0.1120 /
+0.0677.
+
+The predictions, scored:
+
+1. Gate passes: **hit**.
+2. More than 2 SE: **hit** (7.8 SE). Between 550 and 850: **hit** (758.5).
+3. Within 45 of b9 on the units with an off-day cut: **hit** (+9.0, against c1's -110.1).
+4. 0.06 to 0.10 an ad on the units with a single same-action raise: **hit** (0.080, SE
+   0.009).
+5. A loss of 150 to 300 in the buildings c1 left alone: **hit** (-179.8; c1 lost 205.7).
+6. Median error and 80% coverage move by under 0.0005 and 0.003: **hit** (0.04040 to
+   0.04035, 0.8104 to 0.8102).
+7. $11 to $12: **hit** ($11.11).
+
+So the narrowed rule keeps c1's gain on the same-action raises and gives back its loss on
+the units with an off-day cut. The loss in the untouched buildings remains, at about the
+same size as c1's. c3 wins the latest split and passes the gate. Serving it on the site
+waits for its market and backtest fits on the narrowed market datasets.
