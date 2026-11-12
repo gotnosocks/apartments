@@ -1,0 +1,68 @@
+{# Evidence blocks of a review card; docs/review-app.md gives their format. #}
+{% macro money(v) %}{% if v is finite %}{{ usd(v) }}{% else %}—{% endif %}{% endmacro %}
+{% macro num(v) %}{% if v is finite %}{{ "{:,.0f}".format(v) if v >= 100 else "{:g}".format(v) }}{% else %}—{% endif %}{% endmacro %}
+
+{% macro photos(urls, label) %}
+{% set shown = [] %}{% for u in urls or [] %}{% if review_image(u) %}{% set _ = shown.append(review_image(u)) %}{% endif %}{% endfor %}
+{% if shown %}
+<div class="rv-photos" role="list" aria-label="{{ label }}">
+  {% for u in shown %}
+  <a class="rv-photo" role="listitem" href="{{ review_full(u) }}" target="_blank" rel="noopener noreferrer"><img src="{{ u }}" alt="{{ label }} {{ loop.index }}" loading="lazy" decoding="async"></a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro facts(b) %}
+<dl class="rv-facts">
+  {% for r in b.rows or [] %}
+  <div class="rv-fact{% if r.mark %} rv-mark-{{ r.mark }}{% endif %}"><dt>{{ r.label }}</dt><dd>{{ r.value }}</dd></div>
+  {% endfor %}
+</dl>
+{% endmacro %}
+
+{% macro grid(b) %}
+<div class="rv-grid">
+  {% for f in b.floors or [] %}
+  <div class="rv-floor"><span class="rv-floor-n">{{ f.floor }}</span>
+    <span class="rv-cells">{% for c in f.cells or [] %}<span class="rv-cell{% if c.mark %} rv-cell-{{ c.mark }}{% endif %}" title="{{ c.ads }} ad{{ 's' if c.ads != 1 }}{% if c.years %}, {{ c.years }}{% endif %}">{{ c.label }}{% if c.ads %}<small>{{ c.ads }}</small>{% endif %}</span>{% endfor %}</span>
+  </div>
+  {% endfor %}
+</div>
+<p class="rv-legend"><span class="rv-cell rv-cell-candidate">3G</span> on this card <span class="rv-cell rv-cell-city">3E</span> in city records <span class="rv-cell rv-cell-oneoff">3Z</span> one ad, never used again. Small numbers count ads.</p>
+{% endmacro %}
+
+{% macro ad(a) %}
+<article class="rv-ad{% if a.mark %} rv-ad-{{ a.mark }}{% endif %}">
+  <header class="rv-ad-head">
+    <strong>{% if a.unit %}#{{ a.unit }}{% else %}Ad {{ a.listing_id }}{% endif %}</strong>
+    {% if a.opened %}<span>{{ day(a.opened) }}{% if a.closed %} – {{ day(a.closed) }}{% endif %}</span>{% endif %}
+    {% if a.status %}<span class="rv-status">{{ a.status }}</span>{% endif %}
+  </header>
+  <p class="rv-ad-facts">
+    {% if a.bedrooms is finite %}{{ beds_label(a.bedrooms) }}{% endif %}
+    {% if a.full_baths is finite %} · {{ "{:g}".format(a.full_baths) }}{% if a.half_baths %}.5{% endif %} ba{% endif %}
+    {% if a.square_feet is finite %} · {{ num(a.square_feet) }} sq ft{% endif %}
+    {% if a.floor is finite %} · floor {{ "{:g}".format(a.floor) }}{% endif %}
+    {% if a.first_ask is finite or a.last_ask is finite %} · {{ money(a.first_ask) }}{% if a.last_ask is finite and a.last_ask != a.first_ask %} → {{ money(a.last_ask) }}{% endif %}{% endif %}
+  </p>
+  {% if a.lister %}<p class="rv-ad-lister">{{ a.lister }}</p>{% endif %}
+  {{ photos(a.floor_plans, "Floor plan") }}
+  {{ photos(a.photos, "Photo") }}
+  {% if a.text %}<details class="rv-text"><summary>Ad text</summary><p>{{ a.text }}</p></details>{% endif %}
+  <p class="rv-ad-links"><span class="muted">Ad {{ a.listing_id }}</span>{% if review_link(a.url) %} · <a href="{{ review_link(a.url) }}" target="_blank" rel="noopener noreferrer">StreetEasy</a>{% endif %}</p>
+</article>
+{% endmacro %}
+
+{% macro block(b) %}
+<section class="rv-block{% if b.nominating %} rv-nominating{% endif %}">
+  {% if b.title %}<h2>{{ b.title }}</h2>{% endif %}
+  {% if b.nominating %}<p class="rv-nominate-note">Only nominates: photos, text and timing can be reused across apartments.</p>{% endif %}
+  {% if b.type == "facts" %}{{ facts(b) }}
+  {% elif b.type == "grid" %}{{ grid(b) }}
+  {% elif b.type == "ads" %}{% for a in b.ads or [] %}{{ ad(a) }}{% endfor %}
+  {% elif b.type == "text" %}<p class="rv-body">{{ b.body }}</p>
+  {% elif b.type == "links" %}<ul class="rv-links">{% for l in b.links or [] %}{% if review_link(l.url) %}<li><a href="{{ review_link(l.url) }}" target="_blank" rel="noopener noreferrer">{{ l.label or l.url }}</a></li>{% endif %}{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endmacro %}

@@ -122,6 +122,7 @@ def test_each_page_marks_its_section_current(published, path, section):
         "Deals",
         "Estimates",
         "Workbench",
+        "Review",
         "Tags",
     ]
 

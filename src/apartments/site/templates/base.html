@@ -19,6 +19,7 @@
       <a href="{{ url_for('index') }}"{% if section == "deals" %} aria-current="true"{% endif %}>Deals</a>
       <a href="{{ url_for('estimates') }}"{% if section == "estimates" %} aria-current="true"{% endif %}>Estimates</a>
       <a href="{{ url_for('workbench') }}"{% if section == "workbench" %} aria-current="true"{% endif %}>Workbench</a>
+      <a href="{{ url_for('review_home') }}"{% if section == "review" %} aria-current="true"{% endif %}>Review</a>
       <a href="{{ url_for('tags_ledger') }}"{% if section == "tags" %} aria-current="true"{% endif %}>Tags</a>
     </nav>
   </div>

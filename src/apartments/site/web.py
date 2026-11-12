@@ -43,6 +43,7 @@ from . import (
     deals,
     facts,
     observed,
+    review,
     streetview,
     tags,
     workbench,
@@ -90,6 +91,11 @@ SECTIONS = {
         "workbench_triage",
         "workbench_buildings",
         "workbench_building",
+    ),
+    "review": (
+        "review_home",
+        "review_queue",
+        "review_card",
     ),
     "tags": (
         "tags_ledger",
@@ -291,10 +297,12 @@ def create_app(
 
     @app.after_request
     def finish(response):
+        # The review pages show StreetEasy's photos and floor plans from its image host.
+        images = " ".join(f"https://{h}" for h in g.get("img_hosts", ()))
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
-            "base-uri 'none'; form-action 'self'"
+            f"img-src 'self' data:{' ' + images if images else ''}; connect-src 'self'; "
+            "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "same-origin"
@@ -775,6 +783,7 @@ def create_app(
 
     workbench.register(app, lambda: root)
     tags.register(app, lambda: root)
+    review.register(app, lambda: root)
     return app
 
 
