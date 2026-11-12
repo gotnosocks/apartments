@@ -1583,9 +1583,10 @@ judged 10 real, 36 false and 20 unclear. The record is right for most of the fal
 
 - 15: the building's ads with the same count ask about the same as the deal, and the median
   follows pricier lines in the building, those with more baths or more space.
-- 12: the unit's own ads or rents of the last year or two ask about the same, and the model
-  has no training ad for the unit (the top deal, a micro studio at 640 Lexington Ave that
-  rented at $2,450 in February, is one).
+- 12: the unit's own ads or rents of the last year or two ask about the same as the deal.
+  The model has no training ad for 3 of these units (the top deal, a micro studio at 640
+  Lexington Ave that rented at $2,450 in February, is one). For the other 9 it has 1 to 9
+  training ads of the unit and still puts the median 14% to 39% above the ask.
 - 3: the ask is net of free months. The target is the net-effective ask, so the model
   scores these as intended.
 - 3: a record error (a bath count, a bedroom count flipped between ads, a repost under
@@ -1593,7 +1594,11 @@ judged 10 real, 36 false and 20 unclear. The record is right for most of the fal
 
 A caution built from the ledger would hide at most the 3 deals with record errors, so I left
 the page as published. The 12 deals whose own unit history matches the ask point at the
-model: the unit's past ads under its other pages or ids never reach the unit level.
+model. For 3 of them the unit's past ads never reach the unit level. For the other 9 they
+do, and the median still sits well above them, so the unit level follows the unit's own
+asks less than these records support. A free check comes before any fit: for units with a
+few training ads, compare the served median with the unit's last training ask moved by the
+market index, by the unit's own gap to its building.
 
 ## The random read's data errors, checked against records
 
