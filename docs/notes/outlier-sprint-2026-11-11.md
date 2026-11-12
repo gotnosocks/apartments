@@ -1523,8 +1523,11 @@ It applies to an ad when:
 3. the ad's ask lies between 0.85 times the lowest of those nearby asks and 1.15 times the
    highest;
 4. over the building's whole kept history, with the ad left out, no typed ad codes 0
-   bedrooms, no ad's text calls its apartment a studio, and no unit label names a studio.
-   Blank forms coded 0 do not count against the building, since their 0 is the empty field.
+   bedrooms, no ad coded 0 has text calling its apartment a studio, and no unit label names
+   a studio. Blank forms coded 0 do not count against the building, since their 0 is the
+   empty field, and neither do ads coded 0 whose text names 1 bedroom. Seven excludes are in
+   buildings with such an ad. The text exists only for ads coded 0, so an ad coded 1 or more
+   that calls its apartment a studio goes unseen.
 
 The first draft of PR #1326 used only the first three tests. Its reviewer found 123 of its
 413 buildings with an ad that calls the apartment a studio, and 130 excludes on unit pages
@@ -1542,9 +1545,14 @@ asks:
 
 - the matched blank ads ask a median 1.00 times the median of their building's 1-bedroom
   asks within two years;
-- typed studios ask a median 0.83 times the 1-bedrooms of their own building.
+- in buildings with both, over all years, the median typed studio ask is 0.83 times the
+  median 1-bedroom ask. The second reviewer, matching each studio to the 1-bedrooms within
+  two years, got 0.79.
 
 I dropped the 64 matched ads that ask less than 0.85 times their building's 1-bedroom median.
+For 100 of the excludes the building has no 1-bedroom ask within two years, so only the
+range of its counted asks checks their price. Townsend's 12 at 187 Green St are among them;
+their asks match the building's 2-bedrooms.
 The rule does not say which count above 0 is right, so every match becomes an exclude and
 none becomes a set.
 
