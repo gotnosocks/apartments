@@ -348,7 +348,8 @@ The slope of the gap on `da` goes from 0.488 (se 0.020) to 0.473 after I subtrac
 prediction from both, and to 0.455 after the trees. So the recorded attributes explain a
 real share, and a small one: they take the persistent sd from 0.098 to 0.091 at best, and
 the reference group's 0.026 stays far away. A unit scale growing with size (U1 under "Fits
-for after the sprint") remains the description of most of the pattern. The attributes
+for after the sprint") remains the candidate for most of the pattern, with no check of
+its own behind it yet. The attributes
 enter as level terms for all units, which the text-flag section already lists, and I do not
 put them ahead of U1.
 
@@ -411,7 +412,7 @@ misses shared records whose ads state none. Of the eight shared units the large-
 found by other routes, the main signals had flagged three and the weak ones two more.
 
 The cost to the fit is small. The high-precision groups hold 343 of the 188,649 held-out
-ads (0.18%) and 0.30% of the summed squared gap. The fit already cuts a page into pieces
+ads in the diagnostics file (0.18%) and 0.30% of the summed squared gap. The fit already cuts a page into pieces
 at a change of bedroom count (`analysis.history_splits`), so two apartments share a unit
 level only when their counts agree.
 
@@ -483,9 +484,9 @@ both counts at least 1, and the share of pairs whose counts differ:
 Between 9% and 13% of pairs differ at every distance under four years, and the share
 reaches 17% past six years (31% for the larger apartments). So time adds about 8 points
 over six years, and most of the disagreement is there from the first year: listers who
-count the same rooms differently, and pages holding two apartments. The first year is
-the highest row through its pairs 3 to 9 months apart ("The lease cycle" below). A line
-at 24 months is a cautious one. The larger
+count the same rooms differently, and pages holding two apartments. The first year
+stands above the two after it because of its pairs 3 to 9 months apart ("The lease
+cycle" below). A line at 24 months is a cautious one. The larger
 risk for a backing ad at any distance is that floor of 9% to 13%, which a read of the
 unit's whole history is there to catch.
 
@@ -552,11 +553,13 @@ ads coding the value the entry corrected away from: 58 rows on 42 units. Sonnet 
 read each with the unit's whole history, and I checked every accept against the evidence
 rule and the timeline.
 
-Of the 58 rows, 39 became a set, I rejected 18 and the last was in the ledger already. The rejections were ads whose text or dates did not match the corrected ad's
-(another configuration, a renovation between, a page shared with another apartment). The
-timeline audit above then took 10 of the 39 out, and the review of the ledger PR took out
-two blank-form ads of Real Street backed by their own page (below). The sibling file holds
-31 entries: 23 bedroom sets, 6 size sets and 2 bath sets.
+Of the 58 rows, 39 became a set (33 bedroom sets and 6 size sets), I rejected 18 and
+the last was in the ledger already. The rejections were ads whose text or dates did not
+match the corrected ad's (another configuration, a renovation between, a page shared
+with another apartment). The timeline audit above then failed 10 of the 39 bedroom
+sets, ads posted with a blank form among them (below). The sibling file as merged, after
+the audit and the review of the ledger PR, holds 31 entries: 23 bedroom sets, 6 size
+sets and 2 bath sets.
 
 One of them shows a limit of the coded count. The 2021 ad of the ground floor duplex 1F
 at 330 E 6th St is Centennial's, with the count left empty, and Centennial's ad of the twin
@@ -753,7 +756,8 @@ The joins are in 5,437 buildings. City records are too thin on 9,153 of the 16,6
 buildings with a kept link (55%), holding 31,221 links, and 1,930 of the lots have no
 apartment number in any of the three sources. By label change, the joins are mostly a
 changed line on the same floor (11,331), followed by labels of another format (3,314),
-a changed floor and line (2,976) and a number with and without its letter (1,875).
+a changed floor and line (2,976), a number with and without its letter (1,875), a
+changed floor on the same line (257) and bare numbers on different floors (34).
 
 To calibrate the two tests I ran them, with the spell rule left out, on labels
 advertised in three or more spells, taking those for real units. They fail 0.7% of the
@@ -845,8 +849,8 @@ field is the brokerage, so two agents of a firm in one building read as one list
 
 ## The lease cycle
 
-The count-change table under "An apartment changes over the years" has its highest share
-in the first year. Split by month, that row has a pattern: the counts differ in 18% of
+In the count-change table under "An apartment changes over the years" the first year has
+a higher share than the two years after it. Split by month, that row has a pattern: the counts differ in 18% of
 pairs 3 to 9 months apart, against 6.6% at 12 months, 6.6% at 24 and 8.1% at 36. Most New
 York leases run 12 or 24 months, so an apartment advertised again on the anniversary of
 its previous ad is the ordinary case, and one advertised in between has had something
@@ -899,7 +903,7 @@ and ending:
 | 26 or more | 0.812, -0.003 | 0.803, 0.000 | 0.812, -0.011 | 0.798, -0.008 |
 
 At 3 to 9 months the cells hold 5,303 ads after a deal, 3,436 after "no longer
-available", 3,123 after a delisting and 1,623 after a pause. The months move coverage by 8
+available", 3,123 after a delisting and 1,623 after a pause. The months move coverage by 7
 to 10 points within every ending, and the ending moves it by 2 to 4 points within a row
 of months. So the ending is the smaller part. It does carry a direction: after a delisted
 or paused ad the apartment returns about 1% lower against the fit's median in most rows.
@@ -977,6 +981,46 @@ in 2020 and 1.18 in 2021 against 0.91 to 0.93 in 2024 to 2026. The extra spread 
 to 2022 is specific to the ad: neighbourhood-by-month means hold under 3% of the gap's
 variance in that era, so the fit's time trend did not miss the market as a whole.
 
+### The years 2020 and 2021 on training rows
+
+A held-out ad is its unit's newest, so a held-out ad dated 2020 belongs to an apartment
+not advertised since, and such apartments could differ from the rest. To separate the
+era from that selection I scored training rows the way the fit scores held-out ads
+(`/data1/apartments/tmp/outlier-sprint/s2/Y/`, `results.md`). The saved draws hold no
+unit terms for training rows, so the check rebuilds them: the fixed part from the fit's
+own design code and the posterior means of its coefficients, and the building paths and
+unit terms from a Gibbs sampler run at the posterior means of the scalars. On the
+held-out ads the rebuild gives a coverage of 0.805 against the fit's 0.808, and 0.821,
+0.743 and 0.825 by era against 0.827, 0.746 and 0.828.
+
+I then removed a training row from each of 160,673 units, reran the sampler on the rest
+and scored the removed rows. Coverage of the 80% interval:
+
+| rows | to 2019 | 2020 to 2022 | 2023 on |
+|---|---|---|---|
+| the fit's held-out ads | 0.827 | 0.746 | 0.828 |
+| A: newest ads the split's draw left in training | 0.828 | 0.745 | 0.834 |
+| B: second-newest ads, the newest being held out | 0.847 | 0.750 | 0.827 |
+| C: a row drawn from the unit's earlier ones | 0.817 | 0.724 | 0.811 |
+
+Set C rows have a later ad in the unit, and they cover 0.710 in 2020 and 0.697 in 2021
+against 0.795 to 0.826 in 2014 to 2019 and 0.811 to 0.814 in 2023 to 2025. Stretching the
+predictive spread until the interval covers 80% takes a factor of 1.37 and 1.41 for set
+C in those years and 1.24 and 1.30 for the held-out ads, against 0.82 to 1.06 in the
+other years. So the selection of each unit's newest ad does not produce the era's
+spread. The asks of 2020 and 2021 are wider around the fit for apartments advertised
+before and after as well. 2022 is nearer the other years on training rows (0.785 and
+0.787 in sets B and C against 0.763 on held-out ads).
+
+The lease phase holds up on the same rows: the removed rows 3 to 9 months after the
+unit's previous row cover 0.748 to 0.761 in the three sets against 0.825 to 0.842 at 10
+to 13 months.
+
+The check does not separate ad-level noise from apartments moving faster than the
+fitted drift allows (its time scale is 9.6 years). An apartment whose ask dropped in
+late 2020 and recovered in 2021 reads as wide in both years under either account. The
+rebuild is also a plug-in at the scalars' posterior means, with no draw-by-draw rebuild.
+
 ### Reading
 
 An apartment back on its anniversary has been through a tenancy, and the landlord prices
@@ -996,9 +1040,11 @@ ad's ending adds 86 once months and levels are in.
 Two parts of this account are not established. The records do not say whether an
 apartment "no longer available" was let off the platform, so the split between broken
 tenancies and unrented apartments is uncertain for a quarter of the returns. And the
-spread of 2020 to 2022 may have another source than the pandemic market: the held-out ad
-is each unit's newest, so a held-out ad of 2020 belongs to an apartment not advertised
-since, and such apartments may differ.
+cause of the spread of 2020 and 2021 is open. The training-row check above rules out the
+selection of each unit's newest ad, and it leaves two accounts standing: asks of those
+years scattered more around each apartment's level (net rents typed for some ads and
+gross rents for others would do it, since free months were common then), or apartments
+moved faster than the fitted drift.
 
 Weak points of the measurement: the factors come from held-out ads (cross-fitting by
 building changed them little), the t density approximates the fit's predictive
@@ -1054,8 +1100,8 @@ candidates from the text flags.
 1. c3, the narrowed closing dataset with b9's 6-chain design
    (`docs/notes/closing-asks-2026-11-11.md`). It takes the place of c2.
 2. The income flag, on c3's winner's dataset (`docs/notes/income-flag-2026-11-11.md`).
-3. No fit for the sprint's ledger entries by themselves. They change about 860 ads out of
-   1,985,235 kept rows (about 730 of them excluded), join 32 pairs of unit pages and move 69
+3. No fit for the sprint's ledger entries by themselves. They change about 860 of the
+   pipeline's 1,985,235 kept ads (about 730 of them excluded), join 32 pairs of unit pages and move 69
    ads off shared unit records, which is negligible under the rule against refits for small
    data changes.
    c3 reprices b9's dataset and does not read the ledger, so the entries first reach a fit
@@ -1072,9 +1118,9 @@ candidates from the text flags.
    2021 and of 0.89 to 0.95 for 2024 to 2026, against the all-years scale; coverage moves
    from 0.745 to between 0.775 and 0.80 for 2020 to 2022 and from 0.826 to between 0.80
    and 0.815 since 2023; elpd gains 600 to 1,300; the 80% interval of a current ad on the
-   Deals page narrows by 5% to 9%. The free check gave 1,185. If the units last advertised
-   in 2020 to 2022 produce the spread and the era does not, the fit's factors come out
-   nearer 1 and the gain under 600, which would count as a miss.
+   Deals page narrows by 5% to 9%. The free check gave 1,185. Training rows scored as
+   held-out ads show the same spread in 2020 and 2021 ("The years 2020 and 2021 on
+   training rows"), so the factors are not produced by which units the split holds out.
 6. L2, a level per lease phase, on L1's winner. Predicted: -0.008 to -0.016 for an
    apartment back within 3 months, the other phases within 0.004 of each other, and an
    elpd gain of 100 to 300. A column for the previous ad's ending (delisted or paused
@@ -1117,7 +1163,7 @@ candidates from the text flags.
 
 Gate fits run 6 chains in three containers of 2. The reparameterization of the walk's
 hyperparameters proposed earlier in the sprint is withdrawn: the scale step already slices
-along their ridge, and c1's miss was a tail event of 4 chains
+along their ridge, and c1's miss reads as a tail event of 4 chains
 (`docs/notes/closing-asks-2026-11-11.md`, "The gate miss, second look"). A second pass of
 the unit-level steps within each sweep is a sampler candidate with a timing pilot ahead of
 any fit.
@@ -1132,9 +1178,9 @@ any fit.
   on the page.
 - The served median is 0.47% above the held-out asks, about 1% in 2022 and 2023. The cause
   was not looked into.
-- Coverage is 0.745 for held-out ads of 2020 to 2022 against 0.826 before and after. A
-  check on training rows, from saved draws, would say whether the era or the units last
-  advertised in it produce the spread.
+- Coverage is 0.745 for held-out ads of 2020 to 2022 against 0.826 before and after, and
+  training rows show the same. The cause is open between asks scattered around each
+  apartment's level in those years and apartments moving faster than the fitted drift.
 - Size fills from another ad of the unit or from the line were wrong in a third or more of
   the 26 filled ads read. The pipeline rule in `docs/TODO.md` needs a wider read first.
 - Real Street's short-text ads with a typed count are also wrong in places (3974767 codes 1

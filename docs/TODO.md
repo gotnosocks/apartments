@@ -21,8 +21,8 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   of it in 2020 to 2022 and 159 of that on ads with no concession in their record or text,
   most per ad in buildings with few training rows
   (`docs/notes/closing-asks-2026-11-11.md`). Needs a note with predictions.
-- [ ] Gate fits run 6 chains (three containers of 2). c1's 4 chains missed the gate by a
-  tail event with a chance of 2.1% to 2.8% at b9's mixing, against 0.55% to 0.74% for 6
+- [ ] Gate fits run 6 chains (three containers of 2). c1's 4 chains missed the gate by what
+  reads as a tail event, with a chance of 2.1% to 2.8% at b9's mixing, against 0.55% to 0.74% for 6
   chains (`docs/notes/closing-asks-2026-11-11.md`, "The gate miss, second look"). The
   reparameterization of `drift_tau`, `unit_sd` and `drift_sd` proposed earlier is
   withdrawn: the scale step already slices along their ridge.
@@ -34,9 +34,9 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   and go on to a full fit only if the ridge's effective draws per second rise by at least
   about 20%.
 - [ ] Stabilized units following a share of their area's path. The stabilized flag's gap
-  runs -0.011, +0.010, +0.004 and -0.023 in 2019 to 2022 and -0.010 to -0.017 since, as a
-  stabilized rent moves by the Rent Guidelines Board's increase while the market fell and
-  recovered (the sprint note, "Residuals by text flag"). The term is a coefficient on the
+  runs -0.011, +0.010, +0.004 and -0.023 in 2019 to 2022 and -0.010 to -0.017 since, which
+  fits a stabilized rent moving by the Rent Guidelines Board's increase while the market
+  fell and recovered (the sprint note, "Residuals by text flag"). The term is a coefficient on the
   area path for flagged rows. Predicted: the coefficient lies between 0.3 and 0.7, the
   yearly gaps of flagged ads fall inside ±0.006, and elpd gains 20 to 80 on the latest
   split. Needs a note. The DHCR building lists are a source for the flag apart from ad

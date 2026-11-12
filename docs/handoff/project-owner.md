@@ -30,7 +30,7 @@ folder for each line of work, each with a `results.md`).
   unchanged held-out ads, pool with `rentfrontier.drift_pool`, score with
   `rentfrontier.drift_score`, and compare with the scratch script
   `/data1/apartments/tmp/outlier-sprint/compare_c1.py RUN_A RUN_B`.
-- **c1's gate miss** was a tail event of 4 chains on a ridge the walk's scales cross slowly
+- **c1's gate miss** reads as a tail event of 4 chains on a ridge the walk's scales cross slowly
   (chance 2.1% to 2.8% against 0.55% to 0.74% for 6 chains). Gate fits run 6 chains. The
   reparameterization proposed earlier is withdrawn.
 - **Reads.** Pass 2's 600 ads are in `p2/reads/b_*.jsonl` with the proposals in

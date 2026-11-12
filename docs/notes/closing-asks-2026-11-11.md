@@ -226,10 +226,13 @@ rows' mixing scales, which the scale step holds fixed: the split between a noisy
 moving unit is renegotiated only as the mixing scales are redrawn around the new scales.
 I did not confirm this with a run of the sampler.
 
-**Verdict.** c1's miss is the 4-chain layout meeting a tail event of roughly 1 in 25 to 1
-in 90, on a target no harder than b9's. Record errors do not set the ridge position, since
-the t weights remove them. A single fit cannot exclude a small real difference between
-the targets, and a difference large enough to show in a per-chain statistic is excluded.
+**Verdict.** The chain-by-chain comparison supports reading c1's miss as the 4-chain
+layout meeting a tail event of roughly 1 in 25 to 1 in 90: the chains of the two fits mix
+alike, and the simulation gives that rate at b9's mixing. The data side is weaker
+evidence. The reconstruction says record errors do not set the ridge position, since the
+t weights remove them, and it fails two of its own checks, so that statement rests on
+magnitudes. A single fit cannot exclude a small real difference between the targets. A
+difference large enough to show in a per-chain statistic is excluded.
 
 - The reparameterization is withdrawn. The warmup already sets the scale step's
   directions from the draws' covariance and the curvature of the step's own density, so
