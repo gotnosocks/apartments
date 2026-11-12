@@ -35,9 +35,13 @@ The excess lies in the tails, and mostly in units with a single ad:
 |---|---:|---:|---:|---:|
 | later phases | 771,428 | 0.0825 | 0.0468 | 0.0031 |
 | first ad, more ads follow | 398,097 | 0.0790 | 0.0530 | 0.0051 |
-| first ad, the unit's only ad | 537,299 | 0.0750 | 0.0649 | 0.0082 |
+| first ad, the unit's only ad in the dataset | 537,299 | 0.0750 | 0.0649 | 0.0082 |
 
-Units with a single ad hold 57% of the "none" rows and show 2.6 times the later phases'
+A unit counts as having a single ad when it has one row in the whole dataset, held-out
+rows included. The latest split (`latest_split` in `frontier/src/rentfrontier/splits.py`)
+holds out the last ad of some units with at least two ads, so a single-ad unit's ad is
+always a training row. "More ads follow" means the unit has at least two ads in the
+dataset, and its later ads may be held out. Units with a single ad hold 57% of the "none" rows and show 2.6 times the later phases'
 share of rows beyond 6 scales. First ads of units with later ads show 1.6 times. The model
 has no way to split a single-ad unit's distance from its building between the unit's
 normal lasting level and the row's Student-t noise, so it seems plausible that these
