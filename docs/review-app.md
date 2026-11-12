@@ -202,6 +202,8 @@ It writes, for the answers in force not yet exported:
 Each file name ends in `-01`, or the next free number, so a second export of a day sorts after
 the first, as the ledger reads its files in order of name. An answer given before a rebuild
 changed its card writes no ledger line: it goes to the findings with `card_changed`, since the
-card's proposal may not be what Ben saw, and the card asks for a new answer. Each written line's `source` is
+card's proposal may not be what Ben saw, and the card asks for a new answer. A join that would put a unit page into a second join, against a join in force in the unit
+ledger or an earlier line of the same export, is not written either: it goes to the findings
+with `page_already_joined`, as the unit ledger lets a page take part in one join at most. Each written line's `source` is
 `review app <queue>/<card> <at>`. Then a thread opens the usual reviewed PR, whose tests read the
 new files with the ledger's own rules.

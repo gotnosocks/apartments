@@ -502,3 +502,34 @@ def test_card_ids_may_hold_slug_characters(root, client):
     assert review.load_queue(root, "joins").errors == ()
     response = client.get("/review/joins/226-east-59-street-new_york:5fw+5u")
     assert response.status_code == 200
+
+
+def test_export_never_joins_a_page_twice(client, root, tmp_path):
+    ledger = tmp_path / "ledger"
+    (ledger / "units").mkdir(parents=True)
+    earlier = {
+        "change": "join_units",
+        "building": "16-monitor-street-brooklyn",
+        "units": ["3g", "3h"],
+        "evidence": [{"kind": "owner", "detail": "Ben, 2026-11-11"}],
+        "decided": "2026-11-11",
+    }
+    (ledger / "units" / "2026-11-11-x.ndjson").write_text(json.dumps(earlier) + "\n")
+    _answer(client, "joins", "16-monitor-street-brooklyn:3e", answer="yes")
+    out = review.export(root, ledger, day="2026-11-12")
+    assert out["units"] == 0 and out["findings"] == 1
+    [finding] = [
+        json.loads(x) for x in (root / "review" / "findings-2026-11-12-01.jsonl").open()
+    ]
+    assert finding["page_already_joined"] is True
+
+
+def test_joined_pages_leave_out_retracted_joins(tmp_path):
+    line = json.dumps({"change": "join_units", "building": "b", "units": ["1", "2"]})
+    entry = review.hashlib.sha256(line.encode()).hexdigest()[:16]
+    (tmp_path / "units").mkdir()
+    (tmp_path / "units" / "a.ndjson").write_text(line + "\n")
+    assert review.joined_pages(tmp_path) == {("b", "1"), ("b", "2")}
+    retract = json.dumps({"change": "retract", "entry": entry})
+    (tmp_path / "units" / "b.ndjson").write_text(retract + "\n")
+    assert review.joined_pages(tmp_path) == set()

@@ -575,11 +575,42 @@ def _exclude_line(card: Card, problems: list[str]) -> dict[str, Any] | None:
     return line
 
 
+def joined_pages(ledger: Path) -> set[tuple[str, str]]:
+    """The (building, unit) pages of the joins in force in the unit ledger's files: joins no
+    later retract undoes. The unit ledger lets a page take part in one join at most."""
+    joins: dict[str, list[tuple[str, str]]] = {}
+    retracted: set[str] = set()
+    for path in sorted((ledger / "units").glob("*.ndjson"), key=lambda p: p.name):
+        for text in path.read_text(encoding="utf-8").split("\n"):
+            if not text.strip():
+                continue
+            try:
+                line = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(line, dict):
+                continue
+            if line.get("change") == "retract":
+                retracted.add(str(line.get("entry")))
+            elif line.get("change") == "join_units":
+                entry = hashlib.sha256(text.encode()).hexdigest()[:16]
+                building = str(line.get("building"))
+                joins[entry] = [(building, str(u)) for u in line.get("units") or []]
+    return {
+        page
+        for entry, pages in joins.items()
+        if entry not in retracted
+        for page in pages
+    }
+
+
 def plan_export(
-    root: Path, reader: str, day: str
+    root: Path, reader: str, day: str, taken: set[tuple[str, str]] | None = None
 ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """The answers in force not yet exported, as (corrections lines, unit lines, findings,
-    exported records)."""
+    exported records). `taken` holds the pages already in a join in force; a join that would
+    put one of them in a second join is not written, and goes to the findings."""
+    taken = set(taken or ())
     decisions = load_decisions(root)
     done = _exported_keys(root)
     corrections: list[dict] = []
@@ -659,10 +690,23 @@ def plan_export(
             # The card changed after the answer, so its proposal or records may not be what
             # Ben saw: no line is written, and the finding asks for a new answer.
             written = []
+        clash = False
+        for _, line in written:
+            if line.get("change") == "join_units":
+                pages = {(line.get("building"), u) for u in line.get("units") or []}
+                clash = clash or bool(pages & taken)
+        if clash:
+            written = []
+        for _, line in written:
+            if line.get("change") == "join_units":
+                taken.update((line.get("building"), u) for u in line.get("units") or [])
         for kind, line in written:
             (units if kind == "units" else corrections).append(line)
         if not written or decision["answer"] == PROBLEM:
-            findings.append(_finding(decision, card))
+            finding = _finding(decision, card)
+            if clash:
+                finding["page_already_joined"] = True
+            findings.append(finding)
         marks.append(_mark(decision, [line for _, line in written]))
     return corrections, units, findings, marks
 
@@ -726,7 +770,9 @@ def export(
 ) -> dict[str, Any]:
     """Write the ledger lines and findings of the answers not yet exported."""
     day = day or dt.date.today().isoformat()
-    corrections, units, findings, marks = plan_export(root, reader, day)
+    corrections, units, findings, marks = plan_export(
+        root, reader, day, joined_pages(ledger)
+    )
     stem = f"{day}-review-app"
     out: dict[str, Any] = {
         "corrections": len(corrections),
