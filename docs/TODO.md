@@ -41,6 +41,16 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   yearly gaps of flagged ads fall inside ±0.006, and elpd gains 20 to 80 on the latest
   split. Needs a note. The DHCR building lists are a source for the flag apart from ad
   text and should be joined first.
+- [ ] A noise factor for units with no earlier ad, built only from what is known when the
+  ad opens. It takes the place of F1, withdrawn for reading whether the unit is listed
+  again (`docs/notes/first-ad-split-2026-11-12.md`). Single-ad units hold the tails of
+  L1's "none" phase (0.82% of rows beyond 6 robust scales, against 0.31%). Candidate
+  inputs, each as of the ad's first day:
+  - the unit label failing the label standard of the outlier sprint: absent from the
+    lot's city records, off the building's grid of floors and lines
+  - the lister's reposting so far
+  - the building's ad history so far, such as its count of earlier ads
+  Needs a note with predictions, and a check that each input reads no later ad.
 - [ ] A renovation step dated from the unit's own ads: a column set from the first ad of a
   unit whose text says renovated or gut renovated when an earlier ad of the unit lacked the
   words. Ads switching the words on sit +0.009 to +0.012 over the model, and ads dropping

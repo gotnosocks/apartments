@@ -62,9 +62,14 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
     elpd too, but their median shortfall only moves from -0.0246 to -0.0235. I did not
     write the term: the note sets out a nested, collapsed line level for a new module,
     with predictions.
-- **Models merged and not yet fit.** F1 (`drift-building-phase-first`, #1341, L1 with its
-  "none" phase split into `first` and `only`, against L1, two containers, $7.5 to $9;
-  `docs/notes/first-ad-split-2026-11-12.md`), U2 (`drift-building-unitt`, #1333, a Student-t lasting
+- **F1 withdrawn.** `drift-building-phase-first` (#1341) split L1's "none" phase by
+  whether the unit is listed again later, which reads the future. Ben withdrew it at
+  16:24 ET before any fit, and #1344 removed the module
+  (`docs/notes/first-ad-split-2026-11-12.md`). I checked L1, Y1 and U2 for the same
+  flaw. L1's phase counts months back to the unit's previous ad, Y1's factor reads the
+  row's own year, and U2 changes only the prior on unit levels, so none of them reads a
+  row's later ads.
+- **Models merged and not yet fit.** U2 (`drift-building-unitt`, #1333, a Student-t lasting
   level for each unit, against c3, three containers, about $11) and Y1
   (`drift-building-phase-year`, #1337, L1's noise times a factor for each calendar year,
   against L1, two containers, about $8.4). Their predictions are in their notes.
@@ -104,14 +109,14 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
 1. **Y1** (about $8.4). It is the only queued change built on L1, so a win serves
    directly once its own market fits run. The 2020 to 2022 shortfall it targets is the
    largest loss L1 has by year. It launches after follow-ups 1 and 3.
-2. **F1** ($7.5 to $9, #1341), against L1. A win changes only the noise of first ads, so
-   it serves after its own market fits, as Y1 does.
-3. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
+2. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
    tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
-4. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
+3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
-5. **Candidates from the free checks.** Each needs its predictions written first:
+4. **Candidates from the free checks.** Each needs its predictions written first:
    - a noise mix for quick returns, separating near repeats from repricings
+   - a noise factor for units with no earlier ad, built from what is known when the ad
+     opens (`docs/TODO.md`)
    - a level for each line. The screen in #1342 supports it on all ads but not as a fix
      for the Deals ads on pricier lines, and the model needs a new module first
 

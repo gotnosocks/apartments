@@ -1,4 +1,17 @@
-# The first-ad phase split in two (F1, not yet fit)
+# The first-ad phase split in two (F1, withdrawn before any fit)
+
+## Withdrawn for look-ahead
+
+Ben withdrew F1 on 2026-11-12 at 16:24 ET, before any launch, and I removed the module,
+its tests and its registry entries (#1344). F1 sorts an ad with no earlier ad into
+`first` or `only` by whether the unit gets listed again later. That isn't known while the
+ad is live. A market ad scored on its day always reads as `only`, so in training the
+label separates units by their future, and at prediction it carries no information. The
+latest split hid the problem because none of its held-out ads falls in either phase.
+
+A replacement noise factor for units with no history has to use only what is known when
+the ad opens. `docs/TODO.md` lists candidates. The rest of this note is the design and the
+predictions as written before the withdrawal.
 
 F1 is `drift-building-phase-first`, the phase model L1 with its "none" phase split by
 whether the unit has more ads in the dataset:
