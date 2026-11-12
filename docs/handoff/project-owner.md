@@ -25,12 +25,12 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   and runs `/data1/apartments/tmp/sprint-20261112/queue-l1-market.sh`. It launches six
   containers from the daily budget, each once `cap.py --check-launch` passes: l1na, l1ja,
   l1nb, l1jb, l1nc, l1jc (seeds 31, 41, 32, 42, 33, 43) on the closingraise market and
-  as-of 2025-11-10 datasets (#1332). The six cost about $23 in all, so they take a little
-  over two days of the budget. The log is `queue-l1-market.log` beside the script. When
+  as-of 2025-11-10 datasets (#1332). The six cost about $23 in all, so they take about two
+  and a half days of the budget. The log is `queue-l1-market.log` beside the script. When
   they finish, I pool them as `drift-building-phase-b0-market-9a7830fb-l1n` (l1na, l1nb, l1nc)
   and `...-l1j` (the three j's), check the gate, run the backtest, and publish Deals from
   the market pool.
-- **The sampler of the queue.** #1337 rewrote the slice step in `drift.py` as a `lax.scan`,
+- **Sampler version of the queue's fits.** #1337 rewrote the slice step in `drift.py` as a `lax.scan`,
   and its draws are bit-identical to the old step's on CPU only. The queue passes commit
   9a7830fb to `ops/modal-fit`, and the container copies that commit's checkout
   (`ops/modal/app.py`), so the market and backtest fits run the sampler L1's latest-split
@@ -53,9 +53,11 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   level for each unit, against c3, three containers, about $11) and Y1
   (`drift-building-phase-year`, #1337, L1's noise times a factor for each calendar year,
   against L1, two containers, about $8.4). Their predictions are in their notes.
-- **Tests on master.** At 6c920023 (before #1337) L1's test file passes 8 of 8. The
-  full suite's logs are `/data1/apartments/tmp/sprint-20261112/fullsuite.log.frontier`
-  and `.root`.
+- **Tests on master.** At 6c920023 (before #1337) `frontier/tests/test_drift_building_phase.py`
+  passed 8 of 8 in 120 s. A full-suite run at that commit was still going at 12:30 ET,
+  one folder at a time (frontier, then root), with no failures through 16% of the
+  frontier tests. It writes `/data1/apartments/tmp/sprint-20261112/fullsuite.log.frontier`
+  and `.root`, each ending in an `exit N` line.
 
 ### Follow-ups the review of #1337 left
 
@@ -79,9 +81,9 @@ This replaces the list under the outlier sprint below.
    largest loss L1 has by year. It launches after follow-ups 1 and 3.
 2. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
    tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
-3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It moves
-   about 1,000 rows, so I expect a small gain. Serving it also needs a fit on L1's line.
-4. **Candidates from the free checks**, with predictions to be written first:
+3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
+   997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
+4. **Candidates from the free checks.** Each needs its predictions written first:
    - split L1's "none" phase into only-ad and first-of-several
    - a noise mix for quick returns, separating near repeats from repricings
    - a level for each line, for the Deals ads on pricier lines
