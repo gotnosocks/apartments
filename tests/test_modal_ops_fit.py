@@ -136,6 +136,7 @@ def test_a_launch_against_a_baseline_on_another_split_is_refused(tmp_path):
     assert "no readable result.json" in cap.baseline_refusal(
         ["--split", "latest", "--baseline", "c9", *argv], runs
     )
+    assert "needs the name" in cap.baseline_refusal([*argv, "--baseline"], runs)
     # --baseline takes a value, so the fit's size is read past it.
     assert cap.fit_size(["--baseline", "c3", *argv]) == (
         "2",

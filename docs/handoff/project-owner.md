@@ -72,7 +72,7 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
 - **U2 launch error.** I launched U2's three containers at 17:04 ET without
   `--split latest`, so they fit the rows split and can't be compared with c3. I stopped
   u2b and u2c at 17:56 ET. The round cost $11.10 (u2a $3.61, u2b $3.76, u2c $3.73) on
-  top of the sprint's $18.82. On u2a's draws the unit level's degrees of freedom sit at
+  top of the sprint's $18.82. On u2a's draws the unit level's degrees of freedom come to
   about 2.2, and `unit_dof` and `nu` mix slowly enough (ESS 65 and 46 on 2 chains) that a
   6-chain pool would likely miss the gate (`docs/notes/unit-t-level-2026-11-12.md`).
   `ops/modal-fit --baseline RUN` now refuses a launch on a split other than RUN's, and the

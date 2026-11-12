@@ -82,7 +82,7 @@ split, so U2's held-out ads are not c3's and the comparison above can't be made.
 
 - u2a ran its 2,919 s fit and settled at $3.61.
 - Modal preempted u2b and restarted it.
-- When I found the split at 17:54 ET, I stopped u2b and u2c with `modal app stop`. They
+- I found the split at 17:54 ET and stopped u2b and u2c with `modal app stop` at 17:56 ET. They
   settled at $3.76 and $3.73, close to a finished container's cost.
 
 The round cost $11.10 and scores none of the predictions above. The launch script now
@@ -101,7 +101,7 @@ training ads of the rows split. They are not scored against the predictions.
 | `unit_sd` | 0.0410 / 0.0412 / 0.0415 | 0.0590 |
 | `nu` (the ads' noise) | 2.10 / 2.12 / 2.14 | 1.715 |
 
-- The units' Student-t sits at about 2.2 degrees of freedom, below prediction 2's
+- The units' Student-t has about 2.2 degrees of freedom, below prediction 2's
   2.5 to 6 band. Its scale falls by 30% from c3's normal sd, inside prediction 3's band.
 - The ads' own nu rises from 1.72 to 2.12. Some of the heavy tail c3 put on single ads
   moves onto whole units.
@@ -115,10 +115,10 @@ training ads of the rows split. They are not scored against the predictions.
 - Across u2a's draws `unit_dof` correlates 0.78 with `unit_sd` and -0.28 with `nu`.
   Its autocorrelation is 0.25 at lag 10 and still 0.14 at lag 200.
 
-The two chains agree on every median to 0.002, so the slow mixing is a slow walk around
-one mode, not chains that disagree. If six chains of this length mixed like u2a's, the
+The two chains agree on every median to 0.002. They both wander slowly around the same
+mode. If six chains of this length mixed like u2a's, the
 pool would hold an ESS near 200 for `unit_dof` and 140 for `nu`, short of the gate's 400.
 Under the gate rule the next step after a miss is the data, then the model. A unit
-level at 2.2 degrees of freedom says a few units sit very far from their building, and
+level at 2.2 degrees of freedom says a few units lie very far from their building, and
 I would read those units first: miscoded bedrooms, stabilized units, or one label shared
 by two apartments.

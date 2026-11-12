@@ -753,7 +753,7 @@ def _option(argv, flag, default=None):
     args = iter(argv)
     for arg in args:
         if arg == flag:
-            return next(args, default)
+            return next(args, "")
         if arg.startswith(flag + "="):
             return arg.split("=", 1)[1]
     return default
@@ -767,6 +767,8 @@ def baseline_refusal(argv, runs=RUNS):
     base = _option(argv, "--baseline")
     if base is None:
         return None
+    if not base:
+        return "--baseline needs the name of a run"
     split = _option(argv, "--split", "rows")
     try:
         theirs = json.loads((runs / base / "result.json").read_text()).get("split")
