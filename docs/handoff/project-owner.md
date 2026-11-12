@@ -55,15 +55,28 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
     reposts cover 0.91.
   - Noise by calendar year (#1337, `docs/notes/year-noise-2026-11-12.md`). L1 loses 226.7
     elpd (SE 30.3) to c3ab on 2020 to 2022 asks and covers 0.736 of them at 80%.
-- **Models merged and not yet fit.** U2 (`drift-building-unitt`, #1333, a Student-t lasting
+  - A level for each line (#1342, `docs/notes/line-level-screen-2026-11-12.md`). I moved
+    each held-out ad by the shrunk mean of other units' held-out residuals in its group
+    and rescored L1's predictive. Counting only earlier ads, the line gains +750 elpd
+    (SE 83) and building and bedrooms +706 (SE 49). The Deals ads on pricier lines gain
+    elpd too, but their median shortfall only moves from -0.0246 to -0.0235. I did not
+    write the term: the note sets out a nested, collapsed line level for a new module,
+    with predictions.
+- **Models merged and not yet fit.** F1 (`drift-building-phase-first`, #1341, L1 with its
+  "none" phase split into `first` and `only`, against L1, two containers, $7.5 to $9;
+  `docs/notes/first-ad-split-2026-11-12.md`), U2 (`drift-building-unitt`, #1333, a Student-t lasting
   level for each unit, against c3, three containers, about $11) and Y1
   (`drift-building-phase-year`, #1337, L1's noise times a factor for each calendar year,
   against L1, two containers, about $8.4). Their predictions are in their notes.
-- **Tests on master.** At 6c920023 (before #1337) `frontier/tests/test_drift_building_phase.py`
-  passed 8 of 8 in 120 s. A full-suite run at that commit was still going at 12:20 ET,
-  one folder at a time (frontier, then root), with no failures through 16% of the
-  frontier tests. It writes `/data1/apartments/tmp/sprint-20261112/fullsuite.log.frontier`
-  and `.root`, each ending in an `exit N` line.
+- **Tests on master 99bf5f92.** The folder-at-a-time run was killed at its memory cap, so
+  I ran pytest once per file instead (`/data1/apartments/tmp/sprint-20261112/suite/`,
+  `runfiles.sh` and `runroot.sh`, summaries in `files.summary` and `rfiles.summary`).
+  The root tests ran all 205 files and passed 3,099, with four files holding no tests. The three Modal files need the
+  `modal` package, which `bridge-root` lacks, so I ran them in `nj-root`, where their 5 tests pass. The frontier
+  tests passed 964 in the 98 files left after the killed run, which had
+  passed 329 in the 55 files before it. No test failed. `test_building_zones_floor.py`
+  passed 14 tests and then hit the 30-minute limit for one file, so its remaining tests
+  went unrun.
 
 ### Follow-ups the review of #1337 left
 
@@ -75,8 +88,8 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
    16b3833c and then b6aa8a8b at f9277d32), so the GPU itself rounds differently from run
    to run, and the scan adds nothing larger. The script and arrays are in
    `/data1/apartments/tmp/sprint-20261112/gpucheck/`.
-2. Add sha256 pins for the draws of `drift-building-phase` and `drift-building-unitt`, as
-   #1330 did for `drift-building`.
+2. Done in #1339: sha256 pins for the draws of `drift-building-phase` and
+   `drift-building-unitt`.
 3. Y1's cap margin. `cap.py` estimates 3,560 s a container against the 3,600 s cap. The
    sampler stops on its 2,520 s budget rather than a draw count, so Y1's wall should
    match L1's: L1 had the same estimate and settled at 3,165 s and 3,191 s. That leaves
@@ -91,14 +104,16 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
 1. **Y1** (about $8.4). It is the only queued change built on L1, so a win serves
    directly once its own market fits run. The 2020 to 2022 shortfall it targets is the
    largest loss L1 has by year. It launches after follow-ups 1 and 3.
-2. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
+2. **F1** ($7.5 to $9, #1341), against L1. A win changes only the noise of first ads, so
+   it serves after its own market fits, as Y1 does.
+3. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
    tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
-3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
+4. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
-4. **Candidates from the free checks.** Each needs its predictions written first:
-   - split L1's "none" phase into only-ad and first-of-several
+5. **Candidates from the free checks.** Each needs its predictions written first:
    - a noise mix for quick returns, separating near repeats from repricings
-   - a level for each line, for the Deals ads on pricier lines
+   - a level for each line. The screen in #1342 supports it on all ads but not as a fix
+     for the Deals ads on pricier lines, and the model needs a new module first
 
 ## Outlier sprint, final state at 2026-11-12 13:00Z
 
