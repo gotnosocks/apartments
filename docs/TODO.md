@@ -57,7 +57,10 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   their training counterparts) with a concession in the text and none in the record. The
   ask stays as recorded: in most of these ads the lister typed the net rent as the price.
   Predicted: the group's mean gap moves from -0.011 to within ±0.004. This widens the
-  parsing item under the Deals list.
+  parsing item under the Deals list. The wording is on about 120,000 training rows with
+  no recorded free months, 94,867 of them through 2019 (11.9% of those rows) and 25,230
+  in 2020 (12.3%), and on 586 to 1,549 rows a year since 2021. The column therefore acts
+  on the years before listers used the structured field and hardly on current ads.
 - [ ] Diagnostics: take each held-out ad's previous ask from the same build and the same
   model unit as the fit. `prev_ask` in `site/diagnostics/ads.parquet` comes from the market
   build's history, which crosses the pieces of an apartment: in 40% of the ads whose
@@ -107,9 +110,10 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   and the free checks are in the sprint note ("The lease cycle"; elpd +400 to +900).
 - [ ] Y1: a noise scale by calendar year. Coverage is 0.745 for held-out ads of 2020 to
   2022 and 0.826 before and after; current intervals are 7% to 9% too wide by the free
-  check. Predictions are in the sprint note (elpd +600 to +1,300). Before the fit, check
-  the training rows' residuals by year from b9's saved draws, since each held-out ad is
-  its unit's newest and the units last advertised in 2020 to 2022 may differ.
+  check. Predictions are in the sprint note (elpd +600 to +1,300). Training rows scored
+  as held-out ads show the same spread in 2020 and 2021 (sets B and C of
+  `/data1/apartments/tmp/outlier-sprint/s2/Y/`), so the factors do not come from the
+  split's choice of units.
 - [ ] L2: a level per lease phase on L1's winner (apartments back within 3 months come
   1.4% under the median). Behind it, a column for the previous ad's ending (delisted or
   paused against a deal), which needs the raw status histories carried into the dataset.
@@ -133,20 +137,47 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   drift are multiplied by `exp(gamma * max(0, log(sqft / 1000)))`. Over 1,500 sq ft the
   80% interval covers 0.69, and the gap keeps 49% of the previous ask's deviation. The
   attributes the ads record explain 9% to 16% of that persistent variance (sprint note,
-  "Observed attributes of large units"), so the scale comes first. Needs a dataset module
-  carrying a size column (stated sizes and sizes agreeing across a unit's ads first).
-  Predictions are in the sprint note (`gamma` 0.3 to 0.6, elpd +150 to +500).
-- [ ] U3: a building-level coefficient on `max(0, log(sqft / 1000))`, on U1's winner.
-  Different large units of one building share 25% of the persistent covariance (15% to
-  37%), against 4.2% for the building attributes on record.
+  "Observed attributes of large units"), so the scale comes first. The mean already
+  reads the unit's size (`unit:log_size_rel`), and the scales read none, so the size goes
+  to the sampler's unit steps through a module of its own. Predictions are in the sprint
+  note (`gamma` 0.3 to 0.6, elpd +150 to +500). U4 runs ahead of it.
+- [ ] U4: a unit scale by bedroom count, a factor on the sd of a unit's lasting level for
+  2 bedrooms and for 3 or more. For units with no ad in training the 80% interval covers
+  0.733, 0.693 and 0.663 of final asks at 2, 3 and 4 or more bedrooms in the backtest j9
+  against 0.818 for 1-bedrooms, and 2,244 of those 2,845 ads state no size, so a scale
+  on size alone leaves them where they are. Predictions are in the sprint note (factors
+  1.2 to 1.6 and 1.4 to 2.0, new-unit coverage for 2 or more bedrooms from 0.72 to
+  between 0.76 and 0.80, elpd +100 to +500).
+- [ ] U3: a building-level term for large units, on U1's winner. Either a coefficient per
+  building on `max(0, log(sqft / 1000))`, or a level per building for its apartments of
+  2 or more bedrooms. Different large units of one building share 25% of the persistent
+  covariance (15% to 37%), against 4.2% for the building attributes on record. New
+  2-or-more-bedroom units of a building have a pair covariance of 0.0082 in their gaps
+  (half their variance) against 0.0013 with the building's smaller new units, and the
+  building's earlier asks for the count predict a quarter of it (sprint note, "Units
+  with no ad in training").
 - [ ] U2: a Student-t distribution for the unit's lasting level, on U1's winner. Predicted
   to close with over 8 degrees of freedom and under 100 elpd.
 - [ ] Read floor plans and photos of large units for the qualities the record lacks (a
   second level, a full floor, a renovation), on Sonnet or Haiku readers. No check in the
   sprint read them, and the recorded attributes leave the persistent sd of large units at
   0.091 against 0.026 for mid-sized units.
-- [ ] Find the cause of the served median standing 0.47% above held-out asks (about 1% in
-  2022 and 2023, near zero in 2026).
+- [ ] Backtests on 2024-11-10 and 2025-05-10, each a fit of the served design with the
+  day's open ads held out. The served median is 0.47% above the held-out asks of the
+  latest split, and in 2022 and 2023 most of that comes with the split: a unit's last ad is an ask low
+  against its history, more so in 2022 and 2023 (sprint note, "The level of the held-out
+  gap"). The single backtest j9 has +0.3% for open ads of units with history, +0.9% for
+  new units and +4% in buildings new to training. The two further days would say whether
+  those levels hold. Predictions are in the sprint note. Until then, read an elpd gain
+  from a lower level on the latest split against a backtest before taking it as a better
+  median.
+- [ ] The base of about -0.4% in the held-out gap of 2014 to 2018, when last and followed
+  ads differ little, and the part of regulated apartments with no flag in the last-ad
+  selection. Neither was measured.
+- [ ] Read the ads of buildings whose new 2-or-more-bedroom units miss together (The
+  Seren, Lawrence Tower, Union Channel, 420 Carroll, 12 Halsey St) for prices set by
+  floor plan type, and the 307 open ads on pages whose previous ad has another bedroom
+  count, on Sonnet or Haiku readers.
 
 **From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
 of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.
