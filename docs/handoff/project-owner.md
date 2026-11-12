@@ -65,8 +65,9 @@ folder for each line of work, each with a `results.md`).
   Candidates U4 and U3 in `docs/TODO.md`. Scripts and saved output are in `s2/N/` and
   `s2/N/out/`.
 - **The level of the held-out gap.** The served median is 0.47% above the held-out asks,
-  and most of that comes with the latest split holding out each unit's last ad, an ask
-  low against the unit's history (largest in 2022 and 2023). Closing asks in training
+  and in 2022 and 2023 most of that comes with the latest split holding out each unit's
+  last ad, an ask low against the unit's history. A base of about -0.4% in the other
+  years is unexplained. Closing asks in training
   give about 0.1 point. On the single backtest day j9 the open ads with unit history
   have +0.3% (n9, on asks still open, has +0.8%), so the offset of the split is not
   measured on the Deals page's ads. A level change gaining elpd on the latest split needs a

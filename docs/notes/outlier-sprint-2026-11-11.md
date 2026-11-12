@@ -1150,9 +1150,10 @@ noise variances left as they are.
 
 The shortfall belongs to the apartments with 2 or more bedrooms. Coverage falls with the
 count for units with training ads too (0.840, 0.812, 0.798, 0.754 and 0.698 in n9), by
-less. Within j9's 2-or-more-bedroom ads coverage falls with the size of the lot, which
-goes with the lister and the age of the building: 0.786 on lots under 10 apartments, 0.764 on lots of 10 to 49, and 0.662 on lots of 50 or more (656 ads, 23.5%
-above the range, median gap +0.026). Studios and 1-bedrooms on lots of 50 or more are
+less. Within j9's 2-or-more-bedroom ads coverage falls with the size of the lot: 0.786
+on lots under 10 apartments, 0.764 on lots of 10 to 49, and 0.662 on lots of 50 or more
+(656 ads, 23.5% above the range, median gap +0.026). I did not separate the lot's size
+from the building's lister or age. Studios and 1-bedrooms on lots of 50 or more are
 covered 0.822. By stated size, j9's coverage runs 0.932 under 600 sq ft, 0.838 at 600 to
 900, 0.748 at 900 to 1,200, 0.708 at 1,200 to 1,600 and 0.555 over 1,600 (110 ads, median
 gap +0.092). 2,244 of the 2,845 ads state no size, so a scale reading size alone would
@@ -1190,12 +1191,13 @@ the rest is common to the units on the market at the same time. The 2-or-more-be
 new units with no same-count ad of the building in two years are covered 0.598 in j9 (127
 ads) against 0.731 for those with one, and 0.492 in n9 (130 ads) against 0.708.
 
-Among j9's buildings with 7 or more new units of 2 or more bedrooms, the ones with a
-mean gap far from zero are leasing-office buildings: The Seren (17 units at a mean gap of
--0.118), Union Channel (10, +0.109), 420 Carroll (7, +0.167), 12 Halsey St (8, +0.127).
-Lawrence Tower has the most such units (22) at +0.040. Buildings with 3 to 5 units have
-larger means (Carnegie House +0.273, Hanover House +0.227) on fewer ads
-(`out/top-j9.log`).
+`out/top-j9.log` lists j9's 40 buildings with the largest product of the absolute mean
+gap and the count of new units of 2 or more bedrooms. Those with 7 or more such units
+are The Seren (17 units at a mean gap of -0.118), Union Channel (10, +0.109), 420 Carroll
+(7, +0.167), 12 Halsey St (8, +0.127), Atelier Condominium (7, -0.117), Tribeca House (9,
+-0.084) and Lawrence Tower (22, +0.040). Union Channel, 420 Carroll and 12 Halsey St have
+a single lister on those ads and The Seren has two. Buildings with 3 to 5 units have
+larger means (Carnegie House +0.273, Hanover House +0.227) on fewer ads.
 
 **Reading.** A building's level and its quarterly path are common to its apartments of
 every size, and the model's size and bedroom terms are common to an area. When a
@@ -1497,7 +1499,7 @@ any fit.
   Net asks typed into the price field are part of 2020 alone (25,230 rows with a
   concession in the text and none recorded) and of the years through 2019.
 - Buildings whose new 2-or-more-bedroom units miss together. I read no ad of The Seren or
-  the other leasing-office buildings, so the account of floor plan prices set by the
+  the other buildings listed there, so the account of floor plan prices set by the
   office is untested.
 - Pages whose previous ad has another bedroom count (307 open ads in n9, covered 0.645).
   The asks fit a recount of the same rooms, and no ad was read.
