@@ -260,6 +260,11 @@ class Design(building_zones_kitchen_sink.Design):
     # empty, and its rows take their group's sigma alone.
     phase: np.ndarray = None
     phases: tuple = ()
+    # With no map every phase but the reference has a free factor of its own. A map, a
+    # (len(phases), free) array of 0s and 1s, makes a phase's factor the product of the
+    # free factors its row marks, so that the phases can be the cells of two crossed
+    # factor sets (`rentfrontier.drift_building_phase_year`). The reference's row is 0.
+    phase_map: np.ndarray = None
     # The rows to predict, in the full design's order: a dict of their `unit`, `years`, `x`,
     # `site`, `week`, `frac`, `group` and `y`. `subset` fills it for the training rows.
     pred: dict = None
@@ -401,10 +406,15 @@ def slice_along(key, x, lp, logp, dirs, shrink=32):
     times on each side first, which narrows the draws when the slice is longer than the
     stepped-out interval. Placing a wide interval at random needs no stepping out and is
     exact at any width. The log density at each accepted point is carried to the next
-    column, so a column costs one evaluation for each point it tries."""
+    column, so a column costs one evaluation for each point it tries.
+
+    The columns run in a `jax.lax.scan`, so the compiled sweep holds one copy of `logp`
+    however many columns there are."""
     jax, jnp = b0._jax()
-    for k, kk in enumerate(jax.random.split(key, dirs.shape[1])):
-        v = dirs[:, k]
+
+    def column(carry, kv):
+        x, lp = carry
+        kk, v = kv
         k1, k2, k3 = jax.random.split(kk, 3)
         level = lp - jax.random.exponential(k1)
         lo = -jax.random.uniform(k2)
@@ -412,7 +422,7 @@ def slice_along(key, x, lp, logp, dirs, shrink=32):
         def cond(s):
             return (s[0] < shrink) & ~s[5]
 
-        def body(s, x=x, v=v, level=level):
+        def body(s):
             i, lo, hi, t, lpt, _, key = s
             key, sub = jax.random.split(key)
             prop = lo + (hi - lo) * jax.random.uniform(sub)
@@ -432,7 +442,10 @@ def slice_along(key, x, lp, logp, dirs, shrink=32):
 
         start = (0, lo, lo + 1.0, jnp.zeros(()), lp, jnp.zeros((), bool), k3)
         _, _, _, t, lp, _, _ = jax.lax.while_loop(cond, body, start)
-        x = x + t * v
+        return (x + t * v, lp), None
+
+    keys = jax.random.split(key, dirs.shape[1])
+    (x, lp), _ = jax.lax.scan(column, (x, jnp.asarray(lp)), (keys, jnp.asarray(dirs).T))
     return x, lp
 
 
@@ -670,9 +683,20 @@ def make_sampler(
     n = len(d.y)
     assert (d.unit >= 0).all(), "every training row needs a unit"
     # The noise phases (`Design.phase`). Every phase but the reference has a free factor,
-    # and the scale step's x ends with the factors' logs.
-    free = len(d.phases) - 1 if d.phase is not None else 0
+    # or the columns of `Design.phase_map` are the free factors, and the scale step's x
+    # ends with the factors' logs.
+    pmap = None if d.phase is None else d.phase_map
+    if pmap is not None:
+        pmap = np.asarray(pmap, float)
+        assert pmap.shape[0] == len(d.phases) and not pmap[0].any(), "phase_map rows"
+    if d.phase is None:
+        free = 0
+    elif pmap is not None:
+        free = pmap.shape[1]
+    else:
+        free = len(d.phases) - 1
     phased = free > 0
+    pmap_j = None if pmap is None else jnp.asarray(pmap)
 
     # Rows sorted by building, then unit, then time, and the buildings in blocks.
     t_all = years(d)
@@ -843,7 +867,13 @@ def make_sampler(
         sd = sigma[D["group"]]
         if not phased:
             return sd
-        return sd * jnp.concatenate([jnp.ones(1), factor])[D["phase"]]
+        return sd * phase_factors(factor)[D["phase"]]
+
+    def phase_factors(factor):
+        """Every phase's factor, the reference's 1 first, from the free factors."""
+        if pmap_j is None:
+            return jnp.concatenate([jnp.ones(1), factor])
+        return jnp.exp(pmap_j @ jnp.log(factor))
 
     def weights(D, st):
         """Each row's weight c_i = lam_i / s_i^2, with s_i the row's noise scale."""
@@ -1212,11 +1242,14 @@ def make_sampler(
         return unit_loglik(D, hyp, c, e, ukap) + prior
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
-    phase_rows = (
-        jnp.asarray(np.bincount(d.phase, minlength=free + 1)[1:], dtype=float)
-        if phased
-        else None
-    )
+    # Each free factor's rows: under a map, the rows of every phase it enters.
+    phase_rows = None
+    if phased and pmap is None:
+        phase_rows = jnp.asarray(
+            np.bincount(d.phase, minlength=free + 1)[1:], dtype=float
+        )
+    elif phased:
+        phase_rows = jnp.asarray(np.bincount(d.phase, minlength=len(d.phases)) @ pmap)
 
     def level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap=None):
         """What integrating the buildings' levels (and the collapsed term's paths) out adds
@@ -1917,7 +1950,7 @@ def make_sampler(
         out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
         if phased:
             # Every phase's factor, the reference's 1 first, in the order of `d.phases`.
-            out["phase_scale"] = jnp.concatenate([jnp.ones(1), st["phase_scale"]])
+            out["phase_scale"] = phase_factors(st["phase_scale"])
         if unit_t:
             out["unit_dof"] = unit_dof
         if col is not None:
