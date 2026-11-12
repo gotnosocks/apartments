@@ -71,7 +71,7 @@ columns of the Deals page.
 
 b9 already takes most of the stand-in's gap away. A top-200 unit asks 0.36 above its
 neighbours on the median and only 0.068 above b9's median. Still, for the top 200 above
-their neighbours, 43% of the held-out asks land above b9's 80% interval, against 10%
+their neighbours, 43% of the held-out asks fall above b9's 80% interval, against 10%
 nominal, and the miss runs in the direction of the unit's past. b9 shrinks these units'
 levels too far toward their building. Penthouses are 47% inside the interval, outdoor space
 36%, view 42%. The ranks below 200 show no lean, and their coverage of 0.66 to 0.67 is about
@@ -88,7 +88,7 @@ for example a 1,625 sq ft penthouse with a 516 sq ft terrace in a building of or
 
 ## Corrections the readers proposed
 
-The readers proposed 23 actions. Each names its backing in `reads.jsonl`.
+The readers proposed 23 actions. Each lists its backing in `reads.jsonl`.
 
 - **Bedrooms, 13 units:** 1384631, 1480935, 2295085, 2385088, 2576730, 2911385, 3123968,
   3154147, 4352539, 4464832, 4658889, 4661198, 5184543. Each cites other ads of the same
@@ -104,7 +104,7 @@ The readers proposed 23 actions. Each names its backing in `reads.jsonl`.
 
 The 13 bedroom changes and 3 exclusions meet the evidence rule as written. The low-confidence
 splits do not, and I would leave them out. None of these is applied here. They go to the
-corrections ledger through a data PR with the usual provenance file.
+corrections ledger through a data PR with the usual source file for each correction.
 
 ## What this implies
 
@@ -156,6 +156,6 @@ shared held-out ads.
 1. The fit passes the gate (65%).
 2. elpd gains over L1 by more than 2 SE (60%).
 3. For the top 200 units above their building in this note, the share of held-out asks above
-   the 80% interval falls from b9's 0.43 to under 0.35 (55%). L1 has no Deals columns of its
-   own, so b9 is the reference here.
+   the 80% interval falls from b9's 0.43 to under 0.35 (55%). L1 has no Deals columns,
+   so b9 is the reference here.
 4. 80% coverage on all held-out ads moves by less than 0.005 (75%).
