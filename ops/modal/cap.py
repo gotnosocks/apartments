@@ -150,6 +150,9 @@ STATED_RATE["drift-building-doorman"] = 0.8
 # The noise phases add six directions to the scale step's eight, so its slice updates
 # take about 75% more evaluations of the scales' density.
 STATED_RATE["drift-building-phase"] = 1.0
+# The units' Student-t levels took a CPU sweep of the building model from 0.215 s to 0.289 s
+# on a design of 16,897 rows and 5,112 units, 34% more, so 0.8 s becomes 1.1 s.
+STATED_RATE["drift-building-unitt"] = 1.1
 STATED_RATE["drift-local"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
@@ -257,6 +260,7 @@ BASELINES = (
     "drift-building",
     "drift-building-doorman",
     "drift-building-phase",
+    "drift-building-unitt",
     "drift-local",
 )
 
@@ -317,6 +321,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building",
         "drift-building-doorman",
         "drift-building-phase",
+        "drift-building-unitt",
         "drift-local",
     ),
     2520,

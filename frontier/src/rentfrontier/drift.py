@@ -66,6 +66,13 @@ keeps, for every such row and kept draw, `pred_loc` = x beta + L(t) + eta + the 
 `pred_unit_sd`, the sd of u. `rentfrontier.drift_score` turns them into predictive densities,
 quantiles and deal scores without rebuilding the design.
 
+Student-t unit levels. `make_sampler`'s `unit_t` gives each unit a mixing scale kap_k, so
+that s_k ~ Normal(0, ss^2 / kap_k), and samples the units' degrees of freedom
+(`rentfrontier.drift_building_unitt` explains the scheme). Steps 1 to 3 hold the kap as
+they are, step 4 draws each unit's lasting level s_k jointly with u (`draw_us`), and a
+step after it draws the degrees of freedom, the kap and a common rescaling of ss and the
+kap given those levels (`update_unit_t`).
+
 Local drift. With units accounted for, fit 4's residuals still move together inside a building
 over a few months (two ads of different units of one building within three months correlate
 at 0.26, and the correlation is gone a few years apart), and a little inside a neighbourhood
@@ -189,6 +196,12 @@ YEAR_WEEKS = 365.25 / 7
 PHASE_PRIOR = 0.3
 # The traced unit scales, in the order of the state's `hyp`.
 HYP = ("unit_sd", "drift_sd", "drift_tau")
+# The units' Student-t lasting levels (`make_sampler`'s `unit_t`): the Gamma(shape, rate)
+# prior on their degrees of freedom, the slice interval's length along its log, and what
+# the sweep's key is folded with for the step that draws them.
+UNIT_DOF_PRIOR = (2.0, 0.1)
+UNIT_DOF_WIDTH = 0.1
+UNIT_T_KEY = 89
 
 
 @dataclass(frozen=True)
@@ -602,11 +615,22 @@ def pred_layout(lay: dict, pred_unit, pred_years) -> dict:
 # ------------------------------------------------------------------ the sampler (JAX)
 
 
-def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=None):
+def make_sampler(
+    d: Design,
+    priors: Priors,
+    settings: Settings,
+    gp=None,
+    groups=None,
+    unit_t: bool = False,
+):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
     over chains. See `building_zones_gibbs.make_sampler` for `gp` and `groups_of` for
-    `groups`, the local-drift terms."""
+    `groups`, the local-drift terms.
+
+    `unit_t` gives each unit's lasting level a Student-t prior through a mixing scale of its
+    own, s_k ~ Normal(0, ss^2 / kap_k) with kap_k ~ Gamma(nu_u / 2, rate nu_u / 2), and
+    samples nu_u (`rentfrontier.drift_building_unitt`). Without it the sweep is unchanged."""
     jax, jnp = b0._jax()
     seg = jax.ops.segment_sum
     alpha = d.names.index("alpha")
@@ -777,6 +801,16 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
     )
     if phased:
         data["phase"] = jnp.asarray(d.phase[order])
+    U = int(d.units)
+    if unit_t:
+        # Each training row's unit, each bucket's units and each row to predict's unit
+        # (-1 for a unit with no training row).
+        unit_sorted = d.unit[order]
+        data["unit"] = jnp.asarray(unit_sorted)
+        data["b_unit"] = [
+            jnp.asarray(unit_sorted[b["idx"][:, 0]]) for b in lay["buckets"]
+        ]
+        data["p_unit"] = jnp.asarray(np.asarray(rows_to_predict["unit"], np.int64))
     del x
     n_pred = pred["rows"]
     active_j = jnp.asarray(active)
@@ -825,21 +859,40 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         ss, sd, tau = jnp.exp(hyp[0]), jnp.exp(hyp[1]), jnp.exp(hyp[2])
         return ss, sd, tau
 
-    def kernel(hyp, ta, tb):
-        """Cov(u(ta), u(tb)) for two ads of one unit."""
+    def kernel(hyp, ta, tb, vs=None):
+        """Cov(u(ta), u(tb)) for two ads of one unit. `vs` is the unit's variance of its
+        lasting level under `unit_t`, ss^2 without it."""
         ss, sd, tau = scales(hyp)
-        return ss**2 + sd**2 * jnp.exp(-jnp.abs(ta - tb) / tau)
+        lasting = ss**2 if vs is None else vs
+        return lasting + sd**2 * jnp.exp(-jnp.abs(ta - tb) / tau)
 
-    def unit_W(D, hyp, c):
+    def lasting(D, hyp, ukap):
+        """Under `unit_t`, the variance ss^2 / kap_k of the lasting level of each training
+        row's unit, and of each bucket's units."""
+        v = scales(hyp)[0] ** 2 / ukap
+        return v[D["unit"]], [v[b] for b in D["b_unit"]]
+
+    def unit_W(D, hyp, c, ukap=None):
         """The units' precisions W = (D^-1 + K)^-1 at weights c: `w1`, the scalar of each
         row taken as a unit of one row (read only for single rows), and one (units, n, n)
-        stack per bucket. A padded place has weight 0, so its row and column of W are 0."""
+        stack per bucket. A padded place has weight 0, so its row and column of W are 0.
+        `ukap` holds the units' mixing scales under `unit_t`."""
         ss, sd, _ = scales(hyp)
-        w1 = c / (1 + c * (ss**2 + sd**2))
+        if ukap is None:
+            w1 = c / (1 + c * (ss**2 + sd**2))
+            vb = [None] * len(D["b_idx"])
+        else:
+            vr, vb = lasting(D, hyp, ukap)
+            w1 = c / (1 + c * (vr + sd**2))
         Wb = []
-        for idx, mask, tb in zip(D["b_idx"], D["b_mask"], D["b_t"]):
+        for idx, mask, tb, v in zip(D["b_idx"], D["b_mask"], D["b_t"], vb):
             sq = jnp.sqrt(jnp.where(mask, c[idx], 0.0))
-            Kb = kernel(hyp, tb[:, :, None], tb[:, None, :])
+            Kb = kernel(
+                hyp,
+                tb[:, :, None],
+                tb[:, None, :],
+                None if v is None else v[:, None, None],
+            )
             M = jnp.eye(idx.shape[1]) + sq[:, :, None] * Kb * sq[:, None, :]
             Mi = jnp.linalg.inv(M)
             Mi = 0.5 * (Mi + jnp.swapaxes(Mi, 1, 2))
@@ -1022,20 +1075,111 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             )
         return u
 
-    def unit_loglik(D, hyp, c, e):
+    def draw_us(D, key, hyp, c, w1, Wb, e, ukap):
+        """Under `unit_t`: u at every row and each unit's lasting level s_k, jointly given
+        the rows' remainders e, by Matheron's rule. The step draws the lasting level, the
+        drift and the noise from their prior, then corrects u by K W r and s_k by v_k 1' W r
+        over the unit's rows, with r = e - (the prior draws), since Cov(s_k, u(t)) = v_k = ss^2 /
+        kap_k at every ad. A single row takes the same rule with W = w1."""
+        _, sd, tau = scales(hyp)
+        vr, vb = lasting(D, hyp, ukap)
+        keys = jax.random.split(key, 1 + len(Wb))
+        k1, k2, k3 = jax.random.split(keys[0], 3)
+        s0 = jnp.sqrt(vr) * jax.random.normal(k1, (n,))
+        d0 = sd * jax.random.normal(k2, (n,))
+        res = e - s0 - d0 - jax.random.normal(k3, (n,)) / jnp.sqrt(c)
+        one = D["single"]
+        u = jnp.where(one, s0 + d0 + (vr + sd**2) * w1 * res, 0.0)
+        # A single row's unit is the row's alone, so the segment sum places its s.
+        s_unit = seg(jnp.where(one, s0 + vr * w1 * res, 0.0), D["unit"], num_segments=U)
+        for kk, W, idx, mask, tb, v, bu in zip(
+            keys[1:], Wb, D["b_idx"], D["b_mask"], D["b_t"], vb, D["b_unit"]
+        ):
+            B, m = idx.shape
+            k1, k2, k3 = jax.random.split(kk, 3)
+            gap = jnp.concatenate([jnp.zeros((B, 1)), jnp.diff(tb, axis=1)], axis=1)
+            s_b = jnp.sqrt(-jnp.expm1(-2 * gap / tau)).at[:, 0].set(1.0)
+            Lou = jnp.tril(
+                jnp.exp(-jnp.abs(tb[:, :, None] - tb[:, None, :]) / tau)
+                * s_b[:, None, :]
+            )
+            a0 = jnp.sqrt(v) * jax.random.normal(k1, (B,))
+            u0 = a0[:, None] + sd * jnp.einsum(
+                "bij,bj->bi", Lou, jax.random.normal(k2, (B, m))
+            )
+            cb = jnp.where(mask, c[idx], 1.0)
+            eps = jax.random.normal(k3, (B, m)) / jnp.sqrt(cb)
+            res = jnp.where(mask, e[idx] - u0 - eps, 0.0)
+            Wr = jnp.einsum("bij,bj->bi", W, res)
+            Kb = kernel(hyp, tb[:, :, None], tb[:, None, :], v[:, None, None])
+            ub = u0 + jnp.einsum("bij,bj->bi", Kb, Wr)
+            s_unit = s_unit.at[bu].add(a0 + v * jnp.sum(Wr, axis=1))
+            u = (
+                u
+                + seg(
+                    jnp.where(mask, ub, 0.0).ravel(),
+                    jnp.where(mask, idx, n).ravel(),
+                    num_segments=n + 1,
+                )[:n]
+            )
+        return u, s_unit
+
+    def update_unit_t(key, st, s, hyp):
+        """Under `unit_t`, given the units' lasting levels s from `draw_us`:
+
+        1. nu_u by a slice update on the Student-t density of s with scale ss, the mixing
+           scales integrated out;
+        2. every unit's kap_k from its Gamma conditional, ((nu_u + 1) / 2, rate
+           (nu_u + s_k^2 / ss^2) / 2);
+        3. ss and every kap_k together along the orbit ss -> g ss, kap_k -> g^2 kap_k,
+           which leaves each v_k = ss^2 / kap_k and so the rows' density as they are. On
+           the orbit g^2 is Gamma((1 + nu_u U) / 2, rate ss^2 / (2 UNIT_SD_PRIOR^2) +
+           nu_u sum(kap) / 2), from ss's HalfNormal prior and the kap's Gamma priors in log
+           coordinates, where the orbit is a translation. Without this step ss and the
+           mixing scales trade their common factor only through the scale step's single
+           draw of ss a sweep;
+        4. a mixing scale from the prior for each row to predict, which a row of a unit with
+           no training row reads (`predict`).
+
+        Each draw is from a conditional of the posterior, so each leaves it unchanged.
+        Returns nu_u, the units' kap, hyp with its new log ss, and the rows' prior kap."""
+        k1, k2, k3, k4 = jax.random.split(key, 4)
+        ss = scales(hyp)[0]
+        a, b = UNIT_DOF_PRIOR
+
+        def logp(lnu):
+            nu = jnp.exp(lnu[0])
+            return (jnp.sum(b0.t_logpdf(s, nu, ss)) + a * lnu[0] - b * nu)[None]
+
+        lnu = b0.slice_vec(k1, jnp.log(st["unit_dof"])[None], logp, UNIT_DOF_WIDTH)
+        nu = jnp.exp(lnu[0])
+        kap = jax.random.gamma(k2, (nu + 1) / 2, (U,)) / ((nu + (s / ss) ** 2) / 2)
+        g2 = jax.random.gamma(k3, (1 + nu * U) / 2) / (
+            ss**2 / (2 * UNIT_SD_PRIOR**2) + nu * jnp.sum(kap) / 2
+        )
+        pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
+        return nu, kap * g2, hyp.at[0].add(0.5 * jnp.log(g2)), pred_kap
+
+    def unit_loglik(D, hyp, c, e, ukap=None):
         """The log marginal likelihood of the rows' remainders e with u integrated out, up
-        to a constant in (ss, sd, tau): a Kalman filter on each unit's state (s, d)."""
+        to a constant in (ss, sd, tau): a Kalman filter on each unit's state (s, d).
+        `ukap` holds the units' mixing scales under `unit_t`."""
         ss, sd, tau = scales(hyp)
-        k0 = ss**2 + sd**2
+        if ukap is None:
+            k0 = ss**2 + sd**2
+            vb = [None] * len(D["b_idx"])
+        else:
+            vr, vb = lasting(D, hyp, ukap)
+            k0 = vr + sd**2
         f1 = 1 + c * k0
         ll = jnp.sum(jnp.where(D["single"], -0.5 * (jnp.log(f1) + c * e * e / f1), 0.0))
-        for idx, mask, tb in zip(D["b_idx"], D["b_mask"], D["b_t"]):
+        for idx, mask, tb, v in zip(D["b_idx"], D["b_mask"], D["b_t"], vb):
             B, m = idx.shape
             cb = jnp.where(mask, c[idx], 1.0)
             eb = e[idx]
             m1 = jnp.zeros(B)
             m2 = jnp.zeros(B)
-            p11 = jnp.full(B, ss**2)
+            p11 = jnp.full(B, ss**2) if v is None else v
             p12 = jnp.zeros(B)
             p22 = jnp.full(B, sd**2)
             for a in range(m):
@@ -1056,7 +1200,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
                 p11, p12, p22 = p11 - g1 * g1 * f, p12 - g1 * g2 * f, p22 - g2 * g2 * f
         return ll
 
-    def hyp_logp(D, hyp, c, e):
+    def hyp_logp(D, hyp, c, e, ukap=None):
         ss, sd, _ = scales(hyp)
         prior = (
             -(ss**2) / (2 * UNIT_SD_PRIOR**2)
@@ -1065,7 +1209,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             + hyp[1]
             - (hyp[2] - TAU_LOG_PRIOR[0]) ** 2 / (2 * TAU_LOG_PRIOR[1] ** 2)
         )
-        return unit_loglik(D, hyp, c, e) + prior
+        return unit_loglik(D, hyp, c, e, ukap) + prior
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
     phase_rows = (
@@ -1102,11 +1246,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             jnp.sqrt(jax.scipy.special.polygamma(1, a)),
         )
 
-    def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None):
-        """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu)
-        and, in a design with noise phases, the log factor of each phase but the reference,
-        given theta, the buildings' spreads, the collapsed path's scales and the rows'
-        standardized log mixing scales eta, with u, the buildings' levels and the collapsed
+    def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None, keta=None):
+        """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu),
+        in a design with noise phases the log factor of each phase but the reference, and
+        under `unit_t` the log of the units' degrees of freedom nu_u, given theta, the
+        buildings' spreads, the collapsed path's scales and the rows' standardized log
+        mixing scales eta, with u, the buildings' levels and the collapsed
         paths integrated out.
 
         nu moves with the mixing scales in tow: log lam = m(nu) + s(nu) eta, where m and s
@@ -1115,6 +1260,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         pinned by 1.7 million lam drawn at its old value. The map is a bijection of lam for
         each nu, and its Jacobian (lam s for each row) is in the density.
 
+        Under `unit_t` nu_u moves the same way with the units' mixing scales in tow, and
+        `keta` holds their standardized logs.
+
         `unit_loglik` leaves out the rows' log c / 2."""
         ls, lnu = x[3:7], x[7]
         sig = jnp.exp(ls)
@@ -1122,12 +1270,17 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         m, sd = lam_moments(lnu)
         loglam = m + sd * eta
         lam = jnp.exp(loglam)
-        c = lam / row_sd(D, sig, jnp.exp(x[8:])) ** 2
-        w1, Wb = unit_W(D, x[:3], c)
+        c = lam / row_sd(D, sig, jnp.exp(x[8 : 8 + free])) ** 2
+        ukap = None
+        if unit_t:
+            m_u, sd_u = lam_moments(x[-1])
+            logk = m_u + sd_u * keta
+            ukap = jnp.exp(logk)
+        w1, Wb = unit_W(D, x[:3], c, ukap)
         om_d, om_off = pair_weights(D, w1, Wb)
         a_nu, b_nu = priors.nu
         out = (
-            hyp_logp(D, x[:3], c, tgt)
+            hyp_logp(D, x[:3], c, tgt, ukap)
             + 0.5 * jnp.sum(loglam)
             - jnp.sum(group_rows * ls)
             + level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap)
@@ -1140,17 +1293,37 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             + a_nu * lnu
             - b_nu * 2 * a
         )
+        if unit_t:
+            # The kap's Gamma(a_u, rate a_u) density with the map's Jacobian, and nu_u's
+            # Gamma prior in its log.
+            a_u = jnp.exp(x[-1]) / 2
+            ua, ub = UNIT_DOF_PRIOR
+            out = (
+                out
+                + U * (a_u * jnp.log(a_u) - jax.scipy.special.gammaln(a_u))
+                + U * jnp.log(sd_u)
+                + a_u * jnp.sum(logk)
+                - a_u * jnp.sum(ukap)
+                + ua * x[-1]
+                - ub * 2 * a_u
+            )
         if not phased:
             return out
         # Each phase's factor enters c as sigma does, and its log takes a Normal prior.
-        lf = x[8:]
+        lf = x[8 : 8 + free]
         return out - jnp.sum(phase_rows * lf) - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
+
+    def unit_eta(st):
+        """Under `unit_t`, the units' standardized log mixing scales at the state's nu_u."""
+        m_u, sd_u = lam_moments(jnp.log(st["unit_dof"]))
+        return (jnp.log(st["ukap"]) - m_u) / sd_u
 
     def scales_x(st):
         """The state's point in the coordinates of `scales_logp`."""
         lnu = jnp.log(st["nu"])
         x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
-        return jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
+        x = jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
+        return jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if unit_t else x
 
     def update_scales(D, key, st, tgt, F):
         """The unit scales, the groups' sigma, nu and any noise phases' factors together,
@@ -1169,8 +1342,10 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         eta = (jnp.log(st["lam"]) - m) / sd
         bsd, par = st["bld_sd"], st["ar_par"][0] if col is not None else None
 
+        keta = unit_eta(st) if unit_t else None
+
         def logp(x):
-            return scales_logp(D, x, eta, tgt, bsd, par, F, st.get("kap"))
+            return scales_logp(D, x, eta, tgt, bsd, par, F, st.get("kap"), keta)
 
         x = scales_x(st)
         x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
@@ -1181,7 +1356,13 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             nu=jnp.exp(x[7]),
             lam=jnp.exp(m + sd * eta),
         )
-        return new | ({"phase_scale": jnp.exp(x[8:])} if phased else {})
+        if phased:
+            new["phase_scale"] = jnp.exp(x[8 : 8 + free])
+        if unit_t:
+            m_u, sd_u = lam_moments(x[-1])
+            new["unit_dof"] = jnp.exp(x[-1])
+            new["ukap"] = jnp.exp(m_u + sd_u * keta)
+        return new
 
     def scales_curvature(D, st, h=CURV_STEP):
         """The Hessian of `scales_logp` at the state's scales, in the coordinates of the
@@ -1205,7 +1386,15 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         pts = h * jnp.concatenate([jnp.zeros((1, K)), eye, -eye, corner, -corner])
         f = jax.lax.map(
             lambda a: scales_logp(
-                D, x0 + st["hyp_dirs"] @ a, eta, tgt, bsd, par, F, st.get("kap")
+                D,
+                x0 + st["hyp_dirs"] @ a,
+                eta,
+                tgt,
+                bsd,
+                par,
+                F,
+                st.get("kap"),
+                unit_eta(st) if unit_t else None,
             ),
             pts,
         )
@@ -1641,7 +1830,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         ks = jax.random.split(key, 9 + len(ars))
         k1, k2, k3, k4, k5, k6, k7, k8, k_gp = ks[:9]
         c = weights(D, st)
-        w1, Wb = unit_W(D, st["hyp"], c)
+        w1, Wb = unit_W(D, st["hyp"], c, st.get("ukap"))
         y_eff = D["y"] - offsets(D, st)
         theta, _ = draw_theta(D, k1, st, c, w1, Wb, y_eff)
         w = theta[sl_w]
@@ -1654,7 +1843,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         st = st | update_scales(D, k8, st, tgt, F)
         hyp = st["hyp"]
         c = weights(D, st)
-        w1, Wb = unit_W(D, hyp, c)
+        w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
         om_d, om_off = pair_weights(D, w1, Wb)
         if col is None:
             ctil = om_d + seg(om_off, D["pi"], num_segments=n)
@@ -1680,7 +1869,15 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
                 "ar_par": st["ar_par"].at[0].set(par),
             }
             first = 1
-        u = draw_u(D, k7, hyp, c, w1, Wb, e)
+        if unit_t:
+            # The units' lasting levels are drawn with u, then nu_u and the mixing scales
+            # given them. Its key is folded in, as the buildings' mixing scales' is.
+            u, s_unit = draw_us(D, k7, hyp, c, w1, Wb, e, st["ukap"])
+            unit_dof, ukap, hyp, pred_ukap = update_unit_t(
+                jax.random.fold_in(key, UNIT_T_KEY), st, s_unit, hyp
+            )
+        else:
+            u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
         nu, sigma, lam = update_noise(k4, st, r, D)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
@@ -1704,6 +1901,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         )
         if phased:
             new["phase_scale"] = st["phase_scale"]
+        if unit_t:
+            new |= dict(unit_dof=unit_dof, ukap=ukap, pred_ukap=pred_ukap)
         if dof is not None:
             # Each building's mixing scale given its level, its neighbourhood's and the
             # spread: the scale mixture's Gamma. Its key is folded in, so the other steps'
@@ -1719,6 +1918,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         if phased:
             # Every phase's factor, the reference's 1 first, in the order of `d.phases`.
             out["phase_scale"] = jnp.concatenate([jnp.ones(1), st["phase_scale"]])
+        if unit_t:
+            out["unit_dof"] = unit_dof
         if col is not None:
             new["cell_dirs"] = st["cell_dirs"]
         if ars:
@@ -1732,28 +1933,42 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         """For each row to predict, the mean of its log rent given the state's theta, levels
         and scales (x beta + L(t) + eta + the mean of u), and the sd of u, with the training
         rows' u integrated out. A building with no training row has its level drawn from
-        its prior in every sweep, so the mean carries that draw."""
+        its prior in every sweep, so the mean carries that draw. Under `unit_t` a row of a
+        unit with training rows takes its unit's mixing scale, and a row of a unit with
+        none takes the state's draw from the prior (`update_unit_t`)."""
         c = weights(D, st)
         hyp = st["hyp"]
         ss, sd, _ = scales(hyp)
         k0 = ss**2 + sd**2
-        w1, Wb = unit_W(D, hyp, c)
+        vp = k0p = None
+        if unit_t:
+            pu = D["p_unit"]
+            kp = jnp.where(pu >= 0, st["ukap"][jnp.maximum(pu, 0)], st["pred_ukap"])
+            vp = ss**2 / kp
+            k0p = vp + sd**2
+        w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
         om_d, om_off = pair_weights(D, w1, Wb)
         e = D["y"] - offsets(D, st) - all_means(D, st["theta"]) - st["lev"][D["site"]]
         We = apply_W(D, om_d, om_off, e)
         tp = D["p_years"]
         mean = jnp.zeros(n_pred)
-        var = jnp.full(n_pred, k0)
+        var = jnp.full(n_pred, k0) if k0p is None else k0p
         rows, tr = D["p_one"]
-        k = kernel(hyp, tp[rows], D["t"][tr])
+        if vp is None:
+            k = kernel(hyp, tp[rows], D["t"][tr])
+            var = var.at[rows].set(k0 - k * k * w1[tr])
+        else:
+            k = kernel(hyp, tp[rows], D["t"][tr], vp[rows])
+            var = var.at[rows].set(k0p[rows] - k * k * w1[tr])
         mean = mean.at[rows].set(k * w1[tr] * e[tr])
-        var = var.at[rows].set(k0 - k * k * w1[tr])
         for (rows, slot), W, idx, mask, tb in zip(
             D["p_buckets"], Wb, D["b_idx"], D["b_mask"], D["b_t"]
         ):
-            ks = jnp.where(mask[slot], kernel(hyp, tp[rows, None], tb[slot]), 0.0)
+            v = None if vp is None else vp[rows][:, None]
+            ks = jnp.where(mask[slot], kernel(hyp, tp[rows, None], tb[slot], v), 0.0)
             mean = mean.at[rows].set(jnp.sum(ks * We[idx[slot]], axis=1))
-            var = var.at[rows].set(k0 - jnp.einsum("pa,pab,pb->p", ks, W[slot], ks))
+            prior = k0 if k0p is None else k0p[rows]
+            var = var.at[rows].set(prior - jnp.einsum("pa,pab,pb->p", ks, W[slot], ks))
         M = st["theta"][sl_M]
         fixed = (
             D["p_x"] @ st["theta"][sl_b]
@@ -1786,6 +2001,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
                     + [SIGMA_WIDTH] * 4
                     + [NU_WIDTH]
                     + [PHASE_WIDTH] * free
+                    + [UNIT_DOF_WIDTH] * unit_t
                 )
             ),
         )
@@ -1793,6 +2009,12 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             out["phase_scale"] = jit(jax.random.fold_in(key, 13), (free,), 0.1)
         if dof is not None:
             out["kap"] = jnp.ones(S)
+        if unit_t:
+            out |= dict(
+                unit_dof=10.0 * jit(jax.random.fold_in(key, UNIT_T_KEY), (), 0.2),
+                ukap=jnp.ones(U),
+                pred_ukap=jnp.ones(n_pred),
+            )
         if ars:
             out["ar"] = tuple(jnp.zeros((a["size"], a["T"])) for a in ars)
             out["ar_par"] = jnp.tile(
@@ -1857,6 +2079,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             offsets=offsets,
             ars=ars,
             draw_u=draw_u,
+            draw_us=draw_us,
+            update_unit_t=update_unit_t,
+            unit_t=unit_t,
             predict=predict,
             all_means=all_means,
             kernel=kernel,
@@ -1910,26 +2135,29 @@ def run(
     checkpoint=None,
     gp="spec",
     groups=None,
+    unit_t: bool = False,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
     (ss), `drift_sd` and `drift_tau`. For the design's rows to predict they also hold
     `pred_loc` and `pred_unit_sd`, (chains, kept draws, rows), and the rows' `pred_y` and
     `pred_group`. A design with noise phases adds `phase_scale`, every phase's factor, to
-    the traced and kept arrays, and each predicted row's `pred_phase`."""
+    the traced and kept arrays, and each predicted row's `pred_phase`. `unit_t`
+    (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
     sweep, init, predict, parts = make_sampler(
-        d, priors, settings, gp=gp, groups=groups
+        d, priors, settings, gp=gp, groups=groups, unit_t=unit_t
     )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
     )
     phase = ("phase_scale",) if parts["phased"] else ()
-    traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + phase
-    kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + phase
+    more = phase + (("unit_dof",) if unit_t else ())
+    traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
+    kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     key = jax.random.PRNGKey(settings.seed)
     key, sub = jax.random.split(key)
     st = init(jax.random.split(sub, settings.chains))
@@ -2008,6 +2236,11 @@ def run(
                 if phase
                 else ""
             )
+            + (
+                f"unit_dof {np.asarray(st['unit_dof'])[:4].round(2).tolist()}, "
+                if unit_t
+                else ""
+            )
         ) + "".join(
             f"{g['name']} sd {np.exp(np.asarray(st['ar_par'])[:4, k, 0]).round(4).tolist()} "
             f"rho {(1 / (1 + np.exp(-np.asarray(st['ar_par'])[:4, k, 1]))).round(3).tolist()}, "
@@ -2037,7 +2270,8 @@ def run(
                     np.log(np.asarray(st["sigma"])),
                     np.log(np.asarray(st["nu"]))[:, None],
                 ]
-                + ([np.log(np.asarray(st["phase_scale"]))] if phase else []),
+                + ([np.log(np.asarray(st["phase_scale"]))] if phase else [])
+                + ([np.log(np.asarray(st["unit_dof"]))[:, None]] if unit_t else []),
                 axis=1,
             )
             if "cell_dirs" in st:
@@ -2135,7 +2369,8 @@ def run(
 
 def diagnostics(trace: dict, names) -> dict:
     """The kitchen sink's convergence table, with the three unit scales, the local-drift
-    terms' scales and any noise phases' factors."""
+    terms' scales, any noise phases' factors and the units' degrees of freedom under
+    `unit_t`."""
     from .run import ESS_GATE, RHAT_GATE, ess, split_rhat
 
     out = building_zones_kitchen_sink.diagnostics(trace, names)
@@ -2144,6 +2379,8 @@ def diagnostics(trace: dict, names) -> dict:
         k: trace[k]
         for k in [*HYP, *(k for k in trace if k.endswith(("_ar_sd", "_ar_rho")))]
     }
+    if "unit_dof" in trace:
+        quantities["unit_dof"] = trace["unit_dof"]
     if "phase_scale" in trace:
         # The reference phase's factor is constant, so the check below leaves it out.
         f = np.asarray(trace["phase_scale"])
@@ -2175,6 +2412,8 @@ def summarize(kept: dict, names) -> dict:
     if "phase_scale" in kept:
         f = np.asarray(kept["phase_scale"])
         out["phase_scale"] = [two_zone._q(f[..., j]) for j in range(f.shape[-1])]
+    if "unit_dof" in kept:
+        out["unit"]["unit_dof"] = two_zone._q(np.asarray(kept["unit_dof"]))
     return out
 
 
