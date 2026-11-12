@@ -379,14 +379,15 @@ and 0.00070 above. By size it is 0.0005 to 0.0008 under 1,000 sq ft, 0.0013 at 1
 grows from 1,000 sq ft on with no step at 1,500. It is 0.0087 when the previous ad is
 within 2 years and 0.0100 when it is over 4 years back.
 
-On the method: the unit's previous ask is in training, so a fit with the right prior for
+The unit's previous ask is in training, so a fit with the right prior for
 the unit leaves the held-out gap uncorrelated with the previous ask's deviation. A
 positive covariance then measures history the fit held and did not use, and where the fit
 used part of it the covariance understates the variance of the lasting deviation. An
 error of the model's median common to both asks enters both gaps as well. For mid-sized
 units the reference group's 0.0005 is the most it can be. For large units the pairs of
-different apartments in a building, in the paragraph above, put it at a quarter of the
-covariance.
+different apartments in a building, in the paragraph above, have a quarter of the
+covariance of a unit with its own previous ask, so the common error is at most that
+part.
 
 Weak points. The OLS, ridge and trees are hand-written numpy, since `sklearn` does not
 import in the venv; `test_lib.py` checks them against direct solutions. The trees' null has
@@ -1077,9 +1078,11 @@ selection of each unit's newest ad, and it leaves two accounts standing: asks of
 years scattered more around each apartment's level (net rents typed for some ads and
 gross rents for others would do it, since free months were common then), or apartments
 moved faster than the fitted drift. The counts under "Concessions stated in the text"
-limit the first account to 2020: concession wording with no recorded free months is on
-12.3% of that year's rows and on under 1% of 2021's, and 2021's ads with no concession at
-all are covered 0.729.
+limit the first account to 2020, and to a small part of it: concession wording with no
+recorded free months is on 12.3% of that year's rows and on under 1% of 2021's. The 1,642
+held-out ads of 2020 with the wording are covered 0.730 against 0.762 for the 11,139 with
+no concession, so bringing them to the 0.826 of other years would raise 2020's coverage
+by about 0.01. 2021's ads with no concession at all are covered 0.729.
 
 Weak points of the measurement: the factors come from held-out ads (cross-fitting by
 building changed them little), the t density approximates the fit's predictive
@@ -1104,8 +1107,9 @@ their final asks.
 | the building's other units | 1,990 | 0.732 | 2,845 | 0.767 |
 | the area, in a building new to training | 266 | 0.658 | 323 | 0.678 |
 
-The rest of the section is about the second row. n9's asks are still open, and an ask
-long on the market is one nobody has taken: n9's new-unit ads open 46 to 120 days have a
+I split the ads of the second row. Where a figure below takes the second and third rows
+together (2,256 ads in n9), it says so. n9's asks are still open, and an ask long on the
+market is one nobody has taken: among the 2,256, the ads open 46 to 120 days have a
 median gap of +0.042 with 25% above the range, against -0.001 for ads open under 15 days.
 j9's asks are final, so where the two runs differ I go by j9.
 
@@ -1116,8 +1120,8 @@ j9's asks are final, so where the two runs differ I go by j9.
   0.765 and 0.724 for ads with passing labels and 0.763 and 0.721 on lots with thin
   records. Relabeled reposts are about 5% of the new units and do not produce the
   shortfall.
-- Placeholder pages are rare. Of the 912 new-unit ads of n9 found in the text-flag table,
-  15 have a description of 0 to 3 characters, and the range covers 12 of them.
+- Placeholder pages are rare. Of the 912 ads found in the text-flag table among n9's
+  2,256, 15 have a description of 0 to 3 characters, and the range covers 12 of them.
 - A page whose previous ad has another bedroom count is a new unit to the fit. n9 holds
   307 such ads among its building-basis and area-basis ads, covered 0.645 (`new8.py`).
   Where the count went down (138 ads) the median gap is +0.027, and the median ask is
@@ -1125,11 +1129,11 @@ j9's asks are final, so where the two runs differ I go by j9.
   the median gap is -0.018. The ask keeps part of the level of the earlier count, which
   fits a recount of the same rooms better than another apartment on the page. No ad was
   read for this.
-- Coverage shows no pattern by the building's age (0.70 to 0.75 across groups). By lister
-  it runs from 0.53 to 0.90 among those with 20 or more new-unit ads in n9: Douglas
-  Elliman's 75 ads are covered 0.59 with a median gap of +0.07, Bushburg's 62 are covered
-  0.60 with -0.087, and Skyhigh's 48 are covered 0.88. I did not follow the listers
-  further.
+- Among n9's 2,256, coverage shows no pattern by the building's age (0.70 to 0.75 across
+  groups). By lister it runs from 0.53 to 0.90 among those with 20 or more of the ads:
+  Douglas Elliman's 75 ads are covered 0.59 with a median gap of +0.07, Bushburg's 62 are
+  covered 0.60 with -0.087, and Skyhigh's 48 are covered 0.88. I did not follow the
+  listers further.
 
 **Bedrooms.** The fit gives every new unit the same sd for its unit term, 0.075. The
 column "sd needed" is the unit sd at which the predictive sd would equal the sd of the
@@ -1146,8 +1150,8 @@ noise variances left as they are.
 
 The shortfall belongs to the apartments with 2 or more bedrooms. Coverage falls with the
 count for units with training ads too (0.840, 0.812, 0.798, 0.754 and 0.698 in n9), by
-less. Within j9's 2-or-more-bedroom ads the lot decides: 0.786 on lots under 10
-apartments, 0.764 on lots of 10 to 49, and 0.662 on lots of 50 or more (656 ads, 23.5%
+less. Within j9's 2-or-more-bedroom ads coverage falls with the size of the lot, which
+goes with the lister and the age of the building: 0.786 on lots under 10 apartments, 0.764 on lots of 10 to 49, and 0.662 on lots of 50 or more (656 ads, 23.5%
 above the range, median gap +0.026). Studios and 1-bedrooms on lots of 50 or more are
 covered 0.822. By stated size, j9's coverage runs 0.932 under 600 sq ft, 0.838 at 600 to
 900, 0.748 at 900 to 1,200, 0.708 at 1,200 to 1,600 and 0.555 over 1,600 (110 ads, median
@@ -1177,27 +1181,32 @@ median ask of the building's training ads of the same count in the two years bef
 scoring day, moved to the scoring month with a citywide index, less the model's median
 for the new unit (`sib.py`, `sib2.py`). The new unit's gap follows that difference with a
 slope of 0.290 in j9's 1,162 ads of 2 or more bedrooms (R2 0.087) and 0.392 in n9's (R2
-0.130); for 3 or more bedrooms the slopes are 0.373 and 0.599. Taking the fitted part out
-lowers the pair covariance from 0.0067 to 0.0051 in j9 and from 0.0075 to 0.0060 in n9.
-So the building's earlier asks for the count predict about a quarter of the shared gap,
-and the rest is common to the units on the market at the same time. The 2-or-more-bedroom
+0.130); for 3 or more bedrooms the slopes are 0.373 and 0.599. Those ads are the subset
+with a same-count ad of the building in the two years, and their pair covariance is
+0.0067 in j9 and 0.0075 in n9, under the table's 0.0082 and 0.0085 for all large new
+units. Taking the fitted part out lowers it to 0.0051 and 0.0060. So within the subset
+the building's earlier asks for the count predict about a quarter of the shared gap, and
+the rest is common to the units on the market at the same time. The 2-or-more-bedroom
 new units with no same-count ad of the building in two years are covered 0.598 in j9 (127
 ads) against 0.731 for those with one, and 0.492 in n9 (130 ads) against 0.708.
 
-The buildings with the largest shared gaps in j9 are leasing-office buildings: The Seren
-(17 new units of 2 or more bedrooms at a mean gap of -0.118, several of them asking
-exactly $5,500 against a model median near $6,550), Lawrence Tower (22 units, +0.040),
-Union Channel (10, +0.109), 420 Carroll (7, +0.167), 12 Halsey St (8, +0.127).
+Among j9's buildings with 7 or more new units of 2 or more bedrooms, the ones with a
+mean gap far from zero are leasing-office buildings: The Seren (17 units at a mean gap of
+-0.118), Union Channel (10, +0.109), 420 Carroll (7, +0.167), 12 Halsey St (8, +0.127).
+Lawrence Tower has the most such units (22) at +0.040. Buildings with 3 to 5 units have
+larger means (Carnegie House +0.273, Hanover House +0.227) on fewer ads
+(`out/top-j9.log`).
 
 **Reading.** A building's level and its quarterly path are common to its apartments of
-every size, and the model's size and bedroom terms are common to an area. A building
-whose 2-bedrooms rent high against its studios, by a better line or larger rooms, has
-that premium nowhere in the fixed part. For a unit with training ads the unit term holds
-it. A new unit starts at the building's level with an sd of 0.075, and the premium of its
-class is missing from its median. The leasing office of a large building also sets a
-price for each floor plan type and changes it from one season to the next, which the
-earlier ads cannot predict, and that is the account I have for the three quarters of the
-shared gap they leave. I did not test it against ad text or a rent roll.
+every size, and the model's size and bedroom terms are common to an area. When a
+building's 2-bedrooms rent high against its studios, by a better line or larger rooms,
+the fixed part has no term for that premium, and a unit with training ads holds it in
+its unit term. A new unit starts at the building's level with an sd of 0.075, and the
+premium of its class is missing from its median. The leasing office of a large building
+may also set a price for each floor plan type and change it from one season to the next,
+which the earlier ads cannot predict. That would explain the three quarters of the shared
+gap left after the building's earlier asks. I did not test it against ad text or a rent
+roll.
 
 The candidates U4 (a unit scale by bedroom count) and U3 in its second definition (a
 building level for its larger apartments) follow under "Fits for after the sprint". The
@@ -1206,11 +1215,12 @@ on asks still open in n9.
 
 ## The level of the held-out gap
 
-The served median stands above the held-out asks: the median gap is -0.0049, 53.5% of the
+The served median is above the held-out asks: the median gap is -0.0049, 53.5% of the
 asks are below the median, and the yearly medians run from -0.0019 (2020) to -0.0112
 (2022). A level error of that size would go into every row of the Deals page, so I looked
-for its cause (`s2/N/lvl1.py` to `lvl6.py`, output in `s2/N/out/`). Most of it comes from
-the ads the split holds out, and the open ads of the backtest do not show it.
+for its cause (`s2/N/lvl1.py` to `lvl6.py`, output in `s2/N/out/`). In 2022 and 2023
+most of it comes from the ads the split holds out, a base of about -0.4% in the other
+years is unexplained, and the open ads of the single backtest do not show it.
 
 **Each unit's last ad.** The latest split holds out the newest ad of a unit, so every
 held-out ad is one with no later ad of its unit in the data. The rescoring of "The years
@@ -1227,9 +1237,10 @@ scores held-out ads, and its tables hold the median deviation of each set
 
 Set B is the closest comparison. The check predicts its rows from the unit's earlier ads
 alone, as the fit predicts a held-out ad, and each of its rows was followed by a later
-ad. Its median is +0.0001 in 2022 and -0.0015 in 2023, the years when the held-out ads
-have -0.0108 and -0.0079. Predicting forward from a unit's earlier ads does not produce
-the offset, then, and the ads with no successor carry it.
+ad. Its median is +0.0001 in 2022 and -0.0015 in 2023. The held-out ads of those years
+have -0.0108 and -0.0079 in the same rebuild (the fit's own draws give -0.0112 and
+-0.0081). Predicting forward from a unit's earlier ads does not produce the offset, then.
+It is found in the ads with no later ad of their unit.
 
 By lease phase the sets agree where the lease cycle acts and part elsewhere. For returns
 within 3 months sets A and B have -0.0123 and -0.0101. At 10 months or more set B is
@@ -1272,15 +1283,15 @@ to 2.1% of followed ads in 2021 to 2025, and the flagged last ads of 2022 and 20
 part.
 
 Across the 12 years from 2015 the held-out median follows the difference between last and
-followed ads with a slope of 0.18 and an intercept of -0.4% (correlation 0.63), so the
-selection as I measured it accounts for the years' departures from -0.4% and leaves that
-base unexplained.
+followed ads with a slope of 0.18 and an intercept of -0.4% (correlation 0.63, about 40%
+of the variance of 12 points). The selection as I measured it goes with the years'
+departures from -0.4%, loosely, and leaves that base unexplained.
 
-**Account.** A tenant who took an apartment at a rent low against its history stays, and
-the apartment is out of the ads for years. An apartment asking a high rent comes back
-sooner, unrented within months or vacated at the end of a lease. Sorting ads by the time
-until the unit's next ad therefore sorts them by price, and the ads with no later ad are
-at the low end. Asks rose fast and unevenly in 2022 and 2023, so the distance between the
+**Account.** I read the pattern as tenants staying. A tenant who took an apartment at a
+rent low against its history would stay, and the apartment would be out of the ads for
+years. An apartment asking a high rent would come back sooner, unrented within months or
+vacated at the end of a lease. Sorting ads by the time until the unit's next ad would
+then sort them by price, with the ads with no later ad at the low end. Asks rose fast and unevenly in 2022 and 2023, so the distance between the
 landlords who followed the market and those who did not was widest then. A last ad's ask
 is still a price a renter faced, so no row changes. The account predicts longer tenancies
 at lower relative asks, and the dose-response in the table agrees with it. No record of
@@ -1308,8 +1319,8 @@ ads, SE 0.0026), +0.0006 at 10 to 29 (2,572 ads) and +0.0079 at 30 or more (2,27
 SE 0.0021). New units have +0.0092 (SE 0.0027) and ads in buildings new to training
 +0.0412 (SE 0.0117). n9, on asks still open, has +0.0083, +0.0045 and +0.0480. The open
 ads of a day include the apartments soon to be back, and the held-out ads of the latest
-split leave them out, so the Deals page does not inherit the -0.5%. Its own levels are
-+0.3% for units with history, about +0.8% for units back after 30 months or more, +0.9%
+split leave them out. On j9's single day the open ads do not have the -0.5%. Their
+levels are +0.3% for units with history (+0.8% in n9, on asks still open), about +0.8% for units back after 30 months or more, +0.9%
 for new units and +4% in new buildings, on a single backtest day.
 
 **Sizes.** Of the -0.47%, closing asks in training give about 0.1 point and the fast
@@ -1434,7 +1445,8 @@ candidates from the text flags.
    The two are fitted apart and the better one kept. Predicted for the bedroom-class
    level: an sd across buildings of 0.03 to 0.06; the pair covariance of the gaps of
    2-or-more-bedroom new units in a backtest falls from 0.0082 to between 0.0055 and
-   0.0070, since the building's earlier asks predict a quarter of it; their coverage
+   0.0070, since the building's earlier asks predict a quarter of it where the building
+   has a same-count ad; their coverage
    rises by 0.01 to 0.03; elpd on the latest split gains under 150, the held-out units
    there having histories of their own.
 10. U2, a Student-t distribution for the unit's lasting level, on U1's winner. It tests

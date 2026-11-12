@@ -56,8 +56,9 @@ folder for each line of work, each with a `results.md`).
   70,300 chains is withdrawn. Ben has two looser variants in front of him (adequacy at
   50%, the grid deciding alone on thin-record lots) and has not chosen either, so the
   75% standard stands.
-- **Units with no ad in training** (about a third of open ads). The 80% range covers
-  0.767 of their final asks in the backtest j9 against 0.805 for units with history.
+- **Units with no ad in training** (about a third of open ads, counting buildings new to
+  training). In the backtest j9 the 80% range covers 0.767 of the final asks of new units
+  in known buildings and 0.678 in new buildings, against 0.805 for units with history.
   Relabeled reposts and placeholder pages account for little of it. The shortfall is in
   apartments of 2 or more bedrooms (0.733, 0.693, 0.663 by count), and the new large
   units of a building miss together (pair covariance 0.0082, half their variance).
@@ -66,12 +67,14 @@ folder for each line of work, each with a `results.md`).
 - **The level of the held-out gap.** The served median is 0.47% above the held-out asks,
   and most of that comes with the latest split holding out each unit's last ad, an ask
   low against the unit's history (largest in 2022 and 2023). Closing asks in training
-  give about 0.1 point. j9's open ads with unit history have +0.3%, so the Deals page
-  does not inherit the offset. A level change gaining elpd on the latest split needs a
+  give about 0.1 point. On the single backtest day j9 the open ads with unit history
+  have +0.3% (n9, on asks still open, has +0.8%), so the offset of the split is not
+  measured on the Deals page's ads. A level change gaining elpd on the latest split needs a
   backtest before it reads as a better median.
 - **Concessions.** Wording with no recorded free months is on 11.9% of rows through 2019
-  and 12.3% of 2020's, and on about 1% since. It is a cause of 2020's spread and of none
-  of 2021's.
+  and 12.3% of 2020's, and on about 1% since. In 2020 those ads are covered 0.730
+  against 0.762 with no concession, so the wording gives at most about 0.01 of the
+  year's shortfall, and none of 2021's.
 - **Open in the coordinating session's list:** the blank-form rule feed-wide (4,517
   placeholder listings coded 0 bedrooms and 1,596 studio-coded ads naming 2 or more
   bedrooms), through a reviewed ledger PR.

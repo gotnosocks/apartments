@@ -163,8 +163,8 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   sprint read them, and the recorded attributes leave the persistent sd of large units at
   0.091 against 0.026 for mid-sized units.
 - [ ] Backtests on 2024-11-10 and 2025-05-10, each a fit of the served design with the
-  day's open ads held out. The served median stands 0.47% above the held-out asks of the
-  latest split, and most of that comes with the split: a unit's last ad is an ask low
+  day's open ads held out. The served median is 0.47% above the held-out asks of the
+  latest split, and in 2022 and 2023 most of that comes with the split: a unit's last ad is an ask low
   against its history, more so in 2022 and 2023 (sprint note, "The level of the held-out
   gap"). The single backtest j9 has +0.3% for open ads of units with history, +0.9% for
   new units and +4% in buildings new to training. The two further days would say whether
