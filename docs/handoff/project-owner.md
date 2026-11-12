@@ -108,7 +108,7 @@ is launched. Order, by what each is worth for the Deals page:
 4. L1 (a noise scale by lease phase), then Y1 (by calendar year), then L2 (a level per
    lease phase on L1's winner).
 5. No fit of its own for the sprint's ledger entries or for R, the collapsed repost chains.
-   Both reach a fit at the pipeline's next dataset rebuild for a market snapshot.
+   The pipeline's next dataset rebuild for a market snapshot carries both into the next fit.
 
 Free checks to run before choosing among 3 and 4, from the Deals reads: for units with a
 few training ads, whether the served median sits above the unit's own last ask moved by

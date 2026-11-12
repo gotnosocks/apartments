@@ -1594,9 +1594,9 @@ judged 10 real, 36 false and 20 unclear. The record is right for most of the fal
 
 A caution built from the ledger would hide at most the 3 deals with record errors, so I left
 the page as published. The 12 deals whose own unit history matches the ask point at the
-model. For 3 of them the unit's past ads never reach the unit level. For the other 9 they
-do, and the median still sits well above them, so the unit level follows the unit's own
-asks less than these records support. A free check comes before any fit: for units with a
+model. For 3 of them the fit has none of the unit's past ads. For the other 9 it has them
+and still puts the median well above them: the model pulls these units toward their
+building and their features more than their own asks justify. A free check comes before any fit: for units with a
 few training ads, compare the served median with the unit's last training ask moved by the
 market index, by the unit's own gap to its building.
 
