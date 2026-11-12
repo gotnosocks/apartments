@@ -79,7 +79,7 @@ folder for each line of work, each with a `results.md`).
 - **Ads coded 0 bedrooms across all listers.** About two thirds of the blank ads coded 0
   are real studios, so the blank-form exclusion stays with the listers whose form sends the
   default (Real Street, M1 Ventures, Stuyvesant Heights Realty). The ledger file
-  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` sets 272 ads and excludes 479; the
+  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` sets 270 ads and excludes 479; the
   scripts and the Sonnet reads are in `/data1/apartments/tmp/outlier-sprint/s2/Z/`
   (`zrules.py`, `zbuild.py`, `sread/`). A unit page's other ads do not back a set for a
   blank ad: the listers posting blank forms score 81% to 90% on their own typed ads.

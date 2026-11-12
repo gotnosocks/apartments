@@ -1447,12 +1447,12 @@ ads), a building's list of layouts (3) and a text giving two counts (1).
 
 ### The entries
 
-`pipeline/ledger/2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 757 lines on
-751 ads in 513 buildings:
+`pipeline/ledger/2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 755 lines on
+749 ads in 512 buildings:
 
 | ads | decision | evidence |
 |---|---|---|
-| 77 blank ads (58 with 1 room, 19 with more) | bedrooms set to the building's count: 1 on 36, 2 on 20, 3 on 15, 4 on 5, 5 on 1 | the building's one layout, 51 buildings |
+| 75 blank ads (57 with 1 room, 18 with more) | bedrooms set to the building's count: 1 on 34, 2 on 20, 3 on 15, 4 on 5, 5 on 1 | the building's one layout, 50 buildings |
 | 6 of those | baths set with the bedrooms | the record has the form's 1 bath and every backing ad has the same other count |
 | 195 ads with the count in the text | bedrooms set: 1 on 6, 2 on 138, 3 on 44, 4 on 7 | the text, read by Sonnet, with the building's one layout (40) or the page's other ads (155) |
 | 264 blank ads of Stuyvesant Heights (187) and Real Street (77) | excluded as `bedrooms_unknown` | the lister's form default; no building evidence for a single count |
@@ -1463,6 +1463,9 @@ building or page shows the renter was offered. The exclusions remove ads whose c
 field is empty: Real Street's excluded ads with more than 1 room are those with 3 rooms or
 more, and its 20 with 2 rooms stay. For the last row the page rule is the evidence against
 the 0 and the lister's own page score is the reason no count is set.
+On four of these pages (4253410, 4261306, 3105440 and 4596910) every counted ad within
+two years codes a studio, so those blank ads may be real studios. An exclude only removes
+the row, so I left them in.
 
 A first draft set 119 blank ads from the building's one layout. I then looked for ads in
 the same buildings whose text calls the apartment a studio, and 14 buildings hold one.
@@ -1471,10 +1474,13 @@ Realty posts blank forms at matching asks, and the building's typed 1-bedroom ad
 from a single lister. At 437 W 48th St a Brown Harris Stevens ad for 4D describes a studio
 with a separate kitchen. In such a building the counted ads give the typed count, while
 the studios reach the data as zeros, so a typed majority shows nothing about the blank
-ads. I dropped the 42 sets in those 14 buildings, and their ads stay coded 0. That leaves
-77 sets in 51 buildings that hold no studio-text ad.
+ads. I dropped the 42 sets in those 14 buildings, and their ads stay coded 0. The
+reviewer then ran the same check on unit labels and found 348 E 51st St, where one lister
+posts pages labelled "studio" and "stu" with zeros asking $3,000 to $3,500 against a
+1-bedroom median of $4,500. I dropped its 2 sets as well. That leaves 75 sets in 50
+buildings with no studio in an ad's text or a unit's label.
 
-13,786 ads of the three classes stay as they are (the table counts 13,744 before the 42 dropped sets):
+13,788 ads of the three classes stay as they are (the table counts 13,744 before the 44 dropped sets):
 
 | reason | blank, 1 room | blank, more rooms | count in the text |
 |---|---|---|---|
@@ -1522,8 +1528,8 @@ No floor plan was fetched. Blank ads with a typed count of 1 or more were not ex
   take back sets backed by an ad of the unit years away from the corrected ad, or by the
   page of a lister who relabels reposts.
 - **Ledger, ads coded 0 bedrooms across all listers.** The file
-  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 757 lines on 751 ads, described
-  under "Ads coded 0 bedrooms across all listers": 272 bedroom sets (77 blank forms from
+  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 755 lines on 749 ads, described
+  under "Ads coded 0 bedrooms across all listers": 270 bedroom sets (75 blank forms from
   their building's one layout, 195 ads whose text gives the count with the building or the
   page agreeing), 6 bath sets and 479 `bedrooms_unknown` excludes (264 blank forms of
   Stuyvesant Heights Realty and Real Street, 215 blank forms of other listers whose page

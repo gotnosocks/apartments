@@ -224,7 +224,7 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   662 Nostrand Ave). Done on 2026-11-12 over all kept ads as far as the records allow
   (`docs/notes/outlier-sprint-2026-11-11.md`, "Ads coded 0 bedrooms across all listers"):
   about two thirds of the placeholder listings are real studios, so no rule excludes them
-  as a class. The ledger sets 272 ads on building or page evidence and excludes 479. The
+  as a class. The ledger sets 270 ads on building or page evidence and excludes 479. The
   ads left with a count in the text price as studios (median held-out gap 0.000).
 - [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
   alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
