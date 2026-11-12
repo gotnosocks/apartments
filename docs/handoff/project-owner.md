@@ -54,18 +54,19 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   (`drift-building-phase-year`, #1337, L1's noise times a factor for each calendar year,
   against L1, two containers, about $8.4). Their predictions are in their notes.
 - **Tests on master.** At 6c920023 (before #1337) `frontier/tests/test_drift_building_phase.py`
-  passed 8 of 8 in 120 s. A full-suite run at that commit was still going at 12:30 ET,
+  passed 8 of 8 in 120 s. A full-suite run at that commit was still going at 12:20 ET,
   one folder at a time (frontier, then root), with no failures through 16% of the
   frontier tests. It writes `/data1/apartments/tmp/sprint-20261112/fullsuite.log.frontier`
   and `.root`, each ending in an `exit N` line.
 
 ### Follow-ups the review of #1337 left
 
-1. Done at 12:45 ET. I ran the phased test design (2 chains, 60 warmup, 8 draws, seed 3)
+1. Done at 12:20 ET. I ran the phased test design (2 chains, 60 warmup, 8 draws, seed 3)
    on thelio's GPU at 9a7830fb and at f9277d32, using the `sim-recovery` venv, the one
    with a CUDA jaxlib. On the GPU the draws are not bit-identical: 26 of the 40 traced
    and kept arrays differ, by at most 9e-8 of an array's largest value. Two runs at the
-   same commit gave different hashes too, so the GPU itself rounds differently from run
+   same commit gave different hashes too (b2aa3ea8 and then 7da3aee7 at 9a7830fb,
+   16b3833c and then b6aa8a8b at f9277d32), so the GPU itself rounds differently from run
    to run, and the scan adds nothing larger. The script and arrays are in
    `/data1/apartments/tmp/sprint-20261112/gpucheck/`.
 2. Add sha256 pins for the draws of `drift-building-phase` and `drift-building-unitt`, as
