@@ -6,36 +6,58 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## Outlier sprint, state at 2026-11-11 22:40Z
+## Outlier sprint, state at 2026-11-12 04:15Z
 
 Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
 sprint ends about 2026-11-12 18:55Z. The findings are in
-[the sprint note](../notes/outlier-sprint-2026-11-11.md), and scratch work is in
-`/data1/apartments/tmp/outlier-sprint/`.
+[the sprint note](../notes/outlier-sprint-2026-11-11.md) and
+[the closing note](../notes/closing-asks-2026-11-11.md). Scratch work is in
+`/data1/apartments/tmp/outlier-sprint/`, with the second session's work under `s2/` (a
+folder for each line of work, each with a `results.md`).
 
-- **Merged:** the ledger corrections (#1307), `b0income` (#1309), the closing-ask results
-  (#1310) and the sprint note (#1311).
-- **No Modal fits until the sprint ends** (Ben, 2026-11-11 22:07Z). He stopped c2 before
-  its first container. The unit `outlier-c2` is stopped, and no Modal unit or timer is
-  pending. c2 and the income fit are in `docs/TODO.md` with their predictions, and a
-  reparameterization of the walk's hyperparameters is there with none yet. To run c2 later, restart `c2/run.sh` as a user unit.
-  It skips a part whose `result.json` exists. After `c2c` finishes, from
-  `/data1/apartments/serve/master/frontier` with `PYTHONPATH=src` and the bridge-frontier
-  venv:
-
-  ```sh
-  python -m rentfrontier.drift_pool drift-building-b0-latest-5f766394-c2 \
-      drift-building-b0-latest-5f766394-c2a drift-building-b0-latest-5f766394-c2b \
-      drift-building-b0-latest-5f766394-c2c
-  python -m rentfrontier.drift_score drift-building-b0-latest-5f766394-c2
-  python /data1/apartments/tmp/outlier-sprint/compare_c1.py \
-      drift-building-b0-latest-67d14e17-b9 drift-building-b0-latest-5f766394-c2
-  ```
-
-  `compare_c1.py` is a scratch script in `/data1/apartments/tmp/outlier-sprint/`. It
-  compares two runs' `pred_scores.npz` on the held-out ads whose target is unchanged.
-- **Leads not started:** a Student-t unit level, wider noise for large units, splitting unit
-  records shared by two apartments, a text rule for commercial spaces and rooms.
+- **No Modal fits until the sprint ends** (Ben, 2026-11-11 22:07Z). The unit `outlier-c2` is
+  stopped and stays stopped, and no Modal unit or timer is pending. Every fit idea of the
+  sprint is in `docs/TODO.md` with its predictions.
+- **Merged:** the ledger corrections (#1307), `b0closing` (#1308), `b0income` (#1309), the
+  closing-ask results (#1310), the sprint note (#1311), the walk's slow hyperparameters
+  (#1313), the causes of the off-day price changes (#1314), the pass 2 ledger (#1315),
+  the narrowed closing dataset `b0closingraise` (#1317), the second-look ledger (#1318)
+  and `b0chains` (#1319, with the carried split in #1320).
+- **Closing asks.** A second look at the records' event times kept the rewrite for the
+  59,026 rows whose ask is a raise typed as the ad closed, and dropped it for cuts and
+  earlier raises. c3 (b9's design on `b0closingraise`, three containers of 2 chains) takes
+  c2's place; its 7 predictions are in the closing note. To score it against b9 on the
+  unchanged held-out ads, pool with `rentfrontier.drift_pool`, score with
+  `rentfrontier.drift_score`, and compare with the scratch script
+  `/data1/apartments/tmp/outlier-sprint/compare_c1.py RUN_A RUN_B`.
+- **c1's gate miss** was a tail event of 4 chains on a ridge the walk's scales cross slowly
+  (chance 2.1% to 2.8% against 0.55% to 0.74% for 6 chains). Gate fits run 6 chains. The
+  reparameterization proposed earlier is withdrawn.
+- **Reads.** Pass 2's 600 ads are in `p2/reads/b_*.jsonl` with the proposals in
+  `p2/actions.parquet`. The text flags of every row are in `qual/flags.parquet` (1,893,800
+  rows, 31 flags), and their residuals are in the sprint note. The commercial and room
+  screen (`nonres/matches2.parquet`) led to no pipeline rule: its matches sit near zero gap.
+- **Ledger rule learned in the sprint.** An apartment changes over the years (a renovation,
+  a flex wall, two units combined), so another ad of the unit backs a correction only when
+  it is close in time or the ad shows the same configuration. Two merged bedroom sets
+  failed that test and are retracted. The table of every sprint set against the distance
+  to its backing ad is `s2/F3/timegaps.parquet`.
+- **The Rheingold (10 Monteith St)** has brokers posting ads for any unit of the building
+  under arbitrary unit pages: 431 of its 592 pages with two or more kept ads hold two or
+  more bedroom counts. A page of this building does not identify an apartment.
+- **Reposts under a new label.** A lister reposts an apartment under a changed label the
+  day its ad comes down. Ben's standard (2026-11-11): photos, text and timing only
+  nominate a link, since a landlord reuses them for other apartments of a line. A join
+  needs a label to fail as a real unit, absent from the lot's city records and off the
+  building's grid of floors and lines. `s2/G/code/std.py` applies it: 19,787 joins of
+  64,953 nominated links, 16,381 between two passing labels, 28,785 undecided (records
+  too thin in 55% of the buildings). Verdicts are in `s2/R/v4/links_standard.parquet`,
+  the collapsed dataset in `s2/C/ds-std` (18,208 rows dropped). An earlier count of
+  70,300 chains is withdrawn. Ben has two looser variants in front of him (adequacy at
+  50%, the grid deciding alone on thin-record lots) and has not chosen either, so the
+  75% standard stands.
+- **Updates to Ben.** He asked for a short update about every 30 minutes and whenever
+  something finishes, with the long reports kept for results.
 
 ## Manhattan doorman fit, 2026-11-11 06:50Z
 

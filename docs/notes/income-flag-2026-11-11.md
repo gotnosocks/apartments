@@ -46,13 +46,19 @@ distribution, so the flag's coefficient may grow with more members.
 The fit takes the dataset of the closing-ask comparison's winner
 (`docs/notes/closing-asks-2026-11-11.md`): the closing dataset if it is served, b9's
 otherwise. I rebuild it with `python -m rentfrontier.b0income SRC OUT` and fit the latest
-split of `drift-building` at the base's commit, fit-only, as two H100 containers of 2 chains,
-`2 500 9000 40 --seed S --no-loo --no-heldout` with seeds 1 and 2. I compare it with the
-base's first four chains on the held-out ads, which both datasets share.
+split of `drift-building` at the base's commit, fit-only, as three H100 containers of 2
+chains, `2 500 9000 40 --seed S --no-loo --no-heldout` with seeds 1 to 3. I compare it with
+the base's pool of six chains on the held-out ads, which both datasets share.
+
+The design first written here had two containers. I raised it to three on 2026-11-12,
+before any launch, after the closing fit c1 missed the gate with 4 chains: at b9's mixing a
+4-chain pool misses by chance 2.1% to 2.8% of the time and a 6-chain pool 0.55% to 0.74%
+(`docs/notes/closing-asks-2026-11-11.md`, "The gate miss, second look"). Predictions 1 and 6
+are revised to match, and the others stand as written.
 
 ## Predictions (written before launch)
 
-1. The pool passes the gate (75%).
+1. The pool passes the gate (90%; 75% for the two-container design).
 2. The flag's coefficient sits between -0.12 and -0.07, with its 90% interval narrower than
    b9's (60%).
 3. On the held-out ads, elpd gains over the base (65%), by more than 2 combined SE (20%).
@@ -60,4 +66,4 @@ base's first four chains on the held-out ads, which both datasets share.
    falls by at least 0.02 (60%).
 5. Across all held-out ads, the median absolute error and the 80% coverage each move by under
    0.001 and 0.002 (80%).
-6. $7 to $8 for the two containers.
+6. $10 to $12 for the three containers ($7 to $8 for two).
