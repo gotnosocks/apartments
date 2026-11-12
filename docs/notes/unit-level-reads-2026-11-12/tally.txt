@@ -1,0 +1,123 @@
+stratum       rank201_2000  top200  All
+class                                  
+miscoded                 5      10   15
+other_data               2      11   13
+pricing                 15      12   27
+real_outlier            69     153  222
+regulated                1       2    3
+shared_label             4       5    9
+unclear                  4       7   11
+All                    100     200  300
+stratum                             rank201_2000  top200  All
+class        code                                            
+miscoded     wrong_bedrooms                    5      10   15
+other_data   commercial                        0       1    1
+             net_effective                     1       0    1
+             not_rental                        0       1    1
+             price_typo                        1       8    9
+             wrong_building                    0       1    1
+pricing      aggressive_ask                    1       0    1
+             deep_cut                          7       7   14
+             other_pricing                     7       5   12
+real_outlier basement_garden                   1       1    2
+             duplex_triplex                    3      13   16
+             layout_size                      28      59   87
+             other_quality                     6       4   10
+             outdoor_space                    11      22   33
+             penthouse_top                     9      48   57
+             renovation                        3       1    4
+             townhouse_whole_floor             0       1    1
+             view                              8       4   12
+regulated    income_restricted                 0       2    2
+             rent_stabilized                   1       0    1
+shared_label shared_label                      4       5    9
+unclear      none                              1       0    1
+             unclear                           3       7   10
+All                                          100     200  300
+dir           over  under  All
+class                         
+miscoded         5     10   15
+other_data       9      4   13
+pricing          2     25   27
+real_outlier   183     39  222
+regulated        0      3    3
+shared_label     8      1    9
+unclear          3      8   11
+All            210     90  300
+dir                    over  under
+code                              
+aggressive_ask            1      0
+basement_garden           2      0
+commercial                1      0
+deep_cut                  0     14
+duplex_triplex           16      0
+income_restricted         0      2
+layout_size              58     29
+net_effective             0      1
+none                      1      0
+not_rental                1      0
+other_pricing             1     11
+other_quality             1      9
+outdoor_space            33      0
+penthouse_top            57      0
+price_typo                7      2
+renovation                3      1
+rent_stabilized           0      1
+shared_label              8      1
+townhouse_whole_floor     1      0
+unclear                   2      8
+view                     12      0
+wrong_bedrooms            5     10
+wrong_building            0      1
+stratum       rank201_2000  top200
+action                            
+exclude                  0       3
+none                    94     183
+set_baths                0       1
+set_bedrooms             4       9
+set_sqft                 0       1
+split_unit               2       3
+confidence
+high      132
+medium    120
+low        48
+Name: count, dtype: int64
+penthouse_top penthouse {True: 49, False: 8}
+penthouse_top top_floor {True: 54, False: 3}
+outdoor_space private_outdoor {True: 27, False: 6}
+view view {True: 9, False: 3}
+layout_size sqft known 0.6206896551724138 model_sqft 0.8390804597701149 {'stated': 54, 'none': 14, 'unit': 11, 'line': 8}
+all sqft known 0.5433333333333333
+              count    median  <lambda_0>
+class                                    
+miscoded         15 -0.256632    0.345388
+other_data       13  0.393869    0.431967
+pricing          27 -0.272828    0.272828
+real_outlier    222  0.338443    0.351093
+regulated         3 -0.430548    0.430548
+shared_label      9  0.267545    0.335804
+unclear          11 -0.285933    0.335627
+    listing_id            code        action                    value                                                                                                                                                                                              backing confidence       stratum  bedrooms
+1      1384631  wrong_bedrooms  set_bedrooms                        0                                                                  Later ads for the same unit 12M: 3378249 (570 sq ft, 'ALCOVE STUDIO'), 4691777 and 5018990 ('alcove studio'), 1636339 coded 0 beds.     medium  rank201_2000       1.0
+5      1480935  wrong_bedrooms  set_bedrooms                        1                            Other ads for the same unit: 1245647 (2014, 'large 1 bedrm (convertible 2 bedrm)', 1040 sq ft), 2673787 and 3008546 (coded 1 bed, 'convertible two bedroom', 1040 sq ft).     medium        top200       2.0
+6      1519910      commercial       exclude                     None                                                                                                                                                                                                  NaN       high        top200       0.0
+26     2295085  wrong_bedrooms  set_bedrooms                        1                                                                   Later ads of the same unit 2381580, 2571982, 2611068 and 4612929 all code 1 bedroom; 2611068 says ~1,000 sq ft gigantic 1 bedroom.     medium  rank201_2000       2.0
+31     2385088  wrong_bedrooms  set_bedrooms                        1                                                                               Same unit's later ads 4254675 and 4400162 (850 sq ft) are coded 1 bedroom and describe a bedroom plus den/home office.     medium        top200       2.0
+36     2576730  wrong_bedrooms  set_bedrooms                        3                      Listing 2534001 (Dermot, same unit, same $13,929, same 2,000 sq ft) says 3 bedroom, 3.5 bath; this ad's own text says 3.5 bathrooms; the 4-bed neighbours ask 13,500 to 15,800.     medium  rank201_2000       4.0
+44     2851808     layout_size     set_baths                        2                                                                                     Same unit's 2016 listing 1770780 uses the same text and is coded 2 full baths; this ad's text says 2 Full Baths.     medium        top200       0.0
+46     2911385  wrong_bedrooms  set_bedrooms                        1                                                      Same unit's other ads 2577070 (2018, $2,949), 2178286, 1879636, 4424554 and 5039562 are coded 1 bedroom; this record has rooms 5 and 1.5 baths.     medium        top200       0.0
+48     2934251     layout_size      set_sqft                     2000                                                                                    Same unit's later listing 3596172 (same flex-5 text) states MASSIVE 2000 Sq. Ft., coded 3 bedrooms and 2.5 baths.     medium        top200       0.0
+58     3123968  wrong_bedrooms  set_bedrooms                        3                                             Listing 4313382 (2023, same unit per propertyHistory) is coded 3 bed, 2 bath and describes '3 Separate Windowed Home Offices/Sleeping Areas, 2.5 Baths'.     medium        top200       0.0
+60     3151154      not_rental       exclude                  2791427                                                                                 Listing 2791427 (2019-07-11, $6,000, 0 bed, text 'test.') sits in the unit's own history between ordinary $3.0k ads.       high        top200       1.0
+61     3154147  wrong_bedrooms  set_bedrooms                        1                                                                                                          Listings 3900220 (2022) and 4495149 (2024), same unit and text, are coded 1 bed, 715 sq ft.     medium  rank201_2000       2.0
+67     3329653    shared_label    split_unit  3244112,3377158,2892750         Listings 3244112 (0 bed, $2,667), 3377158 (3 bed, $3,300) and 2892750 (2 bed, $7,999, 2019) share the unit id within about two months of this ad or with a doubled price; building floors 6.        low        top200       2.0
+82     3564158    shared_label    split_unit                [4127972]                                                                                        Listing 4127972 codes 4 bed / 2 bath for unit 2E, while 3087253 and 3564158 code 2 bed / 1 bath, 900-1000 sf.     medium  rank201_2000       2.0
+150    4352539  wrong_bedrooms  set_bedrooms                        2                                   Ad 3171362 (same unit 1B, 2020) lists '2 Separate Bedrooms'; ad 3421827 (same unit, 2021) is coded 2 bedrooms; latest ad says duplex with large finished basement.     medium        top200       1.0
+168    4464832  wrong_bedrooms  set_bedrooms                        1                                                                                   Earlier ads 2125223 and 2700920 for the same unit state 605 sq ft and 'easily converts to a stunning one bedroom'.     medium        top200       2.0
+178    4526133    shared_label    split_unit                  2738598                                                                                2738598 (2019) is coded 2 bed, 900 sq ft, 'Brand New BIG 2BR Apt', while 3371731 (2021) says 'TRUE 4 BED 2 Bathroom'.        low  rank201_2000       4.0
+199    4658889  wrong_bedrooms  set_bedrooms                        1                                                       5125237 (2026-08-14, same unit 16F) is coded 1 bed, 1 bath; 2524757 (2018) says 'this is a 1 bedroom/home office' of approximately 750 sq. ft.     medium        top200       2.0
+201    4661198  wrong_bedrooms  set_bedrooms                        3                          Same unit: 4313384 (2023) and 3621594 (2021) code 3 bedrooms with 2 baths, 3382717 (2021) codes 4 bedrooms at 1347 sq ft with the same terrace; 3101560 and 4661198 code 0.     medium        top200       0.0
+273    5088321    shared_label    split_unit       [4489365, 4629636]  4489365 and 4629636 describe a 2 bed/2 bath penthouse at $13,500 and $12,160; 4775035 describes a 755 sq ft 1 bed with balcony at $6,200; same-line units 22O, 23O and 24O ask $6,245 as 1 bedrooms     medium        top200       1.0
+282    5127509      price_typo       exclude                  2958909                                                                       Same unit: 3760601 asks $4,100 (2022-01, renovated 1-bed) and 5127509 asks $4,650; 2958909 at $9,999 is more than double both.     medium        top200       1.0
+290    5159853    shared_label    split_unit                [4689652]                                    Same building, Sep 2026: LOFT1 $7,000 and LOFT2 $6,795, both 2 bed 2 bath; 4689652 (2025-03) states 2124 sq ft at $12,500, while 5099029 and 5159853 ask $7.3-8k.        low        top200       2.0
+296    5184543  wrong_bedrooms  set_bedrooms                        1                Same unit: 2478354 (2018-08, $3,300) coded 1 bed; 3603926 (2021-07, $3,300) coded 2 bed with the same 629 sf; stated size 629 sf with 1 bath, against 2-beds in the building at $6k+.     medium        top200       2.0
