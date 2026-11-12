@@ -58,14 +58,18 @@ PYTHONPATH=src /data1/apartments/venvs/serve-site/bin/python -m apartments.site.
   --root /data1/apartments/site --ledger pipeline/ledger [--day YYYY-MM-DD] [--dry-run]
 ```
 
-The command prints counts as JSON (`corrections`, `units`, `findings`, `answers`) along with
-the files it wrote:
+`--reader` names the person whose reading goes into the `owner` items, and defaults to Ben.
+The command prints counts as JSON (`corrections`, `units`, `findings`, `answers`), and lists
+the files it wrote under `files`:
 
-- `pipeline/ledger/<day>-review-app.ndjson`: sets and excludes, each carrying Ben's reading as
-  an `owner` item next to the card's own evidence;
-- `pipeline/ledger/units/<day>-review-app.ndjson`: joins;
-- `/data1/apartments/site/review/findings-<day>.jsonl`: all other answers, plus answers to cards
-  that are missing or have changed.
+- `pipeline/ledger/<day>-review-app-NN.ndjson`: sets and excludes, each carrying the reader's
+  reading as an `owner` item next to the card's own evidence;
+- `pipeline/ledger/units/<day>-review-app-NN.ndjson`: joins;
+- `<site root>/review/findings-<day>-NN.jsonl`: all other answers, plus answers to cards that
+  are missing or have changed.
+
+NN is 01, or the next free number when that file exists. A second export on the same day
+therefore sorts after the first, and the ledger reads its files in order of name.
 
 The command records the answers it exported in `review/exported.jsonl`, so running it again
 writes nothing new. Commit the ledger files on the branch and open a reviewed PR as with any
