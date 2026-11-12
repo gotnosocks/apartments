@@ -57,18 +57,16 @@ unit's own history, and the pull toward the building's lines does not shrink.
 ## Would U2 move it
 
 U2 gives each unit's lasting level its own mixing scale, so a unit whose training asks sit
-far from the building's level is shrunk less. That changes the median of an ad only
-through the unit's own training deviations, and only where they are large. In the subgroup
-the shortfall is the same 0.025 for units with one, two and three or more training ads, so
-it does not come from how hard the unit's own deviation is shrunk. The units with one
-training ad, the largest share (39%), have a level estimated from a single ask, and a
-heavier tail lets that ask count for more, which helps only if the one ask lies below the
-median. The error says the opposite is no more likely than not: the final ask lands under
-the median for the subgroup as a whole, and a unit's own previous ask is already in the
-median through its level. I expect U2 to leave the subgroup's median error within 0.002 of
-c3ab's, and its coverage within 0.01. Neither L1 nor U2 addresses these ads. The
-subgroup needs a term of its own, and the fits already queued should not be expected to
-close it.
+far from the building's level is shrunk less toward it. That moves an ad's median only
+through the unit's own training deviations, and only where those are large. In the
+subgroup the shortfall is the same 0.025 for units with one, two and three or more
+training ads. If shrinkage of the unit's own deviation drove it, the shortfall would
+change with the number of training ads. The 39% of the subgroup with a single training ad
+would gain from a heavier tail only where that ask lies well below the median, and the
+earlier ask is already in the median through the unit's level. I expect U2 to leave the
+subgroup's median error within 0.002 of c3ab's, and its coverage within 0.01. So neither
+L1 nor U2 addresses these ads, and the fits already queued should not be expected to close
+the gap. The subgroup needs a term of its own.
 
 ## A term that would: a level for each line
 
