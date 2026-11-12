@@ -366,13 +366,18 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
 carries only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
 The model names are `drift`, `drift-building`, `drift-building-doorman`,
-`drift-building-phase`, `drift-building-unitt` and `drift-local` (`drift.py`,
-`drift_building.py`, `drift_building_doorman.py`, `drift_building_phase.py`,
-`drift_building_unitt.py`, `drift_local.py`).
+`drift-building-phase`, `drift-building-phase-year`, `drift-building-unitt` and
+`drift-local` (`drift.py`, `drift_building.py`, `drift_building_doorman.py`,
+`drift_building_phase.py`, `drift_building_phase_year.py`, `drift_building_unitt.py`,
+`drift_local.py`).
 `drift-building-doorman` adds a Manhattan copy of each doorman column to the building
 model (docs/notes/drift-building-doorman-2026-11-11.md). `drift-building-phase` scales each
 row's sigma by a factor for its lease phase, set by the months since the unit's previous
-ad, and draws the six free factors in the scale step. `drift-building-unitt` gives each
+ad, and draws the six free factors in the scale step. `drift-building-phase-year` also
+scales it by a factor for the calendar year of the row's price_at, with 2024 at 1. The
+sampler takes the cells of phase and year as its phases, and `Design.phase_map` makes each
+cell's factor the product of its phase's and its year's, so the scale step draws 18 free
+factors (docs/notes/year-noise-2026-11-12.md). `drift-building-unitt` gives each
 unit's lasting level a Student-t prior: unit k's level has variance unit_sd^2 / kap_k, with
 kap_k ~ Gamma(nu_u / 2, rate nu_u / 2). The sweep draws u with every unit's level by
 Matheron's rule, then nu_u and the kap given the levels, and moves nu_u again in the scale

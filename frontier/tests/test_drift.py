@@ -95,7 +95,14 @@ def _dense_cov(train, parts, st):
     s = np.asarray(st["sigma"])[train.group[order]]
     if "phase_scale" in st:
         # A design with noise phases scales each row's sigma by its phase's factor.
-        s = s * np.r_[1.0, np.asarray(st["phase_scale"])][train.phase[order]]
+        # Under a `phase_map` a phase's factor is the product of the free factors its row
+        # marks.
+        f = np.asarray(st["phase_scale"])
+        if train.phase_map is None:
+            f = np.r_[1.0, f]
+        else:
+            f = np.exp(np.asarray(train.phase_map) @ np.log(f))
+        s = s * f[train.phase[order]]
     c = np.asarray(st["lam"]) / s**2
     same = unit[:, None] == unit[None, :]
     K = np.where(

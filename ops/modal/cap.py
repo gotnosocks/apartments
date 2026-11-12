@@ -150,6 +150,10 @@ STATED_RATE["drift-building-doorman"] = 0.8
 # The noise phases add six directions to the scale step's eight, so its slice updates
 # take about 75% more evaluations of the scales' density.
 STATED_RATE["drift-building-phase"] = 1.0
+# The year factors take the scale step from 14 slice directions to 26. On the CPU a sweep
+# of the phase model took 1.037 s and one with the years 1.482 s, 43% more (18,441 rows and
+# 10,135 units, 2 chains), so 1.0 s becomes 1.4 s.
+STATED_RATE["drift-building-phase-year"] = 1.4
 # The units' Student-t levels took a CPU sweep of the building model from 0.215 s to 0.289 s
 # on a design of 16,897 rows and 5,112 units, 34% more, so 0.8 s becomes 1.1 s.
 STATED_RATE["drift-building-unitt"] = 1.1
@@ -260,6 +264,7 @@ BASELINES = (
     "drift-building",
     "drift-building-doorman",
     "drift-building-phase",
+    "drift-building-phase-year",
     "drift-building-unitt",
     "drift-local",
 )
@@ -321,6 +326,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building",
         "drift-building-doorman",
         "drift-building-phase",
+        "drift-building-phase-year",
         "drift-building-unitt",
         "drift-local",
     ),
