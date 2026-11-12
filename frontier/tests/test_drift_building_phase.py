@@ -230,6 +230,30 @@ def test_a_design_with_no_phases_draws_what_it_drew_before_the_phases():
     assert h.hexdigest() == BUILDING_RUN_SHA256
 
 
+# The sha256 of every traced and kept array of the run below on the CPU, as drawn at
+# 9a7830fb, the commit of L1's fits. A deliberate change to the phased model's draws
+# changes it.
+PHASE_RUN_SHA256 = "c35722d48b214279d47475b7b3beb2dab56d8b1fd865801c6dccde51b2d4b959"
+
+
+def test_a_phased_design_draws_what_it_drew_at_l1s_commit():
+    train, _, _ = td._split(_phased(n=400, per_unit=9))
+    assert train.phase is not None
+    out = drift_building.run(
+        train,
+        building_zones.Priors(),
+        drift.Settings(chains=2, warmup=60, draws=8, level_dof=4.0, seed=3),
+        log=lambda m: None,
+    )
+    arrays = {f"trace/{k}": v for k, v in out["trace"].items()}
+    arrays |= {f"kept/{k}": v for k, v in out["kept"].items()}
+    h = hashlib.sha256()
+    for k in sorted(arrays):
+        h.update(k.encode())
+        h.update(np.ascontiguousarray(arrays[k]).tobytes())
+    assert h.hexdigest() == PHASE_RUN_SHA256
+
+
 def test_the_model_is_the_building_model_with_its_phases():
     assert drift_building_phase.LEVEL_DOF == drift_building.LEVEL_DOF
     assert drift_building_phase.GROUPS == ("building",)
