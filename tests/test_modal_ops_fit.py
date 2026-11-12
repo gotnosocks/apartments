@@ -1,6 +1,7 @@
 import datetime
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from unittest import mock
@@ -114,6 +115,61 @@ def test_the_pre_check_reads_the_fit_size_from_modal_fit_arguments():
     ]
     assert cap.fit_size([*argv, "--sampler", "gibbs"]) == ("2", "300", "4500", "L4")
     assert cap.fit_size(argv[4:]) == ("2", "300", "4500", "A100-40GB")
+
+
+def _baseline(runs, name, split):
+    (runs / name).mkdir(parents=True)
+    (runs / name / "result.json").write_text(json.dumps({"split": split}))
+
+
+def test_a_launch_against_a_baseline_on_another_split_is_refused(tmp_path):
+    runs = tmp_path / "runs"
+    _baseline(runs, "c3", "latest")
+    argv = ["abc", "u2a", "drift-building-unitt", "b0", "2", "500", "9000", "40"]
+    assert cap.baseline_refusal(argv, runs) is None
+    assert "split is 'rows'" in cap.baseline_refusal(["--baseline", "c3", *argv], runs)
+    assert "--split latest" in cap.baseline_refusal(["--baseline=c3", *argv], runs)
+    assert (
+        cap.baseline_refusal(["--split", "latest", "--baseline", "c3", *argv], runs)
+        is None
+    )
+    assert "no readable result.json" in cap.baseline_refusal(
+        ["--split", "latest", "--baseline", "c9", *argv], runs
+    )
+    assert "needs the name" in cap.baseline_refusal([*argv, "--baseline"], runs)
+    # --baseline takes a value, so the fit's size is read past it.
+    assert cap.fit_size(["--baseline", "c3", *argv]) == (
+        "2",
+        "500",
+        "9000",
+        "A100-40GB",
+    )
+    args, rest = fit.parse(["--baseline", "c3", *argv])
+    assert args.baseline == "c3" and rest == []
+
+
+def test_the_pre_check_prints_the_split_and_refuses_a_mismatch(tmp_path):
+    import subprocess
+
+    runs = tmp_path / "runs"
+    _baseline(runs, "c3", "latest")
+    script = Path(__file__).parents[1] / "ops/modal/cap.py"
+    argv = ["abc", "u2a", "m7", "nb8", "2", "300", "4500", "9"]
+
+    def check(*extra):
+        return subprocess.run(
+            [sys.executable, str(script), "--check-launch", *extra, *argv],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "FRONTIER_OUTPUT_ROOT": str(tmp_path)},
+        )
+
+    done = check("--baseline", "c3")
+    assert done.returncode == 1
+    assert "refused: this fit's split is 'rows'" in done.stderr
+    done = check("--split", "latest", "--baseline", "c3")
+    assert "split: latest, the split of its baseline c3" in done.stderr
+    assert "split: rows (no --baseline given)" in check().stderr
 
 
 def test_plan_names_runs_like_drive_sh_and_reads_the_tier():

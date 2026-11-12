@@ -106,6 +106,11 @@ def parse(argv):
         help="another file or directory the fit reads",
     )
     p.add_argument("--split", default="rows")
+    p.add_argument(
+        "--baseline",
+        help="the run this fit is compared with; ops/modal-fit refuses the launch if that "
+        "run's split differs from --split (cap.baseline_refusal)",
+    )
     p.add_argument("--chain-batch", type=int)
     p.add_argument(
         "--large",
