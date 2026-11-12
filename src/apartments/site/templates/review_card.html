@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% import "_review.html" as rv with context %}
+{% set section = "review" %}
+{% block title %}{% if card %}{{ card.title }} · {% endif %}{{ queue.title }} · Review{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('review.css') }}">
+<script src="{{ static_url('review.js') }}" defer></script>
+{% if next_url %}<link rel="prefetch" href="{{ next_url }}">{% endif %}{% endblock %}
+{% block content %}
+<div class="rv-top">
+  <a href="{{ url_for('review_home') }}">Review</a> · {{ queue.title }}
+  <span class="rv-count">{{ progress.done }} of {{ progress.total }} done</span>
+  <progress class="rv-progress" value="{{ progress.done }}" max="{{ progress.total or 1 }}"></progress>
+</div>
+
+{% if saved %}
+<form class="rv-toast" method="post" action="{{ url_for('review_undo', name=queue.name) }}" role="status">
+  <input type="hidden" name="card" value="{{ saved.decision.card }}">
+  <span>Saved <strong>{{ answer_label(saved.decision) if saved.card else saved.decision.answer }}</strong>{% if saved.card %} for {{ saved.card.title }}{% endif %}.</span>
+  <button type="submit" class="rv-undo">Undo</button>
+</form>
+{% endif %}
+
+{% if not card %}
+<section class="rv-done">
+  <h1>All done</h1>
+  <p>Every card in this queue has an answer. New cards appear here when the queue is rebuilt.</p>
+  <form method="post" action="{{ url_for('review_undo', name=queue.name) }}"><button type="submit" class="rv-undo">Undo the last answer</button></form>
+  <p><a href="{{ url_for('review_home') }}">Back to the queues</a></p>
+</section>
+{% else %}
+<article class="rv-card">
+  <header class="rv-head">
+    <h1>{{ card.title }}</h1>
+    {% if card.data.subtitle %}<p class="rv-sub">{{ card.data.subtitle }}</p>{% endif %}
+    {% if card.data.claim %}<p class="rv-claim">{{ card.data.claim }}</p>{% endif %}
+    <p class="rv-question">{{ card.data.question or queue.meta.question or "Is this right?" }}</p>
+    {% if card.data.proposal and card.data.proposal.summary %}<p class="rv-proposal">If yes: {{ card.data.proposal.summary }}</p>{% endif %}
+    <p class="rv-jump"><a href="#rv-problem">Something else wrong?</a></p>
+    {% if queue.meta.help %}<details class="rv-help"><summary>What counts as evidence</summary><p>{{ queue.meta.help }}</p></details>{% endif %}
+  </header>
+  {% if current %}
+  <p class="rv-current">You answered <strong>{{ answer_label(current) }}</strong> on {{ eastern(current.at) }}{% if current.card_sha != card.sha %}; the card has changed since{% endif %}. A new answer replaces it.</p>
+  {% endif %}
+  {% for b in card.data.blocks %}{{ rv.block(b) }}{% endfor %}
+</article>
+
+<section class="rv-extra" aria-label="More about this card">
+  <details class="rv-more" id="rv-problem">
+    <summary>Something else is wrong</summary>
+    <fieldset class="rv-problems"><legend>What is wrong</legend>
+      {% for p in problems %}
+      <label class="rv-check"><input type="checkbox" name="problem" value="{{ p.code }}" form="rv-form"> {{ p.label }}</label>
+      {% endfor %}
+    </fieldset>
+    {% set ads = card.ads() %}
+    {% if ads %}
+    <fieldset class="rv-fix"><legend>Type the right value (optional)</legend>
+      <label class="rv-label" for="rv-fix-ad">Ad</label>
+      <select id="rv-fix-ad" name="fix_listing" form="rv-form">
+        {% for a in ads %}<option value="{{ a.listing_id }}"{% if card.data.listing_id == a.listing_id %} selected{% endif %}>{% if a.unit %}#{{ a.unit }} · {% endif %}ad {{ a.listing_id }}</option>{% endfor %}
+      </select>
+      <label class="rv-label" for="rv-fix-field">Value</label>
+      <select id="rv-fix-field" name="fix_field" form="rv-form">
+        {% for code, label in fix_fields.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+      </select>
+      <label class="rv-label" for="rv-fix-value">Right value</label>
+      <input id="rv-fix-value" name="fix_value" inputmode="decimal" autocomplete="off" form="rv-form">
+    </fieldset>
+    {% endif %}
+    <button type="submit" name="answer" value="problem" form="rv-form" class="rv-btn rv-btn-problem">Save the problem</button>
+  </details>
+  <details class="rv-more">
+    <summary>Add a note to your answer</summary>
+    <label class="rv-label" for="rv-note">Kept with whichever answer you tap</label>
+    <textarea id="rv-note" name="note" rows="2" maxlength="1000" form="rv-form"></textarea>
+  </details>
+</section>
+
+<form id="rv-form" class="rv-answer" method="post" action="{{ url_for('review_answer', name=queue.name, card_id=card.id) }}">
+  <div class="rv-bar">
+    {% for o in card.data.options or [] %}{% if o.code and o.label %}
+    <button type="submit" name="answer" value="option:{{ o.code }}" class="rv-btn rv-btn-option">{{ o.label }}</button>
+    {% endif %}{% endfor %}
+    {% for a in queue.answers %}
+    <button type="submit" name="answer" value="{{ a.code }}" class="rv-btn rv-btn-{{ 'yes' if a.applies else ('no' if a.code == 'no' else 'other') }}"{% if a.key %} data-key="{{ a.key }}" aria-keyshortcuts="{{ a.key }}"{% endif %}>{{ a.label }}{% if a.key %}<kbd>{{ a.key }}</kbd>{% endif %}</button>
+    {% endfor %}
+    <button type="submit" name="answer" value="skip" class="rv-btn rv-btn-skip" data-key="s" aria-keyshortcuts="s">Skip<kbd>s</kbd></button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

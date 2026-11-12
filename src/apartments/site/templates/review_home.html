@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% set section = "review" %}
+{% block title %}Review{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="{{ static_url('review.css') }}">{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Review</h1>
+  <p class="lede">One card at a time: read the evidence, tap an answer. Your answers become ledger corrections through a reviewed PR.</p>
+</section>
+{% if not rows %}
+<p class="rv-empty">No queues have been built yet.</p>
+{% else %}
+<ul class="rv-queues">
+  {% for row in rows %}
+  {% set q = row.queue %}{% set p = row.progress %}
+  <li class="rv-queue">
+    <a class="rv-queue-link" href="{{ url_for('review_queue', name=q.name) }}">
+      <span class="rv-queue-title">{{ q.title }}</span>
+      {% if q.meta.summary %}<span class="rv-queue-summary">{{ q.meta.summary }}</span>{% endif %}
+      <progress class="rv-progress" value="{{ p.done }}" max="{{ p.total or 1 }}"></progress>
+      <span class="rv-queue-count">{{ p.left }} to go · {{ p.done }} done{% if p.skipped %} · {{ p.skipped }} skipped{% endif %}</span>
+    </a>
+    {% if q.errors %}<p class="rv-warn">{{ q.errors|length }} card{{ "s" if q.errors|length != 1 }} in this queue could not be read.</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if recent %}
+<section class="rv-recent">
+  <h2>Your latest answers</h2>
+  <ul>
+    {% for d in recent %}
+    <li><a href="{{ url_for('review_card', name=d.queue, card_id=d.card) }}">{{ d.card }}</a> <span class="muted">({{ d.queue }})</span> · {{ d.answer }}{% if d.note %} · “{{ d.note }}”{% endif %} <span class="muted">{{ eastern(d.at) }}</span></li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ url_for('review_answers_jsonl') }}">All answers (JSONL)</a></p>
+</section>
+{% endif %}
+{% endblock %}

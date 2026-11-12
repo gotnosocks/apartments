@@ -2,8 +2,8 @@
 
 http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500).
 
-The site shows the served drift model ([model/drift.md](model/drift.md)) in four sections with
-shared navigation and style: **Deals**, **Estimates**, **Workbench** and **Tags**. Each section
+The site shows the served drift model ([model/drift.md](model/drift.md)) in five sections with
+shared navigation and style: **Deals**, **Estimates**, **Workbench**, **Review** and **Tags**. Each section
 reads a folder under the site root, written by a publish step of the model.
 
 Each estimate comes from a fit that never saw the ask it is compared with: the newest ad of each
@@ -95,6 +95,18 @@ tables' sha256 against `meta.json` and queries them with DuckDB.
 - **Triage** (`/workbench/triage`, `/workbench/triage.csv`): the held-out ads ordered by miss.
 - **Buildings** (`/workbench/buildings`, `/workbench/buildings/<building>`): each building's
   level and its held-out ads.
+
+### Review
+
+- **Review** (`/review`, `/review/<queue>`, `/review/<queue>/<card>`): queues of cards for Ben
+  to judge one at a time on a phone or a laptop (`apartments.site.review`). Each card puts the
+  independent evidence first (city records, the building's label grid, sizes, plans, the unit's
+  other ads) and photos and text after, marked as nominating only. An answer is one tap, with
+  Skip, Undo, a note, and "Something else is wrong" (a data-error code or a typed value). Answers
+  are appended to `review/decisions.jsonl`, and `python -m apartments.site.review export` turns
+  them into ledger lines for a reviewed PR. The pages load StreetEasy's photos from
+  `photos.zillowstatic.com`, the one outside host their content policy allows.
+  [review-app.md](review-app.md) gives the card format, the producers and the export.
 
 ### Tags
 
@@ -246,7 +258,7 @@ mv -T current.new current` in `/data1/apartments/site`.
 
 ## Production properties
 
-- **Read-only, apart from the tags ledger.** The database is opened with `mode=ro&immutable=1`,
+- **Read-only, apart from the tags ledger and the review answers.** The database is opened with `mode=ro&immutable=1`,
   SQL is parameterized, and sort columns come from fixed lists. Invalid filter values are ignored rather than turned into errors.
 - **Headers:**
   - a strict Content-Security-Policy (`default-src 'self'`, no inline script or style);
