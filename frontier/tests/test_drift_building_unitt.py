@@ -284,11 +284,12 @@ def test_recovers_a_heavy_and_a_light_tailed_unit_level(dof):
 
 
 # The sha256 of every traced and kept array of the run below on the CPU, as drawn at
-# 6c920023, the commit of U2's fits. A deliberate change to the model's draws changes it.
+# 6c920023, the commit that added drift-building-unitt (#1333). A deliberate change to the
+# model's draws changes it.
 UNITT_RUN_SHA256 = "c356e3fc351810b6f065dd8cc8b433fceda3ca1f0bd86ca791deeb50d70def71"
 
 
-def test_a_run_draws_what_it_drew_at_u2s_commit():
+def test_a_run_draws_what_it_drew_when_the_model_was_added():
     train, _, _ = td._split(td._design(n=400, per_unit=9))
     out = drift_building_unitt.run(
         train,
