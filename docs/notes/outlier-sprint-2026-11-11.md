@@ -1447,12 +1447,12 @@ ads), a building's list of layouts (3) and a text giving two counts (1).
 
 ### The entries
 
-`pipeline/ledger/2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 799 lines on
-793 ads in 525 buildings:
+`pipeline/ledger/2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 757 lines on
+751 ads in 513 buildings:
 
 | ads | decision | evidence |
 |---|---|---|
-| 119 blank ads (65 with 1 room, 54 with more) | bedrooms set to the building's count: 1 on 74, 2 on 22, 3 on 17, 4 on 5, 5 on 1 | the building's one layout, 103 buildings |
+| 77 blank ads (58 with 1 room, 19 with more) | bedrooms set to the building's count: 1 on 36, 2 on 20, 3 on 15, 4 on 5, 5 on 1 | the building's one layout, 51 buildings |
 | 6 of those | baths set with the bedrooms | the record has the form's 1 bath and every backing ad has the same other count |
 | 195 ads with the count in the text | bedrooms set: 1 on 6, 2 on 138, 3 on 44, 4 on 7 | the text, read by Sonnet, with the building's one layout (40) or the page's other ads (155) |
 | 264 blank ads of Stuyvesant Heights (187) and Real Street (77) | excluded as `bedrooms_unknown` | the lister's form default; no building evidence for a single count |
@@ -1464,7 +1464,17 @@ field is empty: Real Street's excluded ads with more than 1 room are those with 
 more, and its 20 with 2 rooms stay. For the last row the page rule is the evidence against
 the 0 and the lister's own page score is the reason no count is set.
 
-13,744 ads of the three classes stay as they are:
+A first draft set 119 blank ads from the building's one layout. I then looked for ads in
+the same buildings whose text calls the apartment a studio, and 14 buildings hold one.
+At 216 E 28th St, BH Brokerage posts "Studio" on the same unit pages where Vickers
+Realty posts blank forms at matching asks, and the building's typed 1-bedroom ads come
+from a single lister. At 437 W 48th St a Brown Harris Stevens ad for 4D describes a studio
+with a separate kitchen. In such a building the counted ads give the typed count, while
+the studios reach the data as zeros, so a typed majority shows nothing about the blank
+ads. I dropped the 42 sets in those 14 buildings, and their ads stay coded 0. That leaves
+77 sets in 51 buildings that hold no studio-text ad.
+
+13,786 ads of the three classes stay as they are (the table counts 13,744 before the 42 dropped sets):
 
 | reason | blank, 1 room | blank, more rooms | count in the text |
 |---|---|---|---|
@@ -1484,7 +1494,7 @@ also stay. 2,886 of them have junior, alcove, convertible or flex wording, and t
 has a median held-out gap of +0.02 without that wording and 0.00 with it, so the model
 prices them like studios already.
 
-31 of the 793 ads are among the held-out ads of the latest split, with a median gap of
+31 of the 793 ads of the first draft are among the held-out ads of the latest split, with a median gap of
 +0.06 and 0.07% of all squared gaps. Since the batch corrects features on so few held-out
 ads, a fit's scores will not move with it.
 
@@ -1512,8 +1522,8 @@ No floor plan was fetched. Blank ads with a typed count of 1 or more were not ex
   take back sets backed by an ad of the unit years away from the corrected ad, or by the
   page of a lister who relabels reposts.
 - **Ledger, ads coded 0 bedrooms across all listers.** The file
-  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 799 lines on 793 ads, described
-  under "Ads coded 0 bedrooms across all listers": 314 bedroom sets (119 blank forms from
+  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` has 757 lines on 751 ads, described
+  under "Ads coded 0 bedrooms across all listers": 272 bedroom sets (77 blank forms from
   their building's one layout, 195 ads whose text gives the count with the building or the
   page agreeing), 6 bath sets and 479 `bedrooms_unknown` excludes (264 blank forms of
   Stuyvesant Heights Realty and Real Street, 215 blank forms of other listers whose page
