@@ -4,7 +4,10 @@
 building, between the building's level and the unit's. I wanted to know whether such a
 level would help L1's held-out predictions before writing it as a model term, so I
 screened it on L1's saved draws. This note makes no fit and spends nothing on Modal. The
-scripts and their outputs are in `docs/notes/line-level-screen-2026-11-12/`.
+scripts and their outputs are in `docs/notes/line-level-screen-2026-11-12/`. The scripts
+read L1's pool and write their tables to the sprint's scratch directory on thelio;
+`pricier.py` reads the two `h*.parquet` tables. The optional subset argument to `line.py`
+and `line_time.py` went unused.
 
 ## What I ran
 
@@ -15,8 +18,8 @@ averaged them. I shrank the average by n / (n + k), where n counts those ads, th
 the ad's predictive location by the result and scored L1's exact predictive again. That
 score uses L1's draws of every location, unit scale, sigma, phase factor and nu
 (`drift_score._density` with its Student-t mixture). I picked k from 1, 3, 10, 30 and 100
-on one half of the buildings, split by a hash of the building, and scored the other half
-with it, then swapped the halves. The SE is clustered by building.
+on a random 30,000 ads from one half of the buildings, split by a hash of the building,
+and scored the other half with it, then swapped the halves. The SE is clustered by building.
 
 I compared three groups:
 
@@ -49,8 +52,8 @@ All held-out ads with at least one other unit's ad in the group:
 The median error and coverage are over all 189,647 ads, with no shift for ads outside the
 group. Both fold halves picked the same k in every row.
 
-Most of the gain sits below the building. The shift by building alone recovers a fifth to
-a quarter of what the line recovers. L1's building walk already carries a building's
+Most of the gain sits below the building. The shift by building alone recovers about a
+quarter of what the line recovers. L1's building walk already carries a building's
 moves over time, so this residual share is mostly what the walk misses, plus what ads of
 the same period share. Bedrooms take the bulk of the rest, and full baths add a little
 more: +272 elpd with ads of any date, +44 earlier only. With earlier ads only, the gain
@@ -59,8 +62,9 @@ the same weeks moving together. A term fit on the training ads could not know ab
 moves, so I would not count that part as evidence for a line level.
 
 The Deals subgroup is the held-out ads whose L1 median lies more than 0.15 above the
-building's other same-count asks (17,366 ads, chosen by `deals-check/sub.py` as in the
-Deals note). In that subgroup:
+building's other same-count asks. `pricier.py` rebuilds it from the held-out ads alone,
+with 24-month windows and a month adjustment, and finds 17,366 ads, close to the Deals
+note's 17,594. In that subgroup:
 
 | group | ads read | elpd gain | SE | median signed error | median error | 80% coverage |
 |---|---|---:|---:|---:|---:|---:|
@@ -72,8 +76,8 @@ Deals note). In that subgroup:
 
 In the subgroup the line shift adds elpd, but it moves the median's shortfall by only
 0.001 to 0.002 and coverage by under 0.01. Even with the ads of any date the shortfall
-stays at -0.023. Other units' residuals in the same line, then, don't share the
-subgroup's error. A line level of this kind would help the subgroup about as much as it
+stays at -0.023. The other units in the same line mostly don't share the subgroup's
+error. A line level of this kind would help the subgroup about as much as it
 helps any other ad, and would not close the gap the Deals readers found. The Deals note
 raised selection as one cause, and this screen leaves it as the likelier one: the
 subgroup is picked for a median far above the building's other asks, so an ad noisy in
@@ -91,8 +95,9 @@ two reasons:
 - L1 already gives each unit a lasting level. Where a line holds only one unit, a line
   level adds nothing to the unit's own.
 
-The term was tried on the older model family as `lines` and tied (PSIS-LOO +22.5, lot SE
-10.3; `docs/research-record.md`, rows 118 and 125). L1's unit level and building walk
+The term was tried on the older model family as `lines`. On split C it tied (PSIS-LOO
++22.5, lot SE 10.3; `docs/research-record.md`, row 125), and an earlier fit missed the
+gate at a group R-hat of 1.079 (row 118). L1's unit level and building walk
 should take up even more of it, which argues for a smaller gain than the screen, not a
 larger one.
 
