@@ -391,6 +391,13 @@ with 12 it is 1,200, where the pooled fit b6 landed (1,184, R-hat 1.0106). So si
 the length of a chain first (fewer chains a container make a sweep faster) and by the
 number of chains second.
 
+The number of chains does change the chance of a miss when the expected R-hat sits under
+the line. Simulated chains with b9's autocorrelation on the unit scales' ridge (about 15
+sweeps a draw, 3,400 draws a chain) exceed 1.01 in 2.1% to 2.8% of 4-chain fits and in
+0.55% to 0.74% of 6-chain fits, with the expected value near 1.004 for both
+([the closing-asks note](../notes/closing-asks-2026-11-11.md), "The gate miss, second
+look"). Gate fits run 6 chains.
+
 ## Known limits
 
 - **The backtest sees some later ad fields.** An ad's feature codes, amenities, laundry and

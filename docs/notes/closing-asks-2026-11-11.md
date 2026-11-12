@@ -147,11 +147,106 @@ saved traces (3,400 draws per chain) on thelio.
   three quantities (b9ab 1.0051, b9bc 1.0041, b9ac 1.0024), against c1's 1.0114.
 
 c1's miss is consistent with the luck of four chains on a ridge they cross slowly. The
-data show no sign of causing it, and the same design passed for b9 by a margin of about 0.005. A
-reparameterization that samples the ridge's direction apart from its width (a unit's total
-variance and the walk's share of it, with `drift_tau`) would cut the autocorrelation and
-make a 4-chain fit's gate depend less on seeds. That is a change to the model, for a fit
-of its own.
+data show no sign of causing it, and the same design passed for b9 by a margin of about 0.005. I
+proposed here a reparameterization that samples the ridge's direction apart from its width
+(a unit's total variance and the walk's share of it, with `drift_tau`). The second look
+below withdraws it: the scale step already slices along the ridge.
+
+## The gate miss, second look (2026-11-11 19:00 ET)
+
+Ben asked for the miss to be checked against the data and the sampler a second time, with
+the question of which units decide where a chain lies on the ridge. Work files are under
+`/data1/apartments/tmp/outlier-sprint/s2/B1`, `B2` and `B3`; each has a `results.md` or
+an `.out` log with the tables behind the numbers here.
+
+**The ridge.** In the logs of the three scales, the first principal axis is (-0.199,
++0.323, +0.925) for `unit_sd`, `drift_sd` and `drift_tau`, and it carries 99.2% of their
+variance. The sd along it is 0.0622 in c1 and 0.0637 in b9, and the two fits' axes lie
+0.21 degrees apart. Its ends are `drift_tau` of 8.8 and 10.6 years. Along it
+`unit_sd² + drift_sd²` varies by 0.27% and `drift_sd²/drift_tau` by 2.0%: the data fix a
+unit's total variance and the walk's rate of change per year, and they say little about
+how long the walk takes to forget, since the longest unit history is 12.9 years.
+
+**Data: which units decide the ridge position.** I rebuilt each unit's likelihood at the
+two ends of the ridge from the saved posterior means (`B1/a3.py`), for the 321,060 units
+with two or more training ads, and took the difference a unit makes to its building's
+likelihood.
+
+- The 100 units with the largest differences hold 0.55% of the absolute total and 4.3% of
+  the squared total. Data simulated from a Gaussian model on the same rows give 0.6% and
+  4.2%, so the real ads are no more concentrated than error-free ads would be.
+- Units with a likely record error (a step over a factor of 2, bedroom counts differing
+  between ads, or asks alternating between two levels) are 3.5% of these units. They hold
+  4.3% of the absolute total and 5.7% of the squared total with `sigma` held, and 6.6% and
+  10.1% when `sigma` moves along the ridge with the scales. The 1,947 units with a step
+  over a factor of 2 hold about 1%.
+- The Student-t weights are the reason. At a step over a factor of 2, the ad with the
+  smaller weight has a median weight of 0.039, and with Gaussian noise the error units
+  would hold 77% of the squared total.
+- Deleting both ads of every factor-2 step (3,957 ads) changes the difference between the
+  ends by -0.9 with `sigma` held, and deleting as many ads at random changes it by -4.3.
+- Held-out ads show no preference for either end. Regressing each held-out ad's log
+  density on the draw's ridge coordinate over c1's 340 kept draws, the ends differ by
+  -42 elpd with a standard error of 68.
+- The units with an ad changed by the closing rewrite are 13.5% of these units and hold
+  17% to 18% of the absolute total, in line with their having more ads. The
+  reconstruction on b9's ads gives the same concentration.
+
+This reconstruction has limits, and the statements above rest on magnitudes alone. Its
+signed sums fail two checks: summed over all units the ends differ by +1,263 where the
+posterior implies about 0, and it predicts the closing rewrite to move the ridge position
+by -2.4 posterior sd where the two fits differ by +0.08. The cause is the residual: the
+design matrix for training rows could not be rebuilt in memory, so the ad-level columns
+are missing and the residuals carry about 9% more noise variance than the fit's `sigma`.
+Units with a single training ad and the channel through a unit's level relative to its
+building are not measured at all.
+
+**Sampler: c1 against b9, chain by chain.** (`B2/b2.out`, `B2/sim.out`.)
+
+- The chains mix alike. The mean integrated autocorrelation time of the ridge coordinate
+  is 15.6 sweeps in c1's chains and 15.5 in b9's.
+- The scale step's slice directions are no worse in c1. At the warmup's second setting of
+  the directions (sweep 333) the smallest by-axis ratio is 0.180 in c1a and 0.285 in c1b,
+  against 0.202, 0.190 and 0.231 in b9a, b9b and b9c.
+- The miss comes from c1a's first chain, whose halves average -0.24 and +0.17 posterior
+  sd on the ridge. Split R-hat on the ridge coordinate is 1.0111 for c1, 1.0165 for c1a,
+  1.0024 for c1b and 1.0038 for b9.
+- Simulated chains with b9's autocorrelation exceed 1.01 in 2.1% to 2.8% of 4-chain fits
+  and in 0.55% to 0.74% of 6-chain fits, while the expected R-hat stays near 1.004 for
+  both. With c1's own slightly longer autocorrelation the 4-chain share is 4% to 6%. A
+  value as large as c1's has a chance of 1.1% to 1.6% under b9's mixing and 2% to 4%
+  under c1's.
+
+**Model: what slows the ridge.** (`B3/pin.out`.) The ridge coordinate is unrelated to the
+248 coefficients (the best linear combination of them explains none of it out of chain,
+R² -0.02 to -0.07), to the trend, to the surface and to every building scale (|r| under
+0.04). It correlates with `nu` at +0.3 and with the four `sigma`s at +0.25 to +0.42, and
+those are drawn together with it in the scale step. By elimination the slow part is the
+rows' mixing scales, which the scale step holds fixed: the split between a noisy ad and a
+moving unit is renegotiated only as the mixing scales are redrawn around the new scales.
+I did not confirm this with a run of the sampler.
+
+**Verdict.** The chain-by-chain comparison supports reading c1's miss as the 4-chain
+layout meeting a tail event of roughly 1 in 25 to 1 in 90: the chains of the two fits mix
+alike, and the simulation gives that rate at b9's mixing. The data side is weaker
+evidence. The reconstruction says record errors do not set the ridge position, since the
+t weights remove them, and it fails two of its own checks, so that statement rests on
+magnitudes. A single fit cannot exclude a small real difference between the targets. A
+difference large enough to show in a per-chain statistic is excluded.
+
+- The reparameterization is withdrawn. The warmup already sets the scale step's
+  directions from the draws' covariance and the curvature of the step's own density, so
+  the step slices along the ridge, and a change of coordinates would leave the mixing
+  scales as they are.
+- Gate fits keep 6 chains. This is cheap and lowers the chance of a miss on an unchanged
+  target by a factor of about 4.
+- A sampler candidate for after the sprint: a second pass of steps 6, 7 and 3 of the
+  sweep (unit levels, noise with the mixing scales, and the scale step) within each
+  sweep. Its prediction and the pilot it needs first are in `docs/TODO.md`.
+
+Against the first look: its conclusion stands. Its statement that more chains do not lower
+R-hat holds for the expected value and not for the chance of exceeding 1.01, and its
+proposed remedy is withdrawn.
 
 ## The off-day changes, causally (2026-11-11 17:30 ET)
 
@@ -405,8 +500,10 @@ cut costs elpd in every timing class. Units with several repriced training ads a
 128, which I did not split by timing. The gain is spread over 35,523 buildings, and the
 largest single building gives +23.7.
 
-The 100.6 of units with no repriced training ad is the sum of a gain in buildings with a
-repriced row and a loss in buildings with none. In the buildings with a repriced row
+The 100.6 of units with no repriced training ad is close to the sum of a gain in buildings
+with a repriced row and a loss in buildings with none (+303.9 and -205.7 give +98.2; the
+two scripts class a few units differently, and I did not reconcile the 2.4). In the
+buildings with a repriced row
 (106,887 held-out ads of unrepriced units, +303.9), split by the building's repriced
 training rows (`s2/A/a9.py`):
 
@@ -435,7 +532,9 @@ concession (`s2/A/a9b.py`) refutes it:
 The loss falls on ads with no concession, and it is largest where the building has little
 history of its own: -0.029 per ad in buildings with up to 5 training rows, -0.015 with 6
 to 20, -0.005 with 21 to 100 and -0.003 above that. Their asks sit higher over c1's median
-than over b9's (+0.0054 against +0.0020 in 2020, -0.0034 against -0.0051 in 2021). My
+than over b9's (+0.0054 against +0.0020 in 2020, -0.0034 against -0.0051 in 2021; these
+means come from `a9.py`'s group of 15,185 ads with no concession in the text, which
+includes the 2,188 with recorded terms). My
 account, not tested further: the rewrite lowered the 2020 and 2021 asks of the buildings
 with closing raises to their net rents, their areas' time paths came down with them, and a
 building with few ads of its own borrows that path, while its asks, with no concession to
@@ -464,8 +563,9 @@ Ben's target is the closing price, read from the last ask before the ad leaves t
   market, so it was never an ask either, and it carries the same ratio marks. The other-ad
   test leans the same way but weakly (52% to 58%), and c1 shows no gain on these units. I
   include these rows on the timing alone.
-- A raise standing more than 5 minutes before the status event (15,772 rows) was the ask
-  on the ad when it closed. The ratio marks are as strong there as in the same-action raises,
+- A raise standing more than 5 minutes before the status event was the ask on the ad when
+  it closed. The rule keeps 15,772 raises: 15,689 of this kind, and 83 typed as the ad
+  closed at or below a price already standing that day. The ratio marks are as strong there as in the same-action raises,
   so some of these are the same net to gross switch made in two steps, but the other-ad
   test is even and c1 gains nothing on their units. They keep the off-day price. This is
   the weakest cell of the verdict.
@@ -500,9 +600,30 @@ Ben's target is the closing price, read from the last ask before the ad leaves t
 - I did not time the off-day changes of the 4,471 rows with recorded terms, since their
   netted price was never in question.
 - 1,533 of the changed rows have a status event stamped with the listing's creation time
-  of day, so their wait is measured against a system event. 40 changed rows were reopened
-  on the off-market day after the status event and before the raise, and in 5 of them the
-  raised price then stood for more than 5 minutes.
+  of day, so their wait is measured against a system event. I counted 40 changed rows
+  reopened on the off-market day after the status event and before the raise, 5 of them
+  with the raised price then standing for more than 5 minutes, and kept no script for it.
+  The reviewer of #1317 counted 43 to 45 such rows, 6 to 8 with a raise standing over 5
+  minutes, and 5 more with no later off-market event.
+- "Already off the market" rests on the first off-market status event alone. 2,158 changed
+  rows were typed more than a day after it, in 823 of them another off-market event
+  follows the raise by more than a day, and in 33 (32 from 2017) an ACTIVE event shares
+  the timed event's second and a feed went on repricing the ad for weeks (2092530). In
+  those rows the raised price may have been an ask.
+- When the closing edits straddle midnight, the price the rule falls back on can itself
+  have been typed within 5 minutes of the status event. One changed row is of this kind
+  (5163209, moved to $6,245 where $4,900 stood) and 4 kept rows (4119158). The rule also
+  matches a dropped change to a kept one by day and price, which would admit a dropped
+  change equal to a kept one; no row is affected. Too few rows to rebuild the dataset for.
+- The same unit's next ad does not separate the raises the rule keeps from the ones it
+  reprices as sharply as the timing does. Among raises over 10%, the next ad keeps 31% to
+  40% of a raise typed as the ad closed, 37% to 39% of one standing 5 minutes to 6 hours
+  (n 248 and 475) and 60% of one standing 6 to 24 hours (n 110)
+  (`s2/D3/kept.py`). Two such kept rows turned up in the large-unit reading: 1458253,
+  whose $7,225 stood about 9 hours while the unit's new ads opened near $5,000, and
+  3208045, whose $3,895 was typed 608 seconds before RENTED over $2,675. They stay,
+  because a renter was offered those prices. I did not build the baseline this needs, the
+  share a next ad keeps of a raise made in the middle of a listing.
 - The account of c1's loss in the buildings it left alone is untested beyond the split by
   concession.
 - The verdict would move toward the full rewrite if a fit on the narrowed dataset lost to
@@ -537,9 +658,12 @@ Predictions (written before launch):
 4. On the ads whose unit has a single same-action raise among its training ads, c3 gains
    0.06 to 0.10 per ad over b9 (70%).
 5. In the 57,087 ads of buildings c1's rewrite left alone, c3 still loses to b9, by between
-   150 and 300 (60%). I first wrote 80 to 220, on the reading the concession split refuted.
-   c3 moves the same raises down as c1 and leaves the cuts at their lower price, so its
-   2020 and 2021 paths lie at c1's or below.
+   150 and 300 (60%). I first wrote 80 to 220, on the reading the concession split refuted,
+   and revised it on 2026-11-11 before any launch. c3 moves the same closing raises down
+   as c1 and leaves the cuts at their lower price. It also keeps the standing raises c1
+   moved down, so its summed log moves are smaller than c1's: -1,697.7 against -1,786.8
+   in 2020 and -1,621.8 against -1,638.6 in 2021. Its 2020 and 2021 paths should lie
+   between b9's and c1's, close to c1's.
 6. On the unchanged ads, the median abs error and the 80% coverage move by under 0.0005 and
    0.003 (80%).
 7. $11 to $12 for the three containers.
