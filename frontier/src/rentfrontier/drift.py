@@ -166,6 +166,7 @@ LOCAL_SD_PRIOR = 0.1
 # logit rho).
 HYP_WIDTH = 0.3
 SIGMA_WIDTH = 0.1
+PHASE_WIDTH = 0.1
 NU_WIDTH = 0.02
 AR_WIDTHS = (0.5, 1.0)
 # The collapsed building term (`cell_layout`): a building's cells are padded to these sizes,
@@ -183,6 +184,9 @@ KAP_KEY = 97
 # Units are padded to these sizes, so that each size's units stack into one array.
 PADS = (2, 3, 4, 5, 6, 8, 10, 14, 22)
 YEAR_WEEKS = 365.25 / 7
+# The Normal prior's sd on the log of each noise phase's factor (`Design.phase`): two sds
+# span factors from 0.55 to 1.8.
+PHASE_PRIOR = 0.3
 # The traced unit scales, in the order of the state's `hyp`.
 HYP = ("unit_sd", "drift_sd", "drift_tau")
 
@@ -237,6 +241,12 @@ class Design(building_zones_kitchen_sink.Design):
     )
     units: int = 0  # the number of units with a training row
     nbhd: np.ndarray = None  # (rows,) the row's neighbourhood number
+    # (rows,) the row's noise phase, a place in `phases`, whose first phase is the
+    # reference. With phases each row's noise scale is its group's sigma times its phase's
+    # factor, and the reference phase's factor is 1. A design with no phases leaves both
+    # empty, and its rows take their group's sigma alone.
+    phase: np.ndarray = None
+    phases: tuple = ()
     # The rows to predict, in the full design's order: a dict of their `unit`, `years`, `x`,
     # `site`, `week`, `frac`, `group` and `y`. `subset` fills it for the training rows.
     pred: dict = None
@@ -319,11 +329,13 @@ def subset(d: Design, mask: np.ndarray) -> Design:
             group=d.group[other],
             y=d.y[other],
             nbhd=None if d.nbhd is None else d.nbhd[other],
+            phase=None if d.phase is None else d.phase[other],
         )
     return dataclasses.replace(
         building_zones_kitchen_sink.subset(d, mask),
         unit=d.unit[mask],
         nbhd=None if d.nbhd is None else d.nbhd[mask],
+        phase=None if d.phase is None else d.phase[mask],
         pred=pred,
     )
 
@@ -633,6 +645,10 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
     rows_per_site = site_rows(d)
     n = len(d.y)
     assert (d.unit >= 0).all(), "every training row needs a unit"
+    # The noise phases (`Design.phase`). Every phase but the reference has a free factor,
+    # and the scale step's x ends with the factors' logs.
+    free = len(d.phases) - 1 if d.phase is not None else 0
+    phased = free > 0
 
     # Rows sorted by building, then unit, then time, and the buildings in blocks.
     t_all = years(d)
@@ -759,6 +775,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         p_one=tuple(jnp.asarray(v) for v in pred["one"]),
         p_buckets=[tuple(jnp.asarray(v) for v in b) for b in pred["buckets"]],
     )
+    if phased:
+        data["phase"] = jnp.asarray(d.phase[order])
     del x
     n_pred = pred["rows"]
     active_j = jnp.asarray(active)
@@ -785,9 +803,17 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         xs, fr, wk = D["xs"], D["fr"], D["wk"]
         return xs[j] @ theta[sl_b] + (1 - fr[j]) * M[wk[j]] + fr[j] * M[wk[j] + 1]
 
+    def row_sd(D, sigma, factor=None):
+        """Each row's noise scale: its group's sigma, times its phase's factor in a design
+        with phases. `factor` holds the factors of every phase but the reference."""
+        sd = sigma[D["group"]]
+        if not phased:
+            return sd
+        return sd * jnp.concatenate([jnp.ones(1), factor])[D["phase"]]
+
     def weights(D, st):
-        """Each row's weight c_i = lam_i / sigma_g^2."""
-        return st["lam"] / st["sigma"][D["group"]] ** 2
+        """Each row's weight c_i = lam_i / s_i^2, with s_i the row's noise scale."""
+        return st["lam"] / row_sd(D, st["sigma"], st.get("phase_scale")) ** 2
 
     def site_var(bsd, kap=None):
         """Each building's prior variance of its level: its zone's spread squared, over the
@@ -1042,6 +1068,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         return unit_loglik(D, hyp, c, e) + prior
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
+    phase_rows = (
+        jnp.asarray(np.bincount(d.phase, minlength=free + 1)[1:], dtype=float)
+        if phased
+        else None
+    )
 
     def level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap=None):
         """What integrating the buildings' levels (and the collapsed term's paths) out adds
@@ -1073,6 +1104,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
     def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None):
         """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu)
+        and, in a design with noise phases, the log factor of each phase but the reference,
         given theta, the buildings' spreads, the collapsed path's scales and the rows'
         standardized log mixing scales eta, with u, the buildings' levels and the collapsed
         paths integrated out.
@@ -1090,11 +1122,11 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         m, sd = lam_moments(lnu)
         loglam = m + sd * eta
         lam = jnp.exp(loglam)
-        c = lam / sig[D["group"]] ** 2
+        c = lam / row_sd(D, sig, jnp.exp(x[8:])) ** 2
         w1, Wb = unit_W(D, x[:3], c)
         om_d, om_off = pair_weights(D, w1, Wb)
         a_nu, b_nu = priors.nu
-        return (
+        out = (
             hyp_logp(D, x[:3], c, tgt)
             + 0.5 * jnp.sum(loglam)
             - jnp.sum(group_rows * ls)
@@ -1108,11 +1140,23 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             + a_nu * lnu
             - b_nu * 2 * a
         )
+        if not phased:
+            return out
+        # Each phase's factor enters c as sigma does, and its log takes a Normal prior.
+        lf = x[8:]
+        return out - jnp.sum(phase_rows * lf) - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
+
+    def scales_x(st):
+        """The state's point in the coordinates of `scales_logp`."""
+        lnu = jnp.log(st["nu"])
+        x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
+        return jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
 
     def update_scales(D, key, st, tgt, F):
-        """The unit scales, the groups' sigma and nu together, with u, the buildings' levels
-        and the collapsed paths integrated out (`scales_logp`): a slice update along each
-        column of the state's `hyp_dirs` in turn. Returns hyp, sigma, nu and lam.
+        """The unit scales, the groups' sigma, nu and any noise phases' factors together,
+        with u, the buildings' levels and the collapsed paths integrated out
+        (`scales_logp`): a slice update along each column of the state's `hyp_dirs` in
+        turn. Returns the new hyp, sigma, nu, lam and phase_scale as a dict.
 
         Each of these scales was at first drawn given a latent that pins it: sigma given u,
         the unit scales given the buildings' levels and paths, nu given u. The chains then
@@ -1128,10 +1172,16 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         def logp(x):
             return scales_logp(D, x, eta, tgt, bsd, par, F, st.get("kap"))
 
-        x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
+        x = scales_x(st)
         x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
         m, sd = lam_moments(x[7])
-        return x[:3], jnp.exp(x[3:7]), jnp.exp(x[7]), jnp.exp(m + sd * eta)
+        new = dict(
+            hyp=x[:3],
+            sigma=jnp.exp(x[3:7]),
+            nu=jnp.exp(x[7]),
+            lam=jnp.exp(m + sd * eta),
+        )
+        return new | ({"phase_scale": jnp.exp(x[8:])} if phased else {})
 
     def scales_curvature(D, st, h=CURV_STEP):
         """The Hessian of `scales_logp` at the state's scales, in the coordinates of the
@@ -1147,7 +1197,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         if col is not None:
             tgt = tgt + st["ar"][0].ravel()[D["ar_cell"][0]]
             par = st["ar_par"][0]
-        x0 = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
+        x0 = scales_x(st)
         K = x0.shape[0]
         eye = jnp.eye(K)
         i, j = np.triu_indices(K, 1)
@@ -1472,25 +1522,30 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         path = fill_path(keys[0], par, at[:cells].reshape(a["size"], a["T"]), active)
         return bsd, lev, par, path
 
-    def update_noise(key, st, r, group_all):
-        """nu, then sigma, with lam integrated out, then lam: b0's noise step."""
+    def update_noise(key, st, r, D):
+        """nu, then sigma, with lam integrated out, then lam: b0's noise step. The phases'
+        factors stay as the state holds them."""
         k1, k2, k3 = jax.random.split(key, 3)
         a_nu, b_nu = priors.nu
+        group_all = D["group"]
+
+        def scale(sig):
+            return row_sd(D, sig, st.get("phase_scale"))
 
         def logp_nu(lnu):
             nu = jnp.exp(lnu[0])
-            ll = jnp.sum(b0.t_logpdf(r, nu, st["sigma"][group_all]))
+            ll = jnp.sum(b0.t_logpdf(r, nu, scale(st["sigma"])))
             return (ll + a_nu * lnu[0] - b_nu * nu)[None]
 
         nu = jnp.exp(b0.slice_vec(k1, jnp.log(st["nu"])[None], logp_nu, 0.1)[0])
 
         def logp_sigma(ls):
             sig = jnp.exp(ls)
-            ll = seg(b0.t_logpdf(r, nu, sig[group_all]), group_all, num_segments=4)
+            ll = seg(b0.t_logpdf(r, nu, scale(sig)), group_all, num_segments=4)
             return ll - sig**2 / (2 * priors.sigma**2) + ls
 
         sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
-        z2 = (r / sigma[group_all]) ** 2
+        z2 = (r / scale(sigma)) ** 2
         lam = jax.random.gamma(k3, (nu + 1) / 2, (n,)) / ((nu + z2) / 2)
         return nu, sigma, lam
 
@@ -1596,8 +1651,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
         tgt = e0 if col is None else e0 + st["ar"][0].ravel()[D["ar_cell"][0]]
         # The scales move with all three integrated out, so the three are drawn afresh
         # below, at the new scales, before anything reads them.
-        hyp, sigma, nu, lam = update_scales(D, k8, st, tgt, F)
-        st = st | dict(hyp=hyp, sigma=sigma, nu=nu, lam=lam)
+        st = st | update_scales(D, k8, st, tgt, F)
+        hyp = st["hyp"]
         c = weights(D, st)
         w1, Wb = unit_W(D, hyp, c)
         om_d, om_off = pair_weights(D, w1, Wb)
@@ -1627,7 +1682,7 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             first = 1
         u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
-        nu, sigma, lam = update_noise(k4, st, r, D["group"])
+        nu, sigma, lam = update_noise(k4, st, r, D)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
         if joint is None:
             amp = update_amp(k6, st, w)
@@ -1647,6 +1702,8 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             hyp=hyp,
             hyp_dirs=st["hyp_dirs"],
         )
+        if phased:
+            new["phase_scale"] = st["phase_scale"]
         if dof is not None:
             # Each building's mixing scale given its level, its neighbourhood's and the
             # spread: the scale mixture's Gamma. Its key is folded in, so the other steps'
@@ -1659,6 +1716,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             new["gp_amp"], new["gp_ls"] = update_gp(k_gp, st, theta)
         ss, sd, tu = scales(hyp)
         out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
+        if phased:
+            # Every phase's factor, the reference's 1 first, in the order of `d.phases`.
+            out["phase_scale"] = jnp.concatenate([jnp.ones(1), st["phase_scale"]])
         if col is not None:
             new["cell_dirs"] = st["cell_dirs"]
         if ars:
@@ -1721,9 +1781,16 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             hyp=jnp.log(jnp.asarray([0.05, 0.08, 3.0]))
             + 0.2 * jax.random.normal(k[5], (3,)),
             hyp_dirs=jnp.diag(
-                jnp.asarray([HYP_WIDTH] * 3 + [SIGMA_WIDTH] * 4 + [NU_WIDTH])
+                jnp.asarray(
+                    [HYP_WIDTH] * 3
+                    + [SIGMA_WIDTH] * 4
+                    + [NU_WIDTH]
+                    + [PHASE_WIDTH] * free
+                )
             ),
         )
+        if phased:
+            out["phase_scale"] = jit(jax.random.fold_in(key, 13), (free,), 0.1)
         if dof is not None:
             out["kap"] = jnp.ones(S)
         if ars:
@@ -1762,6 +1829,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
             global_system=global_system,
             unit_loglik=unit_loglik,
             update_scales=update_scales,
+            scales_x=scales_x,
+            row_sd=row_sd,
+            phased=phased,
             scales_logp=scales_logp,
             scales_curvature=scales_curvature,
             curvature=lambda st: curved(data, st),
@@ -1796,8 +1866,9 @@ def make_sampler(d: Design, priors: Priors, settings: Settings, gp=None, groups=
 
 
 def adapted_dirs(hyp: np.ndarray) -> np.ndarray:
-    """The slice directions for (log ss, log sd, log tau, log sigma of each group, log nu)
-    from warmup draws `hyp` (chains, sweeps, 8): four times the Cholesky factor of the draws'
+    """The slice directions for (log ss, log sd, log tau, log sigma of each group, log nu,
+    then any noise phases' log factors) from warmup draws `hyp` (chains, sweeps, 8 or more):
+    four times the Cholesky factor of the draws'
     covariance within chains, so that the interval of `update_scales` covers the slice. The
     same for the collapsed building path's (log sd, logit rho)."""
     dev = hyp - hyp.mean(axis=1, keepdims=True)
@@ -1844,7 +1915,8 @@ def run(
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
     (ss), `drift_sd` and `drift_tau`. For the design's rows to predict they also hold
     `pred_loc` and `pred_unit_sd`, (chains, kept draws, rows), and the rows' `pred_y` and
-    `pred_group`."""
+    `pred_group`. A design with noise phases adds `phase_scale`, every phase's factor, to
+    the traced and kept arrays, and each predicted row's `pred_phase`."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
@@ -1855,8 +1927,9 @@ def run(
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
     )
-    traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ())
-    kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ())
+    phase = ("phase_scale",) if parts["phased"] else ()
+    traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + phase
+    kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + phase
     key = jax.random.PRNGKey(settings.seed)
     key, sub = jax.random.split(key)
     st = init(jax.random.split(sub, settings.chains))
@@ -1889,10 +1962,14 @@ def run(
         done = len(trace[traced[0]])
         extra = {}
         if preds["pred_loc"]:
-            extra = {k: stack(v) for k, v in preds.items()} | {
-                "pred_y": np.asarray(d.pred["y"]),
-                "pred_group": np.asarray(d.pred["group"]),
-            }
+            extra = (
+                {k: stack(v) for k, v in preds.items()}
+                | {
+                    "pred_y": np.asarray(d.pred["y"]),
+                    "pred_group": np.asarray(d.pred["group"]),
+                }
+                | ({"pred_phase": np.asarray(d.pred["phase"])} if phase else {})
+            )
         return {
             "trace": {k: stack(v) for k, v in trace.items()},
             "kept": {k: stack(v) for k, v in kept.items()} | extra,
@@ -1926,6 +2003,11 @@ def run(
             f"unit_sd {hyp[:4, 0].round(4).tolist()}, "
             f"drift_sd {hyp[:4, 1].round(4).tolist()}, "
             f"drift_tau {hyp[:4, 2].round(3).tolist()}, "
+            + (
+                f"phase_scale {np.asarray(st['phase_scale'])[:2].round(4).tolist()}, "
+                if phase
+                else ""
+            )
         ) + "".join(
             f"{g['name']} sd {np.exp(np.asarray(st['ar_par'])[:4, k, 0]).round(4).tolist()} "
             f"rho {(1 / (1 + np.exp(-np.asarray(st['ar_par'])[:4, k, 1]))).round(3).tolist()}, "
@@ -1954,7 +2036,8 @@ def run(
                     np.asarray(st["hyp"]),
                     np.log(np.asarray(st["sigma"])),
                     np.log(np.asarray(st["nu"]))[:, None],
-                ],
+                ]
+                + ([np.log(np.asarray(st["phase_scale"]))] if phase else []),
                 axis=1,
             )
             if "cell_dirs" in st:
@@ -2051,13 +2134,22 @@ def run(
 
 
 def diagnostics(trace: dict, names) -> dict:
-    """The kitchen sink's convergence table, with the three unit scales."""
+    """The kitchen sink's convergence table, with the three unit scales, the local-drift
+    terms' scales and any noise phases' factors."""
     from .run import ESS_GATE, RHAT_GATE, ess, split_rhat
 
     out = building_zones_kitchen_sink.diagnostics(trace, names)
     rows = out["per_quantity"]
-    for k in [*HYP, *(k for k in trace if k.endswith(("_ar_sd", "_ar_rho")))]:
-        x = np.asarray(trace[k])
+    quantities = {
+        k: trace[k]
+        for k in [*HYP, *(k for k in trace if k.endswith(("_ar_sd", "_ar_rho")))]
+    }
+    if "phase_scale" in trace:
+        # The reference phase's factor is constant, so the check below leaves it out.
+        f = np.asarray(trace["phase_scale"])
+        quantities |= {f"phase_scale[{j}]": f[..., j] for j in range(f.shape[-1])}
+    for k, x in quantities.items():
+        x = np.asarray(x)
         if np.ptp(x) > 0:
             rows[k] = {"rhat": split_rhat(x), "ess": ess(x)}
     worst = max(rows, key=lambda n: rows[n]["rhat"])
@@ -2080,6 +2172,9 @@ def summarize(kept: dict, names) -> dict:
         for k in kept
         if k.endswith(("_ar_sd", "_ar_rho"))
     }
+    if "phase_scale" in kept:
+        f = np.asarray(kept["phase_scale"])
+        out["phase_scale"] = [two_zone._q(f[..., j]) for j in range(f.shape[-1])]
     return out
 
 

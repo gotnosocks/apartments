@@ -92,7 +92,11 @@ def _dense_cov(train, parts, st):
     ss, sd, tau = np.exp(np.asarray(st["hyp"]))
     t = drift.years(train)[order]
     unit = train.unit[order]
-    c = np.asarray(st["lam"]) / np.asarray(st["sigma"])[train.group[order]] ** 2
+    s = np.asarray(st["sigma"])[train.group[order]]
+    if "phase_scale" in st:
+        # A design with noise phases scales each row's sigma by its phase's factor.
+        s = s * np.r_[1.0, np.asarray(st["phase_scale"])][train.phase[order]]
+    c = np.asarray(st["lam"]) / s**2
     same = unit[:, None] == unit[None, :]
     K = np.where(
         same, ss**2 + sd**2 * np.exp(-np.abs(t[:, None] - t[None, :]) / tau), 0.0
@@ -232,7 +236,8 @@ def test_unit_loglik_matches_the_dense_density():
 
 def _scales_want(train, parts, st, eta, tgt, F, x, extra=None):
     """The dense log density that `scales_logp` stands for at x = (log ss, log sd, log tau,
-    log sigma of each group, log nu): the rows' Gaussian density with u and the buildings'
+    log sigma of each group, log nu, then any noise phases' log factors): the rows' Gaussian
+    density with u and the buildings'
     levels integrated out (`extra` adds a covariance, for a collapsed path), the mixing
     scales' Gamma density with the Jacobian of their map, and the priors."""
     from scipy import special, stats
@@ -251,6 +256,9 @@ def _scales_want(train, parts, st, eta, tgt, F, x, extra=None):
         "sigma": jnp.asarray(sigma),
         "lam": jnp.asarray(lam),
     }
+    lf = np.asarray(x[8:])
+    if len(lf):
+        at = at | {"phase_scale": jnp.asarray(np.exp(lf))}
     V, _, _ = _dense_cov(train, parts, at)
     b2 = _level_var(st, parts["zone"])
     V = V + np.where(site[:, None] == site[None, :], b2[site][:, None], 0.0)
@@ -274,6 +282,7 @@ def _scales_want(train, parts, st, eta, tgt, F, x, extra=None):
         + np.sum(np.log(sigma))
         + a_nu * np.log(nu)
         - b_nu * nu
+        - np.sum(lf**2) / (2 * drift.PHASE_PRIOR**2)
     )
 
 
@@ -334,7 +343,9 @@ def test_update_scales_keeps_each_rows_place_among_the_mixing_scales():
     st = _state(init, parts)
     F = jnp.asarray(0.1 * rng.standard_normal(len(parts["zone"])))
     tgt = jnp.asarray(0.2 * rng.standard_normal(len(train.y)))
-    hyp, sigma, nu, lam = parts["update_scales"](D, jax.random.PRNGKey(4), st, tgt, F)
+    new = parts["update_scales"](D, jax.random.PRNGKey(4), st, tgt, F)
+    assert set(new) == {"hyp", "sigma", "nu", "lam"}
+    hyp, sigma, nu, lam = new["hyp"], new["sigma"], new["nu"], new["lam"]
     assert float(jnp.abs(hyp - st["hyp"]).min()) > 0
     assert float(jnp.abs(sigma - st["sigma"]).min()) > 0 and float(nu) != float(
         st["nu"]

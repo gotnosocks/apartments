@@ -546,7 +546,13 @@ def test_a_model_slower_than_the_default_rate_is_estimated_at_its_own(tmp_path):
 def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
     # A drift fit stops its sweeps at a budget, so a long request stays under the hour.
     budget = cap.SWEEP_BUDGET_SECONDS["drift"]
-    for model in ("drift", "drift-building", "drift-building-doorman", "drift-local"):
+    for model in (
+        "drift",
+        "drift-building",
+        "drift-building-doorman",
+        "drift-building-phase",
+        "drift-local",
+    ):
         _, secs = cap.fit_estimate(
             model, "b0", 4, 500, 6000, "H100", runs=tmp_path, scoring=False
         )

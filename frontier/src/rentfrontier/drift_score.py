@@ -8,7 +8,11 @@ location `pred_loc` (x beta + L(t) + eta + the mean of its unit's level u) and t
 
     y = pred_loc + pred_unit_sd z + sigma_group t,   z ~ Normal(0, 1),  t ~ StudentT(nu),
 
-so its predictive density is the average over draws of a Student-t smoothed by a Normal. The
+A run with noise phases (`rentfrontier.drift_building_phase`) keeps each phase's factor
+`phase_scale` and each row's phase `pred_phase`, and its sigma_group above is the group's
+sigma times the factor of the row's phase.
+
+So the row's predictive density is the average over draws of a Student-t smoothed by a Normal. The
 Student-t is a scale mixture of Normals: with lam ~ Gamma(nu / 2, rate nu / 2),
 
     y | lam ~ Normal(pred_loc, pred_unit_sd^2 + sigma_group^2 / lam),
@@ -123,6 +127,9 @@ def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
         flat("nu"),
     )
     y, group = z["kept/pred_y"], z["kept/pred_group"]
+    phase = None
+    if "kept/pred_phase" in z:
+        phase, factor = z["kept/pred_phase"], flat("phase_scale")
     out = {k: [] for k in ("elpd", "cdf", "q", "pred", "unit_sd")}
     if at is not None:
         out["cdf_at"] = []
@@ -132,7 +139,9 @@ def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
         part = score_rows(
             loc[:, sl],
             usd[:, sl],
-            sig[:, group[sl]],
+            sig[:, group[sl]]
+            if phase is None
+            else sig[:, group[sl]] * factor[:, phase[sl]],
             nu,
             y[sl],
             seed + a,

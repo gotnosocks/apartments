@@ -147,6 +147,9 @@ STATED_RATE["drift"] = 0.4
 # Ceilings until their first Modal fits are measured.
 STATED_RATE["drift-building"] = 0.8
 STATED_RATE["drift-building-doorman"] = 0.8
+# The noise phases add six directions to the scale step's fourteen, so its slice updates
+# take about 75% more evaluations of the scales' density.
+STATED_RATE["drift-building-phase"] = 1.0
 STATED_RATE["drift-local"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
@@ -253,6 +256,7 @@ BASELINES = (
     "drift",
     "drift-building",
     "drift-building-doorman",
+    "drift-building-phase",
     "drift-local",
 )
 
@@ -308,7 +312,14 @@ LARGE_SECONDS_PER_ITERATION = 2.1
 # budget_seconds (kept equal by a test), so a long request costs the budget and no more. The
 # pilots of 2026-11-10 spent 790 to 880 s outside their sweeps, compile included.
 SWEEP_BUDGET_SECONDS = dict.fromkeys(
-    ("drift", "drift-building", "drift-building-doorman", "drift-local"), 2520
+    (
+        "drift",
+        "drift-building",
+        "drift-building-doorman",
+        "drift-building-phase",
+        "drift-local",
+    ),
+    2520,
 )
 
 
