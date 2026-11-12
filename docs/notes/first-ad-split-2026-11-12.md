@@ -3,7 +3,7 @@
 ## Withdrawn for look-ahead
 
 Ben withdrew F1 on 2026-11-12 at 16:24 ET, before any launch, and I removed the module,
-its tests and its registry entries (#PRNUM). F1 sorts an ad with no earlier ad into
+its tests and its registry entries (#1344). F1 sorts an ad with no earlier ad into
 `first` or `only` by whether the unit gets listed again later. That isn't known while the
 ad is live. A market ad scored on its day always reads as `only`, so in training the
 label separates units by their future, and at prediction it carries no information. The

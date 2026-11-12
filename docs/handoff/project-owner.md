@@ -64,7 +64,7 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
     with predictions.
 - **F1 withdrawn.** `drift-building-phase-first` (#1341) split L1's "none" phase by
   whether the unit is listed again later, which reads the future. Ben withdrew it at
-  16:24 ET before any fit, and #PRNUM removed the module
+  16:24 ET before any fit, and #1344 removed the module
   (`docs/notes/first-ad-split-2026-11-12.md`). I checked L1, Y1 and U2 for the same
   flaw. L1's phase counts months back to the unit's previous ad, Y1's factor reads the
   row's own year, and U2 changes only the prior on unit levels, so none of them reads a
