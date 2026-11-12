@@ -28,7 +28,8 @@ version of the same one.
 ## Results
 
 Signed error is the final ask minus the median, in log rent. Coverage is for the 80%
-interval.
+interval. "Rest" is every ad outside the first group, so it includes the 7,679 ads of the
+second.
 
 | group | model | n | median signed error | mean signed error | coverage |
 |---|---|---:|---:|---:|---:|
@@ -47,7 +48,10 @@ coverage by 0.012, in step with the 0.010 it lowers coverage everywhere. The pha
 widen intervals by lease phase and do not read the building's other lines, so they leave
 the subgroup where c3ab put it: 0.025 under the median, covering 0.70 to 0.72, against
 0.81 to 0.82 for the rest. The group under the building's ads has the mirror error (+0.015)
-and the lowest coverage.
+and the lowest coverage. Part of both errors is mechanical: I chose the groups by how far
+the median sits from the building's other asks, and an ask noisy in the same direction as
+the building's other asks lands on the far side of the median. The table does not show
+how much of the error that selection makes.
 
 By the number of training ads of the unit itself, the subgroup splits 6,864 with one, 4,483
 with two and 6,247 with three or more. Their median signed errors are -0.0266, -0.0256 and
@@ -64,23 +68,30 @@ training ads. If shrinkage of the unit's own deviation drove it, the shortfall w
 change with the number of training ads. The 39% of the subgroup with a single training ad
 would gain from a heavier tail only where that ask lies well below the median, and the
 earlier ask is already in the median through the unit's level. I expect U2 to leave the
-subgroup's median error within 0.002 of c3ab's, and its coverage within 0.01. So neither
-L1 nor U2 addresses these ads, and the fits already queued should not be expected to close
-the gap. The subgroup needs a term of its own.
+subgroup's median error within 0.002 of c3ab's, and its coverage within 0.01. L1's part of
+this rests on its held-out predictions. U2's part is an expectation from its structure,
+since U2 has not been fitted. On that reading the fits already queued should not close the
+gap, and the subgroup needs a term of its own.
 
 ## A term that would: a level for each line
 
-The subgroup's median follows the building's pricier lines because the model's building
-level is shared by every unit of the building, and what one line asks pulls the rest. A
-single change, a lasting level for each line (building, bedrooms and full baths), with
-its own prior scale, gives the building's cheaper lines their own offset. Each line's
-level is a random effect with a Normal(0, line_sd) prior, summed into the median like the
-unit's level. The model reads only the line's key (building, bedrooms, full baths), which
-the ad itself carries, and the line's training asks as targets, as it reads every training
-ask. A line with more training ads gets a better estimated level, and one with none falls
-back to the building. A within-building rank effect (a line's position in the building by
-size or baths) would give the same offset to lines it has never seen, from the ad's
-fields alone.
+By a line I mean the units of a building with the same bedroom and full-bath counts. The
+served model, `drift-building`, gives each unit a lasting level and each building a
+level and walk, and has no level between the two (`docs/model/drift.md`). The subgroup's
+median follows the building's pricier lines because every unit of the building shares the
+building level, so what one line asks pulls the rest. A lasting level for each line, with
+a Normal(0, line_sd) prior summed into the median like the unit's level, would give the
+building's cheaper lines their own offset. A line with more training ads gets a better
+estimated level, and one with none falls back to the building.
+
+A `lines` term was tried twice on the earlier model family, on 2026-10-10 and on split C on
+2026-10-14 (`docs/research-record.md`, rows 118 and 125; `docs/model/unadopted-work-2026-10-14.md`).
+It tied, with PSIS-LOO +22.5 (lot SE 10.3), and was left unserved. I have not checked
+whether its line key matches this one. The retest would differ in two ways. It would sit
+on the drift model, whose unit level and building walk already take up some of what the
+old term found. And it would be scored on this subgroup, where the error is concentrated,
+rather than on the whole set alone. Before writing the fit I would read the old term's
+definition and keep the key if it matches.
 
 Leak risk: the line level reads other listings' prices only as training targets, the way
 the unit's level and the building walk already do, so it is leak-free under
