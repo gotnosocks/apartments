@@ -83,8 +83,8 @@ folder for each line of work, each with a `results.md`).
   scripts and the Sonnet reads are in `/data1/apartments/tmp/outlier-sprint/s2/Z/`
   (`zrules.py`, `zbuild.py`, `sread/`). A unit page's other ads do not back a set for a
   blank ad: the listers posting blank forms score 81% to 90% on their own typed ads.
-  Rule B excludes 926 more blank ads in buildings whose counted ads show no studio
-  (`2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson`, scripts in `s2/B/`).
+  Rule B2 excludes 412 more blank ads in buildings with no studio anywhere in their history
+  (`2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson`, scripts in `s2/BB/`).
 - **Deals.** Of the default top 60, readers judged 36 false, and 27 of those come from the
   model with a correct record: a building level set by pricier lines (15) or a unit whose
   own recent asks match while the fit has no training ad for it (12). I added no caution and
