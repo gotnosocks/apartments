@@ -551,6 +551,7 @@ def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
         "drift-building",
         "drift-building-doorman",
         "drift-building-phase",
+        "drift-building-unitt",
         "drift-local",
     ):
         _, secs = cap.fit_estimate(
