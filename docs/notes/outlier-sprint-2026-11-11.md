@@ -1510,6 +1510,91 @@ assumes that blank studios have page neighbors like those of studios with a text
 real studios. I read 25 of the Sonnet verdicts against their quotes and none of the full texts.
 No floor plan was fetched. Blank ads with a typed count of 1 or more were not examined.
 
+## Blank ads in buildings with no studio
+
+PR #1325 left about 12,250 blank ads coded 0, because their page's other ads and their
+building gave no single count. For these I took up a weaker question. Rule A asks whether
+the building has a single layout. The new rule, rule B, asks only whether the building has
+any studios. It applies to an ad when:
+
+1. the building's counted ads within two years of it (the ad itself left out) number at
+   least 4 on at least 3 pages, and all of them code 1 bedroom or more;
+2. at least 90% of the building's counted ads over its whole kept history code 1 or more;
+3. the ad's ask lies between 0.85 times the lowest of those nearby asks and 1.15 times the
+   highest.
+
+I scored the rule on ads whose count was typed, so the answer is known. It applies to 44.4%
+of the typed ads with 1 bedroom or more (729,681 of 1,644,852), and to 0.66% of the ads whose
+text calls the apartment a studio (1,680 of 255,070). The studio share among blank forms is
+63.5% for 1 room and 68.6% for more rooms. Combined with those rates, about 2% (1 room) and
+5% (more rooms) of the blank ads it applies to would be real studios. The rule does not say
+which count above 0 is right, so every match becomes an exclude and none becomes a set.
+
+Of the open blank ads, rule B applies to 952 in 416 buildings. I left out the 26 in 3
+buildings where an ad's text or a unit label names a studio, which is the failure the
+reviewer of PR #1325 found at 216 E 28th St and 348 E 51st St. That leaves 926 excludes as
+`bedrooms_unknown` in 413 buildings, 397 with 1 room and 529 with more, in
+`pipeline/ledger/2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson`. City Wide Apartments
+posted 274 of them, Gold & Appel 61, Skyhigh 61, Townsend 39 and Bold New York 35. City
+Wide's blank forms are mostly studios elsewhere, since 64% of its blank ads with a page
+neighbour sit on pages of studios. In the buildings where rule B applies, its blank ads ask
+a median of 1.08 times the lowest counted ask nearby, and 245 of the 274 have 2 rooms, which
+fits 1-bedroom apartments. Of the 926 ads, 75 are held out, with a median gap of +0.012.
+
+## The top of the Deals list
+
+1259 Jefferson Ave 1A tops `deals.json` with an ask of $7,250 against a median of $26,848.
+Skyhigh Realty posted 10 of the building's 15 training ads on blank forms coded 0, asking
+$4,650 to $6,950, the same range as its typed 2- and 3-bedroom ads. The model reads them as
+Bushwick studios at about $6,800 and raises the building level about 3.7 times. The default
+page already hides the ad, since it carries the beds caution and has no training ad for the
+unit. Rule B, above, excludes all 10 of those blank ads.
+
+I counted how often the sprint's findings touch the top of the default view (the page as a
+renter sees it). Blank zeros that make up at least 10% of a building's rows, priced at 0.85
+or more of its counted ads, reach 1 of the top 100 deals, 3 of the top 200 and 7 of the top
+500. Sprint ledger entries in the building reach 5, 10 and 24. Closing-raise rows (60 of the
+top 100) and repost links (36) are too common in buildings to serve as a caution.
+
+Sonnet readers checked the default top 60 against their records, along with the 6 deals past
+rank 60 in buildings with heavy blank zeros (`tmp/outlier-sprint/s3/deals/summary.csv`). They
+judged 10 real, 36 false and 20 unclear. The record is right for most of the false ones:
+
+- 15: the building's ads with the same count ask about the same as the deal, and the median
+  follows pricier lines in the building, those with more baths or more space.
+- 12: the unit's own ads or rents of the last year or two ask about the same, and the model
+  has no training ad for the unit (the top deal, a micro studio at 640 Lexington Ave that
+  rented at $2,450 in February, is one).
+- 3: the ask is net of free months. The target is the net-effective ask, so the model
+  scores these as intended.
+- 3: a record error (a bath count, a bedroom count flipped between ads, a repost under
+  another label).
+
+A caution built from the ledger would hide at most the 3 deals with record errors, so I left
+the page as published. The 12 deals whose own unit history matches the ask point at the
+model: the unit's past ads under its other pages or ids never reach the unit level.
+
+## The random read's data errors, checked against records
+
+Readers of the random 200 ads (s2/M) called 30 of them data errors. I checked each call
+against the coded rows of the unit's other ads and the ad's own text.
+
+- 12 net-effective asks: the record stores a gross price and a net-effective rent, and the
+  dataset takes the net-effective one by design, so none is an error.
+- 3 closing prices: 2 already fall under the closing-raise rule in the served dataset. The
+  third, 3136047, moved 7% on the day it rented, under the rule's threshold.
+- 4 corrections with another ad of the unit and the ad's own text behind them:
+  - 3824486 to 1 bedroom: 3 other ads on the same unit page code 1 and the text describes
+    a one-bedroom.
+  - 3463808 to 3 bedrooms: the unit's earlier ad with the same text codes 3. The 4 counts a
+    possible conversion.
+  - 3584278 and 4827114 to 1 full and 1 half bath: an earlier ad of the unit codes 1 full
+    bath and the text gives 1.5.
+- The remaining 11 have backing on one side only (text against a single other ad, or no
+  other ad), so they stay as coded.
+
+The 4 corrections are at the end of the rule B ledger file.
+
 ## What I changed
 
 - **Ledger, PR #1307.** Of the readers' proposals, 46 corrections had independent evidence: 15
@@ -1556,6 +1641,11 @@ No floor plan was fetched. Blank ads with a typed count of 1 or more were not ex
 - **Income flag.** The income-restricted flag missed 9 of the 13 lottery and HPD ads the
   readers found. `rentfrontier.b0income` widens it to 2,590 rows; a Sonnet check of 80 added
   rows found no market ads (`docs/notes/income-flag-2026-11-11.md`).
+
+- **Ledger, rule B and the random read.** The file
+  `2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson` excludes 926 blank ads as
+  `bedrooms_unknown` in buildings whose counted ads show no studio, and sets 2 bedroom
+  counts and 2 bath counts from the random read's record check.
 
 ## Fits for after the sprint
 
