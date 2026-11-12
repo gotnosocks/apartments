@@ -71,8 +71,8 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
 - **Tests on master 99bf5f92.** The folder-at-a-time run was killed at its memory cap, so
   I ran pytest once per file instead (`/data1/apartments/tmp/sprint-20261112/suite/`,
   `runfiles.sh` and `runroot.sh`, summaries in `files.summary` and `rfiles.summary`).
-  The root tests ran all 205 files and passed 3,104. The three Modal files need the
-  `modal` package, which `bridge-root` lacks, so I ran them in `nj-root`. The frontier
+  The root tests ran all 205 files and passed 3,099, with four files holding no tests. The three Modal files need the
+  `modal` package, which `bridge-root` lacks, so I ran them in `nj-root`, where their 5 tests pass. The frontier
   tests passed 964 in the 98 files left after the killed run, which had
   passed 329 in the 55 files before it. No test failed. `test_building_zones_floor.py`
   passed 14 tests and then hit the 30-minute limit for one file, so its remaining tests
@@ -104,13 +104,13 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
 1. **Y1** (about $8.4). It is the only queued change built on L1, so a win serves
    directly once its own market fits run. The 2020 to 2022 shortfall it targets is the
    largest loss L1 has by year. It launches after follow-ups 1 and 3.
-2. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
+2. **F1** ($7.5 to $9, #1341), against L1. A win changes only the noise of first ads, so
+   it serves after its own market fits, as Y1 does.
+3. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
    tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
-3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
+4. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
-4. **Candidates from the free checks.** Each needs its predictions written first:
-   - split L1's "none" phase into only-ad and first-of-several: F1, written and merged
-     (#1341). It goes after Y1, before U2.
+5. **Candidates from the free checks.** Each needs its predictions written first:
    - a noise mix for quick returns, separating near repeats from repricings
    - a level for each line. The screen in #1342 supports it on all ads but not as a fix
      for the Deals ads on pricier lines, and the model needs a new module first
