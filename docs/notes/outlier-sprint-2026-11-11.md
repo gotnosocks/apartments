@@ -1596,9 +1596,11 @@ A caution built from the ledger would hide at most the 3 deals with record error
 the page as published. The 12 deals whose own unit history matches the ask point at the
 model. For 3 of them the fit has none of the unit's past ads. For the other 9 it has them
 and still puts the median well above them: the model pulls these units toward their
-building and their features more than their own asks justify. A free check comes before any fit: for units with a
-few training ads, compare the served median with the unit's last training ask moved by the
-market index, by the unit's own gap to its building.
+building and their features more than their own asks justify. The section "Previous asks far over the model"
+measured the same pattern on held-out ads: the slope of the gap on the unit's previous
+ask, moved by the market index, is +0.14 near zero and +0.69 past a deviation of 0.3, and
+units with no coded size keep 42% to 62% of a large deviation. Six of the 9 state no size,
+so U4, a unit scale by bedroom count, is the fit that bears on them.
 
 ## The random read's data errors, checked against records
 

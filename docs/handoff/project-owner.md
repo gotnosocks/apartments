@@ -110,10 +110,12 @@ is launched. Order, by what each is worth for the Deals page:
 5. No fit of its own for the sprint's ledger entries or for R, the collapsed repost chains.
    The pipeline's next dataset rebuild for a market snapshot carries both into the next fit.
 
-Free checks to run before choosing among 3 and 4, from the Deals reads: for units with a
-few training ads, whether the served median sits above the unit's own last ask moved by
-the market index (9 of the 12 unit-history deals), and whether the building level follows
-its pricier lines when the deal's line asks less (15 deals).
+From the Deals reads: the 9 unit-history deals with training ads follow the pattern of
+"Previous asks far over the model" in the sprint note (held-out gaps rising with the unit's
+previous-ask deviation, most for units with no coded size), so U4 comes first among the
+unit scales. A free check is still open for the 15 deals whose building level follows its
+pricier lines: whether the building's same-count ads predict their final asks better than
+the median does.
 
 ## Manhattan doorman fit, 2026-11-11 06:50Z
 
