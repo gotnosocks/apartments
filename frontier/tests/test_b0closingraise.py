@@ -219,6 +219,35 @@ def test_closing_raise_reprices_only_raises_typed_as_the_ad_closed(src, tmp_path
         b0closingraise.closing_raise(src, out)
 
 
+def test_closing_raise_keeps_an_open_rows_scoring_day(src, tmp_path):
+    closed = b0closingraise.closing_raise(src, tmp_path / "closed")["closing_raise"]
+    rows = pd.read_parquet(src / "rows.parquet")
+    rows["open"] = True
+    rows.to_parquet(src / "rows.parquet")
+    entry = b0closingraise.closing_raise(src, tmp_path / "open")["closing_raise"]
+    a = pd.read_parquet(tmp_path / "closed" / "rows.parquet")
+    b = pd.read_parquet(tmp_path / "open" / "rows.parquet")
+    assert (a.latest_ask == b.latest_ask).all()
+    assert (a.latest_day != rows.latest_day).any()
+    assert (b.latest_day == rows.latest_day).all()
+    assert (b.latest_day_how == rows.latest_day_how).all()
+    assert entry["open_repriced"] == entry["changed"] == closed["changed"]
+    assert closed["open_repriced"] == 0
+
+
+def test_closing_raise_copies_a_market_datasets_inputs(src, tmp_path):
+    (src / "set_aside.parquet").unlink()
+    (src / "inputs.json").write_text('{"market": true}')
+    out = tmp_path / "out"
+    b0closingraise.closing_raise(src, out)
+    assert sorted(f.name for f in out.iterdir()) == [
+        "inputs.json",
+        "manifest.json",
+        "rows.parquet",
+    ]
+    assert (out / "inputs.json").read_text() == '{"market": true}'
+
+
 def test_closing_raise_refuses_a_changed_records_file(src, tmp_path):
     manifest = json.loads((src / "manifest.json").read_text())
     manifest["build"]["records"]["sha256"] = "0" * 64
