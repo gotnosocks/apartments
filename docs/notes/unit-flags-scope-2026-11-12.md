@@ -47,7 +47,7 @@ On the 1,973,089 ads in the model's rows:
 | duplex | 118,840 | 6.0% | 15 of the 16 duplex units; also 24 of the other 284 |
 | outdoor size | 18,435 | 0.9% | 20 of the 90 outdoor or penthouse units; also 4 of the other 210 |
 
-The duplex pattern finds the duplexes. It also fires on 8% of other units, mostly on
+The duplex pattern finds the duplexes. It also fires on 8% of other units, probably on
 building copy ("a two-story townhouse") and on duplexes elsewhere in the building. The
 outdoor sizes have a median of 675 sq ft and a 90th percentile of 4,000. That upper end is
 mostly shared roof decks and gardens, so many of the matches describe the building's space
