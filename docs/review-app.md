@@ -97,7 +97,7 @@ in force). Unknown keys are ignored, so producers can carry extra fields for the
 
 - `id` is unique in its queue and stable across rebuilds of the queue, so an answer stays
   attached to its card. Use the thing the card is about (a building and unit, a listing and
-  field), not a row number.
+  field), not a row number. It takes letters, digits and `. _ : ~ + -`, up to 200 characters.
 - `proposal` (optional) is what an applying answer writes: `ledger` is `corrections` or
   `units`, `line` is a ledger line without `evidence`, `decided` or `source`, and `evidence` is
   the card's backing items in the ledger's kinds (`docs/data/pipeline.md`). The export adds the

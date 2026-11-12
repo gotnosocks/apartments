@@ -55,7 +55,7 @@ MEDIA = "media"
 # floor plan host. The content policy blocks every other host.
 IMAGE_HOSTS: tuple[str, ...] = ("photos.zillowstatic.com",)
 QUEUE_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
-CARD_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:~-]{0,199}")
+CARD_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:~+-]{0,199}")
 DIGITS = re.compile(r"[0-9]{1,32}")
 MAX_NOTE = 1000
 # Answers the site adds to every queue, beside the queue's own.

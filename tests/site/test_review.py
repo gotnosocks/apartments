@@ -494,3 +494,11 @@ def _check_with_ledger_rules(ledger: Path) -> None:
     spec.loader.exec_module(module)
     module.read(sorted(ledger.glob("*.ndjson")))
     module.read_units(sorted((ledger / "units").glob("*.ndjson")))
+
+
+def test_card_ids_may_hold_slug_characters(root, client):
+    card = {**JOIN, "id": "226-east-59-street-new_york:5fw+5u"}
+    _write_queue(root, "joins", [card], JOIN_ANSWERS)
+    assert review.load_queue(root, "joins").errors == ()
+    response = client.get("/review/joins/226-east-59-street-new_york:5fw+5u")
+    assert response.status_code == 200
