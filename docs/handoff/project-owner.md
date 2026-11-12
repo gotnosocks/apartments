@@ -34,8 +34,8 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   and its draws are bit-identical to the old step's on CPU only. The queue passes commit
   9a7830fb to `ops/modal-fit`, and the container copies that commit's checkout
   (`ops/modal/app.py`), so the market and backtest fits run the sampler L1's latest-split
-  fit ran. I did not run the GPU check. It is still needed before any fit at f9277d32 or
-  later is compared with a fit from before it.
+  fit ran. I also ran the GPU check below, so fits from either side of #1337 can be
+  compared.
 - **Free checks**, each in a note:
   - Deals ads on pricier lines (#1335, `docs/notes/deals-pricier-lines-2026-11-12.md`).
     The 17,594 held-out ads whose median sits 0.15 or more above the building's other
@@ -61,8 +61,13 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
 
 ### Follow-ups the review of #1337 left
 
-1. Check on thelio's GPU that the scanned slice step gives L1's draws bit for bit on a
-   short run, with the same seed at 9a7830fb and at f9277d32.
+1. Done at 12:45 ET. I ran the phased test design (2 chains, 60 warmup, 8 draws, seed 3)
+   on thelio's GPU at 9a7830fb and at f9277d32, using the `sim-recovery` venv, the one
+   with a CUDA jaxlib. On the GPU the draws are not bit-identical: 26 of the 40 traced
+   and kept arrays differ, by at most 9e-8 of an array's largest value. Two runs at the
+   same commit gave different hashes too, so the GPU itself rounds differently from run
+   to run, and the scan adds nothing larger. The script and arrays are in
+   `/data1/apartments/tmp/sprint-20261112/gpucheck/`.
 2. Add sha256 pins for the draws of `drift-building-phase` and `drift-building-unitt`, as
    #1330 did for `drift-building`.
 3. Y1's cap margin. `cap.py` estimates 3,560 s a container against the 3,600 s cap. The
