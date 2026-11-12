@@ -11,7 +11,7 @@ For each of b9's 189,647 held-out ads I took b9's predictive median of the log a
 unit's training ads in the served dataset. I moved each training ask to the held-out ad's
 month with a repeat-ad index fitted on 759,353 pairs of consecutive training ads of a unit
 (by month, the log change clipped at 0.5, ridge 0.01). The index falls 0.215 from December
-2019 to January 2021 and stands 0.378 over January 2014 in June 2025. The unit's own
+2019 to January 2021, and June 2025 is 0.369 over January 2014. The unit's own
 history is the mean of its moved asks. Its deviation is that mean minus b9's median.
 
 I then asked how much of the deviation the final ask keeps: the weight `w` in
@@ -44,7 +44,7 @@ By bedroom count, `w_ls` is:
 as well as a fixed blend could. The unit's own history alone does much worse than b9 (0.058
 against 0.041), since b9 also reads the building, the features and the market path.
 
-The weight lives in the large deviations:
+The weight is higher for the large deviations:
 
 | abs deviation | n | w_mae | w_ls | mean gap | median abs error, b9 | at w_mae |
 |---|---:|---:|---:|---:|---:|---:|
@@ -58,9 +58,11 @@ The weight lives in the large deviations:
 The rise holds within every bedroom count. Beyond 0.3 the slope is 0.56 to 0.63 for studios,
 0.18 to 0.41 for 1 and 2 bedrooms, 0.34 to 0.42 for 3 and 0.48 to 0.62 for 4 or more. A
 normal prior on the unit's lasting level shrinks a deviation by the same share whatever its
-size. A slope that climbs from 0.09 to 0.47 with the size of the deviation is the mark of a
-heavier tail in the unit levels than the normal prior allows, and studios show it as much
-as large units do.
+size, apart from the uncertainty the unit's number of ads adds. A slope that climbs from 0.09
+to 0.47 with the size of the deviation is consistent with a heavier tail in the unit levels
+than the normal prior allows, and studios show it as much as large units do. The bins are
+cut on the deviation itself and the index is citywide, so this is a pointer for the next
+fit and not a measured tail.
 
 The weight also falls with the time since the unit's last training ad: `w_ls` is 0.33 when
 it is within 3 months, 0.28 at 3 to 12, 0.20 at 12 to 36 and 0.12 beyond. The model's walk
@@ -77,12 +79,12 @@ The held-out ads of 2014 to 2019 carry higher weights (`w_ls` 0.38 to 0.75) than
 ### What it says for the next fits
 
 - U4, a unit scale by bedroom count with studios and 1-bedrooms at 1, reads the bedroom
-  pattern only in part. It would raise the weight of 2- and 3-or-more-bedroom units at
+  pattern only in part. It would be expected to raise the weight of 2- and 3-or-more-bedroom units at
   every deviation, while the check finds the weight similar across counts for small
   deviations and high for studios in the tail.
 - U2, a Student-t prior on the unit's lasting level, matches the shape better: it leaves
   small deviations shrunk and lets large ones through. The sprint's list put it after U1,
-  with a prediction of degrees of freedom over 8 once U1 is in. On b9 as it stands the
+  with a prediction of degrees of freedom over 8 once U1 is in. On b9 the
   check points to a tail every count has.
 - The rms gain at the least-squares weight, 0.0824 to 0.0806, is an upper bound for a
   model change. It is fitted on the held-out ads themselves.
@@ -99,7 +101,7 @@ with the same bedroom count ask about what the deal asks, while the median follo
 building's pricier lines. Those 15 are open ads with no final ask yet. So I asked the
 question of the held-out ads: does the mean of the building's same-count training ads
 (other units, the 24 months up to the ad, moved by the index) predict the final ask better
-than b9's median?
+than b9's median? The table splits the ads by where b9's median lies against that mean.
 
 | match | rows | n | median abs error, b9 | building mean | mean gap | mean building deviation | w_ls | 80% coverage |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
@@ -110,15 +112,15 @@ than b9's median?
 | count and full baths | median over the building's ads by > 0.15 | 8,073 | 0.0604 | 0.1743 | -0.033 | -0.217 | 0.14 | 0.664 |
 | count and full baths | same, unit with at most 1 training ad | 3,432 | 0.0650 | 0.1704 | -0.035 | -0.215 | 0.14 | 0.653 |
 
-The answer is no. Where the median sits more than 0.15 over the building's same-count ads,
+The answer is no. Where the median is more than 0.15 over the building's same-count ads,
 the building's mean misses the final ask by a median 0.18 and b9's median by 0.06. The final
-ask does lean toward the building's ads: it sits 0.031 under the median on average, about a
+ask does lean toward the building's ads: it is 0.031 under the median on average, about a
 seventh of the gap to them, and matching baths as well moves that to 0.033. A blend with
 half the weight on the building's ads does worse than b9 (median error 0.092).
 
-The intervals are what fails in these ads. 80% coverage is 0.666 where the median sits over
-the building's ads and 0.695 where it sits under, against 0.810 for all ads. Disagreement
-between the model and the building's same-count ads marks an ad whose ask is harder to
+The 80% intervals undercover in these ads: coverage is 0.666 where the median is over the
+building's ads and 0.695 where it is under, against 0.810 for all ads. Disagreement
+between the model and the building's same-count ads goes with an ask that is harder to
 call, in both directions, and b9's intervals do not widen for it.
 
 For the Deals page this means the 15 reads are right about direction and much too strong
