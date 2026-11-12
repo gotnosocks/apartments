@@ -107,15 +107,14 @@ that phase undercover at 0.76. The script is `/data1/apartments/tmp/sprint-20261
    no earlier ask to pin its level, so I expected its noise to look like the reference
    phase's. The fit instead gives first ads a noise scale 64% larger. That would fit if a
    first ad carries more coding errors or more one-off pricing. The "none" phase holds 935,396 of the 1.7
-   million training rows, so this factor is largely what lowers every `sigma`.
+   million training rows, so this factor is probably what lowers every `sigma` the most.
 5. Hit on both parts: +554.6 against c3ab, above 2 SE and inside 400 to 900.
 6. Hit. Coverage at 3 to 9 months moves from 0.752 to 0.782, and at 10 to 13 months from
    0.839 to 0.810.
 7. Hit. The median's error moves by 0.00005.
 8. Hit: $7.71.
 
-Six of the eight hit. Both misses are factors larger than I predicted, in the direction I
-predicted.
+Six of the eight hit. In both misses the factor came out larger than its predicted range.
 
 ### What follows
 
