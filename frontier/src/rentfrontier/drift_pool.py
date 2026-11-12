@@ -47,7 +47,7 @@ SAME = (
     "sizes",
 )
 # Kept arrays that are the predicted rows' data, with no chain axis.
-ROWS = ("pred_y", "pred_group")
+ROWS = ("pred_y", "pred_group", "pred_phase")
 # How far apart two parts' copies of a predicted row's log rent may be (b6a and b6b
 # differed by 1.8e-15 in 2 of 189,647 rows).
 TOLERANCE = 1e-9

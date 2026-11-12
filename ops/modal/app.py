@@ -186,6 +186,7 @@ BASELINES = (
     ("--model", "drift"),
     ("--model", "drift-building"),
     ("--model", "drift-building-doorman"),
+    ("--model", "drift-building-phase"),
     ("--model", "drift-local"),
 )
 

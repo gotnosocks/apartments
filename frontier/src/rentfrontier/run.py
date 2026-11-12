@@ -551,6 +551,7 @@ def main(argv=None):
         ("drift", "drift"),
         ("drift-building", "drift_building"),
         ("drift-building-doorman", "drift_building_doorman"),
+        ("drift-building-phase", "drift_building_phase"),
         ("drift-local", "drift_local"),
     ):
         if any(
