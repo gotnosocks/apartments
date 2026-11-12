@@ -27,8 +27,9 @@ them adds nothing. Two qualities from the reads are missing:
 
 - **Duplex or triplex.** The design has no such column, and the listing codes have no such
   feature.
-- **The size of the outdoor space.** The design knows a terrace is there, but not whether it
-  is 40 or 600 sq ft. The readers quoted these sizes from the ad text again and again.
+- **The size of the outdoor space.** L1 codes that a terrace exists, and it treats a 40 sq ft
+  terrace like a 600 sq ft one. The readers quoted these sizes from the ad text again and
+  again.
 
 ## Coverage from the ad text
 
@@ -37,8 +38,9 @@ I scanned the description of every capture in the 2026-11-09 records
 
 - A duplex pattern: duplex, triplex, two-level, two-story or multi-level.
 - An outdoor size pattern: a number of square feet within 15 characters before, or 25
-  characters after, a word for outdoor space (terrace, patio, balcony, garden, roof deck,
-  deck, yard).
+  characters after, a word for outdoor space (terrace, patio, balcony, garden, roof, roof
+  deck, outdoor, deck, yard), with no period, comma or line break between them. I kept
+  sizes from 20 to 5,000 sq ft and took the largest in the ad.
 
 On the 1,973,089 ads in the model's rows:
 
@@ -47,11 +49,11 @@ On the 1,973,089 ads in the model's rows:
 | duplex | 118,840 | 6.0% | 15 of the 16 duplex units; also 24 of the other 284 |
 | outdoor size | 18,435 | 0.9% | 20 of the 90 outdoor or penthouse units; also 4 of the other 210 |
 
-The duplex pattern finds the duplexes. It also fires on 8% of other units, probably on
+The duplex pattern catches 15 of the 16 duplexes, and it also fires on 8% of other units, probably on
 building copy ("a two-story townhouse") and on duplexes elsewhere in the building. The
 outdoor sizes have a median of 675 sq ft and a 90th percentile of 4,000. That upper end is
-mostly shared roof decks and gardens, so many of the matches describe the building's space
-and not the unit's. Neither pattern is good enough as a model column as written.
+mostly shared roof decks and gardens, so many of the matches describe space the whole
+building shares. Neither pattern is good enough as a model column as written.
 
 ## The fit, scoped
 
@@ -64,8 +66,8 @@ One change on L1: add two unit columns with their unit means.
 
 Both have to tell the unit from the building. A regex can't do that reliably, so I would
 extract them with Haiku over the ads the patterns match (about 130,000 ads), and check the
-extraction against the 300 reads before using it. Both come from the ad's own text, never
-from its price, so they follow the rule for additive text features. The fit needs a dataset
+extraction against the 300 reads before using it. Both come from the ad's own text and read
+no prices, which the rule for additive text features requires. The fit needs a dataset
 build with the two columns, and a fit at about L1's cost of $12.
 
 ## Which goes first
@@ -74,7 +76,7 @@ The Student-t fit goes first. Its code is written and waits only for review and 
 it targets the pattern the reads found: units with a long record above their building that
 the model pulls back too far. The flags fit needs an extraction pass, a check and a dataset
 build first. It would explain part of the same gap with measured qualities, which Ben's rule
-prefers, but its columns reach only 1% (outdoor size) to perhaps 3% (duplex, after the
+prefers, but its columns cover only 1% (outdoor size) to perhaps 3% (duplex, after the
 building copy is removed) of rows. The coded outdoor columns L1 has already carry small
 coefficients, so I expect a small gain from it. The order should flip if the Student-t fit
 misses the gate.
