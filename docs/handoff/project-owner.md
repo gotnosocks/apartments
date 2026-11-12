@@ -6,7 +6,7 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## Outlier sprint, state at 2026-11-12 04:55Z
+## Outlier sprint, state at 2026-11-12 05:45Z
 
 Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
 sprint ends about 2026-11-12 18:55Z. The findings are in
@@ -76,9 +76,13 @@ folder for each line of work, each with a `results.md`).
   and 12.3% of 2020's, and on about 1% since. In 2020 those ads are covered 0.730
   against 0.762 with no concession, so the wording gives at most about 0.01 of the
   year's shortfall, and none of 2021's.
-- **Open in the coordinating session's list:** the blank-form rule feed-wide (4,517
-  placeholder listings coded 0 bedrooms and 1,596 studio-coded ads naming 2 or more
-  bedrooms), through a reviewed ledger PR.
+- **Ads coded 0 bedrooms across all listers.** About two thirds of the blank ads coded 0
+  are real studios, so the blank-form exclusion stays with the listers whose form sends the
+  default (Real Street, M1 Ventures, Stuyvesant Heights Realty). The ledger file
+  `2026-11-12-outlier-sprint-zero-coded-feedwide.ndjson` sets 314 ads and excludes 479; the
+  scripts and the Sonnet reads are in `/data1/apartments/tmp/outlier-sprint/s2/Z/`
+  (`zrules.py`, `zbuild.py`, `sread/`). A unit page's other ads do not back a set for a
+  blank ad: the listers posting blank forms score 81% to 90% on their own typed ads.
 - **Updates to Ben.** He asked for a short update about every 30 minutes and whenever
   something finishes, with the long reports kept for results.
 
