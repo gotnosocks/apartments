@@ -19,6 +19,13 @@ nothing about their prices. The latest split holds out the last ad of units with
 two ads, so every held-out ad has a previous ad, and none falls in `first` or `only`. The
 split reaches held-out ads only through `sigma`, the other phases' factors and the levels.
 
+Whether an ad is `first` depends on the future: the unit gets listed again. Units first
+listed near the end of the frame mostly land in `only` because the frame ends before they
+can come back, so the `only` factor partly measures that cutoff. An open ad scored as of a
+day has no later ad yet and lands in `only` too. Before reading the `only` factor as a
+property of single-ad units, or putting F1 behind the Deals page, I would count units by
+how close their first ad sits to the end of the frame.
+
 ## The fit
 
 It runs the same as L1: two H100 containers of two chains each, at L1's settings, on the
