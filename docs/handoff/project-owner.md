@@ -69,10 +69,17 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   flaw. L1's phase counts months back to the unit's previous ad, Y1's factor reads the
   row's own year, and U2 changes only the prior on unit levels, so none of them reads a
   row's later ads.
-- **Models merged and not yet fit.** U2 (`drift-building-unitt`, #1333, a Student-t lasting
-  level for each unit, against c3, three containers, about $11) and Y1
-  (`drift-building-phase-year`, #1337, L1's noise times a factor for each calendar year,
-  against L1, two containers, about $8.4). Their predictions are in their notes.
+- **U2 launch error.** I launched U2's three containers at 17:04 ET without
+  `--split latest`, so they fit the rows split and can't be compared with c3. I stopped
+  u2b and u2c at 17:56 ET. The round cost $11.10 (u2a $3.61, u2b $3.76, u2c $3.73) on
+  top of the sprint's $18.82. On u2a's draws the unit level's degrees of freedom sit at
+  about 2.2, and `unit_dof` and `nu` mix slowly enough (ESS 65 and 46 on 2 chains) that a
+  6-chain pool would likely miss the gate (`docs/notes/unit-t-level-2026-11-12.md`).
+  `ops/modal-fit --baseline RUN` now refuses a launch on a split other than RUN's, and the
+  launch script passes it. A relaunch, about $11, waits for Ben.
+- **Models merged and not yet fit.** Y1 (`drift-building-phase-year`, #1337, L1's noise
+  times a factor for each calendar year, against L1, two containers, about $8.4). Its
+  predictions are in its note.
 - **Tests on master 99bf5f92.** The folder-at-a-time run was killed at its memory cap, so
   I ran pytest once per file instead (`/data1/apartments/tmp/sprint-20261112/suite/`,
   `runfiles.sh` and `runroot.sh`, summaries in `files.summary` and `rfiles.summary`).
@@ -109,8 +116,13 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
 1. **Y1** (about $8.4). It is the only queued change built on L1, so a win serves
    directly once its own market fits run. The 2020 to 2022 shortfall it targets is the
    largest loss L1 has by year. It launches after follow-ups 1 and 3.
-2. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
+2. **U2** (about $11), against c3 as its note sets it, launched with `--split latest
+   --baseline drift-building-b0-latest-ae875fc6-c3`. A win shows that the heavy unit
    tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
+   u2a's slow `unit_dof` mixing argues for reading the units furthest from their
+   building before the relaunch. An L1-plus-Student-t module would join
+   `drift-building-phase`'s design with `drift-building-unitt`'s `unit_t=True` run, since
+   `drift.make_sampler` already takes both. Its test would cover the two together.
 3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
 4. **Candidates from the free checks.** Each needs its predictions written first:

@@ -28,6 +28,10 @@ its dollar estimate.
                                                               # exit 2 if it is over the per-fit cap
     python3 ops/modal/cap.py --check-launch ARGS...           # the same, from ops/modal-fit's ARGS
 
+Before it prices a launch, --check-launch prints the launch's split. When the arguments carry
+--baseline RUN, it reads RUN's result.json and refuses the launch if RUN ran on another split,
+since the comparison scores both fits on one split's held-out ads.
+
 Ben approved fits outside the budget for the full all-scraped dataset (2026-10-16 14:55Z). A
 launch with --outside-budget goes in the ledger as an "outside" row carrying its estimate, and it
 settles like any other launch, so its cost stays on record. The balance skips those rows, and the
@@ -713,7 +717,14 @@ def settle(launch, usd, ledger=LEDGER, now=None):
 def _positional(argv):
     positional, gpu, args = [], "A100-40GB", iter(argv)
     for arg in args:
-        if arg in ("--gpu", "--dataset", "--input", "--split", "--chain-batch"):
+        if arg in (
+            "--gpu",
+            "--dataset",
+            "--input",
+            "--split",
+            "--chain-batch",
+            "--baseline",
+        ):
             value = next(args, "")
             gpu = value if arg == "--gpu" else gpu
         elif arg.startswith("--gpu="):
@@ -736,6 +747,39 @@ def fit_model(argv):
     return tuple(_positional(argv)[0][2:4])
 
 
+def _option(argv, flag, default=None):
+    """The value of `flag` in ops/modal-fit's arguments, given as `flag VALUE` or
+    `flag=VALUE`."""
+    args = iter(argv)
+    for arg in args:
+        if arg == flag:
+            return next(args, default)
+        if arg.startswith(flag + "="):
+            return arg.split("=", 1)[1]
+    return default
+
+
+def baseline_refusal(argv, runs=RUNS):
+    """With --baseline RUN, the reason to refuse the launch: RUN has no result.json under
+    `runs`, or its split is not the launch's --split. A comparison against RUN scores both
+    fits on the held-out ads of one split, so a launch on another split can't be compared.
+    None when they agree, or when the launch gives no --baseline."""
+    base = _option(argv, "--baseline")
+    if base is None:
+        return None
+    split = _option(argv, "--split", "rows")
+    try:
+        theirs = json.loads((runs / base / "result.json").read_text()).get("split")
+    except (OSError, ValueError):
+        return f"the baseline {base} has no readable result.json under {runs}"
+    if theirs != split:
+        return (
+            f"this fit's split is {split!r} and its baseline {base} ran on {theirs!r}; "
+            f"pass --split {theirs} to compare them"
+        )
+    return None
+
+
 if __name__ == "__main__":
     rows = launches()
     if "--check" in sys.argv:
@@ -747,8 +791,20 @@ if __name__ == "__main__":
     if (
         "--check-launch" in sys.argv
     ):  # ops/modal-fit's pre-check, with its own arguments
+        argv = sys.argv[sys.argv.index("--check-launch") + 1 :]
+        if why := baseline_refusal(argv):
+            sys.exit(f"refused: {why}")
+        base = _option(argv, "--baseline")
+        print(
+            f"split: {_option(argv, '--split', 'rows')}"
+            + (
+                f", the split of its baseline {base}"
+                if base
+                else " (no --baseline given)"
+            ),
+            file=sys.stderr,
+        )
         try:
-            argv = sys.argv[sys.argv.index("--check-launch") + 1 :]
             *fit, gpu = fit_size(argv)
             large = "--large" in argv
             usd, secs = fit_estimate(

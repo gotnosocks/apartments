@@ -3,11 +3,12 @@
 # accruing 10 full fits a day; ops/modal/cap.py).
 #
 #   ops/modal-fit [--foreground] [--gpu A100-40GB] [--dataset DIR] [--input PATH]... [--split rows]
-#                 [--chain-batch N] COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [run options...]
+#                 [--chain-batch N] [--baseline RUN] COMMIT LABEL MODEL FEATURES CHAINS WARMUP DRAWS KEEP [run options...]
 #
 # The arguments mirror drive.sh; ops/modal/fit.py has the details. It runs in a systemd --user
 # unit (so a session restart doesn't stop it), logs to /data1/apartments/modal/logs/<unit>.log,
 # and the results land in /data1/apartments/frontier/runs/<name> and loo/ like a thelio fit's.
+# With --baseline RUN it refuses a fit whose --split differs from RUN's (ops/modal/cap.py).
 # Watch it with: ops/team/wait-next --unit 'modal-fit-*'. docs/model/modal.md has the rest.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)

@@ -71,3 +71,54 @@ size would explain, so I expect a heavier tail and a larger gain than that.
 6. The median's error falls by 0.0001 to 0.0010 from c3's 0.04035 (55%).
 7. Coverage of the 80% interval stays within 0.005 of c3's 0.8102 (70%).
 8. $10.5 to $12 for the three containers (80%).
+
+## Launch error: the rows split (2026-11-12)
+
+I launched the three containers at 17:04 ET from
+`/data1/apartments/tmp/sprint-20261112/u2/launch.sh`, which left out `--split latest`.
+`ops/modal-fit` took its default split, `rows`, so the runs came out as
+`drift-building-unitt-b0-rows-0280e47f-u2a` and so on. c3 held out the ads of the latest
+split, so U2's held-out ads are not c3's and the comparison above can't be made.
+
+- u2a ran its 2,919 s fit and settled at $3.61.
+- Modal preempted u2b and restarted it.
+- When I found the split at 17:54 ET, I stopped u2b and u2c with `modal app stop`. They
+  settled at $3.76 and $3.73, close to a finished container's cost.
+
+The round cost $11.10 and scores none of the predictions above. The launch script now
+passes `--split latest --baseline drift-building-b0-latest-ae875fc6-c3`, and
+`ops/modal-fit --baseline RUN` refuses a launch whose split differs from RUN's. A relaunch
+waits for Ben.
+
+### What u2a's two chains show
+
+u2a's draws are on a different split, so I only read its scales, which describe the
+training ads of the rows split. They are not scored against the predictions.
+
+| quantity | U2 (u2a, rows) 5% / 50% / 95% | c3a (latest) median |
+|---|---|---:|
+| `unit_dof` | 2.17 / 2.19 / 2.21 | |
+| `unit_sd` | 0.0410 / 0.0412 / 0.0415 | 0.0590 |
+| `nu` (the ads' noise) | 2.10 / 2.12 / 2.14 | 1.715 |
+
+- The units' Student-t sits at about 2.2 degrees of freedom, below prediction 2's
+  2.5 to 6 band. Its scale falls by 30% from c3's normal sd, inside prediction 3's band.
+- The ads' own nu rises from 1.72 to 2.12. Some of the heavy tail c3 put on single ads
+  moves onto whole units.
+- On u2a's 2 chains, six of 272 traced quantities miss the gate:
+  - `unit_dof`: R-hat 1.036, ESS 65
+  - `nu`: R-hat 1.040, ESS 46
+  - `sigma[1]` to `sigma[3]`: ESS 143 to 250
+  - `unit_sd`: R-hat 1.015, ESS 401
+
+  c3a's 2 chains had ESS 837 for `nu` and 619 for `unit_sd`.
+- Across u2a's draws `unit_dof` correlates 0.78 with `unit_sd` and -0.28 with `nu`.
+  Its autocorrelation is 0.25 at lag 10 and still 0.14 at lag 200.
+
+The two chains agree on every median to 0.002, so the slow mixing is a slow walk around
+one mode, not chains that disagree. If six chains of this length mixed like u2a's, the
+pool would hold an ESS near 200 for `unit_dof` and 140 for `nu`, short of the gate's 400.
+Under the gate rule the next step after a miss is the data, then the model. A unit
+level at 2.2 degrees of freedom says a few units sit very far from their building, and
+I would read those units first: miscoded bedrooms, stabilized units, or one label shared
+by two apartments.
