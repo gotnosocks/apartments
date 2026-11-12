@@ -71,7 +71,8 @@ that s_k ~ Normal(0, ss^2 / kap_k), and samples the units' degrees of freedom
 (`rentfrontier.drift_building_unitt` explains the scheme). Steps 1 to 3 hold the kap as
 they are, step 4 draws each unit's lasting level s_k jointly with u (`draw_us`), and a
 step after it draws the degrees of freedom, the kap and a common rescaling of ss and the
-kap given those levels (`update_unit_t`).
+kap given those levels (`update_unit_t`). With `unit_dof_fixed` the degrees of freedom stay
+at a set value, and that step draws only the kap and the rescaling.
 
 Local drift. With units accounted for, fit 4's residuals still move together inside a building
 over a few months (two ads of different units of one building within three months correlate
@@ -635,6 +636,7 @@ def make_sampler(
     gp=None,
     groups=None,
     unit_t: bool = False,
+    unit_dof_fixed: float | None = None,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -643,7 +645,13 @@ def make_sampler(
 
     `unit_t` gives each unit's lasting level a Student-t prior through a mixing scale of its
     own, s_k ~ Normal(0, ss^2 / kap_k) with kap_k ~ Gamma(nu_u / 2, rate nu_u / 2), and
-    samples nu_u (`rentfrontier.drift_building_unitt`). Without it the sweep is unchanged."""
+    samples nu_u (`rentfrontier.drift_building_unitt`). Without it the sweep is unchanged.
+    `unit_dof_fixed` holds nu_u at that value under `unit_t`: the sweep draws the kap and
+    the orbit as before, skips nu_u's slice update and leaves log nu_u out of the scale
+    step's coordinates (`rentfrontier.drift_building_phase_unitt`)."""
+    assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
+    # Whether the sweep moves nu_u.
+    dof_free = unit_t and unit_dof_fixed is None
     jax, jnp = b0._jax()
     seg = jax.ops.segment_sum
     alpha = d.names.index("alpha")
@@ -1158,7 +1166,7 @@ def make_sampler(
         """Under `unit_t`, given the units' lasting levels s from `draw_us`:
 
         1. nu_u by a slice update on the Student-t density of s with scale ss, the mixing
-           scales integrated out;
+           scales integrated out, or the state's nu_u under `unit_dof_fixed`;
         2. every unit's kap_k from its Gamma conditional, ((nu_u + 1) / 2, rate
            (nu_u + s_k^2 / ss^2) / 2);
         3. ss and every kap_k together along the orbit ss -> g ss, kap_k -> g^2 kap_k,
@@ -1181,8 +1189,11 @@ def make_sampler(
             nu = jnp.exp(lnu[0])
             return (jnp.sum(b0.t_logpdf(s, nu, ss)) + a * lnu[0] - b * nu)[None]
 
-        lnu = b0.slice_vec(k1, jnp.log(st["unit_dof"])[None], logp, UNIT_DOF_WIDTH)
-        nu = jnp.exp(lnu[0])
+        if dof_free:
+            lnu = b0.slice_vec(k1, jnp.log(st["unit_dof"])[None], logp, UNIT_DOF_WIDTH)
+            nu = jnp.exp(lnu[0])
+        else:
+            nu = st["unit_dof"]
         kap = jax.random.gamma(k2, (nu + 1) / 2, (U,)) / ((nu + (s / ss) ** 2) / 2)
         g2 = jax.random.gamma(k3, (1 + nu * U) / 2) / (
             ss**2 / (2 * UNIT_SD_PRIOR**2) + nu * jnp.sum(kap) / 2
@@ -1306,7 +1317,9 @@ def make_sampler(
         c = lam / row_sd(D, sig, jnp.exp(x[8 : 8 + free])) ** 2
         ukap = None
         if unit_t:
-            m_u, sd_u = lam_moments(x[-1])
+            m_u, sd_u = lam_moments(
+                x[-1] if dof_free else jnp.log(jnp.asarray(unit_dof_fixed))
+            )
             logk = m_u + sd_u * keta
             ukap = jnp.exp(logk)
         w1, Wb = unit_W(D, x[:3], c, ukap)
@@ -1326,9 +1339,10 @@ def make_sampler(
             + a_nu * lnu
             - b_nu * 2 * a
         )
-        if unit_t:
+        if dof_free:
             # The kap's Gamma(a_u, rate a_u) density with the map's Jacobian, and nu_u's
-            # Gamma prior in its log.
+            # Gamma prior in its log. With nu_u fixed the kap stay put, and these terms
+            # are a constant.
             a_u = jnp.exp(x[-1]) / 2
             ua, ub = UNIT_DOF_PRIOR
             out = (
@@ -1356,7 +1370,7 @@ def make_sampler(
         lnu = jnp.log(st["nu"])
         x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
         x = jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
-        return jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if unit_t else x
+        return jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
 
     def update_scales(D, key, st, tgt, F):
         """The unit scales, the groups' sigma, nu and any noise phases' factors together,
@@ -1391,7 +1405,7 @@ def make_sampler(
         )
         if phased:
             new["phase_scale"] = jnp.exp(x[8 : 8 + free])
-        if unit_t:
+        if dof_free:
             m_u, sd_u = lam_moments(x[-1])
             new["unit_dof"] = jnp.exp(x[-1])
             new["ukap"] = jnp.exp(m_u + sd_u * keta)
@@ -1951,7 +1965,7 @@ def make_sampler(
         if phased:
             # Every phase's factor, the reference's 1 first, in the order of `d.phases`.
             out["phase_scale"] = phase_factors(st["phase_scale"])
-        if unit_t:
+        if dof_free:
             out["unit_dof"] = unit_dof
         if col is not None:
             new["cell_dirs"] = st["cell_dirs"]
@@ -2034,7 +2048,7 @@ def make_sampler(
                     + [SIGMA_WIDTH] * 4
                     + [NU_WIDTH]
                     + [PHASE_WIDTH] * free
-                    + [UNIT_DOF_WIDTH] * unit_t
+                    + [UNIT_DOF_WIDTH] * dof_free
                 )
             ),
         )
@@ -2044,7 +2058,11 @@ def make_sampler(
             out["kap"] = jnp.ones(S)
         if unit_t:
             out |= dict(
-                unit_dof=10.0 * jit(jax.random.fold_in(key, UNIT_T_KEY), (), 0.2),
+                unit_dof=(
+                    10.0 * jit(jax.random.fold_in(key, UNIT_T_KEY), (), 0.2)
+                    if dof_free
+                    else jnp.full((), unit_dof_fixed)
+                ),
                 ukap=jnp.ones(U),
                 pred_ukap=jnp.ones(n_pred),
             )
@@ -2115,6 +2133,7 @@ def make_sampler(
             draw_us=draw_us,
             update_unit_t=update_unit_t,
             unit_t=unit_t,
+            dof_free=dof_free,
             predict=predict,
             all_means=all_means,
             kernel=kernel,
@@ -2169,6 +2188,7 @@ def run(
     gp="spec",
     groups=None,
     unit_t: bool = False,
+    unit_dof_fixed: float | None = None,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2176,19 +2196,26 @@ def run(
     `pred_loc` and `pred_unit_sd`, (chains, kept draws, rows), and the rows' `pred_y` and
     `pred_group`. A design with noise phases adds `phase_scale`, every phase's factor, to
     the traced and kept arrays, and each predicted row's `pred_phase`. `unit_t`
-    (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both."""
+    (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both, unless
+    `unit_dof_fixed` holds them at a value."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
     sweep, init, predict, parts = make_sampler(
-        d, priors, settings, gp=gp, groups=groups, unit_t=unit_t
+        d,
+        priors,
+        settings,
+        gp=gp,
+        groups=groups,
+        unit_t=unit_t,
+        unit_dof_fixed=unit_dof_fixed,
     )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
     )
     phase = ("phase_scale",) if parts["phased"] else ()
-    more = phase + (("unit_dof",) if unit_t else ())
+    more = phase + (("unit_dof",) if parts["dof_free"] else ())
     traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     key = jax.random.PRNGKey(settings.seed)
@@ -2304,7 +2331,11 @@ def run(
                     np.log(np.asarray(st["nu"]))[:, None],
                 ]
                 + ([np.log(np.asarray(st["phase_scale"]))] if phase else [])
-                + ([np.log(np.asarray(st["unit_dof"]))[:, None]] if unit_t else []),
+                + (
+                    [np.log(np.asarray(st["unit_dof"]))[:, None]]
+                    if parts["dof_free"]
+                    else []
+                ),
                 axis=1,
             )
             if "cell_dirs" in st:
