@@ -35,9 +35,9 @@ SPRINT = Path("/data1/apartments/tmp/outlier-sprint/s2")
 
 # StreetEasy's photo host serves each key at these sizes (checked with curl on 2026-11-12;
 # se_small_200_100 gives 404). Cards show photos at the large size and floor plans at the
-# extra large one, where room labels stay legible on a phone.
+# same size, and the site opens the extra large one on a tap.
 PHOTO_SIZE = "se_large_800_400"
-PLAN_SIZE = "se_extra_large_1500_800"
+PLAN_SIZE = "se_large_800_400"
 TEXT_CHARS = 1200
 
 
@@ -184,11 +184,18 @@ def day(value) -> str | None:
     return str(value)[:10]
 
 
+def load_values(
+    con: duckdb.DuckDBPyConnection, name: str, column: str, kind: str, values: Iterable
+) -> None:
+    """A temp table `name` of the distinct values, loaded in one statement."""
+    con.execute(f"CREATE OR REPLACE TEMP TABLE {name} ({column} {kind})")
+    values = sorted(set(values))
+    if values:
+        con.execute(f"INSERT INTO {name} SELECT unnest(?::{kind}[])", [values])
+
+
 def wanted_table(con: duckdb.DuckDBPyConnection, name: str, ids: Iterable) -> None:
-    ids = sorted({str(i) for i in ids})
-    con.execute(f"CREATE OR REPLACE TEMP TABLE {name} (listing_id VARCHAR)")
-    if ids:
-        con.executemany(f"INSERT INTO {name} VALUES (?)", [[i] for i in ids])
+    load_values(con, name, "listing_id", "VARCHAR", (str(i) for i in ids))
 
 
 AD_COLUMNS = (
@@ -222,10 +229,7 @@ def ads_by_ids(con: duckdb.DuckDBPyConnection, ids: Iterable) -> dict[str, dict]
 
 def ads_in_buildings(con: duckdb.DuckDBPyConnection, buildings: Iterable) -> list[dict]:
     """Every ad of the buildings with these slugs, ordered by building and first day."""
-    con.execute("CREATE OR REPLACE TEMP TABLE wanted_buildings (building VARCHAR)")
-    con.executemany(
-        "INSERT INTO wanted_buildings VALUES (?)", [[b] for b in sorted(set(buildings))]
-    )
+    load_values(con, "wanted_buildings", "building", "VARCHAR", buildings)
     return ads_where(
         con,
         "a.building IN (SELECT building FROM wanted_buildings) "
@@ -234,14 +238,15 @@ def ads_in_buildings(con: duckdb.DuckDBPyConnection, buildings: Iterable) -> lis
 
 
 def raw_records(con: duckdb.DuckDBPyConnection, ids: Iterable) -> dict[str, dict]:
-    """The latest captured record of each listing in `ids`, parsed."""
-    ids = sorted({int(i) for i in ids})
-    con.execute("CREATE OR REPLACE TEMP TABLE wanted_raw (listing_id BIGINT)")
-    con.executemany("INSERT INTO wanted_raw VALUES (?)", [[i] for i in ids])
+    """The latest captured record of each listing in `ids`, parsed. The first pass finds each
+    listing's latest capture over the narrow columns, and only those rows' JSON is read."""
+    load_values(con, "wanted_raw", "listing_id", "BIGINT", (int(i) for i in ids))
     rows = con.execute(
-        """
-        SELECT r.listing_id::VARCHAR, arg_max(r.raw_listing_json, r.last_collected_at)
-        FROM records r SEMI JOIN wanted_raw w ON r.listing_id = w.listing_id
+        f"""
+        WITH latest AS ({LATEST.format(wanted="wanted_raw")})
+        SELECT r.listing_id::VARCHAR, any_value(r.raw_listing_json)
+        FROM records r SEMI JOIN latest l
+          ON r.listing_id = l.listing_id AND r.last_collected_at = l.at
         GROUP BY 1
         """
     ).fetchall()
@@ -252,6 +257,14 @@ def raw_records(con: duckdb.DuckDBPyConnection, ids: Iterable) -> dict[str, dict
         except json.JSONDecodeError:
             out[lid] = {}
     return out
+
+
+# The latest capture time of each listing in a temp table of BIGINT listing IDs.
+LATEST = """
+    SELECT r.listing_id, max(r.last_collected_at) AS at
+    FROM records r SEMI JOIN {wanted} w ON r.listing_id = w.listing_id
+    GROUP BY 1
+"""
 
 
 def media_url(key: str, size: str) -> str:
@@ -375,15 +388,21 @@ def write_queue(out: Path, meta: dict, cards: list[dict]) -> Path:
     if len(set(ids)) != len(ids):
         raise ValueError(f"{meta['queue']}: card ids repeat")
     meta = {**meta, "count": len(cards)}
-    tmp = folder / f".cards.jsonl.{os.getpid()}"
-    with tmp.open("w") as fh:
-        for card in cards:
-            fh.write(json.dumps(card, ensure_ascii=False, sort_keys=False) + "\n")
-    tmp.replace(folder / "cards.jsonl")
-    tmp = folder / f".meta.json.{os.getpid()}"
-    tmp.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
-    tmp.replace(folder / "meta.json")
+    body = "".join(json.dumps(card, ensure_ascii=False) + "\n" for card in cards)
+    put(folder / "cards.jsonl", body)
+    put(folder / "meta.json", json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
     return folder
+
+
+def put(path: Path, text: str) -> None:
+    """Write `text` to a temporary name beside `path`, then rename it into place. A failed
+    write removes the temporary file."""
+    tmp = path.with_name(f".{path.name}.{os.getpid()}")
+    try:
+        tmp.write_text(text)
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def meta(queue: str, module: str, **fields) -> dict:

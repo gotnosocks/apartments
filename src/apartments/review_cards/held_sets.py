@@ -11,8 +11,11 @@ back a set on its own (Ben, 2026-10-15). The producer reads each held line and d
 For each remaining line the producer looks for the backing the line lacks, with the checks of
 the `studio-beds` queue for a bedroom count and with the unit's other ads within 24 months for
 baths. The card shows the held quote, the backing found and the unit's other ads. The proposal
-is the held line itself, with the period added to its `when` and the backing found added to its
-evidence. A bedroom card also offers the other counts from studio to 4 bedrooms.
+is the held line itself with the backing found added to its evidence. Its `when` comes from the
+row's record, for the period and every field the line sets. A bedroom card also offers the
+other counts from studio to 4 bedrooms, and 5 when the quote names 5, without the quote in
+their evidence. When two held lines set the same field of one ad, the card goes to the first in
+the queue's order and the rest count as repeated.
 """
 
 from __future__ import annotations
@@ -100,14 +103,20 @@ def baths_text(values: dict) -> str:
     return " and ".join(parts)
 
 
-def change_text(line: dict) -> str:
-    if "bedrooms" in line["set"]:
+def recorded_when(changes: dict, record: dict) -> dict:
+    """The `when` of a set: the record's period and its value of each field the set sets."""
+    when = {k: None if record.get(k) is None else float(record[k]) for k in changes}
+    return {**when, "period": record["period"]}
+
+
+def change_text(changes: dict, record: dict) -> str:
+    if "bedrooms" in changes:
         return (
-            f"bedrooms from {c.beds_text(line['when'].get('bedrooms'))} to "
-            f"{c.beds_text(line['set']['bedrooms'])}"
+            f"bedrooms from {c.beds_text(record.get('bedrooms'))} to "
+            f"{c.beds_text(changes['bedrooms'])}"
         )
-    before = {k: c.whole(line["when"].get(k)) for k in line["set"]}
-    after = {k: c.whole(v) for k, v in line["set"].items()}
+    before = {k: c.whole(record.get(k)) for k in changes}
+    after = {k: c.whole(v) for k, v in changes.items()}
     return f"baths from {baths_text(before)} to {baths_text(after)}"
 
 
@@ -117,14 +126,13 @@ def proposal(
     out = {k: v for k, v in line.items() if k not in EXTRA and not k.startswith("_")}
     if change is not None:
         out["set"] = change
-    out["when"] = {**out.get("when", {}), "period": record["period"]}
+    out["when"] = recorded_when(out["set"], record)
     quotes = [e for e in line.get("evidence", []) if e["kind"] in ("ad_text", "read")]
-    summary = f"Set the ad's {change_text(out)}."
     return {
         "ledger": "corrections",
         "line": out,
-        "evidence": quotes + items,
-        "summary": summary,
+        "evidence": (quotes if change is None else []) + items,
+        "summary": f"Set the ad's {change_text(out['set'], record)}.",
     }
 
 
@@ -133,7 +141,7 @@ def build(sources: c.Sources) -> tuple[dict, list[dict], dict]:
     live = c.live_entries(sources.ledger)
     lines = held_lines(sources.reviews)
     ads = c.ads_by_ids(con, [line["listing_id"] for line in lines])
-    dropped = {"in force": 0, "not kept": 0, "changed since": 0}
+    dropped = {"in force": 0, "not kept": 0, "changed since": 0, "repeated": 0}
     kept = []
     for line in lines:
         ad = ads.get(str(line["listing_id"]))
@@ -175,7 +183,15 @@ def build(sources: c.Sources) -> tuple[dict, list[dict], dict]:
             if x["unit_id"] == ad["unit_id"]
         },
     )
-    cards = [card(*d, mates, raw) for d in drafts]
+    cards = []
+    ids = set()
+    for d in drafts:
+        made = card(*d, mates, raw)
+        if made["id"] in ids:
+            dropped["repeated"] += 1
+        else:
+            ids.add(made["id"])
+            cards.append(made)
     meta = c.meta(
         QUEUE,
         "held_sets",
@@ -251,7 +267,10 @@ def card(line, ad, found, items, mates, raw) -> dict:
     options = []
     if found is not None:
         target = c.whole(line["set"]["bedrooms"])
-        current = c.whole(line["when"].get("bedrooms"))
+        current = (
+            c.whole(record["bedrooms"]) if record.get("bedrooms") is not None else None
+        )
+        names = set().union(*(sb.counts_named(q) for q in quotes if q))
         options = [
             {
                 "code": f"beds-{k}",
@@ -260,7 +279,7 @@ def card(line, ad, found, items, mates, raw) -> dict:
                     line, record, found.get(k, []), {"bedrooms": float(k)}
                 ),
             }
-            for k in range(5)
+            for k in sorted(set(range(5)) | ({5} & names))
             if k not in (target, current)
         ]
     prop = proposal(line, record, items)
@@ -277,7 +296,10 @@ def card(line, ad, found, items, mates, raw) -> dict:
             )
             if x
         ),
-        "claim": f"A rule read the ad's text as saying the {change_text(prop['line'])}.",
+        "claim": (
+            f"A rule read the ad's text as saying the "
+            f"{change_text(prop['line']['set'], record)}."
+        ),
         "proposal": prop,
         "options": options,
         "blocks": blocks,

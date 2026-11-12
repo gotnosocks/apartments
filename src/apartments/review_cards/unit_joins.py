@@ -18,9 +18,22 @@ ones the unit ledger already joins. For each building it gathers:
 - PLUTO's residential units and floors, and HPD's legal class A count, for judging whether
   the records cover the building.
 
-The proposal joins the chain's labels into the label with the most ads among those the city
-records hold, or among all of them when the records hold none. A label missing from the records
-goes into a `city_record` evidence item.
+The producer drops the ads whose page the unit ledger already joins to another, since a page
+takes part in one join at most, and skips a chain left with fewer than two labels. It also skips
+a chain when two or more of its labels are in the city's records, as two recorded apartments
+are two apartments. Photos, text and timing only nominate, so a card proposes a join only when
+a label fails one of these tests:
+
+- the label is missing from the city's records of a lot they cover well, meaning the records
+  name at least 80% of the units PLUTO or HPD's legal class A count gives, or the lot has a
+  condo unit roll (a `city_record` item);
+- the label's floor lies above the lot's floors in PLUTO and HPD (a `city_record` item);
+- no other label in the building or in the city's records uses the label's line, the letters
+  after the floor number (a `line_units` item, with the ads of the label's floor).
+
+A card with none of these asks the question alone, with no proposal, and its claim says which
+test came up short. The proposal joins the chain's labels into the label with the most ads
+among those the city records hold, or among all of them when the records hold none.
 
 The sprint's own label test (`<sprint>/G/code/std.py`) is still running, so the queue covers
 only the chains in the five buildings of the worked examples (`EXAMPLES`). Passing `examples=None`
@@ -37,6 +50,7 @@ from pathlib import Path
 import duckdb
 
 from . import common as c
+from .studio_beds import line_of
 
 QUEUE = "unit-joins"
 EXAMPLES = (
@@ -52,6 +66,8 @@ ANSWERS = [
     {"code": "unsure", "label": "Can't tell", "key": "u"},
 ]
 BOROUGHS = {"1": "MN", "2": "BX", "3": "BK", "4": "QN", "5": "SI"}
+# The share of a lot's units the city's records must name for a missing label to count.
+COVERED = 0.8
 # Apartment numbers in city records that name no apartment.
 JUNK = re.compile(
     r"^(BLDG|BUILDING|BASEMENT|BASEM|BASEME|BASE|BSMT|CELLAR|ROOF|HALL|LOBBY|STORE|PUBLIC|NA|"
@@ -246,9 +262,9 @@ def build(sources: c.Sources, examples=EXAMPLES) -> tuple[dict, list[dict]]:
         )
         if len({x["building"] for x in xs}) != 1:
             continue
-        pages = {x["page"].rstrip("/").rsplit("/", 1)[-1] for x in xs if x["page"]}
         building = xs[0]["building"]
-        if len(pages) < 2 or len({f"{building}/{p}" for p in pages} - joined) < 2:
+        xs = [x for x in xs if x["page"] and f"{building}/{slug(x)}" not in joined]
+        if len({slug(x) for x in xs}) < 2:
             continue
         groups.append((chain_id, building, xs))
 
@@ -261,15 +277,16 @@ def build(sources: c.Sources, examples=EXAMPLES) -> tuple[dict, list[dict]]:
     counts = lot_counts(sources, set(lot.values()))
     raw = c.raw_records(con, {x["listing_id"] for _, _, xs in groups for x in xs})
 
-    cards = {}
+    cards = []
+    skipped = 0
     for chain_id, building, xs in groups:
         bbl = lot.get(building)
         made = card(chain_id, building, xs, mates[building], bbl, records, counts, raw)
-        if made["id"] not in cards:
-            cards[made["id"]] = made
-    ordered = sorted(
-        cards.values(), key=lambda x: (not x["proposal"]["evidence"], x["id"])
-    )
+        if made is None:
+            skipped += 1
+        else:
+            cards.append(made)
+    ordered = sorted(cards, key=lambda x: ("proposal" not in x, x["id"]))
     return (
         c.meta(
             QUEUE,
@@ -285,6 +302,7 @@ def build(sources: c.Sources, examples=EXAMPLES) -> tuple[dict, list[dict]]:
                 "or off the building's grid. Shared photos and text only nominate."
             ),
             answers=ANSWERS,
+            dropped={"two or more labels in city records": skipped},
             scope="the five worked examples"
             if examples is not None
             else "every linked building",
@@ -293,12 +311,44 @@ def build(sources: c.Sources, examples=EXAMPLES) -> tuple[dict, list[dict]]:
     )
 
 
-def card(chain_id, building, xs, building_ads, bbl, records, counts, raw) -> dict:
+def slug(ad: dict) -> str:
+    return ad["page"].rstrip("/").rsplit("/", 1)[-1]
+
+
+def off_grid(
+    labels: set[str], building_ads: list[dict], known: set[str], floors: int | None
+) -> dict[str, str]:
+    """The labels outside the building's grid, each with the reason."""
+    out = {}
+    lines = {
+        line[1]
+        for lab in {c.label(x["page"]) for x in building_ads} - labels
+        if (line := line_of(lab))
+    } | {line[1] for lab in known if (line := line_of(lab))}
+    for lab in sorted(labels):
+        line = line_of(lab)
+        if line is None:
+            continue
+        if floors and line[0] > floors:
+            out[lab] = f"floor {line[0]} lies above the lot's {floors} floors"
+        elif line[1] not in lines:
+            out[lab] = (
+                f"no other label in the building or the city's records uses line "
+                f"{line[1].upper()}"
+            )
+    return out
+
+
+def card(
+    chain_id, building, xs, building_ads, bbl, records, counts, raw
+) -> dict | None:
     by_label = Counter(c.label(x["page"]) for x in xs)
     labels = set(by_label)
     held = records.get(bbl, {}) if bbl else {}
     known = set().union(*held.values()) if held else set()
     in_city = {lab for lab in labels if norm(lab) in known}
+    if len(in_city) >= 2:
+        return None
     missing = labels - in_city
     pool = in_city or labels
     ever = Counter(c.label(x["page"]) for x in building_ads)
@@ -349,17 +399,58 @@ def card(chain_id, building, xs, building_ads, bbl, records, counts, raw) -> dic
     )
     facts = [{k: v for k, v in f.items() if v is not None} for f in facts]
 
+    units = max(lot.get("pluto_units") or 0, lot.get("legal_a") or 0)
+    covered = "condo unit lots" in held or bool(units and len(known) >= COVERED * units)
+    floors = max(lot.get("pluto_floors") or 0, lot.get("stories") or 0) or None
+    outside = off_grid(labels, building_ads, known, floors)
     evidence = []
-    if missing and known:
+    if missing and covered:
         sources = ", ".join(sorted(held))
         evidence.append(
             {
                 "kind": "city_record",
                 "detail": (
-                    f"The city's records of lot {bbl} ({sources}) name {len(known)} apartments, "
-                    f"{spans(in_city)} among them, and none for {spans(missing)}."
+                    f"The city's records of lot {bbl} ({sources}) name {len(known)} apartments "
+                    f"of the lot's {units}, {spans(in_city)} among them, and none for "
+                    f"{spans(missing)}."
                 ),
             }
+        )
+    for lab, why in outside.items():
+        if why.startswith("floor"):
+            evidence.append(
+                {"kind": "city_record", "detail": f"{lab}: {why} (PLUTO, HPD)."}
+            )
+            continue
+        floor = line_of(lab)[0]
+        mates = [
+            x
+            for x in building_ads
+            if (line := line_of(c.label(x["page"])))
+            and line[0] == floor
+            and c.label(x["page"]) not in labels
+        ][-10:]
+        if mates:
+            evidence.append(
+                {
+                    "kind": "line_units",
+                    "listings": [x["listing_id"] for x in mates],
+                    "detail": (
+                        f"{lab}: {why}. Floor {floor}'s other labels are "
+                        f"{spans({c.label(x['page']) for x in mates})}."
+                    ),
+                }
+            )
+    if evidence:
+        why = ""
+    elif not missing:
+        why = " The city's records hold none of the chain's labels apart from one, and every label fits the building's grid, so nothing besides the ads backs a join."
+    else:
+        why = (
+            f" The city's records name {len(known)} apartments of the lot's "
+            f"{units or 'unknown number of'} units, too few to treat a missing label as "
+            "no unit, and every label fits the building's grid, so nothing besides the ads "
+            "backs a join."
         )
     ads_block = {
         "type": "ads",
@@ -375,8 +466,9 @@ def card(chain_id, building, xs, building_ads, bbl, records, counts, raw) -> dic
             for x in xs
         ],
     }
-    return {
-        "id": f"{building}:{'+'.join(sorted(lab.lower() for lab in labels))}",
+    made = {
+        "id": f"{building}:{'+'.join(sorted(lab.lower() for lab in labels))}"[:180]
+        + f"~{chain_id}",
         "chain": chain_id,
         "title": f"{c.address(building)}: {', '.join(sorted(labels))}",
         "subtitle": " · ".join(
@@ -390,7 +482,7 @@ def card(chain_id, building, xs, building_ads, bbl, records, counts, raw) -> dic
         ),
         "claim": (
             f"The repost screen links {len(xs)} ads under {len(labels)} labels as one apartment "
-            "taken down and posted again."
+            f"taken down and posted again.{why}"
         ),
         "proposal": {
             "ledger": "units",
@@ -409,6 +501,9 @@ def card(chain_id, building, xs, building_ads, bbl, records, counts, raw) -> dic
             ads_block,
         ],
     }
+    if not evidence:
+        del made["proposal"]
+    return made
 
 
 def cut(text: str, limit: int = 300) -> str:

@@ -206,17 +206,75 @@ def test_studio_beds_finds_the_named_count_with_backing(sources, tmp_path):
     assert kinds[0] == "ad_text"
     assert {"other_ad", "line_units"} <= set(kinds)
     assert [o["code"] for o in card["options"]] == ["beds-1", "beds-3", "beds-4"]
+    for option in card["options"]:
+        assert "ad_text" not in [e["kind"] for e in option["proposal"]["evidence"]]
+    ad = card["blocks"][1]["ads"][0]
+    assert ad["photos"] == [c.media_url("k101", c.PHOTO_SIZE)]
+
+
+def test_stated_size_beats_every_count_between():
+    ad = {
+        "listing_id": "1",
+        "unit_id": "u",
+        "page": PAGE + "9z",
+        "bedrooms": 0.0,
+        "square_feet": 700.0,
+        "fate": "kept",
+        "neighbourhood": "N",
+        "on_day": None,
+    }
+    sizes = {
+        ("N", 0): sorted([400.0] * 5 + [700.0]),
+        ("N", 1): [650.0] * 5,
+        ("N", 2): [720.0] * 5,
+    }
+    found = studio_beds.backing(ad, [], sizes)
+    # 700 lies nearer the 1-bedroom median than the studio median, and nearer the 2-bedroom
+    # median than both, so both counts are backed.
+    assert sorted(found) == [1, 2]
+    # Once the 1-bedroom median moves to 690, the 2-bedroom one at 720 no longer beats it.
+    sizes[("N", 1)] = [690.0] * 5
+    assert sorted(studio_beds.backing(ad, [], sizes)) == [1]
+    # Without the ad's own size the studio median stays at 400.
+    assert "400" in studio_beds.backing(ad, [], sizes)[1][0]["detail"]
+
+
+def test_median_without_leaves_out_one_copy():
+    assert studio_beds.median_without([1.0, 2.0, 9.0], 9.0) == (1.5, 2)
+    assert studio_beds.median_without([1.0, 2.0, 9.0], 5.0) == (2.0, 3)
+    assert studio_beds.median_without([3.0], 3.0) is None
 
 
 def test_named_takes_the_most_mentioned_count():
     count, quote = studio_beds.named("A three bedroom, or 2BR, with three-bed views")
     assert count == 3
     assert "three bedroom" in quote
+    assert studio_beds.named("A sunny corner apartment") is None
 
 
 def test_held_sets_strips_rule_fields_and_adds_the_period(sources, tmp_path):
+    path = sources.reviews / "ledger-held-2026-10-16-chain.jsonl"
+    first = json.loads(path.read_text())
+    # A second held line for the same ad and field, and one with no `when` for a field it sets.
+    path.write_text(
+        path.read_text()
+        + json.dumps({**first, "set": {"bedrooms": 2.0}})
+        + "\n"
+        + json.dumps(
+            {**first, "listing_id": "103", "set": {"full_baths": 2.0}, "when": {}}
+        )
+        + "\n"
+    )
     meta, cards = read_queue(held_sets.main(tmp_path / "q", sources))
-    assert meta["dropped"] == {"in force": 0, "not kept": 0, "changed since": 0}
+    assert meta["dropped"] == {
+        "in force": 0,
+        "not kept": 0,
+        "changed since": 0,
+        "repeated": 1,
+    }
+    baths = next(x for x in cards if x["id"] == "listing:103:baths")
+    assert baths["proposal"]["line"]["when"] == {"full_baths": 1.0, "period": "2022-04"}
+    cards = [x for x in cards if x["id"] == "listing:104:bedrooms"]
     (card,) = cards
     line = card["proposal"]["line"]
     assert line == {
@@ -230,6 +288,8 @@ def test_held_sets_strips_rule_fields_and_adds_the_period(sources, tmp_path):
         "quote": "one bedroom",
     }
     assert "beds-0" not in [o["code"] for o in card["options"]]
+    for option in card["options"]:
+        assert "ad_text" not in [e["kind"] for e in option["proposal"]["evidence"]]
 
 
 def test_unit_joins_proposes_the_label_in_city_records(sources, tmp_path):
@@ -237,15 +297,18 @@ def test_unit_joins_proposes_the_label_in_city_records(sources, tmp_path):
     assert meta["scope"] == "every linked building"
     _, cards = read_queue(c.write_queue(tmp_path / "q", meta, cards))
     (card,) = cards
-    assert card["id"] == f"{BUILDING}:3b+3bb"
+    assert card["id"] == f"{BUILDING}:3b+3bb~7"
     assert card["proposal"]["line"] == {
         "change": "join_units",
         "building": BUILDING,
         "units": ["3b", "3bb"],
     }
+    # The records name 7 of PLUTO's 12 units, too few for the missing 3BB to count, but no
+    # other label uses line BB.
     (item,) = card["proposal"]["evidence"]
-    assert item["kind"] == "city_record"
-    assert "none for 3BB" in item["detail"]
+    assert item["kind"] == "line_units"
+    assert sorted(item["listings"]) == ["100", "101"]
+    assert "line BB" in item["detail"]
     grid, facts, chain = card["blocks"]
     assert grid["type"] == "grid"
     cells = {x["label"]: x.get("mark") for f in grid["floors"] for x in f["cells"]}
@@ -259,3 +322,54 @@ def test_unit_joins_proposes_the_label_in_city_records(sources, tmp_path):
 def test_norm_matches_city_and_page_labels():
     assert unit_joins.norm("Apt 03-B") == "3B"
     assert unit_joins.norm("3b") == "3B"
+
+
+def links(sources, rows):
+    con = duckdb.connect()
+    values = ", ".join(f"({a}, {b}, 'S1', {chain})" for a, b, chain in rows)
+    con.execute(
+        f"COPY (SELECT col0::BIGINT AS earlier, col1::BIGINT AS later, col2 AS cell, "
+        f"col3 AS chain_id FROM (VALUES {values})) "
+        f"TO '{sources.sprint / 'C' / 'links-final.parquet'}' (FORMAT parquet)"
+    )
+
+
+def test_unit_joins_skips_two_recorded_labels(sources):
+    links(sources, [(106, 107, 8)])
+    meta, cards = unit_joins.build(sources, examples=None)
+    assert cards == []
+    assert meta["dropped"] == {"two or more labels in city records": 1}
+
+
+def test_unit_joins_asks_without_a_proposal_when_nothing_backs_it(sources):
+    # 3C is missing from the thin records, but line C and floor 3 fit the grid of 4C.
+    comps = [{"apartment": a} for a in ("3B", "4C")]
+    (sources.sprint / "G" / "city" / f"comp-{BBL}.json").write_text(json.dumps(comps))
+    con = duckdb.connect()
+    data = sources.datasets
+    entry = json.loads((data / "catalog.ndjson").read_text())
+    ads = data / entry["ads_file"]["path"]
+    con.execute(
+        f"COPY (SELECT * REPLACE (CASE listing_id WHEN '105' THEN '{PAGE}3c' "
+        f"WHEN '106' THEN '{PAGE}4c' ELSE page END AS page) FROM '{ads}') "
+        f"TO '{data / 'ads2.parquet'}' (FORMAT parquet)"
+    )
+    entry["ads_file"]["path"] = "ads2.parquet"
+    (data / "catalog.ndjson").write_text(json.dumps(entry) + "\n")
+    _, cards = unit_joins.build(sources, examples=None)
+    (card,) = cards
+    assert "proposal" not in card
+    assert "too few" in card["claim"]
+
+
+def test_unit_joins_leaves_out_pages_already_joined(sources):
+    join = {
+        "change": "join_units",
+        "building": BUILDING,
+        "units": ["3bb", "8b"],
+        "evidence": [{"kind": "owner", "detail": "x"}],
+        "decided": "2026-11-01",
+    }
+    (sources.ledger / "units" / "2026-11-01.ndjson").write_text(json.dumps(join) + "\n")
+    _, cards = unit_joins.build(sources, examples=None)
+    assert cards == []

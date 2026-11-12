@@ -10,23 +10,28 @@ card lists what turns up for the other counts too, since the unit's studio-coded
 against the text:
 
 - `other_ad`: another ad of the same unit within 24 months coding that count;
-- `stated_size`: the ad's coded size lies closer to the median size of that count than of any
-  other count, among the building's sized ads (three or more of the count) or else the
-  neighbourhood's;
+- `stated_size`: the ad's coded size lies closer to the median size of that count than to the
+  median of the recorded count and of every count in between. The medians come from the
+  building's other sized ads when it has three or more of each count compared, or else from the
+  neighbourhood's (five or more), and leave out the ad itself;
 - `line_units`: two or more ads of the building's other units in the same line (the same
   letters after the floor number), at least two thirds of them coding that count.
 
 Cards with the most kinds of backing for the named count come first. The proposal sets the
-named count; the options set 1 to 4 bedrooms, each with the backing found for its count.
+named count, with the quote as an `ad_text` item beside any backing. A card without backing
+still carries the proposal along with the ad's photos and floor plans, so a yes from Ben counts
+as his own reading. The options set 1 to 4 bedrooms, and 5 when the text names 5, each with the
+backing found for its count. An option's evidence leaves out the quote, which names another
+count.
 """
 
 from __future__ import annotations
 
 import re
+from bisect import bisect_left
 from collections import Counter
 from datetime import timedelta
 from pathlib import Path
-from statistics import median
 
 from . import common as c
 
@@ -51,14 +56,18 @@ ANSWERS = [
 def screen(con) -> list[tuple[str, str]]:
     """The studio-coded kept rows whose latest record's text names two to five bedrooms and
     never says studio, as (listing ID, description)."""
+    con.execute(
+        "CREATE OR REPLACE TEMP TABLE studio AS "
+        "SELECT DISTINCT listing_id::BIGINT AS listing_id FROM rows WHERE bedrooms = 0"
+    )
     return con.execute(
         f"""
-        WITH studio AS (SELECT listing_id::BIGINT AS lid FROM rows WHERE bedrooms = 0),
+        WITH latest AS ({c.LATEST.format(wanted="studio")}),
         txt AS (
             SELECT r.listing_id AS lid,
-                   arg_max(json_extract_string(r.raw_listing_json, '$.description'),
-                           r.last_collected_at) AS d
-            FROM records r SEMI JOIN studio s ON r.listing_id = s.lid
+                   any_value(json_extract_string(r.raw_listing_json, '$.description')) AS d
+            FROM records r SEMI JOIN latest l
+              ON r.listing_id = l.listing_id AND r.last_collected_at = l.at
             GROUP BY 1)
         SELECT lid::VARCHAR, d FROM txt
         WHERE regexp_matches(lower(d), '{PATTERN}') AND NOT contains(lower(d), 'studio')
@@ -67,14 +76,23 @@ def screen(con) -> list[tuple[str, str]]:
     ).fetchall()
 
 
-def named(text: str) -> tuple[int, str]:
+def counts_named(text: str) -> set[int]:
+    return {
+        WORDS.get(m.group(1).lower()) or int(m.group(1))
+        for m in NAMED.finditer(c.plain(text or ""))
+    }
+
+
+def named(text: str) -> tuple[int, str] | None:
     """The bedroom count the text names most often (the smaller on a tie), with the words
-    around its first mention."""
+    around its first mention, or None when the text names no count."""
     text = c.plain(text)
     found = [
         (WORDS.get(m.group(1).lower()) or int(m.group(1)), m)
         for m in NAMED.finditer(text)
     ]
+    if not found:
+        return None
     tally = Counter(n for n, _ in found)
     count = min(tally, key=lambda n: (-tally[n], n))
     first = next(m for n, m in found if n == count)
@@ -90,19 +108,34 @@ def line_of(unit: str | None) -> tuple[int, str] | None:
 
 
 def size_medians(con, neighbourhoods) -> dict:
-    """Median coded size by neighbourhood and bedroom count, over kept ads."""
-    con.execute("CREATE OR REPLACE TEMP TABLE wanted_nb (n VARCHAR)")
-    con.executemany("INSERT INTO wanted_nb VALUES (?)", [[n] for n in neighbourhoods])
+    """The sorted coded sizes of kept ads by neighbourhood and bedroom count."""
+    c.load_values(con, "wanted_nb", "n", "VARCHAR", neighbourhoods)
     rows = con.execute(
         """
-        SELECT neighbourhood, bedrooms, median(square_feet), count(*)
+        SELECT neighbourhood, bedrooms, list(square_feet ORDER BY square_feet)
         FROM ads
         WHERE fate = 'kept' AND square_feet > 100 AND bedrooms BETWEEN 0 AND 5
           AND neighbourhood IN (SELECT n FROM wanted_nb)
         GROUP BY 1, 2
         """
     ).fetchall()
-    return {(n, c.whole(b)): (m, k) for n, b, m, k in rows if k >= 5}
+    return {(n, c.whole(b)): v for n, b, v in rows}
+
+
+def median_without(sizes: list[float], drop: float | None) -> tuple[float, int] | None:
+    """The median of the sorted `sizes` with one copy of `drop` left out, and the count left."""
+    at = bisect_left(sizes, drop) if drop is not None else len(sizes)
+    if at >= len(sizes) or sizes[at] != drop:
+        at = None
+    n = len(sizes) - (at is not None)
+    if n == 0:
+        return None
+
+    def get(i):
+        return sizes[i + 1] if at is not None and i >= at else sizes[i]
+
+    mid = get(n // 2) if n % 2 else (get(n // 2 - 1) + get(n // 2)) / 2
+    return mid, n
 
 
 def backing(ad: dict, mates: list[dict], nb_sizes: dict) -> dict[int, list[dict]]:
@@ -134,40 +167,54 @@ def backing(ad: dict, mates: list[dict], nb_sizes: dict) -> dict[int, list[dict]
         )
 
     size = ad.get("square_feet")
-    if size and size > 100:
-        sized = [
-            x for x in mates if x["fate"] == "kept" and (x["square_feet"] or 0) > 100
-        ]
+    recorded = c.whole(ad["bedrooms"]) if ad.get("bedrooms") is not None else None
+    if size and size > 100 and recorded is not None:
         by_count: dict[int, list[float]] = {}
-        for x in sized:
-            if x["bedrooms"] is not None and x["listing_id"] != lid:
+        for x in mates:
+            if (
+                x["fate"] == "kept"
+                and (x["square_feet"] or 0) > 100
+                and x["bedrooms"] is not None
+                and x["listing_id"] != lid
+            ):
                 by_count.setdefault(c.whole(x["bedrooms"]), []).append(x["square_feet"])
-        building = {k: median(v) for k, v in by_count.items() if len(v) >= 3}
-        place, medians = "the building", building
-        if 0 not in building or len(building) < 2:
-            place = ad.get("neighbourhood") or "the neighbourhood"
-            medians = {
-                k: m
-                for (n, k), (m, _) in nb_sizes.items()
-                if n == ad.get("neighbourhood")
-            }
-        if 0 in medians and len(medians) >= 2:
-            nearest = min(medians, key=lambda k: (abs(size - medians[k]), k))
-            rest = ", ".join(
-                f"{c.beds_text(k)} {m:,.0f}"
-                for k, m in sorted(medians.items())
-                if k != nearest
-            )
-            out.setdefault(nearest, []).append(
-                {
-                    "kind": "stated_size",
-                    "detail": (
-                        f"The ad gives {size:,.0f} sq ft, nearest the median "
-                        f"{c.beds_text(nearest)} in {place} at {medians[nearest]:,.0f} "
-                        f"(the other medians: {rest})."
-                    ),
-                }
-            )
+        building = {
+            k: median_without(sorted(v), None)
+            for k, v in by_count.items()
+            if len(v) >= 3
+        }
+        own = size if ad.get("fate") == "kept" else None
+        place_nb = ad.get("neighbourhood") or "the neighbourhood"
+        nb = {}
+        for (n, k), v in nb_sizes.items():
+            if n == ad.get("neighbourhood"):
+                found = median_without(v, own if k == recorded else None)
+                if found and found[1] >= 5:
+                    nb[k] = found
+        for k in range(6):
+            if k == recorded:
+                continue
+            compared = range(min(k, recorded), max(k, recorded) + 1)
+            for place, medians in (("the building", building), (place_nb, nb)):
+                if k in medians and recorded in medians:
+                    break
+            else:
+                continue
+            rivals = {j: medians[j][0] for j in compared if j in medians and j != k}
+            if all(abs(size - medians[k][0]) < abs(size - m) for m in rivals.values()):
+                rest = ", ".join(
+                    f"{c.beds_text(j)} {m:,.0f}" for j, m in sorted(rivals.items())
+                )
+                out.setdefault(k, []).append(
+                    {
+                        "kind": "stated_size",
+                        "detail": (
+                            f"The ad gives {size:,.0f} sq ft, nearer the median "
+                            f"{c.beds_text(k)} in {place} at {medians[k][0]:,.0f} than the "
+                            f"median {rest}, with the ad itself left out."
+                        ),
+                    }
+                )
 
     line = line_of(unit)
     if line:
@@ -199,7 +246,7 @@ def backing(ad: dict, mates: list[dict], nb_sizes: dict) -> dict[int, list[dict]
     return out
 
 
-def proposal(ad: dict, count: int, items: list[dict], quote: str) -> dict:
+def proposal(ad: dict, count: int, items: list[dict], quote: str | None) -> dict:
     record = c.record_of(ad)
     return {
         "ledger": "corrections",
@@ -209,7 +256,7 @@ def proposal(ad: dict, count: int, items: list[dict], quote: str) -> dict:
             "set": {"bedrooms": float(count)},
             "when": {"bedrooms": float(record["bedrooms"]), "period": record["period"]},
         },
-        "evidence": [{"kind": "ad_text", "quote": quote}, *items],
+        "evidence": [*([{"kind": "ad_text", "quote": quote}] if quote else []), *items],
         "summary": f"Set the ad's bedrooms from 0 to {count}.",
     }
 
@@ -230,9 +277,12 @@ def build(sources: c.Sources) -> tuple[dict, list[dict]]:
     drafts = []
     for lid, text in found:
         ad = ads[lid]
-        count, quote = named(text)
+        hit = named(text)
+        if hit is None:
+            continue
+        count, quote = hit
         items = backing(ad, mates.get(ad["building"], []), nb_sizes)
-        drafts.append((ad, count, quote, items))
+        drafts.append((ad, count, quote, items, counts_named(text)))
     drafts.sort(
         key=lambda d: (
             -len({i["kind"] for i in d[3].get(d[1], [])}),
@@ -249,9 +299,7 @@ def build(sources: c.Sources) -> tuple[dict, list[dict]]:
             if x["unit_id"] == ad["unit_id"]
         },
     )
-    cards = [
-        card(ad, count, quote, items, mates, raw) for ad, count, quote, items in drafts
-    ]
+    cards = [card(*d, mates, raw) for d in drafts]
     return (
         c.meta(
             QUEUE,
@@ -272,7 +320,7 @@ def build(sources: c.Sources) -> tuple[dict, list[dict]]:
     )
 
 
-def card(ad, count, quote, items, mates, raw) -> dict:
+def card(ad, count, quote, items, names, mates, raw) -> dict:
     lid = ad["listing_id"]
     unit = c.label(ad["page"]) or "?"
     mine = items.get(count, [])
@@ -323,9 +371,9 @@ def card(ad, count, quote, items, mates, raw) -> dict:
         {
             "code": f"beds-{k}",
             "label": f"{k} bedroom{'s' if k > 1 else ''}",
-            "proposal": proposal(ad, k, items.get(k, []), quote),
+            "proposal": proposal(ad, k, items.get(k, []), None),
         }
-        for k in COUNTS
+        for k in sorted(set(COUNTS) | ({5} & names))
         if k != count
     ]
     return {
