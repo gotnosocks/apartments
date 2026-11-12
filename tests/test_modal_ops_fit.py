@@ -1084,6 +1084,35 @@ def test_a_design_only_run_is_charged_its_container_hour_and_needs_the_run(
         fit.design_only(spec, "abc")
 
 
+def test_a_design_only_run_passes_outside_budget_to_its_reservation(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "STATE", tmp_path / "state")
+    run = tmp_path / "frontier/runs/r"
+    run.mkdir(parents=True)
+    (run / "result.json").write_text(json.dumps({"dataset": "d"}))
+    monkeypatch.setattr(fit, "stage_code", lambda sha: tmp_path / "stage")
+    monkeypatch.setattr(fit, "touch", lambda: None)
+    app = mock.Mock(DESIGN_TIMEOUT=3600, design_usd_per_second=lambda: 0.0002)
+    monkeypatch.setattr(fit.importlib, "import_module", lambda name: app)
+    seen = {}
+
+    class Reserved(Exception):
+        pass
+
+    def reserve(*args, **kwargs):
+        seen.update(kwargs)
+        raise Reserved
+
+    monkeypatch.setattr(fit.cap, "reserve", reserve)
+    with pytest.raises(Reserved):
+        fit.design_only(
+            {"name": "r", "inputs": ["x"], "dataset": "x"}, "abc", outside=True
+        )
+    assert seen["outside"] is True
+
+
 def _b01_run(runs, meta):
     """A finished B0.1 Modal fit under `runs`: 16 chains x 41 kept draws, 13,680 gradients."""
     run = _modal_run(runs, "b0.1", "b0", 456, name="latest-97cd9e3c-offmarket")

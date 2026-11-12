@@ -30,8 +30,9 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   `/data1/apartments/tmp/sprint-20261112/queue-l1-market.sh` stays on disk. It launches six
   containers, l1na, l1ja, l1nb, l1jb, l1nc, l1jc (seeds 31, 41, 32, 42, 33, 43), on the
   closingraise market and as-of 2025-11-10 datasets (#1332), at about $23 in all. Under a
-  sprint budget it needs `--outside-budget` added to its arguments, and its `cap.py
-  --check-launch` loop dropped, since that check now waits forever. After the fits, pool
+  sprint budget it needs `--outside-budget` added to its arguments. Its `cap.py
+  --check-launch` loop passes the same arguments, so with the flag that check exits 0 at
+  once. After the fits, pool
   them as `drift-building-phase-b0-market-9a7830fb-l1n` (l1na, l1nb, l1nc) and `...-l1j`
   (the three j's), check the gate, run the backtest, and publish Deals from the market
   pool.

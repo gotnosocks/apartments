@@ -23,7 +23,7 @@ that C-sized fits at about $2.60 are fine, so PER_FIT_USD stays None and no laun
 its dollar estimate.
 
     python3 ops/modal/cap.py                                  # balance, rate, recent launches
-    python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 until the balance covers that
+    python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 while the balance is short of that
                                                               # fit (default: the served full fit),
                                                               # exit 2 if it is over the per-fit cap
     python3 ops/modal/cap.py --check-launch ARGS...           # the same, from ops/modal-fit's ARGS
@@ -624,7 +624,7 @@ def ready_at(rows, usd, now=None):
     short = usd - balance(rows, now)
     if short <= 0:
         return now
-    if usd > ceiling_at(now):
+    if usd > ceiling_at(now) or rate_at(now) <= 0:
         return None
     at = now + datetime.timedelta(days=short / rate_at(now))
     return at.replace(second=0, microsecond=0) + datetime.timedelta(
