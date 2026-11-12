@@ -127,7 +127,7 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
    at 3, without waiting for the data fixes, and writes its predictions. The module would
    join `drift-building-phase`'s design with `unit_t=True`, since `drift.make_sampler`
    already takes both, with the degrees of freedom held fixed. Its test would cover the
-   two together. The note's 18 backed corrections go to the ledger in a data PR.
+   two together. Of its 18 backed corrections, 4 went into the ledger (plus a fifth ad of one unit), 2 were already there, 10 are flex bedroom counts left out under the 2026-10-17 retract, and 2 failed a closer check (`pipeline/ledger/2026-11-12-unit-level-reads.ndjson`).
 3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
 4. **Candidates from the free checks.** Each needs its predictions written first:
