@@ -6,7 +6,7 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
-## Outlier sprint, state at 2026-11-12 05:45Z
+## Outlier sprint, final state at 2026-11-12 13:00Z
 
 Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
 sprint ends about 2026-11-12 18:55Z. The findings are in
@@ -21,8 +21,10 @@ folder for each line of work, each with a `results.md`).
 - **Merged:** the ledger corrections (#1307), `b0closing` (#1308), `b0income` (#1309), the
   closing-ask results (#1310), the sprint note (#1311), the walk's slow hyperparameters
   (#1313), the causes of the off-day price changes (#1314), the pass 2 ledger (#1315),
-  the narrowed closing dataset `b0closingraise` (#1317), the second-look ledger (#1318)
-  and `b0chains` (#1319, with the carried split in #1320).
+  the narrowed closing dataset `b0closingraise` (#1317), the second-look ledger (#1318),
+  `b0chains` (#1319, with the carried split in #1320), the sprint docs (#1322, #1324), the
+  ledger for ads coded 0 across all listers (#1325) and rule B2 with the record fixes of
+  the random read (#1326).
 - **Closing asks.** A second look at the records' event times kept the rewrite for the
   59,026 rows whose ask is a raise typed as the ad closed, and dropped it for cuts and
   earlier raises. c3 (b9's design on `b0closingraise`, three containers of 2 chains) takes
@@ -87,10 +89,31 @@ folder for each line of work, each with a `results.md`).
   (`2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson`, scripts in `s2/BB/`).
 - **Deals.** Of the default top 60, readers judged 36 false, and 27 of those come from the
   model with a correct record: a building level set by pricier lines (15) or a unit whose
-  own recent asks match while the fit has no training ad for it (12). I added no caution and
+  own recent asks match the deal (12). For 9 of those 12 the fit has 1 to 9 training ads of
+  the unit and still prices it 14% to 39% above them. I added no caution and
   left the page as published. The reads are in `/data1/apartments/tmp/outlier-sprint/s3/deals/`.
 - **Updates to Ben.** He asked for a short update about every 30 minutes and whenever
   something finishes, with the long reports kept for results.
+
+### After the sprint, in order
+
+No sprint item is running or queued on Modal or thelio. The fits wait for Ben's lift of the
+sprint's hold, each with its predictions in the sprint note or the closing note before it
+is launched. Order, by what each is worth for the Deals page:
+
+1. c3, b9's 6-chain design on `b0closingraise` (closing note). It replaces c2.
+2. The income flag on c3's winner's dataset (`docs/notes/income-flag-2026-11-11.md`).
+3. U4, a unit scale by bedroom count, then U1 (a unit scale growing with size), U3 (a
+   building term for large units) and U2, for units with no ad in training.
+4. L1 (a noise scale by lease phase), then Y1 (by calendar year), then L2 (a level per
+   lease phase on L1's winner).
+5. No fit of its own for the sprint's ledger entries or for R, the collapsed repost chains.
+   The pipeline's next dataset rebuild for a market snapshot carries both into the next fit.
+
+Free checks to run before choosing among 3 and 4, from the Deals reads: for units with a
+few training ads, whether the served median sits above the unit's own last ask moved by
+the market index (9 of the 12 unit-history deals), and whether the building level follows
+its pricier lines when the deal's line asks less (15 deals).
 
 ## Manhattan doorman fit, 2026-11-11 06:50Z
 
