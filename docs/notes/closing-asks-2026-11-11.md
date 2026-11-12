@@ -667,3 +667,12 @@ Predictions (written before launch):
 6. On the unchanged ads, the median abs error and the 80% coverage move by under 0.0005 and
    0.003 (80%).
 7. $11 to $12 for the three containers.
+
+**As launched.** From master `ae875fc6`, as H100 containers `drift-building-b0-latest-ae875fc6-c3a`
+(seed 11) at 12:55Z, `c3b` (seed 12) at 12:59:00Z and `c3c` (seed 13) at 12:59:20Z on
+2026-11-12, each `2 500 9000 40 --seed S --level-dof 4 --no-loo --no-heldout` with
+`--input /data1/apartments/pipeline/datasets/rows-b3ddebf19af1dc1e.parquet`, estimated at
+$4.19 each. A first launch of `c3a` at 12:51Z left out that input, and its container stopped
+39 seconds in while building the design, before any sweep, with a FileNotFoundError for the
+rows file ($0.13). I relaunched it with the same seed and the input. The fit had not
+started, so this is the planned fit and not a rerun of a failed one.
