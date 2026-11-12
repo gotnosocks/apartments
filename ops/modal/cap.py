@@ -147,7 +147,7 @@ STATED_RATE["drift"] = 0.4
 # Ceilings until their first Modal fits are measured.
 STATED_RATE["drift-building"] = 0.8
 STATED_RATE["drift-building-doorman"] = 0.8
-# The noise phases add six directions to the scale step's fourteen, so its slice updates
+# The noise phases add six directions to the scale step's eight, so its slice updates
 # take about 75% more evaluations of the scales' density.
 STATED_RATE["drift-building-phase"] = 1.0
 STATED_RATE["drift-local"] = 0.9
