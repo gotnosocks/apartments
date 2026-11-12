@@ -44,7 +44,8 @@ The row then takes the standing price. I write OUT with:
 - `rows.parquet`: SRC's rows in SRC's order, with those rows' `latest_ask` replaced and their
   `latest_ask_how` set to `latest, before closing raise`. I date them as `b0closing` does: by
   the day of the standing price's change when it falls on or after the row's day (`change`),
-  and otherwise by the row's day (`row, change before`).
+  and otherwise by the row's day (`row, change before`). An open row of a market dataset
+  keeps its day, the scoring day `rentfrontier.market` gave it; only its ask changes.
 - SRC's other files, copied: `set_aside.parquet` in a latest dataset, `inputs.json` in a
   market dataset.
 - `manifest.json`: SRC's manifest with `rows_sha256` updated, and a `closing_raise` entry
@@ -188,15 +189,18 @@ def closing_raise(src: Path, out: Path) -> dict:
     step = np.log(frame.latest_ask.to_numpy(float)[change] / new)
     frame.loc[change, "latest_ask"] = new
     frame.loc[change, "latest_ask_how"] = HOW
-    day = pd.to_datetime(frame.price_at[change], utc=True).dt.strftime("%Y-%m-%d")
-    changed = np.where(late, lid.map(asks.stood_day), lid.map(asks.d10))[change]
+    # A market dataset's open rows keep the scoring day `rentfrontier.market` moved them to.
+    is_open = (
+        frame["open"].to_numpy(bool) if "open" in frame else np.zeros(len(frame), bool)
+    )
+    dated = change & ~is_open
+    day = pd.to_datetime(frame.price_at[dated], utc=True).dt.strftime("%Y-%m-%d")
+    changed = np.where(late, lid.map(asks.stood_day), lid.map(asks.d10))[dated]
     after = changed >= day.to_numpy()
-    frame.loc[change, "latest_day"] = [
+    frame.loc[dated, "latest_day"] = [
         pd.Timestamp(d).date() for d in np.where(after, changed, day)
     ]
-    frame.loc[change, "latest_day_how"] = np.where(
-        after, "change", "row, change before"
-    )
+    frame.loc[dated, "latest_day_how"] = np.where(after, "change", "row, change before")
     out.mkdir(parents=True, exist_ok=False)
     frame.to_parquet(out / "rows.parquet", index=False)
     for f in src.iterdir():
@@ -215,6 +219,7 @@ def closing_raise(src: Path, out: Path) -> dict:
             "changed": int(change.sum()),
             "changed_to_off_day_price": int((change & late).sum()),
             "dated_by_row": int((~after).sum()),
+            "open_repriced": int((change & is_open).sum()),
             "median_log_change": round(float(np.median(step)), 4)
             if len(step)
             else None,
