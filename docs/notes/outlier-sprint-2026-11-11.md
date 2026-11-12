@@ -1192,12 +1192,14 @@ new units with no same-count ad of the building in two years are covered 0.598 i
 ads) against 0.731 for those with one, and 0.492 in n9 (130 ads) against 0.708.
 
 `out/top-j9.log` lists j9's 40 buildings with the largest product of the absolute mean
-gap and the count of new units of 2 or more bedrooms. Those with 7 or more such units
-are The Seren (17 units at a mean gap of -0.118), Union Channel (10, +0.109), 420 Carroll
-(7, +0.167), 12 Halsey St (8, +0.127), Atelier Condominium (7, -0.117), Tribeca House (9,
--0.084) and Lawrence Tower (22, +0.040). Union Channel, 420 Carroll and 12 Halsey St have
-a single lister on those ads and The Seren has two. Buildings with 3 to 5 units have
-larger means (Carnegie House +0.273, Hanover House +0.227) on fewer ads.
+gap and the count of new units of 2 or more bedrooms. Ten of them have 7 or more such
+units: The Seren (17 units at a mean gap of -0.118), Union Channel (10, +0.109), 420
+Carroll (7, +0.167), 12 Halsey St (8, +0.127), Atelier Condominium (7, -0.117), Tribeca
+House (9, -0.084), 50 West 66 Street (8, +0.076), The Cedar Tower (8, -0.057), The
+Stanwix (9, -0.052) and Lawrence Tower (22, +0.040). Union Channel, 420 Carroll and 12
+Halsey St have a single lister on their new units and The Seren has two. Buildings with
+3 to 5 units have larger means (Carnegie House +0.273, Hanover House +0.227) on fewer
+ads.
 
 **Reading.** A building's level and its quarterly path are common to its apartments of
 every size, and the model's size and bedroom terms are common to an area. When a
