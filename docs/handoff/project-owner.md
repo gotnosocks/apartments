@@ -119,10 +119,15 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
 2. **U2** (about $11), against c3 as its note sets it, launched with `--split latest
    --baseline drift-building-b0-latest-ae875fc6-c3`. A win shows that the heavy unit
    tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
-   u2a's slow `unit_dof` mixing argues for reading the units furthest from their
-   building before the relaunch. An L1-plus-Student-t module would join
-   `drift-building-phase`'s design with `drift-building-unitt`'s `unit_t=True` run, since
-   `drift.make_sampler` already takes both. Its test would cover the two together.
+   I read the 300 units furthest from their building
+   (`docs/notes/unit-level-reads-2026-11-12.md`): 74% are real apartments with real
+   premiums, about 6% carry a backed data error, and b9 prices the ones above their
+   building too low on their held-out ads (43% above its 80% interval). The note
+   recommends writing L1 with a Student-t unit level whose degrees of freedom are fixed
+   at 3, without waiting for the data fixes, and writes its predictions. The module would
+   join `drift-building-phase`'s design with `unit_t=True`, since `drift.make_sampler`
+   already takes both, with the degrees of freedom held fixed. Its test would cover the
+   two together. The note's 18 backed corrections go to the ledger in a data PR.
 3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
 4. **Candidates from the free checks.** Each needs its predictions written first:
