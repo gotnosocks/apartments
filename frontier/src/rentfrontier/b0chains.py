@@ -8,8 +8,9 @@ for the same apartment, usually the same day and often under a new unit label ("
 own unit id, and the dataset holds a row for every ad of the chain. A renter saw one offer of
 one apartment through all of them. Only the chain's last ad went off the market, so only its
 last ask is a closing ask. The outlier sprint of 2026-11-11 screened for these reposts and
-had readers check a sample (`docs/notes/outlier-sprint-2026-11-11.md`, under "Reposts under
-a new label").
+certified a link when one of its two labels failed as a real unit, being absent from the
+lot's city records and off the building's grid of floors and lines
+(`docs/notes/outlier-sprint-2026-11-11.md`, under "Reposts under a new label").
 
 LINKS is a parquet file with a row for each repost: `earlier` and `later`, the listing ids
 of an ad and of the ad its lister opened in its place. I read it with SRC's `rows.parquet`
@@ -32,11 +33,22 @@ its SHA-256), and then:
    offer joins that label's history. With none, the kept row keeps its own unit id. With
    several, a wrong link could merge the histories of two apartments, so the kept row keeps
    its own unit id there too. Rows outside chains keep their unit ids.
+5. I carry SRC's latest split over to the kept rows. Dropping rows and joining unit ids
+   changes the list that `splits.latest_split` draws from, so a fresh draw on OUT holds
+   out other ads than SRC's draw does (on the sprint's two collapsed datasets a fresh
+   draw shared 45% and 47% of SRC's held-out ads). A kept row is held out in OUT when
+   SRC's latest split holds it out and it is still the single latest row of a unit with
+   at least two rows. The other rows of SRC's draw go back to training: their unit's
+   earlier rows were all dropped, or a join put a row of the same or a later time in the
+   unit.
 
 I write OUT with:
 
-- `rows.parquet`: SRC's kept rows in SRC's order, with `unit_id` set as in step 4 and four
-  columns added. `chain_ads` counts the ads of the row's chain (1 outside a chain).
+- `rows.parquet`: SRC's kept rows in SRC's order, with `unit_id` set as in step 4 and five
+  columns added. `carried_heldout` marks the held-out rows of step 5, and a fit on OUT
+  with `--split carried` (`splits.carried_split`) scores them, so its held-out ads are a
+  subset of those of a latest-split fit on SRC. `chain_ads` counts the ads of the row's
+  chain (1 outside a chain).
   `chain_on_day` is the day the offer came on the market: the on-market day of the chain's
   first ad, or of the row's own ad outside a chain. `chain_off_day` is the off-market day
   of the chain's last ad, or of the row's own ad outside a chain, and it is missing while
@@ -46,7 +58,8 @@ I write OUT with:
 - `set_aside.parquet`: SRC's, copied.
 - `manifest.json`: SRC's manifest with `rows`, `latest_day_how`, `flags` and `rows_sha256`
   updated for the kept rows, and a `chains` entry giving SRC's path and rows SHA-256, the
-  path and SHA-256 of LINKS, and the counts of links, chains, dropped rows and moved rows.
+  path and SHA-256 of LINKS, and the counts of links, chains, dropped rows, moved rows and
+  held-out rows.
 
 The module leaves each kept row's ask alone, and `b0closing` and `b0closingraise` change
 asks a listing at a time, so the two rules give the same rows in either order.
@@ -61,8 +74,10 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
+from . import splits
 from .b0data import sha256
 
 
@@ -104,6 +119,17 @@ def kept_units(unit: pd.Series, chain: pd.Series) -> pd.DataFrame:
     total = unit.value_counts()
     held = here[here.unit.map(total).to_numpy() > here.rows.to_numpy()]
     return held.groupby("chain").unit.agg(established="size", unit="first")
+
+
+def carried(kept: pd.DataFrame, held: np.ndarray) -> np.ndarray:
+    """`held` (a held-out mask over the rows of `kept`) where the row is the single latest
+    row of a unit with at least two rows, as `splits.latest_split` orders them."""
+    at = pd.to_datetime(kept.price_at, utc=True)
+    order = kept.assign(_at=at).sort_values(["unit_id", "_at", "audit_id"])
+    several = order.unit_id.map(order.unit_id.value_counts()).ge(2)
+    newest = ~order.unit_id.duplicated(keep="last")
+    tied = order._at.eq(order.groupby("unit_id")._at.shift(1))
+    return held & (several & newest & ~tied).reindex(kept.index).to_numpy()
 
 
 def collapse(src: Path, links_path: Path, out: Path) -> dict:
@@ -150,6 +176,8 @@ def collapse(src: Path, links_path: Path, out: Path) -> dict:
         .where(chain[~drop].notna(), lid[~drop].map(off_day)),
         replaced=(place[~drop] + 1 < lid[~drop].map(table.ads)).to_numpy(),
     )
+    heldout = splits.latest_split(frame)
+    kept["carried_heldout"] = carried(kept, heldout[~drop])
     out.mkdir(parents=True, exist_ok=False)
     kept.to_parquet(out / "rows.parquet", index=False)
     collapsed.to_parquet(out / "collapsed.parquet", index=False)
@@ -181,6 +209,9 @@ def collapse(src: Path, links_path: Path, out: Path) -> dict:
             "chains_with_several_established": int(several.sum()),
             "unit_ids_before": int(frame.unit_id.nunique()),
             "unit_ids_after": int(kept.unit_id.nunique()),
+            "source_heldout": int(heldout.sum()),
+            "source_heldout_dropped": int(heldout[drop].sum()),
+            "carried_heldout": int(kept.carried_heldout.sum()),
             "collapsed_sha256": sha256(out / "collapsed.parquet"),
         },
     }
