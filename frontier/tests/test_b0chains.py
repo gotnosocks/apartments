@@ -322,3 +322,23 @@ def test_carried_drops_a_row_tied_with_the_one_before_it():
 def test_carried_split_needs_the_column():
     with pytest.raises(ValueError):
         splits.carried_split(pd.DataFrame({"unit_id": ["u1"]}))
+
+
+def test_carried_agrees_with_the_rows_latest_split_can_draw():
+    rng = np.random.default_rng(0)
+    for _ in range(50):
+        n = int(rng.integers(1, 40))
+        kept = pd.DataFrame(
+            {
+                "unit_id": rng.choice(["u1", "u2", "u3", "u4", None], size=n),
+                "audit_id": [f"a{i:02d}" for i in rng.permutation(n)],
+                "price_at": pd.to_datetime("2024-01-01", utc=True)
+                + pd.to_timedelta(rng.integers(0, 6, size=n), unit="D"),
+            },
+            index=rng.permutation(n) * 3,
+        )
+        everything = np.ones(n, dtype=bool)
+        assert (
+            b0chains.carried(kept, everything).tolist()
+            == splits.latest_split(kept, fraction=1.0).tolist()
+        )

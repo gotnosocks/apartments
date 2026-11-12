@@ -34,18 +34,21 @@ its SHA-256), and then:
    several, a wrong link could merge the histories of two apartments, so the kept row keeps
    its own unit id there too. Rows outside chains keep their unit ids.
 5. I carry SRC's latest split over to the kept rows. Dropping rows and joining unit ids
-   changes the list that `splits.latest_split` draws from, so a fresh draw on OUT shares
-   under half of its held-out ads with SRC's. A kept row is held out in OUT when SRC's
-   latest split holds it out and it is still the single latest row of a unit with at least
-   two rows. The other rows of SRC's draw go back to training: their unit's earlier rows
-   were all dropped, or a join put a later row in the unit.
+   changes the list that `splits.latest_split` draws from, so a fresh draw on OUT holds
+   out other ads than SRC's draw does (on the sprint's two collapsed datasets a fresh
+   draw shared 45% and 47% of SRC's held-out ads). A kept row is held out in OUT when
+   SRC's latest split holds it out and it is still the single latest row of a unit with
+   at least two rows. The other rows of SRC's draw go back to training: their unit's
+   earlier rows were all dropped, or a join put a row of the same or a later time in the
+   unit.
 
 I write OUT with:
 
 - `rows.parquet`: SRC's kept rows in SRC's order, with `unit_id` set as in step 4 and five
   columns added. `carried_heldout` marks the held-out rows of step 5, and a fit on OUT
   with `--split carried` (`splits.carried_split`) scores them, so its held-out ads are a
-  subset of those of a latest-split fit on SRC. `chain_ads` counts the ads of the row's chain (1 outside a chain).
+  subset of those of a latest-split fit on SRC. `chain_ads` counts the ads of the row's
+  chain (1 outside a chain).
   `chain_on_day` is the day the offer came on the market: the on-market day of the chain's
   first ad, or of the row's own ad outside a chain. `chain_off_day` is the off-market day
   of the chain's last ad, or of the row's own ad outside a chain, and it is missing while
