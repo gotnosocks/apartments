@@ -12,6 +12,9 @@ the launcher settles it at the container's list-price cost (or the time it ran, 
 an estimate that was too low leaves the balance negative and accrual continues from there. Ben,
 2026-10-07 22:23Z: "I would like to cap the balance on the dollar budget at ~10 full fits", so
 the balance stops accruing at CEILING = USD_PER_DAY. Launches before START (the old daily cap) are not charged.
+Since Ben's decision of 2026-11-12 12:27 ET the rate and the ceiling are $0, so the balance
+stays at or under $0 and only a launch with --outside-budget, spending a budget Ben approved
+for a sprint, goes through.
 
 Ben, 2026-10-14 09:57Z, on a single fit: "I'm pretty hard capped at about 1 hour or maybe $2 of
 modal compute." A launch whose estimated container time is over PER_FIT_SECONDS is refused
@@ -20,7 +23,7 @@ that C-sized fits at about $2.60 are fine, so PER_FIT_USD stays None and no laun
 its dollar estimate.
 
     python3 ops/modal/cap.py                                  # balance, rate, recent launches
-    python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 until the balance covers that
+    python3 ops/modal/cap.py --check [CHAINS WARMUP DRAWS]    # exit 1 while the balance is short of that
                                                               # fit (default: the served full fit),
                                                               # exit 2 if it is over the per-fit cap
     python3 ops/modal/cap.py --check-launch ARGS...           # the same, from ops/modal-fit's ARGS
@@ -541,9 +544,12 @@ def over_cap(usd, secs, large=False):
 
 # The accrual rate, in USD a day, from each time on. Ben, 2026-10-07 22:32Z: $8.80 a day (10 x
 # the served full fit's estimate). Ben, 2026-10-10 16:25Z: "OK: run the fit queue at $10/day".
+# Ben, 2026-11-12 12:27 ET: no daily accrual; he approves a budget for each sprint, and its
+# launches go through with --outside-budget. From then on the rate and the ceiling are $0.
 RATES = (
     (START, 10 * NB5_SERVED_FIT_USD),
     (datetime.datetime(2026, 10, 10, 16, 25, 53, tzinfo=datetime.UTC), 10.0),
+    (datetime.datetime(2026, 11, 12, 17, 27, 0, tzinfo=datetime.UTC), 0.0),
 )
 USD_PER_DAY = RATES[-1][1]
 CEILING = USD_PER_DAY  # Ben, 2026-10-07 22:23Z: cap the balance at ~10 full fits (a day's accrual)
@@ -618,7 +624,7 @@ def ready_at(rows, usd, now=None):
     short = usd - balance(rows, now)
     if short <= 0:
         return now
-    if usd > CEILING:
+    if usd > ceiling_at(now) or rate_at(now) <= 0:
         return None
     at = now + datetime.timedelta(days=short / rate_at(now))
     return at.replace(second=0, microsecond=0) + datetime.timedelta(

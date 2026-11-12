@@ -94,7 +94,7 @@ def test_ten_served_fits_a_day_at_the_container_list_price(monkeypatch):
     assert cap.RATES[0][1] == pytest.approx(8.80)
     # Recalibrating the estimate never reprices the ledger's past.
     assert cap.NB5_SERVED_FIT_USD == 0.88
-    assert cap.USD_PER_DAY == 10.0
+    assert cap.RATES[1][1] == 10.0
 
 
 def test_the_pre_check_reads_the_fit_size_from_modal_fit_arguments():
@@ -203,19 +203,33 @@ def test_finish_puts_a_good_run_where_thelio_fits_go_and_a_failed_one_aside(
 
 def test_the_balance_stops_at_ten_full_fits_and_restarts_below_it(tmp_path):
     ledger = tmp_path / "ledger.jsonl"
-    week = cap.START + datetime.timedelta(days=7)
-    assert cap.balance([], week) == pytest.approx(cap.CEILING)
+    week = cap.RATES[1][0] + datetime.timedelta(days=7)
+    ceiling = cap.ceiling_at(week)
+    assert ceiling == 10.0
+    assert cap.balance([], week) == pytest.approx(ceiling)
     launch, left = cap.reserve("run", "A100-40GB", 1.0, ledger, week)
-    assert left == pytest.approx(cap.CEILING - 1.0)
+    assert left == pytest.approx(ceiling - 1.0)
     # Accrual resumes from below the ceiling; a refund can't lift it over.
     hour = datetime.timedelta(hours=1)
     rows = cap.launches(ledger)
-    assert cap.balance(rows, week + hour) == pytest.approx(
-        cap.CEILING - 1.0 + cap.USD_PER_DAY / 24
-    )
+    assert cap.balance(rows, week + hour) == pytest.approx(ceiling - 1.0 + 10.0 / 24)
     cap.settle(launch, 0.2, ledger, week + hour)
-    assert cap.balance(cap.launches(ledger), week + hour) == pytest.approx(cap.CEILING)
-    assert cap.ready_at(rows, cap.CEILING + 1, week) is None
+    assert cap.balance(cap.launches(ledger), week + hour) == pytest.approx(ceiling)
+    assert cap.ready_at(rows, ceiling + 1, week) is None
+
+
+def test_no_balance_accrues_after_the_daily_budget_ended(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    end = cap.RATES[-1][0]
+    day = datetime.timedelta(days=1)
+    assert cap.RATES[-1][1] == 0.0 and cap.CEILING == 0.0
+    assert cap.balance([], end - day) == pytest.approx(10.0)
+    assert cap.balance([], end + 30 * day) == 0.0
+    assert cap.ready_at([], 1.0, end + day) is None
+    with pytest.raises(cap.CapReached):
+        cap.reserve("in-budget", "H100", 1.0, ledger, end + day)
+    cap.reserve("sprint", "H100", 4.0, ledger, end + day, outside=True)
+    assert cap.balance(cap.launches(ledger), end + 2 * day) == 0.0
 
 
 def test_the_rate_rose_to_ten_dollars_a_day_without_repricing_the_past():
@@ -656,7 +670,7 @@ def test_a_large_fit_has_its_own_container_price_and_no_hour_cap(tmp_path, monke
         cap.OVERHEAD_SECONDS + 4800 * 1.0
     )
     probe = cap.estimate(2, 50, 150, "H100", large=True)
-    assert probe < cap.CEILING < cap.estimate(2, 300, 4500, "H100", large=True)
+    assert probe < cap.RATES[1][1] < cap.estimate(2, 300, 4500, "H100", large=True)
     day = cap.START + datetime.timedelta(days=7)
     cap.reserve("big", "H100", 1.0, tmp_path / "l.jsonl", day, secs=secs, large=True)
     argv = ["--large", "--gpu", "H100", "c", "l", "m7", "all", "2", "300", "4500", "9"]
@@ -1068,6 +1082,35 @@ def test_a_design_only_run_is_charged_its_container_hour_and_needs_the_run(
     spec = {"name": "r", "inputs": ["x"], "dataset": "x"}
     with pytest.raises(SystemExit, match="not under"):
         fit.design_only(spec, "abc")
+
+
+def test_a_design_only_run_passes_outside_budget_to_its_reservation(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(fit, "OUTPUT_ROOT", tmp_path / "frontier")
+    monkeypatch.setattr(fit, "STATE", tmp_path / "state")
+    run = tmp_path / "frontier/runs/r"
+    run.mkdir(parents=True)
+    (run / "result.json").write_text(json.dumps({"dataset": "d"}))
+    monkeypatch.setattr(fit, "stage_code", lambda sha: tmp_path / "stage")
+    monkeypatch.setattr(fit, "touch", lambda: None)
+    app = mock.Mock(DESIGN_TIMEOUT=3600, design_usd_per_second=lambda: 0.0002)
+    monkeypatch.setattr(fit.importlib, "import_module", lambda name: app)
+    seen = {}
+
+    class Reserved(Exception):
+        pass
+
+    def reserve(*args, **kwargs):
+        seen.update(kwargs)
+        raise Reserved
+
+    monkeypatch.setattr(fit.cap, "reserve", reserve)
+    with pytest.raises(Reserved):
+        fit.design_only(
+            {"name": "r", "inputs": ["x"], "dataset": "x"}, "abc", outside=True
+        )
+    assert seen["outside"] is True
 
 
 def _b01_run(runs, meta):

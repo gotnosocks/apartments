@@ -519,7 +519,7 @@ def main(argv):
     if args.publish_only:
         return publish(args, spec, sha)
     if args.design_only:
-        return design_only(spec, sha)
+        return design_only(spec, sha, outside=args.outside_budget)
     if (OUTPUT_ROOT / "runs" / spec["name"]).exists():
         sys.exit(f"{spec['name']} already exists under {OUTPUT_ROOT / 'runs'}")
     STATE.mkdir(parents=True, exist_ok=True)
@@ -707,7 +707,7 @@ def publish(args, spec, sha):
     return meta["exit"]
 
 
-def design_only(spec, sha):
+def design_only(spec, sha, outside=False):
     """fit.py --design-only: the design of a run already under OUTPUT_ROOT/runs, prepared at
     sha in a CPU container (app.design_cpu) and downloaded to OUTPUT_ROOT/designs. The record
     lands in runs/<name>/modal/design.json."""
@@ -728,7 +728,7 @@ def design_only(spec, sha):
     # Charged for the container's whole timeout; settled at the time it ran.
     secs = modal_app.DESIGN_TIMEOUT
     usd = round(secs * modal_app.design_usd_per_second(), 2)
-    launch, left = cap.reserve(f"{name}-design", "cpu", usd, secs=secs)
+    launch, left = cap.reserve(f"{name}-design", "cpu", usd, secs=secs, outside=outside)
     print(
         f"design of {name} at {sha[:7]}; estimated ${usd:.2f}, Modal balance now ${left:.2f}",
         flush=True,

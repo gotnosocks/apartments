@@ -21,15 +21,21 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
   predictions are in `docs/notes/lease-phase-noise-2026-11-12.md` (#1334), the explainer at
   https://claude.ai/artifact/KUjb66H78JKQkJunjW9Dng. Neither c3 nor L1 is on the site yet.
   The site needs L1's market and backtest fits first.
-- **L1's market and backtest queue.** The timer `queue-l1-market.timer` fires at 15:50 ET
-  and runs `/data1/apartments/tmp/sprint-20261112/queue-l1-market.sh`. It launches six
-  containers from the daily budget, each once `cap.py --check-launch` passes: l1na, l1ja,
-  l1nb, l1jb, l1nc, l1jc (seeds 31, 41, 32, 42, 33, 43) on the closingraise market and
-  as-of 2025-11-10 datasets (#1332). The six cost about $23 in all, so they take about two
-  and a half days of the budget. The log is `queue-l1-market.log` beside the script. When
-  they finish, I pool them as `drift-building-phase-b0-market-9a7830fb-l1n` (l1na, l1nb, l1nc)
-  and `...-l1j` (the three j's), check the gate, run the backtest, and publish Deals from
-  the market pool.
+- **L1's market and backtest queue, waiting for a sprint budget.** Ben ended the daily Modal
+  budget on 2026-11-12 at 12:27 ET and now approves a budget for each sprint, so nothing
+  launches until he approves the next one. At 12:35 ET I stopped the transient timer
+  `queue-l1-market.timer`, which was set to fire at 15:50 ET. Stopping it removed it, and no
+  other user timer or unit launches Modal fits. `cap.py`'s rate and ceiling are $0 from
+  12:27 ET (`docs/model/modal.md`). The script
+  `/data1/apartments/tmp/sprint-20261112/queue-l1-market.sh` stays on disk. It launches six
+  containers, l1na, l1ja, l1nb, l1jb, l1nc, l1jc (seeds 31, 41, 32, 42, 33, 43), on the
+  closingraise market and as-of 2025-11-10 datasets (#1332), at about $23 in all. Under a
+  sprint budget it needs `--outside-budget` added to its arguments. Its `cap.py
+  --check-launch` loop passes the same arguments, so with the flag that check exits 0 at
+  once. After the fits, pool
+  them as `drift-building-phase-b0-market-9a7830fb-l1n` (l1na, l1nb, l1nc) and `...-l1j`
+  (the three j's), check the gate, run the backtest, and publish Deals from the market
+  pool.
 - **Sampler version of the queue's fits.** #1337 rewrote the slice step in `drift.py` as a `lax.scan`,
   and its draws are bit-identical to the old step's on CPU only. The queue passes commit
   9a7830fb to `ops/modal-fit`, and the container copies that commit's checkout
@@ -80,7 +86,7 @@ containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
 
 ### After L1's market and backtest fits, in order
 
-This replaces the list under the outlier sprint below.
+This replaces the list under the outlier sprint below. Every fit here waits for a budget Ben approves for a sprint, and it launches with `--outside-budget`.
 
 1. **Y1** (about $8.4). It is the only queued change built on L1, so a win serves
    directly once its own market fits run. The 2020 to 2022 shortfall it targets is the
