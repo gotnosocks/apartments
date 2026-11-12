@@ -14,6 +14,7 @@
 
 {% if saved %}
 <form class="rv-toast" method="post" action="{{ url_for('review_undo', name=queue.name) }}" role="status">
+  <input type="hidden" name="card" value="{{ saved.decision.card }}">
   <span>Saved <strong>{{ answer_label(saved.decision) if saved.card else saved.decision.answer }}</strong>{% if saved.card %} for {{ saved.card.title }}{% endif %}.</span>
   <button type="submit" class="rv-undo">Undo</button>
 </form>

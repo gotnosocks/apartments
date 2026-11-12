@@ -66,7 +66,8 @@ built so that he never has to rely on that.
 ```
 
 - `queue` matches the folder name: lower case letters, digits and hyphens.
-- `answers` lists two to four buttons. `key` is the keyboard shortcut on a laptop. An answer
+- `answers` lists two to four buttons. `key` is the keyboard shortcut on a laptop; `s`
+  (Skip) and `z` (Undo) are taken. An answer
   with `"applies": true` means "do what the card proposes", and the export writes the card's
   proposal for it. Every queue also gets a **Skip** (decide later) and **Something else is
   wrong** (below), which the site adds itself.
@@ -180,7 +181,8 @@ Each line of `decisions.jsonl`:
   `latest_ask`. The export writes it as a `set` with his reading as the backing, when the ad
   has a `record` to fill `when`; otherwise it lists it for a thread to finish.
 - `card_sha` ties the answer to the card as it was shown. If a rebuild changes the card, the
-  answer stays in force but the site marks the card as changed since the answer.
+  answer stays in force for the queue's order, the site marks the card as changed since the
+  answer, and the export writes no ledger line for it (below).
 
 ## Export
 
@@ -191,12 +193,15 @@ python -m apartments.site.review export --root /data1/apartments/site \
 
 It writes, for the answers in force not yet exported:
 
-- `pipeline/ledger/<day>-review-app.ndjson`: the corrections ledger's sets and excludes;
-- `pipeline/ledger/units/<day>-review-app.ndjson`: the unit ledger's joins and splits;
-- `<site root>/review/findings-<day>.jsonl`: every other answer (no, can't tell, problems
-  without a fix), for the thread that built the queue. A "no" on a screen's card is a measured
-  false positive of the screen.
+- `pipeline/ledger/<day>-review-app-01.ndjson`: the corrections ledger's sets and excludes;
+- `pipeline/ledger/units/<day>-review-app-01.ndjson`: the unit ledger's joins and splits;
+- `<site root>/review/findings-<day>-01.jsonl`: every answer that writes no line (no, can't
+  tell, a problem with nothing to write), and every problem answer, for the thread that built
+  the queue. A "no" on a screen's card is a measured false positive of the screen.
 
-A name already taken gets `-2`, `-3` and so on. Each written line's `source` is
+Each file name ends in `-01`, or the next free number, so a second export of a day sorts after
+the first, as the ledger reads its files in order of name. An answer given before a rebuild
+changed its card writes no ledger line: it goes to the findings with `card_changed`, since the
+card's proposal may not be what Ben saw, and the card asks for a new answer. Each written line's `source` is
 `review app <queue>/<card> <at>`. Then a thread opens the usual reviewed PR, whose tests read the
 new files with the ledger's own rules.

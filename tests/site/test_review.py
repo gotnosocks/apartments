@@ -255,6 +255,69 @@ def test_undo_reopens_the_last_card(client, root):
     assert set(current) == {"ad:4760220"}
 
 
+def test_undo_from_a_toast_clears_only_its_card(client, root):
+    client.post("/review/outliers/ad:4760220", data={"answer": "fine"})
+    client.post("/review/outliers/beds:5000001", data={"answer": "unsure"})
+    response = client.post("/review/outliers/undo", data={"card": "ad:4760220"})
+    assert response.headers["Location"].endswith("/review/outliers/ad:4760220")
+    current = review.load_decisions(root).for_queue("outliers")
+    assert set(current) == {"beds:5000001"}
+
+
+def test_skipping_the_last_card_shows_the_toast(client):
+    for card in ("ad:4760220", "beds:5000001"):
+        client.post(f"/review/outliers/{card}", data={"answer": "fine"})
+    response = client.post("/review/outliers/ad:3", data={"answer": "skip"})
+    page = client.get(response.headers["Location"], follow_redirects=True)
+    assert "Saved <strong>Skipped</strong>" in page.get_data(as_text=True)
+
+
+def test_shortcut_keys_s_and_z_stay_reserved():
+    answers = review._answers(
+        [
+            {"code": "a", "label": "A", "key": "s"},
+            {"code": "b", "label": "B", "key": "z"},
+        ]
+    )
+    assert [a["key"] for a in answers] == ["", ""]
+
+
+def test_export_skips_lines_for_a_changed_card(client, root, tmp_path):
+    _answer(client, "joins", "16-monitor-street-brooklyn:3e", answer="yes")
+    changed = {**JOIN, "subtitle": "rebuilt"}
+    _write_queue(root, "joins", [changed], JOIN_ANSWERS)
+    out = review.export(root, tmp_path / "ledger", day="2026-11-12")
+    assert out["units"] == 0 and out["findings"] == 1
+    [finding] = [
+        json.loads(x) for x in (root / "review" / "findings-2026-11-12-01.jsonl").open()
+    ]
+    assert finding["card_changed"] is True
+
+
+def test_a_second_export_sorts_after_the_first(client, root, tmp_path):
+    ledger = tmp_path / "ledger"
+    _answer(client, "outliers", "beds:5000001", answer="option:b3")
+    review.export(root, ledger, day="2026-11-12")
+    client.post("/review/outliers/beds:5000001", data={"answer": "fine"})
+    _answer(
+        client,
+        "outliers",
+        "ad:4760220",
+        answer="problem",
+        fix_listing="4760220",
+        fix_field="latest_ask",
+        fix_value="1250000",
+    )
+    review.export(root, ledger, day="2026-11-12")
+    names = sorted(p.name for p in ledger.glob("*.ndjson"))
+    assert names == [
+        "2026-11-12-review-app-01.ndjson",
+        "2026-11-12-review-app-02.ndjson",
+    ]
+    [line] = [json.loads(x) for x in (ledger / names[1]).open()]
+    assert "Latest ask ($) is 1,250,000" in line["evidence"][0]["detail"]
+
+
 def test_refuses_bad_answers(client, root):
     assert (
         client.post("/review/outliers/ad:3", data={"answer": "yes"}).status_code == 400
@@ -367,7 +430,7 @@ def test_export_writes_ledger_lines_once(client, root, tmp_path):
     assert out["corrections"] == 3 and out["units"] == 1 and out["answers"] == 4
     units = [
         json.loads(x)
-        for x in (ledger / "units" / "2026-11-12-review-app.ndjson").open()
+        for x in (ledger / "units" / "2026-11-12-review-app-01.ndjson").open()
     ]
     [join] = units
     assert join["change"] == "join_units" and join["units"] == ["3e", "3g"]
@@ -380,7 +443,7 @@ def test_export_writes_ledger_lines_once(client, root, tmp_path):
     assert join["decided"] == "2026-11-12" and join["source"].startswith(
         "review app joins/16-monitor-street-brooklyn:3e "
     )
-    fixes = [json.loads(x) for x in (ledger / "2026-11-12-review-app.ndjson").open()]
+    fixes = [json.loads(x) for x in (ledger / "2026-11-12-review-app-01.ndjson").open()]
     beds, baths, exclude = fixes
     assert beds["set"] == {"bedrooms": 3.0}
     assert baths["set"] == {"full_baths": 1, "half_baths": 0}
@@ -393,7 +456,7 @@ def test_export_writes_ledger_lines_once(client, root, tmp_path):
         "when": {"period": "2025-06"},
     }
     findings = [
-        json.loads(x) for x in (root / "review" / "findings-2026-11-12.jsonl").open()
+        json.loads(x) for x in (root / "review" / "findings-2026-11-12-01.jsonl").open()
     ]
     assert {f["card"] for f in findings} == {"ad:4760220", "ad:3"}
     again = review.export(root, ledger, day="2026-11-12")

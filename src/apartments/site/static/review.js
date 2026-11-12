@@ -5,6 +5,17 @@
   var form = document.querySelector(".rv-answer");
 
   // One answer per tap: a second tap while the page loads would answer the next card.
+  // A page restored by the back button starts unlocked again.
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll("form[data-sent]").forEach(function (f) { delete f.dataset.sent; });
+    document.querySelectorAll('[aria-busy="true"]').forEach(function (b) { b.removeAttribute("aria-busy"); });
+  });
+  document.querySelectorAll(".rv-toast, .rv-done form").forEach(function (f) {
+    f.addEventListener("submit", function (event) {
+      if (f.dataset.sent) event.preventDefault();
+      f.dataset.sent = "1";
+    });
+  });
   if (form) {
     form.addEventListener("submit", function (event) {
       if (form.dataset.sent) {

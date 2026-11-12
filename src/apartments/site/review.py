@@ -207,7 +207,10 @@ def _answers(raw) -> list[dict[str, Any]]:
             {
                 "code": code,
                 "label": label,
-                "key": key if isinstance(key, str) and len(key) == 1 else "",
+                # s skips and z undoes on every queue.
+                "key": key
+                if isinstance(key, str) and len(key) == 1 and key not in "sz"
+                else "",
                 "applies": item.get("applies") is True,
             }
         )
@@ -317,7 +320,7 @@ def _parse_decisions(text: str) -> Decisions:
         if not isinstance(line, dict):
             continue
         queue, card, answer = line.get("queue"), line.get("card"), line.get("answer")
-        if not all(isinstance(v, str) for v in (queue, card, answer)):
+        if not all(isinstance(v, str) for v in (queue, card, answer, line.get("at"))):
             continue
         line["seq"] = len(lines)
         lines.append(line)
@@ -449,10 +452,21 @@ def record_answer(
     return record
 
 
-def undo_last(root: Path, queue: Queue, now: dt.datetime | None = None) -> str | None:
-    """Clear the newest answer in force in the queue; the card it was for, or None."""
+def undo_last(
+    root: Path,
+    queue: Queue,
+    card: str | None = None,
+    now: dt.datetime | None = None,
+) -> str | None:
+    """Clear the answer in force for `card`, or without one the newest answer in force in the
+    queue; the card it was for, or None when there was none to clear. The toast names its
+    card, so a stale toast never clears another card's answer."""
     decisions = load_decisions(root)
-    in_force = [d for (q, _), d in decisions.current.items() if q == queue.name]
+    in_force = [
+        d
+        for (q, c), d in decisions.current.items()
+        if q == queue.name and (card is None or c == card)
+    ]
     if not in_force:
         return None
     last = max(in_force, key=lambda d: d["seq"])
@@ -496,6 +510,12 @@ def next_card(
 
 
 # ---------------------------------------------------------------- export
+
+
+def number_text(value: float) -> str:
+    """A typed value as text: whole numbers with thousands separators, others as given."""
+    value = float(value)
+    return f"{value:,.0f}" if value == int(value) else f"{value:,}"
 
 
 def owner_item(reader: str, day: str, label: str, note: str, where: str) -> dict:
@@ -613,7 +633,7 @@ def plan_export(
             if fix:
                 line = _set_line(card, fix)
                 if line:
-                    text = f"{FIX_FIELDS[fix['field']]} is {fix['value']:g}"
+                    text = f"{FIX_FIELDS[fix['field']]} is {number_text(fix['value'])}"
                     item = owner_item(reader, day, text, note, where)
                     written.append(
                         (
@@ -635,6 +655,10 @@ def plan_export(
                         {**line, "evidence": [item], "decided": day, "source": source},
                     )
                 )
+        if written and card.sha != decision.get("card_sha"):
+            # The card changed after the answer, so its proposal or records may not be what
+            # Ben saw: no line is written, and the finding asks for a new answer.
+            written = []
         for kind, line in written:
             (units if kind == "units" else corrections).append(line)
         if not written or decision["answer"] == PROBLEM:
@@ -680,10 +704,10 @@ def _exported_keys(root: Path) -> set[tuple[str, str, str]]:
 
 
 def _free_name(folder_: Path, stem: str, suffix: str) -> Path:
-    path = folder_ / f"{stem}{suffix}"
-    n = 2
-    while path.exists():
-        path = folder_ / f"{stem}-{n}{suffix}"
+    """`<stem>-01<suffix>`, or the next free number, so a later export of a day sorts after
+    an earlier one, as the ledger reads its files in order of name."""
+    n = 1
+    while (path := folder_ / f"{stem}-{n:02d}{suffix}").exists():
         n += 1
     return path
 
@@ -826,7 +850,15 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
                 current=None,
                 next_url=None,
             )
-        return redirect(url_for("review_card", name=name, card_id=card.id), code=303)
+        return redirect(
+            url_for(
+                "review_card",
+                name=name,
+                card_id=card.id,
+                saved=request.args.get("saved") or None,
+            ),
+            code=303,
+        )
 
     @app.get("/review/<name>/<card_id>")
     def review_card(name: str, card_id: str):
@@ -839,7 +871,11 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
         answered = decisions.for_queue(name)
         saved = None
         last = request.args.get("saved")
-        if last and last in answered and last != card.id:
+        if (
+            last
+            and last in answered
+            and (last != card.id or answered[last]["answer"] == SKIP)
+        ):
             saved = {"card": queue.by_id.get(last), "decision": answered[last]}
         upcoming = next_card(queue, {**answered, card.id: {"answer": "x"}})
         allow_images()
@@ -906,7 +942,10 @@ def register(app: Flask, root_fn: Callable[[], Path]) -> None:
         if not _same_origin():
             return _error(403, "Cross-origin answers are not accepted.")
         queue = queue_or_404(name)
-        card_id = undo_last(root_fn(), queue)
+        target = request.form.get("card") or None
+        card_id = undo_last(root_fn(), queue, target)
+        if target and card_id is None:
+            card_id = target
         if card_id and card_id in queue.by_id:
             return redirect(
                 url_for("review_card", name=name, card_id=card_id), code=303
@@ -944,7 +983,7 @@ def _answer_label(queue: Queue, card: Card, decision: dict | None) -> str:
         fix = decision.get("fix")
         if fix:
             names.append(
-                f"{FIX_FIELDS.get(fix['field'], fix['field'])} {fix['value']:g}"
+                f"{FIX_FIELDS.get(fix['field'], fix['field'])} {number_text(fix['value'])}"
             )
         return "Problem: " + (", ".join(names) or "see note")
     answer = queue.answer(code)
