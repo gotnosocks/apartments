@@ -6,6 +6,94 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
+## Research sprint, 2026-11-12 12:48Z to 20:48Z
+
+Ben started an 8-hour sprint at 12:48Z with $20 of Modal. I spent $18.82 of it: c3's three
+containers and a failed start ($11.11), then L1's two ($7.71). The ledger is
+`/data1/apartments/tmp/sprint-20261112/spend.md`. No sprint fit is running.
+
+- **c3 won.** b9's design on `b0closingraise` gained 641.5 elpd over b9 (SE 100.7) on the
+  183,272 held-out ads the two datasets share (#1331, `docs/notes/closing-asks-2026-11-11.md`).
+- **L1 won over c3.** `drift-building-phase` (#1330, 9a7830fb) scales each row's noise by
+  its lease phase, the months since the unit's previous ad. The pool
+  `drift-building-phase-b0-latest-9a7830fb-l1` passes the gate and beats c3's first four
+  chains by 554.6 elpd (SE 63.2), and all six by 515.5 (SE 62.1). Results and the scored
+  predictions are in `docs/notes/lease-phase-noise-2026-11-12.md` (#1334), the explainer at
+  https://claude.ai/artifact/KUjb66H78JKQkJunjW9Dng. Neither c3 nor L1 is on the site yet.
+  The site needs L1's market and backtest fits first.
+- **L1's market and backtest queue.** The timer `queue-l1-market.timer` fires at 15:50 ET
+  and runs `/data1/apartments/tmp/sprint-20261112/queue-l1-market.sh`. It launches six
+  containers from the daily budget, each once `cap.py --check-launch` passes: l1na, l1ja,
+  l1nb, l1jb, l1nc, l1jc (seeds 31, 41, 32, 42, 33, 43) on the closingraise market and
+  as-of 2025-11-10 datasets (#1332). The six cost about $23 in all, so they take about two
+  and a half days of the budget. The log is `queue-l1-market.log` beside the script. When
+  they finish, I pool them as `drift-building-phase-b0-market-9a7830fb-l1n` (l1na, l1nb, l1nc)
+  and `...-l1j` (the three j's), check the gate, run the backtest, and publish Deals from
+  the market pool.
+- **Sampler version of the queue's fits.** #1337 rewrote the slice step in `drift.py` as a `lax.scan`,
+  and its draws are bit-identical to the old step's on CPU only. The queue passes commit
+  9a7830fb to `ops/modal-fit`, and the container copies that commit's checkout
+  (`ops/modal/app.py`), so the market and backtest fits run the sampler L1's latest-split
+  fit ran. I also ran the GPU check below, so fits from either side of #1337 can be
+  compared.
+- **Free checks**, each in a note:
+  - Deals ads on pricier lines (#1335, `docs/notes/deals-pricier-lines-2026-11-12.md`).
+    The 17,594 held-out ads whose median sits 0.15 or more above the building's other
+    same-count asks land 0.024 under L1's median, and its 80% intervals cover 0.703 of
+    them, against 0.812 for the rest. Neither L1 nor U2 is expected to move them. The note
+    proposes a level for each line (building, bedrooms, full baths).
+  - First ads and quick returns (#1336, `docs/notes/first-ads-and-quick-returns-2026-11-12.md`).
+    L1's large "none" factor (1.64) comes from the tails: units with a single ad have 0.82%
+    of rows beyond 6 robust scales, later ads 0.31%. Ads 0 to 2 months after the previous
+    one undercover because cuts and raises over 10% cover 0.38 and 0.37, while same-ask
+    reposts cover 0.91.
+  - Noise by calendar year (#1337, `docs/notes/year-noise-2026-11-12.md`). L1 loses 226.7
+    elpd (SE 30.3) to c3ab on 2020 to 2022 asks and covers 0.736 of them at 80%.
+- **Models merged and not yet fit.** U2 (`drift-building-unitt`, #1333, a Student-t lasting
+  level for each unit, against c3, three containers, about $11) and Y1
+  (`drift-building-phase-year`, #1337, L1's noise times a factor for each calendar year,
+  against L1, two containers, about $8.4). Their predictions are in their notes.
+- **Tests on master.** At 6c920023 (before #1337) `frontier/tests/test_drift_building_phase.py`
+  passed 8 of 8 in 120 s. A full-suite run at that commit was still going at 12:20 ET,
+  one folder at a time (frontier, then root), with no failures through 16% of the
+  frontier tests. It writes `/data1/apartments/tmp/sprint-20261112/fullsuite.log.frontier`
+  and `.root`, each ending in an `exit N` line.
+
+### Follow-ups the review of #1337 left
+
+1. Done at 12:20 ET. I ran the phased test design (2 chains, 60 warmup, 8 draws, seed 3)
+   on thelio's GPU at 9a7830fb and at f9277d32, using the `sim-recovery` venv, the one
+   with a CUDA jaxlib. On the GPU the draws are not bit-identical: 26 of the 40 traced
+   and kept arrays differ, by at most 9e-8 of an array's largest value. Two runs at the
+   same commit gave different hashes too (b2aa3ea8 and then 7da3aee7 at 9a7830fb,
+   16b3833c and then b6aa8a8b at f9277d32), so the GPU itself rounds differently from run
+   to run, and the scan adds nothing larger. The script and arrays are in
+   `/data1/apartments/tmp/sprint-20261112/gpucheck/`.
+2. Add sha256 pins for the draws of `drift-building-phase` and `drift-building-unitt`, as
+   #1330 did for `drift-building`.
+3. Y1's cap margin. `cap.py` estimates 3,560 s a container against the 3,600 s cap. The
+   sampler stops on its 2,520 s budget rather than a draw count, so Y1's wall should
+   match L1's: L1 had the same estimate and settled at 3,165 s and 3,191 s. That leaves
+   about 400 s for staging and download. Before Y1 launches, either keep the design and
+   record that margin in its note, or cut the sampling budget by 300 s and lower its
+   draw estimate to match.
+
+### After L1's market and backtest fits, in order
+
+This replaces the list under the outlier sprint below.
+
+1. **Y1** (about $8.4). It is the only queued change built on L1, so a win serves
+   directly once its own market fits run. The 2020 to 2022 shortfall it targets is the
+   largest loss L1 has by year. It launches after follow-ups 1 and 3.
+2. **U2** (about $11), against c3 as its note sets it. A win shows that the heavy unit
+   tail helps, but serving it needs a fit of the tail on L1's line, so it comes second.
+3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
+   997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
+4. **Candidates from the free checks.** Each needs its predictions written first:
+   - split L1's "none" phase into only-ad and first-of-several
+   - a noise mix for quick returns, separating near repeats from repricings
+   - a level for each line, for the Deals ads on pricier lines
+
 ## Outlier sprint, final state at 2026-11-12 13:00Z
 
 Ben asked at 2026-11-11 18:55Z for 24 hours of chasing the ads the model prices worst; the
@@ -95,7 +183,7 @@ folder for each line of work, each with a `results.md`).
 - **Updates to Ben.** He asked for a short update about every 30 minutes and whenever
   something finishes, with the long reports kept for results.
 
-### After the sprint, in order
+### After the outlier sprint, in order (superseded by the research sprint's list above)
 
 No sprint item is running or queued on Modal or thelio. The fits wait for Ben's lift of the
 sprint's hold, each with its predictions in the sprint note or the closing note before it
