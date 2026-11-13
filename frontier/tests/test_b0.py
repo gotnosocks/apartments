@@ -348,3 +348,77 @@ def test_record_flags_date_page_prices_by_the_off_market_day(tmp_path):
         5: "2020-05-20",
     }
     assert con.sql("SELECT bool_and(shared_space) FROM recf").fetchone()[0]
+
+
+def test_main_run_drops_the_design_of_every_row_before_sampling(tmp_path, monkeypatch):
+    import gc
+    import types
+    import weakref
+
+    from rentfrontier import run as runmod
+    from rentfrontier import splits
+
+    n = 40
+    frame = pd.DataFrame({"latest_day": pd.date_range("2024-01-01", periods=n)})
+    frame.attrs |= {"dataset": "simulated", "source_sha256": "abc"}
+    held = np.arange(n) % 5 == 0
+    designs = []
+
+    def design(f):
+        x = np.arange(n * 3, dtype=float).reshape(n, 3)
+        designs.append(weakref.ref(x))
+        return b0.Design(
+            y=np.zeros(n),
+            x=x,
+            group=np.zeros(n, int),
+            week=np.arange(n),
+            frac=np.zeros(n),
+            weeks=n,
+            names=["alpha", "a", "b"],
+            start=pd.Timestamp("2024-01-01"),
+            count={"a": 3},
+        )
+
+    seen = {}
+
+    def sample(train, priors, settings, log, **kw):
+        gc.collect()
+        seen["design alive"] = designs[0]() is not None
+        seen["training x"] = train.x.copy()
+        return {
+            "trace": {"g": np.zeros((2, 4))},
+            "kept": {"g": np.zeros((2, 2))},
+            "seconds": {"sampling": 1.0},
+        }
+
+    spec = types.SimpleNamespace(
+        Priors=b0.Priors,
+        design=design,
+        diagnostics=lambda trace, names: {
+            "max_rhat": 1.0,
+            "max_rhat_name": names[1],
+            "min_ess": 500.0,
+            "min_ess_name": names[2],
+        },
+        run_record=lambda d: {"columns": int(d.x.shape[1])},
+    )
+    monkeypatch.setattr(b0, "load_frame", lambda: frame)
+    monkeypatch.setitem(splits.SPLITS, "rows", lambda f: held)
+    monkeypatch.setattr(runmod, "RUNS", tmp_path)
+    monkeypatch.setattr(runmod, "hardware", lambda: {})
+    monkeypatch.setenv("FRONTIER_COMMIT", "abc123")
+    b0.main_run(
+        ["--split", "rows", "--name", "r", "--chains", "2"], sample=sample, spec=spec
+    )
+    assert not seen["design alive"]
+    whole = np.arange(n * 3, dtype=float).reshape(n, 3)
+    np.testing.assert_array_equal(seen["training x"], whole[~held])
+    r = json.loads((tmp_path / "r" / "result.json").read_text())
+    assert r["sizes"] == {"train": 32, "heldout": 8, "weeks": n, "coefficients": 3}
+    assert r["grid_start"] == "2024-01-01" and r["counts"] == {"a": 3}
+    assert r["columns"] == 3
+    assert list(np.load(tmp_path / "r" / "posterior.npz")["names"]) == [
+        "alpha",
+        "a",
+        "b",
+    ]

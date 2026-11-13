@@ -145,6 +145,16 @@ def test_drop_columns_takes_the_columns_their_names_and_their_counts():
     assert {"bed=0:full>=3", "bed=1:full>=4"} == set(drift.DROPPED_STEPS)
 
 
+def test_the_blocks_hold_the_training_design_in_sweep_order_without_alpha():
+    train, _, _ = _split(_design())
+    _, _, _, parts = _sampler(train)
+    others = [j for j, n in enumerate(train.names) if n != "alpha"]
+    np.testing.assert_array_equal(
+        np.concatenate([np.asarray(v) for v in parts["data"]["xs"]]),
+        train.x[parts["order"]][:, others],
+    )
+
+
 def test_unit_layout_places_every_row_and_pair():
     unit = np.array([0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 3, 4])
     t = np.arange(len(unit), dtype=float)

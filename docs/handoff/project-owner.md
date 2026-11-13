@@ -20,23 +20,28 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
 - **Proposal.** https://claude.ai/artifact/B9E2j5YXVE6P6gApecazLv, put to Ben as option B
   at 12:34 ET. Fits 1 to 4 each run three H100 containers on the latest split against L1:
   1. L2, a level for each lease phase: +150 to +350 elpd, gate 75%, about $11.50.
-  2. Segment paths: +250 to +600, gate 50%. The proposal said $11.50, and the large
-     container the host memory needs makes it $15 to $16.50.
+  2. Segment paths: +250 to +600, gate 50%, $11 to $12.50. Before the memory PR the host
+     needed the large container, at $15 to $16.50.
   3. A duplex noise factor of 1.25 to 1.45: +150 to +300, 80% coverage of duplex ads from
      0.72 to 0.77 or more, gate 70%, about $11.50.
   4. A level for each line, from a new collapsed module: +150 to +600, gate 45%, about
      $11.50.
   5. The winner's market and backtest fits and the Deals publish, about $23.
 
-  Option B covers fits 1 to 5 and a spare, about $81, now about $85 with the segment fit's
-  large containers. A fit that adds sweep time gets a timing check before launch. Fits 2 to
-  4 would go on L1T if a Student-t unit level passed its gate first. L1T missed it, and
-  L1TK (#1357, written, not fit) is expected to miss on unit_sd, so for now they go on L1.
+  Option B covers fits 1 to 5 and a spare, about $81. A fit that adds sweep time gets a
+  timing check before launch. Fits 2 to 4 would go on L1T if a Student-t unit level passed
+  its gate first. L1T missed it, and L1TK (#1357, written, not fit) is expected to miss on
+  unit_sd, so for now they go on L1.
 - **Written and ready.** L2, `drift-building-phase-level` (#1355,
   `docs/notes/l2-phase-level-2026-11-13.md`), and the segment paths,
   `drift-building-phase-segment` (#1356, `docs/notes/segment-paths-2026-11-13.md`). Each note
   holds its launch commands and predictions. The segment paths step by quarter, since weekly
   steps would need 85 GB for the design.
+- **Host memory.** `b0.main_run` now deletes the design of all rows before the sampler
+  starts, and `drift.make_sampler` gathers each block's design straight from the training
+  rows, with every pinned draw unchanged. The segment fit's host peak falls from about 44 GB
+  to about 21 GB and L1's from about 16 GB to about 9 GB, so the segment fit runs in the
+  normal 40 GiB container (`docs/notes/segment-paths-2026-11-13.md`, Cost).
 - **Duplex column.** `b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise-duplex` in
   `/data1/apartments/frontier/datasets/` holds L1's dataset with S7's pattern as the column
   `duplex` (`docs/notes/duplex-column-2026-11-13.md`). The duplex fit's module is still to
