@@ -53,8 +53,19 @@ the fit's own predictions: the elpd at the asks, the medians and the 80% widths.
 predictions from the same posterior, so they differ by Monte Carlo error and by nothing
 else. `publish` writes the comparison into `meta.json`.
 
+Lease phases. L1 (`drift_building_phase`) and the models built on it give each row a lease
+phase from the months since its unit's previous ad. An apartment's phase today comes from
+its last ad's price_at and `--day`, and an ad on the market keeps its own (`phase_today`).
+L2 (`drift_building_phase_level`) adds a level in the mean for each phase, so its phase
+columns follow the phase today. D1 (`drift_building_phase_duplex`) crosses the phase with
+the row's duplex mark, and an apartment keeps its last ad's mark. The segment model
+(`drift_building_phase_segment`) adds a path in time for each bedroom group and zone, and
+its columns follow `--day` as the walk does; past the last quarter start a path holds its
+value there.
+
 `publish` writes `today.parquet`, one row per apartment, and then `meta.json` (the model,
-the run, its gate, the day, the grid's end, the check and the table's sha256). Only a fit on
+the run, its gate, the day, the grid's end, a segment model's last quarter start and
+whether the day lies past it, the check and the table's sha256). Only a fit on
 the market split that passed the convergence gate is accepted.
 """
 
@@ -81,6 +92,9 @@ from . import (
     drift,
     drift_building,
     drift_building_phase,
+    drift_building_phase_duplex,
+    drift_building_phase_level,
+    drift_building_phase_segment,
     drift_deals,
     drift_estimates,
     drift_score,
@@ -92,12 +106,19 @@ from .b0data import sha256
 from .total_walk import SEASON
 
 # The models this module can predict, by the name a run records. Each is `drift`'s sweep
-# with at most the buildings' collapsed path; the phase model adds a noise factor per lease
-# phase. Models with Student-t unit levels or more local-drift terms are refused.
+# with at most the buildings' collapsed path; the phase models add a noise factor per lease
+# phase (or per cell of phase and duplex mark), and L2 and the segment model add columns to
+# the design. Models with Student-t unit levels or more local-drift terms are refused.
 MODELS = {
-    drift.NAME: drift,
-    drift_building.NAME: drift_building,
-    drift_building_phase.NAME: drift_building_phase,
+    m.NAME: m
+    for m in (
+        drift,
+        drift_building,
+        drift_building_phase,
+        drift_building_phase_level,
+        drift_building_phase_segment,
+        drift_building_phase_duplex,
+    )
 }
 # Kept draws used, spread evenly over the run's chains and draws.
 DRAWS = 96
@@ -526,9 +547,10 @@ class Fit:
     Bc: np.ndarray
     lay: dict
     xb: np.ndarray  # (draws, training rows) x beta, alpha included
-    full: SimpleNamespace  # every frame row's unit, site, week, frac, group, phase, x
+    full: SimpleNamespace  # each frame row's unit, site, week, frac, t, group, phase, x
     season: np.ndarray  # (frame rows, len(SEASON)) the season columns
     season_cols: list
+    seg: SimpleNamespace | None  # the segment paths' columns (`segment_terms`)
 
 
 def set_split(split: str) -> None:
@@ -545,6 +567,65 @@ def thin(chains: int, draws: int, n: int) -> np.ndarray:
     """`n` kept draws spread evenly over the chains' draws laid end to end."""
     total = chains * draws
     return np.unique(np.linspace(0, total - 1, min(n, total)).round().astype(int))
+
+
+def level_columns(
+    names: list[str], phases: tuple[str, ...] | None
+) -> tuple[list[int], np.ndarray]:
+    """L2's phase level columns among `names` (`phase:{phase}`), and each one's phase as its
+    place in `phases`."""
+    cols = [j for j, n in enumerate(names) if n.startswith("phase:")]
+    if not cols:
+        return [], np.zeros(0, np.int64)
+    which = pd.Index(() if phases is None else phases).get_indexer(
+        [names[j].split(":", 1)[1] for j in cols]
+    )
+    if (which < 0).any():
+        raise SystemExit("a phase column's phase is not one of the design's phases")
+    return cols, which
+
+
+def segment_terms(d: b0.Design, names: list[str]) -> SimpleNamespace | None:
+    """What `segment_shift` reads of a segment model's design, in the terms
+    `drift_building_phase_segment.path_design` builds its columns from: the quarter starts
+    in years from the grid start, each one's segment shares over the frame's rows, each
+    frame row's segment, and each path column's segment and quarter start. None for a design
+    with no path columns."""
+    cols = [j for j, n in enumerate(names) if n.startswith("seg:")]
+    if not cols:
+        return None
+    sp = drift_building_phase_segment
+    q = sp.quarter_starts(d)
+    knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / sp.YEAR_DAYS
+    segments = sp.segment_names(d)
+    row = sp.segment_index(d)
+    H = sp.hat_weights(drift.years(d), knots)
+    weight = H.sum(axis=0)
+    share = np.stack([H[row == k].sum(axis=0) for k in range(len(segments))], axis=1)
+    share /= np.where(weight > 0, weight, 1.0)[:, None]
+    at = {
+        f"seg:{s}:{t.year}q{t.quarter}": (k, j)
+        for k, s in enumerate(segments)
+        for j, t in enumerate(q)
+    }
+    kj = np.asarray([at[names[c]] for c in cols])
+    out = SimpleNamespace(
+        knots=knots,
+        share=share,
+        row=row,
+        cols=np.asarray(cols),
+        k=kj[:, 0],
+        j=kj[:, 1],
+    )
+    # The columns rebuilt from these terms on a spread of the frame's rows must be the
+    # design's.
+    some = np.unique(np.linspace(0, len(row) - 1, 2000).astype(np.int64))
+    x = H[some][:, out.j] * (
+        (row[some][:, None] == out.k[None, :]) - share[out.j, out.k][None, :]
+    )
+    if not np.allclose(x, d.x[some][:, cols], rtol=0, atol=1e-10):
+        raise SystemExit("the segment columns rebuilt from their terms differ")
+    return out
 
 
 def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
@@ -589,12 +670,20 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
             "building_ar_sd building_ar_rho phase_scale"
         ).split()
         kept = {k: np.asarray(z[f"kept/{k}"]) for k in want if f"kept/{k}" in z}
-    if "unit_dof" in kept or (d.phase is not None and spec is not drift_building_phase):
-        raise SystemExit(f"{name}'s noise or unit levels are not supported here")
+    if "unit_dof" in kept:
+        raise SystemExit(f"{name}'s Student-t unit levels are not supported here")
+    if d.phase is not None and not {str(p).split("|", 1)[0] for p in d.phases} <= set(
+        drift_building_phase.PHASES
+    ):
+        raise SystemExit(f"{name}'s noise phases are not L1's lease phases")
     log(f"design rebuilt: {d.x.shape} in {time.perf_counter() - t0:.0f}s")
     alpha = names.index("alpha")
     if not np.all(d.x[:, alpha] == 1):
         raise SystemExit("the design's alpha column is not all ones")
+    cols, which = level_columns(names, d.phases)
+    if cols and not np.array_equal(d.x[:, cols], d.phase[:, None] == which[None, :]):
+        raise SystemExit("the design's phase columns are not its rows' phases")
+    seg = segment_terms(d, names)
     C, K = kept["beta"].shape[:2]
     pick = thin(C, K, draws)
     kept = {k: v.reshape(C * K, *v.shape[2:])[pick] for k, v in kept.items()}
@@ -618,6 +707,7 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         site=d.site,
         week=d.week,
         frac=d.frac,
+        t=t_all,
         group=d.group,
         phase=d.phase,
         phases=d.phases,
@@ -648,6 +738,7 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         full=full,
         season=d.x[:, season_cols].copy(),
         season_cols=season_cols,
+        seg=seg,
     )
     del d, frame
     log(f"layout and x beta ready in {time.perf_counter() - t0:.0f}s")
@@ -861,7 +952,8 @@ def apartments(fit: Fit) -> pd.DataFrame:
 def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | None:
     """Each apartment's lease phase for an ad on `day` (phase models only): an ad on the
     market keeps its own phase, and any other is binned by the months from its last ad's
-    price_at to `day`."""
+    price_at to `day`. Where the fit's phases are cells of phase and mark (D1's
+    "phase|mark"), an apartment keeps its last ad's mark."""
     if fit.full.phase is None:
         return None
     f = fit.frame.iloc[rows]
@@ -871,10 +963,49 @@ def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | N
     names = np.asarray(drift_building_phase.BINNED, dtype=object)[
         np.searchsorted(drift_building_phase.EDGES, months, side="right")
     ]
-    names = np.where(f.unit_id.isna().to_numpy(), "none", names)
+    names = np.where(f.unit_id.isna().to_numpy(), "none", names).astype(object)
+    own = pd.Series(np.asarray(fit.full.phases, dtype=object)[fit.full.phase[rows]])
+    parts = own.str.partition("|")
+    names = names + parts[1].to_numpy(object) + parts[2].to_numpy(object)
     out = pd.Index(fit.full.phases).get_indexer(names).astype(np.int64)
     held = fit.held[rows]
     out[held] = fit.full.phase[rows][held]
+    if (out < 0).any():
+        raise SystemExit("an apartment's phase today is not one of the fit's phases")
+    return out
+
+
+def phase_level_shift(fit: Fit, rows: np.ndarray, phase: np.ndarray) -> np.ndarray:
+    """The change in x beta of frame rows `rows` at each kept draw, (draws, rows), when L2's
+    phase columns move from each row's own phase to `phase`."""
+    cols, which = level_columns(fit.names, fit.full.phases)
+    old = fit.full.phase[rows][:, None] == which[None, :]
+    new = np.asarray(phase)[:, None] == which[None, :]
+    return fit.kept["beta"][:, cols] @ (new.astype(float) - old).T
+
+
+def segment_shift(fit: Fit, rows: np.ndarray, t_new: float) -> np.ndarray:
+    """The change in x beta of frame rows `rows` at each kept draw, (draws, rows), when
+    their segment path columns move from each row's own time to `t_new`, in years from the
+    grid start. Past the last quarter start the paths hold their value there."""
+    sg = fit.seg
+    B = np.zeros((len(fit.pick), sg.share.shape[1], len(sg.knots)))
+    B[:, sg.k, sg.j] = fit.kept["beta"][:, sg.cols]
+    # A row of segment s with hat weights h gains sum_j h_j D[s, j] from the path columns:
+    # its segment's coefficient at each quarter start less the share-weighted mean of all
+    # segments' coefficients there. A column the design left out counts as 0.
+    D = B - np.einsum("jk,dkj->dj", sg.share, B)[:, None, :]
+    s = sg.row[rows]
+    t_new = float(np.clip(t_new, sg.knots[0], sg.knots[-1]))
+    hat = drift_building_phase_segment.hat_weights
+    H_old = hat(fit.full.t[rows], sg.knots)
+    H_new = hat(np.array([t_new]), sg.knots)[0]
+    out = np.zeros((len(fit.pick), len(rows)))
+    for j in range(len(sg.knots)):
+        dh = H_new[j] - H_old[:, j]
+        live = np.flatnonzero(dh)
+        if len(live):
+            out[:, live] += D[:, s[live], j] * dh[live]
     return out
 
 
@@ -905,6 +1036,11 @@ def today_rows(fit: Fit, apts: pd.DataFrame, day: pd.Timestamp) -> Rows:
         beta_s = fit.kept["beta"][:, cols]
         xb += beta_s @ (new[:, None] - fit.season[rows].T)
     week, frac = grid_time(fit, day)
+    phase = phase_today(fit, rows, day)
+    if level_columns(fit.names, fit.full.phases)[0]:
+        xb += phase_level_shift(fit, rows, phase)
+    if fit.seg is not None:
+        xb += segment_shift(fit, rows, (week + frac) / drift.YEAR_WEEKS)
     n = len(rows)
     return Rows(
         unit=apts.unit.to_numpy(),
@@ -913,7 +1049,7 @@ def today_rows(fit: Fit, apts: pd.DataFrame, day: pd.Timestamp) -> Rows:
         frac=np.full(n, frac),
         xb=xb,
         group=fit.full.group[rows],
-        phase=phase_today(fit, rows, day),
+        phase=phase,
     )
 
 
@@ -1034,6 +1170,21 @@ def table(
     return out[list(COLUMNS)].sort_values("apartment", kind="stable")
 
 
+def segment_meta(fit: Fit, day: pd.Timestamp) -> dict:
+    """A segment model's last quarter start, and whether `day` lies past it, where the
+    paths hold their value."""
+    if fit.seg is None:
+        return {}
+    days = float(fit.seg.knots[-1]) * drift_building_phase_segment.YEAR_DAYS
+    last = fit.start + pd.Timedelta(days=round(days))
+    return {
+        "segment_paths": {
+            "last_quarter_start": str(last.date()),
+            "held_past_it": bool(day > last),
+        }
+    }
+
+
 def today_ny() -> pd.Timestamp:
     """Today's date in New York."""
     return pd.Timestamp(datetime.now(NEW_YORK).date())
@@ -1092,6 +1243,7 @@ def publish(
             "added_sd": round(math.sqrt(past) * tau_w, 5),
         },
         "draws": {"kept": int(len(fit.pick)), "burn": BURN, "keep": KEEP},
+        **segment_meta(fit, day),
         "apartments": {
             "all": int(len(frame)),
             "on_market": int(frame.on_market.sum()),

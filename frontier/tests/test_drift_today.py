@@ -1,7 +1,12 @@
+import dataclasses
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
 
+from rentfrontier import drift, drift_building_phase, drift_building_phase_duplex
+from rentfrontier import drift_building_phase_segment as seg_model
 from rentfrontier import drift_today as dt
 
 SC = dict(ss=0.06, sd=0.08, tau_u=2.5, s2=0.03**2, rho=0.8, nu=5.0)
@@ -206,3 +211,172 @@ def test_unit_labels_come_from_the_ads_pages(tmp_path):
     ).to_parquet(ads)
     got = dt.unit_labels(ads, ["2", "3", "1", "9"])
     assert list(got) == ["6C", "", "4FLR", ""]
+
+
+def test_the_phased_models_are_served():
+    for name in (
+        "drift-building-phase-level",
+        "drift-building-phase-segment",
+        "drift-building-phase-duplex",
+    ):
+        assert name in dt.MODELS
+
+
+def phase_fit(phases, phase, price_at, unit_id, held):
+    fit = SimpleNamespace()
+    fit.frame = pd.DataFrame({"price_at": price_at, "unit_id": unit_id})
+    fit.held = np.asarray(held)
+    fit.full = SimpleNamespace(phase=np.asarray(phase), phases=tuple(phases))
+    return fit
+
+
+def test_phase_today_bins_the_months_and_keeps_a_cells_mark():
+    day = pd.Timestamp("2026-11-13")
+    price_at = ["2026-10-01", "2025-12-01", "2024-01-01", "2026-01-01", "2026-11-01"]
+    unit_id = ["1", "2", "3", None, "5"]
+    held = [False, False, False, False, True]
+    P = drift_building_phase.PHASES
+    fit = phase_fit(P, [2, 2, 2, 2, 3], price_at, unit_id, held)
+    got = dt.phase_today(fit, np.arange(5), day)
+    # 1.4, 11.4 and 34.4 months; no unit; a held-out ad keeps its own phase.
+    assert [P[i] for i in got] == ["0-2", "10-13", "26+", "none", "3-9"]
+    cells = drift_building_phase_duplex.cells()
+    own = [cells.index(c) for c in ("0-2|duplex", "3-9|other", "0-2|duplex")]
+    fit = phase_fit(cells, own + [0, 1], price_at, unit_id, held)
+    got = dt.phase_today(fit, np.arange(5), day)
+    assert [cells[i] for i in got] == [
+        "0-2|duplex",
+        "10-13|other",
+        "26+|duplex",
+        "none|other",
+        "10-13|duplex",
+    ]
+    fit = phase_fit(P[:2], [0, 0, 0, 0, 0], price_at, unit_id, held)
+    with pytest.raises(SystemExit):
+        dt.phase_today(fit, np.arange(5), day)
+
+
+def test_phase_level_shift_moves_the_columns_to_todays_phase():
+    P = drift_building_phase.PHASES
+    names = ["alpha", "phase:none", "phase:0-2", "phase:3-9", "phase:26+"]
+    rng = np.random.default_rng(0)
+    beta = rng.standard_normal((3, len(names)))
+    own = np.array([0, 1, 2, 3, 6, 4])
+    fit = SimpleNamespace(
+        names=names,
+        kept={"beta": beta},
+        full=SimpleNamespace(phase=own, phases=P),
+    )
+    today = np.array([2, 1, 6, 0, 6, 3])
+
+    def x(phase):
+        return np.stack(
+            [np.ones(len(phase))]
+            + [phase == P.index(n.split(":")[1]) for n in names[1:]],
+            axis=1,
+        )
+
+    want = (x(today) - x(own)) @ beta.T
+    rows = np.arange(len(own))
+    np.testing.assert_allclose(dt.phase_level_shift(fit, rows, today), want.T)
+
+
+def test_today_rows_moves_l2s_levels_and_the_paths_to_the_day(monkeypatch):
+    P = drift_building_phase.PHASES
+    rng = np.random.default_rng(2)
+    base = rng.standard_normal((3, 4))
+    own, today = np.array([0, 1, 2, 1]), np.array([2, 2, 1, 0])
+    names = ["alpha", "phase:none", "phase:0-2"]
+    fit = SimpleNamespace(
+        names=names,
+        kept={"beta": rng.standard_normal((3, len(names)))},
+        season_cols=[],
+        start=pd.Timestamp("2025-01-06"),
+        full=SimpleNamespace(
+            phase=own, phases=P, site=np.arange(4), group=np.zeros(4, int)
+        ),
+        seg=SimpleNamespace(),
+    )
+    seen = []
+
+    def shift(f, rows, t_new):
+        seen.append(t_new)
+        return np.zeros((3, len(rows)))
+
+    monkeypatch.setattr(dt, "base_xb", lambda f, rows: base.copy())
+    monkeypatch.setattr(dt, "phase_today", lambda f, rows, day: today)
+    monkeypatch.setattr(dt, "segment_shift", shift)
+    apts = pd.DataFrame({"row": np.arange(4), "unit": np.arange(4)})
+    day = pd.Timestamp("2026-11-13")
+    rw = dt.today_rows(fit, apts, day)
+    # The paths' time is `day`'s, in the years of the segment model's knots.
+    years = (day - fit.start).days / seg_model.YEAR_DAYS
+    assert seen == [pytest.approx(years)]
+    level = dt.phase_level_shift(fit, np.arange(4), today)
+    assert np.abs(level).min() > 0
+    np.testing.assert_allclose(rw.xb, base + level)
+    # L1's design has no level columns and no paths.
+    fit.names, fit.kept["beta"], fit.seg = ["alpha"], fit.kept["beta"][:, :1], None
+    np.testing.assert_allclose(dt.today_rows(fit, apts, day).xb, base)
+    assert len(seen) == 1
+
+
+@dataclasses.dataclass
+class SegDesign:
+    x: np.ndarray
+    names: list
+    count: dict
+    week: np.ndarray
+    frac: np.ndarray
+    start: pd.Timestamp
+    site: np.ndarray
+    group: np.ndarray
+    surfaces: list
+
+
+def test_segment_shift_matches_the_design_at_the_new_time():
+    rng = np.random.default_rng(1)
+    n = 400
+    week = np.sort(rng.integers(0, 80, n))
+    # The first quarter's rows are all of one segment, so its other columns are left out.
+    site = np.where(week < 14, 0, rng.integers(0, 3, n))
+    group = np.where(week < 14, 0, rng.integers(0, 4, n))
+    base = SegDesign(
+        x=np.ones((n, 1)),
+        names=["alpha"],
+        count={},
+        week=week,
+        frac=rng.uniform(0, 1, n),
+        start=pd.Timestamp("2025-01-06"),
+        site=site,
+        group=group,
+        surfaces=[{"name": "m", "sites": 2}, {"name": "o", "sites": 1}],
+    )
+    d = seg_model.segment_paths(base)
+    sg = dt.segment_terms(d, d.names)
+    assert len(sg.cols) < len(seg_model.segment_names(d)) * len(sg.knots)
+    beta = rng.standard_normal((2, len(d.names)))
+    fit = SimpleNamespace(
+        seg=sg,
+        pick=np.arange(2),
+        kept={"beta": beta},
+        full=SimpleNamespace(t=drift.years(d)),
+    )
+    rows = rng.choice(n, 50, replace=False)
+
+    def x_at(t):
+        h = seg_model.hat_weights(np.full(len(rows), t), sg.knots)[:, sg.j]
+        return h * ((sg.row[rows][:, None] == sg.k) - sg.share[sg.j, sg.k])
+
+    old = d.x[rows][:, sg.cols]
+    for t_new in (0.7, sg.knots[-1]):
+        want = (x_at(t_new) - old) @ beta[:, sg.cols].T
+        np.testing.assert_allclose(dt.segment_shift(fit, rows, t_new), want.T)
+    # Past the last quarter start the paths hold their value there.
+    np.testing.assert_allclose(
+        dt.segment_shift(fit, rows, sg.knots[-1] + 0.4),
+        dt.segment_shift(fit, rows, sg.knots[-1]),
+    )
+    d.x[5, sg.cols[0]] += 0.1
+    with pytest.raises(SystemExit):
+        dt.segment_terms(d, d.names)
