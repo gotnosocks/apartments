@@ -1358,8 +1358,8 @@ def make_sampler(
         )
 
     def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None, keta=None):
-        """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu),
-        in a design with noise phases the log factor of each phase but the reference, and
+        """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu
+        unless `row_dof_fixed` holds it), in a design with noise phases the log factor of each phase but the reference, and
         under `unit_t` the log of the units' degrees of freedom nu_u, given theta, the
         buildings' spreads, the collapsed path's scales and the rows' standardized log
         mixing scales eta, with u, the buildings' levels and the collapsed
@@ -2295,7 +2295,8 @@ def run(
     the traced and kept arrays, and each predicted row's `pred_phase`. `unit_t`
     (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both, unless
     `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s. With `row_dof_fixed`
-    (`make_sampler`) the kept arrays hold nu at its value, and the traced ones leave it out."""
+    (`make_sampler`) nu is traced and kept at its value, and the gate's diagnostics skip it
+    as a constant."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
@@ -2317,8 +2318,6 @@ def run(
     phase = ("phase_scale",) if parts["phased"] else ()
     more = phase + (("unit_dof",) if parts["dof_free"] else ())
     traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
-    # A fixed nu is a constant, and the gate's R-hat has nothing to measure on it.
-    traced = traced if parts["nu_free"] else tuple(k for k in traced if k != "nu")
     kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     key = jax.random.PRNGKey(settings.seed)
     key, sub = jax.random.split(key)

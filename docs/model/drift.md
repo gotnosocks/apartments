@@ -397,8 +397,7 @@ given the rows' remainders, with u and the lasting levels integrated out, before
 the levels are drawn given them (`make_sampler`'s `unit_kap_collapsed`;
 docs/notes/l1-unit-kap-collapsed-2026-11-13.md). `drift-building-phase-unitkn` holds the
 rows' nu at 2 on top of that (`make_sampler`'s `row_dof_fixed`): the noise step skips
-nu's slice update, the scale step leaves log nu out, and the run keeps nu but doesn't
-trace it (docs/notes/l1-row-dof-fixed-2026-11-13.md).
+nu's slice update, the scale step leaves log nu out, and the run traces and keeps nu at its value (docs/notes/l1-row-dof-fixed-2026-11-13.md).
 `--split market` fits a market or backtest
 dataset.
 

@@ -29,15 +29,16 @@ is L1TK with `drift.make_sampler`'s new `row_dof_fixed=2.0`:
 2. The scale step leaves log nu out of its coordinates. lam keeps its standardized logs
    and so stays where the noise step put it, while unit_sd, the drift scales, sigma and
    the phases' factors move together.
-3. The run keeps nu at its value in the kept arrays and leaves it out of the traced ones,
-   so the gate has no constant to measure.
+3. The run traces and keeps nu at its value. The gate's diagnostics skip any quantity
+   that doesn't move, so nu stays out of the gate.
 
 `drift.py` changes only behind the new argument, and with it left at None the sweep draws
 what it drew before. The pins of `drift-building`, L1, L1T, U2 and L1TK pass unchanged.
 `frontier/tests/test_drift_building_phase_unitkn.py` checks that the scale step's density
 with nu fixed equals the free density at nu = 2 for random scales and factors, that the
 scale step and the noise step hold nu and the scale step holds lam, that sweeps keep nu at
-2, and it pins the draws of a small run.
+2, that the gate's diagnostics run on the small run's trace and leave the constant nu out,
+and it pins the draws of that run.
 
 ## The check on thelio
 
@@ -80,10 +81,10 @@ R-hat^2 - 1 by tau_new / tau_L1T.
 | quantity | L1T R-hat | ESS | expected R-hat | ESS |
 |---|---:|---:|---:|---:|
 | unit_sd | 1.0187 | 449 | 1.005 | 1,580 |
-| drift_sd | 1.0051 | 942 | 1.004 | 1,140 |
-| sigma[1] | 1.0103 | 1,250 | 1.003 | 4,100 |
+| drift_sd | 1.0051 | 942 | 1.004 | 1,120 |
+| sigma[1] | 1.0103 | 1,250 | 1.003 | 4,070 |
 | sigma[2] | 1.0090 | 1,336 | 1.004 | 3,170 |
-| phase_scale[1] | 1.0090 | 1,223 | 1.004 | 2,740 |
+| phase_scale[1] | 1.0090 | 1,223 | 1.004 | 2,810 |
 | beta[bed=0:full>=2] | 1.0081 | 1,517 | 1.008 | 1,520 |
 
 The highest expected R-hat is then beta[bed=0:full>=2]'s 1.008, as in L1T's pool, and the

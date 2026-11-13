@@ -132,7 +132,7 @@ def test_sweeps_keep_nu_at_its_value():
 # drift-building-phase-unitkn was added. A deliberate change to the model's draws changes
 # it.
 PHASE_UNITKN_RUN_SHA256 = (
-    "65b902da516ed6f688fdda0c41b67b36c057fd667e4405f5d73a48367d208b1b"
+    "b5bf611050258d4a3df9ae9fae182d15080f783fc2d3694e19be80e47a65988c"
 )
 
 
@@ -144,7 +144,13 @@ def test_a_run_draws_what_it_drew_when_the_model_was_added():
         drift.Settings(chains=2, warmup=60, draws=8, level_dof=4.0, seed=3),
         log=lambda m: None,
     )
-    assert "nu" not in out["trace"] and (np.asarray(out["kept"]["nu"]) == NU).all()
+    assert (np.asarray(out["trace"]["nu"]) == NU).all()
+    assert (np.asarray(out["kept"]["nu"]) == NU).all()
+    # The gate skips the constant nu and still reads every scale that moves.
+    names = train.names
+    rows = drift_building_phase_unitkn.diagnostics(out["trace"], names)["per_quantity"]
+    assert "nu" not in rows and {"unit_sd", "drift_sd", "sigma[1]"} <= set(rows)
+    assert "coefficients" in drift_building_phase_unitkn.summarize(out["kept"], names)
     arrays = {f"trace/{k}": v for k, v in out["trace"].items()}
     arrays |= {f"kept/{k}": v for k, v in out["kept"].items()}
     h = hashlib.sha256()
