@@ -271,6 +271,11 @@ class Design(building_zones_kitchen_sink.Design):
     # free factors its row marks, so that the phases can be the cells of two crossed
     # factor sets (`rentfrontier.drift_building_phase_year`). The reference's row is 0.
     phase_map: np.ndarray = None
+    # Under a map, the column whose free factor f also scales u. A row's u is its unit's
+    # process times the row's gain, f raised to the row's phase's entry in that column, so
+    # a row with a 1 there has its u and its noise both f times as wide
+    # (`rentfrontier.drift_building_phase_duplex`). None leaves u as it is.
+    unit_factor: int | None = None
     # The rows to predict, in the full design's order: a dict of their `unit`, `years`, `x`,
     # `site`, `week`, `frac`, `group` and `y`. `subset` fills it for the training rows.
     pred: dict = None
@@ -720,6 +725,14 @@ def make_sampler(
         free = len(d.phases) - 1
     phased = free > 0
     pmap_j = None if pmap is None else jnp.asarray(pmap)
+    uf = d.unit_factor
+    if uf is not None:
+        assert pmap is not None and 0 <= uf < free, (
+            "unit_factor is a column of phase_map"
+        )
+        assert not unit_t, "unit_factor does not take unit_t"
+    # Each phase's power of the unit factor in its rows' gains.
+    upow = None if uf is None else jnp.asarray(pmap[:, uf])
 
     # Rows sorted by building, then unit, then time, and the buildings in blocks.
     t_all = years(d)
@@ -848,6 +861,12 @@ def make_sampler(
     )
     if phased:
         data["phase"] = jnp.asarray(d.phase[order])
+    if uf is not None:
+        # The rows to predict take their gains from their own phases.
+        p_phase = rows_to_predict.get("phase")
+        data["p_phase"] = jnp.asarray(
+            np.zeros(0, np.int64) if p_phase is None else np.asarray(p_phase, np.int64)
+        )
     U = int(d.units)
     if unit_t:
         # Each training row's unit, each bucket's units and each row to predict's unit
@@ -901,6 +920,16 @@ def make_sampler(
         """Each row's weight c_i = lam_i / s_i^2, with s_i the row's noise scale."""
         return st["lam"] / row_sd(D, st["sigma"], st.get("phase_scale")) ** 2
 
+    def unit_gain(factor, cell):
+        """Under `Design.unit_factor`, the gain on u of rows in phases `cell`, from the free
+        factors."""
+        return jnp.exp(upow[cell] * jnp.log(factor[uf]))
+
+    def row_gains(D, st):
+        """Each training row's gain on u at the state's factors, or None without
+        `Design.unit_factor`."""
+        return None if uf is None else unit_gain(st["phase_scale"], D["phase"])
+
     def site_var(bsd, kap=None):
         """Each building's prior variance of its level: its zone's spread squared, over the
         building's mixing scale `kap` under the Student-t prior (`Settings.level_dof`)."""
@@ -924,18 +953,22 @@ def make_sampler(
         v = scales(hyp)[0] ** 2 / ukap
         return v[D["unit"]], [v[b] for b in D["b_unit"]]
 
-    def unit_W(D, hyp, c, ukap=None):
+    def unit_W(D, hyp, c, ukap=None, gain=None):
         """The units' precisions W = (D^-1 + K)^-1 at weights c: `w1`, the scalar of each
         row taken as a unit of one row (read only for single rows), and one (units, n, n)
         stack per bucket. A padded place has weight 0, so its row and column of W are 0.
-        `ukap` holds the units' mixing scales under `unit_t`."""
+        `ukap` holds the units' mixing scales under `unit_t`, and `gain` the rows' gains on
+        u under `Design.unit_factor`, which scale K to G K G."""
         ss, sd, _ = scales(hyp)
-        if ukap is None:
+        if ukap is not None:
+            vr, vb = lasting(D, hyp, ukap)
+            w1 = c / (1 + c * (vr + sd**2))
+        elif gain is None:
             w1 = c / (1 + c * (ss**2 + sd**2))
             vb = [None] * len(D["b_idx"])
         else:
-            vr, vb = lasting(D, hyp, ukap)
-            w1 = c / (1 + c * (vr + sd**2))
+            w1 = c / (1 + c * gain**2 * (ss**2 + sd**2))
+            vb = [None] * len(D["b_idx"])
         Wb = []
         for idx, mask, tb, v in zip(D["b_idx"], D["b_mask"], D["b_t"], vb):
             sq = jnp.sqrt(jnp.where(mask, c[idx], 0.0))
@@ -945,6 +978,9 @@ def make_sampler(
                 tb[:, None, :],
                 None if v is None else v[:, None, None],
             )
+            if gain is not None:
+                gb = gain[idx]
+                Kb = gb[:, :, None] * Kb * gb[:, None, :]
             M = jnp.eye(idx.shape[1]) + sq[:, :, None] * Kb * sq[:, None, :]
             Mi = jnp.linalg.inv(M)
             Mi = 0.5 * (Mi + jnp.swapaxes(Mi, 1, 2))
@@ -1085,11 +1121,15 @@ def make_sampler(
 
         return jnp.exp(b0.slice_vec(key, jnp.log(st["bld_sd"]), logp, 0.05))
 
-    def draw_u(D, key, hyp, c, w1, Wb, e):
+    def draw_u(D, key, hyp, c, w1, Wb, e, gain=None):
         """u at every row given the rows' remainders e = y - mean without u (Matheron's
-        rule; a single row's u has a closed form)."""
+        rule; a single row's u has a closed form). `gain` holds the rows' gains on u under
+        `Design.unit_factor`."""
         ss, sd, tau = scales(hyp)
         k0 = ss**2 + sd**2
+        if gain is not None:
+            # Each row's prior variance of u.
+            k0 = gain**2 * k0
         keys = jax.random.split(key, 1 + len(Wb))
         one = k0 * w1 * e + jnp.sqrt(k0 / (1 + c * k0)) * jax.random.normal(
             keys[0], (n,)
@@ -1112,10 +1152,15 @@ def make_sampler(
             u0 = ss * jax.random.normal(k1, (B, 1)) + sd * jnp.einsum(
                 "bij,bj->bi", Lou, z
             )
+            if gain is not None:
+                gb = gain[idx]
+                u0 = gb * u0
             cb = jnp.where(mask, c[idx], 1.0)
             eps = jax.random.normal(k3, (B, m)) / jnp.sqrt(cb)
             res = jnp.where(mask, e[idx] - u0 - eps, 0.0)
             Kb = kernel(hyp, tb[:, :, None], tb[:, None, :])
+            if gain is not None:
+                Kb = gb[:, :, None] * Kb * gb[:, None, :]
             ub = u0 + jnp.einsum("bij,bj->bi", Kb, jnp.einsum("bij,bj->bi", W, res))
             u = (
                 u
@@ -1259,10 +1304,16 @@ def make_sampler(
 
         return logp
 
-    def unit_loglik(D, hyp, c, e, ukap=None):
+    def unit_loglik(D, hyp, c, e, ukap=None, gain=None):
         """The log marginal likelihood of the rows' remainders e with u integrated out, up
         to a constant in (ss, sd, tau): a Kalman filter on each unit's state (s, d).
-        `ukap` holds the units' mixing scales under `unit_t`."""
+        `ukap` holds the units' mixing scales under `unit_t`, and `gain` the rows' gains on
+        u under `Design.unit_factor`."""
+        if gain is not None:
+            # With u_i = g_i v_i, e_i / g_i is v_i plus noise of weight c_i g_i^2. Its
+            # density is e's times the product of the g_i, and that product cancels against
+            # the change in the rows' log c / 2 that the filter leaves out.
+            c, e = c * gain**2, e / gain
         ss, sd, tau = scales(hyp)
         if ukap is None:
             k0 = ss**2 + sd**2
@@ -1299,7 +1350,7 @@ def make_sampler(
                 p11, p12, p22 = p11 - g1 * g1 * f, p12 - g1 * g2 * f, p22 - g2 * g2 * f
         return ll
 
-    def hyp_logp(D, hyp, c, e, ukap=None):
+    def hyp_logp(D, hyp, c, e, ukap=None, gain=None):
         ss, sd, _ = scales(hyp)
         prior = (
             -(ss**2) / (2 * UNIT_SD_PRIOR**2)
@@ -1308,7 +1359,7 @@ def make_sampler(
             + hyp[1]
             - (hyp[2] - TAU_LOG_PRIOR[0]) ** 2 / (2 * TAU_LOG_PRIOR[1] ** 2)
         )
-        return unit_loglik(D, hyp, c, e, ukap) + prior
+        return unit_loglik(D, hyp, c, e, ukap, gain) + prior
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
     # Each free factor's rows: under a map, the rows of every phase it enters.
@@ -1380,11 +1431,12 @@ def make_sampler(
             )
             logk = m_u + sd_u * keta
             ukap = jnp.exp(logk)
-        w1, Wb = unit_W(D, x[:3], c, ukap)
+        gain = None if uf is None else unit_gain(jnp.exp(x[8 : 8 + free]), D["phase"])
+        w1, Wb = unit_W(D, x[:3], c, ukap, gain)
         om_d, om_off = pair_weights(D, w1, Wb)
         a_nu, b_nu = priors.nu
         out = (
-            hyp_logp(D, x[:3], c, tgt, ukap)
+            hyp_logp(D, x[:3], c, tgt, ukap, gain)
             + 0.5 * jnp.sum(loglam)
             - jnp.sum(group_rows * ls)
             + level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap)
@@ -1935,7 +1987,7 @@ def make_sampler(
         ks = jax.random.split(key, 9 + len(ars))
         k1, k2, k3, k4, k5, k6, k7, k8, k_gp = ks[:9]
         c = weights(D, st)
-        w1, Wb = unit_W(D, st["hyp"], c, st.get("ukap"))
+        w1, Wb = unit_W(D, st["hyp"], c, st.get("ukap"), row_gains(D, st))
         y_eff = D["y"] - offsets(D, st)
         theta, _ = draw_theta(D, k1, st, c, w1, Wb, y_eff)
         w = theta[sl_w]
@@ -1948,7 +2000,8 @@ def make_sampler(
         st = st | update_scales(D, k8, st, tgt, F)
         hyp = st["hyp"]
         c = weights(D, st)
-        w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
+        gain = row_gains(D, st)
+        w1, Wb = unit_W(D, hyp, c, st.get("ukap"), gain)
         om_d, om_off = pair_weights(D, w1, Wb)
         if col is None:
             ctil = om_d + seg(om_off, D["pi"], num_segments=n)
@@ -2001,7 +2054,7 @@ def make_sampler(
                 ukap if unit_kap_collapsed else None,
             )
         else:
-            u = draw_u(D, k7, hyp, c, w1, Wb, e)
+            u = draw_u(D, k7, hyp, c, w1, Wb, e, gain)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
         nu, sigma, lam = update_noise(k4, st, r, D)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
@@ -2059,18 +2112,23 @@ def make_sampler(
         rows' u integrated out. A building with no training row has its level drawn from
         its prior in every sweep, so the mean carries that draw. Under `unit_t` a row of a
         unit with training rows takes its unit's mixing scale, and a row of a unit with
-        none takes the state's draw from the prior (`update_unit_t`)."""
+        none takes the state's draw from the prior (`update_unit_t`). Under
+        `Design.unit_factor` each row to predict scales u by its own phase's gain."""
         c = weights(D, st)
         hyp = st["hyp"]
         ss, sd, _ = scales(hyp)
         k0 = ss**2 + sd**2
-        vp = k0p = None
+        vp = k0p = gp = None
         if unit_t:
             pu = D["p_unit"]
             kp = jnp.where(pu >= 0, st["ukap"][jnp.maximum(pu, 0)], st["pred_ukap"])
             vp = ss**2 / kp
             k0p = vp + sd**2
-        w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
+        gain = row_gains(D, st)
+        if gain is not None:
+            gp = unit_gain(st["phase_scale"], D["p_phase"])
+            k0p = gp**2 * k0
+        w1, Wb = unit_W(D, hyp, c, st.get("ukap"), gain)
         om_d, om_off = pair_weights(D, w1, Wb)
         e = D["y"] - offsets(D, st) - all_means(D, st["theta"]) - st["lev"][D["site"]]
         We = apply_W(D, om_d, om_off, e)
@@ -2078,7 +2136,10 @@ def make_sampler(
         mean = jnp.zeros(n_pred)
         var = jnp.full(n_pred, k0) if k0p is None else k0p
         rows, tr = D["p_one"]
-        if vp is None:
+        if gp is not None:
+            k = gp[rows] * kernel(hyp, tp[rows], D["t"][tr]) * gain[tr]
+            var = var.at[rows].set(k0p[rows] - k * k * w1[tr])
+        elif vp is None:
             k = kernel(hyp, tp[rows], D["t"][tr])
             var = var.at[rows].set(k0 - k * k * w1[tr])
         else:
@@ -2090,6 +2151,8 @@ def make_sampler(
         ):
             v = None if vp is None else vp[rows][:, None]
             ks = jnp.where(mask[slot], kernel(hyp, tp[rows, None], tb[slot], v), 0.0)
+            if gp is not None:
+                ks = gp[rows, None] * ks * gain[idx[slot]]
             mean = mean.at[rows].set(jnp.sum(ks * We[idx[slot]], axis=1))
             prior = k0 if k0p is None else k0p[rows]
             var = var.at[rows].set(prior - jnp.einsum("pa,pab,pb->p", ks, W[slot], ks))
@@ -2174,6 +2237,8 @@ def make_sampler(
             layout=lay,
             weights=weights,
             unit_W=unit_W,
+            unit_gain=unit_gain,
+            row_gains=row_gains,
             pair_weights=pair_weights,
             apply_W=apply_W,
             global_system=global_system,

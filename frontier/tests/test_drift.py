@@ -108,6 +108,11 @@ def _dense_cov(train, parts, st):
     K = np.where(
         same, ss**2 + sd**2 * np.exp(-np.abs(t[:, None] - t[None, :]) / tau), 0.0
     )
+    if train.unit_factor is not None:
+        # Under `unit_factor` a row's u is its unit's process times the row's gain.
+        k = np.asarray(st["phase_scale"])[train.unit_factor]
+        g = k ** np.asarray(train.phase_map)[train.phase[order], train.unit_factor]
+        K = g[:, None] * K * g[None, :]
     return np.diag(1 / c) + K, K, c
 
 

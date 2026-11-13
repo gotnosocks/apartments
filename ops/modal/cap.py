@@ -161,6 +161,11 @@ STATED_RATE["drift-building-phase"] = 1.0
 # L1 took 1.732 s and one with the levels 1.717 s (18,441 rows and 10,135 units, 2 chains),
 # so the levels take L1's rate.
 STATED_RATE["drift-building-phase-level"] = 1.0
+# The duplex factor adds a seventh free factor to the scale step and scales u by each
+# marked row's gain. On the CPU three sweeps of L1 averaged 2.735 s and two of the duplex
+# model 3.089 s, 13% more (18,441 rows and 10,135 units, 2 chains, load average 21 to 29),
+# so 1.0 s becomes 1.1 s.
+STATED_RATE["drift-building-phase-duplex"] = 1.1
 # The segment paths add 430 columns to L1's global block of about 200, one for each of eight
 # segments at each quarter start. On the CPU a sweep of L1 took 1.725 s and one with the paths
 # 2.688 s, 56% more (18,441 rows and 10,135 units, 2 chains), so 1.0 s becomes 1.6 s. On the
@@ -287,6 +292,7 @@ BASELINES = (
     "drift-building",
     "drift-building-doorman",
     "drift-building-phase",
+    "drift-building-phase-duplex",
     "drift-building-phase-level",
     "drift-building-phase-segment",
     "drift-building-phase-year",
@@ -353,6 +359,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building",
         "drift-building-doorman",
         "drift-building-phase",
+        "drift-building-phase-duplex",
         "drift-building-phase-level",
         "drift-building-phase-segment",
         "drift-building-phase-year",

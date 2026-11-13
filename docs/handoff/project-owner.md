@@ -44,8 +44,10 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   normal 40 GiB container (`docs/notes/segment-paths-2026-11-13.md`, Cost).
 - **Duplex column.** `b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise-duplex` in
   `/data1/apartments/frontier/datasets/` holds L1's dataset with S7's pattern as the column
-  `duplex` (`docs/notes/duplex-column-2026-11-13.md`). The duplex fit's module is still to
-  write.
+  `duplex` (`docs/notes/duplex-column-2026-11-13.md`). The duplex fit's module is
+  `drift-building-phase-duplex`, D1 (`docs/notes/duplex-factor-2026-11-13.md`), with its
+  launch commands and predictions. It is written, not fit, and `drift_today` would need
+  support for it before D1 could be served.
 - **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
   leave it alone.
 
