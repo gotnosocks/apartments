@@ -281,6 +281,46 @@ def test_phase_level_shift_moves_the_columns_to_todays_phase():
     np.testing.assert_allclose(dt.phase_level_shift(fit, rows, today), want.T)
 
 
+def test_today_rows_moves_l2s_levels_and_the_paths_to_the_day(monkeypatch):
+    P = drift_building_phase.PHASES
+    rng = np.random.default_rng(2)
+    base = rng.standard_normal((3, 4))
+    own, today = np.array([0, 1, 2, 1]), np.array([2, 2, 1, 0])
+    names = ["alpha", "phase:none", "phase:0-2"]
+    fit = SimpleNamespace(
+        names=names,
+        kept={"beta": rng.standard_normal((3, len(names)))},
+        season_cols=[],
+        start=pd.Timestamp("2025-01-06"),
+        full=SimpleNamespace(
+            phase=own, phases=P, site=np.arange(4), group=np.zeros(4, int)
+        ),
+        seg=SimpleNamespace(),
+    )
+    seen = []
+
+    def shift(f, rows, t_new):
+        seen.append(t_new)
+        return np.zeros((3, len(rows)))
+
+    monkeypatch.setattr(dt, "base_xb", lambda f, rows: base.copy())
+    monkeypatch.setattr(dt, "phase_today", lambda f, rows, day: today)
+    monkeypatch.setattr(dt, "segment_shift", shift)
+    apts = pd.DataFrame({"row": np.arange(4), "unit": np.arange(4)})
+    day = pd.Timestamp("2026-11-13")
+    rw = dt.today_rows(fit, apts, day)
+    # The paths' time is `day`'s, in the years of the segment model's knots.
+    years = (day - fit.start).days / seg_model.YEAR_DAYS
+    assert seen == [pytest.approx(years)]
+    level = dt.phase_level_shift(fit, np.arange(4), today)
+    assert np.abs(level).min() > 0
+    np.testing.assert_allclose(rw.xb, base + level)
+    # L1's design has no level columns and no paths.
+    fit.names, fit.kept["beta"], fit.seg = ["alpha"], fit.kept["beta"][:, :1], None
+    np.testing.assert_allclose(dt.today_rows(fit, apts, day).xb, base)
+    assert len(seen) == 1
+
+
 @dataclasses.dataclass
 class SegDesign:
     x: np.ndarray

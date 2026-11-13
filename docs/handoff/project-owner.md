@@ -48,8 +48,7 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   `drift-building-phase-duplex`, D1 (`docs/notes/duplex-factor-2026-11-13.md`), with its
   launch commands and predictions. Its factor k widens the noise of marked rows only, so no
   row's location in a draw moves with its own mark; I revised it to that before any launch
-  (#1362). It is written, not fit, and `drift_today` would need support for it before D1
-  could be served.
+  (#1362). It is written, not fit. `drift_today` supports it (#1364).
 - **S12, the negative amenity terms.** In `docs/notes/amenity-signs-2026-11-13.md` I looked
   for the causes behind L1's wrong signs, with no fit. In the ad regressions hardwood's own
   term comes from re-listing drift, about 0.75% less per later ad of a unit, though I haven't
@@ -57,8 +56,9 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   listers. Patio, roof rights, hardwood between
   units and live-in super have no named cause. No fit candidate came out. The photo pilot
   (about 480 OxyLabs requests and 0.4M Sonnet input tokens) waits for Ben's word.
-- **Next.** `drift_today` support for L2, the segment paths and D1 in a reviewed PR, then the
-  collapsed line-level module from `docs/notes/line-level-screen-2026-11-12.md`.
+- **Next.** `drift_today` takes L2, the segment paths and D1 (#1364). The photo pilot for
+  S12 runs next, then the collapsed line-level module from
+  `docs/notes/line-level-screen-2026-11-12.md`.
 - **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
   leave it alone.
 

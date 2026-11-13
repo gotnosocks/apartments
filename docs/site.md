@@ -37,7 +37,8 @@ the market split ([leak-free scoring](leak-free-scoring.md)).
 the market fit knows (its newest ad, training or on the market, with its unit label taken from
 the ad's page as the Deals page takes it), with the predictive median and 50/80/95% intervals of an ad for it on `--day` (today in New York by default), and then
 `meta.json` (the model, the run and its gate, the day, the end of the fit's weekly grid and how
-far the day lies past it, the draws used, the counts, the check below, and the table's sha256).
+far the day lies past it, a segment model's last quarter start and whether the day lies past
+it, the draws used, the counts, the check below, and the table's sha256).
 The module rebuilds the run's design, refuses it unless its columns, split and snapshots are the
 fit's, and for each of `--draws` kept draws integrates each building's path and each apartment's
 level given the training residuals, with a short Gibbs chain on the noise's mixing scales. A day

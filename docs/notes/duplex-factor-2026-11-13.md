@@ -65,8 +65,8 @@ flipping the training rows' marks moves them. On a simulated design with a level
 unit and the noise of marked rows widened 1.5 times, a run recovers k (median 1.3 to 1.75,
 phases within 0.2 of 1), and a small run's draws are pinned.
 
-`drift_today` refuses every phased model but L1, so if D1 wins, serving it needs a
-change there first.
+`drift_today` prices D1's apartments today with each one keeping its last ad's mark (#1364),
+so D1 can be served if it wins.
 
 ## Cost
 

@@ -64,7 +64,8 @@ its columns follow `--day` as the walk does; past the last quarter start a path 
 value there.
 
 `publish` writes `today.parquet`, one row per apartment, and then `meta.json` (the model,
-the run, its gate, the day, the grid's end, the check and the table's sha256). Only a fit on
+the run, its gate, the day, the grid's end, a segment model's last quarter start and
+whether the day lies past it, the check and the table's sha256). Only a fit on
 the market split that passed the convergence gate is accepted.
 """
 
@@ -546,9 +547,7 @@ class Fit:
     Bc: np.ndarray
     lay: dict
     xb: np.ndarray  # (draws, training rows) x beta, alpha included
-    full: (
-        SimpleNamespace  # every frame row's unit, site, week, frac, t, group, phase, x
-    )
+    full: SimpleNamespace  # each frame row's unit, site, week, frac, t, group, phase, x
     season: np.ndarray  # (frame rows, len(SEASON)) the season columns
     season_cols: list
     seg: SimpleNamespace | None  # the segment paths' columns (`segment_terms`)
@@ -570,7 +569,9 @@ def thin(chains: int, draws: int, n: int) -> np.ndarray:
     return np.unique(np.linspace(0, total - 1, min(n, total)).round().astype(int))
 
 
-def level_columns(names, phases) -> tuple[list, np.ndarray]:
+def level_columns(
+    names: list[str], phases: tuple[str, ...] | None
+) -> tuple[list[int], np.ndarray]:
     """L2's phase level columns among `names` (`phase:{phase}`), and each one's phase as its
     place in `phases`."""
     cols = [j for j, n in enumerate(names) if n.startswith("phase:")]
@@ -584,7 +585,7 @@ def level_columns(names, phases) -> tuple[list, np.ndarray]:
     return cols, which
 
 
-def segment_terms(d, names) -> SimpleNamespace | None:
+def segment_terms(d: b0.Design, names: list[str]) -> SimpleNamespace | None:
     """What `segment_shift` reads of a segment model's design, in the terms
     `drift_building_phase_segment.path_design` builds its columns from: the quarter starts
     in years from the grid start, each one's segment shares over the frame's rows, each
