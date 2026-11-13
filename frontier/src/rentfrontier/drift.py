@@ -643,6 +643,7 @@ def make_sampler(
     unit_t: bool = False,
     unit_dof_fixed: float | None = None,
     unit_kap_collapsed: bool = False,
+    row_dof_fixed: float | None = None,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -657,11 +658,18 @@ def make_sampler(
     step's coordinates (`rentfrontier.drift_building_phase_unitt`).
     `unit_kap_collapsed` draws the kap from their conditional with u and the lasting levels
     integrated out (`collapsed_kap`), in place of their Gamma conditional given the levels
-    (`rentfrontier.drift_building_phase_unitk`)."""
+    (`rentfrontier.drift_building_phase_unitk`).
+    `row_dof_fixed` holds the rows' degrees of freedom nu at that value: the noise step
+    skips nu's slice update, and the scale step leaves log nu out of its coordinates and
+    holds lam's standardized logs at the fixed nu."""
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
     assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
+    # Whether the sweep moves the rows' nu, and where the phases' factors start in the
+    # scale step's coordinates.
+    nu_free = row_dof_fixed is None
+    pf = 7 + nu_free
     # The kap drawn with u integrated out must come after every move of nu_u, which a free
     # nu_u's slice update in `update_unit_t` does not.
     assert not (dof_free and unit_kap_collapsed), (
@@ -1367,13 +1375,14 @@ def make_sampler(
         `keta` holds their standardized logs.
 
         `unit_loglik` leaves out the rows' log c / 2."""
-        ls, lnu = x[3:7], x[7]
+        ls = x[3:7]
+        lnu = x[7] if nu_free else jnp.log(jnp.asarray(row_dof_fixed))
         sig = jnp.exp(ls)
         a = jnp.exp(lnu) / 2
         m, sd = lam_moments(lnu)
         loglam = m + sd * eta
         lam = jnp.exp(loglam)
-        c = lam / row_sd(D, sig, jnp.exp(x[8 : 8 + free])) ** 2
+        c = lam / row_sd(D, sig, jnp.exp(x[pf : pf + free])) ** 2
         ukap = None
         if unit_t:
             m_u, sd_u = lam_moments(
@@ -1416,7 +1425,7 @@ def make_sampler(
         if not phased:
             return out
         # Each phase's factor enters c as sigma does, and its log takes a Normal prior.
-        lf = x[8 : 8 + free]
+        lf = x[pf : pf + free]
         return out - jnp.sum(phase_rows * lf) - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
 
     def unit_eta(st):
@@ -1426,8 +1435,8 @@ def make_sampler(
 
     def scales_x(st):
         """The state's point in the coordinates of `scales_logp`."""
-        lnu = jnp.log(st["nu"])
-        x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu[None]])
+        lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
+        x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu])
         x = jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
         return jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
 
@@ -1455,15 +1464,16 @@ def make_sampler(
 
         x = scales_x(st)
         x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
-        m, sd = lam_moments(x[7])
+        lnu = x[7] if nu_free else lnu
+        m, sd = lam_moments(lnu)
         new = dict(
             hyp=x[:3],
             sigma=jnp.exp(x[3:7]),
-            nu=jnp.exp(x[7]),
+            nu=jnp.exp(lnu),
             lam=jnp.exp(m + sd * eta),
         )
         if phased:
-            new["phase_scale"] = jnp.exp(x[8 : 8 + free])
+            new["phase_scale"] = jnp.exp(x[pf : pf + free])
         if dof_free:
             m_u, sd_u = lam_moments(x[-1])
             new["unit_dof"] = jnp.exp(x[-1])
@@ -1832,7 +1842,11 @@ def make_sampler(
             ll = jnp.sum(b0.t_logpdf(r, nu, scale(st["sigma"])))
             return (ll + a_nu * lnu[0] - b_nu * nu)[None]
 
-        nu = jnp.exp(b0.slice_vec(k1, jnp.log(st["nu"])[None], logp_nu, 0.1)[0])
+        nu = (
+            jnp.exp(b0.slice_vec(k1, jnp.log(st["nu"])[None], logp_nu, 0.1)[0])
+            if nu_free
+            else st["nu"]
+        )
 
         def logp_sigma(ls):
             sig = jnp.exp(ls)
@@ -2113,7 +2127,7 @@ def make_sampler(
             theta=jnp.zeros(G),
             lev=jnp.zeros(S),
             bld_sd=0.2 * jit(k[0], (nz,), 0.1),
-            nu=5.0 * jit(k[1], (), 0.2),
+            nu=5.0 * jit(k[1], (), 0.2) if nu_free else jnp.full((), row_dof_fixed),
             sigma=0.15 * jit(k[2], (4,), 0.1),
             lam=jnp.ones(n),
             tau=0.005 * jit(k[3], (), 0.2),
@@ -2124,7 +2138,7 @@ def make_sampler(
                 jnp.asarray(
                     [HYP_WIDTH] * 3
                     + [SIGMA_WIDTH] * 4
-                    + [NU_WIDTH]
+                    + [NU_WIDTH] * nu_free
                     + [PHASE_WIDTH] * free
                     + [UNIT_DOF_WIDTH] * dof_free
                 )
@@ -2214,6 +2228,7 @@ def make_sampler(
             kap_logp=kap_logp,
             unit_t=unit_t,
             dof_free=dof_free,
+            nu_free=nu_free,
             predict=predict,
             all_means=all_means,
             kernel=kernel,
@@ -2270,6 +2285,7 @@ def run(
     unit_t: bool = False,
     unit_dof_fixed: float | None = None,
     unit_kap_collapsed: bool = False,
+    row_dof_fixed: float | None = None,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2278,7 +2294,8 @@ def run(
     `pred_group`. A design with noise phases adds `phase_scale`, every phase's factor, to
     the traced and kept arrays, and each predicted row's `pred_phase`. `unit_t`
     (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both, unless
-    `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s."""
+    `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s. With `row_dof_fixed`
+    (`make_sampler`) the kept arrays hold nu at its value, and the traced ones leave it out."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
@@ -2291,6 +2308,7 @@ def run(
         unit_t=unit_t,
         unit_dof_fixed=unit_dof_fixed,
         unit_kap_collapsed=unit_kap_collapsed,
+        row_dof_fixed=row_dof_fixed,
     )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
@@ -2299,6 +2317,8 @@ def run(
     phase = ("phase_scale",) if parts["phased"] else ()
     more = phase + (("unit_dof",) if parts["dof_free"] else ())
     traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
+    # A fixed nu is a constant, and the gate's R-hat has nothing to measure on it.
+    traced = traced if parts["nu_free"] else tuple(k for k in traced if k != "nu")
     kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     key = jax.random.PRNGKey(settings.seed)
     key, sub = jax.random.split(key)
@@ -2410,8 +2430,8 @@ def run(
                 [
                     np.asarray(st["hyp"]),
                     np.log(np.asarray(st["sigma"])),
-                    np.log(np.asarray(st["nu"]))[:, None],
                 ]
+                + ([np.log(np.asarray(st["nu"]))[:, None]] if parts["nu_free"] else [])
                 + ([np.log(np.asarray(st["phase_scale"]))] if phase else [])
                 + (
                     [np.log(np.asarray(st["unit_dof"]))[:, None]]

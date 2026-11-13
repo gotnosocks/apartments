@@ -367,10 +367,11 @@ carries only the cautions the dataset gives, and `meta.json` says the texts were
 
 The model names are `drift`, `drift-building`, `drift-building-doorman`,
 `drift-building-phase`, `drift-building-phase-level`, `drift-building-phase-year`,
-`drift-building-phase-unitk`, `drift-building-phase-unitt`, `drift-building-unitt` and
-`drift-local` (`drift.py`, `drift_building.py`, `drift_building_doorman.py`,
+`drift-building-phase-unitk`, `drift-building-phase-unitkn`, `drift-building-phase-unitt`,
+`drift-building-unitt` and `drift-local` (`drift.py`, `drift_building.py`, `drift_building_doorman.py`,
 `drift_building_phase.py`, `drift_building_phase_level.py`, `drift_building_phase_year.py`,
-`drift_building_phase_unitk.py`, `drift_building_phase_unitt.py`, `drift_building_unitt.py`,
+`drift_building_phase_unitk.py`, `drift_building_phase_unitkn.py`,
+`drift_building_phase_unitt.py`, `drift_building_unitt.py`,
 `drift_local.py`).
 `drift-building-doorman` adds a Manhattan copy of each doorman column to the building
 model (docs/notes/drift-building-doorman-2026-11-11.md). `drift-building-phase` scales each
@@ -394,7 +395,10 @@ neither traces nor keeps `unit_dof` (docs/notes/l1-unit-t-fixed-2026-11-12.md).
 `drift-building-phase-unitk` is that model with the kap drawn from their conditional
 given the rows' remainders, with u and the lasting levels integrated out, before u and
 the levels are drawn given them (`make_sampler`'s `unit_kap_collapsed`;
-docs/notes/l1-unit-kap-collapsed-2026-11-13.md).
+docs/notes/l1-unit-kap-collapsed-2026-11-13.md). `drift-building-phase-unitkn` holds the
+rows' nu at 2 on top of that (`make_sampler`'s `row_dof_fixed`): the noise step skips
+nu's slice update, the scale step leaves log nu out, and the run keeps nu but doesn't
+trace it (docs/notes/l1-row-dof-fixed-2026-11-13.md).
 `--split market` fits a market or backtest
 dataset.
 
