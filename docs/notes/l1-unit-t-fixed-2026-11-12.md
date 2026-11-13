@@ -56,8 +56,9 @@ containers settled at $3.84 and $3.87, so I expect $7.5 to $8.5 for two.
 
 The fewer draws are the main risk to the gate. L1's pool had its least bulk ESS at 788, on
 `drift_tau`, from 4 chains of 2,720 draws. At the same mixing, 4 chains of about 1,620
-draws give about 470. If the pool misses on ESS alone, a third container with seed 3 is
-the cheaper fix.
+draws give about 470. A miss on the gate is read as a sign of a problem in the data or the
+model, so it does not lead to another container on a new seed. If the margin looks too thin
+before launch, the plan can start with three containers instead, at about $12.
 
 ## Launch plan (no fit is launched by this note)
 
