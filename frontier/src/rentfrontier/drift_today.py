@@ -84,6 +84,7 @@ from . import (
     drift_deals,
     drift_estimates,
     drift_score,
+    simulate,
     splits,
 )
 from . import run as run_module
@@ -569,6 +570,13 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
     set_split(record["split"])
     held = splits.SPLITS[record["split"]](frame)
     d = spec.design(frame)
+    # The snapshots the design read must be the fit's, as `simulate` checks them.
+    now = spec.run_record(d)
+    for k in simulate.SNAPSHOT_KEYS:
+        if not simulate.same(now.get(k), record.get(k)):
+            raise SystemExit(
+                f"{k}: the design reads {now.get(k)}, the fit read {record.get(k)}"
+            )
     with np.load(run_dir / "posterior.npz") as z:
         names = [str(v) for v in z["names"]]
         if names != list(d.names):
