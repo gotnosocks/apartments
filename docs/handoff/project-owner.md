@@ -51,9 +51,10 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   (#1362). It is written, not fit, and `drift_today` would need support for it before D1
   could be served.
 - **S12, the negative amenity terms.** In `docs/notes/amenity-signs-2026-11-13.md` I looked
-  for the causes behind L1's wrong signs, with no fit. Hardwood's own term comes from
-  re-listing drift, about 0.75% less per later ad of a unit, and city views, balcony and park
-  views are negative only between buildings and listers. Patio, roof rights, hardwood between
+  for the causes behind L1's wrong signs, with no fit. In the ad regressions hardwood's own
+  term comes from re-listing drift, about 0.75% less per later ad of a unit, though I haven't
+  run that inside L1. City views and balcony are negative only between buildings and
+  listers. Patio, roof rights, hardwood between
   units and live-in super have no named cause. No fit candidate came out. The photo pilot
   (about 480 OxyLabs requests and 0.4M Sonnet input tokens) waits for Ben's word.
 - **Next.** `drift_today` support for L2, the segment paths and D1 in a reviewed PR, then the

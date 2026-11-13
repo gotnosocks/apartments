@@ -4,8 +4,9 @@ An amenity added to an apartment should essentially never lower its rent, so a n
 term in L1 means the model is missing a cause that travels with the code. S11
 (`docs/notes/causal-screens-2026-11-13.md`) found two patterns:
 
-- A. Negative own terms whose sum with the unit mean is positive: among a unit's own ads,
-  the one stating the code asks less, while a unit with the code asks more than one without.
+- A. Negative own terms, five of them with a positive sum with the unit mean: among a
+  unit's own ads, the one stating the code asks less, while a unit with the code asks more
+  than one without. Hardwood's sum is negative too, so it comes up under B as well.
   Wood fireplace -0.98%, patio -0.33%, fireplace -0.31%, water views -0.27%, private outdoor
   space -0.14%, hardwood floors -0.12%.
 - B. Negative sums: a unit with the code asks less than one without. Roof rights -2.04%,
@@ -20,7 +21,7 @@ are in `docs/notes/amenity-signs-2026-11-13/`.
 ## Summary
 
 All figures are percent of the ask. Part A's shares are against the fixed-effect estimate
-for each unit (E3), which reproduces L1's negatives, and part B's against the held-out
+for each unit (E3), which comes out negative for four of the six codes, and part B's against the held-out
 regression with no added term. L1's terms in the tables are its posterior medians, which differ from
 S11's figures above by up to 0.01.
 
@@ -28,8 +29,8 @@ S11's figures above by up to 0.01.
 |---|---|---|---|---|
 | Hardwood floors | A, own | -0.12 | Each later ad of a unit asks about 0.75% less against the market, and the code accrues over a unit's ads | All: E3's -1.14 becomes +0.18 to +0.25 |
 | Wood fireplace | A, own | -0.98 | Within units the term is inside its noise, -0.50 ± 0.43 | The same drift takes 32% to 60% |
-| Patio | A, own | -0.33 | None | The drift takes 11% to 14%, and -0.54 ± 0.12 is left in the first differences with every control |
-| Fireplace | A, own | -0.31 | No estimate from the ads comes out negative, so the sign comes from L1's design beside its other codes | Not tested |
+| Patio | A, own | -0.33 | None | The drift takes 11% to 13%, and -0.54 ± 0.12 is left in the first differences with every control |
+| Fireplace | A, own | -0.31 | No estimate from the ads comes out negative. My hypothesis, untested, puts the sign on L1's design beside its other codes | Not tested |
 | Water views | A, own | -0.27 | Within units the term is inside its noise, -0.14 ± 0.22 | Not separable from zero |
 | Private outdoor space | A, own | -0.14 | As for fireplace | Not tested |
 | Roof rights | B, sum | -2.03 | None. The code marks a shared roof deck or nothing in 21 of the 22 ads I had read | 31% within a building and lister |
@@ -38,9 +39,9 @@ S11's figures above by up to 0.01.
 | City views | B, sum | -0.42 | Which buildings' ads state the code and which listers tick it | 99% within a building and lister |
 | Balcony | B, sum | -0.34 | Which buildings' ads state the code | All within a building |
 | Park views | B, sum | -0.27 | The held-out ads give +0.04 ± 0.19, and +0.76 ± 0.23 within buildings | All |
-| Live-in super | B, own | -0.53 | None. Every control makes it more negative | None |
+| Live-in super | B, own | -0.53 | None. Every control but the renovation words makes it more negative | None |
 
-I found no fit candidate worth a place in the queue. A count of each unit's earlier ads would
+I found no fit candidate worth a place in the queue. A count of each unit's earlier ads should
 put hardwood's own term right, but L1's held-out predictions already follow that drift, and
 I expect -30 to +30 elpd against L1. A lister level loses 233 elpd on the held-out ads. The
 photo pilot, the only direct test left for the negatives I couldn't name, waits for Ben.
@@ -224,10 +225,11 @@ Scores:
    under 6% of patio's and water views' negatives.
 6. Hit. The ending moves each coefficient by under 17% of M0's.
 7. Missed. The form moves hardwood by 35%, wood fireplace by 40% and water views by 32%.
-8. The first half doesn't apply, with only 2 negatives under M0. The second missed: wood
-   fireplace comes out +0.40 ± 0.37.
-9. Missed. A lister switch after a delisting or a pause asks 0.18% ± 0.10 less than one
-   after another ending.
+8. Missed on both halves. M0 has only 2 negatives, so at most 2 codes could lose half, and
+   only water views does. Wood fireplace comes out +0.40 ± 0.37.
+9. Missed. After a delisting or a pause, an ad with a new lister asks about 0.28% more than
+   one with the same lister: a new lister adds 0.46% ± 0.05 after any ending, and 0.18% ±
+   0.10 less of it after those two.
 
 ### Results: L1's device
 
@@ -252,13 +254,14 @@ positive, the negative grows with the unit's ads, and a slope common to every un
 it. Each later ad of a unit asks about 0.75% less than the market index, and a code that
 accrues over a unit's ads, as hardwood does, takes up that drift in any estimate that
 compares an ad with its unit's mean. L1 compares each ad with its unit's level and with the
-past mean of the code, so its own term takes up the drift too. I haven't tested why later
+past mean of the code, so I expect its own term takes up the drift too, though I haven't
+run the common slope inside L1. I haven't tested why later
 ads ask less. An apartment ages between renovations, and the index follows the city's mix of
 ads, so either could do it.
 
 Fireplace and private outdoor space come out positive in every estimate from the ads, E4 and
-E5 included. Their negatives in L1 come from its design beside its other codes, which I
-didn't test. The overlapping codes (wood and decorative fireplaces beside fireplace; patio,
+E5 included. I expect their negatives in L1 come from its design beside its other codes,
+but I haven't tested that. The overlapping codes (wood and decorative fireplaces beside fireplace; patio,
 balcony and terrace beside private outdoor space) would be the first thing to check.
 
 Scores:
@@ -408,11 +411,12 @@ clustered by building. Live-in super has its own term alone.
 On the held-out ads the sums come out larger than L1's for roof rights, hardwood and city
 views, and inside their noise for decorative fireplace and park views. No added term moves a
 sum toward zero by more than 0.25 points, and the count of other premium codes makes every
-sum more negative.
+sum but decorative fireplace's more negative.
 
 The old-detail words come in 21% of the decorative fireplace ads against 6% of the others,
-and in 7.4% of the hardwood ads against 4.7%. The ads stating roof rights or a balcony say
-"renovated" less often than the others, 21% against 33%. Split by the count of other premium
+and in 7.4% of the hardwood ads against 4.7%. The ads stating roof rights say "renovated"
+less often than the others, 21% against 33%, and so do the ads stating a balcony, 21%
+against 34%. Split by the count of other premium
 codes, hardwood's sum is -1.10 ± 0.15 in ads stating at most one and -1.15 ± 0.08 in ads
 stating three or more, and city views' -0.52 ± 0.17 and -0.77 ± 0.10.
 
@@ -421,7 +425,7 @@ Scores:
 1. Missed. Only roof rights comes within 30% of L1's sum, at -2.59 against -2.03.
 2. Missed. Era by zone moves roof rights by 10%.
 3. Missed. The class makes live-in super's term more negative, -0.37 against -0.26.
-4. The first half hit for decorative fireplace (3.4 times as often) and missed for hardwood
+4. The first half hit for decorative fireplace (3.5 times as often) and missed for hardwood
    (1.6 times). The second missed: the words make both sums more negative.
 5. Missed. Hardwood's sum is the same in both groups, and city views' is more negative in ads
    with three or more other premium codes.
@@ -484,10 +488,12 @@ and decorative fireplace in 10 of 15 and 5 of 7.
 12. Missed. The building and lister cell removes 31% of roof rights' sum, 25% of hardwood's
     and 99% of city views'.
 
-So city views, balcony and park views are negative between units because of the buildings
-whose ads state them and the listers who tick them. L1 holds each building's level, pooled
-toward its block, and the codes' unit means then take up what the pooling leaves of the
-building's level. Within a building, the views and the balcony are worth zero or more. Roof
+So city views and balcony are negative between units because of the buildings whose ads
+state them and the listers who tick them. L1 holds each building's level, pooled toward its
+block, and the codes' unit means then take up what the pooling leaves of the
+building's level. Within a building, the views and the balcony are worth zero or more. Park
+views' sum on the held-out ads is already inside its noise, so L1's -0.27 doesn't come back
+there. Roof
 rights keeps -1.78 within a building and lister, hardwood -0.79, and live-in super grows more
 negative with the lister, so I haven't named a cause for those three.
 
@@ -522,8 +528,8 @@ fetches need Ben's own word. The pilot would cost about 480 OxyLabs requests (60
    read as the worth of the feature. The held-out check gives -28 ± 14 elpd for the count
    over a constant shift, so I expect -30 to +30 against L1. Under the rule it doesn't merit a
    fit for elpd. If Ben wants the codes' terms to read right, it would cost one fit, about
-   $11.50 on Modal, and would compare better against L2 than against L1, since L2's phase
-   levels already take some of the drift.
+   $11.50 on Modal. Against L2 it would do no better: over a shift by phase the count gives
+   -27 ± 17 elpd, and L2's phase levels already take some of the drift.
 2. A lister level. Rejected: -233 ± 41 elpd on the held-out ads.
 3. An extraction of whether the text supports each code, at scale. Not recommended: the
    support doesn't separate the over-predicted ads from the controls. For the record, the
