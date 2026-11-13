@@ -46,6 +46,14 @@ it predicts the ads on the market that the fit itself predicted, and `meta.json[
 both elpds, the gap between the medians, the ratio of the 80% widths and both coverages. The
 module docstring gives the algebra. Only a market fit that passed the gate is accepted.
 
+The design rebuild of the served market run peaks at about 14 GB, more than thelio has free,
+so the table is written on Modal: `/data1/apartments/venvs/modal/bin/python ops/modal/today.py
+--outside-budget --out <root>/today COMMIT MARKET_RUN` runs the same command at COMMIT in a CPU
+container (16 cores, 64 GiB, an hour's timeout) and downloads `today.parquet` and then
+`meta.json` into `--out`, only when both were written. It needs a Modal budget Ben approved:
+`cap.py` reserves the container's hour, about $1.27, as an outside row and settles at the time it
+ran. The log and the container's record land in `/data1/apartments/modal/today/RUN-DAY/`.
+
 `apartments.site.today` reads only that folder, refuses a table whose sha256 is not the one in
 `meta.json` (503 until the next publish), and queries it with DuckDB.
 
