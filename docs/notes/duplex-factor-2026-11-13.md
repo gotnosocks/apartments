@@ -30,8 +30,10 @@ the six phase factors, the unit scales, sigma and nu.
 
 Each row's mark comes from its own listing's text, so an ad of a unit takes no mark from the
 unit's other ads, and a later ad's text marks no earlier row. With k on the noise alone, a
-held-out ad's median and the sd of its unit's part come out the same whatever its own mark,
-and the mark widens only its noise. A marked training row weighs less in its unit's and its
+held-out ad's location in each draw and the sd of its unit's part come out the same whatever
+its own mark, and the mark widens only its noise. The predictive median pools the draws, so
+it moves with the ad's own mark only through that width, when the draws' locations differ. A
+marked training row weighs less in its unit's and its
 building's estimates, so the medians of the other ads of its unit and building can move a
 little through those weights.
 
@@ -58,7 +60,7 @@ factors, so D1 needs no change to `drift.py`. The run keeps each cell's factor a
 Since `drift.py` is as it was before D1, the sha256 pins of every other model's draws stand.
 `frontier/tests/test_drift_building_phase_duplex.py` checks the cells and their map, each
 row's mark, and the scale step's density against a dense Gaussian as k moves. It flips the
-marks of the rows to predict and finds their medians, unit sds and means unchanged, while
+marks of the rows to predict and finds their locations, unit sds and means unchanged, while
 flipping the training rows' marks moves them. On a simulated design with a level for each
 unit and the noise of marked rows widened 1.5 times, a run recovers k (median 1.3 to 1.75,
 phases within 0.2 of 1), and a small run's draws are pinned.
@@ -128,9 +130,15 @@ marks and the rest by joining `pred_scores.npz`'s listings to the column.
 ## Predictions (written before launch, revised before launch)
 
 I revised these on 2026-11-13, before any launch, when I moved k from the noise and the unit's
-process to the noise alone (The change). The revision raises k's range, puts back the chances
-of prediction 7 and drops its count of the ads of mixed units, whose medians no longer move
-with their own marks.
+process to the noise alone (The change). The revision changes four of them:
+
+1. prediction 1's shortfall in draws against L1 falls from 9% to 13% to 2% to 7%, from the
+   new timings;
+2. prediction 2's range for k rises to 1.35 to 1.70;
+3. prediction 7 takes back its earlier chances, drops its count of the ads of mixed units,
+   whose locations no longer move with their own marks, and adds a claim on the median error
+   of the marked ads;
+4. prediction 9's range for sigma's fall widens from 0% to 3% to 0% to 4%.
 
 All of these are for the pool of three containers on the latest split, against L1's pool on
 the shared held-out ads. L1's numbers there: median error 0.04068 and 80% coverage 0.797, and

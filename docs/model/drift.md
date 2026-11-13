@@ -388,7 +388,8 @@ phase also moves the row's mean by a coefficient of its own
 noise scale of each row whose `duplex` column is true by a factor k. The sampler takes the
 cells of phase and mark as its phases, and `Design.phase_map` gives a marked cell its phase's
 factor times k, so the scale step draws k with the phase factors. A row's mark widens only its
-own noise, and a held-out row's median and unit sd come out the same whatever its mark
+own noise, and in each draw a held-out row's location and unit sd come out the same whatever
+its mark
 (docs/notes/duplex-factor-2026-11-13.md). `drift-building-phase-segment` adds a path for
 each bedroom group in each zone to the same design: a centered hat column for each segment at
 each quarter start, so a row's mean moves by its segment's path less the share-weighted mean of

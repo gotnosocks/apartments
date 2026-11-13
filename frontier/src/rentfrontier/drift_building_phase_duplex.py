@@ -13,10 +13,11 @@ So this design gives a marked row the phase model's noise times a factor k,
 
     s_i = sigma[group_i] * f[phase_i] * k^m_i,    m_i = 1 for a marked row, else 0.
 
-The unit's process, the building's level and the rows' means are the phase model's. A
-held-out row's median and the sd of its unit's part come out the same whatever its own mark,
-and the mark widens only the row's noise. A marked training row weighs less in its unit's
-and its building's estimates. log k takes the
+The unit's process, the building's level and the rows' means are the phase model's. In
+each draw a held-out row's location and the sd of its unit's part come out the same whatever
+its own mark, and the mark widens only the row's noise. So the predictive median, a median
+over the draws, moves with the row's own mark only through the width of that noise. A marked
+training row weighs less in its unit's and its building's estimates. log k takes the
 Normal(0, `drift.PHASE_PRIOR`) prior of the phases' log factors.
 
 Each row's mark comes from its own listing's description (`rentfrontier.b0duplex`). An ad of

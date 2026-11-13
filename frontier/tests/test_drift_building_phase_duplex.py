@@ -116,7 +116,7 @@ def test_scales_logp_matches_the_dense_density_as_the_factors_move():
         assert abs(want - base[1]) > 1.0
 
 
-def test_a_held_out_rows_own_mark_moves_neither_its_median_nor_its_units_sd():
+def test_a_held_out_rows_own_mark_moves_neither_its_location_nor_its_units_sd():
     """Flipping the marks of the rows to predict leaves `predict` as it was, and flipping
     the training rows' marks moves it, since k changes their weights."""
     train, _, _ = td._split(_duplexed(per_unit=9, marked=0.4))
@@ -140,6 +140,7 @@ def test_a_held_out_rows_own_mark_moves_neither_its_median_nor_its_units_sd():
     for got, want in zip(predicted(flipped), base):
         np.testing.assert_array_equal(got, want)
     moved = predicted(dataclasses.replace(train, phase=train.phase ^ 1))
+    assert np.abs(moved[0] - base[0]).max() > 1e-3
     assert np.abs(moved[2] - base[2]).max() > 1e-3
 
 
