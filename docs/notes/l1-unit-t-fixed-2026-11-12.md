@@ -99,3 +99,79 @@ shared held-out ads.
    the 80% interval falls from b9's 0.43 to under 0.35 (55%). L1 has no Deals columns,
    so b9 is the reference here.
 4. 80% coverage on all held-out ads moves by less than 0.005 (75%).
+
+## Results (2026-11-13)
+
+Ben chose 3 containers rather than the 2 planned above, to give the ESS more room. I
+launched them at 07:46 ET as `l1t1`, `l1t2` and `l1t3`, seeds 1 to 3, from bc8e7b95 (#1349),
+fit-only on the latest split with L1 as the baseline. Modal ran `l1t2` on an H200 in
+place of an H100. They settled at $3.57, $3.73 and $3.64, $10.94 in all. `drift_pool`
+wrote `drift-building-phase-unitt-b0-latest-bc8e7b95-l1t` from them: 6 chains of 2,760
+draws, 69 kept.
+
+The sweeps took 0.67 to 0.77 s, about what L1's took, not the 1.19 s the CPU timing
+above led me to expect. The chains got as many draws as L1's.
+
+### The gate
+
+The pool misses the gate on R-hat:
+
+| quantity | L1T R-hat | ESS | L1 R-hat | ESS |
+|---|---:|---:|---:|---:|
+| nu | 1.0251 | 567 | 1.0030 | 956 |
+| unit_sd | 1.0187 | 449 | 1.0076 | 946 |
+| sigma[1] | 1.0103 | 1,250 | 1.0033 | 881 |
+| drift_sd | 1.0051 | 942 | 1.0062 | 1,133 |
+
+Every coefficient passes. The chains agree on where these quantities sit: nu's six chain
+means lie between 1.989 and 1.993, and unit_sd's agree to four decimals. Inside a chain
+they wander, with quarter means up to 0.4 posterior SD from the overall mean, and three
+chains drift down a little over the run. At ESS 567 an R-hat near 1.011 is what the
+half-chains alone would give (`docs/model/drift.md`, "What pooling buys"), so nu moves more
+slowly than its ESS says. The run is not served and, by the rules, gets no further
+container or seed.
+
+The fit moved where the reads said it would. unit_sd fell from 0.060 to 0.047, drift_sd
+from 0.040 to 0.030, and the ads' nu rose from 1.81 to 1.99. The heavy-tailed unit level
+takes the big unit premiums that L1 spread over the row noise and the drift.
+
+### Held-out scores (a free check, not a selection)
+
+I scored the pool with `drift_score` and paired it with L1 on the 189,647 held-out ads both
+share, the SE clustered by building (`l1-unit-t-fixed-2026-11-12/pair.py`). The chains
+agree closely enough on every location that these scores should hold, but a run that
+misses the gate is not compared for serving.
+
+| group | ads | elpd gain | SE | median error L1 / L1T | 80% coverage L1 / L1T | above 80% L1 / L1T |
+|---|---:|---:|---:|---:|---:|---:|
+| all | 189,647 | +4,095.0 | 172.4 | 0.04068 / 0.04024 | 0.797 / 0.799 | 0.090 / 0.087 |
+| top 200, above their building | 147 | +100.3 | 34.1 | 0.1090 / 0.0901 | 0.449 / 0.605 | 0.429 / 0.109 |
+| top 200, below their building | 49 | +16.8 | 12.5 | 0.0687 / 0.0764 | 0.633 / 0.592 | 0.082 / 0.224 |
+| ranks 201 to 2,000, above | 60 | -3.7 | 6.9 | 0.0656 / 0.0643 | 0.650 / 0.650 | 0.217 / 0.117 |
+| ranks 201 to 2,000, below | 39 | -1.0 | 5.4 | 0.0459 / 0.0683 | 0.590 / 0.590 | 0.205 / 0.256 |
+
+On all held-out ads the gain is 24 SE.
+For the top 200 above their building the miss swings past zero: the median signed error
+goes from +0.073 to -0.025, and 29% of their asks now fall below the 80% interval, against
+12% under L1. The t level lets those units sit far from their building, and on their next
+ad some of them come back part of the way.
+
+### The predictions, scored
+
+1. The fit passes the gate (65%). **Miss**: nu at 1.025 and unit_sd at 1.019.
+2. elpd gains over L1 by more than 2 SE (60%). **Hit**, if the run had passed: +4,095,
+   SE 172.
+3. The top-200 share above the 80% interval falls from 0.43 to under 0.35 (55%). **Hit**:
+   0.11. It overshoots: the share below rises to 0.29.
+4. 80% coverage on all held-out ads moves by less than 0.005 (75%). **Hit**: +0.002.
+
+### Next
+
+The gain is too large to leave, so the next step is a model change that removes the slow
+coupling, not another fit of this one. Following the order for a gate miss, the data
+comes first: the reads found most of these units real, and the 5 ledger corrections reach
+the next build. Then the model: nu and unit_sd move only through the scale step, which
+conditions on the 935,396 kap. When a unit's kap is small, its level can sit far out at
+little cost, and the row tail has less to explain. A step that moves nu together with the
+kap, or a row tail fixed in the same way as the unit's, is what I would try first. Each
+would be its own module and fit, written here first.
