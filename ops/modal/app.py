@@ -69,6 +69,9 @@ SCORE_CPU, SCORE_MEMORY_MIB, SCORE_TIMEOUT = 16, 32768, 30 * 60
 # A run's design alone (fit.py --design-only), for a run whose prep runs out of thelio's memory:
 # the all-scraped run's prep took 15 min in its large container and was killed at 9 GB on thelio.
 DESIGN_CPU, DESIGN_MEMORY_MIB, DESIGN_TIMEOUT = 4, 65536, 3600
+# A Price now table (ops/modal/today.py): the served run's design rebuilt, about 14 GB at its
+# peak and more than thelio has free, then a Gibbs sweep per kept draw, one process per core.
+TODAY_CPU, TODAY_MEMORY_MIB, TODAY_TIMEOUT = 16, 65536, 3600
 # A large fit (fit.py --large; Ben, 2026-10-16 06:37Z: a fit on all the scraped data, 1.75M rows,
 # with no hour cap). Host memory scales with the rows from the served design's 15 GB on NB9's
 # 266k, and the fit, PSIS-LOO, post-fit statistics and summary bundle each run for an hour or
@@ -108,6 +111,13 @@ def design_usd_per_second():
     """List price of the design container (about $0.70 an hour)."""
     return (
         DESIGN_CPU * USD_PER_CORE_SECOND + DESIGN_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
+    )
+
+
+def today_usd_per_second():
+    """List price of the Price now container (about $1.27 an hour)."""
+    return (
+        TODAY_CPU * USD_PER_CORE_SECOND + TODAY_MEMORY_MIB / 1024 * USD_PER_GIB_SECOND
     )
 
 
@@ -680,6 +690,68 @@ def _design(spec):
         "usd_estimate": round(wall * design_usd_per_second(), 2),
     }
     (out / "design.json").write_text(json.dumps(meta, indent=2))
+    volume.commit()
+    return meta
+
+
+@app.function(
+    cpu=TODAY_CPU,
+    memory=TODAY_MEMORY_MIB,
+    timeout=TODAY_TIMEOUT,
+    volumes={"/vol": volume},
+)
+def today_cpu(spec):
+    return _today(spec)
+
+
+def _today(spec):
+    """Write a Price now table (python -m rentfrontier.drift_today publish) for a served run
+    at the spec's commit and leave today.parquet and meta.json under /vol/out/<name>-today/
+    for the download, with the log and a today.json record."""
+    started = time.time()
+    _stage(spec)
+    out = Path("/vol/out") / f"{spec['name']}-today"
+    # An earlier launch's outputs, left by a failed download, must not come down as this one's.
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    table = Path("/tmp/today")
+    env = dict(
+        os.environ,
+        PYTHONPATH=f"{WORK}/frontier/src",
+        FRONTIER_DATASET=spec["dataset"],
+        JAX_PLATFORMS="cpu",
+        PYTHONUNBUFFERED="1",
+        # One process per core: a BLAS pool in each would oversubscribe them.
+        OMP_NUM_THREADS="1",
+        OPENBLAS_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
+    )
+    cmd = [
+        "/venv/bin/python", "-m", "rentfrontier.drift_today", "publish",
+        spec["name"], "--out", str(table), "--day", spec["day"],
+        "--registry", spec["registry"], "--workers", str(TODAY_CPU),
+    ]  # fmt: skip
+    with open(out / "today.log", "w") as log:
+        code = _run(cmd, env, log, TODAY_TIMEOUT - 5 * 60)
+    files = []
+    if code == 0:
+        for name in ("today.parquet", "meta.json"):
+            shutil.copy2(table / name, out / name)
+            files.append(name)
+    try:
+        peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
+    except (OSError, ValueError):
+        peak = None
+    wall = time.time() - started
+    meta = {
+        "name": spec["name"],
+        "exit": code,
+        "files": files,
+        "memory_peak_bytes": peak,
+        "wall_seconds": round(wall, 1),
+        "usd_estimate": round(wall * today_usd_per_second(), 2),
+    }
+    (out / "today.json").write_text(json.dumps(meta, indent=2))
     volume.commit()
     return meta
 

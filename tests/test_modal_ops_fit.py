@@ -1508,3 +1508,65 @@ def test_a_fit_with_both_scoring_steps_off_is_priced_and_run_as_the_fit_alone(
     spec = {"name": "r", "tier": "full", "run_args": [], "dataset": "d", "score": False}
     meta = app._fit(spec)
     assert steps == ["rentfrontier.run"] and "loo" not in meta["stages"]
+
+
+def test_a_price_now_table_comes_down_whole_and_needs_an_approved_budget(tmp_path):
+    today = load("today")
+    files = {
+        "out/r-today/today.log": b"log",
+        "out/r-today/today.json": b"{}",
+        "out/r-today/today.parquet": b"table",
+        "out/r-today/meta.json": b"{}",
+    }
+    volume = FakeVolume(files)
+    today.download(volume, "r-today", tmp_path / "site/today", tmp_path / "logs")
+    assert (tmp_path / "site/today/today.parquet").read_bytes() == b"table"
+    assert (tmp_path / "logs/today.log").read_text() == "log"
+    assert volume.removed == ["/out/r-today"]
+    # A failed run leaves the site's table as it was.
+    failed = {k: v for k, v in files.items() if not k.endswith("meta.json")}
+    today.download(FakeVolume(failed), "r-today", tmp_path / "other", tmp_path / "logs")
+    assert not (tmp_path / "other").exists()
+    with pytest.raises(SystemExit, match="budget Ben approved"):
+        today.main(["HEAD", "r", "--out", str(tmp_path)])
+
+
+def test_a_price_now_launch_uploads_the_run_and_its_ads_table(tmp_path):
+    today = load("today")
+    dataset = tmp_path / "datasets" / "d"
+    dataset.mkdir(parents=True)
+    (dataset / "manifest.json").write_text(
+        json.dumps({"market": {"ads": "/x/ads.parquet"}})
+    )
+    run = tmp_path / "runs" / "r"
+    run.mkdir(parents=True)
+    (run / "result.json").write_text(json.dumps({"dataset": "/elsewhere/d"}))
+    assert today.inputs(run) == (str(dataset), [str(run), "/x/ads.parquet"])
+    # The snapshots the dataset pins go up too, unless an input already holds them.
+    pinned = {
+        "rentfrontier.a.ROWS": "/p/rows.parquet",
+        "rentfrontier.b.ROWS": "/p/rows.parquet",
+        "rentfrontier.c.CODES": "/data1/apartments/external/codes.parquet",
+    }
+    (dataset / "inputs.json").write_text(json.dumps(pinned))
+    assert today.inputs(run)[1] == [str(run), "/x/ads.parquet", "/p/rows.parquet"]
+
+
+def test_a_price_now_download_cut_short_keeps_the_old_pair(tmp_path):
+    today = load("today")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "today.parquet").write_bytes(b"old")
+    (site / "meta.json").write_text("old")
+
+    class Cut(FakeVolume):
+        def read_file_into_fileobj(self, path, f):
+            if path.endswith("meta.json"):
+                raise OSError("connection reset")
+            super().read_file_into_fileobj(path, f)
+
+    files = {"out/r-today/today.parquet": b"new", "out/r-today/meta.json": b"new"}
+    with pytest.raises(OSError):
+        today.download(Cut(files), "r-today", site, tmp_path / "logs")
+    assert (site / "today.parquet").read_bytes() == b"old"
+    assert sorted(p.name for p in site.iterdir()) == ["meta.json", "today.parquet"]

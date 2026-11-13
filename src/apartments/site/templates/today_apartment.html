@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% set place = row.address or row.building %}
+{% block title %}{{ place }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}, today{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('today_search') }}">Today</a> ›
+  <a href="{{ url_for('today_search', q=row.building) }}">{{ place }}</a> ›
+  <span aria-current="page">{{ row.unit_label or "unit not stated" }}</span>
+</nav>
+<h1>{{ place }}{% if row.unit_label %} · {{ row.unit_label }}{% endif %}</h1>
+<p class="subline">
+  {{ beds_label(row.bedrooms) }}{% if row.baths %} · {{ row.baths | trim_float }} bath{{ "" if row.baths == 1 else "s" }}{% endif %}{% if row.neighbourhood %} · {{ row.hood_label }}{% endif %}
+  · {% if row.on_market %}on the market now{% else %}last listed {{ day(row.last_day) }}{% endif %}
+</p>
+{% if row.url %}<p class="links se-links"><a class="source" href="{{ row.url }}" rel="noopener noreferrer" target="_blank">Its newest ad on StreetEasy ↗</a></p>{% endif %}
+
+<section class="card listing-head" id="range" aria-label="Today's price and its ranges">
+  <div class="listing-stats">
+    <div class="listing-stat">
+      <span class="listing-stat-label">Price if listed {{ day(info.day) }}</span>
+      <span class="listing-stat-value">{{ usd(row.median) }}</span>
+    </div>
+    <div class="listing-stat">
+      <span class="listing-stat-label">Likely range (8 in 10)</span>
+      <span class="listing-stat-value">{{ usd(row.lo80) }} to {{ usd(row.hi80) }}</span>
+    </div>
+    <div class="listing-stat">
+      <span class="listing-stat-label">{% if row.on_market %}Its ask now{% else %}Its last ask, {{ day(row.last_day) }}{% endif %}</span>
+      <span class="listing-stat-value">{{ usd(row.last_ask) }}{% if row.change_pct is not none and not row.on_market %} <span class="listing-stat-sub">(today's middle is {{ pct(row.change_pct) }})</span>{% endif %}</span>
+    </div>
+  </div>
+  {{ chart }}
+  <p class="note">The dot is the {% if row.on_market %}ask on the market now{% else %}last ask{% endif %}, the tick today's middle estimate.
+  50% range {{ usd(row.lo50) }} to {{ usd(row.hi50) }} · 80% {{ usd(row.lo80) }} to {{ usd(row.hi80) }} · 95% {{ usd(row.lo95) }} to {{ usd(row.hi95) }}.</p>
+  <p class="note">{% if row.unit_ads == 0 %}The model has no earlier ad of this apartment, so it is priced as a new apartment in its building.{% else %}The model learned from {{ row.unit_ads }} ad{{ "" if row.unit_ads == 1 else "s" }} of this apartment{% if row.on_market %} before the one on the market now, whose ask it did not see{% endif %}.{% endif %}</p>
+</section>
+
+{% if neighbours %}
+<section class="card" id="building">
+  <h2>Other apartments in the building</h2>
+  <div class="table-wrap">
+  <table class="data estimates">
+    <thead><tr><th scope="col">Unit</th><th scope="col">Last ad</th><th scope="col" class="num">Last ask</th><th scope="col" class="num">Today's middle</th><th scope="col" class="num">Likely range (8 in 10)</th></tr></thead>
+    <tbody>
+    {% for r in neighbours %}
+      <tr>
+        <td><a href="{{ url_for('today_apartment', key=r.listing_id) }}">{{ r.unit_label or "not stated" }}</a> <span class="feat">{{ beds_label(r.bedrooms) }}{% if r.on_market %} · on the market{% endif %}</span></td>
+        <td class="nowrap" data-label="Last ad">{{ day(r.last_day) }}</td>
+        <td class="num" data-label="Last ask">{{ usd(r.last_ask) }}</td>
+        <td class="num" data-label="Today's middle">{{ usd(r.median) }}</td>
+        <td class="num nowrap" data-label="Likely range">{{ usd(r.lo80) }} to {{ usd(r.hi80) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if neighbours | length == 200 %}<p class="note">The first 200 apartments by unit.</p>{% endif %}
+</section>
+{% endif %}
+
+{% include "_today_notes.html" %}
+{% endblock %}

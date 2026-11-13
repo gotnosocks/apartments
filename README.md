@@ -114,6 +114,10 @@ gives the equations, the sampler and the checks, and the module docstrings give 
 6. `python -m rentfrontier.drift_estimates publish LATEST_RUN --market MARKET_RUN --out DIR`
    writes the Estimates table: every ad the two fits held out, with its ask beside the
    predictive median and intervals of a fit that never saw it.
+7. `python -m rentfrontier.drift_today publish MARKET_RUN --registry REGISTRY --out DIR`
+   writes the Price now table: every apartment the market fit knows, with the median and
+   intervals of what it would ask if listed today, from the fit's saved draws
+   ([docs/site.md](docs/site.md#price-now)).
 
 ## How a change earns its place
 

@@ -120,6 +120,7 @@ def test_each_page_marks_its_section_current(published, path, section):
     nav = page.split('class="sections">', 1)[1].split("</nav>", 1)[0]
     assert re.findall(r">([^<]+)</a>", nav) == [
         "Deals",
+        "Price now",
         "Estimates",
         "Workbench",
         "Review",
