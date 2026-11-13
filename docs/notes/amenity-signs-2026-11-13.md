@@ -512,13 +512,56 @@ The lister gain:
 
 ## The photo pilot
 
-I didn't run it. The brief made it conditional on finish quality looking like the omitted
-cause, and it doesn't: no reader found dated finishes in the 154 ads, and unstated finishes
-come at 26.7% of the over-predicted ads and 26.5% of the controls. The photos would still be
-the most direct test for roof rights, hardwood and live-in super, the three negatives I
-couldn't name, since a photo shows the kitchen and bath when the text says nothing. Photo
-fetches need Ben's own word. The pilot would cost about 480 OxyLabs requests (60 ads at about
-8 photos each) and about 0.4M Sonnet input tokens for the vision reads, with no Modal time.
+The brief made the pilot conditional on finish quality looking like the omitted cause, and
+the reading didn't point there: no reader found dated finishes in the 154 ads, and unstated
+finishes come at 26.7% of the over-predicted ads and 26.5% of the controls. The photos are
+still the most direct test for roof rights, hardwood and live-in super, the three negatives I
+couldn't name, since a photo shows the kitchen and bath when the text says nothing. I ran it
+on Nov 13 under Ben's standing permission for OxyLabs spending (Oct 15) and his note of the
+same morning that free ideas can go ahead.
+
+### Method
+
+I took the 66 read ads of the three codes, 45 over-predicted and 21 controls, each in its own
+building. `p_sample.py` keeps up to 12 photos of each ad in the order of its latest stored
+record, or of the latest record with photos when the last has none, 483 photos in all. It
+gives each ad a random label, deals the labels into 6 batches of 11, and draws 12 ads to rate a
+second time under new labels in a seventh batch. `p_fetch.py` fetches each photo once through
+the OxyLabs Realtime API, holding `crawls/oxylabs.lock` at 55 requests a minute, and saves it
+as a JPEG of at most 768 pixels on its longer side under the ad's label.
+
+A Sonnet subagent rates each batch from the photos alone, with `PHOTO_RATER.md` as its only
+instructions. It sees no text, price, code or group. It rates four things on a fixed scale
+from 1 to 5, higher meaning newer or better, and leaves a rating empty when no photo shows
+the room:
+
+- the kitchen's finish;
+- the bath's finish;
+- the floors;
+- the building's apparent age, from the exterior, the lobby, the halls and the windows, in
+  PLUTO's era bins: 1 before 1900, 2 1900 to 1939, 3 1940 to 1979, 4 1980 to 2009, 5 2010 or
+  later.
+
+`p_score.py` takes the mean rating of each group and the over-predicted less control gap with
+its SE, overall and for each code, and the slope of L1's gap on the kitchen and bath mean.
+Every ad is in its own building, so the SE is the two-sample one. The repeat batch gives the
+raters' agreement, and PLUTO's year built checks the building age ratings.
+
+### Predictions (written before fetching)
+
+8. As written before the reading, on the new scale: the mean of the kitchen and bath ratings
+   correlates with the gap at 0.15 to 0.35 (50%), and a point of rating goes with 2% to 6% of
+   the ask (50%).
+10. Over the 66 ads, the over-predicted ads' kitchen and bath mean sits 0.2 to 0.8 points
+    below the controls' (40%). The gap exceeds 2 SE (30%), since the reading found the two
+    groups alike.
+11. The over-predicted ads rate at least 0.3 points older on building age (35%).
+12. The floors differ by less than 1 SE (55%).
+13. Of the three codes, roof rights has the largest kitchen and bath gap (40%). The
+    live-in super's over-predicted ads rate older on building age than its controls (45%).
+14. The building age ratings correlate with PLUTO's era at 0.5 or more by rank (70%). In the
+    repeat batch, the two kitchen ratings of an ad come within a point in at least 80% of
+    the ads with both (65%).
 
 ## Fit candidates and cost
 
