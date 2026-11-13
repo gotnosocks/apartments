@@ -553,6 +553,7 @@ def main(argv=None):
         ("drift-building-doorman", "drift_building_doorman"),
         ("drift-building-phase", "drift_building_phase"),
         ("drift-building-phase-level", "drift_building_phase_level"),
+        ("drift-building-phase-segment", "drift_building_phase_segment"),
         ("drift-building-phase-year", "drift_building_phase_year"),
         ("drift-building-phase-unitk", "drift_building_phase_unitk"),
         ("drift-building-phase-unitt", "drift_building_phase_unitt"),

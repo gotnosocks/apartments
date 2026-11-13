@@ -25,6 +25,7 @@ has missed the gate is rerunning it on another seed, which the project does not 
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 from pathlib import Path
 
@@ -113,6 +114,19 @@ def pool(parts: list[dict]) -> dict:
     return out
 
 
+def model_diagnostics(record: dict):
+    """The convergence table of the record's model: the `diagnostics` its module carries, as
+    `b0.main_run` calls it, for a model that traces quantities `drift.diagnostics` leaves out.
+    A module that carries drift's, or none, gets `drift.diagnostics` as looked up now."""
+    module = importlib.import_module(
+        "rentfrontier." + record["model"]["name"].replace("-", "_")
+    )
+    own = getattr(module, "diagnostics", None)
+    if own is None or own.__module__ == drift.__name__:
+        return drift.diagnostics
+    return own
+
+
 def record(name: str, records: list[dict], arrays: dict) -> dict:
     """The pooled run's record: the first part's, with the chains, the convergence table and
     the timings of the whole, and the parts named."""
@@ -135,7 +149,9 @@ def record(name: str, records: list[dict], arrays: dict) -> dict:
             if any(r.get("cost_usd") is None for r in records)
             else sum(r["cost_usd"] for r in records)
         ),
-        "diagnostics": drift.diagnostics(trace, [str(n) for n in arrays["names"]]),
+        "diagnostics": model_diagnostics(first)(
+            trace, [str(n) for n in arrays["names"]]
+        ),
         "log": [f"{r['name']}: {line}" for r in records for line in r.get("log", [])],
         "pooled_from": [
             {
