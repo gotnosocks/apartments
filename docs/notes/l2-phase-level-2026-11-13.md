@@ -85,10 +85,10 @@ the 13,725 ads in phase 0-2 an 80% coverage of 0.760.
 5. The posterior median of the 0-2 level, as exp(beta) - 1, falls between -2.0% and -1.4%.
    I took that range from S3's mean gaps, and it is the range in the costed proposal. I now
    give it 20%: a check I made after the proposal suggests a smaller level, so I also write
-   my present range, -1.6% to -0.6% (70%), and score both. L1's noise has nu = 1.81, so a fitted level follows
-   the Student-t location of its rows more than their mean. On L1's held-out ads, with each
-   ad's predictive scale and nu = 1.81, the t location of the gap is -1.25% for phase 0-2
-   and -0.21% for 10-13, a difference of about -1.0%.
+   my present range, -1.6% to -0.6% (70%), and score both. L1's noise has nu = 1.81, so a
+   fitted level follows the Student-t location of its rows more than their mean. On L1's
+   held-out ads, with each ad's predictive scale and nu = 1.81, the t location of the gap is
+   -1.25% for phase 0-2 and -0.21% for 10-13, a difference of about -1.0%.
 6. The other levels against 10-13, from the same t locations, each within 0.4 points of it:
    3-9 between -1.0% and -0.2%, 14-21 between -0.7% and +0.1%, 22-25 between -0.4% and +0.4%,
    26+ between -0.6% and +0.2% (50% that all four hold). I make no prediction for `none`,
