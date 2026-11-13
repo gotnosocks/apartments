@@ -961,9 +961,9 @@ def main_run(
     train = cut(full, ~heldout)
     held_rows = int(np.count_nonzero(heldout))
     prep_seconds = time.perf_counter() - t0
-    # `train` holds copies of the training rows' design and of the held-out rows' design,
-    # so the design of every row goes before the sampler copies the training rows. The
-    # record's fields from it are read first.
+    # `train` holds a copy of the training rows' design, and under `drift.subset` of the
+    # held-out rows' too, so the design of every row goes before the sampler copies the
+    # training rows. The record's fields from it are read first.
     names, weeks, start, count = full.names, full.weeks, full.start, full.count
     own_record = spec.run_record(full) if hasattr(spec, "run_record") else {}
     del full

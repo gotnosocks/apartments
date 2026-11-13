@@ -107,8 +107,10 @@ pinned draw of the drift and B0 models passes as before:
 
 I measured the host's numpy memory with `tracemalloc` on the 1-in-90 sample with this model's
 design, from the end of the design build through `make_sampler`
-(`docs/notes/segment-paths-2026-11-13/peak.py`). In units of the design of all rows, 102.9 MB
-on the sample:
+(`docs/notes/segment-paths-2026-11-13/peak.py`). The counts are in units of the design of all
+rows, 102.9 MB on the sample. The script starts `tracemalloc` after the design build, so its
+counts leave that design out, and I added 1.0 to each count taken while the design was still
+alive:
 
 | | before | after |
 |---|---|---|
@@ -118,13 +120,16 @@ on the sample:
 | peak in `make_sampler` | 4.256 | 2.259 |
 
 The sample has fewer than 4,096 buildings, so its sampler runs a single block. On the CPU, JAX
-keeps its arrays in host memory, so the 1.247 includes the blocks' 0.9 of the design, which an
-H100 holds on the GPU instead. On L1's 1,896,471 rows the design with the paths takes 10.3 GB,
-and its 67,972 buildings make 17 blocks. Scaled by that, the host's peak falls from about
-44 GB to about 23 GB, or to about 21 GB at the split once the blocks go to the GPU. The design
-build peaks near 16 GB, since `path_design` fills a preallocated array. The 40 GiB container
-holds all of this with some 20 GB to spare, so the fit goes back to the normal container. L1's
-own peak falls the same way, from about 16 GB to about 9 GB.
+keeps its arrays in host memory. If it reads the numpy blocks in place, the 1.247 includes the
+blocks' 0.9 of the design, which an H100 holds on the GPU instead. `tracemalloc` misses
+buffers JAX allocates itself, so a copy would come on top. On L1's 1,896,471 rows the design
+with the paths takes 10.3 GB, and its 67,972 buildings make 17 blocks. Scaled by that, the
+host's peak falls from about 44 GB to about 23 GB in `make_sampler` as counted on the CPU, or
+to about 21 GB at the split once the blocks go to the GPU. The frame and the other tables come
+on top of these counts. The design build peaks near 16 GB, since `path_design` fills a
+preallocated array. The 40 GiB container (42.9 GB) holds the larger count with about 15 to
+20 GB to spare, so the fit goes back to the normal container. L1's own peak falls the same
+way, from about 16 GB to about 9 GB.
 
 `cap.py` estimates $4.19 and 3,560 s a container, the same as for L1. L1T's three containers
 came to $10.94 at the H100's $4.36 an hour, and the path design takes a little longer to build
