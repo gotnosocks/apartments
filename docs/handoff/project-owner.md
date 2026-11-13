@@ -46,7 +46,9 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   `/data1/apartments/frontier/datasets/` holds L1's dataset with S7's pattern as the column
   `duplex` (`docs/notes/duplex-column-2026-11-13.md`). The duplex fit's module is
   `drift-building-phase-duplex`, D1 (`docs/notes/duplex-factor-2026-11-13.md`), with its
-  launch commands and predictions. It is written, not fit, and `drift_today` would need
+  launch commands and predictions. Its factor k widens the noise of marked rows only, so no
+  row's median moves with its own mark; I revised it to that before any launch. It is written,
+  not fit, and `drift_today` would need
   support for it before D1 could be served.
 - **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
   leave it alone.

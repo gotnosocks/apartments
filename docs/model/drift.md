@@ -384,11 +384,11 @@ makes each cell's factor the product of its phase's and its year's, so the scale
 18 free factors (docs/notes/year-noise-2026-11-12.md). `drift-building-phase-level` adds a
 0/1 column for each phase but 10-13 months to the design of `drift-building-phase`, so each
 phase also moves the row's mean by a coefficient of its own
-(docs/notes/l2-phase-level-2026-11-13.md). `drift-building-phase-duplex` multiplies both the
-noise scale and the unit's process of each row whose `duplex` column is true by a factor k.
-The sampler takes the cells of phase and mark as its phases, `Design.phase_map` gives a
-marked cell its phase's factor times k, and `Design.unit_factor` names k's column, so the
-sweep scales u by each marked row's k and the scale step draws k with the phase factors
+(docs/notes/l2-phase-level-2026-11-13.md). `drift-building-phase-duplex` multiplies the
+noise scale of each row whose `duplex` column is true by a factor k. The sampler takes the
+cells of phase and mark as its phases, and `Design.phase_map` gives a marked cell its phase's
+factor times k, so the scale step draws k with the phase factors. A row's mark widens only its
+own noise, and a held-out row's median and unit sd come out the same whatever its mark
 (docs/notes/duplex-factor-2026-11-13.md). `drift-building-phase-segment` adds a path for
 each bedroom group in each zone to the same design: a centered hat column for each segment at
 each quarter start, so a row's mean moves by its segment's path less the share-weighted mean of

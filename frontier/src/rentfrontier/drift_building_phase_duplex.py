@@ -1,36 +1,32 @@
 """The building model with noise phases (`rentfrontier.drift_building_phase`) and a factor
-for the rows of duplex apartments, on both their noise and their unit's level.
+on the noise of the rows of duplex apartments.
 
 S7 of the causal screens (docs/notes/causal-screens-2026-11-13.md) read each listing's
 description for an apartment on two or three levels, and `rentfrontier.b0duplex` writes
 its pattern into a dataset as the column `duplex`. The phase model prices the marked ads
 right on average, but their squared gap from its median is 0.0114 against 0.0059 for the
-other ads, and its 80% interval covers 0.719 of them. In S7 a multiplier of 1.3 to 1.4 on
-both the noise and the unit sd of the marked held-out ads gained 255 +/- 30 elpd.
+other ads, and its 80% interval covers 0.719 of them. A duplex whose previous ad was the
+same duplex with the same bedrooms has a squared gap of 0.0110, so the excess shows from one
+ad of the unit to the next.
 
 So this design gives a marked row the phase model's noise times a factor k,
 
-    s_i = sigma[group_i] * f[phase_i] * k^m_i,    m_i = 1 for a marked row, else 0,
+    s_i = sigma[group_i] * f[phase_i] * k^m_i,    m_i = 1 for a marked row, else 0.
 
-and scales the row's share of its unit's process by the same k:
-
-    u_i = k^m_i v_i,
-
-with v the phase model's process for the row's unit. A marked row's whole distance from its
-building's level, the unit's part and the noise, is then k times as wide as an unmarked row's
-in the same phase. log k takes the Normal(0, `drift.PHASE_PRIOR`) prior of the phases' log
-factors.
+The unit's process, the building's level and the rows' means are the phase model's. A
+held-out row's median and the sd of its unit's part come out the same whatever its own mark,
+and the mark widens only the row's noise. A marked training row weighs less in its unit's
+and its building's estimates. log k takes the
+Normal(0, `drift.PHASE_PRIOR`) prior of the phases' log factors.
 
 Each row's mark comes from its own listing's description (`rentfrontier.b0duplex`). An ad of
 a unit takes no mark from the unit's other ads, so a later ad's text marks no earlier row.
-The unit's process v is the same for its marked and unmarked rows.
 
 The sampler takes the crossed cells of phase and mark as its phases, with `Design.phase_map`
-marking the free factors each cell multiplies and `Design.unit_factor` naming k's column,
-so the scale step draws the six phase factors and k with the unit scales, sigma and nu
-(`drift.make_sampler`). The run keeps each cell's factor as `phase_scale` and each predicted
-row's cell as `pred_phase`, which `drift_score` and `drift_pool` read as they do the phase
-model's.
+marking the free factors each cell multiplies, so the scale step draws the six phase factors
+and k with the unit scales, sigma and nu (`drift.make_sampler`). The run keeps each cell's
+factor as `phase_scale` and each predicted row's cell as `pred_phase`, which `drift_score`
+and `drift_pool` read as they do the phase model's.
 
     python -m rentfrontier.run --model drift-building-phase-duplex --split latest --name NAME
 
@@ -93,9 +89,7 @@ def design(
     d = drift_building.design(frame, start, held=held, **kw)
     assert len(d.y) == len(frame)
     cell = drift_building_phase.phase_index(frame) * len(MARKS) + mark_index(frame)
-    return dataclasses.replace(
-        d, phase=cell, phases=cells(), phase_map=cell_map(), unit_factor=DUPLEX
-    )
+    return dataclasses.replace(d, phase=cell, phases=cells(), phase_map=cell_map())
 
 
 def mark_index(frame: pd.DataFrame) -> np.ndarray:
@@ -143,7 +137,6 @@ def run_record(d: Design) -> dict:
             "mark_of": "the row's own duplex column (rentfrontier.b0duplex)",
             "cells": "phase|mark, phase-major; a marked cell's factor is its phase's "
             "times k",
-            "unit_factor": "k also scales a marked row's u",
             "log_factor_prior": f"Normal(0, {drift.PHASE_PRIOR})",
             "rows": {p: int(c) for p, c in zip(PHASES, count.sum(axis=1))},
             "mark_rows": {m: int(c) for m, c in zip(MARKS, count.sum(axis=0))},
