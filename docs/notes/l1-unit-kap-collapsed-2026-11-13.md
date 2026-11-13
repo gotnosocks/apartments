@@ -45,8 +45,10 @@ and then u and s given the new kap:
 4. ss and the kap move along the orbit, as in L1T. L1T's Gamma draw of the kap given s is
    skipped.
 
-Steps 2 and 3 together draw (kap, u, s) from their joint conditional, since step 3
-replaces u and s entirely, so the sweep leaves L1T's posterior unchanged. The new kap no
+Step 2 leaves the kap's conditional given e unchanged, and step 3 then replaces u and s
+entirely given the kap, so together they leave the joint conditional of (kap, u, s) and
+L1T's posterior unchanged. This needs nu_u fixed, as here: a free nu_u moves after `draw_us`
+and would leave the kap behind, and `make_sampler` refuses the pair. The new kap no
 longer depends on the old s_k, which removes the coupling above.
 
 The collapsed density comes cheaply from what the sweep computes already (`kap_logp`).
@@ -121,7 +123,7 @@ variance between half-chains of their means. From L1T's pool:
 | quantity | L1T R-hat | ESS | expected R-hat | ESS |
 |---|---:|---:|---:|---:|
 | nu | 1.0251 | 567 | 1.007 | 2,000 |
-| unit_sd | 1.0187 | 449 | 1.017 | 490 |
+| unit_sd | 1.0187 | 449 | 1.017 | 480 |
 | drift_sd | 1.0051 | 942 | 1.005 | 980 |
 | sigma[1] | 1.0103 | 1,250 | 1.006 | 2,000 |
 
@@ -134,8 +136,9 @@ for the kap to read. I put the chance that the pool passes the gate at 25%.
 
 Alone on thelio's CPU, on the sample above with 6 chains, a sweep of L1T took 3.15 s
 (60 warmup and 240 draws) and a sweep of this model 2.92 s (300 warmup and 1,500 draws).
-The collapsed step adds a few evaluations of an elementwise density for each unit and one
-more `unit_W`, which is small beside the rest of the sweep. On Modal L1T's containers swept
+The runs differ in length, so these don't show the new model to be faster, only that the
+collapsed step, a few evaluations of an elementwise density for each unit and one more
+`unit_W`, is small beside the rest of the sweep. On Modal L1T's containers swept
 at 0.67 to 0.77 s and settled at $3.57 to $3.73. The sweep budget caps each container, so
 `cap.py` estimates each at $4.19 and 3,560 s, the same as L1T, and I expect 3 containers to
 settle at about $11.

@@ -109,9 +109,8 @@ def test_collapsed_kap_draws_from_the_conditional():
         assert abs(draws[:, k].std() / sd - 1) < 0.08
 
 
-def test_without_the_option_the_sweep_is_l1ts():
-    # The pins of L1T, L1 and U2 cover the draws; here the option's absence keeps L1T's
-    # parts and its presence adds the step.
+def test_the_option_needs_a_fixed_unit_t():
+    # The pins of L1T, L1 and U2 cover the draws without the option.
     train, _, _ = td._split(tp._phased(n=300, per_unit=9))
     _, _, _, parts = _sampler(train)
     assert parts["unit_t"] and not parts["dof_free"]
@@ -126,6 +125,18 @@ def test_without_the_option_the_sweep_is_l1ts():
         assert "needs unit_t" in str(err)
     else:
         raise AssertionError("unit_kap_collapsed without unit_t was accepted")
+    try:
+        drift.make_sampler(
+            train,
+            building_zones.Priors(),
+            drift.Settings(chains=2),
+            unit_t=True,
+            unit_kap_collapsed=True,
+        )
+    except AssertionError as err:
+        assert "needs unit_dof_fixed" in str(err)
+    else:
+        raise AssertionError("unit_kap_collapsed with a free nu_u was accepted")
 
 
 def test_sweeps_move_the_kap_and_keep_the_dof():

@@ -662,6 +662,11 @@ def make_sampler(
     assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
+    # The kap drawn with u integrated out must come after every move of nu_u, which a free
+    # nu_u's slice update in `update_unit_t` does not.
+    assert not (dof_free and unit_kap_collapsed), (
+        "unit_kap_collapsed needs unit_dof_fixed"
+    )
     jax, jnp = b0._jax()
     seg = jax.ops.segment_sum
     alpha = d.names.index("alpha")
@@ -1972,7 +1977,8 @@ def make_sampler(
             first = 1
         if unit_t:
             # The units' lasting levels are drawn with u, then nu_u and the mixing scales
-            # given them. Its key is folded in, as the buildings' mixing scales' is.
+            # given them, or under `unit_kap_collapsed` the mixing scales first, with u
+            # integrated out. Their keys are folded in, as the buildings' mixing scales' is.
             ukap = st["ukap"]
             if unit_kap_collapsed:
                 # The kap given e with u and s integrated out, then u and s given them.
