@@ -6,6 +6,44 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
+## Causal sprint, from 2026-11-13 10:51 ET
+
+At 10:51 ET Ben asked for a sprint on changes to the model's causal graph, like L1's lease
+phase, and on data issues read as signs of a cause the model lacks, like the duplexes. He also
+asked for the research backlog reviewed and ranked, and for a proposal of fits with their cost.
+Data work and other free work go ahead without approval. No Modal budget is approved for the
+sprint yet, so I have launched, queued and scheduled nothing on Modal.
+
+- **Screens.** In `docs/notes/causal-screens-2026-11-13.md` (#1354) I ran ten screens of
+  L1's held-out ads and found three fit candidates: a level for each lease phase, paths for
+  bedroom groups and zones, and a noise factor for duplexes.
+- **Proposal.** https://claude.ai/artifact/B9E2j5YXVE6P6gApecazLv, put to Ben as option B
+  at 12:34 ET. Fits 1 to 4 each run three H100 containers on the latest split against L1:
+  1. L2, a level for each lease phase: +150 to +350 elpd, gate 75%, about $11.50.
+  2. Segment paths: +250 to +600, gate 50%. The proposal said $11.50, and the large
+     container the host memory needs makes it $15 to $16.50.
+  3. A duplex noise factor of 1.25 to 1.45: +150 to +300, 80% coverage of duplex ads from
+     0.72 to 0.77 or more, gate 70%, about $11.50.
+  4. A level for each line, from a new collapsed module: +150 to +600, gate 45%, about
+     $11.50.
+  5. The winner's market and backtest fits and the Deals publish, about $23.
+
+  Option B covers fits 1 to 5 and a spare, about $81, now about $85 with the segment fit's
+  large containers. A fit that adds sweep time gets a timing check before launch. Fits 2 to
+  4 would go on L1T if a Student-t unit level passed its gate first. L1T missed it, and
+  L1TK (#1357, written, not fit) is expected to miss on unit_sd, so for now they go on L1.
+- **Written and ready.** L2, `drift-building-phase-level` (#1355,
+  `docs/notes/l2-phase-level-2026-11-13.md`), and the segment paths,
+  `drift-building-phase-segment` (#1356, `docs/notes/segment-paths-2026-11-13.md`). Each note
+  holds its launch commands and predictions. The segment paths step by quarter, since weekly
+  steps would need 85 GB for the design.
+- **Duplex column.** `b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise-duplex` in
+  `/data1/apartments/frontier/datasets/` holds L1's dataset with S7's pattern as the column
+  `duplex` (`docs/notes/duplex-column-2026-11-13.md`). The duplex fit's module is still to
+  write.
+- **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
+  leave it alone.
+
 ## Research sprint, 2026-11-12 12:48Z to 20:48Z
 
 Ben started an 8-hour sprint at 12:48Z with $20 of Modal. I spent $18.82 of it: c3's three
