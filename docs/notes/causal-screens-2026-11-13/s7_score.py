@@ -2,7 +2,7 @@
 
 L1 has no duplex column, so for a unit with earlier ads its unit level carries the duplex,
 and a duplex should show in the gap mainly where the held-out ad is the unit's first. The script
-splits held-out ads by that and read:
+splits held-out ads by that and reads:
 
 1. the gap and the within-building gap of ads matched by `s7_text.py`'s duplex pattern
    against the rest, with and without a stated size;

@@ -17,7 +17,7 @@ by a hash of the building) and scores the other half, both ways.
 | S1, segment paths | Bedroom groups and zones moved on paths of their own in 2020 to 2023, worth 452 ± 50 elpd over a static offset | a walk for each bedroom group in each zone, around the citywide walk |
 | S7, duplexes | Priced right on average, with asks scattered about 35% wider than others and 80% coverage of 0.72 | a scale factor on the noise for duplex units |
 | S6, regulated rents | Units with the stabilized flag follow about 0.9 of the citywide walk | not now (20 to 60 elpd) |
-| S2, the FARE Act | A stated renter's fee moved about 5% of ads before the Act by 1.3% to 1.7% | not on its own (20 to 80 elpd) |
+| S2, the FARE Act | A stated renter's fee moved about 5% of ads before the Act by 1.4% to 1.7% | not on its own (20 to 80 elpd) |
 | S7, outdoor space | Private outdoor space asks 1.2% over L1's median where either ad ran before 2021, and 0.1% where both ran later | none (-5 ± 19 elpd) |
 | S4, competing supply | 0.2% within building in the top decile | none |
 | S5, lease-up | No lease-up gap on L1; j9 prices buildings with few ads and a building's first year too low | none |
@@ -377,7 +377,7 @@ the units that used to charge a fee came back 0.80% over the others, under the 1
 predicted, and before it the contrast was 0.23%, under 1% as predicted.
 
 Verdict: a small feature, no cause for a fit on its own. A column for a stated renter's fee
-would move about 5% of ads before the Act by 1.3% to 1.7% and almost none after it. I expect
+would move about 5% of ads before the Act by 1.4% to 1.7% and almost none after it. I expect
 20 to 80 elpd on the latest split, where most held-out ads are recent. The Act's own effect
 on asks, 0.6%, is too small and too narrow for a model term.
 
