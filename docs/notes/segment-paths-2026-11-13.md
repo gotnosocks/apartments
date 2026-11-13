@@ -28,7 +28,8 @@ row's date, bedroom group and site, so a held-out row's columns take no rent.
 
 Each segment's coefficients get a Gaussian process prior over the quarter starts: a squared
 exponential covariance, held at 0 on 2024-01-01, since a unit's level carries its segment's gap
-on that date and the path moves it in other years. The squared amplitude has an
+on that date and the path moves it in other years. The covariance's nugget leaves the
+2024q1 coefficient a prior sd of a tenth of the amplitude. The squared amplitude has an
 InvGamma(2, 7e-4) prior, a median amplitude of about 2% in log rent, and the log lengthscale in
 years a Normal(0, 0.5) prior, a median of a year. The sweep draws the path coefficients with
 the design's other global columns, and the eight amplitudes and lengthscales with the floor
@@ -44,9 +45,10 @@ segments. The Gibbs step draws that direction from its full conditional every sw
 coefficients mix well along it, but the eight amplitudes follow it. If an amplitude misses the
 gate, a sum-to-zero constraint over the segments' paths is the model change to try first.
 
-`drift.py` is unchanged. `drift_pool` now takes the convergence table from a model's module
-when the module defines its own, as this one does for the paths' amplitudes and lengthscales,
-and from `drift` otherwise, as before. The sha256 pins of the draws of `drift-building`, L1
+`drift.py` is unchanged. `drift_pool` now takes the convergence table a model's module
+carries, as `b0.main_run` does, so this model's pool checks the paths' amplitudes and
+lengthscales too. A module carrying drift's table, as every earlier drift model does, pools as
+before. The sha256 pins of the draws of `drift-building`, L1
 and L2 pass as before. `frontier/tests/test_drift_building_phase_segment.py` checks the
 columns against the hat weights and shares, checks the columns of the rows to predict and the
 order of the processes, recovers planted paths (correlation over 0.8 with the planted effect,
@@ -56,8 +58,8 @@ RMS error under half its sd) and pins the draws of a small run.
 
 I timed sweeps on the CPU with `docs/notes/segment-paths-2026-11-13/time_sweep.py`, on the
 18,441 training rows and 10,135 units of the 1-in-90 sample of buildings from Y1's timing,
-2 chains, 60 warmup and 60 draws. The machine's load average stood at 14 to 22 through the
-runs, from the other thread's work.
+2 chains, 60 warmup and 60 draws. The machine's 1-minute load average stood at 14.4 to 22.6
+through the runs, from the other thread's work.
 
 | design | global columns | path columns | CPU sweep |
 |---|---|---|---|
@@ -83,23 +85,36 @@ L1's data the paths take the global block from about 250 columns to about 680, a
 its system rises from about 2e11 to 1.6e12 flops a sweep for a pair of chains, about 0.06 s at
 25 TFLOPS of fp64. I expect an H100 sweep of 0.83 to 0.95 s against L1's 0.776 s. A drift fit
 stops its sweeps at the 2,520 s budget, so the paths cut the sweeps to about 2,650 to 3,050
-from L1's 3,260, still over 2,000 draws a chain, and leave the cost where L1's was. `cap.py`
-estimates $4.19 and 3,560 s a container, as for L1 and L2; L1T's three containers came to
-$10.94, so I expect about $11.50 for three.
+from L1's 3,260, still over 2,000 draws a chain, and leave the wall time where L1's was.
 
-Host memory is the larger change. The design on all rows takes about 10.3 GB against L1's
-3.8 GB, the training rows' copy 9.3 GB against 3.4 GB, and the held-out rows' 1.0 GB against
-0.4 GB: about 13 GB more than L1 holds. `path_design` fills one preallocated array, so the
-build never holds two copies of the combined design. L1's container recorded no memory peak
-(`memory_peak_bytes` is null), so I can't say how close the 40 GiB container comes. An
-out-of-memory kill would come during the design build, within the first five minutes and for
-under $0.50. The fix would then be memory, the large container at 192 GiB (about $5.40 a
-container by `cap.py`), and not a new seed.
+Host memory is the larger change, and it sets the container. `b0.main_run` keeps the design
+of all rows, the training rows' copy and the held-out rows' copy alive through the fit, and
+the training design carries its own copy of the held-out rows to predict. `drift.make_sampler`
+then reorders the training rows and drops the intercept column (`d.x[order][:, others]`),
+which briefly holds two more copies of the training rows. Counting these arrays alone:
+
+| array | L1 | with the paths |
+|---|---|---|
+| design of all rows | 3.8 GB | 10.3 GB |
+| training rows | 3.4 GB | 9.3 GB |
+| held-out rows, twice | 0.8 GB | 2.1 GB |
+| the sampler's two copies | 6.8 GB | 18.5 GB |
+| in all | 14.7 GB | 40.1 GB |
+
+The frame and the other tables come on top. The fit container reserves 40 GiB (42.9 GB), so
+the paths would very likely be killed in `make_sampler`, a few minutes in. `path_design`
+fills one preallocated array, so the design build itself stays near 16 GB. I plan the large
+container from the start, an H100 with 192 GiB of host memory (`ops/modal-fit --large`). A
+baseline model gets no summary bundle there, and the sweep budget still stops the draws at
+2,520 s. `cap.py` estimates $5.40 and 3,320 s a large container against $4.19 and 3,560 s for
+L1's. L1T's three containers came to $10.94 at H100's $4.36 an hour; at the large container's
+$5.86 an hour the same time comes to $14.70, so I expect $15 to $16.50 for three. That is
+about $4 more than the proposal's $11.50.
 
 ## Launch plan (no fit is launched by this note)
 
-Three H100 containers on L1's dataset, seeds 1 to 3, pooled by `drift_pool` into 6 chains, as
-for L1T and L2:
+Three large H100 containers on L1's dataset, seeds 1 to 3, pooled by `drift_pool` into 6
+chains, as for L1T and L2 but with `--large` for the host memory:
 
 ```sh
 cd /data1/apartments/serve/master
@@ -107,7 +122,7 @@ D=/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-
 IN=/data1/apartments/pipeline/datasets/rows-b3ddebf19af1dc1e.parquet
 for j in "sega 1" "segb 2" "segc 3"; do
   read -r label seed <<<"$j"
-  ops/modal-fit --outside-budget --gpu H100 --dataset "$D" --input "$IN" \
+  ops/modal-fit --outside-budget --large --gpu H100 --dataset "$D" --input "$IN" \
     --split latest --baseline drift-building-phase-b0-latest-9a7830fb-l1 COMMIT "$label" \
     drift-building-phase-segment b0 2 500 9000 40 --seed "$seed" --level-dof 4 \
     --no-loo --no-heldout
@@ -141,6 +156,6 @@ its held-out ads of 2020 to 2022, 80% coverage is 0.736.
 6. The median's error moves by under 0.0005 (80%).
 7. 80% coverage on the held-out ads of 2020 to 2022 rises from 0.736 by 0.005 to 0.015 (45%),
    the proposal's range, and on all shared ads it stays within 0.005 of 0.797 (80%).
-8. Each container builds its design in the 40 GiB container (80%), stops its sweeps at the
-   budget after 2,600 to 3,200 sweeps (65%), and runs 50 to 60 minutes. The three settle
-   between $10.50 and $12.50 (75%).
+8. Each large container gets through `make_sampler` (95%), stops its sweeps at the budget
+   after 2,600 to 3,200 sweeps (65%), and runs 50 to 60 minutes. The three settle between
+   $14.50 and $17 (75%).

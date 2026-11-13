@@ -24,7 +24,9 @@ bedroom group and its site alone, so building a held-out row's columns uses no r
 
 Each segment's coefficients take a Gaussian process prior over the quarter starts, with a
 squared exponential covariance given a value of 0 at 2024-01-01: a unit's level holds its
-segment's gap there, and the path moves it in other years. The squared amplitude has an
+segment's gap there, and the path moves it in other years. With the nugget of
+`building_zones_gibbs.gp_cov` the prior sd at 2024q1 is a tenth of the amplitude rather than
+exactly 0. The squared amplitude has an
 InvGamma(SEG_AMP) prior and the log lengthscale in years a Normal(SEG_LS) prior. The sampler
 draws the coefficients with the design's other global columns, and the processes' amplitudes
 and lengthscales with the floor curves'.

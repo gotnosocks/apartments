@@ -115,15 +115,16 @@ def pool(parts: list[dict]) -> dict:
 
 
 def model_diagnostics(record: dict):
-    """The convergence table of the record's model: its module's own `diagnostics`, for a
-    model that traces quantities `drift.diagnostics` leaves out, or else drift's."""
+    """The convergence table of the record's model: the `diagnostics` its module carries, as
+    `b0.main_run` calls it, for a model that traces quantities `drift.diagnostics` leaves out.
+    A module that carries drift's, or none, gets `drift.diagnostics` as looked up now."""
     module = importlib.import_module(
         "rentfrontier." + record["model"]["name"].replace("-", "_")
     )
     own = getattr(module, "diagnostics", None)
-    if own is not None and own.__module__ == module.__name__:
-        return own
-    return drift.diagnostics
+    if own is None or own.__module__ == drift.__name__:
+        return drift.diagnostics
+    return own
 
 
 def record(name: str, records: list[dict], arrays: dict) -> dict:
