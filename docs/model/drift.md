@@ -366,10 +366,11 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
 carries only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
 The model names are `drift`, `drift-building`, `drift-building-doorman`,
-`drift-building-phase`, `drift-building-phase-level`, `drift-building-phase-segment`,
-`drift-building-phase-year`, `drift-building-phase-unitk`, `drift-building-phase-unitt`,
-`drift-building-unitt` and `drift-local` (`drift.py`, `drift_building.py`,
-`drift_building_doorman.py`, `drift_building_phase.py`, `drift_building_phase_level.py`,
+`drift-building-phase`, `drift-building-phase-duplex`, `drift-building-phase-level`,
+`drift-building-phase-segment`, `drift-building-phase-year`, `drift-building-phase-unitk`,
+`drift-building-phase-unitt`, `drift-building-unitt` and `drift-local` (`drift.py`,
+`drift_building.py`, `drift_building_doorman.py`, `drift_building_phase.py`,
+`drift_building_phase_duplex.py`, `drift_building_phase_level.py`,
 `drift_building_phase_segment.py`, `drift_building_phase_year.py`,
 `drift_building_phase_unitk.py`, `drift_building_phase_unitt.py`, `drift_building_unitt.py`,
 `drift_local.py`).
@@ -383,7 +384,12 @@ makes each cell's factor the product of its phase's and its year's, so the scale
 18 free factors (docs/notes/year-noise-2026-11-12.md). `drift-building-phase-level` adds a
 0/1 column for each phase but 10-13 months to the design of `drift-building-phase`, so each
 phase also moves the row's mean by a coefficient of its own
-(docs/notes/l2-phase-level-2026-11-13.md). `drift-building-phase-segment` adds a path for
+(docs/notes/l2-phase-level-2026-11-13.md). `drift-building-phase-duplex` multiplies both the
+noise scale and the unit's process of each row whose `duplex` column is true by a factor k.
+The sampler takes the cells of phase and mark as its phases, `Design.phase_map` gives a
+marked cell its phase's factor times k, and `Design.unit_factor` names k's column, so the
+sweep scales u by each marked row's k and the scale step draws k with the phase factors
+(docs/notes/duplex-factor-2026-11-13.md). `drift-building-phase-segment` adds a path for
 each bedroom group in each zone to the same design: a centered hat column for each segment at
 each quarter start, so a row's mean moves by its segment's path less the share-weighted mean of
 the eight, and each segment's coefficients take a Gaussian process prior held at 0 on

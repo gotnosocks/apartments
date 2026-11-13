@@ -85,6 +85,7 @@ def test_a_pooled_model_keeps_the_diagnostics_its_module_carries(monkeypatch):
         "drift-building",
         "drift-building-phase",
         "drift-building-phase-level",
+        "drift-building-phase-duplex",
     ):
         assert drift_pool.model_diagnostics({"model": {"name": name}}) is (
             drift.diagnostics
