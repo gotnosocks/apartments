@@ -129,8 +129,13 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
    $10.94 and missed the gate on R-hat (nu 1.025, unit_sd 1.019). As a free check it beats
    L1 by +4,095 elpd (SE 172) on the shared held-out ads
    (`docs/notes/l1-unit-t-fixed-2026-11-12.md`). It is not served, and gets no new seed. The
-   next step is a model change that lets nu and unit_sd move with the kap, written as its
-   own module with predictions first. The fit adding duplex and outdoor size
+   next step was a model change that lets nu and unit_sd move with the kap.
+   `drift-building-phase-unitk` (L1TK, `docs/notes/l1-unit-kap-collapsed-2026-11-13.md`)
+   draws the kap with u and the levels integrated out. On a CPU check it frees nu (its
+   autocorrelation time falls 3.5 times) but barely moves unit_sd, so the pool would likely
+   still miss the gate on unit_sd (expected R-hat 1.017). It is not launched. The next
+   sampler change is a scale step that integrates each unit's kap out numerically and then
+   draws the kap exactly. The fit adding duplex and outdoor size
    (`docs/notes/unit-flags-scope-2026-11-12.md`) comes after it. Of its 18 backed corrections, 4 went into the ledger (plus a fifth ad of one unit), 2 were already there, 10 are flex bedroom counts left out under the 2026-10-17 retract, and 2 failed a closer check (`pipeline/ledger/2026-11-12-unit-level-reads.ndjson`).
 3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
