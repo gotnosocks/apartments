@@ -2,6 +2,26 @@
 
 What the next turn of the website thread needs. Updated at each milestone.
 
+
+## Price now section (2026-11-13 00:05 ET)
+
+- Ben asked for an as-of-today price for any apartment. #1351 added the Price now section
+  (`/price-now`, folder `today/` under the site root), built by
+  `python -m rentfrontier.drift_today publish` from the served market fit
+  (`drift-building-b0-market-67d14e17-n9`). `docs/site.md` (Price now) has the method and the
+  check.
+- The publish rebuilds the run's design, which peaks at about 14 GB, so it runs on Modal:
+  `/data1/apartments/venvs/modal/bin/python ops/modal/today.py --outside-budget --out
+  /data1/apartments/site/today COMMIT RUN` (or write to a tmp folder and copy the table, then
+  meta.json, into place). About 6 minutes and $0.13 a run. It needs a Modal budget Ben
+  approved: he approved $2 on 2026-11-12 23:26 ET, and $0.36 of it is spent.
+- Live table: day 2026-11-13, 936,725 apartments, sha256 4c8192c1. The check on the 6,774 ads
+  on the market matched the fit: medians within 0.3%, 80% widths ratio 0.999, 80% coverage
+  0.781 against 0.783. The walk's grid ends 2026-11-16, so a table published after that day
+  shows the extrapolation notice; republish after each new served market fit.
+- The dataset's `unit_id` is an id (`unit:<uuid>`); the table's `unit` column is the label
+  from the ad's page, as Deals takes it.
+
 ## All-scraped fit on the site (2026-10-17 14:10 ET)
 
 - Served fit: the all-scraped Manhattan and Brooklyn fit
