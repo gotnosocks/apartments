@@ -65,6 +65,33 @@ def table(monkeypatch):
     monkeypatch.setattr(drift, "diagnostics", diagnostics)
 
 
+def test_a_pooled_model_keeps_the_diagnostics_its_module_carries(monkeypatch):
+    import sys
+    import types
+
+    from rentfrontier import drift_building_phase_segment as seg
+
+    # A module built on the segment model, re-exporting its diagnostics, as b0.main_run reads.
+    on_top = types.ModuleType("rentfrontier.drift_on_top")
+    on_top.diagnostics = seg.diagnostics
+    monkeypatch.setitem(sys.modules, "rentfrontier.drift_on_top", on_top)
+    assert drift_pool.model_diagnostics({"model": {"name": "drift-on-top"}}) is (
+        seg.diagnostics
+    )
+    assert (
+        drift_pool.model_diagnostics({"model": {"name": seg.NAME}}) is seg.diagnostics
+    )
+    for name in (
+        "drift-building",
+        "drift-building-phase",
+        "drift-building-phase-level",
+        "drift-building-phase-duplex",
+    ):
+        assert drift_pool.model_diagnostics({"model": {"name": name}}) is (
+            drift.diagnostics
+        )
+
+
 def test_pooled_run_has_every_parts_chains_cut_to_the_shortest_part(tmp_path, table):
     a, _ = _part(tmp_path, "a", 1, draws=400, kept=20)
     b, _ = _part(tmp_path, "b", 2, draws=300, kept=15)

@@ -108,6 +108,11 @@ def _dense_cov(train, parts, st):
     K = np.where(
         same, ss**2 + sd**2 * np.exp(-np.abs(t[:, None] - t[None, :]) / tau), 0.0
     )
+    if train.unit_factor is not None:
+        # Under `unit_factor` a row's u is its unit's process times the row's gain.
+        k = np.asarray(st["phase_scale"])[train.unit_factor]
+        g = k ** np.asarray(train.phase_map)[train.phase[order], train.unit_factor]
+        K = g[:, None] * K * g[None, :]
     return np.diag(1 / c) + K, K, c
 
 
@@ -143,6 +148,16 @@ def test_drop_columns_takes_the_columns_their_names_and_their_counts():
     np.testing.assert_array_equal(out.x, d.x[:, keep])
     assert set(out.count) == set(d.count) - set(gone)
     assert {"bed=0:full>=3", "bed=1:full>=4"} == set(drift.DROPPED_STEPS)
+
+
+def test_the_blocks_hold_the_training_design_in_sweep_order_without_alpha():
+    train, _, _ = _split(_design())
+    _, _, _, parts = _sampler(train)
+    others = [j for j, n in enumerate(train.names) if n != "alpha"]
+    np.testing.assert_array_equal(
+        np.concatenate([np.asarray(v) for v in parts["data"]["xs"]]),
+        train.x[parts["order"]][:, others],
+    )
 
 
 def test_unit_layout_places_every_row_and_pair():
