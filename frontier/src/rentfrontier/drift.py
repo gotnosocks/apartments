@@ -863,10 +863,10 @@ def make_sampler(
         data["phase"] = jnp.asarray(d.phase[order])
     if uf is not None:
         # The rows to predict take their gains from their own phases.
-        p_phase = rows_to_predict.get("phase")
-        data["p_phase"] = jnp.asarray(
-            np.zeros(0, np.int64) if p_phase is None else np.asarray(p_phase, np.int64)
-        )
+        p_phase = np.asarray(rows_to_predict.get("phase", np.zeros(0)), np.int64)
+        if len(p_phase) != len(rows_to_predict["unit"]):
+            raise ValueError("the unit factor needs the phase of every row to predict")
+        data["p_phase"] = jnp.asarray(p_phase)
     U = int(d.units)
     if unit_t:
         # Each training row's unit, each bucket's units and each row to predict's unit

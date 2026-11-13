@@ -264,8 +264,8 @@ def test_update_scales_moves_k_and_scales_the_marked_rows_noise():
 
 
 def test_a_run_finds_a_planted_k():
-    """Marked rows with noise 1.5 times as wide as the others' give k near 1.5, and the
-    phase factors stay near 1."""
+    """Marked rows with noise and a unit level both 1.5 times as wide as the others' give k
+    near 1.5, and the phase factors stay near 1."""
     full = _duplexed(n=1600, per_unit=6, marked=0.3)
     rng = np.random.default_rng(7)
     marked = full.phase % K == 1
@@ -273,7 +273,10 @@ def test_a_run_finds_a_planted_k():
     # of the same law scaled by sqrt(1.5^2 - 1) widens a marked row's noise 1.5 times.
     sigma = np.array([0.12, 0.15, 0.18, 0.2])[full.group]
     extra = np.sqrt(1.5**2 - 1) * sigma * rng.standard_t(4.0, len(full.y))
-    full = dataclasses.replace(full, y=full.y + np.where(marked, extra, 0.0))
+    # Each unit gets a level v, and a marked row takes 1.5 v, as D1 scales u.
+    v = 0.1 * rng.standard_normal(full.units)[full.unit]
+    gain = np.where(marked, 1.5, 1.0)
+    full = dataclasses.replace(full, y=full.y + gain * v + np.where(marked, extra, 0.0))
     train, _, _ = td._split(full)
     out = M.run(
         train,
