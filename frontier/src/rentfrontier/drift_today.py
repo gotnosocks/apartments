@@ -132,6 +132,7 @@ COLUMNS = (
     "longitude",
     "neighbourhood",
     "unit_id",
+    "unit",
     "bedrooms",
     "full_baths",
     "half_baths",
@@ -969,8 +970,25 @@ def check(fit: Fit, comp: dict, rw: Rows, theirs: dict) -> dict:
     }
 
 
-def table(fit: Fit, apts: pd.DataFrame, comp: dict, rw: Rows, registry) -> pd.DataFrame:
-    """The Today table from the apartments' predictive mixtures."""
+def unit_labels(ads: Path, listing_ids) -> np.ndarray:
+    """Each listing's unit label ('6B') from its page URL in the ads table, as the Deals
+    page shows it: the dataset's unit_id is an id, not a label. '' where there is none."""
+    a = pd.read_parquet(ads, columns=["listing_id", "page"])
+    page = a.assign(listing_id=a.listing_id.astype(str)).drop_duplicates("listing_id")
+    page = page.set_index("listing_id").page.reindex(pd.Index(listing_ids).astype(str))
+    return np.asarray([drift_deals.unit_label(v) for v in page], dtype=object)
+
+
+def table(
+    fit: Fit,
+    apts: pd.DataFrame,
+    comp: dict,
+    rw: Rows,
+    registry,
+    ads: Path | None = None,
+) -> pd.DataFrame:
+    """The Today table from the apartments' predictive mixtures, with each listing's unit
+    label from the ads table `ads` when given."""
     n = len(apts)
     q = np.empty((n, len(drift_score.Q)))
     med = np.empty(n)
@@ -992,6 +1010,7 @@ def table(fit: Fit, apts: pd.DataFrame, comp: dict, rw: Rows, registry) -> pd.Da
             "building": f.building.astype(str).to_numpy(),
             "neighbourhood": text("neighbourhood"),
             "unit_id": text("unit_id"),
+            "unit": unit_labels(ads, f.listing_id) if ads else "",
             "bedrooms": f.bedrooms.to_numpy(float),
             "full_baths": f.full_baths.to_numpy(float),
             "half_baths": f.half_baths.to_numpy(float),
@@ -1045,7 +1064,14 @@ def publish(
     comp, comp_own = predict(fit, [today, own], workers, log=log)
     checked = check(fit, comp_own, own, drift_score.score_run(run_dir))
     log(f"against the fit's own predictions: {json.dumps(checked)}")
-    frame = table(fit, apts, comp, today, drift_estimates._registry(registry))
+    frame = table(
+        fit,
+        apts,
+        comp,
+        today,
+        drift_estimates._registry(registry),
+        Path(fit.manifest["ads"]),
+    )
     week, frac = grid_time(fit, day)
     past = max(0.0, week + frac - fit.weeks)
     tau_w = float(np.median(fit.kept["tau"]))

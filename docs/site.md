@@ -34,8 +34,8 @@ the market split ([leak-free scoring](leak-free-scoring.md)).
 
 `python -m rentfrontier.drift_today publish MARKET_RUN --registry REGISTRY --out <root>/today
 [--day YYYY-MM-DD] [--draws 96] [--workers 2]` writes `today.parquet`, one row per apartment
-the market fit knows (its newest ad, training or on the market), with the predictive median and
-50/80/95% intervals of an ad for it on `--day` (today in New York by default), and then
+the market fit knows (its newest ad, training or on the market, with its unit label taken from
+the ad's page as the Deals page takes it), with the predictive median and 50/80/95% intervals of an ad for it on `--day` (today in New York by default), and then
 `meta.json` (the model, the run and its gate, the day, the end of the fit's weekly grid and how
 far the day lies past it, the draws used, the counts, the check below, and the table's sha256).
 The module rebuilds the run's design, refuses it unless its columns, split and snapshots are the

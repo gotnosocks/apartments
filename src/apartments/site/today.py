@@ -39,7 +39,7 @@ META = "meta.json"
 PER_PAGE = 50
 # Each order of the list: its SQL and its words. `apartment` breaks ties.
 SORTS = {
-    "address": ("address ASC NULLS LAST, unit_id ASC", "Address"),
+    "address": ("address ASC NULLS LAST, NULLIF(unit, '') ASC NULLS LAST", "Address"),
     "recent": ("last_day DESC", "Newest last ad"),
     "low": ("median ASC", "Lowest price today"),
     "high": ("median DESC", "Highest price today"),
@@ -146,7 +146,8 @@ def unit_key(unit: str) -> str:
     return re.sub(r"[^0-9a-z]", "", unit.lower())
 
 
-UNIT_SQL = "regexp_replace(lower(unit_id), '[^0-9a-z]', '', 'g')"
+# The table's `unit` is the label from the ad's page ("6B"); its unit_id is the pipeline's id.
+UNIT_SQL = "regexp_replace(lower(unit), '[^0-9a-z]', '', 'g')"
 
 
 def where(c: Choice) -> tuple[str, list]:
@@ -199,13 +200,12 @@ def shown(row: dict) -> dict:
     """A table row with the page's words and links."""
     listing = str(row.get("listing_id") or "")
     full, half = _finite(row.get("full_baths")), _finite(row.get("half_baths"))
-    unit = _text(row.get("unit_id"))
+    unit = _text(row.get("unit"))
     last, median = _finite(row.get("last_ask")), _finite(row.get("median"))
     return row | {
         "address": _text(row.get("address")),
         "neighbourhood": _text(row.get("neighbourhood")),
         "hood_label": hood_label(_text(row.get("neighbourhood"))),
-        "unit_id": unit,
         "unit_label": unit.upper() if unit else None,
         "bedrooms": _finite(row.get("bedrooms")),
         "baths": None if full is None else full + 0.5 * (half or 0),
@@ -269,7 +269,7 @@ class Table:
             shown(r)
             for r in self._rows(
                 "SELECT * FROM today WHERE building = ? AND listing_id <> ? "
-                "ORDER BY unit_id NULLS LAST, apartment LIMIT 200",
+                "ORDER BY NULLIF(unit, '') NULLS LAST, apartment LIMIT 200",
                 [building, but or ""],
             )
         ]

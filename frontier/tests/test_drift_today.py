@@ -190,3 +190,19 @@ def test_apartments_take_each_units_newest_ad():
     assert out.loc["a|2", "unit_ads"] == 1
     assert out.loc["b|", "unit"] == 2
     assert out.loc["b|7", "held"] and out.loc["b|7", "unit_ads"] == 0
+
+
+def test_unit_labels_come_from_the_ads_pages(tmp_path):
+    ads = tmp_path / "ads.parquet"
+    pd.DataFrame(
+        {
+            "listing_id": ["1", "2", "3"],
+            "page": [
+                "https://streeteasy.com/building/10-bank-street-new_york/4flr",
+                "https://streeteasy.com/building/44-berry/6c?featured=1",
+                None,
+            ],
+        }
+    ).to_parquet(ads)
+    got = dt.unit_labels(ads, ["2", "3", "1", "9"])
+    assert list(got) == ["6C", "", "4FLR", ""]
