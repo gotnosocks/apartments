@@ -21,13 +21,13 @@ are in `docs/notes/amenity-signs-2026-11-13/`.
 ## Summary
 
 All figures are percent of the ask. Part A's shares are against the fixed-effect estimate
-for each unit (E3), which comes out negative for four of the six codes, and part B's against the held-out
-regression with no added term. L1's terms in the tables are its posterior medians, which differ from
-S11's figures above by up to 0.01.
+for each unit (E3), which comes out negative for four of the six codes, and part B's against
+the held-out regression with no added term. L1's terms in the tables are its posterior
+medians, which differ from S11's figures above by up to 0.01.
 
 | Code | Pattern | L1's term | Cause I found | Share it explains |
 |---|---|---|---|---|
-| Hardwood floors | A, own | -0.12 | Each later ad of a unit asks about 0.75% less against the market, and the code accrues over a unit's ads | All: E3's -1.14 becomes +0.18 to +0.25 |
+| Hardwood floors | A, own | -0.12 | Each later ad of a unit asks about 0.75% less against the market, and the code accrues over a unit's ads. I haven't run it inside L1 | All: E3's -1.14 becomes +0.18 to +0.25 |
 | Wood fireplace | A, own | -0.98 | Within units the term is inside its noise, -0.50 ± 0.43 | The same drift takes 32% to 60% |
 | Patio | A, own | -0.33 | None | The drift takes 11% to 13%, and -0.54 ± 0.12 is left in the first differences with every control |
 | Fireplace | A, own | -0.31 | No estimate from the ads comes out negative. My hypothesis, untested, puts the sign on L1's design beside its other codes | Not tested |
@@ -254,15 +254,15 @@ positive, the negative grows with the unit's ads, and a slope common to every un
 it. Each later ad of a unit asks about 0.75% less than the market index, and a code that
 accrues over a unit's ads, as hardwood does, takes up that drift in any estimate that
 compares an ad with its unit's mean. L1 compares each ad with its unit's level and with the
-past mean of the code, so I expect its own term takes up the drift too, though I haven't
-run the common slope inside L1. I haven't tested why later
-ads ask less. An apartment ages between renovations, and the index follows the city's mix of
-ads, so either could do it.
+past mean of the code, so I expect its own term takes up the drift too, though I haven't run
+the common slope inside L1. I haven't tested why later ads ask less. An apartment ages
+between renovations, and the index follows the city's mix of ads, so either could do it.
 
 Fireplace and private outdoor space come out positive in every estimate from the ads, E4 and
-E5 included. I expect their negatives in L1 come from its design beside its other codes,
-but I haven't tested that. The overlapping codes (wood and decorative fireplaces beside fireplace; patio,
-balcony and terrace beside private outdoor space) would be the first thing to check.
+E5 included. I expect their negatives in L1 come from its design beside its other codes, but
+I haven't tested that. The overlapping codes (wood and decorative fireplaces beside
+fireplace; patio, balcony and terrace beside private outdoor space) would be the first thing
+to check.
 
 Scores:
 
@@ -490,12 +490,11 @@ and decorative fireplace in 10 of 15 and 5 of 7.
 
 So city views and balcony are negative between units because of the buildings whose ads
 state them and the listers who tick them. L1 holds each building's level, pooled toward its
-block, and the codes' unit means then take up what the pooling leaves of the
-building's level. Within a building, the views and the balcony are worth zero or more. Park
-views' sum on the held-out ads is already inside its noise, so L1's -0.27 doesn't come back
-there. Roof
-rights keeps -1.78 within a building and lister, hardwood -0.79, and live-in super grows more
-negative with the lister, so I haven't named a cause for those three.
+block, and the codes' unit means then take up what the pooling leaves of the building's
+level. Within a building, the views and the balcony are worth zero or more. Park views' sum
+on the held-out ads is already inside its noise, so L1's -0.27 doesn't come back there. Roof
+rights keeps -1.78 within a building and lister, hardwood -0.79, and live-in super grows
+more negative with the lister, so I haven't named a cause for those three.
 
 The lister gain:
 
@@ -524,9 +523,9 @@ fetches need Ben's own word. The pilot would cost about 480 OxyLabs requests (60
 ## Fit candidates and cost
 
 1. A count of each unit's earlier ads, read from the dates alone, as a term beside L1's phase.
-   It would move the drift out of hardwood's own term and the unit mean, so L1's codes would
-   read as the worth of the feature. The held-out check gives -28 ± 14 elpd for the count
-   over a constant shift, so I expect -30 to +30 against L1. Under the rule it doesn't merit a
+   I expect it would move the drift out of hardwood's own term and the unit mean, so L1's
+   codes would read as the worth of the feature. The held-out check gives -28 ± 14 elpd for
+   the count over a constant shift, so I expect -30 to +30 against L1. Under the rule it doesn't merit a
    fit for elpd. If Ben wants the codes' terms to read right, it would cost one fit, about
    $11.50 on Modal. Against L2 it would do no better: over a shift by phase the count gives
    -27 ± 17 elpd, and L2's phase levels already take some of the drift.
