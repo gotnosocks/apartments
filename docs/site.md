@@ -2,8 +2,9 @@
 
 http://thelio.tail3983e0.ts.net:8600 (tailnet only; also on port 8500).
 
-The site shows the served drift model ([model/drift.md](model/drift.md)) in five sections with
-shared navigation and style: **Deals**, **Estimates**, **Workbench**, **Review** and **Tags**. Each section
+The site shows the served drift model ([model/drift.md](model/drift.md)) in six sections with
+shared navigation and style: **Deals**, **Price now**, **Estimates**, **Workbench**, **Review** and
+**Tags**. Each section
 reads a folder under the site root, written by a publish step of the model.
 
 Each estimate comes from a fit that never saw the ask it is compared with: the newest ad of each
@@ -28,6 +29,39 @@ the market split ([leak-free scoring](leak-free-scoring.md)).
   included, with a link to show it. A filter value the page cannot use is named in an Ignored
   line. Publish only from a fit that passed
   the gate, with its backtest. A link that changes the order starts again at the first page.
+
+### Price now
+
+`python -m rentfrontier.drift_today publish MARKET_RUN --registry REGISTRY --out <root>/today
+[--day YYYY-MM-DD] [--draws 96] [--workers 2]` writes `today.parquet`, one row per apartment
+the market fit knows (its newest ad, training or on the market), with the predictive median and
+50/80/95% intervals of an ad for it on `--day` (today in New York by default), and then
+`meta.json` (the model, the run and its gate, the day, the end of the fit's weekly grid and how
+far the day lies past it, the draws used, the counts, the check below, and the table's sha256).
+The module rebuilds the run's design, refuses it unless its columns, split and snapshots are the
+fit's, and for each of `--draws` kept draws integrates each building's path and each apartment's
+level given the training residuals, with a short Gibbs chain on the noise's mixing scales. A day
+past the grid carries the walk on by its drift and step sd. The method is checked on every run:
+it predicts the ads on the market that the fit itself predicted, and `meta.json["check"]` holds
+both elpds, the gap between the medians, the ratio of the 80% widths and both coverages. The
+module docstring gives the algebra. Only a market fit that passed the gate is accepted.
+
+`apartments.site.today` reads only that folder, refuses a table whose sha256 is not the one in
+`meta.json` (503 until the next publish), and queries it with DuckDB.
+
+- **Search** (`/price-now`): find an apartment by address, building id, StreetEasy link (a
+  rental's `/rental/<id>` or a building's `/building/<slug>/<unit>`), or listing id, with a
+  unit box and filters for neighbourhood, bedrooms, today's price, and which apartments (on the
+  market now, or with an ad the model learned from). One match opens its page. The page says
+  the day, the model and run, how many days the price is carried past the fit's market trend and
+  how much that widens it, and the check against the fit's own predictions.
+- **Apartment** (`/price-now/<listing id of its newest ad>`): the price if listed on the day,
+  its 50/80/95% ranges drawn as nested bands with the last ask as the dot, the last ask and the
+  change from it, how many of the apartment's ads the model learned from (none: priced as a new
+  apartment in its building), and the building's other apartments.
+
+The section is called Price now, and its routes avoid the word "today", because the
+Workbench's prose test forbids that word on every page the navigation appears on.
 
 ### Estimates
 
