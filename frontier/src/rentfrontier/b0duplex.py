@@ -4,14 +4,16 @@
 
 S7 of the causal screens (`docs/notes/causal-screens-2026-11-13.md`) read each listing's
 description for an apartment on two or three levels. Its pattern marked 6.0% of the 1,790,425
-rows in S7's own dataset, and Sonnet readers took 186 of 200 marked ads for duplex apartments. L1 prices a duplex right on
-average, but the asks of duplex ads scatter about 35% wider than other ads'. This script puts
-S7's pattern into a dataset as the column `duplex`, for a model to read.
+rows in S7's own dataset, and Sonnet readers took 186 of 200 marked ads for duplex apartments.
+L1 prices a duplex right on average, but the asks of duplex ads scatter about 35% wider than
+other ads'. This script puts S7's pattern into a dataset as the column `duplex`, for a model to
+read.
 
 I read the records file of SRC's own pipeline build (the manifest's `build.records`, checked
 against its SHA-256) a row group at a time. For each listing of SRC I keep its latest record, by
 the later of `collected_at` and `last_collected_at`, as `b0data` picks the record for its text
-flags. A record with neither time counts as no listing's latest, as in `b0data`. I mark the listing a duplex when the description in that record
+flags. I skip a record with neither time, as `b0data`'s `arg_max` does. I mark the listing a
+duplex when the description in that record
 
 1. has the word duplex or triplex (`DUP`) and calls no building a duplex (`DUP_BUILDING`:
    "duplex building", "duplex house", "two-family" and the like), or
