@@ -1,6 +1,6 @@
 """S4: does competing supply at the moment an ad is priced move its ask against L1?
 
-Each count uses only the dates ads opened, never a price. For each held-out ad I count
+Each count uses only the dates ads opened, never a price. For each held-out ad the script counts
 
 1. the building's other units with an ad opened in the 60 days before the held-out ad's
    price date, per residential unit of the lot in PLUTO;
@@ -9,7 +9,7 @@ Each count uses only the dates ads opened, never a price. For each held-out ad I
 
 An ad opens at the first ACTIVE event of its raw status history
 (`/data1/apartments/tmp/outlier-sprint/s2/H/proc.parquet`), or at its price date where the
-history is missing. Then I read the gap by decile of each count, the slope of the gap on
+history is missing. Then the script reads the gap by decile of each count, the slope of the gap on
 each, and the elpd from moving each ad by the cross-fitted mean gap of its decile."""
 
 import json

@@ -3,7 +3,7 @@
 `s5b_j9level.py` found j9's held-out new units 5% to 9% over its mean location where the
 building has under 5 training ads. A condo or co-op apartment is rented by its owner, one at
 a time, so its building rarely shows many ads, and j9 carries a condo flag but no co-op flag.
-I split the gap by PLUTO's building class (condo, co-op, rental, other) and the building's
+The script splits the gap by PLUTO's building class (condo, co-op, rental, other) and the building's
 count of j9 training ads."""
 
 import json

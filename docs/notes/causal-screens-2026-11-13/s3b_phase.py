@@ -1,8 +1,8 @@
 """S3, part B: how much of a level by lease phase (candidate L2) is a common offset?
 
-L1 puts the lease phase in the noise scale only. I fit two cross-fitted shifts the same way
-as `s3_ending.py`, a constant and a mean by phase, rescore L1's predictive with each, and
-take the gain of the phase shift over the constant. I also print each phase's mean gap and
+L1 puts the lease phase in the noise scale only. The script fits two cross-fitted shifts the same way
+as `s3_ending.py`, a constant and a mean by phase, rescores L1's predictive with each and
+takes the gain of the phase shift over the constant. The script also prints each phase's mean gap and
 median gap with SEs clustered by building."""
 
 import json

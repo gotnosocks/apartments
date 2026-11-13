@@ -2,9 +2,9 @@
 between two of their ads?
 
 L1 carries a unit from its previous ad to the next by the citywide walk L(t), the same for
-every unit. For each held-out ad with an earlier ad of its unit I take the walk's change
+every unit. For each held-out ad with an earlier ad of its unit the script takes the walk's change
 between the two latest-ask days (from the kept draws, interpolated as in `rentfrontier.b0`)
-and the guideline change for one-year leases over the same span. Then I regress the gap on
+and the guideline change for one-year leases over the same span. Then the script regresses the gap on
 both, for three groups of units:
 
 1. stabilized by the ad's own text flag (`flag:rent_stabilized`);

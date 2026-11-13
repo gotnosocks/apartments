@@ -17,7 +17,7 @@ by a hash of the building) and scores the other half, both ways.
 | S1, segment paths | Bedroom groups and zones moved on paths of their own in 2020 to 2023, worth 452 ± 50 elpd over a static offset | a walk for each bedroom group in each zone, around the citywide walk |
 | S7, duplexes | Priced right on average, with asks scattered about 35% wider than others and 80% coverage of 0.72 | a scale factor on the noise for duplex units |
 | S6, regulated rents | Units with the stabilized flag follow about 0.9 of the citywide walk | not now (20 to 60 elpd) |
-| S2, the FARE Act | A stated renter's fee moved about 5% of ads before the Act by 1.3% to 1.6% | not on its own (20 to 80 elpd) |
+| S2, the FARE Act | A stated renter's fee moved about 5% of ads before the Act by 1.3% to 1.7% | not on its own (20 to 80 elpd) |
 | S7, outdoor space | Private outdoor space asks 1.2% over L1's median where either ad ran before 2021, and 0.1% where both ran later | none (-5 ± 19 elpd) |
 | S4, competing supply | 0.2% within building in the top decile | none |
 | S5, lease-up | No lease-up gap on L1; j9 prices buildings with few ads and a building's first year too low | none |
@@ -42,7 +42,7 @@ gate on R-hat. If a later L1T passes, I would put these changes on it instead. I
 heavy-tailed unit level may take up part of the duplex scatter, so the duplex range is the
 one most likely to shrink.
 
-Three free data changes come out of the screens: the duplex pattern as a column, a co-op flag
+I would make these data changes, all free, before the fits they feed: the duplex pattern as a column, a co-op flag
 from PLUTO's building class for the j line, and amenity codes taken from all of a unit's ads.
 A column for a building's turnover would test the j9 leads of S5. The local co-movement in S8
 and S1 points at a path per neighbourhood, which `drift-local` tried before the building
@@ -141,7 +141,7 @@ unit's previous ad, less the citywide index's, with slopes of 0.45 ± 0.03 (bedr
 0.24 ± 0.01 (zone), 0.16 ± 0.03 (lift) and 0.27 ± 0.01 (the cell), on 67,936 ads (66,407 for
 the cell).
 
-All three predictions held: the shifts remove at most 12.8% of the excess, coverage moves by
+The predictions held: the shifts remove at most 12.8% of the excess, coverage moves by
 at most 0.006, and every slope sits under 0.5. The slopes sit well above zero, though, and the
 cell shift gains 583 elpd over the quarter shift.
 
@@ -370,14 +370,14 @@ L1's median. After it, with almost no current ad stating a fee, the first group 
 ± 0.22). A renter's fee runs from 8% to 15% of a year's rent, and the asks of units that
 used to charge one rose by well under a tenth of that.
 
-Two of the predictions held and one missed narrowly. The fee share fell under 2% of new ads
+Two of the predictions held and two missed narrowly. The fee share fell under 2% of new ads
 from September 2025, though July and August sat at 2.1% and 2.3%. The no-fee premium within
 building and half-year was 1.4% to 1.7% in 2024 and 2025, inside 1% to 3%. After the Act
 the units that used to charge a fee came back 0.80% over the others, under the 1% to 4% I
 predicted, and before it the contrast was 0.23%, under 1% as predicted.
 
 Verdict: a small feature, no cause for a fit on its own. A column for a stated renter's fee
-would move about 5% of ads before the Act by 1.3% to 1.6% and almost none after it. I expect
+would move about 5% of ads before the Act by 1.3% to 1.7% and almost none after it. I expect
 20 to 80 elpd on the latest split, where most held-out ads are recent. The Act's own effect
 on asks, 0.6%, is too small and too narrow for a model term.
 
@@ -413,8 +413,8 @@ All of them have split R-hat at most 1.004 and bulk ESS over 2,100.
 
 Part B read the raw codes on L1's training rows. Five of the six negative own terms belong to
 columns whose sum is positive: a unit with a fireplace, water views or a patio asks more than
-one without, and among a unit's own ads the one stating the code asks a little less. Which of
-a unit's ads states a code depends on who wrote it. Hardwood floors changes between ads of a
+one without, and among a unit's own ads the one stating the code asks a little less. The writer
+of an ad decides whether it states a code. Hardwood floors changes between ads of a
 unit in 42% of units with two ads or more, and 71% of PARTNER-source ads state it against 0.4%
 of FEED ads. The view codes change in 30% to 36% of units and come mostly from PARTNER and
 OWNER ads. L1 gives the source a level of its own, but the codes an agent adds to a fuller ad
@@ -493,7 +493,7 @@ since (209), against +0.1% to +1.0% later.
 The prediction held in part. A building with few training ads does sit high: +5.9% over
 the 415 ads with under 5, against a range of 2% to 5%, and +0.5% at 100 or more, within 1%.
 But within a count bin the first-year excess does not fall at all: it is about +3.3% in every
-bin from 5 ads up and in every age group. So j9 has two separate misses. Its building level
+bin from 5 ads up and in every age group. So j9 misses on the building level and on the first year separately. Its building level
 shrinks toward a location map and attributes that sit too low for buildings with few ads, and the
 first year after a building's first ad asks about 3% more whatever the building's count or
 age. For an old, unaltered building the first ad in the data likely marks a renovation or a
@@ -512,11 +512,11 @@ co-op (C6, C8, D0, D4), rental (the other A, B, C, D and S classes) and other.
 
 The prediction missed on its main claim. Condos and co-ops are 23% of the few-ad ads, not over
 half, and rental buildings with under 5 training ads still sit +5.6% over j9. Condos and
-co-ops did sit in the range of 5% to 10% there. Apart from that, an apartment in a condo or co-op
+co-ops there sit about where I predicted, at +7.5 ± 3.8% (58 ads) and +10.8 ± 3.2% (38). Apart from that, an apartment in a condo or co-op
 asks 1% to 4% more than j9 expects at every count, although j9 carries a condo flag, and
 it has no co-op flag at all.
 
-Verdict for S5: no lease-up term, and no fit from parts B and C alone. They leave two leads
+Verdict for S5: no lease-up term, and no fit from parts B and C alone. They leave leads
 for the new-unit model. A co-op flag from PLUTO's building class is a data change for the
 next fit of the j line, and the condo flag's size deserves a look there. The excess of
 rental buildings with few ads and the first-year excess of about 3% both point at what a
@@ -610,7 +610,7 @@ missed.
 
 For the level, nothing calls for a fit. L1 prices a duplex from its unit's earlier asks, and j9 prices a new duplex
 from its stated size, bedrooms and building with no excess left over. The split by stated size
-goes the way of a size term at work: a duplex without a stated size is larger than its
+looks like L1's size term at work: a duplex without a stated size is larger than its
 bedrooms suggest, and one with a stated size may count a lower level that renters value at
 less than full rate. Both stay under 0.5%. I keep the duplex pattern as a data column for the
 site and for later screens. Part B, below, checks the spread.
@@ -636,8 +636,8 @@ L1, 38% of the excess remains within building (+0.0021 ± 0.0002).
 
 By the lot's residential units the squared gap of duplex ads runs 0.0098 to 0.0140 against
 0.0048 to 0.0081 for other ads, and coverage 0.70 to 0.72 against 0.80 to 0.81, in every size
-from 1 to 5 units to over 100. The prediction held on the share within building, near half,
-and missed on the rest. Mismatched previous ads are 21% of duplex ads, not 30% to 50%, and
+from 1 to 5 units to over 100. The prediction came close on the share within building, 38% against the half I
+predicted, and missed on the rest. Mismatched previous ads are 21% of duplex ads, not 30% to 50%, and
 they miss by about as much as matched ones unless the bedrooms change, which raises the
 squared gap for any ad. A duplex whose previous ad was the same duplex with the same bedrooms
 still has twice the squared gap of other ads.
@@ -649,8 +649,8 @@ ads drawn at random the same search picks 1.0 both ways and gains nothing, and m
 already loses 31 there. The multiplier held in its range of 1.3 to 1.5, and the gain fell
 short of 300 to 1,000. The control held.
 
-The spread, rather than the level, is where L1 misses duplexes: their asks scatter about 35%
-wider around L1's median than other asks, in small buildings and large ones, with the same
+L1 misses duplexes in the spread of their asks: they scatter about 35% wider around its
+median than other asks, in small buildings and large ones, with the same
 unit and bedrooms as before. A duplex has few comparable apartments, and that likely leaves
 its landlord less sure of its price. L1 already puts the lease phase in its scale, and the
 duplex belongs there in the same way.

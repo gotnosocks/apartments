@@ -2,10 +2,10 @@
 
 `s7b_spread.py` found duplex ads with twice the squared gap of other ads. A duplex in a small
 building can be the same unit_id as a different floor-through, or a unit that was combined
-or split between ads. So for each held-out ad I read the unit's previous ad: whether it also
-matches the duplex pattern and whether it lists the same bedrooms. I split the squared gap
+or split between ads. So for each held-out ad the script reads the unit's previous ad: whether it also
+matches the duplex pattern and whether it lists the same bedrooms. The script splits the squared gap
 and 80% coverage by that, and by the lot's residential units from PLUTO, for duplex ads and
-the rest. Last, I split the private outdoor contrast of part B by the years between the two
+the rest. Last, the script splits the private outdoor contrast of part B by the years between the two
 ads."""
 
 import json

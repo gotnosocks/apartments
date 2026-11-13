@@ -1,8 +1,8 @@
 """S7, part 2: do duplex apartments and stated outdoor sizes ask more than L1 predicts?
 
 L1 has no duplex column, so for a unit with earlier ads its unit level carries the duplex,
-and a duplex should show in the gap mainly where the held-out ad is the unit's first. I
-split held-out ads by that and read:
+and a duplex should show in the gap mainly where the held-out ad is the unit's first. The script
+splits held-out ads by that and read:
 
 1. the gap and the within-building gap of ads matched by `s7_text.py`'s duplex pattern
    against the rest, with and without a stated size;
@@ -10,7 +10,7 @@ split held-out ads by that and read:
 3. the same contrast on the new units of the backtest j9;
 4. for ads with the private outdoor flag, the within-building gap by the stated outdoor size.
 
-With the readers' labels in `s7_labels.parquet`, I also score the pattern's precision and
+With the readers' labels in `s7_labels.parquet`, the script also scores the pattern's precision and
 recall against them."""
 
 import json

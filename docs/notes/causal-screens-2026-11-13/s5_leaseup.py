@@ -1,13 +1,12 @@
 """S5: do new buildings price their first units differently while they lease up?
 
 A building counts as new where PLUTO's year built is 2014 or later and its first ad in
-L1's dataset opened within two years of the year built. For each held-out ad I take the
-months since its building's first ad opened, and read the gap by those months for new
+L1's dataset opened within two years of the year built. For each held-out ad the script takes the
+months since its building's first ad opened and reads the gap by those months for new
 buildings beside older ones (built before 2010). L1 saves no quarterly building paths, so the
-check reads the gap alone. Then I move
-each held-out ad by the cross-fitted mean gap of its cell and rescore. Last, the same table
-on the new units of the backtest j9 (`drift-building-b0-market-67d14e17-j9`), whose gap I
-take against the mean of its draws' locations."""
+check reads the gap alone. Then the script moves
+each held-out ad by the cross-fitted mean gap of its cell and rescores. Last, the same table
+on the new units of the backtest j9 (`drift-building-b0-market-67d14e17-j9`), with the gap taken against the mean of its draws' locations."""
 
 import json
 

@@ -1,7 +1,7 @@
 """S1, part C: does a segment's own path add anything once its static level is counted?
 
 The segment by quarter shift of `s1_segments.py` mixes a fixed offset of the segment's
-held-out ads with a path of its own. Here I fit the means one after another on one half of
+held-out ads with a path of its own. This script fits the means one after another on one half of
 the buildings, each on what the earlier ones left:
 
 1. a quarter mean;
@@ -9,7 +9,7 @@ the buildings, each on what the earlier ones left:
 3. a segment mean, a quarter mean, then a segment by quarter mean.
 
 Each mean is shrunk to zero by n / (n + k), with k picked on an inner split of the same half.
-I apply the sum to the other half and rescore L1's predictive on the held-out ads of 2019 to
+The script applies the sum to the other half and rescores L1's predictive on the held-out ads of 2019 to
 2023. The gain of design 3 over design 2 is the segment's path."""
 
 import json

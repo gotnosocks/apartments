@@ -1,9 +1,9 @@
 """S7, part B: do duplex asks vary more than others, and did private outdoor space gain value?
 
-`s7_score.py` found duplex ads within 0.5% of L1's median and of j9's mean location. Here I
-compare the spread instead: 80% coverage and the clipped squared gap on L1, the clipped
-squared gap on j9's new units. Then I take held-out ads with the private outdoor flag and
-compare their gap with other ads of the same pair of periods, the period of the unit's
+`s7_score.py` found duplex ads within 0.5% of L1's median and of j9's mean location. This script
+compares the spread instead: 80% coverage and the clipped squared gap on L1, the clipped
+squared gap on j9's new units. Then the script takes held-out ads with the private outdoor flag and
+compares their gap with other ads of the same pair of periods, the period of the unit's
 previous ad and that of the held-out ad, split at 2020 and 2021."""
 
 import json

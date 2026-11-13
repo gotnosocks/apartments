@@ -3,8 +3,8 @@
 S5 found j9's new units asking 3% to 5% over j9's mean location in the first months after their
 building's first ad, in old buildings as much as in new ones. A building new to the data also
 has few training ads, so j9 sets its level close to what its attributes and place predict. To
-pull the two apart I cross the building's count of j9 training ads with the months since its
-first ad, and split the gap by PLUTO's latest alteration year as well."""
+pull the two apart the script crosses the building's count of j9 training ads with the months since its
+first ad and splits the gap by PLUTO's latest alteration year as well."""
 
 import json
 

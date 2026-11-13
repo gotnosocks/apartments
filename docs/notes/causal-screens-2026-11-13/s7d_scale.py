@@ -1,9 +1,9 @@
 """S7, part D: how much would a wider predictive for duplex ads gain on L1?
 
 Part C found duplex ads with about twice the squared gap of other ads, whatever the
-building's size and whether or not the previous ad matched. Here I multiply L1's noise scale
-and unit sd for duplex ads by m, for m on a grid, and rescore its predictive with
-`common.Draws`. I pick m on one half of the buildings and score the other half, both ways. A
+building's size and whether or not the previous ad matched. This script multiplies L1's noise scale
+and unit sd for duplex ads by m, for m on a grid, and rescores its predictive with
+`common.Draws`. The script picks m on one half of the buildings and scores the other half, both ways. A
 control runs the same search on 10,000 other held-out ads drawn at random."""
 
 import json

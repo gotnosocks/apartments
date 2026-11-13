@@ -1,20 +1,20 @@
 """S8: do buildings with the same manager share a level or move together beyond L1?
 
-I give a building a manager where one lister placed at least half of the building's ads in
+The script gives a building a manager where one lister placed at least half of the building's ads in
 L1's dataset (five ads or more), `rentfrontier.lister.kind` reads that lister's name as a
 management company, and the same lister holds two buildings or more this way. The generic
 lister "Owner" is left out. HPD's registration contacts are not on thelio, so the key comes
 from the ads alone.
 
-Part A asks whether a manager's other buildings predict a building's held-out gap. I take
+Part A asks whether a manager's other buildings predict a building's held-out gap. The script takes
 the cross-fitted shrunk mean of the clipped gap by manager (estimated on the other half of
 the buildings, so each building is scored by its manager's buildings in the other half),
 score its explained share of the clipped gap, and set it against 50 shuffles of the manager
-labels among the managed buildings of each neighbourhood. Then I rescore L1's predictive
+labels among the managed buildings of each neighbourhood. Then the script rescores L1's predictive
 with the shift.
 
 Part B asks whether they move together in the same quarter. From each held-out ad's clipped
-gap I take off the quarter's citywide mean, then regress it on the same quantity averaged
+gap the script takes off the quarter's citywide mean, then regresses it on the same quantity averaged
 over the manager's other buildings in that quarter and over other managers' buildings within
 1 km in that quarter, with and without the building's own mean taken off."""
 

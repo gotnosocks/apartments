@@ -2,12 +2,12 @@
 near its stations?
 
 For each building of the Upper East Side, Carnegie Hill, Yorkville, Lenox Hill and East
-Harlem I take the straight-line distance to the nearest subway stop with and without the new
+Harlem the script takes the straight-line distance to the nearest subway stop with and without the new
 stops (`Q03`, `Q04`, `Q05` in `/data1/apartments/external/subway/20260929-8e7c364`), and
 call the difference the building's gain.
 
 Part A reads raw asks only. For consecutive ads of a unit with both latest-ask days in 2014 to
-2019, I take the change in log ask, subtract its mean over the area's pairs with the same
+2019, the script takes the change in log ask, subtracts its mean over the area's pairs with the same
 pair of quarters, and regress what is left on the gain, the gain times a flag for pairs
 spanning the opening, and that flag. The second coefficient is the difference in differences.
 A placebo repeats it on pairs of 2013 to 2016 with a pretend opening on 2015-01-01.

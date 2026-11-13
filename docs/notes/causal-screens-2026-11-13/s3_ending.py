@@ -1,11 +1,11 @@
 """S3: does the previous ad's ending still move the next ask once L1 knows the months since
 that ad?
 
-For each held-out ad I take the unit's previous ad in the dataset and its row of the
+For each held-out ad the script takes the unit's previous ad in the dataset and its row of the
 per-ad process table built from the raw status and price histories
 (`/data1/apartments/tmp/outlier-sprint/s2/H/proc.parquet`). The ending counts only where
 its status change is dated before the held-out ad opened; otherwise the ending is unknown.
-Then I move each held-out ad by the cross-fitted mean gap of its cell and rescore L1's
+Then the script moves each held-out ad by the cross-fitted mean gap of its cell and rescores L1's
 predictive, for cells of phase alone (a level per phase, the TODO's L2) and of phase by
 ending, by the previous ad's price path and by both."""
 

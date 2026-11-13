@@ -1,10 +1,10 @@
 """S3, part D: does the drop after a quick relist show among L1's training ads too?
 
 A level per phase in L2's mean would be learned from training ads, and each of those has a
-later ad of its unit, while each held-out ad has none. So I pair every ad with its unit's
+later ad of its unit, while each held-out ad has none. So the script pairs every ad with its unit's
 previous ad, sort the pairs into L1's phases with `drift_building_phase.phase_index`, and take
-the change in log latest ask from the previous ad. I report it by phase for pairs whose later
-ad L1 trained on and pairs whose later ad it held out. Then I take off the mean change of all
+the change in log latest ask from the previous ad. The script reports it by phase for pairs whose later
+ad L1 trained on and pairs whose later ad it held out. Then the script takes off the mean change of all
 pairs with the same quarters for the two ads, which removes the market's move, and compare the
 held-out pairs with the training pairs of the same phase."""
 

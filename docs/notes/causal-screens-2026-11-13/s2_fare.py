@@ -1,7 +1,7 @@
 """S2: did the FARE Act (in force 2025-06-11) move asks of ads that used to charge the
 renter a broker fee?
 
-The GraphQL digests' `noFee` field is false on all 131,912 ads that carry it, so I read the
+The GraphQL digests' `noFee` field is false on all 131,912 ads that carry it, so the script reads the
 fee from each listing's last description instead:
 
 1. `no_fee`, the text flag of `rentfrontier.features.DESCRIPTION_FLAGS`
@@ -9,7 +9,7 @@ fee from each listing's last description instead:
 2. `fee_stated`, wording that puts a broker fee on the renter, matched here over the
    descriptions in `/data1/apartments/tmp/outlier-sprint/s2/R/recs.parquet`.
 
-An ad with neither counts as silent. I tabulate the shares by the month the ad opened, the
+An ad with neither counts as silent. The script tabulates the shares by the month the ad opened, the
 within-building gap of fee against no-fee ads by half-year, and a switch test on consecutive
 ads of a unit: the held-out ad's gap by the fee status of the unit's previous ad and of its
 own, for held-out ads opened before and after the Act."""

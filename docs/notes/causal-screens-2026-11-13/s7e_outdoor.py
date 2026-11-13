@@ -1,9 +1,9 @@
 """S7, part E: what would a period-specific premium for private outdoor space gain on L1?
 
 Part B found held-out ads with the private outdoor flag over L1's median where the held-out
-ad or the unit's previous ad ran before 2021, and close to it where both ran from 2021 on. I
-take the cross-fitted shrunk mean gap of each pair of periods, then of each pair of periods
-and the flag, rescore L1's predictive with each as a shift, and compare the two."""
+ad or the unit's previous ad ran before 2021, and close to it where both ran from 2021 on. The script
+takes the cross-fitted shrunk mean gap of each pair of periods, then of each pair of periods
+and the flag, rescores L1's predictive with each as a shift and compares the two."""
 
 import json
 

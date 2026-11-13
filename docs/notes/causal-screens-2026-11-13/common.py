@@ -8,6 +8,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+# JAX stays on the CPU, since the GPU belongs to fits.
+os.environ.setdefault("JAX_PLATFORMS", "cpu")
 sys.path.insert(0, "/data1/apartments/serve/master/frontier/src")
 from rentfrontier import drift_score as ds  # noqa: E402
 

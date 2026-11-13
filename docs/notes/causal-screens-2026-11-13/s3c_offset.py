@@ -1,8 +1,8 @@
 """S3, part C: where do L1's held-out asks sit 0.44% under its median?
 
-`s3b_phase.py` found that a constant shift of every held-out ad gains 582 elpd. Here I break
+`s3b_phase.py` found that a constant shift of every held-out ad gains 582 elpd. This script breaks
 the held-out gap and that constant's per-ad gain down by the ad's year, by quarter from 2024,
-and by phase in two periods. For each month I also count the share of the dataset's ads that
+and by phase in two periods. For each month the script also counts the share of the dataset's ads that
 L1 trained on, since the newest months hold mostly held-out ads and leave the citywide walk
 there with few training ads."""
 
