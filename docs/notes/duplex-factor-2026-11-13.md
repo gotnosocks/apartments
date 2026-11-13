@@ -32,9 +32,9 @@ marked and unmarked rows share v. log k takes the Normal(0, 0.3) prior of the ph
 factors, and the scale step draws it with the six phase factors, the unit scales, sigma and
 nu. The design and the rows' means are L1's.
 
-Sharing v moves some medians. Where a unit's training ads are all marked or all unmarked, k
-scales the unit's process and its noise together, and a held-out ad's median comes out as
-L1's would with the same scales. In a unit with both kinds of ad, a marked held-out ad takes
+Sharing v moves some medians. Where a held-out ad and all its unit's training ads carry the
+same mark, k scales the unit's process and its noise together, and the ad's median comes out
+as L1's would with the same scales. In a unit with both kinds of ad, a marked held-out ad takes
 k times the unit's estimated v, and an unmarked one v divided by k. On the latest split
 3,251 of the marked held-out ads, about a third, have an unmarked training ad in their unit,
 and 3,610 unmarked held-out ads have a marked one. S7's part D only widened the predictive,
