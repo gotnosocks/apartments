@@ -56,8 +56,10 @@ def parse(argv):
 
 
 def inputs(run_dir):
-    """What the container reads besides fit.INPUTS: the run, its dataset and the ads table
-    its market manifest names (drift_deals checks that table's sha256)."""
+    """What the container reads besides fit.INPUTS: the run, the ads table its dataset's
+    market manifest names (drift_deals checks that table's sha256) and every snapshot the
+    dataset's inputs.json points the feature modules at (rentfrontier.market), such as the
+    pipeline's rows parquet."""
     result = json.loads((run_dir / "result.json").read_text())
     dataset = Path(result["dataset"])
     if not dataset.is_dir():
@@ -66,7 +68,16 @@ def inputs(run_dir):
     ads = (manifest.get("market") or {}).get("ads")
     if not ads:
         sys.exit(f"{dataset} is not a market dataset")
-    return str(dataset), [str(run_dir), str(Path(ads).resolve())]
+    extra = [str(run_dir), str(Path(ads).resolve())]
+    pinned = dataset / "inputs.json"
+    if pinned.exists():
+        for value in json.loads(pinned.read_text()).values():
+            path = str(Path(value).resolve())
+            if not any(
+                path == p or path.startswith(p + "/") for p in fit.INPUTS + extra
+            ):
+                extra.append(path)
+    return str(dataset), extra
 
 
 def download(volume, name, out, logs):

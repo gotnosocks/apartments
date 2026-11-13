@@ -1542,6 +1542,14 @@ def test_a_price_now_launch_uploads_the_run_and_its_ads_table(tmp_path):
     run.mkdir(parents=True)
     (run / "result.json").write_text(json.dumps({"dataset": "/elsewhere/d"}))
     assert today.inputs(run) == (str(dataset), [str(run), "/x/ads.parquet"])
+    # The snapshots the dataset pins go up too, unless an input already holds them.
+    pinned = {
+        "rentfrontier.a.ROWS": "/p/rows.parquet",
+        "rentfrontier.b.ROWS": "/p/rows.parquet",
+        "rentfrontier.c.CODES": "/data1/apartments/external/codes.parquet",
+    }
+    (dataset / "inputs.json").write_text(json.dumps(pinned))
+    assert today.inputs(run)[1] == [str(run), "/x/ads.parquet", "/p/rows.parquet"]
 
 
 def test_a_price_now_download_cut_short_keeps_the_old_pair(tmp_path):
