@@ -167,6 +167,8 @@ STATED_RATE["drift-building-unitt"] = 1.1
 # L1 with the units' Student-t levels at fixed degrees of freedom took a CPU sweep from
 # L1's 0.786 s to 1.205 s on 18,441 rows and 10,135 units, 53% more, so 1.0 s becomes 1.5 s.
 STATED_RATE["drift-building-phase-unitt"] = 1.5
+# RATE_UNITK_COMMENT
+STATED_RATE["drift-building-phase-unitk"] = 1.5
 STATED_RATE["drift-local"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
@@ -275,6 +277,7 @@ BASELINES = (
     "drift-building-doorman",
     "drift-building-phase",
     "drift-building-phase-year",
+    "drift-building-phase-unitk",
     "drift-building-phase-unitt",
     "drift-building-unitt",
     "drift-local",
@@ -338,6 +341,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-year",
+        "drift-building-phase-unitk",
         "drift-building-phase-unitt",
         "drift-building-unitt",
         "drift-local",
