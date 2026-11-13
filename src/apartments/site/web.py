@@ -32,6 +32,7 @@ from flask import (
     abort,
     g,
     jsonify,
+    redirect,
     render_template,
     request,
     url_for,
@@ -46,6 +47,7 @@ from . import (
     review,
     streetview,
     tags,
+    today,
     workbench,
 )
 from . import estimates as estimates_table
@@ -77,6 +79,7 @@ DEFAULT_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 
 SECTIONS = {
     "deals": ("index", "deals_page"),
+    "today": ("today_search", "today_apartment"),
     "estimates": (
         "estimates",
         "listings",
@@ -653,6 +656,78 @@ def create_app(
                 "SELECT neighbourhood, COUNT(*) FROM observed "
                 "GROUP BY neighbourhood ORDER BY neighbourhood"
             ).fetchall()
+        )
+
+    def today_or_503() -> today.Table:
+        """The published prices for today, or 503 when absent or mismatched."""
+        try:
+            table = today.load(root)
+        except today.Refused as refused:
+            log.error("today refused: %s", refused)
+            abort(503, description=str(refused))
+        if table is None:
+            abort(503, description="No prices for today have been published yet.")
+        return table
+
+    @app.get("/price-now")
+    def today_search():
+        table = today_or_503()
+        c = today.choice(request.args, table.hoods())
+        rows, total, pages = table.page(c) if c.active() else ([], 0, 1)
+        if total == 1 and c.page == 1 and request.args.get("go") != "list":
+            # One apartment found: show it.
+            return redirect(url_for("today_apartment", key=rows[0]["listing_id"]))
+        names = table.hood_names()
+        base = url_for("today_search")
+
+        def list_url(**changes) -> str:
+            query = _query(c.args(**changes))
+            return f"{base}?{query}" if query else base
+
+        return render_template(
+            "today.html",
+            info=table.meta,
+            horizon=today.horizon(table.meta),
+            check=today.checked(table.meta),
+            rows=rows,
+            total=total,
+            pages=pages,
+            choice=c,
+            hood_groups=boroughs.grouped(names),
+            show_hoods=len(names) > 1,
+            list_url=list_url,
+            sorts=today.SORTS,
+            which=today.WHICH,
+            bedrooms=today.BEDROOMS,
+            per_page=today.PER_PAGE,
+        )
+
+    @app.get("/price-now/<key>")
+    def today_apartment(key):
+        table = today_or_503()
+        row = table.row(key)
+        if row is None:
+            abort(
+                404,
+                description="No apartment's newest ad has this id. Search for the "
+                "apartment by its address on the Today page.",
+            )
+        return render_template(
+            "today_apartment.html",
+            info=table.meta,
+            horizon=today.horizon(table.meta),
+            check=today.checked(table.meta),
+            row=row,
+            neighbours=table.building(row["building"], but=row["listing_id"]),
+            chart=charts.interval_strip(
+                row["last_ask"],
+                row["median"],
+                [
+                    (50, row["lo50"], row["hi50"]),
+                    (80, row["lo80"], row["hi80"]),
+                    (95, row["lo95"], row["hi95"]),
+                ],
+            ),
         )
 
     @app.get("/new-jersey")

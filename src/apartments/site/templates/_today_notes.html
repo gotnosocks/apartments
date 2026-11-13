@@ -1,0 +1,22 @@
+<section class="card" id="how">
+  <h2>Where these prices come from</h2>
+  <p>The model is <code>{{ info.model }}</code>, fitted as <code>{{ info.run }}</code> on every ad up to {{ day(horizon.last_ad_day) }}
+  {% if info.gate and info.gate.passes %}(it passed the convergence gate: {{ info.gate.chains }} chains, worst split R-hat {{ "%.4f"|format(info.gate.max_rhat) }}){% endif %}.
+  Prices use {{ info.draws.kept }} of its saved posterior draws, and are for {{ "{:,}".format(info.apartments.all) }} apartments.</p>
+  {% if horizon.days_past > 0 %}
+  <p class="notice" id="horizon"><strong>The market trend stops before today.</strong> The model's citywide trend runs to
+  {{ day(horizon.grid_end) }}, {{ horizon.days_past }} day{{ "" if horizon.days_past == 1 else "s" }} before {{ day(info.day) }}.
+  For those days the trend is carried on as the model describes it, a random walk that has drifted
+  {{ pct(horizon.drift_pct_month) }} a month on average, which adds {{ pct(horizon.added_pct, signed=False, digits=1) }} of uncertainty to every price.
+  Each building's and apartment's own movements are carried forward the same way.</p>
+  {% else %}
+  <p id="horizon">The model's citywide trend reaches {{ day(info.day) }}, so no extrapolation is needed.</p>
+  {% endif %}
+  {% if check %}
+  <p id="check">The same method run on the {{ "{:,}".format(check.rows) }} ads that were on the market on {{ day(info.scoring_day) }}, which the fit never saw,
+  gave medians within {{ pct(check.median_gap_pct, signed=False, digits=1) }} of the fit's own (the typical gap), 80% ranges {{ "%.2f"|format(check.width_ratio) }} times as wide,
+  and held {{ pct(check.cover80_today, signed=False) }} of those asks in its 80% range against the fit's {{ pct(check.cover80_fit, signed=False) }}.</p>
+  {% endif %}
+  <p class="note">An apartment the model has no earlier ad for is priced as a new apartment in its building, with a wider range.
+  The price assumes the apartment is as its newest ad described it. Model outputs, not appraisals: they describe asking rents.</p>
+</section>

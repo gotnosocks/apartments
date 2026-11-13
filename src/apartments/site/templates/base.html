@@ -17,6 +17,7 @@
     <a class="brand" href="{{ url_for('index') }}">NYC Rents</a>
     <nav aria-label="Sections" class="sections">
       <a href="{{ url_for('index') }}"{% if section == "deals" %} aria-current="true"{% endif %}>Deals</a>
+      <a href="{{ url_for('today_search') }}"{% if section == "today" %} aria-current="true"{% endif %}>Price now</a>
       <a href="{{ url_for('estimates') }}"{% if section == "estimates" %} aria-current="true"{% endif %}>Estimates</a>
       <a href="{{ url_for('workbench') }}"{% if section == "workbench" %} aria-current="true"{% endif %}>Workbench</a>
       <a href="{{ url_for('review_home') }}"{% if section == "review" %} aria-current="true"{% endif %}>Review</a>
