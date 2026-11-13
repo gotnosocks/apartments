@@ -87,34 +87,53 @@ its system rises from about 2e11 to 1.6e12 flops a sweep for a pair of chains, a
 stops its sweeps at the 2,520 s budget, so the paths cut the sweeps to about 2,650 to 3,050
 from L1's 3,260, still over 2,000 draws a chain, and leave the wall time where L1's was.
 
-Host memory is the larger change, and it sets the container. `b0.main_run` keeps the design
-of all rows, the training rows' copy and the held-out rows' copy alive through the fit, and
-the training design carries its own copy of the held-out rows to predict. `drift.make_sampler`
-then reorders the training rows and drops the intercept column (`d.x[order][:, others]`),
-which briefly holds two more copies of the training rows. Counting these arrays alone:
+Host memory set the container in the first version of this note. `b0.main_run` kept the
+design of all rows, the training rows' copy and the held-out rows' copy alive through the fit,
+and the training design carries its own copy of the held-out rows to predict.
+`drift.make_sampler` then reordered the training rows and dropped the intercept column in one
+step (`d.x[order][:, others]`), which held two more copies of the training rows while it set
+up the sampler. With the paths, those arrays alone came to about 40 GB, the size of the
+40 GiB container (42.9 GB).
 
-| array | L1 | with the paths |
+A follow-up PR leaves the host only the training design and its rows to predict, and every
+pinned draw of the drift and B0 models passes as before:
+
+1. `main_run` counts the held-out rows from the split's mask. It reads the fields the run
+   record needs from the design of all rows, then deletes that design before the sampler
+   starts.
+2. `make_sampler` gathers each block's rows and columns straight from the training design
+   (`d.x[np.ix_(order[r0:r1], others)]`), so the host never holds a sorted copy of the whole
+   training design.
+
+I measured the host's numpy memory with `tracemalloc` on the 1-in-90 sample with this model's
+design, from the end of the design build through `make_sampler`
+(`docs/notes/segment-paths-2026-11-13/peak.py`). In units of the design of all rows, 102.9 MB
+on the sample:
+
+| | before | after |
 |---|---|---|
-| design of all rows | 3.8 GB | 10.3 GB |
-| training rows | 3.4 GB | 9.3 GB |
-| held-out rows, twice | 0.8 GB | 2.1 GB |
-| the sampler's two copies | 6.8 GB | 18.5 GB |
-| in all | 14.7 GB | 40.1 GB |
+| held when the sampler starts, the design of all rows included | 2.113 | 1.012 |
+| peak at the split | 2.114 | 2.026 |
+| added by `make_sampler` | 2.143 | 1.247 |
+| peak in `make_sampler` | 4.256 | 2.259 |
 
-The frame and the other tables come on top. The fit container reserves 40 GiB (42.9 GB), so
-the paths would very likely be killed in `make_sampler`, a few minutes in. `path_design`
-fills one preallocated array, so the design build itself stays near 16 GB. I plan the large
-container from the start, an H100 with 192 GiB of host memory (`ops/modal-fit --large`). A
-baseline model gets no summary bundle there, and the sweep budget still stops the draws at
-2,520 s. `cap.py` estimates $5.40 and 3,320 s a large container against $4.19 and 3,560 s for
-L1's. L1T's three containers came to $10.94 at H100's $4.36 an hour; at the large container's
-$5.86 an hour the same time comes to $14.70, so I expect $15 to $16.50 for three. That is
-about $4 more than the proposal's $11.50.
+The sample has fewer than 4,096 buildings, so its sampler runs a single block. On the CPU, JAX
+keeps its arrays in host memory, so the 1.247 includes the blocks' 0.9 of the design, which an
+H100 holds on the GPU instead. On L1's 1,896,471 rows the design with the paths takes 10.3 GB,
+and its 67,972 buildings make 17 blocks. Scaled by that, the host's peak falls from about
+44 GB to about 23 GB, or to about 21 GB at the split once the blocks go to the GPU. The design
+build peaks near 16 GB, since `path_design` fills a preallocated array. The 40 GiB container
+holds all of this with some 20 GB to spare, so the fit goes back to the normal container. L1's
+own peak falls the same way, from about 16 GB to about 9 GB.
+
+`cap.py` estimates $4.19 and 3,560 s a container, the same as for L1. L1T's three containers
+came to $10.94 at the H100's $4.36 an hour, and the path design takes a little longer to build
+than L1's, so I expect $11 to $12.50 for three, against the proposal's $11.50.
 
 ## Launch plan (no fit is launched by this note)
 
-Three large H100 containers on L1's dataset, seeds 1 to 3, pooled by `drift_pool` into 6
-chains, as for L1T and L2 but with `--large` for the host memory:
+Three H100 containers on L1's dataset, seeds 1 to 3, pooled by `drift_pool` into 6 chains,
+as for L1T and L2:
 
 ```sh
 cd /data1/apartments/serve/master
@@ -122,7 +141,7 @@ D=/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-
 IN=/data1/apartments/pipeline/datasets/rows-b3ddebf19af1dc1e.parquet
 for j in "sega 1" "segb 2" "segc 3"; do
   read -r label seed <<<"$j"
-  ops/modal-fit --outside-budget --large --gpu H100 --dataset "$D" --input "$IN" \
+  ops/modal-fit --outside-budget --gpu H100 --dataset "$D" --input "$IN" \
     --split latest --baseline drift-building-phase-b0-latest-9a7830fb-l1 COMMIT "$label" \
     drift-building-phase-segment b0 2 500 9000 40 --seed "$seed" --level-dof 4 \
     --no-loo --no-heldout
@@ -156,6 +175,7 @@ its held-out ads of 2020 to 2022, 80% coverage is 0.736.
 6. The median's error moves by under 0.0005 (80%).
 7. 80% coverage on the held-out ads of 2020 to 2022 rises from 0.736 by 0.005 to 0.015 (45%),
    the proposal's range, and on all shared ads it stays within 0.005 of 0.797 (80%).
-8. Each large container gets through `make_sampler` (95%), stops its sweeps at the budget
-   after 2,600 to 3,200 sweeps (65%), and runs 50 to 60 minutes. The three settle between
-   $14.50 and $17 (75%).
+8. Each container gets through `make_sampler` (95%), stops its sweeps at the budget after
+   2,600 to 3,200 sweeps (65%), and runs 50 to 60 minutes. The three settle between $10.50 and
+   $13 (75%). I revised this prediction before any launch, when the fit moved from the large
+   container to the normal one; it first read $14.50 to $17 for three large containers.

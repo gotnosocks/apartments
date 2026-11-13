@@ -804,12 +804,12 @@ def make_sampler(
         blk_part.append(part)
         blk_idx.append(idxs)
         blk_take.append(take)
-    x = d.x[order][:, others]
     wk_all, fr_all = d.week[order], d.frac[order]
     # The rows' data goes to the jitted sweep as an argument: closed over, it would be
-    # compiled in as constants.
+    # compiled in as constants. Each block's rows and columns of the design are gathered on
+    # their own, so the host holds no sorted copy of the whole design.
     data = dict(
-        xs=[jnp.asarray(x[r0:r1]) for _, _, r0, r1 in blocks],
+        xs=[jnp.asarray(d.x[np.ix_(order[r0:r1], others)]) for _, _, r0, r1 in blocks],
         wk=[jnp.asarray(wk_all[r0:r1]) for _, _, r0, r1 in blocks],
         fr=[jnp.asarray(fr_all[r0:r1]) for _, _, r0, r1 in blocks],
         loc=[jnp.asarray(arank[r0:r1] - q0) for q0, _, r0, r1 in blocks],
@@ -858,7 +858,6 @@ def make_sampler(
             jnp.asarray(unit_sorted[b["idx"][:, 0]]) for b in lay["buckets"]
         ]
         data["p_unit"] = jnp.asarray(np.asarray(rows_to_predict["unit"], np.int64))
-    del x
     n_pred = pred["rows"]
     active_j = jnp.asarray(active)
     zone_j = jnp.asarray(zone)

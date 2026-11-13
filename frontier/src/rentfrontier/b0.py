@@ -63,7 +63,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import data, splits
+from . import splits
 
 NAME = "b0"
 FLAGS = (
@@ -959,8 +959,14 @@ def main_run(
     # B0.4 carries each row's building with its design, so it slices its own.
     cut = getattr(spec, "subset", subset)
     train = cut(full, ~heldout)
-    test = cut(full, heldout)
+    held_rows = int(np.count_nonzero(heldout))
     prep_seconds = time.perf_counter() - t0
+    # `train` holds copies of the training rows' design and of the held-out rows' design,
+    # so the design of every row goes before the sampler copies the training rows. The
+    # record's fields from it are read first.
+    names, weeks, start, count = full.names, full.weeks, full.start, full.count
+    own_record = spec.run_record(full) if hasattr(spec, "run_record") else {}
+    del full
     log_lines = []
 
     def log(msg):
@@ -969,7 +975,7 @@ def main_run(
 
     log(
         f"{args.name}: {args.split} split, {len(train.y)} training rows, "
-        f"{len(test.y)} held out, {full.weeks} weeks from {full.start.date()}"
+        f"{held_rows} held out, {weeks} weeks from {start.date()}"
         + (f"; ignored {' '.join(ignored)}" if ignored else "")
     )
 
@@ -977,10 +983,10 @@ def main_run(
         """Save the draws so far, so a run stopped at its time cap leaves them to read."""
         out_dir.mkdir(parents=True, exist_ok=True)
         flat = {f"kept/{k}": v for k, v in partial["kept"].items()}
-        flat["names"] = np.asarray(full.names)
+        flat["names"] = np.asarray(names)
         np.savez_compressed(out_dir / "partial.npz", **flat)
         try:
-            diag = spec.diagnostics(partial["trace"], full.names)
+            diag = spec.diagnostics(partial["trace"], names)
         except Exception as e:  # noqa: BLE001 (too few draws yet; the draws still save)
             diag = {"error": repr(e)}
         (out_dir / "partial.json").write_text(
@@ -999,7 +1005,7 @@ def main_run(
     # B0's own sampler saves nothing partway.
     extra = {} if sample is run else {"checkpoint": checkpoint}
     out = sample(train, priors, settings, log=log, **extra)
-    diag = spec.diagnostics(out["trace"], full.names)
+    diag = spec.diagnostics(out["trace"], names)
     log(
         f"diagnostics: max R-hat {diag['max_rhat']:.4f} ({diag['max_rhat_name']}), "
         f"min ESS {diag['min_ess']:.0f} ({diag['min_ess_name']})"
@@ -1007,7 +1013,7 @@ def main_run(
     out_dir.mkdir(parents=True, exist_ok=True)
     flat = {f"kept/{k}": v for k, v in out["kept"].items()}
     flat |= {f"trace/{k}": v for k, v in out["trace"].items()}
-    flat["names"] = np.asarray(full.names)
+    flat["names"] = np.asarray(names)
     flat["heldout"] = heldout
     np.savez_compressed(out_dir / "posterior.npz", **flat)
     result = {
@@ -1029,13 +1035,13 @@ def main_run(
         "sampler_settings": settings.to_dict(),
         "sizes": {
             "train": len(train.y),
-            "heldout": len(test.y),
-            "weeks": full.weeks,
-            "coefficients": len(full.names),
+            "heldout": held_rows,
+            "weeks": weeks,
+            "coefficients": len(names),
         },
-        "grid_start": str(full.start.date()),
-        "counts": full.count,
-        **(spec.run_record(full) if hasattr(spec, "run_record") else {}),
+        "grid_start": str(start.date()),
+        "counts": count,
+        **own_record,
         "hardware": runmod.hardware(),
         "seconds": {"prepare": prep_seconds, **out["seconds"]},
         "cost_usd": None,
