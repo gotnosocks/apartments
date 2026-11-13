@@ -680,7 +680,7 @@ def walk(fit: Fit, i: int, week, frac) -> tuple[np.ndarray, np.ndarray]:
     last = len(L) - 1
     u = np.asarray(week, float) + np.asarray(frac, float)
     past = np.maximum(u - last, 0.0)
-    wk = np.minimum(np.asarray(week), last - 1)
+    wk = np.minimum(np.asarray(week).astype(np.int64), last - 1)
     # The grid's last week itself is wk = last - 1 at fr = 1.
     fr = np.where(u >= last, 1.0, np.asarray(frac, float))
     inside = (1 - fr) * L[wk] + fr * L[np.minimum(wk + 1, last)]
