@@ -623,6 +623,7 @@ def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
         "drift-building-phase",
         "drift-building-phase-level",
         "drift-building-phase-year",
+        "drift-building-phase-unitk",
         "drift-building-phase-unitt",
         "drift-building-unitt",
         "drift-local",

@@ -203,6 +203,11 @@ HYP = ("unit_sd", "drift_sd", "drift_tau")
 UNIT_DOF_PRIOR = (2.0, 0.1)
 UNIT_DOF_WIDTH = 0.1
 UNIT_T_KEY = 89
+# The step that draws the units' mixing scales with u and the lasting levels integrated out
+# (`make_sampler`'s `unit_kap_collapsed`): the slice interval's length along each log kap,
+# and what the sweep's key is folded with for it.
+UNIT_KAP_WIDTH = 2.0
+UNIT_KAP_KEY = 83
 
 
 @dataclass(frozen=True)
@@ -637,6 +642,7 @@ def make_sampler(
     groups=None,
     unit_t: bool = False,
     unit_dof_fixed: float | None = None,
+    unit_kap_collapsed: bool = False,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -648,10 +654,19 @@ def make_sampler(
     samples nu_u (`rentfrontier.drift_building_unitt`). Without it the sweep is unchanged.
     `unit_dof_fixed` holds nu_u at that value under `unit_t`: the sweep draws the kap and
     the orbit as before, skips nu_u's slice update and leaves log nu_u out of the scale
-    step's coordinates (`rentfrontier.drift_building_phase_unitt`)."""
+    step's coordinates (`rentfrontier.drift_building_phase_unitt`).
+    `unit_kap_collapsed` draws the kap from their conditional with u and the lasting levels
+    integrated out (`collapsed_kap`), in place of their Gamma conditional given the levels
+    (`rentfrontier.drift_building_phase_unitk`)."""
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
+    assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
+    # The kap drawn with u integrated out must come after every move of nu_u, which a free
+    # nu_u's slice update in `update_unit_t` does not.
+    assert not (dof_free and unit_kap_collapsed), (
+        "unit_kap_collapsed needs unit_dof_fixed"
+    )
     jax, jnp = b0._jax()
     seg = jax.ops.segment_sum
     alpha = d.names.index("alpha")
@@ -1162,7 +1177,7 @@ def make_sampler(
             )
         return u, s_unit
 
-    def update_unit_t(key, st, s, hyp):
+    def update_unit_t(key, st, s, hyp, kap=None):
         """Under `unit_t`, given the units' lasting levels s from `draw_us`:
 
         1. nu_u by a slice update on the Student-t density of s with scale ss, the mixing
@@ -1180,7 +1195,9 @@ def make_sampler(
            no training row reads (`predict`).
 
         Each draw is from a conditional of the posterior, so each leaves it unchanged.
-        Returns nu_u, the units' kap, hyp with its new log ss, and the rows' prior kap."""
+        Given `kap`, already drawn by `collapsed_kap`, the step skips 2 and takes the orbit
+        from them. Returns nu_u, the units' kap, hyp with its new log ss, and the rows'
+        prior kap."""
         k1, k2, k3, k4 = jax.random.split(key, 4)
         ss = scales(hyp)[0]
         a, b = UNIT_DOF_PRIOR
@@ -1194,12 +1211,54 @@ def make_sampler(
             nu = jnp.exp(lnu[0])
         else:
             nu = st["unit_dof"]
-        kap = jax.random.gamma(k2, (nu + 1) / 2, (U,)) / ((nu + (s / ss) ** 2) / 2)
+        if kap is None:
+            kap = jax.random.gamma(k2, (nu + 1) / 2, (U,)) / ((nu + (s / ss) ** 2) / 2)
         g2 = jax.random.gamma(k3, (1 + nu * U) / 2) / (
             ss**2 / (2 * UNIT_SD_PRIOR**2) + nu * jnp.sum(kap) / 2
         )
         pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
         return nu, kap * g2, hyp.at[0].add(0.5 * jnp.log(g2)), pred_kap
+
+    def collapsed_kap(D, key, hyp, nu, ukap, w1, Wb, e):
+        """Under `unit_t`, every unit's mixing scale kap_k from its conditional given the
+        rows' remainders e, with u and the lasting level s_k integrated out: a slice update
+        of each log kap_k on `kap_logp`, the units being independent given e."""
+        logp = kap_logp(D, hyp, nu, ukap, w1, Wb, e)
+        return jnp.exp(b0.slice_vec(key, jnp.log(ukap), logp, UNIT_KAP_WIDTH))
+
+    def kap_logp(D, hyp, nu, ukap, w1, Wb, e):
+        """The log density of every unit's log kap_k given e, with u and s_k integrated out,
+        as a function of the vector of log kap, up to a constant for each unit. `w1` and
+        `Wb` are `unit_W`'s at the state's `ukap`.
+
+        With v = ss^2 / kap_k and A the unit's precision W at v = 0, the unit's rows have
+        log density -log(1 + v a) / 2 + v b^2 / (2 (1 + v a)) in v, up to a constant, with
+        a = 1' A 1 and b = 1' A e (Sherman-Morrison). W at the state's kap (`unit_W`) gives
+        a0 = 1' W 1 = a / (1 + v0 a) and b0 = 1' W e = b / (1 + v0 a), so a and b follow
+        from it with no new inverse. The Gamma(nu / 2, rate nu / 2) prior and the Jacobian
+        of log kap add nu l / 2 - nu e^l / 2 at l = log kap."""
+        ss2 = scales(hyp)[0] ** 2
+        one = D["single"]
+        a0 = seg(jnp.where(one, w1, 0.0), D["unit"], num_segments=U)
+        b0_ = seg(jnp.where(one, w1 * e, 0.0), D["unit"], num_segments=U)
+        for W, idx, mask, bu in zip(Wb, D["b_idx"], D["b_mask"], D["b_unit"]):
+            eb = jnp.where(mask, e[idx], 0.0)
+            a0 = a0.at[bu].add(jnp.sum(W, axis=(1, 2)))
+            b0_ = b0_.at[bu].add(jnp.einsum("bij,bj->b", W, eb))
+        v0 = ss2 / ukap
+        a = a0 / (1 - v0 * a0)
+        b = b0_ * (1 + v0 * a)
+
+        def logp(lk):
+            v = ss2 * jnp.exp(-lk)
+            return (
+                nu * lk / 2
+                - nu * jnp.exp(lk) / 2
+                - 0.5 * jnp.log1p(v * a)
+                + 0.5 * v * b * b / (1 + v * a)
+            )
+
+        return logp
 
     def unit_loglik(D, hyp, c, e, ukap=None):
         """The log marginal likelihood of the rows' remainders e with u integrated out, up
@@ -1918,10 +1977,29 @@ def make_sampler(
             first = 1
         if unit_t:
             # The units' lasting levels are drawn with u, then nu_u and the mixing scales
-            # given them. Its key is folded in, as the buildings' mixing scales' is.
-            u, s_unit = draw_us(D, k7, hyp, c, w1, Wb, e, st["ukap"])
+            # given them, or under `unit_kap_collapsed` the mixing scales first, with u
+            # integrated out. Their keys are folded in, as the buildings' mixing scales' is.
+            ukap = st["ukap"]
+            if unit_kap_collapsed:
+                # The kap given e with u and s integrated out, then u and s given them.
+                ukap = collapsed_kap(
+                    D,
+                    jax.random.fold_in(key, UNIT_KAP_KEY),
+                    hyp,
+                    st["unit_dof"],
+                    ukap,
+                    w1,
+                    Wb,
+                    e,
+                )
+                w1, Wb = unit_W(D, hyp, c, ukap)
+            u, s_unit = draw_us(D, k7, hyp, c, w1, Wb, e, ukap)
             unit_dof, ukap, hyp, pred_ukap = update_unit_t(
-                jax.random.fold_in(key, UNIT_T_KEY), st, s_unit, hyp
+                jax.random.fold_in(key, UNIT_T_KEY),
+                st,
+                s_unit,
+                hyp,
+                ukap if unit_kap_collapsed else None,
             )
         else:
             u = draw_u(D, k7, hyp, c, w1, Wb, e)
@@ -2132,6 +2210,8 @@ def make_sampler(
             draw_u=draw_u,
             draw_us=draw_us,
             update_unit_t=update_unit_t,
+            collapsed_kap=collapsed_kap,
+            kap_logp=kap_logp,
             unit_t=unit_t,
             dof_free=dof_free,
             predict=predict,
@@ -2189,6 +2269,7 @@ def run(
     groups=None,
     unit_t: bool = False,
     unit_dof_fixed: float | None = None,
+    unit_kap_collapsed: bool = False,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2197,7 +2278,7 @@ def run(
     `pred_group`. A design with noise phases adds `phase_scale`, every phase's factor, to
     the traced and kept arrays, and each predicted row's `pred_phase`. `unit_t`
     (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both, unless
-    `unit_dof_fixed` holds them at a value."""
+    `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
@@ -2209,6 +2290,7 @@ def run(
         groups=groups,
         unit_t=unit_t,
         unit_dof_fixed=unit_dof_fixed,
+        unit_kap_collapsed=unit_kap_collapsed,
     )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
