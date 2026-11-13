@@ -178,9 +178,12 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
    `drift-building-phase-unitk` (L1TK, `docs/notes/l1-unit-kap-collapsed-2026-11-13.md`)
    draws the kap with u and the levels integrated out. On a CPU check it frees nu (its
    autocorrelation time falls 3.5 times) but barely moves unit_sd, so the pool would likely
-   still miss the gate on unit_sd (expected R-hat 1.017). It is not launched. The next
-   sampler change is a scale step that integrates each unit's kap out numerically and then
-   draws the kap exactly. The fit adding duplex and outdoor size
+   still miss the gate on unit_sd (expected R-hat 1.017). It is not launched.
+   `drift-building-phase-unitkn` (L1TKN, `docs/notes/l1-row-dof-fixed-2026-11-13.md`)
+   holds the rows' nu at 2 as well, a second change against L1 that L1T's posterior
+   (nu 1.99) makes negligible. On the same check unit_sd's autocorrelation time falls
+   from 44 to 12.5, and the pool's expected highest R-hat is 1.008, so it likely passes
+   (75%). It waits for Ben's approval to launch, at about $11 for 3 containers. The fit adding duplex and outdoor size
    (`docs/notes/unit-flags-scope-2026-11-12.md`) comes after it. Of its 18 backed corrections, 4 went into the ledger (plus a fifth ad of one unit), 2 were already there, 10 are flex bedroom counts left out under the 2026-10-17 retract, and 2 failed a closer check (`pipeline/ledger/2026-11-12-unit-level-reads.ndjson`).
 3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
