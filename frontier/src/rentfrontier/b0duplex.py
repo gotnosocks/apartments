@@ -3,15 +3,15 @@
     python -m rentfrontier.b0duplex SRC OUT
 
 S7 of the causal screens (`docs/notes/causal-screens-2026-11-13.md`) read each listing's
-description for an apartment on two or three levels. Its pattern marked 6.0% of L1's rows, and
-Sonnet readers took 186 of 200 marked ads for duplex apartments. L1 prices a duplex right on
+description for an apartment on two or three levels. Its pattern marked 6.0% of the 1,790,425
+rows in S7's own dataset, and Sonnet readers took 186 of 200 marked ads for duplex apartments. L1 prices a duplex right on
 average, but the asks of duplex ads scatter about 35% wider than other ads'. This script puts
 S7's pattern into a dataset as the column `duplex`, for a model to read.
 
 I read the records file of SRC's own pipeline build (the manifest's `build.records`, checked
 against its SHA-256) a row group at a time. For each listing of SRC I keep its latest record, by
 the later of `collected_at` and `last_collected_at`, as `b0data` picks the record for its text
-flags. I mark the listing a duplex when the description in that record
+flags. A record with neither time counts as no listing's latest, as in `b0data`. I mark the listing a duplex when the description in that record
 
 1. has the word duplex or triplex (`DUP`) and calls no building a duplex (`DUP_BUILDING`:
    "duplex building", "duplex house", "two-family" and the like), or
@@ -82,10 +82,14 @@ def latest_marks(path: Path, ids: set[str]) -> pd.DataFrame:
         head = file.read_row_group(group, columns=["listing_id", *times])
         lid = [str(x) for x in head["listing_id"].to_pylist()]
         at = [
-            max((t for t in ts if t is not None), default=-np.inf)
+            max((t for t in ts if t is not None), default=None)
             for ts in zip(*(head[c].to_pylist() for c in times))
         ]
-        keep = [i in ids and (i not in seen or seen[i][0] < t) for i, t in zip(lid, at)]
+        # DuckDB's arg_max in `b0data` passes over a record with a null time.
+        keep = [
+            i in ids and t is not None and (i not in seen or seen[i][0] < t)
+            for i, t in zip(lid, at)
+        ]
         if not any(keep):
             continue
         raws = file.read_row_group(group, columns=["raw_listing_json"]).filter(
@@ -113,12 +117,15 @@ def duplex(src: Path, out: Path) -> dict:
     records = manifest["build"]["records"]
     if sha256(Path(records["path"])) != records["sha256"]:
         raise SystemExit(f"{records['path']} does not match the manifest's SHA-256")
-    out.mkdir(parents=True, exist_ok=False)
+    if out.exists():
+        raise FileExistsError(out)
     frame = pd.read_parquet(src / "rows.parquet")
     lid = frame.listing_id.astype(str)
     read = latest_marks(Path(records["path"]), set(lid))
     known = lid.map(read.known).eq(True).to_numpy()
     frame["duplex"] = lid.map(read.duplex).eq(True).to_numpy()
+    # OUT is made after the read of the records, so a failed read leaves no OUT behind.
+    out.mkdir(parents=True, exist_ok=False)
     frame.to_parquet(out / "rows.parquet", index=False)
     for f in src.iterdir():
         if f.is_file() and f.name not in ("rows.parquet", "manifest.json"):

@@ -17,6 +17,9 @@ S7 = (
 
 # (listing, collected_at, last_collected_at, description), one record each.
 RECORDS = [
+    # Listing 12's newer record and listing 13's older record come in the first row group.
+    ("12", 4.0, 4.0, "A duplex with a roof deck and two full baths up top"),
+    ("13", 1.0, 1.0, "A floor-through one bedroom with exposed brick walls"),
     ("1", 1.0, 1.0, "A sunny duplex apartment with a private terrace and two baths"),
     ("2", 1.0, 1.0, "The top floor of a duplex in a two-family house, two bedrooms"),
     ("3", 1.0, 1.0, "Bi-level loft with soaring ceilings in a doorman building"),
@@ -29,6 +32,10 @@ RECORDS = [
     ("8", 1.0, 1.0, None),
     ("9", 1.0, 1.0, "A duplex penthouse spanning the whole top of the building"),
     ("11", 1.0, None, "Spans two floors, with a washer and dryer in the unit"),
+    ("12", 2.0, 2.0, "A one bedroom with a dishwasher and good closets"),
+    ("13", 3.0, 3.0, "Spread across two floors, with a garden behind the kitchen"),
+    # A record with neither time is no listing's latest.
+    ("14", None, None, "A duplex with two baths and a private garden out back"),
 ]
 
 
@@ -52,8 +59,8 @@ def src(tmp_path):
     )
     rows = pd.DataFrame(
         {
-            "listing_id": [1, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11],
-            "latest_ask": [3000.0 + i for i in range(11)],
+            "listing_id": [1, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14],
+            "latest_ask": [3000.0 + i for i in range(14)],
         }
     )
     d = tmp_path / "src"
@@ -98,13 +105,16 @@ def test_duplex_marks_each_rows_listing_from_its_latest_description(src, tmp_pat
         8: False,  # no description
         10: False,  # no record
         11: True,  # spans two floors, dated by collected_at alone
+        12: True,  # its first row group holds its latest record
+        13: True,  # its last row group holds its latest record
+        14: False,  # its only record has no time
     }
     assert (out / "set_aside.parquet").exists()
     entry = manifest["duplex"]
     assert entry["source"] == str(src) and entry["source_rows_sha256"] == "abc"
-    assert entry["listings_read"] == 9
-    assert entry["rows_described"] == 8
-    assert entry["rows_marked"] == 5
+    assert entry["listings_read"] == 11
+    assert entry["rows_described"] == 10
+    assert entry["rows_marked"] == 7
     assert manifest["rows_sha256"] == sha256(out / "rows.parquet")
     with pytest.raises(FileExistsError):
         b0duplex.duplex(src, out)
