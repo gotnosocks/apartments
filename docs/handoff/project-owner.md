@@ -124,11 +124,13 @@ This replaces the list under the outlier sprint below. Every fit here waits for 
    premiums, about 6% carry a backed data error, and b9 prices the ones above their
    building too low on their held-out ads (43% above its 80% interval). The note
    recommends writing L1 with a Student-t unit level whose degrees of freedom are fixed
-   at 3, without waiting for the data fixes, and writes its predictions. That model is
-   now written as `drift-building-phase-unitt` (#1349, not fit), with its predictions and
-   launch plan in `docs/notes/l1-unit-t-fixed-2026-11-12.md`: 2 containers against L1 on
-   the latest split, about $8, with an expected least bulk ESS near 470. Its launch waits
-   on Ben, as does the choice of 2 or 3 containers. The fit adding duplex and outdoor size
+   at 3, without waiting for the data fixes, and writes its predictions. That model,
+   `drift-building-phase-unitt` (L1T, #1349), ran on 2026-11-13 in 3 containers for
+   $10.94 and missed the gate on R-hat (nu 1.025, unit_sd 1.019). As a free check it beats
+   L1 by +4,095 elpd (SE 172) on the shared held-out ads
+   (`docs/notes/l1-unit-t-fixed-2026-11-12.md`). It is not served, and gets no new seed. The
+   next step is a model change that lets nu and unit_sd move with the kap, written as its
+   own module with predictions first. The fit adding duplex and outdoor size
    (`docs/notes/unit-flags-scope-2026-11-12.md`) comes after it. Of its 18 backed corrections, 4 went into the ledger (plus a fifth ad of one unit), 2 were already there, 10 are flex bedroom counts left out under the 2026-10-17 retract, and 2 failed a closer check (`pipeline/ledger/2026-11-12-unit-level-reads.ndjson`).
 3. **The income flag** (`docs/notes/income-flag-2026-11-11.md`), on c3's dataset. It gains
    997 rows and loses 110, so I expect a small gain. Serving it also needs a fit on L1's line.
