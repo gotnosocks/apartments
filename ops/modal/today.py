@@ -6,8 +6,8 @@
 the served market run and is more than thelio has free, so it runs at COMMIT in a container
 with 16 cores and 64 GiB. The run directory, its dataset, the dataset's ads table and the
 registry go up as inputs (only what changed since the last sync), the table is written in the
-container, and today.parquet and then meta.json come down into DIR, each through a temporary
-name, so the site's reader finds the old pair or the new one. The log and the container's
+container, and today.parquet and meta.json come down into DIR under temporary names and are
+renamed into place back to back once both are down, so a failed download leaves the old pair. The log and the container's
 record (today.json) land in MODAL_FIT_STATE/today/<RUN>-<day>/.
 
 Modal spend needs a budget Ben approved, so the launch requires --outside-budget and is
@@ -70,8 +70,9 @@ def inputs(run_dir):
 
 
 def download(volume, name, out, logs):
-    """/out/<name>/today.parquet then meta.json -> out, each through a temporary name, and
-    only when both are there; the log and today.json -> logs."""
+    """/out/<name>/today.parquet and meta.json -> out, only when both are there: both are
+    downloaded under temporary names before either is renamed into place. The log and
+    today.json -> logs."""
     prefix = f"out/{name}/"
     have = {
         e.path.lstrip("/").removeprefix(prefix): e.path
@@ -85,11 +86,20 @@ def download(volume, name, out, logs):
                 volume.read_file_into_fileobj(have[rel], f)
     if {"today.parquet", "meta.json"} <= have.keys():
         out.mkdir(parents=True, exist_ok=True)
-        for rel in ("today.parquet", "meta.json"):
-            tmp = out / f"{rel}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
-            with open(tmp, "wb") as f:
-                volume.read_file_into_fileobj(have[rel], f)
-            os.replace(tmp, out / rel)
+        tmp = {
+            rel: out / f"{rel}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+            for rel in ("today.parquet", "meta.json")
+        }
+        try:
+            for rel, path in tmp.items():
+                with open(path, "wb") as f:
+                    volume.read_file_into_fileobj(have[rel], f)
+            # Both are down: the renames run back to back, the table first.
+            for rel, path in tmp.items():
+                os.replace(path, out / rel)
+        finally:
+            for path in tmp.values():
+                path.unlink(missing_ok=True)
     volume.remove_file(f"/out/{name}", recursive=True)
 
 

@@ -681,7 +681,8 @@ def walk(fit: Fit, i: int, week, frac) -> tuple[np.ndarray, np.ndarray]:
     u = np.asarray(week, float) + np.asarray(frac, float)
     past = np.maximum(u - last, 0.0)
     wk = np.minimum(np.asarray(week), last - 1)
-    fr = np.where(u > last, 1.0, np.asarray(frac, float))
+    # The grid's last week itself is wk = last - 1 at fr = 1.
+    fr = np.where(u >= last, 1.0, np.asarray(frac, float))
     inside = (1 - fr) * L[wk] + fr * L[np.minimum(wk + 1, last)]
     sc = scales(fit, i)
     return inside + past * sc["g"], past * sc["tau_w"] ** 2
@@ -1073,12 +1074,16 @@ def publish(
         "check": checked,
     }
     out.mkdir(parents=True, exist_ok=True)
-    tmp = out / f"today.parquet.{os.getpid()}.tmp"
-    frame.to_parquet(tmp, index=False, compression="zstd")
-    os.replace(tmp, out / "today.parquet")
-    meta["today_sha256"] = sha256(out / "today.parquet")
+    # Both files are written under temporary names and renamed back to back, so the site's
+    # reader meets a table and a meta that disagree only between the two renames.
+    table_tmp = out / f"today.parquet.{os.getpid()}.tmp"
+    meta_tmp = out / f"meta.json.{os.getpid()}.tmp"
+    frame.to_parquet(table_tmp, index=False, compression="zstd")
+    meta["today_sha256"] = sha256(table_tmp)
     meta["published"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    drift_deals._replace(out / "meta.json", json.dumps(meta, indent=2))
+    meta_tmp.write_text(json.dumps(meta, indent=2))
+    os.replace(table_tmp, out / "today.parquet")
+    os.replace(meta_tmp, out / "meta.json")
     return meta
 
 

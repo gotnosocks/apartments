@@ -711,7 +711,9 @@ def _today(spec):
     started = time.time()
     _stage(spec)
     out = Path("/vol/out") / f"{spec['name']}-today"
-    out.mkdir(parents=True, exist_ok=True)
+    # An earlier launch's outputs, left by a failed download, must not come down as this one's.
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
     table = Path("/tmp/today")
     env = dict(
         os.environ,
@@ -719,6 +721,10 @@ def _today(spec):
         FRONTIER_DATASET=spec["dataset"],
         JAX_PLATFORMS="cpu",
         PYTHONUNBUFFERED="1",
+        # One process per core: a BLAS pool in each would oversubscribe them.
+        OMP_NUM_THREADS="1",
+        OPENBLAS_NUM_THREADS="1",
+        MKL_NUM_THREADS="1",
     )
     cmd = [
         "/venv/bin/python", "-m", "rentfrontier.drift_today", "publish",

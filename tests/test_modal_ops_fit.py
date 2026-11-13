@@ -1542,3 +1542,23 @@ def test_a_price_now_launch_uploads_the_run_and_its_ads_table(tmp_path):
     run.mkdir(parents=True)
     (run / "result.json").write_text(json.dumps({"dataset": "/elsewhere/d"}))
     assert today.inputs(run) == (str(dataset), [str(run), "/x/ads.parquet"])
+
+
+def test_a_price_now_download_cut_short_keeps_the_old_pair(tmp_path):
+    today = load("today")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "today.parquet").write_bytes(b"old")
+    (site / "meta.json").write_text("old")
+
+    class Cut(FakeVolume):
+        def read_file_into_fileobj(self, path, f):
+            if path.endswith("meta.json"):
+                raise OSError("connection reset")
+            super().read_file_into_fileobj(path, f)
+
+    files = {"out/r-today/today.parquet": b"new", "out/r-today/meta.json": b"new"}
+    with pytest.raises(OSError):
+        today.download(Cut(files), "r-today", site, tmp_path / "logs")
+    assert (site / "today.parquet").read_bytes() == b"old"
+    assert sorted(p.name for p in site.iterdir()) == ["meta.json", "today.parquet"]

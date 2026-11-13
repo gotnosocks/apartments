@@ -158,9 +158,10 @@ class FakeFit:
 
 def test_walk_interpolates_inside_the_grid_and_drifts_past_it():
     fit = FakeFit([0.0, 0.1, 0.3], g=0.01, tau=0.02)
-    mean, var = dt.walk(fit, 0, np.array([0, 1, 2, 5]), np.array([0.5, 0.25, 0.5, 0.0]))
-    np.testing.assert_allclose(mean, [0.05, 0.15, 0.3 + 0.005, 0.3 + 0.03])
-    np.testing.assert_allclose(var, [0, 0, 0.5 * 0.02**2, 3 * 0.02**2])
+    week = np.array([0, 1, 2, 2, 5])
+    mean, var = dt.walk(fit, 0, week, np.array([0.5, 0.25, 0.0, 0.5, 0.0]))
+    np.testing.assert_allclose(mean, [0.05, 0.15, 0.3, 0.3 + 0.005, 0.3 + 0.03])
+    np.testing.assert_allclose(var, [0, 0, 0, 0.5 * 0.02**2, 3 * 0.02**2])
 
 
 def test_apartments_take_each_units_newest_ad():
