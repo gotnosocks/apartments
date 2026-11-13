@@ -343,7 +343,6 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-level",
-        "drift-building-phase-level",
         "drift-building-phase-year",
         "drift-building-phase-unitt",
         "drift-building-unitt",

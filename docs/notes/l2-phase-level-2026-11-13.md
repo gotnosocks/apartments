@@ -83,9 +83,9 @@ the 13,725 ads in phase 0-2 an 80% coverage of 0.760.
 4. At least half the gain comes from the held-out ads in phase 0-2 (65%). In S3, 192 of the
    281 came from them.
 5. The posterior median of the 0-2 level, as exp(beta) - 1, falls between -2.0% and -1.4%.
-   I took that range from S3's mean gaps, and it is the range in the costed proposal. A check
-   I made after the proposal suggests a smaller level, so I also write my present range,
-   -1.6% to -0.6% (70%), and score both. L1's noise has nu = 1.81, so a fitted level follows
+   I took that range from S3's mean gaps, and it is the range in the costed proposal. I now
+   give it 20%: a check I made after the proposal suggests a smaller level, so I also write
+   my present range, -1.6% to -0.6% (70%), and score both. L1's noise has nu = 1.81, so a fitted level follows
    the Student-t location of its rows more than their mean. On L1's held-out ads, with each
    ad's predictive scale and nu = 1.81, the t location of the gap is -1.25% for phase 0-2
    and -0.21% for 10-13, a difference of about -1.0%.

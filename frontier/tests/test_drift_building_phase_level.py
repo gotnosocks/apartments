@@ -47,8 +47,8 @@ def test_the_rows_to_predict_carry_their_phase_columns():
 
 
 def _planted_run(levels, seed=3):
-    """A short run of L2 on a phased design whose asks sit `levels` above the reference
-    phase, one value for each column of `LEVELS`."""
+    """A short run of L2 on a phased design with `levels` added to the asks of each phase
+    after the reference, one value for each column of `LEVELS`."""
     full = drift_building_phase_level.phase_levels(tp._phased(n=1200, per_unit=6))
     shift = np.r_[0.0, levels][full.phase]
     full = dataclasses.replace(full, y=full.y + shift)
