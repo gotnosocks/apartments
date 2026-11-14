@@ -127,13 +127,17 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   the blank class at 1 bedroom or more. A floor plan or photo count per ad would decide them, and no cheaper
   evidence exists in the records. Real Street's 20 blank ads with 2 rooms are among them.
 - [ ] Studio-coded ads on units of 5 or more coded rooms (S16, S17,
-  `docs/notes/studio-rooms-2026-11-14.md`). S17 read 30 of the 905 rows without plan
-  fetches: 8 have bedrooms, 10 are studios, 3 are commercial space and 9 stay unresolved.
-  The room count alone gives a precision of 0.27 (0.14 to 0.44), 0.38 of the settled rows,
-  and none of 8 at 8 to 20 rooms. Next: a B2-like exclusion of the 243 rows whose unit has
-  an ad coded 1 bedroom or more within 730 days (24 held-out ads at +0.185 ± 0.063 against
-  +0.045 ± 0.025 for the rest), in its own fit with predictions written first; separately,
-  a screen for nonresidential ads at 8 or more rooms.
+  `docs/notes/studio-rooms-2026-11-14.md`). S16 chose this split after its reads, so its
+  figures are post hoc. S17 read 30 of the 893 rows outside S16's draw without plan
+  fetches: 8 have bedrooms, 9 are studios, 3 are commercial space and 10 stay unresolved.
+  Weighted to the 893, .35 ± .14 have bedrooms (.59 ± .12 of settled rows) and .42 ± .13
+  stay unresolved; none of 8 at 8 to 20 rooms has bedrooms. Next: a B2-like exclusion of
+  the 243 rows whose unit has an ad coded 1 bedroom or more within 730 days (H1). It marks
+  24 held-out ads, and the 20 of them outside S16's draw ask 0.14 ± 0.07 more than the
+  other 50, which still ask +0.045 ± 0.025. S17 picked H1 after scoring 9 rules on those 70
+  ads, so that contrast is post hoc too, and its fit has to be judged with the selection in
+  mind. Write the fit's predictions first. Separately, screen nonresidential ads at 8 or
+  more rooms.
 - [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
   for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
   or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the

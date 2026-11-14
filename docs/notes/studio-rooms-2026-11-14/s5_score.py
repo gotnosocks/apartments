@@ -1,20 +1,30 @@
 """S17, part 5: the readers' verdicts scored, and candidate rules counted over the pool.
 
-I join the three reading files to the sample and count verdicts, backing kinds and room
-reasons, raw and weighted back to the 893 pool rows outside S16's draw by each cell's size.
-The precision of "a studio coded on 5 or more rooms has more bedrooms than coded" counts a
-`bedrooms` verdict as a hit and a `studio` or `other` verdict as a miss. I give it with 95%
-Wilson intervals over all 30 rows (an unresolved row counts as a miss) and over the settled
-rows alone, for all room counts, for 5 rooms and for 6 or more.
+I join the three reading files to the sample and change row 25 from the reader's `studio` to
+`unresolved`, leaning studio. Its two texts describe open sleeping areas, but the unit's 2014
+and 2015 ads and line units 321, 421 and 521 code 1 to 2 bedrooms, and I told the readers to
+settle a coded 0 as a studio only when nothing else contradicts it.
+
+Then I count verdicts, backing kinds and room reasons in the sample. The precision of "a studio
+coded on 5 or more rooms has more bedrooms than coded" counts a `bedrooms` verdict as a hit and
+a `studio` or `other` verdict as a miss. I give it with 95% Wilson intervals over all 30 rows
+(an unresolved row counts as a miss) and over the settled rows alone, for all room counts, for
+5 rooms and for 6 or more. These raw figures describe the sample, in which held-out ads make 14
+of 30 rows against 70 of the 893 pool rows outside S16's draw. For the pool I weight each cell
+by its size and give stratified shares with their SEs:
+
+- the share of each verdict, a stratified mean;
+- the bedroom share of settled rows, a ratio of two stratified means, with a linearized SE.
 
 From the ads file I add, for each pool row, whether the unit has an earlier ad coded 1 bedroom
-or more, at any distance and within 730 days, to score prediction 5. Then for each candidate rule I count the pool rows it marks (overall, held-out, units and
-buildings), the held-out ads outside S16's draw it marks with L1's mean gap (SE clustered by
-building) and their share inside the 80% interval, beside the same figures for the unmarked
-ads, and the sample rows it marks with their verdicts. Last, I estimate the gap of the 70
-held-out ads after a fix by taking L1's bedroom step `delta_k` off the gap of each ad a rule
-marks, where k is the unit's modal count; this is arithmetic on L1's coefficients, not a
-refit. I write `scores.json`."""
+or more, at any distance and within 730 days, to score prediction 5. Then for each candidate
+rule I count the pool rows it marks (overall, held-out, units and buildings), the held-out ads
+outside S16's draw it marks with L1's mean gap (SE clustered by building) and their share
+inside the 80% interval, beside the same figures for the unmarked ads, the contrast between the
+two means with a building-clustered SE, and the sample rows it marks with their verdicts. Last,
+I estimate the gap of the 70 held-out ads after a fix by taking L1's bedroom step `delta_k` off
+the gap of each ad a rule marks, where k is the unit's modal count; this is arithmetic on L1's
+coefficients, not a refit. I write `scores.json`."""
 
 import glob
 import json
@@ -46,10 +56,45 @@ def cluster_mean_se(v, g):
     return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()) / len(v))
 
 
+def cluster_contrast(v, m, g):
+    """Marked mean less unmarked mean, with a CR1 building-clustered SE."""
+    v, m = np.asarray(v, float), np.asarray(m, float)
+    if m.sum() < 2 or (1 - m).sum() < 2:
+        return None, None
+    x = np.column_stack([np.ones_like(m), m])
+    bread = np.linalg.inv(x.T @ x)
+    beta = bread @ x.T @ v
+    score = pd.DataFrame(x * (v - x @ beta)[:, None]).groupby(np.asarray(g)).sum()
+    k = len(score)
+    cov = bread @ (k / (k - 1) * score.T.values @ score.values) @ bread
+    return float(beta[1]), float(np.sqrt(cov[1, 1]))
+
+
+def stratified(g, y, x=None):
+    """Pool share of y, or of y among rows with x, from whole sample cells, with its SE."""
+    y = np.asarray(y, float)
+    x = np.ones_like(y) if x is None else np.asarray(x, float)
+    cells = pd.DataFrame({"cell": g.cell.values, "w": g.weight.values, "y": y, "x": x})
+    c = cells.groupby("cell").agg(
+        n=("y", "size"), w=("w", "first"), y=("y", "mean"), x=("x", "mean")
+    )
+    c["N"] = c.w * c.n
+    big_y, big_x = (c.N * c.y).sum(), (c.N * c.x).sum()
+    r = big_y / big_x
+    cells["z"] = cells.y - r * cells.x
+    c["s2"] = cells.groupby("cell").z.var(ddof=1).fillna(0.0)
+    var = (c.N**2 * (1 - c.n / c.N) * c.s2 / c.n).sum() / big_x**2
+    return {"p": float(r), "se": float(np.sqrt(var)), "pool_rows": float(c.N.sum())}
+
+
 reads = pd.concat(
     pd.read_json(p, lines=True) for p in sorted(glob.glob(OUT + "reads/*.jsonl"))
 )
 assert sorted(reads.row_id) == list(range(30)), sorted(reads.row_id)
+OVERRIDES = {25: {"verdict": "unresolved", "true_bedrooms": None, "lean": "studio"}}
+for rid, change in OVERRIDES.items():
+    for col, val in change.items():
+        reads.loc[reads.row_id == rid, col] = val
 feat = pd.read_parquet(OUT + "features.parquet")
 SAMPLE_COLS = set(pd.read_parquet(OUT + "sample.parquet").columns)
 
@@ -94,11 +139,13 @@ for name, m in [
         "all_rows": wilson(g.hit.sum(), len(g)),
         "settled": wilson(g.hit.sum(), g.settled.sum()),
         "unresolved": int((~g.settled).sum()),
-        "weighted_hit_share": float((g.weight * g.hit).sum() / g.weight.sum()),
-        "weighted_unresolved_share": float(
-            (g.weight * ~g.settled).sum() / g.weight.sum()
-        ),
+        "weighted_hit_share": stratified(g, g.hit),
+        "weighted_hit_share_settled": stratified(g, g.hit, g.settled),
+        "weighted_unresolved_share": stratified(g, ~g.settled),
     }
+res["verdicts_weighted_se"] = {
+    v: stratified(s, s.verdict == v) for v in sorted(s.verdict.unique())
+}
 res["backing"] = s[s.settled].backing.explode().value_counts().to_dict()
 res["backing_first"] = (
     s[s.settled]
@@ -155,6 +202,8 @@ for name, m in rules.items():
         "gap_unmarked": float(f.gap[hu].mean()) if hu.any() else None,
         "gap_unmarked_se": cluster_mean_se(f.gap[hu], f.building[hu]),
         "in80_unmarked": float(f.in80[hu].mean()) if hu.any() else None,
+        "contrast": cluster_contrast(f.gap[kept], m[kept], f.building[kept])[0],
+        "contrast_se": cluster_contrast(f.gap[kept], m[kept], f.building[kept])[1],
         "sample_marked": s[sm].verdict.value_counts().to_dict(),
         "sample_precision": wilson(s[sm].hit.sum(), sm.sum()),
         "sample_precision_settled": wilson(s[sm].hit.sum(), (sm & s.settled).sum()),
