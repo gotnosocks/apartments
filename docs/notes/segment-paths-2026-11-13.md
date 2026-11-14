@@ -193,8 +193,9 @@ revise none of the predictions above. They check the sampler alone and compare n
 another, so they test no feature in the sense of Ben's rule of 2026-10-07 against thelio pairs.
 The first run missed the gate on a path's amplitude and lengthscale. I traced the miss to the
 model, added a level column for three of the segments, and ran the rehearsal again. In the
-rerun the chains agreed on every path, and the gate missed on a lengthscale, outer:studio's
-worst of all, which I trace to the subsample's thin data.
+rerun the chains agreed on every path, and the gate missed on all eight lengthscales and six
+of the amplitudes, outer:studio's lengthscale worst of all. I put that down to the subsample's
+thin data, which a larger run has yet to confirm.
 
 ### The subsample
 
@@ -345,7 +346,7 @@ stands, and I have flagged that for the project thread.
 
 ### The rerun
 
-I ran the rehearsal once more on the module with the fix, commit 94728efd, with the same
+I ran the rehearsal once more on the module with the fix, commit 5a6689cf, with the same
 buildings, seed and settings. The run took 27 min 56 s: 55 s to compile, 260 s of warmup and
 1,189 s of sampling at 0.500 s a sweep. Host memory peaked at 4.1 GiB, and the GPU's at
 1,599 MiB, 1,217 MiB above the 382 MiB in use before the run.
@@ -375,7 +376,7 @@ No scale has a draw under 1% of its median.
 The run still missed the gate, with its largest R-hat, 1.2464, and its least ESS, 3, on
 outer:studio's lengthscale. outer:studio's hat coefficients gave the eight worst R-hats among
 the 430, up to 1.1925. Every lengthscale missed, at ESS 3 to 110, and six amplitudes missed on
-ESS. level:outer:3br+ missed at R-hat 1.0131 and ESS 187, beside bed>=3 at ESS 190, and the
+ESS, manhattan:3br+ also on R-hat (1.0142). level:outer:3br+ missed at R-hat 1.0131 and ESS 187, beside bed>=3 at ESS 190, and the
 two correlate at -0.67 over the draws. Outside the segment model's own parameters, the zones'
 building spreads missed at R-hat 1.073 and 1.062, from the slice window L2's note traces to
 the subsample, and tau and drift_tau missed on ESS alone, at 382 and 327. Of the buildings'

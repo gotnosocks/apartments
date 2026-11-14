@@ -317,8 +317,9 @@ at -0.16 to -0.24, with nu at -0.20, and with each of unit_sd, drift_sd and drif
 or less in absolute value. The 13 cell factors of the trace, the phases' and the marked cells',
 pass at R-hat 1.0035 or less and ESS 417 or more.
 
-The run misses the gate on seven quantities. The table gives each as R-hat and ESS, beside L2's
-rehearsal on the same buildings, seed and settings, and quantities at ESS under 400 in either:
+The run misses the gate on 11 quantities, every row of the table but building_ar_sd. The table
+gives each as R-hat and ESS, beside L2's rehearsal on the same buildings, seed and settings, and
+quantities at ESS under 400 in either:
 
 | quantity | this run | L2's rehearsal |
 |---|---|---|

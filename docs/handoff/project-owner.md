@@ -26,7 +26,7 @@ predictions:
 | L2 | 1.0895 | 12 | phase coefficients pass |
 | segment walks, fixed | 1.2464 | 3 | chains agree; every lengthscale misses, worst `outer:studio` |
 | D1 | 1.0749 | 19 | `k` passes |
-| LN1 | 1.5115 | 4 | `line_sd` passes; `unit_sd` misses |
+| LN1 | 1.5115 | 4 | `line_sd` misses on ESS (277); `unit_sd` misses |
 | I1 | 1.0972 | 11 | `k` passes |
 
 - The zone spreads (`bld_sd`) miss in every run. With so few buildings their posterior is

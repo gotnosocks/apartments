@@ -222,7 +222,7 @@ the first run and 1.019 to 1.032 in the second, where its ESS fell to 113 to 164
 the chains' medians agree within 1.5% for unit_sd and drift_sd and within 8% for drift_tau, and
 the autocorrelation falls under 0.1 by lag 50. The block is L1's slowest on the full data as
 well: `l1a` missed on its own pair of chains, at 1.0134 for unit_sd and 1.0109 for drift_tau,
-and L1's pool of 6 chains passed with its largest R-hat, 1.0076, on unit_sd and its least ESS,
+and L1's pool of 4 chains, `l1a`'s and `l1b`'s, passed with its largest R-hat, 1.0076, on unit_sd and its least ESS,
 788, on drift_tau. tau mixes more slowly here than on the full data (lag-1 0.83 against 0.37)
 with steps of the same size. I expect the cause lies in the data behind tau's walk, since each
 week holds about 1 in 92 of its full-data rows. At the first run's rate per draw, 6 chains
