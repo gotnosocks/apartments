@@ -23,13 +23,22 @@ each segment's path holds its deviation from it. A row's columns come from its d
 bedroom group and its site alone, so building a held-out row's columns uses no rent.
 
 Each segment's coefficients take a Gaussian process prior over the quarter starts, with a
-squared exponential covariance given a value of 0 at 2024-01-01: a unit's level holds its
-segment's gap there, and the path moves it in other years. With the nugget of
+squared exponential covariance given a value of 0 at 2024-01-01: the segment's level holds
+its gap there, and the path moves it in other years. With the nugget of
 `building_zones_gibbs.gp_cov` the prior sd at 2024q1 is a tenth of the amplitude rather than
 exactly 0. The squared amplitude has an
 InvGamma(SEG_AMP) prior and the log lengthscale in years a Normal(SEG_LS) prior. The sampler
 draws the coefficients with the design's other global columns, and the processes' amplitudes
 and lengthscales with the floor curves'.
+
+A unit's level shrinks toward its building's level, and a building holds units of several
+bedroom groups, so the units' levels carry only part of a segment's gap. L1's design gives
+each bedroom group a level through the bedroom steps, and each zone gets one through its
+buildings' levels. For the rest, the design carries a level column for each bedroom group past
+studios in each zone after the first, 1 on the segment's rows (`level_columns`). With these,
+every segment has a level of its own, and a path takes no part of a lasting gap. On a building
+subsample the paths alone left the outer 1-bedroom path's chains split at 2024q1, as the
+rehearsal in `docs/notes/segment-paths-2026-11-13.md` reports.
 
     python -m rentfrontier.run --model drift-building-phase-segment --split latest --name NAME
 """
@@ -123,9 +132,34 @@ def hat_weights(t: np.ndarray, knots: np.ndarray) -> np.ndarray:
     return H
 
 
-def path_design(d: Design, knots: np.ndarray, labels: list[str]) -> Design:
+def level_columns(d: Design) -> tuple[list[str], np.ndarray]:
+    """The names and (rows, columns) values of the segments' level columns, `level:{segment}`
+    in `segment_index` order: one for each bedroom group past studios in each zone after the
+    first, 1 on the segment's rows and 0 on the others. A segment with no rows gets no
+    column."""
+    seg = segment_index(d)
+    segments = segment_names(d)
+    keep = np.array(
+        [
+            k
+            for k in range(len(segments))
+            if k >= len(BEDS) and k % len(BEDS) > 0 and (seg == k).any()
+        ],
+        dtype=np.int64,
+    )
+    x = (seg[:, None] == keep[None, :]).astype(float)
+    return [f"level:{segments[k]}" for k in keep], x
+
+
+def path_design(
+    d: Design,
+    knots: np.ndarray,
+    labels: list[str],
+    lead: tuple[list[str], np.ndarray] | None = None,
+) -> Design:
     """`d` with the centered hat columns of the segments at `knots`, in years from the grid
-    start, named `seg:{segment}:{label}` segment by segment in `segment_index` order.
+    start, named `seg:{segment}:{label}` segment by segment in `segment_index` order. The
+    named columns of `lead` go between `d`'s columns and the paths'.
 
     A knot with rows of a single segment, or of none, centers to 0 on every row, so its columns
     are left out, as `building_zones_kitchen_sink.append` leaves out a column with no rows set.
@@ -150,9 +184,12 @@ def path_design(d: Design, knots: np.ndarray, labels: list[str]) -> Design:
     )
     have = set(d.names)
     keep = [j for j, n in enumerate(names) if n not in have and set_rows[j] > 0]
-    x = np.empty((len(H), d.x.shape[1] + len(keep)))
+    lead_names, lead_x = lead if lead is not None else ([], np.zeros((len(H), 0)))
+    x = np.empty((len(H), d.x.shape[1] + len(lead_names) + len(keep)))
     x[:, : d.x.shape[1]] = d.x
     at = d.x.shape[1]
+    x[:, at : at + len(lead_names)] = lead_x
+    at += len(lead_names)
     for k in range(len(segments)):
         mine = [j - k * len(labels) for j in keep if j // len(labels) == k]
         if mine:
@@ -161,17 +198,21 @@ def path_design(d: Design, knots: np.ndarray, labels: list[str]) -> Design:
     return dataclasses.replace(
         d,
         x=x,
-        names=list(d.names) + [names[j] for j in keep],
-        count=dict(d.count) | {n: int(c) for n, c in zip(names, set_rows)},
+        names=list(d.names) + list(lead_names) + [names[j] for j in keep],
+        count=dict(d.count)
+        | {n: int(c) for n, c in zip(lead_names, (lead_x != 0).sum(axis=0))}
+        | {n: int(c) for n, c in zip(names, set_rows)},
     )
 
 
 def segment_paths(d: Design) -> Design:
-    """`d` with a centered hat column for each segment and quarter start, as in the module's
-    docstring."""
+    """`d` with the segments' level columns and a centered hat column for each segment and
+    quarter start, as in the module's docstring."""
     q = quarter_starts(d)
     knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / YEAR_DAYS
-    return path_design(d, knots, [f"{t.year}q{t.quarter}" for t in q])
+    return path_design(
+        d, knots, [f"{t.year}q{t.quarter}" for t in q], lead=level_columns(d)
+    )
 
 
 def _quarter_years(name: str) -> float:
@@ -267,6 +308,7 @@ def run_record(d: Design) -> dict:
             "rows": np.bincount(seg, minlength=len(segment_names(d))).tolist(),
             "quarter_starts": [str(q.date()) for q in quarter_starts(d)],
             "columns": len(cols),
+            "levels": [n for n in d.names if n.startswith("level:")],
             "reference": str(REFERENCE.date()),
             "amp2_invgamma": list(SEG_AMP),
             "log_ls_normal": list(SEG_LS),

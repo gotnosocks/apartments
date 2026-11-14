@@ -51,12 +51,13 @@ def test_each_segment_gets_a_centered_column_at_every_quarter_start():
     assert len(np.unique(seg)) == 8
     # Every segment has rows in every quarter of the simulated frame, so no column drops.
     names = [f"seg:{s}:{t.year}q{t.quarter}" for s in labels for t in q]
-    assert out.names == d.names + names
+    levels = ["level:outer:1br", "level:outer:2br", "level:outer:3br+"]
+    assert out.names == d.names + levels + names
     np.testing.assert_array_equal(out.x[:, : len(d.names)], d.x)
     knots = np.asarray((q - d.start).days, float) / m.YEAR_DAYS
     H = m.hat_weights(m.years(d), knots)
     np.testing.assert_allclose(H.sum(axis=1), 1.0)
-    X = out.x[:, len(d.names) :].reshape(len(d.y), 8, len(q))
+    X = out.x[:, len(d.names) + len(levels) :].reshape(len(d.y), 8, len(q))
     for k in range(8):
         on = seg == k
         p = H[on].sum(axis=0) / H.sum(axis=0)
@@ -65,6 +66,49 @@ def test_each_segment_gets_a_centered_column_at_every_quarter_start():
     # every row, so the paths move no average and leave the citywide walk its own.
     np.testing.assert_allclose(X.sum(axis=0), 0.0, atol=1e-9)
     np.testing.assert_allclose(X.sum(axis=1), 0.0, atol=1e-12)
+
+
+def test_each_outer_bedroom_group_past_studios_gets_a_level_column():
+    d = tp._phased(n=1200, weeks=260)
+    out = m.segment_paths(d)
+    seg = m.segment_index(d)
+    at = len(d.names)
+    levels = ["level:outer:1br", "level:outer:2br", "level:outer:3br+"]
+    assert out.names[at : at + 3] == levels
+    for i, k in enumerate((5, 6, 7)):
+        np.testing.assert_array_equal(out.x[:, at + i], seg == k)
+        assert out.count[levels[i]] == (seg == k).sum()
+    # An intercept, a level for each bedroom group past studios, a level for the outer zone
+    # and the three columns span exactly the eight segments' own levels.
+    zone = m.site_zone(d)[d.site]
+    A = np.column_stack(
+        [np.ones(len(seg))]
+        + [d.group == g for g in (1, 2, 3)]
+        + [zone == 1, out.x[:, at : at + 3]]
+    ).astype(float)
+    S = np.eye(8)[seg]
+    assert np.linalg.matrix_rank(A) == 8
+    np.testing.assert_allclose(S @ np.linalg.lstsq(S, A, rcond=None)[0], A, atol=1e-10)
+    # A segment with no rows gets no level column.
+    gone = dataclasses.replace(d, group=np.where(seg == 6, 1, d.group))
+    assert m.level_columns(gone)[0] == ["level:outer:1br", "level:outer:3br+"]
+
+
+def test_a_lasting_gap_goes_to_its_segment_level_and_leaves_the_path_flat():
+    full = m.segment_paths(tp._phased(n=1500, weeks=260, per_unit=6))
+    j = full.names.index("level:outer:1br")
+    full = dataclasses.replace(full, y=full.y + 0.1 * full.x[:, j])
+    train, _, _ = td._split(full)
+    out = m.run(
+        train,
+        building_zones.Priors(),
+        drift.Settings(chains=2, warmup=100, draws=40, level_dof=4.0, seed=3),
+        log=lambda s: None,
+    )
+    beta = out["kept"]["beta"].reshape(-1, len(full.names))
+    assert abs(beta[:, j].mean() - 0.1) < 0.03
+    path = [i for i, c in enumerate(full.names) if c.startswith("seg:outer:1br:")]
+    assert np.abs(beta[:, path].mean(axis=0)).max() < 0.05
 
 
 def test_the_rows_to_predict_carry_their_path_columns():
@@ -111,9 +155,17 @@ def test_a_run_recovers_planted_segment_paths():
         log=lambda s: None,
     )
     beta = out["kept"]["beta"].reshape(-1, len(full.names))
-    got = train.x[:, cols] @ beta[:, cols].mean(axis=0)
-    assert np.corrcoef(got, effect[~held])[0, 1] > 0.8
-    assert np.sqrt(np.mean((got - effect[~held]) ** 2)) < 0.5 * effect[~held].std()
+    # A path's lasting part can go to its segment's level column, the units' levels or the
+    # buildings', so the check compares each row's move from its segment's mean.
+    seg = m.segment_index(train)
+
+    def moves(v):
+        return v - (np.bincount(seg, v, 8) / np.bincount(seg, minlength=8))[seg]
+
+    got = moves(train.x[:, cols] @ beta[:, cols].mean(axis=0))
+    want = moves(effect[~held])
+    assert np.corrcoef(got, want)[0, 1] > 0.8
+    assert np.sqrt(np.mean((got - want) ** 2)) < 0.5 * want.std()
     diag = m.diagnostics(out["trace"], train.names)
     for s in m.segment_names(full):
         assert f"gp_amp[seg:{s}]" in diag["per_quantity"]
@@ -124,11 +176,11 @@ def test_a_run_recovers_planted_segment_paths():
 
 
 # The sha256 of every traced and kept array of the run below on the CPU, as drawn when the
-# segment paths were added. A deliberate change to the model's draws changes it.
-SEGMENT_RUN_SHA256 = "1d5f0f32ec1db6502a7114d1f8e703ef8d1335ef88349e62d2042998e92b5743"
+# segments' level columns were added. A deliberate change to the model's draws changes it.
+SEGMENT_RUN_SHA256 = "a1dea246c05c842cf7a369ad5069be9c228318d75a682dbff11ee6ee8fb02814"
 
 
-def test_a_design_with_segment_paths_draws_what_it_drew_when_they_were_added():
+def test_a_design_with_segment_paths_draws_what_it_drew_with_its_level_columns():
     full = m.segment_paths(tp._phased(n=400, weeks=260, per_unit=9))
     train, _, _ = td._split(full)
     out = m.run(
@@ -164,5 +216,10 @@ def test_the_model_is_l1_with_its_segment_paths():
     assert rec["segments"]["names"] == m.segment_names(d)
     assert sum(rec["segments"]["rows"]) == len(d.y)
     assert rec["segments"]["columns"] == 8 * len(m.quarter_starts(d))
+    assert rec["segments"]["levels"] == [
+        "level:outer:1br",
+        "level:outer:2br",
+        "level:outer:3br+",
+    ]
     assert rec["segments"]["reference"] == "2024-01-01"
     assert rec["phase"] == drift_building_phase.run_record(d)["phase"]
