@@ -184,11 +184,11 @@ and 43.
 ## Flagged causes
 
 I flag a cause when a miss group has at least 5 reads of it and has it at least twice as often
-as the controls, or has it while no control does. The bar comes from step 4 of the task brief
-for this screen, which I had before I wrote the predictions. The predictions commit gives no
-number for it, so prediction 6 refers to the brief's bar. I put the bar into `b4_score.py` after the
-predictions commit and before unblinding at 02:23:26. The brief asks for at least 5 misses,
-and I count those 5 within a single miss group. Three categories pass:
+as the controls, or has it while no control does. I had this bar before I wrote the
+predictions, but the predictions commit does not state it, so prediction 6 cites it without
+its numbers. I put the bar into `b4_score.py` after the predictions commit and before
+unblinding at 02:23:26, and I count the 5 reads within a single miss group. Three categories
+pass:
 
 1. `data_error`, in both groups: 5.8 times the controls' share among overpriced ads and 2.8
    times among underpriced ads. Two subtypes pass on their own, both in the overpriced
@@ -369,7 +369,7 @@ Each failure has a plain reason in the readers' answers:
 5. **Missed.** Among overpriced misses, data errors agree with the group's sign in 71% of
    reads, renovation in 100% and private outdoor in 100%. Among underpriced misses, data
    errors agree in 65%, renovation in 0% and utilities or fees in 31%.
-6. **Missed on the count, hit on novelty.** The bar is the one in the task brief's step 4,
+6. **Missed on the count, hit on novelty.** The bar is the one in "Flagged causes" above,
    which the prediction cites without restating: at least 5 reads in a miss group, at twice
    the controls' share or with no control at all. I wrote it into `b4_score.py` after the
    predictions commit and before unblinding. Three categories pass against my 5 to 9, and none
