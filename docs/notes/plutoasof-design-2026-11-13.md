@@ -225,3 +225,46 @@ building, the median's error and the coverage of the 50%, 80% and 95% intervals
 (`python -m rentfrontier.drift_score RUN`). I split each count between the 26,379 held-out ads
 whose columns P1 changes and the rest, by joining `pred_scores.npz`'s listings to the rows
 `count.py` marks.
+
+## Predictions (written before launch)
+
+All of these are for the pool of three containers on the latest split, against L1's pool on
+the shared held-out ads. L1's numbers there: median error 0.04068 and 80% coverage 0.797.
+
+`nb5-plutoasof-v1`, the first model to read MapPLUTO as of each year, lost 71.1 ± 20.4 on
+PSIS-LOO, and its dated size fields were mostly older estimates that later releases revised.
+In the doorman fit of 2026-11-11 (`docs/notes/drift-building-doorman-2026-11-11.md`) the
+doorman column switched within buildings. The fit estimated its coefficient largely from
+those switches, the building levels kept the gap between buildings, and elpd moved by -4.8
+(SE 5.9). P1 changes columns in both of these ways. On 65,167 rows it replaces a dated year
+built with an older decade estimate, and its condo and lot columns switch within a building
+when the billing lot appears. A held-out ad in a building with history keeps its level, so I expect
+small moves, more likely down than up.
+
+1. The fit passes the gate (80%). The sampler is L1's, and L1's pool of 4 chains reached a
+   largest R-hat of 1.0076 (unit_sd) and a smallest ESS of 788 (drift_tau). P1 pools 6
+   chains of about the same length. The likeliest miss is a coefficient of the missing-lot
+   rows, whose `bld:lot_unknown`, `bld:built_unknown` and `bld:retail_unknown` move together.
+2. elpd moves by about -10 against L1, and by -60 to +30 (80%). Its SE, clustered by building,
+   comes to between 8 and 30 (80%). A gain of more than 2 SE has a chance of 10%, and a
+   loss of more than 2 SE 25%.
+3. The 26,379 held-out ads whose columns P1 changes carry most of the move, and the other
+   163,268 stay within ±15 (70%).
+4. The median's error moves by under 0.0002 from 0.04068 (80%).
+5. 80% coverage stays within 0.002 of 0.797 (85%).
+6. `bld:condo` stays within 0.02 of L1's +0.132 (65%). Its 30,788 missing-lot rows move to
+   the missing-lot columns, and the rows left read their condo lot.
+7. `bld:lot_unknown`'s posterior sd falls from 0.023 to under 0.012 (80%), since 1,543 more
+   buildings carry it. Its mean stays above 0 (70%).
+8. `bld:built_pre1900` falls from +0.0215 to between +0.005 and +0.018 (60%). 65,167 rows
+   switch from a decade estimate of 1900 on to a year before 1900 within their buildings,
+   where the building's level already accounts for the rent.
+9. `bld:altered_2000_on` moves by under 0.008 from +0.0377 (70%). L1 already reads the
+   alteration year up to the ad's year, and P1 changes its rows mostly through revised years.
+10. Every other lot coefficient (`bld:log_units`, `bld:log_lot_front`, `bld:corner`,
+    `bld:far_used`, `bld:landmark`, `bld:multi_building`, the class letters,
+    `bld:log_area_per_unit`) stays within 0.005 of L1's (70%).
+11. The phase factors and each group's sigma move by under 1%, and unit_sd and bld_sd by
+    under 2% (80%).
+12. Each container stops its sweeps at the budget, and the three settle between $10.50 and
+    $12.00 (80%).
