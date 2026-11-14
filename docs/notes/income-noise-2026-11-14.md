@@ -39,8 +39,10 @@ held-out ads are L1's.
 
 The mark covers 2,698 of the 1,896,471 rows (0.14%): 2,433 training rows in 486 buildings and
 265 held-out ads in 143 buildings. Every one of the 14 cells of phase and mark has rows; the
-smallest marked cell, phase 22-25, has 56. k is shared across the phases, so it draws on all
-the marked training rows.
+smallest marked cell, phase 22-25, has 56 rows, 41 of them training rows. k is shared across
+the phases, so it draws on all the marked training rows. A k between 2 and 4 puts log k 2.3 to
+4.6 prior sds from 0, and with about 2,400 marked training rows I expect the prior to pull
+log k in by less than 0.01.
 
 S15's m multiplied both L1's noise scale and its unit sd. I put k on the noise alone, as D1
 does, for two reasons:
