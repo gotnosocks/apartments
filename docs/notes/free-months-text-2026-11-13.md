@@ -4,9 +4,9 @@ The pipeline codes `months_free` on 161,046 of L1's 1,896,471 rows. It is above 
 160,941 of them, and on just 1,323 rows from before 2020. Ads from those years stated their
 free months in the description alone. I wrote `rentfrontier.b0freetext` to read the offer in
 each listing's latest description, along with any word there on whether the listed price is
-net or gross, and built a copy of L1's dataset with these readings in four new columns. The build leaves
-`months_free` and `latest_ask` as they are and writes the text's readings beside them. No fit
-reads the new columns yet, and I propose none here.
+net or gross, and built a copy of L1's dataset with these readings in four new columns. The
+build leaves `months_free` and `latest_ask` as they are and writes the text's readings beside
+them. No fit reads the new columns yet, and I propose none here.
 
 The scripts behind the numbers below are in `docs/notes/free-months-text-2026-11-13/`:
 
@@ -15,7 +15,12 @@ The scripts behind the numbers below are in `docs/notes/free-months-text-2026-11
 - `compare.py` prints the gains, the agreement with `months_free`, the counts by year and by
   price basis, and the ads leaving their unit out of the building's offer. With `--samples` it
   draws the ads for the first reading, and with `--check` the ads for the second;
-- `score.py` scores the readers' labels against the current parse.
+- `score.py` scores the readers' labels against the current parse;
+- `records.py` looks for the coded value of each disagreeing row in all of its listing's
+  records;
+- `edges.py` counts the parser's known misreadings among the texts with months;
+- `amounts.py` compares the page price of text-only rows with the net and gross amounts in
+  their text.
 
 ## The build
 
@@ -77,8 +82,9 @@ rent free, on us, waived, complimentary, concession, abatement).
   TWO MONTHS OF LEASE AND LAST MONTH ARE FREE" counts as three.
 - "13 months for the price of 12" gives 1. A whole count of 7 or more months with free gives
   the place of the free month, so "12 MONTH FREE on a 12 month lease" gives 1.
-- I take the lease length from the offer's own clause, or else from the next lease length
-  later in its sentence.
+- I take the lease length from the offer's own clause: the first lease length after the offer
+  and before the next offer, or else the nearest one before it and after the previous offer.
+  A lease in another sentence goes unread, so "1 month free. 12 month lease" gets no lease.
 - I pass over free parking, gyms, storage, cleaning and Wi-Fi, along with tax abatements and
   "broker fee free".
 
@@ -212,16 +218,29 @@ shown:
   disagreement, and of the 494 week offers on both sides the coded value equaled the weeks over
   4 on 403 and the 52/12 reading on 241. In the reader sample the coded field rounds 6, 5 and
   3 weeks each to 1 month.
-- **Another lease's offer.** Many ads offer one count on a shorter lease and another on a longer
-  one, and the coded field can follow a different offer from my chosen one ("1 MONTH FREE ON
-  13 MONTH LEASE, 2 MONTHS FREE ON 19"). Coded 2 against text 1 (202 rows) and coded 1 against
-  text 2 (158) are mostly of this kind. On 331 of the 623 disagreeing rows with a lease in the
-  text, the coded `lease_term` differs from the text's lease.
-- **Up to.** The column keeps the upper end of "up to" offers and ranges. In the reader sample
-  the coded value lies below that end on 4 of 6 such ads.
-- **Coded values absent from the text.** Coded values such as 2.31, 1.11 and 1.13 appear in no
-  offer of their ads and look derived from prices. One ad (listing 4811052) states months at
-  odds with its own gross and net prices.
+- **Another offer in the text.** On 211 of the 1,302 disagreeing rows the coded value is one of
+  the offers in the latest description, and the coded field follows a different offer from my
+  chosen one, often for another lease ("1 MONTH FREE ON 13 MONTH LEASE, 2 MONTHS FREE ON 19").
+  On 331 of the 623 disagreeing rows with a lease in the text, the coded `lease_term` differs
+  from the text's lease.
+- **Up to.** On 241 rows the column keeps the upper end of an "up to" offer or a range. In the
+  reader sample the coded value lies below that end on 4 of 6 such ads.
+- **Coded values absent from the text.** On the other 850 rows no offer in the latest
+  description gives the coded value. Coded values such as 2.31, 1.11 and 1.13 look derived
+  from prices. One ad (listing 4811052) states months at odds with its own gross and net
+  prices.
+
+The two largest off-diagonal cells fall mostly in the last group. Of the 158 rows coded 1 with
+text 2, 126 are there, 18 are up-to offers and 14 have the coded value among their offers. Of
+the 202 rows coded 2 with text 1, 124 are there, 4 are up-to offers and 74 have the coded value
+among their offers.
+
+To test whether another record of the listing holds the coded value, I read every record of
+the 1,302 listings in the records file (`records.py`). On all 1,302 rows the coded value equals
+`pricing.monthsFree` in the latest record, and I parse the description of that same record.
+Only 4 of the listings have a second record, which carries the same value. On these rows the
+record's coded field and its description disagree, and the records give no sign of which one
+the listing agent wrote last.
 
 ## The readers
 
@@ -271,10 +290,16 @@ unstated, against 17 for v1.
 
 In the disagree sample the current text equals the coded value on 11 ads. On 5 of them v1 made
 parser errors, and the fixes corrected them. The other 6 are week offers coded at 4 to the
-month.
-On the rest the readers side with the text, apart from listing 2865689, which they call
+month. On the rest the readers side with the text, apart from listing 2865689, which they call
 unstated. Counting weeks at 4 to the month, the coded value is among the readers' offers on 19
 of the 50.
+
+Of the 39 sample ads still in disagreement, the coded value is among the parse's offers on 8,
+and the text gives the upper end of an up-to offer on 6. On the other 25 no offer in the latest
+description gives the coded value. Each of the 39 has a single record, and its coded field
+equals the record's `pricing.monthsFree`. Of the 6 ads coded 1 with text 2, 1 has the coded
+value among its offers, 1 is an up-to offer and 4 are of the third kind. Of the 7 coded 2 with
+text 1, 4 have the coded value among their offers.
 
 Over all 350 ads, `ask_basis_text` gives a basis on 174, and the readers agree on 160. Of the
 171 ads it marks net, the readers call 157 net, 4 gross and 10 unstated, and they call all 3 of
@@ -333,6 +358,10 @@ net price.
 - On 97.36% of the 112,159 text-only rows, `latest_ask` equals `page_price` within $2. The
   pipeline leaves these rows as listed. `ask_basis_text` marks 82,720 of them net and 917
   gross, and leaves 28,522 with no basis.
+- Where a net-marked text-only ad states both a net and a gross amount, the page price is the
+  net one. Of the 111,158 text-only rows with a page price and a text in the extract, 3,320 are
+  marked net and state both amounts. On 2,940 of them `page_price` equals the net amount within
+  $2, and on 148 the gross amount (`amounts.py`).
 - The readers marked the basis net on 129 of the 200 found ads, gross on 12 and unstated on 59.
 
 Netting the text-only asks by `months_free_text` would count the concession twice on most of
@@ -340,12 +369,21 @@ them. Gross asks enter L1's target only from the text-only rows with a gross pri
 `ask_basis_text`, 1.1% of the 83,637 text-only rows with a basis, and 8.5% of the found ads with
 a basis by the readers.
 
+I take the 917 rows as a floor. Of the readers' 16 gross ads among the 350, the rule marks 3
+gross and 4 net, and leaves 9 unstated. The readers call every gross-marked ad gross, 3 in the
+first reading and 40 in the second. So the text-only rows likely hold many more gross asks
+than 917.
+
 ## Uses
 
 Before 2020 the column gives 85,051 rows a count of free months, where the coded field has
 almost none. A fit could take the share of ads offering free months in a row's building or
 neighborhood over the months before its price day as a measure of how soft the market was,
-with the window ending at the price day as in `b0turnover`. The unstated and none kinds mark
+with the window ending at the price day as in `b0turnover`. The share would mean something
+different from 2020 on, since from then most ads with an offer state it in the coded field
+without repeating it in the text: in 2021 the text gives months on 5,981 rows and the coded
+field on 51,682. A fit would need the text and coded months combined into one count, or a term
+for each year. The unstated and none kinds mark
 30,947 asks called net effective without a count and 85 asks with a concession denied or the
 unit left out, and a fit could test whether either group prices apart from the rest. The Deals
 page could show the free months and the gross rent beside a net ask, so a renter can tell a low
@@ -356,7 +394,23 @@ to net the ask as the pipeline nets coded rows.
 
 - Words run together ("ENVOY1 MONTH FREE") go unread.
 - The column reads the listing's latest record alone. An earlier record of the same listing
-  may state a different offer.
+  may state a different offer, but only 4 of the 1,302 disagreeing listings have another
+  record.
+- I keep a single offer per text, so "first month free and last month free" gives 1 month,
+  while "first and last month free" gives 2. None of the 129,041 texts with months in the
+  extract uses the first form (`edges.py`).
+- A count of free months followed by a broker's fee or a security deposit still gives the
+  months ("1 month free broker fee", "1 month free security deposit"). The texts with months
+  hold 1 of each, and both are real offers followed by a separate item: "1 Month Free Brokers
+  Welcome" and "1 MONTH FREE Security deposit - $3998".
+- A negation after an offer ("1 month free not available") or before it ("no longer 1 month
+  free") still gives the months. I found no such negation beside an offer in the texts with
+  months.
+- In "Price shown is gross; 1 month free" the parser ties the offer to the price, which marks
+  the price net, while the text also calls the price gross. `ask_basis` gives such a text
+  no basis, yet `choose` still ranks the offer as tied to the price. Of the texts with months,
+  79 hold both readings, and 1 of them holds offers of different counts, where the rank could
+  change the months.
 - On 9,583 coded rows the text calls the price net effective, and the pipeline nets their page
   price by the coded months. I have not checked whether those texts mean the page price or a
   net figure written in the description.
