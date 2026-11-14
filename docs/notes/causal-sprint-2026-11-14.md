@@ -2,7 +2,8 @@
 
 Ben set the direction for this sprint on 2026-11-14: model changes motivated by a different
 causal account of how a rent is set, with data problems read as hints about causes the model
-lacks. The Modal budget is $100. This note states the causal account L1 encodes, lists the
+lacks. He set a Modal budget of $100 for this sprint, separate from the $140 ceiling of the
+sprint of 2026-11-10. This note states the causal account L1 encodes, lists the
 rival accounts I will test against it, ranks the backlog under that direction, and lays out the
 order of the free checks and the paid fits. Each fit gets a note of its own with predictions
 committed before launch. Nothing is launched by this note.
@@ -33,13 +34,13 @@ The elpd ranges are rough and get replaced by the predictions in each fit's note
 
 | | account | arrow added | evidence on hand | model change | graph changes |
 |---|---|---|---|---|---|
-| A | Units come in kinds | unit kind → lasting level, with a heavy tail | 74% of the 300 most extreme units read as real apartments with a quality their neighbours lack; L1T gained 4,095 ± 172 elpd and missed the gate on nu and unit_sd; 12 of the 36 false deals were units priced 14% to 39% over their own earlier asks | L1TKN (`drift-building-phase-unitkn`): Student-t unit level at 3 degrees of freedom, rows' nu held at 2 | yes, in the prior on unit quality |
+| A | Units come in kinds | unit kind → lasting level, with a heavy tail | 74% of the 300 most extreme units read as real apartments with a quality their neighbours lack; L1T gained 4,095 ± 172 elpd and missed the gate on nu and unit_sd; in 12 of the 36 false deals the unit's own recent asks match the ad, and the fit priced 9 of those 14% to 39% above the unit's 1 to 9 training ads | L1TKN (`drift-building-phase-unitkn`): Student-t unit level at 3 degrees of freedom, rows' nu held at 2 | yes, in the prior on unit quality |
 | B | The ask is a move in a search | listing state → mean | a relist within 2 months asks 1.4% to 2.0% under L1's median, and 0.9% to 1.0% under after a delisting or pause (S3) | L2: a level per lease phase, then the previous ad's ending | yes |
 | C | Segments are separate markets | bedroom group × zone → time path | segment paths worth 452 ± 50 elpd over a static offset in 2020 to 2023 (S1) | a walk per bedroom group per zone around the citywide walk | yes |
 | D | Quality runs along a line | line (building × bedrooms × baths) → level | 15 of the 36 false deals had a building level set by pricier lines | LN1, after its `unit_sd` mixing is fixed | yes |
 | E | Some rents are set by rule | regulation regime → mean and time path | stabilized units follow about 0.9 of the walk (S6); income-program ads ask 3.9% to 6.4% under L1 with 1.3 to 1.8 times the spread (S15, S16) | a regime term: income-program rows priced from tier, bedrooms and year; stabilized rows on a damped walk | yes |
 | F | Quality changes in steps | renovation event → jump in unit level | none measured yet; the unit drift is smooth by construction | a step at a DOB filing between two ads | yes |
-| G | Landlords price by policy | manager → co-movement | a building's asks move with its manager's other buildings as much as with its neighbours (S8); a lister level lost 233 ± 41 earlier | a path per manager | yes |
+| G | Landlords price by policy | manager → co-movement | a building's asks move with its manager's other buildings as much as with its neighbours (S8) | a path per manager | yes |
 | H | Odd kinds only scatter more | none; noise scale by duplex, income, year | S7, S14, S15 | D1, I1, Y1 | no |
 
 Account A goes first, for three reasons. Its gain is about ten times any other on hand. It
@@ -91,9 +92,9 @@ on the shared held-out ads with `rentfrontier.drift_score`.
 | 3 | segment paths (account C) | the winner of 1 | $12.50 | lengthscales pass a rehearsal |
 | 4 | the best of D, E, F, G and anything the checks turn up | the winner of 1 | $12 | its free check clears its bar |
 | 5 | the accepted terms together, if more than one is accepted | the winner of 1 | $12 | |
-| 6 | market and backtest fits of the final model, Price now, Deals | | $24 | the final model passes the gate |
+| 6 | market and backtest fits of the final model, Price now, Deals | | $23 | the final model passes the gate |
 
-That comes to $83, and I hold the other $17 for a failed start or a second fit under step 4.
+That comes to $82, and I hold the other $18 for a failed start or a second fit under step 4.
 I keep the spend sheet at `/data1/apartments/tmp/sprint-20261114/spend.md` from the ledger.
 
 ## Rules for accepting a change
@@ -131,7 +132,9 @@ Ranked by whether the item changes the causal graph, then by its value for deals
 
 **Data validity, free, before the next dataset build**
 
-9. P1, PLUTO as of the ad's date. Every drift fit reads the 26v2 release for every row.
+9. P1, PLUTO as of the ad's date. Every drift fit reads the 26v2 release for every row. The
+   as-of columns are built (#1373, #1374). Its fit variant stays unqueued, and the as-of
+   columns go into the next dataset build instead.
 10. H1, studios coded on units of 5 or more rooms, and the bedroom-count caution.
 11. Net-effective asks and the free-months text column.
 12. Label rule v18, the `label_key` extension, shared labels and the ledger fixes from the
@@ -154,8 +157,8 @@ Ranked by whether the item changes the causal graph, then by its value for deals
 **Closed or parked**
 
 c3 and L1 are done. School zones stay tabled. Floor plan and photo reads wait for Ben's word on
-OxyLabs photo fetches. The outdoor-space level (S7) and competing supply (S4) scored under 50
-elpd and stay closed.
+OxyLabs photo fetches. The outdoor-space level (S7, -5 ± 19 elpd) and competing supply (S4, 0.2%
+within building) stay closed.
 
 ## Method notes from the two references
 
