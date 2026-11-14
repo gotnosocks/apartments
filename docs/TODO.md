@@ -232,8 +232,16 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   reading `income_restricted_v2` in place of `income_restricted`, not yet written.
   `shared_space_v2` drops 29,943 of the old flag's 30,209 rows. `rent_stabilized` misses
   misspellings ("stablized", about 1,280 listings).
-- [ ] Parse free months written in words ("FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE
-  FREE").
+- [x] Parse free months written in words ("FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE
+  FREE"). Done on 2026-11-13 as `months_free_text`, `free_lease_months` and
+  `free_text_kind` in a copy of L1's dataset (`rentfrontier.b0freetext`,
+  `docs/notes/free-months-text-2026-11-13.md`). The text gives months on 112,160 rows with
+  no coded value, 85,051 of them before 2020.
+- [ ] Settle two choices before a fit reads `months_free_text`. The column converts weeks
+  at 52/12, while the coded field and the ads' own net prices count 4 weeks to the month.
+  On text-only rows `latest_ask` is the listed price, which most ads call net effective and
+  some call gross, and no column marks the difference yet
+  (`docs/notes/free-months-text-2026-11-13.md`, "The target is net of free months").
 - [ ] A caution for an ad whose text gives another bedroom or bath count than its record.
   Three of the first 40 ads shown on the morning of 2026-11-10 were of this kind (655
   Hart St 2F, 329 Decatur St 1I, 2246 Fulton St 5G) and one of the afternoon's (1390
