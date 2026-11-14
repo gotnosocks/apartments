@@ -72,8 +72,8 @@ from the rows to their lines. Woodbury's identity turns W into
 
     W_L = W - W C G C' W,    G = diag(l2 / (1 + l2 c_m)),
 
-with c_m the sum of W over line m's rows, and the building system's H into B' W_L B
-(`line_W`). The apartment's term today then also holds its line's level. An apartment of a
+with c_m the sum of W over line m's rows (`line_W`), and the building system's H into
+B' W_L B (`building_system`). The apartment's term today then also holds its line's level. An apartment of a
 line with training rows takes that level's conditional from them, with the path and u, as
 `drift_line`'s prediction step adds the line's level to a held-out row of a known line. An
 apartment of a new line takes no level from the rows, and l2 joins its variance. Each

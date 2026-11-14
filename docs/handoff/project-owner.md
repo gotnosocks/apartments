@@ -53,12 +53,15 @@ Open asks to Ben, each put once in the thread:
 S12 found no fit candidate (the S12 bullet below has the details). The photo pilot was meant
 to test finish quality as the cause behind roof rights, hardwood and live-in super.
 
-Free work in progress, each through its own reviewed PR, in the coordinator's order:
+Free work, each through its own reviewed PR, in the coordinator's order:
 
-1. A line block in `drift_today`'s covariance, so LN1 could feed Deals if it wins.
-2. How a unit's previous ad ended, read from the raw status history as in screen S3, as a
-   column in a copy of L1's dataset.
-3. Data changes for new units, which the backtest j9 (`docs/model/drift.md`) scores: a co-op
+1. Done in #1368: `drift_today` takes LN1 fits, with a line block in its covariance, so LN1
+   can feed Deals if it wins. Its worker memory is unmeasured until the first LN1 Price now
+   run, which should record it.
+2. Done in #1367: how a unit's previous ad ended, read from the raw status history as in
+   screen S3, is the column `prev_ending` in a copy of L1's dataset
+   (`docs/notes/ending-column-2026-11-13.md`).
+3. In progress: data changes for new units, which the backtest j9 (`docs/model/drift.md`) scores: a co-op
    flag from PLUTO's building class, amenity codes from a unit's earlier ads only, and a
    screen of building turnover.
 
@@ -119,8 +122,8 @@ Free work in progress, each through its own reviewed PR, in the coordinator's or
   bedrooms, full baths) and integrates the lines out in the building's collapsed step. It is
   written, not fit, with its note and predictions in `docs/notes/line-level-model-2026-11-13.md`.
   On the 1-in-90 sample line_sd comes to about 0.13 and unit_sd to about 0.015, against L1's
-  0.06. Three containers would cost about $11.50 to $12.00. `drift_today` still rejects it,
-  since its covariance has no line block.
+  0.06. Three containers would cost about $11.50 to $12.00. `drift_today` prices its
+  apartments with their line levels (#1368).
 - **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
   leave it alone.
 

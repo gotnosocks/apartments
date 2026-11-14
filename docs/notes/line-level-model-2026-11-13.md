@@ -166,8 +166,8 @@ minutes:
 `frontier/tests/test_drift_today.py` checks `drift_today`'s line block. It compares Sigma^-1
 and the predictions in the three cases with the dense Gaussian conditional, on a toy layout
 and on a small lined design built as above, and the prior draw's covariance with the lines
-against the prior's. With line_sd at 0 an LN1 fit's prices equal L1's bit for bit, and an L1
-fit never calls the line code.
+against the prior's. On the same draws and rows, an LN1 fit with line_sd at 0 prices the
+apartments exactly as L1's step does, and an L1 fit never calls the line code.
 
 `test_drift`, `test_drift_local`, `test_drift_building_phase`,
 `test_drift_building_phase_duplex`, `test_drift_pool` and `tests/test_modal_ops_fit.py` pass
