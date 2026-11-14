@@ -63,6 +63,22 @@ the row's duplex mark, and an apartment keeps its last ad's mark. The segment mo
 its columns follow `--day` as the walk does; past the last quarter start a path holds its
 value there.
 
+Lines. LN1 (`drift_building_phase_line`) centers each apartment's lasting level on a level
+for its line, the apartments of its building with its bedrooms and full baths, with
+l_m ~ Normal(0, line_sd^2). The kept draws hold line_sd but no line levels, so for each draw
+the module integrates the lines out with the path and u. Two training rows of one line
+covary by line_sd^2 more, which adds l2 C C' to Sigma, with l2 = line_sd^2 and C the map
+from the rows to their lines. Woodbury's identity turns W into
+
+    W_L = W - W C G C' W,    G = diag(l2 / (1 + l2 c_m)),
+
+with c_m the sum of W over line m's rows, and the building system's H into B' W_L B
+(`line_W`). The apartment's term today then also holds its line's level. An apartment of a
+line with training rows takes that level's conditional from them, with the path and u, as
+`drift_line`'s prediction step adds the line's level to a held-out row of a known line. An
+apartment of a new line takes no level from the rows, and l2 joins its variance. Each
+apartment's line is the fit's own, `drift_line.line_index` as the design built it.
+
 `publish` writes `today.parquet`, one row per apartment, and then `meta.json` (the model,
 the run, its gate, the day, the grid's end, a segment model's last quarter start and
 whether the day lies past it, the check and the table's sha256). Only a fit on
@@ -94,9 +110,11 @@ from . import (
     drift_building_phase,
     drift_building_phase_duplex,
     drift_building_phase_level,
+    drift_building_phase_line,
     drift_building_phase_segment,
     drift_deals,
     drift_estimates,
+    drift_line,
     drift_score,
     simulate,
     splits,
@@ -107,8 +125,9 @@ from .total_walk import SEASON
 
 # The models this module can predict, by the name a run records. Each is `drift`'s sweep
 # with at most the buildings' collapsed path; the phase models add a noise factor per lease
-# phase (or per cell of phase and duplex mark), and L2 and the segment model add columns to
-# the design. Models with Student-t unit levels or more local-drift terms are refused.
+# phase (or per cell of phase and duplex mark), L2 and the segment model add columns to
+# the design, and LN1 adds a level for each line of a building, integrated out with the
+# path. Models with Student-t unit levels or more local-drift terms are refused.
 MODELS = {
     m.NAME: m
     for m in (
@@ -118,8 +137,12 @@ MODELS = {
         drift_building_phase_level,
         drift_building_phase_segment,
         drift_building_phase_duplex,
+        drift_building_phase_line,
     )
 }
+# The seed's second word for the stream the lines' prior draws come from, apart from the
+# stream the lam step's other draws come from.
+LINE_STREAM = 1
 # Kept draws used, spread evenly over the run's chains and draws.
 DRAWS = 96
 # Sweeps of the lam step for each draw before its first kept sweep, and kept sweeps.
@@ -263,6 +286,61 @@ def layout(site, unit, t, per_year: int | None, sites: int) -> dict:
     return lay
 
 
+def with_lines(lay: dict, site, line, lines: int) -> dict:
+    """`lay` with the sorted training rows' lines (`line`, of `lines`) and each line's
+    building. With a path it also holds where the lines enter the building system, from
+    `drift_line.line_layout`. A pair there is a line with one of its building's quarters;
+    the pairs come grouped by line (`pair_start`, `pair_count`), each with its quarter's
+    place in the flat `h` (`pair_h`) and among its building's quarters (`pair_local`), and
+    `pp_a`, `pp_b` and `pp_H` hold every ordered pair of pairs of one line with their place
+    in the flat `H`."""
+    site = np.asarray(site, np.int64)
+    line = np.asarray(line, np.int64)
+    assert not (line < 0).any(), "every training row needs a line"
+    for u in lay["ub"].values():
+        assert (line[u["idx"]] == line[u["idx"][:, :1]]).all(), (
+            "an apartment's rows must share a line"
+        )
+    line_site = np.full(lines, -1, np.int64)
+    line_site[line] = site
+    assert np.array_equal(line_site[line], site), "a line spans two buildings"
+    out = dict(lay, line=line, lines=int(lines), line_site=line_site)
+    if not lay["path"]:
+        return out
+    col = dict(
+        size_h=lay["sizeh"],
+        h=lay["row_h"],
+        H_d=lay["H0"][site] + lay["row_local"] * (lay["pad_of"][site] + 1),
+        buckets=[
+            dict(off_h=b["offh"], off_H=b["offH"], gap=b["gap"]) for b in lay["buckets"]
+        ],
+    )
+    ll = drift_line.line_layout(line, site, lay["row_h"], col, lines)
+    pair_line = ll["pair_line"]
+    count = np.bincount(pair_line, minlength=lines)
+    out |= dict(
+        pair_of_row=ll["pair_of_row"],
+        pair_line=pair_line,
+        pair_h=ll["pair_h"],
+        pair_local=ll["pair_h"] - lay["h0"][line_site[pair_line]],
+        pair_start=np.cumsum(count) - count,
+        pair_count=count,
+        pp_a=ll["pp_a"],
+        pp_b=ll["pp_b"],
+        pp_H=ll["pp_H"],
+    )
+    return out
+
+
+def line_pairs(lay: dict, m: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Every pair of each line in `m` (`with_lines`), as each entry's place in `m` and the
+    pair's place among all pairs."""
+    count = lay["pair_count"][m]
+    j = np.repeat(np.arange(len(m)), count)
+    within = np.arange(len(j)) - np.repeat(np.cumsum(count) - count, count)
+    return j, lay["pair_start"][m][j] + within
+
+
 # ------------------------------------------------------------------ one building system
 
 
@@ -283,12 +361,35 @@ def unit_W(lay, c, ss, sd, tau) -> dict:
     return out
 
 
+def line_W(lay, Ws, l2) -> dict:
+    """`unit_W`'s precisions with the lines' terms under "line", for a layout with lines
+    (`with_lines`) at line variance `l2`: each row's w1, the sum of its row of W, each
+    line's c, the sum of w1 over its rows, and G = l2 / (1 + l2 c), and with a path each
+    pair's sum of w1. The rows' precision with the lines integrated out is then
+    W_L = W - W C G C' W, since each apartment's rows share a line."""
+    w1 = np.empty(lay["n"])
+    for L, u in lay["ub"].items():
+        w1[u["idx"]] = Ws[L].sum(axis=2)
+    c = np.bincount(lay["line"], weights=w1, minlength=lay["lines"])
+    terms = dict(w1=w1, c=c, G=l2 / (1 + l2 * c))
+    if lay["path"]:
+        terms["pv"] = np.bincount(
+            lay["pair_of_row"], weights=w1, minlength=len(lay["pair_line"])
+        )
+    return Ws | {"line": terms}
+
+
 def apply_W(lay, Ws, v) -> np.ndarray:
-    """W v for a vector over the sorted training rows."""
+    """W v for a vector over the sorted training rows, or W_L v with the lines' terms
+    (`line_W`)."""
     out = np.empty(lay["n"])
     for L, u in lay["ub"].items():
         idx = u["idx"]
         out[idx] = np.einsum("uab,ub->ua", Ws[L], v[idx])
+    lw = Ws.get("line")
+    if lw is not None:
+        cw = np.bincount(lay["line"], weights=out, minlength=lay["lines"])
+        out -= lw["w1"] * (lw["G"] * cw)[lay["line"]]
     return out
 
 
@@ -309,12 +410,23 @@ def ar_precision(bucket, s2, rho) -> np.ndarray:
 
 
 def building_system(lay, Ws, s2, rho) -> tuple[np.ndarray, np.ndarray]:
-    """The flat arrays of every building's H = B' W B and Q^-1 = (P^-1 + H)^-1."""
+    """The flat arrays of every building's H = B' W B and Q^-1 = (P^-1 + H)^-1, with W_L
+    in place of W given the lines' terms (`line_W`)."""
     H = np.bincount(
         lay["Hidx"],
         weights=np.concatenate([Ws[L].ravel() for L in lay["ub"]]),
         minlength=lay["sizeH"],
     )
+    lw = Ws.get("line")
+    if lw is not None:
+        # B' W C at a pair is the pair's sum of w1, so B' W C G C' W B adds G_m times the
+        # product of the two pairs' sums for every ordered pair of pairs of line m.
+        g = np.sqrt(lw["G"])[lay["pair_line"]] * lw["pv"]
+        H -= np.bincount(
+            lay["pp_H"],
+            weights=g[lay["pp_a"]] * g[lay["pp_b"]],
+            minlength=lay["sizeH"],
+        )
     Qi = np.empty_like(H)
     for b in lay["buckets"]:
         nb, P = b["gap"].shape
@@ -346,9 +458,10 @@ def sigma_inv(lay, Ws, Qi, v) -> np.ndarray:
     return w - apply_W(lay, Ws, y[lay["row_h"]])
 
 
-def prior_draw(rng, lay, sc) -> np.ndarray:
-    """A draw of the path at the rows' quarters plus each row's apartment level, from
-    their priors."""
+def prior_draw(rng, lay, sc, line_rng=None) -> np.ndarray:
+    """A draw of the path at the rows' quarters plus each row's apartment level, and with
+    lines each row's line level, from their priors. The line levels come from `line_rng`
+    (`rng` when it is None)."""
     out = np.zeros(lay["n"])
     for L, u in lay["ub"].items():
         idx, tt = u["idx"], u["t"]
@@ -374,14 +487,18 @@ def prior_draw(rng, lay, sc) -> np.ndarray:
                 )
             a[b["offh"] : b["offh"] + nb * P] = x.ravel()
         out += a[lay["row_h"]]
+    if "line" in lay:
+        z = (rng if line_rng is None else line_rng).standard_normal(lay["lines"])
+        out += math.sqrt(sc["l2"]) * z[lay["line"]]
     return out
 
 
-def lam_step(rng, lay, Ws, Qi, r, c, row_sd, sc) -> np.ndarray:
+def lam_step(rng, lay, Ws, Qi, r, c, row_sd, sc, line_rng=None) -> np.ndarray:
     """New mixing scales lam: the noise left by a draw of (path, u) given lam, by Matheron's
-    rule, then lam from its Gamma given that noise."""
+    rule, then lam from its Gamma given that noise. With lines the draw holds the line
+    levels too, drawn from `line_rng`."""
     e0 = rng.standard_normal(lay["n"]) / np.sqrt(c)
-    delta = r - prior_draw(rng, lay, sc) - e0
+    delta = r - prior_draw(rng, lay, sc, line_rng) - e0
     eps = e0 + sigma_inv(lay, Ws, Qi, delta) / c
     nu = sc["nu"]
     return rng.gamma((nu + 1) / 2, 2 / (nu + (eps / row_sd) ** 2))
@@ -400,7 +517,14 @@ def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
     """The mean and variance of each predicted row's path and apartment term, f = a(q*) +
     u(t*), given the training residuals `r` (see the module docstring). `tg` holds each
     row's training `unit` (-1 for none), `site`, `t` and `q`, and its `pair` and the
-    distinct `pair_keys` from `pairs`."""
+    distinct `pair_keys` from `pairs`.
+
+    With the lines' terms (`line_W`), f also holds the row's line level, and `tg` holds each
+    row's `line` (-1 for a new line). A row of a known line takes the level's conditional
+    from the training rows: g gains l2 on every row of the line, and with
+    kap the apartment's kernel on its own rows and s its sum of W kap,
+    W_L g = W kap on the apartment's rows + beta w1 on the line's, beta = G (1 - s). A row
+    of a new line adds l2 to its variance alone."""
     ss, sd, tau = sc["ss"], sc["sd"], sc["tau_u"]
     s2 = sc["s2"] if lay["path"] else 0.0
     k0 = ss * ss + sd * sd
@@ -408,6 +532,13 @@ def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
     v = apply_W(lay, Ws, r)
     mean = np.zeros(nT)
     var = np.full(nT, s2 + k0)
+    lw = Ws.get("line")
+    if lw is not None:
+        var += sc["l2"]
+        # Each row's sum of W kap over its apartment's rows, and with a path
+        # (W kap)' Q^-1 (B' W C) at its line; both are 0 for a new apartment.
+        wsum = np.zeros(nT)
+        cross = np.zeros(nT)
     Pmax = max([b["P"] for b in lay.get("buckets", ())] or [1])
     if lay["path"]:
         h = np.bincount(lay["row_h"], weights=v, minlength=lay["sizeh"])
@@ -476,20 +607,74 @@ def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
             ]
             var[sel] -= 2 * np.einsum("ua,ua->u", Wkap, ps - a)
             var[sel] += np.einsum("ua,uab,ub->u", Wkap, Qg, Wkap)
+        if lw is not None:
+            assert np.array_equal(lay["line"][idx[:, 0]], tg["line"][sel]), (
+                "a row's line must be its apartment's"
+            )
+            wsum[sel] = Wkap.sum(axis=1)
+            if lay["path"]:
+                j, p = line_pairs(lay, tg["line"][sel])
+                at = (
+                    lay["H0"][s0][j, None]
+                    + lc[j] * lay["pad_of"][s0][j, None]
+                    + lay["pair_local"][p][:, None]
+                )
+                cross[sel] = np.bincount(
+                    j,
+                    weights=lw["pv"][p] * np.einsum("ea,ea->e", Wkap[j], Qi[at]),
+                    minlength=len(sel),
+                )
+    if lw is not None:
+        known = np.flatnonzero(tg["line"] >= 0)
+        m = tg["line"][known]
+        assert np.array_equal(lay["line_site"][m], tg["site"][known]), (
+            "a row's line must be of its building"
+        )
+        l2, G, s = sc["l2"], lw["G"][m], wsum[known]
+        beta = G * (1 - s)
+        Cv = np.bincount(lay["line"], weights=v, minlength=lay["lines"])
+        mean[known] += l2 * Cv[m]
+        var[known] -= l2 * s + beta * (s + l2 * lw["c"][m])
+        if lay["path"]:
+            # z = B' W_L g less the path's part is B' W kap + beta V, V the line's pairs'
+            # sums of w1, so V's products with Q^-1 h, ps - a and Q^-1 V join the terms
+            # the apartment's rows gave above.
+            pv, pl = lw["pv"], lay["pair_line"]
+            pa, pb = lay["pp_a"], lay["pp_b"]
+            Vy = np.bincount(pl, weights=pv * yh[lay["pair_h"]], minlength=lay["lines"])
+            VQV = np.bincount(
+                pl[pa],
+                weights=pv[pa] * pv[pb] * Qi[lay["pp_H"]],
+                minlength=lay["lines"],
+            )
+            j, p = line_pairs(lay, m)
+            pr, loc = tg["pair"][known][j], lay["pair_local"][p]
+            Vpa = np.bincount(
+                j, weights=pv[p] * (pst[pr, loc] - av[pr, loc]), minlength=len(known)
+            )
+            mean[known] -= beta * Vy[m]
+            var[known] += beta * (2 * cross[known] - 2 * Vpa + beta * VQV[m])
     return mean, np.maximum(var, 0.0)
 
 
 def components(lay, r, row_sd, tg, sc, seed, burn=None, keep=None):
     """For one kept draw, `keep` (mean, variance) pairs of each predicted row's path and
-    apartment term, after `burn` sweeps of the lam step from lam = 1."""
+    apartment term, after `burn` sweeps of the lam step from lam = 1. With lines
+    (`with_lines`) each sweep's precisions take the lines' terms at the draw's `l2`, and the
+    lines' prior draws come from a stream of their own, so the lam step's other draws are
+    the ones a layout with no lines would make."""
     burn = BURN if burn is None else burn
     keep = KEEP if keep is None else keep
     rng = np.random.default_rng(seed)
+    lines = "line" in lay
+    line_rng = np.random.default_rng([seed, LINE_STREAM]) if lines else None
     lam = np.ones(lay["n"])
     means, vars_ = [], []
     for sweep in range(burn + keep):
         c = lam / row_sd**2
         Ws = unit_W(lay, c, sc["ss"], sc["sd"], sc["tau_u"])
+        if lines:
+            Ws = line_W(lay, Ws, sc["l2"])
         H = Qi = None
         if lay["path"]:
             H, Qi = building_system(lay, Ws, sc["s2"], sc["rho"])
@@ -498,7 +683,7 @@ def components(lay, r, row_sd, tg, sc, seed, burn=None, keep=None):
             means.append(m)
             vars_.append(v)
         if sweep < burn + keep - 1:
-            lam = lam_step(rng, lay, Ws, Qi, r, c, row_sd, sc)
+            lam = lam_step(rng, lay, Ws, Qi, r, c, row_sd, sc, line_rng)
     return np.stack(means), np.stack(vars_)
 
 
@@ -547,7 +732,8 @@ class Fit:
     Bc: np.ndarray
     lay: dict
     xb: np.ndarray  # (draws, training rows) x beta, alpha included
-    full: SimpleNamespace  # each frame row's unit, site, week, frac, t, group, phase, x
+    # each frame row's unit, site, week, frac, t, group, phase, line (None with no lines), x
+    full: SimpleNamespace
     season: np.ndarray  # (frame rows, len(SEASON)) the season columns
     season_cols: list
     seg: SimpleNamespace | None  # the segment paths' columns (`segment_terms`)
@@ -667,11 +853,16 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
             raise SystemExit("the rebuilt split differs from the fit's")
         want = (
             "beta L g tau sigma nu bld gp_w unit_sd drift_sd drift_tau "
-            "building_ar_sd building_ar_rho phase_scale"
+            "building_ar_sd building_ar_rho phase_scale line_sd"
         ).split()
         kept = {k: np.asarray(z[f"kept/{k}"]) for k in want if f"kept/{k}" in z}
     if "unit_dof" in kept:
         raise SystemExit(f"{name}'s Student-t unit levels are not supported here")
+    lines = getattr(d, "line", None) is not None
+    if lines != ("line_sd" in kept):
+        raise SystemExit(f"{name}'s design and kept draws disagree on lines")
+    if lines and record.get("line", {}).get("lines") != int(d.lines):
+        raise SystemExit("the rebuilt design's lines differ from the fit's")
     if d.phase is not None and not {str(p).split("|", 1)[0] for p in d.phases} <= set(
         drift_building_phase.PHASES
     ):
@@ -696,6 +887,8 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         raise SystemExit(f"{name}'s local-drift terms are not supported here")
     sites = len(drift.site_zone(d))
     lay = layout(d.site[rows], d.unit[rows], t_all[rows], 4 if groups else None, sites)
+    if lines:
+        lay = with_lines(lay, d.site[rows], d.line[rows], int(d.lines))
     Bc, _ = drift.wave_matrix(SimpleNamespace(site=d.site[train], surfaces=d.surfaces))
     xb = np.empty((len(pick), len(rows)), np.float32)
     beta = kept["beta"].T
@@ -711,6 +904,7 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         group=d.group,
         phase=d.phase,
         phases=d.phases,
+        line=d.line if lines else None,
         x_held=d.x[held],
     )
     fit = Fit(
@@ -762,6 +956,8 @@ def scales(fit: Fit, i: int) -> dict:
         sc["rho"] = float(k["building_ar_rho"][i])
     if "phase_scale" in k:
         sc["phase"] = np.asarray(k["phase_scale"][i], float)
+    if "line_sd" in k:
+        sc["l2"] = float(k["line_sd"][i]) ** 2
     return sc
 
 
@@ -803,7 +999,8 @@ def residuals(fit: Fit, i: int) -> np.ndarray:
 @dataclasses.dataclass
 class Rows:
     """Rows to predict: each one's training unit (-1 for none), building, grid time, the
-    x beta of its own columns at each kept draw, bedroom group and phase."""
+    x beta of its own columns at each kept draw, bedroom group, phase, and for a fit with
+    lines its line (-1 for a line with no training row)."""
 
     unit: np.ndarray
     site: np.ndarray
@@ -812,6 +1009,7 @@ class Rows:
     xb: np.ndarray  # (draws, rows)
     group: np.ndarray
     phase: np.ndarray | None
+    line: np.ndarray | None = None
 
 
 def target_index(rows_list: list[Rows]) -> dict:
@@ -821,7 +1019,10 @@ def target_index(rows_list: list[Rows]) -> dict:
     t = (cat("week").astype(float) + cat("frac")) / drift.YEAR_WEEKS
     q = np.floor(t * 4).astype(np.int64)
     keys, pair = pairs(site, q)
-    return dict(unit=unit, site=site, t=t, q=q, pair_keys=keys, pair=pair)
+    out = dict(unit=unit, site=site, t=t, q=q, pair_keys=keys, pair=pair)
+    if rows_list and all(rw.line is not None for rw in rows_list):
+        out["line"] = cat("line").astype(np.int64)
+    return out
 
 
 _STATE: dict = {}
@@ -1050,7 +1251,14 @@ def today_rows(fit: Fit, apts: pd.DataFrame, day: pd.Timestamp) -> Rows:
         xb=xb,
         group=fit.full.group[rows],
         phase=phase,
+        line=line_of(fit, rows),
     )
+
+
+def line_of(fit: Fit, rows: np.ndarray) -> np.ndarray | None:
+    """The line of frame rows `rows` in a fit with lines, and None in any other fit."""
+    line = getattr(fit.full, "line", None)
+    return None if line is None else line[rows]
 
 
 def check_rows(fit: Fit) -> Rows:
@@ -1064,6 +1272,7 @@ def check_rows(fit: Fit) -> Rows:
         xb=base_xb(fit, rows),
         group=fit.full.group[rows],
         phase=None if fit.full.phase is None else fit.full.phase[rows],
+        line=line_of(fit, rows),
     )
 
 

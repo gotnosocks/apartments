@@ -105,10 +105,18 @@ A held-out row's location and `pred_unit_sd` follow its case:
 3. Its line is new. The row adds 0, and line_sd^2 joins unit_sd^2 in `pred_unit_sd`.
 
 `drift_score` reads these as it reads L1's, and `drift_pool` takes `drift_line`'s
-diagnostics, which add line_sd to the gate's scalars. `drift_today` rejects the model. For
-each kept draw it rebuilds the building path and the apartment level from the training rows,
-using a covariance of the building's rows with no line term. Pricing LN1's apartments at the
-current date needs a line block in that covariance, and I left that for a later change.
+diagnostics, which add line_sd to the gate's scalars. `drift_today` prices LN1's apartments
+at the current date. For each kept draw it rebuilds the building path and the apartment level
+from the building's training rows, as it does for L1, and integrates the line levels out with
+them. Two rows of one line covary by an extra line_sd^2. I add that block to the covariance
+of the building's rows through Woodbury's identity, so the matrices I invert stay the size of
+an apartment's rows or a building's quarters, plus a scalar for each line. Each apartment
+takes the line `line_index` gave it in the fit, and the three cases above carry over:
+
+1. An apartment with training rows takes its line's level given the building's rows, jointly
+   with its own level and the path.
+2. A new apartment of a line with training rows takes the same conditional level.
+3. An apartment of a new line adds 0 to the location, and line_sd^2 joins its variance.
 
 ## Lines in L1's dataset
 
@@ -154,6 +162,12 @@ minutes:
   plain `drift`'s.
 - The sha256 of a small phased run's traced and kept draws, written into the test.
 - The registration in `rentfrontier.run` and `drift_pool`, and the spec's identity with L1's.
+
+`frontier/tests/test_drift_today.py` checks `drift_today`'s line block. It compares Sigma^-1
+and the predictions in the three cases with the dense Gaussian conditional, on a toy layout
+and on a small lined design built as above, and the prior draw's covariance with the lines
+against the prior's. With line_sd at 0 an LN1 fit's prices equal L1's bit for bit, and an L1
+fit never calls the line code.
 
 `test_drift`, `test_drift_local`, `test_drift_building_phase`,
 `test_drift_building_phase_duplex`, `test_drift_pool` and `tests/test_modal_ops_fit.py` pass

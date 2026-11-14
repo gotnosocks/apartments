@@ -4,12 +4,16 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+import test_drift as td
+import test_drift_building_phase_line as tln
 
 from rentfrontier import drift, drift_building_phase, drift_building_phase_duplex
 from rentfrontier import drift_building_phase_segment as seg_model
 from rentfrontier import drift_today as dt
 
 SC = dict(ss=0.06, sd=0.08, tau_u=2.5, s2=0.03**2, rho=0.8, nu=5.0)
+# The line variance of the tests with lines.
+L2 = 0.07**2
 
 
 def toy(seed=0, sites=5, units=14):
@@ -26,7 +30,20 @@ def toy(seed=0, sites=5, units=14):
     return site, unit, t, c, r
 
 
-def dense(site, unit, t, c, sc, path=True):
+def toy_lines(seed=0, sites=5, units=20, k=2):
+    """`toy`'s rows, with each building's units dealt into `k` lines by their number."""
+    site, unit, t, c, r = toy(seed, sites, units)
+    line = np.unique(site * k + unit % k, return_inverse=True)[1]
+    return site, unit, t, c, r, line
+
+
+def lined(site, unit, t, line, path=True, sites=5):
+    """`dt.layout` of the rows, with their lines."""
+    lay = dt.layout(site, unit, t, 4 if path else None, sites)
+    return dt.with_lines(lay, site, line, int(line.max()) + 1)
+
+
+def dense(site, unit, t, c, sc, path=True, line=None, l2=0.0):
     q = np.floor(t * 4)
     same_site = site[:, None] == site[None, :]
     same_unit = unit[:, None] == unit[None, :]
@@ -38,11 +55,18 @@ def dense(site, unit, t, c, sc, path=True):
         + sc["sd"] ** 2 * np.exp(-np.abs(t[:, None] - t[None, :]) / sc["tau_u"]),
         0,
     )
-    return S + K + np.diag(1 / c)
+    out = S + K + np.diag(1 / c)
+    if line is not None:
+        out = out + np.where(line[:, None] == line[None, :], l2, 0.0)
+    return out
 
 
-def dense_target(site, unit, t, c, r, sc, tu, ts, tt, path=True):
-    Sig = dense(site, unit, t, c, sc, path)
+def dense_target(
+    site, unit, t, c, r, sc, tu, ts, tt, path=True, line=None, l2=0.0, tl=-1
+):
+    """The dense conditional mean and variance of a row's path and unit term, and with
+    `line` its line level, for a row of unit `tu`, building `ts`, time `tt` and line `tl`."""
+    Sig = dense(site, unit, t, c, sc, path, line, l2)
     q, qt = np.floor(t * 4), np.floor(tt * 4)
     s2 = sc["s2"] if path else 0.0
     g = np.where(site == ts, s2 * sc["rho"] ** np.abs(qt - q), 0.0) + np.where(
@@ -50,8 +74,12 @@ def dense_target(site, unit, t, c, r, sc, tu, ts, tt, path=True):
         sc["ss"] ** 2 + sc["sd"] ** 2 * np.exp(-np.abs(tt - t) / sc["tau_u"]),
         0.0,
     )
+    prior = s2 + sc["ss"] ** 2 + sc["sd"] ** 2
+    if line is not None:
+        g = g + np.where(line == tl, l2, 0.0)
+        prior += l2
     mean = g @ np.linalg.solve(Sig, r)
-    var = s2 + sc["ss"] ** 2 + sc["sd"] ** 2 - g @ np.linalg.solve(Sig, g)
+    var = prior - g @ np.linalg.solve(Sig, g)
     return mean, var
 
 
@@ -127,6 +155,206 @@ def test_lam_step_draws_the_noise_conditional():
     assert eps.var() == pytest.approx(noise * k / (k + noise), rel=0.03)
     lam = dt.lam_step(rng, lay, Ws, Qi, r, c, np.array([0.1]), sc)
     assert lam[0] == pytest.approx(1.0, abs=0.01)
+
+
+@pytest.mark.parametrize("path", [True, False])
+def test_sigma_inverse_with_lines_matches_dense_algebra(path):
+    site, unit, t, c, r, line = toy_lines()
+    lay = lined(site, unit, t, line, path)
+    Ws = dt.line_W(lay, dt.unit_W(lay, c, SC["ss"], SC["sd"], SC["tau_u"]), L2)
+    Qi = dt.building_system(lay, Ws, SC["s2"], SC["rho"])[1] if path else None
+    got = dt.sigma_inv(lay, Ws, Qi, r)
+    want = np.linalg.solve(dense(site, unit, t, c, SC, path, line, L2), r)
+    np.testing.assert_allclose(got, want, rtol=1e-8, atol=1e-8)
+
+
+@pytest.mark.parametrize("path", [True, False])
+def test_targets_with_lines_match_dense_conditionals(path):
+    """Rows of `drift_line`'s three cases: units with rows, at later days and inside their
+    history; new units of a line with rows; and new lines, in a building with rows and in
+    one with none."""
+    site, unit, t, c, r, line = toy_lines(1)
+    lay = lined(site, unit, t, line, path)
+    Ws = dt.line_W(lay, dt.unit_W(lay, c, SC["ss"], SC["sd"], SC["tau_u"]), L2)
+    H = Qi = None
+    if path:
+        H, Qi = dt.building_system(lay, Ws, SC["s2"], SC["rho"])
+    first = {u: np.flatnonzero(unit == u)[0] for u in np.unique(unit)}
+    # Units 5 and 7 share a line in a building whose other line has rows too.
+    assert line[first[5]] == line[first[7]] and site[first[5]] == site[first[6]]
+    rows = [
+        (0, site[first[0]], line[first[0]], 9.6),
+        (3, site[first[3]], line[first[3]], 4.0),
+        (3, site[first[3]], line[first[3]], 11.0),
+        (19, site[first[19]], line[first[19]], 30.0),
+        (-1, site[first[5]], line[first[5]], 9.6),
+        (-1, site[first[6]], line[first[6]], 2.0),
+        (-1, site[first[5]], -1, 9.6),
+        (-1, 4, -1, 9.6),
+    ]
+    tu, ts, tl, tt = (np.array(v) for v in zip(*rows))
+    q = np.floor(tt * 4).astype(int)
+    keys, pair = dt.pairs(ts, q)
+    tg = dict(unit=tu, site=ts, t=tt, q=q, pair_keys=keys, pair=pair, line=tl)
+    sc = SC | {"l2": L2} | ({} if path else {"s2": 0.0})
+    mean, var = dt.targets(lay, Ws, Qi, H, r, tg, sc)
+    for k in range(len(tu)):
+        m, v = dense_target(
+            site, unit, t, c, r, SC, tu[k], ts[k], tt[k], path, line, L2, tl[k]
+        )
+        assert mean[k] == pytest.approx(m, abs=1e-9)
+        assert var[k] == pytest.approx(v, abs=1e-9)
+
+
+def test_prior_draw_with_lines_has_the_prior_covariance():
+    site, unit, t, _, _, line = toy_lines(2, sites=3, units=6)
+    lay = lined(site, unit, t, line, sites=3)
+    sc = SC | {"l2": L2}
+    rng, line_rng = np.random.default_rng(3), np.random.default_rng(5)
+    draws = np.stack([dt.prior_draw(rng, lay, sc, line_rng) for _ in range(40_000)])
+    want = dense(site, unit, t, np.full(len(t), np.inf), SC, line=line, l2=L2)
+    np.testing.assert_allclose(np.cov(draws.T), want, atol=4e-4)
+
+
+def test_targets_on_a_lined_design_match_the_dense_conditional():
+    """A small LN1 design built as `test_drift_building_phase_line` builds its own, with
+    its held-out rows predicted at their own dates in the three cases of `drift_line`'s
+    prediction step."""
+    full = td._design(per_unit=9)
+    train, _, _ = tln._split(full, tln._lines(full))
+    pred = train.pred
+    pu, pl, ps, pt = pred["unit"], pred["line"], pred["site"], pred["years"]
+    seen, known = pu >= 0, pl >= 0
+    assert seen.any() and (~seen & known).any() and (~known).any()
+    years = drift.years(train)
+    order = np.lexsort((years, train.unit, train.site))
+    site, unit, t = train.site[order], train.unit[order], years[order]
+    line = train.line[order]
+    sites = int(max(site.max(), ps.max())) + 1
+    lay = dt.layout(site, unit, t, 4, sites)
+    lay = dt.with_lines(lay, site, line, train.lines)
+    rng = np.random.default_rng(6)
+    c = rng.uniform(20, 400, len(site))
+    r = 0.1 * rng.standard_normal(len(site))
+    sc = SC | {"l2": tln.LINE_SD**2}
+    Ws = dt.line_W(lay, dt.unit_W(lay, c, sc["ss"], sc["sd"], sc["tau_u"]), sc["l2"])
+    H, Qi = dt.building_system(lay, Ws, sc["s2"], sc["rho"])
+    q = np.floor(pt * 4).astype(np.int64)
+    keys, pair = dt.pairs(ps, q)
+    tg = dict(unit=pu, site=ps, t=pt, q=q, pair_keys=keys, pair=pair, line=pl)
+    mean, var = dt.targets(lay, Ws, Qi, H, r, tg, sc)
+    Sig = dense(site, unit, t, c, sc, True, line, sc["l2"])
+    g = (
+        np.where(
+            site[None, :] == ps[:, None],
+            sc["s2"] * sc["rho"] ** np.abs(q[:, None] - np.floor(t * 4)[None, :]),
+            0.0,
+        )
+        + np.where(
+            unit[None, :] == pu[:, None],
+            sc["ss"] ** 2
+            + sc["sd"] ** 2 * np.exp(-np.abs(pt[:, None] - t[None, :]) / sc["tau_u"]),
+            0.0,
+        )
+        + np.where(line[None, :] == pl[:, None], sc["l2"], 0.0)
+    )
+    prior = sc["s2"] + sc["ss"] ** 2 + sc["sd"] ** 2 + sc["l2"]
+    want_var = prior - np.einsum("pi,ip->p", g, np.linalg.solve(Sig, g.T))
+    np.testing.assert_allclose(mean, g @ np.linalg.solve(Sig, r), rtol=0, atol=1e-9)
+    np.testing.assert_allclose(var, want_var, rtol=0, atol=1e-9)
+
+
+def fake_fit(lines, line_sd=0.0, draws=3, seed=0):
+    """What `predict` reads of a fit, on `toy_lines`' rows, and rows to predict past the
+    grid: every unit, a new unit of a known line and new lines. With `lines` the layout
+    holds the rows' lines and the kept draws hold `line_sd`."""
+    site, unit, t, _, r, line = toy_lines(seed)
+    u = t * drift.YEAR_WEEKS
+    week = np.floor(u)
+    frac = u - week
+    t = (week + frac) / drift.YEAR_WEEKS
+    rng = np.random.default_rng(seed)
+    weeks = int(week.max()) + 2
+    kept = dict(
+        L=np.cumsum(0.01 * rng.standard_normal((draws, weeks + 1)), axis=1),
+        g=np.full(draws, 0.001),
+        tau=np.full(draws, 0.01),
+        unit_sd=np.full(draws, SC["ss"]),
+        drift_sd=np.full(draws, SC["sd"]),
+        drift_tau=np.full(draws, SC["tau_u"]),
+        nu=np.full(draws, SC["nu"]),
+        sigma=rng.uniform(0.05, 0.15, (draws, 4)),
+        building_ar_sd=np.full(draws, np.sqrt(SC["s2"])),
+        building_ar_rho=np.full(draws, SC["rho"]),
+        bld=0.1 * rng.standard_normal((draws, 5)),
+        gp_w=np.zeros((draws, 1)),
+    )
+    lay = dt.layout(site, unit, t, 4, 5)
+    if lines:
+        lay = dt.with_lines(lay, site, line, int(line.max()) + 1)
+        kept["line_sd"] = np.full(draws, line_sd)
+    fit = SimpleNamespace(
+        kept=kept,
+        pick=np.arange(draws),
+        lay=lay,
+        y=r + 0.2,
+        xb=0.01 * rng.standard_normal((draws, len(site))).astype(np.float32),
+        week=week,
+        frac=frac,
+        site=site,
+        group=rng.integers(0, 4, len(site)),
+        phase=None,
+        Bc=np.zeros((5, 1)),
+    )
+    first = np.r_[0, np.flatnonzero(np.diff(unit)) + 1]
+    tu = np.r_[unit[first], -1, -1, -1]
+    ts = np.r_[site[first], site[0], site[0], 4]
+    tl = np.r_[line[first], line[0], -1, -1]
+    n = len(tu)
+    rw = dt.Rows(
+        unit=tu,
+        site=ts,
+        week=np.full(n, weeks + 3.0),
+        frac=np.full(n, 0.5),
+        xb=np.zeros((draws, n), np.float32),
+        group=np.zeros(n, np.int64),
+        phase=None,
+        line=tl if lines else None,
+    )
+    return fit, rw
+
+
+@pytest.mark.parametrize("line_sd", [0.0, 1e-6])
+def test_with_no_line_spread_todays_prices_are_l1s(line_sd):
+    l1, rw1 = fake_fit(lines=False)
+    ln1, rw2 = fake_fit(lines=True, line_sd=line_sd)
+    a = dt.predict(l1, [rw1], log=lambda s: None)[0]
+    b = dt.predict(ln1, [rw2], log=lambda s: None)[0]
+    for k in ("loc", "usd"):
+        if line_sd == 0:
+            np.testing.assert_array_equal(a[k], b[k])
+        else:
+            np.testing.assert_allclose(a[k], b[k], rtol=0, atol=1e-5)
+    # A real line spread moves the prices.
+    ln1.kept["line_sd"][:] = 0.1
+    moved = dt.predict(ln1, [rw2], log=lambda s: None)[0]
+    assert np.abs(moved["usd"] - a["usd"]).max() > 1e-3
+
+
+def test_an_l1_fit_never_runs_the_line_code(monkeypatch):
+    fit, rw = fake_fit(lines=False)
+    want = dt.predict(fit, [rw], log=lambda s: None)[0]
+
+    def refuse(*args, **kw):
+        raise AssertionError("an L1 fit ran the line code")
+
+    for name in ("with_lines", "line_W", "line_pairs"):
+        monkeypatch.setattr(dt, name, refuse)
+    monkeypatch.setattr(dt.drift_line, "line_layout", refuse)
+    assert "line" not in fit.lay and "line" not in dt.target_index([rw])
+    got = dt.predict(fit, [rw], log=lambda s: None)[0]
+    for k in ("loc", "usd"):
+        np.testing.assert_array_equal(got[k], want[k])
 
 
 def test_quantiles_of_a_normal_mixture():
@@ -218,6 +446,7 @@ def test_the_phased_models_are_served():
         "drift-building-phase-level",
         "drift-building-phase-segment",
         "drift-building-phase-duplex",
+        "drift-building-phase-line",
     ):
         assert name in dt.MODELS
 
@@ -319,6 +548,10 @@ def test_today_rows_moves_l2s_levels_and_the_paths_to_the_day(monkeypatch):
     fit.names, fit.kept["beta"], fit.seg = ["alpha"], fit.kept["beta"][:, :1], None
     np.testing.assert_allclose(dt.today_rows(fit, apts, day).xb, base)
     assert len(seen) == 1
+    # A fit with lines gives each apartment its newest ad's line.
+    assert dt.today_rows(fit, apts, day).line is None
+    fit.full.line = np.array([5, -1, 2, 0])
+    np.testing.assert_array_equal(dt.today_rows(fit, apts, day).line, [5, -1, 2, 0])
 
 
 @dataclasses.dataclass

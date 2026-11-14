@@ -45,7 +45,11 @@ level given the training residuals, with a short Gibbs chain on the noise's mixi
 past the grid carries the walk on by its drift and step sd. The method is checked on every run:
 it predicts the ads on the market that the fit itself predicted, and `meta.json["check"]` holds
 both elpds, the gap between the medians, the ratio of the 80% widths and both coverages. The
-module docstring gives the algebra. Only a market fit that passed the gate is accepted.
+module docstring gives the algebra. The module accepts a fit of `drift`, `drift-building`, L1,
+L2, the segment model, D1 or LN1, on the market split and past the gate. For LN1 it also
+integrates out each line's level: an apartment of a line with training rows gets the line
+level's mean and variance given the building's rows, and an apartment of a new line adds
+line_sd^2 to its variance.
 
 The design rebuild of the served market run peaks at about 14 GB, more than thelio has free,
 so the table is written on Modal: `/data1/apartments/venvs/modal/bin/python ops/modal/today.py
