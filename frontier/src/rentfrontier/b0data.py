@@ -35,8 +35,8 @@ of the rows file:
   `income_restricted` and `rent_stabilized`. A row whose record has no description longer than
   20 characters gets false for the three text flags, and `description_known` false.
 
-`OUT/manifest.json` records the build's files and their SHA-256, the state file, the row count
-and how many rows each dating case and flag covers.
+`OUT/manifest.json` records the build's files and their SHA-256, its stale days and label rule,
+the state file, the row count and how many rows each dating case and flag covers.
 
 I take days in UTC, as the pipeline's sessions do.
 
@@ -233,6 +233,8 @@ def build(out: Path, state: Path, catalog: Path = CATALOG, rows: Path | None = N
         },
         "built": line.get("built"),
         "code": line.get("code"),
+        "stale_days": line.get("stale_days"),
+        "label_rule": line.get("label_rule"),
         "state": str(state),
         "rows": table.num_rows,
         "latest_day_how": frame.latest_day_how.value_counts().to_dict(),

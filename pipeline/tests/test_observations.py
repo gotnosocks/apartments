@@ -172,6 +172,7 @@ def test_observations_load_as_the_chains(tmp_path, build, converter):
     build_files = converter.pick_build(catalog, None, None)
     assert build_files["rows"]["path"] == str(rows.resolve())
     assert build_files["catalog"]["code"] == clean["code"]
+    assert build_files["catalog"]["label_rule"] == clean["label_rule"]
     manifest = converter.write(out, build_files, None, served, audit)
     assert sorted(path.name for path in out.iterdir()) == [
         "manifest.json",
