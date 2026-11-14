@@ -70,9 +70,10 @@ Free work, each through its own reviewed PR, in the coordinator's order:
 3. Done in #1369 to #1371: data changes for new units, which the backtest j9
    (`docs/model/drift.md`) scores. No fit reads any of them.
    - #1369: `coop` and `condo` columns from each row's own PLUTO release, in a copy of L1's
-     dataset (`docs/notes/coop-column-2026-11-13.md`). L1's held-out co-op ads sit at -0.74 ±
-     0.14% from its median, against -0.43 ± 0.02% for the rest, so a co-op term bears on the
-     new-unit j line more than on L1. The note also found that every PLUTO feature of the
+     dataset (`docs/notes/coop-column-2026-11-13.md`). L1's held-out co-op ads sit at
+     -0.74 ± 0.14% from its median, against -0.43 ± 0.02% for the rest. L1 shows no co-op
+     excess, since its unit levels come from each unit's own ads, so a co-op term bears on
+     the new-unit j line more than on L1. The note also found that every PLUTO feature of the
      drift line, the condo flag among them, reads the 26v2 release for every row, so an ad
      priced in 2015 reads its building as of 2026. No drift module reads the point-in-time
      PLUTO base.
