@@ -408,7 +408,8 @@ noise alone has to be larger to widen the predictive as much.
 The tier explains little of the scatter on these ads. Only 27 of the 265 state one, and L1
 already places those well: their bins have 80% coverage from 0.67 to 0.75 and mean gaps from
 -0.053 to +0.009. Most of the scatter is in the 238 ads with no tier, with coverage of 0.55
-and a mean gap of -0.067. The wider spread does much better, so next I write the spread factor's module
-as D1's is built, with the factor on the noise of marked rows. It follows in its own PR as I1.
-Both hypotheses came from a search after S15's miss, on the same held-out ads, so the
-spread's +65.4 ± 20.2 and the noise's +62.4 ± 16.6 overstate what a fit would gain.
+and a mean gap of -0.067. The wider spread does much better, so I wrote the spread factor's
+module as D1's is built, with the factor on the noise of marked rows: I1, in
+`docs/notes/income-noise-2026-11-14.md`. Both hypotheses came from a search after S15's
+miss, on the same held-out ads, so the spread's +65.4 ± 20.2 and the noise's +62.4 ± 16.6
+overstate what a fit would gain.
