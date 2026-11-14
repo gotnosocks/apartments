@@ -642,6 +642,16 @@ they miss by about as much as matched ones unless the bedrooms change, which rai
 squared gap for any ad. A duplex whose previous ad was the same duplex with the same bedrooms
 still has twice the squared gap of other ads.
 
+Correction, 2026-11-14 (`duplex-within-building-2026-11-14.md`). The within-building figure
+above subtracts a building mean that includes the ad, so each square carries (n-1)/n of the
+ad's variance about its building's center, and an ad alone in its building counts as zero. On
+the 176,345 held-out ads in buildings with 2 or more, with each square times n/(n-1), the
+duplex excess within building is +0.0039 ± 0.0002 against +0.0050 ± 0.0003 overall, a share of
+0.78 (0.74 to 0.83 over 2,000 resamples of the buildings). The prediction that half of the
+excess remains within building therefore missed on the high side, where I scored it above as
+close. The same note recomputes part A's level within building, the two j9 figures, the outdoor
+slope and S4's top decile, and every verdict holds.
+
 Part D (`s7d_scale.py`) multiplies L1's noise scale and unit sd for duplex ads by m and
 rescores its predictive. Picked on the other half of the buildings, m comes out at 1.3 in one
 half and 1.4 in the other, and gains 255 ± 30 elpd on the 10,331 duplex ads. On 10,000 other
