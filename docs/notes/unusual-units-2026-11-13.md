@@ -172,7 +172,9 @@ same for the penthouse mark.
 
 For the within-building columns I keep only the buildings with at least two held-out ads.
 With n held-out ads in a building, an ad's gap less the building's mean has (n-1)/n of the
-ad's variance about that mean, so I multiply its square by n/(n-1). For the gap itself I
+ad's variance about that mean, so I multiply its square by n/(n-1). Where a building's ads
+have unequal variances, the rescaled square estimates their average, so with two ads it can
+understate the wider one and the within-building excesses lean low. For the gap itself I
 subtract the mean of the building's other held-out ads. My first run squared the demeaned gap
 as `s7c_unitkey.py` does, which puts every ad alone in its building at zero. Among held-out
 ads, 32.5% of the townhouse ads and 22.8% of the garden ads are alone in their building,
@@ -329,8 +331,10 @@ penthouse ads exceed the rest's squared gap by 0.0048, against 0.0039 for duplex
 interval covers 0.715 of them, the search picks the duplex multiplier for them on both halves,
 and the null picks 1.0. The gain comes from ads that call the unit a penthouse in the text
 (100 ± 18 alone), and the PH label alone adds 8 ± 7. For the text penthouses without
-duplexes, m falls between 1.3 and 1.4 in 95% of the building resamples, the same range as the
-duplexes', so a single factor k could cover both marks. Shared with the duplex mark, the text
+duplexes, the pick over all their ads falls between 1.3 and 1.4 in 95% of the building
+resamples, the same range as the duplexes'. The picks within each half, and the picks within
+2 SE of the best, range from 1.2 to 1.5. Either way the ranges overlap, so a single factor k
+could cover both marks. Shared with the duplex mark, the text
 penthouses add 55 ± 13 elpd and the whole penthouse mark 59 ± 16.
 
 Garden and townhouse ads scatter wider within their buildings too, by about two thirds of the
