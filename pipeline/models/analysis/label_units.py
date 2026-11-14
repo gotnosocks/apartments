@@ -1,4 +1,4 @@
-"""analysis.label_units: the units the chain's label rule, `unit-labels-v17`, joins.
+"""analysis.label_units: the units the chain's label rule, `unit-labels-v17` by default, joins.
 
 StreetEasy sometimes files one apartment under several unit pages of a building, with its label
 spelled differently on each: "4-B" and "4B", "ph04" and "ph4", "four" and "4", "C7" and "7C",
@@ -39,6 +39,14 @@ each page unit of the rows joined with another unit or given another unit's ID, 
 unit, the count of page units with rows in that label unit and the layer that first joined it.
 analysis.rows gives each row the label unit of its unit, or the unit itself, as `label_unit`,
 and analysis.history_splits then cuts label units as `unit-splits-v4` does.
+
+The variable `label_rule` picks the rule, `unit-labels-v17` unless `PIPELINE_LABEL_RULE` sets
+another in config.py. With `unit-labels-v18`, the history layer also compares labels. A broker
+can move a StreetEasy property record from one apartment to the next, and the record's history
+then lists the ads of both, so v18 joins the two units of a pair only when a label of one
+unit's pages and a label of the other's agree up to spelling, by `spelling_key`. A unit whose
+pages have no label, or only labels of words such as "unit", agrees with no unit. The other
+layers run as in v17.
 """
 
 import re
@@ -56,6 +64,8 @@ COLUMNS = {
     "layer": "VARCHAR",
 }
 LAYERS = ("labels", "aliases", "words", "history", "swapped", "word_letters", "spelled")
+# The label rules the model runs, the default first.
+RULES = ("unit-labels-v17", "unit-labels-v18")
 
 # The patterns stay strings, as SQLMesh stores a Python model's globals and cannot store a
 # compiled pattern. `re` compiles each once and keeps it.
@@ -102,6 +112,13 @@ ORDINALS = {
     )
 }
 FLOOR = "(?:fl|flr|floor)"
+# For `spelling_key`: words that lead a label and carry no part of it, and a number word with
+# up to two letters after it ("third", "fourb"), longest word first.
+LEAD_WORDS = ("apt", "apartment", "unit", "suite", "residence")
+SPELLING_WORD = (
+    r"(" + "|".join(sorted(WORD_LETTER_WORDS, key=len, reverse=True)) + r")"
+    rf"(?:{FLOOR}|([a-z]{{0,2}}))"
+)
 # A unit page's URL, with the building and label of its path, for DuckDB's regexp_extract.
 PAGE = r"^(?:[A-Za-z][A-Za-z0-9+.-]*:)?(?://[^/?#]*)?/building/([^/?#]+)/([^/?#]+)(?:[?#].*)?$"
 
@@ -137,6 +154,71 @@ def alias_key(label: str) -> str:
     if m := re.fullmatch(rf"({'|'.join(ORDINALS)}){FLOOR}?", text):
         return ORDINALS[m[1]]
     return text
+
+
+def spelling_key(label: str) -> str:
+    """A unit label up to spelling, as `unit-labels-v18` compares the pages of a history pair.
+
+    The function lowercases the label and splits it into runs of letters and runs of digits,
+    dropping spaces and punctuation. It then rewrites the runs:
+
+    1. It drops a leading apt, apartment, unit, suite or residence, and a leading "no" or "num"
+       before a number.
+    2. It writes each number without leading zeros, "penthouse" as "ph", and a number word as
+       its digits ("third" -> "3", "fourb" -> "4b"). It also drops a lone zero at the head of
+       the label when letters follow ("0B" -> "b").
+    3. It drops a floor word ("fl", "flr", "floor"), and an ordinal suffix after a number
+       ("3rd" -> "3").
+    4. It joins the runs, with a hyphen between two numbers, so "1-2" and "12" stay apart.
+    5. It puts the number first in a label of one or two letters and a number ("H9" -> "9h").
+
+    So "Apt 4-B", "#04b" and "UNIT4B" give "4b"; "PENTHOUSE A" and "PH-A" give "pha"; "3rd
+    Floor", "THIRD-FL", "fl3" and "03" give "3". A label of lead words alone, such as "unit",
+    gives an empty key."""
+    runs = re.findall(r"[a-z]+|\d+", label.lower())
+    while runs and (
+        runs[0] in LEAD_WORDS
+        or runs[0] in ("no", "num")
+        and len(runs) > 1
+        and runs[1].isdigit()
+    ):
+        runs = runs[1:]
+    parts = []
+    for run in runs:
+        if run.isdigit():
+            parts.append(str(int(run)))
+            continue
+        run = re.sub(r"^penthouse", "ph", run)
+        after_number = bool(parts) and parts[-1][-1].isdigit()
+        if re.fullmatch(FLOOR, run) or (
+            after_number and re.fullmatch(rf"(?:st|nd|rd|th){FLOOR}?|{FLOOR}", run)
+        ):
+            continue
+        if m := re.fullmatch(SPELLING_WORD, run):
+            letters = m[2] or ""
+            run = WORD_LETTER_WORDS[m[1]] + re.sub(r"^(?:st|nd|rd|th)$", "", letters)
+        parts.append(run)
+    if parts[:1] == ["0"] and len(parts) > 1 and not parts[1][0].isdigit():
+        parts = parts[1:]
+    key = ""
+    for part in parts:
+        if key[-1:].isdigit() and part[0].isdigit():
+            key += "-"
+        key += part
+    if m := re.fullmatch(r"([a-z]{1,2})(\d+)", key):
+        return m[2] + m[1]
+    return key
+
+
+def spelling_keys(pages: pd.DataFrame) -> dict:
+    """The nonempty `spelling_key` of each label in `pages`, which gives a `unit_id` and a
+    `label` for each page, as a set for each unit."""
+    pages = pages.dropna(subset=["label"])
+    found = defaultdict(set)
+    for unit, key in zip(pages.unit_id, map_distinct(pages.label, spelling_key)):
+        if key:
+            found[unit].add(key)
+    return dict(found)
 
 
 def alias_groups(pages: pd.DataFrame, pairs) -> list:
@@ -198,7 +280,7 @@ def medians(beds: np.ndarray, units: np.ndarray, n: int) -> np.ndarray:
     return found
 
 
-def coded_layers(rows: pd.DataFrame, pairs, groups) -> tuple:
+def coded_layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> tuple:
     """The sorted unit IDs of `rows` and `groups`, and the code of each row's unit after each
     of the seven layers, as a list of arrays. A unit's code is its place among the sorted IDs,
     so the least code of a set of units is the code of its least ID.
@@ -206,7 +288,9 @@ def coded_layers(rows: pd.DataFrame, pairs, groups) -> tuple:
     `rows` gives `unit_id`, `building`, `label` (the last part of the unit page's URL) and
     `bedrooms`, in the order of the rows' ads. `pairs` gives (unit_id, unit_id) tuples and
     `groups` tuples of unit IDs, from `alias_groups`. Layer 3 follows v17 in taking the rows'
-    word labels in order, so the order of `rows` matters there."""
+    word labels in order, so the order of `rows` matters there. Given `spellings`, the sets of
+    `spelling_keys`, layer 4 runs as v18 does: it skips a pair unless the two units' sets share
+    a key."""
     ids = np.array(sorted(set(rows.unit_id).union(*groups)), dtype=object)
     n = len(ids)
     index = pd.Index(ids)
@@ -295,8 +379,14 @@ def coded_layers(rows: pd.DataFrame, pairs, groups) -> tuple:
     joins = Units()
     x = index.get_indexer([p[0] for p in pairs])
     y = index.get_indexer([p[1] for p in pairs])
-    for a, b in zip(np.where(x >= 0, to[x], -1), np.where(y >= 0, to[y], -1)):
-        if a < 0 or b < 0 or a == b or home[a] != home[b]:
+    agree = [
+        spellings is None or bool(spellings.get(u, set()) & spellings.get(v, set()))
+        for u, v in pairs
+    ]
+    for a, b, same in zip(
+        np.where(x >= 0, to[x], -1), np.where(y >= 0, to[y], -1), agree
+    ):
+        if not same or a < 0 or b < 0 or a == b or home[a] != home[b]:
             continue
         if median[a] == median[b]:
             joins.join(a, b)
@@ -362,10 +452,10 @@ def coded_layers(rows: pd.DataFrame, pairs, groups) -> tuple:
     return ids, unit, out
 
 
-def layers(rows: pd.DataFrame, pairs, groups) -> list:
+def layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> list:
     """The unit of each row of `rows` after each of the seven layers, as a list of Series, from
     `coded_layers`."""
-    ids, _, steps = coded_layers(rows, pairs, groups)
+    ids, _, steps = coded_layers(rows, pairs, groups, spellings)
     return [pd.Series(ids[step], index=rows.index) for step in steps]
 
 
@@ -410,6 +500,9 @@ def label_units(ids: np.ndarray, unit: np.ndarray, steps: list) -> pd.DataFrame:
     description="Each page unit of analysis.ledger_rows the label rule joins with another unit, with its label unit, the count of page units in that label unit and the layer that first joined it.",
 )
 def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
+    rule = context.var("label_rule") or RULES[0]
+    if rule not in RULES:
+        raise ValueError(f"no label rule {rule!r}; the model runs {', '.join(RULES)}")
     rows_table = context.resolve_table("analysis.ledger_rows")
     pairs_table = context.resolve_table("analysis.history_pairs")
     placed = context.resolve_table("ads.placed")
@@ -433,7 +526,18 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
             WHERE page_unit IS NOT NULL GROUP BY page_unit
         )"""
     )
-    ids, unit, steps = coded_layers(rows, pairs, alias_groups(pages, pairs))
+    spellings = None
+    if rule == "unit-labels-v18":
+        # The label of every page of each page unit, as a unit ledger join gives a page unit
+        # the pages of several.
+        spellings = spelling_keys(
+            context.fetchdf(
+                f"""SELECT DISTINCT page_unit AS unit_id,
+                    nullif(regexp_extract(page, '{PAGE}', 2), '') AS label
+                FROM {placed} WHERE page_unit IS NOT NULL"""
+            )
+        )
+    ids, unit, steps = coded_layers(rows, pairs, alias_groups(pages, pairs), spellings)
     found = label_units(ids, unit, steps)
     if not found.empty:
         yield found

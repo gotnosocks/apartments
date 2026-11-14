@@ -2761,6 +2761,43 @@ reads each distinct label once: 50,183 labels over the 1,746,770 rows. I first w
 unit IDs as strings, and pandas then took 89 s for the build's step, most of it in a
 group-by minimum over strings. The coded model took 13.9 s in the lane's latest build.
 
+### `unit-labels-v18`
+
+A broker can move a StreetEasy property record from one apartment to the next. The record's
+history then lists the ads of both apartments, and the history layer joins their pages. With
+`PIPELINE_LABEL_RULE=unit-labels-v18`, I run the history layer only on pairs with labels
+agreeing up to spelling, and the other six layers as v17 does. `spelling_key` compares the
+labels. It reads each label as runs of letters and digits, and then:
+
+- drops case, spaces and punctuation, a leading apt, apartment, unit, suite or residence, and a
+  leading "no" or "num" before a number;
+- writes numbers without their leading zeros, and drops a lone zero at the head of a label when
+  letters follow, so "0B" reads as "b";
+- writes "penthouse" as "ph" and a number word as its digits ("third", "fourb");
+- drops floor words and the ordinal suffix after a number, so "3rd Floor", "fl3" and "03" all
+  read as "3";
+- puts the number first in a label of one or two letters and a number, so "H9" reads as "9h"
+  and "PH2" as "2ph";
+- keeps a hyphen between two numbers, so "1-2" and "12" stay apart.
+
+Each unit gets the keys of its pages' labels, and the layer joins a pair when the two units
+share a key. I give a unit with no label, or with only lead words such as "unit", no key at
+all, so the history layer joins it to nothing. On L1's build no pair joined by v17's history
+layer had such a side.
+
+v17 stays the default. No fit hashes the model, but the served, backtest and Deals datasets all
+come from pipeline builds, and a new default would move their units with no fit behind the
+change. The build records the rule in its catalog line. The model's code changed, so the next
+build reruns `analysis.label_units` and the models after it once, and under v17 they write the
+same rows. `docs/notes/label-join-2026-11-13.md` counts what v18 changes on L1's build and
+reads 100 of the pairs.
+
+I build under v18 only in a lane, with its own `--state` and `--out` for `build.py`, as for a
+lane at `PIPELINE_STALE_DAYS=-1`, so that v18's tables stay out of the shared state.
+`rentfrontier.b0data` takes the newest line of the catalog in
+`/data1/apartments/pipeline/datasets` unless given another folder, so a v18 build writing there
+would feed the next B0 dataset.
+
 ### The port's diff
 
 I built the export of Oct 16 in the lane `tmp/pipeline/lanes/labels-port`, from master and

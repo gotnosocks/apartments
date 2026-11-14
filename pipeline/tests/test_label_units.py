@@ -5,6 +5,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
+import pytest
 
 from apartments.unit_spelling_aliases import normalize_label
 
@@ -128,16 +129,20 @@ def page_frame() -> pd.DataFrame:
 
 class Fetcher:
     """Stands in for a SQLMesh context: it runs a Python model's queries on `db`, with each
-    model's table under its own name."""
+    model's table under its own name, and gives the variables of `variables`."""
 
-    def __init__(self, db):
+    def __init__(self, db, variables=None):
         self.db = db
+        self.variables = variables or {}
 
     def resolve_table(self, name):
         return name
 
     def fetchdf(self, query):
         return self.db.sql(query).df()
+
+    def var(self, name, default=None):
+        return self.variables.get(name, default)
 
 
 def test_alias_key_is_v2():
@@ -197,10 +202,8 @@ def test_layers_match_the_chain(tmp_path):
         assert list(units) == list(step(chain).unit_id), name
 
 
-def test_label_units_model():
-    """The model joins page units. The rows of the unit ledger's splits keep their split's
-    unit, which the table leaves out, so u:71's split, with an ad of u:70's page, joins neither
-    u:70 nor u:71."""
+def run_model(variables=None) -> pd.DataFrame:
+    """The model's table, run on the rows of ROWS and the pairs of PAIRS with `variables`."""
     db = duckdb.connect()
     db.execute("CREATE SCHEMA analysis; CREATE SCHEMA ads")
     rows = frame()
@@ -223,7 +226,93 @@ def test_label_units_model():
     db.execute(
         "INSERT INTO ads.placed VALUES ('1', 'u:12', ?, 'u:12')", [page("b1", "PH004")]
     )
-    (table,) = labels.execute.__wrapped__(Fetcher(db), None, None, None)
+    (table,) = labels.execute.__wrapped__(Fetcher(db, variables), None, None, None)
     assert list(table.columns) == list(labels.COLUMNS)
+    return table
+
+
+def test_label_units_model():
+    """The model joins page units. The rows of the unit ledger's splits keep their split's
+    unit, which the table leaves out, so u:71's split, with an ad of u:70's page, joins neither
+    u:70 nor u:71."""
+    table = run_model()
     found = {r.unit_id: (r.label_unit, r.units, r.layer) for r in table.itertuples()}
     assert found == EXPECTED
+
+
+def test_label_units_model_v18():
+    """Under `unit-labels-v18`, the history pair of "12c" and "12d" stays apart, and every
+    other unit joins as under v17."""
+    table = run_model({"label_rule": "unit-labels-v18"})
+    found = {r.unit_id: (r.label_unit, r.units, r.layer) for r in table.itertuples()}
+    assert found == {u: v for u, v in EXPECTED.items() if u not in ("u:30", "u:31")}
+
+
+def test_unknown_label_rule():
+    with pytest.raises(ValueError, match="no label rule"):
+        run_model({"label_rule": "unit-labels-v99"})
+
+
+# Labels with the key `spelling_key` gives them.
+SPELLINGS = {
+    # Case, spaces, punctuation, leading zeros and lead words.
+    "4b": ["4B", "4-b", "4 b", "4_B", "#04B", "Apt 4B", "APT-4B", "Unit 4b", "no4b"],
+    # A floor and a letter, either way round.
+    "9h": ["9H", "H9", "h-9", "H-09"],
+    # Penthouses.
+    "ph": ["PH", "Penthouse", "penthouse"],
+    "pha": ["PH-A", "PENTHOUSE A", "PenthouseA"],
+    "2ph": ["PH2", "ph-02", "Penthouse 2", "2PH"],
+    # Floors, ordinals and number words.
+    "3": ["3", "03", "3rd", "3rd-floor", "THIRD-FL", "fl3", "3fl", "third", "Floor 3"],
+    "1": ["1", "1st", "first-floor"],
+    # A lone zero ahead of letters.
+    "b": ["B", "0B", "00b"],
+    "me": ["me", "0ME", "m-e"],
+    # Numbers stay apart.
+    "1-2": ["1-2", "1 2"],
+    "12": ["12", "012"],
+    "0": ["0", "00"],
+    # Labels of lead words alone.
+    "": ["unit", "Apt", "#", "-"],
+}
+
+
+@pytest.mark.parametrize("key", list(SPELLINGS))
+def test_spelling_key(key):
+    assert [labels.spelling_key(w) for w in SPELLINGS[key]] == [key] * len(
+        SPELLINGS[key]
+    )
+
+
+def test_spelling_keys():
+    """Each unit gets the keys of its labels, with empty keys and missing labels left out."""
+    pages = pd.DataFrame(
+        {
+            "unit_id": ["v:1", "v:1", "v:2", "v:3", "v:4"],
+            "label": ["4-B", "04b", "B4", None, "unit"],
+        }
+    )
+    assert labels.spelling_keys(pages) == {"v:1": {"4b"}, "v:2": {"4b"}}
+
+
+def test_history_layer_v18():
+    """Given spellings, the history layer joins the units of a pair only when their labels
+    agree up to spelling. "5a" and "3a" stay apart, as do "1" and a page with no label."""
+    rows = pd.DataFrame(
+        [
+            ("v:1", "b9", "4d", 2.0),
+            ("v:2", "b9", "d-4", 2.0),
+            ("v:3", "b9", "5a", 1.0),
+            ("v:4", "b9", "3a", 1.0),
+            ("v:5", "b9", "1", 1.0),
+            ("v:6", "b9", None, 1.0),
+        ],
+        columns=["unit_id", "building", "label", "bedrooms"],
+    )
+    pairs = [("v:1", "v:2"), ("v:3", "v:4"), ("v:5", "v:6")]
+    history = labels.LAYERS.index("history")
+    v17 = labels.layers(rows, pairs, [])
+    v18 = labels.layers(rows, pairs, [], labels.spelling_keys(rows))
+    assert list(v17[history]) == ["v:1", "v:1", "v:3", "v:3", "v:5", "v:5"]
+    assert list(v18[history]) == ["v:1", "v:1", "v:3", "v:4", "v:5", "v:6"]

@@ -28,6 +28,11 @@ from the previous build. `ops/pipeline/build.py` sets it when the previous build
 its price changes count as stale, 7 unless set, as in latest-ask-v9. -1 drops every change from
 the off-market day on, as latest-ask-v10 does. The build records the value in its catalog line.
 
+`PIPELINE_LABEL_RULE` picks the label rule for `analysis.label_units`: `unit-labels-v17` unless
+set, or `unit-labels-v18`, whose history layer joins two units only when their labels agree up
+to spelling. `models/analysis/label_units.py` explains both rules, and the build records the
+rule in its catalog line.
+
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
 stream with less memory.
@@ -233,6 +238,7 @@ config = Config(
         # models of that kind from all the answers.
         "merge_code": file_sha256(PIPELINE / "materializations" / "merge.py"),
         "stale_days": int(os.environ.get("PIPELINE_STALE_DAYS") or 7),
+        "label_rule": os.environ.get("PIPELINE_LABEL_RULE") or "unit-labels-v17",
         "buildings": buildings,
         "buildings_version": buildings_version,
         # ops/pipeline/build.py records these in its catalog line. No model reads them, so they

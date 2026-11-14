@@ -35,12 +35,12 @@ The script works in these steps:
    the export.
 5. It appends a line to `OUT/catalog.ndjson` for the build. The line gives the time the build
    finished, the commit of the code and whether the checkout had changes, whether the build was
-   a top-up, the value of `PIPELINE_STALE_DAYS` it built with, each export file it read with its
-   SHA-256, the name of each file of the corrections ledger and of the unit ledger with its
-   SHA-256 and the count of their entries in each status, each file of the city archive with
-   its SHA-256, the seconds each rebuilt model took with its audits, each model's table and row
-   count, the rows, ads and records files with their SHA-256, the wall time of each step, and
-   the peak memory of the script and of its cgroup.
+   a top-up, the values of `PIPELINE_STALE_DAYS` and `PIPELINE_LABEL_RULE` it built with, each
+   export file it read with its SHA-256, the name of each file of the corrections ledger and of
+   the unit ledger with its SHA-256 and the count of their entries in each status, each file of
+   the city archive with its SHA-256, the seconds each rebuilt model took with its audits, each
+   model's table and row count, the rows, ads and records files with their SHA-256, the wall
+   time of each step, and the peak memory of the script and of its cgroup.
    The script takes the commit before it loads the project, and the export, ledger and city
    files from the variables `config.py` gave the project.
 6. It runs SQLMesh's janitor, which drops the tables no environment has used for a week. When
@@ -335,6 +335,7 @@ def build(export: Path, state: Path, out: Path, project: Path = PROJECT) -> dict
         "code": code,
         "top_up": top_up,
         "stale_days": variables["stale_days"],
+        "label_rule": variables["label_rule"],
         "export": str(export),
         **{
             table: {
