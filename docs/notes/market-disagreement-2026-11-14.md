@@ -179,7 +179,8 @@ shift of L1's median back to the first day has a median size of 0.005 log points
 | 9 | 0.94 to 1.50 | 0.074 | 21 | 30.2 | 39.6% | 20.6% | 8.1% |
 | 10 | over 1.50 | 0.135 | 26 | 35.6 | 49.3% | 17.2% | 12.5% |
 
-Days and cuts both rise with the gap at every step. The Spearman correlation of z is 0.18 with
+Mean days rise with the gap at every step, and median days never fall. The cut share rises at every step from
+the second tenth up; the first two tenths are level, at 15.73% and 15.66%. The Spearman correlation of z is 0.18 with
 capped days and 0.23 with the cut. The curve is flat below the median and steep above it: an
 ad asking under L1's median leaves about as fast at 12% under as at 2% under, and an ad asking
 13% over is cut half the time. The cross-fitted fit (418 cells, then the curve in z) takes up
@@ -203,6 +204,10 @@ Ranking by D pushed the fast groups to its floor. Most ads of B and C were marke
 the day they opened, and I come back to that under the weaknesses.
 
 ## The reads
+
+I wrote `reader_prompt.txt` after the commit of the predictions (5ac4d710). Its list of causes
+matches the list committed in the design section, and its other rules are S16's, plus the
+walk-up rule for `unit_fault`.
 
 `m3_fields.py` wrote 16 batches of 25 dossiers, 374 of the 400 with a description over 80
 characters (98, 90, 92 and 94 in A, B, C and R). 16 Sonnet readers ran 4 at a time and each
@@ -312,8 +317,10 @@ the whole lowest tenth, with a median gap of -0.11, and S16's misses started at 
 
 ## Candidate causal factors, ranked
 
-1. **Levels in a unit (duplex, triplex, mezzanine).** Arrow: noise, and a level term to split
-   it. The asks spread 1.37 times wider with a mean gap near zero, the pattern is 1.6 times
+1. **Levels in a unit (duplex, triplex, mezzanine).** A lead, with weak support from this
+   check: the flag in C is 1.5 SEs from R, A has 7 reads against R's 6, and prediction 12
+   missed (the pattern's mean gap is -0.003). Arrow: noise, and a level term to split it. The
+   asks spread 1.37 times wider with a mean gap near zero, the pattern is 1.6 times
    as common in both end tenths as in the middle, and the market backs part of the high asks
    (fewer cuts in the highest tenth) and rejects part of the low ones (more cuts in the lowest
    tenth). 4 of A's 7 reads describe a mezzanine or a sleeping loft, and none of C's 12 does
@@ -331,7 +338,8 @@ the whole lowest tenth, with a median gap of -0.11, and S16's misses started at 
    ad looks cheap to L1, and it stays and is cut. Data needed: a text match for surcharge and
    mandatory monthly fees; the amount is rarely stated.
 4. **Walk-up floor and railroad layout.** Arrow: level. 14 reads in B against 3 in A and 2 in
-   R. The market agrees with the low ask, so the miss is L1's. Data needed: a check of the
+   R. B's ads are mostly marked rented on day 0, so the reads show that low asks on these
+   units closed, and they leave open how much of the gap is L1's miss. Data needed: a check of the
    coded floor against the floor stated in the text for walk-ups, and a `railroad` text flag.
    L1 already has the walk-up floor columns, so the first step is to read their fit on floors
    4 to 6.
@@ -363,3 +371,7 @@ the whole lowest tenth, with a median gap of -0.11, and S16's misses started at 
 - The readers' walk-up rule (floor 4 or higher counts) flags a quality L1 has columns for, so
   part of B's `unit_fault` count is not missing from L1.
 - The cut uses the page price, so a concession added later is not counted as a cut.
+- The two outcomes are partly mechanical copies of each other. An ad off the market within
+  days has little time to be cut, since `m1_outcomes.py` counts cuts only while the ad is up,
+  within 90 days of its first day. A cut then partly measures days, and D, their mean, counts
+  a long stay twice.

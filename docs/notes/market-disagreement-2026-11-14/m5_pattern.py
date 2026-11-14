@@ -2,11 +2,11 @@
 
 The pattern is S7's unit-level duplex match (`dup_unit` of `causal-screens-2026-11-13/
 s7_text.py`): `duplex` or `triplex` in the listing's latest description, unless the text calls
-the building a duplex. I count the rows of L1's dataset it marks, and on the held-out ads
-outside the 400 drawn I take L1's gap (mean with a building-clustered SE, median), the spread
-of the gap (median absolute deviation) against all other held-out ads, and the share inside
-L1's 80% interval. On the kept ads of part 1 I add the pattern's days, cuts and score D, over
-all tenths of z and in the lowest and highest tenth."""
+the building a duplex. The script counts the rows of L1's dataset it marks. On the held-out
+ads outside the 400 drawn it takes L1's gap (mean with a building-clustered SE, median), the
+spread of the gap (median absolute deviation) against all other held-out ads, and the share
+inside L1's 80% interval. On the kept ads of part 1 it adds the pattern's days, cuts and
+score D, over all tenths of z and in the lowest and highest tenth."""
 
 import json
 import os

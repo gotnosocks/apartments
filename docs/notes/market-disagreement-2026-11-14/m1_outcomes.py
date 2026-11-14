@@ -1,11 +1,12 @@
 """Market disagreement, part 1: each held-out ad of L1 at its first ask, its days on the
 market and its cuts, the cross-fitted fit of both outcomes on the gap, and the score D.
 
-For each held-out ad I take the first ask and first day from the pipeline's ads file, put the
-first ask on a net basis with `drift_deals.first_net`, and shift L1's predictive median from
-the row's day to the first day by the change in the posterior mean of the weekly walk and of
-the season curve. I keep the ads opened on or before CUTOFF, 90 days before the last fetch,
-cap days at 90, and read a cut from the price history within 90 days of the first day.
+For each held-out ad the script takes the first ask and first day from the pipeline's ads
+file, puts the first ask on a net basis with `drift_deals.first_net`, and shifts L1's
+predictive median from the row's day to the first day by the change in the posterior mean of
+the weekly walk and of the season curve. It keeps the ads opened on or before CUTOFF, 90 days
+before the last fetch, caps days at 90, and reads a cut from the price history within 90 days
+of the first day.
 
 The fit runs on one half of the buildings and predicts on the other: a shrunk cell mean
 (borough by bedroom by quarter), then a piecewise-linear curve in z on the demeaned outcome.

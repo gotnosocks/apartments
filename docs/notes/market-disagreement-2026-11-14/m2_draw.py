@@ -1,7 +1,7 @@
 """Market disagreement, part 2: the frozen draw of 4 groups of 100 ads.
 
-From `outcomes.parquet` I walk each group's pool in its order, taking at most 3 ads from a
-building in a group and skipping ads already taken by an earlier group:
+The script walks each group's pool from `outcomes.parquet` in its order, taking at most 3 ads
+from a building in a group and skipping ads already taken by an earlier group:
 
 - A, cheap and slow: the lowest tenth of z, largest D first;
 - B, cheap and fast: the lowest tenth of z with a RENTED ending, smallest D first;
