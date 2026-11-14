@@ -6,6 +6,46 @@ repo, the model and a presentation artifact for 24 hours, with $100 of Modal app
 window and no stale jobs to be run. At 12:38Z Ben added up to $40 for the building model's
 three full fits, so the ceiling is $140.
 
+## Causal sprint of 2026-11-14, $100 budget
+
+On Nov 14 Ben made this thread the owner of the repo and set a $100 budget for a sprint on
+changes to the causal graph. The plan, the rival accounts and the ranked backlog are in
+`docs/notes/causal-sprint-2026-11-14.md`. At about 4:00 PM ET he lifted every earlier hold on
+research directions and data collection (photo and plan fetches, school zones, other rental
+sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
+subagent's model and effort to be picked by its task.
+
+### State at 5:15 PM ET on Nov 14
+
+- **Spend:** $10.82 of $100, all on L1TKN. The sheet is
+  `/data1/apartments/tmp/sprint-20261114/spend.md`. The photo fetches went to the image CDN
+  directly and cost nothing.
+- **L1TKN is the sprint's base.** Pool `drift-building-phase-unitkn-b0-latest-79dd65f8-l1tkn`
+  passes the gate (R-hat 1.0065, ESS 1,173) and gains 4,106 elpd over L1 on the held-out ads
+  (SE 134). 2,981 of the gain come from the 5,011 ads L1 missed by 0.20 or more, so it is a
+  tail fix. Results are in `docs/notes/l1-row-dof-fixed-2026-11-13.md`. It serves nothing yet.
+- **Merged:** #1392 (GPU rehearsals, segment level columns), #1393 (sprint plan), #1394 (unit
+  history calibration), #1395 (market disagreement screen).
+- **Running:** an agent on branch `claude/unitkn-l2-segment` writing L2 and the segment paths
+  on the unitkn base with GPU rehearsals, and an agent on `claude/photo-disagreement` reading
+  photos and floor plans of the market disagreement draw.
+
+Next, in order:
+
+1. Run the unit history calibration on L1TKN's saved predictions (free). L1T's held-out gaps
+   sloped against the unit's training record, and Deals should not read L1TKN before this is
+   measured.
+2. Review and merge the two agents' PRs. Then write L2's note on the unitkn base with
+   predictions, commit, fetch serve/master and launch (about $11.50). The segment paths
+   follow once their lengthscales pass a rehearsal, with predictions 2 and 5 of their note
+   rewritten first.
+3. The other free checks: the regime check on income-program rows, the line contrast, and a
+   school-zone screen now that the hold is lifted.
+4. Near the end, one StreetEasy top-up for ads opened after 2026-11-09 as a fresh test set,
+   after pricing its OxyLabs cost. The rows file's latest `price_at` is 2026-10-19, which is
+   unexplained against the 2026-11-09 snapshot.
+5. The fit's explainer artifact for Ben is still to be built.
+
 ## Causal sprint, from 2026-11-13 10:51 ET
 
 At 10:51 ET Ben asked for a sprint on changes to the model's causal graph, like L1's lease

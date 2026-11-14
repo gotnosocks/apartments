@@ -156,9 +156,24 @@ Ranked by whether the item changes the causal graph, then by its value for deals
 
 **Closed or parked**
 
-c3 and L1 are done. School zones stay tabled. Floor plan and photo reads wait for Ben's word on
-OxyLabs photo fetches. The outdoor-space level (S7, -5 ± 19 elpd) and competing supply (S4, 0.2%
+c3 and L1 are done. The outdoor-space level (S7, -5 ± 19 elpd) and competing supply (S4, 0.2%
 within building) stay closed.
+
+## Changes since the plan was written
+
+- **L1TKN is accepted as the base** (fit 1). Its pool passes the gate and gains 4,106 elpd
+  over L1, SE 134, for $10.82. 2,981 of the gain come from the 5,011 ads L1 missed by 0.20 or
+  more, so I record it as a tail fix (`l1-row-dof-fixed-2026-11-13.md`).
+- **Ben lifted the earlier holds** on Nov 14: school zones, photo and floor plan fetches,
+  other rental sites, the P1 fit and GPU inference are open choices again, and their costs
+  count against the $100. I rank them this way:
+  1. Photo and floor plan reads of the market disagreement draw. Running. The images came
+     from the CDN directly at no cost.
+  2. A school-zone screen on L1TKN's held-out gaps from the DOE zone maps, as a free check
+     for a place effect the 1 km surface lacks.
+  3. P1 as a fit variant, if budget remains after steps 2 to 5 of the fit table.
+  4. Other rental sites and GPU inference stay behind everything above. Neither adds an
+     arrow to the graph.
 
 ## Method notes from the two references
 
