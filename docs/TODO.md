@@ -98,11 +98,15 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   2026-11-12 repair single pages until the next ad arrives on them. The rule is now
   `unit-labels-v18`, an option of the model behind `PIPELINE_LABEL_RULE`, with v17 still the
   default. On L1's build it splits 709 of the 750 pairs v17's history layer joins, and Sonnet
-  read about 80% of the splits as right (59% outside 175 Spencer Street). 947 of L1's rows
-  change unit, in the copy `...-closingraise-labeljoin`
+  read about 80% of the splits as right, 69% to 88% at 95% (59% outside 175 Spencer Street).
+  947 of L1's rows change unit, in the copy `...-closingraise-labeljoin`
   (`docs/notes/label-join-2026-11-13.md`). Next: a fit on the copy with `--split carried`, a
   build under v18 for the 120 rows the label-month check restores, and a containment rule
-  ("D" and "6D").
+  ("D" and "6D"). The v18 build goes in a lane with its own `--state` and `--out`
+  (`ops/pipeline/build.py`): `rentfrontier.b0data` takes the newest catalog line, so a v18
+  build in the shared folders would feed the next dataset. Also: have
+  `ops/pipeline/observations.py` copy `label_rule` from the catalog line into its manifest, as
+  it copies `stale_days`.
 - [ ] For Data improvements: a pipeline rule for ads posted with a blank form. Real Street
   Inc, M1 Ventures and Stuyvesant Heights Realty Corp post ads with the form's fields
   empty, and the feed codes them as 0 bedrooms, 1 bath and 1 room. The marks are a

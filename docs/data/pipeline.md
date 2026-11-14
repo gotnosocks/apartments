@@ -2792,6 +2792,12 @@ build reruns `analysis.label_units` and the models after it once, and under v17 
 same rows. `docs/notes/label-join-2026-11-13.md` counts what v18 changes on L1's build and
 reads 100 of the pairs.
 
+I build under v18 only in a lane, with its own `--state` and `--out` for `build.py`, as for a
+lane at `PIPELINE_STALE_DAYS=-1`, so that v18's tables stay out of the shared state.
+`rentfrontier.b0data` takes the newest line of the catalog in
+`/data1/apartments/pipeline/datasets` unless given another folder, so a v18 build writing there
+would feed the next B0 dataset.
+
 ### The port's diff
 
 I built the export of Oct 16 in the lane `tmp/pipeline/lanes/labels-port`, from master and

@@ -36,8 +36,20 @@ def load(name, path):
 
 
 def cluster_se(x, b):
-    t = pd.Series(np.asarray(x)).groupby(np.asarray(b)).sum()
-    return float(np.sqrt(len(t) * t.var(ddof=1)))
+    """SE of the sum of `x` about its mean, clustered by `b`."""
+    x = np.asarray(x, dtype=float)
+    t = pd.Series(x - x.mean()).groupby(np.asarray(b)).sum()
+    return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()))
+
+
+def diff_se(x, a, b):
+    """SE of the mean of `x` where `a` holds less its mean elsewhere, with both groups clustered
+    together by `b`: each building sums its ads' parts of the difference."""
+    x = np.asarray(x, dtype=float)
+    a = np.asarray(a, dtype=bool)
+    part = np.where(a, (x - x[a].mean()) / a.sum(), -(x - x[~a].mean()) / (~a).sum())
+    t = pd.Series(part).groupby(np.asarray(b)).sum()
+    return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()))
 
 
 lu = load("label_units", f"{WT}/pipeline/models/analysis/label_units.py")
@@ -267,6 +279,14 @@ for name, g in (("in_units_split", insplit[held]), ("changing_unit", change[held
             "sq_gap_se": cluster_se(gap[mask] ** 2, b[mask]) / n,
             "elpd": float(s["elpd"][mask].mean()),
         }
+    gaps[f"{name}_minus_rest"] = {
+        "gap_pct": 100 * float(gap[g].mean() - gap[~g].mean()),
+        "gap_se_pct": 100 * diff_se(gap, g, b),
+        "sq_gap": float((gap[g] ** 2).mean() - (gap[~g] ** 2).mean()),
+        "sq_gap_se": diff_se(gap**2, g, b),
+        "elpd": float(s["elpd"][g].mean() - s["elpd"][~g].mean()),
+        "elpd_se": diff_se(s["elpd"], g, b),
+    }
 res["l1"]["gaps"] = gaps
 print(json.dumps(res, indent=1))
 json.dump(res, open(f"{S}/count.json", "w"), indent=1)

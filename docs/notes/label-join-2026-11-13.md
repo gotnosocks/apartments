@@ -81,11 +81,14 @@ without the pipeline's database:
 
 My v17 rerun gives the build's `split_unit` on all but 5 of its 1,969,284 rows, and on the
 1,927 rows of my recheck it drops the same 130 rows in the label-month check as the build did.
+The reviewer of this note ran master's v17 layers and this branch's on my rebuilt inputs, and
+got identical tables. My inputs hold 18,820 history pairs. The build's catalog line gives
+18,819 rows for `analysis.history_pairs`, and the extra pair accounts for the 5 rows.
 
 ## Counts
 
-The build has 18,820 history pairs, 17,511 of them with rows on both pages. v17's history layer
-joins 750 pairs left apart by the first three layers:
+My rebuilt inputs have 18,820 history pairs, 17,511 of them with rows on both pages. v17's
+history layer joins 750 pairs left apart by the first three layers:
 
 - 41 agree up to spelling, and v18 joins them as before: "0B" and "B", "3B" and "B3", "PHA"
   and "0PHA", "G09" and "0G9".
@@ -132,10 +135,29 @@ counts them.
 | of them elsewhere, 31 | 12 | 17 | 2 |
 | Kept by v18, 40 | 35 | 1 | 4 |
 
-All 29 splits at Spencer Street separate two apartments, and so do 17 of the 29 decided splits
-elsewhere (59%). Weighted over the 362 pairs at Spencer Street and the 347 elsewhere, about 80%
-of v18's 709 splits are right, and between 134 and 144 of them cut one apartment in two. By
-rows the share is nearer 59%, since Spencer Street holds 36 of the 947 rows changing unit.
+The readers judged all 29 splits at Spencer Street to separate two apartments, 2 of them with
+high confidence, 18 with medium and 9 with low. Elsewhere they judged 17 of the 29 decided
+splits right (59%) and 12 wrong. `wrong_splits.py` leaves out the 2 unclear verdicts, puts a
+Wilson 95% interval on each stratum's share of wrong splits, and scales the share to the
+stratum's pairs:
+
+| Split pairs | Decided | Wrong | Share wrong | Pairs | Wrong pairs |
+|---|---|---|---|---|---|
+| At Spencer Street | 29 | 0 | 0%, 0% to 11.7% | 362 | 0, 0 to 42 |
+| Elsewhere | 29 | 12 | 41%, 25.5% to 59.3% | 347 | 144, 89 to 206 |
+| All | 58 | 12 | | 709 | 144, 89 to 219 |
+
+I add the two strata's estimates, and combine their intervals by MOVER (Zou and Donner, 2008):
+
+- the lower limit is the total less the root sum of squares of each stratum's distance, in
+  pairs, from its estimate down to its own lower limit;
+- the upper limit is the total plus the same sum taken over the distances up to the upper
+  limits.
+
+About 80% of v18's 709 splits are right, between 69% and 88% at 95%. I leave out the
+finite-population correction, which would narrow the interval a little, since the sample is
+under a tenth of each stratum. By rows the share is nearer 59%, since Spencer Street holds 36 of
+the 947 rows changing unit.
 
 In the 12 wrong splits, the labels differ by more than spelling:
 
@@ -174,21 +196,27 @@ B0 rows carry no column derived from the unit, so changing `unit_id` is the whol
 
 ## L1's held-out ads in split units
 
-The gap is the log ask less L1's median, in percent, and the squared gap is in log units, both
-with SEs clustered by building (`gaps.py`).
+The gap is the log ask less L1's median, in percent, and the squared gap is in log units. I
+cluster their SEs by building (`gaps.py`, `count2.py`):
+
+- For a group's mean, I sum the deviations of each building's ads from the group's mean, and
+  take the SE from those sums, scaled by G/(G-1) over the G buildings.
+- For a group less the other held-out ads, I cluster both groups together. Within each
+  building I sum every ad's part of the difference, its deviation from its own group's mean
+  over that group's size, with a minus sign for the other ads.
 
 | L1's held-out ads | n | Gap (%) | Squared gap | Mean elpd |
 |---|---|---|---|---|
-| In units split by v18 | 125 | -1.24 ± 1.02 | 0.0107 ± 0.0025 | 1.027 |
-| All others | 189,522 | -0.44 ± 0.02 | 0.00665 ± 0.00009 | 1.228 |
-| Changing unit | 71 | -2.81 ± 1.24 | 0.0083 ± 0.0027 | 1.149 |
-| Left out of the carried split | 31 | -2.39 ± 2.50 | 0.0156 ± 0.0051 | 0.785 |
+| In units split by v18 | 125 | -1.24 ± 0.99 | 0.0107 ± 0.0023 | 1.027 |
+| All others | 189,522 | -0.44 ± 0.02 | 0.00665 ± 0.00008 | 1.228 |
+| Changing unit | 71 | -2.81 ± 1.17 | 0.0083 ± 0.0025 | 1.149 |
+| Left out of the carried split | 31 | -2.39 ± 2.41 | 0.0156 ± 0.0050 | 0.785 |
 
 L1 misses the ads in split units by more than the others. Their squared gap is higher by
-0.0041 ± 0.0025, 1.6 SE, and their mean elpd is lower by 0.20, about 25 nats over the 125. The
-ads changing unit ask 2.4% ± 1.2 less than the others against L1's median, about 2 SE. Under
-v17 their unit's level partly comes from another apartment, and the negative gap agrees with
-that apartment asking more.
+0.0041 ± 0.0023, 1.8 SE, and their mean elpd is lower by 0.20 ± 0.13, about 25 nats over the
+125. The ads changing unit ask 2.4% ± 1.16 less than the others against L1's median, 2.0 SE.
+Under v17 their unit's level partly comes from another apartment, and the negative gap agrees
+with that apartment asking more.
 
 ## What a fit would test
 
@@ -220,9 +248,8 @@ I write these before any launch, and I propose none here. For L1's model on the 
 ## Unresolved
 
 - The 120 rows restored in the label-month check need a pipeline build with
-  `PIPELINE_LABEL_RULE=unit-labels-v18`.
-- I did not trace the 5 rows where my v17 rerun and the build disagree. The copy keeps L1's
-  unit on them.
+  `PIPELINE_LABEL_RULE=unit-labels-v18`, in a lane with its own `--state` and `--out`, since
+  `rentfrontier.b0data` takes the newest line of the shared catalog.
 - A containment rule for labels such as "D" and "6D" or "8" and "8N" needs writing, and testing
   against "3" and "3bed".
 - Pages holding several apartments, such as Stuyvesant Town's "0me", need `split_unit` entries

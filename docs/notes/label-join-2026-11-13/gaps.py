@@ -1,5 +1,6 @@
-"""L1's held-out ads in units v18 splits, at 175 Spencer Street and elsewhere, and a check that
-the copy's split is L1's."""
+"""L1's held-out ads in units v18 splits, at 175 Spencer Street and elsewhere, and their
+difference from L1's other held-out ads, with SEs clustered by building; and a check that the
+copy's split is L1's."""
 
 import json
 
@@ -12,8 +13,20 @@ OUT = "/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense
 
 
 def cluster_se(x, b):
-    t = pd.Series(np.asarray(x)).groupby(np.asarray(b)).sum()
-    return float(np.sqrt(len(t) * t.var(ddof=1)))
+    """SE of the sum of `x` about its mean, clustered by `b`."""
+    x = np.asarray(x, dtype=float)
+    t = pd.Series(x - x.mean()).groupby(np.asarray(b)).sum()
+    return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()))
+
+
+def diff_se(x, a, b):
+    """SE of the mean of `x` where `a` holds less its mean elsewhere, with both groups clustered
+    together by `b`: each building sums its ads' parts of the difference."""
+    x = np.asarray(x, dtype=float)
+    a = np.asarray(a, dtype=bool)
+    part = np.where(a, (x - x[a].mean()) / a.sum(), -(x - x[~a].mean()) / (~a).sum())
+    t = pd.Series(part).groupby(np.asarray(b)).sum()
+    return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()))
 
 
 s = np.load(f"{L1}/pred_scores.npz", allow_pickle=True)
@@ -56,6 +69,14 @@ for name, mask in (
         "sq_gap_se": round(cluster_se(gap[mask] ** 2, b[mask]) / n, 5),
         "elpd": round(float(s["elpd"][mask].mean()), 3),
     }
+res["in_split_minus_other"] = {
+    "gap_pct": round(100 * float(gap[h_in].mean() - gap[~h_in].mean()), 2),
+    "gap_se_pct": round(100 * diff_se(gap, h_in, b), 2),
+    "sq_gap": round(float((gap[h_in] ** 2).mean() - (gap[~h_in] ** 2).mean()), 5),
+    "sq_gap_se": round(diff_se(gap**2, h_in, b), 5),
+    "elpd": round(float(s["elpd"][h_in].mean() - s["elpd"][~h_in].mean()), 3),
+    "elpd_se": round(diff_se(s["elpd"], h_in, b), 3),
+}
 rows_spencer = copy.building.astype(str).str.contains("175-spencer").to_numpy()
 res["rows"] = {
     "changing_unit": int(change.sum()),
