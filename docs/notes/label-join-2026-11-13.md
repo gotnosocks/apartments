@@ -202,6 +202,21 @@ from the 94 carried ads in split units and their buildings.
 A build under v18 would also bring back the 120 rows, and a fit on that build would test the
 whole rule.
 
+## Predictions for a fit on the copy
+
+I write these before any launch, and I propose none here. For L1's model on the copy with
+`--split carried`, against L1 on the same 189,616 ads:
+
+1. The fit passes the convergence gate, and sigma, nu, unit_sd and the phase factors fall
+   within one posterior sd of L1's.
+2. The summed elpd changes by about +4 nats, with 80% odds between -5 and +15, and stays within
+   2 SE of zero. The paired SE comes to about 3 to 6 nats.
+3. On the 94 carried ads in split units, the elpd rises by about 0.05 per ad on average, and
+   the mean squared gap falls below L1's on the same ads, with the mean gap closer to zero.
+4. Over all 189,616 ads, the RMSE and the median absolute error of the predictive median change
+   by less than 0.0001 in log units, and the coverage of the 50%, 80%, 90% and 95% intervals
+   by less than 0.01 percentage points.
+
 ## Unresolved
 
 - The 120 rows restored in the label-month check need a pipeline build with
