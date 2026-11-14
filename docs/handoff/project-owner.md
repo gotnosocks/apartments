@@ -14,6 +14,35 @@ asked for the research backlog reviewed and ranked, and for a proposal of fits w
 Data work and other free work go ahead without approval. No Modal budget is approved for the
 sprint yet, so I have launched, queued and scheduled nothing on Modal.
 
+### State at 11:15 AM ET on Nov 14
+
+The GPU rehearsals the coordinator asked for are done, and they spent nothing on Modal. Each
+fit ran on thelio's GPU on the same 741 buildings (about 1 in 92), with its own settings and
+2,400 draws a chain. The results go in each fit's note as an exploration run, apart from the
+predictions:
+
+| fit | max R-hat | min ESS | new parameters |
+|---|---|---|---|
+| L2 | 1.0895 | 12 | phase coefficients pass |
+| segment walks, fixed | 1.2464 | 3 | chains agree; every lengthscale misses, worst `outer:studio` |
+| D1 | 1.0749 | 19 | `k` passes |
+| LN1 | 1.5115 | 4 | `line_sd` passes; `unit_sd` misses |
+| I1 | 1.0972 | 11 | `k` passes |
+
+- The zone spreads (`bld_sd`) miss in every run. With so few buildings their posterior is
+  wide against `drift.SPREAD_WIDTH` (0.05), and with the window at 0.5 L2 passes on both.
+- The segment walks' first rehearsal split the outer 1-bedroom path's chains at 2024q1, since
+  the units' levels shrink toward their buildings' and the path took the segment's lasting
+  gap. `drift_building_phase_segment` now gives each outer bedroom group past studios a level
+  column of its own. Predictions 2 and 5 in its note no longer describe the fixed model, and
+  I left them as written. If the lengthscales still miss on the full data, the next thing to
+  try is a non-centered draw of each segment's amplitude and lengthscale.
+- LN1's `unit_sd` still misses on a 1 in 50 subsample (R-hat 1.36, ESS 10). It trades against
+  `drift_sd` and `drift_tau` along a ridge, so its Modal fit could miss the gate. A fix would
+  change how the scale step in `drift.py` picks its directions, and `drift.py` is protected.
+- D1's unit scales miss when a chain sits in the long-tau region at warmup sweep 333. Check
+  for that in the warmup log of its Modal fit.
+
 ### State at 7:30 AM ET on Nov 14
 
 Still no Modal budget, and nothing from this sprint is on Modal. Merged since the 4:20 AM state,
@@ -49,13 +78,12 @@ order L2, segment walks, D1 with penthouses, LN1, then I1. Each rehearsal checks
 sampler (R-hat, ESS, the new parameters' traces, LN1's `unit_sd`, anything stuck at a
 boundary), goes into its fit's note as an exploration run apart from the predictions, and
 scores no held-out ads. A sampler problem gets fixed in the module before a budget arrives.
-A worker started L2's rehearsal at 7:10 AM ET; the scripts and results go under
+A worker started L2's rehearsal at 7:10 AM ET; the scripts go under
 `docs/notes/rehearsals-2026-11-14/`.
 
 Next free items, in rank:
 
-1. The rehearsals' results, and any module fix they call for.
-2. The stabilized misspellings ("stablized" and kin) and the income band patterns the
+1. The stabilized misspellings ("stablized" and kin) and the income band patterns the
    text-flag reads left. Both scan every description, so they wait for an idle GPU.
 
 ### State at 4:20 AM ET on Nov 14
