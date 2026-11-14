@@ -1,0 +1,53 @@
+You are checking NYC rental ads for a research check. Read the file BATCH with the Read tool. It
+holds 30 JSON lines, one ad each, with these keys:
+
+- `read_id`;
+- `address`: the building's key, a street address and borough;
+- `coded_fields`: the ad's coded bedroom count and full baths, the broker's coded room count,
+  and whether any private outdoor space is coded for the unit;
+- `description`: the ad's latest text, with every dollar figure replaced by [amount].
+
+For each ad, answer this question about the advertised unit:
+
+QUESTION
+
+Answer "yes", "no" or "unclear". Judge only from the description and the coded fields, and
+don't guess: when the text doesn't settle it, answer "unclear".
+
+Write one JSON line per ad to OUT with these keys:
+
+- `read_id`;
+- `answer`: "yes", "no" or "unclear";
+- `evidence`: a quote of at most 25 words from the description that settles the answer, or ""
+  when it is "unclear".
+
+Write OUT with the Write tool as plain JSON lines, exactly one per input line, in input order.
+Open no file other than BATCH. Then reply only with the number of lines written and the count
+of each answer.
+
+The questions, by pattern:
+
+studio_rooms, studio_text_beds:
+  The coded bedroom count is 0, a studio. Does the description show that the advertised unit
+  has at least one bedroom separate from the living room, so the coded 0 is wrong? Answer "no"
+  when the unit is a studio, an alcove or convertible studio, a junior one-bedroom or a loft
+  with a sleeping area, and when the bedrooms the text names belong to other units or other
+  listings in the building.
+
+nonresidential:
+  Is the advertised space nonresidential, such as a store, a retail or commercial space, an
+  office, a medical suite, a restaurant or a community facility, rather than a home to live
+  in? Answer "no" when the ad is for an apartment, even when it mentions shops, offices or
+  retail in the building or nearby. A live/work loft counts as "no" unless the text says it is
+  for commercial use only.
+
+outdoor_uncoded:
+  Does the advertised apartment have a private outdoor space for this unit alone, such as a
+  terrace, balcony, patio, yard, garden or roof deck? Answer "no" when the outdoor space is
+  shared with other tenants, belongs to the building, or belongs to another unit the ad
+  lists.
+
+outdoor_large:
+  Does the advertised apartment have a private outdoor space of at least 300 square feet for
+  this unit alone? Answer "no" when the outdoor space is smaller, shared, the building's or
+  another unit's, or when the figure the text gives is the interior size.

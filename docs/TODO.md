@@ -126,6 +126,13 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   on their unit page within two years, and the mixture reading puts a quarter to a third of
   the blank class at 1 bedroom or more. A floor plan or photo count per ad would decide them, and no cheaper
   evidence exists in the records. Real Street's 20 blank ads with 2 rooms are among them.
+- [ ] Studio-coded ads on units of 5 or more coded rooms (S16,
+  `docs/notes/blind-spots-2026-11-14.md`). Of L1's 271 held-out studios with 4 to 20 coded
+  rooms, the 82 at 5 or more ask +0.15 to +0.67 over its median, and 11 of the 24 overpriced
+  misses read as bedrooms too low are among them. Unlike blank forms, these carry a typed
+  room count. Read 30 of the 905 rows against the unit's other ads and floor plan count
+  before writing a rule: the 8 precision reads at 5 rooms found 1 one-bedroom, 3 studios
+  and 4 unclear.
 - [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
   for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
   or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the
