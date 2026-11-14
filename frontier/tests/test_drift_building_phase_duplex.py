@@ -1,4 +1,5 @@
-"""L1 with a factor on the noise of duplex rows (`rentfrontier.drift_building_phase_duplex`)."""
+"""L1 with a factor on the noise of duplex rows and text penthouse rows
+(`rentfrontier.drift_building_phase_duplex`)."""
 
 import dataclasses
 import hashlib
@@ -22,13 +23,14 @@ from rentfrontier import (
 M = drift_building_phase_duplex
 P, K = len(M.PHASES), len(M.MARKS)
 FREE = P
-# The duplex factor of the tests' states, far from 1.
+# The marked rows' factor k in the tests' states, far from 1.
 KAPPA = 1.6
 
 
 def test_a_cells_factor_is_its_phases_times_k_on_marked_rows():
     names, A = M.cells(), M.cell_map()
-    assert names[:2] == ("10-13|other", "10-13|duplex") and len(names) == P * K
+    assert names[:2] == ("10-13|other", "10-13|duplex or penthouse")
+    assert len(names) == P * K
     assert A.shape == (P * K, FREE) and not A[0].any()
     assert M.DUPLEX == FREE - 1
     np.testing.assert_array_equal(A[:, M.DUPLEX], np.tile([0, 1], P))
@@ -41,17 +43,33 @@ def test_a_cells_factor_is_its_phases_times_k_on_marked_rows():
     np.testing.assert_allclose(cell.reshape(P, K), np.outer(phase, [1, k]))
 
 
-def test_each_rows_mark_is_its_own_duplex_column():
+def test_each_rows_mark_is_its_own_duplex_or_penthouse_column():
     # Two ads of a unit: the marked ad's mark stays on its own row.
     frame = pd.DataFrame(
         {
-            "unit_id": ["a", "a", "b", "b"],
-            "duplex": pd.array([True, False, None, True], dtype="boolean"),
+            "unit_id": ["a", "a", "b", "b", "c", "c"],
+            "duplex": pd.array([True, False, None, True, False, None], dtype="boolean"),
+            "penthouse": pd.array(
+                [False, False, None, True, True, None], dtype="boolean"
+            ),
         }
     )
-    np.testing.assert_array_equal(M.mark_index(frame), [1, 0, 0, 1])
-    with pytest.raises(ValueError, match="duplex"):
-        M.design(frame.drop(columns="duplex"))
+    np.testing.assert_array_equal(M.mark_index(frame), [1, 0, 0, 1, 1, 0])
+
+
+def test_a_penthouse_alone_marks_its_row():
+    frame = pd.DataFrame({"duplex": [False, False], "penthouse": [True, False]})
+    np.testing.assert_array_equal(M.mark_index(frame), [1, 0])
+
+
+@pytest.mark.parametrize("column", ["duplex", "penthouse"])
+def test_a_frame_without_either_column_is_refused(column):
+    frame = pd.DataFrame({"duplex": [True, False], "penthouse": [False, True]})
+    for f in (M.mark_index, M.design):
+        with pytest.raises(ValueError, match=f"has no {column} ") as e:
+            f(frame.drop(columns=column))
+        assert "rentfrontier.b0duplex" in str(e.value)
+        assert "rentfrontier.b0penthouse" in str(e.value)
 
 
 def _duplexed(seed=4, marked=0.25, **kw):
@@ -291,6 +309,8 @@ def test_the_model_is_l1_with_the_duplex_factor():
     )
     d = _duplexed(n=300)
     rec = M.run_record(d)["phase"]
-    assert rec["reference"] == "10-13" and rec["marks"] == ["other", "duplex"]
+    assert rec["reference"] == "10-13"
+    assert rec["marks"] == ["other", "duplex or penthouse"]
+    assert "b0duplex" in rec["mark_of"] and "b0penthouse" in rec["mark_of"]
     assert sum(rec["rows"].values()) == sum(rec["mark_rows"].values()) == len(d.y)
-    assert rec["mark_rows"]["duplex"] == int((d.phase % K == 1).sum())
+    assert rec["mark_rows"]["duplex or penthouse"] == int((d.phase % K == 1).sum())

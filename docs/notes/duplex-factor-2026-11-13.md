@@ -18,8 +18,12 @@ budget from Ben.
 ## The change
 
 `drift-building-phase-duplex` (`frontier/src/rentfrontier/drift_building_phase_duplex.py`)
-takes L1's design and gives each row a mark, 1 where its listing's `duplex` is true and 0
-where it is false or missing. A marked row's noise scale gets a factor k on top of its
+takes L1's design and gives each row a mark, 1 where its listing's `duplex` or `penthouse`
+is true and 0 where both are false or missing. The `penthouse` column joined the mark before
+any launch, after S14 (`docs/notes/unusual-units-2026-11-13.md`) found that asks of ads
+calling the unit a penthouse in their text scatter about as much wider than L1 expects as
+duplexes' asks do. `rentfrontier.b0penthouse` writes S14's text pattern into the duplex copy
+of L1's dataset as that column. A marked row's noise scale gets a factor k on top of its
 phase's,
 
     s_i = sigma[group_i] × f[phase_i] × k^m_i,
@@ -27,6 +31,18 @@ phase's,
 and the unit's process, the building's level and the rows' means stay as L1 has them. log k
 takes the Normal(0, 0.3) prior of the phases' log factors, and the scale step draws it with
 the six phase factors, the unit scales, sigma and nu.
+
+`penthouse` marks 24,084 of the 1,896,471 rows (1.27%), and 7,669 of them are duplexes too,
+so the mark covers 124,820 rows (6.58%) against `duplex`'s 108,405. Of L1's 189,647
+held-out ads it marks 2,467, 765 of them duplexes, and the mark covers 12,031: 10,329
+duplexes and 1,702 text penthouses without one. I compared the column with S14's text marks
+listing by listing in `docs/notes/duplex-factor-2026-11-13/penthouse_check.py` (its output is
+`penthouse_check.json` beside it). Both mark 2,467 held-out ads and agree on all but two of
+them: the column marks one ad that S14 leaves out, and S14 marks one that the column leaves
+out. For each of the two, the build's records file and S14's give the listing's latest record
+a different description. Over all rows they disagree on 14 listings. Nine are the same kind of
+case, and in the other five S14's record has a description of 20 characters or fewer, below
+the floor the column applies as `duplex` does.
 
 Each row's mark comes from its own listing's text, so an ad of a unit takes no mark from the
 unit's other ads, and a later ad's text marks no earlier row. With k on the noise alone, a
@@ -90,6 +106,10 @@ machine, 2% more. The seventh free factor adds a direction to the scale step's s
 and nothing else in the sweep changes. Before the revision, with k on the unit's process too,
 seven runs at a load of 10 to 29 had put D1 12% over L1.
 
+I timed these before `penthouse` joined the mark. The text penthouses move rows from the
+unmarked cells to the marked ones and leave the 14 cells and 7 free factors as they were, so
+I expect the cost of a sweep to stay as timed and did not time it again.
+
 `cap.py` keeps D1's stated rate at 1.1 s a pair of chains, against L1's 1.0, as an upper
 figure. L1's containers swept at 0.776 s on Modal, and at 2% to 6% more the 2,520 s sweep
 budget holds 3,060 to 3,180 sweeps: 500 warmup and 2,560 to 2,680 draws a chain, against L1's
@@ -104,12 +124,12 @@ cap can reclaim. Since #1359 L1's host peaks near 9 GB on Modal, so D1 runs in t
 
 ## Launch plan (no fit is launched by this note)
 
-Three H100 containers on the duplex copy of L1's dataset, seeds 1 to 3, pooled by
-`drift_pool` into 6 chains, as for L1T:
+Three H100 containers on the duplex and penthouse copy of L1's dataset, seeds 1 to 3, pooled
+by `drift_pool` into 6 chains, as for L1T:
 
 ```sh
 cd /data1/apartments/serve/master
-D=/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise-duplex
+D=/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise-duplex-penthouse
 IN=/data1/apartments/pipeline/datasets/rows-b3ddebf19af1dc1e.parquet
 for j in "dxa 1" "dxb 2" "dxc 3"; do
   read -r label seed <<<"$j"
@@ -121,11 +141,12 @@ done
 ```
 
 COMMIT is the merge commit of the PR that adds the model. The copy has L1's rows in L1's
-order with one more column, so the held-out ads are L1's. I compare the pool with L1's pool,
+order with two more columns, so the held-out ads are L1's. I compare the pool with L1's pool,
 `drift-building-phase-b0-latest-9a7830fb-l1`, on those ads: elpd with the SE clustered by
 building, the median's error and the coverage of the 50%, 80% and 95% intervals
-(`python -m rentfrontier.drift_score RUN`). I split each count between the ads the column
-marks and the rest by joining `pred_scores.npz`'s listings to the column.
+(`python -m rentfrontier.drift_score RUN`). I split each count between the ads the mark
+covers and the rest by joining `pred_scores.npz`'s listings to the two columns, and split the
+marked ads again into duplexes and text penthouses without duplexes.
 
 ## Predictions (written before launch, revised before launch)
 
