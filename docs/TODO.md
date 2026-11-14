@@ -71,6 +71,8 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   no recorded free months, 94,867 of them through 2019 (11.9% of those rows) and 25,230
   in 2020 (12.3%), and on 586 to 1,549 rows a year since 2021. The column therefore acts
   on the years before listers used the structured field and hardly on current ads.
+  Since 2026-11-13 the column exists as `months_free_text` in the `-freetext` copy of L1's
+  dataset (the parsing item below). No fit reads it yet, so the prediction is untested.
 - [ ] Diagnostics: take each held-out ad's previous ask from the same build and the same
   model unit as the fit. `prev_ask` in `site/diagnostics/ads.parquet` comes from the market
   build's history, which crosses the pieces of an apartment: in 40% of the ads whose
