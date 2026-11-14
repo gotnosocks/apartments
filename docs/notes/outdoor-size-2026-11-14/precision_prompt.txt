@@ -1,0 +1,34 @@
+You are checking NYC rental ads for a research check. Read the file BATCH with the Read tool. It
+holds 10 JSON lines, one ad each, with these keys:
+
+- `read_id`;
+- `address`: the building's key, a street address and borough;
+- `coded_fields`: the ad's coded bedroom count and full baths, and whether any private outdoor
+  space is coded for the unit;
+- `description`: the ad's latest text, with every dollar figure replaced by [amount].
+
+For each ad, answer this question about the advertised unit:
+
+  Does the description state the size, in square feet, of a private outdoor space for this
+  unit alone, such as a terrace, balcony, patio, yard, garden or roof deck? Answer "no" when
+  every outdoor size the text states belongs to a space shared with other tenants, to the
+  building, or to another unit or listing the ad mentions, when the size is offered only for
+  some apartments in the building, and when the figure is the interior, the lot or the
+  building rather than the outdoor space.
+
+Answer "yes", "no" or "unclear". Judge only from the description and the coded fields, and
+don't guess: when the text doesn't settle it, answer "unclear".
+
+Write one JSON line per ad to OUT with these keys:
+
+- `read_id`;
+- `answer`: "yes", "no" or "unclear";
+- `sqft`: when the answer is "yes", the unit's private outdoor area in square feet as a number,
+  adding the sizes when the text gives several private spaces of the unit and taking the
+  middle of a range; otherwise null;
+- `evidence`: a quote of at most 25 words from the description that settles the answer, or ""
+  when it is "unclear".
+
+Write OUT with the Write tool as plain JSON lines, exactly one per input line, in input order.
+Open no file other than BATCH. Then reply only with the number of lines written and the count
+of each answer.
