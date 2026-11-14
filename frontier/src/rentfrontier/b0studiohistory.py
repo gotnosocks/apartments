@@ -29,9 +29,15 @@ I read SRC's `rows.parquet`, the ads file of SRC's own pipeline build (the manif
    before the row's ad, since their coding was known when the row's ad went up
    (`docs/leak-free-scoring.md`). For a training row I keep ads on both sides. The split
    ignores bedrooms, so `splits.latest_split` draws the same rows from SRC and OUT.
-3. I give the row the bedroom count of the evidence ad nearest to it in time. When several
-   ads lie at that distance and give different counts, the row stays a studio, and so does a
-   held-out row with no earlier evidence ad.
+3. I give the row the bedroom count of the evidence ad nearest to it in time. The row stays a
+   studio in three cases:
+   - several ads lie at that distance and give different counts;
+   - the count is at least the row's coded rooms, as when a 5-room row would get 5
+     bedrooms, which suggests the page mixes in another apartment;
+   - the row is held out and has no earlier evidence ad.
+
+   The guard on rooms is mine. S17's H1 has none, and S17's H2 (an ad's rooms within 1 of
+   the row's) is a stricter variant I left unwritten.
 
 Without `--out` I print the counts and write nothing. With it I write OUT with:
 
@@ -46,11 +52,12 @@ SRC stays as it is, and OUT must not exist yet. `recode` returns its frame uncha
 it is given `rule=RULE`.
 
 On L1's dataset (`b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise`) step 1 marks 243
-rows (24 held out) in 228 units and 161 buildings, matching S17. Step 3 recodes 231 of them
-in 218 units and 155 buildings, 219 in training and 12 held out, to 1 bedroom (82 rows),
-2 (82), 3 (48), 4 (15) and 5 (4).
-The 12 other held-out rows have no earlier evidence ad and stay studios. No row ends in a
-tie. On 28 recoded rows the evidence ads disagree, and I take the nearest ad's count.
+rows (24 held out) in 228 units and 161 buildings, matching S17. Step 3 recodes 227 of them
+in 216 units and 153 buildings, 216 in training and 11 held out, to 1 bedroom (82 rows),
+2 (82), 3 (48) and 4 (15). On 28 recoded rows the evidence ads disagree, and I take the
+nearest ad's count. The guard on rooms keeps 4 rows as studios (1 held out), all 5-room rows
+whose nearest ad gives 5 bedrooms. Another 12 held-out rows have no earlier evidence ad, and
+no row ends in a tie.
 """
 
 from __future__ import annotations
@@ -78,6 +85,7 @@ CODES = Path(
     )
 )
 RECODED = "recoded"
+AT_ROOMS = "bedrooms reach rooms"
 TIE = "tie"
 NO_EARLIER_AD = "no earlier ad"
 
@@ -102,10 +110,18 @@ def evidence(
     - `days`: the distance in days to the nearest kept ad, missing without one.
     - `nearest`: the listing ids of the kept ads at that distance, and `nearest_bedrooms`
       their bedroom counts.
+    - `chosen`: the nearest ads' count when they agree on one.
     - `bedrooms`: the count step 3 gives, missing when the row stays a studio.
-    - `outcome`: `RECODED`, `TIE` or `NO_EARLIER_AD`.
+    - `outcome`: `RECODED`, `AT_ROOMS`, `TIE` or `NO_EARLIER_AD`.
+
+    Listing ids must be unique in `frame` and in `ads`.
     """
     lid = frame.listing_id.astype(str)
+    # `recoded` writes by position, and the merges below pair ads by listing id, so a
+    # repeated id would recode one of its rows and leave the others.
+    for name, listing_ids in (("rows", lid), ("ads", ads.listing_id)):
+        if listing_ids.duplicated().any():
+            raise ValueError(f"the {name} repeat listing ids")
     rooms = lid.map(codes.set_index(codes.listing_id.astype(str)).rooms)
     rows = pd.DataFrame(
         {
@@ -175,12 +191,14 @@ def evidence(
     table["days"] = by_nearest.distance.first().reindex(ids)
     table["nearest"] = by_nearest.ad.agg(lambda a: tuple(sorted(a))).reindex(ids)
     table["nearest_bedrooms"] = by_nearest.ad_bedrooms.agg(_counts_of).reindex(ids)
-    choice = table.nearest_bedrooms.map(
+    table["chosen"] = table.nearest_bedrooms.map(
         lambda k: k[0] if isinstance(k, tuple) and len(k) == 1 else np.nan
-    )
-    table["bedrooms"] = choice.astype("float64")
+    ).astype("float64")
+    table["bedrooms"] = table.chosen.where(table.chosen < table.rooms)
     table["outcome"] = np.select(
-        [table.bedrooms.notna(), table.ads_kept > 0], [RECODED, TIE], NO_EARLIER_AD
+        [table.bedrooms.notna(), table.chosen.notna(), table.ads_kept > 0],
+        [RECODED, AT_ROOMS, TIE],
+        NO_EARLIER_AD,
     )
     return table
 
@@ -236,7 +254,7 @@ def counts(table: pd.DataFrame) -> dict:
         },
         "unchanged": {
             outcome: scope(table[table.outcome == outcome])
-            for outcome in (TIE, NO_EARLIER_AD)
+            for outcome in (AT_ROOMS, TIE, NO_EARLIER_AD)
         },
     }
 
@@ -261,8 +279,8 @@ def run(src: Path, out: Path | None = None, codes_path: Path = CODES) -> dict:
         "rule": RULE,
         "description": "a studio-coded row on 5 to 20 coded rooms takes the bedroom count of "
         "the nearest ad of its unit page coded 1 or more bedrooms within 730 days, earlier "
-        "ads only for a row the latest split holds out; a tie at the nearest distance "
-        "leaves it a studio",
+        "ads only for a row the latest split holds out; a tie at the nearest distance, or "
+        "a count at or above the row's coded rooms, leaves it a studio",
         "ads": ads_file["path"],
         "ads_sha256": ads_file["sha256"],
         "codes": str(codes_path),

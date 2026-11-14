@@ -112,6 +112,43 @@ def test_a_heldout_row_reads_only_earlier_ads():
         assert bedrooms == 0.0 and row.outcome == sh.NO_EARLIER_AD and row.ads_kept == 0
 
 
+@pytest.mark.parametrize("ad_bedrooms", [5.0, 6.0])
+def test_a_count_at_or_above_the_rooms_keeps_the_studio(ad_bedrooms):
+    row, bedrooms = studio([("a", 10, ad_bedrooms)], rooms=5)
+    assert bedrooms == 0.0 and row.outcome == sh.AT_ROOMS
+    assert row.chosen == ad_bedrooms and np.isnan(row.bedrooms)
+    row, bedrooms = studio([("a", 10, 4.0)], rooms=5)
+    assert bedrooms == 4.0 and row.outcome == sh.RECODED
+    frame, ads, codes, held = case([("a", 10, ad_bedrooms)], rooms=5)
+    c = sh.counts(sh.evidence(frame, ads, codes, held))
+    assert c["recoded"]["rows"] == 0 and c["unchanged"][sh.AT_ROOMS]["rows"] == 1
+
+
+def test_a_studio_row_with_missing_bedrooms_is_left_alone():
+    frame, ads, codes, held = case([("a", 10, 2.0)])
+    frame = frame.assign(bedrooms=[np.nan, 1.0])
+    assert sh.evidence(frame, ads, codes, held).empty
+    out = sh.recode(frame, ads, codes, held, rule=sh.RULE)
+    pd.testing.assert_frame_equal(out, frame)
+
+
+def test_a_row_absent_from_the_ads_file_is_left_alone():
+    frame, ads, codes, held = case([("a", 10, 2.0)])
+    ads = ads[ads.listing_id != "s"]
+    assert sh.evidence(frame, ads, codes, held).empty
+    out = sh.recode(frame, ads, codes, held, rule=sh.RULE)
+    pd.testing.assert_frame_equal(out, frame)
+
+
+def test_repeated_listing_ids_are_refused():
+    frame, ads, codes, held = case([("a", 10, 2.0)])
+    twice = pd.concat([frame, frame.iloc[:1]], ignore_index=True)
+    with pytest.raises(ValueError, match="rows repeat"):
+        sh.evidence(twice, ads, codes, np.zeros(3, dtype=bool))
+    with pytest.raises(ValueError, match="ads repeat"):
+        sh.recode(frame, pd.concat([ads, ads.iloc[-1:]]), codes, held, rule=sh.RULE)
+
+
 def test_the_rule_is_off_by_default():
     frame, ads, codes, held = case([("a", 10, 1.0)])
     assert sh.recode(frame, ads, codes, held) is frame

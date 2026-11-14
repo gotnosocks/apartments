@@ -17,11 +17,15 @@ the listing-codes file. I read coded fields only, with no ad text.
 1. I give the row the bedroom count of the ad nearest to it in time.
 2. When several ads lie at that nearest distance and give different counts, the row stays a
    studio. No row of L1's dataset ends that way.
-3. I ignore farther ads. S17 had preferred an exclusion because unit histories disagree on
+3. When the count is at least the row's own coded rooms, the row stays a studio too. A 5-room
+   apartment with 5 bedrooms is unlikely, and such a count suggests the page mixes in another
+   apartment (see the caveat on mixed pages below). This guard departs from S17's H1, which
+   has no such check. It keeps 4 rows as studios on L1's dataset.
+4. I ignore farther ads. S17 had preferred an exclusion because unit histories disagree on
    the count, but with the nearest ad taken, every disagreement on L1's dataset settles. Of
    the recoded rows, 28 have ads that disagree, and I count them in the manifest entry as
    `ads_disagree`.
-4. For a row held out by the latest split, I use only ads put on the market before the row's
+5. For a row held out by the latest split, I use only ads put on the market before the row's
    ad. `docs/leak-free-scoring.md` lets a held-out row's covariates read its unit's earlier
    listings, because those are known when it is listed. F1 was withdrawn for reading whether
    a unit gets listed again, which nobody could know when the ad went up. A later ad's bedroom
@@ -30,7 +34,9 @@ the listing-codes file. I read coded fields only, with no ad text.
    only and the recode reads bedroom counts.
 
 The recode changes `bedrooms` only. Rows keep their `unit_id`, and the latest split ignores
-bedrooms, so it draws the same held-out rows before and after.
+bedrooms, so it draws the same held-out rows before and after. The recode writes by position
+and pairs ads by listing id, so I refuse rows or ads that repeat a listing id. L1's dataset
+repeats none.
 
 ## Off by default
 
@@ -61,8 +67,11 @@ counted as S17 counted them, by building and the dataset's `unit_id`.
 
 Of the 243 marked rows:
 
-- 231 are recoded, 219 in training and 12 held out, in 218 units and 155 buildings. They
-  become 1 bedroom on 82 rows, 2 on 82, 3 on 48, 4 on 15 and 5 on 4.
+- 227 are recoded, 216 in training and 11 held out, in 216 units and 153 buildings. They
+  become 1 bedroom on 82 rows, 2 on 82, 3 on 48 and 4 on 15. On 28 of them the unit's ads
+  disagree, and the nearest ad gives the count.
+- 4 rows stay studios under the guard on rooms, 3 in training and 1 held out, in 2 units and
+  2 buildings. All 4 are 5-room rows whose nearest ad gives 5 bedrooms.
 - 12 held-out rows stay studios, since their only evidence ads came later. They are in 12
   units and 10 buildings.
 - No row stays a studio through a tie.
@@ -78,13 +87,33 @@ Of the 243 marked rows:
   apart, so a recoded row keeps a unit effect separate from the history of its 1+ bedroom
   ads. Ledger sets with `other_ad` evidence would rejoin the pieces at the pipeline, but every
   build would then include them, and held-out rows would need a separate answer.
+- **Mixed pages.** Some unit pages hold ads for different apartments, and the rule links a
+  row to every ad on its page. A review of the first version counted these on L1's dataset,
+  and I recounted each figure the same way:
+  - 73 of the 228 pages of marked rows hold 3 or more bedroom counts over all their ads, and
+    12 hold 3 or more among their 1+ bedroom ads alone;
+  - on 47 of the 235 nearest ads behind a choice, the ad's coded rooms differ from the row's
+    by 3 or more;
+  - 10 choices come out at the row's rooms minus 1 or higher, 4 of them at its rooms or
+    higher;
+  - at 219 East 23rd St, three 5-room rows of one unit got 5 bedrooms from a single 6-room
+    ad, and a 5-room row at 151 Canal St got 5 bedrooms the same way.
+
+  The guard keeps those 4 rows as studios. The 6 recodes at rooms minus 1 remain, as do all
+  47 links with rooms 3 or more apart. S17's H2, written down before its reads, asks in
+  addition that the 1+ bedroom ad's rooms lie within 1 of the row's. It marks 163 rows (17
+  held out) and sets aside every ad whose rooms differ from the row's by 2 or more, though it
+  still accepts the 6-room ad at 219 East 23rd St. I left it unwritten.
 - **Rooms above 20.** With no upper bound, H1 would mark 4 more rows in 4 buildings, none held
   out. S16 and S17 treated those room counts as feed errors, so the rule leaves them out.
 
 ## Refusals
 
-The permission check refused two Bash commands, and I split each into plain steps:
+The permission check refused three Bash commands, and I split each into plain steps:
 
 1. a heredoc writing a script and then running it after `cd`, as too complex to verify;
 2. a `systemd-run` line with `PYTHONPATH=$PWD/src`, because a value was computed at runtime.
-   From then on I used absolute paths.
+   From then on I used absolute paths;
+3. the count-only command piped into `python -c` for a summary, because the second command
+   could not be shown to stay in the worktree. I saved the output to a file and read that
+   instead.

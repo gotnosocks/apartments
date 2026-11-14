@@ -139,10 +139,12 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   still ask +0.045 ± 0.025. S17 picked H1 after scoring 9 rules on those 70 ads, so that
   contrast is post hoc too. H1 is now written as an optional recode, off by default
   (`rentfrontier.b0studiohistory`, `docs/notes/studio-history-rule-2026-11-14.md`): it gives
-  231 of the rows the bedroom count of the nearest such ad, earlier ads only for held-out
-  rows. Next: add it as a step to the next data-version change that gets a fit anyway, and
-  judge the gain on its 12 recoded held-out ads with the selection in mind. Separately,
-  screen nonresidential ads at 8 or more rooms.
+  227 of the rows the bedroom count of the nearest such ad, earlier ads only for held-out
+  rows, and keeps a studio when that count reaches the row's rooms. Next: add it as a step
+  to the next data-version change that gets a fit anyway, and judge the gain on its 11
+  recoded held-out ads with the selection in mind. Some unit pages mix apartments; if that
+  fit's recoded rows miss, S17's H2 (rooms within 1) is the stricter variant. Separately, screen
+  nonresidential ads at 8 or more rooms.
 - [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
   for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
   or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the
