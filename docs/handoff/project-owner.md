@@ -54,11 +54,25 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   term comes from re-listing drift, about 0.75% less per later ad of a unit, though I haven't
   run that inside L1. City views and balcony are negative only between buildings and
   listers. Patio, roof rights, hardwood between
-  units and live-in super have no named cause. No fit candidate came out. The photo pilot
-  (about 480 OxyLabs requests and 0.4M Sonnet input tokens) waits for Ben's word.
-- **Next.** `drift_today` takes L2, the segment paths and D1 (#1364). The photo pilot for
-  S12 runs next, then the collapsed line-level module from
-  `docs/notes/line-level-screen-2026-11-12.md`.
+  units and live-in super have no named cause. No fit candidate came out.
+- **S12's photo pilot.** I committed its method and predictions (fb308c5f) and started the
+  fetch of 483 photos at 6:10 PM ET on Nov 13. I stopped it at 6:14 PM, about 200 photos in,
+  after the auto-mode classifier refused two related actions as instruction poisoning. The
+  memory note `oxylabs-standing-spend` says photo fetches need Ben's own message, and I asked
+  him for it in the thread. `p_fetch.py` skips the keys already in `fetch.jsonl`, so a rerun
+  resumes. The data sits in `/data1/apartments/tmp/sprint-20261113/photos/`. `PHOTO_RATER.md`
+  and `p_score.py` are committed with the line model's PR. To finish it, move the `rate/`
+  folders into a directory holding nothing else, run a Sonnet rater for each of the 7 batches
+  and score with `p_score.py`.
+- **LN1, the line model.** `drift-building-phase-line` (`drift_line.py`,
+  `drift_building_phase_line.py`) gives each unit's lasting level a line level (building,
+  bedrooms, full baths) and integrates the lines out in the building's collapsed step. It is
+  written, not fit, with its note and predictions in `docs/notes/line-level-model-2026-11-13.md`.
+  On the 1-in-90 sample line_sd comes to about 0.13 and unit_sd to about 0.015, against L1's
+  0.06. Three containers would cost about $11.50 to $12.00. `drift_today` still rejects it,
+  since its covariance has no line block.
+- **Next.** Nothing runs on Modal until Ben approves a budget. Candidates written and waiting:
+  D1 (duplex noise) and LN1 (lines).
 - **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
   leave it alone.
 
