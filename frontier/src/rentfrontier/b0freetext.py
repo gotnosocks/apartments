@@ -1,13 +1,15 @@
 """Write a B0 dataset with the free months each listing's ad text states, beside the coded
-`months_free`.
+`months_free`, and whether the text calls the listed price net or gross.
 
     python -m rentfrontier.b0freetext SRC OUT
 
 StreetEasy's concession field, `months_free` in the pipeline's ads file, is empty on most ads
 whose description offers free rent: it was first filled in 2020, and many later ads leave it
-blank too. This script reads the offer from the text into three new columns. It never touches
-`months_free`: ad text never overrides a coded field (Ben, 2026-10-04), so the text column sits
-beside it, and a fit or a page decides how to use the two.
+blank too. This script reads the offer from the text into three new columns, and the text's
+word on the listed price (net effective or gross) into a fourth. It leaves `months_free` and
+the ask as they are, since ad text does not override a coded field in this project (Ben,
+2026-10-04). A fit or a page using the new columns chooses how to combine them with the coded
+ones.
 
 The text is the description of each listing's latest record in the records file of SRC's
 pipeline build (the manifest's `build.records`, checked against its SHA-256), picked by the
@@ -23,15 +25,17 @@ title. `statements` finds every offer in the text:
    "FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE FREE" (three months);
 3. a bare "free month" (one month), and "13 months for the price of 12" (one month).
 
-Weeks become months at 52/12 weeks a month and days at 365/12 days a month, unrounded, so 8
-weeks free is 1.846 months. A whole count of 7 or more months ("12 month free", "11 months
-will be free", "the first 11 months and the last month is free") names the free month of the
-lease, so it counts one month. An offer of parking, a gym, storage, WiFi, an amenity fee and
-the like is passed over (`NON_RENT`), as is every "no fee" and "broker fee free", which state
-no months. A lease length stated with an offer ("on a 13-month lease", "with a 14 month
-lease", "on a one-year lease", "18 month term") comes from the offer's own clause: the first
-one after the offer and before the next offer, or else the nearest one before it and after
-the previous offer.
+Weeks become months at 4 weeks a month, as in the coded field and in the ads' own net prices:
+"8 WEEKS FREE! G 2900 N 2416" takes 2 of 12 months off 2900. The text column fills in for
+`months_free` where that is empty, so it counts in the same units. Days become months at 365/12
+days a month. Both stay unrounded, so 6 weeks free is 1.5 months and 45 days free is 1.479. A
+whole count of 7 or more months ("12 month free", "11 months will be free", "the first 11
+months and the last month is free") refers to the free month of the lease, so it counts one
+month. An offer of parking, a gym, storage, WiFi, an amenity fee and the like is passed over
+(`NON_RENT`), as is every "no fee" and "broker fee free", which state no months. A lease length
+stated with an offer ("on a 13-month lease", "with a 14 month lease", "on a one-year lease",
+"18 month term") comes from the offer's own clause: the first one after the offer and before
+the next offer, or else the nearest one before it and after the previous offer.
 
 Each offer gets a kind:
 
@@ -47,23 +51,42 @@ the ad runs. Where a text makes several offers, `choose` takes the one its sente
 the listed price (`basis`: "net effective rent based on 1 month free", "rents shown include
 1 month free", "1 MONTH FREE NET EFFECTIVE RENT LISTED"), then an exact one before a
 conditional one before an up-to one, and the first in the text among those, since an ad states
-its main offer first and its offers for longer leases after. A text with no offer gets kind
-`none` and 0 months when it denies one ("no concessions", "no free month", "no free rent"),
-and kind `unstated` with no months when it calls its price net effective or mentions free
-rent or a rent concession without a count. A text stating a concession that the price leaves
-out ("1 month free, not reflected in the price") counts as an offer: the free month is real,
-and only the price is gross.
+its main offer first and its offers for longer leases after.
+
+A text saying the building's concession leaves its unit out ("Incentives Do Not Apply.", "Unit
+3K is excluded from all promotions/concessions", `UNIT_EXCLUDED`) gets kind `none` and 0
+months, whatever it offers. A text with no offer gets kind `none` and 0 months when it denies
+one ("no concessions", "no free month", "no free rent"), and kind `unstated` with no months
+when it calls its price net effective or mentions free rent or a rent concession without a
+count. A text stating a concession left out of the price ("1 month free, not reflected in the
+price") counts as an offer: the free month is real, and only the price is gross.
+
+`ask_basis` reads every text for its word on the listed price:
+
+- `net` when it calls the price net effective ("net effective rent", "net rent", "NER") or
+  ties an offer to the price ("rent reflects a month free", `basis`);
+- `gross` when it calls the listed price gross ("gross rent advertised", "prices listed are
+  the gross"), denies it is net effective ("not net effective"), or says the price leaves a
+  concession out ("1 month free, not reflected in the price", "pricing listed does not include
+  the free rent"; `LEFT_OUT`, with a concession word earlier in the sentence for its first
+  form, so "utilities not included in the rent" says nothing);
+- null when it says neither, or both.
+
+A net effective mention right after "not", "no" or "never", as in "approvals are based on the
+gross rent, not the net effective rent", counts as no mention of a net price.
 
 OUT gets:
 
 - `rows.parquet`: SRC's rows in SRC's order, with `months_free_text` (float64, NaN with no
   count), `free_lease_months` (float64, NaN with no lease stated) and `free_text_kind`
   (string: exact, up_to, conditional, none or unstated; null when the text says nothing of a
-  concession) added;
+  concession) and `ask_basis_text` (string: net or gross; null when the text says neither or
+  both) added;
 - SRC's other files, copied;
 - `manifest.json`: SRC's manifest with `rows_sha256` updated and a `free_text` entry giving
   SRC's path and rows SHA-256, the records file and its SHA-256, the rules and conversions,
-  and counts of rows by kind and of rows whose text offers more than one count of months.
+  counts of rows by kind and of rows with more than one count of months in their text, and
+  counts of rows by basis, including rows with a text saying both.
 
 SRC stays as it is, and OUT must not exist yet.
 """
@@ -84,7 +107,7 @@ import pyarrow.parquet as pq
 
 from .b0data import sha256
 
-WEEKS_PER_MONTH = 52 / 12
+WEEKS_PER_MONTH = 4.0
 DAYS_PER_MONTH = 365 / 12
 KINDS = ("exact", "up_to", "conditional", "none", "unstated")
 # An exact offer is chosen over a conditional one, and both over an up-to one.
@@ -277,6 +300,47 @@ BASIS_AFTER = re.compile(
     re.I,
 )
 NOT_BASIS = re.compile(r"\b(?:not|without|exclud\w*)\b|n['’]t\b", re.I)
+# The building's concession leaves the ad's unit out: "Incentives Do Not Apply." ending its
+# sentence, or "Unit 3K is excluded from all promotions/concessions". "Concessions will not
+# apply to renewals" limits the offer to some leases, and leaves it in place.
+UNIT_EXCLUDED = re.compile(
+    r"\b(?:incentives?|concessions?|promotions?|specials?|offers?)\s+(?:do(?:es)?\s+not|"
+    r"don['’]t|doesn['’]t|will\s+not|won['’]t)\s+apply"
+    r"(?:\s+(?:to|for)\s+(?:this|the)\s+(?:unit|apartment|apt|residence))?\s*(?=[.!)*\n]|$)"
+    r"|\b(?:this\s+)?(?:unit|apartment|apt|residence)\s+(?:#\s*)?(?:[\w-]{1,5}\s+)?(?:is\s+)?"
+    r"(?:excluded\s+from|not\s+eligible\s+for|ineligible\s+for)\s+(?:the\s+|any\s+|all\s+)?"
+    r"(?:\w+\s*/\s*)?(?:promotions?|concessions?|incentives?|specials?|offers?)",
+    re.I,
+)
+# What a text says of its listed price. A net effective mention after "not", "no" or "never"
+# is no claim of a net price; after "not" or "no" directly ("not net effective") it says the
+# price is gross.
+NET = re.compile(
+    r"\bnett?[\s-]*effective|\bnet\s+(?:rent|price|pricing|rate)s?\b|\bNER\b", re.I
+)
+NOT_NET = re.compile(
+    r"\b(?:not|no|isn['’]t|aren['’]t)\s+(?:a\s+)?nett?[\s-]*effective", re.I
+)
+GROSS = re.compile(
+    r"\bgross\s+(?:monthly\s+)?(?:rents?|prices?|pricing|rates?)\s+(?:of\s+\$[\d,.]+\s+)?"
+    r"(?:is\s+|are\s+)?(?:being\s+)?(?:advertised|listed|shown|displayed|posted|quoted)"
+    r"|\b(?:rents?|prices?|pricing|rates?)\s+(?:(?:advertised|listed|shown|displayed|posted|"
+    r"quoted)\s+)?(?:on\s+\w+\s+)?(?:is|are)\s+(?:the\s+)?gross\b",
+    re.I,
+)
+LEFT_OUT = re.compile(
+    r"\b(?:not|n['’]t)\s+(?:been\s+)?(?:included|reflected|factored|incorporated|calculated)"
+    r"\s+(?:in(?:to)?|within)\s+(?:the\s+|this\s+)?(?:(?:posted|listed|advertised|shown|"
+    r"displayed|asking|quoted|above|stated)\s+)?(?:price|rent|pricing|rate|amount)s?\b"
+    r"|\b(?P<subject>price|rent|pricing|rate)s?\s+(?:[\w$,.]+\s+){0,3}?(?:does|do|did|will)\s*"
+    r"(?:not|n['’]t)\s+(?:include|reflect|account\s+for)\w*\s+(?:the\s+|any\s+|a\s+)?"
+    r"(?:[\w-]+\s+){0,3}?(?:free|concessions?|incentives?|specials?|discounts?|promotions?"
+    r"|net)\b",
+    re.I,
+)
+CONCESSION_WORD = re.compile(
+    r"free|concession|incentive|special|discount|promotion|abatement|\bOP\b", re.I
+)
 # Text that may hold a statement; the rest is skipped unparsed.
 PREFILTER = re.compile(
     r"free|concession|complimentary|on\s+us\b|waived|abatement|net[\s-]*effective|\bnet\s"
@@ -454,12 +518,16 @@ def choose(offers: list[Offer]) -> Offer:
     return best
 
 
-def parse(text: str | None) -> tuple[float, float, str | None, int]:
+def parse(
+    text: str | None, offers: list[Offer] | None = None
+) -> tuple[float, float, str | None, int]:
     """`months_free_text`, `free_lease_months`, `free_text_kind` and the number of distinct
-    counts of months offered in an ad's text."""
+    counts of months offered in an ad's text. `offers`, when given, is `statements(text)`."""
     if not text or not PREFILTER.search(text):
         return np.nan, np.nan, None, 0
-    offers = statements(text)
+    if UNIT_EXCLUDED.search(text):
+        return 0.0, np.nan, "none", 0
+    offers = statements(text) if offers is None else offers
     if offers:
         best = choose(offers)
         return best.months, best.lease, best.kind, len({o.months for o in offers})
@@ -469,6 +537,35 @@ def parse(text: str | None) -> tuple[float, float, str | None, int]:
         if not NOT_BEFORE.search(text[max(0, m.start() - 12) : m.start()]):
             return np.nan, np.nan, "unstated", 0
     return np.nan, np.nan, None, 0
+
+
+def basis_stated(text: str | None, offers: list[Offer] = ()) -> str | None:
+    """net or gross for what `text` says of its listed price, both when it says both, None
+    when it says neither. `offers` is `statements(text)`, or empty when the text holds no
+    offer."""
+    if not text:
+        return None
+    net = any(o.basis for o in offers) or any(
+        not NOT_BEFORE.search(text[max(0, m.start() - 12) : m.start()])
+        for m in NET.finditer(text)
+    )
+    gross = bool(GROSS.search(text) or NOT_NET.search(text))
+    for m in LEFT_OUT.finditer(text):
+        if gross:
+            break
+        # "not included in the rent" says the price leaves a concession out only when the
+        # concession comes earlier in its sentence.
+        lo = max(0, m.start() - 150)
+        for s in SENTENCE.finditer(text, lo, m.start()):
+            lo = s.end()
+        gross = bool(m.group("subject") or CONCESSION_WORD.search(text, lo, m.start()))
+    return "both" if net and gross else "net" if net else "gross" if gross else None
+
+
+def ask_basis(text: str | None, offers: list[Offer] = ()) -> str | None:
+    """`ask_basis_text`: net or gross, or None when the text says neither or both."""
+    b = basis_stated(text, offers)
+    return None if b == "both" else b
 
 
 def latest_parses(path: Path, ids: set[str]) -> pd.DataFrame:
@@ -502,11 +599,13 @@ def latest_parses(path: Path, ids: set[str]) -> pd.DataFrame:
             if i in seen and seen[i][0] >= t:
                 continue
             listing = json.loads(raw) if raw else {}
-            seen[i] = (t, *parse(str(listing.get("description") or "")))
+            text = str(listing.get("description") or "")
+            offers = statements(text) if PREFILTER.search(text) else []
+            seen[i] = (t, *parse(text, offers), basis_stated(text, offers))
         del raws
     return pd.DataFrame(
         [(i, *v[1:]) for i, v in seen.items()],
-        columns=["listing_id", "months", "lease", "kind", "offers"],
+        columns=["listing_id", "months", "lease", "kind", "offers", "basis"],
     ).set_index("listing_id")
 
 
@@ -524,6 +623,10 @@ def free_text(src: Path, out: Path) -> dict:
     frame["months_free_text"] = lid.map(read.months).astype(float).to_numpy()
     frame["free_lease_months"] = lid.map(read.lease).astype(float).to_numpy()
     frame["free_text_kind"] = pd.array(lid.map(read.kind).to_numpy(object), "string")
+    stated = lid.map(read.basis)
+    frame["ask_basis_text"] = pd.array(
+        stated.where(stated != "both").to_numpy(object), "string"
+    )
     offers = lid.map(read.offers).fillna(0).to_numpy(int)
     # OUT is made after the read of the records, so a failed read leaves no OUT behind.
     out.mkdir(parents=True, exist_ok=False)
@@ -549,17 +652,26 @@ def free_text(src: Path, out: Path) -> dict:
             "deadline, qualification or select units in the clause, else exact; of several "
             "offers one tied to the listed price, then the exact, then conditional, then "
             "up_to one first in the text; none "
-            "(0 months) when the text denies a concession and makes no offer; unstated "
-            "when it calls the price net effective or mentions free rent with no count "
+            "(0 months) when the text denies a concession and makes no offer, or says the "
+            "building's concession leaves the unit out; unstated "
+            "when it calls the price net effective or mentions free rent with no count; "
+            "weeks at 4 to the month, as months_free counts them "
             "(rentfrontier.b0freetext)",
+            "basis_rule": "ask_basis_text net when the text calls the price net effective "
+            "or ties an offer to it, gross when it calls the listed price gross, denies it "
+            "is net effective or says the price leaves a concession out; null when it says "
+            "neither or both",
             "weeks_per_month": WEEKS_PER_MONTH,
             "days_per_month": DAYS_PER_MONTH,
-            "coded_field": "months_free is not read or changed",
+            "coded_field": "months_free and latest_ask are not read or changed",
             "listings_read": len(read),
             "rows_by_kind": {k: int((kind == k).sum()) for k in KINDS},
             "rows_with_months": int(frame.months_free_text.gt(0).sum()),
             "rows_with_lease": int(frame.free_lease_months.notna().sum()),
             "rows_with_several_offers": int((offers > 1).sum()),
+            "rows_by_basis": {
+                b: int((stated == b).sum()) for b in ("net", "gross", "both")
+            },
         },
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))

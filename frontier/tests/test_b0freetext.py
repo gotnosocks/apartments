@@ -10,7 +10,7 @@ from rentfrontier import b0freetext as ft
 from rentfrontier.b0data import sha256
 
 NAN = math.nan
-WEEK = 12 / 52
+WEEK = 1 / 4
 DAY = 12 / 365
 
 
@@ -45,9 +45,10 @@ DAY = 12 / 365
         ("Net effective on a 12-month lease with a 1/2 MONTH FREE", 0.5, 12, "exact"),
         ("Paying 1 month OP and .50 Free month on a 12 month term", 0.5, 12, "exact"),
         ("based on a gross rent of $3057.00 and 2.66 Months Free", 2.66, NAN, "exact"),
-        # Weeks and days, unrounded.
+        # Weeks at 4 to the month, and days, unrounded.
         ("8 weeks free on a 12 month lease", 8 * WEEK, 12, "exact"),
         ("2 weeks free", 2 * WEEK, NAN, "exact"),
+        ("8 WEEKS FREE! G 2900 N 2416", 2, NAN, "exact"),
         ("30 days free rent", 30 * DAY, NAN, "exact"),
         # A month named by its place in the lease.
         ("First month free!", 1, NAN, "exact"),
@@ -99,6 +100,31 @@ DAY = 12 / 365
         ("one month free plus free gym", 1, NAN, "exact"),
         ("Month-to-month free of charge", NAN, NAN, None),
         (None, NAN, NAN, None),
+        # The building's concession leaves the unit out.
+        (
+            "1 month free on a 12 month lease. Gross Price $2436. Incentives Do Not Apply.",
+            0,
+            NAN,
+            "none",
+        ),
+        (
+            "2 months free! Unit 3K is excluded from all promotions/concessions.",
+            0,
+            NAN,
+            "none",
+        ),
+        (
+            "1 month free. This apartment is not eligible for the concession.",
+            0,
+            NAN,
+            "none",
+        ),
+        (
+            "2 months free. Concessions will not apply to renewals or leases beyond a year.",
+            2,
+            NAN,
+            "exact",
+        ),
     ],
 )
 def test_parse(text, months, lease, kind):
@@ -106,6 +132,36 @@ def test_parse(text, months, lease, kind):
     assert got[0] == pytest.approx(months, nan_ok=True)
     assert got[1] == pytest.approx(lease, nan_ok=True)
     assert got[2] == kind
+
+
+@pytest.mark.parametrize(
+    "text, basis",
+    [
+        ("Net effective rent shown", "net"),
+        ("NER $3,100 on a 13 month lease", "net"),
+        ("Rent reflects a month free", "net"),
+        ("*Gross Rent Advertised.*", "gross"),
+        ("All prices listed on StreetEasy are the gross prices.", "gross"),
+        ("Not net effective, the gross rent", "gross"),
+        ("1 month free, not reflected in the price", "gross"),
+        (
+            "Gross pricing of $3,895 listed does not include the free rent incentive.",
+            "gross",
+        ),
+        # A net effective mention after "not" says nothing of the listed price.
+        ("Approvals are based on the gross rent, not the net effective rent.", None),
+        # Things left out of the rent other than a concession.
+        ("Utilities not included in the rent.", None),
+        ("Upfront fees not included in the monthly rent.", None),
+        ("Photos may not reflect the exact unit.", None),
+        # A text saying both gets no basis.
+        ("Net effective rent shown. Gross rent advertised on other sites.", None),
+        (None, None),
+    ],
+)
+def test_ask_basis(text, basis):
+    offers = ft.statements(text) if text else []
+    assert ft.ask_basis(text, offers) == basis
 
 
 def test_several_offers_choose_the_first_exact_one():
@@ -219,29 +275,35 @@ def test_free_text_adds_the_columns_and_leaves_src_alone(src, tmp_path):
     manifest = ft.free_text(src, out)
     rows = pd.read_parquet(out / "rows.parquet")
     before = pd.read_parquet(src / "rows.parquet")
-    added = ["months_free_text", "free_lease_months", "free_text_kind"]
+    added = [
+        "months_free_text",
+        "free_lease_months",
+        "free_text_kind",
+        "ask_basis_text",
+    ]
     pd.testing.assert_frame_equal(rows.drop(columns=added), before)
     got = {
-        lid: (m, lease, None if pd.isna(k) else k)
-        for lid, m, lease, k in zip(rows.listing_id, *(rows[c] for c in added))
+        lid: (m, lease, None if pd.isna(k) else k, None if pd.isna(b) else b)
+        for lid, m, lease, k, b in zip(rows.listing_id, *(rows[c] for c in added))
     }
     expect = {
-        1: (2, 14, "exact"),
-        2: (6 * WEEK, NAN, "up_to"),
-        3: (0, NAN, "none"),
-        4: (NAN, NAN, "unstated"),
-        5: (1, 12, "exact"),  # its latest record
-        6: (NAN, NAN, None),  # parking is not rent
-        7: (2, NAN, "conditional"),
-        8: (NAN, NAN, None),  # no description
-        9: (NAN, NAN, None),  # its only record has no time
-        10: (NAN, NAN, None),  # no record
+        1: (2, 14, "exact", "net"),
+        2: (1.5, NAN, "up_to", None),
+        3: (0, NAN, "none", "gross"),
+        4: (NAN, NAN, "unstated", "net"),
+        5: (1, 12, "exact", None),  # its latest record
+        6: (NAN, NAN, None, None),  # parking is not rent
+        7: (2, NAN, "conditional", None),
+        8: (NAN, NAN, None, None),  # no description
+        9: (NAN, NAN, None, None),  # its only record has no time
+        10: (NAN, NAN, None, None),  # no record
     }
-    for lid, (m, lease, kind) in expect.items():
+    for lid, (m, lease, kind, basis) in expect.items():
         assert got[lid][0] == pytest.approx(m, nan_ok=True), lid
         assert got[lid][1] == pytest.approx(lease, nan_ok=True), lid
-        assert got[lid][2] == kind, lid
+        assert got[lid][2:] == (kind, basis), lid
     assert str(rows.free_text_kind.dtype) == "string"
+    assert str(rows.ask_basis_text.dtype) == "string"
     assert (out / "set_aside.parquet").exists()
     entry = manifest["free_text"]
     assert entry["source"] == str(src) and entry["source_rows_sha256"] == "abc"
@@ -254,6 +316,8 @@ def test_free_text_adds_the_columns_and_leaves_src_alone(src, tmp_path):
         "unstated": 1,
     }
     assert entry["rows_with_months"] == 4
+    assert entry["rows_by_basis"] == {"net": 2, "gross": 1, "both": 0}
+    assert entry["weeks_per_month"] == 4
     assert manifest["rows_sha256"] == sha256(out / "rows.parquet")
     assert json.loads((out / "manifest.json").read_text()) == json.loads(
         json.dumps(manifest, default=str)
