@@ -62,7 +62,13 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   (8,064 held-out ads say it, no training row has the coded field) and full floor (no
   column, +0.0124 within building). Each is a fit of its own. Predicted for each: a
   coefficient between half and the whole of the figure given here, and an elpd gain
-  under 30.
+  under 30. For private outdoor space, the outdoor-size item of 2026-11-14 covers only the
+  ads that state an area: 136 uncoded held-out ads at +0.045 ± 0.012, which
+  `drift-building-phase-outdoorsize` marks with a column of their own. 8 of S16's 11
+  outdoor misses state no area, so the text column is still needed
+  (`docs/notes/outdoor-size-2026-11-14.md`). Rescored on L1's draws, that term's best
+  shift gains +6.6 ± 4.2 and a noise factor on the rows with an area +31.1 ± 10.0, so the
+  note recommends writing the factor after I1's fit instead of fitting the term.
 - [ ] Free months parsed from ad text as an added column for the 5,502 held-out ads (and
   their training counterparts) with a concession in the text and none in the record. The
   ask stays as recorded: in most of these ads the lister typed the net rent as the price.
