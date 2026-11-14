@@ -30,10 +30,10 @@ price day. For a split this means:
    doesn't come from counting held-out ads.
 2. A row's window follows its price day in the dataset it was built from. A backtest as of a
    date reads a dataset whose rows are priced as of that date, so it needs its own copy. All
-   9,346 of j9's held-out ads are in L1's dataset, but L1 prices only 407 of them on the same
-   day in the same building as j9's dataset does, mostly because L1 prices an ad at a later
-   price change. Of those 407, 405 carry the same count in both datasets. Over all 9,346 the
-   counts match on 3,993, differ by 1 at the median and by 8 at the 90th percentile.
+   9,346 of j9's held-out ads are in L1's dataset, each in the same building in both. L1 prices
+   407 of them on the same day as j9's dataset does and the other 8,939 on an earlier day. Of
+   those 407, 405 carry the same count in both datasets. Over all 9,346 the counts match on
+   3,993, differ by 1 at the median and by 8 at the 90th percentile.
 
 ## The units
 
@@ -98,20 +98,30 @@ Cut at the screen's edges from j9 (0.123, 0.223 and 0.417), L1's rows fall into 
 | Q4 | 537,876 | 47,590 |
 | units unknown | 73,783 | 4,540 |
 
-Against the single 26v2 file the screen read (`pluto/20261017-2c61ff1-all-lots4`), the as-of
-units differ on 129,636 of the 1,811,999 rows with units in both (7.2%), by a factor of 2 or
-more on 19,808 and by 10 or more on 4,653. 84% of the last group are condo lots, where a release
-may give the whole building's units to the lot or a single unit's: Silver Towers reads 1,276
-units in its own releases and 3 in 26v2, and Aire on West 67th Street reads 1 and 310. 14,640 of
-the 48,352 rows reading zero units have units above zero in 26v2. With the screen's edges,
-67,766 rows change band when the units come from each row's own release, 3,000 of them L1's
-held-out ads.
+`check.py`, described in the next section, also compares the as-of units with those in the
+single 26v2 file the screen read (`pluto/20261017-2c61ff1-all-lots4`). They differ on 129,636
+of the 1,811,999 rows with units above zero in both (7.2%). Taking the larger over the smaller,
+they differ by a factor of 2 or more on 25,893 rows and by 10 or more on 4,912, in 170
+buildings, and on 3,160 of those 4,912 the row's own release gives fewer units. 80% of the
+4,912 are condo lots, where a release may give the whole building's units to the lot or a
+single unit's: Silver Towers reads 1,276 units in its own releases and 3 in 26v2, and Aire on
+West 67th Street reads 1 and 310. 14,640 of the 48,352 rows reading zero units have units above
+zero in 26v2. With the screen's edges, 67,766 rows change band when the units come from each
+row's own release, 3,000 of them L1's held-out ads.
+
+The column has no year-built override. `features.released_lots` keeps 26v2's values for a row
+whose release came out in a year before the one 26v2 gives for the lot's building, since such a
+release describes the lot before the building went up. `b0turnover` reads the release anyway,
+so a new building's first ads can read the lot's units from before construction, often zero.
+Against 26v2's year built, 3,462 of L1's rows (0.18%) in 400 buildings read such a release,
+128 of them held-out ads (0.07% of those). 1,605 of the 3,462 read zero units, 3.3% of all rows
+reading zero, and 2,678 read fewer units than 26v2 gives.
 
 ## Against the screen on j9
 
 `check.py` in `docs/notes/turnover-column-2026-11-13/` computes both columns on j9's own
 dataset in memory, with the module's functions, and writes no dataset. It ran in a single
-`MemoryMax=3G` scope in 22 s and saved its counts to
+`MemoryMax=3G` scope in 26 s and saved its counts to
 
     /data1/apartments/tmp/sprint-20261113/turnover-column.json
 
@@ -130,14 +140,20 @@ and 97 move between quartiles. With the screen's edges held fixed, 230 change ba
 | Band | Screen (26v2 units) | Own release |
 |---|---|---|
 | none | 378, +5.59 ± 0.97 | 378, +5.59 ± 0.97 |
-| Q1 | 2,183, +2.25 ± 0.29 | 2,152, +2.21 ± 0.29 |
-| Q2 | 2,180, +1.17 ± 0.24 | 2,143, +1.21 ± 0.24 |
+| Q1 | 2,183, +2.25 ± 0.29 | 2,152, +2.21 ± 0.28 |
+| Q2 | 2,180, +1.17 ± 0.24 | 2,143, +1.21 ± 0.23 |
 | Q3 | 2,208, +0.79 ± 0.26 | 2,150, +0.77 ± 0.26 |
 | Q4 | 2,153, -0.72 ± 0.28 | 2,144, -0.67 ± 0.27 |
-| units unknown | 244, +1.42 ± 0.91 | 379, +1.11 ± 0.90 |
+| units unknown | 244, +1.42 ± 0.91 | 379, +1.11 ± 0.92 |
 
-Gaps are j9's log ask less its mean location, in percent, with SEs clustered by building. The
-headline holds: the lowest quartile asks +2.21 ± 0.29 and the highest -0.67 ± 0.27, and the
+Gaps are j9's log ask less its mean location, in percent. For a band's SE, clustered by
+building, I subtract the band's mean gap from each ad's gap and sum the result by building.
+I then add up the squared sums, scale the total by G/(G-1) over the band's G buildings, and
+divide its square root by the band's count of ads, as `docs/notes/coop-column-2026-11-13/count.py`
+does. The screen column keeps the SEs the screen published, from building sums of the gaps
+themselves. Under the form above, the screen's Q1 SE comes to 0.28 against the published 0.29
+and its units-unknown SE to 0.88 against 0.91, and the others agree at two decimals. The
+headline holds: the lowest quartile asks +2.21 ± 0.28 and the highest -0.67 ± 0.27, and the
 pooled contrast within count bins goes from +1.81 ± 0.26 (9,018 ads) to +1.80 ± 0.26 (8,888).
 
 ## Turnover and tenure
@@ -159,23 +175,23 @@ screen's edges. Over L1's rows, the median lot holds 172 residential units for a
 a co-op and 19 for a rental, and the median nonzero rate is 0.139, 0.082 and 0.313 ads per
 unit and year.
 
-Over all of j9's held-out ads, co-op ads ask +2.52 ± 0.63 over j9's mean location (400 ads),
-condo ads +1.72 ± 0.31 (1,982) and rentals +0.82 ± 0.15 (6,964). Within rentals alone:
+Over all of j9's held-out ads, co-op ads ask +2.52 ± 0.64 over j9's mean location (400 ads),
+condo ads +1.72 ± 0.32 (1,982) and rentals +0.82 ± 0.15 (6,964). Within rentals alone:
 
 | Band | Rentals | Gap |
 |---|---|---|
 | none | 282 | +4.43 ± 0.96 |
-| Q1 | 1,031 | +1.71 ± 0.41 |
-| Q2 | 1,506 | +1.24 ± 0.27 |
-| Q3 | 1,856 | +0.88 ± 0.30 |
+| Q1 | 1,031 | +1.71 ± 0.39 |
+| Q2 | 1,506 | +1.24 ± 0.26 |
+| Q3 | 1,856 | +0.88 ± 0.29 |
 | Q4 | 1,919 | -0.65 ± 0.28 |
-| units unknown | 370 | +1.17 ± 0.92 |
+| units unknown | 370 | +1.17 ± 0.94 |
 
 The first quartile less the fourth comes to +2.36 ± 0.48 among rentals, against +2.87 ± 0.39
 over all held-out ads. The pooled low-less-high contrast within count bins comes to +1.46 ±
-0.28 among rentals (6,533 ads), against +1.80 ± 0.26 over all. By bin it runs +3.17 ± 0.94 at 5
-to 19 training ads, +2.92 ± 0.48 at 20 to 99, and +0.17 ± 0.37 at 100 or more, where the
-contrast over all ads is +1.11 ± 0.33. Keeping rentals alone takes about a fifth off the
+0.28 among rentals (6,533 ads), against +1.80 ± 0.26 over all. By bin it runs +0.37 ± 2.34 at 1
+to 4 training ads (250 ads), +3.17 ± 0.94 at 5 to 19, +2.92 ± 0.48 at 20 to 99, and +0.17 ±
+0.37 at 100 or more, where the contrast over all ads is +1.11 ± 0.33. Keeping rentals alone takes about a fifth off the
 pooled contrast, and most of it off the largest bin, while most of the gradient remains. A fit
 reading the column should read `coop` and `condo` beside it, as the screen suggested.
 

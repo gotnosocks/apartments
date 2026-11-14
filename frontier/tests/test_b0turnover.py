@@ -7,6 +7,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from rentfrontier import b0coop
 from rentfrontier import b0turnover as bt
 from rentfrontier.b0data import sha256
 
@@ -225,7 +226,9 @@ def test_each_row_reads_the_units_of_the_release_out_at_its_month(files):
             "price_at": pd.to_datetime([r[1] for r in UNIT_ROWS], utc=True),
         }
     )
-    found = bt.units_asof(f, lots, bt.read_units(releases, set(lots.values)))
+    found = bt.units_asof(
+        f, lots, b0coop.read_releases(releases, set(lots.values), "unitsres")
+    )
     assert list(found.release) == [r[2] for r in UNIT_ROWS]
     assert list(found.status) == [r[4] for r in UNIT_ROWS]
     want = np.array([np.nan if r[3] is None else r[3] for r in UNIT_ROWS], float)
@@ -235,7 +238,7 @@ def test_each_row_reads_the_units_of_the_release_out_at_its_month(files):
 def test_a_later_release_is_never_read(files):
     src, ads, registry, releases = files
     lots = pd.Series(REGISTRY)
-    table = bt.read_units(releases, set(lots.values))
+    table = b0coop.read_releases(releases, set(lots.values), "unitsres")
     f = frame()
     found = bt.units_asof(f, lots, table)
     published = pd.to_datetime(
@@ -245,7 +248,7 @@ def test_a_later_release_is_never_read(files):
         .published
     )
     read = found.release.notna().to_numpy()
-    month = bt.months(f.price_at)
+    month = b0coop.months(f.price_at)
     usable = published.reindex(found.release[read]).to_numpy() + np.timedelta64(
         bt.PLUTO_RELEASE_BUFFER_DAYS, "D"
     )
@@ -255,9 +258,36 @@ def test_a_later_release_is_never_read(files):
     assert found.units[7] == 12
 
 
+def test_a_release_out_a_week_before_the_month_starts_is_read_that_month():
+    lots = pd.Series({"b1": "1000010001"})
+    # 21v2 comes out exactly `PLUTO_RELEASE_BUFFER_DAYS` days before 2021-06-01, so it is
+    # usable on that day, and a row priced in June reads it.
+    published = dt.date(2021, 6, 1) - dt.timedelta(days=bt.PLUTO_RELEASE_BUFFER_DAYS)
+    releases = pd.DataFrame(
+        {
+            "release": ["21v1", "21v2"],
+            "bbl": ["1000010001", "1000010001"],
+            "unitsres": ["00012", "00015"],
+            "published": ["2021-01-31", published.isoformat()],
+        }
+    )
+    f = pd.DataFrame(
+        {
+            "building": ["b1", "b1", "b1"],
+            "price_at": pd.to_datetime(
+                ["2021-05-31T23:59", "2021-06-01T00:00", "2021-06-30T12:00"], utc=True
+            ),
+        }
+    )
+    found = bt.units_asof(f, lots, releases)
+    assert list(found.release) == ["21v1", "21v2", "21v2"]
+    assert list(found.units) == [12, 15, 15]
+
+
 def test_the_dataset_gets_both_columns_and_a_manifest_entry(files, tmp_path):
     src, ads, registry, releases = files
-    before = sha256(src / "rows.parquet")
+    before = {f.name: sha256(f) for f in src.iterdir()}
+    assert set(before) == {"rows.parquet", "set_aside.parquet", "manifest.json"}
     out = tmp_path / "out"
     manifest = bt.turnover(src, out, registry=registry, release_file=releases)
     rows = pd.read_parquet(out / "rows.parquet")
@@ -268,8 +298,9 @@ def test_the_dataset_gets_both_columns_and_a_manifest_entry(files, tmp_path):
     assert list(rows[bt.COUNT]) == [r[4] for r in ROWS]
     want = np.array([np.nan if u is None else u for u in ROW_UNITS], float)
     np.testing.assert_array_equal(rows[bt.UNITS].to_numpy(), want)
-    assert (out / "set_aside.parquet").exists()
-    assert sha256(src / "rows.parquet") == before
+    # SRC's files stay as they were, and its other files are copied as they are.
+    assert {f.name: sha256(f) for f in src.iterdir()} == before
+    assert sha256(out / "set_aside.parquet") == before["set_aside.parquet"]
     entry = manifest["turnover"]
     assert entry["source"] == str(src)
     assert entry["source_rows_sha256"] == "abc"

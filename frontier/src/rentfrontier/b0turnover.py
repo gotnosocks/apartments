@@ -51,12 +51,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.parquet as pq
 
 from .b0amenitycarry import opening_days, read_on_days
-from .b0coop import RELEASES, months
+from .b0coop import MISSING, RELEASES, as_of, read_releases, registry_lots, status
 from .b0data import sha256
 from .building_attrs import REGISTRY
 from .building_zones_kitchen_sink import days
@@ -66,7 +63,7 @@ WINDOW_DAYS = 730
 COUNT = f"bld_opened_{WINDOW_DAYS}"
 UNITS = "res_units_asof"
 # Why a row's units are missing, in the order the checks run.
-STATUSES = ("read", "no lot", "no release", "lot not in release", "no units")
+STATUSES = ("read", *MISSING, "no units")
 
 
 def unit_keys(frame: pd.DataFrame) -> np.ndarray:
@@ -78,21 +75,17 @@ def unit_keys(frame: pd.DataFrame) -> np.ndarray:
     return np.where(none, row.to_numpy(object), unit.to_numpy(object))
 
 
-def window_counts(
-    keys: np.ndarray, opened: np.ndarray, q_keys: np.ndarray, q_day: np.ndarray
-) -> np.ndarray:
-    """For each query, the rows of `keys` with its key opened from `q_day - WINDOW_DAYS` up to
-    the day before `q_day`."""
-    codes, _ = pd.factorize(pd.Series(np.r_[keys, q_keys]).astype(str))
-    ca, cq = codes[: len(keys)].astype(np.int64), codes[len(keys) :].astype(np.int64)
+def window_counts(keys: np.ndarray, opened: np.ndarray, day: np.ndarray) -> np.ndarray:
+    """For each row, the rows sharing its key in `keys` opened from its `day` less
+    `WINDOW_DAYS` up to the day before its `day`."""
+    codes = pd.factorize(pd.Series(keys).astype(str))[0].astype(np.int64)
     # Days shifted to start at 0, and spaced so that one key's days never reach the next's.
-    base = min(int(opened.min()), int(q_day.min()) - WINDOW_DAYS)
-    span = max(int(opened.max()), int(q_day.max())) - base + 1
-    on = ca * span + (opened.astype(np.int64) - base)
-    day = cq * span + (q_day.astype(np.int64) - base)
-    on.sort()
-    hi = np.searchsorted(on, day, side="left")
-    lo = np.searchsorted(on, day - WINDOW_DAYS, side="left")
+    base = min(int(opened.min()), int(day.min()) - WINDOW_DAYS)
+    span = max(int(opened.max()), int(day.max())) - base + 1
+    on = np.sort(codes * span + (opened.astype(np.int64) - base))
+    at = codes * span + (day.astype(np.int64) - base)
+    hi = np.searchsorted(on, at, side="left")
+    lo = np.searchsorted(on, at - WINDOW_DAYS, side="left")
     return hi - lo
 
 
@@ -101,66 +94,29 @@ def other_ads(frame: pd.DataFrame, opened: np.ndarray) -> np.ndarray:
     days before its price day."""
     price_day = days(frame.price_at)
     building = frame.building.astype(str).to_numpy(object)
-    units = unit_keys(frame)
-    every = window_counts(building, opened, building, price_day)
-    own = window_counts(units, opened, units, price_day)
+    every = window_counts(building, opened, price_day)
+    own = window_counts(unit_keys(frame), opened, price_day)
     return every - own
-
-
-def read_units(path: Path, bbls: set[str]) -> pd.DataFrame:
-    """The release, BBL, residential units and publication date of each lot in `bbls` in every
-    release of the file `path`."""
-    t = pq.read_table(path, columns=["release", "bbl", "unitsres", "published"])
-    t = t.filter(pc.is_in(t["bbl"], value_set=pa.array(sorted(bbls), t["bbl"].type)))
-    return t.to_pandas()
 
 
 def units_asof(
     frame: pd.DataFrame, lots: pd.Series, releases: pd.DataFrame
 ) -> pd.DataFrame:
     """For each row of `frame` (`building`, `price_at`): `bbl`, its building's lot in `lots`
-    (BBL by building); `release`, the release it reads; `units`, the lot's `unitsres` in that
-    release, NaN where there is none; and `status`, the reason for a NaN (`STATUSES`)."""
-    dated = releases.dropna(subset=["published"])
-    published = pd.to_datetime(
-        dated.drop_duplicates("release").set_index("release").published
-    ).sort_values()
-    usable = (published + pd.Timedelta(days=PLUTO_RELEASE_BUFFER_DAYS)).to_numpy()
-    order = np.searchsorted(usable, months(frame.price_at), side="right") - 1
-    # A blank release or lot matches no line of the table.
-    release = np.where(
-        order >= 0, published.index.to_numpy(dtype=object)[np.maximum(order, 0)], ""
-    )
-    bbl = frame.building.astype(str).map(lots).fillna("").to_numpy(dtype=object)
-    keys = pd.MultiIndex.from_arrays([release, bbl])
-    # Rows share few (release, lot) pairs, so each pair is looked up once.
-    pair, pairs = keys.factorize()
-    table = dated.assign(bbl=dated.bbl.astype(str)).set_index(["release", "bbl"])
-    found = pairs.isin(table.index)[pair]
-    units = pd.to_numeric(table.unitsres, errors="coerce").reindex(pairs)
-    units = units.to_numpy(dtype=float)[pair]
-    status = np.select(
-        [bbl == "", release == "", ~found, np.isnan(units)],
-        list(STATUSES[1:]),
-        STATUSES[0],
-    )
+    (BBL by building); `release`, the release it reads (`b0coop.as_of`); `units`, the lot's
+    `unitsres` in that release, NaN where there is none; and `status`, the reason for a NaN
+    (`STATUSES`). `releases` holds the `unitsres` lines that `b0coop.read_releases` reads."""
+    lot = as_of(frame, lots, releases, "unitsres")
+    units = pd.to_numeric(lot.unitsres, errors="coerce").to_numpy(dtype=float)
+    reason = status(lot, np.isnan(units), STATUSES)
     return pd.DataFrame(
         {
-            "bbl": pd.Series(bbl, dtype=object).replace("", None),
-            "release": pd.Series(release, dtype=object).replace("", None),
-            "units": np.where(status == STATUSES[0], units, np.nan),
-            "status": status,
+            "bbl": lot.bbl.replace("", None),
+            "release": lot.release.replace("", None),
+            "units": np.where(reason == STATUSES[0], units, np.nan),
+            "status": reason,
         }
     )
-
-
-def registry_lots(registry: Path, buildings: pd.Series) -> pd.Series:
-    """The lot (BBL) of each building in `buildings` that the registry gives one, keeping a
-    building's first listed lot as `building_attrs.nyc_lots` does."""
-    reg = pd.read_parquet(registry, columns=["building", "bbl"])
-    lots = reg.dropna(subset=["bbl"]).drop_duplicates("building")
-    lots = lots.set_index(lots.building.astype(str)).bbl.astype(str)
-    return lots[lots.index.isin(buildings.astype(str).unique())]
 
 
 def turnover(
@@ -179,7 +135,7 @@ def turnover(
     )
     count = other_ads(frame, opened)
     lots = registry_lots(registry, frame.building)
-    lot = units_asof(frame, lots, read_units(release_file, set(lots)))
+    lot = units_asof(frame, lots, read_releases(release_file, set(lots), "unitsres"))
     frame[COUNT] = count.astype(np.int32)
     frame[UNITS] = lot.units.to_numpy(float)
     # OUT is made after every read, so a failed read leaves no OUT behind.
@@ -229,7 +185,7 @@ def turnover(
     return manifest
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

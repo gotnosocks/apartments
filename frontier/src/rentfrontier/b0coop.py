@@ -57,8 +57,10 @@ from .building_attrs import COOP_CLASSES, REGISTRY
 from .features import LOTS4_FILES, PLUTO_RELEASE_BUFFER_DAYS
 
 RELEASES = Path(LOTS4_FILES["plutoreleases"])
+# Why a row reads no line of the release out at its price month, in the order the checks run.
+MISSING = ("no lot", "no release", "lot not in release")
 # Why a row's class is blank, in the order the checks run.
-STATUSES = ("read", "no lot", "no release", "lot not in release", "no class")
+STATUSES = ("read", *MISSING, "no class")
 
 
 def months(price_at: pd.Series) -> np.ndarray:
@@ -68,20 +70,41 @@ def months(price_at: pd.Series) -> np.ndarray:
     return at.to_period("M").to_timestamp().to_numpy()
 
 
-def read_releases(path: Path, bbls: set[str]) -> pd.DataFrame:
-    """The release, BBL, class and publication date of each lot in `bbls` in every release of
-    the file `path`."""
-    t = pq.read_table(path, columns=["release", "bbl", "bldgclass", "published"])
+def registry_lots(registry: Path, buildings: pd.Series) -> pd.Series:
+    """The lot (BBL) of each building in `buildings` that the registry gives one, keeping a
+    building's first listed lot as `building_attrs.nyc_lots` does."""
+    reg = pd.read_parquet(registry, columns=["building", "bbl"])
+    lots = reg.dropna(subset=["bbl"]).drop_duplicates("building")
+    lots = lots.set_index(lots.building.astype(str)).bbl.astype(str)
+    return lots[lots.index.isin(buildings.astype(str).unique())]
+
+
+def read_releases(
+    path: Path, bbls: set[str], column: str = "bldgclass"
+) -> pd.DataFrame:
+    """The release, BBL, `column` and publication date of each lot in `bbls` in every release
+    of the file `path`."""
+    t = pq.read_table(path, columns=["release", "bbl", column, "published"])
     t = t.filter(pc.is_in(t["bbl"], value_set=pa.array(sorted(bbls), t["bbl"].type)))
     return t.to_pandas()
 
 
-def classes(
-    frame: pd.DataFrame, lots: pd.Series, releases: pd.DataFrame
+def as_of(
+    frame: pd.DataFrame, lots: pd.Series, releases: pd.DataFrame, column: str
 ) -> pd.DataFrame:
-    """For each row of `frame` (`building`, `price_at`): `bbl`, its building's lot in `lots`
-    (BBL by building); `release`, the release it reads; `bldgclass`, the lot's class in that
-    release, blank where there is none; and `status`, the reason for a blank (`STATUSES`)."""
+    """Look up each row's lot in the release out at the row's price month.
+
+    For each row of `frame` (`building`, `price_at`) the result gives
+
+    - `bbl`: the building's lot in `lots` (BBL by building), blank without one;
+    - `release`: the latest release in `releases` (as `read_releases` reads them) published
+      at least `PLUTO_RELEASE_BUFFER_DAYS` days before the first day of the row's price
+      month, blank when no release is that old. A release without a publication date is
+      skipped;
+    - `found`: whether that release lists the lot;
+    - `column`: the lot's value in that release as the file gives it, missing where the
+      release doesn't list the lot.
+    """
     dated = releases.dropna(subset=["published"])
     published = pd.to_datetime(
         dated.drop_duplicates("release").set_index("release").published
@@ -97,27 +120,42 @@ def classes(
     # Rows share few (release, lot) pairs, so each pair is looked up once.
     pair, pairs = keys.factorize()
     table = dated.assign(bbl=dated.bbl.astype(str)).set_index(["release", "bbl"])
-    found = pairs.isin(table.index)[pair]
-    cls = (
-        table.bldgclass.reindex(pairs)
-        .astype(object)
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .to_numpy(dtype=object)[pair]
-    )
-    status = np.select(
-        [bbl == "", release == "", ~found, cls == ""],
-        list(STATUSES[1:]),
-        STATUSES[0],
-    )
-    cls = np.where(status == STATUSES[0], cls, "")
+    value = table[column].reindex(pairs).to_numpy(dtype=object)[pair]
     return pd.DataFrame(
         {
-            "bbl": pd.Series(bbl, dtype=object).replace("", None),
-            "release": pd.Series(release, dtype=object).replace("", None),
-            "bldgclass": cls,
-            "status": status,
+            "bbl": pd.Series(bbl, dtype=object),
+            "release": pd.Series(release, dtype=object),
+            "found": pairs.isin(table.index)[pair],
+            column: pd.Series(value, dtype=object),
+        }
+    )
+
+
+def status(lot: pd.DataFrame, blank: np.ndarray, statuses: tuple) -> np.ndarray:
+    """Each row's status for its lookup `lot` from `as_of`: the first of `MISSING` that
+    applies, then `statuses[-1]` where `blank` holds, and `statuses[0]` otherwise."""
+    return np.select(
+        [lot.bbl == "", lot.release == "", ~lot.found, blank],
+        list(statuses[1:]),
+        statuses[0],
+    )
+
+
+def classes(
+    frame: pd.DataFrame, lots: pd.Series, releases: pd.DataFrame
+) -> pd.DataFrame:
+    """For each row of `frame` (`building`, `price_at`): `bbl`, its building's lot in `lots`
+    (BBL by building); `release`, the release it reads; `bldgclass`, the lot's class in that
+    release, blank where there is none; and `status`, the reason for a blank (`STATUSES`)."""
+    lot = as_of(frame, lots, releases, "bldgclass")
+    cls = lot.bldgclass.fillna("").astype(str).str.strip().to_numpy(dtype=object)
+    reason = status(lot, cls == "", STATUSES)
+    return pd.DataFrame(
+        {
+            "bbl": lot.bbl.replace("", None),
+            "release": lot.release.replace("", None),
+            "bldgclass": np.where(reason == STATUSES[0], cls, ""),
+            "status": reason,
         }
     )
 
@@ -138,12 +176,8 @@ def coop(
     if out.exists():
         raise FileExistsError(out)
     frame = pd.read_parquet(src / "rows.parquet")
-    reg = pd.read_parquet(registry, columns=["building", "bbl"])
-    # `building_attrs.nyc_lots` keeps a building's first listed lot.
-    lots = reg.dropna(subset=["bbl"]).drop_duplicates("building")
-    lots = lots.set_index(lots.building.astype(str)).bbl.astype(str)
-    used = set(lots[lots.index.isin(frame.building.astype(str).unique())])
-    lot = classes(frame, lots, read_releases(release_file, used))
+    lots = registry_lots(registry, frame.building)
+    lot = classes(frame, lots, read_releases(release_file, set(lots)))
     condo, co = tenure(lot.bldgclass.to_numpy())
     frame["coop"] = co
     frame["condo"] = condo

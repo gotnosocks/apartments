@@ -1,6 +1,7 @@
 """Checks for the note on the turnover column: the column against the screen's count on L1's
-dataset, the rate's spread, j9's held-out bands with each ad's units read from its own release,
-and the bands against the co-op and condo tenure.
+dataset, the rate's spread, the as-of units against the single 26v2 file the screen read, j9's
+held-out bands with each ad's units read from its own release, and the bands against the co-op
+and condo tenure.
 
 j9's dataset differs from L1's, so the j9 part computes both columns on j9's rows in memory and
 writes no dataset. Apart from the held-out ads' own gaps it reads opening days, units and
@@ -35,6 +36,7 @@ OUT = SRC.with_name(SRC.name + "-turnover")
 COOP = SRC.with_name(SRC.name + "-coop")
 L1 = Path(c.RUN)
 J9 = Path("/data1/apartments/frontier/runs/drift-building-b0-market-67d14e17-j9")
+J9_SPLIT_DAY = "2025-11-10"
 SCREEN = Path(c.OUT) / "turnover-screen.json"
 SAVE = Path(c.OUT) / "turnover-column.json"
 SPAN = 100_000
@@ -64,17 +66,26 @@ def screen_others(d, opened, rows):
     )
 
 
-def screen_units(buildings):
-    """The screen's units: `unitsres` above zero in the single PLUTO file of `common`."""
+def lots_26v2():
+    """Each building's lot in the single PLUTO file of `common` (26v2), joined through the
+    registry as the screen joins it: `unitsres` and `yearbuilt` as numbers, `bldgclass` and
+    `address`."""
     reg = pd.read_parquet(c.REG, columns=["building", "bbl"]).drop_duplicates(
         "building"
     )
-    plu = pd.read_parquet(c.PLUTO, columns=["bbl", "unitsres"]).drop_duplicates("bbl")
+    plu = pd.read_parquet(
+        c.PLUTO, columns=["bbl", "unitsres", "yearbuilt", "bldgclass", "address"]
+    ).drop_duplicates("bbl")
     plu["unitsres"] = pd.to_numeric(plu.unitsres, errors="coerce")
+    plu["yearbuilt"] = pd.to_numeric(plu.yearbuilt, errors="coerce")
     plu["bbl"] = plu.bbl.astype("string")
     reg["bbl"] = reg.bbl.astype("string")
-    units = reg.merge(plu, on="bbl", how="left").set_index("building").unitsres
-    return buildings.map(units).where(lambda u: u > 0).to_numpy(float)
+    return reg.merge(plu, on="bbl", how="left").set_index("building")
+
+
+def screen_units(buildings, lots26):
+    """The screen's units: `unitsres` above zero in 26v2."""
+    return buildings.map(lots26.unitsres).where(lambda u: u > 0).to_numpy(float)
 
 
 def rate(others, units):
@@ -101,13 +112,22 @@ def edges_of(others, r):
     return [float(x) for x in np.quantile(nonzero, [0.25, 0.5, 0.75])]
 
 
+def cluster_se(x, b):
+    """SE of the sum of `x` about its mean, clustered by `b`, as in
+    `docs/notes/coop-column-2026-11-13/count.py`. Divided by the count of `x`, it gives the SE
+    of the mean."""
+    x = np.asarray(x, dtype=float)
+    t = pd.Series(x - x.mean()).groupby(np.asarray(b)).sum()
+    return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()))
+
+
 def cell(v):
     n = len(v)
     return {
         "n": n,
         "buildings": int(v.building.nunique()),
         "gap_pct": 100 * float(v.gap.mean()) if n else None,
-        "se_pct": 100 * c.cluster_se(v.gap.to_numpy(), v.building.to_numpy()) / n
+        "se_pct": 100 * cluster_se(v.gap.to_numpy(), v.building.to_numpy()) / n
         if v.building.nunique() > 1
         else None,
     }
@@ -176,6 +196,7 @@ def gaps(h, edges):
 
 res = {}
 screen = json.loads(SCREEN.read_text())
+lots26 = lots_26v2()
 edges_screen = screen["edges_ads_per_unit_year"]
 
 # j9: the market split's held-out ads, as in the screen, with both columns computed here.
@@ -198,7 +219,7 @@ res["j9_count_equals_screen_heldout"] = bool(
     (count[held] == screen_others(d, opened, held)).all()
 )
 n_train = (~pd.Series(held)).groupby(d.building.to_numpy()).transform("sum").to_numpy()
-lots = bt.registry_lots(Path(c.REG), d.building)
+lots = b0coop.registry_lots(Path(c.REG), d.building)
 h = d[held].reset_index(drop=True)
 h["others"] = count[held]
 h["n_train"] = n_train[held]
@@ -209,8 +230,8 @@ assert np.allclose(np.log(h.latest_ask.to_numpy(float)), y9, atol=1e-6)
 h["gap"] = y9 - z9["kept/pred_loc"].reshape(-1, len(y9)).mean(axis=0)
 del z9
 
-h["units_screen"] = screen_units(h.building.astype(str))
-u = bt.units_asof(h, lots, bt.read_units(bt.RELEASES, set(lots)))
+h["units_screen"] = screen_units(h.building.astype(str), lots26)
+u = bt.units_asof(h, lots, b0coop.read_releases(b0coop.RELEASES, set(lots), "unitsres"))
 h["units_asof"] = u.units.to_numpy()
 h["status"] = u.status.to_numpy()
 h["release"] = u.release.to_numpy()
@@ -244,6 +265,12 @@ assert np.allclose(edges_of(h.others.to_numpy(), h.rate.to_numpy()), edges_scree
 hs, res["j9_screen_units"] = gaps(h, edges_screen)
 assert {b: v["n"] for b, v in res["j9_screen_units"]["by_band"].items()} == {
     b: v["n"] for b, v in screen["j9"]["by_band"].items()
+}
+# The screen's note gives SEs from `common.cluster_se`, which sums the gaps by building without
+# first taking out their mean. Both forms, by band, in percent:
+res["j9_screen_se_published_vs_demeaned"] = {
+    b: [screen["j9"]["by_band"][b]["se_pct"], v["se_pct"]]
+    for b, v in res["j9_screen_units"]["by_band"].items()
 }
 
 h["rate"] = rate(h.others.to_numpy(), h.units_asof.to_numpy())
@@ -326,7 +353,22 @@ a, b = l1_counts.loc[shared], j9_counts.loc[shared]
 same = (a.day.to_numpy() == b.day.to_numpy()) & (
     a.building.to_numpy() == b.building.to_numpy()
 )
-res["j9_heldout_in_l1"] = {}
+# The ads L1 doesn't price on j9's day in j9's building: whether L1 puts them in another
+# building, or prices them later, after the day of j9's market split.
+same_building = a.building.to_numpy() == b.building.to_numpy()
+later = a.day.to_numpy() > b.day.to_numpy()
+split_day = bt.days(pd.Series(pd.to_datetime([J9_SPLIT_DAY], utc=True)))[0]
+res["j9_heldout_in_l1"] = {
+    "not_same_day_building": {
+        "n": int((~same).sum()),
+        "other_building": int((~same_building).sum()),
+        "same_building_l1_later": int((same_building & later).sum()),
+        "same_building_l1_earlier": int((same_building & ~later & ~same).sum()),
+        "l1_later": int((~same & later).sum()),
+        "l1_after_split_day": int((~same & (a.day.to_numpy() > split_day)).sum()),
+        "j9_after_split_day": int((b.day.to_numpy() > split_day).sum()),
+    }
+}
 for k, keep in (("all", np.ones(len(shared), bool)), ("same_day_building", same)):
     diff = a["count"].to_numpy()[keep] - b["count"].to_numpy()[keep]
     res["j9_heldout_in_l1"][k] = {
@@ -340,7 +382,75 @@ for k, keep in (("all", np.ones(len(shared), bool)), ("same_day_building", same)
 del l1_counts, j9_counts, a, b
 s = np.load(L1 / "pred_scores.npz", allow_pickle=True)
 d["held"] = s["heldout"]
-d["units_screen"] = screen_units(d.building.astype(str))
+d["units_screen"] = screen_units(d.building.astype(str), lots26)
+
+# The as-of units against 26v2's. A factor counts both ways, so 3 units against 30 is a
+# factor of 10.
+building = d.building.astype(str)
+asof = d[bt.UNITS].to_numpy()
+now = building.map(lots26.unitsres).to_numpy(float)
+both = (asof > 0) & (now > 0)
+with np.errstate(divide="ignore", invalid="ignore"):
+    factor = np.where(both, np.maximum(asof / now, now / asof), np.nan)
+x10 = factor >= 10
+condo_26v2 = building.map(lots26.bldgclass).fillna("").astype(str).str.startswith("R")
+big = pd.DataFrame(
+    {"building": building[x10], "asof": asof[x10], "now": now[x10]}
+).groupby("building")
+top = big.agg(
+    rows=("asof", "size"),
+    asof_min=("asof", "min"),
+    asof_max=("asof", "max"),
+    now=("now", "first"),
+).sort_values("rows", ascending=False)
+res["l1_units_vs_26v2"] = {
+    "known_both": int(both.sum()),
+    "differ": int((both & (asof != now)).sum()),
+    "factor_2_or_more": int((factor >= 2).sum()),
+    "factor_10_or_more": int(x10.sum()),
+    "factor_10_asof_lower": int((x10 & (asof < now)).sum()),
+    "factor_10_condo_own_release": float((d.tenure[x10] == "condo").mean()),
+    "factor_10_condo_26v2": float(condo_26v2[x10].mean()),
+    "factor_10_condo_either": float(((d.tenure == "condo") | condo_26v2)[x10].mean()),
+    "factor_10_buildings": len(top),
+    "factor_10_top_buildings": {
+        k: {**{f: float(x) for f, x in v.items()}, "address": lots26.address.get(k)}
+        for k, v in top.head(10).iterrows()
+    },
+    "asof_zero": int((asof == 0).sum()),
+    "asof_zero_26v2_above_zero": int(((asof == 0) & (now > 0)).sum()),
+}
+del big, top
+
+# The release each row reads, against the year 26v2 gives for the lot's building. Unlike
+# `features.released_lots`, the column keeps a release published before that year.
+lots1 = b0coop.registry_lots(Path(c.REG), d.building)
+table1 = b0coop.read_releases(b0coop.RELEASES, set(lots1), "unitsres")
+u1 = bt.units_asof(d, lots1, table1)
+assert np.array_equal(u1.units.to_numpy(), asof, equal_nan=True)
+published = pd.to_datetime(
+    table1.dropna(subset=["published"])
+    .drop_duplicates("release")
+    .set_index("release")
+    .published
+)
+read_year = u1.release.map(published.dt.year).to_numpy(float)
+built = building.map(lots26.yearbuilt).to_numpy(float)
+early = (u1.status == bt.STATUSES[0]).to_numpy() & (built > read_year)
+held1 = d.held.to_numpy()
+res["l1_release_before_year_built"] = {
+    "rows": int(early.sum()),
+    "share": float(early.mean()),
+    "heldout": int((early & held1).sum()),
+    "heldout_share": float(early[held1].mean()),
+    "buildings": int(building[early].nunique()),
+    "units_zero": int((early & (asof == 0)).sum()),
+    "units_below_26v2": int((early & (asof < now)).sum()),
+    "units_equal_26v2": int((early & (asof == now)).sum()),
+    "share_of_asof_zero": float(early[asof == 0].mean()),
+}
+del u1, table1, lots1, read_year, built, early, factor, now, asof, building
+
 others = d[bt.COUNT].to_numpy()
 units = d[bt.UNITS].to_numpy()
 d["rate"] = rate(others, units)
