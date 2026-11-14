@@ -206,6 +206,8 @@ BASELINES = (
     ("--model", "drift-building-phase-year"),
     ("--model", "drift-building-phase-unitk"),
     ("--model", "drift-building-phase-unitkn"),
+    ("--model", "drift-building-phase-unitkn-level"),
+    ("--model", "drift-building-phase-unitkn-segment"),
     ("--model", "drift-building-phase-unitt"),
     ("--model", "drift-building-unitt"),
     ("--model", "drift-local"),
