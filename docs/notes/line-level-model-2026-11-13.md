@@ -315,3 +315,189 @@ coverage 0.797. In L1's pool unit_sd has a median of 0.060.
    0.020, so each unit's own earlier ads count for more.
 9. Each container stops its sweeps at the budget, runs 2,300 to 2,600 draws a chain and 55 to
    62 minutes, and the three settle between $11.00 and $12.50 (80%).
+
+## Rehearsal on a building subsample (exploration, 2026-11-14)
+
+I ran LN1's sampler on thelio's GPU, an RTX 2060 SUPER with 8 GB, on a sample of whole
+buildings, to check its convergence before a Modal fit. The run scores no held-out ad and
+revises none of the predictions above. It checks the sampler alone and compares no model with
+another, so it tests no feature in the sense of Ben's rule of 2026-10-07 against thelio pairs.
+
+### The subsample
+
+The scripts are in `docs/notes/rehearsals-2026-11-14/`, and L2's note
+(`docs/notes/l2-phase-level-2026-11-13.md`) describes how `subsample.py` drew the buildings.
+All five rehearsals use the same 741 buildings: 27,736 rows, 24,886 of them training rows and
+2,850 the full fit's held-out ads, which the run carries and leaves out. `count.py` numbers the
+lines with `drift_line.line_index`. The training rows hold 14,339 units in 1,787 lines.
+1,100 of the lines hold two or more training units, and 13,652 of the units belong to them.
+489 of the 741 buildings hold two or more lines, 1,535 lines among them. line_sd draws on the
+gaps between the lines of a building and unit_sd on the gaps between the units of a line, so
+each has hundreds of buildings or lines to go on. Half of the units have a single training
+row, so unit_sd also trades against the rows' noise.
+
+### Settings, time and memory
+
+`rehearse.sh` ran LN1 with the settings of the launch plan above, except for the draws: 2
+chains, 500 warmup sweeps, every 40th draw kept, seed 1 and `--level-dof 4`, with 2,400 draws
+a chain in place of 9,000 to finish within 30 minutes. On Modal the 2,520 s budget stops each
+container at 2,330 to 2,430 draws by the estimate under Cost, and the fit pools three
+containers into 6 chains.
+
+The run took 15 min 58 s: 52 s to compile, 153 s of warmup and 682 s of sampling at 0.288 s a
+sweep of both chains. Host memory peaked at 3.8 GiB, and the GPU's at 1,077 MiB, 695 MiB above
+the 382 MiB in use before the run.
+
+### Diagnostics
+
+`check.py` reads the gate table that `b0.main_run` computed with LN1's own `diagnostics`, which
+add line_sd to the scalars, on all 2,400 draws of each chain. The columns are those of D1's
+rehearsal (`docs/notes/duplex-factor-2026-11-13.md`), with the share of draws under 1% of the
+median last.
+
+| parameter | R-hat | ESS | chain 1, median [95%] | chain 2, median [95%] | gap / sd | drift / sd | under 1% |
+|---|---|---|---|---|---|---|---|
+| line_sd | 1.0023 | 277 | 0.1055 [0.0993, 0.1123] | 0.1056 [0.0991, 0.1128] | 0.02 | 0.15 | 0.000 |
+| unit_sd | 1.5115 | 5 | 0.0356 [0.0096, 0.0426] | 0.0384 [0.0272, 0.0429] | 0.32 | 1.74 | 0.000 |
+
+These values come from about 1 in 92 of the buildings, and I list them only to show how the
+chains behave. line_sd passes on R-hat and misses on ESS, at 277 of 4,800 draws. Its chains'
+medians differ by 0.02 posterior sd. Over blocks of 200 draws its median stays between 0.104
+and 0.108 in both chains, through chain 1's excursion described below, and all its draws fall
+between 0.094 and 0.119, far from 0 under its HalfNormal(0.1) prior. Its lag-1 autocorrelation
+on the log scale is 0.70 to 0.71 and falls to 0.09 to 0.11 by lag 20. unit_sd misses by far,
+with no draw near 0.
+
+The run misses the gate on 17 of its 237 quantities. Beside line_sd and unit_sd:
+
+| quantity | R-hat, ESS |
+|---|---|
+| drift_tau | 1.5068, 4 |
+| drift_sd | 1.4703, 5 |
+| bld_sd[outer] | 1.1386, 8 |
+| bld_sd[manhattan] | 1.0523, 33 |
+| sigma[0] to sigma[3] | 1.0352 to 1.0437, 109 to 202 |
+| nu | 1.0378, 199 |
+| building_ar_rho | 1.0153, 387 |
+| phase_scale[5] | 1.0153, 460 |
+| phase_scale[3] | 1.0127, 388 |
+| beta[bed=0:full>=2] | 1.0124, 325 |
+| beta[umean:ad:log_size_rel_sq] | 1.0074, 363 |
+| tau | 1.0006, 335 |
+
+`check.py` also computes the buildings' levels' split R-hat on the 60 kept draws of each chain:
+135 of 741 over 1.01 and 3 over 1.05, with a maximum of 1.0657, against 141.9, 6.3 and a median
+maximum of 1.0795 for independent normal draws of the same size.
+
+### Investigating the misses
+
+I worked through the data first, then the model, then the sampler.
+
+1. In the data, line_sd has 1,100 lines of two or more training units in 489 buildings to go
+   on, and unit_sd the 13,652 units of those lines. Neither count is sparse. Half of the units
+   have a single training row, so unit_sd also trades against the rows' noise, here as on the
+   full data.
+2. In the model, LN1 adds log line_sd to the scale step as its last coordinate and integrates
+   the lines out. Over the draws log line_sd correlates with log unit_sd at -0.01, so in this
+   run the two scales do not trade. The unit scales correlate with each other as in D1's runs:
+   log unit_sd with log drift_sd at -0.89 and with log drift_tau at -0.85, and log drift_sd
+   with log drift_tau at 0.92.
+3. In the sampler, chain 1 spent its first 800 draws in another region of the unit scales,
+   and line_sd's slow component follows the zones' spreads.
+
+Over chain 1's first 800 draws its block medians put
+unit_sd at 0.011 to 0.028, drift_sd at 0.043 to 0.050 and drift_tau at 11 to 17 years, the
+long-tau region of D1's runs. From draw 800 on it agrees with chain 2, at unit_sd 0.035 to
+0.041, drift_sd 0.031 to 0.037 and drift_tau 4.3 to 7.4. In the warmup both chains passed
+through the region: their drift_tau stood at 10.7 and 10.6 at sweep 100, 6.6 and 5.8 at 200,
+11.3 and 5.4 at 300 and 12.8 and 18.8 at 400. Warmup set the scale step's directions at sweeps
+166 and 333, and between the reports at sweeps 300 and 400 chain 1's drift_tau went from 11.3
+to 12.8. After draw 1,000, with both chains out of the region, the step moved log drift_tau by
+0.061 a sweep against a posterior sd of 0.34, and the unit scales came to R-hat 1.066 to 1.097
+and ESS 24 to 27. In L2's two runs the same move was 0.135 and 0.112, in D1's 0.069 and 0.059,
+and in I1's 0.115. The final directions give log drift_tau a scale of 0.37 in this run and 0.31
+and 0.37 in D1's, against 1.19 and 0.64 in L2's and 0.68 in I1's. In each of the three runs
+with a slow step, a chain stood in the long-tau region when warmup set the directions the
+second time, and in the other three neither did. D1's note
+(`docs/notes/duplex-factor-2026-11-13.md`) follows that timing through all six runs.
+
+In a building with a single line, the data fix only the sum of the building's level and the
+line's, so line_sd and the zone's spread trade against each other there. Over blocks of 100
+draws, the mean of log line_sd moves with log bld_sd[outer]'s at -0.49 and with log
+bld_sd[manhattan]'s at -0.35, and with no other traced scale beyond 0.22 in absolute value.
+The spreads crawl here as in L2's and D1's first runs, with lag-1 autocorrelation 0.98 and
+moves of 0.013 to 0.014 a sweep against posterior sds of 0.09 and 0.13. L2's note traces that
+crawl to the subsample: the spreads' slice window of `drift.SPREAD_WIDTH` = 0.05 spans about
+six posterior sds on the full data and 0.40 to 0.53 in this run, and L2 passed on both spreads with the window
+at 0.5. So line_sd's ESS of 277 carries part of the spreads' crawl.
+
+### A larger subsample
+
+To test whether the small subsample itself causes the misses, I ran LN1 on the larger
+subsample of D1's note, with the same settings and 2,400 draws a chain. `subsample.py 50 8`
+gives 1,421 buildings, L2's 741 among them, with 46,225 rows: 41,576 training rows and the
+full fit's 4,649 held-out ads, which the run carries and leaves out. The training rows hold
+23,730 units in 3,363 lines, 2,074 of them with two or more training units. The run took 23
+min 52 s: 60 s to compile, 240 s of warmup and 1,058 s of sampling at 0.448 s a sweep. Host
+memory peaked at 4.0 GiB, and the GPU's at 1,603 MiB, 1,221 MiB above the 382 MiB in use
+before the run.
+
+| parameter | R-hat | ESS | chain 1, median [95%] | chain 2, median [95%] | gap / sd | drift / sd | under 1% |
+|---|---|---|---|---|---|---|---|
+| line_sd | 1.0134 | 406 | 0.1078 [0.1034, 0.1125] | 0.1080 [0.1032, 0.1129] | 0.10 | 0.42 | 0.000 |
+| unit_sd | 1.3634 | 10 | 0.0306 [0.0170, 0.0405] | 0.0325 [0.0240, 0.0405] | 0.31 | 1.93 | 0.000 |
+
+The run misses the gate on 9 of its 249 quantities:
+
+| quantity | R-hat, ESS |
+|---|---|
+| unit_sd | 1.3634, 10 |
+| drift_sd | 1.2941, 13 |
+| drift_tau | 1.2435, 14 |
+| bld_sd[outer] | 1.0816, 26 |
+| bld_sd[manhattan] | 1.0472, 39 |
+| building_ar_sd | 1.0134, 624 |
+| building_ar_rho | 1.0134, 497 |
+| line_sd | 1.0134, 406 |
+| sigma[1] | 1.0051, 391 |
+
+The buildings' levels come to 265 of 1,421 over 1.01 and 13 over 1.05, with a maximum of
+1.0894, against 274.1, 12.1 and a median maximum of 1.0855 for independent normal draws.
+
+line_sd misses on R-hat by a little and passes on ESS. Its draws stay between 0.098 and 0.117,
+far from 0, and its lag-1 autocorrelation on the log scale is 0.65 to 0.68. Over blocks of 100
+draws its mean moves with log bld_sd[outer]'s at -0.60 and log bld_sd[manhattan]'s at -0.32,
+and with each of the unit scales, sigma and nu by 0.16 or less in absolute value. So its slow
+component follows the spreads' crawl, as on the smaller subsample. With twice the buildings,
+the spreads' window of 0.05 spans 0.58 to 0.69 posterior sd of their logs here, against 0.40
+to 0.53 in the first run.
+
+The unit scales missed for a different reason than in D1's runs. Neither chain stood in the long-tau region when
+warmup set the directions at sweep 333: drift_tau stood at 8.8 and 7.4 at sweep 300 and at
+9.1 and 5.0 at sweep 400. Yet over blocks of 200 draws both chains wandered along a ridge,
+with unit_sd from 0.018 to 0.037, drift_sd from 0.049 to 0.037 and drift_tau from 14.4 to 6.8
+years, a smaller unit_sd going with a larger drift_sd and a longer drift_tau. log unit_sd
+spreads with an sd of 0.22 over all draws here and 0.38 in the first run, against 0.03 to 0.06
+in the runs of L2, I1 and D1 apart from D1's second. After draw 1,000 the final directions give
+log unit_sd a scale of 0.085 against the draws' sd of 0.24, and the step moved it by 0.018 a
+sweep, at lag-1 autocorrelation 0.98 to 0.997. Measured in the directions' own coordinates, the
+draws spread along the worst direction by 3.1 times its length. That ratio is 0.5 to 0.6 in
+L2's runs, I1's run and D1's larger one, 1.0 to 1.3 in D1's runs on the smaller subsample and
+1.4 in LN1's first run.
+
+So I put LN1's misses down to the model's geometry on these subsamples more than to the
+warmup's timing. The lines take most of the spread between a building's units, with line_sd
+near 0.108 against unit_sd near 0.03, so the rows separate a unit's own small level from a slow
+drift only weakly. The first prediction above gives unit_sd as the likeliest miss, from its
+trade against drift_sd. Warmup sets the scale step's directions from the curvature of its
+density at the chains' state, and on a ridge this long the directions cover a third of the
+draws' spread along the worst direction. On the full data L1's logs of the unit scales have
+sds four to seven times smaller than in the L2, I1 and D1 runs on the smaller subsample (D1's
+note, under "The full data"). I can't tell from these runs whether the full data narrow LN1's
+ridge enough for the step to cross it quickly, so for LN1's Modal fit I count a miss on the
+unit scales as a real risk.
+
+A fix would change how the scale step in `drift.py` sets its directions or the coordinates it
+moves along. Every drift model shares `drift.py`, and these rehearsals leave it unchanged. I
+found no fault in LN1's module and changed nothing in it, so the predictions above describe
+the model as it is.
