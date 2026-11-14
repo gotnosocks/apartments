@@ -622,6 +622,7 @@ def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-duplex",
+        "drift-building-phase-income",
         "drift-building-phase-line",
         "drift-building-phase-plutoasof",
         "drift-building-phase-level",

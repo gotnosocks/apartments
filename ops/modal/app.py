@@ -198,6 +198,7 @@ BASELINES = (
     ("--model", "drift-building-doorman"),
     ("--model", "drift-building-phase"),
     ("--model", "drift-building-phase-duplex"),
+    ("--model", "drift-building-phase-income"),
     ("--model", "drift-building-phase-line"),
     ("--model", "drift-building-phase-plutoasof"),
     ("--model", "drift-building-phase-level"),

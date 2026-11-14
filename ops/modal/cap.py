@@ -166,6 +166,9 @@ STATED_RATE["drift-building-phase-level"] = 1.0
 # pair on the quietest machine 2% more (18,441 rows and 10,135 units, 2 chains, load average
 # 7 to 15). 1.1 s keeps the larger figure.
 STATED_RATE["drift-building-phase-duplex"] = 1.1
+# The income factor is the duplex factor on another mark: the same 14 cells and seventh free
+# factor in the scale step, so it takes the duplex model's rate.
+STATED_RATE["drift-building-phase-income"] = 1.1
 # The line levels add a coordinate to the scale step and a correction of each building's sums
 # over its (line, quarter) pairs. On the CPU (18,441 rows, 10,135 units and 1,728 lines, 2
 # chains) a sweep of the line model took 10% longer than L1's over 60 and 60 sweeps (0.885 s
@@ -307,6 +310,7 @@ BASELINES = (
     "drift-building-doorman",
     "drift-building-phase",
     "drift-building-phase-duplex",
+    "drift-building-phase-income",
     "drift-building-phase-line",
     "drift-building-phase-plutoasof",
     "drift-building-phase-level",
@@ -377,6 +381,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-duplex",
+        "drift-building-phase-income",
         "drift-building-phase-line",
         "drift-building-phase-plutoasof",
         "drift-building-phase-level",
