@@ -251,6 +251,10 @@ kept draws, which L1's predictions use, to -0.083 (-0.089 to -0.077). The coeffi
 
 ## Predictions scored
 
+The predictions above set recall over every listing with a description. I score their recall
+parts on recall among listings with a mark or a candidate word, the figure the reading measures.
+If 0.1% of the listings with neither were true, the recall part of #2 would miss (0.580).
+
 1. Hit on all three parts: old income precision 0.907, recall 0.547, and over 2013 to 2026 the
    precision comes out above the 22 of 30 (0.73) on the market of 2026-11-09.
 2. Hit for precision (0.986) and recall (0.961). Miss on the interval: its lower end is 0.796.
