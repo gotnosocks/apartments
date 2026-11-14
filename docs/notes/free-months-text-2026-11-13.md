@@ -402,7 +402,9 @@ to net the ask as the pipeline nets coded rows.
 - A count of free months followed by a broker's fee or a security deposit still gives the
   months ("1 month free broker fee", "1 month free security deposit"). The texts with months
   hold 1 of each, and both are real offers followed by a separate item: "1 Month Free Brokers
-  Welcome" and "1 MONTH FREE Security deposit - $3998".
+  Welcome" and "1 MONTH FREE Security deposit - $3998". `edges.py` matches "month" spelled
+  out, so it misses abbreviations: a wider search finds a second broker text, "1 mo free
+  Broker Fee".
 - A negation after an offer ("1 month free not available") or before it ("no longer 1 month
   free") still gives the months. I found no such negation beside an offer in the texts with
   months.
