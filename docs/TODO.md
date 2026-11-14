@@ -133,13 +133,18 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   figures are post hoc. S17 read 30 of the 893 rows outside S16's draw without plan
   fetches: 8 have bedrooms, 9 are studios, 3 are commercial space and 10 stay unresolved.
   Weighted to the 893, .35 ± .14 have bedrooms (.59 ± .12 of settled rows) and .42 ± .13
-  stay unresolved; none of 8 at 8 to 20 rooms has bedrooms. Next: a B2-like exclusion of
-  the 243 rows whose unit has an ad coded 1 bedroom or more within 730 days (H1). It marks
-  24 held-out ads, and the 20 of them outside S16's draw ask 0.14 ± 0.07 more than the
-  other 50, which still ask +0.045 ± 0.025. S17 picked H1 after scoring 9 rules on those 70
-  ads, so that contrast is post hoc too, and its fit has to be judged with the selection in
-  mind. Write the fit's predictions first. Separately, screen nonresidential ads at 8 or
-  more rooms.
+  stay unresolved; none of 8 at 8 to 20 rooms has bedrooms. S17's rule H1 marks the 243
+  rows whose unit has an ad coded 1 bedroom or more within 730 days. It marks 24 held-out
+  ads, and the 20 of them outside S16's draw ask 0.14 ± 0.07 more than the other 50, which
+  still ask +0.045 ± 0.025. S17 picked H1 after scoring 9 rules on those 70 ads, so that
+  contrast is post hoc too. H1 is now written as an optional recode, off by default
+  (`rentfrontier.b0studiohistory`, `docs/notes/studio-history-rule-2026-11-14.md`): it gives
+  227 of the rows the bedroom count of the nearest such ad, earlier ads only for held-out
+  rows, and keeps a studio when that count reaches the row's rooms. Next: add it as a step
+  to the next data-version change that gets a fit anyway, and judge the gain on its 11
+  recoded held-out ads with the selection in mind. Some unit pages mix apartments; if that
+  fit's recoded rows miss, S17's H2 (rooms within 1) is the stricter variant. Separately, screen
+  nonresidential ads at 8 or more rooms.
 - [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
   for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
   or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the
