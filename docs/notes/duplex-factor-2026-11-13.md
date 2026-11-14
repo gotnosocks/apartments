@@ -148,7 +148,71 @@ building, the median's error and the coverage of the 50%, 80% and 95% intervals
 covers and the rest by joining `pred_scores.npz`'s listings to the two columns, and split the
 marked ads again into duplexes and text penthouses without duplexes.
 
-## Predictions (written before launch, revised before launch)
+## Predictions, revised for the penthouse fold (2026-11-13, 23:45 New York time)
+
+I revised the predictions before any launch, when the text penthouses joined the mark (The
+change). This set replaces the originals below, which I wrote for the duplex mark alone and
+keep as they were.
+
+I start from S14's numbers. On L1's held-out ads of the latest split, a multiplier m on L1's
+noise scale and unit sd, picked by half of the buildings, gained 255 ± 31 elpd for the duplex
+mark alone. A single m for the duplexes and the text penthouses together came out at 1.3 and
+1.4 and gained 311 ± 33, 55 ± 13 more than the duplex mark alone. The text penthouses without
+duplexes picked 1.4 in 57% of S14's resamples of buildings and the duplexes without
+penthouses picked 1.3 in 92%, and their squared gaps from L1's median are 0.0113 and 0.0110.
+
+I hold S14's 55 loosely, for these reasons:
+
+1. I chose the penthouse pattern after reading its numbers on L1's held-out ads of the
+   latest split, and S14 picked m on those ads too. D1 is scored on the same ads, so its gain
+   from the text penthouses will look optimistic.
+2. D1 widens the noise and leaves each row's location as L1 has it. Within building, the text
+   penthouses without duplexes ask 1.7% more than L1's median (+0.0169 ± 0.0029 in S14), and
+   D1 does nothing about that gap.
+3. S14's m multiplied both L1's noise scale and its unit sd, while D1's k multiplies the noise
+   alone. To carry the same excess k has to rise further than m did, and a Student-t noise
+   widened by k puts weight in its tails differently from a predictive widened by m in both
+   parts, so S14's elpd carries over to D1 only roughly.
+
+As before, these are for the pool of three containers on the latest split, against L1's pool
+on the shared held-out ads. `penthouse_check.py` gives L1's numbers there:
+
+| ads | n | L1's 80% coverage | L1's median error |
+|---|---|---|---|
+| all | 189,647 | 0.797 | 0.0407 |
+| marked | 12,031 | 0.718 | 0.0552 |
+| duplexes | 10,329 | 0.719 | 0.0559 |
+| text penthouses without duplexes | 1,702 | 0.716 | 0.0510 |
+| unmarked | 177,616 | 0.803 | 0.0399 |
+
+1. The fit passes the gate (75%). The marked rows rise from 5.7% to 6.6% of the rows, all in
+   the same cells as before, and unit_sd is still the likeliest miss.
+2. k's posterior median falls between 1.35 and 1.70 (60%), and above 1.2 (90%). In S14 the
+   text penthouses picked about the duplexes' m and scattered about as widely, so the fold
+   moves k by little.
+3. elpd gains 180 to 400 over L1 (60%), and more than 2 SE (85%). I added 30 to 50 to the
+   original 150 to 350 for the text penthouses, below S14's 55 for the first reason above.
+4. The marked ads give 210 to 380 of it, and the unmarked ads -20 to +60 (60% that both hold).
+5. The text penthouses without duplexes give 15 to 70 of it (60%), and more than 0 (85%).
+   S14 put their gain alone at 56 ± 15.
+6. On the marked ads 80% coverage rises from 0.718 to between 0.76 and 0.81 (60%), and above
+   0.75 (80%). On the text penthouses without duplexes it rises from 0.716 to between 0.74 and
+   0.81 (60%), and their gap within building keeps it a little under the duplexes' (55%).
+7. 80% coverage on all shared ads stays within 0.005 of 0.797 (75%). The marked ads are 6.3%
+   of the held-out ads, so a rise of 0.06 on them adds about 0.004 overall.
+8. The median's error moves by under 0.0003 (70%) and by under 0.0005 (85%), and on the
+   marked ads by under 0.001 (65%). On the text penthouses without duplexes it stays within
+   0.001 of L1's 0.0510 (65%), and their gap from D1's median within building, measured as
+   S14 measured L1's, stays above +1% (75%).
+9. Each of L1's phase factors moves by under 0.02 (70%).
+10. Each group's sigma falls by 0% to 5% (65%). The marked rows are now 6.6% of the rows.
+11. Each container stops its sweeps at the budget and runs 50 to 60 minutes, and the three
+    settle between $10.50 and $12.00 (80%). The fold adds no cell or factor (Cost).
+
+## Original predictions, for the duplex mark alone (written before launch, revised before launch)
+
+These are the originals. The penthouse fold replaced them before any launch, and I keep them
+here unchanged.
 
 I revised these on 2026-11-13, before any launch, when I moved k from the noise and the unit's
 process to the noise alone (The change). The revision changes four of them:
@@ -191,5 +255,7 @@ on the 10,331 marked ads an 80% coverage of 0.719.
 10. Each container stops its sweeps at the budget and runs 50 to 60 minutes, and the three
     settle between $10.50 and $12.00 (80%).
 
-A wider scale for other unusual units (penthouses, garden apartments, a townhouse floor) is
-the next screen in this direction, and it is free.
+S14 (`docs/notes/unusual-units-2026-11-13.md`) screened penthouses, garden apartments and
+townhouse floors against L1's spread. Of those, only the text penthouses joined D1's mark. A
+shared m with the garden ads came out at -11 ± 19 against the duplex mark alone, and with the
+townhouse ads at -90 ± 16.
