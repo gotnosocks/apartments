@@ -233,7 +233,15 @@ predictions above describe the model as it is.
 
 ### Refused commands
 
-The permission check refused three commands during these rehearsals: a `for` loop calling a
-venv's Python from a loop variable, a `sort` reading a path from a shell variable, and a
-heredoc writing a script for a single Python run. I reran each as plain commands with literal
-absolute paths, writing the script to a file first.
+The permission check refused seven commands during these rehearsals:
+
+1. a `for` loop calling a venv's Python from a loop variable;
+2. a `sort` reading a path from a shell variable;
+3. a heredoc writing a script for a single Python run;
+4. a `sed` and a `grep` followed by a Python run from an empty heredoc, in one command;
+5. a `for` loop calling `systemd-run` with a run directory from a loop variable, twice;
+6. a Python run from an empty heredoc, too complex for the check to confirm it stayed in
+   the worktree.
+
+I reran each as plain commands with literal absolute paths, writing any script to a file
+first.

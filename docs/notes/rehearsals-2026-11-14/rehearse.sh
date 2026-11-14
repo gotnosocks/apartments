@@ -9,8 +9,10 @@
 # this checkout's rentfrontier, imported through PYTHONPATH by the Python of serve/master's
 # frontier venv, which holds JAX's CUDA plugin. With WIDTH, the run goes through `width.py`
 # instead, which sets the slice width of the building spreads to WIDTH for the diagnostic
-# runs. The run, its log, the device's memory every 2 s and the run's /usr/bin/time record
-# go under /data1/apartments/tmp/rehearsals-2026-11-14/OUT.
+# runs. With REHEARSAL_SRC set, PYTHONPATH holds that tree in place of this checkout's
+# frontier/src, and the run records REHEARSAL_COMMIT as its commit, for a run of the code at
+# an earlier commit. The run, its log, the device's memory every 2 s and the run's
+# /usr/bin/time record go under /data1/apartments/tmp/rehearsals-2026-11-14/OUT.
 # Call it through `ops/job gpu` so it takes the GPU lock.
 set -euo pipefail
 [ $# -eq 6 ] || [ $# -eq 7 ] || {
@@ -30,10 +32,12 @@ nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader,nounits -lms 
 smi=$!
 trap 'kill "$smi"' EXIT
 cd "$checkout"
-env PYTHONPATH="$checkout/frontier/src" \
+src=${REHEARSAL_SRC:-$checkout/frontier/src}
+commit=${REHEARSAL_COMMIT:-$(git rev-parse HEAD)}
+env PYTHONPATH="$src" \
 	FRONTIER_DATASET="$root/datasets/$copy" \
 	FRONTIER_OUTPUT_ROOT="$root/$out" \
-	FRONTIER_COMMIT="$(git rev-parse HEAD)" \
+	FRONTIER_COMMIT="$commit" \
 	XLA_PYTHON_CLIENT_PREALLOCATE=false \
 	XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
 	/usr/bin/time -v -o "$root/$out/time.txt" \

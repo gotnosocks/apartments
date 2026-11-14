@@ -12,8 +12,8 @@ The script reads a run's `result.json` and `posterior.npz` under RUN and prints:
    in median from their first half to their second in the same units, and the share of draws
    under 1% of the parameter's median, for a scale or a factor.
 
-The new parameters are L2's phase levels (`phase:*`), the segments' amplitudes, lengthscales
-and hat coefficients (`seg:*`), the duplex and income factors k, and the line model's
+The new parameters are L2's phase levels (`phase:*`), the segments' amplitudes, lengthscales,
+levels (`level:*`) and hat coefficients (`seg:*`), the duplex and income factors k, and the line model's
 line_sd and unit_sd.
 
     python docs/notes/rehearsals-2026-11-14/check.py RUN MODEL
@@ -71,6 +71,7 @@ if MODEL.endswith("-level"):
     new |= {n: beta[..., i] for i, n in enumerate(names) if n.startswith("phase:")}
 if MODEL.endswith("-segment"):
     new |= drift_building_phase_segment._segment_extras(trace, names)
+    new |= {n: beta[..., i] for i, n in enumerate(names) if n.startswith("level:")}
     hats = [i for i, n in enumerate(names) if n.startswith("seg:")]
     r = [run.split_rhat(beta[..., i]) for i in hats]
     e = [run.ess(beta[..., i]) for i in hats]
