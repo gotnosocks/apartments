@@ -1,13 +1,19 @@
 """Outdoor size, step 6: a level, a slope and a noise factor for the stated area, emulated
 on L1's exact predictive.
 
-This step asks how much of the screen's excess a fit could take back. I rescore
-L1's held-out ads from its 272 kept draws with `Draws` of the causal screens
-(`causal-screens-2026-11-13/common.py`), as S15 and S15b did for income ads: each draw's
-location moves by a shift, or its noise scale and unit sd grow by a factor, and the ad's
-gain is its log predictive density after the change less before it, on the same grid. Ads
-with no area gain 0. The buildings fall in two halves by `common.heldout`'s fold; each half
-takes the change picked on the other half's marked ads, and the two halves' gains add up.
+This step asks how much of the screen's excess a fit could take back. I rescore L1's
+held-out ads from its 272 kept draws (`Draws` of `causal-screens-2026-11-13/common.py`) in
+two ways:
+
+- each marked ad's location moves by a shift, through `Draws.gain`, as S15 moved the income
+  ads';
+- each draw's noise scale grows by a factor k with the unit's sd as drawn, through
+  `lpd_noise`, as S15b's `income-flag-2026-11-14/g3_noise.py` scaled it and as I1 fits it.
+
+An ad's gain is its log predictive density after the change less before it, on the same
+grid. Ads with no area gain 0. The buildings fall in two halves by `common.heldout`'s fold;
+each half takes the change picked on the other half's marked ads, and the two halves' gains
+add up.
 
 The shifts come from least squares on the picking half, fit to the gap less the mean gap of
 the kept held-out ads with no area, for three specs:
@@ -24,9 +30,9 @@ L1's predictive has heavy tails, so a fit would set the coefficients closer to a
 center than to a mean. For that I also pick each spec's coefficients from GRID, the point
 with the largest gain over the picking half, as S15 picked its shift.
 
-Then a factor k from FACTORS on the noise scale and unit sd: for all marked ads, and for
-those of 300 sq ft or more. The picking half takes the k with the largest gain, alone and
-after spec 3's grid-picked shift. SEs are clustered by building over the marked ads.
+Then a factor k from FACTORS on the noise scale alone: for all marked ads, and for those of
+300 sq ft or more. The picking half takes the k with the largest gain, alone and after spec
+3's grid-picked shift. SEs are clustered by building over the marked ads.
 
     python o6_emulate.py   # inside systemd-run --user --scope -p MemoryMax=3G
 """
@@ -50,7 +56,8 @@ DRAW = "/data1/apartments/tmp/blind-spots-2026-11-14/draw.parquet"
 OUT = Path("/data1/apartments/tmp/outdoor-size-2026-11-14/")
 CENTER = 500.0
 SPECS = {"level": [0], "level_slope": [0, 1], "level_slope_uncoded": [0, 1, 2]}
-FACTORS = np.round(np.arange(1.0, 2.01, 0.05), 2)
+FACTORS = np.round(np.arange(1.0, 3.01, 0.05), 2)
+BATCH = 400
 # Each spec's grid: the level at CENTER sq ft, the slope per doubling, the uncoded step.
 GRID = {
     "level": (np.arange(-0.02, 0.0501, 0.0025), [0.0], [0.0]),
@@ -102,12 +109,35 @@ def full(v):
     return out
 
 
-def gains(shift=None, factor=None):
-    """Each marked ad's gain with its location moved by `shift` and its noise and unit sd
-    multiplied by `factor`, both arrays over the marked ads."""
-    delta = None if shift is None else full(shift)
-    scale = None if factor is None else full(factor - 1) + 1
-    return draws.gain(idx, delta, scale)
+def gains(shift):
+    """Each marked ad's gain with its location moved by `shift`, an array over the marked
+    ads."""
+    return draws.gain(idx, full(shift))
+
+
+def lpd_noise(sl, delta, k):
+    """`g3_noise.lpd_noise` of the held-out ads `sl`, each draw's noise scale times `k` and
+    the unit's sd as drawn, with the locations moved by `delta` as well."""
+    dr = draws
+    s = dr.sig[:, dr.grp[sl]] * dr.fac[:, dr.ph[sl]] * k[None, :]
+    loc = dr.loc[:, sl] + delta[None, :].astype(np.float32)
+    var = dr.usd[:, sl, None] ** 2 + (s.astype(np.float32) ** 2)[:, :, None] * dr.ilam
+    dev = (dr.y[sl][None, :] - loc)[:, :, None]
+    lp = dr.logw - 0.5 * (np.log(var) + dev * dev / var)
+    mx = lp.max(axis=2, keepdims=True)
+    lp = (mx[:, :, 0] + np.log(np.exp(lp - mx).sum(axis=2))).astype(np.float64)
+    return (
+        np.logaddexp.reduce(lp, axis=0) - np.log(lp.shape[0]) - 0.5 * np.log(2 * np.pi)
+    )
+
+
+def noise_lpd(shift, factor):
+    """`lpd_noise` of the marked ads, `shift` and `factor` arrays over them."""
+    out = np.empty(len(idx))
+    for a0 in range(0, len(idx), BATCH):
+        part = slice(a0, a0 + BATCH)
+        out[part] = lpd_noise(idx[part], shift[part], factor[part])
+    return out
 
 
 def result(gain, **extra):
@@ -153,10 +183,12 @@ for spec, axes in GRID.items():
     out[f"grid_{spec}"] = result(gain, picked=picked)
     print(spec, "grid done", flush=True)
 
+base_lpd = noise_lpd(np.zeros(len(m)), np.ones(len(m)))
+out["noise_base_matches_draws"] = bool(np.allclose(base_lpd, draws.elpd(idx)))
 for after in (False, True):
     shift = shift3 if after else np.zeros(len(m))
     for group, on in (("all", np.ones(len(m), bool)), ("300", big)):
-        by_k = {k: gains(shift, np.where(on, k, 1.0)) for k in FACTORS}
+        by_k = {k: noise_lpd(shift, np.where(on, k, 1.0)) - base_lpd for k in FACTORS}
         gain, picked = np.zeros(len(m)), []
         for half in (0, 1):
             pick = (fold != half) & on

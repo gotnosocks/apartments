@@ -6,7 +6,7 @@ L1 reads the private outdoor types and the private-outdoor feature from the list
 so a 40 sq ft balcony and a 1,500 sq ft terrace take the same premium. `rentfrontier.b0outdoorsize`
 reads the stated area of the unit's private outdoor space from each listing's latest
 description and writes it into a copy of L1's dataset as `outdoor_sqft`, NaN where the ad
-states none. On 1,475 held-out ads with an area (docs/notes/outdoor-size-2026-11-14.md), the
+states none. On 1,474 held-out ads with an area (docs/notes/outdoor-size-2026-11-14.md), the
 ask exceeds L1's median by 1.0% more for each doubling of the area, and by 2.8 points more on
 ads whose listing codes give the unit no private outdoor space. Rescored on L1's draws, the
 best such shift gains only +6.6 ± 4.2 elpd, since the excess falls mostly on ads with wide

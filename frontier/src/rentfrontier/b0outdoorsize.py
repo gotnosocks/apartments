@@ -13,8 +13,9 @@ by the building and interior sizes. This module reads the size with a tighter ma
 - `outdoor_sqft_src`: how the area was read, one of SRC_CODES, or "" with no area.
 
 The text is the description of each listing's latest record, picked as `b0textflags` picks
-it. `plain` turns each line break and `<br>` tag into a " | " boundary and each curly
-apostrophe into a straight one, then lowercases the text with `cautions.plain`. For each
+it. `plain` turns each line break and `<br>` tag into a " | " boundary, adds one after "sq.
+ft." or "s.f." when a new sentence follows (UNIT_STOP), and turns each curly apostrophe
+into a straight one, then lowercases the text with `cautions.plain`. For each
 AREA, a number followed by a unit of square feet, I look for a private outdoor NOUN on
 either side:
 
@@ -117,6 +118,14 @@ _UNIT = (
 AREA = re.compile(
     rf"(?<![\d$,.])(?P<n>{_NUM})(?:\s?(?:-|to)\s?(?P<m>{_NUM}))?\s?\+?\s?(?:{_UNIT})"
 )
+# A unit whose last period AREA keeps ends a sentence when the raw text goes on in sentence
+# case, a capitalized word and then a lowercase one ("650 sq. ft. Private terrace off the
+# bedroom" gives the terrace no area). Title case and capitals ("300 Sq. Ft. Private
+# Terrace", "482 sq. ft. PRIVATE TERRACE") keep the area. A real area written in sentence
+# case after the unit ("340 sq. ft. Terrace surrounded by greenery") loses it.
+UNIT_STOP = re.compile(
+    r"(?<![A-Za-z])(?i:sq\.\s?(?:ft|feet|foot)|s\.f)\.(?=\s+[A-Z][a-z]+\s+[a-z])"
+)
 NOUN = re.compile(
     r"\b(?:"
     r"(?P<roof>roof[\s-]?(?:top|deck|terrace|garden)s?|rooftops?|sun[\s-]?decks?)"
@@ -124,8 +133,8 @@ NOUN = re.compile(
     r"|(?P<terrace>terraces?)|(?P<balcony>balcon(?:y|ies))|(?P<patio>patios?)"
     r"|(?P<garden>(?<!carroll )(?<!kew )(?<!sunnyside )(?<!botanic )(?<!botanical )"
     r"(?<!square )(?<!community )(?<!beer )(?<!forest )gardens?)"
-    r"|(?P<yard>(?<!navy )(?<!hudson )(?<!rail )(?<!court )(?:back|front|rear|side)?[\s-]?"
-    r"yards?)"
+    r"|(?P<yard>(?:back|front|rear|side)[\s-]?yards?"
+    r"|(?<!navy )(?<!hudson )(?<!rail )(?<!court )yards?)"
     r"|(?P<deck>decks?)"
     r")\b"
 )
@@ -224,9 +233,10 @@ TOTAL = re.compile(r"\b(?:total(?:ing|ling|s)?|combined|in all|altogether|overal
 
 def plain(text: str) -> str:
     """`text` as `cautions.plain` leaves it, after each line break and `<br>` tag becomes
-    " | ", so a match never runs from one line into the next, and each curly apostrophe
-    becomes a straight one."""
+    " | ", so a match never runs from one line into the next, each UNIT_STOP gets a " |"
+    after it, and each curly apostrophe becomes a straight one."""
     text = re.sub(r"\r?\n|<br\s*/?>", " | ", text, flags=re.I)
+    text = UNIT_STOP.sub(r"\g<0> |", text)
     return cautions.plain(text.replace("\u2019", "'").replace("\u2018", "'"))
 
 
@@ -463,6 +473,7 @@ def outdoorsize(src: Path, out: Path) -> dict:
             "listing's latest record (docs/notes/outdoor-size-2026-11-14.md)",
             "patterns": {
                 "area": AREA.pattern,
+                "unit_stop": UNIT_STOP.pattern,
                 "noun": NOUN.pattern,
                 "not_space": _NOT_SPACE.pattern,
                 "not_adjective": sorted(NOT_ADJECTIVE),

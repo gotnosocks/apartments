@@ -78,6 +78,16 @@ POSITIVE = [
         800,
         "noun_first",
     ),
+    (
+        "Garden floor through with a private back yard of 650 sq ft and a grill.",
+        650,
+        "noun_first",
+    ),
+    (
+        "Ground floor two bedroom with a 650 sq ft back yard, washer dryer in unit.",
+        650,
+        "number_first",
+    ),
 ]
 SHARED = [
     "Building amenities include a gym, a lounge and a 3,000 sq ft roof deck.",
@@ -104,7 +114,45 @@ NOT_OUTDOOR = [
     "Large corner condo with balcony boasts over 800 sqft of living space.",
     "Sunny 650 square feet one bedroom with terrace access from the hall.",
     "There is no 300 sq ft balcony here, but the apartment is bright.",
+    "Hudson Yards: 650 sq ft with high ceilings and a dishwasher in the kitchen.",
+    "Steps from the Brooklyn Navy Yard: 650 sq ft with high ceilings and a dishwasher.",
+    "Renovated one bedroom of 650 sq. ft. Private terrace off the bedroom, washer dryer.",
+    "Bright studio of 450 s.f. Patio off the kitchen for grilling in the summer.",
 ]
+
+
+def test_outdoor_area_misses_a_private_court_yard():
+    """A known miss of the yard pattern: "court yard" reads as a place name, as in "Rail
+    Yard", even when the ad calls it private."""
+    text = "Garden floor one bedroom with a private court yard 900 sq ft and a grill."
+    sqft, src, _ = b0outdoorsize.outdoor_area(text)
+    assert math.isnan(sqft) and src == ""
+    assert b0outdoorsize.outdoor_area(text.replace("court yard", "back yard"))[0] == 900
+
+
+def test_outdoor_area_misses_sentence_case_after_sq_ft_with_periods():
+    """A known miss of UNIT_STOP: "sq. ft." followed by a capitalized word and a lowercase
+    one ends the sentence, so the terrace gets no area."""
+    text = "Top floor one bedroom with a 340 sq. ft. Terrace surrounded by greenery."
+    sqft, src, _ = b0outdoorsize.outdoor_area(text)
+    assert math.isnan(sqft) and src == ""
+    assert b0outdoorsize.outdoor_area(text.replace("sq. ft.", "sq ft")) == (
+        340,
+        "number_first",
+        0,
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Top floor one bedroom with a 300 Sq. Ft. Private Terrace off the living room.",
+        "A two bedroom with a 300 sq. ft. PRIVATE TERRACE and a washer dryer.",
+        "Two bedroom with a massive 300 sq. ft. Terrace. King size bedroom.",
+    ],
+)
+def test_outdoor_area_keeps_title_case_and_capitals_after_sq_ft(text):
+    assert b0outdoorsize.outdoor_area(text) == (300, "number_first", 0)
 
 
 @pytest.mark.parametrize("text,sqft,src", POSITIVE)
