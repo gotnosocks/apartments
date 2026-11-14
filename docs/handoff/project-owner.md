@@ -37,7 +37,7 @@ each on the latest split against L1, in this order:
 
 1. L2, about $11.50.
 2. The segment paths, $11 to $12.50.
-3. D1, about $12.50.
+3. D1, about $11.50.
 4. LN1, $11.50 to $12.
 5. The winner's market and backtest fits and the Deals publish, about $23.
 
@@ -50,18 +50,19 @@ Open asks to Ben, each put once in the thread:
 - His own words allowing the S12 photo pilot to fetch listing photos through OxyLabs. Until
   then it stays stopped, and the memory note `oxylabs-standing-spend` stays as it is.
 
-S12 came out with no fit candidate. Hardwood's own term comes from re-listing drift, city views
-and balcony are negative only between buildings and listers, and patio, roof rights, hardwood
-between units and live-in super have no named cause. The photo pilot was meant to test
-finish quality as that cause.
+S12 found no fit candidate (the S12 bullet below has the details). The photo pilot was meant
+to test finish quality as the cause behind roof rights, hardwood and live-in super.
 
 Free work in progress, each through its own reviewed PR, in the coordinator's order:
 
 1. A line block in `drift_today`'s covariance, so LN1 could feed Deals if it wins.
-2. This section.
-3. How a unit's previous ad ended (S3's status reading) as a column in a copy of L1's dataset.
-4. Data changes for new units, which the j9 backtest scores: a co-op flag from PLUTO's building
-   class, amenity codes from a unit's earlier ads only, and a screen of building turnover.
+2. How a unit's previous ad ended, read from the raw status history as in screen S3, as a
+   column in a copy of L1's dataset.
+3. Data changes for new units, which the backtest j9 (`docs/model/drift.md`) scores: a co-op
+   flag from PLUTO's building class, amenity codes from a unit's earlier ads only, and a
+   screen of building turnover.
+
+### Earlier in the sprint
 
 - **Screens.** In `docs/notes/causal-screens-2026-11-13.md` (#1354) I ran ten screens of
   L1's held-out ads and found three fit candidates: a level for each lease phase, paths for
