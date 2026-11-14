@@ -101,4 +101,5 @@ An ad's ending is an outcome dated after its ask. On a split where a held-out ad
 before a training ad of the same unit, the training ad's `prev_ending` would hold that outcome
 for the held-out ad. On the latest split every held-out ad is the newest of its unit, so a
 training ad's column reads only the ending of another training ad. A fit reading
-`prev_ending` should be scored there.
+`prev_ending` should be scored there, and nothing enforces that yet, so the first model module
+to read the column should refuse every other split.

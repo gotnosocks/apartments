@@ -136,8 +136,9 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   `/data1/apartments/tmp/outlier-sprint/s2/Y/`), so the factors do not come from the
   split's choice of units.
 - [ ] L2: a level per lease phase on L1's winner (apartments back within 3 months come
-  1.4% under the median). Behind it, a column for the previous ad's ending (delisted or
-  paused against a deal), which needs the raw status histories carried into the dataset.
+  1.4% under the median). Behind it, the previous ad's ending (delisted or paused against a
+  deal), now the column `prev_ending` in a copy of L1's dataset
+  (`docs/notes/ending-column-2026-11-13.md`). No model reads it yet.
 - [ ] R, for Data improvements and Modeling: make the label standard for reposts a
   pipeline step, then collapse the certified chains in the dataset build. The standard
   joins a handoff (same lister, building and counts, the later ad opening 0 or 1 day

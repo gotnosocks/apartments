@@ -57,6 +57,10 @@ ROWS = [
     # Same price_at: as text "100" sorts before "99", so 100 is the earlier ad.
     ("99", "b", "1", 0),
     ("100", "b", "1", 0),
+    # A unit with three ads, each with its own ending.
+    ("31", "c", "1", 0),
+    ("32", "c", "1", 30),
+    ("33", "c", "1", 60),
 ]
 
 
@@ -139,6 +143,9 @@ RECORDS = [
     ("30", 1.0, 1.0, changes(("ACTIVE", at(30)))),
     ("100", 1.0, 1.0, changes(("ACTIVE", at(-10)), ("RENTED", at(-5)))),
     ("999", 1.0, 1.0, changes(("ACTIVE", at(0)), ("RENTED", at(5)))),
+    ("31", 1.0, 1.0, changes(("ACTIVE", at(0)), ("RENTED", at(20)))),
+    ("32", 1.0, 1.0, changes(("ACTIVE", at(29)), ("NO_LONGER_AVAILABLE", at(45)))),
+    ("33", 1.0, 1.0, changes(("ACTIVE", at(59)), ("DELISTED", at(61)))),
 ]
 
 WANT = {
@@ -172,6 +179,9 @@ WANT = {
     "30": "undated",  # 29 has no record
     "100": "none",
     "99": "rented",
+    "31": "none",  # 32's and 33's endings are later ads'
+    "32": "rented",  # 31's, not 32's own
+    "33": "no_longer_available",  # 32's, not 31's or 33's own
 }
 
 
@@ -251,13 +261,13 @@ def test_ending_reads_the_previous_ads_changes_before_the_row_opened(src, tmp_pa
     entry = manifest["ending"]
     assert entry["source"] == str(src) and entry["source_rows_sha256"] == "abc"
     assert entry["records"] == str(tmp_path / "records.parquet")
-    assert entry["listings_read"] == 27
-    assert entry["rows_with_previous"] == 14
+    assert entry["listings_read"] == 30
+    assert entry["rows_with_previous"] == 16
     assert entry["previous_without_status_changes"] == 1
     assert entry["rows"] == {
-        "none": 16,
-        "rented": 3,
-        "no_longer_available": 1,
+        "none": 17,
+        "rented": 4,
+        "no_longer_available": 2,
         "delisted": 3,
         "temp_off_market": 1,
         "undated": 6,
