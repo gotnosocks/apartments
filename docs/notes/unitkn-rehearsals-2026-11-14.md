@@ -21,7 +21,7 @@ module, leaving every module of an earlier fit as it stands.
 
 Each module imports its parents' functions and constants and defines only its name, its
 sweep and its run record. The names are registered in `rentfrontier.run`, `ops/modal/app.py`
-and `ops/modal/cap.py`, where the stated rates are 1.5 and 2.4 CPU-hours for an hour of GPU,
+and `ops/modal/cap.py`, where the stated rates are 1.5 and 2.4 seconds a sweep for a pair of chains,
 the L1-base variants' rates scaled by unitkn's. `drift_today` refuses models with Student-t
 unit levels, so neither name is registered there.
 
@@ -38,7 +38,8 @@ Each run used `docs/notes/rehearsals-2026-11-14/rehearse.sh` as the earlier rehe
 the 741-building subsample `k100-r8/base` (24,886 training rows, about 1 in 92 buildings)
 with the latest split carried over, 2 chains, 500 warmup sweeps, 2,400 draws a chain, seed 1,
 level prior at 4 degrees of freedom. The runs went through `ops/job gpu` one at a time as
-`systemd-run --user` units, from commit 81a24575.
+`systemd-run --user` units, from commit 81a24575, except the `unitkn` reference run, from
+d894d6ce. The unitkn module is the same at both commits.
 
 | run | model | wall time | sweep | max RSS |
 |---|---|---|---|---|
