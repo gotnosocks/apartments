@@ -77,3 +77,133 @@ I wrote these before the script ran.
 7. The verdict is neither (55%), a column built for a later fit (35%), or a fit (10%).
 
 The screen reads saved runs on the CPU in one `MemoryMax=3G` scope, for no Modal cost.
+
+## Results
+
+`screen.py` in `docs/notes/turnover-screen-2026-11-13/` ran in a single `MemoryMax=3G` scope
+and saved its counts to `/data1/apartments/tmp/sprint-20261113/turnover-screen.json`. Gaps are in percent,
+with SEs clustered by building. Both ads files matched the SHA-256 in their dataset's manifest.
+
+The quartile edges of the nonzero rate among j9's held-out ads are 0.123, 0.223 and 0.417 ads
+per residential unit and year, so low turnover is a rate of 0.223 or less. j9's count by
+training ads matches S5b's on every bin, from 84 ads at +9.2 ± 3.2 in buildings with none to
+5,115 at +0.5 ± 0.2 in buildings with 100 or more.
+
+### j9 by turnover band
+
+| Band | Rate | Ads | Buildings | Gap | Median training ads | Under 5 training ads |
+|---|---|---|---|---|---|---|
+| none | 0 | 378 | 378 | +5.59 ± 0.97 | 4 | 53% |
+| Q1 | to 0.123 | 2,183 | 1,214 | +2.25 ± 0.29 | 108 | 2.4% |
+| Q2 | to 0.223 | 2,180 | 953 | +1.17 ± 0.24 | 235 | 1.4% |
+| Q3 | to 0.417 | 2,208 | 1,053 | +0.79 ± 0.26 | 152 | 3.3% |
+| Q4 | above | 2,153 | 1,152 | -0.72 ± 0.28 | 98 | 2.3% |
+| units unknown | | 244 | 64 | +1.42 ± 0.91 | 226 | 3.7% |
+
+The gap falls by about 3 points from the first quartile to the fourth. Outside the band with no
+other ads, the training-ad count doesn't fall with it: the median runs 108, 235, 152 and 98
+over the quartiles. Across the ads with a known rate, the rate and the training-ad count have
+a Spearman correlation of 0.14.
+
+### j9 by training ads and turnover
+
+| Training ads | All | Low turnover | High turnover | Low less high |
+|---|---|---|---|---|
+| 0 | 84, +9.23 ± 3.19 | 72, +9.00 ± 3.08 | 12, +10.6 ± 13.7 | too few |
+| 1-4 | 331, +5.08 ± 1.09 | 211, +5.84 ± 1.31 | 111, +5.05 ± 1.85 | +0.78 ± 2.17 |
+| 5-19 | 982, +1.47 ± 0.47 | 575, +2.87 ± 0.66 | 386, -0.71 ± 0.64 | +3.58 ± 0.87 |
+| 20-99 | 2,834, +1.30 ± 0.23 | 1,351, +2.61 ± 0.36 | 1,449, +0.02 ± 0.29 | +2.59 ± 0.43 |
+| 100+ | 5,115, +0.49 ± 0.17 | 2,532, +1.00 ± 0.22 | 2,403, -0.10 ± 0.26 | +1.10 ± 0.34 |
+
+Pooled over the bins from 1-4 up, the low-turnover ads ask 1.81 ± 0.26 points more over j9's
+mean location than the high-turnover ads (9,018 ads). Over the 8,178 ads outside their
+building's first year the contrast is +1.82 ± 0.27.
+
+At 5 or more training ads, then, the low-turnover half holds most of each bin's excess, and the
+high-turnover half comes close to zero. In the 1-4 bin the split makes no difference: both halves
+ask 5% to 6% over j9's mean location, and the bin's 134 ads with no other ads of their building
+in the window ask +6.57 ± 1.70, a little above the bin's +5.08 ± 1.09. Turnover doesn't account
+for the few-ad excess, and the excess and the turnover gradient look like separate patterns.
+
+### Checks added after the first results
+
+I hadn't written predictions for these.
+
+- I counted turnover over training rows alone, leaving out the other held-out ads open at the
+  time, and cut it at its own nonzero median (0.210). The pooled contrast is +1.91 ± 0.26, so
+  the gradient doesn't come from several of a building's ads on the market at once.
+- S5b's population holds 6,178 ads whose unit has training rows in j9, and 3,168 units new to
+  j9. The pooled contrast is +1.31 ± 0.24 for the first (5,941 ads with a known rate) and +3.12
+  ± 0.56 for the new units (2,987). Among the new units the gap runs +9.77 ± 1.69 with no other
+  ads (185), +4.62 ± 0.65 in the first quartile (746), +1.96 ± 0.56 and +2.31 ± 0.73 in the
+  middle two, and -0.37 ± 0.52 in the fourth (905).
+- For the ads whose unit has an earlier training ad, I compared fixed-effect slopes on the
+  low-turnover flag. Within count bins it is +1.30 ± 0.24. Within count bins crossed with the
+  months since the unit's latest earlier training ad (under 12, 12 to 36, 36 or more) it is
+  +1.14 ± 0.25, even though the low-turnover share rises from 35% to 52% to 65% over those
+  bands. The time since the unit's own last ad takes up little of the gradient.
+
+### L1
+
+All 189,647 held-out ads stay in: L1's dataset opens on 2011-06-18 and its earliest held-out ad
+is priced on 2014-01-01. 3,459 of them are priced before 2016, so their window starts
+in the thin early data. Every held-out unit has training rows, so L1 has no bin with no
+training ads.
+
+| Band | Ads | Gap |
+|---|---|---|
+| none | 10,301 | -0.60 ± 0.11 |
+| Q1 | 38,050 | -0.49 ± 0.05 |
+| Q2 | 44,191 | -0.34 ± 0.04 |
+| Q3 | 45,969 | -0.30 ± 0.04 |
+| Q4 | 48,074 | -0.60 ± 0.04 |
+| units unknown | 3,062 | -0.46 ± 0.22 |
+
+| Training ads | All | Low turnover | High turnover | Low less high |
+|---|---|---|---|---|
+| 1-4 | 5,972, -0.14 ± 0.15 | 5,050, -0.15 ± 0.17 | 873, -0.04 ± 0.39 | -0.11 ± 0.42 |
+| 5-19 | 23,105, -0.84 ± 0.07 | 14,442, -0.80 ± 0.09 | 8,437, -0.90 ± 0.11 | +0.10 ± 0.14 |
+| 20-99 | 66,871, -0.62 ± 0.04 | 28,775, -0.65 ± 0.05 | 37,661, -0.59 ± 0.05 | -0.06 ± 0.07 |
+| 100+ | 93,699, -0.24 ± 0.03 | 44,275, -0.20 ± 0.05 | 47,072, -0.28 ± 0.04 | +0.07 ± 0.06 |
+
+The pooled contrast is +0.02 ± 0.04 points (186,585 ads), +0.01 ± 0.04 outside the first
+year, +0.06 ± 0.04 with turnover from training rows alone, and -0.01 ± 0.04 within count bins
+and months since the unit's last ad. Over the 70,171 ads priced from 2025 on it is +0.15 ±
+0.07. The Spearman correlation of rate and count is 0.15. L1 shows neither the gradient nor a
+few-ad excess: its 1-4 bin has a gap of -0.14 ± 0.15.
+
+From saved runs I can't tell which difference between j9 and L1 removes the gradient. L1 adds
+lease phases to j9's line, and its held-out ads are the latest ads of units with earlier
+training ads, where j9's are the ads on the market on a single day. After the months check
+above, I doubt the phases account for all of it, and after the 2025 check I doubt the year
+does. No run of L1's line on the market split exists.
+
+## Predictions scored
+
+1. Spearman correlation above 0.2: wrong, 0.14.
+2. More than 60% of the 415 ads with fewer than 5 training ads in the band with no other ads:
+   wrong, 199 (48%).
+3. Pooled contrast positive: right, +1.81 ± 0.26. More than 2 SEs above zero: right.
+4. Both halves of the 1-4 bin above +3%: right, +5.84 ± 1.31 and +5.05 ± 1.85.
+5. Outside the first year at least half the contrast: right, +1.82 ± 0.27.
+6. L1's pooled contrast within ±0.5: right, +0.02 ± 0.04.
+7. The verdict below is a column, which I gave 35%.
+
+## Verdict
+
+A column. The few-ad excess stays as S5 left it. On the market split, though, j9's low-turnover
+half asks about 1.8 points more over its mean location than the high-turnover half within count
+bins, and about 3 points more among units new to j9. j9 is the backtest for ads on the market,
+the population the Deals page ranks. If L1's line misses the same way on those ads, the page
+ranks ads in buildings whose other units rarely come up for rent as overpriced, and ads in
+fast-turning buildings as deals.
+
+The column holds each row's count of its building's other ads opened in the 730 days before its
+price day, and the lot's residential units, built by a new `rentfrontier.b0` module like
+`b0amenitycarry` into a new dataset. It costs about an hour of work and a build of seconds in a
+`MemoryMax=3G` scope, with no Modal.
+
+No fit yet. On the latest split, the scoring split for model changes, L1's held-out ads put the
+gain near zero (+0.02 ± 0.04 points). A fit reading the column would need a market-split
+backtest of L1's line to compare against first. That backtest is one Modal full fit from the
+approved budget (j9's took 2.4 hours on an H100), with the column's fit after it as a second.
