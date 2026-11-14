@@ -95,7 +95,10 @@ ad closed before the row's ad opened, the fetch came after it closed, and I have
 whether StreetEasy edits a closed ad's page. For an earlier ad still listed when the row's ad
 opened (no off day, or one on or after the row's opening), a code could have been added after
 that day. 40,461 pairs have such an earlier ad, and 7,828 rows gain a code only from one. The
-fifth column of the table counts them for each code.
+fifth column of the table counts them for each code. This isn't a rent leak: each row's own
+`ad:` codes and L1's `umean:` come from the same October fetch, and
+`docs/leak-free-scoring.md` treats fields from a listing's last capture in the same way, since
+under 1% of them change between captures.
 
 L1 already reads the union. A positive `umean:ad:<code>` marks a code stated on the row's own
 ad or on a training ad of its unit priced on an earlier day. `count.py` in
@@ -104,8 +107,8 @@ it matches the union over every earlier ad on every row, training and held-out. 
 opening day comes to the price day, `carry:<code>` is 1 on exactly the rows where L1's
 `umean:ad:<code>` is above zero, for the 19 codes L1 reads, and `carry:states_features` is 1
 where `umean:ad:features_unstated` is below 1. j9's design builds the same unit means on its
-own dataset. So for
-either line the column holds L1's unit mean cut at zero, and adds only that form.
+own dataset. So for either line the column holds L1's unit mean cut at zero, and adds only
+that form.
 
 ## Against S12's accrual
 
@@ -160,4 +163,7 @@ In a fit reading the carried codes I'd have to keep apart:
 
 The only part with a form L1's linear design lacks is the omission flag itself (own code 0,
 carried 1). I haven't put it in a fit, and with a count of earlier ads it would need its
-predictions written down first. The columns wait for that, and no fit reads them.
+predictions written down first. The flag equals the step at `umean:ad:<code>` above zero
+minus `ad:<code>`, so a fit that tests it should build it inside the kitchen-sink design from
+those two, where it follows the training mask under any split, and not read this copy. I keep
+the module and the copy so that `count.py` reproduces the counts above, and no fit reads them.
