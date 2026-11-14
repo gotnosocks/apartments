@@ -46,8 +46,12 @@ slopes:
   since any predictable held-out gap is a miss whatever its source. But a slope above zero says
   only that the median leaves part of the unit's record unused. It does not say whether the
   unit level or a coefficient is at fault.
-- m carries the noise of the peers' mean and of single asks. That noise pulls a slope toward
-  zero, so the slopes are lower bounds in size.
+- m carries the noise of the peers' mean and of single asks. The noise does not excuse a
+  slope. Under a calibrated posterior the held-out gap has a slope of zero on any function of
+  the training rows, a noisy m included. A slope on either side of zero is therefore a
+  miscalibration, and the noise in m changes only which causes can produce it. A fit leaning
+  too hard on noisy training asks gives a negative slope, because the median then follows the
+  same noise m carries.
 
 Then, for L1 and for L1T on the same ads:
 
@@ -62,8 +66,9 @@ Then, for L1 and for L1T on the same ads:
 3. I recompute S7's duplex figure, the duplex ads' mean squared gap less the other ads', with
    the gap clipped at ±0.4 as in `w1_within.py`, under L1 and under L1T.
 
-A slope above zero means the median sits too far from the unit's record, on the side of the
-building. A slope below zero means the fit follows the record too closely.
+A slope above zero means the median stays too close to the building, so the fit uses too little
+of the unit's record. A slope below zero means the median follows the record further than the
+unit's next ask does.
 
 ## Predictions
 
@@ -138,8 +143,19 @@ from their building ask closer to the building, the next time, than L1's median 
 
 L1T moves every slope down by 0.01 to 0.06. For single-ad units that takes +0.031 to
 -0.027, past zero. For units with 2 to 5 training ads it makes a negative slope about twice as
-large. Under L1T the slope is also most negative after 48 months, which suggests that a
-unit's distance from its building fades over the years faster than the unit drift allows.
+large. Both fits have their most negative slope by months in the band over 48.
+
+A negative slope is a miscalibration, and at least three things can produce it:
+
+1. The fit leans too hard on noisy training asks. An ask far from the building is partly
+   noise, the unit level takes up some of that noise, and the next ask comes back.
+2. A unit's premium over its building truly reverts over time, faster than the fit's unit
+   level lets it.
+3. Survivorship. A unit comes back as a held-out ad after a history its own pricing selected.
+   A unit asked far over its neighbours may return because it failed to rent, at a lower ask,
+   and the latest split holds out exactly those returning ads.
+
+This check cannot separate the three.
 
 By this measure L1 does not use too little of a unit's record on average. The exception is the
 unit with one earlier ad seen again within about 2 years, and L1T overcorrects it.
@@ -161,9 +177,10 @@ Units with 1 training ad, for comparison:
 | under -0.15 | 2,876 | -0.003 ± 0.002 | +0.010 ± 0.002 | 71.9% | 75.1% |
 | over +0.15 | 3,807 | +0.015 ± 0.002 | -0.004 ± 0.002 | 69.6% | 77.9% |
 
-The cheap units with 2 or more training ads are not overpriced on average by either fit. Their
+On average neither fit prices the cheap units with 2 or more training ads over their asks. Their
 asks come in 0.2% over L1's median and 0.7% over L1T's. The pricey units ask 1.0% under L1's
-median and 2.4% under L1T's, so L1T follows a pricey record too far.
+median and 2.4% under L1T's. The mean gaps in these tails therefore run from 0.2% to 2.4%, and
+L1T's are the larger in both.
 
 The intervals are the weaker part. In both tails the 80% interval holds 70% to 74% of the asks,
 against 82% in the middle, and L1T leaves that as it is for units with 2 or more training ads.
@@ -180,15 +197,15 @@ covers it. The script carries each unit's training asks to the held-out month wi
 monthly index and takes r, the predictive median less their mean.
 
 The index is crude. Among the 62,467 ads L1 prices more than 14% over the carried record, the
-asks themselves come in 21% over it, so most of r in that band is rent growth missed by the
-index. Those asks land 1.3% under L1's median (1.2% under L1T's), with 79% coverage. Pricing a
-unit far over its own record is therefore right on average, and the 12 false deals are draws
-from the low side of that band.
+asks themselves come in 21% over it. Those asks land 1.3% under L1's median (1.2% under
+L1T's), with 79% coverage. My guess, untested, is that most of r in that band is rent growth
+the index misses. I did not locate the 12 false deals in these bands, so the table says
+nothing about them directly.
 
-On the other side the median is off. Where L1 prices a unit more than 14% under its carried
+On the other side the mean gap is larger. Where L1 prices a unit more than 14% under its carried
 record (7,239 ads), the asks land 5.1% ± 0.2% over the median with 56% coverage. L1T brings
-that to 2.5% ± 0.2% and 65%. For units with 2 or more training ads the figures are 2.6% ± 0.3%
-under L1 and 0.5% ± 0.2% under L1T.
+that to 2.5% ± 0.2% and 65%. For units with 2 or more training ads the asks land 2.6% ± 0.3%
+over L1's median and 0.5% ± 0.2% over L1T's.
 
 ### Duplex ads
 
@@ -204,8 +221,9 @@ question stays open.
 2. Miss. 72% of the held-out ads got an m, not 85%.
 3. Miss. L1's slope over all ads is -0.009 ± 0.005.
 4. Hit. +0.031 for 1 training ad against -0.047 for 3 to 5.
-5. Hit as worded: the slope of the difference is -0.047 ± 0.002. I had expected L1T to bring
-   a positive slope toward zero, and it took a slope near zero to a negative one.
+5. Hit in part. The wording holds: the slope of the difference is -0.047 ± 0.002. The reasoning
+   behind it does not. I expected L1T to bring a positive slope toward zero, and it took a
+   slope near zero to a negative one.
 6. Miss. L1 has no positive slope over all ads for L1T to remove.
 7. Miss on both parts. L1's slope is above zero only under 6 months, and it is lower over 24
    months than under 6.
@@ -222,14 +240,16 @@ units, and a wide scatter everywhere in the tails.
 ## Reading for the sprint
 
 - Account A's case from the false deals is weaker than the sprint note has it. A heavy-tailed
-  unit level fixes the median for single-ad units and for units priced under their own record,
-  and it pushes units with 2 or more ads too far toward their record. L1TKN's predictions
+  unit level moves the single-ad slope past zero and halves the gap for units priced under
+  their own record, and it takes the slopes of units with 2 or more ads further below zero.
+  L1TKN's predictions
   should include the slope on m by training-ad count, with zero as the target in each row.
 - The tails need a wider interval more than a different median. A noise scale or unit sd that
   grows with the unit's distance from its building would address the 70% to 74% coverage, and
   L1T does not.
-- The negative slopes that grow with the unit's ad count and with the years since the last ad
-  point at a unit level that fades toward the building, which the drift as fitted does not do.
+- The slopes below zero grow in size with the unit's ad count, and they are largest after 48
+  months. Overfitting to noisy asks, a premium that reverts and survivorship all fit that
+  pattern, and this check does not choose among them.
 
 ## Limits
 
