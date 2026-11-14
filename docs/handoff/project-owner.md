@@ -14,7 +14,7 @@ asked for the research backlog reviewed and ranked, and for a proposal of fits w
 Data work and other free work go ahead without approval. No Modal budget is approved for the
 sprint yet, so I have launched, queued and scheduled nothing on Modal.
 
-### State at 8:50 PM ET on Nov 13
+### State at 10:00 PM ET on Nov 13
 
 Merged in the sprint, all written and none fit:
 
@@ -31,6 +31,12 @@ Merged in the sprint, all written and none fit:
 | #1363 | S12, the causes behind L1's negative amenity terms |
 | #1364 | `drift_today` accepts L2, the segment paths and D1 |
 | #1365 | LN1, a level for each line of a building (`drift-building-phase-line`) |
+| #1366 | this handoff section |
+| #1367 | the previous ad's ending as the column `prev_ending` in a copy of L1's dataset |
+| #1368 | `drift_today` accepts LN1 |
+| #1369 | `coop` and `condo` columns from each row's own PLUTO release |
+| #1370 | unit codes carried from a unit's earlier ads |
+| #1371 | S13, building turnover against j9's misses on new units |
 
 When Ben approves option B in the thread, I run the fits one at a time, three H100 containers
 each on the latest split against L1, in this order:
@@ -61,9 +67,23 @@ Free work, each through its own reviewed PR, in the coordinator's order:
 2. Done in #1367: how a unit's previous ad ended, read from the raw status history as in
    screen S3, is the column `prev_ending` in a copy of L1's dataset
    (`docs/notes/ending-column-2026-11-13.md`).
-3. In progress: data changes for new units, which the backtest j9 (`docs/model/drift.md`) scores: a co-op
-   flag from PLUTO's building class, amenity codes from a unit's earlier ads only, and a
-   screen of building turnover.
+3. Done in #1369 to #1371: data changes for new units, which the backtest j9
+   (`docs/model/drift.md`) scores. No fit reads any of them.
+   - #1369: `coop` and `condo` columns from each row's own PLUTO release, in a copy of L1's
+     dataset (`docs/notes/coop-column-2026-11-13.md`). L1's held-out co-op ads sit at -0.74 ±
+     0.14% from its median, against -0.43 ± 0.02% for the rest, so a co-op term bears on the
+     new-unit j line more than on L1. The note also found that every PLUTO feature of the
+     drift line, the condo flag among them, reads the 26v2 release for every row, so an ad
+     priced in 2015 reads its building as of 2026. No drift module reads the point-in-time
+     PLUTO base.
+   - #1370: unit codes carried from a unit's earlier ads, in a copy of L1's dataset
+     (`docs/notes/amenity-carry-2026-11-13.md`). The carried code equals L1's `umean:` above
+     zero on every row, so L1 and j9 already read it. The only new form is an omission flag,
+     which a fit should build inside the kitchen-sink design.
+   - #1371: S13, a screen of building turnover (`docs/notes/turnover-screen-2026-11-13.md`).
+     On j9's new units the lowest turnover quartile asks +2.25 ± 0.29% over j9 and the
+     highest -0.72 ± 0.28%, while L1's held-out ads show no gradient (+0.02 ± 0.04). Its
+     verdict is a turnover column, with no fit until L1's line has a market-split backtest.
 
 ### Earlier in the sprint
 
