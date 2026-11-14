@@ -471,15 +471,16 @@ def test_phase_today_bins_the_months_and_keeps_a_cells_mark():
     # 1.4, 11.4 and 34.4 months; no unit; a held-out ad keeps its own phase.
     assert [P[i] for i in got] == ["0-2", "10-13", "26+", "none", "3-9"]
     cells = drift_building_phase_duplex.cells()
-    own = [cells.index(c) for c in ("0-2|duplex", "3-9|other", "0-2|duplex")]
+    marked = "duplex or penthouse"
+    own = [cells.index(c) for c in (f"0-2|{marked}", "3-9|other", f"0-2|{marked}")]
     fit = phase_fit(cells, own + [0, 1], price_at, unit_id, held)
     got = dt.phase_today(fit, np.arange(5), day)
     assert [cells[i] for i in got] == [
-        "0-2|duplex",
+        f"0-2|{marked}",
         "10-13|other",
-        "26+|duplex",
+        f"26+|{marked}",
         "none|other",
-        "10-13|duplex",
+        f"10-13|{marked}",
     ]
     fit = phase_fit(P[:2], [0, 0, 0, 0, 0], price_at, unit_id, held)
     with pytest.raises(SystemExit):

@@ -58,10 +58,10 @@ phase from the months since its unit's previous ad. An apartment's phase today c
 its last ad's price_at and `--day`, and an ad on the market keeps its own (`phase_today`).
 L2 (`drift_building_phase_level`) adds a level in the mean for each phase, so its phase
 columns follow the phase today. D1 (`drift_building_phase_duplex`) crosses the phase with
-the row's duplex mark, and an apartment keeps its last ad's mark. The segment model
-(`drift_building_phase_segment`) adds a path in time for each bedroom group and zone, and
-its columns follow `--day` as the walk does; past the last quarter start a path holds its
-value there.
+the row's mark for a duplex or a text penthouse, and an apartment keeps its last ad's mark.
+The segment model (`drift_building_phase_segment`) adds a path in time for each bedroom
+group and zone, and its columns follow `--day` as the walk does; past the last quarter start
+a path holds its value there.
 
 Lines. LN1 (`drift_building_phase_line`) centers each apartment's lasting level on a level
 for its line, the apartments of its building with its bedrooms and full baths, with
@@ -133,7 +133,7 @@ from .total_walk import SEASON
 
 # The models this module can predict, by the name a run records. Each is `drift`'s sweep
 # with at most the buildings' collapsed path; the phase models add a noise factor per lease
-# phase (or per cell of phase and duplex mark), L2 and the segment model add columns to
+# phase (or per cell of phase and D1's mark), L2 and the segment model add columns to
 # the design, LN1 adds a level for each line of a building, integrated out with the path,
 # and P1 reads L1's MapPLUTO columns as of each row's month. Models with Student-t unit
 # levels or more local-drift terms are refused.

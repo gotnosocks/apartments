@@ -1,0 +1,69 @@
+{
+ "rows": 1896471,
+ "held": {
+  "penthouse": 2467,
+  "duplex": 10329,
+  "both": 765,
+  "either": 12031,
+  "s14_text": 2467,
+  "agree_marked": 2466,
+  "column_only": 1,
+  "s14_only": 1,
+  "disagreements": {
+   "column_only": {
+    "different_text": 1
+   },
+   "s14_only": {
+    "different_text": 1
+   }
+  }
+ },
+ "all": {
+  "penthouse": 24084,
+  "duplex": 108405,
+  "both": 7669,
+  "either": 124820,
+  "s14_text": 24088,
+  "agree_marked": 24079,
+  "column_only": 5,
+  "s14_only": 9,
+  "disagreements": {
+   "column_only": {
+    "different_text": 5
+   },
+   "s14_only": {
+    "s14_short": 5,
+    "different_text": 4
+   }
+  }
+ },
+ "l1_heldout": {
+  "all": {
+   "ads": 189647,
+   "cover80": 0.7972,
+   "median_abs_error": 0.04068
+  },
+  "marked": {
+   "ads": 12031,
+   "cover80": 0.7183,
+   "median_abs_error": 0.05523
+  },
+  "duplex": {
+   "ads": 10329,
+   "cover80": 0.7188,
+   "median_abs_error": 0.05587
+  },
+  "penthouse_without_duplex": {
+   "ads": 1702,
+   "cover80": 0.7156,
+   "median_abs_error": 0.05097
+  },
+  "other": {
+   "ads": 177616,
+   "cover80": 0.8025,
+   "median_abs_error": 0.03989
+  }
+ }
+}
+
+[exited with code 0]

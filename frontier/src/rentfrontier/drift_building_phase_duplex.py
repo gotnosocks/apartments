@@ -1,13 +1,22 @@
 """The building model with noise phases (`rentfrontier.drift_building_phase`) and a factor
-on the noise of the rows of duplex apartments.
+on the noise of the rows of duplex apartments and of apartments called penthouses in their
+text.
 
 S7 of the causal screens (docs/notes/causal-screens-2026-11-13.md) read each listing's
 description for an apartment on two or three levels, and `rentfrontier.b0duplex` writes
-its pattern into a dataset as the column `duplex`. The phase model prices the marked ads
+its pattern into a dataset as the column `duplex`. The phase model prices the duplex ads
 right on average, but their squared gap from its median is 0.0114 against 0.0059 for the
 other ads, and its 80% interval covers 0.719 of them. A duplex whose previous ad was the
 same duplex with the same bedrooms has a squared gap of 0.0110, so the excess shows from one
 ad of the unit to the next.
+
+S14 (docs/notes/unusual-units-2026-11-13.md) found that the asks of ads calling the unit a
+penthouse in their text scatter about as much wider than the phase model expects as the
+duplexes' asks do, and `rentfrontier.b0penthouse` writes its text pattern into a dataset as
+the column `penthouse`. Resampling buildings put a multiplier
+on the phase model's noise scale and unit sd at 1.2 to 1.5 for those penthouses without
+duplexes and at 1.3 to 1.4 for duplexes without penthouses. The two ranges overlap, so the
+two kinds share a mark: a row is marked when its `duplex` or its `penthouse` is true.
 
 So this design gives a marked row the phase model's noise times a factor k,
 
@@ -20,8 +29,9 @@ over the draws, moves with the row's own mark only through the width of that noi
 training row weighs less in its unit's and its building's estimates. log k takes the
 Normal(0, `drift.PHASE_PRIOR`) prior of the phases' log factors.
 
-Each row's mark comes from its own listing's description (`rentfrontier.b0duplex`). An ad of
-a unit takes no mark from the unit's other ads, so a later ad's text marks no earlier row.
+Each row's mark comes from its own listing's description (`rentfrontier.b0duplex`,
+`rentfrontier.b0penthouse`). An ad of a unit takes no mark from the unit's other ads, so a
+later ad's text marks no earlier row.
 
 The sampler takes the crossed cells of phase and mark as its phases, with `Design.phase_map`
 marking the free factors each cell multiplies, so the scale step draws the six phase factors
@@ -31,7 +41,7 @@ and `drift_pool` read as they do the phase model's.
 
     python -m rentfrontier.run --model drift-building-phase-duplex --split latest --name NAME
 
-The run needs a dataset with the column `duplex`.
+The run needs a dataset with the columns `duplex` and `penthouse`.
 """
 
 from __future__ import annotations
@@ -72,7 +82,12 @@ from .drift_building import (  # noqa: F401  (the spec interface b0.main_run and
 NAME = "drift-building-phase-duplex"
 PHASES = drift_building_phase.PHASES
 # The marks, the reference first.
-MARKS = ("other", "duplex")
+MARKS = ("other", "duplex or penthouse")
+# The columns a row's mark comes from, each with the module that writes it.
+MARK_COLUMNS = {
+    "duplex": "rentfrontier.b0duplex",
+    "penthouse": "rentfrontier.b0penthouse",
+}
 # The column of k among the free factors, after the six phase factors.
 DUPLEX = len(PHASES) - 1
 
@@ -82,21 +97,27 @@ def design(
 ) -> Design:
     """The building model's design of `frame`, with each row's cell of lease phase and
     mark."""
-    if "duplex" not in frame:
-        raise ValueError(
-            "drift-building-phase-duplex needs the column duplex "
-            "(python -m rentfrontier.b0duplex)"
-        )
+    mark = mark_index(frame)
     d = drift_building.design(frame, start, held=held, **kw)
     assert len(d.y) == len(frame)
-    cell = drift_building_phase.phase_index(frame) * len(MARKS) + mark_index(frame)
+    cell = drift_building_phase.phase_index(frame) * len(MARKS) + mark
     return dataclasses.replace(d, phase=cell, phases=cells(), phase_map=cell_map())
 
 
 def mark_index(frame: pd.DataFrame) -> np.ndarray:
-    """Each row's mark, as its place in `MARKS`: 1 for a row whose `duplex` is true, 0 for
-    one whose `duplex` is false or missing."""
-    return frame["duplex"].eq(True).fillna(False).to_numpy(bool).astype(np.int64)
+    """Each row's mark, as its place in `MARKS`: 1 for a row with `duplex` or `penthouse`
+    true, 0 for one with each of them false or missing."""
+    missing = [c for c in MARK_COLUMNS if c not in frame]
+    if missing:
+        build = ", then ".join(f"python -m {m}" for m in MARK_COLUMNS.values())
+        raise ValueError(
+            f"drift-building-phase-duplex needs the columns duplex and penthouse, and the "
+            f"frame has no {' or '.join(missing)} (build them with {build})"
+        )
+    marked = np.zeros(len(frame), bool)
+    for c in MARK_COLUMNS:
+        marked |= frame[c].eq(True).fillna(False).to_numpy(bool)
+    return marked.astype(np.int64)
 
 
 def cells() -> tuple:
@@ -135,7 +156,8 @@ def run_record(d: Design) -> dict:
             "reference": PHASES[0],
             "months_from": "the price_at of the same unit's previous ad in the dataset",
             "marks": list(MARKS),
-            "mark_of": "the row's own duplex column (rentfrontier.b0duplex)",
+            "mark_of": "the row's own duplex column (rentfrontier.b0duplex) or its own "
+            "penthouse column (rentfrontier.b0penthouse), marked when either is true",
             "cells": "phase|mark, phase-major; a marked cell's factor is its phase's "
             "times k",
             "log_factor_prior": f"Normal(0, {drift.PHASE_PRIOR})",
