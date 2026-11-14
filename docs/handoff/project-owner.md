@@ -14,6 +14,49 @@ asked for the research backlog reviewed and ranked, and for a proposal of fits w
 Data work and other free work go ahead without approval. No Modal budget is approved for the
 sprint yet, so I have launched, queued and scheduled nothing on Modal.
 
+### State at 3:00 AM ET on Nov 14
+
+Still no Modal budget, so nothing has run, been queued or been scheduled on Modal. Merged
+since the state below, all written and none fit:
+
+| PR | what |
+|---|---|
+| #1373 | building turnover and as-of residential units as columns in a copy of L1's dataset |
+| #1374 | P1, L1 reading MapPLUTO as of each row's month (`drift-building-phase-plutoasof`); the coordinator asked that it not be queued |
+| #1375 | S14, penthouses, garden apartments and townhouse floors against L1's spread |
+| #1376 | D1 marks text penthouses along with duplexes, with its predictions revised before launch |
+| #1377 | `unit-labels-v18`: history joins kept to labels that agree up to spelling |
+| #1378 | `income_restricted_v2` and `shared_space_v2` rewritten from read ads, in the `-textflags` copy |
+| #1379 | free months read from ad text, in the `-freetext` copy |
+| #1380 | S15 and S15b: the new income flag against L1, a negation guard and the AMI tier |
+| #1381 | I1, a noise factor on income-restricted rows (`drift-building-phase-income`) |
+| #1382 | S16, blind spots in L1's misses read blind by Sonnet readers |
+
+What I found:
+
+- **S15 and S15b** (`docs/notes/income-flag-2026-11-14.md`). Swapping in the new income flag
+  for L1's old one gains nothing (-64.1 ± 60.7), and almost all of the loss is at 505 W 37th
+  St, whose ads say the restriction is optional. L1's 80% intervals cover 0.56 of the flag's
+  held-out ads. A level by AMI tier gains +5.3 ± 6.8, and a wider noise scale on marked rows
+  gains +62.4 ± 16.6. I found the spread after S15 missed, on the same ads, so that gain
+  overstates a fit's.
+- **I1** (`docs/notes/income-noise-2026-11-14.md`) fits that spread as D1 fits duplexes. The
+  coordinator added it to the proposal as the spare, in a relay to this thread at 2:05 AM ET
+  on Nov 14: it runs only if the spare is still unused after fits 1 to 5, at about $11 for
+  three chains (PR #1381's body gives the same terms).
+- **S16** (`docs/notes/blind-spots-2026-11-14.md`) found three causes over-represented in
+  L1's worst misses against random controls: data errors (23% of overpriced misses against
+  4%), income programs (6% of underpriced against none) and private outdoor space (7%
+  against 3%, about 1.5 SE). Outside the draw, studios coded on units of 5 or more rooms ask
+  +0.085 ± 0.027 on 70 held-out ads. That split is post hoc, with no precision read: I chose
+  it after the reads, and 1 of the 8 reads at 5 rooms found a one-bedroom. Stated outdoor
+  areas of 300 sq ft or more ask +0.021 ± 0.005 at 0.87 precision. None of the causes is new
+  to the project.
+
+Next free item: S17, a read of 30 studio-coded rows on 5+ rooms against each unit's history
+and other ads, with Sonnet readers. The coordinator barred floor plan fetches for it, so rows
+the text and history can't settle stay unresolved.
+
 ### State at 10:00 PM ET on Nov 13
 
 Merged in the sprint, all written and none fit:
