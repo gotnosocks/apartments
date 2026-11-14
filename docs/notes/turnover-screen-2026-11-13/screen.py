@@ -2,8 +2,8 @@
 
 For each held-out ad the script counts its building's other ads opened in the 730 days before
 its price day, divides by two and by the lot's residential units, and splits the gap by that
-rate, alone and within bins of the building's training-ad count. It reads opening days and
-counts, never a rent, apart from the held-out ads' own gaps. The predictions are in
+rate, alone and within bins of the building's training-ad count. Apart from the held-out ads'
+own gaps, it reads only opening days and counts. The predictions are in
 `docs/notes/turnover-screen-2026-11-13.md`.
 
 Run from the repo root inside a memory scope:
@@ -109,7 +109,7 @@ def tag(d: pd.DataFrame) -> pd.DataFrame:
     h["others"] = building - own
     h["rate"] = h.others / 2 / h.units
     h.loc[h.others == 0, "rate"] = 0.0
-    # Checks added after the first results: the same count over training rows alone, which
+    # Extra checks, with no predictions: the same count over training rows alone, which
     # leaves out the other held-out ads open at the time, and the unit's own training rows.
     t = d[~d.held]
     building = window_count(

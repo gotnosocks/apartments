@@ -81,8 +81,11 @@ The screen reads saved runs on the CPU in one `MemoryMax=3G` scope, for no Modal
 ## Results
 
 `screen.py` in `docs/notes/turnover-screen-2026-11-13/` ran in a single `MemoryMax=3G` scope
-and saved its counts to `/data1/apartments/tmp/sprint-20261113/turnover-screen.json`. Gaps are in percent,
-with SEs clustered by building. Both ads files matched the SHA-256 in their dataset's manifest.
+and saved its counts to
+
+    /data1/apartments/tmp/sprint-20261113/turnover-screen.json
+
+Gaps are in percent, with SEs clustered by building. Both ads files matched the SHA-256 in their dataset's manifest.
 
 The quartile edges of the nonzero rate among j9's held-out ads are 0.123, 0.223 and 0.417 ads
 per residential unit and year, so low turnover is a rate of 0.223 or less. j9's count by
@@ -113,7 +116,7 @@ a Spearman correlation of 0.14.
 | 1-4 | 331, +5.08 ± 1.09 | 211, +5.84 ± 1.31 | 111, +5.05 ± 1.85 | +0.78 ± 2.17 |
 | 5-19 | 982, +1.47 ± 0.47 | 575, +2.87 ± 0.66 | 386, -0.71 ± 0.64 | +3.58 ± 0.87 |
 | 20-99 | 2,834, +1.30 ± 0.23 | 1,351, +2.61 ± 0.36 | 1,449, +0.02 ± 0.29 | +2.59 ± 0.43 |
-| 100+ | 5,115, +0.49 ± 0.17 | 2,532, +1.00 ± 0.22 | 2,403, -0.10 ± 0.26 | +1.10 ± 0.34 |
+| 100+ | 5,115, +0.49 ± 0.17 | 2,532, +0.99 ± 0.22 | 2,403, -0.10 ± 0.26 | +1.10 ± 0.34 |
 
 Pooled over the bins from 1-4 up, the low-turnover ads ask 1.81 ± 0.26 points more over j9's
 mean location than the high-turnover ads (9,018 ads). Over the 8,178 ads outside their
@@ -161,10 +164,10 @@ training ads.
 
 | Training ads | All | Low turnover | High turnover | Low less high |
 |---|---|---|---|---|
-| 1-4 | 5,972, -0.14 ± 0.15 | 5,050, -0.15 ± 0.17 | 873, -0.04 ± 0.39 | -0.11 ± 0.42 |
+| 1-4 | 5,972, -0.14 ± 0.15 | 5,050, -0.15 ± 0.16 | 873, -0.04 ± 0.39 | -0.11 ± 0.42 |
 | 5-19 | 23,105, -0.84 ± 0.07 | 14,442, -0.80 ± 0.09 | 8,437, -0.90 ± 0.11 | +0.10 ± 0.14 |
 | 20-99 | 66,871, -0.62 ± 0.04 | 28,775, -0.65 ± 0.05 | 37,661, -0.59 ± 0.05 | -0.06 ± 0.07 |
-| 100+ | 93,699, -0.24 ± 0.03 | 44,275, -0.20 ± 0.05 | 47,072, -0.28 ± 0.04 | +0.07 ± 0.06 |
+| 100+ | 93,699, -0.24 ± 0.03 | 44,275, -0.20 ± 0.05 | 47,072, -0.27 ± 0.04 | +0.07 ± 0.06 |
 
 The pooled contrast is +0.02 ± 0.04 points (186,585 ads), +0.01 ± 0.04 outside the first
 year, +0.06 ± 0.04 with turnover from training rows alone, and -0.01 ± 0.04 within count bins
@@ -201,9 +204,18 @@ fast-turning buildings as deals.
 The column holds each row's count of its building's other ads opened in the 730 days before its
 price day, and the lot's residential units, built by a new `rentfrontier.b0` module like
 `b0amenitycarry` into a new dataset. It costs about an hour of work and a build of seconds in a
-`MemoryMax=3G` scope, with no Modal.
+`MemoryMax=3G` scope, with no Modal. The screen divides by the residential units of a single
+PLUTO release (20261017) for every ad, so an ad priced in 2014 reads its lot's units from 2026.
+That reads no rent, but the column should take each row's units from the release out at its
+price month, as the co-op column does (`docs/notes/coop-column-2026-11-13.md`).
+
+The screen doesn't separate how long tenants stay from what kind of building it is. Low
+turnover per residential unit is also what a condo or co-op building, or a large one, would
+show, and S5c found that condo and co-op ads ask more than j9 expects. A fit reading the column
+should stand it beside the `coop` and `condo` columns.
 
 No fit yet. On the latest split, the scoring split for model changes, L1's held-out ads put the
 gain near zero (+0.02 ± 0.04 points). A fit reading the column would need a market-split
 backtest of L1's line to compare against first. That backtest is one Modal full fit from the
-approved budget (j9's took 2.4 hours on an H100), with the column's fit after it as a second.
+approved budget, about $11 for three containers as j9 cost $10.91, with the column's fit
+after it as a second.
