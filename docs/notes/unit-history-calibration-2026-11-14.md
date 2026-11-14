@@ -97,4 +97,150 @@ shapes, the split's dates and the counts of training ads per unit above, and not
 
 ## Results
 
-To be filled in after the run.
+Both scripts ran once, on the CPU under a 3 GB cap. `h1_history.py` wrote `h1_history.json` and
+`h2_own_record.py` wrote `h2_own_record.json`, both in the output directory above.
+
+### Coverage of the stand-in
+
+137,094 of the 189,647 held-out ads (72%) got an m. The other 52,553 belong to units with no
+cell of building, bedrooms and year holding 3 training ads of other units, so the figures
+below lean toward larger buildings. The mean gap is about the same on both sides (L1: -0.0046
+with an m, -0.0039 without). m has an sd of 0.100, and its 5% and 95% points are -0.146 and
++0.165. Every held-out ad is later than its unit's last training ad.
+
+### Slopes of the held-out gap on m
+
+Slopes with SEs clustered by building. The last column is the slope of L1T's gap less L1's.
+
+| training ads of the unit | ads | L1 | L1T | L1T less L1 |
+|---|---|---|---|---|
+| all | 137,094 | -0.009 ± 0.005 | -0.056 ± 0.004 | -0.047 ± 0.002 |
+| 1 | 48,392 | +0.031 ± 0.009 | -0.027 ± 0.008 | -0.058 ± 0.003 |
+| 2 | 32,357 | -0.029 ± 0.007 | -0.075 ± 0.005 | -0.046 ± 0.005 |
+| 3 to 5 | 45,250 | -0.047 ± 0.006 | -0.082 ± 0.005 | -0.035 ± 0.004 |
+| 6 to 9 | 10,297 | -0.071 ± 0.010 | -0.083 ± 0.010 | -0.012 ± 0.002 |
+| 10+ | 798 | -0.140 ± 0.038 | -0.187 ± 0.052 | -0.047 ± 0.030 |
+
+| months since the last training ad | ads | L1 | L1T | L1T less L1 |
+|---|---|---|---|---|
+| under 6 | 16,220 | +0.031 ± 0.024 | -0.030 ± 0.025 | -0.061 ± 0.005 |
+| 6 to 12 | 14,258 | -0.009 ± 0.014 | -0.050 ± 0.013 | -0.041 ± 0.004 |
+| 12 to 24 | 39,359 | -0.010 ± 0.006 | -0.049 ± 0.005 | -0.040 ± 0.004 |
+| 24 to 48 | 42,071 | -0.010 ± 0.007 | -0.052 ± 0.005 | -0.042 ± 0.004 |
+| over 48 | 25,186 | -0.026 ± 0.008 | -0.086 ± 0.007 | -0.060 ± 0.005 |
+
+L1's slope is above zero only for units with a single training ad, and there it is small: a
+unit whose one ad was 20% under its neighbours asks about 0.6% under L1's median the next time.
+Within that group the slope is +0.088 ± 0.041 when the ad comes back within 6 months and falls
+to -0.007 ± 0.010 after 48 months (`slope_by_n_and_months` in the JSON). From 2 training ads
+up, L1's slope is below zero and grows in size with the count. Units with a long record far
+from their building ask closer to the building, the next time, than L1's median says.
+
+L1T moves every slope down by 0.01 to 0.06. For single-ad units that takes +0.031 to
+-0.027, past zero. For units with 2 to 5 training ads it makes a negative slope about twice as
+large. Under L1T the slope is also most negative after 48 months, which suggests that a
+unit's distance from its building fades over the years faster than the unit drift allows.
+
+By this measure L1 does not use too little of a unit's record on average. The exception is the
+unit with one earlier ad seen again within about 2 years, and L1T overcorrects it.
+
+### Tails
+
+Units with at least 2 training ads. Gap means carry building-clustered SEs.
+
+| m | ads | mean m | L1 mean gap | L1T mean gap | L1 80% coverage | L1T 80% coverage |
+|---|---|---|---|---|---|---|
+| under -0.15 | 3,636 | -0.215 | +0.002 ± 0.001 | +0.007 ± 0.001 | 74.4% | 73.5% |
+| -0.15 to +0.15 | 80,590 | 0.000 | -0.006 ± 0.000 | -0.005 ± 0.000 | 81.7% | 81.2% |
+| over +0.15 | 4,476 | +0.234 | -0.010 ± 0.002 | -0.024 ± 0.001 | 70.8% | 70.3% |
+
+Units with 1 training ad, for comparison:
+
+| m | ads | L1 mean gap | L1T mean gap | L1 80% coverage | L1T 80% coverage |
+|---|---|---|---|---|---|
+| under -0.15 | 2,876 | -0.003 ± 0.002 | +0.010 ± 0.002 | 71.9% | 75.1% |
+| over +0.15 | 3,807 | +0.015 ± 0.002 | -0.004 ± 0.002 | 69.6% | 77.9% |
+
+The cheap units with 2 or more training ads are not overpriced on average by either fit. Their
+asks come in 0.2% over L1's median and 0.7% over L1T's. The pricey units ask 1.0% under L1's
+median and 2.4% under L1T's, so L1T follows a pricey record too far.
+
+The intervals are the weaker part. In both tails the 80% interval holds 70% to 74% of the asks,
+against 82% in the middle, and L1T leaves that as it is for units with 2 or more training ads.
+For single-ad units L1T raises coverage by 3 and 8 points. Units far from their building
+scatter wider around the median than the fit's interval says. A page listing the asks furthest
+under the median then draws from these units more often than their count would suggest, with
+the median unbiased for them on average.
+
+### The model's median against the unit's own asks
+
+I added `h2_own_record.py` after scoring the above, because m compares a unit with its
+neighbours while the false deals were units priced over their own earlier asks. No prediction
+covers it. The script carries each unit's training asks to the held-out month with the same
+monthly index and takes r, the predictive median less their mean.
+
+The index is crude. Among the 62,467 ads L1 prices more than 14% over the carried record, the
+asks themselves come in 21% over it, so most of r in that band is rent growth missed by the
+index. Those asks land 1.3% under L1's median (1.2% under L1T's), with 79% coverage. Pricing a
+unit far over its own record is therefore right on average, and the 12 false deals are draws
+from the low side of that band.
+
+On the other side the median is off. Where L1 prices a unit more than 14% under its carried
+record (7,239 ads), the asks land 5.1% ± 0.2% over the median with 56% coverage. L1T brings
+that to 2.5% ± 0.2% and 65%. For units with 2 or more training ads the figures are 2.6% ± 0.3%
+under L1 and 0.5% ± 0.2% under L1T.
+
+### Duplex ads
+
+My loading gives back S7's figure. The 10,331 duplex ads' excess in the clipped squared gap is
++0.0054 ± 0.0003 under L1 and +0.0045 ± 0.0002 under L1T, so 82% of it remains. The paired
+reduction is 0.0010 ± 0.0001. Coverage of the 80% interval on the duplex ads goes from 71.9% to
+73.5%. The heavy-tailed unit level takes up about a fifth of the duplex scatter, and D1's
+question stays open.
+
+### Predictions scored
+
+1. Hit. The asserts passed.
+2. Miss. 72% of the held-out ads got an m, not 85%.
+3. Miss. L1's slope over all ads is -0.009 ± 0.005.
+4. Hit. +0.031 for 1 training ad against -0.047 for 3 to 5.
+5. Hit as worded: the slope of the difference is -0.047 ± 0.002. I had expected L1T to bring
+   a positive slope toward zero, and it took a slope near zero to a negative one.
+6. Miss. L1 has no positive slope over all ads for L1T to remove.
+7. Miss on both parts. L1's slope is above zero only under 6 months, and it is lower over 24
+   months than under 6.
+8. Miss on both parts. L1's mean gap in the low tail is +0.002 ± 0.001.
+9. Miss. L1T's mean gap in the low tail is +0.007, further from zero.
+10. Miss on both parts. L1's mean gap in the high tail is -0.010 ± 0.002 and L1T's is -0.024.
+11. Hit on the first part (74.4% under L1), miss on the second (73.5% under L1T).
+12. Hit on the loading (+0.0054). Miss on the share, 82% against a band of 85% to 100%.
+
+I expected the false-deal pattern to show as a general bias, with the median too close to the
+building for units far from it. The held-out ads show a bias of that kind only for single-ad
+units, and a wide scatter everywhere in the tails.
+
+## Reading for the sprint
+
+- Account A's case from the false deals is weaker than the sprint note has it. A heavy-tailed
+  unit level fixes the median for single-ad units and for units priced under their own record,
+  and it pushes units with 2 or more ads too far toward their record. L1TKN's predictions
+  should include the slope on m by training-ad count, with zero as the target in each row.
+- The tails need a wider interval more than a different median. A noise scale or unit sd that
+  grows with the unit's distance from its building would address the 70% to 74% coverage, and
+  L1T does not.
+- The negative slopes that grow with the unit's ad count and with the years since the last ad
+  point at a unit level that fades toward the building, which the drift as fitted does not do.
+
+## Limits
+
+- m is a stand-in, built from asks, a monthly index and neighbours. It is not the fit's own
+  residual without the unit level, so a slope locates a predictable miss without saying which
+  term is responsible. Fitted values for training rows without the unit level would remove
+  the stand-in. The pools did not save them, and I did not check what the fit code would need
+  in order to write them.
+- 28% of the held-out ads have no m, mostly in small buildings.
+- L1T missed the convergence gate on nu and unit_sd, so its figures here describe that pool as
+  it stands.
+- The index in `h2_own_record.py` understates rent growth, so r mixes the model's departure
+  from the record with time. The low side of r is the more reliable side, since the index bias
+  pushes r up.
