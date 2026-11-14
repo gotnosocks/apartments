@@ -14,6 +14,78 @@ asked for the research backlog reviewed and ranked, and for a proposal of fits w
 Data work and other free work go ahead without approval. No Modal budget is approved for the
 sprint yet, so I have launched, queued and scheduled nothing on Modal.
 
+### State at 11:15 AM ET on Nov 14
+
+The GPU rehearsals the coordinator asked for are done, and they spent nothing on Modal. Each
+fit ran on thelio's GPU on the same 741 buildings (about 1 in 92), with its own settings and
+2,400 draws a chain. The results go in each fit's note as an exploration run, apart from the
+predictions:
+
+| fit | max R-hat | min ESS | new parameters |
+|---|---|---|---|
+| L2 | 1.0895 | 12 | phase coefficients pass |
+| segment walks, fixed | 1.2464 | 3 | chains agree; every lengthscale misses, worst `outer:studio` |
+| D1 | 1.0749 | 19 | `k` passes |
+| LN1 | 1.5115 | 4 | `line_sd` misses on ESS (277); `unit_sd` misses |
+| I1 | 1.0972 | 11 | `k` passes |
+
+- The zone spreads (`bld_sd`) miss in every run. With so few buildings their posterior is
+  wide against `drift.SPREAD_WIDTH` (0.05), and with the window at 0.5 L2 passes on both.
+- The segment walks' first rehearsal split the outer 1-bedroom path's chains at 2024q1, since
+  the units' levels shrink toward their buildings' and the path took the segment's lasting
+  gap. `drift_building_phase_segment` now gives each outer bedroom group past studios a level
+  column of its own. Predictions 2 and 5 in its note no longer describe the fixed model, and
+  I left them as written. If the lengthscales still miss on the full data, the next thing to
+  try is a non-centered draw of each segment's amplitude and lengthscale.
+- LN1's `unit_sd` still misses on a 1 in 50 subsample (R-hat 1.36, ESS 10). It trades against
+  `drift_sd` and `drift_tau` along a ridge, so its Modal fit could miss the gate. A fix would
+  change how the scale step in `drift.py` picks its directions, and `drift.py` is protected.
+- D1's unit scales miss when a chain sits in the long-tau region at warmup sweep 333. Check
+  for that in the warmup log of its Modal fit.
+
+### State at 7:30 AM ET on Nov 14
+
+Still no Modal budget, and nothing from this sprint is on Modal. Merged since the 4:20 AM state,
+none of them a fit:
+
+| PR | what |
+|---|---|
+| #1388 | `outdoor_sqft`, the stated private outdoor area from ad text, in a copy of L1's dataset, with a screen against L1 |
+| #1389 | a read and screen of nonresidential ads among the rental rows; no rule |
+| #1390 | S7's within-building duplex contrast redone with S14's (n-1)/n correction, and an audit of the sprint's other screens |
+| #1391 | the dataset manifests from `ops/pipeline/observations.py` and `rentfrontier.b0data` now record the build's `label_rule` |
+
+What I found:
+
+- **Outdoor size** (`docs/notes/outdoor-size-2026-11-14.md`). Precision 1.00 (0.83 to 1.00)
+  on 40 reads. Marked held-out ads miss L1's median by +0.0196 ± 0.0032, and the miss grows
+  with the area. `drift-building-phase-outdoorsize` has its predictions written but isn't
+  fit; on its own it would most likely tie L1. A noise factor on rows with an area comes
+  after I1's fit.
+- **Nonresidential** (`docs/notes/nonresidential-2026-11-14.md`). The draft rule's precision
+  came to 0.47 (0.26 to 0.69), short of its bar, so I wrote no rule. L1's held-out candidates
+  miss its median by the same mean as all held-out ads, which keeps this last among S16's
+  follow-ups. A post hoc candidate (a commercial unit label with a strong text or another ad
+  of the unit, 56 rows) waits for a pre-registered read.
+- **S7 corrected** (`docs/notes/duplex-within-building-2026-11-14.md`). The duplex excess
+  within building comes to +0.0039 ± 0.0002, and the share within building to 0.78 (0.74 to
+  0.83), up from S7's 0.38. Most of the duplex scatter belongs to the units, which suits D1's
+  factor on duplex rows. No fit recommendation changes.
+
+At 6:38 AM ET the coordinator relayed a brief: rehearse each written fit on thelio's GPU, one
+at a time through `ops/job gpu`, on a building subsample that fits the 8 GB card, in the
+order L2, segment walks, D1 with penthouses, LN1, then I1. Each rehearsal checks only the
+sampler (R-hat, ESS, the new parameters' traces, LN1's `unit_sd`, anything stuck at a
+boundary), goes into its fit's note as an exploration run apart from the predictions, and
+scores no held-out ads. A sampler problem gets fixed in the module before a budget arrives.
+A worker started L2's rehearsal at 7:10 AM ET; the scripts go under
+`docs/notes/rehearsals-2026-11-14/`.
+
+Next free items, in rank:
+
+1. The stabilized misspellings ("stablized" and kin) and the income band patterns the
+   text-flag reads left. Both scan every description, so they wait for an idle GPU.
+
 ### State at 4:20 AM ET on Nov 14
 
 Still no Modal budget, so none of this sprint's fits has run, been queued or been scheduled

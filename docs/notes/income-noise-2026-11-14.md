@@ -187,3 +187,121 @@ held-out ads.
    (80%). The marked rows are 0.14% of the training rows.
 10. Each container stops its sweeps at the budget and runs 50 to 60 minutes, and the three
     settle between $10.50 and $12.00 (80%).
+
+## Rehearsal on a building subsample (exploration, 2026-11-14)
+
+I ran I1's sampler on thelio's GPU, an RTX 2060 SUPER with 8 GB, on a sample of whole
+buildings, to check its convergence before a Modal fit. The run scores no held-out ad and
+revises none of the predictions above. It checks the sampler alone and compares no model with
+another, so it tests no feature in the sense of Ben's rule of 2026-10-07 against thelio pairs.
+
+### The subsample
+
+The scripts are in `docs/notes/rehearsals-2026-11-14/`, and L2's note
+(`docs/notes/l2-phase-level-2026-11-13.md`) describes how `subsample.py` drew the buildings.
+At 1 in 100, the 506 buildings with an ad flagged `income_restricted_v2` would give about 5
+with the flag, so `subsample.py` adds the first 1 in 8 of them in a permutation of their own.
+All five rehearsals use the resulting 741 buildings: 27,736 rows, 24,886 of them training rows
+and 2,850 the full fit's held-out ads, which the run carries and leaves out. The run reads the
+`-textflags` copy of the sample, with the column of the rebuilt copy of L1's dataset. `count.py`
+counts the marked training rows with `drift_building_phase_income.mark_index`: 282 in 64
+buildings, 1.1% of the training rows against 0.14% of the full data's rows, and 34 held-out ads.
+By phase:
+
+| phase | none | 0-2 | 3-9 | 10-13 | 14-21 | 22-25 | 26+ |
+|---|---|---|---|---|---|---|---|
+| marked training rows | 199 | 8 | 11 | 8 | 14 | 10 | 32 |
+
+k is shared by the phases, so it draws on all 282 rows. A marked cell's factor is k times its
+phase's factor, and the phases' factors rest mostly on their unmarked rows.
+
+### Settings, time and memory
+
+`rehearse.sh` ran I1 with the settings of the launch plan above, except for the draws: 2
+chains, 500 warmup sweeps, every 40th draw kept, seed 1 and `--level-dof 4`, with 2,400 draws
+a chain in place of 9,000 to finish within 30 minutes. On Modal the 2,520 s budget stops each
+container at 2,560 to 2,680 draws by the estimate under Cost, and the fit pools three
+containers into 6 chains.
+
+The run took 14 min 45 s: 52 s to compile, 142 s of warmup and 620 s of sampling at 0.263 s a
+sweep of both chains. Host memory peaked at 3.8 GiB, and the GPU's at 1,077 MiB, 695 MiB above
+the 382 MiB in use before the run.
+
+### Diagnostics
+
+`check.py` reads the gate table that `b0.main_run` computed with I1's own `diagnostics` on all
+2,400 draws of each chain, and takes k from the module's `factors` on the traced cell factors.
+The columns are those of D1's rehearsal (`docs/notes/duplex-factor-2026-11-13.md`), with the
+share of draws under 1% of the median last.
+
+| parameter | R-hat | ESS | chain 1, median [95%] | chain 2, median [95%] | gap / sd | drift / sd | under 1% |
+|---|---|---|---|---|---|---|---|
+| k | 1.0060 | 402 | 2.584 [2.110, 3.089] | 2.637 [2.142, 3.162] | 0.21 | 0.07 | 0.000 |
+
+This value comes from 282 marked rows in 64 buildings, a share of the rows eight times the
+full data's, and I list it only to show the chains agree. k passes the gate, with ESS just over
+400. Its lag-1 autocorrelation on the log scale is 0.78 to 0.82 and falls to 0.08 or less by
+lag 20. Its draws stay between 1.82 and 3.57 in both chains, and over blocks of 200 draws its
+median moves between 2.52 and 2.75 in each. log k takes a Normal(0, 0.3) prior, with no bound
+for it to stick at. Over the draws log k correlates with each of the step's other scales, the
+phases' factors, sigma, nu and the unit scales, by 0.11 or less in absolute value.
+
+The run misses the gate on 14 of its 243 quantities, two of them marked cells' factors. The
+trace keeps a factor for each of the 14 cells of phase and mark, with the cell of phase 10-13
+without the mark held at 1, and k as the factor of the same phase with the mark.
+
+| quantity | R-hat, ESS |
+|---|---|
+| bld_sd[manhattan] | 1.0972, 11 |
+| bld_sd[outer] | 1.0835, 15 |
+| building_ar_sd | 1.0131, 526 |
+| building_ar_rho | 1.0129, 520 |
+| sigma[0] to sigma[3] | 1.0092 to 1.0122, 346 to 439 |
+| nu | 1.0107, 367 |
+| tau | 1.0087, 342 |
+| drift_tau | 1.0064, 315 |
+| unit_sd | 1.0059, 361 |
+| phase_scale[7], phase 3-9 with the mark | 1.0080, 384 |
+| phase_scale[3], phase `none` with the mark | 1.0036, 381 |
+
+The other eleven cell factors, k's among them, pass at R-hat 1.0099 or less and ESS 431 or more. drift_sd
+passes at 1.0024 and 452.
+
+`check.py` also computes the buildings' levels' split R-hat on the 60 kept draws of each chain:
+138 of 741 over 1.01 and 7 over 1.05, with a maximum of 1.0657, against 141.9, 6.3 and a median
+maximum of 1.0795 for independent normal draws of the same size.
+
+### Investigating the misses
+
+I worked through the data first, then the model, then the sampler.
+
+1. In the data, every phase holds 8 or more marked training rows, and k draws on all 282. The
+   column is neither sparse nor constant within the sample.
+2. In the model, k joins the scale step as a seventh free factor beside the six phases', as D1's
+   k does, and the marked cells' factors are products of a phase's factor and k. Its draws
+   hardly correlate with the other scales, as above.
+3. In the sampler, the zones' spreads crawl on the subsample, and the scale step mixes the
+   unit scales at an ESS close to 400.
+
+The zones' spreads crawl as in L2's rehearsal, with lag-1 autocorrelation 0.96 to 0.98 and
+moves of 0.013 a sweep against posterior sds of 0.08. L2's note traces that crawl to the
+subsample and the spreads' slice window, `drift.SPREAD_WIDTH` = 0.05, which spans about six
+posterior sds on the full data and 0.6 here. Over blocks of 100 draws, building_ar_sd's mean
+moves with log bld_sd[outer]'s at -0.74 and building_ar_rho's at -0.63, so the path's sd and
+rho follow the outer zone's spread. Both passed in L2's rerun with the window at 0.5.
+
+In every block of 200 draws both chains put unit_sd at 0.061 to 0.063 and drift_tau at 3.2 to
+4.4 years. Both chains began in the long-tau region of D1's runs and left it early in the
+warmup: their drift_tau stood at 14.9 and 11.1 at sweep 100 and at 3.1 and 3.0 at sweep 200.
+So warmup set the scale step's directions at sweep 333 with both chains out of the region.
+After draw 1,000 the step moved log drift_tau by 0.115 a sweep against a posterior sd of 0.27,
+and the final directions give it a scale of 0.68, close to the 0.64 of L2's rerun. Over all
+4,800 draws unit_sd came to ESS 361, drift_tau to 315, and sigma, nu and tau to 342 to 439.
+L2's note finds tau slower on the subsample than on the full data, and here its lag-1
+autocorrelation is 0.81 to 0.83.
+
+The two marked cells' factors under 400 are k times the factors of phases `none` and 3-9, and
+both pass on R-hat. I found no problem in k or in the module, I made no change to it, and the
+predictions above describe the model as it is. I1's sweep is D1's with other rows in the
+marked cells, so I also use this run in D1's note, to separate D1's structure from the timing
+of its warmup.
