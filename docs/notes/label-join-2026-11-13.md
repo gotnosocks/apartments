@@ -83,7 +83,9 @@ My v17 rerun gives the build's `split_unit` on all but 5 of its 1,969,284 rows, 
 1,927 rows of my recheck it drops the same 130 rows in the label-month check as the build did.
 The reviewer of this note ran master's v17 layers and this branch's on my rebuilt inputs, and
 got identical tables. My inputs hold 18,820 history pairs. The build's catalog line gives
-18,819 rows for `analysis.history_pairs`, and the extra pair accounts for the 5 rows.
+18,819 rows for `analysis.history_pairs`, and the label units differ by 4 (83,875 against
+83,871), so my rebuilt inputs differ from the build's. That pair is one such difference, and I
+haven't traced the 5 rows to it.
 
 ## Counts
 
@@ -214,7 +216,7 @@ cluster their SEs by building (`gaps.py`, `count2.py`):
 
 L1 misses the ads in split units by more than the others. Their squared gap is higher by
 0.0041 ± 0.0023, 1.8 SE, and their mean elpd is lower by 0.20 ± 0.13, about 25 nats over the
-125. The ads changing unit ask 2.4% ± 1.16 less than the others against L1's median, 2.0 SE.
+125. The ads changing unit ask 2.37% ± 1.16 less than the others against L1's median, 2.0 SE.
 Under v17 their unit's level partly comes from another apartment, and the negative gap agrees
 with that apartment asking more.
 
