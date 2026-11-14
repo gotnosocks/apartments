@@ -127,9 +127,11 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   the blank class at 1 bedroom or more. A floor plan or photo count per ad would decide them, and no cheaper
   evidence exists in the records. Real Street's 20 blank ads with 2 rooms are among them.
 - [ ] Studio-coded ads on units of 5 or more coded rooms (S16,
-  `docs/notes/blind-spots-2026-11-14.md`). Of L1's 271 held-out studios with 4 to 20 coded
-  rooms, the 82 at 5 or more ask +0.15 to +0.67 over its median, and 11 of the 24 overpriced
-  misses read as bedrooms too low are among them. Unlike blank forms, these carry a typed
+  `docs/notes/blind-spots-2026-11-14.md`). L1 has 82 held-out studios with 5 to 20 coded
+  rooms, and 12 of them are in S16's draw, including 11 of the 24 overpriced misses read as
+  bedrooms too low. The other 70 ask +0.085 ± 0.027 over L1's median, with half inside its
+  80% interval (+0.173 with the drawn 12 in). S16 chose this split after its reads, so the
+  figures are post hoc. Unlike blank forms, these carry a typed
   room count. Read 30 of the 905 rows against the unit's other ads and floor plan count
   before writing a rule: the 8 precision reads at 5 rooms found 1 one-bedroom, 3 studios
   and 4 unclear.

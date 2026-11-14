@@ -21,14 +21,17 @@ The flagged causes and their patterns:
      (`causal-screens-2026-11-13/s7_text.py`), whatever the codes say.
 4. `income_restricted_program`, the underpriced side: `income_v2_new`, the rows the rewritten
    `income_restricted_v2` of the text-flags work marks and L1's `income_restricted` misses. Its
-   precision was read in that work, so it gets no new reader here.
+   precision was read in that work, so it gets no new reader here. For scale I also count the
+   whole flag (`income_v2_all`), as the `-textflags` copy holds it since S15b's negation guard.
 
 For each pattern I count the rows of L1's dataset it marks, split into training rows and
 held-out ads, with their units (building and unit_id, or the row alone) and buildings. On the
 held-out ads I take L1's gap, the log ask less the predictive median, with its mean and a
 building-clustered SE, its median, the spread of the gap (median absolute deviation) against
-all held-out ads, and the share inside L1's 80% interval. I also cross the patterns with the
-400 reads. Each of the first five patterns gets 30 matches drawn with seed 20261114 from the
+all held-out ads, and the share inside L1's 80% interval. I drew the 400 read ads by their
+gap, and the patterns come from reading them, so I leave all 400 out of these figures and out
+of the base for the spread (`held`). Beside them I keep the figures with the 400 in
+(`held_with_drawn`). I also cross the patterns with the 400 reads. Each of the first five patterns gets 30 matches drawn with seed 20261114 from the
 rows with a description over 80 characters, written to `prec/<pattern>.jsonl` with dollar
 figures masked as in part 2."""
 
@@ -159,6 +162,7 @@ pat = {
     "outdoor_large": d.out_sqft >= 300,
     "income_v2_new": d.income_restricted_v2.fillna(False).astype(bool)
     & ~d.income_restricted.fillna(False).astype(bool),
+    "income_v2_all": d.income_restricted_v2.fillna(False).astype(bool),
 }
 # Ground-floor retail wording alone doesn't count: RE2 has no lookahead, so the second match
 # drops the rows where the only commercial words could be that phrase.
@@ -171,14 +175,34 @@ def cluster_mean_se(v, b):
     return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()) / len(v))
 
 
-h = d[d.held]
-mad_all = float(np.median(np.abs(h.gap - h.gap.median())))
+def mad(v):
+    return float(np.median(np.abs(v - v.median())))
+
+
+def held_stats(mh, base):
+    gh = d.gap[mh]
+    return {
+        "ads": int(mh.sum()),
+        "mean_gap": float(gh.mean()),
+        "mean_gap_se": cluster_mean_se(gh, d.building[mh]),
+        "median_gap": float(gh.median()),
+        "mad_ratio": mad(gh) / mad(d.gap[base]),
+        "in80": float(d.in80[mh].mean()),
+    }
+
+
+# I leave the 400 drawn ads out of the held-out figures: `kept` marks the other held-out ads.
+drawn = d.listing_id.isin(set(pd.read_parquet(OUT + "draw.parquet").listing_id))
+kept = d.held & ~drawn
 res = {
     "held_all": {
-        "ads": int(len(h)),
-        "mad": mad_all,
-        "in80": float(h.in80.mean()),
-        "mean_gap": float(h.gap.mean()),
+        k: {
+            "ads": int(b.sum()),
+            "mad": mad(d.gap[b]),
+            "in80": float(d.in80[b].mean()),
+            "mean_gap": float(d.gap[b].mean()),
+        }
+        for k, b in [("held", kept), ("held_with_drawn", d.held)]
     }
 }
 draw = (
@@ -193,24 +217,17 @@ draw["category"] = np.where(
 )
 for name, m in pat.items():
     m = m.fillna(False).astype(bool)
-    mh = m & d.held
-    gh = d.gap[mh]
     r = {
         "rows": int(m.sum()),
         "train": int((m & ~d.held).sum()),
-        "heldout": int(mh.sum()),
+        "heldout": int((m & d.held).sum()),
         "units": int(d.ukey[m].nunique()),
         "buildings": int(d.building[m].nunique()),
         "with_text": int((m & (d.desc_len > 80)).sum()),
     }
-    if mh.sum() > 1:
-        r |= {
-            "held_mean_gap": float(gh.mean()),
-            "held_mean_gap_se": cluster_mean_se(gh, d.building[mh]),
-            "held_median_gap": float(gh.median()),
-            "held_mad_ratio": float(np.median(np.abs(gh - gh.median())) / mad_all),
-            "held_in80": float(d.in80[mh].mean()),
-        }
+    if (m & kept).sum() > 1:
+        r["held"] = held_stats(m & kept, kept)
+        r["held_with_drawn"] = held_stats(m & d.held, d.held)
     hit = draw.listing_id.isin(set(d.listing_id[m]))
     r["draw"] = {
         f"{g}/{c}": int(n)

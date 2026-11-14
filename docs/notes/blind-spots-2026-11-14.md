@@ -80,9 +80,13 @@ overpriced ads, and no others. I froze the draw as `draw.parquet` (SHA-256 `fbac
 
 For each drawn ad, `b2_fields.py` gathered the coded fields L1 reads, along with the size,
 floor, building and code fields a renter would check, and the latest description from the
-records file S7 used. It replaced every dollar figure and monthly amount with `[amount]`, 183
-figures over the 400 texts, and cut each text at 3,500 characters. I shuffled the 400 ads
-together with seed 20261114 and wrote 20 batches of 20. Readers got the rubric in
+records file S7 used. It replaced dollar figures and monthly amounts with `[amount]`, 183
+figures over the 400 texts, and cut each text at 3,500 characters. The mask let one figure
+through: in read 34, an underpriced ad, the text keeps "$3500each", because the pattern needs
+a word break after the digits. Its reader quoted that figure against the masked monthly pay
+and labeled the ad net effective, lowering the ask. A search of the 20 batches for a dollar
+sign before a digit finds no other. I shuffled the 400 ads together with seed 20261114 and
+wrote 20 batches of 20. Readers got the rubric in
 `reader_prompt.txt`, with nothing about the ask, L1's prediction or the group. Of the 400
 ads, 357 have a description over 80 characters: 125 of the 150 overpriced, 138 of the 150
 underpriced and 94 of the 100 controls.
@@ -90,7 +94,7 @@ underpriced and 94 of the 100 controls.
 I ran 20 Sonnet readers, one per batch, at most 8 at once, and launched each batch once:
 
 - batches 00 to 07 started at 02:12 and finished by 02:15:36;
-- batches 08 to 15 finished between 02:18:56 and 02:19:33;
+- batches 08 to 15 finished between 02:18:47 and 02:19:33;
 - batches 16 to 19 finished between 02:20:58 and 02:21:18.
 
 The Agent tool refused no reader, so I relaunched none. The reader of batch 16 reported 19
@@ -122,7 +126,9 @@ into `b3_harmonize.py`. That script never opens `key.parquet` or `draw.parquet`.
 ## Causes by group
 
 Each share comes with an SE clustered by building (`b4_score.py`). Each difference is the
-miss group's share less the controls', with a two-sample SE clustered by building.
+miss group's share less the controls', with a two-sample SE clustered by building. I set in
+bold the differences of the causes and subtypes passing the bar of the next section. Bold
+marks the bar alone, not significance: `private_outdoor` passes the bar at 1.5 SE.
 
 | Cause | Overpriced | Underpriced | Controls | Over - controls | Under - controls |
 |---|---|---|---|---|---|
@@ -177,8 +183,12 @@ and 43.
 
 ## Flagged causes
 
-A cause passes the bar when a miss group holds at least 5 of its reads and holds it at least
-twice as often as the controls, or holds it while no control does. Three categories pass:
+I flag a cause when a miss group has at least 5 reads of it and has it at least twice as often
+as the controls, or has it while no control does. The bar comes from step 4 of the task brief
+for this screen, which I had before I wrote the predictions. The predictions commit gives no
+number for it, so prediction 6 refers to the brief's bar. I put the bar into `b4_score.py` after the
+predictions commit and before unblinding at 02:23:26. The brief asks for at least 5 misses,
+and I count those 5 within a single miss group. Three categories pass:
 
 1. `data_error`, in both groups: 5.8 times the controls' share among overpriced ads and 2.8
    times among underpriced ads. Two subtypes pass on their own, both in the overpriced
@@ -216,52 +226,86 @@ against the latest description of each listing in L1's dataset:
   no private-outdoor code;
 - `outdoor_large`: a stated outdoor area of 300 square feet or more, from S7's match;
 - `income_v2_new`: the rewritten `income_restricted_v2` of #1378 on a row without L1's
-  `income_restricted`.
+  `income_restricted`;
+- `income_v2_all`: the whole `income_restricted_v2`, counted for scale beside `income_v2_new`.
 
 For the precision reads I drew 30 matches of each of the first five patterns, with seed
 20261114, from matches with a description over 80 characters. I masked the dollar figures as
 before and gave each reader the bedrooms, full baths, coded room count and whether the
 listing codes any private outdoor space, with a yes, no or unclear question about the
 advertised unit (`precision_prompt.txt`). The five Sonnet readers ran at once, each launched
-once, and none was refused. I left `income_v2_new` unread: #1378 read its new-only matches
-and found 60 of 60 true, for a precision of 0.986 (0.930 to 0.997) over the whole flag.
+once, and none was refused. I left the income patterns unread: #1378 read the new-only
+matches and found 60 of 60 true, for a precision of 0.986 (0.930 to 0.997) over the whole
+flag.
 
-On the held-out ads, "gap" means the log ask less L1's median, with its mean and a
-building-clustered SE. "Spread" is the median absolute deviation of the gap, over that of all
-held-out ads (0.0405). "In 80%" gives the share inside L1's 80% interval, 0.797 over all
-held-out ads, whose mean gap is -0.004.
-
-| Pattern | Rows | Training | Held-out | Units | Buildings | Held-out gap | Spread | In 80% | Precision, all 30 | Precision, settled | Flagged reads matched |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| studio_rooms | 2,873 | 2,602 | 271 | 2,516 | 1,529 | +.068 ± .014 | 1.64 | .61 | 4 of 30, .13 (.05 to .30) | 4 of 19, .21 | 12 of 24 bedrooms too low |
-| studio_text_beds | 38,728 | 34,816 | 3,912 | 25,556 | 5,239 | +.004 ± .002 | 0.92 | .79 | 2 of 30, .07 (.02 to .21) | 2 of 20, .10 | 15 of 24, and 5 controls |
-| nonresidential | 3,462 | 3,123 | 339 | 2,490 | 748 | +.008 ± .010 | 1.14 | .75 | 1 of 30, .03 (.01 to .17) | 1 of 29, .03 | 5 of 6 overpriced |
-| outdoor_uncoded | 38,733 | 35,326 | 3,407 | 31,061 | 11,251 | +.006 ± .002 | 1.05 | .78 | 17 of 30, .57 (.39 to .73) | 17 of 21, .81 | 3 of 11 overpriced |
-| outdoor_large | 6,681 | 5,993 | 688 | 4,701 | 2,657 | +.024 ± .005 | 1.42 | .71 | 26 of 30, .87 (.70 to .95) | 26 of 28, .93 | 3 of 11 overpriced |
-| income_v2_new | 1,166 | 1,045 | 121 | 973 | 274 | -.109 ± .028 | 1.55 | .58 | not read here | .986 in #1378 | 8 of 9 |
+| Pattern | Rows | Training | Held-out | Units | Buildings | Precision, all 30 | Precision, settled | Flagged reads matched |
+|---|---|---|---|---|---|---|---|---|
+| studio_rooms | 2,873 | 2,602 | 271 | 2,516 | 1,529 | 4 of 30, .13 (.05 to .30) | 4 of 19, .21 | 12 of 24 bedrooms too low |
+| studio_text_beds | 38,728 | 34,816 | 3,912 | 25,556 | 5,239 | 2 of 30, .07 (.02 to .21) | 2 of 20, .10 | 15 of 24, and 5 controls |
+| nonresidential | 3,462 | 3,123 | 339 | 2,490 | 748 | 1 of 30, .03 (.01 to .17) | 1 of 29, .03 | 5 of 6 overpriced |
+| outdoor_uncoded | 38,733 | 35,326 | 3,407 | 31,061 | 11,251 | 17 of 30, .57 (.39 to .73) | 17 of 21, .81 | 3 of 11 overpriced |
+| outdoor_large | 6,681 | 5,993 | 688 | 4,701 | 2,657 | 26 of 30, .87 (.70 to .95) | 26 of 28, .93 | 3 of 11 overpriced |
+| income_v2_new | 1,166 | 1,045 | 121 | 973 | 274 | not read here | .986 in #1378 | 8 of 9 |
+| income_v2_all | 2,698 | 2,433 | 265 | 2,241 | 506 | not read here | .986 in #1378 | 8 of 9 |
 
 The "all 30" precision counts an unclear answer as a miss, and the "settled" precision leaves
 unclear answers out. Both come with 95% Wilson intervals (`b7_precision.py`). The units are
-building and unit_id, or the row alone when unit_id is empty.
+building and unit_id, or the row alone when unit_id is empty. The whole income flag's counts
+agree with I1's note (`income-noise-2026-11-14.md`).
+
+S15 gave 122 held-out ads to the new-only part, at -0.107. Since S15b the `-textflags` copy
+holds the flag with its negation guard, which unmarks 5 new-only rows. One of them is a
+held-out ad at +0.049, so 121 remain, at -0.109. I checked this against S15's unguarded flags
+in `/data1/apartments/tmp/text-flags-2026-11-13/t3_flags.parquet`.
+
+On the held-out ads, "gap" means the log ask less L1's median, with its mean and a
+building-clustered SE. "Spread" is the median absolute deviation of the gap, over that of all
+held-out ads. "In 80%" gives the share inside L1's 80% interval. I drew the 400 read ads by
+their gap and wrote the patterns after reading them, so the held-out figures would otherwise
+count the very misses that suggested each pattern. I leave all 400 drawn ads out of them, the
+100 controls along with the 300 misses, and give the figures with the 400 in beside. Over the
+189,247 other held-out ads the spread is 0.0404, the share in 80% is 0.798 and the mean gap
+is -0.005. With the drawn ads in, the 189,647 give 0.0405, 0.797 and -0.004.
+
+| Pattern | Ads, drawn out | Gap | Spread | In 80% | Drawn ads | Gap, drawn in | Spread, drawn in | In 80%, drawn in |
+|---|---|---|---|---|---|---|---|---|
+| studio_rooms | 258 | +.038 ± .010 | 1.55 | .64 | 13 | +.068 ± .014 | 1.64 | .61 |
+| studio_text_beds | 3,891 | +.001 ± .002 | 0.91 | .79 | 21 | +.004 ± .002 | 0.92 | .79 |
+| nonresidential | 334 | -.004 ± .008 | 1.14 | .76 | 5 | +.008 ± .010 | 1.14 | .75 |
+| outdoor_uncoded | 3,398 | +.005 ± .002 | 1.04 | .78 | 9 | +.006 ± .002 | 1.05 | .78 |
+| outdoor_large | 684 | +.021 ± .005 | 1.42 | .71 | 4 | +.024 ± .005 | 1.42 | .71 |
+| income_v2_new | 113 | -.064 ± .016 | 1.33 | .62 | 8 | -.109 ± .028 | 1.55 | .58 |
+| income_v2_all | 251 | -.039 ± .010 | 1.77 | .59 | 14 | -.063 ± .015 | 1.87 | .56 |
+
+Without the drawn ads, the gap of `studio_rooms` drops from +0.068 to +0.038, both income
+patterns move about 40% toward zero, and `nonresidential` goes from +0.008 to -0.004. The
+other patterns move by 0.003 or less.
 
 Each failure has a plain reason in the readers' answers:
 
 - `studio_rooms`: most matches are studios, alcove studios and junior one-bedrooms coded with
   4 or 5 rooms, which must count a foyer, a kitchen or an alcove. Of the 2,873 matches, 2,457
   have 4 or 5 rooms, so the 30 drawn do too, while 11 of the 12 overpriced reads it catches
-  have 5 to 8. After the reads I split the matches by coded room count
-  (`b6_studio_rooms.py`), with no precision read for the split:
+  have 5 to 8. After the precision reads I split the matches by coded room count
+  (`b6_studio_rooms.py`). The split is post hoc: I chose it after the reads showed me where
+  the bedrooms-too-low ads fall, and no precision read covers it. As above, the main figures
+  leave out the drawn ads:
 
-  | Coded rooms | Rows | Held-out | Held-out gap | In 80% | Bedrooms-too-low reads |
-  |---|---|---|---|---|---|
-  | 4 | 1,968 | 189 | +.022 ± .009 | .69 | 1 |
-  | 5 | 489 | 48 | +.153 ± .045 | .42 | 6 |
-  | 6 | 214 | 15 | +.182 ± .076 | .40 | 1 |
-  | 7 | 53 | 4 | +.669 ± .080 | .00 | 3 |
-  | 8 to 20 | 149 | 15 | +.096 ± .085 | .60 | 1 |
+  | Coded rooms | Rows | Ads, drawn out | Gap | In 80% | Drawn ads | Gap, drawn in | In 80%, drawn in | Bedrooms-too-low reads |
+  |---|---|---|---|---|---|---|---|---|
+  | 4 | 1,968 | 188 | +.020 ± .008 | .69 | 1 | +.022 ± .009 | .69 | 1 |
+  | 5 | 489 | 42 | +.086 ± .035 | .48 | 6 | +.153 ± .045 | .42 | 6 |
+  | 6 | 214 | 14 | +.138 ± .064 | .43 | 1 | +.182 ± .076 | .40 | 1 |
+  | 7 | 53 | 1 | +.658 | 0 of 1 | 3 | +.669 ± .080 | .00 | 3 |
+  | 8 to 20 | 149 | 13 | -.021 ± .036 | .69 | 2 | +.096 ± .085 | .60 | 1 |
+  | 5 to 20 | 905 | 70 | +.085 ± .027 | .50 | 12 | +.173 ± .037 | .43 | 11 |
 
-  At 5 rooms or more, 905 rows and 82 held-out ads ask far above L1's median. Of the 8
-  precision reads at 5 rooms, 1 found a one-bedroom, 3 a studio and 4 couldn't tell.
+  At 5 rooms or more, the 70 held-out ads outside the draw ask +0.085 ± 0.027 over L1's
+  median, and half of them fall inside its 80% interval. The 12 drawn ads among the 82 are
+  all overpriced misses, 11 read as bedrooms too low and 1 as nonresidential, at gaps of +0.51
+  to +0.90. Without them a single ad remains at 7 rooms, and the bin of 8 to 20 rooms drops
+  from +0.096 to -0.021 ± 0.036. Of the 8 precision reads at 5 rooms, 1 found a one-bedroom, 3
+  a studio and 4 couldn't tell.
 - `studio_text_beds`: the bedrooms in the text belong to other units, to a size ("the size of
   a 1 bedroom") or to a convertible studio. The drift note's second round of cautions found
   the same thing, at 10 of 80.
@@ -277,7 +321,9 @@ Each failure has a plain reason in the readers' answers:
 
 - **Room count.** L1 reads the room count only through `ad:extra_rooms`, the rooms less the
   bedrooms less 1, clipped to 0 to 6. A studio coded with 5 rooms gets an `extra_rooms` of 4,
-  and still the held-out ads at 5 rooms or more ask 0.15 to 0.67 over L1's median. These ads
+  and still the 70 held-out ads at 5 rooms or more outside the draw ask +0.085 ± 0.027 over
+  L1's median, or +0.173 with the 12 drawn ads in. I split by room count after the reads, so
+  these figures are post hoc. These ads
   differ from the outlier sprint's blank forms, which the feed codes as 0 bedrooms, 1 bath
   and 1 room: here a lister typed a room count of 5 or more and left the bedroom count at 0.
   The sprint used the room count to pick out blank forms and to back its corrections, and I
@@ -291,8 +337,8 @@ Each failure has a plain reason in the readers' answers:
   carried over a unit's earlier ads as a share. It doesn't read the size. S7's match gives
   the size, and a private outdoor size from a Haiku extraction was scoped on 2026-11-12
   (`unit-flags-scope-2026-11-12`). The TODO item for text columns lists private outdoor space
-  on rows with an empty field at +0.0154, where I find +0.006 ± 0.002 on the narrower
-  `outdoor_uncoded`.
+  on rows with an empty field at +0.0154, where I find +0.005 ± 0.002 on the narrower
+  `outdoor_uncoded`, with the drawn ads left out.
 - **Income programs.** L1 reads the old `income_restricted`. The rewritten flag (#1378)
   matches 8 of the 9 income reads, and I1 takes it to a fit.
 - **Net effective.** L1 reads the coded months free, and #1379 adds months free from the
@@ -323,7 +369,10 @@ Each failure has a plain reason in the readers' answers:
 5. **Missed.** Among overpriced misses, data errors agree with the group's sign in 71% of
    reads, renovation in 100% and private outdoor in 100%. Among underpriced misses, data
    errors agree in 65%, renovation in 0% and utilities or fees in 31%.
-6. **Missed on the count, hit on novelty.** Three categories pass against my 5 to 9, and none
+6. **Missed on the count, hit on novelty.** The bar is the one in the task brief's step 4,
+   which the prediction cites without restating: at least 5 reads in a miss group, at twice
+   the controls' share or with no control at all. I wrote it into `b4_score.py` after the
+   predictions commit and before unblinding. Three categories pass against my 5 to 9, and none
    is new to the project: data errors run through the outlier sprint, the income flag is
    #1378's and the outdoor size was scoped on 2026-11-12. Both passing subtypes have earlier
    work too, in the sprint's studio-coded ads and its commercial screen. The room count as a
@@ -342,31 +391,42 @@ errors, outdoor space and income programs turn up about as often in misses as in
 
 ## Follow-ups, ranked
 
-Level and scatter are judged from the direction mix within each cause, together with the
-held-out gap and spread of its pattern.
+I judge level and scatter from the direction mix within each cause, together with the
+held-out gap and spread of its pattern. The held-out figures below leave out the 400 drawn
+ads, and after each gap I give the gap with the drawn ads in.
 
-1. **Income programs, with `income_restricted_v2` in place of `income_restricted`.** It marks
-   1,166 rows and 121 held-out ads in 274 buildings, at -0.109 ± 0.028 with 1.55 times the
-   spread and 58% inside L1's 80% interval. Precision 0.986 (#1378), and it catches 8 of the
-   9 income reads. All 9 reads lower the ask, so it is a level shift with some scatter
-   besides. The flag exists and I1 fits it.
-2. **Studios coded on units of 5 or more rooms.** A level shift: 22 of the 24 overpriced
-   bedrooms-too-low reads raise the ask and the other 2 are unclear. The pattern marks 905
-   rows and 82 held-out ads, at +0.15 to +0.67 over L1's median, with 0% to 60% inside the
-   80% interval by room count. Before any rule, read 30 of the 905 against the unit's other
-   ads and its floor plan count. The precision reads at 5 rooms found 1 one-bedroom in 8, so
-   the rule may need the unit's history, as the sprint's rule B2 does.
-3. **Stated outdoor size.** All 16 outdoor reads among the misses raise the ask. The pattern
-   marks 6,681 rows and 688 held-out ads at
-   +0.024 ± 0.005, with 1.42 times the spread and 71% inside the 80% interval, so a level
-   with wider scatter. Precision 0.87, but S7's match catches 3 of the 11 outdoor reads. The
-   Haiku extraction scoped on 2026-11-12 would need to catch more of them.
-4. **Private outdoor space without a code.** 38,733 rows and 3,407 held-out ads at +0.006 ±
-   0.002, a small level with no extra spread, at a precision of 0.57 (0.81 among settled
-   reads). It belongs with the text-columns item in `docs/TODO.md`.
+1. **Income programs, with `income_restricted_v2` in place of `income_restricted`.** The
+   whole flag marks 2,698 rows: 2,433 training rows and 265 held-out ads, as in I1's note.
+   The 251 held-out ads outside the draw ask -0.039 ± 0.010 against L1's median (-0.063 with
+   the drawn ads), with 1.77 times the spread and 59% inside L1's 80% interval. The ads the
+   new flag marks and the old one doesn't come to 1,166 rows and 121 held-out ads in 274
+   buildings. The 113 of those outside the draw ask -0.064 ± 0.016 (-0.109 with the drawn
+   ads), with 1.33 times the spread and 62% inside the 80% interval. Precision 0.986 (#1378),
+   and the flag catches 8 of the 9 income reads. All 9 reads lower the ask, so it is a level
+   shift with some scatter besides. The flag exists and I1 fits it.
+2. **Stated outdoor size.** All 16 outdoor reads among the misses raise the ask. The pattern
+   marks 6,681 rows and 688 held-out ads. The 684 outside the draw ask +0.021 ± 0.005 (+0.024
+   with the drawn ads), with 1.42 times the spread and 71% inside the 80% interval, so a
+   level with wider scatter. Precision 0.87, but S7's match catches 3 of the 11 outdoor
+   reads. The Haiku extraction scoped on 2026-11-12 would need to catch more of them.
+3. **Studios coded on units of 5 or more rooms.** I chose this split after the reads, so it
+   is post hoc, and no precision read covers it. The reads point to a level shift: 22 of the
+   24 overpriced bedrooms-too-low reads raise the ask and the other 2 are unclear. The split
+   marks 905 rows and 82 held-out ads. The 70 outside the draw ask +0.085 ± 0.027 over L1's
+   median, with half inside the 80% interval: +0.086 on 42 ads at 5 rooms, +0.138 on 14 at
+   6, a single ad at 7 and -0.021 on 13 at 8 to 20. With the 12 drawn ads in, the 82 ask
+   +0.173. I rank it below the outdoor size because its level rests on 70 ads and a split I
+   picked after seeing the reads, and the precision reads at 5 rooms found 1 one-bedroom in 8.
+   Before any rule, read 30 of the 905 against the unit's other ads and its floor plan count.
+   The rule may need the unit's history, as the sprint's rule B2 does.
+4. **Private outdoor space without a code.** 38,733 rows and 3,407 held-out ads. The 3,398
+   outside the draw ask +0.005 ± 0.002 (+0.006 with the drawn ads), a small level with no
+   extra spread, at a precision of
+   0.57 (0.81 among settled reads). It belongs with the text-columns item in `docs/TODO.md`.
 5. **Nonresidential space.** It comes to 4% of the overpriced misses and no control, but the
    readers gave a direction in only 2 of its 7 reads, so I can't call it a level or a
-   scatter. The text pattern fails at 1 in 30, and the sprint's commercial screen found its
+   scatter. The text pattern fails at 1 in 30, its 334 held-out ads outside the draw ask
+   -0.004 ± 0.008 (+0.008 with the drawn ads), and the sprint's commercial screen found its
    matches near zero gap. A rule would need the ad's headline or the listing's property
    type, with a read of its matches first.
 

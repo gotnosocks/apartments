@@ -5,7 +5,11 @@ had 4 or 5 coded rooms, while 11 of the 12 overpriced bedrooms-too-low reads it 
 to 8. So I count L1's studio rows by coded room count (4, 5, 6, 7 and 8 to 20) and give, for the
 held-out ads of each, L1's mean gap with a building-clustered SE and the share inside its 80%
 interval, next to the data-error reads of the draw that fall in each. This split is post hoc and
-has no precision read of its own."""
+has no precision read of its own.
+
+The draw picked its 400 ads by their gap, and 12 of the held-out ads in these buckets are its
+bedrooms-too-low reads. So I leave all 400 out of the held-out figures (`held`) and keep the
+figures with them beside (`held_with_drawn`), for each bucket and for 5 to 20 rooms together."""
 
 import json
 
@@ -30,6 +34,7 @@ d.loc[d.held, "gap"] = a["y"] - a["pred"]
 d.loc[d.held, "in80"] = (a["y"] >= a["q"][:, qs.index(0.1)]) & (
     a["y"] <= a["q"][:, qs.index(0.9)]
 )
+d["drawn"] = d.listing_id.isin(set(pd.read_parquet(OUT + "draw.parquet").listing_id))
 d = d.merge(
     pd.read_parquet(CODES, columns=["listing_id", "rooms"]), on="listing_id", how="left"
 )
@@ -52,17 +57,27 @@ def cluster_mean_se(v, b):
     return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()) / len(v))
 
 
-res = {}
-for k, g in s.groupby("bucket", observed=True):
-    h = g[g.held]
-    res[str(k)] = {
-        "rows": len(g),
-        "heldout": len(h),
-        "buildings": int(g.building.nunique()),
-        "held_mean_gap": float(h.gap.mean()),
-        "held_mean_gap_se": cluster_mean_se(h.gap, h.building) if len(h) > 1 else None,
-        "held_in80": float(h.in80.mean()),
-        "beds_low_reads": reads[reads.bucket == k].group.value_counts().to_dict(),
+def held_stats(h):
+    return {
+        "ads": len(h),
+        "mean_gap": float(h.gap.mean()) if len(h) else None,
+        "mean_gap_se": cluster_mean_se(h.gap, h.building) if len(h) > 1 else None,
+        "in80": float(h.in80.mean()) if len(h) else None,
     }
-    print(k, json.dumps(res[str(k)]))
+
+
+buckets = {str(k): g for k, g in s.groupby("bucket", observed=True)}
+buckets["5-20"] = s[s.rooms >= 5]
+res = {}
+for k, g in buckets.items():
+    on = reads.bucket.astype(str).isin(["5", "6", "7", "8-20"] if k == "5-20" else [k])
+    res[k] = {
+        "rows": len(g),
+        "buildings": int(g.building.nunique()),
+        "held": held_stats(g[g.held & ~g.drawn]),
+        "held_with_drawn": held_stats(g[g.held]),
+        "drawn_held": int((g.held & g.drawn).sum()),
+        "beds_low_reads": reads[on].group.value_counts().to_dict(),
+    }
+    print(k, json.dumps(res[k]))
 json.dump(res, open(OUT + "studio_rooms_split.json", "w"), indent=1)
