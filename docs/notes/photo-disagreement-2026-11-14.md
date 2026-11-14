@@ -228,6 +228,8 @@ person might grade differently.
 ## The grades against the fields L1 already reads
 
 `f4_pattern.py` joins each graded ad to its building's fields and to L1's own median for it.
+I wrote it after the grades were scored, outside the committed design, so this section is a
+post hoc reading.
 The groups differ before any photo is opened:
 
 | Group | Median first ask | L1's median | Median year built | Built 2000 or later | 100 or more units |
@@ -243,8 +245,9 @@ fit of each grade on L1's median, bedrooms, Manhattan, the building's era, its u
 doorman takes up 42% of the grade's variance. With those fields in the fit, A's difference
 from R falls from +0.55 (SE 0.13) to +0.07 (SE 0.11) on condition and from +0.56 (SE 0.12)
 to +0.09 (SE 0.11) on light. Adding the group to the fields raises the share of variance by
-0.1 points. So the flagged grades come from group A's mix of buildings and price levels, and
-L1 already reads that mix through the building, its era and its size.
+0.1 points. So the flagged grades follow group A's mix of buildings and price levels. The fields in
+this regression are ones L1 reads, and the regression is the only evidence here for that
+reading.
 
 Within the groups a point of condition goes with a gap 0.008 higher (SE 0.006) and a point
 of light with a gap 0.015 higher (SE 0.008). Neither grade moves the market score D (0.034
@@ -292,11 +295,16 @@ leads from it, in order of support:
 6. No category is flagged in A47: hit.
 7. The shuffles give a mean of 0.08 flags: hit.
 8. The grade correlations are 0.90 and 0.91, over both ranges: both miss. The median kappa of
-   the 5 categories marked at least 5 times by either reader is 0.52, just over the range:
-   miss. Kappa for `nothing_wrong` is 0.77: hit.
+   the 5 categories marked at least 5 times by either reader, leaving out `nothing_wrong`,
+   is 0.52, just over the range: miss. With `nothing_wrong` among them it is 0.645, a miss
+   too. Kappa for `nothing_wrong` is 0.77: hit.
 9. B's mean condition is under A's, and `awkward_layout` has a larger share in B: both hit.
 10. `other_unit_or_renderings` has 11.2% in A against 8.3% in R: hit. It is not flagged.
 11. `few_photos` has 18% in B against 7% in A: hit.
+
+Counting each part with a stated range or direction once, 12 parts hit and 5 missed: the
+second part of 3, the first part of 5 and the three parts of 8. The count leaves out 4 and
+the flag in 5, since each was given as a probability under one half.
 
 I expected group A to hold units with hidden faults. It holds well-kept units in large new
 buildings, and that explains the misses on 3 and 5.
