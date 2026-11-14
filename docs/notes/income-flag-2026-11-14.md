@@ -282,3 +282,61 @@ Without that building, the ads the new flag marks still gain nothing from a shif
 (-8.2 ± 14.3). L1's -0.083 suits the ads both flags mark, and the ads only the new flag marks
 scatter too widely for a common shift to help. I would follow up on that scatter: m = 2.0 on
 their noise scale and unit sd gains 63.5 ± 16.0, in a search I chose after the main result.
+
+## S15b: AMI tier against L1's scatter on income-restricted ads (2026-11-14)
+
+After S15's miss I searched for a wider spread on the ads `income_restricted_v2` marks and
+found m = 2.0 on L1's noise scale and unit sd, for +63.5 ± 16.0. Both that hypothesis and the
+one in this section came from a search after S15's miss. A program sets a unit's rent from its
+income tier, so a 40% AMI unit and a 130% AMI unit in the same building can ask very different
+rents. If the scatter comes from tiers, a level by tier should do as well as the wider spread.
+
+### The screen
+
+1. In `rentfrontier.b0textflags` I add a guard against a negation just before a match ("no
+   income restrictions", "no income caps") to `income_restricted_v2`, and on the rows it marks
+   I read from the description:
+   - `ami_pct_text`, the AMI percentage the ad ties to its unit: the only one it states, or,
+     when it states several, the one it ties to the unit or its price;
+   - `ami_tiers_text`, how many different AMI percentages it states;
+   - `income_min_text` and `income_max_text`, the household income band it states.
+
+   All of them go into a single rebuild of the `-textflags` copy of L1's dataset.
+2. A Sonnet reader checks the extracted tier on about 60 ads.
+3. On L1's held-out ads of the latest split that the guarded flag marks, I put each ad in a
+   bin by its tier. I fixed the bins before looking: 50 or less, 51 to 80, 81 to 100, 101 to
+   130, above 130, several tiers with none tied to the unit, and none stated. Each bin gets
+   a level added to L1's location in every draw, on a grid from -1.00 to +0.30. As S15 picked
+   δ and m, each half of the buildings takes each bin's level from the other half's ads in
+   that bin, and a bin with no ads in the other half gets 0. I score the gain against L1 as
+   is, with SEs clustered by building over all held-out ads, by bin and in total.
+4. On the same ads I rerun S15's spread search (m on the noise scale and unit sd), and then
+   the spread search again with the tier levels in place.
+5. I compare the mean squared gap from L1's median on these ads before and after the tier
+   levels.
+
+If the tier level does as well as the spread factor or better, I write a module with a level by
+tier. Otherwise I write the spread factor's module.
+
+### Predictions, written before any tier was extracted
+
+L1's unit level already holds the rent of a unit whose training rows are at one tier, and in
+S15 the ads whose unit's training rows all carry the flag asked only 0.039 under L1's median.
+So I expect the tier to explain a part of the scatter, mostly on ads whose units have no
+marked training row.
+
+1. Of the held-out ads the guarded flag marks, 15% to 40% get an `ami_pct_text` (60%), and
+   the same range holds for its training rows (60%). 20% to 50% state at least one percentage
+   (60%), and 25% to 55% state an income band with a minimum or a maximum (60%).
+2. Among held-out ads with a tier, the bin from 101 to 130 holds the most (55%), and the bin
+   of 50 or less holds at most 10% of them (70%).
+3. The reader finds the extracted tier right on at least 90% of the ads it checks (70%).
+4. The tier level gains +3 to +30 (60%), clears 2 SE (30%), and gains at least as much as the
+   spread factor on the same ads (10%).
+5. On the guarded ads the spread search picks m = 2.0 or 2.5 in both halves (70%) and gains
+   +45 to +75 (70%).
+6. With the tier levels in place the spread search still picks m of 1.7 or more in both halves
+   (75%), and the two together gain less than 15 over the spread factor alone (70%).
+7. The tier levels narrow the mean squared gap of these ads by 3% to 20% (60%).
+8. If at least 5 held-out ads state a tier of 80 or less and 5 state one above 130, the first
+   group's mean gap is at least 0.2 below the second's (65%).
