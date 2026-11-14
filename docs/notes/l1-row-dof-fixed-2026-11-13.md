@@ -192,6 +192,34 @@ base for the sprint's other fits. Two cautions go with it. The gain is a tail fi
 table shows. And the unit history calibration (`unit-history-calibration-2026-11-14.md`)
 found that L1T's held-out gaps slope against the unit's training record at every count of
 training ads (-0.056 ± 0.004 overall, against L1's -0.009 ± 0.005), so a heavy-tailed unit
-level follows a unit's few asks further than the held-out asks bear out. The same check on
-L1TKN's saved predictions is the next free step, before this model prices anything on the
-Deals page.
+level follows a unit's few asks further than the held-out asks bear out.
+
+**Unit history calibration on L1TKN.** I reran both scripts of
+`unit-history-calibration-2026-11-14/` with L1TKN's pool in L1T's place (copies and outputs in
+`/data1/apartments/tmp/sprint-20261114/calib-l1tkn/`). I expected L1T's figures back, since
+the two pools differ by 11 elpd, and that is the result:
+
+| | L1 | L1TKN |
+|---|---|---|
+| slope of the held-out gap on the unit's training measure, all 137,094 ads | -0.009 ± 0.005 | -0.057 ± 0.004 |
+| 1 training ad | +0.031 ± 0.009 | -0.028 ± 0.008 |
+| 2 | -0.029 ± 0.007 | -0.075 ± 0.005 |
+| 3 to 5 | -0.047 ± 0.006 | -0.082 ± 0.005 |
+| 6 to 9 | -0.071 ± 0.009 | -0.083 ± 0.010 |
+| 10 or more | -0.140 ± 0.038 | -0.189 ± 0.052 |
+| inside the 80% interval, low tail of the measure | 74.4% | 73.7% |
+| high tail | 70.8% | 70.2% |
+| middle | 81.7% | 81.2% |
+| ads priced over 14% under the unit's own record | 7,239 | 6,505 |
+| their mean gap | +0.051 ± 0.002 | +0.025 ± 0.002 |
+| inside the 80% interval | 56.0% | 64.2% |
+| duplex ads' excess squared gap | 0.0054 | 0.0045 |
+
+So L1TKN carries L1T's pattern unchanged. It moves each price about 6% of the unit's training
+measure too far toward the unit's record, which is 0.006 in log rent at one standard deviation
+of the measure (0.10). Its intervals stay too narrow for units with a record far from the
+building's (70% to 74% inside the 80% interval), and 82% of the duplex ads' excess scatter
+remains. Where it prices an ad far under the unit's own record, the ask still comes in 2.5%
+over the median, half of L1's 5.1%. These are leads for a later change on this base: a unit
+premium that reverts over time, or a noise scale that widens with the unit's distance from its
+building. Neither blocks L1TKN as the base.

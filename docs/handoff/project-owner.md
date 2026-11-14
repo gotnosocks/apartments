@@ -32,9 +32,10 @@ subagent's model and effort to be picked by its task.
 
 Next, in order:
 
-1. Run the unit history calibration on L1TKN's saved predictions (free). L1T's held-out gaps
-   sloped against the unit's training record, and Deals should not read L1TKN before this is
-   measured.
+1. Done: the unit history calibration on L1TKN matches L1T's (slope -0.057 ± 0.004; 70% to
+   74% inside the 80% interval in the tails of the unit measure). Leads for a later change
+   on this base: a unit premium that reverts over time, or a noise scale that widens with
+   the unit's distance from its building.
 2. Review and merge the two agents' PRs. Then write L2's note on the unitkn base with
    predictions, commit, fetch serve/master and launch (about $11.50). The segment paths
    follow once their lengthscales pass a rehearsal, with predictions 2 and 5 of their note
