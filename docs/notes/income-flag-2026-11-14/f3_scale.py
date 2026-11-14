@@ -8,6 +8,10 @@ grid, picks m on one half of the buildings and scores it on the other, both ways
 those neither flag marks. SEs are clustered by building as in `f1_screen.py`. Results go to
 `OUT/f3_scale.json`.
 
+`income_restricted_v2` in the `-textflags` copy now holds the flag with S15b's negation guard.
+A rerun reads that flag, so it scores 265 held-out ads where S15 scored 275, and its numbers
+differ from the ones in the note.
+
     systemd-run --user --scope -q -p MemoryMax=3G python f3_scale.py
 """
 

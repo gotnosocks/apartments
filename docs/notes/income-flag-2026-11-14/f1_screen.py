@@ -20,6 +20,10 @@ The script also counts the rows, units and buildings each flag marks, and the sh
 new flag's ads whose unit or building has an ad the new flag leaves unmarked. Results go to
 `OUT/f1_screen.json`, and the per-ad table of marked held-out ads to `OUT/f1_heldout.parquet`.
 
+`income_restricted_v2` in the `-textflags` copy now holds the flag with S15b's negation guard.
+A rerun reads that flag, so it scores 265 of the new flag's held-out ads and counts 2,433
+training rows where S15 had 275 and 2,464, and its numbers differ from the ones in the note.
+
     systemd-run --user --scope -q -p MemoryMax=3G python f1_screen.py
 """
 

@@ -285,12 +285,22 @@ all.
 
 ## A negation guard and the program's terms (2026-11-14)
 
-This section is a data change made after the scored sections above, and none of their counts
-change. In S15 (`docs/notes/income-flag-2026-11-14.md`) a Sonnet reader found stabilized ads
-saying "no income restrictions" among the rows `income_restricted_v2` marked. So
+This section is a data change made after the scored sections above, and I left their counts
+as they were. A rerun of `t5_gap.py` on the rebuilt copy reads the guarded flag, so its counts
+for `income_restricted_v2` change by the 41 rows the guard unmarks (10 of them held-out ads),
+and it reports those 41 rows as differing from `t3_eval.py`'s flags.
+
+In S15 (`docs/notes/income-flag-2026-11-14.md`) a Sonnet reader found stabilized ads saying
+"no income restrictions" among the rows `income_restricted_v2` marked. So
 `b0textflags.income_marked` now passes over a match of `INCOME_V2` when "no", "not", "non" or
 "without" comes just before it, with at most "a", "an" or "any" between. An ad keeps its mark
 through any other match. The pattern itself is unchanged.
+
+The patterns still miss some cases, and I left them as they are. The guard looks only at the
+words just before a match, so "no pets or income limits", "not part of the affordable housing
+lottery" and "Income restrictions: none" still mark their ads. Among several tiers,
+`b0textflags.TIED` misses a unit named with a word between, as in "this 1BR apartment", and
+`AMI_PCT` reads "30% of median income" as a tier of 30.
 
 I rebuilt the `-textflags` copy of L1's dataset once with the guard and with four columns read
 from the descriptions of the rows the guarded flag marks:

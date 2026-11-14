@@ -8,6 +8,10 @@ carries its description (as `t1_texts.py` of the text-flag screen wrote it), its
 ask and the day it was priced. The pairs go to `OUT/f2_pairs.md` for the reader and to
 `OUT/f2_pairs.parquet`.
 
+`income_restricted_v2` in the `-textflags` copy now holds the flag with S15b's negation guard.
+A rerun reads that flag, from the copy and from a rerun's `f1_heldout.parquet`, so it draws
+from 265 held-out ads where S15 drew from 275, and its pairs may differ from the ones read.
+
     systemd-run --user --scope -q -p MemoryMax=3G python f2_pairs.py
 """
 

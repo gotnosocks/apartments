@@ -125,7 +125,10 @@ Each is for the emulation on L1's 189,647 held-out ads of the latest split.
 ## Results (2026-11-14)
 
 I ran `f1_screen.py`, then `f2_pairs.py` and `f3_scale.py`, each under a 3 GB scope. Their
-outputs are in `/data1/apartments/tmp/income-flag-2026-11-14/`.
+outputs are in `/data1/apartments/tmp/income-flag-2026-11-14/`. Since S15b the `-textflags`
+copy holds `income_restricted_v2` with a negation guard, so a rerun of the three scripts
+finds 265 marked held-out ads and 2,433 marked training rows where the numbers below have 275
+and 2,464.
 
 ### The emulation
 
@@ -176,8 +179,11 @@ By the unit's training rows, for the ads the new flag marks:
 | some | 41 | 30 | +4.6 | 4.0 | -0.029 |
 | none | 122 | 92 | +1.1 | 10.9 | -0.087 |
 
-Every held-out ad's unit has training rows. Where all of a unit's training rows carry the
-flag, L1's unit level already holds the program's rent, and a shift on top of it overshoots.
+Every held-out ad's unit has training rows. Of the 112 ads whose unit's training rows all
+carry the new flag, the old flag marks 60 as well. On those 60, L1's coefficient for the old
+flag already carries the program's rent, and swapping it for δ loses 4.1. The other 52 have a
+median gap of -0.024, so L1 places most of them well without the old flag's coefficient, and a
+shift on top of that overshoots: they lose 9.9.
 Where none of them do, the gaps are larger and too scattered for a common shift: the 49 new-only
 ads in such units have a mean gap of -0.181 and gain 1.8 ± 10.5.
 
@@ -364,8 +370,9 @@ Only 27 of the 265 ads state a tier, and all of them state a single one:
 
 The six ads above 130 are all in half 0, so each half scores them with a level of 0. The
 tier levels gain +5.3 ± 6.8 in all, and the bin with no tier carries all of it: it is a
-level for the flag's ads without a tier, which a fit already has through the flag's
-coefficient. The bins with a tier together gain -3.7.
+level for the flag's ads without a tier, and a fit reading v2 would have that level through
+v2's coefficient. L1 has a coefficient for the old flag only. The bins with a tier together
+gain -3.7.
 
 On the same 265 ads the spread search picks m = 2.5 in both halves and gains +65.4 ± 20.2,
 against +63.5 ± 16.0 on S15's 275 ads. The tier levels gain 60.0 ± 19.2 less than the spread.
@@ -381,14 +388,15 @@ noise alone has to be larger to widen the predictive as much.
 
 ### The predictions, scored
 
-1. Miss on all three parts. 10.2% of the held-out ads and 10.0% of the training rows get an
+1. Miss on every part. 10.2% of the held-out ads and 10.0% of the training rows get an
    `ami_pct_text`, 10.2% and 10.7% state a percentage, and 60.4% and 56.0% state an income
    band, just above the range.
 2. Hit on both parts. 17 of the 27 held-out ads with a tier are in the bin from 101 to 130,
    and none are at 50 or less.
 3. Hit. The reader found the tier right on all 68 ads it checked.
-4. Hit on the range (+5.3). It does not clear 2 SE (1.3 SE) and gains far less than the
-   spread, as I expected at 30% and 10%.
+4. Partial. The total of +5.3 is in the range, but all of it comes from the bin with no tier
+   (+9.1), and the bins with a tier lose 3.7 together. The total does not clear 2 SE (0.8 SE)
+   and gains far less than the spread, as I expected at 30% and 10%.
 5. Hit on both parts: m = 2.5 in both halves, +65.4.
 6. Hit on both parts: m = 2.0 in both halves with the tier levels in place, and +5.3 over the
    spread alone.
@@ -397,8 +405,10 @@ noise alone has to be larger to widen the predictive as much.
 
 ### Conclusion
 
-The tier explains little of the scatter on these ads, mostly because few ads state one: 27 of
-265. The wider spread does much better, so I write the spread factor's module as D1's is
-built, with the factor on the noise of marked rows (`docs/notes/income-noise-2026-11-14.md`).
+The tier explains little of the scatter on these ads. Only 27 of the 265 state one, and L1
+already places those well: their bins have 80% coverage from 0.67 to 0.75 and mean gaps from
+-0.053 to +0.009. Most of the scatter is in the 238 ads with no tier, with coverage of 0.55
+and a mean gap of -0.067. The wider spread does much better, so next I write the spread factor's module
+as D1's is built, with the factor on the noise of marked rows. It follows in its own PR as I1.
 Both hypotheses came from a search after S15's miss, on the same held-out ads, so the
 spread's +65.4 ± 20.2 and the noise's +62.4 ± 16.6 overstate what a fit would gain.

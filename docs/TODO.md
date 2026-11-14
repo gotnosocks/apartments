@@ -233,10 +233,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   of `income_restricted` and found no gain (-64.1 ± 60.7, and -8.2 ± 14.3 on the new flag's ads),
   so that fit is not planned. Since 2026-11-14 v2 has a guard against "no income
   restrictions", and the copy carries the AMI tier and income band read from the text. S15b
-  found a level by tier gains +5.3 ± 6.8 against +65.4 ± 20.2 for a wider spread, since only
-  27 of the 265 held-out ads state a tier. I1, `drift-building-phase-income`
-  (`docs/notes/income-noise-2026-11-14.md`), puts a factor on the noise of v2's rows as D1
-  does; it is written, not fit. The band patterns miss tables and bare ranges and need work
+  found a level by tier gains +5.3 ± 6.8, all of it on the ads with no tier, against
+  +65.4 ± 20.2 for a wider spread. I1, a module that puts a factor on the noise of v2's rows as
+  D1 does, follows in its own PR. The band patterns miss tables and bare ranges and need work
   before a fit reads the maximum.
   `shared_space_v2` drops 29,943 of the old flag's 30,209 rows. `rent_stabilized` misses
   misspellings ("stablized", about 1,280 listings).
