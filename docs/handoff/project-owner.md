@@ -41,14 +41,17 @@ What I found:
   gains +62.4 ± 16.6. I found the spread after S15 missed, on the same ads, so that gain
   overstates a fit's.
 - **I1** (`docs/notes/income-noise-2026-11-14.md`) fits that spread as D1 fits duplexes. The
-  coordinator added it to the proposal as the spare: it runs only if the spare is still
-  unused after fits 1 to 5, at about $11 for three chains.
+  coordinator added it to the proposal as the spare, in a relay to this thread at 2:05 AM ET
+  on Nov 14: it runs only if the spare is still unused after fits 1 to 5, at about $11 for
+  three chains (PR #1381's body gives the same terms).
 - **S16** (`docs/notes/blind-spots-2026-11-14.md`) found three causes over-represented in
   L1's worst misses against random controls: data errors (23% of overpriced misses against
   4%), income programs (6% of underpriced against none) and private outdoor space (7%
   against 3%, about 1.5 SE). Outside the draw, studios coded on units of 5 or more rooms ask
-  +0.085 ± 0.027 on 70 held-out ads, and stated outdoor areas of 300 sq ft or more ask
-  +0.021 ± 0.005 at 0.87 precision. None of the causes is new to the project.
+  +0.085 ± 0.027 on 70 held-out ads. That split is post hoc, with no precision read: I chose
+  it after the reads, and 1 of the 8 reads at 5 rooms found a one-bedroom. Stated outdoor
+  areas of 300 sq ft or more ask +0.021 ± 0.005 at 0.87 precision. None of the causes is new
+  to the project.
 
 Next free item: S17, a read of 30 studio-coded rows on 5+ rooms against each unit's history
 and other ads, with Sonnet readers. The coordinator barred floor plan fetches for it, so rows
