@@ -14,6 +14,49 @@ asked for the research backlog reviewed and ranked, and for a proposal of fits w
 Data work and other free work go ahead without approval. No Modal budget is approved for the
 sprint yet, so I have launched, queued and scheduled nothing on Modal.
 
+### State at 4:20 AM ET on Nov 14
+
+Still no Modal budget, so none of this sprint's fits has run, been queued or been scheduled
+on Modal. Merged since the state below, and none of them was a fit:
+
+| PR | what |
+|---|---|
+| #1383 | this note's 3:00 AM state |
+| #1384 | S17, a read of 30 studio-coded rows on 5+ rooms against each unit's history and other ads |
+| #1385 | the whole sprint in `docs/research-record.md`, each item with its result or status, and a summary row with the option B order and costs |
+| #1386 | `studio-history-h1`, S17's H1 as an optional recode of bedrooms, off by default (`rentfrontier.b0studiohistory`) |
+
+What I found:
+
+- **S17** (`docs/notes/studio-rooms-2026-11-14.md`). Weighted to the pool, about a third of
+  the studio-coded rows on 5 or more rooms are bedrooms, a sixth are studios, a twelfth are
+  commercial spaces, and the text and history leave the rest unresolved. The coordinator
+  barred floor plan fetches, in a relay at 2:55 AM ET, so I counted those rows as unresolved.
+  H1, a unit ad coded 1 or more bedrooms within 730 days, marks 243 rows. I chose it after
+  scoring 9 rules on S16's ads, so its contrast of 0.14 ± 0.07 is post hoc.
+- **H1 as a recode** (`docs/notes/studio-history-rule-2026-11-14.md`). In a relay at 3:30 AM
+  ET the coordinator asked for a recode in place of the exclusion S17 proposed, since an
+  exclusion would take 24 held-out ads out of a comparison with L1, and 243 rows are too few
+  for a fit of their own. The rule takes the bedroom count of the nearest 1+ bedroom ad on
+  the unit's page within 730 days, from coded fields only; held-out ads read earlier ads only,
+  and a chosen count at or above the row's rooms leaves it a studio. On L1's dataset it
+  recodes 227 rows, 11 of them held out. Some pages hold more than one apartment, so a few
+  recodes borrow another apartment's count. The rule goes with the next data-version change
+  that gets a fit anyway.
+
+In progress: `outdoor_sqft`, the stated private outdoor area read from each listing's latest
+description, as a column in a copy of L1's dataset, with a precision read by Sonnet readers
+and a screen against L1's held-out ads, its predictions committed first. S16 found the
+pattern on the same ads, so the screen is not a clean test.
+
+Next free items, in rank:
+
+1. A screen of nonresidential ads (S16's fifth follow-up; S17 found commercial spaces among
+   the studio-coded rows).
+2. S7's within-building duplex contrast and its (n-1)/n bias.
+3. `observations.py` copying `label_rule` through, and the stabilized misspellings and income
+   band patterns the text-flag reads left.
+
 ### State at 3:00 AM ET on Nov 14
 
 Still no Modal budget, so nothing has run, been queued or been scheduled on Modal. Merged
@@ -42,7 +85,7 @@ What I found:
   overstates a fit's.
 - **I1** (`docs/notes/income-noise-2026-11-14.md`) fits that spread as D1 fits duplexes. The
   coordinator added it to the proposal as the spare, in a relay to this thread at 2:05 AM ET
-  on Nov 14: it runs only if the spare is still unused after fits 1 to 5, at about $11 for
+  on Nov 14: it runs only if the spare's money is unspent after fits 1 to 5, at about $11 for
   three chains (PR #1381's body gives the same terms).
 - **S16** (`docs/notes/blind-spots-2026-11-14.md`) found three causes over-represented in
   L1's worst misses against random controls: data errors (23% of overpriced misses against
