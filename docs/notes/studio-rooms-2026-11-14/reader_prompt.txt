@@ -1,0 +1,84 @@
+You are checking NYC rental ads for a research check. Every ad here is coded as a studio (0
+bedrooms), yet the listing's codes give the apartment 5 or more rooms. For each ad, find the
+true bedroom count of the advertised apartment where the evidence allows it, say which
+evidence settles it, and say why the room count is so high.
+
+Read each dossier listed in BATCH with the Read tool. A dossier holds:
+
+- the row's own ad: its coded fields, unit label, date, lister and description;
+- the unit's other ads (the same StreetEasy unit page), with their coded fields and the texts
+  of up to 5 of them nearest in time;
+- units of the same line in the building (same letter or same last two digits on other
+  floors), with their coded bedrooms, baths, rooms and sizes;
+- a count of the building's other ads with the same room count, for context only;
+- floor plan images already stored on disk, if any. When a dossier lists one, open the .png
+  with the Read tool and look at it. Open no other image and fetch nothing from the web.
+
+Dollar figures are masked as [amount], and no ask is given: price is never evidence here.
+
+## What settles a count
+
+A count of 1 bedroom or more changes a coded field, so it needs backing beyond this ad's own
+words. Accept as backing:
+
+1. `unit_other_ads`: another ad of the same unit coding that count, within about 24 months
+   of the row's ad, or further away but showing the same configuration (the same text, baths,
+   size or room count). An ad years away with a renovation, other baths or another layout in
+   between backs nothing.
+2. `floor_plan`: a stored plan you looked at that shows the walled bedrooms.
+3. `line_units`: units of the same line on other floors coding that count, with a matching
+   room count or size.
+4. `stated_size`: a size stated in a coded field or in the text. A size alone rarely settles
+   a count, since lofts and large studios run past 700 sq ft; use it together with another
+   kind.
+
+The row's own text (`own_text`) can describe the layout and support one of the four, but on
+its own it is not backing for a count of 1 or more. A coded 0 that the evidence agrees with
+(the text describes a studio or an open loft, and nothing else contradicts it) settles as a
+studio, and there the own text may be the main evidence.
+
+Count a bedroom when the evidence shows a separate room for sleeping, walled off from the
+living space, as listers code it: a loft with built-out bedrooms counts them, while a loft or
+studio with an open sleeping area, an alcove or a sleeping loft counts 0. A "convertible" or
+flex room that the ad offers to wall off counts only if it is walled now.
+
+## Verdicts
+
+- `bedrooms`: the true count is 1 or more, with backing from the list above.
+- `studio`: the true count is 0.
+- `unresolved`: the evidence doesn't settle it. Say which way the row's own text leans.
+- `other`: the ad is not for a single apartment (a store or office, a whole building, several
+  units, a room share), so a bedroom count doesn't apply as coded.
+
+## Why the room count is high
+
+Pick the best of:
+
+- `bedroom_field_left_0`: the apartment has bedrooms, and the lister or feed left the
+  bedroom field at 0 while typing the rooms;
+- `loft_zones`: an open loft whose room count counts zones or built-out areas;
+- `studio_counts_extras`: a studio whose count includes a kitchen, foyer, alcove, dressing
+  room or the like;
+- `combined_or_multi_unit`: the ad covers more than one apartment or a combined unit;
+- `building_or_house_count`: the count belongs to a whole house or building;
+- `nonresidential`: a store, office or other nonresidential space;
+- `unclear`.
+
+## Output
+
+Write one JSON line per dossier to OUT with the Write tool, in BATCH order, with these keys:
+
+- `row_id`: the number in the dossier's title;
+- `verdict`: "bedrooms", "studio", "unresolved" or "other";
+- `true_bedrooms`: an integer, or null unless the verdict is "bedrooms" or "studio";
+- `lean`: for "unresolved", "bedrooms", "studio" or "none"; otherwise "";
+- `backing`: a list from "unit_other_ads", "floor_plan", "line_units", "stated_size",
+  "own_text", naming each kind you relied on, or an empty list;
+- `backing_detail`: at most 40 words naming the listing ids, units or plan you used and what
+  they show;
+- `rooms_reason`: one code from the list above;
+- `quote`: at most 25 words quoted from the row's own description that matter most, or "";
+- `note`: one or two plain sentences on what you found.
+
+Open no file other than BATCH, the dossiers it lists and the plan images those dossiers list.
+Then reply only with the number of lines written and the count of each verdict.
