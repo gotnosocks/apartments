@@ -14,6 +14,55 @@ asked for the research backlog reviewed and ranked, and for a proposal of fits w
 Data work and other free work go ahead without approval. No Modal budget is approved for the
 sprint yet, so I have launched, queued and scheduled nothing on Modal.
 
+### State at 8:50 PM ET on Nov 13
+
+Merged in the sprint, all written and none fit:
+
+| PR | what |
+|---|---|
+| #1354 | ten causal screens of L1's held-out ads, with three fit candidates |
+| #1355 | L2, a level for each lease phase (`drift-building-phase-level`) |
+| #1356 | segment paths, a path for each bedroom group in each zone |
+| #1357 | L1TK, L1T's kap drawn collapsed (expected to miss the gate on unit_sd) |
+| #1358 | the duplex column in a copy of L1's dataset |
+| #1359 | the host drops its extra copies of the design, so the segment fit runs in the normal container |
+| #1360, #1362 | D1, a noise factor for duplex rows, revised before launch to the noise of marked rows only |
+| #1361 | L1TKN, L1TK with the rows' nu held at 2 |
+| #1363 | S12, the causes behind L1's negative amenity terms |
+| #1364 | `drift_today` accepts L2, the segment paths and D1 |
+| #1365 | LN1, a level for each line of a building (`drift-building-phase-line`) |
+
+When Ben approves option B in the thread, I run the fits one at a time, three H100 containers
+each on the latest split against L1, in this order:
+
+1. L2, about $11.50.
+2. The segment paths, $11 to $12.50.
+3. D1, about $12.50.
+4. LN1, $11.50 to $12.
+5. The winner's market and backtest fits and the Deals publish, about $23.
+
+Option B with a spare comes to about $81. Each note holds its launch commands and its
+predictions, committed before launch.
+
+Open asks to Ben, each put once in the thread:
+
+- A Modal budget for option B. Until he gives one, nothing runs on Modal.
+- His own words allowing the S12 photo pilot to fetch listing photos through OxyLabs. Until
+  then it stays stopped, and the memory note `oxylabs-standing-spend` stays as it is.
+
+S12 came out with no fit candidate. Hardwood's own term comes from re-listing drift, city views
+and balcony are negative only between buildings and listers, and patio, roof rights, hardwood
+between units and live-in super have no named cause. The photo pilot was meant to test
+finish quality as that cause.
+
+Free work in progress, each through its own reviewed PR, in the coordinator's order:
+
+1. A line block in `drift_today`'s covariance, so LN1 could feed Deals if it wins.
+2. This section.
+3. How a unit's previous ad ended (S3's status reading) as a column in a copy of L1's dataset.
+4. Data changes for new units, which the j9 backtest scores: a co-op flag from PLUTO's building
+   class, amenity codes from a unit's earlier ads only, and a screen of building turnover.
+
 - **Screens.** In `docs/notes/causal-screens-2026-11-13.md` (#1354) I ran ten screens of
   L1's held-out ads and found three fit candidates: a level for each lease phase, paths for
   bedroom groups and zones, and a noise factor for duplexes.
@@ -71,8 +120,6 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
   On the 1-in-90 sample line_sd comes to about 0.13 and unit_sd to about 0.015, against L1's
   0.06. Three containers would cost about $11.50 to $12.00. `drift_today` still rejects it,
   since its covariance has no line block.
-- **Next.** Nothing runs on Modal until Ben approves a budget. Candidates written and waiting:
-  D1 (duplex noise) and LN1 (lines).
 - **Another thread's jobs.** The l1t and l1tk work on thelio belongs to another thread. I
   leave it alone.
 
