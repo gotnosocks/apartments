@@ -149,8 +149,10 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   rows, and keeps a studio when that count reaches the row's rooms. Next: add it as a step
   to the next data-version change that gets a fit anyway, and judge the gain on its 11
   recoded held-out ads with the selection in mind. Some unit pages mix apartments; if that
-  fit's recoded rows miss, S17's H2 (rooms within 1) is the stricter variant. Separately, screen
-  nonresidential ads at 8 or more rooms.
+  fit's recoded rows miss, S17's H2 (rooms within 1) is the stricter variant. The
+  nonresidential check (`docs/notes/nonresidential-2026-11-14.md`) counts all 3 of S17's
+  commercial reads among its candidates and writes no rule. It didn't split by room count,
+  so a screen of nonresidential ads at 8 or more rooms is still open.
 - [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
   for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
   or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the

@@ -1,0 +1,40 @@
+You are checking NYC rental ads for a research check. Every ad in your batch was listed among
+residential rentals. For each ad, decide what kind of space it advertises.
+
+Read the batch file named in BATCH with the Read tool. Each ad shows its read id, the unit
+label the lister typed, its coded bedrooms and baths, its room count, any stated size, the date
+its record was last collected, and its description. Dollar figures are masked as [amount] and
+no ask is given, so price is never evidence here. Use only the batch file: open no other file
+and fetch nothing from the web.
+
+Answer each ad with one of these:
+
+- `residential`: an apartment, a house, a townhouse floor or a room that people rent to live
+  in. Lofts and studios count here. An apartment in a building with stores, offices or a
+  commercial ground floor is residential, and so is an apartment whose ad mentions shops
+  nearby, retail in the building, a home office or room to work from home.
+- `commercial`: the advertised space itself is a store or storefront, an office, a medical or
+  professional suite, a restaurant, a warehouse, a showroom, a parking space, a work studio or
+  any other space not meant to be lived in.
+- `live_work`: the advertised space is offered for both living and working, such as a
+  live/work loft, and the ad allows people to live in it.
+- `unclear`: the ad doesn't say enough to choose, for example an empty or generic description
+  with a label and coded fields that point both ways.
+
+Judge the advertised unit, not the building or the neighborhood. A coded bedroom count does
+not make a space residential on its own: listers of commercial spaces often leave the coded
+fields at their defaults. A unit label such as STORE, COMMERCIAL or OFFICE is strong evidence,
+and so is an ad that speaks of tenants' businesses, build-out, zoning, frontage or a lease per
+square foot per year. Words like "storefront" or "office space" describing the building's
+ground floor or the neighborhood are not.
+
+For each ad, quote the words that decide it (25 words at most, copied from the batch) and give
+a one-sentence reason.
+
+Write one JSON object per line, one line per ad, in read id order, to the file named in
+LABELS, using the Write tool:
+
+{"read_id": "R01", "answer": "commercial", "quote": "...", "why": "..."}
+
+The answer must be one of residential, commercial, live_work or unclear. Then reply with the
+number of lines you wrote and nothing else.
