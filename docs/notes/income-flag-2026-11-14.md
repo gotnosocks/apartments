@@ -121,3 +121,164 @@ Each is for the emulation on L1's 189,647 held-out ads of the latest split.
 10. Of the 10 pairs read, at least 5 are both under a program, with the unmarked ad's text
     silent on the program or phrasing it outside the pattern (55%), and at most 3 switch between
     a program and market rent (65%).
+
+## Results (2026-11-14)
+
+I ran `f1_screen.py`, then `f2_pairs.py` and `f3_scale.py`, each under a 3 GB scope. Their
+outputs are in `/data1/apartments/tmp/income-flag-2026-11-14/`.
+
+### The emulation
+
+Each half of the buildings took the δ that did best on the other half's marked ads: -0.06 for
+half 0 and -0.07 for half 1. Over all marked ads together the best δ is -0.06. Half 0's 205
+marked ads lose 50.3 and half 1's 124 lose 13.8.
+
+L1's coefficient for the old flag has a mean of -0.0834 over its 272 kept draws, with an sd of
+0.0036 and a 90% interval from -0.0888 to -0.0775.
+
+| Ads marked by | Ads | Buildings | Gain | SE | SE within the part |
+|---|---:|---:|---:|---:|---:|
+| either flag | 329 | 155 | -64.1 | 60.7 | 50.9 |
+| both | 153 | 103 | -6.1 | 5.3 | 5.4 |
+| old only | 54 | 2 | -55.9 | 59.0 | 8.2 |
+| new only | 122 | 67 | -2.1 | 13.5 | 13.4 |
+| the new flag (both and new only) | 275 | 153 | -8.2 | 14.3 | 14.1 |
+
+The screen's gain is -64.1 ± 60.7, so gain/SE comes to -1.06. I record the screen as a miss
+and stop after part B: I wrote no module, registration or predictions for part C.
+
+Nearly all of the loss comes from a single building. 53 of the 54 old-only ads are in
+505 W 37th St and lose 58.9 between them, while the other, in 143 Ludlow St, gains 3.0. In
+505 W 37th St the old flag matches a fee schedule, where a monthly per-person fee is
+"optional for income restricted units". It marks 108 of the building's 1,500 rows, all of them
+from 2025 (48) or 2026 (60), and every row the building has from 2026. The new flag marks none
+of them. For that building the old coefficient amounts to a drop of 0.083 on its recent ads,
+which L1 places well (mean gap +0.006), and the emulation takes the drop away. A
+refit without the old flag would let the building's path take the drop back, so I expect a fit
+to lose far less on these ads than the emulation does. Since the part rests on one cluster, its
+SE over all held-out ads (59.0) comes out about as large as its loss.
+
+The ads the new flag marks gain -8.2 ± 14.3, and those are the ones a refit would keep:
+
+- The ads both flags mark lose 6.1 ± 5.3. In sample they do best at δ = -0.09, gaining 0.4,
+  so L1's -0.083 already suits them.
+- The ads only the new flag marks lose 2.1 ± 13.5. In sample their best δ is -0.03, for a gain
+  of 11.3. Their mean gap is -0.107, while their median gap is -0.039, and the quantiles run
+  -0.33 (10%), -0.13 (25%), -0.039 (50%), +0.005 (75%) and +0.065 (90%). With 13% of them
+  more than 0.3 under L1's median and most of the rest near it, a shift large enough to help the
+  far ads costs more on the near ones under L1's heavy-tailed noise.
+
+By the unit's training rows, for the ads the new flag marks:
+
+| Unit's training rows the new flag marks | Ads | Buildings | Gain | SE | Mean gap |
+|---|---:|---:|---:|---:|---:|
+| all | 112 | 62 | -13.9 | 9.3 | -0.039 |
+| some | 41 | 30 | +4.6 | 4.0 | -0.029 |
+| none | 122 | 92 | +1.1 | 10.9 | -0.087 |
+
+Every held-out ad's unit has training rows. Where all of a unit's training rows carry the
+flag, L1's unit level already holds the program's rent, and a shift on top of it overshoots.
+Where none of them do, the gaps are larger and too scattered for a common shift: the 49 new-only
+ads in such units have a mean gap of -0.181 and gain 1.8 ± 10.5.
+
+### Counts
+
+| Ads marked by | Training rows | Units | Buildings | Held-out ads | Units | Buildings |
+|---|---:|---:|---:|---:|---:|---:|
+| old flag | 1,496 | 1,359 | 338 | 207 | 207 | 105 |
+| new flag | 2,464 | 2,151 | 507 | 275 | 275 | 153 |
+| both | 1,415 | 1,287 | 330 | 153 | 153 | 103 |
+| old only | 81 | 72 | 8 | 54 | 54 | 2 |
+| new only | 1,049 | 919 | 261 | 122 | 122 | 67 |
+
+Over all rows the old flag marks 1,703 rows in 1,497 units and 356 buildings, and the new flag
+2,739 rows in 2,273 units and 532 buildings.
+
+### Mixed units
+
+Of the 275 held-out ads the new flag marks, 59.3% have a training ad in their unit that the
+flag leaves unmarked (58.9% counting only ads with a known description), and 96.4% have one in
+their building. Of the 2,464 training rows it marks, 26.4% have an unmarked row in their unit
+(26.2% with a known description), 43.1% have any other row there, and 91.0% have an unmarked
+row in their building.
+
+`f2_pairs.py` drew 10 of the held-out ads with an unmarked training ad of known description in
+their unit, and a Sonnet reader took each pair without being told which ad the flag marks. The
+later ad in each pair is the flagged one.
+
+| Pair | Building | Earlier ad | Later ad | Reader's verdict |
+|---:|---|---|---|---|
+| 1 | 482 Franklin Ave | $1,997 (2016), silent | $2,090 (2021), program | program and silent |
+| 2 | 807 Jefferson Ave | $2,199 (2019), silent | $2,000 (2021), program | program and silent |
+| 3 | 797 Sterling Pl | $3,400 (2018), silent | $2,666 (2019), program | different apartments |
+| 4 | 136 W 109th St | $1,950 (2020), silent | $3,671 (2024), program | program and silent |
+| 5 | 100 Himrod St | $2,150 (2018), market | $2,124 (2025), program | switch |
+| 6 | 495 St Johns Pl | $3,350 (2023), silent | $2,289 (2024), program | different apartments |
+| 7 | 20 Jefferson St | $2,399 (2017), market | $2,387 (2019), program | switch |
+| 8 | 207 E 105th St | $1,700 (2019), silent | $2,250 (2026), market | neither under a program |
+| 9 | The Stanwix | $2,204 (2022), silent | $2,407 (2026), program | program and silent |
+| 10 | 876 Bergen St | $2,115 (2019), market | $2,415 (2022), program | switch |
+
+From the reader's notes:
+
+- In pairs 1, 2, 4 and 9 the unmarked ad carries the building's usual description with no
+  income terms. In pairs 1 and 2 the program ad repeats the earlier text and adds the income
+  table, so both ads probably offer the unit under the program, and only the later one says so.
+- In pairs 5, 7 and 10 the earlier ad reads as a market rental. Pair 5 quotes a net effective
+  rent, pair 10 offers free months, and pair 7 takes 3 to 6 month leases, which the reader
+  counted as the weakest cue. In pair 10 the program ad asks $2,415, the gross rent the earlier
+  ad gave before its concession.
+- In pairs 3 and 6 the unit key joins different apartments: a 3 bedroom and a 2 bedroom, and a
+  duplex and a studio.
+- In pair 8 the flagged ad describes a stabilized studio with no income restrictions. Both
+  flags match that sentence, so `income_restricted_v2` needs a guard against the negation before
+  a fit reads it.
+
+### A wider spread for the new flag's ads (not in the predictions)
+
+After the emulation I checked L1's coverage. Its 80% intervals cover 0.571 of the 275 held-out
+ads the new flag marks (0.562 for both flags, 0.582 for new only), against 0.753 for 275
+held-out ads neither flag marks, drawn at random with the seed 20261114. `f3_scale.py` then
+multiplies L1's noise scale and unit sd for the marked ads by m, picks m on one half of the
+buildings and scores it on the other, as S14 did.
+
+Both halves picked m = 2.0, and the marked ads gain 63.5 ± 16.0 (3.96 SE, 15.9 within the
+part). The ads both flags mark gain 33.1 ± 10.2, and those only the new flag marks gain
+30.4 ± 10.6. Over all marked ads the total peaks at m = 2.0 (63.5) and 2.5 (63.4). The null
+picks 1.1 and 1.2 and gains 1.4 ± 2.0.
+
+I wrote no predictions for this search and chose its grid after the main result, so I treat it
+as a lead for a later screen. A refit would widen the marked training rows' noise too, and their
+units' levels would move with it. The change I would test next gives the rows the new flag
+marks a factor on the noise scale, as D1 does for duplexes
+(`docs/notes/duplex-factor-2026-11-13.md`), once the flag has the guard from pair 8. D1's k
+multiplies the noise scale alone, while the m here multiplies the unit sd as well. That change
+needs its own predictions before any fit.
+
+### The predictions, scored
+
+1. Hit. δ is -0.06 and -0.07, inside -0.14 to -0.05 and below 0 in both halves.
+2. Miss. The new-only ads lose 2.1, outside +15 to +90 and below 0.
+3. Hit. The ads both flags mark lose 6.1.
+4. Hit. The old-only ads lose 55.9.
+5. Miss. The total of -64.1 falls below -50 to +60, and its SE of 60.7 lies above 25 to 55.
+   The gain did not exceed 2 SE, which I gave 15%.
+6. Miss. With the old-only ads left as L1 has them, the gain is -8.2 ± 14.3.
+7. Miss. The new flag's ads gain nothing to split. Those in units with no marked training row
+   gain 1.1, and those in units whose training rows are all marked lose 13.9.
+8. Mostly hit. The training rows (1,496 and 2,464), the held-out units (207 and 275) and all
+   four building counts fall inside. The training units miss: 1,359 under the old flag against
+   850 to 1,300, and 2,151 under the new against 1,400 to 2,100. I expected more repeated rows
+   per unit.
+9. Hit on all four shares: 59.3%, 26.4%, 96.4% and 91.0%.
+10. Half right. The reader put 4 pairs under a program with the other ad silent, one short of
+    5, and 3 as switches, within the limit of 3.
+
+### Conclusion
+
+S15 is a miss at -64.1 ± 60.7 (gain/SE -1.06), and part C did not run. Most of the loss comes
+from 505 W 37th St, where the old flag marks a fee schedule on the building's recent ads.
+Without that building, the ads the new flag marks still gain nothing from a shift
+(-8.2 ± 14.3). L1's -0.083 suits the ads both flags mark, and the ads only the new flag marks
+scatter too widely for a common shift to help. I would follow up on that scatter: m = 2.0 on
+their noise scale and unit sd gains 63.5 ± 16.0, in a search I chose after the main result.
