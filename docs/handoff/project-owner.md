@@ -17,7 +17,7 @@ sprint yet, so I have launched, queued and scheduled nothing on Modal.
 ### State at 4:20 AM ET on Nov 14
 
 Still no Modal budget, so none of this sprint's fits has run, been queued or been scheduled
-on Modal. Merged since the state below, none of them fits:
+on Modal. Merged since the state below, and none of them was a fit:
 
 | PR | what |
 |---|---|
