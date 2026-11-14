@@ -131,3 +131,95 @@ shared held-out ads.
    L1T's +4,095 (80%), since nu at 2 sits inside L1T's posterior.
 5. The median's error and the 80% and 95% intervals' coverage on the held-out ads match
    L1T's to within 0.3 points (80%).
+
+## Results (2026-11-14)
+
+I launched the three containers at 3:38 PM ET on Nov 14 from commit 79dd65f8, with seeds 1 to
+3, under the $100 budget of `causal-sprint-2026-11-14.md`. They settled at $3.61, $3.58 and
+$3.63, $10.82 together. The pool is
+`drift-building-phase-unitkn-b0-latest-79dd65f8-l1tkn`: 6 chains of 2,840 draws, 71 kept a
+chain.
+
+**Gate.** The pool passes. The highest split R-hat is 1.0065, on `beta[bed=0:full>=2]`, and
+the lowest bulk ESS is 1,173, on `unit_sd` (R-hat 1.0063).
+
+**Held-out ads.** On the 189,647 held-out ads of the latest split, from
+`rentfrontier.drift_score`:
+
+| | L1 | L1T | L1TKN |
+|---|---|---|---|
+| passes the gate | yes | no | yes |
+| elpd | 232,806 | 236,901 | 236,911 |
+| median absolute error (log) | 0.0407 | 0.0402 | 0.0402 |
+| rmse (log) | 0.0816 | | 0.0789 |
+| inside the 50% interval | 51.6% | 51.8% | 51.9% |
+| inside the 80% interval | 79.8% | 80.0% | 80.0% |
+| inside the 95% interval | 94.5% | 94.5% | 94.5% |
+
+L1TKN gains 4,106 elpd over L1. The SE of the summed pointwise differences is 134, taking the
+ads as independent, and the earlier notes quote ± 172 for L1T's gain over L1, a figure I have
+not reproduced. The gain is about 24 SE under the larger of the two. Against L1T the
+difference is +11 ± 11.
+
+**Pointwise differences.** 57.5% of the ads score better under L1TKN. Gains sum to 12,594 and
+losses to 8,488. The net gain is concentrated in the ads L1 missed by the most:
+
+| L1's absolute gap (log) | ads | net elpd gain | median absolute gap, L1 | L1TKN |
+|---|---|---|---|---|
+| under 0.02 | 51,719 | 174 | 0.0096 | 0.0100 |
+| 0.02 to 0.05 | 58,821 | 299 | 0.0334 | 0.0331 |
+| 0.05 to 0.10 | 49,593 | 188 | 0.0690 | 0.0684 |
+| 0.10 to 0.20 | 24,503 | 464 | 0.1282 | 0.1259 |
+| 0.20 to 0.40 | 4,521 | 1,802 | 0.2397 | 0.2294 |
+| 0.40 and over | 490 | 1,179 | 0.4834 | 0.4229 |
+
+The 5,011 ads with a gap of 0.20 or more under L1 (2.6% of the ads) carry 2,981 of the 4,106.
+The 459 ads with the largest gains come from 376 buildings, and their median absolute gap
+falls from 0.393 to 0.163. The 459 with the largest losses lose 698 together, and their median
+gap rises from 0.089 to 0.159. So the change is a tail fix: the median error over all ads
+moves by 0.0005, and the fit prices a few thousand unusual units much closer to their asks.
+
+**Predictions scored.**
+
+1. Hit. The pool passes the gate.
+2. Hit. `unit_sd` has R-hat 1.0063 and ESS 1,173. The extrapolation gave 1.005 and 1,580.
+3. Hit. The highest R-hat is on a coefficient.
+4. Hit. The gain is far over 2 SE, and it is 11 from L1T's.
+5. Hit. The median error and both coverages match L1T's to within 0.1 points.
+
+**Reading.** Under the sprint's rule (gate passed, gain over 4 SE) L1TKN is accepted as the
+base for the sprint's other fits. Two cautions go with it. The gain is a tail fix, as the
+table shows. And the unit history calibration (`unit-history-calibration-2026-11-14.md`)
+found that L1T's held-out gaps slope against the unit's training record at every count of
+training ads (-0.056 ± 0.004 overall, against L1's -0.009 ± 0.005), so a heavy-tailed unit
+level follows a unit's few asks further than the held-out asks bear out.
+
+**Unit history calibration on L1TKN.** I reran both scripts of
+`unit-history-calibration-2026-11-14/` with L1TKN's pool in L1T's place (copies and outputs in
+`/data1/apartments/tmp/sprint-20261114/calib-l1tkn/`). I expected L1T's figures back, since
+the two pools differ by 11 elpd, and that is the result:
+
+| | L1 | L1TKN |
+|---|---|---|
+| slope of the held-out gap on the unit's training measure, all 137,094 ads | -0.009 ± 0.005 | -0.057 ± 0.004 |
+| 1 training ad | +0.031 ± 0.009 | -0.028 ± 0.008 |
+| 2 | -0.029 ± 0.007 | -0.075 ± 0.005 |
+| 3 to 5 | -0.047 ± 0.006 | -0.082 ± 0.005 |
+| 6 to 9 | -0.071 ± 0.009 | -0.083 ± 0.010 |
+| 10 or more | -0.140 ± 0.038 | -0.189 ± 0.052 |
+| inside the 80% interval, low tail of the measure | 74.4% | 73.7% |
+| high tail | 70.8% | 70.2% |
+| middle | 81.7% | 81.2% |
+| ads priced over 14% under the unit's own record | 7,239 | 6,505 |
+| their mean gap | +0.051 ± 0.002 | +0.025 ± 0.002 |
+| inside the 80% interval | 56.0% | 64.2% |
+| duplex ads' excess squared gap | 0.0054 | 0.0045 |
+
+So L1TKN carries L1T's pattern unchanged. It moves each price about 6% of the unit's training
+measure too far toward the unit's record, which is 0.006 in log rent at one standard deviation
+of the measure (0.10). Its intervals stay too narrow for units with a record far from the
+building's (70% to 74% inside the 80% interval), and 82% of the duplex ads' excess scatter
+remains. Where it prices an ad far under the unit's own record, the ask still comes in 2.5%
+over the median, half of L1's 5.1%. These are leads for a later change on this base: a unit
+premium that reverts over time, or a noise scale that widens with the unit's distance from its
+building. Neither blocks L1TKN as the base.
