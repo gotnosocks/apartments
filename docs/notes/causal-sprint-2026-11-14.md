@@ -167,8 +167,9 @@ within building) stay closed.
 - **Ben lifted the earlier holds** on Nov 14: school zones, photo and floor plan fetches,
   other rental sites, the P1 fit and GPU inference are open choices again, and their costs
   count against the $100. I rank them this way:
-  1. Photo and floor plan reads of the market disagreement draw. Running. The images came
-     from the CDN directly at no cost.
+  1. Photo and floor plan reads of the market disagreement draw. Done at no cost
+     (`photo-disagreement-2026-11-14.md`): the readers flagged no fault category in the slow
+     low asks, and those ads are concentrated in large buildings built after 2000.
   2. A school-zone screen on L1TKN's held-out gaps from the DOE zone maps, as a free check
      for a place effect the 1 km surface lacks.
   3. P1 as a fit variant, if budget remains after steps 2 to 5 of the fit table.

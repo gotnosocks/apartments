@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 5:15 PM ET on Nov 14
+### State at 6:15 PM ET on Nov 14
 
 - **Spend:** $10.82 of $100, all on L1TKN. The sheet is
   `/data1/apartments/tmp/sprint-20261114/spend.md`. The photo fetches went to the image CDN
@@ -24,28 +24,29 @@ subagent's model and effort to be picked by its task.
   passes the gate (R-hat 1.0065, ESS 1,173) and gains 4,106 elpd over L1 on the held-out ads
   (SE 134). 2,981 of the gain come from the 5,011 ads L1 missed by 0.20 or more, so it is a
   tail fix. Results are in `docs/notes/l1-row-dof-fixed-2026-11-13.md`. It serves nothing yet.
-- **Merged:** #1392 (GPU rehearsals, segment level columns), #1393 (sprint plan), #1394 (unit
-  history calibration), #1395 (market disagreement screen).
-- **Running:** an agent on branch `claude/unitkn-l2-segment` writing L2 and the segment paths
-  on the unitkn base with GPU rehearsals, and an agent on `claude/photo-disagreement` reading
-  photos and floor plans of the market disagreement draw.
+  Its explainer for Ben is at https://claude.ai/artifact/ErU8W6zwB48ReubDKxbA8p.
+- **Merged:** #1392 to #1395, #1396 (L1TKN results), #1397 (photo and floor plan reads: no
+  fault category flagged in the slow low asks; they sit in large buildings built after 2000).
+- **Open:** #1398, the L2 and segment modules on the unitkn base with rehearsals, under
+  review. L2's predictions are in `docs/notes/l2-unitkn-level-2026-11-14.md`.
+- **Running:** an agent rehearsing the segment paths on a 1-in-10 building subsample on the
+  thelio GPU, output under `/data1/apartments/tmp/rehearsals-2026-11-14/`. The module's
+  author put the segment pool's chance at the gate at 35% from the 1-in-92 run.
 
 Next, in order:
 
-1. Done: the unit history calibration on L1TKN matches L1T's (slope -0.057 ± 0.004; 70% to
-   74% inside the 80% interval in the tails of the unit measure). Leads for a later change
-   on this base: a unit premium that reverts over time, or a noise scale that widens with
-   the unit's distance from its building.
-2. Review and merge the two agents' PRs. Then write L2's note on the unitkn base with
-   predictions, commit, fetch serve/master and launch (about $11.50). The segment paths
-   follow once their lengthscales pass a rehearsal, with predictions 2 and 5 of their note
-   rewritten first.
+1. Merge #1398 after review. Fetch serve/master to the merge commit, launch L2's first
+   container alone (label `l2kn-a`), then seeds 2 and 3. Pool, score against L1TKN, write
+   the results into L2's note and build its explainer.
+2. Decide on the segment fit from the 1-in-10 rehearsal. Before a launch, write its note on
+   the unitkn base, with predictions 2 and 5 of `segment-paths-2026-11-13.md` rewritten.
 3. The other free checks: the regime check on income-program rows, the line contrast, and a
-   school-zone screen now that the hold is lifted.
-4. Near the end, one StreetEasy top-up for ads opened after 2026-11-09 as a fresh test set,
+   school-zone screen. Leads from the unit history calibration on L1TKN (slope -0.057 ±
+   0.004): a unit premium reverting over time, or a noise scale widening with the unit's
+   distance from its building.
+4. Near the end, a StreetEasy top-up for ads opened after 2026-11-09 as a fresh test set,
    after pricing its OxyLabs cost. The rows file's latest `price_at` is 2026-10-19, which is
    unexplained against the 2026-11-09 snapshot.
-5. The fit's explainer artifact for Ben is still to be built.
 
 ## Causal sprint, from 2026-11-13 10:51 ET
 
