@@ -48,10 +48,10 @@ steps:
      - `analysis_price_basis` as `historical_initial_own_advertisement_ask` and
        `description_interpreted_at` as null on every row.
 5. It writes `manifest.json`, with the build's files and their SHA-256, the catalog line's
-   build time, code, ledger files, stale days and label rule, the written neighbourhoods with their row
-   counts, the renames with the rows each moved, the audit ID sources with their SHA-256, the
-   counts of each kind of audit ID, the audit IDs the served dataset gives otherwise, and the
-   SHA-256 of `observations.jsonl`.
+   build time, code, ledger files, stale days and label rule, the written neighbourhoods with
+   their row counts, the renames with the rows each moved, the audit ID sources with their
+   SHA-256, the counts of each kind of audit ID, the audit IDs the served dataset gives
+   otherwise, and the SHA-256 of `observations.jsonl`.
 
 It writes both files into a hidden folder beside OUT and renames the folder to OUT at the end. It
 refuses an OUT already there.
