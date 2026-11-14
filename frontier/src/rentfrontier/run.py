@@ -554,6 +554,7 @@ def main(argv=None):
         ("drift-building-phase", "drift_building_phase"),
         ("drift-building-phase-duplex", "drift_building_phase_duplex"),
         ("drift-building-phase-line", "drift_building_phase_line"),
+        ("drift-building-phase-plutoasof", "drift_building_phase_plutoasof"),
         ("drift-building-phase-level", "drift_building_phase_level"),
         ("drift-building-phase-segment", "drift_building_phase_segment"),
         ("drift-building-phase-year", "drift_building_phase_year"),

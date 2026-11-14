@@ -79,6 +79,13 @@ line with training rows takes that level's conditional from them, with the path 
 apartment of a new line takes no level from the rows, and l2 joins its variance. Each
 apartment's line is the fit's own, `drift_line.line_index` as the design built it.
 
+MapPLUTO as of the month. P1 (`drift_building_phase_plutoasof`) reads each row's MapPLUTO
+fields from the release out a week before the row's month. I price an apartment with its last
+ad's columns, so the apartment reads the release that ad read: an ad of September 2026 or
+later reads 26v2, and an older one reads the release of its month. Reading the release out at
+`--day` would mean rebuilding the condo, elevator, floor, age and lot columns for every
+apartment from that release.
+
 `publish` writes `today.parquet`, one row per apartment, and then `meta.json` (the model,
 the run, its gate, the day, the grid's end, a segment model's last quarter start and
 whether the day lies past it, the check and the table's sha256). Only a fit on
@@ -111,6 +118,7 @@ from . import (
     drift_building_phase_duplex,
     drift_building_phase_level,
     drift_building_phase_line,
+    drift_building_phase_plutoasof,
     drift_building_phase_segment,
     drift_deals,
     drift_estimates,
@@ -126,8 +134,9 @@ from .total_walk import SEASON
 # The models this module can predict, by the name a run records. Each is `drift`'s sweep
 # with at most the buildings' collapsed path; the phase models add a noise factor per lease
 # phase (or per cell of phase and duplex mark), L2 and the segment model add columns to
-# the design, and LN1 adds a level for each line of a building, integrated out with the
-# path. Models with Student-t unit levels or more local-drift terms are refused.
+# the design, LN1 adds a level for each line of a building, integrated out with the path,
+# and P1 reads L1's MapPLUTO columns as of each row's month. Models with Student-t unit
+# levels or more local-drift terms are refused.
 MODELS = {
     m.NAME: m
     for m in (
@@ -138,6 +147,7 @@ MODELS = {
         drift_building_phase_segment,
         drift_building_phase_duplex,
         drift_building_phase_line,
+        drift_building_phase_plutoasof,
     )
 }
 # The seed's second word for the stream the lines' prior draws come from, apart from the
