@@ -42,7 +42,9 @@ them: the column marks one ad that S14 leaves out, and S14 marks one that the co
 out. For each of the two, the build's records file and S14's give the listing's latest record
 a different description. Over all rows they disagree on 14 listings. Nine are the same kind of
 case, and in the other five S14's record has a description of 20 characters or fewer, below
-the floor the column applies as `duplex` does.
+the floor the column applies as `duplex` does. Those five are recent listings, with ids of
+5,171,339 or more, and S14's text for them runs 0 to 6 characters, so S14's records file
+likely holds them from before their descriptions were scraped.
 
 Each row's mark comes from its own listing's text, so an ad of a unit takes no mark from the
 unit's other ads, and a later ad's text marks no earlier row. With k on the noise alone, a
@@ -209,6 +211,11 @@ on the shared held-out ads. `penthouse_check.py` gives L1's numbers there:
 11. Each container stops its sweeps at the budget and runs 50 to 60 minutes, and the three
     settle between $10.50 and $12.00 (80%). The fold adds no cell or factor (Cost).
 
+S14 (`docs/notes/unusual-units-2026-11-13.md`) screened penthouses, garden apartments and
+townhouse floors against L1's spread. Of those, only the text penthouses joined D1's mark. A
+shared m with the garden ads came out at -11 ± 19 against the duplex mark alone, and with the
+townhouse ads at -90 ± 16.
+
 ## Original predictions, for the duplex mark alone (written before launch, revised before launch)
 
 These are the originals. The penthouse fold replaced them before any launch, and I keep them
@@ -255,7 +262,5 @@ on the 10,331 marked ads an 80% coverage of 0.719.
 10. Each container stops its sweeps at the budget and runs 50 to 60 minutes, and the three
     settle between $10.50 and $12.00 (80%).
 
-S14 (`docs/notes/unusual-units-2026-11-13.md`) screened penthouses, garden apartments and
-townhouse floors against L1's spread. Of those, only the text penthouses joined D1's mark. A
-shared m with the garden ads came out at -11 ± 19 against the duplex mark alone, and with the
-townhouse ads at -90 ± 16.
+A wider scale for other unusual units (penthouses, garden apartments, a townhouse floor) is
+the next screen in this direction, and it is free.

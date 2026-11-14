@@ -352,6 +352,9 @@ with a sweep 2% to 6% slower than L1's and 50 to 60 minutes per container. In th
 text penthouses add 55 ± 13 elpd on L1's held-out ads beyond the duplex mark. I picked the
 pattern on those ads, so D2's predictions should expect less on the latest split and say so.
 
+I folded D2 into D1 before any launch (#1376). D1 now marks a row when its `duplex` or its
+`penthouse` is true, and its note carries the revised predictions.
+
 Left open:
 
 - The text penthouses also ask 1.7% more than L1's median within building, so a text

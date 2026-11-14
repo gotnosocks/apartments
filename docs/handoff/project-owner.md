@@ -122,7 +122,11 @@ Free work, each through its own reviewed PR, in the coordinator's order:
   `drift-building-phase-duplex`, D1 (`docs/notes/duplex-factor-2026-11-13.md`), with its
   launch commands and predictions. Its factor k widens the noise of marked rows only, so no
   row's location in a draw moves with its own mark; I revised it to that before any launch
-  (#1362). It is written, not fit. `drift_today` supports it (#1364).
+  (#1362). After S14 (`docs/notes/unusual-units-2026-11-13.md`) I folded the ads whose text
+  calls the unit a penthouse into its mark (#1376): `rentfrontier.b0penthouse` writes the
+  column `penthouse` into `...-closingraise-duplex-penthouse`, the copy D1 now reads, and I
+  revised its predictions before any launch. It is written, not fit. `drift_today` supports
+  it (#1364).
 - **S12, the negative amenity terms.** In `docs/notes/amenity-signs-2026-11-13.md` I looked
   for the causes behind L1's wrong signs, with no fit. In the ad regressions hardwood's own
   term comes from re-listing drift, about 0.75% less per later ad of a unit, though I haven't

@@ -12,8 +12,8 @@ puts S14's text pattern into a dataset as the column `penthouse`, beside the col
 from `rentfrontier.b0duplex`.
 
 The column leaves the unit label out. L1 already has a `unit:penthouse` column from a label
-starting PH, and S14 found the ads matched by the label alone close to L1's median, with little
-extra spread.
+starting PH, and S14 found the ads matched by the label alone close to L1's median, where a
+wider scale for them gained 8 ± 7 elpd.
 
 I read the records file of SRC's own pipeline build (the manifest's `build.records`, checked
 against its SHA-256) a row group at a time, as `b0duplex` does. For each listing of SRC I keep
