@@ -11,7 +11,9 @@ split with the loaders s7c and u2 use and computes:
 1. s7c's uncorrected figures on every held-out ad, to check the loading against S7 part C;
 2. on the buildings with 2 or more held-out ads, the duplex ads' excess in the clipped squared
    gap over the rest, overall and within building, uncorrected and corrected, with the share
-   within building and an interval on it from resamples of the buildings;
+   within building and an interval on it from resamples of the buildings, and the share with
+   only the within-building numerator taken on those buildings, against the overall excess on
+   every held-out ad;
 3. on the buildings with 3 or more, a within-building square whose expectation is the ad's own
    variance about the building's center when the ads share one: the square of the gap less the
    mean of the other ads, less the other ads' sample variance over n-1. The n/(n-1) scaling
@@ -19,8 +21,10 @@ split with the loaders s7c and u2 use and computes:
 4. S7 part A's level within building, from the mean of the building's other held-out ads and by
    a regression of the demeaned gap on the demeaned duplex indicator;
 5. part C's table by the unit's previous ad, with the corrected within-building square;
-6. the same corrections for the j9 figures of S7 parts A and B, S4's deciles of the building's
-   competing ads, and S7's outdoor-size slope and bins.
+6. the same corrections for the j9 figures of S7 parts A and B, with an interval on j9's share,
+   S4's deciles of the building's competing ads, and S7's outdoor-size slope and bins;
+7. S2's no-fee against fee contrast in buildings holding both within a half-year, as S2 ran it
+   and by a regression of the gap on the no-fee mark, both demeaned within building.
 
 SEs are clustered by building. Inputs are read only; outputs go to OUT.
 
@@ -185,6 +189,7 @@ for k, lo in (("two_plus", 2), ("three_plus", 3)):
         "within_off": float(x.wsq[~o].mean()),
     }
     r["share_raw"] = r["within_raw_diff"][0] / r["sq_diff"][0]
+    r["share_raw_over_all"] = r["within_raw_diff"][0] / res["s7c_as_run"]["sq_diff"][0]
     r["share"] = share(x.sq, x.wsq, o, bb, 20261114)
     if lo == 3:
         r["own_diff"] = diff(x.wsq_own, o, bb)
@@ -343,6 +348,9 @@ res["j9"] = {
     "two_plus_dup": int((o9 & two9).sum()),
     "two_plus_sq_diff": diff(sq9[two9], o9[two9], b9[two9]),
     "two_plus_within_sq": diff((w9_raw * s9)[two9], o9[two9], b9[two9]),
+    "two_plus_share": share(
+        sq9[two9], (w9_raw * s9)[two9], o9[two9], b9[two9], 20261116
+    ),
     "level_within_as_run": diff(c.within(h9.gap, b9), o9, b9),
     "level_within_loo": diff(c.within(h9.gap, b9) * s9, o9, b9),
     "level_within_fe": list(
@@ -350,4 +358,34 @@ res["j9"] = {
     ),
 }
 print(json.dumps(res["j9"], indent=1), flush=True)
+
+# 7. S2's no-fee against fee contrast within building and half-year
+s2 = pd.read_parquet(
+    c.OUT + "s2_status.parquet", columns=["listing_id", "status", "opened"]
+)
+s2["listing_id"] = s2.listing_id.astype(str)
+f2 = h[["listing_id", "building", "gap"]].merge(s2, on="listing_id", how="left")
+assert len(f2) == len(h)
+f2["half"] = f2.opened.dt.year.astype(str) + np.where(
+    f2.opened.dt.month <= 6, "H1", "H2"
+)
+f2["wgap"] = c.within(f2.gap, f2.building.astype(str) + "@" + f2.half)
+res["s2_fee"] = {}
+for half, g2 in f2[f2.status.isin(["fee", "nofee"])].groupby("half"):
+    if half < "2019H1":
+        continue
+    nb = g2.groupby("building").status.nunique()
+    both = g2[g2.building.isin(nb[nb == 2].index)]
+    if (both.status == "fee").sum() < 30:
+        continue
+    o2 = (both.status == "nofee").to_numpy()
+    b2 = both.building.to_numpy()
+    res["s2_fee"][half] = {
+        "ads": len(both),
+        "as_run": diff(both.wgap, o2, b2),
+        "fe": list(
+            c.wls_slope(c.within(both.gap, b2), c.within(o2.astype(float), b2), b2)[:2]
+        ),
+    }
+print(json.dumps(res["s2_fee"], indent=1), flush=True)
 json.dump(res, open(OUT + "w1_within.json", "w"), indent=1, default=float)

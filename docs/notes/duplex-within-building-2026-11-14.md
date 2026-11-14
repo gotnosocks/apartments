@@ -115,10 +115,20 @@ the duplex ads is 0.0093 against 0.0054 for the rest, S14's figures. When I drop
 their building, the share moves from 0.38 to 0.57, and the n/(n-1) scaling then moves it to 0.78.
 On buildings with 3 or more held-out ads, the estimator of step 4 puts the share at 0.95.
 
+Dropping the lone ads changes both sides of the share. If I drop them from the within-building
+numerator only and keep the overall excess of every held-out ad, 0.0054, as the denominator, the
+share comes to 0.52. So of the step from 0.38 to 0.57, the zeros account for 0.14, and the
+overall excess falling from 0.0054 to 0.0050 on the buildings with 2 or more accounts for about
+0.05.
+
 Most of the duplex ads' extra scatter therefore holds against other ads of their own building.
-S7's 38% came mostly from the way s7c built its within-building figure: a little under half of
-the drop came from the ads alone in their building, set to zero, and the rest from the missing
-n/(n-1).
+S7's 38% came mostly from the way s7c built its within-building figure. Of the move from 0.38 to
+0.78:
+
+- the missing n/(n-1) accounts for 0.22;
+- the ads alone in their building, each set to zero, account for 0.14;
+- the smaller overall excess on the buildings with 2 or more held-out ads accounts for about
+  0.05.
 
 ## Part C's table by the unit's previous ad
 
@@ -140,29 +150,40 @@ overall. Part C's reading of this row stands.
 
 ## Part A's level within building
 
-In percent of the ask, with SEs clustered by building. For the column from the other ads' mean I
-subtract the mean of the building's other held-out ads, so ads alone in their building drop out.
-The last column regresses the gap less its building's mean on the duplex mark less its
-building's mean, within the row's ads. For the rows by stated size, the regression compares a
-duplex with the building's other ads of the same kind, and the other ads' mean takes all of them.
+In percent of the ask, with SEs clustered by building. I measure the level within building in
+two ways:
 
-| duplex ads | ads | in buildings with 2 or more | as S7 ran | from the other ads' mean | regression |
+- from the other ads' mean: I subtract the mean of the building's other held-out ads from each
+  ad's gap, so ads alone in their building drop out, and compare the duplex ads' mean with the
+  rest;
+- by regression: within the row's ads, I regress the gap less its building's mean on the duplex
+  mark less its building's mean.
+
+When I subtract the other ads' mean, I take out only the ad's own term. A duplex ad in a building
+with other duplex ads is still compared partly with them, so wherever duplex ads cluster by
+building, that contrast comes out smaller than the difference between a duplex and the other
+units of its building. In the regression each duplex ad is compared only with the building's ads
+of the other kind, and buildings with ads of one kind drop out. So I take the regression as the
+corrected level and give the other ads' mean beside it. For the rows by stated size, the regression
+compares a duplex with the building's other ads of the same kind, and the other ads' mean takes
+all of them.
+
+| duplex ads | ads | in buildings with 2 or more | as S7 ran | regression, corrected | from the other ads' mean |
 |---|---|---|---|---|---|
-| all | 10,331 | 8,851 | +0.06 ± 0.08 | +0.07 ± 0.12 | +0.12 ± 0.17 |
-| with a stated size | 3,323 | 2,589 | -0.46 ± 0.13 | -0.76 ± 0.23 | -0.67 ± 0.37 |
-| without one | 7,008 | 6,262 | +0.30 ± 0.10 | +0.41 ± 0.14 | +0.52 ± 0.20 |
+| all | 10,331 | 8,851 | +0.06 ± 0.08 | +0.12 ± 0.17 | +0.07 ± 0.12 |
+| with a stated size | 3,323 | 2,589 | -0.46 ± 0.13 | -0.67 ± 0.37 | -0.76 ± 0.23 |
+| without one | 7,008 | 6,262 | +0.30 ± 0.10 | +0.52 ± 0.20 | +0.41 ± 0.14 |
 
-The correction leaves the row of all duplex ads where it was, and moves the two rows by stated
-size further apart. Both stay under 1% in size.
+The two corrections agree within 0.11 points on every row. Both leave the row of all duplex ads
+near zero and move the two rows by stated size further apart. Every row stays under 1% in size.
 
 ## The audit
 
 I read the scripts in `causal-screens-2026-11-13/`, `unusual-units-2026-11-13/`,
-`blind-spots-2026-11-14/`, `studio-rooms-2026-11-14/` and `outdoor-size-2026-11-14/` for a mean
-of a building's held-out ads that includes the ad itself, used as a group's mean or squared with
-no n/(n-1). The folder `nonresidential-2026-11-14/` doesn't exist, so I skipped it. These figures
-use that construction, and all but the fifth fed a scored prediction. I recomputed each one in
-`w1_within.py`:
+`blind-spots-2026-11-14/`, `studio-rooms-2026-11-14/`, `outdoor-size-2026-11-14/` and
+`nonresidential-2026-11-14/` for a mean of a building's held-out ads that includes the ad
+itself, used as a group's mean or squared with no n/(n-1). These figures use that construction,
+and all but the fifth fed a scored prediction. I recomputed each one in `w1_within.py`:
 
 1. `causal-screens-2026-11-13/s7c_unitkey.py:46`, part C's within-building squared gap and its
    share of 38%, above.
@@ -185,9 +206,26 @@ The other within-building figures in those folders need no correction:
 - `u2_scatter.py:76` and `:77` already apply S14's correction;
 - `s4_supply.py:127`, `s6_regulated.py:152` and `:153`, and `s8_portfolio.py:181` demean both
   sides of a regression;
-- `s2_fare.py:107` compares two groups within the same building and half-year;
 - the scripts of the blind spots, studio rooms and outdoor size notes, and S14's `u4`, either
-  take no within-building mean or already subtract the mean of the other ads.
+  take no within-building mean or already subtract the mean of the other ads;
+- in the nonresidential note, `n5_screen.py` uses the building only to cluster its SEs and to
+  resample buildings for the spread's SE. `n1_prior.py`, `n2_candidates.py` and `n2b_overlap.py`
+  use it to join lot fields, key units and count buildings, and `n3_draw.py` and `n4_score.py`
+  don't read it. No figure there takes a building's mean.
+
+Two more scripts compare a level against a mean that includes the ad, and I checked both against
+a regression on the demeaned mark:
+
+- `s2_fare.py:107` subtracts the mean of a building's held-out ads in the half-year, then compares
+  no-fee with fee ads in buildings holding both. Section 7 of `w1_within.py` gives back S2's
+  figures and, by the regression within building, +1.5 ± 1.4% in 2024H1, +1.8 ± 1.0% in 2024H2
+  and +1.5 ± 0.9% in 2025H1, against S2's 1.4%, 1.7% and 1.6%. S2's prediction of 1% to 3%
+  holds.
+- `s3d_pairs.py:37` subtracts the mean change of the pairs with the same quarters, held-out
+  and training pairs together. The review of PR #1390 regressed the change on the demeaned
+  held-out mark within each pair of quarters and got -0.30%, against -0.27 ± 0.03% as S3 ran.
+  I read its script and didn't rerun it, since it pairs every row of the dataset. The two
+  figures differ by 0.03 points, so S3's reading stands.
 
 ### j9's new units
 
@@ -196,13 +234,15 @@ The other within-building figures in those folders need no correction:
 | duplex ads alone in their building | | 56%, against 35% of the rest |
 | squared excess within building | +0.0001 ± 0.0006 | +0.0043 ± 0.0018 |
 | squared excess overall, same ads | +0.0099 ± 0.0016 | +0.0076 ± 0.0023 |
-| level within building | +0.25 ± 0.25% | +0.59 ± 0.81%, regression +1.6 ± 1.6% |
+| share of the excess within building | 0.005 | 0.56 (0.26 to 0.83) |
+| level within building | +0.25 ± 0.25% | +1.6 ± 1.6% by regression, +0.59 ± 0.81% from the other ads' mean |
 
 The corrected figures cover the 6,010 held-out ads, 208 of them duplex, in buildings with 2 or
 more held-out ads. On j9 more than half of the duplex ads are the only held-out ad of their
-building, so s7c's construction set more than half of the duplex side to zero. Corrected, about 56% of
-j9's duplex excess holds within building, and the level within building is too uncertain to
-rule out an excess of 1% to 2%.
+building, so s7c's construction set more than half of the duplex side to zero. Corrected, about
+half of j9's duplex excess holds within building, with an interval from 0.26 to 0.83 over 2,000
+resamples of the 1,435 buildings. The level within building is too uncertain to rule out an
+excess of 1% to 2%.
 
 ### S7's outdoor size
 
@@ -218,22 +258,26 @@ size both demeaned within building, on the 196 ads in 63 buildings with 2 or mor
 | 300 to 700 | 262 | +2.00% | +0.82% | 137 | +2.09 ± 0.97% |
 | 700 or more | 164 | +1.85% | +1.08% | 80 | +2.85 ± 1.48% |
 
-Against the other flagged ads of their building, the ads from 100 sq ft up ask about 2% over L1's
-median, close to their raw gap, where S7 wrote about 1%. Since the gap itself gives a flat slope
-on these 681 ads, the way S7 demeaned the gap doesn't account for the outdoor-size note's +0.8% on
-994 ads. The two notes take different ads: S7 takes the outlier sprint's private outdoor flag, and the outdoor-size
-note takes L1's coded ads with a size from 20 to 5,000 sq ft.
+Measured from the mean of the other flagged ads of their building, the ads from 100 sq ft up
+come out about 2% higher against L1's median, close to their raw gap, where S7 wrote about 1%.
+Since the gap itself gives a flat slope on these 681 ads, the way S7 demeaned the gap doesn't
+account for the outdoor-size note's +0.8% on 994 ads. The two notes take different ads: S7 takes
+the outlier sprint's private outdoor flag, and the outdoor-size note takes L1's coded ads with a
+size from 20 to 5,000 sq ft.
 
 ### S4's top decile
 
-| decile of the building's other ads per unit | ads | as S4 ran | from the other ads' mean | regression against the building's other deciles |
+| decile of the building's other ads per unit | ads | as S4 ran | regression against the building's other deciles, corrected | from the other ads' mean |
 |---|---|---|---|---|
-| top | 12,834 | -0.20% | -0.25 ± 0.06%, on 12,056 ads | -0.49 ± 0.12% |
-| bottom | 12,834 | +0.10% | +0.11 ± 0.06% | +0.19 ± 0.10% |
+| top | 12,834 | -0.20% | -0.49 ± 0.12% | -0.25 ± 0.06%, on 12,056 ads |
+| bottom | 12,834 | +0.10% | +0.19 ± 0.10% | +0.11 ± 0.06% |
 
-In every other bin the two means differ by under 0.02 points. The regression compares an ad in
-the top decile with ads of its own building in other deciles, mostly the same building in
-quieter months, and puts the effect at about half a point.
+The regression compares an ad in the top decile with ads of its own building in other deciles,
+mostly the same building in quieter months, and puts the effect at about half a point. I take
+it as the corrected figure, for the reason given under part A: a top-decile ad's other ads
+include other top-decile ads of the same busy months, so when I subtract their mean I remove part
+of the contrast too. In every other bin, S4's mean and the mean from the other ads differ by
+under 0.02 points.
 
 ## Scoring the predictions
 
@@ -242,21 +286,32 @@ quieter months, and puts the effect at about half a point.
 3. **Hit.** +0.0050 ± 0.0003, under +0.0054 as I expected.
 4. **Hit on both.** 0.78, with 0.74 to 0.83 over the resamples.
 5. **Hit, narrowly.** Dropping the ads alone in their building moves the share by 0.19, the
-   scaling by 0.22.
+   scaling by 0.22. About 0.05 of the 0.19 comes from the smaller overall excess on those
+   buildings, so the zeros themselves account for 0.14 against the scaling's 0.22.
 6. **Hit on both.** 0.95 against 0.83 for the scaled square on the same ads.
-7. **Hit on all four.** +0.07%, -0.76% and +0.41%, and the regression lies 0.05, 0.09 and 0.11
-   points from the other ads' mean.
+7. **Hit on all four.** From the other ads' mean the rows come out at +0.07%, -0.76% and +0.41%,
+   and the regression lies 0.05, 0.09 and 0.11 points from them. The regression, which I take as
+   the corrected level, puts the rows at +0.12%, -0.67% and +0.52%, also inside the three
+   ranges.
 8. **Hit.** 0.0091 against 0.0053, a ratio of 1.7.
-9. **Hit.** Part D's factor scales the duplex ads' noise, and with the correction more of their
-   excess scatter lies within building, so D1 remains the fit for it. On L1 the level within building
-   stays under 1% in every row, so part A's verdict of no fit for the level holds. The scoring
-   of part C's first prediction changes, as does the reading of two j9 figures below.
-10. **Hit on both, the first narrowly.** -0.254% against my bound of -0.25%. S4's verdict rests
-    on the decile shift's 43 ± 20 elpd, which doesn't depend on a building's mean.
+9. **Partial hit.** The prediction's two verdicts hold. Part D's factor scales the duplex
+   ads' noise, and with the correction more of their excess scatter lies within building, so D1
+   remains the fit for it. On L1 the level within building stays under 1% in every row by both
+   corrections, so part A's verdict of no fit for the level holds. The opening clause misses:
+   the correction changes the scoring of part C's first prediction, and part A's reading that j9
+   prices a new duplex with no excess left over no longer holds.
+10. **Hit on both, the first narrowly.** -0.254% from the other ads' mean against my bound of
+    -0.25%, and -0.49 ± 0.12% by the regression, the corrected figure. S4's verdict rests on the
+    decile shift's 43 ± 20 elpd, which doesn't depend on a building's mean.
 11. **Miss.** +0.00 ± 0.38% per doubling on the gap itself. S7's demeaning doesn't account for
     the outdoor-size note's +0.8%.
-12. **Hit on both.** +0.0043 ± 0.0018, and +0.59 ± 0.81%. The regression puts the level at +1.6
-    ± 1.6%, outside my bound, with an SE too large to tell.
+12. **Hit on the squared excess. On the level, hit from the other ads' mean and outside on the
+    regression.** The squared excess comes out at +0.0043 ± 0.0018, above +0.0020. The level
+    comes out at +0.59 ± 0.81% from the other ads' mean, inside 0.8 points of zero, and at +1.6
+    ± 1.6% by the regression, the corrected level, outside that bound with an SE too large to
+    tell.
+
+Nine predictions hit in full. Predictions 9 and 12 hit in part, and prediction 11 missed.
 
 ## What changes in the earlier notes
 
@@ -264,39 +319,51 @@ quieter months, and puts the effect at about half a point.
   at 38%. Corrected, the share is 0.78 (0.74 to 0.83), so the prediction missed on the high side.
   I added a dated paragraph under part C in `causal-screens-2026-11-13.md` and left the original
   text.
-- **S7 part A.** "3% to 8% within building" still misses at +0.07 ± 0.12%. "1% to 4% once size is
-  counted" still misses on L1, at -0.76 ± 0.23%. On j9 the corrected +0.59 ± 0.81% neither hits
-  nor misses clearly, so I can no longer say, as part A did, that j9 prices a new duplex with no
+- **S7 part A.** "3% to 8% within building" still misses, at +0.12 ± 0.17% by the regression
+  and +0.07 ± 0.12% from the other ads' mean. "1% to 4% once size is counted" still misses on L1,
+  at -0.67 ± 0.37% by the regression and -0.76 ± 0.23% from the other ads' mean. On j9 the
+  regression gives +1.6 ± 1.6%, inside 1% to 4% on its point estimate, and the other ads' mean
+  gives +0.59 ± 0.81%. With SEs that wide, the j9 half of that prediction neither hits nor
+  misses clearly, so I can no longer say, as part A did, that j9 prices a new duplex with no
   excess left over. The verdict of no level fit rests on L1 and holds.
-- **S7 part B.** On j9 the duplex excess holds within building too, at +0.0043 ± 0.0018, where
-  part B gave +0.0001 ± 0.0006. That supports a factor for duplex units on a model without unit
-  history.
+- **S7 part B.** On j9 the duplex excess holds within building too, at +0.0043 ± 0.0018, a share
+  of 0.56 (0.26 to 0.83) of the overall excess. Part B gave +0.0001 ± 0.0006. That supports a
+  factor for duplex units on a model without unit history.
 - **S7's outdoor slope.** The prediction of 0.5% to 2% per doubling still misses on the gap
   itself. Within building, on 196 ads, the slope of +1.5 ± 0.7% falls inside it, in line with
   the outdoor-size note's +1.0% per doubling. The verdict on outdoor space in S7's summary rests
   on part B's period split and its elpd, which don't depend on a building's mean.
 - **S4.** The first prediction, 0.5% to 1.5% in the top decile, still misses within building,
-  narrowly on the regression's -0.49 ± 0.12%. The verdict of no fit holds, though the 0.2%
-  within building in its last sentence becomes 0.25% to 0.5% once corrected.
+  narrowly, at -0.49 ± 0.12% by the regression. The verdict of no fit holds. The 0.2% within
+  building in its last sentence becomes about 0.5% once corrected, or 0.25% from the other ads'
+  mean.
 
 No fit recommendation changes.
 
 ## D1
 
 D1's predictions (`duplex-factor-2026-11-13.md`) don't use the 38% or the +0.0021. Its opening
-paragraph quotes part A's +0.06 ± 0.08% within building, which comes out at +0.07 ± 0.12% when
-corrected, so the sentence holds. Its revised predictions 6 and 8 compare the text penthouses'
-gap within building, measured as S14 measured it, which already carries the correction. The
-derivation of k uses the overall excess of 0.0052, which doesn't depend on a building's mean.
-The corrected share makes D1's premise firmer: the duplex ads' extra scatter belongs to the
-duplex units more than to their buildings, so a factor on the duplex rows suits it better than
-one on their buildings.
+paragraph quotes part A's +0.06 ± 0.08% within building. Corrected, that comes out at
++0.12 ± 0.17% by the regression and +0.07 ± 0.12% from the other ads' mean, both near zero, so
+the sentence holds. Its revised predictions 6 and 8 use the text penthouses' gap within
+building as S14 measured it, from the mean of the building's other held-out ads, so no ad is
+compared with itself. Prediction 8 specifies that method and can be scored as written. Where
+the penthouses cluster by building, the regression would likely put their level further from
+zero, so I would give it beside S14's figure when D1 is scored. The derivation of k uses the
+overall excess of 0.0052, which doesn't depend on a building's mean. The corrected share makes
+D1's premise firmer: the duplex ads' extra scatter belongs to the duplex units more than to
+their buildings, so a factor on the duplex rows suits it better than one on their buildings.
 
 ## Refusals
 
 The permission check refused two commands, each because it could not verify that a git call
 stayed in the worktree: `ops/lint --changed` followed by `git -C` on the worktree, and the
 commit followed by an echo of its exit status. I ran each part as a separate command from the
-worktree, and the commit took its message from a file. One script run failed on a singular matrix, in the
-regression for S4's "missing" bin, which the building alone sets. I skipped the regression for
-such a bin and ran the script again.
+worktree, and the commit took its message from a file. One script run failed on a singular
+matrix, in the regression for S4's "missing" bin, which the building alone sets. I skipped the
+regression for such a bin and ran the script again.
+
+After the review of PR #1390 I added j9's share interval, the numerator-only share and S2's fee
+contrast to `w1_within.py` and ran it again under the same scope. The figures it had already
+written came back unchanged. The permission check refused one command, a Python edit script
+passed through a heredoc, and I wrote the script to a file and ran it from there.

@@ -649,8 +649,24 @@ the 176,345 held-out ads in buildings with 2 or more, with each square times n/(
 duplex excess within building is +0.0039 ± 0.0002 against +0.0050 ± 0.0003 overall, a share of
 0.78 (0.74 to 0.83 over 2,000 resamples of the buildings). The prediction that half of the
 excess remains within building therefore missed on the high side, where I scored it above as
-close. The same note recomputes part A's level within building, the two j9 figures, the outdoor
-slope and S4's top decile, and every verdict holds.
+close. The same note also corrects this note's other within-building figures, each of which
+compares an ad with a building mean including it. Every verdict holds, and these figures
+change:
+
+- Part A's level within building, by a regression of the demeaned gap on the demeaned duplex
+  mark: +0.12 ± 0.17% for all duplex ads, -0.67 ± 0.37% with a stated size and +0.52 ± 0.20%
+  without one. From the mean of the building's other held-out ads they come out at +0.07%,
+  -0.76% and +0.41%.
+- j9's level within building: +1.6 ± 1.6% by the regression and +0.59 ± 0.81% from the other
+  ads' mean, where part A gave +0.25 ± 0.25%. Those can't rule out an excess of 1% to 2%, so I
+  withdraw part A's reading that j9 prices a new duplex with no excess left over.
+- j9's squared excess within building in part B: +0.0043 ± 0.0018 on the 6,010 held-out ads in
+  buildings with 2 or more, where part B gave +0.0001 ± 0.0006. That is a share of 0.56 of the
+  overall excess, from 0.26 to 0.83 over the resamples.
+- The outdoor bins from 100 square feet up: about 2% from the mean of the building's other
+  flagged ads, where part A wrote about 1% within building.
+- S4's top decile within building: about 0.5% (-0.49 ± 0.12% by the regression), where S4 wrote
+  0.2%.
 
 Part D (`s7d_scale.py`) multiplies L1's noise scale and unit sd for duplex ads by m and
 rescores its predictive. Picked on the other half of the buildings, m comes out at 1.3 in one
