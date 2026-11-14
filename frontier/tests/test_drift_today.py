@@ -447,6 +447,7 @@ def test_the_phased_models_are_served():
         "drift-building-phase-segment",
         "drift-building-phase-duplex",
         "drift-building-phase-line",
+        "drift-building-phase-plutoasof",
     ):
         assert name in dt.MODELS
 

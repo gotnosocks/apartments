@@ -172,6 +172,11 @@ STATED_RATE["drift-building-phase-duplex"] = 1.1
 # against 0.805 s and 0.807 s) and 14% longer over 250 and 250 (0.847 s against 0.741 s), so
 # 1.0 s becomes 1.15 s.
 STATED_RATE["drift-building-phase-line"] = 1.15
+# P1 rebuilds L1's MapPLUTO columns from the release of each row's month, on the same sampler
+# and a design of the same size. On the CPU (18,441 rows and 10,135 units, 2 chains) the last
+# of three alternated pairs swept at 1.253 s against L1's 1.239 s at a similar load, so P1
+# takes L1's rate.
+STATED_RATE["drift-building-phase-plutoasof"] = 1.0
 # The segment paths add 430 columns to L1's global block of about 200, one for each of eight
 # segments at each quarter start. On the CPU a sweep of L1 took 1.725 s and one with the paths
 # 2.688 s, 56% more (18,441 rows and 10,135 units, 2 chains), so 1.0 s becomes 1.6 s. On the
@@ -303,6 +308,7 @@ BASELINES = (
     "drift-building-phase",
     "drift-building-phase-duplex",
     "drift-building-phase-line",
+    "drift-building-phase-plutoasof",
     "drift-building-phase-level",
     "drift-building-phase-segment",
     "drift-building-phase-year",
@@ -372,6 +378,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-phase",
         "drift-building-phase-duplex",
         "drift-building-phase-line",
+        "drift-building-phase-plutoasof",
         "drift-building-phase-level",
         "drift-building-phase-segment",
         "drift-building-phase-year",

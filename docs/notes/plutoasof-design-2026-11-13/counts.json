@@ -1,0 +1,1719 @@
+{
+ "fields_from_26v2": {
+  "09v1": [
+   "residfar"
+  ],
+  "09v2": [
+   "residfar"
+  ],
+  "10v1": [
+   "residfar"
+  ],
+  "10v2": [
+   "residfar"
+  ],
+  "11v1": [
+   "residfar"
+  ],
+  "11v2": [
+   "residfar"
+  ],
+  "12v1": [
+   "residfar"
+  ],
+  "12v2": [
+   "residfar"
+  ]
+ },
+ "rows": 1896471,
+ "held": 189647,
+ "rows_with_a_lot": 1896471,
+ "held_with_a_lot": 189647,
+ "rows_by_release": {
+  "16v2": 167297,
+  "20v4": 143636,
+  "18v2": 122871,
+  "21v1": 97954,
+  "17v1": 95863,
+  "15v1": 79311,
+  "18v1": 78080,
+  "16v1": 74555,
+  "14v2": 65451,
+  "23v1": 61976,
+  "21v4": 60649,
+  "25v1": 60090,
+  "24v2": 58525,
+  "20v3": 54806,
+  "13v2": 54630,
+  "14v1": 54543,
+  "25v4": 54435,
+  "22v3": 48821,
+  "25v2": 47470,
+  "22v1": 44691,
+  "24v1": 42861,
+  "23v3": 37999,
+  "23v2": 33606,
+  "21v2": 30660,
+  "26v1": 30231,
+  "24v4": 30206,
+  "25v3": 25909,
+  "21v3": 24536,
+  "20v1": 23385,
+  "20v2": 21864,
+  "24v3": 16856,
+  "19v1": 16666,
+  "26v2": 16649,
+  "19v2": 16233,
+  "13v1": 3137,
+  "11v2": 8,
+  "12v1": 7,
+  "12v2": 2,
+  "11v1": 2
+ },
+ "held_by_release": {
+  "25v4": 17063,
+  "25v1": 14489,
+  "20v4": 11963,
+  "25v2": 11302,
+  "24v2": 10469,
+  "26v1": 9633,
+  "21v1": 8782,
+  "23v1": 8045,
+  "24v1": 7602,
+  "25v3": 7162,
+  "24v4": 6744,
+  "18v2": 6349,
+  "23v3": 6217,
+  "22v3": 6128,
+  "16v2": 5743,
+  "21v4": 5735,
+  "26v2": 5078,
+  "23v2": 4831,
+  "22v1": 4570,
+  "20v3": 4239,
+  "17v1": 3875,
+  "18v1": 3381,
+  "24v3": 3190,
+  "21v2": 2775,
+  "21v3": 2290,
+  "15v1": 2041,
+  "16v1": 2028,
+  "20v2": 1719,
+  "20v1": 1594,
+  "14v2": 1375,
+  "19v1": 979,
+  "19v2": 949,
+  "14v1": 831,
+  "13v2": 476
+ },
+ "rows_by_status": {
+  "read": 1863697,
+  "lot not in release": 32774
+ },
+ "held_by_status": {
+  "read": 188327,
+  "lot not in release": 1320
+ },
+ "fields": {
+  "unitsres": {
+   "all": {
+    "rows": 179458,
+    "units": 118021,
+    "buildings": 7132
+   },
+   "held": {
+    "rows": 8687,
+    "units": 8687,
+    "buildings": 2039
+   }
+  },
+  "lotfront": {
+   "all": {
+    "rows": 84015,
+    "units": 57806,
+    "buildings": 2924
+   },
+   "held": {
+    "rows": 3371,
+    "units": 3371,
+    "buildings": 784
+   }
+  },
+  "lottype": {
+   "all": {
+    "rows": 47591,
+    "units": 34640,
+    "buildings": 1969
+   },
+   "held": {
+    "rows": 2051,
+    "units": 2051,
+    "buildings": 454
+   }
+  },
+  "builtfar": {
+   "all": {
+    "rows": 194097,
+    "units": 136092,
+    "buildings": 11178
+   },
+   "held": {
+    "rows": 9046,
+    "units": 9046,
+    "buildings": 2829
+   }
+  },
+  "residfar": {
+   "all": {
+    "rows": 99356,
+    "units": 65190,
+    "buildings": 5663
+   },
+   "held": {
+    "rows": 5124,
+    "units": 5124,
+    "buildings": 1761
+   }
+  },
+  "landmark": {
+   "all": {
+    "rows": 12905,
+    "units": 8432,
+    "buildings": 371
+   },
+   "held": {
+    "rows": 440,
+    "units": 440,
+    "buildings": 110
+   }
+  },
+  "numbldgs": {
+   "all": {
+    "rows": 93527,
+    "units": 66315,
+    "buildings": 3958
+   },
+   "held": {
+    "rows": 3723,
+    "units": 3723,
+    "buildings": 992
+   }
+  },
+  "bldgclass": {
+   "all": {
+    "rows": 127475,
+    "units": 87142,
+    "buildings": 7212
+   },
+   "held": {
+    "rows": 5323,
+    "units": 5323,
+    "buildings": 1636
+   }
+  },
+  "resarea": {
+   "all": {
+    "rows": 207067,
+    "units": 140389,
+    "buildings": 14277
+   },
+   "held": {
+    "rows": 9944,
+    "units": 9944,
+    "buildings": 2804
+   }
+  },
+  "numfloors": {
+   "all": {
+    "rows": 92418,
+    "units": 68014,
+    "buildings": 4835
+   },
+   "held": {
+    "rows": 3185,
+    "units": 3185,
+    "buildings": 1082
+   }
+  },
+  "yearbuilt": {
+   "all": {
+    "rows": 173246,
+    "units": 114321,
+    "buildings": 13538
+   },
+   "held": {
+    "rows": 6050,
+    "units": 6050,
+    "buildings": 3131
+   }
+  },
+  "yearalter1": {
+   "all": {
+    "rows": 152786,
+    "units": 101069,
+    "buildings": 7955
+   },
+   "held": {
+    "rows": 5999,
+    "units": 5999,
+    "buildings": 1957
+   }
+  },
+  "yearalter2": {
+   "all": {
+    "rows": 64179,
+    "units": 45768,
+    "buildings": 3193
+   },
+   "held": {
+    "rows": 2571,
+    "units": 2571,
+    "buildings": 746
+   }
+  },
+  "retailarea": {
+   "all": {
+    "rows": 131996,
+    "units": 85930,
+    "buildings": 5161
+   },
+   "held": {
+    "rows": 6574,
+    "units": 6574,
+    "buildings": 1422
+   }
+  },
+  "comarea": {
+   "all": {
+    "rows": 168076,
+    "units": 111151,
+    "buildings": 6283
+   },
+   "held": {
+    "rows": 8100,
+    "units": 8100,
+    "buildings": 1830
+   }
+  }
+ },
+ "columns": {
+  "bld:condo": {
+   "all": {
+    "rows": 30846,
+    "units": 23635,
+    "buildings": 1429
+   },
+   "held": {
+    "rows": 1193,
+    "units": 1193,
+    "buildings": 274
+   }
+  },
+  "bld:elevator": {
+   "all": {
+    "rows": 1639,
+    "units": 1333,
+    "buildings": 297
+   },
+   "held": {
+    "rows": 59,
+    "units": 59,
+    "buildings": 38
+   }
+  },
+  "bld:elevator_unknown": {
+   "all": {
+    "rows": 6066,
+    "units": 5041,
+    "buildings": 897
+   },
+   "held": {
+    "rows": 138,
+    "units": 138,
+    "buildings": 100
+   }
+  },
+  "unit:elev_f2": {
+   "all": {
+    "rows": 296,
+    "units": 240,
+    "buildings": 115
+   },
+   "held": {
+    "rows": 9,
+    "units": 9,
+    "buildings": 9
+   }
+  },
+  "unit:elev_f3": {
+   "all": {
+    "rows": 297,
+    "units": 249,
+    "buildings": 129
+   },
+   "held": {
+    "rows": 12,
+    "units": 12,
+    "buildings": 11
+   }
+  },
+  "unit:elev_f4": {
+   "all": {
+    "rows": 276,
+    "units": 207,
+    "buildings": 112
+   },
+   "held": {
+    "rows": 7,
+    "units": 7,
+    "buildings": 7
+   }
+  },
+  "unit:elev_f5": {
+   "all": {
+    "rows": 149,
+    "units": 119,
+    "buildings": 77
+   },
+   "held": {
+    "rows": 5,
+    "units": 5,
+    "buildings": 5
+   }
+  },
+  "unit:elev_f6": {
+   "all": {
+    "rows": 197,
+    "units": 176,
+    "buildings": 91
+   },
+   "held": {
+    "rows": 6,
+    "units": 6,
+    "buildings": 6
+   }
+  },
+  "unit:elev_f7": {
+   "all": {
+    "rows": 110,
+    "units": 100,
+    "buildings": 59
+   },
+   "held": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 3
+   }
+  },
+  "unit:elev_f8": {
+   "all": {
+    "rows": 156,
+    "units": 131,
+    "buildings": 34
+   },
+   "held": {
+    "rows": 11,
+    "units": 11,
+    "buildings": 9
+   }
+  },
+  "unit:elev_f9": {
+   "all": {
+    "rows": 122,
+    "units": 102,
+    "buildings": 21
+   },
+   "held": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 4
+   }
+  },
+  "unit:elev_f10": {
+   "all": {
+    "rows": 70,
+    "units": 56,
+    "buildings": 21
+   },
+   "held": {
+    "rows": 6,
+    "units": 6,
+    "buildings": 5
+   }
+  },
+  "unit:elev_f11": {
+   "all": {
+    "rows": 58,
+    "units": 48,
+    "buildings": 19
+   },
+   "held": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f12": {
+   "all": {
+    "rows": 99,
+    "units": 72,
+    "buildings": 23
+   },
+   "held": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f13": {
+   "all": {
+    "rows": 73,
+    "units": 49,
+    "buildings": 9
+   },
+   "held": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f14": {
+   "all": {
+    "rows": 15,
+    "units": 12,
+    "buildings": 10
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f15": {
+   "all": {
+    "rows": 9,
+    "units": 8,
+    "buildings": 7
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f16": {
+   "all": {
+    "rows": 20,
+    "units": 16,
+    "buildings": 11
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f17": {
+   "all": {
+    "rows": 12,
+    "units": 8,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f18": {
+   "all": {
+    "rows": 21,
+    "units": 17,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f19": {
+   "all": {
+    "rows": 27,
+    "units": 25,
+    "buildings": 9
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f20": {
+   "all": {
+    "rows": 11,
+    "units": 8,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f21": {
+   "all": {
+    "rows": 5,
+    "units": 5,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f22": {
+   "all": {
+    "rows": 10,
+    "units": 8,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f23": {
+   "all": {
+    "rows": 29,
+    "units": 21,
+    "buildings": 7
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f24": {
+   "all": {
+    "rows": 27,
+    "units": 25,
+    "buildings": 6
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f25": {
+   "all": {
+    "rows": 15,
+    "units": 10,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f26": {
+   "all": {
+    "rows": 33,
+    "units": 16,
+    "buildings": 3
+   },
+   "held": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f27": {
+   "all": {
+    "rows": 45,
+    "units": 37,
+    "buildings": 7
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f28": {
+   "all": {
+    "rows": 32,
+    "units": 24,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f29": {
+   "all": {
+    "rows": 59,
+    "units": 46,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 2
+   }
+  },
+  "unit:elev_f30": {
+   "all": {
+    "rows": 45,
+    "units": 25,
+    "buildings": 3
+   },
+   "held": {
+    "rows": 5,
+    "units": 5,
+    "buildings": 2
+   }
+  },
+  "unit:elev_f31": {
+   "all": {
+    "rows": 22,
+    "units": 12,
+    "buildings": 3
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f32": {
+   "all": {
+    "rows": 24,
+    "units": 23,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f33": {
+   "all": {
+    "rows": 26,
+    "units": 20,
+    "buildings": 7
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f34": {
+   "all": {
+    "rows": 18,
+    "units": 13,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f35": {
+   "all": {
+    "rows": 26,
+    "units": 17,
+    "buildings": 5
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f36": {
+   "all": {
+    "rows": 33,
+    "units": 22,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f37": {
+   "all": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f38": {
+   "all": {
+    "rows": 19,
+    "units": 19,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f39": {
+   "all": {
+    "rows": 12,
+    "units": 12,
+    "buildings": 2
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f40": {
+   "all": {
+    "rows": 29,
+    "units": 21,
+    "buildings": 2
+   },
+   "held": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f41": {
+   "all": {
+    "rows": 13,
+    "units": 10,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f42": {
+   "all": {
+    "rows": 67,
+    "units": 49,
+    "buildings": 6
+   },
+   "held": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 3
+   }
+  },
+  "unit:elev_f43": {
+   "all": {
+    "rows": 54,
+    "units": 35,
+    "buildings": 4
+   },
+   "held": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 3
+   }
+  },
+  "unit:elev_f44": {
+   "all": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f45": {
+   "all": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f46": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f47": {
+   "all": {
+    "rows": 2,
+    "units": 2,
+    "buildings": 2
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f48": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f49": {
+   "all": {
+    "rows": 5,
+    "units": 5,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f50": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f51": {
+   "all": {
+    "rows": 5,
+    "units": 5,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f52": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f53": {
+   "all": {
+    "rows": 16,
+    "units": 11,
+    "buildings": 2
+   },
+   "held": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f54": {
+   "all": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f55": {
+   "all": {
+    "rows": 4,
+    "units": 3,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f56": {
+   "all": {
+    "rows": 4,
+    "units": 4,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f57": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f58": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f59": {
+   "all": {
+    "rows": 22,
+    "units": 17,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:elev_f60": {
+   "all": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f61": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f62": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f63": {
+   "all": {
+    "rows": 12,
+    "units": 8,
+    "buildings": 1
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_f64": {
+   "all": {
+    "rows": 31,
+    "units": 24,
+    "buildings": 2
+   },
+   "held": {
+    "rows": 1,
+    "units": 1,
+    "buildings": 1
+   }
+  },
+  "unit:walkup_f2": {
+   "all": {
+    "rows": 360,
+    "units": 300,
+    "buildings": 149
+   },
+   "held": {
+    "rows": 9,
+    "units": 9,
+    "buildings": 9
+   }
+  },
+  "unit:walkup_f3": {
+   "all": {
+    "rows": 347,
+    "units": 286,
+    "buildings": 161
+   },
+   "held": {
+    "rows": 14,
+    "units": 14,
+    "buildings": 14
+   }
+  },
+  "unit:walkup_f4": {
+   "all": {
+    "rows": 359,
+    "units": 300,
+    "buildings": 181
+   },
+   "held": {
+    "rows": 7,
+    "units": 7,
+    "buildings": 7
+   }
+  },
+  "unit:walkup_f5": {
+   "all": {
+    "rows": 123,
+    "units": 92,
+    "buildings": 56
+   },
+   "held": {
+    "rows": 3,
+    "units": 3,
+    "buildings": 3
+   }
+  },
+  "unit:walkup_f6": {
+   "all": {
+    "rows": 66,
+    "units": 54,
+    "buildings": 22
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_top": {
+   "all": {
+    "rows": 8136,
+    "units": 6993,
+    "buildings": 1223
+   },
+   "held": {
+    "rows": 168,
+    "units": 168,
+    "buildings": 102
+   }
+  },
+  "unit:walkup_top": {
+   "all": {
+    "rows": 4429,
+    "units": 3578,
+    "buildings": 1262
+   },
+   "held": {
+    "rows": 93,
+    "units": 93,
+    "buildings": 84
+   }
+  },
+  "unit:penthouse": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:garden": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:lower": {
+   "all": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   },
+   "held": {
+    "rows": 0,
+    "units": 0,
+    "buildings": 0
+   }
+  },
+  "unit:elev_floor_unknown": {
+   "all": {
+    "rows": 866,
+    "units": 730,
+    "buildings": 269
+   },
+   "held": {
+    "rows": 35,
+    "units": 35,
+    "buildings": 26
+   }
+  },
+  "unit:walkup_floor_unknown": {
+   "all": {
+    "rows": 792,
+    "units": 672,
+    "buildings": 228
+   },
+   "held": {
+    "rows": 34,
+    "units": 34,
+    "buildings": 25
+   }
+  },
+  "bld:built_pre1900": {
+   "all": {
+    "rows": 66499,
+    "units": 39814,
+    "buildings": 7318
+   },
+   "held": {
+    "rows": 2346,
+    "units": 2346,
+    "buildings": 1664
+   }
+  },
+  "bld:built_1940_1979": {
+   "all": {
+    "rows": 5815,
+    "units": 3815,
+    "buildings": 330
+   },
+   "held": {
+    "rows": 185,
+    "units": 185,
+    "buildings": 90
+   }
+  },
+  "bld:built_1980_1999": {
+   "all": {
+    "rows": 2906,
+    "units": 1984,
+    "buildings": 124
+   },
+   "held": {
+    "rows": 150,
+    "units": 150,
+    "buildings": 29
+   }
+  },
+  "bld:built_2000_2009": {
+   "all": {
+    "rows": 2971,
+    "units": 2056,
+    "buildings": 147
+   },
+   "held": {
+    "rows": 113,
+    "units": 113,
+    "buildings": 41
+   }
+  },
+  "bld:built_2010_on": {
+   "all": {
+    "rows": 43274,
+    "units": 34647,
+    "buildings": 1900
+   },
+   "held": {
+    "rows": 1285,
+    "units": 1285,
+    "buildings": 375
+   }
+  },
+  "bld:built_unknown": {
+   "all": {
+    "rows": 53400,
+    "units": 41488,
+    "buildings": 2455
+   },
+   "held": {
+    "rows": 1809,
+    "units": 1809,
+    "buildings": 506
+   }
+  },
+  "bld:altered_2000_on": {
+   "all": {
+    "rows": 87453,
+    "units": 60616,
+    "buildings": 5345
+   },
+   "held": {
+    "rows": 3576,
+    "units": 3576,
+    "buildings": 1177
+   }
+  },
+  "bld:retail": {
+   "all": {
+    "rows": 53839,
+    "units": 37673,
+    "buildings": 1862
+   },
+   "held": {
+    "rows": 2456,
+    "units": 2456,
+    "buildings": 524
+   }
+  },
+  "bld:retail_unknown": {
+   "all": {
+    "rows": 40628,
+    "units": 30884,
+    "buildings": 2309
+   },
+   "held": {
+    "rows": 1608,
+    "units": 1608,
+    "buildings": 406
+   }
+  },
+  "bld:log_units": {
+   "all": {
+    "rows": 178059,
+    "units": 116999,
+    "buildings": 6985
+   },
+   "held": {
+    "rows": 8616,
+    "units": 8616,
+    "buildings": 2024
+   }
+  },
+  "bld:units_unknown": {
+   "all": {
+    "rows": 18981,
+    "units": 14884,
+    "buildings": 1312
+   },
+   "held": {
+    "rows": 683,
+    "units": 683,
+    "buildings": 250
+   }
+  },
+  "bld:log_lot_front": {
+   "all": {
+    "rows": 80027,
+    "units": 54838,
+    "buildings": 2589
+   },
+   "held": {
+    "rows": 3231,
+    "units": 3231,
+    "buildings": 724
+   }
+  },
+  "bld:corner": {
+   "all": {
+    "rows": 12943,
+    "units": 8607,
+    "buildings": 332
+   },
+   "held": {
+    "rows": 705,
+    "units": 705,
+    "buildings": 130
+   }
+  },
+  "bld:far_used": {
+   "all": {
+    "rows": 242327,
+    "units": 162704,
+    "buildings": 14206
+   },
+   "held": {
+    "rows": 12007,
+    "units": 12007,
+    "buildings": 4008
+   }
+  },
+  "bld:landmark": {
+   "all": {
+    "rows": 2877,
+    "units": 2110,
+    "buildings": 108
+   },
+   "held": {
+    "rows": 143,
+    "units": 143,
+    "buildings": 33
+   }
+  },
+  "bld:multi_building": {
+   "all": {
+    "rows": 37476,
+    "units": 25809,
+    "buildings": 1576
+   },
+   "held": {
+    "rows": 1420,
+    "units": 1420,
+    "buildings": 434
+   }
+  },
+  "bld:class_C": {
+   "all": {
+    "rows": 19721,
+    "units": 14616,
+    "buildings": 1778
+   },
+   "held": {
+    "rows": 725,
+    "units": 725,
+    "buildings": 400
+   }
+  },
+  "bld:class_D": {
+   "all": {
+    "rows": 13795,
+    "units": 10427,
+    "buildings": 615
+   },
+   "held": {
+    "rows": 470,
+    "units": 470,
+    "buildings": 164
+   }
+  },
+  "bld:class_S": {
+   "all": {
+    "rows": 6028,
+    "units": 4454,
+    "buildings": 716
+   },
+   "held": {
+    "rows": 256,
+    "units": 256,
+    "buildings": 176
+   }
+  },
+  "bld:log_area_per_unit": {
+   "all": {
+    "rows": 278319,
+    "units": 180621,
+    "buildings": 15666
+   },
+   "held": {
+    "rows": 14084,
+    "units": 14084,
+    "buildings": 3553
+   }
+  },
+  "bld:lot_unknown": {
+   "all": {
+    "rows": 32335,
+    "units": 24742,
+    "buildings": 1543
+   },
+   "held": {
+    "rows": 1256,
+    "units": 1256,
+    "buildings": 296
+   }
+  }
+ },
+ "features": {
+  "condo (class)": {
+   "all": {
+    "rows": 30846,
+    "units": 23635,
+    "buildings": 1429
+   },
+   "held": {
+    "rows": 1193,
+    "units": 1193,
+    "buildings": 274
+   }
+  },
+  "elevator (class)": {
+   "all": {
+    "rows": 6977,
+    "units": 5729,
+    "buildings": 1015
+   },
+   "held": {
+    "rows": 172,
+    "units": 172,
+    "buildings": 123
+   }
+  },
+  "floor columns (floors, class)": {
+   "all": {
+    "rows": 14836,
+    "units": 12311,
+    "buildings": 2584
+   },
+   "held": {
+    "rows": 352,
+    "units": 352,
+    "buildings": 233
+   }
+  },
+  "year built": {
+   "all": {
+    "rows": 126496,
+    "units": 85816,
+    "buildings": 10104
+   },
+   "held": {
+    "rows": 4375,
+    "units": 4375,
+    "buildings": 2269
+   }
+  },
+  "alteration year": {
+   "all": {
+    "rows": 87453,
+    "units": 60616,
+    "buildings": 5345
+   },
+   "held": {
+    "rows": 3576,
+    "units": 3576,
+    "buildings": 1177
+   }
+  },
+  "retail": {
+   "all": {
+    "rows": 67438,
+    "units": 47917,
+    "buildings": 3414
+   },
+   "held": {
+    "rows": 2970,
+    "units": 2970,
+    "buildings": 744
+   }
+  },
+  "bld:log_units": {
+   "all": {
+    "rows": 178059,
+    "units": 116999,
+    "buildings": 6985
+   },
+   "held": {
+    "rows": 8616,
+    "units": 8616,
+    "buildings": 2024
+   }
+  },
+  "bld:units_unknown": {
+   "all": {
+    "rows": 18981,
+    "units": 14884,
+    "buildings": 1312
+   },
+   "held": {
+    "rows": 683,
+    "units": 683,
+    "buildings": 250
+   }
+  },
+  "bld:log_lot_front": {
+   "all": {
+    "rows": 80027,
+    "units": 54838,
+    "buildings": 2589
+   },
+   "held": {
+    "rows": 3231,
+    "units": 3231,
+    "buildings": 724
+   }
+  },
+  "bld:corner": {
+   "all": {
+    "rows": 12943,
+    "units": 8607,
+    "buildings": 332
+   },
+   "held": {
+    "rows": 705,
+    "units": 705,
+    "buildings": 130
+   }
+  },
+  "bld:far_used": {
+   "all": {
+    "rows": 242327,
+    "units": 162704,
+    "buildings": 14206
+   },
+   "held": {
+    "rows": 12007,
+    "units": 12007,
+    "buildings": 4008
+   }
+  },
+  "bld:landmark": {
+   "all": {
+    "rows": 2877,
+    "units": 2110,
+    "buildings": 108
+   },
+   "held": {
+    "rows": 143,
+    "units": 143,
+    "buildings": 33
+   }
+  },
+  "bld:multi_building": {
+   "all": {
+    "rows": 37476,
+    "units": 25809,
+    "buildings": 1576
+   },
+   "held": {
+    "rows": 1420,
+    "units": 1420,
+    "buildings": 434
+   }
+  },
+  "bld:class_C": {
+   "all": {
+    "rows": 19721,
+    "units": 14616,
+    "buildings": 1778
+   },
+   "held": {
+    "rows": 725,
+    "units": 725,
+    "buildings": 400
+   }
+  },
+  "bld:class_D": {
+   "all": {
+    "rows": 13795,
+    "units": 10427,
+    "buildings": 615
+   },
+   "held": {
+    "rows": 470,
+    "units": 470,
+    "buildings": 164
+   }
+  },
+  "bld:class_S": {
+   "all": {
+    "rows": 6028,
+    "units": 4454,
+    "buildings": 716
+   },
+   "held": {
+    "rows": 256,
+    "units": 256,
+    "buildings": 176
+   }
+  },
+  "bld:log_area_per_unit": {
+   "all": {
+    "rows": 278319,
+    "units": 180621,
+    "buildings": 15666
+   },
+   "held": {
+    "rows": 14084,
+    "units": 14084,
+    "buildings": 3553
+   }
+  },
+  "bld:lot_unknown": {
+   "all": {
+    "rows": 32335,
+    "units": 24742,
+    "buildings": 1543
+   },
+   "held": {
+    "rows": 1256,
+    "units": 1256,
+    "buildings": 296
+   }
+  },
+  "any column": {
+   "all": {
+    "rows": 517539,
+    "units": 322924,
+    "buildings": 30082
+   },
+   "held": {
+    "rows": 26379,
+    "units": 26379,
+    "buildings": 8089
+   }
+  }
+ }
+}
