@@ -22,11 +22,24 @@ them (`docs/notes/text-flags-2026-11-13.md`):
 So I add two columns and leave every column of SRC as it was:
 
 - `income_restricted_v2`: `INCOME_V2`, which is `b0income.INCOME` with the phrases above and
-  without an agent's name it took for "AMI".
+  without an agent's name it took for "AMI". On 2026-11-14 a Sonnet reader found a
+  stabilized ad with "no income restrictions" among the rows it marked
+  (`docs/notes/income-flag-2026-11-14.md`), so `income_marked` passes over a match with
+  NEGATION just before it, and a description keeps its mark only through another match.
 - `shared_space_v2`: `SHARED_V2`, written from the readers' quotes.
 
-Both stay text features added beside the coded fields, since ad text never overrides a coded
-field (Ben, 2026-10-04).
+On the rows `income_restricted_v2` marks I also read the program's terms, as TERMS:
+
+- `ami_pct_text`: the AMI percentage the ad gives its unit, from `ami_tier`. An ad stating
+  several percentages gets the one it ties to its unit ("this unit is at 130% AMI"), or NaN.
+- `ami_tiers_text`: how many different AMI percentages the ad states.
+- `income_min_text` and `income_max_text`: the household income band the ad states, from
+  `income_band`. With a table by household size the maximum comes from its first line,
+  usually a single person. A program sets the minimum income from the rent, so the minimum
+  carries the ask itself and a fit must not read it.
+
+The other rows get NaN, 0, NaN and NaN. All of these stay text features added beside the
+coded fields, since ad text never overrides a coded field (Ben, 2026-10-04).
 
 I read the records file of SRC's own pipeline build (the manifest's `build.records`, checked
 against its SHA-256) a row group at a time. For each listing of SRC I keep its latest record,
@@ -38,12 +51,12 @@ do listings missing from the records.
 
 I write OUT with:
 
-- `rows.parquet`: SRC's rows in SRC's order, with the two columns added;
+- `rows.parquet`: SRC's rows in SRC's order, with the two flags and TERMS added;
 - SRC's other files, copied;
 - `manifest.json`: SRC's manifest with `rows_sha256` updated and a `textflags` entry giving
-  SRC's path and rows SHA-256, the patterns, the listings read, the rows whose listing has a
-  description, and for each new column the rows marked and the rows it gains and loses
-  against the old flag.
+  SRC's path and rows SHA-256, the patterns and the negation, the listings read, the rows
+  whose listing has a description, for each flag the rows marked and the rows it gains and
+  loses against the old flag, and for TERMS their patterns and the rows each one is set on.
 
 SRC stays as it is, and OUT must not exist yet.
 """
@@ -112,20 +125,126 @@ SHARED_V2 = re.compile(
 NEW = {"income_restricted_v2": INCOME_V2, "shared_space_v2": SHARED_V2}
 OLD = {"income_restricted_v2": "income_restricted", "shared_space_v2": "shared_space"}
 
+# A negation just before a match of INCOME_V2: "no income restrictions", "non-income
+# restricted", "without any income caps". Only an article or "any" may come between, so "no
+# fee income restricted unit" keeps its mark. NEGATED_WINDOW covers the longest negation.
+NEGATION = re.compile(r"\b(?:no|not|non|without)[- ](?:(?:an?|any)[- ])?$")
+NEGATED_WINDOW = 16
+
+_PCT = r"(\d{2,3})(?:\.\d+)? ?(?:%|percent)"
+_PCT_RANGE = rf"(?: ?(?:-|to|and|or|/|&) ?{_PCT})?"
+# An AMI percentage: "130% ami", "165% of ami", "120 percent area median income", "ami: 110%",
+# "175 ami %". A range ("70%-130% ami") gives both of its ends.
+AMI_PCT = re.compile(
+    rf"{_PCT}{_PCT_RANGE} (?:of (?:the )?)?(?:\(?ami\b|area median|median income)"
+    rf"|\bami(?: level| band| tier| limit| category)?:? ?(?:of |at |is )?{_PCT}{_PCT_RANGE}"
+    r"|\b(\d{2,3}) ami ?%"
+)
+# The text before a percentage the ad ties to its unit: "this unit is at 130% ami".
+TIED = re.compile(r"this (?:unit|apartment|apt|home|residence)\b[^.]{0,40}$")
+TIED_WINDOW = 60
+AMI_RANGE = (20, 300)
+
+_USD = r"\$+ ?(\d{1,3}(?:, ?\d{3})+(?:\.\d+)?|\d{2,7}(?:\.\d+)?k?)"
+# The household income band: "minimum household income: $83,538", "maximum income (varies
+# with household size): $187,110", "between $78,694 and $220,344", "$119,570 max income".
+INCOME_MIN = re.compile(
+    r"(?:\bmin(?:imum|\.)?|at least|no less than)"
+    r"(?: combined| annual| household| yearly| gross| total)*(?: income)?"
+    r"(?: requirements?| required| limit)?(?: for this unit)?(?: is| of)?[ :*-]*" + _USD
+)
+INCOME_MAX = re.compile(
+    r"(?:\bmax(?:imum|imim|\.)?|not exceed|cannot exceed|can not exceed|no more than"
+    r"|must be below|income below)(?:(?!min)[^$.]){0,40}?[ :*-]*" + _USD
+)
+INCOME_BETWEEN = re.compile(
+    r"(?:between|range|bracket)[^$.]{0,30}?"
+    + _USD
+    + r"(?: min)?,? ?(?:and|-|to) ?"
+    + _USD
+)
+INCOME_MAX_AFTER = re.compile(_USD + r" max\b")
+INCOME_RANGE = (10_000, 1_000_000)
+TERMS = ["ami_pct_text", "ami_tiers_text", "income_min_text", "income_max_text"]
+# TERMS on a row the income flag leaves unmarked.
+NO_TERMS = (float("nan"), 0, float("nan"), float("nan"))
+
+
+def income_marked(low: str) -> bool:
+    """Whether INCOME_V2 matches the plain text `low` somewhere without NEGATION just
+    before the match."""
+    return any(
+        not NEGATION.search(low[max(0, m.start() - NEGATED_WINDOW) : m.start()])
+        for m in INCOME_V2.finditer(low)
+    )
+
 
 def flags(text: str) -> tuple[bool, ...]:
-    """Whether `text` is longer than MIN_DESCRIPTION characters, then for each pattern of
-    NEW whether the text is that long and matches it."""
+    """Whether `text` is longer than MIN_DESCRIPTION characters, then whether the text is that
+    long and `income_marked` marks it, then whether it is that long and SHARED_V2 matches."""
     # `b0data` measures the lowercased text.
     known = len(text.lower()) > MIN_DESCRIPTION
     low = cautions.plain(text)
-    return (known, *(known and bool(rx.search(low)) for rx in NEW.values()))
+    return (known, known and income_marked(low), known and bool(SHARED_V2.search(low)))
+
+
+def ami_tier(low: str) -> tuple[float, int]:
+    """The AMI percentage the plain text `low` gives its unit, and how many different AMI
+    percentages it states within AMI_RANGE. The percentage is the only one stated, or with
+    several, the only one TIED to the unit; otherwise it is NaN."""
+    stated, tied = set(), set()
+    for m in AMI_PCT.finditer(low):
+        before = low[max(0, m.start() - TIED_WINDOW) : m.start()]
+        for g in m.groups():
+            if g and AMI_RANGE[0] <= int(g) <= AMI_RANGE[1]:
+                stated.add(int(g))
+                if TIED.search(before):
+                    tied.add(int(g))
+    pick = stated if len(stated) == 1 else tied
+    return (float(next(iter(pick))) if len(pick) == 1 else float("nan"), len(stated))
+
+
+def _usd(s: str) -> float:
+    s = s.replace(",", "").replace(" ", "")
+    v = float(s[:-1]) * 1000 if s.endswith("k") else float(s)
+    return v if INCOME_RANGE[0] <= v <= INCOME_RANGE[1] else float("nan")
+
+
+def _first(rx: re.Pattern, low: str, group: int = 0) -> float:
+    for m in rx.finditer(low):
+        v = _usd(m.groups()[group])
+        if v == v:
+            return v
+    return float("nan")
+
+
+def income_band(low: str) -> tuple[float, float]:
+    """The minimum and maximum household income the plain text `low` states: the first amount
+    after a minimum or a maximum, else the ends of a band "between" two amounts, and for the
+    maximum, else an amount followed by "max". A missing end is NaN, as is an amount outside
+    INCOME_RANGE."""
+    lo, hi = _first(INCOME_MIN, low), _first(INCOME_MAX, low)
+    if lo != lo:
+        lo = _first(INCOME_BETWEEN, low, 0)
+    if hi != hi:
+        hi = _first(INCOME_BETWEEN, low, 1)
+    if hi != hi:
+        hi = _first(INCOME_MAX_AFTER, low)
+    return lo, hi
+
+
+def terms(text: str) -> tuple[float, int, float, float]:
+    """The values of TERMS for a description `text`: `ami_tier` and `income_band` on the text
+    as `cautions.plain` leaves it."""
+    low = cautions.plain(text)
+    return (*ami_tier(low), *income_band(low))
 
 
 def latest_flags(path: Path, ids: set[str]) -> pd.DataFrame:
     """For each listing in `ids` with a record in the records file `path`, `known` and the
-    columns of NEW from `flags` on the description of its latest record. I read the record
-    texts of a row group only for the rows I keep, and keep the flags alone."""
+    columns of NEW from `flags` on the description of its latest record, and TERMS from
+    `terms` where the income flag is set. I read the record texts of a row group only for the
+    rows I keep, and keep the flags and terms alone."""
     seen: dict[str, tuple] = {}
     file = pq.ParquetFile(path)
     names = set(file.schema_arrow.names)
@@ -152,11 +271,13 @@ def latest_flags(path: Path, ids: set[str]) -> pd.DataFrame:
             # A listing twice in a row group keeps its later record.
             if i not in seen or seen[i][0] < t:
                 listing = json.loads(raw) if raw else {}
-                seen[i] = (t, *flags(str(listing.get("description") or "")))
+                text = str(listing.get("description") or "")
+                marks = flags(text)
+                seen[i] = (t, *marks, *(terms(text) if marks[1] else NO_TERMS))
         del raws
     return pd.DataFrame(
         [(i, *v[1:]) for i, v in seen.items()],
-        columns=["listing_id", "known", *NEW],
+        columns=["listing_id", "known", *NEW, *TERMS],
     ).set_index("listing_id")
 
 
@@ -173,6 +294,9 @@ def textflags(src: Path, out: Path) -> dict:
     known = lid.map(read.known).eq(True).to_numpy()
     for col in NEW:
         frame[col] = lid.map(read[col]).eq(True).to_numpy()
+    for col, empty in zip(TERMS, NO_TERMS):
+        frame[col] = lid.map(read[col]).fillna(empty).to_numpy()
+    frame["ami_tiers_text"] = frame.ami_tiers_text.astype("int16")
     # OUT is made after the read of the records, so a failed read leaves no OUT behind.
     out.mkdir(parents=True, exist_ok=False)
     frame.to_parquet(out / "rows.parquet", index=False)
@@ -184,6 +308,11 @@ def textflags(src: Path, out: Path) -> dict:
         new, was = frame[col].to_numpy(), frame[old].to_numpy(bool)
         columns[col] = {
             "pattern": NEW[col].pattern,
+            **(
+                {"negation": NEGATION.pattern, "negation_window": NEGATED_WINDOW}
+                if col == "income_restricted_v2"
+                else {}
+            ),
             "old_flag": old,
             "rows_marked": int(new.sum()),
             "rows_gained": int((new & ~was).sum()),
@@ -199,6 +328,20 @@ def textflags(src: Path, out: Path) -> dict:
             "columns": columns,
             "listings_read": len(read),
             "rows_described": int(known.sum()),
+            "terms": {
+                "patterns": {
+                    "ami_pct": AMI_PCT.pattern,
+                    "tied": TIED.pattern,
+                    "income_min": INCOME_MIN.pattern,
+                    "income_max": INCOME_MAX.pattern,
+                    "income_between": INCOME_BETWEEN.pattern,
+                    "income_max_after": INCOME_MAX_AFTER.pattern,
+                },
+                "rows_with_ami_pct": int(frame.ami_pct_text.notna().sum()),
+                "rows_with_several_tiers": int((frame.ami_tiers_text > 1).sum()),
+                "rows_with_income_min": int(frame.income_min_text.notna().sum()),
+                "rows_with_income_max": int(frame.income_max_text.notna().sum()),
+            },
         },
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))

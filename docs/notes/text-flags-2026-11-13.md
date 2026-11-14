@@ -282,3 +282,62 @@ would test it on the latest split by elpd, the median's error and interval cover
 written or registered it. The shared rewrite moves 2,525 held-out ads by about L1's coefficient
 of 0.004 and adds 8 more, so I would test it in a fit of its own after the income one, if at
 all.
+
+## A negation guard and the program's terms (2026-11-14)
+
+This section is a data change made after the scored sections above, and I left their counts
+as they were. A rerun of `t5_gap.py` on the rebuilt copy reads the guarded flag, so its counts
+for `income_restricted_v2` change by the 41 rows the guard unmarks (10 of them held-out ads),
+and it reports those 41 rows as differing from `t3_eval.py`'s flags.
+
+In S15 (`docs/notes/income-flag-2026-11-14.md`) a Sonnet reader found stabilized ads saying
+"no income restrictions" among the rows `income_restricted_v2` marked. So
+`b0textflags.income_marked` now passes over a match of `INCOME_V2` when "no", "not", "non" or
+"without" comes just before it, with at most "a", "an" or "any" between. An ad keeps its mark
+through any other match. The pattern itself is unchanged.
+
+The patterns still miss some cases, and I left them as they are. The guard looks only at the
+words just before a match, so "no pets or income limits", "not part of the affordable housing
+lottery" and "Income restrictions: none" still mark their ads. Among several tiers,
+`b0textflags.TIED` misses a unit named with a word between, as in "this 1BR apartment", and
+`AMI_PCT` reads "30% of median income" as a tier of 30.
+
+I rebuilt the `-textflags` copy of L1's dataset once with the guard and with four columns read
+from the descriptions of the rows the guarded flag marks:
+
+- `ami_pct_text`, the AMI percentage the ad gives its unit;
+- `ami_tiers_text`, how many different AMI percentages it states;
+- `income_min_text` and `income_max_text`, the household income band it states.
+
+The minimum comes from the rent, so a fit must not read it. I built the new copy beside the old
+one, checked with `docs/notes/income-flag-2026-11-14/g1_counts.py` that every other column
+was unchanged, and then deleted the old copy and moved the new one into its place.
+
+The guard unmarks 41 rows of 41 listings, 31 training rows and 10 held-out ads, and marks no
+new row. 36 of the 41 were marked by the old flag too, so against the old flag the guarded
+flag gains 1,166 rows and loses 171. It now marks 2,433 training rows and 265 held-out ads.
+A Sonnet reader read all 40 of the unmarked listings that `g1_counts.py` sampled and called
+every one of them not income-restricted. Most are stabilized ads saying "no income
+restrictions" or "no income cap", and two are HDFC co-ops whose ads say the unit has no
+income cap.
+
+| | training rows | held-out ads |
+|---|---|---|
+| marked | 2,433 | 265 |
+| with `ami_pct_text` | 243 (10.0%) | 27 (10.2%) |
+| stating any percentage | 261 (10.7%) | 27 (10.2%) |
+| stating several, none tied to the unit | 18 | 0 |
+| with a minimum or a maximum income | 1,363 (56.0%) | 160 (60.4%) |
+
+The 18 training rows with several tiers are copies of one 266 West 96th Street ad ("70%-130%
+AMI"). The tiers of the training rows run from 40 to 250, with 110 the most common (64 rows),
+then 130 (42), 165 (28), 125 (24) and 80 (23). The held-out tiers are 90 (1), 100 (3), 110
+(10), 125 (2), 130 (5), 165 (4), 180 (1) and 250 (1).
+
+A second Sonnet reader checked 68 listings: 50 drawn from those with a tier and the 18 with
+several. It found the tier and the count of tiers right on all 68. It found the income band
+right on 42, partly right on one and wrong on 25. The 18 copies of the 266 West 96th ad make
+up most of the errors, since they write the band as "$40,526 - $198,250" with no word before
+it. The rest are tables that put "(minimum income limit)" after the amount, and ranges with no
+"and" or dash between the two amounts. I use only the tier in S15b, and a fit would need the
+band patterns fixed before reading the maximum.
