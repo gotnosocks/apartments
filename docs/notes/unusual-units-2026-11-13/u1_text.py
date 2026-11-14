@@ -7,26 +7,30 @@ the end of the ad's URL in L1's pipeline rows, read with `unit_features.unit_lab
 `unit:penthouse` column reads it.
 
 For each kind the script counts the mentions a positive pattern finds and the mentions an
-exclusion pattern finds among them, and marks the listing when the positives outnumber the
-exclusions. An ad with a "penthouse lounge" and a "penthouse apartment" still counts. pyarrow's
+exclusion pattern finds, and marks the listing when the positives outnumber the exclusions.
+Every exclusion starts with or contains a positive mention, so it can only cancel the mention
+it covers. An ad with a "penthouse lounge" and a "penthouse apartment" still counts. pyarrow's
 RE2 has no lookahead, so the exclusions run as a second count.
 
 1. Penthouse: the word penthouse, less the mentions that are amenities ("penthouse lounge",
-   "penthouse-level amenities", "penthouse roof deck", "located at the penthouse level"), plurals and marketing ("penthouses",
-   "penthouse residences", "penthouse-style"). Or a label starting PH or containing PENT.
+   "penthouse-level amenities", "penthouse roof deck", "located at the penthouse level"),
+   plurals and marketing ("penthouses", "penthouse residences", "penthouse-style"). Or a label
+   starting PH or containing PENT.
 2. Garden apartment: "garden level", "garden floor", "garden apartment", "garden duplex" and
    the like, or a private garden, backyard or rear yard, less complexes ("garden apartment
-   complex"), places ("Carroll Garden apartment") and gardens shared with residents. Or a
-   label with GARDEN, GDN or GRDN.
+   complex"), places ("Carroll Garden apartment") and private gardens shared with residents.
+   Or a label with GARDEN, GDN or GRDN.
 3. Townhouse floor: "parlor floor", "floor-through", "in a ... brownstone", "floor of a
-   townhouse", "brownstone apartment" and the like, less a block or neighbourhood
+   townhouse", "brownstone apartment" and the like, less a block or neighborhood
    ("brownstone-lined", "brownstone Brooklyn", "the charm of a brownstone"). Or a label with
    PARLOR.
 
 The readers get 100 matched ads of each kind, 50 unmatched ads of each kind with weaker words
 and 50 ads with none of the three marks and none of the weaker words, all drawn at random from
 listings of L1's dataset with a description over 80 characters. The readers see the
-description and the unit label, never the sample or the marks."""
+description and the unit label, never the sample or the marks. The readers read the draws
+made under the patterns of commit 1d5f86b5, so a rerun keeps `u1_picks.parquet` and the
+batches when they exist and only rewrites the marks."""
 
 import json
 import os
@@ -52,7 +56,7 @@ PEN_EXCL = (
     r"(?i)\bpenthouses\b"
     r"|\b(?:at|located on) the penthouse[- ]level"
     r"|\bpenthouse[- ](?:level[- ]|floor[- ]|rooftop[- ]|roof[- ]?top[- ]|sky[- ]|amenity[- ])?"
-    r"(?:lounge|fitness|gym|health|club|amenit|viewing|sun ?deck|roof|pool|spa|lobby|party"
+    r"(?:lounge|fitness|gym|health|club|amenit|viewing|sun ?deck|roof|pool|spa\b|lobby|party"
     r"|game|media|screening|co-?work|work ?space|library|bar\b|garden|social|entertain"
     r"|common|shared|resident|laundry|storage|style|like|quality|feel|views?\b|calib"
     r"|finish|apartments\b|residences\b|homes\b|units\b|collection|suites\b|suite of)"
@@ -60,24 +64,30 @@ PEN_EXCL = (
 PEN_LABEL = r"^PH|PENT"
 PEN_WEAK = r"(?i:\btop[- ]floor\b|\btop[- ]most\b)|\bPH\b"
 
-GAR = (
-    r"(?i)\bgarden[- ](?:level|floor|apartment|apt|unit|duplex|triplex|studio|suite"
-    r"|residence|home|flat|rental)\b"
-    r"|\b(?:private|own|exclusive) (?:(?:landscaped|planted|lush|outdoor|rear|back|sunny"
+GAR_PRIVATE = (
+    r"\b(?:private|own|exclusive) (?:(?:landscaped|planted|lush|outdoor|rear|back|sunny"
     r"|large|huge|big|beautiful|lovely|charming|spacious|shaded|enclosed|fenced|walled"
     r"|tranquil|serene|secluded|oversized|generous|gorgeous|stunning) )?(?:garden|back ?yard"
-    r"|rear yard)\b"
+    r"|rear yard)"
+)
+GAR = (
+    r"(?i)\bgarden[- ](?:level|floor|apartment|apt|unit|duplex|triplex|studio|suite"
+    r"|residence|home|flat|rental)\b|" + GAR_PRIVATE + r"\b"
 )
 GAR_EXCL = (
-    r"(?i)\bgarden[- ](?:apartment|unit)s? (?:complex|community|development|building|style)"
+    r"(?i)\bgarden[- ](?:apartment|unit) (?:complex|community|development|building|style)"
     r"|\b(?:carroll|kew|sunnyside|botanic|botanical|square|lefferts|hilary|windsor|city)"
-    r" garden[- ](?:level|floor|apartment|unit)"
-    r"|\b(?:garden|back ?yard|rear yard),? (?:shared|for|available to|open to|accessible to)"
+    r" garden[- ](?:level|floor|apartment|unit)\b|"
+    + GAR_PRIVATE
+    + r",? (?:shared|for|available to|open to|accessible to)"
     r" (?:by |with )?(?:all |the |our |other )?(?:residents|tenants|building|everyone"
     r"|neighbors)"
 )
 GAR_LABEL = r"GARDEN|GARDN|GDN|GRDN|^GRD"
-GAR_WEAK = r"(?i)\bback ?yard|\brear yard|\bground[- ](?:floor|level)\b|\blower[- ]level\b|\bgarden\b"
+GAR_WEAK = (
+    r"(?i)\bback ?yard|\brear yard|\bground[- ](?:floor|level)\b|\blower[- ]level\b"
+    r"|\bgarden\b"
+)
 
 TH = r"(?:town ?house|brownstone|brown stone|row ?house)"
 TOWN = (
@@ -198,6 +208,9 @@ for k in KINDS:
         "weak_unmatched": float((x[k + "_weak"] & ~x[k]).mean()),
     }
 print(json.dumps(summary, indent=1), flush=True)
+if os.path.exists(OUT + "u1_picks.parquet"):
+    # the readers' labels belong to the draws already made
+    sys.exit(0)
 
 rng = np.random.default_rng(20261114)
 

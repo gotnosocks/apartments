@@ -6,15 +6,27 @@ units the mark covers in L1's dataset and among L1's held-out ads. On the held-o
 
 1. the gap from L1's median against the rest, overall and within building;
 2. the clipped squared gap and 80% coverage against the rest, as `s7b_spread.py` computes
-   them, and the clipped squared gap within building, as `s7c_unitkey.py` does;
+   them, and the clipped squared gap within building;
 3. the multiplier m on L1's noise scale and unit sd, picked on one half of the buildings and
    scored on the other, both ways, as `s7d_scale.py` does. The null runs the same search on as
    many held-out ads drawn at random from those with none of the four marks.
 
+The within-building reads use only buildings with at least two held-out ads. A building with
+n held-out ads leaves an ad's gap less the building's mean at (n-1)/n of the ad's variance
+about that mean, so the script multiplies the squared gap less the building's mean by n/(n-1).
+For the gap it subtracts the mean of the building's other held-out ads, which is the gap less
+the building's mean times n/(n-1).
+
 Each kind is also read without the ads S7's duplex pattern marks, against the other ads it
-leaves unmarked, since D1 already widens the duplexes. A last search picks one m for the duplex
+leaves unmarked, since D1 already widens the duplexes. A search picks one m for the duplex
 ads and a kind's ads together, as a shared mark in D1 would, and scores what that adds over
 the duplex ads alone.
+
+For the text penthouses without duplexes, and for the duplexes without penthouses, the script
+also puts an interval on m. It resamples the mark's buildings with replacement 2,000 times
+and records the m with the largest total over the resampled ads, and the m each half of the
+resampled buildings picks. The profile lists the m whose total is within 2 SEs of the best,
+with the SE of each total's difference from the best clustered by building.
 
 An ad's log predictive density depends only on its own multiplier, so the script rescores each
 held-out ad once per value of m and sums the gains over each group. SEs are clustered by
@@ -59,8 +71,11 @@ for k in [*KINDS, "pen_text", "pen_label"]:
 d["any3"] = d.pen | d.gar | d.town
 h = c.heldout(d)
 h["sq"] = h.gap.clip(-0.4, 0.4) ** 2
-h["wsq"] = c.within(h.gap.clip(-0.4, 0.4), h.building) ** 2
-h["wgap"] = c.within(h.gap, h.building)
+n_b = h.groupby("building").gap.transform("size").to_numpy()
+loo = np.where(n_b >= 2, n_b / np.maximum(n_b - 1, 1), np.nan)
+h["wsq"] = c.within(h.gap.clip(-0.4, 0.4), h.building) ** 2 * loo
+h["wgap"] = c.within(h.gap, h.building) * loo
+h["single"] = n_b == 1
 b = h.building.to_numpy()
 res = {"rows": len(d), "heldout": len(h)}
 
@@ -115,6 +130,10 @@ def contrast(on, rest):
         "gap_on": float(x.gap[o].mean()),
         "gap_diff": c.cluster_mean_diff(x.gap.to_numpy(), o, bb),
         "within_gap_diff": c.cluster_mean_diff(x.wgap.to_numpy(), o, bb),
+        "single_on": float(x.single[o].mean()),
+        "single_off": float(x.single[~o].mean()),
+        "wsq_on": float(x.wsq[o].mean()),
+        "wsq_off": float(x.wsq[~o].mean()),
         "sq_on": float(x.sq[o].mean()),
         "sq_off": float(x.sq[~o].mean()),
         "sq_diff": c.cluster_mean_diff(x.sq.to_numpy(), o, bb),
@@ -132,6 +151,8 @@ for k in ("pen", "gar", "town", "any3"):
     groups[k + "_nodup"] = (mk[k] & nodup, ~mk[k] & nodup)
 groups["pen_label_only"] = (mk["pen_label"] & ~mk["pen_text"], ~mk["pen"])
 groups["pen_text"] = (mk["pen_text"], ~mk["pen"])
+groups["pen_text_nodup"] = (mk["pen_text"] & nodup, ~mk["pen"] & nodup)
+groups["dup_nopen"] = (mk["dup"] & ~mk["pen"], ~mk["dup"] & ~mk["pen"])
 res["spread"] = {k: contrast(on, rest) for k, (on, rest) in groups.items()}
 for k, v in res["spread"].items():
     print(k, json.dumps(v), flush=True)
@@ -144,7 +165,7 @@ for k in ("pen", "gar", "town", "pen_nodup", "gar_nodup", "town_nodup", "any3_no
     search["null_" + k] = np.sort(
         rng.choice(np.flatnonzero(none4), len(search[k]), replace=False)
     )
-for k in ("pen", "gar", "town"):
+for k in ("pen", "gar", "town", "pen_text"):
     search["dup_or_" + k] = np.flatnonzero(mk["dup"] | mk[k])
 idx = np.unique(np.concatenate(list(search.values())))
 dr = c.Draws()
@@ -196,4 +217,51 @@ for k, sel in search.items():
         out["increment_se"] = cluster_se(inc, b[sel])
     res["scale"][k] = out
     print(k, json.dumps(out), flush=True)
+
+
+def interval(sel, draws=2000):
+    """The m picked on the mark's ads `sel` across resamples of its buildings, and the
+    profile of m within 2 SEs of the best total."""
+    p = pos.loc[sel].to_numpy()
+    g = np.stack([gains[m][p] for m in GRID], axis=1)
+    bid, bi = np.unique(b[sel], return_inverse=True)
+    per_b = np.zeros((len(bid), len(GRID)))
+    np.add.at(per_b, bi, g)
+    half = np.zeros(len(bid), dtype=int)
+    half[bi] = fold[sel]
+    grid = np.asarray(GRID)
+    w = np.stack(
+        [
+            np.bincount(boot.integers(0, len(bid), len(bid)), minlength=len(bid))
+            for _ in range(draws)
+        ]
+    ).astype(float)
+    whole = grid[(w @ per_b).argmax(axis=1)]
+    halves = np.concatenate(
+        [grid[((w * (half == f)) @ per_b).argmax(axis=1)] for f in (0, 1)]
+    )
+    tot = g.sum(axis=0)
+    best = int(tot.argmax())
+    se = [cluster_se(g[:, j] - g[:, best], b[sel]) for j in range(len(GRID))]
+    q = [0.025, 0.975]
+    return {
+        "n": len(sel),
+        "buildings": len(bid),
+        "best": float(grid[best]),
+        "whole_interval": np.quantile(whole, q, method="inverted_cdf").tolist(),
+        "whole_counts": {str(m): int((whole == m).sum()) for m in GRID},
+        "halves_interval": np.quantile(halves, q, method="inverted_cdf").tolist(),
+        "halves_counts": {str(m): int((halves == m).sum()) for m in GRID},
+        "profile": [m for j, m in enumerate(GRID) if tot[best] - tot[j] <= 2 * se[j]],
+        "total_less_best": {
+            str(m): float(tot[j] - tot[best]) for j, m in enumerate(GRID)
+        },
+        "se_less_best": {str(m): se[j] for j, m in enumerate(GRID)},
+    }
+
+
+boot = np.random.default_rng(20261116)
+res["interval"] = {k: interval(search[k]) for k in ("pen_text_nodup", "dup_nopen")}
+for k, v in res["interval"].items():
+    print(k, json.dumps(v), flush=True)
 json.dump(res, open(OUT + "u2_scatter.json", "w"), indent=1, default=float)
