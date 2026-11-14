@@ -24,8 +24,12 @@ recs = {}
 for line in open(f"{out}/raw.jsonl"):
     x = json.loads(line)
     r = json.loads(x["raw_listing_json"])
-    keys = [p["key"] for p in (r.get("media") or {}).get("photos") or [] if p.get("key")]
-    recs.setdefault(x["listing_id"], []).append((x["collected_at"], x["snapshot_id"], keys))
+    keys = [
+        p["key"] for p in (r.get("media") or {}).get("photos") or [] if p.get("key")
+    ]
+    recs.setdefault(x["listing_id"], []).append(
+        (x["collected_at"], x["snapshot_id"], keys)
+    )
 photos = {}
 for lid, v in recs.items():
     v.sort()
