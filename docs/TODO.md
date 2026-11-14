@@ -231,10 +231,13 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   candidate word 0.96, against the old 0.91 and 0.55, and L1 overprices the 122 held-out ads it adds by 0.107 ± 0.027. S15
   (`docs/notes/income-flag-2026-11-14.md`) emulated L1 reading `income_restricted_v2` in place
   of `income_restricted` and found no gain (-64.1 ± 60.7, and -8.2 ± 14.3 on the new flag's ads),
-  so that fit is not planned. Both flags match "no income restrictions", and v2 needs a guard
-  against it. L1's 80% intervals cover 0.57 of the new flag's held-out ads, and a wider noise
-  for them gained 63.5 ± 16.0 in a search chosen after the result: a noise factor on those rows
-  as in D1 is the candidate, with predictions written first.
+  so that fit is not planned. Since 2026-11-14 v2 has a guard against "no income
+  restrictions", and the copy carries the AMI tier and income band read from the text. S15b
+  found a level by tier gains +5.3 ± 6.8 against +65.4 ± 20.2 for a wider spread, since only
+  27 of the 265 held-out ads state a tier. I1, `drift-building-phase-income`
+  (`docs/notes/income-noise-2026-11-14.md`), puts a factor on the noise of v2's rows as D1
+  does; it is written, not fit. The band patterns miss tables and bare ranges and need work
+  before a fit reads the maximum.
   `shared_space_v2` drops 29,943 of the old flag's 30,209 rows. `rent_stabilized` misses
   misspellings ("stablized", about 1,280 listings).
 - [x] Parse free months written in words ("FIRST TWO MONTHS OF LEASE AND LAST MONTH ARE

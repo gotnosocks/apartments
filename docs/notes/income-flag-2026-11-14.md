@@ -340,3 +340,65 @@ marked training row.
 7. The tier levels narrow the mean squared gap of these ads by 3% to 20% (60%).
 8. If at least 5 held-out ads state a tier of 80 or less and 5 state one above 130, the first
    group's mean gap is at least 0.2 below the second's (65%).
+
+### Results (2026-11-14)
+
+The guard and the four columns are in `rentfrontier.b0textflags`, and the rebuilt copy is
+described in `docs/notes/text-flags-2026-11-13.md` (A negation guard and the program's terms).
+The guard unmarks 10 held-out ads, so the guarded flag marks 265 held-out ads in 143
+buildings, and L1's 80% interval covers 0.562 of them. `g1_counts.py` counts the tiers,
+`g2_tier.py` runs steps 3 to 5, and `g3_noise.py` runs the spread search with m on the noise
+alone. Their outputs are in `/data1/apartments/tmp/income-flag-2026-11-14/`.
+
+Only 27 of the 265 ads state a tier, and all of them state a single one:
+
+| bin | ads | half 0 | half 1 | mean gap | 80% coverage | levels picked (half 0, half 1) | gain |
+|---|---|---|---|---|---|---|---|
+| 50 or less | 0 | 0 | 0 | | | | |
+| 51 to 80 | 0 | 0 | 0 | | | | |
+| 81 to 100 | 4 | 1 | 3 | +0.001 | 0.75 | -0.02, +0.10 | -3.8 ± 2.4 |
+| 101 to 130 | 17 | 9 | 8 | -0.053 | 0.71 | -0.02, -0.04 | +0.1 ± 1.6 |
+| above 130 | 6 | 6 | 0 | +0.009 | 0.67 | 0, 0 | 0 |
+| several, none tied | 0 | 0 | 0 | | | | |
+| none stated | 238 | 131 | 107 | -0.067 | 0.55 | -0.02, -0.02 | +9.1 ± 5.9 |
+
+The six ads above 130 are all in half 0, so each half scores them with a level of 0. The
+tier levels gain +5.3 ± 6.8 in all, and the bin with no tier carries all of it: it is a
+level for the flag's ads without a tier, which a fit already has through the flag's
+coefficient. The bins with a tier together gain -3.7.
+
+On the same 265 ads the spread search picks m = 2.5 in both halves and gains +65.4 ± 20.2,
+against +63.5 ± 16.0 on S15's 275 ads. The tier levels gain 60.0 ± 19.2 less than the spread.
+With the tier levels in place the spread search picks m = 2.0 in both halves, and the two
+together gain +70.7 ± 17.8, +5.3 ± 4.6 over the spread alone. The tier levels narrow the mean
+squared gap from L1's median from 0.0459 to 0.0440, by 4.2%.
+
+With m on L1's noise scale alone and the unit's sd as drawn, as D1's factor would act, the
+search picks m = 3.5 in both halves and gains +62.4 ± 16.6, 96% of the spread's gain on
+both. Every one of the 265 ads has a training row of its unit, and over L1's draws the unit
+part's variance averages 0.0018 against 0.0005 for the noise's squared scale, so m on the
+noise alone has to be larger to widen the predictive as much.
+
+### The predictions, scored
+
+1. Miss on all three parts. 10.2% of the held-out ads and 10.0% of the training rows get an
+   `ami_pct_text`, 10.2% and 10.7% state a percentage, and 60.4% and 56.0% state an income
+   band, just above the range.
+2. Hit on both parts. 17 of the 27 held-out ads with a tier are in the bin from 101 to 130,
+   and none are at 50 or less.
+3. Hit. The reader found the tier right on all 68 ads it checked.
+4. Hit on the range (+5.3). It does not clear 2 SE (1.3 SE) and gains far less than the
+   spread, as I expected at 30% and 10%.
+5. Hit on both parts: m = 2.5 in both halves, +65.4.
+6. Hit on both parts: m = 2.0 in both halves with the tier levels in place, and +5.3 over the
+   spread alone.
+7. Hit: the squared gap narrows by 4.2%.
+8. Doesn't apply, since no held-out ad states a tier of 80 or less.
+
+### Conclusion
+
+The tier explains little of the scatter on these ads, mostly because few ads state one: 27 of
+265. The wider spread does much better, so I write the spread factor's module as D1's is
+built, with the factor on the noise of marked rows (`docs/notes/income-noise-2026-11-14.md`).
+Both hypotheses came from a search after S15's miss, on the same held-out ads, so the
+spread's +65.4 ± 20.2 and the noise's +62.4 ± 16.6 overstate what a fit would gain.
