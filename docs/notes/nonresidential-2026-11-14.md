@@ -21,10 +21,13 @@ are in `nonresidential-2026-11-14/`, and their outputs go to
 1. **The ledger.** It holds 129 excludes with the reason `nonresidential`, one per listing,
    across 9 files under `pipeline/ledger/`. Every entry cites the ad's text and a read, and 4
    also cite another ad of the unit.
-   - The 118 entries decided before L1's build on 2026-10-23 had already removed their
+   - The 117 entries decided before L1's build on 2026-10-23 had already removed their
      listings, so none of them is among L1's rows.
-   - The other 11 come from the outlier sprint's files of 2026-11-11 and 2026-11-12. They are
-     among L1's rows: 3 in training and 8 held out, 2 of those outside S16's draw.
+   - The other 12 come from the outlier sprint's files of 2026-11-11 and 2026-11-12. Eleven of
+     them are among L1's rows: 3 in training and 8 held out, 2 of those outside S16's draw.
+     The twelfth, from `2026-11-12-outlier-sprint-pass2`, isn't in L1's build.
+   - Corrected on 2026-11-14 after review: this item first gave 118 entries before the build
+     and 11 after. `prior.json` had the right counts throughout.
 2. **The sprint's screen.** Its narrowed commercial pattern (`outlier-sprint/nonres/
    screen2.py`) matched 693 listings, all among L1's rows: 618 in training and 75 held out.
    Most matches come from an "ideal for" phrase (431) or "space available" (93), and 18 are
@@ -77,8 +80,8 @@ For each candidate I gather the evidence that doesn't come from its own descript
 
 The lot is weak on its own. Across all of L1's rows, 36,248 (1.9%) are on lots PLUTO gives no
 apartments, mostly with land use 8 (public facilities) or 5 (commercial and office). Among the
-candidates the share is 6.6% (1,729 rows), and 743 of those lots are parking facilities (land
-use 10), which suggests new buildings on lots PLUTO still records as parking. I haven't
+candidates the share is 6.6% (1,729 rows), and 743 of those rows are on lots with land use 10
+(parking facilities), which suggests new buildings on lots PLUTO still records as parking. I haven't
 checked that.
 
 ### The draft rule
@@ -225,7 +228,7 @@ so their share is small but poorly bounded: 9 reads of `words` allow up to 0.40.
 
 The residential answers show where the strong patterns misfire. R02's "over 45ft of frontage"
 is a window wall, R10's "20' of frontage" a loft's front, and R19 and R47 offer "office space"
-beside two bedrooms. R49's "triple net" belongs to a live/work loft. The labels hold up best:
+beside a 1-bedroom and a 2-bedroom. R49's "triple net" belongs to a live/work loft. The labels hold up best:
 the one label read as residential (R17) is an `#OFFICE` unit coded with 2 bedrooms, whose ad
 describes a converted 2-bedroom apartment.
 
@@ -312,8 +315,11 @@ The labels come closest to a rule, at 7 of 8, but a label is a field of the row'
 the 4 reads of labels with backing of another kind came to 3 of 4. That is too few reads to set
 a rule on, and I picked the label after the reads, so I name it as the post hoc candidate: a
 commercial unit label (`#STORE`, `STOREFRONT`, `#RETAIL`, `COMMERCIAL`, `#COMM`, `#OFFICE` and
-the like) with a strong text or another ad of the unit. 129 rows carry such a label, 3 of them
-held out. `#OFFICE` labels need care, since an office converted to an apartment keeps its label.
+the like) with a strong text or another ad of the unit. That covers 56 of the 129 label rows in
+`candidates.parquet`, among them all 3 held-out label ads. As written it leaves out the
+unmarked label cell (65 rows), whose 4 reads all came back commercial, and the 8 rows backed by
+a label and the lot alone. `#OFFICE` labels need care, since an office converted to an
+apartment keeps its label.
 
 ## What's post hoc
 
@@ -324,16 +330,20 @@ held out. `#OFFICE` labels need care, since an office converted to an apartment 
 
 ## Recommendation
 
-Write no rule and fit nothing for this. Commercial rows are rare among L1's rows: the reads put
-about 335 among the 751 with an own signal and none in 22 reads of the broad strata, and the
-2,611 held-out candidates miss L1's median by the same mean as all held-out ads, with a spread
-of 1.15 and 80% coverage of 0.75. The 62 held-out ads with an own signal show a spread of 1.45
-± 0.29, so even a perfect exclusion would change little in L1's held-out scores. Nonresidential
-space stays last among S16's follow-ups.
+Write no rule and fit nothing for this. The reads put about 335 commercial rows among the 751
+with an own signal and none in 22 reads of the broad strata. That figure covers the own-signal
+strata only. For the whole pool of 26,111 rows the reads give 0.013 with an interval of 0 to
+0.31 at a Kish effective size of 9.5, which allows up to about 8,000 commercial rows. I base
+the case for fitting nothing on the screen for that reason. The 2,611 held-out candidates miss
+L1's median by the same mean as all held-out ads, with a spread of 1.15 and 80% coverage of
+0.75. The 62 held-out ads with an own signal show a spread of 1.45 ± 0.29, so even a perfect
+exclusion would change little in L1's held-out scores. Nonresidential space stays last among
+S16's follow-ups.
 
 If someone wants the commercial rows out anyway, the cheapest path is a reading pass over the
-129 label rows into the ledger, which already holds 125 nonresidential excludes on the ad's text
-and a read, with the label recorded as a second kind of evidence. A rule on the label would need
+129 label rows into the ledger, with the label recorded as a second kind of evidence. Of the
+ledger's 129 nonresidential excludes, 125 rest on the ad's text and a read alone, while the
+other 4 also cite another ad of the unit. A rule on the label would need
 a fresh read of the label rows first, with its bar set beforehand.
 
 The patterns' misfires are worth keeping in mind for any reuse: a stated frontage is often a
