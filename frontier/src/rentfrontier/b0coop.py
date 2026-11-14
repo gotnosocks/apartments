@@ -5,9 +5,10 @@ from the MapPLUTO release out when the row's ad was priced.
 
 Part C of S5 in the causal screens (`docs/notes/causal-screens-2026-11-13.md`) found that co-op
 and condo ads ask 1% to 4% more than j9 expects at every count of training ads. j9 and L1 read
-a condo flag (`bld:condo`) and no co-op flag. They take a building's tenure from
-`building_attrs.ATTRS`, which sorts the lot's class in MapPLUTO's 26v2 release (published
-2026-08-17) for every row, so an ad priced in 2015 reads a class from 2026. This script adds a
+a condo flag (`bld:condo`) and no co-op flag. Their designs take a building's tenure from
+`building_zones_floor_asof.load_lots`, through `building_attrs.nyc_lots(REGISTRY, PLUTO)`,
+which sorts the lot's class in MapPLUTO's 26v2 release (published 2026-08-17) for every row,
+so an ad priced in 2015 reads a class from 2026. This script adds a
 co-op column, and a condo column built the same way, both from the release a row could have
 read when its ad was priced.
 

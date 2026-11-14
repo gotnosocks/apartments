@@ -26,9 +26,10 @@ CANDIDATES = ("C6", "C8", "D0", "D4", "CB", "DB", "R9", "A8")
 
 
 def cluster_se(x, b):
-    """SE of the sum of `x`, clustered by `b`."""
-    t = pd.Series(np.asarray(x)).groupby(np.asarray(b)).sum()
-    return float(np.sqrt(len(t) * t.var(ddof=1)))
+    """SE of the sum of `x` about its mean, clustered by `b`."""
+    x = np.asarray(x, dtype=float)
+    t = pd.Series(x - x.mean()).groupby(np.asarray(b)).sum()
+    return float(np.sqrt(len(t) / (len(t) - 1) * (t**2).sum()))
 
 
 res = {}
@@ -135,7 +136,7 @@ for name, m in (("coop", h.coop.to_numpy()), ("other", ~h.coop.to_numpy())):
     res[f"l1_heldout_{name}"] = {
         "n": int(m.sum()),
         "buildings": int(h.building[m].nunique()),
-        "median_gap": float(gap[m].mean()),
+        "mean_gap": float(gap[m].mean()),
         "se": cluster_se(gap[m], h.building.to_numpy()[m]) / int(m.sum()),
     }
 

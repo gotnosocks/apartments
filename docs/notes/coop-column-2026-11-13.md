@@ -29,8 +29,9 @@ close:
 
 ## The release a row reads
 
-j9 and L1 take a building's tenure from `building_attrs.ATTRS`, which sorts the lot's class in
-MapPLUTO's 26v2 release, published 2026-08-17, for every row. An ad priced in 2015 reads a
+j9's and L1's designs take a building's tenure from `building_zones_floor_asof.load_lots`,
+through `building_attrs.nyc_lots(REGISTRY, PLUTO)`, which sorts the lot's class in MapPLUTO's
+26v2 release, published 2026-08-17, for every row. An ad priced in 2015 reads a
 class from 2026, and so do all of j9's held-out ads, which j9 predicts as of 2025-11-10.
 
 For the new columns I read each row's lot in the release the plutoasof feature sets give a
@@ -70,13 +71,13 @@ from each release and these counts:
 
 ## Against the 26v2 tenure
 
-`count.py` in `docs/notes/coop-column-2026-11-13/` compares the columns with the tenure j9 and
-L1 read.
+`count.py` in `docs/notes/coop-column-2026-11-13/` compares the columns with the 26v2 tenure in
+`building_attrs.ATTRS`, which matches the class j9 and L1 read on every lot of the dataset.
 
 - Co-op: 66,790 rows are co-ops in both. 1,418 rows in 62 buildings are co-ops only in 26v2;
   their own release mostly classed the lot D8, C4 or D1, apartment classes outside the co-op
-  list, so these buildings became co-ops, or were reclassed as co-ops, after the ad. 352 rows in 24 buildings are co-ops
-  only in their own release. 53 buildings have rows on both sides of a change.
+  list, so these buildings became co-ops, or were reclassed as co-ops, after the ad. 352 rows
+  in 24 buildings are co-ops only in their own release. 53 buildings have rows on both sides of a change.
 - Condo: 30,845 rows in 1,428 buildings carry `bld:condo` and not the new `condo`, and every
   one of them reads no class: the lot is missing from the row's release (30,788) or has no
   class (57). One row goes the other way. Of the 32,774 rows whose lot is missing from their
@@ -85,8 +86,12 @@ L1 read.
   year or the year before. Most are condo billing lots numbered after the ad, for a building
   that then stood on another lot, and the release file has no record of which lot that was.
 
-So j9's and L1's condo flag reads a later release on 30,845 rows (1.6%), and every other
-PLUTO feature of theirs reads 26v2 as well.
+So on L1's dataset the condo flag reads a later release on 30,845 rows (1.6%). j9 ran with
+an earlier registry, so its count differs a little. Every other PLUTO feature of the drift
+line reads 26v2 as well: the built years, alterations, retail, units, lot front, corner, FAR
+used, landmark, classes and area per unit all come from `building_attrs.PLUTO`, and no drift
+module calls `features.released_lots`. So the drift line reads none of the point-in-time PLUTO
+base.
 
 ## S5c's co-op ads
 
