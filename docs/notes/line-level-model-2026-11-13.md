@@ -29,7 +29,9 @@ line. `rentfrontier.run`, `ops/modal/app.py` and `ops/modal/cap.py` list it as
 
 - A unit takes the (bedrooms, full baths) pair carried by most of its rows, and on a tie the
   pair of its latest row. Held-out rows count, since bedrooms and baths are columns of the
-  row and carry nothing of its rent (`docs/leak-free-scoring.md`).
+  row and carry nothing of its rent (`docs/leak-free-scoring.md`). A held-out ad's pair can
+  still move a training unit to another line, which changes how training rows group but
+  brings in no rent.
 - As in L1, a row with no `unit_id` is a unit by itself, so it takes its own pair.
 - Bedrooms are rounded and clipped at 0, as `b0.design` codes them, and a missing full-bath
   count gets the value -1.
@@ -146,7 +148,7 @@ minutes:
 - With line_sd near 0 the step is L1's: the corrected sums equal L1's cell sums, the lines'
   log density term is 0, the cell draws are identical, the slow system matches to 1e-10, and
   the scale density is L1's plus line_sd's prior.
-- Predictions in all three cases against the dense predictive.
+- Predictions in all three cases against the dense predictive given the line draws.
 - A run on a simulated design of 6,000 rows with line_sd 0.15 and unit_sd 0.06 recovers both
   inside its draws' 0.1% to 99.9% range, and its held-out squared error is under 0.97 times
   plain `drift`'s.
@@ -228,7 +230,10 @@ buildings, and a line's pairs of pairs number the square of
 its quarters with rows, which the dataset's span bounds whatever the line's size. So the
 correction's share of a sweep on the sample should carry over to the full data. On the GPU
 its four index arrays of 14.2 million entries take 455 MB, and each evaluation of the scale
-step's density forms a product of 114 MB a chain, small against an H100's 80 GB. The host's
+step's density forms a product of 114 MB a chain. The slow columns' system forms a
+temporary array with a row for each of the 856,710 (line, quarter) pairs and a column for
+each slow column, 6.9 MB a chain for each column, or about 275 MB at 40 columns. All of it
+is small against an H100's 80 GB. The host's
 setup grew by 0.44 s on the sample, which scales by the rows to about 40 s on the full data.
 
 `cap.py` states 1.15 s a pair of chains against L1's 1.0. L1's two containers swept at 0.776 s

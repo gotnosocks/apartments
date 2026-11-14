@@ -239,7 +239,13 @@ def line_layout(line, site, cell, col: dict, lines: int) -> dict:
 # ------------------------------------------------------------------ the sampler (JAX)
 
 
-def make_sampler(d: Design, priors, settings, gp=None, groups=None):
+def make_sampler(
+    d: Design,
+    priors: drift.Priors,
+    settings: drift.Settings,
+    gp=None,
+    groups=None,
+):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`, as `drift.make_sampler` returns them, with the lines (see the
     module docstring). `groups` must hold the buildings' collapsed term first. The sweep
@@ -638,6 +644,9 @@ def make_sampler(d: Design, priors, settings, gp=None, groups=None):
         lt = lt | {"h": lt["h"] - step @ G, "hl": lt["hl"] - step @ g}
         return theta, tgt, lt
 
+    # update_tau, update_amp, update_gp and outputs copy the closures of the same names in
+    # `drift.make_sampler`, which returns none of them. drift.py stays unchanged because the
+    # served fit's hash covers it, so a fix to those closures has to be repeated here.
     def update_tau(key, st, M, g):
         z = jnp.diff(M) - g
         ss, k = jnp.sum(z * z), z.shape[0]
@@ -865,7 +874,13 @@ def make_sampler(d: Design, priors, settings, gp=None, groups=None):
 
 
 def run(
-    d: Design, priors, settings, log=print, checkpoint=None, gp="spec", groups=None
+    d: Design,
+    priors: drift.Priors,
+    settings: drift.Settings,
+    log=print,
+    checkpoint=None,
+    gp="spec",
+    groups=None,
 ):
     """`drift.run` with this module's sampler: the traced and kept arrays add `line_sd`, the
     warmup sets the scale step's directions with log line_sd last, and the progress lines
