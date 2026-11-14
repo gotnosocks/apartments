@@ -84,3 +84,171 @@ listings of L1's dataset with a description.
    their mean gap is at least 0.05 under the unmarked ads' (50%).
 9. The comparison says the rewrite could move a fit for `income_restricted` (a gap difference
    over 2 SE for the ads that change) (60%), and could not for `shared_space` (70%).
+
+## The rewritten patterns
+
+The scripts are in `docs/notes/text-flags-2026-11-13/`, run in order, and write to
+`/data1/apartments/tmp/text-flags-2026-11-13/`. `t1_texts.py` takes each listing's latest
+description as `b0data` picks it. For the development sample, `t2_dev.py` draws ads by which of
+several patterns mark them: the old flags, `b0income.INCOME` from the Deals cautions, and
+looser candidate words. Sonnet readers took 135 income ads and 130 shared ones, and Haiku
+readers took 70 stabilized ones. `t2_dev_labels.py` counts their labels:
+
+- Income: all 50 ads marked by `b0income.INCOME` are income-restricted, and all 20 marked by
+  the old flag alone quote a building's fee schedule. Among 65 unmarked ads with a looser
+  word, the readers found 6 income-restricted ones.
+- Shared: 9 of the 10 ads the old flag marks through "SRO" are shares, as are 7 of 20 through
+  a shared bath or kitchen and 1 of 20 through "roommate". Among 80 unmarked ads with a looser
+  word, the readers found 6 shares.
+- Stabilized: all 30 ads the old flag marks are stabilized, and the readers found 3 among 40
+  unmarked ones with a looser word. Most of those 40 matched the word only inside
+  "established".
+
+From the readers' quotes I wrote the new patterns in `rentfrontier.b0textflags`. For
+`income_restricted_v2` I took `b0income.INCOME` and added HDC, income caps, a table of
+maximum incomes by household size and "is an affordable unit"; I also kept the pattern from
+reading an agent's surname as "AMI". For `shared_space_v2` I kept "SRO" unless a former SRO
+is meant, asked for a bath or kitchen shared with other tenants or down the hall, and added
+rooms for rent, roommate matching, room pricing and ads looking for a roommate. I left
+`rent_stabilized` as it is. The tests in `frontier/tests/test_b0textflags.py` hold paraphrased
+phrases from the ads on each side of each pattern.
+
+## Reading a fresh sample
+
+With the patterns frozen, `t3_eval.py` draws 700 fresh ads with the seed 20261114, leaving out
+the development ads, and writes them in batches for the readers: Sonnet for income and shared,
+Haiku for stabilized. It shuffles each flag's draw before cutting it into batches. One of the
+ten shared batches, 30 ads, went unread: the Agent tool refused its reader at the limit of 20
+subagents running at once, with an instruction not to retry, so `t4_score.py` drops those 30
+ads, which come from every part of the draw. Of the other 670, the readers called one unclear.
+Over both samples the readers took 1,005 ads.
+
+`t4_score.py` counts the labels in each part of the draw. Listings are those of L1's dataset
+with a description, outside the development sample:
+
+| Flag | Part of the draw | Listings | Read | Yes |
+|---|---|---:|---:|---:|
+| `income_restricted` | both mark | 1,542 | 40 | 39 |
+| | old only | 115 | 30 | 0 |
+| | new only | 1,139 | 60 | 60 |
+| | neither, a caution word | 1,025 | 40 | 3 |
+| | neither, another candidate word | 1,213 | 40 | 1 |
+| | neither, "affordab" only | 9,672 | 40 | 0 |
+| | neither, no candidate | 1,810,158 | 20 | 0 |
+| `shared_space` | both mark | 250 | 43 | 32 |
+| | old only | 29,903 | 93 | 1 |
+| | new only | 76 | 41 | 39 |
+| | neither, share words or a shared bath or kitchen | 2,891 | 37 | 1 |
+| | neither, another candidate word | 2,989 | 36 | 2 |
+| | neither, no candidate | 1,788,755 | 19 | 0 |
+| `rent_stabilized` | marked | 30,102 | 50 | 50 |
+| | unmarked, a "stabilized" word | 1,425 | 50 | 45 |
+| | unmarked, regulated, control or RS | 98 | 20 | 2 |
+| | unmarked, no candidate | 1,785,692 | 10 | 0 |
+
+Weighted back to the listings, as in "How I measure", with intervals from the delta method
+and Wilson's interval on the effective sample size:
+
+| Flag | Version | Listings marked | Precision (95%) | Recall (95%) | True marks |
+|---|---|---:|---|---|---:|
+| `income_restricted` | old | 1,657 | 0.907 (0.836 to 0.950) | 0.547 (0.467 to 0.625) | 1,503 |
+| | new | 2,681 | 0.986 (0.930 to 0.997) | 0.961 (0.796 to 0.994) | 2,642 |
+| `shared_space` | old | 30,153 | 0.017 (0.005 to 0.059) | 0.616 (0.325 to 0.843) | 508 |
+| | new | 326 | 0.792 (0.689 to 0.868) | 0.313 (0.173 to 0.499) | 258 |
+| `rent_stabilized` | kept | 30,102 | 1.000 (0.929 to 1.000) | 0.959 (0.954 to 0.963) | 30,102 |
+
+Recall counts the parts with no candidate word as holding no true ads, and the readers found
+none in them. That is why the stabilized recall interval comes out so narrow.
+
+The readers' evidence, printed at the end of `t4_score.py`, explains the disagreements:
+
+- None of the 30 income ads marked by the old flag alone is income-restricted. Most of them
+  quote a line of a fee schedule, "optional for income restricted units". The
+  income ads both versions miss give an income band in words ("no less than $70,000 and no
+  more than $240,000") or announce a table of income and household size requirements.
+- The 11 shared ads both versions mark but the readers reject are whole apartments, offered
+  with a roommate-matching service or as "flexible" bedrooms. The one share among the 93 ads
+  of the old flag alone is a house letting its bedrooms one at a time, at $950 and $825 a
+  room. Weighted back, that ad stands for about 320 listings, most of the old flag's true
+  marks, and it is why the old recall comes out above the new. The new flag also misses a
+  co-living building and a list of rooms with their prices.
+- 45 of the 50 unmarked ads with a "stabilized" word are stabilized. They misspell it
+  ("stablized", "stabalized") or leave out "rent". They stand for about 1,280 listings, the
+  4% of recall the pattern misses. The development draw found few of them because its
+  candidate word mostly matched "established", and the fresh draw's word leaves that out. I
+  kept the flag as frozen, and L1 gives it -0.002. A later rewrite could take the
+  misspellings.
+
+## Rows changed
+
+`rentfrontier.b0textflags` wrote the copy
+`/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise-textflags`,
+run in a 3 GB scope. `t5_gap.py` reads it, checks the new columns against `t3_eval.py`'s
+matches (they agree on every row) and counts the rows each version marks, over all rows and
+over L1's 189,647 held-out ads of the latest split:
+
+| Flag | Old | New | Gained | Lost | Held-out old | Held-out new | Held-out gained | Held-out lost |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `income_restricted` | 1,703 | 2,739 | 1,171 | 135 | 207 | 275 | 122 | 54 |
+| `shared_space` | 30,209 | 344 | 78 | 29,943 | 2,542 | 33 | 8 | 2,517 |
+
+31,278 rows change at least one flag.
+
+## L1's gaps on the changed ads
+
+For each held-out ad `t5_gap.py` takes the gap of its log ask from L1's predictive median
+(`pred_scores.npz` from L1's saved draws). A negative gap means the ad asks less than L1
+predicts. SEs are clustered by building:
+
+| Flag | Ads marked by | Ads | Buildings | Mean gap (SE) |
+|---|---|---:|---:|---|
+| `income_restricted` | both | 153 | 103 | -0.020 (0.013) |
+| | old only | 54 | 2 | +0.006 (0.003) |
+| | new only | 122 | 67 | -0.107 (0.027) |
+| | neither | 189,318 | 36,172 | -0.004 (0.0002) |
+| `shared_space` | both | 25 | 20 | -0.043 (0.036) |
+| | old only | 2,517 | 1,458 | -0.010 (0.002) |
+| | new only | 8 | 5 | -0.107 (0.066) |
+| | neither | 187,097 | 35,928 | -0.004 (0.0002) |
+
+The differences between cells, with the SE of each difference clustered by building:
+
+- Income, new only less neither: -0.103 (0.027). New only less both: -0.088 (0.030). Old only
+  less both: +0.026 (0.014). Old only less neither: +0.011 (0.002).
+- Shared, old only less neither: -0.005 (0.002). New only less neither: -0.103 (0.059). Old
+  only less both: +0.033 (0.035). New only less both: -0.064 (0.070).
+
+L1 prices the 122 income-restricted ads it reads as unmarked about a tenth above their asks,
+and the readers found all 60 such ads they read income-restricted. The 54 ads it reads as
+income-restricted by the old flag alone come from two buildings and ask close to L1's median,
+presumably because L1's terms for those two buildings make up for the flag's -0.084. An SE from two
+clusters means little. The 2,517 ads losing the shared flag ask about 0.005 further under L1's
+median than unmarked ads, about the size of L1's coefficient for the flag.
+
+## Predictions scored
+
+1. Hit on all three parts: old income precision 0.907, recall 0.547, and over 2013 to 2026 the
+   precision comes out above the 22 of 30 (0.73) on the market of 2026-11-09.
+2. Hit for precision (0.986) and recall (0.961). Miss on the interval: its lower end is 0.796.
+3. Hit on both parts: old shared precision 0.017, recall 0.616.
+4. Hit for precision (0.792). Miss on recall: 0.313 against the old flag's 0.616, which rests
+   on a single read ad.
+5. Hit on all three parts: precision 1.000, recall 0.959, and I kept the flag.
+6. Hit on all four parts: income changes on 1,306 rows, gaining 1,171 and losing 135; shared
+   drops 29,943 rows; 31,278 rows change in all.
+7. Hit for the ads only the new income flag marks: -0.107, 3.9 SE under zero. Miss for the ads
+   only the old flag marks: they sit 0.026 above the ads both mark, 1.9 SE.
+8. Hit on the first part: the old-only shared ads sit 0.005 under the unmarked ads. The second
+   part doesn't apply, since only 8 held-out ads carry the new flag alone.
+9. Hit for income: the new-only ads sit 0.103 under the unmarked ads, 3.8 SE. Miss for shared
+   by the rule I wrote: the ads losing the flag sit 0.005 under the unmarked, 3.1 SE, though
+   the difference is the size of L1's coefficient.
+
+## A fit to test it
+
+The income rewrite reads better and marks ads L1 overprices. A fit of L1's model on the `-textflags` copy,
+reading `income_restricted_v2` in place of `income_restricted` with nothing else changed,
+would test it on the latest split by elpd, the median's error and interval coverage. I haven't
+written or registered it. The shared rewrite moves 2,525 held-out ads by about L1's coefficient
+of 0.004 and adds 8 more, so I would test it in a fit of its own after the income one, if at
+all.
