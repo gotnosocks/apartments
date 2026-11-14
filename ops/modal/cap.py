@@ -202,6 +202,11 @@ STATED_RATE["drift-building-phase-unitk"] = 1.5
 # Fixing the rows' nu drops a slice update and a coordinate of the scale step, so L1TK's
 # rate stands.
 STATED_RATE["drift-building-phase-unitkn"] = 1.5
+# Six phase columns among some 900 global ones leave L1TKN's rate as it is.
+STATED_RATE["drift-building-phase-unitkn-level"] = 1.5
+# The segment paths took L1's rate from 1.0 s to 1.6 s, and the same 60% on L1TKN's 1.5 s
+# gives 2.4 s.
+STATED_RATE["drift-building-phase-unitkn-segment"] = 2.4
 STATED_RATE["drift-local"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
@@ -318,6 +323,8 @@ BASELINES = (
     "drift-building-phase-year",
     "drift-building-phase-unitk",
     "drift-building-phase-unitkn",
+    "drift-building-phase-unitkn-level",
+    "drift-building-phase-unitkn-segment",
     "drift-building-phase-unitt",
     "drift-building-unitt",
     "drift-local",
@@ -389,6 +396,8 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-phase-year",
         "drift-building-phase-unitk",
         "drift-building-phase-unitkn",
+        "drift-building-phase-unitkn-level",
+        "drift-building-phase-unitkn-segment",
         "drift-building-phase-unitt",
         "drift-building-unitt",
         "drift-local",

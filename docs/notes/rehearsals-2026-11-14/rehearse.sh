@@ -9,7 +9,8 @@
 # this checkout's rentfrontier, imported through PYTHONPATH by the Python of serve/master's
 # frontier venv, which holds JAX's CUDA plugin. With WIDTH, the run goes through `width.py`
 # instead, which sets the slice width of the building spreads to WIDTH for the diagnostic
-# runs. With REHEARSAL_SRC set, PYTHONPATH holds that tree in place of this checkout's
+# runs, or through the script REHEARSAL_ENTRY names, which gets WIDTH as its first argument
+# in the same way. With REHEARSAL_SRC set, PYTHONPATH holds that tree in place of this checkout's
 # frontier/src, and the run records REHEARSAL_COMMIT as its commit, for a run of the code at
 # an earlier commit. The run, its log, the device's memory every 2 s and the run's
 # /usr/bin/time record go under /data1/apartments/tmp/rehearsals-2026-11-14/OUT.
@@ -24,7 +25,7 @@ root=/data1/apartments/tmp/rehearsals-2026-11-14
 checkout=$(cd "$(dirname "$0")/../../.." && pwd)
 entry=(-m rentfrontier.run)
 if [ $# -eq 7 ]; then
-	entry=("$checkout/docs/notes/rehearsals-2026-11-14/width.py" "$7")
+	entry=("${REHEARSAL_ENTRY:-$checkout/docs/notes/rehearsals-2026-11-14/width.py}" "$7")
 fi
 mkdir -p "$root/$out"
 nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader,nounits -lms 2000 \
