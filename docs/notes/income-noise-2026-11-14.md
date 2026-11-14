@@ -294,7 +294,7 @@ In every block of 200 draws both chains put unit_sd at 0.061 to 0.063 and drift_
 4.4 years. Both chains began in the long-tau region of D1's runs and left it early in the
 warmup: their drift_tau stood at 14.9 and 11.1 at sweep 100 and at 3.1 and 3.0 at sweep 200.
 So warmup set the scale step's directions at sweep 333 with both chains out of the region.
-After draw 1,000 the step moved log drift_tau by 0.116 a sweep against a posterior sd of 0.27,
+After draw 1,000 the step moved log drift_tau by 0.115 a sweep against a posterior sd of 0.27,
 and the final directions give it a scale of 0.68, close to the 0.64 of L2's rerun. Over all
 4,800 draws unit_sd came to ESS 361, drift_tau to 315, and sigma, nu and tau to 342 to 439.
 L2's note finds tau slower on the subsample than on the full data, and here its lag-1

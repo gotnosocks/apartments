@@ -233,10 +233,10 @@ predictions above describe the model as it is.
 
 ### Refused commands
 
-The permission check refused ten commands during these rehearsals:
+The permission check refused eleven commands during these rehearsals:
 
 1. a `for` loop calling a venv's Python from a loop variable, twice;
-2. a `sort`, and later a `sed`, reading a path from a shell variable;
+2. a `sort`, twice, and a `sed`, each reading a path from a shell variable;
 3. a heredoc writing a script for a single Python run;
 4. a `sed` and a `grep` followed by a Python run from an empty heredoc, in one command;
 5. a `for` loop calling `systemd-run` with a run directory from a loop variable, twice;
