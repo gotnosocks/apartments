@@ -117,11 +117,11 @@ phrases from the ads on each side of each pattern.
 
 With the patterns frozen, `t3_eval.py` draws 700 fresh ads with the seed 20261114, leaving out
 the development ads, and writes them in batches for the readers: Sonnet for income and shared,
-Haiku for stabilized. It shuffles each flag's draw before cutting it into batches. One of the
-ten shared batches, 30 ads, went unread: the Agent tool refused its reader at the limit of 20
-subagents running at once, with an instruction not to retry, so `t4_score.py` drops those 30
-ads, which come from every part of the draw. Of the other 670, the readers called one unclear.
-Over both samples the readers took 1,005 ads.
+Haiku for stabilized. `common.write_batches` shuffles each flag's draw (`random_state=7`)
+before cutting it into batches of 30. The Agent tool first refused the reader of one shared
+batch at its limit of 20 subagents running at once. After the first scoring I gave that batch,
+from the same frozen draw, to a single Sonnet reader, so every ad of the draw is read. Of the
+700, the readers called one unclear. Over both samples the readers took 1,035 ads.
 
 `t4_score.py` counts the labels in each part of the draw. Listings are those of L1's dataset
 with a description, outside the development sample:
@@ -135,11 +135,11 @@ with a description, outside the development sample:
 | | neither, another candidate word | 1,213 | 40 | 1 |
 | | neither, "affordab" only | 9,672 | 40 | 0 |
 | | neither, no candidate | 1,810,158 | 20 | 0 |
-| `shared_space` | both mark | 250 | 43 | 32 |
-| | old only | 29,903 | 93 | 1 |
-| | new only | 76 | 41 | 39 |
-| | neither, share words or a shared bath or kitchen | 2,891 | 37 | 1 |
-| | neither, another candidate word | 2,989 | 36 | 2 |
+| `shared_space` | both mark | 250 | 50 | 37 |
+| | old only | 29,903 | 100 | 1 |
+| | new only | 76 | 50 | 47 |
+| | neither, share words or a shared bath or kitchen | 2,891 | 40 | 1 |
+| | neither, another candidate word | 2,989 | 40 | 2 |
 | | neither, no candidate | 1,788,755 | 19 | 0 |
 | `rent_stabilized` | marked | 30,102 | 50 | 50 |
 | | unmarked, a "stabilized" word | 1,425 | 50 | 45 |
@@ -149,16 +149,19 @@ with a description, outside the development sample:
 Weighted back to the listings, as in "How I measure", with intervals from the delta method
 and Wilson's interval on the effective sample size:
 
-| Flag | Version | Listings marked | Precision (95%) | Recall (95%) | True marks |
+| Flag | Version | Listings marked | Precision (95%) | Recall among listings with a mark or a candidate word (95%) | True marks |
 |---|---|---:|---|---|---:|
 | `income_restricted` | old | 1,657 | 0.907 (0.836 to 0.950) | 0.547 (0.467 to 0.625) | 1,503 |
 | | new | 2,681 | 0.986 (0.930 to 0.997) | 0.961 (0.796 to 0.994) | 2,642 |
-| `shared_space` | old | 30,153 | 0.017 (0.005 to 0.059) | 0.616 (0.325 to 0.843) | 508 |
-| | new | 326 | 0.792 (0.689 to 0.868) | 0.313 (0.173 to 0.499) | 258 |
+| `shared_space` | old | 30,153 | 0.016 (0.005 to 0.055) | 0.623 (0.335 to 0.844) | 484 |
+| | new | 326 | 0.787 (0.693 to 0.858) | 0.330 (0.183 to 0.520) | 256 |
 | `rent_stabilized` | kept | 30,102 | 1.000 (0.929 to 1.000) | 0.959 (0.954 to 0.963) | 30,102 |
 
-Recall counts the parts with no candidate word as holding no true ads, and the readers found
-none in them. That is why the stabilized recall interval comes out so narrow.
+For the recall I assume that the listings with no mark and no candidate word, about 1.8
+million for each flag, hold no true ads. The readers found none in the 10 or 20 they read there, but so few
+reads can't bound a small rate. If 0.1% of those listings were true, the income recall would
+come to 0.330 old and 0.580 new, the shared recall to 0.189 and 0.100, and the stabilized
+recall to 0.907 (`t4_score.py`). That assumption is also why the stabilized interval is narrow.
 
 The readers' evidence, printed at the end of `t4_score.py`, explains the disagreements:
 
@@ -166,18 +169,32 @@ The readers' evidence, printed at the end of `t4_score.py`, explains the disagre
   quote a line of a fee schedule, "optional for income restricted units". The
   income ads both versions miss give an income band in words ("no less than $70,000 and no
   more than $240,000") or announce a table of income and household size requirements.
-- The 11 shared ads both versions mark but the readers reject are whole apartments, offered
-  with a roommate-matching service or as "flexible" bedrooms. The one share among the 93 ads
+- The 13 shared ads both versions mark but the readers reject are whole apartments, offered
+  with a roommate-matching service or as "flexible" bedrooms. The one share among the 100 ads
   of the old flag alone is a house letting its bedrooms one at a time, at $950 and $825 a
-  room. Weighted back, that ad stands for about 320 listings, most of the old flag's true
+  room. Weighted back, that ad stands for about 300 listings, most of the old flag's true
   marks, and it is why the old recall comes out above the new. The new flag also misses a
   co-living building and a list of rooms with their prices.
 - 45 of the 50 unmarked ads with a "stabilized" word are stabilized. They misspell it
   ("stablized", "stabalized") or leave out "rent". They stand for about 1,280 listings, the
   4% of recall the pattern misses. The development draw found few of them because its
   candidate word mostly matched "established", and the fresh draw's word leaves that out. I
-  kept the flag as frozen, and L1 gives it -0.002. A later rewrite could take the
-  misspellings.
+  chose to keep the flag as it was frozen, and L1 gives it -0.002. That loss of recall argues
+  for a rewrite of this flag too.
+
+The new patterns have edges the tests leave open. `t6_checks.py` counts them over every
+listing:
+
+- `income_restricted_v2` marks "no income caps" and "no income restrictions", on 41 listings.
+  The fresh reading met one of them, in the part both versions mark, and its precision
+  counts it.
+- `shared_space_v2` marks "converted from an SRO" and "a former single room occupancy". No
+  listing of the dataset uses those phrases.
+- `shared_space_v2` misses "I'm looking for a roommate" when the apostrophe is curly. No
+  listing of the dataset uses it.
+
+A fix would move ads between the parts of the fresh draw, so I list these edges and leave
+the patterns as they were read.
 
 ## Rows changed
 
@@ -213,36 +230,45 @@ predicts. SEs are clustered by building:
 
 The differences between cells, with the SE of each difference clustered by building:
 
-- Income, new only less neither: -0.103 (0.027). New only less both: -0.088 (0.030). Old only
+- Income, new only less neither: -0.103 (0.027). New only less both: -0.087 (0.030). Old only
   less both: +0.026 (0.014). Old only less neither: +0.011 (0.002).
 - Shared, old only less neither: -0.005 (0.002). New only less neither: -0.103 (0.059). Old
   only less both: +0.033 (0.035). New only less both: -0.064 (0.070).
 
-L1 prices the 122 income-restricted ads it reads as unmarked about a tenth above their asks,
-and the readers found all 60 such ads they read income-restricted. The 54 ads it reads as
-income-restricted by the old flag alone come from two buildings and ask close to L1's median,
-presumably because L1's terms for those two buildings make up for the flag's -0.084. An SE from two
-clusters means little. The 2,517 ads losing the shared flag ask about 0.005 further under L1's
+L1 prices the 122 ads only the new income flag marks about a tenth above their asks. The
+readers found all 60 ads of that part they read income-restricted, and `t6_checks.py` finds 8
+of those 60 among the 122 held-out ads. The 54 ads L1 reads as income-restricted by the old
+flag alone come from two buildings and ask close to L1's median, presumably because L1's
+terms for those two buildings make up for the flag's -0.083. An SE from two clusters means
+little. The 2,517 ads losing the shared flag ask about 0.005 further under L1's
 median than unmarked ads, about the size of L1's coefficient for the flag.
+
+The table at the top of this note gives L1's income coefficient as -0.084 (-0.089 to -0.078),
+from a mean of -0.0835 rounded a second time. `t6_checks.py` reads `posterior.npz` again: over
+all 10,880 traced draws the coefficient comes to -0.083 (-0.089 to -0.078), and over the 272
+kept draws, which L1's predictions use, to -0.083 (-0.089 to -0.077). The coefficients of
+`shared_space` and `rent_stabilized` round as in the table over both sets of draws.
 
 ## Predictions scored
 
 1. Hit on all three parts: old income precision 0.907, recall 0.547, and over 2013 to 2026 the
    precision comes out above the 22 of 30 (0.73) on the market of 2026-11-09.
 2. Hit for precision (0.986) and recall (0.961). Miss on the interval: its lower end is 0.796.
-3. Hit on both parts: old shared precision 0.017, recall 0.616.
-4. Hit for precision (0.792). Miss on recall: 0.313 against the old flag's 0.616, which rests
+3. Hit on both parts: old shared precision 0.016, recall 0.623.
+4. Hit for precision (0.787). Miss on recall: 0.330 against the old flag's 0.623, which rests
    on a single read ad.
-5. Hit on all three parts: precision 1.000, recall 0.959, and I kept the flag.
+5. Hit for precision (1.000) and recall (0.959). The third part is a hit only because I chose
+   to keep the flag, and the 4% of recall lost to misspellings argues for rewriting it.
 6. Hit on all four parts: income changes on 1,306 rows, gaining 1,171 and losing 135; shared
    drops 29,943 rows; 31,278 rows change in all.
 7. Hit for the ads only the new income flag marks: -0.107, 3.9 SE under zero. Miss for the ads
-   only the old flag marks: they sit 0.026 above the ads both mark, 1.9 SE.
-8. Hit on the first part: the old-only shared ads sit 0.005 under the unmarked ads. The second
+   only the old flag marks: their mean gap is 0.026 above that of the ads both mark, 1.9 SE.
+8. Hit on the first part: the old-only shared ads ask 0.005 further under L1's median than
+   the unmarked ads. The second
    part doesn't apply, since only 8 held-out ads carry the new flag alone.
-9. Hit for income: the new-only ads sit 0.103 under the unmarked ads, 3.8 SE. Miss for shared
-   by the rule I wrote: the ads losing the flag sit 0.005 under the unmarked, 3.1 SE, though
-   the difference is the size of L1's coefficient.
+9. Hit for income: the new-only ads ask 0.103 further under L1's median than the unmarked
+   ads, 3.8 SE. Miss for shared by the rule I wrote: the ads losing the flag ask 0.005 further
+   under it than the unmarked, 3.1 SE, though the difference is the size of L1's coefficient.
 
 ## A fit to test it
 

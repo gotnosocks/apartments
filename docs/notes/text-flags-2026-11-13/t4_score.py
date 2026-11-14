@@ -6,12 +6,14 @@ of L1's dataset with a description, outside the development sample. With p_h the
 its read ads the readers call "yes", I weight the parts back to the population:
 
 - precision of a version is sum(N_h p_h) / sum(N_h) over the parts it marks;
-- recall is sum(N_h p_h) over the parts it marks, divided by sum(N_h p_h) over every part
-  with a mark or a candidate word.
+- recall among listings with a mark or a candidate word is sum(N_h p_h) over the parts it
+  marks, divided by sum(N_h p_h) over every part with a mark or a candidate word.
 
-The draw of ads with no candidate word stands for most of the dataset and is too small to
-weigh, so recall counts it as zero, and I print its labels as a check. `rent_stabilized`
-keeps its pattern, so its old and new versions are the same.
+The draw of ads with no candidate word stands for about 1.8 million listings, and its 10 or
+20 reads can't bound their share of true ads, so the recall leaves those listings out and I
+print the draw's labels as a check. To show how much rests on that, I also give each recall
+as it would be if 0.1% of the no-candidate listings were true. `rent_stabilized` keeps its
+pattern, so its old and new versions are the same.
 
 For an interval I take the variance of each estimate by the delta method, over the parts,
 with p_h replaced by (yes + 1) / (read + 2) so a part with no "yes" still adds its
@@ -30,6 +32,8 @@ import pandas as pd
 from common import OUT, READS, read_labels
 
 Z = 1.959964
+# A share of true ads among the no-candidate listings, for the recall's sensitivity.
+CHECK_RATE = 0.001
 CHECK = {"neither, no candidate", "unmarked, no candidate"}
 MARKS = {
     "income_restricted": {"old": {"both", "old only"}, "new": {"both", "new only"}},
@@ -104,6 +108,10 @@ for flag, versions in MARKS.items():
     out["true_in_population"] = float(b)
     check = f[f.stratum.isin(CHECK)].iloc[0]
     out["check"] = {k: int(check[k]) for k in ("N", "drawn", "yes", "no", "unclear")}
+    for version in versions:
+        out[version]["recall_if_check_rate"] = float(
+            out[version]["true_marks"] / (b + CHECK_RATE * check.N)
+        )
     scores[flag] = out
     print(f"\n{flag}: about {b:,.0f} true listings outside the check draw")
     for version in versions:
@@ -114,7 +122,8 @@ for flag, versions in MARKS.items():
             f"  {version}: marks {s['marked']:,}, precision {s['precision']:.3f}"
             f" ({lo:.3f} to {hi:.3f}, n_eff {s['precision_n_eff']:.0f}),"
             f" recall {s['recall']:.3f} ({rlo:.3f} to {rhi:.3f},"
-            f" n_eff {s['recall_n_eff']:.0f}), true marks {s['true_marks']:,.0f}"
+            f" n_eff {s['recall_n_eff']:.0f}), true marks {s['true_marks']:,.0f},"
+            f" recall at {CHECK_RATE:.1%} of the rest {s['recall_if_check_rate']:.3f}"
         )
     print(
         f"  true marks new / old {out['true_marks_new_over_old']:.2f}, check {out['check']}"

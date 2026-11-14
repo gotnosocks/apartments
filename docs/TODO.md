@@ -227,8 +227,8 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   "roommates" in sales talk and found no room in a share. `rentfrontier.cautions` has
   patterns that were checked by reading. Rewritten on 2026-11-13 as new columns in a copy of
   L1's dataset (`rentfrontier.b0textflags`, `docs/notes/text-flags-2026-11-13.md`):
-  `income_restricted_v2` reads at precision 0.99 and recall 0.96 against the old 0.91 and
-  0.55, and L1 overprices the 122 held-out ads it adds by 0.107 ± 0.027. Next is a fit of L1
+  `income_restricted_v2` reads at precision 0.99 and recall among listings with a mark or a
+  candidate word 0.96, against the old 0.91 and 0.55, and L1 overprices the 122 held-out ads it adds by 0.107 ± 0.027. Next is a fit of L1
   reading `income_restricted_v2` in place of `income_restricted`, not yet written.
   `shared_space_v2` drops 29,943 of the old flag's 30,209 rows. `rent_stabilized` misses
   misspellings ("stablized", about 1,280 listings).

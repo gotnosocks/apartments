@@ -74,6 +74,35 @@ def test_shared_v2_leaves_whole_apartments(text):
     assert b0textflags.flags(text)[2] is False
 
 
+# INCOME_V2 as it built the -textflags copy of L1's dataset, whose manifest records it. The
+# pattern starts from b0income.INCOME, so an edit to that Deals caution fails here before it
+# changes a rebuild.
+INCOME_V2_BUILT = (
+    r"(?<!optional for )income[- ]restrict"
+    r"|(?<!optional for income )restricted (?:unit|apartment|rental)"
+    r"|income (?:limit|eligib)"
+    r"|(?:maximum|max)\.? (?:annual |household |allowable |allowed )?income"
+    r"|\bhpd\b(?! violation)"
+    r"|affordable housing"
+    r"|housing connect"
+    r"|(?:housing|hpd|affordable|421-?a) lottery"
+    r"|lottery (?:unit|apartment|rental)"
+    r"|(?<!mon )(?<!bel )(?<!ben-)(?<!ben )\bami\b"
+    r"|(?:low|middle|moderate)[- ]income"
+    r"|median income"
+    r"|\bhdc\b"
+    r"|income caps?\b"
+    r"|max(?:imum)?\.? (?:income )?for (?:a )?[1-9] ?(?:person|people|persons|hh|household)"
+    r"|\b[1-9] ?(?:person|people|persons|ppl|hh|household)s?(?: household)?:? ?-? ?\$ ?"
+    r"\d{2,3},?\d{3}"
+    r"|is an affordable unit"
+)
+
+
+def test_income_v2_is_the_pattern_the_copy_was_built_with():
+    assert b0textflags.INCOME_V2.pattern == INCOME_V2_BUILT
+
+
 def test_a_short_text_is_unknown_and_unmarked():
     assert b0textflags.flags("SRO, HDC") == (False, False, False)
 
