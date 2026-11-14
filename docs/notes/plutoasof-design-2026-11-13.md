@@ -91,7 +91,7 @@ with every row on 26v2 and once with each row on its own release, in four parts 
 each in a 3 GB scope. The counts are in `counts.json` beside it. Every row of L1's dataset
 has a lot in the registry, and the earliest rows read 11v1, so every row reads a release.
 32,774 rows (1,320 held out) read a release that doesn't hold their lot. 16,649 rows read 26v2
-itself, and the rest spread over 13v1 to 26v1.
+itself, 19 read 11v1 to 12v2, and the rest spread over 13v1 to 26v1.
 
 A row counts under a feature when any of its columns differ. The latest split holds out one ad
 of each unit, so on held-out ads the units equal the rows.
@@ -155,8 +155,9 @@ and 26v2 gives a year before 1900, such as 1887 or 1899. 61,338 of these rows re
 from 13v1 to 18v2, and most of the rest 19v1 to 21v4. Later releases replaced many of the
 decade estimates with dated years, so P1 hands these rows the older estimate. Only 314 rows
 move the other way. These revisions make up nearly all of `bld:built_pre1900`'s 66,499
-changed rows: 65,936 of them read their lot, and 563 read a missing lot. `bld:built_2010_on` changes on 21,372 rows of a missing lot and on
-21,902 rows whose release holds the lot with another year or none.
+changed rows: 65,936 of them read their lot, and 563 read a missing lot. `bld:built_2010_on`
+changes on 21,372 rows of a missing lot and on 21,902 rows whose release holds the lot with
+another year or none.
 
 The condo rows are almost all rows of a missing lot. Of the 30,846 rows whose `bld:condo`
 differs, 30,788 read a release without their lot, and 58 read a lot that their release
@@ -196,8 +197,9 @@ and L1's host peaks near 9 GB on Modal, so P1 runs in the normal 40 GiB containe
 
 L1's containers swept at 0.776 s on Modal, and at the same rate the 2,520 s sweep budget
 holds the same 3,250 or so sweeps. `cap.py` estimates each container at $4.19, as for L1,
-since the budget stops the sweeps. L1T's three containers settled at $10.94 in all, and the extra 30 s of
-prepare adds about $0.03 a container, so I expect about $11.00 to $11.50 for three.
+since the budget stops the sweeps. L1T's three containers settled at $10.94 in all, and the
+extra 30 s of prepare adds about $0.03 a container, so I expect about $11.00 to $11.50 for
+three.
 
 ## Launch plan (no fit is launched by this note)
 

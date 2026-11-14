@@ -4,6 +4,7 @@
 import copy
 import dataclasses
 import hashlib
+import json
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ from rentfrontier import (
     drift_building_phase,
     drift_building_phase_plutoasof,
     drift_pool,
+    market,
     run,
 )
 from rentfrontier import building_zones_kitchen_sink as ks
@@ -295,6 +297,35 @@ def test_with_every_row_on_26v2_the_design_is_l1s(tmp_path, monkeypatch):
         "bld:doorman_virtual",
         "bld:gym",
     }
+
+
+def test_a_market_datasets_inputs_set_the_release_file_before_it_is_read(
+    tmp_path, monkeypatch
+):
+    frame, held, registry, ads, amenities = _frame()
+    path = _write(tmp_path, _lots(LOTS_26, "26v2", "2000-01-01"))
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    (dataset / market.INPUTS).write_text(
+        json.dumps({f"{M.__name__}.RELEASES": str(path)})
+    )
+    frame.attrs["dataset"] = str(dataset)
+    # Recorded so that teardown puts back the constant the inputs repoint.
+    monkeypatch.setattr(M, "RELEASES", M.RELEASES)
+    l1 = _l1(frame, held, registry, _today(), ads, amenities)
+    monkeypatch.setattr(
+        drift_building_phase, "design", lambda *a, **k: copy.deepcopy(l1)
+    )
+    d = M.design(
+        frame,
+        held=held,
+        ads=ads,
+        amenities=amenities,
+        registry=registry,
+        today=_today(),
+    )
+    assert M.RECORD["releases"] == str(path)
+    np.testing.assert_array_equal(d.x, l1.x)
 
 
 def test_each_row_reads_l1s_columns_of_its_own_release(tmp_path, monkeypatch):

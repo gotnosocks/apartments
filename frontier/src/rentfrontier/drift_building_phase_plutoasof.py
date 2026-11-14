@@ -63,6 +63,7 @@ from . import (
     building_zones_kitchen_sink,
     drift,
     drift_building_phase,
+    market,
 )
 from .drift_building import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
     AD_FIELDS,
@@ -118,10 +119,12 @@ STATUSES = ("read", "no lot", "no release", "lot not in release")
 RECORD: dict = {}
 
 
-def published(path: Path = RELEASES) -> pd.Series:
+def published(path: Path | None = None) -> pd.Series:
     """The publication day of each dated release in the file `path`, by release, earliest
-    first. 22v2 carries no date and is left out."""
-    t = pd.read_parquet(path, columns=["release", "published"]).drop_duplicates()
+    first, `RELEASES` by default. 22v2 carries no date and is left out."""
+    t = pd.read_parquet(
+        RELEASES if path is None else path, columns=["release", "published"]
+    ).drop_duplicates()
     t = t.dropna(subset=["published"]).drop_duplicates("release")
     return pd.to_datetime(t.set_index("release").published).sort_values()
 
@@ -151,7 +154,7 @@ def stripped(v: pa.ChunkedArray) -> pa.ChunkedArray:
 def lot_reads(
     frame: pd.DataFrame,
     registry: pd.DataFrame,
-    path: Path = RELEASES,
+    path: Path | None = None,
     today: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """What each row of `frame` (`building`, `price_at`) reads from the release file `path`.
@@ -163,7 +166,10 @@ def lot_reads(
        `status`, one of STATUSES;
     2. the FIELDS of each key whose lot is in its release, as strings, by key;
     3. for each release that never recorded a field, the fields its rows read from `today`
-       (MapPLUTO's 26v2 lots, `building_attrs.PLUTO`, by default)."""
+       (MapPLUTO's 26v2 lots, `building_attrs.PLUTO`, by default).
+
+    `path` is `RELEASES` by default."""
+    path = RELEASES if path is None else path
     dates = published(path)
     lots = registry.dropna(subset=["bbl"]).drop_duplicates("building")
     lots = pd.Series(lots.bbl.astype(str).to_numpy(), lots.building.astype(str))
@@ -329,14 +335,18 @@ def design(
     ads: pd.DataFrame | None = None,
     amenities: pd.DataFrame | None = None,
     registry: pd.DataFrame | None = None,
-    releases: Path = RELEASES,
+    releases: Path | None = None,
     today: pd.DataFrame | None = None,
     **kw,
 ) -> Design:
     """L1's design of `frame`, with its MapPLUTO columns read from each row's release in the
     file `releases`, as the module docstring sets out. `ads` and `amenities` are the tables of
     `building_zones_floor_asof.design`, `registry` the buildings' lots and `today` the lots
-    of 26v2, all read when not given."""
+    of 26v2, all read when not given, and `releases` is `RELEASES` by default. A dataset with
+    an inputs.json (`rentfrontier.market`) names the snapshots read, so its paths are set
+    before any table is read, as `drift.design` sets them."""
+    market.apply_inputs(frame.attrs.get("dataset"))
+    releases = RELEASES if releases is None else releases
     held = building_zones_floor_asof.held_out(frame, held)
     train = ~held
     if ads is None:
