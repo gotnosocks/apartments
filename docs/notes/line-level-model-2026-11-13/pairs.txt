@@ -1,0 +1,8 @@
+rows 18441 residual sd 0.2755
+all ads by pair {'unit': (522, 0.00181), 'line': (35167, 0.00437), 'other': (41292, 0.01119)}
+all ads by building {'unit': (522, 0.00206), 'line': (35167, 0.0047), 'other': (41292, 0.02201)}
+first ads by pair {'line': (16685, 0.00386), 'other': (17790, 0.01197)}
+first ads by building {'line': (16685, 0.00386), 'other': (17790, 0.02181)}
+units (0, 8] buildings 501 by building {'unit': (44, 0.00411), 'line': (371, 0.00438), 'other': (196, 0.02181)}
+units (8, 40] buildings 211 by building {'unit': (269, 0.00159), 'line': (5755, 0.00476), 'other': (3953, 0.02381)}
+units (40, 1000000] buildings 43 by building {'unit': (209, 0.00181), 'line': (29041, 0.0055), 'other': (37143, 0.01485)}

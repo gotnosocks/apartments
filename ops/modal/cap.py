@@ -166,6 +166,12 @@ STATED_RATE["drift-building-phase-level"] = 1.0
 # pair on the quietest machine 2% more (18,441 rows and 10,135 units, 2 chains, load average
 # 7 to 15). 1.1 s keeps the larger figure.
 STATED_RATE["drift-building-phase-duplex"] = 1.1
+# The line levels add a coordinate to the scale step and a correction of each building's sums
+# over its (line, quarter) pairs. On the CPU (18,441 rows, 10,135 units and 1,728 lines, 2
+# chains) a sweep of the line model took 10% longer than L1's over 60 and 60 sweeps (0.885 s
+# against 0.805 s and 0.807 s) and 14% longer over 250 and 250 (0.847 s against 0.741 s), so
+# 1.0 s becomes 1.15 s.
+STATED_RATE["drift-building-phase-line"] = 1.15
 # The segment paths add 430 columns to L1's global block of about 200, one for each of eight
 # segments at each quarter start. On the CPU a sweep of L1 took 1.725 s and one with the paths
 # 2.688 s, 56% more (18,441 rows and 10,135 units, 2 chains), so 1.0 s becomes 1.6 s. On the
@@ -296,6 +302,7 @@ BASELINES = (
     "drift-building-doorman",
     "drift-building-phase",
     "drift-building-phase-duplex",
+    "drift-building-phase-line",
     "drift-building-phase-level",
     "drift-building-phase-segment",
     "drift-building-phase-year",
@@ -364,6 +371,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-duplex",
+        "drift-building-phase-line",
         "drift-building-phase-level",
         "drift-building-phase-segment",
         "drift-building-phase-year",

@@ -1,0 +1,14 @@
+rows 1896471 training 1706824 held out 189647
+training lines 155525
+buildings with training rows 67972
+lines per building: mean 2.29 [2.0, 3.0, 4.0, 7.0, 15.0]
+units per line: mean 6.01 [2.0, 5.0, 13.0, 62.0, 761.0]
+lines with one unit 61917 0.398
+training rows in lines of one unit 0.048
+units per building: mean 13.76
+(line, quarter) pairs 856710 pairs of pairs 14205336
+(building, quarter) cells 617858
+held-out rows of a unit with training rows 189647
+held-out rows of a new unit in a known line 0
+held-out rows of a new line 0
+held-out rows of a unit with training rows, in a line of two or more units 181989
