@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 9:15 PM ET on Nov 14
+### State at 11:45 AM ET on Nov 15
 
 - **Spend:** $21.88 of $100 (L1TKN $10.82, L2 $11.06). The sheet is
   `/data1/apartments/tmp/sprint-20261114/spend.md`.
@@ -28,11 +28,21 @@ subagent's model and effort to be picked by its task.
 - **L1TKN** (`drift-building-phase-unitkn-b0-latest-79dd65f8-l1tkn`) was fit 1: +4,106 over
   L1, a tail fix (`docs/notes/l1-row-dof-fixed-2026-11-13.md`). Its explainer is at
   https://claude.ai/artifact/ErU8W6zwB48ReubDKxbA8p.
-- **Merged:** #1392 to #1399. #1397 is the photo and floor plan check, #1398 the L2 and
-  segment modules on the unitkn base with their rehearsals.
-- **Running:** an agent rehearsing the segment paths on a 1-in-10 building subsample on the
-  thelio GPU, output under `/data1/apartments/tmp/rehearsals-2026-11-14/`. The module's
-  author put the segment pool's chance at the gate at 35% from the 1-in-92 run.
+- **Segment paths are off the fit list as written** (#1402,
+  `docs/notes/unitkn-segment-k10-2026-11-14.md`). On 1 building in 10 the Manhattan 3br+
+  amplitude had R-hat 1.95 and ESS 1, both 3br+ paths split their chains between
+  lengthscales near 0.5 and 2.2 years, and 279 of 431 quarter coefficients missed. Two
+  variants could still pass: fixed 3br+ lengthscales (or no 3br+ path), or all eight
+  lengthscales held at their 1-in-10 means. Either needs a 1-in-10 rehearsal first.
+- **Gap screen** (#1403, `docs/notes/l2-gap-screen-2026-11-14.md`). Cross-fitted shifts on
+  L2's held-out ads, gain over a plain constant (360 ± 32):
+  - the unit's training record, +691 ± 50, and the record by year, +903 ± 59;
+  - year +118, the previous ad's ending +64, the count of training ads +41;
+  - cells built from the ad's own cuts, days on the market or ending read its later rents,
+    so they serve as diagnostics only.
+
+  The slope of the gap on the unit's record is -0.066 overall: -0.037 within 2 months of the
+  unit's previous ad, about -0.05 to -0.10 from 10 months on, and near zero before 2021.
 - **Scoring a pool:** `drift_score` takes about an hour on one core.
   `/data1/apartments/tmp/sprint-20261114/pscore.py RUN 6` gives the same output in 5 minutes,
   and `pshift.py` beside it does the constant-shift count. Both need
@@ -42,17 +52,13 @@ subagent's model and effort to be picked by its task.
 
 Next, in order:
 
-1. Decide on the segment fit from the 1-in-10 rehearsal. Its base is now L2 on unitkn, so a
-   launch needs a module with both terms, a rehearsal of it, and a note with predictions 2
-   and 5 of `segment-paths-2026-11-13.md` rewritten.
-2. Free screens on L2's saved predictions for the 0.37% the held-out asks still fall under
-   the median in every phase (360 elpd as a constant): the previous ad's ending, and the
-   price history within an ad.
-3. The other free checks: the regime check on income-program rows, the line contrast, and a
-   school-zone screen. Leads from the unit history calibration on L1TKN (slope -0.057 ±
-   0.004): a unit premium reverting over time, or a noise scale widening with the unit's
-   distance from its building.
-4. Near the end, a StreetEasy top-up for ads opened after 2026-11-09 as a fresh test set,
+1. Fit 3 is a unit-record term on L2: a static factor on the unit's deviation from its
+   building, and a decay of that deviation with the months since the unit's earlier ads. Its
+   note with predictions comes first, then a 1-in-10 GPU rehearsal, then a Modal fit, estimated near $12 from L2's container costs.
+   The screen gives no account of the near-zero slopes before 2021.
+2. The other free checks: the regime check on income-program rows, the line contrast, and a
+   school-zone screen.
+3. Near the end, a StreetEasy top-up for ads opened after 2026-11-09 as a fresh test set,
    after pricing its OxyLabs cost. The rows file's latest `price_at` is 2026-10-19, which is
    unexplained against the 2026-11-09 snapshot.
 
