@@ -168,6 +168,11 @@ within building) stay closed.
   520 elpd over L1TKN, clustered SE 30, for $11.06; 240 (SE 28) remain after a constant shift
   of each pool (`l2-unitkn-level-2026-11-14.md`). Fits 3 to 5 take it as their base. The
   sprint has spent $21.88.
+- **Segment paths (fit 3 as planned) are set aside.** The 1-in-10 rehearsal missed the gate
+  at R-hat 1.95, with both 3br+ paths split between modes (`unitkn-segment-k10-2026-11-14.md`).
+  Its slot in the fit table goes to a unit-record term from the gap screen
+  (`l2-gap-screen-2026-11-14.md`): the unit's training record is worth 691 ± 50 elpd over a
+  constant on L2's held-out ads, the largest leak-free signal the screen found.
 - **`drift_today` refuses a Student-t unit level.** Step 6 needs that code change before
   Price now or Deals can be published from either accepted model.
 - **Ben lifted the earlier holds** on Nov 14: school zones, photo and floor plan fetches,
