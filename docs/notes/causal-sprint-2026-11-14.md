@@ -133,7 +133,7 @@ Ranked by whether the item changes the causal graph, then by its value for deals
     unit's price at time t from the citywide week, the building's path and the unit's level
     and drift, and they score the ask itself. In the variant each unit has a latent price
     p_k(t) on every day, moving with the terms the model already has, and each ad spell
-    reaches the fit through an ask-setting link:
+    enters the fit through an ask-setting link:
     - The market walk, the building path and the unit drift all have closed-form
       transitions, so the fit steps p_k exactly from one dated event to the next and stores
       no daily state.
@@ -149,7 +149,7 @@ Ranked by whether the item changes the causal graph, then by its value for deals
       Springer 2003; Horowitz 1992; Merlo, Ortalo-Magne and Rust 2015).
     Deals then compares a live ad's ask with p_k estimated from data up to that day, and the
     held-out target for p_k is the closing ask of each RENTED ad. Earlier asks of a spell
-    enter only as observations, never as covariates, under `docs/leak-free-scoring.md`.
+    enter only as observations, as `docs/leak-free-scoring.md` requires.
     The staged fits:
     1. A free check of how many training ads carry a dated price history, a list date and
        an end status.
