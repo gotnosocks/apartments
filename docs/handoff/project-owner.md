@@ -24,6 +24,7 @@ subagent's model and effort to be picked by its task.
   ESS 1,141) and gains 520 elpd over L1TKN on the held-out ads (clustered SE 30), 240 (SE 28)
   after a constant shift of each pool. A unit back within 2 months asks 1.09% less than a
   first ad. Results are in `docs/notes/l2-unitkn-level-2026-11-14.md`. It serves nothing yet.
+  Its explainer for Ben is at https://claude.ai/artifact/JMqdHeyuCR3wMeM4QKeHrD.
 - **L1TKN** (`drift-building-phase-unitkn-b0-latest-79dd65f8-l1tkn`) was fit 1: +4,106 over
   L1, a tail fix (`docs/notes/l1-row-dof-fixed-2026-11-13.md`). Its explainer is at
   https://claude.ai/artifact/ErU8W6zwB48ReubDKxbA8p.
