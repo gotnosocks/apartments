@@ -8,6 +8,19 @@ not by having tidy coefficients. Start with `README.md`, then `docs/model/drift.
 current model) and `docs/research-record.md` (everything tried so far, so nothing is tried
 twice by accident). `docs/handoff/project-owner.md` says where the last session stopped.
 
+Ben added a second test of a model on 2026-11-15. Hand its worst misses to someone who knows
+the market, such as a renter, an agent or a broker. If they can say at a glance what the model
+missed ("these are all low-floor units", "these are all in walkups next to the bridge"), the
+model lacks a feature, and finding and adding features of that kind is part of the aim. So
+after each fit that passes the gate:
+
+1. Take the held-out ads the model priced worst, high and low, and read them in groups with a
+   knowledgeable eye (`docs/expert-reads.md`).
+2. Name any trait they share, then count how often it turns up among ordinary ads, so a
+   pattern common to every ad is not mistaken for a miss.
+3. Code the trait from fields or text without looking at the rent, and test it as a term,
+   under the rules below.
+
 Rules for model work, all in force:
 
 - Write a fit's predictions into its note under `docs/notes/` and commit them before the fit
