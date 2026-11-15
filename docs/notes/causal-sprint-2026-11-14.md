@@ -129,19 +129,78 @@ Ranked by whether the item changes the causal graph, then by its value for deals
 7. A path per manager, or per neighbourhood (`drift-local`, not refit since the building
    path's sampler was fixed).
 8. The 2020 and 2021 concession gap term by building.
-8a. A latent price path for each unit, added at Ben's request on 2026-11-15. The current
-    models build a unit's price at time t as the citywide week plus the building's path plus
-    the unit's level and drift, and they score the ask itself. The variant:
-    - gives each unit a latent price that moves as its own time series, with the market's
-      path as an input whose weight can differ by unit or segment, in place of a fixed
-      offset from the citywide walk;
-    - derives the ask from that latent price through an ask-setting step, with terms for the
-      lease phase, time on the market and price cuts, concessions and the broker fee;
-    - reports the latent price as the model's estimate, so Deals compares an ask with the
-      unit's latent price rather than with a predicted ask.
-    The drift d_k and the unit-record OU level of open PR #1405 are partial steps in this
-    direction. Price cuts within a listing are the main evidence on the ask-setting step,
-    so the first check is whether the data holds every ad's ask history.
+8a. A latent price path for each unit, from Ben on 2026-11-15. The current models build a
+    unit's price at time t from the citywide week, the building's path and the unit's level
+    and drift, and they score the ask itself. In the variant each unit has a latent price
+    p_k(t) on every day, moving with the terms the model already has, and each ad spell
+    enters the fit through an ask-setting link:
+    - The market walk, the building path and the unit drift all have closed-form
+      transitions, so the fit steps p_k exactly from one dated event to the next and stores
+      no daily state.
+    - Each ad spell enters the likelihood as a single unit made of the first ask, each
+      dated price cut and the ending (RENTED, NO_LONGER_AVAILABLE or DELISTED, with the
+      off-market date).
+    - The last ask of a RENTED ad measures p_k at the off-market date with a tight noise
+      scale and a small offset for concessions and bidding.
+    - Earlier asks in the spell measure p_k plus a markup m(d) that shrinks with days on the
+      market d. Last asks of ads that end without a lease get a wider scale and an upward
+      offset.
+    - Later, a renting hazard ties each day's chance of a lease to the gap between the ask
+      and p_k, with ads that end without a lease as censored spells (Anglin, Rutherford and
+      Springer 2003; Horowitz 1992; Merlo, Ortalo-Magne and Rust 2015).
+    Deals then compares a live ad's ask with p_k estimated from data up to that day, and the
+    held-out target for p_k is the closing ask of each RENTED ad. A held-out ad's spell
+    stays out of the fit whole, with its first ask, its cuts and its ending.
+    The staged fits:
+    1. A free check of how many training ads carry a dated price history, a list date and
+       an end status.
+    2. Fit A: noise scale and offset by the ad's ending. Given the Student-t scale draws the
+       terms stay Gaussian, so the drift sampler's Kalman steps hold.
+    3. Fit B: first asks and cuts as extra observations through m(d), still Gaussian.
+    4. Fit C: the renting hazard. It breaks conjugacy and needs an augmentation or a Laplace
+       step.
+    The drift d_k and the unit-record OU level (#1405, behind `unit_slow`) are partial steps
+    in this direction. Unit-specific weights on the market path are left out: most units
+    have one to three ads.
+
+**From the literature, 2026-11-15**
+
+A scan of real-estate economics, appraisal practice and spatial statistics added these. Each
+line gives the idea, the source and a rough value for deals against cost.
+
+- L1. Time on market at an unchanged ask as a sign of a defect the fields miss, using only
+  the days on the market up to the date of the ask being scored (Taylor 1999, REStud).
+  High, low.
+- L2. Kriging held-out residuals by distance and recency, as a free check of whether
+  nearby recent residuals predict an ad's error beyond the 1 km field (Case, Clapp, Dubin
+  and Rodriguez 2004, JREFE; Bourassa, Cantoni and Hoesli 2010, JRER). High, low.
+- L3. Ad-text features: LASSO terms on the remarks, and a score of how unusual the text is
+  next to its neighbours, both additive under the no-override rule (Nowak and Smith 2017,
+  J. Applied Econometrics; Shen and Ross 2021, JUE). High, medium.
+- L4. Boundary jumps in the spatial field at avenues, park edges and zone lines (Lu and
+  Carlin 2005, Geographical Analysis; Bayer, Ferreira and McMillan 2007, JPE). Medium-high,
+  medium-high.
+- L5. A photo luxury score from an image model, as a covariate (Poursaeed, Matera and
+  Belongie 2018, Machine Vision and Applications). Medium-high, high.
+- L6. Anchoring: the lease-phase shift depending on the gap between the unit's last ask
+  and its current modeled value (Genesove and Mayer 2001, QJE). Medium, low.
+- L7. Seasonal markup, hazard and noise scale by calendar month (Ngai and Tenreyro 2014,
+  AER). Medium, low.
+- L8. Local trends by district and building type, as a template for the segment paths
+  (Francke and Vos 2004, JREFE). Medium, medium.
+- L9. A GPBoost benchmark (trees plus a GP and random effects) to find interactions the
+  linear terms miss, as a benchmark only (Sigrist 2022, JMLR). Medium, medium.
+- L10. A nearest-neighbour GP in place of the 1 km basis, which would make a
+  building-scale field affordable (Datta, Banerjee, Finley and Gelfand 2016, JASA). Medium,
+  high.
+- L11. Asks heaped at round amounts, as interval-censored or a mixture (Genesove 2003,
+  REStat; Pope, Pope and Sydnor 2015, GEB). Low-medium, low.
+- L12. A weighted repeat-rent index from unit pairs, as a free check on the weekly walk
+  (Ambrose, Coulson and Yoshida 2015, REStat). Low, low.
+
+The scan found little peer-reviewed work on NYC listings with regulation, concessions or
+broker fees. Boeing, Wegmann and Jiao (2020, working paper) document the gap between asking
+and signed rents.
 
 **Data validity, free, before the next dataset build**
 
