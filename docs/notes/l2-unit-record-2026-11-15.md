@@ -142,3 +142,76 @@ if any do.
 
 The model gives up nothing on the pre-2021 ads, where the screen found no slope, beyond the
 small shrinkage a 35-year time constant puts on a 5-year-old record.
+
+## The rehearsal (added after the run)
+
+I ran `docs/notes/rehearsals-2026-11-14/rehearse.sh` through `ops/job gpu`, inside a
+`systemd-run --user` unit with MemoryMax=10G, on the 1-in-10 subsample `k10-r8/base`
+(178,578 training rows) with the entry script
+`docs/notes/unitkn-segment-k10-2026-11-14/nobudget.py`: 2 chains, 500 warmup sweeps, 2,400
+draws, keep every 40th, seed 1, at commit 33750ea0. A probe of 40 and 80 sweeps came first
+(`probe-unitkn-level-slow-k10`). The run finished in 1 h 21 min: 3,884 s of sampling, 1.611 s
+a sweep of 2 chains, peak GPU memory 4,583 MiB, peak resident memory 6.4 GB. The output is in
+`/data1/apartments/tmp/rehearsals-2026-11-14/unitkn-level-slow-k10/runs/unitkn-level-slow-k10/`.
+
+**Gate: fail.** 13 of 274 quantities miss. The lowest bulk ESS is 80 on `drift_sd`, and the
+highest split R-hat is 1.0324 on `bld_sd[manhattan]`:
+
+| quantity | R-hat | bulk ESS |
+|---|---|---|
+| drift_sd | 1.0058 | 80 |
+| drift_tau | 1.0105 | 110 |
+| bld_sd[manhattan] | 1.0324 | 112 |
+| unit_tau | 1.0011 | 177 |
+| unit_sd | 1.0119 | 252 |
+| sigma[0..3] | 1.0025 to 1.0068 | 176 to 299 |
+| phase_scale[1], [2], [3], [5] | 1.0044 to 1.0208 | 236 to 358 |
+
+No coefficient misses. The chains agree on every missed quantity to within their spread, so
+the misses are slow mixing, not split modes.
+
+The posterior differs from the predictions in the way the kernel divides the unit's
+variance:
+
+| quantity | L2, full data | prediction | rehearsal, 10th / 50th / 90th percentile |
+|---|---|---|---|
+| unit_tau, years | infinity | 35 (20 to 70) | 22.3 / 23.4 / 24.6 |
+| ss | 0.0466 | 0.050 | 0.0531 / 0.0535 / 0.0539 |
+| drift sd | 0.0307 | about L2's | 0.0067 / 0.0090 / 0.0107 |
+| drift tau, years | 2.61 | about L2's | 0.14 / 0.20 / 0.36 |
+
+The slow level takes over the drift's role. With unit_tau near 23 years it carries the
+decline that Part B shows from 1 to 13 years, and the drift shrinks to a small term with a
+time constant of about 10 weeks, the excess Part B found in pairs under 3 months apart.
+unit_tau is much better determined than I expected: its 80% interval spans 10% of its value.
+The correlation of log unit_tau with log ss across draws is -0.21, and with log drift sd
++0.31. The drift's two scales mix worst, since a small short-lived term leaves few pairs to
+inform it, and they are the gate's two lowest ESS.
+
+I made no L2 rehearsal on this subsample, so the 1.611 s sweep has no base to compare against
+at 1 in 10. The segment model took 3.105 s there.
+
+## Cost on Modal
+
+L2's containers swept the full data in 0.75 s on an H100. The slow level adds the kap step's
+eigendecompositions and one more slice direction. At 0.85 to 1.0 s a sweep,
+`ops/modal/cap.py`'s `estimate(2, 500, 2400, gpu="H100", rate=...)` gives $4.13 to $4.65 a
+container (at most $4.19 with the 2,520 s budget in force), so $12.40 to $14.00 for a pool of
+three. At L2's 0.75 s it is $3.77 a container.
+
+## What next
+
+The rehearsal reached ESS 80 to 358 on the missed quantities over 2,400 draws in each of 2
+chains. A 3-container pool of 2 chains each, budget-limited near 1,200 to 1,500 draws a chain,
+gives about 1.2 to 1.6 times this run's draws, which does not lift `drift_sd` from 80 past
+400. The drift is the term to look at before a Modal fit: with the slow level in place the
+data ask for a short-lived term of sd 0.009, which the drift's prior and slice step serve
+badly. Two variants are worth a rehearsal before any full fit:
+
+- drop the OU drift and keep the slow level alone, if the short-lag excess can go to the row
+  noise; this removes the two worst-mixing scalars;
+- hold the drift's time constant at the rehearsal's 0.2 years and sample its sd alone.
+
+My chance that the model as written passes the gate on a 3-container pool falls from 0.65 to
+about 0.25. `bld_sd[manhattan]` missed in the earlier 1-in-10 and 1-in-92 rehearsals of the
+unitkn line as well, so it is not this change's doing.
