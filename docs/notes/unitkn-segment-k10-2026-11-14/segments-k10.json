@@ -1,0 +1,65 @@
+{
+ "rows": 198167,
+ "training_rows": 178578,
+ "quarter_starts": 54,
+ "first": "2013-10-01",
+ "last": "2027-01-01",
+ "segments": {
+  "manhattan:studio": {
+   "training_rows": 23934,
+   "least_weight": 7.4,
+   "median_weight": 429.3,
+   "quarters_under_20": 2,
+   "quarters_under_100": 2
+  },
+  "manhattan:1br": {
+   "training_rows": 40393,
+   "least_weight": 9.8,
+   "median_weight": 740.4,
+   "quarters_under_20": 2,
+   "quarters_under_100": 2
+  },
+  "manhattan:2br": {
+   "training_rows": 26597,
+   "least_weight": 6.3,
+   "median_weight": 475.7,
+   "quarters_under_20": 2,
+   "quarters_under_100": 2
+  },
+  "manhattan:3br+": {
+   "training_rows": 11012,
+   "least_weight": 1.9,
+   "median_weight": 202.7,
+   "quarters_under_20": 2,
+   "quarters_under_100": 4
+  },
+  "outer:studio": {
+   "training_rows": 7513,
+   "least_weight": 0.0,
+   "median_weight": 137.5,
+   "quarters_under_20": 3,
+   "quarters_under_100": 14
+  },
+  "outer:1br": {
+   "training_rows": 22813,
+   "least_weight": 1.9,
+   "median_weight": 409.6,
+   "quarters_under_20": 2,
+   "quarters_under_100": 3
+  },
+  "outer:2br": {
+   "training_rows": 26900,
+   "least_weight": 2.7,
+   "median_weight": 438.7,
+   "quarters_under_20": 2,
+   "quarters_under_100": 3
+  },
+  "outer:3br+": {
+   "training_rows": 19416,
+   "least_weight": 1.5,
+   "median_weight": 317.3,
+   "quarters_under_20": 2,
+   "quarters_under_100": 3
+  }
+ }
+}
