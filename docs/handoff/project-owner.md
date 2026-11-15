@@ -30,7 +30,7 @@ subagent's model and effort to be picked by its task.
   https://claude.ai/artifact/ErU8W6zwB48ReubDKxbA8p.
 - **Segment paths are off the fit list as written** (#1402,
   `docs/notes/unitkn-segment-k10-2026-11-14.md`). On 1 building in 10 the Manhattan 3br+
-  amplitude reached R-hat 1.95 with ESS 1, both 3br+ paths split their chains between
+  amplitude had R-hat 1.95 and ESS 1, both 3br+ paths split their chains between
   lengthscales near 0.5 and 2.2 years, and 279 of 431 quarter coefficients missed. Two
   variants could still pass: fixed 3br+ lengthscales (or no 3br+ path), or all eight
   lengthscales held at their 1-in-10 means. Either needs a 1-in-10 rehearsal first.
@@ -54,7 +54,7 @@ Next, in order:
 
 1. Fit 3 is a unit-record term on L2: a static factor on the unit's deviation from its
    building, and a decay of that deviation with the months since the unit's earlier ads. Its
-   note with predictions comes first, then a 1-in-10 GPU rehearsal, then a Modal fit near $12.
+   note with predictions comes first, then a 1-in-10 GPU rehearsal, then a Modal fit, estimated near $12 from L2's container costs.
    The screen gives no account of the near-zero slopes before 2021.
 2. The other free checks: the regime check on income-program rows, the line contrast, and a
    school-zone screen.
