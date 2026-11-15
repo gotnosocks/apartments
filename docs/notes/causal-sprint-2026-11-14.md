@@ -137,8 +137,9 @@ Ranked by whether the item changes the causal graph, then by its value for deals
     - The market walk, the building path and the unit drift all have closed-form
       transitions, so the fit steps p_k exactly from one dated event to the next and stores
       no daily state.
-    - A spell counts once, not once a day. Its pieces are the first ask, each dated price
-      cut and its ending (RENTED, NO_LONGER_AVAILABLE or DELISTED, with the off-market date).
+    - Each ad spell enters the likelihood as a single unit made of the first ask, each
+      dated price cut and the ending (RENTED, NO_LONGER_AVAILABLE or DELISTED, with the
+      off-market date).
     - The last ask of a RENTED ad measures p_k at the off-market date with a tight noise
       scale and a small offset for concessions and bidding.
     - Earlier asks in the spell measure p_k plus a markup m(d) that shrinks with days on the
@@ -148,13 +149,13 @@ Ranked by whether the item changes the causal graph, then by its value for deals
       and p_k, with ads that end without a lease as censored spells (Anglin, Rutherford and
       Springer 2003; Horowitz 1992; Merlo, Ortalo-Magne and Rust 2015).
     Deals then compares a live ad's ask with p_k estimated from data up to that day, and the
-    held-out target for p_k is the closing ask of each RENTED ad. Earlier asks of a spell
-    enter only as observations, as `docs/leak-free-scoring.md` requires.
+    held-out target for p_k is the closing ask of each RENTED ad. A held-out ad's spell
+    stays out of the fit whole, with its first ask, its cuts and its ending.
     The staged fits:
     1. A free check of how many training ads carry a dated price history, a list date and
        an end status.
-    2. Fit A: noise scale and offset by the ad's ending. Everything stays Gaussian, so the
-       drift sampler's Kalman steps hold.
+    2. Fit A: noise scale and offset by the ad's ending. Given the Student-t scale draws the
+       terms stay Gaussian, so the drift sampler's Kalman steps hold.
     3. Fit B: first asks and cuts as extra observations through m(d), still Gaussian.
     4. Fit C: the renting hazard. It breaks conjugacy and needs an augmentation or a Laplace
        step.
@@ -168,14 +169,15 @@ A scan of real-estate economics, appraisal practice and spatial statistics added
 line gives the idea, the source and a rough value for deals against cost.
 
 - L1. Time on market at an unchanged ask as a sign of a defect the fields miss, using only
-  the days known at scoring time (Taylor 1999, REStud). High, low.
+  the days on the market up to the date of the ask being scored (Taylor 1999, REStud).
+  High, low.
 - L2. Kriging held-out residuals by distance and recency, as a free check of whether
-  nearby recent residuals predict an ad's error beyond the 1 km surface (Case, Clapp, Dubin
+  nearby recent residuals predict an ad's error beyond the 1 km field (Case, Clapp, Dubin
   and Rodriguez 2004, JREFE; Bourassa, Cantoni and Hoesli 2010, JRER). High, low.
 - L3. Ad-text features: LASSO terms on the remarks, and a score of how unusual the text is
   next to its neighbours, both additive under the no-override rule (Nowak and Smith 2017,
   J. Applied Econometrics; Shen and Ross 2021, JUE). High, medium.
-- L4. Boundary jumps in the spatial surface at avenues, park edges and zone lines (Lu and
+- L4. Boundary jumps in the spatial field at avenues, park edges and zone lines (Lu and
   Carlin 2005, Geographical Analysis; Bayer, Ferreira and McMillan 2007, JPE). Medium-high,
   medium-high.
 - L5. A photo luxury score from an image model, as a covariate (Poursaeed, Matera and
