@@ -208,6 +208,12 @@ UNIT_T_KEY = 89
 # and what the sweep's key is folded with for it.
 UNIT_KAP_WIDTH = 2.0
 UNIT_KAP_KEY = 83
+# The lasting level's slow reversion (`make_sampler`'s `unit_slow`): the Normal prior on
+# the log of its time constant in years, the slice interval's starting length along that
+# log, and the time constant the chains start near.
+UNIT_TAU_LOG_PRIOR = (math.log(40.0), 1.0)
+UNIT_TAU_WIDTH = 0.5
+UNIT_TAU_START = 40.0
 
 
 @dataclass(frozen=True)
@@ -644,6 +650,7 @@ def make_sampler(
     unit_dof_fixed: float | None = None,
     unit_kap_collapsed: bool = False,
     row_dof_fixed: float | None = None,
+    unit_slow: bool = False,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -661,8 +668,15 @@ def make_sampler(
     (`rentfrontier.drift_building_phase_unitk`).
     `row_dof_fixed` holds the rows' degrees of freedom nu at that value: the noise step
     skips nu's slice update, and the scale step leaves log nu out of its coordinates and
-    holds lam's standardized logs at the fixed nu."""
+    holds lam's standardized logs at the fixed nu.
+    `unit_slow` lets each unit's lasting level revert to 0 with a time constant `unit_tau`
+    of years, so that its covariance between two ads is v_k exp(-|t_a - t_b| / unit_tau)
+    with v_k = ss^2 / kap_k (`rentfrontier.drift_building_phase_unitkn_level_slow`). The
+    scale step samples log unit_tau as its last coordinate, and the collapsed kap step
+    reads each unit's density from the eigenvalues of its lasting correlation against the
+    rest of its covariance (`kap_logp`). It needs `unit_kap_collapsed`."""
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
+    assert unit_kap_collapsed or not unit_slow, "unit_slow needs unit_kap_collapsed"
     assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
@@ -921,10 +935,31 @@ def make_sampler(
 
     def kernel(hyp, ta, tb, vs=None):
         """Cov(u(ta), u(tb)) for two ads of one unit. `vs` is the unit's variance of its
-        lasting level under `unit_t`, ss^2 without it."""
+        lasting level under `unit_t`, ss^2 without it. Under `unit_slow` hyp carries log
+        unit_tau fourth (`unit_hyp`), and the lasting part reverts with it."""
         ss, sd, tau = scales(hyp)
         lasting = ss**2 if vs is None else vs
+        if unit_slow:
+            lasting = lasting * jnp.exp(-jnp.abs(ta - tb) / jnp.exp(hyp[3]))
         return lasting + sd**2 * jnp.exp(-jnp.abs(ta - tb) / tau)
+
+    def unit_hyp(st):
+        """The state's unit scales as the unit functions read them: `hyp`, and under
+        `unit_slow` log unit_tau after it."""
+        if not unit_slow:
+            return st["hyp"]
+        return jnp.concatenate([st["hyp"], jnp.log(st["unit_tau"])[None]])
+
+    def ou_factor(tb, tau):
+        """The lower Cholesky factor of the OU correlation exp(-|t_a - t_b| / tau) at each
+        bucket's dates tb, exp(-(t_a - t_b) / tau) sqrt(1 - phi_b^2) for a >= b."""
+        gap = jnp.concatenate(
+            [jnp.zeros((tb.shape[0], 1)), jnp.diff(tb, axis=1)], axis=1
+        )
+        s_b = jnp.sqrt(-jnp.expm1(-2 * gap / tau)).at[:, 0].set(1.0)
+        return jnp.tril(
+            jnp.exp(-jnp.abs(tb[:, :, None] - tb[:, None, :]) / tau) * s_b[:, None, :]
+        )
 
     def lasting(D, hyp, ukap):
         """Under `unit_t`, the variance ss^2 / kap_k of the lasting level of each training
@@ -1163,8 +1198,16 @@ def make_sampler(
                 jnp.exp(-jnp.abs(tb[:, :, None] - tb[:, None, :]) / tau)
                 * s_b[:, None, :]
             )
-            a0 = jnp.sqrt(v) * jax.random.normal(k1, (B,))
-            u0 = a0[:, None] + sd * jnp.einsum(
+            if unit_slow:
+                # The lasting level's prior draw follows its own OU path.
+                a0 = jnp.sqrt(v)[:, None] * jnp.einsum(
+                    "bij,bj->bi",
+                    ou_factor(tb, jnp.exp(hyp[3])),
+                    jax.random.normal(k1, (B, m)),
+                )
+            else:
+                a0 = jnp.sqrt(v) * jax.random.normal(k1, (B,))
+            u0 = (a0 if unit_slow else a0[:, None]) + sd * jnp.einsum(
                 "bij,bj->bi", Lou, jax.random.normal(k2, (B, m))
             )
             cb = jnp.where(mask, c[idx], 1.0)
@@ -1173,7 +1216,10 @@ def make_sampler(
             Wr = jnp.einsum("bij,bj->bi", W, res)
             Kb = kernel(hyp, tb[:, :, None], tb[:, None, :], v[:, None, None])
             ub = u0 + jnp.einsum("bij,bj->bi", Kb, Wr)
-            s_unit = s_unit.at[bu].add(a0 + v * jnp.sum(Wr, axis=1))
+            if not unit_slow:
+                # Under `unit_slow` the lasting level moves, and the step that would read
+                # s_k (`update_unit_t` with nu_u free or the kap given s) is not taken.
+                s_unit = s_unit.at[bu].add(a0 + v * jnp.sum(Wr, axis=1))
             u = (
                 u
                 + seg(
@@ -1226,14 +1272,15 @@ def make_sampler(
         pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
         return nu, kap * g2, hyp.at[0].add(0.5 * jnp.log(g2)), pred_kap
 
-    def collapsed_kap(D, key, hyp, nu, ukap, w1, Wb, e):
+    def collapsed_kap(D, key, hyp, nu, ukap, w1, Wb, e, c=None):
         """Under `unit_t`, every unit's mixing scale kap_k from its conditional given the
         rows' remainders e, with u and the lasting level s_k integrated out: a slice update
-        of each log kap_k on `kap_logp`, the units being independent given e."""
-        logp = kap_logp(D, hyp, nu, ukap, w1, Wb, e)
+        of each log kap_k on `kap_logp`, the units being independent given e. `unit_slow`
+        needs the rows' weights c."""
+        logp = kap_logp(D, hyp, nu, ukap, w1, Wb, e, c)
         return jnp.exp(b0.slice_vec(key, jnp.log(ukap), logp, UNIT_KAP_WIDTH))
 
-    def kap_logp(D, hyp, nu, ukap, w1, Wb, e):
+    def kap_logp(D, hyp, nu, ukap, w1, Wb, e, c=None):
         """The log density of every unit's log kap_k given e, with u and s_k integrated out,
         as a function of the vector of log kap, up to a constant for each unit. `w1` and
         `Wb` are `unit_W`'s at the state's `ukap`.
@@ -1243,7 +1290,16 @@ def make_sampler(
         a = 1' A 1 and b = 1' A e (Sherman-Morrison). W at the state's kap (`unit_W`) gives
         a0 = 1' W 1 = a / (1 + v0 a) and b0 = 1' W e = b / (1 + v0 a), so a and b follow
         from it with no new inverse. The Gamma(nu / 2, rate nu / 2) prior and the Jacobian
-        of log kap add nu l / 2 - nu e^l / 2 at l = log kap."""
+        of log kap add nu l / 2 - nu e^l / 2 at l = log kap.
+
+        Under `unit_slow` the lasting part of the unit's covariance is v R, with R the OU
+        correlation at unit_tau, and the rest is M, the drift's covariance plus the rows'
+        noise 1 / c. With M = L L' and L^-1 R L^-T = Q diag(g) Q', the rows have log
+        density -sum_i log(1 + v g_i) / 2 - sum_i z_i^2 / (2 (1 + v g_i)) in v, up to a
+        constant, with z = Q' L^-1 e. The step factors each unit once a sweep, and every
+        slice evaluation is then a sum over the unit's rows."""
+        if unit_slow:
+            return kap_logp_slow(D, hyp, nu, c, e)
         ss2 = scales(hyp)[0] ** 2
         one = D["single"]
         a0 = seg(jnp.where(one, w1, 0.0), D["unit"], num_segments=U)
@@ -1264,6 +1320,52 @@ def make_sampler(
                 - 0.5 * jnp.log1p(v * a)
                 + 0.5 * v * b * b / (1 + v * a)
             )
+
+        return logp
+
+    def kap_logp_slow(D, hyp, nu, c, e):
+        """`kap_logp` under `unit_slow`."""
+        ss, sd, tau = scales(hyp)
+        ss2, ts = ss**2, jnp.exp(hyp[3])
+        one = D["single"]
+        # A single row: M = sd^2 + 1 / c and R = 1.
+        m1 = sd**2 + 1 / c
+        g = [seg(jnp.where(one, 1 / m1, 0.0), D["unit"], num_segments=U)[:, None]]
+        z2 = [seg(jnp.where(one, e * e / m1, 0.0), D["unit"], num_segments=U)[:, None]]
+        at = [None]
+        for idx, mask, tb, bu in zip(D["b_idx"], D["b_mask"], D["b_t"], D["b_unit"]):
+            m = idx.shape[1]
+            both = mask[:, :, None] & mask[:, None, :]
+            dt = jnp.abs(tb[:, :, None] - tb[:, None, :])
+            cb = jnp.where(mask, c[idx], 1.0)
+            # Padded places take M's identity row and R's zero row, so they add nothing.
+            M = (
+                jnp.where(both, sd**2 * jnp.exp(-dt / tau), 0.0)
+                + jnp.eye(m) / cb[:, None, :]
+            )
+            R = jnp.where(both, jnp.exp(-dt / ts), 0.0)
+            L = jnp.linalg.cholesky(M)
+            tri = jax.lax.linalg.triangular_solve
+            X = tri(L, R, left_side=True, lower=True)
+            A = tri(L, jnp.swapaxes(X, 1, 2), left_side=True, lower=True)
+            gb, Q = jnp.linalg.eigh(0.5 * (A + jnp.swapaxes(A, 1, 2)))
+            y = tri(
+                L, jnp.where(mask, e[idx], 0.0)[:, :, None], left_side=True, lower=True
+            )
+            zb = jnp.einsum("bij,bi->bj", Q, y[:, :, 0])
+            g.append(jnp.maximum(gb, 0.0))
+            z2.append(zb * zb)
+            at.append(bu)
+
+        def logp(lk):
+            v = ss2 * jnp.exp(-lk)
+            out = nu * lk / 2 - nu * jnp.exp(lk) / 2
+            for gg, zz, bu in zip(g, z2, at):
+                vb = v[:, None] if bu is None else v[bu][:, None]
+                f = 1 + vb * gg
+                term = -0.5 * jnp.sum(jnp.log(f) + zz / f, axis=1)
+                out = out + term if bu is None else out.at[bu].add(term)
+            return out
 
         return logp
 
@@ -1289,12 +1391,19 @@ def make_sampler(
             p11 = jnp.full(B, ss**2) if v is None else v
             p12 = jnp.zeros(B)
             p22 = jnp.full(B, sd**2)
+            vl = p11
             for a in range(m):
                 if a:
                     phi = jnp.exp(-(tb[:, a] - tb[:, a - 1]) / tau)
                     m2 = phi * m2
                     p12 = phi * p12
                     p22 = phi * phi * p22 + sd**2 * (1 - phi * phi)
+                    if unit_slow:
+                        # The lasting level's own OU step.
+                        ps = jnp.exp(-(tb[:, a] - tb[:, a - 1]) / jnp.exp(hyp[3]))
+                        m1 = ps * m1
+                        p12 = ps * p12
+                        p11 = ps * ps * p11 + vl * (1 - ps * ps)
                 ok = mask[:, a]
                 f = p11 + 2 * p12 + p22 + 1 / cb[:, a]
                 v = eb[:, a] - m1 - m2
@@ -1316,6 +1425,10 @@ def make_sampler(
             + hyp[1]
             - (hyp[2] - TAU_LOG_PRIOR[0]) ** 2 / (2 * TAU_LOG_PRIOR[1] ** 2)
         )
+        if unit_slow:
+            prior = prior - (hyp[3] - UNIT_TAU_LOG_PRIOR[0]) ** 2 / (
+                2 * UNIT_TAU_LOG_PRIOR[1] ** 2
+            )
         return unit_loglik(D, hyp, c, e, ukap) + prior
 
     group_rows = jnp.asarray(np.bincount(d.group, minlength=4), dtype=float)
@@ -1389,11 +1502,12 @@ def make_sampler(
             )
             logk = m_u + sd_u * keta
             ukap = jnp.exp(logk)
-        w1, Wb = unit_W(D, x[:3], c, ukap)
+        hu = jnp.concatenate([x[:3], x[-1:]]) if unit_slow else x[:3]
+        w1, Wb = unit_W(D, hu, c, ukap)
         om_d, om_off = pair_weights(D, w1, Wb)
         a_nu, b_nu = priors.nu
         out = (
-            hyp_logp(D, x[:3], c, tgt, ukap)
+            hyp_logp(D, hu, c, tgt, ukap)
             + 0.5 * jnp.sum(loglam)
             - jnp.sum(group_rows * ls)
             + level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap)
@@ -1437,7 +1551,8 @@ def make_sampler(
         lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
         x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu])
         x = jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
-        return jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
+        x = jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
+        return jnp.concatenate([x, jnp.log(st["unit_tau"])[None]]) if unit_slow else x
 
     def update_scales(D, key, st, tgt, F):
         """The unit scales, the groups' sigma, nu and any noise phases' factors together,
@@ -1477,6 +1592,8 @@ def make_sampler(
             m_u, sd_u = lam_moments(x[-1])
             new["unit_dof"] = jnp.exp(x[-1])
             new["ukap"] = jnp.exp(m_u + sd_u * keta)
+        if unit_slow:
+            new["unit_tau"] = jnp.exp(x[-1])
         return new
 
     def scales_curvature(D, st, h=CURV_STEP):
@@ -1949,7 +2066,7 @@ def make_sampler(
         ks = jax.random.split(key, 9 + len(ars))
         k1, k2, k3, k4, k5, k6, k7, k8, k_gp = ks[:9]
         c = weights(D, st)
-        w1, Wb = unit_W(D, st["hyp"], c, st.get("ukap"))
+        w1, Wb = unit_W(D, unit_hyp(st), c, st.get("ukap"))
         y_eff = D["y"] - offsets(D, st)
         theta, _ = draw_theta(D, k1, st, c, w1, Wb, y_eff)
         w = theta[sl_w]
@@ -1960,7 +2077,7 @@ def make_sampler(
         # The scales move with all three integrated out, so the three are drawn afresh
         # below, at the new scales, before anything reads them.
         st = st | update_scales(D, k8, st, tgt, F)
-        hyp = st["hyp"]
+        hyp = unit_hyp(st)
         c = weights(D, st)
         w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
         om_d, om_off = pair_weights(D, w1, Wb)
@@ -2004,6 +2121,7 @@ def make_sampler(
                     w1,
                     Wb,
                     e,
+                    c,
                 )
                 w1, Wb = unit_W(D, hyp, c, ukap)
             u, s_unit = draw_us(D, k7, hyp, c, w1, Wb, e, ukap)
@@ -2034,9 +2152,11 @@ def make_sampler(
             lam=lam,
             tau=tau,
             amp=amp,
-            hyp=hyp,
+            hyp=hyp[:3] if unit_slow else hyp,
             hyp_dirs=st["hyp_dirs"],
         )
+        if unit_slow:
+            new["unit_tau"] = st["unit_tau"]
         if phased:
             new["phase_scale"] = st["phase_scale"]
         if unit_t:
@@ -2058,6 +2178,8 @@ def make_sampler(
             out["phase_scale"] = phase_factors(st["phase_scale"])
         if dof_free:
             out["unit_dof"] = unit_dof
+        if unit_slow:
+            out["unit_tau"] = st["unit_tau"]
         if col is not None:
             new["cell_dirs"] = st["cell_dirs"]
         if ars:
@@ -2075,7 +2197,7 @@ def make_sampler(
         unit with training rows takes its unit's mixing scale, and a row of a unit with
         none takes the state's draw from the prior (`update_unit_t`)."""
         c = weights(D, st)
-        hyp = st["hyp"]
+        hyp = unit_hyp(st)
         ss, sd, _ = scales(hyp)
         k0 = ss**2 + sd**2
         vp = k0p = None
@@ -2140,9 +2262,12 @@ def make_sampler(
                     + [NU_WIDTH] * nu_free
                     + [PHASE_WIDTH] * free
                     + [UNIT_DOF_WIDTH] * dof_free
+                    + [UNIT_TAU_WIDTH] * unit_slow
                 )
             ),
         )
+        if unit_slow:
+            out["unit_tau"] = UNIT_TAU_START * jit(jax.random.fold_in(key, 17), (), 0.2)
         if phased:
             out["phase_scale"] = jit(jax.random.fold_in(key, 13), (free,), 0.1)
         if dof is not None:
@@ -2228,6 +2353,8 @@ def make_sampler(
             unit_t=unit_t,
             dof_free=dof_free,
             nu_free=nu_free,
+            unit_slow=unit_slow,
+            unit_hyp=unit_hyp,
             predict=predict,
             all_means=all_means,
             kernel=kernel,
@@ -2285,6 +2412,7 @@ def run(
     unit_dof_fixed: float | None = None,
     unit_kap_collapsed: bool = False,
     row_dof_fixed: float | None = None,
+    unit_slow: bool = False,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2295,7 +2423,8 @@ def run(
     (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both, unless
     `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s. With `row_dof_fixed`
     (`make_sampler`) nu is traced and kept at its value, and the gate's diagnostics skip it
-    as a constant."""
+    as a constant. `unit_slow` (`make_sampler`) adds the lasting level's time constant
+    `unit_tau` to both."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
@@ -2309,13 +2438,18 @@ def run(
         unit_dof_fixed=unit_dof_fixed,
         unit_kap_collapsed=unit_kap_collapsed,
         row_dof_fixed=row_dof_fixed,
+        unit_slow=unit_slow,
     )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
     )
     phase = ("phase_scale",) if parts["phased"] else ()
-    more = phase + (("unit_dof",) if parts["dof_free"] else ())
+    more = (
+        phase
+        + (("unit_dof",) if parts["dof_free"] else ())
+        + (("unit_tau",) if unit_slow else ())
+    )
     traced = TRACED + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     kept_names = KEPT + HYP + local + (("gp_amp", "gp_ls") if gp else ()) + more
     key = jax.random.PRNGKey(settings.seed)
@@ -2401,6 +2535,11 @@ def run(
                 if unit_t
                 else ""
             )
+            + (
+                f"unit_tau {np.asarray(st['unit_tau'])[:4].round(2).tolist()}, "
+                if unit_slow
+                else ""
+            )
         ) + "".join(
             f"{g['name']} sd {np.exp(np.asarray(st['ar_par'])[:4, k, 0]).round(4).tolist()} "
             f"rho {(1 / (1 + np.exp(-np.asarray(st['ar_par'])[:4, k, 1]))).round(3).tolist()}, "
@@ -2435,7 +2574,8 @@ def run(
                     [np.log(np.asarray(st["unit_dof"]))[:, None]]
                     if parts["dof_free"]
                     else []
-                ),
+                )
+                + ([np.log(np.asarray(st["unit_tau"]))[:, None]] if unit_slow else []),
                 axis=1,
             )
             if "cell_dirs" in st:
@@ -2543,8 +2683,9 @@ def diagnostics(trace: dict, names) -> dict:
         k: trace[k]
         for k in [*HYP, *(k for k in trace if k.endswith(("_ar_sd", "_ar_rho")))]
     }
-    if "unit_dof" in trace:
-        quantities["unit_dof"] = trace["unit_dof"]
+    for k in ("unit_dof", "unit_tau"):
+        if k in trace:
+            quantities[k] = trace[k]
     if "phase_scale" in trace:
         # The reference phase's factor is constant, so the check below leaves it out.
         f = np.asarray(trace["phase_scale"])
@@ -2576,8 +2717,9 @@ def summarize(kept: dict, names) -> dict:
     if "phase_scale" in kept:
         f = np.asarray(kept["phase_scale"])
         out["phase_scale"] = [two_zone._q(f[..., j]) for j in range(f.shape[-1])]
-    if "unit_dof" in kept:
-        out["unit"]["unit_dof"] = two_zone._q(np.asarray(kept["unit_dof"]))
+    for k in ("unit_dof", "unit_tau"):
+        if k in kept:
+            out["unit"][k] = two_zone._q(np.asarray(kept[k]))
     return out
 
 
