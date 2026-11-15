@@ -118,6 +118,9 @@ ESS is 1,141 (`unit_sd`).
 | 80% coverage | 80.01% | 80.07% |
 | median gap | -0.0050 | -0.0037 |
 
+Both coverage columns come from the saved predictive CDF value of each ad (`l2post.py`).
+`drift_score`'s own summary, from sampled intervals, prints 51.84% and 80.01% for L2.
+
 The gain is +520 elpd with an SE of 30 when I cluster the ads by building (28 with ads taken
 as independent), about 17 SE. 50.2% of the ads score better under L2. Summed over the ads
 scoring better the gain is 3,596, and over the others the loss is 3,076, so the gain is
@@ -128,7 +131,8 @@ other half of the buildings (`pshift.py`) and scored again. L1TKN rises by 640 t
 L2 by 360 to 237,791. The gain left between them is +240, clustered SE 28, about 8.5 SE. So
 279 of the 520 came from L2 lowering every held-out ad's median by about 0.13%, and 240 from
 the differences among phases. Both parts follow from the term. Every held-out ad has an
-earlier ad of its unit, since the split holds out a unit's latest ads, and four of the five
+earlier ad of its unit, since the split holds out the most recent ad of a random set of
+relisted units, and four of the five
 phases with a previous ad carry a negative level against the 10-13 reference.
 
 **By phase** (gain over L1TKN, the same gain after the shift, and L2's calibration):
@@ -202,7 +206,7 @@ Leads from this fit:
 
 - The held-out asks still fall 0.37% under L2's median in every phase, worth 360 elpd as a
   constant. By ad date the gap is widest from April 2021 to March 2024 (-0.8%) and near
-  -0.2% in the latest eighth of the ads. Since the split holds out a unit's latest ads, the
+  -0.2% in the latest eighth of the ads. Since each held-out ad is the most recent ad of its unit, the
   remaining gap may come from the way a listing ends (a final cut before it rents) or from
   the unit's drift. The previous ad's ending and the price history within an ad are the
   screens to run on it, on L2's saved predictions, at no cost.
