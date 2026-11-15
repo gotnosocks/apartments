@@ -92,12 +92,10 @@ here.
 | outer 2br | +0.99 / +0.94 | 0.32 / 0.34 | 0.14 / 0.18 | 1.007, 392 | 1.001, 666 |
 | outer 3br+ | +0.36 / -0.20 | 0.44 / 0.72 | 0.10 / 0.09 | 1.115, 6 | 1.049, 34 |
 
-Three patterns come out of the tables.
-
 1. The claim holds for six of the eight paths' hyperparameters. For Manhattan studios, 1br
    and 2br the chain sd has fallen to within a factor of 1.5 of the conditional step, and
    the lengthscales pass with ESS 621 to 931. The outer studio, 1br and 2br lengthscales
-   settle near 2.5 years and pass or sit at the 400 line, as do their amplitudes. The
+   settle near 2.5 years and pass or fall just short of ESS 400, as do their amplitudes. The
    amplitudes that miss among these six do so by R-hat 1.011 to 1.014 or ESS 282 to 301.
 2. Both 3br+ paths split their chains. In Manhattan 3br+ one chain holds a lengthscale near
    0.5 years and the other near 2.2 years, and the amplitude follows (correlation of the two
@@ -141,7 +139,7 @@ whose hyperparameters improved would likely pass on 1,200 to 7,000 rows a quarte
 3br+ paths hold two modes on 11,000 to 19,000 rows, and the quarter coefficients missed more
 often at ten times the rows, through an offset between chains that more rows did not shrink.
 
-Two variants could plausibly pass, each untested:
+These variants could plausibly pass. Neither has been run yet:
 
 - **Hold the 3br+ lengthscales** at a single value each, or give 3br+ no path of its own.
   This removes the split modes, and the early offset correlates with the 3br+ amplitude.
@@ -151,7 +149,7 @@ Two variants could plausibly pass, each untested:
   hold let the Manhattan coefficients pass and left misses on the outer paths, whose rows
   pointed elsewhere.
 
-Neither addresses the early-quarter offset directly, so a 1-in-10 rehearsal of either
+The early-quarter offset is still open under both, so a 1-in-10 rehearsal of either
 should come before a Modal fit.
 
 ## Files
