@@ -47,8 +47,8 @@ subagent's model and effort to be picked by its task.
 
 Next, in order:
 
-1. Act on the unread-half check: a candidate that beats its shuffled null gets a note with
-   predictions and a single-term fit, if it moves enough ads on Deals.
+1. Act on the unread-half check. If a candidate beats its shuffled null and moves enough ads
+   on Deals, it gets a note with predictions and a single-term fit.
 2. `drift_today` has to accept a Student-t unit level before L2 can publish.
 3. Fit A of item 8a, after its note.
 4. A false-deals count in scoring, the line contrast check, and pricing the StreetEasy
