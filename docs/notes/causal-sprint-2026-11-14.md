@@ -131,17 +131,17 @@ Ranked by whether the item changes the causal graph, then by its value for deals
 8. The 2020 and 2021 concession gap term by building.
 8a. A latent price path for each unit, added at Ben's request on 2026-11-15. The current
     models build a unit's price at time t as the citywide week plus the building's path plus
-    the unit's level and drift, and they score the ask itself. The variant would:
-    - give each unit a latent price that moves as its own time series, with the market's
+    the unit's level and drift, and they score the ask itself. The variant:
+    - gives each unit a latent price that moves as its own time series, with the market's
       path as an input whose weight can differ by unit or segment, in place of a fixed
       offset from the citywide walk;
-    - derive the ask from that latent price through an ask-setting step, with terms for the
+    - derives the ask from that latent price through an ask-setting step, with terms for the
       lease phase, time on the market and price cuts, concessions and the broker fee;
-    - report the latent price as the model's estimate, so Deals compares an ask with the
+    - reports the latent price as the model's estimate, so Deals compares an ask with the
       unit's latent price rather than with a predicted ask.
-    The drift d_k and the unit-record OU level of PR #1405 are partial steps in this
+    The drift d_k and the unit-record OU level of open PR #1405 are partial steps in this
     direction. Price cuts within a listing are the main evidence on the ask-setting step,
-    so the first check is whether the data keeps each ad's ask history.
+    so the first check is whether the data holds every ad's ask history.
 
 **Data validity, free, before the next dataset build**
 
