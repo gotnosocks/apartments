@@ -9,7 +9,7 @@ they can, the shared trait is a candidate feature. This page sets out how each r
 
 After each fit that passes the gate, on its held-out ads from the latest split. Held-out ads
 keep the read clear of the target leak in `docs/leak-free-scoring.md`, because their rents
-never reached the fit.
+never entered the fit.
 
 Choosing a feature from these ads' errors still biases any later score on the same ads, the
 hazard that `docs/leak-free-scoring.md` calls data rules chosen with rents in view. So each
@@ -35,8 +35,8 @@ feature list.
 
 Readers read the whole ad, with its photos and floor plan where they are stored, plus the
 building's fields, before writing down any reason. They read in groups of about 20 from one
-set, mixed with control ads, and do not know which ads are which. Grouping matters because an expert spots a trait by seeing it again and
-again, and one strange ad rarely shows a feature.
+set, mixed with control ads, and do not know which ads are which. Grouping matters because an
+expert spots a trait by seeing it again and again, and one strange ad rarely shows a feature.
 
 For each ad a reader writes down short traits a broker would price: floor and light, the
 view, a walkup's flights, the block's noise, an elevated train outside, the renovation, the
@@ -54,7 +54,8 @@ too coarse, such as a floor field that reads "PH" as missing.
 
 1. Code the trait for every row from fields or text, without the rent.
 2. Check, at no cost, how much of the error on the unread half of the held-out ads the coded
-   trait explains, against a null from shuffled labels (`explained` above the null's 95th percentile).
+   trait explains, against a null from shuffled labels
+   (`explained` above the null's 95th percentile).
 3. Write the fit's note with predictions, then fit it as a single change, under the rules in
    `CLAUDE.md`. Ben cares most about terms that change which ads show as deals, so a term with
    a small effect on few ads waits.
