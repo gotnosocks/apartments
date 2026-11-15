@@ -18,7 +18,9 @@ Before drawing anything I split the 36,207 held-out buildings in half at random,
 - the unread half is in `buildings_unread_half.txt`. Nobody has looked at its ads, so it stays
   free for checking candidates later.
 
-Within the read half I dropped 118 income-restricted ads and sorted the rest into three sets:
+Within the read half I dropped 118 income-restricted ads and sorted the rest into three sets.
+`docs/expert-reads.md` sets net-effective asks aside before reading, but this read kept them in,
+so they show up below as a trait counted in every set.
 
 | set | rule | eligible ads | buildings |
 |---|---|---|---|
@@ -77,11 +79,11 @@ Among the far-below ads:
 | luxury doorman or amenity tower | 16% (10-23) | 31% (23-40) | 0.009 (less common) |
 
 Low floors turn up twice as often in both miss sets (19% far above, 20% far below), so readers
-spotted them as a source of spread, and the far-above cases are mostly garden duplexes. Several
+spotted them as a source of spread. Several
 themes I expected from the summaries came out flat against control once counted: net effective
 asks and months free (9 to 12% in every set), walkups, co-op or condo units rented by their owners,
 roommate layouts, high ceilings and views. With 120 ads a set, none of these p values survives a
-correction for the 34 traits tested, so the tables rank candidates for a check on the unread half
+correction for the 68 tests (34 traits, each against both miss sets), so the tables rank candidates for a check on the unread half
 and do not establish any of them.
 
 ## Candidates and how to code them without the rent
@@ -108,8 +110,8 @@ price beyond those terms.
    for one-to-four family houses or a low height with a narrow lot, joined with the text words
    brownstone, townhouse and parlor floor.
 6. Thin ads. Character count of the description after stripping boilerplate, coded as a short-text
-   flag. Thin ads miss in both directions (11% far above, 8% far below, 4% control), so this fits
-   better as a term in the scale than in the mean.
+   flag. The far-above set leans toward thin ads (11% against 4% control, p 0.08). The far-below
+   set, at 8% (p 0.29), may differ from control by chance alone.
 7. Regulated asks. A regex for rent stabilized, preferential rent, HPD and income limits, on ads
    with `rent_stabilized` false and `income_restricted` false. Two HPD ads in the far-below set
    escaped the income flag, which is a data fix before it is a feature.
@@ -121,9 +123,9 @@ price beyond those terms.
 Readers flagged something in most ads, much of it minor (thin text, staged photos, doubtful tags).
 I kept the serious categories in `serious_errors.jsonl`: 35 far-above ads, 35 far-below ads and 16
 control ads, 86 in all. Most are bedroom counts that disagree with the text or plan (19 far above,
-13 far below, 6 control), bath counts that disagree (8 far above, 1 control) and text describing
-another unit, or several units at once (11 far below, 6 control). Smaller groups are lease
-assignments and short remaining leases (4 far below), a room in a share or co-living ad (2 far
+13 far below, 6 control), bath counts that disagree (8 far above, 1 far below, 1 control) and text describing
+another unit, or several units at once (3 far above, 11 far below, 6 control). Smaller groups are
+lease assignments and short remaining leases (1 far above, 4 far below), a room in a share or co-living ad (2 far
 below), commercial or raw space (2 far above), floor coding (10 across sets) and a sale listing
 (1 far above). Bedroom undercounts in the far-above set and multi-unit ads in the far-below set
 are fixes for the data thread before they are features.
@@ -132,5 +134,7 @@ are fixes for the data thread before they are features.
 
 Code candidates 1 to 3 and 7 from fields and text on all ads, then count them on the unread half
 of held-out buildings among the cdf > 0.99, cdf < 0.01 and control ads, without reading any of
-those ads. A candidate that holds its ratio there goes forward as a single-term fit with its
-predictions written here first.
+those ads. A candidate goes forward only when the free check in `docs/expert-reads.md` passes on
+that half, with `explained` above the 95th percentile of a shuffled-label null. It then gets a
+single-term fit with its predictions written here first, and the fit's elpd for it is scored on
+the unread half only.
