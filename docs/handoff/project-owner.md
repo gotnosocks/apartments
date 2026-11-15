@@ -15,6 +15,45 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 6:30 PM ET on Nov 15
+
+- **Spend:** still $21.88 of $100. The GPU stays idle on purpose: Ben asked for Modal spend
+  only on terms that would change which ads show as deals.
+- **Income-program ads are out of scope** (Ben, Nov 15). Drop the income regime account (E),
+  keep income-flagged ads off Deals, and leave the rows and the flag in training.
+- **Unit-record term on L2** (#1405, `docs/notes/l2-unit-record-2026-11-15.md`) missed the
+  gate on its 1-in-10 rehearsal: 13 of 274 quantities, lowest ESS 80 on `drift_sd`. No Modal
+  fit. The note lists two variants worth a rehearsal, both about the OU drift.
+- **Expert reads** are part of the aim (#1406, `CLAUDE.md`, `docs/expert-reads.md`). The
+  first read of L2's misses (#1409, `docs/notes/expert-read-l2-2026-11-15.md`) used half of
+  the held-out buildings (seed 20261115) and keeps the other half unread. Leading candidates:
+  duplex or garden units, rooms beyond the coded bedrooms and bath-per-bedroom among the
+  ask-far-above ads, regulated asks among the ask-far-below ads. None survives correction for
+  68 tests. A subagent is coding candidates 1 to 3 and 7 rent-blind and running the free
+  check on the unread half, on branch `claude/expert-read-l2-check`, work in
+  `/data1/apartments/tmp/expert-reads-2026-11-15/unread-check/`. Readers also flagged 86 ads
+  with serious data errors (`serious_errors.jsonl` there), mostly bedroom counts, for the
+  data thread.
+- **Latent price per unit** is item 8a of the sprint note (#1407, #1408), with staged fits.
+  Step 1, the free data check, is done: 99.8% of training ads have an ending with an off
+  date (49.7% RENTED), every ad has a first ask in `ads.first_ask`, and 29.9% have a cut in
+  `ads.kept_changes` (`/data1/apartments/tmp/spell-check-2026-11-15/`). The recorded
+  `rented_price` (22,182 usable ads, 2014 to 2019) equals the last ask in 92% of them, so it
+  cannot check the last ask as a measure of the latent price
+  (`/data1/apartments/tmp/rented-gap-2026-11-15/`). Fit A has to estimate that offset.
+- **Literature items L1 to L12** are in the sprint note. L1 (days on the market at an
+  unchanged ask, as of the ask's date) and L2 (kriging held-out residuals) rate high value at
+  low cost.
+
+Next, in order:
+
+1. Act on the unread-half check. If a candidate beats its shuffled null and moves enough ads
+   on Deals, it gets a note with predictions and a single-term fit.
+2. `drift_today` has to accept a Student-t unit level before L2 can publish.
+3. Fit A of item 8a, after its note.
+4. A false-deals count in scoring, the line contrast check, and pricing the StreetEasy
+   top-up.
+
 ### State at 11:45 AM ET on Nov 15
 
 - **Spend:** $21.88 of $100 (L1TKN $10.82, L2 $11.06). The sheet is
