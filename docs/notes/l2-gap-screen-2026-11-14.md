@@ -98,6 +98,198 @@ shift on the 189,647 held-out ads.
 8. The best partition a model could read from dates and earlier ads gains 100 to 300 over
    the constant (50%).
 
+
 ## Results
 
-To be written after the scripts run.
+The scripts wrote their outputs to `/data1/apartments/tmp/sprint-20261114/gap-screen/`
+(`g1.json`, `g2.json`, `g3.json`, with the per-ad gains in `g2_gains.parquet`). Gaps below
+are in percent of the ask, with SEs clustered by building. Gains are elpd from the
+cross-fitted shift, given as the gain over the plain constant.
+
+### The gap as a whole
+
+Over the 189,647 held-out ads the median gap is -0.375 and the mean -0.432 ± 0.021. 52.7% of
+the ads fall under their median. My rescoring of the plain constant gives 360.3 ± 32.1, the
+figure in the L2 note. Cells by phase add nothing over it (-4.0 ± 4.0), since the phase
+medians run from -0.30 to -0.42.
+
+### Candidate (a), the previous ad's ending
+
+| previous ad ended | ads | median | mean |
+| --- | ---: | ---: | ---: |
+| rented | 92,152 | -0.315 | -0.358 ± 0.028 |
+| no longer available | 57,765 | -0.324 | -0.317 ± 0.038 |
+| delisted | 22,424 | -0.744 | -0.866 ± 0.058 |
+| temporarily off the market | 13,136 | -0.617 | -0.776 ± 0.073 |
+| undated | 4,170 | +0.056 | -0.238 ± 0.105 |
+
+Ads after a delisting or a pause come in 0.48 ± 0.05 points under ads after a rental. Cells of
+the ending gain 64.0 ± 13.1 over the constant, and phase by ending 66.7 ± 16.8. The previous
+price path gains 41.9 ± 11.1 (54.2 ± 14.6 by phase). These repeat S3's sizes on L1. After a
+rental the gap stays at -0.32, close to the whole.
+
+### Candidate (b), the price history inside the held-out ad
+
+Held-out and training rows follow the same price rule. In both, about 97% of rows take the
+ad's latest ask (`latest_ask_how` "latest": 96.6% held out, 96.8% training) and most of the
+rest take the latest ask before a closing raise (3.4% and 3.1%). The latest ask equals the
+process table's last price on 86.1% and 87.8% of rows. Ads with a cut make up 27.6% of
+held-out ads, 30.5% of training ads and 27.8% of the training ads that are a unit's latest.
+Median days on the market are 13 and 14.
+
+Inside the held-out set the gap follows the ad's own history closely:
+
+| held-out ad | ads | median gap |
+| --- | ---: | ---: |
+| no cut | 137,281 | -0.126 |
+| one cut | 29,088 | -0.668 |
+| two cuts or more | 23,278 | -1.588 |
+| one raise or more | 28,608 | -0.034 |
+| on the market 0 to 7 days | 65,808 | -0.789 |
+| on the market 15 to 30 days | 41,130 | -0.004 |
+| on the market 121 days or more | 4,416 | -0.848 |
+| still open at the snapshot | 837 | +1.469 |
+
+With the ad's first price as the target, the median gap turns to +0.35 (mean +0.323 ± 0.034).
+An ad's opening ask sits above L2's median on average, and its cuts carry it below. Cells of
+cuts gain 650.2 ± 45.9 over the constant, cuts by raises 1,102 ± 52, days on the market
+281.4 ± 27.0, the ad's own ending 157.3 ± 20.1.
+
+All of these cells read the held-out ad's own later rents or its outcome, which the leak rule
+forbids a model to use. I report them only as a decomposition of the target. They locate the
+residual spread inside an ad's own history and offer no term for a model.
+
+### Candidate (c), the unit's training record
+
+I binned the stand-in for the unit's record `m` (its mean training log ask less the monthly
+index and less the other units of its building, bedrooms and year). 137,094 held-out ads have
+one, with sd 0.097.
+
+| unit record | ads | median gap |
+| --- | ---: | ---: |
+| under -0.15 | 6,512 | +0.78 |
+| -0.15 to -0.05 | 25,131 | +0.40 |
+| -0.05 to -0.015 | 22,893 | +0.05 |
+| -0.015 to 0.015 | 26,342 | -0.34 |
+| 0.015 to 0.05 | 22,727 | -0.73 |
+| 0.05 to 0.15 | 25,206 | -1.14 |
+| over 0.15 | 8,283 | -1.34 |
+
+A unit above its building comes in under L2's median, and a unit below comes in over it. The
+slope of the gap on `m` is -0.066 ± 0.003, so L2 carries a unit's premium about 6.6% too far.
+On L2 this repeats the slope of -0.056 that the unit history calibration found for L1T. The
+slope grows with the months since the unit's previous ad (-0.037 ± 0.014 at 0 to 2 months,
+-0.057 at 10 to 13, -0.072 at 38 to 61, -0.099 ± 0.009 at 62 or more) and with the count of
+the unit's training ads (-0.045 for one, -0.078 for two, -0.091 for five to nine). It sits
+near zero for ads of 2014 to 2020 (-0.014 ± 0.011 and -0.008) and at -0.08 to -0.09 from 2022
+on. Since units with more ads need less shrinkage, a level too loose for thin units would give
+the opposite pattern by count. A premium fading as the unit's ads age fits both patterns.
+
+Cells of the record gain 690.8 ± 49.9 over the constant (687.3 ± 50.4 by deciles). The change
+over the unit's last two training ads adds 132.1 ± 19.0 alone, and record by last change gains
+818.5 ± 55.4. The central bin still sits at -0.34, so the record spreads the ads around the
+offset and leaves the offset in place.
+
+### Candidate (d), the split
+
+Units with one training ad have a median gap of -0.194 (mean -0.118), units with two to nine
+-0.486 to -0.490. Cells of the count gain 40.5 ± 11.0, L2's own unit sd 7.1 ± 8.0, the months
+since the previous ad 5.6 ± 6.4. Adding the count to the record cells adds 66.4 ± 21.0, as the
+slope's growth with the count would lead me to expect.
+
+### Candidate (e), the date
+
+| year of the ad | ads | median gap |
+| --- | ---: | ---: |
+| 2014 to 2018 | 18,526 | -0.01 to -0.34 |
+| 2019 | 8,010 | -0.10 |
+| 2020 | 15,778 | -0.05 |
+| 2021 | 17,472 | -0.31 |
+| 2022 | 12,760 | -1.02 |
+| 2023 | 19,314 | -0.77 |
+| 2024 | 26,316 | -0.41 |
+| 2025 | 34,531 | -0.41 |
+| 2026 | 36,940 | -0.20 |
+
+By years to the snapshot, closed ads of the last 3 months sit at -0.06, ads 3 to 5 years old
+at -0.91, and ads 5 to 8 years old at -0.14. The median gap of ads 2 to 5 years old is 0.54
+points under that of ads of the last 6 months. Cells of the year gain 118.2 ± 20.5, half-years
+165.7 ± 27.0, years to the snapshot 111.6 ± 22.0, year by ending 187.3 ± 27.2.
+
+Record by year gains 902.7 ± 59.4 over the constant, 784.5 ± 56.9 over the year alone and
+212.0 ± 34.0 over the record alone. Adding the previous ending on top of it loses 26.3 ± 30.2.
+Adding days on the market gains 59.9 ± 46.5.
+
+### The selection test on training ads
+
+I took 961,075 pairs of consecutive ads and netted each pair's change in log ask against the
+mean change of pairs with the same two quarters:
+
+| pair ends at | pairs | median | mean |
+| --- | ---: | ---: | ---: |
+| an ad with a successor | 562,978 | +0.589 | +0.168 ± 0.025 |
+| a held-out latest ad | 189,647 | +0.158 | -0.221 ± 0.037 |
+| a training latest ad | 208,450 | +0.145 | -0.254 ± 0.036 |
+
+Pairs ending at a training latest ad come 0.42 ± 0.03 points under pairs ending at an ad with
+a successor, and pairs ending at a held-out latest ad 0.39 ± 0.04 under. The two latest-ad
+groups differ by 0.03 ± 0.03. The deficit is largest in 2022 (latest -1.3 to -1.5 against
++0.73 with a successor) and 2023, reversed in 2019 to 2020 (+0.55 to +0.59 against -0.21), and
+near zero for held-out ads of 2026. It appears at every count of months since the previous ad.
+Among ads with a successor, those followed within 13 months come in at +0.63 to +1.03, those
+followed after 26 to 37 months at -0.28 and after 38 or more at -0.36.
+
+### Reading
+
+I read the constant as a property of a unit's latest ad. Training latest ads, which L2 fits,
+show the same deficit against their quarter as held-out ones, and so do ads followed only
+after a long gap, where the tenant most likely renewed. A unit drops out of the data after an
+ad that found a tenant who stayed, so its last ad leans toward asks low enough to let, and the
+cuts table points the same way. The deficit fades for ads within 3 months of the snapshot,
+where the latest ad has had no time to become the last. A new ad on the Deals page sits in
+that position, so I would leave the constant out of the model. It raises held-out elpd on a
+split of latest ads and has no counterpart for new asks. The year pattern comes from the same
+selection, heaviest for ads of 2022 and 2023.
+
+The unit record is a separate effect, and the largest one in this screen. L2 carries each
+unit's premium undiminished across years, while the held-out asks show premiums fading by
+about 4% at 0 to 2 months and 10% at five years or more, more so after 2021. A model may use
+it, since it comes from earlier ads and dates.
+
+I would propose a unit level whose deviation from the building decays with the months
+between the unit's earlier ads and the ad being priced: for instance the unit effect times a
+fitted factor exp(-months / tau), or a unit walk in time on the unitkn base. The cross-fitted
+cells give 690 to 900 over the constant at their coarse resolution, and a fitted term on a
+refit should recover part of that. I expect 300 to 700 elpd over L2.
+
+## Predictions scored
+
+| # | prediction | result | scored |
+| --- | --- | --- | --- |
+| 0 | constant 340 to 380 | 360.3 ± 32.1 | hit |
+| 1 | selection (e) the main cause, 55% | the constant follows selection; most of the elpd lies in (c), given 5% | hit for the constant, miss for the elpd |
+| 2a | delisted or paused 0.2 to 0.7 under rented | 0.48 ± 0.05 | hit |
+| 2b | phase by ending 20 to 80 | 66.7 ± 16.8 | hit |
+| 2c | price path under 60 | 41.9 ± 11.1 | hit |
+| 3a | every row carries the last kept ask, no rule difference | same rule in both sets, 96.6% and 96.8% latest | hit |
+| 3b | one cut or more 0.5 to 2.0 under none | 0.95 ± 0.05 | hit |
+| 3c | first-price median gap -0.2 to +0.2 | +0.35 | miss |
+| 3d | days on market 50 to 250 | 281.4 ± 27.0 | miss |
+| 4a | slope on the record -0.01 to +0.02 | -0.066 ± 0.003 | miss |
+| 4b | record cells under 40 | 690.8 ± 49.9 | miss |
+| 5a | one training ad and five or more under 0.3 apart | 0.29 | hit |
+| 5b | count cells under 40 | 40.5 ± 11.0 | miss |
+| 6a | year cells 80 to 250 | 118.2 ± 20.5 | hit |
+| 6b | 2 to 5 years 0.4 to 0.9 under the last 6 months | 0.54 | hit |
+| 7a | training latest 0.2 to 0.6 under ads with a successor | 0.42 ± 0.03 | hit |
+| 7b | followed after 26+ months lower than at 10 to 13 | -0.28 and -0.36 against +0.63 | hit |
+| 7c | training and held-out deficits within 0.15 | 0.03 ± 0.03 | hit |
+| 8 | best leak-free partition 100 to 300 | record by year 902.7 ± 59.4 | miss |
+
+12 of 19 parts hit. I could have avoided the misses on (c): I wrote prediction 4 without
+reading the unit history calibration row, which already gave L1T's slope as -0.056.
+
+`g2_elpd.py` failed on its first full run. It built each cell's key with `astype(str)` across
+columns and stopped on a float column at the seventh partition. I changed it to join the
+columns one at a time as strings and reran all 28 partitions. The first six gains came out the
+same in both runs.
