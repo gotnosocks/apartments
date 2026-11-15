@@ -96,3 +96,121 @@ All are for the pool of three containers against L1TKN's pool on the shared held
 By the sprint's rule the term is accepted if the pool passes the gate and gains more than
 4 SE, and it is provisional between 2 and 4 SE. A gain under 2 SE closes account B's level
 term, and the previous ad's ending is then tested by a free screen before any fit.
+
+## Results
+
+I launched `l2kn-a`, `l2kn-b` and `l2kn-c` from b27d1dd8 and pooled them into
+`drift-building-phase-unitkn-level-b0-latest-b27d1dd8-l2kn`, 6 chains of 2,880 draws. The
+containers settled at $3.62, $3.81 and $3.63, $11.06 in all, which brings the sprint to
+$21.88 of $100.
+
+**Gate: pass.** The highest split R-hat is 1.0050 (`beta[bed=0:full>=2]`) and the lowest bulk
+ESS is 1,141 (`unit_sd`).
+
+**Held-out score** on the 189,647 shared ads:
+
+| | L1TKN | L2 on unitkn |
+|---|---|---|
+| elpd | 236,911 | 237,431 |
+| median absolute error | 0.04020 | 0.04005 |
+| rmse | 0.0789 | 0.0787 |
+| 50% coverage | 51.87% | 51.96% |
+| 80% coverage | 80.01% | 80.07% |
+| median gap | -0.0050 | -0.0037 |
+
+Both coverage columns come from the saved predictive CDF value of each ad (`l2post.py`).
+`drift_score`'s own summary, from sampled intervals, prints 51.84% and 80.01% for L2.
+
+The gain is +520 elpd with an SE of 30 when I cluster the ads by building (28 with ads taken
+as independent), about 17 SE. 50.2% of the ads score better under L2. Summed over the ads
+scoring better the gain is 3,596, and over the others the loss is 3,076, so the gain is
+spread thin over many ads and a few dozen ads do not carry it.
+
+**Counted over a constant shift.** I moved each pool's held-out asks by the median gap of the
+other half of the buildings (`pshift.py`) and scored again. L1TKN rises by 640 to 237,551 and
+L2 by 360 to 237,791. The gain left between them is +240, clustered SE 28, about 8.5 SE. So
+279 of the 520 came from L2 lowering every held-out ad's median by about 0.13%, and 240 from
+the differences among phases. Both parts follow from the term. Every held-out ad has an
+earlier ad of its unit, since the split holds out the most recent ad of a random set of
+relisted units, and four of the five
+phases with a previous ad carry a negative level against the 10-13 reference.
+
+**By phase** (gain over L1TKN, the same gain after the shift, and L2's calibration):
+
+| phase | gain | after the shift | median gap | asks under the median | 80% coverage |
+|---|---|---|---|---|---|
+| 10-13 | -27.9 | +50.6 | -0.0033 | 52.8% | 81.25% |
+| 0-2 | +418.6 | +153.2 | -0.0036 | 53.65% | 77.74% |
+| 3-9 | +99.9 | +7.2 | -0.0038 | 52.75% | 79.09% |
+| 14-21 | +30.6 | -2.3 | -0.0039 | 53.0% | 80.3% |
+| 22-25 | -10.2 | +42.4 | -0.0030 | 52.2% | 81.2% |
+| 26+ | +8.5 | -10.5 | -0.0042 | 52.6% | 79.85% |
+
+The median gaps, spread from -0.0121 to -0.0014 under L1TKN, now run from -0.0042 to -0.0030.
+
+**Phase levels**, as exp(beta) - 1, posterior median with the 5% and 95% points:
+
+| phase | level |
+|---|---|
+| none | -0.00% (-0.04, +0.03) |
+| 0-2 | -1.09% (-1.13, -1.06) |
+| 3-9 | -0.64% (-0.68, -0.60) |
+| 14-21 | -0.25% (-0.29, -0.22) |
+| 22-25 | +0.03% (-0.01, +0.06) |
+| 26+ | -0.16% (-0.20, -0.13) |
+
+A unit back on the market at about one year or about two years asks the same as a first ad.
+A unit back within two months asks 1.1% less, and the discount fades through nine months.
+This reads as a search: the earlier ad did not rent at its ask, or its lease broke early, and
+the landlord comes back lower.
+
+**Noise factors** moved little. Phase 0-2 went from 1.092 to 1.077, and the largest move
+among the others is 0.005.
+
+**Building size** (prediction 11, `p11.py`, units from the latest PLUTO release). Among the
+0-2 ads the gain for each ad is 0.0274 (SE 0.0040) in the 2,578 ads of buildings with 100 or
+more units and 0.0311 (SE 0.0017) in the 11,136 ads of smaller ones. The photo check's lead,
+asks stepping down in large new buildings, gets no support from this split.
+
+### Predictions scored
+
+| | prediction | outcome | |
+|---|---|---|---|
+| 1 | passes the gate (70%) | R-hat 1.0050, ESS 1,141 | hit |
+| 2 | gain 150 to 350 (60%) | +520 | miss, above the range |
+| 2 | more than 2 SE (85%), more than 4 SE (65%) | 17 SE | hit, hit |
+| 3 | shifted gain within 100 of the gain (70%) | 240 against 520 | miss |
+| 4 | at least half from phase 0-2 (65%) | 419 of 520; 153 of 240 after the shift | hit |
+| 5 | 0-2 level between -1.5% and -0.5% (70%) | -1.09% | hit |
+| 6 | the four other levels in range (50%) | -0.64%, -0.25%, +0.03%, -0.16% | hit |
+| 7 | median error moves under 0.0005 (80%) | 0.00015 | hit |
+| 8 | 80% coverage within 0.005 of 80.0% (85%) | 80.07% | hit |
+| 8 | 0-2 coverage rises 0.005 to 0.03 (55%) | 76.8% to 77.7% | hit |
+| 9 | 0-2 asks under the median fall to 50% to 57% (60%) | 53.65% | hit |
+| 10 | 0-2 factor falls 0.01 to 0.05 (50%) | 0.014 | hit |
+| 10 | other factors move under 0.03 (65%) | at most 0.005 | hit |
+| 11 | larger gain per 0-2 ad in buildings of 100+ units (55%) | 0.0274 against 0.0311 | miss |
+| 12 | cost $10.50 to $12.00 (80%) | $11.06 | hit |
+
+Twelve of the fifteen parts hit. I set the range in 2 from the gaps between phases and left
+out the level common to every ad with a previous ad, which is the same omission behind the
+miss on 3.
+
+### Reading
+
+The term is accepted: the pool passes the gate, the gain is over 4 SE with and without the
+constant shift, and it is spread over the ads. L2 on unitkn is the base for the sprint's later
+fits.
+
+Leads from this fit:
+
+- The held-out asks still fall 0.37% under L2's median in every phase, worth 360 elpd as a
+  constant. By ad date the gap is widest from April 2021 to March 2024 (-0.8%) and near
+  -0.2% in the latest eighth of the ads. Since each held-out ad is the most recent ad of its unit, the
+  remaining gap may come from the way a listing ends (a final cut before it rents) or from
+  the unit's drift. The previous ad's ending and the price history within an ad are the
+  screens to run on it, on L2's saved predictions, at no cost.
+- Coverage in phase 0-2 is still 77.7% at 80%, so the spread of quick relists is wider than
+  their factor of 1.08 gives.
+- `drift_today` refuses a Student-t unit level, so neither L1TKN nor this model can publish
+  Price now or Deals until that code handles it.

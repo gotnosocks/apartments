@@ -164,6 +164,12 @@ within building) stay closed.
 - **L1TKN is accepted as the base** (fit 1). Its pool passes the gate and gains 4,106 elpd
   over L1, SE 134, for $10.82. 2,981 of the gain come from the 5,011 ads L1 missed by 0.20 or
   more, so I record it as a tail fix (`l1-row-dof-fixed-2026-11-13.md`).
+- **L2 on unitkn is accepted as the next base** (fit 2). Its pool passes the gate and gains
+  520 elpd over L1TKN, clustered SE 30, for $11.06; 240 (SE 28) remain after a constant shift
+  of each pool (`l2-unitkn-level-2026-11-14.md`). Fits 3 to 5 take it as their base. The
+  sprint has spent $21.88.
+- **`drift_today` refuses a Student-t unit level.** Step 6 needs that code change before
+  Price now or Deals can be published from either accepted model.
 - **Ben lifted the earlier holds** on Nov 14: school zones, photo and floor plan fetches,
   other rental sites, the P1 fit and GPU inference are open choices again, and their costs
   count against the $100. I rank them this way:
