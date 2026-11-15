@@ -86,7 +86,7 @@ def shift(cols):
     return out, len(np.unique(key))
 
 
-# optional partition names after the worktree rerun only those, merging into g2.json
+# Partition names given after the worktree path limit the run to those partitions; their results merge into g2.json.
 ONLY = sys.argv[2:]
 if ONLY:
     PARTS = {k: v for k, v in PARTS.items() if k == "constant" or k in ONLY}
