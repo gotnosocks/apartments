@@ -86,6 +86,10 @@ def shift(cols):
     return out, len(np.unique(key))
 
 
+# optional partition names after the worktree rerun only those, merging into g2.json
+ONLY = sys.argv[2:]
+if ONLY:
+    PARTS = {k: v for k, v in PARTS.items() if k == "constant" or k in ONLY}
 res, gains = {}, {}
 for name, cols in PARTS.items():
     delta, cells = shift(cols)
@@ -106,8 +110,18 @@ for a_, b_ in [
     ("c,d record x training ads", "c unit record (7 bins)"),
     ("b,c,e days x record x year", "c,e record x year"),
 ]:
+    if a_ not in gains or b_ not in gains:
+        continue
     dlt = gains[a_] - gains[b_]
     res[a_ + " over " + b_] = [float(dlt.sum()), c.cluster_se(dlt, b)]
     print(a_, "over", b_, res[a_ + " over " + b_], flush=True)
+if ONLY:
+    full = json.load(open(OUT + "g2.json"))
+    full.update(res)
+    res = full
+    old = pd.read_parquet(OUT + "g2_gains.parquet")
+    for k, v in gains.items():
+        old[k] = v
+    gains = old
 json.dump(res, open(OUT + "g2.json", "w"), indent=1)
 pd.DataFrame(gains).to_parquet(OUT + "g2_gains.parquet")

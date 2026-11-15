@@ -218,6 +218,11 @@ p["chg"] = (p.ly - p.prev_ly).clip(-0.4, 0.4)
 p["q0"] = p.prev_at.dt.to_period("Q").astype(str)
 p["q1"] = p.priced.dt.to_period("Q").astype(str)
 p["adj"] = p.chg - p.groupby(["q0", "q1"]).chg.transform("mean")
+# the unit's last training change, netted against training pairs alone, since a feature may
+# not read held-out rents
+tq = p[~p.held.to_numpy()].groupby(["q0", "q1"]).chg.mean()
+tq_key = pd.MultiIndex.from_frame(p[["q0", "q1"]])
+p["adj_train"] = p.chg - tq.reindex(tq_key).fillna(tq.mean()).to_numpy()
 p["since"] = (p.priced - p.prev_at).dt.days / 30.44
 p["until"] = (p.next_at - p.priced).dt.days / 30.44
 p["kind"] = np.where(
@@ -274,9 +279,9 @@ tp = (
     p[~p.held.to_numpy()]
     .sort_values(["ukey", "priced"])
     .groupby("ukey")
-    .tail(1)[["ukey", "adj"]]
+    .tail(1)[["ukey", "adj_train"]]
 )
-tp = tp.rename(columns={"adj": "last_train_chg"}).set_index("ukey")
+tp = tp.rename(columns={"adj_train": "last_train_chg"}).set_index("ukey")
 del p, succ
 
 # the held-out ads
