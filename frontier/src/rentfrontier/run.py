@@ -563,6 +563,10 @@ def main(argv=None):
         ("drift-building-phase-unitkn", "drift_building_phase_unitkn"),
         ("drift-building-phase-unitkn-level", "drift_building_phase_unitkn_level"),
         (
+            "drift-building-phase-unitkn-level-slow",
+            "drift_building_phase_unitkn_level_slow",
+        ),
+        (
             "drift-building-phase-unitkn-segment",
             "drift_building_phase_unitkn_segment",
         ),
