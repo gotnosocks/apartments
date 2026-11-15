@@ -51,8 +51,8 @@ memory cap.
    by the unit history calibration (`h1_history.py`: the unit's mean training log ask less a
    monthly index and less the other units of its building, bedroom count and year), and
    tabulate the gap by its sign and size. I also tabulate the gap by the change in log ask
-   over the unit's last two training ads, net of the mean change of all pairs in the same two
-   quarters.
+   over the unit's last two training ads, net of the mean change of the training pairs in the
+   same two quarters.
 7. Candidate (d), the split: the gap by the count of the unit's training ads, by L2's own
    predictive unit sd for the ad, and by the months since the previous ad inside 26+.
 8. Candidate (e), the date: the gap by year of the ad and by the years from the ad to the
