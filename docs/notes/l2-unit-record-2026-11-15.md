@@ -168,7 +168,7 @@ highest split R-hat is 1.0324 on `bld_sd[manhattan]`:
 | phase_scale[1], [2], [3], [5] | 1.0044 to 1.0208 | 236 to 358 |
 
 No coefficient misses. The chains agree on every missed quantity to within their spread, so
-the misses are slow mixing, not split modes.
+the misses come from slow mixing within each chain.
 
 The posterior differs from the predictions in the way the kernel divides the unit's
 variance:
