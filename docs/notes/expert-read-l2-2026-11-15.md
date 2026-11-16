@@ -211,3 +211,33 @@ than one floor plan explains nothing.
 
 Regulated asks are rare (73 ads) and fall far below the model (mean z -0.91), and 4 of them are
 deal candidates. They belong to the data thread's flags before they become a feature.
+
+## Checking the Deals list for the read's data errors
+
+Before handing multi-unit ads to the data thread, I counted them on the Deals list served now
+(n9, the market of 2026-11-09), using each ad's latest text from `texts-m6.parquet`. Among the
+6,774 ads, 446 have a below share under 0.1 and no caution. I matched wording for an ad covering
+several units ("starting at", "all available units", "choose from", "multiple units", a list of
+studio and bedroom sizes):
+
+| Pattern | All ads | Uncautioned deal candidates |
+|---|---|---|
+| starting-at price | 1.7% (116) | 1.3% (6) |
+| several or all units | 3.9% (263) | 3.8% (17) |
+| range of unit sizes | 1.9% (132) | 2.9% (13) |
+
+The share among deal candidates is close to the share among all ads. I read the 23 candidates
+that match the first two rows. In each, the ask is for a single unit with its own bedroom count. The
+other wording comes from brokers offering to show the rest of a new building ("I can show you
+all units in the building"), from a building's amenity list ("choose from lounge, billiards
+room"), or from a storage fee "starting at $75". The far-below multi-unit errors in the read
+came from held-out ads across the whole latest split, and the served list shows none of them.
+
+I also matched free-rent wording ("2 months free", "net effective", "gross rent") among the ads
+whose `months_free` is unset. Among the uncautioned candidates, 4 match. Two mention free
+wi-fi, and two quote boilerplate about approvals on the gross rent. The Smile ads with two
+months free already carry `months_free`.
+
+So neither error inflates the served list, and I add no caution. Bedroom undercounts push an
+ask above the model, which pushes an ad off the list, and the
+`beds` caution already marks 44 of the 564 ads with a below share under 0.1.
