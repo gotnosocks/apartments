@@ -27,7 +27,8 @@ subagent's model and effort to be picked by its task.
   bottom tenth (465 against 601), with fewer of them raised later (19% against 37%).
 - **No L2 refit** unless Ben asks for one. Refit only with a change that gains on the backtest. The
   sampler already moves sigma and the phase factors together along curvature directions, so
-  the slow quantity is the first-ad noise, which trades off with the units' Student-t scales
+  the slow quantity is the first-ad noise. A guess to test is that the units' Student-t
+  mixing scales, which the scale step holds fixed, slow it
   (`docs/notes/l2-market-2026-11-15.md`).
 - **A price report for 131 E 23rd St 5C** went to Ben as a private page, with a breakdown of
   each model part against the average ad. Scripts: `parts.py`, `ref.py`, `groups.py` and
