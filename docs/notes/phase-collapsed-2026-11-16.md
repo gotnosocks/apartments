@@ -122,3 +122,37 @@ While tightening the chain test I found the slice steps' reach matters on tiny d
 12 widths of 0.02 to each side, the noise step's chain on 340 rows came out a tenth too
 narrow in both sigma and the factors, and exact at 80 widths. A full dataset's log scales
 spread by about 0.01, so the default reach covers them.
+
+## Seed 2
+
+Both runs at seed 2 finished by 10:05 ET (`.../unitkn-level-s2`, `.../phase-collapsed-k100-s2`),
+with 593 s and 599 s of sampling. Bulk ESS at seed 1, then seed 2:
+
+| Quantity | L2 | with the option |
+|---|---|---|
+| `unit_sd` | 323, 337 | 204, 289 |
+| `none` factor | 517, 519 | 654, 609 |
+| log sigma[g] + log `none` factor, seed 1 | 308, 223, 246, 438 | 353, 393, 299, 379 |
+| the same, seed 2 | 367, 345, 373, 521 | 332, 383, 419, 546 |
+| mean of those eight | 353 | 388 |
+| the other five factors, range over both seeds | 452 to 650 | 730 to 918 |
+| `none` minus the mean of the other phases | 327, 375 | 528, 481 |
+
+At seed 2 the eleven means again agree, ten within 1.8 standard errors of the difference and
+the `14-21` factor at 2.4.
+
+Read together:
+
+- The later phases' factors gain about 45% in ESS at both seeds.
+- The first ads' noise gains about a tenth on average, less than the gap between L2's own
+  two seeds (lowest sum 223 and 345). The rise I scored as right under prediction 1 was
+  seed noise.
+- `unit_sd` came out lower with the option at both seeds, by 37% and 14%. I know of no
+  way for the step to slow it and two seeds do not settle whether it does.
+
+So reading (b) stands: the first ads' noise is slow against the unit level, through lam, kap
+and u, and a lam-marginal draw of the factor leaves that as it was. I do not refit the
+market pool with this option. The next check is the move named above, the first ads' noise
+against `unit_sd` with lam and kap redrawn inside it, on these same k100 runs at both seeds.
+The option stays in the code, off by default, and the `-level-phase` model stays registered
+for that comparison.
