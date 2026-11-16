@@ -615,3 +615,121 @@ def test_segment_shift_matches_the_design_at_the_new_time():
     d.x[5, sg.cols[0]] += 0.1
     with pytest.raises(SystemExit):
         dt.segment_terms(d, d.names)
+
+
+def kapped(site, unit, t, c, sc, ukap, path=True):
+    """`dense` with Student-t lasting levels: the lasting variance of unit k's rows is
+    ss^2 / ukap[k]."""
+    out = dense(site, unit, t, c, sc, path)
+    same_unit = unit[:, None] == unit[None, :]
+    return out + np.where(same_unit, sc["ss"] ** 2 * (1 / ukap[unit] - 1)[:, None], 0)
+
+
+def test_sigma_inverse_and_targets_with_unit_kap_match_dense_algebra():
+    site, unit, t, c, r = toy(1)
+    lay = dt.layout(site, unit, t, 4, 5)
+    ukap = np.random.default_rng(7).gamma(1.5, 1 / 1.5, lay["units"])
+    Ws = dt.unit_W(lay, c, SC["ss"], SC["sd"], SC["tau_u"], ukap)
+    H, Qi = dt.building_system(lay, Ws, SC["s2"], SC["rho"])
+    Sig = kapped(site, unit, t, c, SC, ukap)
+    want = np.linalg.solve(Sig, r)
+    np.testing.assert_allclose(dt.sigma_inv(lay, Ws, Qi, r), want, rtol=1e-8, atol=1e-8)
+    tu = np.array([0, 3, 9, -1, -1])
+    ts = np.array([site[unit == 0][0], site[unit == 3][0], site[unit == 9][0], 1, 4])
+    tt = np.array([9.6, 4.0, 9.6, 9.6, 9.6])
+    q = np.floor(tt * 4).astype(int)
+    keys, pair = dt.pairs(ts, q)
+    tg = dict(unit=tu, site=ts, t=tt, q=q, pair_keys=keys, pair=pair)
+    new_kap = np.array([9.0, 9.0, 9.0, 0.4, 2.5])
+    mean, var = dt.targets(lay, Ws, Qi, H, r, tg, SC, ukap, new_kap)
+    qtr = np.floor(t * 4)
+    for k in range(len(tu)):
+        vl = SC["ss"] ** 2 / (ukap[tu[k]] if tu[k] >= 0 else new_kap[k])
+        g = np.where(
+            site == ts[k], SC["s2"] * SC["rho"] ** np.abs(q[k] - qtr), 0.0
+        ) + np.where(
+            unit == tu[k],
+            vl + SC["sd"] ** 2 * np.exp(-np.abs(tt[k] - t) / SC["tau_u"]),
+            0.0,
+        )
+        prior = SC["s2"] + vl + SC["sd"] ** 2
+        assert mean[k] == pytest.approx(g @ want, abs=1e-9)
+        assert var[k] == pytest.approx(prior - g @ np.linalg.solve(Sig, g), abs=1e-9)
+
+
+def test_posterior_draw_gives_the_lasting_levels_conditional():
+    """With one row, s given r is Normal with mean v r / V and variance v - v^2 / V, where
+    v is the lasting variance and V the row's whole variance."""
+    site, unit, t = np.array([0]), np.array([0]), np.array([1.0])
+    c, r = np.array([100.0]), np.array([0.2])
+    lay = dt.layout(site, unit, t, 4, 1)
+    ukap = np.array([0.5])
+    Ws = dt.unit_W(lay, c, SC["ss"], SC["sd"], SC["tau_u"], ukap)
+    Qi = dt.building_system(lay, Ws, SC["s2"], SC["rho"])[1]
+    rng = np.random.default_rng(5)
+    s = np.concatenate(
+        [
+            dt.posterior_draw(rng, lay, Ws, Qi, r, c, SC, ukap=ukap)[1]
+            for _ in range(20_000)
+        ]
+    )
+    v = SC["ss"] ** 2 / ukap[0]
+    V = SC["s2"] + v + SC["sd"] ** 2 + 1 / c[0]
+    assert s.mean() == pytest.approx(v * r[0] / V, abs=2e-3)
+    assert s.var() == pytest.approx(v - v * v / V, rel=0.03)
+
+
+def test_a_new_units_predictive_is_the_student_t_prior():
+    """A new unit in a building with no rows learns nothing from the training rows, so over
+    the components its term is the path's and the drift's normals plus ss times a Student-t
+    on nu_u degrees of freedom."""
+    site, unit, t, c, r = toy(2)
+    lay = dt.layout(site, unit, t, 4, 5)
+    sc = SC | {"ss": 0.3, "unit_dof": 3.0}
+    n = 4000
+    tg = dict(
+        unit=np.full(n, -1),
+        site=np.full(n, 4),
+        t=np.full(n, 9.6),
+        q=np.full(n, 38),
+    )
+    tg["pair_keys"], tg["pair"] = dt.pairs(tg["site"], tg["q"])
+    m, v = dt.components(lay, r, np.full(len(r), 0.1), tg, sc, seed=1, burn=2, keep=20)
+    rng = np.random.default_rng(2)
+    got = (m + np.sqrt(v) * rng.standard_normal(v.shape)).ravel()
+    ref_n = got.size
+    ref = sc["ss"] * rng.standard_t(3.0, ref_n) + np.sqrt(
+        sc["s2"] + sc["sd"] ** 2
+    ) * rng.standard_normal(ref_n)
+    np.testing.assert_allclose(m, 0.0, atol=1e-12)
+    p = [0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98]
+    np.testing.assert_allclose(np.quantile(got, p), np.quantile(ref, p), atol=0.02)
+    # A normal level of the same scale has thinner tails.
+    assert np.quantile(np.abs(got), 0.98) > 1.2 * np.quantile(
+        np.abs(
+            np.sqrt(sc["s2"] + sc["sd"] ** 2 + sc["ss"] ** 2)
+            * rng.standard_normal(ref_n)
+        ),
+        0.98,
+    )
+
+
+def test_a_huge_unit_dof_gives_the_normal_models_prices():
+    fit, rw = fake_fit(lines=False)
+    a = dt.predict(fit, [rw], log=lambda s: None)[0]
+    fit.kept["unit_dof"] = np.full(len(fit.pick), 1e9)
+    b = dt.predict(fit, [rw], log=lambda s: None)[0]
+    for k in ("loc", "usd"):
+        np.testing.assert_allclose(a[k], b[k], rtol=0, atol=1e-4)
+
+
+def test_the_student_t_unit_models_are_served():
+    for name in (
+        "drift-building-unitt",
+        "drift-building-phase-unitt",
+        "drift-building-phase-unitk",
+        "drift-building-phase-unitkn",
+        "drift-building-phase-unitkn-level",
+        "drift-building-phase-unitkn-segment",
+    ):
+        assert name in dt.MODELS
