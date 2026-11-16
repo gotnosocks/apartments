@@ -1958,9 +1958,9 @@ def make_sampler(
         return bsd, lev, par, path
 
     def update_noise(key, st, r, D):
-        """nu, then sigma, with lam integrated out, then lam: b0's noise step. The phases'
-        factors stay as the state holds them, unless `phase_collapsed` draws them after
-        sigma, each from its own rows' Student-t density at the new sigma. Returns nu,
+        """b0's noise step: nu, then sigma with lam integrated out, then lam. Under
+        `phase_collapsed` the step also draws each free phase factor after sigma, from its
+        own rows' Student-t density at the new sigma, before it draws lam. Returns nu,
         sigma, lam and the free factors, None in a design without phases."""
         k1, k2, k3 = jax.random.split(key, 3)
         a_nu, b_nu = priors.nu

@@ -18,8 +18,8 @@ The sampler holds it as a Normal with variance (sigma f)^2 / lam_i. In L2's swee
    draws lam from its Gamma conditional.
 3. `update_unit_t` moves `unit_sd` and the kap together along ss -> g ss, kap -> g^2 kap.
 
-So sigma and `unit_sd` each get a second move with their mixing scales out of the way, and
-the factors get none. On the pooled market traces (6 chains x 2,360 draws) and on the k100
+So sigma and `unit_sd` each get a second move with their mixing scales integrated out or
+moved along with them. The factors get no such move. On the pooled market traces (6 chains x 2,360 draws) and on the k100
 rehearsal of L2 from Nov 14 (2 chains x 2,400 draws), bulk ESS reads:
 
 | Quantity | Market pool | k100 rehearsal |
@@ -50,8 +50,8 @@ has drawn sigma, slices each free log factor from its own rows' Student-t densit
 sigma, under the factor's Normal(0, 0.3) prior, and then draws lam at the new factors. The
 phases' rows are disjoint, so the factors are independent given sigma and the remainders, and
 one `slice_vec` call draws them all. The step's key is folded in, so every other step keeps
-the key it had. Without the option the sweep's draws are unchanged, which the recorded run
-hashes of the other models confirm.
+the key it had. Without the option the sweep's draws are unchanged: the tests of the other models' recorded run
+hashes pass on this branch.
 
 The model `drift-building-phase-unitkn-level-phase` is L2 with the option. Its test runs the
 noise step 6,000 times in a row and compares sigma and the factors with a random-walk

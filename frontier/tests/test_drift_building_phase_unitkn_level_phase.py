@@ -2,6 +2,7 @@
 (`rentfrontier.drift_building_phase_unitkn_level_phase`, `drift.make_sampler`'s
 `phase_collapsed`)."""
 
+import functools
 import hashlib
 
 import numpy as np
@@ -76,11 +77,19 @@ def test_the_noise_step_moves_the_factors_and_draws_lam_at_them():
     )
 
 
-def test_repeated_noise_steps_sample_sigma_and_the_factors_given_the_remainders():
+def test_repeated_noise_steps_sample_sigma_and_the_factors_given_the_remainders(
+    monkeypatch,
+):
     """Many noise steps in a row, each from the last one's sigma and factors, against a
     random-walk Metropolis chain on the same density written out here: the rows'
     Student-t density at scale sigma[group] factor[phase], sigma's half-Normal prior and
-    the Normal prior on each free log factor."""
+    the Normal prior on each free log factor.
+
+    The slice steps here step out up to 80 widths. On this design of 340 rows the log
+    scales spread by 0.15, and the default reach of 12 widths of 0.02 to each side cuts
+    slices short often enough to narrow the chain's spread by a tenth. A full dataset's
+    log scales spread by about 0.01, well inside the default reach."""
+    monkeypatch.setattr(b0, "slice_vec", functools.partial(b0.slice_vec, steps_out=80))
     train, parts, st, r = _setup()
     jax, jnp = b0._jax()
     D = parts["data"]
@@ -116,18 +125,18 @@ def test_repeated_noise_steps_sample_sigma_and_the_factors_given_the_remainders(
     rng = np.random.default_rng(0)
     x = got.mean(axis=0)
     lp = logp(x)
+    step_chol = np.linalg.cholesky(np.cov(got.T)) * 2.4 / np.sqrt(4 + free)
     want = np.empty((40000, 4 + free))
     for i in range(len(want)):
-        y = x + 0.06 * rng.standard_normal(len(x))
+        y = x + step_chol @ rng.standard_normal(len(x))
         ly = logp(y)
         if np.log(rng.uniform()) < ly - lp:
             x, lp = y, ly
         want[i] = x
     want = want[2000:]
     np.testing.assert_allclose(got.mean(axis=0), want.mean(axis=0), atol=0.03)
-    np.testing.assert_allclose(got.std(axis=0), want.std(axis=0), rtol=0.2)
-    # A group's sigma and a factor trade off, and the noise step now moves along that too.
-    assert got[:, 4:].std(axis=0).min() > 0.03
+    # Without the factors' prior their spread comes out about a fifth wider.
+    np.testing.assert_allclose(got.std(axis=0), want.std(axis=0), rtol=0.1)
 
 
 def test_the_option_needs_phases():
