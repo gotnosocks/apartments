@@ -138,3 +138,75 @@ those ads. A candidate goes forward only when the free check in `docs/expert-rea
 that half, with `explained` above the 95th percentile of a shuffled-label null. It then gets a
 single-term fit with its predictions written here first, and the fit's elpd for it is scored on
 the unread half only.
+
+## Check on the unread half
+
+I coded candidates 1, 2, 3 and 7 for all 1,896,471 rows of the dataset and counted them on the
+unread half without opening any of its ads. The code and outputs are in
+`/data1/apartments/tmp/expert-reads-2026-11-15/unread-check/`.
+
+The ad text comes from the same place the read took it: the description in each listing's latest
+record (by the later of `collected_at` and `last_collected_at`) in the build's records file,
+`records-086e22e48969b098.parquet`. `extract.py` pulls the description, the unit label, the room
+count and the floor-plan count, and `flags.py` codes these flags with no rent column in view:
+
+- `multilevel`: duplex, triplex, bi-level, two-story, spread over two floors or an internal
+  stair, in the unit label or description. Amenity phrases such as a multi-level gym are left
+  out. `garden_multilevel` is the garden duplex subset, and `plans_gt1` marks ads with more
+  than one floor plan.
+- `extra_room_text`: a home office, flex or bonus room, a windowed or separate study, or "plus
+  den" or "+ office". A convertible or flex bedroom stays out, since the coded count already
+  includes it. `extra_rooms_coded` is the room count at least three above the bedrooms, so it
+  marks rooms beyond a living room and kitchen.
+- `bath_per_bed`: two or more bedrooms with at least as many full baths, from fields alone.
+- `regulated_text`: stabilized, preferential rent, rent controlled, HPD, Housing Connect, AMI
+  or income limits, on rows with `rent_stabilized` and `income_restricted` both false. Income
+  multiples ("40x the rent"), voucher notices and 421a surcharges gave most false hits on a
+  first draw, so the pattern leaves them out.
+
+After each change to a pattern I drew 20 flagged ads from training rows or the read half and
+read the match in context. On the last draw these were correct:
+
+| flag | correct of 20 | false hits |
+|---|---|---|
+| multilevel | 18 | a two-story fitness center, another unit offered in the same ad |
+| garden_multilevel | 20 | |
+| extra_room_text | 18 | a building blurb, a half bedroom already in the coded count |
+| regulated_text | 18 | "win the lottery", an income guideline of 40x |
+
+Four of the 18 regulated hits are HPD or income-banded ads that escaped `income_restricted`,
+which repeats the data fix noted above. Of the ads `extra_room_text` marks, 42% also have a room
+count at least three above their bedrooms.
+
+The unread half holds 95,447 held-out ads in 18,086 buildings after dropping income-restricted
+ads. `check.py` takes the residual z as log ask minus the predictive median, over a scale from
+the 25% and 75% predictive quantiles. Explained is the out-of-fold R² of z on the flag, with five
+folds grouped by building, and the null comes from 200 shuffles of the flag within the half.
+Rates carry Wilson 95% intervals, and "deals" counts flagged ads with cdf < 0.01.
+
+| flag | far above, cdf > 0.99 (908) | far below, cdf < 0.01 (1,090) | control (49,495) | explained | null_95 | beats null | mean z, flag / rest | deals |
+|---|---|---|---|---|---|---|---|---|
+| multilevel | 11.2% (9.3-13.5) | 8.3% (6.8-10.1) | 5.2% (5.0-5.4) | 0.0063% | 0.0004% | yes | -0.116 / -0.069 | 91 |
+| garden_multilevel | 0.6% (0.2-1.3) | 0.4% (0.1-0.9) | 0.2% (0.2-0.3) | -0.0026% | 0.0009% | no | -0.118 / -0.072 | 4 |
+| plans_gt1 | 1.1% (0.6-2.0) | 0.7% (0.4-1.4) | 1.0% (0.9-1.1) | -0.0018% | 0.0002% | no | -0.089 / -0.072 | 8 |
+| extra_room_text | 8.6% (6.9-10.6) | 3.7% (2.7-5.0) | 4.4% (4.2-4.5) | 0.0216% | 0.0010% | yes | +0.013 / -0.076 | 40 |
+| extra_rooms_coded | 28.7% (25.9-31.8) | 24.7% (22.2-27.3) | 19.9% (19.5-20.2) | -0.0030% | 0.0011% | no | -0.074 / -0.071 | 269 |
+| bath_per_bed | 12.0% (10.0-14.3) | 13.9% (12.0-16.1) | 10.5% (10.2-10.8) | 0.0493% | 0.0013% | yes | -0.147 / -0.062 | 152 |
+| regulated_text | 0.0% (0.0-0.4) | 0.4% (0.1-0.9) | 0.1% (0.0-0.1) | 0.0226% | 0.0007% | yes | -0.907 / -0.071 | 4 |
+
+Four flags clear `explained > max(0, null_95)`: `multilevel`, `extra_room_text`, `bath_per_bed`
+and `regulated_text`. Each explains well under a tenth of a percent of the residual variance, so
+the check says only that the signal is not chance.
+
+The read's direction holds for `extra_room_text`: these ads are twice as common far above as in
+control, with no excess far below, and their mean z sits about 0.09 above the rest. A text term
+for a room beyond the coded bedrooms is the cleanest single-term candidate.
+
+Multi-level units and high bath ratios turn up more often in both tails, and their mean z sits
+below the rest, so L2 tends to price them too high on average while missing in both directions.
+That pattern fits a term with a real effect and a wide spread, and a fit would tell the two
+apart. Garden duplexes are too rare on this half (243 ads) to test alone, and a floor-plan count
+above one carries nothing.
+
+Regulated asks are rare (73 ads) and sit far below the model (mean z -0.91), and 4 of them are
+deal candidates. They belong to the data thread's flags before they become a feature.
