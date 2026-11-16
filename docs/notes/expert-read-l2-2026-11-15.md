@@ -240,4 +240,4 @@ months free already carry `months_free`.
 
 So neither error inflates the served list, and I add no caution. Bedroom undercounts push an
 ask above the model, which keeps an ad off the list rather than putting one on it, and the
-`beds` caution already covers 43 candidates with conflicting counts.
+`beds` caution already marks 44 of the 564 ads with a below share under 0.1.
