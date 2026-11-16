@@ -576,6 +576,7 @@ def main(argv=None):
         ),
         ("drift-building-phase-unitt", "drift_building_phase_unitt"),
         ("drift-building-unitt", "drift_building_unitt"),
+        ("drift-building-unitkn", "drift_building_unitkn"),
         ("drift-local", "drift_local"),
     ):
         if any(
