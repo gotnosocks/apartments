@@ -34,7 +34,7 @@ rehearsal of L2 from Nov 14 (2 chains x 2,400 draws), bulk ESS reads:
 The 1-in-100 subsample reproduces the pattern in 14 minutes on thelio: the noise of first ads
 and `unit_sd` are slowest, and each factor alone mixes about as well as each sigma.
 
-Two readings fit this table:
+The table fits either of these readings:
 
 - (a) The factors lack the move that sigma has. The noise step can then only move a first
   ad's noise, sigma[g] times the factor, through sigma[g], which every other phase of the
@@ -50,7 +50,7 @@ has drawn sigma, slices each free log factor from its own rows' Student-t densit
 sigma, under the factor's Normal(0, 0.3) prior, and then draws lam at the new factors. The
 phases' rows are disjoint, so the factors are independent given sigma and the remainders, and
 one `slice_vec` call draws them all. The step's key is folded in, so every other step keeps
-the key it had. Without the option the sweep's draws are unchanged, which the pinned run
+the key it had. Without the option the sweep's draws are unchanged, which the recorded run
 hashes of the other models confirm.
 
 The model `drift-building-phase-unitkn-level-phase` is L2 with the option. Its test runs the
