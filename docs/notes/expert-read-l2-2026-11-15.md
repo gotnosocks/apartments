@@ -227,7 +227,7 @@ studio and bedroom sizes):
 | range of unit sizes | 1.9% (132) | 2.9% (13) |
 
 The share among deal candidates is close to the share among all ads. I read the 23 candidates
-that match the first two rows. Each one prices a single unit with its own bedroom count. The
+that match the first two rows. In each, the ask is for a single unit with its own bedroom count. The
 other wording comes from brokers offering to show the rest of a new building ("I can show you
 all units in the building"), from a building's amenity list ("choose from lounge, billiards
 room"), or from a storage fee "starting at $75". The far-below multi-unit errors in the read
@@ -239,5 +239,5 @@ wi-fi, and two quote boilerplate about approvals on the gross rent. The Smile ad
 months free already carry `months_free`.
 
 So neither error inflates the served list, and I add no caution. Bedroom undercounts push an
-ask above the model, which keeps an ad off the list rather than putting one on it, and the
+ask above the model, which pushes an ad off the list, and the
 `beds` caution already marks 44 of the 564 ads with a below share under 0.1.
