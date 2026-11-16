@@ -172,11 +172,12 @@ read the match in context. On the last draw these were correct:
 | multilevel | 18 | a two-story fitness center, another unit offered in the same ad |
 | garden_multilevel | 20 | |
 | extra_room_text | 18 | a building blurb, a half bedroom already in the coded count |
-| regulated_text | 18 | "win the lottery", an income guideline of 40x |
+| regulated_text | 18 | "win the lottery", boilerplate about income guidelines |
 
-Four of the 18 regulated hits are HPD or income-banded ads that escaped `income_restricted`,
-which repeats the data fix noted above. Of the ads `extra_room_text` marks, 42% also have a room
-count at least three above their bedrooms.
+Six of the 18 regulated hits are HPD or income-banded ads that escaped `income_restricted`,
+and a seventh is a 421a lottery, which repeats the data fix noted above. Over all rows, not only
+the unread half, 42% of the ads `extra_room_text` marks also have a room count at least three
+above their bedrooms.
 
 The unread half holds 95,447 held-out ads in 18,086 buildings after dropping income-restricted
 ads. `check.py` takes the residual z as log ask minus the predictive median, over a scale from
@@ -196,17 +197,17 @@ Rates carry Wilson 95% intervals, and "deals" counts flagged ads with cdf < 0.01
 
 Four flags clear `explained > max(0, null_95)`: `multilevel`, `extra_room_text`, `bath_per_bed`
 and `regulated_text`. Each explains well under a tenth of a percent of the residual variance, so
-the check says only that the signal is not chance.
+these results show only that the signal is not chance.
 
 The read's direction holds for `extra_room_text`: these ads are twice as common far above as in
-control, with no excess far below, and their mean z sits about 0.09 above the rest. A text term
+control, with no excess far below, and their mean z is about 0.09 above the rest. A text term
 for a room beyond the coded bedrooms is the cleanest single-term candidate.
 
-Multi-level units and high bath ratios turn up more often in both tails, and their mean z sits
+Multi-level units and high bath ratios turn up more often in both tails, and their mean z is
 below the rest, so L2 tends to price them too high on average while missing in both directions.
 That pattern fits a term with a real effect and a wide spread, and a fit would tell the two
-apart. Garden duplexes are too rare on this half (243 ads) to test alone, and a floor-plan count
-above one carries nothing.
+apart. Garden duplexes are too rare on this half (243 ads) to test alone, and the flag for more
+than one floor plan explains nothing.
 
-Regulated asks are rare (73 ads) and sit far below the model (mean z -0.91), and 4 of them are
+Regulated asks are rare (73 ads) and fall far below the model (mean z -0.91), and 4 of them are
 deal candidates. They belong to the data thread's flags before they become a feature.
