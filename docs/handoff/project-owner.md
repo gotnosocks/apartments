@@ -21,11 +21,11 @@ subagent's model and effort to be picked by its task.
   (`docs/notes/l2-market-2026-11-15.md`, #1413, #1414).
 - **Deals and Price now stay on n9 and j9.** The L2 market pool missed the gate on
   `phase_scale[1]` (split R-hat 1.0108). The backtest pool passed. In the pooled draws, the
-  noise scales `sigma` and the phase factors correlate at about -0.8 and slow the start of a
+  noise scales `sigma` and the phase factors correlate at -0.70 to -0.80 and slow the start of a
   chain. On the backtest's final asks, L2 ties j9 (elpd 9,980.7 against 9,978.6), so its
-  6,442 lead on the latest split does not carry over to Deals. L2 would put fewer ads in the
+  6,442 lead over b9 on the latest split does not carry over to Deals. L2 would put fewer ads in the
   bottom tenth (465 against 601), with fewer of them raised later (19% against 37%).
-- **No L2 refit** unless Ben asks for one. Ben has the recommendation: fix the noise-scale
+- **No L2 refit** unless Ben asks for one. I recommended to Ben that we fix the noise-scale
   parameterization in code at no Modal cost, and refit only with a change that gains on the
   backtest.
 - **A price report for 131 E 23rd St 5C** went to Ben as a private page, with a breakdown of
@@ -34,7 +34,7 @@ subagent's model and effort to be picked by its task.
 
 Next, in order:
 
-1. Sample sigma and the phase factors off their ridge, with a test, at no Modal cost.
+1. Reparameterize sigma and the phase factors so they no longer trade off, with a test, at no Modal cost.
 2. The data fixes from the expert read, then the unread-half check if it is still open.
 3. Fit A of item 8a, after its note.
 4. A false-deals count in scoring, the line contrast check, and pricing the StreetEasy
