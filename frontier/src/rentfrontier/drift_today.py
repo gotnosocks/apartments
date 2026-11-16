@@ -79,6 +79,25 @@ line with training rows takes that level's conditional from them, with the path 
 apartment of a new line takes no level from the rows, and l2 joins its variance. Each
 apartment's line is the fit's own, `drift_line.line_index` as the design built it.
 
+Student-t lasting levels. U2 (`drift_building_unitt`) and the L1T models built on it give
+each apartment's lasting level s_k a mixing scale of its own,
+
+    s_k | kap_k ~ Normal(0, ss^2 / kap_k),   kap_k ~ Gamma(nu_u / 2, rate nu_u / 2),
+
+so s_k is Student-t, with nu_u held at 3 in L1T and its descendants (the run records the
+value) and drawn in U2 (the run keeps it). L2 on L1TKN
+(`drift_building_phase_unitkn_level`) uses L2's design with this prior. The kept draws
+hold no kap, so for each draw drift_today carries the training apartments' kap in the
+lam step's chain, as the fit's L1T sweep draws them: given (lam, kap), a draw of the
+path, u and the noise by Matheron's rule also gives each s_k, then lam comes from its
+Gamma given the noise and kap_k from its Gamma given s_k. In the formulas above, an
+apartment's lasting variance in K and in its own covariance with today's row is ss^2 /
+kap_k in place of ss^2. A new apartment has no rows to inform its kap, so at each kept
+sweep it takes a kap drawn from the prior, and over the components its lasting level is
+Student-t with nu_u degrees of freedom and scale ss, as in the fit's own prediction
+step. drift_today refuses models with slowly reverting unit levels
+(`drift_building_phase_unitkn_level_slow`).
+
 MapPLUTO as of the month. P1 (`drift_building_phase_plutoasof`) reads each row's MapPLUTO
 fields from the release out a week before the row's month. I price an apartment with its last
 ad's columns, so the apartment reads the release that ad read: an ad of September 2026 or
@@ -120,6 +139,12 @@ from . import (
     drift_building_phase_line,
     drift_building_phase_plutoasof,
     drift_building_phase_segment,
+    drift_building_phase_unitk,
+    drift_building_phase_unitkn,
+    drift_building_phase_unitkn_level,
+    drift_building_phase_unitkn_segment,
+    drift_building_phase_unitt,
+    drift_building_unitt,
     drift_deals,
     drift_estimates,
     drift_line,
@@ -135,7 +160,9 @@ from .total_walk import SEASON
 # with at most the buildings' collapsed path; the phase models add a noise factor per lease
 # phase (or per cell of phase and D1's mark), L2 and the segment model add columns to
 # the design, LN1 adds a level for each line of a building, integrated out with the path,
-# and P1 reads L1's MapPLUTO columns as of each row's month. Models with Student-t unit
+# and P1 reads L1's MapPLUTO columns as of each row's month. The Student-t models (U2,
+# L1T, L1TK, L1TKN and L2 and the segment model on L1TKN) give each apartment's lasting
+# level a mixing scale, which the lam step carries. Models with slowly reverting unit
 # levels or more local-drift terms are refused.
 MODELS = {
     m.NAME: m
@@ -148,11 +175,20 @@ MODELS = {
         drift_building_phase_duplex,
         drift_building_phase_line,
         drift_building_phase_plutoasof,
+        drift_building_unitt,
+        drift_building_phase_unitt,
+        drift_building_phase_unitk,
+        drift_building_phase_unitkn,
+        drift_building_phase_unitkn_level,
+        drift_building_phase_unitkn_segment,
     )
 }
 # The seed's second word for the stream the lines' prior draws come from, apart from the
 # stream the lam step's other draws come from.
 LINE_STREAM = 1
+# The seed's second word for the stream the Student-t lasting levels' mixing scales come
+# from.
+KAP_STREAM = 2
 # Kept draws used, spread evenly over the run's chains and draws.
 DRAWS = 96
 # Sweeps of the lam step for each draw before its first kept sweep, and kept sweeps.
@@ -209,7 +245,8 @@ def layout(site, unit, t, per_year: int | None, sites: int) -> dict:
     apartment's rows by its count of rows (`ub`), and with a path (`per_year` steps a year)
     each building's quarters with rows, its padded size in the building system and where
     its rows, quarters and pairs of rows sit in the flat arrays `H` (P x P a building) and
-    `h` (P a building)."""
+    `h` (P a building). Each bucket of `ub` also holds its apartments' numbers (`unit`), and
+    `unit` holds each row's, for the Student-t lasting levels' mixing scales."""
     site, unit, t = (np.asarray(v) for v in (site, unit, t))
     n = len(site)
     first = np.r_[0, np.flatnonzero(np.diff(unit) != 0) + 1] if n else np.zeros(0, int)
@@ -224,8 +261,16 @@ def layout(site, unit, t, per_year: int | None, sites: int) -> dict:
         idx = first[sel, None] + np.arange(L)[None, :]
         where[uid[sel], 0] = L
         where[uid[sel], 1] = np.arange(len(sel))
-        ub[int(L)] = dict(idx=idx, t=t[idx])
-    lay = dict(n=n, ub=ub, where=where, path=per_year is not None, sites=sites)
+        ub[int(L)] = dict(idx=idx, t=t[idx], unit=uid[sel])
+    lay = dict(
+        n=n,
+        ub=ub,
+        where=where,
+        unit=unit.astype(np.int64),
+        units=U,
+        path=per_year is not None,
+        sites=sites,
+    )
     if per_year is None:
         return lay
     q = np.floor(t * per_year).astype(np.int64)
@@ -354,16 +399,26 @@ def line_pairs(lay: dict, m: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 # ------------------------------------------------------------------ one building system
 
 
-def unit_W(lay, c, ss, sd, tau) -> dict:
+def lasting_var(u: dict, ss: float, ukap) -> np.ndarray | float:
+    """The variance of the lasting level of each apartment of bucket `u`: ss^2, or
+    ss^2 / kap_k under Student-t lasting levels with mixing scales `ukap` (by apartment)."""
+    return ss * ss if ukap is None else ss * ss / ukap[u["unit"]]
+
+
+def unit_W(lay, c, ss, sd, tau, ukap=None) -> dict:
     """Each apartment's precision W = (K + D^-1)^-1 at row weights `c`, by its count of
-    rows."""
+    rows. Under Student-t lasting levels `ukap` holds each apartment's mixing scale, and
+    its lasting variance in K is ss^2 / kap_k."""
     out = {}
     for L, u in lay["ub"].items():
         tt = u["t"]
+        v = np.broadcast_to(lasting_var(u, ss, ukap), (len(tt),))
         if L == 1:
-            out[L] = (1.0 / (ss * ss + sd * sd + 1.0 / c[u["idx"]]))[:, :, None]
+            out[L] = (1.0 / (v[:, None] + sd * sd + 1.0 / c[u["idx"]]))[:, :, None]
             continue
-        K = ss * ss + sd * sd * np.exp(-np.abs(tt[:, :, None] - tt[:, None, :]) / tau)
+        K = v[:, None, None] + sd * sd * np.exp(
+            -np.abs(tt[:, :, None] - tt[:, None, :]) / tau
+        )
         i = np.arange(L)
         K[:, i, i] += 1.0 / c[u["idx"]]
         W = np.linalg.inv(K)
@@ -468,11 +523,22 @@ def sigma_inv(lay, Ws, Qi, v) -> np.ndarray:
     return w - apply_W(lay, Ws, y[lay["row_h"]])
 
 
-def prior_draw(rng, lay, sc, line_rng=None) -> np.ndarray:
+def prior_draw(rng, lay, sc, line_rng=None, ukap=None) -> np.ndarray:
     """A draw of the path at the rows' quarters plus each row's apartment level, and with
-    lines each row's line level, from their priors. The line levels come from `line_rng`
-    (`rng` when it is None)."""
+    lines each row's line level, from their priors (`prior_parts`)."""
+    return prior_parts(rng, lay, sc, line_rng, ukap)[0]
+
+
+def prior_parts(
+    rng, lay, sc, line_rng=None, ukap=None
+) -> tuple[np.ndarray, np.ndarray]:
+    """`prior_draw`'s draw, and each apartment's lasting level s_k in it (by apartment
+    number). The line levels come from `line_rng` (`rng` when it is None). Under Student-t
+    lasting levels `ukap` holds the apartments' mixing scales, and s_k has variance
+    ss^2 / kap_k. The scales change the size of each s_k and leave every draw from `rng`
+    as it is."""
     out = np.zeros(lay["n"])
+    lev = np.zeros(lay["units"])
     for L, u in lay["ub"].items():
         idx, tt = u["idx"], u["t"]
         z = rng.standard_normal((len(idx), L + 1))
@@ -481,7 +547,9 @@ def prior_draw(rng, lay, sc, line_rng=None) -> np.ndarray:
         for j in range(1, L):
             e = np.exp(-(tt[:, j] - tt[:, j - 1]) / sc["tau_u"])
             d[:, j] = e * d[:, j - 1] + sc["sd"] * np.sqrt(1 - e * e) * z[:, j + 1]
-        out[idx] = sc["ss"] * z[:, :1] + d
+        sk = np.sqrt(lasting_var(u, sc["ss"], ukap)) * z[:, 0]
+        lev[u["unit"]] = sk
+        out[idx] = sk[:, None] + d
     if lay["path"]:
         s, rho = math.sqrt(sc["s2"]), sc["rho"]
         a = np.zeros(lay["sizeh"])
@@ -500,18 +568,43 @@ def prior_draw(rng, lay, sc, line_rng=None) -> np.ndarray:
     if "line" in lay:
         z = (rng if line_rng is None else line_rng).standard_normal(lay["lines"])
         out += math.sqrt(sc["l2"]) * z[lay["line"]]
-    return out
+    return out, lev
+
+
+def posterior_draw(
+    rng, lay, Ws, Qi, r, c, sc, line_rng=None, ukap=None
+) -> tuple[np.ndarray, np.ndarray]:
+    """The noise and each apartment's lasting level s_k in a draw of (path, u, noise) given
+    the residuals `r`, by Matheron's rule: a draw from the prior, corrected by the prior's
+    covariance with r times Sigma^-1 (r - the draw). The covariance of s_k with r is its
+    lasting variance on the apartment's rows and 0 elsewhere, so s_k gains that variance
+    times the sum of Sigma^-1 (r - the draw) over its rows. With lines the draw holds the
+    line levels too, drawn from `line_rng`."""
+    e0 = rng.standard_normal(lay["n"]) / np.sqrt(c)
+    f0, s0 = prior_parts(rng, lay, sc, line_rng, ukap)
+    w = sigma_inv(lay, Ws, Qi, r - f0 - e0)
+    v = sc["ss"] ** 2 if ukap is None else sc["ss"] ** 2 / ukap
+    s = s0 + v * np.bincount(lay["unit"], weights=w, minlength=lay["units"])
+    return e0 + w / c, s
 
 
 def lam_step(rng, lay, Ws, Qi, r, c, row_sd, sc, line_rng=None) -> np.ndarray:
-    """New mixing scales lam: the noise left by a draw of (path, u) given lam, by Matheron's
-    rule, then lam from its Gamma given that noise. With lines the draw holds the line
-    levels too, drawn from `line_rng`."""
-    e0 = rng.standard_normal(lay["n"]) / np.sqrt(c)
-    delta = r - prior_draw(rng, lay, sc, line_rng) - e0
-    eps = e0 + sigma_inv(lay, Ws, Qi, delta) / c
-    nu = sc["nu"]
+    """New mixing scales lam: the noise left by a draw of (path, u) given lam
+    (`posterior_draw`), then lam from its Gamma given that noise."""
+    eps, _ = posterior_draw(rng, lay, Ws, Qi, r, c, sc, line_rng)
+    return lam_given(rng, eps, row_sd, sc["nu"])
+
+
+def lam_given(rng, eps, row_sd, nu) -> np.ndarray:
+    """The rows' mixing scales lam from their Gamma conditional given the noise `eps`."""
     return rng.gamma((nu + 1) / 2, 2 / (nu + (eps / row_sd) ** 2))
+
+
+def kap_given(rng, s, ss, nu_u) -> np.ndarray:
+    """The apartments' mixing scales kap from their Gamma conditional given the lasting
+    levels `s`: ((nu_u + 1) / 2, rate (nu_u + (s / ss)^2) / 2), as the fit's L1T sweep
+    draws them (`drift.make_sampler`'s `update_unit_t`)."""
+    return rng.gamma((nu_u + 1) / 2, 2 / (nu_u + (s / ss) ** 2))
 
 
 # ------------------------------------------------------------------ the rows to predict
@@ -523,7 +616,9 @@ def pairs(site, q) -> tuple[np.ndarray, np.ndarray]:
     return keys, inv.ravel()
 
 
-def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
+def targets(
+    lay, Ws, Qi, H, r, tg, sc, ukap=None, new_kap=None
+) -> tuple[np.ndarray, np.ndarray]:
     """The mean and variance of each predicted row's path and apartment term, f = a(q*) +
     u(t*), given the training residuals `r` (see the module docstring). `tg` holds each
     row's training `unit` (-1 for none), `site`, `t` and `q`, and its `pair` and the
@@ -534,14 +629,22 @@ def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
     from the training rows: g gains l2 on every row of the line, and with
     kap the apartment's kernel on its own rows and s its sum of W kap,
     W_L g = W kap on the apartment's rows + beta w1 on the line's, beta = G (1 - s). A row
-    of a new line adds l2 to its variance alone."""
+    of a new line adds l2 to its variance alone.
+
+    Under Student-t lasting levels (`unit_W`'s `ukap`), the lasting variance of a row's
+    apartment is ss^2 / kap_k at its training apartment's mixing scale, and at `new_kap`
+    (one for each row) for a row of a new apartment."""
     ss, sd, tau = sc["ss"], sc["sd"], sc["tau_u"]
     s2 = sc["s2"] if lay["path"] else 0.0
-    k0 = ss * ss + sd * sd
     nT = len(tg["unit"])
+    unit = tg["unit"]
+    have = unit >= 0
+    vl = np.full(nT, ss * ss)
+    if ukap is not None:
+        vl = ss * ss / np.where(have, ukap[np.maximum(unit, 0)], new_kap)
     v = apply_W(lay, Ws, r)
     mean = np.zeros(nT)
-    var = np.full(nT, s2 + k0)
+    var = s2 + vl + sd * sd
     lw = Ws.get("line")
     if lw is not None:
         var += sc["l2"]
@@ -587,8 +690,6 @@ def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
         pr = tg["pair"]
         mean += pair_mean[pr]
         var -= pair_quad[pr]
-    unit = tg["unit"]
-    have = unit >= 0
     L_of = np.where(have, lay["where"][np.maximum(unit, 0), 0], 0)
     pos_of = lay["where"][np.maximum(unit, 0), 1]
     for L, u in lay["ub"].items():
@@ -597,7 +698,7 @@ def targets(lay, Ws, Qi, H, r, tg, sc) -> tuple[np.ndarray, np.ndarray]:
             continue
         pos = pos_of[sel]
         idx, tt = u["idx"][pos], u["t"][pos]
-        kap = ss * ss + sd * sd * np.exp(-np.abs(tg["t"][sel, None] - tt) / tau)
+        kap = vl[sel, None] + sd * sd * np.exp(-np.abs(tg["t"][sel, None] - tt) / tau)
         Wk = Ws[L][pos]
         Wkap = np.einsum("uab,ub->ua", Wk, kap)
         mean[sel] += np.einsum("ua,ua->u", kap, v[idx])
@@ -672,28 +773,51 @@ def components(lay, r, row_sd, tg, sc, seed, burn=None, keep=None):
     apartment term, after `burn` sweeps of the lam step from lam = 1. With lines
     (`with_lines`) each sweep's precisions take the lines' terms at the draw's `l2`, and the
     lines' prior draws come from a stream of their own, so the lam step's other draws are
-    the ones a layout with no lines would make."""
+    the ones a layout with no lines would make.
+
+    Under Student-t lasting levels (`sc` holds `unit_dof`) the chain also carries each
+    training apartment's mixing scale kap_k, from kap = 1: each sweep draws the noise and
+    the lasting levels s given (lam, kap) (`posterior_draw`), then lam given the noise and
+    kap given s, as the fit's L1T sweep does. A row of a new apartment takes a kap of its
+    own from the prior, Gamma(nu_u / 2, rate nu_u / 2), at each kept sweep, so over the
+    components its lasting level is Student-t: a normal scale mixture. The kap draws come
+    from a third stream, so the lam step's draws are the ones a fit with normal lasting
+    levels would make."""
     burn = BURN if burn is None else burn
     keep = KEEP if keep is None else keep
     rng = np.random.default_rng(seed)
     lines = "line" in lay
     line_rng = np.random.default_rng([seed, LINE_STREAM]) if lines else None
+    nu_u = sc.get("unit_dof")
+    ukap = None
+    if nu_u is not None:
+        kap_rng = np.random.default_rng([seed, KAP_STREAM])
+        ukap = np.ones(lay["units"])
     lam = np.ones(lay["n"])
     means, vars_ = [], []
     for sweep in range(burn + keep):
         c = lam / row_sd**2
-        Ws = unit_W(lay, c, sc["ss"], sc["sd"], sc["tau_u"])
+        Ws = unit_W(lay, c, sc["ss"], sc["sd"], sc["tau_u"], ukap)
         if lines:
             Ws = line_W(lay, Ws, sc["l2"])
         H = Qi = None
         if lay["path"]:
             H, Qi = building_system(lay, Ws, sc["s2"], sc["rho"])
         if sweep >= burn:
-            m, v = targets(lay, Ws, Qi, H, r, tg, sc)
+            new_kap = None
+            if ukap is not None:
+                new_kap = kap_rng.gamma(nu_u / 2, 2 / nu_u, len(tg["unit"]))
+            m, v = targets(lay, Ws, Qi, H, r, tg, sc, ukap, new_kap)
             means.append(m)
             vars_.append(v)
-        if sweep < burn + keep - 1:
+        if sweep == burn + keep - 1:
+            break
+        if ukap is None:
             lam = lam_step(rng, lay, Ws, Qi, r, c, row_sd, sc, line_rng)
+            continue
+        eps, s = posterior_draw(rng, lay, Ws, Qi, r, c, sc, line_rng, ukap)
+        lam = lam_given(rng, eps, row_sd, sc["nu"])
+        ukap = kap_given(kap_rng, s, sc["ss"], nu_u)
     return np.stack(means), np.stack(vars_)
 
 
@@ -863,11 +987,21 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
             raise SystemExit("the rebuilt split differs from the fit's")
         want = (
             "beta L g tau sigma nu bld gp_w unit_sd drift_sd drift_tau "
-            "building_ar_sd building_ar_rho phase_scale line_sd"
+            "building_ar_sd building_ar_rho phase_scale line_sd unit_dof unit_tau"
         ).split()
         kept = {k: np.asarray(z[f"kept/{k}"]) for k in want if f"kept/{k}" in z}
-    if "unit_dof" in kept:
-        raise SystemExit(f"{name}'s Student-t unit levels are not supported here")
+    if "unit_tau" in kept:
+        raise SystemExit(
+            f"{name}'s slowly reverting unit levels are not supported here"
+        )
+    unit_t = record.get("unit_t")
+    if unit_t is not None and "unit_dof" not in kept:
+        fixed = unit_t.get("unit_dof_fixed")
+        if fixed is None:
+            raise SystemExit(f"{name} kept no unit_dof and records no fixed value")
+        kept["unit_dof"] = np.full(kept["beta"].shape[:2], float(fixed))
+    if unit_t is None and "unit_dof" in kept:
+        raise SystemExit(f"{name} kept unit_dof but records no Student-t unit levels")
     lines = getattr(d, "line", None) is not None
     if lines != ("line_sd" in kept):
         raise SystemExit(f"{name}'s design and kept draws disagree on lines")
@@ -968,6 +1102,8 @@ def scales(fit: Fit, i: int) -> dict:
         sc["phase"] = np.asarray(k["phase_scale"][i], float)
     if "line_sd" in k:
         sc["l2"] = float(k["line_sd"][i]) ** 2
+    if "unit_dof" in k:
+        sc["unit_dof"] = float(k["unit_dof"][i])
     return sc
 
 
