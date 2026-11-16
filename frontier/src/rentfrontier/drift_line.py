@@ -758,7 +758,7 @@ def make_sampler(
         }
         u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, 1)
-        nu, sigma, lam = update_noise(k4, st, r, D)
+        nu, sigma, lam, _ = update_noise(k4, st, r, D)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
         if joint is None:
             amp = update_amp(k6, st, w)
