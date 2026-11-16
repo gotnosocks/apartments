@@ -12,7 +12,7 @@
 # runs, or through the script REHEARSAL_ENTRY names, which gets WIDTH as its first argument
 # in the same way. With REHEARSAL_SRC set, PYTHONPATH holds that tree in place of this checkout's
 # frontier/src, and the run records REHEARSAL_COMMIT as its commit, for a run of the code at
-# an earlier commit. The run, its log, the device's memory every 2 s and the run's
+# an earlier commit. REHEARSAL_SEED replaces the seed of 1. The run, its log, the device's memory every 2 s and the run's
 # /usr/bin/time record go under /data1/apartments/tmp/rehearsals-2026-11-14/OUT.
 # Call it through `ops/job gpu` so it takes the GPU lock.
 set -euo pipefail
@@ -44,5 +44,5 @@ env PYTHONPATH="$src" \
 	/usr/bin/time -v -o "$root/$out/time.txt" \
 	/data1/apartments/serve/master/frontier/.venv/bin/python "${entry[@]}" \
 	--split carried --model "$model" --features b0 --chains 2 --chain-batch 2 \
-	--warmup "$warmup" --draws "$draws" --keep-every 40 --name "$name" --seed 1 \
+	--warmup "$warmup" --draws "$draws" --keep-every 40 --name "$name" --seed "${REHEARSAL_SEED:-1}" \
 	--level-dof 4 >"$root/$out/run.log" 2>&1

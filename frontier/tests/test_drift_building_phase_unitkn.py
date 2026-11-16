@@ -107,7 +107,9 @@ def test_the_noise_step_holds_nu_and_draws_sigma_and_lam():
     train, parts, st, _, _ = _setup(NU)
     jax, jnp = b0._jax()
     r = jnp.asarray(0.1 * np.random.default_rng(8).standard_normal(len(train.y)))
-    nu, sigma, lam = parts["update_noise"](jax.random.PRNGKey(2), st, r, parts["data"])
+    nu, sigma, lam, _ = parts["update_noise"](
+        jax.random.PRNGKey(2), st, r, parts["data"]
+    )
     assert float(nu) == NU
     assert float(jnp.abs(sigma - st["sigma"]).min()) > 0
     assert float(jnp.abs(lam - st["lam"]).min()) > 0

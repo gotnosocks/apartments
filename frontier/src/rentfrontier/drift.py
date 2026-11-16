@@ -208,6 +208,11 @@ UNIT_T_KEY = 89
 # and what the sweep's key is folded with for it.
 UNIT_KAP_WIDTH = 2.0
 UNIT_KAP_KEY = 83
+# The noise step's update of the phases' factors with lam integrated out (`make_sampler`'s
+# `phase_collapsed`): the slice interval's length along each log factor, and what the noise
+# step's key is folded with for it.
+PHASE_NOISE_WIDTH = 0.02
+PHASE_KEY = 79
 # The lasting level's slow reversion (`make_sampler`'s `unit_slow`): the Normal prior on
 # the log of its time constant in years, the slice interval's starting length along that
 # log, and the time constant the chains start near.
@@ -651,6 +656,7 @@ def make_sampler(
     unit_kap_collapsed: bool = False,
     row_dof_fixed: float | None = None,
     unit_slow: bool = False,
+    phase_collapsed: bool = False,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -674,7 +680,12 @@ def make_sampler(
     with v_k = ss^2 / kap_k (`rentfrontier.drift_building_phase_unitkn_level_slow`). The
     scale step samples log unit_tau as its last coordinate, and the collapsed kap step
     reads each unit's density from the eigenvalues of its lasting correlation against the
-    rest of its covariance (`kap_logp`). It needs `unit_kap_collapsed`."""
+    rest of its covariance (`kap_logp`). It needs `unit_kap_collapsed`.
+    `phase_collapsed` has the noise step draw each free phase factor after sigma, given the
+    rows' remainders and with lam integrated out, as it draws sigma
+    (`rentfrontier.drift_building_phase_unitkn_level_phase`). Without it the scale step
+    alone moves the factors, at the lam the state holds. It needs a design with phases and
+    no phase map, so that each factor scales rows of its own."""
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
     assert unit_kap_collapsed or not unit_slow, "unit_slow needs unit_kap_collapsed"
     assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
@@ -741,6 +752,9 @@ def make_sampler(
     else:
         free = len(d.phases) - 1
     phased = free > 0
+    assert not phase_collapsed or (phased and pmap is None), (
+        "phase_collapsed needs phases and no phase map"
+    )
     pmap_j = None if pmap is None else jnp.asarray(pmap)
 
     # Rows sorted by building, then unit, then time, and the buildings in blocks.
@@ -1944,8 +1958,10 @@ def make_sampler(
         return bsd, lev, par, path
 
     def update_noise(key, st, r, D):
-        """nu, then sigma, with lam integrated out, then lam: b0's noise step. The phases'
-        factors stay as the state holds them."""
+        """b0's noise step: nu, then sigma with lam integrated out, then lam. Under
+        `phase_collapsed` the step also draws each free phase factor after sigma, from its
+        own rows' Student-t density at the new sigma, before it draws lam. Returns nu,
+        sigma, lam and the free factors, None in a design without phases."""
         k1, k2, k3 = jax.random.split(key, 3)
         a_nu, b_nu = priors.nu
         group_all = D["group"]
@@ -1970,9 +1986,26 @@ def make_sampler(
             return ll - sig**2 / (2 * priors.sigma**2) + ls
 
         sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
-        z2 = (r / scale(sigma)) ** 2
+        factor = st.get("phase_scale")
+        if phase_collapsed:
+            # Its key is folded in, so nu, sigma and lam take the keys they had without
+            # this step.
+            def logp_phase(lf):
+                ll = b0.t_logpdf(r, nu, row_sd(D, sigma, jnp.exp(lf)))
+                by_phase = seg(ll, D["phase"], num_segments=free + 1)[1:]
+                return by_phase - lf**2 / (2 * PHASE_PRIOR**2)
+
+            factor = jnp.exp(
+                b0.slice_vec(
+                    jax.random.fold_in(key, PHASE_KEY),
+                    jnp.log(factor),
+                    logp_phase,
+                    PHASE_NOISE_WIDTH,
+                )
+            )
+        z2 = (r / row_sd(D, sigma, factor)) ** 2
         lam = jax.random.gamma(k3, (nu + 1) / 2, (n,)) / ((nu + z2) / 2)
-        return nu, sigma, lam
+        return nu, sigma, lam, factor
 
     def update_tau(key, st, M, g):
         z = jnp.diff(M) - g
@@ -2135,7 +2168,7 @@ def make_sampler(
         else:
             u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
-        nu, sigma, lam = update_noise(k4, st, r, D)
+        nu, sigma, lam, factor = update_noise(k4, st, r, D)
         tau = update_tau(k5, st, theta[sl_M], theta[i_g])
         if joint is None:
             amp = update_amp(k6, st, w)
@@ -2158,7 +2191,7 @@ def make_sampler(
         if unit_slow:
             new["unit_tau"] = st["unit_tau"]
         if phased:
-            new["phase_scale"] = st["phase_scale"]
+            new["phase_scale"] = factor
         if unit_t:
             new |= dict(unit_dof=unit_dof, ukap=ukap, pred_ukap=pred_ukap)
         if dof is not None:
@@ -2175,7 +2208,7 @@ def make_sampler(
         out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
         if phased:
             # Every phase's factor, the reference's 1 first, in the order of `d.phases`.
-            out["phase_scale"] = phase_factors(st["phase_scale"])
+            out["phase_scale"] = phase_factors(factor)
         if dof_free:
             out["unit_dof"] = unit_dof
         if unit_slow:
@@ -2413,6 +2446,7 @@ def run(
     unit_kap_collapsed: bool = False,
     row_dof_fixed: float | None = None,
     unit_slow: bool = False,
+    phase_collapsed: bool = False,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2424,7 +2458,7 @@ def run(
     `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s. With `row_dof_fixed`
     (`make_sampler`) nu is traced and kept at its value, and the gate's diagnostics skip it
     as a constant. `unit_slow` (`make_sampler`) adds the lasting level's time constant
-    `unit_tau` to both."""
+    `unit_tau` to both. `phase_collapsed` is `make_sampler`'s."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
     t0 = time.perf_counter()
@@ -2439,6 +2473,7 @@ def run(
         unit_kap_collapsed=unit_kap_collapsed,
         row_dof_fixed=row_dof_fixed,
         unit_slow=unit_slow,
+        phase_collapsed=phase_collapsed,
     )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (

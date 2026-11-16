@@ -15,6 +15,28 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 10:15 AM ET on Nov 16
+
+- **Spend:** $43.22 of $100, unchanged. The checks below ran on thelio's GPU.
+- **Sampler check on the first-ad noise** (`docs/notes/phase-collapsed-2026-11-16.md`, #1418).
+  `drift.make_sampler` has an opt-in `phase_collapsed`: the noise step draws each free phase
+  factor after sigma with lam integrated out. On k100 at seeds 1 and 2 against L2:
+  - the five later phases' factors gain about 45% in bulk ESS;
+  - the first ads' noise gains about a tenth, inside the seed-to-seed gap;
+  - `unit_sd` came out lower at both seeds (204 and 289 against 323 and 337), unexplained;
+  - posterior means agree and sampling time is the same.
+- **No market refit with the option.** The first ads' noise is slow against the unit level
+  through lam, kap and u. The next sampler check is a move of the first ads' noise against
+  `unit_sd` with lam and kap redrawn inside it, on k100 at both seeds
+  (`rehearse.sh` takes `REHEARSAL_SEED`; baselines `unitkn-level` and `unitkn-level-s2`
+  under `/data1/apartments/tmp/rehearsals-2026-11-14`).
+- The slice steps reach 12 widths to each side. On a 340-row test design that narrowed the
+  noise step's chain by a tenth. Full datasets' log scales spread by about 0.01, inside the
+  reach.
+- #1417 merged: multi-unit and free-rent wording on the Deals list.
+
+The 1:00 AM list below still holds from item 2 on.
+
 ### State at 1:00 AM ET on Nov 16
 
 - **Spend:** $43.22 of $100. The six L2 containers for Deals cost $21.34
