@@ -25,16 +25,18 @@ subagent's model and effort to be picked by its task.
   chain. On the backtest's final asks, L2 ties j9 (elpd 9,980.7 against 9,978.6), so its
   6,442 lead over b9 on the latest split does not carry over to Deals. L2 would put fewer ads in the
   bottom tenth (465 against 601), with fewer of them raised later (19% against 37%).
-- **No L2 refit** unless Ben asks for one. I recommended to Ben that we fix the noise-scale
-  parameterization in code at no Modal cost, and refit only with a change that gains on the
-  backtest.
+- **No L2 refit** unless Ben asks for one. Refit only with a change that gains on the backtest. The
+  sampler already moves sigma and the phase factors together along curvature directions, so
+  the slow quantity is the first-ad noise, which trades off with the units' Student-t scales
+  (`docs/notes/l2-market-2026-11-15.md`).
 - **A price report for 131 E 23rd St 5C** went to Ben as a private page, with a breakdown of
   each model part against the average ad. Scripts: `parts.py`, `ref.py`, `groups.py` and
   `page.py` in the session's scratchpad `5c/`, which does not persist.
 
 Next, in order:
 
-1. Reparameterize sigma and the phase factors so they no longer trade off, with a test, at no Modal cost.
+1. Check on a subset fit whether the first-ad noise mixes faster when the scale step also
+   moves the units' Student-t mixing scales, at no Modal cost.
 2. The data fixes from the expert read, then the unread-half check if it is still open.
 3. Fit A of item 8a, after its note.
 4. A false-deals count in scoring, the line contrast check, and pricing the StreetEasy
