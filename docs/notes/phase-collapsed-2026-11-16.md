@@ -84,3 +84,41 @@ ESS near 300 from a single seed, a change under about 25% is within the estimate
 If 1 comes true, I write a note for a market refit of L2 with the option, about $11. If it
 fails, reading (b) stands and the next check is a move of the first ads' noise against
 `unit_sd` with lam and kap redrawn inside it.
+
+## Results
+
+The run finished at 09:17 ET on Nov 16 (`.../phase-collapsed-k100`), with 600 s of sampling
+against the Nov 14 rehearsal's 594 s. Bulk ESS over 2 chains x 2,400 draws, seed 1 in both:
+
+| Quantity | L2 | with the option |
+|---|---|---|
+| `unit_sd` | 323 | 204 |
+| sigma, four groups | 565, 501, 583, 636 | 593, 524, 643, 681 |
+| `none` factor | 517 | 654 |
+| the other five factors | 539 to 650 | 763 to 918 |
+| log sigma[g] + log `none` factor | 308, 223, 246, 438 | 353, 393, 299, 379 |
+| the same sums for the other five phases, lowest and highest | 269, 681 | 516, 1,258 |
+| `none` minus the mean of the other phases | 327 | 528 |
+
+Split R-hat of the `none` factor went from 1.0042 to 1.0006, and the highest among its four
+sums from 1.0090 to 1.0057.
+
+1. Right, by a thin margin: the lowest `none` sum is 299. Three of the four sums rose and
+   group 3's fell from 438 to 379.
+2. Wrong: `unit_sd` came in at 204.
+3. Right: all eleven means sit within 1.01 standard errors of the difference. `unit_sd` is
+   0.04664 and 0.04661, the `none` factor 1.7245 and 1.7249.
+4. Right: 600 s.
+
+The step clearly helps the five later phases, whose noise roughly doubled in ESS. For the
+first ads the gain is smaller, and the first ads' noise and `unit_sd` remain the slowest
+quantities of the sweep, as reading (b) expects. An ESS near 300 from two chains carries
+an error of a fifth or more, so the rise from 223 to 299 and the fall of `unit_sd` from 323
+to 204 could each be seed noise. Before a market refit I repeat both runs at seed 2
+(`REHEARSAL_SEED=2`, outputs `unitkn-level-s2` and `phase-collapsed-k100-s2`) and read the
+two seeds together.
+
+While tightening the chain test I found the slice steps' reach matters on tiny designs: at
+12 widths of 0.02 to each side, the noise step's chain on 340 rows came out a tenth too
+narrow in both sigma and the factors, and exact at 80 widths. A full dataset's log scales
+spread by about 0.01, so the default reach covers them.
