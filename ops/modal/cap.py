@@ -210,6 +210,8 @@ STATED_RATE["drift-building-phase-unitkn-level-bedunit"] = 1.5
 # The segment paths took L1's rate from 1.0 s to 1.6 s, and the same 60% on L1TKN's 1.5 s
 # gives 2.4 s.
 STATED_RATE["drift-building-phase-unitkn-segment"] = 2.4
+# L2 without its phases sampled 16% faster on the k50 subsample (`no-phase-2026-11-16.md`).
+STATED_RATE["drift-building-unitkn"] = 1.3
 STATED_RATE["drift-local"] = 0.9
 # A Gibbs model with no Modal fit of its own takes the rate of its stand-in's latest one.
 # Building zones with attributes drops NJ's zone from building zones on Gibbs and adds eight
@@ -331,6 +333,7 @@ BASELINES = (
     "drift-building-phase-unitkn-level-bedunit",
     "drift-building-phase-unitkn-segment",
     "drift-building-phase-unitt",
+    "drift-building-unitkn",
     "drift-building-unitt",
     "drift-local",
 )
@@ -406,6 +409,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-phase-unitkn-level-bedunit",
         "drift-building-phase-unitkn-segment",
         "drift-building-phase-unitt",
+        "drift-building-unitkn",
         "drift-building-unitt",
         "drift-local",
     ),

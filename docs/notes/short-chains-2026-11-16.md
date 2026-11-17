@@ -239,3 +239,55 @@ I read the test as passed for predictions when the elpd lost against the pool is
 0.002 an ad (380 in all) and at least 95% of the pool's lowest 10% are found. A short fit
 can stand in for a pool in a comparison of two models only when the chains' difference in
 prediction 5 is small against the lead being tested.
+
+### Results of the third check
+
+The container `l2short` ran on Nov 16 from commit 75fe7f29 and settled at $1.37. Modal
+gave it an H200. Its 18 minutes of fit time were 189 s of preparation, 126 s of compiling,
+383 s for the 500 warmup sweeps and 207 s for the 320 sampling sweeps. I scored it with
+`drift_score` and compared it with L2's pool using `short-chains-2026-11-16/full.py`.
+
+| Score | Short fit, 640 draws | L2's pool, 432 draws |
+|---|---|---|
+| held-out elpd | 237,341.6 | 237,430.7 |
+| median absolute error | 0.0400 | 0.0400 |
+| 80% coverage | 80.06% | 80.07% |
+| max split R-hat | 1.1353 (`unit_sd`) | 1.0050 |
+| min bulk ESS | 20 (`beta[unit:elev_f34]`) | 1,141 |
+
+The short fit loses 89.1 elpd to the pool, 0.0005 an ad. The paired SE of that difference,
+clustered by building, is 29, so the short fit sits below the pool by about 3 SE and the
+offset is more than noise over ads. The Spearman correlation of the
+two cdfs at the ask is 0.9987. The short fit's lowest 1% holds 95.0% of the pool's 1,896
+ads, and its lowest 10% holds 97.1% of the pool's 18,964.
+
+Each chain's 320 draws alone score 237,152.0 and 237,109.7, a difference of 42.4. The
+per-ad differences between the chains have an sd of 0.0987, which over 189,647 ads gives a
+sum with an sd of 43, so the 42.4 is the size chance alone produces. Halving the variance
+for 640 draws puts the sd of the difference between two short fits near 30, so two such
+fits can differ by 60. This rests on a single pair of chains and treats ads as independent,
+which leaves out error in the scalars every ad shares (`unit_sd` has a bulk ESS of 36). The chains share 92.8%
+of their lowest 1% and 95.8% of their lowest 10%.
+
+Prediction scores:
+
+1. Right: the run misses the gate, with R-hat 1.1353 on `unit_sd`.
+2. Right: 89.1 below the pool.
+3. Right: the 80% coverages differ by 0.01 points.
+4. Right on each part: 0.9987, 95.0% and 97.1%.
+5. Right: the chains differ by 42.4.
+6. Right: $1.37.
+
+### Reading of the third check
+
+The test passes for predictions by the rule set before the launch: 0.0005 an ad lost
+against a limit of 0.002, and 97.1% of the lowest 10% found against a limit of 95%. A
+short fit costs an eighth of a pool and predicts the held-out ads about as well.
+
+For a comparison of two models, two short fits carry sampling noise with an sd of at
+least 30 elpd on top of the paired SE over ads, and each sits below its pool by an offset
+measured once, at 89. A comparison of two short fits assumes the offset is about equal for
+both models, and a shared seed pairs nothing across models. A lead of several hundred is
+then readable from two short fits, and a lead under about 100 is not. The noise between
+two pools is unmeasured. The gate still needs a pool: a model adopted for serving on a
+short fit's scores would need its pool before Deals reads it.
