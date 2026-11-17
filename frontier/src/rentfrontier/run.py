@@ -567,6 +567,10 @@ def main(argv=None):
             "drift_building_phase_unitkn_level_bedtext",
         ),
         (
+            "drift-building-phase-unitkn-level-bedunit",
+            "drift_building_phase_unitkn_level_bedunit",
+        ),
+        (
             "drift-building-phase-unitkn-level-slow",
             "drift_building_phase_unitkn_level_slow",
         ),
