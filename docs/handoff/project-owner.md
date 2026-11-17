@@ -15,7 +15,25 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 4:00 PM ET on Nov 16
+### State at 10:00 PM ET on Nov 16
+
+- **Bedroom text flag: a win** (`docs/notes/bed-text-2026-11-16.md`). The pool
+  `drift-building-phase-unitkn-level-bedtext-b0-latest-c1ffaefd-l2bt` passes the gate
+  (R-hat 1.0054, ESS 948) and leads L2 by 223.6 held-out elpd (SE 38.2), +277.9 on the
+  5,022 flagged ads. The unit-mean column carries the effect (-0.059; ad column -0.005).
+  It is the best model on the latest split and is not on Deals: no market or backtest fit.
+  Next: a Deals caution for flagged candidates, a column for text stating more bedrooms
+  than coded (608 held-out ads, mean z +0.46), the same reading for baths.
+- **Cheaper estimation** (`docs/notes/short-chains-2026-11-16.md`, #1422). Held-out scores
+  follow the count of kept draws, and on k50 a row's `pred_loc` has lag-1 autocorrelation
+  0.18. 320 consecutive kept sweeps lose 0.0015 elpd an ad. Open with Ben: short
+  single-container fits (500 warmup, 320 sweeps, `--keep-every 1`, about $1.25) for market
+  and backtest fits of a model whose latest-split pool passed the gate, and a full-data
+  test of that at about $1.25. Pools can keep more draws with a smaller `--keep-every`.
+- **Lease phases**: unchanged, the full-data pool of `drift-building-unitkn` waits on Ben.
+- Sprint spend: $54.22 of $100.
+
+### State at 9:00 PM ET on Nov 16
 
 Ben asked for three threads on Nov 16: cheaper estimation, dropping the lease phases, and
 data issues in the tails of the error.
@@ -24,7 +42,7 @@ data issues in the tails of the error.
   columns of `rentfrontier.b0bedtext` code the bedroom count an ad's text states. On L2's
   held-out ads, 5,019 are flex or state fewer bedrooms than coded, with mean z -0.375 and
   2.53% below the 1st percentile. `drift-building-phase-unitkn-level-bedtext` adds a flag
-  for them to L2. Its latest-split pool `l2bt-a`, `l2bt-b`, `l2bt-c` launched at 3:50 PM ET
+  for them to L2. Its latest-split pool `l2bt-a`, `l2bt-b`, `l2bt-c` launched at 8:50 PM ET
   at commit c1ffaefd on the dataset copy `...closingraise-bedtext`, about $11. When it
   finishes: check the gate on the pool, score with `drift_score` against
   `drift-building-phase-unitkn-level-b0-latest-b27d1dd8-l2kn`, score the note's
