@@ -211,6 +211,7 @@ BASELINES = (
     ("--model", "drift-building-phase-unitkn-level-bedunit"),
     ("--model", "drift-building-phase-unitkn-segment"),
     ("--model", "drift-building-phase-unitt"),
+    ("--model", "drift-building-unitkn"),
     ("--model", "drift-building-unitt"),
     ("--model", "drift-local"),
 )
