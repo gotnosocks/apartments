@@ -28,8 +28,10 @@ def main(argv):
     a, b = np.load(f"{old}/pred_scores.npz"), np.load(f"{new}/pred_scores.npz")
     assert np.allclose(a["y"], b["y"], atol=1e-12)
     assert np.array_equal(a["listing"], b["listing"])
-    rows = pq.read_table(f"{dataset}/rows.parquet", columns=list(FLAGS)).to_pandas()
+    cols = ["listing_id", *FLAGS]
+    rows = pq.read_table(f"{dataset}/rows.parquet", columns=cols).to_pandas()
     h = rows[a["heldout"]].reset_index(drop=True)
+    assert (h.listing_id.astype(str).to_numpy() == a["listing"].astype(str)).all()
     h["smaller"] = h.bed_flex_at | h.bed_text_fewer
     h["unflagged"] = ~(h.smaller | h.bed_text_more)
     building = a["building"].astype(str)

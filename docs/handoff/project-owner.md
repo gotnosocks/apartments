@@ -23,7 +23,7 @@ subagent's model and effort to be picked by its task.
   5,022 flagged ads. The unit-mean column carries the effect (-0.059; ad column -0.005).
   It is the best model on the latest split and is not on Deals: no market or backtest fit.
   Next: a Deals caution for flagged candidates, a column for text stating more bedrooms
-  than coded (612 held-out ads, mean z +0.46), the same reading for baths.
+  than coded (608 held-out ads, mean z +0.46), the same reading for baths.
 - **Cheaper estimation** (`docs/notes/short-chains-2026-11-16.md`, #1422). Held-out scores
   follow the count of kept draws, and on k50 a row's `pred_loc` has lag-1 autocorrelation
   0.18. 320 consecutive kept sweeps lose 0.0015 elpd an ad. Open with Ben: short
