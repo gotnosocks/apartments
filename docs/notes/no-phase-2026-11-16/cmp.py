@@ -62,12 +62,17 @@ out = {
             float(d[phase == i].sum()),
         ]
         for i, p in enumerate(PHASES)
+        if (phase == i).any()
     },
     "spearman_cdf": float(spearmanr(a["cdf"], b["cdf"]).statistic),
     "lowest_tenth": n,
     "shared_lowest_tenth": len(lo_a & lo_b),
-    "first_ad_share_added_by_nophase": float(np.mean(phase[added] == none)),
-    "first_ad_share_dropped_by_nophase": float(np.mean(phase[dropped] == none)),
+    "first_ad_share_added_by_nophase": float(np.mean(phase[added] == none))
+    if len(added)
+    else None,
+    "first_ad_share_dropped_by_nophase": float(np.mean(phase[dropped] == none))
+    if len(dropped)
+    else None,
     "first_ad_share_all": float(np.mean(phase == none)),
 }
 print(json.dumps(out, indent=1))
