@@ -204,6 +204,8 @@ STATED_RATE["drift-building-phase-unitk"] = 1.5
 STATED_RATE["drift-building-phase-unitkn"] = 1.5
 # Six phase columns among some 900 global ones leave L1TKN's rate as it is.
 STATED_RATE["drift-building-phase-unitkn-level"] = 1.5
+# Two flag columns among some 900 global ones leave L2's rate as it is.
+STATED_RATE["drift-building-phase-unitkn-level-bedtext"] = 1.5
 # The segment paths took L1's rate from 1.0 s to 1.6 s, and the same 60% on L1TKN's 1.5 s
 # gives 2.4 s.
 STATED_RATE["drift-building-phase-unitkn-segment"] = 2.4
@@ -324,6 +326,7 @@ BASELINES = (
     "drift-building-phase-unitk",
     "drift-building-phase-unitkn",
     "drift-building-phase-unitkn-level",
+    "drift-building-phase-unitkn-level-bedtext",
     "drift-building-phase-unitkn-segment",
     "drift-building-phase-unitt",
     "drift-building-unitt",
@@ -397,6 +400,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-phase-unitk",
         "drift-building-phase-unitkn",
         "drift-building-phase-unitkn-level",
+        "drift-building-phase-unitkn-level-bedtext",
         "drift-building-phase-unitkn-segment",
         "drift-building-phase-unitt",
         "drift-building-unitt",
