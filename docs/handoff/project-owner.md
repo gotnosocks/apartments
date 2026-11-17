@@ -15,6 +15,31 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 12:45 AM ET on Nov 17
+
+Ben approved three fits on Nov 16, and all ran as short fits (one container, `2 500 320 1`,
+seed 1) compared with L2's short fit `drift-building-phase-unitkn-level-b0-latest-75fe7f29-l2short`.
+
+- **Short fits work for comparisons** (`docs/notes/short-chains-2026-11-16.md`, #1426).
+  L2's short fit scored 89 elpd below its pool for $1.37, and the bedtext short fit 76
+  below its pool. Two short fits reproduced the pools' bedtext lead (236.8 against 223.6).
+  A short fit misses the scalar gate, so a model adopted on short-fit scores needs a pool
+  before Deals reads it.
+- **Lease phases stay** (`docs/notes/no-phase-2026-11-16.md`). On the full data L2 leads
+  the phase-free model by 1,240.5 held-out elpd (SE 53.4), and 14% of L2's lowest
+  hundredth by cdf leaves. The phases cost no measurable sampling time.
+- **bedunit dropped** (`docs/notes/bed-unit-2026-11-16.md`). The variant trails the bedtext
+  model by 122.1 (SE 34.9). The bedtext model stays the best on the latest split and is
+  not on Deals: it has no market or backtest fit. Those can run as short fits once Ben
+  agrees, with the gate covered by the latest-split pool only if he accepts that.
+- Launch `ops/modal-fit` runs one at a time and wait for each log's line starting "synced":
+  three launches in the same second collided on the shared code checkout and two failed
+  at no cost.
+- Next: a Deals caution for flagged candidates, a column for text stating more bedrooms
+  than coded, the same reading for baths, and the 102 elpd the bedtext model loses on
+  unflagged ads in flagged units.
+- Sprint spend: $59.76 of $100.
+
 ### State at 10:00 PM ET on Nov 16
 
 - **Bedroom text flag: a win** (`docs/notes/bed-text-2026-11-16.md`). The pool
