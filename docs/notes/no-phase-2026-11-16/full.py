@@ -21,6 +21,7 @@ new, old = (Path(p) for p in sys.argv[1:])
 a = np.load(new / "pred_scores.npz", allow_pickle=True)
 b = np.load(old / "pred_scores.npz", allow_pickle=True)
 assert np.array_equal(a["y"], b["y"])
+assert (a["listing"].astype(str) == b["listing"].astype(str)).all()
 post = np.load(old / "posterior.npz", allow_pickle=True)
 phase = np.asarray(post["kept/pred_phase"]).reshape(-1, len(a["y"]))[0]
 d = b["elpd"] - a["elpd"]
@@ -30,7 +31,8 @@ se = float(np.sqrt(len(sums) / (len(sums) - 1) * np.sum(sums**2)))
 
 
 def cover(s, m):
-    return float(np.mean((s["cdf"][m] >= 0.1) & (s["cdf"][m] <= 0.9)))
+    q = dict(zip(s["quantiles"].round(3), s["q"].T, strict=True))
+    return float(np.mean((s["y"][m] >= q[0.1][m]) & (s["y"][m] <= q[0.9][m])))
 
 
 every = np.ones(len(d), bool)

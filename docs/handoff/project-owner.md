@@ -25,9 +25,10 @@ seed 1) compared with L2's short fit `drift-building-phase-unitkn-level-b0-lates
   below its pool. Two short fits reproduced the pools' bedtext lead (236.8 against 223.6).
   A short fit misses the scalar gate, so a model adopted on short-fit scores needs a pool
   before Deals reads it.
-- **Lease phases stay** (`docs/notes/no-phase-2026-11-16.md`). On the full data L2 leads
-  the phase-free model by 1,240.5 held-out elpd (SE 53.4), and 14% of L2's lowest
-  hundredth by cdf leaves. The phases cost no measurable sampling time.
+- **Lease phases: recommend keeping them** (`docs/notes/no-phase-2026-11-16.md`). On the
+  full data L2 leads the phase-free model by 1,240.5 held-out elpd (SE 53.4). Among
+  held-out ads, none a first ad, 14% of L2's lowest hundredth by cdf leaves. The choice
+  is Ben's.
 - **bedunit dropped** (`docs/notes/bed-unit-2026-11-16.md`). The variant trails the bedtext
   model by 122.1 (SE 34.9). The bedtext model stays the best on the latest split and is
   not on Deals: it has no market or backtest fit. Those can run as short fits once Ben
