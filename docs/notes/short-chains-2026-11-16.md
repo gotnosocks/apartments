@@ -201,3 +201,41 @@ Limits of this check:
 
 A direct test on the full data is a single container on the latest split with
 `--keep-every 1` and 320 sampling sweeps, scored against L2's pool, at about $1.25.
+
+## Third check: a short fit on the full data
+
+Ben approved this test on Nov 16. A single H100 container fits L2 on the latest split from
+this section's merge commit, with 2 chains, 500 warmup sweeps and 320 sampling sweeps, each
+kept, which stores 640 draws:
+
+```sh
+D=/data1/apartments/frontier/datasets/b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc-closingraise
+IN=/data1/apartments/pipeline/datasets/rows-b3ddebf19af1dc1e.parquet
+ops/modal-fit --outside-budget --gpu H100 --dataset "$D" --input "$IN" --split latest \
+  --baseline drift-building-phase-unitkn-level-b0-latest-b27d1dd8-l2kn COMMIT l2short \
+  drift-building-phase-unitkn-level b0 2 500 320 1 --seed 1 --level-dof 4 \
+  --no-loo --no-heldout
+```
+
+I score it with `drift_score` on the 189,647 held-out ads and compare it with L2's pool
+(held-out elpd 237,430.7 from 432 draws) using `bed-text-2026-11-16/cmp.py`. I also score
+each chain's 320 draws alone. The elpd difference between the two chains measures the noise
+a comparison of two short fits would carry, which decides whether a short fit can also
+compare two models.
+
+Predictions, written before the launch:
+
+1. The run misses the scalar gate (95%), as a chain of 320 sweeps must.
+2. Its held-out elpd is within 150 of the pool's, above or below (65%). By the k50 check, 640 consecutive
+   sweeps count as about 430 independent draws, near the pool's 432.
+3. The 80% coverage is within 0.3 points of the pool's (70%).
+4. The Spearman correlation of the two cdfs at the ask is above 0.995 (70%). At least 90%
+   of the pool's lowest 1% are in the short fit's lowest 1% (65%), and at least 95% of its
+   lowest 10% (70%).
+5. The two chains' elpd, each from 320 draws, differ by under 60 (60%).
+6. The container settles between $0.80 and $1.80 (70%).
+
+I read the test as passed for predictions when the elpd lost against the pool is under
+0.002 an ad (380 in all) and at least 95% of the pool's lowest 10% are found. A short fit
+can stand in for a pool in a comparison of two models only when the chains' difference in
+prediction 5 is small against the lead being tested.
