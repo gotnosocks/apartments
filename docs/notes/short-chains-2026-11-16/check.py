@@ -2,7 +2,7 @@
 
 python check.py RUN
 
-RUN is the pooled run's directory. Its containers' directories are RUN-a, RUN-b, RUN-c.
+RUN is the pooled run's directory, scored already (pred_scores.npz). Its containers' directories are RUN-a, RUN-b, RUN-c.
 """
 
 import sys
@@ -13,7 +13,7 @@ from scipy.stats import spearmanr
 
 from rentfrontier import drift_score
 
-CHUNK = 20000
+CHUNK = drift_score.CHUNK
 
 
 def load(run):
@@ -72,10 +72,8 @@ def line(name, s, ref):
 
 
 def main(run):
-    pool = load(run)
-    ref = score(pool, range(pool["pred_loc"].shape[0]), pool["pred_loc"].shape[1])
+    ref = np.load(Path(run) / "pred_scores.npz")
     line("pool, 432 draws", ref, ref)
-    del pool
     for tag in ("a", "b"):
         part = load(run + "-" + tag)
         for n in (1, 2, 4, 8):
