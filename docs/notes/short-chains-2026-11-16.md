@@ -83,12 +83,12 @@ The loss halves each time the draws double, and 8 draws from one chain score the
 from each of two. So the loss follows the count of kept draws and has little to do with
 the chain or with the scalars' position. A row's `pred_loc` carries a fresh draw of its
 building's path and of the coefficients in each kept sweep, and one such draw moves the
-median by 0.039 in log rent, more than half the size of the model's median absolute error
+median by 0.039 in log rent, about the size of the model's median absolute error
 of 0.04. The predictive
 distribution needs on the order of 150 such draws before the list of the lowest 1% settles
 to within 5%.
 
-At the same rate the pool of 432 draws itself stands about 100 to 135 elpd short of an
+At the same rate the pool of 432 draws itself stands about 135 to 160 elpd short of an
 endless pool, and two pools of the same model would differ in about 3% of their lowest 1%.
 
 So the number of sweeps is not what the predictions need. They need kept draws, and the
@@ -154,24 +154,26 @@ Scores from the start of chain 0, against the reference:
 
 The lowest 1% is 46 ads here, so its column moves in steps of 2.2 points.
 
-The sampling time was 0.368 s a sweep, against 0.358 s with 1 sweep in 40 kept.
+The run's log reports 0.368 s a sweep, against 0.358 s with 1 sweep in 40 kept. The 433 s
+over 1,200 sweeps come to 0.361 s, so the rise is between 1% and 3%.
 
 Prediction scores:
 
 1. Right on both parts: 0.177 at lag 1 and 0.005 at lag 8.
 2. Right on both parts: 0.0015 an ad lost, and 97.8% of the lowest 10% found.
 3. Right: 0.0319 an ad.
-4. Right: the sweep time rose by 3%.
+4. Right: the sweep time rose by 1% to 3%.
 
 ### Reading of the second check
 
 A row's location forgets its previous sweep almost entirely: 160 consecutive sweeps score
 the same as 160 draws spread over 320 sweeps (14.1 against 14.0 lost). So a kept sweep
-costs 3% of a sweep's time and counts nearly as a full draw. Two uses follow.
+costs at most 3% of a sweep's time and counts as about two thirds of an independent draw
+(320 consecutive sweeps lose 6.9, about twice the loss expected of 320 independent draws). Two uses follow.
 
 - Present pools can keep more draws. A pool of 3 containers runs about 17,000 sampling
   sweeps and keeps 432. Keeping 1 sweep in 4 would store ten times the draws for the same
-  sweeps and close most of the 100 to 135 elpd between the pool and an endless one. The
+  sweeps and close most of the 135 to 160 elpd between the pool and an endless one. The
   cost is storage: draws by rows by 4 bytes for each of the two stored arrays, which is
   about 6.5 GB for 4,320 draws of 189,647 held-out ads, so `drift_score` would need to read
   the draws in blocks.
