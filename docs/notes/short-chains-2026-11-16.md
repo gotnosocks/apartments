@@ -117,3 +117,85 @@ Predictions, written before the run:
 3. Thinning those 320 sweeps by 40 (8 draws) loses 0.03 to 0.05 an ad (70%), the full
    data's 0.038.
 4. Keeping every sweep raises the sampling time a sweep by under 25% (60%).
+
+### Results of the second check
+
+The run `frontier-l2-k50-keep1` sampled 1,200 sweeps of 2 chains in 433 s. I analyzed it
+with `short-chains-2026-11-16/keep1.py`. As in every rehearsal on this subsample the run
+misses the gate on Manhattan's building spread (R-hat 1.0689, bulk ESS 20), so the
+reference below is the run's own 2,400 kept draws, with held-out elpd 5,839.9 and 80%
+coverage 81.29%.
+
+Autocorrelation of `pred_loc` over sweeps, across the 4,649 held-out ads:
+
+| Lag | Median | 90th percentile |
+|---|---|---|
+| 1 | 0.177 | 0.411 |
+| 2 | 0.071 | 0.234 |
+| 4 | 0.023 | 0.095 |
+| 8 | 0.005 | 0.050 |
+| 16 | 0.000 | 0.039 |
+| 40 | -0.002 | 0.038 |
+
+Scores from the start of chain 0, against the reference:
+
+| Sweeps | Kept | Draws | elpd lost | elpd lost an ad | 80% coverage | Lowest 1% found | Lowest 10% found |
+|---|---|---|---|---|---|---|---|
+| 320 | 1 in 1 | 320 | 6.9 | 0.0015 | 80.88% | 93.5% | 97.8% |
+| 320 | 1 in 2 | 160 | 14.0 | 0.0030 | 80.92% | 93.5% | 97.0% |
+| 320 | 1 in 4 | 80 | 25.5 | 0.0055 | 80.75% | 95.7% | 97.0% |
+| 320 | 1 in 8 | 40 | 41.4 | 0.0089 | 80.40% | 93.5% | 94.8% |
+| 320 | 1 in 40 | 8 | 148.4 | 0.0319 | 78.53% | 80.4% | 86.9% |
+| 160 | 1 in 1 | 160 | 14.1 | 0.0030 | 80.81% | 91.3% | 95.9% |
+| 160 | 1 in 2 | 80 | 21.0 | 0.0045 | 80.40% | 93.5% | 96.1% |
+| 160 | 1 in 4 | 40 | 42.9 | 0.0092 | 80.28% | 91.3% | 93.8% |
+| 160 | 1 in 8 | 20 | 89.4 | 0.0192 | 79.97% | 91.3% | 91.6% |
+| 160 | 1 in 40 | 4 | 313.1 | 0.0674 | 75.99% | 73.9% | 79.5% |
+
+The lowest 1% is 46 ads here, so its column moves in steps of 2.2 points.
+
+The sampling time was 0.368 s a sweep, against 0.358 s with 1 sweep in 40 kept.
+
+Prediction scores:
+
+1. Right on both parts: 0.177 at lag 1 and 0.005 at lag 8.
+2. Right on both parts: 0.0015 an ad lost, and 97.8% of the lowest 10% found.
+3. Right: 0.0319 an ad.
+4. Right: the sweep time rose by 3%.
+
+### Reading of the second check
+
+A row's location forgets its previous sweep almost entirely: 160 consecutive sweeps score
+the same as 160 draws spread over 320 sweeps (14.1 against 14.0 lost). So a kept sweep
+costs 3% of a sweep's time and counts nearly as a full draw. Two uses follow.
+
+- Present pools can keep more draws. A pool of 3 containers runs about 17,000 sampling
+  sweeps and keeps 432. Keeping 1 sweep in 4 would store ten times the draws for the same
+  sweeps and close most of the 100 to 135 elpd between the pool and an endless one. The
+  cost is storage: draws by rows by 4 bytes for each of the two stored arrays, which is
+  about 6.5 GB for 4,320 draws of 189,647 held-out ads, so `drift_score` would need to read
+  the draws in blocks.
+- A fit used only for its predictions can be short. A single container with 500 warmup
+  sweeps and 320 sampling sweeps, each kept, would cost about $1.25 against $11.06 for the
+  pool, and on this subsample it ranks the ads as the long run does. Such a fit fails the
+  convergence gate on the scalars by construction, so it cannot stand in for the fit that
+  tests a model. It could serve the market and backtest fits of a model whose latest-split
+  pool has passed the gate, which is a change to the Deals rule and is Ben's to decide.
+
+Limits of this check:
+
+- It ran on 1 building in 50. On the full data the scalars' position after 500 warmup
+  sweeps may be further from the pool's than it was here, and the first check measured
+  only kept draws of a long chain.
+- Ads in a building with no training row take a draw of the building level from its prior
+  each sweep. This split's held-out ads all have an earlier ad of the same unit, so that
+  case is untested.
+- Other routes to a cheaper fit were considered and set aside for now. Fixing the scales at
+  plug-in values would need changes through most of `drift.py`'s sweep, and an earlier
+  plug-in rebuild covered 0.805 against the fit's 0.808
+  (`outlier-sprint-2026-11-11.md`). Variational inference is a poor match for a
+  conditionally Gaussian model with over a million latent values, where each Gibbs sweep
+  already draws the Gaussian block exactly.
+
+A direct test on the full data is a single container on the latest split with
+`--keep-every 1` and 320 sampling sweeps, scored against L2's pool, at about $1.25.
