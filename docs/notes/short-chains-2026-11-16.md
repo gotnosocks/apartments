@@ -226,7 +226,7 @@ compare two models.
 Predictions, written before the launch:
 
 1. The run misses the scalar gate (95%), as a chain of 320 sweeps must.
-2. Its held-out elpd is within 150 of the pool's (65%). By the k50 check, 640 consecutive
+2. Its held-out elpd is within 150 of the pool's, above or below (65%). By the k50 check, 640 consecutive
    sweeps count as about 430 independent draws, near the pool's 432.
 3. The 80% coverage is within 0.3 points of the pool's (70%).
 4. The Spearman correlation of the two cdfs at the ask is above 0.995 (70%). At least 90%
