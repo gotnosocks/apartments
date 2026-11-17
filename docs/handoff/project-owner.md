@@ -15,6 +15,32 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 4:00 PM ET on Nov 16
+
+Ben asked for three threads on Nov 16: cheaper estimation, dropping the lease phases, and
+data issues in the tails of the error.
+
+- **Bedroom text flag, pool running** (`docs/notes/bed-text-2026-11-16.md`, #1420). The
+  columns of `rentfrontier.b0bedtext` code the bedroom count an ad's text states. On L2's
+  held-out ads, 5,019 are flex or state fewer bedrooms than coded, with mean z -0.375 and
+  2.53% below the 1st percentile. `drift-building-phase-unitkn-level-bedtext` adds a flag
+  for them to L2. Its latest-split pool `l2bt-a`, `l2bt-b`, `l2bt-c` launched at 3:50 PM ET
+  at commit c1ffaefd on the dataset copy `...closingraise-bedtext`, about $11. When it
+  finishes: check the gate on the pool, score with `drift_score` against
+  `drift-building-phase-unitkn-level-b0-latest-b27d1dd8-l2kn`, score the note's
+  predictions, add a research-record row. Launch with this worktree's `ops/modal-fit`
+  while serve/master's checkout predates #1420, since its `cap.py` lacks the model.
+  After that: a Deals caution for flagged candidates, and the same reading for bath counts.
+- **Lease phases** (`docs/notes/no-phase-2026-11-16.md`, #1419). On the k50 subsample L2
+  leads the phase-free `drift-building-unitkn` by 43.9 elpd (SE 9.1) and the two share 94%
+  of the lowest tenth by cdf. The full-data pool, about $11, waits on Ben's word.
+- **Cheaper estimation**: not started. Plan: an opt-in sampler flag holding the scales at
+  plug-in values for market and backtest fits, a note with predictions, then a free
+  comparison on a subsample on thelio's GPU.
+- `ops/modal-fit --help` starts a unit that prints the help of `fit.py` into a log. It
+  costs nothing, and the help is easier to read with `ops/modal/fit.py --help`.
+- Sprint spend: $43.22 before this pool.
+
 ### State at 10:15 AM ET on Nov 16
 
 - **Spend:** $43.22 of $100, unchanged. The checks below ran on thelio's GPU.
