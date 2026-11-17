@@ -370,6 +370,7 @@ The model names are `drift`, `drift-building`, `drift-building-doorman`,
 `drift-building-phase-segment`, `drift-building-phase-year`, `drift-building-phase-unitk`,
 `drift-building-phase-unitkn`, `drift-building-phase-unitkn-level`,
 `drift-building-phase-unitkn-level-bedtext`,
+`drift-building-phase-unitkn-level-bedunit`,
 `drift-building-phase-unitkn-segment`, `drift-building-phase-unitt`, `drift-building-unitt`
 and `drift-local` (`drift.py`, `drift_building.py`, `drift_building_doorman.py`,
 `drift_building_phase.py`, `drift_building_phase_duplex.py`,
