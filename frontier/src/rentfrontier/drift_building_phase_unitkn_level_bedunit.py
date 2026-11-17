@@ -4,9 +4,10 @@
 as an ad column and its unit mean over the row and the unit's earlier training rows. Its
 pool led L2 by 224 held-out elpd, and `docs/notes/bed-text-2026-11-16.md` splits that lead:
 the 5,288 unflagged held-out ads in units with a flagged earlier ad lost 107 (SE 15). A
-unit's mean over earlier rows changes from one ad of the unit to the next, so the model
-moved those ads by a coefficient of -0.059 times a share, while L2's unit level had already
-priced the unit.
+unit's mean over earlier rows changes from one ad of the unit to the next. The model lowered
+flagged rows through both coefficients, the unit levels rose in answer, and an unflagged ad
+received only a share of the unit coefficient of -0.059, so its median rose by 0.005 on
+average above the price L2's unit level had already found.
 
 This design keeps the ad column `ad:bed_text_smaller` and replaces the unit mean with
 `uever:ad:bed_text_smaller`: 1 where the row itself or any training row of its unit carries
@@ -30,10 +31,8 @@ import numpy as np
 import pandas as pd
 
 from . import building_zones_floor_asof, drift, drift_building_phase_unitkn_level
-from .building_zones_floor_asof3_unitmean import unit_groups
-from .building_zones_floor_asof3_unitmean import unit_means
+from .building_zones_floor_asof3_unitmean import unit_groups, unit_means
 from .building_zones_kitchen_sink import append
-from .drift_building_phase_unitkn_level_bedtext import COLUMN, SOURCE, check, flag
 from .drift_building_phase_unitkn_level import (  # noqa: F401  (the spec interface b0.main_run and b0.score read)
     AD_FIELDS,
     BLD_SD_PRIOR,
@@ -67,6 +66,7 @@ from .drift_building_phase_unitkn_level import (  # noqa: F401  (the spec interf
     wave_matrix,
     years,
 )
+from .drift_building_phase_unitkn_level_bedtext import COLUMN, check, flag
 
 NAME = "drift-building-phase-unitkn-level-bedunit"
 EVER = "uever:" + COLUMN

@@ -5,7 +5,8 @@
 I rebuild the model's unit-mean column from the dataset with the model's own functions,
 then print the paired elpd difference, clustered by building, for the held-out ads without
 either flag: those with a unit mean of 0, and those with a unit mean above 0, whose earlier
-ads in the unit carried the flag.
+ads in the unit carried the flag. The last group is the unflagged held-out ads whose unit
+has a flagged training ad of any day, the rows the `bedunit` model's unit column marks.
 """
 
 import sys
@@ -16,6 +17,7 @@ import pyarrow.parquet as pq
 from rentfrontier.building_zones_floor_asof3_unitmean import unit_groups
 from rentfrontier.building_zones_kitchen_sink import past_means
 from rentfrontier.drift_building_phase_unitkn_level_bedtext import flag
+from rentfrontier.drift_building_phase_unitkn_level_bedunit import ever
 
 
 def clustered(d, building):
@@ -32,7 +34,9 @@ def main(argv):
     frame = pq.read_table(f"{dataset}/rows.parquet", columns=cols).to_pandas()
     held = a["heldout"]
     x = flag(frame)[:, None]
-    um = past_means(x, unit_groups(frame), frame.price_at, ~held)[held, 0]
+    group = unit_groups(frame)
+    um = past_means(x, group, frame.price_at, ~held)[held, 0]
+    marked = ever(x[:, 0], group, ~held)[held] > 0
     h = frame[held].reset_index(drop=True)
     assert (h.listing_id.astype(str).to_numpy() == a["listing"].astype(str)).all()
     own = x[held, 0] > 0
@@ -45,6 +49,7 @@ def main(argv):
         "no flag, unit mean above 0": ~own & ~more & (um > 0),
         "flag, unit mean below 1": own & (um < 1),
         "flag, unit mean 1": own & (um == 1),
+        "no flag, unit ever flagged": ~own & marked,
     }
     for name, m in groups.items():
         print(
