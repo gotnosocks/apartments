@@ -201,3 +201,19 @@ def test_bedtext_refuses_records_that_do_not_match_the_manifest(src, tmp_path):
     with pytest.raises(SystemExit):
         b0bedtext.bedtext(src, tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+def test_flex_wording_for_two_counts_flags_either():
+    got = _code("Flex 2 bedroom now, and the layout works as a convertible 3 too.", 2)
+    assert got["bed_flex_at"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Converted 2 family townhouse with 3 bedrooms and a private yard.",
+        "Newly converted 6 unit building with a virtual doorman and laundry.",
+    ],
+)
+def test_a_converted_building_is_no_flex_wording(text):
+    assert b0bedtext.read(text)[1] == []

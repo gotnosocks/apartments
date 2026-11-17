@@ -31,9 +31,12 @@ The reader works in three passes over the lowercased text:
    counts as 2 and "junior 1", "alcove studio" and "sleeping alcove" as 1. I blank each
    match so the next pass does not read "flex 2 bedroom" as a plain two-bedroom.
 2. BED finds a count before a bedroom word. I sort each match by its surroundings:
-   - a list of different counts ("1, 2 and 3 bedrooms"), a plural after "studios to", or
-     wording about other units goes to the offered sizes;
-   - a room of the unit ("one bedroom has a king bed", "the second bedroom") is skipped;
+   - a list of different counts ("1, 2 and 3 bedrooms"), a count after "studios to", a
+     plural ("1 bedrooms", "two-bedrooms") or wording about other units goes to the offered
+     sizes;
+   - a room of the unit ("one bedroom has a king bed", "the second bedroom") is skipped,
+     and so is a count right after "a", "an" or "the" ("is a 3 bedroom"), at some cost in
+     ads read;
    - the rest are the unit's own stated sizes.
 3. STUDIO finds "studio" as a size, which needs a describing word before it or a unit word
    after it. An amenity ("yoga studio", "art studio") or a firm ("designed by ... studio")
@@ -80,7 +83,7 @@ _SEP = r"(?:- and |- or |-, |- to | ?, ?| ?& ?| and | ?/ ?| or | to |, and |, or
 
 FLEX = re.compile(
     rf"\b(?:flex(?:ed|ible)?|conv(?:erted|ertible|ertable|\.)?|junior|jr\.?)[- ]?(?P<a>{_N})\b"
-    r"(?! ?(?:min|block|month|year|car|person|people|closet|bath|\.5|1/2))"
+    r"(?! ?(?:min|block|month|year|car|person|people|closet|bath|famil|unit|stor|floor|\.5|1/2))"
     rf"|\bconvert(?:ed|s|ible|able)? (?:in)?to (?:an? |a true |a real )?(?:\w+ )?"
     rf"(?P<b>{_N})[- ]?{_BEDW}"
     rf"|\b(?P<c>{_N})[- ]?(?:{_BEDW})?[ /-]*(?:flex|convertible|convertable|conversion)\b"
@@ -264,7 +267,7 @@ def code(own: list[int], flex: list[int], found: bool, bedrooms: float) -> dict:
     """The values of COLUMNS for a row coded with `bedrooms`, from the three values `read`
     gives for its listing's text."""
     out = {"bed_text": math.nan, "bed_text_fewer": False, "bed_text_more": False}
-    out["bed_flex_at"] = bool(flex) and max(flex) == bedrooms
+    out["bed_flex_at"] = bedrooms in flex
     if own and bedrooms == bedrooms:
         if max(own) < bedrooms:
             out["bed_text"], out["bed_text_fewer"] = float(max(own)), True

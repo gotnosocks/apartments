@@ -10,7 +10,7 @@ dataset:
 - `bed_text_fewer`: every size the text states is below the coded count (a "studio duplex"
   coded with 1 bedroom).
 
-On L2's held-out ads of the latest split (docs/notes/bed-text-2026-11-16.md), 4,973 carry
+On L2's held-out ads of the latest split (docs/notes/bed-text-2026-11-16.md), 5,019 carry
 either flag. Their asks lie 0.38 of L2's predictive spread below its median on average,
 against 0.07 over all held-out ads, and 2.5% of them fall below L2's 1st percentile, against
 1.1%.
