@@ -196,6 +196,7 @@ BASELINES = (
     ("--model", "drift"),
     ("--model", "drift-building"),
     ("--model", "drift-building-bedtext"),
+    ("--model", "drift-building-bedtext-layout"),
     ("--model", "drift-building-doorman"),
     ("--model", "drift-building-phase"),
     ("--model", "drift-building-phase-duplex"),

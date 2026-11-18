@@ -620,6 +620,7 @@ def test_a_drift_fit_is_estimated_at_no_more_than_its_sweep_budget(tmp_path):
         "drift",
         "drift-building",
         "drift-building-bedtext",
+        "drift-building-bedtext-layout",
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-duplex",
