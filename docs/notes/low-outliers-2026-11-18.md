@@ -237,6 +237,10 @@ renovation between tenancies. An ad gaining the bed-text flag still asks 2.6% un
 prediction with the flag's own term in the model. Neither is large enough for a fit of its
 own under the sprint's budget, and both are leads for a later model with a renovation term.
 
+`word3.py` ran five more wordings on the same pool: basement or lower level, a duplex with a
+lower level, any duplex, several options in one ad, and heat paid by the tenant. None
+explains anything on either half (all at or below zero).
+
 ## Results
 
 `layout-j` finished at 10:27 AM ET on 2026-11-18 after 1,539 s of fitting and $1.95. The run
@@ -245,8 +249,8 @@ is `drift-building-bedtext-layout-b0-market-45f39590-layout-j`.
 1. Gate: hit. Across 264 quantities the largest R-hat is 1.004 and the smallest ESS is 680.
    The marks set 54,788 (beds up), 56,289 (beds down), 22,361 (baths up) and 19,800 (baths
    down) training rows.
-2. Coefficients: hit, all four inside their ranges. Beds up -0.013 (90% interval -0.014 to
-   -0.013), beds down +0.028, baths up -0.026, baths down +0.025.
+2. Coefficients: hit, all four inside their ranges. Beds up -0.013 (90% interval -0.0139 to
+   -0.0126), beds down +0.028, baths up -0.026, baths down +0.025.
 3. Elpd: the total is inside its range and under the point prediction, and the unmarked ads
    miss. Final-ask elpd over the 9,346 open ads rises by 22.8 (SE 13.8). The 864 marked ads
    gain 39.4 (SE 12.3) and the 8,482 unmarked ads lose 16.6 (SE 6.9), where I predicted a
@@ -317,13 +321,15 @@ and `after.py heldbed-j range-j` gives the 691 followers.
 1. The fit passes the gate.
 2. Range coefficients: beds above low -0.010 (-0.020 to -0.004), beds below high +0.005
    (0 to +0.012), baths above low -0.015 (-0.028 to -0.006), baths below high +0.008 (0 to
-   +0.020). The previous-ad coefficients shrink toward zero by about a third to a half:
-   beds up near -0.006, beds down near +0.022, baths up near -0.014, baths down near +0.018.
+   +0.020). The previous-ad coefficients shrink toward zero: beds up -0.006 (-0.011 to
+   -0.001), beds down +0.022 (+0.015 to +0.027), baths up -0.014 (-0.022 to -0.006), baths
+   down +0.018 (+0.010 to +0.024).
 3. Against `heldbed-j`, final-ask elpd over the 9,346 open ads rises by about 38 (20 to
    60), SE near 14. The 864 ads with a previous-ad mark gain 30 to 50. The 691 followers
    move from -13.7 to about +3 (-5 to +12). The 7,791 ads with no mark of either kind move
    by less than 6 either way.
-4. Marked ads in the lowest tenth stay within 10 of `layout-j`'s counts in every column.
+4. Ads in the lowest tenth stay within 10 of `layout-j`'s counts for each of the four
+   previous-ad marks (31, 41, 22, 29).
 
 If the gate passes, the gain over `heldbed-j` is above two SEs and the 7,791 ads with no
 mark are no worse than one SE, I run the market twin (about $2, `--scales-fixed base-n9`)
