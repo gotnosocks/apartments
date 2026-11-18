@@ -26,7 +26,7 @@ same held scales (`base-n9`) and sampler settings as `range-m`. The model, its b
 
    ```sh
    ops/modal-fit --outside-budget --gpu H100 --dataset "$M-bedtext" --input "$IN" --split market \
-     COMMIT range-m2 drift-building-bedtext-layout-range b0 2 200 3600 20 \
+     --baseline drift-building-b0-market-67d14e17-n9 COMMIT range-m2 drift-building-bedtext-layout-range b0 2 200 3600 20 \
      --seed 1 --level-dof 4 --scales-fixed base-n9 --no-loo --no-heldout
    ```
 
@@ -43,9 +43,10 @@ scales and expect no visible effect from doing so.
   2026-11-18 (UTC days can make it Nov 19).
 - The market dataset holds 6,200 to 7,400 open ads (6,774 on Nov 9). Late November is a
   slow month, so I expect a count a little under the last one.
-- Of the 6,774 ads open on Nov 9, 20% to 40% have closed. The backtest's ads closed within
-  14 days of their first day at a rate of 20% to 25%, and an open ad on a given day is on
-  average older than a new one.
+- Of the 6,774 ads open on Nov 9, 10% to 30% have closed. About 13% of the backtest's ads
+  closed within 14 days of their first day (20% to 25% in the lowest three tenths of
+  places, 6% in the highest), and an open ad on a given day is on average older than a new
+  one.
 - Of the first 100 uncautioned ads of the Nov 9 table, 25 to 50 have closed, a higher
   share than among all ads, as the backtest's lowest tenth closed sooner (median 26 days
   against 32 to 42 in the next tenths).
