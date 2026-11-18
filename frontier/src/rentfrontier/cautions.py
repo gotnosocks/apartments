@@ -21,6 +21,11 @@ own latest text and from the dataset's rows.
   reassignment), not a new one.
 - `beds`: the apartment's ads in the dataset carry more than one bedroom count, or the
   pieces the dataset split the apartment into are two or more bedrooms apart.
+- `rooms_up`: the ad codes more bedrooms or more baths than the apartment's previous ad in
+  the dataset (`rentfrontier.drift_building_bedtext_layout.changes`). The model adds its
+  whole step for the extra room and the ask rises by less. Of the 60 ads at the top of the
+  list of 2026-11-17 that brokers read, 7 were such and none of the 7 read as a sound deal
+  (`docs/notes/low-outliers-2026-11-18.md`).
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09
@@ -87,7 +92,7 @@ TEXT = {
     ),
 }
 # Every code, in the order a row lists them.
-CODES = (*TEXT, "beds", "off_market")
+CODES = (*TEXT, "beds", "rooms_up", "off_market")
 _COMPILED = {code: re.compile(pattern) for code, pattern in TEXT.items()}
 _DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015"), "-")
 

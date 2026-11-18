@@ -68,6 +68,7 @@ CAUTIONS: dict[str, str] = {
     "owners_only": "open only to the building's owners",
     "takeover": "the rest of someone's lease, not a new one",
     "beds": "listed before with a different bedroom count",
+    "rooms_up": "lists more bedrooms or baths than the apartment's previous ad",
     "off_market": "temporarily off the market",
 }
 CAUTION_LABELS: dict[str, str] = {
@@ -76,6 +77,7 @@ CAUTION_LABELS: dict[str, str] = {
     "owners_only": "owners only",
     "takeover": "lease takeover",
     "beds": "beds changed",
+    "rooms_up": "more rooms than before",
     "off_market": "off market",
 }
 PEERS = "peers"
