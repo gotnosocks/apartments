@@ -149,8 +149,8 @@ First asks (`place.py`):
 | unflagged | 9,150 | 0.599 | 0.597 | 587 | 593 | 582 |
 
 The flagged model moves 9 of `base-short`'s 23 flagged ads out of the lowest tenth and
-brings none in. `base-short` itself puts the same 23 flagged ads there as j9 counted, so
-sampling noise between a short fit and the pool moved none of them. Six unflagged ads enter
+brings none in. `base-short` puts 23 flagged ads there, the count j9 gave, so the short fit
+reproduces the pool on this measure. Six unflagged ads enter
 the lowest tenth in their place and one leaves. Over all ads the lowest tenth's median days
 on market stays at 26 and its share raised later moves from 36.6% to 36.4%.
 
