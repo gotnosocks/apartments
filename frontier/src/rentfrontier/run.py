@@ -551,6 +551,7 @@ def main(argv=None):
         ("drift", "drift"),
         ("drift-building", "drift_building"),
         ("drift-building-bedtext", "drift_building_bedtext"),
+        ("drift-building-bedtext-layout", "drift_building_bedtext_layout"),
         ("drift-building-doorman", "drift_building_doorman"),
         ("drift-building-phase", "drift_building_phase"),
         ("drift-building-phase-duplex", "drift_building_phase_duplex"),
