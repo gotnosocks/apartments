@@ -114,8 +114,8 @@ for the pair), and I expect the pair to settle at $1.80 to $2.80.
 
 ## Results
 
-Scored at 9:25 PM ET on 2026-11-17. Both containers finished, and both miss the gate on a
-scalar, as short fits do:
+Scored at 9:25 PM ET on 2026-11-17. Both containers finished, and both miss the gate on
+R-hat and on bulk ESS (lowest 7.5 and 35.9), as short fits do:
 
 | Run | Worst R-hat | Sampling | Modal estimate |
 |---|---|---|---|
@@ -150,8 +150,8 @@ First asks (`place.py`):
 
 The flagged model moves 9 of `base-short`'s 23 flagged ads out of the lowest tenth and
 brings none in. `base-short` puts 23 flagged ads there, the count j9 gave, so the short fit
-reproduces the pool on this measure. Six unflagged ads enter
-the lowest tenth in their place and one leaves. Over all ads the lowest tenth's median days
+reproduces the pool on this measure. Among unflagged ads 11 enter the lowest tenth and 5
+leave. Over all ads the lowest tenth's median days
 on market stays at 26 and its share raised later moves from 36.6% to 36.4%.
 
 The 14 flagged ads left in the flagged model's lowest tenth stayed on the market a median of
@@ -161,12 +161,12 @@ read.
 Prediction scores:
 
 1. Right: both miss the gate and finish.
-2. Right: `base-short` sits 16.8 below j9.
+2. Right: `base-short` scores 16.8 below j9.
 3. Right on the sign and the range (+13.2). The lead is 1.4 SE, under twice the SE, as the
    75% side of that part expected.
 4. Right on the sign (+5.3), and it is under twice its SE, the 55% side.
 5. Right on the direction, wrong on the size: the flagged ads' mean place rises by 0.090,
-   above the 0.01 to 0.06 I gave. Flagged ads now sit at 0.612, a little above the 0.598 of
+   above the 0.01 to 0.06 I gave. The flagged ads' mean place is now 0.612, a little above the 0.598 of
    all ads.
 6. Right on all three parts: 23 flagged ads in `base-short`'s lowest tenth, fewer under the
    flag, by 9.
@@ -179,8 +179,8 @@ Prediction scores:
 The rule for the next step is met: 9 fewer flagged ads in the lowest tenth against a
 threshold of 3, and a lead of 13 elpd on all ads where the rule asked only for no loss
 beyond twice the SE. The elpd lead by itself is within noise on 9,346 ads. The change in
-the Deals candidates is clear: about 1.5% of the lowest tenth is replaced, and the ads
-removed are ones whose text says the unit is smaller than its coded count.
+the Deals candidates is clear: 14 of the 610 ads in the lowest tenth leave it (2.3%), and 9
+of the 14 are ads whose text says the unit is smaller than its coded count.
 
 Publishing from the flagged model needs a full market pool and a full backtest pool, each
 passing the gate. j9's containers ran about 2,860 s each, which is about $4.20 a container

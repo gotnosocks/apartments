@@ -20,7 +20,7 @@ subagent's model and effort to be picked by its task.
 Ben asked for the bedroom-text flag on the base model. `drift-building-bedtext`
 (`rentfrontier.drift_building_bedtext`) ran as a short backtest fit beside a short fit of the
 base model (`docs/notes/bedtext-base-2026-11-17.md`). The flag moved 9 of the 23 flagged ads
-out of the lowest tenth of first-ask places and led by 13 elpd (SE 9.6) on final asks. The
+out of the lowest tenth of first-ask places and led by 13 elpd on final asks (SE 9.6, within noise). The
 note's rule for proposing full pools is met. Full market and backtest pools would cost about
 $25, and no such fit is to be launched until Ben approves it. If he does: build the market
 dataset copy with `rentfrontier.b0bedtext` from
