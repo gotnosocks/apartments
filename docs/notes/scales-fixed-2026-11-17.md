@@ -238,8 +238,8 @@ Scoring the predictions:
    against 79.2%, 97.9% of the lowest tenth shared).
 2. The gate in a single container: held for all three. The slowest quantity is a
    coefficient in each, with an ESS of 671 to 782: held.
-3. A sweep of 0.42 to 0.56 s: missed on the fast side, at 0.32 to 0.35 s. The H100 gains
-   more from the shorter sweep than thelio's GPU did on k50.
+3. A sweep of 0.42 to 0.56 s: missed on the fast side, at 0.32 to 0.35 s. I have not
+   measured where the H100's extra saving comes from.
 4. `heldbed-j` ahead of `heldbase-j` by 5 to 25: held (+21.0, SE 8.1).
 5. Flagged ads in the lowest tenth from 21 to 25 down to 11 to 17: held (23 to 13).
 6. A negative coefficient with a 95% interval clear of zero: held.
