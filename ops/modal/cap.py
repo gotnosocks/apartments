@@ -154,6 +154,8 @@ STATED_RATE["drift"] = 0.4
 # Ceilings until their first Modal fits are measured.
 STATED_RATE["drift-building"] = 0.8
 STATED_RATE["drift-building-doorman"] = 0.8
+# Two flag columns among some 250 global ones leave the base model's rate as it is.
+STATED_RATE["drift-building-bedtext"] = 0.8
 # The noise phases add six directions to the scale step's eight, so its slice updates
 # take about 75% more evaluations of the scales' density.
 STATED_RATE["drift-building-phase"] = 1.0
@@ -317,6 +319,7 @@ BASELINES = (
     "building-zones-kitchen-sink-unit",
     "drift",
     "drift-building",
+    "drift-building-bedtext",
     "drift-building-doorman",
     "drift-building-phase",
     "drift-building-phase-duplex",
@@ -393,6 +396,7 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
     (
         "drift",
         "drift-building",
+        "drift-building-bedtext",
         "drift-building-doorman",
         "drift-building-phase",
         "drift-building-phase-duplex",
