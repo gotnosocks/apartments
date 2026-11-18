@@ -425,7 +425,7 @@ is `drift-building-bedtext-layout-range-b0-market-053c5aa1-range-m`.
    200 uncautioned ads coding more rooms than the lowest earlier count. In all, 98 ads move
    by more than 0.1.
 
-I published Deals from `range-m` with `range-j` as its backtest and deployed at 11:58 AM
+I published Deals from `range-m` with `range-j` as its backtest and deployed at 11:54 AM
 ET. The `rooms_up` caution stays on 328 ads. The files of the table before the publish are
 in `/data1/apartments/tmp/po-deals-live-before-range`.
 
