@@ -16,8 +16,10 @@ pieces of a split unit read together. Rents play no part in the code, and scores
 they were. The page leaves a cautioned ad out of its list unless asked, as with every other
 code.
 
-The existing `beds` code marks an apartment whose pieces are two or more bedrooms apart in
-either direction. `rooms_up` adds the one-bedroom step up and every bath step up.
+The existing `beds` code marks an apartment whose ads inside one piece carry more than one
+bedroom count, or whose pieces are two or more bedrooms apart in either direction.
+`rooms_up` adds the one-bedroom step up and every bath step up. An ad two bedrooms above
+its previous ad takes both codes.
 
 `caut.py` in this note's folder counts the code on the served model's two runs.
 
@@ -30,10 +32,11 @@ Backtest as of 2025-11-10 (`heldbed-j`, 9,346 open ads, cautions without ad text
 | another caution | 465 | 42 (9.0%) | 19.0% | 35.7% | 32 |
 
 A `rooms_up` ad is 2.7 times as likely as an uncautioned ad to be a Deals candidate, and
-the landlord later cut the ask on twice the share of those candidates. When a landlord
-cuts an ask the model already called cheap, I read the model's price as too high.
+the landlord later cut the ask on twice the share of those candidates (16 of 50 against
+79 of 506). A cut on an ask the model already called cheap suggests the model's price was
+too high.
 
-Market of 2026-11-09 (`heldbed-m`, 6,774 ads): 328 ads take the code, 201 of them with no
+Market of 2026-11-09 (`heldbed-m`, 6,774 ads, cautions without ad texts as well): 328 ads take the code, 201 of them with no
 other caution. Among ads with no other caution it marks 0 of the first 20, 6 of the first
 60, 13 of the first 100 and 24 of the first 200, against 2.6% of ads with `below_share`
 between 0.25 and 0.75.
