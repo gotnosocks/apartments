@@ -24,6 +24,14 @@ with its own level for duplexes, for the next base refit; a `duplex` caution if 
 backtest repeats the low raise rate of marked ads in the lowest tenth. Sprint money left:
 $25.80.
 
+The image read's lead on plans labelling fewer bedrooms than the record is closed without
+more reads. In the reads already stored, the trait is on 2 of 34 plans in the market pool
+and 2 of 26 in the backtest pool (the lowest 2% of the Deals runs), against 11 of 104
+among the `b9` controls and 25 of 249 among its low ads. The 13.4% against 2.5% among
+in-sample units rested on 1 control plan in 40. The low-outlier work Ben asked for on
+Nov 18 has no open free check left. The leads kept are the floor-1 level and the `duplex`
+caution above.
+
 ### State on Nov 18 after the image read
 
 The image read of the low outliers is done and written up in

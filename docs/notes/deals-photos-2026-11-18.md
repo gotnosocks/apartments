@@ -178,6 +178,12 @@ ads of the Deals backtest and market runs show renderings or another unit in 22%
 and few or poor photos in 40% to 49%, and grade 3.8 to 4.0 on condition: they are mostly
 new or renovated units in large buildings.
 
+Added later on 2026-11-18: `plan_fewer_beds` by pool is 34 of 254 plans among in-sample low
+units and 1 of 40 among their controls, 25 of 249 among `b9` low ads and 11 of 104 among
+`b9` controls, 2 of 26 in the backtest pool and 2 of 34 in the market pool. The in-sample
+difference rests on a control rate a quarter of the `b9` controls' rate, and the Deals
+pools carry the trait no more often than controls, so no further plans were read for it.
+
 ### Predictions scored
 
 1. Hit. No flag on condition or light, and the low ads' mean condition is above the
