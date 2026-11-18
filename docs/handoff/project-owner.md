@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 12:15 PM ET on Nov 18
+### State at 11:45 AM ET on Nov 18
 
 Ben asked for a few hours on ads asking far below the prediction. The note is
 `docs/notes/low-outliers-2026-11-18.md`.
@@ -25,14 +25,17 @@ Ben asked for a few hours on ads asking far below the prediction. The note is
   before are in `/data1/apartments/tmp/po-deals-live-before-roomsup`.
 - `layout-j` (`drift-building-bedtext-layout`, four marks against the previous ad, $1.95)
   passes the gate and misses the decision rule: +22.8 elpd (SE 13.8), with -13.7 on 691
-  later ads of apartments whose count changed earlier. The served model is unchanged.
-- `drift-building-bedtext-layout-range` adds four marks against the lowest and highest
-  earlier counts of the apartment, so those later ads carry a mark. Its predictions are in
-  the note. The backtest fit `range-j` (about $2) is launched after the note merges, and
-  the note's decision rule says what follows.
+  later ads of apartments whose count changed earlier.
+- `range-j` (`drift-building-bedtext-layout-range`, four more marks against the lowest and
+  highest earlier counts of the apartment, $2.04) passes the gate and the decision rule:
+  +48.3 elpd (SE 18.9) against `heldbed-j`, +3.8 (SE 5.8) on the 7,791 unmarked ads.
+- Next: the market twin `range-m` (about $2), launched after the note's results section
+  merges, with the command in the note. If it passes the gate, publish Deals from it with
+  `range-j` as the backtest, keep the `rooms_up` caution, and score the note's three
+  predictions for `range-m`.
 - Wording and gained-or-lost field checks explain little and are recorded as dropped.
 
-The sprint has spent $70.16 of $100 before `range-j`.
+The sprint has spent $72.20 of $100 before `range-m`.
 
 ### State at 11:55 PM ET on Nov 17
 
