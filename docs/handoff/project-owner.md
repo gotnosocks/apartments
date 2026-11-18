@@ -15,6 +15,25 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 6:30 PM ET on Nov 18
+
+The image read of the low outliers is done and written up in
+`docs/notes/deals-photos-2026-11-18.md`. Scratch (images, reads, draw) is in
+`/data1/apartments/tmp/deals-photos-2026-11-18`. It cost no Modal or OxyLabs money.
+
+- Haiku read the photos and plans of 2,144 low ads and 713 controls. Traits passing the
+  bar: a plan on 2 or more levels, stairs in the photos, ground or basement. The first two
+  are mostly duplexes, and the text mark `duplex` (`rentfrontier.b0duplex`) is on both
+  tails of the base model's held-out ads.
+- Next: a noise factor on duplex-marked rows for the Deals model
+  (`drift-building-bedtext-layout-range`), as a new module after the design D1
+  (`docs/notes/duplex-factor-2026-11-13.md`). Held-scales fits sample no scales, so start
+  with a free half-and-half calibration of the factor on the `b9` held-out ads, then a
+  predictions note before any fit.
+- Smaller leads: ground or basement units without a duplex sign (6.2% against 4.1%), and
+  plans labelling fewer bedrooms than the record among in-sample low units (13.4% against
+  2.5%, on 40 control plans).
+
 ### State at 1:00 PM ET on Nov 18
 
 Ben asked for a few hours on ads asking far below the prediction. The note is
