@@ -15,6 +15,16 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 6:45 PM ET on Nov 18, market refresh under way
+
+With no free check left on the low outliers, the next backlog item is a new market
+snapshot for Deals (`docs/notes/market-refresh-2026-11-18.md`, with the steps, the fit
+command and the predictions). The top-up scrape started at 6:37 PM ET as the user unit
+`topup-20261118`. After it: the pipeline build, the dataset chain, a held-scales market fit
+`range-m2` (about $2), then texts and publish with `range-j` as the backtest. Ben decided
+to skip the latest-split fit of the Deals model, so the page stays without its held-out
+sentence.
+
 ### State at 6:30 PM ET on Nov 18, after the duplex checks
 
 The duplex follow-up below ended with no fit and no caution
@@ -74,7 +84,7 @@ Ben asked for a few hours on ads asking far below the prediction. The note is
   sound as often as plain ads (5 of 30 against 3 of 25) and take no caution. Asks at
   11/12 and like fractions of the first ask are too few and too mixed for a caution.
 - The Deals page has no latest-split run of this model, so its held-out sentence stays
-  absent. A latest-split fit would cost about $2 and awaits Ben's word.
+  absent. Ben decided on Nov 18 to skip that fit.
 - Wording and gained-or-lost field checks explain little and are recorded as dropped.
 
 The sprint has spent $74.20 of $100.
