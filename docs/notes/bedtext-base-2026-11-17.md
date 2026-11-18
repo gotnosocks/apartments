@@ -40,7 +40,8 @@ predictive distribution, as `drift_deals validate` does. Under j9:
 
 A flagged ad is about twice as likely as another ad to sit in j9's lowest tenth, where the
 Deals candidates come from. The 23 flagged ads there stayed on the market a median of 48
-days against 26 for the other 578, so renters did not take them as bargains.
+days against 26 for the other 578, and 8.7% of them were later cut against 18.0%. With 23
+ads these figures carry wide error, and I draw no conclusion from them.
 
 ## Fits
 
@@ -78,14 +79,16 @@ Scores, each on the 9,346 open ads:
 ## Predictions
 
 With 196 flagged ads the final-ask elpd is a weak test. On the latest split the L2 variant
-gained 0.056 elpd for each flagged held-out ad, which would be 11 elpd here. The count of
+gained 0.056 elpd for each flagged held-out ad (278 over 5,022 ads, inside its lead of 224
+over all ads), which would be 11 elpd here. The count of
 flagged ads in the lowest tenth is the measure closest to the Deals list.
 
 1. Both runs miss the gate on a scalar and finish (95%).
 2. `base-short`'s elpd at the final asks is within 40 of j9's 9,978.6 (70%).
 3. `bedbase-short` minus `base-short` at the final asks, all ads: above zero (65%), between
-   -10 and +40 (70%), beyond twice its paired SE (25%).
-4. On the 196 flagged ads the difference is above zero (75%), and beyond twice its SE (45%).
+   -10 and +40 (70%), above zero by more than twice its paired SE (25%).
+4. On the 196 flagged ads the difference is above zero (75%), and above zero by more than
+   twice its SE (45%).
 5. The flagged ads' mean first-ask place rises from `base-short` to `bedbase-short` (85%), by
    0.01 to 0.06 (60%).
 6. `base-short` puts 18 to 28 flagged ads in its lowest tenth (75%), and `bedbase-short`
@@ -93,15 +96,18 @@ flagged ads in the lowest tenth is the measure closest to the Deals list.
 7. At least 93% of `base-short`'s lowest tenth is in `bedbase-short`'s (75%).
 8. The two coefficients sum to between -0.09 and -0.03 (65%), and the unit mean's is the
    larger in size (70%).
-9. Each container's Modal estimate is under $1.40 (75%).
+9. Each container settles under $1.40 by Modal's estimate (75%).
 
 ## Rule for the next step
 
-A full pool pair for publishing is worth proposing to Ben if `bedbase-short` moves flagged
-ads out of the lowest tenth (prediction 6) and does not lose to `base-short` on all ads by
-more than twice the paired SE. If the flag moves few ads, a caution label on flagged Deals
-candidates does the same work for a renter at no fit cost.
+A full pool pair for publishing is worth proposing to Ben if `bedbase-short` puts at least 3
+fewer flagged ads in its lowest tenth than `base-short` does and does not lose to
+`base-short` on all ads by more than twice the paired SE. The distance of `base-short`'s
+flagged count from j9's 23 shows how much of such a move is sampling noise. If the flag
+moves fewer than 3 ads, a caution label on flagged Deals candidates does the same work for a
+renter at no fit cost.
 
 ## Budget
 
-The sprint has spent $59.76 of $100. I expect $1.80 to $2.80 for the pair.
+The sprint has spent $59.76 of $100. The ledger reserves $1.93 for each container ($3.86
+for the pair), and I expect the pair to settle at $1.80 to $2.80.

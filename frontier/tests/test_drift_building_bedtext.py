@@ -32,7 +32,7 @@ def test_design_is_the_base_design_with_the_two_flag_columns(monkeypatch):
         }
     )
     held = np.zeros(n, bool)
-    held[2] = True
+    held[1] = True
     seen = {}
 
     def base(f, start=None, held=None, **kw):
@@ -46,8 +46,8 @@ def test_design_is_the_base_design_with_the_two_flag_columns(monkeypatch):
     assert list(out.names) == [*d.names, L2B.COLUMN, "umean:" + L2B.COLUMN]
     np.testing.assert_array_equal(out.x[:, :k], d.x)
     np.testing.assert_array_equal(out.x[:6, k], [1, 0, 0, 0, 0, 1])
-    # Row 2 is held out and unflagged: its mean is over itself and rows 0 and 1.
-    np.testing.assert_allclose(out.x[:3, k + 1], [1, 0.5, 1 / 3])
+    # Row 1 is held out: its own mean holds it and row 0, and row 2's leaves it out.
+    np.testing.assert_allclose(out.x[:3, k + 1], [1, 0.5, 0.5])
     rec = M.run_record(out)
     assert rec["bed_text"]["columns"] == [L2B.COLUMN, "umean:" + L2B.COLUMN]
     assert rec["bed_text"]["rows"] == 2
