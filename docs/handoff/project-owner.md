@@ -15,6 +15,32 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 11:55 PM ET on Nov 17
+
+Ben asked for the full fit of the flagged base model to borrow the base model's scales.
+`--scales-fixed NAME` (`rentfrontier.drift_scales`, #1430) has the sweep hold the tight
+scales at a stored pool's means. A check on the k50 subsample and three Modal fits are in
+`docs/notes/scales-fixed-2026-11-17.md`.
+
+- `heldbase-j` (plain base model, backtest, scales `base-j9`) reproduces the pool j9:
+  final-ask elpd 9,972.7 against 9,978.6, the same coverage, 97.9% of the lowest tenth
+  shared.
+- `heldbed-j` (flagged model, backtest) leads `heldbase-j` by 21.0 elpd (SE 8.1) and takes
+  10 of the 23 flagged ads out of the lowest tenth of first-ask places.
+- `heldbed-m` (flagged model, market of 2026-11-09, scales `base-n9`) passes the gate in
+  one container. Deals was published from it at 11:50 PM ET with `heldbed-j` as its
+  backtest. The command is in the note. The files from n9 are kept in
+  `/data1/apartments/tmp/po-deals-live-n9-backup`.
+
+Each fit cost about $2 and ran 0.32 to 0.35 s a sweep. The sprint has spent $68.21 of
+$100. Nothing is running or queued.
+
+For the next variant of the base model: build its dataset copies, run a held fit on the
+backtest and compare it with `heldbase-j`, and run a held market fit only if Deals is to
+read it. A model whose scales would differ from the base model's (a new variance term, a
+changed noise model) needs an ordinary pool first. The flagged model has no fit on the
+latest split, so the Deals page omits its sentence on held-out ads.
+
 ### State at 9:30 PM ET on Nov 17
 
 Ben asked for the bedroom-text flag on the base model. `drift-building-bedtext`

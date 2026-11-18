@@ -190,3 +190,80 @@ holds on all three counts, I publish Deals from `heldbed-m` with `heldbed-j` as 
 backtest, after `drift_deals validate`. If a fit misses the gate, I look at its slowest
 quantity before adding a container. If `heldbase-j` sits away from j9, nothing is published
 and the cause comes first.
+
+### Results
+
+The three fits ran on Nov 17 from 11:16 PM ET at commit `f288a423`, each to its full 3,600
+draws a chain. I scored the two backtest runs with `rentfrontier.drift_score` and rescored
+j9 the same way for the comparison of deal order.
+
+| Fit | Worst R-hat | Lowest bulk ESS | Time a sweep | Sampling | Settled |
+|---|---|---|---|---|---|
+| `heldbase-j` | 1.0043 (`beta[ad:features_unstated]`) | 686 (`beta[bed=0:full>=2]`) | 0.319 s | 1,151 s | $1.96 |
+| `heldbed-j` | 1.0042 (`beta[ad:features_unstated]`) | 671 (`beta[bed=0:full>=2]`) | 0.322 s | 1,159 s | $1.95 |
+| `heldbed-m` | 1.0052 (`beta[ad:months_free]`) | 782 (`beta[ad:months_free]`) | 0.348 s | 1,253 s | $2.06 |
+
+All three pass the gate on every quantity the sweep draws (258, 260 and 261 quantities).
+The three cost $5.97, and the sprint has spent $68.21 of $100.
+
+Scores on the backtest's 9,346 open ads, by final ask:
+
+| Score | j9 (ordinary pool) | `heldbase-j` | `heldbed-j` |
+|---|---|---|---|
+| elpd | 9,978.6 | 9,972.7 | 9,993.8 |
+| median absolute error | 0.0474 | 0.0475 | 0.0471 |
+| coverage of the 50% / 80% / 90% / 95% interval | 51.4 / 79.2 / 89.1 / 94.5% | 51.3 / 79.1 / 89.0 / 94.5% | 51.3 / 79.4 / 89.1 / 94.6% |
+
+Of the 934 ads in j9's lowest tenth by cdf at the ask, 914 are in `heldbase-j`'s (97.9%),
+and the Spearman correlation of the two cdfs is 0.9995.
+
+`cmp.py` pairs `heldbed-j` with `heldbase-j`. The flag leads by 21.0 elpd with an SE of 8.1
+clustered by building. The 196 flagged ads contribute 5.6 (SE 6.8) and the 9,106 ads with
+no bedroom-text flag of either kind 15.5 (SE 4.4). I attribute that to the unit-mean
+column, which lowers the price of an unflagged ad in a unit whose earlier ads were flagged. The flagged ads' mean
+prediction falls by 0.031 in log rent. Of the 930 ads in the base fit's lowest tenth, 913
+stay, and 12 of the 17 leaving are flagged.
+
+`place.py` places each ad's first ask. The flagged ads in the lowest tenth fall from 23
+under `heldbase-j` to 13 under `heldbed-j`, and all 13 are among the 23. Across all ads the
+lowest tenth holds 604 and 598 ads, with the same median of 26 days on the market and
+shares raised and cut within a point of each other.
+
+In `heldbed-m` the coefficient of `ad:bed_text_smaller` is -0.0036 (95% interval -0.0051 to
+-0.0021), and the unit-mean column's is -0.0593 (-0.0614 to -0.0573).
+
+Scoring the predictions:
+
+1. `heldbase-j` reproduces j9: held on all three counts (elpd 5.9 lower, 80% coverage 79.1%
+   against 79.2%, 97.9% of the lowest tenth shared).
+2. The gate in a single container: held for all three. The slowest quantity is a
+   coefficient in each, with an ESS of 671 to 782: held.
+3. A sweep of 0.42 to 0.56 s: missed on the fast side, at 0.32 to 0.35 s. The H100 gains
+   more from the shorter sweep than thelio's GPU did on k50.
+4. `heldbed-j` ahead of `heldbase-j` by 5 to 25: held (+21.0, SE 8.1).
+5. Flagged ads in the lowest tenth from 21 to 25 down to 11 to 17: held (23 to 13).
+6. A negative coefficient with a 95% interval clear of zero: held.
+
+### Published
+
+The publishing rule is met. I ran `drift_deals publish` for `heldbed-m` with `heldbed-j` as
+its backtest into a staging directory and compared it with the live table from n9. Both
+list the same 6,774 ads, the Spearman correlation of `below_share` is 0.996, and 96 of the
+live table's first 100 ads are in the staging table's first 100. The 4 leaving moved to
+ranks 102 to 162. The backtest table by first-ask place is close to j9's: the lowest tenth
+has a median of 26 days on the market, 17.2% cut and 37.1% raised, against 26 days, 17.6%
+and 37.1%.
+
+I copied the staging files to `/data1/apartments/site/deals` at 11:50 PM ET on Nov 17. The
+Deals page now reads `drift-building-bedtext-b0-market-f288a423-heldbed-m`. The earlier
+files from n9 are in `/data1/apartments/tmp/po-deals-live-n9-backup`. The flagged model has
+no fit on the latest split, so the page's sentence on held-out ads is absent until one is
+run.
+
+```sh
+python -m rentfrontier.drift_deals publish drift-building-bedtext-b0-market-f288a423-heldbed-m \
+  --out /data1/apartments/tmp/po-deals-heldbed \
+  --registry /data1/apartments/external/registry/20261110-f1fc080-extend/registry.parquet \
+  --backtest drift-building-bedtext-b0-market-f288a423-heldbed-j \
+  --texts /data1/apartments/tmp/overhaul/texts-m6.parquet
+```
