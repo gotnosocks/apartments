@@ -36,8 +36,8 @@ the landlord later cut the ask on twice the share of those candidates (16 of 50 
 79 of 506). A cut on an ask the model already called cheap suggests the model's price was
 too high.
 
-Market of 2026-11-09 (`heldbed-m`, 6,774 ads, cautions without ad texts as well): 328 ads take the code, 201 of them with no
-other caution. Among ads with no other caution it marks 0 of the first 20, 6 of the first
+Market of 2026-11-09 (`heldbed-m`, 6,774 ads, cautions without ad texts as well): 328 ads
+take the code, 201 of them with no other caution. Among ads with no other caution it marks 0 of the first 20, 6 of the first
 60, 13 of the first 100 and 24 of the first 200, against 2.6% of ads with `below_share`
 between 0.25 and 0.75.
 

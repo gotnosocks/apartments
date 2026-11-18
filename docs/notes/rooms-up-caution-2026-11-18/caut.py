@@ -5,9 +5,7 @@ from pathlib import Path
 import numpy as np
 from rentfrontier import drift_deals
 
-W = Path(
-    "/home/ben/code/apartments/.claude/worktrees/bridge-cse_01BbWN4QhsEVcGXeZVb6cqo3"
-)
+W = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location(
     "place", W / "docs/notes/bedtext-base-2026-11-17/place.py"
 )
