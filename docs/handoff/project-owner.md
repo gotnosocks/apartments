@@ -15,6 +15,25 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 12:15 PM ET on Nov 18
+
+Ben asked for a few hours on ads asking far below the prediction. The note is
+`docs/notes/low-outliers-2026-11-18.md`.
+
+- Deals carries a new caution, `rooms_up` (#1434): the ad codes more bedrooms or baths than
+  the apartment's previous ad. Published from `heldbed-m` and deployed. The files from
+  before are in `/data1/apartments/tmp/po-deals-live-before-roomsup`.
+- `layout-j` (`drift-building-bedtext-layout`, four marks against the previous ad, $1.95)
+  passes the gate and misses the decision rule: +22.8 elpd (SE 13.8), with -13.7 on 691
+  later ads of apartments whose count changed earlier. The served model is unchanged.
+- `drift-building-bedtext-layout-range` adds four marks against the lowest and highest
+  earlier counts of the apartment, so those later ads carry a mark. Its predictions are in
+  the note. The backtest fit `range-j` (about $2) is launched after the note merges, and
+  the note's decision rule says what follows.
+- Wording and gained-or-lost field checks explain little and are recorded as dropped.
+
+The sprint has spent $70.16 of $100 before `range-j`.
+
 ### State at 11:55 PM ET on Nov 17
 
 Ben asked for the full fit of the flagged base model to borrow the base model's scales.

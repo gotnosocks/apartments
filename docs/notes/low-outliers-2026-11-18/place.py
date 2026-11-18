@@ -8,7 +8,8 @@ rows of BASE_RUN's dataset, with the run's held-out ads compared against trainin
 For each mark and each run I print the mean place of the first ask in the run's predictive
 distribution, the share of ads in the lowest tenth of places, the median days on market
 and the share later cut for those ads, and the elpd at the final ask. With NEW_RUN I also
-print the paired elpd difference with its SE clustered by building.
+print the paired elpd difference with its SE clustered by building. The last two sets split
+the unmarked ads by `drift_building_bedtext_layout_range.marks`.
 """
 
 import importlib.util
@@ -18,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from rentfrontier import drift_building_bedtext_layout as layout
+from rentfrontier import drift_building_bedtext_layout_range as layout_range
 from rentfrontier import drift_deals, drift_score
 
 HERE = Path(__file__).resolve().parent
@@ -40,6 +42,11 @@ def main(argv):
     x = layout.changes(frame, ~held)[held] > 0
     sets = {"all": np.ones(len(h), bool), "any mark": x.any(1), "no mark": ~x.any(1)}
     sets |= {n: x[:, j] for j, n in enumerate(layout.COLUMNS)}
+    r = layout_range.marks(frame, ~held)[held] > 0
+    sets |= {
+        "range mark only": r.any(1) & ~x.any(1),
+        "no mark, no range": ~r.any(1) & ~x.any(1),
+    }
     out = []
     for run in runs:
         lid, p, ok, days, change = place.places(run, ads)
