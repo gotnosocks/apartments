@@ -6,8 +6,8 @@ On 2026-11-18 brokers' readings of the ads the base model prices far too high
 fewer rooms: a studio relisted as a one-bedroom, a dining room counted as a fourth bedroom, a
 second bath in the fields where the text gives one. The model adds the whole step for the
 extra room, and the ask moves by less. On the half of the buildings nobody read, the base
-model's held-out gap is -0.029 where the bedroom count rose, +0.018 where it fell, -0.034
-where the bath count rose and +0.029 where it fell.
+model's held-out gap is -0.029 where the bedroom count rose, +0.025 where it fell, -0.037
+where the bath count rose and +0.039 where it fell.
 
 The design is `drift_building_bedtext.design` of the frame, followed by `with_layout`, which
 appends COLUMNS:

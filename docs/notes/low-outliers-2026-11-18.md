@@ -154,7 +154,7 @@ The paired reference is `drift-building-bedtext-b0-market-f288a423-heldbed-j`, c
 
 ## Predictions
 
-1. The fit passes the gate. Each mark sets tens of thousands of training rows.
+1. The fit passes the gate. Each mark sets about 20,000 to 56,000 training rows.
 2. Coefficients: beds up -0.020 (between -0.035 and -0.010), beds down +0.020 (+0.010 to
    +0.035), baths up -0.030 (-0.045 to -0.015), baths down +0.035 (+0.020 to +0.050). Inside
    the fit the unit's drift competes for the same gap, so I expect the smaller half of each
