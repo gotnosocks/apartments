@@ -335,3 +335,72 @@ If the gate passes, the gain over `heldbed-j` is above two SEs and the 7,791 ads
 mark are no worse than one SE, I run the market twin (about $2, `--scales-fixed base-n9`)
 and publish Deals from it, keeping the `rooms_up` caution. Otherwise the served model
 stays, and the layout history is recorded as a term the apartment levels mostly absorb.
+
+### Results for `range-j`
+
+`range-j` finished at 11:17 AM ET on 2026-11-18 after 1,601 s of fitting and $2.04. The run
+is `drift-building-bedtext-layout-range-b0-market-d9028c57-range-j`. I scored it with
+`place.py` and `after.py` against `heldbed-j`.
+
+1. Gate: hit. The largest R-hat is 1.0042 (`beta[ad:features_unstated]`) and the smallest
+   ESS is 676 (`beta[bed=0:full>=2]`). The range marks set 91,002 (beds above low), 89,563
+   (beds below high), 35,315 (baths above low) and 32,775 (baths below high) training rows.
+2. Coefficients: miss on all eight. The sampler put nearly the whole effect on the range
+   marks, where I predicted that the previous-ad marks would keep most of it.
+
+   | Column | Mean | 5% to 95% | Predicted |
+   |---|---|---|---|
+   | `ad:beds_above_low` | -0.0224 | -0.0233 to -0.0214 | -0.010 (-0.020 to -0.004) |
+   | `ad:beds_below_high` | +0.0301 | +0.0292 to +0.0310 | +0.005 (0 to +0.012) |
+   | `ad:baths_above_low` | -0.0408 | -0.0422 to -0.0394 | -0.015 (-0.028 to -0.006) |
+   | `ad:baths_below_high` | +0.0228 | +0.0214 to +0.0241 | +0.008 (0 to +0.020) |
+   | `ad:beds_up_prev` | -0.0002 | -0.0009 to +0.0007 | -0.006 (-0.011 to -0.001) |
+   | `ad:beds_down_prev` | +0.0104 | +0.0096 to +0.0113 | +0.022 (+0.015 to +0.027) |
+   | `ad:baths_up_prev` | +0.0039 | +0.0025 to +0.0053 | -0.014 (-0.022 to -0.006) |
+   | `ad:baths_down_prev` | +0.0073 | +0.0059 to +0.0086 | +0.018 (+0.010 to +0.024) |
+
+   An ad with a previous-ad mark carries the matching range mark too, so its total step is
+   the sum of both rows: -0.023 for beds up, +0.041 for beds down, -0.037 for baths up and
+   +0.030 for baths down. Each sum is larger than `layout-j`'s coefficient for the same mark.
+3. Elpd: hit on every set, with a wider SE than predicted.
+
+   | Set | Ads | Elpd, `range-j` minus `heldbed-j` | SE | Predicted |
+   |---|---|---|---|---|
+   | All open ads | 9,346 | +48.3 | 18.9 | +38 (20 to 60), SE near 14 |
+   | Previous-ad mark | 864 | +39.7 | 16.7 | +30 to +50 |
+   | Range mark only (the followers) | 691 | +4.8 | 5.2 | +3 (-5 to +12) |
+   | No mark of either kind | 7,791 | +3.8 | 5.8 | within 6 of zero |
+
+   `after.py` splits the 7,791 unmarked ads by the marks on their apartment's training rows.
+   No group loses: +0.9 (SE 4.4) on the 2,689 ads with no training row, +2.9 (SE 3.6) on the
+   5,102 with unmarked training rows. The loss `layout-j` had on the followers is gone.
+4. Lowest tenth: hit. The four previous-ad sets hold 25, 46, 20 and 32 ads in the lowest
+   tenth, against `layout-j`'s 31, 41, 22 and 29. Against `heldbed-j` the ads coding more
+   rooms than before fall from 46 to 25 (beds) and from 31 to 20 (baths), and the ads coding
+   fewer rooms rise from 23 to 46 and from 14 to 32. In all, 552 of `heldbed-j`'s 598
+   lowest-tenth ads stay there.
+
+The decision rule is met: the gate passes, the gain is 2.6 SEs, and the 7,791 unmarked ads
+are 0.7 SEs better. I run the market twin and, if it passes the gate, publish Deals from it
+with `range-j` as its backtest, keeping the `rooms_up` caution.
+
+### Predictions for `range-m`
+
+`range-m` is the same model on every ad to date with the market pool's scales, launched
+from `/data1/apartments/serve/master` at the merge commit of this section:
+
+```sh
+IN=/data1/apartments/pipeline/datasets/rows-ddd2fe8f5da041b8.parquet
+M=/data1/apartments/frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market
+ops/modal-fit --outside-budget --gpu H100 --dataset "$M-bedtext" --input "$IN" --split market \
+  --baseline drift-building-b0-market-67d14e17-n9 COMMIT range-m \
+  drift-building-bedtext-layout-range b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-n9 --no-loo --no-heldout
+```
+
+1. The fit passes the gate, in 1,300 to 1,800 s of fitting and about $2.
+2. Each of the eight layout coefficients is within 0.004 of its `range-j` mean, with the
+   same sign for the four range columns.
+3. On the staged Deals table, 60% to 85% of the first 100 uncautioned ads are also in the
+   first 100 of the live table from `heldbed-m`. Among uncautioned market ads, the ones
+   coding fewer bedrooms or baths than their apartment's highest earlier count take a
+   larger share of the first 200 than they have in the live table.
