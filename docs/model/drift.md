@@ -301,7 +301,8 @@ The slow part of an ordinary fit is the scales. Once they are held, the rest of 
 Gaussian given the mixing weights. A fit run this way treats the held scales as known, so
 its intervals leave out their uncertainty, and the gate's table lists only the quantities
 the sweep drew. The run's `result.json` records the set, its source pool and its values
-under `result.gibbs.scales_fixed`. A backtest takes the set of the pool fitted on its own
+under `gibbs.scales_fixed`. A model with lease-phase factors does not take the option, since the
+held noise step is the step drawing them. A backtest takes the set of the pool fitted on its own
 training rows, so that a scale carries no rent from after the scoring day.
 
 ## Predictions and the deal score

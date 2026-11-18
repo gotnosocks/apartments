@@ -760,7 +760,7 @@ def make_sampler(
     of the sweep's scale steps (`HELD_STEPS`). The initial state takes those values in every
     chain, and the sweep skips the steps and draws the rest of the state given them. The
     lam, the buildings' mixing scales, the levels, the paths and u are still drawn. It
-    needs normal unit levels (no `unit_t`).
+    needs normal unit levels (no `unit_t`) and a design with no lease phases.
     """
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
     assert unit_kap_collapsed or not unit_slow, "unit_slow needs unit_kap_collapsed"
@@ -834,6 +834,9 @@ def make_sampler(
     phased = free > 0
     assert not phase_collapsed or (phased and pmap is None), (
         "phase_collapsed needs phases and no phase map"
+    )
+    assert not ("noise" in fixed_steps and phased), (
+        "a held noise step leaves the lease phases' factors undrawn"
     )
     pmap_j = None if pmap is None else jnp.asarray(pmap)
 
