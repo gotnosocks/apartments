@@ -296,14 +296,16 @@ sd and rho, and the weekly walk's tau. In those pools each of these had a poster
 and lengthscales, whose posteriors are 11% to 44% wide, along with the coefficients, the
 levels, the paths and the mixing weights.
 
-The option is for testing a new column on the base model at a fraction of a pool's cost.
-The slow part of an ordinary fit is the scales. Once they are held, the rest of the model is
-Gaussian given the mixing weights. A fit run this way treats the held scales as known, so
-its intervals leave out their uncertainty, and the gate's table lists only the quantities
-the sweep drew. The run's `result.json` records the set, its source pool and its values
-under `gibbs.scales_fixed`. A model with lease-phase factors does not take the option, since the
-held noise step is the step drawing them. A backtest takes the set of the pool fitted on its own
-training rows, so that a scale carries no rent from after the scoring day.
+The option is for testing a new column on the base model in fewer containers than a pool
+takes. The slowest quantities of an ordinary fit are the rows' noise scales. Once the tight
+scales are held, the rest of the model is Gaussian given the mixing weights, the sweep is
+shorter, and the slowest quantity left is a coefficient. A fit run this way treats the held
+scales as known, so its intervals leave out their uncertainty, and the gate's table lists
+only the quantities the sweep drew. The run's `result.json` records the set, its source pool
+and its values under `gibbs.scales_fixed`. A model with lease-phase factors does not take
+the option, since the held noise step is the step drawing them. A backtest takes the set of
+the pool fitted on its own training rows, so that a scale carries no rent from after the
+scoring day.
 
 ## Predictions and the deal score
 

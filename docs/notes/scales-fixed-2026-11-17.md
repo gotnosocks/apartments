@@ -80,3 +80,113 @@ best free reference available.
 If predictions 1 to 3 hold, I write the Modal fits' settings and predictions below and
 launch them. If the held run's scores sit clearly away from the ordinary run's, I look for
 the cause in the held values and the sweep before any spend.
+
+### Results
+
+Both runs finished on thelio's GPU on Nov 17. The ordinary run's scale means went to the
+held run through `means.py`, and `cmp.py` compared the two on the 4,649 held-out ads.
+
+| Score | Held scales | Ordinary |
+|---|---|---|
+| sweeps a chain (warmup + draws) | 200 + 1,200 | 500 + 2,400 |
+| time a sweep | 0.200 s | 0.316 s |
+| warmup and sampling time | 280 s | 916 s |
+| held-out elpd | 5,723.6 | 5,729.3 |
+| median absolute error | 0.0403 | 0.0401 |
+| coverage of the 50% / 80% / 95% interval | 53.6 / 81.8 / 95.3% | 53.9 / 81.8 / 95.2% |
+| mean width of the 80% interval | 0.1797 | 0.1802 |
+| worst R-hat | 1.015 (`beta[unit:size_unknown]`) | 1.070 (`unit_sd`) |
+| lowest bulk ESS | 355 (`beta[ad:months_free]`) | 18 (`drift_sd`) |
+
+The paired elpd difference is -5.7 for the held run with an SE of 5.2 clustered by
+building. The Spearman correlation of the two cdfs at the ask is 0.9978, and 447 of the 464
+ads in the ordinary run's lowest tenth are in the held run's (96.3%).
+
+Scoring the predictions:
+
+1. Elpd within 10: held (-5.7).
+2. Coverage within a point: held (81.82% against 81.78%). The held run's 80% interval is
+   narrower by 0.27%: held on both counts.
+3. Spearman above 0.995 and at least 95% of the lowest tenth shared: held (0.9978, 96.3%).
+4. The held run passing the gate at 1,200 draws: missed. Its worst quantities are
+   coefficients at an ESS of 355 to 400 and an R-hat of 1.015. The ordinary run missed the
+   gate by a wide margin, as predicted.
+5. Sweep time of 70% to 100%: missed on the favourable side, at 63%.
+
+The held run reproduces the ordinary run's scores, intervals and deal order in under a
+third of its time. Part of the 5.7 elpd is the ordinary run's own chain error, since its
+scales had an ESS as low as 18 and the held values are their means.
+
+The check also corrects my expectation of the saving. With the scales held, the slowest
+quantities are coefficients, at about 0.15 effective draws a sweep of two chains. That is
+close to their rate in the full pool: in the market container `n9a` the slowest coefficient
+(`beta[bed=0:full>=2]`) reached an ESS of 592 in 5,840 draws, against 432 for the slowest
+`sigma`. Holding the scales removes the `sigma` bottleneck and shortens the sweep. I expect
+one held container to reach the ESS two to three ordinary containers reach, and no more
+than that.
+
+## Modal fits
+
+Each fit is one H100 container of 2 chains with 200 warmup sweeps, 3,600 draws a chain,
+every 20th draw kept (360 in all, against the 434 a three-container pool keeps), and seed
+1. At `n9a`'s rate of 592 effective draws in 5,840 for its slowest coefficient, 7,200 draws
+give an ESS near 730. At 63% of `n9a`'s 0.745 s a sweep the sampling takes about 1,700 s.
+If a sweep is no faster than `n9a`'s, the container's 2,520 s budget ends the run at about
+3,200 draws a chain. I launch them from
+`/data1/apartments/serve/master` at the merge commit of this section, each after the last
+one's log reaches "synced":
+
+```sh
+IN=/data1/apartments/pipeline/datasets/rows-ddd2fe8f5da041b8.parquet
+J=/data1/apartments/frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-asof-20251110
+M=/data1/apartments/frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market
+ops/modal-fit --outside-budget --gpu H100 --dataset "$J" --input "$IN" --split market \
+  --baseline drift-building-b0-market-67d14e17-j9 COMMIT heldbase-j \
+  drift-building b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-j9 --no-loo --no-heldout
+ops/modal-fit --outside-budget --gpu H100 --dataset "$J-bedtext" --input "$IN" --split market \
+  --baseline drift-building-b0-market-67d14e17-j9 COMMIT heldbed-j \
+  drift-building-bedtext b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-j9 --no-loo --no-heldout
+ops/modal-fit --outside-budget --gpu H100 --dataset "$M-bedtext" --input "$IN" --split market \
+  --baseline drift-building-b0-market-67d14e17-n9 COMMIT heldbed-m \
+  drift-building-bedtext b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-n9 --no-loo --no-heldout
+```
+
+- `heldbase-j` is the plain base model on the backtest with the backtest pool's scales. It
+  tests on the full data that a held fit reproduces j9, and it is the paired reference for
+  the flag: the k50 difference of 0.0012 elpd an ad would be about 11 on the backtest's
+  9,346 open ads, as large as the flag's gain in the short fits (+13.2).
+- `heldbed-j` adds the flag on the same rows with the same scales.
+- `heldbed-m` is the flagged model on every ad to date, with the market pool's scales. I
+  built its dataset with `python -m rentfrontier.b0bedtext $M $M-bedtext`.
+
+`ops/modal/cap.py` prices each launch before it starts and reserves that amount. A full
+container that ran to its budget settled at $3.59 to $3.78 (`n9a`, `j9a`). These stop
+earlier, and I expect each to settle near $2.70, about $8 for the three, from the $37.76
+left.
+
+I score each backtest run with `rentfrontier.drift_score` on the 9,346 open ads and compare
+pairs with `docs/notes/bed-text-2026-11-16/cmp.py` and
+`docs/notes/bedtext-base-2026-11-17/place.py`, as for the short fits.
+
+### Predictions (written before the fits)
+
+1. `heldbase-j` reproduces j9: its final-ask elpd is within 20 of j9's 9,978.6 (70%), its
+   80% coverage within a point of 79.2% (85%), and at least 97% of j9's lowest tenth is in
+   its lowest tenth (75%).
+2. Every quantity the sweep draws passes the gate in a single container: in `heldbase-j`
+   (75%), in `heldbed-j` (75%), in `heldbed-m` (75%), in all of them (60%). The slowest
+   quantity is a coefficient in each (80%), with an ESS of 500 to 1,100 (60%).
+3. A sweep takes 0.42 to 0.56 s (70%).
+4. `heldbed-j` beats `heldbase-j` on final-ask elpd (80%), by 5 to 25 (60%).
+5. The flagged ads in the lowest tenth fall from 21 to 25 under `heldbase-j` to 11 to 17
+   under `heldbed-j` (65%).
+6. In `heldbed-m` the coefficient of `ad:bed_text_smaller` is negative with a 95% interval
+   clear of zero (90%).
+
+### Publishing
+
+If `heldbed-m` and `heldbed-j` pass the gate on every sampled quantity and prediction 1
+holds on all three counts, I publish Deals from `heldbed-m` with `heldbed-j` as its
+backtest, after `drift_deals validate`. If a fit misses the gate, I look at its slowest
+quantity before adding a container. If `heldbase-j` sits away from j9, nothing is published
+and the cause comes first.

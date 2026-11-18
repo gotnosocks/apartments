@@ -5,8 +5,9 @@ A set gives a value to each scale of one or more of the sweep's scale steps
 (`drift.HELD_STEPS`). The sampler starts every chain at those values, skips the steps, and
 draws the coefficients, the market's weekly level, the buildings' levels and paths, the
 units' levels and the rows' mixing weights given them. With the scales held, the rest of the
-model is Gaussian given the mixing weights, and the chains agree within a few hundred
-sweeps where a fit drawing the scales takes several thousand.
+model is Gaussian given the mixing weights. On the k50 subsample a sweep took 63% of an
+ordinary sweep's time, and the slowest quantity left was a coefficient
+(`docs/notes/scales-fixed-2026-11-17.md`).
 
 Each value below is the mean of a scale's draws in a pool of the base model
 (`drift-building`, Student-t(4) building levels) that passed the convergence gate. Every
