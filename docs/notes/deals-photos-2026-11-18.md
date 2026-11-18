@@ -4,7 +4,7 @@ The broker reads of this week worked from ad text and coded fields. This read gi
 the images of the ads priced far below the model, across the whole dataset, to look for a
 trait a renter would notice in the pictures and the model has no term for. The read of
 2026-11-14 (`docs/notes/photo-disagreement-2026-11-14.md`) did the same for 300 ads and
-found no fault category that set the cheap ads apart. This read is about 6 times larger,
+found no fault category that set the cheap ads apart. This read is about 10 times larger,
 adds the floor plan's own bedroom count and layout, and adds low ads from the training rows.
 
 ## The draw
@@ -19,9 +19,17 @@ Low ads, with the lowest ad of each building taken once:
   first listed from 2014 to 2026.
 - `backtest` and `market`: ads of the Deals model's two runs with no caution and a
   `below_share` under 0.02. 96 and 84 ads.
-- `insample`: training ads of the b9 fit far below the model's level for the building, the
-  date and the coded features, with the unit's own level left out. Defined below once the
-  residual table exists.
+- `insample`: units of the b9 fit's training rows. `deals-photos-2026-11-18/insample.py`
+  rebuilds the fit's design and gives each training ad its distance from the model's level
+  for the building, the date and the coded features, with the unit's own level left out.
+  The fit did not keep the building's quarterly path, so the script estimates it again at
+  the posterior-mean scales. On the held-out ads its levels differ from the fit's by 0.022
+  log points (root mean square). Among the 191,435 units with 3 or more training ads and no
+  income flag, the low units are the lowest 1% by mean distance (0.18 log points or more
+  below the model). `keys_insample.py` takes each one's latest ad with stored photos, one
+  unit a building, outside the buildings already drawn: 1,108 units, of which a random 900
+  are read (381 with a plan). Their controls are 239 units from the middle half, matched in
+  the same way, one for every 3 low units.
 
 Controls: for every 2 low ads of `b9`, an ad of the same fit from the middle half of the
 predictive distribution, in the same borough, with the same bedroom count (3 and more
@@ -30,7 +38,9 @@ together) and listed within a year. 474 ads.
 Each ad gives up to 6 photos, evenly spaced through its gallery, and its first floor plan.
 `fetch.py` fetches each image once from the listing site's image CDN at 1 request a second
 and stores the originals in the archive by listing id. Readers get JPEG copies under blind
-labels, in batches of 15 in random order. 60 ads appear twice under different labels.
+labels, in batches of 15 in random order within each stage of the draw. 90 ads appear
+twice under different labels. In all: 2,144 low ads, 713 controls, 15,865 images, 197
+batches.
 
 ## The read
 
