@@ -206,6 +206,37 @@ free months and -0.008 to -0.011 where it lost them, and no mark explains more t
 of either half. Furnished and short-term ads are outside the dataset, so the readers'
 "earlier ad was furnished" has no previous training ad to compare with.
 
+`word2.py` runs the check on fifteen more wordings the readers leaned on, coded from the same
+descriptions: as-is condition, a renovation named or absent, no pets, no guarantors, ground
+floor or basement, small or cozy, price-cut talk, a walkup, no laundry, a shared bath, a tub
+in the kitchen, an owner on site, lease dates, a tenant in place. The largest share explained
+on the unread half is 0.0002 (a renovation named, gap -0.001 against -0.005 elsewhere). The
+rarest wordings carry the largest gaps, -0.030 for a shared bath (49 ads) and -0.032 for a
+tub or shower in the kitchen (93 ads), and neither passes on both halves. The building and
+apartment levels already hold what these words say about an apartment advertised before.
+
+`feat.py` builds the served design of b9's dataset and saves its 129 unit, ad, doorman,
+elevator, gym and flag columns. `featchg.py` compares each column of a held-out ad with the
+same column of the apartment's previous training ad, marks the ad where the column rose or
+fell, leaves out ads with a layout mark, and runs the check on each mark with at least 150
+ads (40 shuffles). The marks with the largest share explained on the unread half:
+
+| Mark against the previous ad | Unread ads | Gap (read) | Gap (unread) | Explained (unread) |
+|---|---|---|---|---|
+| in-unit laundry gained | 3,862 | +0.010 | +0.010 | 0.0014 |
+| dishwasher gained | 9,451 | +0.001 | +0.002 | 0.0008 |
+| bed-text flag gained | 929 | -0.025 | -0.026 | 0.0007 |
+| in-unit laundry lost | 2,600 | +0.002 | +0.003 | 0.0003 |
+| free months lost | 6,557 | -0.010 | -0.009 | 0.0002 |
+
+Every other mark explains 0.0002 or less, among them size up or down by 15%, a floor number
+changed, outdoor space, views, the lister's channel and the photo count. The largest is a
+ninth of the layout marks' 0.0117 and concerns asks above the prediction: an apartment
+gaining a washer since its previous ad asks 1% more than the model expects, which reads as a
+renovation between tenancies. An ad gaining the bed-text flag still asks 2.6% under the
+prediction with the flag's own term in the model. Neither is large enough for a fit of its
+own under the sprint's budget, and both are leads for a later model with a renovation term.
+
 ## Results
 
 To be filled in after the fit.
