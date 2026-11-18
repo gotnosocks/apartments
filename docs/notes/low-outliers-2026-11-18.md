@@ -22,8 +22,10 @@ knowing its set.
 Each packet carried the ad's text, coded fields, amenity tags, the apartment's earlier ads
 with dates and asks, and the text of the previous ad. Twelve packets of the below set went
 out without their coded fields, and the readers reported those ads as having no coded ask.
-The ads table holds an ask for each of them. I have not found the cause in `build.py`. The readers' answers for those twelve ads rest on
-the text and the earlier ads alone.
+The ads table holds an ask for each of them. `build.py` looked each ad up in the ads table by
+the dataset's unit id, and 13 ads of the below set and 9 of the control set carry the "~1"
+ending the dataset gives a later piece of a unit's history, which the ads table lacks. Those
+packets went out with the text alone, without coded fields or earlier ads.
 
 `tally.py` gives the share of each set carrying each reason code (percent):
 
@@ -170,6 +172,39 @@ If the gate passes and the elpd gain is above two SEs with unmarked ads no worse
 SE, I run the market twin (about $2, `--scales-fixed base-n9`) and publish Deals from it.
 If the marks still fill the top of the table after the shift, I add a Deals caution for an
 ad coding more bedrooms or baths than the apartment's previous ad.
+
+## Other traits checked while the fit ran
+
+`dub.py` compares the readers' doubts about the bedroom count with the bed-text flag the
+served model already reads. Of the 10 top deals with a doubted count none carries the flag,
+against 5 of 13 in the below set. The wording in those 10 ads is vaguer than the flag's
+patterns: a flexible layout, an extra room offered as an office or guest room, a sleeping
+loft, a wall not yet installed, a railroad layout.
+
+`vague.py` codes eight such patterns from the latest description of each of b9's held-out
+ads without the bed-text flag and runs the free check on each (100 shuffles).
+
+| Pattern | Unread ads | Mean gap | Explained (unread) | Shuffled 95% | Read half |
+|---|---|---|---|---|---|
+| flexible layout or space | 1,416 | +0.006 | 0.00005 | -0.00005 | fail |
+| "can be divided", wall not installed | 407 | -0.000 | -0.00017 | -0.00007 | fail |
+| office or den offered as a bedroom | 883 | +0.006 | -0.00004 | -0.00005 | fail |
+| sleeping loft, ladder | 604 | +0.003 | -0.00012 | -0.00007 | fail |
+| railroad | 720 | -0.014 | -0.00001 | -0.00006 | pass |
+| "studio" in an ad coded with a bedroom | 4,785 | +0.003 | 0.00022 | -0.00007 | pass |
+| windowless or interior room | 102 | -0.012 | -0.00010 | -0.00006 | fail |
+| roommates, shares | 1,563 | -0.006 | -0.00013 | -0.00006 | fail |
+
+The largest share explained is 0.0002, a fiftieth of the layout marks' 0.0117, and only the
+"studio" wording passes on both halves, with a gap of +0.003. I dropped the vague wording.
+The doubts the readers raised on the top deals are mostly layout changes against the
+apartment's earlier ads, which the four marks cover.
+
+`chg.py` runs the same check on free months gained, lost or kept against the apartment's
+previous training ad (`months_free` of the ads table). The gap is -0.003 where an ad gained
+free months and -0.008 to -0.011 where it lost them, and no mark explains more than 0.0004
+of either half. Furnished and short-term ads are outside the dataset, so the readers'
+"earlier ad was furnished" has no previous training ad to compare with.
 
 ## Results
 
