@@ -127,10 +127,12 @@ than that.
 
 ## Modal fits
 
-Each fit is one H100 container of 2 chains with 200 warmup sweeps, up to 9,000 draws a
-chain inside the container's 2,520 s budget, every 20th draw kept, and seed 1. At 63% of
-`n9a`'s 0.745 s a sweep a container makes about 5,000 draws a chain and keeps about 250 of
-each chain's, near the 434 draws a three-container pool keeps. I launch them from
+Each fit is one H100 container of 2 chains with 200 warmup sweeps, 3,600 draws a chain,
+every 20th draw kept (360 in all, against the 434 a three-container pool keeps), and seed
+1. At `n9a`'s rate of 592 effective draws in 5,840 for its slowest coefficient, 7,200 draws
+give an ESS near 730. At 63% of `n9a`'s 0.745 s a sweep the sampling takes about 1,700 s.
+If a sweep is no faster than `n9a`'s, the container's 2,520 s budget ends the run at about
+3,200 draws a chain. I launch them from
 `/data1/apartments/serve/master` at the merge commit of this section, each after the last
 one's log reaches "synced":
 
@@ -140,13 +142,13 @@ J=/data1/apartments/frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-asof
 M=/data1/apartments/frontier/datasets/b0-ddd2fe8f5da041b8-alldata-dense-nyc-market
 ops/modal-fit --outside-budget --gpu H100 --dataset "$J" --input "$IN" --split market \
   --baseline drift-building-b0-market-67d14e17-j9 COMMIT heldbase-j \
-  drift-building b0 2 200 9000 20 --seed 1 --level-dof 4 --scales-fixed base-j9 --no-loo --no-heldout
+  drift-building b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-j9 --no-loo --no-heldout
 ops/modal-fit --outside-budget --gpu H100 --dataset "$J-bedtext" --input "$IN" --split market \
   --baseline drift-building-b0-market-67d14e17-j9 COMMIT heldbed-j \
-  drift-building-bedtext b0 2 200 9000 20 --seed 1 --level-dof 4 --scales-fixed base-j9 --no-loo --no-heldout
+  drift-building-bedtext b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-j9 --no-loo --no-heldout
 ops/modal-fit --outside-budget --gpu H100 --dataset "$M-bedtext" --input "$IN" --split market \
   --baseline drift-building-b0-market-67d14e17-n9 COMMIT heldbed-m \
-  drift-building-bedtext b0 2 200 9000 20 --seed 1 --level-dof 4 --scales-fixed base-n9 --no-loo --no-heldout
+  drift-building-bedtext b0 2 200 3600 20 --seed 1 --level-dof 4 --scales-fixed base-n9 --no-loo --no-heldout
 ```
 
 - `heldbase-j` is the plain base model on the backtest with the backtest pool's scales. It
@@ -157,8 +159,10 @@ ops/modal-fit --outside-budget --gpu H100 --dataset "$M-bedtext" --input "$IN" -
 - `heldbed-m` is the flagged model on every ad to date, with the market pool's scales. I
   built its dataset with `python -m rentfrontier.b0bedtext $M $M-bedtext`.
 
-Each reserves $1.93 and I expect it to settle near $1.30, about $4 for the three, from the
-$37.76 left.
+`ops/modal/cap.py` prices each launch before it starts and reserves that amount. A full
+container that ran to its budget settled at $3.59 to $3.78 (`n9a`, `j9a`). These stop
+earlier, and I expect each to settle near $2.70, about $8 for the three, from the $37.76
+left.
 
 I score each backtest run with `rentfrontier.drift_score` on the 9,346 open ads and compare
 pairs with `docs/notes/bed-text-2026-11-16/cmp.py` and
@@ -170,8 +174,8 @@ pairs with `docs/notes/bed-text-2026-11-16/cmp.py` and
    80% coverage within a point of 79.2% (85%), and at least 97% of j9's lowest tenth is in
    its lowest tenth (75%).
 2. Every quantity the sweep draws passes the gate in a single container: in `heldbase-j`
-   (80%), in `heldbed-j` (80%), in `heldbed-m` (80%), in all of them (65%). The slowest
-   quantity is a coefficient in each (80%), with an ESS of 600 to 1,500 (60%).
+   (75%), in `heldbed-j` (75%), in `heldbed-m` (75%), in all of them (60%). The slowest
+   quantity is a coefficient in each (80%), with an ESS of 500 to 1,100 (60%).
 3. A sweep takes 0.42 to 0.56 s (70%).
 4. `heldbed-j` beats `heldbase-j` on final-ask elpd (80%), by 5 to 25 (60%).
 5. The flagged ads in the lowest tenth fall from 21 to 25 under `heldbase-j` to 11 to 17
