@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 11:45 AM ET on Nov 18
+### State at 12:00 PM ET on Nov 18
 
 Ben asked for a few hours on ads asking far below the prediction. The note is
 `docs/notes/low-outliers-2026-11-18.md`.
@@ -29,13 +29,15 @@ Ben asked for a few hours on ads asking far below the prediction. The note is
 - `range-j` (`drift-building-bedtext-layout-range`, four more marks against the lowest and
   highest earlier counts of the apartment, $2.04) passes the gate and the decision rule:
   +48.3 elpd (SE 18.9) against `heldbed-j`, +3.8 (SE 5.8) on the 7,791 unmarked ads.
-- Next: the market twin `range-m` (about $2), launched after the note's results section
-  merges, with the command in the note. If it passes the gate, publish Deals from it with
-  `range-j` as the backtest, keep the `rooms_up` caution, and score the note's three
-  predictions for `range-m`.
+- `range-m`, its market twin ($2.00), passes the gate. Deals reads it since 11:54 AM ET
+  with `range-j` as the backtest, and keeps `rooms_up`. The table before the publish is in
+  `/data1/apartments/tmp/po-deals-live-before-range`.
+- Open: whether `rooms_up` should narrow to baths now that the model takes a step for a
+  bedroom count above the apartment's earlier low (the note's last paragraph). The Deals
+  page has no latest-split run of this model, so its held-out sentence stays absent.
 - Wording and gained-or-lost field checks explain little and are recorded as dropped.
 
-The sprint has spent $72.20 of $100 before `range-m`.
+The sprint has spent $74.20 of $100.
 
 ### State at 11:55 PM ET on Nov 17
 
