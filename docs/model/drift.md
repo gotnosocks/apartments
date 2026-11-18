@@ -286,6 +286,24 @@ of round six every `bld:` coefficient took under 4.
 The convergence gate is the project's: split R-hat at most 1.01 and bulk ESS above 400 on
 every scalar and coefficient. A fit that misses the gate is not rerun on another seed.
 
+**Holding scales.** `--scales-fixed NAME` (`Settings.scales_fixed`) has the sweep hold a set
+of scales at stored values and draw everything else given them. The sets are in
+`rentfrontier.drift_scales`: `base-n9` for the market split and `base-j9` for the backtest
+as of 2025-11-10, each the posterior means of a base-model pool that passed the gate. A set
+holds nu, the four sigma, the three unit scales, the buildings' spread, the building path's
+sd and rho, and the weekly walk's tau. In those pools each of these had a posterior sd under
+6% of its mean. The sweep still draws the wave amplitudes and the floor curves' amplitudes
+and lengthscales, whose posteriors are 11% to 44% wide, along with the coefficients, the
+levels, the paths and the mixing weights.
+
+The option is for testing a new column on the base model at a fraction of a pool's cost.
+The slow part of an ordinary fit is the scales. Once they are held, the rest of the model is
+Gaussian given the mixing weights. A fit run this way treats the held scales as known, so
+its intervals leave out their uncertainty, and the gate's table lists only the quantities
+the sweep drew. The run's `result.json` records the set, its source pool and its values
+under `result.gibbs.scales_fixed`. A backtest takes the set of the pool fitted on its own
+training rows, so that a scale carries no rent from after the scoring day.
+
 ## Predictions and the deal score
 
 A unit's level at a new ad depends on its training ads, so the fit itself predicts every row

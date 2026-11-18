@@ -129,6 +129,7 @@ from . import (
     b0,
     building_zones_floor_asof,
     building_zones_kitchen_sink,
+    drift_scales,
     market,
     two_zone,
 )
@@ -259,6 +260,10 @@ class Settings:
     # zone's spread by its square over 2 b N, and the fits of 2026-11-10 missed the gate on
     # bld_sd[outer] through ten such buildings (docs/notes/drift-2026-11-10.md).
     level_dof: float | None = None
+    # The name of a set of scales in `rentfrontier.drift_scales`. The sweep holds each scale
+    # of the set at the set's value and draws everything else given them
+    # (`make_sampler`'s `scales_fixed`). None has the sweep draw every scale.
+    scales_fixed: str | None = None
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -645,6 +650,69 @@ def pred_layout(lay: dict, pred_unit, pred_years) -> dict:
 # ------------------------------------------------------------------ the sampler (JAX)
 
 
+# The scales a set of `rentfrontier.drift_scales` may hold, by the step of the sweep that
+# draws them. A set holds all of a step's scales or none of them, since a step draws its
+# scales together. `{term}` is the collapsed term's name.
+HELD_STEPS = {
+    "noise": ("nu", "sigma", *HYP),
+    "cells": ("bld_sd", "{term}_ar_sd", "{term}_ar_rho"),
+    "tau": ("tau",),
+    "amp": ("amp",),
+    "gp": ("gp_amp", "gp_ls"),
+}
+
+
+def held_steps(scales: dict | None, groups) -> frozenset:
+    """The steps of `HELD_STEPS` whose scales `scales` holds. `groups` are the sampler's
+    local-drift terms, and the first of them is the collapsed term when it is drawn
+    collapsed."""
+    if not scales:
+        return frozenset()
+    first = (groups or [{}])[0]
+    term = first.get("name") if first.get("collapsed") else None
+    steps, known = set(), set()
+    for step, names in HELD_STEPS.items():
+        names = [k.format(term=term) for k in names]
+        known |= set(names)
+        given = [k for k in names if k in scales]
+        if given:
+            assert len(given) == len(names), (
+                f"the sweep draws {names} in one step, and the set holds only {given}"
+            )
+            assert step != "cells" or term, (
+                "bld_sd is held with a collapsed term's scales"
+            )
+            steps.add(step)
+    assert set(scales) <= known, f"not scales to hold: {sorted(set(scales) - known)}"
+    return frozenset(steps)
+
+
+def held_state(scales: dict | None, held: frozenset) -> dict:
+    """The entries of the sampler's state at the held scales of `scales`: the unit scales
+    as `hyp`, their logs, and the collapsed term's as the first row of `ar_par`, its log sd
+    and logit rho."""
+    out = {}
+    if "noise" in held:
+        out |= {
+            "nu": scales["nu"],
+            "sigma": scales["sigma"],
+            "hyp": np.log([scales[k] for k in HYP]),
+        }
+    if "cells" in held:
+        sd = next(v for k, v in scales.items() if k.endswith("_ar_sd"))
+        rho = next(v for k, v in scales.items() if k.endswith("_ar_rho"))
+        out |= {
+            "bld_sd": scales["bld_sd"],
+            "ar_par": np.array([math.log(sd), math.log(rho / (1 - rho))]),
+        }
+    for step in ("tau", "amp"):
+        if step in held:
+            out[step] = scales[step]
+    if "gp" in held:
+        out |= {"gp_amp": scales["gp_amp"], "gp_ls": scales["gp_ls"]}
+    return out
+
+
 def make_sampler(
     d: Design,
     priors: Priors,
@@ -657,6 +725,7 @@ def make_sampler(
     row_dof_fixed: float | None = None,
     unit_slow: bool = False,
     phase_collapsed: bool = False,
+    scales_fixed: dict | None = None,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -685,9 +754,20 @@ def make_sampler(
     rows' remainders and with lam integrated out, as it draws sigma
     (`rentfrontier.drift_building_phase_unitkn_level_phase`). Without it the scale step
     alone moves the factors, at the lam the state holds. It needs a design with phases and
-    no phase map, so that each factor scales rows of its own."""
+    no phase map, so that each factor scales rows of its own.
+
+    `scales_fixed` is a set of `rentfrontier.drift_scales`: a value for each scale of some
+    of the sweep's scale steps (`HELD_STEPS`). The initial state takes those values in every
+    chain, and the sweep skips the steps and draws the rest of the state given them. The
+    lam, the buildings' mixing scales, the levels, the paths and u are still drawn. It
+    needs normal unit levels (no `unit_t`).
+    """
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
     assert unit_kap_collapsed or not unit_slow, "unit_slow needs unit_kap_collapsed"
+    fixed_steps = held_steps(scales_fixed, groups)
+    assert not (fixed_steps and (unit_t or unit_slow)), (
+        "scales_fixed needs normal unit levels"
+    )
     assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
@@ -1917,9 +1997,9 @@ def make_sampler(
             ll = cell_loglik(D, lb, par, sums, F, kap)
             return ll - jnp.exp(2 * lb) / (2 * BLD_SD_PRIOR**2) + lb
 
-        lb = b0.slice_vec(
-            k1, jnp.log(st["bld_sd"]), logp_b, SPREAD_WIDTH, steps_out=0, shrink=32
-        )
+        lb = jnp.log(st["bld_sd"])
+        if "cells" not in fixed_steps:
+            lb = b0.slice_vec(k1, lb, logp_b, SPREAD_WIDTH, steps_out=0, shrink=32)
 
         def logp(x):
             rho = jax.nn.sigmoid(x[1])
@@ -1931,7 +2011,8 @@ def make_sampler(
                 + jnp.log1p(-rho)
             )
 
-        par, _ = slice_along(k2, par, logp(par), logp, st["cell_dirs"])
+        if "cells" not in fixed_steps:
+            par, _ = slice_along(k2, par, logp(par), logp, st["cell_dirs"])
         bsd = jnp.exp(lb)
         b2 = site_var(bsd, kap)
         # A building with no row keeps its prior.
@@ -1976,7 +2057,7 @@ def make_sampler(
 
         nu = (
             jnp.exp(b0.slice_vec(k1, jnp.log(st["nu"])[None], logp_nu, 0.1)[0])
-            if nu_free
+            if nu_free and "noise" not in fixed_steps
             else st["nu"]
         )
 
@@ -1985,7 +2066,11 @@ def make_sampler(
             ll = seg(b0.t_logpdf(r, nu, scale(sig)), group_all, num_segments=4)
             return ll - sig**2 / (2 * priors.sigma**2) + ls
 
-        sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
+        sigma = (
+            st["sigma"]
+            if "noise" in fixed_steps
+            else jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
+        )
         factor = st.get("phase_scale")
         if phase_collapsed:
             # Its key is folded in, so nu, sigma and lam take the keys they had without
@@ -2109,7 +2194,8 @@ def make_sampler(
         tgt = e0 if col is None else e0 + st["ar"][0].ravel()[D["ar_cell"][0]]
         # The scales move with all three integrated out, so the three are drawn afresh
         # below, at the new scales, before anything reads them.
-        st = st | update_scales(D, k8, st, tgt, F)
+        if "noise" not in fixed_steps:
+            st = st | update_scales(D, k8, st, tgt, F)
         hyp = unit_hyp(st)
         c = weights(D, st)
         w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
@@ -2169,8 +2255,14 @@ def make_sampler(
             u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
         nu, sigma, lam, factor = update_noise(k4, st, r, D)
-        tau = update_tau(k5, st, theta[sl_M], theta[i_g])
-        if joint is None:
+        tau = (
+            st["tau"]
+            if "tau" in fixed_steps
+            else update_tau(k5, st, theta[sl_M], theta[i_g])
+        )
+        if "amp" in fixed_steps:
+            amp = st["amp"]
+        elif joint is None:
             amp = update_amp(k6, st, w)
         else:
             amp, w = joint(k6, lev, bsd, st["amp"], st.get("kap"))
@@ -2202,7 +2294,9 @@ def make_sampler(
             new["kap"] = jax.random.gamma(
                 jax.random.fold_in(key, KAP_KEY), (dof + 1) / 2, (S,)
             ) / ((dof + z2) / 2)
-        if gps:
+        if gps and "gp" in fixed_steps:
+            new["gp_amp"], new["gp_ls"] = st["gp_amp"], st["gp_ls"]
+        elif gps:
             new["gp_amp"], new["gp_ls"] = update_gp(k_gp, st, theta)
         ss, sd, tu = scales(hyp)
         out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
@@ -2330,6 +2424,14 @@ def make_sampler(
             out["gp_ls"] = jnp.exp(jnp.asarray([m for _, _, _, (m, _) in gps])) * jit(
                 kg[1], (len(gps),), 0.2
             )
+        # Every chain starts at the held values, and the sweep leaves them there.
+        for k, v in held_state(scales_fixed, fixed_steps).items():
+            if k == "ar_par":
+                out[k] = out[k].at[0].set(jnp.asarray(v, dtype=out[k].dtype))
+            else:
+                out[k] = jnp.broadcast_to(
+                    jnp.asarray(v, dtype=out[k].dtype), out[k].shape
+                )
         return out
 
     swept = jax.jit(jax.vmap(sweep, in_axes=(None, 0, 0)))
@@ -2386,6 +2488,7 @@ def make_sampler(
             unit_t=unit_t,
             dof_free=dof_free,
             nu_free=nu_free,
+            held=fixed_steps,
             unit_slow=unit_slow,
             unit_hyp=unit_hyp,
             predict=predict,
@@ -2458,9 +2561,15 @@ def run(
     `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s. With `row_dof_fixed`
     (`make_sampler`) nu is traced and kept at its value, and the gate's diagnostics skip it
     as a constant. `unit_slow` (`make_sampler`) adds the lasting level's time constant
-    `unit_tau` to both. `phase_collapsed` is `make_sampler`'s."""
+    `unit_tau` to both. `phase_collapsed` is `make_sampler`'s.
+
+    With `settings.scales_fixed` the sweep holds that set's scales
+    (`rentfrontier.drift_scales`). They are traced and kept at their values, the gate's
+    diagnostics skip them as constants, and the result's `gibbs` entry records the set, its
+    source and its values. The warmup sets no slice directions for a skipped step."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
+    fixed = drift_scales.SETS[settings.scales_fixed] if settings.scales_fixed else None
     t0 = time.perf_counter()
     sweep, init, predict, parts = make_sampler(
         d,
@@ -2474,7 +2583,14 @@ def run(
         row_dof_fixed=row_dof_fixed,
         unit_slow=unit_slow,
         phase_collapsed=phase_collapsed,
+        scales_fixed=fixed,
     )
+    held = parts["held"]
+    if held:
+        log(
+            f"scales held at the set {settings.scales_fixed!r} "
+            f"(from {drift_scales.SOURCES[settings.scales_fixed]}): {fixed}"
+        )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
@@ -2548,6 +2664,17 @@ def run(
                     if "cell_dirs" in st
                     else {}
                 )
+                | (
+                    {
+                        "scales_fixed": {
+                            "set": settings.scales_fixed,
+                            "source": drift_scales.SOURCES[settings.scales_fixed],
+                            "values": fixed,
+                        }
+                    }
+                    if held
+                    else {}
+                )
             },
         }
 
@@ -2613,9 +2740,11 @@ def run(
                 + ([np.log(np.asarray(st["unit_tau"]))[:, None]] if unit_slow else []),
                 axis=1,
             )
-            if "cell_dirs" in st:
+            if "cell_dirs" in st and "cells" not in held:
                 warm_cell[i] = np.asarray(st["ar_par"])[:, 0]
-        if i + 1 in adapt_at and i + 1 - adapt_at[i + 1] >= 10:
+        adapting = i + 1 in adapt_at and i + 1 - adapt_at[i + 1] >= 10
+        # With the scale step's scales held, its directions have nothing to follow.
+        if adapting and "noise" not in held:
             window = [warm_hyp[j] for j in range(adapt_at[i + 1], i + 1)]
             dirs = adapted_dirs(np.stack(window, axis=1))
             st = st | {
@@ -2640,15 +2769,13 @@ def run(
                     "reset along the scale step's own curvature; its variance over the "
                     f"window's, by axis: {share.round(3).tolist()}"
                 )
-            if warm_cell:
-                window = [warm_cell[j] for j in range(adapt_at[i + 1], i + 1)]
-                dirs = adapted_dirs(np.stack(window, axis=1))
-                st = st | {
-                    "cell_dirs": jnp.broadcast_to(
-                        jnp.asarray(dirs), st["cell_dirs"].shape
-                    )
-                }
-                log(f"the building path's slice directions: {dirs.round(5).tolist()}")
+        if adapting and warm_cell:
+            window = [warm_cell[j] for j in range(adapt_at[i + 1], i + 1)]
+            dirs = adapted_dirs(np.stack(window, axis=1))
+            st = st | {
+                "cell_dirs": jnp.broadcast_to(jnp.asarray(dirs), st["cell_dirs"].shape)
+            }
+            log(f"the building path's slice directions: {dirs.round(5).tolist()}")
         if i == settings.warmup - 1 or (settings.warmup == 0 and i == 0):
             jax.block_until_ready(st)
             marks["warmup"] = time.perf_counter()
@@ -2811,6 +2938,12 @@ def run_parser(name=NAME, level_dof=None):
         default=level_dof,
         help="degrees of freedom of a Student-t prior on the buildings' levels; 0 for a "
         f"normal prior (default: {level_dof or 'a normal prior'})",
+    )
+    parser.add_argument(
+        "--scales-fixed",
+        choices=sorted(drift_scales.SETS),
+        help="hold the scales of this set of rentfrontier.drift_scales at its values "
+        "(default: the sweep draws every scale)",
     )
     return parser
 
