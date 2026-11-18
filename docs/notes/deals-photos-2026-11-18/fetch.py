@@ -10,6 +10,7 @@ adds a line to `fetch.jsonl`. Run it with a Python that has Pillow
 """
 
 import io
+import os
 import json
 import sys
 import time
@@ -22,6 +23,9 @@ sys.path.insert(
     0, str(Path(__file__).resolve().parents[1] / "photo-disagreement-2026-11-14")
 )
 import f2_fetch as F  # noqa: E402
+
+# Seconds from the start of a request to the start of the next.
+GAP = float(os.environ.get("FETCH_GAP", F.DIRECT_GAP))
 
 OUT = Path("/data1/apartments/tmp/deals-photos-2026-11-18")
 F.OUT = OUT
@@ -80,5 +84,5 @@ with log.open("a") as sink:
             break
         if n % 200 == 0:
             print(time.strftime("%H:%M:%S"), n, "done, batch", r.batch, flush=True)
-        time.sleep(max(0.0, F.DIRECT_GAP - (time.monotonic() - start)))
+        time.sleep(max(0.0, GAP - (time.monotonic() - start)))
 print("finished", flush=True)

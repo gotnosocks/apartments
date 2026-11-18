@@ -101,4 +101,104 @@ Written before any image was read.
 
 ## Results
 
-To come.
+The fetch brought back all 15,865 images with no failure, 14,009 of them at 1 request a
+second and the last 1,856 at 4 a second. No OxyLabs request and no Modal time was used.
+
+### Pilot
+
+Batches 01 to 06 (90 ads) were read by Haiku and by Sonnet (`pilot.py`). The two marked
+94.1% of ad-category pairs alike. Condition and light were within 1 point on every ad
+(equal on 67.5% and 65.3%). On the 29 plans both read, the plan fields agreed on 90% to
+100%. Haiku passed the rule and read the other 191 batches through a headless runner
+(`read_all.sh`, `read_batch.sh`; `valid.py` drops reply lines that are not JSON).
+Haiku marks dark rooms less often than Sonnet (3 ads against 10, 1 in common) and clutter
+less often (8 against 17), so the counts below for those two categories are low.
+
+### Shares among low ads and controls
+
+`score.py haiku`, on 2,857 ads (2,144 low, 713 controls, 963 with a plan read). Agreement is
+between the two reads of the 90 repeated ads.
+
+| Trait | Low ads | Share | Controls | Share | Ratio | SEs | Agreement | Bar |
+|---|---|---|---|---|---|---|---|---|
+| `plan_levels` (2 or more levels) | 96 | 12.4% | 8 | 4.3% | 2.87 | +4.2 | 100% | passed |
+| `walkup_or_stairs` | 182 | 8.5% | 33 | 4.6% | 1.83 | +3.9 | 96% | passed |
+| `ground_or_basement` | 190 | 8.9% | 38 | 5.3% | 1.66 | +3.4 | 94% | passed |
+| `few_or_poor_photos` | 667 | 31.1% | 176 | 24.7% | 1.26 | +3.3 | 92% | ratio under 1.5 |
+| `tiny_or_windowless_bedroom` | 41 | 1.9% | 7 | 1.0% | 1.95 | +2.0 | 99% | under 3 SEs |
+| `low_ceiling` | 31 | 1.4% | 5 | 0.7% | 2.06 | +1.8 | 100% | under 3 SEs |
+| `other_unit_or_renderings` | 233 | 10.9% | 62 | 8.7% | 1.25 | +1.7 | 98% | no |
+| `plan_fewer_beds` | 63 | 11.2% | 12 | 8.3% | 1.34 | +1.1 | 100% | no |
+| `dark_or_shaft` | 182 | 8.5% | 56 | 7.9% | 1.08 | +0.5 | 89% | no |
+| `plan_windowless` | 25 | 3.2% | 5 | 2.7% | 1.20 | +0.4 | 100% | no |
+| `kitchen_poor` | 564 | 26.3% | 191 | 26.8% | 0.98 | -0.3 | 87% | no |
+| `plan_flex` | 23 | 3.0% | 8 | 4.3% | 0.69 | -0.8 | 100% | no |
+| `bath_poor` | 348 | 16.2% | 138 | 19.4% | 0.84 | -1.9 | 94% | no |
+| `occupied_clutter` | 109 | 5.1% | 59 | 8.3% | 0.61 | -2.8 | 97% | no |
+
+The other 7 traits are within 1 SE or on fewer than 20 low ads (`room_only` 5, `unfinished`
+9, `worn_finishes` 19, `street_noise_cues` 11). Mean condition is 3.11 among low ads and
+3.02 among controls (+2.2 SEs), and mean light 3.19 and 3.16 (+0.9 SEs). The shuffles give
+0.09 flags by chance, and 3 or more in 0.06% of them.
+
+The reader wrote a reason for a low ask on 49.2% of low ads and on 47.8% of controls, so a
+reader who sees only the images cannot tell the two groups apart by a stated reason.
+
+### The flagged traits
+
+Stairs and levels are mostly the same apartments. Of the 215 ads with stairs in the photos,
+139 also have a plan on 2 or more levels or the dataset's text mark `duplex`
+(`rentfrontier.b0duplex`). Stairs without either sign are on 2.8% of low ads and 2.2% of
+controls. The samples read are duplexes with a spiral or open stair, and studios with a
+sleeping loft up a ladder.
+
+The text mark is on 8.8% of low ads and 3.8% of controls (`duplex.py`). It misses many: of
+the 97 ads whose plan draws 2 or more levels and whose row is in the duplex dataset, the
+text marks 55.
+A plan level, stairs in the photos or the text mark is on 13.7% of low ads and 6.6% of
+controls.
+
+On the base model's held-out ads the text mark sits in both tails. Without income ads, it
+is on 7.7% of the 1,290 ads below the 1% point of the predictive distribution, 4.7% of the
+middle half and 13.7% of the 1,428 above the 99% point. That matches the screen S7 of
+2026-11-13, which found duplex asks about 35% more scattered than the model expects and
+right on average. A wider predictive interval for marked ads would move duplexes away from
+both ends of the Deals ranking.
+
+Ground and basement units outside those duplexes are on 6.2% of low ads and 4.1% of
+controls. The notes read are barred street-level windows, sidewalk-level and areaway
+windows, and cellar rooms. The model has a curve over the unit's floor and a level for an
+unknown floor, and the text patterns for basement and garden units were tested on
+2026-11-18 and dropped. The difference left is 2 points.
+
+By pool, the in-sample low units differ from their controls most on `plan_fewer_beds`
+(13.4% against 2.5%, on 40 control plans), `ground_or_basement` (10.0% against 3.3%),
+`walkup_or_stairs` (9.7% against 3.8%) and `plan_levels` (11.7% against 1.8%). The 180 low
+ads of the Deals backtest and market runs show renderings or another unit in 22% to 24%
+and few or poor photos in 40% to 49%, and grade 3.8 to 4.0 on condition: they are mostly
+new or renovated units in large buildings.
+
+### Predictions scored
+
+1. Hit. No flag on condition or light, and the low ads' mean condition is above the
+   controls'.
+2. Missed. Plans label fewer bedrooms than the record on 11.2% of low ads and 8.3% of
+   controls (+1.1 SEs), and `plan_flex` is less common among low ads. Among the in-sample
+   units alone the shares are 13.4% and 2.5%.
+3. Hit in part. Both traits are more common among low ads. Neither passed:
+   `few_or_poor_photos` is beyond 3 SEs with a ratio of 1.26.
+4. Hit. 5 low ads.
+5. Missed. The shares were 8.9% and 5.3% against the 6% and 3% predicted, and the trait
+   passed the bar. A third of its low ads are the duplexes above.
+6. Hit on the count (3 flags). The chance count was 0.09, under the 0.3 predicted.
+
+### What follows
+
+- Duplexes are the trait to act on, as a noise factor on marked rows (the design D1,
+  `docs/notes/duplex-factor-2026-11-13.md`, written for an older base and never fit). The
+  text mark stands in for the plan and photo signs on a little over half of them.
+- A plan showing 2 or more levels is a field worth extracting at scale only if the text
+  mark's factor helps: the images of the whole market cost a fetch of about 6 per ad and a
+  Haiku read.
+- Nothing in condition, light, kitchens or baths separates low ads from controls. The low
+  asks are not explained by worse apartments in the photos.
