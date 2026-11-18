@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 12:00 PM ET on Nov 18
+### State at 1:00 PM ET on Nov 18
 
 Ben asked for a few hours on ads asking far below the prediction. The note is
 `docs/notes/low-outliers-2026-11-18.md`.
@@ -32,9 +32,13 @@ Ben asked for a few hours on ads asking far below the prediction. The note is
 - `range-m`, its market twin ($2.00), passes the gate. Deals reads it since 11:54 AM ET
   with `range-j` as the backtest, and keeps `rooms_up`. The table before the publish is in
   `/data1/apartments/tmp/po-deals-live-before-range`.
-- Open: whether `rooms_up` should narrow to baths now that the model takes a step for a
-  bedroom count above the apartment's earlier low (the note's last paragraph). The Deals
-  page has no latest-split run of this model, so its held-out sentence stays absent.
+- `rooms_up` keeps both halves. A broker read of 125 ads from the new table
+  (`docs/notes/rooms-up-read-2026-11-18.md`) found 1 sound deal among 55 hidden ads, and
+  18 of 30 beds-up ads carry a bedroom the text does not support. Fewer-rooms ads read as
+  sound as often as plain ads (5 of 30 against 3 of 25) and take no caution. Asks at
+  11/12 and like fractions of the first ask are too few and too mixed for a caution.
+- The Deals page has no latest-split run of this model, so its held-out sentence stays
+  absent. A latest-split fit would cost about $2 and awaits Ben's word.
 - Wording and gained-or-lost field checks explain little and are recorded as dropped.
 
 The sprint has spent $74.20 of $100.
