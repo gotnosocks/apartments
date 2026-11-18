@@ -27,6 +27,10 @@ def _run(tmp_path, backtest=False, model="drift-building", change=None):
             "half_baths": [0.0] * 6,
             "latest_ask": [3000.0, 2700, 3000, 3300, 3000, 3000],
             "latest_day": [date(2026, 11, 9)] * 6,
+            # The two training rows, listings 1 and 5, are the earlier ads.
+            "price_at": pd.to_datetime(
+                [f"2026-{m}-01" for m in ("05", "11", "11", "11", "05", "11")], utc=True
+            ),
             "final_day": [date(2026, 11, 20)] * 6,
             "status": ["RENTED", "ACTIVE", "ACTIVE", "ACTIVE", "RENTED", "ACTIVE"],
         }
@@ -339,11 +343,26 @@ def test_the_beds_caution_reads_the_pieces_of_a_split_unit_together(tmp_path):
 
     run, ads, reg = _run(tmp_path / "two", change=change)
     got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
-    assert got == {"2": [], "3": [], "4": ["beds"], "6": []}
-    # One bedroom between the pieces is not a caution.
+    assert got == {"2": [], "3": [], "4": ["beds", "rooms_up"], "6": []}
+    # One bedroom between the pieces is no beds caution. The ad still codes more
+    # bedrooms than the apartment's previous ad.
     run, ads, reg = _run(tmp_path / "one", change=lambda rows: change(rows, 2.0))
     got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
-    assert got == {"2": [], "3": [], "4": [], "6": []}
+    assert got == {"2": [], "3": [], "4": ["rooms_up"], "6": []}
+
+
+def test_the_rooms_up_caution_marks_more_beds_or_baths_than_the_previous_ad(tmp_path):
+    def change(rows):
+        # Unit u1's earlier ad had a second bath and its held-out ad has one: fewer rooms.
+        # Unit u3's held-out ad, listing 4, gains a half bath on its earlier ad.
+        rows.loc[0, "full_baths"] = 2.0
+        rows.loc[3, "half_baths"] = 1.0
+        # Listing 6 has two bedrooms and no earlier ad of its apartment.
+        rows.loc[5, "bedrooms"] = 2.0
+
+    run, ads, reg = _run(tmp_path, change=change)
+    got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
+    assert got == {"2": [], "3": [], "4": ["rooms_up"], "6": []}
 
 
 def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
@@ -395,6 +414,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "owners_only": 0,
             "takeover": 0,
             "beds": 1,
+            "rooms_up": 0,
             "off_market": 1,
         },
         "ads_with_text": 3,
