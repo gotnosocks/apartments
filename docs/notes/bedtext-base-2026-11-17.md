@@ -111,3 +111,88 @@ renter at no fit cost.
 
 The sprint has spent $59.76 of $100. The ledger reserves $1.93 for each container ($3.86
 for the pair), and I expect the pair to settle at $1.80 to $2.80.
+
+## Results
+
+Scored at 9:25 PM ET on 2026-11-17. Both containers finished, and both miss the gate on
+R-hat and on bulk ESS (lowest 7.5 and 35.9), as short fits do:
+
+| Run | Worst R-hat | Sampling | Modal estimate |
+|---|---|---|---|
+| `drift-building-b0-market-0f8aa7f8-base-short` | 1.162 (`building_ar_sd`) | 210 s | $1.17 |
+| `drift-building-bedtext-b0-market-0f8aa7f8-bedbase-short` | 1.084 (`sigma[3]`) | 215 s | $1.31 |
+
+The flag's coefficients are -0.0035 (ad, posterior sd 0.0008) and -0.0598 (unit mean, sd
+0.0011), so a unit advertised that way on every ad is priced 6.1% lower.
+
+Final asks of the 9,346 open ads (`drift_score`, then `cmp.py`):
+
+| Score | j9 (pool) | `base-short` | `bedbase-short` |
+|---|---|---|---|
+| elpd | 9,978.6 | 9,961.8 | 9,975.0 |
+| median absolute error | 0.0474 | 0.0474 | 0.0471 |
+| 50% / 80% / 95% coverage | 51.4 / 79.2 / 94.5% | 51.3 / 78.9 / 94.5% | 51.2 / 79.0 / 94.4% |
+
+| Open ads | Ads | elpd, `bedbase-short` minus `base-short` | SE | Mean shift of the median |
+|---|---|---|---|---|
+| all | 9,346 | +13.2 | 9.6 | 0.000 |
+| flagged | 196 | +5.3 | 6.8 | -0.032 |
+| stated size above the coded count | 44 | -0.2 | 0.3 | -0.001 |
+| no bedroom-text column set | 9,106 | +8.1 | 6.7 | +0.001 |
+
+First asks (`place.py`):
+
+| Open ads | Ads | Mean place, base | Mean place, flag | Lowest tenth, base | Lowest tenth, flag | In both |
+|---|---|---|---|---|---|---|
+| all | 9,346 | 0.598 | 0.598 | 610 | 607 | 596 |
+| flagged | 196 | 0.522 | 0.612 | 23 | 14 | 14 |
+| unflagged | 9,150 | 0.599 | 0.597 | 587 | 593 | 582 |
+
+The flagged model moves 9 of `base-short`'s 23 flagged ads out of the lowest tenth and
+brings none in. `base-short` puts 23 flagged ads there, the count j9 gave, so the short fit
+reproduces the pool on this measure. Among unflagged ads 11 enter the lowest tenth and 5
+leave. Over all ads the lowest tenth's median days
+on market stays at 26 and its share raised later moves from 36.6% to 36.4%.
+
+The 14 flagged ads left in the flagged model's lowest tenth stayed on the market a median of
+62 days. They are low for the model even after the flag's 6% and may be worth an expert
+read.
+
+Prediction scores:
+
+1. Right: both miss the gate and finish.
+2. Right: `base-short` scores 16.8 below j9.
+3. Right on the sign and the range (+13.2). The lead is 1.4 SE, under twice the SE, as the
+   75% side of that part expected.
+4. Right on the sign (+5.3), and it is under twice its SE, the 55% side.
+5. Right on the direction, wrong on the size: the flagged ads' mean place rises by 0.090,
+   above the 0.01 to 0.06 I gave. The flagged ads' mean place is now 0.612, a little above the 0.598 of
+   all ads.
+6. Right on all three parts: 23 flagged ads in `base-short`'s lowest tenth, fewer under the
+   flag, by 9.
+7. Right: 596 of 610, 97.7%.
+8. Right: the sum is -0.063, and the unit mean's coefficient is the larger.
+9. Right: $1.17 and $1.31.
+
+## Reading
+
+The rule for the next step is met: 9 fewer flagged ads in the lowest tenth against a
+threshold of 3, and a lead of 13 elpd on all ads where the rule asked only for no loss
+beyond twice the SE. The elpd lead by itself is within noise on 9,346 ads. The change in
+the Deals candidates is clear: 14 of the 610 ads in the lowest tenth leave it (2.3%), and 9
+of the 14 are ads whose text says the unit is smaller than its coded count.
+
+Publishing from the flagged model needs a full market pool and a full backtest pool, each
+passing the gate. j9's containers ran about 2,860 s each, which is about $4.20 a container
+at these runs' rate, so three containers a pool comes to about $12.50 a pool and $25 for
+the pair. The sprint has spent $62.24, so the pair would leave about $12.50. That spend is
+Ben's decision.
+
+The caution label on flagged Deals candidates remains the alternative with no fit cost. It
+warns a renter and leaves the ad's place as it is, and the flagged model lowers the price
+it expects for the unit, so the 9 ads leave the list.
+
+## Budget
+
+`base-short` settled at $1.17 and `bedbase-short` at $1.31 by Modal's estimates, $2.48 for
+the pair. The sprint has spent $62.24 of $100.
