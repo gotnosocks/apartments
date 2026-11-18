@@ -200,5 +200,5 @@ new or renovated units in large buildings.
 - A plan showing 2 or more levels is a field worth extracting at scale only if the text
   mark's factor helps: the images of the whole market cost a fetch of about 6 per ad and a
   Haiku read.
-- Nothing in condition, light, kitchens or baths separates low ads from controls. The low
+- No trait of condition, light, kitchens or baths passes the bar. The low
   asks are not explained by worse apartments in the photos.
