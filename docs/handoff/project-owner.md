@@ -15,6 +15,19 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 9:30 PM ET on Nov 17
+
+Ben asked for the bedroom-text flag on the base model. `drift-building-bedtext`
+(`rentfrontier.drift_building_bedtext`) ran as a short backtest fit beside a short fit of the
+base model (`docs/notes/bedtext-base-2026-11-17.md`). The flag moved 9 of the 23 flagged ads
+out of the lowest tenth of first-ask places and led by 13 elpd (SE 9.6) on final asks. The
+note's rule for proposing full pools is met. Full market and backtest pools would cost about
+$25, and no such fit is to be launched until Ben approves it. If he does: build the market
+dataset copy with `rentfrontier.b0bedtext` from
+`b0-ddd2fe8f5da041b8-alldata-dense-nyc-market`, write predictions, then three containers a
+pool with j9's settings (`2 500 9000 40`, seeds 1 to 3, `--level-dof 4`). The sprint has
+spent $62.24 of $100.
+
 ### State at 12:45 AM ET on Nov 17
 
 Ben approved three fits on Nov 16, and all ran as short fits (one container, `2 500 320 1`,
