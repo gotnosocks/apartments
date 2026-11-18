@@ -15,16 +15,16 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at 6:15 PM ET on Nov 18 (after the duplex checks)
+### State at 6:30 PM ET on Nov 18, after the duplex checks
 
 The duplex follow-up below ended with no fit and no caution
-(`docs/notes/duplex-scale-2026-11-18.md`). The factor calibrates to 1.1 (+92 elpd), too
+(`docs/notes/duplex-scale-2026-11-18.md`). The factor calibrates to 1.1 (+92 elpd, about 60 net of the control), too
 small to change the Deals list. Open leads from it: a floor-1 level beside the floor curve,
 with its own level for duplexes, for the next base refit; a `duplex` caution if another
 backtest repeats the low raise rate of marked ads in the lowest tenth. Sprint money left:
 $25.80.
 
-### State at 6:30 PM ET on Nov 18 (image read; written earlier in the afternoon)
+### State on Nov 18 after the image read
 
 The image read of the low outliers is done and written up in
 `docs/notes/deals-photos-2026-11-18.md`. Scratch (images, reads, draw) is in

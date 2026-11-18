@@ -60,7 +60,8 @@ if __name__ == "__main__":
             f"({100 * k.sum() / base.sum():.1f}%) highest tenth {100 * hi.sum() / base.sum():.1f}% | "
             f"lowest tenth: cut {100 * (change[k] < -0.001).mean():.1f}% "
             f"raised {100 * (change[k] > 0.001).mean():.1f}% median days {np.median(days[k]):.0f} | "
-            f"all: cut {100 * (change[base] < -0.001).mean():.1f}% median days {np.median(days[base]):.0f}"
+            f"all: cut {100 * (change[base] < -0.001).mean():.1f}% "
+            f"raised {100 * (change[base] > 0.001).mean():.1f}% median days {np.median(days[base]):.0f}"
         )
 
     # The same split for narrower marks: the duplex mark by the ad's floor, and penthouses.
