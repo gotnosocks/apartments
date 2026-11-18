@@ -404,3 +404,42 @@ ops/modal-fit --outside-budget --gpu H100 --dataset "$M-bedtext" --input "$IN" -
    first 100 of the live table from `heldbed-m`. Among uncautioned market ads, the ones
    coding fewer bedrooms or baths than their apartment's highest earlier count take a
    larger share of the first 200 than they have in the live table.
+
+### Results for `range-m` and the Deals publish
+
+`range-m` finished at 11:52 AM ET on 2026-11-18 after 1,626 s of fitting and $2.00. The run
+is `drift-building-bedtext-layout-range-b0-market-053c5aa1-range-m`.
+
+1. Gate and cost: hit. The largest R-hat is 1.0057 and the smallest ESS is 789, both on
+   `beta[ad:months_free]`. The range marks set 103,853, 101,627, 40,446 and 37,956 training
+   rows.
+2. Coefficients: hit. Each is within 0.002 of its `range-j` mean: beds above low -0.0212,
+   beds below high +0.0285, baths above low -0.0406, baths below high +0.0223, beds up
+   -0.0006, beds down +0.0106, baths up +0.0040, baths down +0.0065.
+3. The top of the table: the overlap misses and the direction hits. I staged the publish
+   and compared it with the live table from `heldbed-m` using `top.py`. Of the 5,591
+   uncautioned ads, 95 of the first 100 are shared, where I predicted 60 to 85, and 186 of
+   the first 200. The ads coding fewer rooms than their apartment's highest earlier count
+   (298 of the 5,591) hold 20 of the first 200 places, up from 12. Their share of asks
+   below the ad (`below_share`) falls by 0.053 on average, and it rises by 0.031 for the
+   200 uncautioned ads coding more rooms than the lowest earlier count. In all, 98 ads move
+   by more than 0.1.
+
+I published Deals from `range-m` with `range-j` as its backtest and deployed at 11:58 AM
+ET. The `rooms_up` caution stays on 328 ads. The files of the table before the publish are
+in `/data1/apartments/tmp/po-deals-live-before-range`.
+
+```sh
+python -m rentfrontier.drift_deals publish drift-building-bedtext-layout-range-b0-market-053c5aa1-range-m \
+  --out /data1/apartments/tmp/po-deals-staging-range \
+  --registry /data1/apartments/external/registry/20261110-f1fc080-extend/registry.parquet \
+  --backtest drift-building-bedtext-layout-range-b0-market-d9028c57-range-j \
+  --texts /data1/apartments/tmp/overhaul/texts-m6.parquet
+```
+
+Open after this: with the model now taking a step for a count above the apartment's
+earlier low, the bedroom half of `rooms_up` may hide ads the model prices soundly. In
+`range-j` the ads coding more bedrooms than the previous ad are 7.2% of the time in the
+lowest tenth, against 6.5% for all ads, and 13.2% under `heldbed-j`. For more baths the
+rate is still 12.7%. A broker read of the cautioned ads under the new table would settle
+whether the caution narrows to baths.
