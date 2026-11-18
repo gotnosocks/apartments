@@ -365,14 +365,16 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
 4 GB on thelio) and refuses a build other than the dataset's. Without `--texts` the table
 carries only the cautions the dataset gives, and `meta.json` says the texts were not read.
 
-The model names are `drift`, `drift-building`, `drift-building-doorman`,
+The model names are `drift`, `drift-building`, `drift-building-bedtext`,
+`drift-building-doorman`,
 `drift-building-phase`, `drift-building-phase-duplex`, `drift-building-phase-level`,
 `drift-building-phase-segment`, `drift-building-phase-year`, `drift-building-phase-unitk`,
 `drift-building-phase-unitkn`, `drift-building-phase-unitkn-level`,
 `drift-building-phase-unitkn-level-bedtext`,
 `drift-building-phase-unitkn-level-bedunit`,
 `drift-building-phase-unitkn-segment`, `drift-building-phase-unitt`, `drift-building-unitt`
-and `drift-local` (`drift.py`, `drift_building.py`, `drift_building_doorman.py`,
+and `drift-local` (`drift.py`, `drift_building.py`, `drift_building_bedtext.py`,
+`drift_building_doorman.py`,
 `drift_building_phase.py`, `drift_building_phase_duplex.py`,
 `drift_building_phase_level.py`, `drift_building_phase_segment.py`,
 `drift_building_phase_year.py`, `drift_building_phase_unitk.py`,

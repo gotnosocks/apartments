@@ -550,6 +550,7 @@ def main(argv=None):
         ("building-zones-kitchen-sink-unit", "building_zones_kitchen_sink_unit"),
         ("drift", "drift"),
         ("drift-building", "drift_building"),
+        ("drift-building-bedtext", "drift_building_bedtext"),
         ("drift-building-doorman", "drift_building_doorman"),
         ("drift-building-phase", "drift_building_phase"),
         ("drift-building-phase-duplex", "drift_building_phase_duplex"),
