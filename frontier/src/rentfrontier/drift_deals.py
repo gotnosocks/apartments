@@ -49,6 +49,7 @@ import numpy as np
 import pandas as pd
 
 from . import cautions as cautions_module
+from . import drift_building_bedtext_layout as layout
 from . import drift_score
 from . import run as run_module
 from .b0data import sha256
@@ -156,6 +157,10 @@ def _cautions(
     beds = frame.bedrooms[known].groupby(whole[known])
     apart = whole[held].map(beds.max() - beds.min()).fillna(0) >= PIECES_APART
     varied = (varied | apart).to_numpy() & known[held]
+    # An ad coding more bedrooms or more baths than the latest training ad of its
+    # apartment, the pieces of a split unit read together (`layout.changes`).
+    marks = layout.changes(frame, ~np.asarray(held, bool))[held]
+    more = (marks[:, MORE_ROOMS] > 0).any(axis=1)
     flagged = (
         h.income_restricted.fillna(False).astype(bool).to_numpy()
         if "income_restricted" in h
@@ -175,11 +180,12 @@ def _cautions(
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
     out = []
-    for text, income, beds, away in zip(described, flagged, varied, off):
+    for text, income, beds, grew, away in zip(described, flagged, varied, more, off):
         codes = cautions_module.from_text(text)
         # The dataset's flag stands in only where there is no text to read.
         unread = not (isinstance(text, str) and text.strip())
         codes += ["income"] * bool(income and unread) + ["beds"] * bool(beds)
+        codes += ["rooms_up"] * bool(grew)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
     return out, with_text
@@ -263,6 +269,8 @@ def deals(
 NET_FLOOR = 0.5
 # The end of a unit id that `data.split_unit_histories` gave a later piece of the unit.
 PIECE = r"~\d+$"
+# The columns of `layout.COLUMNS` that make the rooms_up caution.
+MORE_ROOMS = [layout.COLUMNS.index(c) for c in ("ad:beds_up_prev", "ad:baths_up_prev")]
 # Bedrooms between two pieces of one apartment that make the beds caution.
 PIECES_APART = 2
 
