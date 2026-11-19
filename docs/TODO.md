@@ -289,9 +289,10 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   ads left with a count in the text price as studios (median held-out gap 0.000). Rule B2
   then excludes 412 blank ads in buildings with no studio anywhere in their history
   (`2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson`).
-- [ ] A caution for a net ask with no coded free months: about 10 ads of the Nov 18 table,
-  3 of its first 100 uncautioned (`docs/notes/first-page-read-2026-11-18.md`). The page
-  price is no multiple of 5 and equals the first ask net of 1 or 2 months.
+- [ ] Gross up net asks in the dataset: `cautions.net_ask` marks 4,857 ads of the Nov 9
+  build whose page price is a round first ask less uncoded free months
+  (`docs/notes/net-ask-caution-2026-11-18.md`). Deals cautions them; the model still
+  reads them as gross. A data rule, then a fit.
 - [ ] A width by ad source: feed ads' held-out asks are a little tighter than the model
   allows (free check, about +140 elpd on 45,448 ads, give or take 50, at a factor near 0.9). A term needs a
   new module, a backtest and a market fit.

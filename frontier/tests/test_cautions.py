@@ -99,3 +99,16 @@ def test_ordered_lists_each_code_once_in_the_modules_order():
     ]
     assert cautions.ordered([]) == []
     assert set(cautions.TEXT) < set(cautions.CODES)
+
+
+def test_net_ask_marks_an_odd_page_price_that_is_a_round_first_ask_less_free_months():
+    first = [4100, 7400, 4100, 4100, 4110, 4100, 4000, float("nan")]
+    page = [3618, 6783, 3618, 3600, 3627, 3999, 3667, 3618]
+    free = [None, 0, 2, None, None, None, None, None]
+    # 3,618 is 4,100 less 2 months of 17; 6,783 is 7,400 less 1 of 12. Coded free months,
+    # a round page price, a first ask that is not round and a price ending in 9 are left
+    # alone. 3,667 is 4,000 less 1 of 12.
+    got = cautions.net_ask(
+        first, page, [float("nan") if f is None else f for f in free]
+    )
+    assert got.tolist() == [True, True, False, False, False, False, True, False]

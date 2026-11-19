@@ -39,8 +39,10 @@ are in `docs/notes/market-refresh-2026-11-18.md`. Sprint money: $76.35 spent, $2
 - The expert read of the new table is done (`docs/notes/first-page-read-2026-11-18.md`): the
   first 100 uncautioned ads carry apartment traits at the mid-table rate (39% against 36%),
   so no new term. They differ in price cuts (22 against 1) and in source: 3 of 100 from a
-  landlord's feed against 12 of 25 controls. Open from it, both in `docs/TODO.md`: a caution
-  for a net ask with no coded free months (about 10 live ads, 3 on the first page) and a
+  landlord's feed against 12 of 25 controls. Open from it, both in `docs/TODO.md`: a gross-up
+  of net asks in the dataset (the `net_ask` caution of
+  `docs/notes/net-ask-caution-2026-11-18.md` covers Deals meanwhile: 11 live ads, 3 on
+  the first page) and a
   width by source (about +140 elpd, give or take 50, on held-out feed ads by a free check,
   $4 to fit, not launched). Stale owner ads need no caution: none in the live table.
 - Next free item: sublets with an end date (`docs/TODO.md`).
