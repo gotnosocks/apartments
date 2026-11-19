@@ -388,14 +388,18 @@ with the low share in each half of the buildings.
 | Laundry | in the unit, in the building | 5.2% to 5.8% | −0.005 to −0.004 |
 | Pet policy | three coded values | 5.0% to 6.0% | −0.007 to −0.004 |
 | Views | eight commonest codings and the rest | 5.3% to 6.8% | −0.008 to −0.004 |
-| Window exposures | seven codings and the rest | 4.7% to 7.8% (4.7% to 6.7% in groups over 1,000) | −0.011 to −0.002 |
+| Window exposures | seven codings of 500 ads or more and the rest | 4.7% to 7.8% (4.7% to 6.7% in groups over 1,000) | −0.011 to −0.002 |
 | Short-term | coded false (11,560), not coded | 5.2% to 5.6% | −0.006 to −0.006 |
 | Floor plans | none, one, two | 5.1% to 5.9% | −0.007 to −0.004 |
 | Values from text | none, one | 5.2% to 5.6% | −0.006 to −0.004 |
 
 Heating and cooling has one large group (central air, 42,398 ads, 5.8% low). Furnished,
-breaks and conflicts are coded on too few held-out ads to say anything (2 to 183 ads). The largest low share in a group over 1,000 ads is 6.8% (views of
+breaks and conflicts are coded on too few held-out ads to say anything (2 to 183 ads).
+ The largest low share in a group over 1,000 ads is 6.8% (views of
 city, skyline and water, 1,977 ads), and it is 8.7% in one half of the buildings and 4.9%
-in the other, so it does not hold. No coded field marks the ads asked far below the
-prediction, which agrees with the text check above: what is left of the low tail is not in
-what an ad codes or says.
+in the other, so it does not hold. Some groups differ a little from the overall rate at these sizes: uncommon view codings
+(6.5% of 9,293 ads), square feet given (6.0% against 5.4% when missing) and laundry in the
+unit (5.8% against 5.2% in the building). No group over 1,000 ads has a low share more than
+about a fifth above the overall rate in both halves of the buildings. These are small
+shifts and no field marks the ads asked far below the prediction, which agrees with the
+text check above: little of what is left of the low tail is in what an ad codes or says.
