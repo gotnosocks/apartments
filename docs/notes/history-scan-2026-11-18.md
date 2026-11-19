@@ -434,3 +434,70 @@ The history has nothing like the backtest day's 11%. The young buildings' excess
 in logs, half a percent of rent. No term: a shift of that size would hardly change the
 Deals page. The interval for young buildings is a candidate for the
 next base refit's scale terms, with the changed-count items above.
+
+## Follow-up, 2026-11-19: the low tail thins by year, and the split favours low asks among older ads (`season.py`, `stay.py`)
+
+No fit and no money spent.
+
+**By month and by quarter (`season.py`).** The held-out low share by calendar month, 2022
+on, runs from 4.8% (April) to 6.5% (November) with ten months between 5.4% and 5.8%, so the
+season term leaves nothing. By quarter it falls steadily:
+
+| Year | Ads | Below the 5% point, by quarter | Above the 95% point | Mean gap |
+|---|---|---|---|---|
+| 2022 | 12,760 | 7.5% to 9.0% | 4.5% to 6.2% | −0.010 to −0.012 |
+| 2023 | 19,314 | 6.6% to 7.2% | 3.7% to 4.4% | −0.006 to −0.012 |
+| 2024 | 26,316 | 5.3% to 5.6% | 3.7% to 4.4% | −0.003 to −0.007 |
+| 2025 | 34,531 | 4.8% to 5.4% | 3.7% to 4.3% | −0.003 to −0.006 |
+| 2026 | 36,940 | 4.2% to 5.1% | 4.2% to 5.7% | −0.003 to +0.002 |
+
+The fall is in both halves of the buildings. So the 5.55% low share of "2022 on"
+used throughout this note is about 8% in 2022 and 4.4% in 2026, and the excess low tail belongs
+to the older held-out ads.
+
+**Why older held-out ads run low (`stay.py`).** The latest split holds out each unit's
+last ad. An ad of 2022 is held out only when the unit has not been advertised since. If an
+apartment let at a low rent keeps its tenant longer, the split picks low asks among the
+older ads whatever the model does. The ads table tests this with no model: 908,688 ads
+with an earlier ad of the unit at least 150 days before, the change in log ask from that
+ad less the median change of ads opened in the same quarter after the same gap in years,
+cut into fifths within the year the ad opened.
+
+| Year opened | Median relative change, lowest and highest fifth | Another ad of the unit within two years, lowest to highest fifth | Any later ad, lowest and highest fifth |
+|---|---|---|---|
+| 2017 | −0.10, +0.08 | 40%, 42%, 42%, 44%, 45% | 83%, 85% |
+| 2018 | −0.09, +0.09 | 38%, 38%, 40%, 41%, 42% | 80%, 81% |
+| 2019 | −0.08, +0.10 | 45%, 47%, 48%, 48%, 49% | 78%, 79% |
+| 2020 | −0.18, +0.13 | 38%, 39%, 40%, 41%, 40% | 73%, 68% |
+| 2021 | −0.16, +0.16 | 36%, 33%, 34%, 35%, 39% | 67%, 71% |
+| 2022 | −0.15, +0.19 | 38%, 38%, 41%, 44%, 49% | 63%, 75% |
+| 2023 | −0.14, +0.16 | 37%, 38%, 40%, 41%, 43% | 54%, 62% |
+| 2024 | −0.13, +0.14 | 34%, 36%, 37%, 37%, 39% | 41%, 46% |
+
+In every year the lowest fifth comes back to the market within two years less often than
+the highest: by 3 to 5 points before 2020, 2 to 4 in 2020 and 2021, 10 for ads of 2022, 7
+for 2023 and 4 for 2024. (For ads of 2020 the share with any later ad runs the other way,
+73% against 68%.) Of the ads of 2022, 37% of the lowest fifth have had no ad since against
+25% of the highest fifth, and those are the ads the latest split holds out. The change
+from a unit's previous ad is not the model's gap (a low value can also mean a high earlier
+ask), and changes of 0.5 or more either way are left out, so this does not size the effect
+on the held-out low share; it shows the direction and that 2022 and 2023 have it most. The
+gradient does not grow steadily with an ad's age (2 to 4 points for 2020 and 2021), so it
+is one cause of the fall by year and need not be the only one: a bias of the trend in
+2022 and 2023 is not ruled out. Next ads within 150 days are about 1 of the 10 points for
+2022, so reposts do not make it.
+
+**What follows.**
+
+1. The latest split overstates the low tail for older ads, and its mean gap of about
+   −0.01 in 2022 and 2023 is at least partly selection. Checks of the low tail should read
+   2025 and 2026 or a backtest of asks open on a day. The selection acts less on recent years and not at
+   all on a backtest day. The
+   Deals backtest of 2025-11-10 has about 4.5% of its ads below the 5% point
+   (`docs/notes/turnover-low-asks-2026-11-18.md`).
+2. Findings above stated on "2022 on" stand as comparisons between groups of the same
+   years, though a group heavier in older ads gains low share from this alone. The
+   two-bath gap of 2022 to 2024 is measured against one-bath ads of the same year, which
+   limits this effect without excluding it (the wait to the next ad may differ by size).
+3. For a renter the table says an apartment advertised at a low rent is longer in coming
+   back to the market, which is what a low price should do. No term and no page change.
