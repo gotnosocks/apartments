@@ -31,7 +31,11 @@ subagent's model and effort to be picked by its task.
   about 11:30 PM ET on Nov 18 (686 `raised` marks; 1,333 cautioned ads in all).
 - The turnover mean term is closed: the held-out history has no gradient
   (`docs/notes/turnover-history-2026-11-18.md`).
-- Next: the market refresh due around Nov 20 (`ops/deals-refresh`), and the next trait from
+- Since then (Nov 19, no money spent): cut-to-low ads behave like opened-low ads (#1456);
+  little of the low tail is gathered in buildings, and the Deals backtest card says a low
+  place means most for small apartments (#1457, deployed).
+- Next: the market refresh due around Nov 20 (`ops/deals-refresh`; plan and predictions in
+  `docs/notes/market-refresh-2026-11-20.md`, fit name `range-m3`), and the next trait from
   the held-out history's low misses.
 
 ### State at 10:45 PM ET on Nov 18, after the turnover check on the Deals backtest
