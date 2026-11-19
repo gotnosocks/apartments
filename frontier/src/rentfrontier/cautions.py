@@ -34,8 +34,9 @@ own latest text and from the dataset's rows.
   table's day, stands 15% or more above its first ask (`raised`). Such buildings open
   low and raise: of the held-out first asks 15% or more under the model's prediction, 52%
   in a marked building ended 15% or more above the first ask against 13% elsewhere, on
-  the half of buildings the rule was not chosen on
-  (`docs/notes/raise-caution-2026-11-18.md`).
+  the half of buildings the rule was not chosen on. That test counted raised ads closed
+  before the ad opened; the count here also takes raised ads still open, which one
+  backtest day supports (`docs/notes/raise-caution-2026-11-18.md`).
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09

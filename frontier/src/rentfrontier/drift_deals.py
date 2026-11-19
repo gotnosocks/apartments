@@ -119,7 +119,9 @@ def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
     dataset has one row per ad at its ask on that day, so every row's `latest_ask` is
     knowable then. A backtest dataset keeps each open ad's final ask (`final` true), which
     was not knowable on the day, so there an open ad counts at its first ask and marks no
-    building. First asks and opening days come from `ads`."""
+    building. First asks and opening days come from `ads`. A first ask is gross and
+    `latest_ask` is net of free months, so an ad with free months needs a larger rise to
+    count: the rule can miss such an ad and cannot mark one wrongly."""
     near = frame.building.isin(set(frame.building[held])).to_numpy()
     f = frame[near]
     a = _ads(ads, f.listing_id)

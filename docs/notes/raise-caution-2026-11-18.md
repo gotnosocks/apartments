@@ -70,6 +70,10 @@ with the unread half of the history in size (42% against 52% there, 5% against 1
 the past 365 days that stands 15% or more above its first ask. `drift_deals` adds the code
 `raised`, and the page labels it "building raises opening asks". Like other cautions it
 changes no score, and the page hides cautioned ads unless the reader includes them.
+The dataset's ask is net of free months and the first ask is gross, so an ad with free
+months needs a larger rise to count; the rule can miss such ads and marks none wrongly.
+The history test counted raised ads that had closed; the caution also counts raised ads
+still open, which only the backtest day tests.
 
 Counts (`backtest.py`): on the backtest table 1,028 ads in 252 buildings (114 with another
 caution), 20.9% of the uncautioned ads below the 5% point. On the market table of

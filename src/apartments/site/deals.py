@@ -70,7 +70,7 @@ CAUTIONS: dict[str, str] = {
     "beds": "listed before with a different bedroom count",
     "rooms_up": "lists more bedrooms or baths than the apartment's previous ad",
     "net_ask": "the rent shown looks net of free months the listing does not state",
-    "raised": "another listing in this building opened low within the past year and was raised 15% or more",
+    "raised": "another listing in this building opened within the past year and was raised 15% or more",
     "off_market": "temporarily off the market",
 }
 CAUTION_LABELS: dict[str, str] = {
