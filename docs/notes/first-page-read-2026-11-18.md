@@ -154,3 +154,24 @@ apartment's earlier ads coded more rooms and applies its step. Among the first 1
 uncautioned ads 7% carry `ad:beds_below_high` and 3% `ad:baths_below_high`, against 4.3%
 and 1.8% of all 5,471, a difference of about three ads. The controls' zero is 25 ads at
 an expected one. No term is missing here.
+
+## Sublets with an end date (later on Nov 18, no cost)
+
+The `takeover` caution leaves out "sublet" because in most ads the word is a building's
+policy or fee. `sublet_count.py` counts four kinds of wording in the 6,565 live ads and
+prints a snippet of each match.
+
+| Wording | Live ads | Uncautioned | In the first 100 | In the first 500 |
+| --- | --- | --- | --- | --- |
+| "sublet", "sublease" | 30 | 27 | 1 | 3 |
+| "short term" | 55 | 48 | 1 | 5 |
+| "until" or "through" a month | 21 | 16 | 0 | 0 |
+| a number of months of lease or term | 83 | 75 | 0 | 6 |
+
+Every match among the first 500 uncautioned ads is a building's fee or application
+("Building SubLease Fee", "Short Term Rental Fee: $1,000"), a refusal ("no short term"),
+a concession's term ("1 month free on a 16-month lease"), a choice of terms at two
+prices, or an owner's co-op rental that needs the building's sublet application and
+offers a one-year lease. Of the ads with a term to a named month, two offer a term that
+ends on a date, both in June 2027, and they stand at places 1,848 and 2,461. A caution for an offered sublet would hide no ad a
+renter reads first, so the item is closed with no rule.

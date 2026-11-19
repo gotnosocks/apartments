@@ -301,9 +301,6 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   line stand when a later sentence lists the building's sizes, and read "flexible 5th
   bedroom" as flex wording. 6 of 6,565 live ads on Nov 18, so it rides with another dataset
   change (`docs/notes/first-page-read-2026-11-18.md`).
-- [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
-  alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
-  them firmly).
 - [ ] Tune or defend the 4 degrees of freedom: the levels' body looks normal and the tail
   is a few gross outliers, which sit 10 to 18 scales out under the t prior.
 - [ ] A sampler move for a building in two states, if the two above leave any: new
