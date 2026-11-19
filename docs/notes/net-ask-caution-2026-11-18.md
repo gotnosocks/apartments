@@ -49,3 +49,11 @@ data rule with its own fit; the backlog keeps it.
 Deals is republished from `range-m2` with `range-j` as its backtest, the same pair as
 now. Expected: 11 ads gain `net_ask`, the uncautioned count goes from 5,479 to 5,471, and
 3 ads leave the first 100.
+
+**Done at 9:25 PM ET on Nov 18.** A staging publish from `/data1/apartments/serve/master`
+at `0e666dd7` gave the expected counts: 11 ads carry `net_ask` (8 with no caution before,
+3 that already had `rooms_up`), 5,471 ads are uncautioned, and 3 ads left the first 100.
+The ads' order and every field other than `cautions` are identical to the table it
+replaced. The live files are the staging files byte for byte, the earlier live files are
+kept in `/data1/apartments/tmp/netask-20261118/live-before`, and the site at `0e666dd7`
+shows the label "net rent shown" when cautioned ads are listed.
