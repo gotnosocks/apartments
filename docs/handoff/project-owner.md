@@ -36,7 +36,8 @@ subagent's model and effort to be picked by its task.
   place means most for small apartments (#1457, deployed).
 - Also Nov 19, on the held-out history (no money spent): days listed of free-month ads do
   not follow price (#1459); coded ad fields show small shifts only (#1460); buildings under
-  eight years in the data hold about 300 excess low ads of 7,200 (#1461). No term from any.
+  eight years in the data hold an excess of about 300 low ads, of the 7,200 low ads in the
+  history from 2022 on (#1461). No term from any.
   The history scan of the low tail has no open lead; kept for the next base refit are the
   changed-count and many-bath items and the interval for young buildings
   (`docs/notes/history-scan-2026-11-18.md`).
