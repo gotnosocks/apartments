@@ -296,6 +296,10 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
 - [ ] A width by ad source: feed ads' held-out asks are a little tighter than the model
   allows (free check, about +140 elpd on 45,448 ads, give or take 50, at a factor near 0.9). A term needs a
   new module, a backtest and a market fit.
+- [ ] The bedroom text reader (`rentfrontier.b0bedtext`): let a size stated in the ad's first
+  line stand when a later sentence lists the building's sizes, and read "flexible 5th
+  bedroom" as flex wording. 6 of 6,565 live ads on Nov 18, so it rides with another dataset
+  change (`docs/notes/first-page-read-2026-11-18.md`).
 - [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
   alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
   them firmly).

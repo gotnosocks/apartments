@@ -45,6 +45,9 @@ are in `docs/notes/market-refresh-2026-11-18.md`. Sprint money: $76.35 spent, $2
   marked, 5,471 uncautioned, order unchanged) and a
   width by source (about +140 elpd, give or take 50, on held-out feed ads by a free check,
   $4 to fit, not launched). Stale owner ads need no caution: none in the live table.
+- Two follow-ups to that read found no missing term: the doubtful bedroom counts are in the
+  text (4 of 11 already flex-marked; a first-line rule adds 6 live ads) and the ads with
+  another earlier layout already carry a range mark.
 - Next free item: sublets with an end date (`docs/TODO.md`).
 
 ### State at 6:45 PM ET on Nov 18, market refresh under way
