@@ -4,9 +4,14 @@ Reads the Deals table published from `range-m` (the copy saved before the refres
 table published from `range-m2`, and the ads file of the new pipeline build. It prints:
 
 - the share of the Nov 9 ads whose status in the new ads file is no longer ACTIVE or
-  TEMPORARILY_OFF_MARKET, for all ads and for the first 100 with no caution;
+  TEMPORARILY_OFF_MARKET, for all ads, for the first 100 with no caution and for the
+  lowest tenth with no caution (an ad missing from the ads file counts as closed), and
+  the number of old ads absent from the new table;
+- for the ads in both tables, how many have another ask, how many of those are lower, and
+  the median size of the change;
 - for the ads in both tables with the same ask, the Spearman correlation of the two
-  `below_share` values and the share of the old lowest tenth still in the new lowest tenth;
+  `below_share` values, the share of the old lowest tenth still in the new lowest tenth,
+  and the median and 95th percentile of the change in `below_share`;
 - the cautioned share of the new table.
 
 Run: python score.py OLD_DEALS_JSON NEW_DEALS_JSON ADS_PARQUET
@@ -54,6 +59,12 @@ if __name__ == "__main__":
     both = old.merge(new, on="listing_id", suffixes=("_old", "_new"), validate="1:1")
     same = both[both.ask_old == both.ask_new]
     print(f"in both tables {len(both)}, with the same ask {len(same)}")
+    other = both[both.ask_old != both.ask_new]
+    rel = (other.ask_new / other.ask_old - 1).abs()
+    print(
+        f"another ask {len(other)}: lower {(other.ask_new < other.ask_old).sum()}, "
+        f"higher {(other.ask_new > other.ask_old).sum()}, median change {100 * rel.median():.1f}%"
+    )
     rho = same.below_share_old.corr(same.below_share_new, method="spearman")
     print(f"Spearman of the two places: {rho:.4f}")
     k = len(same) // 10

@@ -102,9 +102,8 @@ model placed lowest closed faster: 46.2% of the lowest tenth of uncautioned ads 
 the refresh interval matters more for the ads a renter reads first than the overall rate
 suggests.
 
-**Asks that moved.** Of the 4,391 ads in both tables, 1,098 have another ask: the page
-price is lower on 932 of them and the free months differ on 245. The median change is
-3.0%.
+**Asks that moved.** Of the 4,391 ads in both tables, 1,098 have another ask: lower on
+932 and higher on 166, with a median change of 3.0%.
 
 **Cautions in the new table.** `off_market` 588, `beds` 292, `rooms_up` 285, `income` 63,
 `takeover` 15, `owners_only` 1, `not_home` 1.
