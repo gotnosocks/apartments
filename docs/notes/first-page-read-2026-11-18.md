@@ -172,6 +172,7 @@ Every match among the first 500 uncautioned ads is a building's fee or applicati
 ("Building SubLease Fee", "Short Term Rental Fee: $1,000"), a refusal ("no short term"),
 a concession's term ("1 month free on a 16-month lease"), a choice of terms at two
 prices, or an owner's co-op rental that needs the building's sublet application and
-offers a one-year lease. Of the ads with a term to a named month, two offer a term that
-ends on a date, both in June 2027, and they stand at places 1,848 and 2,461. A caution for an offered sublet would hide no ad a
-renter reads first, so the item is closed with no rule.
+offers a one-year lease. Five uncautioned ads offer a term that ends on a date or after a
+set number of months, and they stand at places 1,215, 1,848, 2,461, 3,925 and 4,600. A
+caution for an offered sublet would hide no ad a renter reads first, so the item is
+closed with no rule.
