@@ -337,4 +337,37 @@ a building-level term.
 The Deals page's backtest card now carries the bedroom rows of the outcome table above
 (closed in 7 days, low against middle). The free-months row is left off the page: ads with
 coded free months are mostly in lease-ups, where an ad's days listed may not follow one
-apartment, so its flat gradient is not read as a statement about price (untested).
+apartment, so its flat gradient is not read as a statement about price (untested; the
+next section tests it).
+
+## Follow-up, 2026-11-19: days listed of free-month ads do not follow price (`free.py`)
+
+The lease-up guess above fails. Among the 128,554 closed ads from 2022 on, 11,277 have coded
+free months. Their gradient (mean log days of ads below the 5% point less that of ads
+between the 25% and 75% points) by the count of other units' ads the building opened in
+the two years before:
+
+| Building's ads in two years | Free months: ads, low, gradient (SE) | No free months: ads, low, gradient (SE) |
+|---|---|---|
+| 0 to 9 | 1,180, 66, +0.14 (0.14) | 41,923, 2,418, -0.26 (0.02) |
+| 10 to 49 | 2,691, 167, +0.08 (0.08) | 42,415, 2,707, -0.19 (0.02) |
+| 50 to 199 | 4,788, 245, +0.05 (0.08) | 25,635, 1,412, -0.21 (0.04) |
+| 200 or more | 2,618, 145, -0.10 (0.14) | 7,304, 502, -0.47 (0.09) |
+
+The gradient of free-month ads is flat in quiet buildings as in busy ones, so lease-ups, by
+this proxy, do not explain it. Nor does the basis of the price. For the 11,229 free-month ads with a page
+rent and a concession between 0.005 and 0.7 in logs, the gap can be taken on the net ask (the fit's target) or on the gross rent the page
+shows (median concession 0.087 in logs). Ranked within free-month ads, the lowest tenth
+against the middle half has a gradient of +0.02 and +0.03 by half of buildings on the net
+gap and 0.00 and 0.00 on the gross gap. A regression of log days on the gap in logs, with
+standard errors clustered by building, gives a slope of 0.11 (0.17) on the net gap for
+free-month ads and 1.85 (0.06) for ads without free months.
+
+So the days listed of an ad with coded free months show no gradient in price that these
+data can detect, net or gross (the slope's interval reaches about 0.44, far under 1.85).
+Such ads stay up a median 21 to 25 days outside the busiest buildings (14 to 17 there), and
+days listed cannot say whether a low place among them is a low price. The model's level
+is not in question: the share of free-month ads below the 5% point is 5.1% to 6.2%, as for
+other ads. The likely reading is that such ads are kept up by a leasing office on its own
+schedule; that is a guess. For Deals nothing changes: a free-month ad's place is computed
+on its net ask, and the outcome evidence for low places rests on ads without free months.
