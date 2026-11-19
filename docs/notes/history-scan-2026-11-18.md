@@ -354,17 +354,19 @@ the two years before:
 | 50 to 199 | 4,788, 245, +0.05 (0.08) | 25,635, 1,412, -0.21 (0.04) |
 | 200 or more | 2,618, 145, -0.10 (0.14) | 7,304, 502, -0.47 (0.09) |
 
-The gradient of free-month ads is flat in quiet buildings as in busy ones, so lease-ups do
-not explain it. Nor does the basis of the price. For the 11,229 free-month ads with a page
-rent, the gap can be taken on the net ask (the fit's target) or on the gross rent the page
+The gradient of free-month ads is flat in quiet buildings as in busy ones, so lease-ups, by
+this proxy, do not explain it. Nor does the basis of the price. For the 11,229 free-month ads with a page
+rent and a concession between 0.005 and 0.7 in logs, the gap can be taken on the net ask (the fit's target) or on the gross rent the page
 shows (median concession 0.087 in logs). Ranked within free-month ads, the lowest tenth
 against the middle half has a gradient of +0.02 and +0.03 by half of buildings on the net
 gap and 0.00 and 0.00 on the gross gap. A regression of log days on the gap in logs, with
 standard errors clustered by building, gives a slope of 0.11 (0.17) on the net gap for
 free-month ads and 1.85 (0.06) for ads without free months.
 
-So an ad with coded free months stays up a median 21 to 25 days whatever its price, net or
-gross, and days listed cannot say whether its low place is a low price. The model's level
+So the days listed of an ad with coded free months show no gradient in price that these
+data can detect, net or gross (the slope's interval reaches about 0.44, far under 1.85).
+Such ads stay up a median 21 to 25 days outside the busiest buildings (14 to 17 there), and
+days listed cannot say whether a low place among them is a low price. The model's level
 is not in question: the share of free-month ads below the 5% point is 5.1% to 6.2%, as for
 other ads. The likely reading is that such ads are kept up by a leasing office on its own
 schedule; that is a guess. For Deals nothing changes: a free-month ad's place is computed
