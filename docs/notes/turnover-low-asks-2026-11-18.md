@@ -5,6 +5,13 @@ No fit and no money spent. Scripts, logs and the reader's codes are in
 backtest, run `drift-building-bedtext-layout-range-b0-market-d9028c57-range-j`: 9,346 ads
 open on 2025-11-10, held out, with what happened to each ad afterwards.
 
+**Correction, later on 2026-11-18.** A backtest dataset keeps each open ad's final ask
+(`rentfrontier.market`), so where this note says an ask or a gap "on the day" for a held-out
+ad it is the ad's final ask, and the flag's "ask on the day for ads still open" does not
+arise: the flag read training ads only. Results on first asks read the ads table and stand.
+The asks on the backtest day, from price paths, are in
+`docs/notes/raise-caution-2026-11-18.md`.
+
 ## The question
 
 Screen S13 (`docs/notes/turnover-screen-2026-11-13.md`) found that asks fall with a

@@ -1,0 +1,22 @@
+backtest ads 9346 marked 1028 buildings 252
+marked with another caution 114
+share of uncautioned ads below the 5% point that are marked 0.209
+share of all uncautioned ads marked 0.107
+
+market table 6565 marked 686 buildings 190 | no other caution 552 | in the first 100 / 200 / 500 uncautioned 30 51 90
+                         building unit      ask  first_ask  model_median  below_share
+           209-13-street-brooklyn    1  3300.00     3300.0        4529.0       0.0041
+                    lorimer-house       4300.00        NaN        5982.0       0.0057
+    87-commercial-street-brooklyn       3175.00        NaN        4184.0       0.0064
+       259-boerum-street-brooklyn       4599.00        NaN        6601.0       0.0067
+                    lorimer-house       4675.00        NaN        6148.0       0.0072
+        baccarat-hotel-residences  36A 25000.00    29000.0       34375.0       0.0076
+                     282-4-avenue       3500.00        NaN        4478.0       0.0078
+amnia-127-concord-street-brooklyn       5300.00        NaN        6699.0       0.0081
+    1885-atlantic-avenue-brooklyn   9M  3495.00     3545.0        4553.0       0.0085
+  signum-375-dean-street-brooklyn       3499.00        NaN        4302.0       0.0085
+    1885-atlantic-avenue-brooklyn       3495.00        NaN        4584.0       0.0085
+                         westmark       3850.00        NaN        4818.0       0.0109
+                    tribeca-house       5357.14        NaN        6802.0       0.0110
+              the-lightwell-dumbo       6000.00        NaN        7299.0       0.0124
+                     159-3-avenue       3750.00        NaN        4686.0       0.0125

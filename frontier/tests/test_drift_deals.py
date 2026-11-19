@@ -416,6 +416,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "beds": 1,
             "rooms_up": 0,
             "net_ask": 0,
+            "raised": 0,
             "off_market": 1,
         },
         "ads_with_text": 3,
@@ -462,3 +463,31 @@ def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypa
     assert set(table.ads_sha256) == {sha256(ads)}
     with pytest.raises(SystemExit, match="another build"):
         drift_deals.texts(run, records | {"ads": {"sha256": "0"}})
+
+
+def test_raised_marks_the_held_out_ads_of_a_building_with_a_raised_ad(tmp_path):
+    frame = pd.DataFrame(
+        {
+            "listing_id": ["1", "2", "3", "4", "5"],
+            "building": ["a", "a", "a", "b", "b"],
+            "unit_id": ["u1", "u2", "u1", "u3", "u4"],
+            "latest_ask": [3500.0, 2500, 2500, 2500, 2500],
+            "price_at": pd.to_datetime(["2026-09-01"] + ["2026-11-01"] * 4, utc=True),
+        }
+    )
+    held = np.array([False, True, True, True, False])
+    ads = pd.DataFrame({c: [None] * 5 for c in drift_deals.AD_FIELDS})
+    ads["listing_id"] = [1, 2, 3, 4, 5]
+    # Listing 1 opened at 3,000 and asks 3,500: a raised ad of unit u1 in building a.
+    ads["first_ask"] = [3000.0, 2500, 2500, 2500, 2500]
+    ads["first_day"] = [date(2026, 8, 1)] + [date(2026, 10, 20)] * 4
+    ads.to_parquet(tmp_path / "ads.parquet", index=False)
+    # Listing 2 is another unit of the building; listing 3 is the raised ad's own unit.
+    got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
+    assert got.tolist() == [True, False, False]
+    # In a backtest an open ad's ask is its final one, so a raised open ad marks nothing.
+    held = np.array([True, True, True, True, False])
+    assert not drift_deals._raised(frame, held, tmp_path / "ads.parquet", True).any()
+    assert (
+        drift_deals._raised(frame, held, tmp_path / "ads.parquet").tolist()[1] is True
+    )

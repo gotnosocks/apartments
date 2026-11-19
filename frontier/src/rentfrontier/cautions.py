@@ -30,6 +30,12 @@ own latest text and from the dataset's rows.
   code (`net_ask`), so the table compares a net ask with the model's gross rent. Brokers
   reading the first 100 uncautioned ads of 2026-11-18 found 2 such; the rule marks 11 ads
   of that table, 3 of them in its first 100 (`docs/notes/net-ask-caution-2026-11-18.md`).
+- `raised`: an ad of another apartment of the building, opened in the year before the
+  table's day, stands 15% or more above its first ask (`raised`). Such buildings open
+  low and raise: of the held-out first asks 15% or more under the model's prediction, 52%
+  in a marked building ended 15% or more above the first ask against 13% elsewhere, on
+  the half of buildings the rule was not chosen on
+  (`docs/notes/raise-caution-2026-11-18.md`).
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09
@@ -96,10 +102,13 @@ TEXT = {
     ),
 }
 # Every code, in the order a row lists them.
-CODES = (*TEXT, "beds", "rooms_up", "net_ask", "off_market")
+CODES = (*TEXT, "beds", "rooms_up", "net_ask", "raised", "off_market")
 # Free months and lease lengths, in months, that `net_ask` tries.
 NET_FREE = (1, 2, 3)
 NET_LEASES = (*range(12, 19), 24)
+# `raised` counts an ad whose ask is this far above its first ask, opened within this many
+# days of the table's day.
+RAISE, RAISE_DAYS = 0.15, 365
 _COMPILED = {code: re.compile(pattern) for code, pattern in TEXT.items()}
 _DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015"), "-")
 
@@ -144,3 +153,26 @@ def net_ask(first_ask, page_price, months_free):
             for free in NET_FREE:
                 fits |= np.abs(first * (lease - free) / lease - page) <= 1.0
     return ~coded & gross & odd & fits
+
+
+def raised(building, unit, first_day, first_ask, ask, day):
+    """A boolean array, true where another apartment of the ad's building has a raised ad.
+
+    The arrays hold every ad of the dataset, one entry each: its building, its unit, the
+    day it opened, its first ask and its ask on `day`. A raised ad opened in the
+    `RAISE_DAYS` up to `day`, has a known unit, and asks `RAISE` or more above its first
+    ask. An ad is marked when its building has a raised ad of a unit other than its own.
+    No ask of the ad itself is read."""
+    import numpy as np
+    import pandas as pd
+
+    d = pd.DataFrame({"building": np.asarray(building), "unit": np.asarray(unit)})
+    age = (pd.Timestamp(day) - pd.DatetimeIndex(first_day)).days.to_numpy()
+    first, now = np.asarray(first_ask, float), np.asarray(ask, float)
+    # A product, so a rise of exactly `RAISE` counts whatever the rounding.
+    up = (first > 0) & (now >= first * (1 + RAISE) - 1e-9)
+    up &= (age >= 0) & (age <= RAISE_DAYS) & d.unit.notna().to_numpy()
+    units = d[up].drop_duplicates()
+    count = d.building.map(units.building.value_counts()).fillna(0).to_numpy()
+    own = d.merge(units.assign(own=1), on=["building", "unit"], how="left").own
+    return count - own.fillna(0).to_numpy() > 0
