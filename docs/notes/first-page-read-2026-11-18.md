@@ -47,7 +47,8 @@ did; none of the 20 such controls does.
 | ask shown is net of free months | 2 | 0 |
 
 A reason about the apartment itself (basement, doubtful bedrooms, another layout, small,
-walkup, a lost extra, net ask, changed free months) appears on 39 of the 100 `first` ads
+walkup, a lost extra, net ask, changed free months, an income program, a shared house,
+an earlier furnished or short-term ad) appears on 39 of the 100 `first` ads
 and on 9 of the 25 controls, 39% against 36%. The first page carries those traits at the
 table's ordinary rate, so none of them is a feature the model lacks by this read. A
 broker would say of the first page that its landlords have cut their asks: 22 ads against
@@ -56,10 +57,14 @@ broker would say of the first page that its landlords have cut their asks: 22 ad
 Two things did set the first page apart.
 
 **The ask is net of free months on 2 ads.** One ad's 3,618 is 4,100 less 2 months over 17;
-another's 6,783 is 7,400 times 11/12. Both carry coded free months, so the model may have
-taken the free months off a second time. The data backlog gets an item for a count of
-market ads whose page price equals an earlier price of the same ad net of its coded free
-months.
+another's 6,783 is 7,400 times 11/12. Neither has coded free months in the table, so
+Deals compares a net ask with the model's gross rent. A count over the live table: of the
+5,148 ads with no coded free months, 39 have a page price that is no multiple of 5 below a
+round first ask, and 20 of those equal the first ask net of some free months over a 12 to
+24 month lease. That matcher is loose (it also fits 244 of 769 ordinary cuts to a round
+price), so about 10 ads are real cases, among them 3 of the first 100 uncautioned ads
+(two at 555 West 45th Street, one at 308 Eldert Street). A caution for these ads is the
+next item.
 
 **The ad's source.** The packets carry StreetEasy's source type. Among the controls 12 of
 25 ads come from a landlord's feed (`FEED`); among the first 100, 3 do. Five of the first
@@ -100,10 +105,12 @@ scored on the other.
 
 The random control gains 25.3 on 10,000 ads from the same narrowing, about 115 at the feed
 group's size, so the approximation itself favours 0.9 a little and the gain particular to
-feed ads is about 140 elpd on 45,448 ads. Feed asks are a little tighter around the
+feed ads is about 140 elpd on 45,448 ads. The control's gain has an SE of 11.5, so that
+figure is known only to within about 50 either way. Feed asks are a little tighter around the
 model's median than the model allows. Narrowing them by a tenth would move the share of
 feed ads below 10% from 9.2% to 11.2% and their 80% coverage from 82.5% to 78.8%, past
-the target on the other side, so the best factor lies between 0.9 and 1.
+the target on the other side. By coverage the best factor lies between 0.9 and 1; the
+grid of elpd says only that 0.9 beats 1.0.
 
 ## Verdict
 
@@ -112,6 +119,8 @@ the target on the other side, so the best factor lies between 0.9 and 1.
 - A width by source is real and small. It would bring a few more feed ads onto the first
   pages and change no ad's caution. At about $4 for a backtest and a market fit it waits
   behind items with more effect on the table; it is recorded in the backlog.
-- Stale owner ads are a caution candidate: an `OWNER` ad open for many months that places
-  low. The count in the live table comes first.
-- The net-ask count goes to the data backlog.
+- Stale owner ads need no caution. The live table has 87 uncautioned owner ads with a
+  median of 9 days open and none open more than 90 days; the backtest's old owner ads
+  are not a feature of a fresh snapshot.
+- About 10 live ads show a net ask with no coded free months, 3 of them on the first
+  page. A caution for them comes next.
