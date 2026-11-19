@@ -1,0 +1,80 @@
+status {'RENTED': 79074, 'NO_LONGER_AVAILABLE': 29354, 'DELISTED': 20149, 'ACTIVE': 825, 'IN_CONTRACT': 244, 'TEMPORARILY_OFF_MARKET': 183, 'DRAFT': 18, 'IN_STREETEASY_REVIEW': 14}
+off_day known 0.992 days_on_market known 1.0
+
+all, by place
+                    n  median days  mean log days  within 7  within 14  over 60
+place                                                                          
+(0.0, 0.02]    2881.0         12.0          2.503     0.378      0.568    0.106
+(0.02, 0.05]   4287.0         14.0          2.662     0.329      0.517    0.105
+(0.05, 0.1]    6708.0         14.0          2.683     0.322      0.515    0.106
+(0.1, 0.25]   19759.0         14.0          2.699     0.304      0.515    0.095
+(0.25, 0.5]   35049.0         14.0          2.724     0.286      0.507    0.087
+(0.5, 0.75]   33034.0         15.0          2.748     0.272      0.498    0.086
+(0.75, 0.9]   16663.0         15.0          2.798     0.257      0.474    0.094
+(0.9, 0.95]    5021.0         16.0          2.850     0.236      0.455    0.107
+(0.95, 1.0]    5335.0         16.0          2.803     0.256      0.469    0.102
+
+ordinary (1 bath, counts as before, floor 2+)
+                 n  median days  mean log days  within 7  within 14  over 60
+p3                                                                          
+below 5%    3507.0         11.0          2.461     0.403      0.573    0.088
+5-25%      15616.0         14.0          2.651     0.327      0.523    0.093
+25-75%     43268.0         14.0          2.710     0.292      0.509    0.082
+above 75%  15933.0         15.0          2.788     0.265      0.473    0.094
+
+counts changed
+                 n  median days  mean log days  within 7  within 14  over 60
+p3                                                                          
+below 5%    2155.0         13.0          2.612     0.320      0.546    0.085
+5-25%       5653.0         13.0          2.663     0.299      0.542    0.077
+25-75%     13045.0         13.0          2.670     0.281      0.541    0.067
+above 75%   6796.0         14.0          2.727     0.265      0.513    0.079
+
+2 baths, counts as before
+                n  median days  mean log days  within 7  within 14  over 60
+p3                                                                         
+below 5%    992.0         20.0          2.953     0.254      0.423    0.193
+5-25%      3648.0         17.0          2.897     0.247      0.444    0.140
+25-75%     8313.0         19.0          2.948     0.216      0.413    0.129
+above 75%  3032.0         22.0          3.067     0.181      0.360    0.156
+
+3+ baths
+                n  median days  mean log days  within 7  within 14  over 60
+p3                                                                         
+below 5%    344.0         20.0          3.041     0.212      0.392    0.186
+5-25%       605.0         27.0          3.265     0.144      0.309    0.240
+25-75%     1029.0         27.0          3.307     0.129      0.293    0.249
+above 75%   434.0         31.0          3.354     0.115      0.279    0.233
+
+floor 1
+                n  median days  mean log days  within 7  within 14  over 60
+p3                                                                         
+below 5%    753.0         12.0          2.542     0.344      0.596    0.082
+5-25%      2128.0         13.0          2.630     0.305      0.559    0.074
+25-75%     4433.0         13.0          2.638     0.288      0.552    0.065
+above 75%  1776.0         14.0          2.718     0.256      0.513    0.068
+
+4+ bedrooms
+                n  median days  mean log days  within 7  within 14  over 60
+p3                                                                         
+below 5%    357.0         17.0          2.921     0.224      0.445    0.143
+5-25%       975.0         16.0          2.881     0.198      0.456    0.108
+25-75%     1927.0         15.0          2.776     0.237      0.496    0.078
+above 75%   720.0         17.0          2.893     0.211      0.435    0.097
+Traceback (most recent call last):
+  File "/data1/apartments/tmp/history-scan/dom.py", line 44, in <module>
+    h[["listing_id", "dom", "place"]].to_parquet(f"dom-{tag}.parquet")
+  File "/data1/apartments/venvs/bridge-frontier/lib/python3.12/site-packages/pandas/core/frame.py", line 3135, in to_parquet
+    return to_parquet(
+           ^^^^^^^^^^^
+  File "/data1/apartments/venvs/bridge-frontier/lib/python3.12/site-packages/pandas/io/parquet.py", line 490, in to_parquet
+    impl.write(
+  File "/data1/apartments/venvs/bridge-frontier/lib/python3.12/site-packages/pandas/io/parquet.py", line 229, in write
+    self.api.parquet.write_table(
+  File "/data1/apartments/venvs/bridge-frontier/lib/python3.12/site-packages/pyarrow/parquet/core.py", line 2055, in write_table
+    writer.write_table(table, row_group_size=row_group_size)
+  File "/data1/apartments/venvs/bridge-frontier/lib/python3.12/site-packages/pyarrow/parquet/core.py", line 1216, in write_table
+    self.writer.write_table(table, row_group_size=row_group_size)
+  File "pyarrow/_parquet.pyx", line 2473, in pyarrow._parquet.ParquetWriter.write_table
+  File "pyarrow/error.pxi", line 92, in pyarrow.lib.check_status
+pyarrow.lib.ArrowNotImplementedError: Unsupported cast from dictionary<values=extension<pandas.interval<ArrowIntervalType>>, indices=int8, ordered=1> to struct using function cast_struct

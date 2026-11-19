@@ -1,0 +1,20 @@
+damp 10: inner R2 -0.1066
+damp 20: inner R2 -0.0311
+damp 40: inner R2 -0.0012
+damp 80: inner R2 0.0063
+damp 160: inner R2 0.0052
+penalty 80: R2 on half B 0.0063, sd of z on B 0.963, sd of the text score on B 0.099
+corr on B 0.0823
+B: asked below the 5% point 5090; of them still below after the text score 4669; newly below 362
+      n  mean_z    low   high
+q                            
+0  9280  -0.205  0.069  0.032
+1  9280  -0.158  0.060  0.032
+2  9280  -0.126  0.059  0.033
+3  9279  -0.109  0.057  0.038
+4  9280  -0.107  0.057  0.037
+5  9280  -0.077  0.055  0.042
+6  9279  -0.059  0.053  0.041
+7  9280  -0.024  0.048  0.048
+8  9280   0.003  0.047  0.055
+9  9280   0.069  0.043  0.067
