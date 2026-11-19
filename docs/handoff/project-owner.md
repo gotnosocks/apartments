@@ -15,6 +15,28 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 10:30 PM ET on Nov 18, after the history scan
+
+Ben's direction at about 9:45 PM ET: test model misses on the historical held-out ads, and
+use live-table counts only to say how the page changes. The scan of the latest split's
+held-out ads is in `docs/notes/history-scan-2026-11-18.md` (no money spent).
+
+- From 2022 on the excess low tail is in ads whose bedroom or bath counts differ from the
+  unit's training ads and in apartments with three or more baths. First floor and four or
+  more bedrooms are asked about 1.4% below prediction. Ad text explains 0.63% of the error
+  variance on the unread half of buildings.
+- The Deals model's backtest shows the same for scale: changed-count ads sd z 1.16, three
+  baths 1.32.
+- No class moves enough of the Deals list for a fit of its own. The terms and sizes for
+  the next base refit are one item in `docs/TODO.md`.
+- A first ask below the 5% point closes sooner in every class except four or more bedrooms
+  and ads with coded free months. A Deals page note on that is an open site item.
+- The Deals model has no latest-split fit. One would give the 190,000-ad evidence for the
+  served model; Ben declined that spend on Nov 18, so it stays a recommendation.
+- Scratch frames for further cuts: `/data1/apartments/tmp/history-scan`
+  (`baths-l2bt.parquet` joins each held-out ad's scores with its counts and the unit's
+  training counts; `X.npz` and `terms.parquet` are the text matrix).
+
 ### State at 9:15 PM ET on Nov 18, Deals refreshed
 
 Deals reads the market of 2026-11-18 from `range-m2`
@@ -51,7 +73,6 @@ are in `docs/notes/market-refresh-2026-11-18.md`. Sprint money: $76.35 spent, $2
 - `ops/deals-refresh` runs a refresh's dataset chain, market fit and publish (usage in its
   header). Checked on the Nov 18 build: the datasets step skipped every existing output and
   the publish step wrote files identical to the live ones.
-- Next free item: sublets with an end date (`docs/TODO.md`).
 
 ### State at 6:45 PM ET on Nov 18, market refresh under way
 

@@ -1,0 +1,58 @@
+drift-building-phase-unitkn-level-bedtext-b0-latest-c1ffaefd-l2bt from 2022 ads 129861 df 7 approx mean log density 1.2833 stored 1.2849
+
+scale only
+control: 1 bath, counts as before  n  20000  low   4.6%  high   3.2%  80% covers  83.8%  picked (np.float64(0.9), 0.0) (np.float64(0.9), 0.0)  gain   163.7 (SE  18.9)
+2 baths, counts as before          n  16171  low   6.2%  high   3.9%  80% covers  80.5%  picked (np.float64(0.95), 0.0) (np.float64(0.95), 0.0)  gain     4.2 (SE   9.5)
+3+ baths, counts as before         n   1791  low  11.6%  high   3.9%  80% covers  72.6%  picked (np.float64(1.15), 0.0) (np.float64(1.15), 0.0)  gain    29.8 (SE   8.2)
+4+ bedrooms, counts as before      n   2228  low   7.2%  high   3.1%  80% covers  80.5%  picked (np.float64(1.0), 0.0) (np.float64(0.95), 0.0)  gain    -2.8 (SE   2.3)
+top 3% tier, counts as before      n   3215  low   9.9%  high   5.6%  80% covers  72.9%  picked (np.float64(1.2), 0.0) (np.float64(1.15), 0.0)  gain    51.2 (SE  12.9)
+tier 4 (90-97%), counts as before  n   7302  low   5.9%  high   4.1%  80% covers  80.1%  picked (np.float64(0.95), 0.0) (np.float64(1.0), 0.0)  gain    -4.3 (SE   4.0)
+3+ baths or top 3%, as before      n   3757  low  10.4%  high   5.1%  80% covers  72.8%  picked (np.float64(1.15), 0.0) (np.float64(1.15), 0.0)  gain    59.8 (SE  12.1)
+counts changed, 1 bath             n  21243  low   6.5%  high   6.9%  80% covers  76.4%  picked (np.float64(1.1), 0.0) (np.float64(1.1), 0.0)  gain   102.4 (SE  22.6)
+counts changed, 2 baths            n   5917  low  10.9%  high   6.2%  80% covers  72.1%  picked (np.float64(1.2), 0.0) (np.float64(1.2), 0.0)  gain   162.7 (SE  22.1)
+counts changed, 3+ baths           n    661  low  21.5%  high   3.8%  80% covers  61.1%  picked (np.float64(1.5), 0.0) (np.float64(1.5), 0.0)  gain    84.5 (SE  15.7)
+all 3+ baths                       n   2452  low  14.2%  high   3.8%  80% covers  69.5%  picked (np.float64(1.25), 0.0) (np.float64(1.25), 0.0)  gain    92.3 (SE  16.2)
+all 2 baths                        n  22088  low   7.4%  high   4.5%  80% covers  78.3%  picked (np.float64(1.05), 0.0) (np.float64(1.05), 0.0)  gain    15.6 (SE  11.2)
+
+scale and shift
+control: 1 bath, counts as before  n  20000  low   4.6%  high   3.2%  80% covers  83.8%  picked (np.float64(0.9), np.float64(-0.005)) (np.float64(0.9), np.float64(-0.005))  gain   180.1 (SE  21.6)
+2 baths, counts as before          n  16171  low   6.2%  high   3.9%  80% covers  80.5%  picked (np.float64(0.95), np.float64(-0.01)) (np.float64(0.95), np.float64(-0.01))  gain   185.6 (SE  26.6)
+3+ baths, counts as before         n   1791  low  11.6%  high   3.9%  80% covers  72.6%  picked (np.float64(1.1), np.float64(-0.03)) (np.float64(1.1), np.float64(-0.02))  gain    90.3 (SE  16.0)
+4+ bedrooms, counts as before      n   2228  low   7.2%  high   3.1%  80% covers  80.5%  picked (np.float64(1.0), np.float64(-0.015)) (np.float64(0.95), np.float64(-0.015))  gain    45.4 (SE   9.7)
+top 3% tier, counts as before      n   3215  low   9.9%  high   5.6%  80% covers  72.9%  picked (np.float64(1.15), np.float64(-0.015)) (np.float64(1.15), np.float64(-0.01))  gain    79.4 (SE  16.1)
+tier 4 (90-97%), counts as before  n   7302  low   5.9%  high   4.1%  80% covers  80.1%  picked (np.float64(0.95), np.float64(-0.01)) (np.float64(1.0), np.float64(-0.01))  gain    83.9 (SE  16.9)
+3+ baths or top 3%, as before      n   3757  low  10.4%  high   5.1%  80% covers  72.8%  picked (np.float64(1.15), np.float64(-0.02)) (np.float64(1.15), np.float64(-0.015))  gain   118.4 (SE  20.6)
+counts changed, 1 bath             n  21243  low   6.5%  high   6.9%  80% covers  76.4%  picked (np.float64(1.1), np.float64(-0.0)) (np.float64(1.1), np.float64(-0.0))  gain   102.4 (SE  22.6)
+counts changed, 2 baths            n   5917  low  10.9%  high   6.2%  80% covers  72.1%  picked (np.float64(1.2), np.float64(-0.02)) (np.float64(1.2), np.float64(-0.015))  gain   270.4 (SE  32.6)
+counts changed, 3+ baths           n    661  low  21.5%  high   3.8%  80% covers  61.1%  picked (np.float64(1.4), np.float64(-0.04)) (np.float64(1.35), np.float64(-0.04))  gain   149.9 (SE  19.7)
+all 3+ baths                       n   2452  low  14.2%  high   3.8%  80% covers  69.5%  picked (np.float64(1.2), np.float64(-0.035)) (np.float64(1.2), np.float64(-0.03))  gain   218.9 (SE  26.3)
+all 2 baths                        n  22088  low   7.4%  high   4.5%  80% covers  78.3%  picked (np.float64(1.0), np.float64(-0.01)) (np.float64(1.0), np.float64(-0.01))  gain   294.9 (SE  28.4)
+drift-building-phase-unitkn-level-bedtext-b0-latest-c1ffaefd-l2bt from 2014 ads 189647 df 5 approx mean log density 1.2513 stored 1.2531
+
+scale only
+control: 1 bath, counts as before  n  20000  low   5.1%  high   3.8%  80% covers  82.4%  picked (np.float64(0.9), 0.0) (np.float64(0.9), 0.0)  gain   124.1 (SE  17.4)
+2 baths, counts as before          n  23228  low   5.8%  high   4.5%  80% covers  79.9%  picked (np.float64(0.95), 0.0) (np.float64(0.95), 0.0)  gain    16.4 (SE  10.1)
+3+ baths, counts as before         n   2755  low  11.0%  high   4.6%  80% covers  72.1%  picked (np.float64(1.15), 0.0) (np.float64(1.15), 0.0)  gain    36.3 (SE   9.2)
+4+ bedrooms, counts as before      n   3446  low   6.7%  high   3.7%  80% covers  79.7%  picked (np.float64(1.0), 0.0) (np.float64(0.95), 0.0)  gain    -0.4 (SE   2.6)
+top 3% tier, counts as before      n   4677  low   9.7%  high   5.5%  80% covers  73.0%  picked (np.float64(1.15), 0.0) (np.float64(1.1), 0.0)  gain    46.4 (SE  10.2)
+tier 4 (90-97%), counts as before  n  10642  low   5.8%  high   4.8%  80% covers  79.2%  picked (np.float64(0.95), 0.0) (np.float64(1.0), 0.0)  gain    -5.5 (SE   4.4)
+3+ baths or top 3%, as before      n   5493  low  10.1%  high   5.3%  80% covers  72.8%  picked (np.float64(1.15), 0.0) (np.float64(1.15), 0.0)  gain    58.3 (SE  13.0)
+counts changed, 1 bath             n  31519  low   6.9%  high   7.5%  80% covers  75.3%  picked (np.float64(1.1), 0.0) (np.float64(1.1), 0.0)  gain   138.1 (SE  24.5)
+counts changed, 2 baths            n   8307  low  10.9%  high   6.6%  80% covers  71.5%  picked (np.float64(1.2), 0.0) (np.float64(1.2), 0.0)  gain   177.2 (SE  23.2)
+counts changed, 3+ baths           n    965  low  20.5%  high   4.6%  80% covers  62.5%  picked (np.float64(1.5), 0.0) (np.float64(1.45), 0.0)  gain    92.1 (SE  15.7)
+all 3+ baths                       n   3720  low  13.4%  high   4.6%  80% covers  69.6%  picked (np.float64(1.2), 0.0) (np.float64(1.25), 0.0)  gain   102.6 (SE  15.9)
+all 2 baths                        n  31535  low   7.2%  high   5.1%  80% covers  77.7%  picked (np.float64(1.0), 0.0) (np.float64(1.0), 0.0)  gain     0.0 (SE   0.0)
+
+scale and shift
+control: 1 bath, counts as before  n  20000  low   5.1%  high   3.8%  80% covers  82.4%  picked (np.float64(0.9), np.float64(-0.005)) (np.float64(0.9), np.float64(-0.0))  gain   112.2 (SE  19.1)
+2 baths, counts as before          n  23228  low   5.8%  high   4.5%  80% covers  79.9%  picked (np.float64(0.95), np.float64(-0.005)) (np.float64(0.95), np.float64(-0.005))  gain   134.9 (SE  18.2)
+3+ baths, counts as before         n   2755  low  11.0%  high   4.6%  80% covers  72.1%  picked (np.float64(1.1), np.float64(-0.02)) (np.float64(1.15), np.float64(-0.02))  gain    91.8 (SE  16.6)
+4+ bedrooms, counts as before      n   3446  low   6.7%  high   3.7%  80% covers  79.7%  picked (np.float64(0.95), np.float64(-0.01)) (np.float64(0.95), np.float64(-0.01))  gain    43.3 (SE   8.8)
+top 3% tier, counts as before      n   4677  low   9.7%  high   5.5%  80% covers  73.0%  picked (np.float64(1.15), np.float64(-0.015)) (np.float64(1.1), np.float64(-0.01))  gain    77.5 (SE  16.7)
+tier 4 (90-97%), counts as before  n  10642  low   5.8%  high   4.8%  80% covers  79.2%  picked (np.float64(0.95), np.float64(-0.005)) (np.float64(1.0), np.float64(-0.005))  gain    36.3 (SE  10.8)
+3+ baths or top 3%, as before      n   5493  low  10.1%  high   5.3%  80% covers  72.8%  picked (np.float64(1.1), np.float64(-0.015)) (np.float64(1.15), np.float64(-0.015))  gain   125.2 (SE  20.5)
+counts changed, 1 bath             n  31519  low   6.9%  high   7.5%  80% covers  75.3%  picked (np.float64(1.1), np.float64(-0.0)) (np.float64(1.1), np.float64(-0.0))  gain   138.1 (SE  24.5)
+counts changed, 2 baths            n   8307  low  10.9%  high   6.6%  80% covers  71.5%  picked (np.float64(1.2), np.float64(-0.015)) (np.float64(1.2), np.float64(-0.01))  gain   294.2 (SE  31.1)
+counts changed, 3+ baths           n    965  low  20.5%  high   4.6%  80% covers  62.5%  picked (np.float64(1.4), np.float64(-0.04)) (np.float64(1.3), np.float64(-0.04))  gain   165.8 (SE  21.1)
+all 3+ baths                       n   3720  low  13.4%  high   4.6%  80% covers  69.6%  picked (np.float64(1.2), np.float64(-0.025)) (np.float64(1.2), np.float64(-0.025))  gain   224.5 (SE  25.6)
+all 2 baths                        n  31535  low   7.2%  high   5.1%  80% covers  77.7%  picked (np.float64(1.0), np.float64(-0.01)) (np.float64(1.0), np.float64(-0.01))  gain   239.0 (SE  33.8)
