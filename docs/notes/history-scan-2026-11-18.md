@@ -211,6 +211,96 @@ unmodelled defect of the apartment, or noise.
   longer times at every place and keeps a normal gradient (-0.20 to -0.31). Ads with
   fee-disclosure wording ("refundable") have no gradient (+0.04, +0.05).
 
+## Follow-up: which changed-count ads, and what the Deals model leaves
+
+Five further checks, run after the sections above were merged. Scripts `nbhd.py`,
+`layout.py`, `kinds.py`, `kinds_hist.py` and `down.py`; logs under `logs/`.
+
+**Neighbourhood and period hold little.** For each held-out ad of l2bt, `nbhd.py` takes the
+mean error of the other held-out ads of its neighbourhood and quarter (127,126 ads have 20
+or more others). That mean has an sd of 0.0098 and explains 0.30% of the error variance
+(slope 0.42, se 0.03; 0.44 and 0.39 by half). Half years and years explain 0.36% and
+0.37%. In the lowest twentieth of that mean, 8.2% of ads are below the 5% point against
+5.3% in the middle half.
+
+**The misfit is in ads that differ from the unit's last training ad.** Of the 27,822
+changed-count ads on l2bt (`layout.py`), 13,061 code counts that differ from the unit's
+last training ad: sdz 1.19 and 1.22 by half, with 9.6% and 10.6% below the 5% point. The
+other 14,761 equal the last ad and differ from an older one: sdz 0.98, with 5.9% and 5.7%
+below. The misfit does not grow with the years since the last ad up to five years (sdz
+1.23, 1.18, 1.23) and is 1.31 beyond five. l2bt has no mark for a change against the last
+ad, and it leaves a level by kind of change, the same in both halves: a bath more -0.042,
+a bath fewer +0.039, a bedroom more -0.020, a bedroom fewer +0.019 (`kinds_hist.py`).
+
+**The Deals model already carries those levels.** `drift_building_bedtext_layout.py` marks
+a row whose bedrooms or baths are above or below the apartment's previous training ad, and
+the range module adds marks against the range of its earlier ads. `kinds.py` rebuilds the
+marks on the 9,346 backtest ads:
+
+| backtest class | ads | res (se) | sdz | below 5% | above 95% |
+|---|---|---|---|---|---|
+| differs from the previous ad | 864 | +0.010 (0.004) | 1.14 | 7.5% | 8.7% |
+| range mark only | 691 | -0.006 (0.003) | 0.98 | 5.8% | 3.9% |
+| no mark, unit seen in training | 5,102 | +0.004 (0.001) | 0.93 | 4.0% | 4.1% |
+| no unit history | 2,689 | +0.024 (0.003) | 1.06 | 4.4% | 9.6% |
+
+By previous-ad mark the levels are within two standard errors of the unmarked ads: more
+bedrooms +0.013 (0.006, 349 ads), fewer bedrooms +0.006 (0.007, 376), more baths +0.011
+(0.011, 157), fewer baths +0.004 (0.011, 187). The spread is what stays wide: sdz 1.05,
+1.18, 1.24 and 1.24 in that order, and 1.49 for the 42 marked ads with three baths (16.7%
+below the 5% point, 21.4% above the 95% point). Ads with a range mark alone are calibrated.
+
+**The history agrees once a level is taken out.** `kinds_hist.py` removes from each kind of
+change its mean l2bt error in the other half of buildings and recomputes each ad's place
+under the Student-t approximation of `calib2.py`:
+
+| kind against the last training ad | ads | below 5% | above 95% | sdz |
+|---|---|---|---|---|
+| bath fewer | 1,394 | 10.0% | 10.0% | 1.27 |
+| bath more | 1,549 | 11.2% | 10.0% | 1.29 |
+| bedroom fewer | 3,874 | 7.8% | 7.7% | 1.17 |
+| bedroom more | 3,990 | 7.3% | 7.1% | 1.13 |
+| both fewer | 999 | 7.8% | 8.7% | 1.19 |
+| both more | 1,007 | 9.9% | 9.5% | 1.26 |
+| mixed | 248 | 10.5% | 12.9% | 1.30 |
+| same as the last ad | 116,800 | 4.1% | 3.9% | 0.94 |
+
+Ads with fewer rooms than the last ad fall below the 5% point at 9.4% and 7.2% by half and
+at 7.6% to 8.9% in each year from 2022 to 2026. Ads with more rooms: 7.1% and 10.1% by
+half, 7.9% to 9.1% by year.
+
+**Outcomes support the `rooms_up` caution and none for fewer rooms.** The Deals page
+already cautions an ad with more rooms than the previous ad. `down.py` follows the
+backtest's open ads by their first ask:
+
+| backtest class | ads | first ask below 5% | later cut | median days |
+|---|---|---|---|---|
+| fewer rooms, no caution | 286 | 15 | 0.0% | 14 |
+| `rooms_up`, no other caution | 317 | 19 | 31.6% | 23 |
+| no caution, counts as previous | 8,276 | 295 | 12.9% | 26 |
+
+Below the 10% point the three rows have 25, 30 and 496 ads, cut at 8.0%, 33.3% and 16.3%.
+The counts are small. Of the 15 low asks with fewer rooms none was cut, and 2 of the 25
+below the 10% point were, so nothing here marks such an ask as a false low price. Of the 19
+low asks with more rooms 6 were cut, more than twice the ordinary share, and the 30 below
+the 10% point agree. On the history (`dom2-l2bt.log`) both changed-count
+classes have a shallower gradient of days on place (-0.16 to -0.20 against -0.27 to -0.30)
+and a cut share among low first asks of 5.2% to 6.8% against 2.6% and 3.0%.
+
+What this settles:
+
+- No level term for a bath or bedroom change is missing from the Deals model.
+- The wider spread of ads that differ from the previous ad is a noise factor of about 1.15
+  to 1.25, more with three baths. It would move 20 to 30 of the 425 backtest ads below the
+  5% point. The Deals market fits hold the scales fixed, and a model with noise phases
+  cannot (`drift.py` refuses the pair), so the factor needs a fit with free scales. It
+  stays in the list for the next refit of the base model.
+- The outcomes give no ground for a `rooms_down` caution, on 15 low asks.
+- Ads of units with no training ad are asked 2.4% above the Deals model's median, with
+  9.6% above the 95% point and no excess below the 5% point. That gap is the one recorded
+  on 2026-11-11 (`docs/notes/outlier-sprint-2026-11-11.md`, "Units with no ad in
+  training"), with candidates U4, U3 and the turnover column in `docs/TODO.md`.
+
 ## What follows
 
 No class here passes the rule for a Modal fit of its own. Each is confirmed on both halves
@@ -218,8 +308,9 @@ of buildings, and each is small: on the backtest the changed-count and three-bat
 hold about 60 of the 425 ads below the 5% point (31 and 33, with some in both). The leads
 for the next refit of the base model, with their sizes from the calibration:
 
-1. A noise factor for ads whose counts differ from the unit's training ads, 1.1 with one
-   bath rising to about 1.5 with three or more.
+1. A noise factor for ads whose counts differ from the unit's previous training ad (the
+   follow-up section narrows the class to these), 1.1 with one bath rising to about 1.5
+   with three or more.
 2. A level near -0.03 and a noise factor near 1.2 for three or more baths.
 3. A noise factor of 1.15 to 1.2 for the top 3% of predicted rents.
 4. The first-floor level (about -0.01) and the duplex factor, both already recorded.
