@@ -47,8 +47,10 @@
 #             b0-HASH-alldata-dense-nyc-asof-ASOFDAY.
 #   verify    For each of the two datasets, a check counts statuses and open rows, sorts
 #             the open rows by whether their unit or building has training ads, measures
-#             each snapshot's coverage of the open rows, and builds `drift.design` on
-#             VERIFY_FRACTION of the buildings (the full design needs about 15 GB).
+#             each snapshot's coverage of the open rows, places every building with
+#             `whitened_zones.sites_of` and stops when a building has no registry point,
+#             and builds `drift.design` on VERIFY_FRACTION of the buildings (the full
+#             design needs about 15 GB).
 #
 # DAY defaults to the UTC date, ASOF to 2025-11-10 and REGISTRY to the newest
 # registry/*-extend snapshot. Every Python step runs in a systemd scope capped at 6 GB with no
@@ -231,6 +233,7 @@ import numpy as np, pandas as pd
 from rentfrontier import b0, drift, market, splits, building_zones_floor_asof as asof
 from rentfrontier import building_zones_kitchen_sink as ks, building_zones_unit as bu
 from rentfrontier import building_zones_age as ba_, building_attrs as battrs
+from rentfrontier import whitened_zones as wz
 ds, fraction = sys.argv[1], float(sys.argv[2])
 inputs = market.apply_inputs(ds)
 frame = b0.load_frame(ds)
@@ -269,6 +272,15 @@ bcov = {
 ob = o.building.astype(str)
 for k, v in bcov.items():
     print(f"open rows whose building is in {k}: {ob.isin(set(v)).mean():.4%}")
+sites = wz.sites_of(
+    frame,
+    pd.read_parquet(wz.REGISTRY, columns=["building", "bbl", "latitude", "longitude"]),
+    pd.read_parquet(wz.NJ_REGISTRY, columns=["building", "latitude", "longitude"]),
+)
+lost = sites.index[sites.zone.isna()]
+print("buildings with no registry point", len(lost), list(lost[:10]))
+if len(lost):
+    sys.exit("a fit of this dataset stops at its design: for NJ buildings rebuild the NYC dataset with b0nyc --registry, for others extend the registry")
 bs = np.sort(b.unique())
 pick = set(np.random.default_rng(20261110).choice(bs, size=max(1, round(fraction * len(bs))), replace=False))
 on = b.isin(pick).to_numpy()
