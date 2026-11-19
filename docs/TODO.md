@@ -295,8 +295,8 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   (`docs/notes/net-ask-caution-2026-11-18.md`). Deals cautions them; the model still
   reads them as gross. A data rule, then a fit. On the held-out history the gap of
   net-called asks with no coded free months is -0.014 and belongs to ads before 2022 (268
-  such ads from 2022 on, no gap), so the rule cleans training rows of 2016 to 2021 and
-  changes few current predictions (`docs/notes/history-scan-2026-11-18.md`).
+  ads with free months in the text alone from 2022 on, net-called or otherwise, no gap),
+  so the rule cleans training rows of 2016 to 2021 and changes few current predictions (`docs/notes/history-scan-2026-11-18.md`).
 - [ ] Terms for the next refit of the base model, each confirmed on both halves of the
   held-out buildings and sized by calibration on stored predictions
   (`docs/notes/history-scan-2026-11-18.md`): a noise factor for ads whose bedroom or bath
@@ -305,10 +305,11 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   1.15 to 1.2 for the top 3% of predicted rents; a level near -0.015 for four or more
   bedrooms; the first-floor level and the duplex factor of
   `docs/notes/duplex-scale-2026-11-18.md`. None changes enough of the Deals list for a fit
-  of its own (about 60 of 425 low-tail ads on the backtest).
+  of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
+  the backtest).
 - [ ] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
-  (41% within 7 days against 30%) and no sooner for four or more bedrooms or for ads with
-  coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
+  (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
+  or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
   an ordering that uses it is a site change with no fit.
 - [ ] A width by ad source: feed ads' held-out asks are a little tighter than the model
   allows (free check, about +140 elpd on 45,448 ads, give or take 50, at a factor near 0.9). A term needs a

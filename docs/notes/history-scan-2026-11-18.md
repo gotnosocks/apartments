@@ -55,7 +55,7 @@ on l2bt from 2022 on it no longer ranks (`scan2.py`).
 Free months stated only in the text (`freetext.py`, on l2bt): 4,411 held-out ads, `res`
 -0.008 and -0.009, low 9.1% and 9.4%. The gap grows with the months stated (over one to
 two months -0.025 and -0.013; over two -0.034 and -0.048) and belongs to ads whose text
-calls the price net (-0.014 on both halves; ads with the basis unstated +0.005). It is an
+calls the price net (-0.014 on both halves; ads with the basis unstated +0.005 and +0.004). It is an
 effect of earlier years: before 2020 -0.005 and -0.006, 2020 and 2021 -0.013 and -0.017,
 from 2022 on 268 ads with no gap (-0.006 and +0.007). Wording of this kind is in 12% to
 16% of held-out ads of 2017 to 2020 and in 1.2% to 2.3% of those from 2022 on, when the
@@ -77,7 +77,7 @@ those of every training ad of the same apartment, and "counts changed" otherwise
 | counts changed | 3 or more | 661 | -0.053, -0.050 | 19.3%, 23.9% | 4.3%, 3.2% |
 
 The held-out set has about 714 more ads below the 5% point than 5% of its size. The three
-changed-count rows alone hold about 774 ads over their 5%, and the one-bath ads with counts
+changed-count rows alone hold about 780 ads over their 5%, and the one-bath ads with counts
 as before fall short of theirs. Changed-count ads with one bath are wide on both tails with
 no shift, so their error is one of scale. With two or more baths the ask is also lower
 than predicted.
@@ -86,10 +86,12 @@ Other classes on the same ads:
 
 - Four or more bedrooms with counts as before: `res` -0.012 and -0.016, low 6.2% and 8.3%
   (2,228 ads).
-- Within each tier of predicted rent, more baths go with a lower ask against prediction
-  (`tiers.py`; near $6,000 a month: one bath -0.001, two -0.009, three -0.071 with 21.5%
-  low), so the bath gap is no effect of the price tier. The top 3% of predicted rents with
-  counts as before has low 9.9%, high 5.6%, sd z 1.11.
+- In the four lower tiers of predicted rent, more baths go with a lower ask against
+  prediction (`tiers.py`; near $6,000 a month: one bath -0.001, two -0.009, three -0.071
+  with 21.5% low), so the bath gap is no effect of the price tier. The top two tiers
+  differ: one bath is below two in both (tier 4: -0.015, -0.005, -0.041; top 3%: -0.023,
+  -0.004, -0.015). The top 3% of predicted rents with counts as before has low 9.9%, high
+  5.6%, sd z 1.11.
 - First floor by the unit label (`floors.py`; the ads file's `physical_floor` is empty, so
   the label's floor is used, known for 74.5% of these ads): `res` -0.013 and -0.015 against
   about -0.005 on other floors, low 7.5% and 9.0% (9,161 ads). Elevator buildings -0.017
@@ -163,9 +165,10 @@ the picks. All years give the same picks.
 | all 3 or more baths | 1.2 | -0.03 to -0.035 | +219 (26) |
 | all 2 baths | | -0.01 | +295 (28) |
 | 4 or more bedrooms | | -0.015 | +45 (10) |
-| control | 0.9 | -0.005 | +164 |
+| control | 0.9 | -0.005 | +180 (22) |
 
-The held-out elpd of these ads totals about 237,600, so every row is a small share of it.
+The held-out elpd of the ads from 2022 on totals about 166,700, so every row is a small
+share of it.
 The two-bath shift is about -0.005 net of the control's and is fading by year.
 
 ## Does a low place act like a low price?
@@ -204,16 +207,16 @@ unmodelled defect of the apartment, or noise.
 - Ads with coded free months show no gradient. A net price far below prediction closes no
   sooner than one in the middle.
 - By word (same script): rent-stabilized, walk-up and "flights" ads below the 5% point
-  close in a median of 7 days. Condominium, doorman and full-service wording goes with
+  close in a median of 7 to 8 days. Condominium, doorman and full-service wording goes with
   longer times at every place and keeps a normal gradient (-0.20 to -0.31). Ads with
   fee-disclosure wording ("refundable") have no gradient (+0.04, +0.05).
 
 ## What follows
 
 No class here passes the rule for a Modal fit of its own. Each is confirmed on both halves
-of buildings, and each is small: on the backtest the scale changes would move about 60 of
-the 425 ads below the 5% point. The leads for the next refit of the base model, with their
-sizes from the calibration:
+of buildings, and each is small: on the backtest the changed-count and three-bath classes
+hold about 60 of the 425 ads below the 5% point (31 and 33, with some in both). The leads
+for the next refit of the base model, with their sizes from the calibration:
 
 1. A noise factor for ads whose counts differ from the unit's training ads, 1.1 with one
    bath rising to about 1.5 with three or more.
