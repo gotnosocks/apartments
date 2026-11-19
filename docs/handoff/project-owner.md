@@ -41,6 +41,10 @@ subagent's model and effort to be picked by its task.
   The history scan of the low tail has no open lead; kept for the next base refit are the
   changed-count and many-bath items and the interval for young buildings
   (`docs/notes/history-scan-2026-11-18.md`).
+- The held-out low share falls from about 8% in 2022 to 4.4% in 2026, partly because the
+  latest split favours low asks among older ads (#1463). Read low-tail checks on 2025 and
+  2026 or on a backtest day. On 2025 and 2026 alone, changed counts (scale) and three or
+  more baths (mean) still hold; the two-bath gap is gone.
 - Next: the market refresh due around Nov 20 (`ops/deals-refresh`; plan and predictions in
   `docs/notes/market-refresh-2026-11-20.md`, fit name `range-m3`), and the next trait from
   the held-out history's low misses.
