@@ -20,11 +20,13 @@
 #                                                      build leaves new NJ buildings in, and
 #                                                      the fit stops at its design)
 #             b0-HASH-alldata-dense-nyc-market         ops/market-dataset, every step but the
-#                                                      backtest
+#                                                      backtest; its verify step runs on
+#                                                      every call
 #             b0-HASH-alldata-dense-nyc-market-bedtext rentfrontier.b0bedtext
 # fit       Launches the market fit of MODEL on Modal as run NAME, with the scales held at
 #           SCALES and no scoring. The fit's note, with its predictions, must be on master
-#           first (CLAUDE.md). COMMIT defaults to this checkout's HEAD.
+#           first (CLAUDE.md). COMMIT defaults to this checkout's HEAD and must be on
+#           origin/master.
 # publish   Writes the run's texts file, then the Deals files to OUT with BACKTEST as the
 #           backtest. OUT defaults to a staging folder; compare it with the live files
 #           before publishing to /data1/apartments/site/deals.
@@ -88,7 +90,9 @@ datasets)
         capped "$py" -m rentfrontier.b0nyc "$base-dense" "$base-dense-nyc" --registry "$nj"
     echo "== b0nyc done"
     [[ -e $base-dense-nyc-market ]] ||
-        ops/market-dataset "$hash" codes amenities units attrs age market verify
+        ops/market-dataset "$hash" codes amenities units attrs age market
+    # Runs on every call, so a rerun after a failed check stops here again.
+    ops/market-dataset "$hash" verify
     echo "== market-dataset done"
     [[ -e $base-dense-nyc-market-bedtext ]] || capped "$py" -m rentfrontier.b0bedtext \
         "$base-dense-nyc-market" "$base-dense-nyc-market-bedtext"
@@ -100,6 +104,9 @@ fit)
     commit=${COMMIT:-$(git rev-parse HEAD)}
     dataset=$datasets/b0-$hash-alldata-dense-nyc-market-bedtext
     [[ -e $dataset/rows.parquet ]] || { echo "no dataset $dataset" >&2; exit 1; }
+    git merge-base --is-ancestor "$commit" origin/master ||
+        { echo "commit $commit is not on origin/master" >&2; exit 1; }
+    echo "build $hash, commit $commit, run $name"
     exec ops/modal-fit --outside-budget --gpu H100 --dataset "$dataset" \
         --input "$pipeline/rows-$hash.parquet" --split market --baseline "$baseline" \
         "$commit" "$name" "$model" b0 2 200 3600 20 \
@@ -110,6 +117,7 @@ publish)
     out=${2:-$scratch/$run/staging}
     registry=${REGISTRY:-$(ls -d "$external"/registry/*-extend | sort | tail -1)/registry.parquet}
     mkdir -p "$scratch/$run"
+    echo "registry $registry"
     texts=$scratch/$run/texts.parquet
     export JAX_PLATFORMS=cpu PYTHONPATH=frontier/src TMPDIR=/data1/apartments/tmp
     [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"

@@ -226,6 +226,8 @@ building_age.main([str(out)])
         ;;
     verify)
         for d in "$market" "$backtest"; do
+            # A refresh that keeps an earlier backtest builds the market dataset alone.
+            [[ -e $d/rows.parquet ]] || { echo "verify: no $d, skipped"; continue; }
             capped -c '
 import sys, json
 from pathlib import Path
