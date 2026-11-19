@@ -35,7 +35,8 @@ All from `/data1/apartments/serve/master` at `origin/master`, with `ops/deals-re
   take the ads nearest their close.
 - Of the first 100 uncautioned ads of the live table (cautions as published on Nov 18 at
   11:30 PM ET, with `raised`), 10 to 25 have closed at `D` = 2. Nine days closed 61 of the
-  first 100 last time.
+  first 100 last time, on a list without the `raised` marks, so the two lists differ a
+  little.
 - The fit passes the gate in one container: worst R-hat at most 1.01, least bulk ESS above
   400 (`range-m2` had 1.0061 and 757). A sweep takes 0.32 to 0.37 s and the fit costs $1.90
   to $2.20.
@@ -44,7 +45,8 @@ All from `/data1/apartments/serve/master` at `origin/master`, with `ops/deals-re
   each 100 ads of the old lowest tenth stay in the new lowest tenth (93.6 last time).
 - The cautioned share is 18% to 23% (1,333 of 6,565, 20.3%, in the live table), with
   `raised` on 550 to 800 ads (686 in the live table).
-- Among ads new since Nov 18, the share below the 5% point is 4% to 8%. New ads stand at
+- Among ads first listed after Nov 18 (all of them, whatever their ask since), the share
+  below the 5% point is 4% to 8%. New ads stand at
   their first ask, and 4.6% of the backtest's ads at their first ask were below the 5%
   point on the day.
 
