@@ -280,9 +280,10 @@ backtest's open ads by their first ask:
 | no caution, counts as previous | 8,276 | 295 | 12.9% | 26 |
 
 Below the 10% point the three rows have 25, 30 and 496 ads, cut at 8.0%, 33.3% and 16.3%.
-A low ask with fewer rooms than before is cut less often than an ordinary low ask and
-closes sooner, so it behaves like a low price. A low ask with more rooms is cut more than
-twice as often as an ordinary one. On the history (`dom2-l2bt.log`) both changed-count
+The counts are small. Of the 15 low asks with fewer rooms none was cut, and 2 of the 25
+below the 10% point were, so nothing here marks such an ask as a false low price. Of the 19
+low asks with more rooms 6 were cut, more than twice the ordinary share, and the 30 below
+the 10% point agree. On the history (`dom2-l2bt.log`) both changed-count
 classes have a shallower gradient of days on place (-0.16 to -0.20 against -0.27 to -0.30)
 and a cut share among low first asks of 5.2% to 6.8% against 2.6% and 3.0%.
 
@@ -294,7 +295,7 @@ What this settles:
   5% point. The Deals market fits hold the scales fixed, and a model with noise phases
   cannot (`drift.py` refuses the pair), so the factor needs a fit with free scales. It
   stays in the list for the next refit of the base model.
-- No `rooms_down` caution.
+- The outcomes give no ground for a `rooms_down` caution, on 15 low asks.
 - Ads of units with no training ad are asked 2.4% above the Deals model's median, with
   9.6% above the 95% point and no excess below the 5% point. That gap is the one recorded
   on 2026-11-11 (`docs/notes/outlier-sprint-2026-11-11.md`, "Units with no ad in

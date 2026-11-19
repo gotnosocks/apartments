@@ -21,12 +21,13 @@ The follow-up section of `docs/notes/history-scan-2026-11-18.md` (no money spent
 
 - On the history the changed-count misfit is in ads whose counts differ from the unit's
   last training ad. The Deals model's previous-ad marks already carry the level for those
-  ads (no mark is off by two standard errors on the backtest). What stays is spread: sdz
+  ads (on the backtest no previous-ad mark is two standard errors from the unmarked
+  ads). What stays is spread: sdz
   1.14 on the 864 marked backtest ads, 1.49 with three baths.
 - A noise factor for those ads needs a fit with free scales, since `drift.py` refuses
   noise phases with `--scales-fixed`. It stays with the next refit of the base model.
-- Outcomes rule out a `rooms_down` caution (low asks with fewer rooms are not cut and close
-  in 14 days) and support `rooms_up` (31.6% later cut against 12.9%).
+- Outcomes give no ground for a `rooms_down` caution (15 low asks with fewer rooms, none
+  cut, median 14 days) and agree with `rooms_up` (6 of 19 later cut against 12.9%).
 - Backtest ads of units with no training ad are asked 2.4% above the median. That is the
   known new-unit gap (U4, U3 and the turnover column in `docs/TODO.md`).
 
