@@ -435,7 +435,7 @@ in logs, half a percent of rent. No term: a shift of that size would hardly chan
 Deals page. The interval for young buildings is a candidate for the
 next base refit's scale terms, with the changed-count items above.
 
-## Follow-up, 2026-11-19: the low tail thins by year, and the split selects for it (`season.py`, `stay.py`)
+## Follow-up, 2026-11-19: the low tail thins by year, and the split favours low asks among older ads (`season.py`, `stay.py`)
 
 No fit and no money spent.
 
@@ -479,19 +479,25 @@ the highest: by 3 to 5 points before 2020, 2 to 4 in 2020 and 2021, 10 for ads o
 for 2023 and 4 for 2024. (For ads of 2020 the share with any later ad runs the other way,
 73% against 68%.) Of the ads of 2022, 37% of the lowest fifth have had no ad since against
 25% of the highest fifth, and those are the ads the latest split holds out. The change
-from a unit's previous ad is not the model's gap, so this does not size the effect on the
-held-out low share; it shows the direction and that 2022 and 2023 have it most.
+from a unit's previous ad is not the model's gap (a low value can also mean a high earlier
+ask), and changes of 0.5 or more either way are left out, so this does not size the effect
+on the held-out low share; it shows the direction and that 2022 and 2023 have it most. The
+gradient does not grow steadily with an ad's age (2 to 4 points for 2020 and 2021), so it
+is one cause of the fall by year and need not be the only one: a bias of the trend in
+2022 and 2023 is not ruled out. Next ads within 150 days are about 1 of the 10 points for
+2022, so reposts do not make it.
 
 **What follows.**
 
 1. The latest split overstates the low tail for older ads, and its mean gap of about
    −0.01 in 2022 and 2023 is at least partly selection. Checks of the low tail should read
-   2025 and 2026 or a backtest of asks open on a day, where no such selection acts. The
+   2025 and 2026 or a backtest of asks open on a day. The selection acts less on recent years and not at
+   all on a backtest day. The
    Deals backtest of 2025-11-10 has about 4.5% of its ads below the 5% point
    (`docs/notes/turnover-low-asks-2026-11-18.md`).
 2. Findings above stated on "2022 on" stand as comparisons between groups of the same
    years, though a group heavier in older ads gains low share from this alone. The
-   two-bath gap of 2022 to 2024 is measured against one-bath ads of the same year, so it
-   is not this effect.
-3. For a renter the table says an apartment taken at a low rent is kept longer, which is
-   what a low price should do. No term and no page change.
+   two-bath gap of 2022 to 2024 is measured against one-bath ads of the same year, which
+   limits this effect without excluding it (the wait to the next ad may differ by size).
+3. For a renter the table says an apartment advertised at a low rent is longer in coming
+   back to the market, which is what a low price should do. No term and no page change.
