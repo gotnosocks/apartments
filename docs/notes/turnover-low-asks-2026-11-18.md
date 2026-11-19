@@ -109,6 +109,44 @@ in 2026. The raise among raised ads has a median of 24% in flagged buildings.
 This version of the flag counts closed ads at their final ask, a little stricter than the
 backtest's (open ads at their ask on the day).
 
+## The window: one year against the building's whole record (`raise_all.py`)
+
+Ben asked why the flag reads one year and not the whole history. The same count over two
+years, five years and the building's whole record, on the ads table (share of ads ending
+15% or more above their first ask; 0.8% with no earlier raised ad in every window):
+
+| Window | 2 to 4 earlier raised ads | 5 or more | Ads with 2 or more |
+|---|---|---|---|
+| One year | 9.3% | 19.3% | 98,702 |
+| Two years | 5.8% | 13.0% | 163,113 |
+| Five years | 3.5% | 6.9% | 311,967 |
+| Whole record | 3.4% | 5.7% | 362,555 |
+
+A longer window marks more ads and each mark says less, because the habit is recent. Among
+ads with two or more earlier raised ads in the whole record, by the age of the newest
+one: 21.7% end 15% or more above their first ask when it opened in the last 90 days
+(55,376 ads), 3.1% at 90 days to a year, 1.4% at one to two years and 0.7% beyond, which
+is the rate of unflagged buildings. From 2024 on, ads with two or more in the whole
+record and none in the past year are raised 0.67% of the time (115,698 ads) against 18.4%
+for two or more in the past year (23,589).
+
+The held-out errors of the latest-split run (`l2bt`, 189,607 ads of every year) give the
+model's side of the same test. The gap at the first ask is the held-out gap less the log
+of the latest ask over the first ask.
+
+| Earlier raised ads, one year | Ads | Mean gap at the first ask | First ask 15% or more under the prediction | Below the 5% point at the latest ask |
+|---|---|---|---|---|
+| None | 171,472 | +0.005 | 3.2% | 5.7% |
+| One | 10,064 | −0.001 | 4.9% | 6.9% |
+| 2 to 4 | 4,585 | −0.022 | 10.2% | 8.9% |
+| 5 or more | 3,486 | −0.044 | 17.0% | 9.5% |
+
+With the whole record the same rows read 3.6%, 3.4%, 3.7% and 4.2% for first asks 15% or
+more under the prediction, so the whole-record flag separates nothing there. The caution
+should weigh recent raised ads: a raised ad in the last 90 days is the strongest single
+mark, and the rule's exact form (count and window) is to be chosen on half of the
+buildings and checked on the other half when the caution is written.
+
 ## What follows
 
 1. A Deals caution for ads in flagged buildings ("ads in this building often open low and
