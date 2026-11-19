@@ -25,10 +25,10 @@ subagent's model and effort to be picked by its task.
 - Coded free months and ad text do not mark them. A building flag does: two or more of
   the past year's ads raised 15% or more above their first ask (428 backtest ads, 86
   buildings; 22.2% of first asks below the 5% point against 3.0%).
-- Next: check the threshold on a second backtest day (`range-j` is the only Deals-model
-  backtest; an older market backtest such as j9 can serve, since the flag needs places
-  and price paths only), then add the flag as a caution in `cautions.py` and
-  `drift_deals._cautions`, computed from the ads table, with tests. No fit is needed.
+- The flag holds on the whole ads table with no model: 13.7% of 98,702 flagged ads ended
+  15% or more above their first ask against 0.84% of the rest, in every year from 2015.
+- Next: add the flag as a caution in `cautions.py` and `drift_deals._cautions`, computed
+  from the ads table, with tests. No fit is needed.
 - The rest of the gradient (6.5% low in the top quartile without flagged buildings, +5.5%
   in buildings with no other ad) is a candidate mean term for a later fit.
 

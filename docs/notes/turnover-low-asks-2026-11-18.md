@@ -87,12 +87,34 @@ asks (8.1% with them, about 2.1% in Q1 to Q3). The flag takes out under half of 
 excess of low first asks and little of its excess on the day, so the turnover gradient
 stays.
 
+## The flag over the whole history, with no model (`raise_hist.py`)
+
+The backtest is one day. The flag's claim about price paths needs no model, so it can be
+tested on every ad in the ads table with a first ask and a latest ask (1,985,235 ads).
+For each ad the count is of ads of other units of the building that opened in the 365
+days before it, closed before it opened, and ended 15% or more above their first ask.
+The outcome is the ad itself ending 15% or more above its first ask.
+
+| Earlier raised ads | Ads | Buildings | Ended 15% or more above the first ask | 8% or more | Cut by 5% or more |
+|---|---|---|---|---|---|
+| None | 1,781,572 | 73,542 | 0.84% | 2.3% | 12.2% |
+| One | 104,961 | 6,543 | 3.5% | 7.2% | 11.2% |
+| Two or more | 98,702 | 2,917 | 13.7% | 20.8% | 7.3% |
+
+Every year from 2015 has the same order. For two or more against none: 14.0% against
+0.41% in 2018, 25.0% against 2.3% in 2020, 6.3% against 0.78% in 2022 (the lowest
+ratio), 20.6% against 0.82% in 2024, 17.3% against 0.73% in 2025 and 17.6% against 0.66%
+in 2026. The raise among raised ads has a median of 24% in flagged buildings.
+
+This version of the flag counts closed ads at their final ask, a little stricter than the
+backtest's (open ads at their ask on the day).
+
 ## What follows
 
 1. A Deals caution for ads in flagged buildings ("ads in this building often open low and
    are raised"), computed from the ads table at publish time. It needs no fit. The
-   threshold (two ads, 15%, one year) should be checked on a second backtest day before
-   the rule is merged, since this note chose it on the one day.
+   threshold (two ads, 15%, one year) was chosen on the one backtest day; the history
+   table above supports it on the price paths of every year.
 2. The opening asks that were raised are in training as the unit's record only at the
    latest ask, so they do not pull the model down. No data fix is needed there.
 3. The rest of the turnover gradient (Q4 at 6.5% low without flagged buildings, the
