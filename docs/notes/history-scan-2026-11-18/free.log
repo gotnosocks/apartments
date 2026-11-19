@@ -1,0 +1,53 @@
+ads 129861 first ask usable 0.912 median final/exp(y) 1.0
+closed ads 128554 cut 0.184 raised 0.089 first ask below 5% 0.0596
+with turnover column 1.0
+free months
+             n  n low  low share  days mid  days low  gradient  7d mid  7d low  cut low  cut mid  rented low  rented mid     se
+busy                                                                                                                           
+0-9     1180.0   66.0      0.056      23.0      25.0     0.136   0.172   0.182      0.0    0.000       0.606       0.610  0.137
+10-49   2691.0  167.0      0.062      22.0      25.0     0.076   0.137   0.150      0.0    0.001       0.569       0.603  0.080
+50-199  4788.0  245.0      0.051      24.0      25.0     0.050   0.156   0.143      0.0    0.001       0.633       0.530  0.081
+200+    2618.0  145.0      0.055      17.0      14.0    -0.100   0.236   0.310      0.0    0.000       0.455       0.409  0.139
+no free months
+              n   n low  low share  days mid  days low  gradient  7d mid  7d low  cut low  cut mid  rented low  rented mid     se
+busy                                                                                                                             
+0-9     41923.0  2418.0      0.058      12.0      10.0    -0.255   0.323   0.413    0.039    0.163       0.698       0.700  0.023
+10-49   42415.0  2707.0      0.064      14.0      12.0    -0.187   0.294   0.344    0.044    0.164       0.695       0.664  0.021
+50-199  25635.0  1412.0      0.055      15.0      14.0    -0.208   0.270   0.325    0.052    0.196       0.619       0.493  0.036
+200+     7304.0   502.0      0.069      14.0       9.0    -0.473   0.290   0.466    0.060    0.255       0.582       0.370  0.093
+by months offered
+                n   n low  low share  days mid  days low  gradient  7d mid  7d low  cut low  cut mid  rented low  rented mid     se
+offer                                                                                                                              
+none     117277.0  7039.0      0.060      14.0      12.0    -0.234   0.299   0.372    0.045    0.176       0.673       0.622  0.016
+up to 1    8490.0   447.0      0.053      21.0      22.0     0.028   0.180   0.199    0.000    0.001       0.559       0.517  0.059
+1 to 2     2437.0   155.0      0.064      23.0      25.0     0.050   0.154   0.142    0.000    0.000       0.594       0.568  0.096
+over 2      350.0    21.0      0.060      27.0      23.0    -0.329   0.084   0.286    0.000    0.000       0.667       0.473  0.279
+free months, by half of buildings and busy 50+
+                 n  n low  low share  days mid  days low  gradient  7d mid  7d low  cut low  cut mid  rented low  rented mid     se
+big   half                                                                                                                         
+False 0     1872.0  118.0      0.063      25.0      22.0    -0.032   0.150   0.195      0.0    0.000       0.585       0.607  0.102
+      1     1999.0  115.0      0.058      21.0      28.0     0.216   0.145   0.122      0.0    0.001       0.574       0.603  0.093
+True  0     3428.0  181.0      0.053      21.0      18.0    -0.090   0.214   0.260      0.0    0.000       0.508       0.452  0.107
+      1     3978.0  209.0      0.053      21.0      24.0     0.058   0.159   0.158      0.0    0.001       0.617       0.517  0.095
+free-month ads with a usable page rent 11229 median concession 0.087
+corr net gap, gross gap 0.774
+net_gap lowest tenth against the middle half
+        low  gradient  7d low  7d mid  days low  days mid
+half                                                     
+0     527.0     0.024   0.195   0.192      23.0      22.0
+1     595.0     0.026   0.182   0.155      23.0      21.0
+gross_gap lowest tenth against the middle half
+        low  gradient  7d low  7d mid  days low  days mid
+half                                                     
+0     527.0    -0.001   0.209   0.188      22.0      22.0
+1     595.0     0.004   0.173   0.152      22.0      21.0
+conc lowest tenth against the middle half
+        low  gradient  7d low  7d mid  days low  days mid
+half                                                     
+0     504.0    -0.006   0.153   0.207      21.0      21.0
+1     582.0    -0.015   0.184   0.184      21.0      20.0
+free-month ads: log days on gross gap and concession {'gross_log': (np.float64(0.131), np.float64(0.166)), 'conc': (np.float64(0.488), np.float64(0.38))}
+free-month ads: log days on net gap alone {'net_log': (np.float64(0.108), np.float64(0.166))}
+half 0 {'gross_log': (np.float64(0.24), np.float64(0.25)), 'conc': (np.float64(0.526), np.float64(0.585))}
+half 1 {'gross_log': (np.float64(0.036), np.float64(0.221)), 'conc': (np.float64(0.459), np.float64(0.486))}
+no free months: log days on gap {'gap_log': (np.float64(1.853), np.float64(0.06))}
