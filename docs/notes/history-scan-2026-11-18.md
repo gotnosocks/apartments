@@ -428,7 +428,7 @@ tail is wider as well (5.3% to 5.8% against 4.1%), which is an interval a little
 for young buildings as much as a mean set too high.
 
 The history has nothing like the backtest day's 11%. The young buildings' excess is about
-300 low ads of 7,200 (30,304 ads at about 6.4% against 5.3%), and the mean shift of 0.005
-is a twentieth of the distance to the 5% point. No term: a shift of that size would move
-no ad on or off the Deals page. The interval for young buildings is a candidate for the
+300 low ads of 7,200 (30,304 ads at about 6.4% against 5.3%), and the mean shift is 0.005
+in logs, half a percent of rent. No term: a shift of that size would hardly change the
+Deals page. The interval for young buildings is a candidate for the
 next base refit's scale terms, with the changed-count items above.
