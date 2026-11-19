@@ -231,6 +231,7 @@ import numpy as np, pandas as pd
 from rentfrontier import b0, drift, market, splits, building_zones_floor_asof as asof
 from rentfrontier import building_zones_kitchen_sink as ks, building_zones_unit as bu
 from rentfrontier import building_zones_age as ba_, building_attrs as battrs
+from rentfrontier import whitened_zones as wz
 ds, fraction = sys.argv[1], float(sys.argv[2])
 inputs = market.apply_inputs(ds)
 frame = b0.load_frame(ds)
@@ -269,6 +270,15 @@ bcov = {
 ob = o.building.astype(str)
 for k, v in bcov.items():
     print(f"open rows whose building is in {k}: {ob.isin(set(v)).mean():.4%}")
+sites = wz.sites_of(
+    frame,
+    pd.read_parquet(wz.REGISTRY, columns=["building", "bbl", "latitude", "longitude"]),
+    pd.read_parquet(wz.NJ_REGISTRY, columns=["building", "latitude", "longitude"]),
+)
+lost = sites.index[sites.zone.isna()]
+print("buildings with no registry point", len(lost), list(lost[:10]))
+if len(lost):
+    sys.exit("a fit of this dataset stops at its design: rebuild the NYC dataset with b0nyc --registry")
 bs = np.sort(b.unique())
 pick = set(np.random.default_rng(20261110).choice(bs, size=max(1, round(fraction * len(bs))), replace=False))
 on = b.isin(pick).to_numpy()

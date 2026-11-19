@@ -1,14 +1,17 @@
 """Write a B0 dataset holding only SRC's New York City rows.
 
-    python -m rentfrontier.b0nyc SRC OUT
+    python -m rentfrontier.b0nyc SRC OUT [--registry NJ_REGISTRY]
 
 The all-data datasets since 2026-10-19 carry Jersey City and Hoboken rows (about 72,600 of
 1,969,084 in `b0-30b3edae310c2fae-alldata-v36-dense`). A fit on NYC alone needs them out.
 
 I read SRC's `rows.parquet` and mark a row as NJ when its building appears in the NJ building
-registry (`building_attrs.REGISTRY_NJ`). In the v36 dense dataset that marks exactly the rows
-in the Hoboken, Historic Downtown, Waterfront, Newport and Paulus Hook neighbourhoods. I then
-write OUT with:
+registry (`building_attrs.REGISTRY_NJ`, or the snapshot given with `--registry`). A dataset
+built from scrapes later than that snapshot holds NJ buildings missing from it, and their rows
+stay in OUT unless `--registry` gives a snapshot written by the same pipeline build
+(`/data1/apartments/external/registry-nj/`). In the v36 dense dataset the default snapshot
+marks exactly the rows in the Hoboken, Historic Downtown, Waterfront, Newport and Paulus Hook
+neighbourhoods. I then write OUT with:
 
 - `rows.parquet`: SRC's other rows, in SRC's order.
 - `set_aside.parquet`: the NJ rows, kept for the record.
@@ -65,8 +68,9 @@ def main(argv=None):
     )
     p.add_argument("src", type=Path)
     p.add_argument("out", type=Path)
+    p.add_argument("--registry", type=Path, default=REGISTRY_NJ)
     args = p.parse_args(argv)
-    print(json.dumps(nyc_only(args.src, args.out), indent=2))
+    print(json.dumps(nyc_only(args.src, args.out, args.registry), indent=2))
 
 
 if __name__ == "__main__":
