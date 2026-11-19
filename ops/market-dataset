@@ -45,7 +45,8 @@
 #             inputs.json that points every constant above at the new snapshots.
 #   backtest  The same command with `--as-of $ASOF` writes
 #             b0-HASH-alldata-dense-nyc-asof-ASOFDAY.
-#   verify    For each of the two datasets, a check counts statuses and open rows, sorts
+#   verify    For each of the two datasets (the backtest is skipped when it was not
+#             built), a check counts statuses and open rows, sorts
 #             the open rows by whether their unit or building has training ads, measures
 #             each snapshot's coverage of the open rows, places every building with
 #             `whitened_zones.sites_of` and stops when a building has no registry point,
@@ -227,7 +228,8 @@ building_age.main([str(out)])
     verify)
         for d in "$market" "$backtest"; do
             # A refresh that keeps an earlier backtest builds the market dataset alone.
-            [[ -e $d/rows.parquet ]] || { echo "verify: no $d, skipped"; continue; }
+            [[ $d != "$backtest" || -e $d/rows.parquet ]] ||
+                { echo "verify: no $d, skipped"; continue; }
             capped -c '
 import sys, json
 from pathlib import Path
