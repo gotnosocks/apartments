@@ -289,6 +289,15 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   ads left with a count in the text price as studios (median held-out gap 0.000). Rule B2
   then excludes 412 blank ads in buildings with no studio anywhere in their history
   (`2026-11-12-outlier-sprint-zz-blank-rule-b.ndjson`).
+- [ ] Page prices net of free months: 2 of the first 100 uncautioned ads of the Nov 18
+  table show an ask already net of their coded free months
+  (`docs/notes/first-page-read-2026-11-18.md`). Count market ads whose page price equals
+  an earlier price of the same ad net of the coded free months, then fix the gross rent.
+- [ ] Stale owner ads: 21 `OWNER` ads in the backtest's lowest tenth had been open a median
+  of 710 days. Count them in the live table and test a caution on the backtest.
+- [ ] A width by ad source: feed ads' held-out asks are a little tighter than the model
+  allows (free check, about +140 elpd on 45,448 ads at a factor near 0.9). A term needs a
+  new module, a backtest and a market fit.
 - [ ] Sublets with an end date: the `takeover` caution leaves them out because "sublet"
   alone is a building's policy in most ads (6 of 28 read were a sublet on offer, 3 of
   them firmly).
