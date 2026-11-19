@@ -338,7 +338,8 @@ units, an office suite, an apartment open only to the building's owners, and oth
 `rentfrontier.cautions` gives a row of the deals table a code for each reason it finds:
 `income`, `not_home`, `owners_only` and `takeover` from the ad's own text, `beds` when the apartment's
 ads carry more than one bedroom count, `rooms_up` when the ad codes more bedrooms or baths than
-the apartment's previous ad, `off_market` from the ad's status. A caution changes
+the apartment's previous ad, `net_ask` when the page price is a round first ask less free
+months the record does not code, `off_market` from the ad's status. A caution changes
 no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
 many. The text patterns were kept or dropped by reading every ad on the market that a
 wider set of candidates matched (237 ads); the kept income pattern matches 55 ads, the 55

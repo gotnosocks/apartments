@@ -138,10 +138,10 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
 
 
 def _cautions(
-    frame, h, held, unit_key, texts: Path | None, ads_sha: str
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net
 ) -> tuple[list, int | None]:
     """Each held-out row's caution codes, and how many of the rows have a text (None
-    without `texts`). `texts` must be the table `texts` wrote for the build whose ads file
+    without `texts`). `net` marks the rows `cautions.net_ask` found. `texts` must be the table `texts` wrote for the build whose ads file
     has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
@@ -180,12 +180,15 @@ def _cautions(
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
     out = []
-    for text, income, beds, grew, away in zip(described, flagged, varied, more, off):
+    for text, income, beds, grew, away, netted in zip(
+        described, flagged, varied, more, off, net
+    ):
         codes = cautions_module.from_text(text)
         # The dataset's flag stands in only where there is no text to read.
         unread = not (isinstance(text, str) and text.strip())
         codes += ["income"] * bool(income and unread) + ["beds"] * bool(beds)
         codes += ["rooms_up"] * bool(grew)
+        codes += ["net_ask"] * bool(netted)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
     return out, with_text
@@ -209,7 +212,13 @@ def deals(
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
     codes, with_text = _cautions(
-        frame, h, held, unit_key, texts, _manifest(run_dir)["ads_sha256"]
+        frame,
+        h,
+        held,
+        unit_key,
+        texts,
+        _manifest(run_dir)["ads_sha256"],
+        cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
     )
     out = pd.DataFrame(
         {

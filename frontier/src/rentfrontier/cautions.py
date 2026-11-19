@@ -26,6 +26,10 @@ own latest text and from the dataset's rows.
   whole step for the extra room and the ask rises by less. Of the 60 ads at the top of the
   list of 2026-11-17 that brokers read, 7 were such and none of the 7 read as a sound deal
   (`docs/notes/low-outliers-2026-11-18.md`).
+- `net_ask`: the page shows a rent already net of free months that the record does not
+  code (`net_ask`), so the table compares a net ask with the model's gross rent. Brokers
+  reading the first 100 uncautioned ads of 2026-11-18 found 2 such; the rule marks 11 ads
+  of that table, 3 of them in its first 100 (`docs/notes/net-ask-caution-2026-11-18.md`).
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09
@@ -62,6 +66,8 @@ from __future__ import annotations
 
 import re
 
+import numpy as np
+
 OFF_MARKET = "TEMPORARILY_OFF_MARKET"
 # The usual rule that a tenant earn forty times the rent, within a sentence of the words
 # "income requirement": an ordinary ad's wording, not a program's.
@@ -92,7 +98,10 @@ TEXT = {
     ),
 }
 # Every code, in the order a row lists them.
-CODES = (*TEXT, "beds", "rooms_up", "off_market")
+CODES = (*TEXT, "beds", "rooms_up", "net_ask", "off_market")
+# Free months and lease lengths, in months, that `net_ask` tries.
+NET_FREE = (1, 2, 3)
+NET_LEASES = (*range(12, 19), 24)
 _COMPILED = {code: re.compile(pattern) for code, pattern in TEXT.items()}
 _DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015"), "-")
 
@@ -115,3 +124,22 @@ def ordered(codes) -> list[str]:
     """`codes` once each, in the order of `CODES`."""
     have = set(codes)
     return [code for code in CODES if code in have]
+
+
+def net_ask(first_ask, page_price, months_free) -> np.ndarray:
+    """True where an ad's page price looks net of free months the record does not code.
+
+    A landlord's gross rent is nearly always a round number, and a net rent seldom is. The
+    mark needs all of: no coded free months; a first ask that is a multiple of 25; a page
+    price below it whose last digit is none of 0, 5 and 9; and a page price within a dollar
+    of the first ask less `NET_FREE` months spread over a lease of `NET_LEASES` months."""
+    first, page = np.asarray(first_ask, float), np.asarray(page_price, float)
+    coded = np.nan_to_num(np.asarray(months_free, float)) > 0
+    with np.errstate(invalid="ignore"):
+        gross = (np.abs(first - np.round(first / 25) * 25) < 0.01) & (first > page)
+        odd = ~np.isin(np.round(page) % 10, (0, 5, 9)) & np.isfinite(page)
+        fits = np.zeros(first.shape, bool)
+        for lease in NET_LEASES:
+            for free in NET_FREE:
+                fits |= np.abs(first * (lease - free) / lease - page) <= 1.0
+    return ~coded & gross & odd & fits
