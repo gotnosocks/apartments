@@ -324,3 +324,16 @@ The served Deals model has no latest-split fit, so these tables come from the ba
 bed-text models plus its 9,346-ad backtest. A latest-split fit of the Deals model would
 give the same 190,000-ad evidence for the model on the page. Ben declined that spend
 earlier in the day; it remains the one fit this work would recommend.
+
+## Follow-up, 2026-11-19: the low misses are not gathered in buildings (`bybuilding.py`)
+
+The share of held-out ads below the 5% point is 5.1% to 6.2% whatever the building's count
+of held-out ads. Buildings with ten or more held-out ads and a quarter of them low number
+95 and hold 386 low ads; a binomial null at the overall low share gives 132 on average and
+208 at most in 200 draws. The excess, near 250 of 11,168 low ads, is spread over mostly
+small buildings with a mean gap of -0.047. No building-level term follows.
+
+The Deals page's backtest card now carries the bedroom rows of the outcome table above
+(closed in 7 days, low against middle). The free-months row is left off the page: ads with
+coded free months are mostly in lease-ups, where an ad's days listed may not follow one
+apartment, so its flat gradient is not read as a statement about price (untested).
