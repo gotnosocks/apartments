@@ -82,3 +82,23 @@ and 30, 51 and 90 of the first 100, 200 and 500 uncautioned ads.
 
 A marked low ad is still not raised more often than it is raised (58% against 42% on the
 backtest day), so a reader who includes cautioned ads will find real low asks among them.
+
+## Cut to a low ask against opened low (`kinds.py`, 2026-11-19)
+
+The price paths also say how a low ad came to be low. Of the 440 ads below the 5% point on
+the backtest day, 279 stood at their first ask, 146 had been cut before the day and 15 had
+been raised before it. No fit and no money spent.
+
+| Below the 5% point on the day | Ads | Raised 15% or more later | Raised 5% or more | Gone in 14 days | Median days left |
+|---|---|---|---|---|---|
+| At first ask, unmarked | 181 | 6.1% | 12.7% | 55% | 10 |
+| At first ask, marked | 98 | 38.8% | 59.2% | 62% | 9 |
+| Cut before the day, unmarked | 93 | 3.2% | 17.2% | 55% | 13 |
+| Cut before the day, marked | 53 | 47.2% | 60.4% | 53% | 11 |
+
+An ad cut to a low ask behaves like one that opened low: the same share gone in two weeks
+and about the same share raised, inside marked and unmarked buildings alike. The `raised`
+mark separates both kinds. So the way an ad got low is no feature for the page or the
+model. Ads between the 30% and 70% points are gone in 14 days 41% to 42% of the time with a
+median 21 to 22 days left, so a low ad leaves about twice as fast as an ordinary one,
+which the earlier outcome tables already showed for final asks.

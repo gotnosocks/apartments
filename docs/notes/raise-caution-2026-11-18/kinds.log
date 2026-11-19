@@ -1,0 +1,36 @@
+all
+                              ads   up15    up5   cut5  gone14  gone30  days_left   age
+kind                  mark                                                             
+at first ask          False  5404  0.005  0.030  0.078   0.416   0.635       21.0  13.0
+                      True    655  0.102  0.209  0.056   0.446   0.682       18.0  12.0
+cut before the day    False  2524  0.005  0.040  0.115   0.399   0.613       22.0  38.0
+                      True    313  0.128  0.230  0.070   0.435   0.652       21.0  33.0
+raised before the day False   367  0.005  0.022  0.172   0.343   0.510       29.0  34.0
+                      True     83  0.060  0.108  0.181   0.386   0.446       35.0  29.0
+below the 5% point
+                             ads   up15    up5   cut5  gone14  gone30  days_left   age
+kind                  mark                                                            
+at first ask          False  181  0.061  0.127  0.022   0.552   0.751       10.0  11.0
+                      True    98  0.388  0.592  0.020   0.622   0.806        9.0  10.0
+cut before the day    False   93  0.032  0.172  0.043   0.548   0.806       13.0  27.0
+                      True    53  0.472  0.604  0.000   0.528   0.736       11.0  20.0
+raised before the day False    9  0.000  0.111  0.000   0.333   0.444       71.0  17.0
+                      True     6  0.500  0.500  0.000   0.500   0.500       23.5  46.0
+below the 10% point
+                             ads   up15    up5   cut5  gone14  gone30  days_left   age
+kind                  mark                                                            
+at first ask          False  341  0.041  0.138  0.023   0.537   0.742       11.0  11.0
+                      True   130  0.323  0.515  0.015   0.623   0.815        9.0  10.0
+cut before the day    False  215  0.033  0.153  0.033   0.535   0.753       14.0  31.0
+                      True    88  0.341  0.523  0.000   0.557   0.773       10.5  20.5
+raised before the day False   19  0.000  0.105  0.000   0.421   0.474       31.0  26.0
+                      True     7  0.429  0.571  0.000   0.571   0.571       12.0  40.0
+30% to 70% points
+                              ads   up15    up5   cut5  gone14  gone30  days_left   age
+kind                  mark                                                             
+at first ask          False  2216  0.001  0.023  0.051   0.424   0.644       21.0  13.0
+                      True    233  0.039  0.099  0.060   0.403   0.665       21.0  13.0
+cut before the day    False  1056  0.000  0.024  0.099   0.409   0.634       22.0  38.0
+                      True     93  0.022  0.086  0.108   0.409   0.699       21.0  42.0
+raised before the day False   128  0.008  0.031  0.141   0.359   0.570       26.0  28.5
+                      True     26  0.077  0.077  0.115   0.462   0.538       15.0  21.0
