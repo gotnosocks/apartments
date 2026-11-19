@@ -501,3 +501,31 @@ is one cause of the fall by year and need not be the only one: a bias of the tre
    limits this effect without excluding it (the wait to the next ad may differ by size).
 3. For a renter the table says an apartment advertised at a low rent is longer in coming
    back to the market, which is what a low price should do. No term and no page change.
+
+## Follow-up, 2026-11-19: the main findings on 2025 and 2026 alone (`recent.py`)
+
+No fit and no money spent. The section above says to read the low tail on recent years.
+The note's two findings, split by period:
+
+| Group | 2022 to 2024: ads, low, high, mean gap | 2025 and 2026: ads, low, high, mean gap |
+|---|---|---|
+| Counts as before | 45,773, 5.9%, 3.5%, −0.009 | 56,266, 4.2%, 3.5%, −0.004 |
+| Counts changed | 12,617, 8.9%, 6.9%, −0.006 | 15,205, 6.9%, 6.5%, −0.002 |
+| 1 bath | 47,049, 5.8%, 4.3%, −0.006 | 58,271, 4.2%, 4.0%, −0.002 |
+| 2 baths | 10,081, 8.7%, 4.0%, −0.016 | 12,007, 6.4%, 5.0%, −0.006 |
+| 3 or more baths | 1,259, 15.4%, 4.4%, −0.030 | 1,193, 13.0%, 3.3%, −0.027 |
+| 2 baths, counts as before | 7,393, 7.4%, −0.015 (low, gap) | 8,778, 5.1%, −0.004 |
+| 3 or more, counts as before | 952, 13.0%, −0.024 | 839, 9.9%, −0.015 |
+
+The halves of the buildings are close on every row of 2025 and 2026 (changed counts 6.8%
+and 7.1% low; three or more baths 12.2% and 13.9%).
+
+- Changed counts hold in the recent years, in both tails (6.9% low and 6.5% high against
+  4.2% and 3.5%), with no mean shift: a scale item, as written above.
+- Three or more baths hold: 13% low in 2025 and 2026, 10% among ads with matching counts,
+  mean gap −0.015 to −0.027.
+- Two baths with matching counts are near the overall rate by 2025 and 2026 (5.1% low
+  against about 4.7%, gap −0.004), which agrees with the gap fading by year. All two-bath
+  ads are still at 6.4%, the difference being changed counts.
+- Ads with matching counts and one bath, 46,649 of the 71,471, are 3.9% low in 2025 and
+  2026, so outside the groups above the base model's low tail is not too heavy there.
