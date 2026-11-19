@@ -48,6 +48,9 @@ are in `docs/notes/market-refresh-2026-11-18.md`. Sprint money: $76.35 spent, $2
 - Two follow-ups to that read found no missing term: the doubtful bedroom counts are in the
   text (4 of 11 already flex-marked; a first-line rule adds 6 live ads) and the ads with
   another earlier layout already carry a range mark.
+- `ops/deals-refresh` runs a refresh's dataset chain, market fit and publish (usage in its
+  header). Checked on the Nov 18 build: the datasets step skipped every existing output and
+  the publish step wrote files identical to the live ones.
 - Next free item: sublets with an end date (`docs/TODO.md`).
 
 ### State at 6:45 PM ET on Nov 18, market refresh under way

@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Refresh the Deals table from a new pipeline build: datasets, a market fit, a publish.
+#
+#   ops/deals-refresh datasets [HASH]
+#   ops/deals-refresh fit NAME [HASH]
+#   ops/deals-refresh publish RUN [OUT]
+#
+# Run it from /data1/apartments/serve/master at origin/master. HASH is the hash of a
+# pipeline rows file, as in rows-HASH.parquet, and defaults to the newest rows file. Before
+# `datasets`, collect the open ads and build the pipeline:
+#
+#   ops/streeteasy-collect topup
+#   systemctl --user start apartments-pipeline-build.service
+#
+# datasets  Writes, each from the last and each skipped when it exists:
+#             b0-HASH-alldata                          rentfrontier.b0data, under the GPU lock
+#             b0-HASH-alldata-dense                    rentfrontier.b0trim
+#             b0-HASH-alldata-dense-nyc                rentfrontier.b0nyc, with the newest NJ
+#                                                      registry (a registry older than the
+#                                                      build leaves new NJ buildings in, and
+#                                                      the fit stops at its design)
+#             b0-HASH-alldata-dense-nyc-market         ops/market-dataset, every step but the
+#                                                      backtest; its verify step runs on
+#                                                      every call
+#             b0-HASH-alldata-dense-nyc-market-bedtext rentfrontier.b0bedtext
+# fit       Launches the market fit of MODEL on Modal as run NAME, with the scales held at
+#           SCALES and no scoring. The fit's note, with its predictions, must be on master
+#           first (CLAUDE.md). COMMIT defaults to this checkout's HEAD and must be on
+#           origin/master.
+# publish   Writes the run's texts file, then the Deals files to OUT with BACKTEST as the
+#           backtest. OUT defaults to a staging folder; compare it with the live files
+#           before publishing to /data1/apartments/site/deals.
+#
+# MODEL, BASELINE, SCALES and BACKTEST default to the served pair of 2026-11-18
+# (docs/notes/market-refresh-2026-11-18.md) and can be set in the environment.
+set -euo pipefail
+
+usage() {
+    sed -n '2,7p' "$0" >&2
+    exit 2
+}
+
+step=${1:-}
+[[ -n $step ]] || usage
+shift
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+pipeline=/data1/apartments/pipeline/datasets
+external=/data1/apartments/external
+datasets=/data1/apartments/frontier/datasets
+py=/data1/apartments/venvs/sim-recovery/bin/python
+deals_py=/data1/apartments/venvs/bridge-frontier/bin/python
+scratch=/data1/apartments/tmp/deals-refresh
+model=${MODEL:-drift-building-bedtext-layout-range}
+baseline=${BASELINE:-drift-building-b0-market-67d14e17-n9}
+scales=${SCALES:-base-n9}
+backtest=${BACKTEST:-drift-building-bedtext-layout-range-b0-market-d9028c57-range-j}
+
+newest_hash() {
+    local f
+    f=$(ls -t "$pipeline"/rows-*.parquet | head -1)
+    f=${f##*/rows-}
+    echo "${f%.parquet}"
+}
+
+capped() {
+    systemd-run --user --scope -q -p MemoryMax=6G -p MemorySwapMax=0 -- \
+        env TMPDIR=/data1/apartments/tmp/pipeline/tmp JAX_PLATFORMS=cpu \
+        PYTHONPATH=frontier/src "$@"
+}
+
+case $step in
+datasets)
+    hash=${1:-$(newest_hash)}
+    base=$datasets/b0-$hash-alldata
+    nj=$(ls -d "$external"/registry-nj/* | sort | tail -1)/registry.parquet
+    [[ -e $pipeline/rows-$hash.parquet ]] || { echo "no rows-$hash.parquet" >&2; exit 1; }
+    [[ -e $nj ]] || { echo "no NJ registry at $nj" >&2; exit 1; }
+    echo "build $hash, NJ registry $nj"
+    [[ -e $base ]] || ops/job gpu -x -- systemd-run --user --scope -q \
+        -p MemoryMax=6G -p MemorySwapMax=0 -- \
+        env TMPDIR=/data1/apartments/tmp/pipeline/tmp PYTHONPATH=frontier/src \
+        /data1/apartments/venvs/pipeline/bin/python -m rentfrontier.b0data "$base" \
+        --state /data1/apartments/pipeline/state/pipeline.duckdb
+    echo "== b0data done"
+    [[ -e $base-dense ]] || capped "$py" -m rentfrontier.b0trim "$base" "$base-dense"
+    echo "== b0trim done"
+    [[ -e $base-dense-nyc ]] ||
+        capped "$py" -m rentfrontier.b0nyc "$base-dense" "$base-dense-nyc" --registry "$nj"
+    echo "== b0nyc done"
+    [[ -e $base-dense-nyc-market ]] ||
+        ops/market-dataset "$hash" codes amenities units attrs age market
+    # Runs on every call, so a rerun after a failed check stops here again.
+    ops/market-dataset "$hash" verify
+    echo "== market-dataset done"
+    [[ -e $base-dense-nyc-market-bedtext ]] || capped "$py" -m rentfrontier.b0bedtext \
+        "$base-dense-nyc-market" "$base-dense-nyc-market-bedtext"
+    echo "== datasets done: $base-dense-nyc-market-bedtext"
+    ;;
+fit)
+    name=${1:?usage: ops/deals-refresh fit NAME [HASH]}
+    hash=${2:-$(newest_hash)}
+    commit=${COMMIT:-$(git rev-parse HEAD)}
+    dataset=$datasets/b0-$hash-alldata-dense-nyc-market-bedtext
+    [[ -e $dataset/rows.parquet ]] || { echo "no dataset $dataset" >&2; exit 1; }
+    git merge-base --is-ancestor "$commit" origin/master ||
+        { echo "commit $commit is not on origin/master" >&2; exit 1; }
+    echo "build $hash, commit $commit, run $name"
+    exec ops/modal-fit --outside-budget --gpu H100 --dataset "$dataset" \
+        --input "$pipeline/rows-$hash.parquet" --split market --baseline "$baseline" \
+        "$commit" "$name" "$model" b0 2 200 3600 20 \
+        --seed 1 --level-dof 4 --scales-fixed "$scales" --no-loo --no-heldout
+    ;;
+publish)
+    run=${1:?usage: ops/deals-refresh publish RUN [OUT]}
+    out=${2:-$scratch/$run/staging}
+    registry=${REGISTRY:-$(ls -d "$external"/registry/*-extend | sort | tail -1)/registry.parquet}
+    mkdir -p "$scratch/$run"
+    echo "registry $registry"
+    texts=$scratch/$run/texts.parquet
+    export JAX_PLATFORMS=cpu PYTHONPATH=frontier/src TMPDIR=/data1/apartments/tmp
+    [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"
+    "$deals_py" -m rentfrontier.drift_deals publish "$run" --out "$out" \
+        --registry "$registry" --backtest "$backtest" --texts "$texts"
+    echo "== published to $out"
+    ;;
+*)
+    usage
+    ;;
+esac

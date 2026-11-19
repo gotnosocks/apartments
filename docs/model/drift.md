@@ -384,6 +384,11 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
     --registry REGISTRY --backtest BACKTEST_RUN --heldout LATEST_RUN --texts TEXTS.parquet
 ```
 
+`ops/deals-refresh` chains these for a refresh of the Deals table from a new pipeline
+build: `datasets` writes the market dataset the served model reads, `fit` launches its
+market fit with the held scales, and `publish` writes the texts and the Deals files to a
+staging folder or to the path given.
+
 `texts` reads the pipeline's records file of the newest clean build (about a minute and
 4 GB on thelio) and refuses a build other than the dataset's. Without `--texts` the table
 carries only the cautions the dataset gives, and `meta.json` says the texts were not read.

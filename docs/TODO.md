@@ -246,8 +246,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   (`docs/notes/market-refresh-2026-11-18.md`) found 34.7% of the Nov 9 table closed after
   nine days and 61 of its first 100 uncautioned ads. A refresh is a top-up scrape (about
   100 OxyLabs requests), a pipeline build, the dataset chain with `b0nyc --registry` set to
-  the build's NJ registry, and a held-scales market fit at about $2. The steps are in the
-  note. A script running the chain end to end would take the hand steps out.
+  the build's NJ registry, and a held-scales market fit at about $2. `ops/deals-refresh`
+  runs the datasets, the fit and the publish; each refresh still needs its note with
+  predictions on master before the fit.
 - [ ] Rewrite the text flags the model reads (`features.DESCRIPTION_FLAGS`, copied in
   `b0data.TEXT_FLAGS`). `income_restricted` missed 33 of the 55 income-restricted ads on the
   market of 2026-11-09 (a hyphen in "income-restricted", "income requirements", "HPD",
