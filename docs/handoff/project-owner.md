@@ -27,11 +27,12 @@ subagent's model and effort to be picked by its task.
   from price paths (`docs/notes/raise-caution-2026-11-18/paths.py`). On the 2025-11-10
   backtest, marked ads below the 5% point on the day were raised 15% or more later 42% of
   the time against 4.9%.
-- The caution shows on the Deals page at the next publish (`ops/deals-refresh`); the page
-  itself has not been republished. 686 of the 6,565 ads of the 2026-11-17 table would
-  carry it.
-- Next: the rest of the turnover gradient as a mean term (needs a note with predictions
-  and a fit, about $2), and the market refresh due around Nov 20.
+- The caution is live: the table was republished from `range-m2` and the site deployed at
+  about 11:30 PM ET on Nov 18 (686 `raised` marks; 1,333 cautioned ads in all).
+- The turnover mean term is closed: the held-out history has no gradient
+  (`docs/notes/turnover-history-2026-11-18.md`).
+- Next: the market refresh due around Nov 20 (`ops/deals-refresh`), and the next trait from
+  the held-out history's low misses.
 
 ### State at 10:45 PM ET on Nov 18, after the turnover check on the Deals backtest
 
