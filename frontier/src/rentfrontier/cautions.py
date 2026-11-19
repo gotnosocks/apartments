@@ -66,8 +66,6 @@ from __future__ import annotations
 
 import re
 
-import numpy as np
-
 OFF_MARKET = "TEMPORARILY_OFF_MARKET"
 # The usual rule that a tenant earn forty times the rent, within a sentence of the words
 # "income requirement": an ordinary ad's wording, not a program's.
@@ -126,13 +124,16 @@ def ordered(codes) -> list[str]:
     return [code for code in CODES if code in have]
 
 
-def net_ask(first_ask, page_price, months_free) -> np.ndarray:
-    """True where an ad's page price looks net of free months the record does not code.
+def net_ask(first_ask, page_price, months_free):
+    """A boolean array, true where an ad's page price looks net of free months the record does not code.
 
     A landlord's gross rent is nearly always a round number, and a net rent seldom is. The
     mark needs all of: no coded free months; a first ask that is a multiple of 25; a page
     price below it whose last digit is none of 0, 5 and 9; and a page price within a dollar
     of the first ask less `NET_FREE` months spread over a lease of `NET_LEASES` months."""
+    # The site's tests read this module's codes in an environment with no numpy.
+    import numpy as np
+
     first, page = np.asarray(first_ask, float), np.asarray(page_price, float)
     coded = np.nan_to_num(np.asarray(months_free, float)) > 0
     with np.errstate(invalid="ignore"):
