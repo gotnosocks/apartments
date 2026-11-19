@@ -15,6 +15,23 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 10:45 PM ET on Nov 18, after the turnover check on the Deals backtest
+
+`docs/notes/turnover-low-asks-2026-11-18.md` (no money spent):
+
+- The Deals backtest has S13's turnover gradient. The top quartile holds 173 of the 359
+  first asks below the 5% point, and half of those were raised later by about a fifth
+  (2246 Fulton Street: fifteen ads opened near $2,500, later $3,150).
+- Coded free months and ad text do not mark them. A building flag does: two or more of
+  the past year's ads raised 15% or more above their first ask (428 backtest ads, 86
+  buildings; 22.2% of first asks below the 5% point against 3.0%).
+- Next: check the threshold on a second backtest day (`range-j` is the only Deals-model
+  backtest; an older market backtest such as j9 can serve, since the flag needs places
+  and price paths only), then add the flag as a caution in `cautions.py` and
+  `drift_deals._cautions`, computed from the ads table, with tests. No fit is needed.
+- The rest of the gradient (6.5% low in the top quartile without flagged buildings, +5.5%
+  in buildings with no other ad) is a candidate mean term for a later fit.
+
 ### State at 10:30 PM ET on Nov 18, after the changed-count follow-up
 
 The follow-up section of `docs/notes/history-scan-2026-11-18.md` (no money spent):

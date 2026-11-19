@@ -1,0 +1,93 @@
+flag shares by band, all ads and low ads
+Q1             n  2139 low   81 | furnishe 0.00/0.00 short_te 0.00/0.00 shared_s 0.01/0.00 income_r 0.01/0.01 rent_sta 0.02/0.01 | units med 165/232 | yrs in data med 11.6/11.5 | rate med 0.07/0.08
+Q2             n  2156 low   70 | furnishe 0.00/0.00 short_te 0.00/0.00 shared_s 0.02/0.00 income_r 0.00/0.00 rent_sta 0.03/0.03 | units med 174/155 | yrs in data med 11.4/11.3 | rate med 0.17/0.17
+Q3             n  2150 low   85 | furnishe 0.00/0.00 short_te 0.00/0.00 shared_s 0.03/0.01 income_r 0.00/0.01 rent_sta 0.01/0.01 | units med 70/83 | yrs in data med 11.4/11.6 | rate med 0.30/0.31
+Q4             n  2144 low  151 | furnishe 0.00/0.00 short_te 0.00/0.00 shared_s 0.02/0.05 income_r 0.00/0.00 rent_sta 0.02/0.01 | units med 16/15 | yrs in data med 9.5/8.2 | rate med 0.82/0.96
+none           n   378 low   11 | furnishe 0.00/0.00 short_te 0.00/0.00 shared_s 0.01/0.00 income_r 0.01/0.00 rent_sta 0.02/0.18 | units med 4/4 | yrs in data med 9.1/9.2 | rate med 0.00/0.00
+units unknown  n   379 low   27 | furnishe 0.00/0.00 short_te 0.00/0.00 shared_s 0.03/0.11 income_r 0.01/0.00 rent_sta 0.02/0.00 | units med 0/0 | yrs in data med 2.6/3.7 | rate med nan/nan
+
+low share by years the building has been in the data
+            n     res     low    high
+ageb                                 
+(-1, 1]   925  0.0350  0.0335  0.1103
+(1, 2]    333  0.0056  0.0811  0.0511
+(2, 3]    282 -0.0003  0.0780  0.0709
+(3, 5]    402 -0.0162  0.0896  0.0448
+(5, 8]    841  0.0112  0.0464  0.0702
+(8, 30]  6563  0.0082  0.0411  0.0541
+
+Q4: low share by years in the data
+            n     res     low
+ageb                         
+(-1, 1]   246  0.0192  0.0366
+(1, 2]    166 -0.0095  0.1084
+(2, 3]    127 -0.0218  0.1102
+(3, 5]    121 -0.0373  0.1157
+(5, 8]    232 -0.0080  0.0819
+(8, 30]  1252 -0.0085  0.0615
+
+Q4: low share by rate
+                 n  bld     res     low  units
+rb                                            
+(0.417, 0.6]   742  451  0.0008  0.0553   20.0
+(0.6, 0.9]     420  289 -0.0108  0.0738   11.5
+(0.9, 1.5]     480  241 -0.0064  0.0500   18.0
+(1.5, 3.0]     320  123 -0.0159  0.1031   22.0
+(3.0, 1000.0]  182   58 -0.0252  0.1209    3.0
+
+Q4: low share by residential units
+                 n  bld     res     low    rate
+ub                                             
+(0, 2]         178  109 -0.0177  0.0674  1.6250
+(2, 4]         247  168 -0.0137  0.0972  1.1250
+(4, 9]         424  332 -0.0097  0.0660  0.8333
+(9, 19]        337  226 -0.0084  0.0564  0.6667
+(19, 49]       404  222 -0.0045  0.0619  0.7000
+(49, 199]      419   77  0.0015  0.0692  0.7500
+(199, 100000]  135   11 -0.0148  0.1037  1.0460
+
+Q4 and units unknown: buildings with the most low ads
+                                            low           band  units  opened    yrs                  nb   res  held
+building                                                                                                            
+bridgeview-dumbo                              9             Q4  231.0     738   1.46               DUMBO -0.16    46
+the-seren                                     8  units unknown    0.0     137   3.73          Greenpoint -0.18    20
+9-mc-kibbin-court-brooklyn                    6             Q4    2.0      25   4.76   East Williamsburg -0.39     9
+87-commercial-street-brooklyn                 3             Q4    3.0     322   2.18          Greenpoint -0.18     9
+2246-fulton-street-brooklyn                   3  units unknown    0.0      64   0.45          Ocean Hill -0.21    21
+lawrence-tower                                3             Q4  110.0     106   0.24   Downtown Brooklyn -0.22    54
+96-steuben-street-brooklyn                    3             Q4   62.0      67   9.70        Clinton Hill -0.14     6
+77-commercial-street-brooklyn                 3             Q4    3.0     549   2.15          Greenpoint -0.14     7
+hollingsworth-70-west-37th-street-new_york    3             Q4  380.0     331  11.93       Midtown South -0.11     9
+the-vertex                                    3             Q4   69.0     215   2.41        Williamsburg -0.15     5
+fifty-five                                    3  units unknown    0.0     145   1.13  Financial District -0.16    11
+the-paris-new-york                            3             Q4  197.0     233  11.81     Upper West Side -0.14     4
+1885-atlantic-avenue-brooklyn                 2             Q4   89.0     126   1.34  Stuyvesant Heights -0.15     3
+1112-fulton-street-brooklyn                   2             Q4    3.0       5  11.43  Bedford-Stuyvesant -0.18     5
+the-greenwich-by-rafael-vinoly                2  units unknown    NaN      13   0.32  Financial District -0.18    11
+tribeca-house                                 2             Q4   50.0     284  11.86             Tribeca -0.18    10
+the-stanwix                                   2             Q4  136.0     489   6.95            Bushwick -0.15    13
+85-commercial-street-brooklyn                 2             Q4    3.0     238   2.18          Greenpoint -0.13     7
+fifteen-84                                    2             Q4   35.0      45   0.38  Stuyvesant Heights -0.25     5
+238-east-58-street-new_york                   2             Q4   22.0      58  11.58        Sutton Place -0.13     2
+213-east-37th-street-new_york                 2             Q4   34.0      65   6.01         Murray Hill -0.18     4
+177-concord-street-brooklyn                   2             Q4   23.0      38  11.70   Downtown Brooklyn -0.20     4
+336-east-18-street-new_york                   2             Q4   25.0      32  11.90       Gramercy Park -0.15     2
+mason-gray                                    2  units unknown    0.0     115   1.54       Crown Heights -0.13    11
+otto-greenpoint                               2             Q4    5.0      61   7.41          Greenpoint -0.12     3
+the-sagamore                                  2  units unknown    0.0     122  11.83     Upper West Side -0.13     5
+112-west-15-street-new_york                   1             Q4    9.0       8  11.68             Chelsea -0.30     2
+1200-decatur-street-brooklyn                  1             Q4    8.0      29   3.66            Bushwick -0.23     1
+1261-bushwick-avenue-brooklyn                 1             Q4    3.0       3  10.57            Bushwick -0.16     1
+128-east-35-street-new_york                   1             Q4    6.0       6  11.38         Murray Hill -0.18     1
+203-hart-street-brooklyn                      1             Q4    3.0       9   0.59  Bedford-Stuyvesant -0.20     1
+203-east-33-street-new_york                   1             Q4   20.0      18  11.64            Kips Bay -0.21     1
+202-8-street-brooklyn                         1             Q4   17.0      19  11.94             Gowanus -0.18     3
+2-west-16-street-new_york                     1             Q4   13.0      14  11.38            Flatiron -0.16     4
+212-east-25-street-new_york                   1             Q4   20.0      18  11.78            Kips Bay -0.11     1
+216-west-108-street-new_york                  1             Q4   15.0      33  11.92    Manhattan Valley -0.27     1
+2178-bergen-st-brooklyn                       1  units unknown    0.0      11   4.42       Crown Heights -0.12     1
+20a-starr-street-brooklyn                     1             Q4    3.0       7  10.29            Bushwick -0.27     1
+22-west-77-street-new_york                    1             Q4   42.0      39  10.04     Upper West Side -0.21     2
+227-east-81-street-new_york                   1             Q4   13.0      18  11.63           Yorkville -0.13     2
+
+low Q4 ads: buildings 113 ads 151

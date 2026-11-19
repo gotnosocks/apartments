@@ -1,0 +1,24 @@
+['listing_id', 'audit_id', 'building', 'unit_id', 'neighbourhood', 'price_at', 'latest_ask', 'bedrooms', 'full_baths', 'half_baths', 'latest_day', 'latest_day_how', 'latest_ask_how', 'furnished', 'short_term', 'description_known', 'shared_space', 'income_restricted', 'rent_stabilized', 'status', 'first_day', 'first_ask', 'off_day', 'open', 'final_day', 'bed_text', 'bed_text_fewer', 'bed_text_more', 'bed_flex_at']
+rent column latest_ask
+                n  has_prev  n_prev    chg  chg_q25     gap  gap_lt120   down
+hot    tail                                                                  
+Q4/unk high   127     0.496     0.0  0.161    0.059   433.0      0.190  0.095
+       low    178     0.573     1.0 -0.126   -0.208   336.5      0.265  0.814
+       mid   2218     0.559     1.0  0.012   -0.042   436.0      0.246  0.315
+other  high   444     0.471     0.0  0.236    0.126  1089.0      0.067  0.048
+       low    247     0.704     2.0 -0.048   -0.141   820.0      0.109  0.575
+       mid   6132     0.716     2.0  0.084    0.001   838.0      0.068  0.168
+                n    res    low    chg
+gapb                                  
+(-1, 60]      127 -0.006  0.071 -0.014
+(60, 180]     311 -0.007  0.093 -0.035
+(180, 420]    225 -0.014  0.084  0.009
+(420, 800]    333 -0.012  0.063  0.021
+(800, 99999]  408 -0.002  0.059  0.152
+                 n    res    low    chg
+gapb                                   
+(-1, 60]       129 -0.001  0.031 -0.022
+(60, 180]      339 -0.001  0.068 -0.036
+(180, 420]     464 -0.001  0.037  0.030
+(420, 800]    1263  0.006  0.029  0.042
+(800, 99999]  2579  0.009  0.036  0.184

@@ -1,0 +1,103 @@
+day 2025-11-10 00:00:00+00:00 rows 1763952
+recent training ads 134157
+{'count': 134157.0, 'mean': -0.02, 'std': 0.073, 'min': -0.917, '5%': -0.133, '50%': 0.0, '90%': 0.011, '95%': 0.061, '99%': 0.189, 'max': 8.333}
+
+one ad raised 15%+, 365 days: 1025 ads in 249 buildings
+          n     res     low    high    lowf  raised15
+flag                                                 
+False  8321  0.0115  0.0406  0.0624  0.0272    0.0064
+True   1025 -0.0048  0.0849  0.0507  0.1298    0.1044
+  first asks below 5%:          n  raised15    cut  days
+  flag                             
+  False  226     0.111  0.186  27.0
+  True   133     0.459  0.060  24.0
+  by half:                n    low   lowf  raised15
+  half flag                               
+  0    False  3948  0.043  0.029     0.007
+       True    566  0.072  0.111     0.081
+  1    False  4373  0.038  0.026     0.006
+       True    459  0.100  0.153     0.133
+
+two ads raised 15%+, 365 days: 428 ads in 86 buildings
+          n     res     low    high    lowf  raised15
+flag                                                 
+False  8918  0.0102  0.0433  0.0614  0.0296    0.0074
+True    428 -0.0017  0.0911  0.0537  0.2220    0.2196
+  first asks below 5%:          n  raised15    cut  days
+  flag                             
+  False  264     0.117  0.163  25.5
+  True    95     0.579  0.074  24.0
+  by half:                n    low   lowf  raised15
+  half flag                               
+  0    False  4287  0.045  0.031     0.008
+       True    227  0.088  0.194     0.167
+  1    False  4631  0.042  0.029     0.007
+       True    201  0.095  0.254     0.279
+
+two ads raised 15%+, 730 days: 689 ads in 154 buildings
+          n     res     low    high    lowf  raised15
+flag                                                 
+False  8657  0.0109  0.0419  0.0619  0.0283    0.0070
+True    689 -0.0049  0.0900  0.0508  0.1655    0.1437
+  first asks below 5%:          n  raised15    cut  days
+  flag                             
+  False  245     0.114  0.167  28.0
+  True   114     0.509  0.079  21.5
+  by half:                n    low   lowf  raised15
+  half flag                               
+  0    False  4125  0.043  0.029     0.008
+       True    389  0.090  0.141     0.105
+  1    False  4532  0.041  0.027     0.006
+       True    300  0.090  0.197     0.193
+
+two ads and a tenth of the year's ads raised 15%+: 206 ads in 59 buildings
+          n     res     low    high    lowf  raised15
+flag                                                 
+False  9140  0.0097  0.0446  0.0614  0.0315    0.0081
+True    206  0.0078  0.0825  0.0485  0.3447    0.4175
+  first asks below 5%:          n  raised15    cut  days
+  flag                             
+  False  288     0.108  0.163  25.0
+  True    71     0.775  0.042  31.0
+  by half:                n    low   lowf  raised15
+  half flag                               
+  0    False  4410  0.047  0.034     0.009
+       True    104  0.048  0.250     0.337
+  1    False  4730  0.042  0.029     0.008
+       True    102  0.118  0.441     0.500
+
+two ads raised 8%+, 365 days: 1184 ads in 263 buildings
+          n     res     low    high    lowf  raised15
+flag                                                 
+False  8162  0.0122  0.0381  0.0629  0.0260    0.0064
+True   1184 -0.0077  0.0963  0.0490  0.1242    0.0912
+  first asks below 5%:          n  raised15    cut  days
+  flag                             
+  False  212     0.113  0.198  26.5
+  True   147     0.422  0.054  24.0
+  by half:                n    low   lowf  raised15
+  half flag                               
+  0    False  3937  0.042  0.028     0.007
+       True    577  0.081  0.113     0.081
+  1    False  4225  0.035  0.024     0.006
+       True    607  0.110  0.135     0.100
+
+band by flag (two ads 15%+, 365 days)
+up15_365       False  True 
+band                       
+Q1              2103     36
+Q2              2131     25
+Q3              2124     26
+Q4              1845    299
+none             378      0
+units unknown    337     42
+
+without flagged buildings, by band: low, lowf
+                  n     res     low    lowf
+band                                       
+Q1             2103  0.0219  0.0371  0.0204
+Q2             2131  0.0107  0.0324  0.0197
+Q3             2124  0.0067  0.0395  0.0212
+Q4             1845 -0.0088  0.0650  0.0553
+none            378  0.0553  0.0291  0.0317
+units unknown   337  0.0110  0.0712  0.0593
