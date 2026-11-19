@@ -101,9 +101,9 @@ The outcome is the ad itself ending 15% or more above its first ask.
 | One | 104,961 | 6,543 | 3.5% | 7.2% | 11.2% |
 | Two or more | 98,702 | 2,917 | 13.7% | 20.8% | 7.3% |
 
-Every year from 2015 has the same order. For two or more against none: 14.0% against
-0.41% in 2018, 25.0% against 2.3% in 2020, 6.3% against 0.78% in 2022 (the lowest
-ratio), 20.6% against 0.82% in 2024, 17.3% against 0.73% in 2025 and 17.6% against 0.66%
+Every year from 2015 has the same order. For two or more against none: 1.65% against
+0.43% in 2015 (the smallest ratio), 14.0% against 0.41% in 2018, 25.0% against 2.3% in
+2020, 6.3% against 0.78% in 2022, 20.6% against 0.82% in 2024, 17.3% against 0.73% in 2025 and 17.6% against 0.66%
 in 2026. The raise among raised ads has a median of 24% in flagged buildings.
 
 This version of the flag counts closed ads at their final ask, a little stricter than the
