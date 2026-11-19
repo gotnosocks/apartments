@@ -517,14 +517,15 @@ The note's two findings, split by period:
 | 2 baths, counts as before | 7,393, 7.4%, −0.015 (low, gap) | 8,778, 5.1%, −0.004 |
 | 3 or more, counts as before | 952, 13.0%, −0.024 | 839, 9.9%, −0.015 |
 
-Both halves of the buildings agree on every row of 2025 and 2026 (changed counts 6.8% and
-7.1% low; three or more baths 12.2% and 13.9%).
+The halves of the buildings are close on every row of 2025 and 2026 (changed counts 6.8%
+and 7.1% low; three or more baths 12.2% and 13.9%).
 
 - Changed counts hold in the recent years, in both tails (6.9% low and 6.5% high against
   4.2% and 3.5%), with no mean shift: a scale item, as written above.
 - Three or more baths hold: 13% low in 2025 and 2026, 10% among ads with matching counts,
   mean gap −0.015 to −0.027.
-- Two baths with matching counts are at the overall rate by 2025 and 2026 (5.1% low, gap
-  −0.004), which agrees with the gap fading by year.
-- Ads with matching counts and one bath are under 5% low in 2025 and 2026 (3.9%), so with
-  those items dealt with the base model's low tail is not too heavy in recent years.
+- Two baths with matching counts are near the overall rate by 2025 and 2026 (5.1% low
+  against about 4.7%, gap −0.004), which agrees with the gap fading by year. All two-bath
+  ads are still at 6.4%, the difference being changed counts.
+- Ads with matching counts and one bath, 46,649 of the 71,471, are 3.9% low in 2025 and
+  2026, so outside the groups above the base model's low tail is not too heavy there.
