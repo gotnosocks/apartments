@@ -124,3 +124,33 @@ grid of elpd says only that 0.9 beats 1.0.
   are not a feature of a fresh snapshot.
 - About 10 live ads show a net ask with no coded free months, 3 of them on the first
   page. A caution for them comes next.
+
+## Two follow-ups, at no cost (later on Nov 18)
+
+**The doubtful bedroom counts.** Readers doubted the coded count on 9 `first` ads and 2
+controls, and none of the 11 has the `beds` caution. That caution reads the coded counts
+of the apartment's ads, and these ads' doubt is in their text, which the model's
+`bedtext` columns read. Of the 11, 4 carry `bed_flex_at`, so the model already prices the
+made room. The other 7:
+
+- 4 have text with no stated size to read ("plenty of flexibility to create separate
+  living, sleeping, and work-from-home areas", a railroad layout, a small floor area);
+- 1 states sizes on both sides of the coded count (a "One bedroom Oasis" headline over a
+  "Beautiful Studio" body), which the reader leaves blank by design;
+- 1 says "5 Bedrooms (flexible 5th bedroom)", a flex wording the reader lacks;
+- 1 opens "Gorgeous 1 Bed + Home office" on a coded two-bedroom and then lists the
+  building's sizes ("studio, one-, two-, and three-bedroom residences"). The reader drops
+  every stated size when a text offers sizes of other units.
+
+A reader that trusted a size stated in the first line over a later list would mark 6 more
+of the 6,565 live ads as stating fewer bedrooms (72 are marked now), 3 of them
+uncautioned and 1 in the first 100. That is too few for a fit. The change belongs in the
+next rewrite of the reader, with "flexible Nth bedroom".
+
+**Earlier ads of another layout.** Readers gave this reason on 8 `first` ads and no
+control. `range_share.py` computes the layout-range model's marks for the live table: 7
+of the 8 carry `ad:beds_below_high` or `ad:baths_below_high`, so the model knows the
+apartment's earlier ads coded more rooms and applies its step. Among the first 100
+uncautioned ads 7% carry `ad:beds_below_high` and 3% `ad:baths_below_high`, against 4.3%
+and 1.8% of all 5,471, a difference of about three ads. The controls' zero is 25 ads at
+an expected one. No term is missing here.
