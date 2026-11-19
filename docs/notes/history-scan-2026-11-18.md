@@ -371,3 +371,30 @@ is not in question: the share of free-month ads below the 5% point is 5.1% to 6.
 other ads. The likely reading is that such ads are kept up by a leasing office on its own
 schedule; that is a guess. For Deals nothing changes: a free-month ad's place is computed
 on its net ask, and the outcome evidence for low places rests on ads without free months.
+
+## Follow-up, 2026-11-19: coded fields no earlier check read (`fields.py`)
+
+No fit and no money spent. The 129,861 held-out ads from 2022 on (5.55% below the 5% point,
+4.17% above the 95% point), grouped by each coded field of the ads table that the checks
+above had not read: lease term, square feet given or missing, laundry, heating and cooling,
+pet policy, coded views, coded window exposures, the count of floor plans, values taken from
+text, an ad taken down and put back, and coded conflicts. `fields.log` has every group,
+with the low share in each half of the buildings.
+
+| Field | Groups of 500 ads or more | Low share, smallest to largest | Mean gap, smallest to largest |
+|---|---|---|---|
+| Lease term (coded on 11,472 ads) | 12 months, 13 to 17, 18 or more | 4.7% to 5.9% | −0.010 to +0.002 |
+| Square feet | given (35,062), missing | 5.4% to 6.0% | −0.006 to −0.005 |
+| Laundry | in the unit, in the building | 5.2% to 5.8% | −0.005 to −0.004 |
+| Pet policy | three coded values | 5.0% to 6.0% | −0.007 to −0.004 |
+| Views | eight commonest codings and the rest | 5.3% to 6.8% | −0.008 to −0.004 |
+| Window exposures | eight codings | 3.5% to 7.8% (4.7% to 6.7% in groups over 1,000) | −0.011 to −0.002 |
+| Floor plans | none, one, two | 5.1% to 5.9% | −0.007 to −0.004 |
+| Values from text | none, one | 5.2% to 5.6% | −0.006 to −0.004 |
+
+Furnished, short-term, breaks and conflicts are coded on too few held-out ads to say
+anything (2 to 183 ads). The largest low share in a group over 1,000 ads is 6.8% (views of
+city, skyline and water, 1,977 ads), and it is 8.7% in one half of the buildings and 4.9%
+in the other, so it does not hold. No coded field marks the ads asked far below the
+prediction, which agrees with the text check above: what is left of the low tail is not in
+what an ad codes or says.

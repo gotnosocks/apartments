@@ -1,0 +1,105 @@
+ads 129861 low 0.0555 high 0.0417
+
+ furnished object
+             n     low    high     res  low_h0  low_h1
+v                                                     
+(none)  129859  0.0555  0.0417 -0.0055  0.0551  0.0558
+True         2  0.0000  0.0000 -0.1902     NaN  0.0000
+
+ short_term object
+             n     low    high     res  low_h0  low_h1
+v                                                     
+(none)  118301  0.0558  0.0415 -0.0055  0.0553  0.0562
+False    11560  0.0524  0.0435 -0.0058  0.0526  0.0523
+
+ lease_term float64
+                 n     low    high     res  low_h0  low_h1
+v                                                         
+(11.5, 12.5]  5697  0.0488  0.0412 -0.0054  0.0464  0.0508
+(12.5, 17.5]  4167  0.0593  0.0418 -0.0096  0.0596  0.0590
+(17.5, inf]   1441  0.0472  0.0562  0.0023  0.0523  0.0430
+(5.5, 11.5]    167  0.0599  0.0359  0.0006  0.0759  0.0455
+
+ square_feet float64
+           n     low    high     res  low_h0  low_h1
+v                                                   
+given  35062  0.0597  0.0470 -0.0053  0.0593  0.0600
+none   94799  0.0539  0.0397 -0.0056  0.0536  0.0542
+
+ laundry_type str
+                 n     low    high     res  low_h0  low_h1
+v                                                         
+in_building  50763  0.0522  0.0415 -0.0047  0.0514  0.0530
+in_unit      45332  0.0580  0.0465 -0.0041  0.0594  0.0567
+
+ hvac_type str
+                n     low    high     res  low_h0  low_h1
+v                                                        
+central_ac  42398  0.0584  0.0453 -0.0059  0.0599  0.0569
+mini_split     59  0.0847  0.0508  0.0033  0.0513  0.1500
+ptac           66  0.0909  0.0303 -0.0046  0.0500  0.1087
+room_ac       272  0.0515  0.0478 -0.0046  0.0435  0.0573
+
+ pet_policy str
+                                  n     low    high     res  low_h0  low_h1
+v                                                                          
+allowed_restrictions_unknown  27547  0.0499  0.0439 -0.0038  0.0513  0.0486
+approval_required              4732  0.0545  0.0421 -0.0073  0.0574  0.0518
+not_allowed                    6847  0.0597  0.0388 -0.0066  0.0548  0.0642
+
+ view_exposures object
+                                                                                                        n     low    high     res  low_h0  low_h1
+v                                                                                                                                                
+(other)                                                                                              9293  0.0651  0.0499 -0.0063  0.0643  0.0658
+{"city":null,"courtyard":null,"garden":null,"park":null,"skyline":null,"street":null,"water":null}  74822  0.0549  0.0400 -0.0055  0.0538  0.0560
+{"city":null,"courtyard":null,"garden":null,"park":null,"skyline":true,"street":null,"water":null}   2199  0.0532  0.0391 -0.0068  0.0570  0.0500
+{"city":null,"courtyard":null,"garden":true,"park":null,"skyline":null,"street":null,"water":null}   5982  0.0553  0.0488 -0.0081  0.0542  0.0564
+{"city":true,"courtyard":null,"garden":null,"park":null,"skyline":null,"street":null,"water":null}  22434  0.0526  0.0386 -0.0051  0.0523  0.0528
+{"city":true,"courtyard":null,"garden":null,"park":null,"skyline":true,"street":null,"water":null}   8127  0.0554  0.0481 -0.0037  0.0590  0.0518
+{"city":true,"courtyard":null,"garden":null,"park":null,"skyline":true,"street":null,"water":true}   1977  0.0683  0.0546 -0.0056  0.0873  0.0490
+{"city":true,"courtyard":null,"garden":true,"park":null,"skyline":null,"street":null,"water":null}   3289  0.0550  0.0377 -0.0054  0.0584  0.0519
+{"city":true,"courtyard":null,"garden":true,"park":true,"skyline":true,"street":null,"water":null}   1738  0.0541  0.0535 -0.0037  0.0392  0.0681
+
+ window_exposures object
+                                                          n     low    high     res  low_h0  low_h1
+v                                                                                                  
+(other)                                                1315  0.0669  0.0403 -0.0095  0.0566  0.0743
+{"east":null,"north":null,"south":null,"west":null}  119453  0.0555  0.0423 -0.0054  0.0549  0.0562
+{"east":null,"north":null,"south":null,"west":true}    1312  0.0488  0.0351 -0.0023  0.0559  0.0429
+{"east":null,"north":null,"south":true,"west":null}    3601  0.0555  0.0364 -0.0040  0.0628  0.0494
+{"east":null,"north":null,"south":true,"west":true}     510  0.0784  0.0392 -0.0106  0.0696  0.0886
+{"east":null,"north":true,"south":null,"west":null}    1237  0.0469  0.0348 -0.0097  0.0496  0.0450
+{"east":null,"north":true,"south":true,"west":null}     615  0.0504  0.0504 -0.0037  0.0658  0.0338
+{"east":true,"north":null,"south":null,"west":null}    1334  0.0547  0.0210 -0.0098  0.0612  0.0494
+{"east":true,"north":null,"south":true,"west":null}     484  0.0351  0.0331 -0.0041  0.0217  0.0472
+
+ break_status str
+                         n     low    high     res  low_h0  low_h1
+v                                                                 
+DELISTED                14  0.0714  0.0714 -0.0026  0.0000  0.2000
+IN_CONTRACT             33  0.1212  0.0606  0.0098  0.0556  0.2000
+NO_LONGER_AVAILABLE     81  0.0123  0.0864  0.0019  0.0000  0.0185
+RENTED                  23  0.0435  0.0870  0.0025  0.1000  0.0000
+TEMPORARILY_OFF_MARKET  32  0.0312  0.0312  0.0065  0.0455  0.0000
+
+ floor_plans object
+       n     low    high     res  low_h0  low_h1
+v                                               
+0  74209  0.0586  0.0430 -0.0065  0.0584  0.0589
+1  54015  0.0510  0.0395 -0.0042  0.0504  0.0516
+2   1310  0.0557  0.0527 -0.0035  0.0521  0.0593
+3    327  0.0703  0.0642 -0.0056  0.0500  0.0898
+
+ conflicts object
+        n     low    high     res  low_h0  low_h1
+v                                                
+0  129835  0.0555  0.0417 -0.0055  0.0551  0.0558
+1      24  0.0417  0.0833  0.0059  0.0000  0.0667
+2       2  0.0000  0.0000 -0.1122  0.0000  0.0000
+
+ from_text object
+        n     low    high     res  low_h0  low_h1
+v                                                
+0  116702  0.0560  0.0416 -0.0057  0.0555  0.0563
+1   12827  0.0516  0.0428 -0.0041  0.0519  0.0513
+2     332  0.0331  0.0241 -0.0042  0.0361  0.0301
