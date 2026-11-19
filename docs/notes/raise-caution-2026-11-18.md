@@ -96,9 +96,13 @@ been raised before it. No fit and no money spent.
 | Cut before the day, unmarked | 93 | 3.2% | 17.2% | 55% | 13 |
 | Cut before the day, marked | 53 | 47.2% | 60.4% | 53% | 11 |
 
-An ad cut to a low ask behaves like one that opened low: the same share gone in two weeks
-and about the same share raised, inside marked and unmarked buildings alike. The `raised`
-mark separates both kinds. So the way an ad got low is no feature for the page or the
-model. Ads between the 30% and 70% points are gone in 14 days 41% to 42% of the time with a
-median 21 to 22 days left, so a low ad leaves about twice as fast as an ordinary one,
-which the earlier outcome tables already showed for final asks.
+The 15 ads raised before the day are left out of the table. At these group sizes (53 to
+181 ads) no difference shows between an ad cut to a low ask and one that opened low: the
+shares gone in two weeks are close, and the shares raised later differ by less than their
+sampling error (47.2% against 38.8% in marked buildings on a standard error near 8 points;
+3 of 93 against 11 of 181 in unmarked ones). The `raised` mark separates both kinds. So
+the way an ad got low gives no ground for a feature on the page or in the model; a
+moderate difference is not ruled out. Ads between the 30% and 70% points are gone in 14
+days 40% to 42% of the time with a median 21 to 22 days left, so a low ad leaves about
+twice as fast as an ordinary one, which the earlier outcome tables already showed for
+final asks.
