@@ -421,14 +421,16 @@ building's first training ad to the held-out ad:
 | Over 8 | 99,557 | 5.3% (0.1) | 4.1% | −0.004 | 5.3%, 5.3% |
 
 Buildings under eight years in the data have about one point more of their ads below the
-5% point and a mean gap lower by about 0.005. The same order holds among ads whose counts
+5% point and a mean gap lower by 0.002 to 0.005 (the se are binomial, with no clustering
+by building). The same order holds among ads whose counts
 match the unit's earlier ads (4.8% over eight years against 5.2% to 6.0%) and in buildings
 with 30 or more training ads (5.3% against 6.0% to 7.0%). In the first two years the high
-tail is wider as well (5.3% to 5.8% against 4.1%), which is an interval a little too narrow
-for young buildings as much as a mean set too high.
+tail is wider as well (5.3% to 5.8% against 4.1%), so the interval may be a little too narrow
+for young buildings; among ads with matching counts that widening is small (4.1% against
+3.5%).
 
 The history has nothing like the backtest day's 11%. The young buildings' excess is about
-300 low ads of 7,200 (30,304 ads at about 6.4% against 5.3%), and the mean shift is 0.005
+300 low ads of 7,200 (30,304 ads at about 6.4% against 5.3%), and the mean shift is at most 0.005
 in logs, half a percent of rent. No term: a shift of that size would hardly change the
 Deals page. The interval for young buildings is a candidate for the
 next base refit's scale terms, with the changed-count items above.
