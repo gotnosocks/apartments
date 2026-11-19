@@ -20,15 +20,24 @@ subagent's model and effort to be picked by its task.
 `docs/notes/turnover-low-asks-2026-11-18.md` (no money spent):
 
 - The Deals backtest has S13's turnover gradient. The top quartile holds 173 of the 359
-  first asks below the 5% point, and half of those were raised later by about a fifth
+  first asks below the 5% point. Of the 213 in that quartile and the unknown-units band,
+  53% were raised later, by a median 19%
   (2246 Fulton Street: fifteen ads opened near $2,500, later $3,150).
 - Coded free months and ad text do not mark them. A building flag does: two or more of
   the past year's ads raised 15% or more above their first ask (428 backtest ads, 86
   buildings; 22.2% of first asks below the 5% point against 3.0%).
 - The flag holds on the whole ads table with no model: 13.7% of 98,702 flagged ads ended
   15% or more above their first ask against 0.84% of the rest, in every year from 2015.
+- The window (Ben asked why not the whole history): a longer lookback marks more ads and
+  each mark says less. Two to four / five or more earlier raised ads: one year 9.3% /
+  19.3% raised, whole record 3.4% / 5.7%. Newest raised ad in the last 90 days: 21.7%;
+  over two years old: 0.7%, the base rate. On the 189,607 held-out ads of the latest
+  split the one-year flag goes from 3.2% to 17.0% of first asks 15% or more under the
+  prediction; the whole-record flag from 3.6% to 4.2%.
 - Next: add the flag as a caution in `cautions.py` and `drift_deals._cautions`, computed
-  from the ads table, with tests. No fit is needed.
+  from the ads table, with tests. Choose its count and window (candidates: a raised ad in
+  the last 90 days; two in a year) on half of the buildings and check on the other half.
+  No fit is needed.
 - The rest of the gradient (6.5% low in the top quartile without flagged buildings, +5.5%
   in buildings with no other ad) is a candidate mean term for a later fit.
 

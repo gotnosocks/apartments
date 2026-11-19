@@ -26,12 +26,14 @@ no other ad in two years, and lots whose unit count PLUTO does not give.
 | Q4 | 2,144 | −0.008 (0.003) | 7.0% | 4.8% | 173 (8.1%) | 51.4% | 21 |
 | Units unknown | 379 | +0.010 (0.009) | 7.1% | 6.6% | 40 (10.6%) | 57.5% | 38 |
 
-The gap is the log ask less the log prediction on the backtest day. The gradient is in
+The gap is the log ask less the log prediction on the backtest day. Median days run from
+the ad's opening to its close, or to the frame's last day for ads still open. The gradient is in
 both halves of the buildings and in units with and without a training ad; the slope of the
 gap on the log rate is −0.0087 (se 0.0012). The top quartile and the unknown band hold 213
-of the 359 first asks below the 5% point. Their buildings are small (median 16 units, rate
-0.82) or new large rentals whose lot PLUTO still counts at a few units, and the low share
-is highest in buildings that entered the data one to five years before (10.8% to 11.6%
+of the 359 first asks below the 5% point. Q4's ads are in buildings of a median 16 units
+with a median rate of 0.82 (15 units and 0.96 for its low ads), though size does not carry
+it: Q4's low share is 6.7% in buildings of up to 2 units and 10.4% in those over 199. The
+unknown band has no unit count by definition. The low share is highest in buildings that entered the data one to five years before (10.8% to 11.6%
 inside Q4, against 6.2% for buildings over eight years in the data).
 
 ## What the low asks are
@@ -43,29 +45,35 @@ the building that belongs in the mean, and real low prices.
   day, 16.6% have coded free months against 22.2% of all Q4 ads. Asks ending in a digit
   other than 0, 5 or 9 are 16.6% against 18.0%. Ads with coded free months are no lower
   than the rest overall (2.5 free months or more: gap +0.042).
-- **Ad text says nothing (`turn_texts.py`, `turn-read-codes.csv`).** A Sonnet reader coded
-  60 low and 60 ordinary ads (30% to 70% points) from the two bands, one per building,
-  without the group. Net wording 1 against 1, ground or garden level 13 against 8, flex
-  layouts 6 against 9, new or renovated 29 against 25. No trait separates the groups.
-- **The unit's own last ask (`turn_prev.py`).** Low ads in the two bands with a training ad
-  of the unit ask a median 12.6% under that ad, and 81% are under it by 2% or more
-  (ordinary ads of the bands: +1.2%, 32%). The asks are low against the unit's own record.
+- **Ad text shows no difference at this size (`turn_texts.py`, `turn-read-codes.csv`).** A Sonnet reader coded
+  60 low and 60 ordinary ads (30% to 70% points) from the two bands, one per building within a
+  group (two buildings are in both groups), without knowing the group. Net wording 1 against 1, ground or garden level 13 against 8, flex
+  layouts 6 against 9, new or renovated 29 against 25. At 60 ads a group no trait differs; moderate
+  differences are not ruled out.
+- **The unit's own last ask (`turn_prev.py`).** Of the 178 low ads in the two bands, 57%
+  have a training ad of the unit. They ask a median 0.126 under that ad in logs (about
+  12%), and 81% are under it by 2% or more (ordinary ads of the bands: +1.2%, 32%). The
+  model prices from that ad, so this follows from the low place and is no separate
+  evidence.
 - **What happened next (`turn_raise.py`).** Of the 213 low first asks in the two bands, 112
   (53%) were raised later, by a median 19% (quartiles 10% and 23%). At 2246 Fulton Street
   fifteen ads opened near $2,500 and stood at $3,100 to $3,200 some weeks later, where the
   model's prediction is. Lawrence Tower has sixteen such ads, 555 West 45th Street four
-  ($6,104 to $7,625). Raised and unraised low asks close in the same time (medians 23 and
-  22 days).
+  ($6,104 to $7,625). Raised and unraised low asks have the same median days from opening
+  to the close, or to the frame's last day for ads still open (23 and 22).
 
-So a large part of the low asks in these buildings are opening prices that the lister
-raises by a fifth afterwards. Whether they are net prices put right or teaser prices, a
+So about half of the low first asks in these bands are opening prices that the lister
+raises afterwards, by a median of a fifth. They are spread over 126 buildings; Lawrence
+Tower and 2246 Fulton Street supply 31 of the 112. Part of the link is mechanical: the
+model prices the later ask, so a first ask far below the prediction has likely been raised.
+The flag of the next section, which reads earlier ads only, is the test. Whether they are net prices put right or teaser prices, a
 renter who writes in does not get the opening ask.
 
 ## A building flag from earlier ads (`turn_flag.py`)
 
 The flag uses only ads of the building outside the held-out set, opened in the year
-before the backtest day: an ad counts when its ask on the day is 15% or more above its
-first ask. No rent of the held-out ad enters it.
+before the backtest day: an ad counts when its last ask in the dataset (the ask on the day
+for ads still open) is 15% or more above its first ask. No rent of the held-out ad enters it.
 
 | Flag | Ads (buildings) | First asks below the 5% point | Of those, raised 15% or more later | Below the 5% point on the day |
 |---|---|---|---|---|
