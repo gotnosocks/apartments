@@ -36,7 +36,13 @@ are in `docs/notes/market-refresh-2026-11-18.md`. Sprint money: $76.35 spent, $2
 - The backlog caution for a text count differing from the record is closed: with the model
   reading the text's count, none of the 169 marked uncautioned ads of the Nov 9 table was
   in its first 100.
-- Not yet done on the new table: the expert read of its lowest ads (`docs/expert-reads.md`).
+- The expert read of the new table is done (`docs/notes/first-page-read-2026-11-18.md`): the
+  first 100 uncautioned ads carry apartment traits at the mid-table rate (39% against 36%),
+  so no new term. They differ in price cuts (22 against 1) and in source: 3 of 100 from a
+  landlord's feed against 12 of 25 controls. Open from it, both in `docs/TODO.md`: a caution
+  for a net ask with no coded free months (about 10 live ads, 3 on the first page) and a
+  width by source (about +140 elpd, give or take 50, on held-out feed ads by a free check,
+  $4 to fit, not launched). Stale owner ads need no caution: none in the live table.
 - Next free item: sublets with an end date (`docs/TODO.md`).
 
 ### State at 6:45 PM ET on Nov 18, market refresh under way
