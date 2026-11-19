@@ -242,11 +242,12 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
 **From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
 of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.
 
-- [ ] A new market snapshot and refit. The Deals list is the market of 2026-11-09, scraped
-  once on 2026-11-10, and goes stale as ads close. The three fits of the served model
-  (`drift-building --level-dof 4`: latest split, market, backtest; three containers of
-  two chains each, pooled) cost $33.02 on 2026-11-10, each container running 50 to 52 minutes. Launch
-  the first container of a new commit alone, then the rest.
+- [ ] Refresh the market snapshot every few days. The refresh of 2026-11-18
+  (`docs/notes/market-refresh-2026-11-18.md`) found 34.7% of the Nov 9 table closed after
+  nine days and 61 of its first 100 uncautioned ads. A refresh is a top-up scrape (about
+  100 OxyLabs requests), a pipeline build, the dataset chain with `b0nyc --registry` set to
+  the build's NJ registry, and a held-scales market fit at about $2. The steps are in the
+  note. A script running the chain end to end would take the hand steps out.
 - [ ] Rewrite the text flags the model reads (`features.DESCRIPTION_FLAGS`, copied in
   `b0data.TEXT_FLAGS`). `income_restricted` missed 33 of the 55 income-restricted ads on the
   market of 2026-11-09 (a hyphen in "income-restricted", "income requirements", "HPD",
@@ -274,14 +275,6 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   no coded value, 85,051 of them before 2020, counting weeks at 4 to the month as the coded
   field does. `ask_basis_text` gives the text's word on the listed price: net on 82,720 of those
   rows, gross on 917.
-- [ ] A caution for an ad whose text gives another bedroom or bath count than its record.
-  Three of the first 40 ads shown on the morning of 2026-11-10 were of this kind (655
-  Hart St 2F, 329 Decatur St 1I, 2246 Fulton St 5G) and one of the afternoon's (1390
-  Madison St 1). A plain pattern was read and dropped: of 573 market ads whose text names
-  only counts that differ from the record's, 10 of 80 read described the apartment
-  itself (the note, "Cautions, round two"). A rule has to tell the apartment's own line
-  from the building's mix of units. The real ones, somewhere between 40 and 125 at the
-  sample's rate, are worth it.
 - [x] Studio-coded ads that are not studios. Of the 292,286 studio-coded training ads of
   the latest split, 1,596 in 908 buildings name two to five bedrooms in a text that never
   says "studio" (25 of 40 read were whole apartments, 11 studios), and 4,517 in 1,701
