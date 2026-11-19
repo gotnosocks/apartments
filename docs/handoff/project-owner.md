@@ -15,6 +15,24 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 11:15 PM ET on Nov 18, after the `raised` caution
+
+`docs/notes/raise-caution-2026-11-18.md` (no money spent; $23.65 of the $100 left):
+
+- `cautions.raised` marks an ad when another unit of its building has an ad opened in the
+  past 365 days standing 15% or more above its first ask. The rule was chosen on half of
+  the held-out history's buildings; on the other half 52% of marked low first asks were
+  raised against 13%.
+- A backtest dataset keeps each open ad's FINAL ask. An ask on the backtest day has to come
+  from price paths (`docs/notes/raise-caution-2026-11-18/paths.py`). On the 2025-11-10
+  backtest, marked ads below the 5% point on the day were raised 15% or more later 42% of
+  the time against 4.9%.
+- The caution shows on the Deals page at the next publish (`ops/deals-refresh`); the page
+  itself has not been republished. 686 of the 6,565 ads of the 2026-11-17 table would
+  carry it.
+- Next: the rest of the turnover gradient as a mean term (needs a note with predictions
+  and a fit, about $2), and the market refresh due around Nov 20.
+
 ### State at 10:45 PM ET on Nov 18, after the turnover check on the Deals backtest
 
 `docs/notes/turnover-low-asks-2026-11-18.md` (no money spent):

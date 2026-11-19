@@ -1,0 +1,33 @@
+backtest day 2025-11-10 open ads 9346 with an ask on the day 9346
+ask on the day differs from the final ask 3025
+marked 1051 buildings 258
+                                         group  marked  ads  buildings  up15   up5  cut5
+                                           all    True 1051        258 0.107 0.207 0.070
+                                           all   False 8295       4521 0.005 0.033 0.093
+                     at or below the first ask    True  968        251 0.111 0.216 0.061
+                     at or below the first ask   False 7928       4430 0.005 0.033 0.089
+                           below the 10% point    True  225         87 0.333 0.520 0.009
+                           below the 10% point   False  575        485 0.037 0.143 0.026
+                            below the 5% point    True  157         67 0.420 0.592 0.013
+                            below the 5% point   False  283        253 0.049 0.141 0.028
+ below the 5% point, at or below the first ask    True  151         67 0.417 0.596 0.013
+ below the 5% point, at or below the first ask   False  274        245 0.051 0.142 0.029
+            below the 5% point, already raised    True    6          4 0.500 0.500 0.000
+            below the 5% point, already raised   False    9          9 0.000 0.111 0.000
+below the 15% point, at or below the first ask    True  274        108 0.299 0.489 0.015
+below the 15% point, at or below the first ask   False  812        675 0.028 0.124 0.027
+share of ads below the 5% point that are marked 0.357
+                               ads  up15
+building                                
+lawrence-tower                  20    17
+2246-fulton-street-brooklyn     17    14
+bridgeview-dumbo                 9     0
+87-commercial-street-brooklyn    6     1
+9-mc-kibbin-court-brooklyn       6     0
+lorimer-house                    5     4
+the-vertex                       4     0
+casa-hope                        4     1
+fulton-greene                    4     4
+555-west-45-street               4     4
+1875-atlantic-avenue-brooklyn    4     0
+pacific-house                    3     0

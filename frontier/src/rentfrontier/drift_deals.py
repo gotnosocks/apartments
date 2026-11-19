@@ -114,6 +114,38 @@ def _ads(ads: Path, listing_ids) -> pd.DataFrame:
     return a.set_index("listing_id").reindex(pd.Index(listing_ids).astype(str))
 
 
+def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
+    """`cautions.raised` for the held-out rows, on the dataset's market day. A market
+    dataset has one row per ad at its ask on that day, so every row's `latest_ask` is
+    knowable then. A backtest dataset keeps each open ad's final ask (`final` true), which
+    was not knowable on the day, so there an open ad counts at its first ask and marks no
+    building. First asks and opening days come from `ads`. A first ask is gross and
+    `latest_ask` is net of free months, so an ad with free months needs a larger rise to
+    count: the rule can miss such an ad and cannot mark one wrongly."""
+    near = frame.building.isin(set(frame.building[held])).to_numpy()
+    f = frame[near]
+    a = _ads(ads, f.listing_id)
+    first = a.first_ask.to_numpy(float)
+    ask = f.latest_ask.to_numpy(float)
+    if final:
+        ask = np.where(np.asarray(held, bool)[near], first, ask)
+
+    def naive(days):
+        return pd.DatetimeIndex(pd.to_datetime(np.asarray(days), utc=True)).tz_localize(
+            None
+        )
+
+    marks = cautions_module.raised(
+        f.building.to_numpy(),
+        f.unit_id.to_numpy(),
+        naive(a.first_day),
+        first,
+        ask,
+        naive(frame.price_at).max(),
+    )
+    return marks[np.asarray(held, bool)[near]]
+
+
 def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
     """Each held-out ad's own description (`descriptions.record_descriptions`) from the
     checked records file `records`, by default the pipeline's newest clean build. A build
@@ -138,10 +170,11 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
 
 
 def _cautions(
-    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net, raised
 ) -> tuple[list, int | None]:
     """Each held-out row's caution codes, and how many of the rows have a text (None
-    without `texts`). `net` marks the rows `cautions.net_ask` found. `texts` must be the table `texts` wrote for the build whose ads file
+    without `texts`). `net` marks the rows `cautions.net_ask` found and `raised` those
+    `cautions.raised` found. `texts` must be the table `texts` wrote for the build whose ads file
     has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
@@ -180,8 +213,8 @@ def _cautions(
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
     out = []
-    for text, income, beds, grew, away, netted in zip(
-        described, flagged, varied, more, off, net
+    for text, income, beds, grew, away, netted, rose in zip(
+        described, flagged, varied, more, off, net, raised
     ):
         codes = cautions_module.from_text(text)
         # The dataset's flag stands in only where there is no text to read.
@@ -189,6 +222,7 @@ def _cautions(
         codes += ["income"] * bool(income and unread) + ["beds"] * bool(beds)
         codes += ["rooms_up"] * bool(grew)
         codes += ["net_ask"] * bool(netted)
+        codes += ["raised"] * bool(rose)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
     return out, with_text
@@ -219,6 +253,7 @@ def deals(
         texts,
         _manifest(run_dir)["ads_sha256"],
         cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
+        _raised(frame, held, ads, bool(_manifest(run_dir).get("backtest"))),
     )
     out = pd.DataFrame(
         {
