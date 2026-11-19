@@ -1,0 +1,33 @@
+backtest open ads 9346 fewer rooms 462 of them cautioned already 176
+
+first ask below the 5% point
+  fewer rooms, no caution          ads   286 low   15 ( 5.2%) cut   0.0% raised  46.7% median days 14
+  fewer bedrooms, no caution       ads   219 low   12 ( 5.5%) cut   0.0% raised  33.3% median days 14
+  fewer baths, no caution          ads   104 low    9 ( 8.7%) cut   0.0% raised  55.6% median days 21
+  rooms_up, no other caution       ads   317 low   19 ( 6.0%) cut  31.6% raised  21.1% median days 23
+  no caution, counts as previous   ads  8276 low  295 ( 3.6%) cut  12.9% raised  43.7% median days 26
+  another caution                  ads   467 low   30 ( 6.4%) cut  20.0% raised  33.3% median days 32
+
+first ask below the 10% point
+  fewer rooms, no caution          ads   286 low   25 ( 8.7%) cut   8.0% raised  28.0% median days 16
+  fewer bedrooms, no caution       ads   219 low   20 ( 9.1%) cut   5.0% raised  20.0% median days 14
+  fewer baths, no caution          ads   104 low   14 (13.5%) cut  14.3% raised  35.7% median days 22
+  rooms_up, no other caution       ads   317 low   30 ( 9.5%) cut  33.3% raised  20.0% median days 22
+  no caution, counts as previous   ads  8276 low  496 ( 6.0%) cut  16.3% raised  37.5% median days 28
+  another caution                  ads   467 low   53 (11.3%) cut  17.0% raised  37.7% median days 25
+
+first ask below the 20% point
+  fewer rooms, no caution          ads   286 low   53 (18.5%) cut  22.6% raised  22.6% median days 21
+  fewer bedrooms, no caution       ads   219 low   45 (20.5%) cut  22.2% raised  17.8% median days 21
+  fewer baths, no caution          ads   104 low   22 (21.2%) cut  22.7% raised  31.8% median days 22
+  rooms_up, no other caution       ads   317 low   58 (18.3%) cut  36.2% raised  25.9% median days 24
+  no caution, counts as previous   ads  8276 low 1001 (12.1%) cut  20.2% raised  28.1% median days 31
+  another caution                  ads   467 low   92 (19.7%) cut  20.7% raised  29.3% median days 26
+
+all places
+  fewer rooms, no caution          cut  38.8% raised  11.5% median days 42
+  fewer bedrooms, no caution       cut  39.7% raised  11.9% median days 38
+  fewer baths, no caution          cut  35.6% raised  11.5% median days 38
+  rooms_up, no other caution       cut  41.3% raised  12.3% median days 38
+  no caution, counts as previous   cut  42.5% raised   9.9% median days 50
+  another caution                  cut  35.8% raised  11.1% median days 42
