@@ -15,6 +15,30 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at 9:15 PM ET on Nov 18, Deals refreshed
+
+Deals reads the market of 2026-11-18 from `range-m2`
+(`drift-building-bedtext-layout-range-b0-market-9f7ed6ec-range-m2`, gate passed, $2.05),
+with `range-j` as its backtest: 6,565 ads, 1,086 cautioned. Results and scored predictions
+are in `docs/notes/market-refresh-2026-11-18.md`. Sprint money: $76.35 spent, $23.65 left.
+
+- The datasets are `b0-c1761f182246962c-alldata-dense-nyc` and its `-market` and
+  `-market-bedtext` copies under `/data1/apartments/frontier/datasets`, with the registry
+  `registry/20261119-9f7ed6e-extend` and the texts in
+  `/data1/apartments/tmp/refresh-20261118/texts-m2.parquet`. The Nov 9 Deals files are in
+  `/data1/apartments/tmp/po-deals-live-before-refresh`.
+- A refresh must run `b0nyc` with `--registry` set to the NJ registry of the same pipeline
+  build (#1443). With the default snapshot of Oct 19, 12 new NJ rows stayed in and the first
+  launch stopped at its design step.
+- Nine days closed 34.7% of the Nov 9 table and 61 of its first 100 uncautioned ads. A
+  refresh every few days keeps the first page current. Each one costs about $2 and
+  about 100 OxyLabs requests.
+- The backlog caution for a text count differing from the record is closed: with the model
+  reading the text's count, none of the 169 marked uncautioned ads of the Nov 9 table was
+  in its first 100.
+- Not yet done on the new table: the expert read of its lowest ads (`docs/expert-reads.md`).
+- Next free item: sublets with an end date (`docs/TODO.md`).
+
 ### State at 6:45 PM ET on Nov 18, market refresh under way
 
 With no free check left on the low outliers, the next backlog item is a new market

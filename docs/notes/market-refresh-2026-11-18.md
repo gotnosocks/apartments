@@ -64,4 +64,47 @@ anything else.
 
 ## Results
 
-To be filled in after the fit.
+Deals has read `range-m2` since 9:00 PM ET on Nov 18: 6,565 ads open on 2026-11-18, with
+`range-j` as the backtest. The live files of the Nov 9 table are kept in
+`/data1/apartments/tmp/po-deals-live-before-refresh`. `score.py` in
+`docs/notes/market-refresh-2026-11-18/` prints the counts below from the two tables and
+the new ads file.
+
+**A failed first launch.** The first launch of `range-m2` stopped 44 seconds in, at the
+design step, for $0.10: 12 open ads in 11 Hoboken and Jersey City buildings had no
+registry point. `b0nyc` set NJ rows aside by the NJ registry of Oct 19, and those buildings
+were first scraped after it. The `verify` step builds the design on 10% of buildings and
+none of the 11 was in the draw. I moved the NYC, market and bedtext datasets to
+`/data1/apartments/tmp/refresh-20261118/superseded`, rebuilt the NYC dataset against the
+NJ registry the pipeline build wrote (`registry-nj/20261119-9f7ed6e`, which holds every
+building of the Oct 19 snapshot and 12 more), and rebuilt the other two from it. The 12
+rows went out, which left 6,565 open ads. #1443 gives `b0nyc` a
+`--registry` option and has `verify` place every building.
+
+**Predictions scored.**
+
+| Prediction | Result | Verdict |
+| --- | --- | --- |
+| Scrape and build without a failed region, latest `first_day` 2026-11-18 | no failed region; the build finished at 7:23 PM ET after 20 minutes; latest first day 2026-11-18 | held |
+| 6,200 to 7,400 open ads | 6,565 (5,977 ACTIVE, 588 TEMPORARILY_OFF_MARKET) | held |
+| 10% to 30% of the 6,774 Nov 9 ads closed | 2,350, 34.7% (939 RENTED, 594 NO_LONGER_AVAILABLE, 466 DELISTED, 348 IN_CONTRACT, 3 in review) | missed, above |
+| 25 to 50 of the first 100 uncautioned Nov 9 ads closed | 61 | missed, above |
+| Gate passes in one container; sweep 0.32 to 0.37 s; $1.90 to $2.20 | worst R-hat 1.0061 (`beta[unit:log_size_rel]`), least bulk ESS 757 (`beta[bed=0:full>=2]`); 0.354 s a sweep; $2.05, plus $0.10 for the failed launch | held |
+| Same-ask ads in both tables: Spearman of places at least 0.98 | 0.9904 on 3,293 ads | held |
+| At least 85 of each 100 of the old lowest tenth stay in the new lowest tenth | 93.6 of 100 (308 of 329) | held |
+| Cautioned share 15% to 20% | 1,086 of 6,565, 16.5% | held |
+
+**The closings.** I set the range for closings from the backtest's 14-day rate for new ads
+and then argued an open ad is older than a new one, which should have pushed the range up
+and did not push it far enough. Over nine days 34.7% of the table closed. The ads the
+model placed lowest closed faster: 46.2% of the lowest tenth of uncautioned ads (258 of
+559), and 61 of the first 100. A list nine days old had lost most of its first page, so
+the refresh interval matters more for the ads a renter reads first than the overall rate
+suggests.
+
+**Asks that moved.** Of the 4,391 ads in both tables, 1,098 have another ask: the page
+price is lower on 932 of them and the free months differ on 245. The median change is
+3.0%.
+
+**Cautions in the new table.** `off_market` 588, `beds` 292, `rooms_up` 285, `income` 63,
+`takeover` 15, `owners_only` 1, `not_home` 1.
