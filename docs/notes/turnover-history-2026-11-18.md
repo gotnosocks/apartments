@@ -17,15 +17,16 @@ the 189,647 held-out ads of the latest-split run `l2bt`, using the turnover colu
 | Q4 | 47,584 | −0.0051 (0.0004) | 6.4% | 5.4% |
 | Units unknown | 4,540 | −0.0029 (0.0016) | 6.9% | 6.2% |
 
-The bands differ by at most 0.35 points and have no order: the lowest and highest quartiles
-have the same gap. The same holds in each period (to 2019, 2020 to 2021, 2022 to 2023,
-from 2024) and in both halves of the buildings. The one band that moves is buildings with
+The bands differ by at most 0.0035 in the log gap and the gradient is not monotone: the
+lowest and highest quartiles have the same gap. No period has a monotone gradient either,
+and differences stay under 0.01 (to 2019, 2020 to 2021, 2022 to 2023,
+from 2024), nor has either half of the buildings. The one band that moves is buildings with
 no other ad in two years, +0.017 in 2020 and 2021 and −0.022 in 2022 and 2023, which is
 the market's swing in those years and no turnover effect.
 
-So the backtest's gradient belongs to its sample. A backtest holds the ads open on one day
-at their final asks, and ads that stay open are the slow ones; in a building where few
-units come up, an ad open on a given day is more often one asking too much. A mean term
-for turnover would fit that sample and has no support in the history. No fit is proposed.
+So the backtest's gradient probably belongs to its sample. A backtest holds the ads open
+on one day at their final asks, and ads that stay open are the slow ones; in a building
+where few units come up, an ad open on a given day may more often be one asking too much.
+That cause is untested. Either way a mean term for turnover has no support in the history. No fit is proposed.
 High-turnover buildings do hold more low first asks, and the `raised` caution
 (`docs/notes/raise-caution-2026-11-18.md`) covers the part that is raised later.
