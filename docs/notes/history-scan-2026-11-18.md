@@ -403,3 +403,34 @@ unit (5.8% against 5.2% in the building). No group over 1,000 ads has a low shar
 about a fifth above the overall rate in both halves of the buildings. These are small
 shifts and no field marks the ads asked far below the prediction, which agrees with the
 text check above: little of what is left of the low tail is in what an ad codes or says.
+
+## Follow-up, 2026-11-19: buildings new to the data (`bage.py`)
+
+No fit and no money spent. On the one backtest day the low share was highest in buildings
+that entered the data one to five years before
+(`docs/notes/turnover-low-asks-2026-11-18.md`: 10.8% to 11.6% inside the top turnover
+quartile). The same split on the 129,861 held-out ads from 2022 on, by years from the
+building's first training ad to the held-out ad:
+
+| Years in the data | Ads | Below the 5% point (se) | Above the 95% point | Mean gap | Low share by half of the buildings |
+|---|---|---|---|---|---|
+| Up to 1 | 1,516 | 6.9% (0.7) | 5.8% | −0.010 | 5.5%, 8.2% |
+| 1 to 2 | 2,379 | 6.5% (0.5) | 5.3% | −0.006 | 6.6%, 6.5% |
+| 2 to 5 | 8,500 | 6.1% (0.3) | 4.3% | −0.009 | 6.0%, 6.2% |
+| 5 to 8 | 17,909 | 6.5% (0.2) | 4.1% | −0.009 | 6.6%, 6.4% |
+| Over 8 | 99,557 | 5.3% (0.1) | 4.1% | −0.004 | 5.3%, 5.3% |
+
+Buildings under eight years in the data have about one point more of their ads below the
+5% point and a mean gap lower by 0.002 to 0.005 (the se are binomial, with no clustering
+by building). The same order holds among ads whose counts
+match the unit's earlier ads (4.8% over eight years against 5.2% to 6.0%) and in buildings
+with 30 or more training ads (5.3% against 6.0% to 7.0%). In the first two years the high
+tail is wider as well (5.3% to 5.8% against 4.1%), so the interval may be a little too narrow
+for young buildings; among ads with matching counts that widening is small (4.1% against
+3.5%).
+
+The history has nothing like the backtest day's 11%. The young buildings' excess is about
+300 low ads of 7,200 (30,304 ads at about 6.4% against 5.3%), and the mean shift is at most 0.005
+in logs, half a percent of rent. No term: a shift of that size would hardly change the
+Deals page. The interval for young buildings is a candidate for the
+next base refit's scale terms, with the changed-count items above.
