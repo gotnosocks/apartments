@@ -45,8 +45,8 @@
 #             inputs.json that points every constant above at the new snapshots.
 #   backtest  The same command with `--as-of $ASOF` writes
 #             b0-HASH-alldata-dense-nyc-asof-ASOFDAY.
-#   verify    For each of the two datasets (the backtest is skipped when it was not
-#             built), a check counts statuses and open rows, sorts
+#   verify    For each of the two datasets (either is skipped when not built; exits
+#             nonzero when neither exists), a check counts statuses and open rows, sorts
 #             the open rows by whether their unit or building has training ads, measures
 #             each snapshot's coverage of the open rows, places every building with
 #             `whitened_zones.sites_of` and stops when a building has no registry point,
@@ -226,10 +226,11 @@ building_age.main([str(out)])
         capped -m rentfrontier.market "$src" "$backtest" --ads "$ads" --as-of "$asof" "${inputs[@]}"
         ;;
     verify)
+        checked=0
         for d in "$market" "$backtest"; do
-            # A refresh that keeps an earlier backtest builds the market dataset alone.
-            [[ $d != "$backtest" || -e $d/rows.parquet ]] ||
-                { echo "verify: no $d, skipped"; continue; }
+            # A market-only refresh or backtest-only run builds one of the two datasets.
+            [[ -e $d ]] || { echo "verify: no $d, skipped"; continue; }
+            checked=$((checked + 1))
             capped -c '
 import sys, json
 from pathlib import Path
@@ -295,6 +296,7 @@ print(f"design on {fraction:.0%} of buildings: {len(sub)} rows, {int(held[on].su
 print("non-finite design values", int((~np.isfinite(d.x)).sum()), "non-finite y on training rows", int((~np.isfinite(d.y[~held[on]])).sum()))
 ' "$d" "$fraction"
         done
+        [[ $checked -gt 0 ]] || { echo "verify: neither $market nor $backtest exists" >&2; exit 1; }
         ;;
     *)
         echo "unknown step $step" >&2

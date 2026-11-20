@@ -387,9 +387,14 @@ python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/si
 ```
 
 `ops/deals-refresh` chains these for a refresh of the Deals table from a new pipeline
-build: `datasets` writes the market dataset the served model reads, `fit` launches its
-market fit with the held scales, and `publish` writes the texts and the Deals files to a
-staging folder or to the path given.
+build: `datasets` writes the market dataset the served model reads, `backtest-datasets`
+finishes the as-of `ASOF` (default `2025-11-10`) backtest dataset from an existing
+`ops/market-dataset` as-of dataset, `fit` and `backtest-fit` launch the held-scales Modal
+fits (`base-n9` on the market dataset, `base-j9` on the backtest dataset), and `publish`
+writes the texts and the Deals files to a staging folder or to the path given. Set
+`CLOSING_RAISE=1` (default `0`) to run `rentfrontier.b0closingraise` between
+`ops/market-dataset` and `rentfrontier.b0bedtext` so the dataset and fit steps use
+`...-closingraise-bedtext`.
 
 `texts` reads the pipeline's records file of the newest clean build (about a minute and
 4 GB on thelio) and refuses a build other than the dataset's. Without `--texts` the table
