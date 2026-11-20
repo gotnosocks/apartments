@@ -455,6 +455,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "rooms_up": 0,
             "net_ask": 0,
             "raised": 0,
+            "thin_level": 0,
             "off_market": 1,
         },
         "ads_with_text": 3,
@@ -530,3 +531,46 @@ def test_raised_marks_the_held_out_ads_of_a_building_with_a_raised_ad(tmp_path):
     # Out of a backtest the raised ad marks the building's other ads and not itself.
     got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
     assert got.tolist() == [False, True, True, False]
+
+
+def test_thin_level_reads_the_runs_levels_and_the_training_rows(tmp_path, monkeypatch):
+    from rentfrontier import drift_diagnostics
+
+    run, ads, reg = _run(tmp_path)
+    # The tiny run keeps no building levels: no row is marked and nothing is refused.
+    frame, _, held = drift_deals._held_frame(run)
+    assert drift_deals._thin(run, frame, held).tolist() == [False] * 4
+    z = dict(np.load(run / "posterior.npz"))
+    np.savez(run / "posterior.npz", **z, **{"kept/bld": np.zeros((2, 50, 3))})
+    levels = pd.DataFrame(
+        {"level": [0.5, 0.5, 0.2]}, index=pd.Index(["a", "c", "b"], name="building")
+    )
+    seen = {}
+
+    def fake(run_dir, record, buildings):
+        seen["buildings"] = list(buildings)
+        return levels, ""
+
+    monkeypatch.setattr(drift_diagnostics, "levels", fake)
+    # Held-out listings 2, 3, 4, 6 in buildings a, b, b, c. Buildings a and c have a high
+    # level on one and no training ad; b's level is under the line.
+    assert drift_deals._thin(run, frame, held).tolist() == [True, False, False, True]
+    assert seen["buildings"] == ["a", "a", "b", "b", "b", "c"]
+    table = drift_deals.deals(run, ads, reg).set_index("listing_id")
+    assert table.cautions.to_dict() == {
+        "2": ["thin_level"],
+        "3": [],
+        "4": [],
+        "6": ["thin_level"],
+    }
+    # A held-out row's ask changes no mark: the level and the count are the fit's.
+    frame.loc[held, "latest_ask"] = 1.0
+    assert drift_deals._thin(run, frame, held).tolist() == [True, False, False, True]
+    # Six training ads in building a lift its mark.
+    more = pd.concat([frame[~held].iloc[[0]]] * 5 + [frame], ignore_index=True)
+    grown = np.r_[np.zeros(5, bool), held]
+    assert drift_deals._thin(run, more, grown).tolist() == [False, False, False, True]
+    # Levels the run keeps and this machine can't match to buildings are refused.
+    monkeypatch.setattr(drift_diagnostics, "levels", lambda *a: (None, "no order"))
+    with pytest.raises(SystemExit, match="no thin_level caution for r: no order"):
+        drift_deals._thin(run, frame, held)

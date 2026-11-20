@@ -1,0 +1,88 @@
+== l2bt: within-rule, days by low or not, by half
+hi4          half A ads   412 bld  119 below5 0.141 above95 0.061 gap -0.026 med -0.021 | low n  57 d14 0.35 med  23.0 | not low d14 0.25 med  31.0
+hi4          half B ads   413 bld  135 below5 0.136 above95 0.046 gap -0.027 med -0.016 | low n  56 d14 0.11 med  68.5 | not low d14 0.23 med  46.0
+hi3_thin5    half A ads    90 bld   83 below5 0.144 above95 0.022 gap -0.070 med -0.058 | low n  13 d14 0.31 med  30.0 | not low d14 0.22 med  32.5
+hi3_thin5    half B ads    99 bld   85 below5 0.141 above95 0.020 gap -0.056 med -0.032 | low n  14 d14 0.21 med  81.5 | not low d14 0.21 med  38.0
+hi3_other5   half A ads   124 bld  113 below5 0.161 above95 0.040 gap -0.066 med -0.053 | low n  20 d14 0.35 med  28.5 | not low d14 0.20 med  33.0
+hi3_other5   half B ads   122 bld  105 below5 0.139 above95 0.025 gap -0.058 med -0.046 | low n  17 d14 0.18 med  77.0 | not low d14 0.19 med  39.0
+hi15_other5  half A ads   376 bld  327 below5 0.120 above95 0.043 gap -0.034 med -0.029 | low n  45 d14 0.44 med  22.0 | not low d14 0.33 med  25.0
+hi15_other5  half B ads   384 bld  332 below5 0.091 above95 0.044 gap -0.018 med -0.015 | low n  35 d14 0.20 med  64.0 | not low d14 0.28 med  30.0
+hi3_6to20    half A ads   151 bld   91 below5 0.119 above95 0.060 gap -0.027 med -0.022 | low n  18 d14 0.33 med  36.0 | not low d14 0.24 med  34.0
+hi3_6to20    half B ads   171 bld   96 below5 0.099 above95 0.047 gap -0.034 med -0.023 | low n  17 d14 0.06 med  68.0 | not low d14 0.23 med  34.0
+hi4_21plus   half A ads   297 bld   30 below5 0.131 above95 0.067 gap -0.013 med -0.011 | low n  38 d14 0.37 med  18.0 | not low d14 0.26 med  30.0
+hi4_21plus   half B ads   271 bld   37 below5 0.118 above95 0.059 gap -0.015 med -0.008 | low n  32 d14 0.12 med  50.0 | not low d14 0.24 med  43.0
+hi4_le20     half A ads   115 bld   89 below5 0.165 above95 0.043 gap -0.060 med -0.042 | low n  19 d14 0.32 med  41.0 | not low d14 0.21 med  39.5
+hi4_le20     half B ads   142 bld   98 below5 0.169 above95 0.021 gap -0.050 med -0.033 | low n  24 d14 0.08 med 106.0 | not low d14 0.20 med  48.0
+hi3to4_le5   half A ads    45 bld   42 below5 0.133 above95 0.000 gap -0.067 med -0.053 | low n   6 d14 0.33 med  22.5 | not low d14 0.23 med  30.0
+hi3to4_le5   half B ads    42 bld   39 below5 0.095 above95 0.024 gap -0.055 med -0.019 | low n   4 d14 0.50 med  21.5 | not low d14 0.22 med  31.0
+rest(not hi4) half A ads 91655 below5 0.058 gap -0.004 low d14 0.50 med 15.0 | not low d14 0.48 med 15.0
+rest(not hi4) half B ads 97167 below5 0.059 gap -0.004 low d14 0.50 med 15.0 | not low d14 0.49 med 15.0
+                                               n    gap  low  level  ntr
+building                                                                
+the-strathmore-400-east-84th-street-new_york  51  0.029    6  0.432  381
+102-thames-street-brooklyn                    34 -0.018    8  0.531  441
+the-pierrepont                                30 -0.005    1  0.423  203
+anagram-columbus-circle                       29  0.030    0  0.432  149
+222-w80                                       24  0.031    3  0.511  135
+1-west-85-street-new_york                     19 -0.104    7  0.408  113
+the-lucida                                    19 -0.035    3  0.536  145
+soho-55-thompson                              18 -0.057    3  0.480  157
+920-park                                      16 -0.003    2  0.488  102
+one57-condominium                             15 -0.001    2  0.664   79
+25-and-80-columbus                            15 -0.015    4  0.656  138
+one-central-park-west                         14 -0.011    2  0.424  100
+985-5-avenue-new_york                         13 -0.074    2  0.580   86
+103-east-86-street-new_york                   12 -0.011    1  0.460   93
+baccarat-hotel-residences                     12  0.013    1  0.517   90
+hi4 buildings 254 building-mean gap (equal weight) -0.053 share of buildings with mean gap<0 0.669
+hi3_thin5 {0: {'size': 83, 'mean': -0.076, 'median': -0.062}, 1: {'size': 85, 'mean': -0.062, 'median': -0.032}}
+hi4_le20 {0: {'size': 89, 'mean': -0.071, 'median': -0.039}, 1: {'size': 98, 'mean': -0.058, 'median': -0.044}}
+hi4_21plus {0: {'size': 30, 'mean': -0.02, 'median': -0.015}, 1: {'size': 37, 'mean': -0.02, 'median': -0.015}}
+       listing_id                      building  year  bedrooms  latest_ask  level  n_bld  n_other    gap    cdf   days  half
+1862      1538830  1241-bedford-avenue-brooklyn  2015       0.0      3500.0  0.303      1        0 -0.609  0.406   22.0     1
+129498    4734105   218-east-50-street-new_york  2025       4.0      9950.0  0.393      4        2 -0.572  0.001    8.0     1
+122537    4670002    650-east-6-street-new_york  2025       2.0     10000.0  0.525      1        0 -0.518  0.191   46.0     0
+107815    4497110   168-lefferts-place-brooklyn  2025       1.0      3500.0  0.517      3        2 -0.404  0.017   30.0     0
+7007      1993605     70-hester-street-new_york  2017       1.0     23000.0  0.975      1        0 -0.401  0.458    8.0     1
+73419     4035497   131-east-65-street-new_york  2023       4.0     30000.0  0.667      3        2 -0.398  0.003  133.0     0
+7469      2027074     1-east-62-street-new_york  2017       1.0     12500.0  1.144      5        4 -0.359  0.002  327.0     1
+141650    4833705     1110-park-avenue-new_york  2025       3.0     25000.0  0.485      3        1 -0.357  0.152   69.0     1
+130664    4742852    198-west-9-street-brooklyn  2025       1.0      2400.0  0.380      4        3 -0.356  0.011    3.0     1
+111259    4534905   219-east-44-street-new_york  2024       3.0     16500.0  0.304      1        0 -0.346  0.083   48.0     1
+89176     4270791   554-east-82-street-new_york  2024       3.0     12500.0  0.525      3        2 -0.319  0.010  121.0     1
+33429     3148955   221-west-77-street-new_york  2020       3.0     12000.0  0.444      5        4 -0.311  0.007   77.0     1
+53019     3579936   258-west-88-street-new_york  2021       3.0      9000.0  0.524      4        3 -0.280  0.005    3.0     0
+98742     4398959   64-washington-mews-new_york  2024       3.0     25000.0  1.108      3        2 -0.272  0.035  124.0     1
+165728    5030517     35-spring-street-new_york  2026       3.0     29500.0  0.554      3        2 -0.270  0.011    6.0     0
+1653      1516537     177-canal-street-new_york  2015       1.0      5700.0  0.408      4        3 -0.263  0.258   41.0     1
+71661     4001643   117-east-65-street-new_york  2023       5.0     24000.0  0.313      2        0 -0.263  0.013  254.0     1
+183226    5137677   163-east-62-street-new_york  2026       2.0     11500.0  0.436      5        4 -0.249  0.019   41.0     0
+67877     3924611    15-east-82-street-new_york  2022       2.0     14000.0  0.560      1        0 -0.245  0.218    3.0     0
+3998      1745578    42-east-74-street-new_york  2016       2.0     12500.0  0.508      1        0 -0.242  0.226  167.0     1
+26664     2954420         116-1-avenue-new_york  2020       4.0      5999.0  0.325      2        1 -0.241  0.030   27.0     0
+111561    4538700    12-west-17-street-new_york  2024       2.0     13000.0  0.509      3        1 -0.239  0.039   60.0     1
+82115     4169926                    the-justin  2023       3.0     11500.0  0.456      5        4 -0.235  0.021  196.0     1
+65774     3881785     523-hicks-street-brooklyn  2022       3.0     15995.0  0.514      5        4 -0.234  0.032    6.0     1
+52242     3563357    143-prince-street-new_york  2021       2.0     18500.0  0.642      5        2 -0.233  0.037   86.0     1
+== backtest range-j
+hi4         half A ads   45 bld  20 below5 0.133 vs 0.044 gap -0.014 vs +0.010 | lowest tenth n  7 d14 0.00 vs 0.21 meddays 60.0 vs 31.0 cut 0.00 vs 0.15 raised 0.14 vs 0.39 | all d14 0.00 meddays 81.0
+hi4         half B ads   34 bld  26 below5 0.088 vs 0.045 gap -0.039 vs +0.010 | lowest tenth n  5 d14 0.00 vs 0.29 meddays 39.0 vs 24.0 cut 0.20 vs 0.19 raised 0.20 vs 0.35 | all d14 0.06 meddays 78.0
+hi4         half * ads   79 bld  46 below5 0.114 vs 0.045 gap -0.025 vs +0.010 | lowest tenth n 12 d14 0.00 vs 0.25 meddays 60.0 vs 26.0 cut 0.08 vs 0.17 raised 0.17 vs 0.37 | all d14 0.03 meddays 81.0
+hi3_thin5   half A ads    6 bld   6 below5 0.000 vs 0.045 gap +0.033 vs +0.010 | lowest tenth n  0 d14 nan vs 0.21 meddays nan vs 32.0 cut nan vs 0.15 raised nan vs 0.38 | all d14 0.00 meddays 122.0
+hi3_thin5   half B ads    6 bld   6 below5 0.167 vs 0.046 gap -0.164 vs +0.010 | lowest tenth n  2 d14 0.00 vs 0.29 meddays 29.5 vs 24.0 cut 0.50 vs 0.19 raised 0.50 vs 0.34 | all d14 0.17 meddays 43.0
+hi3_thin5   half * ads   12 bld  12 below5 0.083 vs 0.045 gap -0.066 vs +0.010 | lowest tenth n  2 d14 0.00 vs 0.25 meddays 29.5 vs 26.0 cut 0.50 vs 0.17 raised 0.50 vs 0.36 | all d14 0.08 meddays 72.5
+hi3_other5  half A ads    7 bld   7 below5 0.000 vs 0.045 gap +0.008 vs +0.010 | lowest tenth n  0 d14 nan vs 0.21 meddays nan vs 32.0 cut nan vs 0.15 raised nan vs 0.38 | all d14 0.00 meddays 116.0
+hi3_other5  half B ads    8 bld   8 below5 0.125 vs 0.046 gap -0.116 vs +0.010 | lowest tenth n  2 d14 0.00 vs 0.29 meddays 29.5 vs 24.0 cut 0.50 vs 0.19 raised 0.50 vs 0.34 | all d14 0.12 meddays 39.0
+hi3_other5  half * ads   15 bld  15 below5 0.067 vs 0.045 gap -0.058 vs +0.010 | lowest tenth n  2 d14 0.00 vs 0.25 meddays 29.5 vs 26.0 cut 0.50 vs 0.17 raised 0.50 vs 0.36 | all d14 0.07 meddays 50.0
+hi3         half A ads  112 bld  43 below5 0.054 vs 0.045 gap +0.014 vs +0.010 | lowest tenth n  8 d14 0.00 vs 0.21 meddays 70.0 vs 31.0 cut 0.00 vs 0.15 raised 0.25 vs 0.38 | all d14 0.02 meddays 74.0
+hi3         half B ads   57 bld  44 below5 0.088 vs 0.045 gap -0.006 vs +0.010 | lowest tenth n  7 d14 0.00 vs 0.30 meddays 29.0 vs 24.0 cut 0.29 vs 0.19 raised 0.29 vs 0.35 | all d14 0.04 meddays 70.0
+hi3         half * ads  169 bld  87 below5 0.065 vs 0.045 gap +0.007 vs +0.010 | lowest tenth n 15 d14 0.00 vs 0.25 meddays 60.0 vs 26.0 cut 0.13 vs 0.17 raised 0.27 vs 0.37 | all d14 0.02 meddays 72.0
+hi3_le20    half A ads   31 bld  16 below5 0.194 vs 0.044 gap -0.053 vs +0.010 | lowest tenth n  6 d14 0.00 vs 0.21 meddays 70.0 vs 31.5 cut 0.00 vs 0.15 raised 0.17 vs 0.38 | all d14 0.00 meddays 88.0
+hi3_le20    half B ads   18 bld  17 below5 0.056 vs 0.046 gap -0.059 vs +0.010 | lowest tenth n  4 d14 0.00 vs 0.29 meddays 24.5 vs 24.0 cut 0.25 vs 0.19 raised 0.50 vs 0.34 | all d14 0.06 meddays 39.0
+hi3_le20    half * ads   49 bld  33 below5 0.143 vs 0.045 gap -0.056 vs +0.010 | lowest tenth n 10 d14 0.00 vs 0.25 meddays 60.0 vs 26.0 cut 0.10 vs 0.17 raised 0.30 vs 0.36 | all d14 0.02 meddays 80.0
+== live deals 6502 uncautioned 4896
+hi4 ads 43 bld 30 first300 6 first300 uncautioned 7 already cautioned 9
+hi3_thin5 ads 16 bld 14 first300 2 first300 uncautioned 3 already cautioned 4
+hi5 ads 29 bld 18 first300 4 first300 uncautioned 6 already cautioned 6
+hi3 ads 118 bld 67 first300 13 first300 uncautioned 16 already cautioned 20
+hi3_le20 ads 29 bld 23 first300 5 first300 uncautioned 7 already cautioned 8

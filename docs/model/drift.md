@@ -351,8 +351,14 @@ ads carry more than one bedroom count, `rooms_up` when the ad codes more bedroom
 the apartment's previous ad, `net_ask` when the page price is a round first ask less free
 months the record does not code, `raised` when the building has another ad
 opened in the past year that stands 15% or more above its first ask, an earlier ad of the
-same apartment included (`docs/notes/raise-caution-2026-11-18.md`), `off_market` from the
-ad's status. A caution changes
+same apartment included (`docs/notes/raise-caution-2026-11-18.md`), `thin_level` when the
+posterior mean of the building's level is over 0.3 and the building has 5 or fewer ads among
+the fit's training rows, `off_market` from the ad's status. A high level on so few ads often
+comes from a few odd rows, and the model then prices the building's next ad too high: on the
+latest split, 14.4% and 14.1% of such held-out ads in the two halves of the buildings were
+below the model's 5% point, against 5.9% of all (`docs/notes/thin-level-caution-2026-11-20.md`).
+The level and the count come from the training rows, so the ad's own ask enters neither.
+A caution changes
 no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
 many. The text patterns were kept or dropped by reading every ad on the market that a
 wider set of candidates matched (237 ads); the kept income pattern matches 55 ads, the 55
@@ -383,7 +389,8 @@ only what was knowable on the backtest day: an open ad counts at its first ask. 
 is published without its ads' texts, so the cautions read from a text (`income` by wording,
 `not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
 cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
-knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). The same holds
+knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). `thin_level`
+reads the backtest fit's own levels and training rows, so it is as of the day (12 ads). The same holds
 for `first_net`, which reads the final page price and months free
 (`docs/notes/first-net-concessions-2026-11-20.md`). The page shows
 the full table for now.

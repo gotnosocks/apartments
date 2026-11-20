@@ -147,6 +147,30 @@ def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
     return marks[np.asarray(held, bool)[near]]
 
 
+def _thin(run_dir: Path, frame, held) -> np.ndarray:
+    """`cautions.thin_level` for the held-out rows: the posterior mean of the level of
+    each one's building (`drift_diagnostics.levels`) and the building's count of training
+    rows, one per ad and every unit's. A held-out row's ask reaches neither. A run that
+    keeps no building levels marks none; one whose levels can't be matched to its
+    buildings is refused."""
+    # `drift_diagnostics` imports this module.
+    from . import drift_diagnostics
+
+    held = np.asarray(held, bool)
+    if "kept/bld" not in np.load(run_dir / "posterior.npz"):
+        return np.zeros(int(held.sum()), bool)
+    record = json.loads((run_dir / "result.json").read_text())
+    building = frame.building.astype(str)
+    levels, why = drift_diagnostics.levels(run_dir, record, building.to_numpy())
+    if levels is None:
+        raise SystemExit(f"no thin_level caution for {run_dir.name}: {why}")
+    counts = building[~held].value_counts()
+    b = building[held]
+    return cautions_module.thin_level(
+        b.map(levels.level).to_numpy(float), b.map(counts).fillna(0).to_numpy(float)
+    )
+
+
 def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
     """Each held-out ad's own description (`descriptions.record_descriptions`) from the
     checked records file `records`, by default the pipeline's newest clean build. A build
@@ -171,11 +195,11 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
 
 
 def _cautions(
-    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net, raised
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net, raised, thin
 ) -> tuple[list, int | None]:
     """Each held-out row's caution codes, and how many of the rows have a text (None
-    without `texts`). `net` marks the rows `cautions.net_ask` found and `raised` those
-    `cautions.raised` found. `texts` must be the table `texts` wrote for the build whose ads file
+    without `texts`). `net` marks the rows `cautions.net_ask` found, `raised` those
+    `cautions.raised` found and `thin` those `cautions.thin_level` found. `texts` must be the table `texts` wrote for the build whose ads file
     has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
@@ -214,8 +238,8 @@ def _cautions(
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
     out = []
-    for text, income, beds, grew, away, netted, rose in zip(
-        described, flagged, varied, more, off, net, raised
+    for text, income, beds, grew, away, netted, rose, bare in zip(
+        described, flagged, varied, more, off, net, raised, thin
     ):
         codes = cautions_module.from_text(text)
         # The dataset's flag stands in only where there is no text to read.
@@ -224,6 +248,7 @@ def _cautions(
         codes += ["rooms_up"] * bool(grew)
         codes += ["net_ask"] * bool(netted)
         codes += ["raised"] * bool(rose)
+        codes += ["thin_level"] * bool(bare)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
     return out, with_text
@@ -247,6 +272,7 @@ def _run_cautions(
         market["ads_sha256"],
         cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
         _raised(frame, held, ads, bool(market.get("backtest"))),
+        _thin(run_dir, frame, held),
     )
 
 

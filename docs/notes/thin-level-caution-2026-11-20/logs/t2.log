@@ -1,0 +1,136 @@
+listings 2229067 nodesc 4054 empty 10541 short 56829 placeword 26935 com 67004 commercial 1310
+text
+.              18434
+x               3513
+-               2808
+2br             2388
+1br             2287
+studio          1521
+rennit          1471
+3br             1298
+n/a             1195
+apt              989
+apartment        700
+no fee           664
+a                663
+draft            663
+*                590
+rented           550
+1                439
+1 bed            438
+1bd              384
+2 bed            380
+..               367
+desc             332
+1 bedroom        331
+h                319
+new              286
+2bd              284
+4br              274
+2 bedroom        271
+info             253
+...              238
+m                212
+delisted         210
+s                194
+description      189
+3 bed            178
+b                170
+coming soon      166
+2 br             162
+info.            158
+no fee!          157
+
+==== live: training rows 1894766, text matched 1894766, description_known false 70570
+         rows  nodesc  empty  short  placeword  placeholder  ph_over1_5x  ph_bed01_over1_5x  commercial  com_over2x
+year                                                                                                               
+2013     2054      35      8      3          3           14            1                  1           9           4
+2014    91741    1087    156    636        152          829           50                 22         109          52
+2015   111604     958     61    653        236          798           54                 21         118          62
+2016   120691     580     50    913        123          987           39                  6          61          37
+2017   146815       6    219   2047        791         2279           71                 28         113          14
+2018   170004       0    153   3126       1651         3310          128                 49          83           7
+2019   156691       0    161   3538       1707         3713          178                 75          53          14
+2020   205436       0    120   6440       2379         6644          566                270          42           9
+2021   201202       0    114   6094       3494         6331          720                410          40           7
+2022   128251       0     91   3829       1810         3944          280                149          29           4
+2023   144327       0    398   5040       2724         5465          335                142          20           4
+2024   148829       0   2216   5280       2723         7507          306                138          30           3
+2025   145740       0   2237   6944       3705         9197          326                146          37           4
+2026   121381       0   2197   6012       2182         8222          246                116          15           2
+all   1894766    2666   8181  50555      23680        59240         3300               1573         759         223
+empty rows 8181 buildings 2366 median ratio to nb-year-bed median 0.99 share >1.5x 0.048 share >2x 0.01 share <0.67x 0.032 | all rows >1.5x 0.071
+short rows 50555 buildings 8102 median ratio to nb-year-bed median 0.98 share >1.5x 0.057 share >2x 0.009 share <0.67x 0.042 | all rows >1.5x 0.071
+placeword rows 23680 buildings 4391 median ratio to nb-year-bed median 0.98 share >1.5x 0.059 share >2x 0.011 share <0.67x 0.047 | all rows >1.5x 0.071
+commercial rows 759 buildings 456 median ratio to nb-year-bed median 1.32 share >1.5x 0.394 share >2x 0.294 share <0.67x 0.03 | all rows >1.5x 0.071
+empty by bedrooms: {0.0: {'size': 9296, 'median': 1.02}, 1.0: {'size': 19804, 'median': 0.97}, 2.0: {'size': 18218, 'median': 0.97}, 3.0: {'size': 9034, 'median': 0.99}, 4.0: {'size': 2536, 'median': 1.0}, 5.0: {'size': 352, 'median': 1.0}}
+
+==== back: training rows 1754606, text matched 1754606, description_known false 60803
+         rows  nodesc  empty  short  placeword  placeholder  ph_over1_5x  ph_bed01_over1_5x  commercial  com_over2x
+year                                                                                                               
+2013     2054      35      8      3          3           14            1                  1           9           4
+2014    91744    1089    157    637        152          831           51                 23         109          52
+2015   111619     959     61    655        236          800           54                 21         122          65
+2016   120698     581     50    914        123          988           39                  6          61          37
+2017   146824       6    219   2051        794         2283           71                 28         114          15
+2018   170044       0    154   3151       1675         3337          136                 57          83           7
+2019   156724       0    162   3552       1719         3733          187                 84          53          14
+2020   205598       0    120   6564       2427         6768          606                310          42           9
+2021   201290       0    114   6150       3508         6388          738                429          42           7
+2022   128398       0     91   3897       1832         4015          315                184          29           4
+2023   144644       0    410   5211       2759         5649          449                256          20           4
+2024   149199       0   2314   5531       2764         7856          508                340          30           3
+2025   125770       0   2057   6116       3273         8183          375                229          32           2
+all   1754606    2670   5917  44432      21265        50845         3530               1968         746         223
+empty rows 5917 buildings 1929 median ratio to nb-year-bed median 1.0 share >1.5x 0.061 share >2x 0.015 share <0.67x 0.034 | all rows >1.5x 0.072
+short rows 44432 buildings 7581 median ratio to nb-year-bed median 0.99 share >1.5x 0.07 share >2x 0.013 share <0.67x 0.042 | all rows >1.5x 0.072
+placeword rows 21265 buildings 4133 median ratio to nb-year-bed median 0.99 share >1.5x 0.068 share >2x 0.014 share <0.67x 0.047 | all rows >1.5x 0.072
+commercial rows 746 buildings 442 median ratio to nb-year-bed median 1.32 share >1.5x 0.401 share >2x 0.299 share <0.67x 0.031 | all rows >1.5x 0.072
+empty by bedrooms: {0.0: {'size': 9216, 'median': 1.04}, 1.0: {'size': 16857, 'median': 0.97}, 2.0: {'size': 15093, 'median': 0.97}, 3.0: {'size': 7375, 'median': 0.99}, 4.0: {'size': 2041, 'median': 1.0}, 5.0: {'size': 263, 'median': 1.0}}
+
+==== l2bt held-out ads (own ad not placeholder/commercial), by what the building's training ads hold
+all                                half A ads  88747 bld 17916 gap -0.0046 med -0.0039 below5 0.059 above95 0.044
+all                                half B ads  93812 bld 17793 gap -0.0042 med -0.0038 below5 0.059 above95 0.048
+all                                half * ads 182559 bld 35709 gap -0.0044 med -0.0038 below5 0.059 above95 0.046
+building holds commercial          half A ads    981 bld   135 gap -0.0060 med -0.0028 below5 0.085 above95 0.050
+building holds commercial          half B ads   1706 bld   148 gap -0.0063 med -0.0053 below5 0.066 above95 0.050
+building holds commercial          half * ads   2687 bld   283 gap -0.0062 med -0.0045 below5 0.073 above95 0.050
+  commercial, building n<=5        half A ads      6 bld     6 gap -0.0009 med -0.0092 below5 0.000 above95 0.000
+  commercial, building n<=5        half B ads      7 bld     7 gap -0.0652 med +0.0370 below5 0.143 above95 0.143
+  commercial, building n<=5        half * ads     13 bld    13 gap -0.0355 med -0.0073 below5 0.077 above95 0.077
+  commercial, n<=20                half A ads     73 bld    44 gap -0.0107 med +0.0008 below5 0.096 above95 0.041
+  commercial, n<=20                half B ads     89 bld    54 gap -0.0112 med -0.0098 below5 0.034 above95 0.056
+  commercial, n<=20                half * ads    162 bld    98 gap -0.0110 med -0.0067 below5 0.062 above95 0.049
+  commercial share>=20%            half A ads     15 bld     9 gap +0.0136 med -0.0033 below5 0.000 above95 0.000
+  commercial share>=20%            half B ads     15 bld    13 gap -0.0252 med +0.0133 below5 0.067 above95 0.133
+  commercial share>=20%            half * ads     30 bld    22 gap -0.0058 med +0.0050 below5 0.033 above95 0.067
+  commercial at >2x median         half A ads    234 bld    47 gap -0.0053 med -0.0035 below5 0.060 above95 0.030
+  commercial at >2x median         half B ads    344 bld    53 gap -0.0100 med -0.0079 below5 0.052 above95 0.032
+  commercial at >2x median         half * ads    578 bld   100 gap -0.0081 med -0.0065 below5 0.055 above95 0.031
+  commercial >2x, n<=20            half A ads     39 bld    20 gap -0.0108 med +0.0008 below5 0.103 above95 0.051
+  commercial >2x, n<=20            half B ads     43 bld    26 gap -0.0233 med -0.0328 below5 0.047 above95 0.047
+  commercial >2x, n<=20            half * ads     82 bld    46 gap -0.0173 med -0.0095 below5 0.073 above95 0.049
+building holds placeholder         half A ads  27484 bld  3238 gap -0.0039 med -0.0035 below5 0.063 above95 0.050
+building holds placeholder         half B ads  29582 bld  3217 gap -0.0037 med -0.0034 below5 0.064 above95 0.054
+building holds placeholder         half * ads  57066 bld  6455 gap -0.0038 med -0.0034 below5 0.063 above95 0.052
+  short/word placeholder           half A ads  22698 bld  2849 gap -0.0048 med -0.0040 below5 0.064 above95 0.049
+  short/word placeholder           half B ads  23178 bld  2846 gap -0.0038 med -0.0039 below5 0.065 above95 0.057
+  short/word placeholder           half * ads  45876 bld  5695 gap -0.0043 med -0.0039 below5 0.064 above95 0.053
+  placeholder at >1.5x             half A ads   4547 bld   341 gap -0.0021 med -0.0027 below5 0.067 above95 0.057
+  placeholder at >1.5x             half B ads   5948 bld   360 gap -0.0026 med -0.0029 below5 0.067 above95 0.061
+  placeholder at >1.5x             half * ads  10495 bld   701 gap -0.0024 med -0.0028 below5 0.067 above95 0.059
+  short placeholder at >1.5x       half A ads   3747 bld   286 gap -0.0037 med -0.0037 below5 0.069 above95 0.057
+  short placeholder at >1.5x       half B ads   3993 bld   299 gap -0.0024 med -0.0038 below5 0.070 above95 0.070
+  short placeholder at >1.5x       half * ads   7740 bld   585 gap -0.0030 med -0.0038 below5 0.070 above95 0.063
+  placeholder >1.5x, n<=20         half A ads    115 bld    70 gap -0.0088 med -0.0081 below5 0.078 above95 0.035
+  placeholder >1.5x, n<=20         half B ads    101 bld    74 gap -0.0265 med -0.0114 below5 0.129 above95 0.069
+  placeholder >1.5x, n<=20         half * ads    216 bld   144 gap -0.0171 med -0.0109 below5 0.102 above95 0.051
+  placeholder share>=20%           half A ads   1867 bld   632 gap -0.0055 med -0.0037 below5 0.065 above95 0.045
+  placeholder share>=20%           half B ads   1960 bld   642 gap -0.0068 med -0.0053 below5 0.063 above95 0.047
+  placeholder share>=20%           half * ads   3827 bld  1274 gap -0.0062 med -0.0045 below5 0.064 above95 0.046
+  placeholder share>=20%, >1.5x    half A ads     31 bld    25 gap -0.0097 med -0.0165 below5 0.032 above95 0.032
+  placeholder share>=20%, >1.5x    half B ads     84 bld    38 gap -0.0190 med -0.0130 below5 0.095 above95 0.048
+  placeholder share>=20%, >1.5x    half * ads    115 bld    63 gap -0.0165 med -0.0139 below5 0.078 above95 0.043
+hi3_thin5 ads 189 with commercial in bld 4 placeholder 10 either 14
+hi4_le20 ads 257 with commercial in bld 6 placeholder 23 placeholder>1.5x 16 either 29
+hi3_thin5 gap with flagged bld -0.1695592469244073 12 without -0.055837922469812395

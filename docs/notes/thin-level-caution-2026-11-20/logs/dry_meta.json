@@ -1,0 +1,40 @@
+{
+  "model": "drift-building-bedtext-layout-range",
+  "run": "drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3",
+  "gate": {
+    "market": {
+      "passes": true,
+      "max_rhat": 1.0058604570943384,
+      "min_ess": 604.6198915082864,
+      "chains": 2
+    },
+    "backtest": {
+      "passes": true,
+      "max_rhat": 1.0042012913436775,
+      "min_ess": 675.8017158557916,
+      "chains": 2
+    }
+  },
+  "scoring_day": "2026-11-20",
+  "ads": 6502,
+  "cautions": {
+    "ads": 1618,
+    "by_code": {
+      "income": 58,
+      "not_home": 1,
+      "owners_only": 1,
+      "takeover": 15,
+      "beds": 286,
+      "rooms_up": 286,
+      "net_ask": 6,
+      "raised": 655,
+      "thin_level": 16,
+      "off_market": 585
+    },
+    "ads_with_text": 6500
+  },
+  "published": "2026-11-20T22:47:22Z",
+  "backtest_run": "drift-building-bedtext-layout-range-b0-market-d9028c57-range-j",
+  "validation_sha256": "2a7d07a0b22e5b0b37eeda3c3b54f9c0a643cb2ee6f1dd1535c53418d5502dba",
+  "deals_sha256": "5be2d7d7620fef883f65d365ff6628898d4a3403ca02f9ffa720159222d005e5"
+}

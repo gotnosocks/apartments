@@ -39,6 +39,15 @@ own latest text and from the dataset's rows.
   units, closed before the ad opened; the count here also takes raised ads still open,
   which one backtest day supports, and earlier ads of the same apartment, which the
   history test did not cover (`docs/notes/raise-caution-2026-11-18.md`).
+- `thin_level`: the model's level for the ad's building is high and rests on few ads:
+  the posterior mean of the building's level is over 0.3 and the building has 5 or fewer
+  ads among the fit's training rows (`thin_level`). A level like that often comes from a
+  few odd rows, and the model then prices the building's next ad too high. On the latest
+  split's 189,647 held-out ads, with the buildings cut in two halves, 14.4% and 14.1% of
+  such ads (90 and 99 ads) were below the model's 5% point against 5.9% of all, and their
+  mean gap was -0.070 and -0.056 (`docs/notes/thin-level-caution-2026-11-20.md`). The
+  level is fitted on training rows only and the ad is held out, so no ask of the ad
+  enters; earlier ads of the ad's own apartment are training rows and count.
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09
@@ -105,13 +114,16 @@ TEXT = {
     ),
 }
 # Every code, in the order a row lists them.
-CODES = (*TEXT, "beds", "rooms_up", "net_ask", "raised", "off_market")
+CODES = (*TEXT, "beds", "rooms_up", "net_ask", "raised", "thin_level", "off_market")
 # Free months and lease lengths, in months, that `net_ask` tries.
 NET_FREE = (1, 2, 3)
 NET_LEASES = (*range(12, 19), 24)
 # `raised` counts an ad whose ask is this far above its first ask, opened within this many
 # days of the table's day.
 RAISE, RAISE_DAYS = 0.15, 365
+# `thin_level` marks a building whose level's posterior mean is over `THIN_LEVEL` and
+# which has `THIN_ADS` or fewer ads among the fit's training rows.
+THIN_LEVEL, THIN_ADS = 0.3, 5
 _COMPILED = {code: re.compile(pattern) for code, pattern in TEXT.items()}
 _DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015"), "-")
 
@@ -180,3 +192,17 @@ def raised(building, unit, listing, first_day, first_ask, ask, day):
     count = d.building.map(ads.building.value_counts()).fillna(0).to_numpy()
     own = d.merge(ads.assign(own=1), on=["building", "listing"], how="left").own
     return count - own.fillna(0).to_numpy() > 0
+
+
+def thin_level(level, train_ads):
+    """A boolean array, true where an ad's building has a high level resting on few ads.
+
+    `level` is the posterior mean of the level of each ad's building (`bld`, in log rent
+    above the zone's surface) and `train_ads` the count of the building's ads among the
+    fit's training rows, every unit's. The mark needs a level over `THIN_LEVEL` and
+    `THIN_ADS` or fewer ads. A building with no level is not marked."""
+    import numpy as np
+
+    level, count = np.asarray(level, float), np.asarray(train_ads, float)
+    with np.errstate(invalid="ignore"):
+        return (level > THIN_LEVEL) & (count <= THIN_ADS)
