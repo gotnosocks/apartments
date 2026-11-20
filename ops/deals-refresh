@@ -35,6 +35,9 @@
 #           b0-HASH-alldata-dense-nyc-asof-ASOFDAY to exist (built by ops/market-dataset),
 #           runs verify, then b0closingraise (when CLOSING_RAISE=1) and b0bedtext. ASOF
 #           defaults to 2025-11-10.
+#           The verify step also checks the build's market dataset when it exists, so
+#           a failure there stops this step too. A closing-raise market run is published
+#           with BACKTEST set to its own backtest run.
 # fit       Launches the market fit of MODEL on Modal as run NAME, with the scales held at
 #           SCALES and no scoring. Reads the market dataset matching CLOSING_RAISE. The
 #           fit's note, with its predictions, must be on master first (CLAUDE.md). COMMIT
