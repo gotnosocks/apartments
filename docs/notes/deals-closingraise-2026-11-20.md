@@ -1,7 +1,8 @@
 # Closing-raise cleaning for Deals (2026-11-20)
 
 On 2026-11-20 the owner approved applying `rentfrontier.b0closingraise` before
-`rentfrontier.b0bedtext` on the Deals datasets (`CLOSING_RAISE=1` in `ops/deals-refresh`). That
+`rentfrontier.b0bedtext` on the Deals datasets (`CLOSING_RAISE=1` in `ops/deals-refresh`, added
+by PR #1465). That
 step drops a price raise typed within 5 minutes before an ad's off-market status event or after
 it, replacing it with the ask standing before the raise (`docs/notes/closing-asks-2026-11-11.md`).
 Everything else stays the same: the model (`drift-building-bedtext-layout-range`), the held
@@ -29,18 +30,20 @@ with 2-chain Monte Carlo noise), so a `+2` SE threshold would reject a fix alrea
 
 - Convergence gate passes: worst split R-hat at most `1.01` and least bulk ESS above `400` on
   every scalar and coefficient.
-- Overall `d_elpd` (`cr-j` minus `range-j`) is above `0` on the `8,906` unchanged-target ads.
-- Closing-raise-unit `d_elpd` is above `0` on the `345` closing-raise-unit ads among those `8,906`.
+- Overall `d_elpd` (`cr-j` minus `range-j`), as a point estimate, is above `0` on the `8,906`
+  unchanged-target ads.
+- Closing-raise-unit `d_elpd`, as a point estimate, is above `0` on the `345` closing-raise-unit ads among those `8,906`.
   This group is the set of unchanged-target open ads whose non-null `(building, unit_id)` key has
   at least one training row (`open == False`) repriced by `b0closingraise` (`latest_ask_how ==
   "latest, before closing raise"` in the cleaned dataset). Group membership reads only training
   rows and unit keys, without reading any held-out rent.
-- Remaining-ads `d_elpd` on the other `8,561` unchanged-target ads is at least `-1.0` SE
-  (clustered by building).
+- Remaining-ads `d_elpd` on the other `8,561` unchanged-target ads, divided by its own
+  building-clustered SE, is at least `-1.0`.
 
 If `cr-j` is accepted, `cr-m3` launches; if `cr-m3` passes the same convergence gate, Deals
-publishes from `cr-m3` with `cr-j` as its backtest. Otherwise Deals stays on `range-m3` and
-`range-j`.
+publishes from `cr-m3` with `cr-j` as its backtest. If any condition fails for `cr-j`, the gate
+included, `cr-m3` is not launched and Deals stays on `range-m3` and `range-j`. If `cr-m3` misses
+the gate, Deals stays on `range-m3` and `range-j` as well.
 
 ## Predictions, written before the builds and fits
 
@@ -84,6 +87,11 @@ publishes from `cr-m3` with `cr-j` as its backtest. Otherwise Deals stays on `ra
   the backtest (`final=True`), the drop is `-336` (`1,028` to `692`, `-32.7%`), already verified
   from `b0-ddd2fe8f5da041b8-alldata-dense-nyc-asof-20251110` and its `-closingraise` copy.
 
+The plan and its critique, written by Gemini sessions and cited above as `plan.md` and
+`plan-critique.md`, are in `docs/notes/deals-closingraise-2026-11-20/`. The cost range is for a
+completed container and leaves out aborted launches such as the `$0.10` first attempt of
+`range-m2`.
+
 ## Scored
 
 | Metric | Prediction | Result | Verdict |
@@ -92,8 +100,8 @@ publishes from `cr-m3` with `cr-j` as its backtest. Otherwise Deals stays on `ra
 | Gate (`cr-j` / `cr-m3`) | R-hat `<= 1.01`, ESS `> 400` | | |
 | `d_elpd` on `8,906` unchanged ads | `+10 to +55` (gate `> 0`) | | |
 | `d_elpd` on `345` closing-raise-unit ads | `+3 to +35` (gate `> 0`) | | |
-| `d_elpd` on `8,561` remaining ads | `-5 to +35` (gate `>= -1.0` SE) | | |
-| Closing-raise-unit `<5%` share (`345` ads) | `9.57%` to `4.0% to 7.0%` | | |
+| `d_elpd` on `8,561` remaining ads | `-5 to +35` (gate: `d_elpd / SE >= -1.0`) | | |
+| Closing-raise-unit `<5%` share (`345` ads) | `9.57%` (`range-j`) to `4.0% to 7.0%` (`cr-j`) | | |
 | Backtest 80% / 90% coverage (`8,906` ads) | `0.788 to 0.798` / `0.887 to 0.897` | | |
 | Changed-target `440` ads (separate report) | median abs error on own target | | |
 | Live top 100 uncautioned deals changed | `3 to 8` (scores) / `5 to 13` (net) | | |
