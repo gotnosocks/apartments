@@ -138,6 +138,7 @@ def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
     marks = cautions_module.raised(
         f.building.to_numpy(),
         f.unit_id.to_numpy(),
+        f.listing_id.astype(str).to_numpy(),
         naive(a.first_day),
         first,
         ask,
