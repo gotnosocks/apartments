@@ -53,8 +53,8 @@ one-character text where the same building shows ads of the unit or its neighbou
 for 384 St Johns the building's other ads of July and August 2024 (4485730, 4494087) are 3 beds
 at $4,875, though their unit ids differ, so that they are the same unit is not verified.
 
-What the rows change on scored ads, counted from the tables. No live Deals ad is flagged or
-changed by the drafted rows: none of the 68 is a live Deals ad and none is a held-out ad of
+What the rows change on scored ads, counted from the tables. None of the drafted rows is
+a scored ad: none of the 68 is a live Deals ad and none is a held-out ad of
 the backtest. One live ad sits in a flagged building (the flag is on the backtest run only
 for that building): 5163798 at 86 Cornelia Street. Row 2514821 (a 2018 ad coded 0 bed at
 $3,400 whose text says 4 bed) is one of that building's 4 training ads in the live dataset
@@ -126,8 +126,9 @@ What each is, from the ads (rows in `ten_worst_rows.csv`, with only a 40-charact
   cannot serve both, so the chains disagree about which to favour.
 - 147 11th St: one ad, 7,500 sq ft of commercial space at $28,000, 11.7 times the area.
 - 384 St Johns, 198 W 9th, 1042 Herkimer: placeholder texts of a few characters. At 384 St
-  Johns the six empty-text ads coded 0 bed ($4,495 to $5,200) are for a unit also advertised
-  as a 3 bed at $4,875.
+  Johns the six empty-text ads are coded 0 bed ($4,495 to $5,200); another ad of the building
+  in the same months is a 3 bed at $4,875, and whether it is the same unit is not verified
+  (the unit ids differ).
 
 ## The high side: which direction makes a false deal
 
