@@ -56,6 +56,15 @@ subagent's model and effort to be picked by its task.
   marked, order and `below_share` unchanged, uncautioned 4,896 to 4,884. The files it replaced
   are in `/data1/apartments/tmp/deals-backup/20261120-1641`. Deploy the site before a publish
   whenever a caution is added, or the page shows the raw code.
+- After a fit, `python -m rentfrontier.drift_kept_report RUN` lists scored ads and buildings
+  whose kept quantities did not mix, and large levels on few ads (#1480). `docs/model/drift.md`
+  and the README describe the served model as of Nov 20 (#1481).
+- Thin-building shrinkage was sized on held-out history (no fit,
+  `docs/notes/thin-building-shrinkage-2026-11-20.md`): levels on 1 to 5 training ads should be
+  7% to 10% smaller, only where the level is beyond 0.1 (1,399 held-out ads, 0.74%). The note
+  holds a prediction for `--level-dof 8` at held scales ($2.04 backtest, then $2.11 market).
+  Recommendation: do not fit now, since the backtest's 100 such ads cannot show the gain and
+  `thin_level` covers the false deals.
 - Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution

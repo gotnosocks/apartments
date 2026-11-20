@@ -1,0 +1,30 @@
+9346 7645 {'count': 9346.0, 'mean': 0.595, 'std': 0.287, 'min': 0.001, '25%': 0.364, '50%': 0.64, '75%': 0.848, 'max': 1.0}
+lowest tenth by first ask 604 uncautioned 362
+            ads  raised  level
+sb   far                      
+0    False    6   0.167  0.001
+1-5  False   16   0.250  0.021
+     True     7   0.143  0.125
+6-10 False   20   0.350  0.010
+     True    11   0.455  0.139
+11+  False  207   0.232  0.010
+     True    95   0.263  0.116
+all backtest ads by support and far
+             ads   bld    gap     b5    a95
+sb   far                                   
+0    False    84    72  0.091  0.060  0.226
+1-5  False   323   269  0.042  0.019  0.115
+     True    100    78  0.052  0.060  0.110
+6-10 False   283   220  0.006  0.064  0.049
+     True     79    66 -0.006  0.076  0.063
+11+  False  6219  3029  0.005  0.044  0.053
+     True   2258  1037  0.013  0.049  0.068
+thin with a level: 423 far 100 over .3 12 under -.3 1
+1-10: 785 far 179 mean abs gap 0.1029 far mean abs gap 0.1224 far gap*sign(level) -0.0003
+thin far gap*sign(level) 0.0122 se 0.0224
+l2bt thin far half A 681 gap*sign(level) -0.0207 se 0.0048
+l2bt thin far half B 718 gap*sign(level) -0.0105 se 0.0051
+t 4 beyond 3 and 4 scales [np.float64(0.0399), np.float64(0.0161)]
+t 6 beyond 3 and 4 scales [np.float64(0.024), np.float64(0.0071)]
+t 8 beyond 3 and 4 scales [np.float64(0.0171), np.float64(0.0039)]
+t 12 beyond 3 and 4 scales [np.float64(0.0111), np.float64(0.0018)]
