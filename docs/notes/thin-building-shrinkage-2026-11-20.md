@@ -19,8 +19,8 @@ held-out history, asks where it comes from, and says what a fit would have to sh
   explain none of the slope on half A and a quarter of it on half B.
 - The prior is a likely cause but not the only one. The Student-t prior with 4 degrees of
   freedom expects 4.0% of buildings beyond 3 spreads; buildings with 30 or more ads show 0.7%
-  to 1.4%. But the miss is as large where every training ad of the building is the scored
-  ad's own apartment, where the split between building and unit cannot matter.
+  to 2.2% (Manhattan 0.7% to 1.4%). But the miss is as large where every training ad of the building
+  is the scored ad's own apartment, where the split between building and unit cannot matter.
 - Proposal, if a fit is wanted: `--level-dof 8` at the held scales, one backtest fit at about
   $2.04, then a market fit at about $2.11 only if the backtest does not reject it.
 - Recommendation: do not fit it now. The expected change is 2 to 8 ads of the first 300 on
@@ -185,7 +185,8 @@ Two readings:
 
 - Buildings with 30 or more ads, whose levels the data settle (posterior sd about 0.04), have
   an sd about equal to the fitted spread and tails near a Student-t with 8 to 12 degrees of
-  freedom. The prior with 4 expects two to five times as many far buildings as they show.
+  freedom. The prior with 4 expects two to five times as many far buildings as Manhattan shows, and
+  about twice as many as the outer boroughs' largest buildings (2.2%).
 - Thin Manhattan buildings are more spread than well-supported ones (sd 0.20 on one ad
   against 0.11), though a posterior mean on one ad is shrunk and should be less spread. So
   either thin Manhattan buildings are a wider population (townhouses, single condos, odd
@@ -311,7 +312,8 @@ absolute gap over 0.125 on the 179 thin far ads.
 What the backtest cannot do is show the gain. It has 100 ads in buildings of 1 to 5 ads
 with a level beyond 0.1, their gap in the level's direction is +0.012 with a standard error
 of 0.022 (on the latest split it is -0.021 and -0.011 with standard errors of 0.005), and 18
-of the 361 ads of the uncautioned lowest tenth sit in buildings of 10 or fewer ads with a far
+of the 362 ads of the uncautioned lowest tenth (counted before the `thin_level` caution took
+one out) sit in buildings of 10 or fewer ads with a far
 level. So a pass means "no harm on the backtest, and the direction history supports", not a
 measured improvement. The measured test would be a pair of held-scales fits on the latest
 split, 4 against 8, on its 1,399 thin far ads. No held set exists for that split, and the

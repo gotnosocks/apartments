@@ -344,8 +344,10 @@ No fit was run for these.
   over 0.3 on five or fewer training ads, #1478, `docs/notes/thin-level-caution-2026-11-20.md`).
   On held-out history such ads are below the 5% point 14% of the time against 5.9% (both
   halves of the buildings). Live since the publish of Nov 20, 6:02 PM ET: 16 ads marked.
-- [ ] The model under-shrinks buildings with few ads in both directions (thin low levels: gap
-  +0.091 on 16 held-out ads). A fix is a model change, so one fit with a written prediction.
+- [ ] The model under-shrinks buildings with few ads in both directions: levels on 1 to 5
+  training ads should be 7% to 10% smaller (`docs/notes/thin-building-shrinkage-2026-11-20.md`).
+  The test is `--level-dof 8` at held scales, with the prediction written there. Not launched:
+  the backtest cannot show the gain. It fits best inside the next base refit.
 - [x] After each fit, list buildings with a level beyond 0.5 in size and under ten training
   ads. R-hat does not see them: six buildings sat at levels of 0.56 to 2.17 with live R-hat
   of 1.03 or less, except 922 Lincoln at 1.052. `python -m rentfrontier.drift_kept_report RUN`
