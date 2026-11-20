@@ -16,21 +16,54 @@ and `check_quotes.py`; and the tables named below). The ad texts themselves are 
 
 ## The drafted ledger rows are candidates
 
-`building-level-read-2026-11-20/candidate_rows.ndjson` holds 75 drafted rows in the form of
+`building-level-read-2026-11-20/candidate_rows.ndjson` holds 68 drafted rows in the form of
 `pipeline/ledger/*.ndjson`, with quotes prefixed `Ad text: `. They are not in the ledger. Each
 still needs `decided`, `source` and `when` from whoever imports them, and the quotes are
 checked against the stored texts by `check_quotes.py` (0 of the quotes missing). Merging a rule
 version makes the served fit unservable until a refit, so the rows wait for Ben's word and the
 next refit; none is imported here, and no quarantine or rule file is touched.
 
-What the rows change on scored ads, counted from the ads themselves: none of the 75 is a live
-Deals ad and none is a held-out ad of the backtest. Of the live ads, one sits in a flagged
-building: 5163798 at 86 Cornelia Street, whose level rests on one drafted row (2514821, a
-2018 ad coded 0 bed at $3,400 whose text says 4 bed). Three held-out ads of the backtest sit in
-flagged buildings: 4875635 (22 E 18th), 4899902 (16 Goodwin, already in the ledger) and one at
-360 S 1st (no drafted row there). The read first reported "0 live ads and 3 backtest ads
-changed"; the counts above are what I could verify, and they differ in that the drafted rows
-reach the three backtest ads only through the building level, and only for two of them.
+A row is a candidate only when the ad as a whole shows that the product or the ask is wrong; ad
+text never overrides a coded field. The first draft had 75 rows. After review, the whole text
+of every one of the 75 was read again against its coded fields, and each was decided on the
+whole ad:
+
+| outcome | rows | which |
+|---|---|---|
+| read | 75 | all |
+| kept as drafted | 64 | |
+| re-kinded | 4 | 3795761, 3362161, 4729603 to location_conflict; 4013887 to product_scope |
+| dropped | 7 | 4626114, 2335984, 2609225, 1639122, 1244901, 1545128, 1715063 |
+| in the file now | 68 | 64 kept and 4 re-kinded |
+
+Why the 7 were dropped: 2609225 calls itself a studio, so a 0 bed code does not conflict with
+the text; 2335984 says 1 bedroom, which matches the code; 1244901 has only a bare
+"month-to-month", too weak for a short-term reading; 4626114 (drafted as a malformed ask),
+1639122 (a location conflict) and 1545128 and 1715063 (nonresidential) were not supported by
+the whole ad. Why the 4 were re-kinded: 3795761 is a live-work loft on
+Mercer Street in Soho joined to a Brooklyn building, so the kind is a location conflict and not
+a Brooklyn apartment in Manhattan; 3362161 and 4729603 were filed as `brooklyn_misjoin` but the
+ads place them in Manhattan under a Brooklyn building, which is the reverse and is
+`location_conflict`; 4013887 is one ask for a retail unit and an apartment, which is product
+scope and not a plain nonresidential ad. The 68 by reason: nonresidential 37, bedrooms_unknown
+11, location_conflict 10, product_scope 5, and one each of malformed_ask (3937379), price_basis
+(3429110), tenfold_ask_unbacked (2072139), attribute_conflict (2514821) and
+explicit_short_term_offer. The 11 `bedrooms_unknown` rows are ads coded 0 bed with an empty or
+one-character text where the same building shows ads of the unit or its neighbours as larger;
+for 384 St Johns the building's other ads of July and August 2024 (4485730, 4494087) are 3 beds
+at $4,875, though their unit ids differ, so that they are the same unit is not verified.
+
+What the rows change on scored ads, counted from the tables. No live Deals ad is flagged or
+changed by the drafted rows: none of the 68 is a live Deals ad and none is a held-out ad of
+the backtest. One live ad sits in a flagged building (the flag is on the backtest run only
+for that building): 5163798 at 86 Cornelia Street. Row 2514821 (a 2018 ad coded 0 bed at
+$3,400 whose text says 4 bed) is one of that building's 4 training ads in the live dataset
+too, but the live run's level for 86 Cornelia is 0.02 with R-hat 1.00, so the drafted row does
+not move that ad in any way I can show. Three held-out ads of the backtest sit in flagged
+buildings: 4875635 (22 E 18th), 4899902 (16 Goodwin, already in the ledger) and one at 360 S
+1st (flagged on the live run only). None of the 68 rows lies in 22 E 18th, 16 Goodwin or
+360 S 1st, so the drafted rows reach none of the three backtest ads. The first read said "0
+live ads and 3 backtest ads changed"; the tables support "0 and 0" for the drafted rows.
 
 ## Counts by class
 
@@ -52,8 +85,8 @@ model's shape. 56 of the 96 have a single training ad on a flagged run, so the t
 "this one row is ordinary" against "this one row asks several times the area". The class of
 each building is in `classes.csv`.
 
-The 41 candidate commercial rows, in 34 buildings, ask a median 5.4 times the area median
-(quartiles 3.8 and 9.3, range 0.4 to 21.5). 35 are coded 0 bed, 4 are 1 bed and 2 are 5 bed.
+The 37 nonresidential candidate rows, in 31 buildings, ask a median 6.8 times the area median
+(quartiles 3.8 and 10.0, range 0.4 to 21.5). 34 are coded 0 bed and 3 are 1 bed.
 The placeholder class has 87 training rows in its 19 buildings (47 coded 0 bed, 14 coded 1 bed, 26
 coded 2 to 4 bed), asking $2,595 to $12,000 by my rule for a placeholder (text of 5 characters or
 fewer, or "Draft", "Desc", "TBD"). The Nov 12 ledger entries removed the 0 bed placeholder rows of
@@ -195,25 +228,32 @@ building), 43 W 11th (-0.37), 321 Troutman (-0.37) and 140 Metropolitan (-0.28, 
 
 ## Next steps
 
-1. Ledger rows, 94 in all: 41 nonresidential, 11 zero-bed placeholders, 8 wrong asks or
-   attributes, 9 certain misjoins and 6 of the product-scope or short-term kind (the 75 drafted
-   rows), then 14 placeholder rows coded 1 bed, which need a rule decision because the field is
-   filled and a coded field is not overridden by text (for example "ad text under ten
-   characters and the same unit advertised with more bedrooms within a year"), and 5 misjoin
-   rows that need a re-read. Four of the first read's candidates were already in the ledger
-   (1443898, 1481485, 4886558, 4899902) and are dropped. The gate gain is that up to 72 of the
-   96 flagged levels go away, and that no future ad joins a building with a level of 1 to 2.
+1. Ledger rows. The first read counted 99 (43 nonresidential, 28 placeholders, 8 wrong asks or
+   attributes, 14 misjoins, 6 product-scope or short-term). Four were already in the ledger
+   (1443898, 1481485, 4886558, 4899902), which leaves 95, and 985 Jefferson's 4505676 ("Huge
+   Studio in Bed Stuy", a real studio) was wrongly a placeholder, which leaves 94: 41
+   nonresidential, 25 placeholders (11 coded 0 bed and 14 coded 1 bed), 8, 14 misjoins (9
+   certain, 5 to re-read) and 6. The re-read above then dropped 7 of the drafted rows and
+   re-kinded 4, so what stands is 68 drafted rows, plus 14 placeholder rows coded 1 bed, which
+   need a rule decision because the field is filled and a coded field is not overridden by
+   text (for example "ad text under ten characters and the same unit advertised with more
+   bedrooms within a year"), plus 5 misjoin rows that need a re-read: 87 in all. The 41
+   nonresidential of the first count is 37 drafted now (the draft file had 40: two dropped, one
+   moved to product scope); the one-row gap between 41 and 40 I did not trace. The gate gain
+   is that up to 72 of the 96 flagged levels go away (an upper bound; the dropped rows'
+   buildings may stay flagged), and that no future ad joins a building with a level of 1 to 2.
    This waits for a rule version, which needs a refit to serve.
 2. A publish-time caution for a high level on few training ads (over 0.3 on five or fewer, or
    eight or fewer). It must be tested on history before it reaches Deals: both of the two ads
    it catches in the first 300 are weak deals on reading, but that is two ads.
 3. A post-fit list that does not rely on R-hat: buildings with a level beyond 0.5 in size and
-   under ten training ads, with their rows. Six same-mode buildings passed R-hat at levels of
-   0.56 to 2.17.
+   under ten training ads, with their rows. Six buildings with the same mode
+   sat at levels of 0.56 to 2.17 on the live run: five at R-hat under 1.03 and 922 Lincoln at
+   1.052.
 4. A history sweep for commercial and placeholder ads: 0 or 1 bed, ask over three times the area
    median, text with "retail", "storefront", "office", "per sf" or "warehouse", and texts of a
-   few characters. The 43 found here are only those that happened to break R-hat; single rows
-   that converged high are not in this list. This is the larger data job.
+   few characters. The 37 nonresidential rows found here are only those that happened to break
+   R-hat; single rows that converged high are not in this list. This is the larger data job.
 5. No model change for the Deals order now. The 11 model-shape buildings (a ground-floor studio
    beside an owner's triplex) would need a within-building size or whole-house term; none has a
    live ad. The 115 E 62nd case suggests a whole-townhouse feature is worth an expert read.
