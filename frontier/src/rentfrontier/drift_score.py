@@ -24,7 +24,9 @@ once the unit sd is a few times sigma. For each row the output holds
 - `cdf`: the predictive probability of a log rent below the row's y. For an ad on the market
   this is the share of the model's distribution under the ask, so a low value marks an ask
   that is low for the apartment;
-- `q`: the predictive quantiles at `quantiles`, and `pred`, the predictive median;
+- `q`: the predictive quantiles at `quantiles`, and `pred`, the predictive median, both from
+  `SAMPLES` replicates of y per kept draw, so they carry sampling noise that `elpd` and `cdf`
+  do not;
 - `unit_sd`: the mean over draws of the sd of u, which is small for a unit with recent ads
   and sqrt(ss^2 + sd^2) for a unit with none;
 - `y` and `group`, and, when the run's dataset is on disk, each row's `listing`, `building`
@@ -47,7 +49,11 @@ from . import run as run_module
 
 Q = (0.025, 0.05, 0.1, 0.25, 0.75, 0.9, 0.95, 0.975)
 NODES = 96
-SAMPLES = 4
+# Replicates of y drawn per kept draw for `q` and `pred`, which alone are Monte Carlo. On a
+# backtest of 9,346 ads with 360 kept draws, 4 replicates left 98 ads on the other side of the
+# sampled 5% or 95% point from where the exact `cdf` puts them, and 32 leave 29; the time
+# went from 15 s to about 40 s and the peak memory stayed at 0.6 GB.
+SAMPLES = 32
 CHUNK = 250
 
 
