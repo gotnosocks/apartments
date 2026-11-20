@@ -15,6 +15,19 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+### State at about 4:40 PM ET on Nov 20, after the closing-raise score
+
+- Deals is live from `range-m3` (published Nov 20 at 4:16 PM ET, 6,502 ads, backtest `range-j`;
+  results in `docs/notes/market-refresh-2026-11-20.md`).
+- Closing-raise cleaning is rejected on `cr-j` (`docs/notes/deals-closingraise-2026-11-20.md`):
+  gate passed, but `d_elpd` -59.1 on the unchanged-target ads and z -2.63 on the remaining
+  ads. `cr-m3` is not launched. `ops/deals-refresh` keeps a `CLOSING_RAISE` switch and a
+  backtest-fit step, both off by default.
+- Budget: $80.43 of the $100 spent, $19.57 left.
+- Open free work: plan items F1 to F4 in `docs/notes/deals-closingraise-2026-11-20/plan.md`.
+  A base refit with free scales, roughly $22, needs Ben's decision.
+- Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
+
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
 `docs/notes/raise-caution-2026-11-18.md` (no money spent; $23.65 of the $100 left):
