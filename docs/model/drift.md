@@ -362,6 +362,17 @@ what happened next by tenth of the score: days on the market, and the share whos
 cut or raised before the ad closed. If the score finds real deals, the low tenths should
 rent faster and be cut less often.
 
+The Deals page leaves cautioned ads out of its list, so `validation.json` also holds the
+same table over the ads with no caution, under `uncautioned`. The backtest's ads get their
+cautions from the code that cautions the published table, and the tenths are those of the
+full table, so each row is the uncautioned part of the full table's row. On the backtest of
+2025-11-10 the lowest tenth has 604 ads and 36.3% of them were raised before closing; 363
+of the 604 carry no caution, and 25.1% of those were raised. The `raised` caution reads
+only what was knowable on the backtest day: an open ad counts at its first ask. The backtest
+is published without its ads' texts, so the cautions read from a text (`income` by wording,
+`not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. The
+page shows the full table for now.
+
 **The market.** The same build as of the last scraped day holds out the ads on the market
 now. `drift_deals deals` scores them and `drift_deals publish` writes the Deals page's
 files.
