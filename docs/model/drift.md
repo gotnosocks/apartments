@@ -324,6 +324,11 @@ and the cumulative share at any rent are exact to seven digits. From it come
 - the predictive median and the 50%, 80%, 90% and 95% intervals,
 - `below_share`, the share of the predictive distribution below the ask.
 
+The median and the intervals are sampled: 32 replicates of the log rent per kept draw
+(`drift_score.SAMPLES`), so they move a little with the seed, and `elpd` and `below_share`
+do not. On the backtest's 9,346 ads, two seeds put 42 ads on different sides of the 5% or
+95% point. With 4 replicates, the value until 2026-11-20, they put 123.
+
 `below_share` is the deal score. An ask with `below_share` 0.03 is lower than 97% of what
 the model expects that apartment to ask on that day. The Deals page shows the complement as
 "lower than".

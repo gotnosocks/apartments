@@ -83,3 +83,26 @@ def test_unit_sd_widens_the_predictive_distribution():
     res = out | dict(y=y)
     s = drift_score.summary(res)
     assert s["rows"] == rows and 0.8 < s["coverage"]["90"] <= 1.0
+
+
+def test_more_replicates_bring_the_quantiles_to_the_exact_cdf():
+    # `q` is sampled and `cdf` is exact: the share of the distribution below a sampled
+    # quantile nears the quantile's level as the replicates grow, and elpd and cdf do not
+    # depend on the replicates or the seed.
+    rng = np.random.default_rng(2)
+    draws, rows = 300, 60
+    loc = 8 + 0.03 * rng.standard_normal((draws, rows))
+    usd = np.full((draws, rows), 0.08)
+    sigma = np.full((draws, rows), 0.05)
+    nu = np.full(draws, 3.0)
+    y = np.full(rows, 8.0)
+    assert drift_score.SAMPLES >= 32
+    miss = {}
+    for samples in (4, drift_score.SAMPLES):
+        out = drift_score.score_rows(loc, usd, sigma, nu, y, seed=5, samples=samples)
+        at = drift_score.score_rows(loc, usd, sigma, nu, y, at=out["q"][:, 1])
+        np.testing.assert_array_equal(at["elpd"], out["elpd"])
+        np.testing.assert_array_equal(at["cdf"], out["cdf"])
+        miss[samples] = np.sqrt(np.mean((at["cdf_at"] - 0.05) ** 2))
+    assert miss[drift_score.SAMPLES] < 0.6 * miss[4]
+    assert miss[drift_score.SAMPLES] < 0.004
