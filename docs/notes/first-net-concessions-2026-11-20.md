@@ -11,7 +11,8 @@ item is not tried again. The scripts and their output are in
 
 `pricing.priceChanges` is a list of `changedAt` and `price` and nothing else. In a 1% sample
 of the records of build `941f4a6588cbd8cc` (23,266 records, 59,262 entries) every entry has
-exactly those two keys, and every record has the list, in each year of the sample (2011 and 2013 to 2026).
+exactly those two keys, and every record has the list, in each year of the sample (2011 and
+2013 to 2026).
 `monthsFree` and `netEffectiveRent` are single values on the record, the ad's concession at
 the time it was collected. No field says when a concession began.
 
