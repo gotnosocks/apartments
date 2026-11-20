@@ -386,6 +386,97 @@ def test_the_table_draws_as_many_replicates_as_the_score_in_no_more_memory():
     assert spread[dt.SAMPLES] < 0.006
 
 
+def table_inputs(n, seed=0):
+    """What `table` reads for `n` apartments whose prices are far apart and tightly known:
+    apartment j's median is close to 1,000 (j + 1) dollars. The apartments are not in
+    name order, and each one's frame row is not its place among them."""
+    rng = np.random.default_rng(seed)
+    row = rng.permutation(n)
+    name = rng.permutation(n)
+    frame = pd.DataFrame(
+        {
+            "listing_id": np.arange(n) + 500,
+            "building": [f"b{k % 3}" for k in range(n)],
+            "unit_id": [str(k) for k in range(n)],
+            "neighbourhood": "Chelsea",
+            "bedrooms": 1.0,
+            "full_baths": 1.0,
+            "half_baths": 0.0,
+            "latest_day": "2026-11-01",
+            "latest_ask": 3000.0,
+        }
+    )
+    apts = pd.DataFrame(
+        {
+            "apartment": [f"a{k:03d}" for k in name],
+            "row": row,
+            "held": np.arange(n) % 2 == 0,
+            "unit_ads": np.arange(n),
+        }
+    )
+    price = 1000.0 * (np.arange(n) + 1)
+    comp = dict(
+        loc=np.tile(np.log(price), (3, 1)).astype(np.float32),
+        usd=np.full((3, n), 1e-3, np.float32),
+        nu=np.full(3, 5.0),
+        sigma=np.full((3, 2), 1e-3),
+        phase=None,
+    )
+    rw = SimpleNamespace(group=np.arange(n) % 2, phase=None)
+    return SimpleNamespace(frame=frame), apts, comp, rw, price
+
+
+@pytest.mark.parametrize("n", [1, 3, 4, 5, 7, 8, 9])
+def test_the_table_gives_every_apartment_its_own_row_at_the_block_edges(monkeypatch, n):
+    # One fewer than, exactly and one more than one and two blocks of 4.
+    monkeypatch.setattr(dt, "CHUNK", 4)
+    fit, apts, comp, rw, price = table_inputs(n)
+    out = dt.table(fit, apts, comp, rw, None)
+    assert list(out.columns) == list(dt.COLUMNS)
+    assert sorted(apts.apartment) == list(out.apartment)
+    got = out.set_index("apartment").loc[apts.apartment]
+    # Each apartment keeps its own frame row, counts and prices: none is dropped, repeated
+    # or moved to a neighbour's place where one block ends and the next begins.
+    np.testing.assert_array_equal(
+        got.listing_id.to_numpy(), (apts.row.to_numpy() + 500).astype(str)
+    )
+    np.testing.assert_array_equal(got.unit_ads.to_numpy(), apts.unit_ads.to_numpy())
+    np.testing.assert_array_equal(got.on_market.to_numpy(), apts.held.to_numpy())
+    bounds = got[["median", *dt.BOUNDS]].to_numpy(float)
+    assert np.isfinite(bounds).all() and np.isfinite(got.unit_sd.to_numpy()).all()
+    np.testing.assert_allclose(bounds, price[:, None] * np.ones(7), rtol=0.02)
+    assert (np.diff(got[list(dt.BOUNDS)].to_numpy(float), axis=1) >= 0).all()
+
+
+def test_the_tables_draws_are_keyed_by_block():
+    # A block's replicates come from a stream seeded with the block's first place, so the
+    # sampled bounds depend on CHUNK by design: the table is each block's `quantiles`.
+    n = 9
+    fit, apts, comp, rw, _ = table_inputs(n)
+    tables = {}
+    for chunk in (4, n + 1):
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(dt, "CHUNK", chunk)
+            out = dt.table(fit, apts, comp, rw, None)
+        got = out.set_index("apartment").loc[apts.apartment]
+        tables[chunk] = got[["median", *dt.BOUNDS]].to_numpy(float)
+        for a in range(0, n, chunk):
+            sl = slice(a, a + chunk)
+            q, med = dt.quantiles(
+                comp["loc"][:, sl].astype(float),
+                comp["usd"][:, sl].astype(float),
+                dt.mixture_sd(comp, rw, sl),
+                comp["nu"],
+                seed=a,
+            )
+            want = np.exp(np.c_[med, q[:, list(dt.BOUNDS.values())]]).round(0)
+            np.testing.assert_array_equal(tables[chunk][sl], want)
+    # The first block of 4 starts the same stream as the one block of 10, but lays its
+    # draws out over fewer rows, so the two tables differ.
+    assert not np.array_equal(tables[4], tables[n + 1])
+    np.testing.assert_allclose(tables[4], tables[n + 1], rtol=0.02)
+
+
 def test_season_matches_the_design():
     day = pd.Timestamp("2026-11-13")
     got = dt.season_at(day)
