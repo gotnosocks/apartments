@@ -164,6 +164,44 @@ def test_validate_tabulates_outcomes_by_the_first_asks_place(tmp_path):
     assert sum(b["ads"] for b in out["without_free_months"]["by_first_ask_place"]) == 3
 
 
+def test_validate_tabulates_the_uncautioned_ads_beside_all_of_them(tmp_path):
+    def change(rows):
+        # Listings 3 and 4 carry the dataset's flag; 4 is the one ad that was cut.
+        rows["income_restricted"] = [False, False, True, True, False, False]
+
+    run, ads, reg = _run(tmp_path, backtest=True, change=change)
+    out = drift_deals.validate(run, ads, bins=1)
+    # The cautions are those of the run's deals table.
+    table = drift_deals.deals(run, ads, reg).set_index("listing_id")
+    assert table.cautions.map(bool).to_dict() == {
+        "2": False,
+        "3": True,
+        "4": True,
+        "6": False,
+    }
+    part = out["uncautioned"]
+    assert part["ads"] == 2 and part["cautioned_ads"] == 2
+    assert part["texts_read"] is False
+    (row,) = part["by_first_ask_place"]
+    assert row["ads"] == 2 and row["share_cut"] == 0
+    # The tables of all the ads are as they were.
+    (every,) = out["by_first_ask_place"]
+    assert every["ads"] == 4 and every["share_cut"] == 0.25
+    plain = drift_deals.validate(
+        _run(tmp_path / "plain", backtest=True)[0], ads, bins=1
+    )
+    assert plain["by_first_ask_place"] == out["by_first_ask_place"]
+    assert plain["without_free_months"] == out["without_free_months"]
+    assert plain["uncautioned"]["ads"] == 4
+    assert plain["uncautioned"]["by_first_ask_place"] == plain["by_first_ask_place"]
+    # With the run's texts the cautions read from them count too.
+    texts = _texts(tmp_path, {"2": AFFORDABLE, "3": "A quiet one bedroom.", "6": None})
+    read = drift_deals.validate(run, ads, bins=1, texts=texts)["uncautioned"]
+    # Listing 2's text is cautioned, listing 3's text clears its flag, 4 keeps its flag.
+    assert read["texts_read"] is True and read["ads"] == 2
+    assert read["by_first_ask_place"][0]["ads"] == 2
+
+
 def test_validate_places_the_first_ask_on_the_net_basis(tmp_path, monkeypatch):
     run, ads, _ = _run(tmp_path)
     score_run, seen = drift_deals.drift_score.score_run, {}
@@ -482,12 +520,13 @@ def test_raised_marks_the_held_out_ads_of_a_building_with_a_raised_ad(tmp_path):
     ads["first_ask"] = [3000.0, 2500, 2500, 2500, 2500]
     ads["first_day"] = [date(2026, 8, 1)] + [date(2026, 10, 20)] * 4
     ads.to_parquet(tmp_path / "ads.parquet", index=False)
-    # Listing 2 is another unit of the building; listing 3 is the raised ad's own unit.
+    # Listing 2 is another unit of the building; listing 3 is a later ad of the raised
+    # ad's own unit, and is marked as well.
     got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
-    assert got.tolist() == [True, False, False]
+    assert got.tolist() == [True, True, False]
     # In a backtest an open ad's ask is its final one, so a raised open ad marks nothing.
     held = np.array([True, True, True, True, False])
     assert not drift_deals._raised(frame, held, tmp_path / "ads.parquet", True).any()
-    assert (
-        drift_deals._raised(frame, held, tmp_path / "ads.parquet").tolist()[1] is True
-    )
+    # Out of a backtest the raised ad marks the building's other ads and not itself.
+    got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
+    assert got.tolist() == [False, True, True, False]

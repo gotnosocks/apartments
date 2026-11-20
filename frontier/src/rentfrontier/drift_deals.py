@@ -1,7 +1,7 @@
 """The deals table of a drift fit on a market dataset, and a check of what a low ask means.
 
     python -m rentfrontier.drift_deals deals RUN --ads ADS.parquet --registry REGISTRY.parquet --out DIR
-    python -m rentfrontier.drift_deals validate RUN --ads ADS.parquet --out FILE.json
+    python -m rentfrontier.drift_deals validate RUN --ads ADS.parquet --out FILE.json [--texts ...]
     python -m rentfrontier.drift_deals texts RUN --out TEXTS.parquet
     python -m rentfrontier.drift_deals publish RUN --out DIR [--texts TEXTS.parquet] ...
 
@@ -138,6 +138,7 @@ def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
     marks = cautions_module.raised(
         f.building.to_numpy(),
         f.unit_id.to_numpy(),
+        f.listing_id.astype(str).to_numpy(),
         naive(a.first_day),
         first,
         ask,
@@ -228,6 +229,27 @@ def _cautions(
     return out, with_text
 
 
+def _run_cautions(
+    run_dir: Path, frame, h, held, a, ads: Path, texts: Path | None
+) -> tuple[list, int | None]:
+    """`_cautions` for the held-out rows `h` of the run at `run_dir`, with `a` their rows
+    of the ads table `ads`. `deals` and `validate` both call this, so a backtest's ads
+    are cautioned by the rules the published table's are."""
+    market = _manifest(run_dir)
+    # The model's unit is the pair of building and unit_id (`drift.unit_index`).
+    unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
+    return _cautions(
+        frame,
+        h,
+        held,
+        unit_key,
+        texts,
+        market["ads_sha256"],
+        cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
+        _raised(frame, held, ads, bool(market.get("backtest"))),
+    )
+
+
 def deals(
     run_dir: Path,
     ads: Path,
@@ -245,16 +267,7 @@ def deals(
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
-    codes, with_text = _cautions(
-        frame,
-        h,
-        held,
-        unit_key,
-        texts,
-        _manifest(run_dir)["ads_sha256"],
-        cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
-        _raised(frame, held, ads, bool(_manifest(run_dir).get("backtest"))),
-    )
+    codes, with_text = _run_cautions(run_dir, frame, h, held, a, ads, texts)
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -335,14 +348,25 @@ def first_net(first, final, page, months_free) -> np.ndarray:
     return np.where(free, np.where(sound, first * ratio, np.nan), first)
 
 
-def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
+def validate(
+    run_dir: Path, ads: Path, bins: int = 10, texts: Path | None = None
+) -> dict:
     """By tenth of the first ask's place in the predictive distribution: the ads, their
     median days on the market, the shares whose ask was cut or raised before closing, and the
     median change from first to final ask. The first ask is `first_net`. Also the final asks'
     scores (`drift_score.summary`), and under `without_free_months` the same table over the
-    ads with no free months, whose asks need no change of basis."""
+    ads with no free months, whose asks need no change of basis.
+
+    Under `uncautioned` the same table over the ads with no caution, the ads the Deals
+    page lists unless asked for the rest. The cautions are the ones `deals` gives the run's
+    table (`_run_cautions`); the tenths are the same, so a row is the uncautioned part of
+    the row of `by_first_ask_place` with its `place`. Without `texts`, the table `texts`
+    wrote for the run, the cautions read from an ad's text are not made and `texts_read`
+    is false."""
     frame, h, held = _held_frame(run_dir)
     a = _ads(ads, h.listing_id)
+    codes, with_text = _run_cautions(run_dir, frame, h, held, a, ads, texts)
+    plain = ~np.array([bool(c) for c in codes], bool)
     final = h.latest_ask.to_numpy(float)
     free = np.nan_to_num(a.months_free.to_numpy(float)) > 0
     gross = a.first_ask.to_numpy(float)
@@ -391,6 +415,12 @@ def validate(run_dir: Path, ads: Path, bins: int = 10) -> dict:
         "without_free_months": {
             "ads": int((ok & ~free).sum()),
             "by_first_ask_place": table(ok & ~free),
+        },
+        "uncautioned": {
+            "ads": int((ok & plain).sum()),
+            "cautioned_ads": int((ok & ~plain).sum()),
+            "texts_read": with_text is not None,
+            "by_first_ask_place": table(ok & plain),
         },
     }
 
@@ -533,7 +563,9 @@ def main(argv=None):
     p.add_argument("--backtest", help="publish: the backtest run")
     p.add_argument("--heldout", help="publish: a scored run on a held-out split")
     p.add_argument(
-        "--texts", type=Path, help="deals and publish: the ads' descriptions"
+        "--texts",
+        type=Path,
+        help="deals, validate and publish: the ads' descriptions",
     )
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
@@ -556,7 +588,7 @@ def main(argv=None):
     if args.ads is None:
         p.error("--ads is required for deals and validate")
     if args.command == "validate":
-        out = validate(run_dir, args.ads)
+        out = validate(run_dir, args.ads, texts=args.texts)
         args.out.write_text(json.dumps(out, indent=2))
         print(json.dumps(out, indent=2))
         return

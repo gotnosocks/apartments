@@ -344,9 +344,10 @@ units, an office suite, an apartment open only to the building's owners, and oth
 `income`, `not_home`, `owners_only` and `takeover` from the ad's own text, `beds` when the apartment's
 ads carry more than one bedroom count, `rooms_up` when the ad codes more bedrooms or baths than
 the apartment's previous ad, `net_ask` when the page price is a round first ask less free
-months the record does not code, `raised` when another apartment of the building has an ad
-opened in the past year that stands 15% or more above its first ask
-(`docs/notes/raise-caution-2026-11-18.md`), `off_market` from the ad's status. A caution changes
+months the record does not code, `raised` when the building has another ad
+opened in the past year that stands 15% or more above its first ask, an earlier ad of the
+same apartment included (`docs/notes/raise-caution-2026-11-18.md`), `off_market` from the
+ad's status. A caution changes
 no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
 many. The text patterns were kept or dropped by reading every ad on the market that a
 wider set of candidates matched (237 ads); the kept income pattern matches 55 ads, the 55
@@ -366,6 +367,19 @@ on it scores the first ask of every ad then on the market. `drift_deals validate
 what happened next by tenth of the score: days on the market, and the share whose ask was
 cut or raised before the ad closed. If the score finds real deals, the low tenths should
 rent faster and be cut less often.
+
+The Deals page leaves cautioned ads out of its list, so `validation.json` also holds the
+same table over the ads with no caution, under `uncautioned`. The backtest's ads get their
+cautions from the code that cautions the published table, and the tenths are those of the
+full table, so each row is the uncautioned part of the full table's row. On the backtest of
+2025-11-10 the lowest tenth has 604 ads and 36.3% of them were raised before closing; 363
+of the 604 carry no caution, and 25.1% of those were raised. The `raised` caution reads
+only what was knowable on the backtest day: an open ad counts at its first ask. The backtest
+is published without its ads' texts, so the cautions read from a text (`income` by wording,
+`not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
+cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
+knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). The page shows
+the full table for now.
 
 **The market.** The same build as of the last scraped day holds out the ads on the market
 now. `drift_deals deals` scores them and `drift_deals publish` writes the Deals page's
