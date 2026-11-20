@@ -28,8 +28,9 @@ subagent's model and effort to be picked by its task.
   `raised` 655, same order): an `uncautioned` table in the backtest validation (#1469), the
   `raised` caution leaving out only the ad itself, so an earlier raised ad of the same unit
   counts (#1470), and 32 replicates per draw for sampled quantiles (#1471).
-- Open free work from `docs/notes/deals-closingraise-2026-11-20/plan.md`: dating concessions
-  in `first_net`, the R-hat audit of `pred_loc`, the stale parts of `docs/model/drift.md`.
+- Open free work from `docs/notes/deals-closingraise-2026-11-20/plan.md`: the R-hat audit of
+  `pred_loc`, the stale parts of `docs/model/drift.md`. Dating concessions in `first_net`
+  cannot be built from `priceChanges` (`docs/notes/first-net-concessions-2026-11-20.md`).
   From review: quantiles could invert the exact cdf (`drift_today.SAMPLES` is 32 too, with
   `CHUNK` 2,500; the next Today publish runs about 7 minutes longer). A base refit with free
   scales, roughly $22, needs Ben's decision.

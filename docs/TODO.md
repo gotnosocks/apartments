@@ -323,8 +323,13 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
 - [ ] A sampler move for a building in two states, if the two above leave any: new
   weights for the building's rows, accepted on its marginal likelihood with level, path
   and units integrated out.
-- [ ] Carry an ad's concession through its price history, so a first ask can be put on
-  the net basis exactly (`drift_deals.first_net` assumes the latest concession throughout).
+- [ ] Carry an ad's concession through its history, so a first ask can be put on the net
+  basis exactly (`drift_deals.first_net` assumes the latest concession throughout).
+  `pricing.priceChanges` cannot do it: it holds only dates and prices, and `monthsFree` is
+  the record's current value. Only repeat collections since 2026-10-15 show a concession
+  changing, so a fix needs a snapshot-dated `months_free` at open in the ads table
+  (`rentfrontier.market`) and works only for backtest days after that date
+  (`docs/notes/first-net-concessions-2026-11-20.md`).
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build
