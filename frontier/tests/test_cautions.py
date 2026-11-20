@@ -122,8 +122,8 @@ def test_raised_marks_the_other_ads_of_a_building_with_a_recent_raised_ad():
     first = [3000.0, 2500, 2500, 3000, 2500, 2500, 3000, 2500]
     ask = [3450.0, 2500, 2500, 3600, 2500, 2500, 3600, 2500]
     # Building a: u1's first ad is raised 15%, so u2, u1's later ad and the ad with no unit
-    # are marked and the raised ad itself is not. Building b: the raised ad opened over a year before the day.
-    # Building c: the raised ad has no unit and does not count.
+    # are marked and the raised ad itself is not. Building b: the raised ad opened over a
+    # year before the day. Building c: the raised ad has no unit and does not count.
     got = cautions.raised(building, unit, range(8), opened, first, ask, "2026-11-01")
     assert got.tolist() == [False, True, True, False, False, False, False, True]
 
