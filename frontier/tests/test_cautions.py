@@ -114,24 +114,39 @@ def test_net_ask_marks_an_odd_page_price_that_is_a_round_first_ask_less_free_mon
     assert got.tolist() == [True, True, False, False, False, False, True, False]
 
 
-def test_raised_marks_ads_of_other_units_of_a_building_with_a_recent_raised_ad():
+def test_raised_marks_the_other_ads_of_a_building_with_a_recent_raised_ad():
     building = ["a", "a", "a", "b", "b", "c", "c", "a"]
     unit = ["u1", "u2", "u1", "u3", "u4", "u5", None, None]
     opened = ["2026-08-01", "2026-10-01", "2026-10-01", "2025-10-01", "2026-10-01"]
     opened += ["2026-10-01", "2026-10-01", "2026-10-01"]
     first = [3000.0, 2500, 2500, 3000, 2500, 2500, 3000, 2500]
     ask = [3450.0, 2500, 2500, 3600, 2500, 2500, 3600, 2500]
-    # Building a: u1's first ad is raised 15%, so u2 and the ad with no unit are marked and
-    # u1's own ads are not. Building b: the raised ad opened over a year before the day.
+    # Building a: u1's first ad is raised 15%, so u2, u1's later ad and the ad with no unit
+    # are marked and the raised ad itself is not. Building b: the raised ad opened over a year before the day.
     # Building c: the raised ad has no unit and does not count.
-    got = cautions.raised(building, unit, opened, first, ask, "2026-11-01")
-    assert got.tolist() == [False, True, False, False, False, False, False, True]
+    got = cautions.raised(building, unit, range(8), opened, first, ask, "2026-11-01")
+    assert got.tolist() == [False, True, True, False, False, False, False, True]
+
+
+def test_raised_leaves_out_every_row_of_the_raised_ad_itself():
+    # Two rows of one ad, the only raised ad of the building: neither is marked.
+    got = cautions.raised(
+        ["a", "a", "a"],
+        ["u1", "u1", "u1"],
+        ["7", "7", "8"],
+        ["2026-10-01"] * 3,
+        [3000.0, 3000, 2500],
+        [3450.0, 3450, 2500],
+        "2026-11-01",
+    )
+    assert got.tolist() == [False, False, True]
 
 
 def test_raised_needs_the_full_rise():
     got = cautions.raised(
         ["a", "a"],
         ["u1", "u2"],
+        ["1", "2"],
         ["2026-10-01"] * 2,
         [3000.0, 2500],
         [3449.0, 2500],

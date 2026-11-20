@@ -482,12 +482,13 @@ def test_raised_marks_the_held_out_ads_of_a_building_with_a_raised_ad(tmp_path):
     ads["first_ask"] = [3000.0, 2500, 2500, 2500, 2500]
     ads["first_day"] = [date(2026, 8, 1)] + [date(2026, 10, 20)] * 4
     ads.to_parquet(tmp_path / "ads.parquet", index=False)
-    # Listing 2 is another unit of the building; listing 3 is the raised ad's own unit.
+    # Listing 2 is another unit of the building; listing 3 is a later ad of the raised
+    # ad's own unit, and is marked as well.
     got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
-    assert got.tolist() == [True, False, False]
+    assert got.tolist() == [True, True, False]
     # In a backtest an open ad's ask is its final one, so a raised open ad marks nothing.
     held = np.array([True, True, True, True, False])
     assert not drift_deals._raised(frame, held, tmp_path / "ads.parquet", True).any()
-    assert (
-        drift_deals._raised(frame, held, tmp_path / "ads.parquet").tolist()[1] is True
-    )
+    # Out of a backtest the raised ad marks the building's other ads and not itself.
+    got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
+    assert got.tolist() == [False, True, True, False]

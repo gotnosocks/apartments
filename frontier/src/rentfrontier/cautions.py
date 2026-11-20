@@ -30,8 +30,9 @@ own latest text and from the dataset's rows.
   code (`net_ask`), so the table compares a net ask with the model's gross rent. Brokers
   reading the first 100 uncautioned ads of 2026-11-18 found 2 such; the rule marks 11 ads
   of that table, 3 of them in its first 100 (`docs/notes/net-ask-caution-2026-11-18.md`).
-- `raised`: an ad of another apartment of the building, opened in the year before the
-  table's day, stands 15% or more above its first ask (`raised`). Such buildings open
+- `raised`: another ad of the building, opened in the year before the table's day,
+  stands 15% or more above its first ask (`raised`). An earlier ad of the same apartment
+  counts; the ad itself does not. Such buildings open
   low and raise: of the held-out first asks 15% or more under the model's prediction, 52%
   in a marked building ended 15% or more above the first ask against 13% elsewhere, on
   the half of buildings the rule was not chosen on. That test counted raised ads closed
@@ -156,24 +157,25 @@ def net_ask(first_ask, page_price, months_free):
     return ~coded & gross & odd & fits
 
 
-def raised(building, unit, first_day, first_ask, ask, day):
-    """A boolean array, true where another apartment of the ad's building has a raised ad.
+def raised(building, unit, listing, first_day, first_ask, ask, day):
+    """A boolean array, true where the ad's building has a raised ad other than the ad.
 
-    The arrays hold every ad of the dataset, one entry each: its building, its unit, the
-    day it opened, its first ask and its ask on `day`. A raised ad opened in the
-    `RAISE_DAYS` up to `day`, has a known unit, and asks `RAISE` or more above its first
-    ask. An ad is marked when its building has a raised ad of a unit other than its own.
-    No ask of the ad itself is read."""
+    The arrays hold every row of the dataset, one entry each: its building, its unit, its
+    ad's listing id, the day the ad opened, its first ask and its ask on `day`. A raised
+    ad opened in the `RAISE_DAYS` up to `day`, has a known unit, and asks `RAISE` or more
+    above its first ask. An ad is marked when its building has a raised ad with another
+    listing id, so an earlier raised ad of the ad's own apartment counts. No ask of the ad
+    itself is read."""
     import numpy as np
     import pandas as pd
 
-    d = pd.DataFrame({"building": np.asarray(building), "unit": np.asarray(unit)})
+    d = pd.DataFrame({"building": np.asarray(building), "listing": np.asarray(listing)})
     age = (pd.Timestamp(day) - pd.DatetimeIndex(first_day)).days.to_numpy()
     first, now = np.asarray(first_ask, float), np.asarray(ask, float)
     # A product, so a rise of exactly `RAISE` counts whatever the rounding.
     up = (first > 0) & (now >= first * (1 + RAISE) - 1e-9)
-    up &= (age >= 0) & (age <= RAISE_DAYS) & d.unit.notna().to_numpy()
-    units = d[up].drop_duplicates()
-    count = d.building.map(units.building.value_counts()).fillna(0).to_numpy()
-    own = d.merge(units.assign(own=1), on=["building", "unit"], how="left").own
+    up &= (age >= 0) & (age <= RAISE_DAYS) & pd.notna(np.asarray(unit, object))
+    ads = d[up].drop_duplicates()
+    count = d.building.map(ads.building.value_counts()).fillna(0).to_numpy()
+    own = d.merge(ads.assign(own=1), on=["building", "listing"], how="left").own
     return count - own.fillna(0).to_numpy() > 0

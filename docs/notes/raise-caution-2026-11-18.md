@@ -106,3 +106,31 @@ moderate difference is not ruled out. Ads between the 30% and 70% points are gon
 days 40% to 42% of the time with a median 21 to 22 days left, so a low ad leaves about
 twice as fast as an ordinary one, which the earlier outcome tables already showed for
 final asks.
+
+## The ad itself is left out, not its apartment (2026-11-20)
+
+Until now the count left out every raised ad of the ad's own apartment (building and
+unit), because the rule was chosen on ads of other units. Item F3 of
+`docs/notes/deals-closingraise-2026-11-20/plan.md` changes that: `cautions.raised` now
+leaves out only the ad itself, by listing id, so an earlier raised ad of the same apartment
+marks the ad. A lister who opened an apartment low and raised it within the year is the
+same sign whether the next low ad is next door or in that apartment. No fit and no money
+spent.
+
+No ask of the ad itself is read, as before. What is new is that the ask and first ask of
+an earlier ad of the same apartment can reach the mark. In a backtest that earlier ad is a
+training row or an open ad counted at its first ask, so nothing after the day is read. The
+caution still changes no score.
+
+Counts, from `drift_deals._raised` on the two datasets with the old and the new exclusion:
+
+| Table | Marked before | Marked now | Buildings | Marked with no other caution, before and now |
+|---|---|---|---|---|
+| Market of 2026-11-20 (run `range-m3`, 6,502 ads) | 653 | 655 | 179 | 529, 531 |
+| Backtest of 2025-11-10 (run `range-j`, 9,346 ads) | 1,028 | 1,031 | 252 | 914, 917 |
+
+No ad lost its mark and no building was newly marked. The five new ads have no other
+caution. The backtest's other cautions here were counted without ad texts, so its last
+column is not comparable with the 114 above. The plan found none of the three new backtest
+ads raised later, so the change is one of definition and the tables above stand within
+three ads. The history test (`choose.py`) still counts other units only and was not rerun.

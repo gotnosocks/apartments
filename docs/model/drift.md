@@ -339,9 +339,9 @@ units, an office suite, an apartment open only to the building's owners, and oth
 `income`, `not_home`, `owners_only` and `takeover` from the ad's own text, `beds` when the apartment's
 ads carry more than one bedroom count, `rooms_up` when the ad codes more bedrooms or baths than
 the apartment's previous ad, `net_ask` when the page price is a round first ask less free
-months the record does not code, `raised` when another apartment of the building has an ad
-opened in the past year that stands 15% or more above its first ask
-(`docs/notes/raise-caution-2026-11-18.md`), `off_market` from the ad's status. A caution changes
+months the record does not code, `raised` when the building has another ad
+opened in the past year that stands 15% or more above its first ask, an earlier ad of the
+same apartment included (`docs/notes/raise-caution-2026-11-18.md`), `off_market` from the ad's status. A caution changes
 no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
 many. The text patterns were kept or dropped by reading every ad on the market that a
 wider set of candidates matched (237 ads); the kept income pattern matches 55 ads, the 55

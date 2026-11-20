@@ -55,6 +55,7 @@ def naive(days):
 mark = cautions.raised(
     frame.building.to_numpy(),
     frame.unit_id.to_numpy(),
+    frame.listing_id.astype(str).to_numpy(),
     naive(a.first_day),
     first,
     np.nan_to_num(ask),
