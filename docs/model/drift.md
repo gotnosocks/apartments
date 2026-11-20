@@ -370,8 +370,10 @@ full table, so each row is the uncautioned part of the full table's row. On the 
 of the 604 carry no caution, and 25.1% of those were raised. The `raised` caution reads
 only what was knowable on the backtest day: an open ad counts at its first ask. The backtest
 is published without its ads' texts, so the cautions read from a text (`income` by wording,
-`not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. The
-page shows the full table for now.
+`not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
+cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
+knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). The page shows
+the full table for now.
 
 **The market.** The same build as of the last scraped day holds out the ads on the market
 now. `drift_deals deals` scores them and `drift_deals publish` writes the Deals page's
