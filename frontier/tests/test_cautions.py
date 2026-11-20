@@ -142,6 +142,24 @@ def test_raised_leaves_out_every_row_of_the_raised_ad_itself():
     assert got.tolist() == [False, False, True]
 
 
+def test_raised_with_a_missing_listing_id_never_counts_the_ad_itself():
+    # Rows without an id leave each other out, so a missing id cannot mark its own ad.
+    got = cautions.raised(
+        ["a", "a", "a"],
+        ["u1", "u1", "u2"],
+        [None, None, "8"],
+        ["2026-10-01"] * 3,
+        [3000.0, 3000, 2500],
+        [3450.0, 3450, 2500],
+        "2026-11-01",
+    )
+    assert got.tolist() == [False, False, True]
+    alone = cautions.raised(
+        ["a"], ["u1"], [float("nan")], ["2026-10-01"], [3000.0], [3450.0], "2026-11-01"
+    )
+    assert alone.tolist() == [False]
+
+
 def test_raised_needs_the_full_rise():
     got = cautions.raised(
         ["a", "a"],
