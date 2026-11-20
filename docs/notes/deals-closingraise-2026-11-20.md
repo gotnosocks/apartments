@@ -32,7 +32,8 @@ with 2-chain Monte Carlo noise), so a `+2` SE threshold would reject a fix alrea
   every scalar and coefficient.
 - Overall `d_elpd` (`cr-j` minus `range-j`), as a point estimate, is above `0` on the `8,906`
   unchanged-target ads.
-- Closing-raise-unit `d_elpd`, as a point estimate, is above `0` on the `345` closing-raise-unit ads among those `8,906`.
+- Closing-raise-unit `d_elpd`, as a point estimate, is above `0` on the `345` closing-raise-unit
+  ads among those `8,906`.
   This group is the set of unchanged-target open ads whose non-null `(building, unit_id)` key has
   at least one training row (`open == False`) repriced by `b0closingraise` (`latest_ask_how ==
   "latest, before closing raise"` in the cleaned dataset). Group membership reads only training
