@@ -24,8 +24,15 @@ subagent's model and effort to be picked by its task.
   ads. `cr-m3` is not launched. `ops/deals-refresh` keeps a `CLOSING_RAISE` switch and a
   backtest-fit step, both off by default.
 - Budget: $80.43 of the $100 spent, $19.57 left.
-- Open free work: plan items F1 to F4 in `docs/notes/deals-closingraise-2026-11-20/plan.md`.
-  A base refit with free scales, roughly $22, needs Ben's decision.
+- Free fixes merged later on Nov 20 and republished from `range-m3` (1,606 cautioned ads,
+  `raised` 655, same order): an `uncautioned` table in the backtest validation (#1469), the
+  `raised` caution leaving out only the ad itself, so an earlier raised ad of the same unit
+  counts (#1470), and 32 replicates per draw for sampled quantiles (#1471).
+- Open free work from `docs/notes/deals-closingraise-2026-11-20/plan.md`: dating concessions
+  in `first_net`, the R-hat audit of `pred_loc`, the stale parts of `docs/model/drift.md`.
+  From review: `drift_today.SAMPLES` is still 4 (raise with a smaller `CHUNK`), and quantiles
+  could invert the exact cdf. A base refit with free scales, roughly $22, needs Ben's
+  decision.
 - Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
