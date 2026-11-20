@@ -245,9 +245,9 @@ boroughs. The neighbourhood term follows that.
 ## The sampler
 
 A blocked Gibbs sweep in JAX on one GPU, two to four chains a container. The Student-t is
-written as a scale mixture, `y_i ~ Normal(mean_i, sigma^2 / lam_i)`, so that given the scales `lam` every
-location term is Gaussian. The sweep is partially collapsed: each step integrates out the
-terms that would otherwise pin what it draws.
+written as a scale mixture, `y_i ~ Normal(mean_i, sigma^2 / lam_i)`, so that given the scales
+`lam` every location term is Gaussian. The sweep is partially collapsed: each step
+integrates out the terms that would otherwise pin what it draws.
 
 1. **Unit precisions.** Given the scales, a unit's rows are jointly Gaussian once `u` is
    integrated out, with covariance `D^-1 + K`, where `D` holds the rows' precisions and
@@ -327,7 +327,7 @@ sd and rho, and the weekly walk's tau. In those pools each of these had a poster
 and lengthscales, whose posteriors are 11% to 44% wide, along with the coefficients, the
 levels, the paths and the mixing weights. A set has 13 values (nu, four sigma, three unit
 scales, a spread for each of two zones, the path's sd and rho, and the walk's tau). The Deals
-fits run this way: a sweep takes 0.33 to 0.36 s, so 3,600 draws of 2 chains fit in one
+fits run this way: a sweep takes 0.32 to 0.37 s, so 3,600 draws of 2 chains fit in one
 container for about $2.
 
 The option is for testing a new column on the base model in fewer containers than a pool
@@ -446,7 +446,7 @@ the fit recovers the scales and that the held-out standardized errors have unit 
 ```sh
 ops/market-dataset HASH                      # market and backtest datasets from a pipeline build
 ops/modal-fit --gpu H100 --dataset DIR --split latest COMMIT LABEL drift-building b0 4 500 6000 25 --seed 1
-# the served model's market fit, as ops/deals-refresh fit launches it (see below):
+# the served model's market fit, abridged from what ops/deals-refresh fit launches (see below):
 ops/modal-fit --outside-budget --gpu H100 --dataset DIR --split market COMMIT LABEL \
     drift-building-bedtext-layout-range b0 2 200 3600 20 --seed 1 --level-dof 4 \
     --scales-fixed base-n9 --no-loo --no-heldout
@@ -595,8 +595,8 @@ look"). Gate fits run 6 chains.
 - **First asks run high.** The model is fitted to final asks. 18% of the backtest's ads
   opened in the top tenth of their range and 6% in the bottom tenth, and on the market of
   2026-11-20 the lowest twentieth of the score holds 237 ads where an even spread would put
-  325. The score ranks ads against each other well (the backtest), and its level is conservative for an ad that
-  has not yet been cut.
+  325. The score ranks ads against each other well (the backtest), and its level is
+  conservative for an ad that has not yet been cut.
 - **The building path steps by quarter**, to fit a fit in its hour. A monthly path scored
   2,590 elpd higher in round two (233,273 against 230,683; the monthly fit's chains did not
   mix, so the gap is a guide). The quarterly path was 2,762

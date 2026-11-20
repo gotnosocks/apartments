@@ -122,8 +122,9 @@ gives the equations, the sampler and the checks, and the module docstrings give 
    training rows at each kept draw.
 4. `python -m rentfrontier.drift_score RUN` turns those into predictive densities, intervals
    and, for each ad, the share of the model's distribution below its ask.
-5. `python -m rentfrontier.drift_deals deals RUN --ads ADS --registry REGISTRY --out DIR` writes the deals table,
-   lowest share first, with each ad's cautions (`rentfrontier.cautions`; `... texts RUN`
+5. `python -m rentfrontier.drift_deals deals RUN --ads ADS --registry REGISTRY --out DIR`
+   writes the deals table, lowest share first, with each ad's cautions
+   (`rentfrontier.cautions`; `... texts RUN`
    writes the ads' own descriptions for the ones read from text). `... validate` checks the
    score against what happened to the ads of the backtest: time on the market and price cuts.
    `ops/deals-refresh` runs steps 2, 3 and 5 as `datasets`, `backtest-datasets`, `fit`,
