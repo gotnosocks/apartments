@@ -11,7 +11,7 @@ item is not tried again. The scripts and their output are in
 
 `pricing.priceChanges` is a list of `changedAt` and `price` and nothing else. In a 1% sample
 of the records of build `941f4a6588cbd8cc` (23,266 records, 59,262 entries) every entry has
-exactly those two keys, and every record has the list, in each year from 2011 to 2026.
+exactly those two keys, and every record has the list, in each year of the sample (2011 and 2013 to 2026).
 `monthsFree` and `netEffectiveRent` are single values on the record, the ad's concession at
 the time it was collected. No field says when a concession began.
 
@@ -30,7 +30,9 @@ Among the 5,926 live ads with two or more snapshots, 1,331 carry a concession no
 (`an2.out.txt`). Of those, 31% had a different one at the first snapshot: 227 had none then
 and 186 had another size. 39 more ads had one at the first snapshot and have none now. For
 snapshots 26 to 40 days apart (528 ads with a concession now) 48% differ. The median shift
-among ads that differ is 4.5% of the rent.
+among ads that differ, the 39 included, is 4.5% of the rent. Only 1,654 of the 5,926 first
+snapshots fall within 3 days of the ad's opening, so the 31% is a lower bound on changes
+since opening.
 
 ## What the simulation shows
 
