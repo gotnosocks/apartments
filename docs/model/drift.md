@@ -1,10 +1,12 @@
 # The drift model
 
-The current model of the project, written on 2026-11-10. It prices an apartment on a date
-and says how sure it is, so that an ad asking well below the model's range stands out as a
-candidate deal. This page gives the model, the sampler, the score, the checks and the
-results. The predictions written before each fit, and the residual checks that led to the
-model, are in [the note of 2026-11-10](../notes/drift-2026-11-10.md).
+The model of the project, written on 2026-11-10 and extended since. It prices an apartment on
+a date and says how sure it is, so that an ad asking well below the model's range stands out
+as a candidate deal. The Deals page now reads `drift-building-bedtext-layout-range`, which is
+`drift-building` plus ten columns (see Results and The model). This page gives the model, the
+sampler, the score, the checks and the results. The predictions written before each fit, and
+the residual checks that led to the model, are in
+[the note of 2026-11-10](../notes/drift-2026-11-10.md).
 
 [drift-explainer.html](drift-explainer.html) is the visual walk through the model and its
 results, also published at https://claude.ai/artifact/CidAo43kMNH2Kw7GHwTHf7 (private to
@@ -13,7 +15,25 @@ by `artifact/pagedata.py` and `artifact/build.py` in the same folder.
 
 ## Results
 
-`drift-building` with `--level-dof 4` is the served model since 2026-11-10 14:19Z: `drift`
+**Served now.** Deals reads `drift-building-bedtext-layout-range`, the Student-t `drift-building`
+below with ten more columns (the layout of the table is in The model). Its fits hold 13 scales
+at the values of a pooled base fit (`base-n9` for the market, `base-j9` for the backtest, see
+Holding scales) and run in one container: 2 chains of 3,600 draws after 200 warmup sweeps,
+every 20th kept, no scoring, about $2. The market fit is
+`drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3` (build of 2026-11-20,
+1,894,766 ads fitted, 6,502 open ads predicted); it passes the gate with worst split R-hat
+1.0059 (`beta[bed=0:full>=2]`) and least bulk ESS 605. Its backtest is
+`drift-building-bedtext-layout-range-b0-market-d9028c57-range-j` (as of 2025-11-10, 1,754,606
+ads fitted, 9,346 open ads predicted): R-hat 1.0042, ESS 676. The Deals files were published
+from the pair on 2026-11-20 at 6:02 PM ET. There is no latest-split pool of this model, so its
+held-out score on the 189,647 ads below is not known, and the backtest scores it instead: on the
+final asks of the 9,346 ads, elpd 10,042, median absolute error 0.0469, 80% coverage 0.792.
+Ads in the lowest tenth of the first-ask places left the market in a median of 26 days and
+17% had their ask cut (604 ads); in the highest tenth the median was 72 days and 62% were cut
+(1,694 ads). Deals read `drift-building` fits (below) from 2026-11-10, `drift-building-bedtext`
+from 2026-11-17 and this model from 2026-11-18.
+
+`drift-building` with `--level-dof 4` was the served model from 2026-11-10 at 9:19 AM ET: `drift`
 plus a path per building, with a Student-t prior on the building levels. Its three full
 fits (round nine of that day's note) all pass the convergence gate. Each is a pool of
 three containers of two chains (`drift_pool`).
@@ -35,7 +55,7 @@ normal prior. A run's `sampler_settings.level_dof` in its `result.json` says whi
 had. `drift` and `drift-local` keep the normal prior unless given the
 flag.
 
-`drift`, the same model without the building's path, was served from 09:42Z until then.
+`drift`, the same model without the building's path, was served from 4:42 AM ET until then.
 Its Deals folder is kept at `/data1/apartments/tmp/overhaul/fixcheck/deals-drift-m6/`.
 Its three full fits (round six) all pass the gate, the first fits in the project with a
 unit term to do so on the full data.
@@ -46,7 +66,8 @@ unit term to do so on the full data.
 | m6 | market of 2026-11-09: 1,893,502 fitted, 6,774 open ads predicted | 4 x 3,680 | 1.0038 | 1,034 | $3.62 |
 | k6 | backtest as of 2025-11-10: 1,754,606 fitted, 9,346 open ads predicted | 4 x 3,740 | 1.0051 | 1,072 | $3.69 |
 
-On the 189,647 held-out ads (the newest ad of every apartment with at least two):
+On the 189,647 held-out ads (a 10% draw of the rows, each the newest ad of an apartment with
+at least two):
 
 | Model | elpd | Median abs. error (log) | RMSE | Coverage at 50 / 80 / 90 / 95% | Gate |
 |---|---|---|---|---|---|
@@ -62,8 +83,8 @@ time scale `tau` of 5.56 years. In b9 the building levels' scale is 0.0679 in th
 boroughs and 0.1118 in Manhattan (a Student-t's scale with 4 degrees of freedom, so
 standard deviations of 0.096 and 0.158), and the noise's `nu` is 1.69.
 
-The backtest: the 9,346 ads open on 2025-11-10, each scored at its first ask, under the
-served model (j9) and under `drift` (k6).
+The backtest: the 9,346 ads open on 2025-11-10, each scored at its first ask, under
+`drift-building` (j9) and under `drift` (k6).
 
 | Place of the first ask in the model's range | j9: ads | Median days on market | Share later cut | k6: ads | Days | Cut |
 |---|---|---|---|---|---|---|
@@ -77,7 +98,7 @@ On those ads' final asks j9 scores an elpd of 9,979 against k6's 8,573, with a m
 absolute error of 0.0474 against 0.0557 and 80% coverage of 0.792 against 0.795.
 
 The first ask of an ad with free months is put net of them, the basis of the model's asks
-(`drift_deals.first_net`). The table published before 2026-11-10 10:05Z did not do this
+(`drift_deals.first_net`). The table published before 2026-11-10 at 5:05 AM ET did not do this
 and read 79% cut in the highest tenth; the note has the correction. Over the 7,092 ads
 with no free months, which need no change of basis, k6's stay runs from 27 to 60 days and
 its share cut from 15% to 63%.
@@ -125,8 +146,9 @@ ad and the held-out predictions show no mark of it.
 What fixes it, in the project's order. The data: 1,596 training ads coded as
 studios name two or more bedrooms in a text that never says "studio" (25 of 40 read were
 whole apartments, so roughly 750 to 1,250 of them), and 4,517 more are placeholder
-listings no text can sort; a rule for either needs a dataset and a fit of its own. The
-model: a Student-t prior on the levels (`Settings.level_dof`, 4 degrees of freedom) takes
+listings no text can sort; a rule for either needs a dataset and a fit of its own (the
+ledger of 2026-11-12 has since set or excluded what the records could settle, `docs/TODO.md`).
+The model: a Student-t prior on the levels (`Settings.level_dof`, 4 degrees of freedom) takes
 the leverage away whatever the data hold. Round eight ran it on one container, `b8c`,
 with the settings and seed of `b7c`, the part of b7 that failed alone:
 
@@ -171,7 +193,7 @@ mean_i = x_i beta                 columns
 | Term | Prior | Size |
 |---|---|---|
 | `x beta` | Bedroom and bath steps, floor curves with Gaussian process priors, unit features, building amenities, lot attributes, ad fields, and the unit means of the unit columns | about 250 coefficients |
-| `L(t)` | A weekly random walk plus season | one level a week since 2015 |
+| `L(t)` | A weekly random walk plus season | one level a week since 2013-12-02 |
 | `eta_s` | `StudentT(4, F(s), b_zone)` in `drift-building` (its default; `--level-dof` sets the degrees of freedom and 0 gives `Normal(F(s), b_zone)`, which `drift` has by default), with `F` a smooth surface at 1 km resolution in each zone (Manhattan, the outer boroughs) | 68,000 buildings |
 | `u_i = s_k + d_k(t_i)` | `s_k ~ Normal(0, ss^2)`, the unit's lasting level. `d_k` is an Ornstein-Uhlenbeck process: `Var d_k(t) = sd^2`, `Corr(d_k(t), d_k(t')) = exp(-abs(t - t') / tau)`, with `t` in years | 935,000 units |
 | `a_g(m)` | A stationary AR(1) per group: `a_g(m) = rho a_g(m-1) + Normal(0, s^2 (1 - rho^2))`. One step a quarter. `s ~ HalfNormal(0.1)`, `rho ~ Uniform(0, 1)` | one path per building, one per neighbourhood |
@@ -182,6 +204,15 @@ A unit is a pair of building and `unit_id`. A row with no `unit_id` is a unit of
 The first three terms are the kitchen sink model of 2026-10-24
 (`building_zones_kitchen_sink.py`), less two bath steps that 37 and 26 ads set
 (`drift.DROPPED_STEPS`). The unit term and the two drift terms are new.
+
+The served `drift-building-bedtext-layout-range` adds ten coefficients to the columns, each
+read from the ad's own text and counts and from earlier training ads, never from a rent: the
+flag `ad:bed_text_smaller` (the text says the apartment is flex or has fewer bedrooms than
+coded) and its unit mean; four marks for a bedroom or bath count above or below the one in the
+apartment's previous ad (`drift-building-bedtext-layout`); and four for a count above the
+lowest or below the highest of the apartment's earlier ads
+(`drift-building-bedtext-layout-range`). The marks came from brokers' reads of the worst misses
+(`docs/notes/low-outliers-2026-11-18.md`).
 
 ### Why a unit level that drifts
 
@@ -213,10 +244,10 @@ boroughs. The neighbourhood term follows that.
 
 ## The sampler
 
-A blocked Gibbs sweep in JAX on one GPU, four chains. The Student-t is written as a scale
-mixture, `y_i ~ Normal(mean_i, sigma^2 / lam_i)`, so that given the scales `lam` every
-location term is Gaussian. The sweep is partially collapsed: each step integrates out the
-terms that would otherwise pin what it draws.
+A blocked Gibbs sweep in JAX on one GPU, two to four chains a container. The Student-t is
+written as a scale mixture, `y_i ~ Normal(mean_i, sigma^2 / lam_i)`, so that given the scales
+`lam` every location term is Gaussian. The sweep is partially collapsed: each step
+integrates out the terms that would otherwise pin what it draws.
 
 1. **Unit precisions.** Given the scales, a unit's rows are jointly Gaussian once `u` is
    integrated out, with covariance `D^-1 + K`, where `D` holds the rows' precisions and
@@ -294,7 +325,10 @@ holds nu, the four sigma, the three unit scales, the buildings' spread, the buil
 sd and rho, and the weekly walk's tau. In those pools each of these had a posterior sd under
 6% of its mean. The sweep still draws the wave amplitudes and the floor curves' amplitudes
 and lengthscales, whose posteriors are 11% to 44% wide, along with the coefficients, the
-levels, the paths and the mixing weights.
+levels, the paths and the mixing weights. A set has 13 values (nu, four sigma, three unit
+scales, a spread for each of two zones, the path's sd and rho, and the walk's tau). The Deals
+fits run this way: a sweep takes 0.32 to 0.37 s, so 3,600 draws of 2 chains fit in one
+container for about $2.
 
 The option is for testing a new column on the base model in fewer containers than a pool
 takes. The slowest quantities of an ordinary fit are the rows' noise scales. Once the tight
@@ -367,8 +401,9 @@ those 55.
 
 ## How a fit is judged
 
-**Held-out ads.** The latest split holds out the newest ad of every unit with at least two
-ads: 189,647 ads. Each is predicted from ads that ran before it. Models are compared on the
+**Held-out ads.** The latest split (`splits.latest_split`, seed 20260922) holds out a 10% draw
+of the rows, chosen among the newest ads of units with at least two ads: 189,647 ads. Each is
+predicted from ads that ran before it. Models are compared on the
 same rows by `elpd`, by the error of the predictive median and by the coverage of the
 intervals.
 
@@ -411,6 +446,10 @@ the fit recovers the scales and that the held-out standardized errors have unit 
 ```sh
 ops/market-dataset HASH                      # market and backtest datasets from a pipeline build
 ops/modal-fit --gpu H100 --dataset DIR --split latest COMMIT LABEL drift-building b0 4 500 6000 25 --seed 1
+# the served model's market fit, abridged from what ops/deals-refresh fit launches (see below):
+ops/modal-fit --outside-budget --gpu H100 --dataset DIR --split market COMMIT LABEL \
+    drift-building-bedtext-layout-range b0 2 200 3600 20 --seed 1 --level-dof 4 \
+    --scales-fixed base-n9 --no-loo --no-heldout
 python -m rentfrontier.drift_pool RUN PART PART ...   # one run from a fit's containers
 python -m rentfrontier.drift_score RUN       # pred_scores.npz and the headline scores
 python -m rentfrontier.drift_kept_report RUN # ads and buildings the gate does not read
@@ -539,32 +578,34 @@ look"). Gate fits run 6 chains.
   dishwasher fields come from its latest record, which can postdate the backtest's day. No
   price leaks. The effect on the backtest's ranking should be small, and it is not measured.
 - **Asks are net of free months, and price histories are gross.** `latest_ask`, the
-  model's target, is the net-effective ask; 21% of the asks on the market of 2026-11-09
+  model's target, is the net-effective ask; 22% of the asks on the market of 2026-11-20
   are net, and the ad's own page shows the higher gross rent (the Deals page shows both).
   Months free also enter as a column. An ad's `first_ask` comes from its price history
   and is gross, so anything that compares the two must change basis first
   (`drift_deals.first_net`).
 - **Closed is not rented.** The data has asks, not leases. An ad that left the market at a
   price may have rented below it.
-- **A few ads train as closed that are not.** In the market dataset 1,062 ads in contract,
-  in draft or under review are training rows. The backtest's open ads include 32 drafts.
+- **A few ads train as closed that are not.** In the market dataset of 2026-11-20 1,140 ads
+  in contract, in draft or under review are training rows. The backtest's open ads include
+  32 drafts.
 - **New units get wide ranges.** A unit with no earlier ad is priced from its columns, its
   building and the local drift, and its range is about twice as wide as a unit with a recent
   ad. Its score is honest and less sharp.
 - **The design needs about 15 GB of host memory**, so full fits run on Modal.
-- **First asks run high.** The model is fitted to final asks. 17% of the backtest's ads
-  opened in the top tenth of their range and 7% in the bottom tenth, and on the market of 2026-11-09 the lowest
-  twentieth of the score holds 302 ads where an even spread would put 339. The score ranks
-  ads against each other well (the backtest), and its level is conservative for an ad that
-  has not yet been cut.
+- **First asks run high.** The model is fitted to final asks. 18% of the backtest's ads
+  opened in the top tenth of their range and 6% in the bottom tenth, and on the market of
+  2026-11-20 the lowest twentieth of the score holds 237 ads where an even spread would put
+  325. The score ranks ads against each other well (the backtest), and its level is
+  conservative for an ad that has not yet been cut.
 - **The building path steps by quarter**, to fit a fit in its hour. A monthly path scored
   2,590 elpd higher in round two (233,273 against 230,683; the monthly fit's chains did not
   mix, so the gap is a guide). The quarterly path was 2,762
   behind on ads with another unit's ad in the same quarter and slightly ahead elsewhere.
-- **`drift-building` has not passed the gate.** Its pooled fits of round six miss by 0.0006
-  and 0.0035 in R-hat on one quantity each. On the market and backtest data the outer
-  boroughs' building spread also holds a small offset from chain to chain that does not
-  move within a run. A quarter of it is a handful of buildings in two states; the cause
-  of the rest is not known (the note, "The direct check").
+- **`drift-building` passes the gate only with Student-t building levels.** Under the normal
+  prior (`--level-dof 0`) its pooled fits of rounds six and seven miss on the outer boroughs'
+  building spread (R-hat 1.013 to 1.045), because a few buildings of studio-coded ads at
+  3-bedroom rents move it. The served fits use the Student-t prior and pass. The ledger of
+  2026-11-12 sorts out the ads the records allow, and the 4 degrees of freedom are untuned
+  (`docs/TODO.md`).
 - **`drift-local` was not refitted** after round two, where the neighbourhood path added
   952 elpd to the building model, 2.5% of the building path's gain.
