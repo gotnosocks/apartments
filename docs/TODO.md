@@ -340,9 +340,12 @@ No fit was run for these.
   needs `decided`, `source` and `when`), 14 placeholder rows coded 1 bed that need a rule
   decision, 5 misjoin rows to re-read. Importing them is a rule version, which makes the
   served fit unservable until a refit, so it goes with the next refit and needs Ben's word.
-- [ ] A publish caution for a high building level on few training ads (level over 0.3 on five
-  or fewer ads; eight or fewer would add 350 E 84th and 131 E 70th). Test it on history
-  first: the live list has 16 such ads and 2 in the first 300, both weak deals on reading.
+- [x] A publish caution for a high building level on few training ads: `thin_level` (level
+  over 0.3 on five or fewer training ads, #1478, `docs/notes/thin-level-caution-2026-11-20.md`).
+  On held-out history such ads are below the 5% point 14% of the time against 5.9% (both
+  halves of the buildings). Live since the publish of Nov 20, 6:02 PM ET: 16 ads marked.
+- [ ] The model under-shrinks buildings with few ads in both directions (thin low levels: gap
+  +0.091 on 16 held-out ads). A fix is a model change, so one fit with a written prediction.
 - [ ] After each fit, list buildings with a level beyond 0.5 in size and under ten training
   ads, with their rows. R-hat does not see them: six buildings sat at levels of 0.56 to 2.17
   with live R-hat of 1.03 or less, except 922 Lincoln at 1.052.
