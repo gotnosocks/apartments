@@ -19,8 +19,9 @@ held-out history, asks where it comes from, and says what a fit would have to sh
   explain none of the slope on half A and a quarter of it on half B.
 - The prior is a likely cause but not the only one. The Student-t prior with 4 degrees of
   freedom expects 4.0% of buildings beyond 3 spreads; buildings with 30 or more ads show 0.7%
-  to 2.2% (Manhattan 0.7% to 1.4%). But the miss is as large where every training ad of the building
-  is the scored ad's own apartment, where the split between building and unit cannot matter.
+  to 2.2% (Manhattan 0.7% to 1.4%). But the miss is as large where every training ad of the
+  building is the scored ad's own apartment, where the split between building and unit cannot
+  matter.
 - Proposal, if a fit is wanted: `--level-dof 8` at the held scales, one backtest fit at about
   $2.04, then a market fit at about $2.11 only if the backtest does not reject it.
 - Recommendation: do not fit it now. The expected change is 2 to 8 ads of the first 300 on
