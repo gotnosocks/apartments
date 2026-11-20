@@ -48,6 +48,14 @@ subagent's model and effort to be picked by its task.
   are drafted and not in the ledger. The 29 Deals ads with a level over 0.5 rest on
   well-founded levels; 115 E 62nd (rank 44) and 14 Spencer (rank 285) are weak deals on a thin
   level. Open items are in `docs/TODO.md`.
+- The `thin_level` caution is live (#1478, no fit, `docs/notes/thin-level-caution-2026-11-20.md`):
+  a building level over 0.3 resting on five or fewer training ads. Held-out history: such ads
+  are below the 5% point 14.4% and 14.1% of the time in the two halves of the buildings, against
+  5.9%. The site was deployed at `c551883a` and Deals republished from the same run
+  (`...6cd1f12b-range-m3`, backtest `...d9028c57-range-j`) on Nov 20 at 6:02 PM ET: 16 ads
+  marked, order and `below_share` unchanged, uncautioned 4,896 to 4,884. The files it replaced
+  are in `/data1/apartments/tmp/deals-backup/20261120-1641`. Deploy the site before a publish
+  whenever a caution is added, or the page shows the raw code.
 - Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
