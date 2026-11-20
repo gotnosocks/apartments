@@ -366,6 +366,26 @@ def test_quantiles_of_a_normal_mixture():
     assert q[0, 5] == pytest.approx(0.1 * 1.2816, abs=0.004)
 
 
+def test_the_table_draws_as_many_replicates_as_the_score_in_no_more_memory():
+    # The Today table's bounds are sampled like the score's, and a block holds no more
+    # replicates of a component than it did at 4 replicates and 20,000 rows.
+    assert dt.SAMPLES == dt.drift_score.SAMPLES >= 32
+    assert dt.SAMPLES * dt.CHUNK <= 4 * 20_000
+    rng = np.random.default_rng(3)
+    loc = 8 + 0.03 * rng.standard_normal((192, 40))
+    usd, sig = np.full(loc.shape, 0.065), np.full(loc.shape, 0.06)
+    nu = np.full(192, 4.0)
+    spread = {}
+    for samples in (4, dt.SAMPLES):
+        q = [
+            dt.quantiles(loc, usd, sig, nu, seed=k, samples=samples)[0]
+            for k in range(6)
+        ]
+        spread[samples] = np.std(np.stack(q)[:, :, [0, 7]], axis=0, ddof=1).mean()
+    assert spread[dt.SAMPLES] < 0.5 * spread[4]
+    assert spread[dt.SAMPLES] < 0.006
+
+
 def test_season_matches_the_design():
     day = pd.Timestamp("2026-11-13")
     got = dt.season_at(day)

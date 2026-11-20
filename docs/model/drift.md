@@ -329,6 +329,11 @@ The median and the intervals are sampled: 32 replicates of the log rent per kept
 do not. On the backtest's 9,346 ads, two seeds put 42 ads on different sides of the 5% or
 95% point. With 4 replicates, the value until 2026-11-20, they put 123.
 
+The Today table samples its median and bounds the same way (`drift_today.SAMPLES`, 32 since
+2026-11-20, in blocks of `drift_today.CHUNK` rows). On a synthetic table with 192 components
+per apartment, the 2.5% and 97.5% bounds moved by 0.4% from seed to seed and the median by
+0.15%. With 4 replicates they moved by 1.2% and 0.4%.
+
 `below_share` is the deal score. An ask with `below_share` 0.03 is lower than 97% of what
 the model expects that apartment to ask on that day. The Deals page shows the complement as
 "lower than".

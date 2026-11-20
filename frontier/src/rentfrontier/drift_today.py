@@ -194,10 +194,12 @@ DRAWS = 96
 # Sweeps of the lam step for each draw before its first kept sweep, and kept sweeps.
 BURN = 4
 KEEP = 2
-# Replicates drawn from each component for the quantiles, as `drift_score` draws them.
-SAMPLES = 4
-# Rows per block when the quantiles are worked out.
-CHUNK = 20_000
+# Replicates drawn from each component for the quantiles, as `drift_score` draws them: the
+# median and bounds are sampled, and at 4 the 95% bounds moved about 1.2% with the seed.
+SAMPLES = 32
+# Rows per block when the quantiles are worked out: SAMPLES * CHUNK replicates of every
+# component are held at once, 80,000 as when the two were 4 and 20,000.
+CHUNK = 2_500
 # The table's interval bounds, as places in `drift_score.Q`.
 BOUNDS = {"lo95": 0, "lo80": 2, "lo50": 3, "hi50": 4, "hi80": 5, "hi95": 7}
 NEW_YORK = ZoneInfo("America/New_York")
