@@ -67,7 +67,7 @@ $100.
 
 | Prediction | Range | Result | Verdict |
 | --- | --- | --- | --- |
-| Scrape and build without a failed region; latest `first_day` is the scrape's day | as written | build `4f487ef77bb6ca61` finished and the fit ran on it; failed regions and the latest first day are not recorded here | not scored |
+| Scrape and build without a failed region; latest `first_day` is the scrape's day | as written | scrape done 2:47 PM, build `4f487ef77bb6ca61` done 2:57 PM; latest `first_day` 2026-11-20, the scrape's day; the scrape log was not reread for failed regions | first day inside, regions not checked |
 | Open ads in the market dataset | 6,100 to 6,900 | 6,502 (5,917 ACTIVE, 585 TEMPORARILY_OFF_MARKET) | inside |
 | Share of the 6,565 Nov 18 ads closed at `D` = 2 | 6% to 12% | 670, 10.2% | inside |
 | Of the first 100 uncautioned Nov 18 ads, closed at `D` = 2 | 10 to 25 | 17 | inside |
