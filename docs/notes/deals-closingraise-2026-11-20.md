@@ -130,15 +130,17 @@ prediction on the full held-out set is `+0.0097` for `range-j` and `+0.0151` for
 
 The scoring script and its table are `docs/notes/deals-closingraise-2026-11-20/score.py` and
 `docs/notes/deals-closingraise-2026-11-20/range-j__cr-j.json`. The per-ad parquet stays on
-`/data1/apartments/tmp/po-crj-score/`.
+`/data1/apartments/tmp/po-crj-score/`, where the script was run (`score.py --old range-j --new
+cr-j`); it writes its outputs beside itself unless `--out` names another folder.
 
 ## What it shows
 
 The cleaning did what it was aimed at on the `345` closing-raise-unit ads: their share below the
 5% point fell from `9.57%` to `4.35%`, inside the `4.0%` to `7.0%` prediction, and `d_elpd` on
-them is positive. Lowering `50,723` training asks also lowered predictions everywhere, though.
+them is positive, within one SE. Lowering `50,723` training asks also lowered predictions on
+average.
 Bias rose from `+0.0097` to `+0.0151`. The loss is clearest in buildings with no repriced row
-(`-45.9`, z `-6.3`), where the change can only arrive through shared terms. So as a
+(`-45.9`, z `-6.3`), where the change would have to arrive through shared terms. So as a
 whole-dataset change it appears to cost more than it gains. A narrower form, such as repricing
 only as the unit's own record or only for scoring cautions, is a candidate and is untested. The
 prediction of `+10 to +55` overall was wrong in sign.
