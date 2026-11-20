@@ -43,7 +43,7 @@ The predicted locations match independent draws at every point of the table but 
 backtest ads over 1.05. The 281 live ads over 1.01 (the plan's 278) are the count chance
 gives. 25 of them are in the lowest tenth of the order (8.9%, against the 10% an even spread
 gives) and 4 in the first 100. Of the 20 ads with the worst R-hat, 4 (live) and 3 (backtest)
-are in the lowest tenth, and their R-hat is 1.026 to 1.036.
+are in the lowest tenth, and their R-hat is 1.021 to 1.036.
 
 The building levels are not all mixed. In the body they match independent draws, but 51 live
 and 72 backtest buildings are over 1.05 (30 and 39 over 1.10, 5 and 10 over 2), and six times
@@ -120,6 +120,12 @@ after Nov 18 replaced 20 of the first 100 uncautioned ads
    would halve the error for a file four times the size. The Nov 16 check found that keeping
    every sweep adds 1% to 3% to sweep time. That is a sampler setting of the next market fit,
    not a model change, and I'd take it only with Ben's word since it changes the fit's record.
+
+From review: R-hat does not show a building where both chains hold the same high mode,
+and such a level would put an ordinary ad near the top of Deals. On the live run one ad is
+in a building with a mean level over 0.8 and 29 are in buildings over 0.5; reading those
+buildings is the check. Only 6 (live) and 8 (backtest) buildings are fully separated
+between chains; the others drift or jump within a chain.
 
 ## Doubts
 

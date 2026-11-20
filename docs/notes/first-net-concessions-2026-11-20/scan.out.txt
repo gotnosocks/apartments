@@ -1,0 +1,20 @@
+j 9346
+m3 6502
+priceChange keys Counter({'changedAt': 59262, 'price': 59262})
+pricing keys Counter({'additionalFees': 23266, 'dueUpFront': 23266, 'furnishedRent': 23266, 'interestingPriceDelta': 23266, 'leaseTermMonths': 23266, 'monthlyFees': 23266, 'monthsFree': 23266, 'moveInFees': 23266, 'netEffectiveRent': 23266, 'price': 23266, 'priceChanges': 23266, 'priceDelta': 23266, 'rentedPrice': 23266, 'securityDeposit': 23266, 'totalMonthlyPrice': 23266})
+2011 {'n': 1, 'mf': 0, 'ner': 0, 'pc': 1, 'type_rental': 1}
+2013 {'n': 67, 'mf': 0, 'ner': 0, 'pc': 67, 'type_rental': 67}
+2014 {'n': 1327, 'mf': 0, 'ner': 0, 'pc': 1327, 'type_rental': 1327}
+2015 {'n': 1422, 'mf': 0, 'ner': 0, 'pc': 1422, 'type_rental': 1422}
+2016 {'n': 1433, 'mf': 0, 'ner': 0, 'pc': 1433, 'type_rental': 1433}
+2017 {'n': 1687, 'mf': 0, 'ner': 0, 'pc': 1687, 'type_rental': 1687}
+2018 {'n': 1969, 'mf': 5, 'ner': 5, 'pc': 1969, 'type_rental': 1969}
+2019 {'n': 1820, 'mf': 11, 'ner': 11, 'pc': 1820, 'type_rental': 1820}
+2020 {'n': 2460, 'mf': 339, 'ner': 339, 'pc': 2460, 'type_rental': 2460}
+2021 {'n': 2217, 'mf': 541, 'ner': 541, 'pc': 2217, 'type_rental': 2217}
+2022 {'n': 1542, 'mf': 138, 'ner': 138, 'pc': 1542, 'type_rental': 1542}
+2023 {'n': 1716, 'mf': 168, 'ner': 168, 'pc': 1716, 'type_rental': 1716}
+2024 {'n': 1814, 'mf': 195, 'ner': 195, 'pc': 1814, 'type_rental': 1814}
+2025 {'n': 1746, 'mf': 213, 'ner': 213, 'pc': 1746, 'type_rental': 1746}
+2026 {'n': 2045, 'mf': 222, 'ner': 222, 'pc': 2045, 'type_rental': 2045}
+records per listing [(1, 2197796), (2, 5577), (3, 4799), (4, 5659), (5, 4983), (6, 8633), (7, 1620)]
