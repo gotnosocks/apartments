@@ -1,0 +1,13 @@
+building,listing_ids,coded_beds,ask,text,in_candidate_rows
+384-st-johns-place-brooklyn,4466913 4476091 4503615 4513486 4522007 4531387,0,"$4,495 to $5,200",empty; another ad of the building is a 3 bed at $4875 (4485730), same unit not verified,yes
+198-west-9-street-brooklyn,2984951 2989920 3005619,0,"$3,500 to $4,000","*" and ".",yes
+123-henry-street-new_york,3701775 3713274,0,"$3,500 to $3,800",TBD,yes
+985-jefferson-avenue-brooklyn,4505676,0,"$4,500",Huge Studio in Bed Stuy (not a placeholder),no
+985-jefferson-avenue-brooklyn,4462969,1,"$5,000",empty,no (rule decision)
+911-dekalb-avenue-brooklyn,4452627 4471968,1,"$5,000",one letter,no (rule decision)
+114-patchen-avenue-brooklyn,4267227,1,"$6,500",one letter,no (rule decision)
+718-chauncey-street-brooklyn,4247075,1,"$4,500",one letter,no (rule decision)
+161-covert-street-brooklyn,4716381 5035629,1,"$5,500",".",no (rule decision)
+662-nostrand-avenue-brooklyn,3990114 4000816 4019924,1,"$4,500 to $4,600",one letter,no (rule decision)
+922-lincoln-place-brooklyn,4714108 4729107 5037015,1,"$6,000 to $6,500",".",no (rule decision)
+993-lafayette-avenue-brooklyn,4285907,1,"$5,500",one letter,no (rule decision)

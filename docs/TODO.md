@@ -331,6 +331,25 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   (`rentfrontier.market`) and works only for backtest days after that date
   (`docs/notes/first-net-concessions-2026-11-20.md`).
 
+**From the building-level read of 2026-11-20** (`docs/notes/building-level-read-2026-11-20.md`).
+No fit was run for these.
+
+- [ ] Candidate ledger rows for the 96 buildings whose kept level did not mix: 68 drafted in
+  `docs/notes/building-level-read-2026-11-20/candidate_rows.ndjson` (75 were read in full, 7
+  dropped and 4 re-kinded; not in the ledger; each
+  needs `decided`, `source` and `when`), 14 placeholder rows coded 1 bed that need a rule
+  decision, 5 misjoin rows to re-read. Importing them is a rule version, which makes the
+  served fit unservable until a refit, so it goes with the next refit and needs Ben's word.
+- [ ] A publish caution for a high building level on few training ads (level over 0.3 on five
+  or fewer ads; eight or fewer would add 350 E 84th and 131 E 70th). Test it on history
+  first: the live list has 16 such ads and 2 in the first 300, both weak deals on reading.
+- [ ] After each fit, list buildings with a level beyond 0.5 in size and under ten training
+  ads, with their rows. R-hat does not see them: six buildings sat at levels of 0.56 to 2.17
+  with live R-hat of 1.03 or less, except 922 Lincoln at 1.052.
+- [ ] A history sweep for commercial and placeholder ads that did not break R-hat: 0 or 1 bed,
+  ask over three times the area median, text with "retail", "storefront", "office", "per sf"
+  or "warehouse", and texts of a few characters. Rows from the sweep go to the ledger.
+
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build
 that drops a handful of rows shifts the position of every later id and reshuffles the draw.

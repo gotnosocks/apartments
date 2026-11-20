@@ -41,6 +41,13 @@ subagent's model and effort to be picked by its task.
   post-fit report of predicted ads over 1.05 with a caution (not built), a read of those
   buildings for the ledger, and `keep_every` 5 on a later market fit if Ben wants a steadier
   order (one Monte Carlo error spans about 5 places in the first 100).
+- The 96 unmixed building levels were read ad by ad (no fit,
+  `docs/notes/building-level-read-2026-11-20.md`): 72 are data errors a ledger row removes
+  (commercial 36, placeholder 19, wrong ask 8, two buildings under one id 9), 8 are out of
+  scope and 11 are model shape. 68 candidate rows (of 75 read in full; 7 dropped, 4 re-kinded)
+  are drafted and not in the ledger. The 29 Deals ads with a level over 0.5 rest on
+  well-founded levels; 115 E 62nd (rank 44) and 14 Spencer (rank 285) are weak deals on a thin
+  level. Open items are in `docs/TODO.md`.
 - Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
