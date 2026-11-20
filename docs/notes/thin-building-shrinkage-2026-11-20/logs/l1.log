@@ -1,0 +1,27 @@
+ads 6502 no level 0 uncautioned 4884
+               ads  first300  ufirst300  new_unit  below
+sb   lb                                                 
+0    mid        94         6          7     1.000  0.905
+1-5  -.3:-.1     8         0          0     0.750  0.683
+     mid       213        14         14     0.643  0.566
+     .1:.3      53         1          3     0.660  0.506
+     >.3        16         2          0     0.438  0.500
+6-10 -.3:-.1    10         0          0     0.000  0.691
+     mid       185         9         12     0.481  0.550
+     .1:.3      39         2          5     0.462  0.532
+     >.3         6         2          3     0.500  0.150
+11+  <-.3        6         0          0     0.167  0.414
+     -.3:-.1   431        14         14     0.323  0.590
+     mid      4388       175        169     0.298  0.570
+     .1:.3     957        66         63     0.260  0.548
+     >.3        96         9         10     0.365  0.640
+       ads  first300  ufirst300  new_unit
+sb                                       
+0       94         6          7  1.000000
+1-5    290        17         17  0.637931
+6-10   240        13         20  0.458333
+11+   5878       264        256  0.294828
+history factors on the level (0.10 thin, 0.03 for 6-10): ads with a changed score 624, of them in the first 300 36; leave the first 300: 2, enter: 2; uncautioned first 300 leave 3; first-300 ads moving 10+ places 11, 25+ 8; median abs shift in log median, changed ads 0.0020
+history factors on the excess over 0.1 (0.19 thin, 0.05 for 6-10): ads with a changed score 132, of them in the first 300 7; leave the first 300: 1, enter: 1; uncautioned first 300 leave 2; first-300 ads moving 10+ places 5, 25+ 5; median abs shift in log median, changed ads 0.0065
+three times the history factor (0.30, 0.10): ads with a changed score 624, of them in the first 300 36; leave the first 300: 8, enter: 8; uncautioned first 300 leave 7; first-300 ads moving 10+ places 39, 25+ 16; median abs shift in log median, changed ads 0.0065
+half of every thin level removed (0.50, 0.15): ads with a changed score 624, of them in the first 300 36; leave the first 300: 12, enter: 12; uncautioned first 300 leave 12; first-300 ads moving 10+ places 58, 25+ 22; median abs shift in log median, changed ads 0.0102

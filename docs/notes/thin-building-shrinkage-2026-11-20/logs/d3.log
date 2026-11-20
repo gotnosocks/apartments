@@ -1,0 +1,44 @@
+                     ads     bld    gap  gap_med  below5  above95  level
+own_only band                                                           
+False    <-.3       13.0    10.0  0.090    0.026   0.000    0.154 -0.381
+         -.3:-.1   374.0   330.0 -0.002   -0.010   0.040    0.051 -0.149
+         mid      5142.0  4392.0  0.000   -0.004   0.046    0.047  0.001
+         .1:.3     623.0   517.0 -0.015   -0.011   0.087    0.034  0.162
+         >.3       149.0   128.0 -0.053   -0.041   0.154    0.027  0.470
+True     <-.3        3.0     3.0  0.095    0.108   0.000    0.000 -0.423
+         -.3:-.1    57.0    57.0  0.022   -0.015   0.070    0.088 -0.140
+         mid      1199.0  1199.0 -0.002   -0.005   0.049    0.040 -0.001
+         .1:.3     140.0   140.0  0.013    0.008   0.021    0.043  0.155
+         >.3        40.0    40.0 -0.099   -0.086   0.100    0.000  0.417
+by half, level over .3
+                ads   bld    gap  gap_med  below5  above95  level
+half own_only                                                    
+0    False     71.0  64.0 -0.057   -0.044   0.141    0.028  0.454
+     True      19.0  19.0 -0.119   -0.126   0.158    0.000  0.417
+1    False     78.0  64.0 -0.050   -0.037   0.167    0.026  0.484
+     True      21.0  21.0 -0.080   -0.025   0.048    0.000  0.418
+clean only
+                     ads     bld    gap  gap_med  below5  above95  level
+own_only band                                                           
+False    <-.3       13.0    10.0  0.090    0.026   0.000    0.154 -0.381
+         -.3:-.1   369.0   326.0 -0.002   -0.010   0.038    0.049 -0.149
+         mid      5041.0  4310.0  0.000   -0.004   0.047    0.047  0.001
+         .1:.3     601.0   496.0 -0.014   -0.011   0.085    0.033  0.161
+         >.3       138.0   120.0 -0.050   -0.042   0.152    0.029  0.475
+True     <-.3        3.0     3.0  0.095    0.108   0.000    0.000 -0.423
+         -.3:-.1    57.0    57.0  0.022   -0.015   0.070    0.088 -0.140
+         mid      1189.0  1189.0 -0.002   -0.005   0.049    0.040 -0.001
+         .1:.3     136.0   136.0  0.017    0.010   0.015    0.044  0.155
+         >.3        38.0    38.0 -0.077   -0.073   0.105    0.000  0.406
+own only A 730 slope -0.144
+own only B 709 slope -0.101
+other units too A 3204 slope -0.087
+other units too B 3097 slope -0.061
+thin high ads 189 bld 168 odd ads 13 gap odd -0.157 gap rest -0.056 below5 rest 0.142 above95 rest 0.023
+   read classes {'commercial': 1, 'placeholder': 1}
+thin low ads 16 bld 13 odd ads 0 gap odd None gap rest 0.091 below5 rest 0.0 above95 rest 0.125
+   read classes {}
+thin far ads 1399 1225 odd 44
+share of all held-out ads: thin 0.0408 thin far 0.0074
+half A thin rmse 0.1103 after own-half fit 0.1099 R2 0.0081
+half B thin rmse 0.109 after own-half fit 0.1087 R2 0.0049
