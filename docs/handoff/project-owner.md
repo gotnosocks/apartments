@@ -31,8 +31,8 @@ subagent's model and effort to be picked by its task.
 - Open free work from `docs/notes/deals-closingraise-2026-11-20/plan.md`: dating concessions
   in `first_net`, the R-hat audit of `pred_loc`, the stale parts of `docs/model/drift.md`.
   From review: quantiles could invert the exact cdf (`drift_today.SAMPLES` is 32 too, with
-  `CHUNK` 2,500, once its PR merges; the next Today publish runs about 7 minutes longer). A base refit with free scales, roughly $22, needs Ben's
-  decision.
+  `CHUNK` 2,500; the next Today publish runs about 7 minutes longer). A base refit with free
+  scales, roughly $22, needs Ben's decision.
 - Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
