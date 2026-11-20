@@ -346,9 +346,13 @@ No fit was run for these.
   halves of the buildings). Live since the publish of Nov 20, 6:02 PM ET: 16 ads marked.
 - [ ] The model under-shrinks buildings with few ads in both directions (thin low levels: gap
   +0.091 on 16 held-out ads). A fix is a model change, so one fit with a written prediction.
-- [ ] After each fit, list buildings with a level beyond 0.5 in size and under ten training
-  ads, with their rows. R-hat does not see them: six buildings sat at levels of 0.56 to 2.17
-  with live R-hat of 1.03 or less, except 922 Lincoln at 1.052.
+- [x] After each fit, list buildings with a level beyond 0.5 in size and under ten training
+  ads. R-hat does not see them: six buildings sat at levels of 0.56 to 2.17 with live R-hat
+  of 1.03 or less, except 922 Lincoln at 1.052. `python -m rentfrontier.drift_kept_report RUN`
+  lists them with their count of training rows, and the ads and buildings with kept R-hat
+  over 1.05 (`docs/model/drift.md`, "Running it"). It gives counts, not the rows themselves.
+- [ ] Read the 338 buildings the report lists on the live run (4 hold 6 scored ads, all four
+  read in `docs/notes/building-level-read-2026-11-20.md`); the rest matter when an ad joins.
 - [ ] A history sweep for commercial and placeholder ads that did not break R-hat: 0 or 1 bed,
   ask over three times the area median, text with "retail", "storefront", "office", "per sf"
   or "warehouse", and texts of a few characters. Rows from the sweep go to the ledger.

@@ -413,11 +413,24 @@ ops/market-dataset HASH                      # market and backtest datasets from
 ops/modal-fit --gpu H100 --dataset DIR --split latest COMMIT LABEL drift-building b0 4 500 6000 25 --seed 1
 python -m rentfrontier.drift_pool RUN PART PART ...   # one run from a fit's containers
 python -m rentfrontier.drift_score RUN       # pred_scores.npz and the headline scores
+python -m rentfrontier.drift_kept_report RUN # ads and buildings the gate does not read
 python -m rentfrontier.drift_deals validate BACKTEST_RUN --ads ADS --out validation.json
 python -m rentfrontier.drift_deals texts MARKET_RUN --out TEXTS.parquet   # the ads' own texts
 python -m rentfrontier.drift_deals publish MARKET_RUN --out /data1/apartments/site/deals \
     --registry REGISTRY --backtest BACKTEST_RUN --heldout LATEST_RUN --texts TEXTS.parquet
 ```
+
+`drift_kept_report` is run after each market or backtest fit that passed the gate, before its
+table is published. The gate reads the traced scalars and coefficients and not the kept draws
+the Deals order is made from. The report lists the scored ads whose `kept/pred_loc` has split
+R-hat over 1.05, with their place in the order, and the buildings whose level `kept/bld` has
+R-hat over 1.05 or sits beyond 0.5 in size on fewer than ten training rows, each with its
+training rows, level, R-hat and count of scored ads. It writes `kept_report.json` in the run's
+folder and changes no gate, table or caution. A listed ad, or a listed building that holds a
+scored ad, is one to read before trusting its place: on the live run of Nov 20 it lists no ad,
+51 unmixed buildings with no scored ad, and 338 far and thin buildings, 4 of them with 6
+scored ads (`docs/notes/kept-rhat-audit-2026-11-20.md`,
+`docs/notes/building-level-read-2026-11-20.md`).
 
 `ops/deals-refresh` chains these for a refresh of the Deals table from a new pipeline
 build: `datasets` writes the market dataset the served model reads, `backtest-datasets`
