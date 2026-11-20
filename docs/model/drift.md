@@ -383,7 +383,9 @@ only what was knowable on the backtest day: an open ad counts at its first ask. 
 is published without its ads' texts, so the cautions read from a text (`income` by wording,
 `not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
 cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
-knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). The page shows
+knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). The same holds
+for `first_net`, which reads the final page price and months free
+(`docs/notes/first-net-concessions-2026-11-20.md`). The page shows
 the full table for now.
 
 **The market.** The same build as of the last scraped day holds out the ads on the market

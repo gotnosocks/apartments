@@ -336,7 +336,9 @@ def first_net(first, final, page, months_free) -> np.ndarray:
     """An ad's first ask on the basis of its final ask. `final` is net of free months and
     `first` and `page`, the rent the ad's page shows, are gross, so an ad with free months
     has its first ask scaled by `final / page`. That reads the concession as there from the
-    first day: one added later was a cut in effect, and is not counted as one.
+    first day: one added later was a cut in effect, and is not counted as one. It nets with the
+    latest coded concession, since the price history holds none
+    (`docs/notes/first-net-concessions-2026-11-20.md`).
 
     An ad with free months whose page price is missing, or not above its net ask, or more
     than twice it, has no basis to compare on and gets NaN."""

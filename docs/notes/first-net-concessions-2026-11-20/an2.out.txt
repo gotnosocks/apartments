@@ -1,0 +1,11 @@
+multi 5926 median span 10.0
+all multi n 5926 added 227 removed 39 changed 186 kept 918 latest free 1331 | of latest-free, differ from first snap: 31.0% | median |dratio| among differing: 0.045
+span 0-10d n 3622 added 73 removed 13 changed 60 kept 530 latest free 663 | of latest-free, differ from first snap: 20.1% | median |dratio| among differing: 0.037
+span 11-25d n 288 added 4 removed 3 changed 22 kept 114 latest free 140 | of latest-free, differ from first snap: 18.6% | median |dratio| among differing: 0.053
+span 26-40d n 2016 added 150 removed 23 changed 104 kept 274 latest free 528 | of latest-free, differ from first snap: 48.1% | median |dratio| among differing: 0.055
+first snapshot within 3 days of opening n 1654 added 45 removed 7 changed 36 kept 246 latest free 327 | of latest-free, differ from first snap: 24.8% | median |dratio| among differing: 0.044
+ ...and span>=14d n 421 added 25 removed 2 changed 21 kept 41 latest free 87 | of latest-free, differ from first snap: 52.9% | median |dratio| among differing: 0.044
+added: r1 quantiles [0.9, 0.923, 0.971] price cut too 0.27
+live net_ask now 6 of 6502 coded free 1421
+net_ask ads with a concession coded in an earlier snapshot 1
+no coded free now but coded earlier 51 ; page price below first ask among them 37
