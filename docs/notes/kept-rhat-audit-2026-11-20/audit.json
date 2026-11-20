@@ -1,0 +1,771 @@
+[
+ {
+  "run": "drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3",
+  "chains": 2,
+  "kept_draws_per_chain": 180,
+  "traced_draws_per_chain": 3600,
+  "gate": {
+   "max_rhat": 1.0058604570943384,
+   "max_rhat_name": "beta[bed=0:full>=2]",
+   "min_ess": 604.6198915082864,
+   "passes": true
+  },
+  "bld": {
+   "items": 68019,
+   "varying": 68019,
+   "rhat_max": 9.599608817247269,
+   "rhat_p99": 1.0165210137536813,
+   "rhat_median": 0.9988617483792132,
+   "share_rhat_over_1.01": 0.04194416266043311,
+   "share_rhat_over_1.05": 0.0007497904997133154,
+   "share_rhat_over_1.10": 0.00044105323512547964,
+   "ess_min": 1.0134997367858887,
+   "ess_median": 345.44476318359375,
+   "share_ess_under_400": 0.8757406018906482,
+   "share_ess_under_100": 0.0026904247342654257
+  },
+  "pred_loc": {
+   "items": 6502,
+   "varying": 6502,
+   "rhat_max": 1.0355319544778734,
+   "rhat_p99": 1.0155345731897847,
+   "rhat_median": 0.9989311347480827,
+   "share_rhat_over_1.01": 0.04321747154721624,
+   "share_rhat_over_1.05": 0.0,
+   "share_rhat_over_1.10": 0.0,
+   "ess_min": 62.13138198852539,
+   "ess_median": 346.0581970214844,
+   "share_ess_under_400": 0.8797293140572132,
+   "share_ess_under_100": 0.00046139649338665026
+  },
+  "below_share": {
+   "items": 6502,
+   "varying": 6502,
+   "rhat_max": 1.039187539332526,
+   "rhat_p99": 1.0157940225312914,
+   "rhat_median": 0.9989059944258316,
+   "share_rhat_over_1.01": 0.041679483235927406,
+   "share_rhat_over_1.05": 0.0,
+   "share_rhat_over_1.10": 0.0,
+   "ess_min": 115.15679931640625,
+   "ess_median": 346.6702423095703,
+   "share_ess_under_400": 0.882651491848662,
+   "share_ess_under_100": 0.0
+  },
+  "null": {
+   "items": 20000,
+   "varying": 20000,
+   "rhat_max": 1.0464073269247574,
+   "rhat_p99": 1.0155480424697185,
+   "rhat_median": 0.9988217800405899,
+   "share_rhat_over_1.01": 0.04105,
+   "share_rhat_over_1.05": 0.0,
+   "share_rhat_over_1.10": 0.0,
+   "ess_min": 45.84209442138672,
+   "ess_median": 345.92625427246094,
+   "share_ess_under_400": 0.8771,
+   "share_ess_under_100": 0.00045
+  },
+  "order": {
+   "all": {
+    "ads": 6502,
+    "lowest_tenth": {
+     "ads": 650,
+     "share_at_cut": 0.134246273402426,
+     "mcse_median": 0.002530952104773456,
+     "mcse_max": 0.011862351783905623,
+     "gap_median": 6.147285085979226e-05,
+     "mcse_over_gap_median": 40.081279370936684,
+     "share_mcse_over_gap": 0.9738461538461538,
+     "places_within_one_mcse_median": 24.0,
+     "places_within_one_mcse_p90": 70.0,
+     "places_within_one_mcse_max": 120,
+     "share_rhat_over_1.01": 0.038461538461538464,
+     "share_rhat_over_1.05": 0.0,
+     "rhat_max": 1.0355319544778734
+    },
+    "first_100": {
+     "ads": 100,
+     "share_at_cut": 0.02373020324377753,
+     "mcse_median": 0.00039973963707739364,
+     "mcse_max": 0.004296699612978326,
+     "gap_median": 7.936170912849119e-05,
+     "mcse_over_gap_median": 5.08017071813591,
+     "share_mcse_over_gap": 0.84,
+     "places_within_one_mcse_median": 3.0,
+     "places_within_one_mcse_p90": 12.0,
+     "places_within_one_mcse_max": 36,
+     "share_rhat_over_1.01": 0.04,
+     "share_rhat_over_1.05": 0.0,
+     "rhat_max": 1.0152175606702243
+    },
+    "chains": {
+     "spearman": 0.998382498025583,
+     "lowest_tenth_shared": 0.96,
+     "first_100_shared": 0.94,
+     "first_100_places_apart_median": 3.0,
+     "first_100_places_apart_max": 33
+    }
+   },
+   "uncautioned": {
+    "ads": 4896,
+    "lowest_tenth": {
+     "ads": 489,
+     "share_at_cut": 0.15169880709530834,
+     "mcse_median": 0.0031913120216019806,
+     "mcse_max": 0.015756809915564877,
+     "gap_median": 0.00011006629601392759,
+     "mcse_over_gap_median": 31.294423960441257,
+     "share_mcse_over_gap": 0.9775051124744376,
+     "places_within_one_mcse_median": 23.0,
+     "places_within_one_mcse_p90": 58.19999999999999,
+     "places_within_one_mcse_max": 115,
+     "share_rhat_over_1.01": 0.0408997955010225,
+     "share_rhat_over_1.05": 0.0,
+     "rhat_max": 1.0355319544778734
+    },
+    "first_100": {
+     "ads": 100,
+     "share_at_cut": 0.04125847132431382,
+     "mcse_median": 0.0008216581485005919,
+     "mcse_max": 0.004296699612978326,
+     "gap_median": 0.00014582841803638478,
+     "mcse_over_gap_median": 7.047726831916366,
+     "share_mcse_over_gap": 0.89,
+     "places_within_one_mcse_median": 5.0,
+     "places_within_one_mcse_p90": 12.0,
+     "places_within_one_mcse_max": 21,
+     "share_rhat_over_1.01": 0.04,
+     "share_rhat_over_1.05": 0.0,
+     "rhat_max": 1.020547989943866
+    },
+    "chains": {
+     "spearman": 0.9982436938130563,
+     "lowest_tenth_shared": 0.9652351738241309,
+     "first_100_shared": 0.95,
+     "first_100_places_apart_median": 3.0,
+     "first_100_places_apart_max": 32
+    }
+   }
+  },
+  "rhat_over_1.01": {
+   "ads": 281,
+   "in_lowest_tenth": 25,
+   "in_first_100": 4
+  },
+  "bld_over_1.05": {
+   "buildings": 51,
+   "chain_means_apart_median": 0.20217850684453476,
+   "chain_means_apart_max": 1.3078244034181503,
+   "chain_means_apart_over_0.3": 17,
+   "training_rows_median": 1.0,
+   "training_rows_at_most_3": 41,
+   "training_rows_max": 209,
+   "with_predicted_ads": 0,
+   "predicted_ads": 0,
+   "predicted_ads_in_lowest_tenth": 0,
+   "ads": []
+  },
+  "worst": [
+   {
+    "listing_id": "5205992",
+    "rhat_pred_loc": 1.0355319544778734,
+    "ess_pred_loc": 250.78466796875,
+    "rhat_below_share": 1.0154039543326938,
+    "below_share": 0.0707623255597489,
+    "place": 346,
+    "in_lowest_tenth": true,
+    "mcse": 0.0042352013204949605,
+    "gap_to_nearer_neighbour": 0.00014149714655259382
+   },
+   {
+    "listing_id": "5206227",
+    "rhat_pred_loc": 1.0318902695118959,
+    "ess_pred_loc": 263.3724365234375,
+    "rhat_below_share": 1.0248841195986655,
+    "below_share": 0.23605949269628274,
+    "place": 1163,
+    "in_lowest_tenth": false,
+    "mcse": 0.011192871529055248,
+    "gap_to_nearer_neighbour": 4.734867683431343e-06
+   },
+   {
+    "listing_id": "5149941",
+    "rhat_pred_loc": 1.0289684404015844,
+    "ess_pred_loc": 149.1699981689453,
+    "rhat_below_share": 1.039187539332526,
+    "below_share": 0.18620811819952013,
+    "place": 902,
+    "in_lowest_tenth": false,
+    "mcse": 0.025035851818934342,
+    "gap_to_nearer_neighbour": 5.610069625897052e-05
+   },
+   {
+    "listing_id": "5200929",
+    "rhat_pred_loc": 1.028506065026968,
+    "ess_pred_loc": 320.8642883300781,
+    "rhat_below_share": 1.0149367839027639,
+    "below_share": 0.5505877823399538,
+    "place": 3092,
+    "in_lowest_tenth": false,
+    "mcse": 0.01882764163712337,
+    "gap_to_nearer_neighbour": 3.875737828118453e-06
+   },
+   {
+    "listing_id": "5166072",
+    "rhat_pred_loc": 1.0282588019840828,
+    "ess_pred_loc": 305.81439208984375,
+    "rhat_below_share": 1.028378149736054,
+    "below_share": 0.4010329467790247,
+    "place": 2077,
+    "in_lowest_tenth": false,
+    "mcse": 0.014582374629710107,
+    "gap_to_nearer_neighbour": 0.00012578518030292862
+   },
+   {
+    "listing_id": "5188346",
+    "rhat_pred_loc": 1.02713568601724,
+    "ess_pred_loc": 218.1900634765625,
+    "rhat_below_share": 1.02510350756978,
+    "below_share": 0.12663717382634923,
+    "place": 615,
+    "in_lowest_tenth": true,
+    "mcse": 0.01179621315007769,
+    "gap_to_nearer_neighbour": 4.386035873354954e-06
+   },
+   {
+    "listing_id": "5199966",
+    "rhat_pred_loc": 1.0271122734452698,
+    "ess_pred_loc": 357.344482421875,
+    "rhat_below_share": 1.012167392860343,
+    "below_share": 0.10458205929160966,
+    "place": 522,
+    "in_lowest_tenth": true,
+    "mcse": 0.0042181743560791045,
+    "gap_to_nearer_neighbour": 2.3615534462076426e-05
+   },
+   {
+    "listing_id": "5208101",
+    "rhat_pred_loc": 1.025655957824116,
+    "ess_pred_loc": 140.5485076904297,
+    "rhat_below_share": 1.0255347924725726,
+    "below_share": 0.6916375809757356,
+    "place": 4065,
+    "in_lowest_tenth": false,
+    "mcse": 0.014109784532356102,
+    "gap_to_nearer_neighbour": 6.240876075380708e-05
+   },
+   {
+    "listing_id": "5203098",
+    "rhat_pred_loc": 1.0255300413883806,
+    "ess_pred_loc": 319.1164855957031,
+    "rhat_below_share": 1.0310778904578164,
+    "below_share": 0.8462668035736699,
+    "place": 5154,
+    "in_lowest_tenth": false,
+    "mcse": 0.005456832810684526,
+    "gap_to_nearer_neighbour": 7.512813621046721e-05
+   },
+   {
+    "listing_id": "5195373",
+    "rhat_pred_loc": 1.0230572241699374,
+    "ess_pred_loc": 63.74302291870117,
+    "rhat_below_share": 1.02150292287479,
+    "below_share": 0.9851116414061696,
+    "place": 6282,
+    "in_lowest_tenth": false,
+    "mcse": 0.0004351165829771416,
+    "gap_to_nearer_neighbour": 3.108429501341714e-05
+   },
+   {
+    "listing_id": "5187274",
+    "rhat_pred_loc": 1.0222214656548465,
+    "ess_pred_loc": 62.13138198852539,
+    "rhat_below_share": 1.0221437716493347,
+    "below_share": 0.8830245091211264,
+    "place": 5403,
+    "in_lowest_tenth": false,
+    "mcse": 0.004440266662162977,
+    "gap_to_nearer_neighbour": 0.00010748012073180657
+   },
+   {
+    "listing_id": "5206756",
+    "rhat_pred_loc": 1.0218847586723043,
+    "ess_pred_loc": 239.54075622558594,
+    "rhat_below_share": 1.0214027502619654,
+    "below_share": 0.29079762709902846,
+    "place": 1438,
+    "in_lowest_tenth": false,
+    "mcse": 0.004367657300460104,
+    "gap_to_nearer_neighbour": 4.668653231210129e-05
+   },
+   {
+    "listing_id": "5134449",
+    "rhat_pred_loc": 1.0218215805272155,
+    "ess_pred_loc": 205.7635955810547,
+    "rhat_below_share": 1.0133992161437704,
+    "below_share": 0.8378296168797312,
+    "place": 5095,
+    "in_lowest_tenth": false,
+    "mcse": 0.008902746747692803,
+    "gap_to_nearer_neighbour": 4.994474915254177e-05
+   },
+   {
+    "listing_id": "5205878",
+    "rhat_pred_loc": 1.021818172364943,
+    "ess_pred_loc": 284.47991943359375,
+    "rhat_below_share": 1.0217740594556357,
+    "below_share": 0.5814682817345361,
+    "place": 3315,
+    "in_lowest_tenth": false,
+    "mcse": 0.008493652030037753,
+    "gap_to_nearer_neighbour": 0.00019773125124344926
+   },
+   {
+    "listing_id": "5188249",
+    "rhat_pred_loc": 1.0216292543364052,
+    "ess_pred_loc": 80.83055877685547,
+    "rhat_below_share": 1.0218914548308995,
+    "below_share": 0.7815272166662972,
+    "place": 4704,
+    "in_lowest_tenth": false,
+    "mcse": 0.008852493329593987,
+    "gap_to_nearer_neighbour": 5.5094280250966854e-05
+   },
+   {
+    "listing_id": "5198964",
+    "rhat_pred_loc": 1.021460752251404,
+    "ess_pred_loc": 296.4985046386719,
+    "rhat_below_share": 1.0156571363358173,
+    "below_share": 0.046866786311415026,
+    "place": 221,
+    "in_lowest_tenth": true,
+    "mcse": 0.0023396820525256588,
+    "gap_to_nearer_neighbour": 0.0001833925638747222
+   },
+   {
+    "listing_id": "5200669",
+    "rhat_pred_loc": 1.0211743461797183,
+    "ess_pred_loc": 209.03004455566406,
+    "rhat_below_share": 1.0183790639128052,
+    "below_share": 0.3377316921748872,
+    "place": 1702,
+    "in_lowest_tenth": false,
+    "mcse": 0.021258397294197224,
+    "gap_to_nearer_neighbour": 7.967571900135972e-05
+   },
+   {
+    "listing_id": "5204778",
+    "rhat_pred_loc": 1.0208906532760875,
+    "ess_pred_loc": 271.6466369628906,
+    "rhat_below_share": 1.014107113656255,
+    "below_share": 0.6733701057242258,
+    "place": 3938,
+    "in_lowest_tenth": false,
+    "mcse": 0.009218752395325653,
+    "gap_to_nearer_neighbour": 0.0001578664203572
+   },
+   {
+    "listing_id": "5200456",
+    "rhat_pred_loc": 1.0207957271549335,
+    "ess_pred_loc": 350.6399841308594,
+    "rhat_below_share": 1.0205013464015225,
+    "below_share": 0.1395893280956135,
+    "place": 682,
+    "in_lowest_tenth": false,
+    "mcse": 0.0030171619490156325,
+    "gap_to_nearer_neighbour": 8.773413759385895e-05
+   },
+   {
+    "listing_id": "5207966",
+    "rhat_pred_loc": 1.0207950011409836,
+    "ess_pred_loc": 348.5985107421875,
+    "rhat_below_share": 1.020815652699864,
+    "below_share": 0.20020005140738467,
+    "place": 971,
+    "in_lowest_tenth": false,
+    "mcse": 0.0038807846671482854,
+    "gap_to_nearer_neighbour": 0.0002103057182231416
+   }
+  ]
+ },
+ {
+  "run": "drift-building-bedtext-layout-range-b0-market-d9028c57-range-j",
+  "chains": 2,
+  "kept_draws_per_chain": 180,
+  "traced_draws_per_chain": 3600,
+  "gate": {
+   "max_rhat": 1.0042012913436775,
+   "max_rhat_name": "beta[ad:features_unstated]",
+   "min_ess": 675.8017158557916,
+   "passes": true
+  },
+  "bld": {
+   "items": 66878,
+   "varying": 66878,
+   "rhat_max": 14.05388390948319,
+   "rhat_p99": 1.0167266885546498,
+   "rhat_median": 0.9988319630777922,
+   "share_rhat_over_1.01": 0.043661592750979396,
+   "share_rhat_over_1.05": 0.0010765872185173001,
+   "share_rhat_over_1.10": 0.0005831514100302043,
+   "ess_min": 1.0092307329177856,
+   "ess_median": 345.43426513671875,
+   "share_ess_under_400": 0.8748915936481354,
+   "share_ess_under_100": 0.0029456622506653907
+  },
+  "pred_loc": {
+   "items": 9346,
+   "varying": 9346,
+   "rhat_max": 1.1000416357080436,
+   "rhat_p99": 1.0153597686426052,
+   "rhat_median": 0.9988476353538902,
+   "share_rhat_over_1.01": 0.034881232612882514,
+   "share_rhat_over_1.05": 0.00021399529210357372,
+   "share_rhat_over_1.10": 0.00010699764605178686,
+   "ess_min": 15.451315879821777,
+   "ess_median": 345.2699279785156,
+   "share_ess_under_400": 0.8643269848063343,
+   "share_ess_under_100": 0.0005349882302589343
+  },
+  "below_share": {
+   "items": 9346,
+   "varying": 9346,
+   "rhat_max": 1.0417607409353775,
+   "rhat_p99": 1.0152078900165942,
+   "rhat_median": 0.9988481332454299,
+   "share_rhat_over_1.01": 0.03466723732077894,
+   "share_rhat_over_1.05": 0.0,
+   "share_rhat_over_1.10": 0.0,
+   "ess_min": 33.013126373291016,
+   "ess_median": 346.71925354003906,
+   "share_ess_under_400": 0.8717098223839076,
+   "share_ess_under_100": 0.00032099293815536056
+  },
+  "null": {
+   "items": 20000,
+   "varying": 20000,
+   "rhat_max": 1.0464073269247574,
+   "rhat_p99": 1.0155480424697185,
+   "rhat_median": 0.9988217800405899,
+   "share_rhat_over_1.01": 0.04105,
+   "share_rhat_over_1.05": 0.0,
+   "share_rhat_over_1.10": 0.0,
+   "ess_min": 45.84209442138672,
+   "ess_median": 345.92625427246094,
+   "share_ess_under_400": 0.8771,
+   "share_ess_under_100": 0.00045
+  },
+  "order": {
+   "all": {
+    "ads": 9346,
+    "lowest_tenth": {
+     "ads": 934,
+     "share_at_cut": 0.10991781568195685,
+     "mcse_median": 0.0021797172520175248,
+     "mcse_max": 0.01397509063667826,
+     "gap_median": 4.178476550677993e-05,
+     "mcse_over_gap_median": 55.42522982695684,
+     "share_mcse_over_gap": 0.9882226980728052,
+     "places_within_one_mcse_median": 39.0,
+     "places_within_one_mcse_p90": 98.0,
+     "places_within_one_mcse_max": 232,
+     "share_rhat_over_1.01": 0.04068522483940043,
+     "share_rhat_over_1.05": 0.0,
+     "rhat_max": 1.0321659123529954
+    },
+    "first_100": {
+     "ads": 100,
+     "share_at_cut": 0.015782577588186093,
+     "mcse_median": 0.00020484432243296876,
+     "mcse_max": 0.0017467756215551631,
+     "gap_median": 4.534669328089963e-05,
+     "mcse_over_gap_median": 4.778225635739078,
+     "share_mcse_over_gap": 0.89,
+     "places_within_one_mcse_median": 3.0,
+     "places_within_one_mcse_p90": 10.200000000000017,
+     "places_within_one_mcse_max": 30,
+     "share_rhat_over_1.01": 0.02,
+     "share_rhat_over_1.05": 0.0,
+     "rhat_max": 1.017062296641031
+    },
+    "chains": {
+     "spearman": 0.9982606104557069,
+     "lowest_tenth_shared": 0.9657387580299786,
+     "first_100_shared": 0.94,
+     "first_100_places_apart_median": 3.0,
+     "first_100_places_apart_max": 39
+    }
+   }
+  },
+  "rhat_over_1.01": {
+   "ads": 326,
+   "in_lowest_tenth": 38,
+   "in_first_100": 2
+  },
+  "bld_over_1.05": {
+   "buildings": 72,
+   "chain_means_apart_median": 0.16518239088246547,
+   "chain_means_apart_max": 2.2054966916064993,
+   "chain_means_apart_over_0.3": 23,
+   "training_rows_median": 1.0,
+   "training_rows_at_most_3": 55,
+   "training_rows_max": 40,
+   "with_predicted_ads": 2,
+   "predicted_ads": 2,
+   "predicted_ads_in_lowest_tenth": 0,
+   "ads": [
+    {
+     "building": "22-east-18-street-new_york",
+     "rhat_bld": 1.1104715924793904,
+     "listing_id": "4875635",
+     "place": 5068,
+     "below_share": 0.5652162687994573,
+     "rhat_pred_loc": 1.1000416357080436,
+     "rhat_below_share": 1.0118729139234437,
+     "mcse": 0.02183323003285188,
+     "chain_shares": [
+      0.5535342679042613,
+      0.5768982696946524
+     ]
+    },
+    {
+     "building": "16-goodwin-place-brooklyn",
+     "rhat_bld": 1.0801487311508051,
+     "listing_id": "4899902",
+     "place": 8635,
+     "below_share": 0.9358203929092649,
+     "rhat_pred_loc": 1.0774827144134158,
+     "rhat_below_share": 1.0404053615289552,
+     "mcse": 0.03169957017008448,
+     "chain_shares": [
+      0.9073122428300792,
+      0.9643285429884516
+     ]
+    }
+   ]
+  },
+  "worst": [
+   {
+    "listing_id": "4875635",
+    "rhat_pred_loc": 1.1000416357080436,
+    "ess_pred_loc": 15.451315879821777,
+    "rhat_below_share": 1.0118729139234437,
+    "below_share": 0.5652162687994573,
+    "place": 5068,
+    "in_lowest_tenth": false,
+    "mcse": 0.02183323003285188,
+    "gap_to_nearer_neighbour": 1.1679842991441092e-05
+   },
+   {
+    "listing_id": "4899902",
+    "rhat_pred_loc": 1.0774827144134158,
+    "ess_pred_loc": 20.131690979003906,
+    "rhat_below_share": 1.0404053615289552,
+    "below_share": 0.9358203929092649,
+    "place": 8635,
+    "in_lowest_tenth": false,
+    "mcse": 0.03169957017008448,
+    "gap_to_nearer_neighbour": 7.549684668373136e-05
+   },
+   {
+    "listing_id": "4794767",
+    "rhat_pred_loc": 1.0321659123529954,
+    "ess_pred_loc": 193.297607421875,
+    "rhat_below_share": 1.03121611075023,
+    "below_share": 0.033732320136355375,
+    "place": 270,
+    "in_lowest_tenth": true,
+    "mcse": 0.002050470134781297,
+    "gap_to_nearer_neighbour": 1.7439352310640033e-05
+   },
+   {
+    "listing_id": "4902377",
+    "rhat_pred_loc": 1.03201025857379,
+    "ess_pred_loc": 68.69622039794922,
+    "rhat_below_share": 1.037884462678789,
+    "below_share": 0.1798333140409002,
+    "place": 1481,
+    "in_lowest_tenth": false,
+    "mcse": 0.02184533930297403,
+    "gap_to_nearer_neighbour": 4.25682886545653e-06
+   },
+   {
+    "listing_id": "4884058",
+    "rhat_pred_loc": 1.0316802598367227,
+    "ess_pred_loc": 45.51543426513672,
+    "rhat_below_share": 1.0270225370299453,
+    "below_share": 0.3753441835319484,
+    "place": 3244,
+    "in_lowest_tenth": false,
+    "mcse": 0.024825936431688733,
+    "gap_to_nearer_neighbour": 3.8897558682471356e-05
+   },
+   {
+    "listing_id": "4849573",
+    "rhat_pred_loc": 1.0314462151845218,
+    "ess_pred_loc": 218.6418914794922,
+    "rhat_below_share": 1.0417607409353775,
+    "below_share": 0.06762013901550487,
+    "place": 583,
+    "in_lowest_tenth": true,
+    "mcse": 0.010401919141168624,
+    "gap_to_nearer_neighbour": 0.00022079423109128138
+   },
+   {
+    "listing_id": "4890119",
+    "rhat_pred_loc": 1.0294594039320688,
+    "ess_pred_loc": 278.33795166015625,
+    "rhat_below_share": 1.0205229360004593,
+    "below_share": 0.8786847346390007,
+    "place": 8078,
+    "in_lowest_tenth": false,
+    "mcse": 0.008159356104301166,
+    "gap_to_nearer_neighbour": 2.3111315942014876e-05
+   },
+   {
+    "listing_id": "4874515",
+    "rhat_pred_loc": 1.0288963320252593,
+    "ess_pred_loc": 306.9136047363281,
+    "rhat_below_share": 1.0288552434868605,
+    "below_share": 0.47211711168280457,
+    "place": 4137,
+    "in_lowest_tenth": false,
+    "mcse": 0.006302041647913497,
+    "gap_to_nearer_neighbour": 1.632235537901705e-05
+   },
+   {
+    "listing_id": "4886210",
+    "rhat_pred_loc": 1.0278797738626828,
+    "ess_pred_loc": 208.45704650878906,
+    "rhat_below_share": 1.0200570538748197,
+    "below_share": 0.8779241141579839,
+    "place": 8062,
+    "in_lowest_tenth": false,
+    "mcse": 0.008506295168543516,
+    "gap_to_nearer_neighbour": 6.480563207678092e-05
+   },
+   {
+    "listing_id": "4856830",
+    "rhat_pred_loc": 1.027812048247538,
+    "ess_pred_loc": 154.99058532714844,
+    "rhat_below_share": 1.0234489957614565,
+    "below_share": 0.6584696041924858,
+    "place": 5973,
+    "in_lowest_tenth": false,
+    "mcse": 0.019009826734977624,
+    "gap_to_nearer_neighbour": 3.640175932528855e-05
+   },
+   {
+    "listing_id": "4885552",
+    "rhat_pred_loc": 1.0263048218056912,
+    "ess_pred_loc": 193.7742462158203,
+    "rhat_below_share": 1.0013494942693315,
+    "below_share": 0.04795914562402105,
+    "place": 408,
+    "in_lowest_tenth": true,
+    "mcse": 0.0004788092232453465,
+    "gap_to_nearer_neighbour": 9.567503037860581e-05
+   },
+   {
+    "listing_id": "4903282",
+    "rhat_pred_loc": 1.0257854562517792,
+    "ess_pred_loc": 57.96208953857422,
+    "rhat_below_share": 1.0147071865305861,
+    "below_share": 0.9950647539461274,
+    "place": 9277,
+    "in_lowest_tenth": false,
+    "mcse": 8.816881458020613e-05,
+    "gap_to_nearer_neighbour": 8.017344939048598e-06
+   },
+   {
+    "listing_id": "4870800",
+    "rhat_pred_loc": 1.0257481020981847,
+    "ess_pred_loc": 145.22682189941406,
+    "rhat_below_share": 1.0215844239206198,
+    "below_share": 0.7112445199938265,
+    "place": 6511,
+    "in_lowest_tenth": false,
+    "mcse": 0.01764509187314313,
+    "gap_to_nearer_neighbour": 4.9535451360882554e-05
+   },
+   {
+    "listing_id": "4899042",
+    "rhat_pred_loc": 1.0256325694872481,
+    "ess_pred_loc": 344.2015380859375,
+    "rhat_below_share": 1.0255512574972607,
+    "below_share": 0.3264048659228438,
+    "place": 2815,
+    "in_lowest_tenth": false,
+    "mcse": 0.006320796239678834,
+    "gap_to_nearer_neighbour": 5.919626717143522e-07
+   },
+   {
+    "listing_id": "4844026",
+    "rhat_pred_loc": 1.0256004381610329,
+    "ess_pred_loc": 224.7203369140625,
+    "rhat_below_share": 1.0247007136175827,
+    "below_share": 0.621296732544151,
+    "place": 5632,
+    "in_lowest_tenth": false,
+    "mcse": 0.007971561511867791,
+    "gap_to_nearer_neighbour": 6.928578503206939e-05
+   },
+   {
+    "listing_id": "4890033",
+    "rhat_pred_loc": 1.0255809029624063,
+    "ess_pred_loc": 138.13148498535156,
+    "rhat_below_share": 1.0251645446605844,
+    "below_share": 0.25004915926934307,
+    "place": 2068,
+    "in_lowest_tenth": false,
+    "mcse": 0.01645456825035203,
+    "gap_to_nearer_neighbour": 2.1232089557121636e-05
+   },
+   {
+    "listing_id": "4902318",
+    "rhat_pred_loc": 1.0253330374612277,
+    "ess_pred_loc": 234.35523986816406,
+    "rhat_below_share": 1.015247681426075,
+    "below_share": 0.9315322635391052,
+    "place": 8583,
+    "in_lowest_tenth": false,
+    "mcse": 0.006263521278622752,
+    "gap_to_nearer_neighbour": 5.36558904767892e-05
+   },
+   {
+    "listing_id": "4864572",
+    "rhat_pred_loc": 1.0251238532028277,
+    "ess_pred_loc": 229.1117401123047,
+    "rhat_below_share": 1.0178919353898181,
+    "below_share": 0.6715259538165078,
+    "place": 6114,
+    "in_lowest_tenth": false,
+    "mcse": 0.006182614659968354,
+    "gap_to_nearer_neighbour": 2.82518667208409e-05
+   },
+   {
+    "listing_id": "4878583",
+    "rhat_pred_loc": 1.0245328957779747,
+    "ess_pred_loc": 351.84442138671875,
+    "rhat_below_share": 1.0210733302384662,
+    "below_share": 0.641844085415845,
+    "place": 5812,
+    "in_lowest_tenth": false,
+    "mcse": 0.015349625956924776,
+    "gap_to_nearer_neighbour": 0.00011285786515446983
+   },
+   {
+    "listing_id": "4899302",
+    "rhat_pred_loc": 1.0235146689077663,
+    "ess_pred_loc": 193.09568786621094,
+    "rhat_below_share": 1.0227973716448373,
+    "below_share": 0.4445390139399285,
+    "place": 3870,
+    "in_lowest_tenth": false,
+    "mcse": 0.018513090558960523,
+    "gap_to_nearer_neighbour": 2.073733077478934e-06
+   }
+  ]
+ }
+]
