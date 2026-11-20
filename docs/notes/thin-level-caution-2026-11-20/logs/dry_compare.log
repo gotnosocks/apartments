@@ -1,0 +1,28 @@
+ads 6502 6502 live run drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3
+same order True
+same below_share True
+same rows but for cautions True
+other cautions unchanged True
+thin_level ads 16 buildings 14
+in the first 300 2
+with another caution 4
+uncautioned before 4896 after 4884
+in the first 300 uncautioned before 3
+44 5192010 115 East 62nd Street 0.012 ['thin_level']
+285 5202428 14 Spencer Place 0.0588 ['thin_level']
+444 5195508 14 Spencer Place 0.0918 ['thin_level']
+1283 5124069 389 7th Avenue 0.2604 ['thin_level', 'off_market']
+1346 5207556 809 Broadway 0.2751 ['thin_level']
+1972 5073254 1145 Park Avenue 0.3812 ['thin_level']
+2183 5187574 216 East 61st Street 0.4191 ['thin_level']
+2668 5191536 330 Bowery 0.4886 ['thin_level']
+2813 5201121 69 Bank Street 0.5107 ['thin_level']
+3504 5192819 15 Warren Street 0.612 ['thin_level']
+3769 5183067 234 East 67th Street 0.6505 ['rooms_up', 'thin_level']
+3877 5192542 515 West 29th Street 0.6653 ['thin_level']
+6224 5169400 11 Essex Street 0.9804 ['thin_level', 'off_market']
+6243 5153255 11 Essex Street 0.9818 ['thin_level', 'off_market']
+6318 5202591 26 1st Place 0.9883 ['thin_level']
+6417 5190893 471 Washington Street 0.9933 ['thin_level']
+new {'ads': 1618, 'by_code': {'income': 58, 'not_home': 1, 'owners_only': 1, 'takeover': 15, 'beds': 286, 'rooms_up': 286, 'net_ask': 6, 'raised': 655, 'thin_level': 16, 'off_market': 585}, 'ads_with_text': 6500} backtest uncautioned 7636 1710 {'place': '0.0 to 0.1', 'ads': 361, 'median_days_on_market': 29.0, 'mean_days_on_market': 105.07479224376732, 'share_within_14_days': 0.2188365650969529, 'share_cut': 0.19113573407202217, 'share_raised': 0.24653739612188366, 'median_change_pct': 0.0, 'mean_change_pct': 2.1854019203848707}
+old {'ads': 1606, 'by_code': {'income': 58, 'not_home': 1, 'owners_only': 1, 'takeover': 15, 'beds': 286, 'rooms_up': 286, 'net_ask': 6, 'raised': 655, 'off_market': 585}, 'ads_with_text': 6500} backtest uncautioned 7645 1701 {'place': '0.0 to 0.1', 'ads': 362, 'median_days_on_market': 29.0, 'mean_days_on_market': 104.89226519337016, 'share_within_14_days': 0.21823204419889503, 'share_cut': 0.19060773480662985, 'share_raised': 0.24861878453038674, 'median_change_pct': 0.0, 'mean_change_pct': 2.2272846188796924}

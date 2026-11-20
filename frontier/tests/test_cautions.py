@@ -171,3 +171,22 @@ def test_raised_needs_the_full_rise():
         "2026-11-01",
     )
     assert got.tolist() == [False, False]
+
+
+def test_thin_level_needs_a_high_level_and_few_training_ads():
+    level = [0.31, 0.31, 0.30, 0.9, 0.9, -0.5, float("nan"), 0.31]
+    count = [5, 6, 5, 0, 21, 1, 2, float("nan")]
+    # Over 0.3 on 5 or fewer ads. A level of exactly 0.3, a sixth ad, a low level and a
+    # building with no level or no count are not marked.
+    assert cautions.thin_level(level, count).tolist() == [
+        True,
+        False,
+        False,
+        True,
+        False,
+        False,
+        False,
+        False,
+    ]
+    assert (cautions.THIN_LEVEL, cautions.THIN_ADS) == (0.3, 5)
+    assert cautions.thin_level([], []).tolist() == []
