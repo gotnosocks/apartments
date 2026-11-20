@@ -193,7 +193,12 @@ def test_about_reads_the_diagnostics_meta(tmp_path):
     assert "No diagnostics are published yet" not in page
     main = page.split("<main", 1)[1].split("</main>", 1)[0]
     renter, statistician = main.split('<details class="card statistician"', 1)
-    assert len(re.sub(r"<[^>]+>", " ", "<main" + renter).split()) < 700
+    # The 700-word limit is on the prose: the generated glossary of chips is left out.
+    prose, glossary = re.subn(
+        r'(id="chips">.*?)<dl class="facts wide">.*?</dl>', r"\1", renter
+    )
+    assert glossary == 1
+    assert len(re.sub(r"<[^>]+>", " ", "<main" + prose).split()) < 700
     # The renter's sections come first, in plain words.
     for heading in (
         "Reading a gap",

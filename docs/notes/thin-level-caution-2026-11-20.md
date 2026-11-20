@@ -27,9 +27,13 @@ rule. A caution changes no score and no order.
 
 Run `drift-building-phase-unitkn-level-bedtext-b0-latest-c1ffaefd-l2bt`, the latest split:
 189,647 held-out ads, each the newest ad of its unit. The buildings were cut in two halves by
-a hash of the building's name (`b1.py`). The form came from the read of the live table in the
-building-level note, before either half was tabulated. The search over forms that `b2.py`
-also prints for half A did not pick it: it has fewer than the 100 ads that search asked for.
+a hash of the building's name (`b1.py`). The form, a level over 0.3 on five or fewer ads, was proposed beforehand from the read of
+the live table in `docs/notes/building-level-read-2026-11-20.md`. Four forms were then
+tabulated on both halves in one batch (the `b2_*` logs). Which count to use was not fixed
+beforehand: the count of all training rows of the building was chosen over the count that
+leaves out the ad's own unit (124 and 122 ads, 16.1% and 13.9% below 5%) after seeing both,
+so the two halves do not test that choice. The search over forms that `b2.py` also prints
+for half A did not pick the form: it has fewer than the 100 ads that search asked for.
 
 "Below 5%" is the share of ads whose final ask is under the model's 5% point; "gap" is the
 mean of log ask less the predictive median (`logs/b2_A_n_bld_0.3_5.log`,

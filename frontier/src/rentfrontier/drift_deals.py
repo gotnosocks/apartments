@@ -199,8 +199,8 @@ def _cautions(
 ) -> tuple[list, int | None]:
     """Each held-out row's caution codes, and how many of the rows have a text (None
     without `texts`). `net` marks the rows `cautions.net_ask` found, `raised` those
-    `cautions.raised` found and `thin` those `cautions.thin_level` found. `texts` must be the table `texts` wrote for the build whose ads file
-    has the SHA-256 `ads_sha`."""
+    `cautions.raised` found and `thin` those `cautions.thin_level` found. `texts` must be
+    the table `texts` wrote for the build whose ads file has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
     varied = unit_key[held].map(counts).fillna(0) > 1

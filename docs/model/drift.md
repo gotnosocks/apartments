@@ -383,15 +383,15 @@ The Deals page leaves cautioned ads out of its list, so `validation.json` also h
 same table over the ads with no caution, under `uncautioned`. The backtest's ads get their
 cautions from the code that cautions the published table, and the tenths are those of the
 full table, so each row is the uncautioned part of the full table's row. On the backtest of
-2025-11-10 the lowest tenth has 604 ads and 36.3% of them were raised before closing; 363
-of the 604 carry no caution, and 25.1% of those were raised. The `raised` caution reads
+2025-11-10 the lowest tenth has 604 ads and 36.3% of them were raised before closing; 361
+of the 604 carry no caution, and 24.7% of those were raised. The `raised` caution reads
 only what was knowable on the backtest day: an open ad counts at its first ask. The backtest
 is published without its ads' texts, so the cautions read from a text (`income` by wording,
 `not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
 cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
 knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). `thin_level`
-reads the backtest fit's own levels and training rows, so it is as of the day (12 ads). The same holds
-for `first_net`, which reads the final page price and months free
+reads the backtest fit's own levels and training rows, so it is as of the day (12 ads). The
+same holds for `first_net`, which reads the final page price and months free
 (`docs/notes/first-net-concessions-2026-11-20.md`). The page shows
 the full table for now.
 
