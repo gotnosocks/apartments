@@ -1,0 +1,32 @@
+['listing_id', 'building', 'bedrooms', 'full_baths', 'half_baths', 'cdf', 'year', 'pool', 'group', 'boro', 'beds3', 'gallery', 'plans']
+2947 ['label', 'photos', 'plan', 'categories', 'condition', 'light', 'plan_bedrooms', 'plan_windowless', 'plan_flex', 'plan_through', 'plan_levels', 'plan_floor', 'guess', 'note', 'listing_id', 'batch', 'repeat', 'building', 'bedrooms', 'full_baths', 'half_baths', 'cdf', 'year', 'pool', 'group', 'boro', 'beds3', 'gallery', 'plans']
+pool      group
+b9        ctl       69
+          low      143
+backtest  low       14
+insample  ctl       35
+          low      119
+market    low       12
+dtype: int64
+group                         ctl    low
+dark_or_shaft               0.096  0.080
+low_ceiling                 0.000  0.028
+awkward_layout              0.029  0.042
+tiny_or_windowless_bedroom  0.048  0.028
+kitchen_poor                0.115  0.125
+bath_poor                   0.154  0.097
+worn_finishes               0.019  0.014
+ground_or_basement          0.067  0.149
+street_noise_cues           0.000  0.010
+other_unit_or_renderings    0.077  0.069
+room_only                   0.000  0.003
+unfinished                  0.010  0.003
+occupied_clutter            0.067  0.073
+walkup_or_stairs            0.087  0.188
+few_or_poor_photos          0.154  0.177
+plan_fewer_beds             0.174  0.169
+plan_windowless             0.087  0.063
+plan_flex                   0.043  0.126
+plan_through                0.043  0.000
+plan_levels                 0.130  0.368
+plan_floor                  0.217  0.453
