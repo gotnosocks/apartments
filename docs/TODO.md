@@ -325,9 +325,18 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   so the rule cleans training rows of 2016 to 2021 and changes few current predictions (`docs/notes/history-scan-2026-11-18.md`).
 - [ ] Terms for the next refit of the base model, each confirmed on both halves of the
   held-out buildings and sized by calibration on stored predictions
-  (`docs/notes/history-scan-2026-11-18.md`): a noise factor for ads whose bedroom or bath
-  counts differ from the unit's training ads (1.1 with one bath, about 1.5 with three or
-  more); a level near -0.03 and a factor near 1.2 for three or more baths; a factor of
+  (`docs/notes/history-scan-2026-11-18.md`): LN1, a level for building and bedroom count
+  (`drift-building-phase-line`), as the first candidate for first-ad units, with a market
+  backtest (`docs/notes/first-ad-noise-inputs-2026-11-20.md`,
+  `docs/notes/plan-type-misses-2026-11-20.md`), and after it a factor by thin same-bedroom
+  building history only if still needed (factor 1.52 and 1.65 with no earlier same-bedroom
+  ad, down to 1.10 and 1.10 with 20 or more); a noise factor for ads whose counts differ
+  from the unit's most recent earlier ad, mostly for counts new to the unit (factor 1.68 and
+  1.71 by half on the latest split, 1.52 with se 0.13 on the Deals backtest) and smaller
+  where the unit had the counts at some earlier time (1.15 and 1.19), suggestive with both
+  halves in view, its form to be fixed before the fit and checked on a market backtest
+  (`docs/notes/changed-counts-read-2026-11-20.md`); a level near -0.03 and a factor near 1.2
+  for three or more baths; a factor of
   1.15 to 1.2 for the top 3% of predicted rents; a level near -0.015 for four or more
   bedrooms; the first-floor level and the duplex factor of
   `docs/notes/duplex-scale-2026-11-18.md`. None changes enough of the Deals list for a fit
