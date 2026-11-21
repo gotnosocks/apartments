@@ -47,3 +47,17 @@ the switch and the comparison mark only help read it.
 5. Gain of the step over the base under 40 and positive on both halves; under 2 SE, so the
    step goes on the base refit's list as optional at most.
 6. The low tail: fewer than 1% of the base's low-tail ads leave it with the step added.
+
+## Second check, predictions written after the first runs
+
+The first runs (`j3_first.log`, then `j3_renov.log` with controls added after it) gave the
+switch +117 (SE 18), mostly by a wider scale, and wording for a dishwasher turning on +74
+(SE 15) with the same scale near 1.10. Much of the switch's gain may belong to any rewritten
+description. `j4_rewrite.py` counts, for each held-out ad, how many of the scan's 31 text
+flags differ from the unit's latest earlier ad (every held-out ad of the split has one), and
+adds three marks together: 1 flag changed, 2 changed, 3 or more changed. Predictions:
+
+1. The scale rises with the count; 3 or more changed needs 1.10 to 1.25 on each half.
+2. The three count marks together gain more than the switch alone (over 117).
+3. Beside the count marks, the renovation switch keeps a shift of +0.004 to +0.008 on each
+   half, a scale within 0.97 to 1.04 and a gain under 40.
