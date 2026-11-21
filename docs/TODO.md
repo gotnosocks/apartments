@@ -430,9 +430,12 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
   an ordering that uses it is a site change with no fit.
   Done: the backtest card's note on low places by bedroom count has carried these figures since #1457; a test now checks it. The free-months row stays off the page (the note's later section says days listed of those ads do not follow price).
-- [ ] A width by ad source: feed ads' held-out asks are a little tighter than the model
-  allows (free check, about +140 elpd on 45,448 ads, give or take 50, at a factor near 0.9). A term needs a
-  new module, a backtest and a market fit.
+- [x] A width by ad source: feed ads' held-out asks are a little tighter than the model
+  allows (free check, about +140 elpd on 45,448 ads, give or take 50, at a factor near
+  0.9). Closed 2026-11-21 without a term: beside the year marks on l2bt's stored
+  predictions the source marks gain +22 (SE 9) on all years and +29 (SE 12) from 2022 on,
+  at a feed scale of 0.98 to 1.01. Feed ads were most of the ads before 2020, when the
+  scale is narrower (`docs/notes/source-width-2026-11-21.md`).
 - [ ] The bedroom text reader (`rentfrontier.b0bedtext`): let a size stated in the ad's first
   line stand when a later sentence lists the building's sizes, and read "flexible 5th
   bedroom" as flex wording. 6 of 6,565 live ads on Nov 18, so it rides with another dataset

@@ -1,0 +1,26 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+held-out ads without a cached source: 207
+source
+PARTNER    140755
+FEED        45547
+OWNER        3345
+feed share by year:
+{2014: 0.615, 2015: 0.592, 2016: 0.693, 2017: 0.662, 2018: 0.595, 2019: 0.562, 2020: 0.176, 2021: 0.166, 2022: 0.184, 2023: 0.178, 2024: 0.17, 2025: 0.187, 2026: 0.188}
+
+t df, picked on ads from 2022: 7
+from 2022: base + gap bins + counts + year marks: cross-fit gain   2504.0 (SE  92.7)
+from 2022: + source marks: cross-fit gain   2532.9 (SE  95.5)
+  source marks over the base, gap, counts and years, from 2022:    28.9 (SE  12.1); by half [np.float64(15.2), np.float64(13.7)]
+    by source: {'FEED': 19.4, 'OWNER': 1.3, 'PARTNER': 8.3}
+    feed       scale (fit on A, on B) 0.989 0.984; shift +0.0031 +0.0024
+    owner      scale (fit on A, on B) 1.003 1.000; shift -0.0012 -0.0031
+  80% coverage by source, from 2022:
+         before  after
+source                
+FEED      0.804  0.801
+OWNER     0.802  0.806
+PARTNER   0.799  0.799
+from 2022: + feed mark alone: cross-fit gain   2532.5 (SE  95.5)
+  feed mark alone, from 2022:    28.5 (SE  12.0); by half [np.float64(15.8), np.float64(12.7)]
+    by source: {'FEED': 19.4, 'OWNER': 1.0, 'PARTNER': 8.2}
