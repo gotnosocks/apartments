@@ -1,0 +1,8 @@
+rows 195423 old with prev 193257 new with prev 192850
+prev_ask or prev_day changes 7540
+ lost prev 407 gained 0 other ask 6851 same ask other day 282
+ by source {'latest': 7096, 'market': 444}
+adjusted >0.3 old 2006 share 0.0103 | keep a prev 1956 | keep the same prev 1184 | still >0.3 1221
+adjusted >0.3 new 1275 share 0.0065
+beds_jump old 9737 new 2382 share new 0.0122
+ask_jump old 930 new 788 share new 0.004

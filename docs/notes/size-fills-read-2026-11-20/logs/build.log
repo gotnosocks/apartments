@@ -1,0 +1,11 @@
+unit rows 139569 rebuilt fill missing 0 max log diff 0.0
+line rows 139206 rebuilt fill missing 0 max log diff 0.0
+rows 1896471 held 189647
+held      False  True 
+source                
+line     122523  16683
+none    1026756  89875
+stated   446539  54526
+unit     111006  28563
+bedroom medians {0.0: 500.0, 1.0: 707.0, 2.0: 1000.0, 3.0: 1275.0, 4.0: 1700.0}
+truth known by source {'stated': 206360, 'none': 67659, 'unit': 19750, 'line': 19161}

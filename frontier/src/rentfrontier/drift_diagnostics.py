@@ -7,10 +7,10 @@
 split held out, then the ads a fit on the market split held out, an ad in both taking the
 market fit's row. For each of them it works out how far the ask sits from the model (`gap`,
 `miss`, `pit`, `z`), how much the fit knew about the ad's unit and building (`unit_ads`,
-`building_ads`, `basis`), the apartment's previous ad (`prev_*`), and a list of detector codes
-(`flags`). It then joins the attributes listed in `FEATURES` from the pipeline's ads file and
-from the snapshot folders under `--features`, so that a page can tabulate the misses against
-each attribute.
+`building_ads`, `basis`), the unit's previous ad in that fit's own dataset (`prev_*`, see
+`previous`), and a list of detector codes (`flags`). It then joins the attributes listed in
+`FEATURES` from the pipeline's ads file and from the snapshot folders under `--features`, so
+that a page can tabulate the misses against each attribute.
 
 `publish` writes these tables to the folder `--out`, and `meta.json` after them:
 
@@ -61,7 +61,7 @@ Z_CAP = 6.0
 EXTREME = 4.0
 # The width of a normal distribution's central 80%, in standard deviations.
 WIDTH80 = 2.5631
-# An ask over this many times the apartment's previous ask, or under one over it, is a jump.
+# An ask over this many times the unit's previous ask, or under one over it, is a jump.
 ASK_JUMP = 2.0
 # `basis` reads `building` from this many training ads of the building.
 BUILDING_BASIS = 5
@@ -392,16 +392,30 @@ def apartment(frame: pd.DataFrame) -> pd.Series:
     return (frame.building.astype(str) + "|" + unit).where(frame.unit_id.notna())
 
 
-def previous(frame: pd.DataFrame, key: pd.Series) -> pd.DataFrame:
-    """For each row, the ask, day and bedrooms of the ad before it in its apartment's
-    history, ordered by day. Missing for an apartment's first ad."""
-    order = ["latest_day"] + (["price_at"] if "price_at" in frame else [])
-    known = frame[key.notna().to_numpy()].assign(_key=key)
-    known = known.sort_values(["_key", *order], kind="stable")
-    before = known.groupby("_key", sort=False)[
-        ["latest_ask", "latest_day", "bedrooms"]
-    ].shift(1)
-    return before.reindex(frame.index)
+def previous(frame: pd.DataFrame, held: np.ndarray) -> pd.DataFrame:
+    """For each held-out row, the ask, day and bedrooms of its unit's previous ad in the
+    fit's own dataset: the latest training row of the same building and unit_id dated
+    strictly before it, the later `price_at` winning a tie of days. The unit is the
+    model's, so the pieces "~1", "~2" of an apartment are not read together, and a
+    held-out row is never another's previous ad (`docs/leak-free-scoring.md`). Missing
+    where there is no such row. One row per held-out row, in their order."""
+    held = np.asarray(held, bool)
+    unit = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
+    day = pd.to_datetime(frame.latest_day)
+    known = frame.unit_id.notna().to_numpy() & day.notna().to_numpy()
+    cols = ["latest_ask", "latest_day", "bedrooms"]
+    left = pd.DataFrame({"_key": unit, "_day": day})[held & known].reset_index()
+    order = ["_day"] + (["price_at"] if "price_at" in frame else [])
+    right = frame.loc[~held & known, [*cols, *order[1:]]]
+    right = right.assign(_key=unit[~held & known], _day=day[~held & known])
+    found = pd.merge_asof(
+        left.sort_values("_day", kind="stable"),
+        right.sort_values(order, kind="stable")[["_key", "_day", *cols]],
+        on="_day",
+        by="_key",
+        allow_exact_matches=False,
+    )
+    return found.set_index("index")[cols].reindex(frame.index[held])
 
 
 def run_ads(
@@ -431,7 +445,7 @@ def run_ads(
         np.where(out.building_ads >= BUILDING_BASIS, "building", "area"),
     )
     key = apartment(frame)
-    before = previous(frame, key)[held]
+    before = previous(frame, held)
     out["prev_ask"] = before.latest_ask.to_numpy(float)
     day = pd.to_datetime(before.latest_day).dt.strftime("%Y-%m-%d")
     out["prev_day"] = day.where(day.notna(), None).to_numpy(object)
@@ -471,7 +485,7 @@ def detect(t: pd.DataFrame) -> list[list[str]]:
     """Each ad's detector codes, in the order of `FLAGS`:
 
     - `beds_conflict`: the ads of the apartment carry more than one bedroom count;
-    - `beds_jump`: the bedroom count differs from the apartment's previous ad;
+    - `beds_jump`: the bedroom count differs from the unit's previous ad (`previous`);
     - `ask_jump`: the ask is over `ASK_JUMP` times the previous ask, or under one over it;
     - `ppsf`: the ask per square foot is outside `PPSF`;
     - `extreme`: |miss| is above `EXTREME`;

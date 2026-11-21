@@ -374,7 +374,7 @@ def range_svg(
     RANGE_LOW to RANGE_HIGH, so that the middle tick is at the same place in every
     row, a wide band shows an uncertain estimate, and the dot's distance from the
     tick shows the size of the gap. Values beyond the scale are drawn at its edge.
-    A hollow ring marks `prev_ask`, the ask of the apartment's previous ad.
+    A hollow ring marks `prev_ask`, the ask of the unit's previous ad.
     """
     width, height = 170, 18
     left, right, top, band_h = 5, 5, 4, 10
