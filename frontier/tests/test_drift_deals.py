@@ -202,6 +202,36 @@ def test_validate_tabulates_the_uncautioned_ads_beside_all_of_them(tmp_path):
     assert read["by_first_ask_place"][0]["ads"] == 2
 
 
+def test_the_deals_bounds_agree_with_below_share_and_can_be_sampled(tmp_path):
+    run, ads, reg = _run(tmp_path)
+    t = drift_deals.deals(run, ads, reg)
+    again = drift_deals.deals(run, ads, reg)
+    sampled = drift_deals.deals(run, ads, reg, exact=False)
+    bounds = [
+        "model_median",
+        *(f"model_{s}{w}" for s in ("lo", "hi") for w in (50, 80, 95)),
+    ]
+    # Exact by default: the same table every time, the bounds in order.
+    pd.testing.assert_frame_equal(t, again)
+    order = ["model_lo95", "model_lo80", "model_lo50", "model_median"]
+    order += ["model_hi50", "model_hi80", "model_hi95"]
+    assert (np.diff(t[order].to_numpy(float), axis=1) >= 0).all()
+    # The sampled table has the same rows, order and shares, and bounds close by.
+    other = [c for c in t.columns if c not in (*bounds, "discount_pct")]
+    pd.testing.assert_frame_equal(t[other], sampled[other])
+    np.testing.assert_allclose(
+        t[bounds].to_numpy(float), sampled[bounds].to_numpy(float), rtol=0.05
+    )
+    # An ask is under a bound exactly when its share is under the bound's level, and the
+    # table's bounds are the score's exact quantiles.
+    res = drift_deals.drift_score.score_run(run, exact=True)
+    by_share = np.argsort(res["cdf"].round(4), kind="stable")
+    q, y = res["q"][by_share], res["y"][by_share]
+    np.testing.assert_array_equal(t.model_lo95.to_numpy(), np.exp(q[:, 0]).round(0))
+    np.testing.assert_array_equal(y < q[:, 0], res["cdf"][by_share] < 0.025)
+    np.testing.assert_array_equal(y < q[:, 7], res["cdf"][by_share] < 0.975)
+
+
 def test_validate_places_the_first_ask_on_the_net_basis(tmp_path, monkeypatch):
     run, ads, _ = _run(tmp_path)
     score_run, seen = drift_deals.drift_score.score_run, {}

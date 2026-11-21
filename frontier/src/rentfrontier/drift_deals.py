@@ -7,7 +7,8 @@
 
 `deals` reads a run on the `market` split of a `rentfrontier.market` dataset. Its held-out
 rows are the ads on the market on the scoring day. For each one the table gives the ask, the
-model's predictive median and intervals for the ad's final ask in dollars, and
+model's predictive median and intervals for the ad's final ask in dollars (the roots of the
+predictive cdf, `rentfrontier.drift_quantiles`; `--sampled` draws them as before), and
 - `below_share`: the share of the predictive distribution under the ask. An ask at 0.05
   is lower than 95% of what the model expects for this apartment on that day;
 - `discount_pct`: how far the ask sits under the predictive median, in percent of the ask;
@@ -281,11 +282,15 @@ def deals(
     ads: Path,
     registry: Path | None = None,
     texts: Path | None = None,
+    exact: bool = True,
 ) -> pd.DataFrame:
     """One row per ad on the market, lowest `below_share` first. The frame's
-    `attrs["ads_with_text"]` is how many of the ads `texts` has a description for."""
+    `attrs["ads_with_text"]` is how many of the ads `texts` has a description for. The
+    median and the bounds solve cdf(q) = p for the cdf `below_share` comes from, so an ask
+    is under a bound exactly when its `below_share` is under the bound's level; with
+    `exact` false they are sampled (`drift_score.SAMPLES`), as until 2026-11-20."""
     frame, h, held = _held_frame(run_dir)
-    res = drift_score.score_run(run_dir)
+    res = drift_score.score_run(run_dir, exact=exact)
     a = _ads(ads, h.listing_id)
     q = np.exp(res["q"].astype(float))
     ask = h.latest_ask.to_numpy(float)
@@ -508,6 +513,7 @@ def publish(
     backtest: Path | None = None,
     heldout: Path | None = None,
     texts: Path | None = None,
+    exact: bool = True,
 ) -> dict:
     """Write the site's Deals folder `out` from the market run at `run_dir`: `deals.json`,
     `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
@@ -515,6 +521,7 @@ def publish(
     scores on ads it never saw. Each ads table comes from its run's dataset manifest.
     `texts` is the table the `texts` command wrote for this run; without it the rows carry
     only the cautions the dataset gives, and `meta.json` says the texts were not read.
+    `exact` is `deals`'s: false samples the table's median and bounds.
 
     The three runs must be fits of one model, the market run on a market dataset and the
     backtest run on a backtest dataset. The market run must have passed the convergence
@@ -532,7 +539,7 @@ def publish(
             f"{gate['market']['max_rhat']}, min ESS {gate['market']['min_ess']}); "
             "the Deals page is published only from a fit that did"
         )
-    table = deals(run_dir, Path(market["ads"]), registry, texts)
+    table = deals(run_dir, Path(market["ads"]), registry, texts, exact)
     listed = table.cautions.explode().dropna()
     meta = {
         "model": model,
@@ -595,6 +602,11 @@ def main(argv=None):
         type=Path,
         help="deals, validate and publish: the ads' descriptions",
     )
+    p.add_argument(
+        "--sampled",
+        action="store_true",
+        help="deals and publish: sample the median and bounds, not invert the cdf",
+    )
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
     if args.command == "texts":
@@ -610,6 +622,7 @@ def main(argv=None):
             Path(args.runs) / args.backtest if args.backtest else None,
             Path(args.runs) / args.heldout if args.heldout else None,
             args.texts,
+            not args.sampled,
         )
         print(json.dumps(meta, indent=2))
         return
@@ -620,7 +633,7 @@ def main(argv=None):
         args.out.write_text(json.dumps(out, indent=2))
         print(json.dumps(out, indent=2))
         return
-    table = deals(run_dir, args.ads, args.registry, args.texts)
+    table = deals(run_dir, args.ads, args.registry, args.texts, not args.sampled)
     args.out.mkdir(parents=True, exist_ok=True)
     table.to_parquet(args.out / "deals.parquet", index=False)
     table.to_json(args.out / "deals.json", orient="records")
