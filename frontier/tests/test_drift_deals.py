@@ -195,7 +195,11 @@ def test_validate_tabulates_the_uncautioned_ads_beside_all_of_them(tmp_path):
     assert plain["uncautioned"]["ads"] == 4
     assert plain["uncautioned"]["by_first_ask_place"] == plain["by_first_ask_place"]
     # With the run's texts the cautions read from them count too.
-    texts = _texts(tmp_path, {"2": AFFORDABLE, "3": "A quiet one bedroom.", "6": None})
+    texts = _texts(
+        tmp_path,
+        {"2": AFFORDABLE, "3": "A quiet one bedroom.", "6": None},
+        deposits={},
+    )
     read = drift_deals.validate(run, ads, bins=1, texts=texts)["uncautioned"]
     # Listing 2's text is cautioned, listing 3's text clears its flag, 4 keeps its flag.
     assert read["texts_read"] is True and read["ads"] == 2
@@ -455,10 +459,16 @@ def test_the_deposit_net_caution_reads_the_deposit_the_texts_table_keeps(tmp_pat
     # A backtest's ads take the same rule.
     read = drift_deals.validate(run, ads, bins=1, texts=texts)["uncautioned"]
     assert read["ads"] == 3 and read["cautioned_ads"] == 1
-    # A table without deposits marks none and still validates.
+    # A table with no deposit for any ad marks none and still validates.
+    none = _texts(tmp_path, dict.fromkeys(("2", "3", "4", "6"), "An ad."), None, {})
+    assert drift_deals.deals(run, ads, reg, none).attrs["ads_with_deposit"] == 0
+    assert drift_deals.validate(run, ads, bins=1, texts=none)["uncautioned"]["ads"] == 4
+    # A table written before the deposit was kept is refused, not read as no deposits.
     bare = _texts(tmp_path, dict.fromkeys(("2", "3", "4", "6"), "An ad."))
-    assert drift_deals.deals(run, ads, reg, bare).attrs["ads_with_deposit"] == 0
-    assert drift_deals.validate(run, ads, bins=1, texts=bare)["uncautioned"]["ads"] == 4
+    with pytest.raises(SystemExit, match="no deposit column"):
+        drift_deals.deals(run, ads, reg, bare)
+    with pytest.raises(SystemExit, match="no deposit column"):
+        drift_deals.validate(run, ads, bins=1, texts=bare)
 
 
 def test_the_beds_caution_reads_the_pieces_of_a_split_unit_together(tmp_path):
@@ -520,6 +530,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "6": OFFICE,
             "99": AFFORDABLE,
         },
+        deposits={},
     )
     t = drift_deals.deals(run, ads, reg, texts)
     assert t.attrs["ads_with_text"] == 3
@@ -555,12 +566,14 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
     assert rows["6"]["cautions"] == ["not_home", "off_market"]
     assert drift_deals.publish(run, out, reg)["cautions"]["ads_with_text"] is None
     with pytest.raises(SystemExit, match="no text for any ad"):
-        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"98": AFFORDABLE}))
+        drift_deals.deals(
+            run, ads, reg, _texts(tmp_path, {"98": AFFORDABLE}, deposits={})
+        )
     # The texts of another build's ads are refused, and so is a table with no stamp.
     other = tmp_path / "other.parquet"
     pd.DataFrame({"listing_id": [2]}).to_parquet(other)
     with pytest.raises(SystemExit, match="not written for the ads of this run"):
-        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"2": AFFORDABLE}, other))
+        drift_deals.deals(run, ads, reg, _texts(tmp_path, {"2": AFFORDABLE}, other, {}))
     pd.DataFrame({"listing_id": ["2"], "description": [AFFORDABLE]}).to_parquet(other)
     with pytest.raises(SystemExit, match="not written for the ads of this run"):
         drift_deals.deals(run, ads, reg, other)

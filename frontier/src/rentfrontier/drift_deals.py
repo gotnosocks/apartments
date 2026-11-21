@@ -24,8 +24,9 @@ predictive cdf, `rentfrontier.drift_quantiles`; `--sampled` draws them as before
   `rentfrontier.cautions`. They change no score. The ones read from an ad's text need
   `--texts`, the table `texts` writes: each ad's own description from the pipeline's
   records file, which must be the build the run's dataset was made from. `deposit_net`
-  reads the flat security deposit the table keeps from the same record; a table without
-  one, or written before 2026-11-21, marks no ad with it.
+  reads the flat security deposit the table keeps from the same record (NaN where the
+  record has none, which marks no ad). A table written before 2026-11-21 has no deposit
+  column and is refused.
 The table is sorted by `below_share`. It is written as deals.parquet and deals.json.
 
 A low ask can mark a bargain or a flaw the ad does not state. `validate` measures which, on
@@ -247,14 +248,17 @@ def _cautions(
         with_text = sum(isinstance(d, str) and bool(d.strip()) for d in described)
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
-        # A table written before the deposit was kept has none, and marks no ad.
-        if "deposit" in t:
-            deposit = (
-                t.set_index("listing_id")
-                .deposit.astype(float)
-                .reindex(h.listing_id.astype(str))
-                .to_numpy()
+        # A table written before the deposit was kept would mark no ad, silently.
+        if "deposit" not in t:
+            raise SystemExit(
+                f"{texts} has no deposit column; write it again with drift_deals texts"
             )
+        deposit = (
+            t.set_index("listing_id")
+            .deposit.astype(float)
+            .reindex(h.listing_id.astype(str))
+            .to_numpy()
+        )
         with_deposit = int(np.isfinite(deposit).sum())
     first, page, free = a.first_ask, a.page_price, a.months_free
     net = cautions_module.net_ask(first, page, free)

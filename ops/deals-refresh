@@ -189,6 +189,13 @@ publish)
     echo "registry $registry"
     texts=$scratch/$run/texts.parquet
     export JAX_PLATFORMS=cpu PYTHONPATH=frontier/src TMPDIR=/data1/apartments/tmp
+    # A texts table written before 2026-11-21 has no deposit column, which publish
+    # refuses; write it again.
+    if [[ -e $texts ]] && ! "$deals_py" -c 'import sys, pyarrow.parquet as pq
+sys.exit("deposit" not in pq.read_schema(sys.argv[1]).names)' "$texts"; then
+        echo "rewriting $texts: it has no deposit column"
+        rm "$texts"
+    fi
     [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"
     "$deals_py" -m rentfrontier.drift_deals publish "$run" --out "$out" \
         --registry "$registry" --backtest "$backtest" --texts "$texts"

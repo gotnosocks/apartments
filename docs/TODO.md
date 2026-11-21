@@ -473,8 +473,8 @@ first.
   ads, 5 in the first 60 and 12 in the first 300. The deposit is in the records file the
   publish already reads for texts. Decide whether to require a ratio of 1.05 or more.
   - 2026-11-21: built with a ratio of 1.05 on branch `po-deposit-net`, not yet published.
-    The texts table now keeps the chosen record's deposit, so the next publish must rebuild
-    it. On `range-m3` it marks 75 of the 6,502 ads, 50 with no other caution, 4 in the
+    The texts table now keeps the chosen record's deposit; publish refuses one without it
+    and `ops/deals-refresh publish` rewrites such a cached table. On `range-m3` it marks 75 of the 6,502 ads, 50 with no other caution, 4 in the
     first 60 and 11 in the first 300 of the default view.
 - [ ] A short-lease Deals caution for text that prices a lease under 12 months (one case
   in the first 60, "$17,500 for a 6-month lease").
