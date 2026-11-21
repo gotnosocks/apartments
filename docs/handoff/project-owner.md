@@ -165,9 +165,26 @@ subagent's model and effort to be picked by its task.
   4,380 of 6,502 deals have a previous-ask ring (2,805 before), none lost one, 3 changed
   value, and every other field is identical. Backup in
   `/data1/apartments/tmp/deals-backup/20261120-2329`. From review: `previous` could move to a
-  small module both import, replacing the import inside `deals()` (not blocking).
+  small module both import, replacing the import inside `deals()`. Done in #1502
+  (`rentfrontier.drift_previous`, no behaviour change; `drift_diagnostics` re-exports it).
 - Diagnostics were republished on Nov 20 at 11:18 PM ET with the #1496 rule (7,258 rows with a
   changed `prev_ask`); the old folder is `/data1/apartments/site/diagnostics.old-20261120`.
+- Zero-bed apartments (#1503, merged as `706b658b`, no fit,
+  `docs/notes/zero-bed-apartments-2026-11-21.md`). 13,089 training rows coded 0 bed carry a
+  text or unit mark for 2 or more beds, but only the 195 with both marks are precise (10 of
+  10 blind reads); the unit mark alone is right 1 in 20. Held-out ads with the text mark run
+  +0.097 (SE 0.038, 21 ads). 120 `bedrooms` set rows are drafted (blind read agrees and most
+  of the unit's other counted ads agree, per the ad-text rule); import with the next base
+  refit. No pipeline rule.
+- Any-unit pages (#1504, merged as `9acf3851`, no fit, `docs/notes/any-unit-pages-2026-11-21.md`).
+  Neither mark ("any unit in the building" text, or two ads at once on a page with asks over
+  10% apart) is precise: 13 of 40 marked pages are several apartments against 0.20 of
+  unmarked ones. Held-out marked ads have the same mean gap, 90% coverage 0.84 to 0.85
+  against 0.89, and a low share 1.2x to 1.5x. 42 live Deals ads, none in the top 100. Nothing
+  changes. The overlap mark reads asks, so it is allowed for a caution and not for a data
+  rule; a noise-scale term on it must be built as of each ad's first day from earlier ads.
+- Drafted for the next base refit, none in the ledger: 254 commercial and placeholder excludes
+  (sweep), 68 building-level rows, 120 zero-bed bedroom sets.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
