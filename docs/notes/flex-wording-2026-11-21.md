@@ -12,7 +12,7 @@ bedroom text reader to wording of this kind.
 
 The served model already carries `ad:bed_text_smaller`, 1 where `b0bedtext` finds flex
 wording for the coded count (`bed_flex_at`) or a stated size below it (`bed_text_fewer`).
-T25 has `bed_flex_at` and still shows 24.8% below its median. T01 has neither: the reader
+T25 has `bed_flex_at`, and its median is still 24.8% above its ask. T01 has neither: the reader
 takes no ordinal count ("flexible 5th bedroom") and no wall still to be built.
 
 So there are two questions. Does wording the reader misses mark mispriced asks? And among
@@ -38,14 +38,19 @@ halves at once, so half B was not held back from the choices below.
 | Wall still to build ("wall not yet installed", "wall installation") | 38 / 25 | 5.3% / 8.0% | 21.1% / 4.0% | 0.74 / 0.88 |
 | None of these | 86,883 / 88,283 | 6.0% / 5.7% | 4.9% / 4.9% | 0.89 / 0.90 |
 
-- **The wording the reader misses** is rare (80 held-out ads not already flagged) and holds
-  no steady excess of low asks. On half A the wall wording leans high. T01 has no class
-  behind it.
+- **The wording the reader misses** is too rare to tell: 80 held-out ads not already
+  flagged, with 5 and 3 low asks on the two halves (10.9% and 8.8%) and 8 and 3 high ones
+  (17.4% and 8.8%). Its interval may be too narrow both ways, but there is too little of it
+  to choose a form on. T01 has no class behind it that the data can show.
 - **Flex wording** with the flag is only a little above the unmarked rate (7.3% and 7.0%
   low), so the term prices it near enough. T25 is one of these.
 - **A studio in the text of an ad coded 1 bedroom or more** is where the term falls short:
   12.5% and 17.5% low, mean gap −0.021 (se 0.008) and −0.024 (se 0.008). The term pools
   these with the larger group whose stated size is 1 or more, where the excess is small.
+- `fx1_scan.log` also prints `flag_studio_on_bed`: flagged ads coded 1 bedroom or more
+  whose text says "alcove studio", "studio alcove" or "studio convertible" (80 and 51 ads,
+  10.0% and 13.7% low). This is a narrower wording mark than the studio reading above, and
+  it leans the same way.
 
 ## The live studio readings (`fx4_live.py`, `fx4_live.log`)
 
@@ -58,7 +63,7 @@ studio apartment"). Eight are reader errors:
 - "The size of a medium-to-large studio apartment", a bedroom described by its size.
 - "Oversized parlor floor studio/office", a room of a larger unit.
 
-The first studio reading in the default view is at place 376.
+The first studio reading in the default view is at place 376 of the full list.
 
 ## What follows
 

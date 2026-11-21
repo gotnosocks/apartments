@@ -3,8 +3,8 @@
 l2bt already carries `ad:bed_text_smaller` (bed_flex_at or bed_text_fewer from b0bedtext),
 so a kind with an excess of low asks here is one the term does not price in full. The new
 kinds are wording the reader misses: an ordinal flex room ("flexible 5th bedroom") and a
-wall not yet built ("wall is not yet installed", "wall installation"). Half A of buildings
-chooses; half B checks. Marks read the text and the coded bedrooms only.
+wall not yet built ("wall is not yet installed", "wall installation"). Both halves are
+printed at once. Marks read the text and the coded bedrooms only.
 """
 
 import re

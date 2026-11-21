@@ -485,17 +485,20 @@ first.
 - [x] Extend the `beds` caution or the bedroom text reader to "convertible", "alcove
   studio" and "wall not yet installed" on ads coded one bedroom or more.
   - 2026-11-21: no caution (`docs/notes/flex-wording-2026-11-21.md`). Wording the reader
-    misses holds no steady excess, and flagged flex wording is near the unmarked rate. Ads
+    misses is too rare to tell (80 held-out ads), and flagged flex wording is near the unmarked rate. Ads
     coded 1 bedroom or more whose text reads as a studio are 12.5% and 17.5% low on the two
     halves, but a third of the 24 live readings are reader errors.
 - [ ] A term for a studio reading on an ad coded 1 bedroom or more, beside
   `ad:bed_text_smaller`, with `b0bedtext` fixes for amenity names ("wellbeats studio") and
   "the size of a ... studio". One change for the next base refit, with a note and
   predictions first (`docs/notes/flex-wording-2026-11-21.md`).
-- [ ] If the `deposit_net` caution goes in, decide whether a free-months and lease-term fill
+- [x] If the `deposit_net` caution goes in, decide whether a free-months and lease-term fill
   for exact fits (733 Lincoln, The Lightwell Dumbo) is worth a screen. It keeps the target
   net; a gross rent from the deposit would break it. The mark reads the page price, so it may
   screen or carry a caution and may not become a data rule (`docs/leak-free-scoring.md`).
+  - 2026-11-21: no fill. `deposit_net` already hides these ads from the default view and its
+    chip says why. A gross figure would add a number beside a ranking that stays on the page
+    price, the model's target.
 - [ ] Test on held-out history, on two halves of the buildings: the elevator field by zone
   (7 text walkups in the top 60 against 1 in the middle), the virtual doorman against
   full-time (16 against 7), a text mark for a condo or co-op unit an owner rents out
