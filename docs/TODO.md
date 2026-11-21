@@ -376,7 +376,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   for three or more baths; a factor of
   1.15 to 1.2 for the top 3% of predicted rents; a level near -0.015 for four or more
   bedrooms; the first-floor level and the duplex factor of
-  `docs/notes/duplex-scale-2026-11-18.md`. None changes enough of the Deals list for a fit
+  `docs/notes/duplex-scale-2026-11-18.md`, the level confirmed on the model's own floor
+  snapshot by `docs/notes/four-traits-2026-11-21.md`, with a floor-1 scale term as the second
+  candidate if the level leaves the low tail wide. None changes enough of the Deals list for a fit
   of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
   the backtest).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
@@ -467,7 +469,7 @@ No fit was run for these.
 No fit was run for these. The readers' blocks held the asks, so each item is coded without rent
 first.
 
-- [ ] A `deposit_net` Deals caution: a flat security deposit at least 2% above the page
+- [x] A `deposit_net` Deals caution: a flat security deposit at least 2% above the page
   price, no coded free months, a deposit other than the first ask, and a deposit that fits
   the page price as a net rent over a 12 to 24 month lease. It would mark 88 of 6,502 live
   ads, 5 in the first 60 and 12 in the first 300. The deposit is in the records file the
@@ -506,10 +508,8 @@ first.
   - 2026-11-21: walk-ups, the virtual doorman and garden wording hold no steady excess.
     Condo or co-op text holds a small two-sided one. Coded floor 1 runs low on both halves
     (8.3% and 8.0% low, gap -0.012 and -0.011), with or without the snapshot's garden flag
-    (`docs/notes/four-traits-2026-11-21.md`).
-- [ ] For the next base refit: a `unit:floor1` step outside the floor curve's Gaussian
-  process, as one change with its own note and predictions. A floor-1 scale term is the
-  second candidate if the step leaves the low tail wide.
+    (`docs/notes/four-traits-2026-11-21.md`). This confirms the first-floor level already in
+    the list of terms for the next base refit (`docs/notes/duplex-scale-2026-11-18.md`).
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build

@@ -76,6 +76,15 @@ further below the model's median than asks on higher floors (gap -0.012 against 
 the low tail is wider there. The
 `unit:garden` flag does not take it up.
 
+## An earlier finding
+
+`docs/notes/duplex-scale-2026-11-18.md` found the same step on the latest split's held-out
+ads with a floor in its file: floor-1 ads without a duplex mark ask 0.4 to 1.3 points less
+than the floor curve predicts, more for floor-1 duplexes, and the step passed the chance
+check on both halves. The first-floor level is already in the TODO list of terms for the next
+base refit. This note adds two things: the step holds on the snapshot the served model's floor
+curve reads, in every building group, and a garden flag on floor 1 does not take it up.
+
 ## Why floor 1 might run low
 
 The served model's floor curve is held at zero on floor 1 and draws floors 2 and up from a
@@ -88,8 +97,8 @@ cellar. Both readings fit a lower mean and a wider low tail.
 ## Decision
 
 No caution: floor 1 is a trait of the unit, and a lower price for it is what a renter expects.
-The next base refit gets a candidate change: a `unit:floor1` step outside the Gaussian process,
-with the Normal(0, 0.5) prior the floor flags carry, so floor 1 can step away from the curve.
-It goes in as one change, with its own note and predictions first. A floor-1 scale term is the
+The first-floor level stays on the list for the next base refit: a `unit:floor1` step outside
+the Gaussian process, with the Normal(0, 0.5) prior the floor flags carry, so floor 1 can step
+away from the curve. It goes in as one change, with its own note and predictions first. A floor-1 scale term is the
 second candidate if the step leaves the low tail wide. The condo text is a weaker lead for a
 scale term. Walk-ups, the virtual doorman and garden wording are closed.
