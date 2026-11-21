@@ -1,0 +1,64 @@
+ads 129861 from 2022 ; no text flags row: 0
+no listing-codes row: 0
+  text private_outdoor  0.1311
+  text dishwasher       0.3082
+  text furnished        0.0456
+  text penthouse        0.0419
+  text full_floor       0.0241
+  coded feat:PRIVATE_OUTDOOR_SPACE  0.2517
+  coded feat:DISHWASHER             0.6539
+  coded feat:FURNISHED              0.0000
+marked shares:
+outdoor, uncoded       0.0267
+dishwasher, uncoded    0.0297
+furnished, uncoded     0.0456
+penthouse              0.0419
+full floor             0.0241
+t df 7
+
+base: j1's eight kept terms: cross-fit gain   1807.1 (SE  78.9)
+
+base + outdoor, uncoded: cross-fit gain   1822.6 (SE  79.0)
+  outdoor, uncoded over the base:    15.5 (SE   9.9); by half [np.float64(2.6), np.float64(12.9)]
+    scale (fit on A, on B) 1.010 1.041; shift +0.0046 +0.0070
+
+base + dishwasher, uncoded: cross-fit gain   1810.6 (SE  79.1)
+  dishwasher, uncoded over the base:     3.4 (SE   4.5); by half [np.float64(4.2), np.float64(-0.8)]
+    scale (fit on A, on B) 1.033 1.025; shift +0.0045 +0.0015
+
+base + furnished, uncoded: cross-fit gain   1814.9 (SE  79.1)
+  furnished, uncoded over the base:     7.7 (SE   7.0); by half [np.float64(0.6), np.float64(7.2)]
+    scale (fit on A, on B) 1.032 1.065; shift +0.0005 +0.0016
+
+base + penthouse: cross-fit gain   1815.0 (SE  79.2)
+  penthouse over the base:     7.8 (SE   5.1); by half [np.float64(4.2), np.float64(3.7)]
+    scale (fit on A, on B) 1.023 1.041; shift -0.0037 -0.0024
+
+base + full floor: cross-fit gain   1807.8 (SE  78.8)
+  full floor over the base:     0.7 (SE   2.1); by half [np.float64(-0.0), np.float64(0.7)]
+    scale (fit on A, on B) 0.975 0.972; shift -0.0000 +0.0016
+
+base + all five: cross-fit gain   1839.8 (SE  79.8)
+  all five over the base:    32.7 (SE  13.5); by half [np.float64(11.1), np.float64(21.6)]
+                      scale x (fit on A)  scale x (fit on B)  shift (fit on A)  shift (fit on B)
+intercept                         0.8901              0.8864           -0.0030           -0.0035
+changed counts                    1.1902              1.2157            0.0027            0.0044
+changed, 2 baths                  1.0394              1.0200           -0.0073           -0.0116
+3+ baths                          1.1225              1.1028           -0.0350           -0.0359
+2 baths                           1.0404              1.0413           -0.0072           -0.0063
+top 3% predicted                  1.1563              1.2354            0.0073           -0.0018
+floor 1                           1.0621              1.0687           -0.0071           -0.0089
+duplex                            1.0779              1.0542           -0.0018           -0.0045
+3+ bed, finish share              0.9741              0.9349            0.0151            0.0204
+outdoor, uncoded                  1.0063              1.0338            0.0044            0.0068
+dishwasher, uncoded               1.0319              1.0215            0.0043            0.0011
+furnished, uncoded                1.0309              1.0617            0.0004            0.0013
+penthouse                         1.0229              1.0378           -0.0038           -0.0026
+full floor                        0.9723              0.9703            0.0001            0.0014
+
+low tail (below 5%), base 6792, base + five 6792, left 72, joined 72
+  outdoor, uncoded     marked   3466  low   161 ->   169  ( 4.6% ->  4.9%)
+  dishwasher, uncoded  marked   3862  low   185 ->   186  ( 4.8% ->  4.8%)
+  furnished, uncoded   marked   5918  low   319 ->   288  ( 5.4% ->  4.9%)
+  penthouse            marked   5443  low   339 ->   297  ( 6.2% ->  5.5%)
+  full floor           marked   3131  low   151 ->   165  ( 4.8% ->  5.3%)

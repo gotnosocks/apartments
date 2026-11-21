@@ -221,6 +221,10 @@ subagent's model and effort to be picked by its task.
   the model's price than on higher floors), with or without the snapshot's garden flag.
   This confirms the first-floor level of `docs/notes/duplex-scale-2026-11-18.md`, already on
   the TODO list of terms for the next base refit.
+- Text columns for coded fields left empty (no fit, `docs/notes/text-columns-2026-11-21.md`):
+  beside the queued terms the five marks gain +33 (SE 14) together; 72 low-tail ads leave and
+  72 join. Three leave the queue; outdoor space with the box unchecked (+16, SE 10) and
+  penthouse (+8, SE 5) are optional base-refit terms, by a 1.5 SE cutoff chosen after the run.
 - Joint size of the queued base-refit terms (no fit, `docs/notes/joint-terms-2026-11-21.md`):
   +1,331 elpd (SE 70) on held-out ads from 2022 on, stable by half; one in seven low-tail ads
   leaves the tail and about as many join. This is the size to give Ben with the base-refit
