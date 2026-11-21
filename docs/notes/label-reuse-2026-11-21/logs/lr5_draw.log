@@ -1,0 +1,20 @@
+pool 2170 {'A': 1101, 'B': 1069}
+read_batch_1.md 8 4d68b2e386e45e03
+read_batch_2.md 8 d884861f3504fd31
+   read_id half                          building label                        lister         text
+0      L01    B        904-greene-avenue-brooklyn    2r                       Compass  states none
+1      L02    A       891-st-johns-place-brooklyn    1r                    Urban Pads       studio
+2      L03    A           9-white-street-brooklyn   308             Garden Management  states none
+3      L04    A       242-east-71-street-new_york    5r                 Bold New York  states none
+4      L05    B       320-east-95-street-new_york     3    Alpha Properties NYC I LLC  states none
+5      L06    A        706-greene-avenue-brooklyn     1                    Coroi Corp    2 or more
+6      L07    B   582-mac-donough-street-brooklyn    1c  Brickview NYC Realty NYV LLC  states none
+7      L08    B       103-st-marks-place-new_york    5d                      Corcoran       studio
+8      L09    A         195-court-street-brooklyn     3                       Compass  states none
+9      L10    B             836-broadway-brooklyn     1        Ideal Properties Group  states none
+10     L11    B        198-nassau-avenue-brooklyn     2            Michal Kuras, LREB       studio
+11     L12    A         329-gates-avenue-brooklyn   311               Nooklyn NYC LLC       studio
+12     L13    A              1399-myrtle-brooklyn    7e                 ABODE NYC LLC       studio
+13     L14    A    53-mac-donough-street-brooklyn    1d        Skyhigh Realty NYC LLC  states none
+14     L15    B  573-metropolitan-avenue-brooklyn    5e                    Loom Group       studio
+15     L16    B      420-tompkins-avenue-brooklyn    5a                      Rentopia       studio

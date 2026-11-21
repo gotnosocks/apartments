@@ -453,9 +453,13 @@ No fit was run for these.
   `docs/notes/zero-bed-apartments-2026-11-21/candidate_rows.ndjson` with the next base refit
   (section 6 of `docs/notes/zero-bed-apartments-2026-11-21.md`). They overlap neither the
   commercial sweep's nor the building-level read's candidate files.
-- [ ] Study unit labels reused across layouts: in 9 of 10 reads of 0 bed ads whose unit's
+- [x] Study unit labels reused across layouts: in 9 of 10 reads of 0 bed ads whose unit's
   other ads all code 2 or more, those ads describe a different apartment
-  (`docs/notes/zero-bed-apartments-2026-11-21.md`, section 2).
+  (`docs/notes/zero-bed-apartments-2026-11-21.md`, section 2). Done 2026-11-21
+  (`docs/notes/label-reuse-2026-11-21.md`): every such pair lies on one page, so no
+  label_units layer joined it and v18 splits none; unit-splits-v4 already separates them in
+  the fit's units. No rule or ledger draft. Later marks from a unit's other ads should group by
+  `split_unit`.
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build

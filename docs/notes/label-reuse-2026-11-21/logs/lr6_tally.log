@@ -1,0 +1,15 @@
+reads 16
+half                     A  B  All
+verdict                           
+other_apartment          3  6    9
+same_apartment_miscoded  2  0    2
+template                 1  0    1
+unclear                  2  2    4
+All                      8  8   16
+verdict        other_apartment  same_apartment_miscoded  template  unclear
+which_wrong                                                               
+A                            3                        2         0        0
+both possible                6                        0         0        0
+n/a                          0                        0         1        4
+{'none named': 14, 'agrees': 2}
+{'0': 7, 'none': 6, '2': 2, 'flex': 1}

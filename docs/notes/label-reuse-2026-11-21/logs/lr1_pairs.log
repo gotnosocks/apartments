@@ -1,0 +1,26 @@
+U_any rows 12646 units 7343
+U_strict rows 3115 units 3115
+pairs 24419 rows 12646 units 7343
+
+== U_any: pairs 24419, rows 12646, units 7343
+same_page {True: 24419}
+same_page_unit {True: 24419}
+o_in_fit {True: 21493, False: 2926}
+same_label_unit {True: 21493, False: 2926}
+2+ ad also a row of the live run, same fit unit: {False: 21485, True: 8}
+o_fate {'kept': 21590, None: 1103, 'superseded_in_unit_month': 878, 'conflicting_layout_same_unit_month': 848}
+rows with every pair on one page 12646 rows with some pair on another page 0
+
+== U_strict: pairs 6885, rows 3115, units 3115
+same_page {True: 6885}
+same_page_unit {True: 6885}
+o_in_fit {True: 6217, False: 668}
+same_label_unit {True: 6217, False: 668}
+2+ ad also a row of the live run, same fit unit: {False: 6217}
+o_fate {'kept': 6247, 'superseded_in_unit_month': 275, None: 272, 'conflicting_layout_same_unit_month': 91}
+rows with every pair on one page 3115 rows with some pair on another page 0
+
+pairs on two pages:
+Empty DataFrame
+Columns: [unit_id, z_page, o_page, o_bed]
+Index: []

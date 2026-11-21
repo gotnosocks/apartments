@@ -1,0 +1,112 @@
+
+== U_any: rows 12646, units 7343
+                                rows  units
+kind                                       
+floor label, several per floor  1643    985
+layout changes back and forth   5234   2502
+on the market together            71     69
+one change of layout            5698   3819
+                      rows  units
+form                             
+floor and letter      7126   4026
+floor number alone    2756   1733
+letters alone          226    131
+other                   26     17
+three or more digits  2512   1436
+             rows  units
+text                    
+1 bed         218    209
+2 or more     200    195
+states none  6786   4616
+studio       5442   3516
+                  rows  units
+size                         
+not both stated  11748   6864
+same size          426    290
+sizes apart        472    350
+same lister on a 2+ ad: {False: 7453, True: 5193}
+any_same_lister                 False  True    All
+kind                                              
+floor label, several per floor   1020   623   1643
+layout changes back and forth    2757  2477   5234
+on the market together             40    31     71
+one change of layout             3636  2062   5698
+All                              7453  5193  12646
+text                            1 bed  2 or more  states none  studio    All
+kind                                                                        
+floor label, several per floor     27         21          758     837   1643
+layout changes back and forth     100         69         2809    2256   5234
+on the market together              0          2           51      18     71
+one change of layout               91        108         3168    2331   5698
+All                               218        200         6786    5442  12646
+size                            not both stated  same size  sizes apart    All
+kind                                                                          
+floor label, several per floor             1506         27          110   1643
+layout changes back and forth              4867        206          161   5234
+on the market together                       50         13            8     71
+one change of layout                       5325        180          193   5698
+All                                       11748        426          472  12646
+a 2+ ad states more full baths: 4001
+floor number alone and several units per floor: 1656
+switches per unit: {1: 4443, 2: 2062, 3: 452, 4: 386}
+typed ads per unit: {2: 1710, 3: 1350, 4: 1088, 5: 888, 6: 661, 7: 532, 8: 330, 9: 221, 10: 563}
+nearest 2+ ad, days: {'count': 12572.0, 'mean': 1152.0, 'std': 1009.0, 'min': 1.0, '25%': 339.0, '50%': 824.0, '75%': 1750.0, 'max': 4630.0}
+overlap >= 1 day: 165
+top listers: {'Nooklyn NYC LLC': 918, 'Rentopia': 549, 'The KCI Group': 465, 'The Moinian Group': 419, 'Compass': 374, 'Corcoran': 318, 'City Wide Apartments': 222, 'MySpaceNYC': 199}
+top buildings by units: {'the-rheingold': 138, 'tribeca-house': 81, 'bridgeview-dumbo': 77, 'aria-90-john-street-new_york': 75, '338-evergreen-avenue-brooklyn': 70, 'the-garnett': 61, '1875-atlantic-avenue-brooklyn': 60, '90w-90-washington-street-new_york': 58}
+
+== U_strict: rows 3115, units 3115
+                                rows  units
+kind                                       
+floor label, several per floor   438    438
+layout changes back and forth    483    483
+on the market together            24     24
+one change of layout            2170   2170
+                      rows  units
+form                             
+floor and letter      1749   1749
+floor number alone     823    823
+letters alone           73     73
+other                   12     12
+three or more digits   458    458
+             rows  units
+text                    
+1 bed          55     55
+2 or more     130    130
+states none  1712   1712
+studio       1218   1218
+                 rows  units
+size                        
+not both stated  2897   2897
+same size          91     91
+sizes apart       127    127
+same lister on a 2+ ad: {False: 1620, True: 1495}
+any_same_lister                 False  True   All
+kind                                             
+floor label, several per floor    270   168   438
+layout changes back and forth     145   338   483
+on the market together             15     9    24
+one change of layout             1190   980  2170
+All                              1620  1495  3115
+text                            1 bed  2 or more  states none  studio   All
+kind                                                                       
+floor label, several per floor     13         13          226     186   438
+layout changes back and forth       4         34          263     182   483
+on the market together              0          0           20       4    24
+one change of layout               38         83         1203     846  2170
+All                                55        130         1712    1218  3115
+size                            not both stated  same size  sizes apart   All
+kind                                                                         
+floor label, several per floor              402          7           29   438
+layout changes back and forth               446         19           18   483
+on the market together                       18          3            3    24
+one change of layout                       2031         62           77  2170
+All                                        2897         91          127  3115
+a 2+ ad states more full baths: 1076
+floor number alone and several units per floor: 443
+switches per unit: {1: 2548, 2: 563, 3: 4}
+typed ads per unit: {2: 1710, 3: 564, 4: 284, 5: 202, 6: 118, 7: 106, 8: 56, 9: 23, 10: 52}
+nearest 2+ ad, days: {'count': 3099.0, 'mean': 909.0, 'std': 887.0, 'min': 1.0, '25%': 238.0, '50%': 585.0, '75%': 1288.0, 'max': 4630.0}
+overlap >= 1 day: 60
+top listers: {'Nooklyn NYC LLC': 281, 'Rentopia': 186, 'Corcoran': 97, 'Compass': 84, 'MySpaceNYC': 55, 'REAL New York': 53, 'Douglas Elliman': 50, 'EXR': 50}
+top buildings by units: {'bridgeview-dumbo': 38, '123-melrose-street-brooklyn': 26, '1875-atlantic-avenue-brooklyn': 23, '99-fleet-place-brooklyn': 23, 'tribeca-house': 23, 'lorimer-house': 21, '1499-bedford-avenue-brooklyn': 20, '1247-atlantic-avenue-brooklyn': 18}
