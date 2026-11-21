@@ -89,14 +89,14 @@
 {% if choice.ignored %}
 <p class="note ignored" role="status">Ignored: {{ choice.ignored | join("; ") }}.</p>
 {% endif %}
-<p class="note range-legend">Range bar: the shaded bands are the model's 50%, 80% and 95% ranges, the line is its middle, the dot is the ask and the ring is the apartment's previous ask.</p>
+<p class="note range-legend">Range bar: the shaded bands are the model's 50%, 80% and 95% ranges, the line is its middle, the dot is the ask and the ring is the unit's previous ask.</p>
 <div class="table-wrap">
 <table class="data deals">
   <caption class="visually-hidden">Apartments on the market, {{ sorts[choice.sort] | lower }}</caption>
   <thead><tr>
     <th scope="col" title="Address, unit, neighborhood, layout, size and floor where the ad states them, days listed and any cut from the first ask.">Apartment</th>
     <th scope="col" class="num" title="Net monthly rent after any free months stated on the ad; gross page rent and free months appear underneath when they differ.">Ask</th>
-    <th scope="col" class="num" title="Shaded bands hold 50%, 80% and 95% of expected asks; the vertical line is the model&#39;s middle estimate, the dot is this ad&#39;s ask and the ring is the ask of the apartment&#39;s previous ad. Every row uses the same scale.">Model range</th>
+    <th scope="col" class="num" title="Shaded bands hold 50%, 80% and 95% of expected asks; the vertical line is the model&#39;s middle estimate, the dot is this ad&#39;s ask and the ring is the ask of the unit&#39;s previous ad. Every row uses the same scale.">Model range</th>
     <th scope="col" class="num" title="Dollars per month below the model's 10th percentile (bottom of the 80% range). Default sort ranks by (10th percentile minus ask) / 10th percentile.">Saving</th>
     <th scope="col" title="The training ads behind this estimate: the unit's own earlier ads, at least 5 ads in the building, or the surrounding area only. The count is the number of those ads.">Evidence</th>
     <th scope="col" title="Mark this ad as a real deal, a data error or an unmodeled factor.">Tag</th>

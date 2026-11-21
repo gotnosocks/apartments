@@ -1,0 +1,290 @@
+# python -m rentfrontier.drift_diagnostics publish drift-building-b0-latest-67d14e17-b9 --market drift-building-b0-market-67d14e17-n9 --ads /data1/apartments/pipeline/datasets/ads-14f9e88d75290a0f.parquet --registry /data1/apartments/external/registry/20261110-f1fc080-extend/registry.parquet --features /data1/apartments/external --out /data1/apartments/tmp/diag-prev/new
+# run from frontier/ at 76efd792 under /usr/bin/time -v, MemoryMax=3G
+{
+  "model": "drift-building",
+  "runs": {
+    "latest": "drift-building-b0-latest-67d14e17-b9",
+    "market": "drift-building-b0-market-67d14e17-n9"
+  },
+  "datasets": {
+    "latest": {
+      "dataset": "b0-b3ddebf19af1dc1e-alldata-v36-dense-nyc",
+      "rows_sha256": "bc476f43452ed5dff5983c765a44f3587871ba14bcea3f0037934cc89c62e8e2"
+    },
+    "market": {
+      "dataset": "b0-ddd2fe8f5da041b8-alldata-dense-nyc-market",
+      "rows_sha256": "fd2b021ff42602c6192fc52816d5fb84bc7f084d90b3ad2142079384826b0bca"
+    }
+  },
+  "gate": {
+    "latest": {
+      "passes": true,
+      "max_rhat": 1.005160251178889,
+      "min_ess": 1343.6888427734375,
+      "chains": 6
+    },
+    "market": {
+      "passes": true,
+      "max_rhat": 1.0063572643577314,
+      "min_ess": 1425.8590087890625,
+      "chains": 6
+    }
+  },
+  "scoring_day": "2026-11-09",
+  "features": 61,
+  "skipped": [
+    {
+      "name": "loft",
+      "why": "true for 0.85% of the ads"
+    },
+    {
+      "name": "furnished",
+      "why": "true for 0.00% of the ads"
+    }
+  ],
+  "sources": {
+    "ads": {
+      "path": "/data1/apartments/pipeline/datasets/ads-14f9e88d75290a0f.parquet",
+      "sha256": "14f9e88d75290a0f109289f9d476146ee0aba75418746dbc9292efa02e101ede",
+      "bytes": 128521355,
+      "modified": "2026-11-10T00:33:37Z"
+    },
+    "codes": {
+      "path": "/data1/apartments/external/listing-codes/20261120-4f487ef/listing-codes.parquet",
+      "sha256": "c1ba223b5ce11cde4f5215d188a080c5fa488f3d766db8a97d86075e5fdf2d85",
+      "bytes": 30473899,
+      "modified": "2026-11-20T20:03:54Z"
+    },
+    "unit": {
+      "path": "/data1/apartments/external/unit-features/20261120-4f487ef/unit_features.parquet",
+      "sha256": "408f7b5b71a11a13afa64c7766b92d1e401713325a8ea8c0259d60dbf112af17",
+      "bytes": 14759641,
+      "modified": "2026-11-20T20:08:51Z"
+    },
+    "unit-floor": {
+      "path": "/data1/apartments/external/unit-floor/20261021-d84914c0/floor.parquet",
+      "sha256": "64470f2e61556b4d6ac6c813a7f1f53d8ff59a4976b864971516a34d6a754ea2",
+      "bytes": 11244799,
+      "modified": "2026-10-21T22:02:35Z"
+    },
+    "extras": {
+      "path": "/data1/apartments/external/listing-extras/20261016-5f07157-all/listing-extras.parquet",
+      "sha256": "8fe8b392842a3d26759cf828a82e03d8b3c048b75251f2b98296e9199699803d",
+      "bytes": 88220883,
+      "modified": "2026-10-16T07:06:33Z"
+    },
+    "lister": {
+      "path": "/data1/apartments/external/lister/20261014-cd891c8/lister.parquet",
+      "sha256": "e985f241f06c770f057973068cbb4b947b615e7354599b70fc3da999ac4cfa47",
+      "bytes": 5043357,
+      "modified": "2026-10-14T14:07:33Z"
+    },
+    "outcomes": {
+      "path": "/data1/apartments/external/listing-outcomes/20261023-7b6f543/listing-outcomes.parquet",
+      "sha256": "51ff61f13c69c14efda76a3e54b4a33be48ff6059a61d8bfb7c0d5ce7d182ae6",
+      "bytes": 7315568,
+      "modified": "2026-10-23T04:46:01Z"
+    },
+    "attrs": {
+      "path": "/data1/apartments/external/building-attrs/20261120-4f487ef/attrs.parquet",
+      "sha256": "4486a3576c0098f86d47252af89f97da8be49c4e252b773350c5433b72875856",
+      "bytes": 914887,
+      "modified": "2026-11-20T20:09:19Z"
+    },
+    "age": {
+      "path": "/data1/apartments/external/building-age/20261120-4f487ef/age.parquet",
+      "sha256": "1ad1e5f41f4e083821f2f6c483cd9a8f0446fb9ec3fd809bc8c2082a45f66804",
+      "bytes": 771359,
+      "modified": "2026-11-20T20:09:20Z"
+    },
+    "gym": {
+      "path": "/data1/apartments/external/building-gym/20261021-752c7d3d/gym.parquet",
+      "sha256": "b9d7252b4d13614e30ba69f3c01bfe1add81720022b9fdb8d83c8de608fe6963",
+      "bytes": 835948,
+      "modified": "2026-10-21T16:02:04Z"
+    },
+    "transit": {
+      "path": "/data1/apartments/external/building-transit/20261022-a4d8ac25/transit.parquet",
+      "sha256": "3bf04bdba15aba3aafbaed22f243c47f9cab58a89e5366cd43bafe0a8ab77867",
+      "bytes": 1396350,
+      "modified": "2026-10-22T05:19:50Z"
+    },
+    "parks": {
+      "path": "/data1/apartments/external/building-parks/20261022-ec936683/parks.parquet",
+      "sha256": "f0feb09c1d55b8fcc85b472421a43c47df9acd76fb122ccc5cbebececf03c0c1",
+      "bytes": 2626482,
+      "modified": "2026-10-22T05:36:06Z"
+    },
+    "park-front": {
+      "path": "/data1/apartments/external/building-park-front/20261022-5ddc0e5d/park_front.parquet",
+      "sha256": "11a2aa0304d5cb6663515b87ebc0a57c5102631c6727d839bc2d81c7fe2d31f0",
+      "bytes": 1230645,
+      "modified": "2026-10-22T18:02:05Z"
+    },
+    "noise": {
+      "path": "/data1/apartments/external/building-noise/20261022-208c44b3/noise.parquet",
+      "sha256": "51d0c9580fb2d9d725048a43e4042e299954e84ee86534e901dfce13e4f5170b",
+      "bytes": 668440,
+      "modified": "2026-10-22T06:09:14Z"
+    },
+    "elevated": {
+      "path": "/data1/apartments/external/building-elevated/20261022-c9be347c/elevated.parquet",
+      "sha256": "b649926c49a9ace64cc2d48db92b6711655f47f0d50ccf58f11758b044e5f190",
+      "bytes": 1230641,
+      "modified": "2026-10-22T18:45:23Z"
+    },
+    "frontage": {
+      "path": "/data1/apartments/external/frontage/20261020-fbf9a82/frontage.parquet",
+      "sha256": "543b67b93723b12372c31d3164a80fbb73561a732296f74ea551fd4658f283cb",
+      "bytes": 727833,
+      "modified": "2026-10-21T03:28:47Z"
+    },
+    "truck": {
+      "path": "/data1/apartments/external/unit-features/20261120-4f487ef/truck.parquet",
+      "sha256": "6373cb54eb4af5d080244b57e915424b09892b8d501d3b1d404af21f9bd2408a",
+      "bytes": 552981,
+      "modified": "2026-11-20T20:09:17Z"
+    },
+    "pluto": {
+      "path": "/data1/apartments/external/pluto/20261017-2c61ff1-all-lots4/pluto.parquet",
+      "sha256": "2cdcb39ccd15be73367b1cdb2c15598e59598b418181c4fa721caf5a33bb1c80",
+      "bytes": 3578053,
+      "modified": "2026-10-17T11:13:08Z"
+    }
+  },
+  "level": "posterior mean of the building's level less its zone's surface at the building's point, on the log scale",
+  "level_missing": null,
+  "model_terms": [
+    "Bedrooms",
+    "Full baths, by bedrooms",
+    "Half baths",
+    "Season of the year",
+    "A room in a shared apartment",
+    "Income-restricted units",
+    "Rent stabilization",
+    "Building height",
+    "Elevator",
+    "Condo building",
+    "Doorman (full-time, part-time, virtual)",
+    "Size relative to homes with the same bedrooms",
+    "Laundry in the unit or in the building",
+    "Dishwasher",
+    "On a through truck route",
+    "Gym",
+    "Year built, in bands",
+    "Altered since 2000",
+    "Retail in the building",
+    "Floor, apart for elevator and walk-up buildings",
+    "Top floor",
+    "Penthouse",
+    "Garden and lower-level units",
+    "Central air",
+    "Fireplace, by type",
+    "Hardwood floors",
+    "Loft",
+    "Private outdoor space, by type",
+    "Views, by type",
+    "Ads stating no features or amenities",
+    "Rooms beyond the bedrooms",
+    "Photos in the ad",
+    "Floor plan, video and 3D tour in the ad",
+    "Ad entered by a feed or by the owner",
+    "Months free",
+    "Long and short leases",
+    "Exposures",
+    "Pet policy",
+    "Building amenities stated in ads",
+    "Homes in the building",
+    "Lot frontage",
+    "Corner building",
+    "Built floor area ratio",
+    "Landmark",
+    "More than one building on the lot",
+    "City building class",
+    "Building area per home",
+    "Each unit's average of the ad-level attributes, beside the ad's own value",
+    "The city's rent level over time",
+    "A smooth surface over the map in each zone",
+    "A level for each building",
+    "A quarterly path for each building",
+    "A level for each unit",
+    "A drift over time for each unit"
+  ],
+  "ppsf": {
+    "unit": "dollars per square foot a year",
+    "bounds": {
+      "0": [
+        30.0,
+        150.0
+      ],
+      "1": [
+        25.0,
+        140.0
+      ],
+      "2": [
+        22.0,
+        155.0
+      ],
+      "3": [
+        20.0,
+        170.0
+      ]
+    }
+  },
+  "coverage": {
+    "50": 0.525335411266426,
+    "80": 0.8081304433100626,
+    "95": 0.9524036703083504
+  },
+  "counts": {
+    "ads": {
+      "all": 195423,
+      "latest": 188649,
+      "market": 6774
+    },
+    "buildings": 67972,
+    "history": 1900447,
+    "basis": {
+      "unit": 193167,
+      "building": 1990,
+      "area": 266
+    },
+    "flags": {
+      "beds_conflict": 36077,
+      "beds_jump": 2382,
+      "ask_jump": 788,
+      "ppsf": 380,
+      "extreme": 1234,
+      "building_side": 31
+    }
+  },
+  "sha256": {
+    "ads": "e9bb8d97faae08c86ec8b98c599d8ba9709d9cca03aee2713d1ba5bc663b7e62",
+    "buildings": "e142ba009682b18b2cd6acc151412566de5531b54e0129167031d70a4ff65e0a",
+    "history": "ae64a1fcca34dbff6acd6cfade5ce1e9d19c052567f953439c20f3b2bbb8bda4"
+  },
+  "published": "2026-11-21T04:04:50Z"
+}
+	Command being timed: "systemd-run --user --scope -q -p MemoryMax=3G env JAX_PLATFORMS=cpu TMPDIR=/data1/apartments/tmp PYTHONPATH=/data1/apartments/tmp/pi-review/wt-diag-prev/frontier/src /data1/apartments/venvs/bridge-frontier/bin/python -m rentfrontier.drift_diagnostics publish drift-building-b0-latest-67d14e17-b9 --market drift-building-b0-market-67d14e17-n9 --ads /data1/apartments/pipeline/datasets/ads-14f9e88d75290a0f.parquet --registry /data1/apartments/external/registry/20261110-f1fc080-extend/registry.parquet --features /data1/apartments/external --out /data1/apartments/tmp/diag-prev/new"
+	User time (seconds): 71.05
+	System time (seconds): 25.95
+	Percent of CPU this job got: 104%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:32.90
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 3200524
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 13942
+	Minor (reclaiming a frame) page faults: 4387587
+	Voluntary context switches: 17908
+	Involuntary context switches: 2821
+	Swaps: 0
+	File system inputs: 1272632
+	File system outputs: 138952
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -212,6 +212,50 @@ def test_previous_takes_the_later_price_of_a_day_and_never_the_same_day():
     assert str(got.latest_day.iloc[0]) == "2025-01-01"
 
 
+def _two_builds(rows):
+    """Earlier ads in two units: listings 1 (June 2025) and 2 (January 2026) before
+    listing 3, moved into unit u1, and listing 5 (October 2025) before listing 4."""
+    rows.loc[0, "latest_day"] = date(2025, 6, 1)
+    rows.loc[1, "latest_day"] = date(2026, 1, 1)
+    rows.loc[2, ["building", "unit_id"]] = ["a", "u1"]
+    rows.loc[4, "latest_day"] = date(2025, 10, 1)
+
+
+def _latest_split(rows):
+    """`_two_builds`, with listings 2 and 5 trading places, so the latest fit trains on
+    listing 2 and holds out listing 5, the other way round from the market fit."""
+    _two_builds(rows)
+    swapped = rows.iloc[[0, 4, 2, 3, 1, 5]].reset_index(drop=True)
+    for c in rows:
+        rows[c] = swapped[c]
+
+
+def test_a_market_row_reads_the_market_fits_own_training_ads(tmp_path):
+    latest, reg = _latest(tmp_path / "l", change=_latest_split)
+    market, ads, _ = _run(tmp_path / "m", change=_two_builds)
+    tables, _ = drift_diagnostics.diagnostics(latest, market, ads, reg)
+    row = tables["ads"].set_index("listing_id")
+    assert row.source.to_dict() == {
+        "2": "market",
+        "3": "market",
+        "4": "market",
+        "5": "latest",
+        "6": "market",
+    }
+    # Listing 5 is held out by the latest fit and trained by the market fit, so it is
+    # listing 4's previous ad.
+    assert row.prev_ask["4"] == 3000 and row.prev_day["4"] == "2025-10-01"
+    # Listing 2 is held out by the market fit, so listing 3 follows listing 1, although
+    # the latest fit trained on listing 2.
+    assert row.prev_ask["3"] == 3000 and row.prev_day["3"] == "2025-06-01"
+    assert row.prev_ask["2"] == 3000 and row.prev_day["2"] == "2025-06-01"
+    # The latest fit's own rows give listing 3 the other previous ad.
+    out, _, _ = drift_diagnostics.run_ads(latest, "latest", None)
+    out = out.set_index("listing_id")
+    assert out.prev_ask["3"] == 2700 and out.prev_day["3"] == "2026-01-01"
+    assert np.isnan(row.prev_ask["5"])
+
+
 def test_building_basis_takes_five_training_ads(tmp_path):
     def more(rows):
         extra = pd.concat([rows.iloc[[4]]] * 5, ignore_index=True)

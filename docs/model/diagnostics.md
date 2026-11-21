@@ -91,7 +91,7 @@ the pieces are read together there to catch such changes.
 | Code | Condition |
 |---|---|
 | `beds_conflict` | The apartment's ads in the run's dataset carry more than one bedroom count. |
-| `beds_jump` | The bedroom count differs from the unit's previous ad. Pieces are cut where the count changes, so this is rare. |
+| `beds_jump` | The bedroom count differs from the unit's previous ad. The dataset cuts a new piece at most bedroom changes, but not at every one, so 2,382 ads (1.2%) of the 2026-11-09 runs still carry it (`docs/notes/diagnostics-prev-ask-2026-11-20.md`). |
 | `ask_jump` | The ask is over twice the previous ask or under half of it. |
 | `ppsf` | The ask per square foot is outside the range for the bedrooms. |
 | `extreme` | The absolute value of `miss` is above 4. |
