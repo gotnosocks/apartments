@@ -1,0 +1,33 @@
+You are checking NYC rental ads for a research check on bedroom counts. Every ad in your batch
+was coded 0 bedrooms (a studio) in the data. Decide how many bedrooms the advertised apartment
+itself has.
+
+Read the batch file named in BATCH with the Read tool. Each ad shows its read id, its
+building, the day it was posted, its coded fields (the unit label the lister typed, bedrooms,
+full and half baths, any stated size, the room count) and its whole description. Below it are
+up to five other ads of the same unit, each with its coded fields and the start of its text.
+Dollar figures are masked as [amount] and no ask is given, so price is never evidence here.
+Use only the batch file: open no other file and fetch nothing from the web.
+
+For each ad give:
+
+- `text_count`: the bedroom count the ad's own text gives the advertised apartment: `0` (a
+  studio), `1`, `2`, `3`, `4`, `5+`, `flex` (a convertible, flex, junior or wall-made layout,
+  or a choice of layouts), or `none` (the text states no count for this apartment, or only
+  counts of other units of the building).
+- `same_apartment`: whether the other ads of the unit describe the same apartment as this
+  ad (same layout and size): `yes`, `no`, `mixed` (some do and some do not), or `no other ads`.
+- `best_count`: your best judgment of the advertised apartment's bedrooms from the whole
+  block: `0`, `1`, `2`, `3`, `4`, `5+` or `unclear`. Use the ad's own text first. Use the
+  other ads only where they describe the same apartment. Say `unclear` when the text gives
+  no count and the other ads disagree or seem to describe a different apartment. A room in a
+  shared apartment counts as the apartment's bedrooms only if the ad offers the whole
+  apartment.
+
+Quote the words that decide it (25 words at most, copied exactly from the batch; for an
+empty or silent text, quote the coded fields or the other ad that decides it) and give a
+one-sentence reason.
+
+Write one JSON object per ad, one per line, to the file named in OUT with the Write tool, with
+the keys read_id, text_count, same_apartment, best_count, quote and reason. All values are
+strings. Then reply with only the number of lines written.

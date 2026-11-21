@@ -1,0 +1,13 @@
+best_count {'0': 3, '2': 119, '3': 55, '4': 7, '5+': 2, 'unclear': 9}
+read agrees with the text mark 181 of 195
+read agrees, by half {'A': {'sum': 97, 'size': 105}, 'B': {'sum': 84, 'size': 90}}
+unit majority 122 read agrees and majority (kept) 120
+majority    False  True 
+agree_text              
+False          12      2
+True           61    120
+kept by half {'A': 65, 'B': 55} count set {2.0: 84, 3.0: 32, 4.0: 4}
+same_apartment of kept {'yes': 101, 'mixed': 19}
+drafted 120 without an ad_text quote 0
+overlap with commercial-sweep-2026-11-20 0
+overlap with building-level-read-2026-11-20 0

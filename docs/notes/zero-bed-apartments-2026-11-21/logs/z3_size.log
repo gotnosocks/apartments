@@ -1,0 +1,87 @@
+training rows coded 0 bed, no ledger entry 323704 marked 13089
+records read 13089
+
+counts by form
+                        rows  units  buildings  listers  half_A  half_B
+T                        638    618        484      212     325     313
+U_strict                3115   3115       1913      671    1559    1556
+U_clean                 8349   4857       2557      963    4136    4213
+U_any                  12646   7343       3242     1116    6248    6398
+T or U_any (the mark)  13089   7771       3484     1151    6468    6621
+T and U_any              195    190        178      102     105      90
+T or U_strict           3623   3603       2205      726    1814    1809
+
+strata
+               rows  units  buildings  listers  half_A  half_B
+text and unit   195    190        178      102     105      90
+text only       443    428        322      152     220     223
+unit, all 2+   2985   2985       1800      651    1489    1496
+unit, mixed    9466   4193       1907      912    4654    4812
+
+top listers of the mark
+lister
+Nooklyn NYC LLC             977
+Rentopia                    559
+The KCI Group               465
+The Moinian Group           419
+Compass                     389
+Corcoran                    326
+City Wide Apartments        222
+EXR                         215
+MySpaceNYC                  206
+Douglas Elliman             196
+Clipper Equity              183
+Centennial Properties NY    181
+
+top listers of T or U_strict
+lister
+Nooklyn NYC LLC    346
+Rentopia           196
+Corcoran           109
+Compass            103
+EXR                 68
+Douglas Elliman     66
+MySpaceNYC          63
+REAL New York       56
+
+unit's other ads coded 2+ (U_any): distinct counts {1: 11465, 2: 1111, 3: 67, 4: 3}
+lowest such count {2.0: 9881, 3.0: 2320, 4.0: 362, 5.0: 56, 6.0: 14, 7.0: 1, 10.0: 8, 50.0: 4}
+
+2026-11-12 class of marked rows
+cls
+zero, says studio               8554
+zero, other text                2541
+S names 2-5, no studio           703
+P rooms 2+ / other               604
+zero, names 1 bed, no studio     356
+P / other                        209
+zero, short text 30-79           114
+P rooms 2+ / RS                    6
+NaN                                2
+
+2026-11-12 decision group / act / page fail
+g    act    u_fail     
+P1   leave  ask               41
+            disagree          33
+            feed_lister        1
+            none              89
+            studios            9
+     set A  NaN                1
+P2   leave  ask              133
+            disagree          90
+            none             220
+            rooms             53
+            studios           38
+     set A  NaN                4
+S    leave  ask               61
+            disagree          46
+            none             494
+            studios           41
+            text              36
+            NaN               21
+NaN  NaN    NaN            11678
+
+first year {2013: 21, 2014: 692, 2015: 744, 2016: 736, 2017: 817, 2018: 989, 2019: 923, 2020: 1205, 2021: 1228, 2022: 993, 2023: 1076, 2024: 1352, 2025: 1370, 2026: 943}
+rooms {0: 4, 1: 4257, 2: 6883, 3: 1286, 4: 368, 5: 164, 6: 127}
+
+the ratio read's 53 among the mark 45 T 15 U_any 39

@@ -437,11 +437,25 @@ No fit was run for these.
   `building-level-read-2026-11-20/candidate_rows.ndjson`, all `nonresidential` in both, so
   the import should take each once. The 38 unclear rows stay in training. The sweep found no
   pipeline rule and no case for a building-level change.
-- [ ] Check the 0 bed code on apartment ads of the ratio read: 165 of the 665 apartment rows
+- [x] Check the 0 bed code on apartment ads of the ratio read: 165 of the 665 apartment rows
   in `docs/notes/commercial-sweep-2026-11-20/reads_ratio_all.csv` are coded 0 bed, and 53
   of their reads cite 2 to 5 beds. Size the pattern on the history (ads coded 0 bed whose
   text or unit's other ads give 2 or more), against the 2026-11-12 blank-form rules in
   `docs/notes/outlier-sprint-2026-11-11.md`, then decide on ledger bedroom sets or a rule.
+  Done in `docs/notes/zero-bed-apartments-2026-11-21.md`: 30 of the 53 are filled forms
+  outside every 2026-11-12 class and 23 failed its rules' conditions. The text mark (638
+  training rows) reads right on 0.79, the unit's-other-ads mark (12,646) on 0.04, since
+  those ads mostly describe another apartment. Held-out excess is small (21 text-marked ads,
+  mean gap +0.097 with ledger-named ads kept in). A blind read of all 195 rows that meet both
+  marks agrees with the text on 181; 120 of those also have most of the unit's other counted
+  ads agreeing and are drafted as ledger bedroom sets.
+- [ ] Import the 120 drafted bedroom sets in
+  `docs/notes/zero-bed-apartments-2026-11-21/candidate_rows.ndjson` with the next base refit
+  (section 6 of `docs/notes/zero-bed-apartments-2026-11-21.md`). They overlap neither the
+  commercial sweep's nor the building-level read's candidate files.
+- [ ] Study unit labels reused across layouts: in 9 of 10 reads of 0 bed ads whose unit's
+  other ads all code 2 or more, those ads describe a different apartment
+  (`docs/notes/zero-bed-apartments-2026-11-21.md`, section 2).
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build

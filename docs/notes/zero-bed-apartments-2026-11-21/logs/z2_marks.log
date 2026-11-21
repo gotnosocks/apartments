@@ -1,0 +1,8 @@
+/data1/apartments/tmp/pi-review/wt-zero-bed/docs/notes/zero-bed-apartments-2026-11-21/z2_marks.py:88: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  Z["train"] = Z.in_live & ~Z.live_open.fillna(False).astype(bool) & (Z.row_bed == 0)
+/data1/apartments/tmp/pi-review/wt-zero-bed/docs/notes/zero-bed-apartments-2026-11-21/z2_marks.py:89: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  Z["bed_text_more"] = Z.bed_text_more.fillna(False).astype(bool)
+active ledger entries 7409 listings named 5943 bedroom sets 1413
+ads coded 0 bed 385287
+in live rows coded 0 326009 training 323784 training not in ledger 323704
+ledger-named among coded 0 3198

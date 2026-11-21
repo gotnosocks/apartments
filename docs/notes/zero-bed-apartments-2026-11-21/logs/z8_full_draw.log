@@ -1,0 +1,18 @@
+rows 195 majority of the unit's other counted ads code the text's count 122
+other counted ads per row {1: 38, 2: 48, 3: 29, 4: 19, 5: 18, 6: 43}
+agreeing share {Interval(-0.01, 0.0, closed='right'): 33, Interval(0.0, 0.5, closed='right'): 40, Interval(0.5, 0.99, closed='right'): 33, Interval(0.99, 1.0, closed='right'): 89}
+majority by half {'A': {'sum': 67, 'size': 105}, 'B': {'sum': 55, 'size': 90}}
+full_batch_01.md 15 b5d8d1332d99717c
+full_batch_02.md 15 4bf055d7f097b396
+full_batch_03.md 15 e54437e6940d406f
+full_batch_04.md 15 7cf13f9e58a36067
+full_batch_05.md 15 5419ca1724a7964e
+full_batch_06.md 15 362a4b40a2e3ef5b
+full_batch_07.md 15 4faec8f5363f0b4b
+full_batch_08.md 15 920edc584c68b449
+full_batch_09.md 15 38ac1d9c931b93e4
+full_batch_10.md 15 1eb162a3ebf17edd
+full_batch_11.md 15 4d1b9313bc317931
+full_batch_12.md 15 3ed67f1c45c58c68
+full_batch_13.md 15 8061f919dfcef599
+{"rows": 195, "batches": 13, "seed": 20261122}
