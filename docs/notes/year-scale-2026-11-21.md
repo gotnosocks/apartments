@@ -114,3 +114,20 @@ merged module `drift-building-phase-year` extends L1, so the refit needs a year 
 served design in a new module. It should carry a mark for each year, since a pooled 2014 to
 2019 leaves 2014 to 2017 under 0.80. A fit is still needed to say how much of this the
 model's other scales take once the year scale is fitted beside them.
+
+## Follow-up reading, predictions written after review
+
+Review found that the from-2022 readings used the all-years t (5 degrees of freedom), that
+no from-2022 reading of the year marks without the gap bins and counts was run, that the
+gain was not split by year, and that the coverage column labelled stored is the t built from
+the stored quartiles. `y2_followup.py` picks the degrees of freedom on ads from 2022 on, as
+j5 did, and reads the year marks for 2022, 2023, 2025 and 2026 over the base alone and over
+the base, gap bins and counts, with each gain split by year. It also takes 80% coverage by
+year from the stored predictive's own 10% and 90% quantiles. Predictions:
+
+1. From 2022 the year marks over the base alone gain +250 to +450, and beside the gap bins
+   and counts they keep at least 80% of that.
+2. Ads of 2022 and 2023 hold at least 70% of the gain beside the gap bins and counts.
+3. The stored predictive's own 80% coverage is within 0.015 of the t from its quartiles in
+   every year.
+4. The fitted 2026 scale from 2022 on is 0.96 to 0.99 of the intercept without year marks.
