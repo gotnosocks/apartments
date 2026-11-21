@@ -133,7 +133,24 @@ subagent's model and effort to be picked by its task.
   the next base refit (TODO item). 240 ads read by Sonnet readers add little: 4.0% too large
   among the ads the sprint's rule blanks, 1.4% among the rest. Large filled sizes fall low at
   about twice the share of large stated sizes, and predicted rent does not explain it, so a
-  slope for filled sizes is a new refit candidate, also in the TODO.
+  slope for filled sizes is a new refit candidate, also in the TODO. Merged as #1495.
+- Diagnostics previous ask (#1496, merged as `a443652d`, no fit,
+  `docs/notes/diagnostics-prev-ask-2026-11-20.md`). `drift_diagnostics.previous` now takes each
+  held-out ad's previous ad from the dataset of the fit that scored it: same model unit, a
+  training row, dated strictly earlier. 7,540 of 195,423 rows changed (7,385 had read another
+  piece of the apartment, 934 a held-out ad, 162 a same-day ad). Diagnostics were republished
+  from the same runs on Nov 20 at about 11:20 PM ET and the site deployed at `a443652d`; the old
+  folder is `/data1/apartments/site/diagnostics.old-20261120`. 188 of the 2,942 rings on Deals
+  changed. The rings still come from the diagnostics fits, and 2,462 deals have none; a PR
+  giving `deals.json` its own previous ad from the Deals run is in progress (TODO item).
+- Commercial and placeholder sweep (#1497, merged as `430965ee`, no fit,
+  `docs/notes/commercial-sweep-2026-11-20.md`). No mark is precise enough for a rule: 0 or 1 bed
+  over 3x the area median is commercial or placeholder in 0.16 and 0.28 of reads by half,
+  0.38 and 0.65 with a text word, and the text and short-text marks almost never. 23 candidate
+  excludes are drafted, not imported. The low-miss excess in buildings with a ratio row and a
+  word is about 2 standard errors (9.3% against 6.7% matched) and is mostly `the-archive`; it
+  looks like varied, expensive loft buildings and is no evidence of commercial rows raising
+  levels. The cheap option before the next refit is a hand read of the ratio-with-word matches.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
